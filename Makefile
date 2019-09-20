@@ -50,6 +50,10 @@ clean:
 	rm Layer2/*.o
 	rm Layer3/*.o
 
+all:
+	make
+	(cd CommandParser; make)
+
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
