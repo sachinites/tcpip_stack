@@ -1,12 +1,13 @@
 /*
  * =====================================================================================
  *
- *       Filename:  testapp.c
+ *       Filename:  comm.h
  *
- *    Description:  This file represents the Test application to test graph topology creation
+ *    Description:  This file defines the structures to setup communication between 
+ *    nodes of the topology
  *
  *        Version:  1.0
- *        Created:  Wednesday 18 September 2019 04:41:41  IST
+ *        Created:  Thursday 19 September 2019 10:26:16  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
@@ -30,20 +31,28 @@
  * =====================================================================================
  */
 
-/* Visit my Website for more wonderful assignments and projects :
- * https://csepracticals.wixsite.com/csepracticals
- * if above URL dont work, then try visit : https://csepracticals.com*/
+#ifndef __COMM__
+#define __COMM__
 
-#include "graph.h"
-#include <stdio.h>
+#define MAX_PACKET_BUFFER_SIZE   2048
 
-extern graph_t *build_first_topo();
+typedef struct node_ node_t;
+typedef struct interface_ interface_t;
 
-int 
-main(int argc, char **argv){
+/* API to send the packet out of the interface.
+ * Nbr node must receieve the packet on other end
+ * of the link*/
+int
+send_pkt_out(char *pkt, unsigned int pkt_size, interface_t *interface);
 
-    graph_t *topo = build_first_topo();
-    //dump_nw_graph(topo);
-    scanf("\n");
-    return 0;
-}
+/*API to recv packet from interface*/
+int
+pkt_receive(node_t *node, interface_t *interface, 
+            char *pkt, unsigned int pkt_size);
+
+/* API to flood the packet out of all interfaces
+ * of the node*/
+int
+send_pkt_flood(node_t *node, char *pkt, unsigned int pkt_size);
+
+#endif /* __COMM__ */

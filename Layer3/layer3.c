@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  testapp.c
+ *       Filename:  layer3.c
  *
- *    Description:  This file represents the Test application to test graph topology creation
+ *    Description:  This file defines the routines for Layer 3
  *
  *        Version:  1.0
- *        Created:  Wednesday 18 September 2019 04:41:41  IST
+ *        Created:  Friday 20 September 2019 05:24:38  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
@@ -30,20 +30,14 @@
  * =====================================================================================
  */
 
-/* Visit my Website for more wonderful assignments and projects :
- * https://csepracticals.wixsite.com/csepracticals
- * if above URL dont work, then try visit : https://csepracticals.com*/
-
 #include "graph.h"
 #include <stdio.h>
 
-extern graph_t *build_first_topo();
+void
+layer3_pkt_recv(node_t *node, interface_t *interface,
+                char *pkt, unsigned int pkt_size){
 
-int 
-main(int argc, char **argv){
+    printf("Layer 3 Packet Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
+            node->node_name, interface->if_name, pkt, pkt_size);
 
-    graph_t *topo = build_first_topo();
-    //dump_nw_graph(topo);
-    scanf("\n");
-    return 0;
 }

@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  testapp.c
+ *       Filename:  layer2.c
  *
- *    Description:  This file represents the Test application to test graph topology creation
+ *    Description:  This file implements all the Data link Layer functionality
  *
  *        Version:  1.0
- *        Created:  Wednesday 18 September 2019 04:41:41  IST
+ *        Created:  Friday 20 September 2019 05:15:51  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
@@ -30,20 +30,25 @@
  * =====================================================================================
  */
 
-/* Visit my Website for more wonderful assignments and projects :
- * https://csepracticals.wixsite.com/csepracticals
- * if above URL dont work, then try visit : https://csepracticals.com*/
-
 #include "graph.h"
 #include <stdio.h>
 
-extern graph_t *build_first_topo();
+extern void
+layer3_pkt_recv(node_t *node, interface_t *interface, 
+                char *pkt, unsigned int pkt_size);
 
-int 
-main(int argc, char **argv){
+static void
+promote_pkt_to_layer3(node_t *node, interface_t *interface,
+                         char *pkt, unsigned int pkt_size){
 
-    graph_t *topo = build_first_topo();
-    //dump_nw_graph(topo);
-    scanf("\n");
-    return 0;
+    layer3_pkt_recv(node, interface, pkt, pkt_size);
+}
+void
+layer2_frame_recv(node_t *node, interface_t *interface,
+                     char *pkt, unsigned int pkt_size){
+
+    printf("Layer 2 Frame Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
+            node->node_name, interface->if_name, pkt, pkt_size);
+
+    promote_pkt_to_layer3(node, interface, pkt, pkt_size);
 }

@@ -87,7 +87,7 @@ bool_t node_unset_intf_ip_address(node_t *node, char *local_if){
 
 void dump_node_nw_props(node_t *node){
 
-    printf("\nNode Name = %s\n", node->node_name);
+    printf("\nNode Name = %s, udp_port_no = %u\n", node->node_name, node->udp_port_number);
     printf("\t node flags : %u", node->node_nw_prop.flags);
     if(node->node_nw_prop.is_lb_addr_config){
         printf("\t  lo addr : %s/32\n", NODE_LO_ADDR(node));
