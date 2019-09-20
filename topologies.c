@@ -89,19 +89,6 @@ build_first_topo(){
 
     network_start_pkt_receiver_thread(topo);
 
-    sleep(2);
-
-    /*Testing communication*/
-    char data[32];
-    strncpy(data, "test data\0", 32);
-    interface_t *oif = get_node_if_by_name(R0_re, "eth0/0");
-    assert(oif);
-    //send_pkt_out(data, strlen(data), oif);
-    while(1){
-    send_pkt_flood(R0_re, data, strlen(data));
-    send_pkt_flood(R1_re, data, strlen(data));
-    send_pkt_flood(R2_re, data, strlen(data));
-    }
     return topo;
 }
 

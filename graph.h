@@ -138,6 +138,20 @@ get_node_if_by_name(node_t *node, char *if_name){
     return NULL;
 }
 
+static inline node_t *
+get_node_by_node_name(graph_t *topo, char *node_name){
+
+    node_t *node;
+    glthread_t *curr;    
+
+    ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
+
+        node = graph_glue_to_node(curr);
+        if(strncmp(node->node_name, node_name, strlen(node_name)) == 0)
+            return node;
+    } ITERATE_GLTHREAD_END(&topo->node_list, curr);
+    return NULL;
+}
 
 /*Display Routines*/
 void dump_graph(graph_t *graph);

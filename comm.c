@@ -253,7 +253,8 @@ send_pkt_flood(node_t *node, char *pkt, unsigned int pkt_size){
     for( ; i < MAX_INTF_PER_NODE; i++){
 
         intf = node->intf[i];
-        if(!intf) return;
+        if(!intf) return 0;
         send_pkt_out(pkt, pkt_size, intf);
     }
+    return 0;
 }

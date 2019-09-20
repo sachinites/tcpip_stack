@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  layer3.c
+ *       Filename:  cmdcodes.h
  *
- *    Description:  This file defines the routines for Layer 3
+ *    Description:  This file Comtains all CMD Codes for commands
  *
  *        Version:  1.0
- *        Created:  Friday 20 September 2019 05:24:38  IST
+ *        Created:  Friday 20 September 2019 06:44:01  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
@@ -30,20 +30,10 @@
  * =====================================================================================
  */
 
-#include "graph.h"
-#include <stdio.h>
+#ifndef __CMDCODES__
+#define __CMDCODES__
 
-void
-layer3_ping_fn(node_t *node, char *dst_ip_addr){
+#define CMDCODE_SHOW_NW_TOPOLOGY    1   /*show topology*/
+#define CMDCODE_PING                2   /*run <node-name> ping <dst ip address>*/
 
-    printf("Src node : %s, ping ip : %s\n", node->node_name, dst_ip_addr);
-}
-
-void
-layer3_pkt_recv(node_t *node, interface_t *interface,
-                char *pkt, unsigned int pkt_size){
-
-    printf("Layer 3 Packet Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
-            node->node_name, interface->if_name, pkt, pkt_size);
-
-}
+#endif /* __CMDCODES__ */
