@@ -77,7 +77,7 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
      * We should accept all frames. L2 switch never discards the frames
      * based on MAC addresses*/
 
-    if(!interface->is_ipadd_config)
+    if(!interface->intf_nw_props.is_ipadd_config)
         return TRUE;
 
     /*Return TRUE if receiving machine must accept the frame*/
