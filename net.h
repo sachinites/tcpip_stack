@@ -150,6 +150,8 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
+#define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
+
 
 /*APIs to set Network Node properties*/
 bool_t node_set_device_type(node_t *node, unsigned int F);

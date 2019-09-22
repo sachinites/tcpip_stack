@@ -64,6 +64,11 @@ send_arp_broadcast_request(node_t *node,
                     node->node_name, ip_addr);
             return;
         }
+        if(strncmp(IF_IP(oif), ip_addr, 16) == 0){
+            printf("Error : %s : Attemp to resolve ARP for local Ip-address : %s",
+                    node->node_name, ip_addr);
+            return;
+        }
     }
     /*STEP 1 : Prepare ethernet hdr*/
     layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
@@ -189,27 +194,31 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 
     printf("L2 Frame Accepted\n");
 
-    switch(ethernet_hdr->type){
+    /*Handle Reception of a L2 Frame on L3 Interface*/
+    if(IS_INTF_L3_MODE(interface)){
 
-        case ARP_MSG:
-            {
-                /*Can be ARP Broadcast or ARP reply*/
-                arp_hdr_t *arp_hdr = (arp_hdr_t *)(ethernet_hdr->payload);
-                switch(arp_hdr->op_code){
-                    case ARP_BROAD_REQ:
-                        process_arp_broadcast_request(node, interface, ethernet_hdr);
-                        break;
-                    case ARP_REPLY:
-                        process_arp_reply_msg(node, interface, ethernet_hdr);
-                        break;
-                    default:
-                        break;
+        switch(ethernet_hdr->type){
+            /*When L2 Frame is ARP MSG - could be request or reply*/   
+            case ARP_MSG:
+                {
+                    /*Can be ARP Broadcast or ARP reply*/
+                    arp_hdr_t *arp_hdr = (arp_hdr_t *)(ethernet_hdr->payload);
+                    switch(arp_hdr->op_code){
+                        case ARP_BROAD_REQ:
+                            process_arp_broadcast_request(node, interface, ethernet_hdr);
+                            break;
+                        case ARP_REPLY:
+                            process_arp_reply_msg(node, interface, ethernet_hdr);
+                            break;
+                        default:
+                            break;
+                    }
                 }
-            }
-            break;
-        default:
-            promote_pkt_to_layer3(node, interface, pkt, pkt_size);
-            break;
+                break;
+            default:
+                promote_pkt_to_layer3(node, interface, pkt, pkt_size);
+                break;
+        }
     }
 }
 
@@ -340,7 +349,7 @@ interface_set_l2_mode(node_t *node,
 
     /*Case 1 : if interface is working in L3 mode, i.e. IP address is configured.
      * then disable ip address, and set interface in L2 mode*/
-    if(interface->intf_nw_props.is_ipadd_config){
+    if(IS_INTF_L3_MODE(interface)){
         interface->intf_nw_props.is_ipadd_config_backup = TRUE;
         interface->intf_nw_props.is_ipadd_config = FALSE;
 
@@ -400,7 +409,7 @@ interface_set_vlan(node_t *node,
 
     /* Case 1 : Cant set vlans on interface configured with ip
      * address*/
-    if(interface->intf_nw_props.is_ipadd_config){
+    if(IS_INTF_L3_MODE(interface)){
         printf("Error : Interface %s : L3 mode enabled\n", interface->if_name);
         return;
     }

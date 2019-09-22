@@ -52,7 +52,7 @@ typedef struct arp_hdr_{
     char proto_addr_len;    /*4 for IPV4*/
     short op_code;          /*req or reply*/
     mac_add_t src_mac;      /*MAC of OIF interface*/
-    unsigned int src_ip;        /*IP of OIF*/
+    unsigned int src_ip;    /*IP of OIF*/
     mac_add_t dst_mac;      /*?*/
     unsigned int dst_ip;        /*IP for which ARP is being resolved*/
 } arp_hdr_t;
@@ -77,18 +77,37 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
      * We should accept all frames. L2 switch never discards the frames
      * based on MAC addresses*/
 
-    if(!interface->intf_nw_props.is_ipadd_config)
-        return TRUE;
+    /*If receiving interface is neither working in L3 mode
+     * nor in L2 mode, then reject the packet*/
+    if(!IS_INTF_L3_MODE(interface) &&
+        IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
 
-    /*Return TRUE if receiving machine must accept the frame*/
-    if(memcmp(IF_MAC(interface), 
+        return FALSE;
+    }
+
+    /*If interface is working in L2 mode, then accept
+     * the packet irrespective of its Dst Mac address*/
+    if(!IS_INTF_L3_MODE(interface) && 
+        (IF_L2_MODE(interface) == ACCESS ||
+        IF_L2_MODE(interface) == TRUNK)){
+     
+        return TRUE;
+    }
+
+    /* If interface is working in L3 mode, then accept the frame only when
+     * its dst mac matches with receiving interface MAC*/
+    if(IS_INTF_L3_MODE(interface) &&
+        memcmp(IF_MAC(interface), 
         ethernet_hdr->dst_mac.mac, 
         sizeof(mac_add_t)) == 0){
 
         return TRUE;
     }
 
-    if(IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
+    /*If interface is working in L3 mode, then accept the frame with
+     * broadcast MAC*/
+    if(IS_INTF_L3_MODE(interface) &&
+        IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
 
         return TRUE;
     }
