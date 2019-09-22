@@ -86,10 +86,35 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
 }
 
+typedef enum{
+
+    ACCESS,
+    TRUNK,
+    L2_MODE_UNKNOWN
+} intf_l2_mode_t;
+
+static inline char *
+intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
+
+    switch(intf_l2_mode){
+        case ACCESS:
+            return "ACCESS";
+        case TRUNK:
+            return "TRUNK";
+        default:
+            return "L2_MODE_UNKNWON";
+    }
+}
+
+#define MAX_VLAN_MEMBERSHIP 10
+
 typedef struct intf_nw_props_ {
 
     /*L2 properties*/
-    mac_add_t mac_add;      /*Mac are hard burnt in interface NIC*/
+    mac_add_t mac_add;              /*Mac are hard burnt in interface NIC*/
+    intf_l2_mode_t  intf_l2_mode;   /*if IP-address is configured on this interface, then this should be set to UNKNOWN*/
+    unsigned int vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
+    bool_t is_ipadd_config_backup;
 
     /*L3 properties*/
     bool_t is_ipadd_config; 
@@ -101,11 +126,18 @@ typedef struct intf_nw_props_ {
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
 
+    /*L2 properties*/
     memset(intf_nw_props->mac_add.mac , 0 , 
         sizeof(intf_nw_props->mac_add.mac));
+    intf_nw_props->intf_l2_mode = L2_MODE_UNKNOWN;
+    memset(intf_nw_props->vlans, 0, sizeof(intf_nw_props->vlans));
+
+
+    /*L3 properties*/
     intf_nw_props->is_ipadd_config = FALSE;
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
     intf_nw_props->mask = 0;
+
 }
 
 void
@@ -117,7 +149,7 @@ interface_assign_mac_address(interface_t *interface);
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
-
+#define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 
 /*APIs to set Network Node properties*/
 bool_t node_set_device_type(node_t *node, unsigned int F);

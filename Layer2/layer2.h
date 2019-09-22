@@ -138,4 +138,11 @@ void
 arp_table_update_from_arp_reply(arp_table_t *arp_table,
                                 arp_hdr_t *arp_hdr, interface_t *iif);
 
+/*APIs to be used to create topologies*/
+void
+node_set_intf_l2_mode(node_t *node, char *intf_name, intf_l2_mode_t intf_l2_mode);
+
+void
+node_set_intf_vlan_membsership(node_t *node, char *intf_name, unsigned int vlan_id);
+
 #endif /* __LAYER2__ */

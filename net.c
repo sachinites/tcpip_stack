@@ -116,15 +116,22 @@ void dump_intf_props(interface_t *interface){
 
     if(interface->intf_nw_props.is_ipadd_config){
         printf("\t IP Addr = %s/%u", IF_IP(interface), interface->intf_nw_props.mask);
+        printf("\t MAC : %u:%u:%u:%u:%u:%u\n", 
+                IF_MAC(interface)[0], IF_MAC(interface)[1],
+                IF_MAC(interface)[2], IF_MAC(interface)[3],
+                IF_MAC(interface)[4], IF_MAC(interface)[5]);
     }
     else{
-         printf("\t IP Addr = %s/%u", "Nil", 0);
+         printf("\t l2 mode = %s", intf_l2_mode_str(IF_L2_MODE(interface)));
+         printf("\t vlan membership : ");
+         int i = 0;
+         for(; i < MAX_VLAN_MEMBERSHIP; i++){
+            if(interface->intf_nw_props.vlans[i]){
+                printf("%u  ", interface->intf_nw_props.vlans[i]);
+            }
+         }
+         printf("\n");
     }
-
-    printf("\t MAC : %u:%u:%u:%u:%u:%u\n", 
-        IF_MAC(interface)[0], IF_MAC(interface)[1],
-        IF_MAC(interface)[2], IF_MAC(interface)[3],
-        IF_MAC(interface)[4], IF_MAC(interface)[5]);
 }
 
 void dump_nw_graph(graph_t *graph){

@@ -319,3 +319,161 @@ dump_arp_table(arp_table_t *arp_table){
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
 }
 
+/*Interface config APIs for L2 mode configuration*/
+
+void
+interface_set_l2_mode(node_t *node, 
+                      interface_t *interface, 
+                      char *l2_mode_option){
+
+    intf_l2_mode_t intf_l2_mode;
+
+    if(strncmp(l2_mode_option, "access", strlen("access")) == 0){
+        intf_l2_mode = ACCESS;    
+    }
+    else if(strncmp(l2_mode_option, "trunk", strlen("trunk")) ==0){
+        intf_l2_mode = TRUNK;
+    }
+    else{
+        assert(0);
+    }
+
+    /*Case 1 : if interface is working in L3 mode, i.e. IP address is configured.
+     * then disable ip address, and set interface in L2 mode*/
+    if(interface->intf_nw_props.is_ipadd_config){
+        interface->intf_nw_props.is_ipadd_config_backup = TRUE;
+        interface->intf_nw_props.is_ipadd_config = FALSE;
+
+        IF_L2_MODE(interface) = intf_l2_mode;
+        return;
+    }
+
+    /*Case 2 : if interface is working neither in L2 mode or L3 mode, then
+     * apply L2 config*/
+    if(IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
+        IF_L2_MODE(interface) = intf_l2_mode;
+        return;
+    }
+
+    /*case 3 : if interface is operating in same mode, and user config same mode
+     * again, then do nothing*/
+    if(IF_L2_MODE(interface) == intf_l2_mode){
+        return;
+    }
+
+    /*case 4 : if interface is operating in access mode, and user config trunk mode,
+     * then overwrite*/
+    if(IF_L2_MODE(interface) == ACCESS &&
+            intf_l2_mode == TRUNK){
+        IF_L2_MODE(interface) = intf_l2_mode;
+        return;
+    }
+
+    /* case 5 : if interface is operating in trunk mode, and user config access mode,
+     * then overwrite, remove all vlans from interface, user must enable vlan again 
+     * on interface*/
+    if(IF_L2_MODE(interface) == TRUNK &&
+           intf_l2_mode == ACCESS){
+
+        IF_L2_MODE(interface) = intf_l2_mode;
+
+        unsigned int i = 0;
+
+        for ( ; i < MAX_VLAN_MEMBERSHIP; i++){
+            interface->intf_nw_props.vlans[i] = 0;
+        }
+    }
+}
+
+void
+interface_unset_l2_mode(node_t *node, 
+                      interface_t *interface, 
+                      char *l2_mode_option){
+
+    
+}
+
+void
+interface_set_vlan(node_t *node,
+                   interface_t *interface,
+                   unsigned int vlan_id){
+
+    /* Case 1 : Cant set vlans on interface configured with ip
+     * address*/
+    if(interface->intf_nw_props.is_ipadd_config){
+        printf("Error : Interface %s : L3 mode enabled\n", interface->if_name);
+        return;
+    }
+
+    /*Case 2 : Cant set vlan on interface not operating in L2 mode*/
+    if(IF_L2_MODE(interface) != ACCESS &&
+        IF_L2_MODE(interface) != TRUNK){
+        printf("Error : Interface %s : L2 mode not Enabled\n", interface->if_name);
+        return;
+    }
+
+    /*case 3 : Can set only one vlan on interface operating in ACCESS mode*/
+    if(interface->intf_nw_props.intf_l2_mode == ACCESS){
+        
+        unsigned int i = 0, *vlan = NULL;    
+        for( ; i < MAX_VLAN_MEMBERSHIP; i++){
+            if(interface->intf_nw_props.vlans[i]){
+                vlan = &interface->intf_nw_props.vlans[i];
+            }
+        }
+        if(vlan){
+            *vlan = vlan_id;
+            return;
+        }
+        interface->intf_nw_props.vlans[0] = vlan_id;
+    }
+    /*case 4 : Add vlan membership on interface operating in TRUNK mode*/
+    if(interface->intf_nw_props.intf_l2_mode == TRUNK){
+
+        unsigned int i = 0, *vlan = NULL;
+
+        for( ; i < MAX_VLAN_MEMBERSHIP; i++){
+
+            if(!vlan && interface->intf_nw_props.vlans[i] == 0){
+                vlan = &interface->intf_nw_props.vlans[i];
+            }
+            else if(interface->intf_nw_props.vlans[i] == vlan_id){
+                return;
+            }
+        }
+        if(vlan){
+            *vlan = vlan_id;
+            return;
+        }
+        printf("Error : Interface %s : Max Vlan membership limit reached", interface->if_name);
+    }
+}
+
+void
+interface_unset_vlan(node_t *node,
+                   interface_t *interface,
+                   unsigned int vlan){
+
+}
+
+/*APIs to be used to create topologies*/
+void
+node_set_intf_l2_mode(node_t *node, char *intf_name, 
+                        intf_l2_mode_t intf_l2_mode){
+
+    interface_t *interface = get_node_if_by_name(node, intf_name);
+    assert(interface);
+
+    interface_set_l2_mode(node, interface, intf_l2_mode_str(intf_l2_mode));
+}
+
+void
+node_set_intf_vlan_membsership(node_t *node, char *intf_name, 
+                                unsigned int vlan_id){
+
+    interface_t *interface = get_node_if_by_name(node, intf_name);
+    assert(interface);
+
+    interface_set_vlan(node, interface, vlan_id);
+}
+
