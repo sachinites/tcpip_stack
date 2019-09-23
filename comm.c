@@ -245,7 +245,8 @@ pkt_receive(node_t *node, interface_t *interface,
 }
 
 int
-send_pkt_flood(node_t *node, char *pkt, unsigned int pkt_size){
+send_pkt_flood(node_t *node, interface_t *exempted_intf, 
+                char *pkt, unsigned int pkt_size){
 
     unsigned int i = 0;
     interface_t *intf; 
@@ -254,6 +255,10 @@ send_pkt_flood(node_t *node, char *pkt, unsigned int pkt_size){
 
         intf = node->intf[i];
         if(!intf) return 0;
+
+        if(intf == exempted_intf)
+            continue;
+
         send_pkt_out(pkt, pkt_size, intf);
     }
     return 0;

@@ -179,6 +179,9 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
    send_arp_reply_msg(ethernet_hdr, iif);
 }
 
+extern void
+l2_switch_recv_frame(interface_t *interface,
+                     char *pkt, unsigned int pkt_size);
 
 void
 layer2_frame_recv(node_t *node, interface_t *interface,
@@ -220,6 +223,13 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 break;
         }
     }
+    else if(IF_L2_MODE(interface) == ACCESS ||
+                IF_L2_MODE(interface) == TRUNK){
+
+        l2_switch_recv_frame(interface, pkt, pkt_size);
+    }
+    else
+        return; /*Do nothing, drop the packet*/
 }
 
 void
@@ -275,12 +285,14 @@ arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry){
 
     arp_entry_t *arp_entry_old = arp_table_lookup(arp_table, 
                                     arp_entry->ip_addr.ip_addr);
-    if(arp_entry_old && 
-            memcmp(arp_entry_old, arp_entry, sizeof(arp_entry_t)) == 0)
+    if(arp_entry_old &&
+            IS_ARP_ENTRIES_EQUAL(arp_entry_old, arp_entry)){
+     
         return FALSE;
+    }
 
     if(arp_entry_old){
-        delete_arp_table_entry(arp_table, arp_entry->ip_addr.ip_addr);
+        delete_arp_table_entry(arp_table, arp_entry_old->ip_addr.ip_addr);
     }
     init_glthread(&arp_entry->arp_glue);
     glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);

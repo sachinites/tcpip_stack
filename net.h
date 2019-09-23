@@ -58,6 +58,7 @@ typedef struct mac_add_ {
 
 /*Forward Declaration*/
 typedef struct arp_table_ arp_table_t;
+typedef struct mac_table_ mac_table_t;
 
 typedef struct node_nw_prop_{
 
@@ -67,15 +68,15 @@ typedef struct node_nw_prop_{
 
     /*L2 Properties*/
     arp_table_t *arp_table;
-     
+    mac_table_t *mac_table;     
     /*L3 properties*/ 
     bool_t is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
 
 } node_nw_prop_t;
 
-extern void
-init_arp_table(arp_table_t **arp_table);
+extern void init_arp_table(arp_table_t **arp_table);
+extern void init_mac_table(mac_table_t **mac_table);
 
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
@@ -84,6 +85,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     node_nw_prop->is_lb_addr_config = FALSE;
     memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
+    init_mac_table(&(node_nw_prop->mac_table));
 }
 
 typedef enum{
@@ -98,9 +100,9 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 
     switch(intf_l2_mode){
         case ACCESS:
-            return "ACCESS";
+            return "access";
         case TRUNK:
-            return "TRUNK";
+            return "trunk";
         default:
             return "L2_MODE_UNKNWON";
     }
@@ -149,6 +151,7 @@ interface_assign_mac_address(interface_t *interface);
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
+#define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
 

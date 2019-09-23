@@ -135,6 +135,11 @@ typedef struct arp_entry_{
 } arp_entry_t;
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
 
+#define IS_ARP_ENTRIES_EQUAL(arp_entry_1, arp_entry_2)  \
+    (strncmp(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, 16) == 0 && \
+        strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
+        strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0)
+
 void
 init_arp_table(arp_table_t **arp_table);
 

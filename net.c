@@ -106,8 +106,9 @@ void dump_node_nw_props(node_t *node){
     printf("\nNode Name = %s, udp_port_no = %u\n", node->node_name, node->udp_port_number);
     printf("\t node flags : %u", node->node_nw_prop.flags);
     if(node->node_nw_prop.is_lb_addr_config){
-        printf("\t  lo addr : %s/32\n", NODE_LO_ADDR(node));
+        printf("\t  lo addr : %s/32", NODE_LO_ADDR(node));
     }
+    printf("\n");
 }
 
 void dump_intf_props(interface_t *interface){

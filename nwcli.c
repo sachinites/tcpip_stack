@@ -132,6 +132,32 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
+typedef struct mac_table_ mac_table_t;
+extern void
+dump_mac_table(mac_table_t *mac_table);
+static int
+show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    char *node_name;
+    tlv_struct_t *tlv = NULL;
+    
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = get_node_by_node_name(topo, node_name);
+    dump_mac_table(NODE_MAC_TABLE(node));
+    return 0;
+
+}
+
+
+
 extern void
 send_arp_broadcast_request(node_t *node,
                            interface_t *oif,
@@ -331,6 +357,13 @@ nw_init_cli(){
                     init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "\"arp\" keyword");
                     libcli_register_param(&node_name, &arp);
                     set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
+                 }
+                 {
+                    /*show node <node-name> mac*/
+                    static param_t mac;
+                    init_param(&mac, CMD, "mac", show_mac_handler, 0, INVALID, 0, "Dump Mac table");
+                    libcli_register_param(&node_name, &mac);
+                    set_param_cmd_code(&mac, CMDCODE_SHOW_NODE_MAC_TABLE);
                  }
                    
              }

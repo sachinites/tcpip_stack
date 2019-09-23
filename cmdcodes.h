@@ -40,5 +40,5 @@
 #define CMDCODE_INTF_CONFIG_L2_MODE 5   /*config node <node-name> interface <intf-name> l2mode <access|trunk>*/
 #define CMDCODE_INTF_CONFIG_IP_ADDR 6   /*config node <node-name> interface <intf-name> ip-address <ip-address> <mask>*/
 #define CMDCODE_INTF_CONFIG_VLAN    7   /*config node <node-name> interface <intf-name> vlan <vlan-id>*/
-
+#define CMDCODE_SHOW_NODE_MAC_TABLE 8   /*show node <node-name> mac*/
 #endif /* __CMDCODES__ */
