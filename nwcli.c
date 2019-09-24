@@ -224,6 +224,29 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
     return 0;
 }
 
+typedef struct rt_table_ rt_table_t;
+extern void
+dump_rt_table(rt_table_t *rt_table);
+static int
+show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    char *node_name;
+    tlv_struct_t *tlv = NULL;
+    
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = get_node_by_node_name(topo, node_name);
+    dump_rt_table(NODE_RT_TABLE(node));
+    return 0;
+}
+
 
 /*Layer 4 Commands*/
 
@@ -365,7 +388,13 @@ nw_init_cli(){
                     libcli_register_param(&node_name, &mac);
                     set_param_cmd_code(&mac, CMDCODE_SHOW_NODE_MAC_TABLE);
                  }
-                   
+                 {
+                    /*show node <node-name> rt*/
+                    static param_t rt;
+                    init_param(&rt, CMD, "rt", show_rt_handler, 0, INVALID, 0, "Dump L3 Routing table");
+                    libcli_register_param(&node_name, &rt);
+                    set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
+                 }
              }
          } 
     }

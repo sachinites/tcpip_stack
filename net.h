@@ -59,6 +59,7 @@ typedef struct mac_add_ {
 /*Forward Declaration*/
 typedef struct arp_table_ arp_table_t;
 typedef struct mac_table_ mac_table_t;
+typedef struct rt_table_ rt_table_t;
 
 typedef struct node_nw_prop_{
 
@@ -69,6 +70,7 @@ typedef struct node_nw_prop_{
     /*L2 Properties*/
     arp_table_t *arp_table;
     mac_table_t *mac_table;     
+    rt_table_t *rt_table;
     /*L3 properties*/ 
     bool_t is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
@@ -77,6 +79,7 @@ typedef struct node_nw_prop_{
 
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
+extern void init_rt_table(rt_table_t **rt_table);
 
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
@@ -86,6 +89,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
+    init_rt_table(&(node_nw_prop->rt_table));
 }
 
 typedef enum{
@@ -152,6 +156,7 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
+#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
 

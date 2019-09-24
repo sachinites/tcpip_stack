@@ -220,7 +220,7 @@ send_pkt_out(char *pkt, unsigned int pkt_size,
 
     strncpy(pkt_with_aux_data, other_interface->if_name, IF_NAME_SIZE);
 
-    pkt_with_aux_data[IF_NAME_SIZE] = '\0';
+    pkt_with_aux_data[IF_NAME_SIZE - 1] = '\0';
 
     memcpy(pkt_with_aux_data + IF_NAME_SIZE, pkt, pkt_size);
 

@@ -66,6 +66,11 @@ bool_t node_set_device_type(node_t *node, unsigned int F){
     return TRUE;
 }
 
+typedef struct l3_route_ l3_route_t;
+
+extern void
+rt_table_add_direct_route(rt_table_t *rt_table, char *ip_addr, char mask); 
+
 bool_t node_set_loopback_address(node_t *node, char *ip_addr){
 
     assert(ip_addr);
@@ -78,8 +83,10 @@ bool_t node_set_loopback_address(node_t *node, char *ip_addr){
 
     node->node_nw_prop.is_lb_addr_config = TRUE;
     strncpy(NODE_LO_ADDR(node), ip_addr, 16);
-    NODE_LO_ADDR(node)[16] = '\0';
-    
+    NODE_LO_ADDR(node)[15] = '\0';
+
+    /*Add it as direct route in routing table*/
+    rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, 32);     
     return TRUE;
 }
 
@@ -90,9 +97,10 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
     if(!interface) assert(0);
 
     strncpy(IF_IP(interface), ip_addr, 16);
-    IF_IP(interface)[16] = '\0';
+    IF_IP(interface)[15] = '\0';
     interface->intf_nw_props.mask = mask; 
     interface->intf_nw_props.is_ipadd_config = TRUE;
+    rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
     return TRUE;
 }
 

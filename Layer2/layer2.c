@@ -44,7 +44,7 @@ static void
 promote_pkt_to_layer3(node_t *node, interface_t *interface,
                          char *pkt, unsigned int pkt_size){
 
-    layer3_pkt_recv(node, interface, pkt, pkt_size);
+    layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size);
 }
 
 /*A Routine to resolve ARP out of oif*/
@@ -218,8 +218,10 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                     }
                 }
                 break;
+            case ETH_IP:
+                promote_pkt_to_layer3(node, interface, (char *)ethernet_hdr->payload, 
+                    pkt_size - sizeof(ethernet_hdr_t));
             default:
-                promote_pkt_to_layer3(node, interface, pkt, pkt_size);
                 break;
         }
     }

@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  cmdcodes.h
+ *       Filename:  tcpconst.h
  *
- *    Description:  This file Comtains all CMD Codes for commands
+ *    Description:  This file defines all standard Constants used by TCPIP stack
  *
  *        Version:  1.0
- *        Created:  Friday 20 September 2019 06:44:01  IST
+ *        Created:  Tuesday 24 September 2019 01:09:27  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
@@ -30,16 +30,14 @@
  * =====================================================================================
  */
 
-#ifndef __CMDCODES__
-#define __CMDCODES__
+#ifndef __TCPCONST__
+#define __TCPCONST__
 
-#define CMDCODE_SHOW_NW_TOPOLOGY    1   /*show topology*/
-#define CMDCODE_PING                2   /*run <node-name> ping <dst ip address>*/
-#define CMDCODE_SHOW_NODE_ARP_TABLE 3   /*show node <node-name> arp*/
-#define CMDCODE_RUN_ARP             4   /*run node <node-name> resolve-arp <ip-address>*/
-#define CMDCODE_INTF_CONFIG_L2_MODE 5   /*config node <node-name> interface <intf-name> l2mode <access|trunk>*/
-#define CMDCODE_INTF_CONFIG_IP_ADDR 6   /*config node <node-name> interface <intf-name> ip-address <ip-address> <mask>*/
-#define CMDCODE_INTF_CONFIG_VLAN    7   /*config node <node-name> interface <intf-name> vlan <vlan-id>*/
-#define CMDCODE_SHOW_NODE_MAC_TABLE 8   /*show node <node-name> mac*/
-#define CMDCODE_SHOW_NODE_RT_TABLE  9   /*show node <node-name> rt*/
-#endif /* __CMDCODES__ */
+/*Specified in ethernet_hdr->type*/
+#define ARP_BROAD_REQ   1
+#define ARP_REPLY       2
+#define ARP_MSG         806
+#define BROADCAST_MAC   0xFFFFFFFFFFFF
+#define ETH_IP          0x0800
+
+#endif /* __TCPCONST__ */

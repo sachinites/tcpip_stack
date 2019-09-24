@@ -50,9 +50,9 @@ insert_link_between_two_nodes(node_t *node1,
 
     /*Set interface properties*/
     strncpy(link->intf1.if_name, from_if_name, IF_NAME_SIZE);
-    link->intf1.if_name[IF_NAME_SIZE] = '\0';
+    link->intf1.if_name[IF_NAME_SIZE - 1] = '\0';
     strncpy(link->intf2.if_name, to_if_name, IF_NAME_SIZE);
-    link->intf2.if_name[IF_NAME_SIZE] = '\0';
+    link->intf2.if_name[IF_NAME_SIZE - 1] = '\0';
     
     link->intf1.link= link; /*set back pointer to link*/
     link->intf2.link= link; /*set back pointer to link*/
