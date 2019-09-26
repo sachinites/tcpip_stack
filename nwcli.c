@@ -167,7 +167,6 @@ show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
     node = get_node_by_node_name(topo, node_name);
     dump_mac_table(NODE_MAC_TABLE(node));
     return 0;
-
 }
 
 
@@ -321,6 +320,10 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                             printf("Config Error : Non-Existing Interface : %s\n", intf_name);
                             return -1;
                         }
+                        if(!IS_INTF_L3_MODE(intf)){
+                            printf("Config Error : Not L3 Mode Interface : %s\n", intf_name);
+                            return -1;
+                        }
                     }
                     rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf_name);
                 }
@@ -468,14 +471,14 @@ nw_init_cli(){
                  {
                     /*show node <node-name> arp*/
                     static param_t arp;
-                    init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "\"arp\" keyword");
+                    init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
                     libcli_register_param(&node_name, &arp);
                     set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
                  }
                  {
                     /*show node <node-name> mac*/
                     static param_t mac;
-                    init_param(&mac, CMD, "mac", show_mac_handler, 0, INVALID, 0, "Dump Mac table");
+                    init_param(&mac, CMD, "mac", show_mac_handler, 0, INVALID, 0, "Dump Mac Table");
                     libcli_register_param(&node_name, &mac);
                     set_param_cmd_code(&mac, CMDCODE_SHOW_NODE_MAC_TABLE);
                  }

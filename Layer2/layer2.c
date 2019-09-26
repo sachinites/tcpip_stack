@@ -36,17 +36,6 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
-extern void
-layer3_pkt_recv(node_t *node, interface_t *interface, 
-                char *pkt, unsigned int pkt_size);
-
-static void
-promote_pkt_to_layer3(node_t *node, interface_t *interface,
-                         char *pkt, unsigned int pkt_size){
-
-    layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size);
-}
-
 /*A Routine to resolve ARP out of oif*/
 void
 send_arp_broadcast_request(node_t *node,
@@ -183,6 +172,11 @@ extern void
 l2_switch_recv_frame(interface_t *interface,
                      char *pkt, unsigned int pkt_size);
 
+extern void
+promote_pkt_to_layer3(node_t *node, interface_t *interface,
+                         char *pkt, unsigned int pkt_size,
+                         int L3_protocol_type);
+
 void
 layer2_frame_recv(node_t *node, interface_t *interface,
                      char *pkt, unsigned int pkt_size){
@@ -220,7 +214,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 break;
             case ETH_IP:
                 promote_pkt_to_layer3(node, interface, (char *)ethernet_hdr->payload, 
-                    pkt_size - sizeof(ethernet_hdr_t));
+                    pkt_size - sizeof(ethernet_hdr_t), ETH_IP);
             default:
                 break;
         }
@@ -498,5 +492,20 @@ node_set_intf_vlan_membsership(node_t *node, char *intf_name,
     assert(interface);
 
     interface_set_vlan(node, interface, vlan_id);
+}
+
+
+/* An API to be used by Layer 3 or higher to push the pkt
+ * down the TCP IP Stack to L2. Note that, though most of the time
+ * this API shall be used by L3, but any Higher Layer API can use
+ * this API. For example, An application can run directly on L2 bypassing
+ * L3 altogether.*/
+void
+demote_pkt_to_layer2(node_t *node, /*Currenot node*/ 
+        unsigned int next_hop_ip,  /*If pkt is forwarded to next router, then this is Nexthop IP address (gateway) provided by L3 layer. L2 need to resolve ARP for this IP address*/
+        char *outgoing_intf,       /*The oif obtained from L3 lookup if L3 has decided to forward the pkt. If NULL, then L2 will find the appropriate interface*/
+        char *pkt, unsigned int pkt_size,   /*Higher Layers payload*/
+        int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
+
 }
 

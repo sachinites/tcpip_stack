@@ -9,6 +9,8 @@ OBJS=gluethread/glthread.o \
 		  comm.o		   \
 		  Layer2/layer2.o  \
 		  Layer3/layer3.o  \
+		  Layer4/layer4.o  \
+		  Layer5/layer5.o  \
 		  nwcli.o		   \
 		  utils.o		   \
 		  Layer2/l2switch.o
@@ -42,6 +44,12 @@ Layer2/l2switch.o:Layer2/l2switch.c
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
+
+Layer4/layer4.o:Layer4/layer4.c
+	${CC} ${CFLAGS} -c -I . Layer4/layer4.c -o Layer4/layer4.o
+	
+Layer5/layer5.o:Layer5/layer5.c
+	${CC} ${CFLAGS} -c -I . Layer5/layer5.c -o Layer5/layer5.o
 
 nwcli.o:nwcli.c
 	${CC} ${CFLAGS} -c -I . nwcli.c  -o nwcli.o

@@ -36,6 +36,7 @@
 #include <sys/socket.h>
 #include <memory.h>
 #include <stdlib.h>
+#include "tcpconst.h"
 
 void
 layer3_ping_fn(node_t *node, char *dst_ip_addr){
@@ -55,36 +56,73 @@ l3_is_direct_route(l3_route_t *l3_route){
 static bool_t
 is_layer3_local_delivery(node_t *node, unsigned int dst_ip){
 
-    return TRUE;
+    /* Check if dst_ip exact matches with any locally configured
+     * ip address of the router*/
+
+    /*checking with node's loopback address*/
+    char dest_ip_str[16];
+    dest_ip_str[15] = '\0';
+    char *intf_addr = NULL;
+
+    inet_ntop(AF_INET, &dst_ip, dest_ip_str, 16);
+
+    if(strncmp(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
+        return TRUE;
+
+    /*checking with interface IP Addresses*/
+
+    unsigned int i = 0;
+    interface_t *intf;
+
+    for( ; i < MAX_INTF_PER_NODE; i++){
+        
+        intf = node->intf[i];
+        if(!intf) return FALSE;
+
+        if(intf->intf_nw_props.is_ipadd_config == FALSE)
+            continue;
+
+        intf_addr = IF_IP(intf);
+
+        if(strncmp(intf_addr, dest_ip_str, 16) == 0)
+            return TRUE;
+    }
+    return FALSE;
 }
 
-void
+extern void
 promote_pkt_to_layer4(node_t *node, interface_t *recv_intf, 
-                      char *l4_hdr, unsigned int pkt_size){
+                      char *l4_hdr, unsigned int pkt_size,
+                      int L4_protocol_number);
 
-}
+extern void
+promote_pkt_to_layer5(node_t *node, interface_t *recv_intf, 
+                      char *l5_hdr, unsigned int pkt_size);
 
-void
-layer3_pkt_push_down_to_layer2_for_l2routing(node_t *node, unsigned int dst_ip,
-                                             char *outgoing_intf, 
-                                             char *pkt, unsigned int pkt_size){
+/*import function from layer 2*/
+extern void
+demote_pkt_to_layer2(node_t *node,
+                     unsigned int next_hop_ip,
+                     char *outgoing_intf, 
+                     char *pkt, unsigned int pkt_size,
+                     int protocol_number);
 
-}
-void
-layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
-                char *pkt, unsigned int pkt_size){
 
-    printf("Layer 3 Packet Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
-            node->node_name, interface->if_name, pkt, pkt_size);
-    
-    char *l4_hdr;
+static void
+layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
+        ip_hdr_t *pkt, unsigned int pkt_size){
 
-    ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt;
+    printf("Layer 3 Packet Recvd : Rcv Node %s, Intf : %s, pkt size : %u\n",
+            node->node_name, interface->if_name, pkt_size);
+
+    char *l4_hdr, *l5_hdr;
+
+    ip_hdr_t *ip_hdr = pkt;
 
     /*Implement Layer 3 forwarding functionality*/
 
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
-    
+
     if(!l3_route){
         /*Router do not know what to do with the pkt. drop it*/
         return;
@@ -96,7 +134,7 @@ layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
      * case 3 : pkt is to be forwarded to next router*/
 
     if(l3_is_direct_route(l3_route)){
-        
+
         /* case 1 and case 2 are possible here*/
 
         /* case 1 : local delivery:  dst ip address in pkt must exact match with
@@ -105,22 +143,35 @@ layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         if(is_layer3_local_delivery(node, ip_hdr->dst_ip)){
 
             l4_hdr = (char *)ip_hdr + (ip_hdr->ihl * 4);
-        
-            /*chop off the L3 hdr and promote the pkt to transport layer*/
-            promote_pkt_to_layer4(node, interface, l4_hdr,
-                ip_hdr->total_length - (ip_hdr->ihl * 4));
+            l5_hdr = l4_hdr;
+
+            /*chop off the L3 hdr and promote the pkt to transport layer. If transport Layer
+             * Protocol is not specified, then promote the packet directly to application layer
+             * */
+            switch(ip_hdr->protocol){
+                case MTCP:
+                    promote_pkt_to_layer4(node, interface, l4_hdr,
+                            ip_hdr->total_length - (ip_hdr->ihl * 4),
+                            ip_hdr->protocol);
+                    break;
+                case USERAPP1:
+                    promote_pkt_to_layer5(node, interface, l5_hdr,
+                            ip_hdr->total_length - (ip_hdr->ihl * 4));
+                    break;
+                default:
+                    ;
+            }
             return;
         }
-
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
 
-        layer3_pkt_push_down_to_layer2_for_l2routing(
-                            node,           /*Current processing node*/
-                            ip_hdr->dst_ip, /*Dst ip address*/
-                            NULL,           /*No oif from L3 routing table*/
-                            (char *)ip_hdr, pkt_size);  /*Network Layer payload and size*/
-        
+        demote_pkt_to_layer2(
+                node,           /*Current processing node*/
+                0,              /*Dont know next hop IP as dest is present in local subnet*/
+                NULL,           /*No oif as dest is present in local subnet*/
+                (char *)ip_hdr, pkt_size,  /*Network Layer payload and size*/
+                ETH_IP);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
         return;
     }
 
@@ -136,14 +187,12 @@ layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
     unsigned int next_hop_ip;
     inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
 
-    layer3_pkt_push_down_to_layer2_for_l2routing(node, 
-                                                 htonl(next_hop_ip),
-                                                 l3_route->oif,
-                                                 (char *)ip_hdr, pkt_size);
+    demote_pkt_to_layer2(node, 
+            htonl(next_hop_ip),
+            l3_route->oif,
+            (char *)ip_hdr, pkt_size,
+            ETH_IP); /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 }
-
-
-
 
 
 /*Implementing Routing Table APIs*/
@@ -318,8 +367,44 @@ rt_table_add_route(rt_table_t *rt_table,
    }
 
    if(!_rt_table_entry_add(rt_table, l3_route)){
-        printf("Error : Direct Route %s/%d Installation Failed\n", 
+        printf("Error : Route %s/%d Installation Failed\n", 
             dst_str_with_mask, mask);
         free(l3_route);   
    }
 }
+
+static void
+_layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
+                            char *pkt, unsigned int pkt_size, 
+                            int L3_protocol_type){
+
+    switch(L3_protocol_type){
+        
+        case ETH_IP:
+            layer3_ip_pkt_recv_from_layer2(node, interface, (ip_hdr_t *)pkt, pkt_size);
+            break;
+        default:
+            ;
+    }
+}
+
+/* A public API to be used by L2 or other lower Layers to promote
+ * pkts to Layer 3 in TCP IP Stack*/
+void
+promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt is received*/
+                      interface_t *interface,  /*ingress interface*/
+                      char *pkt, unsigned int pkt_size, /*L3 payload*/
+                      int L3_protocol_number){  /*obtained from eth_hdr->type field*/
+
+        _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number);
+}
+
+/*An API to be used by L4 or L5 to push the pkt down the TCP/IP
+ * stack to layer 3*/
+void
+demote_packet_to_layer3(node_t *node, 
+                        char *pkt, unsigned int size,
+                        int protocol_number){ /*L4 or L5 protocol type*/
+
+}
+

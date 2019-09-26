@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  tcpconst.h
+ *       Filename:  Layer5.c
  *
- *    Description:  This file defines all standard Constants used by TCPIP stack
+ *    Description:  This file represents the application making use of our virtual TCP/IP stack
  *
  *        Version:  1.0
- *        Created:  Tuesday 24 September 2019 01:09:27  IST
+ *        Created:  Thursday 26 September 2019 07:48:10  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
@@ -30,16 +30,10 @@
  * =====================================================================================
  */
 
-#ifndef __TCPCONST__
-#define __TCPCONST__
+#include "graph.h"
 
-/*Specified in ethernet_hdr->type*/
-#define ARP_BROAD_REQ   1
-#define ARP_REPLY       2
-#define ARP_MSG         806
-#define BROADCAST_MAC   0xFFFFFFFFFFFF
-#define ETH_IP          0x0800
-#define MTCP            20
-#define USERAPP1        21
+void
+promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
+        char *l5_hdr, unsigned int pkt_size){
 
-#endif /* __TCPCONST__ */
+}
