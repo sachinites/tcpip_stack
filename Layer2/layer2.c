@@ -259,8 +259,7 @@ clear_arp_table(arp_table_t *arp_table){
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
         
         arp_entry = arp_glue_to_arp_entry(curr);
-        remove_glthread(curr);
-        free(arp_entry);
+        delete_arp_entry(arp_entry);
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
 }
 
@@ -272,27 +271,96 @@ delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr){
     if(!arp_entry)
         return;
 
-    remove_glthread(&arp_entry->arp_glue);
-    free(arp_entry);
+    delete_arp_entry(arp_entry);
 }
 
 bool_t
-arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry){
+arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
+                    glthread_t **arp_pending_list){
+
+    if(arp_pending_list){
+        assert(*arp_pending_list == NULL);   
+    }
 
     arp_entry_t *arp_entry_old = arp_table_lookup(arp_table, 
-                                    arp_entry->ip_addr.ip_addr);
+            arp_entry->ip_addr.ip_addr);
+
+    /*Case 1 : If existing and new ARP entries are full and equal, then
+     * do nothing*/
     if(arp_entry_old &&
             IS_ARP_ENTRIES_EQUAL(arp_entry_old, arp_entry)){
-     
+
         return FALSE;
     }
 
-    if(arp_entry_old){
-        delete_arp_table_entry(arp_table, arp_entry_old->ip_addr.ip_addr);
+    /*Case 2 : If there already exists full ARP table entry, then replace it*/
+    if(arp_entry_old && !arp_entry_sane(arp_entry_old)){
+        delete_arp_entry(arp_entry_old);
+        init_glthread(&arp_entry->arp_glue);
+        glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
+        return TRUE;
     }
-    init_glthread(&arp_entry->arp_glue);
-    glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
-    return TRUE;
+
+    /*Case 3 : if existing ARP table entry is sane, and new one is also
+     * sane, then move the pending arp list from new to old one and return FALSE*/
+    if(arp_entry_old &&
+        arp_entry_sane(arp_entry_old) &&
+        arp_entry_sane(arp_entry)){
+    
+        if(!IS_GLTHREAD_LIST_EMPTY(&arp_entry->arp_pending_list)){
+            glthread_add_next(&arp_entry_old->arp_pending_list,
+                    arp_entry->arp_pending_list.right);
+        }
+        if(arp_pending_list)
+            *arp_pending_list = &arp_entry_old->arp_pending_list;
+        return FALSE;
+    }
+
+    /*Case 4 : If existing ARP table entry is sane, but new one if full,
+     * then copy contents of new ARP entry to old one, return FALSE*/
+    if(arp_entry_old && 
+        arp_entry_sane(arp_entry_old) && 
+        !arp_entry_sane(arp_entry)){
+
+        strncpy(arp_entry_old->mac_addr.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+        strncpy(arp_entry_old->oif_name, arp_entry->oif_name, IF_NAME_SIZE);
+        arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
+
+        if(arp_pending_list)
+            *arp_pending_list = &arp_entry_old->arp_pending_list;
+        return FALSE;
+    }
+}
+
+static void 
+pending_arp_processing_callback_function(node_t *node,
+                                         interface_t *oif,
+                                         arp_entry_t *arp_entry,
+                                         arp_pending_entry_t *arp_pending_entry){
+
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)arp_pending_entry->pkt;
+    unsigned int pkt_size = arp_pending_entry->pkt_size;
+    memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+    memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+    // This is pending
+    //ETH_FCS(ethernet_hdr, pkt_size - ) = 0;
+    send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+}
+
+
+static void
+process_arp_pending_entry(node_t *node, interface_t *oif, 
+                          arp_entry_t *arp_entry, 
+                          arp_pending_entry_t *arp_pending_entry){
+
+    arp_pending_entry->cb(node, oif, arp_entry, arp_pending_entry);  
+}
+
+static void
+delete_arp_pending_entry(arp_pending_entry_t *arp_pending_entry){
+
+    remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
+    free(arp_pending_entry);
 }
 
 void
@@ -300,17 +368,48 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
                                 arp_hdr_t *arp_hdr, interface_t *iif){
 
     unsigned int src_ip = 0;
+    glthread_t *arp_pending_list = NULL;
+
     assert(arp_hdr->op_code == ARP_REPLY);
+
     arp_entry_t *arp_entry = calloc(1, sizeof(arp_entry_t));
+
     src_ip = htonl(arp_hdr->src_ip);
+
     inet_ntop(AF_INET, &src_ip, &arp_entry->ip_addr.ip_addr, 16);
+
     arp_entry->ip_addr.ip_addr[15] = '\0';
+
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, sizeof(mac_add_t));
+
     strncpy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
 
-    bool_t rc = arp_table_entry_add(arp_table, arp_entry);
+    arp_entry->is_sane = FALSE;
+
+    bool_t rc = arp_table_entry_add(arp_table, arp_entry, &arp_pending_list);
+
+    glthread_t *curr;
+    arp_pending_entry_t *arp_pending_entry;
+
+    if(arp_pending_list){
+        
+        ITERATE_GLTHREAD_BEGIN(arp_pending_list, curr){
+        
+            arp_pending_entry = arp_pending_entry_glue_to_arp_pending_entry(curr);
+
+            remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
+
+            process_arp_pending_entry(iif->att_node, iif, arp_entry, arp_pending_entry);
+            
+            delete_arp_pending_entry(arp_pending_entry);
+
+        } ITERATE_GLTHREAD_END(arp_pending_list, curr);
+
+        (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = FALSE;
+    }
+
     if(rc == FALSE){
-        free(arp_entry);
+        delete_arp_entry(arp_entry);
     }
 }
 
@@ -509,30 +608,26 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
     inet_ntop(AF_INET, &next_hop_ip, next_hop_ip_str, 16);
 
     if(outgoing_intf) {
-        
+
         /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
          * out of this interface*/
         oif = get_node_if_by_name(node, outgoing_intf);
         assert(oif);
-        
+
         arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
 
         if (!arp_entry){
-        
+
             /*Time for ARP resolution*/
+            create_arp_sane_entry(NODE_ARP_TABLE(node), 
+                    next_hop_ip_str, 
+                    (char *)pkt, 
+                    pkt_size);
+
             send_arp_broadcast_request(node, oif, next_hop_ip_str);
-            sleep(2); /*Wait for ARP resolution to complete*/
-            
-            /*check again*/
-            arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str); 
-            
-            if(!arp_entry){
-                printf("Error : Could not resolve ARP on intf %s(%s) for IP %s\n",
-                     oif->if_name, oif->att_node->node_name, next_hop_ip_str);
-                return;   
-            }
-            goto l2_frame_prepare ;
+            return;
         }
+        goto l2_frame_prepare ;
     }
    
     /* if outgoing_intf is NULL, then two cases possible : 
@@ -562,27 +657,18 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
     if (!arp_entry){
         
         /*Time for ARP resolution*/
+        create_arp_sane_entry(NODE_ARP_TABLE(node), 
+                next_hop_ip_str, 
+                (char *)pkt, 
+                pkt_size);
         send_arp_broadcast_request(node, oif, next_hop_ip_str);
-        
-        sleep(2); /*Wait for ARP resolution to complete*/
-        
-        /*check again*/
-        arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str); 
-        
-        if(!arp_entry){
-            printf("Error : Could not resolve ARP on intf %s for IP %s\n",
-                    oif->if_name, next_hop_ip_str);
-            return;   
-        }
-        goto l2_frame_prepare ;
+        return;
     }
 
     l2_frame_prepare:
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
         memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
         ETH_FCS(ethernet_hdr, ethernet_payload_size) = 0;
-
-        printf("pkt send\n");
         send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 }
 
@@ -611,5 +697,76 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
             outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
 
         free(empty_ethernet_hdr);
+    }
+}
+
+void
+delete_arp_entry(arp_entry_t *arp_entry){
+    
+    glthread_t *curr;
+    arp_pending_entry_t *arp_pending_entry;
+    remove_glthread(&arp_entry->arp_glue);
+
+    ITERATE_GLTHREAD_BEGIN(&arp_entry->arp_pending_list, curr){
+
+        arp_pending_entry = arp_pending_entry_glue_to_arp_pending_entry(curr);
+        delete_arp_pending_entry(arp_pending_entry);
+    } ITERATE_GLTHREAD_END(&arp_entry->arp_pending_list, curr);
+
+    free(arp_entry);
+}
+
+void
+add_arp_pending_entry(arp_entry_t *arp_entry,
+        arp_processing_fn cb,
+        char *pkt,
+        unsigned int pkt_size){
+
+    arp_pending_entry_t *arp_pending_entry = 
+        calloc(1, sizeof(arp_pending_entry_t) + pkt_size);
+
+    init_glthread(&arp_pending_entry->arp_pending_entry_glue);
+    arp_pending_entry->cb = cb;
+    arp_pending_entry->pkt_size = pkt_size;
+    memcpy(arp_pending_entry->pkt, pkt, pkt_size);
+
+    glthread_add_next(&arp_entry->arp_pending_list, 
+                    &arp_pending_entry->arp_pending_entry_glue);
+}
+
+void
+create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr, 
+                       char *pkt, unsigned int pkt_size){
+
+    /*case 1 : If full entry already exist - assert. The L2 must have
+     * not create ARP sane entry if the already was already existing*/
+
+    arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
+    
+    if(arp_entry){
+    
+        if(!arp_entry_sane(arp_entry)){
+            assert(0);
+        }
+
+        /*ARP sane entry already exists, append the arp pending entry to it*/
+        add_arp_pending_entry(arp_entry, 
+                              pending_arp_processing_callback_function, 
+                              pkt, pkt_size);
+        return;
+    }
+
+    /*if ARP entry do not exist, create a new sane entry*/
+    arp_entry = calloc(1, sizeof(arp_entry_t));
+    strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
+    arp_entry->ip_addr.ip_addr[15] = '\0';
+    init_glthread(&arp_entry->arp_pending_list);
+    arp_entry->is_sane = TRUE;
+    add_arp_pending_entry(arp_entry, 
+                          pending_arp_processing_callback_function, 
+                          pkt, pkt_size);
+    bool_t rc = arp_table_entry_add(arp_table, arp_entry, 0);
+    if(rc == FALSE){
+        assert(0);
     }
 }

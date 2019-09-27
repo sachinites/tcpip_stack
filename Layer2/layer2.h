@@ -129,19 +129,43 @@ typedef struct arp_table_{
     glthread_t arp_entries;
 } arp_table_t;
 
-typedef struct arp_entry_{
+typedef struct arp_pending_entry_ arp_pending_entry_t;
+typedef struct arp_entry_ arp_entry_t;
+typedef void (*arp_processing_fn)(node_t *, 
+                                  interface_t *oif,
+                                  arp_entry_t *, 
+                                  arp_pending_entry_t *);
+struct arp_pending_entry_{
+
+    glthread_t arp_pending_entry_glue;
+    arp_processing_fn cb;
+    unsigned int pkt_size;  /*Including ether net hdr*/
+    char pkt[0];
+};
+GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
+    arp_pending_entry_t, arp_pending_entry_glue);
+
+
+struct arp_entry_{
 
     ip_add_t ip_addr;   /*key*/
     mac_add_t mac_addr;
     char oif_name[IF_NAME_SIZE];
     glthread_t arp_glue;
-} arp_entry_t;
+    bool_t is_sane;
+    /* List of packets which are pending for
+     * this ARP resolution*/
+    glthread_t arp_pending_list;
+};
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
+GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
 
 #define IS_ARP_ENTRIES_EQUAL(arp_entry_1, arp_entry_2)  \
     (strncmp(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, 16) == 0 && \
         strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
-        strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0)
+        strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
+        arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
+        arp_entry_1->is_sane == FALSE)
 
 void
 init_arp_table(arp_table_t **arp_table);
@@ -153,10 +177,14 @@ void
 clear_arp_table(arp_table_t *arp_table);
 
 void
+delete_arp_entry(arp_entry_t *arp_entry);
+
+void
 delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr);
 
 bool_t
-arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry);
+arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
+                        glthread_t **arp_pending_list);
 
 void
 dump_arp_table(arp_table_t *arp_table);
@@ -171,5 +199,21 @@ node_set_intf_l2_mode(node_t *node, char *intf_name, intf_l2_mode_t intf_l2_mode
 
 void
 node_set_intf_vlan_membsership(node_t *node, char *intf_name, unsigned int vlan_id);
+
+void
+add_arp_pending_entry(arp_entry_t *arp_entry, 
+                        arp_processing_fn, 
+                        char *pkt, 
+                        unsigned int pkt_size); 
+
+void
+create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
+                      char *pkt, unsigned int pkt_size);
+
+static bool_t 
+arp_entry_sane(arp_entry_t *arp_entry){
+
+    return arp_entry->is_sane;
+}
 
 #endif /* __LAYER2__ */
