@@ -195,8 +195,9 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
         apply_mask(intf_addr, mask, intf_subnet);
         apply_mask(ip_addr, mask, subnet2);
         
-        if(strncmp(intf_subnet, subnet2, 16) == 0)
+        if(strncmp(intf_subnet, subnet2, 16) == 0){
             return intf;
+        }
     }
 }
 

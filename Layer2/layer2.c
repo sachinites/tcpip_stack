@@ -43,8 +43,8 @@ send_arp_broadcast_request(node_t *node,
                            char *ip_addr){
 
     /*Take memory which can accomodate Ethernet hdr + ARP hdr*/
-    ethernet_hdr_t *ethernet_hdr = calloc(1, sizeof(ethernet_hdr_t) + 
-                                        sizeof(arp_hdr_t));
+    unsigned int payload_size = sizeof(arp_hdr_t);
+    ethernet_hdr_t *ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(payload_size);
 
     if(!oif){
         oif = node_get_matching_subnet_interface(node, ip_addr);
@@ -83,10 +83,10 @@ send_arp_broadcast_request(node_t *node,
     inet_pton(AF_INET, ip_addr, &arp_hdr->dst_ip);
     arp_hdr->dst_ip = htonl(arp_hdr->dst_ip);
 
-    ethernet_hdr->FCS = 0; /*Not used*/
+    ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t)) = 0; /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
-    send_pkt_out((char *)ethernet_hdr, sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t), 
+    send_pkt_out((char *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size,
                     oif);
 
     free(ethernet_hdr);
@@ -97,7 +97,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(ethernet_hdr_in->payload);
 
-    ethernet_hdr_t *ethernet_hdr_reply = calloc(1, sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t));
+    ethernet_hdr_t *ethernet_hdr_reply = ALLOC_ETH_HDR_WITH_PAYLOAD(sizeof(arp_hdr_t));
 
     memcpy(ethernet_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
@@ -123,7 +123,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
     send_pkt_out((char *)ethernet_hdr_reply, sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t),
                     oif);
 
-    ethernet_hdr_reply->FCS = 0; /*Not used*/
+    ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t)) = 0; /*Not used*/
     free(ethernet_hdr_reply);  
 }
 
@@ -160,8 +160,8 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
     
     if(strncmp(IF_IP(iif), ip_addr, 16)){
         
-        printf("%s : ARP Broadcast req msg dropped, Dst IP address did not match", 
-                node->node_name );
+        printf("%s : ARP Broadcast req msg dropped, Dst IP address %s did not match with interface ip : %s\n", 
+                node->node_name, ip_addr , IF_IP(iif));
         return;
     }
 
@@ -185,11 +185,11 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     
     if(l2_frame_recv_qualify_on_interface(interface, ethernet_hdr) == FALSE){
         
-        printf("L2 Frame Rejected");
+        printf("L2 Frame Rejected on node %s\n", node->node_name);
         return;
     }
 
-    printf("L2 Frame Accepted\n");
+    printf("L2 Frame Accepted on node %s\n", node->node_name);
 
     /*Handle Reception of a L2 Frame on L3 Interface*/
     if(IS_INTF_L3_MODE(interface)){
@@ -213,8 +213,8 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 }
                 break;
             case ETH_IP:
-                promote_pkt_to_layer3(node, interface, (char *)ethernet_hdr->payload, 
-                    pkt_size - sizeof(ethernet_hdr_t), ETH_IP);
+                promote_pkt_to_layer3(node, interface, (char *)(ethernet_hdr->payload), 
+                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, ETH_IP);
             default:
                 break;
         }
@@ -494,6 +494,98 @@ node_set_intf_vlan_membsership(node_t *node, char *intf_name,
     interface_set_vlan(node, interface, vlan_id);
 }
 
+static void
+l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
+                    char *outgoing_intf, ethernet_hdr_t *pkt, 
+                    unsigned int pkt_size){
+
+    interface_t *oif = NULL;
+    char next_hop_ip_str[16];
+    arp_entry_t * arp_entry = NULL;
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
+    unsigned int ethernet_payload_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+
+    next_hop_ip = htonl(next_hop_ip);
+    inet_ntop(AF_INET, &next_hop_ip, next_hop_ip_str, 16);
+
+    if(outgoing_intf) {
+        
+        /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
+         * out of this interface*/
+        oif = get_node_if_by_name(node, outgoing_intf);
+        assert(oif);
+        
+        arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
+
+        if (!arp_entry){
+        
+            /*Time for ARP resolution*/
+            send_arp_broadcast_request(node, oif, next_hop_ip_str);
+            sleep(2); /*Wait for ARP resolution to complete*/
+            
+            /*check again*/
+            arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str); 
+            
+            if(!arp_entry){
+                printf("Error : Could not resolve ARP on intf %s(%s) for IP %s\n",
+                     oif->if_name, oif->att_node->node_name, next_hop_ip_str);
+                return;   
+            }
+            goto l2_frame_prepare ;
+        }
+    }
+   
+    /* if outgoing_intf is NULL, then two cases possible : 
+       1. L2 has to forward the frame to self
+       2. L2 has to forward the frame to machine on local connected subnet*/
+
+    /*case 1 */
+    
+    oif = node_get_matching_subnet_interface(node, next_hop_ip_str);
+    if(!oif){
+        printf("%s : Error : Local matching subnet for IP : %s could not be found\n",
+                    node->node_name, next_hop_ip_str);
+        return;
+    }
+
+    if(strncmp(IF_IP(oif), next_hop_ip_str, 16) == 0){
+        /*send to self*/
+        memcpy(ethernet_hdr->dst_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+        ETH_FCS(ethernet_hdr, ethernet_payload_size) = 0;
+        send_pkt_to_self((char *)ethernet_hdr, pkt_size, oif);
+        return;
+    }
+
+    arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
+
+    if (!arp_entry){
+        
+        /*Time for ARP resolution*/
+        send_arp_broadcast_request(node, oif, next_hop_ip_str);
+        
+        sleep(2); /*Wait for ARP resolution to complete*/
+        
+        /*check again*/
+        arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str); 
+        
+        if(!arp_entry){
+            printf("Error : Could not resolve ARP on intf %s for IP %s\n",
+                    oif->if_name, next_hop_ip_str);
+            return;   
+        }
+        goto l2_frame_prepare ;
+    }
+
+    l2_frame_prepare:
+        memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+        ETH_FCS(ethernet_hdr, ethernet_payload_size) = 0;
+
+        printf("pkt send\n");
+        send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+}
+
 
 /* An API to be used by Layer 3 or higher to push the pkt
  * down the TCP IP Stack to L2. Note that, though most of the time
@@ -507,5 +599,17 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
         char *pkt, unsigned int pkt_size,   /*Higher Layers payload*/
         int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
 
-}
+    assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
 
+    if(protocol_number == ETH_IP){
+   
+        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt_size); 
+        empty_ethernet_hdr->type = ETH_IP;
+        memcpy(empty_ethernet_hdr->payload, pkt, pkt_size);
+
+        l2_forward_ip_packet(node, next_hop_ip, 
+            outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
+
+        free(empty_ethernet_hdr);
+    }
+}

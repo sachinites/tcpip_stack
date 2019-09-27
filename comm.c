@@ -189,6 +189,43 @@ network_start_pkt_receiver_thread(graph_t *topo){
                     (void *)topo);
 }
 
+int
+send_pkt_to_self(char *pkt, unsigned int pkt_size,
+                interface_t *interface){
+
+    int rc = 0;    
+    node_t *sending_node = interface->att_node;
+    node_t *nbr_node = sending_node;
+    
+    unsigned int dst_udp_port_no = nbr_node->udp_port_number;
+    
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+
+    if(sock < 0){
+        printf("Error : Sending socket Creation failed , errno = %d", errno);
+        return -1;
+    }
+    
+    interface_t *other_interface =  interface;
+
+    memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
+
+    char *pkt_with_aux_data = send_buffer;
+
+    strncpy(pkt_with_aux_data, other_interface->if_name, IF_NAME_SIZE);
+
+    pkt_with_aux_data[IF_NAME_SIZE - 1] = '\0';
+
+    memcpy(pkt_with_aux_data + IF_NAME_SIZE, pkt, pkt_size);
+
+    rc = _send_pkt_out(sock, pkt_with_aux_data, pkt_size + IF_NAME_SIZE, 
+                        dst_udp_port_no);
+
+    close(sock);
+    return rc; 
+       
+}
+
 /*Public APIs to be used by the other modules*/
 int
 send_pkt_out(char *pkt, unsigned int pkt_size, 

@@ -39,6 +39,10 @@
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
 
+
+int
+send_pkt_to_self(char *pkt, unsigned int pkt_size, interface_t *interface);
+
 /* API to send the packet out of the interface.
  * Nbr node must receieve the packet on other end
  * of the link*/

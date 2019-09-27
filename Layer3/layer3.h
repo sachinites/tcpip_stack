@@ -41,7 +41,7 @@ typedef struct ip_hdr_{
 
     unsigned int version : 4 ;  /*version number, always 4 for IPv4 protocol*/    
     unsigned int ihl : 4 ;      /*length of IP hdr, in 32-bit words unit. for Ex, if this value is 5, it means length of this ip hdr is 20Bytes*/
-    char not_used;
+    char tos;
     short total_length;         /*length of hdr + ip_hdr payload*/
 
     /* Fragmentation Related members, we shall not be using below members
@@ -54,8 +54,8 @@ typedef struct ip_hdr_{
     unsigned int frag_offset : 13;  
 
 
-    short ttl;
-    short protocol;
+    char ttl;
+    char protocol;
     short checksum;
     unsigned int src_ip;
     unsigned int dst_ip;
@@ -68,7 +68,7 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
     
     ip_hdr->version = 4;
     ip_hdr->ihl = 5; /*We will not be using option field, hence hdr size shall always be 5*4 = 20B*/
-    ip_hdr->not_used = 0;
+    ip_hdr->tos = 0;
 
     ip_hdr->total_length = 0; /*To be filled by the caller*/
 
@@ -108,8 +108,10 @@ GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
 void
 init_rt_table(rt_table_t **rt_table);
 
+#if 0
 l3_route_t *
 rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask);
+#endif
 
 void
 clear_rt_table(rt_table_t *rt_table);

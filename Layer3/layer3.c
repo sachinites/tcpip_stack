@@ -38,15 +38,8 @@
 #include <stdlib.h>
 #include "tcpconst.h"
 
-void
-layer3_ping_fn(node_t *node, char *dst_ip_addr){
-
-    printf("Src node : %s, ping ip : %s\n", node->node_name, dst_ip_addr);
-}
-
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
-
 static bool_t
 l3_is_direct_route(l3_route_t *l3_route){
 
@@ -64,6 +57,7 @@ is_layer3_local_delivery(node_t *node, unsigned int dst_ip){
     dest_ip_str[15] = '\0';
     char *intf_addr = NULL;
 
+    dst_ip = htonl(dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_str, 16);
 
     if(strncmp(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
@@ -112,10 +106,8 @@ static void
 layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         ip_hdr_t *pkt, unsigned int pkt_size){
 
-    printf("Layer 3 Packet Recvd : Rcv Node %s, Intf : %s, pkt size : %u\n",
-            node->node_name, interface->if_name, pkt_size);
-
     char *l4_hdr, *l5_hdr;
+    char dest_ip_addr[16];
 
     ip_hdr_t *ip_hdr = pkt;
 
@@ -158,6 +150,13 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                     promote_pkt_to_layer5(node, interface, l5_hdr,
                             ip_hdr->total_length - (ip_hdr->ihl * 4));
                     break;
+                case ICMP_PRO:
+                {
+                    unsigned int dst_ip = htonl(ip_hdr->dst_ip);
+                    inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
+                    printf("IP Address : %s, ping success\n", dest_ip_addr);
+                }
+                    return;
                 default:
                     ;
             }
@@ -186,9 +185,10 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
 
     unsigned int next_hop_ip;
     inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
+    next_hop_ip = htonl(next_hop_ip);
 
     demote_pkt_to_layer2(node, 
-            htonl(next_hop_ip),
+            next_hop_ip,
             l3_route->oif,
             (char *)ip_hdr, pkt_size,
             ETH_IP); /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
@@ -262,7 +262,8 @@ l3rib_lookup_lpm(rt_table_t *rt_table,
     char subnet[16];
     char dest_ip_str[16];
     char longest_mask = 0;
-
+   
+    dest_ip = htonl(dest_ip); 
     inet_ntop(AF_INET, &dest_ip, dest_ip_str, 16);
     dest_ip_str[15] = '\0';
      
@@ -342,7 +343,6 @@ rt_table_add_route(rt_table_t *rt_table,
    apply_mask(dst, mask, dst_str_with_mask); 
 
    inet_pton(AF_INET, dst_str_with_mask, &dst_int);
-   dst_int = htonl(dst_int);
 
    l3_route_t *l3_route = l3rib_lookup_lpm(rt_table, dst_int);
 
@@ -404,7 +404,78 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
 void
 demote_packet_to_layer3(node_t *node, 
                         char *pkt, unsigned int size,
-                        int protocol_number){ /*L4 or L5 protocol type*/
+                        int protocol_number, /*L4 or L5 protocol type*/
+                        unsigned int dest_ip_address){
+    ip_hdr_t iphdr;
+    initialize_ip_hdr(&iphdr);  
+      
+    /*Now fill the non-default fields*/
+    iphdr.protocol = protocol_number;
 
+    unsigned int addr_int = 0;
+    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    addr_int = htonl(addr_int);
+    iphdr.src_ip = addr_int;
+    iphdr.dst_ip = dest_ip_address;
+
+    iphdr.total_length = iphdr.ihl + size;
+
+    char *new_pkt = NULL;
+    unsigned int new_pkt_size = 0 ;
+
+    new_pkt_size = sizeof(ip_hdr_t) + size;
+    new_pkt = calloc(1, new_pkt_size);
+
+    memcpy(new_pkt, (char *)&iphdr, sizeof(ip_hdr_t));
+
+    if(pkt && size)
+        memcpy(new_pkt +  sizeof(ip_hdr_t), pkt, size);
+
+    /*Now Resolve Next hop*/
+    l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
+                                iphdr.dst_ip);
+    
+    if(!l3_route){
+        printf("Node : %s : No L3 route\n",  node->node_name);   
+        return;
+    }
+
+    bool_t is_direct_route = l3_is_direct_route(l3_route);
+    
+    unsigned int next_hop_ip;
+
+    if(!is_direct_route){
+        inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
+        next_hop_ip = htonl(next_hop_ip);
+    }
+    else{
+        next_hop_ip = dest_ip_address;
+    }
+
+    demote_pkt_to_layer2(node,
+                         next_hop_ip,
+                         is_direct_route ? 0 : l3_route->oif,
+                         new_pkt, new_pkt_size,
+                         ETH_IP);
+
+    free(new_pkt);
 }
 
+/* This fn sends a dummy packet to test L3 and L2 routing
+ * in the project. We send dummy Packet starting from Network
+ * Layer on node 'node' to destination address 'dst_ip_addr'
+ * using below fn*/
+void
+layer3_ping_fn(node_t *node, char *dst_ip_addr){
+
+    unsigned int addr_int;
+    
+    printf("Src node : %s, Ping ip : %s\n", node->node_name, dst_ip_addr);
+    
+    inet_pton(AF_INET, dst_ip_addr, &addr_int);
+    addr_int = htonl(addr_int);
+
+    /* We dont have any application or transport layer paylod, so, directly prepare
+     * L3 hdr*/
+    demote_packet_to_layer3(node, NULL, 0, ICMP_PRO, addr_int);
+}

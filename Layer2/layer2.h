@@ -61,6 +61,15 @@ typedef struct ethernet_hdr_{
 } ethernet_hdr_t;
 #pragma pack(pop)
 
+#define ETH_HDR_SIZE_EXCL_PAYLOAD   \
+    (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
+
+#define ALLOC_ETH_HDR_WITH_PAYLOAD(payload_size) \
+    (calloc(1, (ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size))
+
+#define ETH_FCS(eth_hdr_ptr, payload_size)  \
+    (*(unsigned int *)(((char *)(eth_hdr_ptr->payload) + payload_size)))
+
 static inline bool_t 
 l2_frame_recv_qualify_on_interface(interface_t *interface, 
                                     ethernet_hdr_t *ethernet_hdr){
