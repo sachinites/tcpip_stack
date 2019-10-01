@@ -44,5 +44,5 @@
 #define ICMP_ECHO_REP   0
 #define MTCP            20
 #define USERAPP1        21
-
+#define VLAN_8021Q_PROTO    0x8100
 #endif /* __TCPCONST__ */

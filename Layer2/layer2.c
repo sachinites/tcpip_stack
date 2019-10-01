@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
+
 /*A Routine to resolve ARP out of oif*/
 void
 send_arp_broadcast_request(node_t *node,
@@ -780,4 +781,86 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
     if(rc == FALSE){
         assert(0);
     }
+}
+
+
+/*Vlan Management Routines*/
+
+/* Return new packet size if pkt is tagged with new vlan id*/
+unsigned int 
+tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr, 
+                     unsigned int total_pkt_size,
+                     int vlan_id){
+
+    unsigned int payload_size  = 0 ;
+    
+    /*If the pkt is already tagged, replace it*/
+    vlan_8021q_hdr_t *vlan_8021q_hdr = 
+        is_pkt_vlan_tagged(ethernet_hdr);
+
+    
+    if(vlan_8021q_hdr){
+        payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
+        vlan_8021q_hdr->tci_vid = (short)vlan_id;
+        /*Update checksum, however not used*/
+        VLAN_ETH_FCS(((vlan_ethernet_hdr_t *)ethernet_hdr), payload_size) = 0;
+        return total_pkt_size;
+    }
+
+    /*If the pkt is not already tagged, tag it*/
+    char *temp_mem = calloc(1, total_pkt_size);
+    memcpy(temp_mem, (char *)ethernet_hdr, total_pkt_size);
+
+    payload_size = total_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD; 
+    vlan_ethernet_hdr_t *vlan_ethernet_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
+    ethernet_hdr_t *ethernet_hdr_old = (ethernet_hdr_t *)temp_mem;
+
+    /*No need to touch dst_mac and src_mac*/
+
+    /*Come to 802.1Q vlan hdr*/
+    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tci_pcp = 0;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tci_dei = 0;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid = (short)vlan_id;
+
+    memcpy((char *)&(vlan_ethernet_hdr->type), (char *)&(ethernet_hdr_old->type),
+        sizeof(ethernet_hdr_old->type) + payload_size + 
+        sizeof(ethernet_hdr_old->FCS));
+
+    /*Update checksum, however not used*/
+    VLAN_ETH_FCS(vlan_ethernet_hdr, payload_size) = 0;
+    free(temp_mem);
+
+    return total_pkt_size + sizeof(vlan_8021q_hdr_t);
+}
+
+/* Return new packet size if pkt is untagged with the existing
+ * vlan 801.1q hdr*/
+unsigned int
+untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr, 
+                     unsigned int total_pkt_size){
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr =
+        is_pkt_vlan_tagged(ethernet_hdr);
+    
+    /*NOt tagged already, do nothing*/    
+    if(!vlan_8021q_hdr){
+        return total_pkt_size;
+    }
+
+    vlan_ethernet_hdr_t *vlan_ethernet_hdr_old = calloc(1, total_pkt_size); 
+    memcpy((char *)vlan_ethernet_hdr_old, (char *)ethernet_hdr, total_pkt_size);
+    
+    unsigned int payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
+    /*No need to touch dst_mac and src_mac*/
+
+    memcpy((char *)&(ethernet_hdr->type), (char *)&(vlan_ethernet_hdr_old->type),
+        sizeof(ethernet_hdr->type) + payload_size + 
+        sizeof(ethernet_hdr->FCS)); 
+            
+    /*Update checksum, however not used*/
+    ETH_FCS(ethernet_hdr, payload_size) = 0;
+    free(vlan_ethernet_hdr_old);
+     
+    return total_pkt_size - sizeof(vlan_8021q_hdr_t);
 }

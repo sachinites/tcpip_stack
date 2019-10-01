@@ -59,6 +59,7 @@ typedef struct ethernet_hdr_{
     char payload[248];  /*Max allowed 1500*/
     unsigned int FCS;
 } ethernet_hdr_t;
+
 #pragma pack(pop)
 
 #define ETH_HDR_SIZE_EXCL_PAYLOAD   \
@@ -216,4 +217,67 @@ arp_entry_sane(arp_entry_t *arp_entry){
     return arp_entry->is_sane;
 }
 
+
+/*VLAN support*/
+
+#pragma pack (push,1)
+/*Vlan 802.1q 4 byte hdr*/
+typedef struct vlan_8021q_hdr_{
+
+    short tpid; /* = 0x8100*/
+    short tci_pcp : 3 ;  /* inital 4 bits not used in this course*/
+    short tci_dei : 1;   /*Not used*/
+    short tci_vid : 12 ; /*Tagged vlan id*/
+} vlan_8021q_hdr_t;
+
+typedef struct vlan_ethernet_hdr_{
+
+    mac_add_t dst_mac;
+    mac_add_t src_mac;
+    vlan_8021q_hdr_t vlan_8021q_hdr;
+    short type;
+    char payload[248];  /*Max allowed 1500*/
+    unsigned int FCS;
+} vlan_ethernet_hdr_t;
+#pragma pack(pop)
+
+static inline unsigned int
+GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
+
+    return (unsigned int)vlan_8021q_hdr->tci_vid;
+}
+
+#define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
+    (*(unsigned int *)(((char *)(vlan_eth_hdr_ptr->payload) + payload_size)))
+
+#define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  \
+   (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload)) 
+
+/* Return 0 if not vlan tagged, else return pointer to 801.1q vlan hdr
+ * present in ethernet hdr*/
+static inline vlan_8021q_hdr_t *
+is_pkt_vlan_tagged(ethernet_hdr_t *ethernet_hdr){
+
+    /*Check the 13th and 14th byte of the ethernet hdr,
+     *      * if is value is 0x8100 then it is vlan tagged*/
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr =
+        (vlan_8021q_hdr_t *)((char *)ethernet_hdr + (sizeof(mac_add_t) * 2));
+
+    if(vlan_8021q_hdr->tpid == VLAN_8021Q_PROTO)
+        return vlan_8021q_hdr;
+
+    return NULL;
+}
+
+/*fn to get access to ethernet payload address*/
+static inline char *
+GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
+
+   if(is_pkt_vlan_tagged(ethernet_hdr)){
+        return ((vlan_ethernet_hdr_t *)(ethernet_hdr))->payload;
+   }
+   else
+       return ethernet_hdr->payload;
+}
 #endif /* __LAYER2__ */
