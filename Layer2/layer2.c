@@ -66,7 +66,7 @@ send_arp_broadcast_request(node_t *node,
     ethernet_hdr->type = ARP_MSG;
 
     /*Step 2 : Prepare ARP Broadcast Request Msg out of oif*/
-    arp_hdr_t *arp_hdr = (arp_hdr_t *)(ethernet_hdr->payload);
+    arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
     arp_hdr->hw_type = 1;
     arp_hdr->proto_type = 0x0800;
     arp_hdr->hw_addr_len = sizeof(mac_add_t);
@@ -96,7 +96,7 @@ send_arp_broadcast_request(node_t *node,
 static void
 send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
 
-    arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(ethernet_hdr_in->payload);
+    arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
 
     ethernet_hdr_t *ethernet_hdr_reply = ALLOC_ETH_HDR_WITH_PAYLOAD(sizeof(arp_hdr_t));
 
@@ -105,7 +105,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
     
     ethernet_hdr_reply->type = ARP_MSG;
     
-    arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(ethernet_hdr_reply->payload);
+    arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
     
     arp_hdr_reply->hw_type = 1;
     arp_hdr_reply->proto_type = 0x0800;
@@ -136,7 +136,7 @@ process_arp_reply_msg(node_t *node, interface_t *iif,
              __FUNCTION__, iif->if_name , iif->att_node->node_name);
 
     arp_table_update_from_arp_reply( NODE_ARP_TABLE(node), 
-                    (arp_hdr_t *)(ethernet_hdr->payload), iif);    
+                    (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr), iif);    
 }
 
 
@@ -152,7 +152,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
     * msg if Dst ip address in ARP req msg matches iif's ip address*/
 
     char ip_addr[16];
-    arp_hdr_t *arp_hdr = (arp_hdr_t *)(ethernet_hdr->payload);
+    arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
 
     unsigned int arp_dst_ip = htonl(arp_hdr->dst_ip);
 
@@ -200,7 +200,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
             case ARP_MSG:
                 {
                     /*Can be ARP Broadcast or ARP reply*/
-                    arp_hdr_t *arp_hdr = (arp_hdr_t *)(ethernet_hdr->payload);
+                    arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
                     switch(arp_hdr->op_code){
                         case ARP_BROAD_REQ:
                             process_arp_broadcast_request(node, interface, ethernet_hdr);
@@ -214,7 +214,8 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 }
                 break;
             case ETH_IP:
-                promote_pkt_to_layer3(node, interface, (char *)(ethernet_hdr->payload), 
+                promote_pkt_to_layer3(node, interface, 
+                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
                     pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, ETH_IP);
             default:
                 break;
@@ -703,7 +704,7 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
    
         ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt_size); 
         empty_ethernet_hdr->type = ETH_IP;
-        memcpy(empty_ethernet_hdr->payload, pkt, pkt_size);
+        memcpy(GET_ETHERNET_HDR_PAYLOAD(empty_ethernet_hdr), pkt, pkt_size);
 
         l2_forward_ip_packet(node, next_hop_ip, 
             outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
