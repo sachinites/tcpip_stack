@@ -55,7 +55,14 @@ hash_code(void *ptr, unsigned int size){
 void
 interface_assign_mac_address(interface_t *interface){
 
-    unsigned int hash_code_val = hash_code(interface, sizeof(interface_t));
+    node_t *node = interface->att_node;
+    
+    if(!node)
+        return;
+
+    unsigned int hash_code_val = 0;
+    hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
+    hash_code_val *= hash_code(interface->if_name, IF_NAME_SIZE);
     memset(IF_MAC(interface), 0, sizeof(IF_MAC(interface)));
     memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(unsigned int));
 }
