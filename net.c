@@ -208,3 +208,36 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
     }
 }
 
+/*Interface Vlan mgmt APIs*/
+
+/*Should be Called only for interface operating in Access mode*/
+unsigned int
+get_access_intf_operating_vlan_id(interface_t *interface){
+
+    if(IF_L2_MODE(interface) != ACCESS){
+        assert(0);
+    }
+
+    return interface->intf_nw_props.vlans[0];
+}
+
+
+/*Should be Called only for interface operating in Trunk mode*/
+bool_t
+is_trunk_interface_vlan_enabled(interface_t *interface, 
+                                unsigned int vlan_id){
+
+    if(IF_L2_MODE(interface) != TRUNK){
+        assert(0);
+    }
+
+    unsigned int i = 0;
+
+    for( ; i < MAX_VLAN_MEMBERSHIP; i++){
+
+        if(interface->intf_nw_props.vlans[i] == vlan_id)
+            return TRUE;
+    }
+    return FALSE;
+}
+

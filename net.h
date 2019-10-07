@@ -138,7 +138,6 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->intf_l2_mode = L2_MODE_UNKNOWN;
     memset(intf_nw_props->vlans, 0, sizeof(intf_nw_props->vlans));
 
-
     /*L3 properties*/
     intf_nw_props->is_ipadd_config = FALSE;
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
@@ -179,5 +178,13 @@ void dump_intf_props(interface_t *interface);
 interface_t *
 node_get_matching_subnet_interface(node_t *node, char *ip_addr);
 
-  
+/*Interface Vlan mgmt APIs*/
+
+/*Should be Called only for interface operating in Access mode*/
+unsigned int
+get_access_intf_operating_vlan_id(interface_t *interface);
+/*Should be Called only for interface operating in Trunk mode*/
+
+bool_t
+is_trunk_interface_vlan_enabled(interface_t *interface, unsigned int vlan_id);  
 #endif /* __NET__ */

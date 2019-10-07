@@ -71,54 +71,6 @@ typedef struct ethernet_hdr_{
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
     (*(unsigned int *)(((char *)(eth_hdr_ptr->payload) + payload_size)))
 
-static inline bool_t 
-l2_frame_recv_qualify_on_interface(interface_t *interface, 
-                                    ethernet_hdr_t *ethernet_hdr){
-
-    /* Presence of IP address on interface makes it work in L3 mode,
-     * while absence of IP-address automatically make it work in
-     * L2 mode. For interfaces working in L2 mode (L2 switch interfaces),
-     * We should accept all frames. L2 switch never discards the frames
-     * based on MAC addresses*/
-
-    /*If receiving interface is neither working in L3 mode
-     * nor in L2 mode, then reject the packet*/
-    if(!IS_INTF_L3_MODE(interface) &&
-        IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
-
-        return FALSE;
-    }
-
-    /*If interface is working in L2 mode, then accept
-     * the packet irrespective of its Dst Mac address*/
-    if(!IS_INTF_L3_MODE(interface) && 
-        (IF_L2_MODE(interface) == ACCESS ||
-        IF_L2_MODE(interface) == TRUNK)){
-     
-        return TRUE;
-    }
-
-    /* If interface is working in L3 mode, then accept the frame only when
-     * its dst mac matches with receiving interface MAC*/
-    if(IS_INTF_L3_MODE(interface) &&
-        memcmp(IF_MAC(interface), 
-        ethernet_hdr->dst_mac.mac, 
-        sizeof(mac_add_t)) == 0){
-
-        return TRUE;
-    }
-
-    /*If interface is working in L3 mode, then accept the frame with
-     * broadcast MAC*/
-    if(IS_INTF_L3_MODE(interface) &&
-        IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
-
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
 void
 send_arp_broadcast_request(node_t *node, 
                            interface_t *oif, 
@@ -280,4 +232,124 @@ GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
    else
        return ethernet_hdr->payload;
 }
+
+static inline bool_t 
+l2_frame_recv_qualify_on_interface(interface_t *interface, 
+                                    ethernet_hdr_t *ethernet_hdr,
+                                    unsigned int *output_vlan_id){
+
+    *output_vlan_id = 0;
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr = 
+                        is_pkt_vlan_tagged(ethernet_hdr);
+
+    /* Presence of IP address on interface makes it work in L3 mode,
+     * while absence of IP-address automatically make it work in
+     * L2 mode provided that it is operational either in ACCESS mode or TRUNK mode.*/
+
+    /* case 10 : If receiving interface is neither working in L3 mode
+     * nor in L2 mode, then reject the packet*/
+    if(!IS_INTF_L3_MODE(interface) &&
+        IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
+
+        return FALSE;
+    }
+
+    /* If interface is working in ACCESS mode but at the
+     * same time not operating within a vlan, then it must
+     * accept untagged packet only*/
+
+    if(IF_L2_MODE(interface) == ACCESS &&
+        get_access_intf_operating_vlan_id(interface) == 0){
+
+        if(!vlan_8021q_hdr)
+            return TRUE;    /*case 3*/
+        else
+            return FALSE;   /*case 4*/
+    }
+
+    /* if interface is working in ACCESS mode and operating with in
+     * vlan, then :
+     * 1. it must accept untagged frame and tag it with a vlan-id of an interface
+     * 2. Or  it must accept tagged frame but tagged with same vlan-id as interface's vlan operation*/
+
+    unsigned int intf_vlan_id = 0,
+                 pkt_vlan_id = 0;
+
+    if(IF_L2_MODE(interface) == ACCESS){
+        
+        intf_vlan_id = get_access_intf_operating_vlan_id(interface);
+            
+        if(!vlan_8021q_hdr && intf_vlan_id){
+            *output_vlan_id = intf_vlan_id;
+            return TRUE; /*case 6*/
+        }
+
+        if(!vlan_8021q_hdr && !intf_vlan_id){
+            /*case 3*/
+            return TRUE;
+        }
+
+        pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+        if(pkt_vlan_id == intf_vlan_id){
+            return TRUE;    /*case 5*/
+        }
+        else{
+            return FALSE;   /*case 5*/
+        }
+    }
+
+    /* if interface is operating in a TRUNK mode, then it must discard all untagged
+     * frames*/
+    
+    if(IF_L2_MODE(interface) == TRUNK){
+       
+        if(!vlan_8021q_hdr){
+            /*case 7 & 8*/
+            return FALSE;
+        }
+    }
+
+    /* if interface is operating in a TRUNK mode, then it must accept the frame
+     * which are tagged with any vlan-id in which interface is operating.*/
+
+    if(IF_L2_MODE(interface) == TRUNK && 
+            vlan_8021q_hdr){
+        
+        pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+        if(is_trunk_interface_vlan_enabled(interface, pkt_vlan_id)){
+            return TRUE;    /*case 9*/
+        }
+        else{
+            return FALSE;   /*case 9*/
+        }
+    }
+    
+    /*If the interface is operating in L3 mode, and recv vlan tagged frame, drop it*/
+    if(IS_INTF_L3_MODE(interface) && vlan_8021q_hdr){
+        /*case 2*/
+        return FALSE;
+    }
+
+    /* If interface is working in L3 mode, then accept the frame only when
+     * its dst mac matches with receiving interface MAC*/
+    if(IS_INTF_L3_MODE(interface) &&
+        memcmp(IF_MAC(interface), 
+        ethernet_hdr->dst_mac.mac, 
+        sizeof(mac_add_t)) == 0){
+        /*case 1*/
+        return TRUE;
+    }
+
+    /*If interface is working in L3 mode, then accept the frame with
+     * broadcast MAC*/
+    if(IS_INTF_L3_MODE(interface) &&
+        IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
+        /*case 1*/
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 #endif /* __LAYER2__ */
