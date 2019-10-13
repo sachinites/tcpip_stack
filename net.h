@@ -187,4 +187,14 @@ get_access_intf_operating_vlan_id(interface_t *interface);
 
 bool_t
 is_trunk_interface_vlan_enabled(interface_t *interface, unsigned int vlan_id);  
+
+char *
+pkt_buffer_shift_right(char *pkt, unsigned int pkt_size,
+                               unsigned int total_buffer_size);
+
+bool_t
+pkt_buffer_check_hdr_space(unsigned int pkt_size,
+        unsigned int total_buffer_size,
+        unsigned int additional_space_requested);
+
 #endif /* __NET__ */

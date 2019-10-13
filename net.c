@@ -241,3 +241,42 @@ is_trunk_interface_vlan_enabled(interface_t *interface,
     return FALSE;
 }
 
+/*When pkt moves from top to down in TCP/IP stack, we would need
+  room in the pkt buffer to attach more new headers. Below function
+  simply shifts the pkt content present in the start of the pkt buffer
+  towards right so that new room is created*/
+char *
+pkt_buffer_shift_right(char *pkt, unsigned int pkt_size, 
+                       unsigned int total_buffer_size){
+
+    char *temp = NULL;
+    bool_t need_temp_memory = FALSE;
+
+    if(pkt_size * 2 > total_buffer_size){
+        need_temp_memory = TRUE;
+    }
+    
+    if(need_temp_memory){
+        temp = calloc(1, pkt_size);
+        memcpy(temp, pkt, pkt_size);
+        memset(pkt, 0, total_buffer_size);
+        memcpy(pkt + (total_buffer_size - pkt_size), temp, pkt_size);
+        free(temp);
+        return pkt + (total_buffer_size - pkt_size);
+    }
+    
+    memcpy(pkt + (total_buffer_size - pkt_size), pkt, pkt_size);
+    memset(pkt, 0, pkt_size);
+    return pkt + (total_buffer_size - pkt_size);
+}
+
+bool_t 
+pkt_buffer_check_hdr_space(unsigned int pkt_size, 
+                           unsigned int total_buffer_size,
+                           unsigned int additional_space_requested){
+
+    if(total_buffer_size - pkt_size > additional_space_requested)
+        return TRUE;
+    return FALSE;
+}
+
