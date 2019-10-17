@@ -37,6 +37,7 @@
 #include <memory.h>
 #include <stdlib.h>
 #include "tcpconst.h"
+#include "comm.h"
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
@@ -111,12 +112,17 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
 
     ip_hdr_t *ip_hdr = pkt;
 
+    unsigned int dst_ip = htonl(ip_hdr->dst_ip);
+    inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
+
     /*Implement Layer 3 forwarding functionality*/
 
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
 
     if(!l3_route){
         /*Router do not know what to do with the pkt. drop it*/
+        printf("Router %s : Cannot Route IP : %s\n", 
+                    node->node_name, dest_ip_addr);
         return;
     }
 
@@ -151,12 +157,10 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             ip_hdr->total_length - (ip_hdr->ihl * 4));
                     break;
                 case ICMP_PRO:
-                {
-                    unsigned int dst_ip = htonl(ip_hdr->dst_ip);
-                    inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
+                
                     printf("IP Address : %s, ping success\n", dest_ip_addr);
-                }
-                    return;
+                
+                break;
                 default:
                     ;
             }
@@ -424,7 +428,7 @@ demote_packet_to_layer3(node_t *node,
     unsigned int new_pkt_size = 0 ;
 
     new_pkt_size = sizeof(ip_hdr_t) + size;
-    new_pkt = calloc(1, new_pkt_size);
+    new_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
 
     memcpy(new_pkt, (char *)&iphdr, sizeof(ip_hdr_t));
 
@@ -452,10 +456,13 @@ demote_packet_to_layer3(node_t *node,
         next_hop_ip = dest_ip_address;
     }
 
+    char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt, 
+                    new_pkt_size, MAX_PACKET_BUFFER_SIZE);
+
     demote_pkt_to_layer2(node,
                          next_hop_ip,
                          is_direct_route ? 0 : l3_route->oif,
-                         new_pkt, new_pkt_size,
+                         shifted_pkt_buffer, new_pkt_size,
                          ETH_IP);
 
     free(new_pkt);

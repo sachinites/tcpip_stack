@@ -65,11 +65,9 @@ typedef struct ethernet_hdr_{
 #define ETH_HDR_SIZE_EXCL_PAYLOAD   \
     (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
 
-#define ALLOC_ETH_HDR_WITH_PAYLOAD(payload_size) \
-    (calloc(1, (VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size))
-
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
     (*(unsigned int *)(((char *)(eth_hdr_ptr->payload) + payload_size)))
+
 
 void
 send_arp_broadcast_request(node_t *node, 
@@ -231,6 +229,48 @@ GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
    }
    else
        return ethernet_hdr->payload;
+}
+
+#define GET_COMMON_ETH_FCS(eth_hdr_ptr, payload_size)   \
+        (is_pkt_vlan_tagged(eth_hdr_ptr) ? VLAN_ETH_FCS(eth_hdr_ptr, payload_size) : \
+            ETH_FCS(eth_hdr_ptr, payload_size))
+
+static inline void
+SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr, 
+                   unsigned int payload_size,
+                   unsigned int new_fcs){
+
+    if(is_pkt_vlan_tagged(ethernet_hdr)){
+        VLAN_ETH_FCS(ethernet_hdr, payload_size) = new_fcs;
+    }
+    else{
+        ETH_FCS(ethernet_hdr, payload_size) = new_fcs;
+    }
+}
+
+static inline ethernet_hdr_t *
+ALLOC_ETH_HDR_WITH_PAYLOAD(char *pkt, unsigned int pkt_size){
+
+    char *temp = calloc(1, pkt_size);
+    memcpy(temp, pkt, pkt_size);
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(pkt - ETH_HDR_SIZE_EXCL_PAYLOAD);
+    memset((char *)eth_hdr, 0, ETH_HDR_SIZE_EXCL_PAYLOAD);
+    memcpy(eth_hdr->payload, temp, pkt_size);
+    SET_COMMON_ETH_FCS(eth_hdr, pkt_size, 0);
+    free(temp);
+    return eth_hdr;
+}
+
+static inline unsigned int 
+GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
+
+    if(is_pkt_vlan_tagged(ethernet_hdr)){
+        return VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;        
+    }
+    else{
+        return ETH_HDR_SIZE_EXCL_PAYLOAD; 
+    }
 }
 
 static inline bool_t 

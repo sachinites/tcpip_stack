@@ -193,7 +193,7 @@ pkt_buffer_shift_right(char *pkt, unsigned int pkt_size,
                                unsigned int total_buffer_size);
 
 bool_t
-pkt_buffer_check_hdr_space(unsigned int pkt_size,
+pkt_buffer_check_additional_hdr_space(unsigned int pkt_size,
         unsigned int total_buffer_size,
         unsigned int additional_space_requested);
 

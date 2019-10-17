@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <netdb.h> /*for struct hostent*/
+#include "net.h"
 
 static int
 _send_pkt_out(int sock_fd, char *pkt_data, unsigned int pkt_size, 
@@ -275,6 +276,11 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 int
 pkt_receive(node_t *node, interface_t *interface,
             char *pkt, unsigned int pkt_size){
+
+    /*Make room in the packet buffer by shifting the data towards
+      right so that tcp/ip stack can append more hdrs to the packet 
+      as required */
+    pkt = pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE);
 
     /*Do further processing of the pkt here*/
     layer2_frame_recv(node, interface, pkt, pkt_size );

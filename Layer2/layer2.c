@@ -35,7 +35,7 @@
 #include "layer2.h"
 #include <stdlib.h>
 #include <sys/socket.h>
-
+#include "comm.h"
 
 /*A Routine to resolve ARP out of oif*/
 void
@@ -45,7 +45,8 @@ send_arp_broadcast_request(node_t *node,
 
     /*Take memory which can accomodate Ethernet hdr + ARP hdr*/
     unsigned int payload_size = sizeof(arp_hdr_t);
-    ethernet_hdr_t *ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(payload_size);
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(1, 
+                ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
 
     if(!oif){
         oif = node_get_matching_subnet_interface(node, ip_addr);
@@ -84,7 +85,7 @@ send_arp_broadcast_request(node_t *node,
     inet_pton(AF_INET, ip_addr, &arp_hdr->dst_ip);
     arp_hdr->dst_ip = htonl(arp_hdr->dst_ip);
 
-    ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t)) = 0; /*Not used*/
+    SET_COMMON_ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t), 0); /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
     send_pkt_out((char *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size,
@@ -98,7 +99,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
 
-    ethernet_hdr_t *ethernet_hdr_reply = ALLOC_ETH_HDR_WITH_PAYLOAD(sizeof(arp_hdr_t));
+    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)calloc(1, MAX_PACKET_BUFFER_SIZE);
 
     memcpy(ethernet_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
@@ -121,10 +122,15 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
     memcpy(arp_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
     arp_hdr_reply->dst_ip = arp_hdr_in->src_ip;
   
-    send_pkt_out((char *)ethernet_hdr_reply, sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t),
-                    oif);
+    SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
 
-    ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t)) = 0; /*Not used*/
+    unsigned int total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(arp_hdr_t);
+
+    char *shifted_pkt_buffer = pkt_buffer_shift_right((char *)ethernet_hdr_reply, 
+                               total_pkt_size, MAX_PACKET_BUFFER_SIZE);
+
+    send_pkt_out(shifted_pkt_buffer, total_pkt_size, oif);
+
     free(ethernet_hdr_reply);  
 }
 
@@ -302,8 +308,7 @@ pending_arp_processing_callback_function(node_t *node,
     unsigned int pkt_size = arp_pending_entry->pkt_size;
     memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-    // This is pending
-    //ETH_FCS(ethernet_hdr, pkt_size - ) = 0;
+    SET_COMMON_ETH_FCS(ethernet_hdr, pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
     send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 }
 
@@ -608,7 +613,7 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
         /*send to self*/
         memcpy(ethernet_hdr->dst_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
         memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-        ETH_FCS(ethernet_hdr, ethernet_payload_size) = 0;
+        SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         send_pkt_to_self((char *)ethernet_hdr, pkt_size, oif);
         return;
     }
@@ -629,7 +634,7 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
     l2_frame_prepare:
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
         memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-        ETH_FCS(ethernet_hdr, ethernet_payload_size) = 0;
+        SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 }
 
@@ -650,14 +655,11 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
 
     if(protocol_number == ETH_IP){
    
-        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt_size); 
+        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
         empty_ethernet_hdr->type = ETH_IP;
-        memcpy(GET_ETHERNET_HDR_PAYLOAD(empty_ethernet_hdr), pkt, pkt_size);
 
         l2_forward_ip_packet(node, next_hop_ip, 
             outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
-
-        free(empty_ethernet_hdr);
     }
 }
 
@@ -736,13 +738,16 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
 /*Vlan Management Routines*/
 
 /* Return new packet size if pkt is tagged with new vlan id*/
-unsigned int 
+
+ethernet_hdr_t * 
 tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr, 
                      unsigned int total_pkt_size,
-                     int vlan_id){
+                     int vlan_id, 
+                     unsigned int *new_pkt_size){
 
     unsigned int payload_size  = 0 ;
-    
+    *new_pkt_size = 0;
+
     /*If the pkt is already tagged, replace it*/
     vlan_8021q_hdr_t *vlan_8021q_hdr = 
         is_pkt_vlan_tagged(ethernet_hdr);
@@ -751,20 +756,25 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     if(vlan_8021q_hdr){
         payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
         vlan_8021q_hdr->tci_vid = (short)vlan_id;
+        
         /*Update checksum, however not used*/
-        VLAN_ETH_FCS(((vlan_ethernet_hdr_t *)ethernet_hdr), payload_size) = 0;
-        return total_pkt_size;
+        SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
+
+        *new_pkt_size = total_pkt_size;
+        return ethernet_hdr;
     }
 
     /*If the pkt is not already tagged, tag it*/
-    char *temp_mem = calloc(1, total_pkt_size);
-    memcpy(temp_mem, (char *)ethernet_hdr, total_pkt_size);
+    ethernet_hdr_t ethernet_hdr_old;
+    memcpy((char *)&ethernet_hdr_old, (char *)ethernet_hdr, 
+                ETH_HDR_SIZE_EXCL_PAYLOAD - sizeof(ethernet_hdr_old.FCS));
 
     payload_size = total_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD; 
-    vlan_ethernet_hdr_t *vlan_ethernet_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
-    ethernet_hdr_t *ethernet_hdr_old = (ethernet_hdr_t *)temp_mem;
+    vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
+            (vlan_ethernet_hdr_t *)((char *)ethernet_hdr - sizeof(vlan_8021q_hdr_t));
 
-    /*No need to touch dst_mac and src_mac*/
+    memcpy(vlan_ethernet_hdr->dst_mac.mac, ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
+    memcpy(vlan_ethernet_hdr->src_mac.mac, ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
 
     /*Come to 802.1Q vlan hdr*/
     vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
@@ -772,46 +782,54 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_dei = 0;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid = (short)vlan_id;
 
-    memcpy((char *)&(vlan_ethernet_hdr->type), (char *)&(ethernet_hdr_old->type),
-        sizeof(ethernet_hdr_old->type) + payload_size + 
-        sizeof(ethernet_hdr_old->FCS));
+    /*Type field*/
+    vlan_ethernet_hdr->type = ethernet_hdr_old.type;
+
+    /*No need to copy data*/
 
     /*Update checksum, however not used*/
-    VLAN_ETH_FCS(vlan_ethernet_hdr, payload_size) = 0;
-    free(temp_mem);
-
-    return total_pkt_size + sizeof(vlan_8021q_hdr_t);
+    SET_COMMON_ETH_FCS((ethernet_hdr_t *)vlan_ethernet_hdr, payload_size, 0 );
+    *new_pkt_size = total_pkt_size  + sizeof(vlan_8021q_hdr_t);
+    return (ethernet_hdr_t *)vlan_ethernet_hdr;
 }
 
 /* Return new packet size if pkt is untagged with the existing
  * vlan 801.1q hdr*/
-unsigned int
+ethernet_hdr_t *
 untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr, 
-                     unsigned int total_pkt_size){
+                     unsigned int total_pkt_size,
+                     unsigned int *new_pkt_size){
+
+    *new_pkt_size = 0;
 
     vlan_8021q_hdr_t *vlan_8021q_hdr =
         is_pkt_vlan_tagged(ethernet_hdr);
     
     /*NOt tagged already, do nothing*/    
     if(!vlan_8021q_hdr){
-        return total_pkt_size;
+        *new_pkt_size = total_pkt_size;
+        return ethernet_hdr;
     }
 
-    vlan_ethernet_hdr_t *vlan_ethernet_hdr_old = calloc(1, total_pkt_size); 
-    memcpy((char *)vlan_ethernet_hdr_old, (char *)ethernet_hdr, total_pkt_size);
-    
-    unsigned int payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
-    /*No need to touch dst_mac and src_mac*/
+    vlan_ethernet_hdr_t vlan_ethernet_hdr_old;
+    memcpy((char *)&vlan_ethernet_hdr_old, (char *)ethernet_hdr, 
+                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - sizeof(vlan_ethernet_hdr_old.FCS));
 
-    memcpy((char *)&(ethernet_hdr->type), (char *)&(vlan_ethernet_hdr_old->type),
-        sizeof(ethernet_hdr->type) + payload_size + 
-        sizeof(ethernet_hdr->FCS)); 
-            
+    ethernet_hdr = (ethernet_hdr_t *)((char *)ethernet_hdr + sizeof(vlan_8021q_hdr_t));
+   
+    memcpy(ethernet_hdr->dst_mac.mac, vlan_ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
+    memcpy(ethernet_hdr->src_mac.mac, vlan_ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
+
+    ethernet_hdr->type = vlan_ethernet_hdr_old.type;
+    
+    /*No need to copy data*/
+    unsigned int payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
+
     /*Update checksum, however not used*/
-    ETH_FCS(ethernet_hdr, payload_size) = 0;
-    free(vlan_ethernet_hdr_old);
-     
-    return total_pkt_size - sizeof(vlan_8021q_hdr_t);
+    SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
+    
+    *new_pkt_size = total_pkt_size - sizeof(vlan_8021q_hdr_t);
+    return ethernet_hdr;
 }
 
 void
@@ -822,7 +840,9 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
-    if(l2_frame_recv_qualify_on_interface(interface, ethernet_hdr, &vlan_id_to_tag) == FALSE){
+    if(l2_frame_recv_qualify_on_interface(interface, 
+                                          ethernet_hdr, 
+                                          &vlan_id_to_tag) == FALSE){
         
         printf("L2 Frame Rejected on node %s\n", node->node_name);
         return;
@@ -854,7 +874,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
             case ETH_IP:
                 promote_pkt_to_layer3(node, interface, 
                     GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, ETH_IP);
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ETH_IP);
             default:
                 break;
         }
@@ -863,9 +883,11 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 IF_L2_MODE(interface) == TRUNK){
 
         unsigned int new_pkt_size = 0;
+
         if(vlan_id_to_tag){
-            new_pkt_size = tag_pkt_with_vlan_id((ethernet_hdr_t *)pkt,
-                                                pkt_size, vlan_id_to_tag);
+            pkt = (char *)tag_pkt_with_vlan_id((ethernet_hdr_t *)pkt,
+                                                pkt_size, vlan_id_to_tag,
+                                                &new_pkt_size);
             assert(new_pkt_size != pkt_size);
         }
         l2_switch_recv_frame(interface, pkt, vlan_id_to_tag ? new_pkt_size : pkt_size);
