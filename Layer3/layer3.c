@@ -157,9 +157,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             ip_hdr->total_length - (ip_hdr->ihl * 4));
                     break;
                 case ICMP_PRO:
-                
                     printf("IP Address : %s, ping success\n", dest_ip_addr);
-                
                 break;
                 default:
                     ;

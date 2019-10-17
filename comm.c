@@ -240,6 +240,11 @@ send_pkt_out(char *pkt, unsigned int pkt_size,
     if(!nbr_node)
         return -1;
 
+    if(pkt_size + IF_NAME_SIZE > MAX_PACKET_BUFFER_SIZE){
+        printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
+        return -1;
+    }
+
     unsigned int dst_udp_port_no = nbr_node->udp_port_number;
     
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
@@ -280,7 +285,8 @@ pkt_receive(node_t *node, interface_t *interface,
     /*Make room in the packet buffer by shifting the data towards
       right so that tcp/ip stack can append more hdrs to the packet 
       as required */
-    pkt = pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE);
+    pkt = pkt_buffer_shift_right(pkt, pkt_size, 
+            MAX_PACKET_BUFFER_SIZE - IF_NAME_SIZE);
 
     /*Do further processing of the pkt here*/
     layer2_frame_recv(node, interface, pkt, pkt_size );
