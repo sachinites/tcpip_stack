@@ -68,12 +68,6 @@ interface_assign_mac_address(interface_t *interface){
     memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(unsigned int));
 }
 
-bool_t node_set_device_type(node_t *node, unsigned int F){
-
-    SET_BIT(node->node_nw_prop.flags, F);
-    return TRUE;
-}
-
 typedef struct l3_route_ l3_route_t;
 
 extern void
@@ -82,9 +76,6 @@ rt_table_add_direct_route(rt_table_t *rt_table, char *ip_addr, char mask);
 bool_t node_set_loopback_address(node_t *node, char *ip_addr){
 
     assert(ip_addr);
-
-    if(IS_BIT_SET(node->node_nw_prop.flags, HUB))
-        assert(0); /*Wrong Config : A HUB do not have any IP addresses*/
 
     node->node_nw_prop.is_lb_addr_config = TRUE;
     strncpy(NODE_LO_ADDR(node), ip_addr, 16);

@@ -174,7 +174,7 @@ arp_entry_sane(arp_entry_t *arp_entry){
 /*Vlan 802.1q 4 byte hdr*/
 typedef struct vlan_8021q_hdr_{
 
-    short tpid; /* = 0x8100*/
+    unsigned short tpid; /* = 0x8100*/
     short tci_pcp : 3 ;  /* inital 4 bits not used in this course*/
     short tci_dei : 1;   /*Not used*/
     short tci_vid : 12 ; /*Tagged vlan id*/

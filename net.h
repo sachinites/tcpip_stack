@@ -37,11 +37,6 @@
 #include <memory.h>
 /*Do not #include Layer2/layer2.h*/
 
-/* Device IDS */
-#define L3_ROUTER   (1 << 0)
-#define L2_SWITCH   (1 << 1)
-#define HUB         (1 << 2)
-
 typedef struct graph_ graph_t;
 typedef struct interface_ interface_t;
 typedef struct node_ node_t;
@@ -162,7 +157,6 @@ interface_assign_mac_address(interface_t *interface);
 
 
 /*APIs to set Network Node properties*/
-bool_t node_set_device_type(node_t *node, unsigned int F);
 bool_t node_set_loopback_address(node_t *node, char *ip_addr);
 bool_t node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, char mask);
 bool_t node_unset_intf_ip_address(node_t *node, char *local_if);

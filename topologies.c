@@ -72,17 +72,14 @@ build_first_topo(){
     insert_link_between_two_nodes(R1_re, R2_re, "eth0/2", "eth0/3", 1);
     insert_link_between_two_nodes(R0_re, R2_re, "eth0/4", "eth0/5", 1);
 
-    node_set_device_type(R0_re, L3_ROUTER);
     node_set_loopback_address(R0_re, "122.1.1.0");
     node_set_intf_ip_address(R0_re, "eth0/4", "40.1.1.1", 24);
     node_set_intf_ip_address(R0_re, "eth0/0", "20.1.1.1", 24);
     
-    node_set_device_type(R1_re, L3_ROUTER);
     node_set_loopback_address(R1_re, "122.1.1.1");
     node_set_intf_ip_address(R1_re, "eth0/1", "20.1.1.2", 24);
     node_set_intf_ip_address(R1_re, "eth0/2", "30.1.1.1", 24);
 
-    node_set_device_type(R2_re, L3_ROUTER);
     node_set_loopback_address(R2_re, "122.1.1.2");
     node_set_intf_ip_address(R2_re, "eth0/3", "30.1.1.2", 24);
     node_set_intf_ip_address(R2_re, "eth0/5", "40.1.1.2", 24);
@@ -139,23 +136,18 @@ build_simple_l2_switch_topo(){
     insert_link_between_two_nodes(H3, L2SW, "eth0/6", "eth0/2", 1);
     insert_link_between_two_nodes(H4, L2SW, "eth0/7", "eth0/1", 1);
 
-    node_set_device_type(H1, L3_ROUTER);
     node_set_loopback_address(H1, "122.1.1.1");
     node_set_intf_ip_address(H1, "eth0/5", "10.1.1.2", 24);
     
-    node_set_device_type(H2, L3_ROUTER);
     node_set_loopback_address(H2, "122.1.1.2");
     node_set_intf_ip_address(H2, "eth0/8", "10.1.1.4", 24);
 
-    node_set_device_type(H3, L3_ROUTER);
     node_set_loopback_address(H3, "122.1.1.3");
     node_set_intf_ip_address(H3, "eth0/6", "10.1.1.1", 24);
     
-    node_set_device_type(H4, L3_ROUTER);
     node_set_loopback_address(H4, "122.1.1.4");
     node_set_intf_ip_address(H4, "eth0/7", "10.1.1.3", 24);
     
-    node_set_device_type(L2SW, L2_SWITCH);
     node_set_intf_l2_mode(L2SW, "eth0/1", ACCESS);
     node_set_intf_l2_mode(L2SW, "eth0/2", ACCESS);
     node_set_intf_l2_mode(L2SW, "eth0/3", ACCESS);
@@ -217,22 +209,18 @@ run node R1 ping 122.1.1.3
     insert_link_between_two_nodes(R3, R4, "eth0/4", "eth0/5", 1);
     insert_link_between_two_nodes(R4, R1, "eth0/6", "eth0/7", 1);
 
-    node_set_device_type(R1, L3_ROUTER);
     node_set_loopback_address(R1, "122.1.1.1");
     node_set_intf_ip_address(R1, "eth0/0", "10.1.1.1", 24);
     node_set_intf_ip_address(R1, "eth0/7", "40.1.1.2", 24);
     
-    node_set_device_type(R2, L3_ROUTER);
     node_set_loopback_address(R2, "122.1.1.2");
     node_set_intf_ip_address(R2, "eth0/1", "10.1.1.2", 24);
     node_set_intf_ip_address(R2, "eth0/2", "20.1.1.1", 24);
 
-    node_set_device_type(R3, L3_ROUTER);
     node_set_loopback_address(R3, "122.1.1.3");
     node_set_intf_ip_address(R3, "eth0/3", "20.1.1.2", 24);
     node_set_intf_ip_address(R3, "eth0/4", "30.1.1.1", 24);
     
-    node_set_device_type(R4, L3_ROUTER);
     node_set_loopback_address(R4, "122.1.1.4");
     node_set_intf_ip_address(R4, "eth0/5", "30.1.1.2", 24);
     node_set_intf_ip_address(R4, "eth0/6", "40.1.1.1", 24);
@@ -313,6 +301,7 @@ build_dualswitch_topo(){
     node_t *H4 = create_graph_node(topo, "H4");
     node_set_loopback_address(H4, "122.1.1.4");
     node_t *H5 = create_graph_node(topo, "H5");
+
     node_set_loopback_address(H5, "122.1.1.5");
     node_t *H6 = create_graph_node(topo, "H6");
     node_set_loopback_address(H6, "122.1.1.6");

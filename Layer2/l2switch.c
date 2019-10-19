@@ -256,14 +256,21 @@ l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
 
     unsigned int i = 0;
 
+    char *pkt_copy = NULL;
+    char *temp_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+
+    pkt_copy = temp_pkt + MAX_PACKET_BUFFER_SIZE - pkt_size;
+
     for( ; i < MAX_INTF_PER_NODE; i++){
         
         oif = node->intf[i];
         if(!oif) break;
         if(oif == exempted_intf) continue;
-
-        l2_switch_send_pkt_out(pkt, pkt_size, oif);
+        
+        memcpy(pkt_copy, pkt, pkt_size);
+        l2_switch_send_pkt_out(pkt_copy, pkt_size, oif);
     }
+    free(temp_pkt);
 }
 
 static void
