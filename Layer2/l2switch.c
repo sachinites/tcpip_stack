@@ -202,10 +202,16 @@ l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
                 }
 
                 /*Case 3 : If oif is VLAN AWARE, and pkt is also tagged, 
-                  forward the frame only if vlan IDs matches*/
+                  forward the frame only if vlan IDs matches after untagging
+                  the frame*/
                 if(vlan_8021q_hdr && 
                         (intf_vlan_id == GET_802_1Q_VLAN_ID(vlan_8021q_hdr))){
-                    send_pkt_out(pkt, pkt_size, oif);
+
+                    unsigned int new_pkt_size = 0;
+                    ethernet_hdr = untag_pkt_with_vlan_id(ethernet_hdr,
+                                                          pkt_size,
+                                                          &new_pkt_size);
+                    send_pkt_out((char *)ethernet_hdr, new_pkt_size, oif);
                     return TRUE;
                 }
 

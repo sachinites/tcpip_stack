@@ -620,7 +620,7 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
 
     arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
 
-    if (!arp_entry){
+    if (!arp_entry || (arp_entry && arp_entry_sane(arp_entry))){
         
         /*Time for ARP resolution*/
         create_arp_sane_entry(NODE_ARP_TABLE(node), 
@@ -773,11 +773,13 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
             (vlan_ethernet_hdr_t *)((char *)ethernet_hdr - sizeof(vlan_8021q_hdr_t));
 
+    memset((char *)vlan_ethernet_hdr, 0, 
+                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - sizeof(vlan_ethernet_hdr->FCS));
     memcpy(vlan_ethernet_hdr->dst_mac.mac, ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
     memcpy(vlan_ethernet_hdr->src_mac.mac, ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
 
     /*Come to 802.1Q vlan hdr*/
-    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = (short)VLAN_8021Q_PROTO;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_pcp = 0;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_dei = 0;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid = (short)vlan_id;
