@@ -765,6 +765,10 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     }
 
     /*If the pkt is not already tagged, tag it*/
+    /*Fix me : Avoid declaring local variables of type 
+     ethernet_hdr_t or vlan_ethernet_hdr_t as the size of these
+     variables are too large and is not healthy for program stack
+     memory*/
     ethernet_hdr_t ethernet_hdr_old;
     memcpy((char *)&ethernet_hdr_old, (char *)ethernet_hdr, 
                 ETH_HDR_SIZE_EXCL_PAYLOAD - sizeof(ethernet_hdr_old.FCS));
@@ -779,7 +783,7 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     memcpy(vlan_ethernet_hdr->src_mac.mac, ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
 
     /*Come to 802.1Q vlan hdr*/
-    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = (short)VLAN_8021Q_PROTO;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_pcp = 0;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_dei = 0;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid = (short)vlan_id;
@@ -813,6 +817,10 @@ untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
         return ethernet_hdr;
     }
 
+    /*Fix me : Avoid declaring local variables of type 
+     ethernet_hdr_t or vlan_ethernet_hdr_t as the size of these
+     variables are too large and is not healthy for program stack
+     memory*/
     vlan_ethernet_hdr_t vlan_ethernet_hdr_old;
     memcpy((char *)&vlan_ethernet_hdr_old, (char *)ethernet_hdr, 
                 VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - sizeof(vlan_ethernet_hdr_old.FCS));

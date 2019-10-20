@@ -55,7 +55,7 @@ typedef struct ethernet_hdr_{
 
     mac_add_t dst_mac;
     mac_add_t src_mac;
-    short type;
+    unsigned short type;
     char payload[248];  /*Max allowed 1500*/
     unsigned int FCS;
 } ethernet_hdr_t;
@@ -66,7 +66,7 @@ typedef struct ethernet_hdr_{
     (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
 
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
-    (*(unsigned int *)(((char *)(eth_hdr_ptr->payload) + payload_size)))
+    (*(unsigned int *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
 
 
 void
@@ -185,7 +185,7 @@ typedef struct vlan_ethernet_hdr_{
     mac_add_t dst_mac;
     mac_add_t src_mac;
     vlan_8021q_hdr_t vlan_8021q_hdr;
-    short type;
+    unsigned short type;
     char payload[248];  /*Max allowed 1500*/
     unsigned int FCS;
 } vlan_ethernet_hdr_t;
@@ -198,7 +198,7 @@ GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 }
 
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
-    (*(unsigned int *)(((char *)(vlan_eth_hdr_ptr->payload) + payload_size)))
+    (*(unsigned int *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
 
 #define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  \
    (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload)) 
@@ -391,5 +391,16 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
 
     return FALSE;
 }
+
+ethernet_hdr_t *
+untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
+                     unsigned int total_pkt_size,
+                     unsigned int *new_pkt_size);
+
+ethernet_hdr_t *
+tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
+                     unsigned int total_pkt_size,
+                     int vlan_id,
+                     unsigned int *new_pkt_size);
 
 #endif /* __LAYER2__ */
