@@ -36,6 +36,7 @@
 #include "../net.h"
 #include "../gluethread/glthread.h"
 #include "tcpconst.h"
+#include <stdlib.h>  /*for calloc*/
 
 #pragma pack (push,1)
 typedef struct arp_hdr_{

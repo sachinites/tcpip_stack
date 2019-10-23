@@ -32,6 +32,7 @@
 
 #include "utils.h"
 #include <sys/socket.h>
+#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 
 /*Apply mask on prefix, and store result in 'str_prefix'
  *For eg : prefix = 122.1.1.1, mask 24, then str_prefix

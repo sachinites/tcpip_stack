@@ -35,6 +35,7 @@
 
 #include "graph.h"
 #include "comm.h"
+#include "Layer2/layer2.h"
 
 extern void
 network_start_pkt_receiver_thread(graph_t *topo);

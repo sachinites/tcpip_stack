@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include "tcpconst.h"
 #include "comm.h"
+#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
@@ -140,25 +141,32 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
 
         if(is_layer3_local_delivery(node, ip_hdr->dst_ip)){
 
-            l4_hdr = (char *)ip_hdr + (ip_hdr->ihl * 4);
+            l4_hdr = (char *)INCREMENT_IPHDR(ip_hdr);
             l5_hdr = l4_hdr;
 
-            /*chop off the L3 hdr and promote the pkt to transport layer. If transport Layer
-             * Protocol is not specified, then promote the packet directly to application layer
-             * */
             switch(ip_hdr->protocol){
+                /* chop off the L3 hdr and promote the pkt to transport layer. If transport Layer
+                 * Protocol is not specified, then promote the packet directly to application layer
+                 * */
                 case MTCP:
                     promote_pkt_to_layer4(node, interface, l4_hdr,
-                            ip_hdr->total_length - (ip_hdr->ihl * 4),
+                            IP_HDR_PAYLOAD_SIZE(ip_hdr),
                             ip_hdr->protocol);
                     break;
                 case USERAPP1:
                     promote_pkt_to_layer5(node, interface, l5_hdr,
-                            ip_hdr->total_length - (ip_hdr->ihl * 4));
+                            IP_HDR_PAYLOAD_SIZE(ip_hdr));
                     break;
                 case ICMP_PRO:
                     printf("IP Address : %s, ping success\n", dest_ip_addr);
-                break;
+                    break;
+                case IP_IN_IP:
+                    /*Packet has reached ERO, now set the packet onto its new 
+                      Journey from ERO to final destination*/
+                    layer3_ip_pkt_recv_from_layer2(node, interface, 
+                            (ip_hdr_t *)INCREMENT_IPHDR(ip_hdr),
+                            IP_HDR_PAYLOAD_SIZE(ip_hdr));
+                    return;
                 default:
                     ;
             }
@@ -383,6 +391,7 @@ _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
     switch(L3_protocol_type){
         
         case ETH_IP:
+        case IP_IN_IP:
             layer3_ip_pkt_recv_from_layer2(node, interface, (ip_hdr_t *)pkt, pkt_size);
             break;
         default:
@@ -420,18 +429,20 @@ demote_packet_to_layer3(node_t *node,
     iphdr.src_ip = addr_int;
     iphdr.dst_ip = dest_ip_address;
 
-    iphdr.total_length = iphdr.ihl + size;
+    iphdr.total_length = (short)iphdr.ihl + 
+                         (short)(size/4) + 
+                         (short)((size % 4) ? 1 : 0);
 
     char *new_pkt = NULL;
     unsigned int new_pkt_size = 0 ;
 
-    new_pkt_size = sizeof(ip_hdr_t) + size;
+    new_pkt_size = iphdr.total_length * 4;
     new_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
 
-    memcpy(new_pkt, (char *)&iphdr, sizeof(ip_hdr_t));
+    memcpy(new_pkt, (char *)&iphdr, iphdr.ihl * 4);
 
     if(pkt && size)
-        memcpy(new_pkt +  sizeof(ip_hdr_t), pkt, size);
+        memcpy(new_pkt + (iphdr.ihl * 4), pkt, size);
 
     /*Now Resolve Next hop*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
@@ -483,4 +494,35 @@ layer3_ping_fn(node_t *node, char *dst_ip_addr){
     /* We dont have any application or transport layer paylod, so, directly prepare
      * L3 hdr*/
     demote_packet_to_layer3(node, NULL, 0, ICMP_PRO, addr_int);
+}
+
+void
+layer3_ero_ping_fn(node_t *node, char *dst_ip_addr, 
+                    char *ero_ip_address){
+
+    /*Prepare the payload and push it down to the network layer.
+     The payload shall be inner ip hdr*/
+    ip_hdr_t *inner_ip_hdr = calloc(1, sizeof(ip_hdr_t));
+    initialize_ip_hdr(inner_ip_hdr);
+    inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
+    inner_ip_hdr->protocol = ICMP_PRO;
+    
+    unsigned int addr_int = 0;
+    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    addr_int = htonl(addr_int);
+    inner_ip_hdr->src_ip = addr_int;
+    
+    addr_int = 0;
+    inet_pton(AF_INET, dst_ip_addr, &addr_int);
+    addr_int = htonl(addr_int);
+    inner_ip_hdr->dst_ip = addr_int;
+
+    addr_int = 0;
+    inet_pton(AF_INET, ero_ip_address, &addr_int);
+    addr_int = htonl(addr_int);
+
+    demote_packet_to_layer3(node, (char *)inner_ip_hdr, 
+                            inner_ip_hdr->total_length * 4, 
+                            IP_IN_IP, addr_int);
+    free(inner_ip_hdr);
 }

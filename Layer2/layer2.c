@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include "comm.h"
+#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 
 /*A Routine to resolve ARP out of oif*/
 void
@@ -341,7 +342,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
     src_ip = htonl(arp_hdr->src_ip);
 
-    inet_ntop(AF_INET, &src_ip, &arp_entry->ip_addr.ip_addr, 16);
+    inet_ntop(AF_INET, &src_ip, arp_entry->ip_addr.ip_addr, 16);
 
     arp_entry->ip_addr.ip_addr[15] = '\0';
 
@@ -882,9 +883,10 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 }
                 break;
             case ETH_IP:
+            case IP_IN_IP:
                 promote_pkt_to_layer3(node, interface, 
                     GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ETH_IP);
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ethernet_hdr->type);
             default:
                 break;
         }

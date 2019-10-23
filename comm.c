@@ -41,6 +41,7 @@
 #include <errno.h>
 #include <netdb.h> /*for struct hostent*/
 #include "net.h"
+#include <unistd.h> // for close
 
 static int
 _send_pkt_out(int sock_fd, char *pkt_data, unsigned int pkt_size, 
