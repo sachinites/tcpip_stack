@@ -137,6 +137,7 @@ void dump_intf_props(interface_t *interface){
          }
          printf("\n");
     }
+    printf("\t Hello Timer = %p\n", interface->intf_nw_props.hellos);
 }
 
 void dump_nw_graph(graph_t *graph){

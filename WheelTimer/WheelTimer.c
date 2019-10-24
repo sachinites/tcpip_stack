@@ -79,9 +79,11 @@ wheel_fn(void *arg){
 
 		slot_list = &wt->slots[wt->current_clock_tic];
 		absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
+#if 0
 		printf("Wheel Timer Time = %d : ", absolute_slot_no * wt->clock_tic_interval);
 		if(IS_GLTHREAD_LIST_EMPTY(slot_list))
 			printf("\n");
+#endif
 
          /* This is a macro to iterate over a linked list. While 
           * iterating over a linked list, even if you delete the current node

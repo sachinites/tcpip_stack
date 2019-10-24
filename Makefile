@@ -14,7 +14,8 @@ OBJS=gluethread/glthread.o \
 		  nwcli.o		   \
 		  utils.o		   \
 		  Layer2/l2switch.o \
-          WheelTimer/WheelTimer.o
+          WheelTimer/WheelTimer.o   \
+          hello.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -27,6 +28,9 @@ gluethread/glthread.o:gluethread/glthread.c
 
 WheelTimer/WheelTimer.o:WheelTimer/WheelTimer.c
 	${CC} ${CFLAGS} -c -I gluethread -I WheelTimer WheelTimer/WheelTimer.c -o WheelTimer/WheelTimer.o
+
+hello.o:hello.c
+	${CC} ${CFLAGS} -c -I . hello.c -o hello.o
 
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o

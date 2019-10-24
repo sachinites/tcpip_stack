@@ -376,6 +376,12 @@ extern void
 interface_unset_vlan(node_t *node,
                       interface_t *interface,
                       unsigned int vlan);
+extern bool_t
+schedule_hello_on_interface(interface_t *intf,
+                            int interval_sec,
+                            bool_t is_repeat);
+extern void
+stop_interface_hellos(interface_t *interface);
 
 static int
 intf_config_handler(param_t *param, ser_buff_t *tlv_buf, 
@@ -438,6 +444,17 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     ;
             }
             break;
+        case CONFIG_INTF_HELLOS:
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    schedule_hello_on_interface(interface, 5, TRUE);
+                    break;
+                case CONFIG_DISABLE:
+                    stop_interface_hellos(interface);
+                    break;
+                default:
+                    ;
+            }
          default:
             ;    
     }
@@ -581,10 +598,17 @@ nw_init_cli(){
                     {
                         /*config node <node-name> interface <if-name> l2mode <access|trunk>*/
                         static param_t l2_mode_val;
-                        init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value,  STRING, "l2-mode-val", "access|trunk");
+                        init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value, STRING, "l2-mode-val", "access|trunk");
                         libcli_register_param(&l2_mode, &l2_mode_val);
                         set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
                     } 
+                }
+                {
+                    /*config node <node-name> interface <if-name> hellos*/
+                    static param_t hellos;
+                    init_param(&hellos, CMD, "hellos", intf_config_handler, 0, INVALID, 0, "Enable/Disable Hellos");
+                    libcli_register_param(&if_name, &hellos);
+                    set_param_cmd_code(&hellos, CONFIG_INTF_HELLOS);
                 }
                 {
                     /*config node <node-name> interface <if-name> vlan*/
@@ -600,7 +624,7 @@ nw_init_cli(){
                     }   
                 }    
             }
-            
+            support_cmd_negation(&interface); 
         }
         
         {

@@ -35,6 +35,8 @@
 
 #include "utils.h"
 #include <memory.h>
+#include "WheelTimer/WheelTimer.h"
+
 /*Do not #include Layer2/layer2.h*/
 
 typedef struct graph_ graph_t;
@@ -70,6 +72,8 @@ typedef struct node_nw_prop_{
     bool_t is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
 
+    /*Timer Properties*/
+    wheel_timer_t *wt;
 } node_nw_prop_t;
 
 extern void init_arp_table(arp_table_t **arp_table);
@@ -85,6 +89,8 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
+    node_nw_prop->wt = init_wheel_timer(60, 1);
+    start_wheel_timer(node_nw_prop->wt);
 }
 
 typedef enum{
@@ -108,6 +114,7 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 }
 
 #define MAX_VLAN_MEMBERSHIP 10
+#include "WheelTimer/WheelTimer.h"
 
 typedef struct intf_nw_props_ {
 
@@ -121,6 +128,9 @@ typedef struct intf_nw_props_ {
     bool_t is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
+
+    /*Miscellaneous properties*/
+    wheel_timer_elem_t *hellos;
 } intf_nw_props_t;
 
 
@@ -138,6 +148,8 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
     intf_nw_props->mask = 0;
 
+    /*Miscellaneous properties*/
+    intf_nw_props->hellos = NULL;
 }
 
 void
