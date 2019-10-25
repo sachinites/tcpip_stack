@@ -48,6 +48,7 @@ typedef struct adjacency_{
     char router_id[16]; /*key*/
     char nbr_ip[16];
     glthread_t glue;
+    wheel_timer_elem_t *expiry_timer;
 } adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_adjacency, adjacency_t, glue);
 
@@ -63,9 +64,22 @@ process_hello_msg(interface_t *iif,
 
 void
 delete_interface_adjacency(interface_t *interface, 
-                            char *router_id);
+                            char *router_id, 
+                            int is_timer_triggered);
 
 void
 dump_interface_adjacencies(interface_t *interface);
 
+/*Adjacency Timers*/
+void
+adjacency_delete_expiry_timer(adjacency_t *adjacency, 
+                              int is_timer_triggered);
+
+void
+adjacency_refresh_expiry_timer(interface_t *interface,
+                               adjacency_t *adjacency);
+
+void
+adjacency_start_expiry_timer(interface_t *interface,
+                             adjacency_t *adjacency);
 #endif /* __HELLO__ */

@@ -4,6 +4,8 @@
 #include "comm.h"
 #include "net.h"
 
+#define ADJ_DEF_EXPIRY_TIMER    10
+
 typedef struct pkt_meta_data_{
 
     interface_t *intf;
@@ -95,8 +97,9 @@ stop_interface_hellos(interface_t *interface){
 
 static void
 update_interface_adjacency_from_hello(interface_t *interface,
-                                       hello_t *hello){
+                                      hello_t *hello){
 
+    bool_t new_adj = FALSE;
     adjacency_t *adjacency = NULL;
 
     adjacency = find_adjacency_on_interface(interface, hello->router_id);
@@ -105,10 +108,15 @@ update_interface_adjacency_from_hello(interface_t *interface,
         adjacency = (adjacency_t *)calloc(1, sizeof(adjacency_t));
         init_glthread(&adjacency->glue);
         glthread_add_next(GET_INTF_ADJ_LIST(interface), &adjacency->glue);
+        new_adj = TRUE;
     }
     memcpy(adjacency->router_name, hello->router_name, NODE_NAME_SIZE);
     memcpy(adjacency->router_id, hello->router_id, 16);
     memcpy(adjacency->nbr_ip, hello->intf_ip, 16);
+    if(new_adj)
+        adjacency_start_expiry_timer(interface, adjacency);
+    else
+        adjacency_refresh_expiry_timer(interface, adjacency);
     interface->intf_nw_props.hellos_recv++;
 }
 
@@ -146,8 +154,13 @@ dump_interface_adjacencies(interface_t *interface){
     ITERATE_GLTHREAD_BEGIN(GET_INTF_ADJ_LIST(interface), curr){
         
         adjacency = glthread_to_adjacency(curr);
-        printf("\t\t Adjacency : Nbr Name : %s, Router id : %s, nbr ip : %s\n",
-            adjacency->router_name, adjacency->router_id, adjacency->nbr_ip);
+        printf("\t\t Adjacency : Nbr Name : %s, Router id : %s,"
+               " nbr ip : %s, Expires in : %d sec\n",
+                adjacency->router_name, 
+                adjacency->router_id, 
+                adjacency->nbr_ip, 
+                wt_get_remaining_time(GET_NODE_TIMER_FROM_INTF(interface),
+                adjacency->expiry_timer));
     } ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);    
 }
 
@@ -155,7 +168,8 @@ dump_interface_adjacencies(interface_t *interface){
  * delete only particular adj*/
 void
 delete_interface_adjacency(interface_t *interface, 
-                            char *router_id){
+                            char *router_id, 
+                            int is_timer_triggered){
 
     adjacency_t *adjacency = NULL;
     
@@ -164,6 +178,7 @@ delete_interface_adjacency(interface_t *interface,
         adjacency = find_adjacency_on_interface(interface, router_id);
         if(!adjacency) return;
         remove_glthread(&adjacency->glue);
+        adjacency_delete_expiry_timer(adjacency, is_timer_triggered);
         free(adjacency);
         return;
     }
@@ -173,6 +188,7 @@ delete_interface_adjacency(interface_t *interface,
 
         adjacency = glthread_to_adjacency(curr);  
         remove_glthread(&adjacency->glue);
+        adjacency_delete_expiry_timer(adjacency, is_timer_triggered);
         free(adjacency);
     }ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);
 }
@@ -191,3 +207,78 @@ find_adjacency_on_interface(interface_t *interface, char *router_id){
     } ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);
     return NULL;
 }
+
+/*Adjacency Timers*/
+
+typedef struct adj_key_{
+
+    interface_t *interface;
+    char nbr_rtr_id[16];
+} adj_key_t;
+
+static void
+set_adjacency_key(interface_t *interface, 
+                  adjacency_t *adjacency, 
+                  adj_key_t *adj_key){
+
+    memset(adj_key, 0, sizeof(adj_key_t));
+    adj_key->interface = interface;
+    memcpy(adj_key->nbr_rtr_id, adjacency->router_id, 16);
+}
+
+
+void
+adjacency_delete_expiry_timer(adjacency_t *adjacency, 
+                                int is_timer_triggered){
+
+    assert(adjacency->expiry_timer);
+    if(is_timer_triggered == NOT_TIMER_TRIGGERED_CB)
+        de_register_app_event(adjacency->expiry_timer);
+    adjacency->expiry_timer = NULL;
+}
+
+void
+adjacency_refresh_expiry_timer(interface_t *interface,
+        adjacency_t *adjacency){
+
+    wheel_timer_elem_t *wt_elem = 
+        adjacency->expiry_timer;
+    
+    assert(wt_elem);
+
+    wt_elem_reschedule(GET_NODE_TIMER_FROM_INTF(interface),
+                        wt_elem, ADJ_DEF_EXPIRY_TIMER);
+}
+
+static void
+timer_expire_delete_adjacency_cb(void *arg, int sizeof_arg){
+
+    adj_key_t *adj_key = (adj_key_t *)arg;
+    delete_interface_adjacency(adj_key->interface, 
+                               adj_key->nbr_rtr_id, 
+                               TIMER_TRIGGERED_CB);
+}
+
+
+void
+adjacency_start_expiry_timer(interface_t *interface,
+        adjacency_t *adjacency){
+
+    if(adjacency->expiry_timer){
+        adjacency_delete_expiry_timer(adjacency, NOT_TIMER_TRIGGERED_CB);
+    }
+
+    adj_key_t adj_key;
+    set_adjacency_key(interface, adjacency, &adj_key);
+
+    adjacency->expiry_timer = register_app_event(GET_NODE_TIMER_FROM_INTF(interface),
+                                    timer_expire_delete_adjacency_cb,
+                                    (void *)&adj_key, sizeof(adj_key_t),
+                                    ADJ_DEF_EXPIRY_TIMER,
+                                    0);
+    if(!adjacency->expiry_timer){
+        printf("Error : Expiry timer for Adjacency : %s, %s, %s could not be started\n",
+            interface->att_node->node_name, interface->if_name, adjacency->router_name);
+    }
+}
+

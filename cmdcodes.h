@@ -47,4 +47,5 @@
 #define CMDCODE_CONFIG_INTF_HELLOS  12  /*config node <node-name> interface <intf-name> hellos*/
 
 #define CMDCODE_SHOW_INTF_STATS     13 /*show node <node-name> interface statistics*/
+#define CMDCODE_DEBUG_SHOW_NODE_TIMER   14 /*debug show node <node-name> timer*/
 #endif /* __CMDCODES__ */

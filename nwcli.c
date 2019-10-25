@@ -35,6 +35,7 @@
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include "cmdcodes.h"
+#include "WheelTimer/WheelTimer.h"
 
 extern graph_t *topo;
 
@@ -512,7 +513,36 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
+/*Miscellaneous Commands*/
+static int
+debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
+                         op_mode enable_or_disable){
 
+   char *node_name;
+   tlv_struct_t *tlv = NULL;
+   node_t *node;
+   int CMDCODE;
+
+   CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+        
+        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+    }TLV_LOOP_END;
+
+   node = get_node_by_node_name(topo, node_name);
+
+   switch(CMDCODE){
+        case CMDCODE_DEBUG_SHOW_NODE_TIMER:
+            print_wheel_timer(node->node_nw_prop.wt);         
+        break;
+        default:
+        break;
+   }
+}
 
 void
 nw_init_cli(){
@@ -526,6 +556,25 @@ nw_init_cli(){
     param_t *debug_show = libcli_get_debug_show_hook();
     param_t *root = libcli_get_root();
 
+    {
+        /*debug show node*/
+        static param_t node;
+        init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
+        libcli_register_param(debug_show, &node);
+        {
+            /*debug show node <node-name>*/
+            static param_t node_name;
+            init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
+            libcli_register_param(&node, &node_name);
+            {
+                /*debug show node <node-name> timer*/
+                static param_t timer;
+                init_param(&timer, CMD, "timer", debug_show_node_handler, 0, INVALID, 0, "Timer State");
+                libcli_register_param(&node_name, &timer);
+                set_param_cmd_code(&timer, CMDCODE_DEBUG_SHOW_NODE_TIMER);
+            }
+        }
+    }
     {
         /*show topology*/
          static param_t topology;
