@@ -864,7 +864,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
         return;
     }
 
-    printf("L2 Frame Accepted on node %s\n", node->node_name);
+    //printf("L2 Frame Accepted on node %s\n", node->node_name);
 
     /*Handle Reception of a L2 Frame on L3 Interface*/
     if(IS_INTF_L3_MODE(interface)){

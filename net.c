@@ -142,7 +142,7 @@ void dump_intf_props(interface_t *interface){
     dump_interface_adjacencies(interface);
 }
 
-void dump_nw_graph(graph_t *graph){
+void dump_nw_graph(graph_t *graph, node_t *node1){
 
     node_t *node;
     glthread_t *curr;
@@ -150,18 +150,27 @@ void dump_nw_graph(graph_t *graph){
     unsigned int i;
     
     printf("Topology Name = %s\n", graph->topology_name);
+    
+    if(!node1){
+        ITERATE_GLTHREAD_BEGIN(&graph->node_list, curr){
 
-    ITERATE_GLTHREAD_BEGIN(&graph->node_list, curr){
-
-        node = graph_glue_to_node(curr);
-        dump_node_nw_props(node);
+            node = graph_glue_to_node(curr);
+            dump_node_nw_props(node);
+            for( i = 0; i < MAX_INTF_PER_NODE; i++){
+                interface = node->intf[i];
+                if(!interface) break;
+                dump_intf_props(interface);
+            }
+        } ITERATE_GLTHREAD_END(&graph->node_list, curr);
+    }
+    else{
+        dump_node_nw_props(node1);
         for( i = 0; i < MAX_INTF_PER_NODE; i++){
-            interface = node->intf[i];
+            interface = node1->intf[i];
             if(!interface) break;
             dump_intf_props(interface);
         }
-    } ITERATE_GLTHREAD_END(&graph->node_list, curr);
-
+    }
 }
 
 /*Returns the local interface of the node which is configured 

@@ -106,12 +106,27 @@ static int
 show_nw_topology_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
     int CMDCODE = -1;
+    node_t *node = NULL;
+    char *node_name = NULL;;
+    tlv_struct_t *tlv = NULL;
+
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+        
+        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+    } TLV_LOOP_END;
+
+    if(node_name)
+        node = get_node_by_node_name(topo, node_name);
 
     switch(CMDCODE){
 
         case CMDCODE_SHOW_NW_TOPOLOGY:
-            dump_nw_graph(topo);
+            dump_nw_graph(topo, node);
             break;
         default:
             ;
@@ -517,6 +532,19 @@ nw_init_cli(){
          init_param(&topology, CMD, "topology", show_nw_topology_handler, 0, INVALID, 0, "Dump Complete Network Topology");
          libcli_register_param(show, &topology);
          set_param_cmd_code(&topology, CMDCODE_SHOW_NW_TOPOLOGY);
+         {
+             /*show topology node*/ 
+             static param_t node;
+             init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
+             libcli_register_param(&topology, &node);
+             {
+                /*show topology node <node-name>*/ 
+                 static param_t node_name;
+                 init_param(&node_name, LEAF, 0, show_nw_topology_handler, validate_node_extistence, STRING, "node-name", "Node Name");
+                 libcli_register_param(&node, &node_name);
+                 set_param_cmd_code(&node_name, CMDCODE_SHOW_NW_TOPOLOGY);
+             }
+         }
          
          {
             /*show node*/    

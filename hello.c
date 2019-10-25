@@ -17,9 +17,11 @@ transmit_hellos(void *arg, int sizeof_arg){
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)arg;
     send_pkt_out(pkt_meta_data->pkt, pkt_meta_data->pkt_size,
             pkt_meta_data->intf);
+#if 0
     printf("Hello sent out of interface : (%s)%s\n", 
             pkt_meta_data->intf->att_node->node_name, 
             pkt_meta_data->intf->if_name);
+#endif
     pkt_meta_data->intf->intf_nw_props.hellos_sent++;
 }
 

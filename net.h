@@ -190,7 +190,7 @@ bool_t node_unset_intf_ip_address(node_t *node, char *local_if);
 
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/
-void dump_nw_graph(graph_t *graph);
+void dump_nw_graph(graph_t *graph, node_t *node);
 void dump_node_nw_props(node_t *node);
 void dump_intf_props(interface_t *interface);
 void dump_node_interface_stats(node_t *node);
