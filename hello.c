@@ -97,10 +97,14 @@ static void
 update_interface_adjacency_from_hello(interface_t *interface,
                                        hello_t *hello){
 
-    adjacency_t *adjacency = interface->intf_nw_props.adjacency;
+    adjacency_t *adjacency = NULL;
+
+    adjacency = find_adjacency_on_interface(interface, hello->router_id);
+
     if(!adjacency){
         adjacency = (adjacency_t *)calloc(1, sizeof(adjacency_t));
-        interface->intf_nw_props.adjacency = adjacency;
+        init_glthread(&adjacency->glue);
+        glthread_add_next(GET_INTF_ADJ_LIST(interface), &adjacency->glue);
     }
     memcpy(adjacency->router_name, hello->router_name, NODE_NAME_SIZE);
     memcpy(adjacency->router_id, hello->router_id, 16);
@@ -113,7 +117,7 @@ process_hello_msg(interface_t *iif, ethernet_hdr_t *hello_eth_hdr){
 
 	/*Reject the pkt if dst mac is not Brodcast mac*/
     if(!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)){
-        goto del_adj;
+        goto bad_hello;
 	}
 
     /* Reject hello if ip_address in hello do not lies in same subnet as
@@ -123,34 +127,67 @@ process_hello_msg(interface_t *iif, ethernet_hdr_t *hello_eth_hdr){
     if(!is_same_subnet(IF_IP(iif), 
                        iif->intf_nw_props.mask, 
                        hello->intf_ip)){
-        goto del_adj;
+        goto bad_hello;
     }
 
     update_interface_adjacency_from_hello(iif, hello);
     return ;
 
-    del_adj:
-        delete_interface_adjacency(iif);
+    bad_hello:
         iif->intf_nw_props.bad_hellos_recv++;
 }
 
 void
 dump_interface_adjacencies(interface_t *interface){
 
-    adjacency_t *adjacency = interface->intf_nw_props.adjacency;
-    if(!adjacency)
-        return;
-
-    printf("\t\t Adjacency : Nbr Name : %s, Router id : %s, nbr ip : %s\n",
+    glthread_t *curr;
+    adjacency_t *adjacency;
+    
+    ITERATE_GLTHREAD_BEGIN(GET_INTF_ADJ_LIST(interface), curr){
+        
+        adjacency = glthread_to_adjacency(curr);
+        printf("\t\t Adjacency : Nbr Name : %s, Router id : %s, nbr ip : %s\n",
             adjacency->router_name, adjacency->router_id, adjacency->nbr_ip);
+    } ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);    
 }
 
+/* Delete all interface adj if router_id is NULL, else
+ * delete only particular adj*/
 void
-delete_interface_adjacency(interface_t *interface){
+delete_interface_adjacency(interface_t *interface, 
+                            char *router_id){
 
-    adjacency_t *adjacency = interface->intf_nw_props.adjacency;
-    if(!adjacency)
+    adjacency_t *adjacency = NULL;
+    
+    if(router_id){
+
+        adjacency = find_adjacency_on_interface(interface, router_id);
+        if(!adjacency) return;
+        remove_glthread(&adjacency->glue);
+        free(adjacency);
         return;
-    free(adjacency);
-    interface->intf_nw_props.adjacency = NULL;
+    }
+
+    glthread_t *curr;
+    ITERATE_GLTHREAD_BEGIN(GET_INTF_ADJ_LIST(interface), curr){
+
+        adjacency = glthread_to_adjacency(curr);  
+        remove_glthread(&adjacency->glue);
+        free(adjacency);
+    }ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);
+}
+
+adjacency_t *
+find_adjacency_on_interface(interface_t *interface, char *router_id){
+
+    glthread_t *curr;
+    adjacency_t *adjacency;
+
+    ITERATE_GLTHREAD_BEGIN(GET_INTF_ADJ_LIST(interface), curr){
+
+        adjacency = glthread_to_adjacency(curr);
+        if(strncmp(adjacency->router_id, router_id, 16) == 0)
+            return adjacency;
+    } ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);
+    return NULL;
 }

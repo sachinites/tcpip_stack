@@ -116,8 +116,6 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 #define MAX_VLAN_MEMBERSHIP 10
 #include "WheelTimer/WheelTimer.h"
 
-typedef struct adjacency_ adjacency_t;
-
 typedef struct intf_nw_props_ {
 
     /*L2 properties*/
@@ -130,7 +128,7 @@ typedef struct intf_nw_props_ {
     bool_t is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
-    adjacency_t *adjacency;
+    glthread_t adjacency_list;
 
     /*Miscellaneous properties*/
     wheel_timer_elem_t *hellos;
@@ -155,7 +153,7 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->is_ipadd_config = FALSE;
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
     intf_nw_props->mask = 0;
-    intf_nw_props->adjacency = NULL;
+    init_glthread(&intf_nw_props->adjacency_list);
 
     /*Miscellaneous properties*/
     intf_nw_props->hellos = NULL;

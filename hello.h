@@ -45,16 +45,25 @@ is_hellos_scheduled_on_intf(interface_t *interface){
 typedef struct adjacency_{
 
     char router_name[NODE_NAME_SIZE];
-    char router_id[16];
+    char router_id[16]; /*key*/
     char nbr_ip[16];
+    glthread_t glue;
 } adjacency_t;
+GLTHREAD_TO_STRUCT(glthread_to_adjacency, adjacency_t, glue);
+
+#define GET_INTF_ADJ_LIST(intf_ptr) \
+    (&(intf_ptr->intf_nw_props.adjacency_list))
+
+adjacency_t *
+find_adjacency_on_interface(interface_t *interface, char *router_id);
 
 void
 process_hello_msg(interface_t *iif, 
                   ethernet_hdr_t *hello_eth_hdr);
 
 void
-delete_interface_adjacency(interface_t *interface);
+delete_interface_adjacency(interface_t *interface, 
+                            char *router_id);
 
 void
 dump_interface_adjacencies(interface_t *interface);
