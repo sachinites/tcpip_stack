@@ -44,5 +44,7 @@
 #define CMDCODE_SHOW_NODE_RT_TABLE  9   /*show node <node-name> rt*/
 #define CMDCODE_CONF_NODE_L3ROUTE   10  /*config node <node-name> route <ip-address> <mask> [<gw-ip> <oif>]*/
 #define CMDCODE_ERO_PING            11  /*run <node-name> ping <ip-address> ero <ero-ip-address>*/
-#define CONFIG_INTF_HELLOS          12  /*config node <node-name> interface <intf-name> hellos*/
+#define CMDCODE_CONFIG_INTF_HELLOS  12  /*config node <node-name> interface <intf-name> hellos*/
+
+#define CMDCODE_SHOW_INTF_STATS     13 /*show node <node-name> interface statistics*/
 #endif /* __CMDCODES__ */

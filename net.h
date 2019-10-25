@@ -116,6 +116,8 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 #define MAX_VLAN_MEMBERSHIP 10
 #include "WheelTimer/WheelTimer.h"
 
+typedef struct adjacency_ adjacency_t;
+
 typedef struct intf_nw_props_ {
 
     /*L2 properties*/
@@ -128,9 +130,15 @@ typedef struct intf_nw_props_ {
     bool_t is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
+    adjacency_t *adjacency;
 
     /*Miscellaneous properties*/
     wheel_timer_elem_t *hellos;
+
+    /*Interface Statistics*/
+    unsigned int hellos_recv;
+    unsigned int hellos_sent;
+    unsigned int bad_hellos_recv;
 } intf_nw_props_t;
 
 
@@ -147,9 +155,15 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->is_ipadd_config = FALSE;
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
     intf_nw_props->mask = 0;
+    intf_nw_props->adjacency = NULL;
 
     /*Miscellaneous properties*/
     intf_nw_props->hellos = NULL;
+
+    /*Interface Statistics*/
+    intf_nw_props->hellos_recv = 0;
+    intf_nw_props->hellos_sent = 0;
+    intf_nw_props->bad_hellos_recv = 0;
 }
 
 void
@@ -179,10 +193,16 @@ bool_t node_unset_intf_ip_address(node_t *node, char *local_if);
 void dump_nw_graph(graph_t *graph);
 void dump_node_nw_props(node_t *node);
 void dump_intf_props(interface_t *interface);
+void dump_node_interface_stats(node_t *node);
+void dump_interface_stats(interface_t *interface);
 
 /*Helper Routines*/
 interface_t *
 node_get_matching_subnet_interface(node_t *node, char *ip_addr);
+
+bool_t
+is_same_subnet(char *ip_addr, char mask,
+               char *other_ip_addr);
 
 /*Interface Vlan mgmt APIs*/
 

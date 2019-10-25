@@ -35,6 +35,7 @@
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "hello.h"
 
 /*Just some Random number generator*/
 static unsigned int
@@ -138,6 +139,7 @@ void dump_intf_props(interface_t *interface){
          printf("\n");
     }
     printf("\t Hello Timer = %p\n", interface->intf_nw_props.hellos);
+    dump_interface_adjacencies(interface);
 }
 
 void dump_nw_graph(graph_t *graph){
@@ -196,6 +198,26 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
             return intf;
         }
     }
+}
+
+bool_t 
+is_same_subnet(char *ip_addr, char mask, 
+               char *other_ip_addr){
+
+    char intf_subnet[16];
+    char subnet2[16];
+
+    memset(intf_subnet, 0 , 16);
+    memset(subnet2, 0 , 16);
+
+    apply_mask(ip_addr, mask, intf_subnet);
+    apply_mask(other_ip_addr, mask, subnet2);
+
+    if(strncmp(intf_subnet, subnet2, 16) == 0){
+        return TRUE;
+    }
+    return FALSE;
+
 }
 
 /*Interface Vlan mgmt APIs*/
@@ -270,3 +292,27 @@ pkt_buffer_check_additional_hdr_space(unsigned int pkt_size,
     return FALSE;
 }
 
+void
+dump_interface_stats(interface_t *interface){
+
+    printf("%s   ::  hellosTx : %u,  hellosRx : %u, Bad hellosRx : %u",
+        interface->if_name, interface->intf_nw_props.hellos_sent, 
+        interface->intf_nw_props.hellos_recv,
+        interface->intf_nw_props.bad_hellos_recv);
+}
+
+void
+dump_node_interface_stats(node_t *node){
+
+    interface_t *interface;
+
+    unsigned int i = 0;
+
+    for(; i < MAX_INTF_PER_NODE; i++){
+        interface = node->intf[i];
+        if(!interface)
+            return;
+        dump_interface_stats(interface);
+        printf("\n");
+    }
+}

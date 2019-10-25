@@ -146,6 +146,42 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
+extern 
+void dump_node_interface_stats(node_t *node);
+
+static int 
+show_interface_handler(param_t *param, ser_buff_t *tlv_buf, 
+                       op_mode enable_or_disable){
+    
+    int CMDCODE;
+    node_t *node;
+    char *node_name;
+
+    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+    } TLV_LOOP_END;
+   
+    node = get_node_by_node_name(topo, node_name);
+
+    switch(CMDCODE){
+
+        case CMDCODE_SHOW_INTF_STATS:
+            dump_node_interface_stats(node);
+            break;
+        default:
+            ;
+    }
+    return 0;
+}
+
 typedef struct mac_table_ mac_table_t;
 extern void
 dump_mac_table(mac_table_t *mac_table);
@@ -444,7 +480,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     ;
             }
             break;
-        case CONFIG_INTF_HELLOS:
+        case CMDCODE_CONFIG_INTF_HELLOS:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
                     schedule_hello_on_interface(interface, 5, TRUE);
@@ -514,6 +550,18 @@ nw_init_cli(){
                     libcli_register_param(&node_name, &rt);
                     set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
+                 {
+                    static param_t interface;
+                    init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
+                    libcli_register_param(&node_name, &interface);
+                    {
+                        static param_t stats;
+                        init_param(&stats, CMD, "statistics", show_interface_handler, 0, INVALID, 0, "Interface Statistics");
+                        libcli_register_param(&interface, &stats);
+                        set_param_cmd_code(&stats, CMDCODE_SHOW_INTF_STATS);
+                    }
+                 }
+
              }
          } 
     }
@@ -608,7 +656,7 @@ nw_init_cli(){
                     static param_t hellos;
                     init_param(&hellos, CMD, "hellos", intf_config_handler, 0, INVALID, 0, "Enable/Disable Hellos");
                     libcli_register_param(&if_name, &hellos);
-                    set_param_cmd_code(&hellos, CONFIG_INTF_HELLOS);
+                    set_param_cmd_code(&hellos, CMDCODE_CONFIG_INTF_HELLOS);
                 }
                 {
                     /*config node <node-name> interface <if-name> vlan*/

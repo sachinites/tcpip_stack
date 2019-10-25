@@ -46,4 +46,5 @@
 #define USERAPP1        21
 #define VLAN_8021Q_PROTO    0x8100
 #define IP_IN_IP        4
+#define HELLO_MSG_CODE	13 /*Randomly chosen*/
 #endif /* __TCPCONST__ */
