@@ -59,12 +59,14 @@ typedef struct _wheel_timer_t {
 #define WT_LOCK_WTELEM_SLOT_LIST(wt_elem_ptr)                   \
 {                                                               \
     slotlist_t *_slotlist = GET_WT_ELEM_SLOT_LIST(wt_elem_ptr); \
+    if(_slotlist)                                               \
     WT_LOCK_SLOT_LIST(_slotlist);                               \
 }
 
 #define WT_UNLOCK_WTELEM_SLOT_LIST(wt_elem_ptr)                 \
 {                                                               \
     slotlist_t *_slotlist = GET_WT_ELEM_SLOT_LIST(wt_elem_ptr); \
+    if(_slotlist)                                               \
     WT_UNLOCK_SLOT_LIST(_slotlist);                             \
 }
 

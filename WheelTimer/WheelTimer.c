@@ -87,7 +87,7 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
         wt_elem->execute_cycle_no    = next_cycle_no;
         wt_elem->slot_no = next_slot_no;
 
-        /*lock the list to which we are shifting the wt_elem, because the 
+        /* lock the list to which we are shifting the wt_elem, because the 
          * application can also invoke register_app_event on same slotlist*/
         WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
         glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue,
@@ -242,27 +242,16 @@ register_app_event(wheel_timer_t *wt,
 	if(!wt || !call_back) return NULL;
 	wheel_timer_elem_t *wt_elem = calloc(1, sizeof(wheel_timer_elem_t));
 
-	wt_elem->time_interval = time_interval;
 	wt_elem->app_callback  = call_back;
 	wt_elem->arg 	       = calloc(1, arg_size);
 	memcpy(wt_elem->arg, arg, arg_size);
 	wt_elem->arg_size      = arg_size;
 	wt_elem->is_recurrence = is_recursive;
     init_glthread(&wt_elem->glue);
-	int wt_absolute_slot = GET_WT_CURRENT_ABS_SLOT_NO(wt);
-	int registration_next_abs_slot = wt_absolute_slot + (wt_elem->time_interval/wt->clock_tic_interval);
-	int cycle_no = registration_next_abs_slot / wt->wheel_size;
-	int slot_no  = registration_next_abs_slot % wt->wheel_size;
-	wt_elem->execute_cycle_no = cycle_no;
-    wt_elem->slot_no = slot_no;
-    WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, slot_no));
-    glthread_priority_insert(WT_SLOTLIST_HEAD(wt, slot_no), &wt_elem->glue, 
-            insert_wt_elem_in_slot, 
-            (unsigned long)&((wheel_timer_elem_t *)0)->glue);
-    WT_UNLOCK_SLOT_LIST(WT_SLOTLIST(wt, slot_no));
-    wt_elem->slotlist_head = WT_SLOTLIST(wt, slot_no);
+    init_glthread(&wt_elem->reschedule_glue);
     wt_elem->valid = 1;
-	return wt_elem;
+    wt_elem_reschedule(wt, wt_elem, time_interval);
+    return wt_elem;
 }
 
 int
@@ -308,6 +297,7 @@ print_wheel_timer(wheel_timer_t *wt){
             wt_elem = glthread_to_wt_elem(curr); 
 			printf("                wt_elem->time_interval		= %d\n",  wt_elem->time_interval);
 			printf("                wt_elem->execute_cycle_no	= %d\n",  wt_elem->execute_cycle_no);
+            printf("                wt_elem->slot_no            = %d\n",  wt_elem->slot_no);
 			printf("                wt_elem->app_callback		= %p\n",  wt_elem->app_callback);
 			printf("                wt_elem->arg    			= %p\n",  wt_elem->arg);
 			printf("                wt_elem->is_recurrence		= %d\n",  wt_elem->is_recurrence);
