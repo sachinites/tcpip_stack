@@ -22,7 +22,8 @@ struct _wheel_timer_elem_t{
 	char is_recurrence;
     glthread_t glue;
     slotlist_t *slotlist_head;
-    
+    int valid;
+    int is_reschedule_requested;
 };
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
 
@@ -83,13 +84,6 @@ register_app_event(wheel_timer_t *wt,
 		   int arg_size, 
 		   int time_interval, 
 		   char is_recursive);
-
-/* To be used by the application to distinguish between
- * code flows triggered by the Timer CB or otherwise. Important
- * in case of Timer Expire events*/
-#define NOT_TIMER_TRIGGERED_CB  0
-#define TIMER_TRIGGERED_CB      (!NOT_TIMER_TRIGGERED_CB)
-
 
 void
 de_register_app_event(wheel_timer_elem_t *wt_elem);

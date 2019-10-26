@@ -168,8 +168,8 @@ dump_interface_adjacencies(interface_t *interface){
  * delete only particular adj*/
 void
 delete_interface_adjacency(interface_t *interface, 
-                            char *router_id, 
-                            int is_timer_triggered){
+                            char *router_id){
+                            
 
     adjacency_t *adjacency = NULL;
     
@@ -178,7 +178,7 @@ delete_interface_adjacency(interface_t *interface,
         adjacency = find_adjacency_on_interface(interface, router_id);
         if(!adjacency) return;
         remove_glthread(&adjacency->glue);
-        adjacency_delete_expiry_timer(adjacency, is_timer_triggered);
+        adjacency_delete_expiry_timer(adjacency);
         free(adjacency);
         return;
     }
@@ -188,7 +188,7 @@ delete_interface_adjacency(interface_t *interface,
 
         adjacency = glthread_to_adjacency(curr);  
         remove_glthread(&adjacency->glue);
-        adjacency_delete_expiry_timer(adjacency, is_timer_triggered);
+        adjacency_delete_expiry_timer(adjacency);
         free(adjacency);
     }ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);
 }
@@ -228,12 +228,10 @@ set_adjacency_key(interface_t *interface,
 
 
 void
-adjacency_delete_expiry_timer(adjacency_t *adjacency, 
-                                int is_timer_triggered){
+adjacency_delete_expiry_timer(adjacency_t *adjacency){
 
     assert(adjacency->expiry_timer);
-    if(is_timer_triggered == NOT_TIMER_TRIGGERED_CB)
-        de_register_app_event(adjacency->expiry_timer);
+    de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 }
 
@@ -255,8 +253,7 @@ timer_expire_delete_adjacency_cb(void *arg, int sizeof_arg){
 
     adj_key_t *adj_key = (adj_key_t *)arg;
     delete_interface_adjacency(adj_key->interface, 
-                               adj_key->nbr_rtr_id, 
-                               TIMER_TRIGGERED_CB);
+                               adj_key->nbr_rtr_id); 
 }
 
 
@@ -265,7 +262,7 @@ adjacency_start_expiry_timer(interface_t *interface,
         adjacency_t *adjacency){
 
     if(adjacency->expiry_timer){
-        adjacency_delete_expiry_timer(adjacency, NOT_TIMER_TRIGGERED_CB);
+        adjacency_delete_expiry_timer(adjacency);
     }
 
     adj_key_t adj_key;

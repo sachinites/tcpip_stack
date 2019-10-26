@@ -52,11 +52,11 @@ init_wheel_timer(int wheel_size, int clock_tic_interval){
 
 void
 de_register_app_event(wheel_timer_elem_t *wt_elem){
-
-    remove_glthread(&wt_elem->glue);
-    free_wheel_timer_element(wt_elem);
+    
+    /* Next time when it shall be traversed by WT,
+     * it shall be deleted*/
+    wt_elem->valid = 0;
 }
-
 
 static void*
 wheel_fn(void *arg){
@@ -94,6 +94,12 @@ wheel_fn(void *arg){
 		 ITERATE_GLTHREAD_BEGIN(&slot_list->slots, curr){
 
             wt_elem = glthread_to_wt_elem(curr);
+            
+            if(wt_elem->valid == 0){
+                remove_glthread(curr);
+                free_wheel_timer_element(wt_elem);
+                continue;
+            }
 
             /*Check if R == r*/
 			if(wt->current_cycle_no == wt_elem->execute_cycle_no){
@@ -103,6 +109,14 @@ wheel_fn(void *arg){
                 /* After invocation, check if the event needs to be rescheduled again
                  * in future*/
 				if(wt_elem->is_recurrence){
+
+                    /*Could be possible that appl cb itself has de-register the WT
+                     * element*/
+                    if(wt_elem->valid == 0){
+                        remove_glthread(curr);
+                        free_wheel_timer_element(wt_elem);
+                        continue;
+                    }
 					
                     /*relocate Or reschedule to the next slot*/
 					int next_abs_slot_no  = absolute_slot_no + 
@@ -116,12 +130,17 @@ wheel_fn(void *arg){
                      * update the r value and adjust the wt_elem position
                      * in the linked list in the increasing order of r value*/
 					if(next_slot_no == wt->current_clock_tic){
+                        remove_glthread(curr);
+                        glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue,
+                            insert_wt_elem_in_slot,
+                            (unsigned long)&((wheel_timer_elem_t *)0)->glue);
 						continue;
 					}
                     /*Remove from Event from the old slot*/
                     remove_glthread(curr);
 
-                    /*Add the event to the new slot*/
+                    /*Add the event to the new slot, This slotlist cannot be same
+                     * as current slotlist being processed by WT*/
                     WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
 					glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue, 
                                     insert_wt_elem_in_slot, 
@@ -170,6 +189,7 @@ register_app_event(wheel_timer_t *wt,
             (unsigned long)&((wheel_timer_elem_t *)0)->glue);
     WT_UNLOCK_SLOT_LIST(WT_SLOTLIST(wt, slot_no));
     wt_elem->slotlist_head = WT_SLOTLIST(wt, slot_no);
+    wt_elem->valid = 1;
 	return wt_elem;
 }
 
