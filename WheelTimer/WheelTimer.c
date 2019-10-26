@@ -79,7 +79,7 @@ wheel_fn(void *arg){
 
 		slot_list = &wt->slots[wt->current_clock_tic];
 		absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
-		printf("Wheel Timer Time = %d : ", absolute_slot_no * wt->clock_tic_interval);
+		//printf("Wheel Timer Time = %d : ", absolute_slot_no * wt->clock_tic_interval);
 		if(IS_GLTHREAD_LIST_EMPTY(slot_list))
 			printf("\n");
 
