@@ -23,9 +23,10 @@ struct _wheel_timer_elem_t{
     glthread_t glue;
     slotlist_t *slotlist_head;
     int valid;
-    int is_reschedule_requested;
+    glthread_t reschedule_glue;
 };
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
+GLTHREAD_TO_STRUCT(glthread_reschedule_glue_to_wt_elem, wheel_timer_elem_t, reschedule_glue);
 
 typedef struct _wheel_timer_t {
 	int current_clock_tic;
@@ -34,6 +35,7 @@ typedef struct _wheel_timer_t {
 	int current_cycle_no;
 	pthread_t wheel_thread;
     slotlist_t slotlist[0];
+    slotlist_t reschd_list;
 } wheel_timer_t;
 
 #define WT_SLOTLIST(wt_ptr, index)                              \
@@ -65,6 +67,15 @@ typedef struct _wheel_timer_t {
     slotlist_t *_slotlist = GET_WT_ELEM_SLOT_LIST(wt_elem_ptr); \
     WT_UNLOCK_SLOT_LIST(_slotlist);                             \
 }
+
+#define WT_IS_SLOTLIST_EMPTY(slotlist_ptr)  \
+    IS_GLTHREAD_LIST_EMPTY(&(slotlist_ptr->slots))
+
+#define WT_GET_RESCHD_SLOTLIST(wt_ptr)  \
+    (&(wt_ptr->reschd_list))
+
+#define WT_GET_RESCHD_SLOTLIST_HEAD(wt_ptr) \
+    (&((WT_GET_RESCHD_SLOTLIST(wt_ptr))->slots))
 
 wheel_timer_t*
 init_wheel_timer(int wheel_size, int clock_tic_interval);

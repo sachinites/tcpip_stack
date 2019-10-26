@@ -332,7 +332,7 @@ build_dualswitch_topo(){
     node_set_intf_vlan_membsership(L2SW1, "eth0/5", 10);
     node_set_intf_vlan_membsership(L2SW1, "eth0/5", 11);
     node_set_intf_l2_mode(L2SW1, "eth0/6", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth0/6", 11);
+    node_set_intf_vlan_membsership(L2SW1, "eth0/6", 10);
 
     node_set_intf_l2_mode(L2SW2, "eth0/7", TRUNK);
     node_set_intf_vlan_membsership(L2SW2, "eth0/7", 10);
@@ -342,7 +342,7 @@ build_dualswitch_topo(){
     node_set_intf_l2_mode(L2SW2, "eth0/10", ACCESS);
     node_set_intf_vlan_membsership(L2SW2, "eth0/10", 10);
     node_set_intf_l2_mode(L2SW2, "eth0/12", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth0/12", 11);
+    node_set_intf_vlan_membsership(L2SW2, "eth0/12", 10);
 
     network_start_pkt_receiver_thread(topo);
 

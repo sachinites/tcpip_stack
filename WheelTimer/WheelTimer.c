@@ -58,7 +58,52 @@ de_register_app_event(wheel_timer_elem_t *wt_elem){
     wt_elem->valid = 0;
 }
 
-static void*
+static void
+process_wt_reschedule_slotlist(wheel_timer_t *wt){
+
+    WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+    if(WT_IS_SLOTLIST_EMPTY(WT_GET_RESCHD_SLOTLIST(wt))){
+        WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+        return;
+    }
+
+    glthread_t *curr;
+    wheel_timer_elem_t *wt_elem;
+
+    ITERATE_GLTHREAD_BEGIN(WT_GET_RESCHD_SLOTLIST_HEAD(wt), curr){
+
+        wt_elem = glthread_reschedule_glue_to_wt_elem(curr);
+        WT_LOCK_WTELEM_SLOT_LIST(wt_elem);
+        remove_glthread(&wt_elem->glue);
+        WT_UNLOCK_WTELEM_SLOT_LIST(wt_elem);
+        wt_elem->slotlist_head = NULL;
+
+        /*relocate Or reschedule to the next slot*/ 
+        int absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
+        int next_abs_slot_no  = absolute_slot_no + 
+            (wt_elem->time_interval/wt->clock_tic_interval);
+        int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
+        int next_slot_no      = next_abs_slot_no % wt->wheel_size;
+        wt_elem->execute_cycle_no    = next_cycle_no;
+        wt_elem->slot_no = next_slot_no;
+
+        /*lock the list to which we are shifting the wt_elem, because the 
+         * application can also invoke register_app_event on same slotlist*/
+        WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
+        glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue,
+                insert_wt_elem_in_slot, 
+                (unsigned long)&((wheel_timer_elem_t *)0)->glue);
+        WT_UNLOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
+
+        wt_elem->slotlist_head = WT_SLOTLIST(wt, next_slot_no);
+        remove_glthread(&wt_elem->reschedule_glue);
+
+    }ITERATE_GLTHREAD_END(WT_GET_RESCHD_SLOTLIST_HEAD(wt), curr)
+    WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+}
+
+
+static void *
 wheel_fn(void *arg){
 
 	wheel_timer_t *wt = (wheel_timer_t *)arg;
@@ -80,27 +125,30 @@ wheel_fn(void *arg){
 
 		slot_list = WT_SLOTLIST(wt, wt->current_clock_tic);
 		absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
-#if 0
-		printf("Wheel Timer Time = %d : ", absolute_slot_no * wt->clock_tic_interval);
-		if(IS_GLTHREAD_LIST_EMPTY(&slot_list->slots))
-			printf("\n");
-#endif
 
-         /* This is a macro to iterate over a linked list. While 
-          * iterating over a linked list, even if you delete the current node
-          * being processes "head" , the loop still runs fine. You should
-          * learn show to write such looping macros in C*/
          WT_LOCK_SLOT_LIST(slot_list);
 		 ITERATE_GLTHREAD_BEGIN(&slot_list->slots, curr){
 
             wt_elem = glthread_to_wt_elem(curr);
-            
+           
+            /*application had first rescheduled the wt_elem, then later decided
+             * to de-register it*/
             if(wt_elem->valid == 0){
                 remove_glthread(curr);
+                if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
+                    WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+                    remove_glthread(&wt_elem->reschedule_glue);
+                    WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+                }
                 free_wheel_timer_element(wt_elem);
                 continue;
             }
-
+            
+            /*If it is rescheduled again, dont process it*/
+            if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
+                continue;
+            }
+            
             /*Check if R == r*/
 			if(wt->current_cycle_no == wt_elem->execute_cycle_no){
                 /*Invoke the application event through fn pointer as below*/
@@ -110,12 +158,25 @@ wheel_fn(void *arg){
                  * in future*/
 				if(wt_elem->is_recurrence){
 
-                    /*Could be possible that appl cb itself has de-register the WT
+                    /* Could be possible that appl cb itself has de-register the WT
                      * element*/
                     if(wt_elem->valid == 0){
                         remove_glthread(curr);
+                        if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
+                            WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+                            remove_glthread(&wt_elem->reschedule_glue);
+                            WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+                        }
                         free_wheel_timer_element(wt_elem);
                         continue;
+                    }
+                    /*Or else the applicatoin has rescheduled the event again,
+                     * then remove the event from reschedule thread we WT is 
+                     * anyway going to reschedule it now*/
+                    else if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
+                        WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+                        remove_glthread(&wt_elem->reschedule_glue);
+                        WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
                     }
 					
                     /*relocate Or reschedule to the next slot*/
@@ -149,12 +210,23 @@ wheel_fn(void *arg){
                     wt_elem->slotlist_head = WT_SLOTLIST(wt, next_slot_no);
 				}
 				else{
-                    remove_glthread(curr);
-					free_wheel_timer_element(wt_elem);
+                    /*If application has rescheduled the event again*/
+                    if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
+                        /* No Action required, during rescheduling the wt_elem
+                         * will be removed from current slot*/
+                    }
+                    else if(wt_elem->valid){
+                        assert(0);/*Application is suppose to de-register the event*/
+                    }
+                    else if(wt_elem->valid == 0){
+                        remove_glthread(curr);
+                        free_wheel_timer_element(wt_elem);
+                    }
 				}
 			}
         } ITERATE_GLTHREAD_END(slot_list, curr)
         WT_UNLOCK_SLOT_LIST(slot_list);
+        process_wt_reschedule_slotlist(wt);
 	}
 	return NULL;
 }
@@ -234,11 +306,13 @@ print_wheel_timer(wheel_timer_t *wt){
         slot_list_head = WT_SLOTLIST_HEAD(wt, i);
         ITERATE_GLTHREAD_BEGIN(slot_list_head, curr){
             wt_elem = glthread_to_wt_elem(curr); 
-			printf("		        wt_elem->time_interval		= %d\n",  wt_elem->time_interval);
+			printf("                wt_elem->time_interval		= %d\n",  wt_elem->time_interval);
 			printf("                wt_elem->execute_cycle_no	= %d\n",  wt_elem->execute_cycle_no);
 			printf("                wt_elem->app_callback		= %p\n",  wt_elem->app_callback);
 			printf("                wt_elem->arg    			= %p\n",  wt_elem->arg);
 			printf("                wt_elem->is_recurrence		= %d\n",  wt_elem->is_recurrence);
+            printf("                wt_elem->valid              = %d\n",  wt_elem->valid);
+            printf("                is sched ?                  = %s\n",  (!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue) ? "Y":"N"));
         } ITERATE_GLTHREAD_END(slot_list_head , curr)
 	}
 }
@@ -264,31 +338,18 @@ void
 wt_elem_reschedule(wheel_timer_t *wt, 
                    wheel_timer_elem_t *wt_elem, 
                    int new_time_interval){
+   
+    assert(wt_elem->valid);
+    
+    wt_elem->time_interval = new_time_interval;
+    
+    if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue))
+        return;
 
-    slotlist_t *old_slot_list = 
-        GET_WT_ELEM_SLOT_LIST(wt_elem);
-    assert(old_slot_list);
-    
-    WT_LOCK_SLOT_LIST(old_slot_list);
-    remove_glthread(&wt_elem->glue);
-    WT_UNLOCK_SLOT_LIST(old_slot_list);
-    
-    wt_elem->slotlist_head = NULL;
-    
-    /*relocate Or reschedule to the next slot*/
-    int absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
-    int next_abs_slot_no  = absolute_slot_no + 
-                            (wt_elem->time_interval/wt->clock_tic_interval);
-    int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
-    int next_slot_no      = next_abs_slot_no % wt->wheel_size;
-    wt_elem->execute_cycle_no    = next_cycle_no;
-    wt_elem->slot_no = next_slot_no;
-    
-    WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
-    glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue,
-                                insert_wt_elem_in_slot, 
-                                (unsigned long)&((wheel_timer_elem_t *)0)->glue);
-    WT_UNLOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
-    wt_elem->slotlist_head = WT_SLOTLIST(wt, next_slot_no);
+    WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+    glthread_add_next(WT_GET_RESCHD_SLOTLIST_HEAD(wt), 
+        &wt_elem->reschedule_glue);
+    WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
 }
+
 

@@ -499,7 +499,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         case CMDCODE_CONFIG_INTF_HELLOS:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    schedule_hello_on_interface(interface, 5, TRUE);
+                    schedule_hello_on_interface(interface, 1, TRUE);
                     break;
                 case CONFIG_DISABLE:
                     stop_interface_hellos(interface);

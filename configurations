@@ -7,6 +7,9 @@ conf node H1 interface eth0/1 hello
 conf node H2 interface eth0/3 hello
 conf node H5 interface eth0/8 hello
 conf node H6 interface eth0/11 hello
+conf node H3 interface eth0/4 hello
+conf node H4 interface eth0/11 hello
+
 
 conf node H1 no interface eth0/1 hello
 conf node H2 no interface eth0/3 hello
