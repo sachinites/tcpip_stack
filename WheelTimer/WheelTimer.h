@@ -24,7 +24,6 @@ typedef enum{
 struct _wheel_timer_elem_t{
     
     wt_opcode_t opcode;
-    wt_opcode_t is_scheduled;
 	int time_interval;
     int new_time_interval;
 	int execute_cycle_no;
@@ -47,10 +46,9 @@ typedef struct _wheel_timer_t {
 	int wheel_size;
 	int current_cycle_no;
 	pthread_t wheel_thread;
-    slotlist_t slotlist[0];
     slotlist_t reschd_list;
     unsigned int no_of_wt_elem;
-    pthread_mutex_t global_lock;
+    slotlist_t slotlist[0];
 } wheel_timer_t;
 
 #define WT_UPTIME(wt_ptr)  \
