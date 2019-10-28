@@ -91,7 +91,7 @@ stop_interface_hellos(interface_t *interface){
     wheel_timer_elem_t *wt_elem = interface->intf_nw_props.hellos;
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)wt_elem->arg;
     free(pkt_meta_data->pkt - MAX_PACKET_BUFFER_SIZE + pkt_meta_data->pkt_size);
-    de_register_app_event(wt_elem);
+    de_register_app_event(GET_NODE_TIMER_FROM_INTF(interface), wt_elem);
     interface->intf_nw_props.hellos = NULL;
 }
 
@@ -178,7 +178,7 @@ delete_interface_adjacency(interface_t *interface,
         adjacency = find_adjacency_on_interface(interface, router_id);
         if(!adjacency) return;
         remove_glthread(&adjacency->glue);
-        adjacency_delete_expiry_timer(adjacency);
+        adjacency_delete_expiry_timer(interface, adjacency);
         free(adjacency);
         return;
     }
@@ -188,7 +188,7 @@ delete_interface_adjacency(interface_t *interface,
 
         adjacency = glthread_to_adjacency(curr);  
         remove_glthread(&adjacency->glue);
-        adjacency_delete_expiry_timer(adjacency);
+        adjacency_delete_expiry_timer(interface, adjacency);
         free(adjacency);
     }ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);
 }
@@ -228,10 +228,11 @@ set_adjacency_key(interface_t *interface,
 
 
 void
-adjacency_delete_expiry_timer(adjacency_t *adjacency){
+adjacency_delete_expiry_timer(interface_t *interface, adjacency_t *adjacency){
 
     assert(adjacency->expiry_timer);
-    de_register_app_event(adjacency->expiry_timer);
+    de_register_app_event(GET_NODE_TIMER_FROM_INTF(interface), 
+                    adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 }
 
@@ -262,7 +263,7 @@ adjacency_start_expiry_timer(interface_t *interface,
         adjacency_t *adjacency){
 
     if(adjacency->expiry_timer){
-        adjacency_delete_expiry_timer(adjacency);
+        adjacency_delete_expiry_timer(interface, adjacency);
     }
 
     adj_key_t adj_key;

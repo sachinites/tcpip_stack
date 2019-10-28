@@ -12,8 +12,21 @@ typedef struct slotlist_{
     pthread_mutex_t slot_mutex;
 }slotlist_t;
 
+typedef enum{
+
+    WTELEM_CREATE,
+    WTELEM_RESCHED,
+    WTELEM_DELETE,
+    WTELEM_SCHEDULED,
+    WTELEM_UNKNOWN
+} wt_opcode_t;
+
 struct _wheel_timer_elem_t{
+    
+    wt_opcode_t opcode;
+    wt_opcode_t is_scheduled;
 	int time_interval;
+    int new_time_interval;
 	int execute_cycle_no;
     int slot_no;
 	app_call_back app_callback;
@@ -22,8 +35,8 @@ struct _wheel_timer_elem_t{
 	char is_recurrence;
     glthread_t glue;
     slotlist_t *slotlist_head;
-    int valid;
     glthread_t reschedule_glue;
+    unsigned int N_scheduled;
 };
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
 GLTHREAD_TO_STRUCT(glthread_reschedule_glue_to_wt_elem, wheel_timer_elem_t, reschedule_glue);
@@ -36,7 +49,12 @@ typedef struct _wheel_timer_t {
 	pthread_t wheel_thread;
     slotlist_t slotlist[0];
     slotlist_t reschd_list;
+    unsigned int no_of_wt_elem;
+    pthread_mutex_t global_lock;
 } wheel_timer_t;
+
+#define WT_UPTIME(wt_ptr)  \
+    (GET_WT_CURRENT_ABS_SLOT_NO(wt_ptr) * wt_ptr->clock_tic_interval)
 
 #define WT_SLOTLIST(wt_ptr, index)                              \
     (&(wt_ptr->slotlist[index]))
@@ -99,7 +117,7 @@ register_app_event(wheel_timer_t *wt,
 		   char is_recursive);
 
 void
-de_register_app_event(wheel_timer_elem_t *wt_elem);
+de_register_app_event(wheel_timer_t *wt, wheel_timer_elem_t *wt_elem);
 
 void
 wt_elem_reschedule(wheel_timer_t *wt, 
@@ -120,5 +138,8 @@ cancel_wheel_timer(wheel_timer_t *wt);
 
 void
 reset_wheel_timer(wheel_timer_t *wt);
+
+char*
+hrs_min_sec_format(unsigned int seconds);
 
 #endif

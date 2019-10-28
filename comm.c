@@ -98,7 +98,6 @@ init_udp_socket(node_t *node){
 }
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];
-static char send_buffer[MAX_PACKET_BUFFER_SIZE];
 
 static void
 _pkt_receive(node_t *receving_node, 
@@ -110,8 +109,8 @@ _pkt_receive(node_t *receving_node,
 
     if(!recv_intf){
         printf("Error : Pkt recvd on unknown interface %s on node %s\n", 
-                    recv_intf->if_name, receving_node->node_name);
-        return;
+                    recv_intf_name, receving_node->node_name);
+        assert(0);
     }
 
     pkt_receive(receving_node, recv_intf, pkt_with_aux_data + IF_NAME_SIZE, 
@@ -210,9 +209,9 @@ send_pkt_to_self(char *pkt, unsigned int pkt_size,
     
     interface_t *other_interface =  interface;
 
-    memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
+    memset(NODE_SEND_BUFFER(sending_node), 0, MAX_PACKET_BUFFER_SIZE);
 
-    char *pkt_with_aux_data = send_buffer;
+    char *pkt_with_aux_data = NODE_SEND_BUFFER(sending_node);
 
     strncpy(pkt_with_aux_data, other_interface->if_name, IF_NAME_SIZE);
 
@@ -258,9 +257,9 @@ send_pkt_out(char *pkt, unsigned int pkt_size,
     interface_t *other_interface = &interface->link->intf1 == interface ? \
                                     &interface->link->intf2 : &interface->link->intf1;
 
-    memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
+    memset(NODE_SEND_BUFFER(sending_node), 0, MAX_PACKET_BUFFER_SIZE);
 
-    char *pkt_with_aux_data = send_buffer;
+    char *pkt_with_aux_data = NODE_SEND_BUFFER(sending_node);
 
     strncpy(pkt_with_aux_data, other_interface->if_name, IF_NAME_SIZE);
 

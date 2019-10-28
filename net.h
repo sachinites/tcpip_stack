@@ -36,6 +36,8 @@
 #include "utils.h"
 #include <memory.h>
 #include "WheelTimer/WheelTimer.h"
+#include <stdlib.h>
+#include "comm.h"
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -74,6 +76,9 @@ typedef struct node_nw_prop_{
 
     /*Timer Properties*/
     wheel_timer_t *wt;
+
+    /*Sending Buffer*/
+    char *send_buffer;
 } node_nw_prop_t;
 
 extern void init_arp_table(arp_table_t **arp_table);
@@ -91,6 +96,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_rt_table(&(node_nw_prop->rt_table));
     node_nw_prop->wt = init_wheel_timer(60, 1);
     start_wheel_timer(node_nw_prop->wt);
+    node_nw_prop->send_buffer = calloc(1, MAX_PACKET_BUFFER_SIZE);
 }
 
 typedef enum{
@@ -178,7 +184,7 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
-
+#define NODE_SEND_BUFFER(node_ptr)  (node_ptr->node_nw_prop.send_buffer)
 
 /*APIs to set Network Node properties*/
 bool_t node_set_loopback_address(node_t *node, char *ip_addr);

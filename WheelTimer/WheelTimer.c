@@ -9,6 +9,7 @@
 #define TH_JOINABLE	1
 #define TH_DETACHED	0
 
+
 int
 insert_wt_elem_in_slot(void *data1, void *data2){
 
@@ -46,20 +47,16 @@ init_wheel_timer(int wheel_size, int clock_tic_interval){
         init_glthread(WT_SLOTLIST_HEAD(wt, i));
         pthread_mutex_init(WT_SLOTLIST_MUTEX(wt, i), NULL);
     }
-
+    wt->no_of_wt_elem = 0;
+    pthread_mutex_init(&wt->global_lock, NULL);
 	return wt;
-}
-
-void
-de_register_app_event(wheel_timer_elem_t *wt_elem){
-    
-    /* Next time when it shall be traversed by WT,
-     * it shall be deleted*/
-    wt_elem->valid = 0;
 }
 
 static void
 process_wt_reschedule_slotlist(wheel_timer_t *wt){
+
+    glthread_t *curr;
+    wheel_timer_elem_t *wt_elem;
 
     WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
     if(WT_IS_SLOTLIST_EMPTY(WT_GET_RESCHD_SLOTLIST(wt))){
@@ -67,37 +64,47 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
         return;
     }
 
-    glthread_t *curr;
-    wheel_timer_elem_t *wt_elem;
-
     ITERATE_GLTHREAD_BEGIN(WT_GET_RESCHD_SLOTLIST_HEAD(wt), curr){
 
         wt_elem = glthread_reschedule_glue_to_wt_elem(curr);
-        WT_LOCK_WTELEM_SLOT_LIST(wt_elem);
         remove_glthread(&wt_elem->glue);
-        WT_UNLOCK_WTELEM_SLOT_LIST(wt_elem);
         wt_elem->slotlist_head = NULL;
 
-        /*relocate Or reschedule to the next slot*/ 
-        int absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
-        int next_abs_slot_no  = absolute_slot_no + 
-            (wt_elem->time_interval/wt->clock_tic_interval);
-        int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
-        int next_slot_no      = next_abs_slot_no % wt->wheel_size;
-        wt_elem->execute_cycle_no    = next_cycle_no;
-        wt_elem->slot_no = next_slot_no;
+        switch(wt_elem->opcode){
+            case WTELEM_CREATE:
+            case WTELEM_RESCHED:
+            {
+                assert(wt_elem->app_callback);
+                wt_elem->time_interval = wt_elem->new_time_interval;
+                int absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
+                int next_abs_slot_no  = absolute_slot_no +
+                    (wt_elem->time_interval/wt->clock_tic_interval);
+                int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
+                int next_slot_no      = next_abs_slot_no % wt->wheel_size;
+                wt_elem->execute_cycle_no    = next_cycle_no;
+                wt_elem->slot_no = next_slot_no;
 
-        /* lock the list to which we are shifting the wt_elem, because the 
-         * application can also invoke register_app_event on same slotlist*/
-        WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
-        glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue,
-                insert_wt_elem_in_slot, 
-                (unsigned long)&((wheel_timer_elem_t *)0)->glue);
-        WT_UNLOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
-
-        wt_elem->slotlist_head = WT_SLOTLIST(wt, next_slot_no);
-        remove_glthread(&wt_elem->reschedule_glue);
-
+                glthread_priority_insert(WT_SLOTLIST_HEAD(wt, wt_elem->slot_no), 
+                        &wt_elem->glue,
+                        insert_wt_elem_in_slot, 
+                        (unsigned long)&((wheel_timer_elem_t *)0)->glue);
+                wt_elem->slotlist_head = WT_SLOTLIST(wt, wt_elem->slot_no);
+                remove_glthread(&wt_elem->reschedule_glue);
+                wt_elem->is_scheduled = WTELEM_SCHEDULED;
+                wt_elem->N_scheduled++;
+                if(wt_elem->opcode == WTELEM_CREATE){
+                    wt->no_of_wt_elem++;
+                }
+            }
+                break;
+            case WTELEM_DELETE:
+                remove_glthread(&wt_elem->reschedule_glue);
+                free_wheel_timer_element(wt_elem);
+                wt->no_of_wt_elem--;
+                break;
+            default:
+                assert(0);
+        }
     }ITERATE_GLTHREAD_END(WT_GET_RESCHD_SLOTLIST_HEAD(wt), curr)
     WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
 }
@@ -114,6 +121,7 @@ wheel_fn(void *arg){
 
 	while(1){
         
+        pthread_mutex_lock(&wt->global_lock);
         wt->current_clock_tic++;
         if(wt->current_clock_tic == wt->wheel_size)
             wt->current_clock_tic = 0;
@@ -126,29 +134,10 @@ wheel_fn(void *arg){
 		slot_list = WT_SLOTLIST(wt, wt->current_clock_tic);
 		absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
 
-         WT_LOCK_SLOT_LIST(slot_list);
 		 ITERATE_GLTHREAD_BEGIN(&slot_list->slots, curr){
 
             wt_elem = glthread_to_wt_elem(curr);
            
-            /*application had first rescheduled the wt_elem, then later decided
-             * to de-register it*/
-            if(wt_elem->valid == 0){
-                remove_glthread(curr);
-                if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
-                    WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-                    remove_glthread(&wt_elem->reschedule_glue);
-                    WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-                }
-                free_wheel_timer_element(wt_elem);
-                continue;
-            }
-            
-            /*If it is rescheduled again, dont process it*/
-            if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
-                continue;
-            }
-            
             /*Check if R == r*/
 			if(wt->current_cycle_no == wt_elem->execute_cycle_no){
                 /*Invoke the application event through fn pointer as below*/
@@ -158,78 +147,58 @@ wheel_fn(void *arg){
                  * in future*/
 				if(wt_elem->is_recurrence){
 
-                    /* Could be possible that appl cb itself has de-register the WT
-                     * element*/
-                    if(wt_elem->valid == 0){
-                        remove_glthread(curr);
-                        if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
-                            WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-                            remove_glthread(&wt_elem->reschedule_glue);
-                            WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-                        }
-                        free_wheel_timer_element(wt_elem);
-                        continue;
-                    }
-                    /*Or else the applicatoin has rescheduled the event again,
-                     * then remove the event from reschedule thread we WT is 
-                     * anyway going to reschedule it now*/
-                    else if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
-                        WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-                        remove_glthread(&wt_elem->reschedule_glue);
-                        WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-                    }
-					
                     /*relocate Or reschedule to the next slot*/
 					int next_abs_slot_no  = absolute_slot_no + 
                             (wt_elem->time_interval/wt->clock_tic_interval);
 					int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
 					int next_slot_no      = next_abs_slot_no % wt->wheel_size;
 					wt_elem->execute_cycle_no 	 = next_cycle_no;
-
-                    /* It might be possible that next slot no could be same as 
-                     * where the current clock time is. Inb this case, simply
-                     * update the r value and adjust the wt_elem position
-                     * in the linked list in the increasing order of r value*/
-					if(next_slot_no == wt->current_clock_tic){
-                        remove_glthread(curr);
-                        glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue,
-                            insert_wt_elem_in_slot,
-                            (unsigned long)&((wheel_timer_elem_t *)0)->glue);
-						continue;
-					}
-                    /*Remove from Event from the old slot*/
-                    remove_glthread(curr);
-
-                    /*Add the event to the new slot, This slotlist cannot be same
-                     * as current slotlist being processed by WT*/
-                    WT_LOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
+                    remove_glthread(&wt_elem->glue);
 					glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue, 
                                     insert_wt_elem_in_slot, 
                                     (unsigned long)&((wheel_timer_elem_t *)0)->glue);
-                    WT_UNLOCK_SLOT_LIST(WT_SLOTLIST(wt, next_slot_no));
                     wt_elem->slotlist_head = WT_SLOTLIST(wt, next_slot_no);
-				}
-				else{
-                    /*If application has rescheduled the event again*/
-                    if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue)){
-                        /* No Action required, during rescheduling the wt_elem
-                         * will be removed from current slot*/
-                    }
-                    else if(wt_elem->valid){
-                        assert(0);/*Application is suppose to de-register the event*/
-                    }
-                    else if(wt_elem->valid == 0){
-                        remove_glthread(curr);
-                        free_wheel_timer_element(wt_elem);
-                    }
+                    wt_elem->N_scheduled++;
 				}
 			}
+            else
+                break;
         } ITERATE_GLTHREAD_END(slot_list, curr)
-        WT_UNLOCK_SLOT_LIST(slot_list);
         process_wt_reschedule_slotlist(wt);
+        pthread_mutex_unlock(&wt->global_lock);
 	}
 	return NULL;
 }
+
+static void
+_wt_elem_reschedule(wheel_timer_t *wt, 
+                    wheel_timer_elem_t *wt_elem, 
+                    int new_time_interval, 
+                    wt_opcode_t opcode){
+
+    if(wt_elem->opcode == WTELEM_DELETE && 
+        (opcode == WTELEM_CREATE || 
+        opcode == WTELEM_RESCHED)){
+        assert(0);
+    } 
+    switch(opcode){
+        case WTELEM_CREATE:
+        case WTELEM_RESCHED:
+        case WTELEM_DELETE:
+            
+               wt_elem->new_time_interval = new_time_interval;
+               WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+               wt_elem->opcode = opcode;
+               remove_glthread(&wt_elem->reschedule_glue);
+               glthread_add_next(WT_GET_RESCHD_SLOTLIST_HEAD(wt), 
+                &wt_elem->reschedule_glue);
+               WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));         
+            break;
+        default:
+            assert(0);
+    }
+}
+
 
 wheel_timer_elem_t *
 register_app_event(wheel_timer_t *wt,
@@ -241,7 +210,6 @@ register_app_event(wheel_timer_t *wt,
 
 	if(!wt || !call_back) return NULL;
 	wheel_timer_elem_t *wt_elem = calloc(1, sizeof(wheel_timer_elem_t));
-
 	wt_elem->app_callback  = call_back;
 	wt_elem->arg 	       = calloc(1, arg_size);
 	memcpy(wt_elem->arg, arg, arg_size);
@@ -249,9 +217,31 @@ register_app_event(wheel_timer_t *wt,
 	wt_elem->is_recurrence = is_recursive;
     init_glthread(&wt_elem->glue);
     init_glthread(&wt_elem->reschedule_glue);
-    wt_elem->valid = 1;
-    wt_elem_reschedule(wt, wt_elem, time_interval);
+    wt_elem->N_scheduled = 0;
+    wt_elem->is_scheduled = WTELEM_UNKNOWN;
+    #if 0
+    /* new wt_elem, just fill the time_interval fields so that
+     * ramining time is shown correctly. No functionality impact
+     * because of this change.*/
+    wt_elem->time_interval = time_interval;
+    wt_elem->new_time_interval = time_interval;
+    #endif
+    _wt_elem_reschedule(wt, wt_elem, time_interval, WTELEM_CREATE);
     return wt_elem;
+}
+
+void
+de_register_app_event(wheel_timer_t *wt, wheel_timer_elem_t *wt_elem){
+
+    _wt_elem_reschedule(wt, wt_elem, 0, WTELEM_DELETE);
+}
+
+void
+wt_elem_reschedule(wheel_timer_t *wt, 
+                   wheel_timer_elem_t *wt_elem, 
+                   int new_time_interval){
+   
+    _wt_elem_reschedule(wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
 }
 
 int
@@ -262,7 +252,6 @@ wt_get_remaining_time(wheel_timer_t *wt,
     int wt_elem_absolute_slot = (wt_elem->execute_cycle_no * wt->wheel_size) + 
             wt_elem->slot_no;
     int diff = wt_elem_absolute_slot - wt_absolute_slot;
-    assert(diff >= 0);
     return (diff * wt->clock_tic_interval);
 }
 
@@ -284,33 +273,40 @@ print_wheel_timer(wheel_timer_t *wt){
 	wheel_timer_elem_t *wt_elem = NULL;
 
 	printf("Printing Wheel Timer DS\n");
+    pthread_mutex_lock(&wt->global_lock);
 	printf("wt->current_clock_tic  = %d\n", wt->current_clock_tic);
 	printf("wt->clock_tic_interval = %d\n", wt->clock_tic_interval);
 	printf("wt->wheel_size         = %d\n", wt->wheel_size);
 	printf("wt->current_cycle_no   = %d\n", wt->current_cycle_no);
 	printf("wt->wheel_thread       = %p\n", &wt->wheel_thread);
+    printf("WT uptime              = %s\n", hrs_min_sec_format(WT_UPTIME(wt)));
+    printf("wt->no_of_wt_elem      = %u\n", wt->no_of_wt_elem);
 	printf("printing slots : \n");
 
 	for(; i < wt->wheel_size; i++){
         slot_list_head = WT_SLOTLIST_HEAD(wt, i);
         ITERATE_GLTHREAD_BEGIN(slot_list_head, curr){
-            wt_elem = glthread_to_wt_elem(curr); 
+            wt_elem = glthread_to_wt_elem(curr);
+            printf("                wt_elem                     = %p\n",  wt_elem);
 			printf("                wt_elem->time_interval		= %d\n",  wt_elem->time_interval);
 			printf("                wt_elem->execute_cycle_no	= %d\n",  wt_elem->execute_cycle_no);
             printf("                wt_elem->slot_no            = %d\n",  wt_elem->slot_no);
 			printf("                wt_elem->app_callback		= %p\n",  wt_elem->app_callback);
 			printf("                wt_elem->arg    			= %p\n",  wt_elem->arg);
 			printf("                wt_elem->is_recurrence		= %d\n",  wt_elem->is_recurrence);
-            printf("                wt_elem->valid              = %d\n",  wt_elem->valid);
-            printf("                is sched ?                  = %s\n",  (!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue) ? "Y":"N"));
+            printf("                wt_elem->N_scheduled        = %u\n",  wt_elem->N_scheduled);
+            printf("                Remaining Time to Fire      = %u\n",  
+                                    wt_get_remaining_time(wt, wt_elem));
+            printf("\n");
         } ITERATE_GLTHREAD_END(slot_list_head , curr)
 	}
+    pthread_mutex_unlock(&wt->global_lock);
 }
-
 
 void
 start_wheel_timer(wheel_timer_t *wt){
 
+    return;
 	if (pthread_create(&wt->wheel_thread, NULL, wheel_fn, (void*)wt))
 	{
 		printf("Wheel Timer Thread initialization failed, exiting ... \n");
@@ -324,22 +320,26 @@ reset_wheel_timer(wheel_timer_t *wt){
 	wt->current_cycle_no  = 0;
 }
 
-void
-wt_elem_reschedule(wheel_timer_t *wt, 
-                   wheel_timer_elem_t *wt_elem, 
-                   int new_time_interval){
-   
-    assert(wt_elem->valid);
-    
-    wt_elem->time_interval = new_time_interval;
-    
-    if(!IS_GLTHREAD_LIST_EMPTY(&wt_elem->reschedule_glue))
-        return;
 
-    WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-    glthread_add_next(WT_GET_RESCHD_SLOTLIST_HEAD(wt), 
-        &wt_elem->reschedule_glue);
-    WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+char*
+hrs_min_sec_format(unsigned int seconds){
+
+    static char time_f[16];
+    unsigned int hrs = 0,
+                 min =0, sec = 0;
+
+    if(seconds > 3600){
+        min = seconds/60;
+        sec = seconds%60;
+        hrs = min/60;
+        min = min%60;
+    }
+    else{
+        min = seconds/60;
+        sec = seconds%60;
+    }
+    memset(time_f, 0, sizeof(time_f));
+    sprintf(time_f, "%u::%u::%u", hrs, min, sec);
+    return time_f;
 }
-
 

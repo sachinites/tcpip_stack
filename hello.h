@@ -71,7 +71,8 @@ dump_interface_adjacencies(interface_t *interface);
 
 /*Adjacency Timers*/
 void
-adjacency_delete_expiry_timer(adjacency_t *adjacency); 
+adjacency_delete_expiry_timer(interface_t *interface, 
+                        adjacency_t *adjacency); 
 
 void
 adjacency_refresh_expiry_timer(interface_t *interface,
