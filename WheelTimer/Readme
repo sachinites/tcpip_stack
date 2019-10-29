@@ -1,10 +1,10 @@
 compile the program as :
 ==========================
 
-gcc -g -c gluethread/glthread.c -o ../gluethread/glthread.o
+gcc -g -c gluethread/glthread.c -o gluethread/glthread.o
 gcc -g -c WheelTimer.c -o WheelTimer.o
 gcc -g -c main.c -o main.o
-gcc -g main.o WheelTimer.o ../gluethread/glthread.o -o exe -lpthread
+gcc -g main.o WheelTimer.o gluethread/glthread.o -o exe -lpthread
 
 # now run the executable as ./exe
 
@@ -12,6 +12,7 @@ Use main.c file as a reference to see how to use Wheeltimer library.
 
 Complete course on Wheeltimer internal designing and implementation is here : 
     https://www.udemy.com/course/wheeltimers/?referralCode=0A869289160EFB73389A
+
 All courses by me at one place : https://csepracticals.wixsite.com/csepracticals
 
 
@@ -113,4 +114,4 @@ Return : string pointer representing the time in seconds in hsr::min::sec format
     hrs_min_sec_format(unsigned int seconds);
 
 
-As of now, Negative APIs (to stop, destroy the wheel timer is not implemented). Let the wheel timer stay tunning for forever once started. 
+As of now, Negative APIs (to stop, destroy the wheel timer is not implemented). Let the wheel timer stay running for forever once started. :p
