@@ -175,8 +175,11 @@ _wt_elem_reschedule(wheel_timer_t *wt,
 
     if(wt_elem->opcode == WTELEM_DELETE && 
         (opcode == WTELEM_CREATE || 
-        opcode == WTELEM_RESCHED)){
-        assert(0);
+         opcode == WTELEM_RESCHED)){
+        /* This is a Valid Scenario. A Race condition may arise When WT itself
+         * invoked a timer expiry callback for a wt_elem, and at the same time 
+         * hello packet also arrived to refresh the same wt_elem.*/
+        //assert(0);
     } 
     switch(opcode){
         case WTELEM_CREATE:
