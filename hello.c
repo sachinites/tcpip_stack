@@ -107,6 +107,7 @@ update_interface_adjacency_from_hello(interface_t *interface,
     if(!adjacency){
         adjacency = (adjacency_t *)calloc(1, sizeof(adjacency_t));
         init_glthread(&adjacency->glue);
+        time(&adjacency->uptime);
         glthread_add_next(GET_INTF_ADJ_LIST(interface), &adjacency->glue);
         new_adj = TRUE;
     }
@@ -150,17 +151,21 @@ dump_interface_adjacencies(interface_t *interface){
 
     glthread_t *curr;
     adjacency_t *adjacency;
-    
+    time_t curr_time;
+
+    curr_time = time(NULL);
     ITERATE_GLTHREAD_BEGIN(GET_INTF_ADJ_LIST(interface), curr){
         
         adjacency = glthread_to_adjacency(curr);
         printf("\t\t Adjacency : Nbr Name : %s, Router id : %s,"
-               " nbr ip : %s, Expires in : %d sec\n",
+               " nbr ip : %s, Expires in : %d sec, uptime = %s\n",
                 adjacency->router_name, 
                 adjacency->router_id, 
                 adjacency->nbr_ip, 
                 wt_get_remaining_time(GET_NODE_TIMER_FROM_INTF(interface),
-                adjacency->expiry_timer));
+                adjacency->expiry_timer),
+                hrs_min_sec_format(
+                    (unsigned int)difftime(curr_time, adjacency->uptime)));
     } ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);    
 }
 

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include "Layer2/layer2.h"
+#include <time.h>
 
 typedef struct hello_{
 
@@ -49,6 +50,7 @@ typedef struct adjacency_{
     char nbr_ip[16];
     glthread_t glue;
     wheel_timer_elem_t *expiry_timer;
+    time_t uptime;
 } adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_adjacency, adjacency_t, glue);
 
