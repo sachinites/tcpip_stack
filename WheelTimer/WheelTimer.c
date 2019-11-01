@@ -82,7 +82,7 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
                 int next_slot_no      = next_abs_slot_no % wt->wheel_size;
                 wt_elem->execute_cycle_no    = next_cycle_no;
                 wt_elem->slot_no = next_slot_no;
-
+                wt_elem->wt_abs_slot_no = absolute_slot_no;
                 glthread_priority_insert(WT_SLOTLIST_HEAD(wt, wt_elem->slot_no), 
                         &wt_elem->glue,
                         insert_wt_elem_in_slot, 
@@ -150,6 +150,7 @@ wheel_fn(void *arg){
 					int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
 					int next_slot_no      = next_abs_slot_no % wt->wheel_size;
 					wt_elem->execute_cycle_no 	 = next_cycle_no;
+                    wt_elem->wt_abs_slot_no = absolute_slot_no;
                     remove_glthread(&wt_elem->glue);
 					glthread_priority_insert(WT_SLOTLIST_HEAD(wt, next_slot_no), &wt_elem->glue, 
                                     insert_wt_elem_in_slot, 
@@ -247,10 +248,9 @@ wt_get_remaining_time(wheel_timer_t *wt,
          * in this case*/
         return wt_elem->new_time_interval;
     }
-    int wt_absolute_slot = GET_WT_CURRENT_ABS_SLOT_NO(wt);
     int wt_elem_absolute_slot = (wt_elem->execute_cycle_no * wt->wheel_size) + 
             wt_elem->slot_no;
-    int diff = wt_elem_absolute_slot - wt_absolute_slot;
+    int diff = wt_elem_absolute_slot - wt_elem->wt_abs_slot_no;
     return (diff * wt->clock_tic_interval);
 }
 

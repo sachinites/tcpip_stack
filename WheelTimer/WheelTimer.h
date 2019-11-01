@@ -36,6 +36,7 @@ struct _wheel_timer_elem_t{
     slotlist_t *slotlist_head;
     glthread_t reschedule_glue;
     unsigned int N_scheduled;
+    unsigned int wt_abs_slot_no;
 };
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
 GLTHREAD_TO_STRUCT(glthread_reschedule_glue_to_wt_elem, wheel_timer_elem_t, reschedule_glue);
