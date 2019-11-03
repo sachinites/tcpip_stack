@@ -210,9 +210,11 @@ register_app_event(wheel_timer_t *wt,
 	if(!wt || !call_back) return NULL;
 	wheel_timer_elem_t *wt_elem = calloc(1, sizeof(wheel_timer_elem_t));
 	wt_elem->app_callback  = call_back;
-	wt_elem->arg 	       = calloc(1, arg_size);
-	memcpy(wt_elem->arg, arg, arg_size);
-	wt_elem->arg_size      = arg_size;
+    if(arg && arg_size){
+        wt_elem->arg 	       = calloc(1, arg_size);
+        memcpy(wt_elem->arg, arg, arg_size);
+        wt_elem->arg_size      = arg_size;
+    }
 	wt_elem->is_recurrence = is_recursive;
     init_glthread(&wt_elem->glue);
     init_glthread(&wt_elem->reschedule_glue);
