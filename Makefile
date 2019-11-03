@@ -14,6 +14,7 @@ OBJS=gluethread/glthread.o \
 		  nwcli.o		   \
 		  utils.o		   \
 		  Layer2/l2switch.o \
+		  pkt_dump.o	   \
           WheelTimer/WheelTimer.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
@@ -39,6 +40,9 @@ net.o:net.c
 
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o
+
+pkt_dump.o:pkt_dump.c
+	${CC} ${CFLAGS} -c -I . pkt_dump.c -o pkt_dump.o
 
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o
