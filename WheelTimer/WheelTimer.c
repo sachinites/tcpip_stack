@@ -25,13 +25,6 @@ insert_wt_elem_in_slot(void *data1, void *data2){
    return 0;
 }
 
-
-
-/* Note : This wheel timer implementation do not maintain the list of events in
- * a slot in sorted manner based on r value of events. This is 
- * design defect. But as discussed in the tutorial, you need to
- * maintain the list of event sorted based on r value*/
-
 wheel_timer_t*
 init_wheel_timer(int wheel_size, int clock_tic_interval){
 	wheel_timer_t *wt = calloc(1, sizeof(wheel_timer_t) + 

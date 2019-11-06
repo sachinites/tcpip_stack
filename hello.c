@@ -4,7 +4,7 @@
 #include "comm.h"
 #include "net.h"
 
-#define ADJ_DEF_EXPIRY_TIMER    3
+#define ADJ_DEF_EXPIRY_TIMER    10
 
 typedef struct pkt_meta_data_{
 

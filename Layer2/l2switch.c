@@ -244,8 +244,8 @@ l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
             break;
         default:
             ;
-        return FALSE;
     }
+    return FALSE;
 }
 
 static bool_t 
