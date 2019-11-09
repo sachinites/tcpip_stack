@@ -41,6 +41,7 @@
 #include <errno.h>
 #include <netdb.h> /*for struct hostent*/
 #include "net.h"
+#include <unistd.h> // for close
 
 static int
 _send_pkt_out(int sock_fd, char *pkt_data, unsigned int pkt_size, 
@@ -312,3 +313,25 @@ send_pkt_flood(node_t *node, interface_t *exempted_intf,
     }
     return 0;
 }
+
+int
+send_pkt_flood_l2_intf_only(node_t *node,
+                            interface_t *exempted_intf,
+                            char *pkt, unsigned int pkt_size){
+
+    unsigned int i = 0;
+    interface_t *intf;
+
+    for( ; i < MAX_INTF_PER_NODE; i++){
+
+        intf = node->intf[i];
+        if(!intf) return 0;
+
+        if(intf == exempted_intf || 
+            !IF_L2_MODE(intf))
+            continue;
+
+        send_pkt_out(pkt, pkt_size, intf);
+    }
+}
+

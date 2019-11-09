@@ -1,0 +1,8 @@
+compile the program as :
+
+gcc -g -c ../gluethread/glthread.c -o ../gluethread/glthread.o
+gcc -g -c WheelTimer.c -o WheelTimer.o
+gcc -g -c main.c -o main.o
+gcc -g main.o WheelTimer.o ../gluethread/glthread.o -o exe -lpthread
+
+# now run the executable as ./exe

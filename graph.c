@@ -36,7 +36,7 @@
 #include <stdio.h>
 #include <memory.h>
 
-extern 
+extern void 
 init_udp_socket(node_t *node);
 
 void

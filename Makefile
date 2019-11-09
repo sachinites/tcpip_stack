@@ -13,7 +13,9 @@ OBJS=gluethread/glthread.o \
 		  Layer5/layer5.o  \
 		  nwcli.o		   \
 		  utils.o		   \
-		  Layer2/l2switch.o
+		  Layer2/l2switch.o \
+		  pkt_dump.o	   \
+          WheelTimer/WheelTimer.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -23,6 +25,9 @@ testapp.o:testapp.c
 
 gluethread/glthread.o:gluethread/glthread.c
 	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o
+
+WheelTimer/WheelTimer.o:WheelTimer/WheelTimer.c
+	${CC} ${CFLAGS} -c -I gluethread -I WheelTimer WheelTimer/WheelTimer.c -o WheelTimer/WheelTimer.o
 
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
@@ -35,6 +40,9 @@ net.o:net.c
 
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o
+
+pkt_dump.o:pkt_dump.c
+	${CC} ${CFLAGS} -c -I . pkt_dump.c -o pkt_dump.o
 
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o
@@ -65,7 +73,7 @@ clean:
 	rm *exe
 	rm Layer2/*.o
 	rm Layer3/*.o
-
+	rm WheelTimer/WheelTimer.o
 all:
 	make
 	(cd CommandParser; make)
@@ -73,3 +81,4 @@ all:
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
+	rm WheelTimer/WheelTimer.o

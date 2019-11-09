@@ -61,4 +61,10 @@ send_pkt_flood(node_t *node,
                interface_t *exempted_intf, 
                char *pkt, unsigned int pkt_size);
 
+/*API to flood the pkt out of all L2 interface of the node*/
+int
+send_pkt_flood_l2_intf_only(node_t *node,
+                            interface_t *exempted_intf,
+                            char *pkt, unsigned int pkt_size);
+
 #endif /* __COMM__ */

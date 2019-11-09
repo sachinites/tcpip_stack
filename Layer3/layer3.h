@@ -86,6 +86,11 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
     ip_hdr->src_ip = 0; /*To be filled by the caller*/ 
     ip_hdr->dst_ip = 0; /*To be filled by the caller*/
 }
+#define IP_HDR_LEN_IN_BYTES(ip_hdr_ptr)  (ip_hdr_ptr->ihl * 4)
+#define IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr_ptr)   (ip_hdr_ptr->total_length * 4)
+#define INCREMENT_IPHDR(ip_hdr_ptr) ((char *)ip_hdr_ptr + (ip_hdr_ptr->ihl * 4))
+#define IP_HDR_PAYLOAD_SIZE(ip_hdr_ptr) (IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr_ptr) - \
+        IP_HDR_LEN_IN_BYTES(ip_hdr_ptr))
 
 #include <gluethread/glthread.h>
 
