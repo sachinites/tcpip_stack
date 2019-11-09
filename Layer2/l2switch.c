@@ -265,7 +265,8 @@ l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
         
         oif = node->intf[i];
         if(!oif) break;
-        if(oif == exempted_intf) continue;
+        if(oif == exempted_intf || 
+            IS_INTF_L3_MODE(oif)) continue;
         
         memcpy(pkt_copy, pkt, pkt_size);
         l2_switch_send_pkt_out(pkt_copy, pkt_size, oif);
