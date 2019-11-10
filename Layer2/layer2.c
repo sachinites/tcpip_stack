@@ -847,6 +847,10 @@ extern void
 process_hello_msg(interface_t *iif, 
                   ethernet_hdr_t *hello_eth_hdr);
                   
+extern void
+ddcp_process_ddcp_hdr(node_t *node, interface_t *iif,
+                      ethernet_hdr_t *ethernet_hdr,
+                      unsigned int pkt_size);
 
 void
 layer2_frame_recv(node_t *node, interface_t *interface,
@@ -892,10 +896,14 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                 promote_pkt_to_layer3(node, interface, 
                     GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
                     pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ethernet_hdr->type);
-		break;
+                break;
 	        case HELLO_MSG_CODE:
 		        process_hello_msg(interface, ethernet_hdr);
 		        break;
+            case DDCP_MSG:
+                ddcp_process_ddcp_hdr(node, interface,
+                    ethernet_hdr, pkt_size);
+                break;
             default:
                 break;
         }

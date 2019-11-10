@@ -122,6 +122,8 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 #define MAX_VLAN_MEMBERSHIP 10
 #include "WheelTimer/WheelTimer.h"
 
+typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
+
 typedef struct intf_nw_props_ {
 
     /*L2 properties*/
@@ -129,6 +131,7 @@ typedef struct intf_nw_props_ {
     intf_l2_mode_t  intf_l2_mode;   /*if IP-address is configured on this interface, then this should be set to UNKNOWN*/
     unsigned int vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
     bool_t is_ipadd_config_backup;
+    ddcp_interface_prop_t *ddcp_interface_prop;
 
     /*L3 properties*/
     bool_t is_ipadd_config; 
@@ -145,6 +148,8 @@ typedef struct intf_nw_props_ {
     unsigned int bad_hellos_recv;
 } intf_nw_props_t;
 
+extern void
+init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
 
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
@@ -154,6 +159,7 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
         sizeof(intf_nw_props->mac_add.mac));
     intf_nw_props->intf_l2_mode = L2_MODE_UNKNOWN;
     memset(intf_nw_props->vlans, 0, sizeof(intf_nw_props->vlans));
+    init_ddcp_interface_props(&intf_nw_props->ddcp_interface_prop);
 
     /*L3 properties*/
     intf_nw_props->is_ipadd_config = FALSE;

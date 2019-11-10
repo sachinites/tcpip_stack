@@ -15,7 +15,8 @@ OBJS=gluethread/glthread.o \
 		  utils.o		   \
 		  Layer2/l2switch.o \
           WheelTimer/WheelTimer.o   \
-          hello.o
+          hello.o		   \
+		  Layer5/ddcp/ddcp.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -65,6 +66,9 @@ nwcli.o:nwcli.c
 utils.o:utils.c
 	${CC} ${CFLAGS} -c -I . utils.c -o utils.o
 
+Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
+	${CC} ${CFLAGS} -c -I . -I Layer5/ddcp/ Layer5/ddcp/ddcp.c -o Layer5/ddcp/ddcp.o
+
 CommandParser/libcli.a:
 	(cd CommandParser; make)
 clean:
@@ -74,6 +78,7 @@ clean:
 	rm Layer2/*.o
 	rm Layer3/*.o
 	rm WheelTimer/WheelTimer.o
+	rm Layer5/ddcp/*.o
 all:
 	make
 	(cd CommandParser; make)

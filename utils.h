@@ -59,4 +59,31 @@ layer2_fill_with_broadcast_mac(char *mac_array);
     (mac[0] == 0xFF  &&  mac[1] == 0xFF && mac[2] == 0xFF && \
      mac[3] == 0xFF  &&  mac[4] == 0xFF && mac[5] == 0xFF)
 
+
+#define TLV_OVERHEAD_SIZE  2
+
+/*Macro to Type Length Value reply
+ * char * - start_ptr, IN
+ * char - type, OUT
+ * char - length, OUT
+ * char * - tlv_ptr, OUT
+ * unsigned int - total_size, IN
+ * */
+#define ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, total_size)         \
+{                                                                               \
+    char *_i = NULL;                                                            \
+    unsigned int _len = 0, _tlv_value_size = 0;                                 \
+    type = 0; length = 0; tlv_ptr = NULL;                                       \
+    for(_i = (char *)start_ptr; _len < total_size;                              \
+            _len += (_tlv_value_size + TLV_OVERHEAD_SIZE)){                     \
+        type = (*_i);                                                           \
+        _tlv_value_size = (char)(*(_i + sizeof(char)));                         \
+        length = _tlv_value_size;                                               \
+        tlv_ptr = (_i + (sizeof(char) * 2));
+
+#define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, total_size)  \
+    }}
+
+
+
 #endif /* __UTILS__ */
