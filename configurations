@@ -16,3 +16,14 @@ conf node H2 no interface eth0/3 hello
 conf node H5 no interface eth0/8 hello
 conf node H6 no interface eth0/11 hello
 
+2. 
+
+For testing ddcp Query
+Topology : build_first_topo()
+
+conf node R0_re route 122.1.1.1 32 20.1.1.2 eth0/0
+conf node R0_re route 122.1.1.2 32 40.1.1.2 eth0/4
+conf node R1_re route 122.1.1.0 32 20.1.1.1 eth0/1
+conf node R1_re route 122.1.1.2 32 30.1.1.2 eth0/2
+conf node R2_re route 122.1.1.0 32 40.1.1.1 eth0/5
+conf node R2_re route 122.1.1.1 32 30.1.1.1 eth0/3

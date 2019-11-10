@@ -34,6 +34,7 @@
 #include "serialize.h"
 #include <assert.h>
 #include "../../tcpconst.h"
+#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 
 #define GET_DDCP_INTF_PROP(intf_ptr)    \
     (intf_ptr->intf_nw_props.ddcp_interface_prop)
@@ -63,12 +64,11 @@ ddcp_send_ddcp_query_out(char *pkt,
 
 
 void
-ddcp_flood_ddcp_query_out(char *pkt,
-        unsigned int pkt_size,
-        interface_t *exempted_intf){
+ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
+                          unsigned int pkt_size,
+                          interface_t *exempted_intf){
 
     interface_t *intf = NULL;
-    node_t *node = exempted_intf->att_node;
 
     if(!node){
         return;
@@ -120,72 +120,19 @@ ddcp_get_os_version(node_t *node, ser_buff_t *data_out){
     return strlen(OS) + TLV_OVERHEAD_SIZE;
 }
 
-static char *
-ddcp_process_ddcp_query(node_t *node, 
-                        ddcp_query_hdr_t *ddcp_query_hdr,
-                        unsigned int *output_buff_len){
-
-    unsigned int i = 0;
-    *output_buff_len = 0;
-    DDCP_TLV_ID ddcp_tlv_id;
-    char *copy_buffer = NULL;
-    ser_buff_t *ser_buff = NULL;
-
-    init_serialized_buffer(&ser_buff);
-    serialize_uint8(ser_buff, DDCP_MSG_TYPE_UCAST_REPLY);
-
-    for(; i < ddcp_query_hdr->no_of_tlvs; i++){
-        ddcp_tlv_id = ddcp_query_hdr->tlv_code_points[i];
-        switch(ddcp_tlv_id){
-            case DDCP_TLV_RTR_NAME:
-                ddcp_get_rtr_name(node, ser_buff);
-            break;
-            case DDCP_TLV_RTR_LO_ADDR:
-                ddcp_get_lo_addr(node, ser_buff);
-            break;
-            case DDCP_TLV_RAM_SIZE:
-               ddcp_get_ram_size(node, ser_buff); 
-            break;
-            case DDCP_TLV_OS_VERSION:
-                ddcp_get_os_version(node, ser_buff);
-            break;
-            case DDCP_TLV_MAX:
-            break;
-            default:
-                ;
-        }
-    }
-
-    if(is_serialized_buffer_empty(ser_buff))
-        return NULL;
-
-    copy_buffer = calloc(1, get_serialize_buffer_size(ser_buff));
-    if(!copy_buffer){
-        printf("Error : Memory alloc failed\n");
-        free_serialize_buffer(ser_buff);
-        return NULL;
-    }
-    memcpy(copy_buffer, ser_buff->b, get_serialize_buffer_size(ser_buff));
-    *output_buff_len = (unsigned int)get_serialize_buffer_size(ser_buff);
-    free_serialize_buffer(ser_buff);
-    ser_buff = NULL;
-    return copy_buffer;
-}
-
 static void
 ddcp_print_ddcp_reply_msg(char *pkt, 
                           unsigned int pkt_size){
 
      char *tlv_ptr;
      char type, length;
-     char ddcp_msg_type = pkt[0];
      
-     char *start_ptr = pkt + 1;
+     char *start_ptr = pkt + sizeof(seq_t);
      
-     assert(ddcp_msg_type == DDCP_MSG_TYPE_UCAST_REPLY);
+     printf("Seq No : %u, msg size = %u\n", *(seq_t *)(pkt), pkt_size);
 
      ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, 
-                (pkt_size - sizeof(char))){
+                (pkt_size - sizeof(seq_t))){
 
         switch(type){
             case DDCP_TLV_RTR_NAME:
@@ -213,48 +160,337 @@ ddcp_print_ddcp_reply_msg(char *pkt,
                 ;
         }
     } ITERATE_TLV_END(start_ptr, type, length, tlv_ptr,
-                (pkt_size - sizeof(char)));
+                (pkt_size - sizeof(seq_t)));
+}
 
+
+static char *
+ddcp_process_ddcp_query(node_t *node, 
+                        ddcp_query_hdr_t *ddcp_query_hdr,
+                        unsigned int *output_buff_len){
+
+    unsigned int i = 0;
+    *output_buff_len = 0;
+    DDCP_TLV_ID ddcp_tlv_id;
+    char *copy_buffer = NULL;
+    ser_buff_t *ser_buff = NULL;
+
+    init_serialized_buffer(&ser_buff);
+    serialize_uint32(ser_buff, ddcp_query_hdr->seq_no);
+
+    for(; i < ddcp_query_hdr->no_of_tlvs; i++){
+        ddcp_tlv_id = ddcp_query_hdr->tlv_code_points[i];
+        switch(ddcp_tlv_id){
+            case DDCP_TLV_RTR_NAME:
+                ddcp_get_rtr_name(node, ser_buff);
+            break;
+            case DDCP_TLV_RTR_LO_ADDR:
+                ddcp_get_lo_addr(node, ser_buff);
+            break;
+            case DDCP_TLV_RAM_SIZE:
+               ddcp_get_ram_size(node, ser_buff); 
+            break;
+            case DDCP_TLV_OS_VERSION:
+                ddcp_get_os_version(node, ser_buff);
+            break;
+            case DDCP_TLV_MAX:
+            break;
+            default:
+                ;
+        }
+    }
+
+    if(is_serialized_buffer_empty(ser_buff)){
+        free_serialize_buffer(ser_buff);
+        ser_buff = NULL;
+        return NULL;
+    }
+
+    copy_buffer = calloc(1, get_serialize_buffer_size(ser_buff));
+    if(!copy_buffer){
+        printf("Error : Memory alloc failed\n");
+        free_serialize_buffer(ser_buff);
+        return NULL;
+    }
+    memcpy(copy_buffer, ser_buff->b, get_serialize_buffer_size(ser_buff));
+    *output_buff_len = (unsigned int)get_serialize_buffer_size(ser_buff);
+    free_serialize_buffer(ser_buff);
+    ser_buff = NULL;
+    ddcp_print_ddcp_reply_msg(copy_buffer, *output_buff_len);
+    return copy_buffer;
+}
+
+void
+ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif, 
+                            ethernet_hdr_t *ethernet_hdr, 
+                            unsigned int pkt_size){
+
+    char l5_protocol;
+    char *ddcp_reply_msg = NULL;
+    unsigned int output_buff_len = 0;
+
+    assert(ethernet_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY);
+
+    ddcp_query_hdr_t *ddcp_query_msg = (ddcp_query_hdr_t *)
+            GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
+
+    if(!ddcp_db_should_process_ddcp_query(node, 
+                ddcp_query_msg->originator_ip, 
+                ddcp_query_msg->seq_no)){
+
+        return;
+    }
+
+    ddcp_reply_msg = ddcp_process_ddcp_query(
+                      node, 
+                      ddcp_query_msg, 
+                      &output_buff_len);
+
+    if(!ddcp_reply_msg || !output_buff_len){
+        printf("DDCP Reply msg Could not be prepared\n");
+        return;
+    }
+    ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, pkt_size, iif);
+
+    l5_protocol = DDCP_MSG_TYPE_UCAST_REPLY;
+    demote_packet_to_layer3(node, ddcp_reply_msg, 
+            output_buff_len, l5_protocol,
+            ddcp_query_msg->originator_ip);
+    free(ddcp_reply_msg);
+    ddcp_reply_msg = NULL;
+}
+
+static void
+ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node, 
+                                     ddcp_reply_msg_t *ddcp_reply_msg,
+                                     char *ddcp_tlv_msg,
+                                     unsigned int tlv_msg_size){
+
+    if(ddcp_reply_msg){
+        if(ddcp_reply_msg->msg_size != tlv_msg_size){
+            remove_glthread(&ddcp_reply_msg->glue);
+            free(ddcp_reply_msg);
+            ddcp_reply_msg = NULL;
+        }
+    }
+    if(!ddcp_reply_msg){
+        ddcp_reply_msg = calloc(1, 
+                sizeof(ddcp_reply_msg_t) + tlv_msg_size);
+        init_glthread(&ddcp_reply_msg->glue);
+        glthread_add_next(GET_NODE_DDCP_DB_REPLY_HEAD(node), &ddcp_reply_msg->glue); 
+    }
+    ddcp_reply_msg->msg_size = tlv_msg_size;
+    memcpy(ddcp_reply_msg->reply_msg, ddcp_tlv_msg, tlv_msg_size);
+}
+
+static void
+ddcp_add_or_update_ddcp_reply_msg(node_t *node, 
+                                 char *ddcp_tlv_msg, 
+                                 unsigned int tlv_msg_size){
+
+    if(!ddcp_tlv_msg || !tlv_msg_size)
+        return;
+
+    glthread_t *curr;
+    ddcp_reply_msg_t *ddcp_reply_msg;
+    char type, length;
+
+    char *start_ptr = ddcp_tlv_msg + sizeof(seq_t);
+    seq_t new_seq_no = *(seq_t *)ddcp_tlv_msg;
+    seq_t old_seq_no = 0;
+
+    char *lo_addr = NULL, *tlv_ptr = NULL;
+
+    ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr,
+        (tlv_msg_size - sizeof(seq_t))){ 
+
+        if((DDCP_TLV_ID)type != DDCP_TLV_RTR_LO_ADDR) continue;
+        lo_addr = tlv_ptr;
+        break;
+    } ITERATE_TLV_END(start_ptr, type, length, tlv_ptr,
+        (tlv_msg_size - sizeof(seq_t)));
+
+    if(!lo_addr){
+        printf("Error : Could not find lo-addr in ddcp reply tlv\n");
+        return;
+    }
+
+    ITERATE_GLTHREAD_BEGIN(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr){
+
+        ddcp_reply_msg = ddcp_db_reply_node_glue_to_ddcp_reply_msg(curr);
+        
+        old_seq_no = *(seq_t *)ddcp_reply_msg->reply_msg;
+
+        start_ptr = ddcp_reply_msg->reply_msg + sizeof(seq_t);
+
+        ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, 
+            (ddcp_reply_msg->msg_size - sizeof(seq_t))){
+
+            if((DDCP_TLV_ID)type != DDCP_TLV_RTR_LO_ADDR)
+                continue;
+            
+            if(strncmp(tlv_ptr, lo_addr, sizeof(ip_add_t)) == 0){
+                if(old_seq_no < new_seq_no){
+                    ddcp_update_ddcp_reply_from_ddcp_tlv(
+                        node, ddcp_reply_msg, ddcp_tlv_msg, tlv_msg_size);
+                }
+                return;
+            }
+         }ITERATE_TLV_END(start_ptr, type, length, tlv_ptr,
+            (ddcp_reply_msg->msg_size - sizeof(seq_t)));
+
+    } ITERATE_GLTHREAD_END(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr);
+
+    ddcp_update_ddcp_reply_from_ddcp_tlv(node,
+                        NULL, ddcp_tlv_msg, tlv_msg_size);
 }
 
 
 void
-ddcp_process_ddcp_hdr(node_t *node, interface_t *iif, 
-                      ethernet_hdr_t *ethernet_hdr, 
-                      unsigned int pkt_size){
+ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, 
+                            unsigned int pkt_size){
 
-    char protocol;
-    char ddcp_msg_type;
-    char *ddcp_reply_msg = NULL;
-    unsigned int output_buff_len = 0;
-   
-    char *ddcp_msg = GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
-    ddcp_msg_type = ddcp_msg[0];
+    ddcp_add_or_update_ddcp_reply_msg(node, pkt, pkt_size);
+}
 
-    unsigned int ddcp_msg_len = pkt_size - \
-        GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr);
+/*DDCP Query Database*/
 
-    switch(ddcp_msg_type){
-        case DDCP_MSG_TYPE_FLOOD_QUERY:
-            ddcp_reply_msg = ddcp_process_ddcp_query(
-                                node, 
-                                (ddcp_query_hdr_t *)ddcp_msg, 
-                                &output_buff_len);
+void
+init_ddcp_query_db(ddcp_db_t **ddcp_db){
 
-            if(!ddcp_reply_msg || !output_buff_len){
-                printf("DDCP Reply msg Could not be prepared\n");
-                return;
-            }
-            ddcp_flood_ddcp_query_out((char *)ethernet_hdr, pkt_size, iif);
-            protocol = DDCP_MSG;
-            demote_packet_to_layer3(node, ddcp_reply_msg, 
-                                    output_buff_len, protocol,
-                                    ((ddcp_query_hdr_t *)ddcp_msg)->originator_ip);
-            break;
-        case DDCP_MSG_TYPE_UCAST_REPLY:
-            ddcp_print_ddcp_reply_msg(ddcp_msg, ddcp_msg_len);
-            break;
-        default:
-            ;
+    assert(*ddcp_db == NULL);
+    *ddcp_db = calloc(1, sizeof(ddcp_db_t));
+    init_glthread(&((*ddcp_db)->ddcp_query_head));
+    init_glthread(&((*ddcp_db)->ddcp_reply_head));
+}
+
+static ddcp_db_query_node_t *
+ddcp_get_ddcp_db_query_info(ddcp_db_t *ddcp_db, 
+                             unsigned int originator_ip){
+
+    glthread_t *curr;
+    ddcp_db_query_node_t *ddcp_db_query_node;
+
+    ITERATE_GLTHREAD_BEGIN(&ddcp_db->ddcp_query_head, curr){
+
+        ddcp_db_query_node = 
+            ddcp_db_query_node_glue_to_ddcp_db_query_node(curr);
+        if(ddcp_db_query_node->originator_ip == originator_ip)
+            return ddcp_db_query_node;
+    } ITERATE_GLTHREAD_END(&ddcp_db->ddcp_head, curr);
+    return NULL;
+}
+
+seq_t
+ddcp_update_ddcp_db_self_query_info(node_t *node){
+
+    unsigned int addr_int = 0;
+    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    addr_int = htonl(addr_int);
+
+    ddcp_db_query_node_t *ddcp_db_query_node =
+        ddcp_get_ddcp_db_query_info(GET_NODE_DDCP_DB(node), addr_int);
+
+    if(!ddcp_db_query_node){
+        ddcp_db_query_node = calloc(1, sizeof(ddcp_db_query_node_t));
+        ddcp_db_query_node->originator_ip = addr_int;
+        ddcp_db_query_node->seq_no = 0;
+        init_glthread(&ddcp_db_query_node->ddcp_db_query_node_glue);
+        glthread_add_next(GET_NODE_DDCP_DB_HEAD(node),
+                &ddcp_db_query_node->ddcp_db_query_node_glue);
+        return ddcp_db_query_node->seq_no;
     }
+
+    ddcp_db_query_node->seq_no++;
+    return ddcp_db_query_node->seq_no;
+}
+
+bool_t
+ddcp_db_should_process_ddcp_query(node_t *node, 
+                                  unsigned int originator_ip,
+                                  seq_t seq_no){
+
+    unsigned int addr_int = 0;
+    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    addr_int = htonl(addr_int);
+    
+    ddcp_db_query_node_t *ddcp_db_query_node = 
+        ddcp_get_ddcp_db_query_info(GET_NODE_DDCP_DB(node), 
+                                 originator_ip);
+
+    if(originator_ip == addr_int && 
+        !ddcp_db_query_node){
+        assert(0);
+    }
+
+    if(!ddcp_db_query_node){
+        ddcp_db_query_node = calloc(1, sizeof(ddcp_db_query_node_t));
+        ddcp_db_query_node->originator_ip = originator_ip;
+        ddcp_db_query_node->seq_no = seq_no;
+        init_glthread(&ddcp_db_query_node->ddcp_db_query_node_glue);
+        glthread_add_next(GET_NODE_DDCP_DB_HEAD(node),
+                &ddcp_db_query_node->ddcp_db_query_node_glue);
+        return TRUE;
+    }
+
+    if(ddcp_db_query_node->seq_no < seq_no){
+        ddcp_db_query_node->seq_no = seq_no;
+        return TRUE;
+    }
+
+    if(ddcp_db_query_node->seq_no >= seq_no){
+        return FALSE;
+    }
+
+    return FALSE;
+}
+
+void
+ddcp_print_ddcp_reply_msgs_db(node_t *node){
+
+    glthread_t *curr;
+    ddcp_reply_msg_t *ddcp_reply_msg = NULL;
+    
+    ITERATE_GLTHREAD_BEGIN(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr){
+
+        ddcp_reply_msg = ddcp_db_reply_node_glue_to_ddcp_reply_msg(curr);
+        ddcp_print_ddcp_reply_msg(ddcp_reply_msg->reply_msg, 
+                    ddcp_reply_msg->msg_size);
+    } ITERATE_GLTHREAD_END(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr); 
+}
+
+void
+ddcp_trigger_default_ddcp_query(node_t *node){
+
+    unsigned int addr_int = 0;
+    ddcp_query_hdr_t *ddcp_query_hdr;
+
+    unsigned int payload_size = sizeof(ddcp_query_hdr_t) + 
+                (4 * sizeof(DDCP_TLV_ID));
+
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(
+                1, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
+
+    ddcp_query_hdr = (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
+
+    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    addr_int = htonl(addr_int);
+
+    ddcp_query_hdr->originator_ip = addr_int;
+    ddcp_query_hdr->seq_no = ddcp_update_ddcp_db_self_query_info(node);
+    ddcp_query_hdr->no_of_tlvs = 4;
+    ddcp_query_hdr->tlv_code_points[0] = DDCP_TLV_RTR_NAME;
+    ddcp_query_hdr->tlv_code_points[1] = DDCP_TLV_RTR_LO_ADDR;
+    ddcp_query_hdr->tlv_code_points[2] = DDCP_TLV_RAM_SIZE;
+    ddcp_query_hdr->tlv_code_points[3] = DDCP_TLV_OS_VERSION;
+
+    /*Let src mac be zero*/
+
+    /*Fill Dst mac with Broadcast address*/
+    layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
+    ethernet_hdr->type = DDCP_MSG_TYPE_FLOOD_QUERY;
+    SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0); 
+    ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, 
+        ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size, NULL);
+    free(ethernet_hdr);
 }

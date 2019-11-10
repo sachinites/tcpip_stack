@@ -48,7 +48,6 @@
 #define IP_IN_IP        4
 #define HELLO_MSG_CODE	13 /*Randomly chosen*/
 /*Add DDCP Protocol Numbers*/
-#define DDCP_MSG              100       /*Randomly chosen, must not exceed 255*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, must not exceed 255*/
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 

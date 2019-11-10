@@ -59,6 +59,7 @@ typedef struct mac_add_ {
 typedef struct arp_table_ arp_table_t;
 typedef struct mac_table_ mac_table_t;
 typedef struct rt_table_ rt_table_t;
+typedef struct ddcp_db_ ddcp_db_t;
 
 typedef struct node_nw_prop_{
 
@@ -70,6 +71,8 @@ typedef struct node_nw_prop_{
     arp_table_t *arp_table;
     mac_table_t *mac_table;     
     rt_table_t *rt_table;
+    ddcp_db_t *ddcp_db;
+
     /*L3 properties*/ 
     bool_t is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
@@ -84,6 +87,7 @@ typedef struct node_nw_prop_{
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(rt_table_t **rt_table);
+extern void init_ddcp_query_db(ddcp_db_t **ddcp_db);
 
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
@@ -94,6 +98,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
+    init_ddcp_query_db(&(node_nw_prop->ddcp_db));
     node_nw_prop->wt = init_wheel_timer(60, 1);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_buffer = calloc(1, MAX_PACKET_BUFFER_SIZE);
@@ -143,6 +148,8 @@ typedef struct intf_nw_props_ {
     wheel_timer_elem_t *hellos;
 
     /*Interface Statistics*/
+    unsigned int pkt_recv;
+    unsigned int pkt_sent;
     unsigned int hellos_recv;
     unsigned int hellos_sent;
     unsigned int bad_hellos_recv;
@@ -171,6 +178,8 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->hellos = NULL;
 
     /*Interface Statistics*/
+    intf_nw_props->pkt_recv = 0;
+    intf_nw_props->pkt_sent = 0;
     intf_nw_props->hellos_recv = 0;
     intf_nw_props->hellos_sent = 0;
     intf_nw_props->bad_hellos_recv = 0;

@@ -48,4 +48,7 @@
 
 #define CMDCODE_SHOW_INTF_STATS     13 /*show node <node-name> interface statistics*/
 #define CMDCODE_DEBUG_SHOW_NODE_TIMER   14 /*debug show node <node-name> timer*/
+
+#define CMDCODE_RUN_DDCP_QUERY      15 /*run node <node-name> ddcp-query*/
+#define CMDCODE_SHOW_DDCP_DB        16 /*show node <node-name> ddcp-db*/
 #endif /* __CMDCODES__ */

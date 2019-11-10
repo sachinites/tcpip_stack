@@ -45,8 +45,8 @@ typedef enum{
 } DDCP_TLV_ID;
 
 typedef struct ddcp_query_hdr_{
-    char ddcp_msg_type;
     unsigned int originator_ip;
+    unsigned int seq_no;
     unsigned int no_of_tlvs;
     DDCP_TLV_ID tlv_code_points[0];
 } ddcp_query_hdr_t;
@@ -72,12 +72,67 @@ ddcp_send_ddcp_query_out(char *pkt,
                          interface_t *oif);
 
 void
-ddcp_flood_ddcp_query_out(char *pkt, 
+ddcp_flood_ddcp_query_out(node_t *node, char *pkt, 
                           unsigned int pkt_size,
                           interface_t *exempted_intf);
 
 void
-ddcp_process_ddcp_hdr(node_t *node, interface_t *iif,
-                      ethernet_hdr_t *ethernet_hdr,
-                      unsigned int pkt_size);
+ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
+                              ethernet_hdr_t *ethernet_hdr,
+                              unsigned int pkt_size);
+
+void
+ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, unsigned int pkt_size);
+
+
+/*DDCP Query Database*/
+typedef unsigned int seq_t;
+
+typedef struct ddcp_db_query_node_{
+
+    unsigned int originator_ip;
+    seq_t seq_no;
+    glthread_t ddcp_db_query_node_glue;
+} ddcp_db_query_node_t;
+GLTHREAD_TO_STRUCT(ddcp_db_query_node_glue_to_ddcp_db_query_node, 
+                    ddcp_db_query_node_t, ddcp_db_query_node_glue);
+
+typedef struct ddcp_reply_msg_{
+
+    glthread_t glue;
+    unsigned int msg_size;
+    char reply_msg[0];
+} ddcp_reply_msg_t;
+
+GLTHREAD_TO_STRUCT(ddcp_db_reply_node_glue_to_ddcp_reply_msg,
+                    ddcp_reply_msg_t, glue);
+
+typedef struct ddcp_db_{
+    glthread_t ddcp_query_head;
+    glthread_t ddcp_reply_head;
+} ddcp_db_t;
+
+void
+init_ddcp_query_db(ddcp_db_t **ddcp_db);
+
+bool_t 
+ddcp_db_should_process_ddcp_query(node_t *node, 
+                                  unsigned int originator_ip,
+                                  seq_t seq_no);
+
+seq_t
+ddcp_update_ddcp_db_self_query_info(node_t *node);
+
+void
+ddcp_print_ddcp_reply_msgs_db(node_t *node);
+
+#define GET_NODE_DDCP_DB(node_ptr)  \
+    (node_ptr->node_nw_prop.ddcp_db)
+
+#define GET_NODE_DDCP_DB_HEAD(node_ptr) \
+    (&(GET_NODE_DDCP_DB(node)->ddcp_query_head))
+
+#define GET_NODE_DDCP_DB_REPLY_HEAD(node_ptr) \
+    (&(GET_NODE_DDCP_DB(node)->ddcp_reply_head))
+
 #endif /*__DDCP__*/

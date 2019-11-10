@@ -304,8 +304,11 @@ pkt_buffer_check_additional_hdr_space(unsigned int pkt_size,
 void
 dump_interface_stats(interface_t *interface){
 
-    printf("%s   ::  hellosTx : %u,  hellosRx : %u, Bad hellosRx : %u",
-        interface->if_name, interface->intf_nw_props.hellos_sent, 
+    printf("%s   ::  PktTx : %u, PktRx : %u : "
+        "hellosTx : %u,  hellosRx : %u, Bad hellosRx : %u",
+        interface->if_name, interface->intf_nw_props.pkt_sent,
+        interface->intf_nw_props.pkt_recv,
+        interface->intf_nw_props.hellos_sent, 
         interface->intf_nw_props.hellos_recv,
         interface->intf_nw_props.bad_hellos_recv);
 }

@@ -848,9 +848,50 @@ process_hello_msg(interface_t *iif,
                   ethernet_hdr_t *hello_eth_hdr);
                   
 extern void
-ddcp_process_ddcp_hdr(node_t *node, interface_t *iif,
+ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
                       ethernet_hdr_t *ethernet_hdr,
                       unsigned int pkt_size);
+
+static void
+promote_pkt_to_layer2(node_t *node, interface_t *iif, 
+                      ethernet_hdr_t *ethernet_hdr, 
+                      unsigned int pkt_size){
+
+    switch(ethernet_hdr->type){
+        case ARP_MSG:
+            {
+                /*Can be ARP Broadcast or ARP reply*/
+                arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
+                switch(arp_hdr->op_code){
+                    case ARP_BROAD_REQ:
+                        process_arp_broadcast_request(node, iif, ethernet_hdr);
+                        break;
+                    case ARP_REPLY:
+                        process_arp_reply_msg(node, iif, ethernet_hdr);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+        case HELLO_MSG_CODE:
+             process_hello_msg(iif, ethernet_hdr);
+            break;
+        case DDCP_MSG_TYPE_FLOOD_QUERY:
+            ddcp_process_ddcp_query_msg(node, iif, ethernet_hdr, pkt_size);
+            break;
+        case ETH_IP:
+        case IP_IN_IP:
+        case DDCP_MSG_TYPE_UCAST_REPLY:
+            promote_pkt_to_layer3(node, iif, 
+                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 
+                    ethernet_hdr->type);
+            break;
+        default:
+            ;
+    }
+}
 
 void
 layer2_frame_recv(node_t *node, interface_t *interface,
@@ -868,45 +909,10 @@ layer2_frame_recv(node_t *node, interface_t *interface,
         return;
     }
 
-    //printf("L2 Frame Accepted on node %s\n", node->node_name);
-
-    /*Handle Reception of a L2 Frame on L3 Interface*/
     if(IS_INTF_L3_MODE(interface)){
 
-        switch(ethernet_hdr->type){
-            /*When L2 Frame is ARP MSG - could be request or reply*/   
-            case ARP_MSG:
-                {
-                    /*Can be ARP Broadcast or ARP reply*/
-                    arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
-                    switch(arp_hdr->op_code){
-                        case ARP_BROAD_REQ:
-                            process_arp_broadcast_request(node, interface, ethernet_hdr);
-                            break;
-                        case ARP_REPLY:
-                            process_arp_reply_msg(node, interface, ethernet_hdr);
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                break;
-            case ETH_IP:
-            case IP_IN_IP:
-                promote_pkt_to_layer3(node, interface, 
-                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ethernet_hdr->type);
-                break;
-	        case HELLO_MSG_CODE:
-		        process_hello_msg(interface, ethernet_hdr);
-		        break;
-            case DDCP_MSG:
-                ddcp_process_ddcp_hdr(node, interface,
-                    ethernet_hdr, pkt_size);
-                break;
-            default:
-                break;
-        }
+        promote_pkt_to_layer2(node, interface, ethernet_hdr, pkt_size);
+        interface->intf_nw_props.pkt_recv++;
     }
     else if(IF_L2_MODE(interface) == ACCESS ||
                 IF_L2_MODE(interface) == TRUNK){
@@ -919,7 +925,9 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                                                 &new_pkt_size);
             assert(new_pkt_size != pkt_size);
         }
-        l2_switch_recv_frame(interface, pkt, vlan_id_to_tag ? new_pkt_size : pkt_size);
+        l2_switch_recv_frame(interface, pkt, 
+            vlan_id_to_tag ? new_pkt_size : pkt_size);
+        interface->intf_nw_props.pkt_recv++;
     }
     else
         return; /*Do nothing, drop the packet*/

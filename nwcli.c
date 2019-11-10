@@ -407,8 +407,43 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
 
 
 /*Layer 5 Commands*/
+extern void
+ddcp_trigger_default_ddcp_query(node_t *node);
+extern void
+ddcp_print_ddcp_reply_msgs_db(node_t *node);
 
+static int
+ddcp_handler(param_t *param, ser_buff_t *tlv_buf, 
+             op_mode enable_or_disable){
 
+   node_t *node = NULL;
+   char *node_name = NULL;
+   int CMDCODE = -1;
+
+   CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+   tlv_struct_t *tlv = NULL;
+
+   TLV_LOOP_BEGIN(tlv_buf, tlv){
+        
+        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+   } TLV_LOOP_END;
+
+   node = get_node_by_node_name(topo, node_name);
+
+    switch(CMDCODE){
+        case CMDCODE_RUN_DDCP_QUERY:
+            ddcp_trigger_default_ddcp_query(node);            
+            break;
+        case CMDCODE_SHOW_DDCP_DB:
+            ddcp_print_ddcp_reply_msgs_db(node);
+        default:
+            ;
+    }
+}
 
 /*Interface Config Handler*/
 extern void
@@ -607,6 +642,13 @@ nw_init_cli(){
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
                  {
+                    /*show node <node-name> ddcp-db*/
+                    static param_t ddcp_db;
+                    init_param(&ddcp_db, CMD, "ddcp-db", ddcp_handler, 0, INVALID, 0, "Dump DDCP database");
+                    libcli_register_param(&node_name, &ddcp_db);
+                    set_param_cmd_code(&ddcp_db, CMDCODE_SHOW_DDCP_DB);
+                 }
+                 {
                     /*show node <node-name> arp*/
                     static param_t arp;
                     init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
@@ -678,6 +720,14 @@ nw_init_cli(){
                     }
                 }
             }
+            {
+                /*run node <node-name> ddcp-query*/
+                static param_t ddcp_query;
+                init_param(&ddcp_query, CMD, "ddcp-query", ddcp_handler, 0, INVALID, 0, "Trigger DDCP Query Flood");
+                libcli_register_param(&node_name, &ddcp_query);
+                set_param_cmd_code(&ddcp_query, CMDCODE_RUN_DDCP_QUERY);
+            }
+
             {
                 /*run node <node-name> resolve-arp*/    
                 static param_t resolve_arp;

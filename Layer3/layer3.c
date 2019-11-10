@@ -93,7 +93,8 @@ promote_pkt_to_layer4(node_t *node, interface_t *recv_intf,
 
 extern void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf, 
-                      char *l5_hdr, unsigned int pkt_size);
+                      char *l5_hdr, unsigned int pkt_size,
+                      unsigned int L5_protocol);
 
 /*import function from layer 2*/
 extern void
@@ -153,10 +154,6 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             IP_HDR_PAYLOAD_SIZE(ip_hdr),
                             ip_hdr->protocol);
                     break;
-                case USERAPP1:
-                    promote_pkt_to_layer5(node, interface, l5_hdr,
-                            IP_HDR_PAYLOAD_SIZE(ip_hdr));
-                    break;
                 case ICMP_PRO:
                     printf("IP Address : %s, ping success\n", dest_ip_addr);
                     break;
@@ -167,6 +164,11 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             (ip_hdr_t *)INCREMENT_IPHDR(ip_hdr),
                             IP_HDR_PAYLOAD_SIZE(ip_hdr));
                     return;
+                case DDCP_MSG_TYPE_UCAST_REPLY:
+                case USERAPP1:
+                    promote_pkt_to_layer5(node, interface, l5_hdr, 
+                        IP_HDR_PAYLOAD_SIZE(ip_hdr), ip_hdr->protocol);
+                    break;
                 default:
                     ;
             }
@@ -392,6 +394,7 @@ _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         
         case ETH_IP:
         case IP_IN_IP:
+        case DDCP_MSG_TYPE_UCAST_REPLY:
             layer3_ip_pkt_recv_from_layer2(node, interface, (ip_hdr_t *)pkt, pkt_size);
             break;
         default:

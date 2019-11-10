@@ -271,6 +271,8 @@ send_pkt_out(char *pkt, unsigned int pkt_size,
                         dst_udp_port_no);
 
     close(sock);
+    if(rc > 0)
+        interface->intf_nw_props.pkt_sent++;
     return rc; 
 }
 
