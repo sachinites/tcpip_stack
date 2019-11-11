@@ -67,7 +67,7 @@ layer2_fill_with_broadcast_mac(char *mac_array);
  * char - type, OUT
  * char - length, OUT
  * char * - tlv_ptr, OUT
- * unsigned int - total_size, IN
+ * unsigned int - total_size(excluding first 8 bytes), IN
  * */
 #define ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, tlv_size)           \
 {                                                                               \
@@ -76,8 +76,8 @@ layer2_fill_with_broadcast_mac(char *mac_array);
     for(tlv_ptr = (char *)start_ptr + TLV_OVERHEAD_SIZE; _len < tlv_size;       \
             _len += _tlv_value_size + TLV_OVERHEAD_SIZE,                        \
              tlv_ptr = (tlv_ptr + TLV_OVERHEAD_SIZE + length)){                 \
-        type = *(tlv_ptr - TLV_OVERHEAD_SIZE);                                                       \
-        _tlv_value_size = (char)(*(tlv_ptr - TLV_OVERHEAD_SIZE + sizeof(char)));                    \
+        type = *(tlv_ptr - TLV_OVERHEAD_SIZE);                                  \
+        _tlv_value_size = (char)(*(tlv_ptr - TLV_OVERHEAD_SIZE + sizeof(char)));\
         length = _tlv_value_size;
 
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \

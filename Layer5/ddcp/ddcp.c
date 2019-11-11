@@ -120,6 +120,15 @@ ddcp_get_os_version(node_t *node, ser_buff_t *data_out){
     return strlen(OS) + TLV_OVERHEAD_SIZE;
 }
 
+static unsigned int
+ddcp_get_unknown_data(node_t *node, ser_buff_t *data_out, 
+        char unknown_tlv_code_point){
+
+    serialize_uint8(data_out, unknown_tlv_code_point);
+    serialize_uint8(data_out, 0);
+    return TLV_OVERHEAD_SIZE;
+}
+
 static void
 ddcp_print_ddcp_reply_msg(char *pkt){ 
 
@@ -127,31 +136,34 @@ ddcp_print_ddcp_reply_msg(char *pkt){
      char type, length;
     
      char *start_ptr = GET_TLV_START_PTR(pkt);
-     
+     char *ddcp_tlv_str = NULL;
+
      printf("Seq No : %u, pkt size = %u, tlv size = %u\n", 
             GET_SEQ_NO(pkt), GET_PKT_TLEN(pkt), TLV_SIZE(pkt));
-
+     
      ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, TLV_SIZE(pkt)){
+        
+        ddcp_tlv_str = ddcp_tlv_id_str((DDCP_TLV_ID)type);
 
         switch(type){
             case DDCP_TLV_RTR_NAME:
-                printf("T : DDCP_TLV_RTR_NAME, L : %d, V : %s\n", 
-                    length, tlv_ptr);
+                printf("T : %-22s L : %-6d V : %s\n", 
+                        ddcp_tlv_str, length, tlv_ptr);
                 break;
             case DDCP_TLV_RTR_LO_ADDR:
-                printf("T : DDCP_TLV_RTR_LO_ADDR, L : %d, V : %s\n",
-                    length, tlv_ptr);
+                printf("T : %-22s L : %-6d V : %s\n",
+                        ddcp_tlv_str, length, tlv_ptr);
                 break;
             case DDCP_TLV_RAM_SIZE:
             {
                 unsigned int ram_size = *((unsigned int *)tlv_ptr);
-                printf("T : DDCP_TLV_RAM_SIZE, L : %d, V : %u\n",
-                    length, ram_size);
+                printf("T : %-22s L : %-6d V : %u\n",
+                        ddcp_tlv_str, length, ram_size);
             }
             break;
             case DDCP_TLV_OS_VERSION:
-                printf("T : DDCP_TLV_OS_VERSION, L : %d, V : %s\n",
-                    length, tlv_ptr);
+                printf("T : %-22s L : %-6d V : %s\n",
+                        ddcp_tlv_str, length, tlv_ptr);
                 break;
             case DDCP_TLV_MAX:
                 assert(0);
@@ -196,7 +208,8 @@ ddcp_process_ddcp_query(node_t *node,
             case DDCP_TLV_MAX:
             break;
             default:
-                ;
+                ddcp_get_unknown_data(node, ser_buff, (char)ddcp_tlv_id);                
+            ;
         }
     }
 
@@ -292,7 +305,6 @@ ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node,
         glthread_add_next(GET_NODE_DDCP_DB_REPLY_HEAD(node), 
             &ddcp_reply_msg->glue); 
     }
-    ddcp_reply_msg->msg_size = tlv_msg_size;
     memcpy(ddcp_reply_msg->reply_msg, ddcp_tlv_msg, tlv_msg_size);
 }
 
@@ -466,6 +478,7 @@ ddcp_print_ddcp_reply_msgs_db(node_t *node){
 
         ddcp_reply_msg = ddcp_db_reply_node_glue_to_ddcp_reply_msg(curr);
         ddcp_print_ddcp_reply_msg(ddcp_reply_msg->reply_msg);
+        printf("\n");
     } ITERATE_GLTHREAD_END(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr); 
 }
 

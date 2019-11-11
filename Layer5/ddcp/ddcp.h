@@ -44,6 +44,25 @@ typedef enum{
     DDCP_TLV_MAX
 } DDCP_TLV_ID;
 
+static inline char *ddcp_tlv_id_str(
+    DDCP_TLV_ID ddcp_tlv_id){
+
+    switch(ddcp_tlv_id){
+        case DDCP_TLV_RTR_NAME:
+            return "DDCP_TLV_RTR_NAME";
+        case DDCP_TLV_RTR_LO_ADDR:
+            return "DDCP_TLV_RTR_LO_ADDR";
+        case DDCP_TLV_RAM_SIZE:
+            return "DDCP_TLV_RAM_SIZE";
+        case DDCP_TLV_OS_VERSION:
+            return "DDCP_TLV_OS_VERSION";
+        case DDCP_TLV_MAX:
+            return "DDCP_TLV_MAX";
+        default:    
+            return "DDCP_TLV_UNKNOWN";
+    }
+}
+
 typedef struct ddcp_query_hdr_{
     unsigned int originator_ip;
     unsigned int seq_no;
@@ -100,7 +119,6 @@ GLTHREAD_TO_STRUCT(ddcp_db_query_node_glue_to_ddcp_db_query_node,
 typedef struct ddcp_reply_msg_{
 
     glthread_t glue;
-    unsigned int msg_size;
     char reply_msg[0];
 } ddcp_reply_msg_t;
 
