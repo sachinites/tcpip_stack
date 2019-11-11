@@ -3,14 +3,13 @@
 
 /* Data types supported*/
 
-/*Some random -ve integer not likely to be legitimate value*/
-#define NON_EXISTING_STRUCT     (-402547915) 
 
 typedef struct serialized_buffer{
     #define SERIALIZE_BUFFER_DEFAULT_SIZE 512
     void *b;
     int size;
     int next;
+    int checkpoint;
 } ser_buff_t;
 
 /* init functions*/
@@ -29,7 +28,6 @@ void serialize_string(ser_buff_t *b, char *data, int size);
 char is_serialized_buffer_empty(ser_buff_t *b);
 /* get functions*/
 int  get_serialize_buffer_size(ser_buff_t *b);
-int get_serialize_buffer_length(ser_buff_t *b);
 int get_serialize_buffer_current_ptr_offset(ser_buff_t *b);
 char *get_serialize_buffer_current_ptr(ser_buff_t *b);
 void serialize_buffer_skip(ser_buff_t *b, int size);
@@ -38,7 +36,7 @@ void copy_in_serialized_buffer_by_offset(ser_buff_t *b, int size, char *value, i
 /* De-Serialize function */
 
 void de_serialize_string(char *dest, ser_buff_t *b, int val_size);
-void de_serialize_string_by_ref(char *dest, ser_buff_t *b, int size);
+
 
 /* free Resourse*/
 void free_serialize_buffer(ser_buff_t *b);
@@ -46,6 +44,9 @@ void free_serialize_buffer(ser_buff_t *b);
 /*reset function*/
 void truncate_serialize_buffer(ser_buff_t **b);
 void reset_serialize_buffer(ser_buff_t *b);
+void restore_checkpoint_serialize_buffer(ser_buff_t *b);
+int get_serialize_buffer_checkpoint_offset(ser_buff_t *b);
+void mark_checkpoint_serialize_buffer(ser_buff_t *b);
 /* Details*/
 void print_buffer_details(ser_buff_t *b, const char *fn, int lineno);
 

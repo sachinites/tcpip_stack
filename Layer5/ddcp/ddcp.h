@@ -82,7 +82,7 @@ ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
                               unsigned int pkt_size);
 
 void
-ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, unsigned int pkt_size);
+ddcp_process_ddcp_reply_msg(node_t *node, char *pkt);
 
 
 /*DDCP Query Database*/
@@ -135,4 +135,10 @@ ddcp_print_ddcp_reply_msgs_db(node_t *node);
 #define GET_NODE_DDCP_DB_REPLY_HEAD(node_ptr) \
     (&(GET_NODE_DDCP_DB(node)->ddcp_reply_head))
 
+/*DDCP reply msg management*/
+#define GET_SEQ_NO(pkt_ptr)     (*(seq_t *)pkt_ptr)
+#define GET_PKT_TLEN(pkt_ptr)   (*(unsigned int *)(pkt_ptr + sizeof(seq_t)))
+#define DDCP_AUX_INFO           ((sizeof(seq_t) + sizeof(unsigned int)))
+#define TLV_SIZE(pkt_ptr)       ((unsigned int)(GET_PKT_TLEN(pkt_ptr) - DDCP_AUX_INFO))
+#define GET_TLV_START_PTR(pkt_ptr) (pkt_ptr + DDCP_AUX_INFO)
 #endif /*__DDCP__*/

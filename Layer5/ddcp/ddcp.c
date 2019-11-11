@@ -121,18 +121,17 @@ ddcp_get_os_version(node_t *node, ser_buff_t *data_out){
 }
 
 static void
-ddcp_print_ddcp_reply_msg(char *pkt, 
-                          unsigned int pkt_size){
+ddcp_print_ddcp_reply_msg(char *pkt){ 
 
      char *tlv_ptr;
      char type, length;
+    
+     char *start_ptr = GET_TLV_START_PTR(pkt);
      
-     char *start_ptr = pkt + sizeof(seq_t);
-     
-     printf("Seq No : %u, msg size = %u\n", *(seq_t *)(pkt), pkt_size);
+     printf("Seq No : %u, pkt size = %u, tlv size = %u\n", 
+            GET_SEQ_NO(pkt), GET_PKT_TLEN(pkt), TLV_SIZE(pkt));
 
-     ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, 
-                (pkt_size - sizeof(seq_t))){
+     ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, TLV_SIZE(pkt)){
 
         switch(type){
             case DDCP_TLV_RTR_NAME:
@@ -159,8 +158,7 @@ ddcp_print_ddcp_reply_msg(char *pkt,
             default:
                 ;
         }
-    } ITERATE_TLV_END(start_ptr, type, length, tlv_ptr,
-                (pkt_size - sizeof(seq_t)));
+    } ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, TLV_SIZE(pkt));
 }
 
 
@@ -177,6 +175,8 @@ ddcp_process_ddcp_query(node_t *node,
 
     init_serialized_buffer(&ser_buff);
     serialize_uint32(ser_buff, ddcp_query_hdr->seq_no);
+    mark_checkpoint_serialize_buffer(ser_buff);
+    serialize_buffer_skip(ser_buff, sizeof(unsigned int));
 
     for(; i < ddcp_query_hdr->no_of_tlvs; i++){
         ddcp_tlv_id = ddcp_query_hdr->tlv_code_points[i];
@@ -206,17 +206,25 @@ ddcp_process_ddcp_query(node_t *node,
         return NULL;
     }
 
+    *output_buff_len = (unsigned int)get_serialize_buffer_size(ser_buff);
+
+    int size_offset = get_serialize_buffer_checkpoint_offset(ser_buff);
+
+    copy_in_serialized_buffer_by_offset(ser_buff, 
+                    sizeof(unsigned int), 
+                    (char *)output_buff_len, 
+                    size_offset);
+
     copy_buffer = calloc(1, get_serialize_buffer_size(ser_buff));
+
     if(!copy_buffer){
         printf("Error : Memory alloc failed\n");
         free_serialize_buffer(ser_buff);
         return NULL;
     }
     memcpy(copy_buffer, ser_buff->b, get_serialize_buffer_size(ser_buff));
-    *output_buff_len = (unsigned int)get_serialize_buffer_size(ser_buff);
     free_serialize_buffer(ser_buff);
     ser_buff = NULL;
-    ddcp_print_ddcp_reply_msg(copy_buffer, *output_buff_len);
     return copy_buffer;
 }
 
@@ -263,11 +271,15 @@ ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
 static void
 ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node, 
                                      ddcp_reply_msg_t *ddcp_reply_msg,
-                                     char *ddcp_tlv_msg,
-                                     unsigned int tlv_msg_size){
+                                     char *ddcp_tlv_msg){
+
+    unsigned int ddcp_reply_msg_size = 
+        ddcp_reply_msg ? GET_PKT_TLEN(ddcp_reply_msg->reply_msg) : 0;
+    unsigned int tlv_msg_size = 
+        GET_PKT_TLEN(ddcp_tlv_msg);
 
     if(ddcp_reply_msg){
-        if(ddcp_reply_msg->msg_size != tlv_msg_size){
+        if(ddcp_reply_msg_size != tlv_msg_size){
             remove_glthread(&ddcp_reply_msg->glue);
             free(ddcp_reply_msg);
             ddcp_reply_msg = NULL;
@@ -277,7 +289,8 @@ ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node,
         ddcp_reply_msg = calloc(1, 
                 sizeof(ddcp_reply_msg_t) + tlv_msg_size);
         init_glthread(&ddcp_reply_msg->glue);
-        glthread_add_next(GET_NODE_DDCP_DB_REPLY_HEAD(node), &ddcp_reply_msg->glue); 
+        glthread_add_next(GET_NODE_DDCP_DB_REPLY_HEAD(node), 
+            &ddcp_reply_msg->glue); 
     }
     ddcp_reply_msg->msg_size = tlv_msg_size;
     memcpy(ddcp_reply_msg->reply_msg, ddcp_tlv_msg, tlv_msg_size);
@@ -285,30 +298,29 @@ ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node,
 
 static void
 ddcp_add_or_update_ddcp_reply_msg(node_t *node, 
-                                 char *ddcp_tlv_msg, 
-                                 unsigned int tlv_msg_size){
+                                 char *ddcp_tlv_msg){
 
-    if(!ddcp_tlv_msg || !tlv_msg_size)
-        return;
 
     glthread_t *curr;
-    ddcp_reply_msg_t *ddcp_reply_msg;
     char type, length;
+    ddcp_reply_msg_t *ddcp_reply_msg;
 
-    char *start_ptr = ddcp_tlv_msg + sizeof(seq_t);
-    seq_t new_seq_no = *(seq_t *)ddcp_tlv_msg;
+    if(!ddcp_tlv_msg) return;
+
+    char *start_ptr = GET_TLV_START_PTR(ddcp_tlv_msg);
+    seq_t new_seq_no = GET_SEQ_NO(ddcp_tlv_msg);
     seq_t old_seq_no = 0;
 
     char *lo_addr = NULL, *tlv_ptr = NULL;
-
-    ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr,
-        (tlv_msg_size - sizeof(seq_t))){ 
+    
+    ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, 
+                TLV_SIZE(ddcp_tlv_msg)){
 
         if((DDCP_TLV_ID)type != DDCP_TLV_RTR_LO_ADDR) continue;
         lo_addr = tlv_ptr;
         break;
-    } ITERATE_TLV_END(start_ptr, type, length, tlv_ptr,
-        (tlv_msg_size - sizeof(seq_t)));
+    } ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, 
+                TLV_SIZE(ddcp_tlv_msg));
 
     if(!lo_addr){
         printf("Error : Could not find lo-addr in ddcp reply tlv\n");
@@ -319,12 +331,12 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
 
         ddcp_reply_msg = ddcp_db_reply_node_glue_to_ddcp_reply_msg(curr);
         
-        old_seq_no = *(seq_t *)ddcp_reply_msg->reply_msg;
+        old_seq_no = GET_SEQ_NO(ddcp_reply_msg->reply_msg);
 
-        start_ptr = ddcp_reply_msg->reply_msg + sizeof(seq_t);
+        start_ptr = GET_TLV_START_PTR(ddcp_reply_msg->reply_msg);
 
-        ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, 
-            (ddcp_reply_msg->msg_size - sizeof(seq_t))){
+        ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr,
+                    TLV_SIZE(ddcp_reply_msg->reply_msg)){
 
             if((DDCP_TLV_ID)type != DDCP_TLV_RTR_LO_ADDR)
                 continue;
@@ -332,25 +344,24 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
             if(strncmp(tlv_ptr, lo_addr, sizeof(ip_add_t)) == 0){
                 if(old_seq_no < new_seq_no){
                     ddcp_update_ddcp_reply_from_ddcp_tlv(
-                        node, ddcp_reply_msg, ddcp_tlv_msg, tlv_msg_size);
+                        node, ddcp_reply_msg, ddcp_tlv_msg);
                 }
                 return;
             }
          }ITERATE_TLV_END(start_ptr, type, length, tlv_ptr,
-            (ddcp_reply_msg->msg_size - sizeof(seq_t)));
+                    TLV_SIZE(ddcp_reply_msg->reply_msg));
 
     } ITERATE_GLTHREAD_END(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr);
 
     ddcp_update_ddcp_reply_from_ddcp_tlv(node,
-                        NULL, ddcp_tlv_msg, tlv_msg_size);
+                        NULL, ddcp_tlv_msg);
 }
 
 
 void
-ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, 
-                            unsigned int pkt_size){
+ddcp_process_ddcp_reply_msg(node_t *node, char *pkt){
 
-    ddcp_add_or_update_ddcp_reply_msg(node, pkt, pkt_size);
+    ddcp_add_or_update_ddcp_reply_msg(node, pkt);
 }
 
 /*DDCP Query Database*/
@@ -454,8 +465,7 @@ ddcp_print_ddcp_reply_msgs_db(node_t *node){
     ITERATE_GLTHREAD_BEGIN(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr){
 
         ddcp_reply_msg = ddcp_db_reply_node_glue_to_ddcp_reply_msg(curr);
-        ddcp_print_ddcp_reply_msg(ddcp_reply_msg->reply_msg, 
-                    ddcp_reply_msg->msg_size);
+        ddcp_print_ddcp_reply_msg(ddcp_reply_msg->reply_msg);
     } ITERATE_GLTHREAD_END(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr); 
 }
 
