@@ -125,9 +125,12 @@ typedef struct ddcp_reply_msg_{
 GLTHREAD_TO_STRUCT(ddcp_db_reply_node_glue_to_ddcp_reply_msg,
                     ddcp_reply_msg_t, glue);
 
+typedef struct _wheel_timer_t wheel_timer_t;
+
 typedef struct ddcp_db_{
     glthread_t ddcp_query_head;
     glthread_t ddcp_reply_head;
+    wheel_timer_elem_t *periodic_ddcp_query_wt_elem;
 } ddcp_db_t;
 
 void

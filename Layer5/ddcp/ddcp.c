@@ -35,6 +35,7 @@
 #include <assert.h>
 #include "../../tcpconst.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
+#include "../../WheelTimer/WheelTimer.h"
 
 #define GET_DDCP_INTF_PROP(intf_ptr)    \
     (intf_ptr->intf_nw_props.ddcp_interface_prop)
@@ -385,6 +386,7 @@ init_ddcp_query_db(ddcp_db_t **ddcp_db){
     *ddcp_db = calloc(1, sizeof(ddcp_db_t));
     init_glthread(&((*ddcp_db)->ddcp_query_head));
     init_glthread(&((*ddcp_db)->ddcp_reply_head));
+    (*ddcp_db)->periodic_ddcp_query_wt_elem = NULL;
 }
 
 static ddcp_db_query_node_t *
@@ -482,8 +484,38 @@ ddcp_print_ddcp_reply_msgs_db(node_t *node){
     } ITERATE_GLTHREAD_END(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr); 
 }
 
+typedef struct ddcp_pkt_meta_data_{
+
+    node_t *node;
+    char *pkt;
+    unsigned int pkt_size;
+} ddcp_pkt_meta_data_t;
+
+static void
+wrapper_ddcp_flood_ddcp_query_out(void *arg , 
+                                  int arg_size){
+
+    ddcp_pkt_meta_data_t *ddcp_pkt_meta_data = 
+            (ddcp_pkt_meta_data_t *)arg;
+
+    node_t *node = ddcp_pkt_meta_data->node;
+
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)ddcp_pkt_meta_data->pkt;
+    
+    unsigned int pkt_size = ddcp_pkt_meta_data->pkt_size;
+
+    ddcp_query_hdr_t *ddcp_query_hdr = 
+            (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
+
+    ddcp_query_hdr->seq_no = ddcp_update_ddcp_db_self_query_info(node);
+    SET_COMMON_ETH_FCS(ethernet_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, 0);
+
+    ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr,
+                                      pkt_size, NULL);
+}
+
 void
-ddcp_trigger_default_ddcp_query(node_t *node){
+ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 
     unsigned int addr_int = 0;
     ddcp_query_hdr_t *ddcp_query_hdr;
@@ -512,8 +544,33 @@ ddcp_trigger_default_ddcp_query(node_t *node){
     /*Fill Dst mac with Broadcast address*/
     layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
     ethernet_hdr->type = DDCP_MSG_TYPE_FLOOD_QUERY;
-    SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0); 
-    ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, 
-        ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size, NULL);
-    free(ethernet_hdr);
+    SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
+    if(ddcp_q_interval == 0){
+        ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, 
+                ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size, NULL);
+        free(ethernet_hdr);
+    }
+    else{
+        /*Schedule periodic ddcp query firing*/
+        wheel_timer_t *wt = node->node_nw_prop.wt;
+        assert(wt);
+
+        if((GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem){
+            free(ethernet_hdr);
+            printf("Config Aborted : Info : Already Firing ddcp Queries !!\n");
+            return;
+        }
+        ddcp_pkt_meta_data_t ddcp_pkt_meta_data;
+        ddcp_pkt_meta_data.node = node;
+        ddcp_pkt_meta_data.pkt = (char *)ethernet_hdr;
+        ddcp_pkt_meta_data.pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size;
+        
+        (GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem = 
+                register_app_event(wt,
+                wrapper_ddcp_flood_ddcp_query_out,
+                (char *)&ddcp_pkt_meta_data,
+                sizeof(ddcp_pkt_meta_data_t),
+                ddcp_q_interval,
+                1);
+    }
 }

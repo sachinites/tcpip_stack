@@ -46,9 +46,11 @@
 #define CMDCODE_ERO_PING            11  /*run <node-name> ping <ip-address> ero <ero-ip-address>*/
 #define CMDCODE_CONFIG_INTF_HELLOS  12  /*config node <node-name> interface <intf-name> hellos*/
 
-#define CMDCODE_SHOW_INTF_STATS     13 /*show node <node-name> interface statistics*/
+#define CMDCODE_SHOW_INTF_STATS     13     /*show node <node-name> interface statistics*/
 #define CMDCODE_DEBUG_SHOW_NODE_TIMER   14 /*debug show node <node-name> timer*/
 
-#define CMDCODE_RUN_DDCP_QUERY      15 /*run node <node-name> ddcp-query*/
-#define CMDCODE_SHOW_DDCP_DB        16 /*show node <node-name> ddcp-db*/
+#define CMDCODE_RUN_DDCP_QUERY      15  /*run node <node-name> ddcp-query*/
+#define CMDCODE_SHOW_DDCP_DB        16  /*show node <node-name> ddcp-db*/
+#define CMDCODE_RUN_DDCP_QUERY_PERIODIC 17 /*run node <node-name> ddcp-query periodic <ddcp-q-interval in sec>*/
+
 #endif /* __CMDCODES__ */
