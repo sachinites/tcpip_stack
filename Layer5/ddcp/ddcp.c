@@ -42,9 +42,9 @@
 
 extern void
 demote_packet_to_layer3(node_t *node,
-        char *pkt, unsigned int size,
+        char *pkt, uint32_t size,
         int protocol_number, /*L4 or L5 protocol type*/
-        unsigned int dest_ip_address);
+        uint32_t dest_ip_address);
 
 void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop){
@@ -55,7 +55,7 @@ init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop){
 
 void
 ddcp_send_ddcp_query_out(char *pkt,
-                         unsigned int pkt_size,
+                         uint32_t pkt_size,
                          interface_t *oif){
 
     if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(oif)) == FALSE) return;
@@ -66,7 +66,7 @@ ddcp_send_ddcp_query_out(char *pkt,
 
 void
 ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
-                          unsigned int pkt_size,
+                          uint32_t pkt_size,
                           interface_t *exempted_intf){
 
     interface_t *intf = NULL;
@@ -74,7 +74,7 @@ ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
     if(!node){
         return;
     }
-    unsigned int i = 0 ;
+    uint32_t i = 0 ;
     for(; i < MAX_INTF_PER_NODE; i++){
         intf = node->intf[i];
         if(!intf) return;
@@ -83,7 +83,7 @@ ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
     }
 }
 
-static unsigned int
+static uint32_t
 ddcp_get_rtr_name(node_t *node, ser_buff_t *data_out){
 
     serialize_uint8(data_out, DDCP_TLV_RTR_NAME);
@@ -92,7 +92,7 @@ ddcp_get_rtr_name(node_t *node, ser_buff_t *data_out){
     return NODE_NAME_SIZE + TLV_OVERHEAD_SIZE;
 }
 
-static unsigned int
+static uint32_t
 ddcp_get_lo_addr(node_t *node, ser_buff_t *data_out){
 
     serialize_uint8(data_out, DDCP_TLV_RTR_LO_ADDR);
@@ -101,17 +101,17 @@ ddcp_get_lo_addr(node_t *node, ser_buff_t *data_out){
     return  sizeof(ip_add_t) + TLV_OVERHEAD_SIZE;
 }
 
-static unsigned int
+static uint32_t
 ddcp_get_ram_size(node_t *node, ser_buff_t *data_out){
 
-    unsigned int node_ram = 2;
+    uint32_t node_ram = 2;
     serialize_uint8(data_out, DDCP_TLV_RAM_SIZE);
-    serialize_uint8(data_out, sizeof(unsigned int));
+    serialize_uint8(data_out, sizeof(uint32_t));
     serialize_uint32(data_out, node_ram);
-    return sizeof(unsigned int) + TLV_OVERHEAD_SIZE;
+    return sizeof(uint32_t) + TLV_OVERHEAD_SIZE;
 }
 
-static unsigned int
+static uint32_t
 ddcp_get_os_version(node_t *node, ser_buff_t *data_out){
 
     char *OS = "Linux";
@@ -121,7 +121,7 @@ ddcp_get_os_version(node_t *node, ser_buff_t *data_out){
     return strlen(OS) + TLV_OVERHEAD_SIZE;
 }
 
-static unsigned int
+static uint32_t
 ddcp_get_unknown_data(node_t *node, ser_buff_t *data_out, 
         char unknown_tlv_code_point){
 
@@ -157,7 +157,7 @@ ddcp_print_ddcp_reply_msg(char *pkt){
                 break;
             case DDCP_TLV_RAM_SIZE:
             {
-                unsigned int ram_size = *((unsigned int *)tlv_ptr);
+                uint32_t ram_size = *((uint32_t *)tlv_ptr);
                 printf("T : %-22s L : %-6d V : %u\n",
                         ddcp_tlv_str, length, ram_size);
             }
@@ -178,9 +178,9 @@ ddcp_print_ddcp_reply_msg(char *pkt){
 static char *
 ddcp_process_ddcp_query(node_t *node, 
                         ddcp_query_hdr_t *ddcp_query_hdr,
-                        unsigned int *output_buff_len){
+                        uint32_t *output_buff_len){
 
-    unsigned int i = 0;
+    uint32_t i = 0;
     *output_buff_len = 0;
     DDCP_TLV_ID ddcp_tlv_id;
     char *copy_buffer = NULL;
@@ -189,7 +189,7 @@ ddcp_process_ddcp_query(node_t *node,
     init_serialized_buffer(&ser_buff);
     serialize_uint32(ser_buff, ddcp_query_hdr->seq_no);
     mark_checkpoint_serialize_buffer(ser_buff);
-    serialize_buffer_skip(ser_buff, sizeof(unsigned int));
+    serialize_buffer_skip(ser_buff, sizeof(uint32_t));
 
     for(; i < ddcp_query_hdr->no_of_tlvs; i++){
         ddcp_tlv_id = ddcp_query_hdr->tlv_code_points[i];
@@ -220,12 +220,12 @@ ddcp_process_ddcp_query(node_t *node,
         return NULL;
     }
 
-    *output_buff_len = (unsigned int)get_serialize_buffer_size(ser_buff);
+    *output_buff_len = (uint32_t)get_serialize_buffer_size(ser_buff);
 
     int size_offset = get_serialize_buffer_checkpoint_offset(ser_buff);
 
     copy_in_serialized_buffer_by_offset(ser_buff, 
-                    sizeof(unsigned int), 
+                    sizeof(uint32_t), 
                     (char *)output_buff_len, 
                     size_offset);
 
@@ -245,11 +245,11 @@ ddcp_process_ddcp_query(node_t *node,
 void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif, 
                             ethernet_hdr_t *ethernet_hdr, 
-                            unsigned int pkt_size){
+                            uint32_t pkt_size){
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
-    unsigned int output_buff_len = 0;
+    uint32_t output_buff_len = 0;
 
     assert(ethernet_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY);
 
@@ -287,9 +287,9 @@ ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node,
                                      ddcp_reply_msg_t *ddcp_reply_msg,
                                      char *ddcp_tlv_msg){
 
-    unsigned int ddcp_reply_msg_size = 
+    uint32_t ddcp_reply_msg_size = 
         ddcp_reply_msg ? GET_PKT_TLEN(ddcp_reply_msg->reply_msg) : 0;
-    unsigned int tlv_msg_size = 
+    uint32_t tlv_msg_size = 
         GET_PKT_TLEN(ddcp_tlv_msg);
 
     if(ddcp_reply_msg){
@@ -391,7 +391,7 @@ init_ddcp_query_db(ddcp_db_t **ddcp_db){
 
 static ddcp_db_query_node_t *
 ddcp_get_ddcp_db_query_info(ddcp_db_t *ddcp_db, 
-                             unsigned int originator_ip){
+                             uint32_t originator_ip){
 
     glthread_t *curr;
     ddcp_db_query_node_t *ddcp_db_query_node;
@@ -409,7 +409,7 @@ ddcp_get_ddcp_db_query_info(ddcp_db_t *ddcp_db,
 seq_t
 ddcp_update_ddcp_db_self_query_info(node_t *node){
 
-    unsigned int addr_int = 0;
+    uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
 
@@ -432,10 +432,10 @@ ddcp_update_ddcp_db_self_query_info(node_t *node){
 
 bool_t
 ddcp_db_should_process_ddcp_query(node_t *node, 
-                                  unsigned int originator_ip,
+                                  uint32_t originator_ip,
                                   seq_t seq_no){
 
-    unsigned int addr_int = 0;
+    uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
     
@@ -488,7 +488,7 @@ typedef struct ddcp_pkt_meta_data_{
 
     node_t *node;
     char *pkt;
-    unsigned int pkt_size;
+    uint32_t pkt_size;
 } ddcp_pkt_meta_data_t;
 
 static void
@@ -502,7 +502,7 @@ wrapper_ddcp_flood_ddcp_query_out(void *arg ,
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)ddcp_pkt_meta_data->pkt;
     
-    unsigned int pkt_size = ddcp_pkt_meta_data->pkt_size;
+    uint32_t pkt_size = ddcp_pkt_meta_data->pkt_size;
 
     ddcp_query_hdr_t *ddcp_query_hdr = 
             (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
@@ -517,10 +517,10 @@ wrapper_ddcp_flood_ddcp_query_out(void *arg ,
 void
 ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 
-    unsigned int addr_int = 0;
+    uint32_t addr_int = 0;
     ddcp_query_hdr_t *ddcp_query_hdr;
 
-    unsigned int payload_size = sizeof(ddcp_query_hdr_t) + 
+    uint32_t payload_size = sizeof(ddcp_query_hdr_t) + 
                 (4 * sizeof(DDCP_TLV_ID));
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(

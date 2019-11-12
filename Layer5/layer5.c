@@ -32,14 +32,15 @@
 
 #include "graph.h"
 #include "../tcpconst.h"
+#include <stdint.h>
 
 extern void
-ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, unsigned int pkt_size);
+ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, uint32_t pkt_size);
 
 void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
-        char *l5_hdr, unsigned int pkt_size,
-        unsigned int L5_protocol){
+        char *l5_hdr, uint32_t pkt_size,
+        uint32_t L5_protocol){
 
     switch(L5_protocol){
         case USERAPP1:

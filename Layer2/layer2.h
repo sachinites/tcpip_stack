@@ -37,6 +37,7 @@
 #include "../gluethread/glthread.h"
 #include "../tcpconst.h"
 #include <stdlib.h>  /*for calloc*/
+#include <stdint.h>
 
 #pragma pack (push,1)
 typedef struct arp_hdr_{
@@ -47,9 +48,9 @@ typedef struct arp_hdr_{
     char proto_addr_len;    /*4 for IPV4*/
     short op_code;          /*req or reply*/
     mac_add_t src_mac;      /*MAC of OIF interface*/
-    unsigned int src_ip;    /*IP of OIF*/
+    uint32_t src_ip;    /*IP of OIF*/
     mac_add_t dst_mac;      /*?*/
-    unsigned int dst_ip;        /*IP for which ARP is being resolved*/
+    uint32_t dst_ip;        /*IP for which ARP is being resolved*/
 } arp_hdr_t;
 
 typedef struct ethernet_hdr_{
@@ -58,7 +59,7 @@ typedef struct ethernet_hdr_{
     mac_add_t src_mac;
     unsigned short type;
     char payload[248];  /*Max allowed 1500*/
-    unsigned int FCS;
+    uint32_t FCS;
 } ethernet_hdr_t;
 
 #pragma pack(pop)
@@ -67,7 +68,7 @@ typedef struct ethernet_hdr_{
     (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
 
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
-    (*(unsigned int *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
+    (*(uint32_t *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
 
 
 void
@@ -91,7 +92,7 @@ struct arp_pending_entry_{
 
     glthread_t arp_pending_entry_glue;
     arp_processing_fn cb;
-    unsigned int pkt_size;  /*Including ether net hdr*/
+    uint32_t pkt_size;  /*Including ether net hdr*/
     char pkt[0];
 };
 GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
@@ -150,17 +151,17 @@ void
 node_set_intf_l2_mode(node_t *node, char *intf_name, intf_l2_mode_t intf_l2_mode);
 
 void
-node_set_intf_vlan_membsership(node_t *node, char *intf_name, unsigned int vlan_id);
+node_set_intf_vlan_membsership(node_t *node, char *intf_name, uint32_t vlan_id);
 
 void
 add_arp_pending_entry(arp_entry_t *arp_entry, 
                         arp_processing_fn, 
                         char *pkt, 
-                        unsigned int pkt_size); 
+                        uint32_t pkt_size); 
 
 void
 create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
-                      char *pkt, unsigned int pkt_size);
+                      char *pkt, uint32_t pkt_size);
 
 static bool_t 
 arp_entry_sane(arp_entry_t *arp_entry){
@@ -188,18 +189,18 @@ typedef struct vlan_ethernet_hdr_{
     vlan_8021q_hdr_t vlan_8021q_hdr;
     unsigned short type;
     char payload[248];  /*Max allowed 1500*/
-    unsigned int FCS;
+    uint32_t FCS;
 } vlan_ethernet_hdr_t;
 #pragma pack(pop)
 
-static inline unsigned int
+static inline uint32_t
 GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 
-    return (unsigned int)vlan_8021q_hdr->tci_vid;
+    return (uint32_t)vlan_8021q_hdr->tci_vid;
 }
 
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
-    (*(unsigned int *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
+    (*(uint32_t *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
 
 #define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  \
    (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload)) 
@@ -238,8 +239,8 @@ GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
 
 static inline void
 SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr, 
-                   unsigned int payload_size,
-                   unsigned int new_fcs){
+                   uint32_t payload_size,
+                   uint32_t new_fcs){
 
     if(is_pkt_vlan_tagged(ethernet_hdr)){
         VLAN_ETH_FCS(ethernet_hdr, payload_size) = new_fcs;
@@ -250,7 +251,7 @@ SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr,
 }
 
 static inline ethernet_hdr_t *
-ALLOC_ETH_HDR_WITH_PAYLOAD(char *pkt, unsigned int pkt_size){
+ALLOC_ETH_HDR_WITH_PAYLOAD(char *pkt, uint32_t pkt_size){
 
     char *temp = calloc(1, pkt_size);
     memcpy(temp, pkt, pkt_size);
@@ -263,7 +264,7 @@ ALLOC_ETH_HDR_WITH_PAYLOAD(char *pkt, unsigned int pkt_size){
     return eth_hdr;
 }
 
-static inline unsigned int 
+static inline uint32_t 
 GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
 
     if(is_pkt_vlan_tagged(ethernet_hdr)){
@@ -277,7 +278,7 @@ GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
 static inline bool_t 
 l2_frame_recv_qualify_on_interface(interface_t *interface, 
                                     ethernet_hdr_t *ethernet_hdr,
-                                    unsigned int *output_vlan_id){
+                                    uint32_t *output_vlan_id){
 
     *output_vlan_id = 0;
 
@@ -314,7 +315,7 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
      * 1. it must accept untagged frame and tag it with a vlan-id of an interface
      * 2. Or  it must accept tagged frame but tagged with same vlan-id as interface's vlan operation*/
 
-    unsigned int intf_vlan_id = 0,
+    uint32_t intf_vlan_id = 0,
                  pkt_vlan_id = 0;
 
     if(IF_L2_MODE(interface) == ACCESS){
@@ -395,13 +396,13 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
 
 ethernet_hdr_t *
 untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
-                     unsigned int total_pkt_size,
-                     unsigned int *new_pkt_size);
+                     uint32_t total_pkt_size,
+                     uint32_t *new_pkt_size);
 
 ethernet_hdr_t *
 tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
-                     unsigned int total_pkt_size,
+                     uint32_t total_pkt_size,
                      int vlan_id,
-                     unsigned int *new_pkt_size);
+                     uint32_t *new_pkt_size);
 
 #endif /* __LAYER2__ */

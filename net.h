@@ -38,6 +38,7 @@
 #include "WheelTimer/WheelTimer.h"
 #include <stdlib.h>
 #include "comm.h"
+#include <stdint.h>
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -65,7 +66,7 @@ typedef struct node_nw_prop_{
 
     /* Used to find various device types capabilities of
      * the node and other features*/
-    unsigned int flags;
+    uint32_t flags;
 
     /*L2 Properties*/
     arp_table_t *arp_table;
@@ -134,7 +135,7 @@ typedef struct intf_nw_props_ {
     /*L2 properties*/
     mac_add_t mac_add;              /*Mac are hard burnt in interface NIC*/
     intf_l2_mode_t  intf_l2_mode;   /*if IP-address is configured on this interface, then this should be set to UNKNOWN*/
-    unsigned int vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
+    uint32_t vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
     bool_t is_ipadd_config_backup;
     ddcp_interface_prop_t *ddcp_interface_prop;
 
@@ -148,11 +149,11 @@ typedef struct intf_nw_props_ {
     wheel_timer_elem_t *hellos;
 
     /*Interface Statistics*/
-    unsigned int pkt_recv;
-    unsigned int pkt_sent;
-    unsigned int hellos_recv;
-    unsigned int hellos_sent;
-    unsigned int bad_hellos_recv;
+    uint32_t pkt_recv;
+    uint32_t pkt_sent;
+    uint32_t hellos_recv;
+    uint32_t hellos_sent;
+    uint32_t bad_hellos_recv;
 } intf_nw_props_t;
 
 extern void
@@ -226,20 +227,20 @@ is_same_subnet(char *ip_addr, char mask,
 /*Interface Vlan mgmt APIs*/
 
 /*Should be Called only for interface operating in Access mode*/
-unsigned int
+uint32_t
 get_access_intf_operating_vlan_id(interface_t *interface);
 /*Should be Called only for interface operating in Trunk mode*/
 
 bool_t
-is_trunk_interface_vlan_enabled(interface_t *interface, unsigned int vlan_id);  
+is_trunk_interface_vlan_enabled(interface_t *interface, uint32_t vlan_id);  
 
 char *
-pkt_buffer_shift_right(char *pkt, unsigned int pkt_size,
-                               unsigned int total_buffer_size);
+pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
+                               uint32_t total_buffer_size);
 
 bool_t
-pkt_buffer_check_additional_hdr_space(unsigned int pkt_size,
-        unsigned int total_buffer_size,
-        unsigned int additional_space_requested);
+pkt_buffer_check_additional_hdr_space(uint32_t pkt_size,
+        uint32_t total_buffer_size,
+        uint32_t additional_space_requested);
 
 #endif /* __NET__ */

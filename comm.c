@@ -44,8 +44,8 @@
 #include <unistd.h> // for close
 
 static int
-_send_pkt_out(int sock_fd, char *pkt_data, unsigned int pkt_size, 
-                unsigned int dst_udp_port_no){
+_send_pkt_out(int sock_fd, char *pkt_data, uint32_t pkt_size, 
+                uint32_t dst_udp_port_no){
 
     int rc;
     struct sockaddr_in dest_addr;
@@ -62,9 +62,9 @@ _send_pkt_out(int sock_fd, char *pkt_data, unsigned int pkt_size,
 }
 
 
-static unsigned int udp_port_number = 40000;
+static uint32_t udp_port_number = 40000;
 
-static unsigned int 
+static uint32_t 
 get_next_udp_port_number(){
     
     return udp_port_number++;
@@ -102,7 +102,7 @@ static char recv_buffer[MAX_PACKET_BUFFER_SIZE];
 static void
 _pkt_receive(node_t *receving_node, 
             char *pkt_with_aux_data, 
-            unsigned int pkt_size){
+            uint32_t pkt_size){
 
     char *recv_intf_name = pkt_with_aux_data;
     interface_t *recv_intf = get_node_if_by_name(receving_node, recv_intf_name);
@@ -191,14 +191,14 @@ network_start_pkt_receiver_thread(graph_t *topo){
 }
 
 int
-send_pkt_to_self(char *pkt, unsigned int pkt_size,
+send_pkt_to_self(char *pkt, uint32_t pkt_size,
                 interface_t *interface){
 
     int rc = 0;    
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = sending_node;
     
-    unsigned int dst_udp_port_no = nbr_node->udp_port_number;
+    uint32_t dst_udp_port_no = nbr_node->udp_port_number;
     
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
@@ -229,7 +229,7 @@ send_pkt_to_self(char *pkt, unsigned int pkt_size,
 
 /*Public APIs to be used by the other modules*/
 int
-send_pkt_out(char *pkt, unsigned int pkt_size, 
+send_pkt_out(char *pkt, uint32_t pkt_size, 
              interface_t *interface){
 
     int rc = 0;
@@ -245,7 +245,7 @@ send_pkt_out(char *pkt, unsigned int pkt_size,
         return -1;
     }
 
-    unsigned int dst_udp_port_no = nbr_node->udp_port_number;
+    uint32_t dst_udp_port_no = nbr_node->udp_port_number;
     
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
@@ -278,11 +278,11 @@ send_pkt_out(char *pkt, unsigned int pkt_size,
 
 extern void
 layer2_frame_recv(node_t *node, interface_t *interface,
-                     char *pkt, unsigned int pkt_size);
+                     char *pkt, uint32_t pkt_size);
 
 int
 pkt_receive(node_t *node, interface_t *interface,
-            char *pkt, unsigned int pkt_size){
+            char *pkt, uint32_t pkt_size){
 
     /*Make room in the packet buffer by shifting the data towards
       right so that tcp/ip stack can append more hdrs to the packet 
@@ -297,9 +297,9 @@ pkt_receive(node_t *node, interface_t *interface,
 
 int
 send_pkt_flood(node_t *node, interface_t *exempted_intf, 
-                char *pkt, unsigned int pkt_size){
+                char *pkt, uint32_t pkt_size){
 
-    unsigned int i = 0;
+    uint32_t i = 0;
     interface_t *intf; 
 
     for( ; i < MAX_INTF_PER_NODE; i++){

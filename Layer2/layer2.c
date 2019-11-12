@@ -45,7 +45,7 @@ send_arp_broadcast_request(node_t *node,
                            char *ip_addr){
 
     /*Take memory which can accomodate Ethernet hdr + ARP hdr*/
-    unsigned int payload_size = sizeof(arp_hdr_t);
+    uint32_t payload_size = sizeof(arp_hdr_t);
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(1, 
                 ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
 
@@ -125,7 +125,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
   
     SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
 
-    unsigned int total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(arp_hdr_t);
+    uint32_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(arp_hdr_t);
 
     char *shifted_pkt_buffer = pkt_buffer_shift_right((char *)ethernet_hdr_reply, 
                                total_pkt_size, MAX_PACKET_BUFFER_SIZE);
@@ -161,7 +161,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
     char ip_addr[16];
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
 
-    unsigned int arp_dst_ip = htonl(arp_hdr->dst_ip);
+    uint32_t arp_dst_ip = htonl(arp_hdr->dst_ip);
 
     inet_ntop(AF_INET, &arp_dst_ip, ip_addr, 16);
     ip_addr[15] = '\0';
@@ -178,11 +178,11 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
 
 extern void
 l2_switch_recv_frame(interface_t *interface,
-                     char *pkt, unsigned int pkt_size);
+                     char *pkt, uint32_t pkt_size);
 
 extern void
 promote_pkt_to_layer3(node_t *node, interface_t *interface,
-                         char *pkt, unsigned int pkt_size,
+                         char *pkt, uint32_t pkt_size,
                          int L3_protocol_type);
 
 void
@@ -306,7 +306,7 @@ pending_arp_processing_callback_function(node_t *node,
                                          arp_pending_entry_t *arp_pending_entry){
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)arp_pending_entry->pkt;
-    unsigned int pkt_size = arp_pending_entry->pkt_size;
+    uint32_t pkt_size = arp_pending_entry->pkt_size;
     memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
     SET_COMMON_ETH_FCS(ethernet_hdr, pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
@@ -333,7 +333,7 @@ void
 arp_table_update_from_arp_reply(arp_table_t *arp_table, 
                                 arp_hdr_t *arp_hdr, interface_t *iif){
 
-    unsigned int src_ip = 0;
+    uint32_t src_ip = 0;
     glthread_t *arp_pending_list = NULL;
 
     assert(arp_hdr->op_code == ARP_REPLY);
@@ -460,7 +460,7 @@ interface_set_l2_mode(node_t *node,
 
         IF_L2_MODE(interface) = intf_l2_mode;
 
-        unsigned int i = 0;
+        uint32_t i = 0;
 
         for ( ; i < MAX_VLAN_MEMBERSHIP; i++){
             interface->intf_nw_props.vlans[i] = 0;
@@ -479,7 +479,7 @@ interface_unset_l2_mode(node_t *node,
 void
 interface_set_vlan(node_t *node,
                    interface_t *interface,
-                   unsigned int vlan_id){
+                   uint32_t vlan_id){
 
     /* Case 1 : Cant set vlans on interface configured with ip
      * address*/
@@ -498,7 +498,7 @@ interface_set_vlan(node_t *node,
     /*case 3 : Can set only one vlan on interface operating in ACCESS mode*/
     if(interface->intf_nw_props.intf_l2_mode == ACCESS){
         
-        unsigned int i = 0, *vlan = NULL;    
+        uint32_t i = 0, *vlan = NULL;    
         for( ; i < MAX_VLAN_MEMBERSHIP; i++){
             if(interface->intf_nw_props.vlans[i]){
                 vlan = &interface->intf_nw_props.vlans[i];
@@ -513,7 +513,7 @@ interface_set_vlan(node_t *node,
     /*case 4 : Add vlan membership on interface operating in TRUNK mode*/
     if(interface->intf_nw_props.intf_l2_mode == TRUNK){
 
-        unsigned int i = 0, *vlan = NULL;
+        uint32_t i = 0, *vlan = NULL;
 
         for( ; i < MAX_VLAN_MEMBERSHIP; i++){
 
@@ -535,7 +535,7 @@ interface_set_vlan(node_t *node,
 void
 interface_unset_vlan(node_t *node,
                    interface_t *interface,
-                   unsigned int vlan){
+                   uint32_t vlan){
 
 }
 
@@ -552,7 +552,7 @@ node_set_intf_l2_mode(node_t *node, char *intf_name,
 
 void
 node_set_intf_vlan_membsership(node_t *node, char *intf_name, 
-                                unsigned int vlan_id){
+                                uint32_t vlan_id){
 
     interface_t *interface = get_node_if_by_name(node, intf_name);
     assert(interface);
@@ -561,15 +561,15 @@ node_set_intf_vlan_membsership(node_t *node, char *intf_name,
 }
 
 static void
-l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
+l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
                     char *outgoing_intf, ethernet_hdr_t *pkt, 
-                    unsigned int pkt_size){
+                    uint32_t pkt_size){
 
     interface_t *oif = NULL;
     char next_hop_ip_str[16];
     arp_entry_t * arp_entry = NULL;
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
-    unsigned int ethernet_payload_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+    uint32_t ethernet_payload_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
 
     next_hop_ip = htonl(next_hop_ip);
     inet_ntop(AF_INET, &next_hop_ip, next_hop_ip_str, 16);
@@ -647,9 +647,9 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
  * L3 altogether.*/
 void
 demote_pkt_to_layer2(node_t *node, /*Currenot node*/ 
-        unsigned int next_hop_ip,  /*If pkt is forwarded to next router, then this is Nexthop IP address (gateway) provided by L3 layer. L2 need to resolve ARP for this IP address*/
+        uint32_t next_hop_ip,  /*If pkt is forwarded to next router, then this is Nexthop IP address (gateway) provided by L3 layer. L2 need to resolve ARP for this IP address*/
         char *outgoing_intf,       /*The oif obtained from L3 lookup if L3 has decided to forward the pkt. If NULL, then L2 will find the appropriate interface*/
-        char *pkt, unsigned int pkt_size,   /*Higher Layers payload*/
+        char *pkt, uint32_t pkt_size,   /*Higher Layers payload*/
         int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
 
     assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
@@ -684,7 +684,7 @@ void
 add_arp_pending_entry(arp_entry_t *arp_entry,
         arp_processing_fn cb,
         char *pkt,
-        unsigned int pkt_size){
+        uint32_t pkt_size){
 
     arp_pending_entry_t *arp_pending_entry = 
         calloc(1, sizeof(arp_pending_entry_t) + pkt_size);
@@ -700,7 +700,7 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
 
 void
 create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr, 
-                       char *pkt, unsigned int pkt_size){
+                       char *pkt, uint32_t pkt_size){
 
     /*case 1 : If full entry already exist - assert. The L2 must have
      * not create ARP sane entry if the already was already existing*/
@@ -742,11 +742,11 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
 
 ethernet_hdr_t * 
 tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr, 
-                     unsigned int total_pkt_size,
+                     uint32_t total_pkt_size,
                      int vlan_id, 
-                     unsigned int *new_pkt_size){
+                     uint32_t *new_pkt_size){
 
-    unsigned int payload_size  = 0 ;
+    uint32_t payload_size  = 0 ;
     *new_pkt_size = 0;
 
     /*If the pkt is already tagged, replace it*/
@@ -804,8 +804,8 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
  * vlan 801.1q hdr*/
 ethernet_hdr_t *
 untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr, 
-                     unsigned int total_pkt_size,
-                     unsigned int *new_pkt_size){
+                     uint32_t total_pkt_size,
+                     uint32_t *new_pkt_size){
 
     *new_pkt_size = 0;
 
@@ -834,7 +834,7 @@ untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     ethernet_hdr->type = vlan_ethernet_hdr_old.type;
     
     /*No need to copy data*/
-    unsigned int payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
+    uint32_t payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
 
     /*Update checksum, however not used*/
     SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
@@ -850,12 +850,12 @@ process_hello_msg(interface_t *iif,
 extern void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
                       ethernet_hdr_t *ethernet_hdr,
-                      unsigned int pkt_size);
+                      uint32_t pkt_size);
 
 static void
 promote_pkt_to_layer2(node_t *node, interface_t *iif, 
                       ethernet_hdr_t *ethernet_hdr, 
-                      unsigned int pkt_size){
+                      uint32_t pkt_size){
 
     switch(ethernet_hdr->type){
         case ARP_MSG:
@@ -895,9 +895,9 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
 
 void
 layer2_frame_recv(node_t *node, interface_t *interface,
-                     char *pkt, unsigned int pkt_size){
+                     char *pkt, uint32_t pkt_size){
 
-    unsigned int vlan_id_to_tag = 0;
+    uint32_t vlan_id_to_tag = 0;
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
@@ -917,7 +917,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     else if(IF_L2_MODE(interface) == ACCESS ||
                 IF_L2_MODE(interface) == TRUNK){
 
-        unsigned int new_pkt_size = 0;
+        uint32_t new_pkt_size = 0;
 
         if(vlan_id_to_tag){
             pkt = (char *)tag_pkt_with_vlan_id((ethernet_hdr_t *)pkt,

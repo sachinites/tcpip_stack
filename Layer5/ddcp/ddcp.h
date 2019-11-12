@@ -34,6 +34,7 @@
 #include "../../utils.h"
 #include "../../graph.h"
 #include "../../Layer2/layer2.h"
+#include <stdint.h>
 
 typedef enum{
 
@@ -64,9 +65,9 @@ static inline char *ddcp_tlv_id_str(
 }
 
 typedef struct ddcp_query_hdr_{
-    unsigned int originator_ip;
-    unsigned int seq_no;
-    unsigned int no_of_tlvs;
+    uint32_t originator_ip;
+    uint32_t seq_no;
+    uint32_t no_of_tlvs;
     DDCP_TLV_ID tlv_code_points[0];
 } ddcp_query_hdr_t;
 
@@ -87,29 +88,29 @@ is_interface_ddcp_enabled(ddcp_interface_prop_t *ddcp_interface_prop){
 
 void
 ddcp_send_ddcp_query_out(char *pkt, 
-                         unsigned int pkt_size, 
+                         uint32_t pkt_size, 
                          interface_t *oif);
 
 void
 ddcp_flood_ddcp_query_out(node_t *node, char *pkt, 
-                          unsigned int pkt_size,
+                          uint32_t pkt_size,
                           interface_t *exempted_intf);
 
 void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
                               ethernet_hdr_t *ethernet_hdr,
-                              unsigned int pkt_size);
+                              uint32_t pkt_size);
 
 void
 ddcp_process_ddcp_reply_msg(node_t *node, char *pkt);
 
 
 /*DDCP Query Database*/
-typedef unsigned int seq_t;
+typedef uint32_t seq_t;
 
 typedef struct ddcp_db_query_node_{
 
-    unsigned int originator_ip;
+    uint32_t originator_ip;
     seq_t seq_no;
     glthread_t ddcp_db_query_node_glue;
 } ddcp_db_query_node_t;
@@ -138,7 +139,7 @@ init_ddcp_query_db(ddcp_db_t **ddcp_db);
 
 bool_t 
 ddcp_db_should_process_ddcp_query(node_t *node, 
-                                  unsigned int originator_ip,
+                                  uint32_t originator_ip,
                                   seq_t seq_no);
 
 seq_t
@@ -158,8 +159,8 @@ ddcp_print_ddcp_reply_msgs_db(node_t *node);
 
 /*DDCP reply msg management*/
 #define GET_SEQ_NO(pkt_ptr)     (*(seq_t *)pkt_ptr)
-#define GET_PKT_TLEN(pkt_ptr)   (*(unsigned int *)(pkt_ptr + sizeof(seq_t)))
-#define DDCP_AUX_INFO           ((sizeof(seq_t) + sizeof(unsigned int)))
-#define TLV_SIZE(pkt_ptr)       ((unsigned int)(GET_PKT_TLEN(pkt_ptr) - DDCP_AUX_INFO))
+#define GET_PKT_TLEN(pkt_ptr)   (*(uint32_t *)(pkt_ptr + sizeof(seq_t)))
+#define DDCP_AUX_INFO           ((sizeof(seq_t) + sizeof(uint32_t)))
+#define TLV_SIZE(pkt_ptr)       ((uint32_t)(GET_PKT_TLEN(pkt_ptr) - DDCP_AUX_INFO))
 #define GET_TLV_START_PTR(pkt_ptr) (pkt_ptr + DDCP_AUX_INFO)
 #endif /*__DDCP__*/

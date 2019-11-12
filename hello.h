@@ -6,6 +6,7 @@
 #include <memory.h>
 #include "Layer2/layer2.h"
 #include <time.h>
+#include <stdint.h>
 
 typedef struct hello_{
 
@@ -22,7 +23,7 @@ schedule_hello_on_interface(interface_t *intf,
 ethernet_hdr_t *
 get_new_hello_pkt(node_t *node,
 		  interface_t *interface,
-		  unsigned int *pkt_size);
+		  uint32_t *pkt_size);
 
 void 
 pause_interface_hellos(interface_t *interface);

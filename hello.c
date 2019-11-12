@@ -10,7 +10,7 @@ typedef struct pkt_meta_data_{
 
     interface_t *intf;
     char *pkt;
-    unsigned int pkt_size;
+    uint32_t pkt_size;
 } pkt_meta_data_t;
 
 static void 
@@ -30,7 +30,7 @@ transmit_hellos(void *arg, int sizeof_arg){
 ethernet_hdr_t *
 get_new_hello_pkt(node_t *node,
                	 interface_t *interface,
-		 unsigned int *pkt_size){
+		 uint32_t *pkt_size){
 
     ethernet_hdr_t *hello = calloc(1, MAX_PACKET_BUFFER_SIZE);
     memcpy(hello->src_mac.mac, IF_MAC(interface), sizeof(mac_add_t));
@@ -54,7 +54,7 @@ bool_t
 schedule_hello_on_interface(interface_t *intf,
                             int interval_sec, bool_t is_repeat){
 
-    unsigned int pkt_size = 0;
+    uint32_t pkt_size = 0;
 
     if(is_hellos_scheduled_on_intf(intf))
         return FALSE;
@@ -165,7 +165,7 @@ dump_interface_adjacencies(interface_t *interface){
                 wt_get_remaining_time(GET_NODE_TIMER_FROM_INTF(interface),
                 adjacency->expiry_timer),
                 hrs_min_sec_format(
-                    (unsigned int)difftime(curr_time, adjacency->uptime)));
+                    (uint32_t)difftime(curr_time, adjacency->uptime)));
     } ITERATE_GLTHREAD_END(GET_INTF_ADJ_LIST(interface), curr);    
 }
 

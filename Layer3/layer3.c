@@ -49,7 +49,7 @@ l3_is_direct_route(l3_route_t *l3_route){
 }
 
 static bool_t
-is_layer3_local_delivery(node_t *node, unsigned int dst_ip){
+is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
     /* Check if dst_ip exact matches with any locally configured
      * ip address of the router*/
@@ -67,7 +67,7 @@ is_layer3_local_delivery(node_t *node, unsigned int dst_ip){
 
     /*checking with interface IP Addresses*/
 
-    unsigned int i = 0;
+    uint32_t i = 0;
     interface_t *intf;
 
     for( ; i < MAX_INTF_PER_NODE; i++){
@@ -88,33 +88,33 @@ is_layer3_local_delivery(node_t *node, unsigned int dst_ip){
 
 extern void
 promote_pkt_to_layer4(node_t *node, interface_t *recv_intf, 
-                      char *l4_hdr, unsigned int pkt_size,
+                      char *l4_hdr, uint32_t pkt_size,
                       int L4_protocol_number);
 
 extern void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf, 
-                      char *l5_hdr, unsigned int pkt_size,
-                      unsigned int L5_protocol);
+                      char *l5_hdr, uint32_t pkt_size,
+                      uint32_t L5_protocol);
 
 /*import function from layer 2*/
 extern void
 demote_pkt_to_layer2(node_t *node,
-                     unsigned int next_hop_ip,
+                     uint32_t next_hop_ip,
                      char *outgoing_intf, 
-                     char *pkt, unsigned int pkt_size,
+                     char *pkt, uint32_t pkt_size,
                      int protocol_number);
 
 
 static void
 layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
-        ip_hdr_t *pkt, unsigned int pkt_size){
+        ip_hdr_t *pkt, uint32_t pkt_size){
 
     char *l4_hdr, *l5_hdr;
     char dest_ip_addr[16];
 
     ip_hdr_t *ip_hdr = pkt;
 
-    unsigned int dst_ip = htonl(ip_hdr->dst_ip);
+    uint32_t dst_ip = htonl(ip_hdr->dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
 
     /*Implement Layer 3 forwarding functionality*/
@@ -195,7 +195,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         return;
     }
 
-    unsigned int next_hop_ip;
+    uint32_t next_hop_ip;
     inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
 
@@ -264,7 +264,7 @@ delete_rt_table_entry(rt_table_t *rt_table,
 /*Look up L3 routing table using longest prefix match*/
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table, 
-                 unsigned int dest_ip){
+                 uint32_t dest_ip){
 
     l3_route_t *l3_route = NULL,
     *lpm_l3_route = NULL,
@@ -349,7 +349,7 @@ rt_table_add_route(rt_table_t *rt_table,
                    char *dst, char mask,
                    char *gw, char *oif){
 
-   unsigned int dst_int;
+   uint32_t dst_int;
    char dst_str_with_mask[16];
 
    apply_mask(dst, mask, dst_str_with_mask); 
@@ -387,7 +387,7 @@ rt_table_add_route(rt_table_t *rt_table,
 
 static void
 _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
-                            char *pkt, unsigned int pkt_size, 
+                            char *pkt, uint32_t pkt_size, 
                             int L3_protocol_type){
 
     switch(L3_protocol_type){
@@ -407,7 +407,7 @@ _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
 void
 promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt is received*/
                       interface_t *interface,  /*ingress interface*/
-                      char *pkt, unsigned int pkt_size, /*L3 payload*/
+                      char *pkt, uint32_t pkt_size, /*L3 payload*/
                       int L3_protocol_number){  /*obtained from eth_hdr->type field*/
 
         _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number);
@@ -417,16 +417,16 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
  * stack to layer 3*/
 void
 demote_packet_to_layer3(node_t *node, 
-                        char *pkt, unsigned int size,
+                        char *pkt, uint32_t size,
                         int protocol_number, /*L4 or L5 protocol type*/
-                        unsigned int dest_ip_address){
+                        uint32_t dest_ip_address){
     ip_hdr_t iphdr;
     initialize_ip_hdr(&iphdr);  
       
     /*Now fill the non-default fields*/
     iphdr.protocol = protocol_number;
 
-    unsigned int addr_int = 0;
+    uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
     iphdr.src_ip = addr_int;
@@ -437,7 +437,7 @@ demote_packet_to_layer3(node_t *node,
                          (short)((size % 4) ? 1 : 0);
 
     char *new_pkt = NULL;
-    unsigned int new_pkt_size = 0 ;
+    uint32_t new_pkt_size = 0 ;
 
     new_pkt_size = iphdr.total_length * 4;
     new_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
@@ -458,7 +458,7 @@ demote_packet_to_layer3(node_t *node,
 
     bool_t is_direct_route = l3_is_direct_route(l3_route);
     
-    unsigned int next_hop_ip;
+    uint32_t next_hop_ip;
 
     if(!is_direct_route){
         inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
@@ -487,7 +487,7 @@ demote_packet_to_layer3(node_t *node,
 void
 layer3_ping_fn(node_t *node, char *dst_ip_addr){
 
-    unsigned int addr_int;
+    uint32_t addr_int;
     
     printf("Src node : %s, Ping ip : %s\n", node->node_name, dst_ip_addr);
     
@@ -510,7 +510,7 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
     inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
     inner_ip_hdr->protocol = ICMP_PRO;
     
-    unsigned int addr_int = 0;
+    uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
     inner_ip_hdr->src_ip = addr_int;

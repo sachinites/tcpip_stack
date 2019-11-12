@@ -36,6 +36,7 @@
 #include "CommandParser/cmdtlv.h"
 #include "cmdcodes.h"
 #include "WheelTimer/WheelTimer.h"
+#include <stdint.h>
 
 extern graph_t *topo;
 
@@ -68,7 +69,7 @@ validate_node_extistence(char *node_name){
 int
 validate_vlan_id(char *vlan_value){
 
-    unsigned int vlan = atoi(vlan_value);
+    uint32_t vlan = atoi(vlan_value);
     if(!vlan){
         printf("Error : Invalid Vlan Value\n");
         return VALIDATION_FAILED;
@@ -91,7 +92,7 @@ validate_l2_mode_value(char *l2_mode_value){
 int
 validate_mask_value(char *mask_str){
 
-    unsigned int mask = atoi(mask_str);
+    uint32_t mask = atoi(mask_str);
     if(!mask){
         printf("Error : Invalid Mask Value\n");
         return VALIDATION_FAILED;
@@ -473,11 +474,11 @@ interface_unset_l2_mode(node_t *node,
 extern void
 interface_set_vlan(node_t *node,
                     interface_t *interface,
-                    unsigned int vlan);
+                    uint32_t vlan);
 extern void
 interface_unset_vlan(node_t *node,
                       interface_t *interface,
-                      unsigned int vlan);
+                      uint32_t vlan);
 extern bool_t
 schedule_hello_on_interface(interface_t *intf,
                             int interval_sec,
@@ -491,7 +492,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
 
    char *node_name;
    char *intf_name;
-   unsigned int vlan_id;
+   uint32_t vlan_id;
    char *l2_mode_option;
    int CMDCODE;
    tlv_struct_t *tlv = NULL;

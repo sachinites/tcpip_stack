@@ -33,14 +33,14 @@
 #ifndef __LAYER3__
 #define __LAYER3__
 
-
+#include <stdint.h>
 #pragma pack (push,1)
 
 /*The Ip hdr format as per the standard specification*/
 typedef struct ip_hdr_{
 
-    unsigned int version : 4 ;  /*version number, always 4 for IPv4 protocol*/    
-    unsigned int ihl : 4 ;      /*length of IP hdr, in 32-bit words unit. for Ex, if this value is 5, it means length of this ip hdr is 20Bytes*/
+    uint32_t version : 4 ;  /*version number, always 4 for IPv4 protocol*/    
+    uint32_t ihl : 4 ;      /*length of IP hdr, in 32-bit words unit. for Ex, if this value is 5, it means length of this ip hdr is 20Bytes*/
     char tos;
     short total_length;         /*length of hdr + ip_hdr payload*/
 
@@ -48,17 +48,17 @@ typedef struct ip_hdr_{
      * as we will not be writing fragmentation code. if you wish, take it
      * as a extension of the project*/
     short identification;       
-    unsigned int unused_flag : 1 ;
-    unsigned int DF_flag : 1;   
-    unsigned int MORE_flag : 1; 
-    unsigned int frag_offset : 13;  
+    uint32_t unused_flag : 1 ;
+    uint32_t DF_flag : 1;   
+    uint32_t MORE_flag : 1; 
+    uint32_t frag_offset : 13;  
 
 
     char ttl;
     char protocol;
     short checksum;
-    unsigned int src_ip;
-    unsigned int dst_ip;
+    uint32_t src_ip;
+    uint32_t dst_ip;
 } ip_hdr_t;
 
 #pragma pack(pop)
@@ -138,7 +138,7 @@ dump_rt_table(rt_table_t *rt_table);
 
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table,
-                 unsigned int dest_ip);
+                 uint32_t dest_ip);
 
 #define IS_L3_ROUTES_EQUAL(rt1, rt2)              \
     ((strncmp(rt1->dest, rt2->dest, 16) == 0) &&  \

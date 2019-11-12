@@ -162,7 +162,7 @@ l2_switch_perform_mac_learning(node_t *node, char *src_mac, char *if_name){
 }
 
 static bool_t
-l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
+l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
                         interface_t *oif){
 
     /*L2 switch must not even try to send the pkt out of interface 
@@ -183,7 +183,7 @@ l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
     switch(intf_l2_mode){
         case ACCESS:
             {
-                unsigned int intf_vlan_id = 
+                uint32_t intf_vlan_id = 
                     get_access_intf_operating_vlan_id(oif);
 
                 /*Case 1 : If interface is operating in ACCESS mode, but
@@ -207,7 +207,7 @@ l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
                 if(vlan_8021q_hdr && 
                         (intf_vlan_id == GET_802_1Q_VLAN_ID(vlan_8021q_hdr))){
 
-                    unsigned int new_pkt_size = 0;
+                    uint32_t new_pkt_size = 0;
                     ethernet_hdr = untag_pkt_with_vlan_id(ethernet_hdr,
                                                           pkt_size,
                                                           &new_pkt_size);
@@ -224,7 +224,7 @@ l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
             break;
         case TRUNK:
             {
-                unsigned int pkt_vlan_id = 0;
+                uint32_t pkt_vlan_id = 0;
                 
                 if(vlan_8021q_hdr){
                     pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
@@ -250,11 +250,11 @@ l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
 
 static bool_t 
 l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
-                        char *pkt, unsigned int pkt_size){
+                        char *pkt, uint32_t pkt_size){
 
     interface_t *oif = NULL;
 
-    unsigned int i = 0;
+    uint32_t i = 0;
 
     char *pkt_copy = NULL;
     char *temp_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
@@ -276,7 +276,7 @@ l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
 static void
 l2_switch_forward_frame(node_t *node, interface_t *recv_intf, 
                         ethernet_hdr_t *ethernet_hdr, 
-                        unsigned int pkt_size){
+                        uint32_t pkt_size){
 
     /*If dst mac is broadcast mac, then flood the frame*/
     if(IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
@@ -305,7 +305,7 @@ l2_switch_forward_frame(node_t *node, interface_t *recv_intf,
 
 void
 l2_switch_recv_frame(interface_t *interface, 
-                     char *pkt, unsigned int pkt_size){
+                     char *pkt, uint32_t pkt_size){
 
     node_t *node = interface->att_node;
 

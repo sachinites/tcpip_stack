@@ -38,9 +38,9 @@
 #include "hello.h"
 
 /*Just some Random number generator*/
-static unsigned int
-hash_code(void *ptr, unsigned int size){
-    unsigned int value=0, i =0;
+static uint32_t
+hash_code(void *ptr, uint32_t size){
+    uint32_t value=0, i =0;
     char *str = (char*)ptr;
     while(i < size)
     {
@@ -62,11 +62,11 @@ interface_assign_mac_address(interface_t *interface){
     if(!node)
         return;
 
-    unsigned int hash_code_val = 0;
+    uint32_t hash_code_val = 0;
     hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
     hash_code_val *= hash_code(interface->if_name, IF_NAME_SIZE);
     memset(IF_MAC(interface), 0, sizeof(IF_MAC(interface)));
-    memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(unsigned int));
+    memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(uint32_t));
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -147,7 +147,7 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
     node_t *node;
     glthread_t *curr;
     interface_t *interface;
-    unsigned int i;
+    uint32_t i;
     
     printf("Topology Name = %s\n", graph->topology_name);
     
@@ -179,7 +179,7 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
 interface_t *
 node_get_matching_subnet_interface(node_t *node, char *ip_addr){
 
-    unsigned int i = 0;
+    uint32_t i = 0;
     interface_t *intf;
 
     char *intf_addr = NULL;
@@ -232,7 +232,7 @@ is_same_subnet(char *ip_addr, char mask,
 /*Interface Vlan mgmt APIs*/
 
 /*Should be Called only for interface operating in Access mode*/
-unsigned int
+uint32_t
 get_access_intf_operating_vlan_id(interface_t *interface){
 
     if(IF_L2_MODE(interface) != ACCESS){
@@ -246,13 +246,13 @@ get_access_intf_operating_vlan_id(interface_t *interface){
 /*Should be Called only for interface operating in Trunk mode*/
 bool_t
 is_trunk_interface_vlan_enabled(interface_t *interface, 
-                                unsigned int vlan_id){
+                                uint32_t vlan_id){
 
     if(IF_L2_MODE(interface) != TRUNK){
         assert(0);
     }
 
-    unsigned int i = 0;
+    uint32_t i = 0;
 
     for( ; i < MAX_VLAN_MEMBERSHIP; i++){
 
@@ -267,8 +267,8 @@ is_trunk_interface_vlan_enabled(interface_t *interface,
   simply shifts the pkt content present in the start of the pkt buffer
   towards right so that new room is created*/
 char *
-pkt_buffer_shift_right(char *pkt, unsigned int pkt_size, 
-                       unsigned int total_buffer_size){
+pkt_buffer_shift_right(char *pkt, uint32_t pkt_size, 
+                       uint32_t total_buffer_size){
 
     char *temp = NULL;
     bool_t need_temp_memory = FALSE;
@@ -292,9 +292,9 @@ pkt_buffer_shift_right(char *pkt, unsigned int pkt_size,
 }
 
 bool_t 
-pkt_buffer_check_additional_hdr_space(unsigned int pkt_size, 
-                           unsigned int total_buffer_size,
-                           unsigned int additional_space_requested){
+pkt_buffer_check_additional_hdr_space(uint32_t pkt_size, 
+                           uint32_t total_buffer_size,
+                           uint32_t additional_space_requested){
 
     if(total_buffer_size - pkt_size > additional_space_requested)
         return TRUE;
@@ -318,7 +318,7 @@ dump_node_interface_stats(node_t *node){
 
     interface_t *interface;
 
-    unsigned int i = 0;
+    uint32_t i = 0;
 
     for(; i < MAX_INTF_PER_NODE; i++){
         interface = node->intf[i];
