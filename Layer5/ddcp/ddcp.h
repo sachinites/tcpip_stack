@@ -42,6 +42,7 @@ typedef enum{
     DDCP_TLV_RTR_LO_ADDR,
     DDCP_TLV_RAM_SIZE,
     DDCP_TLV_OS_VERSION,
+    DDCP_TLV_IP_REACH,
     DDCP_TLV_MAX
 } DDCP_TLV_ID;
 
@@ -57,6 +58,8 @@ static inline char *ddcp_tlv_id_str(
             return "DDCP_TLV_RAM_SIZE";
         case DDCP_TLV_OS_VERSION:
             return "DDCP_TLV_OS_VERSION";
+        case DDCP_TLV_IP_REACH:
+            return "DDCP_TLV_IP_REACH";
         case DDCP_TLV_MAX:
             return "DDCP_TLV_MAX";
         default:    

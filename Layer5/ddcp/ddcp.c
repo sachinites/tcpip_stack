@@ -130,6 +130,54 @@ ddcp_get_unknown_data(node_t *node, ser_buff_t *data_out,
     return TLV_OVERHEAD_SIZE;
 }
 
+static uint32_t
+ddcp_get_ip_reach_data(node_t *node, ser_buff_t *data_out){
+
+    /* Iterate over all L3 enabled interfaces of a node, and
+     * place Network ID of each interface in TLV Buffer. Size
+     * of 1 unit of TLV shall be 5B (= 4B (address) + 1B mask)*/
+
+     int i = 0;
+     char mask;
+     int chekpoint;
+     interface_t *intf;
+     char intf_subnet[16];
+     uint32_t ip_addr;
+     char tlv_size = 0;
+     
+     serialize_uint8(data_out, DDCP_TLV_IP_REACH);
+     
+     /*Dont use checkpoint again as it is already being in use*/
+     //mark_checkpoint_serialize_buffer(data_out);
+     chekpoint = get_serialize_buffer_current_ptr_offset(data_out);
+     
+     serialize_buffer_skip(data_out, sizeof(char));
+
+     for( ; i < MAX_INTF_PER_NODE; i++){
+        
+        intf = node->intf[i];
+        if(!intf) break;
+        if(!IS_INTF_L3_MODE(intf)) continue;
+        memset(intf_subnet, 0, sizeof(intf_subnet));
+        mask = intf->intf_nw_props.mask;
+        apply_mask(IF_IP(intf), mask, intf_subnet);
+        inet_pton(AF_INET, intf_subnet, &ip_addr);
+        ip_addr = htonl(ip_addr);
+        serialize_uint32(data_out, ip_addr);
+        serialize_uint8(data_out, mask);
+        tlv_size += sizeof(uint32_t) + sizeof(char);
+     }
+
+     copy_in_serialized_buffer_by_offset(data_out, 
+                                        sizeof(char), 
+                                        &tlv_size,
+                                        chekpoint);
+
+        
+     return tlv_size + TLV_OVERHEAD_SIZE;
+}
+
+
 static void
 ddcp_print_ddcp_reply_msg(char *pkt){ 
 
@@ -165,6 +213,30 @@ ddcp_print_ddcp_reply_msg(char *pkt){
             case DDCP_TLV_OS_VERSION:
                 printf("T : %-22s L : %-6d V : %s\n",
                         ddcp_tlv_str, length, tlv_ptr);
+                break;
+            case DDCP_TLV_IP_REACH:
+                printf("T : %-22s L : %-6d V : \n", ddcp_tlv_str, length);
+                {
+                    char mask;
+                    char ip_str[16];
+                    uint32_t ip_addr, i;
+
+                    int prefix_mask_len = sizeof(uint32_t) + sizeof(char);
+                    
+                    uint32_t no_of_prefixes =  length/prefix_mask_len;
+                    
+                    printf("    No of Prefixes : %u\n", no_of_prefixes);
+
+                    for( i = 0; i < no_of_prefixes; i++){
+                        ip_addr = *(uint32_t *)(tlv_ptr + (i * prefix_mask_len));
+                        mask = *(tlv_ptr + ((i+1) * prefix_mask_len) - 1);
+                        ip_addr = htonl(ip_addr);
+                        memset(ip_str, 0, 16);
+                        inet_ntop(AF_INET, &ip_addr, ip_str, 16);
+                        ip_str[15] = '\0';
+                        printf("    %u. %s/%d\n", i, ip_str, mask);
+                    }
+                }
                 break;
             case DDCP_TLV_MAX:
                 assert(0);
@@ -205,6 +277,9 @@ ddcp_process_ddcp_query(node_t *node,
             break;
             case DDCP_TLV_OS_VERSION:
                 ddcp_get_os_version(node, ser_buff);
+            break;
+            case DDCP_TLV_IP_REACH:
+                ddcp_get_ip_reach_data(node, ser_buff);
             break;
             case DDCP_TLV_MAX:
             break;
@@ -514,6 +589,7 @@ wrapper_ddcp_flood_ddcp_query_out(void *arg ,
                                       pkt_size, NULL);
 }
 
+#define DEFAULT_DDCP_TLVS   5
 void
 ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 
@@ -521,7 +597,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
     ddcp_query_hdr_t *ddcp_query_hdr;
 
     uint32_t payload_size = sizeof(ddcp_query_hdr_t) + 
-                (4 * sizeof(DDCP_TLV_ID));
+                (DEFAULT_DDCP_TLVS * sizeof(DDCP_TLV_ID));
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(
                 1, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
@@ -533,11 +609,12 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 
     ddcp_query_hdr->originator_ip = addr_int;
     ddcp_query_hdr->seq_no = ddcp_update_ddcp_db_self_query_info(node);
-    ddcp_query_hdr->no_of_tlvs = 4;
+    ddcp_query_hdr->no_of_tlvs = DEFAULT_DDCP_TLVS;
     ddcp_query_hdr->tlv_code_points[0] = DDCP_TLV_RTR_NAME;
     ddcp_query_hdr->tlv_code_points[1] = DDCP_TLV_RTR_LO_ADDR;
     ddcp_query_hdr->tlv_code_points[2] = DDCP_TLV_RAM_SIZE;
     ddcp_query_hdr->tlv_code_points[3] = DDCP_TLV_OS_VERSION;
+    ddcp_query_hdr->tlv_code_points[4] = DDCP_TLV_IP_REACH;
 
     /*Let src mac be zero*/
 
