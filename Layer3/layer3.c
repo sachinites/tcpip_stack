@@ -93,7 +93,8 @@ promote_pkt_to_layer4(node_t *node, interface_t *recv_intf,
 
 extern void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf, 
-                      char *l5_hdr, unsigned int pkt_size);
+                      char *l5_hdr, unsigned int pkt_size,
+                      int L5_protocol_number);
 
 /*import function from layer 2*/
 extern void
@@ -155,7 +156,8 @@ layer3_ip_pkt_recv_from_bottom(node_t *node, interface_t *interface,
                     break;
                 case USERAPP1:
                     promote_pkt_to_layer5(node, interface, l5_hdr,
-                            IP_HDR_PAYLOAD_SIZE(ip_hdr));
+                            IP_HDR_PAYLOAD_SIZE(ip_hdr),
+                            ip_hdr->protocol);
                     break;
                 case ICMP_PRO:
                     printf("IP Address : %s, ping success\n", dest_ip_addr);

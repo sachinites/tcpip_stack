@@ -59,7 +59,7 @@ layer3_ping_fn(node_t *node, char *dst_ip_addr){
     addr_int = htonl(addr_int);
 
     /* We dont have any application or transport layer paylod, so, directly prepare
-     *      * L3 hdr*/
+     * L3 hdr*/
     demote_packet_to_layer3(node, NULL, 0, ICMP_PRO, addr_int);
 }
 
