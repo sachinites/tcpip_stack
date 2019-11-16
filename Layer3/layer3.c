@@ -105,7 +105,7 @@ demote_pkt_to_layer2(node_t *node,
 
 
 static void
-layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
+layer3_ip_pkt_recv_from_bottom(node_t *node, interface_t *interface,
         ip_hdr_t *pkt, unsigned int pkt_size){
 
     char *l4_hdr, *l5_hdr;
@@ -163,7 +163,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
-                    layer3_ip_pkt_recv_from_layer2(node, interface, 
+                    layer3_ip_pkt_recv_from_bottom(node, interface, 
                             (ip_hdr_t *)INCREMENT_IPHDR(ip_hdr),
                             IP_HDR_PAYLOAD_SIZE(ip_hdr));
                     return;
@@ -384,7 +384,7 @@ rt_table_add_route(rt_table_t *rt_table,
 }
 
 static void
-_layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
+layer3_pkt_recv_from_bottom(node_t *node, interface_t *interface,
                             char *pkt, unsigned int pkt_size, 
                             int L3_protocol_type){
 
@@ -392,7 +392,7 @@ _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         
         case ETH_IP:
         case IP_IN_IP:
-            layer3_ip_pkt_recv_from_layer2(node, interface, (ip_hdr_t *)pkt, pkt_size);
+            layer3_ip_pkt_recv_from_bottom(node, interface, (ip_hdr_t *)pkt, pkt_size);
             break;
         default:
             ;
@@ -407,16 +407,14 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
                       char *pkt, unsigned int pkt_size, /*L3 payload*/
                       int L3_protocol_number){  /*obtained from eth_hdr->type field*/
 
-        _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number);
+        layer3_pkt_recv_from_bottom(node, interface, pkt, pkt_size, L3_protocol_number);
 }
 
-/*An API to be used by L4 or L5 to push the pkt down the TCP/IP
- * stack to layer 3*/
-void
-demote_packet_to_layer3(node_t *node, 
-                        char *pkt, unsigned int size,
-                        int protocol_number, /*L4 or L5 protocol type*/
-                        unsigned int dest_ip_address){
+static void
+layer3_pkt_receieve_from_top(node_t *node, char *pkt,
+        unsigned int size, int protocol_number,
+        unsigned int dest_ip_address){
+
     ip_hdr_t iphdr;
     initialize_ip_hdr(&iphdr);  
       
@@ -475,6 +473,18 @@ demote_packet_to_layer3(node_t *node,
                          ETH_IP);
 
     free(new_pkt);
+}
+
+/*An API to be used by L4 or L5 to push the pkt down the TCP/IP
+ * stack to layer 3*/
+void
+demote_packet_to_layer3(node_t *node, 
+                        char *pkt, unsigned int size,
+                        int protocol_number, /*L4 or L5 protocol type*/
+                        unsigned int dest_ip_address){
+
+    layer3_pkt_receieve_from_top(node, pkt, size, 
+            protocol_number, dest_ip_address);
 }
 
 /* This fn sends a dummy packet to test L3 and L2 routing

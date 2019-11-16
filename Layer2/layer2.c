@@ -639,6 +639,25 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
         send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 }
 
+static void
+layer2_pkt_receieve_from_top(node_t *node, 
+                    unsigned int next_hop_ip,
+                    char *outgoing_intf,
+                    char *pkt, unsigned int pkt_size,
+                    int protocol_number){
+
+    assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
+
+    if(protocol_number == ETH_IP){
+
+        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
+        empty_ethernet_hdr->type = ETH_IP;
+
+        l2_forward_ip_packet(node, next_hop_ip, 
+                outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
+    }
+}
+
 
 /* An API to be used by Layer 3 or higher to push the pkt
  * down the TCP IP Stack to L2. Note that, though most of the time
@@ -652,16 +671,9 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
         char *pkt, unsigned int pkt_size,   /*Higher Layers payload*/
         int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
 
-    assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
-
-    if(protocol_number == ETH_IP){
-   
-        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
-        empty_ethernet_hdr->type = ETH_IP;
-
-        l2_forward_ip_packet(node, next_hop_ip, 
-            outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
-    }
+    layer2_pkt_receieve_from_top(node, next_hop_ip,
+        outgoing_intf, pkt, pkt_size,
+        protocol_number);
 }
 
 void
@@ -843,6 +855,41 @@ untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     return ethernet_hdr;
 }
 
+static void
+promote_pkt_to_layer2(node_t *node, interface_t *iif,
+        ethernet_hdr_t *ethernet_hdr,
+        uint32_t pkt_size){
+
+    switch(ethernet_hdr->type){
+        case ARP_MSG:
+            {
+                /*Can be ARP Broadcast or ARP reply*/
+                arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
+                switch(arp_hdr->op_code){
+                    case ARP_BROAD_REQ:
+                        process_arp_broadcast_request(node, iif, ethernet_hdr);
+                        break;
+                    case ARP_REPLY:
+                        process_arp_reply_msg(node, iif, ethernet_hdr);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+        case ETH_IP:
+        case IP_IN_IP:
+            promote_pkt_to_layer3(node, iif,
+                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr),
+                    ethernet_hdr->type);
+            break;
+        default:
+            ;
+    }
+}
+
+
 void
 layer2_frame_recv(node_t *node, interface_t *interface,
                      char *pkt, unsigned int pkt_size){
@@ -864,32 +911,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     /*Handle Reception of a L2 Frame on L3 Interface*/
     if(IS_INTF_L3_MODE(interface)){
 
-        switch(ethernet_hdr->type){
-            /*When L2 Frame is ARP MSG - could be request or reply*/   
-            case ARP_MSG:
-                {
-                    /*Can be ARP Broadcast or ARP reply*/
-                    arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
-                    switch(arp_hdr->op_code){
-                        case ARP_BROAD_REQ:
-                            process_arp_broadcast_request(node, interface, ethernet_hdr);
-                            break;
-                        case ARP_REPLY:
-                            process_arp_reply_msg(node, interface, ethernet_hdr);
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                break;
-            case ETH_IP:
-            case IP_IN_IP:
-                promote_pkt_to_layer3(node, interface, 
-                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ethernet_hdr->type);
-            default:
-                break;
-        }
+       promote_pkt_to_layer2(node, interface, ethernet_hdr, pkt_size);
     }
     else if(IF_L2_MODE(interface) == ACCESS ||
                 IF_L2_MODE(interface) == TRUNK){
