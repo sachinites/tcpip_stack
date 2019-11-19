@@ -49,7 +49,7 @@ demote_packet_to_layer3(node_t *node,
         unsigned int dest_ip_address);
 
 void
-layer3_ping_fn(node_t *node, char *dst_ip_addr){
+layer5_ping_fn(node_t *node, char *dst_ip_addr){
 
     unsigned int addr_int;
 

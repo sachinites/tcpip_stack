@@ -200,7 +200,7 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
 /*Layer 3 Commands*/
 extern void
-layer3_ping_fn(node_t *node, char *dst_ip_addr);
+layer5_ping_fn(node_t *node, char *dst_ip_addr);
 extern void
 layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
                             char *ero_ip_address);
@@ -235,7 +235,7 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
     switch(CMDCODE){
 
         case CMDCODE_PING:
-            layer3_ping_fn(node, ip_addr);
+            layer5_ping_fn(node, ip_addr);
             break;
         case CMDCODE_ERO_PING:
             layer3_ero_ping_fn(node, ip_addr, ero_ip_addr);
