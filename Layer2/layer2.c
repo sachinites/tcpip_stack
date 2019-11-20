@@ -185,6 +185,11 @@ promote_pkt_to_layer3(node_t *node, interface_t *interface,
                          char *pkt, uint32_t pkt_size,
                          int L3_protocol_type);
 
+extern void
+promote_pkt_to_layer5(node_t *node, interface_t *interface,
+                         char *pkt, uint32_t pkt_size,
+                         int L5_protocol_type);
+
 void
 init_arp_table(arp_table_t **arp_table){
 
@@ -654,13 +659,18 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
 
     assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
 
-    if(protocol_number == ETH_IP){
-   
-        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
-        empty_ethernet_hdr->type = ETH_IP;
+    switch(protocol_number){
+        case ETH_IP:
+            {
+                ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
+                empty_ethernet_hdr->type = ETH_IP;
 
-        l2_forward_ip_packet(node, next_hop_ip, 
-            outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
+                l2_forward_ip_packet(node, next_hop_ip, 
+                        outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
+            }
+        break;
+        default:
+            ;
     }
 }
 
@@ -878,7 +888,13 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
              process_hello_msg(iif, ethernet_hdr);
             break;
         case DDCP_MSG_TYPE_FLOOD_QUERY:
-            ddcp_process_ddcp_query_msg(node, iif, ethernet_hdr, pkt_size);
+            /* Promote the pkt to application layer. Application Layer doesnt necessarily
+             * means the application is running on top of Transport/Network Layer. Since
+             * we are promoting the pkt from Data link layer to Application layer directly,
+             * It means this application is running directly on top of data link layer.*/
+            promote_pkt_to_layer5(node, iif, 
+                (char *)ethernet_hdr, /*No need to chop off ethernet hdr in this case*/
+                pkt_size, ethernet_hdr->type);
             break;
         case ETH_IP:
         case IP_IN_IP:
