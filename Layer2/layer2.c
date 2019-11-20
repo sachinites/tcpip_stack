@@ -598,25 +598,40 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
     }
    
     /* if outgoing_intf is NULL, then two cases possible : 
-       1. L2 has to forward the frame to self
+       1. L2 has to forward the frame to self(destination is local interface ip address
+        including loopback address)
        2. L2 has to forward the frame to machine on local connected subnet*/
 
     /*case 1 */
     
     oif = node_get_matching_subnet_interface(node, next_hop_ip_str);
-    if(!oif){
+   
+    /*If the destination IP address do not match any local subnet Nor
+     * is it a self loopback address*/
+    if(!oif && strncmp(next_hop_ip_str, NODE_LO_ADDR(node), 16)){
         printf("%s : Error : Local matching subnet for IP : %s could not be found\n",
                     node->node_name, next_hop_ip_str);
         return;
     }
 
-    if(strncmp(IF_IP(oif), next_hop_ip_str, 16) == 0){
+    /*if the destination ip address is exact match to local interface
+     * ip address*/
+    if((oif && strncmp(IF_IP(oif), next_hop_ip_str, 16) == 0)){
         /*send to self*/
-        memcpy(ethernet_hdr->dst_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+        memset(ethernet_hdr->dst_mac.mac, 0, sizeof(mac_add_t));
+        memset(ethernet_hdr->src_mac.mac, 0, sizeof(mac_add_t));
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         send_pkt_to_self((char *)ethernet_hdr, pkt_size, oif);
         return;
+    }
+
+    /*If the destination ip address is exact match to seld loopback address, 
+     * rebounce the pkt to Network Layer again*/
+    if(strncmp(next_hop_ip_str, NODE_LO_ADDR(node), 16) == 0){
+       promote_pkt_to_layer3(node, 0, GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
+         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr),
+         ethernet_hdr->type);
+         return;
     }
 
     arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
