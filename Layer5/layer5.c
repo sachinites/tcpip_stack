@@ -33,9 +33,7 @@
 #include "graph.h"
 #include "../tcpconst.h"
 #include <stdint.h>
-
-extern void
-ddcp_process_ddcp_reply_msg(node_t *node, char *pkt, uint32_t pkt_size);
+#include "ddcp/ddcp.h"
 
 void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
@@ -46,8 +44,10 @@ promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
         case USERAPP1:
             break;
         case DDCP_MSG_TYPE_UCAST_REPLY:
-           ddcp_process_ddcp_reply_msg(node, l5_hdr, pkt_size);
+           ddcp_process_ddcp_reply_msg(node, l5_hdr);
             break;
+        case DDCP_MSG_TYPE_FLOOD_QUERY:
+           ddcp_process_ddcp_query_msg(node, recv_intf, l5_hdr, pkt_size);
         default:
             ;
     }
