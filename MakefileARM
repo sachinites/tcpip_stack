@@ -77,6 +77,7 @@ clean:
 	rm -f *exe
 	rm -f Layer2/*.o
 	rm -f Layer3/*.o
+	rm -f Layer4/*.o
 	rm -f Layer5/*.o
 	rm -f WheelTimer/WheelTimer.o
 all:
