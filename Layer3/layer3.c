@@ -48,7 +48,7 @@ l3_is_direct_route(l3_route_t *l3_route){
     return (l3_route->is_direct);
 }
 
-static bool_t
+bool_t
 is_layer3_local_delivery(node_t *node, unsigned int dst_ip){
 
     /* Check if dst_ip exact matches with any locally configured

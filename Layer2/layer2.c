@@ -560,6 +560,10 @@ node_set_intf_vlan_membsership(node_t *node, char *intf_name,
     interface_set_vlan(node, interface, vlan_id);
 }
 
+extern bool_t
+is_layer3_local_delivery(node_t *node, 
+                         uint32_t dst_ip);
+
 static void
 l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
                     char *outgoing_intf, ethernet_hdr_t *pkt, 
@@ -573,61 +577,58 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
 
     next_hop_ip = htonl(next_hop_ip);
     inet_ntop(AF_INET, &next_hop_ip, next_hop_ip_str, 16);
+    
+    /*restore again, since htonl reverses the byte
+     * order*/
+    next_hop_ip = htonl(next_hop_ip);
 
     if(outgoing_intf) {
 
-        /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
-         * out of this interface*/
+        /* Case 1 : Forwarding Case
+         * It means, L3 has resolved the nexthop, So its 
+         * time to L2 forward the pkt out of this interface*/
         oif = get_node_if_by_name(node, outgoing_intf);
         assert(oif);
 
         arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
 
         if (!arp_entry){
-
-            /*Time for ARP resolution*/
-            create_arp_sane_entry(NODE_ARP_TABLE(node), 
-                    next_hop_ip_str, 
-                    (char *)pkt, 
-                    pkt_size);
-
+            /* Time for On Demand ARP resolution, we will handle it
+             * in next section of the course, assume that arp-entry
+             * always exist in ARP table, lets assert for now*/
+            assert(0);
             send_arp_broadcast_request(node, oif, next_hop_ip_str);
             return;
         }
         goto l2_frame_prepare ;
     }
    
-    /* if outgoing_intf is NULL, then two cases possible : 
-       1. L2 has to forward the frame to self
-       2. L2 has to forward the frame to machine on local connected subnet*/
+    /*Case 4 : Self ping*/
+    if(is_layer3_local_delivery(node, next_hop_ip)){
 
-    /*case 1 */
-    
+        promote_pkt_to_layer3(node, 0, GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
+                pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr),
+                ethernet_hdr->type);
+        return;
+    }
+
+    /* case 2 : Direct host Delivery
+       L2 has to forward the frame to machine on local connected subnet */
     oif = node_get_matching_subnet_interface(node, next_hop_ip_str);
+
     if(!oif){
         printf("%s : Error : Local matching subnet for IP : %s could not be found\n",
                     node->node_name, next_hop_ip_str);
         return;
     }
 
-    if(strncmp(IF_IP(oif), next_hop_ip_str, 16) == 0){
-        /*send to self*/
-        memcpy(ethernet_hdr->dst_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-        SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        send_pkt_to_self((char *)ethernet_hdr, pkt_size, oif);
-        return;
-    }
-
     arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
 
-    if (!arp_entry || (arp_entry && arp_entry_sane(arp_entry))){
-        
-        /*Time for ARP resolution*/
-        create_arp_sane_entry(NODE_ARP_TABLE(node), 
-                next_hop_ip_str, 
-                (char *)pkt, 
-                pkt_size);
+    if (!arp_entry){
+        /* Time for On Demand ARP resolution, we will handle it
+         * in next section of the course, assume that arp-entry
+         * always exist in ARP table, lets assert for now*/
+        assert(0);
         send_arp_broadcast_request(node, oif, next_hop_ip_str);
         return;
     }
@@ -878,7 +879,6 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
             }
             break;
         case ETH_IP:
-        case IP_IN_IP:
             promote_pkt_to_layer3(node, iif,
                     GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
                     pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr),
