@@ -419,19 +419,29 @@ layer3_pkt_receieve_from_top(node_t *node, char *pkt,
 
     ip_hdr_t iphdr;
     initialize_ip_hdr(&iphdr);  
-      
+    
     /*Now fill the non-default fields*/
     iphdr.protocol = protocol_number;
 
     unsigned int addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
+
     iphdr.src_ip = addr_int;
     iphdr.dst_ip = dest_ip_address;
 
     iphdr.total_length = (short)iphdr.ihl + 
                          (short)(size/4) + 
                          (short)((size % 4) ? 1 : 0);
+
+    
+    l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
+                                iphdr.dst_ip);
+    
+    if(!l3_route){
+        printf("Node : %s : No L3 route\n",  node->node_name); 
+        return;
+    }
 
     char *new_pkt = NULL;
     unsigned int new_pkt_size = 0 ;
@@ -445,34 +455,31 @@ layer3_pkt_receieve_from_top(node_t *node, char *pkt,
         memcpy(new_pkt + (iphdr.ihl * 4), pkt, size);
 
     /*Now Resolve Next hop*/
-    l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
-                                iphdr.dst_ip);
-    
-    if(!l3_route){
-        printf("Node : %s : No L3 route\n",  node->node_name);   
-        return;
-    }
-
     bool_t is_direct_route = l3_is_direct_route(l3_route);
     
     unsigned int next_hop_ip;
 
     if(!is_direct_route){
+        /*Case 1 : Forwarding Case*/
         inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
         next_hop_ip = htonl(next_hop_ip);
     }
     else{
+        /*Case 2 : Direct Host Delivery Case*/
+        /*Case 4 : Self-Ping Case*/
+        /* The Data link layer will differentiate between case 2 
+         * and case 4 and take appropriate action*/
         next_hop_ip = dest_ip_address;
     }
 
-    char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt, 
-                    new_pkt_size, MAX_PACKET_BUFFER_SIZE);
+    char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt,
+            new_pkt_size, MAX_PACKET_BUFFER_SIZE);
 
     demote_pkt_to_layer2(node,
-                         next_hop_ip,
-                         is_direct_route ? 0 : l3_route->oif,
-                         shifted_pkt_buffer, new_pkt_size,
-                         ETH_IP);
+            next_hop_ip,
+            is_direct_route ? 0 : l3_route->oif,
+            shifted_pkt_buffer, new_pkt_size,
+            ETH_IP);
 
     free(new_pkt);
 }

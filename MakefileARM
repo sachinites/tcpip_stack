@@ -1,4 +1,4 @@
-CC=gcc
+CC=arm-linux-gnueabi-gcc
 CFLAGS=-g
 TARGET:test.exe CommandParser/libcli.a
 LIBS=-lpthread -L ./CommandParser -lcli

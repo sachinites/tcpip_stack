@@ -1,4 +1,4 @@
-CC=gcc
+CC=arm-linux-gnueabi-gcc
 CFLAGS=-g -Wall
 INCLUDES=-I .
 CLILIB=libcli.a
@@ -41,6 +41,6 @@ install:
 	cp libcli.h /usr/include/
 	cp cmdtlv.h /usr/include/
 uninstall:
-	rm -f /usr/local/lib/${CLILIB}
-	rm -f /usr/include/libcli.h
-	rm -f /usr/include/cmdtlv.h
+	rm /usr/local/lib/${CLILIB}
+	rm /usr/include/libcli.h
+	rm /usr/include/cmdtlv.h
