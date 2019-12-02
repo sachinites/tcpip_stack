@@ -593,12 +593,16 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
         arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
 
         if (!arp_entry){
-            /* Time for On Demand ARP resolution, we will handle it
-             * in next section of the course, assume that arp-entry
-             * always exist in ARP table, lets assert for now*/
-            assert(0);
+
+            /*Time for ARP resolution*/
+            create_arp_sane_entry(NODE_ARP_TABLE(node),
+                    next_hop_ip_str,
+                    (char *)pkt,
+                    pkt_size);
+
             send_arp_broadcast_request(node, oif, next_hop_ip_str);
             return;
+
         }
         goto l2_frame_prepare ;
     }
@@ -625,10 +629,11 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
     arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
 
     if (!arp_entry){
-        /* Time for On Demand ARP resolution, we will handle it
-         * in next section of the course, assume that arp-entry
-         * always exist in ARP table, lets assert for now*/
-        assert(0);
+        /*Time for ARP resolution*/
+        create_arp_sane_entry(NODE_ARP_TABLE(node),
+                next_hop_ip_str,
+                (char *)pkt,
+                pkt_size);
         send_arp_broadcast_request(node, oif, next_hop_ip_str);
         return;
     }
