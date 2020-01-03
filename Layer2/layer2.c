@@ -595,7 +595,7 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
         if (!arp_entry){
 
             /*Time for ARP resolution*/
-            create_arp_sane_entry(NODE_ARP_TABLE(node),
+            arp_entry = create_arp_sane_entry(NODE_ARP_TABLE(node),
                     next_hop_ip_str);
             
             add_arp_pending_entry(arp_entry,
@@ -639,7 +639,7 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
 
     if (!arp_entry){
         /*Time for ARP resolution*/
-        create_arp_sane_entry(NODE_ARP_TABLE(node),
+        arp_entry = create_arp_sane_entry(NODE_ARP_TABLE(node),
                 next_hop_ip_str);
 
         add_arp_pending_entry(arp_entry,
@@ -733,7 +733,7 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
                     &arp_pending_entry->arp_pending_entry_glue);
 }
 
-void
+arp_entry_t *
 create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr){ 
 
     /*case 1 : If full entry already exist - assert. The L2 must have
@@ -747,7 +747,7 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr){
          * entry is already present*/    
             assert(0);
         }
-        return;
+        return arp_entry;
     }
 
     /*if ARP entry do not exist, create a new sane entry*/
@@ -760,6 +760,7 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr){
     if(rc == FALSE){
         assert(0);
     }
+    return arp_entry;
 }
 
 

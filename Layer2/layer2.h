@@ -159,7 +159,7 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
                         char *pkt, 
                         unsigned int pkt_size); 
 
-void
+arp_entry_t *
 create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr);
 
 static bool_t 
