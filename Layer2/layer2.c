@@ -596,15 +596,24 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
 
             /*Time for ARP resolution*/
             create_arp_sane_entry(NODE_ARP_TABLE(node),
-                    next_hop_ip_str,
-                    (char *)pkt,
-                    pkt_size);
+                    next_hop_ip_str);
+            
+            add_arp_pending_entry(arp_entry,
+                    pending_arp_processing_callback_function,
+                    (char *)pkt, pkt_size);
 
             send_arp_broadcast_request(node, oif, next_hop_ip_str);
             return;
 
         }
-        goto l2_frame_prepare ;
+        else if(arp_entry_sane(arp_entry)){
+            add_arp_pending_entry(arp_entry,
+                    pending_arp_processing_callback_function,
+                    (char *)pkt, pkt_size);
+            return;
+        }
+        else
+            goto l2_frame_prepare ;
     }
    
     /*Case 4 : Self ping*/
@@ -631,13 +640,21 @@ l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
     if (!arp_entry){
         /*Time for ARP resolution*/
         create_arp_sane_entry(NODE_ARP_TABLE(node),
-                next_hop_ip_str,
-                (char *)pkt,
-                pkt_size);
+                next_hop_ip_str);
+
+        add_arp_pending_entry(arp_entry,
+                pending_arp_processing_callback_function,
+                (char *)pkt, pkt_size);
+
         send_arp_broadcast_request(node, oif, next_hop_ip_str);
         return;
     }
-
+    else if(arp_entry_sane(arp_entry)){
+        add_arp_pending_entry(arp_entry,
+                pending_arp_processing_callback_function,
+                (char *)pkt, pkt_size);
+        return;
+    }
     l2_frame_prepare:
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
         memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
@@ -717,8 +734,7 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
 }
 
 void
-create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr, 
-                       char *pkt, unsigned int pkt_size){
+create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr){ 
 
     /*case 1 : If full entry already exist - assert. The L2 must have
      * not create ARP sane entry if the already was already existing*/
@@ -726,15 +742,11 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
     arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
     
     if(arp_entry){
-    
         if(!arp_entry_sane(arp_entry)){
+        /* Why are you creating ARP sane entry when ARP complete
+         * entry is already present*/    
             assert(0);
         }
-
-        /*ARP sane entry already exists, append the arp pending entry to it*/
-        add_arp_pending_entry(arp_entry, 
-                              pending_arp_processing_callback_function, 
-                              pkt, pkt_size);
         return;
     }
 
@@ -744,9 +756,6 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
     arp_entry->is_sane = TRUE;
-    add_arp_pending_entry(arp_entry, 
-                          pending_arp_processing_callback_function, 
-                          pkt, pkt_size);
     bool_t rc = arp_table_entry_add(arp_table, arp_entry, 0);
     if(rc == FALSE){
         assert(0);
