@@ -44,6 +44,7 @@ extern graph_t *build_square_topo();
 extern graph_t *build_linear_topo();
 extern graph_t *build_dualswitch_topo();
 extern graph_t *linear_3_node_topo();
+extern graph_t *L2_loop_topo();
 extern void nw_init_cli();
 
 graph_t *topo = NULL;
@@ -52,7 +53,7 @@ int
 main(int argc, char **argv){
 
     nw_init_cli();
-    topo = build_square_topo();
+    topo = L2_loop_topo();
     start_shell(); 
     return 0;
 }

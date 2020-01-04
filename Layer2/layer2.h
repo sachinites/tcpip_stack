@@ -298,15 +298,12 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
 
     /* If interface is working in ACCESS mode but at the
      * same time not operating within a vlan, then it must
-     * accept untagged packet only*/
+     * not accept tagged or untagged frames*/
 
     if(IF_L2_MODE(interface) == ACCESS &&
         get_access_intf_operating_vlan_id(interface) == 0){
 
-        if(!vlan_8021q_hdr)
-            return TRUE;    /*case 3*/
-        else
-            return FALSE;   /*case 4*/
+            return FALSE;   /*case 3 and 4*/
     }
 
     /* if interface is working in ACCESS mode and operating with in
@@ -324,11 +321,6 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
         if(!vlan_8021q_hdr && intf_vlan_id){
             *output_vlan_id = intf_vlan_id;
             return TRUE; /*case 6*/
-        }
-
-        if(!vlan_8021q_hdr && !intf_vlan_id){
-            /*case 3*/
-            return TRUE;
         }
 
         pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
