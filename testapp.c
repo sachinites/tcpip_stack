@@ -53,7 +53,7 @@ int
 main(int argc, char **argv){
 
     nw_init_cli();
-    topo = L2_loop_topo();
+    topo = build_square_topo();
     start_shell(); 
     return 0;
 }
