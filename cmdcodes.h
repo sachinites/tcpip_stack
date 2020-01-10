@@ -53,4 +53,7 @@
 #define CMDCODE_SHOW_DDCP_DB        16  /*show node <node-name> ddcp-db*/
 #define CMDCODE_RUN_DDCP_QUERY_PERIODIC 17 /*run node <node-name> ddcp-query periodic <ddcp-q-interval in sec>*/
 
+#define CMDCODE_RUN_SPF             18  /*run node <node-name> spf*/
+#define CMDCODE_SHOW_SPF_RESULTS    19  /*show node <node-name> spf-results*/
+
 #endif /* __CMDCODES__ */

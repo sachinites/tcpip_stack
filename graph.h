@@ -66,6 +66,13 @@ struct link_ {
     unsigned int cost;
 }; 
 
+static inline unsigned int
+get_link_cost(interface_t *interface){
+
+    return interface->link->cost;
+}
+
+typedef struct spf_data_ spf_data_t;
 struct node_ {
 
     char node_name[NODE_NAME_SIZE];
@@ -74,6 +81,7 @@ struct node_ {
     unsigned int udp_port_number;
     int udp_sock_fd;
     node_nw_prop_t node_nw_prop;
+    spf_data_t *spf_data;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 
@@ -157,6 +165,26 @@ get_node_by_node_name(graph_t *topo, char *node_name){
 void dump_graph(graph_t *graph);
 void dump_node(node_t *node);
 void dump_interface(interface_t *interface);
+
+/*Macros to Iterate over Nbrs of a node*/
+
+#define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr) \
+    do{                                                                  \
+       int i = 0 ;                                                       \
+       interface_t *other_intf;                                          \
+        for( i = 0 ; i < MAX_INTF_PER_NODE; i++){                        \
+            oif_ptr = node_ptr->intf[i];                                 \
+            if(!oif_ptr) break;                                          \
+            other_intf = &oif_ptr->link->intf1 == oif_ptr ?              \
+                &oif_ptr->link->intf2 : &oif_ptr->link->intf1;           \
+            if(!other_intf) continue;                                    \
+            nbr_ptr = get_nbr_node(oif_ptr);                             \
+            ip_addr_ptr = IF_IP(other_intf);                             \
+
+#define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr)  }}while(0);
+
+
+
 
 
 #endif /* __NW_GRAPH_ */

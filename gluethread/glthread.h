@@ -92,6 +92,8 @@ glthread_priority_insert(glthread_t *base_glthread,
                          int (*comp_fn)(void *, void *),
                          int offset);
 
+glthread_t *
+dequeue_glthread_first(glthread_t *base_glthread);
 
 #if 0
 void *

@@ -330,6 +330,14 @@ rt_table_add_route(rt_table_t *rt_table,
         char *dst, char mask,
         char *gw, char *oif);
 
+/*SPF related handler routines*/
+extern void
+compute_spf(node_t *node);
+
+extern int
+show_spf_results_handler(param_t *param, ser_buff_t *tlv_buf,
+                         op_mode enable_or_disable);
+
 static int
 l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
@@ -396,6 +404,9 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                     ;
             }
             break;
+        case CMDCODE_RUN_SPF:
+           compute_spf(node);
+           break;
         default:
             break;
     }
@@ -665,6 +676,13 @@ nw_init_cli(){
                     set_param_cmd_code(&ddcp_db, CMDCODE_SHOW_DDCP_DB);
                  }
                  {
+                    /*show node <node-name> spf-result*/
+                    static param_t spf_result;
+                    init_param(&spf_result, CMD, "spf-result", show_spf_results_handler, 0, INVALID, 0, "SPF Results");
+                    libcli_register_param(&node_name, &spf_result);
+                    set_param_cmd_code(&spf_result, CMDCODE_SHOW_SPF_RESULTS);
+                 }
+                 {
                     /*show node <node-name> arp*/
                     static param_t arp;
                     init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
@@ -768,6 +786,13 @@ nw_init_cli(){
                     libcli_register_param(&resolve_arp, &ip_addr);
                     set_param_cmd_code(&ip_addr, CMDCODE_RUN_ARP);
                 }
+            }
+            {
+                /*run node <node-name> spf*/
+                static param_t spf;
+                init_param(&spf, CMD, "spf", l3_config_handler, 0, INVALID, 0, "Trigger SPF");
+                libcli_register_param(&node_name, &spf);
+                set_param_cmd_code(&spf, CMDCODE_RUN_SPF);
             }
         }
     }
