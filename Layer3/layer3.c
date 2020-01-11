@@ -466,7 +466,7 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
         _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number);
 }
 
-/*An API to be used by L4 or L5 to push the pkt down the TCP/IP
+/* An API to be used by L4 or L5 to push the pkt down the TCP/IP
  * stack to layer 3*/
 void
 demote_packet_to_layer3(node_t *node, 
@@ -523,12 +523,12 @@ demote_packet_to_layer3(node_t *node,
         return;
     }
 
-    /*If route is non direct, then ask LAyer 2 to send the pkt
+    /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
     int i = 0;
     uint32_t next_hop_ip;
     nexthop_t *nexthop = NULL;
-
+    
     for( ; i < MAX_NXT_HOPS; i++){
 
         nexthop = l3_route->nexthops[i];
@@ -536,6 +536,7 @@ demote_packet_to_layer3(node_t *node,
 
         inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
         next_hop_ip = htonl(next_hop_ip);
+        
         demote_pkt_to_layer2(node,
                 next_hop_ip,
                 nexthop->oif->if_name,

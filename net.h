@@ -239,8 +239,6 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
                                uint32_t total_buffer_size);
 
 bool_t
-pkt_buffer_check_additional_hdr_space(uint32_t pkt_size,
-        uint32_t total_buffer_size,
-        uint32_t additional_space_requested);
+is_interface_l3_bidirectional(interface_t *interface);
 
 #endif /* __NET__ */

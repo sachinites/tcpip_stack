@@ -15,9 +15,10 @@ OBJS=gluethread/glthread.o \
 		  utils.o		   \
 		  Layer2/l2switch.o \
           WheelTimer/WheelTimer.o   \
-          hello.o		   \
+          hello.o		   	 \
 		  Layer5/ddcp/ddcp.o \
-		  Layer3/spf.c
+		  Layer3/spf.o 		 \
+		  tcp_stack_init.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -30,6 +31,9 @@ gluethread/glthread.o:gluethread/glthread.c
 
 WheelTimer/WheelTimer.o:WheelTimer/WheelTimer.c
 	${CC} ${CFLAGS} -c -I gluethread -I WheelTimer WheelTimer/WheelTimer.c -o WheelTimer/WheelTimer.o
+
+tcp_stack_init.o:tcp_stack_init.c
+	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
 
 hello.o:hello.c
 	${CC} ${CFLAGS} -c -I . hello.c -o hello.o

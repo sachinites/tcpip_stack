@@ -64,8 +64,11 @@ typedef struct ethernet_hdr_{
 
 #pragma pack(pop)
 
+#define ETH_FCS_SIZE    (sizeof(((ethernet_hdr_t *)0)->FCS))
+
 #define ETH_HDR_SIZE_EXCL_PAYLOAD   \
-    (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
+    (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload) - \
+        ETH_FCS_SIZE)
 
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
     (*(uint32_t *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
@@ -200,10 +203,12 @@ GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 }
 
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
-    (*(uint32_t *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
+    (*(uint32_t *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) \
+        + payload_size)))
 
 #define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  \
-   (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload)) 
+   (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload) - \
+        ETH_FCS_SIZE)
 
 /* Return 0 if not vlan tagged, else return pointer to 801.1q vlan hdr
  * present in ethernet hdr*/
@@ -253,14 +258,9 @@ SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr,
 static inline ethernet_hdr_t *
 ALLOC_ETH_HDR_WITH_PAYLOAD(char *pkt, uint32_t pkt_size){
 
-    char *temp = calloc(1, pkt_size);
-    memcpy(temp, pkt, pkt_size);
-
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(pkt - ETH_HDR_SIZE_EXCL_PAYLOAD);
     memset((char *)eth_hdr, 0, ETH_HDR_SIZE_EXCL_PAYLOAD);
-    memcpy(eth_hdr->payload, temp, pkt_size);
     SET_COMMON_ETH_FCS(eth_hdr, pkt_size, 0);
-    free(temp);
     return eth_hdr;
 }
 

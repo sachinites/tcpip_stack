@@ -273,7 +273,7 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
     char *temp = NULL;
     bool_t need_temp_memory = FALSE;
 
-    if(pkt_size * 2 > total_buffer_size){
+    if(pkt_size * 2 > (total_buffer_size - PKT_BUFFER_RIGHT_ROOM)){
         need_temp_memory = TRUE;
     }
     
@@ -281,24 +281,16 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
         temp = calloc(1, pkt_size);
         memcpy(temp, pkt, pkt_size);
         memset(pkt, 0, total_buffer_size);
-        memcpy(pkt + (total_buffer_size - pkt_size), temp, pkt_size);
+        memcpy(pkt + (total_buffer_size - pkt_size - PKT_BUFFER_RIGHT_ROOM), 
+            temp, pkt_size);
         free(temp);
-        return pkt + (total_buffer_size - pkt_size);
+        return pkt + (total_buffer_size - pkt_size - PKT_BUFFER_RIGHT_ROOM);
     }
     
-    memcpy(pkt + (total_buffer_size - pkt_size), pkt, pkt_size);
+    memcpy(pkt + (total_buffer_size - pkt_size - PKT_BUFFER_RIGHT_ROOM), 
+        pkt, pkt_size);
     memset(pkt, 0, pkt_size);
-    return pkt + (total_buffer_size - pkt_size);
-}
-
-bool_t 
-pkt_buffer_check_additional_hdr_space(uint32_t pkt_size, 
-                           uint32_t total_buffer_size,
-                           uint32_t additional_space_requested){
-
-    if(total_buffer_size - pkt_size > additional_space_requested)
-        return TRUE;
-    return FALSE;
+    return pkt + (total_buffer_size - pkt_size - PKT_BUFFER_RIGHT_ROOM);
 }
 
 void
@@ -327,4 +319,31 @@ dump_node_interface_stats(node_t *node){
         dump_interface_stats(interface);
         printf("\n");
     }
+}
+
+bool_t
+is_interface_l3_bidirectional(interface_t *interface){
+
+    /*if interface is in L2 mode*/
+    if(IF_L2_MODE(interface))
+        return FALSE;
+
+    /* If interface is not configured 
+     * with IP address*/
+    if(!IS_INTF_L3_MODE(interface))
+        return FALSE;
+
+    interface_t *other_interface = &interface->link->intf1 == interface ?    \
+            &interface->link->intf2 : &interface->link->intf1;
+
+    if(!other_interface)
+        return FALSE;
+
+    if(IF_L2_MODE(other_interface))
+        return FALSE;
+
+    if(!IS_INTF_L3_MODE(other_interface))
+        return FALSE;
+
+    return TRUE;
 }

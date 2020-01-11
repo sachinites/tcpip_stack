@@ -583,7 +583,8 @@ wrapper_ddcp_flood_ddcp_query_out(void *arg ,
             (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
     ddcp_query_hdr->seq_no = ddcp_update_ddcp_db_self_query_info(node);
-    SET_COMMON_ETH_FCS(ethernet_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, 0);
+    SET_COMMON_ETH_FCS(ethernet_hdr, 
+        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE, 0);
 
     ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr,
                                       pkt_size, NULL);
@@ -600,7 +601,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
                 (DEFAULT_DDCP_TLVS * sizeof(DDCP_TLV_ID));
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(
-                1, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
+                1, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE);
 
     ddcp_query_hdr = (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
@@ -624,7 +625,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
     SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
     if(ddcp_q_interval == 0){
         ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, 
-                ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size, NULL);
+                ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE, NULL);
         free(ethernet_hdr);
     }
     else{
@@ -640,7 +641,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
         ddcp_pkt_meta_data_t ddcp_pkt_meta_data;
         ddcp_pkt_meta_data.node = node;
         ddcp_pkt_meta_data.pkt = (char *)ethernet_hdr;
-        ddcp_pkt_meta_data.pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size;
+        ddcp_pkt_meta_data.pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE;
         
         (GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem = 
                 register_app_event(wt,

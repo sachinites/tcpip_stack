@@ -43,7 +43,8 @@ get_new_hello_pkt(node_t *node,
     memcpy(hello_payload->intf_ip, IF_IP(interface), 16);
     ETH_FCS(hello, sizeof(hello_t)) = 0;
 
-    *pkt_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(hello) + sizeof(hello_t);
+    *pkt_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(hello) + 
+        sizeof(hello_t) + ETH_FCS_SIZE;
     
     return (ethernet_hdr_t *)(pkt_buffer_shift_right(
 		(char *)hello, *pkt_size, 

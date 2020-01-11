@@ -308,6 +308,8 @@ compute_spf(node_t *spf_root){
 
     ITERATE_NODE_NBRS_BEGIN(spf_root, nbr, oif, nxt_hop_ip){
 
+        if(!is_interface_l3_bidirectional(oif)) continue;
+
         if(get_link_cost(oif) < SPF_METRIC(nbr)){
             spf_flush_nexthops(nbr->spf_data->nexthops);
             nexthop = create_new_nexthop(oif);
@@ -342,6 +344,8 @@ compute_spf(node_t *spf_root){
         if(curr_spf_data->node == spf_root){
 
             ITERATE_NODE_NBRS_BEGIN(curr_spf_data->node, nbr, oif, nxt_hop_ip){
+
+                if(!is_interface_l3_bidirectional(oif)) continue;
 
                 printf("root : %s : Event : Processing Direct Nbr %s\n", 
                         spf_root->node_name, nbr->node_name);
