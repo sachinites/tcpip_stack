@@ -51,4 +51,5 @@
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, must not exceed 255*/
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 
+#define MAX_NXT_HOPS        4
 #endif /* __TCPCONST__ */

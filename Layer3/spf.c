@@ -39,22 +39,11 @@
 #include "layer3.h"
 
 #define INFINITE_METRIC     0xFFFFFFFF
-#define MAX_NXT_HOPS        4
 
 #define SPF_METRIC(nodeptr) (nodeptr->spf_data->spf_metric)
 
 /*Import global variable*/
 extern graph_t *topo;
-
-typedef struct nexthop_{
-
-    char gw_ip[16];
-    interface_t *oif;
-    uint32_t ref_count;
-} nexthop_t;
-
-#define nexthop_node_name(nexthop_ptr)  \
-   ((get_nbr_node(nexthop_ptr->oif))->node_name)
 
 typedef struct spf_data_{
 
@@ -90,7 +79,7 @@ is_nexthop_empty(nexthop_t *nexthop){
     return nexthop->oif == NULL;
 }
 
-static inline void
+void
 spf_flush_nexthops(nexthop_t **nexthop){
 
     int i = 0;
@@ -285,7 +274,7 @@ spf_install_routes(node_t *spf_root){
             nexthop = spf_result->nexthops[i];
             if(!nexthop) continue;
             rt_table_add_route(rt_table, NODE_LO_ADDR(spf_result->node), 32, 
-                    nexthop->gw_ip, nexthop->oif->if_name);
+                    nexthop->gw_ip, nexthop->oif);
             count++;
         }
     } ITERATE_GLTHREAD_END(&spf_root->spf_data->spf_result_head, curr);

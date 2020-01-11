@@ -328,7 +328,7 @@ delete_rt_table_entry(rt_table_t *rt_table,
 extern void
 rt_table_add_route(rt_table_t *rt_table,
         char *dst, char mask,
-        char *gw, char *oif);
+        char *gw, interface_t *oif);
 
 /*SPF related handler routines*/
 extern void
@@ -394,7 +394,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                             return -1;
                         }
                     }
-                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf_name);
+                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf);
                 }
                 break;
                 case CONFIG_DISABLE:

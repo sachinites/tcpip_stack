@@ -40,6 +40,9 @@
 #include "comm.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 
+extern void
+spf_flush_nexthops(nexthop_t **nexthop);
+
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
 static bool_t
@@ -195,15 +198,23 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         return;
     }
 
+    /* If route is non direct, then ask LAyer 2 to send the pkt
+     * out of all ecmp nexthops of the route*/
+    int i = 0;
     uint32_t next_hop_ip;
-    inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
-    next_hop_ip = htonl(next_hop_ip);
 
-    demote_pkt_to_layer2(node, 
-            next_hop_ip,
-            l3_route->oif,
-            (char *)ip_hdr, pkt_size,
-            ETH_IP); /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
+    for( i = 0; i < MAX_NXT_HOPS; i++){
+        
+        if(!l3_route->nexthops[i]) continue;
+        inet_pton(AF_INET, l3_route->nexthops[i]->gw_ip, &next_hop_ip);
+        next_hop_ip = htonl(next_hop_ip);
+
+        demote_pkt_to_layer2(node, 
+                next_hop_ip,
+                l3_route->nexthops[i]->oif->if_name,
+                (char *)ip_hdr, pkt_size,
+                ETH_IP); /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
+    }
 }
 
 
@@ -248,6 +259,15 @@ clear_rt_table(rt_table_t *rt_table){
 }
 
 void
+l3_route_free(l3_route_t *l3_route){
+
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
+    spf_flush_nexthops(l3_route->nexthops);
+    free(l3_route);
+}
+
+
+void
 delete_rt_table_entry(rt_table_t *rt_table, 
         char *ip_addr, char mask){
 
@@ -260,7 +280,7 @@ delete_rt_table_entry(rt_table_t *rt_table,
         return;
 
     remove_glthread(&l3_route->rt_glue);
-    free(l3_route);
+    l3_route_free(l3_route);
 }
 
 /*Look up L3 routing table using longest prefix match*/
@@ -304,6 +324,7 @@ l3rib_lookup_lpm(rt_table_t *rt_table,
 void
 dump_rt_table(rt_table_t *rt_table){
 
+    int i = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
 
@@ -311,29 +332,34 @@ dump_rt_table(rt_table_t *rt_table){
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
 
         l3_route = rt_glue_to_l3_route(curr);
-        printf("\t%-18s %-4d %-18s %s\n", 
-                l3_route->dest, l3_route->mask,
-                l3_route->is_direct ? "NA" : l3_route->gw_ip, 
-                l3_route->is_direct ? "NA" : l3_route->oif);
+        
+        if(l3_route->is_direct){
+            printf("\t%-18s %-4d %-18s %s\n", 
+                    l3_route->dest, l3_route->mask, "NA", "NA");
+            continue;
+        }
 
+        for( i = 0; i < MAX_NXT_HOPS; i++){
+            if(l3_route->nexthops[i]){
+                if(i == 0){
+                    printf("\t%-18s %-4d %-18s %s\n", 
+                            l3_route->dest, l3_route->mask,
+                            l3_route->nexthops[i]->gw_ip, 
+                            l3_route->nexthops[i]->oif->if_name);
+                }
+                else{
+                    printf("  \t\t\t\t%-18s %s\n", 
+                            l3_route->nexthops[i]->gw_ip, 
+                            l3_route->nexthops[i]->oif->if_name);
+                }
+            }
+        }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
 }
 
 static bool_t
 _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 
-    l3_route_t *l3_route_old = rt_table_lookup(rt_table,
-            l3_route->dest, l3_route->mask);
-
-    if(l3_route_old &&
-            IS_L3_ROUTES_EQUAL(l3_route_old, l3_route)){
-
-        return FALSE;
-    }
-
-    if(l3_route_old){
-        delete_rt_table_entry(rt_table, l3_route_old->dest, l3_route_old->mask);
-    }
     init_glthread(&l3_route->rt_glue);
     glthread_add_next(&rt_table->route_list, &l3_route->rt_glue);
     return TRUE;
@@ -349,41 +375,66 @@ rt_table_add_direct_route(rt_table_t *rt_table,
 void
 rt_table_add_route(rt_table_t *rt_table,
                    char *dst, char mask,
-                   char *gw, char *oif){
+                   char *gw, interface_t *oif){
 
    uint32_t dst_int;
    char dst_str_with_mask[16];
+   bool_t new_route = FALSE;
 
    apply_mask(dst, mask, dst_str_with_mask); 
-
    inet_pton(AF_INET, dst_str_with_mask, &dst_int);
+   dst_int = htonl(dst_int);
 
    l3_route_t *l3_route = l3rib_lookup_lpm(rt_table, dst_int);
 
-   /*Trying to add duplicate route!!*/
-   assert(!l3_route);
-
-   l3_route = calloc(1, sizeof(l3_route_t));
-   strncpy(l3_route->dest, dst_str_with_mask, 16);
-   l3_route->dest[15] = '\0';
-   l3_route->mask = mask;
-
-   if(!gw && !oif)
+   if(!l3_route){
+       l3_route = calloc(1, sizeof(l3_route_t));
+       strncpy(l3_route->dest, dst_str_with_mask, 16);
+       l3_route->dest[15] = '\0';
+       l3_route->mask = mask;
+       new_route = TRUE;
        l3_route->is_direct = TRUE;
-   else
-       l3_route->is_direct = FALSE;
+   }
    
-   if(gw && oif){
-        strncpy(l3_route->gw_ip, gw, 16);
-        l3_route->gw_ip[15] = '\0';
-        strncpy(l3_route->oif, oif, IF_NAME_SIZE);
-        l3_route->oif[IF_NAME_SIZE - 1] = '\0';
+   int i = 0;
+
+   /*Get the index into nexthop array to fill the new nexthop*/
+   if(!new_route){
+       for( ; i < MAX_NXT_HOPS; i++){
+
+           if(l3_route->nexthops[i]){
+                if(strncmp(l3_route->nexthops[i]->gw_ip, gw, 16) == 0 && 
+                    l3_route->nexthops[i]->oif == oif){
+                    printf("Error : Attempt to Add Duplicate Route\n");
+                    return;
+                }
+           }
+           else break;
+       }
    }
 
-   if(!_rt_table_entry_add(rt_table, l3_route)){
-        printf("Error : Route %s/%d Installation Failed\n", 
+   if( i == MAX_NXT_HOPS){
+        printf("Error : No Nexthop space left for route %s/%u\n", 
             dst_str_with_mask, mask);
-        free(l3_route);   
+        return;
+   }
+
+   if(gw && oif){
+        nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
+        l3_route->nexthops[i] = nexthop;
+        l3_route->is_direct = FALSE;
+        nexthop->ref_count++;
+        strncpy(nexthop->gw_ip, gw, 16);
+        nexthop->gw_ip[15] = '\0';
+        nexthop->oif = oif;
+   }
+
+   if(new_route){
+       if(!_rt_table_entry_add(rt_table, l3_route)){
+           printf("Error : Route %s/%d Installation Failed\n", 
+                   dst_str_with_mask, mask);
+           l3_route_free(l3_route);   
+       }
    }
 }
 
@@ -460,25 +511,37 @@ demote_packet_to_layer3(node_t *node,
 
     bool_t is_direct_route = l3_is_direct_route(l3_route);
     
-    uint32_t next_hop_ip;
-
-    if(!is_direct_route){
-        inet_pton(AF_INET, l3_route->gw_ip, &next_hop_ip);
-        next_hop_ip = htonl(next_hop_ip);
-    }
-    else{
-        next_hop_ip = dest_ip_address;
-    }
-
     char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt, 
                     new_pkt_size, MAX_PACKET_BUFFER_SIZE);
 
-    demote_pkt_to_layer2(node,
-                         next_hop_ip,
-                         is_direct_route ? 0 : l3_route->oif,
+    if(is_direct_route){
+        demote_pkt_to_layer2(node,
+                         dest_ip_address,
+                         0,
                          shifted_pkt_buffer, new_pkt_size,
                          ETH_IP);
+        return;
+    }
 
+    /*If route is non direct, then ask LAyer 2 to send the pkt
+     * out of all ecmp nexthops of the route*/
+    int i = 0;
+    uint32_t next_hop_ip;
+    nexthop_t *nexthop = NULL;
+
+    for( ; i < MAX_NXT_HOPS; i++){
+
+        nexthop = l3_route->nexthops[i];
+        if(!nexthop) continue;
+
+        inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
+        next_hop_ip = htonl(next_hop_ip);
+        demote_pkt_to_layer2(node,
+                next_hop_ip,
+                nexthop->oif->if_name,
+                shifted_pkt_buffer, new_pkt_size,
+                ETH_IP);
+    }
     free(new_pkt);
 }
 
