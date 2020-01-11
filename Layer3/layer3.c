@@ -240,6 +240,8 @@ clear_rt_table(rt_table_t *rt_table){
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
 
         l3_route = rt_glue_to_l3_route(curr);
+        if(l3_is_direct_route(l3_route))
+            continue;
         remove_glthread(curr);
         free(l3_route);
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);

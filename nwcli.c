@@ -413,6 +413,23 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
     return 0;
 }
 
+extern void
+compute_spf_all_routers(graph_t *topo);
+static int
+spf_handler(param_t *param, ser_buff_t *tlv_buf, 
+            op_mode enable_or_disable){
+
+    int CMDCODE;
+
+    CMDCODE =  EXTRACT_CMD_CODE(tlv_buf);
+
+    switch(CMDCODE){
+        case CMDCODE_RUN_SPF_ALL:
+            compute_spf_all_routers(topo);
+        break;
+    }
+    return 0;
+}
 
 /*Layer 4 Commands*/
 
@@ -718,7 +735,22 @@ nw_init_cli(){
              }
          } 
     }
-    
+   
+
+    {
+        /*run spf*/ 
+        static param_t spf;
+        init_param(&spf, CMD, "spf", 0, 0, INVALID, 0, "Shortest SPF Path");
+        libcli_register_param(run, &spf);
+        {
+            /*run spf all*/
+            static param_t all;
+            init_param(&all, CMD, "all" , spf_handler, 0, INVALID, 0, "All nodes");
+            libcli_register_param(&spf, &all);
+            set_param_cmd_code(&all, CMDCODE_RUN_SPF_ALL);
+        }
+    }
+
     {
         /*run node*/
         static param_t node;

@@ -155,8 +155,8 @@ glthread_priority_insert(glthread_t *glthread_head,
 
     /* Only one node*/
     if(glthread_head->right && !glthread_head->right->right){
-        if(comp_fn(GLTHREAD_GET_USER_DATA_FROM_OFFSET(glthread_head->right, offset), 
-                GLTHREAD_GET_USER_DATA_FROM_OFFSET(glthread, offset)) == -1){
+        if(comp_fn(GLTHREAD_GET_USER_DATA_FROM_OFFSET(glthread, offset),
+            GLTHREAD_GET_USER_DATA_FROM_OFFSET(glthread_head->right, offset)) == -1){
             glthread_add_next(glthread_head, glthread);
         }
         else{

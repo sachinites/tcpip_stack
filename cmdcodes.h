@@ -55,5 +55,5 @@
 
 #define CMDCODE_RUN_SPF             18  /*run node <node-name> spf*/
 #define CMDCODE_SHOW_SPF_RESULTS    19  /*show node <node-name> spf-results*/
-
+#define CMDCODE_RUN_SPF_ALL         20  /*run spf all*/
 #endif /* __CMDCODES__ */
