@@ -325,7 +325,8 @@ bool_t
 is_interface_l3_bidirectional(interface_t *interface){
 
     /*if interface is in L2 mode*/
-    if(IF_L2_MODE(interface))
+    if(IF_L2_MODE(interface) == ACCESS || 
+        IF_L2_MODE(interface) == TRUNK)
         return FALSE;
 
     /* If interface is not configured 
@@ -339,7 +340,8 @@ is_interface_l3_bidirectional(interface_t *interface){
     if(!other_interface)
         return FALSE;
 
-    if(IF_L2_MODE(other_interface))
+    if(IF_L2_MODE(other_interface) == ACCESS ||
+        IF_L2_MODE(interface) == TRUNK)
         return FALSE;
 
     if(!IS_INTF_L3_MODE(other_interface))

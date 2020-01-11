@@ -457,22 +457,25 @@ show_spf_results(node_t *node){
 
         j = 0;
 
-            for( i = 0; i < MAX_NXT_HOPS; i++, j++){
-                
-                if(!res->nexthops[i]) continue;
+        for( i = 0; i < MAX_NXT_HOPS; i++, j++){
 
-                oif = res->nexthops[i]->oif;
-                if(j == 0){
-                    printf("%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
-                            nexthop_node_name(res->nexthops[i]),
-                            oif->if_name, res->nexthops[i]->gw_ip, res->nexthops[i]->ref_count);
-                }
-                else{
-                    printf("                                              : %-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
-                            nexthop_node_name(res->nexthops[i]),
-                            oif->if_name, res->nexthops[i]->gw_ip, res->nexthops[i]->ref_count);
-                }
+            if(!res->nexthops[i]) continue;
+
+            oif = res->nexthops[i]->oif;
+            if(j == 0){
+                printf("%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
+                        nexthop_node_name(res->nexthops[i]),
+                        oif->if_name, res->nexthops[i]->gw_ip, 
+                        res->nexthops[i]->ref_count);
             }
+            else{
+                printf("                                              : "
+                        "%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
+                        nexthop_node_name(res->nexthops[i]),
+                        oif->if_name, res->nexthops[i]->gw_ip, 
+                        res->nexthops[i]->ref_count);
+            }
+        }
     }ITERATE_GLTHREAD_END(&node->spf_data->spf_result_head, curr)
 }
 
