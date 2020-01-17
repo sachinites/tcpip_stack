@@ -625,7 +625,7 @@ go_one_level_up_cmd_tree(param_t *curr_cmd_tree_cursor){
 
     if(IS_PARAM_LEAF(curr_cmd_tree_cursor)){
         memset(GET_LEAF_VALUE_PTR(curr_cmd_tree_cursor), 0, LEAF_VALUE_HOLDER_SIZE);
-        serialize_buffer_skip(tlv_buff, -1 * sizeof(tlv_struct_t));/*Rewind*/
+        serialize_buffer_skip(tlv_buff, -1 * (int)sizeof(tlv_struct_t));/*Rewind*/
         mark_checkpoint_serialize_buffer(tlv_buff);
     }
 

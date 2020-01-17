@@ -48,7 +48,7 @@ dump_all_commands(param_t *root, unsigned int index){
         }
         else if(IS_PARAM_LEAF(root)){
             untokenize(index);
-            memset(temp, 0, LEAF_VALUE_HOLDER_SIZE + 2);
+            memset(temp, 0, sizeof(temp));
             sprintf(temp, "<%s>", GET_LEAF_ID(root));
             tokenize(temp, strlen(GET_LEAF_ID(root)) + 2, index);
         }
@@ -358,7 +358,8 @@ show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     printf("    f. debug show cmdtree - Show entire command tree\n");
     printf("    g. show history - show history of commands triggered\n");
     printf("    h. repeat - repeat the last command\n");
-    printf(ANSI_COLOR_YELLOW "                      Author : Abhishek Sagar, Juniper Networks\n" ANSI_COLOR_RESET);
+    printf(ANSI_COLOR_GREEN"    Course URL: https://www.udemy.com/course/clilibrary/?referralCode=7B5A69E6F0127E0C9376\n" ANSI_COLOR_RESET);
+    printf(ANSI_COLOR_YELLOW"                         Author : Abhishek Sagar, Juniper Networks\n\n" ANSI_COLOR_RESET);
     return 0;
 }
 
