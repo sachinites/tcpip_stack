@@ -71,13 +71,13 @@ layer2_fill_with_broadcast_mac(char *mac_array);
  * */
 #define ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, tlv_size)           \
 {                                                                               \
-    unsigned int _len = 0; char _tlv_value_size = 0;                            \
+    unsigned int _len = 0; unsigned char _tlv_value_size = 0;                            \
     type = 0; length = 0; tlv_ptr = NULL;                                       \
     for(tlv_ptr = (char *)start_ptr + TLV_OVERHEAD_SIZE; _len < tlv_size;       \
             _len += _tlv_value_size + TLV_OVERHEAD_SIZE,                        \
              tlv_ptr = (tlv_ptr + TLV_OVERHEAD_SIZE + length)){                 \
         type = *(tlv_ptr - TLV_OVERHEAD_SIZE);                                  \
-        _tlv_value_size = (char)(*(tlv_ptr - TLV_OVERHEAD_SIZE + sizeof(char)));\
+        _tlv_value_size = (unsigned char)(*(tlv_ptr - TLV_OVERHEAD_SIZE + sizeof(unsigned char)));\
         length = _tlv_value_size;
 
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \

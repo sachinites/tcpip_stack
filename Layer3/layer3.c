@@ -158,7 +158,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             ip_hdr->protocol);
                     break;
                 case ICMP_PRO:
-                    printf("IP Address : %s, ping success\n", dest_ip_addr);
+                    printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     break;
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
