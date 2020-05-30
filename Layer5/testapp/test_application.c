@@ -1,19 +1,19 @@
 /*
  * =====================================================================================
  *
- *       Filename:  tcp_stack_init.c
+ *       Filename:  test_application.c
  *
- *    Description:  This file implements the routine to initialize the TCP/IP stacl
+ *    Description:  
  *
  *        Version:  1.0
- *        Created:  01/11/2020 11:05:13 AM
+ *        Created:  05/30/2020 11:55:41 AM
  *       Revision:  none
  *       Compiler:  gcc
  *
  *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
- *        This file is part of the NetworkGraph distribution (https://github.com/sachinites) 
+ *        This file is part of the XXX distribution (https://github.com/sachinites) 
  *        Copyright (c) 2019 Abhishek Sagar.
  *        This program is free software: you can redistribute it and/or modify it under the terms of the GNU General 
  *        Public License as published by the Free Software Foundation, version 3.
@@ -28,18 +28,6 @@
  * =====================================================================================
  */
 
-typedef struct graph_ graph_t;
-
-extern graph_t *topo;
-
-extern void
-compute_spf_all_routers(graph_t *topo);
-extern void
-init_ddcp();
-
-void
-init_tcp_ip_stack(){
-
-    compute_spf_all_routers(topo);
-    init_ddcp();
-}
+#include <stdio.h>
+#include <stdlib.h>
+#include "../../tcp_public.h"

@@ -1,19 +1,19 @@
 /*
  * =====================================================================================
  *
- *       Filename:  tcp_stack_init.c
+ *       Filename:  layer5.h
  *
- *    Description:  This file implements the routine to initialize the TCP/IP stacl
+ *    Description:  This file decines the structures and routines for Application LAyer
  *
  *        Version:  1.0
- *        Created:  01/11/2020 11:05:13 AM
+ *        Created:  05/30/2020 11:09:53 AM
  *       Revision:  none
  *       Compiler:  gcc
  *
  *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
- *        This file is part of the NetworkGraph distribution (https://github.com/sachinites) 
+ *        This file is part of the TCP/IP Stack distribution (https://github.com/sachinites) 
  *        Copyright (c) 2019 Abhishek Sagar.
  *        This program is free software: you can redistribute it and/or modify it under the terms of the GNU General 
  *        Public License as published by the Free Software Foundation, version 3.
@@ -28,18 +28,17 @@
  * =====================================================================================
  */
 
-typedef struct graph_ graph_t;
+#ifndef __LAYER5__
+#define __LAYER5__
 
-extern graph_t *topo;
-
-extern void
-compute_spf_all_routers(graph_t *topo);
-extern void
-init_ddcp();
+typedef void (*app_layer_cb)(node_t *, interface_t *, char *, uint32_t);
 
 void
-init_tcp_ip_stack(){
+layer5_register_l5_protocol_interest(uint32_t L5_protocol,
+        app_layer_cb _app_layer_cb);
 
-    compute_spf_all_routers(topo);
-    init_ddcp();
-}
+void
+layer5_deregister_l5_protocol_interest(uint32_t L5_protocol,
+        app_layer_cb _app_layer_cb);
+
+#endif /* __LAYER5__ */

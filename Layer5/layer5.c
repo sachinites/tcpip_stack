@@ -34,6 +34,29 @@
 #include "../tcpconst.h"
 #include <stdint.h>
 #include "ddcp/ddcp.h"
+#include "layer5.h"
+#include <stdio.h>
+
+
+static app_layer_cb 
+    app_layer_cb_arr[MAX_IP_HDR_PROTOCOL_NO]\
+    [MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED];
+
+static void
+layer5_invoke_app_cb(node_t *node, interface_t *recv_intf, 
+                     char *l5_hdr, /*Application Data*/
+                     uint32_t pkt_size, 
+                     uint32_t L5_protocol){
+
+    int i = 0;
+    for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
+        if(app_layer_cb_arr[L5_protocol][i]){
+            app_layer_cb_arr[L5_protocol][i](node, recv_intf, l5_hdr, pkt_size);
+            continue;
+        }
+        return;
+    }
+}
 
 void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
@@ -43,12 +66,54 @@ promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
     switch(L5_protocol){
         case USERAPP1:
             break;
+#if 0
         case DDCP_MSG_TYPE_UCAST_REPLY:
            ddcp_process_ddcp_reply_msg(node, l5_hdr);
             break;
         case DDCP_MSG_TYPE_FLOOD_QUERY:
-           ddcp_process_ddcp_query_msg(node, recv_intf, l5_hdr, pkt_size);
+           ddcp_process_ddcp_query_msg(node, recv_intf, (ethernet_hdr_t *)l5_hdr, pkt_size);
+           break;
+#endif
         default:
+            layer5_invoke_app_cb(node, recv_intf, l5_hdr, pkt_size, L5_protocol);
             ;
+    }
+}
+
+void
+layer5_register_l5_protocol_interest(uint32_t L5_protocol, 
+                                app_layer_cb _app_layer_cb){
+
+    int i = 0;
+    for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
+        if(app_layer_cb_arr[L5_protocol][i]){
+            if(app_layer_cb_arr[L5_protocol][i] == _app_layer_cb){
+                assert(0); /*Why register again !!*/
+            }
+        }
+        else{
+            app_layer_cb_arr[L5_protocol][i] = _app_layer_cb;
+            return;
+        }
+    }
+    printf("Error %s() : Could not register application "
+            "Callback for L3 protocol interest\n", __FUNCTION__);
+}
+
+void
+layer5_deregister_l5_protocol_interest(uint32_t L5_protocol,
+                                    app_layer_cb _app_layer_cb){
+                                    
+    int i = 0;                                   
+    for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
+        
+        if(!app_layer_cb_arr[L5_protocol][i]){
+            return;
+        }
+
+        else if(app_layer_cb_arr[L5_protocol][i] == _app_layer_cb){
+            app_layer_cb_arr[L5_protocol][i] = NULL;
+            return;
+        }
     }
 }

@@ -910,6 +910,7 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
         case HELLO_MSG_CODE:
              process_hello_msg(iif, ethernet_hdr);
             break;
+#if 0
         case DDCP_MSG_TYPE_FLOOD_QUERY:
             /* Promote the pkt to application layer. Application Layer doesnt necessarily
              * means the application is running on top of Transport/Network Layer. Since
@@ -919,15 +920,21 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                 (char *)ethernet_hdr, /*No need to chop off ethernet hdr in this case*/
                 pkt_size, ethernet_hdr->type);
             break;
+#endif
         case ETH_IP:
         case IP_IN_IP:
+#if 0
         case DDCP_MSG_TYPE_UCAST_REPLY:
+#endif
             promote_pkt_to_layer3(node, iif, 
                     GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
                     pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE, 
                     ethernet_hdr->type);
             break;
         default:
+            promote_pkt_to_layer5(node, iif, 
+                (char *)ethernet_hdr, /*No need to chop off ethernet hdr in this case*/
+                pkt_size, ethernet_hdr->type);
             ;
     }
 }

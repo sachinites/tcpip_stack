@@ -101,11 +101,12 @@ ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
 
 void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
-                              ethernet_hdr_t *ethernet_hdr,
+                              char *pkt,
                               uint32_t pkt_size);
 
 void
-ddcp_process_ddcp_reply_msg(node_t *node, char *pkt);
+ddcp_process_ddcp_reply_msg(node_t *node, interface_t *iif, 
+                            char *pkt, uint32_t pkt_size);
 
 
 /*DDCP Query Database*/

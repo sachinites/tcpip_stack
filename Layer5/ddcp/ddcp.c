@@ -36,6 +36,8 @@
 #include "../../tcpconst.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include "../../WheelTimer/WheelTimer.h"
+#include "../layer5.h"
+
 
 #define GET_DDCP_INTF_PROP(intf_ptr)    \
     (intf_ptr->intf_nw_props.ddcp_interface_prop)
@@ -319,12 +321,12 @@ ddcp_process_ddcp_query(node_t *node,
 
 void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif, 
-                            ethernet_hdr_t *ethernet_hdr, 
-                            uint32_t pkt_size){
+                            char *pkt,uint32_t pkt_size){
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
     uint32_t output_buff_len = 0;
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
 
     assert(ethernet_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY);
 
@@ -447,7 +449,8 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
 
 
 void
-ddcp_process_ddcp_reply_msg(node_t *node, char *pkt){
+ddcp_process_ddcp_reply_msg(node_t *node, interface_t *recv_intf, 
+                        char *pkt, uint32_t pkt_size){
 
     ddcp_add_or_update_ddcp_reply_msg(node, pkt);
 }
@@ -652,3 +655,14 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
                 1);
     }
 }
+
+void
+init_ddcp(){
+
+    layer5_register_l5_protocol_interest(DDCP_MSG_TYPE_FLOOD_QUERY,
+        ddcp_process_ddcp_query_msg);
+
+    layer5_register_l5_protocol_interest(DDCP_MSG_TYPE_UCAST_REPLY,
+        ddcp_process_ddcp_reply_msg);
+}
+

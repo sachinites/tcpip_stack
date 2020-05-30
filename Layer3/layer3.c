@@ -167,12 +167,14 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             (ip_hdr_t *)INCREMENT_IPHDR(ip_hdr),
                             IP_HDR_PAYLOAD_SIZE(ip_hdr));
                     return;
-                case DDCP_MSG_TYPE_UCAST_REPLY:
+                //case DDCP_MSG_TYPE_UCAST_REPLY:
                 case USERAPP1:
                     promote_pkt_to_layer5(node, interface, l5_hdr, 
                         IP_HDR_PAYLOAD_SIZE(ip_hdr), ip_hdr->protocol);
                     break;
                 default:
+                    promote_pkt_to_layer5(node, interface, l5_hdr, 
+                        IP_HDR_PAYLOAD_SIZE(ip_hdr), ip_hdr->protocol);
                     ;
             }
             return;
@@ -447,7 +449,9 @@ _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         
         case ETH_IP:
         case IP_IN_IP:
+#if 0
         case DDCP_MSG_TYPE_UCAST_REPLY:
+#endif
             layer3_ip_pkt_recv_from_layer2(node, interface, (ip_hdr_t *)pkt, pkt_size);
             break;
         default:

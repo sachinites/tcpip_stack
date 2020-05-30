@@ -47,6 +47,8 @@
 #define VLAN_8021Q_PROTO    0x8100
 #define IP_IN_IP        4
 #define HELLO_MSG_CODE	13 /*Randomly chosen*/
+#define MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED    8
+#define MAX_IP_HDR_PROTOCOL_NO  255
 /*Add DDCP Protocol Numbers*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, must not exceed 255*/
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
