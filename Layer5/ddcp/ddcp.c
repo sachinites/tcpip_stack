@@ -28,16 +28,11 @@
  * =====================================================================================
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include "ddcp.h"
-#include "stdio.h"
 #include "serialize.h"
-#include <assert.h>
-#include "../../tcpconst.h"
-#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-#include "../../WheelTimer/WheelTimer.h"
-#include "../layer5.h"
-
+#include "../../tcp_public.h"
 
 #define GET_DDCP_INTF_PROP(intf_ptr)    \
     (intf_ptr->intf_nw_props.ddcp_interface_prop)
@@ -321,19 +316,21 @@ ddcp_process_ddcp_query(node_t *node,
 
 void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif, 
-                            char *pkt,uint32_t pkt_size){
+                            char *pkt, uint32_t pkt_size, 
+                            uint32_t flags){
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
     uint32_t output_buff_len = 0;
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
 
+    
     assert(ethernet_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY);
 
     ddcp_query_hdr_t *ddcp_query_msg = (ddcp_query_hdr_t *)
             GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
-    if(!ddcp_db_should_process_ddcp_query(node, 
+    if(!ddcp_db_should_process_ddcp_query(node, iif, 
                 ddcp_query_msg->originator_ip, 
                 ddcp_query_msg->seq_no)){
 
@@ -450,7 +447,7 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
 
 void
 ddcp_process_ddcp_reply_msg(node_t *node, interface_t *recv_intf, 
-                        char *pkt, uint32_t pkt_size){
+                        char *pkt, uint32_t pkt_size, uint32_t flags){
 
     ddcp_add_or_update_ddcp_reply_msg(node, pkt);
 }
@@ -510,13 +507,18 @@ ddcp_update_ddcp_db_self_query_info(node_t *node){
 
 bool_t
 ddcp_db_should_process_ddcp_query(node_t *node, 
+                                  interface_t *iif,
                                   uint32_t originator_ip,
                                   seq_t seq_no){
 
     uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
-    
+   
+    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(iif)) == FALSE){
+        return FALSE;
+    }
+
     ddcp_db_query_node_t *ddcp_db_query_node = 
         ddcp_get_ddcp_db_query_info(GET_NODE_DDCP_DB(node), 
                                  originator_ip);
@@ -662,7 +664,12 @@ init_ddcp(){
     layer5_register_l5_protocol_interest(DDCP_MSG_TYPE_FLOOD_QUERY,
         ddcp_process_ddcp_query_msg);
 
+    tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(DDCP_MSG_TYPE_FLOOD_QUERY); 
+
+
     layer5_register_l5_protocol_interest(DDCP_MSG_TYPE_UCAST_REPLY,
         ddcp_process_ddcp_reply_msg);
+
+    //tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(DDCP_MSG_TYPE_UCAST_REPLY);
 }
 

@@ -39,19 +39,20 @@
 
 
 static app_layer_cb 
-    app_layer_cb_arr[MAX_IP_HDR_PROTOCOL_NO]\
+    app_layer_cb_arr[MAX_PROTOCOL_NO_SUPPORTED]\
     [MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED];
 
 static void
 layer5_invoke_app_cb(node_t *node, interface_t *recv_intf, 
                      char *l5_hdr, /*Application Data*/
                      uint32_t pkt_size, 
-                     uint32_t L5_protocol){
+                     uint32_t L5_protocol,
+                     uint32_t flags){
 
     int i = 0;
     for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
         if(app_layer_cb_arr[L5_protocol][i]){
-            app_layer_cb_arr[L5_protocol][i](node, recv_intf, l5_hdr, pkt_size);
+            app_layer_cb_arr[L5_protocol][i](node, recv_intf, l5_hdr, pkt_size, flags);
             continue;
         }
         return;
@@ -61,7 +62,7 @@ layer5_invoke_app_cb(node_t *node, interface_t *recv_intf,
 void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
         char *l5_hdr, uint32_t pkt_size,
-        uint32_t L5_protocol){
+        uint32_t L5_protocol, uint32_t flags){
 
     switch(L5_protocol){
         case USERAPP1:
@@ -75,7 +76,7 @@ promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
            break;
 #endif
         default:
-            layer5_invoke_app_cb(node, recv_intf, l5_hdr, pkt_size, L5_protocol);
+            layer5_invoke_app_cb(node, recv_intf, l5_hdr, pkt_size, L5_protocol, flags);
             ;
     }
 }
@@ -107,13 +108,8 @@ layer5_deregister_l5_protocol_interest(uint32_t L5_protocol,
     int i = 0;                                   
     for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
         
-        if(!app_layer_cb_arr[L5_protocol][i]){
-            return;
-        }
-
-        else if(app_layer_cb_arr[L5_protocol][i] == _app_layer_cb){
+        if(app_layer_cb_arr[L5_protocol][i] == _app_layer_cb){
             app_layer_cb_arr[L5_protocol][i] = NULL;
-            return;
         }
     }
 }

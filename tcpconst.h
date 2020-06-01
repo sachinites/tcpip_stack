@@ -47,11 +47,23 @@
 #define VLAN_8021Q_PROTO    0x8100
 #define IP_IN_IP        4
 #define HELLO_MSG_CODE	13 /*Randomly chosen*/
-#define MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED    8
-#define MAX_IP_HDR_PROTOCOL_NO  255
+
 /*Add DDCP Protocol Numbers*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, must not exceed 255*/
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 #define PKT_BUFFER_RIGHT_ROOM        128
 #define MAX_NXT_HOPS        4
 #endif /* __TCPCONST__ */
+
+
+#define IP_HDR_INCLUDED (1  << 0)
+#define DATA_LINK_HDR_INCLUDED  (1 << 1)
+
+
+/*Dynamic Registration of Protocol with TCP/IP stack*/
+#define MAX_PROTOCOL_NO_SUPPORTED 255  /*ToDo : Data link layer protocol no value could be greated than 255.
+                                         Need to figure out the way to support it*/
+#define MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED    8
+#define MAX_L2_PROTO_INCLUSION_SUPPORTED    8
+#define MAX_L3_PROTO_INCLUSION_SUPPORTED    8
+

@@ -166,4 +166,11 @@ l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table,
                  uint32_t dest_ip);
 
+void
+tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(
+        uint8_t L3_protocol_no);
+void
+tcp_ip_stack_unregister_l3_proto_for_l3_hdr_inclusion(
+        uint8_t L2_protocol_no);
+
 #endif /* __LAYER3__ */

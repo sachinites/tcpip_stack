@@ -31,7 +31,7 @@
 #ifndef __LAYER5__
 #define __LAYER5__
 
-typedef void (*app_layer_cb)(node_t *, interface_t *, char *, uint32_t);
+typedef void (*app_layer_cb)(node_t *, interface_t *, char *, uint32_t, uint32_t);
 
 void
 layer5_register_l5_protocol_interest(uint32_t L5_protocol,

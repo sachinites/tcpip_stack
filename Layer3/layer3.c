@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include "graph.h"
+#include "../Layer2/layer2.h"
 #include "layer3.h"
 #include <sys/socket.h>
 #include <memory.h>
@@ -39,6 +40,58 @@
 #include "tcpconst.h"
 #include "comm.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
+
+/*Layer 3 Globals : */
+
+/* to decide that whenever layer promote pkt to upper layer of
+ * TCP/IP stack, should layer 3 chop-off ip hdr or handover the pkt
+ * to upper layer along with ip hdr intact*/
+static uint8_t
+l3_proto_include_l3_hdr[MAX_L3_PROTO_INCLUSION_SUPPORTED];
+
+static bool_t
+should_include_l3_hdr(uint32_t L3_protocol_no){
+
+    int i = 0;
+    for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
+        if(l3_proto_include_l3_hdr[i] == L3_protocol_no)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void
+tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(
+        uint8_t L3_protocol_no){
+
+    int i = 0, j = 0;
+    for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
+        if(l3_proto_include_l3_hdr[i] == L3_protocol_no)
+            return;
+        if(l3_proto_include_l3_hdr[i] == 0){
+            j = i;
+        }
+    }
+    if(j){
+        l3_proto_include_l3_hdr[j] = L3_protocol_no;
+        return;
+    }
+    printf("Error : Could not register L3 protocol %d for l3 Hdr inclusion",
+            L3_protocol_no);
+}
+
+void
+tcp_ip_stack_unregister_l3_proto_for_l3_hdr_inclusion(
+        uint8_t L3_protocol_no){
+
+    int i = 0;
+    for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
+        if(l3_proto_include_l3_hdr[i] == L3_protocol_no){
+            l3_proto_include_l3_hdr[i] = 0;
+            return;
+        }
+    }
+}
 
 extern void
 spf_flush_nexthops(nexthop_t **nexthop);
@@ -92,12 +145,12 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 extern void
 promote_pkt_to_layer4(node_t *node, interface_t *recv_intf, 
                       char *l4_hdr, uint32_t pkt_size,
-                      int L4_protocol_number);
+                      int L4_protocol_number, uint32_t flags);
 
 extern void
 promote_pkt_to_layer5(node_t *node, interface_t *recv_intf, 
                       char *l5_hdr, uint32_t pkt_size,
-                      uint32_t L5_protocol);
+                      uint32_t L5_protocol, uint32_t flags);
 
 /*import function from layer 2*/
 extern void
@@ -110,12 +163,21 @@ demote_pkt_to_layer2(node_t *node,
 
 static void
 layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
-        ip_hdr_t *pkt, uint32_t pkt_size){
+        char *pkt, uint32_t pkt_size, uint32_t flags){
 
     char *l4_hdr, *l5_hdr;
     char dest_ip_addr[16];
+    ip_hdr_t *ip_hdr = NULL;
+    ethernet_hdr_t *eth_hdr = NULL;
+    bool_t include_ip_hdr;
 
-    ip_hdr_t *ip_hdr = pkt;
+    if(flags & DATA_LINK_HDR_INCLUDED){
+        eth_hdr = (ethernet_hdr_t *)pkt;
+        ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr); 
+    }
+    else{
+        ip_hdr = (ip_hdr_t *)pkt;
+    }
 
     uint32_t dst_ip = htonl(ip_hdr->dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
@@ -153,9 +215,11 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                  * Protocol is not specified, then promote the packet directly to application layer
                  * */
                 case MTCP:
-                    promote_pkt_to_layer4(node, interface, l4_hdr,
-                            IP_HDR_PAYLOAD_SIZE(ip_hdr),
-                            ip_hdr->protocol);
+                    include_ip_hdr = should_include_l3_hdr(ip_hdr->protocol); 
+                    promote_pkt_to_layer4(node, interface, 
+                        eth_hdr ? (char *)eth_hdr : (include_ip_hdr ? (char *)ip_hdr : l4_hdr),
+                        eth_hdr ? pkt_size : include_ip_hdr ? pkt_size : IP_HDR_PAYLOAD_SIZE(ip_hdr),
+                        ip_hdr->protocol, flags | (include_ip_hdr ? IP_HDR_INCLUDED : 0));
                     break;
                 case ICMP_PRO:
                     printf("\nIP Address : %s, ping success\n", dest_ip_addr);
@@ -164,17 +228,23 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
                     layer3_ip_pkt_recv_from_layer2(node, interface, 
-                            (ip_hdr_t *)INCREMENT_IPHDR(ip_hdr),
-                            IP_HDR_PAYLOAD_SIZE(ip_hdr));
+                            (char *)INCREMENT_IPHDR(ip_hdr),
+                            IP_HDR_PAYLOAD_SIZE(ip_hdr), 0);
                     return;
                 //case DDCP_MSG_TYPE_UCAST_REPLY:
                 case USERAPP1:
-                    promote_pkt_to_layer5(node, interface, l5_hdr, 
-                        IP_HDR_PAYLOAD_SIZE(ip_hdr), ip_hdr->protocol);
+                    include_ip_hdr = should_include_l3_hdr(ip_hdr->protocol);
+                    promote_pkt_to_layer5(node, interface, 
+                        eth_hdr ? (char *)eth_hdr : (include_ip_hdr ? (char *)ip_hdr : l5_hdr),
+                        eth_hdr ? pkt_size : include_ip_hdr ? pkt_size : IP_HDR_PAYLOAD_SIZE(ip_hdr),
+                        ip_hdr->protocol, flags | (include_ip_hdr) ? IP_HDR_INCLUDED : 0);
                     break;
                 default:
-                    promote_pkt_to_layer5(node, interface, l5_hdr, 
-                        IP_HDR_PAYLOAD_SIZE(ip_hdr), ip_hdr->protocol);
+                    include_ip_hdr = should_include_l3_hdr(ip_hdr->protocol);
+                    promote_pkt_to_layer5(node, interface, 
+                        eth_hdr ? (char *)eth_hdr : include_ip_hdr ? (char *)ip_hdr : l5_hdr,
+                        eth_hdr ? pkt_size : include_ip_hdr ? pkt_size : IP_HDR_PAYLOAD_SIZE(ip_hdr),
+                        ip_hdr->protocol, flags | (include_ip_hdr) ? IP_HDR_INCLUDED : 0);
                     ;
             }
             return;
@@ -443,7 +513,7 @@ rt_table_add_route(rt_table_t *rt_table,
 static void
 _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             char *pkt, uint32_t pkt_size, 
-                            int L3_protocol_type){
+                            int L3_protocol_type, uint32_t flags){
 
     switch(L3_protocol_type){
         
@@ -452,7 +522,7 @@ _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
 #if 0
         case DDCP_MSG_TYPE_UCAST_REPLY:
 #endif
-            layer3_ip_pkt_recv_from_layer2(node, interface, (ip_hdr_t *)pkt, pkt_size);
+            layer3_ip_pkt_recv_from_layer2(node, interface, pkt, pkt_size, flags);
             break;
         default:
             ;
@@ -465,9 +535,9 @@ void
 promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt is received*/
                       interface_t *interface,  /*ingress interface*/
                       char *pkt, uint32_t pkt_size, /*L3 payload*/
-                      int L3_protocol_number){  /*obtained from eth_hdr->type field*/
+                      int L3_protocol_number, uint32_t flags){  /*obtained from eth_hdr->type field*/
 
-        _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number);
+        _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number, flags);
 }
 
 /* An API to be used by L4 or L5 to push the pkt down the TCP/IP

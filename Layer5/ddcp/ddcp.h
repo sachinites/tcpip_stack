@@ -31,7 +31,6 @@
 #ifndef __DDCP__
 #define __DDCP__
 
-#include "../../utils.h"
 #include "../../graph.h"
 #include "../../Layer2/layer2.h"
 #include <stdint.h>
@@ -102,11 +101,13 @@ ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
 void
 ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
                               char *pkt,
-                              uint32_t pkt_size);
+                              uint32_t pkt_size,
+                              uint32_t flags);
 
 void
 ddcp_process_ddcp_reply_msg(node_t *node, interface_t *iif, 
-                            char *pkt, uint32_t pkt_size);
+                            char *pkt, uint32_t pkt_size,
+                            uint32_t flags);
 
 
 /*DDCP Query Database*/
@@ -142,7 +143,7 @@ void
 init_ddcp_query_db(ddcp_db_t **ddcp_db);
 
 bool_t 
-ddcp_db_should_process_ddcp_query(node_t *node, 
+ddcp_db_should_process_ddcp_query(node_t *node, interface_t *iif, 
                                   uint32_t originator_ip,
                                   seq_t seq_no);
 

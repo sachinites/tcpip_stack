@@ -38,6 +38,57 @@
 #include "comm.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 
+/*Layer 2 Globals : */
+/* to decide that whenever layer 2 promote pkt to upper layer of
+ * TCP/IP stack, should layer 2 chop-off data link hdr or handover the pkt
+ * to upper layer along with data link hdr intact*/
+static unsigned short 
+l2_proto_include_l2_hdr[MAX_L2_PROTO_INCLUSION_SUPPORTED];
+
+static bool_t 
+should_include_l2_hdr(uint32_t L2_protocol_no){
+
+    int i = 0;
+    for( ; i < MAX_L2_PROTO_INCLUSION_SUPPORTED; i++){
+        if(l2_proto_include_l2_hdr[i] == L2_protocol_no)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void
+tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(
+        uint32_t L2_protocol_no){
+
+    int i = 0, j = 0;
+    for( ; i < MAX_L2_PROTO_INCLUSION_SUPPORTED; i++){
+        if(l2_proto_include_l2_hdr[i] == L2_protocol_no)
+            return;
+        if(l2_proto_include_l2_hdr[i] == 0){
+            j = i;
+        }
+    }
+    if(j){
+        l2_proto_include_l2_hdr[j] = L2_protocol_no;
+        return;
+    }
+    printf("Error : Could not register L2 protocol %u for l2 Hdr inclusion", 
+        L2_protocol_no);
+}
+
+void
+tcp_ip_stack_unregister_l2_proto_for_l2_hdr_inclusion(
+        uint32_t L2_protocol_no){
+
+    int i = 0;
+    for( ; i < MAX_L2_PROTO_INCLUSION_SUPPORTED; i++){
+        if(l2_proto_include_l2_hdr[i] == L2_protocol_no){
+            l2_proto_include_l2_hdr[i] = 0;
+            return;
+        }
+    }
+}
+
 /*A Routine to resolve ARP out of oif*/
 void
 send_arp_broadcast_request(node_t *node,
@@ -184,12 +235,14 @@ l2_switch_recv_frame(interface_t *interface,
 extern void
 promote_pkt_to_layer3(node_t *node, interface_t *interface,
                          char *pkt, uint32_t pkt_size,
-                         int L3_protocol_type);
+                         int L3_protocol_type,
+                         uint32_t flags);
 
 extern void
 promote_pkt_to_layer5(node_t *node, interface_t *interface,
                          char *pkt, uint32_t pkt_size,
-                         int L5_protocol_type);
+                         int L5_protocol_type,
+                         uint32_t flags);
 
 void
 init_arp_table(arp_table_t **arp_table){
@@ -634,12 +687,18 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
         return;
     }
 
-    /*If the destination ip address is exact match to seld loopback address, 
+    /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
+    bool_t include_data_link_hdr = should_include_l2_hdr(ethernet_hdr->type);
+
     if(strncmp(next_hop_ip_str, NODE_LO_ADDR(node), 16) == 0){
-       promote_pkt_to_layer3(node, 0, GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE,
-         ethernet_hdr->type);
+       promote_pkt_to_layer3(node, 0, 
+        !include_data_link_hdr ? GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr) : \
+         (char *)ethernet_hdr,
+         !include_data_link_hdr ? 
+         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE : \
+         pkt_size,
+         ethernet_hdr->type, include_data_link_hdr ? DATA_LINK_HDR_INCLUDED : 0);
          return;
     }
 
@@ -890,6 +949,8 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                       ethernet_hdr_t *ethernet_hdr, 
                       uint32_t pkt_size){
 
+    bool_t include_data_link_hdr;
+
     switch(ethernet_hdr->type){
         case ARP_MSG:
             {
@@ -926,15 +987,26 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
 #if 0
         case DDCP_MSG_TYPE_UCAST_REPLY:
 #endif
+            include_data_link_hdr = should_include_l2_hdr(ethernet_hdr->type);
             promote_pkt_to_layer3(node, iif, 
-                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE, 
-                    ethernet_hdr->type);
+                    !include_data_link_hdr ? GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr) : \
+                    (char *)ethernet_hdr,
+                    !include_data_link_hdr ? 
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE : \
+                    pkt_size,
+                    ethernet_hdr->type,
+                    include_data_link_hdr ? DATA_LINK_HDR_INCLUDED : 0);
             break;
         default:
+            include_data_link_hdr = should_include_l2_hdr(ethernet_hdr->type);
             promote_pkt_to_layer5(node, iif, 
-                (char *)ethernet_hdr, /*No need to chop off ethernet hdr in this case*/
-                pkt_size, ethernet_hdr->type);
+                    !include_data_link_hdr ? GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr) : \
+                    (char *)ethernet_hdr,
+                    !include_data_link_hdr ? 
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE : \
+                    pkt_size,
+                    ethernet_hdr->type,
+                    include_data_link_hdr ? DATA_LINK_HDR_INCLUDED : 0);
             ;
     }
 }
@@ -978,4 +1050,3 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     else
         return; /*Do nothing, drop the packet*/
 }
-
