@@ -18,8 +18,7 @@ OBJS=gluethread/glthread.o \
           hello.o		   	 \
 		  Layer5/ddcp/ddcp.o \
 		  Layer3/spf.o 		 \
-		  tcp_stack_init.o	\
-		  Layer5/testapp/test_application.o
+		  tcp_stack_init.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -77,9 +76,6 @@ utils.o:utils.c
 
 Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 	${CC} ${CFLAGS} -c -I . -I Layer5/ddcp/ Layer5/ddcp/ddcp.c -o Layer5/ddcp/ddcp.o
-
-Layer5/testapp/test_application.o:Layer5/testapp/test_application.c
-	${CC} ${CFLAGS} -c -I . Layer5/testapp/test_application.c -o Layer5/testapp/test_application.o
 
 CommandParser/libcli.a:
 	(cd CommandParser; make)
