@@ -37,12 +37,6 @@
 #define GET_DDCP_INTF_PROP(intf_ptr)    \
     (intf_ptr->intf_nw_props.ddcp_interface_prop)
 
-extern void
-demote_packet_to_layer3(node_t *node,
-        char *pkt, uint32_t size,
-        int protocol_number, /*L4 or L5 protocol type*/
-        uint32_t dest_ip_address);
-
 void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop){
 
@@ -349,7 +343,7 @@ ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
     ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, pkt_size, iif);
 
     l5_protocol = DDCP_MSG_TYPE_UCAST_REPLY;
-    demote_packet_to_layer3(node, ddcp_reply_msg, 
+    tcp_ip_send_ip_data(node, ddcp_reply_msg, 
             output_buff_len, l5_protocol,
             ddcp_query_msg->originator_ip);
     free(ddcp_reply_msg);

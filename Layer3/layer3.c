@@ -559,9 +559,7 @@ demote_packet_to_layer3(node_t *node,
     iphdr.src_ip = addr_int;
     iphdr.dst_ip = dest_ip_address;
 
-    iphdr.total_length = (short)iphdr.ihl + 
-                         (short)(size/4) + 
-                         (short)((size % 4) ? 1 : 0);
+    iphdr.total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(size);
 
     char *new_pkt = NULL;
     uint32_t new_pkt_size = 0 ;
@@ -668,4 +666,13 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
                             inner_ip_hdr->total_length * 4, 
                             IP_IN_IP, addr_int);
     free(inner_ip_hdr);
+}
+
+/*Wrapper fn to be used by Applications*/
+void
+tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
+                    int L5_protocol_id, uint32_t dest_ip_address){
+
+    demote_packet_to_layer3(node, app_data, data_size,
+            L5_protocol_id, dest_ip_address);
 }

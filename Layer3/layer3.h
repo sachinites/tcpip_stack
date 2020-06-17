@@ -93,6 +93,8 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define INCREMENT_IPHDR(ip_hdr_ptr) ((char *)ip_hdr_ptr + (ip_hdr_ptr->ihl * 4))
 #define IP_HDR_PAYLOAD_SIZE(ip_hdr_ptr) (IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr_ptr) - \
         IP_HDR_LEN_IN_BYTES(ip_hdr_ptr))
+#define IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(ip_payload_size)  \
+    (5 + (short)(ip_payload_size/4) + (short)((ip_payload_size % 4) ? 1 : 0))
 
 #include "../gluethread/glthread.h"
 
@@ -165,6 +167,10 @@ dump_rt_table(rt_table_t *rt_table);
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table,
                  uint32_t dest_ip);
+
+void
+tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
+                    int L5_protocol_id, uint32_t dest_ip_address);
 
 void
 tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(
