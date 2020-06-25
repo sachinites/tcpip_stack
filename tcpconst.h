@@ -53,8 +53,6 @@
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 #define PKT_BUFFER_RIGHT_ROOM        128
 #define MAX_NXT_HOPS        4
-#endif /* __TCPCONST__ */
-
 
 #define IP_HDR_INCLUDED (1  << 0)
 #define DATA_LINK_HDR_INCLUDED  (1 << 1)
@@ -66,4 +64,6 @@
 #define MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED    8
 #define MAX_L2_PROTO_INCLUSION_SUPPORTED    8
 #define MAX_L3_PROTO_INCLUSION_SUPPORTED    8
+
+#endif /* __TCPCONST__ */
 
