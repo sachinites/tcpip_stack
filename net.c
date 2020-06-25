@@ -122,7 +122,7 @@ void dump_intf_props(interface_t *interface){
 
     if(interface->intf_nw_props.is_ipadd_config){
         printf("\t IP Addr = %s/%u", IF_IP(interface), interface->intf_nw_props.mask);
-        printf("\t MAC : %u:%u:%u:%u:%u:%u\n", 
+        printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n", 
                 IF_MAC(interface)[0], IF_MAC(interface)[1],
                 IF_MAC(interface)[2], IF_MAC(interface)[3],
                 IF_MAC(interface)[4], IF_MAC(interface)[5]);

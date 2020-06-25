@@ -119,6 +119,7 @@ typedef struct l3_route_{
     char mask;      /*key*/
     bool_t is_direct;    /*if set to True, then gw_ip and oif has no meaning*/
     nexthop_t *nexthops[MAX_NXT_HOPS];
+    int nxthop_idx;
     glthread_t rt_glue;
 } l3_route_t;
 GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
@@ -137,6 +138,9 @@ is_ecmp_route(l3_route_t *l3_route){
         return TRUE;
     return FALSE;
 }
+
+nexthop_t *
+l3_route_get_active_nexthop(l3_route_t *l3_route);
 
 void
 init_rt_table(rt_table_t **rt_table);

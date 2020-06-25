@@ -338,6 +338,24 @@ l3_route_free(l3_route_t *l3_route){
     free(l3_route);
 }
 
+nexthop_t *
+l3_route_get_active_nexthop(l3_route_t *l3_route){
+
+    if(l3_is_direct_route(l3_route))
+        return NULL;
+    
+    nexthop_t *nexthop = l3_route->nexthops[l3_route->nxthop_idx];
+    assert(nexthop);
+
+    l3_route->nxthop_idx++;
+
+    if(l3_route->nxthop_idx == MAX_NXT_HOPS || 
+        !l3_route->nexthops[l3_route->nxthop_idx]){
+        l3_route->nxthop_idx = 0;
+    }
+    return nexthop;
+}
+
 
 void
 delete_rt_table_entry(rt_table_t *rt_table, 
@@ -564,13 +582,13 @@ demote_packet_to_layer3(node_t *node,
     char *new_pkt = NULL;
     uint32_t new_pkt_size = 0 ;
 
-    new_pkt_size = iphdr.total_length * 4;
+    new_pkt_size = IP_HDR_TOTAL_LEN_IN_BYTES((&iphdr));
     new_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
 
-    memcpy(new_pkt, (char *)&iphdr, iphdr.ihl * 4);
+    memcpy(new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
     if(pkt && size)
-        memcpy(new_pkt + (iphdr.ihl * 4), pkt, size);
+        memcpy(new_pkt + IP_HDR_LEN_IN_BYTES((&iphdr)), pkt, size);
 
     /*Now Resolve Next hop*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
@@ -597,24 +615,24 @@ demote_packet_to_layer3(node_t *node,
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
-    int i = 0;
     uint32_t next_hop_ip;
     nexthop_t *nexthop = NULL;
+
+    nexthop = l3_route_get_active_nexthop(l3_route);
     
-    for( ; i < MAX_NXT_HOPS; i++){
-
-        nexthop = l3_route->nexthops[i];
-        if(!nexthop) continue;
-
-        inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
-        next_hop_ip = htonl(next_hop_ip);
-        
-        demote_pkt_to_layer2(node,
-                next_hop_ip,
-                nexthop->oif->if_name,
-                shifted_pkt_buffer, new_pkt_size,
-                ETH_IP);
+    if(!nexthop){
+        free(new_pkt);
+        return;
     }
+    
+    inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
+    next_hop_ip = htonl(next_hop_ip);
+
+    demote_pkt_to_layer2(node,
+            next_hop_ip,
+            nexthop->oif->if_name,
+            shifted_pkt_buffer, new_pkt_size,
+            ETH_IP);
     free(new_pkt);
 }
 

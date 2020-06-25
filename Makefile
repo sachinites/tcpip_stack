@@ -18,7 +18,8 @@ OBJS=gluethread/glthread.o \
           hello.o		   	 \
 		  Layer5/ddcp/ddcp.o \
 		  Layer3/spf.o 		 \
-		  tcp_stack_init.o
+		  tcp_stack_init.o	\
+		  tcp_ip_trace.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -49,6 +50,9 @@ net.o:net.c
 
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o
+
+tcp_ip_trace.o:tcp_ip_trace.c
+	${CC} ${CFLAGS} -c -I . tcp_ip_trace.c -o tcp_ip_trace.o
 
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o

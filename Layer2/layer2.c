@@ -37,6 +37,8 @@
 #include <sys/socket.h>
 #include "comm.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
+#include "../tcp_ip_trace.h"
+#include <unistd.h>
 
 /*Layer 2 Globals : */
 /* to decide that whenever layer 2 promote pkt to upper layer of
@@ -1019,6 +1021,8 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
+    //tcp_dump(STDOUT_FILENO, (char *)ethernet_hdr, pkt_size, ETH_HDR);
+
     if(l2_frame_recv_qualify_on_interface(interface, 
                                           ethernet_hdr, 
                                           &vlan_id_to_tag) == FALSE){

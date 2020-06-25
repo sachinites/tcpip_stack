@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  tcp_public.h
+ *       Filename:  tcp_ip_trace.h
  *
- *    Description:  This file contains routines and structures which should be exposed to the application for use
+ *    Description:  This file declares the routines for tracing
  *
  *        Version:  1.0
- *        Created:  05/30/2020 11:13:54 AM
+ *        Created:  06/24/2020 08:09:39 AM
  *       Revision:  none
  *       Compiler:  gcc
  *
@@ -28,22 +28,18 @@
  * =====================================================================================
  */
 
-#ifndef __TCP_IP_STACK__
-#define __TCP_IP_STACK__
+#ifndef __TCP_IP_TRACE__
+#define __TCP_IP_TRACE__
 
-#include <assert.h>
-#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-#include <stdint.h>
-#include "tcpconst.h"
-#include "graph.h"
-#include "net.h"
-#include "Layer2/layer2.h"
-#include "Layer3/layer3.h"
-#include "Layer5/layer5.h"
-#include "utils.h"
-#include "comm.h"
-#include "gluethread/glthread.h"
-#include "WheelTimer/WheelTimer.h"
-#include "tcp_ip_trace.h"
+typedef enum{
 
-#endif /* __TCP_IP_STACK__ */
+    ETH_HDR,
+    IP_HDR
+} hdr_type_t;
+
+void
+tcp_dump(int sock_fd, char *pkt, uint32_t pkt_size,
+            hdr_type_t hdr_type);
+
+
+#endif /* __TCP_IP_TRACE__ */

@@ -36,6 +36,8 @@
 #ifndef __UTILS__
 #define __UTILS__
 
+#include <stdint.h>
+
 typedef enum{
 
   FALSE,
@@ -84,5 +86,8 @@ layer2_fill_with_broadcast_mac(char *mac_array);
     }}
 
 
+char *
+tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
+                        char *output_buffer);
 
 #endif /* __UTILS__ */

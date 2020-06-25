@@ -34,6 +34,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <stdint.h>
+#include <memory.h>
 
 /*Apply mask on prefix, and store result in 'str_prefix'
  *For eg : prefix = 122.1.1.1, mask 24, then str_prefix
@@ -63,3 +64,16 @@ layer2_fill_with_broadcast_mac(char *mac_array){
     mac_array[5] = 0xFF;
 }
 
+char *
+tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
+                    char *output_buffer){
+
+    char *out = NULL;
+    static char str_ip[16];
+    out = !output_buffer ? str_ip : output_buffer;
+    memset(out, 0, 16);
+    ip_addr = htonl(ip_addr);
+    inet_ntop(AF_INET, &ip_addr, out, 16);
+    out[15] = '\0';
+    return out;
+}
