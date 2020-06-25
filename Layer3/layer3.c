@@ -272,21 +272,21 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
-    int i = 0;
     uint32_t next_hop_ip;
+    nexthop_t *nexthop = NULL;
 
-    for( i = 0; i < MAX_NXT_HOPS; i++){
-        
-        if(!l3_route->nexthops[i]) continue;
-        inet_pton(AF_INET, l3_route->nexthops[i]->gw_ip, &next_hop_ip);
-        next_hop_ip = htonl(next_hop_ip);
+    nexthop = l3_route_get_active_nexthop(l3_route);
+    assert(nexthop);
+    
+    inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
+    next_hop_ip = htonl(next_hop_ip);
 
-        demote_pkt_to_layer2(node, 
-                next_hop_ip,
-                l3_route->nexthops[i]->oif->if_name,
-                (char *)ip_hdr, pkt_size,
-                ETH_IP); /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
-    }
+    demote_pkt_to_layer2(node, 
+            next_hop_ip,
+            nexthop->oif->if_name,
+            (char *)ip_hdr, pkt_size,
+            ETH_IP); /*Network Layer need to tell Data link layer, 
+                       what type of payload it is passing down*/
 }
 
 
