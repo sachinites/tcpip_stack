@@ -41,6 +41,9 @@
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
                                  param_t *intf_name_param);
+extern int traceoptions_handler(param_t *param,
+                                ser_buff_t *tlv_buf,
+                                op_mode enable_or_disable);
 
 /* Display functions when user presses ?*/
 void
@@ -687,6 +690,12 @@ nw_init_cli(){
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
+                 {
+                     static param_t log_status;
+                     init_param(&log_status, CMD, "log-status", traceoptions_handler, 0, INVALID, 0, "log-status");
+                     libcli_register_param(&node_name, &log_status);
+                     set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
+                 }
                  {
                     /*show node <node-name> ddcp-db*/
                     static param_t ddcp_db;

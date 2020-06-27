@@ -60,4 +60,5 @@
 //Logging and Debugging
 #define CMDCODE_DEBUG_LOGGING_PER_NODE   21  /*config node <node-name> traceoptions flag <all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>*/
 #define CMDCODE_DEBUG_LOGGING_PER_INTF   22  /*config node <node-name> interface <intf-name> traceoptions flag <all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>*/
+#define CMDCODE_DEBUG_SHOW_LOG_STATUS    23  /*show node <node-name> log-status*/
 #endif /* __CMDCODES__ */
