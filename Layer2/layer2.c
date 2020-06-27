@@ -731,11 +731,16 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
  * this API. For example, An application can run directly on L2 bypassing
  * L3 altogether.*/
 void
-demote_pkt_to_layer2(node_t *node, /*Currenot node*/ 
-        uint32_t next_hop_ip,  /*If pkt is forwarded to next router, then this is Nexthop IP address (gateway) provided by L3 layer. L2 need to resolve ARP for this IP address*/
-        char *outgoing_intf,       /*The oif obtained from L3 lookup if L3 has decided to forward the pkt. If NULL, then L2 will find the appropriate interface*/
+demote_pkt_to_layer2(node_t *node, /*Current node*/ 
+        uint32_t next_hop_ip,  /*If pkt is forwarded to next router, 
+                                 then this is Nexthop IP address (gateway) 
+                                 provided by L3 layer. L2 need to resolve ARP for this IP address*/
+        char *outgoing_intf,   /*The oif obtained from L3 lookup if L3 
+                                 has decided to forward the pkt. If NULL, 
+                                 then L2 will find the appropriate interface*/
         char *pkt, uint32_t pkt_size,   /*Higher Layers payload*/
-        int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
+        int protocol_number){           /*Higher Layer need to tell L2 
+                                          what value need to be feed in eth_hdr->type field*/
 
     assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
 
@@ -744,7 +749,7 @@ demote_pkt_to_layer2(node_t *node, /*Currenot node*/
             {
                 ethernet_hdr_t *empty_ethernet_hdr = 
                     ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
-                
+
                 empty_ethernet_hdr->type = ETH_IP;
 
                 l2_forward_ip_packet(node, next_hop_ip, 
@@ -1021,7 +1026,8 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
-    //tcp_dump(STDOUT_FILENO, (char *)ethernet_hdr, pkt_size, ETH_HDR);
+    tcp_dump_recv(node, interface, 
+            (char *)ethernet_hdr, pkt_size, ETH_HDR);
 
     if(l2_frame_recv_qualify_on_interface(interface, 
                                           ethernet_hdr, 

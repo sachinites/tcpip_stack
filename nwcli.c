@@ -39,6 +39,8 @@
 #include <stdint.h>
 
 extern graph_t *topo;
+extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
+                                 param_t *intf_name_param);
 
 /* Display functions when user presses ?*/
 void
@@ -841,6 +843,10 @@ nw_init_cli(){
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
         {
+
+            /*CLI handlers for traceoptions are hooked up hare in tree */
+            tcp_ip_traceoptions_cli(&node_name, 0);
+
             /*config node <node-name> interface*/
             static param_t interface;
             init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");    
@@ -851,6 +857,9 @@ nw_init_cli(){
                 init_param(&if_name, LEAF, 0, 0, 0, STRING, "if-name", "Interface Name");
                 libcli_register_param(&interface, &if_name);
                 {
+                    /*CLI handlers for traceoptions are hooked up hare in tree */
+                    tcp_ip_traceoptions_cli(0, &if_name);
+
                     /*config node <node-name> interface <if-name> l2mode*/
                     static param_t l2_mode;
                     init_param(&l2_mode, CMD, "l2mode", 0, 0, INVALID, 0, "\"l2mode\" keyword");

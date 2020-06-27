@@ -1,19 +1,19 @@
 /*
  * =====================================================================================
  *
- *       Filename:  testapp.c
+ *       Filename:  bitarr.h
  *
- *    Description:  This file represents the Test application to test graph topology creation
+ *    Description:  Interface to Bit Array
  *
  *        Version:  1.0
- *        Created:  Wednesday 18 September 2019 04:41:41  IST
+ *        Created:  Sunday 04 March 2018 06:20:07  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
  *         Author:  Er. Abhishek Sagar, Networking Developer (AS), sachinites@gmail.com
  *        Company:  Brocade Communications(Jul 2012- Mar 2016), Current : Juniper Networks(Apr 2017 - Present)
  *        
- *        This file is part of the NetworkGraph distribution (https://github.com/sachinites).
+ *        This file is part of the BIT Array distribution (https://github.com/sachinites).
  *        Copyright (c) 2017 Abhishek Sagar.
  *        This program is free software: you can redistribute it and/or modify
  *        it under the terms of the GNU General Public License as published by  
@@ -30,32 +30,28 @@
  * =====================================================================================
  */
 
-/* Visit my Website for more wonderful assignments and projects :
- * https://csepracticals.wixsite.com/csepracticals
- * if above URL dont work, then try visit : https://csepracticals.com*/
+#ifndef __BIT_ARRAY__
+#define __BIT_ARRAY__
 
-#include "graph.h"
-#include <stdio.h>
-#include "CommandParser/libcli.h"
+typedef struct _bit_array{
+    unsigned int size;
+    char *array;
+    char trail_bits;
+} bit_array_t;
 
-extern void init_tcp_ip_stack();
+void 
+init_bit_array(bit_array_t *bitarr, unsigned int size);
 
-extern graph_t *build_first_topo();
-extern graph_t *build_simple_l2_switch_topo();
-extern graph_t *build_square_topo();
-extern graph_t *build_linear_topo();
-extern graph_t *build_dualswitch_topo();
-extern void nw_init_cli();
+void
+set_bit(bit_array_t *bitarr, unsigned int index);
 
-graph_t *topo = NULL;
+void
+unset_bit(bit_array_t *bitarr, unsigned int index);
 
-int 
-main(int argc, char **argv){
+char
+is_bit_set(bit_array_t *bitarr, unsigned int index);
 
-    nw_init_cli();
-    //topo = build_dualswitch_topo();
-    topo = build_square_topo();
-    init_tcp_ip_stack();
-    start_shell(); 
-    return 0;
-}
+unsigned int
+get_next_available_bit(bit_array_t *bitarr);
+
+#endif /* __BIT_ARRAY__ */

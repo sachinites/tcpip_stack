@@ -35,6 +35,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <memory.h>
+#include "tcp_ip_trace.h"
 
 extern void 
 init_udp_socket(node_t *node);
@@ -76,6 +77,9 @@ insert_link_between_two_nodes(node_t *node1,
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(&link->intf1);
     interface_assign_mac_address(&link->intf2);
+
+    tcp_ip_init_intf_log_info(&link->intf1);
+    tcp_ip_init_intf_log_info(&link->intf2);
 }
 
 graph_t *
@@ -101,6 +105,7 @@ create_graph_node(graph_t *graph, char *node_name){
     init_node_nw_prop(&node->node_nw_prop);
     init_glthread(&node->graph_glue);
     node->spf_data = NULL;
+    tcp_ip_init_node_log_info(node);
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
 }

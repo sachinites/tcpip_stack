@@ -45,5 +45,8 @@
 #include "gluethread/glthread.h"
 #include "WheelTimer/WheelTimer.h"
 #include "tcp_ip_trace.h"
+#include "CommandParser/libcli.h"
+#include "CommandParser/cmdtlv.h"
+#include "cmdcodes.h"
 
 #endif /* __TCP_IP_STACK__ */

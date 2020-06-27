@@ -38,9 +38,10 @@
 #define __GRAPH__
 
 #include <assert.h>
+#include <stdio.h>
 #include "gluethread/glthread.h"
 #include "net.h"
-
+#include "tcp_ip_trace.h"
 
 #define NODE_NAME_SIZE   16
 #define IF_NAME_SIZE     16
@@ -57,6 +58,7 @@ typedef struct interface_ {
     struct node_ *att_node;
     struct link_ *link;
     intf_nw_props_t intf_nw_props;
+    log_t log_info;
 } interface_t;
 
 struct link_ {
@@ -81,7 +83,12 @@ struct node_ {
     unsigned int udp_port_number;
     int udp_sock_fd;
     node_nw_prop_t node_nw_prop;
+
+    /*SPF Calculation*/
     spf_data_t *spf_data;
+
+    /*Node Logging*/
+    log_t log_info;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 
