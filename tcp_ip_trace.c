@@ -94,22 +94,11 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
      tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip1);
      tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, ip2);
 
-     rc +=  sprintf(buff + rc, "\n-IP Hdr --------\n");
-     rc +=  sprintf(buff + rc, "\tversion    : %u\n"
-                      "\tihl     : %u\n"
-                      "\ttos     : %d\n"
-                      "\ttotal_length : %d\n"
-                      "\tttl      : %d\n"
-                      "\tprotocol : %s\n"
-                      "\tsrc_ip   : %s\n"
-                      "\tdst_ip   : %s",
-                      ip_hdr->version,
-                      ip_hdr->ihl,
-                      ip_hdr->tos,
-                      IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr),
-                      ip_hdr->ttl,
+     rc +=  sprintf(buff + rc, "IP Hdr : ");
+     rc +=  sprintf(buff + rc, "TL: %dB PRO: %s %s -> %s ttl: %d\n", 
+                        IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr),
                       string_ip_hdr_protocol_val(ip_hdr->protocol),
-                      ip1, ip2);
+                      ip1, ip2, ip_hdr->ttl);
 
     switch(ip_hdr->protocol){
 
@@ -128,29 +117,29 @@ tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr,
                   uint32_t pkt_size, int tab_count){
 
     int rc = 0;
-    rc += sprintf(buff, "\n-ARP Hdr --------\n");
-    rc += sprintf(buff + rc, "\thw_type : %d\n", arp_hdr->hw_type);
-    rc += sprintf(buff + rc, "\tproto_type : %0x\n", arp_hdr->proto_type);
-    rc += sprintf(buff + rc, "\thw_addr_len : %d\n", arp_hdr->proto_addr_len);
-    rc += sprintf(buff + rc, "\top_code : %s\n", string_arp_hdr_type(arp_hdr->op_code));
-    rc += sprintf(buff + rc, "\tsrc mac : %02x:%02x:%02x:%02x:%02x:%02x\n",
+    char ip1[16];
+    char ip2[16];
+
+    rc +=  sprintf(buff, "ARP Hdr : ");
+    rc += sprintf(buff + rc, "Arp Type: %s %02x:%02x:%02x:%02x:%02x:%02x -> "
+            "%02x:%02x:%02x:%02x:%02x:%02x %s -> %s\n",
+            string_arp_hdr_type(arp_hdr->op_code),
             arp_hdr->src_mac.mac[0],
             arp_hdr->src_mac.mac[1],
             arp_hdr->src_mac.mac[2],
             arp_hdr->src_mac.mac[3],
             arp_hdr->src_mac.mac[4],
-            arp_hdr->src_mac.mac[5]);
-    rc += sprintf(buff + rc, "\tsrc ip : %s\n", 
-            tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, 0));
-    rc += sprintf(buff + rc, "\tdst mac : %02x:%02x:%02x:%02x:%02x:%02x\n",
+            arp_hdr->src_mac.mac[5],
+
             arp_hdr->dst_mac.mac[0],
             arp_hdr->dst_mac.mac[1],
             arp_hdr->dst_mac.mac[2],
             arp_hdr->dst_mac.mac[3],
             arp_hdr->dst_mac.mac[4],
-            arp_hdr->dst_mac.mac[5]);
-    rc += sprintf(buff + rc, "\tdst ip : %s",
-            tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, 0));
+            arp_hdr->dst_mac.mac[5],
+
+            tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, ip1),
+            tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip2));
     return rc;
 }
 
@@ -173,17 +162,9 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
     unsigned short type = vlan_8021q_hdr ? vlan_eth_hdr->type :\
                             eth_hdr->type;
 
-    rc +=  sprintf(buff + rc, "\n-Ethernet Hdr --------\n");
-    rc += sprintf(buff + rc, "\tDst Mac : %02x:%02x:%02x:%02x:%02x:%02x\n"
-            "\tSrc Mac : %02x:%02x:%02x:%02x:%02x:%02x \n"
-            "\tType : %-4s\n\tVlan : %-4d\n\tFCS : %-6d\n\tPayload Size = %u",
-            eth_hdr->dst_mac.mac[0],
-            eth_hdr->dst_mac.mac[1],
-            eth_hdr->dst_mac.mac[2],
-            eth_hdr->dst_mac.mac[3],
-            eth_hdr->dst_mac.mac[4],
-            eth_hdr->dst_mac.mac[5],
-
+    rc += sprintf(buff + rc, "Eth hdr : ");
+    rc += sprintf(buff + rc, "%02x:%02x:%02x:%02x:%02x:%02x -> "
+                        "%02x:%02x:%02x:%02x:%02x:%02x %-4s Vlan: %d PL: %dB\n",
             eth_hdr->src_mac.mac[0],
             eth_hdr->src_mac.mac[1],
             eth_hdr->src_mac.mac[2],
@@ -191,13 +172,16 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
             eth_hdr->src_mac.mac[4],
             eth_hdr->src_mac.mac[5],
 
+            eth_hdr->dst_mac.mac[0],
+            eth_hdr->dst_mac.mac[1],
+            eth_hdr->dst_mac.mac[2],
+            eth_hdr->dst_mac.mac[3],
+            eth_hdr->dst_mac.mac[4],
+            eth_hdr->dst_mac.mac[5],
+
             string_ethernet_hdr_type(type),
 
             vlan_8021q_hdr ? GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : 0,
-
-            vlan_8021q_hdr ? VLAN_ETH_FCS(eth_hdr, payload_size) : \
-                ETH_FCS(eth_hdr, payload_size) , 
-            
             payload_size);
 
     switch(type){
@@ -265,36 +249,30 @@ tcp_dump(int sock_fd,
          uint32_t pkt_size, 
          hdr_type_t hdr_type,
          char *out_buff, 
+         uint32_t write_offset,
          uint32_t out_buff_size){
 
-    int rc = 0, new_rc = 0;
+    int rc = 0;
     
-    rc += sprintf(out_buff + rc, 
-            "\n===========Pkt Contents Begin================\n");
-
     switch(hdr_type){
 
         case ETH_HDR:
-            new_rc = tcp_dump_ethernet_hdr(out_buff + rc, 
+            rc = tcp_dump_ethernet_hdr(out_buff + write_offset, 
                 (ethernet_hdr_t *)pkt, pkt_size, 0);
             break;
         case IP_HDR:
-            new_rc = tcp_dump_ip_hdr(out_buff + rc, 
+            rc = tcp_dump_ip_hdr(out_buff + write_offset, 
                 (ip_hdr_t *)pkt, pkt_size, 0);
             break;
         default:
             ;
     }
 
-    if(!new_rc){
+    if(!rc){
         return;
     }
 
-    rc += new_rc;
-    rc += sprintf(out_buff + rc, 
-            "\n===========Pkt Contents Ends================\n");
-    
-    tcp_write_data(sock_fd, log_file1, log_file2, out_buff, rc);
+    tcp_write_data(sock_fd, log_file1, log_file2, out_buff, write_offset + rc);
 }
 
 void
@@ -302,6 +280,7 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type){
 
+    int rc = 0 ;
     if(node->log_info.all || 
         node->log_info.recv ||
         intf->log_info.recv){
@@ -320,6 +299,9 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
         }
 
         init_tcp_print_buffer();
+    
+        rc = sprintf(tcp_print_buffer, "\n%s(%s) <-- \n", 
+                node->node_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
@@ -327,7 +309,8 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
                  pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
                  tcp_print_buffer,         /*Buffer into which the formatted output is to be written*/
-                 TCP_PRINT_BUFFER_SIZE);   /*Buffer Max Size*/
+                 rc,                       /*write offset*/
+                 TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
     }
 }
 
@@ -336,6 +319,7 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type){
 
+    int rc = 0;
     if(node->log_info.all || 
          node->log_info.send ||
          intf->log_info.send){
@@ -354,6 +338,9 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
         }
 
         init_tcp_print_buffer();
+        
+        rc = sprintf(tcp_print_buffer, "\n%s(%s) --> \n", 
+                node->node_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
@@ -361,7 +348,8 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
                  pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
                  tcp_print_buffer,         /*Buffer into which the formatted output is to be written*/
-                 TCP_PRINT_BUFFER_SIZE);   /*Buffer Max Size*/
+                 rc,                       /*write offset*/
+                 TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
     }
 }
 
