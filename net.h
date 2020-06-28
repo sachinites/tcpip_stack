@@ -132,6 +132,9 @@ typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
 
 typedef struct intf_nw_props_ {
 
+    /*L1 Properties*/
+    bool_t is_up;
+
     /*L2 properties*/
     mac_add_t mac_add;              /*Mac are hard burnt in interface NIC*/
     intf_l2_mode_t  intf_l2_mode;   /*if IP-address is configured on this interface, then this should be set to UNKNOWN*/
@@ -161,6 +164,9 @@ init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
 
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
+
+    /*L1 properties*/
+    intf_nw_props->is_up = TRUE;
 
     /*L2 properties*/
     memset(intf_nw_props->mac_add.mac , 0 , 
@@ -193,6 +199,7 @@ interface_assign_mac_address(interface_t *interface);
 #define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)
 #define IF_IP(intf_ptr)    ((intf_ptr)->intf_nw_props.ip_add.ip_addr)
 #define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
+#define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == TRUE)
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)

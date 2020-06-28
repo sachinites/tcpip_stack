@@ -120,6 +120,8 @@ void dump_intf_props(interface_t *interface){
 
     dump_interface(interface);
 
+    printf("\t If Status : %s\n", IF_IS_UP(interface) ? "UP" : "DOWN");
+
     if(interface->intf_nw_props.is_ipadd_config){
         printf("\t IP Addr = %s/%u", IF_IP(interface), interface->intf_nw_props.mask);
         printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n", 
@@ -340,6 +342,11 @@ is_interface_l3_bidirectional(interface_t *interface){
 
     if(!other_interface)
         return FALSE;
+
+    if(!IF_IS_UP(interface) ||
+            !IF_IS_UP(other_interface)){
+        return FALSE;
+    }
 
     if(IF_L2_MODE(other_interface) == ACCESS ||
         IF_L2_MODE(interface) == TRUNK)

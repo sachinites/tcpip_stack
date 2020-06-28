@@ -52,12 +52,12 @@ typedef struct log_{
 } log_t;
 
 void 
-tcp_dump_recv(node_t *node, interface_t *intf, 
+tcp_dump_recv_logger(node_t *node, interface_t *intf, 
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type);
 
 void 
-tcp_dump_send(node_t *node, interface_t *intf,
+tcp_dump_send_logger(node_t *node, interface_t *intf,
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type);
 

@@ -53,8 +53,8 @@ int
 main(int argc, char **argv){
 
     nw_init_cli();
-    //topo = build_dualswitch_topo();
-    topo = build_square_topo();
+    topo = build_dualswitch_topo();
+    //topo = build_square_topo();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;

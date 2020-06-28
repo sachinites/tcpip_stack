@@ -159,10 +159,19 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                         uint32_t pkt_size, int tab_count){
 
     int rc = 0;
+    vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
+
     uint32_t payload_size = pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr) \
                             - ETH_FCS_SIZE;
 
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
+
+    if(vlan_8021q_hdr){
+        vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
+    }
+
+    unsigned short type = vlan_8021q_hdr ? vlan_eth_hdr->type :\
+                            eth_hdr->type;
 
     rc +=  sprintf(buff + rc, "\n-Ethernet Hdr --------\n");
     rc += sprintf(buff + rc, "\tDst Mac : %02x:%02x:%02x:%02x:%02x:%02x\n"
@@ -182,7 +191,7 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
             eth_hdr->src_mac.mac[4],
             eth_hdr->src_mac.mac[5],
 
-            string_ethernet_hdr_type(eth_hdr->type),
+            string_ethernet_hdr_type(type),
 
             vlan_8021q_hdr ? GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : 0,
 
@@ -191,7 +200,7 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
             
             payload_size);
 
-    switch(eth_hdr->type){
+    switch(type){
 
         case ETH_IP:
             rc += tcp_dump_ip_hdr(buff + rc, 
@@ -289,7 +298,7 @@ tcp_dump(int sock_fd,
 }
 
 void
-tcp_dump_recv(node_t *node, interface_t *intf,
+tcp_dump_recv_logger(node_t *node, interface_t *intf,
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type){
 
@@ -305,6 +314,11 @@ tcp_dump_recv(node_t *node, interface_t *intf,
         FILE *log_file2 = (intf->log_info.recv || intf->log_info.all) ?
                 intf->log_info.log_file : NULL;
 
+        if(sock_fd == -1 && 
+            !log_file1 && !log_file2){
+            return;
+        }
+
         init_tcp_print_buffer();
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
@@ -318,7 +332,7 @@ tcp_dump_recv(node_t *node, interface_t *intf,
 }
 
 void
-tcp_dump_send(node_t *node, interface_t *intf,
+tcp_dump_send_logger(node_t *node, interface_t *intf,
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type){
 
@@ -334,6 +348,11 @@ tcp_dump_send(node_t *node, interface_t *intf,
         FILE *log_file2 = (intf->log_info.send || intf->log_info.all) ? 
                 intf->log_info.log_file : NULL;
         
+        if(sock_fd == -1 && 
+            !log_file1 && !log_file2){
+            return;
+        }
+
         init_tcp_print_buffer();
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
@@ -453,7 +472,7 @@ void tcp_ip_show_log_status(node_t *node){
         if(!intf) continue;
 
         log_info = &intf->log_info;
-        printf("\tLog Status : %s\n", intf->if_name);
+        printf("\tLog Status : %s(%s)\n", intf->if_name, IF_IS_UP(intf) ? "UP" : "DOWN");
         printf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
         printf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
         printf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");

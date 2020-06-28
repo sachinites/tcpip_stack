@@ -193,9 +193,6 @@ static void
 process_arp_reply_msg(node_t *node, interface_t *iif,
                         ethernet_hdr_t *ethernet_hdr){
 
-    printf("%s : ARP reply msg recvd on interface %s of node %s\n",
-             __FUNCTION__, iif->if_name , iif->att_node->node_name);
-
     arp_table_update_from_arp_reply( NODE_ARP_TABLE(node), 
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr), iif);    
 }
@@ -204,9 +201,6 @@ process_arp_reply_msg(node_t *node, interface_t *iif,
 static void
 process_arp_broadcast_request(node_t *node, interface_t *iif, 
                               ethernet_hdr_t *ethernet_hdr){
-
-   printf("%s : ARP Broadcast msg recvd on interface %s of node %s\n", 
-                __FUNCTION__, iif->if_name , iif->att_node->node_name); 
 
    /* ARP broadcast request msg has passed MAC Address check*/
    /* Now, this node need to reply to this ARP Broadcast req
@@ -221,9 +215,11 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
     ip_addr[15] = '\0';
     
     if(strncmp(IF_IP(iif), ip_addr, 16)){
-        
-        printf("%s : ARP Broadcast req msg dropped, Dst IP address %s did not match with interface ip : %s\n", 
+        #if 0
+        printf("%s : Error : ARP Broadcast req msg dropped, "
+                "Dst IP address %s did not match with interface ip : %s\n", 
                 node->node_name, ip_addr , IF_IP(iif));
+        #endif
         return;
     }
 
@@ -1026,7 +1022,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
-    tcp_dump_recv(node, interface, 
+    tcp_dump_recv_logger(node, interface, 
             (char *)ethernet_hdr, pkt_size, ETH_HDR);
 
     if(l2_frame_recv_qualify_on_interface(interface, 

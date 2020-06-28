@@ -59,8 +59,55 @@ display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
 
+/*Display Node Interfaces*/
+void display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
+void
+display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
+
+    node_t *node;
+    char *node_name;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    if(!node_name)
+        return;
+
+    node = get_node_by_node_name(topo, node_name);
+    
+    int i = 0;
+    interface_t *intf;
+
+    for(; i < MAX_INTF_PER_NODE; i++){
+
+        intf = node->intf[i];
+        if(!intf) continue;
+
+        printf(" %s\n", intf->if_name);
+    }
+}
 
 /*General Validations*/
+
+int 
+validate_if_up_down_status(char *value){
+
+    if(strncmp(value, "up", strlen("up")) == 0 && 
+        strlen("up") == strlen(value)){
+        return VALIDATION_SUCCESS;
+    }
+    else if(strncmp(value, "down", strlen("down")) == 0 && 
+            strlen("down") == strlen(value)){
+        return VALIDATION_SUCCESS;
+    }
+    return VALIDATION_FAILED;
+}
+
 int
 validate_node_extistence(char *node_name){
 
@@ -527,6 +574,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
    char *intf_name;
    uint32_t vlan_id;
    char *l2_mode_option;
+   char *if_up_down;
    int CMDCODE;
    tlv_struct_t *tlv = NULL;
    node_t *node;
@@ -544,6 +592,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             vlan_id = atoi(tlv->value);
         else if(strncmp(tlv->leaf_id, "l2-mode-val", strlen("l2-mode-val")) == 0)
             l2_mode_option = tlv->value;
+        else if(strncmp(tlv->leaf_id, "if-up-down", strlen("if-up-down")) == 0)
+             if_up_down = tlv->value; 
         else
             assert(0);
     } TLV_LOOP_END;
@@ -556,6 +606,12 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         return -1;
     }
     switch(CMDCODE){
+        case CMDCODE_CONF_INTF_UP_DOWN:
+            if(strncmp(if_up_down, "up", strlen("up")) == 0)
+                interface->intf_nw_props.is_up = TRUE;
+            else
+                interface->intf_nw_props.is_up = FALSE;
+            break;
         case CMDCODE_INTF_CONFIG_L2_MODE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
@@ -853,12 +909,13 @@ nw_init_cli(){
         libcli_register_param(&node, &node_name);
         {
 
-            /*CLI handlers for traceoptions are hooked up hare in tree */
+            /*CLI for traceoptions at node level are hooked up here in tree */
             tcp_ip_traceoptions_cli(&node_name, 0);
 
             /*config node <node-name> interface*/
             static param_t interface;
-            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");    
+            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
+            libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&node_name, &interface);
             {
                 /*config node <node-name> interface <if-name>*/
@@ -866,20 +923,28 @@ nw_init_cli(){
                 init_param(&if_name, LEAF, 0, 0, 0, STRING, "if-name", "Interface Name");
                 libcli_register_param(&interface, &if_name);
                 {
-                    /*CLI handlers for traceoptions are hooked up hare in tree */
+                    /*CLI for traceoptions at interface level are hooked up here in tree */
                     tcp_ip_traceoptions_cli(0, &if_name);
-
-                    /*config node <node-name> interface <if-name> l2mode*/
-                    static param_t l2_mode;
-                    init_param(&l2_mode, CMD, "l2mode", 0, 0, INVALID, 0, "\"l2mode\" keyword");
-                    libcli_register_param(&if_name, &l2_mode);
                     {
-                        /*config node <node-name> interface <if-name> l2mode <access|trunk>*/
-                        static param_t l2_mode_val;
-                        init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value, STRING, "l2-mode-val", "access|trunk");
-                        libcli_register_param(&l2_mode, &l2_mode_val);
-                        set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
-                    } 
+                        /*config node <node-name> interface <if-name> l2mode*/
+                        static param_t l2_mode;
+                        init_param(&l2_mode, CMD, "l2mode", 0, 0, INVALID, 0, "\"l2mode\" keyword");
+                        libcli_register_param(&if_name, &l2_mode);
+                        {
+                            /*config node <node-name> interface <if-name> l2mode <access|trunk>*/
+                            static param_t l2_mode_val;
+                            init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value, STRING, "l2-mode-val", "access|trunk");
+                            libcli_register_param(&l2_mode, &l2_mode_val);
+                            set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
+                        }
+                    }
+                    {
+                        /*config node <node-name> interface <if-name> <up|down>*/
+                        static param_t if_up_down_status;
+                        init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
+                        libcli_register_param(&if_name, &if_up_down_status);
+                        set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
+                    }
                 }
                 {
                     /*config node <node-name> interface <if-name> hellos*/

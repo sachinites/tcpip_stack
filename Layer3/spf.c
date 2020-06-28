@@ -288,6 +288,8 @@ compute_spf(node_t *spf_root){
     glthread_t *curr;
     spf_data_t *curr_spf_data;
 
+    printf("root : %s : Event : Running Spf\n", spf_root->node_name);
+
     init_node_spf_data(spf_root, TRUE);
     SPF_METRIC(spf_root) = 0;
 
@@ -431,11 +433,10 @@ compute_spf(node_t *spf_root){
         printf("root : %s : Event : Node %s has been processed, nexthops %s",
                 spf_root->node_name, curr_spf_data->node->node_name, 
                 nexthops_str(curr_spf_data->nexthops));
-
-        int count = spf_install_routes(spf_root);
-        printf("root : %s : Event : Route Installation Count = %d\n", 
-            spf_root->node_name, count);
     } 
+    int count = spf_install_routes(spf_root);
+    printf("root : %s : Event : Route Installation Count = %d\n", 
+            spf_root->node_name, count);
 }
 
 static void

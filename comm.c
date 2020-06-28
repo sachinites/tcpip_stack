@@ -113,6 +113,11 @@ _pkt_receive(node_t *receving_node,
         assert(0);
     }
 
+    /*Interface is not Operationally Up*/
+    if(!IF_IS_UP(recv_intf)){
+        return;
+    }
+
     pkt_receive(receving_node, recv_intf, pkt_with_aux_data + IF_NAME_SIZE, 
                 pkt_size - IF_NAME_SIZE);
 }
@@ -197,7 +202,11 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
     int rc = 0;    
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = sending_node;
-    
+   
+    if(!IF_IS_UP(interface)){
+        return 0;
+    }
+
     uint32_t dst_udp_port_no = nbr_node->udp_port_number;
     
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
@@ -222,6 +231,9 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
     rc = _send_pkt_out(sock, pkt_with_aux_data, pkt_size + IF_NAME_SIZE, 
                         dst_udp_port_no);
 
+    if(rc > 0){
+        tcp_dump_send_logger(sending_node, interface, pkt, pkt_size, ETH_HDR);
+    }
     close(sock);
     return rc; 
        
@@ -237,6 +249,11 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = get_nbr_node(interface);
     
+    
+    if(!IF_IS_UP(interface)){
+        return 0;
+    }
+
     if(!nbr_node)
         return -1;
 
@@ -271,8 +288,10 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
                         dst_udp_port_no);
 
     close(sock);
-    if(rc > 0)
+    if(rc > 0){
         interface->intf_nw_props.pkt_sent++;
+        tcp_dump_send_logger(sending_node, interface, pkt, pkt_size, ETH_HDR);
+    }
     return rc; 
 }
 
