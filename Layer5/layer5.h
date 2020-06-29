@@ -31,14 +31,23 @@
 #ifndef __LAYER5__
 #define __LAYER5__
 
-typedef void (*app_layer_cb)(node_t *, interface_t *, char *, uint32_t, uint32_t);
+#include "../tcpip_app_register.h"
 
 void
-layer5_register_l5_protocol_interest(uint32_t L5_protocol,
+tcp_app_register_l2_protocol_interest(uint32_t L5_protocol,
+        app_layer_cb _app_layer_cb);
+
+
+void
+tcp_app_register_l3_protocol_interest(uint32_t L5_protocol,
         app_layer_cb _app_layer_cb);
 
 void
-layer5_deregister_l5_protocol_interest(uint32_t L5_protocol,
+tcp_app__deregister_l2_protocol_interest(uint32_t L5_protocol,
+        app_layer_cb _app_layer_cb);
+
+void
+tcp_app__deregister_l3_protocol_interest(uint32_t L5_protocol,
         app_layer_cb _app_layer_cb);
 
 #endif /* __LAYER5__ */

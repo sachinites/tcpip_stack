@@ -59,11 +59,8 @@
 
 
 /*Dynamic Registration of Protocol with TCP/IP stack*/
-#define MAX_PROTOCOL_NO_SUPPORTED 255  /*ToDo : Data link layer protocol no value could be greated than 255.
-                                         Need to figure out the way to support it*/
-#define MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED    8
-#define MAX_L2_PROTO_INCLUSION_SUPPORTED    8
-#define MAX_L3_PROTO_INCLUSION_SUPPORTED    8
+#define MAX_L2_PROTO_INCLUSION_SUPPORTED    16
+#define MAX_L3_PROTO_INCLUSION_SUPPORTED    16
 
 #endif /* __TCPCONST__ */
 

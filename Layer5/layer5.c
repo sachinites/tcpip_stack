@@ -13,7 +13,7 @@
  *         Author:  Er. Abhishek Sagar, Networking Developer (AS), sachinites@gmail.com
  *        Company:  Brocade Communications(Jul 2012- Mar 2016), Current : Juniper Networks(Apr 2017 - Present)
  *        
- *        This file is part of the NetworkGraph distribution (https://github.com/sachinites).
+ *        This file is part of the TCP/IP Stack distribution (https://github.com/sachinites).
  *        Copyright (c) 2017 Abhishek Sagar.
  *        This program is free software: you can redistribute it and/or modify
  *        it under the terms of the GNU General Public License as published by  
@@ -30,17 +30,16 @@
  * =====================================================================================
  */
 
+#include <stdio.h>
+#include <stdint.h>
 #include "graph.h"
 #include "../tcpconst.h"
-#include <stdint.h>
 #include "ddcp/ddcp.h"
 #include "layer5.h"
-#include <stdio.h>
+#include "../gluethread/glthread.h"
 
-
-static app_layer_cb 
-    app_layer_cb_arr[MAX_PROTOCOL_NO_SUPPORTED]\
-    [MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED];
+static glthread_t layer2_proto_reg_db = {0, 0};
+static glthread_t layer3_proto_reg_db = {0, 0};
 
 static void
 layer5_invoke_app_cb(node_t *node, interface_t *recv_intf, 
@@ -49,14 +48,12 @@ layer5_invoke_app_cb(node_t *node, interface_t *recv_intf,
                      uint32_t L5_protocol,
                      uint32_t flags){
 
-    int i = 0;
-    for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
-        if(app_layer_cb_arr[L5_protocol][i]){
-            app_layer_cb_arr[L5_protocol][i](node, recv_intf, l5_hdr, pkt_size, flags);
-            continue;
-        }
-        return;
-    }
+    tcp_stack_invoke_app_callbacks(&layer2_proto_reg_db,
+            L5_protocol, node, recv_intf, 
+            l5_hdr, pkt_size, flags);
+    tcp_stack_invoke_app_callbacks(&layer3_proto_reg_db,
+            L5_protocol, node, recv_intf,
+            l5_hdr, pkt_size, flags);
 }
 
 void
@@ -76,40 +73,40 @@ promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
            break;
 #endif
         default:
-            layer5_invoke_app_cb(node, recv_intf, l5_hdr, pkt_size, L5_protocol, flags);
+            layer5_invoke_app_cb(node, recv_intf, 
+                l5_hdr, pkt_size, L5_protocol, flags);
             ;
     }
 }
 
 void
-layer5_register_l5_protocol_interest(uint32_t L5_protocol, 
+tcp_app_register_l2_protocol_interest(uint32_t L5_protocol, 
                                 app_layer_cb _app_layer_cb){
 
-    int i = 0;
-    for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
-        if(app_layer_cb_arr[L5_protocol][i]){
-            if(app_layer_cb_arr[L5_protocol][i] == _app_layer_cb){
-                assert(0); /*Why register again !!*/
-            }
-        }
-        else{
-            app_layer_cb_arr[L5_protocol][i] = _app_layer_cb;
-            return;
-        }
-    }
-    printf("Error %s() : Could not register application "
-            "Callback for L3 protocol interest\n", __FUNCTION__);
+    tcp_stack_register_app_protocol(&layer2_proto_reg_db,
+                L5_protocol, _app_layer_cb);
 }
 
 void
-layer5_deregister_l5_protocol_interest(uint32_t L5_protocol,
+tcp_app_register_l3_protocol_interest(uint32_t L5_protocol, 
+                                app_layer_cb _app_layer_cb){
+
+    tcp_stack_register_app_protocol(&layer3_proto_reg_db,
+                L5_protocol, _app_layer_cb);
+}
+
+void
+tcp_app_deregister_l2_protocol_interest(uint32_t L5_protocol,
                                     app_layer_cb _app_layer_cb){
-                                    
-    int i = 0;                                   
-    for(; i < MAX_APPL_LAYER_CALLBACKS_PER_PROTO_SUPPORTED; i++){
-        
-        if(app_layer_cb_arr[L5_protocol][i] == _app_layer_cb){
-            app_layer_cb_arr[L5_protocol][i] = NULL;
-        }
-    }
+
+    tcp_stack_unregister_app_protocol(&layer2_proto_reg_db,
+                L5_protocol, _app_layer_cb);
+}
+
+void
+tcp_app_deregister_l3_protocol_interest(uint32_t L5_protocol,
+                                    app_layer_cb _app_layer_cb){
+
+    tcp_stack_unregister_app_protocol(&layer3_proto_reg_db,
+                L5_protocol, _app_layer_cb);
 }

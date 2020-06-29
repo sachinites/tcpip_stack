@@ -6,6 +6,7 @@
 #include "CommandParser/cmdtlv.h"
 
 #define TCP_PRINT_BUFFER_SIZE   2048
+#define TCP_MAX_HDR_PRINT_CB_SUPPORTED  255
 
 extern graph_t *topo;
 
@@ -107,6 +108,11 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
                     IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
             break;
         default:
+        #if 0
+            rc += tcp_dump_app_cb(buff + rc, INCREMENT_IPHDR(ip_hdr),
+                    IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
+        #endif
+            break;
             ;
     }
     return rc;
@@ -404,6 +410,16 @@ tcp_ip_init_node_log_info(node_t *node){
 }
 
 void
+tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status){
+
+    log_info->all   = status;
+    log_info->recv  = status;
+    log_info->send  = status; 
+    log_info->is_stdout = status;
+}
+
+
+void
 tcp_ip_init_intf_log_info(interface_t *intf){
     
     log_t *log_info = &intf->log_info;
@@ -517,10 +533,21 @@ int traceoptions_handler(param_t *param,
     if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE ||
             CMDCODE == CMDCODE_DEBUG_LOGGING_PER_INTF){
         if(strcmp(flag_val, "all") == 0){
-            log_info->all = TRUE;
+            tcp_ip_set_all_log_info_params(log_info, TRUE);
         }
         else if(strcmp(flag_val, "no-all") == 0){
-            log_info->all = FALSE;
+            tcp_ip_set_all_log_info_params(log_info, FALSE);
+            
+            /*disable logging for all interfaces also*/
+            if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE){
+                int i = 0;
+                interface_t *intf;
+                for(; i < MAX_INTF_PER_NODE; i++){
+                    intf = node->intf[i];
+                    if(!intf) continue;
+                    tcp_ip_set_all_log_info_params(&intf->log_info, FALSE);
+                }
+            }
         }
         else if(strcmp(flag_val, "recv") == 0){
             log_info->recv = TRUE;
@@ -541,7 +568,7 @@ int traceoptions_handler(param_t *param,
             log_info->is_stdout = FALSE;
         }
     }
-    else{
+    else if(CMDCODE == CMDCODE_DEBUG_SHOW_LOG_STATUS){
         tcp_ip_show_log_status(node);
     }
     return 0;
@@ -573,6 +600,24 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
 static void
 tcp_ip_build_intf_traceoptions_cli(param_t *intf_name_param){
 
+    {
+        static param_t traceoptions;
+        init_param(&traceoptions, CMD, "traceoptions", 0, 0, INVALID, 0, "traceoptions");
+        libcli_register_param(intf_name_param, &traceoptions);
+        {
+            static param_t flag;
+            init_param(&flag, CMD, "flag", 0, 0, INVALID, 0, "flag");
+            libcli_register_param(&traceoptions, &flag);
+            libcli_register_display_callback(&flag, display_expected_flag);
+            {
+                static param_t flag_val;
+                init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
+                    "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>");
+                libcli_register_param(&flag, &flag_val);
+                set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_INTF);
+            }
+        }
+    }
 }
 
 

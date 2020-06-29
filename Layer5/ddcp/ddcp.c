@@ -655,13 +655,13 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 void
 init_ddcp(){
 
-    layer5_register_l5_protocol_interest(DDCP_MSG_TYPE_FLOOD_QUERY,
+    tcp_app_register_l2_protocol_interest(DDCP_MSG_TYPE_FLOOD_QUERY,
         ddcp_process_ddcp_query_msg);
 
     tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(DDCP_MSG_TYPE_FLOOD_QUERY); 
 
 
-    layer5_register_l5_protocol_interest(DDCP_MSG_TYPE_UCAST_REPLY,
+    tcp_app_register_l3_protocol_interest(DDCP_MSG_TYPE_UCAST_REPLY,
         ddcp_process_ddcp_reply_msg);
 
     //tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(DDCP_MSG_TYPE_UCAST_REPLY);

@@ -19,7 +19,8 @@ OBJS=gluethread/glthread.o \
 		  Layer5/ddcp/ddcp.o \
 		  Layer3/spf.o 		 \
 		  tcp_stack_init.o	\
-		  tcp_ip_trace.o
+		  tcp_ip_trace.o	\
+		  tcpip_app_register.c
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
@@ -38,6 +39,9 @@ tcp_stack_init.o:tcp_stack_init.c
 
 hello.o:hello.c
 	${CC} ${CFLAGS} -c -I . hello.c -o hello.o
+
+tcpip_app_register.o:tcpip_app_register.c
+	${CC} ${CFLAGS} -c -I . tcpip_app_register.c -o tcpip_app_register.o
 
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
