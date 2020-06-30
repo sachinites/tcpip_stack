@@ -90,6 +90,7 @@ create_new_graph(char *topology_name){
     graph->topology_name[32] = '\0';
 
     init_glthread(&graph->node_list);
+    graph->gstdout = FALSE;
     return graph;
 }
 

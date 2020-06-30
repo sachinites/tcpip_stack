@@ -898,6 +898,23 @@ nw_init_cli(){
 
     /*config node*/
     {
+        static param_t global;
+        init_param(&global, CMD, "global", 0, 0, INVALID, 0, "global network-wide config");
+        libcli_register_param(config, &global);
+        {
+            static param_t _stdout;
+            init_param(&_stdout, CMD, "stdout", traceoptions_handler, 0, INVALID, 0, "Turn on stdio logging");
+            libcli_register_param(&global, &_stdout);
+            set_param_cmd_code(&_stdout, CMDCODE_DEBUG_GLOBAL_STDOUT);
+        }
+        {
+            static param_t _no_stdout;
+            init_param(&_no_stdout, CMD, "no-stdout", traceoptions_handler, 0, INVALID, 0, "Turn off stdio logging");
+            libcli_register_param(&global, &_no_stdout);
+            set_param_cmd_code(&_no_stdout, CMDCODE_DEBUG_GLOBAL_NO_STDOUT);
+        }
+    }
+    {
       static param_t node;
       init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
       libcli_register_param(config, &node);  

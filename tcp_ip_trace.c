@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "tcp_public.h"
+#include "hello.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 
 #define TCP_PRINT_BUFFER_SIZE   2048
-#define TCP_MAX_HDR_PRINT_CB_SUPPORTED  255
 
 extern graph_t *topo;
 
@@ -36,6 +36,9 @@ string_ethernet_hdr_type(unsigned short type){
         case DDCP_MSG_TYPE_FLOOD_QUERY:
             strncpy(string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
                 strlen("DDCP_MSG_TYPE_FLOOD_QUERY"));
+            break;
+        case HELLO_MSG_CODE:
+            strncpy(string_buffer, "HELLO_MSG", strlen("HELLO_MSG"));
             break;
         default:
             return NULL;
@@ -147,6 +150,18 @@ tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr,
 }
 
 static int
+tcp_dump_hello(char *buff, hello_t *hello, 
+                uint32_t pkt_size, int tab_count){
+
+    int rc = 0 ;
+
+    rc += sprintf(buff + rc, "HELLO : Rtr: %s Rtr id: %s, intf ip: %s\n",
+            hello->router_name, hello->router_id, hello->intf_ip);
+    return rc;
+}
+
+
+static int
 tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr, 
                         uint32_t pkt_size, int tab_count){
 
@@ -197,6 +212,11 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
         case ARP_MSG:
             rc += tcp_dump_arp_hdr(buff + rc,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
+                    payload_size, tab_count + 1);
+            break;
+        case HELLO_MSG_CODE:
+            rc += tcp_dump_hello(buff + rc,
+                    (hello_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size, tab_count + 1);
             break;
         default:
@@ -289,8 +309,8 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
         node->log_info.recv ||
         intf->log_info.recv){
 
-        int sock_fd = (node->log_info.is_stdout || 
-                        intf->log_info.is_stdout) ? STDOUT_FILENO : -1;
+        int sock_fd = (topo->gstdout && (node->log_info.is_stdout || 
+                        intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;
         
         FILE *log_file1 = (node->log_info.all || node->log_info.recv) ?
                 node->log_info.log_file : NULL;
@@ -328,8 +348,8 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
          node->log_info.send ||
          intf->log_info.send){
 
-        int sock_fd = (node->log_info.is_stdout || 
-                        intf->log_info.is_stdout) ? STDOUT_FILENO : -1;
+        int sock_fd = (topo->gstdout && (node->log_info.is_stdout || 
+                        intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;
 
         FILE *log_file1 = (node->log_info.all || node->log_info.send) ?
                 node->log_info.log_file : NULL;
@@ -511,6 +531,12 @@ int traceoptions_handler(param_t *param,
     }TLV_LOOP_END;
 
     switch(CMDCODE){
+        case CMDCODE_DEBUG_GLOBAL_STDOUT:
+            topo->gstdout = TRUE;
+            break;
+        case CMDCODE_DEBUG_GLOBAL_NO_STDOUT:
+            topo->gstdout = FALSE;
+            break;
         case CMDCODE_DEBUG_LOGGING_PER_NODE:
         case CMDCODE_DEBUG_SHOW_LOG_STATUS:
             node =  get_node_by_node_name(topo, node_name);
