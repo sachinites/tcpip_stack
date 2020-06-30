@@ -132,11 +132,19 @@ dump_mac_table(mac_table_t *mac_table){
 
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
+    int count = 0;
 
     ITERATE_GLTHREAD_BEGIN(&mac_table->mac_entries, curr){
 
+        count++;
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
-        printf("\tMAC : %u:%u:%u:%u:%u:%u   | Intf : %s\n", 
+        if(count == 1){
+            printf("\t|========= MAC =========|==== Ports ===|\n");
+        }
+        else {
+            printf("\t|=======================|==============|\n");
+        }
+        printf("\t| %02x:%02x:%02x:%02x:%02x:%02x     | %-12s |\n", 
             mac_table_entry->mac.mac[0], 
             mac_table_entry->mac.mac[1],
             mac_table_entry->mac.mac[2],
@@ -145,6 +153,9 @@ dump_mac_table(mac_table_t *mac_table){
             mac_table_entry->mac.mac[5],
             mac_table_entry->oif_name);
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
+    if(count){
+        printf("\t|=======================|==============|\n");
+    }
 }
 
 static void

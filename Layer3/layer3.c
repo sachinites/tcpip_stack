@@ -417,14 +417,20 @@ dump_rt_table(rt_table_t *rt_table){
     int i = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
-
+    int count = 0;
     printf("L3 Routing Table:\n");
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
 
         l3_route = rt_glue_to_l3_route(curr);
-        
+        count++;
         if(l3_route->is_direct){
-            printf("\t%-18s %-4d %-18s %s\n", 
+            if(count != 1){
+                printf("\t|===================|=======|====================|==============|\n");
+            }
+            else{
+                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|\n");
+            }
+            printf("\t|%-18s |  %-4d | %-18s | %-12s |\n", 
                     l3_route->dest, l3_route->mask, "NA", "NA");
             continue;
         }
@@ -432,19 +438,26 @@ dump_rt_table(rt_table_t *rt_table){
         for( i = 0; i < MAX_NXT_HOPS; i++){
             if(l3_route->nexthops[i]){
                 if(i == 0){
-                    printf("\t%-18s %-4d %-18s %s\n", 
+                    if(count != 1){
+                        printf("\t|===================|=======|====================|==============|\n");
+                    }
+                    else{
+                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|\n");
+                    }
+                    printf("\t|%-18s |  %-4d | %-18s | %-12s |\n", 
                             l3_route->dest, l3_route->mask,
                             l3_route->nexthops[i]->gw_ip, 
                             l3_route->nexthops[i]->oif->if_name);
                 }
                 else{
-                    printf("  \t\t\t\t%-18s %s\n", 
+                    printf("\t|                   |       | %-18s | %-12s |\n", 
                             l3_route->nexthops[i]->gw_ip, 
                             l3_route->nexthops[i]->oif->if_name);
                 }
             }
         }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
+    printf("\t|===================|=======|====================|==============|\n");
 }
 
 static bool_t

@@ -79,8 +79,9 @@ string_ip_hdr_protocol_val(uint8_t type){
     return string_buffer;
 }
 
+
 static int
-tcp_dump_appln_hdr(char *buff, char *appln_data, uint32_t pkt_size, int tab_count){
+tcp_dump_appln_hdr_ICMP_PRO(char *buff, char *appln_data, uint32_t pkt_size, int tab_count){
 
     return 0;
 }
@@ -104,14 +105,10 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
     switch(ip_hdr->protocol){
 
         case ICMP_PRO:
-            rc += tcp_dump_appln_hdr(buff + rc, INCREMENT_IPHDR(ip_hdr), 
+            rc += tcp_dump_appln_hdr_ICMP_PRO(buff + rc, INCREMENT_IPHDR(ip_hdr), 
                     IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
             break;
         default:
-        #if 0
-            rc += tcp_dump_app_cb(buff + rc, INCREMENT_IPHDR(ip_hdr),
-                    IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
-        #endif
             break;
             ;
     }
@@ -219,6 +216,7 @@ tcp_write_data(int sock_fd,
     assert(out_buff);
 
     if(buff_size > TCP_PRINT_BUFFER_SIZE){
+        memset(error_msg, 0, sizeof(error_msg));
         rc  = sprintf(error_msg , "Error : Insufficient size TCP Print Buffer\n");
         assert(rc < sizeof(error_msg));
         fwrite(error_msg, sizeof(char), rc, log_file1);
@@ -414,8 +412,9 @@ tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status){
 
     log_info->all   = status;
     log_info->recv  = status;
-    log_info->send  = status; 
-    log_info->is_stdout = status;
+    log_info->send  = status;
+    /*User should explicitely enabled stdout*/
+    //log_info->is_stdout = status;
 }
 
 

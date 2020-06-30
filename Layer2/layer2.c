@@ -443,11 +443,18 @@ dump_arp_table(arp_table_t *arp_table){
 
     glthread_t *curr;
     arp_entry_t *arp_entry;
+    int count = 0 ;
 
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
-
+        count++;
         arp_entry = arp_glue_to_arp_entry(curr);
-        printf("IP : %s, MAC : %u:%u:%u:%u:%u:%u, OIF = %s, Is Sane : %s\n", 
+        if(count == 1){
+            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved=====|\n");
+        }
+        else{
+            printf("\t|====================|===================|==============|================|\n");
+        }
+        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s       |\n", 
             arp_entry->ip_addr.ip_addr, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
@@ -456,8 +463,11 @@ dump_arp_table(arp_table_t *arp_table){
             arp_entry->mac_addr.mac[4], 
             arp_entry->mac_addr.mac[5], 
             arp_entry->oif_name,
-            arp_entry_sane(arp_entry) ? "TRUE" : "FALSE");
+            arp_entry_sane(arp_entry) ? "FALSE" : "TRUE");
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
+    if(count){
+        printf("\t|====================|===================|==============|================|\n");
+    }
 }
 
 /*Interface config APIs for L2 mode configuration*/
@@ -1029,7 +1039,8 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                                           ethernet_hdr, 
                                           &vlan_id_to_tag) == FALSE){
         
-        printf("L2 Frame Rejected on node %s\n", node->node_name);
+        printf("L2 Frame Rejected on node %s(%s)\n", 
+            node->node_name, interface->if_name);
         return;
     }
 
