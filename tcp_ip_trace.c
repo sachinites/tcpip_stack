@@ -5,6 +5,7 @@
 #include "hello.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
+#include <errno.h>
 
 #define TCP_PRINT_BUFFER_SIZE   2048
 
@@ -388,7 +389,8 @@ initialize_node_log_file(node_t *node){
     FILE *fptr = fopen(file_name, "w");
 
     if(!fptr){
-        printf("Error : Could not open log file %s\n", file_name);
+        printf("Error : Could not open log file %s, errno = %d\n", 
+            file_name, errno);
         return 0;
     }
 
@@ -409,7 +411,8 @@ initialize_interface_log_file(interface_t *intf){
     FILE *fptr = fopen(file_name, "w");
 
     if(!fptr){
-        printf("Error : Could not open log file %s\n", file_name);
+        printf("Error : Could not open log file %s, errno = %d\n", 
+            file_name, errno);
         return 0;
     }
 

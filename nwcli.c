@@ -726,6 +726,7 @@ nw_init_cli(){
              static param_t node;
              init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
              libcli_register_param(&topology, &node);
+             libcli_register_display_callback(&node, display_graph_nodes);
              {
                 /*show topology node <node-name>*/ 
                  static param_t node_name;

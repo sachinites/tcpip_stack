@@ -49,7 +49,7 @@
 #define HELLO_MSG_CODE	13 /*Randomly chosen*/
 
 /*Add DDCP Protocol Numbers*/
-#define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, must not exceed 255*/
+#define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, should not exceed 2^16 -1*/
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 #define PKT_BUFFER_RIGHT_ROOM        128
 #define MAX_NXT_HOPS        4

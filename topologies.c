@@ -69,21 +69,21 @@ build_first_topo(){
     node_t *R1_re = create_graph_node(topo, "R1_re");
     node_t *R2_re = create_graph_node(topo, "R2_re");
 
-    insert_link_between_two_nodes(R0_re, R1_re, "eth0/0", "eth0/1", 5);
-    insert_link_between_two_nodes(R1_re, R2_re, "eth0/2", "eth0/3", 4);
-    insert_link_between_two_nodes(R0_re, R2_re, "eth0/4", "eth0/5", 9);
+    insert_link_between_two_nodes(R0_re, R1_re, "eth0", "eth1", 5);
+    insert_link_between_two_nodes(R1_re, R2_re, "eth2", "eth3", 4);
+    insert_link_between_two_nodes(R0_re, R2_re, "eth4", "eth5", 9);
 
     node_set_loopback_address(R0_re, "122.1.1.0");
-    node_set_intf_ip_address(R0_re, "eth0/4", "40.1.1.1", 24);
-    node_set_intf_ip_address(R0_re, "eth0/0", "20.1.1.1", 24);
+    node_set_intf_ip_address(R0_re, "eth4", "40.1.1.1", 24);
+    node_set_intf_ip_address(R0_re, "eth0", "20.1.1.1", 24);
     
     node_set_loopback_address(R1_re, "122.1.1.1");
-    node_set_intf_ip_address(R1_re, "eth0/1", "20.1.1.2", 24);
-    node_set_intf_ip_address(R1_re, "eth0/2", "30.1.1.1", 24);
+    node_set_intf_ip_address(R1_re, "eth1", "20.1.1.2", 24);
+    node_set_intf_ip_address(R1_re, "eth2", "30.1.1.1", 24);
 
     node_set_loopback_address(R2_re, "122.1.1.2");
-    node_set_intf_ip_address(R2_re, "eth0/3", "30.1.1.2", 24);
-    node_set_intf_ip_address(R2_re, "eth0/5", "40.1.1.2", 24);
+    node_set_intf_ip_address(R2_re, "eth3", "30.1.1.2", 24);
+    node_set_intf_ip_address(R2_re, "eth5", "40.1.1.2", 24);
 
     network_start_pkt_receiver_thread(topo);
 
@@ -132,27 +132,27 @@ build_simple_l2_switch_topo(){
     node_t *H4 = create_graph_node(topo, "H4");
     node_t *L2SW = create_graph_node(topo, "L2SW");
 
-    insert_link_between_two_nodes(H1, L2SW, "eth0/5", "eth0/4", 1);
-    insert_link_between_two_nodes(H2, L2SW, "eth0/8", "eth0/3", 1);
-    insert_link_between_two_nodes(H3, L2SW, "eth0/6", "eth0/2", 1);
-    insert_link_between_two_nodes(H4, L2SW, "eth0/7", "eth0/1", 1);
+    insert_link_between_two_nodes(H1, L2SW, "eth5", "eth4", 1);
+    insert_link_between_two_nodes(H2, L2SW, "eth8", "eth3", 1);
+    insert_link_between_two_nodes(H3, L2SW, "eth6", "eth2", 1);
+    insert_link_between_two_nodes(H4, L2SW, "eth7", "eth1", 1);
 
     node_set_loopback_address(H1, "122.1.1.1");
-    node_set_intf_ip_address(H1, "eth0/5", "10.1.1.2", 24);
+    node_set_intf_ip_address(H1, "eth5", "10.1.1.2", 24);
     
     node_set_loopback_address(H2, "122.1.1.2");
-    node_set_intf_ip_address(H2, "eth0/8", "10.1.1.4", 24);
+    node_set_intf_ip_address(H2, "eth8", "10.1.1.4", 24);
 
     node_set_loopback_address(H3, "122.1.1.3");
-    node_set_intf_ip_address(H3, "eth0/6", "10.1.1.1", 24);
+    node_set_intf_ip_address(H3, "eth6", "10.1.1.1", 24);
     
     node_set_loopback_address(H4, "122.1.1.4");
-    node_set_intf_ip_address(H4, "eth0/7", "10.1.1.3", 24);
+    node_set_intf_ip_address(H4, "eth7", "10.1.1.3", 24);
     
-    node_set_intf_l2_mode(L2SW, "eth0/1", ACCESS);
-    node_set_intf_l2_mode(L2SW, "eth0/2", ACCESS);
-    node_set_intf_l2_mode(L2SW, "eth0/3", ACCESS);
-    node_set_intf_l2_mode(L2SW, "eth0/4", ACCESS);
+    node_set_intf_l2_mode(L2SW, "eth1", ACCESS);
+    node_set_intf_l2_mode(L2SW, "eth2", ACCESS);
+    node_set_intf_l2_mode(L2SW, "eth3", ACCESS);
+    node_set_intf_l2_mode(L2SW, "eth4", ACCESS);
 
     network_start_pkt_receiver_thread(topo);
 
@@ -205,26 +205,26 @@ run node R1 ping 122.1.1.3
     node_t *R3 = create_graph_node(topo, "R3");
     node_t *R4 = create_graph_node(topo, "R4");
 
-    insert_link_between_two_nodes(R1, R2, "eth0/0", "eth0/1", 1);
-    insert_link_between_two_nodes(R2, R3, "eth0/2", "eth0/3", 1);
-    insert_link_between_two_nodes(R3, R4, "eth0/4", "eth0/5", 1);
-    insert_link_between_two_nodes(R4, R1, "eth0/6", "eth0/7", 1);
+    insert_link_between_two_nodes(R1, R2, "eth0", "eth1", 1);
+    insert_link_between_two_nodes(R2, R3, "eth2", "eth3", 1);
+    insert_link_between_two_nodes(R3, R4, "eth4", "eth5", 1);
+    insert_link_between_two_nodes(R4, R1, "eth6", "eth7", 1);
 
     node_set_loopback_address(R1, "122.1.1.1");
-    node_set_intf_ip_address(R1, "eth0/0", "10.1.1.1", 24);
-    node_set_intf_ip_address(R1, "eth0/7", "40.1.1.2", 24);
+    node_set_intf_ip_address(R1, "eth0", "10.1.1.1", 24);
+    node_set_intf_ip_address(R1, "eth7", "40.1.1.2", 24);
     
     node_set_loopback_address(R2, "122.1.1.2");
-    node_set_intf_ip_address(R2, "eth0/1", "10.1.1.2", 24);
-    node_set_intf_ip_address(R2, "eth0/2", "20.1.1.1", 24);
+    node_set_intf_ip_address(R2, "eth1", "10.1.1.2", 24);
+    node_set_intf_ip_address(R2, "eth2", "20.1.1.1", 24);
 
     node_set_loopback_address(R3, "122.1.1.3");
-    node_set_intf_ip_address(R3, "eth0/3", "20.1.1.2", 24);
-    node_set_intf_ip_address(R3, "eth0/4", "30.1.1.1", 24);
+    node_set_intf_ip_address(R3, "eth3", "20.1.1.2", 24);
+    node_set_intf_ip_address(R3, "eth4", "30.1.1.1", 24);
     
     node_set_loopback_address(R4, "122.1.1.4");
-    node_set_intf_ip_address(R4, "eth0/5", "30.1.1.2", 24);
-    node_set_intf_ip_address(R4, "eth0/6", "40.1.1.1", 24);
+    node_set_intf_ip_address(R4, "eth5", "30.1.1.2", 24);
+    node_set_intf_ip_address(R4, "eth6", "40.1.1.1", 24);
     
     network_start_pkt_receiver_thread(topo);
 
@@ -240,17 +240,17 @@ build_linear_topo(){
     node_t *H2 = create_graph_node(topo, "H2");
     node_t *H3 = create_graph_node(topo, "H3");
     
-    insert_link_between_two_nodes(H1, H2, "eth0/1", "eth0/2", 1);
-    insert_link_between_two_nodes(H2, H3, "eth0/3", "eth0/4", 1);
+    insert_link_between_two_nodes(H1, H2, "eth1", "eth2", 1);
+    insert_link_between_two_nodes(H2, H3, "eth3", "eth4", 1);
 
     node_set_loopback_address(H1, "122.1.1.1");
     node_set_loopback_address(H2, "122.1.1.2");
     node_set_loopback_address(H3, "122.1.1.3");
 
-    node_set_intf_ip_address(H1, "eth0/1", "10.1.1.1", 24);
-    node_set_intf_ip_address(H2, "eth0/2", "10.1.1.2", 24);
-    node_set_intf_ip_address(H2, "eth0/3", "20.1.1.2", 24);
-    node_set_intf_ip_address(H3, "eth0/4", "20.1.1.1", 24);
+    node_set_intf_ip_address(H1, "eth1", "10.1.1.1", 24);
+    node_set_intf_ip_address(H2, "eth2", "10.1.1.2", 24);
+    node_set_intf_ip_address(H2, "eth3", "20.1.1.2", 24);
+    node_set_intf_ip_address(H3, "eth4", "20.1.1.1", 24);
 
     network_start_pkt_receiver_thread(topo);
 
@@ -309,40 +309,40 @@ build_dualswitch_topo(){
     node_t *L2SW1 = create_graph_node(topo, "L2SW1");
     node_t *L2SW2 = create_graph_node(topo, "L2SW2");
     
-    insert_link_between_two_nodes(H1, L2SW1, "eth0/1", "eth0/2", 1);
-    insert_link_between_two_nodes(H2, L2SW1, "eth0/3", "eth0/7", 1);
-    insert_link_between_two_nodes(H3, L2SW1, "eth0/4", "eth0/6", 1);
-    insert_link_between_two_nodes(L2SW1, L2SW2, "eth0/5", "eth0/7", 1);
-    insert_link_between_two_nodes(H5, L2SW2, "eth0/8", "eth0/9", 1);
-    insert_link_between_two_nodes(H4, L2SW2, "eth0/11", "eth0/12", 1);
-    insert_link_between_two_nodes(H6, L2SW2, "eth0/11", "eth0/10", 1);
+    insert_link_between_two_nodes(H1, L2SW1, "eth1", "eth2", 1);
+    insert_link_between_two_nodes(H2, L2SW1, "eth3", "eth7", 1);
+    insert_link_between_two_nodes(H3, L2SW1, "eth4", "eth6", 1);
+    insert_link_between_two_nodes(L2SW1, L2SW2, "eth5", "eth7", 1);
+    insert_link_between_two_nodes(H5, L2SW2, "eth8", "eth9", 1);
+    insert_link_between_two_nodes(H4, L2SW2, "eth11", "eth12", 1);
+    insert_link_between_two_nodes(H6, L2SW2, "eth11", "eth10", 1);
 
-    node_set_intf_ip_address(H1, "eth0/1",  "10.1.1.1", 24);
-    node_set_intf_ip_address(H2, "eth0/3",  "10.1.1.2", 24);
-    node_set_intf_ip_address(H3, "eth0/4",  "10.1.1.3", 24);
-    node_set_intf_ip_address(H4, "eth0/11", "10.1.1.4", 24);
-    node_set_intf_ip_address(H5, "eth0/8",  "10.1.1.5", 24);
-    node_set_intf_ip_address(H6, "eth0/11", "10.1.1.6", 24);
+    node_set_intf_ip_address(H1, "eth1",  "10.1.1.1", 24);
+    node_set_intf_ip_address(H2, "eth3",  "10.1.1.2", 24);
+    node_set_intf_ip_address(H3, "eth4",  "10.1.1.3", 24);
+    node_set_intf_ip_address(H4, "eth11", "10.1.1.4", 24);
+    node_set_intf_ip_address(H5, "eth8",  "10.1.1.5", 24);
+    node_set_intf_ip_address(H6, "eth11", "10.1.1.6", 24);
 
-    node_set_intf_l2_mode(L2SW1, "eth0/2", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth0/2", 10);
-    node_set_intf_l2_mode(L2SW1, "eth0/7", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth0/7", 10);
-    node_set_intf_l2_mode(L2SW1, "eth0/5", TRUNK);
-    node_set_intf_vlan_membsership(L2SW1, "eth0/5", 10);
-    node_set_intf_vlan_membsership(L2SW1, "eth0/5", 11);
-    node_set_intf_l2_mode(L2SW1, "eth0/6", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth0/6", 11);
+    node_set_intf_l2_mode(L2SW1, "eth2", ACCESS);
+    node_set_intf_vlan_membsership(L2SW1, "eth2", 10);
+    node_set_intf_l2_mode(L2SW1, "eth7", ACCESS);
+    node_set_intf_vlan_membsership(L2SW1, "eth7", 10);
+    node_set_intf_l2_mode(L2SW1, "eth5", TRUNK);
+    node_set_intf_vlan_membsership(L2SW1, "eth5", 10);
+    node_set_intf_vlan_membsership(L2SW1, "eth5", 11);
+    node_set_intf_l2_mode(L2SW1, "eth6", ACCESS);
+    node_set_intf_vlan_membsership(L2SW1, "eth6", 11);
 
-    node_set_intf_l2_mode(L2SW2, "eth0/7", TRUNK);
-    node_set_intf_vlan_membsership(L2SW2, "eth0/7", 10);
-    node_set_intf_vlan_membsership(L2SW2, "eth0/7", 11);
-    node_set_intf_l2_mode(L2SW2, "eth0/9", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth0/9", 10);
-    node_set_intf_l2_mode(L2SW2, "eth0/10", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth0/10", 10);
-    node_set_intf_l2_mode(L2SW2, "eth0/12", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth0/12", 11);
+    node_set_intf_l2_mode(L2SW2, "eth7", TRUNK);
+    node_set_intf_vlan_membsership(L2SW2, "eth7", 10);
+    node_set_intf_vlan_membsership(L2SW2, "eth7", 11);
+    node_set_intf_l2_mode(L2SW2, "eth9", ACCESS);
+    node_set_intf_vlan_membsership(L2SW2, "eth9", 10);
+    node_set_intf_l2_mode(L2SW2, "eth10", ACCESS);
+    node_set_intf_vlan_membsership(L2SW2, "eth10", 10);
+    node_set_intf_l2_mode(L2SW2, "eth12", ACCESS);
+    node_set_intf_vlan_membsership(L2SW2, "eth12", 11);
 
     network_start_pkt_receiver_thread(topo);
 
