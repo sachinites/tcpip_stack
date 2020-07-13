@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g
-TARGET:test.exe CommandParser/libcli.a
+TARGET:tcpstack.exe CommandParser/libcli.a
 LIBS=-lpthread -L ./CommandParser -lcli
 OBJS=gluethread/glthread.o \
 		  graph.o 		   \
@@ -15,15 +15,15 @@ OBJS=gluethread/glthread.o \
 		  utils.o		   \
 		  Layer2/l2switch.o \
           WheelTimer/WheelTimer.o   \
-          hello.o		   	 \
+          Layer5/nbrship_mgmt/nbrship_mgmt.o \
 		  Layer5/ddcp/ddcp.o \
 		  Layer3/spf.o 		 \
 		  tcp_stack_init.o	\
 		  tcp_ip_trace.o	\
 		  tcpip_app_register.c
 
-test.exe:testapp.o ${OBJS} CommandParser/libcli.a
-	${CC} ${CFLAGS} testapp.o ${OBJS} -o test.exe ${LIBS}
+tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a
+	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}
 
 testapp.o:testapp.c
 	${CC} ${CFLAGS} -c testapp.c -o testapp.o
@@ -37,8 +37,8 @@ WheelTimer/WheelTimer.o:WheelTimer/WheelTimer.c
 tcp_stack_init.o:tcp_stack_init.c
 	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
 
-hello.o:hello.c
-	${CC} ${CFLAGS} -c -I . hello.c -o hello.o
+Layer5/nbrship_mgmt/nbrship_mgmt.o:Layer5/nbrship_mgmt/nbrship_mgmt.c
+	${CC} ${CFLAGS} -c -I . Layer5/nbrship_mgmt/nbrship_mgmt.c -o Layer5/nbrship_mgmt/nbrship_mgmt.o
 
 tcpip_app_register.o:tcpip_app_register.c
 	${CC} ${CFLAGS} -c -I . tcpip_app_register.c -o tcpip_app_register.o

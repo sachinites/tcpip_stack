@@ -948,15 +948,6 @@ untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     return ethernet_hdr;
 }
 
-extern void
-process_hello_msg(interface_t *iif, 
-                  ethernet_hdr_t *hello_eth_hdr);
-                  
-extern void
-ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
-                      ethernet_hdr_t *ethernet_hdr,
-                      uint32_t pkt_size);
-
 static void
 promote_pkt_to_layer2(node_t *node, interface_t *iif, 
                       ethernet_hdr_t *ethernet_hdr, 
@@ -980,9 +971,6 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                         break;
                 }
             }
-            break;
-        case HELLO_MSG_CODE:
-             process_hello_msg(iif, ethernet_hdr);
             break;
 #if 0
         case DDCP_MSG_TYPE_FLOOD_QUERY:
@@ -1047,7 +1035,6 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     if(IS_INTF_L3_MODE(interface)){
 
         promote_pkt_to_layer2(node, interface, ethernet_hdr, pkt_size);
-        interface->intf_nw_props.pkt_recv++;
     }
     else if(IF_L2_MODE(interface) == ACCESS ||
                 IF_L2_MODE(interface) == TRUNK){
@@ -1062,7 +1049,6 @@ layer2_frame_recv(node_t *node, interface_t *interface,
         }
         l2_switch_recv_frame(interface, pkt, 
             vlan_id_to_tag ? new_pkt_size : pkt_size);
-        interface->intf_nw_props.pkt_recv++;
     }
     else
         return; /*Do nothing, drop the packet*/

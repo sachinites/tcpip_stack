@@ -295,7 +295,7 @@ ddcp_process_ddcp_query(node_t *node,
                     (char *)output_buff_len, 
                     size_offset);
 
-    copy_buffer = calloc(1, get_serialize_buffer_size(ser_buff));
+    copy_buffer = tcp_ip_get_new_pkt_buffer (get_serialize_buffer_size(ser_buff));
 
     if(!copy_buffer){
         printf("Error : Memory alloc failed\n");
@@ -346,7 +346,7 @@ ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif,
     tcp_ip_send_ip_data(node, ddcp_reply_msg, 
             output_buff_len, l5_protocol,
             ddcp_query_msg->originator_ip);
-    free(ddcp_reply_msg);
+    tcp_ip_free_pkt_buffer (ddcp_reply_msg, output_buff_len);
     ddcp_reply_msg = NULL;
 }
 
@@ -363,13 +363,15 @@ ddcp_update_ddcp_reply_from_ddcp_tlv(node_t *node,
     if(ddcp_reply_msg){
         if(ddcp_reply_msg_size != tlv_msg_size){
             remove_glthread(&ddcp_reply_msg->glue);
-            free(ddcp_reply_msg);
+            tcp_ip_free_pkt_buffer((char *)ddcp_reply_msg, ddcp_reply_msg_size);
             ddcp_reply_msg = NULL;
         }
     }
     if(!ddcp_reply_msg){
-        ddcp_reply_msg = calloc(1, 
+
+        ddcp_reply_msg = (ddcp_reply_msg_t *)tcp_ip_get_new_pkt_buffer( 
                 sizeof(ddcp_reply_msg_t) + tlv_msg_size);
+
         init_glthread(&ddcp_reply_msg->glue);
         glthread_add_next(GET_NODE_DDCP_DB_REPLY_HEAD(node), 
             &ddcp_reply_msg->glue); 
@@ -599,8 +601,11 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
     uint32_t payload_size = sizeof(ddcp_query_hdr_t) + 
                 (DEFAULT_DDCP_TLVS * sizeof(DDCP_TLV_ID));
 
-    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(
-                1, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE);
+    uint32_t ethernet_hdr_size = ETH_HDR_SIZE_EXCL_PAYLOAD +
+        payload_size + ETH_FCS_SIZE;
+
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer (
+            ethernet_hdr_size);
 
     ddcp_query_hdr = (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
@@ -625,7 +630,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
     if(ddcp_q_interval == 0){
         ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, 
                 ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE, NULL);
-        free(ethernet_hdr);
+        tcp_ip_free_pkt_buffer ((char *)ethernet_hdr, ethernet_hdr_size);
     }
     else{
         /*Schedule periodic ddcp query firing*/
@@ -633,14 +638,14 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
         assert(wt);
 
         if((GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem){
-            free(ethernet_hdr);
+            tcp_ip_free_pkt_buffer((char *)ethernet_hdr, ethernet_hdr_size);
             printf("Config Aborted : Info : Already Firing ddcp Queries !!\n");
             return;
         }
         ddcp_pkt_meta_data_t ddcp_pkt_meta_data;
         ddcp_pkt_meta_data.node = node;
         ddcp_pkt_meta_data.pkt = (char *)ethernet_hdr;
-        ddcp_pkt_meta_data.pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE;
+        ddcp_pkt_meta_data.pkt_size = ethernet_hdr_size;
         
         (GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem = 
                 register_app_event(wt,

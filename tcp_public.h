@@ -49,4 +49,6 @@
 #include "CommandParser/cmdtlv.h"
 #include "cmdcodes.h"
 
+extern graph_t * topo;
+
 #endif /* __TCP_IP_STACK__ */

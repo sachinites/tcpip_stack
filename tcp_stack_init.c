@@ -34,12 +34,14 @@ extern graph_t *topo;
 
 extern void
 compute_spf_all_routers(graph_t *topo);
-extern void
-init_ddcp();
+
+extern void init_ddcp();
+extern void init_nbrship_mgmt();
 
 void
 init_tcp_ip_stack(){
 
     compute_spf_all_routers(topo);
     init_ddcp();
+    init_nbrship_mgmt();
 }

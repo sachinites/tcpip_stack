@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include "comm.h"
 #include <stdint.h>
+#include "tcpconst.h"
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -154,9 +155,6 @@ typedef struct intf_nw_props_ {
     /*Interface Statistics*/
     uint32_t pkt_recv;
     uint32_t pkt_sent;
-    uint32_t hellos_recv;
-    uint32_t hellos_sent;
-    uint32_t bad_hellos_recv;
 } intf_nw_props_t;
 
 extern void
@@ -187,9 +185,6 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     /*Interface Statistics*/
     intf_nw_props->pkt_recv = 0;
     intf_nw_props->pkt_sent = 0;
-    intf_nw_props->hellos_recv = 0;
-    intf_nw_props->hellos_sent = 0;
-    intf_nw_props->bad_hellos_recv = 0;
 }
 
 void
@@ -245,6 +240,19 @@ is_trunk_interface_vlan_enabled(interface_t *interface, uint32_t vlan_id);
 char *
 pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
                                uint32_t total_buffer_size);
+
+static inline char *
+tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
+
+    char *pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    return pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE);
+}
+
+static inline void
+tcp_ip_free_pkt_buffer(char *pkt, uint32_t pkt_size){
+
+    free(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
+}
 
 bool_t
 is_interface_l3_bidirectional(interface_t *interface);

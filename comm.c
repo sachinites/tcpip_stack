@@ -110,7 +110,7 @@ _pkt_receive(node_t *receving_node,
     if(!recv_intf){
         printf("Error : Pkt recvd on unknown interface %s on node %s\n", 
                     recv_intf_name, receving_node->node_name);
-        assert(0);
+        return;
     }
 
     /*Interface is not Operationally Up*/
@@ -118,6 +118,7 @@ _pkt_receive(node_t *receving_node,
         return;
     }
 
+    recv_intf->intf_nw_props.pkt_recv++;
     pkt_receive(receving_node, recv_intf, pkt_with_aux_data + IF_NAME_SIZE, 
                 pkt_size - IF_NAME_SIZE);
 }

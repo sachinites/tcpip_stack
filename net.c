@@ -35,7 +35,7 @@
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "hello.h"
+#include "tcpconst.h"
 
 /*Just some Random number generator*/
 static uint32_t
@@ -140,8 +140,6 @@ void dump_intf_props(interface_t *interface){
          }
          printf("\n");
     }
-    printf("\t Hello Timer = %p\n", interface->intf_nw_props.hellos);
-    dump_interface_adjacencies(interface);
 }
 
 void dump_nw_graph(graph_t *graph, node_t *node1){
@@ -299,13 +297,9 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
 void
 dump_interface_stats(interface_t *interface){
 
-    printf("%s   ::  PktTx : %u, PktRx : %u : "
-        "hellosTx : %u,  hellosRx : %u, Bad hellosRx : %u",
+    printf("%s   ::  PktTx : %u, PktRx : %u",
         interface->if_name, interface->intf_nw_props.pkt_sent,
-        interface->intf_nw_props.pkt_recv,
-        interface->intf_nw_props.hellos_sent, 
-        interface->intf_nw_props.hellos_recv,
-        interface->intf_nw_props.bad_hellos_recv);
+        interface->intf_nw_props.pkt_recv);
 }
 
 void

@@ -60,7 +60,6 @@ display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
 }
 
 /*Display Node Interfaces*/
-void display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
@@ -488,6 +487,10 @@ spf_handler(param_t *param, ser_buff_t *tlv_buf,
 
 
 /*Layer 5 Commands*/
+extern int
+nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
+                op_mode enable_or_disable);
+
 extern void
 ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval);
 extern void
@@ -636,17 +639,6 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     ;
             }
             break;
-        case CMDCODE_CONFIG_INTF_HELLOS:
-            switch(enable_or_disable){
-                case CONFIG_ENABLE:
-                    schedule_hello_on_interface(interface, 5, TRUE);
-                    break;
-                case CONFIG_DISABLE:
-                    stop_interface_hellos(interface);
-                    break;
-                default:
-                    ;
-            }
          default:
             ;    
     }
@@ -752,6 +744,13 @@ nw_init_cli(){
                      init_param(&log_status, CMD, "log-status", traceoptions_handler, 0, INVALID, 0, "log-status");
                      libcli_register_param(&node_name, &log_status);
                      set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
+                 }
+                 {
+                    /*show node <node-name> nbrships*/
+                    static param_t nbrships;
+                    init_param(&nbrships, CMD, "nbrships", nbrship_mgmt_handler, 0, INVALID, 0, "neighborships"); 
+                    libcli_register_param(&node_name,  &nbrships);
+                    set_param_cmd_code(&nbrships, CMDCODE_SHOW_NODE_NBRSHIP);
                  }
                  {
                     /*show node <node-name> ddcp-db*/
@@ -897,18 +896,20 @@ nw_init_cli(){
         }
     }
 
-    /*config node*/
     {
+        /*config global*/
         static param_t global;
         init_param(&global, CMD, "global", 0, 0, INVALID, 0, "global network-wide config");
         libcli_register_param(config, &global);
         {
+            /*config global stdout*/
             static param_t _stdout;
             init_param(&_stdout, CMD, "stdout", traceoptions_handler, 0, INVALID, 0, "Turn on stdio logging");
             libcli_register_param(&global, &_stdout);
             set_param_cmd_code(&_stdout, CMDCODE_DEBUG_GLOBAL_STDOUT);
         }
         {
+            /*config global no-stdout*/
             static param_t _no_stdout;
             init_param(&_no_stdout, CMD, "no-stdout", traceoptions_handler, 0, INVALID, 0, "Turn off stdio logging");
             libcli_register_param(&global, &_no_stdout);
@@ -916,6 +917,7 @@ nw_init_cli(){
         }
     }
     {
+      /*config node*/
       static param_t node;
       init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
       libcli_register_param(config, &node);  
@@ -926,6 +928,32 @@ nw_init_cli(){
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
         {
+
+            /*Nbrship Management CLIs will go here*/
+            {
+                /*config node <node-name> [no] nbrship interface <intf-name>*/
+                static param_t nbrship;
+                init_param(&nbrship, CMD, "nbrship", 0, 0, INVALID, 0, "nbrship");
+                libcli_register_param(&node_name, &nbrship);
+                {
+                    static param_t interface;
+                    init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
+                    libcli_register_display_callback(&interface, display_node_interfaces);
+                    libcli_register_param(&nbrship, &interface);
+                    {
+                        static param_t if_name;
+                        init_param(&if_name, LEAF, 0, nbrship_mgmt_handler, 0, STRING, "if-name", "Interface Name");
+                        libcli_register_param(&interface, &if_name);
+                        set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE);
+                    }
+                    {
+                        static param_t all;
+                        init_param(&all, CMD, "all", nbrship_mgmt_handler, 0, INVALID, 0, "All interfaces");
+                        libcli_register_param(&interface, &all);
+                        set_param_cmd_code(&all, CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE);
+                    }
+                }
+            }
 
             /*CLI for traceoptions at node level are hooked up here in tree */
             tcp_ip_traceoptions_cli(&node_name, 0);
@@ -963,13 +991,6 @@ nw_init_cli(){
                         libcli_register_param(&if_name, &if_up_down_status);
                         set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
                     }
-                }
-                {
-                    /*config node <node-name> interface <if-name> hellos*/
-                    static param_t hellos;
-                    init_param(&hellos, CMD, "hellos", intf_config_handler, 0, INVALID, 0, "Enable/Disable Hellos");
-                    libcli_register_param(&if_name, &hellos);
-                    set_param_cmd_code(&hellos, CMDCODE_CONFIG_INTF_HELLOS);
                 }
                 {
                     /*config node <node-name> interface <if-name> vlan*/

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "tcp_public.h"
-#include "hello.h"
+#include "Layer5/nbrship_mgmt/nbrship_mgmt.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include <errno.h>

@@ -44,8 +44,7 @@
 #define CMDCODE_SHOW_NODE_RT_TABLE  9   /*show node <node-name> rt*/
 #define CMDCODE_CONF_NODE_L3ROUTE   10  /*config node <node-name> route <ip-address> <mask> [<gw-ip> <oif>]*/
 #define CMDCODE_ERO_PING            11  /*run <node-name> ping <ip-address> ero <ero-ip-address>*/
-#define CMDCODE_CONFIG_INTF_HELLOS  12  /*config node <node-name> interface <intf-name> hellos*/
-
+#define CMDCODE_UNUSED_1            12  /*Not used*/
 #define CMDCODE_SHOW_INTF_STATS     13     /*show node <node-name> interface statistics*/
 #define CMDCODE_DEBUG_SHOW_NODE_TIMER   14 /*debug show node <node-name> timer*/
 
@@ -65,4 +64,9 @@
 #define CMDCODE_DEBUG_GLOBAL_NO_STDOUT   25  /*config global no-stdout*/
 /*Interface Up Down*/ 
 #define CMDCODE_CONF_INTF_UP_DOWN        26 /*config node <node-name> interface <if-name> <up|down>*/
+
+/*Nbrship Mgmt Protocol*/
+#define CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE       27 /*config node <node-name> [no] nbrship interface <intf-name>*/
+#define CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE   28 /*config node <node-name> [no] nbrship interface all*/
+#define CMDCODE_SHOW_NODE_NBRSHIP                   29 /*show node <node-name> nbrships*/
 #endif /* __CMDCODES__ */

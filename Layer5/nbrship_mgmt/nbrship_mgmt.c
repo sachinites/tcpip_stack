@@ -1,8 +1,6 @@
-#include "hello.h"
-#include "WheelTimer/WheelTimer.h"
 #include <stdio.h>
-#include "comm.h"
-#include "net.h"
+#include "nbrship_mgmt.h"
+#include "../../tcp_public.h"
 
 #define ADJ_DEF_EXPIRY_TIMER    10
 
@@ -24,15 +22,18 @@ transmit_hellos(void *arg, int sizeof_arg){
             pkt_meta_data->intf->att_node->node_name, 
             pkt_meta_data->intf->if_name);
 #endif
-    pkt_meta_data->intf->intf_nw_props.hellos_sent++;
+    //pkt_meta_data->intf->intf_nw_props.hellos_sent++;
 }
 
 ethernet_hdr_t *
 get_new_hello_pkt(node_t *node,
                	 interface_t *interface,
-		 uint32_t *pkt_size){
+        		 uint32_t *pkt_size){
 
-    ethernet_hdr_t *hello = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    *pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(hello_t) + ETH_FCS_SIZE;
+
+    ethernet_hdr_t *hello = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(*pkt_size);
+
     memcpy(hello->src_mac.mac, IF_MAC(interface), sizeof(mac_add_t));
     layer2_fill_with_broadcast_mac(hello->dst_mac.mac);
     hello->type = HELLO_MSG_CODE;
@@ -43,12 +44,7 @@ get_new_hello_pkt(node_t *node,
     memcpy(hello_payload->intf_ip, IF_IP(interface), 16);
     ETH_FCS(hello, sizeof(hello_t)) = 0;
 
-    *pkt_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(hello) + 
-        sizeof(hello_t) + ETH_FCS_SIZE;
-    
-    return (ethernet_hdr_t *)(pkt_buffer_shift_right(
-		(char *)hello, *pkt_size, 
-		 MAX_PACKET_BUFFER_SIZE));
+    return hello;
 }
 
 bool_t
@@ -91,7 +87,7 @@ stop_interface_hellos(interface_t *interface){
 
     wheel_timer_elem_t *wt_elem = interface->intf_nw_props.hellos;
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)wt_elem->arg;
-    free(pkt_meta_data->pkt - MAX_PACKET_BUFFER_SIZE + pkt_meta_data->pkt_size);
+    tcp_ip_free_pkt_buffer(pkt_meta_data->pkt, pkt_meta_data->pkt_size);    
     de_register_app_event(GET_NODE_TIMER_FROM_INTF(interface), wt_elem);
     interface->intf_nw_props.hellos = NULL;
 }
@@ -119,11 +115,15 @@ update_interface_adjacency_from_hello(interface_t *interface,
         adjacency_start_expiry_timer(interface, adjacency);
     else
         adjacency_refresh_expiry_timer(interface, adjacency);
-    interface->intf_nw_props.hellos_recv++;
+    //interface->intf_nw_props.hellos_recv++;
 }
 
 void
-process_hello_msg(interface_t *iif, ethernet_hdr_t *hello_eth_hdr){
+process_hello_msg(node_t *node, interface_t *iif, 
+            char *pkt, uint32_t pkt_size,
+            uint32_t flags){
+
+    ethernet_hdr_t *hello_eth_hdr = (ethernet_hdr_t *)pkt;
 
 	/*Reject the pkt if dst mac is not Brodcast mac*/
     if(!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)){
@@ -144,7 +144,8 @@ process_hello_msg(interface_t *iif, ethernet_hdr_t *hello_eth_hdr){
     return ;
 
     bad_hello:
-        iif->intf_nw_props.bad_hellos_recv++;
+        //iif->intf_nw_props.bad_hellos_recv++;
+        ;
 }
 
 void
@@ -158,7 +159,7 @@ dump_interface_adjacencies(interface_t *interface){
     ITERATE_GLTHREAD_BEGIN(GET_INTF_ADJ_LIST(interface), curr){
         
         adjacency = glthread_to_adjacency(curr);
-        printf("\t\t Adjacency : Nbr Name : %s, Router id : %s,"
+        printf("\t Adjacency : Nbr Name : %s, Router id : %s,"
                " nbr ip : %s, Expires in : %d sec, uptime = %s\n",
                 adjacency->router_name, 
                 adjacency->router_id, 
@@ -286,3 +287,114 @@ adjacency_start_expiry_timer(interface_t *interface,
     }
 }
 
+static void
+nbrship_mgmt_enable_disable_intf_nbrship_protocol(
+            interface_t *interface, 
+            bool_t is_enabled){
+
+    switch(is_enabled){
+        case TRUE:
+            schedule_hello_on_interface(interface, 5, TRUE);
+        break;
+        case FALSE:
+            stop_interface_hellos(interface);
+        break;
+        break;
+        default: ;
+    }
+}
+
+static void
+nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(
+            node_t *node, 
+            bool_t is_enabled){
+
+    int i = 0;
+    interface_t *interface;
+
+    for( ; i < MAX_INTF_PER_NODE; i++){
+        interface = node->intf[i];
+        if(!interface) continue;
+        nbrship_mgmt_enable_disable_intf_nbrship_protocol(interface, is_enabled);
+    }
+}
+
+int 
+nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
+                op_mode enable_or_disable){
+
+    node_t *node;
+    char *node_name;
+    char *if_name;
+    interface_t *intf;
+
+    int CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+        
+        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else if(strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
+            if_name = tlv->value;
+        else
+            assert(0);
+    } TLV_LOOP_END;
+
+    node = get_node_by_node_name(topo, node_name);
+    intf = get_node_if_by_name(node, if_name);
+
+    switch(CMDCODE){
+        case CMDCODE_SHOW_NODE_NBRSHIP:
+        {
+            int i = 0;
+            for(; i < MAX_INTF_PER_NODE; i++){
+                intf = node->intf[i];
+                if(!intf) continue;
+                dump_interface_adjacencies(intf);
+            }
+        } 
+        break;
+        case CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE:
+
+            if(!intf){
+                printf("Error : Interface %s do not exist\n", intf->if_name);
+                return -1;
+            } 
+
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    nbrship_mgmt_enable_disable_intf_nbrship_protocol(intf, TRUE);
+                break;
+                case CONFIG_DISABLE:
+                    nbrship_mgmt_enable_disable_intf_nbrship_protocol(intf, FALSE);
+                break;
+                default : ;
+            }
+        break;
+        case CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE:
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(node, TRUE);
+                break;
+                case CONFIG_DISABLE:
+                    nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(node, FALSE);
+                break;
+                default : ;
+            }
+        break;
+        default :
+            assert(0);
+
+    }
+    return 0;
+}
+
+void
+init_nbrship_mgmt(){
+
+    tcp_app_register_l2_protocol_interest(HELLO_MSG_CODE, 
+        process_hello_msg);
+    tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(HELLO_MSG_CODE);
+}
