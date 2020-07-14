@@ -65,7 +65,7 @@ schedule_hello_on_interface(interface_t *intf,
     pkt_meta_data.pkt = (char *)hello_pkt;
     pkt_meta_data.pkt_size = pkt_size;
 
-    wheel_timer_elem_t *wt_elem = register_app_event(GET_NODE_TIMER_FROM_INTF(intf),
+    wheel_timer_elem_t *wt_elem = register_app_event(GET_NODE_TIMER_INSTANCE(intf->att_node),
                                                      transmit_hellos,
                                                      (void *)&pkt_meta_data,
                                                      sizeof(pkt_meta_data_t),
@@ -88,7 +88,7 @@ stop_interface_hellos(interface_t *interface){
     wheel_timer_elem_t *wt_elem = interface->intf_nw_props.hellos;
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)wt_elem->arg;
     tcp_ip_free_pkt_buffer(pkt_meta_data->pkt, pkt_meta_data->pkt_size);    
-    de_register_app_event(GET_NODE_TIMER_FROM_INTF(interface), wt_elem);
+    de_register_app_event(GET_NODE_TIMER_INSTANCE(interface->att_node), wt_elem);
     interface->intf_nw_props.hellos = NULL;
 }
 
@@ -164,7 +164,7 @@ dump_interface_adjacencies(interface_t *interface){
                 adjacency->router_name, 
                 adjacency->router_id, 
                 adjacency->nbr_ip, 
-                wt_get_remaining_time(GET_NODE_TIMER_FROM_INTF(interface),
+                wt_get_remaining_time(GET_NODE_TIMER_INSTANCE(interface->att_node),
                 adjacency->expiry_timer),
                 hrs_min_sec_format(
                     (uint32_t)difftime(curr_time, adjacency->uptime)));
@@ -238,7 +238,7 @@ void
 adjacency_delete_expiry_timer(interface_t *interface, adjacency_t *adjacency){
 
     assert(adjacency->expiry_timer);
-    de_register_app_event(GET_NODE_TIMER_FROM_INTF(interface), 
+    de_register_app_event(GET_NODE_TIMER_INSTANCE(interface->att_node), 
                     adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 }
@@ -252,7 +252,7 @@ adjacency_refresh_expiry_timer(interface_t *interface,
     
     assert(wt_elem);
 
-    wt_elem_reschedule(GET_NODE_TIMER_FROM_INTF(interface),
+    wt_elem_reschedule(GET_NODE_TIMER_INSTANCE(interface->att_node),
                         wt_elem, ADJ_DEF_EXPIRY_TIMER);
 }
 
@@ -276,7 +276,7 @@ adjacency_start_expiry_timer(interface_t *interface,
     adj_key_t adj_key;
     set_adjacency_key(interface, adjacency, &adj_key);
 
-    adjacency->expiry_timer = register_app_event(GET_NODE_TIMER_FROM_INTF(interface),
+    adjacency->expiry_timer = register_app_event(GET_NODE_TIMER_INSTANCE(interface->att_node),
                                     timer_expire_delete_adjacency_cb,
                                     (void *)&adj_key, sizeof(adj_key_t),
                                     ADJ_DEF_EXPIRY_TIMER,

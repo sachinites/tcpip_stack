@@ -69,4 +69,5 @@
 #define CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE       27 /*config node <node-name> [no] nbrship interface <intf-name>*/
 #define CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE   28 /*config node <node-name> [no] nbrship interface all*/
 #define CMDCODE_SHOW_NODE_NBRSHIP                   29 /*show node <node-name> nbrships*/
+#define CMDCODE_SHOW_NODE_NBRSHIP_ALL_INTF_STATS    30 /*show node <node-name> interface statistics protocol <protocol-name = nbrship>*/
 #endif /* __CMDCODES__ */

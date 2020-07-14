@@ -44,6 +44,7 @@
 #include "comm.h"
 #include "gluethread/glthread.h"
 #include "WheelTimer/WheelTimer.h"
+#include "Tree/candidate_tree.h"
 #include "tcp_ip_trace.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
