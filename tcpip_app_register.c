@@ -1,8 +1,11 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include "gluethread/glthread.h"
 #include "utils.h"
 #include "tcpip_app_register.h"
+
+extern glthread_t tcp_app_print_cb_db;
 
 typedef struct tcp_app_cb_info_{
 
@@ -11,6 +14,15 @@ typedef struct tcp_app_cb_info_{
     glthread_t glue;
 } tcp_app_cb_info_t;
 GLTHREAD_TO_STRUCT(glue_to_tcp_app_cb_info, tcp_app_cb_info_t, glue);
+
+typedef struct tcp_app_print_cb_info_{
+
+    uint32_t protocol_no;
+    char protocol_no_str[32];
+    app_print_pkt_cb app_print_cb;
+    glthread_t glue;
+} tcp_app_print_cb_info_t;
+GLTHREAD_TO_STRUCT(glue_to_tcp_app_print_cb_info, tcp_app_print_cb_info_t, glue);
 
 static tcp_app_cb_info_t * 
 tcp_stack_is_protocol_registered(glthread_t *app_cb_db, 
@@ -87,5 +99,109 @@ tcp_stack_invoke_app_callbacks(glthread_t *app_cb_db,
             (tcp_app_cb_info->app_cb)(node, intf, pkt, pkt_size, flags);
         }
      } ITERATE_GLTHREAD_END(app_cb_db, curr);
+}
+
+/*Function for print callbacks registration*/
+
+static tcp_app_print_cb_info_t * 
+tcp_stack_is_print_protocol_registered(
+                      glthread_t *app_print_cb_db, 
+                      uint32_t protocol_no, 
+                      app_print_pkt_cb app_cb){
+
+    glthread_t *curr;
+    tcp_app_print_cb_info_t *tcp_app_print_cb_info;
+    ITERATE_GLTHREAD_BEGIN(app_print_cb_db, curr){
+
+        tcp_app_print_cb_info = glue_to_tcp_app_print_cb_info(curr);
+        if(tcp_app_print_cb_info->protocol_no == protocol_no && 
+            tcp_app_print_cb_info->app_print_cb == app_cb){
+            return tcp_app_print_cb_info;
+        }
+    } ITERATE_GLTHREAD_END(app_print_cb_db, curr);
+    return NULL;
+}
+
+char *
+tcp_stack_get_print_str_protocol_number(uint32_t protocol_no){
+
+    glthread_t *curr;
+    tcp_app_print_cb_info_t *tcp_app_print_cb_info;
+
+    ITERATE_GLTHREAD_BEGIN(&tcp_app_print_cb_db, curr){
+
+        tcp_app_print_cb_info = glue_to_tcp_app_print_cb_info(curr);
+        if(tcp_app_print_cb_info->protocol_no == protocol_no){
+            return tcp_app_print_cb_info->protocol_no_str;
+        }
+    }  ITERATE_GLTHREAD_END(app_print_cb_db, curr);
+    return NULL;
+}
+
+bool_t 
+tcp_stack_register_print_callback(
+                    uint32_t protocol_no,
+                    char *protocol_no_str,
+                    app_print_pkt_cb app_cb){
+                   
+    tcp_app_print_cb_info_t *tcp_app_print_cb_info;
+
+    tcp_app_print_cb_info = tcp_stack_is_print_protocol_registered(
+                &tcp_app_print_cb_db, protocol_no, app_cb);
+
+    assert(!tcp_app_print_cb_info);
+
+    tcp_app_print_cb_info = calloc(1, sizeof(tcp_app_print_cb_info_t));
+    tcp_app_print_cb_info->protocol_no = protocol_no;
+    strncpy(tcp_app_print_cb_info->protocol_no_str, protocol_no_str, 
+        sizeof(tcp_app_print_cb_info->protocol_no_str));
+    tcp_app_print_cb_info->app_print_cb = app_cb;
+    init_glthread(&tcp_app_print_cb_info->glue);
+
+    glthread_add_next(&tcp_app_print_cb_db, &tcp_app_print_cb_info->glue);
+    return TRUE;
+}
+
+#if 0
+bool_t 
+tcp_stack_unregister_print_callback(
+                    glthread_t *app_print_cb_db,
+                    uint32_t protocol_no,
+                    app_print_pkt_cb app_cb){
+                    
+    tcp_app_print_cb_info_t *tcp_app_print_cb_info = 
+            tcp_stack_is_print_protocol_registered(app_print_cb_db,
+                protocol_no, app_cb);
+
+    if(!tcp_app_print_cb_info)
+        return TRUE;
+        
+    remove_glthread(&tcp_app_print_cb_info->glue);
+    free(tcp_app_print_cb_info);
+    tcp_app_print_cb_info = NULL;
+    return TRUE;
+}
+#endif
+
+int
+tcp_stack_invoke_app_print_callbacks(
+                    glthread_t *app_print_cb_db, 
+                    uint32_t protocol_no,
+                    char *buff, char *pkt, 
+                    uint32_t pkt_size, 
+                    int tab_count){
+
+     glthread_t *curr;
+     tcp_app_print_cb_info_t *tcp_app_print_cb_info;
+
+     ITERATE_GLTHREAD_BEGIN(app_print_cb_db, curr){
+
+        tcp_app_print_cb_info = glue_to_tcp_app_print_cb_info(curr);
+        if(tcp_app_print_cb_info->protocol_no == protocol_no){
+            return ((tcp_app_print_cb_info->app_print_cb)
+                (buff, pkt, pkt_size, tab_count));
+        }
+     } ITERATE_GLTHREAD_END(app_print_cb_db, curr);
+     return 0;
 }
 

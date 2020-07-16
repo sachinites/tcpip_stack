@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "tcp_public.h"
-#include "Layer5/nbrship_mgmt/nbrship_mgmt.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include <errno.h>
+#include "gluethread/glthread.h"
+#include "tcpip_app_register.h"
+
 
 #define TCP_PRINT_BUFFER_SIZE   2048
 
@@ -22,8 +24,12 @@ static void init_string_buffer(){
     memset(string_buffer, 0, sizeof(string_buffer));
 }
 
+glthread_t tcp_app_print_cb_db = {0, 0};
+
 static char *
 string_ethernet_hdr_type(unsigned short type){
+
+    char *proto_str = NULL;
 
     init_string_buffer();
     switch(type){
@@ -38,11 +44,12 @@ string_ethernet_hdr_type(unsigned short type){
             strncpy(string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
                 strlen("DDCP_MSG_TYPE_FLOOD_QUERY"));
             break;
-        case HELLO_MSG_CODE:
-            strncpy(string_buffer, "HELLO_MSG", strlen("HELLO_MSG"));
-            break;
         default:
+            proto_str = tcp_stack_get_print_str_protocol_number(type);
+            if(!proto_str)
             return NULL;
+            strncpy(string_buffer, proto_str, strlen(proto_str));
+            break;
     }
     return string_buffer;
 }
@@ -113,6 +120,9 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
                     IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
             break;
         default:
+            rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
+                        ip_hdr->protocol, buff + rc, INCREMENT_IPHDR(ip_hdr),
+                        IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
             break;
             ;
     }
@@ -149,18 +159,6 @@ tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr,
             tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip2));
     return rc;
 }
-
-static int
-tcp_dump_hello(char *buff, hello_t *hello, 
-                uint32_t pkt_size, int tab_count){
-
-    int rc = 0 ;
-
-    rc += sprintf(buff + rc, "HELLO : Rtr: %s Rtr id: %s, intf ip: %s\n",
-            hello->router_name, hello->router_id, hello->intf_ip);
-    return rc;
-}
-
 
 static int
 tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr, 
@@ -216,8 +214,8 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                     payload_size, tab_count + 1);
             break;
         case HELLO_MSG_CODE:
-            rc += tcp_dump_hello(buff + rc,
-                    (hello_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
+            rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
+                    type, buff + rc, (char *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size, tab_count + 1);
             break;
         default:
@@ -290,7 +288,10 @@ tcp_dump(int sock_fd,
                 (ip_hdr_t *)pkt, pkt_size, 0);
             break;
         default:
-            ;
+            rc = tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
+                        hdr_type, out_buff + write_offset, (char *)pkt,
+                        pkt_size, 0);
+            break;
     }
 
     if(!rc){

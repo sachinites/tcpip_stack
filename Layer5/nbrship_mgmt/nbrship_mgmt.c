@@ -391,10 +391,27 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
+static int
+print_hello_pkt(char *buff, char *pkt, 
+                uint32_t pkt_size, 
+                int tab_count){
+
+    int rc = 0;
+
+    hello_t *hpkt = (hello_t *)pkt;
+    rc =  sprintf(buff, "HELLO_MSG_CODE : Rtr Name : %s, Rtr_id = %s, Intf_ip = %s\n", 
+        hpkt->router_name, hpkt->router_id, hpkt->intf_ip);
+    return rc;
+}
+
+
 void
 init_nbrship_mgmt(){
 
     tcp_app_register_l2_protocol_interest(HELLO_MSG_CODE, 
         process_hello_msg);
     tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(HELLO_MSG_CODE);
+    tcp_stack_register_print_callback(HELLO_MSG_CODE, 
+            "HELLO_MSG_CODE", print_hello_pkt);
 }
+
