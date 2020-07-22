@@ -1,19 +1,67 @@
-#ifndef __HELLO__
-#define __HELLO__
+#ifndef __NMP__
+#define __NMP__
 
-#include "graph.h"
-#include <stdlib.h>
-#include <memory.h>
-#include <time.h>
-#include <stdint.h>
-#include "../../Layer2/layer2.h"
+#include "../../tcp_public.h"
 
 typedef struct hello_{
 
-    char router_name[NODE_NAME_SIZE];
-    char router_id[16]; /*Loopback Address*/
-    char intf_ip[16];
+    char tlv_buff[0];
 } hello_t;
+
+typedef struct nmp_{
+    bool_t is_enabled;
+} nmp_t;
+
+typedef struct intf_nmp_{
+    bool_t is_enabled;
+    uint32_t sent;
+    uint32_t recvd;
+    uint32_t bad_hellos;
+    wheel_timer_elem_t *hellos;
+    glthread_t adjacency_list;
+} intf_nmp_t;
+
+#define NMP_GET_INTF_NMPDS(intf_ptr)    \
+    (intf_ptr->intf_nw_props.nmp)
+
+#define NMP_GET_NODE_NMPDS(node_ptr)    \
+    (node_ptr->node_nw_prop.nmp)
+
+#define NMP_IS_INTF_NMP_ENABLED(intf_ptr)   \
+    (intf_ptr->intf_nw_props.nmp &&         \
+    intf_ptr->intf_nw_props.nmp->is_enabled)
+
+#define NMP_SHOULD_SCHEDULE_HELLO_ON_INTF(intf_ptr) \
+    (NMP_IS_INTF_NMP_ENABLED(intf_ptr) &&           \
+    intf_ptr->att_node &&                           \
+    intf_ptr->att_node->node_nw_prop.nmp &&         \
+    intf_ptr->att_node->node_nw_prop.nmp->is_enabled)
+
+static char *
+nmp_get_interface_state(interface_t *intf){
+
+    nmp_t *nmp;
+    intf_nmp_t *intf_nmp;
+
+    intf_nmp = NMP_GET_INTF_NMPDS(intf);
+    if(!intf_nmp) return NULL;
+
+    nmp = NMP_GET_NODE_NMPDS(intf->att_node);
+
+    if(!nmp || !nmp->is_enabled){
+        if(intf_nmp->is_enabled) assert(0);
+        return "INACTIVE";
+    }
+
+    if(nmp && nmp->is_enabled){
+        if(intf_nmp->is_enabled)
+            return "ACTIVE";
+        else
+            return "INACTIVE";
+    }
+    return NULL;
+}
+
 
 bool_t
 schedule_hello_on_interface(interface_t *intf,
@@ -34,7 +82,8 @@ stop_interface_hellos(interface_t *interface);
 static inline bool_t
 is_hellos_scheduled_on_intf(interface_t *interface){
 
-    if(interface->intf_nw_props.hellos)
+    if(interface->intf_nw_props.nmp &&
+        interface->intf_nw_props.nmp->hellos)
         return TRUE;
     else
         return FALSE;
@@ -54,8 +103,8 @@ typedef struct adjacency_{
 } adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_adjacency, adjacency_t, glue);
 
-#define GET_INTF_ADJ_LIST(intf_ptr) \
-    (&(intf_ptr->intf_nw_props.adjacency_list))
+#define NMP_GET_INTF_ADJ_LIST(intf_ptr) \
+    (&(NMP_GET_INTF_NMPDS(intf_ptr)->adjacency_list))
 
 adjacency_t *
 find_adjacency_on_interface(interface_t *interface, char *router_id);
@@ -84,4 +133,10 @@ adjacency_refresh_expiry_timer(interface_t *interface,
 void
 adjacency_start_expiry_timer(interface_t *interface,
                              adjacency_t *adjacency);
-#endif /* __HELLO__ */
+
+/*TLV Code Points for NMP protocol*/
+#define TLV_NODE_NAME   10
+#define TLV_RTR_ID      20
+#define TLV_IF_IP       30
+
+#endif /* __NMP__ */

@@ -191,7 +191,15 @@ void dump_interface(interface_t *interface);
 
 #define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr)  }}while(0);
 
+#define ITERATE_NODE_INTERFACES_BEGIN(node_ptr, intf_ptr) \
+{                                                         \
+    int _i = 0;                                           \
+    for(; _i < MAX_INTF_PER_NODE; _i++){                  \
+        intf_ptr = node_ptr->intf[_i];                     \
+        if(!intf_ptr) continue;
 
+#define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr) }}
+    
 
 
 

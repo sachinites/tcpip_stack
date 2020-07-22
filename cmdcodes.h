@@ -68,6 +68,8 @@
 /*Nbrship Mgmt Protocol*/
 #define CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE       27 /*config node <node-name> [no] nbrship interface <intf-name>*/
 #define CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE   28 /*config node <node-name> [no] nbrship interface all*/
-#define CMDCODE_SHOW_NODE_NBRSHIP                   29 /*show node <node-name> nbrships*/
-#define CMDCODE_SHOW_NODE_NBRSHIP_ALL_INTF_STATS    30 /*show node <node-name> interface statistics protocol <protocol-name = nbrship>*/
+#define CMDCODE_CONF_NODE_NBRSHIP_ENABLE            29 /*conf node <node-name> [no] protocol nmp*/
+#define CMDCODE_SHOW_NODE_NBRSHIP                   30 /*show node <node-name> nmp nbrships*/
+#define CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS  31 /*show node <node-name> interface statistics protocol nmp*/
+#define CMDCODE_SHOW_NODE_NMP_STATE                    32 /*show node <node-name> nmp state*/
 #endif /* __CMDCODES__ */

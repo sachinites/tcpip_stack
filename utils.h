@@ -85,6 +85,15 @@ layer2_fill_with_broadcast_mac(char *mac_array);
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \
     }}
 
+char *
+tlv_buffer_get_particular_tlv(char *tlv_buff, /*Input TLV Buffer*/
+                              uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
+                              uint8_t tlv_no, /*Input TLV Number*/
+                              uint8_t *tlv_data_len); /*Output TLV Data len*/
+
+char *
+tlv_buffer_insert_tlv(char *tlv_buff, uint8_t tlv_no, 
+                     uint8_t data_len, char *data);
 
 char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 

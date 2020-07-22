@@ -87,3 +87,30 @@ tcp_ip_covert_ip_p_to_n(char *ip_addr){
     return binary_prefix;
 }
 
+char *
+tlv_buffer_insert_tlv(char *buff, uint8_t tlv_no,
+                     uint8_t data_len, char *data){
+
+    *buff = tlv_no;
+    *(buff+1) = data_len;
+    memcpy(buff + TLV_OVERHEAD_SIZE, data, data_len);
+    return buff + TLV_OVERHEAD_SIZE + data_len;
+}
+
+char *
+tlv_buffer_get_particular_tlv(char *tlv_buff, /*Input TLV Buffer*/
+                      uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
+                      uint8_t tlv_no,    /*Input TLV Number*/
+                      uint8_t *tlv_data_len){ /*Output TLV Data len*/
+
+    char tlv_type, tlv_len, *tlv_value = NULL;
+    
+    ITERATE_TLV_BEGIN(tlv_buff, tlv_type, tlv_len, tlv_value, tlv_buff_size){
+        
+        if(tlv_type != tlv_no) continue;
+        *tlv_data_len = tlv_len;
+        return tlv_value;
+    }ITERATE_TLV_END(tlv_buff, tlv_type, tlv_len, tlv_value, tlv_buff_size); 
+    *tlv_data_len = 0;
+    return NULL;
+}

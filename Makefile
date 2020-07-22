@@ -102,6 +102,7 @@ clean:
 	rm -f Layer5/*.o
 	rm -f Layer5/ddcp/*.o
 	rm -f WheelTimer/WheelTimer.o
+	rm -f Layer5/nbrship_mgmt/*.o
 all:
 	make
 	(cd CommandParser; make)

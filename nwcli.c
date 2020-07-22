@@ -37,6 +37,7 @@
 #include "cmdcodes.h"
 #include "WheelTimer/WheelTimer.h"
 #include <stdint.h>
+#include "Layer5/app_handlers.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -216,39 +217,6 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
 extern 
 void dump_node_interface_stats(node_t *node);
-
-static int 
-show_interface_handler(param_t *param, ser_buff_t *tlv_buf, 
-                       op_mode enable_or_disable){
-    
-    int CMDCODE;
-    node_t *node;
-    char *node_name;
-
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    tlv_struct_t *tlv = NULL;
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
-
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
-            node_name = tlv->value;
-        else
-            assert(0);
-    } TLV_LOOP_END;
-   
-    node = get_node_by_node_name(topo, node_name);
-
-    switch(CMDCODE){
-
-        case CMDCODE_SHOW_INTF_STATS:
-            dump_node_interface_stats(node);
-            break;
-        default:
-            ;
-    }
-    return 0;
-}
 
 typedef struct mac_table_ mac_table_t;
 extern void
@@ -487,9 +455,6 @@ spf_handler(param_t *param, ser_buff_t *tlv_buf,
 
 
 /*Layer 5 Commands*/
-extern int
-nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
-                op_mode enable_or_disable);
 
 extern void
 ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval);
@@ -676,6 +641,42 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
    }
 }
 
+static int 
+show_interface_handler(param_t *param, ser_buff_t *tlv_buf, 
+                       op_mode enable_or_disable){
+    
+    int CMDCODE;
+    node_t *node;
+    char *node_name;
+    char *protocol_name = NULL;
+
+    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else if(strncmp(tlv->leaf_id, "protocol-name", strlen("protocol-name")) ==0)
+            protocol_name = tlv->value;        
+        else
+            assert(0);
+    } TLV_LOOP_END;
+   
+    node = get_node_by_node_name(topo, node_name);
+
+    switch(CMDCODE){
+
+        case CMDCODE_SHOW_INTF_STATS:
+            dump_node_interface_stats(node);
+            break;
+        default:
+            ;
+    }
+    return 0;
+}
+
 void
 nw_init_cli(){
 
@@ -746,11 +747,23 @@ nw_init_cli(){
                      set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
                  }
                  {
-                    /*show node <node-name> nbrships*/
-                    static param_t nbrships;
-                    init_param(&nbrships, CMD, "nbrships", nbrship_mgmt_handler, 0, INVALID, 0, "neighborships"); 
-                    libcli_register_param(&node_name,  &nbrships);
-                    set_param_cmd_code(&nbrships, CMDCODE_SHOW_NODE_NBRSHIP);
+                    /*show node <node-name> nmp nbrships*/
+                    static param_t nmp;
+                    init_param(&nmp, CMD, "nmp", 0, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)"); 
+                    libcli_register_param(&node_name,  &nmp);
+                    {
+                        static param_t nbrships;
+                        init_param(&nbrships, CMD, "nbrships", nbrship_mgmt_handler, 0, INVALID, 0, "nbrships (Nbr Mgmt Protocol)");
+                        libcli_register_param(&nmp, &nbrships);
+                        set_param_cmd_code(&nbrships, CMDCODE_SHOW_NODE_NBRSHIP);
+                    }
+                    {
+                        /*show node <node-name> nmp state*/
+                        static param_t state;
+                        init_param(&state, CMD, "state", nbrship_mgmt_handler, 0, INVALID, 0, "state (Nbr Mgmt Protocol)");
+                        libcli_register_param(&nmp, &state);
+                        set_param_cmd_code(&state, CMDCODE_SHOW_NODE_NMP_STATE);
+                    }
                  }
                  {
                     /*show node <node-name> ddcp-db*/
@@ -788,14 +801,29 @@ nw_init_cli(){
                     set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
                  {
+                    /*show node <node-name> interface*/
                     static param_t interface;
                     init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
                     libcli_register_param(&node_name, &interface);
                     {
+                        /*show node <node-name> interface statistics*/
                         static param_t stats;
                         init_param(&stats, CMD, "statistics", show_interface_handler, 0, INVALID, 0, "Interface Statistics");
                         libcli_register_param(&interface, &stats);
                         set_param_cmd_code(&stats, CMDCODE_SHOW_INTF_STATS);
+                        {
+                            /*show node <node-name> interface statistics protocol*/
+                            static param_t protocol;
+                            init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "Protocol specific intf stats");
+                            libcli_register_param(&stats, &protocol);
+                            {
+                                /*show node <node-name> interface statistics protocol <protocol-name>*/ 
+                                static param_t nmp;
+                                init_param(&nmp, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)"); 
+                                libcli_register_param(&protocol, &nmp);
+                                set_param_cmd_code(&nmp, CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS);
+                            }
+                        }
                     }
                  }
 
@@ -931,9 +959,21 @@ nw_init_cli(){
 
             /*Nbrship Management CLIs will go here*/
             {
+                /*config node <node-name> [no] protocol nmp*/
+                static param_t protocol;
+                init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "protocol");
+                libcli_register_param(&node_name, &protocol);
+                {
+                    static param_t nmp;
+                    init_param(&nmp, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
+                    libcli_register_param(&protocol, &nmp);
+                    set_param_cmd_code(&nmp, CMDCODE_CONF_NODE_NBRSHIP_ENABLE);
+                }
+            }
+            {
                 /*config node <node-name> [no] nbrship interface <intf-name>*/
                 static param_t nbrship;
-                init_param(&nbrship, CMD, "nbrship", 0, 0, INVALID, 0, "nbrship");
+                init_param(&nbrship, CMD, "nmp", 0, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
                 libcli_register_param(&node_name, &nbrship);
                 {
                     static param_t interface;

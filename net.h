@@ -62,6 +62,7 @@ typedef struct arp_table_ arp_table_t;
 typedef struct mac_table_ mac_table_t;
 typedef struct rt_table_ rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
+typedef struct nmp_ nmp_t;
 
 typedef struct node_nw_prop_{
 
@@ -84,6 +85,9 @@ typedef struct node_nw_prop_{
 
     /*Sending Buffer*/
     char *send_buffer;
+
+    /*Device level Appln DS*/
+    nmp_t *nmp;
 } node_nw_prop_t;
 
 extern void init_arp_table(arp_table_t **arp_table);
@@ -130,6 +134,7 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 #include "WheelTimer/WheelTimer.h"
 
 typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
+typedef struct intf_nmp_ intf_nmp_t;
 
 typedef struct intf_nw_props_ {
 
@@ -142,15 +147,12 @@ typedef struct intf_nw_props_ {
     uint32_t vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
     bool_t is_ipadd_config_backup;
     ddcp_interface_prop_t *ddcp_interface_prop;
+    intf_nmp_t *nmp;
 
     /*L3 properties*/
     bool_t is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
-    glthread_t adjacency_list;
-
-    /*Miscellaneous properties*/
-    wheel_timer_elem_t *hellos;
 
     /*Interface Statistics*/
     uint32_t pkt_recv;
@@ -177,10 +179,6 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->is_ipadd_config = FALSE;
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
     intf_nw_props->mask = 0;
-    init_glthread(&intf_nw_props->adjacency_list);
-
-    /*Miscellaneous properties*/
-    intf_nw_props->hellos = NULL;
 
     /*Interface Statistics*/
     intf_nw_props->pkt_recv = 0;
