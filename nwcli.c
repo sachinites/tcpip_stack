@@ -38,6 +38,9 @@
 #include "WheelTimer/WheelTimer.h"
 #include <stdint.h>
 #include "Layer5/app_handlers.h"
+#include "BitOp/bitsop.h"
+#include "tcpip_app_register.h"
+
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -573,12 +576,24 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         printf("Error : Interface %s do not exist\n", interface->if_name);
         return -1;
     }
+    uint32_t if_change_flags = 0;
     switch(CMDCODE){
         case CMDCODE_CONF_INTF_UP_DOWN:
-            if(strncmp(if_up_down, "up", strlen("up")) == 0)
+            if(strncmp(if_up_down, "up", strlen("up")) == 0){
+                if(interface->intf_nw_props.is_up == FALSE){
+                    SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F); 
+                }
                 interface->intf_nw_props.is_up = TRUE;
-            else
+            }
+            else{
+                if(interface->intf_nw_props.is_up){
+                    SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F);
+                }
                 interface->intf_nw_props.is_up = FALSE;
+            }
+            if(IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
+                tcp_stack_notify_interface_change_config(interface, if_change_flags);
+            }
             break;
         case CMDCODE_INTF_CONFIG_L2_MODE:
             switch(enable_or_disable){
@@ -1012,6 +1027,7 @@ nw_init_cli(){
                     /*CLI for traceoptions at interface level are hooked up here in tree */
                     tcp_ip_traceoptions_cli(0, &if_name);
                     {
+                    #if 0
                         /*config node <node-name> interface <if-name> l2mode*/
                         static param_t l2_mode;
                         init_param(&l2_mode, CMD, "l2mode", 0, 0, INVALID, 0, "\"l2mode\" keyword");
@@ -1023,6 +1039,7 @@ nw_init_cli(){
                             libcli_register_param(&l2_mode, &l2_mode_val);
                             set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
                         }
+                    #endif
                     }
                     {
                         /*config node <node-name> interface <if-name> <up|down>*/
@@ -1033,6 +1050,7 @@ nw_init_cli(){
                     }
                 }
                 {
+                #if 0
                     /*config node <node-name> interface <if-name> vlan*/
                     static param_t vlan;
                     init_param(&vlan, CMD, "vlan", 0, 0, INVALID, 0, "\"vlan\" keyword");
@@ -1043,7 +1061,8 @@ nw_init_cli(){
                          init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
                          libcli_register_param(&vlan, &vlan_id);
                          set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
-                    }   
+                    }
+                #endif
                 }    
             }
             support_cmd_negation(&interface); 

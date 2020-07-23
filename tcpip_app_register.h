@@ -45,4 +45,14 @@ tcp_stack_invoke_app_print_callbacks(
 
 char *
 tcp_stack_get_print_str_protocol_number(uint32_t protocol_no);
+
+/*Interface Config Change Notification*/
+typedef void (*interface_listerner_cb)(interface_t *, uint32_t);
+
+void tcp_stack_register_interface_update_listener(
+        interface_listerner_cb intf_lsnr_cb);
+
+void
+tcp_stack_notify_interface_change_config(
+        interface_t *intf, uint32_t flags);
 #endif /* __TCPIP_REGISTER__ */

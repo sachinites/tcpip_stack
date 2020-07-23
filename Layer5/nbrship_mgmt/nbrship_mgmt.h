@@ -97,6 +97,7 @@ typedef struct adjacency_{
     char router_name[NODE_NAME_SIZE];
     char router_id[16]; /*key*/
     char nbr_ip[16];
+    mac_add_t nbr_mac;
     glthread_t glue;
     wheel_timer_elem_t *expiry_timer;
     time_t uptime;
@@ -138,5 +139,5 @@ adjacency_start_expiry_timer(interface_t *interface,
 #define TLV_NODE_NAME   10
 #define TLV_RTR_ID      20
 #define TLV_IF_IP       30
-
+#define TLV_IF_MAC      40
 #endif /* __NMP__ */

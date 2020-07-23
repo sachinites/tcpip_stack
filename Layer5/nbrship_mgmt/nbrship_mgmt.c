@@ -32,10 +32,11 @@ get_new_hello_pkt(node_t *node,
 
     char *temp = NULL;
     uint32_t eth_hdr_playload_size = 
-                (TLV_OVERHEAD_SIZE * 3) + /*There shall be three TLVs, hence 3 TLV overheads*/
+                (TLV_OVERHEAD_SIZE * 4) + /*There shall be four TLVs, hence 4 TLV overheads*/
                 NODE_NAME_SIZE +    /*Data length of TLV: TLV_NODE_NAME*/
                 16 +                /*Data length of TLV_RTR_NAME which is 16*/
-                16 ;                /*Data length of TLV_IF_IP which is 16*/
+                16 +                /*Data length of TLV_IF_IP which is 16*/
+                6;                  /*Data length of TLV_IF_MAC which is 6*/
 
     *pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field*/
                 eth_hdr_playload_size +
@@ -51,7 +52,8 @@ get_new_hello_pkt(node_t *node,
     temp = hello_payload->tlv_buff;
     temp = tlv_buffer_insert_tlv(temp, TLV_NODE_NAME, NODE_NAME_SIZE, node->node_name);
     temp = tlv_buffer_insert_tlv(temp, TLV_RTR_ID, 16, NODE_LO_ADDR(node));
-    temp = tlv_buffer_insert_tlv(temp, TLV_IF_IP, 16, IF_IP(interface));
+    temp = tlv_buffer_insert_tlv(temp, TLV_IF_IP,  16, IF_IP(interface));
+    temp = tlv_buffer_insert_tlv(temp, TLV_IF_MAC, 6,  IF_MAC(interface));
     ETH_FCS(hello_eth_hdr, eth_hdr_playload_size) = 0;
     return hello_eth_hdr;
 }
@@ -143,6 +145,9 @@ update_interface_adjacency_from_hello(interface_t *interface,
             case TLV_IF_IP:
                 memcpy(adjacency->nbr_ip, tlv_value, tlv_len);
             break;
+            case TLV_IF_MAC:
+                memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
+            break;
             default:    ;
         }
     } ITERATE_TLV_END(tlv_buff, tlv_type, tlv_len, tlv_value, tlv_buff_size);
@@ -219,10 +224,16 @@ dump_interface_adjacencies(interface_t *interface){
         
         adjacency = glthread_to_adjacency(curr);
         printf("\t Adjacency : Nbr Name : %s, Router id : %s,"
-               " nbr ip : %s, Expires in : %d sec, uptime = %s\n",
+               " nbr ip : %s,\n\t\t nbr mac : %02x:%02x:%02x:%02x:%02x:%02x, Expires in : %d sec, uptime = %s\n",
                 adjacency->router_name, 
                 adjacency->router_id, 
                 adjacency->nbr_ip, 
+                adjacency->nbr_mac.mac[0],
+                adjacency->nbr_mac.mac[1],
+                adjacency->nbr_mac.mac[2],
+                adjacency->nbr_mac.mac[3],
+                adjacency->nbr_mac.mac[4],
+                adjacency->nbr_mac.mac[5],
                 wt_get_remaining_time(GET_NODE_TIMER_INSTANCE(interface->att_node),
                 adjacency->expiry_timer),
                 hrs_min_sec_format(
@@ -621,6 +632,12 @@ print_hello_pkt(char *buff, char *pkt,
     return rc;
 }
 
+static void
+nmp_interface_update(interface_t *intf, uint32_t flags){
+
+    printf("%s called for interface %s, flags = 0x%x\n", __FUNCTION__,
+            intf->if_name, flags);
+}
 
 void
 init_nbrship_mgmt(){
@@ -632,5 +649,7 @@ init_nbrship_mgmt(){
 
     tcp_stack_register_print_callback(HELLO_MSG_CODE, 
             "HELLO_MSG_CODE", print_hello_pkt);
+
+    tcp_stack_register_interface_update_listener(nmp_interface_update);
 }
 
