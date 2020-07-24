@@ -124,21 +124,6 @@ typedef struct l3_route_{
 } l3_route_t;
 GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
 
-static inline bool_t
-is_ecmp_route(l3_route_t *l3_route){
-
-    int i = 0;
-    int nexhop_cnt = 0;
-
-    for( ; i < MAX_NXT_HOPS; i++){
-        if(l3_route->nexthops[i])
-            nexhop_cnt++;
-    }
-    if(nexhop_cnt)
-        return TRUE;
-    return FALSE;
-}
-
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route);
 

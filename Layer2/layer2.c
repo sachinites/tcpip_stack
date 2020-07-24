@@ -101,7 +101,7 @@ send_arp_broadcast_request(node_t *node,
     uint32_t payload_size = sizeof(arp_hdr_t);
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(1, 
-                ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE);
+                ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
 
     if(!oif){
         oif = node_get_matching_subnet_interface(node, ip_addr);
@@ -144,7 +144,7 @@ send_arp_broadcast_request(node_t *node,
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
     send_pkt_out((char *)ethernet_hdr, 
-            ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size + ETH_FCS_SIZE, oif);
+            ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size, oif);
 
     free(ethernet_hdr);
 }
@@ -179,7 +179,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
   
     SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
 
-    uint32_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(arp_hdr_t) + ETH_FCS_SIZE;
+    uint32_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(arp_hdr_t);
 
     char *shifted_pkt_buffer = pkt_buffer_shift_right((char *)ethernet_hdr_reply, 
                                total_pkt_size, MAX_PACKET_BUFFER_SIZE);
@@ -367,7 +367,7 @@ pending_arp_processing_callback_function(node_t *node,
     memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
     SET_COMMON_ETH_FCS(ethernet_hdr, 
-        pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE, 0);
+        pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
     send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 }
 
@@ -639,7 +639,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
     uint32_t ethernet_payload_size = 
-        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE;
+        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
 
     next_hop_ip = htonl(next_hop_ip);
     inet_ntop(AF_INET, &next_hop_ip, next_hop_ip_str, 16);
@@ -704,7 +704,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
         !include_data_link_hdr ? GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr) : \
          (char *)ethernet_hdr,
          !include_data_link_hdr ? 
-         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE : \
+         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr): \
          pkt_size,
          ethernet_hdr->type, include_data_link_hdr ? DATA_LINK_HDR_INCLUDED : 0);
          return;
@@ -760,8 +760,7 @@ demote_pkt_to_layer2(node_t *node, /*Current node*/
 
                 l2_forward_ip_packet(node, next_hop_ip, 
                         outgoing_intf, empty_ethernet_hdr, 
-                        pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD + 
-                        ETH_FCS_SIZE);
+                        pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD); 
             }
         break;
         default:
@@ -860,7 +859,7 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
 
     
     if(vlan_8021q_hdr){
-        payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE;
+        payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
         vlan_8021q_hdr->tci_vid = (short)vlan_id;
         
         /*Update checksum, however not used*/
@@ -877,9 +876,9 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
      memory*/
     ethernet_hdr_t ethernet_hdr_old;
     memcpy((char *)&ethernet_hdr_old, (char *)ethernet_hdr, 
-                ETH_HDR_SIZE_EXCL_PAYLOAD);
+                ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
 
-    payload_size = total_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE; 
+    payload_size = total_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD; 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
             (vlan_ethernet_hdr_t *)((char *)ethernet_hdr - sizeof(vlan_8021q_hdr_t));
 
@@ -929,7 +928,7 @@ untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
       memory*/
     vlan_ethernet_hdr_t vlan_ethernet_hdr_old;
     memcpy((char *)&vlan_ethernet_hdr_old, (char *)ethernet_hdr, 
-                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD);
+                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
 
     ethernet_hdr = (ethernet_hdr_t *)((char *)ethernet_hdr + sizeof(vlan_8021q_hdr_t));
    
@@ -939,7 +938,7 @@ untag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     ethernet_hdr->type = vlan_ethernet_hdr_old.type;
     
     /*No need to copy data*/
-    uint32_t payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE;
+    uint32_t payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
 
     /*Update checksum, however not used*/
     SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
@@ -993,7 +992,7 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                     !include_data_link_hdr ? GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr) : \
                     (char *)ethernet_hdr,
                     !include_data_link_hdr ? 
-                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE : \
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) : \
                     pkt_size,
                     ethernet_hdr->type,
                     include_data_link_hdr ? DATA_LINK_HDR_INCLUDED : 0);
@@ -1004,7 +1003,7 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                     !include_data_link_hdr ? GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr) : \
                     (char *)ethernet_hdr,
                     !include_data_link_hdr ? 
-                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) - ETH_FCS_SIZE : \
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr) : \
                     pkt_size,
                     ethernet_hdr->type,
                     include_data_link_hdr ? DATA_LINK_HDR_INCLUDED : 0);

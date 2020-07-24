@@ -38,9 +38,8 @@ get_new_hello_pkt(node_t *node,
                 16 +                /*Data length of TLV_IF_IP which is 16*/
                 6;                  /*Data length of TLV_IF_MAC which is 6*/
 
-    *pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field*/
-                eth_hdr_playload_size +
-                ETH_FCS_SIZE;               /*Size of FCS which is 4B*/
+    *pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
+                eth_hdr_playload_size;
 
     ethernet_hdr_t *hello_eth_hdr = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(*pkt_size);
 
@@ -181,7 +180,7 @@ process_hello_msg(node_t *node, interface_t *iif,
 
     hello_t *hello = (hello_t *)GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
 
-    uint32_t tlv_buff_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE; 
+    uint32_t tlv_buff_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD; 
 
     /*Fetch the IF IP Address Value from TLV buffer*/
     char *if_ip_addr = tlv_buffer_get_particular_tlv(

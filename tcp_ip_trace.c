@@ -167,8 +167,7 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
     int rc = 0;
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
 
-    uint32_t payload_size = pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr) \
-                            - ETH_FCS_SIZE;
+    uint32_t payload_size = pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
 
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
 
