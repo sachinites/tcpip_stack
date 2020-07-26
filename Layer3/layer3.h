@@ -119,6 +119,7 @@ typedef struct l3_route_{
     char mask;      /*key*/
     bool_t is_direct;    /*if set to True, then gw_ip and oif has no meaning*/
     nexthop_t *nexthops[MAX_NXT_HOPS];
+    uint32_t spf_metric;
     int nxthop_idx;
     glthread_t rt_glue;
 } l3_route_t;
@@ -144,7 +145,8 @@ delete_rt_table_entry(rt_table_t *rt_table, char *ip_addr, char mask);
 void
 rt_table_add_route(rt_table_t *rt_table, 
                    char *dst, char mask,
-                   char *gw, interface_t *oif);
+                   char *gw, interface_t *oif,
+                   uint32_t spf_metric);
 
 void
 rt_table_add_direct_route(rt_table_t *rt_table,

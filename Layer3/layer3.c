@@ -428,12 +428,12 @@ dump_rt_table(rt_table_t *rt_table){
         count++;
         if(l3_route->is_direct){
             if(count != 1){
-                printf("\t|===================|=======|====================|==============|\n");
+                printf("\t|===================|=======|====================|==============|==========|\n");
             }
             else{
-                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|\n");
+                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|\n");
             }
-            printf("\t|%-18s |  %-4d | %-18s | %-12s |\n", 
+            printf("\t|%-18s |  %-4d | %-18s | %-12s |          |\n", 
                     l3_route->dest, l3_route->mask, "NA", "NA");
             continue;
         }
@@ -442,25 +442,25 @@ dump_rt_table(rt_table_t *rt_table){
             if(l3_route->nexthops[i]){
                 if(i == 0){
                     if(count != 1){
-                        printf("\t|===================|=======|====================|==============|\n");
+                        printf("\t|===================|=======|====================|==============|==========|\n");
                     }
                     else{
-                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|\n");
+                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|\n");
                     }
-                    printf("\t|%-18s |  %-4d | %-18s | %-12s |\n", 
+                    printf("\t|%-18s |  %-4d | %-18s | %-12s |  %-4u    |\n", 
                             l3_route->dest, l3_route->mask,
                             l3_route->nexthops[i]->gw_ip, 
-                            l3_route->nexthops[i]->oif->if_name);
+                            l3_route->nexthops[i]->oif->if_name, l3_route->spf_metric);
                 }
                 else{
-                    printf("\t|                   |       | %-18s | %-12s |\n", 
+                    printf("\t|                   |       | %-18s | %-12s |          |\n", 
                             l3_route->nexthops[i]->gw_ip, 
                             l3_route->nexthops[i]->oif->if_name);
                 }
             }
         }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
-    printf("\t|===================|=======|====================|==============|\n");
+    printf("\t|===================|=======|====================|==============|==========|\n");
 }
 
 static bool_t
@@ -475,13 +475,14 @@ void
 rt_table_add_direct_route(rt_table_t *rt_table,
                           char *dst, char mask){
 
-    rt_table_add_route(rt_table, dst, mask, 0, 0);
+    rt_table_add_route(rt_table, dst, mask, 0, 0, 0);
 }
 
 void
 rt_table_add_route(rt_table_t *rt_table,
                    char *dst, char mask,
-                   char *gw, interface_t *oif){
+                   char *gw, interface_t *oif,
+                   uint32_t spf_metric){
 
    uint32_t dst_int;
    char dst_str_with_mask[16];
@@ -510,7 +511,8 @@ rt_table_add_route(rt_table_t *rt_table,
 
            if(l3_route->nexthops[i]){
                 if(strncmp(l3_route->nexthops[i]->gw_ip, gw, 16) == 0 && 
-                    l3_route->nexthops[i]->oif == oif){
+                    l3_route->nexthops[i]->oif == oif && 
+                    l3_route->spf_metric == spf_metric){
                     printf("Error : Attempt to Add Duplicate Route\n");
                     return;
                 }
@@ -529,6 +531,7 @@ rt_table_add_route(rt_table_t *rt_table,
         nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
         l3_route->nexthops[i] = nexthop;
         l3_route->is_direct = FALSE;
+        l3_route->spf_metric = spf_metric;
         nexthop->ref_count++;
         strncpy(nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';

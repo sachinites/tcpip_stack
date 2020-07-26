@@ -1,7 +1,9 @@
 # tcpip_stack
 Implement your own TCP IP Stack
 
-In this course, We shall be implementing a TCP/IP Stack demo through 7 Networking Projects. All Below Projects should be done in the same sequence as listed.
+In this course, We shall be implementing a TCP/IP Stack demo through 5 Networking Projects. All Below Projects should be done in the same sequence as listed.
+
+Visit : www.csepracticals.com for more projects and courses.
 
 Project 1 : Build a MultiNode Topology Emulation of Routers and Switches
 

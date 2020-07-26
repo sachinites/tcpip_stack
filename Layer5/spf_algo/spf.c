@@ -267,7 +267,8 @@ spf_install_routes(node_t *spf_root){
             nexthop = spf_result->nexthops[i];
             if(!nexthop) continue;
             rt_table_add_route(rt_table, NODE_LO_ADDR(spf_result->node), 32, 
-                    nexthop->gw_ip, nexthop->oif);
+                    nexthop->gw_ip, nexthop->oif, 
+                    spf_result->spf_metric);
             count++;
         }
     } ITERATE_GLTHREAD_END(&spf_root->spf_data->spf_result_head, curr);
@@ -433,6 +434,9 @@ compute_spf(node_t *spf_root){
             printf("root : %s : Event : For Node %s , Processing nbr %s\n",
                     spf_root->node_name, curr_spf_data->node->node_name, 
                     nbr->node_name);
+
+            if(!is_interface_l3_bidirectional(oif)) continue;
+
             printf("root : %s : Event : Testing Inequality : " 
                     " spf_metric(%s, %u) + link cost(%u) < spf_metric(%s, %u)\n",
                     spf_root->node_name, curr_spf_data->node->node_name, 
@@ -501,18 +505,19 @@ compute_spf(node_t *spf_root){
             }
             /*Step 6.2 : End*/
         } ITERATE_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
-        /*Step 6 : End*/
-        /*We are done processing the curr_node, remove its nexthops to lower the
-         * ref count*/
-        spf_flush_nexthops(curr_spf_data->nexthops);
+        
         #if SPF_LOGGING
-        printf("root : %s : Event : Node %s has been processed, nexthops %s",
+        printf("root : %s : Event : Node %s has been processed, nexthops %s\n",
                 spf_root->node_name, curr_spf_data->node->node_name, 
                 nexthops_str(curr_spf_data->nexthops));
         #endif
+        /*Step 6 : End*/
+        /* We are done processing the curr_node, remove its nexthops to lower the
+         * ref count*/
+        spf_flush_nexthops(curr_spf_data->nexthops);
     }
     /*Step 7 : Begin*/
-    /*Calculate final  outing table from spf result of spf_root*/
+    /*Calculate final routing table from spf result of spf_root*/
     int count = spf_install_routes(spf_root);
     /*Step 7 : End*/
     #if SPF_LOGGING
@@ -603,4 +608,28 @@ compute_spf_all_routers(graph_t *topo){
         node_t *node = graph_glue_to_node(curr);
         compute_spf(node);
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
+}
+
+static void
+spf_algo_interface_update(interface_t *intf, uint32_t flags){
+
+    /*Run spf if interface is transition to up/down*/
+    bool_t run_spf = FALSE;
+
+    if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F))
+        run_spf = TRUE;
+
+    if(run_spf){
+        /* Run spf on all nodes of topo, not just 
+         * the node on which interface is made up/down
+         * otherwise it may lead to L3 loops*/
+        compute_spf_all_routers(topo);
+    }
+}
+
+void
+init_spf_algo(){
+    
+    compute_spf_all_routers(topo);
+    tcp_stack_register_interface_update_listener(spf_algo_interface_update);
 }

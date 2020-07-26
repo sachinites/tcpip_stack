@@ -213,13 +213,11 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size, tab_count + 1);
             break;
-        case HELLO_MSG_CODE:
+        default:
             rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
                     type, buff + rc, (char *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size, tab_count + 1);
             break;
-        default:
-            ;
     }
     return rc;
 }
@@ -234,6 +232,7 @@ tcp_write_data(int sock_fd,
 
     assert(out_buff);
 
+#if 0
     if(buff_size > TCP_PRINT_BUFFER_SIZE){
         memset(error_msg, 0, sizeof(error_msg));
         rc  = sprintf(error_msg , "Error : Insufficient size TCP Print Buffer\n");
@@ -243,6 +242,7 @@ tcp_write_data(int sock_fd,
         write(sock_fd, error_msg, rc);
         return;
     }
+#endif
 
     if(log_file1){
         rc = fwrite(out_buff, sizeof(char), buff_size, log_file1);
