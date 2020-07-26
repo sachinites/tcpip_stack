@@ -48,7 +48,7 @@ dump_all_commands(param_t *root, unsigned int index){
         }
         else if(IS_PARAM_LEAF(root)){
             untokenize(index);
-            memset(temp, 0, LEAF_VALUE_HOLDER_SIZE + 2);
+            memset(temp, 0, sizeof(temp));
             sprintf(temp, "<%s>", GET_LEAF_ID(root));
             tokenize(temp, strlen(GET_LEAF_ID(root)) + 2, index);
         }
