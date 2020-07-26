@@ -9,7 +9,7 @@
 #include "tcpip_app_register.h"
 
 
-#define TCP_PRINT_BUFFER_SIZE   2048
+#define TCP_PRINT_BUFFER_SIZE   1024
 
 extern graph_t *topo;
 
@@ -340,6 +340,31 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
 }
 
 void
+tcp_dump_l3_fwding_logger(node_t *node,
+            char *oif_name, char *gw_ip){
+
+    int rc = 0;
+
+    if(!node->log_info.l3_fwd)
+        return;
+
+    int sock_fd = topo->gstdout && node->log_info.is_stdout ?
+                    STDOUT_FILENO : -1 ;
+    FILE *log_file1 = (node->log_info.all || node->log_info.l3_fwd) ?
+             node->log_info.log_file : NULL;
+     
+    if(sock_fd == -1 && !log_file1)
+        return;
+
+    init_tcp_print_buffer();
+    
+    rc = sprintf(tcp_print_buffer, "L3 Fwd : (%s)%s --> %s", 
+            node->node_name, oif_name, gw_ip);
+
+    tcp_write_data(sock_fd, log_file1, NULL, tcp_print_buffer, rc); 
+}
+
+void
 tcp_dump_send_logger(node_t *node, interface_t *intf,
               char *pkt, uint32_t pkt_size,
               hdr_type_t hdr_type){
@@ -427,6 +452,7 @@ tcp_ip_init_node_log_info(node_t *node){
     log_info->recv = FALSE;
     log_info->send = FALSE;
     log_info->is_stdout = FALSE;
+    log_info->l3_fwd = FALSE;
     log_info->log_file = initialize_node_log_file(node); 
 }
 
@@ -436,6 +462,7 @@ tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status){
     log_info->all   = status;
     log_info->recv  = status;
     log_info->send  = status;
+    log_info->l3_fwd = status;
     /*User should explicitely enabled stdout*/
     //log_info->is_stdout = status;
 }
@@ -458,6 +485,7 @@ static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){
     printf(" : recv | no-recv\n");
     printf(" : send | no-send\n");
     printf(" : stdout | no-stdout\n");
+    printf(" : l3-fwd | no-l3-fwd\n");
 }
 
 int
@@ -473,7 +501,9 @@ validate_flag_values(char *value){
         (strncmp(value, "send",     k = strlen("send"))      ==   0   && k  == len)          ||
         (strncmp(value, "no-send",  k = strlen("no-send"))   ==   0   && k  == len)          ||
         (strncmp(value, "stdout",   k = strlen("stdout"))    ==   0   && k  == len)          ||
-        (strncmp(value, "no-stdout",k = strlen("no-stdout")) ==   0   && k  == len)){
+        (strncmp(value, "no-stdout",k = strlen("no-stdout")) ==   0   && k  == len)          ||
+        (strncmp(value, "l3-fwd",   k = strlen("l3-fwd"))    ==   0   && k  == len)          ||
+        (strncmp(value, "no-l3-fwd",k = strlen("no-l3-fwd")) ==   0   && k  == len)){
         return VALIDATION_SUCCESS;
     }
     return VALIDATION_FAILED;
@@ -492,6 +522,7 @@ void tcp_ip_show_log_status(node_t *node){
     printf("\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
     printf("\tsend    : %s\n", log_info->send ? "ON" : "OFF");
     printf("\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
+    printf("\tl3_fwd  : %s\n", log_info->l3_fwd ? "ON" : "OFF");
 
     for( ; i < MAX_INTF_PER_NODE; i++){
         intf = node->intf[i];
@@ -595,6 +626,12 @@ int traceoptions_handler(param_t *param,
         else if(strcmp(flag_val, "no-stdout") == 0){
             log_info->is_stdout = FALSE;
         }
+        else if(strcmp(flag_val, "l3-fwd") == 0){
+            log_info->l3_fwd = TRUE;
+        }
+        else if(strcmp(flag_val, "no-l3-fwd") == 0){
+            log_info->l3_fwd = FALSE;
+        }
     }
     else if(CMDCODE == CMDCODE_DEBUG_SHOW_LOG_STATUS){
         tcp_ip_show_log_status(node);
@@ -617,7 +654,7 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
             {
                 static param_t flag_val;
                 init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
-                    "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>");
+                    "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout | l3-fwd | no-l3-fwd>");
                 libcli_register_param(&flag, &flag_val);
                 set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_NODE);
             }

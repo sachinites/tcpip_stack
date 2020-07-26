@@ -48,6 +48,7 @@ typedef struct log_{
     bool_t recv;
     bool_t send;
     bool_t is_stdout;
+    bool_t l3_fwd;
     FILE *log_file;
 } log_t;
 
@@ -65,4 +66,5 @@ void tcp_ip_init_node_log_info(node_t *node);
 void tcp_ip_init_intf_log_info(interface_t *intf);
 void tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status);
 void tcp_ip_show_log_status(node_t *node);
+void tcp_dump_l3_fwding_logger(node_t *node, char *oif_name, char *gw_ip);
 #endif /* __TCP_IP_TRACE__ */

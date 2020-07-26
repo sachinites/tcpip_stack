@@ -367,20 +367,34 @@ static void
 nbrship_print_hello_stats(node_t *node){
 
     int i = 0;
+    int count = 0;
     intf_nmp_t *intf_nmp;
     interface_t *interface;
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
-        interface = node->intf[i];
+    ITERATE_NODE_INTERFACES_BEGIN(node, interface){
+        
         if(!interface || !NMP_GET_INTF_NMPDS(interface)) continue;
+
         intf_nmp = NMP_GET_INTF_NMPDS(interface);
-        printf("%-16s  NMP Hello Rx : %6u    NMP Hello Tx : %-6u"
-        "   NMP Bad Hello Rx : %-6u\n",
-            interface->if_name,
-            intf_nmp->recvd, intf_nmp->sent,
-            intf_nmp->bad_hellos);
+
+        count++;
+
+        if(count == 1){
+            printf("\t|====intf=====|==Hello-RX==|==Hello-TX==|==Bad-Hello-RX==|\n");
+        }
+        else{
+            printf("\t|=============|============|============|=================|\n");
+        }
+
+        printf("\t| %-12s|   %-6u   |    %-6u  |    %-6u      |\n",
+            interface->if_name, intf_nmp->recvd, intf_nmp->sent, intf_nmp->bad_hellos);
+
+    } ITERATE_NODE_INTERFACES_END(node, interface);
+    if(count){
+        printf("\t|=============|============|============|================|\n");
     }
 }
+
 static void
 nbrship_mgmt_activate_nmp_on_interface(interface_t *intf){
 
@@ -610,7 +624,7 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
 }
 
 static int
-print_hello_pkt(char *buff, char *pkt, 
+nmp_print_hello_pkt(char *buff, char *pkt, 
                 uint32_t pkt_size, 
                 int tab_count){
 
@@ -623,7 +637,17 @@ print_hello_pkt(char *buff, char *pkt,
 
     ITERATE_TLV_BEGIN(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size){
 
-        rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
+        switch(tlv_type){
+            case TLV_IF_MAC:
+                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ", 
+                    tlv_type, tlv_len, 
+                    tlv_value[0], tlv_value[1], tlv_value[2],
+                    tlv_value[3], tlv_value[4], tlv_value[5]);
+            break;
+            default:
+                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
+            break;
+        }
 
     } ITERATE_TLV_END(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size);
     
@@ -647,7 +671,7 @@ init_nbrship_mgmt(){
     tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(HELLO_MSG_CODE);
 
     tcp_stack_register_print_callback(HELLO_MSG_CODE, 
-            "HELLO_MSG_CODE", print_hello_pkt);
+            "HELLO_MSG_CODE", nmp_print_hello_pkt);
 
     tcp_stack_register_interface_update_listener(nmp_interface_update);
 }

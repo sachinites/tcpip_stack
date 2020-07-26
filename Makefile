@@ -18,7 +18,7 @@ OBJS=gluethread/glthread.o \
           WheelTimer/WheelTimer.o   \
           Layer5/nbrship_mgmt/nbrship_mgmt.o \
 		  Layer5/ddcp/ddcp.o \
-		  Layer3/spf.o 		 \
+		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
 		  tcp_ip_trace.o	\
 		  tcpip_app_register.c
@@ -71,8 +71,8 @@ Layer2/l2switch.o:Layer2/l2switch.c
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
 
-Layer3/spf.o:Layer3/spf.c
-	${CC} ${CFLAGS} -c -I . Layer3/spf.c -o Layer3/spf.o
+Layer5/spf_algo/spf.o:Layer5/spf_algo/spf.c
+	${CC} ${CFLAGS} -c -I . Layer5/spf_algo/spf.c -o Layer5/spf_algo/spf.o
 
 Layer4/layer4.o:Layer4/layer4.c
 	${CC} ${CFLAGS} -c -I . Layer4/layer4.c -o Layer4/layer4.o
@@ -101,6 +101,7 @@ clean:
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
 	rm -f Layer5/ddcp/*.o
+	rm -f Layer5/spf_algo/*.o
 	rm -f WheelTimer/WheelTimer.o
 	rm -f Layer5/nbrship_mgmt/*.o
 all:
