@@ -33,13 +33,14 @@
 #ifndef __NET__
 #define __NET__
 
-#include "utils.h"
-#include <memory.h>
-#include "WheelTimer/WheelTimer.h"
 #include <stdlib.h>
-#include "comm.h"
+#include <memory.h>
 #include <stdint.h>
+#include "utils.h"
+#include "WheelTimer/WheelTimer.h"
+#include "comm.h"
 #include "tcpconst.h"
+#include "tcp_ip_trace.h"
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -84,7 +85,8 @@ typedef struct node_nw_prop_{
     wheel_timer_t *wt;
 
     /*Sending Buffer*/
-    char *send_buffer;
+    char *send_buffer; /*Used to send out pkts*/
+    char *send_log_buffer; /*Used for logging */
 
     /*Device level Appln DS*/
     nmp_t *nmp;
@@ -108,6 +110,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     node_nw_prop->wt = init_wheel_timer(60, 1);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_buffer = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
 }
 
 typedef enum{

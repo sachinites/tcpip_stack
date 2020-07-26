@@ -282,7 +282,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
     next_hop_ip = htonl(next_hop_ip);
    
     tcp_dump_l3_fwding_logger(node, 
-        nexthop->oif->if_name, nexthop->gw_ip,);
+        nexthop->oif->if_name, nexthop->gw_ip);
 
     demote_pkt_to_layer2(node, 
             next_hop_ip,
@@ -643,6 +643,9 @@ demote_packet_to_layer3(node_t *node,
     
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
+
+    tcp_dump_l3_fwding_logger(node,
+        nexthop->oif->if_name, nexthop->gw_ip);
 
     demote_pkt_to_layer2(node,
             next_hop_ip,

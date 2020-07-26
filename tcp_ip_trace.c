@@ -8,16 +8,17 @@
 #include "gluethread/glthread.h"
 #include "tcpip_app_register.h"
 
-
-#define TCP_PRINT_BUFFER_SIZE   1024
-
 extern graph_t *topo;
 
-static char tcp_print_buffer[TCP_PRINT_BUFFER_SIZE];
+/* A buffer used to store the data to be written into
+ * logging files when pkt is receieved. For writing a
+ * data into logging files for pkt sentm we use node
+ * specific send_log_buffer*/
+static char tcp_print_recv_buffer[TCP_PRINT_BUFFER_SIZE];
 static char string_buffer[32];
 
-static void init_tcp_print_buffer(){
-    memset(tcp_print_buffer, 0, sizeof(tcp_print_buffer));
+static void init_tcp_print_recv_buffer(){
+    memset(tcp_print_recv_buffer, 0, sizeof(tcp_print_recv_buffer));
 }
 
 static void init_string_buffer(){
@@ -323,9 +324,9 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
             return;
         }
 
-        init_tcp_print_buffer();
+        init_tcp_print_recv_buffer();
     
-        rc = sprintf(tcp_print_buffer, "\n%s(%s) <-- \n", 
+        rc = sprintf(tcp_print_recv_buffer, "\n%s(%s) <-- \n", 
                 node->node_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
@@ -333,7 +334,7 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
                  log_file2,                /*Write the log to the interface log file*/
                  pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
-                 tcp_print_buffer,         /*Buffer into which the formatted output is to be written*/
+                 tcp_print_recv_buffer,         /*Buffer into which the formatted output is to be written*/
                  rc,                       /*write offset*/
                  TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
     }
@@ -356,12 +357,14 @@ tcp_dump_l3_fwding_logger(node_t *node,
     if(sock_fd == -1 && !log_file1)
         return;
 
-    init_tcp_print_buffer();
+    tcp_init_send_logging_buffer(node);
     
-    rc = sprintf(tcp_print_buffer, "L3 Fwd : (%s)%s --> %s", 
+    rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node), 
+            "L3 Fwd : (%s)%s --> %s\n", 
             node->node_name, oif_name, gw_ip);
 
-    tcp_write_data(sock_fd, log_file1, NULL, tcp_print_buffer, rc); 
+    tcp_write_data(sock_fd, log_file1, NULL, 
+        TCP_GET_NODE_SEND_LOG_BUFFER(node), rc); 
 }
 
 void
@@ -370,6 +373,7 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
               hdr_type_t hdr_type){
 
     int rc = 0;
+
     if(node->log_info.all || 
          node->log_info.send ||
          intf->log_info.send){
@@ -387,9 +391,10 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
             return;
         }
 
-        init_tcp_print_buffer();
+        tcp_init_send_logging_buffer(node);
         
-        rc = sprintf(tcp_print_buffer, "\n%s(%s) --> \n", 
+        rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node),
+                "\n%s(%s) --> \n", 
                 node->node_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
@@ -397,7 +402,7 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
                  log_file2,                /*Write the log to the interface log file*/
                  pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
-                 tcp_print_buffer,         /*Buffer into which the formatted output is to be written*/
+                 TCP_GET_NODE_SEND_LOG_BUFFER(node),    /*Buffer into which the formatted output is to be written*/
                  rc,                       /*write offset*/
                  TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
     }
@@ -699,3 +704,8 @@ extern void tcp_ip_traceoptions_cli(param_t *node_name_param,
     }
 }
 
+void
+tcp_init_send_logging_buffer(node_t *node){
+
+    memset(TCP_GET_NODE_SEND_LOG_BUFFER(node), 0, TCP_PRINT_BUFFER_SIZE);
+}

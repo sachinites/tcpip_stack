@@ -658,8 +658,10 @@ nmp_print_hello_pkt(char *buff, char *pkt,
 static void
 nmp_interface_update(interface_t *intf, uint32_t flags){
 
+#if 0
     printf("%s called for interface %s, flags = 0x%x\n", __FUNCTION__,
             intf->if_name, flags);
+#endif
 }
 
 void
