@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g
-TARGET:tcpstack.exe CommandParser/libcli.a
+TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe
 LIBS=-lpthread -L ./CommandParser -lcli
 OBJS=gluethread/glthread.o \
 		  Tree/redblack.o  \
@@ -21,7 +21,13 @@ OBJS=gluethread/glthread.o \
 		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
 		  tcp_ip_trace.o	\
-		  tcpip_app_register.c
+		  tcpip_app_register.o
+
+pkt_gen.exe:pkt_gen.o
+	${CC} ${CFLAGS} -I Layer3/layer3.h -I Layer2/layer2.h -I utils.h pkt_gen.o utils.o -o pkt_gen.exe
+
+pkt_gen.o:pkt_gen.c
+	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
 tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}

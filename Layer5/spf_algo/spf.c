@@ -434,9 +434,10 @@ compute_spf(node_t *spf_root){
             printf("root : %s : Event : For Node %s , Processing nbr %s\n",
                     spf_root->node_name, curr_spf_data->node->node_name, 
                     nbr->node_name);
-
+            #endif
             if(!is_interface_l3_bidirectional(oif)) continue;
 
+            #if SPF_LOGGING
             printf("root : %s : Event : Testing Inequality : " 
                     " spf_metric(%s, %u) + link cost(%u) < spf_metric(%s, %u)\n",
                     spf_root->node_name, curr_spf_data->node->node_name, 
