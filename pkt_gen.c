@@ -2,15 +2,15 @@
  * stack infrastructure . You just need to set the value of
  * below 3 constants, recompile and run this program. This program
  * is a separate executable and is not part if TCP/IP stack framework.
- * to run this program : ./pkt_gen.exe
+ * To compile this program, simply run Makefile of the TCP/IP Stack.
+ * To run this program : ./pkt_gen.exe
  * */
 
 /* Usage : Suppose you want to send the IP traffic from
  * Node S to node D, then set the below constants as follows */
-#define SRC_NODE_UDP_PORT_NO    40000   /*UDP port no of node S, use show topology cmd to know the udp port numbers*/
-#define INGRESS_INTF_NAME       "eth7"  /*Any existing interface of the device. If this interface is working in L2 mode and configured with Vlan, 
-                                          then you need to modify ethernet hdr in this program to tag the pkt with same vlan id*/
-#define DEST_IP_ADDR            "122.1.1.3" /*Destination IP Address of the Remote node of the topology*/
+#define SRC_NODE_UDP_PORT_NO    40000       /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
+#define INGRESS_INTF_NAME       "eth7"      /*Specify Any existing interface of the node S.*/ 
+#define DEST_IP_ADDR            "122.1.1.3" /*Destination IP Address of the Remote node D of the topology*/
 
 
 /* Set above three params as per the topology you are running. You
@@ -80,6 +80,7 @@ main(int argc, char **argv){
 
     /*Prepare ethernet hdr*/
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer + IF_NAME_SIZE);
+    /*Dont bother about MAC addresses, just fill them with broadcast mac*/
     layer2_fill_with_broadcast_mac(eth_hdr->src_mac.mac);
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
 
