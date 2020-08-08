@@ -30,8 +30,6 @@
  * =====================================================================================
  */
 
-#include "comm.h"
-#include "graph.h"
 #include <sys/socket.h>
 #include <pthread.h>
 #include <netinet/in.h>
@@ -39,9 +37,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <netdb.h> /*for struct hostent*/
-#include "net.h"
 #include <unistd.h> // for close
+#include <netdb.h>  /*for struct hostent*/
+#include "comm.h"
+#include "graph.h"
+#include "net.h"
 
 static int
 _send_pkt_out(int sock_fd, char *pkt_data, uint32_t pkt_size, 
@@ -233,7 +233,8 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
                         dst_udp_port_no);
 
     if(rc > 0){
-        tcp_dump_send_logger(sending_node, interface, pkt, pkt_size, ETH_HDR);
+        tcp_dump_send_logger(sending_node, interface, 
+            pkt_with_aux_data + IF_NAME_SIZE, pkt_size, ETH_HDR);
     }
     close(sock);
     return rc; 
@@ -291,7 +292,12 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     close(sock);
     if(rc > 0){
         interface->intf_nw_props.pkt_sent++;
-        tcp_dump_send_logger(sending_node, interface, pkt, pkt_size, ETH_HDR);
+        tcp_dump_send_logger(sending_node, interface, 
+            pkt_with_aux_data + IF_NAME_SIZE, pkt_size, ETH_HDR);
+    }
+    else{
+        printf("Error : pkt send failed on node %s, error code = %d\n", 
+            sending_node->node_name, errno);
     }
     return rc; 
 }
@@ -304,12 +310,15 @@ int
 pkt_receive(node_t *node, interface_t *interface,
             char *pkt, uint32_t pkt_size){
 
+    tcp_dump_recv_logger(node, interface, 
+            (char *)pkt, pkt_size, ETH_HDR);
+    
     /*Make room in the packet buffer by shifting the data towards
       right so that tcp/ip stack can append more hdrs to the packet 
       as required */
     pkt = pkt_buffer_shift_right(pkt, pkt_size, 
             MAX_PACKET_BUFFER_SIZE - IF_NAME_SIZE);
-
+    
     /*Do further processing of the pkt here*/
     layer2_frame_recv(node, interface, pkt, pkt_size );
     return 0;

@@ -13,7 +13,8 @@ typedef struct tcp_app_cb_info_{
     app_layer_cb app_cb;
     glthread_t glue;
 } tcp_app_cb_info_t;
-GLTHREAD_TO_STRUCT(glue_to_tcp_app_cb_info, tcp_app_cb_info_t, glue);
+GLTHREAD_TO_STRUCT(glue_to_tcp_app_cb_info, 
+    tcp_app_cb_info_t, glue);
 
 typedef struct tcp_app_print_cb_info_{
 
@@ -22,7 +23,8 @@ typedef struct tcp_app_print_cb_info_{
     app_print_pkt_cb app_print_cb;
     glthread_t glue;
 } tcp_app_print_cb_info_t;
-GLTHREAD_TO_STRUCT(glue_to_tcp_app_print_cb_info, tcp_app_print_cb_info_t, glue);
+GLTHREAD_TO_STRUCT(glue_to_tcp_app_print_cb_info, 
+    tcp_app_print_cb_info_t, glue);
 
 static tcp_app_cb_info_t * 
 tcp_stack_is_protocol_registered(glthread_t *app_cb_db, 
@@ -194,7 +196,8 @@ typedef struct tcp_app_intf_listener_{
     interface_listerner_cb intf_lsnr_cb;
     glthread_t glue;
 } tcp_app_intf_listener_t;
-GLTHREAD_TO_STRUCT(glue_to_tcp_app_intf_listener, tcp_app_intf_listener_t, glue);
+GLTHREAD_TO_STRUCT(glue_to_tcp_app_intf_listener, 
+    tcp_app_intf_listener_t, glue);
 
 void 
 tcp_stack_register_interface_update_listener(

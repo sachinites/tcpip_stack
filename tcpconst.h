@@ -46,7 +46,7 @@
 #define USERAPP1        21
 #define VLAN_8021Q_PROTO    0x8100
 #define IP_IN_IP        4
-#define HELLO_MSG_CODE	13 /*Randomly chosen*/
+#define NMP_HELLO_MSG_CODE	13 /*Randomly chosen*/
 
 /*Add DDCP Protocol Numbers*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, should not exceed 2^16 -1*/

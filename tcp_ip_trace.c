@@ -334,7 +334,8 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
                  log_file2,                /*Write the log to the interface log file*/
                  pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
-                 tcp_print_recv_buffer,         /*Buffer into which the formatted output is to be written*/
+                 tcp_print_recv_buffer,    /*Buffer into which the formatted output 
+                                              is to be written*/
                  rc,                       /*write offset*/
                  TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
     }
@@ -452,21 +453,21 @@ initialize_interface_log_file(interface_t *intf){
 void
 tcp_ip_init_node_log_info(node_t *node){
 
-    log_t *log_info = &node->log_info;
-    log_info->all = FALSE;
-    log_info->recv = FALSE;
-    log_info->send = FALSE;
+    log_t *log_info     = &node->log_info;
+    log_info->all       = FALSE;
+    log_info->recv      = FALSE;
+    log_info->send      = FALSE;
     log_info->is_stdout = FALSE;
-    log_info->l3_fwd = FALSE;
-    log_info->log_file = initialize_node_log_file(node); 
+    log_info->l3_fwd    = FALSE;
+    log_info->log_file  = initialize_node_log_file(node); 
 }
 
 void
 tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status){
 
-    log_info->all   = status;
-    log_info->recv  = status;
-    log_info->send  = status;
+    log_info->all    = status;
+    log_info->recv   = status;
+    log_info->send   = status;
     log_info->l3_fwd = status;
     /*User should explicitely enabled stdout*/
     //log_info->is_stdout = status;
@@ -476,12 +477,12 @@ tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status){
 void
 tcp_ip_init_intf_log_info(interface_t *intf){
     
-    log_t *log_info = &intf->log_info;
-    log_info->all = FALSE;
-    log_info->recv = FALSE;
-    log_info->send = FALSE;
+    log_t *log_info     = &intf->log_info;
+    log_info->all       = FALSE;
+    log_info->recv      = FALSE;
+    log_info->send      = FALSE;
     log_info->is_stdout = FALSE;
-    log_info->log_file = initialize_interface_log_file(intf);
+    log_info->log_file  = initialize_interface_log_file(intf);
 }
 
 static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){
@@ -659,7 +660,7 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
             {
                 static param_t flag_val;
                 init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
-                    "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout | l3-fwd | no-l3-fwd>");
+                        "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout | l3-fwd | no-l3-fwd>");
                 libcli_register_param(&flag, &flag_val);
                 set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_NODE);
             }

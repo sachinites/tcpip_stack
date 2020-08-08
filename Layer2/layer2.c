@@ -850,8 +850,8 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
                      int vlan_id, 
                      uint32_t *new_pkt_size){
 
-    uint32_t payload_size  = 0 ;
     *new_pkt_size = 0;
+    uint32_t payload_size  = 0 ;
 
     /*If the pkt is already tagged, replace it*/
     vlan_8021q_hdr_t *vlan_8021q_hdr = 
@@ -883,9 +883,11 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
             (vlan_ethernet_hdr_t *)((char *)ethernet_hdr - sizeof(vlan_8021q_hdr_t));
 
     memset((char *)vlan_ethernet_hdr, 0, 
-                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD);
-    memcpy(vlan_ethernet_hdr->dst_mac.mac, ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
-    memcpy(vlan_ethernet_hdr->src_mac.mac, ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
+                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
+    memcpy(vlan_ethernet_hdr->dst_mac.mac, 
+        ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
+    memcpy(vlan_ethernet_hdr->src_mac.mac, 
+        ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
 
     /*Come to 802.1Q vlan hdr*/
     vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
@@ -1018,9 +1020,6 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     uint32_t vlan_id_to_tag = 0;
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
-    
-    tcp_dump_recv_logger(node, interface, 
-            (char *)ethernet_hdr, pkt_size, ETH_HDR);
 
     if(l2_frame_recv_qualify_on_interface(interface, 
                                           ethernet_hdr, 

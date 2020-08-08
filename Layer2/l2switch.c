@@ -263,24 +263,28 @@ static bool_t
 l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
                         char *pkt, uint32_t pkt_size){
 
-    interface_t *oif = NULL;
-
-    uint32_t i = 0;
 
     char *pkt_copy = NULL;
+    
+    interface_t *oif = NULL;
+
     char *temp_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
 
     pkt_copy = temp_pkt + MAX_PACKET_BUFFER_SIZE - pkt_size;
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
+    ITERATE_NODE_INTERFACES_BEGIN(node, oif){
         
-        oif = node->intf[i];
-        if(!oif) break;
         if(oif == exempted_intf) continue;
-        
+
+        if(!(IF_L2_MODE(oif) == ACCESS || 
+                IF_L2_MODE(oif) == TRUNK)) {
+            continue;
+        }
+
         memcpy(pkt_copy, pkt, pkt_size);
         l2_switch_send_pkt_out(pkt_copy, pkt_size, oif);
-    }
+
+    } ITERATE_NODE_INTERFACES_END(node, oif);
     free(temp_pkt);
 }
 

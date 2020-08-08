@@ -14,6 +14,41 @@ typedef struct pkt_meta_data_{
     uint32_t pkt_size;
 } pkt_meta_data_t;
 
+static int
+nmp_print_hello_pkt(char *buff, char *pkt, 
+                uint32_t pkt_size, 
+                int tab_count){
+
+    int rc = 0;
+    unsigned char tlv_type, tlv_len, *tlv_value = NULL;
+
+    hello_t *hpkt = (hello_t *)pkt;
+
+    rc = sprintf(buff, "NMP_HELLO_MSG_CODE : ");
+
+    ITERATE_TLV_BEGIN(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size){
+
+        switch(tlv_type){
+            case TLV_IF_MAC:
+                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ", 
+                    tlv_type, tlv_len, 
+                    tlv_value[0], tlv_value[1], tlv_value[2],
+                    tlv_value[3], tlv_value[4], tlv_value[5]);
+            break;
+            case TLV_NODE_NAME:
+            case TLV_RTR_ID:
+            case TLV_IF_IP:
+                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
+                break;
+            default:    ;
+        }
+
+    } ITERATE_TLV_END(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size);
+    
+    rc -= strlen(" :: ");
+    return rc;
+}
+
 static void 
 transmit_hellos(void *arg, int sizeof_arg){
 
@@ -45,7 +80,7 @@ get_new_hello_pkt(node_t *node,
 
     memcpy(hello_eth_hdr->src_mac.mac, IF_MAC(interface), sizeof(mac_add_t));
     layer2_fill_with_broadcast_mac(hello_eth_hdr->dst_mac.mac);
-    hello_eth_hdr->type = HELLO_MSG_CODE;
+    hello_eth_hdr->type = NMP_HELLO_MSG_CODE;
     
     hello_t *hello_payload = (hello_t *)GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
     temp = hello_payload->tlv_buff;
@@ -147,7 +182,7 @@ update_interface_adjacency_from_hello(interface_t *interface,
             case TLV_IF_MAC:
                 memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
             break;
-            default:    ;
+            default: ;
         }
     } ITERATE_TLV_END(tlv_buff, tlv_type, tlv_len, tlv_value, tlv_buff_size);
 
@@ -164,7 +199,7 @@ process_hello_msg(node_t *node, interface_t *iif,
             uint32_t flags){
 
     uint8_t intf_ip_len;
-    intf_nmp_t *nmp  =NMP_GET_INTF_NMPDS(iif);
+    intf_nmp_t *nmp  = NMP_GET_INTF_NMPDS(iif);
     
     if(!nmp || !nmp->is_enabled) return;
 
@@ -197,7 +232,6 @@ process_hello_msg(node_t *node, interface_t *iif,
                        if_ip_addr)){
         goto bad_hello;
     }
-
     update_interface_adjacency_from_hello(iif, hello, tlv_buff_size);
     return ;
 
@@ -623,37 +657,6 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
-static int
-nmp_print_hello_pkt(char *buff, char *pkt, 
-                uint32_t pkt_size, 
-                int tab_count){
-
-    int rc = 0;
-    char tlv_type, tlv_len, *tlv_value = NULL;
-
-    hello_t *hpkt = (hello_t *)pkt;
-
-    rc = sprintf(buff, "HELLO_MSG_CODE : ");
-
-    ITERATE_TLV_BEGIN(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size){
-
-        switch(tlv_type){
-            case TLV_IF_MAC:
-                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ", 
-                    tlv_type, tlv_len, 
-                    tlv_value[0], tlv_value[1], tlv_value[2],
-                    tlv_value[3], tlv_value[4], tlv_value[5]);
-            break;
-            default:
-                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
-            break;
-        }
-
-    } ITERATE_TLV_END(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size);
-    
-    rc -= strlen(" :: ");
-    return rc;
-}
 
 static void
 nmp_interface_update(interface_t *intf, uint32_t flags){
@@ -667,13 +670,13 @@ nmp_interface_update(interface_t *intf, uint32_t flags){
 void
 init_nbrship_mgmt(){
 
-    tcp_app_register_l2_protocol_interest(HELLO_MSG_CODE, 
+    tcp_app_register_l2_protocol_interest(NMP_HELLO_MSG_CODE, 
         process_hello_msg);
 
-    tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(HELLO_MSG_CODE);
+    tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(NMP_HELLO_MSG_CODE);
 
-    tcp_stack_register_print_callback(HELLO_MSG_CODE, 
-            "HELLO_MSG_CODE", nmp_print_hello_pkt);
+    tcp_stack_register_print_callback(NMP_HELLO_MSG_CODE, 
+            "NMP_HELLO_MSG_CODE", nmp_print_hello_pkt);
 
     tcp_stack_register_interface_update_listener(nmp_interface_update);
 }

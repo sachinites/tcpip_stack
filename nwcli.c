@@ -30,13 +30,13 @@
  * =====================================================================================
  */
 
-#include "graph.h"
 #include <stdio.h>
+#include <stdint.h>
+#include "graph.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include "cmdcodes.h"
 #include "WheelTimer/WheelTimer.h"
-#include <stdint.h>
 #include "Layer5/app_handlers.h"
 #include "BitOp/bitsop.h"
 #include "tcpip_app_register.h"
