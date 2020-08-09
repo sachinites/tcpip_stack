@@ -92,7 +92,7 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define IP_HDR_PAYLOAD_SIZE(ip_hdr_ptr) (IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr_ptr) - \
         IP_HDR_LEN_IN_BYTES(ip_hdr_ptr))
 
-#include <gluethread/glthread.h>
+#include "../gluethread/glthread.h"
 
 typedef struct rt_table_{
 
