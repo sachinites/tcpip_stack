@@ -69,12 +69,6 @@ main(int argc, char **argv){
     node_addr.sin_port        = 0;
     node_addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(udp_sock_fd, (struct sockaddr *)&node_addr, 
-        sizeof(struct sockaddr)) == -1) {
-        printf("Error : socket bind failed, errno = %d\n", errno);
-        return 0;
-    }
-
     memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
     strncpy(send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
 
@@ -102,7 +96,7 @@ main(int argc, char **argv){
                 total_data_size, SRC_NODE_UDP_PORT_NO);
                 n_pkts_send++;
         printf("No of bytes sent = %d, pkt no = %u\n", rc, n_pkts_send);
-        sleep(1);
+        usleep(100 * 1000); /*100 msec, i.e. 10pkts per sec*/
     }
     close(udp_sock_fd);
     return 0;

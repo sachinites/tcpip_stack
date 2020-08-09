@@ -275,36 +275,9 @@ spf_install_routes(node_t *spf_root){
     return count;
 }
 
-#define SPF_LOGGING 0
-
 void
-compute_spf(node_t *spf_root){
+initialize_direct_nbrs(node_t *spf_root){
 
-    node_t *node;
-    glthread_t *curr;
-    spf_data_t *curr_spf_data;
-
-    #if SPF_LOGGING
-    printf("root : %s : Event : Running Spf\n", spf_root->node_name);
-    #endif
-
-    /*Step 1 : Begin*/
-    /* Clear old spf Result list from spf_root, and clear
-     * any nexthop data if any*/
-    init_node_spf_data(spf_root, TRUE);
-    SPF_METRIC(spf_root) = 0;
-
-    /* Iterate all Routers in the graph and initialize the required fields
-     * i.e. init cost to INFINITE, remove any spf nexthop data if any
-     * left from prev spf run*/
-    ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
-
-        node = graph_glue_to_node(curr);
-        if(node == spf_root) continue;
-        init_node_spf_data(node, FALSE);
-    } ITERATE_GLTHREAD_END(&topo->node_list, curr);
-    /*Step 1 : End*/
-    
     /*Initialize direct nbrs*/
     node_t *nbr = NULL;
     char *nxt_hop_ip = NULL;
@@ -336,7 +309,42 @@ compute_spf(node_t *spf_root){
         }
         /*Step 2.2 : End*/
     } ITERATE_NODE_NBRS_END(spf_root, nbr, oif, nxt_hop_ip);
+}
 
+#define SPF_LOGGING 0
+
+void
+compute_spf(node_t *spf_root){
+
+    node_t *node, 
+           *nbr;
+    glthread_t *curr;
+    interface_t *oif;
+    char *nxt_hop_ip = NULL;
+    spf_data_t *curr_spf_data;
+    
+    #if SPF_LOGGING
+    printf("root : %s : Event : Running Spf\n", spf_root->node_name);
+    #endif
+
+    /*Step 1 : Begin*/
+    /* Clear old spf Result list from spf_root, and clear
+     * any nexthop data if any*/
+    init_node_spf_data(spf_root, TRUE);
+    SPF_METRIC(spf_root) = 0;
+
+    /* Iterate all Routers in the graph and initialize the required fields
+     * i.e. init cost to INFINITE, remove any spf nexthop data if any
+     * left from prev spf run*/
+    ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
+
+        node = graph_glue_to_node(curr);
+        if(node == spf_root) continue;
+        init_node_spf_data(node, FALSE);
+    } ITERATE_GLTHREAD_END(&topo->node_list, curr);
+    /*Step 1 : End*/
+   
+    initialize_direct_nbrs(spf_root);
 
     /*Step 3 : Begin*/
     /* Initialize the Priority Queue. You can implement the PQ as a 
