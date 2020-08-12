@@ -6,23 +6,8 @@
  * To run this program : ./pkt_gen.exe
  * */
 
-/* Usage : Suppose you want to send the IP traffic from
- * Node S to node D, then set the below constants as follows */
-#define SRC_NODE_UDP_PORT_NO    40000       /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
-#define INGRESS_INTF_NAME       "eth7"      /*Specify Any existing interface of the node S.*/ 
-#define DEST_IP_ADDR            "122.1.1.2" /*Destination IP Address of the Remote node D of the topology*/
-
-
-/* Set above three params as per the topology you are running. You
- * need not change anything in this program below (except the while(1)
- * loop in the end if you dont want to inject traffic indefinitely) as
- * long as you are sending pure IP traffic*/
-
-#include <stdlib.h>
-#include <memory.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <pthread.h>
 #include <netinet/in.h>
 #include <memory.h>
 #include <stdio.h>
@@ -30,6 +15,19 @@
 #include <errno.h>
 #include <netdb.h> /*for struct hostent*/
 #include "tcp_public.h"
+
+
+/* Set below three params as per the topology you are running. You
+ * need not change anything in this program below (except the while(1)
+ * loop in the end if you dont want to inject traffic indefinitely) as
+ * long as you are sending pure IP traffic*/
+
+/* Usage : Suppose you want to send the IP traffic from
+ * Node S to node D, then set the below constants as follows */
+#define SRC_NODE_UDP_PORT_NO    40000       /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
+#define INGRESS_INTF_NAME       "eth7"      /*Specify Any existing interface of the node S.*/ 
+#define DEST_IP_ADDR            "122.1.1.3" /*Destination IP Address of the Remote node D of the topology*/
+
 
 static char send_buffer[MAX_PACKET_BUFFER_SIZE];
 
@@ -64,15 +62,13 @@ main(int argc, char **argv){
         return 0;
     }
 
-    struct sockaddr_in node_addr;
-    node_addr.sin_family      = AF_INET;
-    node_addr.sin_port        = 0;
-    node_addr.sin_addr.s_addr = INADDR_ANY;
-
     memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
+
+
+    /*Provide Auxillay information - ingress intf name*/
     strncpy(send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
 
-    /*Prepare ethernet hdr*/
+    /*Prepare pseudo ethernet hdr*/
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer + IF_NAME_SIZE);
     /*Dont bother about MAC addresses, just fill them with broadcast mac*/
     layer2_fill_with_broadcast_mac(eth_hdr->src_mac.mac);
@@ -81,7 +77,7 @@ main(int argc, char **argv){
     eth_hdr->type = ETH_IP;
     SET_COMMON_ETH_FCS(eth_hdr, 20, 0);
 
-    /*Prepare IP hdr, Just set Dest ip and protocol number*/
+    /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
     initialize_ip_hdr(ip_hdr);
     ip_hdr->protocol = ICMP_PRO;
