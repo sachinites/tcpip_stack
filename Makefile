@@ -23,8 +23,8 @@ OBJS=gluethread/glthread.o \
 		  tcp_ip_trace.o	\
 		  tcpip_app_register.o
 
-pkt_gen.exe:pkt_gen.o
-	${CC} ${CFLAGS} -I Layer3/layer3.h -I Layer2/layer2.h -I utils.h pkt_gen.o utils.o -o pkt_gen.exe
+pkt_gen.exe:pkt_gen.o utils.o
+	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
 
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
