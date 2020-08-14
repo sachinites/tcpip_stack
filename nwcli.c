@@ -353,11 +353,8 @@ rt_table_add_route(rt_table_t *rt_table,
         char *gw, interface_t *oif, uint32_t spf_metric);
 
 /*SPF related handler routines*/
-extern void
-compute_spf(node_t *node);
-
 extern int
-show_spf_results_handler(param_t *param, ser_buff_t *tlv_buf,
+spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
                          op_mode enable_or_disable);
 
 static int
@@ -426,29 +423,8 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                     ;
             }
             break;
-        case CMDCODE_RUN_SPF:
-           compute_spf(node);
-           break;
         default:
             break;
-    }
-    return 0;
-}
-
-extern void
-compute_spf_all_routers(graph_t *topo);
-static int
-spf_handler(param_t *param, ser_buff_t *tlv_buf, 
-            op_mode enable_or_disable){
-
-    int CMDCODE;
-
-    CMDCODE =  EXTRACT_CMD_CODE(tlv_buf);
-
-    switch(CMDCODE){
-        case CMDCODE_RUN_SPF_ALL:
-            compute_spf_all_routers(topo);
-        break;
     }
     return 0;
 }
@@ -790,7 +766,7 @@ nw_init_cli(){
                  {
                     /*show node <node-name> spf-result*/
                     static param_t spf_result;
-                    init_param(&spf_result, CMD, "spf-result", show_spf_results_handler, 0, INVALID, 0, "SPF Results");
+                    init_param(&spf_result, CMD, "spf-result", spf_algo_handler, 0, INVALID, 0, "SPF Results");
                     libcli_register_param(&node_name, &spf_result);
                     set_param_cmd_code(&spf_result, CMDCODE_SHOW_SPF_RESULTS);
                  }
@@ -855,7 +831,7 @@ nw_init_cli(){
         {
             /*run spf all*/
             static param_t all;
-            init_param(&all, CMD, "all" , spf_handler, 0, INVALID, 0, "All nodes");
+            init_param(&all, CMD, "all" , spf_algo_handler, 0, INVALID, 0, "All nodes");
             libcli_register_param(&spf, &all);
             set_param_cmd_code(&all, CMDCODE_RUN_SPF_ALL);
         }
@@ -932,7 +908,7 @@ nw_init_cli(){
             {
                 /*run node <node-name> spf*/
                 static param_t spf;
-                init_param(&spf, CMD, "spf", l3_config_handler, 0, INVALID, 0, "Trigger SPF");
+                init_param(&spf, CMD, "spf", spf_algo_handler, 0, INVALID, 0, "Trigger SPF");
                 libcli_register_param(&node_name, &spf);
                 set_param_cmd_code(&spf, CMDCODE_RUN_SPF);
             }

@@ -45,8 +45,18 @@ conf node H3 route 122.1.1.1 32 10.1.1.1 eth4
 
 PART B Contents:
 ====================
-1. Routing Table Calculations
-2. Interface Config notitfication to Applications
-3. Logging Infra
-4. Dynamic Protocol Registration
-5. Dynamic State of ARP/MAC table
+Project 3 : Routing Table Calculations
+Project 4 : Convergence  - Auto correction of Routing Tables
+Project 4.1 : Install Diff of L3 routes
+Project 5 : Setting Up Logging Infrastructure
+Project 6 : Adding Dynamic Flavor to TCP/IP Stack
+    Aging of ARP entries
+Project 7 : Mutual Exclusion - Handling Concurreny Problems
+    Concurrent Access of Routing Table
+    Concurrent Access of ARP table
+Project 8 : Implement a new Application Protocol - NMP Protocol
+Project 9 : Dynamic Registration of Application Protocols
+
+Add below topics to Appendix Section:
+Loop Free Guarantee
+Convergence - Node/link Failures
