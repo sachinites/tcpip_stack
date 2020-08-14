@@ -66,12 +66,6 @@ typedef struct spf_result_{
 GLTHREAD_TO_STRUCT(spf_res_glue_to_spf_result, 
     spf_result_t, spf_res_glue);
 
-static inline bool_t
-is_nexthop_empty(nexthop_t *nexthop){
-
-    return nexthop->oif == NULL;
-}
-
 void
 spf_flush_nexthops(nexthop_t **nexthop){
 
@@ -163,7 +157,7 @@ spf_is_nexthop_exist(nexthop_t **nexthop_array, nexthop_t *nxthop){
     for( ; i < MAX_NXT_HOPS; i++){
         
         if(!nexthop_array[i])
-            return FALSE;
+            continue;
 
         if(nexthop_array[i]->oif == nxthop->oif)
             return TRUE;
@@ -313,7 +307,7 @@ initialize_direct_nbrs(node_t *spf_root){
 
 #define SPF_LOGGING 0
 
-void
+static void
 compute_spf(node_t *spf_root){
 
     node_t *node, 
@@ -576,39 +570,7 @@ show_spf_results(node_t *node){
     }ITERATE_GLTHREAD_END(&node->spf_data->spf_result_head, curr)
 }
 
-int
-show_spf_results_handler(param_t *param, ser_buff_t *tlv_buf, 
-                         op_mode enable_or_disable){
-
-    int CMDCODE;
-    node_t *node;
-    char *node_name;
-    tlv_struct_t *tlv = NULL;
-
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
-
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
-            node_name = tlv->value;
-        else
-            assert(0);
-    }TLV_LOOP_END;
-
-    node = get_node_by_node_name(topo, node_name);
-
-    switch(CMDCODE){
-        case CMDCODE_SHOW_SPF_RESULTS:
-            show_spf_results(node);        
-            break;
-        default:
-            break;
-    }
-
-    return 0;
-}
-
-void
+static void
 compute_spf_all_routers(graph_t *topo){
 
     glthread_t *curr;
@@ -641,4 +603,41 @@ init_spf_algo(){
     
     compute_spf_all_routers(topo);
     tcp_stack_register_interface_update_listener(spf_algo_interface_update);
+}
+
+int
+spf_algo_handler(param_t *param, ser_buff_t *tlv_buf, 
+                         op_mode enable_or_disable){
+
+    int CMDCODE;
+    node_t *node;
+    char *node_name;
+    tlv_struct_t *tlv = NULL;
+
+    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+    }TLV_LOOP_END;
+
+    node = get_node_by_node_name(topo, node_name);
+
+    switch(CMDCODE){
+        case CMDCODE_SHOW_SPF_RESULTS:
+            show_spf_results(node);        
+            break;
+        case CMDCODE_RUN_SPF:
+            compute_spf(node);
+            break;
+        case CMDCODE_RUN_SPF_ALL:
+            compute_spf_all_routers(topo);
+            break;
+        default:
+            break;
+    }
+    return 0;
 }
