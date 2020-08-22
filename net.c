@@ -349,5 +349,12 @@ is_interface_l3_bidirectional(interface_t *interface){
     if(!IS_INTF_L3_MODE(other_interface))
         return FALSE;
 
+    if(!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
+        IF_IP(other_interface)) &&
+        is_same_subnet(IF_IP(other_interface), IF_MASK(other_interface),
+        IF_IP(interface)))){
+        return FALSE;
+    }
+
     return TRUE;
 }
