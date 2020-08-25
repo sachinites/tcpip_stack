@@ -265,5 +265,25 @@ is_interface_l3_bidirectional(interface_t *interface);
 #define IF_IP_ADDR_CHANGE_F         (1)
 #define IF_OPER_MODE_CHANGE_F       (1 << 1)
 #define IF_VLAN_MEMBERSHIP_CHANGE_F (1 << 2)
+#define IF_METRIC_CHANGE_F          (1 << 3)
+
+/*Macros to Iterate over Nbrs of a node*/
+
+#define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr) \
+    do{                                                                  \
+        int i = 0 ;                                                      \
+        interface_t *other_intf;                                         \
+        for( i = 0 ; i < MAX_INTF_PER_NODE; i++){                        \
+            oif_ptr = node_ptr->intf[i];                                 \
+            if(!oif_ptr) continue;                                       \
+            other_intf = &oif_ptr->link->intf1 == oif_ptr ?              \
+            &oif_ptr->link->intf2 : &oif_ptr->link->intf1;               \
+            if(!other_intf) continue;                                    \
+            nbr_ptr = get_nbr_node(oif_ptr);                             \
+            ip_addr_ptr = IF_IP(other_intf);                             \
+
+#define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr)  }}while(0);
+
+
 
 #endif /* __NET__ */

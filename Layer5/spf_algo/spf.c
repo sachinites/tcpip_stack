@@ -503,7 +503,7 @@ compute_spf(node_t *spf_root){
     /*Iterate untill the PQ go empty. Currently it has only spf_root*/
     while(!IS_GLTHREAD_LIST_EMPTY(&priority_lst)){
 
-        /*Ste 4 : Begin*/
+        /*Step 4 : Begin*/
         curr = dequeue_glthread_first(&priority_lst);
         curr_spf_data = priority_thread_glue_to_spf_data(curr);
 
@@ -518,20 +518,24 @@ compute_spf(node_t *spf_root){
             ITERATE_NODE_NBRS_BEGIN(curr_spf_data->node, nbr, oif, nxt_hop_ip){
 
                 if(!is_interface_l3_bidirectional(oif)) continue;
-            #if SPF_LOGGING
-                printf("root : %s : Event : Processing Direct Nbr %s\n", 
+                
+                if(IS_GLTHREAD_LIST_EMPTY(&nbr->spf_data->priority_thread_glue)){
+                    #if SPF_LOGGING
+                    printf("root : %s : Event : Processing Direct Nbr %s\n", 
                         spf_root->node_name, nbr->node_name);
-            #endif
-                assert(IS_GLTHREAD_LIST_EMPTY(&nbr->spf_data->priority_thread_glue));
-                glthread_priority_insert(&priority_lst, 
-                        &nbr->spf_data->priority_thread_glue,
-                        spf_comparison_fn, 
-                        spf_data_offset_from_priority_thread_glue);
-            #if SPF_LOGGING
-                printf("root : %s : Event : Direct Nbr %s added to priority Queue\n",
-                        spf_root->node_name, nbr->node_name);
-            #endif
-            }ITERATE_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
+                    #endif
+                    glthread_priority_insert(&priority_lst, 
+                            &nbr->spf_data->priority_thread_glue,
+                            spf_comparison_fn, 
+                            spf_data_offset_from_priority_thread_glue);
+
+                    #if SPF_LOGGING
+                    printf("root : %s : Event : Direct Nbr %s added to priority Queue\n",
+                            spf_root->node_name, nbr->node_name);
+                    #endif
+                }
+            } ITERATE_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
+
             #if SPF_LOGGING
             printf("root : %s : Event : Root %s Processing Finished\n", 
                     spf_root->node_name, curr_spf_data->node->node_name);
@@ -619,12 +623,16 @@ spf_algo_interface_update(interface_t *intf, uint32_t flags){
     /*Run spf if interface is transition to up/down*/
     bool_t run_spf = FALSE;
 
-    if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F))
+    if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F) ||
+       IS_BIT_SET(flags, IF_METRIC_CHANGE_F )) 
+    {
         run_spf = TRUE;
+    }
 
     if(run_spf){
         /* Run spf on all nodes of topo, not just 
          * the node on which interface is made up/down
+         * or any other intf config is changed
          * otherwise it may lead to L3 loops*/
         compute_spf_all_routers(topo);
     }

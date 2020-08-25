@@ -50,7 +50,7 @@ extern int traceoptions_handler(param_t *param,
                                 op_mode enable_or_disable);
 
 /* Display functions when user presses ?*/
-void
+static void
 display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;
@@ -64,7 +64,7 @@ display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
 }
 
 /*Display Node Interfaces*/
-void
+static void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;
@@ -97,7 +97,7 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
 /*General Validations*/
 
-int 
+static int 
 validate_if_up_down_status(char *value){
 
     if(strncmp(value, "up", strlen("up")) == 0 && 
@@ -111,7 +111,17 @@ validate_if_up_down_status(char *value){
     return VALIDATION_FAILED;
 }
 
-int
+static int
+validate_interface_metric_val(char *value){
+
+    uint32_t metric_val = atoi(value);
+    if(metric_val > 0 && metric_val <= INTF_MAX_METRIC)
+        return VALIDATION_SUCCESS;
+    return VALIDATION_FAILED;
+}
+
+
+static int
 validate_node_extistence(char *node_name){
 
     node_t *node = get_node_by_node_name(topo, node_name);
@@ -121,7 +131,7 @@ validate_node_extistence(char *node_name){
     return VALIDATION_FAILED;
 }
 
-int
+static int
 validate_vlan_id(char *vlan_value){
 
     uint32_t vlan = atoi(vlan_value);
@@ -135,7 +145,7 @@ validate_vlan_id(char *vlan_value){
     return VALIDATION_FAILED;
 }
 
-int
+static int
 validate_l2_mode_value(char *l2_mode_value){
 
     if((strncmp(l2_mode_value, "access", strlen("access")) == 0) || 
@@ -144,7 +154,7 @@ validate_l2_mode_value(char *l2_mode_value){
     return VALIDATION_FAILED;
 }
 
-int
+static int
 validate_mask_value(char *mask_str){
 
     uint32_t mask = atoi(mask_str);
@@ -352,11 +362,6 @@ rt_table_add_route(rt_table_t *rt_table,
         char *dst, char mask,
         char *gw, interface_t *oif, uint32_t spf_metric);
 
-/*SPF related handler routines*/
-extern int
-spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
-                         op_mode enable_or_disable);
-
 static int
 l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
@@ -526,6 +531,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
    tlv_struct_t *tlv = NULL;
    node_t *node;
    interface_t *interface;
+   uint32_t intf_new_matric_val;
 
    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
    
@@ -541,6 +547,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             l2_mode_option = tlv->value;
         else if(strncmp(tlv->leaf_id, "if-up-down", strlen("if-up-down")) == 0)
              if_up_down = tlv->value; 
+        else if(strncmp(tlv->leaf_id, "metric-val", strlen("metric-val")) == 0)
+             intf_new_matric_val = atoi(tlv->value);            
         else
             assert(0);
     } TLV_LOOP_END;
@@ -554,6 +562,29 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
     }
     uint32_t if_change_flags = 0;
     switch(CMDCODE){
+        case CMDCODE_INTF_CONFIG_METRIC:
+        {
+            uint32_t intf_existing_metric = get_link_cost(interface);
+
+            if(intf_existing_metric != intf_new_matric_val){
+                SET_BIT(if_change_flags, IF_METRIC_CHANGE_F); 
+            }
+
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    interface->link->cost = intf_new_matric_val;        
+                break;
+                case CONFIG_DISABLE:
+                    interface->link->cost = INTF_METRIC_DEFAULT;
+                break;
+                default: ;
+            }
+            if(IS_BIT_SET(if_change_flags, IF_METRIC_CHANGE_F)){
+                tcp_stack_notify_interface_change_config(
+                    interface, if_change_flags);
+            }
+        }    
+        break;
         case CMDCODE_CONF_INTF_UP_DOWN:
             if(strncmp(if_up_down, "up", strlen("up")) == 0){
                 if(interface->intf_nw_props.is_up == FALSE){
@@ -568,7 +599,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                 interface->intf_nw_props.is_up = FALSE;
             }
             if(IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
-                tcp_stack_notify_interface_change_config(interface, if_change_flags);
+                tcp_stack_notify_interface_change_config(
+                    interface, if_change_flags);
             }
             break;
         case CMDCODE_INTF_CONFIG_L2_MODE:
@@ -1023,6 +1055,17 @@ nw_init_cli(){
                         init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
                         libcli_register_param(&if_name, &if_up_down_status);
                         set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
+                    }
+                }
+                {
+                    static param_t metric;
+                    init_param(&metric, CMD, "metric", 0, 0, INVALID, 0, "Interface Metric");
+                    libcli_register_param(&if_name, &metric);
+                    {
+                        static param_t metric_val;
+                        init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
+                        libcli_register_param(&metric, &metric_val);
+                        set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
                     }
                 }
                 {
