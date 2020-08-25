@@ -72,4 +72,6 @@
 #define CMDCODE_SHOW_NODE_NBRSHIP                   30 /*show node <node-name> nmp nbrships*/
 #define CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS  31 /*show node <node-name> interface statistics protocol nmp*/
 #define CMDCODE_SHOW_NODE_NMP_STATE                    32 /*show node <node-name> nmp state*/
+
+#define CMDCODE_INTF_CONFIG_METRIC       33 /*config node <node-name> interface <if-name> metric <metric-val>*/
 #endif /* __CMDCODES__ */
