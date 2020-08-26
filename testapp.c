@@ -45,6 +45,9 @@ extern graph_t *build_simple_l2_switch_topo();
 extern graph_t *build_square_topo();
 extern graph_t *build_linear_topo();
 extern graph_t *build_dualswitch_topo();
+extern graph_t *parallel_links_topology();
+extern graph_t *cross_link_topology();
+
 extern void nw_init_cli();
 
 graph_t *topo = NULL;
@@ -54,7 +57,7 @@ main(int argc, char **argv){
 
     nw_init_cli();
     topo = build_square_topo();
-    //topo = build_dualswitch_topo();
+    //topo = cross_link_topology();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;
