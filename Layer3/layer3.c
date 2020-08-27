@@ -317,6 +317,14 @@ rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask){
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
 }
 
+static void
+l3_route_free(l3_route_t *l3_route){
+
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
+    spf_flush_nexthops(l3_route->nexthops);
+    free(l3_route);
+}
+
 void
 clear_rt_table(rt_table_t *rt_table){
 
@@ -329,16 +337,8 @@ clear_rt_table(rt_table_t *rt_table){
         if(l3_is_direct_route(l3_route))
             continue;
         remove_glthread(curr);
-        free(l3_route);
+        l3_route_free(l3_route);
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
-}
-
-void
-l3_route_free(l3_route_t *l3_route){
-
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
-    spf_flush_nexthops(l3_route->nexthops);
-    free(l3_route);
 }
 
 nexthop_t *
@@ -478,6 +478,34 @@ rt_table_add_direct_route(rt_table_t *rt_table,
     rt_table_add_route(rt_table, dst, mask, 0, 0, 0);
 }
 
+l3_route_t *
+l3rib_lookup(rt_table_t *rt_table, 
+             uint32_t dest_ip, 
+             char mask){
+
+    char dest_ip_str[16];
+    glthread_t *curr = NULL;
+    char dst_str_with_mask[16];
+    l3_route_t *l3_route = NULL;
+
+    tcp_ip_covert_ip_n_to_p(dest_ip, dest_ip_str);
+
+    apply_mask(dest_ip_str, mask, dst_str_with_mask);
+
+    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+
+        l3_route = rt_glue_to_l3_route(curr);
+        
+        if(strncmp(dst_str_with_mask, l3_route->dest, 16) == 0 &&
+            l3_route->mask == mask){
+            return l3_route;
+        }
+    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
+
+    return NULL;
+}
+
+
 void
 rt_table_add_route(rt_table_t *rt_table,
                    char *dst, char mask,
@@ -492,7 +520,7 @@ rt_table_add_route(rt_table_t *rt_table,
    inet_pton(AF_INET, dst_str_with_mask, &dst_int);
    dst_int = htonl(dst_int);
 
-   l3_route_t *l3_route = l3rib_lookup_lpm(rt_table, dst_int);
+   l3_route_t *l3_route = l3rib_lookup(rt_table, dst_int, mask);
 
    if(!l3_route){
        l3_route = calloc(1, sizeof(l3_route_t));
@@ -511,8 +539,7 @@ rt_table_add_route(rt_table_t *rt_table,
 
            if(l3_route->nexthops[i]){
                 if(strncmp(l3_route->nexthops[i]->gw_ip, gw, 16) == 0 && 
-                    l3_route->nexthops[i]->oif == oif && 
-                    l3_route->spf_metric == spf_metric){
+                    l3_route->nexthops[i]->oif == oif){ 
                     printf("Error : Attempt to Add Duplicate Route\n");
                     return;
                 }

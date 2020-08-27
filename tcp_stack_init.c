@@ -28,10 +28,6 @@
  * =====================================================================================
  */
 
-typedef struct graph_ graph_t;
-
-extern graph_t *topo;
-
 extern void init_spf_algo();
 extern void init_ddcp();
 extern void init_nbrship_mgmt();

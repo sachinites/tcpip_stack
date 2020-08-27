@@ -159,6 +159,9 @@ l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table,
                  uint32_t dest_ip);
 
+l3_route_t *
+l3rib_lookup(rt_table_t *rt_table, uint32_t dest_ip, char mask);
+
 void
 tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
                     int L5_protocol_id, uint32_t dest_ip_address);

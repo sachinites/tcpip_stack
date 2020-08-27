@@ -621,21 +621,20 @@ static void
 spf_algo_interface_update(interface_t *intf, uint32_t flags){
 
     /*Run spf if interface is transition to up/down*/
-    bool_t run_spf = FALSE;
-
     if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F) ||
        IS_BIT_SET(flags, IF_METRIC_CHANGE_F )) 
     {
-        run_spf = TRUE;
+        goto RUN_SPF;
     }
 
-    if(run_spf){
-        /* Run spf on all nodes of topo, not just 
-         * the node on which interface is made up/down
-         * or any other intf config is changed
-         * otherwise it may lead to L3 loops*/
-        compute_spf_all_routers(topo);
-    }
+    return;
+
+RUN_SPF:
+    /* Run spf on all nodes of topo, not just 
+     * the node on which interface is made up/down
+     * or any other intf config is changed
+     * otherwise it may lead to L3 loops*/
+    compute_spf_all_routers(topo);
 }
 
 void
