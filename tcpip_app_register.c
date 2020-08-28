@@ -169,8 +169,7 @@ tcp_stack_invoke_app_print_callbacks(
                     glthread_t *app_print_cb_db, 
                     uint32_t protocol_no,
                     char *buff, char *pkt, 
-                    uint32_t pkt_size, 
-                    int tab_count){
+                    uint32_t pkt_size){ 
 
      glthread_t *curr;
      tcp_app_print_cb_info_t *tcp_app_print_cb_info;
@@ -180,7 +179,7 @@ tcp_stack_invoke_app_print_callbacks(
         tcp_app_print_cb_info = glue_to_tcp_app_print_cb_info(curr);
         if(tcp_app_print_cb_info->protocol_no == protocol_no){
             return ((tcp_app_print_cb_info->app_print_cb)
-                (buff, pkt, pkt_size, tab_count));
+                (buff, pkt, pkt_size));
         }
      } ITERATE_GLTHREAD_END(app_print_cb_db, curr);
      return 0;

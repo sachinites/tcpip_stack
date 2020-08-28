@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 #include "tcp_public.h"
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
-#include <errno.h>
 #include "gluethread/glthread.h"
 #include "tcpip_app_register.h"
 
@@ -93,13 +93,13 @@ string_ip_hdr_protocol_val(uint8_t type){
 
 
 static int
-tcp_dump_appln_hdr_ICMP_PRO(char *buff, char *appln_data, uint32_t pkt_size, int tab_count){
+tcp_dump_appln_hdr_ICMP_PRO(char *buff, char *appln_data, uint32_t pkt_size){
 
     return 0;
 }
 
 static int
-tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
+tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
 
      int rc = 0;
      char ip1[16];
@@ -118,12 +118,12 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
 
         case ICMP_PRO:
             rc += tcp_dump_appln_hdr_ICMP_PRO(buff + rc, INCREMENT_IPHDR(ip_hdr), 
-                    IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
+                    IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
         default:
             rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
                         ip_hdr->protocol, buff + rc, INCREMENT_IPHDR(ip_hdr),
-                        IP_HDR_PAYLOAD_SIZE(ip_hdr), tab_count + 1);
+                        IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
             ;
     }
@@ -132,7 +132,7 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size, int tab_count){
 
 static int
 tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr, 
-                  uint32_t pkt_size, int tab_count){
+                  uint32_t pkt_size){
 
     int rc = 0;
     char ip1[16];
@@ -163,7 +163,7 @@ tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr,
 
 static int
 tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr, 
-                        uint32_t pkt_size, int tab_count){
+                        uint32_t pkt_size){
 
     int rc = 0;
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
@@ -206,17 +206,17 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
         case ETH_IP:
             rc += tcp_dump_ip_hdr(buff + rc, 
                     (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
-                     payload_size, tab_count + 1);
+                     payload_size);
             break;
         case ARP_MSG:
             rc += tcp_dump_arp_hdr(buff + rc,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
-                    payload_size, tab_count + 1);
+                    payload_size);
             break;
         default:
             rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
                     type, buff + rc, (char *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
-                    payload_size, tab_count + 1);
+                    payload_size);
             break;
     }
     return rc;
@@ -281,16 +281,16 @@ tcp_dump(int sock_fd,
 
         case ETH_HDR:
             rc = tcp_dump_ethernet_hdr(out_buff + write_offset, 
-                (ethernet_hdr_t *)pkt, pkt_size, 0);
+                (ethernet_hdr_t *)pkt, pkt_size);
             break;
         case IP_HDR:
             rc = tcp_dump_ip_hdr(out_buff + write_offset, 
-                (ip_hdr_t *)pkt, pkt_size, 0);
+                (ip_hdr_t *)pkt, pkt_size);
             break;
         default:
             rc = tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
                         hdr_type, out_buff + write_offset, (char *)pkt,
-                        pkt_size, 0);
+                        pkt_size);
             break;
     }
 

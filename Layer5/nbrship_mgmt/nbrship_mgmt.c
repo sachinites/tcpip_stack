@@ -16,8 +16,7 @@ typedef struct pkt_meta_data_{
 
 static int
 nmp_print_hello_pkt(char *buff, char *pkt, 
-                uint32_t pkt_size, 
-                int tab_count){
+                uint32_t pkt_size){ 
 
     int rc = 0;
     unsigned char tlv_type, tlv_len, *tlv_value = NULL;
