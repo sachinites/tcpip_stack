@@ -9,7 +9,7 @@ typedef void (*app_layer_cb)
     (node_t *, interface_t *, char *, uint32_t, uint32_t);
 
 typedef int (*app_print_pkt_cb)
-    (char *, char *, uint32_t, int);
+    (char *, char *, uint32_t);
 
 bool_t
 tcp_stack_register_app_protocol(glthread_t *app_cb_db,
@@ -40,8 +40,7 @@ tcp_stack_invoke_app_print_callbacks(
         glthread_t *app_print_cb_db,
         uint32_t protocol_no,
         char *buff, char *pkt,
-        uint32_t pkt_size,
-        int tab_count);
+        uint32_t pkt_size);
 
 char *
 tcp_stack_get_print_str_protocol_number(uint32_t protocol_no);
