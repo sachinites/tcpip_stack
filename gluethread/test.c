@@ -53,7 +53,7 @@ senior_citizen(person_t *p1, person_t *p2){
 #define offset(struct_name, fld_name) \
     (unsigned int)&(((struct_name *)0)->fld_name)
 
-GLTHREAD_TO_STRUCT(thread_to_person, person_t, glthread, glthreadptr);
+GLTHREAD_TO_STRUCT(thread_to_person, person_t, glthread);
 
 int main(int argc, char **argv){
 
