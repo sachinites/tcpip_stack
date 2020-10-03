@@ -3,7 +3,7 @@ CFLAGS=-g
 TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe
 LIBS=-lpthread -L ./CommandParser -lcli
 OBJS=gluethread/glthread.o \
-		  Tree/redblack.o  \
+		  Tree/avl.o	   \
 		  graph.o 		   \
 		  topologies.o	   \
 		  net.o			   \
@@ -38,8 +38,8 @@ testapp.o:testapp.c
 gluethread/glthread.o:gluethread/glthread.c
 	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o
 
-Tree/redblack.o:Tree/redblack.c
-	${CC} ${CFLAGS} -c -I Tree Tree/redblack.c -o Tree/redblack.o
+Tree/avl.o:Tree/avl.c
+	${CC} ${CFLAGS} -c -I Tree Tree/avl.c -o Tree/avl.o
 
 WheelTimer/WheelTimer.o:WheelTimer/WheelTimer.c
 	${CC} ${CFLAGS} -c -I gluethread -I WheelTimer WheelTimer/WheelTimer.c -o WheelTimer/WheelTimer.o
@@ -100,7 +100,7 @@ CommandParser/libcli.a:
 clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
-	rm -f Tree/redblack.o
+	rm -f Tree/avl.o
 	rm -f *exe
 	rm -f Layer2/*.o
 	rm -f Layer3/*.o
