@@ -641,7 +641,8 @@ demote_packet_to_layer3(node_t *node,
                                 iphdr.dst_ip);
     
     if(!l3_route){
-        //printf("Node : %s : No L3 route\n",  node->node_name);   
+        printf("Node : %s : No L3 route\n",  node->node_name);   
+		free(new_pkt);
         return;
     }
 
