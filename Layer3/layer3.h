@@ -100,7 +100,8 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 
 typedef struct rt_table_{
 
-    glthread_t route_list;    
+    glthread_t route_list;
+	bool_t is_active;
 } rt_table_t;
 
 typedef struct nexthop_{
@@ -131,10 +132,8 @@ l3_route_get_active_nexthop(l3_route_t *l3_route);
 void
 init_rt_table(rt_table_t **rt_table);
 
-#if 0
-l3_route_t *
-rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask);
-#endif
+void 
+rt_table_set_active_status(rt_table_t *rt_table, bool_t active);
 
 void
 clear_rt_table(rt_table_t *rt_table);

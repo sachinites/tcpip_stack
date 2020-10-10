@@ -266,15 +266,34 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 
     uint32_t dst_udp_port_no = nbr_node->udp_port_number;
     
-    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+    int sock = sending_node->node_nw_prop.xmit_udp_skt;
 
-    if(sock < 0){
-        printf("Error : Sending socket Creation failed , errno = %d", errno);
-        return -1;
-    }
-    
     interface_t *other_interface = &interface->link->intf1 == interface ? \
                                     &interface->link->intf2 : &interface->link->intf1;
+
+	/* The below part of the code uses NODE_SEND_BUFFER which is a buffer memory
+ 	*  used by the Node to copy the pkt into and send out. Now it may lead
+ 	*  to concurreny problem in scenario when :
+ 	*  1. User is sending the pkt using CLI. CLIs runs as a separate thread
+ 	*  Example : run node <node-name> resolve-arp
+ 	*  		   : run node <node-name> ping
+ 	*  2. Pkt is being sent out by node using Timers. All timers are separate thread
+ 	*  Example : DDCP Queries, NMP hello packets
+ 	*  3. Node is forwarding the IP Traffic. Node forwards the traffic in the context
+ 	*  of pkt receiever thread
+ 	*
+ 	*  Pkts originating from all above 3 sources ends up in this function to be 
+ 	*  eventually send out. Hence, this function runs in the context of 3 different
+ 	*  threads - CLI, Timers and pkt receiever thread. So, using a shared resource
+ 	*  in this function is a crime. The Send buffer of the node is being shared
+ 	*  by these three threads and hence concurrent problem can happen (Pkt corruption).
+ 	*
+ 	*  Therefore, to deal with this problem we need to protect below code segment using
+ 	*  Mutexes (pthread_mutex_t). Every node will have a send_buffer_mutex and we will
+ 	*  lock below segment of the code to maintain concurreny.
+ 	* */
+
+	pthread_mutex_lock(&sending_node->node_nw_prop.send_buffer_mutex);
 
     memset(NODE_SEND_BUFFER(sending_node), 0, MAX_PACKET_BUFFER_SIZE);
 
@@ -289,7 +308,6 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     rc = _send_pkt_out(sock, pkt_with_aux_data, pkt_size + IF_NAME_SIZE, 
                         dst_udp_port_no);
 
-    close(sock);
     if(rc > 0){
         interface->intf_nw_props.pkt_sent++;
         tcp_dump_send_logger(sending_node, interface, 
@@ -299,6 +317,9 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
         printf("Error : pkt send failed on node %s, error code = %d\n", 
             sending_node->node_name, errno);
     }
+
+	pthread_mutex_unlock(&sending_node->node_nw_prop.send_buffer_mutex);
+
     return rc; 
 }
 

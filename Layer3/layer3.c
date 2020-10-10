@@ -190,6 +190,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
         /*Router do not know what to do with the pkt. drop it*/
         printf("Router %s : Cannot Route IP : %s\n", 
                     node->node_name, dest_ip_addr);
+
         return;
     }
 
@@ -299,6 +300,12 @@ init_rt_table(rt_table_t **rt_table){
 
     *rt_table = calloc(1, sizeof(rt_table_t));
     init_glthread(&((*rt_table)->route_list));
+	(*rt_table)->is_active = TRUE;
+}
+
+void
+rt_table_set_active_status(rt_table_t *rt_table, bool_t active){
+	rt_table->is_active = active;
 }
 
 l3_route_t *

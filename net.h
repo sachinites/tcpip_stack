@@ -36,11 +36,14 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <stdint.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "utils.h"
 #include "WheelTimer/WheelTimer.h"
 #include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
+#include <pthread.h>
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -73,8 +76,12 @@ typedef struct node_nw_prop_{
 
     /*L2 Properties*/
     arp_table_t *arp_table;
-    mac_table_t *mac_table;     
+    mac_table_t *mac_table;
+
+	rt_table_t *rt_table_in_use; 
     rt_table_t *rt_table;
+    rt_table_t *rt_table2;
+
     ddcp_db_t *ddcp_db;
 
     /*L3 properties*/ 
@@ -87,6 +94,8 @@ typedef struct node_nw_prop_{
     /*Sending Buffer*/
     char *send_buffer; /*Used to send out pkts*/
     char *send_log_buffer; /*Used for logging */
+	pthread_mutex_t send_buffer_mutex; /* See fn send_pkt_out */
+	int xmit_udp_skt;	/* UDP socket of the node to send pkt out */
 
     /*Device level Appln DS*/
     nmp_t *nmp;
@@ -95,6 +104,7 @@ typedef struct node_nw_prop_{
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(rt_table_t **rt_table);
+extern void rt_table_set_active_status(rt_table_t *rt_table, bool_t active);
 extern void init_ddcp_query_db(ddcp_db_t **ddcp_db);
 
 static inline void
@@ -106,11 +116,17 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
+    init_rt_table(&(node_nw_prop->rt_table2));
+	node_nw_prop->rt_table_in_use = node_nw_prop->rt_table;
+	rt_table_set_active_status(node_nw_prop->rt_table2, FALSE);
     init_ddcp_query_db(&(node_nw_prop->ddcp_db));
     node_nw_prop->wt = init_wheel_timer(60, 1);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_buffer = calloc(1, MAX_PACKET_BUFFER_SIZE);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
+	pthread_mutex_init(&node_nw_prop->send_buffer_mutex, 0);
+	assert((node_nw_prop->xmit_udp_skt = 
+		socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP )) > 0);
 }
 
 typedef enum{
@@ -200,11 +216,14 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
-#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
+#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table_in_use)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
 #define NODE_SEND_BUFFER(node_ptr)  (node_ptr->node_nw_prop.send_buffer)
+#define NODE_GET_NON_USED_RT_TABLE(node_ptr)	\
+	((node_ptr->node_nw_prop.rt_table_in_use == node_ptr->node_nw_prop.rt_table) ?\
+	 node_ptr->node_nw_prop.rt_table1 : node_ptr->node_nw_prop.rt_table)
 
 /*APIs to set Network Node properties*/
 bool_t node_set_loopback_address(node_t *node, char *ip_addr);
