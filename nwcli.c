@@ -49,6 +49,72 @@ extern int traceoptions_handler(param_t *param,
                                 ser_buff_t *tlv_buf,
                                 op_mode enable_or_disable);
 
+/*
+ * In the CLI hierarchy, it is very common to hook up new CLIs (config and show)
+ * at node and interface level. Provided the mechanism where App developer can 
+ * write CLI trees in application folder and simply hooks up those functions here
+ * after declaring the function prototypes in Layer5/app_handler.h. NO need to mess
+ * with CLI hierarchy tree implemented in nw_init_cli () unless app developer wants
+ * to develop a CLI under a non-trivial hook point in a CLI tree.
+ */
+
+/* config node <node-name> protocol .... */
+typedef int (*cli_register_cb)(param_t *);
+static cli_register_cb
+	cli_register_cb_arr_config_node_node_name_protocol_level[] =
+	{
+		0,
+		0
+		/*  Add more CB here */
+	};
+
+/* config node <node-name> interface <if-name> protocol .... */
+static cli_register_cb
+	cli_register_cb_arr_config_node_node_name_interface_if_name_protocol_level[] =
+	{
+		0,
+		0
+		/* Add more CB here */
+	};
+
+/* show node <node-name> protocol ... */
+static cli_register_cb
+	cli_register_cb_arr_show_node_node_name_protcol_level[] =
+	{
+		0,
+		0
+		/* Add more CB here */
+	};
+
+/* show node <node-name> interface protocol .... */
+static cli_register_cb
+	cli_register_cb_arr_show_node_node_name_interface_protocol_level[] =
+	{
+		0,
+		0
+		/* Add more CB here */
+	};
+
+/* run node <node-name> protocol .... */
+static cli_register_cb
+	cli_register_cb_arr_run_node_node_name_protocol_level[] =
+	{
+		0,
+		0
+		/* Add more CB here */
+	};
+
+static void
+cli_register_application_cli_trees(param_t *param,
+			cli_register_cb *cli_register_cb_arr){
+
+	int i = 0;
+	while(cli_register_cb_arr[i]) {
+		(cli_register_cb_arr[i])(param);
+		i++;
+	}
+}
+
 /* Display functions when user presses ?*/
 static void
 display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
@@ -763,6 +829,19 @@ nw_init_cli(){
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
+				
+				 {
+					 /* show node <node-name> protocol */
+					 static param_t protocol;
+					 init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
+					 libcli_register_param(&node_name, &protocol);
+
+					 /* show node <node-name> protocol ...*/
+					 cli_register_application_cli_trees(&node_name, 
+							 cli_register_cb_arr_show_node_node_name_protcol_level);
+				 }
+
+
                  {
                      static param_t log_status;
                      init_param(&log_status, CMD, "log-status", traceoptions_handler, 0, INVALID, 0, "log-status");
@@ -828,6 +907,16 @@ nw_init_cli(){
                     static param_t interface;
                     init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
                     libcli_register_param(&node_name, &interface);
+
+					{
+						/* show node <node-name> interface protocol */
+                        static param_t protocol;
+                        init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App Protocol");
+                        libcli_register_param(&interface, &protocol);
+						/* show node <node-name> interface protocol ... */
+						cli_register_application_cli_trees(&protocol,
+								cli_register_cb_arr_show_node_node_name_interface_protocol_level); 	
+					}
                     {
                         /*show node <node-name> interface statistics*/
                         static param_t stats;
@@ -839,6 +928,10 @@ nw_init_cli(){
                             static param_t protocol;
                             init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "Protocol specific intf stats");
                             libcli_register_param(&stats, &protocol);
+
+							cli_register_application_cli_trees(&protocol, 
+								cli_register_cb_arr_show_node_node_name_interface_protocol_level);
+
                             {
                                 /*show node <node-name> interface statistics protocol <protocol-name>*/ 
                                 static param_t nmp;
@@ -880,6 +973,19 @@ nw_init_cli(){
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
+
+
+			{
+				/* run node <node-name> protocol */	
+				static param_t protocol;
+				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App Protocol");
+				libcli_register_param(&node_name, &protocol);		
+
+				/* run node <node-name> protocol ... */
+				cli_register_application_cli_trees(&node_name, 
+						cli_register_cb_arr_run_node_node_name_protocol_level);
+			}
+
             {
                 /*run node <node-name> ping */
                 static param_t ping;
@@ -978,15 +1084,22 @@ nw_init_cli(){
         static param_t node_name;
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
+
         {
 
             /*Nbrship Management CLIs will go here*/
             {
-                /*config node <node-name> [no] protocol nmp*/
+                /*config node <node-name> [no] protocol*/
                 static param_t protocol;
                 init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "protocol");
                 libcli_register_param(&node_name, &protocol);
+				
+				/* config node <node-name> protocol....*/
+				cli_register_application_cli_trees(&node_name, 
+						cli_register_cb_arr_config_node_node_name_protocol_level);
+
                 {
+					/* config node <node-name> protocol nmp */
                     static param_t nmp;
                     init_param(&nmp, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
                     libcli_register_param(&protocol, &nmp);
@@ -1031,6 +1144,18 @@ nw_init_cli(){
                 static param_t if_name;
                 init_param(&if_name, LEAF, 0, 0, 0, STRING, "if-name", "Interface Name");
                 libcli_register_param(&interface, &if_name);
+	
+				{
+					/* config node <node-name> interface <if-name> protocol */
+					static param_t protocol;
+					init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "Application Protocol");
+					libcli_register_param(&if_name, &protocol);
+
+					/* config node <node-name> interface <if-name> protocol .... */
+					cli_register_application_cli_trees(&protocol,
+						cli_register_cb_arr_config_node_node_name_interface_if_name_protocol_level); 	
+				}
+	
                 {
                     /*CLI for traceoptions at interface level are hooked up here in tree */
                     tcp_ip_traceoptions_cli(0, &if_name);
