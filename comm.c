@@ -208,16 +208,13 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
         return 0;
     }
 
-    uint32_t dst_udp_port_no = nbr_node->udp_port_number;
-    
-    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+	uint32_t dst_udp_port_no = nbr_node->udp_port_number;
 
-    if(sock < 0){
-        printf("Error : Sending socket Creation failed , errno = %d", errno);
-        return -1;
-    }
-    
+    int sock = sending_node->node_nw_prop.xmit_udp_skt;
+
     interface_t *other_interface =  interface;
+
+	pthread_mutex_lock(&sending_node->node_nw_prop.send_buffer_mutex);
 
     memset(NODE_SEND_BUFFER(sending_node), 0, MAX_PACKET_BUFFER_SIZE);
 
@@ -236,7 +233,7 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
         tcp_dump_send_logger(sending_node, interface, 
             pkt_with_aux_data + IF_NAME_SIZE, pkt_size, ETH_HDR);
     }
-    close(sock);
+	pthread_mutex_unlock(&sending_node->node_nw_prop.send_buffer_mutex);
     return rc; 
        
 }
@@ -285,8 +282,9 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
  	*  Pkts originating from all above 3 sources ends up in this function to be 
  	*  eventually send out. Hence, this function runs in the context of 3 different
  	*  threads - CLI, Timers and pkt receiever thread. So, using a shared resource
- 	*  in this function is a crime. The Send buffer of the node is being shared
- 	*  by these three threads and hence concurrent problem can happen (Pkt corruption).
+ 	*  in this function without concurreny protection is a crime. The Send buffer 
+ 	*  of the node is being shared by these three threads and hence concurrent problem
+ 	*  can happen (Pkt corruption).
  	*
  	*  Therefore, to deal with this problem we need to protect below code segment using
  	*  Mutexes (pthread_mutex_t). Every node will have a send_buffer_mutex and we will

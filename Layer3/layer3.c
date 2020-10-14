@@ -223,7 +223,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                         ip_hdr->protocol, flags | (include_ip_hdr ? IP_HDR_INCLUDED : 0));
                     break;
                 case ICMP_PRO:
-                    printf("\nIP Address : %s, ping success\n", dest_ip_addr);
+                    //printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     break;
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 

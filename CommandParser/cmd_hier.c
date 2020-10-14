@@ -195,7 +195,7 @@ get_str_leaf_type(leaf_type_t leaf_type){
 static void
 ctrlC_signal_handler(int sig){
     printf("Ctrl-C pressed\n");
-    printf("Bye Bye\n");
+    printf("Bye Bye. Visit : www.csepracticals.com For more Courses and Projects\n");
     exit(0);
 }
 
