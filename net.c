@@ -297,9 +297,10 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
 void
 dump_interface_stats(interface_t *interface){
 
-    printf("%s   ::  PktTx : %u, PktRx : %u",
+    printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u",
         interface->if_name, interface->intf_nw_props.pkt_sent,
-        interface->intf_nw_props.pkt_recv);
+        interface->intf_nw_props.pkt_recv,
+		interface->intf_nw_props.xmit_pkt_dropped);
 }
 
 void

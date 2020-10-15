@@ -250,6 +250,7 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     
     
     if(!IF_IS_UP(interface)){
+		interface->intf_nw_props.xmit_pkt_dropped++;
         return 0;
     }
 

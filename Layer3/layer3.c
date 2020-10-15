@@ -277,7 +277,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
     nexthop_t *nexthop = NULL;
 
     nexthop = l3_route_get_active_nexthop(l3_route);
-    assert(nexthop);
+	if(!nexthop) return;
     
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
@@ -355,7 +355,8 @@ l3_route_get_active_nexthop(l3_route_t *l3_route){
         return NULL;
     
     nexthop_t *nexthop = l3_route->nexthops[l3_route->nxthop_idx];
-    assert(nexthop);
+
+	if(!nexthop) return NULL;
 
     l3_route->nxthop_idx++;
 

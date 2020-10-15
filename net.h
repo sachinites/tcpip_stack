@@ -176,6 +176,7 @@ typedef struct intf_nw_props_ {
     /*Interface Statistics*/
     uint32_t pkt_recv;
     uint32_t pkt_sent;
+	uint32_t xmit_pkt_dropped;
 } intf_nw_props_t;
 
 extern void
@@ -202,6 +203,7 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     /*Interface Statistics*/
     intf_nw_props->pkt_recv = 0;
     intf_nw_props->pkt_sent = 0;
+	intf_nw_props->xmit_pkt_dropped = 0;
 }
 
 void
