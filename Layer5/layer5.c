@@ -102,7 +102,7 @@ promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
 
 void
 tcp_app_register_l2_protocol_interest(uint32_t L5_protocol, 
-                                nfc_app_cb _app_layer_cb){
+                                nfc_app_cb app_layer_cb){
 
 	notif_chain_elem_t nfce_template;
 	
@@ -112,7 +112,7 @@ tcp_app_register_l2_protocol_interest(uint32_t L5_protocol,
 
 	nfce_template.key_size = sizeof(L5_protocol);
 	nfce_template.is_key_set = TRUE;
-	nfce_template.app_cb = _app_layer_cb;
+	nfce_template.app_cb = app_layer_cb;
 	init_glthread(&nfce_template.glue);
 
 	nfc_register_notif_chain(&layer2_proto_reg_db2,
@@ -121,7 +121,7 @@ tcp_app_register_l2_protocol_interest(uint32_t L5_protocol,
 
 void
 tcp_app_register_l3_protocol_interest(uint32_t L5_protocol, 
-                                nfc_app_cb _app_layer_cb){
+                                nfc_app_cb app_layer_cb){
 
 	notif_chain_elem_t nfce_template;
 	
@@ -132,7 +132,7 @@ tcp_app_register_l3_protocol_interest(uint32_t L5_protocol,
 	nfce_template.key_size = sizeof(L5_protocol);
 
 	nfce_template.is_key_set = TRUE;
-	nfce_template.app_cb = _app_layer_cb;
+	nfce_template.app_cb = app_layer_cb;
 	init_glthread(&nfce_template.glue);
 
 	nfc_register_notif_chain(&layer3_proto_reg_db2,
