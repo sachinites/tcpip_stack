@@ -111,11 +111,6 @@ adjacency_t *
 find_adjacency_on_interface(interface_t *interface, char *router_id);
 
 void
-process_hello_msg(node_t *node, interface_t *iif, 
-                  char *pkt, uint32_t pkt_size,
-                  uint32_t flags);
-
-void
 delete_interface_adjacency(interface_t *interface, 
                             char *router_id); 
 

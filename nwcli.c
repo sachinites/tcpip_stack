@@ -39,8 +39,7 @@
 #include "WheelTimer/WheelTimer.h"
 #include "Layer5/app_handlers.h"
 #include "BitOp/bitsop.h"
-#include "tcpip_app_register.h"
-
+#include "tcpip_notif.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -580,8 +579,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                 default: ;
             }
             if(IS_BIT_SET(if_change_flags, IF_METRIC_CHANGE_F)){
-                tcp_stack_notify_interface_change_config(
-                    interface, if_change_flags);
+				nfc_intf_invoke_notification_to_sbscribers(
+					interface, 0, if_change_flags);
             }
         }    
         break;
@@ -599,8 +598,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                 interface->intf_nw_props.is_up = FALSE;
             }
             if(IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
-                tcp_stack_notify_interface_change_config(
-                    interface, if_change_flags);
+				nfc_intf_invoke_notification_to_sbscribers(
+					interface, 0, if_change_flags);
             }
             break;
         case CMDCODE_INTF_CONFIG_L2_MODE:

@@ -50,6 +50,7 @@
 #include "CommandParser/cmdtlv.h"
 #include "cmdcodes.h"
 #include "Layer5/app_handlers.h"
+#include "tcpip_notif.h"
 
 extern graph_t * topo;
 

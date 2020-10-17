@@ -31,6 +31,7 @@
 #ifndef __TCP_IP_TRACE__
 #define __TCP_IP_TRACE__
 
+#include <stdio.h>  /* for FILE* */
 #include "BitOp/bitsop.h"
 
 typedef struct node_ node_t;

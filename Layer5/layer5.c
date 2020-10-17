@@ -34,26 +34,47 @@
 #include <stdint.h>
 #include "graph.h"
 #include "../tcpconst.h"
-#include "ddcp/ddcp.h"
-#include "layer5.h"
 #include "../gluethread/glthread.h"
+#include "layer5.h"
+#include "ddcp/ddcp.h"
 
-static glthread_t layer2_proto_reg_db = {0, 0};
-static glthread_t layer3_proto_reg_db = {0, 0};
+static notif_chain_t layer2_proto_reg_db2 = {
+	"L2 proto registration db",
+	{0, 0}
+};
+
+static notif_chain_t layer3_proto_reg_db2 = {
+	"L3 proto registration db",
+	{0, 0}
+};
 
 static void
-layer5_invoke_app_cb(node_t *node, interface_t *recv_intf, 
+layer5_invoke_app_cb(node_t *node,
+					 interface_t *recv_intf, 
                      char *l5_hdr, /*Application Data*/
                      uint32_t pkt_size, 
                      uint32_t L5_protocol,
                      uint32_t flags){
 
-    tcp_stack_invoke_app_callbacks(&layer2_proto_reg_db,
-            L5_protocol, node, recv_intf, 
-            l5_hdr, pkt_size, flags);
-    tcp_stack_invoke_app_callbacks(&layer3_proto_reg_db,
-            L5_protocol, node, recv_intf,
-            l5_hdr, pkt_size, flags);
+	pkt_notif_data_t pkt_notif_data;
+
+	pkt_notif_data.recv_node = node;
+	pkt_notif_data.recv_interface = recv_intf;
+	pkt_notif_data.pkt = l5_hdr;
+	pkt_notif_data.pkt_size = pkt_size;
+	pkt_notif_data.flags = flags;	
+	pkt_notif_data.protocol_no = L5_protocol;
+
+	nfc_invoke_notif_chain(&layer2_proto_reg_db2,
+			(void *)&pkt_notif_data,
+			sizeof(pkt_notif_data_t),
+			(char *)&L5_protocol, 
+			sizeof(L5_protocol));
+	nfc_invoke_notif_chain(&layer3_proto_reg_db2,
+			(void *)&pkt_notif_data,
+			sizeof(pkt_notif_data_t),
+			(char *)&L5_protocol, 
+			sizeof(L5_protocol));
 }
 
 void
@@ -81,32 +102,40 @@ promote_pkt_to_layer5(node_t *node, interface_t *recv_intf,
 
 void
 tcp_app_register_l2_protocol_interest(uint32_t L5_protocol, 
-                                app_layer_cb _app_layer_cb){
+                                nfc_app_cb _app_layer_cb){
 
-    tcp_stack_register_app_protocol(&layer2_proto_reg_db,
-                L5_protocol, _app_layer_cb);
+	notif_chain_elem_t nfce_template;
+	
+	memset(&nfce_template, 0, sizeof(notif_chain_elem_t));
+
+	memcpy(&nfce_template.key, (char *)&L5_protocol, sizeof(L5_protocol));
+
+	nfce_template.key_size = sizeof(L5_protocol);
+	nfce_template.is_key_set = TRUE;
+	nfce_template.app_cb = _app_layer_cb;
+	init_glthread(&nfce_template.glue);
+
+	nfc_register_notif_chain(&layer2_proto_reg_db2,
+		&nfce_template);
 }
 
 void
 tcp_app_register_l3_protocol_interest(uint32_t L5_protocol, 
-                                app_layer_cb _app_layer_cb){
+                                nfc_app_cb _app_layer_cb){
 
-    tcp_stack_register_app_protocol(&layer3_proto_reg_db,
-                L5_protocol, _app_layer_cb);
+	notif_chain_elem_t nfce_template;
+	
+	memset(&nfce_template, 0, sizeof(notif_chain_elem_t));
+
+	memcpy(&nfce_template.key, (char *)&L5_protocol, sizeof(L5_protocol));
+
+	nfce_template.key_size = sizeof(L5_protocol);
+
+	nfce_template.is_key_set = TRUE;
+	nfce_template.app_cb = _app_layer_cb;
+	init_glthread(&nfce_template.glue);
+
+	nfc_register_notif_chain(&layer3_proto_reg_db2,
+		&nfce_template);
 }
 
-void
-tcp_app_deregister_l2_protocol_interest(uint32_t L5_protocol,
-                                    app_layer_cb _app_layer_cb){
-
-    tcp_stack_unregister_app_protocol(&layer2_proto_reg_db,
-                L5_protocol, _app_layer_cb);
-}
-
-void
-tcp_app_deregister_l3_protocol_interest(uint32_t L5_protocol,
-                                    app_layer_cb _app_layer_cb){
-
-    tcp_stack_unregister_app_protocol(&layer3_proto_reg_db,
-                L5_protocol, _app_layer_cb);
-}

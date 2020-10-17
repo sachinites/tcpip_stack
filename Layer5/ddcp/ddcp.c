@@ -308,10 +308,27 @@ ddcp_process_ddcp_query(node_t *node,
     return copy_buffer;
 }
 
-void
-ddcp_process_ddcp_query_msg(node_t *node, interface_t *iif, 
-                            char *pkt, uint32_t pkt_size, 
-                            uint32_t flags){
+static void
+ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
+
+    char *pkt;
+    node_t *node;
+    uint32_t flags;
+    interface_t *iif;
+    uint32_t pkt_size;
+    uint32_t protocol_no;
+
+    pkt_notif_data_t *pkt_notif_data;
+
+    pkt_notif_data = (pkt_notif_data_t *)arg;
+
+    node        = pkt_notif_data->recv_node;
+    iif         = pkt_notif_data->recv_interface;
+    pkt         = pkt_notif_data->pkt;
+    flags       = pkt_notif_data->flags;
+    pkt_size    = pkt_notif_data->pkt_size;
+    protocol_no = pkt_notif_data->protocol_no;
+
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
@@ -441,9 +458,26 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
 }
 
 
-void
-ddcp_process_ddcp_reply_msg(node_t *node, interface_t *recv_intf, 
-                        char *pkt, uint32_t pkt_size, uint32_t flags){
+static void
+ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
+
+    char *pkt;
+    node_t *node;
+    uint32_t flags;
+    interface_t *recv_intf;
+    uint32_t pkt_size;
+    uint32_t protocol_no;
+
+    pkt_notif_data_t *pkt_notif_data;
+
+    pkt_notif_data = (pkt_notif_data_t *)arg;
+
+    node        = pkt_notif_data->recv_node;
+    recv_intf   = pkt_notif_data->recv_interface;
+    pkt         = pkt_notif_data->pkt;
+    flags       = pkt_notif_data->flags;
+    pkt_size    = pkt_notif_data->pkt_size;
+    protocol_no = pkt_notif_data->protocol_no;
 
     ddcp_add_or_update_ddcp_reply_msg(node, pkt);
 }
