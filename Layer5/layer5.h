@@ -56,11 +56,11 @@ promote_pkt_to_layer5(node_t *node,
 
 void
 tcp_app_register_l2_protocol_interest(uint32_t L5_protocol,
-        nfc_app_cb _app_layer_cb);
+        nfc_app_cb app_layer_cb);
 
 
 void
 tcp_app_register_l3_protocol_interest(uint32_t L5_protocol,
-        nfc_app_cb _app_layer_cb);
+        nfc_app_cb app_layer_cb);
 
 #endif /* __LAYER5__ */
