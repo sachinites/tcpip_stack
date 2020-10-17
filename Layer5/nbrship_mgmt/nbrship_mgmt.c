@@ -14,14 +14,23 @@ typedef struct pkt_meta_data_{
     uint32_t pkt_size;
 } pkt_meta_data_t;
 
-static int
-nmp_print_hello_pkt(char *buff, char *pkt, 
-                uint32_t pkt_size){ 
+static void
+nmp_print_hello_pkt(void *arg, size_t arg_size){
 
     int rc = 0;
+	char *buff;
+	uint32_t pkt_size;
+
     unsigned char tlv_type, tlv_len, *tlv_value = NULL;
 
-    hello_t *hpkt = (hello_t *)pkt;
+	pkt_info_t *pkt_info = (pkt_info_t *)arg;
+
+	buff = pkt_info->pkt_print_buffer;
+	pkt_size = pkt_info->pkt_size;
+
+    hello_t *hpkt = (hello_t *)(pkt_info->pkt);
+
+	assert(pkt_info->protocol_no == NMP_HELLO_MSG_CODE);
 
     rc = sprintf(buff, "NMP_HELLO_MSG_CODE : ");
 
@@ -45,7 +54,7 @@ nmp_print_hello_pkt(char *buff, char *pkt,
     } ITERATE_TLV_END(hpkt->tlv_buff, tlv_type, tlv_len, tlv_value, pkt_size);
     
     rc -= strlen(" :: ");
-    return rc;
+    pkt_info->bytes_written = rc;
 }
 
 static void 
@@ -192,10 +201,26 @@ update_interface_adjacency_from_hello(interface_t *interface,
     interface->intf_nw_props.nmp->recvd++;
 }
 
-void
-process_hello_msg(node_t *node, interface_t *iif, 
-            char *pkt, uint32_t pkt_size,
-            uint32_t flags){
+static void
+process_hello_msg(void *arg, size_t arg_size){
+
+	char *pkt;
+	node_t *node;
+	uint32_t flags;
+	interface_t *iif;
+	uint32_t pkt_size;
+	uint32_t protocol_no;
+
+	pkt_notif_data_t *pkt_notif_data;
+
+	pkt_notif_data = (pkt_notif_data_t *)arg;
+
+	node 	 	= pkt_notif_data->recv_node;
+	iif  	 	= pkt_notif_data->recv_interface;
+	pkt  	 	= pkt_notif_data->pkt;
+	flags 	 	= pkt_notif_data->flags;
+	pkt_size 	= pkt_notif_data->pkt_size; 
+	protocol_no = pkt_notif_data->protocol_no;
 
     uint8_t intf_ip_len;
     intf_nmp_t *nmp  = NMP_GET_INTF_NMPDS(iif);
@@ -658,7 +683,7 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
 
 
 static void
-nmp_interface_update(interface_t *intf, uint32_t flags){
+nmp_interface_update(void *arg, size_t arg_size){
 
 #if 0
     printf("%s called for interface %s, flags = 0x%x\n", __FUNCTION__,
@@ -674,9 +699,9 @@ init_nbrship_mgmt(){
 
     tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(NMP_HELLO_MSG_CODE);
 
-    tcp_stack_register_print_callback(NMP_HELLO_MSG_CODE, 
-            "NMP_HELLO_MSG_CODE", nmp_print_hello_pkt);
+	nfc_register_for_pkt_tracing(NMP_HELLO_MSG_CODE,
+		nmp_print_hello_pkt);
 
-    tcp_stack_register_interface_update_listener(nmp_interface_update);
+	nfc_intf_register_for_events(nmp_interface_update);
 }
 

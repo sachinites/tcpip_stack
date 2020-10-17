@@ -21,7 +21,8 @@ OBJS=gluethread/glthread.o \
 		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
 		  tcp_ip_trace.o	\
-		  tcpip_app_register.o
+ 		  tcpip_notif.o \
+		  notif.o
 
 pkt_gen.exe:pkt_gen.o utils.o
 	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
@@ -31,6 +32,12 @@ pkt_gen.o:pkt_gen.c
 
 tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}
+
+notif.o:notif.c
+	${CC} ${CFLAGS} -c -I gluethread -I . notif.c -o notif.o
+
+tcpip_notif.o:tcpip_notif.c
+	${CC} ${CFLAGS} -c -I gluethread -I . tcpip_notif.c -o tcpip_notif.o
 
 testapp.o:testapp.c
 	${CC} ${CFLAGS} -c testapp.c -o testapp.o
@@ -49,9 +56,6 @@ tcp_stack_init.o:tcp_stack_init.c
 
 Layer5/nbrship_mgmt/nbrship_mgmt.o:Layer5/nbrship_mgmt/nbrship_mgmt.c
 	${CC} ${CFLAGS} -c -I . Layer5/nbrship_mgmt/nbrship_mgmt.c -o Layer5/nbrship_mgmt/nbrship_mgmt.o
-
-tcpip_app_register.o:tcpip_app_register.c
-	${CC} ${CFLAGS} -c -I . tcpip_app_register.c -o tcpip_app_register.o
 
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o

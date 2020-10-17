@@ -6,7 +6,6 @@
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include "gluethread/glthread.h"
-#include "tcpip_app_register.h"
 
 extern graph_t *topo;
 
@@ -24,8 +23,6 @@ static void init_tcp_print_recv_buffer(){
 static void init_string_buffer(){
     memset(string_buffer, 0, sizeof(string_buffer));
 }
-
-glthread_t tcp_app_print_cb_db = {0, 0};
 
 static char *
 string_ethernet_hdr_type(unsigned short type){
@@ -45,11 +42,11 @@ string_ethernet_hdr_type(unsigned short type){
             strncpy(string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
                 strlen("DDCP_MSG_TYPE_FLOOD_QUERY"));
             break;
+		case NMP_HELLO_MSG_CODE:
+			strncpy(string_buffer, "NMP_HELLO_MSG_CODE",
+				strlen("NMP_HELLO_MSG_CODE"));
+			break;
         default:
-            proto_str = tcp_stack_get_print_str_protocol_number(type);
-            if(!proto_str)
-            return NULL;
-            strncpy(string_buffer, proto_str, strlen(proto_str));
             break;
     }
     return string_buffer;
@@ -105,6 +102,7 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
      char ip1[16];
      char ip2[16];
 
+	 pkt_info_t pkt_info;
      tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip1);
      tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, ip2);
 
@@ -121,9 +119,11 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
                     IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
         default:
-            rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
-                        ip_hdr->protocol, buff + rc, INCREMENT_IPHDR(ip_hdr),
-                        IP_HDR_PAYLOAD_SIZE(ip_hdr));
+			rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
+					ip_hdr->protocol,
+					INCREMENT_IPHDR(ip_hdr),
+					IP_HDR_PAYLOAD_SIZE(ip_hdr),
+					buff + rc);	
             break;
             ;
     }
@@ -214,9 +214,11 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                     payload_size);
             break;
         default:
-            rc += tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
-                    type, buff + rc, (char *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
-                    payload_size);
+			rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
+					type,
+					(char *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
+					payload_size,
+					buff + rc);
             break;
     }
     return rc;
@@ -288,9 +290,11 @@ tcp_dump(int sock_fd,
                 (ip_hdr_t *)pkt, pkt_size);
             break;
         default:
-            rc = tcp_stack_invoke_app_print_callbacks(&tcp_app_print_cb_db,
-                        hdr_type, out_buff + write_offset, (char *)pkt,
-                        pkt_size);
+			rc = nfc_pkt_trace_invoke_notif_to_sbscribers(
+					hdr_type,
+					(char *)pkt,
+					pkt_size,
+					out_buff + write_offset);
             break;
     }
 

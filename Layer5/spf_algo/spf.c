@@ -618,7 +618,17 @@ compute_spf_all_routers(graph_t *topo){
 }
 
 static void
-spf_algo_interface_update(interface_t *intf, uint32_t flags){
+spf_algo_interface_update(void *arg, size_t arg_size){
+
+	intf_notif_data_t *intf_notif_data = 
+		(intf_notif_data_t *)arg;
+
+	uint32_t flags = intf_notif_data->change_flags;
+	interface_t *interface = intf_notif_data->interface;
+	intf_nw_props_t *old_intf_nw_props = intf_notif_data->old_intf_nw_props;
+
+
+	printf("%s() called\n", __FUNCTION__);
 
     /*Run spf if interface is transition to up/down*/
     if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F) ||
@@ -637,11 +647,12 @@ RUN_SPF:
     compute_spf_all_routers(topo);
 }
 
+
 void
 init_spf_algo(){
     
     compute_spf_all_routers(topo);
-    tcp_stack_register_interface_update_listener(spf_algo_interface_update);
+	nfc_intf_register_for_events(spf_algo_interface_update);
 }
 
 int

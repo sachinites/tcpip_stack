@@ -38,12 +38,13 @@
 #include <stdint.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <assert.h>
+#include <pthread.h>
 #include "utils.h"
 #include "WheelTimer/WheelTimer.h"
 #include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
-#include <pthread.h>
 
 /*Do not #include Layer2/layer2.h*/
 
