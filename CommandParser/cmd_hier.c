@@ -407,7 +407,9 @@ init_param(param_t *param,                               /* pointer to static pa
     else if(param_type == NO_CMD){
         GET_PARAM_CMD(param) = calloc(1, sizeof(cmd_t));
         param->param_type = NO_CMD;
-        strncpy(GET_CMD_NAME(param), NEGATE_CHARACTER, strlen(NEGATE_CHARACTER));
+		const char *temp = NEGATE_CHARACTER;
+		memcpy(GET_CMD_NAME(param), temp, strlen(NEGATE_CHARACTER));
+        //strncpy(GET_CMD_NAME(param), NEGATE_CHARACTER, strlen(NEGATE_CHARACTER));
         GET_CMD_NAME(param)[CMD_NAME_SIZE -1] = '\0';
     }
 
