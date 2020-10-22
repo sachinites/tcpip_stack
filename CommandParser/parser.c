@@ -24,6 +24,7 @@
 #include "cliconst.h"
 #include "css.h"
 #include "libcli.h"
+#include "../EventDispatcher/event_dispatcher.h"
 
 extern param_t root;
 extern leaf_type_handler leaf_handler_array[LEAF_MAX];
@@ -97,6 +98,63 @@ find_matching_param(param_t **options, const char *cmd_name){
     return array_of_possibilities[choice];   
 }
 
+#define TASK_SCHEDULER 1
+
+static void 
+task_cbk_handler_internal(void *arg, uint32_t arg_size){
+
+	unified_cli_data_t *unified_cli_data = 
+		(unified_cli_data_t *)arg;
+
+	unified_cli_data->param->callback(
+		unified_cli_data->param,
+		unified_cli_data->tlv_ser_buff,
+		unified_cli_data->enable_or_disable);
+	
+	/* Free the memort now */
+
+	free_serialize_buffer(unified_cli_data->tlv_ser_buff);
+	free(unified_cli_data);
+	
+	if(strncmp(cons_input_buffer, "repeat", strlen(cons_input_buffer)) == 0){
+		memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
+		place_console(1);
+		return;
+	}
+
+	memset(last_command_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
+
+	memcpy(last_command_input_buffer, cons_input_buffer, strlen(cons_input_buffer));
+
+	last_command_input_buffer[strlen(last_command_input_buffer)] = '\0';
+
+	memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
+
+	place_console(1);
+}
+
+static void
+task_invoke_appln_cbk_handler(param_t *param,
+						 ser_buff_t *tlv_buff,
+						 op_mode enable_or_disable) {
+
+	unified_cli_data_t *unified_cli_data =
+		(unified_cli_data_t *)calloc(1, sizeof(unified_cli_data_t));
+
+	unified_cli_data->param = param;
+	unified_cli_data->tlv_ser_buff = calloc(1, sizeof(ser_buff_t));
+	memcpy(unified_cli_data->tlv_ser_buff, tlv_buff, sizeof(ser_buff_t));
+	unified_cli_data->tlv_ser_buff->b = calloc(1, 
+		get_serialize_buffer_size(tlv_buff));
+	memcpy(unified_cli_data->tlv_ser_buff->b, 
+		   tlv_buff->b,
+		   get_serialize_buffer_size(tlv_buff));
+	unified_cli_data->enable_or_disable = enable_or_disable;
+
+	task_create_new_job((void *)unified_cli_data,
+						task_cbk_handler_internal,
+						TASK_ONE_SHOT);						
+}
 
 static tlv_struct_t tlv;
 
@@ -187,11 +245,16 @@ build_tlv_buffer(char **tokens,
                 /*Add the show extension param TLV to tlv buffer, this is really not an
                  * application callback*/
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
+
                 memset(command_code_tlv.value, 0, LEAF_VALUE_HOLDER_SIZE);
                 sprintf(command_code_tlv.value, "%d", parent->CMDCODE);
                 collect_tlv(tlv_buff, &command_code_tlv); 
-                /*Now invoke the pplication handler*/
+                /*Now invoke the application handler*/
+#ifndef TASK_SCHEDULER
                 INVOKE_APPLICATION_CALLBACK_HANDLER(parent, tlv_buff, enable_or_disable);
+#else
+				task_invoke_appln_cbk_handler(parent, tlv_buff, enable_or_disable);
+#endif
             }
 
             else if(param == libcli_get_suboptions_param())
@@ -229,7 +292,11 @@ build_tlv_buffer(char **tokens,
                     sprintf(command_code_tlv.value, "%d", param->CMDCODE);
                     collect_tlv(tlv_buff, &command_code_tlv); 
                 }
+#ifndef TASK_SCHEDULER
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
+#else
+				task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
+#endif
             }
             break;
 
@@ -352,6 +419,7 @@ command_parser(void){
          
         status = parse_input_cmd(cons_input_buffer, strlen(cons_input_buffer));
 
+#ifndef TASK_SCHEDULER
         if(strncmp(cons_input_buffer, "repeat", strlen(cons_input_buffer)) == 0){
             memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
             place_console(1);
@@ -370,6 +438,7 @@ command_parser(void){
         memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
 
         place_console(1);
+#endif
     }
 }
 

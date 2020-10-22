@@ -22,7 +22,11 @@ OBJS=gluethread/glthread.o \
 		  tcp_stack_init.o	\
 		  tcp_ip_trace.o	\
  		  tcpip_notif.o \
-		  notif.o
+		  notif.o	\
+		  EventDispatcher/event_dispatcher.o \
+
+EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
+	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
 
 pkt_gen.exe:pkt_gen.o utils.o
 	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
@@ -113,6 +117,7 @@ clean:
 	rm -f Layer5/ddcp/*.o
 	rm -f Layer5/spf_algo/*.o
 	rm -f WheelTimer/WheelTimer.o
+	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
 all:
 	make

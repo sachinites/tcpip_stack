@@ -566,6 +566,12 @@ compute_spf(node_t *spf_root){
 }
 
 static void
+compute_spf_via_job(void *data, uint32_t data_size) {
+
+	compute_spf((node_t*)data);
+}
+
+static void
 show_spf_results(node_t *node){
 
     int i = 0, j = 0;
@@ -613,7 +619,7 @@ compute_spf_all_routers(graph_t *topo){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
-        compute_spf(node);
+		task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
 

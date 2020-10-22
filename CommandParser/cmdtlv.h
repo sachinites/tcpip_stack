@@ -99,4 +99,14 @@ swap_tlv_units(tlv_struct_t *tlv1, tlv_struct_t *tlv2){
     *tlv1 = *tlv2;
     *tlv2 = tlv;
 }
+
+/* Structure to support callback invocation 
+ * via Task Scheduler */
+typedef struct unified_cli_data_{
+	
+	param_t *param;
+	ser_buff_t *tlv_ser_buff;
+	op_mode enable_or_disable;
+} unified_cli_data_t;
+
 #endif /* __CMDTLV__H */

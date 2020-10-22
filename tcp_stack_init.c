@@ -31,10 +31,14 @@
 extern void init_spf_algo();
 extern void init_ddcp();
 extern void init_nbrship_mgmt();
+extern void event_dispatcher_init();
+extern void event_dispatcher_run();
 
 void
 init_tcp_ip_stack(){
 
+	event_dispatcher_init();
+	event_dispatcher_run();	
     init_spf_algo();
     init_ddcp();
     init_nbrship_mgmt();

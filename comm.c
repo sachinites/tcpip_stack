@@ -42,6 +42,9 @@
 #include "comm.h"
 #include "graph.h"
 #include "net.h"
+#include "EventDispatcher/event_dispatcher.h"
+
+static pkt_q_t recvr_pkt_q;
 
 static int
 _send_pkt_out(int sock_fd, char *pkt_data, uint32_t pkt_size, 
@@ -123,6 +126,12 @@ _pkt_receive(node_t *receving_node,
                 pkt_size - IF_NAME_SIZE);
 }
 
+static void
+pkt_recvr_job_cbk(void *pkt, uint32_t pkt_size){
+
+
+}
+
 static void *
 _network_start_pkt_receiver_thread(void *arg){
 
@@ -134,7 +143,9 @@ _network_start_pkt_receiver_thread(void *arg){
     
     int sock_max_fd = 0;
     int bytes_recvd = 0;
-    
+   
+	init_pkt_q(&recvr_pkt_q, pkt_recvr_job_cbk);
+ 
     graph_t *topo = (void *)arg;
 
     int addr_len = sizeof(struct sockaddr);
@@ -173,7 +184,6 @@ _network_start_pkt_receiver_thread(void *arg){
                 memset(recv_buffer, 0, MAX_PACKET_BUFFER_SIZE);
                 bytes_recvd = recvfrom(node->udp_sock_fd, (char *)recv_buffer, 
                         MAX_PACKET_BUFFER_SIZE, 0, (struct sockaddr *)&sender_addr, &addr_len);
-                
                 _pkt_receive(node, recv_buffer, bytes_recvd);
             }
             

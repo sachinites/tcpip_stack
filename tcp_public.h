@@ -51,6 +51,7 @@
 #include "cmdcodes.h"
 #include "Layer5/app_handlers.h"
 #include "tcpip_notif.h"
+#include "EventDispatcher/event_dispatcher.h"
 
 extern graph_t * topo;
 
