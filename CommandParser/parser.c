@@ -100,6 +100,16 @@ find_matching_param(param_t **options, const char *cmd_name){
 
 #define TASK_SCHEDULER 1
 
+#ifdef TASK_SCHEDULER
+/* Structure to support callback invocation
+ * via Task Scheduler */
+typedef struct unified_cli_data_{
+
+    param_t *param;
+    ser_buff_t *tlv_ser_buff;
+    op_mode enable_or_disable;
+} unified_cli_data_t;
+
 static void 
 task_cbk_handler_internal(void *arg, uint32_t arg_size){
 
@@ -111,26 +121,10 @@ task_cbk_handler_internal(void *arg, uint32_t arg_size){
 		unified_cli_data->tlv_ser_buff,
 		unified_cli_data->enable_or_disable);
 	
-	/* Free the memort now */
+	/* Free the memory now */
 
 	free_serialize_buffer(unified_cli_data->tlv_ser_buff);
-	free(unified_cli_data);
-	
-	if(strncmp(cons_input_buffer, "repeat", strlen(cons_input_buffer)) == 0){
-		memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
-		place_console(1);
-		return;
-	}
-
-	memset(last_command_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
-
-	memcpy(last_command_input_buffer, cons_input_buffer, strlen(cons_input_buffer));
-
-	last_command_input_buffer[strlen(last_command_input_buffer)] = '\0';
-
-	memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
-
-	place_console(1);
+	free(unified_cli_data);	
 }
 
 static void
@@ -151,11 +145,11 @@ task_invoke_appln_cbk_handler(param_t *param,
 		   get_serialize_buffer_size(tlv_buff));
 	unified_cli_data->enable_or_disable = enable_or_disable;
 
-	task_create_new_job((void *)unified_cli_data,
+	task_create_new_job_synchronous((void *)unified_cli_data,
 						task_cbk_handler_internal,
 						TASK_ONE_SHOT);						
 }
-
+#endif
 static tlv_struct_t tlv;
 
 static CMD_PARSE_STATUS
@@ -254,6 +248,7 @@ build_tlv_buffer(char **tokens,
                 INVOKE_APPLICATION_CALLBACK_HANDLER(parent, tlv_buff, enable_or_disable);
 #else
 				task_invoke_appln_cbk_handler(parent, tlv_buff, enable_or_disable);
+				printf("CLI returned\n");
 #endif
             }
 
@@ -296,6 +291,7 @@ build_tlv_buffer(char **tokens,
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
 #else
 				task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
+				printf("CLI returned\n");
 #endif
             }
             break;
@@ -419,7 +415,6 @@ command_parser(void){
          
         status = parse_input_cmd(cons_input_buffer, strlen(cons_input_buffer));
 
-#ifndef TASK_SCHEDULER
         if(strncmp(cons_input_buffer, "repeat", strlen(cons_input_buffer)) == 0){
             memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
             place_console(1);
@@ -438,7 +433,6 @@ command_parser(void){
         memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
 
         place_console(1);
-#endif
     }
 }
 

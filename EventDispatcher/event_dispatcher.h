@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include "gluethread/glthread.h"
+#include "../gluethread/glthread.h"
 
 typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct task_ task_t;
@@ -45,6 +45,8 @@ struct task_{
 	uint32_t no_of_invocations;
 	task_type_t task_type;
 	bool re_schedule;
+	pthread_cond_t *app_cond_var; /* For synchronous Schedules */
+	pthread_mutex_t *app_mutex;	  /* For synchronous Schedules */
 	glthread_t glue;
 };
 GLTHREAD_TO_STRUCT(glue_to_task,
@@ -79,6 +81,8 @@ struct event_dispatcher_{
 
 	pthread_cond_t ev_dis_cond_wait;
 	bool signal_sent;
+	uint32_t signal_sent_cnt;
+	uint32_t signal_recv_cnt;
 	pthread_t *thread;	
 
 	task_t *current_task;
@@ -102,6 +106,12 @@ event_dispatcher_run();
 
 task_t *
 task_create_new_job(
+    void *data,
+    event_cbk cbk,
+	task_type_t task_type);
+
+task_t *
+task_create_new_job_synchronous(
     void *data,
     event_cbk cbk,
 	task_type_t task_type);
