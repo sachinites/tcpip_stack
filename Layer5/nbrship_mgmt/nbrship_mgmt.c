@@ -58,7 +58,7 @@ nmp_print_hello_pkt(void *arg, size_t arg_size){
 }
 
 static void 
-transmit_hellos(void *arg, int sizeof_arg){
+transmit_hellos(void *arg, uint32_t sizeof_arg){
 
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)arg;
     send_pkt_out(pkt_meta_data->pkt, pkt_meta_data->pkt_size,
@@ -391,7 +391,7 @@ adjacency_refresh_expiry_timer(interface_t *interface,
 }
 
 static void
-timer_expire_delete_adjacency_cb(void *arg, int sizeof_arg){
+timer_expire_delete_adjacency_cb(void *arg, uint32_t sizeof_arg){
 
     adj_key_t *adj_key = (adj_key_t *)arg;
     delete_interface_adjacency(adj_key->interface, 
@@ -603,6 +603,9 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
 
     int CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
+	node = NULL;
+	if_name = NULL;
+	node_name = NULL;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -616,7 +619,10 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
     } TLV_LOOP_END;
 
     node = get_node_by_node_name(topo, node_name);
-    intf = get_node_if_by_name(node, if_name);
+
+	if(if_name) {
+    	intf = get_node_if_by_name(node, if_name);
+	}
 
     switch(CMDCODE){
         case CMDCODE_SHOW_NODE_NBRSHIP:

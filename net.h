@@ -281,13 +281,13 @@ bool_t
 is_interface_l3_bidirectional(interface_t *interface);
 
 
-/*Interface Change Flags, used for Notification to 
+/* Interface Change Flags, used for Notification to 
  * Applications*/
 #define IF_UP_DOWN_CHANGE_F         (0)
 #define IF_IP_ADDR_CHANGE_F         (1)
-#define IF_OPER_MODE_CHANGE_F       (1 << 1)
-#define IF_VLAN_MEMBERSHIP_CHANGE_F (1 << 2)
-#define IF_METRIC_CHANGE_F          (1 << 3)
+#define IF_OPER_MODE_CHANGE_F       (2)
+#define IF_VLAN_MEMBERSHIP_CHANGE_F (3)
+#define IF_METRIC_CHANGE_F          (4)
 
 /*Macros to Iterate over Nbrs of a node*/
 

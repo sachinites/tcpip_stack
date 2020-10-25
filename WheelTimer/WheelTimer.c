@@ -1,10 +1,11 @@
-#include "WheelTimer.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <memory.h>
 #include <unistd.h>
 #include <time.h>
 #include <assert.h>
+#include "WheelTimer.h"
+#include "../EventDispatcher/event_dispatcher.h"
 
 #define TH_JOINABLE	1
 #define TH_DETACHED	0
@@ -129,8 +130,12 @@ wheel_fn(void *arg){
            
             /*Check if R == r*/
 			if(wt->current_cycle_no == wt_elem->execute_cycle_no){
-                /*Invoke the application event through fn pointer as below*/
-				wt_elem->app_callback(wt_elem->arg, wt_elem->arg_size);
+                
+				/*Invoke the application event through fn pointer as below*/
+				//wt_elem->app_callback(wt_elem->arg, wt_elem->arg_size);
+				 task_create_new_job(wt_elem->arg,
+									 wt_elem->app_callback,
+									 TASK_ONE_SHOT);
 
                 /* After invocation, check if the event needs to be rescheduled again
                  * in future*/

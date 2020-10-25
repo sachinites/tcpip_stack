@@ -43,16 +43,25 @@ event_dispatcher_init(){
 }
 
 static void
-event_dispatcher_schedule_task(
-	task_t *task){
+event_dispatcher_schedule_task(task_t *task){
 
-	assert (IS_GLTHREAD_LIST_EMPTY(&task->glue));
+	/* TASK_PKT_Q_JOB could be scheduled again because of
+ 	 * enque-ing of more pkts via external thread while
+ 	 * the dispatcher mmay have removed it already from
+ 	 * its task_array_head Queue for processing.
+ 	 */
+	if (task->task_type == TASK_PKT_Q_JOB && 
+		!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
+		return;
+	}
+
+	assert(IS_GLTHREAD_LIST_EMPTY(&task->glue));
 
 	EV_DIS_LOCK(&ev_dis);
 
-	if(debug) printf("Task scheduled to run\n");
-	
 	glthread_add_last(&ev_dis.task_array_head, &task->glue);
+	
+	if(debug) printf("Task Added to Dispatcher's Queue\n");
 	
 	ev_dis.pending_task_count++;
 
@@ -65,17 +74,19 @@ event_dispatcher_schedule_task(
 		ev_dis.signal_sent_cnt++;
 	}
 
-	EV_DIS_UNLOCK(&ev_dis);
-
 	if (task->app_cond_var) {
 
-		pthread_mutex_lock(task->app_mutex);
+		if(debug) printf("Syn Task Waiting to return\n");
 		pthread_cond_wait(task->app_cond_var,
-						  task->app_mutex);
+						  &ev_dis.ev_dis_mutex);
+		EV_DIS_UNLOCK(&ev_dis);
+		if(debug) printf("Syn Task Returned\n");
 		/* Task finished, free now */
-		free(task->app_mutex);
 		free(task->app_cond_var);
 		free(task);
+	}
+	else {
+		EV_DIS_UNLOCK(&ev_dis);
 	}
 }
 
@@ -91,6 +102,7 @@ eve_dis_process_task_post_call(task_t *task){
 				if(task->app_cond_var) {
 					/* We will free the task when it will be
  					 * unlocked, dont free here */
+					if(debug) printf("Dispatcher sent Signal Syn Task\n");
 					pthread_cond_signal(task->app_cond_var);
 				}
 				else {
@@ -254,8 +266,6 @@ task_create_new_job_synchronous(
 	task_t *task = create_new_task(data, 0, cbk);
 	task->task_type = task_type;
 	task->app_cond_var = calloc(1, sizeof(pthread_cond_t));
-	task->app_mutex = calloc(1, sizeof(pthread_mutex_t));
-	pthread_mutex_init(task->app_mutex, 0);
 	pthread_cond_init(task->app_cond_var, 0);
 	event_dispatcher_schedule_task(task);
 	return task;								
@@ -326,6 +336,7 @@ task_get_next_pkt(uint32_t *pkt_size){
 
 	pthread_mutex_lock(&pkt_q->q_mutex);
 	curr = dequeue_glthread_first(&pkt_q->q_head);
+	if(debug) printf("%s() ...\n", __FUNCTION__);
 	pthread_mutex_unlock(&pkt_q->q_mutex);
 
 	if(!curr) return NULL;
@@ -345,7 +356,7 @@ pkt_q_enqueue(pkt_q_t *pkt_q,
 
 	pkt_t *pkt = task_get_new_pkt(_pkt, pkt_size);
 	
-	if (debug) printf("%s() ... pkt = %s\n", __FUNCTION__, pkt->pkt);
+	if (debug) printf("%s() ... \n", __FUNCTION__);
 
 	pthread_mutex_lock(&pkt_q->q_mutex);	
 	glthread_add_next(&pkt_q->q_head, &pkt->glue);

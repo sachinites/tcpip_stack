@@ -46,7 +46,6 @@ struct task_{
 	task_type_t task_type;
 	bool re_schedule;
 	pthread_cond_t *app_cond_var; /* For synchronous Schedules */
-	pthread_mutex_t *app_mutex;	  /* For synchronous Schedules */
 	glthread_t glue;
 };
 GLTHREAD_TO_STRUCT(glue_to_task,

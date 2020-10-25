@@ -649,7 +649,8 @@ demote_packet_to_layer3(node_t *node,
                                 iphdr.dst_ip);
     
     if(!l3_route){
-        printf("Node : %s : No L3 route\n",  node->node_name);   
+        printf("Node : %s : No L3 route %s\n",
+			node->node_name, tcp_ip_covert_ip_n_to_p(iphdr.dst_ip, 0));   
 		free(new_pkt);
         return;
     }

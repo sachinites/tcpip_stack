@@ -619,7 +619,8 @@ compute_spf_all_routers(graph_t *topo){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
-		task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
+		//task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
+		compute_spf(node);
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
 

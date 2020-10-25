@@ -102,11 +102,20 @@ init_udp_socket(node_t *node){
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];
 
+typedef struct ev_dis_pkt_data_{
+
+	node_t *recv_node;
+	interface_t *recv_intf;
+	char *pkt;
+	uint32_t pkt_size;
+} ev_dis_pkt_data_t;
+
 static void
 _pkt_receive(node_t *receving_node, 
             char *pkt_with_aux_data, 
             uint32_t pkt_size){
 
+	ev_dis_pkt_data_t *ev_dis_pkt_data;
     char *recv_intf_name = pkt_with_aux_data;
     interface_t *recv_intf = get_node_if_by_name(receving_node, recv_intf_name);
 
@@ -121,15 +130,74 @@ _pkt_receive(node_t *receving_node,
         return;
     }
 
+#if 1
+
+	ev_dis_pkt_data = NULL;
+
+	/* Integrate EventDispatcher for Pkt Reception */
+	ev_dis_pkt_data = calloc(1, sizeof(ev_dis_pkt_data_t));
+
+	if(!ev_dis_pkt_data) {
+		printf("%s(%d) : Memory alloc failed\n", __FUNCTION__, __LINE__);
+		return;
+	}
+
+	ev_dis_pkt_data->recv_node = receving_node;
+	ev_dis_pkt_data->recv_intf = recv_intf;
+	ev_dis_pkt_data->pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+
+	if(!ev_dis_pkt_data->pkt) {
+		printf("%s(%d) : Memory alloc failed\n", __FUNCTION__, __LINE__);
+		free(ev_dis_pkt_data);
+		ev_dis_pkt_data = NULL;
+		return;
+	}
+
+	memcpy(ev_dis_pkt_data->pkt, pkt_with_aux_data, pkt_size);
+
+	ev_dis_pkt_data->pkt_size = pkt_size;
+
+	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+
+#else
+
     recv_intf->intf_nw_props.pkt_recv++;
     pkt_receive(receving_node, recv_intf, pkt_with_aux_data + IF_NAME_SIZE, 
                 pkt_size - IF_NAME_SIZE);
+#endif
 }
 
 static void
 pkt_recvr_job_cbk(void *pkt, uint32_t pkt_size){
 
+	node_t *receving_node;
+	interface_t *recv_intf;
+	uint32_t data_pkt_size;
+	char *pkt_with_aux_data;
 
+	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
+			(ev_dis_pkt_data_t *)task_get_next_pkt(&pkt_size);
+
+	if(!ev_dis_pkt_data) {
+		return;
+	}
+
+	for ( ; ev_dis_pkt_data; 
+			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(&pkt_size)) {
+
+		receving_node = ev_dis_pkt_data->recv_node;
+		recv_intf = ev_dis_pkt_data->recv_intf;
+		pkt_with_aux_data = ev_dis_pkt_data->pkt;
+		data_pkt_size = ev_dis_pkt_data->pkt_size;
+		free(ev_dis_pkt_data);
+		ev_dis_pkt_data = NULL;
+		
+		recv_intf->intf_nw_props.pkt_recv++;
+		pkt_receive(receving_node, recv_intf, 
+					pkt_with_aux_data + IF_NAME_SIZE,
+					data_pkt_size - IF_NAME_SIZE);
+		free(pkt_with_aux_data);
+	}
 }
 
 static void *
@@ -143,9 +211,9 @@ _network_start_pkt_receiver_thread(void *arg){
     
     int sock_max_fd = 0;
     int bytes_recvd = 0;
-   
+  
 	init_pkt_q(&recvr_pkt_q, pkt_recvr_job_cbk);
- 
+
     graph_t *topo = (void *)arg;
 
     int addr_len = sizeof(struct sockaddr);
