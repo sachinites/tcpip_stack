@@ -98,9 +98,7 @@ find_matching_param(param_t **options, const char *cmd_name){
     return array_of_possibilities[choice];   
 }
 
-#define TASK_SCHEDULER 1
-
-#ifdef TASK_SCHEDULER
+#ifdef ENABLE_EVENT_DISPATCHER
 /* Structure to support callback invocation
  * via Task Scheduler */
 typedef struct unified_cli_data_{
@@ -244,7 +242,7 @@ build_tlv_buffer(char **tokens,
                 sprintf(command_code_tlv.value, "%d", parent->CMDCODE);
                 collect_tlv(tlv_buff, &command_code_tlv); 
                 /*Now invoke the application handler*/
-#ifndef TASK_SCHEDULER
+#ifndef ENABLE_EVENT_DISPATCHER
                 INVOKE_APPLICATION_CALLBACK_HANDLER(parent, tlv_buff, enable_or_disable);
 #else
 				task_invoke_appln_cbk_handler(parent, tlv_buff, enable_or_disable);
@@ -287,7 +285,7 @@ build_tlv_buffer(char **tokens,
                     sprintf(command_code_tlv.value, "%d", param->CMDCODE);
                     collect_tlv(tlv_buff, &command_code_tlv); 
                 }
-#ifndef TASK_SCHEDULER
+#ifndef ENABLE_EVENT_DISPATCHER
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
 #else
 				task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);

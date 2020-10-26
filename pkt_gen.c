@@ -27,7 +27,7 @@
 #define SRC_NODE_UDP_PORT_NO    40000       /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
 #define INGRESS_INTF_NAME       "eth7"      /*Specify Any existing interface of the node S.*/ 
 #define DEST_IP_ADDR            "122.1.1.3" /*Destination IP Address of the Remote node D of the topology*/
-#define PKTS_PER_SECOND			10			/* send 10 pkts per second, you can change it  */
+#define PKTS_PER_SECOND			100			/* send 10 pkts per second, you can change it  */
 
 static char send_buffer[MAX_PACKET_BUFFER_SIZE];
 

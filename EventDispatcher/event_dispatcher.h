@@ -24,6 +24,11 @@
 #include <stdbool.h>
 #include "../gluethread/glthread.h"
 
+
+#define ENABLE_EVENT_DISPATCHER
+#undef ENABLE_EVENT_DISPATCHER
+
+
 typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct task_ task_t;
 typedef struct pkt_q_ pkt_q_t;
@@ -36,6 +41,22 @@ typedef enum {
 	TASK_PKT_Q_JOB,
 	TASK_BG
 } task_type_t;
+
+typedef enum {
+
+	TASK_CLI,	/* Is this Task created due to USER CLI interaction */
+	TASK_TIMER,	/* Is this Task created by timer expiration */
+	TASK_PKT_THREAD, /* Is this Task created for pkt processing */
+	TASK_FORKED_TASK, /* Is this Task forked by other task */
+	TASK_DEFAULT
+} task_src_t;
+
+typedef enum {
+
+	TASK_PRIORITY_MEDIUM,
+	TASK_PRIORITY_LOW,
+	TASK_PRIORITY_HIGH
+} task_priority_t;
 
 struct task_{
 

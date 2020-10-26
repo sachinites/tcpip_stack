@@ -130,7 +130,7 @@ _pkt_receive(node_t *receving_node,
         return;
     }
 
-#if 1
+#ifdef ENABLE_EVENT_DISPATCHER
 
 	ev_dis_pkt_data = NULL;
 
@@ -211,7 +211,7 @@ _network_start_pkt_receiver_thread(void *arg){
     
     int sock_max_fd = 0;
     int bytes_recvd = 0;
-  
+ 
 	init_pkt_q(&recvr_pkt_q, pkt_recvr_job_cbk);
 
     graph_t *topo = (void *)arg;

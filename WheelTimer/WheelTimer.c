@@ -132,10 +132,13 @@ wheel_fn(void *arg){
 			if(wt->current_cycle_no == wt_elem->execute_cycle_no){
                 
 				/*Invoke the application event through fn pointer as below*/
-				//wt_elem->app_callback(wt_elem->arg, wt_elem->arg_size);
+#ifdef ENABLE_EVENT_DISPATCHER
 				 task_create_new_job(wt_elem->arg,
 									 wt_elem->app_callback,
 									 TASK_ONE_SHOT);
+#else
+				wt_elem->app_callback(wt_elem->arg, wt_elem->arg_size);
+#endif
 
                 /* After invocation, check if the event needs to be rescheduled again
                  * in future*/
