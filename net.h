@@ -95,7 +95,6 @@ typedef struct node_nw_prop_{
     /*Sending Buffer*/
     char *send_buffer; /*Used to send out pkts*/
     char *send_log_buffer; /*Used for logging */
-	pthread_mutex_t send_buffer_mutex; /* See fn send_pkt_out */
 	int xmit_udp_skt;	/* UDP socket of the node to send pkt out */
 
     /*Device level Appln DS*/
@@ -125,7 +124,6 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_buffer = calloc(1, MAX_PACKET_BUFFER_SIZE);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
-	pthread_mutex_init(&node_nw_prop->send_buffer_mutex, 0);
 	assert((node_nw_prop->xmit_udp_skt = 
 		socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP )) > 0);
 }

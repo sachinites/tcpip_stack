@@ -26,7 +26,7 @@
 
 
 #define ENABLE_EVENT_DISPATCHER
-#undef ENABLE_EVENT_DISPATCHER
+//#undef ENABLE_EVENT_DISPATCHER
 
 
 typedef struct event_dispatcher_ event_dispatcher_t;

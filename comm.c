@@ -292,8 +292,6 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
 
     interface_t *other_interface =  interface;
 
-	pthread_mutex_lock(&sending_node->node_nw_prop.send_buffer_mutex);
-
     memset(NODE_SEND_BUFFER(sending_node), 0, MAX_PACKET_BUFFER_SIZE);
 
     char *pkt_with_aux_data = NODE_SEND_BUFFER(sending_node);
@@ -311,7 +309,6 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
         tcp_dump_send_logger(sending_node, interface, 
             pkt_with_aux_data + IF_NAME_SIZE, pkt_size, ETH_HDR);
     }
-	pthread_mutex_unlock(&sending_node->node_nw_prop.send_buffer_mutex);
     return rc; 
        
 }
@@ -370,8 +367,6 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
  	*  lock below segment of the code to maintain concurreny.
  	* */
 
-	pthread_mutex_lock(&sending_node->node_nw_prop.send_buffer_mutex);
-
     memset(NODE_SEND_BUFFER(sending_node), 0, MAX_PACKET_BUFFER_SIZE);
 
     char *pkt_with_aux_data = NODE_SEND_BUFFER(sending_node);
@@ -394,8 +389,6 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
         printf("Error : pkt send failed on node %s, error code = %d\n", 
             sending_node->node_name, errno);
     }
-
-	pthread_mutex_unlock(&sending_node->node_nw_prop.send_buffer_mutex);
 
     return rc; 
 }
