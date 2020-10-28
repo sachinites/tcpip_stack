@@ -24,7 +24,7 @@
 #include "event_dispatcher.h"
 
 static event_dispatcher_t ev_dis;
-bool static debug = true;
+bool static debug = false;
 
 
 void

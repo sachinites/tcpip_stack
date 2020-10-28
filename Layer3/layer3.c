@@ -223,7 +223,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                         ip_hdr->protocol, flags | (include_ip_hdr ? IP_HDR_INCLUDED : 0));
                     break;
                 case ICMP_PRO:
-                    //printf("\nIP Address : %s, ping success\n", dest_ip_addr);
+                    printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     break;
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
@@ -426,14 +426,20 @@ void
 dump_rt_table(rt_table_t *rt_table){
 
     int i = 0;
+    int count = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
-    int count = 0;
     printf("L3 Routing Table:\n");
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
 
         l3_route = rt_glue_to_l3_route(curr);
         count++;
+		
+		if(count != 0 && (count % 20) == 0) {
+			printf("continue ?\n");
+			getchar();			
+		}
+
         if(l3_route->is_direct){
             if(count != 1){
                 printf("\t|===================|=======|====================|==============|==========|\n");
