@@ -676,7 +676,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
             printf("Config Aborted : Info : Already Firing ddcp Queries !!\n");
             return;
         }
-        ddcp_pkt_meta_data_t ddcp_pkt_meta_data =
+        ddcp_pkt_meta_data_t *ddcp_pkt_meta_data =
 			calloc(1, sizeof(ddcp_pkt_meta_data_t));
         ddcp_pkt_meta_data->node = node;
         ddcp_pkt_meta_data->pkt = (char *)ethernet_hdr;
