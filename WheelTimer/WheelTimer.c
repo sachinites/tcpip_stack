@@ -212,35 +212,35 @@ register_app_event(wheel_timer_t *wt,
 	wheel_timer_elem_t *wt_elem = calloc(1, sizeof(wheel_timer_elem_t));
 	wt_elem->app_callback  = call_back;
     if(arg && arg_size){
-        wt_elem->arg 	       = calloc(1, arg_size);
-        memcpy(wt_elem->arg, arg, arg_size);
+		wt_elem->arg = arg;
         wt_elem->arg_size      = arg_size;
     }
 	wt_elem->is_recurrence = is_recursive;
     init_glthread(&wt_elem->glue);
     init_glthread(&wt_elem->reschedule_glue);
     wt_elem->N_scheduled = 0;
+	wt_elem->wt = wt;
     _wt_elem_reschedule(wt, wt_elem, time_interval, WTELEM_CREATE);
     return wt_elem;
 }
 
 void
-de_register_app_event(wheel_timer_t *wt, wheel_timer_elem_t *wt_elem){
+de_register_app_event(wheel_timer_elem_t *wt_elem){
 
-    _wt_elem_reschedule(wt, wt_elem, 0, WTELEM_DELETE);
+    _wt_elem_reschedule(wt_elem->wt, wt_elem, 0, WTELEM_DELETE);
 }
 
 void
-wt_elem_reschedule(wheel_timer_t *wt, 
-                   wheel_timer_elem_t *wt_elem, 
+wt_elem_reschedule(wheel_timer_elem_t *wt_elem, 
                    int new_time_interval){
    
-    _wt_elem_reschedule(wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
+    _wt_elem_reschedule(wt_elem->wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
 }
 
 int
-wt_get_remaining_time(wheel_timer_t *wt, 
-                    wheel_timer_elem_t *wt_elem){
+wt_get_remaining_time(wheel_timer_elem_t *wt_elem){
+
+	wheel_timer_t *wt = wt_elem->wt;
 
     if(wt_elem->opcode == WTELEM_CREATE || 
         wt_elem->opcode == WTELEM_RESCHED){
@@ -259,7 +259,7 @@ void
 free_wheel_timer_element(wheel_timer_elem_t *wt_elem){
     
     wt_elem->slotlist_head = NULL;
-	free(wt_elem->arg);
+	wt_elem->wt = NULL;
 	free(wt_elem);
 }
 
@@ -299,7 +299,7 @@ print_wheel_timer(wheel_timer_t *wt){
 			printf("                wt_elem->is_recurrence		= %d\n",  wt_elem->is_recurrence);
             printf("                wt_elem->N_scheduled        = %u\n",  wt_elem->N_scheduled);
             printf("                Remaining Time to Fire      = %d\n",  
-                                    wt_get_remaining_time(wt, wt_elem));
+                                    wt_get_remaining_time(wt_elem));
             printf("\n");
         } ITERATE_GLTHREAD_END(slot_list_head , curr)
 	}

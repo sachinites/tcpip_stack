@@ -89,7 +89,7 @@ is_hellos_scheduled_on_intf(interface_t *interface){
         return FALSE;
 }
 
-#define GET_NODE_TIMER_INSTANCE(node_ptr)   \
+#define node_get_timer_instance(node_ptr)   \
     node_ptr->node_nw_prop.wt
 
 typedef struct adjacency_{

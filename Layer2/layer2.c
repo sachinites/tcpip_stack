@@ -37,8 +37,11 @@
 #include <sys/socket.h>
 #include "comm.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-#include "../tcp_ip_trace.h"
 #include <unistd.h>
+#include "../tcp_ip_trace.h"
+#include "../WheelTimer/WheelTimer.h"
+
+#define ARP_ENTRY_EXP_TIME	30
 
 /*Layer 2 Globals : */
 /* to decide that whenever layer 2 promote pkt to upper layer of
@@ -289,7 +292,8 @@ delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr){
 }
 
 bool_t
-arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
+arp_table_entry_add(node_t *node,
+					arp_table_t *arp_table, arp_entry_t *arp_entry,
                     glthread_t **arp_pending_list){
 
     if(arp_pending_list){
@@ -303,6 +307,11 @@ arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
      * and return TRUE*/
     if(!arp_entry_old){
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
+		assert(arp_entry->exp_timer_wt_elem == NULL);
+		arp_entry->exp_timer_wt_elem =
+			arp_entry_create_expiration_timer(
+				node,
+				arp_entry, ARP_ENTRY_EXP_TIME); 
         return TRUE;
     }
     
@@ -320,6 +329,10 @@ arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
         delete_arp_entry(arp_entry_old);
         init_glthread(&arp_entry->arp_glue);
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
+		assert(arp_entry->exp_timer_wt_elem == NULL);
+		arp_entry->exp_timer_wt_elem =
+			arp_entry_create_expiration_timer(
+				node, arp_entry, ARP_ENTRY_EXP_TIME); 	
         return TRUE;
     }
 
@@ -335,6 +348,8 @@ arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
         }
         if(arp_pending_list)
             *arp_pending_list = &arp_entry_old->arp_pending_list;
+
+		arp_entry_refresh_expiration_timer(arp_entry_old);
         return FALSE;
     }
 
@@ -344,12 +359,15 @@ arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
         arp_entry_sane(arp_entry_old) && 
         !arp_entry_sane(arp_entry)){
 
-        strncpy(arp_entry_old->mac_addr.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+        strncpy(arp_entry_old->mac_addr.mac,
+				arp_entry->mac_addr.mac, sizeof(mac_add_t));
         strncpy(arp_entry_old->oif_name, arp_entry->oif_name, IF_NAME_SIZE);
         arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
 
         if(arp_pending_list)
             *arp_pending_list = &arp_entry_old->arp_pending_list;
+
+		arp_entry_refresh_expiration_timer(arp_entry_old);
         return FALSE;
     }
 
@@ -410,7 +428,8 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
     arp_entry->is_sane = FALSE;
 
-    bool_t rc = arp_table_entry_add(arp_table, arp_entry, &arp_pending_list);
+    bool_t rc = arp_table_entry_add(iif->att_node, 
+				arp_table, arp_entry, &arp_pending_list);
 
     glthread_t *curr;
     arp_pending_entry_t *arp_pending_entry;
@@ -429,6 +448,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
         } ITERATE_GLTHREAD_END(arp_pending_list, curr);
 
+		assert(IS_GLTHREAD_LIST_EMPTY(arp_pending_list));
         (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = FALSE;
     }
 
@@ -449,12 +469,12 @@ dump_arp_table(arp_table_t *arp_table){
         count++;
         arp_entry = arp_glue_to_arp_entry(curr);
         if(count == 1){
-            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved=====|\n");
+            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(sec)==|\n");
         }
         else{
-            printf("\t|====================|===================|==============|================|\n");
+            printf("\t|====================|===================|==============|=============|================|\n");
         }
-        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s       |\n", 
+        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-3s      |  %-4d          |\n", 
             arp_entry->ip_addr.ip_addr, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
@@ -463,10 +483,11 @@ dump_arp_table(arp_table_t *arp_table){
             arp_entry->mac_addr.mac[4], 
             arp_entry->mac_addr.mac[5], 
             arp_entry->oif_name,
-            arp_entry_sane(arp_entry) ? "FALSE" : "TRUE");
+            arp_entry_sane(arp_entry) ? "FALSE" : "TRUE",
+			arp_entry_get_exp_time_left(arp_entry));
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
     if(count){
-        printf("\t|====================|===================|==============|================|\n");
+        printf("\t|====================|===================|==============|=============|================|\n");
     }
 }
 
@@ -656,7 +677,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
         if (!arp_entry){
 
             /*Time for ARP resolution*/
-            create_arp_sane_entry(NODE_ARP_TABLE(node), 
+            create_arp_sane_entry(node, NODE_ARP_TABLE(node), 
                     next_hop_ip_str, 
                     (char *)pkt, 
                     pkt_size);
@@ -715,7 +736,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
     if (!arp_entry || (arp_entry && arp_entry_sane(arp_entry))){
         
         /*Time for ARP resolution*/
-        create_arp_sane_entry(NODE_ARP_TABLE(node), 
+        create_arp_sane_entry(node, NODE_ARP_TABLE(node), 
                 next_hop_ip_str, 
                 (char *)pkt, 
                 pkt_size);
@@ -728,6 +749,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
         memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+		arp_entry_refresh_expiration_timer(arp_entry);
 }
 
 
@@ -773,6 +795,7 @@ delete_arp_entry(arp_entry_t *arp_entry){
     
     glthread_t *curr;
     arp_pending_entry_t *arp_pending_entry;
+
     remove_glthread(&arp_entry->arp_glue);
 
     ITERATE_GLTHREAD_BEGIN(&arp_entry->arp_pending_list, curr){
@@ -781,6 +804,7 @@ delete_arp_entry(arp_entry_t *arp_entry){
         delete_arp_pending_entry(arp_pending_entry);
     } ITERATE_GLTHREAD_END(&arp_entry->arp_pending_list, curr);
 
+	arp_entry_delete_expiration_timer(arp_entry);
     free(arp_entry);
 }
 
@@ -803,8 +827,9 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
 }
 
 void
-create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr, 
-                       char *pkt, uint32_t pkt_size){
+create_arp_sane_entry(node_t *node,
+					  arp_table_t *arp_table, char *ip_addr, 
+                      char *pkt, uint32_t pkt_size){
 
     /*case 1 : If full entry already exist - assert. The L2 must have
      * not create ARP sane entry if the already was already existing*/
@@ -821,6 +846,7 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
         add_arp_pending_entry(arp_entry, 
                               pending_arp_processing_callback_function, 
                               pkt, pkt_size);
+	    arp_entry_refresh_expiration_timer(arp_entry);	
         return;
     }
 
@@ -833,12 +859,63 @@ create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
     add_arp_pending_entry(arp_entry, 
                           pending_arp_processing_callback_function, 
                           pkt, pkt_size);
-    bool_t rc = arp_table_entry_add(arp_table, arp_entry, 0);
+    bool_t rc = arp_table_entry_add(node, arp_table, arp_entry, 0);
     if(rc == FALSE){
         assert(0);
     }
 }
 
+static void
+arp_entry_timer_delete_cbk(void *arg,
+						   uint32_t arg_size){
+
+	arp_entry_t *arp_entry = (arp_entry_t *)arg;
+	delete_arp_entry(arp_entry);	
+}
+
+/* ARP entry Timer management functions */
+wheel_timer_elem_t *
+arp_entry_create_expiration_timer(
+	node_t *node,
+	arp_entry_t *arp_entry,
+	uint16_t exp_time) {
+
+	assert(arp_entry->exp_timer_wt_elem == NULL);
+	
+	arp_entry->exp_timer_wt_elem = register_app_event(
+					 node_get_timer_instance(node),
+					 arp_entry_timer_delete_cbk,
+					 (void *)arp_entry,
+					 sizeof(arp_entry),
+					 ARP_ENTRY_EXP_TIME,
+					 0); 				 
+}
+
+void
+arp_entry_delete_expiration_timer(
+	arp_entry_t *arp_entry) {
+
+	if(!arp_entry->exp_timer_wt_elem) 
+		return;
+	de_register_app_event(arp_entry->exp_timer_wt_elem);
+	arp_entry->exp_timer_wt_elem = NULL;
+}
+
+void
+arp_entry_refresh_expiration_timer(
+	arp_entry_t *arp_entry) {
+
+	wt_elem_reschedule(arp_entry->exp_timer_wt_elem,
+		ARP_ENTRY_EXP_TIME);
+}
+
+uint16_t
+arp_entry_get_exp_time_left(
+	arp_entry_t *arp_entry){
+
+	assert(arp_entry->exp_timer_wt_elem);
+	return wt_get_remaining_time(arp_entry->exp_timer_wt_elem);
+}
 
 /*Vlan Management Routines*/
 
