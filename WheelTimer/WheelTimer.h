@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 #include <stdint.h>
-#include "gluethread/glthread.h"
+#include "../gluethread/glthread.h"
 
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef void (*app_call_back)(void *arg, uint32_t sizeof_arg);
