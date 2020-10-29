@@ -71,6 +71,7 @@ typedef struct nmp_ nmp_t;
 
 typedef struct node_nw_prop_{
 
+	node_t *node; /* back pointer to the node */
     /* Used to find various device types capabilities of
      * the node and other features*/
     uint32_t flags;
@@ -288,6 +289,7 @@ is_interface_l3_bidirectional(interface_t *interface);
 
 #define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr)  }}while(0);
 
-
+wheel_timer_t *
+node_get_timer_instance(node_t *node);
 
 #endif /* __NET__ */

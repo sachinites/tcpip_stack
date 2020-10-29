@@ -603,7 +603,7 @@ typedef struct ddcp_pkt_meta_data_{
 
 static void
 wrapper_ddcp_flood_ddcp_query_out(void *arg , 
-                                  int arg_size){
+                                  uint32_t arg_size){
 
     ddcp_pkt_meta_data_t *ddcp_pkt_meta_data = 
             (ddcp_pkt_meta_data_t *)arg;

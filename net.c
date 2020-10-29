@@ -358,3 +358,9 @@ is_interface_l3_bidirectional(interface_t *interface){
 
     return TRUE;
 }
+
+wheel_timer_t *
+node_get_timer_instance(node_t *node){
+
+	return node->node_nw_prop.wt;
+}

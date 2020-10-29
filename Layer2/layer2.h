@@ -111,6 +111,7 @@ struct arp_entry_{
     /* List of packets which are pending for
      * this ARP resolution*/
     glthread_t arp_pending_list;
+	wheel_timer_elem_t *exp_timer_wt_elem;
 };
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
 GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
@@ -131,6 +132,23 @@ arp_table_lookup(arp_table_t *arp_table, char *ip_addr);
 void
 clear_arp_table(arp_table_t *arp_table);
 
+wheel_timer_elem_t *
+arp_entry_create_expiration_timer(
+		node_t *node,
+		arp_entry_t *arp_entry,
+		uint16_t exp_time);
+
+void
+arp_entry_delete_expiration_timer(
+		arp_entry_t *arp_entry);
+
+void
+arp_entry_refresh_expiration_timer(
+		arp_entry_t *arp_entry);
+
+uint16_t
+arp_entry_get_exp_time_left(arp_entry_t *arp_entry);
+
 void
 delete_arp_entry(arp_entry_t *arp_entry);
 
@@ -138,8 +156,10 @@ void
 delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr);
 
 bool_t
-arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
-                        glthread_t **arp_pending_list);
+arp_table_entry_add(node_t *node,
+					arp_table_t *arp_table,
+					arp_entry_t *arp_entry,
+                    glthread_t **arp_pending_list);
 
 void
 dump_arp_table(arp_table_t *arp_table);
@@ -162,7 +182,9 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
                         uint32_t pkt_size); 
 
 void
-create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr,
+create_arp_sane_entry(node_t *node,
+					  arp_table_t *arp_table,
+					  char *ip_addr,
                       char *pkt, uint32_t pkt_size);
 
 static bool_t 
