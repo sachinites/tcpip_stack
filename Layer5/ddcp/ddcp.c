@@ -676,15 +676,16 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
             printf("Config Aborted : Info : Already Firing ddcp Queries !!\n");
             return;
         }
-        ddcp_pkt_meta_data_t ddcp_pkt_meta_data;
-        ddcp_pkt_meta_data.node = node;
-        ddcp_pkt_meta_data.pkt = (char *)ethernet_hdr;
-        ddcp_pkt_meta_data.pkt_size = ethernet_hdr_size;
+        ddcp_pkt_meta_data_t ddcp_pkt_meta_data =
+			calloc(1, sizeof(ddcp_pkt_meta_data_t));
+        ddcp_pkt_meta_data->node = node;
+        ddcp_pkt_meta_data->pkt = (char *)ethernet_hdr;
+        ddcp_pkt_meta_data->pkt_size = ethernet_hdr_size;
         
         (GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem = 
                 register_app_event(wt,
                 wrapper_ddcp_flood_ddcp_query_out,
-                (char *)&ddcp_pkt_meta_data,
+                (void *)ddcp_pkt_meta_data,
                 sizeof(ddcp_pkt_meta_data_t),
                 ddcp_q_interval,
                 1);
