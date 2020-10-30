@@ -159,6 +159,7 @@ typedef struct intf_nw_props_ {
 
     /*L1 Properties*/
     bool_t is_up;
+	uint32_t ifindex;
 
     /*L2 properties*/
     mac_add_t mac_add;              /*Mac are hard burnt in interface NIC*/
@@ -187,6 +188,7 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
 
     /*L1 properties*/
     intf_nw_props->is_up = TRUE;
+	intf_nw_props->ifindex = get_new_ifindex();
 
     /*L2 properties*/
     memset(intf_nw_props->mac_add.mac , 0 , 
@@ -214,6 +216,7 @@ interface_assign_mac_address(interface_t *interface);
 #define IF_IP(intf_ptr)    ((intf_ptr)->intf_nw_props.ip_add.ip_addr)
 #define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
 #define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == TRUE)
+#define IF_INDEX(intf_ptr) ((intf_ptr)->intf_nw_props.ifindex)
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)

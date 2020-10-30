@@ -109,6 +109,7 @@ typedef struct nexthop_{
     char gw_ip[16];
     interface_t *oif;
     uint32_t ref_count;
+	uint32_t ifindex;
 } nexthop_t;
 
 #define nexthop_node_name(nexthop_ptr)  \

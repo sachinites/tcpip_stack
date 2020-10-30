@@ -103,4 +103,6 @@ tcp_ip_covert_ip_n_to_p(uint32_t ip_addr,
 
 uint32_t
 tcp_ip_covert_ip_p_to_n(char *ip_addr);
+
+uint32_t get_new_ifindex();
 #endif /* __UTILS__ */

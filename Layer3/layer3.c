@@ -519,6 +519,43 @@ l3rib_lookup(rt_table_t *rt_table,
     return NULL;
 }
 
+/* 
+ * Insert nexthop using insertion sort on ifindex
+ * */
+static bool_t
+l3_route_insert_nexthop(l3_route_t *l3_route,
+						 nexthop_t *nexthop) {
+
+	int i;
+	
+	nexthop_t *temp;
+	nexthop_t **nexthop_arr;
+
+	nexthop_arr = l3_route->nexthops;
+
+	if (nexthop_arr[MAX_NXT_HOPS - 1]) {
+		
+		return FALSE;
+	}	
+
+	nexthop_arr[MAX_NXT_HOPS - 1] = nexthop;
+	nexthop->ref_count++;
+
+	i = MAX_NXT_HOPS - 1;
+
+	while(i > 0 &&
+		 (!nexthop_arr[i-1] ||
+		    (nexthop_arr[i-1]->ifindex > 
+		     nexthop_arr[i]->ifindex))) {
+	
+		temp = nexthop_arr[i-1];
+		nexthop_arr[i-1] = nexthop_arr[i];
+		nexthop_arr[i] = temp; 
+		i--;
+	}
+	return TRUE;
+}
+
 
 void
 rt_table_add_route(rt_table_t *rt_table,
@@ -570,13 +607,12 @@ rt_table_add_route(rt_table_t *rt_table,
 
    if(gw && oif){
         nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
-        l3_route->nexthops[i] = nexthop;
         l3_route->is_direct = FALSE;
         l3_route->spf_metric = spf_metric;
-        nexthop->ref_count++;
         strncpy(nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
+		l3_route_insert_nexthop(l3_route, nexthop);
    }
 
    if(new_route){

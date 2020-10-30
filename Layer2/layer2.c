@@ -474,7 +474,7 @@ dump_arp_table(arp_table_t *arp_table){
         else{
             printf("\t|====================|===================|==============|=============|================|\n");
         }
-        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-3s      |  %-4d          |\n", 
+        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-4d          |\n", 
             arp_entry->ip_addr.ip_addr, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
