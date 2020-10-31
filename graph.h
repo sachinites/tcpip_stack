@@ -81,8 +81,6 @@ struct node_ {
     char node_name[NODE_NAME_SIZE];
     interface_t *intf[MAX_INTF_PER_NODE];
     glthread_t graph_glue;
-    unsigned int udp_port_number;
-    int udp_sock_fd;
     node_nw_prop_t node_nw_prop;
 
     /*SPF Calculation*/

@@ -37,9 +37,6 @@
 #include <memory.h>
 #include "tcp_ip_trace.h"
 
-extern void 
-init_udp_socket(node_t *node);
-
 void
 insert_link_between_two_nodes(node_t *node1,
         node_t *node2,

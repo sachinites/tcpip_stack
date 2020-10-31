@@ -95,7 +95,6 @@ typedef struct node_nw_prop_{
 
     /*Sending Buffer*/
     char *send_log_buffer; /*Used for logging */
-	int xmit_udp_skt;	/* UDP socket of the node to send pkt out */
 
     /*Device level Appln DS*/
     nmp_t *nmp;
@@ -123,8 +122,6 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     node_nw_prop->wt = init_wheel_timer(60, 1);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
-	assert((node_nw_prop->xmit_udp_skt = 
-		socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP )) > 0);
 }
 
 typedef enum{
