@@ -374,7 +374,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
         printf("root : %s : Event : Testing Inequality : " 
                 " spf_metric(%s, %u) + link cost(%u) < spf_metric(%s, %u)\n",
                 spf_root->node_name, curr_node->node_name, 
-                curr_node->curr_spf_data->spf_metric, 
+                curr_node->spf_data->spf_metric, 
                 get_link_cost(oif), nbr->node_name, nbr->spf_data->spf_metric);
         #endif
         /*Step 6.1 : Begin*/
@@ -619,8 +619,8 @@ compute_spf_all_routers(graph_t *topo){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
-		//task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
-		compute_spf(node);
+		task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
+		//compute_spf(node);
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
 
@@ -633,11 +633,8 @@ spf_algo_interface_update(void *arg, size_t arg_size){
 	uint32_t flags = intf_notif_data->change_flags;
 	interface_t *interface = intf_notif_data->interface;
 	intf_nw_props_t *old_intf_nw_props = intf_notif_data->old_intf_nw_props;
-
-
-	printf("%s() called\n", __FUNCTION__);
-
-    /*Run spf if interface is transition to up/down*/
+    
+	/*Run spf if interface is transition to up/down*/
     if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F) ||
        IS_BIT_SET(flags, IF_METRIC_CHANGE_F )) 
     {

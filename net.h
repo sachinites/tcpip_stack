@@ -80,9 +80,7 @@ typedef struct node_nw_prop_{
     arp_table_t *arp_table;
     mac_table_t *mac_table;
 
-	rt_table_t *rt_table_in_use; 
     rt_table_t *rt_table;
-    rt_table_t *rt_table2;
 
     ddcp_db_t *ddcp_db;
 
@@ -115,9 +113,6 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
-    init_rt_table(&(node_nw_prop->rt_table2));
-	node_nw_prop->rt_table_in_use = node_nw_prop->rt_table;
-	rt_table_set_active_status(node_nw_prop->rt_table2, FALSE);
     init_ddcp_query_db(&(node_nw_prop->ddcp_db));
     node_nw_prop->wt = init_wheel_timer(60, 1);
     start_wheel_timer(node_nw_prop->wt);
@@ -216,7 +211,7 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
-#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table_in_use)
+#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)

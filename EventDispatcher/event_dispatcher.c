@@ -69,7 +69,7 @@ event_dispatcher_schedule_task(task_t *task){
 		ev_dis.signal_sent == false) {
 
 		pthread_cond_signal(&ev_dis.ev_dis_cond_wait);
-		ev_dis.signal_sent == true;
+		ev_dis.signal_sent = true;
 		if(debug) printf("signal sent to dispatcher\n");
 		ev_dis.signal_sent_cnt++;
 	}
