@@ -468,12 +468,12 @@ dump_arp_table(arp_table_t *arp_table){
         count++;
         arp_entry = arp_glue_to_arp_entry(curr);
         if(count == 1){
-            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(sec)==|\n");
+            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|\n");
         }
         else{
-            printf("\t|====================|===================|==============|=============|================|\n");
+            printf("\t|====================|===================|==============|=============|=================|\n");
         }
-        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-4d          |\n", 
+        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |\n", 
             arp_entry->ip_addr.ip_addr, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
@@ -486,7 +486,7 @@ dump_arp_table(arp_table_t *arp_table){
 			arp_entry_get_exp_time_left(arp_entry));
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
     if(count){
-        printf("\t|====================|===================|==============|=============|================|\n");
+        printf("\t|====================|===================|==============|=============|=================|\n");
     }
 }
 

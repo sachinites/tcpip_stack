@@ -63,7 +63,7 @@ struct _wheel_timer_t {
 };
 
 #define WT_UPTIME(wt_ptr)  \
-    (GET_WT_CURRENT_ABS_SLOT_NO(wt_ptr) * wt_ptr->clock_tic_interval)
+    ((GET_WT_CURRENT_ABS_SLOT_NO(wt_ptr) * wt_get_clock_interval_in_milli_sec(wt_ptr))/1000)
 
 #define WT_SLOTLIST(wt_ptr, index)                              \
     (&(wt_ptr->slotlist[index]))
