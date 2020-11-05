@@ -40,7 +40,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include "utils.h"
-#include "WheelTimer/WheelTimer.h"
+#include "libtimer/WheelTimer.h"
 #include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
@@ -113,7 +113,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
     init_ddcp_query_db(&(node_nw_prop->ddcp_db));
-    node_nw_prop->wt = init_wheel_timer(60, 1);
+    node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
 }
@@ -139,7 +139,6 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 }
 
 #define MAX_VLAN_MEMBERSHIP 10
-#include "WheelTimer/WheelTimer.h"
 
 typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
 typedef struct intf_nmp_ intf_nmp_t;

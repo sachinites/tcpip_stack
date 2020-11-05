@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include "timerlib.h"
+#include <stdint.h>
 #include "../gluethread/glthread.h"
 
 typedef enum {
@@ -12,7 +13,8 @@ typedef enum {
 } timer_resolution_t;
 
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
-typedef void (*app_call_back)(void *arg, int sizeof_arg);
+typedef void (*app_call_back)(void *arg, uint32_t sizeof_arg);
+typedef struct _wheel_timer_t wheel_timer_t;
 
 typedef struct slotlist_{
     glthread_t slots;
@@ -41,13 +43,14 @@ struct _wheel_timer_elem_t{
 	char is_recurrence;
     glthread_t glue;
     slotlist_t *slotlist_head;
+	wheel_timer_t *wt;
     glthread_t reschedule_glue;
     unsigned int N_scheduled;
 };
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
 GLTHREAD_TO_STRUCT(glthread_reschedule_glue_to_wt_elem, wheel_timer_elem_t, reschedule_glue);
 
-typedef struct _wheel_timer_t {
+struct _wheel_timer_t {
 	int current_clock_tic;
 	int clock_tic_interval;
 	int wheel_size;
@@ -57,7 +60,7 @@ typedef struct _wheel_timer_t {
     unsigned int no_of_wt_elem;
 	timer_resolution_t timer_resolution;
     slotlist_t slotlist[0];
-} wheel_timer_t;
+};
 
 #define WT_UPTIME(wt_ptr)  \
     (GET_WT_CURRENT_ABS_SLOT_NO(wt_ptr) * wt_ptr->clock_tic_interval)
@@ -109,8 +112,7 @@ init_wheel_timer(int wheel_size, int clock_tic_interval,
 
 
 int
-wt_get_remaining_time(wheel_timer_t *wt,
-                   wheel_timer_elem_t *wt_elem);
+wt_get_remaining_time(wheel_timer_elem_t *wt_elem);
 
 /*Gives the absolute slot no since the time WT has started*/
 #define GET_WT_CURRENT_ABS_SLOT_NO(wt)	((wt->current_cycle_no * wt->wheel_size) + wt->current_clock_tic)
@@ -124,11 +126,10 @@ register_app_event(wheel_timer_t *wt,
 		   char is_recursive);
 
 void
-de_register_app_event(wheel_timer_t *wt, wheel_timer_elem_t *wt_elem);
+de_register_app_event(wheel_timer_elem_t *wt_elem);
 
 void
-wt_elem_reschedule(wheel_timer_t *wt, 
-                   wheel_timer_elem_t *wt_elem, 
+wt_elem_reschedule(wheel_timer_elem_t *wt_elem, 
                    int new_time_interval);
 
 void

@@ -43,7 +43,7 @@
 #include "utils.h"
 #include "comm.h"
 #include "gluethread/glthread.h"
-#include "WheelTimer/WheelTimer.h"
+#include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"
 #include "tcp_ip_trace.h"
 #include "CommandParser/libcli.h"

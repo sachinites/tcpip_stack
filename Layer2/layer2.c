@@ -38,7 +38,7 @@
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <unistd.h>
 #include "../tcp_ip_trace.h"
-#include "../WheelTimer/WheelTimer.h"
+#include "../libtimer/WheelTimer.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -886,7 +886,7 @@ arp_entry_create_expiration_timer(
 					 arp_entry_timer_delete_cbk,
 					 (void *)arp_entry,
 					 sizeof(arp_entry),
-					 ARP_ENTRY_EXP_TIME,
+					 ARP_ENTRY_EXP_TIME * 1000,
 					 0); 				 
 }
 
@@ -905,7 +905,7 @@ arp_entry_refresh_expiration_timer(
 	arp_entry_t *arp_entry) {
 
 	wt_elem_reschedule(arp_entry->exp_timer_wt_elem,
-		ARP_ENTRY_EXP_TIME);
+		ARP_ENTRY_EXP_TIME * 1000);
 }
 
 uint16_t

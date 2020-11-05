@@ -21,6 +21,22 @@ insert_wt_elem_in_slot(void *data1, void *data2){
    return 0;
 }
 
+static uint32_t 
+wt_get_clock_interval_in_milli_sec(
+	wheel_timer_t *wt) {
+
+
+	uint32_t clock_tick_interval_in_milli_sec;
+
+	clock_tick_interval_in_milli_sec = 
+		wt->timer_resolution == TIMER_MILLI_SECONDS ? 
+		wt->clock_tic_interval :
+		wt->clock_tic_interval * 1000;
+
+	return clock_tick_interval_in_milli_sec;
+}
+
+
 static void
 process_wt_reschedule_slotlist(wheel_timer_t *wt){
 
@@ -47,7 +63,7 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
                 wt_elem->time_interval = wt_elem->new_time_interval;
                 int absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
                 int next_abs_slot_no  = absolute_slot_no +
-                    (wt_elem->time_interval/wt->clock_tic_interval);
+                    (wt_elem->time_interval/wt_get_clock_interval_in_milli_sec(wt));
                 int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
                 int next_slot_no      = next_abs_slot_no % wt->wheel_size;
                 wt_elem->execute_cycle_no    = next_cycle_no;
@@ -110,7 +126,7 @@ wheel_fn(Timer_t *timer, void *arg){
 
 				/*relocate Or reschedule to the next slot*/
 				int next_abs_slot_no  = absolute_slot_no + 
-					(wt_elem->time_interval/wt->clock_tic_interval);
+					(wt_elem->time_interval/wt_get_clock_interval_in_milli_sec(wt));
 				int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
 				int next_slot_no      = next_abs_slot_no % wt->wheel_size;
 				wt_elem->execute_cycle_no 	 = next_cycle_no;
@@ -168,14 +184,6 @@ _wt_elem_reschedule(wheel_timer_t *wt,
                     int new_time_interval, 
                     wt_opcode_t opcode){
 
-    if(wt_elem->opcode == WTELEM_DELETE && 
-        (opcode == WTELEM_CREATE || 
-         opcode == WTELEM_RESCHED)){
-        /* This is a Valid Scenario. A Race condition may arise When WT itself
-         * invoked a timer expiry callback for a wt_elem, and at the same time 
-         * hello packet also arrived to refresh the same wt_elem.*/
-        //assert(0);
-    } 
     switch(opcode){
         case WTELEM_CREATE:
         case WTELEM_RESCHED:
@@ -202,11 +210,20 @@ register_app_event(wheel_timer_t *wt,
 		app_call_back call_back,
 		void *arg,
 		int arg_size,
-		int time_interval,
+		int time_interval,	/* in milli sec */
 		char is_recursive){
 
 	if(!wt || !call_back) return NULL;
+	
+	uint32_t clock_tick_interval_in_milli_sec = 
+					wt_get_clock_interval_in_milli_sec(wt);
+
+	if((time_interval % clock_tick_interval_in_milli_sec) != 0){		
+		assert(0);
+	}
+
 	wheel_timer_elem_t *wt_elem = calloc(1, sizeof(wheel_timer_elem_t));
+	wt_elem->wt = wt;
 	wt_elem->app_callback  = call_back;
     if(arg && arg_size){
         wt_elem->arg 	       = arg;
@@ -221,23 +238,26 @@ register_app_event(wheel_timer_t *wt,
 }
 
 void
-de_register_app_event(wheel_timer_t *wt, wheel_timer_elem_t *wt_elem){
+de_register_app_event(wheel_timer_elem_t *wt_elem){
 
-    _wt_elem_reschedule(wt, wt_elem, 0, WTELEM_DELETE);
+    _wt_elem_reschedule(wt_elem->wt, wt_elem, 0, WTELEM_DELETE);
 }
 
 void
-wt_elem_reschedule(wheel_timer_t *wt, 
-                   wheel_timer_elem_t *wt_elem, 
+wt_elem_reschedule(wheel_timer_elem_t *wt_elem, 
                    int new_time_interval){
-   
+  
+	wheel_timer_t *wt = wt_elem->wt;
+	if(new_time_interval % wt_get_clock_interval_in_milli_sec(wt) != 0){
+		assert(0);
+	}   
     _wt_elem_reschedule(wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
 }
 
 int
-wt_get_remaining_time(wheel_timer_t *wt, 
-                    wheel_timer_elem_t *wt_elem){
+wt_get_remaining_time(wheel_timer_elem_t *wt_elem){
 
+	wheel_timer_t *wt = wt_elem->wt;
     if(wt_elem->opcode == WTELEM_CREATE || 
         wt_elem->opcode == WTELEM_RESCHED){
         /* Means : the wt_elem has not been assigned a slot in WT,
@@ -248,7 +268,7 @@ wt_get_remaining_time(wheel_timer_t *wt,
     int wt_elem_absolute_slot = (wt_elem->execute_cycle_no * wt->wheel_size) + 
             wt_elem->slot_no;
     int diff = wt_elem_absolute_slot - GET_WT_CURRENT_ABS_SLOT_NO(wt);
-    return (diff * wt->clock_tic_interval);
+    return (diff * wt_get_clock_interval_in_milli_sec(wt));
 }
 
 void
@@ -294,7 +314,7 @@ print_wheel_timer(wheel_timer_t *wt){
 			printf("                wt_elem->is_recurrence		= %d\n",  wt_elem->is_recurrence);
             printf("                wt_elem->N_scheduled        = %u\n",  wt_elem->N_scheduled);
             printf("                Remaining Time to Fire      = %d\n",  
-                                    wt_get_remaining_time(wt, wt_elem));
+                                    wt_get_remaining_time(wt_elem));
             printf("\n");
         } ITERATE_GLTHREAD_END(slot_list_head , curr)
 	}

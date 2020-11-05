@@ -29,8 +29,8 @@ main(int argc, char **argv){
 
     /*create a wheel timer object*/
     wheel_timer_t *wt = init_wheel_timer(WHEEL_SIZE,
-						WHEEL_TIMER_CLOCK_TIC_INTERVAL,
-						TIMER_SECONDS);
+						10,
+						TIMER_MILLI_SECONDS);
     /*start the wheel timer thread*/
     start_wheel_timer(wt);
 
@@ -42,13 +42,13 @@ main(int argc, char **argv){
     wheel_timer_elem_t * wt_elem = 
         register_app_event(wt, wrapper_print_hello, MyString,
                            strlen("MyString"), 
-                           1,  /*wrapper_print_hello fn will be called after every 5 seconds*/
+                           100,  /*wrapper_print_hello fn will be called after every 5 seconds*/
                            1); /*1 indefinitely, 0 only once : call for wrapper_print_hello*/
 
     wt_elem = 
         register_app_event(wt, wrapper_print_hello, csepracticals, 
                            strlen("csepracticals"), 
-                           2,  /*wrapper_print_hello fn will be called after every 5 seconds*/
+                           500,  /*wrapper_print_hello fn will be called after every 5 seconds*/
                            1); /*1 indefinitely, 0 only once : call for wrapper_print_hello*/
     /*stop the main program from gettin terminated, otherwise wheel timer
      * thread we created will also get terminated*/

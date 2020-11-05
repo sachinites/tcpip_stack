@@ -125,7 +125,7 @@ schedule_hello_on_interface(interface_t *intf,
                                                      transmit_hellos,
                                                      (void *)pkt_meta_data,
                                                      sizeof(pkt_meta_data_t),
-                                                     interval_sec,
+                                                     interval_sec * 1000,
                                                      is_repeat ? 1 : 0);
     intf->intf_nw_props.nmp->hellos = wt_elem;
 
@@ -386,7 +386,7 @@ adjacency_refresh_expiry_timer(interface_t *interface,
     
     assert(wt_elem);
 
-    wt_elem_reschedule(wt_elem, ADJ_DEF_EXPIRY_TIMER);
+    wt_elem_reschedule(wt_elem, ADJ_DEF_EXPIRY_TIMER * 1000);
 }
 
 static void
@@ -413,7 +413,7 @@ adjacency_start_expiry_timer(interface_t *interface,
     adjacency->expiry_timer = register_app_event(node_get_timer_instance(interface->att_node),
                                     timer_expire_delete_adjacency_cb,
                                     (void *)adj_key, sizeof(adj_key_t),
-                                    ADJ_DEF_EXPIRY_TIMER,
+                                    ADJ_DEF_EXPIRY_TIMER * 1000,
                                     0);
     if(!adjacency->expiry_timer){
         printf("Error : Expiry timer for Adjacency : %s, %s, %s could not be started\n",
