@@ -7,7 +7,6 @@
  * */
 
 #include <unistd.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <memory.h>
 #include <stdio.h>

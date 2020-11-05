@@ -34,7 +34,6 @@
 #include <stdio.h>
 #include "layer2.h"
 #include <stdlib.h>
-#include <sys/socket.h>
 #include "comm.h"
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <unistd.h>

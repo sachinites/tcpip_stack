@@ -36,7 +36,6 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <stdint.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <assert.h>
 #include <pthread.h>

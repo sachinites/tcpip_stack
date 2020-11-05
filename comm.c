@@ -30,7 +30,6 @@
  * =====================================================================================
  */
 
-#include <sys/socket.h>
 #include <pthread.h>
 #include <netinet/in.h>
 #include <memory.h>
