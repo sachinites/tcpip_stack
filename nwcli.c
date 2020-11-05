@@ -36,7 +36,7 @@
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include "cmdcodes.h"
-#include "WheelTimer/WheelTimer.h"
+#include "libtimer/WheelTimer.h"
 #include "Layer5/app_handlers.h"
 #include "BitOp/bitsop.h"
 #include "tcpip_notif.h"

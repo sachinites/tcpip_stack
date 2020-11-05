@@ -37,9 +37,6 @@
 #include "comm.h"
 #include "Layer2/layer2.h"
 
-extern void
-network_start_pkt_receiver_thread(graph_t *topo);
-
 graph_t *
 build_first_topo(){
 
@@ -84,8 +81,6 @@ build_first_topo(){
     node_set_loopback_address(R2_re, "122.1.1.2");
     node_set_intf_ip_address(R2_re, "eth3", "30.1.1.2", 24);
     node_set_intf_ip_address(R2_re, "eth5", "40.1.1.2", 24);
-
-    network_start_pkt_receiver_thread(topo);
 
     return topo;
 }
@@ -153,8 +148,6 @@ build_simple_l2_switch_topo(){
     node_set_intf_l2_mode(L2SW, "eth2", ACCESS);
     node_set_intf_l2_mode(L2SW, "eth3", ACCESS);
     node_set_intf_l2_mode(L2SW, "eth4", ACCESS);
-
-    network_start_pkt_receiver_thread(topo);
 
     return topo;
 }
@@ -226,8 +219,6 @@ run node R1 ping 122.1.1.3
     node_set_intf_ip_address(R4, "eth5", "30.1.1.2", 24);
     node_set_intf_ip_address(R4, "eth6", "40.1.1.1", 24);
     
-    network_start_pkt_receiver_thread(topo);
-
     return topo;
 }
 
@@ -251,8 +242,6 @@ build_linear_topo(){
     node_set_intf_ip_address(H2, "eth2", "10.1.1.2", 24);
     node_set_intf_ip_address(H2, "eth3", "20.1.1.2", 24);
     node_set_intf_ip_address(H3, "eth4", "20.1.1.1", 24);
-
-    network_start_pkt_receiver_thread(topo);
 
     return topo;
 }
@@ -344,8 +333,6 @@ build_dualswitch_topo(){
     node_set_intf_l2_mode(L2SW2, "eth12", ACCESS);
     node_set_intf_vlan_membsership(L2SW2, "eth12", 11);
 
-    network_start_pkt_receiver_thread(topo);
-
     return topo;
 }
 
@@ -397,8 +384,6 @@ parallel_links_topology(){
     node_set_intf_ip_address(R1, "eth7", "30.1.1.2", 24);
     node_set_intf_ip_address(R1, "eth8", "40.1.1.2", 24);
     node_set_intf_ip_address(R1, "eth9", "50.1.1.2", 24);
-
-    network_start_pkt_receiver_thread(topo);
 
     return topo;
 }
@@ -480,8 +465,6 @@ cross_link_topology(){
     node_set_intf_ip_address(R5, "eth5", "30.1.1.2", 24);
     node_set_intf_ip_address(R5, "eth12","70.1.1.1", 24);
     node_set_intf_ip_address(R5, "eth15","80.1.1.2", 24);
-
-    network_start_pkt_receiver_thread(topo);
 
     return topo;
 }

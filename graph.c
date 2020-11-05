@@ -37,9 +37,6 @@
 #include <memory.h>
 #include "tcp_ip_trace.h"
 
-extern void 
-init_udp_socket(node_t *node);
-
 void
 insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
@@ -100,8 +97,6 @@ create_graph_node(graph_t *graph, char *node_name){
     node_t *node = calloc(1, sizeof(node_t));
     strncpy(node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE] = '\0';
-
-    init_udp_socket(node);
 
     init_node_nw_prop(&node->node_nw_prop);
     init_glthread(&node->graph_glue);

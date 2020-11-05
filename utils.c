@@ -30,7 +30,6 @@
  * =====================================================================================
  */
 
-#include <sys/socket.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <stdint.h>
 #include <memory.h>

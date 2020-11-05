@@ -41,6 +41,13 @@
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
 
+typedef struct ev_dis_pkt_data_{
+
+    node_t *recv_node;
+    interface_t *recv_intf;
+    char *pkt;
+    uint32_t pkt_size;
+} ev_dis_pkt_data_t;
 
 int
 send_pkt_to_self(char *pkt, uint32_t pkt_size, interface_t *interface);

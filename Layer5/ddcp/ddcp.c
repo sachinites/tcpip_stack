@@ -687,7 +687,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
                 wrapper_ddcp_flood_ddcp_query_out,
                 (void *)ddcp_pkt_meta_data,
                 sizeof(ddcp_pkt_meta_data_t),
-                ddcp_q_interval,
+                ddcp_q_interval * 1000,
                 1);
     }
 }

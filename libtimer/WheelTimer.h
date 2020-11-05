@@ -2,8 +2,15 @@
 #define __WHEEL_TIMER__
 
 #include <pthread.h>
+#include "timerlib.h"
 #include <stdint.h>
 #include "../gluethread/glthread.h"
+
+typedef enum {
+
+	TIMER_SECONDS,
+	TIMER_MILLI_SECONDS
+} timer_resolution_t;
 
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef void (*app_call_back)(void *arg, uint32_t sizeof_arg);
@@ -36,9 +43,9 @@ struct _wheel_timer_elem_t{
 	char is_recurrence;
     glthread_t glue;
     slotlist_t *slotlist_head;
+	wheel_timer_t *wt;
     glthread_t reschedule_glue;
     unsigned int N_scheduled;
-	wheel_timer_t *wt;
 };
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
 GLTHREAD_TO_STRUCT(glthread_reschedule_glue_to_wt_elem, wheel_timer_elem_t, reschedule_glue);
@@ -48,9 +55,10 @@ struct _wheel_timer_t {
 	int clock_tic_interval;
 	int wheel_size;
 	int current_cycle_no;
-	pthread_t wheel_thread;
+	Timer_t *wheel_thread;
     slotlist_t reschd_list;
     unsigned int no_of_wt_elem;
+	timer_resolution_t timer_resolution;
     slotlist_t slotlist[0];
 };
 
@@ -99,7 +107,8 @@ struct _wheel_timer_t {
     (&((WT_GET_RESCHD_SLOTLIST(wt_ptr))->slots))
 
 wheel_timer_t*
-init_wheel_timer(int wheel_size, int clock_tic_interval);
+init_wheel_timer(int wheel_size, int clock_tic_interval,
+				 timer_resolution_t timer_resolution);
 
 
 int

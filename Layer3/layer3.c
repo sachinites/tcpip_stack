@@ -34,7 +34,6 @@
 #include "graph.h"
 #include "../Layer2/layer2.h"
 #include "layer3.h"
-#include <sys/socket.h>
 #include <memory.h>
 #include <stdlib.h>
 #include "tcpconst.h"

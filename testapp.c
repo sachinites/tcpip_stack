@@ -56,8 +56,8 @@ int
 main(int argc, char **argv){
 
     nw_init_cli();
-    topo = build_square_topo();
-    //topo = cross_link_topology();
+    //topo = build_square_topo();
+    topo = cross_link_topology();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;

@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
-TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe
-LIBS=-lpthread -L ./CommandParser -lcli
+TARGET:tcpstack.exe CommandParser/libcli.a
+LIBS=-lpthread -L ./CommandParser -lcli -lrt
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
@@ -15,7 +15,8 @@ OBJS=gluethread/glthread.o \
 		  nwcli.o		   \
 		  utils.o		   \
 		  Layer2/l2switch.o \
-          WheelTimer/WheelTimer.o   \
+          libtimer/WheelTimer.o   \
+          libtimer/timerlib.o   \
           Layer5/nbrship_mgmt/nbrship_mgmt.o \
 		  Layer5/ddcp/ddcp.o \
 		  Layer5/spf_algo/spf.o \
@@ -24,12 +25,10 @@ OBJS=gluethread/glthread.o \
  		  tcpip_notif.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
+		  pkt_gen.o \
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
-
-pkt_gen.exe:pkt_gen.o utils.o
-	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
 
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
@@ -52,8 +51,10 @@ gluethread/glthread.o:gluethread/glthread.c
 Tree/avl.o:Tree/avl.c
 	${CC} ${CFLAGS} -c -I Tree Tree/avl.c -o Tree/avl.o
 
-WheelTimer/WheelTimer.o:WheelTimer/WheelTimer.c
-	${CC} ${CFLAGS} -c -I gluethread -I WheelTimer WheelTimer/WheelTimer.c -o WheelTimer/WheelTimer.o
+libtimer/WheelTimer.o:libtimer/WheelTimer.c
+	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/WheelTimer.c -o libtimer/WheelTimer.o
+libtimer/timerlib..o:libtimer/timerlib.c
+	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/timerlib.c -o libtimer/timerlib.o
 
 tcp_stack_init.o:tcp_stack_init.c
 	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
@@ -116,7 +117,7 @@ clean:
 	rm -f Layer5/*.o
 	rm -f Layer5/ddcp/*.o
 	rm -f Layer5/spf_algo/*.o
-	rm -f WheelTimer/WheelTimer.o
+	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
 all:
@@ -126,4 +127,3 @@ all:
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
-	rm -f WheelTimer/WheelTimer.o
