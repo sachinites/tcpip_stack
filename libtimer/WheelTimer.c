@@ -5,6 +5,7 @@
 #include <time.h>
 #include <assert.h>
 #include "WheelTimer.h"
+#include "../EventDispatcher/event_dispatcher.h"
 
 int
 insert_wt_elem_in_slot(void *data1, void *data2){
@@ -118,7 +119,10 @@ wheel_fn(Timer_t *timer, void *arg){
 		/*Check if R == r*/
 		if(wt->current_cycle_no == wt_elem->execute_cycle_no){
 			/*Invoke the application event through fn pointer as below*/
-			wt_elem->app_callback(wt_elem->arg, wt_elem->arg_size);
+			  
+			  task_create_new_job(wt_elem->arg,
+								  wt_elem->app_callback,
+								  TASK_ONE_SHOT);
 
 			/* After invocation, check if the event needs to be rescheduled again
 			 * in future*/
