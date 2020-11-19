@@ -724,6 +724,8 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
         case CMDCODE_DEBUG_SHOW_NODE_TIMER:
             print_wheel_timer(node->node_nw_prop.wt);         
         break;
+		case CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING:
+			wt_enable_logging(node->node_nw_prop.wt);
         default:
         break;
    }
@@ -793,6 +795,13 @@ nw_init_cli(){
                 init_param(&timer, CMD, "timer", debug_show_node_handler, 0, INVALID, 0, "Timer State");
                 libcli_register_param(&node_name, &timer);
                 set_param_cmd_code(&timer, CMDCODE_DEBUG_SHOW_NODE_TIMER);
+				{
+					/*debug show node <node-name> timer logs*/
+					static param_t logs;
+					init_param(&logs, CMD, "logging", debug_show_node_handler, 0, INVALID, 0, "Timer Logging");
+					libcli_register_param(&timer, &logs);
+					set_param_cmd_code(&logs, CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING);
+				}
             }
         }
     }

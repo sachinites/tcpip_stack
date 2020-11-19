@@ -59,6 +59,7 @@ struct _wheel_timer_t {
     slotlist_t reschd_list;
     unsigned int no_of_wt_elem;
 	timer_resolution_t timer_resolution;
+	bool debug;
     slotlist_t slotlist[0];
 };
 
@@ -149,5 +150,8 @@ reset_wheel_timer(wheel_timer_t *wt);
 
 char*
 hrs_min_sec_format(unsigned int seconds);
+
+void
+wt_enable_logging(wheel_timer_t *wt);
 
 #endif

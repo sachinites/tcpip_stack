@@ -70,9 +70,6 @@ typedef struct nmp_ nmp_t;
 
 typedef struct node_nw_prop_{
 
-	node_t *node; /* back pointer to the node */
-    /* Used to find various device types capabilities of
-     * the node and other features*/
     uint32_t flags;
 
     /*L2 Properties*/

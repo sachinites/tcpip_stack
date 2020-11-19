@@ -74,4 +74,6 @@
 #define CMDCODE_SHOW_NODE_NMP_STATE                    32 /*show node <node-name> nmp state*/
 
 #define CMDCODE_INTF_CONFIG_METRIC       33 /*config node <node-name> interface <if-name> metric <metric-val>*/
+
+#define CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING	34 /* debug show node <node-name> timer logging */
 #endif /* __CMDCODES__ */
