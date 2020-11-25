@@ -76,4 +76,8 @@
 #define CMDCODE_INTF_CONFIG_METRIC       33 /*config node <node-name> interface <if-name> metric <metric-val>*/
 
 #define CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING	34 /* debug show node <node-name> timer logging */
+
+/* Traffic generation */
+#define CMDCODE_CONF_NODE_TRAFFIC_GEN	35 /* config node <node-name> interface <if-name> traffic-gen <dest-ip> */
+
 #endif /* __CMDCODES__ */

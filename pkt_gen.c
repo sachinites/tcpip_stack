@@ -33,6 +33,71 @@ extern graph_t *topo;
 
 static char send_buffer[MAX_PACKET_BUFFER_SIZE];
 
+
+typedef struct traffic_gen_info_{
+
+	ip_add_t dest_ip_add;
+	glthread_t glue; 
+} traffic_gen_info_t;
+GLTHREAD_TO_STRUCT(glnode_to_traffic_gen_info,
+	traffic_gen_info_t, glue);
+
+static void
+traffic_gen_info_add(node_t *node,
+					 char *ip_addr) {
+
+	glthread_t *curr;
+
+	traffic_gen_info_t *traffic_gen_info = NULL;
+
+	ITERATE_GLTHREAD_BEGIN(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr){
+
+		traffic_gen_info = glnode_to_traffic_gen_info(curr);
+		if(strncmp(traffic_gen_info->dest_ip_add.ip_addr,
+					ip_addr, 16) == 0) {
+			printf("Traffic stream Already running\n");
+			return;
+		}
+	} ITERATE_GLTHREAD_END(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr);
+
+	traffic_gen_info = (traffic_gen_info_t *)calloc(1, sizeof(traffic_gen_info_t));
+	memcpy(traffic_gen_info->dest_ip_add.ip_addr, ip_addr, 16);
+	init_glthread(&traffic_gen_info->glue);
+	
+	glthread_add_next(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), &traffic_gen_info->glue);
+}
+
+static void
+traffic_gen_info_delete(node_t *node,
+						char *ip_addr) {
+
+	glthread_t *curr;
+
+	traffic_gen_info_t *traffic_gen_info = NULL;
+
+	ITERATE_GLTHREAD_BEGIN(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr){
+
+		traffic_gen_info = glnode_to_traffic_gen_info(curr);
+		if(strncmp(traffic_gen_info->dest_ip_add.ip_addr,
+					ip_addr, 16) == 0) {
+			remove_glthread(&traffic_gen_info->glue);
+			free(traffic_gen_info);
+			return;
+		}
+	} ITERATE_GLTHREAD_END(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr);
+
+	printf("Traffic stream not found\n");
+}
+
+
+int
+traffic_gen_handler(param_t *param,
+					ser_buff_t *tlv_buf,
+					op_mode enable_or_disable) {
+
+	return 0;
+}
+
 void
 pkt_gen(char *src_node_name,
 		char *ingress_intf_name,

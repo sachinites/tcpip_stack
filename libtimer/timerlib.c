@@ -199,11 +199,22 @@ void
 resume_timer(Timer_t *timer){
 
 	assert(timer_get_current_state(timer) == TIMER_PAUSED);
-	
-	timer_fill_itimerspec(&timer->ts.it_value, timer->time_remaining);
-	timer_fill_itimerspec(&timer->ts.it_interval, timer->sec_exp_timer);
-	timer->time_remaining	 = 0;
 
+	if (timer->time_remaining) {	
+		timer_fill_itimerspec(&timer->ts.it_value, timer->time_remaining);
+	}
+	else {
+		timer_fill_itimerspec(&timer->ts.it_value, timer->exp_timer);
+	}
+
+	timer_fill_itimerspec(&timer->ts.it_interval, timer->sec_exp_timer);
+
+	if (timer->ts.it_value.tv_sec == 0 &&
+		timer->ts.it_value.tv_nsec == 0) {
+		assert(0);
+	}
+			
+	timer->time_remaining	 = 0;
 	resurrect_timer(timer);
 	timer_set_state(timer, TIMER_RESUMED);
 }

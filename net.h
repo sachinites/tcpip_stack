@@ -92,6 +92,9 @@ typedef struct node_nw_prop_{
 
     /*Device level Appln DS*/
     nmp_t *nmp;
+
+	/* Traffic generation */
+	glthread_t traffic_gen_db_head;
 } node_nw_prop_t;
 
 extern void init_arp_table(arp_table_t **arp_table);
@@ -113,6 +116,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
+	init_glthread(&(node_nw_prop->traffic_gen_db_head));
 }
 
 typedef enum{
@@ -210,9 +214,8 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
-#define NODE_GET_NON_USED_RT_TABLE(node_ptr)	\
-	((node_ptr->node_nw_prop.rt_table_in_use == node_ptr->node_nw_prop.rt_table) ?\
-	 node_ptr->node_nw_prop.rt_table1 : node_ptr->node_nw_prop.rt_table)
+#define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
+	(&node_ptr->node_nw_prop.traffic_gen_db_head)
 
 /*APIs to set Network Node properties*/
 bool_t node_set_loopback_address(node_t *node, char *ip_addr);

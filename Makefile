@@ -122,7 +122,6 @@ clean:
 	rm -f Layer5/nbrship_mgmt/*.o
 all:
 	make
-	(cd CommandParser; make)
 
 cleanall:
 	make clean
