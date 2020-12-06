@@ -282,7 +282,7 @@ dump_interface_adjacencies(interface_t *interface){
         
         adjacency = glthread_to_adjacency(curr);
         printf("\t Adjacency : Nbr Name : %s, Router id : %s,"
-               " nbr ip : %s,\n\t\t nbr mac : %02x:%02x:%02x:%02x:%02x:%02x, Expires in : %d sec, uptime = %s\n",
+               " nbr ip : %s,\n\t\t nbr mac : %02x:%02x:%02x:%02x:%02x:%02x, Expires in : %d msec, uptime = %s\n",
                 adjacency->router_name, 
                 adjacency->router_id, 
                 adjacency->nbr_ip, 

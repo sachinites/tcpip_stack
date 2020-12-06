@@ -223,7 +223,7 @@ _wt_elem_reschedule(wheel_timer_t *wt,
         case WTELEM_DELETE:
             
                wt_elem->new_time_interval = new_time_interval;
-			   pause_timer(wt->wheel_thread);
+			   //pause_timer(wt->wheel_thread);
                WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
 			   /* if wt_elem is not even scheduled once, and request
  				* comes to re-schedule it again, then treat it like
@@ -238,7 +238,7 @@ _wt_elem_reschedule(wheel_timer_t *wt,
                		&wt_elem->reschedule_glue);
 			   if (wt->debug) { printf("%s() wt_elem %p Added to Reschedule Q\n", __FUNCTION__, wt_elem); }
                WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
- 			   resume_timer(wt->wheel_thread);
+ 			   //resume_timer(wt->wheel_thread);
             break;
         default:
             assert(0);
