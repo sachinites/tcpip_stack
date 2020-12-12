@@ -32,15 +32,15 @@ ${CLILIB}: ${OBJ}
 	@echo "Building Library ${CLILIB}"
 	ar rs ${CLILIB} ${OBJ}
 clean:
-	rm exe
-	rm *.o
-	rm ${CLILIB}
-	rm CMD_HIST_RECORD_FILE.txt || true
+	rm -f exe
+	rm -f *.o
+	rm -f ${CLILIB}
+	rm -f CMD_HIST_RECORD_FILE.txt
 install:
 	cp ${CLILIB} /usr/local/lib/
 	cp libcli.h /usr/include/
 	cp cmdtlv.h /usr/include/
 uninstall:
-	rm /usr/local/lib/${CLILIB}
-	rm /usr/include/libcli.h
-	rm /usr/include/cmdtlv.h
+	rm -f /usr/local/lib/${CLILIB}
+	rm -f /usr/include/libcli.h
+	rm -f /usr/include/cmdtlv.h
