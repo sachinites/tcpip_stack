@@ -157,6 +157,9 @@ parse_input_cmd(char *input, unsigned int len);
 extern void
 place_console(char new_line);
 
+extern void
+load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
+
 void
 libcli_register_display_callback(param_t *param, 
                                 display_possible_values_callback disp_callback){
@@ -195,7 +198,7 @@ get_str_leaf_type(leaf_type_t leaf_type){
 static void
 ctrlC_signal_handler(int sig){
     printf("Ctrl-C pressed\n");
-    printf("Bye Bye. Visit : www.csepracticals.com For more Courses and Projects\n");
+    printf("Bye Bye\n");
     exit(0);
 }
 
@@ -307,6 +310,15 @@ init_libcli(){
     init_param(&config, CMD, "config", config_mode_enter_handler, 0, INVALID, 0, "config cmds");
     libcli_register_param(&root, &config);
 
+	static param_t load;
+	init_param(&load, CMD, "load", 0, 0, INVALID, 0, "load cmds");
+	libcli_register_param(&config, &load);
+
+	static param_t file_name;
+	init_param(&file_name, LEAF, 0, load_file_handler, 0, STRING, "file-name", "Name of the file");
+	libcli_register_param(&load, &file_name);
+	set_param_cmd_code(&file_name, CONFIG_LOAD_FILE);
+
     static param_t supportsave;
     init_param(&supportsave, CMD, "supportsave", 0 , 0, INVALID, 0, "Collect Support Save Data");
     libcli_register_param(&config, &supportsave);
@@ -407,9 +419,7 @@ init_param(param_t *param,                               /* pointer to static pa
     else if(param_type == NO_CMD){
         GET_PARAM_CMD(param) = calloc(1, sizeof(cmd_t));
         param->param_type = NO_CMD;
-		const char *temp = NEGATE_CHARACTER;
-		memcpy(GET_CMD_NAME(param), temp, strlen(NEGATE_CHARACTER));
-        //strncpy(GET_CMD_NAME(param), NEGATE_CHARACTER, strlen(NEGATE_CHARACTER));
+        strncpy(GET_CMD_NAME(param), NEGATE_CHARACTER, strlen(NEGATE_CHARACTER));
         GET_CMD_NAME(param)[CMD_NAME_SIZE -1] = '\0';
     }
 
@@ -627,7 +637,7 @@ go_one_level_up_cmd_tree(param_t *curr_cmd_tree_cursor){
 
     if(IS_PARAM_LEAF(curr_cmd_tree_cursor)){
         memset(GET_LEAF_VALUE_PTR(curr_cmd_tree_cursor), 0, LEAF_VALUE_HOLDER_SIZE);
-        serialize_buffer_skip(tlv_buff, (int)(-1 * sizeof(tlv_struct_t)));/*Rewind*/
+        serialize_buffer_skip(tlv_buff, -1 * (int)sizeof(tlv_struct_t));/*Rewind*/
         mark_checkpoint_serialize_buffer(tlv_buff);
     }
 

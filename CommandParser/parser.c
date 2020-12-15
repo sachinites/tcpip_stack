@@ -19,17 +19,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "string_util.h"
+#include <errno.h>
 #include "cmdtlv.h"
 #include "cliconst.h"
 #include "css.h"
 #include "libcli.h"
-#include "../EventDispatcher/event_dispatcher.h"
 
 extern param_t root;
 extern leaf_type_handler leaf_handler_array[LEAF_MAX];
 extern ser_buff_t *tlv_buff;
 char console_name[TERMINAL_NAME_SIZE];
+
+static bool cmd_recording_enabled = true;
 
 static param_t*
 array_of_possibilities[POSSIBILITY_ARRAY_SIZE];
@@ -98,56 +101,7 @@ find_matching_param(param_t **options, const char *cmd_name){
     return array_of_possibilities[choice];   
 }
 
-#ifdef ENABLE_EVENT_DISPATCHER
-/* Structure to support callback invocation
- * via Task Scheduler */
-typedef struct unified_cli_data_{
 
-    param_t *param;
-    ser_buff_t *tlv_ser_buff;
-    op_mode enable_or_disable;
-} unified_cli_data_t;
-
-static void 
-task_cbk_handler_internal(void *arg, uint32_t arg_size){
-
-	unified_cli_data_t *unified_cli_data = 
-		(unified_cli_data_t *)arg;
-
-	unified_cli_data->param->callback(
-		unified_cli_data->param,
-		unified_cli_data->tlv_ser_buff,
-		unified_cli_data->enable_or_disable);
-	
-	/* Free the memory now */
-
-	free_serialize_buffer(unified_cli_data->tlv_ser_buff);
-	free(unified_cli_data);	
-}
-
-static void
-task_invoke_appln_cbk_handler(param_t *param,
-						 ser_buff_t *tlv_buff,
-						 op_mode enable_or_disable) {
-
-	unified_cli_data_t *unified_cli_data =
-		(unified_cli_data_t *)calloc(1, sizeof(unified_cli_data_t));
-
-	unified_cli_data->param = param;
-	unified_cli_data->tlv_ser_buff = calloc(1, sizeof(ser_buff_t));
-	memcpy(unified_cli_data->tlv_ser_buff, tlv_buff, sizeof(ser_buff_t));
-	unified_cli_data->tlv_ser_buff->b = calloc(1, 
-		get_serialize_buffer_size(tlv_buff));
-	memcpy(unified_cli_data->tlv_ser_buff->b, 
-		   tlv_buff->b,
-		   get_serialize_buffer_size(tlv_buff));
-	unified_cli_data->enable_or_disable = enable_or_disable;
-
-	task_create_new_job_synchronous((void *)unified_cli_data,
-						task_cbk_handler_internal,
-						TASK_ONE_SHOT);						
-}
-#endif
 static tlv_struct_t tlv;
 
 static CMD_PARSE_STATUS
@@ -237,17 +191,11 @@ build_tlv_buffer(char **tokens,
                 /*Add the show extension param TLV to tlv buffer, this is really not an
                  * application callback*/
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
-
                 memset(command_code_tlv.value, 0, LEAF_VALUE_HOLDER_SIZE);
                 sprintf(command_code_tlv.value, "%d", parent->CMDCODE);
                 collect_tlv(tlv_buff, &command_code_tlv); 
-                /*Now invoke the application handler*/
-#ifndef ENABLE_EVENT_DISPATCHER
+                /*Now invoke the pplication handler*/
                 INVOKE_APPLICATION_CALLBACK_HANDLER(parent, tlv_buff, enable_or_disable);
-#else
-				task_invoke_appln_cbk_handler(parent, tlv_buff, enable_or_disable);
-				printf("CLI returned\n");
-#endif
             }
 
             else if(param == libcli_get_suboptions_param())
@@ -285,12 +233,7 @@ build_tlv_buffer(char **tokens,
                     sprintf(command_code_tlv.value, "%d", param->CMDCODE);
                     collect_tlv(tlv_buff, &command_code_tlv); 
                 }
-#ifndef ENABLE_EVENT_DISPATCHER
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
-#else
-				task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
-				printf("CLI returned\n");
-#endif
             }
             break;
 
@@ -419,8 +362,13 @@ command_parser(void){
             continue;
         }
 
-        if(status == COMPLETE)
-            record_command(CMD_HIST_RECORD_FILE, cons_input_buffer, strlen(cons_input_buffer));
+        if(status == COMPLETE && cmd_recording_enabled) {
+            record_command(CMD_HIST_RECORD_FILE,
+						   cons_input_buffer,
+						   strlen(cons_input_buffer));
+		}
+
+		cmd_recording_enabled = true;
 
         memset(last_command_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
 
@@ -433,4 +381,39 @@ command_parser(void){
         place_console(1);
     }
 }
+
+void
+parse_file(char *file_name) {
+
+	char line[256];
+	char** tokens = NULL;
+	size_t token_cnt = 0;
+
+	FILE *fptr = fopen(file_name, "r");
+	
+	if (!fptr) {
+	
+		printf("Error : Could not open log file %s, errno = %d\n",
+				file_name, errno);
+		return;
+	}
+
+	memset(line, 0, sizeof(line));
+
+	cmd_recording_enabled = false;
+
+	while (fgets(line, sizeof(line) - 1, fptr)) {
+
+		printf("Executing : %s", line);
+	
+		tokens = tokenizer(line, ' ', &token_cnt);		
+
+		reset_serialize_buffer(tlv_buff);
+		build_tlv_buffer(tokens, token_cnt);
+		memset(line, 0, sizeof(line));
+	}
+	
+	fclose(fptr);
+	place_console(1);
+}	
 

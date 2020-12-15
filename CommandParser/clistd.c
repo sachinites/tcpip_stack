@@ -314,6 +314,28 @@ config_mode_enter_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disab
     return 0;
 }
 
+extern void
+parse_file(char *file_name);
+int
+load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+
+	char *file_name = NULL;
+	tlv_struct_t *tlv = NULL;
+
+	TLV_LOOP_BEGIN(b, tlv) {
+
+		if (strncmp(tlv->leaf_id, "file-name",
+				strlen("file-name")) == 0) {
+
+			file_name = tlv->value;
+		}
+	} TLV_LOOP_END;
+
+	assert(file_name);
+	
+	parse_file(file_name);	
+}
+
 int
 negate_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     printf("Command Negation - Type the cmd following to Negate\n");
@@ -358,8 +380,9 @@ show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     printf("    f. debug show cmdtree - Show entire command tree\n");
     printf("    g. show history - show history of commands triggered\n");
     printf("    h. repeat - repeat the last command\n");
-    printf(ANSI_COLOR_YELLOW "                      Author : Abhishek Sagar, Juniper Networks\n" ANSI_COLOR_RESET);
-    printf(ANSI_COLOR_YELLOW "                      Visit : www.csepracticals.com for more courses and projects\n" ANSI_COLOR_RESET);
+    printf(ANSI_COLOR_GREEN"    Course URL: https://www.udemy.com/course/clilibrary/?referralCode=7B5A69E6F0127E0C9376\n" ANSI_COLOR_RESET);
+    printf(ANSI_COLOR_GREEN"    All My Courses at one place (Available on Discounts or even free): www.csepracticals.com\n" ANSI_COLOR_RESET);
+    printf(ANSI_COLOR_YELLOW"                         Author : Abhishek Sagar, Juniper Networks\n\n" ANSI_COLOR_RESET);
     return 0;
 }
 
