@@ -157,7 +157,7 @@ parse_input_cmd(char *input, unsigned int len);
 extern void
 place_console(char new_line);
 
-extern void
+extern int
 load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
 
 void
