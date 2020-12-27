@@ -88,7 +88,6 @@ clean:
 	rm -f WheelTimer/WheelTimer.o
 all:
 	make
-	(cd CommandParser; make)
 
 cleanall:
 	make clean
