@@ -26,6 +26,9 @@ OBJS=gluethread/glthread.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
 		  pkt_gen.o \
+		  Layer2/stp/stp_state_machine.o \
+		  Layer2/stp/stp_bpdu.o \
+		  Layer2/stp/stp_init.o \
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
@@ -104,6 +107,15 @@ utils.o:utils.c
 Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 	${CC} ${CFLAGS} -c -I . -I Layer5/ddcp/ Layer5/ddcp/ddcp.c -o Layer5/ddcp/ddcp.o
 
+# Protocols Specific
+# STP
+Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
+	${CC} ${CFLAGS} -c Layer2/stp/stp_state_machine.c -o Layer2/stp/stp_state_machine.o
+Layer2/stp/stp_bpdu.o:Layer2/stp/stp_bpdu.c
+	${CC} ${CFLAGS} -c Layer2/stp/stp_bpdu.c -o Layer2/stp/stp_bpdu.o
+Layer2/stp/stp_init.o:Layer2/stp/stp_init.c
+	${CC} ${CFLAGS} -c Layer2/stp/stp_init.c -o Layer2/stp/stp_init.o
+
 CommandParser/libcli.a:
 	(cd CommandParser; make)
 clean:
@@ -120,6 +132,8 @@ clean:
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
+#STP
+	rm -f Layer2/stp/*.o
 all:
 	make
 
