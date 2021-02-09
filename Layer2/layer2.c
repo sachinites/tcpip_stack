@@ -49,15 +49,15 @@
 static unsigned short 
 l2_proto_include_l2_hdr[MAX_L2_PROTO_INCLUSION_SUPPORTED];
 
-static bool_t 
+static bool 
 should_include_l2_hdr(uint32_t L2_protocol_no){
 
     int i = 0;
     for( ; i < MAX_L2_PROTO_INCLUSION_SUPPORTED; i++){
         if(l2_proto_include_l2_hdr[i] == L2_protocol_no)
-            return TRUE;
+            return true;
     }
-    return FALSE;
+    return false;
 }
 
 void
@@ -290,7 +290,7 @@ delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr){
     delete_arp_entry(arp_entry);
 }
 
-bool_t
+bool
 arp_table_entry_add(node_t *node,
 					arp_table_t *arp_table, arp_entry_t *arp_entry,
                     glthread_t **arp_pending_list){
@@ -303,7 +303,7 @@ arp_table_entry_add(node_t *node,
             arp_entry->ip_addr.ip_addr);
 
     /* Case 0 : if ARP table do not exist already, then add it
-     * and return TRUE*/
+     * and return true*/
     if(!arp_entry_old){
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
 		assert(arp_entry->exp_timer_wt_elem == NULL);
@@ -311,7 +311,7 @@ arp_table_entry_add(node_t *node,
 			arp_entry_create_expiration_timer(
 				node,
 				arp_entry, ARP_ENTRY_EXP_TIME); 
-        return TRUE;
+        return true;
     }
     
 
@@ -320,7 +320,7 @@ arp_table_entry_add(node_t *node,
     if(arp_entry_old &&
             IS_ARP_ENTRIES_EQUAL(arp_entry_old, arp_entry)){
 
-        return FALSE;
+        return false;
     }
 
     /*Case 2 : If there already exists full ARP table entry, then replace it*/
@@ -332,11 +332,11 @@ arp_table_entry_add(node_t *node,
 		arp_entry->exp_timer_wt_elem =
 			arp_entry_create_expiration_timer(
 				node, arp_entry, ARP_ENTRY_EXP_TIME); 	
-        return TRUE;
+        return true;
     }
 
     /*Case 3 : if existing ARP table entry is sane, and new one is also
-     * sane, then move the pending arp list from new to old one and return FALSE*/
+     * sane, then move the pending arp list from new to old one and return false*/
     if(arp_entry_old &&
         arp_entry_sane(arp_entry_old) &&
         arp_entry_sane(arp_entry)){
@@ -349,11 +349,11 @@ arp_table_entry_add(node_t *node,
             *arp_pending_list = &arp_entry_old->arp_pending_list;
 
 		arp_entry_refresh_expiration_timer(arp_entry_old);
-        return FALSE;
+        return false;
     }
 
     /*Case 4 : If existing ARP table entry is sane, but new one if full,
-     * then copy contents of new ARP entry to old one, return FALSE*/
+     * then copy contents of new ARP entry to old one, return false*/
     if(arp_entry_old && 
         arp_entry_sane(arp_entry_old) && 
         !arp_entry_sane(arp_entry)){
@@ -367,10 +367,10 @@ arp_table_entry_add(node_t *node,
             *arp_pending_list = &arp_entry_old->arp_pending_list;
 
 		arp_entry_refresh_expiration_timer(arp_entry_old);
-        return FALSE;
+        return false;
     }
 
-    return FALSE;
+    return false;
 }
 
 static void 
@@ -425,9 +425,9 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
     strncpy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
 
-    arp_entry->is_sane = FALSE;
+    arp_entry->is_sane = false;
 
-    bool_t rc = arp_table_entry_add(iif->att_node, 
+    bool rc = arp_table_entry_add(iif->att_node, 
 				arp_table, arp_entry, &arp_pending_list);
 
     glthread_t *curr;
@@ -448,10 +448,10 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
         } ITERATE_GLTHREAD_END(arp_pending_list, curr);
 
 		assert(IS_GLTHREAD_LIST_EMPTY(arp_pending_list));
-        (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = FALSE;
+        (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = false;
     }
 
-    if(rc == FALSE){
+    if(rc == false){
         delete_arp_entry(arp_entry);
     }
 }
@@ -482,7 +482,7 @@ dump_arp_table(arp_table_t *arp_table){
             arp_entry->mac_addr.mac[4], 
             arp_entry->mac_addr.mac[5], 
             arp_entry->oif_name,
-            arp_entry_sane(arp_entry) ? "FALSE" : "TRUE",
+            arp_entry_sane(arp_entry) ? "false" : "true",
 			arp_entry_get_exp_time_left(arp_entry));
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
     if(count){
@@ -512,8 +512,8 @@ interface_set_l2_mode(node_t *node,
     /*Case 1 : if interface is working in L3 mode, i.e. IP address is configured.
      * then disable ip address, and set interface in L2 mode*/
     if(IS_INTF_L3_MODE(interface)){
-        interface->intf_nw_props.is_ipadd_config_backup = TRUE;
-        interface->intf_nw_props.is_ipadd_config = FALSE;
+        interface->intf_nw_props.is_ipadd_config_backup = true;
+        interface->intf_nw_props.is_ipadd_config = false;
 
         IF_L2_MODE(interface) = intf_l2_mode;
         return;
@@ -717,7 +717,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
 
     /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
-    bool_t include_data_link_hdr = should_include_l2_hdr(ethernet_hdr->type);
+    bool include_data_link_hdr = should_include_l2_hdr(ethernet_hdr->type);
 
     if(strncmp(next_hop_ip_str, NODE_LO_ADDR(node), 16) == 0){
        promote_pkt_to_layer3(node, 0, 
@@ -854,12 +854,12 @@ create_arp_sane_entry(node_t *node,
     strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
-    arp_entry->is_sane = TRUE;
+    arp_entry->is_sane = true;
     add_arp_pending_entry(arp_entry, 
                           pending_arp_processing_callback_function, 
                           pkt, pkt_size);
-    bool_t rc = arp_table_entry_add(node, arp_table, arp_entry, 0);
-    if(rc == FALSE){
+    bool rc = arp_table_entry_add(node, arp_table, arp_entry, 0);
+    if(rc == false){
         assert(0);
     }
 }
@@ -1030,7 +1030,7 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                       ethernet_hdr_t *ethernet_hdr, 
                       uint32_t pkt_size){
 
-    bool_t include_data_link_hdr;
+    bool include_data_link_hdr;
 
     switch(ethernet_hdr->type){
         case ARP_MSG:
@@ -1099,7 +1099,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 
     if(l2_frame_recv_qualify_on_interface(interface, 
                                           ethernet_hdr, 
-                                          &vlan_id_to_tag) == FALSE){
+                                          &vlan_id_to_tag) == false){
         
         printf("L2 Frame Rejected on node %s(%s)\n", 
             node->node_name, interface->if_name);

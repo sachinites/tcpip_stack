@@ -74,20 +74,20 @@ typedef struct l3_route_ l3_route_t;
 extern void
 rt_table_add_direct_route(rt_table_t *rt_table, char *ip_addr, char mask); 
 
-bool_t node_set_loopback_address(node_t *node, char *ip_addr){
+bool node_set_loopback_address(node_t *node, char *ip_addr){
 
     assert(ip_addr);
 
-    node->node_nw_prop.is_lb_addr_config = TRUE;
+    node->node_nw_prop.is_lb_addr_config = true;
     strncpy(NODE_LO_ADDR(node), ip_addr, 16);
     NODE_LO_ADDR(node)[15] = '\0';
 
     /*Add it as direct route in routing table*/
     rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, 32);     
-    return TRUE;
+    return true;
 }
 
-bool_t node_set_intf_ip_address(node_t *node, char *local_if, 
+bool node_set_intf_ip_address(node_t *node, char *local_if, 
                                 char *ip_addr, char mask) {
 
     interface_t *interface = get_node_if_by_name(node, local_if);
@@ -96,14 +96,14 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
     strncpy(IF_IP(interface), ip_addr, 16);
     IF_IP(interface)[15] = '\0';
     interface->intf_nw_props.mask = mask; 
-    interface->intf_nw_props.is_ipadd_config = TRUE;
+    interface->intf_nw_props.is_ipadd_config = true;
     rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
-    return TRUE;
+    return true;
 }
 
-bool_t node_unset_intf_ip_address(node_t *node, char *local_if){
+bool node_unset_intf_ip_address(node_t *node, char *local_if){
 
-    return TRUE;
+    return true;
 }
 
 void dump_node_nw_props(node_t *node){
@@ -192,7 +192,7 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
         intf = node->intf[i];
         if(!intf) return NULL;
 
-        if(intf->intf_nw_props.is_ipadd_config == FALSE)
+        if(intf->intf_nw_props.is_ipadd_config == false)
             continue;
         
         intf_addr = IF_IP(intf);
@@ -210,7 +210,7 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
     return NULL;
 }
 
-bool_t 
+bool 
 is_same_subnet(char *ip_addr, char mask, 
                char *other_ip_addr){
 
@@ -224,9 +224,9 @@ is_same_subnet(char *ip_addr, char mask,
     apply_mask(other_ip_addr, mask, subnet2);
 
     if(strncmp(intf_subnet, subnet2, 16) == 0){
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 
 }
 
@@ -245,7 +245,7 @@ get_access_intf_operating_vlan_id(interface_t *interface){
 
 
 /*Should be Called only for interface operating in Trunk mode*/
-bool_t
+bool
 is_trunk_interface_vlan_enabled(interface_t *interface, 
                                 uint32_t vlan_id){
 
@@ -258,9 +258,9 @@ is_trunk_interface_vlan_enabled(interface_t *interface,
     for( ; i < MAX_VLAN_MEMBERSHIP; i++){
 
         if(interface->intf_nw_props.vlans[i] == vlan_id)
-            return TRUE;
+            return true;
     }
-    return FALSE;
+    return false;
 }
 
 /*When pkt moves from top to down in TCP/IP stack, we would need
@@ -272,10 +272,10 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
                        uint32_t total_buffer_size){
 
     char *temp = NULL;
-    bool_t need_temp_memory = FALSE;
+    bool need_temp_memory = false;
 
     if(pkt_size * 2 > (total_buffer_size - PKT_BUFFER_RIGHT_ROOM)){
-        need_temp_memory = TRUE;
+        need_temp_memory = true;
     }
     
     if(need_temp_memory){
@@ -319,45 +319,45 @@ dump_node_interface_stats(node_t *node){
     }
 }
 
-bool_t
+bool
 is_interface_l3_bidirectional(interface_t *interface){
 
     /*if interface is in L2 mode*/
     if(IF_L2_MODE(interface) == ACCESS || 
         IF_L2_MODE(interface) == TRUNK)
-        return FALSE;
+        return false;
 
     /* If interface is not configured 
      * with IP address*/
     if(!IS_INTF_L3_MODE(interface))
-        return FALSE;
+        return false;
 
     interface_t *other_interface = &interface->link->intf1 == interface ?    \
             &interface->link->intf2 : &interface->link->intf1;
 
     if(!other_interface)
-        return FALSE;
+        return false;
 
     if(!IF_IS_UP(interface) ||
             !IF_IS_UP(other_interface)){
-        return FALSE;
+        return false;
     }
 
     if(IF_L2_MODE(other_interface) == ACCESS ||
         IF_L2_MODE(interface) == TRUNK)
-        return FALSE;
+        return false;
 
     if(!IS_INTF_L3_MODE(other_interface))
-        return FALSE;
+        return false;
 
     if(!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
         IF_IP(other_interface)) &&
         is_same_subnet(IF_IP(other_interface), IF_MASK(other_interface),
         IF_IP(interface)))){
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 wheel_timer_t *

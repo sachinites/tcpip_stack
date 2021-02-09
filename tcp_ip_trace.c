@@ -458,16 +458,16 @@ void
 tcp_ip_init_node_log_info(node_t *node){
 
     log_t *log_info     = &node->log_info;
-    log_info->all       = FALSE;
-    log_info->recv      = FALSE;
-    log_info->send      = FALSE;
-    log_info->is_stdout = FALSE;
-    log_info->l3_fwd    = FALSE;
+    log_info->all       = false;
+    log_info->recv      = false;
+    log_info->send      = false;
+    log_info->is_stdout = false;
+    log_info->l3_fwd    = false;
     log_info->log_file  = initialize_node_log_file(node); 
 }
 
 void
-tcp_ip_set_all_log_info_params(log_t *log_info, bool_t status){
+tcp_ip_set_all_log_info_params(log_t *log_info, bool status){
 
     log_info->all    = status;
     log_info->recv   = status;
@@ -482,10 +482,10 @@ void
 tcp_ip_init_intf_log_info(interface_t *intf){
     
     log_t *log_info     = &intf->log_info;
-    log_info->all       = FALSE;
-    log_info->recv      = FALSE;
-    log_info->send      = FALSE;
-    log_info->is_stdout = FALSE;
+    log_info->all       = false;
+    log_info->recv      = false;
+    log_info->send      = false;
+    log_info->is_stdout = false;
     log_info->log_file  = initialize_interface_log_file(intf);
 }
 
@@ -576,10 +576,10 @@ int traceoptions_handler(param_t *param,
 
     switch(CMDCODE){
         case CMDCODE_DEBUG_GLOBAL_STDOUT:
-            topo->gstdout = TRUE;
+            topo->gstdout = true;
             break;
         case CMDCODE_DEBUG_GLOBAL_NO_STDOUT:
-            topo->gstdout = FALSE;
+            topo->gstdout = false;
             break;
         case CMDCODE_DEBUG_LOGGING_PER_NODE:
         case CMDCODE_DEBUG_SHOW_LOG_STATUS:
@@ -602,10 +602,10 @@ int traceoptions_handler(param_t *param,
     if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE ||
             CMDCODE == CMDCODE_DEBUG_LOGGING_PER_INTF){
         if(strcmp(flag_val, "all") == 0){
-            tcp_ip_set_all_log_info_params(log_info, TRUE);
+            tcp_ip_set_all_log_info_params(log_info, true);
         }
         else if(strcmp(flag_val, "no-all") == 0){
-            tcp_ip_set_all_log_info_params(log_info, FALSE);
+            tcp_ip_set_all_log_info_params(log_info, false);
             
             /*disable logging for all interfaces also*/
             if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE){
@@ -614,33 +614,33 @@ int traceoptions_handler(param_t *param,
                 for(; i < MAX_INTF_PER_NODE; i++){
                     intf = node->intf[i];
                     if(!intf) continue;
-                    tcp_ip_set_all_log_info_params(&intf->log_info, FALSE);
+                    tcp_ip_set_all_log_info_params(&intf->log_info, false);
                 }
             }
         }
         else if(strcmp(flag_val, "recv") == 0){
-            log_info->recv = TRUE;
+            log_info->recv = true;
         }
         else if(strcmp(flag_val, "no-recv") == 0){
-            log_info->recv = FALSE;
+            log_info->recv = false;
         }
         else if(strcmp(flag_val, "send") == 0){
-            log_info->send = TRUE;
+            log_info->send = true;
         }
         else if(strcmp(flag_val, "no-send") == 0){
-            log_info->send = FALSE;
+            log_info->send = false;
         }
         else if(strcmp(flag_val, "stdout") == 0){
-            log_info->is_stdout = TRUE;
+            log_info->is_stdout = true;
         }
         else if(strcmp(flag_val, "no-stdout") == 0){
-            log_info->is_stdout = FALSE;
+            log_info->is_stdout = false;
         }
         else if(strcmp(flag_val, "l3-fwd") == 0){
-            log_info->l3_fwd = TRUE;
+            log_info->l3_fwd = true;
         }
         else if(strcmp(flag_val, "no-l3-fwd") == 0){
-            log_info->l3_fwd = FALSE;
+            log_info->l3_fwd = false;
         }
     }
     else if(CMDCODE == CMDCODE_DEBUG_SHOW_LOG_STATUS){

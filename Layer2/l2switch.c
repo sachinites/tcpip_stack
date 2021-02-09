@@ -106,7 +106,7 @@ delete_mac_table_entry(mac_table_t *mac_table, char *mac){
             strncmp(mac_entry_1->oif_name, mac_entry_2->oif_name, IF_NAME_SIZE) == 0)
 
 
-bool_t
+bool
 mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
 
     mac_table_entry_t *mac_table_entry_old = mac_table_lookup(mac_table,
@@ -115,7 +115,7 @@ mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
     if(mac_table_entry_old &&
             IS_MAC_TABLE_ENTRY_EQUAL(mac_table_entry_old, mac_table_entry)){
 
-        return FALSE;
+        return false;
     }
 
     if(mac_table_entry_old){
@@ -124,7 +124,7 @@ mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
 
     init_glthread(&mac_table_entry->mac_entry_glue);
     glthread_add_next(&mac_table->mac_entries, &mac_table_entry->mac_entry_glue);
-    return TRUE;
+    return true;
 }
 
 void
@@ -161,18 +161,18 @@ dump_mac_table(mac_table_t *mac_table){
 static void
 l2_switch_perform_mac_learning(node_t *node, char *src_mac, char *if_name){
 
-    bool_t rc;
+    bool rc;
     mac_table_entry_t *mac_table_entry = calloc(1, sizeof(mac_table_entry_t));
     memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_add_t));
     strncpy(mac_table_entry->oif_name, if_name, IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
     rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
-    if(rc == FALSE){
+    if(rc == false){
         free(mac_table_entry);
     }
 }
 
-static bool_t
+static bool
 l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
                         interface_t *oif){
 
@@ -183,7 +183,7 @@ l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
     intf_l2_mode_t intf_l2_mode= IF_L2_MODE(oif);
     
     if(intf_l2_mode == L2_MODE_UNKNOWN){
-        return FALSE;
+        return false;
     }
     
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
@@ -202,14 +202,14 @@ l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
                  forward it. This is default Vlan unaware case*/
                 if(!intf_vlan_id && !vlan_8021q_hdr){
                     send_pkt_out(pkt, pkt_size, oif);
-                    return TRUE;
+                    return true;
                 }
 
                 /*Case 2 : if oif is VLAN aware, but pkt is untagged, simply
                  drop the packet. This is not an error, it is a L2 switching 
                  behavior*/
                 if(intf_vlan_id && !vlan_8021q_hdr){
-                    return FALSE;
+                    return false;
                 }
 
                 /*Case 3 : If oif is VLAN AWARE, and pkt is also tagged, 
@@ -223,13 +223,13 @@ l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
                                                           pkt_size,
                                                           &new_pkt_size);
                     send_pkt_out((char *)ethernet_hdr, new_pkt_size, oif);
-                    return TRUE;
+                    return true;
                 }
 
                 /*case 4 : if oif is vlan unaware but pkt is vlan tagged, 
                  simply drop the packet.*/
                 if(!intf_vlan_id && vlan_8021q_hdr){
-                    return FALSE;
+                    return false;
                 }
             }
             break;
@@ -244,11 +244,11 @@ l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
                 if(pkt_vlan_id && 
                         is_trunk_interface_vlan_enabled(oif, pkt_vlan_id)){
                     send_pkt_out(pkt, pkt_size, oif);
-                    return TRUE;
+                    return true;
                 }
 
                 /*Do not send the pkt in any other case*/
-                return FALSE;
+                return false;
             }
             break;
         case L2_MODE_UNKNOWN:
@@ -256,10 +256,10 @@ l2_switch_send_pkt_out(char *pkt, uint32_t pkt_size,
         default:
             ;
     }
-    return FALSE;
+    return false;
 }
 
-static bool_t 
+static bool 
 l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
                         char *pkt, uint32_t pkt_size){
 

@@ -31,7 +31,7 @@ typedef struct notif_chain_elem_{
 
     char key[MAX_NOTIF_KEY_SIZE];
     size_t key_size;
-    bool_t is_key_set;
+    bool is_key_set;
     nfc_app_cb app_cb;
     glthread_t glue;
 } notif_chain_elem_t;

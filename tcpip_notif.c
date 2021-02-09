@@ -37,7 +37,7 @@ nfc_intf_register_for_events(nfc_app_cb app_cb){
 	memset(&nfce_template, 0 , sizeof(notif_chain_elem_t));
 
 	nfce_template.app_cb = app_cb;
-	nfce_template.is_key_set = FALSE;
+	nfce_template.is_key_set = false;
 	init_glthread(&nfce_template.glue);
 	nfc_register_notif_chain(&nfc_intf, &nfce_template);
 }
@@ -82,7 +82,7 @@ nfc_register_for_pkt_tracing(
 
 	memcpy(&nfce_template.key, (char *)&protocol_no, sizeof(protocol_no));
 	nfce_template.key_size = sizeof(protocol_no);
-	nfce_template.is_key_set = TRUE;
+	nfce_template.is_key_set = true;
 
 	nfce_template.app_cb = app_cb;
 	init_glthread(&nfce_template.glue);

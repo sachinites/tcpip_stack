@@ -108,8 +108,8 @@ float_validation_handler(leaf_t *leaf, char *value_passed){
 int
 boolean_validation_handler(leaf_t *leaf, char *value_passed){
 
-    if((strncmp(value_passed, "TRUE", strlen("TRUE")) == 0) || 
-            (strncmp(value_passed, "FALSE", strlen("FALSE")) ==0))
+    if((strncmp(value_passed, "true", strlen("true")) == 0) || 
+            (strncmp(value_passed, "false", strlen("false")) ==0))
         return VALIDATION_SUCCESS;
 
     return VALIDATION_FAILED;

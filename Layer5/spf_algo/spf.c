@@ -95,7 +95,7 @@ free_spf_result(spf_result_t *spf_result){
 }
 
 static void
-init_node_spf_data(node_t *node, bool_t delete_spf_result){
+init_node_spf_data(node_t *node, bool delete_spf_result){
 
     if(!node->spf_data){
         node->spf_data = calloc(1, sizeof(spf_data_t));
@@ -135,7 +135,7 @@ create_new_nexthop(interface_t *oif){
     return nexthop;
 }
 
-static bool_t 
+static bool 
 spf_insert_new_nexthop(nexthop_t **nexthop_arry, 
                        nexthop_t *nxthop){
 
@@ -145,12 +145,12 @@ spf_insert_new_nexthop(nexthop_t **nexthop_arry,
         if(nexthop_arry[i]) continue;
         nexthop_arry[i] = nxthop;
         nexthop_arry[i]->ref_count++;
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
-static bool_t
+static bool
 spf_is_nexthop_exist(nexthop_t **nexthop_array, nexthop_t *nxthop){
 
     int i = 0;
@@ -160,9 +160,9 @@ spf_is_nexthop_exist(nexthop_t **nexthop_array, nexthop_t *nxthop){
             continue;
 
         if(nexthop_array[i]->oif == nxthop->oif)
-            return TRUE;
+            return true;
     }
-    return FALSE;
+    return false;
 }
 
 /*Copy all nexthops of src to dst, do not copy which are already
@@ -182,7 +182,7 @@ spf_union_nexthops_arrays(nexthop_t **src, nexthop_t **dst){
 
     for(; i < MAX_NXT_HOPS && j < MAX_NXT_HOPS; i++, j++){
 
-        if(src[i] && spf_is_nexthop_exist(dst, src[i]) == FALSE){
+        if(src[i] && spf_is_nexthop_exist(dst, src[i]) == false){
             dst[j] = src[i];
             dst[j]->ref_count++;
             copied_count++;
@@ -471,7 +471,7 @@ compute_spf(node_t *spf_root){
     /*Step 1 : Begin*/
     /* Clear old spf Result list from spf_root, and clear
      * any nexthop data if any*/
-    init_node_spf_data(spf_root, TRUE);
+    init_node_spf_data(spf_root, true);
     SPF_METRIC(spf_root) = 0;
 
     /* Iterate all Routers in the graph and initialize the required fields
@@ -481,7 +481,7 @@ compute_spf(node_t *spf_root){
 
         node = graph_glue_to_node(curr);
         if(node == spf_root) continue;
-        init_node_spf_data(node, FALSE);
+        init_node_spf_data(node, false);
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
     /*Step 1 : End*/
    

@@ -40,9 +40,9 @@
 
 typedef enum{
 
-  FALSE,
-  TRUE 
-} bool_t;
+  false,
+  true 
+} bool;
 
 
 #define IS_BIT_SET(n, pos)      ((n & (1 << (pos))) != 0)

@@ -75,14 +75,14 @@ typedef struct ddcp_query_hdr_{
 
 typedef struct ddcp_interface_prop_{
 
-    bool_t is_enabled; 
+    bool is_enabled; 
 } ddcp_interface_prop_t;
 
 
 void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
 
-static inline bool_t
+static inline bool
 is_interface_ddcp_enabled(ddcp_interface_prop_t *ddcp_interface_prop){
 
     return ddcp_interface_prop->is_enabled;
@@ -130,7 +130,7 @@ typedef struct ddcp_db_{
 void
 init_ddcp_query_db(ddcp_db_t **ddcp_db);
 
-bool_t 
+bool 
 ddcp_db_should_process_ddcp_query(node_t *node, interface_t *iif, 
                                   uint32_t originator_ip,
                                   seq_t seq_no);

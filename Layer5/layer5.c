@@ -111,7 +111,7 @@ tcp_app_register_l2_protocol_interest(uint32_t L5_protocol,
 	memcpy(&nfce_template.key, (char *)&L5_protocol, sizeof(L5_protocol));
 
 	nfce_template.key_size = sizeof(L5_protocol);
-	nfce_template.is_key_set = TRUE;
+	nfce_template.is_key_set = true;
 	nfce_template.app_cb = app_layer_cb;
 	init_glthread(&nfce_template.glue);
 
@@ -131,7 +131,7 @@ tcp_app_register_l3_protocol_interest(uint32_t L5_protocol,
 
 	nfce_template.key_size = sizeof(L5_protocol);
 
-	nfce_template.is_key_set = TRUE;
+	nfce_template.is_key_set = true;
 	nfce_template.app_cb = app_layer_cb;
 	init_glthread(&nfce_template.glue);
 

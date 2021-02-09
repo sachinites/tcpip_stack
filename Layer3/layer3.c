@@ -48,15 +48,15 @@
 static uint8_t
 l3_proto_include_l3_hdr[MAX_L3_PROTO_INCLUSION_SUPPORTED];
 
-static bool_t
+static bool
 should_include_l3_hdr(uint32_t L3_protocol_no){
 
     int i = 0;
     for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
         if(l3_proto_include_l3_hdr[i] == L3_protocol_no)
-            return TRUE;
+            return true;
     }
-    return FALSE;
+    return false;
 }
 
 void
@@ -97,13 +97,13 @@ spf_flush_nexthops(nexthop_t **nexthop);
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
-static bool_t
+static bool
 l3_is_direct_route(l3_route_t *l3_route){
 
     return (l3_route->is_direct);
 }
 
-static bool_t
+static bool
 is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
     /* Check if dst_ip exact matches with any locally configured
@@ -118,7 +118,7 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
     inet_ntop(AF_INET, &dst_ip, dest_ip_str, 16);
 
     if(strncmp(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
-        return TRUE;
+        return true;
 
     /*checking with interface IP Addresses*/
 
@@ -128,17 +128,17 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
     for( ; i < MAX_INTF_PER_NODE; i++){
         
         intf = node->intf[i];
-        if(!intf) return FALSE;
+        if(!intf) return false;
 
-        if(intf->intf_nw_props.is_ipadd_config == FALSE)
+        if(intf->intf_nw_props.is_ipadd_config == false)
             continue;
 
         intf_addr = IF_IP(intf);
 
         if(strncmp(intf_addr, dest_ip_str, 16) == 0)
-            return TRUE;
+            return true;
     }
-    return FALSE;
+    return false;
 }
 
 extern void
@@ -168,7 +168,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
     char dest_ip_addr[16];
     ip_hdr_t *ip_hdr = NULL;
     ethernet_hdr_t *eth_hdr = NULL;
-    bool_t include_ip_hdr;
+    bool include_ip_hdr;
 
     if(flags & DATA_LINK_HDR_INCLUDED){
         eth_hdr = (ethernet_hdr_t *)pkt;
@@ -299,11 +299,11 @@ init_rt_table(rt_table_t **rt_table){
 
     *rt_table = calloc(1, sizeof(rt_table_t));
     init_glthread(&((*rt_table)->route_list));
-	(*rt_table)->is_active = TRUE;
+	(*rt_table)->is_active = true;
 }
 
 void
-rt_table_set_active_status(rt_table_t *rt_table, bool_t active){
+rt_table_set_active_status(rt_table_t *rt_table, bool active){
 	rt_table->is_active = active;
 }
 
@@ -476,12 +476,12 @@ dump_rt_table(rt_table_t *rt_table){
     printf("\t|===================|=======|====================|==============|==========|\n");
 }
 
-static bool_t
+static bool
 _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 
     init_glthread(&l3_route->rt_glue);
     glthread_add_next(&rt_table->route_list, &l3_route->rt_glue);
-    return TRUE;
+    return true;
 }
 
 void
@@ -521,7 +521,7 @@ l3rib_lookup(rt_table_t *rt_table,
 /* 
  * Insert nexthop using insertion sort on ifindex
  * */
-static bool_t
+static bool
 l3_route_insert_nexthop(l3_route_t *l3_route,
 						 nexthop_t *nexthop) {
 
@@ -534,7 +534,7 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 
 	if (nexthop_arr[MAX_NXT_HOPS - 1]) {
 		
-		return FALSE;
+		return false;
 	}	
 
 	nexthop_arr[MAX_NXT_HOPS - 1] = nexthop;
@@ -552,7 +552,7 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 		nexthop_arr[i] = temp; 
 		i--;
 	}
-	return TRUE;
+	return true;
 }
 
 
@@ -564,7 +564,7 @@ rt_table_add_route(rt_table_t *rt_table,
 
    uint32_t dst_int;
    char dst_str_with_mask[16];
-   bool_t new_route = FALSE;
+   bool new_route = false;
 
    apply_mask(dst, mask, dst_str_with_mask); 
    inet_pton(AF_INET, dst_str_with_mask, &dst_int);
@@ -577,8 +577,8 @@ rt_table_add_route(rt_table_t *rt_table,
        strncpy(l3_route->dest, dst_str_with_mask, 16);
        l3_route->dest[15] = '\0';
        l3_route->mask = mask;
-       new_route = TRUE;
-       l3_route->is_direct = TRUE;
+       new_route = true;
+       l3_route->is_direct = true;
    }
    
    int i = 0;
@@ -606,7 +606,7 @@ rt_table_add_route(rt_table_t *rt_table,
 
    if(gw && oif){
         nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
-        l3_route->is_direct = FALSE;
+        l3_route->is_direct = false;
         l3_route->spf_metric = spf_metric;
         strncpy(nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
@@ -696,7 +696,7 @@ demote_packet_to_layer3(node_t *node,
         return;
     }
 
-    bool_t is_direct_route = l3_is_direct_route(l3_route);
+    bool is_direct_route = l3_is_direct_route(l3_route);
     
     char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt, 
                     new_pkt_size, MAX_PACKET_BUFFER_SIZE);

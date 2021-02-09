@@ -578,10 +578,10 @@ extern void
 interface_unset_vlan(node_t *node,
                       interface_t *interface,
                       uint32_t vlan);
-extern bool_t
+extern bool
 schedule_hello_on_interface(interface_t *intf,
                             int interval_sec,
-                            bool_t is_repeat);
+                            bool is_repeat);
 extern void
 stop_interface_hellos(interface_t *interface);
 
@@ -654,16 +654,16 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         break;
         case CMDCODE_CONF_INTF_UP_DOWN:
             if(strncmp(if_up_down, "up", strlen("up")) == 0){
-                if(interface->intf_nw_props.is_up == FALSE){
+                if(interface->intf_nw_props.is_up == false){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F); 
                 }
-                interface->intf_nw_props.is_up = TRUE;
+                interface->intf_nw_props.is_up = true;
             }
             else{
                 if(interface->intf_nw_props.is_up){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F);
                 }
-                interface->intf_nw_props.is_up = FALSE;
+                interface->intf_nw_props.is_up = false;
             }
             if(IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(

@@ -100,17 +100,17 @@ get_new_hello_pkt(node_t *node,
     return hello_eth_hdr;
 }
 
-bool_t
+bool
 schedule_hello_on_interface(interface_t *intf,
-                            int interval_sec, bool_t is_repeat){
+                            int interval_sec, bool is_repeat){
 
     uint32_t pkt_size = 0;
 
     if(is_hellos_scheduled_on_intf(intf))
-        return FALSE;
+        return false;
 
     if(!NMP_SHOULD_SCHEDULE_HELLO_ON_INTF(intf))
-        return FALSE;
+        return false;
 
     node_t *node = intf->att_node;
    
@@ -130,9 +130,9 @@ schedule_hello_on_interface(interface_t *intf,
     intf->intf_nw_props.nmp->hellos = wt_elem;
 
     if(is_hellos_scheduled_on_intf(intf))
-        return TRUE;
+        return true;
 
-    return FALSE;
+    return false;
 }
 
 void
@@ -156,7 +156,7 @@ update_interface_adjacency_from_hello(interface_t *interface,
 
     char *router_id;
     uint8_t tlv_data_len;
-    bool_t new_adj = FALSE;
+    bool new_adj = false;
     adjacency_t *adjacency = NULL;
 
     router_id = tlv_buffer_get_particular_tlv(
@@ -172,7 +172,7 @@ update_interface_adjacency_from_hello(interface_t *interface,
         init_glthread(&adjacency->glue);
         time(&adjacency->uptime);
         glthread_add_next(NMP_GET_INTF_ADJ_LIST(interface), &adjacency->glue);
-        new_adj = TRUE;
+        new_adj = true;
     }
 
     char tlv_type, tlv_len, *tlv_value = NULL;
@@ -472,8 +472,8 @@ nbrship_mgmt_activate_nmp_on_interface(interface_t *intf){
     }
 
     if(nmp && nmp->is_enabled){
-        intf_nmp->is_enabled = TRUE;
-        schedule_hello_on_interface(intf, 5, TRUE); 
+        intf_nmp->is_enabled = true;
+        schedule_hello_on_interface(intf, 5, true); 
     }
 }
 
@@ -485,19 +485,19 @@ nbrship_mgmt_deactivate_nmp_on_interface(interface_t *intf){
 
     if(!intf_nmp->is_enabled) return;
 
-    intf_nmp->is_enabled = FALSE;
+    intf_nmp->is_enabled = false;
     stop_interface_hellos(intf);
 }
 
 static void
 nbrship_mgmt_enable_disable_intf_nbrship_protocol(
             interface_t *interface, 
-            bool_t is_enabled){
+            bool is_enabled){
 
     intf_nmp_t *intf_nmp;
     intf_nmp = NMP_GET_INTF_NMPDS(interface);
     switch(is_enabled){
-        case TRUE:
+        case true:
             if(!intf_nmp){
                 intf_nmp = calloc(1, sizeof(intf_nmp_t));
                 init_glthread(&intf_nmp->adjacency_list);
@@ -505,7 +505,7 @@ nbrship_mgmt_enable_disable_intf_nbrship_protocol(
             }
             nbrship_mgmt_activate_nmp_on_interface(interface);
         break;
-        case FALSE:
+        case false:
             if(!intf_nmp) return;
             nbrship_mgmt_deactivate_nmp_on_interface(interface);
             delete_interface_adjacency(interface, NULL);
@@ -519,7 +519,7 @@ nbrship_mgmt_enable_disable_intf_nbrship_protocol(
 static void
 nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(
             node_t *node, 
-            bool_t is_enabled){
+            bool is_enabled){
 
     int i = 0;
     interface_t *interface;
@@ -532,7 +532,7 @@ nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(
 }
 
 static void
-nbrship_mgmt_enable_disable_device_level(node_t *node, bool_t is_enabled){
+nbrship_mgmt_enable_disable_device_level(node_t *node, bool is_enabled){
 
     int i = 0;
     interface_t *intf;
@@ -548,7 +548,7 @@ nbrship_mgmt_enable_disable_device_level(node_t *node, bool_t is_enabled){
         }
 
         node->node_nw_prop.nmp = nmp;
-        nmp->is_enabled = TRUE;
+        nmp->is_enabled = true;
 
         for(; i < MAX_INTF_PER_NODE; i++){ 
             intf = node->intf[i];
@@ -644,10 +644,10 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
 
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    nbrship_mgmt_enable_disable_intf_nbrship_protocol(intf, TRUE);
+                    nbrship_mgmt_enable_disable_intf_nbrship_protocol(intf, true);
                 break;
                 case CONFIG_DISABLE:
-                    nbrship_mgmt_enable_disable_intf_nbrship_protocol(intf, FALSE);
+                    nbrship_mgmt_enable_disable_intf_nbrship_protocol(intf, false);
                 break;
                 default : ;
             }
@@ -655,10 +655,10 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
         case CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(node, TRUE);
+                    nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(node, true);
                 break;
                 case CONFIG_DISABLE:
-                    nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(node, FALSE);
+                    nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(node, false);
                 break;
                 default : ;
             }
@@ -669,10 +669,10 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
         case CMDCODE_CONF_NODE_NBRSHIP_ENABLE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    nbrship_mgmt_enable_disable_device_level(node, TRUE);
+                    nbrship_mgmt_enable_disable_device_level(node, true);
                 break;
                 case CONFIG_DISABLE:
-                    nbrship_mgmt_enable_disable_device_level(node, FALSE);
+                    nbrship_mgmt_enable_disable_device_level(node, false);
                 break;
                 default:    ;
             }

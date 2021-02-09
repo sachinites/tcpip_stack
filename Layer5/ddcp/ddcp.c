@@ -41,7 +41,7 @@ void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop){
 
     *ddcp_interface_prop = calloc(1, sizeof(ddcp_interface_prop_t));
-    (*ddcp_interface_prop)->is_enabled = TRUE;
+    (*ddcp_interface_prop)->is_enabled = true;
 }
 
 void
@@ -49,7 +49,7 @@ ddcp_send_ddcp_query_out(char *pkt,
                          uint32_t pkt_size,
                          interface_t *oif){
 
-    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(oif)) == FALSE) return;
+    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(oif)) == false) return;
     if(!IS_INTF_L3_MODE(oif)) return;
     send_pkt_out(pkt, pkt_size, oif);
 }
@@ -535,7 +535,7 @@ ddcp_update_ddcp_db_self_query_info(node_t *node){
     return ddcp_db_query_node->seq_no;
 }
 
-bool_t
+bool
 ddcp_db_should_process_ddcp_query(node_t *node, 
                                   interface_t *iif,
                                   uint32_t originator_ip,
@@ -545,8 +545,8 @@ ddcp_db_should_process_ddcp_query(node_t *node,
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
    
-    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(iif)) == FALSE){
-        return FALSE;
+    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(iif)) == false){
+        return false;
     }
 
     ddcp_db_query_node_t *ddcp_db_query_node = 
@@ -565,19 +565,19 @@ ddcp_db_should_process_ddcp_query(node_t *node,
         init_glthread(&ddcp_db_query_node->ddcp_db_query_node_glue);
         glthread_add_next(GET_NODE_DDCP_DB_HEAD(node),
                 &ddcp_db_query_node->ddcp_db_query_node_glue);
-        return TRUE;
+        return true;
     }
 
     if(ddcp_db_query_node->seq_no < seq_no){
         ddcp_db_query_node->seq_no = seq_no;
-        return TRUE;
+        return true;
     }
 
     if(ddcp_db_query_node->seq_no >= seq_no){
-        return FALSE;
+        return false;
     }
 
-    return FALSE;
+    return false;
 }
 
 void

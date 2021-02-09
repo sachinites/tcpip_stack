@@ -107,7 +107,7 @@ struct arp_entry_{
     mac_add_t mac_addr;
     char oif_name[IF_NAME_SIZE];
     glthread_t arp_glue;
-    bool_t is_sane;
+    bool is_sane;
     /* List of packets which are pending for
      * this ARP resolution*/
     glthread_t arp_pending_list;
@@ -121,7 +121,7 @@ GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list)
         strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
         strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
         arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
-        arp_entry_1->is_sane == FALSE)
+        arp_entry_1->is_sane == false)
 
 void
 init_arp_table(arp_table_t **arp_table);
@@ -155,7 +155,7 @@ delete_arp_entry(arp_entry_t *arp_entry);
 void
 delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr);
 
-bool_t
+bool
 arp_table_entry_add(node_t *node,
 					arp_table_t *arp_table,
 					arp_entry_t *arp_entry,
@@ -187,7 +187,7 @@ create_arp_sane_entry(node_t *node,
 					  char *ip_addr,
                       char *pkt, uint32_t pkt_size);
 
-static bool_t 
+static bool 
 arp_entry_sane(arp_entry_t *arp_entry){
 
     return arp_entry->is_sane;
@@ -299,7 +299,7 @@ GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
     }
 }
 
-static inline bool_t 
+static inline bool 
 l2_frame_recv_qualify_on_interface(interface_t *interface, 
                                     ethernet_hdr_t *ethernet_hdr,
                                     uint32_t *output_vlan_id){
@@ -318,7 +318,7 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
     if(!IS_INTF_L3_MODE(interface) &&
         IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
 
-        return FALSE;
+        return false;
     }
 
     /* If interface is working in ACCESS mode but at the
@@ -329,9 +329,9 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
         get_access_intf_operating_vlan_id(interface) == 0){
 
         if(!vlan_8021q_hdr)
-            return TRUE;    /*case 3*/
+            return true;    /*case 3*/
         else
-            return FALSE;   /*case 4*/
+            return false;   /*case 4*/
     }
 
     /* if interface is working in ACCESS mode and operating with in
@@ -348,20 +348,20 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
             
         if(!vlan_8021q_hdr && intf_vlan_id){
             *output_vlan_id = intf_vlan_id;
-            return TRUE; /*case 6*/
+            return true; /*case 6*/
         }
 
         if(!vlan_8021q_hdr && !intf_vlan_id){
             /*case 3*/
-            return TRUE;
+            return true;
         }
 
         pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
         if(pkt_vlan_id == intf_vlan_id){
-            return TRUE;    /*case 5*/
+            return true;    /*case 5*/
         }
         else{
-            return FALSE;   /*case 5*/
+            return false;   /*case 5*/
         }
     }
 
@@ -372,7 +372,7 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
        
         if(!vlan_8021q_hdr){
             /*case 7 & 8*/
-            return FALSE;
+            return false;
         }
     }
 
@@ -384,17 +384,17 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
         
         pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
         if(is_trunk_interface_vlan_enabled(interface, pkt_vlan_id)){
-            return TRUE;    /*case 9*/
+            return true;    /*case 9*/
         }
         else{
-            return FALSE;   /*case 9*/
+            return false;   /*case 9*/
         }
     }
     
     /*If the interface is operating in L3 mode, and recv vlan tagged frame, drop it*/
     if(IS_INTF_L3_MODE(interface) && vlan_8021q_hdr){
         /*case 2*/
-        return FALSE;
+        return false;
     }
 
     /* If interface is working in L3 mode, then accept the frame only when
@@ -404,7 +404,7 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
         ethernet_hdr->dst_mac.mac, 
         sizeof(mac_add_t)) == 0){
         /*case 1*/
-        return TRUE;
+        return true;
     }
 
     /*If interface is working in L3 mode, then accept the frame with
@@ -412,10 +412,10 @@ l2_frame_recv_qualify_on_interface(interface_t *interface,
     if(IS_INTF_L3_MODE(interface) &&
         IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
         /*case 1*/
-        return TRUE;
+        return true;
     }
 
-    return FALSE;
+    return false;
 }
 
 ethernet_hdr_t *

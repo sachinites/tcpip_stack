@@ -81,7 +81,7 @@ typedef struct node_nw_prop_{
     ddcp_db_t *ddcp_db;
 
     /*L3 properties*/ 
-    bool_t is_lb_addr_config;
+    bool is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
 
     /*Timer Properties*/
@@ -100,14 +100,14 @@ typedef struct node_nw_prop_{
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(rt_table_t **rt_table);
-extern void rt_table_set_active_status(rt_table_t *rt_table, bool_t active);
+extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void init_ddcp_query_db(ddcp_db_t **ddcp_db);
 
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
-    node_nw_prop->is_lb_addr_config = FALSE;
+    node_nw_prop->is_lb_addr_config = false;
     memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
@@ -147,19 +147,19 @@ typedef struct intf_nmp_ intf_nmp_t;
 typedef struct intf_nw_props_ {
 
     /*L1 Properties*/
-    bool_t is_up;
+    bool is_up;
 	uint32_t ifindex;
 
     /*L2 properties*/
     mac_add_t mac_add;              /*Mac are hard burnt in interface NIC*/
     intf_l2_mode_t  intf_l2_mode;   /*if IP-address is configured on this interface, then this should be set to UNKNOWN*/
     uint32_t vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
-    bool_t is_ipadd_config_backup;
+    bool is_ipadd_config_backup;
     ddcp_interface_prop_t *ddcp_interface_prop;
     intf_nmp_t *nmp;
 
     /*L3 properties*/
-    bool_t is_ipadd_config; 
+    bool is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
 
@@ -176,7 +176,7 @@ static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
 
     /*L1 properties*/
-    intf_nw_props->is_up = TRUE;
+    intf_nw_props->is_up = true;
 	intf_nw_props->ifindex = get_new_ifindex();
 
     /*L2 properties*/
@@ -187,7 +187,7 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     init_ddcp_interface_props(&intf_nw_props->ddcp_interface_prop);
 
     /*L3 properties*/
-    intf_nw_props->is_ipadd_config = FALSE;
+    intf_nw_props->is_ipadd_config = false;
     memset(intf_nw_props->ip_add.ip_addr, 0, 16);
     intf_nw_props->mask = 0;
 
@@ -204,7 +204,7 @@ interface_assign_mac_address(interface_t *interface);
 #define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)
 #define IF_IP(intf_ptr)    ((intf_ptr)->intf_nw_props.ip_add.ip_addr)
 #define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
-#define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == TRUE)
+#define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == true)
 #define IF_INDEX(intf_ptr) ((intf_ptr)->intf_nw_props.ifindex)
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
@@ -213,14 +213,14 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
-#define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == TRUE)
+#define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == true)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
 
 /*APIs to set Network Node properties*/
-bool_t node_set_loopback_address(node_t *node, char *ip_addr);
-bool_t node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, char mask);
-bool_t node_unset_intf_ip_address(node_t *node, char *local_if);
+bool node_set_loopback_address(node_t *node, char *ip_addr);
+bool node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, char mask);
+bool node_unset_intf_ip_address(node_t *node, char *local_if);
 
 
 /*Dumping Functions to dump network information
@@ -235,7 +235,7 @@ void dump_interface_stats(interface_t *interface);
 interface_t *
 node_get_matching_subnet_interface(node_t *node, char *ip_addr);
 
-bool_t
+bool
 is_same_subnet(char *ip_addr, char mask,
                char *other_ip_addr);
 
@@ -246,7 +246,7 @@ uint32_t
 get_access_intf_operating_vlan_id(interface_t *interface);
 /*Should be Called only for interface operating in Trunk mode*/
 
-bool_t
+bool
 is_trunk_interface_vlan_enabled(interface_t *interface, uint32_t vlan_id);  
 
 char *
@@ -266,7 +266,7 @@ tcp_ip_free_pkt_buffer(char *pkt, uint32_t pkt_size){
     free(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
 }
 
-bool_t
+bool
 is_interface_l3_bidirectional(interface_t *interface);
 
 

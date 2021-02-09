@@ -101,7 +101,7 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 typedef struct rt_table_{
 
     glthread_t route_list;
-	bool_t is_active;
+	bool is_active;
 } rt_table_t;
 
 typedef struct nexthop_{
@@ -119,7 +119,7 @@ typedef struct l3_route_{
 
     char dest[16];  /*key*/
     char mask;      /*key*/
-    bool_t is_direct;    /*if set to True, then gw_ip and oif has no meaning*/
+    bool is_direct;    /*if set to True, then gw_ip and oif has no meaning*/
     nexthop_t *nexthops[MAX_NXT_HOPS];
     uint32_t spf_metric;
     int nxthop_idx;
@@ -134,7 +134,7 @@ void
 init_rt_table(rt_table_t **rt_table);
 
 void 
-rt_table_set_active_status(rt_table_t *rt_table, bool_t active);
+rt_table_set_active_status(rt_table_t *rt_table, bool active);
 
 void
 clear_rt_table(rt_table_t *rt_table);

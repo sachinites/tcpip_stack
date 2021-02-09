@@ -95,7 +95,7 @@ typedef struct graph_{
 
     char topology_name[32];
     glthread_t node_list;
-    bool_t gstdout;
+    bool gstdout;
 } graph_t;
 
 node_t *
