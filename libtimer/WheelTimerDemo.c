@@ -40,13 +40,13 @@ main(int argc, char **argv){
 	static char *csepracticals = "csepracticals";
 
     wheel_timer_elem_t * wt_elem = 
-        register_app_event(wt, wrapper_print_hello, MyString,
+        timer_register_app_event(wt, wrapper_print_hello, MyString,
                            strlen("MyString"), 
                            100,  /*wrapper_print_hello fn will be called after every 5 seconds*/
                            1); /*1 indefinitely, 0 only once : call for wrapper_print_hello*/
 
     wt_elem = 
-        register_app_event(wt, wrapper_print_hello, csepracticals, 
+        timer_register_app_event(wt, wrapper_print_hello, csepracticals, 
                            strlen("csepracticals"), 
                            500,  /*wrapper_print_hello fn will be called after every 5 seconds*/
                            1); /*1 indefinitely, 0 only once : call for wrapper_print_hello*/

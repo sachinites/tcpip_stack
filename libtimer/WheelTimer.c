@@ -247,7 +247,7 @@ _wt_elem_reschedule(wheel_timer_t *wt,
 
 
 wheel_timer_elem_t *
-register_app_event(wheel_timer_t *wt,
+timer_register_app_event(wheel_timer_t *wt,
 		app_call_back call_back,
 		void *arg,
 		int arg_size,
@@ -279,7 +279,7 @@ register_app_event(wheel_timer_t *wt,
 }
 
 void
-de_register_app_event(wheel_timer_elem_t *wt_elem){
+timer_de_register_app_event(wheel_timer_elem_t *wt_elem){
 
     _wt_elem_reschedule(wt_elem->wt, wt_elem, 0, WTELEM_DELETE);
 }

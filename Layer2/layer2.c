@@ -881,7 +881,7 @@ arp_entry_create_expiration_timer(
 
 	assert(arp_entry->exp_timer_wt_elem == NULL);
 	
-	arp_entry->exp_timer_wt_elem = register_app_event(
+	arp_entry->exp_timer_wt_elem = timer_register_app_event(
 					 node_get_timer_instance(node),
 					 arp_entry_timer_delete_cbk,
 					 (void *)arp_entry,
@@ -896,7 +896,7 @@ arp_entry_delete_expiration_timer(
 
 	if(!arp_entry->exp_timer_wt_elem) 
 		return;
-	de_register_app_event(arp_entry->exp_timer_wt_elem);
+	timer_de_register_app_event(arp_entry->exp_timer_wt_elem);
 	arp_entry->exp_timer_wt_elem = NULL;
 }
 

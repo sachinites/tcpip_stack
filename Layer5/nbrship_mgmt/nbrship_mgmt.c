@@ -121,7 +121,7 @@ schedule_hello_on_interface(interface_t *intf,
     pkt_meta_data->pkt = (char *)hello_pkt;
     pkt_meta_data->pkt_size = pkt_size;
 
-    wheel_timer_elem_t *wt_elem = register_app_event(node_get_timer_instance(intf->att_node),
+    wheel_timer_elem_t *wt_elem = timer_register_app_event(node_get_timer_instance(intf->att_node),
                                                      transmit_hellos,
                                                      (void *)pkt_meta_data,
                                                      sizeof(pkt_meta_data_t),
@@ -145,7 +145,7 @@ stop_interface_hellos(interface_t *interface){
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)wt_elem->arg;
     tcp_ip_free_pkt_buffer(pkt_meta_data->pkt, pkt_meta_data->pkt_size); 
 	free(pkt_meta_data);
-    de_register_app_event(wt_elem);
+    timer_de_register_app_event(wt_elem);
     interface->intf_nw_props.nmp->hellos = NULL;
 }
 
@@ -373,7 +373,7 @@ adjacency_delete_expiry_timer(interface_t *interface,
 							  adjacency_t *adjacency){
 
     assert(adjacency->expiry_timer);
-    de_register_app_event(adjacency->expiry_timer);
+    timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 }
 
@@ -410,7 +410,7 @@ adjacency_start_expiry_timer(interface_t *interface,
     adj_key_t *adj_key = calloc(1, sizeof(adj_key_t));
     set_adjacency_key(interface, adjacency, adj_key);
 
-    adjacency->expiry_timer = register_app_event(node_get_timer_instance(interface->att_node),
+    adjacency->expiry_timer = timer_register_app_event(node_get_timer_instance(interface->att_node),
                                     timer_expire_delete_adjacency_cb,
                                     (void *)adj_key, sizeof(adj_key_t),
                                     ADJ_DEF_EXPIRY_TIMER * 1000,
@@ -496,24 +496,21 @@ nbrship_mgmt_enable_disable_intf_nbrship_protocol(
 
     intf_nmp_t *intf_nmp;
     intf_nmp = NMP_GET_INTF_NMPDS(interface);
-    switch(is_enabled){
-        case true:
-            if(!intf_nmp){
-                intf_nmp = calloc(1, sizeof(intf_nmp_t));
-                init_glthread(&intf_nmp->adjacency_list);
-                NMP_GET_INTF_NMPDS(interface) = intf_nmp;
-            }
-            nbrship_mgmt_activate_nmp_on_interface(interface);
-        break;
-        case false:
-            if(!intf_nmp) return;
-            nbrship_mgmt_deactivate_nmp_on_interface(interface);
-            delete_interface_adjacency(interface, NULL);
-            free(intf_nmp);
-            NMP_GET_INTF_NMPDS(interface) = NULL;
-        break;
-        default: ;
-    }
+	if(is_enabled){
+		if(!intf_nmp){
+			intf_nmp = calloc(1, sizeof(intf_nmp_t));
+			init_glthread(&intf_nmp->adjacency_list);
+			NMP_GET_INTF_NMPDS(interface) = intf_nmp;
+		}
+		nbrship_mgmt_activate_nmp_on_interface(interface);
+	}
+	else {
+		if(!intf_nmp) return;
+		nbrship_mgmt_deactivate_nmp_on_interface(interface);
+		delete_interface_adjacency(interface, NULL);
+		free(intf_nmp);
+		NMP_GET_INTF_NMPDS(interface) = NULL;
+	}
 }
 
 static void

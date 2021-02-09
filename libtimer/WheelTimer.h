@@ -119,7 +119,7 @@ wt_get_remaining_time(wheel_timer_elem_t *wt_elem);
 #define GET_WT_CURRENT_ABS_SLOT_NO(wt)	((wt->current_cycle_no * wt->wheel_size) + wt->current_clock_tic)
 
 wheel_timer_elem_t * 
-register_app_event(wheel_timer_t *wt, 
+timer_register_app_event(wheel_timer_t *wt, 
 		   app_call_back call_back, 
 		   void *arg,
 		   int arg_size, 
@@ -127,7 +127,7 @@ register_app_event(wheel_timer_t *wt,
 		   char is_recursive);
 
 void
-de_register_app_event(wheel_timer_elem_t *wt_elem);
+timer_de_register_app_event(wheel_timer_elem_t *wt_elem);
 
 void
 wt_elem_reschedule(wheel_timer_elem_t *wt_elem, 

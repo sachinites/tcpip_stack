@@ -683,7 +683,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
         ddcp_pkt_meta_data->pkt_size = ethernet_hdr_size;
         
         (GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem = 
-                register_app_event(wt,
+                timer_register_app_event(wt,
                 wrapper_ddcp_flood_ddcp_query_out,
                 (void *)ddcp_pkt_meta_data,
                 sizeof(ddcp_pkt_meta_data_t),
