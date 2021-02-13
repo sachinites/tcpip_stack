@@ -20,6 +20,7 @@
 #define __NOTIF_CHAIN_
 
 #include <stddef.h>  /* for size_t */
+#include <stdbool.h>
 #include "utils.h"
 #include "gluethread/glthread.h"
 
