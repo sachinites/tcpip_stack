@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
+ *         Author:  Er. Abhishek Sagar, Juniper Networks (www.csepracticals.com), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
  *        This file is part of the NetworkGraph distribution (https://github.com/sachinites) 
@@ -23,24 +23,30 @@
  *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  *        General Public License for more details.
  *
- *        visit website : https://csepracticals.wixsite.com/csepracticals for more courses and projects
+ *        visit website : www.csepracticals.com for more courses and projects
  *                                  
  * =====================================================================================
  */
 
-extern void init_spf_algo();
-extern void init_ddcp();
-extern void init_nbrship_mgmt();
 extern void event_dispatcher_init();
 extern void event_dispatcher_run();
 extern void init_pkt_recv_queue();
+extern void nf_init_netfilters();
+extern void init_spf_algo();
+extern void init_ddcp();
+extern void init_nbrship_mgmt();
 
 void
 init_tcp_ip_stack(){
 
+	/* initialize the Scheduler first */
 	event_dispatcher_init();
 	event_dispatcher_run();
+	/*  initialize pkt receiving Queue */
 	init_pkt_recv_queue();
+	/*  intialize Netfilters infra before any application initialization */
+	nf_init_netfilters();
+	/*  Now initialize all applications */
     init_spf_algo();
     init_ddcp();
     init_nbrship_mgmt();

@@ -56,13 +56,5 @@
 #define PKT_BUFFER_RIGHT_ROOM        128
 #define MAX_NXT_HOPS        4
 
-#define IP_HDR_INCLUDED (1  << 0)
-#define DATA_LINK_HDR_INCLUDED  (1 << 1)
-
-
-/*Dynamic Registration of Protocol with TCP/IP stack*/
-#define MAX_L2_PROTO_INCLUSION_SUPPORTED    16
-#define MAX_L3_PROTO_INCLUSION_SUPPORTED    16
-
 #endif /* __TCPCONST__ */
 

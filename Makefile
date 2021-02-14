@@ -10,6 +10,7 @@ OBJS=gluethread/glthread.o \
 		  comm.o		   \
 		  Layer2/layer2.o  \
 		  Layer3/layer3.o  \
+		  Layer3/netfilter.o \
 		  Layer4/layer4.o  \
 		  Layer5/layer5.o  \
 		  nwcli.o		   \
@@ -88,6 +89,9 @@ Layer2/l2switch.o:Layer2/l2switch.c
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
+
+Layer3/netfilter.o:Layer3/netfilter.c
+	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o
 
 Layer5/spf_algo/spf.o:Layer5/spf_algo/spf.c
 	${CC} ${CFLAGS} -c -I . Layer5/spf_algo/spf.c -o Layer5/spf_algo/spf.o

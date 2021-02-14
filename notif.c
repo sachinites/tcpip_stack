@@ -36,6 +36,7 @@ nfc_invoke_notif_chain(notif_chain_t *nfc,
 					   void *arg, size_t arg_size,
 					   char *key, size_t key_size){
 
+	bool trap_pkt;
 	glthread_t *curr;
 	notif_chain_elem_t *nfce;
 
@@ -44,6 +45,17 @@ nfc_invoke_notif_chain(notif_chain_t *nfc,
 	ITERATE_GLTHREAD_BEGIN(&nfc->notif_chain_head, curr){
 
 		nfce = glthread_glue_to_notif_chain_elem(curr);
+
+		/*  Honor the pkt trap callback first if present */
+		if (nfce->pkt_trap_cb) {
+			
+			trap_pkt = nfce->pkt_trap_cb(key, key_size);
+
+			if (trap_pkt) {
+				nfce->app_cb(arg, arg_size);
+			}
+			continue;
+		}
 
 		if(!(key && key_size && 
 			 nfce->is_key_set && (key_size == nfce->key_size))){

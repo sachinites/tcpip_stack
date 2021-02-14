@@ -207,7 +207,6 @@ process_hello_msg(void *arg, size_t arg_size){
 
 	char *pkt;
 	node_t *node;
-	uint32_t flags;
 	interface_t *iif;
 	uint32_t pkt_size;
 	uint32_t protocol_no;
@@ -219,9 +218,7 @@ process_hello_msg(void *arg, size_t arg_size){
 	node 	 	= pkt_notif_data->recv_node;
 	iif  	 	= pkt_notif_data->recv_interface;
 	pkt  	 	= pkt_notif_data->pkt;
-	flags 	 	= pkt_notif_data->flags;
 	pkt_size 	= pkt_notif_data->pkt_size; 
-	protocol_no = pkt_notif_data->protocol_no;
 
     uint8_t intf_ip_len;
     intf_nmp_t *nmp  = NMP_GET_INTF_NMPDS(iif);
@@ -697,13 +694,26 @@ nmp_interface_update(void *arg, size_t arg_size){
 #endif
 }
 
+/* pkt trap functions */
+static bool
+nmp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
+
+	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
+	/* NMP is an application, hence, it is guaranteed that
+ 	 * pkt is vlan untagged, because hosts are vlan unaware.
+ 	 * NMP as an application runs only on hosts/L3 routers*/
+	assert (!is_pkt_vlan_tagged(eth_hdr));
+	
+	if (eth_hdr->type == NMP_HELLO_MSG_CODE) {
+		return true;
+	}
+	return false;
+}
+
 void
 init_nbrship_mgmt(){
 
-    tcp_app_register_l2_protocol_interest(NMP_HELLO_MSG_CODE, 
-        process_hello_msg);
-
-    tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(NMP_HELLO_MSG_CODE);
+	tcp_stack_register_l2_pkt_trap_rule(nmp_trap_l2_pkt_rule, process_hello_msg);
 
 	nfc_register_for_pkt_tracing(NMP_HELLO_MSG_CODE,
 		nmp_print_hello_pkt);
