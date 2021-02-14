@@ -50,7 +50,8 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
 						 char *pkt,
 						 size_t pkt_size,
 						 node_t *node,
-						 interface_t *intf) {
+						 interface_t *intf,
+						 hdr_type_t hdr_code) {
 
 	notif_chain_t *nfc;
 	pkt_notif_data_t pkt_notif_data;
@@ -61,6 +62,7 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
     pkt_notif_data.recv_interface = intf;
     pkt_notif_data.pkt = pkt;
     pkt_notif_data.pkt_size = pkt_size;
+	pkt_notif_data.hdr_code = hdr_code;
 
     nfc_invoke_notif_chain(nfc,
 			(void *)&pkt_notif_data,

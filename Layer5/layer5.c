@@ -48,17 +48,19 @@ void
 promote_pkt_from_layer3_to_layer5(node_t *node,
 					 interface_t *recv_intf, 
                      char *pkt,
-                     uint32_t pkt_size) {
+                     uint32_t pkt_size,
+					 hdr_type_t hdr_code) {
 
 	nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
-			pkt, pkt_size, node, recv_intf);
+			pkt, pkt_size, node, recv_intf, hdr_code);
 }
 
 void
 promote_pkt_from_layer2_to_layer5(node_t *node,
 					 interface_t *recv_intf, 
                      char *pkt,
-                     uint32_t pkt_size) { 
+                     uint32_t pkt_size,
+					 hdr_type_t hdr_code) { 
 
 	pkt_notif_data_t pkt_notif_data;
 
@@ -66,6 +68,7 @@ promote_pkt_from_layer2_to_layer5(node_t *node,
 	pkt_notif_data.recv_interface = recv_intf;
 	pkt_notif_data.pkt = pkt;
 	pkt_notif_data.pkt_size = pkt_size;
+	pkt_notif_data.hdr_code = hdr_code;
 
 	nfc_invoke_notif_chain(&layer2_proto_reg_db2,
 			(void *)&pkt_notif_data,

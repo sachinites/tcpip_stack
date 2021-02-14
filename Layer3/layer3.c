@@ -123,7 +123,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
 
 	nf_invoke_netfilter_hook(NF_IP_PRE_ROUTING,
-			pkt, pkt_size, node, interface);
+			pkt, pkt_size, node, interface, ETH_HDR);
 
     /*Implement Layer 3 forwarding functionality*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
@@ -174,7 +174,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
             }
 			promote_pkt_from_layer3_to_layer5(node, interface,
 											  (char *)eth_hdr,
-											   pkt_size);
+											   pkt_size, ETH_HDR);
             return;
         }
         /* case 2 : It means, the dst ip address lies in direct connected
@@ -206,7 +206,8 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 	if(!nexthop) return;
     
 	nf_invoke_netfilter_hook(NF_IP_FORWARD,
-		pkt, pkt_size, node, nexthop->oif);
+		(char *)ip_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+		node, nexthop->oif, IP_HDR);
 	
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
@@ -215,7 +216,8 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         nexthop->oif->if_name, nexthop->gw_ip);
 
 	nf_invoke_netfilter_hook(NF_IP_POST_ROUTING,
-		pkt, pkt_size, node, nexthop->oif);
+		(char *)ip_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+		node, nexthop->oif, IP_HDR);
 	
     demote_pkt_to_layer2(node, 
             next_hop_ip,
@@ -637,7 +639,7 @@ demote_packet_to_layer3(node_t *node,
 
 		nf_invoke_netfilter_hook(NF_IP_LOCAL_OUT,
 				shifted_pkt_buffer, new_pkt_size,
-				node, NULL);
+				node, NULL, IP_HDR);
 
         demote_pkt_to_layer2(node,
                          dest_ip_address,
@@ -667,7 +669,7 @@ demote_packet_to_layer3(node_t *node,
 
 	nf_invoke_netfilter_hook(NF_IP_LOCAL_OUT,
 				shifted_pkt_buffer, new_pkt_size,
-				node, nexthop->oif);
+				node, nexthop->oif, IP_HDR);
 
     demote_pkt_to_layer2(node,
             next_hop_ip,

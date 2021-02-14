@@ -33,6 +33,12 @@
 #ifndef __TCPCONST__
 #define __TCPCONST__
 
+typedef enum{
+
+    ETH_HDR,
+    IP_HDR
+} hdr_type_t;
+
 /*Specified in ethernet_hdr->type*/
 #define ARP_BROAD_REQ   1
 #define ARP_REPLY       2

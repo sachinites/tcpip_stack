@@ -19,6 +19,7 @@
 #ifndef __NF__
 #define __NF__
 
+#include "../tcpconst.h"
 #include "../notif.h"
 
 typedef enum {
@@ -47,7 +48,8 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
                          char *pkt,
                          size_t pkt_size,
                          node_t *node,
-                         interface_t *intf);
+                         interface_t *intf,
+						 hdr_type_t hdr_code);
 void
 nf_register_netfilter_hook(nf_hook_t nf_hook_type,
                            nfc_pkt_trap pkt_trap_cb,

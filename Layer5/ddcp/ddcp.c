@@ -315,6 +315,7 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
     node_t *node;
     interface_t *iif;
     uint32_t pkt_size;
+	hdr_type_t hdr_code;
 
     pkt_notif_data_t *pkt_notif_data;
 
@@ -324,11 +325,14 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
     iif         = pkt_notif_data->recv_interface;
     pkt         = pkt_notif_data->pkt;
     pkt_size    = pkt_notif_data->pkt_size;
-
+	hdr_code    = pkt_notif_data->hdr_code;	
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
     uint32_t output_buff_len = 0;
+
+	assert(hdr_code == ETH_HDR);
+ 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
     assert(ethernet_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY);
@@ -460,6 +464,7 @@ ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
     node_t *node;
     interface_t *recv_intf;
     uint32_t pkt_size;
+	hdr_type_t hdr_code;
 
     pkt_notif_data_t *pkt_notif_data;
 
@@ -469,7 +474,9 @@ ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
     recv_intf   = pkt_notif_data->recv_interface;
     pkt         = pkt_notif_data->pkt;
     pkt_size    = pkt_notif_data->pkt_size;
+	hdr_code    = pkt_notif_data->hdr_code;
 
+	assert(hdr_code == ETH_HDR);
 	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
 	ip_hdr_t *ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
     ddcp_add_or_update_ddcp_reply_msg(node, INCREMENT_IPHDR(ip_hdr));

@@ -31,6 +31,7 @@
 #ifndef __LAYER5__
 #define __LAYER5__
 
+#include "../tcpconst.h"
 #include "../tcpip_notif.h"
 
 typedef struct node_ node_t;
@@ -42,19 +43,22 @@ typedef struct pkt_notif_data_{
 	interface_t *recv_interface;
 	char *pkt;
 	uint32_t pkt_size;
+	hdr_type_t hdr_code;
 } pkt_notif_data_t;
 
 void
 promote_pkt_from_layer2_to_layer5(node_t *node,
 					  interface_t *recv_intf,
         			  char *pkt,
-					  uint32_t pkt_size);
+					  uint32_t pkt_size,
+					  hdr_type_t hdr_code);
 
 void
 promote_pkt_from_layer3_to_layer5(node_t *node,
 					  interface_t *recv_intf,
         			  char *pkt,
-					  uint32_t pkt_size);
+					  uint32_t pkt_size,
+					  hdr_type_t hdr_code);
 
 void
 tcp_stack_register_l2_pkt_trap_rule(

@@ -209,6 +209,7 @@ process_hello_msg(void *arg, size_t arg_size){
 	node_t *node;
 	interface_t *iif;
 	uint32_t pkt_size;
+	hdr_type_t hdr_code;
 	uint32_t protocol_no;
 
 	pkt_notif_data_t *pkt_notif_data;
@@ -219,6 +220,9 @@ process_hello_msg(void *arg, size_t arg_size){
 	iif  	 	= pkt_notif_data->recv_interface;
 	pkt  	 	= pkt_notif_data->pkt;
 	pkt_size 	= pkt_notif_data->pkt_size; 
+	hdr_code    = pkt_notif_data->hdr_code;
+
+	assert(hdr_code == ETH_HDR);
 
     uint8_t intf_ip_len;
     intf_nmp_t *nmp  = NMP_GET_INTF_NMPDS(iif);

@@ -32,16 +32,11 @@
 #define __TCP_IP_TRACE__
 
 #include <stdio.h>  /* for FILE* */
+#include "tcpconst.h"
 #include "BitOp/bitsop.h"
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
-
-typedef enum{
-
-    ETH_HDR,
-    IP_HDR
-} hdr_type_t;
 
 #define TCP_PRINT_BUFFER_SIZE 1024
 
