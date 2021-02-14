@@ -429,11 +429,4 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
                      int vlan_id,
                      uint32_t *new_pkt_size);
 
-void
-tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(
-        uint32_t L2_protocol_no);
-void
-tcp_ip_stack_unregister_l2_proto_for_l2_hdr_inclusion(
-        uint32_t L2_protocol_no);
-
 #endif /* __LAYER2__ */

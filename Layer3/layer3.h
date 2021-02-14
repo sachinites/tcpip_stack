@@ -166,11 +166,4 @@ void
 tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
                     int L5_protocol_id, uint32_t dest_ip_address);
 
-void
-tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(
-        uint8_t L3_protocol_no);
-void
-tcp_ip_stack_unregister_l3_proto_for_l3_hdr_inclusion(
-        uint8_t L2_protocol_no);
-
 #endif /* __LAYER3__ */
