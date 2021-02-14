@@ -31,66 +31,16 @@
  */
 
 #include <stdio.h>
-#include "graph.h"
-#include "../Layer2/layer2.h"
-#include "layer3.h"
+#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <memory.h>
 #include <stdlib.h>
+#include "graph.h"
+#include "../Layer2/layer2.h"
+#include "../Layer5/layer5.h"
+#include "layer3.h"
 #include "tcpconst.h"
 #include "comm.h"
-#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-
-/*Layer 3 Globals : */
-
-/* to decide that whenever layer promote pkt to upper layer of
- * TCP/IP stack, should layer 3 chop-off ip hdr or handover the pkt
- * to upper layer along with ip hdr intact*/
-static uint8_t
-l3_proto_include_l3_hdr[MAX_L3_PROTO_INCLUSION_SUPPORTED];
-
-static bool
-should_include_l3_hdr(uint32_t L3_protocol_no){
-
-    int i = 0;
-    for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
-        if(l3_proto_include_l3_hdr[i] == L3_protocol_no)
-            return true;
-    }
-    return false;
-}
-
-void
-tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(
-        uint8_t L3_protocol_no){
-
-    int i = 0, j = 0;
-    for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
-        if(l3_proto_include_l3_hdr[i] == L3_protocol_no)
-            return;
-        if(l3_proto_include_l3_hdr[i] == 0){
-            j = i;
-        }
-    }
-    if(j){
-        l3_proto_include_l3_hdr[j] = L3_protocol_no;
-        return;
-    }
-    printf("Error : Could not register L3 protocol %d for l3 Hdr inclusion",
-            L3_protocol_no);
-}
-
-void
-tcp_ip_stack_unregister_l3_proto_for_l3_hdr_inclusion(
-        uint8_t L3_protocol_no){
-
-    int i = 0;
-    for( ; i < MAX_L3_PROTO_INCLUSION_SUPPORTED; i++){
-        if(l3_proto_include_l3_hdr[i] == L3_protocol_no){
-            l3_proto_include_l3_hdr[i] = 0;
-            return;
-        }
-    }
-}
+#include "netfilter.h"
 
 extern void
 spf_flush_nexthops(nexthop_t **nexthop);
@@ -103,13 +53,13 @@ l3_is_direct_route(l3_route_t *l3_route){
     return (l3_route->is_direct);
 }
 
+/* 
+ * Check if dst_ip exact matches with any locally configured
+ * ip address of the router
+*/
 static bool
 is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
-    /* Check if dst_ip exact matches with any locally configured
-     * ip address of the router*/
-
-    /*checking with node's loopback address*/
     char dest_ip_str[16];
     dest_ip_str[15] = '\0';
     char *intf_addr = NULL;
@@ -117,11 +67,11 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
     dst_ip = htonl(dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_str, 16);
 
+    /*checking with node's loopback address*/
     if(strncmp(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
         return true;
 
     /*checking with interface IP Addresses*/
-
     uint32_t i = 0;
     interface_t *intf;
 
@@ -144,12 +94,7 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 extern void
 promote_pkt_to_layer4(node_t *node, interface_t *recv_intf, 
                       char *l4_hdr, uint32_t pkt_size,
-                      int L4_protocol_number, uint32_t flags);
-
-extern void
-promote_pkt_to_layer5(node_t *node, interface_t *recv_intf, 
-                      char *l5_hdr, uint32_t pkt_size,
-                      uint32_t L5_protocol, uint32_t flags);
+                      int L4_protocol_number);
 
 /*import function from layer 2*/
 extern void
@@ -161,28 +106,26 @@ demote_pkt_to_layer2(node_t *node,
 
 
 static void
-layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
-        char *pkt, uint32_t pkt_size, uint32_t flags){
+layer3_ip_pkt_recv_from_layer2(node_t *node,
+							   interface_t *interface,
+					           char *pkt,
+							   uint32_t pkt_size) {
 
     char *l4_hdr, *l5_hdr;
     char dest_ip_addr[16];
     ip_hdr_t *ip_hdr = NULL;
     ethernet_hdr_t *eth_hdr = NULL;
-    bool include_ip_hdr;
-
-    if(flags & DATA_LINK_HDR_INCLUDED){
-        eth_hdr = (ethernet_hdr_t *)pkt;
-        ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr); 
-    }
-    else{
-        ip_hdr = (ip_hdr_t *)pkt;
-    }
+    
+	eth_hdr = (ethernet_hdr_t *)pkt;
+    ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr); 
 
     uint32_t dst_ip = htonl(ip_hdr->dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
 
-    /*Implement Layer 3 forwarding functionality*/
+	nf_invoke_netfilter_hook(NF_IP_PRE_ROUTING,
+			pkt, pkt_size, node, interface, ETH_HDR);
 
+    /*Implement Layer 3 forwarding functionality*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
 
     if(!l3_route){
@@ -211,15 +154,9 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
             l5_hdr = l4_hdr;
 
             switch(ip_hdr->protocol){
-                /* chop off the L3 hdr and promote the pkt to transport layer. If transport Layer
-                 * Protocol is not specified, then promote the packet directly to application layer
-                 * */
                 case MTCP:
-                    include_ip_hdr = should_include_l3_hdr(ip_hdr->protocol); 
                     promote_pkt_to_layer4(node, interface, 
-                        eth_hdr ? (char *)eth_hdr : (include_ip_hdr ? (char *)ip_hdr : l4_hdr),
-                        eth_hdr ? pkt_size : include_ip_hdr ? pkt_size : IP_HDR_PAYLOAD_SIZE(ip_hdr),
-                        ip_hdr->protocol, flags | (include_ip_hdr ? IP_HDR_INCLUDED : 0));
+								(char *)eth_hdr, pkt_size, ip_hdr->protocol);
                     break;
                 case ICMP_PRO:
                     printf("\nIP Address : %s, ping success\n", dest_ip_addr);
@@ -227,31 +164,21 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
-                    layer3_ip_pkt_recv_from_layer2(node, interface, 
-                            (char *)INCREMENT_IPHDR(ip_hdr),
-                            IP_HDR_PAYLOAD_SIZE(ip_hdr), 0);
+                    layer3_ip_pkt_recv_from_layer2(node,
+									interface, 
+		                            (char *)INCREMENT_IPHDR(ip_hdr),
+        		                    IP_HDR_PAYLOAD_SIZE(ip_hdr));
                     return;
-                //case DDCP_MSG_TYPE_UCAST_REPLY:
-                case USERAPP1:
-                    include_ip_hdr = should_include_l3_hdr(ip_hdr->protocol);
-                    promote_pkt_to_layer5(node, interface, 
-                        eth_hdr ? (char *)eth_hdr : (include_ip_hdr ? (char *)ip_hdr : l5_hdr),
-                        eth_hdr ? pkt_size : include_ip_hdr ? pkt_size : IP_HDR_PAYLOAD_SIZE(ip_hdr),
-                        ip_hdr->protocol, flags | (include_ip_hdr) ? IP_HDR_INCLUDED : 0);
-                    break;
                 default:
-                    include_ip_hdr = should_include_l3_hdr(ip_hdr->protocol);
-                    promote_pkt_to_layer5(node, interface, 
-                        eth_hdr ? (char *)eth_hdr : include_ip_hdr ? (char *)ip_hdr : l5_hdr,
-                        eth_hdr ? pkt_size : include_ip_hdr ? pkt_size : IP_HDR_PAYLOAD_SIZE(ip_hdr),
-                        ip_hdr->protocol, flags | (include_ip_hdr) ? IP_HDR_INCLUDED : 0);
                     ;
             }
+			promote_pkt_from_layer3_to_layer5(node, interface,
+											  (char *)eth_hdr,
+											   pkt_size, ETH_HDR);
             return;
         }
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
-
         demote_pkt_to_layer2(
                 node,           /*Current processing node*/
                 0,              /*Dont know next hop IP as dest is present in local subnet*/
@@ -278,12 +205,20 @@ layer3_ip_pkt_recv_from_layer2(node_t *node, interface_t *interface,
     nexthop = l3_route_get_active_nexthop(l3_route);
 	if(!nexthop) return;
     
+	nf_invoke_netfilter_hook(NF_IP_FORWARD,
+		(char *)ip_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+		node, nexthop->oif, IP_HDR);
+	
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
    
     tcp_dump_l3_fwding_logger(node, 
         nexthop->oif->if_name, nexthop->gw_ip);
 
+	nf_invoke_netfilter_hook(NF_IP_POST_ROUTING,
+		(char *)ip_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+		node, nexthop->oif, IP_HDR);
+	
     demote_pkt_to_layer2(node, 
             next_hop_ip,
             nexthop->oif->if_name,
@@ -626,16 +561,13 @@ rt_table_add_route(rt_table_t *rt_table,
 static void
 _layer3_pkt_recv_from_layer2(node_t *node, interface_t *interface,
                             char *pkt, uint32_t pkt_size, 
-                            int L3_protocol_type, uint32_t flags){
+                            int L3_protocol_type) {
 
     switch(L3_protocol_type){
         
         case ETH_IP:
         case IP_IN_IP:
-#if 0
-        case DDCP_MSG_TYPE_UCAST_REPLY:
-#endif
-            layer3_ip_pkt_recv_from_layer2(node, interface, pkt, pkt_size, flags);
+            layer3_ip_pkt_recv_from_layer2(node, interface, pkt, pkt_size);
             break;
         default:
             ;
@@ -648,9 +580,11 @@ void
 promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt is received*/
                       interface_t *interface,  /*ingress interface*/
                       char *pkt, uint32_t pkt_size, /*L3 payload*/
-                      int L3_protocol_number, uint32_t flags){  /*obtained from eth_hdr->type field*/
-
-        _layer3_pkt_recv_from_layer2(node, interface, pkt, pkt_size, L3_protocol_number, flags);
+                      int L3_protocol_number) {  /*obtained from eth_hdr->type field*/
+	
+	_layer3_pkt_recv_from_layer2(node, interface,
+				pkt, pkt_size,
+				L3_protocol_number);
 }
 
 /* An API to be used by L4 or L5 to push the pkt down the TCP/IP
@@ -702,6 +636,11 @@ demote_packet_to_layer3(node_t *node,
                     new_pkt_size, MAX_PACKET_BUFFER_SIZE);
 
     if(is_direct_route){
+
+		nf_invoke_netfilter_hook(NF_IP_LOCAL_OUT,
+				shifted_pkt_buffer, new_pkt_size,
+				node, NULL, IP_HDR);
+
         demote_pkt_to_layer2(node,
                          dest_ip_address,
                          0,
@@ -727,6 +666,10 @@ demote_packet_to_layer3(node_t *node,
 
     tcp_dump_l3_fwding_logger(node,
         nexthop->oif->if_name, nexthop->gw_ip);
+
+	nf_invoke_netfilter_hook(NF_IP_LOCAL_OUT,
+				shifted_pkt_buffer, new_pkt_size,
+				node, nexthop->oif, IP_HDR);
 
     demote_pkt_to_layer2(node,
             next_hop_ip,

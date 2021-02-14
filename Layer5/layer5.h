@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
+ *         Author:  Er. Abhishek Sagar, Juniper Networks (www.csepracticals.com), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
  *        This file is part of the TCP/IP Stack distribution (https://github.com/sachinites) 
@@ -23,7 +23,7 @@
  *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  *        General Public License for more details.
  *
- *        visit website : https://csepracticals.wixsite.com/csepracticals for more courses and projects
+ *        visit website : www.csepracticals.com for more courses and projects
  *                                  
  * =====================================================================================
  */
@@ -31,6 +31,7 @@
 #ifndef __LAYER5__
 #define __LAYER5__
 
+#include "../tcpconst.h"
 #include "../tcpip_notif.h"
 
 typedef struct node_ node_t;
@@ -42,25 +43,31 @@ typedef struct pkt_notif_data_{
 	interface_t *recv_interface;
 	char *pkt;
 	uint32_t pkt_size;
-	uint32_t flags;
-	uint32_t protocol_no;
+	hdr_type_t hdr_code;
 } pkt_notif_data_t;
 
 void
-promote_pkt_to_layer5(node_t *node,
+promote_pkt_from_layer2_to_layer5(node_t *node,
 					  interface_t *recv_intf,
-        			  char *l5_hdr,
+        			  char *pkt,
 					  uint32_t pkt_size,
-        			  uint32_t L5_protocol,
-					  uint32_t flags);
+					  hdr_type_t hdr_code);
 
 void
-tcp_app_register_l2_protocol_interest(uint32_t L5_protocol,
-        nfc_app_cb app_layer_cb);
-
+promote_pkt_from_layer3_to_layer5(node_t *node,
+					  interface_t *recv_intf,
+        			  char *pkt,
+					  uint32_t pkt_size,
+					  hdr_type_t hdr_code);
 
 void
-tcp_app_register_l3_protocol_interest(uint32_t L5_protocol,
-        nfc_app_cb app_layer_cb);
+tcp_stack_register_l2_pkt_trap_rule(
+        nfc_pkt_trap pkt_trap_cb,
+        nfc_app_cb app_cb);
+
+void
+tcp_stack_register_l3_pkt_trap_rule(
+        nfc_pkt_trap pkt_trap_cb,
+        nfc_app_cb app_cb);
 
 #endif /* __LAYER5__ */

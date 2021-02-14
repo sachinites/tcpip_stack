@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
+ *         Author:  Er. Abhishek Sagar, Juniper Networks (www.csepracticals.com), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
  *        This file is part of the TCP/IP Stack distribution (https://github.com/sachinites) 
@@ -23,7 +23,7 @@
  *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  *        General Public License for more details.
  *
- *        visit website : https://csepracticals.wixsite.com/csepracticals for more courses and projects
+ *        visit website : www.csepracticals.com for more courses and projects
  *                                  
  * =====================================================================================
  */
@@ -32,16 +32,11 @@
 #define __TCP_IP_TRACE__
 
 #include <stdio.h>  /* for FILE* */
+#include "tcpconst.h"
 #include "BitOp/bitsop.h"
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
-
-typedef enum{
-
-    ETH_HDR,
-    IP_HDR
-} hdr_type_t;
 
 #define TCP_PRINT_BUFFER_SIZE 1024
 

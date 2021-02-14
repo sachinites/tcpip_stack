@@ -31,7 +31,7 @@
  */
 
 /* Visit my Website for more wonderful assignments and projects :
- * https://csepracticals.wixsite.com/csepracticals
+ * www.csepracticals.com
  * if above URL dont work, then try visit : https://csepracticals.com*/
 
 #include "graph.h"

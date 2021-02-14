@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
+ *         Author:  Er. Abhishek Sagar, Juniper Networks (www.csepracticals.com), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
  *        This file is part of the DDCP distribution (https://github.com/sachinites) 
@@ -23,7 +23,7 @@
  *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  *        General Public License for more details.
  *
- *        visit website : https://csepracticals.wixsite.com/csepracticals for more courses and projects
+ *        visit website : www.csepracticals.com for more courses and projects
  *                                  
  * =====================================================================================
  */
@@ -313,10 +313,9 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
 
     char *pkt;
     node_t *node;
-    uint32_t flags;
     interface_t *iif;
     uint32_t pkt_size;
-    uint32_t protocol_no;
+	hdr_type_t hdr_code;
 
     pkt_notif_data_t *pkt_notif_data;
 
@@ -325,16 +324,16 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
     node        = pkt_notif_data->recv_node;
     iif         = pkt_notif_data->recv_interface;
     pkt         = pkt_notif_data->pkt;
-    flags       = pkt_notif_data->flags;
     pkt_size    = pkt_notif_data->pkt_size;
-    protocol_no = pkt_notif_data->protocol_no;
-
+	hdr_code    = pkt_notif_data->hdr_code;	
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
     uint32_t output_buff_len = 0;
-    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
 
+	assert(hdr_code == ETH_HDR);
+ 
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
     
     assert(ethernet_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY);
 
@@ -463,10 +462,9 @@ ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
 
     char *pkt;
     node_t *node;
-    uint32_t flags;
     interface_t *recv_intf;
     uint32_t pkt_size;
-    uint32_t protocol_no;
+	hdr_type_t hdr_code;
 
     pkt_notif_data_t *pkt_notif_data;
 
@@ -475,11 +473,13 @@ ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
     node        = pkt_notif_data->recv_node;
     recv_intf   = pkt_notif_data->recv_interface;
     pkt         = pkt_notif_data->pkt;
-    flags       = pkt_notif_data->flags;
     pkt_size    = pkt_notif_data->pkt_size;
-    protocol_no = pkt_notif_data->protocol_no;
+	hdr_code    = pkt_notif_data->hdr_code;
 
-    ddcp_add_or_update_ddcp_reply_msg(node, pkt);
+	assert(hdr_code == ETH_HDR);
+	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
+	ip_hdr_t *ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+    ddcp_add_or_update_ddcp_reply_msg(node, INCREMENT_IPHDR(ip_hdr));
 }
 
 /*DDCP Query Database*/
@@ -692,18 +692,52 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
     }
 }
 
+/* DDCP pkt Trap functions */
+
+bool
+ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
+
+	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
+	/* NMP is an application, hence, it is guaranteed that
+	 * pkt is vlan untagged, because hosts are vlan unaware.
+	 * DDCP as an application runs only on hosts/L3 routers*/
+	assert (!is_pkt_vlan_tagged(eth_hdr));
+
+	if (eth_hdr->type == DDCP_MSG_TYPE_FLOOD_QUERY) {
+		return true;
+	}
+	return false;
+}
+
+bool
+ddcp_trap_l3_pkt_rule(char *pkt, size_t pkt_size) {
+
+	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
+
+    /* DDCP is an application, hence, it is guaranteed that
+	 * pkt is vlan untagged, because hosts are vlan unaware.
+ 	 * DDCP as an application runs only on hosts/L3 routers*/
+	assert (!is_pkt_vlan_tagged(eth_hdr));
+
+	if (eth_hdr->type != ETH_IP) {
+		return false;
+	}
+
+	ip_hdr_t *ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+
+	if (ip_hdr->protocol == DDCP_MSG_TYPE_UCAST_REPLY) {
+		return true;
+	}
+	return false;
+}
+
 void
 init_ddcp(){
 
-    tcp_app_register_l2_protocol_interest(DDCP_MSG_TYPE_FLOOD_QUERY,
-        ddcp_process_ddcp_query_msg);
+	tcp_stack_register_l2_pkt_trap_rule(
+			ddcp_trap_l2_pkt_rule, ddcp_process_ddcp_query_msg);
 
-    tcp_ip_stack_register_l2_proto_for_l2_hdr_inclusion(DDCP_MSG_TYPE_FLOOD_QUERY); 
-
-
-    tcp_app_register_l3_protocol_interest(DDCP_MSG_TYPE_UCAST_REPLY,
-        ddcp_process_ddcp_reply_msg);
-
-    //tcp_ip_stack_register_l3_proto_for_l3_hdr_inclusion(DDCP_MSG_TYPE_UCAST_REPLY);
+	nf_register_netfilter_hook(NF_IP_LOCAL_IN,
+			ddcp_trap_l3_pkt_rule, ddcp_process_ddcp_reply_msg);
 }
 

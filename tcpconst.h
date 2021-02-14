@@ -33,6 +33,12 @@
 #ifndef __TCPCONST__
 #define __TCPCONST__
 
+typedef enum{
+
+    ETH_HDR,
+    IP_HDR
+} hdr_type_t;
+
 /*Specified in ethernet_hdr->type*/
 #define ARP_BROAD_REQ   1
 #define ARP_REPLY       2
@@ -55,14 +61,6 @@
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 #define PKT_BUFFER_RIGHT_ROOM        128
 #define MAX_NXT_HOPS        4
-
-#define IP_HDR_INCLUDED (1  << 0)
-#define DATA_LINK_HDR_INCLUDED  (1 << 1)
-
-
-/*Dynamic Registration of Protocol with TCP/IP stack*/
-#define MAX_L2_PROTO_INCLUSION_SUPPORTED    16
-#define MAX_L3_PROTO_INCLUSION_SUPPORTED    16
 
 #endif /* __TCPCONST__ */
 
