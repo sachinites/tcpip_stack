@@ -129,8 +129,9 @@ schedule_hello_on_interface(interface_t *intf,
                                                      is_repeat ? 1 : 0);
     intf->intf_nw_props.nmp->hellos = wt_elem;
 
-    if(is_hellos_scheduled_on_intf(intf))
+    if(is_hellos_scheduled_on_intf(intf)) {
         return true;
+	}
 
     return false;
 }

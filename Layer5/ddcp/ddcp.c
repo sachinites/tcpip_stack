@@ -694,11 +694,11 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 
 /* DDCP pkt Trap functions */
 
-bool
+static bool
 ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
 
 	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
-	/* NMP is an application, hence, it is guaranteed that
+	/* DDCP is an application, hence, it is guaranteed that
 	 * pkt is vlan untagged, because hosts are vlan unaware.
 	 * DDCP as an application runs only on hosts/L3 routers*/
 	assert (!is_pkt_vlan_tagged(eth_hdr));
@@ -709,7 +709,7 @@ ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
 	return false;
 }
 
-bool
+static bool
 ddcp_trap_l3_pkt_rule(char *pkt, size_t pkt_size) {
 
 	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
