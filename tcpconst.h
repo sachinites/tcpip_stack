@@ -55,6 +55,7 @@ typedef enum{
 #define NMP_HELLO_MSG_CODE	13 /*Randomly chosen*/
 #define INTF_MAX_METRIC     16777215 /*Choosen as per the standard = 2^24 -1*/
 #define INTF_METRIC_DEFAULT 1
+#define TCP_LOG_BUFFER_LEN	256
 
 /*Add DDCP Protocol Numbers*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, should not exceed 2^16 -1*/

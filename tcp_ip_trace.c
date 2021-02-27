@@ -714,3 +714,42 @@ tcp_init_send_logging_buffer(node_t *node){
 
     memset(TCP_GET_NODE_SEND_LOG_BUFFER(node), 0, TCP_PRINT_BUFFER_SIZE);
 }
+
+/* TCP Internal Logging */
+static FILE *tcp_log_file;
+char tlb[TCP_LOG_BUFFER_LEN];
+
+void
+init_tcp_logging() {
+
+    tcp_log_file = fopen("logs/tcp_log_file", "w");
+    assert(tcp_log_file);
+    memset(tlb, 0, sizeof(tlb));
+}
+
+void 
+tcp_trace_internal(node_t *node,
+			   interface_t *interface, 
+			   char *buff, const char *fn, int lineno) {
+
+	char lineno_str[16];
+
+	fwrite(fn, sizeof(char), strlen(fn), tcp_log_file);
+	memset(lineno_str, 0, sizeof(lineno_str));
+	sprintf(lineno_str, " (%u) :", lineno);
+	fwrite(lineno_str, sizeof(char), sizeof(lineno_str), tcp_log_file);	
+
+	if (node) {
+		fwrite(node->node_name, sizeof(char), NODE_NAME_SIZE, tcp_log_file);
+		fwrite(":", sizeof(char), 1, tcp_log_file);
+	}
+	if (interface) {
+		fwrite(interface->if_name, sizeof(char), IF_NAME_SIZE, tcp_log_file);
+		fwrite(":", sizeof(char), 1, tcp_log_file);
+	}
+    fwrite(buff, sizeof(char), strlen(buff), tcp_log_file);
+	fflush(tcp_log_file);
+}
+
+#define tcp_trace(node, intf, buff)	\
+	tcp_trace_internal(node, intf, buff, __FUNCTION__, __LINE__);

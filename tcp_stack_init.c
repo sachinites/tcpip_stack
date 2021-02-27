@@ -35,7 +35,7 @@ extern void nf_init_netfilters();
 extern void init_spf_algo();
 extern void init_ddcp();
 extern void init_nbrship_mgmt();
-
+extern void init_tcp_logging();
 void
 init_tcp_ip_stack(){
 
@@ -47,6 +47,7 @@ init_tcp_ip_stack(){
 	/*  intialize Netfilters infra before any application initialization */
 	nf_init_netfilters();
 	/*  Now initialize all applications */
+	init_tcp_logging();
     init_spf_algo();
     init_ddcp();
     init_nbrship_mgmt();

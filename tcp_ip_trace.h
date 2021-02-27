@@ -69,4 +69,15 @@ void tcp_init_send_logging_buffer(node_t *node);
 
 #define TCP_GET_NODE_SEND_LOG_BUFFER(node)  \
     (node->node_nw_prop.send_log_buffer)
+
+extern char tlb[TCP_LOG_BUFFER_LEN];
+
+void
+tcp_trace_internal(node_t *node,
+               interface_t *interface,
+               char *buff, const char *fn, int lineno);
+
+#define tcp_trace(node, intf, buff) \
+    tcp_trace_internal(node, intf, buff, __FUNCTION__, __LINE__);
+
 #endif /* __TCP_IP_TRACE__ */
