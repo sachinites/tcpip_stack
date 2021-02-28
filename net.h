@@ -67,6 +67,7 @@ typedef struct mac_table_ mac_table_t;
 typedef struct rt_table_ rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
 typedef struct nmp_ nmp_t;
+typedef struct stp_node_ stp_node_t;
 
 typedef struct node_nw_prop_{
 
@@ -79,6 +80,7 @@ typedef struct node_nw_prop_{
     rt_table_t *rt_table;
 
     ddcp_db_t *ddcp_db;
+	stp_node_t *stp_node_info;
 
     /*L3 properties*/ 
     bool is_lb_addr_config;
@@ -102,6 +104,7 @@ extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void init_ddcp_query_db(ddcp_db_t **ddcp_db);
+extern void stp_init_stp_node_info(stp_node_t **stp_node_info);
 
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
@@ -113,6 +116,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
     init_ddcp_query_db(&(node_nw_prop->ddcp_db));
+	stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
     node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
@@ -143,6 +147,7 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 
 typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
 typedef struct intf_nmp_ intf_nmp_t;
+typedef struct stp_intf_info_ stp_intf_info_t;
 
 typedef struct intf_nw_props_ {
 
@@ -157,7 +162,7 @@ typedef struct intf_nw_props_ {
     bool is_ipadd_config_backup;
     ddcp_interface_prop_t *ddcp_interface_prop;
     intf_nmp_t *nmp;
-
+	stp_intf_info_t *stp_intf_info;
     /*L3 properties*/
     bool is_ipadd_config; 
     ip_add_t ip_add;
