@@ -72,7 +72,13 @@ typedef struct bpdu_fmt_ {
 } bpdu_fmt_t;
 #pragma pack(pop)
 
-typedef struct stp_intf_info_ {
+typedef struct stp_vlan_intf_node_ stp_vlan_intf_node_t;
+typedef struct stp_intf_vlan_node_ stp_intf_vlan_node_t;
+
+/*
+ * Each instance need to maintain per vlan per interface
+ */
+typedef struct stp_vlan_intf_info_ {
 
 	bool is_enabled;
 	/* Every port need to have a priority */
@@ -85,7 +91,11 @@ typedef struct stp_intf_info_ {
 	/* Set to true if STP config is changed since the
  	 * last time bpdu was recvd on this interface */
 	bool stp_config_changed;
-} stp_intf_info_t;
+
+	/* Back pointers */
+	stp_vlan_intf_node_t *stp_vlan_intf_node;
+	stp_intf_vlan_node_t *stp_intf_vlan_node;
+} stp_vlan_intf_info_t;
 
 typedef struct stp_node_ {
 
@@ -118,6 +128,19 @@ typedef struct stp_node_ {
 	 * emit out of all designated ports*/
 	wheel_timer_elem_t *bpdu_generation_wt_elem;
 
-} stp_node_t;
+	/* stp vlan intf db */
+	avltree_t vlan_db;
+	avltree_t intf_db;
+} stp_node_info_t;
+
+bool
+stp_byte_cmp_stp_vlan_intf_info (
+	stp_vlan_intf_info_t *info1,
+	stp_vlan_intf_info_t *info2);
+
+void
+stp_copy_vlan_intf_info (
+	stp_vlan_intf_info_t *src,
+	stp_vlan_intf_info_t *dst);
 
 #endif /* __STP_STRUCT__  */

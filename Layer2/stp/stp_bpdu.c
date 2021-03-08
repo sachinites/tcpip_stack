@@ -40,22 +40,22 @@ stp_should_process_recvd_config_bpdu(
     interface_t *recv_intf,
     bpdu_fmt_t *bpdu) {
 
-	stp_intf_info_t *stp_intf_info = recv_intf->intf_nw_props.stp_intf_info;
+	stp_vlan_intf_info_t *stp_vlan_intf_info = recv_intf->intf_nw_props.stp_vlan_intf_info;
 
-	if (!stp_intf_info) {
+	if (!stp_vlan_intf_info) {
 		return false;
 	}	
 	
-	if (stp_intf_info->stp_config_changed) {
-		stp_intf_info->stp_config_changed = false;
+	if (stp_vlan_intf_info->stp_config_changed) {
+		stp_vlan_intf_info->stp_config_changed = false;
 		return true;
 	}
 
-	if (!stp_intf_info->peer_config_bpdu) {
+	if (!stp_vlan_intf_info->peer_config_bpdu) {
 		return true;
 	}
 
-	if (memcmp(stp_intf_info->peer_config_bpdu,
+	if (memcmp(stp_vlan_intf_info->peer_config_bpdu,
 			   bpdu, sizeof(bpdu_fmt_t))) {
 		
 		return true;

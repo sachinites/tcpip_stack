@@ -42,7 +42,7 @@ stp_print_config_bpdu(void *arg, size_t arg_size) {
 }
 
 void
-stp_init_stp_node_info(stp_node_t **stp_node_info) {
+stp_init_stp_node_info(stp_node_info_t **stp_node_info) {
 
 
 }
