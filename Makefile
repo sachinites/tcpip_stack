@@ -39,6 +39,7 @@ pkt_gen.o:pkt_gen.c
 
 tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}
+	@echo "Build Finished"
 
 notif.o:notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . notif.c -o notif.o
