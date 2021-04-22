@@ -30,6 +30,7 @@ OBJS=gluethread/glthread.o \
 		  Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
+		  Layer2/stp/stp_vlandb.o \
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
@@ -120,6 +121,8 @@ Layer2/stp/stp_bpdu.o:Layer2/stp/stp_bpdu.c
 	${CC} ${CFLAGS} -c Layer2/stp/stp_bpdu.c -o Layer2/stp/stp_bpdu.o
 Layer2/stp/stp_init.o:Layer2/stp/stp_init.c
 	${CC} ${CFLAGS} -c Layer2/stp/stp_init.c -o Layer2/stp/stp_init.o
+Layer2/stp/stp_vlandb.o:Layer2/stp/stp_vlandb.c
+	${CC} ${CFLAGS} -c Layer2/stp/stp_vlandb.c -o Layer2/stp/stp_vlandb.o
 
 CommandParser/libcli.a:
 	(cd CommandParser; make)

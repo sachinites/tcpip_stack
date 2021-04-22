@@ -191,7 +191,6 @@ static inline int avltree_is_empty(struct avltree *tree) {
 
 #define ITERATE_AVL_TREE_END	}}
 
-
 /*
  * Splay tree
  */
