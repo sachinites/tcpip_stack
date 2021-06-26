@@ -143,9 +143,14 @@ stop_interface_hellos(interface_t *interface){
         return;
 
     wheel_timer_elem_t *wt_elem = interface->intf_nw_props.nmp->hellos;
-    pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)wt_elem->arg;
-    tcp_ip_free_pkt_buffer(pkt_meta_data->pkt, pkt_meta_data->pkt_size); 
+    
+    pkt_meta_data_t *pkt_meta_data =
+		(pkt_meta_data_t *)wt_elem_get_and_set_app_data(wt_elem, 0);
+
+    if (pkt_meta_data) {
+    	tcp_ip_free_pkt_buffer(pkt_meta_data->pkt, pkt_meta_data->pkt_size); 
 	free(pkt_meta_data);
+    }
     timer_de_register_app_event(wt_elem);
     interface->intf_nw_props.nmp->hellos = NULL;
 }

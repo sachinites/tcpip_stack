@@ -141,9 +141,14 @@ wheel_fn(Timer_t *timer, void *arg){
 			/*Invoke the application event through fn pointer as below*/
 			  
 			  if(wt->debug){ printf("Creating new Task for wt_elem %p\n", wt_elem); }
+			  pthread_mutex_lock(&wt_elem->mutex);
 			  task_create_new_job(wt_elem->arg,
 								  wt_elem->app_callback,
 								  TASK_ONE_SHOT);
+			  if (!wt_elem->is_recurrence) {
+				remove_glthread(&wt_elem->glue); // appln must free it
+			  }
+			  pthread_mutex_unlock(&wt_elem->mutex);
 			  if(wt->debug){ printf("Task for wt_elem %p is submitted\n", wt_elem); }
 
 			/* After invocation, check if the event needs to be rescheduled again
@@ -167,6 +172,9 @@ wheel_fn(Timer_t *timer, void *arg){
 				wt_elem->slot_no = next_slot_no;
 				wt_elem->N_scheduled++;
 				if(wt->debug){ printf("wt_elem %p is rescheduled in [%u, %u]\n", wt_elem,  wt_elem->execute_cycle_no, next_slot_no); }
+			}
+			else {
+				remove_glthread(&wt_elem->glue);
 			}
 		}
 		else {
@@ -274,6 +282,7 @@ timer_register_app_event(wheel_timer_t *wt,
     init_glthread(&wt_elem->glue);
     init_glthread(&wt_elem->reschedule_glue);
     wt_elem->N_scheduled = 0;
+    pthread_mutex_init(&wt_elem->mutex, NULL);
     _wt_elem_reschedule(wt, wt_elem, time_interval, WTELEM_CREATE);
     return wt_elem;
 }
