@@ -123,9 +123,13 @@ typedef struct l3_route_{
     nexthop_t *nexthops[MAX_NXT_HOPS];
     uint32_t spf_metric;
     int nxthop_idx;
+	time_t install_time;
     glthread_t rt_glue;
 } l3_route_t;
 GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
+
+#define RT_UP_TIME(l3_route_ptr)	\
+	hrs_min_sec_format((unsigned int)difftime(time(NULL), l3_route_ptr->install_time))
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route);
