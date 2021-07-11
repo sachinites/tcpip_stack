@@ -38,7 +38,7 @@ typedef struct nf_hook_db_ {
 } nf_hook_db_t;
 
 void
-nf_init_netfilters();
+nf_init_netfilters(nf_hook_db_t *nf_hook_db);
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
@@ -51,8 +51,14 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
                          interface_t *intf,
 						 hdr_type_t hdr_code);
 void
-nf_register_netfilter_hook(nf_hook_t nf_hook_type,
+nf_register_netfilter_hook(node_t *node,
+						   nf_hook_t nf_hook_type,
                            nfc_pkt_trap pkt_trap_cb,
                            nfc_app_cb pkt_notif_app_cb);
 
+void
+nf_de_register_netfilter_hook(node_t *node,
+	    				      nf_hook_t nf_hook_type,
+                              nfc_pkt_trap pkt_trap_cb,
+                              nfc_app_cb pkt_notif_app_cb);
 #endif 

@@ -56,4 +56,8 @@ nfc_invoke_notif_chain(notif_chain_t *nfc,
                        void *arg, size_t arg_size,
                        char *key, size_t key_size);
 
+void
+nfc_de_register_notif_chain(notif_chain_t *nfc,
+                    notif_chain_elem_t *nfce_template);
+
 #endif /*  __NOTIF_CHAIN_  */

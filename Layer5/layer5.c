@@ -39,11 +39,6 @@
 #include "ddcp/ddcp.h"
 #include "../Layer3/netfilter.h"
 
-static notif_chain_t layer2_proto_reg_db2 = {
-	"L2 proto registration db",
-	{0, 0}
-};
-
 void
 promote_pkt_from_layer3_to_layer5(node_t *node,
 					 interface_t *recv_intf, 
@@ -70,7 +65,7 @@ promote_pkt_from_layer2_to_layer5(node_t *node,
 	pkt_notif_data.pkt_size = pkt_size;
 	pkt_notif_data.hdr_code = hdr_code;
 
-	nfc_invoke_notif_chain(&layer2_proto_reg_db2,
+	nfc_invoke_notif_chain(&node->layer2_proto_reg_db2,
 			(void *)&pkt_notif_data,
 			sizeof(pkt_notif_data_t),
 			pkt, pkt_size);	
@@ -78,6 +73,7 @@ promote_pkt_from_layer2_to_layer5(node_t *node,
 
 void
 tcp_stack_register_l2_pkt_trap_rule(
+		node_t *node,
 		nfc_pkt_trap pkt_trap_cb,
 		nfc_app_cb app_cb) {
 
@@ -89,7 +85,26 @@ tcp_stack_register_l2_pkt_trap_rule(
 	nfce_template.pkt_trap_cb = pkt_trap_cb;	
 	init_glthread(&nfce_template.glue);
 
-	nfc_register_notif_chain(&layer2_proto_reg_db2,
+	nfc_register_notif_chain(&node->layer2_proto_reg_db2,
+		&nfce_template);	
+}
+
+
+void
+tcp_stack_de_register_l2_pkt_trap_rule(
+		node_t *node,
+		nfc_pkt_trap pkt_trap_cb,
+		nfc_app_cb app_cb) {
+
+	notif_chain_elem_t nfce_template;
+
+	memset(&nfce_template, 0, sizeof(notif_chain_elem_t));
+	nfce_template.is_key_set = false;
+	nfce_template.app_cb = app_cb;
+	nfce_template.pkt_trap_cb = pkt_trap_cb;	
+	init_glthread(&nfce_template.glue);
+
+	nfc_de_register_notif_chain(&node->layer2_proto_reg_db2,
 		&nfce_template);	
 }
 

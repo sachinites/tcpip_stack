@@ -43,6 +43,7 @@
 #include "gluethread/glthread.h"
 #include "net.h"
 #include "tcp_ip_trace.h"
+#include "Layer3/netfilter.h"
 
 #define NODE_NAME_SIZE   16
 #define IF_NAME_SIZE     16
@@ -88,6 +89,12 @@ struct node_ {
 
     /*Node Logging*/
     log_t log_info;
+
+	/*net-filter hooks DB*/
+	nf_hook_db_t nf_hook_db;
+
+	/*L2 net-filter hook (simplified) */
+	notif_chain_t layer2_proto_reg_db2;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 

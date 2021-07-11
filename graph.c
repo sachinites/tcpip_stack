@@ -30,11 +30,11 @@
  * =====================================================================================
  */
 
-#include "graph.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <memory.h>
+#include "graph.h"
 #include "tcp_ip_trace.h"
 
 void
@@ -102,6 +102,12 @@ create_graph_node(graph_t *graph, char *node_name){
     init_glthread(&node->graph_glue);
     node->spf_data = NULL;
     tcp_ip_init_node_log_info(node);
+	nf_init_netfilters(&node->nf_hook_db);
+
+	strncpy(node->layer2_proto_reg_db2.nfc_name,
+			"L2 proto registration db",
+			strlen("L2 proto registration db"));
+
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
 }

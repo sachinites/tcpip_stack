@@ -721,7 +721,7 @@ nmp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
 void
 init_nbrship_mgmt(){
 
-	tcp_stack_register_l2_pkt_trap_rule(nmp_trap_l2_pkt_rule, process_hello_msg);
+	//tcp_stack_register_l2_pkt_trap_rule(nmp_trap_l2_pkt_rule, process_hello_msg);
 
 	nfc_register_for_pkt_tracing(NMP_HELLO_MSG_CODE,
 		nmp_print_hello_pkt);

@@ -115,8 +115,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(&(node_nw_prop->rt_table));
-    init_ddcp_query_db(&(node_nw_prop->ddcp_db));
-	stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
+	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
     node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);

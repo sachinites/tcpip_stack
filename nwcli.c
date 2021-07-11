@@ -64,7 +64,7 @@ typedef int (*cli_register_cb)(param_t *);
 static cli_register_cb
 	cli_register_cb_arr_config_node_node_name_protocol_level[] =
 	{
-		0,
+		ddcp_config_cli_tree,
 		0
 		/*  Add more CB here */
 	};
@@ -82,7 +82,7 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_show_node_node_name_protcol_level[] =
 	{
-		0,
+		ddcp_show_cli_tree,
 		0
 		/* Add more CB here */
 	};
@@ -100,7 +100,7 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_run_node_node_name_protocol_level[] =
 	{
-		0,
+		ddcp_run_cli_tree,
 		0
 		/* Add more CB here */
 	};
@@ -507,58 +507,8 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
 
 /*Layer 5 Commands*/
 
-extern void
-ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval);
-extern void
-ddcp_print_ddcp_reply_msgs_db(node_t *node);
 
-static int
-ddcp_validate_query_interval(char *ddcp_q_interval){
 
-    int ddcp_q_intvl = atoi(ddcp_q_interval);
-    if(ddcp_q_intvl < 1){
-        printf("Error : Invalid Value, expected > 1\n");
-        return VALIDATION_FAILED;
-    }
-    return VALIDATION_SUCCESS;
-}
-
-static int
-ddcp_handler(param_t *param, ser_buff_t *tlv_buf, 
-             op_mode enable_or_disable){
-
-   node_t *node = NULL;
-   char *node_name = NULL;
-   int CMDCODE = -1;
-   int ddcp_q_interval = 0 ;
-
-   CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-   tlv_struct_t *tlv = NULL;
-
-   TLV_LOOP_BEGIN(tlv_buf, tlv){
-        
-        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
-            node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "ddcp-q-interval", strlen("ddcp-q-interval")) == 0)
-            ddcp_q_interval = atoi(tlv->value);
-        else
-            assert(0);
-   } TLV_LOOP_END;
-
-   node = get_node_by_node_name(topo, node_name);
-
-    switch(CMDCODE){
-        case CMDCODE_RUN_DDCP_QUERY:
-        case CMDCODE_RUN_DDCP_QUERY_PERIODIC:
-            ddcp_trigger_default_ddcp_query(node, ddcp_q_interval); 
-            break;
-        case CMDCODE_SHOW_DDCP_DB:
-            ddcp_print_ddcp_reply_msgs_db(node); 
-        default:
-            ;
-    }
-}
 
 /*Interface Config Handler*/
 extern void
@@ -847,7 +797,7 @@ nw_init_cli(){
 					 libcli_register_param(&node_name, &protocol);
 
 					 /* show node <node-name> protocol ...*/
-					 cli_register_application_cli_trees(&node_name, 
+					 cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_show_node_node_name_protcol_level);
 				 }
 
@@ -876,13 +826,6 @@ nw_init_cli(){
                         libcli_register_param(&nmp, &state);
                         set_param_cmd_code(&state, CMDCODE_SHOW_NODE_NMP_STATE);
                     }
-                 }
-                 {
-                    /*show node <node-name> ddcp-db*/
-                    static param_t ddcp_db;
-                    init_param(&ddcp_db, CMD, "ddcp-db", ddcp_handler, 0, INVALID, 0, "Dump DDCP database");
-                    libcli_register_param(&node_name, &ddcp_db);
-                    set_param_cmd_code(&ddcp_db, CMDCODE_SHOW_DDCP_DB);
                  }
                  {
                     /*show node <node-name> spf-result*/
@@ -992,7 +935,7 @@ nw_init_cli(){
 				libcli_register_param(&node_name, &protocol);		
 
 				/* run node <node-name> protocol ... */
-				cli_register_application_cli_trees(&node_name, 
+				cli_register_application_cli_trees(&protocol, 
 						cli_register_cb_arr_run_node_node_name_protocol_level);
 			}
 
@@ -1020,26 +963,6 @@ nw_init_cli(){
                     }
                 }
             }
-            {
-                /*run node <node-name> ddcp-query*/
-                static param_t ddcp_query;
-                init_param(&ddcp_query, CMD, "ddcp-query", ddcp_handler, 0, INVALID, 0, "Trigger DDCP Query Flood");
-                libcli_register_param(&node_name, &ddcp_query);
-                set_param_cmd_code(&ddcp_query, CMDCODE_RUN_DDCP_QUERY);
-                {
-                    static param_t periodic;
-                    init_param(&periodic, CMD, "periodic", 0, 0, INVALID, 0, "Periodic ddcp Query");
-                    libcli_register_param(&ddcp_query, &periodic);
-                    {
-                        static param_t ddcp_q_interval;
-                        init_param(&ddcp_q_interval, LEAF, 0, ddcp_handler, ddcp_validate_query_interval, 
-                            INT, "ddcp-q-interval", "ddcp query interval(min 1 sec)");
-                        libcli_register_param(&periodic, &ddcp_q_interval);
-                        set_param_cmd_code(&ddcp_q_interval, CMDCODE_RUN_DDCP_QUERY_PERIODIC);
-                    }
-                }
-            }
-
             {
                 /*run node <node-name> resolve-arp*/    
                 static param_t resolve_arp;
@@ -1105,7 +1028,7 @@ nw_init_cli(){
                 libcli_register_param(&node_name, &protocol);
 				
 				/* config node <node-name> protocol....*/
-				cli_register_application_cli_trees(&node_name, 
+				cli_register_application_cli_trees(&protocol, 
 						cli_register_cb_arr_config_node_node_name_protocol_level);
 
                 {

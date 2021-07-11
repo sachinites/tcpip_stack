@@ -62,11 +62,13 @@ promote_pkt_from_layer3_to_layer5(node_t *node,
 
 void
 tcp_stack_register_l2_pkt_trap_rule(
+		node_t *node,
         nfc_pkt_trap pkt_trap_cb,
         nfc_app_cb app_cb);
 
 void
-tcp_stack_register_l3_pkt_trap_rule(
+tcp_stack_de_register_l2_pkt_trap_rule(
+		node_t *node,
         nfc_pkt_trap pkt_trap_cb,
         nfc_app_cb app_cb);
 

@@ -11,4 +11,13 @@ int
 nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
                 op_mode enable_or_disable);
 
+int
+ddcp_config_cli_tree(param_t *param);
+
+int
+ddcp_show_cli_tree(param_t *param);
+
+int
+ddcp_run_cli_tree(param_t *param);
+
 #endif /* __APP_HANDLERS__ */

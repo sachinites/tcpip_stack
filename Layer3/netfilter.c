@@ -17,10 +17,9 @@
  */
 
 #include <string.h>
+#include "graph.h"
 #include "netfilter.h"
 #include "../Layer5/layer5.h"
-
-static nf_hook_db_t nf_hook_db;
 
 static inline void
 nf_init_nf_hook(notif_chain_t *nfc,
@@ -31,17 +30,17 @@ nf_init_nf_hook(notif_chain_t *nfc,
 }
 	
 void
-nf_init_netfilters() {
+nf_init_netfilters(nf_hook_db_t *nf_hook_db) {
 
-	nf_init_nf_hook(&nf_hook_db.nf_hook[NF_IP_PRE_ROUTING],
+	nf_init_nf_hook(&nf_hook_db->nf_hook[NF_IP_PRE_ROUTING],
 					"NF_IP_PRE_ROUTING");
-	nf_init_nf_hook(&nf_hook_db.nf_hook[NF_IP_LOCAL_IN],
+	nf_init_nf_hook(&nf_hook_db->nf_hook[NF_IP_LOCAL_IN],
 					"NF_IP_LOCAL_IN");
-	nf_init_nf_hook(&nf_hook_db.nf_hook[NF_IP_FORWARD],
+	nf_init_nf_hook(&nf_hook_db->nf_hook[NF_IP_FORWARD],
 					"NF_IP_FORWARD");
-	nf_init_nf_hook(&nf_hook_db.nf_hook[NF_IP_LOCAL_OUT],
+	nf_init_nf_hook(&nf_hook_db->nf_hook[NF_IP_LOCAL_OUT],
 					"NF_IP_LOCAL_OUT");
-	nf_init_nf_hook(&nf_hook_db.nf_hook[NF_IP_POST_ROUTING],
+	nf_init_nf_hook(&nf_hook_db->nf_hook[NF_IP_POST_ROUTING],
 					"NF_IP_POST_ROUTING");
 }
 
@@ -56,7 +55,7 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
 	notif_chain_t *nfc;
 	pkt_notif_data_t pkt_notif_data;
 
-	nfc = &nf_hook_db.nf_hook[nf_hook_type];
+	nfc = &node->nf_hook_db.nf_hook[nf_hook_type];
 
     pkt_notif_data.recv_node = node;
     pkt_notif_data.recv_interface = intf;
@@ -71,14 +70,15 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
 }
 
 void
-nf_register_netfilter_hook(nf_hook_t nf_hook_type,
+nf_register_netfilter_hook(node_t *node,
+						   nf_hook_t nf_hook_type,
 						   nfc_pkt_trap pkt_trap_cb,
 						   nfc_app_cb pkt_notif_app_cb) {
 
 	notif_chain_t *nfc;
 	notif_chain_elem_t nfce;
 
-	nfc = &nf_hook_db.nf_hook[nf_hook_type];
+	nfc = &node->nf_hook_db.nf_hook[nf_hook_type];
 	
 	memset(&nfce, 0, sizeof(notif_chain_elem_t));
 	nfce.is_key_set = false;
@@ -88,3 +88,22 @@ nf_register_netfilter_hook(nf_hook_t nf_hook_type,
 	nfc_register_notif_chain(nfc, &nfce);
 }
 
+
+void
+nf_de_register_netfilter_hook(node_t *node,
+						   nf_hook_t nf_hook_type,
+						   nfc_pkt_trap pkt_trap_cb,
+						   nfc_app_cb pkt_notif_app_cb) {
+
+	notif_chain_t *nfc;
+	notif_chain_elem_t nfce;
+
+	nfc = &node->nf_hook_db.nf_hook[nf_hook_type];
+	
+	memset(&nfce, 0, sizeof(notif_chain_elem_t));
+	nfce.is_key_set = false;
+	nfce.app_cb = pkt_notif_app_cb;
+	nfce.pkt_trap_cb = pkt_trap_cb;
+	
+	nfc_de_register_notif_chain(nfc, &nfce);
+}
