@@ -65,17 +65,11 @@ static cli_register_cb
 	cli_register_cb_arr_config_node_node_name_protocol_level[] =
 	{
 		ddcp_config_cli_tree,
-		0
-		/*  Add more CB here */
-	};
-
-/* config node <node-name> interface <if-name> protocol .... */
-static cli_register_cb
-	cli_register_cb_arr_config_node_node_name_interface_if_name_protocol_level[] =
-	{
-		0,
-		0
-		/* Add more CB here */
+		nmp_config_cli_tree,
+		
+        /*  Add more CB here */
+        
+        0 /* Last member must be NULL */
 	};
 
 /* show node <node-name> protocol ... */
@@ -83,17 +77,11 @@ static cli_register_cb
 	cli_register_cb_arr_show_node_node_name_protcol_level[] =
 	{
 		ddcp_show_cli_tree,
-		0
-		/* Add more CB here */
-	};
+		nmp_show_cli_tree,
+		
+        /* Add more CB here */
 
-/* show node <node-name> interface protocol .... */
-static cli_register_cb
-	cli_register_cb_arr_show_node_node_name_interface_protocol_level[] =
-	{
-		0,
-		0
-		/* Add more CB here */
+        0 /*  Last member must be NULL */
 	};
 
 /* run node <node-name> protocol .... */
@@ -131,7 +119,7 @@ display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
 }
 
 /*Display Node Interfaces*/
-static void
+void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;
@@ -801,31 +789,11 @@ nw_init_cli(){
 							 cli_register_cb_arr_show_node_node_name_protcol_level);
 				 }
 
-
                  {
                      static param_t log_status;
                      init_param(&log_status, CMD, "log-status", traceoptions_handler, 0, INVALID, 0, "log-status");
                      libcli_register_param(&node_name, &log_status);
                      set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
-                 }
-                 {
-                    /*show node <node-name> nmp nbrships*/
-                    static param_t nmp;
-                    init_param(&nmp, CMD, "nmp", 0, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)"); 
-                    libcli_register_param(&node_name,  &nmp);
-                    {
-                        static param_t nbrships;
-                        init_param(&nbrships, CMD, "nbrships", nbrship_mgmt_handler, 0, INVALID, 0, "nbrships (Nbr Mgmt Protocol)");
-                        libcli_register_param(&nmp, &nbrships);
-                        set_param_cmd_code(&nbrships, CMDCODE_SHOW_NODE_NBRSHIP);
-                    }
-                    {
-                        /*show node <node-name> nmp state*/
-                        static param_t state;
-                        init_param(&state, CMD, "state", nbrship_mgmt_handler, 0, INVALID, 0, "state (Nbr Mgmt Protocol)");
-                        libcli_register_param(&nmp, &state);
-                        set_param_cmd_code(&state, CMDCODE_SHOW_NODE_NMP_STATE);
-                    }
                  }
                  {
                     /*show node <node-name> spf-result*/
@@ -861,38 +829,12 @@ nw_init_cli(){
                     init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
                     libcli_register_param(&node_name, &interface);
 
-					{
-						/* show node <node-name> interface protocol */
-                        static param_t protocol;
-                        init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App Protocol");
-                        libcli_register_param(&interface, &protocol);
-						/* show node <node-name> interface protocol ... */
-						cli_register_application_cli_trees(&protocol,
-								cli_register_cb_arr_show_node_node_name_interface_protocol_level); 	
-					}
                     {
                         /*show node <node-name> interface statistics*/
                         static param_t stats;
                         init_param(&stats, CMD, "statistics", show_interface_handler, 0, INVALID, 0, "Interface Statistics");
                         libcli_register_param(&interface, &stats);
                         set_param_cmd_code(&stats, CMDCODE_SHOW_INTF_STATS);
-                        {
-                            /*show node <node-name> interface statistics protocol*/
-                            static param_t protocol;
-                            init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "Protocol specific intf stats");
-                            libcli_register_param(&stats, &protocol);
-
-							cli_register_application_cli_trees(&protocol, 
-								cli_register_cb_arr_show_node_node_name_interface_protocol_level);
-
-                            {
-                                /*show node <node-name> interface statistics protocol <protocol-name>*/ 
-                                static param_t nmp;
-                                init_param(&nmp, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)"); 
-                                libcli_register_param(&protocol, &nmp);
-                                set_param_cmd_code(&nmp, CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS);
-                            }
-                        }
                     }
                  }
 
@@ -1019,8 +961,6 @@ nw_init_cli(){
         libcli_register_param(&node, &node_name);
 
         {
-
-            /*Nbrship Management CLIs will go here*/
             {
                 /*config node <node-name> [no] protocol*/
                 static param_t protocol;
@@ -1030,38 +970,7 @@ nw_init_cli(){
 				/* config node <node-name> protocol....*/
 				cli_register_application_cli_trees(&protocol, 
 						cli_register_cb_arr_config_node_node_name_protocol_level);
-
-                {
-					/* config node <node-name> protocol nmp */
-                    static param_t nmp;
-                    init_param(&nmp, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
-                    libcli_register_param(&protocol, &nmp);
-                    set_param_cmd_code(&nmp, CMDCODE_CONF_NODE_NBRSHIP_ENABLE);
-                }
-            }
-            {
-                /*config node <node-name> [no] nbrship interface <intf-name>*/
-                static param_t nbrship;
-                init_param(&nbrship, CMD, "nmp", 0, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
-                libcli_register_param(&node_name, &nbrship);
-                {
-                    static param_t interface;
-                    init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
-                    libcli_register_display_callback(&interface, display_node_interfaces);
-                    libcli_register_param(&nbrship, &interface);
-                    {
-                        static param_t if_name;
-                        init_param(&if_name, LEAF, 0, nbrship_mgmt_handler, 0, STRING, "if-name", "Interface Name");
-                        libcli_register_param(&interface, &if_name);
-                        set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE);
-                    }
-                    {
-                        static param_t all;
-                        init_param(&all, CMD, "all", nbrship_mgmt_handler, 0, INVALID, 0, "All interfaces");
-                        libcli_register_param(&interface, &all);
-                        set_param_cmd_code(&all, CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE);
-                    }
-                }
+                support_cmd_negation(&protocol);
             }
 
             /*CLI for traceoptions at node level are hooked up here in tree */
@@ -1089,17 +998,6 @@ nw_init_cli(){
 					    set_param_cmd_code(&ip_addr, CMDCODE_CONF_NODE_TRAFFIC_GEN);	
 					}
 					
-				}
-	
-				{
-					/* config node <node-name> interface <if-name> protocol */
-					static param_t protocol;
-					init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "Application Protocol");
-					libcli_register_param(&if_name, &protocol);
-
-					/* config node <node-name> interface <if-name> protocol .... */
-					cli_register_application_cli_trees(&protocol,
-						cli_register_cb_arr_config_node_node_name_interface_if_name_protocol_level); 	
 				}
 	
                 {

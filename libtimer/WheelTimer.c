@@ -290,6 +290,7 @@ timer_register_app_event(wheel_timer_t *wt,
 void
 timer_de_register_app_event(wheel_timer_elem_t *wt_elem){
 
+    wt_elem_get_and_set_app_data(wt_elem, 0);
     _wt_elem_reschedule(wt_elem->wt, wt_elem, 0, WTELEM_DELETE);
 }
 

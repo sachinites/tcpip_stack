@@ -63,7 +63,7 @@ ddcp_send_ddcp_query_out(char *pkt,
                          uint32_t pkt_size,
                          interface_t *oif){
 
-    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(oif)) == false) return;
+    if(ddcp_is_enabled_on_interface(GET_DDCP_INTF_PROP(oif)) == false) return;
     if(!IS_INTF_L3_MODE(oif)) return;
     send_pkt_out(pkt, pkt_size, oif);
 }
@@ -559,7 +559,7 @@ ddcp_db_should_process_ddcp_query(node_t *node,
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
    
-    if(is_interface_ddcp_enabled(GET_DDCP_INTF_PROP(iif)) == false){
+    if(ddcp_is_enabled_on_interface(GET_DDCP_INTF_PROP(iif)) == false){
         return false;
     }
 
@@ -599,7 +599,9 @@ ddcp_print_ddcp_reply_msgs_db(node_t *node){
 
     glthread_t *curr;
     ddcp_reply_msg_t *ddcp_reply_msg = NULL;
-    
+   
+    if (!ddcp_is_enabled_on_node(node)) return;
+
     ITERATE_GLTHREAD_BEGIN(GET_NODE_DDCP_DB_REPLY_HEAD(node), curr){
 
         ddcp_reply_msg = ddcp_db_reply_node_glue_to_ddcp_reply_msg(curr);

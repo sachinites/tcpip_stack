@@ -33,7 +33,7 @@ extern void event_dispatcher_run();
 extern void init_pkt_recv_queue();
 extern void nf_init_netfilters();
 extern void init_spf_algo();
-extern void init_nbrship_mgmt();
+extern void nbrship_mgmt_init();
 extern void init_tcp_logging();
 void
 init_tcp_ip_stack(){
@@ -46,5 +46,4 @@ init_tcp_ip_stack(){
 	/*  Now initialize all applications */
 	init_tcp_logging();
     init_spf_algo();
-    init_nbrship_mgmt();
 }

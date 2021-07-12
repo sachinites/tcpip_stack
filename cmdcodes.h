@@ -67,11 +67,11 @@
 #define CMDCODE_CONF_INTF_UP_DOWN        27 /*config node <node-name> interface <if-name> <up|down>*/
 
 /*Nbrship Mgmt Protocol*/
-#define CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE       28 /*config node <node-name> [no] nbrship interface <intf-name>*/
-#define CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE   29 /*config node <node-name> [no] nbrship interface all*/
+#define CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE       28 /*config node <node-name> [no] protocol nmp interface <intf-name>*/
+#define CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE   29 /*config node <node-name> [no] protocol nmp interface all*/
 #define CMDCODE_CONF_NODE_NBRSHIP_ENABLE            30 /*conf node <node-name> [no] protocol nmp*/
-#define CMDCODE_SHOW_NODE_NBRSHIP                   31 /*show node <node-name> nmp nbrships*/
-#define CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS  32 /*show node <node-name> interface statistics protocol nmp*/
+#define CMDCODE_SHOW_NODE_NBRSHIP                   31 /*show node <node-name> protocol nmp nbrships*/
+#define CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS  32 /*show node <node-name> protocol nmp stats*/
 #define CMDCODE_SHOW_NODE_NMP_STATE                    33 /*show node <node-name> nmp state*/
 
 #define CMDCODE_INTF_CONFIG_METRIC       34 /*config node <node-name> interface <if-name> metric <metric-val>*/

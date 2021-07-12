@@ -804,6 +804,7 @@ static void
 arp_entry_timer_delete_cbk(void *arg,
 						   uint32_t arg_size){
 
+    if(!arg) return;
 	arp_entry_t *arp_entry = (arp_entry_t *)arg;
 	delete_arp_entry(arp_entry);	
 }

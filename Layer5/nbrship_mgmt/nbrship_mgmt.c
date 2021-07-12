@@ -537,6 +537,57 @@ nbrship_mgmt_enable_disable_all_intf_nbrship_protocol(
 }
 
 static void
+nmp_interface_update(void *arg, size_t arg_size){
+
+#if 0
+    printf("%s called for interface %s, flags = 0x%x\n", __FUNCTION__,
+            intf->if_name, flags);
+#endif
+}
+
+/* pkt trap functions */
+static bool
+nmp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
+
+	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
+	/* NMP is an application, hence, it is guaranteed that
+ 	 * pkt is vlan untagged, because hosts are vlan unaware.
+ 	 * NMP as an application runs only on hosts/L3 routers*/
+	assert (!is_pkt_vlan_tagged(eth_hdr));
+	
+	if (eth_hdr->type == NMP_HELLO_MSG_CODE) {
+		return true;
+	}
+	return false;
+}
+
+static void
+nbrship_mgmt_init(node_t *node){
+
+    static bool initialized = false;
+
+	tcp_stack_register_l2_pkt_trap_rule(node,
+            nmp_trap_l2_pkt_rule, process_hello_msg);
+
+    /*  Below registration is done only once */
+
+    if (!initialized) {
+	    nfc_register_for_pkt_tracing(NMP_HELLO_MSG_CODE,
+		    nmp_print_hello_pkt);
+
+	    nfc_intf_register_for_events(nmp_interface_update);
+        initialized = true;
+    }
+}
+
+static void
+nbrship_mgmt_de_init(node_t *node){
+
+	tcp_stack_de_register_l2_pkt_trap_rule(node,
+            nmp_trap_l2_pkt_rule, process_hello_msg);
+}
+
+static void
 nbrship_mgmt_enable_disable_device_level(node_t *node, bool is_enabled){
 
     int i = 0;
@@ -560,6 +611,7 @@ nbrship_mgmt_enable_disable_device_level(node_t *node, bool is_enabled){
             if(!intf) continue;
             nbrship_mgmt_activate_nmp_on_interface(intf);
         }
+        nbrship_mgmt_init(node);
         return;
     }
 
@@ -574,6 +626,7 @@ nbrship_mgmt_enable_disable_device_level(node_t *node, bool is_enabled){
             if(!intf) continue;
             nbrship_mgmt_deactivate_nmp_on_interface(intf);
         }
+        nbrship_mgmt_de_init(node);
         return;
     }
 }
@@ -692,40 +745,80 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
+/* CLIs */
+/*  conf node <node-name> protocol ... */
 
-static void
-nmp_interface_update(void *arg, size_t arg_size){
+extern void
+display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 
-#if 0
-    printf("%s called for interface %s, flags = 0x%x\n", __FUNCTION__,
-            intf->if_name, flags);
-#endif
+int
+nmp_config_cli_tree(param_t *param) {
+
+    {
+        assert(get_current_branch_hook(param) ==
+                libcli_get_config_hook());
+
+        /* conf node <node-name> [no] protocol nmp */
+        static param_t nmp_proto;
+        init_param(&nmp_proto, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
+        libcli_register_param(param, &nmp_proto);
+        set_param_cmd_code(&nmp_proto, CMDCODE_CONF_NODE_NBRSHIP_ENABLE);
+        {
+            /*  conf node <node-name> [no] protocol nmp interface ... */
+            static param_t interface;
+            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
+            libcli_register_display_callback(&interface, display_node_interfaces);
+            libcli_register_param(&nmp_proto, &interface);
+            {
+                static param_t if_name;
+                init_param(&if_name, LEAF, 0, nbrship_mgmt_handler, 0, STRING, "if-name", "Interface Name");
+                libcli_register_param(&interface, &if_name);
+                set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE);
+            }
+            {
+                static param_t all;
+                init_param(&all, CMD, "all", nbrship_mgmt_handler, 0, INVALID, 0, "All interfaces");
+                libcli_register_param(&interface, &all);
+                set_param_cmd_code(&all, CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE);
+            }
+        }
+    }
+    return 0;
 }
 
-/* pkt trap functions */
-static bool
-nmp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
+/* show node <node-name> protocol ... */
 
-	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
-	/* NMP is an application, hence, it is guaranteed that
- 	 * pkt is vlan untagged, because hosts are vlan unaware.
- 	 * NMP as an application runs only on hosts/L3 routers*/
-	assert (!is_pkt_vlan_tagged(eth_hdr));
-	
-	if (eth_hdr->type == NMP_HELLO_MSG_CODE) {
-		return true;
-	}
-	return false;
+int
+nmp_show_cli_tree(param_t *param) {
+
+    {
+        assert(get_current_branch_hook(param) ==
+                libcli_get_show_hook());
+        /*  show node <node-name> protocol nmp ...*/
+        static param_t nmp_proto;
+        init_param(&nmp_proto, CMD, "nmp", 0, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
+        libcli_register_param(param, &nmp_proto);
+        {
+             /*   show node <node-name> protocol nmp nbrships */
+            static param_t nbrships;
+            init_param(&nbrships, CMD, "nbrships", nbrship_mgmt_handler, 0, INVALID, 0, "nbrships (Nbr Mgmt Protocol)");
+            libcli_register_param(&nmp_proto, &nbrships);
+            set_param_cmd_code(&nbrships, CMDCODE_SHOW_NODE_NBRSHIP);
+        }
+        {
+            /* show node <node-name> protocol nmp state*/
+            static param_t state;
+            init_param(&state, CMD, "state", nbrship_mgmt_handler, 0, INVALID, 0, "state (Nbr Mgmt Protocol)");
+            libcli_register_param(&nmp_proto, &state);
+            set_param_cmd_code(&state, CMDCODE_SHOW_NODE_NMP_STATE);
+        }
+        {
+            /* show node <node-name> protocol nmp stats*/
+            static param_t stats;
+            init_param(&stats, CMD, "stats", nbrship_mgmt_handler, 0, INVALID, 0, "statistics of Nbr Mgmt Protocol");
+            libcli_register_param(&nmp_proto, &stats);
+            set_param_cmd_code(&stats, CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS);
+        }
+    }
+    return 0;
 }
-
-void
-init_nbrship_mgmt(){
-
-	//tcp_stack_register_l2_pkt_trap_rule(nmp_trap_l2_pkt_rule, process_hello_msg);
-
-	nfc_register_for_pkt_tracing(NMP_HELLO_MSG_CODE,
-		nmp_print_hello_pkt);
-
-	nfc_intf_register_for_events(nmp_interface_update);
-}
-

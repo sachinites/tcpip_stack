@@ -122,7 +122,7 @@ pkt_gen(char *src_node_name,
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
 
     eth_hdr->type = ETH_IP;
-    SET_COMMON_ETH_FCS(eth_hdr, 20, 0);
+    SET_COMMON_ETH_FCS(eth_hdr, IP_HDR_DEFAULT_SIZE, 0);
 
     /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);

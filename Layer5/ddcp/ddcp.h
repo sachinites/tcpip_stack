@@ -83,7 +83,7 @@ void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
 
 static inline bool
-is_interface_ddcp_enabled(ddcp_interface_prop_t *ddcp_interface_prop){
+ddcp_is_enabled_on_interface(ddcp_interface_prop_t *ddcp_interface_prop){
 
     return ddcp_interface_prop->is_enabled;
 }
