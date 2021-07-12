@@ -48,37 +48,24 @@
 #define CMDCODE_SHOW_INTF_STATS     13     /*show node <node-name> interface statistics*/
 #define CMDCODE_DEBUG_SHOW_NODE_TIMER   14 /*debug show node <node-name> timer*/
 
-#define CMDCODE_RUN_DDCP_QUERY      15  /*run node <node-name> ddcp-query*/
-#define CMDCODE_SHOW_DDCP_DB        16  /*show node <node-name> ddcp-db*/
-#define CMDCODE_RUN_DDCP_QUERY_PERIODIC 17 /*run node <node-name> ddcp-query periodic <ddcp-q-interval in sec>*/
-#define CMDCODE_CONF_NODE_DDCP_PROTO	18 /* conf node <node-name> protocol ddcp */	
-
-#define CMDCODE_RUN_SPF             19  /*run node <node-name> spf*/
-#define CMDCODE_SHOW_SPF_RESULTS    20  /*show node <node-name> spf-results*/
-#define CMDCODE_RUN_SPF_ALL         21  /*run spf all*/
+#define CMDCODE_RUN_SPF             15  /*run node <node-name> spf*/
+#define CMDCODE_SHOW_SPF_RESULTS    16  /*show node <node-name> spf-results*/
+#define CMDCODE_RUN_SPF_ALL         17  /*run spf all*/
 
 //Logging and Debugging
-#define CMDCODE_DEBUG_LOGGING_PER_NODE   22  /*config node <node-name> traceoptions flag <all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>*/
-#define CMDCODE_DEBUG_LOGGING_PER_INTF   23  /*config node <node-name> interface <intf-name> traceoptions flag <all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>*/
-#define CMDCODE_DEBUG_SHOW_LOG_STATUS    24  /*show node <node-name> log-status*/
-#define CMDCODE_DEBUG_GLOBAL_STDOUT      25  /*config global stdout*/
-#define CMDCODE_DEBUG_GLOBAL_NO_STDOUT   26  /*config global no-stdout*/
+#define CMDCODE_DEBUG_LOGGING_PER_NODE   18  /*config node <node-name> traceoptions flag <all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>*/
+#define CMDCODE_DEBUG_LOGGING_PER_INTF   19  /*config node <node-name> interface <intf-name> traceoptions flag <all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>*/
+#define CMDCODE_DEBUG_SHOW_LOG_STATUS    20  /*show node <node-name> log-status*/
+#define CMDCODE_DEBUG_GLOBAL_STDOUT      21  /*config global stdout*/
+#define CMDCODE_DEBUG_GLOBAL_NO_STDOUT   22  /*config global no-stdout*/
 /*Interface Up Down*/ 
-#define CMDCODE_CONF_INTF_UP_DOWN        27 /*config node <node-name> interface <if-name> <up|down>*/
+#define CMDCODE_CONF_INTF_UP_DOWN        23 /*config node <node-name> interface <if-name> <up|down>*/
 
-/*Nbrship Mgmt Protocol*/
-#define CMDCODE_CONF_NODE_INTF_NBRSHIP_ENABLE       28 /*config node <node-name> [no] protocol nmp interface <intf-name>*/
-#define CMDCODE_CONF_NODE_INTF_ALL_NBRSHIP_ENABLE   29 /*config node <node-name> [no] protocol nmp interface all*/
-#define CMDCODE_CONF_NODE_NBRSHIP_ENABLE            30 /*conf node <node-name> [no] protocol nmp*/
-#define CMDCODE_SHOW_NODE_NBRSHIP                   31 /*show node <node-name> protocol nmp nbrships*/
-#define CMDCODE_SHOW_NODE_NMP_PROTOCOL_ALL_INTF_STATS  32 /*show node <node-name> protocol nmp stats*/
-#define CMDCODE_SHOW_NODE_NMP_STATE                    33 /*show node <node-name> nmp state*/
+#define CMDCODE_INTF_CONFIG_METRIC       24 /*config node <node-name> interface <if-name> metric <metric-val>*/
 
-#define CMDCODE_INTF_CONFIG_METRIC       34 /*config node <node-name> interface <if-name> metric <metric-val>*/
-
-#define CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING	35 /* debug show node <node-name> timer logging */
+#define CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING	25 /* debug show node <node-name> timer logging */
 
 /* Traffic generation */
-#define CMDCODE_CONF_NODE_TRAFFIC_GEN	36 /* config node <node-name> interface <if-name> traffic-gen <dest-ip> */
+#define CMDCODE_CONF_NODE_TRAFFIC_GEN	26 /* config node <node-name> interface <if-name> traffic-gen <dest-ip> */
 
 #endif /* __CMDCODES__ */

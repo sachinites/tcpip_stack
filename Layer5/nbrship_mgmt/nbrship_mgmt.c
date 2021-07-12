@@ -4,6 +4,7 @@
 #include <time.h>
 #include <stdint.h>
 #include "nbrship_mgmt.h"
+#include "nbrship_mgmt_cmd_codes.h"
 
 #define ADJ_DEF_EXPIRY_TIMER    10
 
@@ -755,9 +756,6 @@ int
 nmp_config_cli_tree(param_t *param) {
 
     {
-        assert(get_current_branch_hook(param) ==
-                libcli_get_config_hook());
-
         /* conf node <node-name> [no] protocol nmp */
         static param_t nmp_proto;
         init_param(&nmp_proto, CMD, "nmp", nbrship_mgmt_handler, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
@@ -792,8 +790,6 @@ int
 nmp_show_cli_tree(param_t *param) {
 
     {
-        assert(get_current_branch_hook(param) ==
-                libcli_get_show_hook());
         /*  show node <node-name> protocol nmp ...*/
         static param_t nmp_proto;
         init_param(&nmp_proto, CMD, "nmp", 0, 0, INVALID, 0, "nmp (Nbr Mgmt Protocol)");
