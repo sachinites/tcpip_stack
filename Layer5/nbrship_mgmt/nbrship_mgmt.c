@@ -401,6 +401,8 @@ adjacency_refresh_expiry_timer(interface_t *interface,
 static void
 timer_expire_delete_adjacency_cb(void *arg, uint32_t sizeof_arg){
 
+    if (!arg) return;
+
     adj_key_t *adj_key = (adj_key_t *)arg;
     delete_interface_adjacency(adj_key->interface, 
                                adj_key->nbr_rtr_id); 

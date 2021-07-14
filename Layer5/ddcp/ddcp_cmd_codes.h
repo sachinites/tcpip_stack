@@ -27,6 +27,12 @@
 
 #define CMDCODE_CONF_NODE_DDCP_PROTO    4  /* conf node <node-name> protocol ddcp */
 
+/* conf node <node-name> protocol ddcp interface <if-name> */
+#define CMDCODE_CONF_NODE_DDCP_PROTO_INTF_ENABLE    5
+
+/*  conf node <node-name> protocol ddcp interface all */
+#define CMDCODE_CONF_NODE_DDCP_PROTO_INTF_ALL_ENABLE 6
+
 #endif /* __DDCP_CMD_CODES__  */
 
 

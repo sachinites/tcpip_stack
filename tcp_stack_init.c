@@ -31,10 +31,9 @@
 extern void event_dispatcher_init();
 extern void event_dispatcher_run();
 extern void init_pkt_recv_queue();
-extern void nf_init_netfilters();
-extern void init_spf_algo();
-extern void nbrship_mgmt_init();
 extern void init_tcp_logging();
+extern void init_spf_algo();
+
 void
 init_tcp_ip_stack(){
 

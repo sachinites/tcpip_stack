@@ -103,7 +103,6 @@ extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
-extern void init_ddcp_query_db(ddcp_db_t **ddcp_db);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 
 static inline void
@@ -188,7 +187,6 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
         sizeof(intf_nw_props->mac_add.mac));
     intf_nw_props->intf_l2_mode = L2_MODE_UNKNOWN;
     memset(intf_nw_props->vlans, 0, sizeof(intf_nw_props->vlans));
-    init_ddcp_interface_props(&intf_nw_props->ddcp_interface_prop);
 
     /*L3 properties*/
     intf_nw_props->is_ipadd_config = false;

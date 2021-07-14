@@ -91,6 +91,11 @@ create_new_graph(char *topology_name){
     return graph;
 }
 
+extern void
+tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
+extern void
+tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
+
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
 
@@ -107,6 +112,9 @@ create_graph_node(graph_t *graph, char *node_name){
 	strncpy(node->layer2_proto_reg_db2.nfc_name,
 			"L2 proto registration db",
 			strlen("L2 proto registration db"));
+
+    tcp_ip_register_default_l2_pkt_trap_rules(node);
+    tcp_ip_register_default_l3_pkt_trap_rules(node);
 
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;

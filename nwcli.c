@@ -105,7 +105,7 @@ cli_register_application_cli_trees(param_t *param,
 }
 
 /* Display functions when user presses ?*/
-static void
+void
 display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;

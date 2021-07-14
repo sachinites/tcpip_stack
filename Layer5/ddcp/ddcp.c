@@ -323,7 +323,7 @@ ddcp_process_ddcp_query(node_t *node,
     return copy_buffer;
 }
 
-static void
+void
 ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
 
     char *pkt;
@@ -472,7 +472,7 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
 }
 
 
-static void
+void
 ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
 
     char *pkt;
@@ -710,8 +710,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 }
 
 /* DDCP pkt Trap functions */
-
-static bool
+bool
 ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
 
 	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
@@ -726,7 +725,7 @@ ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size) {
 	return false;
 }
 
-static bool
+bool
 ddcp_trap_l3_pkt_rule(char *pkt, size_t pkt_size) {
 
 	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
@@ -764,13 +763,13 @@ static void
 ddcp_init(node_t *node){
 
     if (!node->node_nw_prop.ddcp_db) {
-	    
+#if 0 
         tcp_stack_register_l2_pkt_trap_rule(
 			node, ddcp_trap_l2_pkt_rule, ddcp_process_ddcp_query_msg);
 
 		nf_register_netfilter_hook(node, NF_IP_LOCAL_IN,
 			ddcp_trap_l3_pkt_rule, ddcp_process_ddcp_reply_msg);
-
+#endif
         init_ddcp_query_db(&node->node_nw_prop.ddcp_db);
 	}
 }
@@ -779,13 +778,13 @@ static void
 ddcp_de_init(node_t *node){
 
     if (node->node_nw_prop.ddcp_db) {
-
+#if 0
         tcp_stack_de_register_l2_pkt_trap_rule(
                 node, ddcp_trap_l2_pkt_rule, ddcp_process_ddcp_query_msg);
 
         nf_de_register_netfilter_hook(node, NF_IP_LOCAL_IN,
                 ddcp_trap_l3_pkt_rule, ddcp_process_ddcp_reply_msg);
-
+#endif
         ddcp_cleanup_node_state(node);
     }
 }
@@ -807,10 +806,12 @@ int
 ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
              op_mode enable_or_disable){
 
+   int CMDCODE = -1;
    node_t *node = NULL;
    char *node_name = NULL;
-   int CMDCODE = -1;
+   char *intf_name = NULL;
    int ddcp_q_interval = 0 ;
+   interface_t *intf = NULL;
 
    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -822,6 +823,8 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
             node_name = tlv->value;
         else if(strncmp(tlv->leaf_id, "ddcp-q-interval", strlen("ddcp-q-interval")) == 0)
             ddcp_q_interval = atoi(tlv->value);
+        else if(strncmp(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
+            intf_name = tlv->value;
         else
             assert(0);
    } TLV_LOOP_END;
@@ -853,11 +856,51 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
             break;
         case CMDCODE_SHOW_DDCP_DB:
             ddcp_print_ddcp_reply_msgs_db(node);
+            break;
+        case CMDCODE_CONF_NODE_DDCP_PROTO_INTF_ENABLE:
+            switch(enable_or_disable) {
+			case CONFIG_ENABLE:
+                if(!ddcp_is_enabled_on_node(node)) {
+                    printf("Node %s : DDCP protocol not operational\n",
+                            node->node_name);
+                    break;
+                }
+                intf = get_node_if_by_name(node, intf_name);
+                if(!intf) {
+                    printf("Error : Non Existing interface\n");
+                    return -1;
+                }
+                if (!GET_DDCP_INTF_PROP(intf)) {
+                    init_ddcp_interface_props(&(GET_DDCP_INTF_PROP(intf)));
+                }
+                else if(GET_DDCP_INTF_PROP(intf)->is_enabled == false) {
+                    GET_DDCP_INTF_PROP(intf)->is_enabled = true;
+                }
+				break;
+			case CONFIG_DISABLE:
+                intf = get_node_if_by_name(node, intf_name);
+                if(!intf) {
+                    printf("Error : Non Existing interface\n");
+                    return -1;
+                }
+                if(GET_DDCP_INTF_PROP(intf)) {
+                    free(GET_DDCP_INTF_PROP(intf));
+                    GET_DDCP_INTF_PROP(intf) = NULL;
+                }
+				break;
+			default: ;		
+            }
+            break;
+        case CMDCODE_CONF_NODE_DDCP_PROTO_INTF_ALL_ENABLE:
+            break;
         default:
             ;
     }
     return 0;
 }
+
+extern void
+display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 
 /* conf node <node-name> protocol ... */
 int
@@ -867,7 +910,30 @@ ddcp_config_cli_tree(param_t *param) {
 		static param_t ddcp_proto;
 		init_param(&ddcp_proto, CMD, "ddcp", ddcp_handler, 0, INVALID, 0, "ddcp protocol");
 		libcli_register_param(param, &ddcp_proto);
-		set_param_cmd_code(&ddcp_proto, CMDCODE_CONF_NODE_DDCP_PROTO);	
+		set_param_cmd_code(&ddcp_proto, CMDCODE_CONF_NODE_DDCP_PROTO);
+        {
+            /* conf node <node-name> [no] protocol ddcp interface ... */
+            static param_t interface;
+            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "interface");
+            libcli_register_display_callback(&interface, display_node_interfaces);
+            libcli_register_param(&ddcp_proto, &interface);
+            {
+                /*  conf node <node-name> [no] protocol ddcp interface <intf-name> */
+                static param_t if_name;
+                init_param(&if_name, LEAF, 0, ddcp_handler, 0, STRING, "if-name",
+                        ("Interface Name"));
+                libcli_register_param(&interface, &if_name);
+                set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_DDCP_PROTO_INTF_ENABLE);
+            }
+            {
+                /*  conf node <node-name> [no] protocol ddcp interface all */
+                static param_t all;
+                init_param(&all, CMD, "all", ddcp_handler, 0, INVALID, 0,
+                        ("All Interfaces"));
+                libcli_register_param(&interface, &all);
+                set_param_cmd_code(&all, CMDCODE_CONF_NODE_DDCP_PROTO_INTF_ALL_ENABLE);
+            }
+        }
 	}
 	return 0;
 }

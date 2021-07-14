@@ -27,10 +27,14 @@ OBJS=gluethread/glthread.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
 		  pkt_gen.o \
+		  tcp_ip_default_traps.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
 		  Layer2/stp/stp_vlandb.o \
+
+tcp_ip_default_traps.o:tcp_ip_default_traps.c
+	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	

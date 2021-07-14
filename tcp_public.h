@@ -54,6 +54,12 @@
 #include "EventDispatcher/event_dispatcher.h"
 #include "Layer3/netfilter.h"
 
+extern void
+display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
+
+extern void
+display_graph_nodes(param_t *param, ser_buff_t *tlv_buf);
+
 extern graph_t * topo;
 
 #endif /* __TCP_IP_STACK__ */
