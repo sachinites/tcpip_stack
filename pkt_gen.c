@@ -7,6 +7,7 @@
  * */
 
 #include <unistd.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
 #include <memory.h>
 #include <stdio.h>
@@ -23,136 +24,76 @@
 
 /* Usage : Suppose you want to send the IP traffic from
  * Node S to node D, then set the below constants as follows */
-#define SRC_NODE_NAME			"R1"
-#define INGRESS_INTF_NAME       "eth7"      /*Specify Any existing interface of the node S.*/ 
+#define SRC_NODE_UDP_PORT_NO    40001       /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
+#define INGRESS_INTF_NAME       "eth1"      /*Specify Any existing interface of the node S.*/ 
 #define DEST_IP_ADDR            "122.1.1.3" /*Destination IP Address of the Remote node D of the topology*/
-#define PKTS_PER_SECOND			100			/* send 10 pkts per second, you can change it  */
 
-extern pkt_q_t recvr_pkt_q;
-extern graph_t *topo;
 
 static char send_buffer[MAX_PACKET_BUFFER_SIZE];
 
+static int
+_send_pkt_out(int sock_fd, char *pkt_data, uint32_t pkt_size, 
+        uint32_t dst_udp_port_no){
 
-typedef struct traffic_gen_info_{
+    int rc;
+    struct sockaddr_in dest_addr;
 
-	ip_add_t dest_ip_add;
-	glthread_t glue; 
-} traffic_gen_info_t;
-GLTHREAD_TO_STRUCT(glnode_to_traffic_gen_info,
-	traffic_gen_info_t, glue);
+    struct hostent *host = (struct hostent *) gethostbyname("127.0.0.1"); 
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = dst_udp_port_no;
+    dest_addr.sin_addr = *((struct in_addr *)host->h_addr);
 
-static void
-traffic_gen_info_add(node_t *node,
-					 char *ip_addr) {
+    rc = sendto(sock_fd, pkt_data, pkt_size, 0, 
+            (struct sockaddr *)&dest_addr, sizeof(struct sockaddr));
 
-	glthread_t *curr;
-
-	traffic_gen_info_t *traffic_gen_info = NULL;
-
-	ITERATE_GLTHREAD_BEGIN(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr){
-
-		traffic_gen_info = glnode_to_traffic_gen_info(curr);
-		if(strncmp(traffic_gen_info->dest_ip_add.ip_addr,
-					ip_addr, 16) == 0) {
-			printf("Traffic stream Already running\n");
-			return;
-		}
-	} ITERATE_GLTHREAD_END(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr);
-
-	traffic_gen_info = (traffic_gen_info_t *)calloc(1, sizeof(traffic_gen_info_t));
-	memcpy(traffic_gen_info->dest_ip_add.ip_addr, ip_addr, 16);
-	init_glthread(&traffic_gen_info->glue);
-	
-	glthread_add_next(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), &traffic_gen_info->glue);
-}
-
-static void
-traffic_gen_info_delete(node_t *node,
-						char *ip_addr) {
-
-	glthread_t *curr;
-
-	traffic_gen_info_t *traffic_gen_info = NULL;
-
-	ITERATE_GLTHREAD_BEGIN(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr){
-
-		traffic_gen_info = glnode_to_traffic_gen_info(curr);
-		if(strncmp(traffic_gen_info->dest_ip_add.ip_addr,
-					ip_addr, 16) == 0) {
-			remove_glthread(&traffic_gen_info->glue);
-			free(traffic_gen_info);
-			return;
-		}
-	} ITERATE_GLTHREAD_END(NODE_GET_TRAFFIC_GEN_DB_HEAD(node), curr);
-
-	printf("Traffic stream not found\n");
+    return rc;
 }
 
 
 int
-traffic_gen_handler(param_t *param,
-					ser_buff_t *tlv_buf,
-					op_mode enable_or_disable) {
-
-	return 0;
-}
-
-void
-pkt_gen(char *src_node_name,
-		char *ingress_intf_name,
-		char *dest_ip_addr){
+main(int argc, char **argv){
 
     uint32_t n_pkts_send = 0;
 
-	if (!src_node_name) 
-		src_node_name = SRC_NODE_NAME;
-	else if (!ingress_intf_name)
-		ingress_intf_name = INGRESS_INTF_NAME;
-	else if (!dest_ip_addr)
-		dest_ip_addr = DEST_IP_ADDR;
-		
+    int udp_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+    
+    if(udp_sock_fd == -1){
+        printf("Socket Creation Failed, errno = %d\n", errno);
+        return 0;
+    }
+
     memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
 
-    /*Prepare pseudo ethernet hdr*/
-    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer);
 
+    /*Provide Auxillay information - ingress intf name*/
+    strncpy(send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
+
+    /*Prepare pseudo ethernet hdr*/
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer + IF_NAME_SIZE);
     /*Dont bother about MAC addresses, just fill them with broadcast mac*/
     layer2_fill_with_broadcast_mac(eth_hdr->src_mac.mac);
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
 
     eth_hdr->type = ETH_IP;
-    SET_COMMON_ETH_FCS(eth_hdr, IP_HDR_DEFAULT_SIZE, 0);
+    SET_COMMON_ETH_FCS(eth_hdr, 20, 0);
 
     /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
     initialize_ip_hdr(ip_hdr);
     ip_hdr->protocol = ICMP_PRO;
-    ip_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(dest_ip_addr);
+    ip_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(DEST_IP_ADDR);
 
-    uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 20;
-
-	ev_dis_pkt_data_t *ev_dis_pkt_data = NULL;
-
-	node_t *node = get_node_by_node_name(topo, src_node_name);
-	if(!node) return;
-
-	interface_t *intf = get_node_if_by_name(node, ingress_intf_name);
-	if(!intf) return;
- 	
+    uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
+                               20 +
+                               IF_NAME_SIZE;
+    int rc = 0 ;
     while(1){
-
-		ev_dis_pkt_data = calloc(1, sizeof(ev_dis_pkt_data_t));
-
-		ev_dis_pkt_data->recv_node = node;
-		ev_dis_pkt_data->recv_intf = intf;
-		ev_dis_pkt_data->pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
-		memcpy(ev_dis_pkt_data->pkt, (char *)eth_hdr, total_data_size);
-		ev_dis_pkt_data->pkt_size = total_data_size;
-
-		pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
-		printf("No of pkt sent = %u\n", n_pkts_send++);
-        usleep(1000000/PKTS_PER_SECOND); /*100 msec, i.e. 10pkts per sec*/
+        rc = _send_pkt_out(udp_sock_fd, send_buffer, 
+                total_data_size, SRC_NODE_UDP_PORT_NO);
+                n_pkts_send++;
+        printf("No of bytes sent = %d, pkt no = %u\n", rc, n_pkts_send);
+        usleep(100 * 1000); /*100 msec, i.e. 10pkts per sec*/
     }
+    close(udp_sock_fd);
+    return 0;
 }
-

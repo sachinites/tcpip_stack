@@ -47,9 +47,6 @@ extern void tcp_ip_traceoptions_cli(param_t *node_name_param,
 extern int traceoptions_handler(param_t *param,
                                 ser_buff_t *tlv_buf,
                                 op_mode enable_or_disable);
-extern int traffic_gen_handler(param_t *param,
-							   ser_buff_t *tlv_buf,
-							   op_mode enable_or_disable);
 /*
  * In the CLI hierarchy, it is very common to hook up new CLIs (config and show)
  * at node and interface level. Provided the mechanism where App developer can 
@@ -986,19 +983,6 @@ nw_init_cli(){
                 static param_t if_name;
                 init_param(&if_name, LEAF, 0, 0, 0, STRING, "if-name", "Interface Name");
                 libcli_register_param(&interface, &if_name);
-
-				{
-					static param_t traff_gen;
-					init_param(&traff_gen, CMD, "traffic-gen", 0, 0, INVALID, 0, "\"Traffic Gen Tool\" keyword");
-					libcli_register_param(&if_name, &traff_gen);
-					{
-						static param_t ip_addr;
-						init_param(&ip_addr, LEAF, 0, traffic_gen_handler, 0, IPV4, "ip-address", "Dest Ipv4 Address"); 
-						libcli_register_param(&traff_gen, &ip_addr);
-					    set_param_cmd_code(&ip_addr, CMDCODE_CONF_NODE_TRAFFIC_GEN);	
-					}
-					
-				}
 	
                 {
                     /*CLI for traceoptions at interface level are hooked up here in tree */

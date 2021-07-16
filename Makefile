@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g
-TARGET:tcpstack.exe CommandParser/libcli.a
+TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe
 LIBS=-lpthread -L ./CommandParser -lcli -lrt
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
@@ -26,7 +26,6 @@ OBJS=gluethread/glthread.o \
  		  tcpip_notif.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
-		  pkt_gen.o \
 		  tcp_ip_default_traps.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
@@ -39,6 +38,9 @@ tcp_ip_default_traps.o:tcp_ip_default_traps.c
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
 
+pkt_gen.exe:pkt_gen.o utils.o
+	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
+	
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 

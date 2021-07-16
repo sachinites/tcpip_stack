@@ -33,6 +33,7 @@ extern void event_dispatcher_run();
 extern void init_pkt_recv_queue();
 extern void init_tcp_logging();
 extern void init_spf_algo();
+extern void network_start_pkt_receiver_thread();
 
 void
 init_tcp_ip_stack(){
@@ -45,4 +46,5 @@ init_tcp_ip_stack(){
 	/*  Now initialize all applications */
 	init_tcp_logging();
     init_spf_algo();
+	network_start_pkt_receiver_thread();
 }

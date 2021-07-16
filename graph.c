@@ -95,6 +95,8 @@ extern void
 tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
 extern void
 tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
+extern void 
+init_udp_socket(node_t *node);
 
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
@@ -103,10 +105,14 @@ create_graph_node(graph_t *graph, char *node_name){
     strncpy(node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE] = '\0';
 
+    init_udp_socket(node);
+
     init_node_nw_prop(&node->node_nw_prop);
-    init_glthread(&node->graph_glue);
+
     node->spf_data = NULL;
+
     tcp_ip_init_node_log_info(node);
+
 	nf_init_netfilters(&node->nf_hook_db);
 
 	strncpy(node->layer2_proto_reg_db2.nfc_name,
@@ -116,6 +122,7 @@ create_graph_node(graph_t *graph, char *node_name){
     tcp_ip_register_default_l2_pkt_trap_rules(node);
     tcp_ip_register_default_l3_pkt_trap_rules(node);
 
+    init_glthread(&node->graph_glue);
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
 }
@@ -139,7 +146,9 @@ void dump_node(node_t *node){
     unsigned int i = 0;
     interface_t *intf;
 
-    printf("Node Name = %s : \n", node->node_name);
+    printf("Node Name = %s UDP Port # : %u\n",
+        node->node_name, node->udp_port_number);
+
     for( ; i < MAX_INTF_PER_NODE; i++){
         
         intf = node->intf[i];
