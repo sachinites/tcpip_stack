@@ -63,10 +63,10 @@ transmit_hellos(void *arg, uint32_t sizeof_arg){
 
     if (!arg) return;
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)arg;
-    send_pkt_out(pkt_meta_data->pkt, pkt_meta_data->pkt_size,
-            pkt_meta_data->intf);
     intf_nmp_t *intf_nmp = NMP_GET_INTF_NMPDS(pkt_meta_data->intf);
     assert(intf_nmp);
+    send_pkt_out(pkt_meta_data->pkt, pkt_meta_data->pkt_size,
+            pkt_meta_data->intf);
     intf_nmp->sent++;
 }
 

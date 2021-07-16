@@ -32,6 +32,15 @@ typedef enum {
 	NF_IP_END
 } nf_hook_t;
 
+/* Net filter Actions */
+#define NF_DROP		0 
+#define NF_ACCEPT	1
+#define NF_STOLEN	2
+#define NF_QUEUE	3
+#define NF_REPEAT	4
+#define NF_STOP		5
+#define NF_MAX_VERDICT  NF_STOP
+
 typedef struct nf_hook_db_ {
 
 	notif_chain_t nf_hook[NF_IP_END];
@@ -43,7 +52,7 @@ nf_init_netfilters(nf_hook_db_t *nf_hook_db);
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
 
-void
+int8_t
 nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
                          char *pkt,
                          size_t pkt_size,

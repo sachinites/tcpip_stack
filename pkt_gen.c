@@ -24,9 +24,13 @@
 
 /* Usage : Suppose you want to send the IP traffic from
  * Node S to node D, then set the below constants as follows */
-#define SRC_NODE_UDP_PORT_NO    40001       /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
-#define INGRESS_INTF_NAME       "eth1"      /*Specify Any existing interface of the node S.*/ 
-#define DEST_IP_ADDR            "122.1.1.3" /*Destination IP Address of the Remote node D of the topology*/
+
+/*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
+int SRC_NODE_UDP_PORT_NO =    40001   ;    
+/*Specify Any existing interface of the node S.*/ 
+char *INGRESS_INTF_NAME  =    "eth1"  ;   
+/*Destination IP Address of the Remote node D of the topology*/
+char *DEST_IP_ADDR       =    "122.1.1.3";  
 
 
 static char send_buffer[MAX_PACKET_BUFFER_SIZE];
@@ -62,6 +66,27 @@ main(int argc, char **argv){
         return 0;
     }
 
+    switch (argc) {
+
+        case 1:
+            break;
+        case 2:
+            SRC_NODE_UDP_PORT_NO = atoi(argv[1]);
+            break;
+        case 3:
+            SRC_NODE_UDP_PORT_NO = atoi(argv[1]);
+            INGRESS_INTF_NAME = argv[2];
+            break;
+        case 4:
+            SRC_NODE_UDP_PORT_NO = atoi(argv[1]);
+            INGRESS_INTF_NAME = argv[2];
+            DEST_IP_ADDR = argv[3];
+            break;
+        default:
+            printf("Usage : ./pkt_gen.exe <port-no> <ingress-intf-name> <dest ip addr>\n");
+            return 0;
+    }
+    
     memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
 
 

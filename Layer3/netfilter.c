@@ -44,7 +44,7 @@ nf_init_netfilters(nf_hook_db_t *nf_hook_db) {
 					"NF_IP_POST_ROUTING");
 }
 
-void
+int8_t
 nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
 						 char *pkt,
 						 size_t pkt_size,
@@ -62,11 +62,14 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
     pkt_notif_data.pkt = pkt;
     pkt_notif_data.pkt_size = pkt_size;
 	pkt_notif_data.hdr_code = hdr_code;
+    pkt_notif_data.return_code = NF_ACCEPT;
 
     nfc_invoke_notif_chain(nfc,
 			(void *)&pkt_notif_data,
             sizeof(pkt_notif_data_t),
             pkt, pkt_size);
+
+    return pkt_notif_data.return_code;
 }
 
 void

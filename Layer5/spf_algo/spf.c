@@ -613,14 +613,14 @@ show_spf_results(node_t *node){
 }
 
 static void
-compute_spf_all_routers(graph_t *topo){
+compute_spf_all_nodes(graph_t *topo){
 
     glthread_t *curr;
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
 		task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
-		//compute_spf(node);
+
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
 
@@ -648,14 +648,14 @@ RUN_SPF:
      * the node on which interface is made up/down
      * or any other intf config is changed
      * otherwise it may lead to L3 loops*/
-    compute_spf_all_routers(topo);
+    compute_spf_all_nodes(topo);
 }
 
 
 void
 init_spf_algo(){
     
-    compute_spf_all_routers(topo);
+    compute_spf_all_nodes(topo);
 	nfc_intf_register_for_events(spf_algo_interface_update);
 }
 
@@ -689,7 +689,7 @@ spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
             compute_spf(node);
             break;
         case CMDCODE_RUN_SPF_ALL:
-            compute_spf_all_routers(topo);
+            compute_spf_all_nodes(topo);
             break;
         default:
             break;

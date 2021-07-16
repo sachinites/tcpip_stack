@@ -111,6 +111,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 					           char *pkt,
 							   uint32_t pkt_size) {
 
+    int8_t nf_result;
     char *l4_hdr, *l5_hdr;
     char dest_ip_addr[16];
     ip_hdr_t *ip_hdr = NULL;
@@ -122,8 +123,20 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     uint32_t dst_ip = htonl(ip_hdr->dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_addr, 16);
 
-	nf_invoke_netfilter_hook(NF_IP_PRE_ROUTING,
-			pkt, pkt_size, node, interface, ETH_HDR);
+    nf_result = nf_invoke_netfilter_hook(
+            NF_IP_PRE_ROUTING,
+            pkt, pkt_size, node,
+            interface,
+            ETH_HDR);
+
+    switch(nf_result) {
+        case NF_ACCEPT:
+        break;
+        case NF_DROP:
+        case NF_STOLEN:
+        case NF_STOP:
+        return;
+    }
 
     /*Implement Layer 3 forwarding functionality*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
@@ -204,21 +217,45 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 
     nexthop = l3_route_get_active_nexthop(l3_route);
 	if(!nexthop) return;
-    
-	nf_invoke_netfilter_hook(NF_IP_FORWARD,
-		(char *)ip_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
-		node, nexthop->oif, IP_HDR);
-	
+
+    nf_result = nf_invoke_netfilter_hook(
+                    NF_IP_FORWARD,
+		            (char *)ip_hdr,
+                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+		            node, nexthop->oif,
+                    IP_HDR);
+
+    switch (nf_result) {
+    case NF_ACCEPT:
+        break;
+    case NF_DROP:
+    case NF_STOLEN:
+    case NF_STOP:
+        return;
+    }
+
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
    
     tcp_dump_l3_fwding_logger(node, 
         nexthop->oif->if_name, nexthop->gw_ip);
 
-	nf_invoke_netfilter_hook(NF_IP_POST_ROUTING,
-		(char *)ip_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
-		node, nexthop->oif, IP_HDR);
-	
+    nf_result = nf_invoke_netfilter_hook(
+                    NF_IP_POST_ROUTING,
+		            (char *)ip_hdr,
+                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+		            node, nexthop->oif,
+                    IP_HDR);
+
+    switch (nf_result) {
+    case NF_ACCEPT:
+        break;
+    case NF_DROP:
+    case NF_STOLEN:
+    case NF_STOP:
+        return;
+    }
+
     demote_pkt_to_layer2(node, 
             next_hop_ip,
             nexthop->oif->if_name,
@@ -363,7 +400,9 @@ dump_rt_table(rt_table_t *rt_table){
     int count = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
+    
     printf("L3 Routing Table:\n");
+
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
 
         l3_route = rt_glue_to_l3_route(curr);
@@ -641,9 +680,21 @@ demote_packet_to_layer3(node_t *node,
 
     if(is_direct_route){
 
-		nf_invoke_netfilter_hook(NF_IP_LOCAL_OUT,
-				shifted_pkt_buffer, new_pkt_size,
-				node, NULL, IP_HDR);
+        int8_t nf_result = nf_invoke_netfilter_hook(
+                NF_IP_LOCAL_OUT,
+				shifted_pkt_buffer,
+                new_pkt_size,
+				node, NULL,
+                IP_HDR);
+
+        switch (nf_result) {
+        case NF_ACCEPT:
+            break;
+        case NF_DROP:
+        case NF_STOLEN:
+        case NF_STOP:
+            return;
+        }
 
         demote_pkt_to_layer2(node,
                          dest_ip_address,
@@ -671,9 +722,22 @@ demote_packet_to_layer3(node_t *node,
     tcp_dump_l3_fwding_logger(node,
         nexthop->oif->if_name, nexthop->gw_ip);
 
-	nf_invoke_netfilter_hook(NF_IP_LOCAL_OUT,
-				shifted_pkt_buffer, new_pkt_size,
-				node, nexthop->oif, IP_HDR);
+    int8_t nf_result = nf_invoke_netfilter_hook(
+            NF_IP_LOCAL_OUT,
+			shifted_pkt_buffer,
+            new_pkt_size,
+			node, nexthop->oif,
+            IP_HDR);
+
+    switch (nf_result) {
+    case NF_ACCEPT:
+        break;
+    case NF_DROP:
+    case NF_STOLEN:
+    case NF_STOP:
+        free(new_pkt);
+        return;
+    }
 
     demote_pkt_to_layer2(node,
             next_hop_ip,

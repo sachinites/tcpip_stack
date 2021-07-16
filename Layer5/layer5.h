@@ -44,6 +44,7 @@ typedef struct pkt_notif_data_{
 	char *pkt;
 	uint32_t pkt_size;
 	hdr_type_t hdr_code;
+	int8_t return_code;
 } pkt_notif_data_t;
 
 void
