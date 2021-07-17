@@ -90,7 +90,7 @@ bool node_set_loopback_address(node_t *node, char *ip_addr){
 bool node_set_intf_ip_address(node_t *node, char *local_if, 
                                 char *ip_addr, char mask) {
 
-    interface_t *interface = get_node_if_by_name(node, local_if);
+    interface_t *interface = node_get_intf_by_name(node, local_if);
     if(!interface) assert(0);
 
     strncpy(IF_IP(interface), ip_addr, 16);

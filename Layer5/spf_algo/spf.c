@@ -678,7 +678,7 @@ spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
     }TLV_LOOP_END;
 
     if(node_name){
-        node = get_node_by_node_name(topo, node_name);
+        node = node_get_node_by_name(topo, node_name);
     }
 
     switch(CMDCODE){

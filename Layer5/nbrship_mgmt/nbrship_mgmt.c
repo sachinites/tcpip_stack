@@ -679,10 +679,10 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
             assert(0);
     } TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
 
 	if(if_name) {
-    	intf = get_node_if_by_name(node, if_name);
+    	intf = node_get_intf_by_name(node, if_name);
 	}
 
     switch(CMDCODE){

@@ -221,7 +221,7 @@ node_get_next_udp_port_number(){
 }
 
 void
-init_udp_socket(node_t *node){
+node_init_udp_socket(node_t *node){
 
     if(node->udp_port_number)
         return;
@@ -253,7 +253,7 @@ _pkt_receive(node_t *receving_node,
             uint32_t pkt_size){
 
     char *recv_intf_name = pkt_with_aux_data;
-    interface_t *recv_intf = get_node_if_by_name(receving_node, recv_intf_name);
+    interface_t *recv_intf = node_get_intf_by_name(receving_node, recv_intf_name);
 
     if(!recv_intf){
         printf("Error : Pkt recvd on unknown interface %s on node %s\n", 
@@ -316,7 +316,9 @@ _network_start_pkt_receiver_thread(void *arg){
             if(FD_ISSET(node->udp_sock_fd, &active_sock_fd_set)){
     
                 bytes_recvd = recvfrom(node->udp_sock_fd, (char *)recv_buffer, 
-                        MAX_PACKET_BUFFER_SIZE, 0, (struct sockaddr *)&sender_addr, &addr_len);
+                            MAX_PACKET_BUFFER_SIZE, 0,
+                            (struct sockaddr *)&sender_addr,
+                            &addr_len);
                 
                 _pkt_receive(node, recv_buffer, bytes_recvd);
             }

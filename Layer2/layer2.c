@@ -575,7 +575,7 @@ void
 node_set_intf_l2_mode(node_t *node, char *intf_name, 
                         intf_l2_mode_t intf_l2_mode){
 
-    interface_t *interface = get_node_if_by_name(node, intf_name);
+    interface_t *interface = node_get_intf_by_name(node, intf_name);
     assert(interface);
 
     interface_set_l2_mode(node, interface, intf_l2_mode_str(intf_l2_mode));
@@ -585,7 +585,7 @@ void
 node_set_intf_vlan_membsership(node_t *node, char *intf_name, 
                                 uint32_t vlan_id){
 
-    interface_t *interface = get_node_if_by_name(node, intf_name);
+    interface_t *interface = node_get_intf_by_name(node, intf_name);
     assert(interface);
 
     interface_set_vlan(node, interface, vlan_id);
@@ -611,7 +611,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
 
         /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
          * out of this interface*/
-        oif = get_node_if_by_name(node, outgoing_intf);
+        oif = node_get_intf_by_name(node, outgoing_intf);
         assert(oif);
 
         arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);

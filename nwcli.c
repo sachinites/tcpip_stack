@@ -133,7 +133,7 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
     if(!node_name)
         return;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
     
     int i = 0;
     interface_t *intf;
@@ -176,7 +176,7 @@ validate_interface_metric_val(char *value){
 static int
 validate_node_extistence(char *node_name){
 
-    node_t *node = get_node_by_node_name(topo, node_name);
+    node_t *node = node_get_node_by_name(topo, node_name);
     if(node)
         return VALIDATION_SUCCESS;
     printf("Error : Node %s do not exist\n", node_name);
@@ -240,7 +240,7 @@ show_nw_topology_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_
     } TLV_LOOP_END;
 
     if(node_name)
-        node = get_node_by_node_name(topo, node_name);
+        node = node_get_node_by_name(topo, node_name);
 
     switch(CMDCODE){
 
@@ -275,7 +275,7 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
     }TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
     dump_arp_table(NODE_ARP_TABLE(node));
     return 0;
 }
@@ -301,7 +301,7 @@ show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
 
     }TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
     dump_mac_table(NODE_MAC_TABLE(node));
     return 0;
 }
@@ -329,7 +329,7 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
             ip_addr = tlv->value;
     } TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
     send_arp_broadcast_request(node, NULL, ip_addr);
     return 0;
 }
@@ -367,7 +367,7 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
             assert(0);
     }TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
 
     switch(CMDCODE){
 
@@ -401,7 +401,7 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
 
     }TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
     dump_rt_table(NODE_RT_TABLE(node));
     return 0;
 }
@@ -446,7 +446,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
 
     }TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
 
     char mask;
     if(mask_str){
@@ -460,7 +460,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                 {
                     interface_t *intf;
                     if(intf_name){
-                        intf = get_node_if_by_name(node, intf_name);
+                        intf = node_get_intf_by_name(node, intf_name);
                         if(!intf){
                             printf("Config Error : Non-Existing Interface : %s\n", intf_name);
                             return -1;
@@ -555,8 +555,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             assert(0);
     } TLV_LOOP_END;
 
-    node = get_node_by_node_name(topo, node_name);
-    interface = get_node_if_by_name(node, intf_name);
+    node = node_get_node_by_name(topo, node_name);
+    interface = node_get_intf_by_name(node, intf_name);
 
     if(!interface){
         printf("Error : Interface %s do not exist\n", interface->if_name);
@@ -655,7 +655,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
             assert(0);
     }TLV_LOOP_END;
 
-   node = get_node_by_node_name(topo, node_name);
+   node = node_get_node_by_name(topo, node_name);
 
    switch(CMDCODE){
         case CMDCODE_DEBUG_SHOW_NODE_TIMER:
@@ -691,7 +691,7 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
             assert(0);
     } TLV_LOOP_END;
    
-    node = get_node_by_node_name(topo, node_name);
+    node = node_get_node_by_name(topo, node_name);
 
     switch(CMDCODE){
 

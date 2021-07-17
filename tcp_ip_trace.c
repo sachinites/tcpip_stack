@@ -583,12 +583,12 @@ int traceoptions_handler(param_t *param,
             break;
         case CMDCODE_DEBUG_LOGGING_PER_NODE:
         case CMDCODE_DEBUG_SHOW_LOG_STATUS:
-            node =  get_node_by_node_name(topo, node_name);
+            node =  node_get_node_by_name(topo, node_name);
             log_info = &node->log_info;
         break;
         case CMDCODE_DEBUG_LOGGING_PER_INTF:
-            node =  get_node_by_node_name(topo, node_name);
-            intf = get_node_if_by_name(node, if_name);
+            node =  node_get_node_by_name(topo, node_name);
+            intf = node_get_intf_by_name(node, if_name);
             if(!intf){
                 printf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;

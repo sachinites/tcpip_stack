@@ -309,7 +309,7 @@ l2_switch_forward_frame(node_t *node, interface_t *recv_intf,
     }
 
     char *oif_name = mac_table_entry->oif_name;
-    interface_t *oif = get_node_if_by_name(node, oif_name);
+    interface_t *oif = node_get_intf_by_name(node, oif_name);
 
     if(!oif){
         return;

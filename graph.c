@@ -96,7 +96,7 @@ tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
 extern void
 tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
 extern void 
-init_udp_socket(node_t *node);
+node_init_udp_socket(node_t *node);
 
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
@@ -105,7 +105,7 @@ create_graph_node(graph_t *graph, char *node_name){
     strncpy(node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE] = '\0';
 
-    init_udp_socket(node);
+    node_init_udp_socket(node);
 
     init_node_nw_prop(&node->node_nw_prop);
 

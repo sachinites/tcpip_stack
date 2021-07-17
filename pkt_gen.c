@@ -100,7 +100,7 @@ main(int argc, char **argv){
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
 
     eth_hdr->type = ETH_IP;
-    SET_COMMON_ETH_FCS(eth_hdr, 20, 0);
+    SET_COMMON_ETH_FCS(eth_hdr, IP_HDR_DEFAULT_SIZE, 0);
 
     /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
@@ -109,7 +109,7 @@ main(int argc, char **argv){
     ip_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(DEST_IP_ADDR);
 
     uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
-                               20 +
+                               IP_HDR_DEFAULT_SIZE +
                                IF_NAME_SIZE;
     int rc = 0 ;
     while(1){

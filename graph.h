@@ -81,7 +81,6 @@ struct node_ {
 
     char node_name[NODE_NAME_SIZE];
     interface_t *intf[MAX_INTF_PER_NODE];
-    glthread_t graph_glue;
     
     /* For Network Sockets */
     unsigned int udp_port_number;
@@ -100,6 +99,8 @@ struct node_ {
 
 	/*L2 net-filter hook (simplified) */
 	notif_chain_t layer2_proto_reg_db2;
+    
+    glthread_t graph_glue;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 
@@ -150,7 +151,7 @@ get_node_intf_available_slot(node_t *node){
 }
 
 static inline interface_t *
-get_node_if_by_name(node_t *node, char *if_name){
+node_get_intf_by_name(node_t *node, char *if_name){
 
     int i ;
     interface_t *intf;
@@ -166,7 +167,7 @@ get_node_if_by_name(node_t *node, char *if_name){
 }
 
 static inline node_t *
-get_node_by_node_name(graph_t *topo, char *node_name){
+node_get_node_by_name(graph_t *topo, char *node_name){
 
     node_t *node;
     glthread_t *curr;    

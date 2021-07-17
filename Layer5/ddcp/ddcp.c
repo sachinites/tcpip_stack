@@ -830,7 +830,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
    } TLV_LOOP_END;
 
 
-   node = get_node_by_node_name(topo, node_name);
+   node = node_get_node_by_name(topo, node_name);
 
     switch(CMDCODE){
 		case CMDCODE_CONF_NODE_DDCP_PROTO:
@@ -865,7 +865,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
                             node->node_name);
                     break;
                 }
-                intf = get_node_if_by_name(node, intf_name);
+                intf = node_get_intf_by_name(node, intf_name);
                 if(!intf) {
                     printf("Error : Non Existing interface\n");
                     return -1;
@@ -878,7 +878,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
                 }
 				break;
 			case CONFIG_DISABLE:
-                intf = get_node_if_by_name(node, intf_name);
+                intf = node_get_intf_by_name(node, intf_name);
                 if(!intf) {
                     printf("Error : Non Existing interface\n");
                     return -1;
