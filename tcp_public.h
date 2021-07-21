@@ -31,9 +31,6 @@
 #ifndef __TCP_IP_STACK__
 #define __TCP_IP_STACK__
 
-#include <assert.h>
-#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-#include <stdint.h>
 #include "tcpconst.h"
 #include "graph.h"
 #include "net.h"

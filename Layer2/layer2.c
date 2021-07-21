@@ -711,7 +711,7 @@ demote_pkt_to_layer2(node_t *node, /*Current node*/
         case ETH_IP:
             {
                 ethernet_hdr_t *empty_ethernet_hdr = 
-                    ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
+                    TCP_IP_EXPAND_BUFFER_ETH_HDR(pkt, pkt_size); 
 
                 empty_ethernet_hdr->type = ETH_IP;
 

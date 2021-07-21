@@ -275,7 +275,7 @@ SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr,
 }
 
 static inline ethernet_hdr_t *
-ALLOC_ETH_HDR_WITH_PAYLOAD(char *pkt, uint32_t pkt_size){
+TCP_IP_EXPAND_BUFFER_ETH_HDR(char *pkt, uint32_t pkt_size){
 
     char *temp = calloc(1, pkt_size);   
     memcpy(temp, pkt, pkt_size);    
