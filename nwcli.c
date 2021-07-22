@@ -76,6 +76,7 @@ static cli_register_cb
 	{
 		ddcp_show_cli_tree,
 		nmp_show_cli_tree,
+        isis_show_cli_tree,
 		
         /* Add more CB here */
 

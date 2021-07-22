@@ -13,4 +13,7 @@ isis_de_init(node_t *node) ;
 void
 isis_protocol_shut_down(node_t *node);
 
+void
+isis_show_node_protocol_state(node_t *node);
+
 #endif

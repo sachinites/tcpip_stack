@@ -3,6 +3,8 @@
 #include "isis_const.h"
 #include "isis_struct.h"
 #include "isis_pkt.h"
+#include "isis_intf.h"
+#include "isis_nbrship.h"
 
 /* Checkig if protocol enable at node & intf level */
 bool
@@ -14,6 +16,23 @@ isis_node_is_enable(node_t *node) {
 void
 isis_protocol_shut_down(node_t *node) {
 
+}
+
+void
+isis_show_node_protocol_state(node_t *node) {
+
+    bool is_enabled ;
+    interface_t *intf;
+
+    is_enabled = isis_node_is_enable(node);
+
+    printf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+        isis_show_interface_protocol_state(intf);
+    } ITERATE_NODE_INTERFACES_END(node, intf);
 }
 
 void
@@ -48,4 +67,11 @@ isis_de_init(node_t *node) {
     isis_protocol_shut_down(node);
     
     assert(!node->node_nw_prop.isis_node_info);
+}
+
+void
+isis_one_time_registration() {
+
+    nfc_intf_register_for_events(isis_interface_updates);
+    nfc_register_for_pkt_tracing(ISIS_ETH_PKT_TYPE, isis_print_hello_pkt);
 }

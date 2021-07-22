@@ -26,4 +26,7 @@ nmp_show_cli_tree(param_t *param);
 int
 isis_config_cli_tree(param_t *param);
 
+int
+isis_show_cli_tree(param_t *param) ;
+
 #endif /* __APP_HANDLERS__ */

@@ -12,6 +12,8 @@ typedef struct isis_node_info_ {
 
 typedef struct isis_intf_info_ {
 
+    uint16_t hello_interval;
+    wheel_timer_elem_t *hello_xmit_timer;
 } isis_intf_info_t;
 
 #endif /* __ISIS_STRUCT__ */
