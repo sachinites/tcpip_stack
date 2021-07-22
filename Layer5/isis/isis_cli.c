@@ -1,9 +1,10 @@
 #include "../../tcp_public.h"
 #include "isis_cmdcodes.h"
-#include "isis_struct.h"
+#include "isis_pkt.h"
 #include "isis_rtr.h"
 #include "isis_intf.h"
-#include "isis_nbrship.h"
+#include "isis_adjacency.h"
+#include "isis_const.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -75,7 +76,7 @@ isis_intf_config_handler(param_t *param,
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE:
            intf = node_get_intf_by_name(node, intf_name);
             if(!intf) {
-                printf("Error : Non Existing Interface Specified\n");
+                printf(ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
             switch(enable_or_disable) {
@@ -140,6 +141,11 @@ isis_show_handler(param_t *param,
            isis_show_node_protocol_state(node);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF:
+            intf = node_get_intf_by_name(node, intf_name);
+            if(!intf) {
+                printf(ERROR_NON_EXISTING_INTF "\n");
+                return -1;
+            }
         break;
         default: ;
     }

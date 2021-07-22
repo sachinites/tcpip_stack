@@ -27,7 +27,7 @@ OBJS=gluethread/glthread.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
-		  Layer5/isis/isis_nbrship.o \
+		  Layer5/isis/isis_adjacency.o \
 		  Layer5/isis/isis_cli.o \
 		  Layer5/isis/isis_rtr.o \
 		  Layer5/isis/isis_intf.o \
@@ -38,8 +38,8 @@ OBJS=gluethread/glthread.o \
 		  Layer2/stp/stp_vlandb.o \
 
 # ISIS protocol Files
-Layer5/isis/isis_nbrship.o:Layer5/isis/isis_nbrship.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_nbrship.c -o Layer5/isis/isis_nbrship.o
+Layer5/isis/isis_adjacency.o:Layer5/isis/isis_adjacency.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_adjacency.c -o Layer5/isis/isis_adjacency.o
 
 Layer5/isis/isis_cli.o:Layer5/isis/isis_cli.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_cli.c -o Layer5/isis/isis_cli.o

@@ -12,4 +12,5 @@
 /* show node <node-name> protocol isis interface <if-name> */
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF 5
 
+
 #endif /* __ISIS_CMDCODES__ */

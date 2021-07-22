@@ -1,10 +1,9 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_const.h"
-#include "isis_struct.h"
 #include "isis_pkt.h"
 #include "isis_intf.h"
-#include "isis_nbrship.h"
+#include "isis_adjacency.h"
 
 /* Checkig if protocol enable at node & intf level */
 bool
@@ -49,10 +48,9 @@ isis_init(node_t *node ) {
     isis_node_info_t *isis_node_info = calloc(1, sizeof(isis_node_info_t));
     node->node_nw_prop.isis_node_info = isis_node_info;
 
-    isis_node_info->local_lsp_pkt = isis_generate_lsp_pkt(node, &lsp_pkt_size);
-    isis_node_info->lsp_pkt_size = lsp_pkt_size;
+    isis_node_info->isis_self_lsp_pkt = isis_generate_lsp_pkt(node);
 
-    isis_install_lsp_pkt_in_lspdb(node, isis_node_info->local_lsp_pkt, lsp_pkt_size);
+    isis_install_lsp_pkt_in_lspdb(node, &isis_node_info->isis_self_lsp_pkt);
 }
 
 void

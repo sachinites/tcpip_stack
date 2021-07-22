@@ -1,5 +1,4 @@
 #include "../../tcp_public.h"
-#include "isis_struct.h"
 #include "isis_intf.h"
 #include "isis_pkt.h"
 #include "isis_const.h"
@@ -101,15 +100,25 @@ isis_stop_sending_hellos(interface_t *intf){
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
 }
 
+static void
+isis_init_isis_intf_info (isis_intf_info_t *isis_intf_info) {
+
+    memset(isis_intf_info, 0, sizeof(isis_intf_info_t));
+    isis_intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
+    isis_intf_info->cost = ISIS_DEFAULT_INTF_COST;
+    init_glthread(&isis_intf_info->adj_list_head);
+}
+
 void
 isis_enable_protocol_on_interface(interface_t *intf) {
 
     isis_intf_info_t *isis_intf_info;
 
     if (!intf->intf_nw_props.isis_intf_info) {
+
         intf->intf_nw_props.isis_intf_info = calloc(1, sizeof(isis_intf_info_t));
         isis_intf_info = intf->intf_nw_props.isis_intf_info;
-        isis_intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
+        isis_init_isis_intf_info(isis_intf_info);
     }
     
     if (isis_intf_info->hello_xmit_timer == NULL) {

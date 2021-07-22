@@ -1,6 +1,14 @@
 #ifndef __ISIS_RTR__
 #define __ISIS_RTR__
 
+#include "isis_pkt.h"
+
+typedef struct isis_node_info_ {
+
+    isis_pkt_t isis_self_lsp_pkt;  /* defiend in isis_pkt.h */
+
+} isis_node_info_t;
+
 bool
 isis_node_is_enable(node_t *node) ;
 
