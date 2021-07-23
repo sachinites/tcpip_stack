@@ -15,6 +15,22 @@ isis_node_is_enable(node_t *node) {
 void
 isis_protocol_shut_down(node_t *node) {
 
+    interface_t *intf;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if(!isis_node_info) return;
+
+    isis_free_isis_pkt(&isis_node_info->isis_self_lsp_pkt);
+    
+    isis_cancel_lsp_pkt_generation_task(node);
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
+        
+        isis_disable_protocol_on_interface(intf);
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    node->node_nw_prop.isis_node_info = NULL;
 }
 
 void
@@ -48,9 +64,7 @@ isis_init(node_t *node ) {
     isis_node_info_t *isis_node_info = calloc(1, sizeof(isis_node_info_t));
     node->node_nw_prop.isis_node_info = isis_node_info;
 
-    isis_node_info->isis_self_lsp_pkt = isis_generate_lsp_pkt(node);
-
-    isis_install_lsp_pkt_in_lspdb(node, &isis_node_info->isis_self_lsp_pkt);
+    isis_schedule_lsp_pkt_generation(node, isis_event_protocol_enable);
 }
 
 void

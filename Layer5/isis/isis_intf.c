@@ -3,6 +3,7 @@
 #include "isis_pkt.h"
 #include "isis_const.h"
 #include "isis_adjacency.h"
+#include "isis_rtr.h"
 
 bool
 isis_node_intf_is_enable(interface_t *intf) {
@@ -17,7 +18,7 @@ isis_interface_qualify_to_send_hellos(interface_t *intf){
          IS_INTF_L3_MODE(intf) &&
          IF_IS_UP(intf)) {
              
-             return true;
+            return true;
     }
     return false;
 }
@@ -36,6 +37,7 @@ isis_transmit_hello(void *arg, uint32_t arg_size) {
     size_t pkt_size = isis_pkt_meta_data->pkt_size;
 
     if (hello_pkt && pkt_size) {
+        ISIS_INCREMENT_STATS(egress_intf, hello_pkt_sent);
         send_pkt_out(hello_pkt, pkt_size, egress_intf);
     }
 }
@@ -45,15 +47,12 @@ isis_start_sending_hellos(interface_t *intf) {
 
     node_t *node;
     size_t hello_pkt_size;
-    isis_intf_info_t *isis_intf_info;
 
     assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
     assert(isis_node_intf_is_enable(intf));
     
-    isis_intf_info = intf->intf_nw_props.isis_intf_info;
-
     node = intf->att_node;
-    wheel_timer_t *wt = node->node_nw_prop.wt;
+    wheel_timer_t *wt = node_get_timer_instance(node);
 
     char *hello_pkt = isis_get_hello_pkt(intf, &hello_pkt_size);
 
@@ -66,11 +65,11 @@ isis_start_sending_hellos(interface_t *intf) {
     isis_pkt_meta_data->pkt_size = hello_pkt_size;
 
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = timer_register_app_event(wt,
-                                    isis_transmit_hello,
-                                    (void *)isis_pkt_meta_data,
-                                    sizeof(isis_pkt_meta_data_t),
-                                    isis_intf_info->hello_interval * 1000,
-                                    1);
+                                        isis_transmit_hello,
+                                        (void *)isis_pkt_meta_data,
+                                        sizeof(isis_pkt_meta_data_t),
+                                        ISIS_INTF_HELLO_INTERVAL(intf) * 1000,
+                                        1);
 
     
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL) {
@@ -95,11 +94,21 @@ isis_stop_sending_hellos(interface_t *intf){
 
     timer_de_register_app_event(hello_xmit_timer);
 
-    free(isis_pkt_meta_data->pkt);
+    tcp_ip_free_pkt_buffer(isis_pkt_meta_data->pkt,
+        isis_pkt_meta_data->pkt_size);
+
     free(isis_pkt_meta_data);
 
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
 }
+
+void
+isis_refresh_intf_hellos(interface_t *intf) {
+
+    isis_stop_sending_hellos(intf);
+    isis_start_sending_hellos(intf);
+}
+
 
 static void
 isis_init_isis_intf_info (isis_intf_info_t *isis_intf_info) {
@@ -115,15 +124,20 @@ isis_enable_protocol_on_interface(interface_t *intf) {
 
     isis_intf_info_t *isis_intf_info;
 
-    if (!intf->intf_nw_props.isis_intf_info) {
+    if (!isis_node_is_enable(intf->att_node)) {
+        return;
+    }
 
-        intf->intf_nw_props.isis_intf_info = calloc(1, sizeof(isis_intf_info_t));
-        isis_intf_info = intf->intf_nw_props.isis_intf_info;
+    if (!ISIS_INTF_INFO(intf)) {
+
+        isis_intf_info = calloc(1, sizeof(isis_intf_info_t));
+        intf->intf_nw_props.isis_intf_info = isis_intf_info;
         isis_init_isis_intf_info(isis_intf_info);
     }
     
     if (isis_intf_info->hello_xmit_timer == NULL) {
-        if (isis_interface_qualify_to_send_hellos(intf)) {
+        if (isis_interface_qualify_to_send_hellos(intf) &&
+            !ISIS_INTF_INFO(intf)->hello_xmit_timer) {
             isis_start_sending_hellos(intf);
         }
     }
@@ -134,11 +148,13 @@ isis_disable_protocol_on_interface(interface_t *intf) {
 
     isis_intf_info_t *isis_intf_info;
 
-    isis_intf_info = intf->intf_nw_props.isis_intf_info;
+    isis_intf_info = ISIS_INTF_INFO(intf);
 
     if (!isis_intf_info) return;
 
     isis_stop_sending_hellos(intf);
+    isis_delete_all_adjacencies(intf);
+
     isis_free_intf_info(intf);
 }
 
@@ -187,6 +203,7 @@ isis_show_interface_protocol_state(interface_t *intf) {
 
         adjacency = glthread_to_isis_adjacency(curr);
         isis_show_adjacency(adjacency, 4);
+        printf("\n");
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr)
     printf("\n");
 }
@@ -194,10 +211,11 @@ isis_show_interface_protocol_state(interface_t *intf) {
 void
 isis_free_intf_info(interface_t *intf) {
 
-    assert(intf->intf_nw_props.isis_intf_info);
+    assert(ISIS_INTF_INFO(intf));
     assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
+    assert(IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)));
 
-    free(intf->intf_nw_props.isis_intf_info);
+    free(ISIS_INTF_INFO(intf));
     intf->intf_nw_props.isis_intf_info = NULL;
 }
 

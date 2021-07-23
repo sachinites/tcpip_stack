@@ -3,6 +3,8 @@
 #include "isis_pkt.h"
 #include "isis_intf.h"
 #include "isis_adjacency.h"
+#include "isis_rtr.h"
+#include "isis_events.h"
 
 bool
 isis_pkt_trap_rule(char *pkt, size_t pkt_size) {
@@ -22,8 +24,7 @@ isis_process_hello_pkt(node_t *node,
                        size_t pkt_size) {
 
     uint8_t intf_ip_len;
-    isis_intf_info_t *isis_intf_info = iif->intf_nw_props.isis_intf_info;
-    
+        
     if (!isis_node_intf_is_enable(iif)) return;
     
     /*Reject the pkt if dst mac is not Brodcast mac*/
@@ -34,9 +35,15 @@ isis_process_hello_pkt(node_t *node,
     /* Reject hello if ip_address in hello do not lies in same subnet as
      * reciepient interface*/
 
-    unsigned char *hello_pkt = (unsigned char *)GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
-    unsigned char *hello_tlv_buffer = hello_pkt + sizeof(isis_pkt_type_t);
-    size_t tlv_buff_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - sizeof(isis_pkt_type_t); 
+    unsigned char *hello_pkt = (unsigned char *)
+        GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
+    
+    unsigned char *hello_tlv_buffer =
+        hello_pkt + sizeof(isis_pkt_type_t);
+    
+    size_t tlv_buff_size = pkt_size - \
+                           ETH_HDR_SIZE_EXCL_PAYLOAD - \
+                           sizeof(isis_pkt_type_t); 
 
     /*Fetch the IF IP Address Value from TLV buffer*/
     char *if_ip_addr = tlv_buffer_get_particular_tlv(
@@ -57,7 +64,7 @@ isis_process_hello_pkt(node_t *node,
     return ;
 
     bad_hello:
-    isis_intf_info->bad_hello_pkt_recvd++;
+    ISIS_INCREMENT_STATS(iif, bad_hello_pkt_recvd);
 }
 
 static void
@@ -75,7 +82,7 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
     node_t *node;
     interface_t *iif;
     uint32_t pkt_size;
-	hdr_type_t hdr_code;
+    hdr_type_t hdr_code;
     ethernet_hdr_t *eth_hdr;
     pkt_notif_data_t *pkt_notif_data;
 
@@ -105,17 +112,51 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
     }
 }
 
-void
+static void
 isis_install_lsp_pkt_in_lspdb(node_t *node, 
                               isis_pkt_t *isis_lsp_pkt) {
 
 }
 
-isis_pkt_t
-isis_generate_lsp_pkt(node_t *node) {
+static void
+isis_create_fresh_lsp_pkt(node_t *node) {
 
-    isis_pkt_t isis_pkt;
-    return isis_pkt;
+}
+
+
+static void
+isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
+
+    node_t *node = (node_t *)arg;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    printf("Node : %s : LSP Generation task triggered\n",
+        node->node_name);
+        
+    isis_node_info->isis_lsp_pkt_gen_task = NULL;
+
+    /* Now generate LSP pkt */
+    isis_create_fresh_lsp_pkt(node);
+}
+
+void
+isis_schedule_lsp_pkt_generation(node_t *node, isis_events_t event_type) {
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_node_info) return;
+
+    if (isis_node_info->isis_lsp_pkt_gen_task) {
+        printf("Node %s : LSP generation Already scheduled, reason : %s\n",
+            node->node_name, isis_event(event_type));
+        return;
+    }
+
+    printf("Node %s : LSP generation scheduled, reason : %s\n",
+            node->node_name, isis_event(event_type));
+
+    isis_node_info->isis_lsp_pkt_gen_task =
+        task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
 }
 
 char *
@@ -127,7 +168,7 @@ isis_get_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
 
     uint32_t eth_hdr_playload_size =
                 sizeof(isis_pkt_type_t) +  /*ISIS pkt type code*/ 
-                (TLV_OVERHEAD_SIZE * 6) + /*There shall be four TLVs, hence 4 TLV overheads*/
+                (TLV_OVERHEAD_SIZE * 6) + /*There shall be Six TLVs, hence 4 TLV overheads*/
                 NODE_NAME_SIZE +    /*Data length of TLV: TLV_NODE_NAME*/
                 16 +                /*Data length of TLV_RTR_NAME which is 16*/
                 16 +                /*Data length of TLV_IF_IP which is 16*/
@@ -213,5 +254,20 @@ isis_print_hello_pkt(void *arg, size_t arg_size) {
     
     rc -= strlen(" :: ");
     pkt_info->bytes_written = rc;
+}
+
+void
+isis_cancel_lsp_pkt_generation_task(node_t *node) {
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    
+    if (!isis_node_info ||
+         !isis_node_info->isis_lsp_pkt_gen_task) {
+
+        return;
+    }
+
+    task_cancel_job(isis_node_info->isis_lsp_pkt_gen_task);
+    isis_node_info->isis_lsp_pkt_gen_task = NULL;    
 }
 
