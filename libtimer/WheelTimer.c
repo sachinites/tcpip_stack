@@ -219,7 +219,7 @@ init_wheel_timer(int wheel_size, int clock_tic_interval,
 
 
 static void
-_wt_elem_reschedule(wheel_timer_t *wt, 
+_timer_reschedule(wheel_timer_t *wt, 
                     wheel_timer_elem_t *wt_elem, 
                     int new_time_interval, 
                     wt_opcode_t opcode){
@@ -283,7 +283,7 @@ timer_register_app_event(wheel_timer_t *wt,
     init_glthread(&wt_elem->reschedule_glue);
     wt_elem->N_scheduled = 0;
     pthread_mutex_init(&wt_elem->mutex, NULL);
-    _wt_elem_reschedule(wt, wt_elem, time_interval, WTELEM_CREATE);
+    _timer_reschedule(wt, wt_elem, time_interval, WTELEM_CREATE);
     return wt_elem;
 }
 
@@ -291,18 +291,18 @@ void
 timer_de_register_app_event(wheel_timer_elem_t *wt_elem){
 
     wt_elem_get_and_set_app_data(wt_elem, 0);
-    _wt_elem_reschedule(wt_elem->wt, wt_elem, 0, WTELEM_DELETE);
+    _timer_reschedule(wt_elem->wt, wt_elem, 0, WTELEM_DELETE);
 }
 
 void
-wt_elem_reschedule(wheel_timer_elem_t *wt_elem, 
+timer_reschedule(wheel_timer_elem_t *wt_elem, 
                    int new_time_interval){
   
 	wheel_timer_t *wt = wt_elem->wt;
 	if(new_time_interval % wt_get_clock_interval_in_milli_sec(wt) != 0){
 		assert(0);
 	}   
-    _wt_elem_reschedule(wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
+    _timer_reschedule(wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
 }
 
 int

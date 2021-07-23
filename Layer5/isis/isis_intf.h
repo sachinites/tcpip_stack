@@ -25,6 +25,17 @@ typedef struct isis_intf_info_ {
 } isis_intf_info_t;
 
 
+/* Some short-hand macros to make life easy */
+#define ISIS_INTF_HELLO_XMIT_TIMER(intf_ptr)  \
+    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_xmit_timer)
+#define ISIS_INTF_COST(intf_ptr) \
+    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->cost)
+#define ISIS_INTF_HELLO_INTERVAL(intf_ptr) \
+    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_interval)
+#define ISIS_INTF_ADJ_LST_HEAD(intf_ptr) \
+    (&(((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->adj_list_head))
+
+
 bool
 isis_node_intf_is_enable(interface_t *intf) ;
 
@@ -40,15 +51,6 @@ isis_start_sending_hellos(interface_t *intf) ;
 void
 isis_stop_sending_hellos(interface_t *intf);
 
-
-#define ISIS_INTF_HELLO_XMIT_TIMER(intf_ptr)  \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_xmit_timer)
-
-#define ISIS_INTF_COST(intf_ptr) \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->cost)
-
-#define ISIS_INTF_HELLO_INTERVAL(intf_ptr) \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_interval)
 
 void
 isis_show_interface_protocol_state(interface_t *intf);

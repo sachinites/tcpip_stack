@@ -152,7 +152,7 @@ void
 timer_de_register_app_event(wheel_timer_elem_t *wt_elem);
 
 void
-wt_elem_reschedule(wheel_timer_elem_t *wt_elem, 
+timer_reschedule(wheel_timer_elem_t *wt_elem, 
                    int new_time_interval);
 
 void

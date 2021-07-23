@@ -841,7 +841,7 @@ void
 arp_entry_refresh_expiration_timer(
 	arp_entry_t *arp_entry) {
 
-	wt_elem_reschedule(arp_entry->exp_timer_wt_elem,
+	timer_reschedule(arp_entry->exp_timer_wt_elem,
 		ARP_ENTRY_EXP_TIME * 1000);
 }
 

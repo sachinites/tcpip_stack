@@ -395,7 +395,7 @@ adjacency_refresh_expiry_timer(interface_t *interface,
     
     assert(wt_elem);
 
-    wt_elem_reschedule(wt_elem, ADJ_DEF_EXPIRY_TIMER * 1000);
+    timer_reschedule(wt_elem, ADJ_DEF_EXPIRY_TIMER * 1000);
 }
 
 static void
