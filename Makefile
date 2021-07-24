@@ -33,6 +33,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_intf.o \
 		  Layer5/isis/isis_pkt.o \
 		  Layer5/isis/isis_events.o \
+		  Layer5/isis/isis_flood.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -53,6 +54,9 @@ Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
 
 Layer5/isis/isis_pkt.o:Layer5/isis/isis_pkt.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_pkt.c -o Layer5/isis/isis_pkt.o
+
+Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.o
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_flood.c -o Layer5/isis/isis_flood.o
 
 Layer5/isis/isis_events.o:Layer5/isis/isis_events.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_events.c -o Layer5/isis/isis_events.o

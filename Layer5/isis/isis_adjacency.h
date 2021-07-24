@@ -77,4 +77,7 @@ isis_delete_interface_adjacency(isis_adjacency_t *adjacency);
 void
 isis_delete_all_adjacencies(interface_t *intf);
 
+bool
+isis_any_adjacency_up_on_interface(interface_t *intf);
+
 #endif /* __IGP_NBRSHIP__ */

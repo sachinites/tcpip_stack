@@ -22,7 +22,14 @@ typedef struct isis_intf_info_ {
 
     /* Adj list on this interface */
     glthread_t adj_list_head;
+    glthread_t purge_glue;
+    glthread_t lsp_xmit_list_head;
+
+    task_t *lsp_xmit_job;
+
 } isis_intf_info_t;
+GLTHREAD_TO_STRUCT(isis_purge_glue_to_isis_intf_info,
+        isis_intf_info_t, purge_glue);
 
 
 /* Some short-hand macros to make life easy */
@@ -38,7 +45,6 @@ typedef struct isis_intf_info_ {
     (&(((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->adj_list_head))
 #define ISIS_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
-
 
 
 bool
@@ -63,9 +69,10 @@ void
 isis_show_interface_protocol_state(interface_t *intf);
 
 void
-isis_free_intf_info(interface_t *intf);
-
-void
 isis_interface_updates(void *arg, size_t arg_size);
+
+void 
+isis_check_and_delete_intf_info(interface_t *intf);
+
 
 #endif // ! __ISIS_INTF__

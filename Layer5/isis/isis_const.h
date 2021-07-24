@@ -22,6 +22,6 @@
     "Error : Non Existing Interface Specified"
 
 #define ISIS_ERROR_PROTO_NOT_ENABLE \
-    "Error : ISIS Protocol not enabled on Device"
+    "Error : Protocol not enabled on Device"
 
 #endif 

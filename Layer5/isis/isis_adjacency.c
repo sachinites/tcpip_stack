@@ -351,11 +351,10 @@ isis_change_adjacency_state(
 
         switch(new_adj_state){
                 case ISIS_ADJ_STATE_DOWN:
-                {
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
-                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_down);                }
+                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_down);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);
@@ -384,4 +383,23 @@ isis_get_next_adj_state_on_receiving_next_hello(
             return ISIS_ADJ_STATE_UP;
         default : ; 
     }   
+}
+
+bool
+isis_any_adjacency_up_on_interface(interface_t *intf) {
+
+    glthread_t *curr;
+    isis_adjacency_t *adjacency;
+
+    ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
+
+        adjacency = glthread_to_isis_adjacency(curr);
+
+        if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+            return true;
+        }
+
+    } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    return false;
 }

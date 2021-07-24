@@ -72,19 +72,21 @@ isis_intf_config_handler(param_t *param,
 
     node = node_get_node_by_name(topo, node_name);
     
+    if (!isis_is_protocol_enable_on_node(node)) {
+        printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        return -1;
+    }
+    
     switch(cmdcode) {
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE:
            intf = node_get_intf_by_name(node, intf_name);
+
             if(!intf) {
                 printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    if (!isis_node_is_enable(node)) {
-                        printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
-                        return -1;      
-                    }
                     isis_enable_protocol_on_interface(intf);
                     break;
                 case CONFIG_DISABLE:
@@ -96,11 +98,7 @@ isis_intf_config_handler(param_t *param,
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ALL_ENABLE:
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    if (!isis_node_is_enable(node)) {
-                        printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
-                        return -1;      
-                    }
-                    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+                   ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
                         isis_enable_protocol_on_interface(intf);
                     } ITERATE_NODE_INTERFACES_END(node, intf);
                     break;

@@ -111,12 +111,14 @@ isis_refresh_intf_hellos(interface_t *intf) {
 
 
 static void
-isis_init_isis_intf_info (isis_intf_info_t *isis_intf_info) {
-
+isis_init_isis_intf_info (interface_t *intf) {
+    
+    isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(intf);
     memset(isis_intf_info, 0, sizeof(isis_intf_info_t));
     isis_intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     isis_intf_info->cost = ISIS_DEFAULT_INTF_COST;
     init_glthread(&isis_intf_info->adj_list_head);
+    init_glthread(&isis_intf_info->purge_glue);
 }
 
 void
@@ -124,7 +126,7 @@ isis_enable_protocol_on_interface(interface_t *intf) {
 
     isis_intf_info_t *isis_intf_info;
 
-    if (!isis_node_is_enable(intf->att_node)) {
+    if (!isis_is_protocol_enable_on_node(intf->att_node)) {
         return;
     }
 
@@ -132,7 +134,7 @@ isis_enable_protocol_on_interface(interface_t *intf) {
 
         isis_intf_info = calloc(1, sizeof(isis_intf_info_t));
         intf->intf_nw_props.isis_intf_info = isis_intf_info;
-        isis_init_isis_intf_info(isis_intf_info);
+        isis_init_isis_intf_info(intf);
     }
     
     if (isis_intf_info->hello_xmit_timer == NULL) {
@@ -141,6 +143,35 @@ isis_enable_protocol_on_interface(interface_t *intf) {
             isis_start_sending_hellos(intf);
         }
     }
+}
+
+static void
+isis_free_intf_info(interface_t *intf) {
+
+    if (!ISIS_INTF_INFO(intf)) return;
+
+    assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
+    assert(IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)));
+    assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->purge_glue));
+    assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head));
+    assert(!ISIS_INTF_INFO(intf)->lsp_xmit_job);
+
+    free(ISIS_INTF_INFO(intf));
+    intf->intf_nw_props.isis_intf_info = NULL;
+}
+
+void 
+isis_check_and_delete_intf_info(interface_t *intf) {
+
+    if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
+         !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
+         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->purge_glue) ||
+         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head) ||
+         ISIS_INTF_INFO(intf)->lsp_xmit_job) {
+
+        return;
+    }    
+    isis_free_intf_info(intf);
 }
 
 void
@@ -154,8 +185,10 @@ isis_disable_protocol_on_interface(interface_t *intf) {
 
     isis_stop_sending_hellos(intf);
     isis_delete_all_adjacencies(intf);
+    //isis_intf_purge_lsp_xmit_queue(intf);
+    remove_glthread(&isis_intf_info->purge_glue);
 
-    isis_free_intf_info(intf);
+    isis_check_and_delete_intf_info(intf);
 }
 
 void
@@ -207,18 +240,6 @@ isis_show_interface_protocol_state(interface_t *intf) {
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr)
     printf("\n");
 }
-
-void
-isis_free_intf_info(interface_t *intf) {
-
-    assert(ISIS_INTF_INFO(intf));
-    assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
-    assert(IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)));
-
-    free(ISIS_INTF_INFO(intf));
-    intf->intf_nw_props.isis_intf_info = NULL;
-}
-
 void
 isis_interface_updates(void *arg, size_t arg_size) {
 
@@ -233,3 +254,4 @@ isis_interface_updates(void *arg, size_t arg_size) {
 
     printf("notified\n");
 }
+
