@@ -15,4 +15,15 @@ isis_flood_lsp(node_t *node, isis_pkt_t *lsp_pkt);
 void
 isis_lsp_pkt_flood_complete(node_t *node);
 
+
+void
+isis_start_lsp_pkt_periodic_flooding(node_t *node);
+
+void
+isis_stop_lsp_pkt_periodic_flooding(node_t *node);
+
+void
+isis_update_lsp_flood_timer_with_new_lsp_pkt(node_t *node,
+        isis_pkt_t *lsp_pkt);
+
 #endif /* __ISIS_FLOOD__ */

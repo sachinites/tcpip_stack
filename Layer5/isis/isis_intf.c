@@ -4,6 +4,7 @@
 #include "isis_const.h"
 #include "isis_adjacency.h"
 #include "isis_rtr.h"
+#include "isis_flood.h"
 
 bool
 isis_node_intf_is_enable(interface_t *intf) {
@@ -28,13 +29,13 @@ isis_transmit_hello(void *arg, uint32_t arg_size) {
 
     if (!arg) return;
 
-    isis_pkt_meta_data_t *isis_pkt_meta_data =
-        (isis_pkt_meta_data_t *)arg;
+    isis_timer_data_t *isis_timer_data =
+        (isis_timer_data_t *)arg;
 
-    node_t *node = isis_pkt_meta_data->node;
-    interface_t *egress_intf = isis_pkt_meta_data->intf;
-    char *hello_pkt = isis_pkt_meta_data->pkt;
-    size_t pkt_size = isis_pkt_meta_data->pkt_size;
+    node_t *node = isis_timer_data->node;
+    interface_t *egress_intf = isis_timer_data->intf;
+    char *hello_pkt = isis_timer_data->data;
+    size_t pkt_size = isis_timer_data->data_size;
 
     if (hello_pkt && pkt_size) {
         ISIS_INCREMENT_STATS(egress_intf, hello_pkt_sent);
@@ -56,18 +57,18 @@ isis_start_sending_hellos(interface_t *intf) {
 
     char *hello_pkt = isis_get_hello_pkt(intf, &hello_pkt_size);
 
-    isis_pkt_meta_data_t *isis_pkt_meta_data =
-        calloc(1, sizeof(isis_pkt_meta_data_t));
+    isis_timer_data_t *isis_timer_data =
+        calloc(1, sizeof(isis_timer_data_t));
 
-    isis_pkt_meta_data->node = node;
-    isis_pkt_meta_data->intf = intf;
-    isis_pkt_meta_data->pkt = hello_pkt;
-    isis_pkt_meta_data->pkt_size = hello_pkt_size;
+    isis_timer_data->node = node;
+    isis_timer_data->intf = intf;
+    isis_timer_data->data = hello_pkt;
+    isis_timer_data->data_size = hello_pkt_size;
 
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = timer_register_app_event(wt,
                                         isis_transmit_hello,
-                                        (void *)isis_pkt_meta_data,
-                                        sizeof(isis_pkt_meta_data_t),
+                                        (void *)isis_timer_data,
+                                        sizeof(isis_timer_data_t),
                                         ISIS_INTF_HELLO_INTERVAL(intf) * 1000,
                                         1);
 
@@ -75,7 +76,7 @@ isis_start_sending_hellos(interface_t *intf) {
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL) {
         printf("Error : Failed to xmit hellos on interface (%s)%s",
             node->node_name, intf->if_name);
-        free(isis_pkt_meta_data);
+        free(isis_timer_data);
         return;
     }
 }
@@ -89,15 +90,15 @@ isis_stop_sending_hellos(interface_t *intf){
 
     if (!hello_xmit_timer) return;
 
-    isis_pkt_meta_data_t *isis_pkt_meta_data =
-        (isis_pkt_meta_data_t *)wt_elem_get_and_set_app_data(hello_xmit_timer, 0);
+    isis_timer_data_t *isis_timer_data =
+        (isis_timer_data_t *)wt_elem_get_and_set_app_data(hello_xmit_timer, 0);
 
     timer_de_register_app_event(hello_xmit_timer);
 
-    tcp_ip_free_pkt_buffer(isis_pkt_meta_data->pkt,
-        isis_pkt_meta_data->pkt_size);
+    tcp_ip_free_pkt_buffer(isis_timer_data->data,
+        isis_timer_data->data_size);
 
-    free(isis_pkt_meta_data);
+    free(isis_timer_data);
 
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
 }
@@ -185,7 +186,7 @@ isis_disable_protocol_on_interface(interface_t *intf) {
 
     isis_stop_sending_hellos(intf);
     isis_delete_all_adjacencies(intf);
-    //isis_intf_purge_lsp_xmit_queue(intf);
+    isis_intf_purge_lsp_xmit_queue(intf);
     remove_glthread(&isis_intf_info->purge_glue);
 
     isis_check_and_delete_intf_info(intf);

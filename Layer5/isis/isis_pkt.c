@@ -203,6 +203,10 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
 
     /* Now generate LSP pkt */
     isis_create_fresh_lsp_pkt(node);
+    
+    isis_update_lsp_flood_timer_with_new_lsp_pkt(node,
+        isis_node_info->isis_self_lsp_pkt);
+        
     isis_flood_lsp(node, isis_node_info->isis_self_lsp_pkt);
 }
 

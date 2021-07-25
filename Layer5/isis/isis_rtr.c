@@ -5,6 +5,7 @@
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_events.h"
+#include "isis_flood.h"
 
 /* Checkig if protocol enable at node & intf level */
 bool
@@ -28,6 +29,8 @@ isis_node_cancel_all_queued_jobs(node_t *node) {
 static void
 isis_node_cancel_all_timers(node_t *node){
 
+    
+    isis_stop_lsp_pkt_periodic_flooding(node);
 }
 
 void
@@ -51,9 +54,7 @@ isis_protocol_shut_down(node_t *node) {
 
     /* Queue All interfaces for Purge */
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
-
         isis_disable_protocol_on_interface(intf);
-
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
     isis_check_delete_node_info(node);
@@ -100,10 +101,16 @@ isis_show_node_protocol_state(node_t *node) {
 
     bool is_enabled ;
     interface_t *intf;
-
+    isis_node_info_t *isis_node_info;
     is_enabled = isis_is_protocol_enable_on_node(node);
 
     printf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
+
+    if(!is_enabled) return;
+
+    isis_node_info = ISIS_NODE_INFO(node);
+
+    printf("LSP flood count : %u\n", isis_node_info->lsp_flood_count);
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
@@ -127,7 +134,8 @@ isis_init(node_t *node ) {
     node->node_nw_prop.isis_node_info = isis_node_info;
     init_glthread(&isis_node_info->purge_intf_list);
     isis_node_info->seq_no = 1;
-
+    isis_node_info->lsp_flood_interval = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
+    isis_start_lsp_pkt_periodic_flooding(node);
     isis_schedule_lsp_pkt_generation(node, isis_event_protocol_enable);
 }
 

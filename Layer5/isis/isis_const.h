@@ -8,6 +8,7 @@
 #define ISIS_DEFAULT_INTF_COST  10
 #define ISIS_HOLD_TIME_FACTOR   2
 #define ISIS_ADJ_DEFAULT_DELETE_TIME (5 * 1000) // 5k msec
+#define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  5 // in sec
 
 /*ISIS TLVs */
 #define ISIS_TLV_NODE_NAME  1

@@ -1,16 +1,34 @@
 #ifndef __ISIS_RTR__
 #define __ISIS_RTR__
 
-#include "isis_pkt.h"
 #include "isis_events.h"
+#include "isis_pkt.h"
+
+typedef struct isis_timer_data_ {
+
+    node_t *node;
+    interface_t *intf;
+    void *data;
+    size_t data_size;
+} isis_timer_data_t;
 
 typedef struct isis_node_info_ {
-
-    isis_pkt_t *isis_self_lsp_pkt;  /* defiend in isis_pkt.h */
+    /* pointer to self LSP pkt */
+    isis_pkt_t *isis_self_lsp_pkt;
+    /* Task to schedule self LSP pkt generation */
     task_t *isis_lsp_pkt_gen_task;
+    /* Boolean to track if node is shutting down */
     bool is_shutting_down;
+    /* LSP sequence no */
     uint32_t seq_no;
+    /* List of interfaces to be proto disabled */
     glthread_t purge_intf_list;
+    /*Timer to flood self LSP periodically */
+    wheel_timer_elem_t *periodic_lsp_flood_timer;
+    /* self LSP flood time interval */
+    uint32_t lsp_flood_interval; // in sec
+    /* No of times LSP is flooded by this node */
+    uint32_t lsp_flood_count;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
