@@ -17,7 +17,7 @@ typedef struct intf_nmp_{
     uint32_t sent;
     uint32_t recvd;
     uint32_t bad_hellos;
-    wheel_timer_elem_t *hellos;
+    timer_event_handle *hellos;
     glthread_t adjacency_list;
 } intf_nmp_t;
 
@@ -99,7 +99,7 @@ typedef struct adjacency_{
     char nbr_ip[16];
     mac_add_t nbr_mac;
     glthread_t glue;
-    wheel_timer_elem_t *expiry_timer;
+    timer_event_handle *expiry_timer;
     time_t uptime;
 } adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_adjacency, adjacency_t, glue);

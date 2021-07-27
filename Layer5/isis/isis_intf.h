@@ -8,7 +8,7 @@ typedef struct isis_intf_info_ {
 
     /*  Timer to retransmit hellos out of
         the interface */
-    wheel_timer_elem_t *hello_xmit_timer;
+    timer_event_handle *hello_xmit_timer;
 
     /* stats */
     uint32_t good_hello_pkt_recvd;

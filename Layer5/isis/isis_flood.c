@@ -157,7 +157,7 @@ isis_update_lsp_flood_timer_with_new_lsp_pkt(
     
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
     
-    wheel_timer_elem_t *wt_elem = isis_node_info->periodic_lsp_flood_timer;
+    timer_event_handle *wt_elem = isis_node_info->periodic_lsp_flood_timer;
 
     if(!wt_elem) return;
 
@@ -251,7 +251,7 @@ void
 isis_stop_lsp_pkt_periodic_flooding(node_t *node){
 
     isis_timer_data_t *isis_timer_data = NULL;
-    wheel_timer_elem_t *periodic_lsp_flood_timer;
+    timer_event_handle *periodic_lsp_flood_timer;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     periodic_lsp_flood_timer = isis_node_info->periodic_lsp_flood_timer;

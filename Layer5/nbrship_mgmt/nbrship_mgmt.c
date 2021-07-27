@@ -123,7 +123,7 @@ schedule_hello_on_interface(interface_t *intf,
     pkt_meta_data->pkt = (char *)hello_pkt;
     pkt_meta_data->pkt_size = pkt_size;
 
-    wheel_timer_elem_t *wt_elem = timer_register_app_event(node_get_timer_instance(intf->att_node),
+    timer_event_handle *wt_elem = timer_register_app_event(node_get_timer_instance(intf->att_node),
                                                      transmit_hellos,
                                                      (void *)pkt_meta_data,
                                                      sizeof(pkt_meta_data_t),
@@ -144,7 +144,7 @@ stop_interface_hellos(interface_t *interface){
     if(!is_hellos_scheduled_on_intf(interface))
         return;
 
-    wheel_timer_elem_t *wt_elem = interface->intf_nw_props.nmp->hellos;
+    timer_event_handle *wt_elem = interface->intf_nw_props.nmp->hellos;
     
     pkt_meta_data_t *pkt_meta_data =
 		(pkt_meta_data_t *)wt_elem_get_and_set_app_data(wt_elem, 0);
@@ -390,7 +390,7 @@ void
 adjacency_refresh_expiry_timer(interface_t *interface,
         adjacency_t *adjacency){
 
-    wheel_timer_elem_t *wt_elem = 
+    timer_event_handle *wt_elem = 
         adjacency->expiry_timer;
     
     assert(wt_elem);

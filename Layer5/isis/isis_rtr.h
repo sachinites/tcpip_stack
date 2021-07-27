@@ -24,7 +24,7 @@ typedef struct isis_node_info_ {
     /* List of interfaces to be proto disabled */
     glthread_t purge_intf_list;
     /*Timer to flood self LSP periodically */
-    wheel_timer_elem_t *periodic_lsp_flood_timer;
+    timer_event_handle *periodic_lsp_flood_timer;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
     /* No of times LSP is flooded by this node */

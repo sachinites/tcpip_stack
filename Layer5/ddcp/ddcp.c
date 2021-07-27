@@ -31,10 +31,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include "../../tcp_public.h"
 #include "ddcp.h"
 #include "ddcp_cmd_codes.h"
 #include "serialize.h"
-#include "../../tcp_public.h"
 
 void
 init_ddcp(node_t *node);

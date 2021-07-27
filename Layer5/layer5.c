@@ -36,7 +36,6 @@
 #include "../tcpconst.h"
 #include "../gluethread/glthread.h"
 #include "layer5.h"
-#include "ddcp/ddcp.h"
 #include "../Layer3/netfilter.h"
 
 void

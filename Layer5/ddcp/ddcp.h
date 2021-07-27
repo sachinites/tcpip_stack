@@ -125,7 +125,7 @@ typedef struct _wheel_timer_t wheel_timer_t;
 typedef struct ddcp_db_{
     glthread_t ddcp_query_head;
     glthread_t ddcp_reply_head;
-    wheel_timer_elem_t *periodic_ddcp_query_wt_elem;
+    timer_event_handle *periodic_ddcp_query_wt_elem;
 } ddcp_db_t;
 
 void

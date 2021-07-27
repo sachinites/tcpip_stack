@@ -44,9 +44,9 @@ typedef struct isis_adjacency_{
     /* Nbr link cost Value */
     uint32_t cost; 
     /* Expiry timer */
-    wheel_timer_elem_t *expiry_timer;
+    timer_event_handle *expiry_timer;
     /* Delete timer */
-    wheel_timer_elem_t *delete_timer;
+    timer_event_handle *delete_timer;
     glthread_t glue;
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);

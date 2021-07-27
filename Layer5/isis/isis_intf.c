@@ -84,7 +84,7 @@ isis_start_sending_hellos(interface_t *intf) {
 void
 isis_stop_sending_hellos(interface_t *intf){
 
-    wheel_timer_elem_t *hello_xmit_timer = NULL;
+    timer_event_handle *hello_xmit_timer = NULL;
 
     hello_xmit_timer = ISIS_INTF_HELLO_XMIT_TIMER(intf);
 

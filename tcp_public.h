@@ -61,5 +61,6 @@ extern graph_t * topo;
 
 typedef unsigned char byte;
 typedef unsigned char uchar_t;
+typedef wheel_timer_elem_t timer_event_handle;
 
 #endif /* __TCP_IP_STACK__ */
