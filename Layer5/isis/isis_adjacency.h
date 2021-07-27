@@ -65,19 +65,26 @@ void
 isis_show_adjacency(isis_adjacency_t *adjacency, uint8_t tab_spaces);
 
 void
-isis_change_adjacency_state(isis_adjacency_t *adjacency, isis_adj_state_t new_state);
+isis_change_adjacency_state(isis_adjacency_t *adjacency,
+                            isis_adj_state_t new_state);
 
 isis_adj_state_t 
 isis_get_next_adj_state_on_receiving_next_hello(
     isis_adjacency_t *adjacency);
 
 void
-isis_delete_interface_adjacency(isis_adjacency_t *adjacency);
+isis_delete_adjacency(isis_adjacency_t *adjacency);
 
 void
 isis_delete_all_adjacencies(interface_t *intf);
 
 bool
 isis_any_adjacency_up_on_interface(interface_t *intf);
+
+byte *
+isis_encode_nbr_as_tlv(isis_adjacency_t *adjacency,
+                       uint8_t tlv_no,
+                       byte *buff,  /* Output buffer to encode tlv in */
+                       uint16_t *tlv_len);   /* length encoded (tlv overhead + data len)*/
 
 #endif /* __IGP_NBRSHIP__ */

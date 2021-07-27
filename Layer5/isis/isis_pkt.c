@@ -178,7 +178,7 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     eth_payload = (eth_payload + sizeof(uint32_t));
 
     /* Now TLV */
-    eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_NODE_NAME,
+    eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_HOSTNAME,
                                         NODE_NAME_SIZE, node->node_name);
     
     ETH_FCS(eth_hdr, lsp_pkt_size_estimate) = 0;
@@ -264,13 +264,13 @@ isis_get_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     
     temp = (temp + sizeof(isis_pkt_type_t));
 
-    temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_NODE_NAME, 
+    temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_HOSTNAME, 
                                 NODE_NAME_SIZE, node->node_name);
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_RTR_ID,
                                 16, NODE_LO_ADDR(node));
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_IP, 
                                 16, IF_IP(intf));
-    temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_MAC,
+    temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_INDEX,
                                  6,  IF_MAC(intf));
 
     four_byte_data = ISIS_INTF_HELLO_INTERVAL(intf) * ISIS_HOLD_TIME_FACTOR;
@@ -330,13 +330,13 @@ isis_print_hello_pkt(pkt_info_t *pkt_info ) {
                         tlv_len, tlv_value, pkt_size){
 
         switch(tlv_type){
-            case ISIS_TLV_IF_MAC:
+            case ISIS_TLV_IF_INDEX:
                 rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ", 
                     tlv_type, tlv_len, 
                     tlv_value[0], tlv_value[1], tlv_value[2],
                     tlv_value[3], tlv_value[4], tlv_value[5]);
             break;
-            case ISIS_TLV_NODE_NAME:
+            case ISIS_TLV_HOSTNAME:
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
                 rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);

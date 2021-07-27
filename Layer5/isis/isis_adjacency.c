@@ -20,7 +20,7 @@ isis_timer_expire_delete_adjacency_cb(void *arg, uint32_t arg_size){
 
     if (!arg) return;
 
-    isis_delete_interface_adjacency((isis_adjacency_t *)arg);
+    isis_delete_adjacency((isis_adjacency_t *)arg);
 }
 
 static void
@@ -118,7 +118,7 @@ isis_adjacency_stop_delete_timer(
 
 
 void
-isis_delete_interface_adjacency(isis_adjacency_t *adjacency) {
+isis_delete_adjacency(isis_adjacency_t *adjacency) {
 
     remove_glthread(&adjacency->glue);
     isis_adjacency_stop_expiry_timer(adjacency);
@@ -135,7 +135,7 @@ isis_delete_all_adjacencies(interface_t *intf) {
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
         adjacency = glthread_to_isis_adjacency(curr);
-        isis_delete_interface_adjacency(adjacency);
+        isis_delete_adjacency(adjacency);
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 }
 
@@ -170,11 +170,11 @@ isis_update_interface_adjacency_from_hello(
         new_adj = true;
     }
 
-    char tlv_type, tlv_len, *tlv_value = NULL;
+    uchar_t tlv_type, tlv_len, *tlv_value = NULL;
     ITERATE_TLV_BEGIN(hello_tlv_buffer, tlv_type, tlv_len, tlv_value, tlv_buff_size){
         
         switch(tlv_type){
-            case ISIS_TLV_NODE_NAME:
+            case ISIS_TLV_HOSTNAME:
                 if (memcmp(adjacency->nbr_name, tlv_value, tlv_len)) {
                     re_generate_lsp_pkt = true;
                     memcpy(adjacency->nbr_name, tlv_value, tlv_len);
@@ -194,7 +194,7 @@ isis_update_interface_adjacency_from_hello(
                     memcpy(adjacency->nbr_intf_ip.ip_addr, tlv_value, tlv_len);
                 }
             break;
-            case ISIS_TLV_IF_MAC:
+            case ISIS_TLV_IF_INDEX:
                 memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
             break;
             case ISIS_TLV_HOLD_TIME:
@@ -402,4 +402,54 @@ isis_any_adjacency_up_on_interface(interface_t *intf) {
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
     return false;
+}
+
+/*  Playing TLV Encoding and Decoding Games  */
+
+#if 0
++-----------------------+--------Parent TLV Begin--
+|       Type = 22       |1B
++-----------------------+
+|       Length          |1B ----------------------------------^
++-----------------------+                                     |
+|    Nbr Lo Addr (int)  |4B                                   |
++-----------------------+                                     |
+|      Metric/Cost      |4B                                   |
++-----------------------+                                     |
+|   Total SubTLV Length |1B ----------------------------------+-------+
++-----------------------+---------SubTLVs Begin---            |       |
+|      SubTLV type1     |1B                                   |       |
++-----------------------+                                     |       |
+|   SubTLV type1 len    |1B                                   |       |
++-----------------------+                                     |       |
+|   SubTLV type1 Value  |<SubTLV type1 len>                   |       |
++-----------------------+                                     |       |
+|      SubTLV type2     |1B                                   |       |
++-----------------------+                                     |       |
+|   SubTLV type2 len    |1B                                   |       |
++-----------------------+                                     |       |
+|   SubTLV type2 Value  |<SubTLV type2 len>                   |       |
++-----------------------+                                     |       |
+|      SubTLV type3     |1B                                   |       |
++-----------------------+                                     |       |
+|   SubTLV type3 len    |1B                                   |       |
++-----------------------+                                     |       |
+|   SubTLV type3 Value  |< SubTLV type3 len>                  |       |
++-----------------------+--------SubTLVs Ends-----------------v-------v
++-----------------------+--------Parent TLV Ends---                    
+
+SUBTLVs :
+SubTLV 4 : Length 8B : Value = <4B local if index><4B Remote if index>
+SubTLV 6 : Length 4B : Value = Local Ip Address (4B)
+SubTLV 8 : Length 4B : Value = Nbr IP Address (4B)
+
+#endif
+
+byte *
+isis_encode_nbr_as_tlv(isis_adjacency_t *adjacency,
+                       uint8_t tlv_no,
+                       byte *buff,           /* Output buffer to encode tlv in */
+                       uint16_t *tlv_len) {  /* output : length encoded (tlv overhead + data len)*/
+
+    
 }

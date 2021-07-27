@@ -29,7 +29,6 @@ isis_node_cancel_all_queued_jobs(node_t *node) {
 static void
 isis_node_cancel_all_timers(node_t *node){
 
-    
     isis_stop_lsp_pkt_periodic_flooding(node);
 }
 
