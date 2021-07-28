@@ -1,9 +1,11 @@
 #include "../../tcp_public.h"
+#include "isis_rtr.h"
 #include "isis_const.h"
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_pkt.h"
 #include "isis_events.h"
+
 
 static void
 isis_init_adjacency(isis_adjacency_t *adjacency) {
@@ -143,7 +145,7 @@ isis_delete_all_adjacencies(interface_t *intf) {
 void
 isis_update_interface_adjacency_from_hello(
         interface_t *iif,
-        unsigned char *hello_tlv_buffer,
+        byte *hello_tlv_buffer,
         size_t tlv_buff_size) {
 
     char *router_id;
@@ -410,7 +412,7 @@ isis_any_adjacency_up_on_interface(interface_t *intf) {
 +-----------------------+--------Parent TLV Begin--
 |       Type = 22       |1B
 +-----------------------+
-|       Length          |1B ----------------------------------^
+|       Total Length    |1B ----------------------------------^
 +-----------------------+                                     |
 |    Nbr Lo Addr (int)  |4B                                   |
 +-----------------------+                                     |
@@ -445,11 +447,246 @@ SubTLV 8 : Length 4B : Value = Nbr IP Address (4B)
 
 #endif
 
-byte *
-isis_encode_nbr_as_tlv(isis_adjacency_t *adjacency,
-                       uint8_t tlv_no,
-                       byte *buff,           /* Output buffer to encode tlv in */
-                       uint16_t *tlv_len) {  /* output : length encoded (tlv overhead + data len)*/
+uint8_t 
+isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
+                         uint8_t *subtlv_len) {
 
+    uint32_t ptlv_data_len = 0;  /* parent tlv data len */
+    uint32_t total_subtlv_len = 0;
+
+    *subtlv_len = 0;
+
+    if (adjacency->adj_state != ISIS_ADJ_STATE_UP) return 0;
+
+    ptlv_data_len += TLV_OVERHEAD_SIZE;
+    ptlv_data_len += 4;         /* loopback address */
+    ptlv_data_len += 4;         /* Cost/Metric */
+    ptlv_data_len += 1;         /* total Sub TLV len */
+
+     /* encode subtlv 4 */
+    total_subtlv_len += TLV_OVERHEAD_SIZE + 4 + 4;
+
+    /* encode subtlv 6 */
+    total_subtlv_len += TLV_OVERHEAD_SIZE + 4;
+
+    /* encode subtlv 8 */
+    total_subtlv_len += TLV_OVERHEAD_SIZE + 4;
+
+    ptlv_data_len += total_subtlv_len;
+
+    if (ptlv_data_len > 0xFF) {
+        printf("Error : TLV size exceeded\n");
+        return 0;
+    }
+    *subtlv_len = total_subtlv_len;
     
+    return ptlv_data_len;
+}
+
+byte *
+isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
+                    byte *buff,           /* Output buffer to encode tlv in */
+                    uint16_t *tlv_len) {  /* output : length encoded (tlv overhead + data len)*/
+
+    uint8_t subtlv_len;
+    uint32_t four_byte_data;
+    uint32_t if_indexes[2];
+
+    byte *start_buff = buff;
+
+    *tlv_len = isis_nbr_tlv_encode_size(adjacency, &subtlv_len);
+
+    /* Now encode the data into buff */
+
+    *start_buff = ISIS_IS_REACH_TLV;
+    start_buff += 1;
+
+    *start_buff = *tlv_len - TLV_OVERHEAD_SIZE;
+    start_buff += 1;
+
+    /* loopback Address */
+    four_byte_data = tcp_ip_covert_ip_p_to_n(
+                        adjacency->nbr_rtr_id.ip_addr);
+
+    memcpy(start_buff, (byte *)&four_byte_data, sizeof(uint32_t));
+    start_buff += sizeof(uint32_t);
+    
+    /* Metric / Cost */
+    four_byte_data = ISIS_INTF_COST(adjacency->intf);
+    memcpy(start_buff, (byte *)&four_byte_data, sizeof(uint32_t));
+    start_buff += sizeof(uint32_t);
+
+    /* Total Sub TLV len */
+    memcpy(start_buff, (byte *)&subtlv_len, sizeof(uint32_t));
+    start_buff += sizeof(uint8_t);
+
+    /* 
+       Now We are at the start of Ist SubTLV,
+       encode local and remote if index
+       Encoding SubTLV 4
+    */
+
+    if_indexes[0] = IF_INDEX(adjacency->intf);
+    if_indexes[1] = adjacency->remote_if_index;
+
+    start_buff = tlv_buffer_insert_tlv(start_buff,
+                        ISIS_TLV_IF_INDEX, 8,
+                        (byte *)if_indexes);
+
+    /* Encode local ip Address 
+       Encoding SubTLV 6 */
+    four_byte_data = tcp_ip_covert_ip_p_to_n(IF_IP(adjacency->intf));
+
+    start_buff = tlv_buffer_insert_tlv(start_buff,
+                        ISIS_TLV_LOCAL_IP, 4,
+                        (byte *)&four_byte_data);
+
+    /* Encode remote ip Address 
+       Encoding SubTLV 8 */
+    four_byte_data = tcp_ip_covert_ip_p_to_n(
+                        adjacency->nbr_intf_ip.ip_addr);
+
+    start_buff = tlv_buffer_insert_tlv(start_buff,
+                        ISIS_TLV_REMOTE_IP, 4,
+                        (byte *)&four_byte_data);
+
+    return start_buff;
+}
+
+byte *
+isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
+
+    glthread_t *curr;
+    interface_t *intf;
+    uint16_t btes_encoded;
+    isis_adjacency_t *adjacency;
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) return buff;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+
+        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+
+            adjacency = glthread_to_isis_adjacency(curr);
+
+            if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+            
+            buff = isis_encode_nbr_tlv(adjacency, buff, &btes_encoded);
+
+        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+   } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    return buff;
+}
+
+uint16_t
+isis_size_to_encode_all_nbr_tlv(node_t *node) {
+
+    glthread_t *curr;
+    interface_t *intf;
+    uint16_t bytes_needed;
+    uint8_t subtlv_bytes_needed;
+    isis_adjacency_t *adjacency;
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    bytes_needed = 0;
+    subtlv_bytes_needed = 0;
+
+    if (!isis_is_protocol_enable_on_node(node)) return 0;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+
+        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+
+            adjacency = glthread_to_isis_adjacency(curr);
+
+            if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+            
+            bytes_needed += isis_nbr_tlv_encode_size(adjacency, &subtlv_bytes_needed);
+
+        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+   } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    return bytes_needed;
+}
+
+ /* Return the no of bytes writen into out_buff */
+uint8_t
+isis_print_formatted_nbr_tlv(byte *out_buff, 
+                             byte *nbr_tlv_buffer,
+                             uint8_t tlv_buffer_len) {
+
+    uint8_t rc = 0;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+    uint32_t ip_addr_int, metric;
+    unsigned char *ip_addr;
+    uint8_t subtlv_len;
+    byte *subtlv_navigator;
+
+    ITERATE_TLV_BEGIN(nbr_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, tlv_buffer_len) {
+ 
+        rc += sprintf(out_buff + rc, 
+                "\tTLV%d  Len : %d\n", tlv_type, tlv_len);
+
+        ip_addr_int = *(uint32_t *)tlv_value;
+        metric = *(uint32_t *)(((uint32_t *)tlv_value) + 1);
+        subtlv_len = *(uint8_t *)((uint32_t *)tlv_value + 2);
+        
+        rc += sprintf(out_buff + rc , "\t\tNbr Rtr ID : %s   Metric : %u   SubTLV Len : %d\n",
+                        tcp_ip_covert_ip_n_to_p(ip_addr_int, 0),
+                        metric, subtlv_len);
+
+        subtlv_navigator = nbr_tlv_buffer + 
+                            TLV_OVERHEAD_SIZE + 
+                            sizeof(uint32_t) +  // 4B IP Addr
+                            sizeof(uint32_t) +  // 4B metric
+                            sizeof(uint8_t);    // 1B subtlv len
+
+        /* Now Read the Sub TLVs */
+        byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
+
+        ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
+                        tlv_len2, tlv_value2, subtlv_len) {
+
+            switch(tlv_type2) {
+                case ISIS_TLV_IF_INDEX:
+                    rc += sprintf(out_buff + rc,
+                            "\tSubTLV%d  Len : %d   if-indexes [local : %u, remote : %u]\n",
+                             tlv_type2, tlv_len2, 
+                             *(uint32_t *)tlv_value2, 
+                             *(uint32_t *)((uint32_t *)tlv_value2 + 1));
+                break;
+                case ISIS_TLV_LOCAL_IP:
+                    ip_addr_int = *(uint32_t *)tlv_value2;
+                    rc += sprintf(out_buff + rc,
+                            "\tSubTLV%d  Len : %d   Local IP : %s\n",
+                            tlv_type2, tlv_len2, 
+                            tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
+                break;
+                case ISIS_TLV_REMOTE_IP:
+                    ip_addr_int = *(uint32_t *)tlv_value2;
+                    rc += sprintf(out_buff + rc,
+                            "\tSubTLV%d  Len : %d   Remote IP : %s\n",
+                            tlv_type2, tlv_len2, 
+                            tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
+                break;
+                default:
+                    ;
+            }
+
+        } ITERATE_TLV_END(subtlv_navigator, tlv_type2,
+                        tlv_len2, tlv_value2, subtlv_len);
+ 
+    } ITERATE_TLV_END(nbr_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, tlv_buffer_len);
+    return rc;
 }

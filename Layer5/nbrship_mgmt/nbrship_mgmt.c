@@ -22,7 +22,7 @@ nmp_print_hello_pkt(void *arg, size_t arg_size){
 	char *buff;
 	uint32_t pkt_size;
 
-    unsigned char tlv_type, tlv_len, *tlv_value = NULL;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
 
 	pkt_info_t *pkt_info = (pkt_info_t *)arg;
 
@@ -98,7 +98,7 @@ get_new_hello_pkt(node_t *node,
     temp = tlv_buffer_insert_tlv(temp, TLV_RTR_ID, 16, NODE_LO_ADDR(node));
     temp = tlv_buffer_insert_tlv(temp, TLV_IF_IP,  16, IF_IP(interface));
     temp = tlv_buffer_insert_tlv(temp, TLV_IF_MAC, 6,  IF_MAC(interface));
-    ETH_FCS(hello_eth_hdr, eth_hdr_playload_size) = 0;
+    SET_COMMON_ETH_FCS(hello_eth_hdr, eth_hdr_playload_size, 0);
     return hello_eth_hdr;
 }
 

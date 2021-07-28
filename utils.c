@@ -107,13 +107,13 @@ tlv_buffer_insert_tlv(char *buff, uint8_t tlv_no,
     return buff + TLV_OVERHEAD_SIZE + data_len;
 }
 
-char *
-tlv_buffer_get_particular_tlv(char *tlv_buff, /*Input TLV Buffer*/
+unsigned char *
+tlv_buffer_get_particular_tlv(unsigned char *tlv_buff, /*Input TLV Buffer*/
                       uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
                       uint8_t tlv_no,         /*Input TLV Number*/
                       uint8_t *tlv_data_len){ /*Output TLV Data len*/
 
-    char tlv_type, tlv_len, *tlv_value = NULL;
+    unsigned char tlv_type, tlv_len, *tlv_value = NULL;
     
     ITERATE_TLV_BEGIN(tlv_buff, tlv_type, tlv_len, tlv_value, tlv_buff_size){
         

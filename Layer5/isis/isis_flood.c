@@ -129,7 +129,9 @@ isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
 }
 
 void
-isis_flood_lsp(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_schedule_lsp_flood(node_t *node, 
+                        isis_pkt_t *lsp_pkt,
+                        interface_t *exempt_iif) {
 
     interface_t *intf;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
@@ -138,12 +140,14 @@ isis_flood_lsp(node_t *node, isis_pkt_t *lsp_pkt) {
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
-        if (!isis_node_intf_is_enable(intf)) continue;
+        if (!isis_node_intf_is_enable(intf) ||
+                intf == exempt_iif) continue;
 
         isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
-    isis_node_info->lsp_flood_count++;
+
+    ISIS_INCREMENT_NODE_STATS(node, lsp_flood_count);
 }
 
 void
@@ -212,8 +216,15 @@ timer_wrapper_isis_lsp_flood(void *arg, uint32_t arg_size) {
     isis_timer_data_t *isis_timer_data = 
         (isis_timer_data_t *)arg;
 
-    isis_flood_lsp(isis_timer_data->node,
-                   (isis_pkt_t *)isis_timer_data->data);
+    ISIS_INCREMENT_NODE_STATS((isis_timer_data->node), seq_no);
+
+    uint32_t *seq_no = isis_get_lsp_pkt_seq_no(
+                        (isis_pkt_t *)isis_timer_data->data);
+    
+    *seq_no = (ISIS_NODE_INFO(isis_timer_data->node))->seq_no;
+
+    isis_schedule_lsp_flood(isis_timer_data->node,
+                   (isis_pkt_t *)isis_timer_data->data, NULL);
 }
 
 void

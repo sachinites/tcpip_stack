@@ -11,6 +11,7 @@
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL 4
 /* show node <node-name> protocol isis interface <if-name> */
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF 5
-
+/* show node <node-name> protocol isis lsdb */
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB 6
 
 #endif /* __ISIS_CMDCODES__ */

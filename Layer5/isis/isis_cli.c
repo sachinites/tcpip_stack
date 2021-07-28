@@ -5,6 +5,7 @@
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_const.h"
+#include "isis_lspdb.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -153,6 +154,8 @@ isis_show_handler(param_t *param,
                 return -1;
             }
         break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
+            isis_show_lspdb(node);
         default: ;
     }
     return 0;
@@ -246,6 +249,12 @@ isis_show_cli_tree(param_t *param) {
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
                 set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF);
+            }
+            {
+                static param_t lsdb;
+	            init_param(&lsdb, CMD, "lsdb", isis_show_handler, 0, INVALID, 0, "isis protocol");
+	            libcli_register_param(&isis_proto, &lsdb);
+	            set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
             }
         }
     }

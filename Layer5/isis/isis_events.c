@@ -22,7 +22,9 @@ static char isis_event_str[isis_event_max][128] =
     //isis_nbr_metric_changed
     "ISIS NBR METRIC CHANGED",
     //isis_nbr_rtr_id_changed
-    "ISIS NBR RTR ID CHANGED"
+    "ISIS NBR RTR ID CHANGED",
+    //isis_event_self_outdated_lsp_recvd
+    "ISIS SELF OUTDATED LSP RECVD"
 }; 
 
 const char *

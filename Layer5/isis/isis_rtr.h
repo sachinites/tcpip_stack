@@ -27,12 +27,21 @@ typedef struct isis_node_info_ {
     timer_event_handle *periodic_lsp_flood_timer;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
+    /* lsp pkt life time interval in lspdb */
+    uint32_t lsp_lifetime_interval;
     /* No of times LSP is flooded by this node */
     uint32_t lsp_flood_count;
+    /* LSP DB */
+    avltree_t lspdb_avl_root;
+    /* no of SPF runs*/
+    uint32_t spf_runs;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
-    (isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info)
+    ((isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info))
+
+#define ISIS_INCREMENT_NODE_STATS(node_ptr, field)  \
+    (ISIS_NODE_INFO(node_ptr))->field++;
 
 bool
 isis_is_protocol_enable_on_node(node_t *node) ;

@@ -35,6 +35,8 @@ typedef struct isis_adjacency_{
     ip_add_t nbr_rtr_id;
     /* Nbr MAC Addr */
     mac_add_t nbr_mac;
+    /* Nbr if index */
+    uint32_t remote_if_index;
     /* Adj State */
     isis_adj_state_t adj_state;
     /* timestamp when Adj state changed */
@@ -82,9 +84,24 @@ bool
 isis_any_adjacency_up_on_interface(interface_t *intf);
 
 byte *
-isis_encode_nbr_as_tlv(isis_adjacency_t *adjacency,
-                       uint8_t tlv_no,
-                       byte *buff,  /* Output buffer to encode tlv in */
-                       uint16_t *tlv_len);   /* length encoded (tlv overhead + data len)*/
+isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
+                    byte *buff,  /* Output buffer to encode tlv in */
+                    uint16_t *tlv_len);   /* length encoded (tlv overhead + data len)*/
+
+byte *
+isis_encode_all_nbr_tlvs(node_t *node, byte *buff) ;
+
+uint8_t 
+isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
+                         uint8_t *subtlv_len);
+
+uint16_t
+isis_size_to_encode_all_nbr_tlv(node_t *node);
+
+uint8_t
+isis_print_formatted_nbr_tlv(byte *out_buff, 
+                             byte *nbr_tlv_buffer,
+                             uint8_t tlv_buffer_len);
+                             
 
 #endif /* __IGP_NBRSHIP__ */

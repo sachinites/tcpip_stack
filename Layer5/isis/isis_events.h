@@ -14,6 +14,7 @@ typedef enum isis_events_ {
     isis_nbr_ip_changed,
     isis_nbr_metric_changed,
     isis_nbr_rtr_id_changed,
+    isis_event_self_outdated_lsp_recvd,
     isis_event_max
 } isis_events_t;
 
