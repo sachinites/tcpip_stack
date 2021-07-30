@@ -126,6 +126,9 @@ isis_show_node_protocol_state(node_t *node) {
         if (!isis_node_intf_is_enable(intf)) continue;
         isis_show_interface_protocol_state(intf);
     } ITERATE_NODE_INTERFACES_END(node, intf);
+    
+    ISIS_INCREMENT_NODE_STATS(node,
+            isis_event_count[isis_event_protocol_disable]);
 }
 
 static int
@@ -161,6 +164,8 @@ isis_init(node_t *node ) {
     isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
     isis_start_lsp_pkt_periodic_flooding(node);
+    ISIS_INCREMENT_NODE_STATS(node,
+            isis_event_count[isis_event_protocol_enable]);
     isis_schedule_lsp_pkt_generation(node, isis_event_protocol_enable);
 }
 

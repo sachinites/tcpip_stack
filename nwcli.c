@@ -83,6 +83,17 @@ static cli_register_cb
         0 /*  Last member must be NULL */
 	};
 
+/* clear node <node-name> protocol ... */
+static cli_register_cb
+	cli_register_cb_arr_clear_node_node_name_protcol_level[] =
+	{
+        isis_clear_cli_tree,
+		
+        /* Add more CB here */
+
+        0 /*  Last member must be NULL */
+	};
+
 /* run node <node-name> protocol .... */
 static cli_register_cb
 	cli_register_cb_arr_run_node_node_name_protocol_level[] =
@@ -715,6 +726,7 @@ nw_init_cli(){
     param_t *debug  = libcli_get_debug_hook();
     param_t *config = libcli_get_config_hook();
     param_t *run    = libcli_get_run_hook();
+    param_t *clear    = libcli_get_clear_hook();
     param_t *debug_show = libcli_get_debug_show_hook();
     param_t *root = libcli_get_root();
 
@@ -744,6 +756,33 @@ nw_init_cli(){
             }
         }
     }
+
+    /* clear commands */
+    {
+        /*clear node ...*/    
+        static param_t node;
+        init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
+        libcli_register_param(clear, &node);
+        libcli_register_display_callback(&node, display_graph_nodes);
+        {
+            /*clear node <node-name>*/ 
+            static param_t node_name;
+            init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
+            libcli_register_param(&node, &node_name);	
+		    {
+			    /* clear node <node-name> protocol */
+				static param_t protocol;
+				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
+				libcli_register_param(&node_name, &protocol);
+
+				/* show node <node-name> protocol ...*/
+				cli_register_application_cli_trees(&protocol, 
+							 cli_register_cb_arr_clear_node_node_name_protcol_level);
+			}
+        }
+    }
+
+
     {
         /*show topology*/
          static param_t topology;

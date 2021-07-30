@@ -79,7 +79,6 @@ struct _wheel_timer_t {
 	int current_cycle_no;
 	Timer_t *wheel_thread;
     slotlist_t reschd_list;
-    unsigned int no_of_wt_elem;
 	timer_resolution_t timer_resolution;
 	bool debug;
     slotlist_t slotlist[0];

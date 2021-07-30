@@ -271,3 +271,57 @@ isis_show_cli_tree(param_t *param) {
     }
     return 0;
 }
+
+int
+isis_clear_handler(param_t *param, 
+                   ser_buff_t *tlv_buf,
+                   op_mode enable_or_disable) {
+
+    node_t *node;
+    tlv_struct_t *tlv;
+    char *node_name = NULL;
+
+    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    switch(cmdcode) {
+
+        case CMDCODE_CLEAR_NODE_ISIS_LSDB:
+            isis_cleanup_lsdb(node);
+            isis_schedule_lsp_pkt_generation(node, isis_event_admin_action);
+            break;
+        default: ;
+    return 0;
+    }
+}
+
+
+/* clear node <node-name> protocol ... */
+int
+isis_clear_cli_tree(param_t *param) {
+
+    {
+        /* clear node <node-name> protocol isis ...*/
+        static param_t isis_proto;
+	    init_param(&isis_proto, CMD, "isis", 0, 0, INVALID, 0, "isis protocol");
+	    libcli_register_param(param, &isis_proto);
+        {
+            /* clear node <node-name> protocol isis lsdb */
+            static param_t lsdb;
+            init_param(&lsdb, CMD, "lsdb", isis_clear_handler, 0, INVALID, 0, "lsdb");
+            libcli_register_param(&isis_proto, &lsdb);
+            set_param_cmd_code(&lsdb, CMDCODE_CLEAR_NODE_ISIS_LSDB);
+        }
+    
+    }
+    return 0;
+}

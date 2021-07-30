@@ -39,7 +39,9 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_non_local_new_lsp,
     "ISIS EVENT NON LOCAL NEW LSP",
     //isis_event_non_local_old_lsp,
-    "ISIS EVENT NON LOCAL OLD LSP"
+    "ISIS EVENT NON LOCAL OLD LSP",
+    //isis_event_admin_action
+    "ISIS EVENT ADMIN ACTION"
 }; 
 
 const char *

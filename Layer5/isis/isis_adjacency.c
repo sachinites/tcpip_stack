@@ -342,7 +342,9 @@ isis_change_adjacency_state(
                 {
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_refresh_expiry_timer(adjacency);
-                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_up);;
+                    ISIS_INCREMENT_NODE_STATS(node,
+                                isis_event_count[isis_event_adj_state_goes_up]);
+                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_up);
                 }
                     break;
                 default : ;
@@ -356,6 +358,8 @@ isis_change_adjacency_state(
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
+                    ISIS_INCREMENT_NODE_STATS(node,
+                                isis_event_count[isis_event_adj_state_goes_down]);
                     isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_down);
                     break;
                 case ISIS_ADJ_STATE_INIT:

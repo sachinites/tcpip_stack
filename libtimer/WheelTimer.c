@@ -92,10 +92,6 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
                 wt_elem->slotlist_head = WT_SLOTLIST(wt, wt_elem->slot_no);
                 remove_glthread(&wt_elem->reschedule_glue);
                 wt_elem->N_scheduled++;
-                if(wt_elem->opcode == WTELEM_CREATE){
-                    wt->no_of_wt_elem++;
-					if(wt->debug){ printf("wt->no_of_wt_elem = %u\n", wt->no_of_wt_elem); }
-                }
                 wt_elem->opcode = WTELEM_SCHEDULED;
             }
             break;
@@ -103,9 +99,6 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
                 remove_glthread(&wt_elem->reschedule_glue);
 				if(wt->debug){ printf("Freeing wt_elem %p\n", wt_elem); }
                 free_wheel_timer_element(wt_elem);
-				assert(wt->no_of_wt_elem);
-                wt->no_of_wt_elem--;
-				if(wt->debug){ printf("wt->no_of_wt_elem = %u\n", wt->no_of_wt_elem); }
                 break;
             default:
                 assert(0);
@@ -216,8 +209,6 @@ init_wheel_timer(int wheel_size, int clock_tic_interval,
         init_glthread(WT_SLOTLIST_HEAD(wt, i));
         pthread_mutex_init(WT_SLOTLIST_MUTEX(wt, i), NULL);
     }
-
-    wt->no_of_wt_elem = 0;
 	return wt;
 }
 
@@ -235,25 +226,15 @@ _timer_reschedule(wheel_timer_t *wt,
         case WTELEM_DELETE:
                wt_elem->opcode = opcode;
                wt_elem->new_time_interval = new_time_interval;
-			   
-			   //pause_timer(wt->wheel_thread);
+			
                WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
-			   #if 0
-			   /* if wt_elem is not even scheduled once, and request
- 				* comes to re-schedule it again, then treat it like
- 				* CREATE request otherwise wt->no_of_wt_elem would
- 				* goof up */
-			   if(wt_elem->opcode != WTELEM_CREATE) {
-               	wt_elem->opcode = opcode;
-			   } 
-			   #endif
 			   wt_elem->slotlist_head = NULL;
                remove_glthread(&wt_elem->reschedule_glue);
                glthread_add_next(WT_GET_RESCHD_SLOTLIST_HEAD(wt), 
                		&wt_elem->reschedule_glue);
 			   if (wt->debug) { printf("%s() wt_elem %p Added to Reschedule Q\n", __FUNCTION__, wt_elem); }
                WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
- 			   //resume_timer(wt->wheel_thread);
+ 			
             break;
         default:
             assert(0);
@@ -359,7 +340,6 @@ print_wheel_timer(wheel_timer_t *wt){
 	printf("wt->current_cycle_no   = %d\n", wt->current_cycle_no);
 	printf("wt->wheel_thread       = %p\n", &wt->wheel_thread);
     printf("WT uptime              = %s\n", hrs_min_sec_format(WT_UPTIME(wt)));
-    printf("wt->no_of_wt_elem      = %u\n", wt->no_of_wt_elem);
 	printf("wt->timer_thread state = %u\n", timer_get_current_state(wt->wheel_thread));
 	printf("printing slots : \n");
 

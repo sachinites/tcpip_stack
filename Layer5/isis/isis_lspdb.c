@@ -335,11 +335,10 @@ isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) {
 
     unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, 0);
     printf("LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
-            "ref_c : %-3u    Flood Enabled : %s   Life Time Remaining : %u msec\n",
-             rtr_id_str, *seq_no, 
-             lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+            "ref_c : %-3u   Life Time Remaining : %u msec\n",
+            rtr_id_str, *seq_no, 
+            lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
             lsp_pkt->ref_count,
-            lsp_pkt->flood_eligibility ? "Yes" : "No",
             lsp_pkt->expiry_timer ? wt_get_remaining_time(lsp_pkt->expiry_timer) : 0);
 }
 
