@@ -156,6 +156,10 @@ isis_show_handler(param_t *param,
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
             isis_show_lspdb(node);
+        break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS:
+            isis_show_event_counters(node);
+        break;
         default: ;
     }
     return 0;
@@ -237,7 +241,7 @@ isis_show_cli_tree(param_t *param) {
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, CMDCODE_SHOW_NODE_ISIS_PROTOCOL);
         {
-            /* conf node <node-name> [no] protocol isis interface ... */
+            /* show node <node-name> [no] protocol isis interface ... */
             static param_t interface;
             init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "interface");
             libcli_register_display_callback(&interface, display_node_interfaces);
@@ -256,6 +260,13 @@ isis_show_cli_tree(param_t *param) {
 	            libcli_register_param(&isis_proto, &lsdb);
 	            set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
             }
+        }
+        {
+                /*show node <node-name> protocol isis event-counters*/
+                static param_t event_counters;
+	            init_param(&event_counters, CMD, "event-counters", isis_show_handler, 0, INVALID, 0, "event counters");
+	            libcli_register_param(&isis_proto, &event_counters);
+	            set_param_cmd_code(&event_counters, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS);
         }
     }
     return 0;

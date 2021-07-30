@@ -14,11 +14,19 @@ typedef enum isis_events_ {
     isis_nbr_ip_changed,
     isis_nbr_metric_changed,
     isis_nbr_rtr_id_changed,
-    isis_event_self_outdated_lsp_recvd,
+    /*lspdb update events*/
+    isis_event_self_duplicate_lsp,
+    isis_event_self_fresh_lsp,
+    isis_event_self_new_lsp,
+    isis_event_self_old_lsp,
+    isis_event_non_local_duplicate_lsp,
+    isis_event_non_local_fresh_lsp,
+    isis_event_non_local_new_lsp,
+    isis_event_non_local_old_lsp,
     isis_event_max
-} isis_events_t;
+} isis_event_type_t;
 
 const char *
-isis_event(isis_events_t isis_event_type);
+isis_event_str(isis_event_type_t isis_event_type);
 
 #endif 

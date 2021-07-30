@@ -56,16 +56,13 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         free(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
+
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
             ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);
         }
 
         rc = isis_deref_isis_pkt(lsp_pkt);
-
-        if (rc == 0) {
-            isis_lsp_pkt_flood_complete(intf->att_node);
-        }
 
     } ITERATE_GLTHREAD_END(&isis_intf_info->lsp_xmit_list_head, curr);
 }
@@ -223,6 +220,11 @@ timer_wrapper_isis_lsp_flood(void *arg, uint32_t arg_size) {
     
     *seq_no = (ISIS_NODE_INFO(isis_timer_data->node))->seq_no;
 
+#if 0
+    printf("Node : %s : periodic flood seq no %u\n", 
+        isis_timer_data->node->node_name, *seq_no);
+#endif
+
     isis_schedule_lsp_flood(isis_timer_data->node,
                    (isis_pkt_t *)isis_timer_data->data, NULL);
 }
@@ -230,9 +232,13 @@ timer_wrapper_isis_lsp_flood(void *arg, uint32_t arg_size) {
 void
 isis_start_lsp_pkt_periodic_flooding(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
-    wheel_timer_t *wt = node_get_timer_instance(node);
-    isis_pkt_t *self_lsp_pkt = isis_node_info->isis_self_lsp_pkt;
+    wheel_timer_t *wt;
+    isis_pkt_t *self_lsp_pkt;
+    isis_node_info_t *isis_node_info;
+
+    wt = node_get_timer_instance(node);
+    isis_node_info = ISIS_NODE_INFO(node);
+    self_lsp_pkt = isis_node_info->isis_self_lsp_pkt;
 
     isis_timer_data_t *isis_timer_data = NULL;
 

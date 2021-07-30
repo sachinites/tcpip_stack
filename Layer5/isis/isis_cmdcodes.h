@@ -13,5 +13,7 @@
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF 5
 /* show node <node-name> protocol isis lsdb */
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB 6
+/* show node <node-name> protocol isis event-counters */
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS 7
 
 #endif /* __ISIS_CMDCODES__ */

@@ -154,7 +154,7 @@ isis_update_interface_adjacency_from_hello(
     isis_intf_info_t *isis_intf_info;
     bool re_generate_lsp_pkt = false;
     isis_adjacency_t *adjacency = NULL;
-    isis_events_t event_type = isis_event_none;
+    isis_event_type_t event_type = isis_event_none;
 
     router_id = tlv_buffer_get_particular_tlv(
                     hello_tlv_buffer, 

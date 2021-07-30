@@ -6,6 +6,9 @@
 #include "isis_adjacency.h"
 #include "isis_events.h"
 #include "isis_flood.h"
+#include "isis_lspdb.h"
+
+extern void isis_free_dummy_lsp_pkt(void);
 
 /* Checkig if protocol enable at node & intf level */
 bool
@@ -45,11 +48,14 @@ isis_protocol_shut_down(node_t *node) {
 
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
+    isis_free_dummy_lsp_pkt();
 
     if(isis_node_info->isis_self_lsp_pkt){
         isis_deref_isis_pkt(isis_node_info->isis_self_lsp_pkt);
         isis_node_info->isis_self_lsp_pkt = NULL;
     }
+
+    isis_cleanup_lsdb(node);
 
     /* Queue All interfaces for Purge */
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
@@ -78,10 +84,12 @@ void
 isis_check_delete_node_info(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
     if(!isis_node_info) return;
 
     if (isis_node_info->is_shutting_down == false) return;
 
+#if 0
     if (isis_node_info->isis_self_lsp_pkt) {
         return;
     }
@@ -91,7 +99,7 @@ isis_check_delete_node_info(node_t *node) {
     }
 
     if (!IS_GLTHREAD_LIST_EMPTY(&isis_node_info->purge_intf_list)) return;
-
+#endif
     isis_free_node_info(node);
 }
 
@@ -111,6 +119,7 @@ isis_show_node_protocol_state(node_t *node) {
 
     printf("LSP flood count : %u\n", isis_node_info->lsp_flood_count);
     printf("SPF runs : %u\n", isis_node_info->spf_runs);
+    printf("Seq # : %u\n", isis_node_info->seq_no);
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
@@ -120,7 +129,7 @@ isis_show_node_protocol_state(node_t *node) {
 }
 
 static int
-isis_compare_lspdb_lsp_pkt(avltree_node_t *n1, avltree_node_t *n2) {
+isis_compare_lspdb_lsp_pkt(const avltree_node_t *n1, const avltree_node_t *n2) {
 
     isis_pkt_t *lsp_pkt1 = avltree_container_of(n1, isis_pkt_t, avl_node_glue);
     isis_pkt_t *lsp_pkt2 = avltree_container_of(n2, isis_pkt_t, avl_node_glue);
@@ -180,18 +189,18 @@ isis_schedule_job(node_t *node,
                   event_cbk cbk,
                   void *data,
                   const char *job_name,
-                  isis_events_t event_type) {
+                  isis_event_type_t event_type) {
 
     if (*task) {
         printf("Node : %s : %s Already Scheduled. Reason : %s\n",
-            node->node_name, job_name, isis_event(event_type));
+            node->node_name, job_name, isis_event_str(event_type));
         return;
     }
     
     if (!isis_is_protocol_enable_on_node(node)) {
         printf("Node : %s : Protocol not Enable. %s Will not be Scheduled."
                 " Reason : %s\n", node->node_name, job_name,
-                isis_event(event_type));
+                isis_event_str(event_type));
         return;
     }
 
@@ -199,6 +208,25 @@ isis_schedule_job(node_t *node,
 
     if(*task) {
         printf("Node : %s : %s Scheduled. Reason : %s\n",
-            node->node_name, job_name, isis_event(event_type));        
+            node->node_name, job_name, isis_event_str(event_type));        
+    }
+}
+
+void
+isis_show_event_counters(node_t *node) {
+
+    isis_event_type_t event_type;
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) return;
+
+    printf("Event Counters :\n");
+    for(event_type = isis_event_none + 1; 
+        event_type < isis_event_max;
+        event_type++){
+        
+        printf(" %s : %u\n", isis_event_str(event_type), 
+                isis_node_info->isis_event_count[event_type]);
     }
 }

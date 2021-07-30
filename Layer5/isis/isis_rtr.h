@@ -35,6 +35,8 @@ typedef struct isis_node_info_ {
     avltree_t lspdb_avl_root;
     /* no of SPF runs*/
     uint32_t spf_runs;
+    /*event counts*/
+    uint32_t isis_event_count[isis_event_max];
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -64,9 +66,12 @@ isis_schedule_job(node_t *node,
                   event_cbk cbk,
                   void *data,
                   const char *job_name,
-                  isis_events_t event_type);
+                  isis_event_type_t event_type);
 
 void
 isis_check_delete_node_info(node_t *node) ;
+
+void
+isis_show_event_counters(node_t *node);
 
 #endif

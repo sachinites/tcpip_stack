@@ -17,6 +17,7 @@ typedef struct isis_pkt_ {
     bool flood_eligibility;
     avltree_node_t avl_node_glue;
     timer_event_handle *expiry_timer;
+    bool installed_in_db;
 } isis_pkt_t;
 
 bool
@@ -26,7 +27,7 @@ void
 isis_pkt_recieve(void *arg, size_t arg_size);
 
 void
-isis_schedule_lsp_pkt_generation(node_t *node, isis_events_t event_type);
+isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type);
 
 void
 isis_cancel_lsp_pkt_generation_task(node_t *node);

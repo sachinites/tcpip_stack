@@ -221,13 +221,14 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
 
     printf("Node : %s : LSP Generation task triggered\n", node->node_name);
 
+#if 0
     /* Remove old LSP pkt from LSP DB */
     if (isis_node_info->isis_self_lsp_pkt) {
         
         isis_remove_lsp_pkt_from_lspdb(node, 
             isis_node_info->isis_self_lsp_pkt);
     }
-
+#endif 
     /* Now generate LSP pkt */
     isis_create_fresh_lsp_pkt(node);
     
@@ -235,12 +236,10 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
         isis_node_info->isis_self_lsp_pkt);
     
     isis_install_lsp(node, 0, isis_node_info->isis_self_lsp_pkt);
-
-    //isis_schedule_lsp_flood(node, isis_node_info->isis_self_lsp_pkt, NULL);
 }
 
 void
-isis_schedule_lsp_pkt_generation(node_t *node, isis_events_t event_type) {
+isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
@@ -248,12 +247,12 @@ isis_schedule_lsp_pkt_generation(node_t *node, isis_events_t event_type) {
 
     if (isis_node_info->isis_lsp_pkt_gen_task) {
         printf("Node %s : LSP generation Already scheduled, reason : %s\n",
-            node->node_name, isis_event(event_type));
+            node->node_name, isis_event_str(event_type));
         return;
     }
 
     printf("Node %s : LSP generation scheduled, reason : %s\n",
-            node->node_name, isis_event(event_type));
+            node->node_name, isis_event_str(event_type));
 
     isis_node_info->isis_lsp_pkt_gen_task =
         task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
@@ -498,6 +497,8 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
     rc = lsp_pkt->ref_count;
 
     if (lsp_pkt->ref_count == 0) {
+
+        assert(!lsp_pkt->installed_in_db);
 
         tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->pkt_size);
         

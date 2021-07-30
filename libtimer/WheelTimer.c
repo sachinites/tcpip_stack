@@ -73,6 +73,7 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
             {
                 assert(wt_elem->app_callback);
                 wt_elem->time_interval = wt_elem->new_time_interval;
+				assert(wt_elem->time_interval);
                 int absolute_slot_no = GET_WT_CURRENT_ABS_SLOT_NO(wt);
                 int next_abs_slot_no  = absolute_slot_no +
                     (wt_elem->time_interval/wt_get_clock_interval_in_milli_sec(wt));
@@ -80,7 +81,10 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
                 int next_slot_no      = next_abs_slot_no % wt->wheel_size;
                 wt_elem->execute_cycle_no    = next_cycle_no;
                 wt_elem->slot_no = next_slot_no;
-				if(wt->debug){ printf("inserting wt_elem %p into new position at [%u, %u]\n", wt_elem, wt_elem->execute_cycle_no, next_slot_no); }
+				if(wt->debug) {
+					printf("inserting wt_elem %p into new position at [%u, %u]\n", 
+					wt_elem, wt_elem->execute_cycle_no, next_slot_no);
+				}
                 glthread_priority_insert(WT_SLOTLIST_HEAD(wt, wt_elem->slot_no), 
                         &wt_elem->glue,
                         insert_wt_elem_in_slot, 
@@ -229,10 +233,12 @@ _timer_reschedule(wheel_timer_t *wt,
         case WTELEM_CREATE:
         case WTELEM_RESCHED:
         case WTELEM_DELETE:
-            
+               wt_elem->opcode = opcode;
                wt_elem->new_time_interval = new_time_interval;
+			   
 			   //pause_timer(wt->wheel_thread);
                WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+			   #if 0
 			   /* if wt_elem is not even scheduled once, and request
  				* comes to re-schedule it again, then treat it like
  				* CREATE request otherwise wt->no_of_wt_elem would
@@ -240,6 +246,7 @@ _timer_reschedule(wheel_timer_t *wt,
 			   if(wt_elem->opcode != WTELEM_CREATE) {
                	wt_elem->opcode = opcode;
 			   } 
+			   #endif
 			   wt_elem->slotlist_head = NULL;
                remove_glthread(&wt_elem->reschedule_glue);
                glthread_add_next(WT_GET_RESCHD_SLOTLIST_HEAD(wt), 
@@ -267,7 +274,9 @@ timer_register_app_event(wheel_timer_t *wt,
 	uint32_t clock_tick_interval_in_milli_sec = 
 					wt_get_clock_interval_in_milli_sec(wt);
 
-	if((time_interval % clock_tick_interval_in_milli_sec) != 0){		
+	if((!time_interval || 
+	   (time_interval % clock_tick_interval_in_milli_sec) != 0)){		
+		
 		assert(0);
 	}
 
@@ -299,9 +308,13 @@ timer_reschedule(wheel_timer_elem_t *wt_elem,
                    int new_time_interval){
   
 	wheel_timer_t *wt = wt_elem->wt;
-	if(new_time_interval % wt_get_clock_interval_in_milli_sec(wt) != 0){
+	
+	if (!new_time_interval ||
+		(new_time_interval % wt_get_clock_interval_in_milli_sec(wt) != 0)){
+
 		assert(0);
 	}   
+
     _timer_reschedule(wt, wt_elem, new_time_interval, WTELEM_RESCHED);    
 }
 
