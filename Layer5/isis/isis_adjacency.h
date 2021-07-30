@@ -33,8 +33,6 @@ typedef struct isis_adjacency_{
     ip_add_t nbr_intf_ip;
     /*Nbr lo 0 address */
     ip_add_t nbr_rtr_id;
-    /* Nbr MAC Addr */
-    mac_add_t nbr_mac;
     /* Nbr if index */
     uint32_t remote_if_index;
     /* Adj State */

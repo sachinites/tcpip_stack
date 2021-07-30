@@ -268,12 +268,12 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     uint32_t eth_hdr_playload_size =
                 sizeof(isis_pkt_type_t) +  /*ISIS pkt type code*/ 
                 (TLV_OVERHEAD_SIZE * 6) + /*There shall be Six TLVs, hence 4 TLV overheads*/
-                NODE_NAME_SIZE +    /*Data length of TLV: TLV_NODE_NAME*/
-                16 +                /*Data length of TLV_RTR_NAME which is 16*/
-                16 +                /*Data length of TLV_IF_IP which is 16*/
-                6  +                /*Data length of TLV_IF_MAC which is 6*/
-                4 +                 /* Data length for ISIS_TLV_HOLD_TIME */
-                4;                  /* Data length for ISIS_TLV_METRIC_VAL */
+                NODE_NAME_SIZE +    /* Data length of TLV: ISIS_TLV_NODE_NAME*/
+                16 +                /* Data length of ISIS_TLV_RTR_NAME which is 16*/
+                16 +                /* Data length of ISIS_TLV_IF_IP which is 16*/
+                4  +                /* Data length of ISIS_TLV_IF_INDEX which is 4*/
+                4 +                 /* Data length for ISIS_ISIS_TLV_HOLD_TIME */
+                4;                  /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
 
     *hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
                       eth_hdr_playload_size;
@@ -299,7 +299,7 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_IP, 
                                 16, IF_IP(intf));
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_INDEX,
-                                 6,  IF_MAC(intf));
+                                 4,  (char *)&IF_INDEX(intf));
 
     four_byte_data = ISIS_INTF_HELLO_INTERVAL(intf) * ISIS_HOLD_TIME_FACTOR;
 
@@ -393,10 +393,8 @@ isis_print_hello_pkt(pkt_info_t *pkt_info ) {
 
         switch(tlv_type){
             case ISIS_TLV_IF_INDEX:
-                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ", 
-                    tlv_type, tlv_len, 
-                    tlv_value[0], tlv_value[1], tlv_value[2],
-                    tlv_value[3], tlv_value[4], tlv_value[5]);
+                rc += sprintf(buff + rc, "%d %d %u :: ", 
+                    tlv_type, tlv_len, atoi(tlv_value));
             break;
             case ISIS_TLV_HOSTNAME:
             case ISIS_TLV_RTR_ID:
