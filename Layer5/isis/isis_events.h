@@ -25,6 +25,7 @@ typedef enum isis_events_ {
     isis_event_non_local_old_lsp,
     /*lspdb update events end*/
     isis_event_on_demand_flood,
+    isis_event_periodic_lsp_generation,
     isis_event_admin_action,
     isis_event_max
 } isis_event_type_t;

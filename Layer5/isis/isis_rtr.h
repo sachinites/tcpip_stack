@@ -49,6 +49,9 @@ typedef struct isis_node_info_ {
 #define ISIS_INCREMENT_NODE_STATS(node_ptr, field)  \
     (ISIS_NODE_INFO(node_ptr))->field++;
 
+#define ISIS_DECREMENT_NODE_STATS(node_ptr, field)  \
+    (ISIS_NODE_INFO(node_ptr))->field--;
+
 bool
 isis_is_protocol_enable_on_node(node_t *node) ;
 

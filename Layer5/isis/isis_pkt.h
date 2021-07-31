@@ -7,17 +7,23 @@
 typedef uint16_t isis_pkt_type_t;
 
 typedef struct isis_pkt_ {
+
     isis_pkt_type_t isis_pkt_type;
     byte *pkt;
     size_t pkt_size;
-
-    /* increase this counter whenever this LSP pkt
-       is Queued for transmission out of an interface */
     uint16_t ref_count;
+    /* No of interfaces out of which LSP has been
+    Queued to xmit */
+    uint16_t flood_queue_count;
+    /* if set to false, this LSP would not xmit out */
     bool flood_eligibility;
+    /* glue to attach this lsp pkt to lspdb*/
     avltree_node_t avl_node_glue;
+    /* Life time timer */
     timer_event_handle *expiry_timer;
+    /* to check if this LSP is present in lspdb or not */
     bool installed_in_db;
+    /* if ISIS_TLV_ON_DEMAND is psrent in this LSP */
     bool is_on_demand_tlv_present;
 } isis_pkt_t;
 

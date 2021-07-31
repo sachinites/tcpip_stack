@@ -160,11 +160,12 @@ isis_init(node_t *node ) {
     node->node_nw_prop.isis_node_info = isis_node_info;
     init_glthread(&isis_node_info->purge_intf_list);
     isis_node_info->seq_no = 0;
-    isis_node_info->lsp_flood_interval = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
+    isis_node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
-    isis_node_info->on_demand_flooding = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
+    isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
     isis_node_info->gen_lsp_with_on_demand_tlv = false;
+
     isis_start_lsp_pkt_periodic_flooding(node);
 
     ISIS_INCREMENT_NODE_STATS(node,

@@ -148,7 +148,6 @@ isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
     switch(event_type) {
 
         case isis_event_adj_state_goes_up:
-            /* To Do : If this is first Adj going Up */
         case isis_nbr_rtr_id_changed:
             return true;
         default:
@@ -195,7 +194,8 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     /* Get rid of out-dated self lsp pkt */
     if (isis_node_info->isis_self_lsp_pkt) {
         /* Debar this pkt from going out of the box*/
-        isis_node_info->isis_self_lsp_pkt->flood_eligibility = false;
+        isis_mark_isis_lsp_pkt_flood_ineligible(node, 
+                isis_node_info->isis_self_lsp_pkt);
         isis_deref_isis_pkt(isis_node_info->isis_self_lsp_pkt);
         isis_node_info->isis_self_lsp_pkt = NULL;
     }

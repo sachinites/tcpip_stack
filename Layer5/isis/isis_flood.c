@@ -6,6 +6,7 @@
 #include "isis_pkt.h"
 #include "isis_flood.h"
 #include "isis_adjacency.h"
+#include "isis_lspdb.h"
 
 typedef struct isis_lsp_xmit_elem_ {
 
@@ -25,14 +26,32 @@ isis_assign_lsp_src_mac_addr(interface_t *intf,
 }
 
 void
-isis_lsp_pkt_flood_complete(node_t *node){
+isis_lsp_pkt_flood_complete(node_t *node, isis_pkt_t *lsp_pkt ){
 
+    assert(!lsp_pkt->flood_queue_count);
+
+
+}
+
+void
+isis_mark_isis_lsp_pkt_flood_ineligible(
+        node_t *node, isis_pkt_t *lsp_pkt) {
+
+    /* Force LSP pkts woth on demand TLV to xmit out
+    no matter what !! */
+
+    if (lsp_pkt->is_on_demand_tlv_present &&
+        lsp_pkt->flood_queue_count) {
+
+            return;
+    }
+
+    lsp_pkt->flood_eligibility = false;
 }
 
 static void
 isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 
-    uint32_t rc;
     glthread_t *curr;
     interface_t *intf;
     isis_pkt_t *lsp_pkt;
@@ -53,6 +72,9 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
+        assert(lsp_pkt->flood_queue_count);
+        lsp_pkt->flood_queue_count--;
+        
         free(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
@@ -62,7 +84,11 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
             ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);
         }
 
-        rc = isis_deref_isis_pkt(lsp_pkt);
+        if (!lsp_pkt->flood_queue_count) {
+            isis_lsp_pkt_flood_complete(intf->att_node, lsp_pkt);
+        }
+
+        isis_deref_isis_pkt(lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&isis_intf_info->lsp_xmit_list_head, curr);
 }
@@ -90,6 +116,8 @@ isis_queue_lsp_pkt_for_transmission(
     glthread_add_last(&isis_intf_info->lsp_xmit_list_head,
                       &lsp_xmit_elem->glue);
 
+    lsp_pkt->flood_queue_count++;
+
     if (!isis_intf_info->lsp_xmit_job) {
 
         isis_intf_info->lsp_xmit_job =
@@ -115,6 +143,7 @@ isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         free(lsp_xmit_elem);
+        lsp_pkt->flood_queue_count--;
         isis_deref_isis_pkt(lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&isis_intf_info->lsp_xmit_list_head, curr);
@@ -128,7 +157,8 @@ isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
 void
 isis_schedule_lsp_flood(node_t *node, 
                         isis_pkt_t *lsp_pkt,
-                        interface_t *exempt_iif) {
+                        interface_t *exempt_iif,
+                        isis_event_type_t event_type) {
 
     interface_t *intf;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
@@ -220,11 +250,7 @@ timer_wrapper_isis_lsp_flood(void *arg, uint32_t arg_size) {
     
     *seq_no = (ISIS_NODE_INFO(isis_timer_data->node))->seq_no;
 
-#if 0
-    printf("Node : %s : periodic flood seq no %u\n", 
-        isis_timer_data->node->node_name, *seq_no);
-#endif
-
+    isis_schedule_lsp_pkt_generation(node, )
     isis_schedule_lsp_flood(isis_timer_data->node,
                    (isis_pkt_t *)isis_timer_data->data, NULL);
 }

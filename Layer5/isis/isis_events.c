@@ -42,6 +42,8 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT NON LOCAL OLD LSP",
     //isis_event_on_demand_flood
     "ISIS EVENT ON DEMAND FLOOD",
+    //isis_event_periodic_lsp_generation
+    "ISIS EVENT PERIODIC LSP GENERATION",
     //isis_event_admin_action
     "ISIS EVENT ADMIN ACTION"
 }; 

@@ -27,7 +27,7 @@ isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
         gl_lsp_dummy_pkt->pkt = tcp_ip_get_new_pkt_buffer ( pkt_size);
                         
         gl_lsp_dummy_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
-        gl_lsp_dummy_pkt->flood_eligibility = false;
+        isis_mark_isis_lsp_pkt_flood_ineligible(0, gl_lsp_dummy_pkt);
         gl_lsp_dummy_pkt->pkt_size = pkt_size;
         gl_lsp_dummy_pkt->expiry_timer = NULL;
         gl_lsp_dummy_pkt->installed_in_db = false;
@@ -121,7 +121,7 @@ isis_install_lsp(node_t *node,
         } else {
 
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, 0, event_type);
         }
     }
 
@@ -140,9 +140,9 @@ isis_install_lsp(node_t *node,
         } else {
 
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
-            old_lsp_pkt->flood_eligibility = false;
+            isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, 0, event_type);
         }
     }
 
@@ -154,7 +154,7 @@ isis_install_lsp(node_t *node,
             2. if self originated lsp then assert, impossible case */
         if (foreign_lsp) {
 
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, 0, event_type);
         } else {
 
             assert(0);
@@ -185,7 +185,7 @@ isis_install_lsp(node_t *node,
         if (foreign_lsp) {
 
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, iif, event_type);
         } else {
 
             assert(0);
@@ -201,9 +201,9 @@ isis_install_lsp(node_t *node,
         if (foreign_lsp) {
 
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
-            old_lsp_pkt->flood_eligibility = false;
+            isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, iif, event_type);
         } else {
 
             assert(0);
@@ -324,25 +324,23 @@ isis_parse_lsp_tlvs(node_t *node,
 
     if (need_on_demand_flood) {
 
-        /* 
-           Generate TLV from scratch so that we can remove on-demand tlv
-           from our lsp if there was any, otherwise it would cause infinite
-           exchange of LSPs
-        */
-        isis_pkt_t *self_lsp_pkt = isis_node_info->isis_self_lsp_pkt;
+        /* Somebody requested us On-Demand Flood */
+        if (isis_node_info->isis_lsp_pkt_gen_task) {
+            return;
+        }
 
-        if (self_lsp_pkt->is_on_demand_tlv_present) {
+        if (isis_node_info->isis_self_lsp_pkt &&
+            isis_node_info->isis_self_lsp_pkt->flood_eligibility) {
 
-            isis_schedule_lsp_pkt_generation(node, isis_event_on_demand_flood);
+                uint32_t *seq_no = isis_get_lsp_pkt_seq_no(isis_node_info->isis_self_lsp_pkt);
+                ISIS_INCREMENT_NODE_STATS(node, seq_no);
+                *seq_no = isis_node_info->seq_no;
+                isis_schedule_lsp_flood(node, isis_node_info->isis_self_lsp_pkt,
+                                        0, isis_event_on_demand_flood);
         }
         else {
-            
-            uint32_t *seq_no = isis_get_lsp_pkt_seq_no(self_lsp_pkt);
-            ISIS_INCREMENT_NODE_STATS(node, seq_no);
-            *seq_no = isis_node_info->seq_no;
-            isis_schedule_lsp_flood(node, isis_node_info->isis_self_lsp_pkt, 0);
+            isis_schedule_lsp_pkt_generation(node, isis_event_on_demand_flood);
         }
-        ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_on_demand_flood]);
     }
 }
 
