@@ -26,6 +26,9 @@ typedef enum isis_events_ {
     /*lspdb update events end*/
     isis_event_on_demand_flood,
     isis_event_periodic_lsp_generation,
+    isis_event_reconciliation_triggered,
+    isis_event_reconciliation_restarted,
+    isis_event_reconciliation_exit,
     isis_event_admin_action,
     isis_event_max
 } isis_event_type_t;

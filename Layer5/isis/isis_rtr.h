@@ -12,6 +12,14 @@ typedef struct isis_timer_data_ {
     size_t data_size;
 } isis_timer_data_t;
 
+typedef struct isis_reconc_data_ {
+
+   /* is reconciliation going on */
+    bool reconciliation_in_progress;
+    /* reconciliation timer */
+    timer_event_handle *reconciliation_timer;
+} isis_reconc_data_t;
+
 typedef struct isis_node_info_ {
     /* pointer to self LSP pkt */
     isis_pkt_t *isis_self_lsp_pkt;
@@ -39,8 +47,10 @@ typedef struct isis_node_info_ {
     uint32_t isis_event_count[isis_event_max];
     /* on demand flooding */
     bool on_demand_flooding;
-    /* lsp regenerate reason cached */
-    isis_event_type_t gen_lsp_with_on_demand_tlv;
+    /* Reconciliation data */
+    isis_reconc_data_t reconc;
+    /*Adjacency up count */
+    uint16_t adjacency_up_count;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

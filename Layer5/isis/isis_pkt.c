@@ -181,12 +181,11 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     lsp_pkt_size_estimate +=  isis_size_to_encode_all_nbr_tlv(node);
     
     /* On Demand TLV size estimation */
-    if (isis_node_info->on_demand_flooding &&
-        isis_node_info->gen_lsp_with_on_demand_tlv) {
-            include_on_demand_tlv = true;
-            lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + 1;
+    if (isis_is_reconciliation_in_progress(node)) {
+        include_on_demand_tlv = true;
+        lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + 1;
     }
-        
+
     if (lsp_pkt_size_estimate > MAX_PACKET_BUFFER_SIZE) {
         return;
     }
@@ -245,14 +244,6 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     isis_node_info->isis_self_lsp_pkt->pkt = (byte *)eth_hdr;
     isis_node_info->isis_self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
     isis_node_info->isis_self_lsp_pkt->ref_count = 1;
-    isis_node_info->isis_self_lsp_pkt->is_on_demand_tlv_present = false;
-    isis_node_info->gen_lsp_with_on_demand_tlv = false;
-
-    if (include_on_demand_tlv) {
-        /* Cache the info that current LSP we are advertising contain on demand
-            TLV */
-        isis_node_info->isis_self_lsp_pkt->is_on_demand_tlv_present = true;
-    }
 }
 
 void
@@ -280,10 +271,6 @@ isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type) {
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     if (!isis_node_info) return;
-
-    if (isis_should_insert_on_demand_tlv(node, event_type)) {
-        isis_node_info->gen_lsp_with_on_demand_tlv = true;
-    }
 
     if (isis_node_info->isis_lsp_pkt_gen_task) {
         printf("Node %s : LSP generation Already scheduled, reason : %s\n",

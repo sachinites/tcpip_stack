@@ -29,22 +29,11 @@ void
 isis_lsp_pkt_flood_complete(node_t *node, isis_pkt_t *lsp_pkt ){
 
     assert(!lsp_pkt->flood_queue_count);
-
-
 }
 
 void
 isis_mark_isis_lsp_pkt_flood_ineligible(
         node_t *node, isis_pkt_t *lsp_pkt) {
-
-    /* Force LSP pkts woth on demand TLV to xmit out
-    no matter what !! */
-
-    if (lsp_pkt->is_on_demand_tlv_present &&
-        lsp_pkt->flood_queue_count) {
-
-            return;
-    }
 
     lsp_pkt->flood_eligibility = false;
 }
@@ -236,7 +225,7 @@ isis_update_lsp_flood_timer_with_new_lsp_pkt(
 }
 
 static void
-timer_wrapper_isis_lsp_flood(void *arg, uint32_t arg_size) {
+isis_timer_wrapper_lsp_flood(void *arg, uint32_t arg_size) {
 
     if (!arg) return;
     
@@ -250,9 +239,9 @@ timer_wrapper_isis_lsp_flood(void *arg, uint32_t arg_size) {
     
     *seq_no = (ISIS_NODE_INFO(isis_timer_data->node))->seq_no;
 
-    isis_schedule_lsp_pkt_generation(node, )
-    isis_schedule_lsp_flood(isis_timer_data->node,
-                   (isis_pkt_t *)isis_timer_data->data, NULL);
+    isis_schedule_lsp_pkt_generation(
+            isis_timer_data->node,
+            isis_event_periodic_lsp_generation);
 }
 
 void
@@ -283,7 +272,7 @@ isis_start_lsp_pkt_periodic_flooding(node_t *node) {
        
     isis_node_info->periodic_lsp_flood_timer = 
                 timer_register_app_event(wt,
-                timer_wrapper_isis_lsp_flood,
+                isis_timer_wrapper_lsp_flood,
                 (void *)isis_timer_data,
                 isis_timer_data ? sizeof(isis_timer_data_t) : 0,
                 isis_node_info->lsp_flood_interval * 1000,
@@ -313,4 +302,144 @@ isis_stop_lsp_pkt_periodic_flooding(node_t *node){
     }
     
     isis_node_info->periodic_lsp_flood_timer = NULL;
+}
+
+/* Reconciliation APIs */
+bool
+isis_is_reconciliation_in_progress(node_t *node) {
+
+    isis_reconc_data_t *recon;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        return false;
+    }
+    
+    recon = &isis_node_info->reconc;
+    return recon->reconciliation_in_progress;
+}
+
+void
+isis_enter_reconciliation_phase(node_t *node) {
+
+    isis_reconc_data_t *recon;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
+
+    if (!isis_node_info->on_demand_flooding) return;
+
+    recon = &isis_node_info->reconc;
+
+    if (recon->reconciliation_in_progress) return;
+
+    recon->reconciliation_in_progress = true;
+
+    timer_reschedule(isis_node_info->periodic_lsp_flood_timer,
+                      ISIS_DEFAULT_RECONCILIATION_FLOOD_INTERVAL);
+
+    isis_start_reconciliation_timer(node);
+    isis_schedule_lsp_pkt_generation(node, isis_event_reconciliation_triggered);
+}
+
+void
+isis_exit_reconciliation_phase(node_t *node) {
+
+    isis_reconc_data_t *recon;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
+
+    recon = &isis_node_info->reconc;
+
+    if (!recon->reconciliation_in_progress) return;
+
+    recon->reconciliation_in_progress = false;
+
+    timer_reschedule(isis_node_info->periodic_lsp_flood_timer,
+                      isis_node_info->lsp_flood_interval * 1000);
+
+    isis_stop_reconciliation_timer(node);
+    isis_schedule_lsp_pkt_generation(node, isis_event_reconciliation_exit);
+}
+
+void
+isis_restart_reconciliation_timer(node_t *node) {
+
+    isis_reconc_data_t *recon;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
+    
+    recon = &isis_node_info->reconc;
+
+    if (!recon->reconciliation_in_progress) return;
+
+    assert(recon->reconciliation_timer);
+
+    timer_reschedule(recon->reconciliation_timer,
+                     ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME);
+
+    ISIS_INCREMENT_NODE_STATS(node,
+        isis_event_count[isis_event_reconciliation_restarted]);
+}
+
+static void
+isis_timer_wrapper_exit_reconciliation_phase(
+        void *arg, uint32_t arg_size) {
+
+    if (!arg) return;
+
+    node_t *node = (node_t *)arg;
+
+    isis_exit_reconciliation_phase(node);
+}
+
+void
+isis_start_reconciliation_timer(node_t *node) {
+
+    isis_reconc_data_t *recon;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
+    
+    recon = &isis_node_info->reconc;
+
+    assert(recon->reconciliation_in_progress); 
+
+    if(recon->reconciliation_timer) return;
+
+    recon->reconciliation_timer = timer_register_app_event(
+                                    node_get_timer_instance(node),
+                                    isis_timer_wrapper_exit_reconciliation_phase,
+                                    (void *)node, sizeof(node),
+                                    ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME,
+                                    0);
+
+}
+
+void
+isis_stop_reconciliation_timer(node_t *node) {
+
+    isis_reconc_data_t *recon;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
+
+    recon = &isis_node_info->reconc;
+
+    if(!recon->reconciliation_timer) return;
+
+    timer_de_register_app_event(recon->reconciliation_timer);
+    recon->reconciliation_timer = NULL;
 }

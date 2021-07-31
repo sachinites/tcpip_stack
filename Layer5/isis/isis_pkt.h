@@ -23,8 +23,6 @@ typedef struct isis_pkt_ {
     timer_event_handle *expiry_timer;
     /* to check if this LSP is present in lspdb or not */
     bool installed_in_db;
-    /* if ISIS_TLV_ON_DEMAND is psrent in this LSP */
-    bool is_on_demand_tlv_present;
 } isis_pkt_t;
 
 bool

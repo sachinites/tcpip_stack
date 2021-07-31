@@ -325,7 +325,8 @@ isis_parse_lsp_tlvs(node_t *node,
     if (need_on_demand_flood) {
 
         /* Somebody requested us On-Demand Flood */
-        if (isis_node_info->isis_lsp_pkt_gen_task) {
+        if (isis_node_info->isis_lsp_pkt_gen_task ||
+            isis_is_reconciliation_in_progress(node)) {
             return;
         }
 

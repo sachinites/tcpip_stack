@@ -5,6 +5,7 @@
 #include "isis_adjacency.h"
 #include "isis_pkt.h"
 #include "isis_events.h"
+#include "isis_flood.h"
 
 
 static void
@@ -334,17 +335,25 @@ isis_change_adjacency_state(
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     break;
                 case ISIS_ADJ_STATE_UP:
-                {
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     ISIS_INCREMENT_NODE_STATS(node,
                                 isis_event_count[isis_event_adj_state_goes_up]);
-                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_up);
-                }
+
+                    ISIS_INCREMENT_NODE_STATS(node, adjacency_up_count);
+
+                    if (ISIS_NODE_INFO(node)->adjacency_up_count == 1) {
+                        isis_enter_reconciliation_phase(node);
+                    }
+                    else if (isis_is_reconciliation_in_progress(node)){
+                        isis_restart_reconciliation_timer(node);
+                    }
+                    else {
+                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_up);
+                    }
                     break;
                 default : ;
             }   
-            break;
 
         case ISIS_ADJ_STATE_UP:
 
@@ -355,7 +364,16 @@ isis_change_adjacency_state(
                     isis_adjacency_start_delete_timer(adjacency);
                     ISIS_INCREMENT_NODE_STATS(node,
                                 isis_event_count[isis_event_adj_state_goes_down]);
-                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_down);
+                    ISIS_DECREMENT_NODE_STATS(node, adjacency_up_count);
+
+                    if (isis_is_reconciliation_in_progress(node) &&
+                        ISIS_NODE_INFO(node)->adjacency_up_count){
+                            
+                        isis_restart_reconciliation_timer(node);
+                    }
+                    else {
+                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_down);
+                    }
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);

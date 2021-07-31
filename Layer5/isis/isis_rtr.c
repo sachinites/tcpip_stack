@@ -33,6 +33,7 @@ static void
 isis_node_cancel_all_timers(node_t *node){
 
     isis_stop_lsp_pkt_periodic_flooding(node);
+    isis_stop_reconciliation_timer(node);
 }
 
 void
@@ -120,6 +121,7 @@ isis_show_node_protocol_state(node_t *node) {
     printf("LSP flood count : %u\n", isis_node_info->lsp_flood_count);
     printf("SPF runs : %u\n", isis_node_info->spf_runs);
     printf("Seq # : %u\n", isis_node_info->seq_no);
+    printf("adjacencu up : %u\n", isis_node_info->adjacency_up_count);
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
@@ -164,7 +166,6 @@ isis_init(node_t *node ) {
     isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
     isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
-    isis_node_info->gen_lsp_with_on_demand_tlv = false;
 
     isis_start_lsp_pkt_periodic_flooding(node);
 

@@ -44,6 +44,12 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT ON DEMAND FLOOD",
     //isis_event_periodic_lsp_generation
     "ISIS EVENT PERIODIC LSP GENERATION",
+    //isis_event_reconciliation_triggered
+    "ISIS EVENT RECONCILIATION TRIGGERED",
+    //isis_event_reconciliation_restarted
+    "ISIS EVENT RECONCILIATION RESTARTED",
+    //isis_event_reconciliation_exit,
+    "ISIS EVENT RECONCILIATION EXIT",
     //isis_event_admin_action
     "ISIS EVENT ADMIN ACTION"
 }; 
