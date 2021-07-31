@@ -163,9 +163,13 @@ isis_init(node_t *node ) {
     isis_node_info->lsp_flood_interval = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
+    isis_node_info->on_demand_flooding = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
+    isis_node_info->gen_lsp_with_on_demand_tlv = false;
     isis_start_lsp_pkt_periodic_flooding(node);
+
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_protocol_enable]);
+
     isis_schedule_lsp_pkt_generation(node, isis_event_protocol_enable);
 }
 
@@ -233,5 +237,42 @@ isis_show_event_counters(node_t *node) {
         
         printf(" %s : %u\n", isis_event_str(event_type), 
                 isis_node_info->isis_event_count[event_type]);
+    }
+}
+
+void
+isis_proto_enable_disable_on_demand_flooding(
+        node_t *node,
+        bool enable) {
+
+    avltree_t *lsdb;
+    avltree_node_t *curr;
+    isis_pkt_t *lsp_pkt;
+    isis_node_info_t *isis_node_info;
+
+    isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) return;
+    lsdb = isis_get_lspdb_root(node);
+
+    if (enable) {
+        if (isis_node_info->on_demand_flooding) return;
+            isis_node_info->on_demand_flooding = true;
+            isis_stop_lsp_pkt_periodic_flooding(node);
+            ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
+
+                lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
+                isis_stop_lsp_pkt_installation_timer(lsp_pkt);
+            } ITERATE_AVL_TREE_END;
+    }
+    else {
+        if (!isis_node_info->on_demand_flooding) return;
+        isis_node_info->on_demand_flooding = false;
+        isis_start_lsp_pkt_periodic_flooding(node);
+        ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
+
+                lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
+                isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
+        } ITERATE_AVL_TREE_END;
     }
 }

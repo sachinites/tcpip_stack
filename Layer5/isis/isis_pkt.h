@@ -18,6 +18,7 @@ typedef struct isis_pkt_ {
     avltree_node_t avl_node_glue;
     timer_event_handle *expiry_timer;
     bool installed_in_db;
+    bool is_on_demand_tlv_present;
 } isis_pkt_t;
 
 bool

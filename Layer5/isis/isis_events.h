@@ -14,7 +14,7 @@ typedef enum isis_events_ {
     isis_nbr_ip_changed,
     isis_nbr_metric_changed,
     isis_nbr_rtr_id_changed,
-    /*lspdb update events*/
+    /*lspdb update events begin*/
     isis_event_self_duplicate_lsp,
     isis_event_self_fresh_lsp,
     isis_event_self_new_lsp,
@@ -23,6 +23,8 @@ typedef enum isis_events_ {
     isis_event_non_local_fresh_lsp,
     isis_event_non_local_new_lsp,
     isis_event_non_local_old_lsp,
+    /*lspdb update events end*/
+    isis_event_on_demand_flood,
     isis_event_admin_action,
     isis_event_max
 } isis_event_type_t;

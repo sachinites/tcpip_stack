@@ -136,12 +136,35 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
     }
 }
 
+static bool
+isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_node_info->on_demand_flooding) {
+        return false; 
+    }
+
+    switch(event_type) {
+
+        case isis_event_adj_state_goes_up:
+            /* To Do : If this is first Adj going Up */
+        case isis_nbr_rtr_id_changed:
+            return true;
+        default:
+            return false;
+    }
+}
+
 static void
 isis_create_fresh_lsp_pkt(node_t *node) {
 
+    bool include_on_demand_tlv;
     byte *eth_payload;
     size_t lsp_pkt_size_estimate = 0;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    include_on_demand_tlv = false;
 
     /* Dont use the fn isis_is_protocol_enable_on_node( ) because
        we want to generate purge LSP when protocol is shutting down
@@ -157,12 +180,18 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE; /* Device name */
     /* Nbr TLVs */
     lsp_pkt_size_estimate +=  isis_size_to_encode_all_nbr_tlv(node);
-
+    
+    /* On Demand TLV size estimation */
+    if (isis_node_info->on_demand_flooding &&
+        isis_node_info->gen_lsp_with_on_demand_tlv) {
+            include_on_demand_tlv = true;
+            lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + 1;
+    }
+        
     if (lsp_pkt_size_estimate > MAX_PACKET_BUFFER_SIZE) {
         return;
     }
 
-    
     /* Get rid of out-dated self lsp pkt */
     if (isis_node_info->isis_self_lsp_pkt) {
         /* Debar this pkt from going out of the box*/
@@ -200,6 +229,13 @@ isis_create_fresh_lsp_pkt(node_t *node) {
                                         NODE_NAME_SIZE, node->node_name);
 
     eth_payload = isis_encode_all_nbr_tlvs(node, eth_payload);
+
+    /* On Demand TLV insertion */
+    if (include_on_demand_tlv) {
+        bool true_f = true;
+        eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_ON_DEMAND,
+                                             1, (char *)&true_f);
+    }
     
     SET_COMMON_ETH_FCS(eth_hdr, lsp_pkt_size_estimate, 0);
 
@@ -209,6 +245,14 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     isis_node_info->isis_self_lsp_pkt->pkt = (byte *)eth_hdr;
     isis_node_info->isis_self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
     isis_node_info->isis_self_lsp_pkt->ref_count = 1;
+    isis_node_info->isis_self_lsp_pkt->is_on_demand_tlv_present = false;
+    isis_node_info->gen_lsp_with_on_demand_tlv = false;
+
+    if (include_on_demand_tlv) {
+        /* Cache the info that current LSP we are advertising contain on demand
+            TLV */
+        isis_node_info->isis_self_lsp_pkt->is_on_demand_tlv_present = true;
+    }
 }
 
 void
@@ -221,14 +265,6 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
 
     printf("Node : %s : LSP Generation task triggered\n", node->node_name);
 
-#if 0
-    /* Remove old LSP pkt from LSP DB */
-    if (isis_node_info->isis_self_lsp_pkt) {
-        
-        isis_remove_lsp_pkt_from_lspdb(node, 
-            isis_node_info->isis_self_lsp_pkt);
-    }
-#endif 
     /* Now generate LSP pkt */
     isis_create_fresh_lsp_pkt(node);
     
@@ -244,6 +280,10 @@ isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type) {
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     if (!isis_node_info) return;
+
+    if (isis_should_insert_on_demand_tlv(node, event_type)) {
+        isis_node_info->gen_lsp_with_on_demand_tlv = true;
+    }
 
     if (isis_node_info->isis_lsp_pkt_gen_task) {
         printf("Node %s : LSP generation Already scheduled, reason : %s\n",

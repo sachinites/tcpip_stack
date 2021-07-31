@@ -227,8 +227,122 @@ isis_install_lsp(node_t *node,
 
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[event_type]);
     
+    /* Now Decide what we need to do after updating LSP DB */
+    isis_parse_lsp_tlvs(node, new_lsp_pkt, old_lsp_pkt, event_type);
+
     if (old_lsp_pkt) {
         isis_deref_isis_pkt(old_lsp_pkt);
+    }
+}
+
+static void
+isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
+                             bool *on_demand_tlv) {
+
+    *on_demand_tlv = false;
+
+    /* Now parse and see on demand TLV is present */
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(new_lsp_pkt->pkt);
+    byte *lsp_hdr = eth_hdr->payload;
+    byte *lsp_tlv_buffer = lsp_hdr + ISIS_LSP_HDR_SIZE;
+    uint16_t lsp_tlv_buffer_size = new_lsp_pkt->pkt_size - 
+                                   ETH_HDR_SIZE_EXCL_PAYLOAD -
+                                   ISIS_LSP_HDR_SIZE;
+
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+    ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type, 
+                      tlv_len, tlv_value, 
+                      lsp_tlv_buffer_size) {
+
+        switch(tlv_type) {
+
+            case ISIS_TLV_ON_DEMAND:
+                *on_demand_tlv = true;
+            break;
+            default: ;
+        }
+    } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type, 
+                      tlv_len, tlv_value,
+                      lsp_tlv_buffer_size)
+}
+
+void
+isis_parse_lsp_tlvs(node_t *node,
+                    isis_pkt_t *new_lsp_pkt,
+                    isis_pkt_t *old_lsp_pkt,
+                    isis_event_type_t event_type) {
+
+    bool need_spf = false;
+    bool pkt_diff = false;
+    bool on_demand_tlv = false;
+    bool need_pkt_diff = false;
+    bool need_on_demand_flood = false;
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    isis_parse_lsp_tlvs_internal(new_lsp_pkt, &on_demand_tlv);
+
+    switch(event_type) {
+        case isis_event_self_duplicate_lsp:
+        break;
+        case isis_event_self_fresh_lsp:
+            need_spf = true;
+        break;
+        case isis_event_self_new_lsp:
+            /* spf would have scheduled already when event causing
+               lsp generation happened */
+        break;
+        case isis_event_self_old_lsp:
+        break;
+        case isis_event_non_local_duplicate_lsp:
+        break;
+        case isis_event_non_local_fresh_lsp:
+            need_spf = true;
+            if (on_demand_tlv) need_on_demand_flood = true;
+        case isis_event_non_local_new_lsp:
+            need_pkt_diff = true;
+            if (on_demand_tlv) need_on_demand_flood = true;
+        case isis_event_non_local_old_lsp:
+        break;
+        default: ;
+    }
+    
+    if (!need_spf && need_pkt_diff) {
+
+        pkt_diff = isis_is_lsp_diff(new_lsp_pkt, old_lsp_pkt);
+        
+        if (pkt_diff) {
+            need_spf = true;
+        }
+    }
+
+    if (need_spf) {
+        isis_schedule_spf_job(node);
+    }
+
+    if (need_on_demand_flood) {
+
+        /* 
+           Generate TLV from scratch so that we can remove on-demand tlv
+           from our lsp if there was any, otherwise it would cause infinite
+           exchange of LSPs
+        */
+        isis_pkt_t *self_lsp_pkt = isis_node_info->isis_self_lsp_pkt;
+
+        if (self_lsp_pkt->is_on_demand_tlv_present) {
+
+            isis_schedule_lsp_pkt_generation(node, isis_event_on_demand_flood);
+        }
+        else {
+            
+            uint32_t *seq_no = isis_get_lsp_pkt_seq_no(self_lsp_pkt);
+            ISIS_INCREMENT_NODE_STATS(node, seq_no);
+            *seq_no = isis_node_info->seq_no;
+            isis_schedule_lsp_flood(node, isis_node_info->isis_self_lsp_pkt, 0);
+        }
+        ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_on_demand_flood]);
     }
 }
 
@@ -335,11 +449,18 @@ isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) {
 
     unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, 0);
     printf("LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
-            "ref_c : %-3u   Life Time Remaining : %u msec\n",
+            "ref_c : %-3u   ",
             rtr_id_str, *seq_no, 
             lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
-            lsp_pkt->ref_count,
-            lsp_pkt->expiry_timer ? wt_get_remaining_time(lsp_pkt->expiry_timer) : 0);
+            lsp_pkt->ref_count);
+
+    if (lsp_pkt->expiry_timer) {
+        printf("Life Time Remaining : %u msec\n",
+            wt_get_remaining_time(lsp_pkt->expiry_timer));
+    }
+    else {
+        printf("\n");
+    }
 }
 
 byte*
@@ -381,7 +502,12 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
 void
 isis_start_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
 
-    wheel_timer_t *wt = node_get_timer_instance(node);
+    wheel_timer_t *wt;
+    isis_node_info_t *isis_node_info;
+
+    isis_node_info = ISIS_NODE_INFO(node);
+
+    wt = node_get_timer_instance(node);
 
     if (lsp_pkt->expiry_timer) return;
 

@@ -1,6 +1,9 @@
 #ifndef __ISIS_LSPDB__
 #define __ISIS_LSPDB__
 
+avltree_t *
+isis_get_lspdb_root(node_t *node);
+
 int
 isis_install_lsp_pkt_in_lspdb(node_t *node, 
                               isis_pkt_t *isis_lsp_pkt);
@@ -50,4 +53,10 @@ isis_add_lsp_pkt_in_lspdb(node_t *node, isis_pkt_t *lsp_pkt);
 bool
 isis_is_lsp_pkt_installed_in_lspdb(isis_pkt_t *lsp_pkt);
 
+void
+isis_parse_lsp_tlvs(node_t *node,
+                    isis_pkt_t *new_lsp_pkt,
+                    isis_pkt_t *old_lsp_pkt,
+                    isis_event_type_t event_type);
+                    
 #endif /* */

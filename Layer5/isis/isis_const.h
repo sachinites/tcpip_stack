@@ -8,8 +8,9 @@
 #define ISIS_DEFAULT_INTF_COST  10  // as per standard
 #define ISIS_HOLD_TIME_FACTOR   2
 #define ISIS_ADJ_DEFAULT_DELETE_TIME (5 * 1000) // 5 sec
-#define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  5 // 1200 sec is standardc
+#define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  30 // 1200 sec is standardc
 #define ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL (ISIS_LSP_DEFAULT_FLOOD_INTERVAL * 2)
+#define ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS true
 
 /*ISIS TLVs */
 #define ISIS_TLV_HOSTNAME   137 // as per standard 
@@ -22,6 +23,7 @@
 #define ISIS_TLV_IF_INDEX   4 // as per standard
 #define ISIS_TLV_LOCAL_IP   6 // as per standard
 #define ISIS_TLV_REMOTE_IP  8 // as per standard
+#define ISIS_TLV_ON_DEMAND  111 // imaginary
 
 
 #define ISIS_LSP_HDR_SIZE   (sizeof(isis_pkt_type_t) + \

@@ -37,6 +37,10 @@ typedef struct isis_node_info_ {
     uint32_t spf_runs;
     /*event counts*/
     uint32_t isis_event_count[isis_event_max];
+    /* on demand flooding */
+    bool on_demand_flooding;
+    /* lsp regenerate reason cached */
+    isis_event_type_t gen_lsp_with_on_demand_tlv;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -73,5 +77,10 @@ isis_check_delete_node_info(node_t *node) ;
 
 void
 isis_show_event_counters(node_t *node);
+
+void
+isis_proto_enable_disable_on_demand_flooding(
+        node_t *node,
+        bool enable);
 
 #endif
