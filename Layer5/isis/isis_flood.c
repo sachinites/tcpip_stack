@@ -105,7 +105,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         free(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
-            isis_check_xmit_lsp_sanity_before_transmission(intf->att_node, lsp_pkt);
+           // isis_check_xmit_lsp_sanity_before_transmission(intf->att_node, lsp_pkt);
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
             ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);

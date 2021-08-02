@@ -555,8 +555,8 @@ isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) {
             lsp_pkt->ref_count);
 
     if (lsp_pkt->expiry_timer) {
-        printf("Life Time Remaining : %u msec\n",
-            wt_get_remaining_time(lsp_pkt->expiry_timer));
+        printf("Life Time Remaining : %u sec\n",
+            wt_get_remaining_time(lsp_pkt->expiry_timer)/1000);
     }
     else {
         printf("\n");
