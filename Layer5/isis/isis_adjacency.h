@@ -47,9 +47,14 @@ typedef struct isis_adjacency_{
     timer_event_handle *expiry_timer;
     /* Delete timer */
     timer_event_handle *delete_timer;
+    /* uptime */
+    time_t uptime;
     glthread_t glue;
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);
+
+void
+isis_adjacency_set_uptime(isis_adjacency_t *adjacency);
 
 void
 isis_update_interface_adjacency_from_hello(interface_t *iif,

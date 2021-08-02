@@ -81,6 +81,10 @@ isis_process_lsp_pkt(node_t *node,
     isis_pkt_t *new_lsp_pkt;
     isis_node_info_t *isis_node_info;
     
+    if (!isis_node_intf_is_enable(iif)) return;
+    
+    if (!isis_any_adjacency_up_on_interface(iif)) return;
+
     ISIS_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
     new_lsp_pkt = calloc(1, sizeof(isis_pkt_t));
@@ -91,6 +95,12 @@ isis_process_lsp_pkt(node_t *node,
     new_lsp_pkt->pkt_size = pkt_size;
 
     isis_ref_isis_pkt(new_lsp_pkt);
+
+    sprintf(tlb, "%s : lsp %s recvd on intf %s\n",
+        ISIS_LSPDB_MGMT,
+        isis_print_lsp_id(new_lsp_pkt), iif ? iif->if_name : 0);
+    tcp_trace(node, iif, tlb);
+
     isis_install_lsp(node, iif, new_lsp_pkt);
     isis_deref_isis_pkt(new_lsp_pkt);
 }
@@ -555,7 +565,10 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
             timer_de_register_app_event(lsp_pkt->expiry_timer);
             lsp_pkt->expiry_timer = NULL;
         }
-
+        #if 0
+        sprintf(tlb, "%s : LSP Pkt %s freed\n", ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt));
+        tcp_trace(0, 0, tlb);
+        #endif
         free(lsp_pkt);
     }    
 

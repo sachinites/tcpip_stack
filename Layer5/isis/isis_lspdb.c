@@ -68,18 +68,21 @@ isis_install_lsp(node_t *node,
                  isis_pkt_t *new_lsp_pkt) {
 
     bool self_lsp;
-    bool foreign_lsp;
+    bool recvd_via_intf;
     uint32_t *rtr_id;
+    ip_add_t rtr_id_str;
     isis_pkt_t *old_lsp_pkt;
     isis_event_type_t event_type;
     bool duplicate_lsp;
     uint32_t *old_seq_no = NULL;
     
-    foreign_lsp = iif ? true : false;
+    
+    recvd_via_intf = iif ? true : false;
     self_lsp = isis_our_lsp(node, new_lsp_pkt);
     event_type = isis_event_none;
 
     rtr_id = isis_get_lsp_pkt_rtr_id(new_lsp_pkt);
+    tcp_ip_covert_ip_n_to_p(*rtr_id, rtr_id_str.ip_addr);
 
     old_lsp_pkt = isis_lookup_lsp_from_lsdb(
                     node, *rtr_id);
@@ -91,12 +94,13 @@ isis_install_lsp(node_t *node,
 
     uint32_t *new_seq_no = isis_get_lsp_pkt_seq_no(new_lsp_pkt);
 
-    sprintf(tlb, "%s : Lsp Recvd : %s(%p) on intf %s, old lsp : %s(%p)\n",
+    sprintf(tlb, "%s : Lsp Recvd : %s-%u(%p) on intf %s, old lsp : %s-%u(%p)\n",
             ISIS_LSPDB_MGMT,
-            isis_print_lsp_id(new_lsp_pkt), 
+            rtr_id_str.ip_addr, *new_seq_no, 
             new_lsp_pkt->pkt,
             iif ? iif->if_name : 0,
-            old_lsp_pkt ? isis_print_lsp_id(old_lsp_pkt) : 0,
+            old_lsp_pkt ? rtr_id_str.ip_addr : 0,
+            old_lsp_pkt ? *old_seq_no : 0,
             old_lsp_pkt ? old_lsp_pkt->pkt : 0);
     tcp_trace(node, iif, tlb);
 
@@ -105,12 +109,13 @@ isis_install_lsp(node_t *node,
     if (self_lsp && duplicate_lsp) {
 
         event_type = isis_event_self_duplicate_lsp;
-        sprintf(tlb, "\t%s : Event : %s", ISIS_LSPDB_MGMT, isis_event_str(event_type));
+        sprintf(tlb, "\t%s : Event : %s : self Duplicate LSP, No Action\n",
+            ISIS_LSPDB_MGMT, isis_event_str(event_type));
         tcp_trace(node, iif, tlb);
         /* Action :
             1. if foriegn lsp then do nothing
             2. if self originated lsp then assert, impossible case*/
-        if (foreign_lsp) {
+        if (recvd_via_intf) {
 
              // no action
         } else {
@@ -127,11 +132,11 @@ isis_install_lsp(node_t *node,
         /* Action :
             1. if foriegn lsp then ignore, and regenerate self lsp with higher sequence no and flood on all intf
             2. if self originated lsp then install in db and flood on all intf*/
-        if (foreign_lsp) {
+        if (recvd_via_intf) {
 
             ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
 
-            sprintf(tlb, "\t%s : Event : %s : LSP to be generated with seq no %u\n",
+            sprintf(tlb, "\t%s : Event : %s : self-LSP to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
             tcp_trace(node, iif, tlb);
             
@@ -155,20 +160,19 @@ isis_install_lsp(node_t *node,
                 sequence no and flood on all intf
             2. if self originated lsp then replace it in db and 
                 install new one and flood it on all intf */
-        if (foreign_lsp) {
+        if (recvd_via_intf) {
 
             ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
             sprintf(tlb, "\t%s : Event : %s : LSP to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
             tcp_trace(node, iif, tlb);
-            isis_schedule_lsp_pkt_generation(node, isis_event_self_fresh_lsp);
+            isis_schedule_lsp_pkt_generation(node, isis_event_self_new_lsp);
         } else {
-            sprintf(tlb, "\t%s : Event : %s : LSP %s to be replaced in LSPDB "
-                "with old LSP %s and flood Seq No : [new = %u : old = %u]\n",
+            sprintf(tlb, "\t%s : Event : %s : LSP %s-%u to be replaced in LSPDB "
+                "with old LSP %s-%u and flood\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                isis_print_lsp_id(new_lsp_pkt),
-                isis_print_lsp_id(old_lsp_pkt),
-               *new_seq_no, *old_seq_no );
+                rtr_id_str.ip_addr, *old_seq_no,
+                rtr_id_str.ip_addr, *new_seq_no);
             tcp_trace(node, iif, tlb);
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
             isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
@@ -185,11 +189,12 @@ isis_install_lsp(node_t *node,
         /* Action :
             1. if foreign lsp, then flood existing one on all intf
             2. if self originated lsp then assert, impossible case */
-        if (foreign_lsp) {
-            sprintf(tlb, "\t%s : Event : %s : LSP %s to be flooded\n",
-                ISIS_LSPDB_MGMT, isis_event_str(event_type), isis_print_lsp_id(new_lsp_pkt));
+        if (recvd_via_intf) {
+            sprintf(tlb, "\t%s : Event : %s : LSP %s-%u to be flooded\n",
+                ISIS_LSPDB_MGMT, isis_event_str(event_type),
+                rtr_id_str.ip_addr, *old_seq_no);
             tcp_trace(node, iif, tlb);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0, event_type);
+            isis_schedule_lsp_flood(node, old_lsp_pkt, 0, event_type);
         } else {
 
             assert(0);
@@ -204,10 +209,10 @@ isis_install_lsp(node_t *node,
         /* Action :
             1. if foreign lsp then do nothing
             2. if self originated lsp then assert, impossible case */
-        if (foreign_lsp) {
-            sprintf(tlb, "\t%s : Event : %s Recvd Duplicate LSP %s, no Action\n",
+        if (recvd_via_intf) {
+            sprintf(tlb, "\t%s : Event : %s Recvd Duplicate LSP %s-%u, no Action\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                isis_print_lsp_id(new_lsp_pkt));
+                rtr_id_str.ip_addr, *new_seq_no);
             tcp_trace(node, iif, tlb);
         } else {
 
@@ -223,9 +228,10 @@ isis_install_lsp(node_t *node,
         /* Action :
             1. if foreign lsp then install in db and flood forward it
             2. if self originated lsp then assert, impossible case */
-        if (foreign_lsp) {
-            sprintf(tlb, "\t%s : Event : %s : LSP to be Added in LSPDB and flood\n",
-                ISIS_LSPDB_MGMT, isis_event_str(event_type));
+        if (recvd_via_intf) {
+            sprintf(tlb, "\t%s : Event : %s : LSP %s-%u to be Added in LSPDB and flood\n",
+                ISIS_LSPDB_MGMT, isis_event_str(event_type),
+                rtr_id_str.ip_addr, *new_seq_no);
             tcp_trace(node, iif, tlb);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
             isis_schedule_lsp_flood(node, new_lsp_pkt, iif, event_type);
@@ -243,11 +249,12 @@ isis_install_lsp(node_t *node,
         /* Action :
             1. if foreign lsp then replace in db and flood forward it
             2. if self originated lsp then assert, impossible case */
-        if (foreign_lsp) {
-            sprintf(tlb, "\t%s : Event : %s : LSP %s to be replaced in LSPDB and flood"
-                "Seq No : [new = %u : old = %u]\n",
-                ISIS_LSPDB_MGMT, isis_event_str(event_type), isis_print_lsp_id(new_lsp_pkt),
-               *new_seq_no, *old_seq_no );
+        if (recvd_via_intf) {
+            sprintf(tlb, "\t%s : Event : %s : LSP %s-%u to be replaced in LSPDB with"
+                    " LSP %s-%u and flood\n",
+                    ISIS_LSPDB_MGMT, isis_event_str(event_type),
+                    rtr_id_str.ip_addr, *old_seq_no,
+                    rtr_id_str.ip_addr, *new_seq_no);
             tcp_trace(node, iif, tlb);
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
             isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
@@ -267,10 +274,11 @@ isis_install_lsp(node_t *node,
         /* Action :
             1. if foreign lsp then shoot out lsp back on recv intf
             2. if self originated lsp then assert, impossible case */
-        if (foreign_lsp) {
-            sprintf(tlb, "\t%s : Event : %s Old LSP %s will be back fired out of intf %s\n",
+        if (recvd_via_intf) {
+            sprintf(tlb, "\t%s : Event : %s Old LSP %s-%u will be back fired out of intf %s\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                isis_print_lsp_id(old_lsp_pkt), iif->if_name);
+                rtr_id_str.ip_addr, *old_seq_no,
+                iif->if_name);
             tcp_trace(node, iif, tlb);
             isis_queue_lsp_pkt_for_transmission(iif, old_lsp_pkt);
         } else {
@@ -279,10 +287,11 @@ isis_install_lsp(node_t *node,
         }
     }
 
-    sprintf(tlb, "%s : LSPDB Updated  for new Lsp Recvd : %s, old lsp : %s, Event : %s\n",
+    sprintf(tlb, "%s : LSPDB Updated  for new Lsp Recvd : %s-%u, old lsp : %s-%u, Event : %s\n",
             ISIS_LSPDB_MGMT,
-            isis_print_lsp_id(new_lsp_pkt), 
-            old_lsp_pkt ? isis_print_lsp_id(old_lsp_pkt) : 0,
+            rtr_id_str.ip_addr, *new_seq_no,
+            old_lsp_pkt ? rtr_id_str.ip_addr :0,
+            old_lsp_pkt ? *old_seq_no : 0,
             isis_event_str(event_type));
     tcp_trace(node, iif, tlb);
 
@@ -340,6 +349,13 @@ isis_parse_lsp_tlvs(node_t *node,
     bool on_demand_tlv = false;
     bool need_pkt_diff = false;
     bool need_on_demand_flood = false;
+    ip_add_t rtr_id_str;
+
+    uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(new_lsp_pkt);
+    uint32_t *old_seq_no = old_lsp_pkt ? isis_get_lsp_pkt_seq_no(old_lsp_pkt) : 0;
+    uint32_t *new_seq_no = isis_get_lsp_pkt_seq_no(new_lsp_pkt);
+
+    tcp_ip_covert_ip_n_to_p(*rtr_id, rtr_id_str.ip_addr);
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
@@ -383,11 +399,12 @@ isis_parse_lsp_tlvs(node_t *node,
         isis_schedule_spf_job(node);
     }
 
-    sprintf(tlb, "%s : Lsp Recvd : %s, old lsp : %s, Event : %s\n"
+    sprintf(tlb, "%s : Lsp Recvd : %s-%u, old lsp : %s-%u, Event : %s\n"
             "\tneed_spf : %u  on_demand_tlv : %u  need_on_demand_flood : %u\n",
             ISIS_LSPDB_MGMT,
-            isis_print_lsp_id(new_lsp_pkt), 
-            old_lsp_pkt ? isis_print_lsp_id(old_lsp_pkt) : 0,
+            rtr_id_str.ip_addr, *new_seq_no,
+            old_lsp_pkt ? rtr_id_str.ip_addr : 0,
+            old_lsp_pkt ? *old_seq_no : 0,
             isis_event_str(event_type),
             need_spf, on_demand_tlv, need_on_demand_flood);
     tcp_trace(node, 0, tlb);

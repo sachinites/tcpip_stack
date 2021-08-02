@@ -64,6 +64,10 @@ isis_check_xmit_lsp_sanity_before_transmission(
     }
 }
 
+static void
+breakpoint() {
+
+}
 
 static void
 isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
@@ -78,6 +82,13 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
     isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(intf);
 
     isis_intf_info->lsp_xmit_job = NULL;
+
+    sprintf(tlb, "%s : lsp xmit job triggered\n", ISIS_LSPDB_MGMT);
+    tcp_trace(intf->att_node, intf, tlb);
+
+    if (strcmp(intf->if_name, "eth9") == 0) {
+        breakpoint();
+    }
 
     if (!isis_node_intf_is_enable(intf)) return;
 
@@ -100,6 +111,10 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
             ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);
 
             sprintf(tlb, "%s : LSP %s pushed out of interface %s\n",
+                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
+            tcp_trace(intf->att_node, intf, tlb);
+        } else {
+            sprintf(tlb, "%s : LSP %s discarded from output flood Queue of interface %s\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
             tcp_trace(intf->att_node, intf, tlb);
         }

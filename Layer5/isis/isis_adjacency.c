@@ -93,6 +93,13 @@ isis_adjacency_stop_expiry_timer(
     tcp_trace(adjacency->intf->att_node, adjacency->intf, tlb);
 }
 
+void
+isis_adjacency_set_uptime(isis_adjacency_t *adjacency) {
+
+    assert(adjacency->adj_state == ISIS_ADJ_STATE_UP);
+    adjacency->uptime = time(NULL);
+}
+
 static void
 isis_adjacency_start_delete_timer(
         isis_adjacency_t *adjacency) {
@@ -319,6 +326,12 @@ isis_show_adjacency(isis_adjacency_t *adjacency,
     else {
         printf("Delete Timer : Nil\n");
     }
+
+    if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+        PRINT_TABS(tab_spaces);
+        printf("Up Time : %s\n", hrs_min_sec_format(
+                (unsigned int)difftime(time(NULL), adjacency->uptime)));
+    }
 }
 
 void
@@ -370,6 +383,7 @@ isis_change_adjacency_state(
                 case ISIS_ADJ_STATE_UP:
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_refresh_expiry_timer(adjacency);
+                    isis_adjacency_set_uptime(adjacency);
                     ISIS_INCREMENT_NODE_STATS(node,
                                 isis_event_count[isis_event_adj_state_goes_up]);
 
