@@ -6,6 +6,7 @@
 #include "isis_adjacency.h"
 #include "isis_const.h"
 #include "isis_lspdb.h"
+#include "isis_flood.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -296,8 +297,13 @@ isis_clear_handler(param_t *param,
     switch(cmdcode) {
 
         case CMDCODE_CLEAR_NODE_ISIS_LSDB:
+        {
             isis_cleanup_lsdb(node);
-            isis_schedule_lsp_pkt_generation(node, isis_event_admin_action);
+            isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+            if (!isis_is_protocol_enable_on_node(node)) break;
+            ISIS_NODE_INFO(node)->seq_no = 0;
+            isis_enter_reconciliation_phase(node);
+        }
             break;
         default: ;
     return 0;

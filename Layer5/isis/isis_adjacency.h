@@ -61,6 +61,9 @@ isis_find_adjacency_on_interface(
         interface_t *intf,
         char *router_id);
 
+char *
+isis_adjacency_name(isis_adjacency_t *adjacency);
+
 void
 isis_show_adjacency(isis_adjacency_t *adjacency, uint8_t tab_spaces);
 

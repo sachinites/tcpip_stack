@@ -68,4 +68,5 @@
 /* Traffic generation */
 #define CMDCODE_CONF_NODE_TRAFFIC_GEN	26 /* config node <node-name> interface <if-name> traffic-gen <dest-ip> */
 
+#define CMDCODE_CLEAR_LOG_FILE  27 /* clear log-file */
 #endif /* __CMDCODES__ */

@@ -22,9 +22,11 @@ typedef struct isis_reconc_data_ {
 
 typedef struct isis_node_info_ {
     /* pointer to self LSP pkt */
-    isis_pkt_t *isis_self_lsp_pkt;
+    isis_pkt_t *self_lsp_pkt;
     /* Task to schedule self LSP pkt generation */
-    task_t *isis_lsp_pkt_gen_task;
+    task_t *lsp_pkt_gen_task;
+    /*Task to schedule spf job*/
+    task_t *spf_job_task;
     /* Boolean to track if node is shutting down */
     bool is_shutting_down;
     /* LSP sequence no */
@@ -51,6 +53,8 @@ typedef struct isis_node_info_ {
     isis_reconc_data_t reconc;
     /*Adjacency up count */
     uint16_t adjacency_up_count;
+    /* lsp creation reason */
+    unsigned long new_lsp_creation_reason_cached;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

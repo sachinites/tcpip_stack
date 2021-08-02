@@ -737,18 +737,24 @@ tcp_trace_internal(node_t *node,
 	fwrite(fn, sizeof(char), strlen(fn), tcp_log_file);
 	memset(lineno_str, 0, sizeof(lineno_str));
 	sprintf(lineno_str, " (%u) :", lineno);
-	fwrite(lineno_str, sizeof(char), sizeof(lineno_str), tcp_log_file);	
+	fwrite(lineno_str, sizeof(char), strlen(lineno_str), tcp_log_file);	
 
 	if (node) {
-		fwrite(node->node_name, sizeof(char), NODE_NAME_SIZE, tcp_log_file);
+		fwrite(node->node_name, sizeof(char), strlen(node->node_name), tcp_log_file);
 		fwrite(":", sizeof(char), 1, tcp_log_file);
 	}
 	if (interface) {
-		fwrite(interface->if_name, sizeof(char), IF_NAME_SIZE, tcp_log_file);
+		fwrite(interface->if_name, sizeof(char), strlen(interface->if_name), tcp_log_file);
 		fwrite(":", sizeof(char), 1, tcp_log_file);
 	}
     fwrite(buff, sizeof(char), strlen(buff), tcp_log_file);
 	fflush(tcp_log_file);
+}
+
+void
+tcp_ip_refresh_tcp_log_file() {
+
+    tcp_log_file = freopen(NULL, "w", tcp_log_file);
 }
 
 #define tcp_trace(node, intf, buff)	\

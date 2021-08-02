@@ -50,8 +50,12 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT RECONCILIATION RESTARTED",
     //isis_event_reconciliation_exit,
     "ISIS EVENT RECONCILIATION EXIT",
-    //isis_event_admin_action
-    "ISIS EVENT ADMIN ACTION"
+    //isis_event_admin_action_db_clear
+    "ISIS EVENT ADMIN ACTION DB CLEAR",
+    //isis_event_spf_job_scheduled,
+    "ISIS EVENT SPF JOB SCHEDULED",
+    //isis_event_spf_runs,
+    "ISIS EVENT SPF RUNS"
 }; 
 
 const char *

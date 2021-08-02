@@ -235,7 +235,9 @@ validate_mask_value(char *mask_str){
 
 /*Generic Topology Commands*/
 static int
-show_nw_topology_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
+show_nw_topology_handler(param_t *param,
+                         ser_buff_t *tlv_buf,
+                         op_mode enable_or_disable){
 
     int CMDCODE = -1;
     node_t *node = NULL;
@@ -266,6 +268,25 @@ show_nw_topology_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_
     return 0;
 }
 
+extern void
+tcp_ip_refresh_tcp_log_file();
+
+static int
+clear_topology_handler(param_t *param,
+                       ser_buff_t *tlv_buf,
+                       op_mode enable_or_disable){
+
+    int CMDCODE = -1;
+
+    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
+
+    switch(CMDCODE) {
+        case CMDCODE_CLEAR_LOG_FILE:
+            tcp_ip_refresh_tcp_log_file();
+            break;
+        default: ;
+    }
+}
 
 /*Layer 2 Commands*/
 
@@ -759,6 +780,13 @@ nw_init_cli(){
 
     /* clear commands */
     {
+        {
+            /* clear log */
+            static param_t log_file;
+            init_param(&log_file, CMD, "log-file", clear_topology_handler, 0, INVALID, 0, "clear log-file");
+            libcli_register_param(clear, &log_file);
+            set_param_cmd_code(&log_file, CMDCODE_CLEAR_LOG_FILE);
+        }
         /*clear node ...*/    
         static param_t node;
         init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");

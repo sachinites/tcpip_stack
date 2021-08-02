@@ -7,6 +7,7 @@
 #include "isis_events.h"
 #include "isis_flood.h"
 #include "isis_lspdb.h"
+#include "isis_spf.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
 
@@ -27,6 +28,7 @@ static void
 isis_node_cancel_all_queued_jobs(node_t *node) {
 
     isis_cancel_lsp_pkt_generation_task(node);
+    isis_cancel_spf_job(node);
 }
 
 static void
@@ -51,9 +53,9 @@ isis_protocol_shut_down(node_t *node) {
     isis_node_cancel_all_timers(node);
     isis_free_dummy_lsp_pkt();
 
-    if(isis_node_info->isis_self_lsp_pkt){
-        isis_deref_isis_pkt(isis_node_info->isis_self_lsp_pkt);
-        isis_node_info->isis_self_lsp_pkt = NULL;
+    if(isis_node_info->self_lsp_pkt){
+        isis_deref_isis_pkt(isis_node_info->self_lsp_pkt);
+        isis_node_info->self_lsp_pkt = NULL;
     }
 
     isis_cleanup_lsdb(node);
@@ -72,8 +74,9 @@ isis_free_node_info(node_t *node) {
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
     if(!isis_node_info) return;
 
-    assert(!isis_node_info->isis_self_lsp_pkt);
-    assert(!isis_node_info->isis_lsp_pkt_gen_task);
+    assert(!isis_node_info->self_lsp_pkt);
+    assert(!isis_node_info->lsp_pkt_gen_task);
+    assert(!isis_node_info->spf_job_task);
     assert(isis_node_info->is_shutting_down);
     assert(IS_GLTHREAD_LIST_EMPTY(&isis_node_info->purge_intf_list));
 
@@ -91,11 +94,11 @@ isis_check_delete_node_info(node_t *node) {
     if (isis_node_info->is_shutting_down == false) return;
 
 #if 0
-    if (isis_node_info->isis_self_lsp_pkt) {
+    if (isis_node_info->self_lsp_pkt) {
         return;
     }
 
-    if (isis_node_info->isis_lsp_pkt_gen_task) {
+    if (isis_node_info->lsp_pkt_gen_task) {
         return;
     }
 
@@ -120,8 +123,10 @@ isis_show_node_protocol_state(node_t *node) {
 
     printf("LSP flood count : %u\n", isis_node_info->lsp_flood_count);
     printf("SPF runs : %u\n", isis_node_info->spf_runs);
-    printf("Seq # : %u\n", isis_node_info->seq_no);
-    printf("adjacencu up : %u\n", isis_node_info->adjacency_up_count);
+    printf("Seq No : %u\n", isis_node_info->seq_no);
+    printf("Adjacency up Count: %u\n", isis_node_info->adjacency_up_count);
+    printf("Reconciliation Status : %s\n",
+        isis_is_reconciliation_in_progress(node) ? "In-Progress" : "Off");
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
