@@ -30,9 +30,7 @@
 #define ISIS_TLV_ON_DEMAND  111 // imaginary
 
 
-#define ISIS_LSP_HDR_SIZE   (sizeof(isis_pkt_type_t) + \
-                             sizeof(uint32_t) +        \
-                             sizeof(uint32_t))
+#define ISIS_LSP_HDR_SIZE   sizeof(isis_pkt_hdr_t)
 
 /* Common Error Msgs */
 #define ISIS_ERROR_NON_EXISTING_INTF \

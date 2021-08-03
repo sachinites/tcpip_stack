@@ -8,9 +8,16 @@ typedef uint16_t isis_pkt_type_t;
 
 typedef struct isis_pkt_ {
 
+    /* The pkt type - Hellos or LSPs */
     isis_pkt_type_t isis_pkt_type;
+    /* The wired form of pkt */
     byte *pkt;
+    /* pkt size, including eithernet hdr */
     size_t pkt_size;
+    /* Rest of the below fields are usually used in the
+    context of LSPs only */
+
+    /* ref count on this pkt */
     uint16_t ref_count;
     /* No of interfaces out of which LSP has been
     Queued to xmit */
@@ -24,6 +31,31 @@ typedef struct isis_pkt_ {
     /* to check if this LSP is present in lspdb or not */
     bool installed_in_db;
 } isis_pkt_t;
+
+/*LSP Flags in lsp pkts*/
+
+#define ISIS_LSP_PKT_F_OVERLOAD_BIT 1
+#define ISIS_LSP_PKT_F_PURGE_BIT    (1 << 1)
+
+/*  LSP generation flags, used to control lsp manufacturing,
+    these flags are set in isis_node_info->lsp_generation_flags 
+*/
+#define ISIS_LSP_F_INCLUDE_PURGE_BIT    (1 << 0)
+#define ISIS_LSP_F_INCLUDE_OL_BIT       (1 << 1)
+
+#pragma pack (push,1)
+/* Header of ISIS PKTS, common for Hellos and LSPs */
+
+typedef uint8_t isis_pkt_hdr_flags_t;
+
+typedef struct isis_pkt_hdr_{
+
+    isis_pkt_type_t isis_pkt_type;
+    uint32_t seq_no; /* meaningful only for LSPs */
+    uint32_t rtr_id;
+    isis_pkt_hdr_flags_t flags;
+} isis_pkt_hdr_t;
+#pragma pack(pop)
 
 bool
 isis_pkt_trap_rule(char *pkt, size_t pkt_size);
@@ -53,6 +85,9 @@ isis_get_lsp_pkt_rtr_id(isis_pkt_t *lsp_pkt) ;
 
 uint32_t *
 isis_get_lsp_pkt_seq_no(isis_pkt_t *lsp_pkt);
+
+isis_pkt_hdr_flags_t
+isis_lsp_pkt_get_flags(isis_pkt_t *lsp_pkt);
 
 uint32_t
 isis_deref_isis_pkt(isis_pkt_t *lsp_pkt);

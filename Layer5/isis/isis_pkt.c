@@ -9,7 +9,6 @@
 #include "isis_lspdb.h"
 #include "isis_spf.h"
 
-
 bool
 isis_pkt_trap_rule(char *pkt, size_t pkt_size) {
 
@@ -171,11 +170,13 @@ static void
 isis_create_fresh_lsp_pkt(node_t *node) {
 
     bool include_on_demand_tlv;
-    byte *eth_payload;
     size_t lsp_pkt_size_estimate = 0;
     bool is_proto_shutting_down;
+    isis_pkt_hdr_t *lsp_pkt_hdr;
+    bool create_purge_lsp;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
+    create_purge_lsp = false;
     include_on_demand_tlv = false;
     is_proto_shutting_down = isis_is_protocol_shutdown_in_progress(node);
 
@@ -186,9 +187,14 @@ isis_create_fresh_lsp_pkt(node_t *node) {
 
     /* Now estimate the size of lsp pkt */
     lsp_pkt_size_estimate += ETH_HDR_SIZE_EXCL_PAYLOAD;
-    lsp_pkt_size_estimate += sizeof(isis_pkt_type_t);
-    lsp_pkt_size_estimate += sizeof(uint32_t); /* seq no */
-    lsp_pkt_size_estimate += sizeof(uint32_t); /* 4B rtr id in integer format*/
+    lsp_pkt_size_estimate += sizeof(isis_pkt_hdr_t);
+
+    if (is_proto_shutting_down) {
+        
+        create_purge_lsp = true;
+        goto TLV_ADD_DONE;
+    }
+
 
     if (!is_proto_shutting_down) {
         /* TLVs */
@@ -199,10 +205,9 @@ isis_create_fresh_lsp_pkt(node_t *node) {
 
     /* On Demand TLV size estimation */
 
-    if (!is_proto_shutting_down &&
-        (isis_is_reconciliation_in_progress(node) ||
+    if (isis_is_reconciliation_in_progress(node) ||
         (isis_node_info->event_control_flags &
-         ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT))) {
+            ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT)) {
 
         include_on_demand_tlv = true;
     }
@@ -214,6 +219,8 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     if (lsp_pkt_size_estimate > MAX_PACKET_BUFFER_SIZE) {
         return;
     }
+
+TLV_ADD_DONE:
 
     /* Get rid of out-dated self lsp pkt */
     if (isis_node_info->self_lsp_pkt) {
@@ -233,33 +240,33 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
     eth_hdr->type = ISIS_ETH_PKT_TYPE;
 
-    eth_payload = (byte *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+    lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
     /* pkt type */
-    ISIS_PKT_TYPE(eth_payload) = ISIS_LSP_PKT_TYPE;
-    eth_payload = (eth_payload + sizeof(isis_pkt_type_t));
+    lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+    lsp_pkt_hdr->seq_no = isis_node_info->seq_no;
+    lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+    
+    if (create_purge_lsp) {
+        lsp_pkt_hdr->flags |= ISIS_LSP_PKT_F_PURGE_BIT;
+    }
 
-    /* Seq no */
-    memcpy(eth_payload, &isis_node_info->seq_no, sizeof(uint32_t));
-    eth_payload = (eth_payload + sizeof(uint32_t));
-
-    /* 4B rtr ID*/
-    uint32_t rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
-    memcpy(eth_payload, &rtr_id, sizeof(uint32_t));
-    eth_payload = (eth_payload + sizeof(uint32_t));
-
+    byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
+    
     if (!is_proto_shutting_down) {
 
         /* Now TLV */
-        eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_HOSTNAME,
+        lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
+                                        ISIS_TLV_HOSTNAME,
                                         NODE_NAME_SIZE, node->node_name);
 
-        eth_payload = isis_encode_all_nbr_tlvs(node, eth_payload);
+        lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
 
         /* On Demand TLV insertion */
         if (include_on_demand_tlv) {
             bool true_f = true;
-            eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_ON_DEMAND,
+            lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
+                                             ISIS_TLV_ON_DEMAND,
                                              1, (char *)&true_f);
         }
     }
@@ -272,12 +279,6 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     isis_node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
     isis_node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
     isis_node_info->self_lsp_pkt->ref_count = 1;
-
-    if (is_proto_shutting_down) {
-        /* reset all bits except shut down pending bit*/
-        isis_node_info->event_control_flags &=
-            ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT;
-    }
 }
 
 void
@@ -399,27 +400,27 @@ isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
 	buff = pkt_info->pkt_print_buffer;
 	pkt_size = pkt_info->pkt_size;
 
-    byte* lsp_pkt = (byte *)(pkt_info->pkt);
-    byte *lsp_pkt_navigator = lsp_pkt;
+    isis_pkt_hdr_t* lsp_pkt_hdr = (isis_pkt_hdr_t *)(pkt_info->pkt);
 
 	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);
 
     rc = sprintf(buff + rc, "ISIS_LSP_PKT_TYPE : ");
-    lsp_pkt_navigator += sizeof(isis_pkt_type_t);
+    
+    uint32_t seq_no = lsp_pkt_hdr->seq_no;
+    uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
 
-    uint32_t seq_no = *(uint32_t *)lsp_pkt_navigator;
-    lsp_pkt_navigator += sizeof(uint32_t);
-
-    uint32_t rtr_id = *(uint32_t *)lsp_pkt_navigator;
-    lsp_pkt_navigator += sizeof(uint32_t);
     ip_addr = tcp_ip_covert_ip_n_to_p(rtr_id, 0);
 
     rc += sprintf(buff + rc, "LSP pkt : %s(%u) \n",
                     ip_addr, seq_no);
 
-    ITERATE_TLV_BEGIN(lsp_pkt_navigator, tlv_type,
+    byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
+
+    uint16_t lsp_tlv_buffer_size = (uint16_t)(pkt_size - sizeof(isis_pkt_hdr_t));
+
+    ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type,
                         tlv_len, tlv_value,
-                        pkt_size - (lsp_pkt_navigator - lsp_pkt)) {
+                        lsp_tlv_buffer_size) {
 
         switch(tlv_type) {
             case ISIS_TLV_HOSTNAME:
@@ -437,9 +438,9 @@ isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
                 break;
             default: ;
         }
-    } ITERATE_TLV_END(lsp_pkt_navigator, tlv_type,
+    } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
                         tlv_len, tlv_value,
-                        pkt_size - (lsp_pkt_navigator - lsp_pkt));
+                        lsp_tlv_buffer_size);
 
     pkt_info->bytes_written = rc;
 }
@@ -536,23 +537,18 @@ uint32_t *
 isis_get_lsp_pkt_rtr_id(isis_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
-    byte* lsp_body = eth_hdr->payload;
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
 
-    lsp_body += sizeof(isis_pkt_type_t);
-    lsp_body += sizeof(uint32_t) ; /* seq no size */
-
-    return (uint32_t *)lsp_body;
+   return &lsp_hdr->rtr_id;
 }
 
 uint32_t *
 isis_get_lsp_pkt_seq_no(isis_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
-    byte* lsp_body = eth_hdr->payload;
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
 
-    lsp_body += sizeof(isis_pkt_type_t);
-
-    return (uint32_t *)lsp_body;
+   return &lsp_hdr->seq_no;
 }
 
 uint32_t
@@ -599,4 +595,12 @@ isis_ref_isis_pkt(isis_pkt_t *isis_pkt) {
            isis_pkt->pkt_size);
 
     isis_pkt->ref_count++;
+}
+
+isis_pkt_hdr_flags_t
+isis_lsp_pkt_get_flags(isis_pkt_t *lsp_pkt) {
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+    return lsp_hdr->flags;
 }

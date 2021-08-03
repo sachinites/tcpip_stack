@@ -53,10 +53,12 @@ typedef struct isis_node_info_ {
     isis_reconc_data_t reconc;
     /*Adjacency up count */
     uint16_t adjacency_up_count;
-    /* lsp creation reason */
+    /* event flags */
     unsigned long event_control_flags;
     /*flag to control protocol shutdown procedure*/
     uint16_t shutdown_pending_work_flags;
+    /* lsp generation flags */
+    uint16_t lsp_generation_flags;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

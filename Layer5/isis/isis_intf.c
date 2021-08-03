@@ -252,7 +252,5 @@ isis_interface_updates(void *arg, size_t arg_size) {
 	intf_nw_props_t *old_intf_nw_props = intf_notif_data->old_intf_nw_props;
 
     if (!isis_node_intf_is_enable(interface)) return;
-
-    printf("notified\n");
 }
 
