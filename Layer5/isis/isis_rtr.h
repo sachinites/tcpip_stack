@@ -31,8 +31,6 @@ typedef struct isis_node_info_ {
     bool is_shutting_down;
     /* LSP sequence no */
     uint32_t seq_no;
-    /* List of interfaces to be proto disabled */
-    glthread_t purge_intf_list;
     /*Timer to flood self LSP periodically */
     timer_event_handle *periodic_lsp_flood_timer;
     /* self LSP flood time interval */
@@ -41,6 +39,8 @@ typedef struct isis_node_info_ {
     uint32_t lsp_lifetime_interval;
     /* No of times LSP is flooded by this node */
     uint32_t lsp_flood_count;
+    /* LSPs Queued but not dispatched out of interfaces */
+    uint32_t pending_lsp_flood_count;
     /* LSP DB */
     avltree_t lspdb_avl_root;
     /* no of SPF runs*/
@@ -54,7 +54,9 @@ typedef struct isis_node_info_ {
     /*Adjacency up count */
     uint16_t adjacency_up_count;
     /* lsp creation reason */
-    unsigned long new_lsp_creation_reason_cached;
+    unsigned long event_control_flags;
+    /*flag to control protocol shutdown procedure*/
+    uint16_t shutdown_pending_work_flags;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -90,14 +92,32 @@ isis_schedule_job(node_t *node,
                   isis_event_type_t event_type);
 
 void
-isis_check_delete_node_info(node_t *node) ;
-
-void
 isis_show_event_counters(node_t *node);
 
 void
 isis_proto_enable_disable_on_demand_flooding(
         node_t *node,
         bool enable);
+
+/* Protocol Shutdown related APIs and Constants */
+#define ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK    (1 << 0)
+#define ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK       (1 << 1)
+#define ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK  \
+    (ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK | \
+     ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK)
+#define ISIS_PRO_SHUTDOWN_COMPLETED              (1 << 15) /*upto 15th bit only*/
+
+bool
+isis_is_protocol_shutdown_in_progress(node_t *node);
+
+bool
+isis_is_protocol_admin_shutdown(node_t *node);
+
+void
+isis_protocol_shut_down(node_t *node);
+
+void
+isis_check_and_shutdown_protocol_now(
+        node_t *node, uint16_t work_completed_flag);
 
 #endif

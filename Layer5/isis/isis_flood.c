@@ -79,6 +79,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
     
     intf = (interface_t *)arg;
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(intf->att_node);
     isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(intf);
 
     isis_intf_info->lsp_xmit_job = NULL;
@@ -101,11 +102,12 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         assert(lsp_pkt->flood_queue_count);
         lsp_pkt->flood_queue_count--;
+        isis_node_info->pending_lsp_flood_count--;
         
         free(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
-           // isis_check_xmit_lsp_sanity_before_transmission(intf->att_node, lsp_pkt);
+    
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
             ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);
@@ -126,6 +128,13 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         isis_deref_isis_pkt(lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&isis_intf_info->lsp_xmit_list_head, curr);
+
+    if (isis_node_info->pending_lsp_flood_count ==0) {
+        
+        isis_check_and_shutdown_protocol_now(intf->att_node,
+            ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
+    }
+
 }
 
 void
@@ -133,6 +142,7 @@ isis_queue_lsp_pkt_for_transmission(
         interface_t *intf,
         isis_pkt_t *lsp_pkt) {
 
+    isis_node_info_t *isis_node_info;
     isis_intf_info_t *isis_intf_info;
     
     if (!isis_node_intf_is_enable(intf)) return;
@@ -140,6 +150,7 @@ isis_queue_lsp_pkt_for_transmission(
     if (!lsp_pkt->flood_eligibility) return;
 
     isis_intf_info = ISIS_INTF_INFO(intf);
+    isis_node_info = ISIS_NODE_INFO(intf->att_node);
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
         calloc(1, sizeof(isis_lsp_xmit_elem_t));
@@ -157,6 +168,7 @@ isis_queue_lsp_pkt_for_transmission(
     tcp_trace(intf->att_node, intf, tlb);
 
     lsp_pkt->flood_queue_count++;
+    isis_node_info->pending_lsp_flood_count++;
 
     if (!isis_intf_info->lsp_xmit_job) {
 

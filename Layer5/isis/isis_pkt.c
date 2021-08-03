@@ -85,6 +85,8 @@ isis_process_lsp_pkt(node_t *node,
     
     if (!isis_any_adjacency_up_on_interface(iif)) return;
 
+    if (isis_is_protocol_shutdown_in_progress(node)) return;
+
     ISIS_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
     new_lsp_pkt = calloc(1, sizeof(isis_pkt_t));
@@ -171,9 +173,11 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     bool include_on_demand_tlv;
     byte *eth_payload;
     size_t lsp_pkt_size_estimate = 0;
+    bool is_proto_shutting_down;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     include_on_demand_tlv = false;
+    is_proto_shutting_down = isis_is_protocol_shutdown_in_progress(node);
 
     /* Dont use the fn isis_is_protocol_enable_on_node( ) because
        we want to generate purge LSP when protocol is shutting down
@@ -185,15 +189,20 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     lsp_pkt_size_estimate += sizeof(isis_pkt_type_t);
     lsp_pkt_size_estimate += sizeof(uint32_t); /* seq no */
     lsp_pkt_size_estimate += sizeof(uint32_t); /* 4B rtr id in integer format*/
-    /* TLVs */
-    lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE; /* Device name */
-    /* Nbr TLVs */
-    lsp_pkt_size_estimate +=  isis_size_to_encode_all_nbr_tlv(node);
-    
+
+    if (!is_proto_shutting_down) {
+        /* TLVs */
+        lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE; /* Device name */
+        /* Nbr TLVs */
+        lsp_pkt_size_estimate +=  isis_size_to_encode_all_nbr_tlv(node);
+    }
+
     /* On Demand TLV size estimation */
-    if (isis_is_reconciliation_in_progress(node) ||
-        (isis_node_info->new_lsp_creation_reason_cached &
-         ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT)) {
+
+    if (!is_proto_shutting_down &&
+        (isis_is_reconciliation_in_progress(node) ||
+        (isis_node_info->event_control_flags &
+         ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT))) {
 
         include_on_demand_tlv = true;
     }
@@ -239,17 +248,20 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     memcpy(eth_payload, &rtr_id, sizeof(uint32_t));
     eth_payload = (eth_payload + sizeof(uint32_t));
 
-    /* Now TLV */
-    eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_HOSTNAME,
+    if (!is_proto_shutting_down) {
+
+        /* Now TLV */
+        eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_HOSTNAME,
                                         NODE_NAME_SIZE, node->node_name);
 
-    eth_payload = isis_encode_all_nbr_tlvs(node, eth_payload);
+        eth_payload = isis_encode_all_nbr_tlvs(node, eth_payload);
 
-    /* On Demand TLV insertion */
-    if (include_on_demand_tlv) {
-        bool true_f = true;
-        eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_ON_DEMAND,
+        /* On Demand TLV insertion */
+        if (include_on_demand_tlv) {
+            bool true_f = true;
+            eth_payload = tlv_buffer_insert_tlv(eth_payload, ISIS_TLV_ON_DEMAND,
                                              1, (char *)&true_f);
+        }
     }
     
     SET_COMMON_ETH_FCS(eth_hdr, lsp_pkt_size_estimate, 0);
@@ -260,7 +272,12 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     isis_node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
     isis_node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
     isis_node_info->self_lsp_pkt->ref_count = 1;
-    isis_node_info->new_lsp_creation_reason_cached = 0;
+
+    if (is_proto_shutting_down) {
+        /* reset all bits except shut down pending bit*/
+        isis_node_info->event_control_flags &=
+            ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT;
+    }
 }
 
 void
@@ -292,7 +309,7 @@ isis_schedule_lsp_pkt_generation(node_t *node,
 
     if (!isis_node_info) return;
 
-    isis_node_info->new_lsp_creation_reason_cached |=
+    isis_node_info->event_control_flags |=
         isis_event_to_event_bit(event_type);
 
     if (isis_node_info->lsp_pkt_gen_task) {
