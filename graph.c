@@ -97,6 +97,8 @@ extern void
 tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
 extern void 
 node_init_udp_socket(node_t *node);
+extern void
+pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
 
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
@@ -108,7 +110,7 @@ create_graph_node(graph_t *graph, char *node_name){
     node_init_udp_socket(node);
 
     init_node_nw_prop(&node->node_nw_prop);
-
+    
     node->spf_data = NULL;
 
     tcp_ip_init_node_log_info(node);
@@ -123,6 +125,12 @@ create_graph_node(graph_t *graph, char *node_name){
     tcp_ip_register_default_l3_pkt_trap_rules(node);
 
     init_glthread(&node->graph_glue);
+    
+    event_dispatcher_init(&node->ev_dis);
+    event_dispatcher_run(&node->ev_dis);
+    init_pkt_q(&node->ev_dis, &node->recvr_pkt_q, pkt_recvr_job_cbk);
+    wt_set_user_data(node_get_timer_instance(node), EV(node));
+    
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
 }

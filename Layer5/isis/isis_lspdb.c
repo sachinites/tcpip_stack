@@ -596,7 +596,8 @@ isis_print_lsp_id(isis_pkt_t *lsp_pkt) {
 /* LSP pkt Timers */
 
 static void
-isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
+isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
+                                         void *arg, uint32_t arg_size){
 
     if (!arg) return;
 

@@ -5,7 +5,6 @@
 #include <time.h>
 #include <assert.h>
 #include "WheelTimer.h"
-#include "../EventDispatcher/event_dispatcher.h"
 
 int
 insert_wt_elem_in_slot(void *data1, void *data2){
@@ -139,7 +138,8 @@ wheel_fn(Timer_t *timer, void *arg){
 			  
 			  if(wt->debug){ printf("Creating new Task for wt_elem %p\n", wt_elem); }
 			  pthread_mutex_lock(&wt_elem->mutex);
-			  task_create_new_job(wt_elem->arg,
+			  task_create_new_job((event_dispatcher_t *)wt->user_data,
+				  				  wt_elem->arg,
 								  wt_elem->app_callback,
 								  TASK_ONE_SHOT);
 			  if (!wt_elem->is_recurrence) {

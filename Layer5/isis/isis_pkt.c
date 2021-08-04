@@ -17,6 +17,9 @@ isis_pkt_trap_rule(char *pkt, size_t pkt_size) {
 	if (eth_hdr->type == ISIS_ETH_PKT_TYPE) {
 		return true;
 	}
+
+
+
 	return false;
 }
 
@@ -282,7 +285,8 @@ TLV_ADD_DONE:
 }
 
 void
-isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
+isis_generate_lsp_pkt(event_dispatcher_t *ev_dis,
+                     void *arg, uint32_t arg_size_unused) {
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
@@ -326,7 +330,7 @@ isis_schedule_lsp_pkt_generation(node_t *node,
     tcp_trace(node, 0, tlb);
 
     isis_node_info->lsp_pkt_gen_task =
-        task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
+        task_create_new_job(EV(node), node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
 }
 
 byte *
@@ -529,7 +533,7 @@ isis_cancel_lsp_pkt_generation_task(node_t *node) {
         return;
     }
 
-    task_cancel_job(isis_node_info->lsp_pkt_gen_task);
+    task_cancel_job(EV(node), isis_node_info->lsp_pkt_gen_task);
     isis_node_info->lsp_pkt_gen_task = NULL;    
 }
 

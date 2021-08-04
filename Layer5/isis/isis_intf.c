@@ -25,7 +25,7 @@ isis_interface_qualify_to_send_hellos(interface_t *intf){
 }
 
 static void
-isis_transmit_hello(void *arg, uint32_t arg_size) {
+isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     if (!arg) return;
 

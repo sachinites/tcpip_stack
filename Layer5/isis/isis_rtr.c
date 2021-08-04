@@ -313,7 +313,7 @@ isis_schedule_job(node_t *node,
         return;
     }
 
-    *task = task_create_new_job(data, cbk, TASK_ONE_SHOT);
+    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT);
 
     if(*task) {
         printf("Node : %s : %s Scheduled. Reason : %s\n",

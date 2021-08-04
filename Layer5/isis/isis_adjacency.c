@@ -19,7 +19,8 @@ isis_init_adjacency(isis_adjacency_t *adjacency) {
 
 /* Timer fns for ISIS Adjacency Mgmt */
 static void
-isis_timer_expire_delete_adjacency_cb(void *arg, uint32_t arg_size){
+isis_timer_expire_delete_adjacency_cb(event_dispatcher_t *ev_dis,
+                                      void *arg, uint32_t arg_size){
 
     if (!arg) return;
 
@@ -27,7 +28,8 @@ isis_timer_expire_delete_adjacency_cb(void *arg, uint32_t arg_size){
 }
 
 static void
-isis_timer_expire_down_adjacency_cb(void *arg, uint32_t arg_size){
+isis_timer_expire_down_adjacency_cb(event_dispatcher_t *ev_dis,
+                                     void *arg, uint32_t arg_size){
 
     if (!arg) return;
 

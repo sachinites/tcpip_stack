@@ -113,7 +113,7 @@ typedef struct unified_cli_data_{
 } unified_cli_data_t;
 
 static void
-task_cbk_handler_internal(void *arg, uint32_t arg_size){
+task_cbk_handler_internal(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 	
 	unified_cli_data_t *unified_cli_data =
 		(unified_cli_data_t *)arg;

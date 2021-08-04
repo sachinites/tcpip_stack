@@ -3,7 +3,7 @@
 #include "isis_spf.h"
 
 static void
-isis_run_spf(void *arg, uint32_t arg_size){
+isis_run_spf(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
@@ -34,7 +34,7 @@ isis_schedule_spf_job(node_t *node) {
     }
     
     isis_node_info->spf_job_task =
-        task_create_new_job(node, isis_run_spf, TASK_ONE_SHOT);
+        task_create_new_job(EV(node), node, isis_run_spf, TASK_ONE_SHOT);
 }
 
 void
@@ -45,6 +45,6 @@ isis_cancel_spf_job(node_t *node) {
     if (!isis_node_info ||
         !isis_node_info->spf_job_task) return;
 
-    task_cancel_job(isis_node_info->spf_job_task);
+    task_cancel_job(EV(node), isis_node_info->spf_job_task);
     isis_node_info->spf_job_task = NULL;
 }

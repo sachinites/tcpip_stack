@@ -44,6 +44,7 @@
 #include "net.h"
 #include "tcp_ip_trace.h"
 #include "Layer3/netfilter.h"
+#include "EventDispatcher/event_dispatcher.h"
 
 #define NODE_NAME_SIZE   16
 #define IF_NAME_SIZE     16
@@ -99,10 +100,16 @@ struct node_ {
 
 	/*L2 net-filter hook (simplified) */
 	notif_chain_t layer2_proto_reg_db2;
+
+    event_dispatcher_t ev_dis;
+    pkt_q_t recvr_pkt_q;
     
     glthread_t graph_glue;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
+
+#define EV(node_ptr)    (&node_ptr->ev_dis)
+#define PKT_Q(node_ptr) (&node_ptr->recvr_pkt_q)
 
 typedef struct graph_{
 

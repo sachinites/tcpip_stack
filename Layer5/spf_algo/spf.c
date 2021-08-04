@@ -566,7 +566,7 @@ compute_spf(node_t *spf_root){
 }
 
 static void
-compute_spf_via_job(void *data, uint32_t data_size) {
+compute_spf_via_job(event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
 
 	compute_spf((node_t*)data);
 }
@@ -619,7 +619,7 @@ compute_spf_all_nodes(graph_t *topo){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
-		task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
+		task_create_new_job(EV(node), node, compute_spf_via_job, TASK_ONE_SHOT);
 
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }

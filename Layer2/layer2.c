@@ -801,7 +801,8 @@ create_arp_sane_entry(node_t *node,
 }
 
 static void
-arp_entry_timer_delete_cbk(void *arg,
+arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
+                           void *arg,
 						   uint32_t arg_size){
 
     if(!arg) return;

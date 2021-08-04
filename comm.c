@@ -46,23 +46,21 @@
 
 extern graph_t *topo;
 
-pkt_q_t recvr_pkt_q;
-
-static void
-pkt_recvr_job_cbk(void *pkt, uint32_t pkt_size){
+void
+pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
 	node_t *receving_node;
 	interface_t *recv_intf;
 
 	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
-			(ev_dis_pkt_data_t *)task_get_next_pkt(&pkt_size);
+			(ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
 
 	if(!ev_dis_pkt_data) {
 		return;
 	}
 
 	for ( ; ev_dis_pkt_data; 
-			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(&pkt_size)) {
+			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
 		receving_node = ev_dis_pkt_data->recv_node;
 		recv_intf = ev_dis_pkt_data->recv_intf;
@@ -83,9 +81,9 @@ pkt_recvr_job_cbk(void *pkt, uint32_t pkt_size){
  * time of initialization
  * */
 void
-init_pkt_recv_queue() {
+init_pkt_recv_queue(event_dispatcher_t *ev_dis, pkt_q_t *recvr_pkt_q) {
 
-	init_pkt_q(&recvr_pkt_q, pkt_recvr_job_cbk);
+	init_pkt_q(ev_dis, recvr_pkt_q, pkt_recvr_job_cbk);
 }
 
 int
@@ -112,7 +110,8 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+	pkt_q_enqueue(EV(nbr_node), PKT_Q(nbr_node) ,
+                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	tcp_dump_send_logger(sending_node, interface, 
 			pkt, pkt_size, ETH_HDR);
@@ -155,7 +154,9 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+	pkt_q_enqueue(EV(nbr_node), PKT_Q(nbr_node),
+                  (char *)ev_dis_pkt_data,
+                  sizeof(ev_dis_pkt_data_t));
 	
 	interface->intf_nw_props.pkt_sent++;
 	tcp_dump_send_logger(sending_node, interface, 

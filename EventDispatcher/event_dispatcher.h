@@ -33,7 +33,7 @@ typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct task_ task_t;
 typedef struct pkt_q_ pkt_q_t;
 
-typedef void (*event_cbk)(void *, uint32_t );
+typedef void (*event_cbk)(event_dispatcher_t *, void *, uint32_t );
 
 typedef enum {
 
@@ -78,6 +78,7 @@ struct pkt_q_{
 	pthread_mutex_t q_mutex;
 	task_t *task;
 	glthread_t glue;
+	event_dispatcher_t *ev_dis;
 };
 GLTHREAD_TO_STRUCT(glue_to_pkt_q,
 	pkt_q_t, glue);
@@ -116,40 +117,43 @@ struct event_dispatcher_{
 
 /* To be used by applications */
 task_t *
-eve_dis_get_current_task();
+eve_dis_get_current_task(event_dispatcher_t *ev_dis);
 
 void
-event_dispatcher_init();
+event_dispatcher_init(event_dispatcher_t *ev_dis);
 
 void
-event_dispatcher_run();
+event_dispatcher_run(event_dispatcher_t *ev_dis);
 
 task_t *
 task_create_new_job(
+	event_dispatcher_t *ev_dis,
     void *data,
     event_cbk cbk,
 	task_type_t task_type);
 
 task_t *
 task_create_new_job_synchronous(
+	event_dispatcher_t *ev_dis,
     void *data,
     event_cbk cbk,
 	task_type_t task_type);
 
 void
-task_cancel_job(task_t *task);
+task_cancel_job(event_dispatcher_t *ev_dis, task_t *task);
 
 void
-init_pkt_q(pkt_q_t *pkt_q, event_cbk cbk);
+init_pkt_q(event_dispatcher_t *ev_dis, pkt_q_t *pkt_q, event_cbk cbk);
 
 void
-pkt_q_enqueue(pkt_q_t *pkt_q,
+pkt_q_enqueue(event_dispatcher_t *ev_dis, 
+			   pkt_q_t *pkt_q,
 			  char *pkt, uint32_t pkt_size);
 
 char *
-task_get_next_pkt(uint32_t *pkt_size);
+task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size);
 
 void
-task_schedule_again(task_t *task);
+task_schedule_again(event_dispatcher_t *ev_dis, task_t *task);
 
 #endif /* EVENT_DISPATCHER  */
