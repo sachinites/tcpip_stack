@@ -64,8 +64,6 @@ typedef struct isis_node_info_ {
     unsigned long event_control_flags;
     /*flag to control protocol shutdown procedure*/
     uint16_t shutdown_pending_work_flags;
-    /* lsp generation flags */
-    uint16_t lsp_generation_flags;
     /* overload object */
     isis_overload_data_t ovl_data;
 } isis_node_info_t;

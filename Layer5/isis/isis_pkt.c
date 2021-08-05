@@ -206,8 +206,8 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     /* On Demand TLV size estimation */
 
     if (isis_is_reconciliation_in_progress(node) ||
-        (isis_node_info->event_control_flags &
-            ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT)) {
+        IS_BIT_SET(isis_node_info->event_control_flags,
+                    ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT)) {
 
         include_on_demand_tlv = true;
     }
@@ -236,7 +236,7 @@ TLV_ADD_DONE:
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)
                                 tcp_ip_get_new_pkt_buffer(lsp_pkt_size_estimate);
     
-    //memcpy(eth_hdr->src_mac.mac, 0, sizeof(mac_add_t));
+    memset (eth_hdr->src_mac.mac, 0, sizeof(mac_add_t));
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
     eth_hdr->type = ISIS_ETH_PKT_TYPE;
 
@@ -248,11 +248,11 @@ TLV_ADD_DONE:
     lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
     
     if (create_purge_lsp) {
-        lsp_pkt_hdr->flags |= ISIS_LSP_PKT_F_PURGE_BIT;
+        SET_BIT(lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_PURGE_BIT);
     }
 
     if (isis_is_overloaded(node, NULL)) {
-         lsp_pkt_hdr->flags |= ISIS_LSP_PKT_F_OVERLOAD_BIT;
+        SET_BIT(lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_OVERLOAD_BIT);
     }
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
@@ -283,6 +283,8 @@ TLV_ADD_DONE:
     isis_node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
     isis_node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
     isis_node_info->self_lsp_pkt->ref_count = 1;
+    UNSET_BIT64(isis_node_info->event_control_flags,
+        ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT);
 }
 
 void
