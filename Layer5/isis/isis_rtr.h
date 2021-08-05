@@ -20,6 +20,13 @@ typedef struct isis_reconc_data_ {
     timer_event_handle *reconciliation_timer;
 } isis_reconc_data_t;
 
+typedef struct isis_overload_data_ {
+
+    bool ovl_status;
+    uint32_t timeout_val;
+    timer_event_handle *ovl_timer;
+} isis_overload_data_t;
+
 typedef struct isis_node_info_ {
     /* pointer to self LSP pkt */
     isis_pkt_t *self_lsp_pkt;
@@ -59,6 +66,8 @@ typedef struct isis_node_info_ {
     uint16_t shutdown_pending_work_flags;
     /* lsp generation flags */
     uint16_t lsp_generation_flags;
+    /* overload object */
+    isis_overload_data_t ovl_data;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -121,5 +130,14 @@ isis_protocol_shut_down(node_t *node);
 void
 isis_check_and_shutdown_protocol_now(
         node_t *node, uint16_t work_completed_flag);
+
+void
+isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
+
+void
+isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
+
+bool
+isis_is_overloaded(node_t *node, bool *ovl_timer_running);
 
 #endif

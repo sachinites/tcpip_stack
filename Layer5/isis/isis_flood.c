@@ -65,11 +65,6 @@ isis_check_xmit_lsp_sanity_before_transmission(
 }
 
 static void
-breakpoint() {
-
-}
-
-static void
 isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
@@ -86,10 +81,6 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 
     sprintf(tlb, "%s : lsp xmit job triggered\n", ISIS_LSPDB_MGMT);
     tcp_trace(intf->att_node, intf, tlb);
-
-    if (strcmp(intf->if_name, "eth9") == 0) {
-        breakpoint();
-    }
 
     if (!isis_node_intf_is_enable(intf)) return;
 

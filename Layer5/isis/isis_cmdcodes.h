@@ -17,5 +17,11 @@
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS 7
 /* clear node <node-name> protocol isis lsdb */
 #define CMDCODE_CLEAR_NODE_ISIS_LSDB 8
+/* show node <node-name> protocol isis lsdb <rtr-id> */
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP 9
+/* config node <node-name> protocol isis overload */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD 10
+/* config node <node-name> protocol isis overload timeout <time in sec>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT 11
 
 #endif /* __ISIS_CMDCODES__ */

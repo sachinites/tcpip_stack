@@ -17,6 +17,7 @@ isis_config_handler(param_t *param,
     node_t *node = NULL;
     char *node_name = NULL;
     tlv_struct_t *tlv = NULL;
+    uint32_t ovl_timeout_val = 0;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -24,6 +25,8 @@ isis_config_handler(param_t *param,
 
         if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "timeout-val", strlen("timeout-val")) ==0)
+            ovl_timeout_val = atoi(tlv->value);
         else
             assert(0);
    } TLV_LOOP_END;
@@ -41,6 +44,28 @@ isis_config_handler(param_t *param,
                     break;
                 default: ;
             }
+        break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD:
+         switch(enable_or_disable) {
+                case CONFIG_ENABLE:
+                    isis_set_overload(node, 0, cmdcode);
+                    break;
+                case CONFIG_DISABLE:
+                    isis_unset_overload(node, 0,  cmdcode);
+                    break;
+                default: ;
+         }
+        break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT:
+        switch(enable_or_disable) {
+                case CONFIG_ENABLE:
+                    isis_set_overload(node, ovl_timeout_val,  cmdcode);
+                    break;
+                case CONFIG_DISABLE:
+                    isis_unset_overload(node, ovl_timeout_val,  cmdcode);
+                    break;
+                default: ;
+         }
         break;
         default: ;
     }
@@ -127,6 +152,7 @@ isis_show_handler(param_t *param,
     node_t *node = NULL;
     char *node_name = NULL;
     char *intf_name = NULL;
+    char *rtr_id_str = NULL;
     interface_t *intf = NULL;
     tlv_struct_t *tlv = NULL;
 
@@ -138,6 +164,8 @@ isis_show_handler(param_t *param,
             node_name = tlv->value;
         else if (strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
             intf_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "rtr-id", strlen("rtr-id")) ==0)
+            rtr_id_str = tlv->value;
         else
             assert(0);
    } TLV_LOOP_END;
@@ -161,6 +189,9 @@ isis_show_handler(param_t *param,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS:
             isis_show_event_counters(node);
         break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP:
+            isis_show_one_lsp_pkt_detail(node, rtr_id_str);
+            break;
         default: ;
     }
     return 0;
@@ -193,6 +224,27 @@ isis_config_cli_tree(param_t *param) {
 	    init_param(&isis_proto, CMD, "isis", isis_config_handler, 0, INVALID, 0, "isis protocol");
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, ISIS_CONFIG_NODE_ENABLE);
+        {
+             /* conf node <node-name> [no] protocol isis overload */
+            static param_t ovl;
+            init_param(&ovl, CMD, "overload", isis_config_handler, 0, INVALID, 0,
+                        ("Overload Device"));
+            libcli_register_param(&isis_proto, &ovl);
+            set_param_cmd_code(&ovl, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
+            {
+                static param_t timeout;
+                init_param(&timeout, CMD, "timeout", 0, 0, INVALID, 0,
+                        ("Overload Timeout "));
+                libcli_register_param(&ovl, &timeout);
+                {
+                    static param_t timeout_val;
+                    init_param(&timeout_val, LEAF,  0, isis_config_handler, 0,  INT, "timeout-val",
+                        ("timeout in sec"));
+                    libcli_register_param(&timeout, &timeout_val);
+                    set_param_cmd_code(&timeout_val, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT);
+                }
+            }
+        }
         {
             /* conf node <node-name> [no] protocol isis interface ... */
             static param_t interface;
@@ -260,6 +312,13 @@ isis_show_cli_tree(param_t *param) {
 	            init_param(&lsdb, CMD, "lsdb", isis_show_handler, 0, INVALID, 0, "isis protocol");
 	            libcli_register_param(&isis_proto, &lsdb);
 	            set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
+                {
+                    static param_t rtr_id;
+                    init_param(&rtr_id, LEAF, 0, isis_show_handler, 0, IPV4, "rtr-id",
+                        "Router-id in A.B.C.D format");
+                    libcli_register_param(&lsdb, &rtr_id);
+                    set_param_cmd_code(&rtr_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP);
+                }
             }
         }
         {

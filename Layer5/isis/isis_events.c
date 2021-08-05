@@ -57,7 +57,9 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_spf_runs,
     "ISIS EVENT SPF RUNS",
     //isis_event_admin_Action_shutdown_pending
-    "ISIS EVENT ADMIN ACTION SHUTDOWN PENDING"
+    "ISIS EVENT ADMIN ACTION SHUTDOWN PENDING",
+    //isis_event_device_overload_config_changed
+    "ISIS EVENT DEVICE OVERLOAD CONFIG CHANGED"
 }; 
 
 const char *

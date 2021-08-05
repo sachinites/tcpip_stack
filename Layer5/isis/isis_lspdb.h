@@ -19,9 +19,6 @@ isis_install_lsp(node_t *node,
 void
 isis_cleanup_lsdb(node_t *node);
 
-void
-isis_show_lspdb(node_t *node) ;
-
 bool
 isis_is_lsp_diff(isis_pkt_t *lsp_pk1, isis_pkt_t *lsp_pkt2);
 
@@ -58,5 +55,14 @@ isis_parse_lsp_tlvs(node_t *node,
                     isis_pkt_t *new_lsp_pkt,
                     isis_pkt_t *old_lsp_pkt,
                     isis_event_type_t event_type);
+
+void
+isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) ;
+
+void
+isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) ;
                     
+ void
+isis_show_lspdb(node_t *node) ;
+
 #endif /* */

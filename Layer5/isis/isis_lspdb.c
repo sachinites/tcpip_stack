@@ -5,13 +5,11 @@
 #include "isis_flood.h"
 #include "isis_spf.h"
 #include "isis_events.h"
+#include "isis_adjacency.h"
 
 void
 isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv);
-
-void
-isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt);
 
 static isis_pkt_t *gl_lsp_dummy_pkt = NULL;
 
@@ -526,30 +524,6 @@ isis_show_lspdb(node_t *node) {
     } ITERATE_AVL_TREE_END;
 }
 
-bool
-isis_is_lsp_diff(isis_pkt_t *lsp_pkt1, isis_pkt_t *lsp_pkt2) {
-
-    if ((lsp_pkt1 && !lsp_pkt2) || (!lsp_pkt1 && lsp_pkt2)) {
-
-        return true;
-    }
-
-    if (lsp_pkt1->pkt_size != lsp_pkt2->pkt_size) {
-
-        return true;
-    }
-
-    ethernet_hdr_t *lsp_eth_hdr1 = (ethernet_hdr_t *)lsp_pkt1->pkt;
-    ethernet_hdr_t *lsp_eth_hdr2 = (ethernet_hdr_t *)lsp_pkt2->pkt;
-
-    byte* lsp_body1 = lsp_eth_hdr1->payload;
-    byte* lsp_body2 = lsp_eth_hdr2->payload;
-
-    /* Compare only TLV Section */
-    return memcmp(lsp_body1 + ISIS_LSP_HDR_SIZE, 
-                  lsp_body2 + ISIS_LSP_HDR_SIZE,
-                  lsp_pkt1->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ISIS_LSP_HDR_SIZE);
-}
 
 /* lsp pkt printing */
 
@@ -578,6 +552,98 @@ isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) {
     else {
         printf("\n");
     }
+}
+
+void
+isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
+
+    isis_pkt_t *lsp_pkt;
+    uint32_t rtr_id_int;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+    avltree_t *lspdb = isis_get_lspdb_root(node);
+
+    if (!lspdb) return;
+
+    rtr_id_int = tcp_ip_covert_ip_p_to_n(rtr_id_str);
+
+    lsp_pkt = isis_lookup_lsp_from_lsdb(
+                    node, rtr_id_int);
+    if (!lsp_pkt) {
+        printf("No LSP Found\n");
+        return;
+    }
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+    isis_pkt_hdr_flags_t flags = isis_lsp_pkt_get_flags(lsp_pkt);
+
+    printf("LSP : %s(%u)\n",
+        tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, 0), 
+        lsp_pkt_hdr->seq_no);
+
+    printf("Flags :  \n");
+    printf("  OL bit : %s\n", flags & ISIS_LSP_PKT_F_OVERLOAD_BIT ? "Set" : "UnSet");
+    printf("  Purge bit : %s\n", flags & ISIS_LSP_PKT_F_PURGE_BIT ? "Set" : "UnSet");
+    printf("TLVs\n");
+
+    byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
+    uint16_t lsp_tlv_buffer_size = (uint16_t)(lsp_pkt->pkt_size -
+                                        ETH_HDR_SIZE_EXCL_PAYLOAD -
+                                        sizeof(isis_pkt_hdr_t)) ;
+
+    ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value,
+                        lsp_tlv_buffer_size) {
+
+        switch(tlv_type) {
+            case ISIS_TLV_HOSTNAME:
+                printf("\tTLV%d Host-Name : %s\n", 
+                        tlv_type, tlv_value);
+            break;
+            case ISIS_IS_REACH_TLV:
+                 isis_print_formatted_nbr_tlv( NULL,
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_ON_DEMAND:
+                printf("\tTLV%d On-Demand TLV : %hhu\n",
+                        tlv_type, *(uint8_t *)tlv_value);
+                break;
+            default: ;
+        }
+    } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value,
+                        lsp_tlv_buffer_size);
+
+}
+
+bool
+isis_is_lsp_diff(isis_pkt_t *lsp_pkt1, isis_pkt_t *lsp_pkt2) {
+
+    if ((lsp_pkt1 && !lsp_pkt2) || (!lsp_pkt1 && lsp_pkt2)) {
+
+        return true;
+    }
+
+    if (lsp_pkt1->pkt_size != lsp_pkt2->pkt_size) {
+
+        return true;
+    }
+
+    ethernet_hdr_t *lsp_eth_hdr1 = (ethernet_hdr_t *)lsp_pkt1->pkt;
+    ethernet_hdr_t *lsp_eth_hdr2 = (ethernet_hdr_t *)lsp_pkt2->pkt;
+
+    isis_pkt_hdr_t *lsp_hdr1 = (isis_pkt_hdr_t *)lsp_eth_hdr1->payload;
+    isis_pkt_hdr_t *lsp_hdr2 = (isis_pkt_hdr_t *)lsp_eth_hdr2->payload;
+
+    assert(lsp_hdr1->rtr_id == lsp_hdr2->rtr_id);
+
+    if (lsp_hdr1->flags != lsp_hdr2->flags) return true;
+
+    return memcmp( (byte *) (lsp_hdr1 + 1) , 
+                                (byte *) (lsp_hdr2 + 1),
+                                lsp_pkt1->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ISIS_LSP_HDR_SIZE);
 }
 
 byte*

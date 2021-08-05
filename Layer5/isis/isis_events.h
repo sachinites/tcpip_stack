@@ -62,7 +62,11 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_SPF_RUNS_BIT                     (1 << isis_event_spf_runs)
     isis_event_admin_action_shutdown_pending,
     #define ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT (1 << isis_event_admin_action_shutdown_pending)
-    isis_event_max = isis_event_admin_action_shutdown_pending + 1   /* Do not cross more than 63 */
+    isis_event_device_overload_config_changed,
+    #define ISIS_EVENT_DEVICE_OVERLOAD_CONFIG_CHANGED_BIT   (1 << isis_event_device_overload_config_changed)
+    isis_event_overload_timeout,
+    #define ISIS_EVENT_OVERLOAD_TIMEOUT_BIT     (1 << isis_event_overload_timeout)
+    isis_event_max = isis_event_overload_timeout + 1         /* Do not cross more than 63 */
     #define ISIS_EVENT_MAX                              (1 << isis_event_max)
 } isis_event_type_t;
 
@@ -130,6 +134,10 @@ isis_event_to_event_bit(isis_event_type_t event_type) {
         return ISIS_EVENT_SPF_RUNS_BIT;
         case isis_event_admin_action_shutdown_pending:
         return ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT;
+        case isis_event_device_overload_config_changed:
+        return ISIS_EVENT_DEVICE_OVERLOAD_CONFIG_CHANGED_BIT;
+        case isis_event_overload_timeout:
+        return ISIS_EVENT_OVERLOAD_TIMEOUT_BIT;
         case isis_event_max: /* Do not cross more than this */
         return ISIS_EVENT_MAX;
         default:

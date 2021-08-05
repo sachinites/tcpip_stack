@@ -251,6 +251,10 @@ TLV_ADD_DONE:
         lsp_pkt_hdr->flags |= ISIS_LSP_PKT_F_PURGE_BIT;
     }
 
+    if (isis_is_overloaded(node, NULL)) {
+         lsp_pkt_hdr->flags |= ISIS_LSP_PKT_F_OVERLOAD_BIT;
+    }
+
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
     
     if (!is_proto_shutting_down) {
