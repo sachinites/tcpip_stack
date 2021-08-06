@@ -194,12 +194,25 @@ get_str_leaf_type(leaf_type_t leaf_type){
     return NULL;
 }
 
+void (*app_ctrlC_signal_handler)(void );
 
 static void
 ctrlC_signal_handler(int sig){
     printf("Ctrl-C pressed\n");
-    printf("Bye Bye\n");
-    exit(0);
+
+    if (app_ctrlC_signal_handler) {
+        app_ctrlC_signal_handler();
+    }
+    else {
+        printf("Bye Bye\n");
+        exit(0);
+    }
+}
+
+void
+cli_register_ctrlC_handler(void (*fn_ptr)(void )) {
+
+    app_ctrlC_signal_handler = fn_ptr;
 }
 
 show_ext_t
@@ -335,6 +348,13 @@ init_libcli(){
     /*run hook*/
     init_param(&run, CMD, "run", 0, 0, INVALID, 0, "run cmds");
     libcli_register_param(&root, &run);
+    /* run terminate */
+    {
+        static param_t terminate;
+        init_param(&terminate, CMD, "term", cli_terminate_handler, 0, INVALID, 0, "Terminate appln");
+        libcli_register_param(&run, &terminate);
+    }
+
 
     /*Hook up the show/debug/clear operational command in Do Hook*/
     init_param(&do_hook, CMD, "DO_HOOK", 0, 0, INVALID, 0, "operational commands shortcut");

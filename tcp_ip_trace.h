@@ -80,4 +80,7 @@ tcp_trace_internal(node_t *node,
 #define tcp_trace(node, intf, buff) \
     tcp_trace_internal(node, intf, buff, __FUNCTION__, __LINE__);
 
+void
+tcp_ip_toggle_global_console_logging(void);
+
 #endif /* __TCP_IP_TRACE__ */

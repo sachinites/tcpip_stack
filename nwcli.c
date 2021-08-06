@@ -743,6 +743,8 @@ nw_init_cli(){
 
     init_libcli();
 
+    cli_register_ctrlC_handler(tcp_ip_toggle_global_console_logging);
+
     param_t *show   = libcli_get_show_hook();
     param_t *debug  = libcli_get_debug_hook();
     param_t *config = libcli_get_config_hook();

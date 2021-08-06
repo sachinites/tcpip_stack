@@ -759,3 +759,16 @@ tcp_ip_refresh_tcp_log_file() {
 
 #define tcp_trace(node, intf, buff)	\
 	tcp_trace_internal(node, intf, buff, __FUNCTION__, __LINE__);
+
+void
+tcp_ip_toggle_global_console_logging(void) {
+
+    topo->gstdout  = ! topo->gstdout;
+
+    if (topo->gstdout) {
+        printf ("\nconsole logging enabled\n");
+    }
+    else {
+        printf ("\nconsole logging disabled\n");
+    }
+}

@@ -365,6 +365,13 @@ supportsave_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 }
 
 int
+cli_terminate_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+
+    printf("Bye Bye\n");
+    exit(0);
+}
+
+int
 show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
     printf("Welcome to Help Wizard\n");
