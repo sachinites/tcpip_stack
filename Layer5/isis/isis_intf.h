@@ -68,5 +68,7 @@ isis_interface_updates(void *arg, size_t arg_size);
 void 
 isis_check_and_delete_intf_info(interface_t *intf);
 
+bool
+isis_interface_qualify_to_send_hellos(interface_t *intf);
 
 #endif // ! __ISIS_INTF__

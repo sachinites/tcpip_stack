@@ -19,12 +19,8 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_PROTOCOL_DISABLE_ON_INTF_BIT     (1 << isis_event_protocol_disable_on_intf)
     isis_event_protocol_enable_on_intf,
     #define ISIS_EVENT_PROTOCOL_ENABLE_ON_INTF_BIT      (1 << isis_event_protocol_enable_on_intf)
-    isis_event_nbr_ip_changed,
-    #define ISIS_EVENT_NBR_IP_CHANGED_BIT                            (1 << isis_event_nbr_ip_changed)
-    isis_event_nbr_metric_changed,
-    #define ISIS_EVENT_NBR_METRIC_CHANGED_BIT                 (1 << isis_event_nbr_metric_changed)
-    isis_event_nbr_rtr_id_changed,
-    #define ISIS_EVENT_NBR_RTR_ID_CHANGED_BIT                  (1 << isis_event_nbr_rtr_id_changed)
+    isis_event_nbr_attribute_changed,
+    #define ISIS_EVENT_NBR_ATTRIBUTE_CHANGED_BIT          (1 << isis_event_nbr_attribute_changed)
     /*lspdb update events begin*/
     isis_event_self_duplicate_lsp,
     #define ISIS_EVENT_SELF_DUPLICATE_LSP_BIT                      (1 << isis_event_self_duplicate_lsp)
@@ -68,7 +64,11 @@ typedef enum isis_events_ {
                                                                                                               (1 << isis_event_device_overload_config_changed)
     isis_event_overload_timeout,
     #define ISIS_EVENT_OVERLOAD_TIMEOUT_BIT                  (1 << isis_event_overload_timeout)
-    isis_event_max = isis_event_overload_timeout + 1                        /* Do not cross more than 63 */
+    isis_event_intf_up_down_status_changed,
+    #define ISIS_EVENT_INTF_UP_DOWN_STATUS_CHANGED_BIT   (1 << isis_event_intf_up_down_status_changed)
+    isis_event_intf_ip_addr_config_changed,
+    #define ISIS_EVENT_INTF_IP_ADDR_CONFIG_CHANGED_BIT  (1 << isis_event_intf_ip_addr_config_changed)
+    isis_event_max = isis_event_intf_ip_addr_config_changed + 1                        /* Do not cross more than 63 */
     #define ISIS_EVENT_MAX                                                           (1 << isis_event_max)
 } isis_event_type_t;
 

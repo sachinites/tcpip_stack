@@ -805,3 +805,81 @@ tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
     demote_packet_to_layer3(node, app_data, data_size,
             L5_protocol_id, dest_ip_address);
 }
+
+void
+interface_set_ip_addr(node_t *node, interface_t *intf, 
+                                    char *intf_ip_addr, uint8_t mask) {
+
+    uint32_t ip_addr_int;
+    uint32_t if_change_flags = 0;
+    intf_prop_changed_t intf_prop_changed;
+
+    if (IS_INTF_L2_MODE(intf)) {
+        printf("Error : Remove L2 config from interface first\n");
+        return;
+    }
+
+    /* new config */
+    if ( !IF_IP_EXIST(intf)) {
+        strncpy(IF_IP(intf), intf_ip_addr, 16);
+        IF_MASK(intf) = mask;
+        IF_IP_EXIST(intf) = true;
+
+        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+        ip_addr_int = tcp_ip_covert_ip_p_to_n(intf_ip_addr);
+        intf_prop_changed.ip_addr.ip_addr = 0;
+        intf_prop_changed.ip_addr.mask = 0;
+
+        nfc_intf_invoke_notification_to_sbscribers(intf,  
+                &intf_prop_changed, if_change_flags);
+        return;
+    }
+
+    /* Existing config changed */
+    if (strncmp(IF_IP(intf), intf_ip_addr, 16) || 
+            IF_MASK(intf) != mask ) {
+
+        ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
+        intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
+        intf_prop_changed.ip_addr.mask = IF_MASK(intf);
+        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+        strncpy(IF_IP(intf), intf_ip_addr, 16);
+        IF_MASK(intf) = mask;
+
+         nfc_intf_invoke_notification_to_sbscribers(intf,  
+                &intf_prop_changed, if_change_flags);
+        return;
+    }
+}
+
+void
+interface_unset_ip_addr(node_t *node, interface_t *intf, 
+                                        char *new_intf_ip_addr, uint8_t new_mask) {
+
+    uint8_t mask;
+    uint32_t ip_addr_int;
+    uint32_t if_change_flags = 0;
+    intf_prop_changed_t intf_prop_changed;
+
+    if ( !IF_IP_EXIST(intf)) {
+        return;
+    }
+
+    if (strncmp(IF_IP(intf), new_intf_ip_addr, 16)  ||
+            IF_MASK(intf) != new_mask) {
+
+        printf("Error : Non Existing IP address Specified \n");
+        return;
+    }
+
+    ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
+    mask = IF_MASK(intf);
+    intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
+    intf_prop_changed.ip_addr.mask = mask;
+
+    IF_IP_EXIST(intf) = false;
+    SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+
+    nfc_intf_invoke_notification_to_sbscribers(intf,  
+                &intf_prop_changed, if_change_flags);
+}

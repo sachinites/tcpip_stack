@@ -17,12 +17,8 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT INTF DISABLED",
     //isis_event_protocol_enable_on_intf
     "ISIS EVENT INTF ENABLED",
-    //isis_nbr_ip_changed
-    "ISIS EVENT NBR IP CHANGED",
-    //isis_nbr_metric_changed
-    "ISIS EVENT NBR METRIC CHANGED",
-    //isis_nbr_rtr_id_changed
-    "ISIS EVENT NBR RTR ID CHANGED",
+    //isis_event_nbr_attribute_changed
+    "ISIS EVENT NBR ATTRIBUTE CHANGED",
     /*lspdb update events*/
     //isis_event_self_duplicate_lsp,
     "ISIS EVENT SELF DUPLICATE LSP",
@@ -61,7 +57,11 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_device_overload_config_changed
     "ISIS EVENT DEVICE OVERLOAD CONFIG CHANGED",
     //isis_event_overload_timeout
-    "ISIS EVENT OVERLOAD TIMEOUT"
+    "ISIS EVENT OVERLOAD TIMEOUT",
+    //isis_event_intf_up_down_status_changed
+    "ISIS EVENT INTF UP DOWN STATUS CHANGED",
+    //isis_event_intf_ip_addr_config_changed
+    "ISIS EVENT INTF IP ADDR CHANGED"
 }; 
 
 const char *

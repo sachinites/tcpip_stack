@@ -632,7 +632,7 @@ spf_algo_interface_update(void *arg, size_t arg_size){
 
 	uint32_t flags = intf_notif_data->change_flags;
 	interface_t *interface = intf_notif_data->interface;
-	intf_nw_props_t *old_intf_nw_props = intf_notif_data->old_intf_nw_props;
+     intf_prop_changed_t *intf_prop_changed = intf_notif_data->old_intf_prop_changed;
     
 	/*Run spf if interface is transition to up/down*/
     if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F) ||

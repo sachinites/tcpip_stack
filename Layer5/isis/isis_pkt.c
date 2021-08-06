@@ -29,6 +29,11 @@ isis_process_hello_pkt(node_t *node,
     uint8_t intf_ip_len;
         
     if (!isis_node_intf_is_enable(iif)) return;
+
+    /* Use the same fn for recv qualification as well */
+    if (!isis_interface_qualify_to_send_hellos(iif)) {
+        return;
+    }
     
     /*Reject the pkt if dst mac is not Brodcast mac*/
     if(!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)){
@@ -61,6 +66,15 @@ isis_process_hello_pkt(node_t *node,
     if(!is_same_subnet(IF_IP(iif), 
                        iif->intf_nw_props.mask, 
                        if_ip_addr)){
+
+        isis_adjacency_t *adjacency = isis_find_adjacency_on_interface(iif, NULL);
+
+        if (adjacency) {
+            sprintf(tlb, "%s : Adjacency %s will be brought down, bad hello recvd\n",
+                ISIS_ADJ_MGMT, isis_adjacency_name(adjacency));
+            tcp_trace(iif->att_node, iif, tlb);
+            isis_change_adjacency_state(adjacency, ISIS_ADJ_STATE_DOWN);
+        }
         goto bad_hello;
     }
     isis_update_interface_adjacency_from_hello(iif, hello_tlv_buffer, tlv_buff_size);
@@ -159,7 +173,6 @@ isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
     switch(event_type) {
 
         case isis_event_adj_state_goes_up:
-        case isis_event_nbr_rtr_id_changed:
             return true;
         default:
             return false;

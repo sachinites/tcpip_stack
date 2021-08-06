@@ -3,6 +3,7 @@
 
 typedef enum isis_adj_state_ {
 
+    ISIS_ADJ_STATE_UNKNOWN,
     ISIS_ADJ_STATE_DOWN,
     ISIS_ADJ_STATE_INIT,
     ISIS_ADJ_STATE_UP
@@ -83,7 +84,7 @@ isis_get_next_adj_state_on_receiving_next_hello(
 void
 isis_delete_adjacency(isis_adjacency_t *adjacency);
 
-void
+int
 isis_delete_all_adjacencies(interface_t *intf);
 
 bool

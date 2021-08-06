@@ -12,7 +12,7 @@ isis_node_intf_is_enable(interface_t *intf) {
     return !(intf->intf_nw_props.isis_intf_info == NULL);
 }
 
-static bool
+bool
 isis_interface_qualify_to_send_hellos(interface_t *intf){
 
     if (isis_node_intf_is_enable(intf) &&
@@ -237,6 +237,67 @@ isis_show_interface_protocol_state(interface_t *intf) {
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr)
     printf("\n");
 }
+
+static void
+isis_handle_interface_up_down (interface_t *intf, bool old_status) {
+
+    if (old_status == false) {
+        /* Interace has been no-shut */
+        /* 1. Start sending hellos out of interface if it qualifies
+            2. Start processing hellos on this interface if it qualifies */
+
+            if (!isis_interface_qualify_to_send_hellos(intf)) {
+                return;
+            }
+            isis_start_sending_hellos(intf);
+    }
+    else {
+        /* interface has been shut down */
+        isis_stop_sending_hellos(intf);
+        isis_delete_all_adjacencies(intf);
+        isis_schedule_lsp_pkt_generation(intf->att_node,
+            isis_event_intf_up_down_status_changed);
+    }
+}
+
+static void
+isis_handle_interface_ip_addr_changed (interface_t *intf, 
+                                                                uint32_t old_ip_addr, uint8_t old_mask) {
+
+    /* case 1 : New IP Address Added, start sending hellos if intf qualifies*/
+
+    if (IF_IP_EXIST(intf) && !old_ip_addr && !old_mask) {
+
+        if (isis_interface_qualify_to_send_hellos(intf)) {
+            isis_start_sending_hellos(intf);
+        }
+        return;
+    }
+
+    /* case 2 : IP Address Removed, stop sending hellos, delete all adj on this intf, regen LSP*/
+
+    if (!IF_IP_EXIST(intf) && old_ip_addr && old_mask) {
+
+        bool any_up_adj = false;
+        any_up_adj = isis_any_adjacency_up_on_interface(intf);
+        isis_stop_sending_hellos(intf);
+        isis_delete_all_adjacencies(intf);
+        if (any_up_adj) {
+            isis_schedule_lsp_pkt_generation(intf->att_node, 
+                isis_event_intf_ip_addr_config_changed);
+        }
+        return;
+    }
+
+    /*case 3 : IP Address changed, start sending hellos if intf qualifies with new IP Address
+        Nbr must bring down adj if new IP Address do not matches same subnet 
+        Nbr must update its Adj data and LSP as per new Ip Address info recvd from nbr
+    */
+   if (isis_interface_qualify_to_send_hellos(intf)) {
+        isis_refresh_intf_hellos(intf);
+   }
+}
+
 void
 isis_interface_updates(void *arg, size_t arg_size) {
 
@@ -244,9 +305,25 @@ isis_interface_updates(void *arg, size_t arg_size) {
 		(intf_notif_data_t *)arg;
 
 	uint32_t flags = intf_notif_data->change_flags;
-	interface_t *interface = intf_notif_data->interface;
-	intf_nw_props_t *old_intf_nw_props = intf_notif_data->old_intf_nw_props;
+	interface_t *intf = intf_notif_data->interface;
+	intf_prop_changed_t *old_intf_prop_changed =
+            intf_notif_data->old_intf_prop_changed;
 
-    if (!isis_node_intf_is_enable(interface)) return;
+    if (!isis_node_intf_is_enable(intf)) return;
+
+    switch(flags) {
+        case IF_UP_DOWN_CHANGE_F:
+            isis_handle_interface_up_down (intf, old_intf_prop_changed->up_status);
+            break;
+        case IF_IP_ADDR_CHANGE_F:
+            isis_handle_interface_ip_addr_changed (intf, 
+                    old_intf_prop_changed->ip_addr.ip_addr,
+                    old_intf_prop_changed->ip_addr.mask);
+         break;
+        case IF_OPER_MODE_CHANGE_F:
+        case IF_VLAN_MEMBERSHIP_CHANGE_F:
+        case IF_METRIC_CHANGE_F :
+        break;
+    default: ;
+    }
 }
-

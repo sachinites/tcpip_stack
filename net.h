@@ -174,6 +174,18 @@ typedef struct intf_nw_props_ {
 	uint32_t xmit_pkt_dropped;
 } intf_nw_props_t;
 
+typedef union intf_prop_changed_ {
+
+        uint32_t intf_metric;
+        struct {
+            uint32_t ip_addr;
+            uint8_t mask;
+        } ip_addr;
+        bool up_status; /* True for up, false for down */
+        intf_l2_mode_t intf_l2_mode;
+        uint32_t vlan;
+} intf_prop_changed_t;
+
 extern void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
 
@@ -207,6 +219,7 @@ interface_assign_mac_address(interface_t *interface);
 /*GET shorthand Macros*/
 #define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)
 #define IF_IP(intf_ptr)    ((intf_ptr)->intf_nw_props.ip_add.ip_addr)
+#define IF_IP_EXIST(intf_ptr) ((intf_ptr)->intf_nw_props.is_ipadd_config)
 #define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
 #define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == true)
 #define IF_INDEX(intf_ptr) ((intf_ptr)->intf_nw_props.ifindex)
@@ -217,6 +230,10 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
+#define IS_INTF_L2_MODE(intf_ptr)                                  \
+    (intf_ptr->intf_nw_props.intf_l2_mode == ACCESS ||      \
+    intf_ptr->intf_nw_props.intf_l2_mode == TRUNK)
+
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == true)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)

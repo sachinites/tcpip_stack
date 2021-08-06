@@ -171,4 +171,12 @@ void
 tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
                     int L5_protocol_id, uint32_t dest_ip_address);
 
+
+/* config of Layer 3 properties of interface*/
+void
+interface_set_ip_addr(node_t *node, interface_t *intf,  char *intf_ip_addr, uint8_t mask);
+
+void
+interface_unset_ip_addr(node_t *node, interface_t *intf, char *intf_ip_addr, uint8_t mask);
+
 #endif /* __LAYER3__ */

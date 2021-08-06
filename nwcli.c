@@ -40,6 +40,7 @@
 #include "Layer5/app_handlers.h"
 #include "BitOp/bitsop.h"
 #include "tcpip_notif.h"
+#include "Layer3/layer3.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -561,13 +562,16 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
    char *node_name;
    char *intf_name;
    uint32_t vlan_id;
+   uint8_t mask;
    char *l2_mode_option;
+   char *intf_ip_addr = NULL;
    char *if_up_down;
    int CMDCODE;
    tlv_struct_t *tlv = NULL;
    node_t *node;
    interface_t *interface;
    uint32_t intf_new_matric_val;
+   intf_prop_changed_t intf_prop_changed;
 
    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
    
@@ -584,7 +588,11 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         else if(strncmp(tlv->leaf_id, "if-up-down", strlen("if-up-down")) == 0)
              if_up_down = tlv->value; 
         else if(strncmp(tlv->leaf_id, "metric-val", strlen("metric-val")) == 0)
-             intf_new_matric_val = atoi(tlv->value);            
+             intf_new_matric_val = atoi(tlv->value);      
+        else if(strncmp(tlv->leaf_id, "intf-ip-addr", strlen("intf-ip-addr")) == 0)
+             intf_ip_addr = tlv->value;     
+        else if(strncmp(tlv->leaf_id, "mask", strlen("mask")) == 0)
+             mask = atoi(tlv->value);  
         else
             assert(0);
     } TLV_LOOP_END;
@@ -604,6 +612,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
 
             if(intf_existing_metric != intf_new_matric_val){
                 SET_BIT(if_change_flags, IF_METRIC_CHANGE_F); 
+                intf_prop_changed.intf_metric = intf_existing_metric;
             }
 
             switch(enable_or_disable){
@@ -617,7 +626,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             }
             if(IS_BIT_SET(if_change_flags, IF_METRIC_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(
-					interface, 0, if_change_flags);
+					interface, &intf_prop_changed, if_change_flags);
             }
         }    
         break;
@@ -625,18 +634,20 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             if(strncmp(if_up_down, "up", strlen("up")) == 0){
                 if(interface->intf_nw_props.is_up == false){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F); 
+                     intf_prop_changed.up_status = false;
                 }
                 interface->intf_nw_props.is_up = true;
             }
             else{
                 if(interface->intf_nw_props.is_up){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F);
+                     intf_prop_changed.up_status = true;
                 }
                 interface->intf_nw_props.is_up = false;
             }
             if(IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(
-					interface, 0, if_change_flags);
+					interface, &intf_prop_changed, if_change_flags);
             }
             break;
         case CMDCODE_INTF_CONFIG_L2_MODE:
@@ -658,6 +669,18 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     break;
                 case CONFIG_DISABLE:
                     interface_unset_vlan(node, interface, vlan_id);
+                    break;
+                default:
+                    ;
+            }
+            break;
+        case CMDCODE_INTF_CONFIG_IP_ADDR:
+             switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    interface_set_ip_addr(node, interface,  intf_ip_addr, mask);
+                    break;
+                case CONFIG_DISABLE:
+                    interface_unset_ip_addr(node, interface, intf_ip_addr, mask);
                     break;
                 default:
                     ;
@@ -1090,6 +1113,23 @@ nw_init_cli(){
                         init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
                         libcli_register_param(&metric, &metric_val);
                         set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
+                    }
+                }
+                {
+                    /* config node <node-name> ineterface <if-name> ip-address <ip-addr> <mask>*/
+                    static param_t ip_addr;
+                    init_param(&ip_addr, CMD, "ip-address", 0, 0, INVALID, 0, "Interface IP Address");
+                    libcli_register_param(&if_name, &ip_addr);
+                    {
+                        static param_t ip_addr_val;
+                        init_param(&ip_addr_val, LEAF, 0, 0, 0, IPV4, "intf-ip-address", "IPV4 address");
+                        libcli_register_param(&ip_addr, &ip_addr_val);
+                        {
+                            static param_t mask;
+                            init_param(&mask, LEAF, 0, intf_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
+                            libcli_register_param(&ip_addr_val, &mask);
+                            set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
+                        }
                     }
                 }
                 {

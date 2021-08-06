@@ -157,9 +157,10 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
     free(adjacency);
 }
 
-void
+int
 isis_delete_all_adjacencies(interface_t *intf) {
 
+    int rc = 0;
     glthread_t *curr;
     isis_adjacency_t *adjacency;
 
@@ -170,9 +171,10 @@ isis_delete_all_adjacencies(interface_t *intf) {
 
         adjacency = glthread_to_isis_adjacency(curr);
         isis_delete_adjacency(adjacency);
+        rc++;
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+    return rc;
 }
-
 
 void
 isis_update_interface_adjacency_from_hello(
@@ -182,10 +184,10 @@ isis_update_interface_adjacency_from_hello(
 
     char *router_id;
     uint8_t tlv_data_len;
+    bool nbr_attr_changed = false;
     bool new_adj = false;
     isis_intf_info_t *isis_intf_info;
     isis_adjacency_t *adjacency = NULL;
-    isis_event_type_t event_type = isis_event_none;
 
     router_id = tlv_buffer_get_particular_tlv(
                     hello_tlv_buffer, 
@@ -212,18 +214,19 @@ isis_update_interface_adjacency_from_hello(
         switch(tlv_type){
             case ISIS_TLV_HOSTNAME:
                 if (memcmp(adjacency->nbr_name, tlv_value, tlv_len)) {
+                    nbr_attr_changed = true;
                     memcpy(adjacency->nbr_name, tlv_value, tlv_len);
                 }
             break;
             case ISIS_TLV_RTR_ID:
                 if(memcmp(adjacency->nbr_rtr_id.ip_addr, tlv_value, tlv_len)) {
-                    event_type = isis_event_nbr_rtr_id_changed;
+                    nbr_attr_changed = true;
                     memcpy(adjacency->nbr_rtr_id.ip_addr, tlv_value, tlv_len);
                 }
             break;    
             case ISIS_TLV_IF_IP:
                 if(memcmp(adjacency->nbr_intf_ip.ip_addr, tlv_value, tlv_len)) {
-                    event_type = isis_event_nbr_ip_changed;
+                    nbr_attr_changed = true;
                     memcpy(adjacency->nbr_intf_ip.ip_addr, tlv_value, tlv_len);
                 }
             break;
@@ -236,7 +239,7 @@ isis_update_interface_adjacency_from_hello(
             case ISIS_TLV_METRIC_VAL:
                 if (adjacency->cost != *((uint32_t *)tlv_value)) {
                     adjacency->cost = *((uint32_t *)tlv_value);
-                    event_type = isis_event_nbr_metric_changed;
+                    nbr_attr_changed = true;
                 }
             break;
             default: ;
@@ -247,11 +250,16 @@ isis_update_interface_adjacency_from_hello(
         isis_adjacency_start_delete_timer(adjacency);
     }
     else {
-        isis_adj_state_t adj_next_state = 
-            isis_get_next_adj_state_on_receiving_next_hello(adjacency);
+            isis_adj_state_t adj_next_state = 
+                isis_get_next_adj_state_on_receiving_next_hello(adjacency);
         isis_change_adjacency_state(adjacency, adj_next_state);
     }
 
+   if (nbr_attr_changed) {
+       sprintf(tlb, "%s : ISIS Adjacency attributes changed, regen LSP \n",  ISIS_ADJ_MGMT);
+        tcp_trace(iif->att_node, iif, tlb);
+        isis_schedule_lsp_pkt_generation(iif->att_node, isis_event_nbr_attribute_changed);
+   }
     ISIS_INCREMENT_STATS(iif, good_hello_pkt_recvd);
 }
 
@@ -280,6 +288,7 @@ isis_find_adjacency_on_interface(
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
 
         adjacency = glthread_to_isis_adjacency(curr);
+        if (!router_id) return adjacency;
         if(strncmp(adjacency->nbr_rtr_id.ip_addr, router_id, 16) == 0)
             return adjacency;
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
