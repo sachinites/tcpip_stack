@@ -69,3 +69,9 @@ isis_event_str(isis_event_type_t isis_event_type) {
 
     return isis_event_str_arr[isis_event_type];
 }
+
+unsigned long
+isis_event_to_event_bit(isis_event_type_t event_type) {
+
+    return (1 << event_type);
+}

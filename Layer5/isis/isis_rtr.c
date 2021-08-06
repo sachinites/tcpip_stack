@@ -18,7 +18,7 @@ isis_is_protocol_enable_on_node(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_node_info || isis_node_info->is_shutting_down) {
+    if (!isis_node_info ) {
         return false;
     }
 
@@ -37,6 +37,7 @@ isis_node_cancel_all_timers(node_t *node){
 
     isis_stop_lsp_pkt_periodic_flooding(node);
     isis_stop_reconciliation_timer(node);
+    isis_stop_overload_timer(node);
 }
 
 static void
@@ -60,12 +61,18 @@ isis_check_delete_node_info(node_t *node) {
 
     if(!isis_node_info) return;
 
+    /* Scheduled jobs */
     assert(!isis_node_info->self_lsp_pkt);
     assert(!isis_node_info->lsp_pkt_gen_task);
     assert(!isis_node_info->spf_job_task);
-    assert(!isis_node_info->shutdown_pending_work_flags);
 
-    /* place all asserts here */
+    /* Timers */
+    assert(!isis_node_info->periodic_lsp_flood_timer);
+    assert(!isis_node_info->reconc.reconciliation_timer);
+    assert(!isis_node_info->ovl_data.ovl_timer);
+
+    /* Should not have any pending work to do */
+    assert(!isis_node_info->shutdown_pending_work_flags);
     isis_free_node_info(node);
 }
 
@@ -405,7 +412,7 @@ isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
 }
 
 static void
-isis_overload_timer_expire_wrapper(void *arg, uint32_t arg_size) {
+isis_overload_timer_expire(void *arg, uint32_t arg_size) {
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
@@ -431,16 +438,20 @@ isis_start_overload_timer(node_t *node, uint32_t timeout_val) {
     if (ovl_data->ovl_timer) return;
 
     ovl_data->ovl_timer = timer_register_app_event(node_get_timer_instance(node),
-                                            isis_overload_timer_expire_wrapper,
+                                            isis_overload_timer_expire,
                                             (void *)node, 
                                             sizeof(node_t),
                                             timeout_val * 1000, 0);
 }
 
-static void
+void
 isis_stop_overload_timer(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if ( !isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
 
     isis_overload_data_t *ovl_data = &isis_node_info->ovl_data;
 
@@ -457,7 +468,10 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     isis_overload_data_t *ovl_data;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_is_protocol_enable_on_node(node)) return;
+    if (!isis_is_protocol_enable_on_node(node)) {
+        printf( ISIS_ERROR_PROTO_NOT_ENABLE "\n");  
+        return;
+    }
 
     ovl_data = &isis_node_info->ovl_data;
 
@@ -520,7 +534,7 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
                      else {
                          /* case 2.1.1.2 : timeout val is changed -> reschedule timer */
                          ovl_data->timeout_val = timeout_val;
-                         timer_reschedule(ovl_data->ovl_timer, timeout_val);
+                         timer_reschedule(ovl_data->ovl_timer, timeout_val * 1000);
                      }
                 }
                 else {

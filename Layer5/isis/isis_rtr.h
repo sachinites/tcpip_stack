@@ -138,4 +138,7 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
 bool
 isis_is_overloaded(node_t *node, bool *ovl_timer_running);
 
+void
+isis_stop_overload_timer(node_t *node);
+
 #endif

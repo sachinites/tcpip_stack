@@ -22,15 +22,9 @@ typedef struct isis_intf_info_ {
 
     /* Adj list on this interface */
     glthread_t adj_list_head;
-    glthread_t purge_glue;
     glthread_t lsp_xmit_list_head;
-
     task_t *lsp_xmit_job;
-
 } isis_intf_info_t;
-GLTHREAD_TO_STRUCT(isis_purge_glue_to_isis_intf_info,
-        isis_intf_info_t, purge_glue);
-
 
 /* Some short-hand macros to make life easy */
 #define ISIS_INTF_INFO(intf_ptr)    \

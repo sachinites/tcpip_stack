@@ -348,9 +348,9 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
                 NODE_NAME_SIZE +    /* Data length of TLV: ISIS_TLV_NODE_NAME*/
                 16 +                /* Data length of ISIS_TLV_RTR_NAME which is 16*/
                 16 +                /* Data length of ISIS_TLV_IF_IP which is 16*/
-                4  +                /* Data length of ISIS_TLV_IF_INDEX which is 4*/
-                4 +                 /* Data length for ISIS_ISIS_TLV_HOLD_TIME */
-                4;                  /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
+                4  +                 /* Data length of ISIS_TLV_IF_INDEX which is 4*/
+                4 +                  /* Data length for ISIS_ISIS_TLV_HOLD_TIME */
+                4;                    /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
 
     *hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
                       eth_hdr_playload_size;
