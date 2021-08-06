@@ -442,7 +442,7 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
 }
 
 extern void
-delete_rt_table_entry(rt_table_t *rt_table,
+rt_table_delete_route(rt_table_t *rt_table,
         char *ip_addr, char mask);
 extern void
 rt_table_add_route(rt_table_t *rt_table,
@@ -509,7 +509,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                 }
                 break;
                 case CONFIG_DISABLE:
-                    delete_rt_table_entry(NODE_RT_TABLE(node), dest, mask);
+                    rt_table_delete_route(NODE_RT_TABLE(node), dest, mask);
                     break;
                 default:
                     ;

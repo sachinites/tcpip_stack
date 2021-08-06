@@ -340,7 +340,7 @@ l3_route_get_active_nexthop(l3_route_t *l3_route){
 
 
 void
-delete_rt_table_entry(rt_table_t *rt_table, 
+rt_table_delete_route(rt_table_t *rt_table, 
         char *ip_addr, char mask){
 
     char dst_str_with_mask[16];
@@ -829,6 +829,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         ip_addr_int = tcp_ip_covert_ip_p_to_n(intf_ip_addr);
         intf_prop_changed.ip_addr.ip_addr = 0;
         intf_prop_changed.ip_addr.mask = 0;
+        rt_table_add_direct_route(NODE_RT_TABLE(node), intf_ip_addr, mask);
 
         nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);
@@ -843,12 +844,13 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
         intf_prop_changed.ip_addr.mask = IF_MASK(intf);
         SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+        rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf));
         strncpy(IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
+        rt_table_add_direct_route(NODE_RT_TABLE(node), IF_IP(intf), IF_MASK(intf));
 
          nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);
-        return;
     }
 }
 
@@ -879,6 +881,8 @@ interface_unset_ip_addr(node_t *node, interface_t *intf,
 
     IF_IP_EXIST(intf) = false;
     SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+
+    rt_table_delete_route(NODE_RT_TABLE(node),  new_intf_ip_addr, new_mask);
 
     nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);

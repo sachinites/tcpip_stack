@@ -145,7 +145,7 @@ void
 clear_rt_table(rt_table_t *rt_table);
 
 void
-delete_rt_table_entry(rt_table_t *rt_table, char *ip_addr, char mask);
+rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask);
 
 void
 rt_table_add_route(rt_table_t *rt_table, 
