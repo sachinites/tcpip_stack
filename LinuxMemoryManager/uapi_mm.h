@@ -35,7 +35,8 @@
 
 void *
 xcalloc(char *struct_name, int units);
-
+void *
+xcalloc_buff(uint32_t bytes) ;
 void
 xfree(void *app_ptr);
 
@@ -43,6 +44,7 @@ xfree(void *app_ptr);
 void mm_print_memory_usage(char *struct_name);
 void mm_print_block_usage();
 void mm_print_registered_page_families();
+void mm_print_variable_buffers(void);
 
 /*Initialization Functions*/
 void
@@ -56,6 +58,9 @@ mm_instantiate_new_page_family(
 
 #define XCALLOC(units, struct_name) \
     (xcalloc(#struct_name, units))
+
+#define XCALLOC_BUFF(size_in_bytes) \
+    (xcalloc_buff(size_in_bytes) )
 
 #define MM_REG_STRUCT(struct_name)  \
     (mm_instantiate_new_page_family(#struct_name, sizeof(struct_name)))

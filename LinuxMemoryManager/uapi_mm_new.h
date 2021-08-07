@@ -56,6 +56,9 @@ mm_instantiate_new_page_family(
 #define XCALLOC(units, struct_name) \
     (xcalloc(#struct_name, units))
 
+#define XCALLOC_BUFF(size_in_bytes) \
+    (xcalloc_buff(size_in_bytes) )
+    
 #define MM_REG_STRUCT(struct_name)  \
     (mm_instantiate_new_page_family(#struct_name, sizeof(struct_name)))
 

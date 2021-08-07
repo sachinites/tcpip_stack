@@ -43,6 +43,7 @@
 #undef __USE_GLIBC__
 
 static vm_page_for_families_t *first_vm_page_for_families = NULL;
+static vm_page_family_t misc_vm_page_family;
 static size_t SYSTEM_PAGE_SIZE = 0;
 void *gb_hsba = NULL;
 
@@ -51,6 +52,11 @@ mm_init(){
 
     SYSTEM_PAGE_SIZE = getpagesize() * 2;
     gb_hsba = sbrk(0);
+    misc_vm_page_family.first_page = NULL;
+    memset(&misc_vm_page_family, 0, sizeof(vm_page_family_t));
+    strncpy(misc_vm_page_family.struct_name, "Misc" , 4);
+    misc_vm_page_family.struct_size = 0;
+    init_glthread(&misc_vm_page_family.free_block_priority_list_head);
 }
 
 static inline uint32_t
@@ -781,6 +787,52 @@ mm_print_block_usage(){
 }
 
 void
+mm_print_variable_buffers(void) {
+
+    uint32_t total_block_count = 0;
+    uint32_t  free_block_count = 0;
+    uint32_t  application_memory_usage = 0;
+    uint32_t occupied_block_count = 0;
+
+    vm_page_t *vm_page_curr;
+    vm_page_family_t *vm_page_family_curr;
+    block_meta_data_t *block_meta_data_curr;
+
+    ITERATE_VM_PAGE_BEGIN((&misc_vm_page_family), vm_page_curr){
+
+            ITERATE_VM_PAGE_ALL_BLOCKS_BEGIN(vm_page_curr, block_meta_data_curr){
+        
+                total_block_count++;
+                
+                /*Sanity Checks*/
+                if(block_meta_data_curr->is_free == MM_FALSE){
+                    assert(IS_GLTHREAD_LIST_EMPTY(&block_meta_data_curr->\
+                        priority_thread_glue));
+                }
+                if(block_meta_data_curr->is_free == MM_TRUE){
+                    assert(!IS_GLTHREAD_LIST_EMPTY(&block_meta_data_curr->\
+                        priority_thread_glue));
+                }
+
+                if(block_meta_data_curr->is_free == MM_TRUE){
+                    free_block_count++;
+                }
+                else{
+                    application_memory_usage += 
+                        block_meta_data_curr->block_size + \
+                        sizeof(block_meta_data_t);
+                    occupied_block_count++;
+                }
+            } ITERATE_VM_PAGE_ALL_BLOCKS_END(vm_page_curr, block_meta_data_curr);
+        } ITERATE_VM_PAGE_END(&misc_vm_page_family, vm_page_curr);
+
+    printf("%-20s   TBC : %-4u    FBC : %-4u    OBC : %-4u AppMemUsage : %u\n",
+        misc_vm_page_family.struct_name, total_block_count,
+        free_block_count, occupied_block_count, application_memory_usage);
+
+}
+
+void
 mm_print_registered_page_families(){
 
     vm_page_family_t *vm_page_family_curr = NULL;
@@ -801,4 +853,22 @@ mm_print_registered_page_families(){
         } ITERATE_PAGE_FAMILIES_END(vm_page_for_families_curr,
             vm_page_family_curr);
     }
+}
+
+void *
+xcalloc_buff(uint32_t bytes) {
+
+    block_meta_data_t *free_block_meta_data = NULL;
+
+    free_block_meta_data = mm_allocate_free_data_block(
+                            &misc_vm_page_family,  bytes);
+
+    misc_vm_page_family.struct_size = bytes;
+
+    if(free_block_meta_data){
+        memset((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
+        return  (void *)(free_block_meta_data + 1);
+    }
+
+    return NULL;
 }

@@ -26,7 +26,22 @@ main(int argc, char **argv){
     MM_REG_STRUCT(student_t);
     mm_print_registered_page_families();
 
-#if 0
+    mm_print_memory_usage(0);
+    mm_print_block_usage();
+
+    char *buff1 = XCALLOC_BUFF(32);
+    char *buff2 = XCALLOC_BUFF(32);
+    assert(buff1);
+    assert(buff2);
+    mm_print_variable_buffers();
+    xfree(buff1);
+    xfree(buff2);
+    mm_print_variable_buffers();
+#if 0    
+    mm_print_memory_usage(0);
+    mm_print_block_usage();
+
+
     emp_t *emp1 = xcalloc("emp_t", 1);
     emp_t *emp2 = xcalloc("emp_t", 1);
     emp_t *emp3 = xcalloc("emp_t", 1);
@@ -49,7 +64,7 @@ main(int argc, char **argv){
     mm_print_memory_usage();
     xfree(stud3);
     mm_print_memory_usage();
-#endif
+
     int i = 0;
     student_t *stud = NULL, *prev = NULL;
     student_t *first = NULL;
@@ -65,7 +80,8 @@ main(int argc, char **argv){
     }
     mm_print_memory_usage(0);
     mm_print_block_usage();
-    #if 1
+    #endif
+    #if 0
     i = 0;
     student_t *next = NULL;
     for( ; first; first = next){
