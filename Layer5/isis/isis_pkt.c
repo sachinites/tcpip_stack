@@ -172,7 +172,7 @@ isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
 
     switch(event_type) {
 
-        case isis_event_adj_state_goes_up:
+        case isis_event_adj_state_changed:
             return true;
         default:
             return false;
@@ -314,7 +314,7 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
 
     /* Now generate LSP pkt */
     isis_create_fresh_lsp_pkt(node);
-    
+
     isis_update_lsp_flood_timer_with_new_lsp_pkt(node,
         isis_node_info->self_lsp_pkt);
     
@@ -329,10 +329,25 @@ isis_schedule_lsp_pkt_generation(node_t *node,
 
     if (!isis_node_info) return;
 
-    isis_node_info->event_control_flags |=
-        isis_event_to_event_bit(event_type);
+    if ( IS_BIT_SET (isis_node_info->misc_flags,
+                ISIS_F_DISABLE_LSP_GEN)) {
+
+        sprintf(tlb, "%s : LSP generation disabled", ISIS_LSPDB_MGMT);
+        tcp_trace(node, 0, tlb);
+        return;
+    }
+
+    if ( isis_is_protocol_shutdown_in_progress(node)) {
+        /* Prevent any further LSP generation, we are interested only in 
+                generating purge LSP one last time */
+        SET_BIT(isis_node_info->misc_flags, ISIS_F_DISABLE_LSP_GEN);
+    }
+
+    SET_BIT( isis_node_info->event_control_flags, 
+                        isis_event_to_event_bit(event_type));
 
     if (isis_node_info->lsp_pkt_gen_task) {
+
         sprintf(tlb, "%s : LSP generation Already scheduled, reason : %s\n",
             ISIS_LSPDB_MGMT,
             isis_event_str(event_type));

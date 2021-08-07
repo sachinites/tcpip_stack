@@ -46,4 +46,10 @@
 #define ISIS_ERROR  " ISIS(ERROR)"
 #define ISIS_PKT    " ISIS(PKT)"
 
+/* ISIS Miscellaneous flags */
+#define ISIS_F_DISABLE_LSP_GEN  1
+
+
+
+
 #endif 

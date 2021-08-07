@@ -256,7 +256,7 @@ isis_handle_interface_up_down (interface_t *intf, bool old_status) {
         isis_stop_sending_hellos(intf);
         isis_delete_all_adjacencies(intf);
         isis_schedule_lsp_pkt_generation(intf->att_node,
-            isis_event_intf_up_down_status_changed);
+            isis_event_admin_config_changed);
     }
 }
 
@@ -284,7 +284,7 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
         isis_delete_all_adjacencies(intf);
         if (any_up_adj) {
             isis_schedule_lsp_pkt_generation(intf->att_node, 
-                isis_event_intf_ip_addr_config_changed);
+                isis_event_admin_config_changed);
         }
         return;
     }

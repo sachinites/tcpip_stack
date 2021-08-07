@@ -66,6 +66,8 @@ typedef struct isis_node_info_ {
     uint16_t shutdown_pending_work_flags;
     /* overload object */
     isis_overload_data_t ovl_data;
+    /* Miscellaneous flags */
+    uint64_t misc_flags;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

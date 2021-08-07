@@ -5,18 +5,10 @@ static char isis_event_str_arr[isis_event_max][128] =
     /* Warning : Order must match with enums */
     //isis_event_none
     "",
-    //isis_event_adj_state_goes_up    
-    "ISIS EVENT ADJ GOES UP",
-    //isis_event_adj_state_goes_down
-    "ISIS EVENT ADJ GOES DOWN",
-    //isis_event_protocol_enable
-    "ISIS EVENT PROTOCOL ENABLED",
-    //isis_event_protocol_disable
-    "ISIS EVENT PROTOCOL DISABLED",
-    //isis_event_protocol_disable_on_intf
-    "ISIS EVENT INTF DISABLED",
-    //isis_event_protocol_enable_on_intf
-    "ISIS EVENT INTF ENABLED",
+    //isis_event_adj_state_changed    
+    "ISIS EVENT ADJ STATE CHANGED",
+    //isis_event_admin_config_changed
+    "ISIS EVENT ADMIN CONFIG CHANGED",
     //isis_event_nbr_attribute_changed
     "ISIS EVENT NBR ATTRIBUTE CHANGED",
     /*lspdb update events*/
@@ -57,11 +49,7 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_device_overload_config_changed
     "ISIS EVENT DEVICE OVERLOAD CONFIG CHANGED",
     //isis_event_overload_timeout
-    "ISIS EVENT OVERLOAD TIMEOUT",
-    //isis_event_intf_up_down_status_changed
-    "ISIS EVENT INTF UP DOWN STATUS CHANGED",
-    //isis_event_intf_ip_addr_config_changed
-    "ISIS EVENT INTF IP ADDR CHANGED"
+    "ISIS EVENT OVERLOAD TIMEOUT"
 }; 
 
 const char *

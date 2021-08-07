@@ -116,8 +116,8 @@ isis_check_and_shutdown_protocol_now
                 work_completed_flag);
     
     /* clean the bit*/
-    isis_node_info->shutdown_pending_work_flags &= 
-        (work_completed_flag ^ UINT16_MAX);
+    UNSET_BIT16(isis_node_info->shutdown_pending_work_flags,
+                                    work_completed_flag);
 
     if (isis_is_protocol_shutdown_in_progress(node)) return;
     isis_protocol_shutdown_now(node);
@@ -130,9 +130,8 @@ isis_is_protocol_shutdown_in_progress(node_t *node) {
 
     if(!isis_node_info) false;
 
-    if (isis_node_info->shutdown_pending_work_flags &
-            ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK) {
-
+    if (IS_BIT_SET(isis_node_info->shutdown_pending_work_flags ,
+                            ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK)) {
         return true;
     }
 
@@ -144,10 +143,10 @@ isis_is_protocol_admin_shutdown(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    if(!isis_node_info) false;
+    if ( !isis_node_info ) false;
 
-    if (isis_node_info->event_control_flags &
-            ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT) {
+    if ( IS_BIT_SET(isis_node_info->event_control_flags,
+                ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT)) {
 
         return true;
     }
@@ -202,8 +201,8 @@ isis_protocol_shut_down(node_t *node) {
     isis_node_cancel_all_timers(node);
     isis_free_dummy_lsp_pkt();
 
-    isis_node_info->event_control_flags |=
-        ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT;
+    SET_BIT( isis_node_info->event_control_flags, 
+        ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
 
     isis_launch_prior_shutdown_tasks(node);
 }
@@ -246,7 +245,7 @@ isis_show_node_protocol_state(node_t *node) {
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
     ISIS_INCREMENT_NODE_STATS(node,
-            isis_event_count[isis_event_protocol_disable]);
+            isis_event_count[isis_event_admin_config_changed]);
 }
 
 static int
@@ -297,9 +296,9 @@ isis_init(node_t *node ) {
     isis_start_lsp_pkt_periodic_flooding(node);
 
     ISIS_INCREMENT_NODE_STATS(node,
-            isis_event_count[isis_event_protocol_enable]);
+            isis_event_count[isis_event_admin_config_changed]);
 
-    isis_schedule_lsp_pkt_generation(node, isis_event_protocol_enable);
+    isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
 }
 
 

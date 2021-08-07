@@ -394,7 +394,7 @@ isis_change_adjacency_state(
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     isis_adjacency_set_uptime(adjacency);
                     ISIS_INCREMENT_NODE_STATS(node,
-                                isis_event_count[isis_event_adj_state_goes_up]);
+                                isis_event_count[isis_event_adj_state_changed]);
 
                     ISIS_INCREMENT_NODE_STATS(node, adjacency_up_count);
 
@@ -405,7 +405,7 @@ isis_change_adjacency_state(
                         isis_restart_reconciliation_timer(node);
                     }
                     else {
-                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_up);
+                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
                     break;
                 default : ;
@@ -419,7 +419,7 @@ isis_change_adjacency_state(
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
                     ISIS_INCREMENT_NODE_STATS(node,
-                                isis_event_count[isis_event_adj_state_goes_down]);
+                                isis_event_count[isis_event_adj_state_changed]);
                     ISIS_DECREMENT_NODE_STATS(node, adjacency_up_count);
 
                     if (isis_is_reconciliation_in_progress(node) &&
@@ -428,7 +428,7 @@ isis_change_adjacency_state(
                         isis_restart_reconciliation_timer(node);
                     }
                     else {
-                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_goes_down);
+                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
                     break;
                 case ISIS_ADJ_STATE_INIT:

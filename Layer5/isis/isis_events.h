@@ -7,23 +7,15 @@ typedef enum isis_events_ {
 
     isis_event_none,
     #define ISIS_EVENT_NONE_BIT                                           (1 << isis_event_none)
-    isis_event_adj_state_goes_up,
-    #define ISIS_EVENT_ADJ_STATE_GOES_UP_BIT              (1 << isis_event_adj_state_goes_up)
-    isis_event_adj_state_goes_down,
-    #define ISIS_EVENT_ADJ_STATE_GOES_DOWN_BIT      (1 << isis_event_adj_state_goes_down)
-    isis_event_protocol_enable,
-    #define ISIS_EVENT_PROTOCOL_ENABLE_BIT                (1 << isis_event_protocol_enable)
-    isis_event_protocol_disable,
-    #define ISIS_EVENT_PROTOCOL_DISABLE_BIT              (1 << isis_event_protocol_disable)
-    isis_event_protocol_disable_on_intf,
-    #define ISIS_EVENT_PROTOCOL_DISABLE_ON_INTF_BIT     (1 << isis_event_protocol_disable_on_intf)
-    isis_event_protocol_enable_on_intf,
-    #define ISIS_EVENT_PROTOCOL_ENABLE_ON_INTF_BIT      (1 << isis_event_protocol_enable_on_intf)
+    isis_event_adj_state_changed,
+    #define ISIS_EVENT_ADJ_STATE_CHANGED_BIT           (1 << isis_event_adj_state_changed)
+    isis_event_admin_config_changed,
+    #define ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT (1 << isis_event_admin_config_changed)
     isis_event_nbr_attribute_changed,
-    #define ISIS_EVENT_NBR_ATTRIBUTE_CHANGED_BIT          (1 << isis_event_nbr_attribute_changed)
+    #define ISIS_EVENT_NBR_ATTRIBUTE_CHANGED_BIT         (1 << isis_event_nbr_attribute_changed)
     /*lspdb update events begin*/
     isis_event_self_duplicate_lsp,
-    #define ISIS_EVENT_SELF_DUPLICATE_LSP_BIT                      (1 << isis_event_self_duplicate_lsp)
+    #define ISIS_EVENT_SELF_DUPLICATE_LSP_BIT                     (1 << isis_event_self_duplicate_lsp)
     isis_event_self_fresh_lsp,
     #define ISIS_EVENT_SELF_FRESH_LSP_BIT                               (1 << isis_event_self_fresh_lsp)
     isis_event_self_new_lsp,
@@ -31,16 +23,16 @@ typedef enum isis_events_ {
     isis_event_self_old_lsp,
     #define ISIS_EVENT_SELF_OLD_LSP_BIT                                   (1 << isis_event_self_old_lsp)
     isis_event_non_local_duplicate_lsp,
-    #define ISIS_EVENT_NON_LOCAL_DUPLICATE_LSP_BIT      (1 << isis_event_non_local_duplicate_lsp)
+    #define ISIS_EVENT_NON_LOCAL_DUPLICATE_LSP_BIT       (1 << isis_event_non_local_duplicate_lsp)
     isis_event_non_local_fresh_lsp,
-    #define ISIS_EVENT_NON_LOCAL_FRESH_LSP_BIT               (1 << isis_event_non_local_fresh_lsp)
+    #define ISIS_EVENT_NON_LOCAL_FRESH_LSP_BIT                (1 << isis_event_non_local_fresh_lsp)
     isis_event_non_local_new_lsp,
-    #define ISIS_EVENT_NON_LOCAL_NEW_LSP_BIT                  (1 << isis_event_non_local_new_lsp)
+    #define ISIS_EVENT_NON_LOCAL_NEW_LSP_BIT                   (1 << isis_event_non_local_new_lsp)
     isis_event_non_local_old_lsp,
-    #define ISIS_EVENT_NON_LOCAL_OLD_LSP_BIT                   (1 << isis_event_non_local_old_lsp)
+    #define ISIS_EVENT_NON_LOCAL_OLD_LSP_BIT                    (1 << isis_event_non_local_old_lsp)
     /*lspdb update events end*/
     isis_event_on_demand_flood,
-    #define ISIS_EVENT_ON_DEMAND_FLOOD_BIT                     (1 << isis_event_on_demand_flood)
+    #define ISIS_EVENT_ON_DEMAND_FLOOD_BIT                      (1 << isis_event_on_demand_flood)
     isis_event_periodic_lsp_generation,
     #define ISIS_EVENT_PERIODIC_LSP_GENERATION_BIT       (1 << isis_event_periodic_lsp_generation)
     isis_event_reconciliation_triggered,
@@ -58,18 +50,14 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_SPF_RUNS_BIT                                          (1 << isis_event_spf_runs)
     isis_event_admin_action_shutdown_pending,
     #define ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT \
-                                                                                                              (1 << isis_event_admin_action_shutdown_pending)
+                                                                                                               (1 << isis_event_admin_action_shutdown_pending)
     isis_event_device_overload_config_changed,
-    #define ISIS_EVENT_DEVICE_OVERLOAD_CONFIG_CHANGED_BIT   \
-                                                                                                              (1 << isis_event_device_overload_config_changed)
+    #define ISIS_EVENT_DEVICE_OVERLOAD_CONFIG_CHANGED_BIT  \
+                                                                                                               (1 << isis_event_device_overload_config_changed)
     isis_event_overload_timeout,
-    #define ISIS_EVENT_OVERLOAD_TIMEOUT_BIT                  (1 << isis_event_overload_timeout)
-    isis_event_intf_up_down_status_changed,
-    #define ISIS_EVENT_INTF_UP_DOWN_STATUS_CHANGED_BIT   (1 << isis_event_intf_up_down_status_changed)
-    isis_event_intf_ip_addr_config_changed,
-    #define ISIS_EVENT_INTF_IP_ADDR_CONFIG_CHANGED_BIT  (1 << isis_event_intf_ip_addr_config_changed)
-    isis_event_max = isis_event_intf_ip_addr_config_changed + 1                        /* Do not cross more than 63 */
-    #define ISIS_EVENT_MAX                                                           (1 << isis_event_max)
+    #define ISIS_EVENT_OVERLOAD_TIMEOUT_BIT                   (1 << isis_event_overload_timeout)
+    isis_event_max = isis_event_overload_timeout + 1                        /* Do not cross more than 63 */
+    #define ISIS_EVENT_MAX                                                            (1 << isis_event_max)
 } isis_event_type_t;
 
 const char *
