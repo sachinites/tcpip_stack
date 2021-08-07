@@ -612,10 +612,6 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
             timer_de_register_app_event(lsp_pkt->expiry_timer);
             lsp_pkt->expiry_timer = NULL;
         }
-        #if 0
-        sprintf(tlb, "%s : LSP Pkt %s freed\n", ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt));
-        tcp_trace(0, 0, tlb);
-        #endif
         free(lsp_pkt);
     }    
 

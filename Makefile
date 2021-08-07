@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
-TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe
-LIBS=-lpthread -L ./CommandParser -lcli -lrt
+TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe LinuxMemoryManager/libmm.a
+LIBS=-lpthread -L ./CommandParser -lcli -lrt -L ./LinuxMemoryManager -lmm
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
@@ -81,7 +81,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a
+tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a
 	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}
 	@echo "Build Finished"
 
@@ -169,6 +169,8 @@ Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 
 CommandParser/libcli.a:
 	(cd CommandParser; make)
+LinuxMemoryManager/libmm.a:
+	(cd LinuxMemoryManager; make)
 clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
@@ -192,3 +194,4 @@ all:
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
+	(cd LinuxMemoryManager; make clean)

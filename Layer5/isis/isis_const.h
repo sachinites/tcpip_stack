@@ -42,9 +42,9 @@
 /* Feature Name for logging */
 #define ISIS_ADJ_MGMT   " ISIS(ADJ MGMT)"
 #define ISIS_LSPDB_MGMT " ISIS(LSPDB MGMT)"
-#define ISIS_SPF    " ISIS(SPF)"
-#define ISIS_ERROR  " ISIS(ERROR)"
-#define ISIS_PKT    " ISIS(PKT)"
+#define ISIS_SPF        " ISIS(SPF)"
+#define ISIS_ERROR      " ISIS(ERROR)"
+#define ISIS_PKT        " ISIS(PKT)"
 
 /* ISIS Miscellaneous flags */
 #define ISIS_F_DISABLE_LSP_GEN  1
