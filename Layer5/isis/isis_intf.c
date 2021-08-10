@@ -38,7 +38,7 @@ isis_transmit_hello(void *arg, uint32_t arg_size) {
     size_t pkt_size = isis_timer_data->data_size;
 
     if (hello_pkt && pkt_size) {
-        ISIS_INCREMENT_STATS(egress_intf, hello_pkt_sent);
+        ISIS_INTF_INCREMENT_STATS(egress_intf, hello_pkt_sent);
         send_pkt_out(hello_pkt, pkt_size, egress_intf);
     }
 }

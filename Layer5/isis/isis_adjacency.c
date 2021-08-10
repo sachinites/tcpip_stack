@@ -260,7 +260,7 @@ isis_update_interface_adjacency_from_hello(
         tcp_trace(iif->att_node, iif, tlb);
         isis_schedule_lsp_pkt_generation(iif->att_node, isis_event_nbr_attribute_changed);
    }
-    ISIS_INCREMENT_STATS(iif, good_hello_pkt_recvd);
+    ISIS_INTF_INCREMENT_STATS(iif, good_hello_pkt_recvd);
 }
 
 char *

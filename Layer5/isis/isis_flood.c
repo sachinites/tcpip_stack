@@ -101,7 +101,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
-            ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);
+            ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
 
             sprintf(tlb, "%s : LSP %s pushed out of interface %s\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);

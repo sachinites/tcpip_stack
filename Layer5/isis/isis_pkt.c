@@ -81,7 +81,7 @@ isis_process_hello_pkt(node_t *node,
     return ;
 
     bad_hello:
-    ISIS_INCREMENT_STATS(iif, bad_hello_pkt_recvd);
+    ISIS_INTF_INCREMENT_STATS(iif, bad_hello_pkt_recvd);
 }
 
 
@@ -100,7 +100,7 @@ isis_process_lsp_pkt(node_t *node,
 
     if (isis_is_protocol_shutdown_in_progress(node)) return;
 
-    ISIS_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
+    ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
     new_lsp_pkt = calloc(1, sizeof(isis_pkt_t));
     new_lsp_pkt->flood_eligibility = true;

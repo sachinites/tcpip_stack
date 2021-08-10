@@ -37,7 +37,7 @@ typedef struct isis_intf_info_ {
     (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_interval)
 #define ISIS_INTF_ADJ_LST_HEAD(intf_ptr) \
     (&(((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->adj_list_head))
-#define ISIS_INCREMENT_STATS(intf_ptr, pkt_type)  \
+#define ISIS_INTF_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
 
 
