@@ -41,6 +41,7 @@
 #include "BitOp/bitsop.h"
 #include "tcpip_notif.h"
 #include "Layer3/layer3.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -48,6 +49,33 @@ extern void tcp_ip_traceoptions_cli(param_t *node_name_param,
 extern int traceoptions_handler(param_t *param,
                                 ser_buff_t *tlv_buf,
                                 op_mode enable_or_disable);
+
+static int
+display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
+                    op_mode enable_or_disable){
+
+    tlv_struct_t *tlv = NULL;
+    char *struct_name = NULL;
+    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(strncmp(tlv->leaf_id, "struct-name", strlen("struct-name")) == 0)
+            struct_name =  tlv->value;
+    } TLV_LOOP_END;
+
+    switch(cmdcode){
+        case CMDCODE_DEBUG_SHOW_MEMORY_USAGE:
+            mm_print_block_usage();
+            break;
+        case CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL:
+            mm_print_memory_usage(struct_name);
+            break;
+        default:
+            ;
+    }
+}
+
 /*
  * In the CLI hierarchy, it is very common to hook up new CLIs (config and show)
  * at node and interface level. Provided the mechanism where App developer can 
@@ -799,6 +827,28 @@ nw_init_cli(){
 					libcli_register_param(&timer, &logs);
 					set_param_cmd_code(&logs, CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING);
 				}
+            }
+        }
+    }
+
+    {
+        /* debug show mem-usage*/
+        static param_t mem_usage;
+        init_param(&mem_usage, CMD, "mem-usage", display_mem_usage, 0, INVALID, 0, "Memory Usage");
+        libcli_register_param(debug_show, &mem_usage);
+        set_param_cmd_code(&mem_usage, CMDCODE_DEBUG_SHOW_MEMORY_USAGE);
+        {
+            /* debug show mem-usage detail*/
+            static param_t detail;
+            init_param(&detail, CMD, "detail", display_mem_usage, 0, INVALID, 0, "Memory Usage Detail");
+            libcli_register_param(&mem_usage, &detail);
+            set_param_cmd_code(&detail, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
+            {
+                /*  debug show mem-usage detail <struct-name> */
+                static param_t struct_name;
+                init_param(&struct_name, LEAF, 0, display_mem_usage, 0, STRING, "struct-name", "Structure Name Filter");
+                libcli_register_param(&detail, &struct_name);
+                set_param_cmd_code(&struct_name, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
             }
         }
     }

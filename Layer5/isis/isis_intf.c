@@ -291,11 +291,12 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
 
     /*case 3 : IP Address changed, start sending hellos if intf qualifies with new IP Address
         Nbr must bring down adj if new IP Address do not matches same subnet 
-        Nbr must update its Adj data and LSP as per new Ip Address info recvd from nbr
+        Nbr must update its Adj data and LSP as per new Ip Address info recvd from this rtr
     */
-   if (isis_interface_qualify_to_send_hellos(intf)) {
-        isis_refresh_intf_hellos(intf);
-   }
+    
+    isis_interface_qualify_to_send_hellos(intf) ?   \
+        isis_refresh_intf_hellos(intf) :                       \
+        isis_stop_sending_hellos(intf);
 }
 
 void

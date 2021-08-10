@@ -300,6 +300,11 @@ isis_timer_wrapper_lsp_flood(void *arg, uint32_t arg_size) {
     isis_schedule_lsp_pkt_generation(
             isis_timer_data->node,
             isis_event_periodic_lsp_generation);
+
+    if ( !isis_is_reconciliation_in_progress(isis_timer_data->node)) {
+        ISIS_INCREMENT_NODE_STATS(isis_timer_data->node,
+            isis_event_count[isis_event_periodic_lsp_generation]);
+    }
 }
 
 void
@@ -323,7 +328,8 @@ isis_start_lsp_pkt_periodic_flooding(node_t *node) {
         isis_timer_data->node = node;
         isis_timer_data->intf = NULL;
         isis_timer_data->data =
-            (char *)(isis_node_info->self_lsp_pkt);
+            (void*)(isis_node_info->self_lsp_pkt);
+        isis_timer_data->data_size = sizeof(sizeof(*isis_node_info->self_lsp_pkt));
         isis_ref_isis_pkt(isis_node_info->self_lsp_pkt);
         isis_timer_data->data_size = sizeof(isis_pkt_t);
     }

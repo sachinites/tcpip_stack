@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
-TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe LinuxMemoryManager/libmm.a
-LIBS=-lpthread -L ./CommandParser -lcli -lrt -L ./LinuxMemoryManager -lmm
+TARGET:tcpstack.exe pkt_gen.exe
+LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
@@ -36,6 +36,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_flood.o \
 		  Layer5/isis/isis_lspdb.o \
 		  Layer5/isis/isis_spf.o \
+		  LinuxMemoryManager/mm.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -82,7 +83,7 @@ pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
 tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a
-	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}
+	${CC} ${CFLAGS} testapp.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "Build Finished"
 
 notif.o:notif.c

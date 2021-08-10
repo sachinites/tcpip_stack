@@ -430,10 +430,8 @@ isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
     unsigned char *ip_addr;
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
-
 	buff = pkt_info->pkt_print_buffer;
 	pkt_size = pkt_info->pkt_size;
-
     isis_pkt_hdr_t* lsp_pkt_hdr = (isis_pkt_hdr_t *)(pkt_info->pkt);
 
 	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);
@@ -442,14 +440,12 @@ isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
     
     uint32_t seq_no = lsp_pkt_hdr->seq_no;
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
-
     ip_addr = tcp_ip_covert_ip_n_to_p(rtr_id, 0);
 
     rc += sprintf(buff + rc, "LSP pkt : %s(%u) \n",
                     ip_addr, seq_no);
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
-
     uint16_t lsp_tlv_buffer_size = (uint16_t)(pkt_size - sizeof(isis_pkt_hdr_t));
 
     ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type,
@@ -475,7 +471,6 @@ isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
                         tlv_len, tlv_value,
                         lsp_tlv_buffer_size);
-
     pkt_info->bytes_written = rc;
 }
 
@@ -530,12 +525,15 @@ isis_print_hello_pkt(pkt_info_t *pkt_info ) {
 void
 isis_print_pkt(void *arg, size_t arg_size) {
 
-    pkt_info_t *pkt_info = (pkt_info_t *)arg;
+    byte* pkt;
+    byte *buff;
+    size_t pkt_size;
+    pkt_info_t *pkt_info;
 
-	byte *buff = pkt_info->pkt_print_buffer;
-	size_t pkt_size = pkt_info->pkt_size;
-
-    byte* pkt = (char *)(pkt_info->pkt);
+    pkt_info = (pkt_info_t *)arg;
+	buff = pkt_info->pkt_print_buffer;
+	pkt_size = pkt_info->pkt_size;
+    pkt = (char *)(pkt_info->pkt);
 
 	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);
 
@@ -559,7 +557,6 @@ isis_cancel_lsp_pkt_generation_task(node_t *node) {
     
     if (!isis_node_info ||
          !isis_node_info->lsp_pkt_gen_task) {
-
         return;
     }
 
@@ -595,13 +592,11 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
            lsp_pkt->ref_count);
 
     lsp_pkt->ref_count--;
-
     rc = lsp_pkt->ref_count;
 
     if (lsp_pkt->ref_count == 0) {
-
+    
         assert(!lsp_pkt->installed_in_db);
-
         tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->pkt_size);
         
         if (lsp_pkt->expiry_timer) {
@@ -614,7 +609,6 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
         }
         free(lsp_pkt);
     }    
-
     return rc;
 }
 
