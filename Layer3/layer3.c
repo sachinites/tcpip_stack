@@ -634,18 +634,18 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
  * stack to layer 3*/
 void
 demote_packet_to_layer3(node_t *node, 
-                        char *pkt, uint32_t size,
-                        int protocol_number, /*L4 or L5 protocol type*/
-                        uint32_t dest_ip_address){
+                                           char *pkt,
+                                           uint32_t size,
+                                           int protocol_number, /*L4 or L5 protocol type*/
+                                           uint32_t dest_ip_address){
+
     ip_hdr_t iphdr;
     initialize_ip_hdr(&iphdr);  
       
     /*Now fill the non-default fields*/
     iphdr.protocol = protocol_number;
 
-    uint32_t addr_int = 0;
-    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
-    addr_int = htonl(addr_int);
+    uint32_t addr_int =  tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
     iphdr.src_ip = addr_int;
     iphdr.dst_ip = dest_ip_address;
 
@@ -655,34 +655,32 @@ demote_packet_to_layer3(node_t *node,
     uint32_t new_pkt_size = 0 ;
 
     new_pkt_size = IP_HDR_TOTAL_LEN_IN_BYTES((&iphdr));
-    new_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    new_pkt = tcp_ip_get_new_pkt_buffer (new_pkt_size);
 
     memcpy(new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
-    if(pkt && size)
+    if(pkt && size) {
         memcpy(new_pkt + IP_HDR_LEN_IN_BYTES((&iphdr)), pkt, size);
+    }
 
     /*Now Resolve Next hop*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
-                                iphdr.dst_ip);
+                                          iphdr.dst_ip);
     
     if(!l3_route){
         printf("Node : %s : No L3 route %s\n",
 			node->node_name, tcp_ip_covert_ip_n_to_p(iphdr.dst_ip, 0));   
-		free(new_pkt);
+		tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }
 
     bool is_direct_route = l3_is_direct_route(l3_route);
     
-    char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt, 
-                    new_pkt_size, MAX_PACKET_BUFFER_SIZE);
-
     if(is_direct_route){
 
         int8_t nf_result = nf_invoke_netfilter_hook(
                 NF_IP_LOCAL_OUT,
-				shifted_pkt_buffer,
+				new_pkt,
                 new_pkt_size,
 				node, NULL,
                 IP_HDR);
@@ -699,7 +697,7 @@ demote_packet_to_layer3(node_t *node,
         demote_pkt_to_layer2(node,
                          dest_ip_address,
                          0,
-                         shifted_pkt_buffer, new_pkt_size,
+                         new_pkt, new_pkt_size,
                          ETH_IP);
         return;
     }
@@ -712,7 +710,7 @@ demote_packet_to_layer3(node_t *node,
     nexthop = l3_route_get_active_nexthop(l3_route);
     
     if(!nexthop){
-        free(new_pkt);
+        tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }
     
@@ -724,7 +722,7 @@ demote_packet_to_layer3(node_t *node,
 
     int8_t nf_result = nf_invoke_netfilter_hook(
             NF_IP_LOCAL_OUT,
-			shifted_pkt_buffer,
+			new_pkt,
             new_pkt_size,
 			node, nexthop->oif,
             IP_HDR);
@@ -735,16 +733,17 @@ demote_packet_to_layer3(node_t *node,
     case NF_DROP:
     case NF_STOLEN:
     case NF_STOP:
-        free(new_pkt);
+        tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }
 
     demote_pkt_to_layer2(node,
             next_hop_ip,
             nexthop->oif->if_name,
-            shifted_pkt_buffer, new_pkt_size,
+            new_pkt, new_pkt_size,
             ETH_IP);
-    free(new_pkt);
+
+    tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
 }
 
 /* This fn sends a dummy packet to test L3 and L2 routing
