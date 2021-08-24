@@ -182,11 +182,12 @@ isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
 static void
 isis_create_fresh_lsp_pkt(node_t *node) {
 
-    bool include_on_demand_tlv;
-    size_t lsp_pkt_size_estimate = 0;
-    bool is_proto_shutting_down;
-    isis_pkt_hdr_t *lsp_pkt_hdr;
     bool create_purge_lsp;
+    isis_pkt_hdr_t *lsp_pkt_hdr;
+    bool include_on_demand_tlv;
+    bool is_proto_shutting_down;
+    size_t lsp_pkt_size_estimate = 0;
+    
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     create_purge_lsp = false;
@@ -206,10 +207,9 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         
         create_purge_lsp = true;
         goto TLV_ADD_DONE;
-    }
-
-
-    if (!is_proto_shutting_down) {
+    } 
+    else {
+        
         /* TLVs */
         lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE; /* Device name */
         /* Nbr TLVs */
@@ -306,11 +306,12 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
     node_t *node = (node_t *)arg;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    isis_node_info->lsp_pkt_gen_task = NULL;
-
-    sprintf(tlb, "%s : Self-LSP Generation task triggered\n",
-            ISIS_LSPDB_MGMT);
+    sprintf(tlb, "%s : Self-LSP Generation task %p triggered\n",
+            ISIS_LSPDB_MGMT,  isis_node_info->lsp_pkt_gen_task);
     tcp_trace(node, 0 , tlb);
+
+    assert(isis_node_info->lsp_pkt_gen_task);
+    isis_node_info->lsp_pkt_gen_task = NULL;
 
     /* Now generate LSP pkt */
     isis_create_fresh_lsp_pkt(node);
@@ -318,7 +319,9 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
     isis_update_lsp_flood_timer_with_new_lsp_pkt(node,
         isis_node_info->self_lsp_pkt);
     
+    assert(!isis_node_info->lsp_pkt_gen_task);
     isis_install_lsp(node, 0, isis_node_info->self_lsp_pkt);
+    assert(!isis_node_info->lsp_pkt_gen_task);
 }
 
 void
@@ -355,12 +358,12 @@ isis_schedule_lsp_pkt_generation(node_t *node,
         return;
     }
 
-    sprintf(tlb, "%s : LSP generation scheduled, reason : %s\n",
-            ISIS_LSPDB_MGMT, isis_event_str(event_type));
-    tcp_trace(node, 0, tlb);
-
     isis_node_info->lsp_pkt_gen_task =
         task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
+
+    sprintf(tlb, "%s : LSP pkt generation task scheduled %p, reason : %s\n",
+         ISIS_LSPDB_MGMT, isis_node_info->lsp_pkt_gen_task, isis_event_str(event_type));
+    tcp_trace(node, 0, tlb);
 }
 
 byte *

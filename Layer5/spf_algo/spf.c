@@ -119,7 +119,7 @@ init_node_spf_data(node_t *node, bool delete_spf_result){
 }
 
 static nexthop_t *
-create_new_nexthop(interface_t *oif){
+create_new_nexthop(interface_t *oif, uint8_t proto){
 
     nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
     nexthop->oif = oif;
@@ -132,6 +132,7 @@ create_new_nexthop(interface_t *oif){
 
     strncpy(nexthop->gw_ip, IF_IP(other_intf), 16);
     nexthop->ref_count = 0;
+    nexthop->proto = proto;
     return nexthop;
 }
 
@@ -289,7 +290,7 @@ initialize_direct_nbrs(node_t *spf_root){
         /*Populate nexthop array of directly connected nbrs of spf_root*/
         if(get_link_cost(oif) < SPF_METRIC(nbr)){
             spf_flush_nexthops(nbr->spf_data->nexthops);
-            nexthop = create_new_nexthop(oif);
+            nexthop = create_new_nexthop(oif, PROTO_STATIC);
             spf_insert_new_nexthop(nbr->spf_data->nexthops, nexthop);
             SPF_METRIC(nbr) = get_link_cost(oif);
         }
@@ -298,7 +299,7 @@ initialize_direct_nbrs(node_t *spf_root){
         /*Step 2.2 : Begin*/
         /*Cover the ECMP case*/
         else if(get_link_cost(oif) == SPF_METRIC(nbr)){
-            nexthop = create_new_nexthop(oif);
+            nexthop = create_new_nexthop(oif, PROTO_STATIC);
             spf_insert_new_nexthop(nbr->spf_data->nexthops, nexthop);
         }
         /*Step 2.2 : End*/

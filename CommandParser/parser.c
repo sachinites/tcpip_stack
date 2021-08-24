@@ -180,7 +180,7 @@ build_tlv_buffer(char **tokens,
                  * basic standard sanity checks on the leaf value input by the user */ 
                 if(INVOKE_LEAF_LIB_VALIDATION_CALLBACK(param, *(tokens +i)) == VALIDATION_SUCCESS){
 
-                    /*Standard librray checks have passed, now call user validation callback function*/
+                    /*Standard library checks have passed, now call user validation callback function*/
                     if(INVOKE_LEAF_USER_VALIDATION_CALLBACK(param, *(tokens +i)) == VALIDATION_SUCCESS){
                         /*Now collect this leaf information into TLV*/
                         prepare_tlv_from_leaf(GET_PARAM_LEAF(param), (&tlv));
@@ -227,7 +227,8 @@ build_tlv_buffer(char **tokens,
             break;
 
         case INVALID_LEAF:
-            printf(ANSI_COLOR_RED "Error : Following leaf value could not be validated : %s, Expected Data type = %s\n" ANSI_COLOR_RESET, *(tokens +i), GET_LEAF_TYPE_STR(param));
+            printf(ANSI_COLOR_RED "Error : Following leaf value could not be validated : %s, Expected Data type = %s\n"
+                    ANSI_COLOR_RESET, *(tokens +i), GET_LEAF_TYPE_STR(param));
             break;
 
         case COMPLETE:
@@ -292,8 +293,8 @@ build_tlv_buffer(char **tokens,
 #ifndef ENABLE_EVENT_DISPATCHER
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
 #else
-				task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
-				printf("CLI returned\n");
+				    task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
+                    printf("CLI returned\n");
 #endif
             }
             break;
@@ -313,8 +314,43 @@ build_tlv_buffer(char **tokens,
     return status;;
 }
 
+/* Replace node-name in "last_cmd" string with "new_node_name" */
+static void
+parser_replace_node_name_with_next_token(char *last_cmd, char *new_node_name) {
+
+    int i = 0;
+    size_t token_cnt = 0;
+    char** tokens = NULL;
+    char replica[CONS_INPUT_BUFFER_SIZE];
+    char new_node_name_copy[64];
+
+    strncpy(replica, last_cmd, strlen(last_cmd));
+    strncpy(new_node_name_copy, new_node_name, sizeof(new_node_name_copy));
+    re_init_tokens(MAX_CMD_TREE_DEPTH);
+
+    tokens = tokenizer(replica, ' ', &token_cnt);
+
+    for(; i < token_cnt; i++){
+
+         if (strncmp( *(tokens+ i) , "node", strlen("node") ) == 0) {
+             replaceSubstring(last_cmd, *(tokens+ i + 1),  new_node_name_copy);
+         }
+     }
+}
+
+static void
+parser_process_repeat_cmd(char *next_token) {
+
+    if (next_token) {
+        char *last_cmd = get_last_command();
+        parser_replace_node_name_with_next_token(last_cmd, next_token);
+    }
+    INVOKE_APPLICATION_CALLBACK_HANDLER(
+            libcli_get_repeat_hook() , 0, OPERATIONAL);
+}
+
 CMD_PARSE_STATUS
-parse_input_cmd(char *input, unsigned int len){
+parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
     char** tokens = NULL;
     size_t token_cnt = 0;
@@ -361,6 +397,11 @@ parse_input_cmd(char *input, unsigned int len){
             printf("Info : do is supported from within config mode only\n");
     }
 
+    else if (strncmp (tokens[0], "repeat" , strlen(tokens[0])) == 0) {
+            parser_process_repeat_cmd(token_cnt == 1 ? 0 : tokens[1]);
+            *is_repeat_cmd = true;
+    }
+
     else if((strncmp(tokens[0], GOTO_ONE_LVL_UP_STRING, strlen(GOTO_ONE_LVL_UP_STRING)) == 0) && (token_cnt == 1))
         go_one_level_up_cmd_tree(get_cmd_tree_cursor());
     
@@ -388,6 +429,7 @@ parse_input_cmd(char *input, unsigned int len){
 void
 command_parser(void){
 
+    bool is_repeat_cmd;
     CMD_PARSE_STATUS status = UNKNOWN;
 
     printf("run - \'show help\' cmd to learn more");
@@ -400,6 +442,8 @@ command_parser(void){
     memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
 
     while(1){
+        
+        is_repeat_cmd  = false;
 
         if((fgets((char *)cons_input_buffer, sizeof(cons_input_buffer)-1, stdin) == NULL)){
             printf("error in reading from stdin\n");
@@ -415,9 +459,10 @@ command_parser(void){
 
         cons_input_buffer[strlen(cons_input_buffer) - 1] = '\0';
          
-        status = parse_input_cmd(cons_input_buffer, strlen(cons_input_buffer));
+        status = parse_input_cmd(cons_input_buffer, strlen(cons_input_buffer), &is_repeat_cmd);
 
-        if(strncmp(cons_input_buffer, "repeat", strlen(cons_input_buffer)) == 0){
+
+        if( is_repeat_cmd ) {
             memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
             place_console(1);
             continue;
@@ -432,9 +477,7 @@ command_parser(void){
 		cmd_recording_enabled = true;
 
         memset(last_command_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
-
         memcpy(last_command_input_buffer, cons_input_buffer, strlen(cons_input_buffer));
-
         last_command_input_buffer[strlen(last_command_input_buffer)] = '\0';
 
         memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);

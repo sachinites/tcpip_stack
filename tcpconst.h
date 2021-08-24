@@ -33,6 +33,8 @@
 #ifndef __TCPCONST__
 #define __TCPCONST__
 
+#include <stdint.h>
+
 typedef enum{
 
     ETH_HDR,
@@ -62,6 +64,23 @@ typedef enum{
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 #define PKT_BUFFER_RIGHT_ROOM        128
 #define MAX_NXT_HOPS        4
+
+
+/* Protocol IDs*/
+#define PROTO_STATIC    1
+#define PROTO_ISIS          2
+
+static inline unsigned char *
+proto_name_str (uint8_t proto) {
+
+    switch(proto) {
+        case PROTO_ISIS:
+            return "PROTO_ISIS";
+        case PROTO_STATIC:
+            return "PROTO_STATIC";
+        default: ;
+    }
+}
 
 #endif /* __TCPCONST__ */
 

@@ -124,13 +124,15 @@ isis_init_isis_intf_info (interface_t *intf) {
 void
 isis_enable_protocol_on_interface(interface_t *intf) {
 
-    isis_intf_info_t *isis_intf_info;
+    isis_intf_info_t *isis_intf_info = NULL;
 
     if (!isis_is_protocol_enable_on_node(intf->att_node)) {
         return;
     }
 
-    if (!ISIS_INTF_INFO(intf)) {
+    isis_intf_info = ISIS_INTF_INFO(intf);
+
+    if (! isis_intf_info ) {
 
         isis_intf_info = calloc(1, sizeof(isis_intf_info_t));
         intf->intf_nw_props.isis_intf_info = isis_intf_info;

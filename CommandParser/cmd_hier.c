@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "cmdtlv.h"
 #include "libcli.h"
 #include "clistd.h"
@@ -152,7 +153,7 @@ get_last_command();
 extern char console_name[TERMINAL_NAME_SIZE];
 
 extern CMD_PARSE_STATUS
-parse_input_cmd(char *input, unsigned int len);
+parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd);
 
 extern void
 place_console(char new_line);

@@ -46,4 +46,6 @@ untokenize(unsigned int index);
 char *
 get_token(unsigned int index);
 
+void replaceSubstring(char string[], char sub[], char new_str[]);
+
 #endif
