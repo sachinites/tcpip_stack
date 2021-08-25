@@ -19,6 +19,7 @@
 #ifndef __STRING_UTIL__
 #define __STRING_UTIL__
 #include <string.h>
+#include <stdbool.h>
 
 
 char** tokenizer(char* a_str, 
@@ -47,5 +48,8 @@ char *
 get_token(unsigned int index);
 
 void replaceSubstring(char string[], char sub[], char new_str[]);
+
+bool
+pattern_match(char string[], int string_size, char pattern[]);
 
 #endif

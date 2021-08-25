@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_const.h"
@@ -128,7 +129,7 @@ isis_is_protocol_shutdown_in_progress(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    if(!isis_node_info) false;
+    if (!isis_node_info) false;
 
     if (IS_BIT_SET(isis_node_info->shutdown_pending_work_flags ,
                             ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK)) {
@@ -341,19 +342,25 @@ isis_schedule_job(node_t *node,
 void
 isis_show_event_counters(node_t *node) {
 
+    int rc = 0;
     isis_event_type_t event_type;
-
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
-    printf("Event Counters :\n");
+    rc = snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, "Event Counters :\n");
+
     for(event_type = isis_event_none + 1; 
         event_type < isis_event_max;
         event_type++){
         
-        printf(" %s : %u\n", isis_event_str(event_type), 
+    rc += snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, 
+                " %s : %u\n", isis_event_str(event_type), 
                 isis_node_info->isis_event_count[event_type]);
+    }
+    //write(GL_FD_OUT, node->print_buff, rc);
+    if (mq_send(UT_PARSER_MSG_Q_FD, node->print_buff , rc + 1, 0) == -1 ) {
+         printf ("mq_send failed on FD %d, errno = %d\n", UT_PARSER_MSG_Q_FD, errno);
     }
 }
 

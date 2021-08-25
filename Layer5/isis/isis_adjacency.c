@@ -153,6 +153,9 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
     isis_adjacency_stop_delete_timer(adjacency);
     sprintf(tlb, "%s : Adjacency %s Deleted\n",
             ISIS_ADJ_MGMT, isis_adjacency_name(adjacency));
+    if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+        ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
+    }
     tcp_trace(adjacency->intf->att_node, adjacency->intf, tlb);
     free(adjacency);
 }

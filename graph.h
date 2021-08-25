@@ -100,6 +100,8 @@ struct node_ {
 	/*L2 net-filter hook (simplified) */
 	notif_chain_t layer2_proto_reg_db2;
     
+    unsigned char *print_buff;
+    
     glthread_t graph_glue;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);

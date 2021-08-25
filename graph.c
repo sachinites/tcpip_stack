@@ -122,6 +122,8 @@ create_graph_node(graph_t *graph, char *node_name){
     tcp_ip_register_default_l2_pkt_trap_rules(node);
     tcp_ip_register_default_l3_pkt_trap_rules(node);
 
+    node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
+
     init_glthread(&node->graph_glue);
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;

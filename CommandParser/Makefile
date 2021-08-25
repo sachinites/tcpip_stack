@@ -3,10 +3,10 @@ CFLAGS=-g -Wall
 INCLUDES=-I .
 CLILIB=libcli.a
 TARGET:exe ${CLILIB}
-OBJ=cmd_hier.o parser.o serialize.o string_util.o clistd.o clicbext.o ../EventDispatcher/event_dispatcher.o ../gluethread/glthread.o
+OBJ=cmd_hier.o parser.o serialize.o string_util.o clistd.o clicbext.o ../EventDispatcher/event_dispatcher.o ../gluethread/glthread.o ut/utinfra/ut_parser.o
 exe:testapp.o ${CLILIB}
 	@echo "Building final executable"
-	@ ${CC} ${CFLAGS} ${INCLUDES} testapp.o -o exe -L . -lcli -lpthread
+	@ ${CC} ${CFLAGS} ${INCLUDES} testapp.o -o exe -L . -lcli -lpthread -lrt
 cmd_hier.o:cmd_hier.c
 	@echo "Building cmd_hier.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} cmd_hier.c -o cmd_hier.o
@@ -28,12 +28,16 @@ clicbext.o:clicbext.c
 testapp.o:testapp.c
 	@echo "Building testapp.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} testapp.c -o testapp.o
+ut/utinfra/ut_parser.o:ut/utinfra/ut_parser.c
+	@echo "Building ut/utinfra/ut_parser.o"
+	@ ${CC} ${CFLAGS} -c ${INCLUDES} ut/utinfra/ut_parser.c -o ut/utinfra/ut_parser.o
 ${CLILIB}: ${OBJ}
 	@echo "Building Library ${CLILIB}"
 	ar rs ${CLILIB} ${OBJ}
 clean:
 	rm -f exe
 	rm -f *.o
+	rm -f ut/utinfra/*.o
 	rm -f ${CLILIB}
 	rm -f CMD_HIST_RECORD_FILE.txt
 install:

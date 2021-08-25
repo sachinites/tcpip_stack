@@ -19,9 +19,11 @@
 #ifndef __LIBCLI__
 #define __LIBCLI__
 
+#include <unistd.h>
 #include "libcliid.h"
 #include "cmd_hier.h"
 
+extern int GL_FD_OUT;
 
 void
 init_libcli();

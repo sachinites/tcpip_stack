@@ -59,6 +59,7 @@ display_graph_nodes(param_t *param, ser_buff_t *tlv_buf);
 
 extern graph_t * topo;
 extern char tlb[TCP_LOG_BUFFER_LEN];
+extern int UT_PARSER_MSG_Q_FD;
 
 typedef unsigned char byte;
 typedef unsigned char uchar_t;

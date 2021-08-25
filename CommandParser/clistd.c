@@ -25,6 +25,8 @@
 #include "clicbext.h"
 #include "string_util.h"
 
+int GL_FD_OUT = STDOUT_FILENO;
+
 extern CMD_PARSE_STATUS
 parse_input_cmd(char *input, unsigned int len);
 

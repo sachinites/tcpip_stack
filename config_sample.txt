@@ -1,0 +1,20 @@
+clear log
+conf node R0 pro isis /
+int all
+cd
+conf node R1 pro isis /
+int all
+cd
+conf node R2 pro isis /
+int all
+cd
+conf node R3 pro isis /
+int all
+cd
+conf node R4 pro isis /
+int all
+int all
+cd
+conf node R5 pro isis /
+int all
+cd

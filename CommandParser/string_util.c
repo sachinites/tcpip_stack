@@ -16,12 +16,13 @@
  * =====================================================================================
  */
 
-#include "string_util.h"
+
 #include <stdlib.h>
 #include <assert.h>
-#include "cliconst.h"
 #include <ctype.h>
 #include <stdio.h>
+#include "string_util.h"
+#include "cliconst.h"
 
 static char a_str[CONS_INPUT_BUFFER_SIZE];
 char temp[ LEAF_ID_SIZE + 2];
@@ -198,4 +199,11 @@ void replaceSubstring(char string[], char sub[], char new_str[])
             }
         }
     }
+}
+
+
+bool
+pattern_match(char string[], int string_size, char pattern[]) {
+
+    return (strstr(string, pattern));
 }
