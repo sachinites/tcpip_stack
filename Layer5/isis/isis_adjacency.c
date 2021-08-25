@@ -695,49 +695,32 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
 }
 
  /* Return the no of bytes written into out_buff */
-uint8_t
+uint16_t
 isis_print_formatted_nbr_tlv(byte *out_buff, 
                              byte *nbr_tlv_buffer,
                              uint8_t tlv_buffer_len) {
 
-    uint8_t rc = 0;
-    byte tlv_type, tlv_len, *tlv_value = NULL;
+    uint16_t rc = 0;
     uint32_t ip_addr_int, metric;
     unsigned char *ip_addr;
     uint8_t subtlv_len;
     byte *subtlv_navigator;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
 
     ITERATE_TLV_BEGIN(nbr_tlv_buffer, tlv_type,
                         tlv_len, tlv_value, tlv_buffer_len) {
- 
-        if  (out_buff) {
-        
-            rc += sprintf(out_buff + rc, 
-                "\tTLV%d  Len : %d\n", tlv_type, tlv_len);
-        }
 
-        else {
-
-            printf("\tTLV%d  Len : %d\n", tlv_type, tlv_len);
-        }
+        rc += sprintf(out_buff + rc,
+                      "\tTLV%d  Len : %d\n", tlv_type, tlv_len);
 
         ip_addr_int = *(uint32_t *)tlv_value;
         metric = *(uint32_t *)(((uint32_t *)tlv_value) + 1);
         subtlv_len = *(uint8_t *)((uint32_t *)tlv_value + 2);
-        
-        if (out_buff) {
 
-            rc += sprintf(out_buff + rc , "\t\tNbr Rtr ID : %s   Metric : %u   SubTLV Len : %d\n",
-                        tcp_ip_covert_ip_n_to_p(ip_addr_int, 0),
-                        metric, subtlv_len);
-        }
-        else {
-            
-            printf("\t\tNbr Rtr ID : %s   Metric : %u   SubTLV Len : %d\n",
-                        tcp_ip_covert_ip_n_to_p(ip_addr_int, 0),
-                        metric, subtlv_len);
+        rc += sprintf(out_buff + rc, "\t\tNbr Rtr ID : %s   Metric : %u   SubTLV Len : %d\n",
+                      tcp_ip_covert_ip_n_to_p(ip_addr_int, 0),
+                      metric, subtlv_len);
 
-        }
         subtlv_navigator = nbr_tlv_buffer + 
                             TLV_OVERHEAD_SIZE + 
                             sizeof(uint32_t) +  // 4B IP Addr
@@ -753,48 +736,31 @@ isis_print_formatted_nbr_tlv(byte *out_buff,
             switch(tlv_type2) {
                 case ISIS_TLV_IF_INDEX:
 
-                if (out_buff) {
                     rc += sprintf(out_buff + rc,
-                            "\tSubTLV%d  Len : %d   if-indexes [local : %u, remote : %u]\n",
-                             tlv_type2, tlv_len2, 
-                             *(uint32_t *)tlv_value2, 
-                             *(uint32_t *)((uint32_t *)tlv_value2 + 1));
-                    }
-                    else {
-                        printf("\tSubTLV%d  Len : %d   if-indexes [local : %u, remote : %u]\n",
-                             tlv_type2, tlv_len2, 
-                             *(uint32_t *)tlv_value2, 
-                             *(uint32_t *)((uint32_t *)tlv_value2 + 1));
-                    }
-                break;
+                                  "\tSubTLV%d  Len : %d   if-indexes [local : %u, remote : %u]\n",
+                                  tlv_type2, tlv_len2,
+                                  *(uint32_t *)tlv_value2,
+                                  *(uint32_t *)((uint32_t *)tlv_value2 + 1));
+
+                    break;
                 case ISIS_TLV_LOCAL_IP:
                     ip_addr_int = *(uint32_t *)tlv_value2;
-                    if (out_buff) {
-                        rc += sprintf(out_buff + rc,
-                            "\tSubTLV%d  Len : %d   Local IP : %s\n",
-                             tlv_type2, tlv_len2, 
-                             tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
-                    }
-                    else {
-                        printf("\tSubTLV%d  Len : %d   Local IP : %s\n",
-                                tlv_type2, tlv_len2, 
-                                tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
-                    }
-                break;
+
+                    rc += sprintf(out_buff + rc,
+                                  "\tSubTLV%d  Len : %d   Local IP : %s\n",
+                                  tlv_type2, tlv_len2,
+                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
+
+                    break;
                 case ISIS_TLV_REMOTE_IP:
                     ip_addr_int = *(uint32_t *)tlv_value2;
-                   if (out_buff) {
-                        rc += sprintf(out_buff + rc,
-                            "\tSubTLV%d  Len : %d   Remote IP : %s\n",
-                            tlv_type2, tlv_len2, 
-                            tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
-                   }
-                   else {
-                       printf("\tSubTLV%d  Len : %d   Remote IP : %s\n",
-                            tlv_type2, tlv_len2, 
-                            tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
-                   }
-                break;
+
+                    rc += sprintf(out_buff + rc,
+                                  "\tSubTLV%d  Len : %d   Remote IP : %s\n",
+                                  tlv_type2, tlv_len2,
+                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
+
+                    break;
                 default:
                     ;
             }

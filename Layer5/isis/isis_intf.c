@@ -330,3 +330,17 @@ isis_interface_updates(void *arg, size_t arg_size) {
     default: ;
     }
 }
+
+bool
+isis_atleast_one_interface_protocol_enabled(node_t *node) {
+
+    interface_t *intf;
+    
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+     
+            if (isis_node_intf_is_enable(intf)) return true;
+            
+     } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    return false;
+}

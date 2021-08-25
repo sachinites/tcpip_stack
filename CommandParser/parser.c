@@ -427,6 +427,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
                 }
                 else {
                     strncpy(ut_file_name, tokens[2], strlen(tokens[2]));
+                    ut_file_name[strlen(tokens[2])] = '\0';
                     run_test_case (ut_file_name, (uint16_t) tc_no);
                 }
     }

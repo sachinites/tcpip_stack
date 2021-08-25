@@ -71,4 +71,7 @@ isis_check_and_delete_intf_info(interface_t *intf);
 bool
 isis_interface_qualify_to_send_hellos(interface_t *intf);
 
+bool
+isis_atleast_one_interface_protocol_enabled(node_t *node);
+
 #endif // ! __ISIS_INTF__

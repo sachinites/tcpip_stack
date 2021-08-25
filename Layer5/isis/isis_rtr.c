@@ -90,7 +90,6 @@ isis_protocol_shutdown_now(node_t *node) {
     }
 
     isis_node_info->event_control_flags = 0;
-    
     isis_cleanup_lsdb(node);
 
     /* Queue All interfaces for Purge */
@@ -121,6 +120,7 @@ isis_check_and_shutdown_protocol_now
                                     work_completed_flag);
 
     if (isis_is_protocol_shutdown_in_progress(node)) return;
+
     isis_protocol_shutdown_now(node);
 }
 
@@ -168,15 +168,25 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     isis_node_info->shutdown_pending_work_flags = 0;
-    isis_node_info->shutdown_pending_work_flags |=
-        ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK;
 
-    /* ToDo : These can be forked on separate CPUs */
-    isis_schedule_lsp_pkt_generation(node,
-        isis_event_admin_action_shutdown_pending);
+    /* Set the flags to track what work needs to be done before we die out */
+    if (isis_atleast_one_interface_protocol_enabled(node)) {
 
-    isis_schedule_route_update_task(node,
+        SET_BIT(isis_node_info->shutdown_pending_work_flags,
+                            ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
+    
+        isis_schedule_lsp_pkt_generation(node,
+            isis_event_admin_action_shutdown_pending);
+    }
+    
+    if (isis_has_routes(node)) {
+
+        SET_BIT(isis_node_info->shutdown_pending_work_flags,
+                            ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
+        
+        isis_schedule_route_update_task(node,
                 isis_event_admin_action_shutdown_pending);
+    }
 }
 
 void
@@ -358,10 +368,7 @@ isis_show_event_counters(node_t *node) {
                 " %s : %u\n", isis_event_str(event_type), 
                 isis_node_info->isis_event_count[event_type]);
     }
-    //write(GL_FD_OUT, node->print_buff, rc);
-    if (mq_send(UT_PARSER_MSG_Q_FD, node->print_buff , rc + 1, 0) == -1 ) {
-         printf ("mq_send failed on FD %d, errno = %d\n", UT_PARSER_MSG_Q_FD, errno);
-    }
+    cli_out(node->print_buff , rc);
 }
 
 void
@@ -598,5 +605,9 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
         }
 }
 
+bool
+isis_has_routes(node_t *node) {
 
+    return true;
+}
 

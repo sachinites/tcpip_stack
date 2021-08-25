@@ -1,0 +1,154 @@
+ 
+:TESTCASE-BEGIN:1
+:DESC: Test case to test ISIS Reconciliation feature
+
+Topology to be loaded in testapp.c : cross_link_topology(); 
+
+Config the Protocol 
+
+:STEP:1
+:CMD: config node R0 protocol isis
+:STEP:2
+:CMD: config node R0 protocol isis interface all
+:STEP:3
+:CMD: config node R1 protocol isis
+:STEP:4
+:CMD: config node R1 protocol isis interface all
+:STEP:5
+:CMD: config node R2 protocol isis
+:STEP:6
+:CMD: config node R2 protocol isis interface all
+:STEP:7
+:CMD: config node R3 protocol isis
+:STEP:8
+:CMD: config node R3 protocol isis interface all
+:STEP:9
+:CMD: config node R4 protocol isis
+:STEP:10
+:CMD: config node R4 protocol isis interface all
+:STEP:11
+:CMD: config node R5 protocol isis
+:STEP:12
+:CMD: config node R5 protocol isis interface all
+
+Take some pause to stabilize the protocol
+
+:SLEEP:50
+
+Now verify using show commands
+
+:STEP:13
+:CMD: show node R0 protocol isis event-counters
+:STEP:14
+:pattern-present:ISIS EVENT RECONCILIATION TRIGGERED : 1
+:STEP:15
+:pattern-present:ISIS EVENT RECONCILIATION EXIT : 1
+
+Finally unconfig the topology
+
+:STEP:16
+:CMD: config node R0 no protocol isis
+:STEP:17
+:CMD: config node R1 no protocol isis
+:STEP:18
+:CMD: config node R2 no protocol isis
+:STEP:19
+:CMD: config node R3 no protocol isis
+:STEP:20
+:CMD: config node R4 no protocol isis
+:STEP:21
+:CMD: config node R5 no protocol isis
+
+:TESTCASE-END:1
+
+
+:TESTCASE-BEGIN:2
+:DESC: Test case to test ISIS Overload Feature
+
+Topology to be loaded in testapp.c : cross_link_topology(); 
+
+Config the Protocol 
+
+:STEP:1
+:CMD: config node R0 protocol isis
+:STEP:2
+:CMD: config node R0 protocol isis interface all
+:STEP:3
+:CMD: config node R1 protocol isis
+:STEP:4
+:CMD: config node R1 protocol isis interface all
+:STEP:5
+:CMD: config node R2 protocol isis
+:STEP:6
+:CMD: config node R2 protocol isis interface all
+:STEP:7
+:CMD: config node R3 protocol isis
+:STEP:8
+:CMD: config node R3 protocol isis interface all
+:STEP:9
+:CMD: config node R4 protocol isis
+:STEP:10
+:CMD: config node R4 protocol isis interface all
+:STEP:11
+:CMD: config node R5 protocol isis
+:STEP:12
+:CMD: config node R5 protocol isis interface all
+
+Take some pause to stabilize the protocol
+
+:SLEEP:50
+
+Now verify using show commands
+
+:STEP:13
+:CMD: show node R0 protocol isis lsdb 122.1.1.0
+:STEP:14
+:pattern-present:OL bit : UnSet
+:STEP:15
+:CMD: show node R1 protocol isis lsdb 122.1.1.0
+:pattern-present:OL bit : UnSet
+
+Now overload Router R0
+:STEP:16
+:CMD: config node R0 protocol isis overload
+:SLEEP:2
+
+:STEP:17
+:CMD: show node R0 protocol isis lsdb 122.1.1.0
+:STEP:18
+:pattern-present:OL bit : Set
+:STEP:19
+:CMD: show node R1 protocol isis lsdb 122.1.1.0
+:pattern-present:OL bit : Set
+
+Now Un overload Router R0
+:STEP:20
+:CMD: config node R0 no protocol isis overload
+:SLEEP:2
+
+
+:STEP:21
+:CMD: show node R0 protocol isis lsdb 122.1.1.0
+:STEP:22
+:pattern-present:OL bit : UnSet
+:STEP:23
+:CMD: show node R1 protocol isis lsdb 122.1.1.0
+:pattern-present:OL bit : UnSet
+
+
+Finally unconfig the topology
+
+:STEP:24
+:CMD: config node R0 no protocol isis
+:STEP:25
+:CMD: config node R1 no protocol isis
+:STEP:26
+:CMD: config node R2 no protocol isis
+:STEP:27
+:CMD: config node R3 no protocol isis
+:STEP:28
+:CMD: config node R4 no protocol isis
+:STEP:29
+:CMD: config node R5 no protocol isis
+
+:TESTCASE-END:2

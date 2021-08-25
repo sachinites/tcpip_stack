@@ -143,4 +143,7 @@ isis_is_overloaded(node_t *node, bool *ovl_timer_running);
 void
 isis_stop_overload_timer(node_t *node);
 
+bool
+isis_has_routes(node_t *node) ;
+
 #endif

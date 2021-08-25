@@ -204,6 +204,7 @@ isis_schedule_lsp_flood(node_t *node,
                         isis_event_type_t event_type) {
 
     interface_t *intf;
+    bool is_lsp_queued = false;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     if (!lsp_pkt->flood_eligibility) return;
@@ -215,13 +216,16 @@ isis_schedule_lsp_flood(node_t *node,
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         if (!isis_node_intf_is_enable(intf) ||
-                intf == exempt_iif) continue;
+               (intf == exempt_iif)) continue;
 
         isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
+        is_lsp_queued = true;
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
-    ISIS_INCREMENT_NODE_STATS(node, lsp_flood_count);
+    if (is_lsp_queued) {
+        ISIS_INCREMENT_NODE_STATS(node, lsp_flood_count);
+    }
 }
 
 void

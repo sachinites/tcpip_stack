@@ -57,6 +57,9 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 extern void
 display_graph_nodes(param_t *param, ser_buff_t *tlv_buf);
 
+extern void
+cli_out(unsigned char *buff, size_t buff_size);
+
 extern graph_t * topo;
 extern char tlb[TCP_LOG_BUFFER_LEN];
 extern int UT_PARSER_MSG_Q_FD;
