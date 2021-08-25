@@ -325,6 +325,9 @@ load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 	char *file_name = NULL;
 	tlv_struct_t *tlv = NULL;
 
+    printf("No Op - Full type the command\n");
+    return 0;
+
 	TLV_LOOP_BEGIN(b, tlv) {
 
 		if (strncmp(tlv->leaf_id, "file-name",

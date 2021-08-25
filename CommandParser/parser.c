@@ -357,6 +357,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
     char** tokens = NULL;
     size_t token_cnt = 0;
+    unsigned char file_name[128];
     CMD_PARSE_STATUS status = COMPLETE;
     
     tokens = tokenizer(input, ' ', &token_cnt);
@@ -420,17 +421,25 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
                 token_cnt == 4 ) {
 
                 char *pend;
-                unsigned char ut_file_name[128];
                 long int tc_no = strtol(tokens[3], &pend, 10);
                 if (!tc_no) {
                     printf("Error : Invalid Tc No\n");
                 }
                 else {
-                    strncpy(ut_file_name, tokens[2], strlen(tokens[2]));
-                    ut_file_name[strlen(tokens[2])] = '\0';
-                    run_test_case (ut_file_name, (uint16_t) tc_no);
+                    strncpy(file_name, tokens[2], strlen(tokens[2]));
+                    file_name[strlen(tokens[2])] = '\0';
+                    run_test_case (file_name, (uint16_t) tc_no);
                 }
     }
+    else if ( !strncmp(tokens[0], "config" , strlen("config"))  &&
+                 !strncmp(tokens[1], "load" , strlen("load"))      &&
+                 token_cnt == 3 ) {
+
+                strncpy(file_name, tokens[2], strlen(tokens[2]));
+                file_name[strlen(tokens[2])] = '\0';
+                parse_file(file_name);
+    }
+
     else 
         status = build_tlv_buffer(tokens, token_cnt); 
 
@@ -504,6 +513,7 @@ command_parser(void){
 void
 parse_file(char *file_name) {
 
+    bool is_repeat_cmd;
 	char line[256];
 	char** tokens = NULL;
 	size_t token_cnt = 0;
@@ -520,19 +530,27 @@ parse_file(char *file_name) {
 	memset(line, 0, sizeof(line));
 
 	cmd_recording_enabled = false;
+    
+    reset_serialize_buffer(tlv_buff);
 
 	while (fgets(line, sizeof(line) - 1, fptr)) {
 
 		printf("Executing : %s", line);
-	
+
 		tokens = tokenizer(line, ' ', &token_cnt);		
 
-		reset_serialize_buffer(tlv_buff);
 		build_tlv_buffer(tokens, token_cnt);
-		memset(line, 0, sizeof(line));
-	}
-	
-	fclose(fptr);
+        re_init_tokens(MAX_CMD_TREE_DEPTH);
+
+        if (is_user_in_cmd_mode())
+            restore_checkpoint_serialize_buffer(tlv_buff);
+        else
+            reset_serialize_buffer(tlv_buff);
+
+        memset(line, 0, sizeof(line));
+    }
+
+    fclose(fptr);
 	place_console(1);
 }	
 

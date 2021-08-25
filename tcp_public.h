@@ -62,7 +62,6 @@ cli_out(unsigned char *buff, size_t buff_size);
 
 extern graph_t * topo;
 extern char tlb[TCP_LOG_BUFFER_LEN];
-extern int UT_PARSER_MSG_Q_FD;
 
 typedef unsigned char byte;
 typedef unsigned char uchar_t;

@@ -11,7 +11,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <pthread.h>
-#include <sys/stat.h>
 #include <mqueue.h>
 #include <errno.h>
 #include <semaphore.h>
@@ -20,12 +19,13 @@
 #include "../../libcli.h"
 #include "../../cmdtlv.h"
 
-int UT_PARSER_MSG_Q_FD;
-bool TC_RUNNING = false;
-unsigned char ut_parser_recv_buff[2048];
-int ut_parser_recv_buff_data_size;
-sem_t wait_for_data_sema;
-bool ut_parser_debug = false;
+/* Global variables for UT parser */
+static int UT_PARSER_MSG_Q_FD; 
+static bool TC_RUNNING = false;
+static unsigned char ut_parser_recv_buff[2048];
+static int ut_parser_recv_buff_data_size;
+static sem_t wait_for_data_sema;
+static bool ut_parser_debug = false;
 
 #define MAX_MESSAGES    1
 #define MAX_MSG_SIZE       2048
@@ -94,16 +94,18 @@ typedef struct tc_result_ {
 
     uint16_t step_no;
     bool pass;
+    bool pattern_match;
     glthread_t glue;
 } tc_result_t;
 GLTHREAD_TO_STRUCT(glue_to_tc_result, tc_result_t, glue);
 
 static void
-tc_append_result(glthread_t *head, uint16_t step_no, bool pass) {
+tc_append_result(glthread_t *head, uint16_t step_no, bool pass, bool match) {
 
     tc_result_t *res = calloc(1, sizeof(tc_result_t));
     res->step_no = step_no;
     res->pass = pass;
+    res->pattern_match = match;
     init_glthread(&res->glue);
     glthread_add_last(head, &res->glue);
 }
@@ -118,7 +120,9 @@ tc_print_result (glthread_t *head) {
     ITERATE_GLTHREAD_BEGIN(head, curr) {
 
         res = glue_to_tc_result(curr);
-        printf("STEP: %d : %s\n", res->step_no, res->pass ? "PASS" : "FAIL");
+        printf("%s  STEP: %d : %s\n", 
+            res->pattern_match ? "pattern-present" : "pattern-not-present",
+            res->step_no, res->pass ? "PASS" : "FAIL");
     } ITERATE_GLTHREAD_END(head, curr);
 }
 
@@ -147,7 +151,6 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
     glthread_t result_head;
     CMD_PARSE_STATUS status = UNKNOWN;
     
-    TC_RUNNING = true;
     init_glthread(&result_head);
 
     FILE *fp = fopen (file_name, "r");
@@ -174,7 +177,6 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                              if (strncmp (line, ":TESTCASE-BEGIN:", strlen(":TESTCASE-BEGIN:"))) {
                                  continue;
                              }
-
                              break;
                     }
                     token = strtok(line, ":") ;
@@ -183,6 +185,7 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                
                /* Test case found */
                 printf("\n ***** Executing Test case : %s - %d ***** \n", file_name, tc_no);
+                TC_RUNNING = true;
             }
 
 
@@ -195,6 +198,9 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                
                /* Test case found */
                 printf("\n ***** Test case : %s - %d Finished ***** \n", file_name, tc_no);
+                if (  TC_RUNNING ) {
+                    break;
+                }
             }
 
 
@@ -226,11 +232,11 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 /* block if it is show command */
                 if (pattern_match(token, strlen(token), "show")) {
                     if (ut_parser_debug) {
-                    printf("Waiting for backend data\n");
+                        printf("Waiting for backend data\n");
                     }
                     sem_wait(&wait_for_data_sema);
                     if (ut_parser_debug) {
-                    printf("backend data Recvd, Woken Up\n");
+                        printf("backend data Recvd, Woken Up\n");
                     }
                 }
             }
@@ -255,11 +261,11 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
                 if (pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
                     printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
-                    tc_append_result(&result_head, current_step_no, true);
+                    tc_append_result(&result_head, current_step_no, true, true);
                 }
                 else {
                    printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
-                   tc_append_result(&result_head, current_step_no, false);
+                   tc_append_result(&result_head, current_step_no, false, true);
                 }
                 memset(ut_parser_recv_buff, 0, ut_parser_recv_buff_data_size);
             }
@@ -283,11 +289,11 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
                 if (!pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
                     printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
-                    tc_append_result(&result_head, current_step_no, true);
+                    tc_append_result(&result_head, current_step_no, true, false);
                 }
                 else {
                     printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
-                    tc_append_result(&result_head, current_step_no, false);
+                    tc_append_result(&result_head, current_step_no, false, false);
                 }
                 memset(ut_parser_recv_buff, 0, ut_parser_recv_buff_data_size);
             }
