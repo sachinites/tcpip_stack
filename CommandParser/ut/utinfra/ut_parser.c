@@ -26,6 +26,7 @@ static unsigned char ut_parser_recv_buff[2048];
 static int ut_parser_recv_buff_data_size;
 static sem_t wait_for_data_sema;
 static bool ut_parser_debug = false;
+static FILE *ut_log_file = NULL;
 
 #define MAX_MESSAGES    1
 #define MAX_MSG_SIZE       2048
@@ -88,6 +89,8 @@ ut_parser_init ( ) {
 
        ut_parser_run_data_recvr_thread();
        sem_init(&wait_for_data_sema, 0, 0); /* Zero semaphore */
+       ut_log_file = fopen ("CommandParser/ut/utinfra/ut_log_file.txt", "w");
+       assert(ut_log_file);
 }
 
 typedef struct tc_result_ {
@@ -113,16 +116,23 @@ tc_append_result(glthread_t *head, uint16_t step_no, bool pass, bool match) {
 static void
 tc_print_result (glthread_t *head) {
 
+    int rc = 0;
     glthread_t *curr;
     tc_result_t *res;
+    char buff[128];
 
-    printf("\n****  Result ******\n");
+    rc = sprintf(buff, "\n****  Result ******\n");
+    printf("%s", buff);
+    fwrite(buff, 1, rc, ut_log_file);
+
     ITERATE_GLTHREAD_BEGIN(head, curr) {
 
         res = glue_to_tc_result(curr);
-        printf("%s  STEP: %d : %s\n", 
+        rc = sprintf(buff, "%s  STEP: %d : %s\n", 
             res->pattern_match ? "pattern-present" : "pattern-not-present",
             res->step_no, res->pass ? "PASS" : "FAIL");
+        printf("%s", buff);
+        fwrite(buff, 1, rc, ut_log_file);
     } ITERATE_GLTHREAD_END(head, curr);
 }
 
@@ -144,6 +154,7 @@ tc_cleanup_result_list(glthread_t *result_head) {
 bool
 run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
+    int rc = 0;
     char *fget_ptr;
     uint16_t current_step_no;
     uint16_t current_tc_no;
@@ -152,6 +163,7 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
     bool is_repeat_cmd = false;
     glthread_t result_head;
     bool tc_found = false;
+    char buff[128];
     CMD_PARSE_STATUS status = UNKNOWN;
     
      fget_ptr = NULL;
@@ -195,7 +207,10 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                if (!fget_ptr) break;
 
                /* Test case found */
-                printf("\n ***** Executing Test case : %s - %d ***** \n", file_name,  current_tc_no);
+                rc = sprintf(buff, "\n ***** Executing Test case : %s - %d ***** \n", file_name,  current_tc_no);
+                printf("%s", buff);
+                fwrite(buff, 1, rc, ut_log_file);
+                fflush(ut_log_file);
                 TC_RUNNING = true;
                 tc_found = true;
             }
@@ -207,7 +222,14 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 token = strtok(NULL, ":") ;
 
                /* Test case found */
-                printf("\n ***** Test case : %s - %d Finished ***** \n", file_name,  current_tc_no);
+                rc = sprintf(buff, "\n ***** Test case : %s - %d Finished ***** \n", file_name,  current_tc_no);
+                printf("%s", buff);
+                fwrite(buff, 1, rc, ut_log_file);
+
+                tc_print_result(&result_head);
+                tc_cleanup_result_list(&result_head);
+                fflush(ut_log_file);
+
                 if (  tc_no && TC_RUNNING ) {
                     break;
                 }
@@ -218,7 +240,10 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 
                 token = strtok(line, ":") ;
                 token = strtok(NULL, ":") ;
-                printf("Description : %s\n", token);
+                rc = sprintf(buff, "Description : %s\n", token);
+                 printf("%s", buff);
+                 fwrite(buff, 1, rc, ut_log_file);
+                 fflush(ut_log_file);
             }
 
 
@@ -226,7 +251,9 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
                 token = strtok(line, ":") ;
                 token = strtok(NULL, ":") ;
-                printf("STEP : %s\n", token);
+                rc = sprintf(buff, "STEP : %s\n", token);
+                printf("%s", buff);
+                fwrite(buff, 1, rc, ut_log_file);
                 current_step_no = atoi(token);
             }
 
@@ -235,77 +262,104 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
                 token = strtok(line, ":") ;
                 token = strtok(NULL, ":") ;
-                printf("CMD : %s\n", token);
+                rc = sprintf(buff, "CMD : %s\n", token);
+                printf("%s", buff);
+                fwrite(buff, 1, rc, ut_log_file);
                 status = parse_input_cmd(token, strlen(token), &is_repeat_cmd);
                 assert(status == COMPLETE);
 
                 /* block if it is show command */
                 if (pattern_match(token, strlen(token), "show")) {
                     if (ut_parser_debug) {
-                        printf("Waiting for backend data\n");
+                        rc = sprintf(buff, "Waiting for backend data\n");
+                        printf("%s", buff);
+                        fwrite(buff, 1, rc, ut_log_file);
                     }
                     sem_wait(&wait_for_data_sema);
                     if (ut_parser_debug) {
-                        printf("backend data Recvd, Woken Up\n");
+                        rc = sprintf(buff, "backend data Recvd, Woken Up\n");
+                        printf("%s", buff);
+                        fwrite(buff, 1, rc, ut_log_file);
                     }
                 }
+                fflush(ut_log_file);
             }
 
 
             else if (strncmp (line, ":pattern-present:", strlen(":pattern-present:")) == 0) {
 
-                int rc = 0;
+                int rc1 = 0;
                 char pattern [256];
                 token = strtok(line, ":") ;
                 token = strtok(NULL, ":") ;  // this is the pattern to be matched
-                rc += snprintf(pattern + rc, sizeof(pattern), "%s", token);
+                rc1 = sprintf(pattern + rc1, "%s", token);
 
                 while(1) {
                     token = strtok(NULL, ":") ;
                     if (!token) break;
-                    rc += snprintf(pattern + rc, sizeof(pattern), ":%s", token);
+                    rc1 += sprintf(pattern + rc1, ":%s", token);
                 }
               
                 printf("pattern to be matched : |%s|\n", pattern);
-                
+                rc = sprintf(buff, "pattern to be matched : |");
+                fwrite(buff, 1, rc, ut_log_file);
+                fwrite(pattern, 1, rc1, ut_log_file);
+                rc = sprintf(buff, "|\n");
+                fwrite(buff, 1, rc, ut_log_file);
+
 
                 if (pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
-                    printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                    rc = sprintf(buff, ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                    printf("%s", buff);
+                    fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, true, true);
                 }
                 else {
-                   printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
+                   rc = sprintf(buff, ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
+                   printf("%s", buff);
+                   fwrite(buff, 1, rc, ut_log_file);
                    tc_append_result(&result_head, current_step_no, false, true);
                 }
                 memset(ut_parser_recv_buff, 0, ut_parser_recv_buff_data_size);
+                fflush(ut_log_file);
             }
 
 
             else if (strncmp (line, ":pattern-not-present:", strlen(":pattern-not-present:")) == 0) {
 
-                int rc = 0;
+                int rc1 = 0;
                 char pattern [256];
                 token = strtok(line, ":") ;
                 token = strtok(NULL, ":") ;  // this is the pattern to be not matched
-                rc += snprintf(pattern + rc, sizeof(pattern), "%s", token);
+                rc1 += sprintf(pattern + rc1, "%s", token);
 
                 while(1) {
                     token = strtok(NULL, ":") ;
                     if (!token) break;
-                    rc += snprintf(pattern + rc, sizeof(pattern), ":%s", token);
+                    rc1 += sprintf(pattern + rc1,  ":%s", token);
                 }
 
                 printf("pattern to be not matched : |%s|\n", pattern);
+                rc = sprintf(buff, "pattern to be not matched : |");
+                fwrite(buff, 1, rc, ut_log_file);
+                fwrite(pattern, 1, rc1, ut_log_file);
+                rc = sprintf(buff, "|\n");
+                fwrite(buff, 1, rc, ut_log_file);
 
                 if (!pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
-                    printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                    rc = sprintf(buff, ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                    printf("%s", buff);
+                    fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, true, false);
                 }
                 else {
-                    printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
+                    rc = sprintf(buff, ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
+                    printf("%s", buff);
+                    fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, false, false);
                 }
                 memset(ut_parser_recv_buff, 0, ut_parser_recv_buff_data_size);
+                fflush(ut_log_file);
             }
 
 
@@ -314,16 +368,17 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
                     token = strtok(line, ":") ;
                     token = strtok(NULL, ":") ;
-                    printf("Sleeping for %s sec\n", token);
+                    rc = sprintf(buff, "Sleeping for %s sec\n", token);
+                    printf("%s", buff);
+                    fwrite(buff, 1, rc, ut_log_file);
+                    fflush(ut_log_file);
                     sleep(atoi(token));
             }
     }
 
-    tc_print_result(&result_head);
-    tc_cleanup_result_list(&result_head);
-
     fclose(fp);
     TC_RUNNING = false;
+    fflush(ut_log_file);
     return tc_found;
 }
 
