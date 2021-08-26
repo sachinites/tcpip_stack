@@ -32,7 +32,7 @@ extern param_t root;
 extern leaf_type_handler leaf_handler_array[LEAF_MAX];
 extern ser_buff_t *tlv_buff;
 char console_name[TERMINAL_NAME_SIZE];
-extern void
+extern bool
 run_test_case(unsigned char *file_name, uint16_t tc_no);
 
 static bool cmd_recording_enabled = true;
@@ -422,15 +422,11 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
                 char *pend;
                 long int tc_no = strtol(tokens[3], &pend, 10);
-                if (!tc_no) {
-                    printf("Error : Invalid Tc No\n");
-                }
-                else {
-                    strncpy(file_name, tokens[2], strlen(tokens[2]));
-                    file_name[strlen(tokens[2])] = '\0';
-                    run_test_case (file_name, (uint16_t) tc_no);
-                }
+                strncpy(file_name, tokens[2], strlen(tokens[2]));
+                file_name[strlen(tokens[2])] = '\0';
+                run_test_case(file_name, tc_no);
     }
+    
     else if ( !strncmp(tokens[0], "config" , strlen("config"))  &&
                  !strncmp(tokens[1], "load" , strlen("load"))      &&
                  token_cnt == 3 ) {

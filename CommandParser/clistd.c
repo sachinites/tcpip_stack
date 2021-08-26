@@ -68,7 +68,7 @@ dump_all_commands(param_t *root, unsigned int index){
 
 /*Default validation handlers for Data types*/
 
-int
+CLI_VAL_RC
 int_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -76,7 +76,7 @@ int_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 string_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -84,7 +84,7 @@ string_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 ipv4_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -92,7 +92,7 @@ ipv4_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 ipv6_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -100,18 +100,28 @@ ipv6_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 float_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     return VALIDATION_SUCCESS;
 }
 
-int
+CLI_VAL_RC
 boolean_validation_handler(leaf_t *leaf, char *value_passed){
 
     if((strncmp(value_passed, "true", strlen("true")) == 0) || 
             (strncmp(value_passed, "false", strlen("false")) ==0))
+        return VALIDATION_SUCCESS;
+
+    return VALIDATION_FAILED;
+}
+
+CLI_VAL_RC
+enable_disable_validation_handler(leaf_t *leaf, char *value_passed){
+
+     if((strncmp(value_passed, "enable", strlen("enable")) == 0) || 
+            (strncmp(value_passed, "disable", strlen("disable")) ==0))
         return VALIDATION_SUCCESS;
 
     return VALIDATION_FAILED;

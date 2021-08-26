@@ -334,6 +334,18 @@ void init_libcli()
     init_param(&debug, CMD, "debug", 0, 0, INVALID, 0, "debug cmds");
     libcli_register_param(&root, &debug);
 
+    {
+        static param_t ut;
+         init_param(&ut, CMD, "ut", 0, 0, INVALID, 0, "debug ut");
+         libcli_register_param(&debug, &ut);
+         {
+             static param_t enable;
+             init_param(&enable, LEAF, 0, ut_test_handler, enable_disable_validation_handler, STRING, "ut-enable", "enable | disable");
+             libcli_register_param(&ut, &enable);
+             set_param_cmd_code(&enable, CMDCODE_DEBUG_UT);
+         }
+    }
+
     /*debug show cmdtree*/
 
     init_param(&debug_show, CMD, "show", 0, 0, INVALID, 0, "debug show commands");

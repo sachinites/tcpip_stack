@@ -51,6 +51,9 @@ float_validation_handler(leaf_t *leaf, char *value_passed);
 CLI_VAL_RC
 boolean_validation_handler(leaf_t *leaf, char *value_passed);
 
+CLI_VAL_RC
+enable_disable_validation_handler(leaf_t *leaf, char *value_passed);
+
 /* Default command handlers */
 int
 config_console_name_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
