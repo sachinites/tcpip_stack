@@ -202,8 +202,9 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                     
                     token = strtok(line, ":") ;
                     token = strtok(NULL, ":") ;
+                    current_tc_no = atoi(token);
                 }
-
+                
                if (!fget_ptr) break;
 
                /* Test case found */
@@ -309,14 +310,14 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
 
                 if (pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
-                    rc = sprintf(buff, ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
-                    printf("%s", buff);
+                    printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                    rc = sprintf(buff, "PASS\n");
                     fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, true, true);
                 }
                 else {
-                   rc = sprintf(buff, ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
-                   printf("%s", buff);
+                   printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
+                   rc = sprintf(buff,  "FAIL\n");
                    fwrite(buff, 1, rc, ut_log_file);
                    tc_append_result(&result_head, current_step_no, false, true);
                 }
@@ -347,21 +348,20 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 fwrite(buff, 1, rc, ut_log_file);
 
                 if (!pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
-                    rc = sprintf(buff, ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
-                    printf("%s", buff);
+                    printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                    rc = sprintf(buff, "PASS\n");
                     fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, true, false);
                 }
                 else {
-                    rc = sprintf(buff, ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
-                    printf("%s", buff);
+                    printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
+                    rc = sprintf(buff, "FAIL\n");
                     fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, false, false);
                 }
                 memset(ut_parser_recv_buff, 0, ut_parser_recv_buff_data_size);
                 fflush(ut_log_file);
             }
-
 
 
             else if (strncmp (line, ":SLEEP:", strlen(":SLEEP:")) == 0) {
@@ -373,6 +373,22 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                     fwrite(buff, 1, rc, ut_log_file);
                     fflush(ut_log_file);
                     sleep(atoi(token));
+            }
+
+
+            else if (strncmp (line, ":ABORT:", strlen(":ABORT:")) == 0) {
+                    printf("Aborted\n");
+                    rc = sprintf(buff, "Aborted\n");
+                    fwrite(buff, 1, rc, ut_log_file);
+                    break;
+            }
+
+
+            else if (strncmp (line, ":PAUSE:", strlen(":PAUSE:")) == 0) {
+                    printf("Paused\n");
+                    rc = sprintf(buff, "Paused\n");
+                    fwrite(buff, 1, rc, ut_log_file);
+                    getchar();
             }
     }
 
