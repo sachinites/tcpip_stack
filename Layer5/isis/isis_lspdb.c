@@ -509,9 +509,11 @@ isis_cleanup_lsdb(node_t *node) {
 void
 isis_show_lspdb(node_t *node) {
 
+    int rc = 0;
     isis_pkt_t *lsp_pkt;
     avltree_node_t *curr;
     avltree_t *lspdb = isis_get_lspdb_root(node);
+    byte *buff = node->print_buff;
 
     if (!lspdb) return;
 
@@ -519,17 +521,20 @@ isis_show_lspdb(node_t *node) {
 
         lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
 
-        isis_show_one_lsp_pkt(lsp_pkt);
+        rc += isis_show_one_lsp_pkt(lsp_pkt, buff + rc );
 
     } ITERATE_AVL_TREE_END;
+
+    cli_out (buff, rc);
 }
 
 
 /* lsp pkt printing */
 
-void
-isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) {
+int
+isis_show_one_lsp_pkt( isis_pkt_t *lsp_pkt, byte *buff) {
 
+    int rc = 0;
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     byte *lsp_hdr = eth_hdr->payload;
 
@@ -539,19 +544,20 @@ isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) {
     byte *lsp_tlv_buffer = lsp_hdr + ISIS_LSP_HDR_SIZE;
 
     unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, 0);
-    printf("LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
+    rc += sprintf(buff + rc, "LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
             "ref_c : %-3u   ",
             rtr_id_str, *seq_no, 
             lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
             lsp_pkt->ref_count);
 
     if (lsp_pkt->expiry_timer) {
-        printf("Life Time Remaining : %u sec\n",
+        rc += sprintf(buff + rc, "Life Time Remaining : %u sec\n",
             wt_get_remaining_time(lsp_pkt->expiry_timer)/1000);
     }
     else {
-        printf("\n");
+        rc += sprintf(buff + rc, "\n");
     }
+   return rc;
 }
 
 void

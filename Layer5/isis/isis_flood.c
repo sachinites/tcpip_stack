@@ -124,9 +124,10 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         we are shutting down and no more LSP generation is scheduled,
         then, check and delete protocol configuration
     */
-    if (isis_node_info->pending_lsp_flood_count ==0                &&
-         isis_is_protocol_shutdown_in_progress(intf->att_node)  &&
-        !isis_node_info->lsp_pkt_gen_task) {
+    if ( isis_node_info->pending_lsp_flood_count ==0                &&
+         isis_is_protocol_shutdown_in_progress(intf->att_node)   &&
+         !isis_node_info->lsp_pkt_gen_task                                    &&
+        IS_BIT_SET (isis_node_info->misc_flags, ISIS_F_DISABLE_LSP_GEN)) {
         
         isis_check_and_shutdown_protocol_now(intf->att_node,
             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);

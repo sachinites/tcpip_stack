@@ -294,7 +294,7 @@ isis_show_cli_tree(param_t *param) {
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, CMDCODE_SHOW_NODE_ISIS_PROTOCOL);
         {
-            /* show node <node-name> [no] protocol isis interface ... */
+            /* show node <node-name> protocol isis interface ... */
             static param_t interface;
             init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "interface");
             libcli_register_display_callback(&interface, display_node_interfaces);

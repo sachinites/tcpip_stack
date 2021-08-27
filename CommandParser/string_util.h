@@ -20,6 +20,7 @@
 #define __STRING_UTIL__
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 
 char** tokenizer(char* a_str, 
@@ -51,5 +52,11 @@ void replaceSubstring(char string[], char sub[], char new_str[]);
 
 bool
 pattern_match(char string[], int string_size, char pattern[]);
+
+int
+grep (char string[], int string_size, char pattern[]);
+
+uint64_t
+string_fetch_integer(unsigned char *string, int string_size, int index);
 
 #endif

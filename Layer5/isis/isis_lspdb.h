@@ -59,8 +59,8 @@ isis_parse_lsp_tlvs(node_t *node,
 void
 isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) ;
 
-void
-isis_show_one_lsp_pkt(isis_pkt_t *lsp_pkt) ;
+int
+isis_show_one_lsp_pkt( isis_pkt_t *lsp_pkt, byte *buff);
                     
  void
 isis_show_lspdb(node_t *node) ;
