@@ -416,17 +416,17 @@ Now verify using show commands
 
 Finally unconfig the topology
 
-:STEP:31
+:STEP:121
 :CMD: config node R0 no protocol isis
-:STEP:32
+:STEP:122
 :CMD: config node R1 no protocol isis
-:STEP:33
+:STEP:123
 :CMD: config node R2 no protocol isis
-:STEP:34
+:STEP:124
 :CMD: config node R3 no protocol isis
-:STEP:35
+:STEP:125
 :CMD: config node R4 no protocol isis
-:STEP:36
+:STEP:126
 :CMD: config node R5 no protocol isis
 
 :TESTCASE-END:3

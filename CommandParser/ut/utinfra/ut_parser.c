@@ -24,10 +24,10 @@ static int UT_PARSER_MSG_Q_FD;
 static bool TC_RUNNING = false;
 static unsigned char ut_parser_recv_buff[2048];
 static int ut_parser_recv_buff_data_size;
-static sem_t wait_for_data_sema;
 static bool ut_parser_debug = false;
 static FILE *ut_log_file = NULL;
 static uint64_t int_store1, int_store2, int_store3;
+static struct timespec mq_wait_time;
 
 #define MAX_MESSAGES    1
 #define MAX_MSG_SIZE       2048
@@ -36,70 +36,29 @@ static uint64_t int_store1, int_store2, int_store3;
 extern CMD_PARSE_STATUS
 parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd);
 
-static void *
- ut_parser_data_recvr_thread_fn(void *arg) {
+void
+ut_parser_init ( ) {
 
-     int rc = 0;
-    char buff[128];
     struct mq_attr attr;
+
+    ut_log_file = fopen("CommandParser/ut/utinfra/ut_log_file.txt", "w");
+    assert(ut_log_file);
+
     attr.mq_flags = 0;
     attr.mq_maxmsg = MAX_MESSAGES;
     attr.mq_msgsize = MAX_MSG_SIZE;
     attr.mq_curmsgs = 0;
 
-   if ((UT_PARSER_MSG_Q_FD  = mq_open ("/ut_parser_msg_q", 
-                        O_RDWR | O_CREAT, 
-                        QUEUE_PERMISSIONS, &attr)) == -1) {
+    if ((UT_PARSER_MSG_Q_FD = mq_open("/ut_parser_msg_q",
+                                      O_RDWR | O_CREAT,
+                                      QUEUE_PERMISSIONS, &attr)) == -1) {
 
-        printf ("UT Parser mq_open failed, errno = %d\n", errno);
-        exit (1);
+        printf("UT Parser mq_open failed, errno = %d\n", errno);
+        exit(1);
     }
 
-    while (1)
-    {
-        if ((ut_parser_recv_buff_data_size = 
-                    mq_receive(UT_PARSER_MSG_Q_FD, 
-                                 ut_parser_recv_buff, MAX_MSG_SIZE, NULL)) == -1)
-        {
-            printf("mq_receive error, errno = %d\n", errno);
-            exit(1);
-        }
-        sem_post(&wait_for_data_sema);
-        
-        if (ut_parser_debug) {
-            printf("Mq Data Recvd by UT Parser : \n");
-            printf("%s", ut_parser_recv_buff);
-            rc += sprintf(buff, "Mq Data Recvd by UT Parser : \n");
-            fwrite(buff, 1, rc, ut_log_file);
-            fwrite(ut_parser_recv_buff, 1, ut_parser_recv_buff_data_size, ut_log_file);
-            fflush(ut_log_file);
-        }
-    }
-
-    return NULL;
- }
-
-static void
-ut_parser_run_data_recvr_thread() {
-
-    pthread_attr_t attr;
-    static pthread_t ut_parser_data_recvr_thread;
-
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-    pthread_create(&ut_parser_data_recvr_thread, &attr, 
-                    ut_parser_data_recvr_thread_fn, 
-                    NULL);
-}
-
-void
-ut_parser_init ( ) {
-
-       ut_parser_run_data_recvr_thread();
-       sem_init(&wait_for_data_sema, 0, 0); /* Zero semaphore */
-       ut_log_file = fopen ("CommandParser/ut/utinfra/ut_log_file.txt", "w");
-       assert(ut_log_file);
+    mq_wait_time.tv_sec = 3;
+    mq_wait_time.tv_nsec = 0;
 }
 
 typedef struct tc_result_ {
@@ -160,8 +119,6 @@ tc_cleanup_result_list(glthread_t *result_head) {
     ITERATE_GLTHREAD_END(result_head, curr);
 }
 
-static void
-break_point(){}
 bool
 run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
@@ -186,13 +143,8 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
     while ( fget_ptr = fgets (line, sizeof(line), fp) ) {
 
             if (line[0] != ':') continue;
-
             strtok(line, "\n");
 
-            if (strncmp (line, ":PATTERN-MATCH:", strlen(":PATTERN-MATCH:")) == 0) {
-
-                    break_point();
-            }
             rc = sprintf(buff, "%lu", int_store1);
             replaceSubstring(line, "$INT_STORE1", buff);
             rc = sprintf(buff, "%lu", int_store2);
@@ -297,16 +249,32 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
                 /* block if it is show command */
                 if (pattern_match(token, strlen(token), "show")) {
+
                     if (ut_parser_debug) {
                         rc = sprintf(buff, "Waiting for backend data\n");
                         printf("%s", buff);
                         fwrite(buff, 1, rc, ut_log_file);
                     }
-                    sem_wait(&wait_for_data_sema);
-                    if (ut_parser_debug) {
-                        rc = sprintf(buff, "backend data Recvd, Woken Up\n");
-                        printf("%s", buff);
+
+                    if ((ut_parser_recv_buff_data_size =
+                             mq_timedreceive(UT_PARSER_MSG_Q_FD,
+                                        ut_parser_recv_buff, MAX_MSG_SIZE, NULL,
+                                        &mq_wait_time)) == -1) {
+
+                            printf ("Msg Q  Time out : No Data Recvd from Backend\n");
+                            rc += sprintf(buff, "Msg Q  Time out : No Data Recvd from Backend\n");
+                            fwrite(buff, 1, rc, ut_log_file);
+                            ut_parser_recv_buff_data_size = 0;
+                            memset(ut_parser_recv_buff, 0, sizeof(ut_parser_recv_buff));
+                    }
+
+                    else if (ut_parser_debug) {
+
+                        printf("Mq Data Recvd by UT Parser : \n");
+                        printf("%s", ut_parser_recv_buff);
+                        rc += sprintf(buff, "Mq Data Recvd by UT Parser : \n");
                         fwrite(buff, 1, rc, ut_log_file);
+                        fwrite(ut_parser_recv_buff, 1, ut_parser_recv_buff_data_size, ut_log_file);
                     }
                 }
                 fflush(ut_log_file);
@@ -335,15 +303,13 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 rc = sprintf(buff, "|\n");
                 fwrite(buff, 1, rc, ut_log_file);
 
-                if (pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
-                    //printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
+                if (pattern_match(ut_parser_recv_buff,  ut_parser_recv_buff_data_size, pattern)) {
                     printf("PASS\n");
                     rc = sprintf(buff, "PASS\n");
                     fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, true, true);
                 }
                 else {
-                   //printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
                    printf("FAIL\n");
                    rc = sprintf(buff,  "FAIL\n");
                    fwrite(buff, 1, rc, ut_log_file);
@@ -376,14 +342,12 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 fwrite(buff, 1, rc, ut_log_file);
 
                 if (!pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
-                    //printf(ANSI_COLOR_GREEN "PASS\n" ANSI_COLOR_RESET);
                     printf("PASS\n");
                     rc = sprintf(buff, "PASS\n");
                     fwrite(buff, 1, rc, ut_log_file);
                     tc_append_result(&result_head, current_step_no, true, false);
                 }
                 else {
-                    //printf(ANSI_COLOR_RED "FAIL\n" ANSI_COLOR_RESET);
                     printf("FAIL\n");
                     rc = sprintf(buff, "FAIL\n");
                     fwrite(buff, 1, rc, ut_log_file);

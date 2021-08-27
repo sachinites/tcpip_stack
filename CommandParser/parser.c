@@ -234,7 +234,8 @@ build_tlv_buffer(char **tokens,
             break;
 
         case COMPLETE:
-            printf(ANSI_COLOR_GREEN "Parse Success.\n" ANSI_COLOR_RESET);
+            //printf(ANSI_COLOR_GREEN "Parse Success.\n" ANSI_COLOR_RESET);
+            printf("Parse Success.\n");
             if(param == libcli_get_show_brief_extension_param()){
                 if(!IS_APPLICATION_CALLBACK_HANDLER_REGISTERED(parent)){
                     status = INCOMPLETE_COMMAND;

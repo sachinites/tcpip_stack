@@ -205,6 +205,9 @@ void replaceSubstring(char string[], char sub[], char new_str[])
 bool
 pattern_match(char string[], int string_size, char pattern[]) {
 
+    if (string_size == 0) {
+        return false;
+    }
     return (strstr(string, pattern));
 }
 
@@ -213,6 +216,8 @@ grep (char string[], int string_size, char pattern[]) {
 
     int rc = 0;
     char *token;
+
+    if (!string_size) return 0;
     
     unsigned char *temp_buff = calloc(1, string_size);
     
@@ -266,6 +271,8 @@ string_fetch_integer(unsigned char *string, int string_size, int index) {
 
     int count = 0;
     char *token;
+
+    if (!string_size) return 0;
 
     unsigned char *temp_buff = calloc(1, string_size);
     memcpy(temp_buff, string, string_size);
