@@ -248,7 +248,8 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 assert(status == COMPLETE);
 
                 /* block if it is show command */
-                if (pattern_match(token, strlen(token), "show")) {
+                if (pattern_match(token, strlen(token), "show") && 
+                        TC_RUNNING) {   /* You can load the cmds without testcase script */
 
                     if (ut_parser_debug) {
                         rc = sprintf(buff, "Waiting for backend data\n");
