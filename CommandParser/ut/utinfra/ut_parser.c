@@ -19,10 +19,12 @@
 #include "../../libcli.h"
 #include "../../cmdtlv.h"
 
+#define UT_PARSER_BUFF_MAX_SIZE 2048
+
 /* Global variables for UT parser */
 static int UT_PARSER_MSG_Q_FD; 
 static bool TC_RUNNING = false;
-static unsigned char ut_parser_recv_buff[2048];
+static unsigned char ut_parser_recv_buff[UT_PARSER_BUFF_MAX_SIZE];
 static int ut_parser_recv_buff_data_size;
 static bool ut_parser_debug = false;
 static FILE *ut_log_file = NULL;
@@ -514,6 +516,7 @@ cli_out(unsigned char *buff, size_t buff_size) {
         printf("%s", buff);
     }
     else {
+        assert(buff_size < UT_PARSER_BUFF_MAX_SIZE);
          if (mq_send(UT_PARSER_MSG_Q_FD, buff , buff_size + 1, 0) == -1 ) {
             printf ("mq_send failed on FD %d, errno = %d\n", UT_PARSER_MSG_Q_FD, errno);
          }
