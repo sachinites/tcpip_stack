@@ -125,6 +125,9 @@ param_t *
 libcli_get_suboptions_param();
 
 param_t *
+libcli_get_pipe_param();
+
+param_t *
 libcli_get_cmd_expansion_param();
 
 param_t *

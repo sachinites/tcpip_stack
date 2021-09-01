@@ -406,8 +406,20 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                     rc = sprintf (buff, "Output After Grep : \n");
                     fwrite(buff, 1, rc, ut_log_file);
                     fwrite(ut_parser_recv_buff, 1, ut_parser_recv_buff_data_size, ut_log_file);
-                     fflush(ut_log_file);
+                    fflush(ut_log_file);
              }
+
+
+
+             else if (strncmp (line, ":PRINT:", strlen(":PRINT:")) == 0) {
+                    token = strtok(line, ":") ;
+                    token = strtok(NULL, ":") ;
+                    printf ("INFO : %s\n", token);
+                    rc = sprintf (buff, "INFO : %s\n", token);
+                    fwrite(buff, 1, rc, ut_log_file);
+                    fflush(ut_log_file);
+             }
+
 
 
             else if (strncmp (line, ":INT_STORE1:", strlen(":INT_STORE1:")) == 0) {

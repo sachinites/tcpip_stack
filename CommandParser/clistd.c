@@ -117,6 +117,7 @@ boolean_validation_handler(leaf_t *leaf, char *value_passed){
     return VALIDATION_FAILED;
 }
 
+
 CLI_VAL_RC
 enable_disable_validation_handler(leaf_t *leaf, char *value_passed){
 
@@ -445,3 +446,20 @@ show_extension_param_handler(param_t *param, ser_buff_t *b, op_mode enable_or_di
     return 0;
 }
 
+CLI_VAL_RC
+grep_pattern_validation(leaf_t *leaf, char *value_passed){
+
+    int i = 0;
+    while (value_passed[i] != '\0') {
+        if (value_passed[i]  == ' ' ) return VALIDATION_FAILED;
+        i++;
+    }
+    return VALIDATION_SUCCESS;
+}
+
+int
+pipe_handler (param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+
+    printf ("%s() called \n", __FUNCTION__);
+    return 0;
+}

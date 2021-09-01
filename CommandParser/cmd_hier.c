@@ -55,10 +55,19 @@ static param_t mode_param;
 static param_t suboptions_param;
 static param_t cmd_expansion_param;
 
+/* Define pipe Extenston */
+static param_t pipe_param;
+
 param_t *
 libcli_get_mode_param()
 {
     return &mode_param;
+}
+
+param_t *
+libcli_get_pipe_param()
+{
+    return &pipe_param;
 }
 
 param_t *
@@ -454,6 +463,26 @@ void init_libcli()
 
     /*initialise show extension params*/
     init_param(&show_brief_extension, CMD, "brief", show_extension_param_handler, 0, INVALID, 0, "brief output");
+
+    /* Pipe tree starts here */
+    static param_t pipe_param;
+    init_param(&pipe_param, CMD, "|" , 0, 0, INVALID, 0, "pipe output");
+    {
+        static param_t grep_param;
+        init_param(&pipe_param, CMD, "|" , 0, 0, INVALID, 0, "pipe output");
+        libcli_register_param(&pipe_param, &grep_param);
+        {
+            static param_t grep_pattern;
+            init_param(&grep_pattern, LEAF,  0, pipe_handler, grep_pattern_validation, INVALID, "grep-pattern-val", "grep the pattern");
+            libcli_register_param(&grep_param, &grep_pattern );
+            set_param_cmd_code(&grep_pattern, CMD_CODE_GREP);
+        }
+    }
+
+
+
+
+
     /*Command Negation API Should be called by application and not by infra
      * else application would not be allowed to add more children into config 
      * param*/
