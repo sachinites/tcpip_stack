@@ -511,5 +511,5 @@ Finally unconfig the topology
 :STEP:126
 :CMD: config node R5 no protocol isis
 
-:TESTCASE-END:3/*
+:TESTCASE-END:3
 

@@ -118,8 +118,8 @@ boolean_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-CLI_VAL_RC
-enable_disable_validation_handler(leaf_t *leaf, char *value_passed){
+int
+enable_disable_validation_handler(char *value_passed){
 
      if((strncmp(value_passed, "enable", strlen("enable")) == 0) || 
             (strncmp(value_passed, "disable", strlen("disable")) ==0))
@@ -446,8 +446,8 @@ show_extension_param_handler(param_t *param, ser_buff_t *b, op_mode enable_or_di
     return 0;
 }
 
-CLI_VAL_RC
-grep_pattern_validation(leaf_t *leaf, char *value_passed){
+int
+grep_pattern_validation(char *value_passed){
 
     int i = 0;
     while (value_passed[i] != '\0') {

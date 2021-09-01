@@ -36,6 +36,7 @@ extern bool
 run_test_case(unsigned char *file_name, uint16_t tc_no);
 
 static bool cmd_recording_enabled = true;
+void parse_file(char *file_name) ;
 
 static param_t*
 array_of_possibilities[POSSIBILITY_ARRAY_SIZE];
@@ -510,7 +511,6 @@ command_parser(void){
 void
 parse_file(char *file_name) {
 
-    bool is_repeat_cmd;
 	char line[256];
 	char** tokens = NULL;
 	size_t token_cnt = 0;
