@@ -1,9 +1,37 @@
 :TESTCASE-BEGIN:1
 :DESC: Test case to test ISIS Reconciliation feature
 
-Topology to be loaded in testapp.c : cross_link_topology(); 
+:PRINT: Topology to be loaded in testapp.c : cross_link_topology(); 
 
-Config the Protocol 
+
+:PRINT:                                                  +--------+-+
+:PRINT:                   +---------+                    | R2       |
+:PRINT:               eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+:PRINT:       +-----------+122.1.1.1+--------------------+          +------------------+
+:PRINT:       |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+:PRINT:       |           +---------+                    +-----+--+-+                  +
+:PRINT:       +                                         eth4/  |eth7                   |
+:PRINT:       |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+:PRINT:       |eth0                                       /    |                  eth9 |50.1.1.2/24
+:PRINT:   +---+---+--+                                   /     |                  +----+-----+
+:PRINT:   |          |                                  /      |                  |    R3    |
+:PRINT:   | R0       |                                 /       |                  | 122.1.1.3|
+:PRINT:   |122.1.1.0 |                                /        |                  |          |
+:PRINT:   |          |                               /         |                  +----+-----+
+:PRINT:   +---+---+--|               ---------------/          |                       |eth10
+:PRINT:       |eth14                /                          |                       |60.1.1.1/24
+:PRINT:       |80.1.1.1/24         /                           |                       |
+:PRINT:       |                   /                            |                       |
+:PRINT:       |                  /                        eth6 |40.1.1.1/24            |
+:PRINT:       |             eth5/30.1.1.2/24             +-----+----+                  |
+:PRINT:       |           +----/----+                    |   R4     |                  |
+:PRINT:       |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |
+:PRINT:       +-----------+122.1.1.5|+-------------------+          +------------------+
+:PRINT:        80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24
+:PRINT:                  -+---------+                    +----------+
+
+
+:PRINT: Config the Protocol 
 
 :STEP:1
 :CMD: config node R0 protocol isis
@@ -30,8 +58,7 @@ Config the Protocol
 :STEP:12
 :CMD: config node R5 protocol isis interface all
 
-Take some pause to stabilize the protocol
-
+:PRINT: Waiting to stabilize the protocol
 :SLEEP:50
 
 Now verify using show commands
@@ -64,9 +91,37 @@ Finally unconfig the topology
 :TESTCASE-BEGIN:2
 :DESC: Test case to test ISIS Overload Feature
 
-Topology to be loaded in testapp.c : cross_link_topology(); 
+:PRINT: Topology to be loaded in testapp.c : cross_link_topology(); 
 
-Config the Protocol 
+
+:PRINT:                                                  +--------+-+
+:PRINT:                   +---------+                    | R2       |
+:PRINT:               eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+:PRINT:       +-----------+122.1.1.1+--------------------+          +------------------+
+:PRINT:       |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+:PRINT:       |           +---------+                    +-----+--+-+                  +
+:PRINT:       +                                         eth4/  |eth7                   |
+:PRINT:       |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+:PRINT:       |eth0                                       /    |                  eth9 |50.1.1.2/24
+:PRINT:   +---+---+--+                                   /     |                  +----+-----+
+:PRINT:   |          |                                  /      |                  |    R3    |
+:PRINT:   | R0       |                                 /       |                  | 122.1.1.3|
+:PRINT:   |122.1.1.0 |                                /        |                  |          |
+:PRINT:   |          |                               /         |                  +----+-----+
+:PRINT:   +---+---+--|               ---------------/          |                       |eth10
+:PRINT:       |eth14                /                          |                       |60.1.1.1/24
+:PRINT:       |80.1.1.1/24         /                           |                       |
+:PRINT:       |                   /                            |                       |
+:PRINT:       |                  /                        eth6 |40.1.1.1/24            |
+:PRINT:       |             eth5/30.1.1.2/24             +-----+----+                  |
+:PRINT:       |           +----/----+                    |   R4     |                  |
+:PRINT:       |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |
+:PRINT:       +-----------+122.1.1.5|+-------------------+          +------------------+
+:PRINT:        80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24
+:PRINT:                  -+---------+                    +----------+
+
+
+:PRINT: Config the Protocol 
 
 :STEP:1
 :CMD: config node R0 protocol isis
@@ -157,9 +212,36 @@ Finally unconfig the topology
 :TESTCASE-BEGIN:3
 :DESC: Test case to test ISIS DB Sync Feature
 
-Topology to be loaded in testapp.c : cross_link_topology(); 
+:PRINT: Topology to be loaded in testapp.c : cross_link_topology(); 
 
-Config the Protocol 
+
+:PRINT:                                                  +--------+-+
+:PRINT:                   +---------+                    | R2       |
+:PRINT:               eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+:PRINT:       +-----------+122.1.1.1+--------------------+          +------------------+
+:PRINT:       |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+:PRINT:       |           +---------+                    +-----+--+-+                  +
+:PRINT:       +                                         eth4/  |eth7                   |
+:PRINT:       |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+:PRINT:       |eth0                                       /    |                  eth9 |50.1.1.2/24
+:PRINT:   +---+---+--+                                   /     |                  +----+-----+
+:PRINT:   |          |                                  /      |                  |    R3    |
+:PRINT:   | R0       |                                 /       |                  | 122.1.1.3|
+:PRINT:   |122.1.1.0 |                                /        |                  |          |
+:PRINT:   |          |                               /         |                  +----+-----+
+:PRINT:   +---+---+--|               ---------------/          |                       |eth10
+:PRINT:       |eth14                /                          |                       |60.1.1.1/24
+:PRINT:       |80.1.1.1/24         /                           |                       |
+:PRINT:       |                   /                            |                       |
+:PRINT:       |                  /                        eth6 |40.1.1.1/24            |
+:PRINT:       |             eth5/30.1.1.2/24             +-----+----+                  |
+:PRINT:       |           +----/----+                    |   R4     |                  |
+:PRINT:       |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |
+:PRINT:       +-----------+122.1.1.5|+-------------------+          +------------------+
+:PRINT:        80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24
+:PRINT:                  -+---------+                    +----------+
+
+:PRINT: Config the Protocol 
 
 :STEP:1
 :CMD: config node R0 protocol isis
@@ -429,4 +511,5 @@ Finally unconfig the topology
 :STEP:126
 :CMD: config node R5 no protocol isis
 
-:TESTCASE-END:3
+:TESTCASE-END:3/*
+

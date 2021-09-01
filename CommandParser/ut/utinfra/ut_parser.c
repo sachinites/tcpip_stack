@@ -144,6 +144,13 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
 
     while ( fget_ptr = fgets (line, sizeof(line), fp) ) {
 
+            if (strlen(line) == 1 && line[0] == '\n') {
+                printf("\n");
+                rc = sprintf (buff, "\n");
+                fwrite(buff, 1, rc, ut_log_file);
+                fflush(ut_log_file);
+            }
+
             if (line[0] != ':') continue;
             strtok(line, "\n");
 
