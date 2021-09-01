@@ -94,7 +94,6 @@ typedef struct node_nw_prop_{
 
     /*Device level Appln DS*/
     nmp_t *nmp;
-    void *isis_node_info;
 
 	/* Traffic generation */
 	glthread_t traffic_gen_db_head;
@@ -161,7 +160,6 @@ typedef struct intf_nw_props_ {
     bool is_ipadd_config_backup;
     ddcp_interface_prop_t *ddcp_interface_prop;
     intf_nmp_t *nmp;
-    void *isis_intf_info;
 	stp_vlan_intf_info_t *stp_vlan_intf_info;
     /*L3 properties*/
     bool is_ipadd_config; 

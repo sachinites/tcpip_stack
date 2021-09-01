@@ -27,48 +27,11 @@ OBJS=gluethread/glthread.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
-		  Layer5/isis/isis_adjacency.o \
-		  Layer5/isis/isis_cli.o \
-		  Layer5/isis/isis_rtr.o \
-		  Layer5/isis/isis_intf.o \
-		  Layer5/isis/isis_pkt.o \
-		  Layer5/isis/isis_events.o \
-		  Layer5/isis/isis_flood.o \
-		  Layer5/isis/isis_lspdb.o \
-		  Layer5/isis/isis_spf.o \
 		  LinuxMemoryManager/mm.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
 		  Layer2/stp/stp_vlandb.o \
-
-# ISIS protocol Files
-Layer5/isis/isis_adjacency.o:Layer5/isis/isis_adjacency.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_adjacency.c -o Layer5/isis/isis_adjacency.o
-
-Layer5/isis/isis_cli.o:Layer5/isis/isis_cli.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_cli.c -o Layer5/isis/isis_cli.o
-
-Layer5/isis/isis_rtr.o:Layer5/isis/isis_rtr.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_rtr.c -o Layer5/isis/isis_rtr.o
-
-Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_intf.c -o Layer5/isis/isis_intf.o
-
-Layer5/isis/isis_pkt.o:Layer5/isis/isis_pkt.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_pkt.c -o Layer5/isis/isis_pkt.o
-
-Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.o
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_flood.c -o Layer5/isis/isis_flood.o
-
-Layer5/isis/isis_events.o:Layer5/isis/isis_events.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_events.c -o Layer5/isis/isis_events.o
-
-Layer5/isis/isis_lspdb.o:Layer5/isis/isis_lspdb.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_lspdb.c -o Layer5/isis/isis_lspdb.o
-
-Layer5/isis/isis_spf.o:Layer5/isis/isis_spf.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_spf.c -o Layer5/isis/isis_spf.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
@@ -181,7 +144,6 @@ clean:
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
 	rm -f Layer5/ddcp/*.o
-	rm -f Layer5/isis/*.o
 	rm -f Layer5/spf_algo/*.o
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
