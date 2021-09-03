@@ -28,10 +28,22 @@ OBJS=gluethread/glthread.o \
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  LinuxMemoryManager/mm.o \
+		  Layer5/isis/isis_cli.o \
+		  Layer5/isis/isis_intf.o \
+		  Layer5/isis/isis_rtr.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
 		  Layer2/stp/stp_vlandb.o \
+
+Layer5/isis/isis_cli.o:Layer5/isis/isis_cli.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_cli.c -o Layer5/isis/isis_cli.o
+
+Layer5/isis/isis_rtr.o:Layer5/isis/isis_rtr.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_rtr.c -o Layer5/isis/isis_rtr.o
+
+Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_intf.c -o Layer5/isis/isis_intf.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
@@ -148,6 +160,7 @@ clean:
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
+	rm -f Layer5/isis/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:
