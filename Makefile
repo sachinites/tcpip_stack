@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
 TARGET:tcpstack.exe pkt_gen.exe
-LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -lrt
+LIBS=-lpthread -lrt -L CommandParser -lcli
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
