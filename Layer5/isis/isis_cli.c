@@ -134,14 +134,24 @@ isis_intf_config_handler(param_t *param,
                 case CONFIG_ENABLE:
 
                    printf("config enabled on all interfaces \n");
+                   ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
+
+                         isis_enable_protocol_on_interface(interface);
+
+                   }ITERATE_NODE_INTERFACES_END(node, interface) 
 
                 break;
                 /* config node <node-name> [no] protocol isis interface all */
                 case CONFIG_DISABLE:
 
                    printf("config disabled on all interfaces \n");
+                   ITERATE_NODE_INTERFACES_BEGIN(node, interface)
+                   {
 
-                break;
+                       isis_disable_protocol_on_interface(interface);
+                   }
+                   ITERATE_NODE_INTERFACES_END(node, interface)
+                   break;
                 default: ;
             }
             break;
