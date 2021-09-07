@@ -90,6 +90,7 @@ tc_print_result (glthread_t *head) {
     glthread_t *curr;
     tc_result_t *res;
     char buff[128];
+    int pass_cnt = 0, fail_cnt = 0, total_cnt = 0;
 
     rc = sprintf(buff, "\n****  Result ******\n");
     printf("%s", buff);
@@ -103,7 +104,10 @@ tc_print_result (glthread_t *head) {
             res->step_no, res->pass ? "PASS" : "FAIL");
         printf("%s", buff);
         fwrite(buff, 1, rc, ut_log_file);
+        res->pass ? pass_cnt++ : fail_cnt++;
+        total_cnt++;
     } ITERATE_GLTHREAD_END(head, curr);
+    printf ("Total TC : %d   Pass : %d   Fail %d\n", total_cnt, pass_cnt, fail_cnt);
 }
 
 static void
