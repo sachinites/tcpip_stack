@@ -8,7 +8,7 @@
 /*ISIS TLVs */
 #define ISIS_TLV_HOSTNAME    137 // as per standard 
 #define ISIS_TLV_RTR_ID            134 // as per standard 
-#define ISIS_TLV_IF_IP                 132 // as per standard :w
+#define ISIS_TLV_IF_IP                 132 // as per standard
 #define ISIS_TLV_HOLD_TIME   5
 #define ISIS_TLV_METRIC_VAL 6
 #define ISIS_TLV_IF_INDEX        4    // as per standard

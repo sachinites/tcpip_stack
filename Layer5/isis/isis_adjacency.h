@@ -30,13 +30,13 @@ typedef struct isis_adjacency_{
     interface_t *intf; 
 	
 	/*Nbr lo 0 address */
-    ip_add_t nbr_rtr_id;
+    uint32_t nbr_rtr_id;
 	
     /* nbr Device Name */
     unsigned char nbr_name[NODE_NAME_SIZE];
     
 	/* Nbr intf Ip */
-    ip_add_t nbr_intf_ip;
+    uint32_t nbr_intf_ip;
     
     /* Nbr if index */
     uint32_t remote_if_index;
