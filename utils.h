@@ -38,6 +38,8 @@
 
 #include <stdint.h>
 
+typedef unsigned char byte;
+
 void
 apply_mask(char *prefix, char mask, char *str_prefix);
 
@@ -52,7 +54,7 @@ layer2_fill_with_broadcast_mac(char *mac_array);
 #define TLV_OVERHEAD_SIZE  2
 
 /*Macro to Type Length Value reply
- * unsigned char * - start_ptr, IN
+ * byte * - start_ptr, IN
  * unsigned char - type, OUT
  * unsigned char - length, OUT
  * unsigned char * - tlv_ptr, OUT
@@ -74,15 +76,15 @@ layer2_fill_with_broadcast_mac(char *mac_array);
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \
     }}
 
-unsigned char *
-tlv_buffer_get_particular_tlv(unsigned char *tlv_buff, /*Input TLV Buffer*/
+byte *
+tlv_buffer_get_particular_tlv(byte*tlv_buff, /*Input TLV Buffer*/
                               uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
                               uint8_t tlv_no, /*Input TLV Number*/
                               uint8_t *tlv_data_len); /*Output TLV Data len*/
 
-char *
-tlv_buffer_insert_tlv(char *tlv_buff, uint8_t tlv_no, 
-                     uint8_t data_len, char *data);
+byte *
+tlv_buffer_insert_tlv(byte *tlv_buff, uint8_t tlv_no, 
+                     uint8_t data_len, byte *data);
 
 char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 

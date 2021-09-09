@@ -185,20 +185,24 @@ isis_update_interface_adjacency_from_hello(
         byte *hello_tlv_buffer,
         size_t tlv_buff_size) {
 
-    char *router_id;
+    char * router_id_str;
     uint8_t tlv_data_len;
-    bool nbr_attr_changed = false;
     bool new_adj = false;
+    char *intf_ip_addr_str;
+    uint32_t *router_id_int;
+    uint32_t four_byte_data;
+    uint32_t intf_ip_addr_int;
+    bool nbr_attr_changed = false;
     isis_intf_info_t *isis_intf_info;
     isis_adjacency_t *adjacency = NULL;
 
-    router_id = tlv_buffer_get_particular_tlv(
+    router_id_int = (uint32_t *)tlv_buffer_get_particular_tlv(
                     hello_tlv_buffer, 
                     tlv_buff_size,
                     ISIS_TLV_RTR_ID, 
                     &tlv_data_len);
 
-    adjacency = isis_find_adjacency_on_interface(iif, router_id);
+    adjacency = isis_find_adjacency_on_interface(iif, *router_id_int);
 
     if(!adjacency){
         adjacency = (isis_adjacency_t *)calloc(1, sizeof(isis_adjacency_t));
@@ -206,8 +210,9 @@ isis_update_interface_adjacency_from_hello(
         adjacency->intf = iif;
         glthread_add_next(ISIS_INTF_ADJ_LST_HEAD(iif), &adjacency->glue);
         new_adj = true;
+        router_id_str = tcp_ip_covert_ip_n_to_p(*router_id_int, 0);
         sprintf(tlb, "%s : New Adjacency for nbr %s on intf %s Created\n",
-            ISIS_ADJ_MGMT, router_id, iif->if_name);
+            ISIS_ADJ_MGMT, router_id_str, iif->if_name);
         tcp_trace(iif->att_node, iif, tlb);
     }
 
@@ -222,19 +227,20 @@ isis_update_interface_adjacency_from_hello(
                 }
             break;
             case ISIS_TLV_RTR_ID:
-                if(memcmp(adjacency->nbr_rtr_id.ip_addr, tlv_value, tlv_len)) {
+                if (adjacency->nbr_rtr_id != *(uint32_t *)(tlv_value)) {
                     nbr_attr_changed = true;
-                    memcpy(adjacency->nbr_rtr_id.ip_addr, tlv_value, tlv_len);
+                    adjacency->nbr_rtr_id = *(uint32_t *)(tlv_value);
                 }
             break;    
             case ISIS_TLV_IF_IP:
-                if(memcmp(adjacency->nbr_intf_ip.ip_addr, tlv_value, tlv_len)) {
+                memcpy((byte *)&four_byte_data, tlv_value, sizeof(four_byte_data));
+                if (adjacency->nbr_intf_ip != four_byte_data ) {
                     nbr_attr_changed = true;
-                    memcpy(adjacency->nbr_intf_ip.ip_addr, tlv_value, tlv_len);
+                    adjacency->nbr_intf_ip = four_byte_data;
                 }
             break;
             case ISIS_TLV_IF_INDEX:
-                memcpy((char *)&adjacency->remote_if_index, tlv_value, tlv_len);
+                memcpy((byte *)&adjacency->remote_if_index, tlv_value, tlv_len);
             break;
             case ISIS_TLV_HOLD_TIME:
                 adjacency->hold_time = *((uint32_t *)tlv_value);
@@ -278,7 +284,7 @@ isis_adjacency_name(isis_adjacency_t *adjacency) {
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
         interface_t *intf,
-        char *router_id) {
+        uint32_t nbr_rtr_id) {
 
     glthread_t *curr;
     isis_adjacency_t *adjacency;
@@ -291,26 +297,29 @@ isis_find_adjacency_on_interface(
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
 
         adjacency = glthread_to_isis_adjacency(curr);
-        if (!router_id) return adjacency;
-        if(strncmp(adjacency->nbr_rtr_id.ip_addr, router_id, 16) == 0)
+        if (!nbr_rtr_id) return adjacency;
+        if (adjacency->nbr_rtr_id == nbr_rtr_id) {
             return adjacency;
+        }
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
     return NULL;
 }
 
 void
-isis_show_adjacency(isis_adjacency_t *adjacency,
-                    uint8_t tab_spaces) {
+isis_show_adjacency( isis_adjacency_t *adjacency,
+                                    uint8_t tab_spaces) {
+
+    char *ip_addr_str;
 
     PRINT_TABS(tab_spaces);
-    printf("Nbr : %s(%s)\n", adjacency->nbr_name,
-        adjacency->nbr_rtr_id.ip_addr);
+    ip_addr_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, 0);
+    printf("Nbr : %s(%s)\n", adjacency->nbr_name, ip_addr_str);
 
     PRINT_TABS(tab_spaces);
-
+    ip_addr_str = tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, 0);
     printf("Nbr intf ip : %s  ifindex : %u\n",
-        adjacency->nbr_intf_ip.ip_addr,
+        ip_addr_str,
         adjacency->remote_if_index);
         
     PRINT_TABS(tab_spaces);
@@ -340,6 +349,7 @@ isis_show_adjacency(isis_adjacency_t *adjacency,
     }
 
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+
         PRINT_TABS(tab_spaces);
         printf("Up Time : %s\n", hrs_min_sec_format(
                 (unsigned int)difftime(time(NULL), adjacency->uptime)));
@@ -581,11 +591,8 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
     start_buff += 1;
 
     /* loopback Address */
-    four_byte_data = tcp_ip_covert_ip_p_to_n(
-                        adjacency->nbr_rtr_id.ip_addr);
-
-    memcpy(start_buff, (byte *)&four_byte_data, sizeof(uint32_t));
-    start_buff += sizeof(uint32_t);
+    memcpy(start_buff, (byte *)&adjacency->nbr_rtr_id, sizeof(adjacency->nbr_rtr_id));
+    start_buff += sizeof(adjacency->nbr_rtr_id);
     
     /* Metric / Cost */
     four_byte_data = ISIS_INTF_COST(adjacency->intf);
@@ -619,12 +626,9 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
 
     /* Encode remote ip Address 
        Encoding SubTLV 8 */
-    four_byte_data = tcp_ip_covert_ip_p_to_n(
-                        adjacency->nbr_intf_ip.ip_addr);
-
     start_buff = tlv_buffer_insert_tlv(start_buff,
                         ISIS_TLV_REMOTE_IP, 4,
-                        (byte *)&four_byte_data);
+                        (byte *)&adjacency->nbr_intf_ip);
 
     return start_buff;
 }

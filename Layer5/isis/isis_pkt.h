@@ -78,8 +78,6 @@ isis_print_pkt(void *arg, size_t arg_size);
 void
 isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused);
 
-#define ISIS_PKT_TYPE(pkt_ptr)   (*((isis_pkt_type_t *)pkt_ptr))
-
 uint32_t *
 isis_get_lsp_pkt_rtr_id(isis_pkt_t *lsp_pkt) ;
 

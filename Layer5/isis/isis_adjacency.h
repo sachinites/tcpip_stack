@@ -31,9 +31,9 @@ typedef struct isis_adjacency_{
     /* nbr Device Name */
     unsigned char nbr_name[NODE_NAME_SIZE];
     /* Nbr intf Ip */
-    ip_add_t nbr_intf_ip;
+   uint32_t nbr_intf_ip;
     /*Nbr lo 0 address */
-    ip_add_t nbr_rtr_id;
+    uint32_t nbr_rtr_id;
     /* Nbr if index */
     uint32_t remote_if_index;
     /* Adj State */
@@ -65,7 +65,7 @@ isis_update_interface_adjacency_from_hello(interface_t *iif,
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
         interface_t *intf,
-        char *router_id);
+        uint32_t nbr_rtr_id);
 
 char *
 isis_adjacency_name(isis_adjacency_t *adjacency);
