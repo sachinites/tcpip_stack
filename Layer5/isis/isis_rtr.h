@@ -1,6 +1,14 @@
 #ifndef __ISIS_RTR__
 #define __ISIS_RTR__
 
+typedef struct isis_timer_data_ {
+
+    node_t *node;
+    interface_t *intf;
+    void *data;
+    size_t data_size;
+} isis_timer_data_t;
+
 typedef struct isis_node_info_ {
 
 // ... 
