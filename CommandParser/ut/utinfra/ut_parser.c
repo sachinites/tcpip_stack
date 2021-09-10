@@ -107,7 +107,12 @@ tc_print_result (glthread_t *head) {
         res->pass ? pass_cnt++ : fail_cnt++;
         total_cnt++;
     } ITERATE_GLTHREAD_END(head, curr);
+
     printf ("Total TC : %d   Pass : %d   Fail %d\n", total_cnt, pass_cnt, fail_cnt);
+    rc = sprintf(buff, "Total TC : %d   Pass : %d   Fail %d\n", 
+                total_cnt, pass_cnt, fail_cnt);
+    fwrite(buff, 1, rc, ut_log_file);
+    fflush(ut_log_file);
 }
 
 static void
