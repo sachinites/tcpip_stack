@@ -47,6 +47,7 @@ string_ethernet_hdr_type(unsigned short type){
 				strlen("NMP_HELLO_MSG_CODE"));
 			break;
         default:
+            sprintf(string_buffer, "L2 Proto : %hu", type);
             break;
     }
     return string_buffer;
