@@ -443,21 +443,15 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     return (byte *)hello_eth_hdr;  
 }
 
-static void
-isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
+static uint32_t
+isis_print_lsp_pkt(byte *buff, 
+                              isis_pkt_hdr_t *lsp_pkt_hdr,
+                              uint32_t pkt_size ) {
 
-    int rc = 0;
-	char *buff;
-	uint32_t pkt_size;
-    uint16_t bytes_read = 0;
+    uint32_t rc = 0;
     unsigned char *ip_addr;
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
-	buff = pkt_info->pkt_print_buffer;
-	pkt_size = pkt_info->pkt_size;
-    isis_pkt_hdr_t* lsp_pkt_hdr = (isis_pkt_hdr_t *)(pkt_info->pkt);
-
-	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);
 
     rc = sprintf(buff + rc, "ISIS_LSP_PKT_TYPE : ");
     
@@ -494,28 +488,20 @@ isis_print_lsp_pkt(pkt_info_t *pkt_info ) {
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
                         tlv_len, tlv_value,
                         lsp_tlv_buffer_size);
-    pkt_info->bytes_written = rc;
+    return rc;
 }
 
-static void
-isis_print_hello_pkt(pkt_info_t *pkt_info ) {
+static uint32_t
+isis_print_hello_pkt(byte *buff, 
+                                  isis_pkt_hdr_t *hello_pkt_hdr,
+                                  uint32_t pkt_size ) {
 
-    int rc = 0;
-	byte *buff;
-	uint32_t pkt_size;
+    uint32_t rc = 0;
     char *ip_addr_str;
-    isis_pkt_hdr_t *hello_pkt_hdr;
-
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
-	buff = pkt_info->pkt_print_buffer;
-	pkt_size = pkt_info->pkt_size;
-
-    hello_pkt_hdr  = (isis_pkt_hdr_t *)(pkt_info->pkt);
     byte *hello_tlv_buffer = (byte *)(hello_pkt_hdr + 1);
     uint32_t hello_tlv_buffer_size = pkt_size - sizeof(isis_pkt_hdr_t);
-
-	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);
 
     rc = sprintf (buff, "ISIS_PTP_HELLO_PKT_TYPE : ");
 
@@ -548,7 +534,7 @@ isis_print_hello_pkt(pkt_info_t *pkt_info ) {
                         tlv_len, tlv_value, hello_tlv_buffer_size)
     
     rc -= strlen(" :: ");
-    pkt_info->bytes_written = rc;
+    return rc;
 }
 
 
@@ -565,16 +551,17 @@ isis_print_pkt(void *arg, size_t arg_size) {
 	pkt_size = pkt_info->pkt_size;
     pkt_hdr = (isis_pkt_hdr_t *)(pkt_info->pkt);
 
+    pkt_info->bytes_written = 0;
 	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);
 
     isis_pkt_type_t pkt_type = pkt_hdr->isis_pkt_type; 
 
     switch(pkt_type) {
         case ISIS_PTP_HELLO_PKT_TYPE:
-            isis_print_hello_pkt(pkt_info);
+            pkt_info->bytes_written += isis_print_hello_pkt(buff, pkt_hdr, pkt_size);
             break;
         case ISIS_LSP_PKT_TYPE:
-            isis_print_lsp_pkt(pkt_info);
+            pkt_info->bytes_written += isis_print_lsp_pkt(buff, pkt_hdr, pkt_size);
             break;
         default: ;
     }
