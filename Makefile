@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
 TARGET:tcpstack.exe pkt_gen.exe
-LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -lrt
+LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -lrt
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
@@ -74,14 +74,15 @@ tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
-	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
+	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
+
 pkt_gen.exe:pkt_gen.o utils.o
 	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
 	
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a
+tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a
 	${CC} ${CFLAGS} testapp.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "Build Finished"
 
@@ -171,6 +172,8 @@ CommandParser/libcli.a:
 	(cd CommandParser; make)
 LinuxMemoryManager/libmm.a:
 	(cd LinuxMemoryManager; make)
+FSMImplementation/libfsm.a:
+	(cd FSMImplementation; make)
 clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
@@ -195,3 +198,4 @@ cleanall:
 	make clean
 	(cd CommandParser; make clean)
 	(cd LinuxMemoryManager; make clean)
+	(cd FSMImplementation; make clean)
