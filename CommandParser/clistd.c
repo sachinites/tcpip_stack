@@ -16,14 +16,15 @@
  * =====================================================================================
  */
 
+#include <signal.h>
 #include "cmd_hier.h"
 #include "clistd.h"
 #include "cmdtlv.h"
 #include "libcli.h"
 #include "css.h"
-#include <signal.h>
 #include "clicbext.h"
 #include "string_util.h"
+#include "../FSMImplementation/std_fsm.h"
 
 int GL_FD_OUT = STDOUT_FILENO;
 
@@ -88,7 +89,11 @@ CLI_VAL_RC
 ipv4_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
-    return VALIDATION_SUCCESS;
+    if (ip_validate(value_passed)) {
+        return VALIDATION_SUCCESS;
+    }
+    return VALIDATION_FAILED;
+
 }
 
 
@@ -117,9 +122,8 @@ boolean_validation_handler(leaf_t *leaf, char *value_passed){
     return VALIDATION_FAILED;
 }
 
-
-int
-enable_disable_validation_handler(char *value_passed){
+CLI_VAL_RC
+enable_disable_validation_handler(leaf_t *leaf, char *value_passed){
 
      if((strncmp(value_passed, "enable", strlen("enable")) == 0) || 
             (strncmp(value_passed, "disable", strlen("disable")) ==0))
