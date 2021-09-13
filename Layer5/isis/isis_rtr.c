@@ -1,6 +1,7 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_pkt.h"
+#include "isis_const.h"
 
 bool
 isis_is_protocol_enable_on_node(node_t *node) {
@@ -49,3 +50,9 @@ void
      printf("ISIS Protocol : %s\n", 
         isis_is_protocol_enable_on_node(node) ? "Enable" : "Disable");
  }
+
+ void
+isis_one_time_registration() {
+
+    nfc_register_for_pkt_tracing (ISIS_ETH_PKT_TYPE, isis_print_pkt);
+}

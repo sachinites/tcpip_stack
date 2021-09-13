@@ -17,7 +17,7 @@ isis_pkt_trap_rule (char *pkt, size_t pkt_size) {
 void
 isis_pkt_receive(void *arg, size_t arg_size) {
 
-    printf("%s() invoked\n", __FUNCTION__);
+//    printf("%s() invoked\n", __FUNCTION__);
 }
 
 byte *
@@ -87,3 +87,81 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     return (byte *)hello_eth_hdr; 
 }
 
+uint32_t
+isis_print_lsp_pkt(byte *buff, 
+                                  isis_pkt_hdr_t *hello_pkt_hdr,
+                                  uint32_t pkt_size ) {
+
+
+}
+
+uint32_t
+isis_print_hello_pkt(byte *buff, 
+                                  isis_pkt_hdr_t *hello_pkt_hdr,
+                                  uint32_t pkt_size ) {
+
+    uint32_t rc = 0;
+    char *ip_addr_str;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+    byte *hello_tlv_buffer = (byte *)(hello_pkt_hdr + 1);
+    uint32_t hello_tlv_buffer_size = pkt_size - sizeof(isis_pkt_hdr_t);
+
+    rc = sprintf (buff, "ISIS_PTP_HELLO_PKT_TYPE : ");
+
+    ITERATE_TLV_BEGIN(hello_tlv_buffer , tlv_type,
+                        tlv_len, tlv_value, hello_tlv_buffer_size){
+
+        switch(tlv_type){
+            case ISIS_TLV_IF_INDEX:
+                rc += sprintf(buff + rc, "%d %d %u :: ", 
+                    tlv_type, tlv_len, *(uint32_t *)(tlv_value));
+            break;
+            case ISIS_TLV_HOSTNAME:
+                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
+                break;
+            case ISIS_TLV_RTR_ID:
+            case ISIS_TLV_IF_IP:
+                ip_addr_str = tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, 0);
+                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
+                break;
+            case ISIS_TLV_HOLD_TIME:
+                rc += sprintf(buff + rc, "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
+                break;
+            case ISIS_TLV_METRIC_VAL:
+                rc += sprintf(buff + rc, "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
+                break;
+            default:    ;
+        }
+
+    } ITERATE_TLV_END(hello_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, hello_tlv_buffer_size)
+    
+    rc -= strlen(" :: ");
+    return rc;
+}
+
+void
+isis_print_pkt(void *arg, size_t arg_size) {
+
+    pkt_info_t *pkt_info;
+
+    pkt_info = (pkt_info_t *)arg;
+
+    byte *buff = pkt_info->pkt_print_buffer; // sprintf
+	size_t pkt_size = pkt_info->pkt_size;
+    isis_pkt_hdr_t *pkt_hdr = (isis_pkt_hdr_t *)(pkt_info->pkt);
+    pkt_info->bytes_written = 0;
+
+    isis_pkt_type_t pkt_type = pkt_hdr->isis_pkt_type; 
+
+    switch(pkt_type) {
+        case ISIS_PTP_HELLO_PKT_TYPE:
+            pkt_info->bytes_written += isis_print_hello_pkt(buff, pkt_hdr, pkt_size);
+            break;
+        case ISIS_LSP_PKT_TYPE:
+            pkt_info->bytes_written += isis_print_lsp_pkt(buff, pkt_hdr, pkt_size);
+            break;
+        default: ;
+    }
+}

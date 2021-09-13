@@ -23,4 +23,18 @@ isis_pkt_trap_rule (char *pkt, size_t pkt_size);
 void
 isis_pkt_receive(void *arg, size_t arg_size) ;
 
+uint32_t
+isis_print_hello_pkt(byte *buff, 
+                                  isis_pkt_hdr_t *hello_pkt_hdr,
+                                  uint32_t pkt_size ) ;
+                                  
+uint32_t
+isis_print_lsp_pkt(byte *buff, 
+                                  isis_pkt_hdr_t *hello_pkt_hdr,
+                                  uint32_t pkt_size ) ;
+
+void
+isis_print_pkt(void *arg, size_t arg_size);
+
+
 #endif 
