@@ -1,19 +1,20 @@
 #ifndef __ISIS_INTF__
 #define __ISIS_INTF__
 
+typedef struct isis_adjacency_ isis_adjacency_t; // forward declarations
 typedef struct isis_intf_info_ {
 
 uint32_t cost;
 uint32_t hello_interval;
 timer_event_handle *hello_xmit_timer;
-
+isis_adjacency_t *adjacency;
 } isis_intf_info_t;
-
-bool
-isis_is_protocol_enable_on_node(node_t *node);
 
 void
 isis_enable_protocol_on_interface(interface_t *intf );
+
+bool
+isis_node_intf_is_enable(interface_t *intf) ;
 
 void
 isis_disable_protocol_on_interface(interface_t *intf );
