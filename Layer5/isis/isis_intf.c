@@ -299,6 +299,8 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
     isis_interface_qualify_to_send_hellos(intf) ?   \
         isis_refresh_intf_hellos(intf) :                       \
         isis_stop_sending_hellos(intf);
+        isis_schedule_lsp_pkt_generation(intf->att_node, 
+                isis_event_admin_config_changed);
 }
 
 void
