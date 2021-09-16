@@ -6,6 +6,7 @@
 #define ISIS_LSP_PKT_TYPE                18
 #define ISIS_DEFAULT_HELLO_INTERVAL 3
 #define ISIS_DEFAULT_INTF_COST  10  // as per standard
+#define ISIS_ADJ_DEFAULT_DELETE_TIME (5 * 1000)
 
 /*ISIS TLVs */
 #define ISIS_TLV_HOSTNAME    137 // as per standard 

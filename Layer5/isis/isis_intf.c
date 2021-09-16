@@ -69,6 +69,10 @@ isis_disable_protocol_on_interface(interface_t *intf ) {
        if (!intf_info) return;
 
        isis_stop_sending_hellos(intf);
+
+        /* delete adjacency*/
+        isis_delete_adjacency(intf_info->adjacency);
+
        free(intf_info);
 
        intf->intf_nw_props.isis_intf_info = NULL;

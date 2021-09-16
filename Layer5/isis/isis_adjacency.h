@@ -68,4 +68,16 @@ isis_update_interface_adjacency_from_hello(
         byte *hello_tlv_buffer,
         size_t tlv_buff_size);
         
+void
+isis_change_adjacency_state(
+            isis_adjacency_t *adjacency,
+            isis_adj_state_t new_adj_state);
+
+isis_adj_state_t 
+isis_get_next_adj_state_on_receiving_next_hello(
+    isis_adjacency_t *adjacency);
+
+void
+ isis_delete_adjacency(isis_adjacency_t * adjacency);
+
 #endif 
