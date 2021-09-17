@@ -46,6 +46,7 @@ A device must perform some sanity checks on the
 3. Reject if Dst mac is not Broadcast address [API : IS_MAC_BROADCAST_ADDR( )]
 */
 if (!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)) {
+    assert(0);
     goto bad_hello;
 }
 /*
@@ -65,7 +66,11 @@ if (!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)) {
                                             ISIS_TLV_IF_IP,
                                             &intf_ip_len);
 
-    if (!if_ip_addr_int) goto bad_hello;
+    if (!if_ip_addr_int) {
+
+    assert(0);
+    goto bad_hello;
+    }
 /*
 5. Reject the pkt if nbr intf IP Address (ISIS_TLV_IF_IP) do not fall
 	in same subnet as recipient interface 
@@ -77,6 +82,7 @@ if (!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)) {
     if (!is_same_subnet(IF_IP(iif),
                                     IF_MASK(iif), if_ip_addr_str)) {
 
+    assert(0);
          goto bad_hello;
      }
 /*
@@ -86,7 +92,7 @@ if (!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)) {
 */
 
     isis_update_interface_adjacency_from_hello(iif, hello_tlv_buffer, tlv_buff_size);
-
+    return;
 bad_hello:
     printf("Hello pkt rejected , %s %s\n", node->node_name, iif->if_name);
 }

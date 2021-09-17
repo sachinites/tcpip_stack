@@ -18,5 +18,6 @@
 
 #define ISIS_HOLD_TIME_FACTOR 2
 
+#define ISIS_CONFIG_TRACE   "ISIS(CONFIG)"
 
 #endif 

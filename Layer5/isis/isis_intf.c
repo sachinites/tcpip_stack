@@ -51,6 +51,10 @@ isis_enable_protocol_on_interface(interface_t *intf ) {
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
 
+    sprintf(tlb, "%s : protocol is enabled on interface\n", ISIS_CONFIG_TRACE);
+    tcp_trace(intf->att_node, intf, tlb);
+
+
     if (intf_info->hello_xmit_timer == NULL) {
 
         if (isis_interface_qualify_to_send_hellos(intf)) {
