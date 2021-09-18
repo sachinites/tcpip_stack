@@ -50,12 +50,33 @@ extern graph_t *cross_link_topology();
 
 extern void nw_init_cli();
 
+/* Memory Init Imports */
+extern void mm_init();
+extern void layer2_mem_init();
+extern void layer3_mem_init();
+extern void layer4_mem_init();
+/* Layer 5*/
+extern void spf_algo_mem_init(); 
+extern void isis_mem_init();
+
 graph_t *topo = NULL;
+
+static void
+tcp_ip_stack_pre_topology_create_initializations() {
+
+    nw_init_cli();
+    mm_init();
+    layer2_mem_init();
+    layer3_mem_init();
+    layer4_mem_init();
+    spf_algo_mem_init();
+    isis_mem_init();
+}
 
 int 
 main(int argc, char **argv){
 
-    nw_init_cli();
+    tcp_ip_stack_pre_topology_create_initializations();
     topo = cross_link_topology();
     init_tcp_ip_stack();
     start_shell(); 

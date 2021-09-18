@@ -36,27 +36,12 @@
 #include "layer2.h"
 #include "../gluethread/glthread.h"
 #include "comm.h"
-
-/*L2 Switch Owns Mac Table*/
-
-typedef struct mac_table_entry_{
-
-    mac_add_t mac;
-    char oif_name[IF_NAME_SIZE];
-    glthread_t mac_entry_glue;
-} mac_table_entry_t;
-GLTHREAD_TO_STRUCT(mac_entry_glue_to_mac_entry, mac_table_entry_t, mac_entry_glue);
-
-
-typedef struct mac_table_{
-
-    glthread_t mac_entries;
-} mac_table_t;
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 void
 init_mac_table(mac_table_t **mac_table){
 
-    *mac_table = calloc(1, sizeof(mac_table_t));
+    *mac_table =XCALLOC(0, 1, mac_table_t);
     init_glthread(&((*mac_table)->mac_entries));
 }
 
@@ -86,7 +71,7 @@ clear_mac_table(mac_table_t *mac_table){
         
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
         remove_glthread(curr);
-        free(mac_table_entry);
+        XFREE(mac_table_entry);
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
 }
 
@@ -98,7 +83,7 @@ delete_mac_table_entry(mac_table_t *mac_table, char *mac){
     if(!mac_table_entry)
         return;
     remove_glthread(&mac_table_entry->mac_entry_glue);
-    free(mac_table_entry);
+    XFREE(mac_table_entry);
 }
 
 #define IS_MAC_TABLE_ENTRY_EQUAL(mac_entry_1, mac_entry_2)   \
@@ -162,13 +147,13 @@ static void
 l2_switch_perform_mac_learning(node_t *node, char *src_mac, char *if_name){
 
     bool rc;
-    mac_table_entry_t *mac_table_entry = calloc(1, sizeof(mac_table_entry_t));
+    mac_table_entry_t *mac_table_entry = XCALLOC(0, 1, mac_table_entry_t);
     memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_add_t));
     strncpy(mac_table_entry->oif_name, if_name, IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
     rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
     if(rc == false){
-        free(mac_table_entry);
+        XFREE(mac_table_entry);
     }
 }
 

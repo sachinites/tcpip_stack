@@ -86,8 +86,8 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a
-	${CC} ${CFLAGS} testapp.o ${OBJS}  ${LIBS} -o tcpstack.exe
+tcpstack.exe:tcpstack_main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a
+	${CC} ${CFLAGS} tcpstack_main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "Build Finished"
 
 notif.o:notif.c
@@ -96,8 +96,8 @@ notif.o:notif.c
 tcpip_notif.o:tcpip_notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . tcpip_notif.c -o tcpip_notif.o
 
-testapp.o:testapp.c
-	${CC} ${CFLAGS} -c testapp.c -o testapp.o
+tcpstack_main.o:tcpstack_main.c
+	${CC} ${CFLAGS} -c tcpstack_main.c -o tcpstack_main.o
 
 gluethread/glthread.o:gluethread/glthread.c
 	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o

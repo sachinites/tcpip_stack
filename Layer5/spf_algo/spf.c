@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include "../../tcp_public.h"
 
+extern void spf_algo_mem_init(); 
+
 #define INFINITE_METRIC     0xFFFFFFFF
 
 #define SPF_METRIC(nodeptr) (nodeptr->spf_data->spf_metric)
@@ -79,7 +81,7 @@ spf_flush_nexthops(nexthop_t **nexthop){
             assert(nexthop[i]->ref_count);
             nexthop[i]->ref_count--;
             if(nexthop[i]->ref_count == 0){
-                free(nexthop[i]);
+                XFREE(nexthop[i]);
             }
             nexthop[i] = NULL;
         }
@@ -91,14 +93,14 @@ free_spf_result(spf_result_t *spf_result){
 
     spf_flush_nexthops(spf_result->nexthops);
     remove_glthread(&spf_result->spf_res_glue);
-    free(spf_result);
+    XFREE(spf_result);
 }
 
 static void
 init_node_spf_data(node_t *node, bool delete_spf_result){
 
     if(!node->spf_data){
-        node->spf_data = calloc(1, sizeof(spf_data_t));
+        node->spf_data = XCALLOC(0, 1, spf_data_t);
         init_glthread(&node->spf_data->spf_result_head);
         node->spf_data->node = node;
     }
@@ -121,12 +123,12 @@ init_node_spf_data(node_t *node, bool delete_spf_result){
 static nexthop_t *
 create_new_nexthop(interface_t *oif, uint8_t proto){
 
-    nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
+    nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
     nexthop->oif = oif;
     interface_t *other_intf = &oif->link->intf1 == oif ?    \
         &oif->link->intf2 : &oif->link->intf1;
     if(!other_intf){
-        free(nexthop);
+        XFREE(nexthop);
         return NULL;
     }
 
@@ -320,7 +322,7 @@ spf_record_result(node_t *spf_root,
     /*Record result*/
     /*This result must not be present already*/
     assert(!spf_lookup_spf_result_by_node(spf_root, processed_node));
-    spf_result_t *spf_result = calloc(1, sizeof(spf_result_t));
+    spf_result_t *spf_result = XCALLOC(0, 1, spf_result_t);
     /*We record three things as a part of spf result for a node in 
      * topology : 
      * 1. The node itself
@@ -696,4 +698,12 @@ spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
             break;
     }
     return 0;
+}
+
+
+void
+spf_algo_mem_init() {
+
+    MM_REG_STRUCT(0, spf_data_t);
+    MM_REG_STRUCT(0, spf_result_t);
 }

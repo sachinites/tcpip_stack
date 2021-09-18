@@ -41,6 +41,7 @@
 #include "tcpconst.h"
 #include "comm.h"
 #include "netfilter.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 extern void
 spf_flush_nexthops(nexthop_t **nexthop);
@@ -269,7 +270,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 void
 init_rt_table(rt_table_t **rt_table){
 
-    *rt_table = calloc(1, sizeof(rt_table_t));
+    *rt_table = XCALLOC(0, 1, rt_table_t);
     init_glthread(&((*rt_table)->route_list));
 	(*rt_table)->is_active = true;
 }
@@ -300,7 +301,7 @@ l3_route_free(l3_route_t *l3_route){
 
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
     spf_flush_nexthops(l3_route->nexthops);
-    free(l3_route);
+    XFREE(l3_route);
 }
 
 void
@@ -551,7 +552,7 @@ rt_table_add_route(rt_table_t *rt_table,
    l3_route_t *l3_route = l3rib_lookup(rt_table, dst_int, mask);
 
    if(!l3_route){
-       l3_route = calloc(1, sizeof(l3_route_t));
+       l3_route = XCALLOC(0, 1, l3_route_t);
        strncpy(l3_route->dest, dst_str_with_mask, 16);
        l3_route->dest[15] = '\0';
        l3_route->mask = mask;
@@ -583,7 +584,7 @@ rt_table_add_route(rt_table_t *rt_table,
    }
 
    if(gw && oif){
-        nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
+        nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
         l3_route->is_direct = false;
         l3_route->spf_metric = spf_metric;
         strncpy(nexthop->gw_ip, gw, 16);
@@ -771,7 +772,7 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
 
     /*Prepare the payload and push it down to the network layer.
      The payload shall be inner ip hdr*/
-    ip_hdr_t *inner_ip_hdr = calloc(1, sizeof(ip_hdr_t));
+    ip_hdr_t *inner_ip_hdr = XCALLOC(0, 1, ip_hdr_t);
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
     inner_ip_hdr->protocol = ICMP_PRO;
@@ -793,7 +794,7 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
     demote_packet_to_layer3(node, (char *)inner_ip_hdr, 
                             inner_ip_hdr->total_length * 4, 
                             IP_IN_IP, addr_int);
-    free(inner_ip_hdr);
+    XFREE(inner_ip_hdr);
 }
 
 /*Wrapper fn to be used by Applications*/
@@ -885,4 +886,13 @@ interface_unset_ip_addr(node_t *node, interface_t *intf,
 
     nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);
+}
+
+void
+layer3_mem_init() {
+
+    MM_REG_STRUCT(0, ip_hdr_t);
+    MM_REG_STRUCT(0, rt_table_t);
+    MM_REG_STRUCT(0, nexthop_t);
+    MM_REG_STRUCT(0, l3_route_t);
 }

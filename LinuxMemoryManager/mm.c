@@ -336,7 +336,8 @@ lookup_page_family_by_name(mm_instance_t *mm_inst, char *struct_name){
     vm_page_for_families_t *vm_page_for_families_curr = NULL;
 
     for(vm_page_for_families_curr = 
-        mm_inst ? mm_inst->first_vm_page_for_families :        first_vm_page_for_families; 
+        mm_inst ? mm_inst->first_vm_page_for_families : 
+                  first_vm_page_for_families; 
             vm_page_for_families_curr; 
             vm_page_for_families_curr = vm_page_for_families_curr->next){
 

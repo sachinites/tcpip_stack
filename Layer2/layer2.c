@@ -40,8 +40,12 @@
 #include "../Layer5/layer5.h"
 #include "../tcp_ip_trace.h"
 #include "../libtimer/WheelTimer.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 #define ARP_ENTRY_EXP_TIME	30
+
+
+extern void layer2_mem_init(); 
 
 /*A Routine to resolve ARP out of oif*/
 void
@@ -190,7 +194,7 @@ promote_pkt_to_layer3(node_t *node, interface_t *interface,
 void
 init_arp_table(arp_table_t **arp_table){
 
-    *arp_table = calloc(1, sizeof(arp_table_t));
+    *arp_table = XCALLOC(0, 1, arp_table_t);
     init_glthread(&((*arp_table)->arp_entries));
 }
 
@@ -356,7 +360,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
     assert(arp_hdr->op_code == ARP_REPLY);
 
-    arp_entry_t *arp_entry = calloc(1, sizeof(arp_entry_t));
+    arp_entry_t *arp_entry = XCALLOC(0, 1, arp_entry_t);
 
     src_ip = htonl(arp_hdr->src_ip);
 
@@ -740,7 +744,7 @@ delete_arp_entry(arp_entry_t *arp_entry){
     } ITERATE_GLTHREAD_END(&arp_entry->arp_pending_list, curr);
 
 	arp_entry_delete_expiration_timer(arp_entry);
-    free(arp_entry);
+    XFREE(arp_entry);
 }
 
 void
@@ -786,7 +790,7 @@ create_arp_sane_entry(node_t *node,
     }
 
     /*if ARP entry do not exist, create a new sane entry*/
-    arp_entry = calloc(1, sizeof(arp_entry_t));
+    arp_entry = XCALLOC(0, 1,arp_entry_t);
     strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
@@ -1038,4 +1042,18 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     }
     else
         return; /*Do nothing, drop the packet*/
+}
+
+void
+layer2_mem_init() {
+
+    MM_REG_STRUCT(0, arp_hdr_t);
+    MM_REG_STRUCT(0, ethernet_hdr_t);
+    MM_REG_STRUCT(0, arp_table_t);
+    MM_REG_STRUCT(0,  arp_pending_entry_t);
+    MM_REG_STRUCT(0,  arp_entry_t);
+    MM_REG_STRUCT(0,  vlan_8021q_hdr_t);
+    MM_REG_STRUCT(0,  vlan_ethernet_hdr_t);
+    MM_REG_STRUCT(0,  mac_table_t);
+    MM_REG_STRUCT(0,  mac_table_entry_t);
 }

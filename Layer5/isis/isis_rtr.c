@@ -319,7 +319,6 @@ isis_one_time_registration() {
 
     nfc_intf_register_for_events(isis_interface_updates);
     nfc_register_for_pkt_tracing(ISIS_ETH_PKT_TYPE, isis_print_pkt);
-    isis_mem_init();
 }
 
 void
