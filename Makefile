@@ -37,6 +37,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_lspdb.o \
 		  Layer5/isis/isis_spf.o \
 		  Layer5/isis/isis_mem_init.o \
+		  Layer5/isis/isis_intf_group.o \
 		  LinuxMemoryManager/mm.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
@@ -73,6 +74,9 @@ Layer5/isis/isis_spf.o:Layer5/isis/isis_spf.c
 
 Layer5/isis/isis_mem_init.o:Layer5/isis/isis_mem_init.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_mem_init.c -o Layer5/isis/isis_mem_init.o
+
+Layer5/isis/isis_intf_group.o:Layer5/isis/isis_intf_group.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_intf_group.c -o Layer5/isis/isis_intf_group.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o

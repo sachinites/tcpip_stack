@@ -24,4 +24,10 @@
 /* config node <node-name> protocol isis overload timeout <time in sec>*/
 #define CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT 11
 
+/* interface group related CLIs */
+/* config node <node-name> protocol isis interface-group <grp-name>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP   12
+/* config node <node-name> protocol isis interface <if-name> interface-group <grp-name>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP   13
+
 #endif /* __ISIS_CMDCODES__ */

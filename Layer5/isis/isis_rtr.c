@@ -10,6 +10,7 @@
 #include "isis_lspdb.h"
 #include "isis_spf.h"
 #include "isis_cmdcodes.h"
+#include "isis_intf_group.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
@@ -102,8 +103,8 @@ isis_protocol_shutdown_now(node_t *node) {
 }
 
 void
-isis_check_and_shutdown_protocol_now
-        (node_t *node, 
+isis_check_and_shutdown_protocol_now(
+        node_t *node, 
         uint16_t work_completed_flag) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
@@ -303,6 +304,7 @@ isis_init(node_t *node ) {
     isis_node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
+    isis_init_intf_group_avl_tree(&isis_node_info->intf_grp_avl_root);
     isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
 
     isis_start_lsp_pkt_periodic_flooding(node);

@@ -24,8 +24,13 @@ typedef struct isis_intf_info_ {
     glthread_t adj_list_head;
     glthread_t lsp_xmit_list_head;
     task_t *lsp_xmit_job;
-} isis_intf_info_t;
 
+    /* glue to add to interface group*/
+    glthread_t intf_grp_member_glue;
+} isis_intf_info_t;
+GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info, 
+                                            isis_intf_info_t,  intf_grp_member_glue);
+                                            
 /* Some short-hand macros to make life easy */
 #define ISIS_INTF_INFO(intf_ptr)    \
     ((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))

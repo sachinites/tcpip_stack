@@ -119,6 +119,7 @@ isis_init_isis_intf_info (interface_t *intf) {
     isis_intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     isis_intf_info->cost = ISIS_DEFAULT_INTF_COST;
     init_glthread(&isis_intf_info->adj_list_head);
+    init_glthread(&isis_intf_info->intf_grp_member_glue);
 }
 
 void
@@ -155,6 +156,7 @@ isis_free_intf_info(interface_t *intf) {
     assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
     assert(IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)));
     assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head));
+    assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue));
     assert(!ISIS_INTF_INFO(intf)->lsp_xmit_job);
 
     XFREE(ISIS_INTF_INFO(intf));
@@ -167,6 +169,7 @@ isis_check_and_delete_intf_info(interface_t *intf) {
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
          !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head) ||
+         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
          ISIS_INTF_INFO(intf)->lsp_xmit_job) {
 
         return;
@@ -186,7 +189,7 @@ isis_disable_protocol_on_interface(interface_t *intf) {
     isis_stop_sending_hellos(intf);
     isis_delete_all_adjacencies(intf);
     isis_intf_purge_lsp_xmit_queue(intf);
-
+    remove_glthread(&isis_intf_info->intf_grp_member_glue);
     isis_check_and_delete_intf_info(intf);
 }
 

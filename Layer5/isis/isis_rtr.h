@@ -68,6 +68,8 @@ typedef struct isis_node_info_ {
     isis_overload_data_t ovl_data;
     /* Miscellaneous flags */
     uint64_t misc_flags;
+    /* Tree of interface Groups configured by User */
+    avltree_t intf_grp_avl_root;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
