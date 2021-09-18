@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include "uapi_mm.h"
+#include <stdlib.h>
 #include <assert.h>
+#include "uapi_mm.h"
 
 typedef struct emp_ {
 
@@ -22,21 +23,21 @@ int
 main(int argc, char **argv){
 
     mm_init();
-    MM_REG_STRUCT(emp_t);
-    MM_REG_STRUCT(student_t);
-    mm_print_registered_page_families();
+    MM_REG_STRUCT(0, emp_t);
+    MM_REG_STRUCT(0, student_t);
+    mm_print_registered_page_families(0);
 
-    mm_print_memory_usage(0);
-    mm_print_block_usage();
+    mm_print_memory_usage(0, 0);
+    mm_print_block_usage(0);
 
-    char *buff1 = XCALLOC_BUFF(32);
-    char *buff2 = XCALLOC_BUFF(32);
+    char *buff1 = XCALLOC_BUFF(0, 32);
+    char *buff2 = XCALLOC_BUFF(0, 32);
     assert(buff1);
     assert(buff2);
-    mm_print_variable_buffers();
+    mm_print_variable_buffers(0);
     xfree(buff1);
     xfree(buff2);
-    mm_print_variable_buffers();
+    mm_print_variable_buffers(0);
 #if 0    
     mm_print_memory_usage(0);
     mm_print_block_usage();

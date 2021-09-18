@@ -66,10 +66,10 @@ display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
 
     switch(cmdcode){
         case CMDCODE_DEBUG_SHOW_MEMORY_USAGE:
-            mm_print_block_usage();
+            mm_print_block_usage(0);
             break;
         case CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL:
-            mm_print_memory_usage(struct_name);
+            mm_print_memory_usage(0, struct_name);
             break;
         default:
             ;

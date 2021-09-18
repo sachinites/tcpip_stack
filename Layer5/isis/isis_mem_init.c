@@ -10,15 +10,15 @@
 void
  isis_mem_init() {
 
-     MM_REG_STRUCT(isis_adj_state_t);
-     MM_REG_STRUCT(isis_adjacency_t);
-     MM_REG_STRUCT(isis_event_type_t);
-     MM_REG_STRUCT(isis_pkt_t);
-     MM_REG_STRUCT(isis_pkt_hdr_t);
-     MM_REG_STRUCT(isis_timer_data_t);
-     MM_REG_STRUCT(isis_reconc_data_t);
-     MM_REG_STRUCT(isis_overload_data_t);
-     MM_REG_STRUCT(isis_node_info_t);
-     MM_REG_STRUCT(isis_intf_info_t);
-     MM_REG_STRUCT(isis_lsp_xmit_elem_t);
+     MM_REG_STRUCT(0, isis_adj_state_t);
+     MM_REG_STRUCT(0, isis_adjacency_t);
+     MM_REG_STRUCT(0, isis_event_type_t);
+     MM_REG_STRUCT(0, isis_pkt_t);
+     MM_REG_STRUCT(0, isis_pkt_hdr_t);
+     MM_REG_STRUCT(0, isis_timer_data_t);
+     MM_REG_STRUCT(0, isis_reconc_data_t);
+     MM_REG_STRUCT(0, isis_overload_data_t);
+     MM_REG_STRUCT(0, isis_node_info_t);
+     MM_REG_STRUCT(0, isis_intf_info_t);
+     MM_REG_STRUCT(0, isis_lsp_xmit_elem_t);
  }

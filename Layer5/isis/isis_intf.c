@@ -58,7 +58,7 @@ isis_start_sending_hellos(interface_t *intf) {
     char *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 
     isis_timer_data_t *isis_timer_data =
-        XCALLOC(1, isis_timer_data_t);
+        XCALLOC(0, 1, isis_timer_data_t);
 
     isis_timer_data->node = node;
     isis_timer_data->intf = intf;
@@ -134,7 +134,7 @@ isis_enable_protocol_on_interface(interface_t *intf) {
 
     if (! isis_intf_info ) {
 
-        isis_intf_info = XCALLOC(1, isis_intf_info_t);
+        isis_intf_info = XCALLOC(0, 1, isis_intf_info_t);
         intf->intf_nw_props.isis_intf_info = isis_intf_info;
         isis_init_isis_intf_info(intf);
     }

@@ -141,7 +141,7 @@ isis_queue_lsp_pkt_for_transmission(
     isis_node_info = ISIS_NODE_INFO(intf->att_node);
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
-        XCALLOC(1, isis_lsp_xmit_elem_t);
+        XCALLOC(0, 1, isis_lsp_xmit_elem_t);
     
     init_glthread(&lsp_xmit_elem->glue);
     lsp_xmit_elem->lsp_pkt = lsp_pkt;
@@ -249,7 +249,7 @@ isis_update_lsp_flood_timer_with_new_lsp_pkt(
     else if (!old_isis_timer_data && new_lsp_pkt) {
 
         new_isis_timer_data =
-            XCALLOC(1, isis_timer_data_t);
+            XCALLOC(0, 1, isis_timer_data_t);
 
         new_isis_timer_data->node = node;
         new_isis_timer_data->intf = NULL;
@@ -325,7 +325,7 @@ isis_start_lsp_pkt_periodic_flooding(node_t *node) {
         timer any way */
     if (isis_node_info->self_lsp_pkt) {
         
-        isis_timer_data = XCALLOC(1, isis_timer_data_t);
+        isis_timer_data = XCALLOC(0, 1, isis_timer_data_t);
         isis_timer_data->node = node;
         isis_timer_data->intf = NULL;
         isis_timer_data->data =

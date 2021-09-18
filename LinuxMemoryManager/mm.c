@@ -46,6 +46,8 @@ static vm_page_for_families_t *first_vm_page_for_families = NULL;
 static vm_page_family_t misc_vm_page_family;
 static size_t SYSTEM_PAGE_SIZE = 0;
 void *gb_hsba = NULL;
+static vm_page_t *vm_page_mm_instance = NULL;
+static mm_instance_t *next_mm_instance = NULL;
 
 void
 mm_init(){
@@ -141,6 +143,30 @@ mm_get_new_vm_page_from_kernel(int units){
     memset(vm_page, 0, units * SYSTEM_PAGE_SIZE);
     vm_page->page_size = units * SYSTEM_PAGE_SIZE;
     return vm_page;
+}
+
+
+mm_instance_t *
+mm_init_new_instance() {
+
+    vm_page_t *vm_page = NULL;
+
+    if (vm_page_mm_instance == NULL) {
+        vm_page = mm_get_new_vm_page_from_kernel(1);
+    }
+
+    if (next_mm_instance == NULL) {
+        next_mm_instance = (mm_instance_t *)(vm_page);
+        return next_mm_instance;
+    }
+
+    if ((char *)(next_mm_instance + 1) == 
+            (char *)vm_page + SYSTEM_PAGE_SIZE) {
+        assert(0);
+    }
+
+    next_mm_instance++;
+    return next_mm_instance;
 }
 
 static void
@@ -241,24 +267,34 @@ allocate_vm_page(vm_page_family_t *vm_page_family, int units){
 
 void
 mm_instantiate_new_page_family(
+    mm_instance_t *mm_inst,
     char *struct_name,
     uint32_t struct_size){
 
     vm_page_family_t *vm_page_family_curr = NULL;
     vm_page_for_families_t *new_vm_page_for_families = NULL;
+    vm_page_for_families_t *vm_page_for_families_global;
 
-    if(!first_vm_page_for_families){
-        first_vm_page_for_families = (vm_page_for_families_t *)mm_get_new_vm_page_from_kernel(1);
-        first_vm_page_for_families->next = NULL;
-        strncpy(first_vm_page_for_families->vm_page_family[0].struct_name, struct_name,
+    vm_page_for_families_global = mm_inst ?
+        mm_inst->first_vm_page_for_families : first_vm_page_for_families;
+
+    if(!vm_page_for_families_global){
+        vm_page_for_families_global = (vm_page_for_families_t *)mm_get_new_vm_page_from_kernel(1);
+        vm_page_for_families_global->next = NULL;
+        strncpy(vm_page_for_families_global->vm_page_family[0].struct_name, struct_name,
             MM_MAX_STRUCT_NAME);
-        first_vm_page_for_families->vm_page_family[0].struct_size = struct_size;
-        first_vm_page_for_families->vm_page_family[0].first_page = NULL;
-        init_glthread(&first_vm_page_for_families->vm_page_family[0].free_block_priority_list_head);
+        vm_page_for_families_global->vm_page_family[0].struct_size = struct_size;
+        vm_page_for_families_global->vm_page_family[0].first_page = NULL;
+        init_glthread(&vm_page_for_families_global->vm_page_family[0].free_block_priority_list_head);
+        if (mm_inst) 
+            mm_inst->first_vm_page_for_families = vm_page_for_families_global;
+        else 
+            first_vm_page_for_families =  vm_page_for_families_global;
+    
         return;
     }
 
-	vm_page_family_curr = lookup_page_family_by_name(struct_name);
+	vm_page_family_curr = lookup_page_family_by_name(mm_inst, struct_name);
 
 	if(vm_page_family_curr) {
 		assert(0);
@@ -266,18 +302,18 @@ mm_instantiate_new_page_family(
 
     uint32_t count = 0;
     
-    ITERATE_PAGE_FAMILIES_BEGIN(first_vm_page_for_families, vm_page_family_curr){
+    ITERATE_PAGE_FAMILIES_BEGIN(vm_page_for_families_global, vm_page_family_curr){
 
 		count++;
 
-    } ITERATE_PAGE_FAMILIES_END(first_vm_page_for_families, vm_page_family_curr);
+    } ITERATE_PAGE_FAMILIES_END(vm_page_for_families_global, vm_page_family_curr);
 
     if(count == MAX_FAMILIES_PER_VM_PAGE){
         /*Request a new vm page from kernel to add a new family*/
         new_vm_page_for_families = (vm_page_for_families_t *)mm_get_new_vm_page_from_kernel(1);
-        new_vm_page_for_families->next = first_vm_page_for_families;
-        first_vm_page_for_families = new_vm_page_for_families;
-        vm_page_family_curr = &first_vm_page_for_families->vm_page_family[0];
+        new_vm_page_for_families->next = vm_page_for_families_global;
+        vm_page_for_families_global = new_vm_page_for_families;
+        vm_page_family_curr = &vm_page_for_families_global->vm_page_family[0];
     }
 
     strncpy(vm_page_family_curr->struct_name, struct_name,
@@ -288,12 +324,13 @@ mm_instantiate_new_page_family(
 }
 
 vm_page_family_t *
-lookup_page_family_by_name(char *struct_name){
+lookup_page_family_by_name(mm_instance_t *mm_inst, char *struct_name){
 
     vm_page_family_t *vm_page_family_curr = NULL;
     vm_page_for_families_t *vm_page_for_families_curr = NULL;
 
-    for(vm_page_for_families_curr = first_vm_page_for_families; 
+    for(vm_page_for_families_curr = 
+        mm_inst ? mm_inst->first_vm_page_for_families :        first_vm_page_for_families; 
             vm_page_for_families_curr; 
             vm_page_for_families_curr = vm_page_for_families_curr->next){
 
@@ -483,11 +520,11 @@ mm_allocate_free_data_block(
 /* The public fn to be invoked by the application for Dynamic 
  * Memory Allocations.*/
 void *
-xcalloc(char *struct_name, int units){
+xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
 
     /*Step 1*/
     vm_page_family_t *pg_family = 
-        lookup_page_family_by_name(struct_name);
+        lookup_page_family_by_name(mm_inst, struct_name);
 
     if(!pg_family){
         
@@ -666,7 +703,7 @@ mm_print_vm_page_details(vm_page_t *vm_page, uint32_t i){
 }
 
 void
-mm_print_memory_usage(char *struct_name){
+mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name){
 
     uint32_t i = 0;
     vm_page_t *vm_page = NULL;
@@ -674,10 +711,15 @@ mm_print_memory_usage(char *struct_name){
     uint32_t number_of_struct_families = 0;
     uint32_t total_memory_in_use_by_application = 0;
     uint32_t cumulative_vm_pages_claimed_from_kernel = 0;
+    vm_page_for_families_t *vm_page_for_families_global;
+
+    vm_page_for_families_global = mm_inst ?
+        mm_inst->first_vm_page_for_families :
+        first_vm_page_for_families;
 
     printf("\nPage Size = %zu Bytes\n", SYSTEM_PAGE_SIZE);
 
-    ITERATE_PAGE_FAMILIES_BEGIN(first_vm_page_for_families, vm_page_family_curr){
+    ITERATE_PAGE_FAMILIES_BEGIN(vm_page_for_families_global, vm_page_family_curr){
 
         if(struct_name){
             if(strncmp(struct_name, vm_page_family_curr->struct_name, 
@@ -710,7 +752,7 @@ mm_print_memory_usage(char *struct_name){
 
         } ITERATE_VM_PAGE_END(vm_page_family_curr, vm_page);
         printf("\n");
-    } ITERATE_PAGE_FAMILIES_END(first_vm_page_for_families, vm_page_family_curr);
+    } ITERATE_PAGE_FAMILIES_END(vm_page_for_families_global, vm_page_family_curr);
 
     printf(ANSI_COLOR_MAGENTA "\nTotal Applcation Memory Usage : %u Bytes\n"
         ANSI_COLOR_RESET, total_memory_in_use_by_application);
@@ -736,7 +778,7 @@ mm_print_memory_usage(char *struct_name){
 }
 
 void
-mm_print_block_usage(){
+mm_print_block_usage(mm_instance_t *mm_inst){
 
     vm_page_t *vm_page_curr;
     vm_page_family_t *vm_page_family_curr;
@@ -745,9 +787,14 @@ mm_print_block_usage(){
              occupied_block_count;
     uint32_t application_memory_usage;
 
-    if (!first_vm_page_for_families) return;
+    vm_page_for_families_t *first_vm_page_for_families_global;
 
-    ITERATE_PAGE_FAMILIES_BEGIN(first_vm_page_for_families, vm_page_family_curr){
+    first_vm_page_for_families_global = mm_inst ?
+        mm_inst->first_vm_page_for_families : first_vm_page_for_families;
+
+    if (!first_vm_page_for_families_global) return;
+
+    ITERATE_PAGE_FAMILIES_BEGIN(first_vm_page_for_families_global, vm_page_family_curr){
 
         total_block_count = 0;
         free_block_count = 0;
@@ -785,11 +832,11 @@ mm_print_block_usage(){
         vm_page_family_curr->struct_name, total_block_count,
         free_block_count, occupied_block_count, application_memory_usage);
 
-    } ITERATE_PAGE_FAMILIES_END(first_vm_page_for_families, vm_page_family_curr); 
+    } ITERATE_PAGE_FAMILIES_END(first_vm_page_for_families_global, vm_page_family_curr); 
 }
 
 void
-mm_print_variable_buffers(void) {
+mm_print_variable_buffers(mm_instance_t *mm_inst) {
 
     uint32_t total_block_count = 0;
     uint32_t  free_block_count = 0;
@@ -799,8 +846,12 @@ mm_print_variable_buffers(void) {
     vm_page_t *vm_page_curr;
     vm_page_family_t *vm_page_family_curr;
     block_meta_data_t *block_meta_data_curr;
+    vm_page_family_t *misc_vm_page_family_global;
 
-    ITERATE_VM_PAGE_BEGIN((&misc_vm_page_family), vm_page_curr){
+    misc_vm_page_family_global = mm_inst ?
+        &mm_inst->misc_vm_page_family : &misc_vm_page_family;
+
+    ITERATE_VM_PAGE_BEGIN(misc_vm_page_family_global, vm_page_curr){
 
             ITERATE_VM_PAGE_ALL_BLOCKS_BEGIN(vm_page_curr, block_meta_data_curr){
         
@@ -826,7 +877,7 @@ mm_print_variable_buffers(void) {
                     occupied_block_count++;
                 }
             } ITERATE_VM_PAGE_ALL_BLOCKS_END(vm_page_curr, block_meta_data_curr);
-        } ITERATE_VM_PAGE_END(&misc_vm_page_family, vm_page_curr);
+        } ITERATE_VM_PAGE_END(misc_vm_page_family_global, vm_page_curr);
 
     printf("%-20s   TBC : %-4u    FBC : %-4u    OBC : %-4u AppMemUsage : %u\n",
         misc_vm_page_family.struct_name, total_block_count,
@@ -835,12 +886,16 @@ mm_print_variable_buffers(void) {
 }
 
 void
-mm_print_registered_page_families(){
+mm_print_registered_page_families(mm_instance_t *mm_inst){
 
     vm_page_family_t *vm_page_family_curr = NULL;
     vm_page_for_families_t *vm_page_for_families_curr = NULL;
+    vm_page_for_families_t *vm_page_for_families_global;
 
-    for(vm_page_for_families_curr = first_vm_page_for_families; 
+    vm_page_for_families_global = mm_inst ?
+        mm_inst->first_vm_page_for_families : first_vm_page_for_families;
+
+    for(vm_page_for_families_curr = vm_page_for_families_global; 
         vm_page_for_families_curr; 
         vm_page_for_families_curr = vm_page_for_families_curr->next){
 
@@ -858,14 +913,19 @@ mm_print_registered_page_families(){
 }
 
 void *
-xcalloc_buff(uint32_t bytes) {
+xcalloc_buff(mm_instance_t *mm_inst,  uint32_t bytes) {
+
+    vm_page_family_t *misc_vm_page_family_global;
+
+    misc_vm_page_family_global = mm_inst ?
+        &mm_inst->misc_vm_page_family : &misc_vm_page_family;
 
     block_meta_data_t *free_block_meta_data = NULL;
 
     free_block_meta_data = mm_allocate_free_data_block(
-                            &misc_vm_page_family,  bytes);
+                             misc_vm_page_family_global,  bytes);
 
-    misc_vm_page_family.struct_size = bytes;
+     misc_vm_page_family_global->struct_size = bytes;
 
     if(free_block_meta_data){
         memset((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);

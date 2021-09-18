@@ -297,7 +297,7 @@ isis_init(node_t *node ) {
     tcp_stack_register_l2_pkt_trap_rule(
 			node, isis_pkt_trap_rule, isis_pkt_recieve);
 
-    isis_node_info_t *isis_node_info = XCALLOC(1, isis_node_info_t);
+    isis_node_info_t *isis_node_info = XCALLOC(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = isis_node_info;
     isis_node_info->seq_no = 0;
     isis_node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
