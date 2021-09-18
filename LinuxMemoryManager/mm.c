@@ -52,7 +52,8 @@ static mm_instance_t *next_mm_instance = NULL;
 void
 mm_init(){
 
-    SYSTEM_PAGE_SIZE = getpagesize() * 2;
+    if (!SYSTEM_PAGE_SIZE) 
+        SYSTEM_PAGE_SIZE =  getpagesize() * 2;
     gb_hsba = sbrk(0);
     misc_vm_page_family.first_page = NULL;
     memset(&misc_vm_page_family, 0, sizeof(vm_page_family_t));
@@ -150,6 +151,9 @@ mm_instance_t *
 mm_init_new_instance() {
 
     vm_page_t *vm_page = NULL;
+    
+    if (!SYSTEM_PAGE_SIZE) 
+        SYSTEM_PAGE_SIZE =  getpagesize() * 2;
 
     if (vm_page_mm_instance == NULL) {
         vm_page = mm_get_new_vm_page_from_kernel(1);
@@ -157,6 +161,7 @@ mm_init_new_instance() {
 
     if (next_mm_instance == NULL) {
         next_mm_instance = (mm_instance_t *)(vm_page);
+        next_mm_instance->gb_hsba = sbrk(0);
         return next_mm_instance;
     }
 
@@ -166,6 +171,7 @@ mm_init_new_instance() {
     }
 
     next_mm_instance++;
+    next_mm_instance->gb_hsba = sbrk(0);
     return next_mm_instance;
 }
 
