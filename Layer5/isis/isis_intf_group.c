@@ -1,6 +1,8 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
+#include "isis_intf.h"
 #include "isis_intf_group.h"
+
 
 static int
 isis_compare_intf_groups(const avltree_node_t *n1, const avltree_node_t *n2) {
@@ -83,4 +85,44 @@ isis_intf_group_delete_from_intf_grp_db(
 
     isis_node_info = ISIS_NODE_INFO(node);
     avltree_remove(&intf_grp->avl_glue, &isis_node_info->intf_grp_avl_root);
+}
+
+void
+isis_intf_group_add_intf_membership(isis_intf_group_t *intf_grp, 
+                                                                interface_t *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    if (!intf_info) {
+        printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+        return;
+    }
+
+    if (intf_info->intf_grp == intf_grp) return;
+
+    remove_glthread(&intf_info->intf_grp_member_glue);
+    intf_info->intf_grp = intf_grp;
+    glthread_add_next(&intf_grp->intf_list_head, &intf_info->intf_grp_member_glue);
+}
+
+void
+isis_intf_group_remove_intf_membership(isis_intf_group_t *intf_grp,
+                                                                      interface_t *intf) {
+
+     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    if (!intf_info) {
+        printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+        return;
+    }
+
+     if (intf_info->intf_grp != intf_grp) return;
+     intf_info->intf_grp = NULL;
+     remove_glthread(&intf_info->intf_grp_member_glue);
+}
+
+void
+isis_show_interface_group(node_t *node, isis_intf_group_t *intf_grp) {
+
+    
 }

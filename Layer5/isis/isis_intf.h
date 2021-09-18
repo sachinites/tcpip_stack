@@ -1,7 +1,7 @@
 #ifndef  __ISIS_INTF__
 #define __ISIS_INTF__
 
-
+typedef struct isis_intf_group_ isis_intf_group_t;
 typedef struct isis_intf_info_ {
 
     uint16_t hello_interval;
@@ -27,6 +27,7 @@ typedef struct isis_intf_info_ {
 
     /* glue to add to interface group*/
     glthread_t intf_grp_member_glue;
+    isis_intf_group_t *intf_grp;
 } isis_intf_info_t;
 GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info, 
                                             isis_intf_info_t,  intf_grp_member_glue);

@@ -39,6 +39,9 @@
 #define ISIS_ERROR_PROTO_NOT_ENABLE \
     "Error : Protocol not enabled on Device"
 
+#define ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF \
+    "Error : Protocol not enabled on interface"
+
 /* Feature Name for logging */
 #define ISIS_ADJ_MGMT   " ISIS(ADJ MGMT)"
 #define ISIS_LSPDB_MGMT " ISIS(LSPDB MGMT)"
