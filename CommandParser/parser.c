@@ -33,7 +33,7 @@ extern leaf_type_handler leaf_handler_array[LEAF_MAX];
 extern ser_buff_t *tlv_buff;
 char console_name[TERMINAL_NAME_SIZE];
 extern bool
-run_test_case(unsigned char *file_name, uint16_t tc_no);
+run_test_case(char *file_name, uint16_t tc_no);
 
 static bool cmd_recording_enabled = true;
 void parse_file(char *file_name) ;
@@ -359,7 +359,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
     char** tokens = NULL;
     size_t token_cnt = 0;
-    unsigned char file_name[128];
+    char file_name[128];
     CMD_PARSE_STATUS status = COMPLETE;
     
     tokens = tokenizer(input, ' ', &token_cnt);

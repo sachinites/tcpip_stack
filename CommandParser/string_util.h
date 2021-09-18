@@ -57,6 +57,6 @@ int
 grep (char string[], int string_size, char pattern[]);
 
 uint64_t
-string_fetch_integer(unsigned char *string, int string_size, int index);
+string_fetch_integer(char *string, int string_size, int index);
 
 #endif

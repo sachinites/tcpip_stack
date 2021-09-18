@@ -219,7 +219,7 @@ grep (char string[], int string_size, char pattern[]) {
 
     if (!string_size) return 0;
     
-    unsigned char *temp_buff = calloc(1, string_size);
+    char *temp_buff = calloc(1, string_size);
     
     memcpy(temp_buff, string, string_size);
     memset (string, 0, string_size);
@@ -267,14 +267,14 @@ is_number (char *string) {
 
 
 uint64_t
-string_fetch_integer(unsigned char *string, int string_size, int index) {
+string_fetch_integer(char *string, int string_size, int index) {
 
     int count = 0;
     char *token;
 
     if (!string_size) return 0;
 
-    unsigned char *temp_buff = calloc(1, string_size);
+    char *temp_buff = calloc(1, string_size);
     memcpy(temp_buff, string, string_size);
     
     token = strtok(temp_buff, " ");

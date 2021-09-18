@@ -51,8 +51,8 @@ float_validation_handler(leaf_t *leaf, char *value_passed);
 CLI_VAL_RC
 boolean_validation_handler(leaf_t *leaf, char *value_passed);
 
-CLI_VAL_RC
-enable_disable_validation_handler(leaf_t *leaf, char *value_passed);
+int
+enable_disable_validation_handler(char *value_passed);
 
 int
 grep_pattern_validation(char *value_passed);

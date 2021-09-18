@@ -18,13 +18,14 @@
 #include "../../css.h"
 #include "../../libcli.h"
 #include "../../cmdtlv.h"
+#include "../../string_util.h"
 
 #define UT_PARSER_BUFF_MAX_SIZE 2048
 
 /* Global variables for UT parser */
 static int UT_PARSER_MSG_Q_FD; 
 static bool TC_RUNNING = false;
-static unsigned char ut_parser_recv_buff[UT_PARSER_BUFF_MAX_SIZE];
+static char ut_parser_recv_buff[UT_PARSER_BUFF_MAX_SIZE];
 static int ut_parser_recv_buff_data_size;
 static bool ut_parser_debug = false;
 static FILE *ut_log_file = NULL;
@@ -131,7 +132,7 @@ tc_cleanup_result_list(glthread_t *result_head) {
 }
 
 bool
-run_test_case(unsigned char *file_name, uint16_t tc_no) {
+run_test_case(char *file_name, uint16_t tc_no) {
 
     int rc = 0;
     char *token;
@@ -140,7 +141,7 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
     bool tc_found = false;
     glthread_t result_head;
     uint16_t current_tc_no;
-    unsigned char line[512];
+    char line[512];
     uint16_t current_step_no;
     bool is_repeat_cmd = false;
     CMD_PARSE_STATUS status = UNKNOWN;
@@ -151,7 +152,7 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
     FILE *fp = fopen (file_name, "r");
     assert(fp);
 
-    while ( fget_ptr = fgets (line, sizeof(line), fp) ) {
+    while (( fget_ptr = (fgets (line, sizeof(line), fp)))) {
 
             if (strlen(line) == 1 && line[0] == '\n') {
                 printf("\n");
@@ -179,7 +180,7 @@ run_test_case(unsigned char *file_name, uint16_t tc_no) {
                 while (tc_no &&  current_tc_no != tc_no) {
 
                     /* skip to next test case */
-                    while ( fget_ptr = fgets (line, sizeof(line), fp)) {
+                    while (( fget_ptr = fgets (line, sizeof(line), fp))) {
 
                              if (strncmp (line, ":TESTCASE-BEGIN:", strlen(":TESTCASE-BEGIN:"))) {
                                  continue;
@@ -545,7 +546,7 @@ cli_out(unsigned char *buff, size_t buff_size) {
     }
     else {
         assert(buff_size < UT_PARSER_BUFF_MAX_SIZE);
-         if (mq_send(UT_PARSER_MSG_Q_FD, buff , buff_size + 1, 0) == -1 ) {
+         if (mq_send(UT_PARSER_MSG_Q_FD, (char *)buff , (buff_size + 1), 0) == -1 ) {
             printf ("mq_send failed on FD %d, errno = %d\n", UT_PARSER_MSG_Q_FD, errno);
          }
     }

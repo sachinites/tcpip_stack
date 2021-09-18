@@ -248,12 +248,12 @@ substring_occurrence_counter(state_t *from, state_t *to,
                              fsm_output_buff_t *fsm_output_buff){
 
 
-    unsigned int *counter_array = (unsigned int *)(fsm_output_buff->output_buffer);
+    void **counter_array = (void **)(fsm_output_buff->output_buffer);
     unsigned int index = fsm_output_buff->curr_pos;
 
-    if((index * sizeof(unsigned int)) < MAX_FSM_OUTPUT_BUFFER){
+    if((index * sizeof(void *)) < MAX_FSM_OUTPUT_BUFFER){
 
-        counter_array[index] = (unsigned int)(input_buff);
+        counter_array[index] = (void ** )(input_buff);
         fsm_output_buff->curr_pos++;
     }
 }
