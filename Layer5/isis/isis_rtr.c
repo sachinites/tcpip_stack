@@ -12,6 +12,7 @@
 #include "isis_cmdcodes.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
+extern void isis_mem_init();
 
 /* Checkig if protocol enable at node & intf level */
 bool
@@ -46,7 +47,7 @@ isis_free_node_info(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    free(isis_node_info);
+    XFREE(isis_node_info);
     node->node_nw_prop.isis_node_info = NULL;
 
     sprintf(tlb, "%s : Protocol successfully shutdown\n",
@@ -296,7 +297,7 @@ isis_init(node_t *node ) {
     tcp_stack_register_l2_pkt_trap_rule(
 			node, isis_pkt_trap_rule, isis_pkt_recieve);
 
-    isis_node_info_t *isis_node_info = calloc(1, sizeof(isis_node_info_t));
+    isis_node_info_t *isis_node_info = XCALLOC(1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = isis_node_info;
     isis_node_info->seq_no = 0;
     isis_node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
@@ -318,6 +319,7 @@ isis_one_time_registration() {
 
     nfc_intf_register_for_events(isis_interface_updates);
     nfc_register_for_pkt_tracing(ISIS_ETH_PKT_TYPE, isis_print_pkt);
+    isis_mem_init();
 }
 
 void

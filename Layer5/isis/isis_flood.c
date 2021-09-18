@@ -12,15 +12,6 @@ extern void
 isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv);
 
-typedef struct isis_lsp_xmit_elem_ {
-
-    isis_pkt_t *lsp_pkt;
-    glthread_t glue;
-} isis_lsp_xmit_elem_t;
-GLTHREAD_TO_STRUCT(glue_to_lsp_xmit_elem, 
-    isis_lsp_xmit_elem_t, glue);
-
-
 static void
 isis_assign_lsp_src_mac_addr(interface_t *intf,
                              isis_pkt_t *lsp_pkt) {
@@ -95,7 +86,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         lsp_pkt->flood_queue_count--;
         isis_node_info->pending_lsp_flood_count--;
         
-        free(lsp_xmit_elem);
+        XFREE(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
     
@@ -150,7 +141,7 @@ isis_queue_lsp_pkt_for_transmission(
     isis_node_info = ISIS_NODE_INFO(intf->att_node);
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
-        calloc(1, sizeof(isis_lsp_xmit_elem_t));
+        XCALLOC(1, isis_lsp_xmit_elem_t);
     
     init_glthread(&lsp_xmit_elem->glue);
     lsp_xmit_elem->lsp_pkt = lsp_pkt;
@@ -191,7 +182,7 @@ isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
-        free(lsp_xmit_elem);
+        XFREE(lsp_xmit_elem);
         lsp_pkt->flood_queue_count--;
         isis_deref_isis_pkt(lsp_pkt);
 
@@ -258,7 +249,7 @@ isis_update_lsp_flood_timer_with_new_lsp_pkt(
     else if (!old_isis_timer_data && new_lsp_pkt) {
 
         new_isis_timer_data =
-            calloc(1, sizeof(isis_timer_data_t));
+            XCALLOC(1, isis_timer_data_t);
 
         new_isis_timer_data->node = node;
         new_isis_timer_data->intf = NULL;
@@ -273,7 +264,7 @@ isis_update_lsp_flood_timer_with_new_lsp_pkt(
     else if (old_isis_timer_data && !new_lsp_pkt) {
 
         isis_deref_isis_pkt((isis_pkt_t *)old_isis_timer_data->data);
-        free(old_isis_timer_data);
+        XFREE(old_isis_timer_data);
         assert(0);
         goto done;
     }
@@ -334,12 +325,11 @@ isis_start_lsp_pkt_periodic_flooding(node_t *node) {
         timer any way */
     if (isis_node_info->self_lsp_pkt) {
         
-        isis_timer_data = calloc(1, sizeof(isis_timer_data_t));
+        isis_timer_data = XCALLOC(1, isis_timer_data_t);
         isis_timer_data->node = node;
         isis_timer_data->intf = NULL;
         isis_timer_data->data =
             (void*)(isis_node_info->self_lsp_pkt);
-        isis_timer_data->data_size = sizeof(sizeof(*isis_node_info->self_lsp_pkt));
         isis_ref_isis_pkt(isis_node_info->self_lsp_pkt);
         isis_timer_data->data_size = sizeof(isis_pkt_t);
     }
@@ -372,7 +362,7 @@ isis_stop_lsp_pkt_periodic_flooding(node_t *node){
     if (isis_timer_data) {
 
         isis_deref_isis_pkt((isis_pkt_t *)isis_timer_data->data);
-        free(isis_timer_data);
+        XFREE(isis_timer_data);
     }
     
     isis_node_info->periodic_lsp_flood_timer = NULL;

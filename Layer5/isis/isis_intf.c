@@ -58,7 +58,7 @@ isis_start_sending_hellos(interface_t *intf) {
     char *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 
     isis_timer_data_t *isis_timer_data =
-        calloc(1, sizeof(isis_timer_data_t));
+        XCALLOC(1, isis_timer_data_t);
 
     isis_timer_data->node = node;
     isis_timer_data->intf = intf;
@@ -76,7 +76,7 @@ isis_start_sending_hellos(interface_t *intf) {
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL) {
         printf("Error : Failed to xmit hellos on interface (%s)%s",
             node->node_name, intf->if_name);
-        free(isis_timer_data);
+        XFREE(isis_timer_data);
         return;
     }
 }
@@ -98,7 +98,7 @@ isis_stop_sending_hellos(interface_t *intf){
     tcp_ip_free_pkt_buffer(isis_timer_data->data,
         isis_timer_data->data_size);
 
-    free(isis_timer_data);
+    XFREE(isis_timer_data);
 
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
 }
@@ -134,7 +134,7 @@ isis_enable_protocol_on_interface(interface_t *intf) {
 
     if (! isis_intf_info ) {
 
-        isis_intf_info = calloc(1, sizeof(isis_intf_info_t));
+        isis_intf_info = XCALLOC(1, isis_intf_info_t);
         intf->intf_nw_props.isis_intf_info = isis_intf_info;
         isis_init_isis_intf_info(intf);
     }
@@ -157,7 +157,7 @@ isis_free_intf_info(interface_t *intf) {
     assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head));
     assert(!ISIS_INTF_INFO(intf)->lsp_xmit_job);
 
-    free(ISIS_INTF_INFO(intf));
+    XFREE(ISIS_INTF_INFO(intf));
     intf->intf_nw_props.isis_intf_info = NULL;
 }
 

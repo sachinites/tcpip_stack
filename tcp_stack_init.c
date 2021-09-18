@@ -36,9 +36,13 @@ extern void init_spf_algo();
 extern void network_start_pkt_receiver_thread();
 extern void isis_one_time_registration();
 extern void ut_parser_init();
+extern void mm_init();
 
 void
 init_tcp_ip_stack(){
+
+	/* initialize Memory Manager */
+	mm_init();
 
 	/* initialize the Scheduler first */
 	event_dispatcher_init();

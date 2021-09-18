@@ -105,7 +105,7 @@ isis_process_lsp_pkt(node_t *node,
 
     ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
-    new_lsp_pkt = calloc(1, sizeof(isis_pkt_t));
+    new_lsp_pkt = XCALLOC(1, isis_pkt_t);
     new_lsp_pkt->flood_eligibility = true;
     new_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
     new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
@@ -294,7 +294,7 @@ TLV_ADD_DONE:
     
     SET_COMMON_ETH_FCS(eth_hdr, lsp_pkt_size_estimate, 0);
 
-    isis_node_info->self_lsp_pkt = calloc(1, sizeof(isis_pkt_t));
+    isis_node_info->self_lsp_pkt = XCALLOC(1, isis_pkt_t);
     isis_node_info->self_lsp_pkt->flood_eligibility = true;
     isis_node_info->self_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
     isis_node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
@@ -620,11 +620,11 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
 
             isis_timer_data_t *timer_data = (isis_timer_data_t *)
                             wt_elem_get_and_set_app_data(lsp_pkt->expiry_timer, 0);
-            free(timer_data);
+            XFREE(timer_data);
             timer_de_register_app_event(lsp_pkt->expiry_timer);
             lsp_pkt->expiry_timer = NULL;
         }
-        free(lsp_pkt);
+        XFREE(lsp_pkt);
     }    
     return rc;
 }

@@ -21,7 +21,7 @@ isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
 
     if (!gl_lsp_dummy_pkt) {
     
-        gl_lsp_dummy_pkt = calloc(1, sizeof(isis_pkt_t));
+        gl_lsp_dummy_pkt = XCALLOC(1, isis_pkt_t);
 
         pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD +
                     ISIS_LSP_HDR_SIZE;
@@ -687,7 +687,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
     isis_pkt_t *lsp_pkt = (isis_pkt_t *)timer_data->data;
 
     timer_data->data = NULL;
-    free(timer_data);
+    XFREE(timer_data);
 
     timer_de_register_app_event(lsp_pkt->expiry_timer);
     lsp_pkt->expiry_timer = NULL;
@@ -709,7 +709,7 @@ isis_start_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
 
     if (lsp_pkt->expiry_timer) return;
 
-    isis_timer_data_t *timer_data = calloc(1, sizeof(isis_timer_data_t));
+    isis_timer_data_t *timer_data = XCALLOC(1, isis_timer_data_t);
     timer_data->node = node;
     timer_data->data = (void *)lsp_pkt;
     timer_data->data_size = sizeof(isis_pkt_t);
@@ -729,7 +729,7 @@ isis_stop_lsp_pkt_installation_timer(isis_pkt_t *lsp_pkt) {
 
     isis_timer_data_t *timer_data = wt_elem_get_and_set_app_data(
                                         lsp_pkt->expiry_timer, 0);
-    free(timer_data);                                 
+    XFREE(timer_data);                                 
     timer_de_register_app_event(lsp_pkt->expiry_timer);
     lsp_pkt->expiry_timer = NULL;
 }
