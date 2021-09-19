@@ -4,6 +4,7 @@
 typedef struct isis_intf_group_ isis_intf_group_t;
 typedef struct isis_intf_info_ {
 
+    interface_t *intf;
     uint16_t hello_interval;
 
     /*  Timer to retransmit hellos out of

@@ -120,6 +120,8 @@ isis_init_isis_intf_info (interface_t *intf) {
     isis_intf_info->cost = ISIS_DEFAULT_INTF_COST;
     init_glthread(&isis_intf_info->adj_list_head);
     init_glthread(&isis_intf_info->intf_grp_member_glue);
+    /* Back Linkage */
+    isis_intf_info->intf = intf;
 }
 
 void

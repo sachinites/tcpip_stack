@@ -6,6 +6,7 @@
 #include "isis_adjacency.h"
 #include "isis_events.h"
 #include "isis_flood.h"
+#include "isis_intf_group.h"
 
 void
  isis_mem_init() {
@@ -21,4 +22,5 @@ void
      MM_REG_STRUCT(0, isis_node_info_t);
      MM_REG_STRUCT(0, isis_intf_info_t);
      MM_REG_STRUCT(0, isis_lsp_xmit_elem_t);
+     MM_REG_STRUCT(0, isis_intf_group_t);
  }

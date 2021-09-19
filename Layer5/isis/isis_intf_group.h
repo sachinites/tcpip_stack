@@ -32,15 +32,24 @@ isis_intf_group_delete_from_intf_grp_db(
             node_t *node, isis_intf_group_t *intf_grp);
 
 
-void
+int
 isis_intf_group_add_intf_membership(isis_intf_group_t *intf_grp, 
                                                                 interface_t *intf);
 
-void
+int
 isis_intf_group_remove_intf_membership(isis_intf_group_t *intf_grp,
                                                                       interface_t *intf);
 
-void
-isis_show_interface_group(node_t *node, isis_intf_group_t *intf_grp);
+uint32_t
+isis_show_one_interface_group(node_t *node, isis_intf_group_t *intf_grp);
+
+uint32_t
+isis_show_all_interface_group(node_t *node);
+
+int
+isis_config_intf_grp(node_t *node, char *if_grp_name);
+
+int
+isis_un_config_intf_grp(node_t *node, char *if_grp_name);
 
 #endif /* __ISIS_INTF_GRP__*/

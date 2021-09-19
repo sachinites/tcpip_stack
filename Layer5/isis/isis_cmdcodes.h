@@ -29,5 +29,7 @@
 #define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP   12
 /* config node <node-name> protocol isis interface <if-name> interface-group <grp-name>*/
 #define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP   13
+/* show node <node-name> protocol isis interface-groups*/
+#define CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS 14
 
 #endif /* __ISIS_CMDCODES__ */

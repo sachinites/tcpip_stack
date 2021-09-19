@@ -7,6 +7,7 @@
 #include "isis_const.h"
 #include "isis_lspdb.h"
 #include "isis_flood.h"
+#include "isis_intf_group.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -15,8 +16,10 @@ isis_config_handler(param_t *param,
 
     int cmdcode = -1;
     node_t *node = NULL;
-    char *node_name = NULL;
     tlv_struct_t *tlv = NULL;
+    char *node_name = NULL;
+    char *if_grp_name = NULL;
+    
     uint32_t ovl_timeout_val = 0;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
@@ -27,6 +30,8 @@ isis_config_handler(param_t *param,
             node_name = tlv->value;
         else if (strncmp(tlv->leaf_id, "timeout-val", strlen("timeout-val")) ==0)
             ovl_timeout_val = atoi(tlv->value);
+        else if (strncmp(tlv->leaf_id, "if-grp-name", strlen("if-grp-name")) ==0)
+            if_grp_name = tlv->value;
         else
             assert(0);
    } TLV_LOOP_END;
@@ -67,6 +72,14 @@ isis_config_handler(param_t *param,
                 default: ;
          }
         break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP:
+            switch(enable_or_disable) {
+                case CONFIG_ENABLE:
+                    return isis_config_intf_grp(node, if_grp_name);
+                case CONFIG_DISABLE:
+                    return isis_un_config_intf_grp(node, if_grp_name);
+                default: ;
+         }
         default: ;
     }
     return 0;
@@ -80,10 +93,12 @@ isis_intf_config_handler(param_t *param,
 
     int cmdcode = -1;
     node_t *node = NULL;
-    char *node_name = NULL;
     char *intf_name = NULL;
     interface_t *intf = NULL;
     tlv_struct_t *tlv = NULL;
+    char *node_name = NULL;
+
+    char *if_grp_name = NULL;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -93,6 +108,8 @@ isis_intf_config_handler(param_t *param,
             node_name = tlv->value;
         else if (strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
             intf_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "if-grp-name", strlen("if-grp-name")) == 0)
+            if_grp_name = tlv->value;
         else
             assert(0);
    } TLV_LOOP_END;
@@ -137,6 +154,32 @@ isis_intf_config_handler(param_t *param,
                 default: ;
             }
             break;
+            case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP:
+                intf = node_get_intf_by_name(node, intf_name);
+                if (!intf) {
+                    printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+                }
+
+                isis_intf_group_t *intf_grp = isis_look_up_intf_group(node, if_grp_name);
+                
+                if (!intf_grp) {
+                    printf("Error : Interface Group do not exist\n");
+                    return -1;
+                }
+
+                switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    if (!isis_node_intf_is_enable(intf)) {
+                        printf (ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+                        return -1;
+                    }
+                    return isis_intf_group_add_intf_membership(intf_grp, intf);    
+                case CONFIG_DISABLE:
+                    return isis_intf_group_remove_intf_membership(intf_grp, intf);
+                default:;
+                }
         default: ;
     }
     return 0;
@@ -192,6 +235,9 @@ isis_show_handler(param_t *param,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP:
             isis_show_one_lsp_pkt_detail(node, rtr_id_str);
             break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
+            isis_show_all_interface_group(node);
+            break;
         default: ;
     }
     return 0;
@@ -245,6 +291,22 @@ isis_config_cli_tree(param_t *param) {
                 }
             }
         }
+        
+        {
+            /* conf node <node-name> [no] protocol isis interface-group ... */
+            static param_t interface_group;
+            init_param(&interface_group, CMD, "interface-group", 0, 0, INVALID, 0, "interface-group");
+            libcli_register_param(&isis_proto, &interface_group);
+            {
+                /* conf node <node-name> [no] protocol isis interface-group <if-grp-name> */
+                static param_t if_grp_name;
+                init_param(&if_grp_name, LEAF, 0, isis_config_handler, 0, STRING, "if-grp-name",
+                        ("Interface Group Name"));
+                libcli_register_param(&interface_group, &if_grp_name);
+                set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP);
+            }
+        }
+
         {
             /* conf node <node-name> [no] protocol isis interface ... */
             static param_t interface;
@@ -270,6 +332,20 @@ isis_config_cli_tree(param_t *param) {
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
                 set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE);
+                {
+                    /*  conf node <node-name> [no] protocol isis interface <if-name> interface-group */
+                    static param_t intf_grp;
+                    init_param(&intf_grp, CMD, "interface-group", 0, 0, INVALID, 0, "interface-group");
+                    libcli_register_param(&if_name, &intf_grp);
+                    {
+                        /*  conf node <node-name> [no] protocol isis interface <if-name> interface-group <if-grp-name>*/
+                        static param_t if_grp_name;
+                        init_param(&if_grp_name, LEAF, 0, isis_intf_config_handler, 0, STRING, "if-grp-name",
+                                   ("Interface Group Name"));
+                        libcli_register_param(&intf_grp, &if_grp_name);
+                        set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP);
+                    }
+                }
             }
             {
                 /*  conf node <node-name> [no] protocol isis interface all */
@@ -327,6 +403,12 @@ isis_show_cli_tree(param_t *param) {
 	            init_param(&event_counters, CMD, "event-counters", isis_show_handler, 0, INVALID, 0, "event counters");
 	            libcli_register_param(&isis_proto, &event_counters);
 	            set_param_cmd_code(&event_counters, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS);
+        }
+        {
+            static param_t intf_grps;
+            init_param(&intf_grps, CMD, "interface-groups", isis_show_handler, 0, INVALID, 0, "interface-groups");
+            libcli_register_param(&isis_proto, &intf_grps);
+            set_param_cmd_code(&intf_grps, CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS);
         }
     }
     return 0;
