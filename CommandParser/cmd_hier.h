@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "libcliid.h"
 #include "clistd.h"
 
@@ -137,10 +138,19 @@ param_t *
 libcli_get_show_brief_extension_param(void);
 
 static inline int
-is_cmd_string_match(param_t *param, const char *str){
-    return (strncmp(param->cmd_type.cmd->cmd_name, 
-            str, 
-            strlen(str)));        
+is_cmd_string_match(param_t *param, const char *str, bool *ex_match){
+    
+    *ex_match = false;
+    int str_len = strlen(str);
+    int str_len_param = strlen(param->cmd_type.cmd->cmd_name);
+
+    int rc =  (strncmp(param->cmd_type.cmd->cmd_name, 
+                   str, str_len));
+
+    if ( !rc && (str_len == str_len_param )) {
+        *ex_match = true;
+    }
+    return rc;
 }
 
 static inline param_t **

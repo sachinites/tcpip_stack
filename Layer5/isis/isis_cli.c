@@ -192,6 +192,7 @@ isis_show_handler(param_t *param,
                   op_mode enable_or_disable){
 
     int cmdcode = -1;
+    uint32_t rc = 0;
     node_t *node = NULL;
     char *node_name = NULL;
     char *intf_name = NULL;
@@ -236,7 +237,8 @@ isis_show_handler(param_t *param,
             isis_show_one_lsp_pkt_detail(node, rtr_id_str);
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
-            isis_show_all_interface_group(node);
+            rc = isis_show_all_interface_group(node);
+            cli_out(node->print_buff, rc);
             break;
         default: ;
     }

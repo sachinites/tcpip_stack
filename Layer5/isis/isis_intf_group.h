@@ -41,7 +41,7 @@ isis_intf_group_remove_intf_membership(isis_intf_group_t *intf_grp,
                                                                       interface_t *intf);
 
 uint32_t
-isis_show_one_interface_group(node_t *node, isis_intf_group_t *intf_grp);
+isis_show_one_interface_group(node_t *node, isis_intf_group_t *intf_grp, uint32_t rc);
 
 uint32_t
 isis_show_all_interface_group(node_t *node);

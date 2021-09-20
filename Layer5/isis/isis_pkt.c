@@ -199,7 +199,7 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     is_proto_shutting_down = isis_is_protocol_shutdown_in_progress(node);
 
     /* Dont use the fn isis_is_protocol_enable_on_node( ) because
-       we want to generate purge LSP when protocol is shutting down
+        we want to generate purge LSP when protocol is shutting down.
     */
     if (!isis_node_info) return;
 
@@ -382,7 +382,7 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
                 sizeof(isis_pkt_hdr_t) +                 /*ISIS pkt hdr*/ 
                 (TLV_OVERHEAD_SIZE * 6) + /*There shall be Six TLVs, hence 4 TLV overheads*/
                 NODE_NAME_SIZE +    /* Data length of TLV: ISIS_TLV_NODE_NAME*/
-                4  +                /* Data length of ISIS_TLV_RTR_ID which is 4*/
+                4  +                 /* Data length of ISIS_TLV_RTR_ID which is 4*/
                 4   +                /* Data length of ISIS_TLV_IF_IP which is 16*/
                 4   +                /* Data length of ISIS_TLV_IF_INDEX which is 4*/
                 4   +                /* Data length for ISIS_ISIS_TLV_HOLD_TIME */
@@ -529,14 +529,12 @@ isis_print_hello_pkt(byte *buff,
                 break;
             default:    ;
         }
-
     } ITERATE_TLV_END(hello_tlv_buffer, tlv_type,
                         tlv_len, tlv_value, hello_tlv_buffer_size)
     
     rc -= strlen(" :: ");
     return rc;
 }
-
 
 void
 isis_print_pkt(void *arg, size_t arg_size) {
@@ -578,7 +576,7 @@ isis_cancel_lsp_pkt_generation_task(node_t *node) {
     }
 
     task_cancel_job(isis_node_info->lsp_pkt_gen_task);
-    isis_node_info->lsp_pkt_gen_task = NULL;    
+    isis_node_info->lsp_pkt_gen_task = NULL;
 }
 
 uint32_t *
@@ -601,10 +599,10 @@ isis_get_lsp_pkt_seq_no(isis_pkt_t *lsp_pkt) {
 
 uint32_t
 isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
-    
+
     uint32_t rc;
 
-    assert(lsp_pkt->pkt && 
+    assert(lsp_pkt->pkt &&
            lsp_pkt->pkt_size &&
            lsp_pkt->ref_count);
 
@@ -612,7 +610,7 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
     rc = lsp_pkt->ref_count;
 
     if (lsp_pkt->ref_count == 0) {
-    
+
         assert(!lsp_pkt->installed_in_db);
         tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->pkt_size);
         
@@ -625,14 +623,14 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
             lsp_pkt->expiry_timer = NULL;
         }
         XFREE(lsp_pkt);
-    }    
+    }
     return rc;
 }
 
 void
 isis_ref_isis_pkt(isis_pkt_t *isis_pkt) {
 
-    assert(isis_pkt->pkt && 
+    assert(isis_pkt->pkt &&
            isis_pkt->pkt_size);
 
     isis_pkt->ref_count++;
