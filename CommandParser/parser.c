@@ -33,7 +33,7 @@ extern leaf_type_handler leaf_handler_array[LEAF_MAX];
 extern ser_buff_t *tlv_buff;
 char console_name[TERMINAL_NAME_SIZE];
 extern bool
-run_test_case(unsigned char *file_name, uint16_t tc_no);
+run_test_case(char *file_name, uint16_t tc_no);
 
 static bool cmd_recording_enabled = true;
 void parse_file(char *file_name) ;
@@ -59,23 +59,33 @@ get_last_command(){
 }
 
 param_t*
-find_matching_param(param_t **options, const char *cmd_name){
+find_matching_param (param_t **options, const char *cmd_name){
     
-    int i = 0, leaf_index = -1,
-        j = 0,
-        choice = -1;
+    int i = 0,
+         j = 0,
+        choice = -1,
+        leaf_index = -1;
+         
+    bool ex_match = false;
     
     memset(array_of_possibilities, 0, POSSIBILITY_ARRAY_SIZE * sizeof(param_t *));
 
-    for(; options[i] && i <= CHILDREN_END_INDEX; i++){
-        if(IS_PARAM_LEAF(options[i])){
+    for (; options[i] && i <= CHILDREN_END_INDEX; i++) {
+
+        if (IS_PARAM_LEAF(options[i])) {
             leaf_index = i;
             continue;
         }
 
-        if(is_cmd_string_match(options[i], cmd_name) == 0){
-            array_of_possibilities[j++] = options[i];
-            assert(j < POSSIBILITY_ARRAY_SIZE);
+        if (is_cmd_string_match(options[i], cmd_name, &ex_match) == 0) {
+
+            if (ex_match) {
+                 array_of_possibilities[ 0 ] = options[i];
+                 j = 1;
+                break;
+            }
+            array_of_possibilities[ j++ ] = options[i];
+            assert (j < POSSIBILITY_ARRAY_SIZE);
             continue;
         }
     }
@@ -167,7 +177,6 @@ build_tlv_buffer(char **tokens,
     param_t *param = get_cmd_tree_cursor();
     CMD_PARSE_STATUS status = COMPLETE;
     op_mode enable_or_disable = MODE_UNKNOWN; 
-
 
     memset(&tlv, 0, sizeof(tlv_struct_t));
 
@@ -359,7 +368,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
     char** tokens = NULL;
     size_t token_cnt = 0;
-    unsigned char file_name[128];
+    char file_name[128];
     CMD_PARSE_STATUS status = COMPLETE;
     
     tokens = tokenizer(input, ' ', &token_cnt);
