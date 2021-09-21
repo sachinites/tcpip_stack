@@ -5,6 +5,7 @@
 #include "isis_adjacency.h"
 #include "isis_rtr.h"
 #include "isis_flood.h"
+#include "isis_intf_group.h"
 
 bool
 isis_node_intf_is_enable(interface_t *intf) {
@@ -192,6 +193,7 @@ isis_disable_protocol_on_interface(interface_t *intf) {
     isis_delete_all_adjacencies(intf);
     isis_intf_purge_lsp_xmit_queue(intf);
     remove_glthread(&isis_intf_info->intf_grp_member_glue);
+    isis_intf_info->intf_grp = NULL;
     isis_check_and_delete_intf_info(intf);
 }
 
@@ -248,6 +250,8 @@ isis_show_interface_protocol_state(interface_t *intf) {
 static void
 isis_handle_interface_up_down (interface_t *intf, bool old_status) {
 
+    bool any_adj_up = false;
+
     if (old_status == false) {
         /* Interace has been no-shut */
         /* 1. Start sending hellos out of interface if it qualifies
@@ -261,7 +265,13 @@ isis_handle_interface_up_down (interface_t *intf, bool old_status) {
     else {
         /* interface has been shut down */
         isis_stop_sending_hellos(intf);
+        any_adj_up = isis_any_adjacency_up_on_interface(intf);
         isis_delete_all_adjacencies(intf);
+
+        if (any_adj_up) {
+            isis_intf_grp_refresh_member_interface(intf);
+        }
+
         isis_schedule_lsp_pkt_generation(intf->att_node,
             isis_event_admin_config_changed);
     }

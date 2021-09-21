@@ -68,7 +68,8 @@ isis_check_delete_node_info(node_t *node) {
     assert(!isis_node_info->self_lsp_pkt);
     assert(!isis_node_info->lsp_pkt_gen_task);
     assert(!isis_node_info->spf_job_task);
-
+    assert(avltree_is_empty(&isis_node_info->intf_grp_avl_root));
+    
     /* Timers */
     assert(!isis_node_info->periodic_lsp_flood_timer);
     assert(!isis_node_info->reconc.reconciliation_timer);
@@ -96,9 +97,13 @@ isis_protocol_shutdown_now(node_t *node) {
 
     /* Queue All interfaces for Purge */
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
+
         isis_disable_protocol_on_interface(intf);
+        
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
+    isis_intf_grp_cleanup(node);
+
     isis_check_delete_node_info(node);      
 }
 

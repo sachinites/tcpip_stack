@@ -6,7 +6,7 @@
 #include "isis_pkt.h"
 #include "isis_events.h"
 #include "isis_flood.h"
-
+#include "isis_intf_group.h"
 
 static void
 isis_init_adjacency(isis_adjacency_t *adjacency) {
@@ -361,9 +361,12 @@ isis_change_adjacency_state(
             isis_adjacency_t *adjacency,
             isis_adj_state_t new_adj_state) {
 
+    isis_intf_info_t *intf_info;
     node_t *node = adjacency->intf->att_node;
     isis_adj_state_t old_adj_state = adjacency->adj_state;
 
+    intf_info = ISIS_INTF_INFO(adjacency->intf);
+    
     if (old_adj_state != new_adj_state) {
         sprintf(tlb, "%s : Adj %s state moving from %s to %s\n",
             ISIS_ADJ_MGMT, isis_adjacency_name(adjacency),
@@ -411,6 +414,10 @@ isis_change_adjacency_state(
 
                     ISIS_INCREMENT_NODE_STATS(node, adjacency_up_count);
 
+                    if (intf_info->intf_grp) {
+                        isis_intf_grp_refresh_member_interface (intf_info->intf);
+                    }
+
                     if (ISIS_NODE_INFO(node)->adjacency_up_count == 1) {
                         isis_enter_reconciliation_phase(node);
                     }
@@ -434,6 +441,10 @@ isis_change_adjacency_state(
                     ISIS_INCREMENT_NODE_STATS(node,
                                 isis_event_count[isis_event_adj_state_changed]);
                     ISIS_DECREMENT_NODE_STATS(node, adjacency_up_count);
+                   
+                    if (intf_info->intf_grp) {
+                        isis_intf_grp_refresh_member_interface (intf_info->intf);
+                    }
 
                     if (isis_is_reconciliation_in_progress(node) &&
                         ISIS_NODE_INFO(node)->adjacency_up_count){

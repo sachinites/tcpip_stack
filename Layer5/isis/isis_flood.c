@@ -132,6 +132,7 @@ isis_queue_lsp_pkt_for_transmission(
         isis_pkt_t *lsp_pkt) {
 
     uint32_t seq_no;
+    interface_t *intf2;
     isis_node_info_t *isis_node_info;
     isis_intf_info_t *isis_intf_info;
     
@@ -139,12 +140,15 @@ isis_queue_lsp_pkt_for_transmission(
 
     if (!lsp_pkt->flood_eligibility) return;
 
+    intf2 = NULL;
     isis_intf_info = ISIS_INTF_INFO(intf);
     isis_node_info = ISIS_NODE_INFO(intf->att_node);
 
+    /*Begin :  Handling interface Group */
     if (isis_intf_grp_is_lsp_pkt_queued_already (intf, lsp_pkt)) {
         
-        sprintf(tlb, "%s : LSP %s Not scheduled to flood out of %s, Reason Intf-grp %s membership\n",
+        sprintf(tlb, "%s : LSP %s Not scheduled to flood out of %s, "
+                        "Reason Intf-grp %s membership\n",
             ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt),
             intf->if_name, isis_intf_info->intf_grp->name);
         tcp_trace(intf->att_node, intf, tlb);
@@ -157,10 +161,20 @@ isis_queue_lsp_pkt_for_transmission(
 
         isis_intf_grp_update_lsp_xmit_seq_no(
                 isis_intf_info->intf_grp, seq_no);
-        sprintf(tlb, "%s : Intf-grp %s updated with seq_no %u\n",
-            ISIS_LSPDB_MGMT, isis_intf_info->intf_grp->name, seq_no);
-        tcp_trace(intf->att_node, intf, tlb);
+
+        intf2 =  isis_intf_grp_get_first_active_intf_grp_member(
+                    intf->att_node, isis_intf_info->intf_grp);
+
+        if (intf2) {
+            isis_intf_info = ISIS_INTF_INFO(intf2);
+        }
+
+        sprintf(tlb, "%s : Intf-grp %s updated with seq_no %u, egress interface %s\n",
+            ISIS_LSPDB_MGMT, isis_intf_info->intf_grp->name, seq_no,
+            intf2 ? intf2->if_name : "Nil");
+        tcp_trace(intf->att_node, intf2, tlb);
     }
+    /*End :  Handling interface Group */
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
         XCALLOC(0, 1, isis_lsp_xmit_elem_t);
@@ -174,7 +188,7 @@ isis_queue_lsp_pkt_for_transmission(
 
     sprintf(tlb, "%s : LSP %s scheduled to flood out of %s\n",
             ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt),
-            intf->if_name);
+            intf2 ? intf2->if_name : intf->if_name);
     tcp_trace(intf->att_node, intf, tlb);
 
     lsp_pkt->flood_queue_count++;
@@ -183,7 +197,7 @@ isis_queue_lsp_pkt_for_transmission(
     if (!isis_intf_info->lsp_xmit_job) {
 
         isis_intf_info->lsp_xmit_job =
-            task_create_new_job(intf, isis_lsp_xmit_job, TASK_ONE_SHOT);
+            task_create_new_job(intf2 ? intf2 : intf, isis_lsp_xmit_job, TASK_ONE_SHOT);
     }
 }
 

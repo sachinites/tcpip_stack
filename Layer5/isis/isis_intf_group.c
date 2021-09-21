@@ -2,6 +2,7 @@
 #include "isis_rtr.h"
 #include "isis_intf.h"
 #include "isis_intf_group.h"
+#include "isis_adjacency.h"
 
 static int
 isis_compare_intf_groups (const avltree_node_t *n1, const avltree_node_t *n2) {
@@ -85,6 +86,34 @@ isis_intf_group_delete_from_intf_grp_db (
     avltree_remove(&intf_grp->avl_glue, &isis_node_info->intf_grp_avl_root);
 }
 
+static bool
+isis_intf_grp_is_member_intf_active(interface_t *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    isis_adjacency_t *adjacency =
+        isis_find_adjacency_on_interface(intf_info->intf, 0);
+
+    if (intf_info->intf_grp &&
+         adjacency               &&
+         adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+             
+             return true;
+    }
+    return false;
+}
+
+static int
+intf_grp_membership_add_comp_fn(void *n1, void *n2) {
+
+    isis_intf_info_t *intf_info1 = (isis_intf_info_t *)n1;
+
+    if (isis_intf_grp_is_member_intf_active(intf_info1->intf)) {
+        return -1;
+    }
+    return 1;
+}
+
 int
 isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp, 
                                                                 interface_t *intf) {
@@ -97,11 +126,29 @@ isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp,
     }
 
     if (intf_info->intf_grp == intf_grp) return -1;
-
-    remove_glthread(&intf_info->intf_grp_member_glue);
     intf_info->intf_grp = intf_grp;
-    glthread_add_next(&intf_grp->intf_list_head, &intf_info->intf_grp_member_glue);
+    isis_intf_grp_refresh_member_interface(intf);
     return 0;
+}
+
+void
+isis_intf_grp_refresh_member_interface(interface_t *intf) {
+
+    isis_intf_group_t *intf_grp;
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    intf_grp = intf_info->intf_grp;
+    assert(intf_grp);
+
+    remove_glthread (&intf_info->intf_grp_member_glue);
+    glthread_priority_insert (&intf_grp->intf_list_head,
+                                           &intf_info->intf_grp_member_glue,
+                                           intf_grp_membership_add_comp_fn,
+                                           offsetof(isis_intf_info_t, intf_grp_member_glue));
+
+    sprintf(tlb, "%s : Refresh interface Grp %s with interface %s\n",
+            ISIS_ADJ_MGMT, intf_grp->name, intf->if_name);
+
+    tcp_trace(intf->att_node, intf, tlb);
 }
 
 int
@@ -140,7 +187,10 @@ isis_show_one_interface_group (node_t *node, isis_intf_group_t *intf_grp, uint32
     ITERATE_GLTHREAD_BEGIN(&intf_grp->intf_list_head, curr) {
 
         intf_info = intf_grp_member_glue_to_intf_info(curr);
-        rc += sprintf (buff + rc, "  %s  ", intf_info->intf->if_name);
+        rc += sprintf (buff + rc, "  %s%s  ",
+            intf_info->intf->if_name,
+            isis_intf_grp_is_member_intf_active(intf_info->intf) ? "*" : "");
+
     } ITERATE_GLTHREAD_END(&intf_grp->intf_list_head, curr) 
 
      rc += sprintf (buff + rc, "\n");
@@ -251,3 +301,46 @@ isis_intf_grp_update_lsp_xmit_seq_no(
         intf_grp->last_lsp_xmit_seq_no = seq_no;
 }
 
+void
+ isis_intf_grp_cleanup(node_t *node) {
+
+    glthread_t *curr;
+    isis_intf_info_t *intf_info;
+    avltree_node_t *avl_node;
+    isis_intf_group_t *intf_grp;
+    
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_node_info) return;
+
+    ITERATE_AVL_TREE_BEGIN(&isis_node_info->intf_grp_avl_root, avl_node) {
+
+        intf_grp = avltree_container_of(avl_node, isis_intf_group_t, avl_glue);
+        
+        ITERATE_GLTHREAD_BEGIN(&intf_grp->intf_list_head, curr) {
+
+            intf_info =  intf_grp_member_glue_to_intf_info(curr);
+            remove_glthread(&intf_info->intf_grp_member_glue);
+            intf_info->intf_grp = NULL;
+
+        } ITERATE_GLTHREAD_END(intf_grp->intf_list_head, curr);
+
+        isis_intf_group_delete_from_intf_grp_db(node, intf_grp);
+
+    } ITERATE_AVL_TREE_END;
+ }
+
+ interface_t *
+ isis_intf_grp_get_first_active_intf_grp_member (
+            node_t *node,
+            isis_intf_group_t *intf_grp) {
+
+    glthread_t *first;
+    isis_intf_info_t *intf_info;
+
+    first = intf_grp->intf_list_head.right;
+    
+    if (!first) return NULL;
+    intf_info = intf_grp_member_glue_to_intf_info(first);
+    return intf_info->intf;
+ }

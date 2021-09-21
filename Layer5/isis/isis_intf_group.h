@@ -59,5 +59,15 @@ void
 isis_intf_grp_update_lsp_xmit_seq_no(
         isis_intf_group_t *intf_grp, uint32_t seq_no);
 
+void
+isis_intf_grp_refresh_member_interface(interface_t *intf);
 
+void
+ isis_intf_grp_cleanup(node_t *node) ;
+
+interface_t *
+isis_intf_grp_get_first_active_intf_grp_member (
+            node_t *node,
+            isis_intf_group_t *intf_grp);
+            
 #endif /* __ISIS_INTF_GRP__*/
