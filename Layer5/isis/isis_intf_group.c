@@ -326,7 +326,8 @@ void
         } ITERATE_GLTHREAD_END(intf_grp->intf_list_head, curr);
 
         isis_intf_group_delete_from_intf_grp_db(node, intf_grp);
-
+        XFREE(intf_grp);
+        
     } ITERATE_AVL_TREE_END;
  }
 

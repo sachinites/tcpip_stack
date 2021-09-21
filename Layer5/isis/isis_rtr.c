@@ -15,7 +15,7 @@
 extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
 
-/* Checkig if protocol enable at node & intf level */
+/* Checking if protocol enable at node & intf level */
 bool
 isis_is_protocol_enable_on_node(node_t *node) {
 
@@ -62,27 +62,26 @@ isis_check_delete_node_info(node_t *node) {
 
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
-    if(!isis_node_info) return;
+    if ( !isis_node_info ) return;
 
     /* Scheduled jobs */
-    assert(!isis_node_info->self_lsp_pkt);
-    assert(!isis_node_info->lsp_pkt_gen_task);
-    assert(!isis_node_info->spf_job_task);
-    assert(avltree_is_empty(&isis_node_info->intf_grp_avl_root));
+    assert (!isis_node_info->self_lsp_pkt);
+    assert (!isis_node_info->lsp_pkt_gen_task);
+    assert (!isis_node_info->spf_job_task);
+    assert (avltree_is_empty(&isis_node_info->intf_grp_avl_root));
     
     /* Timers */
-    assert(!isis_node_info->periodic_lsp_flood_timer);
-    assert(!isis_node_info->reconc.reconciliation_timer);
-    assert(!isis_node_info->ovl_data.ovl_timer);
+    assert (!isis_node_info->periodic_lsp_flood_timer);
+    assert (!isis_node_info->reconc.reconciliation_timer);
+    assert (!isis_node_info->ovl_data.ovl_timer);
 
     /* Should not have any pending work to do */
-    assert(!isis_node_info->shutdown_pending_work_flags);
-    isis_free_node_info(node);
+    assert (!isis_node_info->shutdown_pending_work_flags);
+    isis_free_node_info (node);
 }
 
-
 static void
-isis_protocol_shutdown_now(node_t *node) {
+isis_protocol_shutdown_now (node_t *node) {
 
     interface_t *intf;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);

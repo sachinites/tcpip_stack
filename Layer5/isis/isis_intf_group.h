@@ -18,7 +18,8 @@ isis_intf_group_t *
 isis_intf_grp_look_up(node_t *node, char *intf_grp_name);
 
 bool
-isis_intf_group_insert_in_intf_grp_db(node_t *node, isis_intf_group_t *intf_grp);
+isis_intf_group_insert_in_intf_grp_db(node_t *node, 
+            isis_intf_group_t *intf_grp);
 
 isis_intf_group_t *
 isis_intf_group_create_new(char *grp_name);
@@ -41,7 +42,8 @@ isis_intf_group_remove_intf_membership(isis_intf_group_t *intf_grp,
                                                                       interface_t *intf);
 
 uint32_t
-isis_show_one_interface_group(node_t *node, isis_intf_group_t *intf_grp, uint32_t rc);
+isis_show_one_interface_group(node_t *node, 
+            isis_intf_group_t *intf_grp, uint32_t rc);
 
 uint32_t
 isis_show_all_interface_group(node_t *node);
