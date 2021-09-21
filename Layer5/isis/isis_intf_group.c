@@ -77,7 +77,7 @@ isis_intf_group_delete_by_name_from_intf_grp_db (
 }
 
 void
-isis_intf_group_delete_from_intf_grp_db (
+isis_intf_group_remove_from_intf_grp_db (
             node_t *node, isis_intf_group_t *intf_grp) {
 
     isis_node_info_t *isis_node_info;
@@ -141,9 +141,9 @@ isis_intf_grp_refresh_member_interface(interface_t *intf) {
 
     remove_glthread (&intf_info->intf_grp_member_glue);
     glthread_priority_insert (&intf_grp->intf_list_head,
-                                           &intf_info->intf_grp_member_glue,
-                                           intf_grp_membership_add_comp_fn,
-                                           offsetof(isis_intf_info_t, intf_grp_member_glue));
+                                            &intf_info->intf_grp_member_glue,
+                                            intf_grp_membership_add_comp_fn,
+                                            offsetof(isis_intf_info_t, intf_grp_member_glue));
 
     sprintf(tlb, "%s : Refresh interface Grp %s with interface %s\n",
             ISIS_ADJ_MGMT, intf_grp->name, intf->if_name);
@@ -167,6 +167,31 @@ isis_intf_group_remove_intf_membership (isis_intf_group_t *intf_grp,
      remove_glthread(&intf_info->intf_grp_member_glue);
      return 0;
 }
+
+void
+isis_dynamic_intf_group_remove_intf_membership (
+                    isis_adjacency_t *adjacency) { 
+                        
+    interface_t *intf = adjacency->intf;
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(adjacency->intf);
+    isis_intf_group_t *intf_grp = intf_info->intf_grp;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(adjacency->intf->att_node);
+    
+    if ( !node_info ||
+          !node_info->dyn_intf_grp ||
+          ! intf_info ||
+          ! intf_grp ) return;
+
+    isis_intf_group_remove_intf_membership (intf_grp, intf_info->intf);
+
+    if (IS_GLTHREAD_LIST_EMPTY(&intf_grp->intf_list_head) &&
+         node_info->dyn_intf_grp) {
+
+        isis_intf_group_remove_from_intf_grp_db(intf->att_node, intf_grp);
+        XFREE(intf_grp);
+    }
+}
+
 
 uint32_t
 isis_show_one_interface_group (node_t *node, isis_intf_group_t *intf_grp, uint32_t rc) {
@@ -226,9 +251,17 @@ int
 isis_config_intf_grp (node_t *node, char *if_grp_name) {
 
     isis_intf_group_t *intf_grp;
+    isis_node_info_t *node_info;
 
     if (!isis_is_protocol_enable_on_node(node)) {
         printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        return -1;
+    }
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (node_info->dyn_intf_grp) {
+        printf("Error : Dynamic Intf Group Is Enabled\n");
         return -1;
     }
 
@@ -262,7 +295,7 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
         isis_intf_group_remove_intf_membership(intf_grp, intf_info->intf);
     } ITERATE_GLTHREAD_END(&intf_grp->intf_list_head, curr)
     
-    isis_intf_group_delete_from_intf_grp_db(node, intf_grp);
+    isis_intf_group_remove_from_intf_grp_db(node, intf_grp);
     return 0;
 }
 
@@ -276,7 +309,7 @@ isis_intf_grp_test_membership ( isis_intf_group_t *intf_grp,
 }
 
 bool
-isis_intf_grp_is_lsp_pkt_queued_already(interface_t *intf, isis_pkt_t *lsp_pkt) {
+isis_intf_grp_is_lsp_pkt_queued_already (interface_t *intf, isis_pkt_t *lsp_pkt) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -325,7 +358,7 @@ void
 
         } ITERATE_GLTHREAD_END(intf_grp->intf_list_head, curr);
 
-        isis_intf_group_delete_from_intf_grp_db(node, intf_grp);
+        isis_intf_group_remove_from_intf_grp_db(node, intf_grp);
         XFREE(intf_grp);
         
     } ITERATE_AVL_TREE_END;
@@ -345,3 +378,93 @@ void
     intf_info = intf_grp_member_glue_to_intf_info(first);
     return intf_info->intf;
  }
+
+ int
+ isis_config_dynamic_intf_grp (node_t *node) {
+
+     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if ( !node_info ) {
+
+        printf (ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        return -1;
+    }
+
+    node_info->dyn_intf_grp = true;
+    return 0;
+ }
+
+ int
+ isis_un_config_dynamic_intf_grp (node_t *node) {
+
+     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+     if (!node_info) {
+         return 0;
+     }
+
+     node_info->dyn_intf_grp = false;
+     isis_intf_grp_cleanup(node);
+     return 0;
+ }
+
+void
+isis_dynamic_intf_grp_update_on_adjacency_create (
+                    isis_adjacency_t *adjacency) {
+
+    node_t *node;
+    interface_t *intf;
+    isis_intf_info_t *intf_info;
+    isis_intf_group_t *intf_grp;
+    
+    intf = adjacency->intf;
+    intf_info = ISIS_INTF_INFO(intf);
+    node = intf->att_node;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info || !intf_info || !node_info->dyn_intf_grp) {
+        return;
+    }
+
+    char *nbr_rtr_id_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_intf_ip, 0);
+    intf_grp = isis_intf_grp_look_up (node, nbr_rtr_id_str);
+
+    if (!intf_grp) {
+        intf_grp = isis_intf_group_create_new (nbr_rtr_id_str);
+        assert(isis_intf_group_insert_in_intf_grp_db(node,  intf_grp));
+    }
+
+    assert(!intf_info->intf_grp);
+    isis_intf_group_add_intf_membership(intf_grp, intf);
+}
+
+void
+isis_dynamic_intf_grp_update_on_adjacency_delete (
+                    isis_adjacency_t *adjacency) {
+
+    node_t *node;
+    interface_t *intf;
+    isis_intf_group_t *intf_grp;
+    isis_intf_info_t *intf_info;
+    
+    intf = adjacency->intf;
+    intf_info = ISIS_INTF_INFO(intf);
+    node = intf->att_node;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info || !intf_info || !node_info->dyn_intf_grp) {
+        return;
+    }
+
+    char *nbr_rtr_id_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_intf_ip, 0);
+    intf_grp = isis_intf_grp_look_up (node, nbr_rtr_id_str);
+    assert(intf_grp);
+
+   isis_intf_group_remove_intf_membership (intf_grp, intf);
+
+    if (IS_GLTHREAD_LIST_EMPTY(&intf_grp->intf_list_head)) {
+
+        isis_intf_group_remove_from_intf_grp_db(node, intf_grp);
+        XFREE(intf_grp);
+    }
+}

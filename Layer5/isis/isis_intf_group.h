@@ -3,6 +3,8 @@
 
 #define ISIS_INTF_GRP_NAME_LEN  32
 
+typedef struct isis_adjacency_ isis_adjacency_t;
+
 typedef struct isis_intf_group_ {
 
     char name[ISIS_INTF_GRP_NAME_LEN];  /* key */
@@ -29,7 +31,7 @@ isis_intf_group_delete_by_name_from_intf_grp_db(
             node_t *node, char *intf_grp_name);
 
 void
-isis_intf_group_delete_from_intf_grp_db(
+isis_intf_group_remove_from_intf_grp_db(
             node_t *node, isis_intf_group_t *intf_grp);
 
 
@@ -72,4 +74,18 @@ isis_intf_grp_get_first_active_intf_grp_member (
             node_t *node,
             isis_intf_group_t *intf_grp);
             
+ int
+ isis_config_dynamic_intf_grp(node_t *node) ;
+
+ int
+ isis_un_config_dynamic_intf_grp(node_t *node) ;
+
+void
+isis_dynamic_intf_grp_update_on_adjacency_create (
+                    isis_adjacency_t *adjacency);
+
+void
+isis_dynamic_intf_grp_update_on_adjacency_delete (
+                    isis_adjacency_t *adjacency);
+
 #endif /* __ISIS_INTF_GRP__*/

@@ -80,6 +80,16 @@ isis_config_handler(param_t *param,
                     return isis_un_config_intf_grp(node, if_grp_name);
                 default: ;
          }
+         break;
+         case CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGFRP:
+             switch(enable_or_disable) {
+                case CONFIG_ENABLE:
+                    return isis_config_dynamic_intf_grp(node);
+                case CONFIG_DISABLE:
+                    return isis_un_config_dynamic_intf_grp(node);
+                default: ;
+         }
+         break;
         default: ;
     }
     return 0;
@@ -254,7 +264,6 @@ int
 isis_config_cli_tree(param_t *param) {
 
     {
-
         /* Enable ISIS on the device at node level
         conf node <node-name> protocol isis
         * Behavior : 
@@ -307,6 +316,13 @@ isis_config_cli_tree(param_t *param) {
                 libcli_register_param(&interface_group, &if_grp_name);
                 set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP);
             }
+        }
+        {
+             static param_t dynamic_interface_group;
+            init_param(&dynamic_interface_group, CMD, "dynamic-interface-group", isis_config_handler, 0, INVALID, 0, 
+                "dynamic-interface-group");
+            libcli_register_param(&isis_proto, &dynamic_interface_group);
+            set_param_cmd_code(&dynamic_interface_group,  CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGFRP);
         }
 
         {

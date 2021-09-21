@@ -56,11 +56,11 @@ isis_process_hello_pkt(node_t *node,
                                        sizeof(isis_pkt_hdr_t); 
 
     /*Fetch the IF IP Address Value from TLV buffer*/
-    uint32_t *if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv(
-                        hello_tlv_buffer, 
-                        tlv_buff_size, 
-                        ISIS_TLV_IF_IP, 
-                        &intf_ip_len);
+    uint32_t *if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv (
+                                                                hello_tlv_buffer, 
+                                                                tlv_buff_size, 
+                                                                ISIS_TLV_IF_IP, 
+                                                                &intf_ip_len);
 
     /*If no Intf IP, then it is a bad hello*/
     if (!if_ip_addr_int) goto bad_hello;

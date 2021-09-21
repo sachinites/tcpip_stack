@@ -70,6 +70,8 @@ typedef struct isis_node_info_ {
     uint64_t misc_flags;
     /* Tree of interface Groups configured by User */
     avltree_t intf_grp_avl_root;
+    /* Dynamic intf grp */
+    bool dyn_intf_grp;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
