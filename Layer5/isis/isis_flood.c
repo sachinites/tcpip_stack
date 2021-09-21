@@ -7,6 +7,7 @@
 #include "isis_flood.h"
 #include "isis_adjacency.h"
 #include "isis_lspdb.h"
+#include "isis_intf_group.h"
 
 extern void
 isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
@@ -130,6 +131,7 @@ isis_queue_lsp_pkt_for_transmission(
         interface_t *intf,
         isis_pkt_t *lsp_pkt) {
 
+    uint32_t seq_no;
     isis_node_info_t *isis_node_info;
     isis_intf_info_t *isis_intf_info;
     
@@ -139,6 +141,26 @@ isis_queue_lsp_pkt_for_transmission(
 
     isis_intf_info = ISIS_INTF_INFO(intf);
     isis_node_info = ISIS_NODE_INFO(intf->att_node);
+
+    if (isis_intf_grp_is_lsp_pkt_queued_already (intf, lsp_pkt)) {
+        
+        sprintf(tlb, "%s : LSP %s Not scheduled to flood out of %s, Reason Intf-grp %s membership\n",
+            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt),
+            intf->if_name, isis_intf_info->intf_grp->name);
+        tcp_trace(intf->att_node, intf, tlb);
+        return;
+    }
+
+    seq_no = *isis_get_lsp_pkt_seq_no(lsp_pkt);
+
+    if (isis_intf_info->intf_grp) {
+
+        isis_intf_grp_update_lsp_xmit_seq_no(
+                isis_intf_info->intf_grp, seq_no);
+        sprintf(tlb, "%s : Intf-grp %s updated with seq_no %u\n",
+            ISIS_LSPDB_MGMT, isis_intf_info->intf_grp->name, seq_no);
+        tcp_trace(intf->att_node, intf, tlb);
+    }
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
         XCALLOC(0, 1, isis_lsp_xmit_elem_t);

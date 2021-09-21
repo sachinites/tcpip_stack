@@ -20,7 +20,7 @@ isis_init_intf_group_avl_tree (avltree_t *avl_root) {
 
 
 isis_intf_group_t *
-isis_look_up_intf_group (node_t *node, char *intf_grp_name) {
+isis_intf_grp_look_up (node_t *node, char *intf_grp_name) {
 
     isis_intf_group_t dummy_intf_grp;
     isis_node_info_t *isis_node_info; 
@@ -69,7 +69,7 @@ isis_intf_group_delete_by_name_from_intf_grp_db (
     isis_node_info_t *isis_node_info; 
 
      isis_node_info = ISIS_NODE_INFO(node);
-     intf_grp = isis_look_up_intf_group(node, intf_grp_name);
+     intf_grp = isis_intf_grp_look_up(node, intf_grp_name);
      if (!intf_grp) return false;
      avltree_remove(&intf_grp->avl_glue, &isis_node_info->intf_grp_avl_root);
     return true;
@@ -196,14 +196,58 @@ isis_config_intf_grp (node_t *node, char *if_grp_name) {
 int
 isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
 
+    glthread_t *curr;
+    isis_intf_info_t *intf_info;
     isis_intf_group_t *intf_grp;
 
     if (!isis_is_protocol_enable_on_node(node)) return 0;
 
-    if (!isis_intf_group_delete_by_name_from_intf_grp_db(
-                    node, if_grp_name) ) {
-        printf("Error : Intf grp do not exist\n");
-        return -1;
-    }
+    intf_grp = isis_intf_grp_look_up(node, if_grp_name);
+
+    if (!intf_grp) return -1;
+
+    ITERATE_GLTHREAD_BEGIN(&intf_grp->intf_list_head, curr) {
+
+        intf_info = intf_grp_member_glue_to_intf_info(curr);
+        isis_intf_group_remove_intf_membership(intf_grp, intf_info->intf);
+    } ITERATE_GLTHREAD_END(&intf_grp->intf_list_head, curr)
+    
+    isis_intf_group_delete_from_intf_grp_db(node, intf_grp);
     return 0;
 }
+
+static bool
+isis_intf_grp_test_membership ( isis_intf_group_t *intf_grp, 
+                                                     interface_t *intf) {
+
+     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+     if (!intf_info) return false;
+     return intf_info->intf_grp == intf_grp;
+}
+
+bool
+isis_intf_grp_is_lsp_pkt_queued_already(interface_t *intf, isis_pkt_t *lsp_pkt) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    if (!intf_info) return false;
+    
+    uint32_t *seq_no;
+
+    if (intf_info->intf_grp) {
+
+             seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
+             if (intf_info->intf_grp->last_lsp_xmit_seq_no == *seq_no) {
+                 return true;
+            }
+    }
+    return false;
+}
+
+void
+isis_intf_grp_update_lsp_xmit_seq_no(
+        isis_intf_group_t *intf_grp, uint32_t seq_no) {
+
+        intf_grp->last_lsp_xmit_seq_no = seq_no;
+}
+

@@ -15,7 +15,7 @@ void
 isis_init_intf_group_avl_tree(avltree_t *avl_root);
 
 isis_intf_group_t *
-isis_look_up_intf_group(node_t *node, char *intf_grp_name);
+isis_intf_grp_look_up(node_t *node, char *intf_grp_name);
 
 bool
 isis_intf_group_insert_in_intf_grp_db(node_t *node, isis_intf_group_t *intf_grp);
@@ -51,5 +51,13 @@ isis_config_intf_grp(node_t *node, char *if_grp_name);
 
 int
 isis_un_config_intf_grp(node_t *node, char *if_grp_name);
+
+bool
+isis_intf_grp_is_lsp_pkt_queued_already(interface_t *intf, isis_pkt_t *lsp_pkt);
+
+void
+isis_intf_grp_update_lsp_xmit_seq_no(
+        isis_intf_group_t *intf_grp, uint32_t seq_no);
+
 
 #endif /* __ISIS_INTF_GRP__*/

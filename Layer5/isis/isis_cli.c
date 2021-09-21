@@ -161,7 +161,7 @@ isis_intf_config_handler(param_t *param,
                     return -1;
                 }
 
-                isis_intf_group_t *intf_grp = isis_look_up_intf_group(node, if_grp_name);
+                isis_intf_group_t *intf_grp = isis_intf_grp_look_up(node, if_grp_name);
                 
                 if (!intf_grp) {
                     printf("Error : Interface Group do not exist\n");

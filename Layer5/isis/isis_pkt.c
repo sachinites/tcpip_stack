@@ -8,6 +8,7 @@
 #include "isis_flood.h"
 #include "isis_lspdb.h"
 #include "isis_spf.h"
+#include "isis_intf_group.h"
 
 bool
 isis_pkt_trap_rule(char *pkt, size_t pkt_size) {
@@ -94,7 +95,9 @@ isis_process_lsp_pkt(node_t *node,
                      ethernet_hdr_t *lsp_eth_hdr,
                      size_t pkt_size) {
 
+    uint32_t *seq_no;
     isis_pkt_t *new_lsp_pkt;
+    isis_intf_info_t *intf_info;
     isis_node_info_t *isis_node_info;
     
     if (!isis_node_intf_is_enable(iif)) return;
@@ -102,6 +105,8 @@ isis_process_lsp_pkt(node_t *node,
     if (!isis_any_adjacency_up_on_interface(iif)) return;
 
     if (isis_is_protocol_shutdown_in_progress(node)) return;
+    
+    intf_info = ISIS_INTF_INFO(iif);
 
     ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
@@ -118,6 +123,12 @@ isis_process_lsp_pkt(node_t *node,
         ISIS_LSPDB_MGMT,
         isis_print_lsp_id(new_lsp_pkt), iif ? iif->if_name : 0);
     tcp_trace(node, iif, tlb);
+
+    if (intf_info->intf_grp) {
+        seq_no = isis_get_lsp_pkt_seq_no(new_lsp_pkt);
+        isis_intf_grp_update_lsp_xmit_seq_no(
+                intf_info->intf_grp, *seq_no);
+    }
 
     isis_install_lsp(node, iif, new_lsp_pkt);
     isis_deref_isis_pkt(new_lsp_pkt);

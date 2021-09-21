@@ -47,6 +47,7 @@
 :CMD: config node R2 protocol isis interface all
 :STEP:7
 :CMD: config node R3 protocol isis
+
 :STEP:8
 :CMD: config node R3 protocol isis interface all
 :STEP:9
