@@ -57,7 +57,6 @@ isis_intf_group_create_new (char *grp_name) {
     intf_grp = XCALLOC(0, 1, isis_intf_group_t);
     assert(intf_grp);
     strncpy(intf_grp->name, grp_name, ISIS_INTF_GRP_NAME_LEN);
-    intf_grp->last_lsp_xmit_seq_no = 0;
     init_glthread(&intf_grp->intf_list_head);
     return intf_grp;
 }
@@ -308,32 +307,6 @@ isis_intf_grp_test_membership ( isis_intf_group_t *intf_grp,
      isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
      if (!intf_info) return false;
      return intf_info->intf_grp == intf_grp;
-}
-
-bool
-isis_intf_grp_is_lsp_pkt_queued_already (interface_t *intf, isis_pkt_t *lsp_pkt) {
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-
-    if (!intf_info) return false;
-    
-    uint32_t *seq_no;
-
-    if (intf_info->intf_grp) {
-
-        seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
-        if (intf_info->intf_grp->last_lsp_xmit_seq_no == *seq_no) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void
-isis_intf_grp_update_lsp_xmit_seq_no(
-        isis_intf_group_t *intf_grp, uint32_t seq_no) {
-
-        intf_grp->last_lsp_xmit_seq_no = seq_no;
 }
 
 void

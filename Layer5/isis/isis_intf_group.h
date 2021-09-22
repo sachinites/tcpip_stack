@@ -8,7 +8,6 @@ typedef struct isis_adjacency_ isis_adjacency_t;
 typedef struct isis_intf_group_ {
 
     char name[ISIS_INTF_GRP_NAME_LEN];  /* key */
-    uint32_t last_lsp_xmit_seq_no;
     glthread_t intf_list_head;
     avltree_node_t avl_glue;
 } isis_intf_group_t;
@@ -56,13 +55,6 @@ isis_config_intf_grp(node_t *node, char *if_grp_name);
 int
 isis_un_config_intf_grp(node_t *node, char *if_grp_name);
 
-bool
-isis_intf_grp_is_lsp_pkt_queued_already(interface_t *intf, isis_pkt_t *lsp_pkt);
-
-void
-isis_intf_grp_update_lsp_xmit_seq_no(
-        isis_intf_group_t *intf_grp, uint32_t seq_no);
-
 void
 isis_intf_grp_refresh_member_interface(interface_t *intf);
 
@@ -87,7 +79,6 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
 void
 isis_dynamic_intf_grp_update_on_adjacency_delete (
                     isis_adjacency_t *adjacency);
-
 
 void
 isis_dynamic_intf_grp_build_intf_grp_db(node_t *node);
