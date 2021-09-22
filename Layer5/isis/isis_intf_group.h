@@ -88,4 +88,8 @@ void
 isis_dynamic_intf_grp_update_on_adjacency_delete (
                     isis_adjacency_t *adjacency);
 
+
+void
+isis_dynamic_intf_grp_build_intf_grp_db(node_t *node);
+
 #endif /* __ISIS_INTF_GRP__*/

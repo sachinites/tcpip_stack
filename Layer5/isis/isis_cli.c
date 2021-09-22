@@ -201,14 +201,14 @@ isis_show_handler(param_t *param,
                   ser_buff_t *tlv_buf,
                   op_mode enable_or_disable){
 
-    int cmdcode = -1;
     uint32_t rc = 0;
+    int cmdcode = -1;
     node_t *node = NULL;
-    char *node_name = NULL;
-    char *intf_name = NULL;
     char *rtr_id_str = NULL;
+    char *intf_name = NULL;
     interface_t *intf = NULL;
     tlv_struct_t *tlv = NULL;
+    char *node_name = NULL;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -232,7 +232,7 @@ isis_show_handler(param_t *param,
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF:
             intf = node_get_intf_by_name(node, intf_name);
-            if(!intf) {
+            if (!intf) {
                 printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
@@ -248,7 +248,8 @@ isis_show_handler(param_t *param,
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
             rc = isis_show_all_interface_group(node);
-            cli_out(node->print_buff, rc);
+            assert ( rc < NODE_PRINT_BUFF_LEN);
+            cli_out (node->print_buff, rc);
             break;
         default: ;
     }
@@ -269,7 +270,7 @@ isis_config_cli_tree(param_t *param) {
         * Behavior : 
             1. Device must register for all interested pkts 
             2. Device must generate LSP paclet and install in ISIS LSP DB
-            
+
         * Negation : 
             1. protocol must de-register for all ISIS pkts
             2. Complete shutdown the protocol.
@@ -339,11 +340,11 @@ isis_config_cli_tree(param_t *param) {
                     2. Device must start processing Hellos recvd on this interface provided intf is
                         operating in L3 mode
                     3. Once nbrship is established on this interface, interface becomes eligible
-                        for recveiving and sending LSPs
+                        for receiving and sending LSPs
                     * Negation : 
                     1. Device must stop sending hellos
                     2. Once nbrship is broken on this interface, interface becomes non-eligible
-                        for recveiving and sending LSPs
+                        for receiving and sending LSPs
                 */
                 static param_t if_name;
                 init_param(&if_name, LEAF, 0, isis_intf_config_handler, 0, STRING, "if-name",
@@ -486,7 +487,6 @@ isis_clear_cli_tree(param_t *param) {
             libcli_register_param(&isis_proto, &lsdb);
             set_param_cmd_code(&lsdb, CMDCODE_CLEAR_NODE_ISIS_LSDB);
         }
-    
     }
     return 0;
 }

@@ -149,8 +149,10 @@ isis_queue_lsp_pkt_for_transmission(
         
         sprintf(tlb, "%s : LSP %s Not scheduled to flood out of %s, "
                         "Reason Intf-grp %s membership\n",
-            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt),
-            intf->if_name, isis_intf_info->intf_grp->name);
+                        ISIS_LSPDB_MGMT,
+                        isis_print_lsp_id(lsp_pkt),
+                        intf->if_name,
+                        isis_intf_info->intf_grp->name);
         tcp_trace(intf->att_node, intf, tlb);
         return;
     }
