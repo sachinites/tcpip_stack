@@ -132,22 +132,22 @@ isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp,
 }
 
 void
-isis_intf_grp_refresh_member_interface(interface_t *intf) {
+isis_intf_grp_refresh_member_interface (interface_t *intf) {
 
     isis_intf_group_t *intf_grp;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
     intf_grp = intf_info->intf_grp;
+
     assert(intf_grp);
 
     remove_glthread (&intf_info->intf_grp_member_glue);
-    glthread_priority_insert (&intf_grp->intf_list_head,
-                                            &intf_info->intf_grp_member_glue,
-                                            intf_grp_membership_add_comp_fn,
-                                            offsetof(isis_intf_info_t, intf_grp_member_glue));
+    glthread_priority_insert(&intf_grp->intf_list_head,
+                             &intf_info->intf_grp_member_glue,
+                             intf_grp_membership_add_comp_fn,
+                             offsetof(isis_intf_info_t, intf_grp_member_glue));
 
     sprintf(tlb, "%s : Refresh interface Grp %s with interface %s\n",
             ISIS_ADJ_MGMT, intf_grp->name, intf->if_name);
-
     tcp_trace(intf->att_node, intf, tlb);
 }
 
@@ -176,11 +176,12 @@ isis_dynamic_intf_group_remove_intf_membership (
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(adjacency->intf);
     isis_intf_group_t *intf_grp = intf_info->intf_grp;
     isis_node_info_t *node_info = ISIS_NODE_INFO(adjacency->intf->att_node);
-    
-    if ( !node_info ||
-          !node_info->dyn_intf_grp ||
-          ! intf_info ||
-          ! intf_grp ) return;
+
+    if (!node_info                         ||
+        !node_info->dyn_intf_grp ||
+        !intf_info                            ||
+        !intf_grp)
+        return;
 
     isis_intf_group_remove_intf_membership (intf_grp, intf_info->intf);
 
@@ -192,11 +193,10 @@ isis_dynamic_intf_group_remove_intf_membership (
     }
 }
 
-
 uint32_t
-isis_show_one_interface_group (node_t *node,
-                                                     isis_intf_group_t *intf_grp,
-                                                     uint32_t rc) {
+isis_show_one_interface_group(node_t *node,
+                              isis_intf_group_t *intf_grp,
+                              uint32_t rc) {
 
     glthread_t *curr;
     isis_intf_info_t *intf_info;
@@ -321,10 +321,10 @@ isis_intf_grp_is_lsp_pkt_queued_already (interface_t *intf, isis_pkt_t *lsp_pkt)
 
     if (intf_info->intf_grp) {
 
-             seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
-             if (intf_info->intf_grp->last_lsp_xmit_seq_no == *seq_no) {
-                 return true;
-            }
+        seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
+        if (intf_info->intf_grp->last_lsp_xmit_seq_no == *seq_no) {
+            return true;
+        }
     }
     return false;
 }
@@ -387,17 +387,14 @@ void
      isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if ( !node_info ) {
-
         printf (ISIS_ERROR_PROTO_NOT_ENABLE "\n");
         return -1;
     }
 
     if ( !avltree_is_empty(&node_info->intf_grp_avl_root )) {
-
         printf("Error : Static interface Group is configured\n");
         return -1;
     }
-
     node_info->dyn_intf_grp = true;
     isis_dynamic_intf_grp_build_intf_grp_db (node);
  }
@@ -410,7 +407,6 @@ void
      if ( !node_info ) {
          return 0;
      }
-
      node_info->dyn_intf_grp = false;
      isis_intf_grp_cleanup(node);
      return 0;

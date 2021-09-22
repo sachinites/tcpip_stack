@@ -100,12 +100,9 @@ isis_process_lsp_pkt(node_t *node,
     isis_intf_info_t *intf_info;
     isis_node_info_t *isis_node_info;
     
-    if (!isis_node_intf_is_enable(iif)) return;
-    
+    if (!isis_node_intf_is_enable(iif)) return;  
     if (!isis_any_adjacency_up_on_interface(iif)) return;
-
     if (isis_is_protocol_shutdown_in_progress(node)) return;
-    
     intf_info = ISIS_INTF_INFO(iif);
 
     ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
