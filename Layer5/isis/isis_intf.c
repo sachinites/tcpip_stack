@@ -212,6 +212,11 @@ isis_show_interface_protocol_state(interface_t *intf) {
     if(!is_enabled) return;
 
     isis_intf_info = intf->intf_nw_props.isis_intf_info;
+   
+    if (isis_intf_info->intf_grp) {
+         PRINT_TABS(2);
+        printf("Intf Group : %s \n", isis_intf_info->intf_grp->name);
+    }
     PRINT_TABS(2);
     printf("hello interval : %u sec, Intf Cost : %u\n",
         isis_intf_info->hello_interval, isis_intf_info->cost);

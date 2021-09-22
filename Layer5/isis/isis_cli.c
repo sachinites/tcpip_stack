@@ -228,26 +228,26 @@ isis_show_handler(param_t *param,
     
     switch(cmdcode) {
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL:
-           isis_show_node_protocol_state(node);
+           isis_show_node_protocol_state (node);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF:
-            intf = node_get_intf_by_name(node, intf_name);
+            intf = node_get_intf_by_name (node, intf_name);
             if (!intf) {
                 printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
-            isis_show_lspdb(node);
+            isis_show_lspdb (node);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS:
-            isis_show_event_counters(node);
+            isis_show_event_counters (node);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP:
             isis_show_one_lsp_pkt_detail(node, rtr_id_str);
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
-            rc = isis_show_all_interface_group(node);
+            rc = isis_show_all_interface_group (node);
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
             break;
