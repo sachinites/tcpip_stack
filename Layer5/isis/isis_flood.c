@@ -534,7 +534,6 @@ isis_start_reconciliation_timer(node_t *node) {
                                     (void *)node, sizeof(node),
                                     ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME,
                                     0);
-
 }
 
 void

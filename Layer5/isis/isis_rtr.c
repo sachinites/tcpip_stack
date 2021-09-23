@@ -11,6 +11,7 @@
 #include "isis_spf.h"
 #include "isis_cmdcodes.h"
 #include "isis_intf_group.h"
+#include "isis_layer2map.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
@@ -254,6 +255,8 @@ isis_show_node_protocol_state(node_t *node) {
     else {
         printf("Timer : Not Running\n");
     }
+
+    printf("Layer2-Mapping : %sabled\n", isis_is_layer2_mapping_enabled(node) ? "En" : "Dis");
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 

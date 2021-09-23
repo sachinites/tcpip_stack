@@ -72,6 +72,8 @@ typedef struct isis_node_info_ {
     avltree_t intf_grp_avl_root;
     /* Dynamic intf grp */
     bool dyn_intf_grp;
+    /* Layer 2 Mapping */
+    bool layer2_mapping;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

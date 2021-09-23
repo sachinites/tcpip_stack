@@ -32,6 +32,8 @@
 /* show node <node-name> protocol isis interface-groups*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS 14
 /* config node <node-name> protocol isis dynamic-interface-group */ 
-#define CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGFRP 15
+#define CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP 15
+/* config node <node-name> protocol isis layer2-map*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP 16
 
 #endif /* __ISIS_CMDCODES__ */

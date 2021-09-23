@@ -8,6 +8,7 @@
 #include "isis_lspdb.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
+#include "isis_layer2map.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -81,7 +82,7 @@ isis_config_handler(param_t *param,
                 default: ;
          }
          break;
-         case CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGFRP:
+         case CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP:
              switch(enable_or_disable) {
                 case CONFIG_ENABLE:
                     return isis_config_dynamic_intf_grp(node);
@@ -90,6 +91,14 @@ isis_config_handler(param_t *param,
                 default: ;
          }
          break;
+         case CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP:
+            switch(enable_or_disable) {
+                case CONFIG_ENABLE:
+                    return isis_config_layer2_map(node);
+                case CONFIG_DISABLE:
+                    return isis_un_config_layer2_map(node);
+                default: ;
+         }
         default: ;
     }
     return 0;
@@ -303,6 +312,15 @@ isis_config_cli_tree(param_t *param) {
                 }
             }
         }
+
+        {
+            /* conf node <node-name> [no] protocol isis layer2-map*/
+            static param_t layer2_map;
+            init_param(&layer2_map, CMD, "layer2-map", isis_config_handler, 0, INVALID, 0,
+                        ("Layer 2 Map"));
+            libcli_register_param(&isis_proto, &layer2_map);
+            set_param_cmd_code(&layer2_map, CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP);
+        }
         
         {
             /* conf node <node-name> [no] protocol isis interface-group ... */
@@ -323,7 +341,7 @@ isis_config_cli_tree(param_t *param) {
             init_param(&dynamic_interface_group, CMD, "dynamic-interface-group", isis_config_handler, 0, INVALID, 0, 
                 "dynamic-interface-group");
             libcli_register_param(&isis_proto, &dynamic_interface_group);
-            set_param_cmd_code(&dynamic_interface_group,  CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGFRP);
+            set_param_cmd_code(&dynamic_interface_group,  CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP);
         }
 
         {
