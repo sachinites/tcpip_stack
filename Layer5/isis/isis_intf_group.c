@@ -262,8 +262,8 @@ isis_config_intf_grp (node_t *node, char *if_grp_name) {
     node_info = ISIS_NODE_INFO(node);
 
     if (node_info->dyn_intf_grp) {
-        printf("Error : Dynamic Intf Group Is Enabled\n");
-        return -1;
+        node_info->dyn_intf_grp = false;
+        isis_intf_grp_cleanup(node);
     }
 
     intf_grp = isis_intf_group_create_new(if_grp_name);
@@ -286,6 +286,11 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
 
     if (!isis_is_protocol_enable_on_node(node)) return 0;
 
+    if (ISIS_NODE_INFO(node)->dyn_intf_grp) {
+        printf("Error : Dynamic Intf-grp is enabled\n");
+        return -1;
+    }
+
     intf_grp = isis_intf_grp_look_up(node, if_grp_name);
 
     if (!intf_grp) return -1;
@@ -297,6 +302,12 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
     } ITERATE_GLTHREAD_END(&intf_grp->intf_list_head, curr)
     
     isis_intf_group_remove_from_intf_grp_db(node, intf_grp);
+
+    if (avltree_is_empty(&(ISIS_NODE_INFO(node)->intf_grp_avl_root))) {
+        ISIS_NODE_INFO(node)->dyn_intf_grp = true;
+        isis_dynamic_intf_grp_build_intf_grp_db(node);
+        printf("Info : Switched to Dynamic interface Group\n"); 
+    }
     return 0;
 }
 
@@ -364,10 +375,13 @@ void
         return -1;
     }
 
+    if (node_info->dyn_intf_grp) return 0;
+
     if ( !avltree_is_empty(&node_info->intf_grp_avl_root )) {
-        printf("Error : Static interface Group is configured\n");
+        printf("Error : Static interface Group(s) is/are configured\n");
         return -1;
     }
+
     node_info->dyn_intf_grp = true;
     isis_dynamic_intf_grp_build_intf_grp_db (node);
  }
@@ -380,6 +394,11 @@ void
      if ( !node_info ) {
          return 0;
      }
+
+     if (node_info->dyn_intf_grp == false ) {
+         return 0;
+     }
+     
      node_info->dyn_intf_grp = false;
      isis_intf_grp_cleanup(node);
      return 0;

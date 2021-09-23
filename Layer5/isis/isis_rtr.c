@@ -310,6 +310,7 @@ isis_init(node_t *node ) {
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
     isis_init_intf_group_avl_tree(&isis_node_info->intf_grp_avl_root);
     isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
+    isis_node_info->dyn_intf_grp = true;  /* True By Default */
 
     isis_start_lsp_pkt_periodic_flooding(node);
 
