@@ -80,4 +80,11 @@ isis_get_next_adj_state_on_receiving_next_hello(
 void
  isis_delete_adjacency(isis_adjacency_t * adjacency);
 
+void
+isis_show_adjacency( isis_adjacency_t *adjacency,
+                                    uint8_t tab_spaces) ;
+
+void
+isis_delete_adjacency(isis_adjacency_t *adjacency) ;
+
 #endif 

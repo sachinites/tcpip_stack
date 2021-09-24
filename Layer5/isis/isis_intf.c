@@ -3,6 +3,7 @@
 #include "isis_rtr.h"
 #include "isis_const.h"
 #include "isis_pkt.h"
+#include "isis_adjacency.h"
 
 bool
 isis_node_intf_is_enable(interface_t *intf) {
@@ -102,7 +103,7 @@ void
 isis_start_sending_hellos(interface_t *intf) {
 
         node_t *node;
-        uint32_t hello_pkt_size;
+       size_t hello_pkt_size;
 
         assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
         assert(isis_node_intf_is_enable(intf));
@@ -147,4 +148,37 @@ isis_stop_sending_hellos(interface_t *intf) {
 
     timer_de_register_app_event(hello_xmit_timer);
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
+}
+
+void
+isis_show_interface_protocol_state(interface_t *intf) {
+
+    bool is_enabled;
+    glthread_t *curr;
+    isis_adjacency_t *adjacency = NULL;
+    isis_intf_info_t *isis_intf_info = NULL;
+
+    is_enabled = isis_node_intf_is_enable(intf);
+
+    printf(" %s : %sabled\n", intf->if_name, is_enabled ? "En" : "Dis");
+    
+    if(!is_enabled) return;
+
+    isis_intf_info = ISIS_INTF_INFO(intf);
+  
+    PRINT_TABS(2);
+    printf("hello interval : %u sec, Intf Cost : %u\n",
+        isis_intf_info->hello_interval, isis_intf_info->cost);
+
+    PRINT_TABS(2);
+    printf("hello Transmission : %s\n",
+        ISIS_INTF_HELLO_XMIT_TIMER(intf) ? "On" : "Off");  
+
+    PRINT_TABS(2);
+    printf("Adjacencies :\n");
+
+   adjacency = isis_intf_info->adjacency;
+   if (!adjacency) return;
+   isis_show_adjacency(adjacency, 4);
+   printf("\n");
 }

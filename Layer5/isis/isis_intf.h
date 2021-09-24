@@ -38,4 +38,7 @@ isis_interface_qualify_to_send_hellos(interface_t *intf);
 #define ISIS_INTF_HELLO_XMIT_TIMER(intf_ptr)  \
     (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_xmit_timer)
 
+void
+isis_show_interface_protocol_state(interface_t *intf) ;
+
 #endif  

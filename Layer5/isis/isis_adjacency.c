@@ -285,3 +285,33 @@ isis_update_interface_adjacency_from_hello(
         isis_change_adjacency_state(adjacency, next_state);
     }
  }
+
+void
+isis_show_adjacency( isis_adjacency_t *adjacency,
+                                    uint8_t tab_spaces) {
+
+    char *ip_addr_str;
+
+    PRINT_TABS(tab_spaces);
+    ip_addr_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, 0);
+    printf("Nbr : %s(%s)\n", adjacency->nbr_name, ip_addr_str);
+
+    PRINT_TABS(tab_spaces);
+    ip_addr_str = tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, 0);
+    printf("Nbr intf ip : %s  ifindex : %u\n",
+        ip_addr_str,
+        adjacency->remote_if_index);
+        
+    PRINT_TABS(tab_spaces);
+    printf("State : %s   HT : %u sec   Cost : %u\n",
+        isis_adj_state_str(adjacency->adj_state),
+        adjacency->hold_time,
+        adjacency->cost);
+
+    if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+
+        PRINT_TABS(tab_spaces);
+        printf("Up Time : %s\n", hrs_min_sec_format(
+                (unsigned int)difftime(time(NULL), adjacency->uptime)));
+    }
+}
