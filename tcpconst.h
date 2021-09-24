@@ -44,7 +44,7 @@ typedef enum{
 /*Specified in ethernet_hdr->type*/
 #define ARP_BROAD_REQ   1
 #define ARP_REPLY       2
-#define ARP_MSG         806
+#define PROTO_ARP         806
 #define BROADCAST_MAC   0xFFFFFFFFFFFF
 #define ETH_IP          0x0800
 #define ICMP_PRO        1
@@ -70,13 +70,18 @@ typedef enum{
 
 /* Protocol IDs*/
 #define PROTO_STATIC    1
+#define PROTO_ISIS       0x83
 
 static inline unsigned char *
-proto_name_str (uint8_t proto) {
+proto_name_str (uint16_t proto) {
 
     switch(proto) {
+        case PROTO_ISIS:
+            return "isis";
         case PROTO_STATIC:
-            return "PROTO_STATIC";
+            return "static";
+        case PROTO_ARP:
+            return "arp";
         default: ;
     }
 }

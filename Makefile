@@ -9,6 +9,7 @@ OBJS=gluethread/glthread.o \
 		  net.o			   \
 		  comm.o		   \
 		  Layer2/layer2.o  \
+		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
 		  Layer3/netfilter.o \
 		  Layer4/layer4.o  \
@@ -112,6 +113,9 @@ tcp_ip_trace.o:tcp_ip_trace.c
 
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o
+
+Layer2/arp.o:Layer2/arp.c
+	${CC} ${CFLAGS} -c -I . Layer2/arp.c -o Layer2/arp.o
 
 Layer2/l2switch.o:Layer2/l2switch.c
 	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o

@@ -314,24 +314,24 @@ build_dualswitch_topo(){
     node_set_intf_ip_address(H6, "eth11", "10.1.1.6", 24);
 
     node_set_intf_l2_mode(L2SW1, "eth2", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth2", 10);
+    node_set_intf_vlan_membership(L2SW1, "eth2", 10);
     node_set_intf_l2_mode(L2SW1, "eth7", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth7", 10);
+    node_set_intf_vlan_membership(L2SW1, "eth7", 10);
     node_set_intf_l2_mode(L2SW1, "eth5", TRUNK);
-    node_set_intf_vlan_membsership(L2SW1, "eth5", 10);
-    node_set_intf_vlan_membsership(L2SW1, "eth5", 11);
+    node_set_intf_vlan_membership(L2SW1, "eth5", 10);
+    node_set_intf_vlan_membership(L2SW1, "eth5", 11);
     node_set_intf_l2_mode(L2SW1, "eth6", ACCESS);
-    node_set_intf_vlan_membsership(L2SW1, "eth6", 11);
+    node_set_intf_vlan_membership(L2SW1, "eth6", 11);
 
     node_set_intf_l2_mode(L2SW2, "eth7", TRUNK);
-    node_set_intf_vlan_membsership(L2SW2, "eth7", 10);
-    node_set_intf_vlan_membsership(L2SW2, "eth7", 11);
+    node_set_intf_vlan_membership(L2SW2, "eth7", 10);
+    node_set_intf_vlan_membership(L2SW2, "eth7", 11);
     node_set_intf_l2_mode(L2SW2, "eth9", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth9", 10);
+    node_set_intf_vlan_membership(L2SW2, "eth9", 10);
     node_set_intf_l2_mode(L2SW2, "eth10", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth10", 10);
+    node_set_intf_vlan_membership(L2SW2, "eth10", 10);
     node_set_intf_l2_mode(L2SW2, "eth12", ACCESS);
-    node_set_intf_vlan_membsership(L2SW2, "eth12", 11);
+    node_set_intf_vlan_membership(L2SW2, "eth12", 11);
 
     return topo;
 }
