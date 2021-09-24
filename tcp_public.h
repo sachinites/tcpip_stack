@@ -35,6 +35,7 @@
 #include "graph.h"
 #include "net.h"
 #include "Layer2/layer2.h"
+#include "Layer2/arp.h"
 #include "Layer3/layer3.h"
 #include "Layer5/layer5.h"
 #include "utils.h"
