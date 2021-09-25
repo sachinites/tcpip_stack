@@ -197,9 +197,9 @@ arp_entry_delete(node_t *node, char *ip_addr, uint16_t proto){
 
 bool
 arp_table_entry_add(node_t *node,
-					arp_table_t *arp_table, arp_entry_t *arp_entry,
-                    glthread_t **arp_pending_list,
-                    uint16_t proto){
+					              arp_table_t *arp_table,
+                                  arp_entry_t *arp_entry,
+                                  glthread_t **arp_pending_list){
 
     if(arp_pending_list){
         assert(*arp_pending_list == NULL);   
@@ -214,7 +214,7 @@ arp_table_entry_add(node_t *node,
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
 		assert(arp_entry->exp_timer_wt_elem == NULL);
 
-		if (proto == PROTO_ARP) {
+		if (arp_entry->proto == PROTO_ARP) {
             arp_entry->exp_timer_wt_elem =
 			    arp_entry_create_expiration_timer(
 				         node,
@@ -233,12 +233,17 @@ arp_table_entry_add(node_t *node,
     }
 
     /*Case 2 : If there already exists full ARP table entry, then replace it*/
-    if(arp_entry_old && !arp_entry_sane(arp_entry_old)){
+    if(arp_entry_old && !arp_entry_sane(arp_entry_old) &&
+        ( (arp_entry_old->proto == arp_entry->proto) ||  /* Proto can update its own entry */
+           (arp_entry_old->proto == PROTO_ARP &&   /* Proto overwrites ARP's entry */
+           arp_entry->proto != PROTO_ARP))) {
+
         delete_arp_entry(arp_entry_old);
         init_glthread(&arp_entry->arp_glue);
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
 		assert(arp_entry->exp_timer_wt_elem == NULL);
-        if (proto = PROTO_ARP) {
+
+        if (arp_entry->proto == PROTO_ARP) {
 		    arp_entry->exp_timer_wt_elem =
 			    arp_entry_create_expiration_timer(
 				    node, arp_entry, ARP_ENTRY_EXP_TIME); 	
@@ -263,7 +268,7 @@ arp_table_entry_add(node_t *node,
         return false;
     }
 
-    /*Case 4 : If existing ARP table entry is sane, but new one if full,
+    /*Case 4 : If existing ARP table entry is sane, but new one is full,
      * then copy contents of new ARP entry to old one, return false*/
     if(arp_entry_old && 
         arp_entry_sane(arp_entry_old) && 
@@ -277,6 +282,7 @@ arp_table_entry_add(node_t *node,
         if(arp_pending_list)
             *arp_pending_list = &arp_entry_old->arp_pending_list;
 
+        arp_entry_old->proto = arp_entry->proto;
 		arp_entry_refresh_expiration_timer(arp_entry_old);
         return false;
     }
@@ -323,23 +329,17 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
     glthread_t *arp_pending_list = NULL;
 
     assert(arp_hdr->op_code == ARP_REPLY);
-
     arp_entry_t *arp_entry = XCALLOC(0, 1, arp_entry_t);
-
     src_ip = htonl(arp_hdr->src_ip);
-
     inet_ntop(AF_INET, &src_ip, arp_entry->ip_addr.ip_addr, 16);
-
     arp_entry->ip_addr.ip_addr[15] = '\0';
-
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, sizeof(mac_add_t));
-
     strncpy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
-
     arp_entry->is_sane = false;
+    arp_entry->proto = PROTO_ARP;
 
     bool rc = arp_table_entry_add(iif->att_node, 
-				arp_table, arp_entry, &arp_pending_list, PROTO_ARP);
+				arp_table, arp_entry, &arp_pending_list);
 
     glthread_t *curr;
     arp_pending_entry_t *arp_pending_entry;
@@ -349,11 +349,8 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
         ITERATE_GLTHREAD_BEGIN(arp_pending_list, curr){
         
             arp_pending_entry = arp_pending_entry_glue_to_arp_pending_entry(curr);
-
             remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
-
             process_arp_pending_entry(iif->att_node, iif, arp_entry, arp_pending_entry);
-            
             delete_arp_pending_entry(arp_pending_entry);
 
         } ITERATE_GLTHREAD_END(arp_pending_list, curr);
@@ -472,7 +469,7 @@ create_arp_sane_entry(node_t *node,
     add_arp_pending_entry(arp_entry, 
                           pending_arp_processing_callback_function, 
                           pkt, pkt_size);
-    bool rc = arp_table_entry_add(node, arp_table, arp_entry, 0, PROTO_ARP);
+    bool rc = arp_table_entry_add(node, arp_table, arp_entry, 0);
     if(rc == false){
         assert(0);
     }
@@ -543,7 +540,7 @@ arp_entry_add(node_t *node, char *ip_addr, mac_add_t mac, interface_t *oif, uint
     memcpy(arp_entry->mac_addr.mac, mac.mac, sizeof(mac.mac));
     arp_entry->proto = proto;
     strncpy(arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);
-    if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0, proto)) {
+    if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0)) {
         XFREE(arp_entry);
         printf("Error : Failed to Add ARP Entry\n");
         return false;

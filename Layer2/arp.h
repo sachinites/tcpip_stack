@@ -65,7 +65,8 @@ GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list)
         strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
         strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
         arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
-        arp_entry_1->is_sane == false)
+        arp_entry_1->is_sane == false && \
+        arp_entry_1->proto == arp_entry_2->proto)
 
 void
 init_arp_table(arp_table_t **arp_table);
@@ -103,8 +104,8 @@ bool
 arp_table_entry_add(node_t *node,
 					arp_table_t *arp_table,
 					arp_entry_t *arp_entry,
-                    glthread_t **arp_pending_list,
-                    uint16_t proto);
+                    glthread_t **arp_pending_list);
+                   
 
 void
 show_arp_table(arp_table_t *arp_table);
