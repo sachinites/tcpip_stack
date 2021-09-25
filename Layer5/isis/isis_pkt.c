@@ -80,7 +80,7 @@ isis_process_hello_pkt(node_t *node,
         }
         goto bad_hello;
     }
-    isis_update_interface_adjacency_from_hello(iif, hello_tlv_buffer, tlv_buff_size);
+    isis_update_interface_adjacency_from_hello (iif, hello_tlv_buffer, tlv_buff_size);
     return ;
 
     bad_hello:

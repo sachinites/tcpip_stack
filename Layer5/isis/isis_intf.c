@@ -366,3 +366,49 @@ isis_atleast_one_interface_protocol_enabled(node_t *node) {
 
     return false;
 }
+
+
+/* show per intf stats */
+
+uint32_t
+isis_show_one_intf_stats (interface_t *intf, uint32_t rc) {
+
+    byte *buff;
+    uint32_t rc_old;
+    isis_intf_info_t *intf_info;
+
+    intf_info = ISIS_INTF_INFO(intf);
+    if (!intf_info) return 0;
+
+    buff = intf->att_node->print_buff ;
+    rc_old = rc;
+
+    rc += sprintf (buff + rc, "%s\t", intf->if_name);
+    rc +=  sprintf (buff + rc, "H Tx : %-4u H Rx : %-4u BadH Rx : %-4u "
+                                           "LSPs Tx : %-4u LSPs Rx : %-4u Bad LSPs Rx : %-4u\n",
+                        intf_info->hello_pkt_sent,
+                        intf_info->good_hello_pkt_recvd,
+                        intf_info->bad_lsps_pkt_recvd,
+                        intf_info->lsp_pkt_sent,
+                        intf_info->good_lsps_pkt_recvd,
+                        intf_info->bad_lsps_pkt_recvd);
+    return rc - rc_old;
+}
+
+uint32_t 
+isis_show_all_intf_stats(node_t *node) {
+
+    uint32_t rc = 0;
+    interface_t *intf;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return 0;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+        rc += isis_show_one_intf_stats(intf, rc);
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    return rc;
+}

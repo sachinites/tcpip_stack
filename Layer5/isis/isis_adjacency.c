@@ -190,13 +190,14 @@ isis_update_interface_adjacency_from_hello(
     char * router_id_str;
     uint8_t tlv_data_len;
     bool new_adj = false;
+    bool regen_lsp = false;
     char *intf_ip_addr_str;
     uint32_t *router_id_int;
     uint32_t four_byte_data;
     uint32_t intf_ip_addr_int;
-    bool nbr_attr_changed = false;
     isis_intf_info_t *isis_intf_info;
     isis_adjacency_t *adjacency = NULL;
+    bool force_bring_down_adjacency = false;
 
     router_id_int = (uint32_t *)tlv_buffer_get_particular_tlv(
                     hello_tlv_buffer, 
@@ -224,25 +225,28 @@ isis_update_interface_adjacency_from_hello(
         switch(tlv_type){
             case ISIS_TLV_HOSTNAME:
                 if (memcmp(adjacency->nbr_name, tlv_value, tlv_len)) {
-                    nbr_attr_changed = true;
+                    regen_lsp = true;
                     memcpy(adjacency->nbr_name, tlv_value, tlv_len);
                 }
             break;
             case ISIS_TLV_RTR_ID:
                 if (adjacency->nbr_rtr_id != *(uint32_t *)(tlv_value)) {
-                    nbr_attr_changed = true;
                     adjacency->nbr_rtr_id = *(uint32_t *)(tlv_value);
+                    force_bring_down_adjacency = true;
                 }
             break;    
             case ISIS_TLV_IF_IP:
                 memcpy((byte *)&four_byte_data, tlv_value, sizeof(four_byte_data));
                 if (adjacency->nbr_intf_ip != four_byte_data ) {
-                    nbr_attr_changed = true;
                     adjacency->nbr_intf_ip = four_byte_data;
+                    regen_lsp = true;
                 }
             break;
             case ISIS_TLV_IF_INDEX:
-                memcpy((byte *)&adjacency->remote_if_index, tlv_value, tlv_len);
+                if (adjacency->remote_if_index != *(uint32_t *)tlv_value) {
+                    memcpy((byte *)&adjacency->remote_if_index, tlv_value, tlv_len);
+                    regen_lsp = true;
+                }
             break;
             case ISIS_TLV_HOLD_TIME:
                 adjacency->hold_time = *((uint32_t *)tlv_value);
@@ -250,12 +254,12 @@ isis_update_interface_adjacency_from_hello(
             case ISIS_TLV_METRIC_VAL:
                 if (adjacency->cost != *((uint32_t *)tlv_value)) {
                     adjacency->cost = *((uint32_t *)tlv_value);
-                    nbr_attr_changed = true;
+                    regen_lsp= true;
                 }
             break;
             case ISIS_TLV_IF_MAC:
                 if (memcmp(adjacency->nbr_mac.mac, (byte *)tlv_value, tlv_len)) {
-                    nbr_attr_changed = true;
+                    force_bring_down_adjacency = true;
                     memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
                 }
             default: ;
@@ -266,13 +270,16 @@ isis_update_interface_adjacency_from_hello(
         isis_adjacency_start_delete_timer(adjacency);
         isis_dynamic_intf_grp_update_on_adjacency_create (adjacency);
     }
+    else if (force_bring_down_adjacency) {
+        isis_change_adjacency_state(adjacency, ISIS_ADJ_STATE_DOWN);
+    }
     else {
             isis_adj_state_t adj_next_state = 
                 isis_get_next_adj_state_on_receiving_next_hello(adjacency);
         isis_change_adjacency_state(adjacency, adj_next_state);
     }
 
-   if (nbr_attr_changed) {
+   if (regen_lsp && !force_bring_down_adjacency) {
        sprintf(tlb, "%s : ISIS Adjacency attributes changed, regen LSP \n",  ISIS_ADJ_MGMT);
         tcp_trace(iif->att_node, iif, tlb);
         isis_schedule_lsp_pkt_generation(iif->att_node, isis_event_nbr_attribute_changed);

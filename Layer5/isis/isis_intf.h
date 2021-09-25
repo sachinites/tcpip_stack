@@ -81,4 +81,10 @@ isis_interface_qualify_to_send_hellos(interface_t *intf);
 bool
 isis_atleast_one_interface_protocol_enabled(node_t *node);
 
+uint32_t 
+isis_show_all_intf_stats(node_t *node);
+
+uint32_t
+isis_show_one_intf_stats (interface_t *intf, uint32_t rc);
+
 #endif // ! __ISIS_INTF__

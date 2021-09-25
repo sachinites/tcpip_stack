@@ -239,13 +239,19 @@ isis_show_handler(param_t *param,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL:
            isis_show_node_protocol_state (node);
         break;
-        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF:
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF:
             intf = node_get_intf_by_name (node, intf_name);
             if (!intf) {
                 printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
+            rc = isis_show_one_intf_stats (intf, 0);
+            cli_out (node->print_buff, rc);
         break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF:
+            rc =  isis_show_all_intf_stats (node);
+            cli_out (node->print_buff, rc);
+            break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
             isis_show_lspdb (node);
         break;
@@ -407,18 +413,19 @@ isis_show_cli_tree(param_t *param) {
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, CMDCODE_SHOW_NODE_ISIS_PROTOCOL);
         {
-            /* show node <node-name> protocol isis interface ... */
+            /* show node <node-name> protocol isis interface */
             static param_t interface;
-            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "interface");
+            init_param(&interface, CMD, "interface",  isis_show_handler, 0, INVALID, 0, "interface");
             libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&isis_proto, &interface);
+            set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
             {
                 /* show node <node-name> protocol isis interface <if-name> */
                 static param_t if_name;
                 init_param(&if_name, LEAF, 0, isis_show_handler, 0, STRING, "if-name",
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
-                set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_INTF);
+                set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF);
             }
             {
                 static param_t lsdb;
