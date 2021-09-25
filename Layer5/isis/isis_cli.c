@@ -3,6 +3,7 @@
 #include "isis_cmdcodes.h"
 #include "isis_rtr.h"
 #include "isis_intf.h"
+#include "isis_const.h"
 
 /* show node <node-name> protocol isis */
 static int
@@ -12,10 +13,12 @@ isis_show_handler(param_t *param,
 
 
     
+    node_t *node;
     int cmdcode = - 1;
+    interface_t *intf = NULL;
      tlv_struct_t *tlv = NULL;
-     char *node_name = NULL;
-     node_t *node;
+    char *intf_name = NULL;
+    char *node_name = NULL;
 
      cmdcode = EXTRACT_CMD_CODE(tlv_buff);
 
@@ -29,16 +32,26 @@ isis_show_handler(param_t *param,
             }
      } TLV_LOOP_END;
 
-     node = node_get_node_by_name(topo, node_name);
+     node = node_get_node_by_name (topo, node_name);
 
      switch (cmdcode) {
 
          case CMDCODE_SHOW_NODE_ISIS_PROTOCOL:
             isis_show_node_protocol_state(node);
             break;
-            default: ;
+         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF:
+             intf = node_get_intf_by_name(node, intf_name);
+             if (!intf) {
+                 printf (ISIS_ERROR_NON_EXISTING_INTF "\n");
+                 return -1;
+             }
+             isis_show_one_intf_stats(intf);
+             break;
+         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF:
+             isis_show_all_intf_stats(node);
+             break;
+         default:;
      }
-
      return 0;
 }
 
@@ -99,7 +112,7 @@ isis_intf_config_handler(param_t *param,
      tlv_struct_t *tlv = NULL;
      char *node_name = NULL;
      node_t *node;
-     char *if_name;
+     char *if_name = NULL;
      interface_t *interface = NULL;
 
      cmdcode = EXTRACT_CMD_CODE(tlv_buff);
@@ -118,12 +131,6 @@ isis_intf_config_handler(param_t *param,
      } TLV_LOOP_END;
 
      node = node_get_node_by_name(topo, node_name);
-    interface = node_get_intf_by_name(node, if_name);
-
-    if (!interface) {
-        printf("Error : Interface do not exist\n");
-        return -1;
-    }
 
      switch (cmdcode) {
 
@@ -156,6 +163,13 @@ isis_intf_config_handler(param_t *param,
             }
             break;
             case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE:
+                
+                interface = node_get_intf_by_name(node, if_name);
+                if (!interface) {
+                    printf("Error : Interface do not exist\n");
+                    return -1;
+                }
+
                 switch (enable_or_disable) {
                     case CONFIG_ENABLE:
                         isis_enable_protocol_on_interface(interface);
@@ -213,6 +227,14 @@ isis_show_cli_tree(param_t *param) {
 	    init_param(&isis_proto, CMD, "isis", isis_show_handler, 0, INVALID, 0, "isis protocol");
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, CMDCODE_SHOW_NODE_ISIS_PROTOCOL);
+        {
+            /* show node <node-name> protocol isis interface */
+            static param_t interface;
+            init_param(&interface, CMD, "interface",  isis_show_handler, 0, INVALID, 0, "interface");
+            libcli_register_display_callback(&interface, display_node_interfaces);
+            libcli_register_param(&isis_proto, &interface);
+            set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
+        }
     }
     return 0;
 }

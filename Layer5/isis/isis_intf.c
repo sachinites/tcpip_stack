@@ -96,7 +96,8 @@ isis_transmit_hello(void *arg, uint32_t arg_size) {
     byte *hello_pkt = (byte *)isis_timer_data->data;
     uint32_t pkt_size = isis_timer_data->data_size;
 
-     send_pkt_out(hello_pkt, pkt_size, intf);
+    send_pkt_out(hello_pkt, pkt_size, intf);
+    ISIS_INTF_INCREMENT_STATS(intf, hello_pkt_sent);
 }
 
 void
@@ -181,4 +182,36 @@ isis_show_interface_protocol_state(interface_t *intf) {
    if (!adjacency) return;
    isis_show_adjacency(adjacency, 4);
    printf("\n");
+}
+
+/* show per intf stats */
+
+void
+isis_show_one_intf_stats (interface_t *intf) {
+
+    isis_intf_info_t *intf_info;
+
+    intf_info = ISIS_INTF_INFO(intf);
+    if (!intf_info) return;
+
+    printf ("%s\t", intf->if_name);
+    printf ("H Tx : %-4u H Rx : %-4u BadH Rx : %-4u\n",
+                        intf_info->hello_pkt_sent,
+                        intf_info->good_hello_pkt_recvd,
+                        intf_info->bad_hello_pkt_recvd);
+}
+
+void
+isis_show_all_intf_stats(node_t *node) {
+
+    interface_t *intf;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+        isis_show_one_intf_stats(intf);
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
 }

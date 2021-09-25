@@ -1,5 +1,6 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
+#include "isis_intf.h"
 #include "isis_pkt.h"
 #include "isis_const.h"
 

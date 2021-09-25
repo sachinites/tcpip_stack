@@ -1,7 +1,8 @@
 #include "../../tcp_public.h"
+#include "isis_rtr.h"
+#include "isis_intf.h"
 #include "isis_pkt.h"
 #include "isis_const.h"
-#include "isis_intf.h"
 #include "isis_adjacency.h"
 
 bool
@@ -21,7 +22,7 @@ isis_process_hello_pkt(node_t *node,
                        ethernet_hdr_t *hello_eth_hdr,
                        size_t pkt_size) {
 
-uint8_t intf_ip_len;
+    uint8_t intf_ip_len;
 
 /*
 A device must perform some sanity checks on the
@@ -95,6 +96,7 @@ if (!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)) {
     return;
 bad_hello:
     printf("Hello pkt rejected , %s %s\n", node->node_name, iif->if_name);
+    ISIS_INTF_INCREMENT_STATS(iif, bad_hello_pkt_recvd);
 }
 
 static void

@@ -122,8 +122,8 @@ boolean_validation_handler(leaf_t *leaf, char *value_passed){
     return VALIDATION_FAILED;
 }
 
-CLI_VAL_RC
-enable_disable_validation_handler(leaf_t *leaf, char *value_passed){
+int
+enable_disable_validation_handler(char *value_passed){
 
      if((strncmp(value_passed, "enable", strlen("enable")) == 0) || 
             (strncmp(value_passed, "disable", strlen("disable")) ==0))

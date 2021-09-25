@@ -284,6 +284,7 @@ isis_update_interface_adjacency_from_hello(
         isis_adj_state_t next_state = isis_get_next_adj_state_on_receiving_next_hello(adjacency);
         isis_change_adjacency_state(adjacency, next_state);
     }
+    ISIS_INTF_INCREMENT_STATS(iif, good_hello_pkt_recvd);
  }
 
 void

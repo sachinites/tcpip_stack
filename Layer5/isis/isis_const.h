@@ -20,4 +20,7 @@
 
 #define ISIS_CONFIG_TRACE   "ISIS(CONFIG)"
 
+#define ISIS_ERROR_NON_EXISTING_INTF \
+    "Error : Non Existing Interface Specified"
+    
 #endif 
