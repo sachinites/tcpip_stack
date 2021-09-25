@@ -321,7 +321,7 @@ clear_topology_handler(param_t *param,
 
 typedef struct arp_table_ arp_table_t;
 extern void
-dump_arp_table(arp_table_t *arp_table);
+show_arp_table(arp_table_t *arp_table);
 
 static int
 show_arp_handler(param_t *param, ser_buff_t *tlv_buf, 
@@ -339,7 +339,7 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    dump_arp_table(NODE_ARP_TABLE(node));
+    show_arp_table(NODE_ARP_TABLE(node));
     return 0;
 }
 

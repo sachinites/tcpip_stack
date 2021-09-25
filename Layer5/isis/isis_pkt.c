@@ -388,13 +388,14 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
 
     uint32_t eth_hdr_playload_size =
                 sizeof(isis_pkt_hdr_t) +                 /*ISIS pkt hdr*/ 
-                (TLV_OVERHEAD_SIZE * 6) + /*There shall be Six TLVs, hence 4 TLV overheads*/
+                (TLV_OVERHEAD_SIZE * 7) + /*There shall be Seven TLVs, hence 4 TLV overheads*/
                 NODE_NAME_SIZE +    /* Data length of TLV: ISIS_TLV_NODE_NAME*/
                 4  +                 /* Data length of ISIS_TLV_RTR_ID which is 4*/
                 4   +                /* Data length of ISIS_TLV_IF_IP which is 16*/
                 4   +                /* Data length of ISIS_TLV_IF_INDEX which is 4*/
                 4   +                /* Data length for ISIS_ISIS_TLV_HOLD_TIME */
-                4;                    /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
+                4   +                 /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
+                6;                     /* MAc Address */
 
     *hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
                                   eth_hdr_playload_size;
@@ -446,6 +447,10 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_METRIC_VAL,
                                                  4,
                                                  (byte *)&cost);
+
+    temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_MAC,
+                                                    6,
+                                                    IF_MAC(intf) );
 
     SET_COMMON_ETH_FCS(hello_eth_hdr, eth_hdr_playload_size, 0);
     return (byte *)hello_eth_hdr;  

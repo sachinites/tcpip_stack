@@ -464,7 +464,7 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
                       uint32_t pkt_size){
 
     switch(ethernet_hdr->type){
-        case ARP_MSG:
+        case PROTO_ARP:
             {
                 /*Can be ARP Broadcast or ARP reply*/
                 arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));

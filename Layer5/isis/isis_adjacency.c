@@ -7,6 +7,7 @@
 #include "isis_events.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
+#include "isis_layer2map.h"
 
 static void
 isis_init_adjacency(isis_adjacency_t *adjacency) {
@@ -22,7 +23,6 @@ static void
 isis_timer_expire_delete_adjacency_cb(void *arg, uint32_t arg_size){
 
     if (!arg) return;
-
     isis_delete_adjacency((isis_adjacency_t *)arg);
 }
 
@@ -156,6 +156,7 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
     tcp_trace(adjacency->intf->att_node, adjacency->intf, tlb);
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
         ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
+        isis_update_layer2_mapping_on_adjacency_down(adjacency);
     }
     isis_dynamic_intf_grp_update_on_adjacency_delete(adjacency);
    XFREE(adjacency);
@@ -252,6 +253,11 @@ isis_update_interface_adjacency_from_hello(
                     nbr_attr_changed = true;
                 }
             break;
+            case ISIS_TLV_IF_MAC:
+                if (memcmp(adjacency->nbr_mac.mac, (byte *)tlv_value, tlv_len)) {
+                    nbr_attr_changed = true;
+                    memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
+                }
             default: ;
         }
     } ITERATE_TLV_END(hello_tlv_buffer, tlv_type, tlv_len, tlv_value, tlv_buff_size);
@@ -323,6 +329,15 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
     printf("Nbr intf ip : %s  ifindex : %u\n",
         ip_addr_str,
         adjacency->remote_if_index);
+
+    PRINT_TABS(tab_spaces);
+    printf("Nbr Mac Addr : %02x:%02x:%02x:%02x:%02x:%02x\n", 
+            adjacency->nbr_mac.mac[0], 
+            adjacency->nbr_mac.mac[1], 
+            adjacency->nbr_mac.mac[2], 
+            adjacency->nbr_mac.mac[3], 
+            adjacency->nbr_mac.mac[4], 
+            adjacency->nbr_mac.mac[5]);
         
     PRINT_TABS(tab_spaces);
     printf("State : %s   HT : %u sec   Cost : %u\n",
@@ -429,6 +444,8 @@ isis_change_adjacency_state(
                     else {
                         isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
+
+                    isis_update_layer2_mapping_on_adjacency_up(adjacency);
                     break;
                 default : ;
             }   
@@ -456,6 +473,7 @@ isis_change_adjacency_state(
                     else {
                         isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
+                    isis_update_layer2_mapping_on_adjacency_down(adjacency);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);

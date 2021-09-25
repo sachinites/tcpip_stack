@@ -35,7 +35,7 @@ string_ethernet_hdr_type(unsigned short type){
         case ETH_IP:
             strncpy(string_buffer, "ETH_IP", strlen("ETH_IP"));
             break;
-        case ARP_MSG:
+        case PROTO_ARP:
             strncpy(string_buffer, "ARP_MSG", strlen("ARP_MSG"));
             break;
         case DDCP_MSG_TYPE_FLOOD_QUERY:
@@ -209,7 +209,7 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                     (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                      payload_size);
             break;
-        case ARP_MSG:
+        case PROTO_ARP:
             rc += tcp_dump_arp_hdr(buff + rc,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size);

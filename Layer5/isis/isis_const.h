@@ -28,6 +28,7 @@
 #define ISIS_TLV_LOCAL_IP   6 // as per standard
 #define ISIS_TLV_REMOTE_IP  8 // as per standard
 #define ISIS_TLV_ON_DEMAND  111 // imaginary
+#define ISIS_TLV_IF_MAC      131 // Imaginary
 
 #define ISIS_LSP_HDR_SIZE   sizeof(isis_pkt_hdr_t)
 

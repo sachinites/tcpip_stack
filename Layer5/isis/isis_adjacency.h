@@ -32,6 +32,8 @@ typedef struct isis_adjacency_{
     unsigned char nbr_name[NODE_NAME_SIZE];
     /* Nbr intf Ip */
    uint32_t nbr_intf_ip;
+   /* Mac Address */
+   mac_add_t nbr_mac;
     /*Nbr lo 0 address */
     uint32_t nbr_rtr_id;
     /* Nbr if index */
