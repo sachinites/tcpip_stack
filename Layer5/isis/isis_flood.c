@@ -248,7 +248,7 @@ isis_schedule_lsp_flood(node_t *node,
         }
         
         intf = isis_intf_grp_get_first_active_intf_grp_member(node, intf_grp);
-        if (!isis_any_adjacency_up_on_interface(intf)) continue;
+        if (!intf || !isis_any_adjacency_up_on_interface(intf)) continue;
         
         sprintf(tlb, "%s : LSP %s scheduled for flood out of intf %s intf-grp %s\n",
                     ISIS_LSPDB_MGMT,

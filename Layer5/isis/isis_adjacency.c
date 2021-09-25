@@ -197,6 +197,7 @@ isis_update_interface_adjacency_from_hello(
     uint32_t intf_ip_addr_int;
     isis_intf_info_t *isis_intf_info;
     isis_adjacency_t *adjacency = NULL;
+    isis_adjacency_t adjacency_backup;
     bool force_bring_down_adjacency = false;
 
     router_id_int = (uint32_t *)tlv_buffer_get_particular_tlv(
@@ -217,6 +218,9 @@ isis_update_interface_adjacency_from_hello(
         sprintf(tlb, "%s : New Adjacency for nbr %s on intf %s Created\n",
             ISIS_ADJ_MGMT, router_id_str, iif->if_name);
         tcp_trace(iif->att_node, iif, tlb);
+    }
+    else {
+        memcpy(&adjacency_backup, adjacency, sizeof(isis_adjacency_t));
     }
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
@@ -239,7 +243,7 @@ isis_update_interface_adjacency_from_hello(
                 memcpy((byte *)&four_byte_data, tlv_value, sizeof(four_byte_data));
                 if (adjacency->nbr_intf_ip != four_byte_data ) {
                     adjacency->nbr_intf_ip = four_byte_data;
-                    regen_lsp = true;
+                     force_bring_down_adjacency = true;
                 }
             break;
             case ISIS_TLV_IF_INDEX:
@@ -259,8 +263,8 @@ isis_update_interface_adjacency_from_hello(
             break;
             case ISIS_TLV_IF_MAC:
                 if (memcmp(adjacency->nbr_mac.mac, (byte *)tlv_value, tlv_len)) {
-                    force_bring_down_adjacency = true;
                     memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
+                    force_bring_down_adjacency = true;
                 }
             default: ;
         }
@@ -271,6 +275,7 @@ isis_update_interface_adjacency_from_hello(
         isis_dynamic_intf_grp_update_on_adjacency_create (adjacency);
     }
     else if (force_bring_down_adjacency) {
+        isis_update_layer2_mapping_on_adjacency_down(&adjacency_backup);
         isis_change_adjacency_state(adjacency, ISIS_ADJ_STATE_DOWN);
     }
     else {

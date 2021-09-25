@@ -638,8 +638,9 @@ spf_algo_interface_update(void *arg, size_t arg_size){
      intf_prop_changed_t *intf_prop_changed = intf_notif_data->old_intf_prop_changed;
     
 	/*Run spf if interface is transition to up/down*/
-    if(IS_BIT_SET(flags, IF_UP_DOWN_CHANGE_F) ||
-       IS_BIT_SET(flags, IF_METRIC_CHANGE_F )) 
+    if ( IS_BIT_SET (flags, IF_UP_DOWN_CHANGE_F ) ||
+          IS_BIT_SET (flags, IF_METRIC_CHANGE_F )     ||
+          IS_BIT_SET (flags, IF_IP_ADDR_CHANGE_F)    )
     {
         goto RUN_SPF;
     }

@@ -83,8 +83,8 @@ isis_un_config_layer2_map (node_t *node) {
     }
 
     if (!node_info->layer2_mapping) return 0;
-    node_info->layer2_mapping = false;
     isis_destroy_layer2_mapping (node);
+    node_info->layer2_mapping = false;
     return 0;
 }
 
@@ -99,6 +99,10 @@ isis_is_layer2_mapping_enabled (node_t *node) {
 bool
 isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 
+    if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
+        return true;
+    }
+
     return arp_entry_add(adjacency->intf->att_node, 
                             tcp_ip_covert_ip_n_to_p (adjacency->nbr_intf_ip, 0),
                             adjacency->nbr_mac,
@@ -108,6 +112,9 @@ isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 bool
 isis_update_layer2_mapping_on_adjacency_down (isis_adjacency_t *adjacency) {
 
+    if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
+        return true;
+    }
     arp_entry_delete(adjacency->intf->att_node, 
                                  tcp_ip_covert_ip_n_to_p(adjacency->nbr_intf_ip, 0),
                                  PROTO_ISIS);

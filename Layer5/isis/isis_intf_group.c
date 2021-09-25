@@ -431,7 +431,6 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
         assert(isis_intf_group_insert_in_intf_grp_db(node,  intf_grp));
     }
 
-    assert(!intf_info->intf_grp);
     isis_intf_group_add_intf_membership(intf_grp, intf);
 }
 
