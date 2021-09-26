@@ -151,7 +151,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
 void
 init_arp_table(arp_table_t **arp_table){
 
-    *arp_table = XCALLOC(0, 1, arp_table_t);
+    *arp_table = calloc(1, sizeof(arp_table_t));
     init_glthread(&((*arp_table)->arp_entries));
 }
 
@@ -329,7 +329,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
     glthread_t *arp_pending_list = NULL;
 
     assert(arp_hdr->op_code == ARP_REPLY);
-    arp_entry_t *arp_entry = XCALLOC(0, 1, arp_entry_t);
+    arp_entry_t *arp_entry = calloc(1, sizeof(arp_entry_t));
     src_ip = htonl(arp_hdr->src_ip);
     inet_ntop(AF_INET, &src_ip, arp_entry->ip_addr.ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
@@ -461,7 +461,7 @@ create_arp_sane_entry(node_t *node,
     }
 
     /*if ARP entry do not exist, create a new sane entry*/
-    arp_entry = XCALLOC(0, 1,arp_entry_t);
+    arp_entry = calloc(1, sizeof(arp_entry_t));
     strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
@@ -536,7 +536,7 @@ arp_entry_get_exp_time_left(
 bool
 arp_entry_add(node_t *node, char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto) {
 
-    arp_entry_t *arp_entry = XCALLOC (0 , 1, arp_entry_t );
+    arp_entry_t *arp_entry = calloc (1, sizeof(arp_entry_t));
     strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
     memcpy(arp_entry->mac_addr.mac, mac.mac, sizeof(mac.mac));
     arp_entry->proto = proto;
