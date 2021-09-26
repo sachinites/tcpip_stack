@@ -54,6 +54,8 @@ struct arp_entry_{
     /* List of packets which are pending for
      * this ARP resolution*/
     glthread_t arp_pending_list;
+    uint16_t proto;
+    long long unsigned int hit_count;
 	wheel_timer_elem_t *exp_timer_wt_elem;
 };
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
@@ -64,7 +66,8 @@ GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list)
         strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
         strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
         arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
-        arp_entry_1->is_sane == false)
+        arp_entry_1->is_sane == false && \
+        arp_entry_1->proto == arp_entry_2->proto)
 
 void
 init_arp_table(arp_table_t **arp_table);
@@ -96,16 +99,17 @@ void
 delete_arp_entry(arp_entry_t *arp_entry);
 
 void
-delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr);
+arp_entry_delete(node_t *node, char *ip_addr, uint16_t proto);
 
 bool
 arp_table_entry_add(node_t *node,
 					arp_table_t *arp_table,
 					arp_entry_t *arp_entry,
                     glthread_t **arp_pending_list);
+                   
 
 void
-dump_arp_table(arp_table_t *arp_table);
+show_arp_table(arp_table_t *arp_table);
 
 void
 arp_table_update_from_arp_reply(arp_table_t *arp_table,
@@ -137,5 +141,10 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
 void
 process_arp_reply_msg(node_t *node, interface_t *iif,
                                         ethernet_hdr_t *ethernet_hdr);
-                                        
+
+/* ARP Table Public APIs to be exposed to applications */
+
+bool
+arp_entry_add(node_t *node, char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto);
+
 #endif

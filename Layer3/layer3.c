@@ -262,6 +262,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
             (char *)ip_hdr, pkt_size,
             ETH_IP); /*Network Layer need to tell Data link layer, 
                        what type of payload it is passing down*/
+            nexthop->hit_count++;
 }
 
 
@@ -415,41 +416,43 @@ dump_rt_table(rt_table_t *rt_table){
 
         if(l3_route->is_direct){
             if(count != 1){
-                printf("\t|===================|=======|====================|==============|==========|============|\n");
+                printf("\t|===================|=======|====================|==============|==========|============|============|\n");
             }
             else{
-                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|\n");
+                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|===hits=====|\n");
             }
-            printf("\t|%-18s |  %-4d | %-18s | %-12s |          |  %-10s|\n", 
+            printf("\t|%-18s |  %-4d | %-18s | %-12s |          |  %-10s| 0          |\n", 
                     l3_route->dest, l3_route->mask, "NA", "NA",
 					RT_UP_TIME(l3_route));
             continue;
         }
 
         for( i = 0; i < MAX_NXT_HOPS; i++){
-            if(l3_route->nexthops[i]){
+            if(l3_route->nexthops[i]) {
                 if(i == 0){
                     if(count != 1){
-                        printf("\t|===================|=======|====================|==============|==========|============|\n");
+                        printf("\t|===================|=======|====================|==============|==========|============|============|\n");
                     }
                     else{
-                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|\n");
+                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|===hits=====|\n");
                     }
-                    printf("\t|%-18s |  %-4d | %-18s | %-12s |  %-4u    |  %-10s|\n", 
+                    printf("\t|%-18s |  %-4d | %-18s | %-12s |  %-4u    |  %-10s| %-6llu     |\n", 
                             l3_route->dest, l3_route->mask,
                             l3_route->nexthops[i]->gw_ip, 
                             l3_route->nexthops[i]->oif->if_name, l3_route->spf_metric,
-							RT_UP_TIME(l3_route));
+							RT_UP_TIME(l3_route),
+                             l3_route->nexthops[i]->hit_count);
                 }
                 else{
-                    printf("\t|                   |       | %-18s | %-12s |          |  %-10s|\n", 
+                    printf("\t|                   |       | %-18s | %-12s |          |  %-10s| %-6llu     |\n", 
                             l3_route->nexthops[i]->gw_ip, 
-                            l3_route->nexthops[i]->oif->if_name, "");
+                            l3_route->nexthops[i]->oif->if_name, "",
+                            l3_route->nexthops[i]->hit_count);
                 }
             }
         }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
-    printf("\t|===================|=======|====================|==============|==========|============|\n");
+    printf("\t|===================|=======|====================|==============|==========|============|============|\n");
 }
 
 static bool
@@ -742,6 +745,8 @@ demote_packet_to_layer3(node_t *node,
             nexthop->oif->if_name,
             new_pkt, new_pkt_size,
             ETH_IP);
+
+    nexthop->hit_count++;
 
     tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
 }

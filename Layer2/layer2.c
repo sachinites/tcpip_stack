@@ -309,6 +309,7 @@ l2_forward_ip_packet(node_t *node, uint32_t next_hop_ip,
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 		arp_entry_refresh_expiration_timer(arp_entry);
+        arp_entry->hit_count++;
 }
 
 

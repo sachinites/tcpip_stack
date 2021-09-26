@@ -112,6 +112,7 @@ typedef struct nexthop_{
     uint32_t ref_count;
 	uint32_t ifindex;
     uint8_t proto;
+    long long unsigned int hit_count;
 } nexthop_t;
 
 #define nexthop_node_name(nexthop_ptr)  \
