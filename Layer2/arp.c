@@ -303,6 +303,7 @@ pending_arp_processing_callback_function(node_t *node,
     SET_COMMON_ETH_FCS(ethernet_hdr, 
         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
     send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+    arp_entry->hit_count++;
 }
 
 

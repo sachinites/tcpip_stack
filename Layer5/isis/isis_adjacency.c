@@ -695,9 +695,7 @@ isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
             adjacency = glthread_to_isis_adjacency(curr);
-
             if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
-            
             buff = isis_encode_nbr_tlv(adjacency, buff, &bytes_encoded);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -729,9 +727,7 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
             adjacency = glthread_to_isis_adjacency(curr);
-
             if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
-            
             bytes_needed += isis_nbr_tlv_encode_size(adjacency, &subtlv_bytes_needed);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -748,10 +744,10 @@ isis_print_formatted_nbr_tlv(byte *out_buff,
                              uint8_t tlv_buffer_len) {
 
     uint16_t rc = 0;
-    uint32_t ip_addr_int, metric;
-    unsigned char *ip_addr;
     uint8_t subtlv_len;
     byte *subtlv_navigator;
+    unsigned char *ip_addr;
+    uint32_t ip_addr_int, metric;
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
     ITERATE_TLV_BEGIN(nbr_tlv_buffer, tlv_type,
