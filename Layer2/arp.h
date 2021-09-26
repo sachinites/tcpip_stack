@@ -55,6 +55,7 @@ struct arp_entry_{
      * this ARP resolution*/
     glthread_t arp_pending_list;
     uint16_t proto;
+    long long unsigned int hit_count;
 	wheel_timer_elem_t *exp_timer_wt_elem;
 };
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);

@@ -376,12 +376,12 @@ show_arp_table(arp_table_t *arp_table){
         count++;
         arp_entry = arp_glue_to_arp_entry(curr);
         if(count == 1){
-            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|\n");
+            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|== hits ===|\n");
         }
         else{
-            printf("\t|====================|===================|==============|=============|=================|==========|\n");
+            printf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
         }
-        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  |\n", 
+        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  | %-6llu    |\n", 
             arp_entry->ip_addr.ip_addr, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
@@ -392,10 +392,11 @@ show_arp_table(arp_table_t *arp_table){
             arp_entry->oif_name,
             arp_entry_sane(arp_entry) ? "false" : "true",
 			arp_entry_get_exp_time_left(arp_entry),
-            proto_name_str(arp_entry->proto));
+            proto_name_str(arp_entry->proto),
+            arp_entry->hit_count);
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
     if(count){
-        printf("\t|====================|===================|==============|=============|=================|==========|\n");
+        printf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
     }
 }
 
