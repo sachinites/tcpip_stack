@@ -303,6 +303,7 @@ pending_arp_processing_callback_function(node_t *node,
     SET_COMMON_ETH_FCS(ethernet_hdr, 
         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
     send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+    arp_entry->hit_count++;
 }
 
 
@@ -415,7 +416,7 @@ delete_arp_entry(arp_entry_t *arp_entry){
     } ITERATE_GLTHREAD_END(&arp_entry->arp_pending_list, curr);
 
 	arp_entry_delete_expiration_timer(arp_entry);
-    XFREE(arp_entry);
+    free(arp_entry);
 }
 
 void
@@ -461,7 +462,7 @@ create_arp_sane_entry(node_t *node,
     }
 
     /*if ARP entry do not exist, create a new sane entry*/
-    arp_entry = calloc(1, sizeof(arp_entry_t));
+    arp_entry = calloc(1,sizeof(arp_entry_t));
     strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
@@ -542,7 +543,7 @@ arp_entry_add(node_t *node, char *ip_addr, mac_add_t mac, interface_t *oif, uint
     arp_entry->proto = proto;
     strncpy(arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);
     if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0)) {
-        XFREE(arp_entry);
+        free(arp_entry);
         printf("Error : Failed to Add ARP Entry\n");
         return false;
     }
