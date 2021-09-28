@@ -41,10 +41,14 @@
 #include "tcpconst.h"
 #include "comm.h"
 #include "netfilter.h"
+#include "../notif.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 extern void
 spf_flush_nexthops(nexthop_t **nexthop);
+
+extern void
+rt_table_kick_start_notif_job(rt_table_t *rt_table) ;
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
@@ -269,11 +273,16 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 
 /*Implementing Routing Table APIs*/
 void
-init_rt_table(rt_table_t **rt_table){
+init_rt_table(node_t *node, rt_table_t **rt_table){
 
     *rt_table = calloc(1, sizeof(rt_table_t));
     init_glthread(&((*rt_table)->route_list));
 	(*rt_table)->is_active = true;
+    strncpy( (*rt_table)->nfc_rt_updates.nfc_name, 
+                 "NFC for IPV4 RT UPDATES",
+                 sizeof((*rt_table)->nfc_rt_updates.nfc_name));
+    init_glthread(&((*rt_table)->nfc_rt_updates.notif_chain_head));
+    (*rt_table)->node = node;
 }
 
 void
@@ -297,10 +306,11 @@ rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask){
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
 }
 
-static void
+void
 l3_route_free(l3_route_t *l3_route){
 
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
     spf_flush_nexthops(l3_route->nexthops);
     free(l3_route);
 }
@@ -354,7 +364,8 @@ rt_table_delete_route(rt_table_t *rt_table,
         return;
 
     remove_glthread(&l3_route->rt_glue);
-    l3_route_free(l3_route);
+    rt_table_add_route_to_notify_list (rt_table, l3_route, RT_DEL_F);
+    rt_table_kick_start_notif_job(rt_table);
 }
 
 /*Look up L3 routing table using longest prefix match*/
@@ -462,6 +473,8 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
     init_glthread(&l3_route->rt_glue);
     glthread_add_next(&rt_table->route_list, &l3_route->rt_glue);
 	l3_route->install_time = time(NULL);
+    rt_table_add_route_to_notify_list (rt_table, l3_route, RT_ADD_F);
+    rt_table_kick_start_notif_job(rt_table);
     return true;
 }
 
@@ -594,6 +607,10 @@ rt_table_add_route(rt_table_t *rt_table,
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
 		l3_route_insert_nexthop(l3_route, nexthop);
+        if (!new_route) {
+            rt_table_add_route_to_notify_list (rt_table, l3_route, RT_UPDATE_F);
+            rt_table_kick_start_notif_job(rt_table);
+        }
    }
 
    if(new_route){

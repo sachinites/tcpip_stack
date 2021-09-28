@@ -48,7 +48,7 @@ void
  void
  isis_show_node_protocol_state(node_t *node) {
 
-    interface_t *intf;
+     interface_t *intf;
     isis_node_info_t *isis_node_info;
 
      printf("ISIS Protocol : %s\n", 
@@ -56,7 +56,7 @@ void
 
     if (!isis_is_protocol_enable_on_node(node) ) return;
 
-    isis_node_info =  ISIS_NODE_INFO(node); 
+    isis_node_info =  ISIS_NODE_INFO(node);
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
@@ -67,7 +67,6 @@ void
 
  void
 isis_one_time_registration() {
-    
-    nfc_intf_register_for_events(isis_interface_updates);
+
     nfc_register_for_pkt_tracing (ISIS_ETH_PKT_TYPE, isis_print_pkt);
 }

@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include "event_dispatcher.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 static event_dispatcher_t ev_dis;
 bool static debug = false;

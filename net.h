@@ -102,19 +102,19 @@ typedef struct node_nw_prop_{
 
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
-extern void init_rt_table(rt_table_t **rt_table);
+extern void init_rt_table(node_t *node, rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 
 static inline void
-init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
+init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
     node_nw_prop->is_lb_addr_config = false;
     memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
-    init_rt_table(&(node_nw_prop->rt_table));
+    init_rt_table(node, &(node_nw_prop->rt_table));
 	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
     node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);

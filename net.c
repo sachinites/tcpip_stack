@@ -36,6 +36,8 @@
 #include "graph.h"
 #include "utils.h"
 #include "tcpconst.h"
+#include "notif.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 /*Just some Random number generator*/
 static uint32_t

@@ -40,17 +40,15 @@ extern void isis_one_time_registration();
 void
 init_tcp_ip_stack(){
 
-	/* initialize the Scheduler first */
-	event_dispatcher_init();
+	/* fork the scheduler thread */
 	event_dispatcher_run();
 	/*  initialize pkt receiving Queue */
 	init_pkt_recv_queue();
 	/*  Now initialize all applications */
 	init_tcp_logging();
     init_spf_algo();
-
-	isis_one_time_registration();
 	
+    isis_one_time_registration();
 	network_start_pkt_receiver_thread();
 	ut_parser_init();
 }

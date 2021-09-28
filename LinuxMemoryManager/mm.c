@@ -657,11 +657,11 @@ mm_print_vm_page_details(vm_page_t *vm_page, uint32_t i){
 
         printf(ANSI_COLOR_YELLOW "\t\t\t%-14p Block %-3u %s  block_size = %-6u  "
                 "offset = %-6u  prev = %-14p  next = %p\n"
-                ANSI_COLOR_RESET, curr,
+                ANSI_COLOR_RESET, curr + 1,
                 j++, curr->is_free ? "F R E E D" : "ALLOCATED",
                 curr->block_size, curr->offset, 
-                curr->prev_block,
-                curr->next_block);
+                curr->prev_block ? curr->prev_block + 1 : 0,
+                curr->next_block ? curr->next_block + 1 : 0);
     } ITERATE_VM_PAGE_ALL_BLOCKS_END(vm_page, curr);
 }
 
