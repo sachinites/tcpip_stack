@@ -42,6 +42,7 @@
 #include "comm.h"
 #include "netfilter.h"
 #include "../notif.h"
+#include "rt_notif.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 extern void
@@ -49,6 +50,12 @@ spf_flush_nexthops(nexthop_t **nexthop);
 
 extern void
 rt_table_kick_start_notif_job(rt_table_t *rt_table) ;
+
+extern void
+rt_table_add_route_to_notify_list (
+                rt_table_t *rt_table, 
+                l3_route_t *l3route,
+                uint8_t flag);
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
@@ -311,6 +318,7 @@ l3_route_free(l3_route_t *l3_route){
 
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
     spf_flush_nexthops(l3_route->nexthops);
     XFREE(l3_route);
 }

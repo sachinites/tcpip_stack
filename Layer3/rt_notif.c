@@ -24,7 +24,6 @@ rt_table_add_route_to_notify_list (
             SET_BIT(l3route->rt_flags, flag);
     }
     glthread_add_next(&rt_table->rt_notify_list_head, &l3route->notif_glue);
-    assert(l3route->rt_flags != 3);
 }
 
 static void
@@ -68,7 +67,6 @@ rt_table_kick_start_notif_job(rt_table_t *rt_table) {
                                         rt_table, 
                                         rt_table_notif_job_cb,
                                         TASK_ONE_SHOT);
-    assert(rt_table->notif_job);
 }
 
 void
@@ -79,8 +77,8 @@ nfc_ipv4_rt_subscribe (node_t *node, nfc_app_cb cbk) {
     memset(&nfce_template, 0, sizeof(notif_chain_elem_t));
     nfce_template.app_cb = cbk;
 
-    nfc_register_notif_chain(&node->node_nw_prop.rt_table->nfc_rt_updates,
-                                              &nfce_template);
+    nfc_register_notif_chain(&NODE_RT_TABLE(node)->nfc_rt_updates,
+                                            &nfce_template);
 }
 
 void
