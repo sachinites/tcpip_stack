@@ -20,6 +20,7 @@
 #include <memory.h>
 #include <assert.h>
 #include "notif.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 /* returns true if both are identical else return false.
  * if key is set, then comparison is done based on keys only.
@@ -76,7 +77,7 @@ void
 nfc_register_notif_chain(notif_chain_t *nfc,
 					 notif_chain_elem_t *nfce){
 
-	notif_chain_elem_t *new_nfce = calloc(1, sizeof(notif_chain_elem_t));
+	notif_chain_elem_t *new_nfce = XCALLOC(0, 1, notif_chain_elem_t);
 	memcpy(new_nfce, nfce, sizeof(notif_chain_elem_t));
 	init_glthread(&new_nfce->glue);
 	glthread_add_next(&nfc->notif_chain_head, &new_nfce->glue);	
@@ -95,7 +96,7 @@ nfc_de_register_notif_chain(notif_chain_t *nfc,
 
 		if (nfce_compare(nfce_template, nfce)) {
 			remove_glthread(&nfce->glue);
-			free(nfce);
+			XFREE(nfce);
 			return;
 		}
 	}ITERATE_GLTHREAD_END(&nfc->notif_chain_head, curr);
@@ -142,3 +143,9 @@ nfc_invoke_notif_chain(notif_chain_t *nfc,
 	}ITERATE_GLTHREAD_END(&nfc->notif_chain_head, curr);
 }
 
+void
+nfc_mem_init () {
+
+	MM_REG_STRUCT(0, notif_chain_t);
+	MM_REG_STRUCT(0, notif_chain_elem_t);
+}

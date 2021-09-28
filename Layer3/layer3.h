@@ -34,7 +34,10 @@
 #define __LAYER3__
 
 #include <stdint.h>
+#include "../gluethread/glthread.h"
+#include "../notif.h"
 #include "../tcpconst.h"
+#include "../EventDispatcher/event_dispatcher.h"
 
 #pragma pack (push,1)
 
@@ -54,7 +57,6 @@ typedef struct ip_hdr_{
     uint32_t DF_flag : 1;   
     uint32_t MORE_flag : 1; 
     uint32_t frag_offset : 13;  
-
 
     char ttl;
     char protocol;
@@ -97,12 +99,16 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(ip_payload_size)  \
     (5 + (short)(ip_payload_size/4) + (short)((ip_payload_size % 4) ? 1 : 0))
 
-#include "../gluethread/glthread.h"
-
 typedef struct rt_table_{
 
     glthread_t route_list;
 	bool is_active;
+    notif_chain_t nfc_rt_updates;
+    glthread_t rt_notify_list_head;
+    glthread_t rt_flash_list_head;
+    task_t *notif_job;
+    task_t *flash_job;
+    node_t *node;
 } rt_table_t;
 
 typedef struct nexthop_{
@@ -118,27 +124,40 @@ typedef struct nexthop_{
 #define nexthop_node_name(nexthop_ptr)  \
    ((get_nbr_node(nexthop_ptr->oif))->node_name)
 
+#define RT_ADD_F        (1 << 0)
+#define RT_DEL_F         (1 << 1)
+#define RT_UPDATE_F (1 << 2)
+#define RT_FLASH_REQ_F (1 << 3)
+
 typedef struct l3_route_{
 
-    char dest[16];  /*key*/
-    char mask;      /*key*/
-    bool is_direct;    /*if set to True, then gw_ip and oif has no meaning*/
+    char dest[16];        /* key*/
+    char mask;            /* key*/
+    bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
     nexthop_t *nexthops[MAX_NXT_HOPS];
     uint32_t spf_metric;
     int nxthop_idx;
 	time_t install_time;
     glthread_t rt_glue;
+    uint8_t rt_flags;
+    glthread_t notif_glue;
+    glthread_t flash_glue;
 } l3_route_t;
 GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
+GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
+GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
 
 #define RT_UP_TIME(l3_route_ptr)	\
 	hrs_min_sec_format((unsigned int)difftime(time(NULL), l3_route_ptr->install_time))
+
+void
+l3_route_free(l3_route_t *l3_route);
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route);
 
 void
-init_rt_table(rt_table_t **rt_table);
+init_rt_table(node_t *node, rt_table_t **rt_table);
 
 void 
 rt_table_set_active_status(rt_table_t *rt_table, bool active);

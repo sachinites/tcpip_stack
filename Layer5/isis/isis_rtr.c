@@ -15,6 +15,8 @@
 
 extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
+extern void isis_ipv4_rt_notif_cbk (
+        void *rt_notif_data, size_t arg_size);
 
 /* Checking if protocol enable at node & intf level */
 bool
@@ -291,6 +293,7 @@ isis_de_init(node_t *node) {
     tcp_stack_de_register_l2_pkt_trap_rule(
 			node, isis_pkt_trap_rule, isis_pkt_recieve);
 
+    nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(node);
 }
 
@@ -314,7 +317,9 @@ isis_init(node_t *node ) {
     isis_init_intf_group_avl_tree(&isis_node_info->intf_grp_avl_root);
     isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
     isis_node_info->dyn_intf_grp = true;  /* True By Default */
-     isis_node_info->layer2_mapping = true;   /* True By Default */
+    isis_node_info->layer2_mapping = true;   /* True By Default */
+    nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
+
     isis_start_lsp_pkt_periodic_flooding(node);
 
     ISIS_INCREMENT_NODE_STATS(node,
@@ -622,3 +627,26 @@ isis_has_routes(node_t *node) {
     return true;
 }
 
+static void
+ isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
+
+     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
+        l3route->dest, l3route->mask, l3route->rt_flags);
+     tcp_trace(node, 0, tlb);
+ }
+
+void
+isis_ipv4_rt_notif_cbk (
+        void *rt_notif_data, size_t arg_size) {
+
+    node_t *node;
+    l3_route_t *l3route;
+
+    rt_route_notif_data_t *route_notif_data = 
+        (rt_route_notif_data_t *)rt_notif_data;
+
+    node = route_notif_data->node;
+    l3route = route_notif_data->l3route;
+
+    isis_process_ipv4_route_notif(node, l3route);
+}

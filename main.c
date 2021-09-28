@@ -37,6 +37,7 @@
 #include "graph.h"
 #include <stdio.h>
 #include "CommandParser/libcli.h"
+#include "EventDispatcher/event_dispatcher.h"
 
 extern void init_tcp_ip_stack();
 
@@ -52,6 +53,8 @@ extern void nw_init_cli();
 
 /* Memory Init Imports */
 extern void mm_init();
+extern void nfc_mem_init ();
+extern void event_dispatcher_mem_init(); 
 extern void layer2_mem_init();
 extern void layer3_mem_init();
 extern void layer4_mem_init();
@@ -66,11 +69,16 @@ tcp_ip_stack_pre_topology_create_initializations() {
 
     nw_init_cli();
     mm_init();
+    nfc_mem_init();
+    event_dispatcher_mem_init();
     layer2_mem_init();
     layer3_mem_init();
     layer4_mem_init();
     spf_algo_mem_init();
     isis_mem_init();
+    /* Initialize the Scheduler before topology creation, as node
+        can fire certain jobs during initialization as well */
+    event_dispatcher_init();
 }
 
 int 

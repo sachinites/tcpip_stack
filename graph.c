@@ -107,7 +107,7 @@ create_graph_node(graph_t *graph, char *node_name){
 
     node_init_udp_socket(node);
 
-    init_node_nw_prop(&node->node_nw_prop);
+    init_node_nw_prop(node, &node->node_nw_prop);
 
     node->spf_data = NULL;
 
