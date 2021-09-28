@@ -121,7 +121,7 @@ isis_change_adjacency_state(
             switch(new_adj_state) {
 
                 case ISIS_ADJ_STATE_DOWN:
-                break;
+                    break;
                 case ISIS_ADJ_STATE_INIT:
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_stop_delete_timer(adjacency);
@@ -143,7 +143,7 @@ isis_change_adjacency_state(
                     isis_adjacency_start_delete_timer(adjacency);
                     break;
                 case ISIS_ADJ_STATE_INIT:
-                break;
+                    break;
                 case ISIS_ADJ_STATE_UP:
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_refresh_expiry_timer(adjacency);
@@ -163,7 +163,7 @@ isis_change_adjacency_state(
                     isis_adjacency_start_delete_timer(adjacency);
                     break;
                 case ISIS_ADJ_STATE_INIT:
-                break;
+                    break;
                 case ISIS_ADJ_STATE_UP:
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     break;

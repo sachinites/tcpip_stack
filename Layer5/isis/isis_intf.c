@@ -215,3 +215,103 @@ isis_show_all_intf_stats(node_t *node) {
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
 }
+
+void
+isis_refresh_intf_hellos(interface_t *intf) {
+
+    isis_stop_sending_hellos(intf);
+    isis_start_sending_hellos(intf);
+}
+
+static void
+isis_handle_interface_up_down (interface_t *intf, bool old_status) {
+
+    /* Current Status of interface can be examined :  IF_IS_UP (intf) */
+
+    /* When interface is enabled ( old_status == false ):
+        1. Start sending Hellos (isis_start_sending_hellos( ) ) only if interface qualifies (isis_interface_qualify_to_send_hellos ( ) )  */
+
+    if (old_status == false) {
+        if (!isis_interface_qualify_to_send_hellos(intf)) return;
+        isis_start_sending_hellos(intf);
+    }
+
+    /* When interface is shut down ( old_status == true )
+        1. Stop sending Hellos ( isis_stop_sending_hellos( ( ) )
+        2. Delete Adjacency on this interface ( isis_delete_adjacency( ) )*/
+    else {
+        isis_stop_sending_hellos(intf);
+        isis_adjacency_t *adjacency = ISIS_INTF_INFO(intf)->adjacency;
+        if (!adjacency) return;
+        isis_delete_adjacency(adjacency);
+        ISIS_INTF_INFO(intf)->adjacency = NULL;
+    }
+}
+
+static void
+isis_handle_interface_ip_addr_changed (interface_t *intf, 
+                                                                uint32_t old_ip_addr, uint8_t old_mask) {
+
+    /* 1. Addition of new IP Address
+            > Start sending hellos if interface Qualifies */
+        if (IF_IP_EXIST(intf) && !old_ip_addr && !old_mask) {
+
+            if (isis_interface_qualify_to_send_hellos(intf)) {
+                isis_start_sending_hellos(intf);
+            }
+            return;
+        }
+
+    /* 2. Removal of IP Address
+            > Stop sending hellos if xmitting
+            > delete adjacency object if exist */
+        if (!IF_IP_EXIST(intf) && old_mask && old_ip_addr) {
+
+            isis_stop_sending_hellos(intf);
+            isis_adjacency_t *adjacency = ISIS_INTF_INFO(intf)->adjacency;
+            if (!adjacency) return;
+            isis_delete_adjacency(adjacency);
+            ISIS_INTF_INFO(intf)->adjacency = NULL;
+            return;
+        }
+
+
+    /*    3. Change of IP Address
+            > if interface qualify to send hellos, Update hello content (  isis_refresh_intf_hellos() )
+            > otherwise stop sending hellos */ 
+
+    isis_interface_qualify_to_send_hellos(intf) ?
+        isis_refresh_intf_hellos(intf) :
+        isis_stop_sending_hellos(intf);
+}
+
+
+void
+isis_interface_updates(void *arg, size_t arg_size) {
+    
+    intf_notif_data_t *intf_notif_data = 
+		(intf_notif_data_t *)arg;
+
+    uint32_t flags = intf_notif_data->change_flags;
+	interface_t *intf = intf_notif_data->interface;
+	intf_prop_changed_t *old_intf_prop_changed =
+            intf_notif_data->old_intf_prop_changed;
+
+    if (!isis_node_intf_is_enable(intf)) return;
+
+    switch (flags) {
+
+    case IF_UP_DOWN_CHANGE_F:
+        isis_handle_interface_up_down(intf, old_intf_prop_changed->up_status);
+        break;
+    case IF_IP_ADDR_CHANGE_F:
+        isis_handle_interface_ip_addr_changed(intf,
+                                              old_intf_prop_changed->ip_addr.ip_addr,
+                                              old_intf_prop_changed->ip_addr.mask);
+        break;
+    case IF_OPER_MODE_CHANGE_F:
+    case IF_VLAN_MEMBERSHIP_CHANGE_F:
+    case IF_METRIC_CHANGE_F:
+    default:;
+    }
+}

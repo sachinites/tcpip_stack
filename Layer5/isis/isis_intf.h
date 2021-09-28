@@ -52,4 +52,10 @@ isis_show_all_intf_stats(node_t *node) ;
 void
 isis_show_one_intf_stats (interface_t *intf);
 
+void
+isis_interface_updates(void *arg, size_t arg_size);
+
+void
+isis_refresh_intf_hellos(interface_t *intf) ;
+
 #endif  

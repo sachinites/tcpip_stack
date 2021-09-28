@@ -10,9 +10,7 @@ static int
 isis_show_handler(param_t *param,
                                  ser_buff_t *tlv_buff,
                                  op_mode enable_or_disable)  {
-
-
-    
+   
     node_t *node;
     int cmdcode = - 1;
     interface_t *intf = NULL;
@@ -140,9 +138,8 @@ isis_intf_config_handler(param_t *param,
                 /* config node <node-name> protocol isis interface all */
                 case CONFIG_ENABLE:
 
-                   printf("config enabled on all interfaces \n");
                    ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
-
+                       
                          isis_enable_protocol_on_interface(interface);
 
                    }ITERATE_NODE_INTERFACES_END(node, interface) 
@@ -151,13 +148,11 @@ isis_intf_config_handler(param_t *param,
                 /* config node <node-name> [no] protocol isis interface all */
                 case CONFIG_DISABLE:
 
-                   printf("config disabled on all interfaces \n");
-                   ITERATE_NODE_INTERFACES_BEGIN(node, interface)
-                   {
-
+                   ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
+                     
                        isis_disable_protocol_on_interface(interface);
-                   }
-                   ITERATE_NODE_INTERFACES_END(node, interface)
+
+                   } ITERATE_NODE_INTERFACES_END(node, interface)
                    break;
                 default: ;
             }
@@ -184,8 +179,6 @@ isis_intf_config_handler(param_t *param,
 
      return 0;
 }
-
-
 
 int
 isis_config_cli_tree(param_t *param) {
