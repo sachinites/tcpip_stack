@@ -335,8 +335,9 @@ clear_rt_table(rt_table_t *rt_table){
         if(l3_is_direct_route(l3_route))
             continue;
         remove_glthread(curr);
-        l3_route_free(l3_route);
+        rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
+     rt_table_kick_start_notif_job(rt_table);
 }
 
 nexthop_t *
@@ -569,10 +570,9 @@ rt_table_add_route(rt_table_t *rt_table,
    char dst_str_with_mask[16];
    bool new_route = false;
 
-   apply_mask(dst, mask, dst_str_with_mask); 
-   inet_pton(AF_INET, dst_str_with_mask, &dst_int);
-   dst_int = htonl(dst_int);
-
+    apply_mask(dst, mask, dst_str_with_mask); 
+    dst_int = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
+   
    l3_route_t *l3_route = l3rib_lookup(rt_table, dst_int, mask);
 
    if(!l3_route){
