@@ -38,7 +38,7 @@ rt_table_notif_job_cb(void *arg, uint32_t arg_size) {
     rt_route_notif_data_t rt_route_notif_data;
 
     /* Start Sending Notifications Now */
-    ITERATE_GLTHREAD_BEGIN(&rt_table->rt_notify_list_head, curr) {
+    ITERATE_GLTHREAD_BEGIN_REVERSE(&rt_table->rt_notify_list_head, curr) {
 
         l3route = notif_glue_to_l3_route(curr);
         rt_route_notif_data.l3route = l3route;
@@ -56,7 +56,7 @@ rt_table_notif_job_cb(void *arg, uint32_t arg_size) {
         UNSET_BIT8(l3route->rt_flags, RT_ADD_F);
         UNSET_BIT8(l3route->rt_flags, RT_UPDATE_F);
         
-    } ITERATE_GLTHREAD_END(&rt_table->rt_notify_list_head, curr)
+    } ITERATE_GLTHREAD_END_REVERSE(&rt_table->rt_notify_list_head, curr)
 }
 
 void
@@ -103,7 +103,6 @@ typedef struct flash_data_ {
     nfc_app_cb cbk;
 } flash_data_t;
 
-
 static void
  rt_table_purge_flash_route_queue(rt_table_t *rt_table) {
 
@@ -128,13 +127,13 @@ rt_table_process_one_flash_client(rt_table_t *rt_table,  nfc_app_cb cbk) {
     l3_route_t *l3route;
     rt_route_notif_data_t route_notif_data;
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->rt_flash_list_head, curr) {
+    ITERATE_GLTHREAD_BEGIN_REVERSE(&rt_table->rt_flash_list_head, curr) {
 
         l3route = flash_glue_to_l3_route(curr);
         route_notif_data.l3route = l3route;
         route_notif_data.node = rt_table->node;
         cbk(&route_notif_data, sizeof(route_notif_data));
-    }ITERATE_GLTHREAD_END(&rt_table->rt_flash_list_head, curr) 
+    }ITERATE_GLTHREAD_END_REVERSE(&rt_table->rt_flash_list_head, curr) 
 }
 
 static void
