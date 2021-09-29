@@ -309,6 +309,26 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
         adjacency->hold_time,
         adjacency->cost);
 
+    PRINT_TABS(tab_spaces);
+
+    if (adjacency->expiry_timer) {
+        printf("Expiry Timer Remaining : %u msec\n",
+                wt_get_remaining_time(adjacency->expiry_timer));
+    }
+    else {
+        printf("Expiry Timer : Nil\n");
+    }
+
+    PRINT_TABS(tab_spaces);
+
+    if (adjacency->delete_timer) {
+         printf("Delete Timer Remaining : %u msec\n",
+            wt_get_remaining_time(adjacency->delete_timer));
+    }
+    else {
+        printf("Delete Timer : Nil\n");
+    }
+
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
 
         PRINT_TABS(tab_spaces);
