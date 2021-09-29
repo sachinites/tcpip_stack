@@ -10,6 +10,14 @@ typedef struct rt_route_notif_data_ {
     l3_route_t *l3route;
 } rt_route_notif_data_t;
 
+typedef struct rt_route_flash_request_ {
+
+     nfc_app_cb cbk;
+     glthread_t glue;
+} rt_route_flash_request_t;
+GLTHREAD_TO_STRUCT(glue_to_route_flash_request, 
+                                                rt_route_flash_request_t, glue);
+
 void nfc_ipv4_rt_subscribe (node_t *node, nfc_app_cb cbk);
 void nfc_ipv4_rt_un_subscribe (node_t *node, nfc_app_cb cbk);
 
