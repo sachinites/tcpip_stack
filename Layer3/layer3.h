@@ -109,6 +109,7 @@ typedef struct rt_table_{
     task_t *notif_job;
     task_t *flash_job;
     node_t *node;
+    glthread_t flash_request_list_head;
 } rt_table_t;
 
 typedef struct nexthop_{
