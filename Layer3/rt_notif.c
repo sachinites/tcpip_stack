@@ -49,7 +49,7 @@ rt_table_notif_job_cb(void *arg, uint32_t arg_size) {
                                                
         remove_glthread(&l3route->notif_glue);
 
-        if ((l3route->rt_flags & RT_DEL_F) == RT_DEL_F) {
+        if ( IS_BIT_SET(l3route->rt_flags, RT_DEL_F) ) {
                 l3_route_free(l3route);
                 continue;
         }
@@ -114,26 +114,27 @@ static void
             l3route = flash_glue_to_l3_route(curr);
             UNSET_BIT8(l3route->rt_flags, RT_FLASH_REQ_F);
             remove_glthread(&l3route->flash_glue);
-            if ((l3route->rt_flags & RT_DEL_F) == RT_DEL_F) {
+            if ( IS_BIT_SET(l3route->rt_flags, RT_DEL_F)) {
                 l3_route_free(l3route);
             }
      } ITERATE_GLTHREAD_END(&rt_table->rt_flash_list_head, curr)
  }
 
 static void
-rt_table_process_one_flash_client(rt_table_t *rt_table,  nfc_app_cb cbk) {
+rt_table_process_one_flash_client (rt_table_t *rt_table,  nfc_app_cb cbk) {
 
     glthread_t *curr;
     l3_route_t *l3route;
     rt_route_notif_data_t route_notif_data;
 
-    ITERATE_GLTHREAD_BEGIN_REVERSE(&rt_table->rt_flash_list_head, curr) {
+    ITERATE_GLTHREAD_BEGIN_REVERSE (&rt_table->rt_flash_list_head, curr) {
 
         l3route = flash_glue_to_l3_route(curr);
         route_notif_data.l3route = l3route;
         route_notif_data.node = rt_table->node;
         cbk(&route_notif_data, sizeof(route_notif_data));
-    }ITERATE_GLTHREAD_END_REVERSE(&rt_table->rt_flash_list_head, curr) 
+
+    }ITERATE_GLTHREAD_END_REVERSE (&rt_table->rt_flash_list_head, curr) 
 }
 
 static void
@@ -150,8 +151,8 @@ rt_table_flash_job (void *arg, uint32_t arg_size) {
     curr = dequeue_glthread_first(&rt_table->flash_request_list_head);
 
     flash_req = glue_to_route_flash_request(curr);
-    rt_table_process_one_flash_client(rt_table, flash_req->cbk);
-    free(flash_req);
+    rt_table_process_one_flash_client (rt_table, flash_req->cbk);
+    free (flash_req);
 
     if (!IS_GLTHREAD_LIST_EMPTY(&rt_table->flash_request_list_head)) {
         rt_table->flash_job = task_create_new_job(rt_table,
