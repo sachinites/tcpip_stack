@@ -127,7 +127,7 @@ rt_table_process_one_flash_client (rt_table_t *rt_table,  nfc_app_cb cbk) {
     l3_route_t *l3route;
     rt_route_notif_data_t route_notif_data;
 
-    ITERATE_GLTHREAD_BEGIN_REVERSE (&rt_table->rt_flash_list_head, curr) {
+    ITERATE_GLTHREAD_BEGIN_REVERSE(&rt_table->rt_flash_list_head, curr) {
 
         l3route = flash_glue_to_l3_route(curr);
         route_notif_data.l3route = l3route;
