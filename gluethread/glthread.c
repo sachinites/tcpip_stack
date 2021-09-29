@@ -197,6 +197,20 @@ dequeue_glthread_first(glthread_t *base_glthread){
     return temp;
 }
 
+glthread_t *
+glthread_get_last(glthread_t *curr_glthread_node) {
+
+    glthread_t *curr, *prev;
+    if (!curr_glthread_node->right) return NULL;
+
+    ITERATE_GLTHREAD_BEGIN(curr_glthread_node, curr) {
+        prev = curr;
+    } ITERATE_GLTHREAD_END (curr_glthread_node, curr)
+
+    return prev;
+}
+
+
 #if 0
 void *
 gl_thread_search(glthread_t *glthread_head, 
