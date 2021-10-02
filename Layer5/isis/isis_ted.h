@@ -14,4 +14,7 @@ isis_ted_install_lsp (node_t *node, isis_pkt_t *lsp_pkt);
 void
 isis_cleanup_teddb_root(node_t *node) ;
 
+void
+ isis_ted_refresh_seq_no (node_t *node, uint32_t new_seq_no) ;
+
 #endif /**/

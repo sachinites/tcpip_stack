@@ -440,6 +440,8 @@ isis_parse_lsp_tlvs(node_t *node,
                 uint32_t *seq_no = isis_get_lsp_pkt_seq_no(isis_node_info->self_lsp_pkt);
                 ISIS_INCREMENT_NODE_STATS(node, seq_no);
                 *seq_no = isis_node_info->seq_no;
+                
+                isis_ted_refresh_seq_no(node, *seq_no);
 
                 sprintf(tlb, "\t%s : Event : %s : self-LSP %s to be on-demand flooded\n",
                     ISIS_LSPDB_MGMT, isis_event_str(event_type),

@@ -152,6 +152,8 @@ ted_create_or_update_node (ted_db_t *ted_db,
 uint32_t 
 ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff) ;
 
-
+void
+ted_refresh_node_seq_no (ted_db_t *ted_db, 
+                                           uint32_t rtr_id, uint32_t new_seq_no);
 
 #endif /* __TED__ */

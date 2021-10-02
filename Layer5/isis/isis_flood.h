@@ -34,10 +34,6 @@ void
 isis_stop_lsp_pkt_periodic_flooding(node_t *node);
 
 void
-isis_update_lsp_flood_timer_with_new_lsp_pkt(node_t *node,
-        isis_pkt_t *lsp_pkt);
-
-void
 isis_mark_isis_lsp_pkt_flood_ineligible(
         node_t *node, isis_pkt_t *lsp_pkt);
 

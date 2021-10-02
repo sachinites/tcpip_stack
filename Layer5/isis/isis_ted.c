@@ -114,3 +114,15 @@ isis_cleanup_teddb_root(node_t *node) {
     }
     assert(0);  
  }
+
+ void
+ isis_ted_refresh_seq_no (node_t *node, uint32_t new_seq_no) {
+
+     ted_db_t *ted_db = ISIS_TED_DB(node);
+
+     if (!ted_db || avltree_is_empty(&ted_db->teddb)) return;
+
+     ted_refresh_node_seq_no (ted_db,
+            tcp_ip_covert_ip_p_to_n ( NODE_LO_ADDR(node)),
+            new_seq_no);
+ }

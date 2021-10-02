@@ -352,10 +352,11 @@ ted_show_one_node (ted_node_t *node, byte *buff) {
     ted_intf_t *intf, *other_intf;
     ted_node_t *nbr;
 
-    rc += sprintf(buff + rc, "Node : %s[%u]  %s-%u\n", 
+    rc += sprintf(buff + rc, "Node : %s[%u]  %s-%u   flags : 0x%x\n", 
                 node->node_name,
                 node->seq_no,
-                tcp_ip_covert_ip_n_to_p(node->rtr_id, 0), node->seq_no);
+                tcp_ip_covert_ip_n_to_p(node->rtr_id, 0), node->seq_no,
+                node->flags);
     
     if (node->is_fake) {
         rc += sprintf(buff + rc, "  is_fake : %s\n", node->is_fake ? "Yes" : "No");
@@ -403,6 +404,15 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff) {
         rc +=  ted_show_one_node (node, buff + rc);
     } ITERATE_AVL_TREE_END(&ted_db->teddb, avl_node);
     return rc;
+}
+
+void
+ted_refresh_node_seq_no (ted_db_t *ted_db, 
+                                           uint32_t rtr_id, uint32_t new_seq_no) {
+
+    ted_node_t *node = ted_lookup_node(ted_db, rtr_id);
+    if (!node) return;
+    node->seq_no = new_seq_no;
 }
 
 void

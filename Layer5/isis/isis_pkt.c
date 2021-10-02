@@ -322,18 +322,11 @@ isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
             ISIS_LSPDB_MGMT,  isis_node_info->lsp_pkt_gen_task);
     tcp_trace(node, 0 , tlb);
 
-    assert(isis_node_info->lsp_pkt_gen_task);
     isis_node_info->lsp_pkt_gen_task = NULL;
 
     /* Now generate LSP pkt */
-    isis_create_fresh_lsp_pkt(node);
-
-    isis_update_lsp_flood_timer_with_new_lsp_pkt(node,
-        isis_node_info->self_lsp_pkt);
-    
-    assert(!isis_node_info->lsp_pkt_gen_task);
+    isis_create_fresh_lsp_pkt(node);    
     isis_install_lsp(node, 0, isis_node_info->self_lsp_pkt);
-    assert(!isis_node_info->lsp_pkt_gen_task);
 }
 
 void

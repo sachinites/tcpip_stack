@@ -266,85 +266,19 @@ isis_schedule_lsp_flood(node_t *node,
     }
 }
 
-void
-isis_update_lsp_flood_timer_with_new_lsp_pkt(
-        node_t *node,
-        isis_pkt_t *new_lsp_pkt) { /* Could be NULL */
-
-    isis_pkt_t *old_lsp_pkt;
-    isis_timer_data_t *old_isis_timer_data = NULL;
-    isis_timer_data_t *new_isis_timer_data = NULL;
-    
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
-    
-    timer_event_handle *wt_elem = isis_node_info->periodic_lsp_flood_timer;
-
-    if(!wt_elem) return;
-
-    old_isis_timer_data = wt_elem_get_and_set_app_data(wt_elem, 0);
-
-    /* case 1 : */
-    if (!old_isis_timer_data && !new_lsp_pkt) goto done;
-
-    /* case 2 : */
-    else if (!old_isis_timer_data && new_lsp_pkt) {
-
-        new_isis_timer_data =
-            XCALLOC(0, 1, isis_timer_data_t);
-
-        new_isis_timer_data->node = node;
-        new_isis_timer_data->intf = NULL;
-        new_isis_timer_data->data = (char *)new_lsp_pkt;
-        isis_ref_isis_pkt(new_lsp_pkt);
-        new_isis_timer_data->data_size = sizeof(isis_pkt_t);
-        wt_elem_get_and_set_app_data(wt_elem, new_isis_timer_data);
-        goto done;
-    }
-
-    /* case 3 : */
-    else if (old_isis_timer_data && !new_lsp_pkt) {
-
-        isis_deref_isis_pkt((isis_pkt_t *)old_isis_timer_data->data);
-        XFREE(old_isis_timer_data);
-        assert(0);
-        goto done;
-    }
-
-    /* case 4 : Both are non null*/
-    else {
-
-        isis_deref_isis_pkt((isis_pkt_t *)old_isis_timer_data->data);
-        isis_ref_isis_pkt(new_lsp_pkt);
-        old_isis_timer_data->data = (char *)new_lsp_pkt;
-        wt_elem_get_and_set_app_data(wt_elem, old_isis_timer_data);
-        goto done;
-    }
-
-    done:
-        ;
-}
-
 static void
 isis_timer_wrapper_lsp_flood(void *arg, uint32_t arg_size) {
 
     if (!arg) return;
     
-    isis_timer_data_t *isis_timer_data = 
-        (isis_timer_data_t *)arg;
-
-    ISIS_INCREMENT_NODE_STATS((isis_timer_data->node), seq_no);
-
-    uint32_t *seq_no = isis_get_lsp_pkt_seq_no(
-                        (isis_pkt_t *)isis_timer_data->data);
-    
-    *seq_no = (ISIS_NODE_INFO(isis_timer_data->node))->seq_no;
+    node_t *node = (node_t *)arg;
 
     isis_schedule_lsp_pkt_generation(
-            isis_timer_data->node,
+            node,
             isis_event_periodic_lsp_generation);
 
-    if ( !isis_is_reconciliation_in_progress(isis_timer_data->node)) {
-        ISIS_INCREMENT_NODE_STATS(isis_timer_data->node,
+    if ( !isis_is_reconciliation_in_progress(node)) {
+        ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_periodic_lsp_generation]);
     }
 }
@@ -352,34 +286,15 @@ isis_timer_wrapper_lsp_flood(void *arg, uint32_t arg_size) {
 void
 isis_start_lsp_pkt_periodic_flooding(node_t *node) {
 
-    wheel_timer_t *wt;
-    isis_pkt_t *self_lsp_pkt;
     isis_node_info_t *isis_node_info;
-
-    wt = node_get_timer_instance(node);
+    
     isis_node_info = ISIS_NODE_INFO(node);
-    self_lsp_pkt = isis_node_info->self_lsp_pkt;
-
-    isis_timer_data_t *isis_timer_data = NULL;
-
-    /* Even if there is no LSP pkt to flood, start the
-        timer any way */
-    if (isis_node_info->self_lsp_pkt) {
-        
-        isis_timer_data = XCALLOC(0, 1, isis_timer_data_t);
-        isis_timer_data->node = node;
-        isis_timer_data->intf = NULL;
-        isis_timer_data->data =
-            (void*)(isis_node_info->self_lsp_pkt);
-        isis_ref_isis_pkt(isis_node_info->self_lsp_pkt);
-        isis_timer_data->data_size = sizeof(isis_pkt_t);
-    }
-       
+      
     isis_node_info->periodic_lsp_flood_timer = 
-                timer_register_app_event(wt,
+                timer_register_app_event(node_get_timer_instance(node),
                 isis_timer_wrapper_lsp_flood,
-                (void *)isis_timer_data,
-                isis_timer_data ? sizeof(isis_timer_data_t) : 0,
+                (void *)node,
+                sizeof(node_t),
                 isis_node_info->lsp_flood_interval * 1000,
                 1);
 }
@@ -387,7 +302,6 @@ isis_start_lsp_pkt_periodic_flooding(node_t *node) {
 void
 isis_stop_lsp_pkt_periodic_flooding(node_t *node){
 
-    isis_timer_data_t *isis_timer_data = NULL;
     timer_event_handle *periodic_lsp_flood_timer;
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
@@ -395,17 +309,7 @@ isis_stop_lsp_pkt_periodic_flooding(node_t *node){
 
     if (!periodic_lsp_flood_timer) return;
 
-    isis_timer_data = wt_elem_get_and_set_app_data(
-                            periodic_lsp_flood_timer, 0);
-
-    timer_de_register_app_event(periodic_lsp_flood_timer);
-
-    if (isis_timer_data) {
-
-        isis_deref_isis_pkt((isis_pkt_t *)isis_timer_data->data);
-        XFREE(isis_timer_data);
-    }
-    
+    timer_de_register_app_event(periodic_lsp_flood_timer);   
     isis_node_info->periodic_lsp_flood_timer = NULL;
 }
 
