@@ -1,6 +1,46 @@
 #ifndef __ISIS_LSPDB__
 #define __ISIS_LSPDB__
 
+/* A Data structure which holds the data to be advertised as TLVs in 
+    LSPs */
+typedef struct isis_adv_data_ {
+
+    uint16_t tlv_no;
+
+    union {
+        
+        uint32_t rtr_id;
+
+        struct {
+
+            char nbr_name[NODE_NAME_SIZE];
+            uint32_t nbr_rtr_id;
+            uint32_t metric;
+            uint32_t local_ifindex;
+            uint32_t remote_ifindex;
+            uint32_t local_intf_ip;
+            uint32_t remote_intf_ip;
+        } adj_data;
+
+        bool on_demand_tlv;
+      
+        char host_name[NODE_NAME_SIZE];
+
+        uint32_t flags;
+
+        struct {
+            uint32_t prefix;
+            uint8_t mask;
+            uint32_t cost;
+        } pfx;
+
+    }u;
+
+    glthread_t glue;
+    
+} isis_adv_data_t;
+GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
+
 avltree_t *
 isis_get_lspdb_root(node_t *node);
 

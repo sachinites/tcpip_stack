@@ -41,6 +41,8 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_mem_init.o \
 		  Layer5/isis/isis_intf_group.o \
 		  Layer5/isis/isis_layer2map.o \
+		  Layer5/isis/isis_ted.o \
+		  ted/ted.o \
 		  LinuxMemoryManager/mm.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
@@ -63,7 +65,7 @@ Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
 Layer5/isis/isis_pkt.o:Layer5/isis/isis_pkt.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_pkt.c -o Layer5/isis/isis_pkt.o
 
-Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.o
+Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_flood.c -o Layer5/isis/isis_flood.o
 
 Layer5/isis/isis_events.o:Layer5/isis/isis_events.c
@@ -83,6 +85,12 @@ Layer5/isis/isis_intf_group.o:Layer5/isis/isis_intf_group.c
 
 Layer5/isis/isis_layer2map.o:Layer5/isis/isis_layer2map.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_layer2map.c -o Layer5/isis/isis_layer2map.o
+
+Layer5/isis/isis_ted.o:Layer5/isis/isis_ted.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_ted.c -o Layer5/isis/isis_ted.o
+
+ted/ted.o:ted/ted.c
+	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
@@ -199,6 +207,7 @@ clean:
 	rm -f gluethread/glthread.o
 	rm -f Tree/avl.o
 	rm -f *exe
+	rm -f ted/*.o
 	rm -f Layer2/*.o
 	rm -f Layer3/*.o
 	rm -f Layer4/*.o

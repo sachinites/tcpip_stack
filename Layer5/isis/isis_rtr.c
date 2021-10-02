@@ -12,6 +12,8 @@
 #include "isis_cmdcodes.h"
 #include "isis_intf_group.h"
 #include "isis_layer2map.h"
+#include "../../ted/ted.h"
+#include "isis_ted.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
@@ -71,7 +73,10 @@ isis_check_delete_node_info(node_t *node) {
     assert (!isis_node_info->self_lsp_pkt);
     assert (!isis_node_info->lsp_pkt_gen_task);
     assert (!isis_node_info->spf_job_task);
+
+    /*Hooked up Data Structures should be empty */
     assert (avltree_is_empty(&isis_node_info->intf_grp_avl_root));
+    assert(!isis_node_info->ted_db);
     
     /* Timers */
     assert (!isis_node_info->periodic_lsp_flood_timer);
@@ -96,6 +101,7 @@ isis_protocol_shutdown_now (node_t *node) {
 
     isis_node_info->event_control_flags = 0;
     isis_cleanup_lsdb(node);
+    isis_cleanup_teddb_root(node);
 
     /* Queue All interfaces for Purge */
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
@@ -318,6 +324,8 @@ isis_init(node_t *node ) {
     isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
     isis_node_info->dyn_intf_grp = true;  /* True By Default */
     isis_node_info->layer2_mapping = true;   /* True By Default */
+    isis_node_info->ted_db = XCALLOC(0, 1, ted_db_t);
+    ted_init_teddb(isis_node_info->ted_db, 0);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
 
     isis_start_lsp_pkt_periodic_flooding(node);

@@ -4,6 +4,9 @@
 #include "isis_events.h"
 #include "isis_pkt.h"
 
+typedef struct isis_adv_data_ isis_adv_data_t;
+typedef struct ted_db_ ted_db_t;
+
 typedef struct isis_timer_data_ {
 
     node_t *node;
@@ -74,6 +77,12 @@ typedef struct isis_node_info_ {
     bool dyn_intf_grp;
     /* Layer 2 Mapping */
     bool layer2_mapping;
+    /* Rtr ID to be advertised */
+     isis_adv_data_t *adv_data_rtr_id;
+    /* List of Data to be advertised in local LSP pkt */
+    glthread_t adv_data_list_head;
+    /* Ted DB */
+    ted_db_t *ted_db;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -84,6 +93,7 @@ typedef struct isis_node_info_ {
 
 #define ISIS_DECREMENT_NODE_STATS(node_ptr, field)  \
     (ISIS_NODE_INFO(node_ptr))->field--;
+
 
 bool
 isis_is_protocol_enable_on_node(node_t *node) ;

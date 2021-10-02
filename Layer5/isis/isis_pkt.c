@@ -656,3 +656,24 @@ isis_lsp_pkt_get_flags(isis_pkt_t *lsp_pkt) {
     isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
     return lsp_hdr->flags;
 }
+
+uint16_t
+isis_count_tlv_occurrences (byte *tlv_buffer,
+                                              uint16_t tlv_buff_size, uint8_t tlv_no) {
+
+    uint16_t rc = 0;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+    ITERATE_TLV_BEGIN(tlv_buffer , tlv_type,
+                        tlv_len, tlv_value, tlv_buff_size){
+
+         switch(tlv_type){
+
+                case ISIS_IS_REACH_TLV:
+                    rc++;
+                default: ;
+         }
+    } ITERATE_TLV_END(tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, tlv_buff_size);
+    return rc;
+}

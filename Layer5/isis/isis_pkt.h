@@ -93,4 +93,8 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt);
 void
 isis_ref_isis_pkt(isis_pkt_t *lsp_pkt);
 
+uint16_t
+isis_count_tlv_occurrences (byte *tlv_buffer,
+                                              uint16_t tlv_buff_size, uint8_t tlv_no) ;
+
 #endif // !__ISIS_PKT__

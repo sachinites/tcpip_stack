@@ -59,7 +59,7 @@ typedef enum{
 #define INTF_METRIC_DEFAULT 1
 #define TCP_LOG_BUFFER_LEN	256
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
-#define NODE_PRINT_BUFF_LEN 2048
+#define NODE_PRINT_BUFF_LEN (2048 * 10)
 
 /*Add DDCP Protocol Numbers*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, should not exceed 2^16 -1*/

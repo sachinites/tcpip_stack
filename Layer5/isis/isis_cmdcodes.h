@@ -37,5 +37,8 @@
 #define CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP 16
 /* config node <node-name> protocol isis layer2-map*/
 #define CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP 17
-
+/* show node <node-name> protocol isis ted*/
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED 18
+/* show node <node-name> protocol isis ted <rtr-id>*/
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY 19
 #endif /* __ISIS_CMDCODES__ */

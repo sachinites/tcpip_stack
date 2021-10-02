@@ -23,4 +23,5 @@ void
      MM_REG_STRUCT(0, isis_intf_info_t);
      MM_REG_STRUCT(0, isis_lsp_xmit_elem_t);
      MM_REG_STRUCT(0, isis_intf_group_t);
+     MM_REG_STRUCT(0, isis_adv_data_t);
  }

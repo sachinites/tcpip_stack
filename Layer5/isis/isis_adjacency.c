@@ -764,8 +764,7 @@ isis_print_formatted_nbr_tlv(byte *out_buff,
                       tcp_ip_covert_ip_n_to_p(ip_addr_int, 0),
                       metric, subtlv_len);
 
-        subtlv_navigator = nbr_tlv_buffer + 
-                            TLV_OVERHEAD_SIZE + 
+        subtlv_navigator = tlv_value + 
                             sizeof(uint32_t) +  // 4B IP Addr
                             sizeof(uint32_t) +  // 4B metric
                             sizeof(uint8_t);    // 1B subtlv len

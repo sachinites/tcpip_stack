@@ -9,6 +9,8 @@
 #include "isis_flood.h"
 #include "isis_intf_group.h"
 #include "isis_layer2map.h"
+#include "../../ted/ted.h"
+#include "isis_ted.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -266,6 +268,19 @@ isis_show_handler(param_t *param,
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
             break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED:
+            if (!isis_is_protocol_enable_on_node(node)) break;
+            rc = ted_show_ted_db(ISIS_TED_DB(node), 0, node->print_buff);
+            assert ( rc < NODE_PRINT_BUFF_LEN);
+            cli_out (node->print_buff, rc);
+        break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY:
+            if (!isis_is_protocol_enable_on_node(node)) break;
+            rc = ted_show_ted_db(ISIS_TED_DB(node),
+                                                tcp_ip_covert_ip_p_to_n(rtr_id_str), node->print_buff);
+            assert ( rc < NODE_PRINT_BUFF_LEN);
+            cli_out (node->print_buff, rc);
+        break;
         default: ;
     }
     return 0;
@@ -438,6 +453,20 @@ isis_show_cli_tree(param_t *param) {
                         "Router-id in A.B.C.D format");
                     libcli_register_param(&lsdb, &rtr_id);
                     set_param_cmd_code(&rtr_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP);
+                }
+            }
+            {
+                /* show node <node-name> protocol isis ted*/
+                static param_t ted;
+	            init_param(&ted, CMD, "ted", isis_show_handler, 0, INVALID, 0, "TED database");
+	            libcli_register_param(&isis_proto, &ted);
+	            set_param_cmd_code(&ted, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED);
+                 {
+                    static param_t rtr_id;
+                    init_param(&rtr_id, LEAF, 0, isis_show_handler, 0, IPV4, "rtr-id",
+                        "Router-id in A.B.C.D format");
+                    libcli_register_param(&ted, &rtr_id);
+                    set_param_cmd_code(&rtr_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY);
                 }
             }
         }

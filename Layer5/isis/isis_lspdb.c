@@ -6,6 +6,7 @@
 #include "isis_spf.h"
 #include "isis_events.h"
 #include "isis_adjacency.h"
+#include "isis_ted.h"
 
 void
 isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
@@ -694,6 +695,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
 
     avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node));
     lsp_pkt->installed_in_db = false;
+    isis_ted_uninstall_lsp(node, lsp_pkt);
     isis_deref_isis_pkt(lsp_pkt);
 }
 
@@ -758,6 +760,7 @@ isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_pkt_t *lsp_pkt) {
 
     avltree_remove(&lsp_pkt->avl_node_glue, lspdb);
     lsp_pkt->installed_in_db = false;
+    isis_ted_uninstall_lsp(node, lsp_pkt);
     isis_stop_lsp_pkt_installation_timer(lsp_pkt);
     sprintf(tlb, "%s : LSP %s removed from LSPDB\n", ISIS_LSPDB_MGMT,
         isis_print_lsp_id(lsp_pkt));
@@ -776,6 +779,7 @@ isis_add_lsp_pkt_in_lspdb(node_t *node, isis_pkt_t *lsp_pkt) {
 
      avltree_insert(&lsp_pkt->avl_node_glue, lspdb);
      lsp_pkt->installed_in_db = true;
+     isis_ted_install_lsp(node, lsp_pkt);
 
      if (!isis_our_lsp(node, lsp_pkt)) {
          isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
