@@ -224,6 +224,7 @@ isis_update_interface_adjacency_from_hello(
     bool new_adj = false;
     bool nbr_attr_changed = false;
     uint32_t ip_addr_int;
+    bool force_bring_down_adj = false;
     isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(iif);
 
     isis_adjacency_t *adjacency = isis_intf_info->adjacency;
@@ -261,6 +262,7 @@ isis_update_interface_adjacency_from_hello(
                 if (adjacency->nbr_intf_ip != ip_addr_int ) {
                     nbr_attr_changed = true;
                     adjacency->nbr_intf_ip = ip_addr_int;
+                    force_bring_down_adj = true;
                 }
             break;
             case ISIS_TLV_IF_INDEX:
@@ -281,7 +283,14 @@ isis_update_interface_adjacency_from_hello(
 
     if (!new_adj) {
 
-        isis_adj_state_t next_state = isis_get_next_adj_state_on_receiving_next_hello(adjacency);
+        isis_adj_state_t next_state;
+
+        if (force_bring_down_adj) {
+            next_state = ISIS_ADJ_STATE_DOWN;
+        }
+        else {
+            next_state = isis_get_next_adj_state_on_receiving_next_hello(adjacency);
+        }
         isis_change_adjacency_state(adjacency, next_state);
     }
     ISIS_INTF_INCREMENT_STATS(iif, good_hello_pkt_recvd);
