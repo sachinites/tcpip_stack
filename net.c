@@ -196,9 +196,9 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
     for( ; i < MAX_INTF_PER_NODE; i++){
     
         intf = node->intf[i];
-        if(!intf) return NULL;
+        if (!intf) return NULL;
 
-        if(intf->intf_nw_props.is_ipadd_config == false)
+        if (intf->intf_nw_props.is_ipadd_config == false)
             continue;
         
         intf_addr = IF_IP(intf);
@@ -209,7 +209,7 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
         apply_mask(intf_addr, mask, intf_subnet);
         apply_mask(ip_addr, mask, subnet2);
         
-        if(strncmp(intf_subnet, subnet2, 16) == 0){
+        if (strncmp(intf_subnet, subnet2, 16) == 0){
             return intf;
         }
     }
@@ -229,7 +229,7 @@ is_same_subnet(char *ip_addr, char mask,
     apply_mask(ip_addr, mask, intf_subnet);
     apply_mask(other_ip_addr, mask, subnet2);
 
-    if(strncmp(intf_subnet, subnet2, 16) == 0){
+    if (strncmp(intf_subnet, subnet2, 16) == 0){
         return true;
     }
     return false;
@@ -242,7 +242,7 @@ is_same_subnet(char *ip_addr, char mask,
 uint32_t
 get_access_intf_operating_vlan_id(interface_t *interface){
 
-    if(IF_L2_MODE(interface) != ACCESS){
+    if (IF_L2_MODE(interface) != ACCESS){
         assert(0);
     }
 
@@ -255,7 +255,7 @@ bool
 is_trunk_interface_vlan_enabled(interface_t *interface, 
                                 uint32_t vlan_id){
 
-    if(IF_L2_MODE(interface) != TRUNK){
+    if (IF_L2_MODE(interface) != TRUNK){
         assert(0);
     }
 
@@ -329,34 +329,34 @@ bool
 is_interface_l3_bidirectional(interface_t *interface){
 
     /*if interface is in L2 mode*/
-    if(IF_L2_MODE(interface) == ACCESS || 
+    if (IF_L2_MODE(interface) == ACCESS || 
         IF_L2_MODE(interface) == TRUNK)
         return false;
 
     /* If interface is not configured 
      * with IP address*/
-    if(!IS_INTF_L3_MODE(interface))
+    if (!IS_INTF_L3_MODE(interface))
         return false;
 
     interface_t *other_interface = &interface->link->intf1 == interface ?    \
             &interface->link->intf2 : &interface->link->intf1;
 
-    if(!other_interface)
+    if (!other_interface)
         return false;
 
-    if(!IF_IS_UP(interface) ||
+    if (!IF_IS_UP(interface) ||
             !IF_IS_UP(other_interface)){
         return false;
     }
 
-    if(IF_L2_MODE(other_interface) == ACCESS ||
-        IF_L2_MODE(interface) == TRUNK)
+    if (IF_L2_MODE(other_interface) == ACCESS ||
+        IF_L2_MODE(other_interface) == TRUNK)
         return false;
 
-    if(!IS_INTF_L3_MODE(other_interface))
+    if (!IS_INTF_L3_MODE(other_interface))
         return false;
 
-    if(!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
+    if (!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
         IF_IP(other_interface)) &&
         is_same_subnet(IF_IP(other_interface), IF_MASK(other_interface),
         IF_IP(interface)))){

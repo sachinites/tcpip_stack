@@ -439,8 +439,10 @@ add_arp_pending_entry(arp_entry_t *arp_entry,
 
 void
 create_arp_sane_entry(node_t *node,
-					  arp_table_t *arp_table, char *ip_addr, 
-                      char *pkt, uint32_t pkt_size){
+					                 arp_table_t *arp_table,
+                                     char *ip_addr, 
+                                     char *pkt,
+                                     uint32_t pkt_size){
 
     /*case 1 : If full entry already exist - assert. The L2 must have
      * not create ARP sane entry if the already was already existing*/
@@ -471,10 +473,7 @@ create_arp_sane_entry(node_t *node,
     add_arp_pending_entry(arp_entry, 
                           pending_arp_processing_callback_function, 
                           pkt, pkt_size);
-    bool rc = arp_table_entry_add(node, arp_table, arp_entry, 0);
-    if(rc == false){
-        assert(0);
-    }
+    assert(arp_table_entry_add(node, arp_table, arp_entry, 0));
 }
 
 static void
@@ -489,9 +488,9 @@ arp_entry_timer_delete_cbk(void *arg,
 /* ARP entry Timer management functions */
 wheel_timer_elem_t *
 arp_entry_create_expiration_timer(
-	node_t *node,
-	arp_entry_t *arp_entry,
-	uint16_t exp_time) {
+                                    node_t *node,
+                                    arp_entry_t *arp_entry,
+                                    uint16_t exp_time) {
 
 	assert(arp_entry->exp_timer_wt_elem == NULL);
 	
@@ -499,7 +498,7 @@ arp_entry_create_expiration_timer(
 					 node_get_timer_instance(node),
 					 arp_entry_timer_delete_cbk,
 					 (void *)arp_entry,
-					 sizeof(arp_entry),
+					 sizeof(*arp_entry),
 					 ARP_ENTRY_EXP_TIME * 1000,
 					 0); 				 
 }

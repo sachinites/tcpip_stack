@@ -272,13 +272,10 @@ isis_handle_interface_up_down (interface_t *intf, bool old_status) {
         isis_stop_sending_hellos(intf);
         any_adj_up = isis_any_adjacency_up_on_interface(intf);
         isis_delete_all_adjacencies(intf);
-
         if (any_adj_up) {
-            isis_intf_grp_refresh_member_interface(intf);
+            isis_schedule_lsp_pkt_generation(intf->att_node,
+                                isis_event_admin_config_changed);
         }
-
-        isis_schedule_lsp_pkt_generation(intf->att_node,
-            isis_event_admin_config_changed);
     }
 }
 

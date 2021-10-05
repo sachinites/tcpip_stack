@@ -1,7 +1,7 @@
 #ifndef __TED__
 #define __TED__
 
-#define TEDN_MAX_INTF_PER_NODE    MAX_NXT_HOPS
+#define TEDN_MAX_INTF_PER_NODE   (MAX_INTF_PER_NODE + 1)
 
 
 typedef struct ted_intf_{

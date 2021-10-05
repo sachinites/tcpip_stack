@@ -104,15 +104,10 @@ void
 isis_cleanup_teddb_root(node_t *node) {
 
     ted_db_t *ted_db = ISIS_TED_DB(node);
-
     if (!ted_db) return;
-
-    if (avltree_is_empty(&ted_db->teddb)) {
-        XFREE(ted_db);
-        ISIS_TED_DB(node) = NULL;
-        return;
-    }
-    assert(0);  
+    assert(avltree_is_empty(&ted_db->teddb));
+    XFREE(ted_db);
+    ISIS_TED_DB(node) = NULL;
  }
 
  void
