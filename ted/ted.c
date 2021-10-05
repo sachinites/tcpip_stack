@@ -346,7 +346,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
 
 static uint32_t 
-ted_show_one_node (ted_node_t *node, byte *buff) {
+ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
     uint32_t rc = 0;
     ted_intf_t *intf, *other_intf;
@@ -362,6 +362,8 @@ ted_show_one_node (ted_node_t *node, byte *buff) {
         rc += sprintf(buff + rc, "  is_fake : %s\n", node->is_fake ? "Yes" : "No");
     }
 
+    if (!detail) return rc;
+    
     TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
 
         nbr = ted_get_nbr_node(intf);
@@ -385,7 +387,7 @@ ted_show_one_node (ted_node_t *node, byte *buff) {
 }
 
 uint32_t 
-ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff) {
+ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff, bool detail) {
 
     uint32_t rc;
     avltree_node_t *avl_node;
@@ -394,14 +396,14 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff) {
     if (rtr_id) {
         node = ted_lookup_node(ted_db, rtr_id);
         if (!node) return 0;
-        return ted_show_one_node(node, buff);
+        return ted_show_one_node(node, buff, detail);
     }
 
     rc = 0;
     ITERATE_AVL_TREE_BEGIN(&ted_db->teddb, avl_node) {
 
         node = avltree_container_of(avl_node, ted_node_t , avl_glue);
-        rc +=  ted_show_one_node (node, buff + rc);
+        rc +=  ted_show_one_node (node, buff + rc, detail);
     } ITERATE_AVL_TREE_END(&ted_db->teddb, avl_node);
     return rc;
 }

@@ -41,4 +41,8 @@
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED 18
 /* show node <node-name> protocol isis ted <rtr-id>*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY 19
+/* show node <node-name> protocol isis ted detail*/
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL 20
+/* show node <node-name> protocol isis ted <rtr-id> detail*/
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL 21
 #endif /* __ISIS_CMDCODES__ */
