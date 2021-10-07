@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
 TARGET:tcpstack.exe pkt_gen.exe
-LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -lrt
+LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
@@ -104,7 +104,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a
+tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "Build Finished"
 
@@ -202,6 +202,8 @@ LinuxMemoryManager/libmm.a:
 	(cd LinuxMemoryManager; make)
 FSMImplementation/libfsm.a:
 	(cd FSMImplementation; make)
+FireWall/libasa.a:
+	(cd FireWall; make)
 clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
@@ -222,9 +224,10 @@ clean:
 #	rm -f Layer2/stp/*.o
 all:
 	make
-
+	
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
 	(cd LinuxMemoryManager; make clean)
 	(cd FSMImplementation; make clean)
+	(cd FireWall; make clean)

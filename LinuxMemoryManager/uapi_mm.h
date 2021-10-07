@@ -62,15 +62,15 @@ mm_instantiate_new_page_family(
         uint32_t struct_size);
 
 #define XCALLOC(mm_inst, units, struct_name) \
-    (xcalloc(mm_inst, #struct_name, units))
+    (calloc(units, sizeof(struct_name)))
 
 #define XCALLOC_BUFF(mm_inst, size_in_bytes) \
-    (xcalloc_buff(mm_inst, size_in_bytes) )
+    (calloc(1, size_in_bytes))
 
 #define MM_REG_STRUCT(mm_inst, struct_name)  \
     (mm_instantiate_new_page_family(mm_inst, #struct_name, sizeof(struct_name)))
 
 #define XFREE(ptr)  \
-   xfree(ptr)
+   free(ptr)
 
 #endif /* __UAPI_MM__ */
