@@ -70,14 +70,11 @@ typedef enum{
 
 /* Protocol IDs*/
 #define PROTO_STATIC 1
-#define PROTO_ISIS       0x83
 
 static inline unsigned char *
 proto_name_str (uint16_t proto) {
 
     switch(proto) {
-        case PROTO_ISIS:
-            return "isis";
         case PROTO_STATIC:
             return "static";
         case PROTO_ARP:

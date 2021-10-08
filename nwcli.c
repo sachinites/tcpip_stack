@@ -92,7 +92,6 @@ static cli_register_cb
 	{
 		ddcp_config_cli_tree,
 		nmp_config_cli_tree,
-        isis_config_cli_tree,
 		
         /*  Add more CB here */
         
@@ -105,7 +104,6 @@ static cli_register_cb
 	{
 		ddcp_show_cli_tree,
 		nmp_show_cli_tree,
-        isis_show_cli_tree,
 		
         /* Add more CB here */
 
@@ -116,7 +114,6 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_clear_node_node_name_protcol_level[] =
 	{
-        isis_clear_cli_tree,
 		
         /* Add more CB here */
 
