@@ -155,13 +155,6 @@ static void
 isis_free_intf_info(interface_t *intf) {
 
     if (!ISIS_INTF_INFO(intf)) return;
-
-    assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
-    assert(IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)));
-    assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head));
-    assert(IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue));
-    assert(!ISIS_INTF_INFO(intf)->lsp_xmit_job);
-
     XFREE(ISIS_INTF_INFO(intf));
     intf->intf_nw_props.isis_intf_info = NULL;
 }
@@ -175,7 +168,7 @@ isis_check_and_delete_intf_info(interface_t *intf) {
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
          ISIS_INTF_INFO(intf)->lsp_xmit_job) {
 
-        return;
+       assert(0);
     }    
     isis_free_intf_info(intf);
 }
