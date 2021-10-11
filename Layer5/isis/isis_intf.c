@@ -64,23 +64,34 @@ isis_enable_protocol_on_interface(interface_t *intf ) {
     }
 }
 
+static void
+isis_free_intf_info(interface_t *intf) {
+
+    if (!ISIS_INTF_INFO(intf)) return;
+    free(ISIS_INTF_INFO(intf));
+    intf->intf_nw_props.isis_intf_info = NULL;
+}
+
+static void 
+isis_check_and_delete_intf_info(interface_t *intf) {
+
+    if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
+         ISIS_INTF_INFO(intf)->adjacency) {
+
+       assert(0);
+    }    
+    isis_free_intf_info(intf);
+}
+
 void
 isis_disable_protocol_on_interface(interface_t *intf ) {
 
-      isis_intf_info_t *intf_info = NULL;
-
-       intf_info = ISIS_INTF_INFO(intf);
-
-       if (!intf_info) return;
-
-       isis_stop_sending_hellos(intf);
-
-        /* delete adjacency*/
-        isis_delete_adjacency(intf_info->adjacency);
-
-       free(intf_info);
-
-       intf->intf_nw_props.isis_intf_info = NULL;
+    isis_intf_info_t *intf_info = NULL;
+    intf_info = ISIS_INTF_INFO(intf);
+    if (!intf_info)  return;
+    isis_stop_sending_hellos(intf);
+    isis_delete_adjacency(intf_info->adjacency);
+    isis_check_and_delete_intf_info(intf);
 }
 
 static void

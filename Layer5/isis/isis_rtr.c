@@ -30,6 +30,18 @@ void
             isis_pkt_trap_rule, isis_pkt_receive);
  }
 
+static void
+isis_check_delete_node_info(node_t *node) {
+
+    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+
+    if ( !isis_node_info ) return;
+
+    /* Nothing to check till now */ 
+
+    free(isis_node_info);
+}
+
 void
  isis_de_init (node_t *node) {
 
@@ -37,8 +49,7 @@ void
 
     if (!isis_node_info) return;
 
-    free(isis_node_info);
-    //ISIS_NODE_INFO(node) = NULL;
+    isis_check_delete_node_info(node);
     node->node_nw_prop.isis_node_info = NULL;
 
      tcp_stack_de_register_l2_pkt_trap_rule(node, 
