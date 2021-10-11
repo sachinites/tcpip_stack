@@ -23,7 +23,6 @@ void
     if (isis_node_info) return;
 
     isis_node_info = calloc(1, sizeof(isis_node_info_t));
-    //ISIS_NODE_INFO(node) = isis_node_info;
     node->node_nw_prop.isis_node_info = isis_node_info;
 
     tcp_stack_register_l2_pkt_trap_rule(node, 
@@ -36,10 +35,8 @@ isis_check_delete_node_info(node_t *node) {
     isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
     if ( !isis_node_info ) return;
-
-    /* Nothing to check till now */ 
-
     free(isis_node_info);
+    node->node_nw_prop.isis_node_info = NULL;
 }
 
 void
