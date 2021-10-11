@@ -65,6 +65,8 @@ void
     if (!isis_is_protocol_enable_on_node(node) ) return;
 
     isis_node_info =  ISIS_NODE_INFO(node);
+    
+    printf("Adjacency up Count: %u\n", isis_node_info->adj_up_count);
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 

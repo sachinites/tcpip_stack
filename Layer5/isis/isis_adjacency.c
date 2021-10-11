@@ -1,4 +1,5 @@
 #include "../../tcp_public.h"
+#include "isis_rtr.h"
 #include "isis_adjacency.h"
 #include "isis_intf.h"
 #include "isis_const.h"
@@ -148,6 +149,7 @@ isis_change_adjacency_state(
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     isis_adjacency_set_uptime(adjacency);
+                    ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count++;
                     break;
                 default: ;
             }
@@ -161,6 +163,7 @@ isis_change_adjacency_state(
                      adjacency->adj_state = new_adj_state;
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
+                    ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count--;
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     break;
@@ -202,6 +205,10 @@ void
 
     isis_adjacency_stop_expiry_timer(adjacency);
     isis_adjacency_stop_delete_timer(adjacency);
+
+    if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+        ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count--;
+    }
 
     free(adjacency);
  }
