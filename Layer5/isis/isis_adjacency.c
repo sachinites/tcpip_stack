@@ -195,7 +195,7 @@ isis_update_interface_adjacency_from_hello(
     uint32_t *router_id_int;
     uint32_t four_byte_data;
     uint32_t intf_ip_addr_int;
-    isis_intf_info_t *isis_intf_info;
+    isis_intf_info_t *intf_info;
     isis_adjacency_t *adjacency = NULL;
     isis_adjacency_t adjacency_backup;
     bool force_bring_down_adjacency = false;
@@ -308,11 +308,11 @@ isis_find_adjacency_on_interface(
 
     glthread_t *curr;
     isis_adjacency_t *adjacency;
-    isis_intf_info_t *isis_intf_info;
+    isis_intf_info_t *intf_info;
 
-    isis_intf_info = intf->intf_nw_props.isis_intf_info;
+    intf_info = intf->intf_nw_props.intf_info;
 
-    if(!isis_intf_info) return NULL;
+    if(!intf_info) return NULL;
 
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
 
@@ -684,7 +684,7 @@ isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
     uint16_t bytes_encoded;
     isis_adjacency_t *adjacency;
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) return buff;
 
@@ -714,7 +714,7 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
     uint8_t subtlv_bytes_needed;
     isis_adjacency_t *adjacency;
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     bytes_needed = 0;
     subtlv_bytes_needed = 0;
 

@@ -24,14 +24,14 @@ isis_intf_group_t *
 isis_intf_grp_look_up (node_t *node, char *intf_grp_name) {
 
     isis_intf_group_t dummy_intf_grp;
-    isis_node_info_t *isis_node_info; 
+    isis_node_info_t *node_info; 
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
 
     strncpy(dummy_intf_grp.name, intf_grp_name, ISIS_INTF_GRP_NAME_LEN);
     
     avltree_node_t *avl_node =
-        avltree_lookup(&dummy_intf_grp.avl_glue , &isis_node_info->intf_grp_avl_root);
+        avltree_lookup(&dummy_intf_grp.avl_glue , &node_info->intf_grp_avl_root);
 
     if (!avl_node) return NULL;
     return avltree_container_of(avl_node, isis_intf_group_t, avl_glue);
@@ -40,11 +40,11 @@ isis_intf_grp_look_up (node_t *node, char *intf_grp_name) {
 bool
 isis_intf_group_insert_in_intf_grp_db (node_t *node, isis_intf_group_t *intf_grp) {
 
-    isis_node_info_t *isis_node_info; 
+    isis_node_info_t *node_info; 
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
     
-    if (!avltree_insert(&intf_grp->avl_glue, &isis_node_info->intf_grp_avl_root))
+    if (!avltree_insert(&intf_grp->avl_glue, &node_info->intf_grp_avl_root))
         return true;
 
     return false;
@@ -66,12 +66,12 @@ isis_intf_group_delete_by_name_from_intf_grp_db (
             node_t *node, char *intf_grp_name) {
 
     isis_intf_group_t *intf_grp;
-    isis_node_info_t *isis_node_info; 
+    isis_node_info_t *node_info; 
 
-     isis_node_info = ISIS_NODE_INFO(node);
+     node_info = ISIS_NODE_INFO(node);
      intf_grp = isis_intf_grp_look_up(node, intf_grp_name);
      if (!intf_grp) return false;
-     avltree_remove(&intf_grp->avl_glue, &isis_node_info->intf_grp_avl_root);
+     avltree_remove(&intf_grp->avl_glue, &node_info->intf_grp_avl_root);
     return true;
 }
 
@@ -79,10 +79,10 @@ void
 isis_intf_group_remove_from_intf_grp_db (
             node_t *node, isis_intf_group_t *intf_grp) {
 
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
 
-    isis_node_info = ISIS_NODE_INFO(node);
-    avltree_remove(&intf_grp->avl_glue, &isis_node_info->intf_grp_avl_root);
+    node_info = ISIS_NODE_INFO(node);
+    avltree_remove(&intf_grp->avl_glue, &node_info->intf_grp_avl_root);
 }
 
 static bool
@@ -199,12 +199,12 @@ isis_show_one_interface_group(node_t *node,
 
     glthread_t *curr;
     isis_intf_info_t *intf_info;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
     uint32_t bytes_written = rc;
 
     byte *buff = node->print_buff;
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
     
     if ( !isis_is_protocol_enable_on_node(node) ) return 0;
 
@@ -231,16 +231,16 @@ isis_show_all_interface_group(node_t *node) {
     uint32_t rc;
     avltree_node_t *avl_node;
     isis_intf_group_t *intf_grp;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
     
     byte *buff = node->print_buff;
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
 
     if ( !isis_is_protocol_enable_on_node(node) ) return 0;
     
     rc = sprintf (buff,  "Interface Groups : \n");
 
-    ITERATE_AVL_TREE_BEGIN(&isis_node_info->intf_grp_avl_root, avl_node) {
+    ITERATE_AVL_TREE_BEGIN(&node_info->intf_grp_avl_root, avl_node) {
 
         intf_grp = avltree_container_of(avl_node, isis_intf_group_t, avl_glue);
         rc += isis_show_one_interface_group (node, intf_grp, rc);
@@ -328,11 +328,11 @@ void
     avltree_node_t *avl_node;
     isis_intf_group_t *intf_grp;
     
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_node_info) return;
+    if (!node_info) return;
 
-    ITERATE_AVL_TREE_BEGIN(&isis_node_info->intf_grp_avl_root, avl_node) {
+    ITERATE_AVL_TREE_BEGIN(&node_info->intf_grp_avl_root, avl_node) {
 
         intf_grp = avltree_container_of(avl_node, isis_intf_group_t, avl_glue);
         

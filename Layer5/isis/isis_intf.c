@@ -10,7 +10,7 @@
 bool
 isis_node_intf_is_enable(interface_t *intf) {
 
-    return !(intf->intf_nw_props.isis_intf_info == NULL);
+    return !(intf->intf_nw_props.intf_info == NULL);
 }
 
 bool
@@ -113,37 +113,37 @@ isis_refresh_intf_hellos(interface_t *intf) {
 
 
 static void
-isis_init_isis_intf_info (interface_t *intf) {
+isis_init_intf_info (interface_t *intf) {
     
-    isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(intf);
-    memset(isis_intf_info, 0, sizeof(isis_intf_info_t));
-    isis_intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
-    isis_intf_info->cost = ISIS_DEFAULT_INTF_COST;
-    init_glthread(&isis_intf_info->adj_list_head);
-    init_glthread(&isis_intf_info->intf_grp_member_glue);
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    memset(intf_info, 0, sizeof(isis_intf_info_t));
+    intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
+    intf_info->cost = ISIS_DEFAULT_INTF_COST;
+    init_glthread(&intf_info->adj_list_head);
+    init_glthread(&intf_info->intf_grp_member_glue);
     /* Back Linkage */
-    isis_intf_info->intf = intf;
+    intf_info->intf = intf;
 }
 
 void
 isis_enable_protocol_on_interface(interface_t *intf) {
 
-    isis_intf_info_t *isis_intf_info = NULL;
+    isis_intf_info_t *intf_info = NULL;
 
     if (!isis_is_protocol_enable_on_node(intf->att_node)) {
         return;
     }
 
-    isis_intf_info = ISIS_INTF_INFO(intf);
+    intf_info = ISIS_INTF_INFO(intf);
 
-    if (! isis_intf_info ) {
+    if (! intf_info ) {
 
-        isis_intf_info = XCALLOC(0, 1, isis_intf_info_t);
-        intf->intf_nw_props.isis_intf_info = isis_intf_info;
-        isis_init_isis_intf_info(intf);
+        intf_info = XCALLOC(0, 1, isis_intf_info_t);
+        intf->intf_nw_props.intf_info = intf_info;
+        isis_init_intf_info(intf);
     }
     
-    if (isis_intf_info->hello_xmit_timer == NULL) {
+    if (intf_info->hello_xmit_timer == NULL) {
         if (isis_interface_qualify_to_send_hellos(intf) &&
             !ISIS_INTF_INFO(intf)->hello_xmit_timer) {
             isis_start_sending_hellos(intf);
@@ -156,7 +156,7 @@ isis_free_intf_info(interface_t *intf) {
 
     if (!ISIS_INTF_INFO(intf)) return;
     XFREE(ISIS_INTF_INFO(intf));
-    intf->intf_nw_props.isis_intf_info = NULL;
+    intf->intf_nw_props.intf_info = NULL;
 }
 
 void 
@@ -176,17 +176,17 @@ isis_check_and_delete_intf_info(interface_t *intf) {
 void
 isis_disable_protocol_on_interface(interface_t *intf) {
 
-    isis_intf_info_t *isis_intf_info;
+    isis_intf_info_t *intf_info;
 
-    isis_intf_info = ISIS_INTF_INFO(intf);
+    intf_info = ISIS_INTF_INFO(intf);
 
-    if (!isis_intf_info) return;
+    if (!intf_info) return;
 
     isis_stop_sending_hellos(intf);
     isis_delete_all_adjacencies(intf);
     isis_intf_purge_lsp_xmit_queue(intf);
-    remove_glthread(&isis_intf_info->intf_grp_member_glue);
-    isis_intf_info->intf_grp = NULL;
+    remove_glthread(&intf_info->intf_grp_member_glue);
+    intf_info->intf_grp = NULL;
     isis_check_and_delete_intf_info(intf);
 }
 
@@ -196,7 +196,7 @@ isis_show_interface_protocol_state(interface_t *intf) {
     bool is_enabled;
     glthread_t *curr;
     isis_adjacency_t *adjacency = NULL;
-    isis_intf_info_t *isis_intf_info = NULL;
+    isis_intf_info_t *intf_info = NULL;
 
     is_enabled = isis_node_intf_is_enable(intf);
 
@@ -204,15 +204,15 @@ isis_show_interface_protocol_state(interface_t *intf) {
     
     if(!is_enabled) return;
 
-    isis_intf_info = intf->intf_nw_props.isis_intf_info;
+    intf_info = intf->intf_nw_props.intf_info;
    
-    if (isis_intf_info->intf_grp) {
+    if (intf_info->intf_grp) {
          PRINT_TABS(2);
-        printf("Intf Group : %s \n", isis_intf_info->intf_grp->name);
+        printf("Intf Group : %s \n", intf_info->intf_grp->name);
     }
     PRINT_TABS(2);
     printf("hello interval : %u sec, Intf Cost : %u\n",
-        isis_intf_info->hello_interval, isis_intf_info->cost);
+        intf_info->hello_interval, intf_info->cost);
 
     PRINT_TABS(2);
     printf("hello Transmission : %s\n",
@@ -221,17 +221,17 @@ isis_show_interface_protocol_state(interface_t *intf) {
     PRINT_TABS(2);
     printf("Stats :\n");
     PRINT_TABS(3);
-    printf("> good_hello_pkt_recvd : %u\n", isis_intf_info->good_hello_pkt_recvd);
+    printf("> good_hello_pkt_recvd : %u\n", intf_info->good_hello_pkt_recvd);
     PRINT_TABS(3);
-    printf("> bad_hello_pkt_recvd : %u\n", isis_intf_info->bad_hello_pkt_recvd);
+    printf("> bad_hello_pkt_recvd : %u\n", intf_info->bad_hello_pkt_recvd);
     PRINT_TABS(3);
-    printf("> good_lsps_pkt_recvd : %u\n", isis_intf_info->good_lsps_pkt_recvd);
+    printf("> good_lsps_pkt_recvd : %u\n", intf_info->good_lsps_pkt_recvd);
     PRINT_TABS(3);
-    printf("> bad_lsps_pkt_recvd : %u\n", isis_intf_info->bad_lsps_pkt_recvd);
+    printf("> bad_lsps_pkt_recvd : %u\n", intf_info->bad_lsps_pkt_recvd);
     PRINT_TABS(3);
-    printf("> lsp_pkt_sent : %u\n", isis_intf_info->lsp_pkt_sent);
+    printf("> lsp_pkt_sent : %u\n", intf_info->lsp_pkt_sent);
     PRINT_TABS(3);
-    printf("> hello_pkt_sent : %u\n", isis_intf_info->hello_pkt_sent);
+    printf("> hello_pkt_sent : %u\n", intf_info->hello_pkt_sent);
 
     PRINT_TABS(2);
     printf("Adjacencies :\n");

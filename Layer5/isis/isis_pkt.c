@@ -97,7 +97,7 @@ isis_process_lsp_pkt(node_t *node,
     uint32_t *seq_no;
     isis_pkt_t *new_lsp_pkt;
     isis_intf_info_t *intf_info;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
     
     if (!isis_node_intf_is_enable(iif)) return;  
     if (!isis_any_adjacency_up_on_interface(iif)) return;
@@ -141,7 +141,7 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
     ethernet_hdr_t *eth_hdr;
     isis_pkt_hdr_t *pkt_hdr;
     pkt_notif_data_t *pkt_notif_data;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
 
     pkt_notif_data = (pkt_notif_data_t *)arg;
 
@@ -176,9 +176,9 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
 static bool
 isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_node_info->on_demand_flooding) {
+    if (!node_info->on_demand_flooding) {
         return false; 
     }
 
@@ -200,7 +200,7 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     bool is_proto_shutting_down;
     size_t lsp_pkt_size_estimate = 0;
     
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     create_purge_lsp = false;
     include_on_demand_tlv = false;
@@ -209,7 +209,7 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     /* Dont use the fn isis_is_protocol_enable_on_node( ) because
         we want to generate purge LSP when protocol is shutting down.
     */
-    if (!isis_node_info) return;
+    if (!node_info) return;
 
     /* Now estimate the size of lsp pkt */
     lsp_pkt_size_estimate += ETH_HDR_SIZE_EXCL_PAYLOAD;
@@ -231,7 +231,7 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     /* On Demand TLV size estimation */
 
     if (isis_is_reconciliation_in_progress(node) ||
-        IS_BIT_SET(isis_node_info->event_control_flags,
+        IS_BIT_SET(node_info->event_control_flags,
                     ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT)) {
 
         include_on_demand_tlv = true;
@@ -248,15 +248,15 @@ isis_create_fresh_lsp_pkt(node_t *node) {
 TLV_ADD_DONE:
 
     /* Get rid of out-dated self lsp pkt */
-    if (isis_node_info->self_lsp_pkt) {
+    if (node_info->self_lsp_pkt) {
         /* Debar this pkt from going out of the box*/
         isis_mark_isis_lsp_pkt_flood_ineligible(node, 
-                isis_node_info->self_lsp_pkt);
-        isis_deref_isis_pkt(isis_node_info->self_lsp_pkt);
-        isis_node_info->self_lsp_pkt = NULL;
+                node_info->self_lsp_pkt);
+        isis_deref_isis_pkt(node_info->self_lsp_pkt);
+        node_info->self_lsp_pkt = NULL;
     }
 
-    isis_node_info->seq_no++;
+    node_info->seq_no++;
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)
                                 tcp_ip_get_new_pkt_buffer(lsp_pkt_size_estimate);
@@ -269,7 +269,7 @@ TLV_ADD_DONE:
 
     /* pkt type */
     lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
-    lsp_pkt_hdr->seq_no = isis_node_info->seq_no;
+    lsp_pkt_hdr->seq_no = node_info->seq_no;
     lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
     
     if (create_purge_lsp) {
@@ -302,13 +302,13 @@ TLV_ADD_DONE:
     
     SET_COMMON_ETH_FCS(eth_hdr, lsp_pkt_size_estimate, 0);
 
-    isis_node_info->self_lsp_pkt = XCALLOC(0, 1, isis_pkt_t);
-    isis_node_info->self_lsp_pkt->flood_eligibility = true;
-    isis_node_info->self_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
-    isis_node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
-    isis_node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
-    isis_node_info->self_lsp_pkt->ref_count = 1;
-    UNSET_BIT64(isis_node_info->event_control_flags,
+    node_info->self_lsp_pkt = XCALLOC(0, 1, isis_pkt_t);
+    node_info->self_lsp_pkt->flood_eligibility = true;
+    node_info->self_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+    node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
+    node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
+    node_info->self_lsp_pkt->ref_count = 1;
+    UNSET_BIT64(node_info->event_control_flags,
         ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT);
 }
 
@@ -316,28 +316,28 @@ void
 isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
 
     node_t *node = (node_t *)arg;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     sprintf(tlb, "%s : Self-LSP Generation task %p triggered\n",
-            ISIS_LSPDB_MGMT,  isis_node_info->lsp_pkt_gen_task);
+            ISIS_LSPDB_MGMT,  node_info->lsp_pkt_gen_task);
     tcp_trace(node, 0 , tlb);
 
-    isis_node_info->lsp_pkt_gen_task = NULL;
+    node_info->lsp_pkt_gen_task = NULL;
 
     /* Now generate LSP pkt */
     isis_create_fresh_lsp_pkt(node);    
-    isis_install_lsp(node, 0, isis_node_info->self_lsp_pkt);
+    isis_install_lsp(node, 0, node_info->self_lsp_pkt);
 }
 
 void
 isis_schedule_lsp_pkt_generation(node_t *node,
                 isis_event_type_t event_type) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_node_info) return;
+    if (!node_info) return;
 
-    if ( IS_BIT_SET (isis_node_info->misc_flags,
+    if ( IS_BIT_SET (node_info->misc_flags,
                 ISIS_F_DISABLE_LSP_GEN)) {
 
         sprintf(tlb, "%s : LSP generation disabled", ISIS_LSPDB_MGMT);
@@ -348,13 +348,13 @@ isis_schedule_lsp_pkt_generation(node_t *node,
     if ( isis_is_protocol_shutdown_in_progress(node)) {
         /* Prevent any further LSP generation, we are interested only in 
                 generating purge LSP one last time */
-        SET_BIT(isis_node_info->misc_flags, ISIS_F_DISABLE_LSP_GEN);
+        SET_BIT(node_info->misc_flags, ISIS_F_DISABLE_LSP_GEN);
     }
 
-    SET_BIT( isis_node_info->event_control_flags, 
+    SET_BIT( node_info->event_control_flags, 
                         isis_event_to_event_bit(event_type));
 
-    if (isis_node_info->lsp_pkt_gen_task) {
+    if (node_info->lsp_pkt_gen_task) {
 
         sprintf(tlb, "%s : LSP generation Already scheduled, reason : %s\n",
             ISIS_LSPDB_MGMT,
@@ -363,11 +363,11 @@ isis_schedule_lsp_pkt_generation(node_t *node,
         return;
     }
 
-    isis_node_info->lsp_pkt_gen_task =
+    node_info->lsp_pkt_gen_task =
         task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
 
     sprintf(tlb, "%s : LSP pkt generation task scheduled %p, reason : %s\n",
-         ISIS_LSPDB_MGMT, isis_node_info->lsp_pkt_gen_task, isis_event_str(event_type));
+         ISIS_LSPDB_MGMT, node_info->lsp_pkt_gen_task, isis_event_str(event_type));
     tcp_trace(node, 0, tlb);
 }
 
@@ -574,15 +574,15 @@ isis_print_pkt(void *arg, size_t arg_size) {
 void
 isis_cancel_lsp_pkt_generation_task(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     
-    if (!isis_node_info ||
-         !isis_node_info->lsp_pkt_gen_task) {
+    if (!node_info ||
+         !node_info->lsp_pkt_gen_task) {
         return;
     }
 
-    task_cancel_job(isis_node_info->lsp_pkt_gen_task);
-    isis_node_info->lsp_pkt_gen_task = NULL;
+    task_cancel_job(node_info->lsp_pkt_gen_task);
+    node_info->lsp_pkt_gen_task = NULL;
 }
 
 uint32_t *

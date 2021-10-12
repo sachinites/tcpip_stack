@@ -38,7 +38,7 @@ typedef struct isis_pkt_ {
 #define ISIS_LSP_PKT_F_PURGE_BIT    (1 << 1)
 
 /*  LSP generation flags, used to control lsp manufacturing,
-    these flags are set in isis_node_info->lsp_generation_flags 
+    these flags are set in node_info->lsp_generation_flags 
 */
 #define ISIS_LSP_F_INCLUDE_PURGE_BIT    (1 << 0)
 #define ISIS_LSP_F_INCLUDE_OL_BIT       (1 << 1)

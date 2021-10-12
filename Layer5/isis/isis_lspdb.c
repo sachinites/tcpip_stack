@@ -54,9 +54,9 @@ isis_free_dummy_lsp_pkt(void){
 avltree_t *
 isis_get_lspdb_root(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
-    if(isis_node_info) {
-        return &isis_node_info->lspdb_avl_root;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if(node_info) {
+        return &node_info->lspdb_avl_root;
     }
     return NULL;
 }
@@ -137,7 +137,7 @@ isis_install_lsp(node_t *node,
             2. if self originated lsp then install in db and flood on all intf*/
         if (recvd_via_intf) {
 
-            ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
+            ((isis_node_info_t *)(node->node_nw_prop.node_info))->seq_no = *new_seq_no;
 
             sprintf(tlb, "\t%s : Event : %s : self-LSP to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
@@ -165,7 +165,7 @@ isis_install_lsp(node_t *node,
                 install new one and flood it on all intf */
         if (recvd_via_intf) {
 
-            ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
+            ((isis_node_info_t *)(node->node_nw_prop.node_info))->seq_no = *new_seq_no;
             sprintf(tlb, "\t%s : Event : %s : LSP to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
             tcp_trace(node, iif, tlb);
@@ -373,7 +373,7 @@ isis_parse_lsp_tlvs(node_t *node,
 
     tcp_ip_covert_ip_n_to_p(*rtr_id, rtr_id_str.ip_addr);
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     isis_parse_lsp_tlvs_internal(new_lsp_pkt, &on_demand_tlv);
 
@@ -429,26 +429,26 @@ isis_parse_lsp_tlvs(node_t *node,
     if (need_on_demand_flood) {
 
         /* Somebody requested us On-Demand Flood */
-        if (isis_node_info->lsp_pkt_gen_task ||
+        if (node_info->lsp_pkt_gen_task ||
             isis_is_reconciliation_in_progress(node)) {
             return;
         }
 
-        if (isis_node_info->self_lsp_pkt &&
-            isis_node_info->self_lsp_pkt->flood_eligibility) {
+        if (node_info->self_lsp_pkt &&
+            node_info->self_lsp_pkt->flood_eligibility) {
 
-                uint32_t *seq_no = isis_get_lsp_pkt_seq_no(isis_node_info->self_lsp_pkt);
+                uint32_t *seq_no = isis_get_lsp_pkt_seq_no(node_info->self_lsp_pkt);
                 ISIS_INCREMENT_NODE_STATS(node, seq_no);
-                *seq_no = isis_node_info->seq_no;
+                *seq_no = node_info->seq_no;
                 
                 isis_ted_refresh_seq_no(node, *seq_no);
 
                 sprintf(tlb, "\t%s : Event : %s : self-LSP %s to be on-demand flooded\n",
                     ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                    isis_print_lsp_id(isis_node_info->self_lsp_pkt));
+                    isis_print_lsp_id(node_info->self_lsp_pkt));
                 tcp_trace(node, 0, tlb);
 
-                isis_schedule_lsp_flood(node, isis_node_info->self_lsp_pkt,
+                isis_schedule_lsp_flood(node, node_info->self_lsp_pkt,
                                         0, isis_event_on_demand_flood);
 
                 ISIS_INCREMENT_NODE_STATS(node,
@@ -457,7 +457,7 @@ isis_parse_lsp_tlvs(node_t *node,
         else {
             sprintf(tlb, "\t%s : Event : %s : self-LSP %s to be re-generated with next seq no\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                isis_print_lsp_id(isis_node_info->self_lsp_pkt));
+                isis_print_lsp_id(node_info->self_lsp_pkt));
             tcp_trace(node, 0, tlb);
             isis_schedule_lsp_pkt_generation(node, isis_event_on_demand_flood);
         }
@@ -484,7 +484,7 @@ isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id) {
 bool
 isis_our_lsp(node_t *node, isis_pkt_t *lsp_pkt) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
     uint32_t self_loop_back = tcp_ip_covert_ip_p_to_n(
@@ -705,9 +705,9 @@ void
 isis_start_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
 
     wheel_timer_t *wt;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
 
     wt = node_get_timer_instance(node);
 

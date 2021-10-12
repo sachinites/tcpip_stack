@@ -24,9 +24,9 @@ extern void isis_ipv4_rt_notif_cbk (
 bool
 isis_is_protocol_enable_on_node(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_node_info ) {
+    if (!node_info ) {
         return false;
     }
 
@@ -51,10 +51,10 @@ isis_node_cancel_all_timers(node_t *node){
 static void
 isis_free_node_info(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    XFREE(isis_node_info);
-    node->node_nw_prop.isis_node_info = NULL;
+    XFREE(node_info);
+    node->node_nw_prop.node_info = NULL;
 
     sprintf(tlb, "%s : Protocol successfully shutdown\n",
         ISIS_LSPDB_MGMT);
@@ -65,26 +65,26 @@ isis_free_node_info(node_t *node) {
 static void
 isis_check_delete_node_info(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if ( !isis_node_info ) return;
+    if ( !node_info ) return;
 
     /* Scheduled jobs */
-    assert (!isis_node_info->self_lsp_pkt);
-    assert (!isis_node_info->lsp_pkt_gen_task);
-    assert (!isis_node_info->spf_job_task);
+    assert (!node_info->self_lsp_pkt);
+    assert (!node_info->lsp_pkt_gen_task);
+    assert (!node_info->spf_job_task);
 
     /*Hooked up Data Structures should be empty */
-    assert (avltree_is_empty(&isis_node_info->intf_grp_avl_root));
-    assert(!isis_node_info->ted_db);
+    assert (avltree_is_empty(&node_info->intf_grp_avl_root));
+    assert(!node_info->ted_db);
     
     /* Timers */
-    assert (!isis_node_info->periodic_lsp_flood_timer);
-    assert (!isis_node_info->reconc.reconciliation_timer);
-    assert (!isis_node_info->ovl_data.ovl_timer);
+    assert (!node_info->periodic_lsp_flood_timer);
+    assert (!node_info->reconc.reconciliation_timer);
+    assert (!node_info->ovl_data.ovl_timer);
 
     /* Should not have any pending work to do */
-    assert (!isis_node_info->shutdown_pending_work_flags);
+    assert (!node_info->shutdown_pending_work_flags);
     isis_free_node_info (node);
 }
 
@@ -92,14 +92,14 @@ static void
 isis_protocol_shutdown_now (node_t *node) {
 
     interface_t *intf;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if(isis_node_info->self_lsp_pkt){
-        isis_deref_isis_pkt(isis_node_info->self_lsp_pkt);
-        isis_node_info->self_lsp_pkt = NULL;
+    if(node_info->self_lsp_pkt){
+        isis_deref_isis_pkt(node_info->self_lsp_pkt);
+        node_info->self_lsp_pkt = NULL;
     }
 
-    isis_node_info->event_control_flags = 0;
+    node_info->event_control_flags = 0;
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
 
@@ -120,18 +120,18 @@ isis_check_and_shutdown_protocol_now(
         node_t *node, 
         uint16_t work_completed_flag) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if(!isis_node_info) return;
+    if(!node_info) return;
 
     if (!isis_is_protocol_admin_shutdown(node)) return;
 
     /* Flag must be set */
-    assert (isis_node_info->shutdown_pending_work_flags & 
+    assert (node_info->shutdown_pending_work_flags & 
                 work_completed_flag);
     
     /* clean the bit*/
-    UNSET_BIT16(isis_node_info->shutdown_pending_work_flags,
+    UNSET_BIT16(node_info->shutdown_pending_work_flags,
                                     work_completed_flag);
 
     if (isis_is_protocol_shutdown_in_progress(node)) return;
@@ -142,11 +142,11 @@ isis_check_and_shutdown_protocol_now(
 bool
 isis_is_protocol_shutdown_in_progress(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_node_info) false;
+    if (!node_info) false;
 
-    if (IS_BIT_SET(isis_node_info->shutdown_pending_work_flags ,
+    if (IS_BIT_SET(node_info->shutdown_pending_work_flags ,
                             ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK)) {
         return true;
     }
@@ -157,11 +157,11 @@ isis_is_protocol_shutdown_in_progress(node_t *node) {
 bool
 isis_is_protocol_admin_shutdown(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if ( !isis_node_info ) false;
+    if ( !node_info ) false;
 
-    if ( IS_BIT_SET(isis_node_info->event_control_flags,
+    if ( IS_BIT_SET(node_info->event_control_flags,
                 ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT)) {
 
         return true;
@@ -180,14 +180,14 @@ isis_schedule_route_update_task(node_t *node,
 static void
 isis_launch_prior_shutdown_tasks(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    isis_node_info->shutdown_pending_work_flags = 0;
+    node_info->shutdown_pending_work_flags = 0;
 
     /* Set the flags to track what work needs to be done before we die out */
     if (isis_atleast_one_interface_protocol_enabled(node)) {
 
-        SET_BIT(isis_node_info->shutdown_pending_work_flags,
+        SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
     
         isis_schedule_lsp_pkt_generation(node,
@@ -196,7 +196,7 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
     
     if (isis_has_routes(node)) {
 
-        SET_BIT(isis_node_info->shutdown_pending_work_flags,
+        SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
         
         isis_schedule_route_update_task(node,
@@ -208,10 +208,10 @@ void
 isis_protocol_shut_down(node_t *node) {
 
     interface_t *intf;
-    isis_intf_info_t *isis_intf_info;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_intf_info_t *intf_info;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if(!isis_node_info) return;
+    if(!node_info) return;
 
     if (isis_is_protocol_shutdown_in_progress(node)) {
         printf("Protocol Busy shutting down... Please Wait.\n");
@@ -227,7 +227,7 @@ isis_protocol_shut_down(node_t *node) {
     isis_node_cancel_all_timers(node);
     isis_free_dummy_lsp_pkt();
 
-    SET_BIT( isis_node_info->event_control_flags, 
+    SET_BIT( node_info->event_control_flags, 
         ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
 
     isis_launch_prior_shutdown_tasks(node);
@@ -238,27 +238,27 @@ isis_show_node_protocol_state(node_t *node) {
 
     bool is_enabled ;
     interface_t *intf;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
     is_enabled = isis_is_protocol_enable_on_node(node);
 
     printf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
 
     if(!is_enabled) return;
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
 
-    printf("LSP flood count : %u\n", isis_node_info->lsp_flood_count);
-    printf("SPF runs : %u\n", isis_node_info->spf_runs);
-    printf("Seq No : %u\n", isis_node_info->seq_no);
-    printf("Adjacency up Count: %u\n", isis_node_info->adjacency_up_count);
+    printf("LSP flood count : %u\n", node_info->lsp_flood_count);
+    printf("SPF runs : %u\n", node_info->spf_runs);
+    printf("Seq No : %u\n", node_info->seq_no);
+    printf("Adjacency up Count: %u\n", node_info->adjacency_up_count);
 
     printf("Reconciliation Status : %s\n",
         isis_is_reconciliation_in_progress(node) ? "In-Progress" : "Off");
 
-    printf("Overload Status : %s   ", isis_node_info->ovl_data.ovl_status ? "On" : "Off");
-    if (isis_node_info->ovl_data.ovl_status &&
-            isis_node_info->ovl_data.ovl_timer) {
-        printf("Timer : %usec left\n", wt_get_remaining_time(isis_node_info->ovl_data.ovl_timer)/1000);
+    printf("Overload Status : %s   ", node_info->ovl_data.ovl_status ? "On" : "Off");
+    if (node_info->ovl_data.ovl_status &&
+            node_info->ovl_data.ovl_timer) {
+        printf("Timer : %usec left\n", wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
     }
     else {
         printf("Timer : Not Running\n");
@@ -314,18 +314,18 @@ isis_init(node_t *node ) {
     tcp_stack_register_l2_pkt_trap_rule(
 			node, isis_pkt_trap_rule, isis_pkt_recieve);
 
-    isis_node_info_t *isis_node_info = XCALLOC(0, 1, isis_node_info_t);
-    node->node_nw_prop.isis_node_info = isis_node_info;
-    isis_node_info->seq_no = 0;
-    isis_node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
-    isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
-    avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
-    isis_init_intf_group_avl_tree(&isis_node_info->intf_grp_avl_root);
-    isis_node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
-    isis_node_info->dyn_intf_grp = true;  /* True By Default */
-    isis_node_info->layer2_mapping = true;   /* True By Default */
-    isis_node_info->ted_db = XCALLOC(0, 1, ted_db_t);
-    ted_init_teddb(isis_node_info->ted_db, 0);
+    isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
+    node->node_nw_prop.node_info = node_info;
+    node_info->seq_no = 0;
+    node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
+    node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
+    avltree_init(&node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
+    isis_init_intf_group_avl_tree(&node_info->intf_grp_avl_root);
+    node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
+    node_info->dyn_intf_grp = true;  /* True By Default */
+    node_info->layer2_mapping = true;   /* True By Default */
+    node_info->ted_db = XCALLOC(0, 1, ted_db_t);
+    ted_init_teddb(node_info->ted_db, 0);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
 
     isis_start_lsp_pkt_periodic_flooding(node);
@@ -378,7 +378,7 @@ isis_show_event_counters(node_t *node) {
 
     int rc = 0;
     isis_event_type_t event_type;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
@@ -390,7 +390,7 @@ isis_show_event_counters(node_t *node) {
         
     rc += snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, 
                 " %s : %u\n", isis_event_str(event_type), 
-                isis_node_info->isis_event_count[event_type]);
+                node_info->isis_event_count[event_type]);
     }
     cli_out(node->print_buff , rc);
 }
@@ -403,16 +403,16 @@ isis_proto_enable_disable_on_demand_flooding(
     avltree_t *lsdb;
     avltree_node_t *curr;
     isis_pkt_t *lsp_pkt;
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) return;
     lsdb = isis_get_lspdb_root(node);
 
     if (enable) {
-        if (isis_node_info->on_demand_flooding) return;
-            isis_node_info->on_demand_flooding = true;
+        if (node_info->on_demand_flooding) return;
+            node_info->on_demand_flooding = true;
             isis_stop_lsp_pkt_periodic_flooding(node);
             ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
 
@@ -421,8 +421,8 @@ isis_proto_enable_disable_on_demand_flooding(
             } ITERATE_AVL_TREE_END;
     }
     else {
-        if (!isis_node_info->on_demand_flooding) return;
-        isis_node_info->on_demand_flooding = false;
+        if (!node_info->on_demand_flooding) return;
+        node_info->on_demand_flooding = false;
         isis_start_lsp_pkt_periodic_flooding(node);
         ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
 
@@ -435,25 +435,25 @@ isis_proto_enable_disable_on_demand_flooding(
 bool
 isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     
     if (ovl_timer_running) *ovl_timer_running = false;
 
     if  (!isis_is_protocol_enable_on_node(node)) return false;
 
-    if  (isis_node_info->ovl_data.ovl_timer && ovl_timer_running) {
+    if  (node_info->ovl_data.ovl_timer && ovl_timer_running) {
         *ovl_timer_running = true;
     }
 
-    return isis_node_info->ovl_data.ovl_status;
+    return node_info->ovl_data.ovl_status;
 }
 
 static void
 isis_overload_timer_expire(void *arg, uint32_t arg_size) {
 
     node_t *node = (node_t *)arg;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
-    isis_overload_data_t *ovl_data = &isis_node_info->ovl_data;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
     ovl_data->ovl_status = false;
     ovl_data->timeout_val = 0;
@@ -468,9 +468,9 @@ isis_overload_timer_expire(void *arg, uint32_t arg_size) {
 static void
 isis_start_overload_timer(node_t *node, uint32_t timeout_val) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    isis_overload_data_t *ovl_data = &isis_node_info->ovl_data;
+    isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
     if (ovl_data->ovl_timer) return;
 
@@ -484,13 +484,13 @@ isis_start_overload_timer(node_t *node, uint32_t timeout_val) {
 void
 isis_stop_overload_timer(node_t *node) {
 
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if ( !isis_is_protocol_enable_on_node(node)) {
         return;
     }
 
-    isis_overload_data_t *ovl_data = &isis_node_info->ovl_data;
+    isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
     if (!ovl_data->ovl_timer) return;
 
@@ -503,14 +503,14 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
 
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         printf( ISIS_ERROR_PROTO_NOT_ENABLE "\n");  
         return;
     }
 
-    ovl_data = &isis_node_info->ovl_data;
+    ovl_data = &node_info->ovl_data;
 
     if (!ovl_data->ovl_status) {
         ovl_data->ovl_status = true;
@@ -592,11 +592,11 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
-    ovl_data = &isis_node_info->ovl_data;
+    ovl_data = &node_info->ovl_data;
 
     if (cmdcode == CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD) {
 

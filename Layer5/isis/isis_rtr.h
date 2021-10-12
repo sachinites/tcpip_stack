@@ -30,7 +30,7 @@ typedef struct isis_overload_data_ {
     timer_event_handle *ovl_timer;
 } isis_overload_data_t;
 
-typedef struct isis_node_info_ {
+typedef struct node_info_ {
     /* pointer to self LSP pkt */
     isis_pkt_t *self_lsp_pkt;
     /* Task to schedule self LSP pkt generation */
@@ -86,7 +86,7 @@ typedef struct isis_node_info_ {
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
-    ((isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info))
+    ((isis_node_info_t *)(node_ptr->node_nw_prop.node_info))
 
 #define ISIS_INCREMENT_NODE_STATS(node_ptr, field)  \
     (ISIS_NODE_INFO(node_ptr))->field++;

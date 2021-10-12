@@ -319,7 +319,7 @@ isis_config_cli_tree(param_t *param) {
             2. Complete shutdown the protocol.
                 Must clean up all dynamic ISIS Data Structures,
                 and stop advertising Hellos and LSPs.
-                clean up node->isis_node_info and intf->isis_intf_info for all interfaces.
+                clean up node->node_info and intf->intf_info for all interfaces.
         */
         static param_t isis_proto;
 	    init_param(&isis_proto, CMD, "isis", isis_config_handler, 0, INVALID, 0, "isis protocol");
@@ -540,7 +540,7 @@ isis_clear_handler(param_t *param,
         case CMDCODE_CLEAR_NODE_ISIS_LSDB:
         {
             isis_cleanup_lsdb(node);
-            isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+            isis_node_info_t *node_info = ISIS_NODE_INFO(node);
             if (!isis_is_protocol_enable_on_node(node)) break;
             ISIS_NODE_INFO(node)->seq_no = 0;
             isis_enter_reconciliation_phase(node);

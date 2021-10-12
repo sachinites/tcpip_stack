@@ -4,7 +4,7 @@
 typedef struct isis_intf_group_ isis_intf_group_t;
 typedef struct isis_adv_data_ isis_adv_data_t;
 
-typedef struct isis_intf_info_ {
+typedef struct intf_info_ {
 
     interface_t *intf;
     uint16_t hello_interval;
@@ -40,15 +40,15 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
                                             
 /* Some short-hand macros to make life easy */
 #define ISIS_INTF_INFO(intf_ptr)    \
-    ((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))
+    ((isis_intf_info_t *)((intf_ptr)->intf_nw_props.intf_info))
 #define ISIS_INTF_HELLO_XMIT_TIMER(intf_ptr)  \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_xmit_timer)
+    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.intf_info))->hello_xmit_timer)
 #define ISIS_INTF_COST(intf_ptr) \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->cost)
+    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.intf_info))->cost)
 #define ISIS_INTF_HELLO_INTERVAL(intf_ptr) \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_interval)
+    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.intf_info))->hello_interval)
 #define ISIS_INTF_ADJ_LST_HEAD(intf_ptr) \
-    (&(((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->adj_list_head))
+    (&(((isis_intf_info_t *)((intf_ptr)->intf_nw_props.intf_info))->adj_list_head))
 #define ISIS_INTF_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
 
