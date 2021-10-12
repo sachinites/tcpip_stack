@@ -310,7 +310,7 @@ isis_find_adjacency_on_interface(
     isis_adjacency_t *adjacency;
     isis_intf_info_t *intf_info;
 
-    intf_info = intf->intf_nw_props.intf_info;
+    intf_info = ISIS_INTF_INFO(intf);
 
     if(!intf_info) return NULL;
 

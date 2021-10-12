@@ -10,7 +10,7 @@
 bool
 isis_node_intf_is_enable(interface_t *intf) {
 
-    return !(intf->intf_nw_props.intf_info == NULL);
+    return !(intf->intf_nw_props.isis_intf_info == NULL);
 }
 
 bool
@@ -139,7 +139,7 @@ isis_enable_protocol_on_interface(interface_t *intf) {
     if (! intf_info ) {
 
         intf_info = XCALLOC(0, 1, isis_intf_info_t);
-        intf->intf_nw_props.intf_info = intf_info;
+        intf->intf_nw_props.isis_intf_info = intf_info;
         isis_init_intf_info(intf);
     }
     
@@ -156,7 +156,7 @@ isis_free_intf_info(interface_t *intf) {
 
     if (!ISIS_INTF_INFO(intf)) return;
     XFREE(ISIS_INTF_INFO(intf));
-    intf->intf_nw_props.intf_info = NULL;
+    intf->intf_nw_props.isis_intf_info = NULL;
 }
 
 void 
@@ -204,7 +204,7 @@ isis_show_interface_protocol_state(interface_t *intf) {
     
     if(!is_enabled) return;
 
-    intf_info = intf->intf_nw_props.intf_info;
+    intf_info = intf->intf_nw_props.isis_intf_info;
    
     if (intf_info->intf_grp) {
          PRINT_TABS(2);

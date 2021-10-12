@@ -54,7 +54,7 @@ isis_free_node_info(node_t *node) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     XFREE(node_info);
-    node->node_nw_prop.node_info = NULL;
+    node->node_nw_prop.isis_node_info = NULL;
 
     sprintf(tlb, "%s : Protocol successfully shutdown\n",
         ISIS_LSPDB_MGMT);
@@ -315,7 +315,7 @@ isis_init(node_t *node ) {
 			node, isis_pkt_trap_rule, isis_pkt_recieve);
 
     isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
-    node->node_nw_prop.node_info = node_info;
+    node->node_nw_prop.isis_node_info = node_info;
     node_info->seq_no = 0;
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;

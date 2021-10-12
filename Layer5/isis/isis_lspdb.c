@@ -137,7 +137,7 @@ isis_install_lsp(node_t *node,
             2. if self originated lsp then install in db and flood on all intf*/
         if (recvd_via_intf) {
 
-            ((isis_node_info_t *)(node->node_nw_prop.node_info))->seq_no = *new_seq_no;
+            ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
 
             sprintf(tlb, "\t%s : Event : %s : self-LSP to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
@@ -165,7 +165,7 @@ isis_install_lsp(node_t *node,
                 install new one and flood it on all intf */
         if (recvd_via_intf) {
 
-            ((isis_node_info_t *)(node->node_nw_prop.node_info))->seq_no = *new_seq_no;
+            ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
             sprintf(tlb, "\t%s : Event : %s : LSP to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
             tcp_trace(node, iif, tlb);

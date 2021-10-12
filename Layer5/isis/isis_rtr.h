@@ -86,7 +86,7 @@ typedef struct node_info_ {
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
-    ((isis_node_info_t *)(node_ptr->node_nw_prop.node_info))
+    ((isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info))
 
 #define ISIS_INCREMENT_NODE_STATS(node_ptr, field)  \
     (ISIS_NODE_INFO(node_ptr))->field++;
