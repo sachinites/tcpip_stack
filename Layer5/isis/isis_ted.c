@@ -5,7 +5,7 @@
 #include "isis_ted.h"
 
 void
-isis_ted_install_lsp (node_t *node, isis_pkt_t *lsp_pkt) {
+isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     uint16_t n_tlv22;
     uint32_t metric;
@@ -92,7 +92,7 @@ isis_ted_install_lsp (node_t *node, isis_pkt_t *lsp_pkt) {
     }
 
 void
-isis_ted_uninstall_lsp(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     ted_db_t *ted_db = ISIS_TED_DB(node);
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);

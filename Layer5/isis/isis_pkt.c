@@ -10,7 +10,7 @@
 #include "isis_spf.h"
 
 bool
-isis_pkt_trap_rule(char *pkt, size_t pkt_size) {
+isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
 
@@ -95,7 +95,7 @@ isis_process_lsp_pkt(node_t *node,
                      size_t pkt_size) {
 
     uint32_t *seq_no;
-    isis_pkt_t *new_lsp_pkt;
+    isis_lsp_pkt_t *new_lsp_pkt;
     isis_intf_info_t *intf_info;
     isis_node_info_t *node_info;
     
@@ -106,7 +106,7 @@ isis_process_lsp_pkt(node_t *node,
 
     ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
-    new_lsp_pkt = XCALLOC(0, 1, isis_pkt_t);
+    new_lsp_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
     new_lsp_pkt->flood_eligibility = true;
     new_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
     new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
@@ -302,7 +302,7 @@ TLV_ADD_DONE:
     
     SET_COMMON_ETH_FCS(eth_hdr, lsp_pkt_size_estimate, 0);
 
-    node_info->self_lsp_pkt = XCALLOC(0, 1, isis_pkt_t);
+    node_info->self_lsp_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
     node_info->self_lsp_pkt->flood_eligibility = true;
     node_info->self_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
     node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
@@ -586,7 +586,7 @@ isis_cancel_lsp_pkt_generation_task(node_t *node) {
 }
 
 uint32_t *
-isis_get_lsp_pkt_rtr_id(isis_pkt_t *lsp_pkt) {
+isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
@@ -595,7 +595,7 @@ isis_get_lsp_pkt_rtr_id(isis_pkt_t *lsp_pkt) {
 }
 
 uint32_t *
-isis_get_lsp_pkt_seq_no(isis_pkt_t *lsp_pkt) {
+isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
@@ -604,7 +604,7 @@ isis_get_lsp_pkt_seq_no(isis_pkt_t *lsp_pkt) {
 }
 
 uint32_t
-isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
+isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t rc;
 
@@ -634,7 +634,7 @@ isis_deref_isis_pkt(isis_pkt_t *lsp_pkt) {
 }
 
 void
-isis_ref_isis_pkt(isis_pkt_t *isis_pkt) {
+isis_ref_isis_pkt(isis_lsp_pkt_t *isis_pkt) {
 
     assert(isis_pkt->pkt &&
            isis_pkt->pkt_size);
@@ -643,7 +643,7 @@ isis_ref_isis_pkt(isis_pkt_t *isis_pkt) {
 }
 
 isis_pkt_hdr_flags_t
-isis_lsp_pkt_get_flags(isis_pkt_t *lsp_pkt) {
+isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);

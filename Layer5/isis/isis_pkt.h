@@ -30,7 +30,7 @@ typedef struct isis_pkt_ {
     timer_event_handle *expiry_timer;
     /* to check if this LSP is present in lspdb or not */
     bool installed_in_db;
-} isis_pkt_t;
+} isis_lsp_pkt_t;
 
 /*LSP Flags in lsp pkts*/
 
@@ -58,7 +58,7 @@ typedef struct isis_pkt_hdr_{
 #pragma pack(pop)
 
 bool
-isis_pkt_trap_rule(char *pkt, size_t pkt_size);
+isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size);
 
 void
 isis_pkt_recieve(void *arg, size_t arg_size);
@@ -79,19 +79,19 @@ void
 isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused);
 
 uint32_t *
-isis_get_lsp_pkt_rtr_id(isis_pkt_t *lsp_pkt) ;
+isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) ;
 
 uint32_t *
-isis_get_lsp_pkt_seq_no(isis_pkt_t *lsp_pkt);
+isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt);
 
 isis_pkt_hdr_flags_t
-isis_lsp_pkt_get_flags(isis_pkt_t *lsp_pkt);
+isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt);
 
 uint32_t
-isis_deref_isis_pkt(isis_pkt_t *lsp_pkt);
+isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_ref_isis_pkt(isis_pkt_t *lsp_pkt);
+isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
 
 uint16_t
 isis_count_tlv_occurrences (byte *tlv_buffer,

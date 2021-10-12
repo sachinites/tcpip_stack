@@ -279,8 +279,8 @@ isis_show_node_protocol_state(node_t *node) {
 static int
 isis_compare_lspdb_lsp_pkt(const avltree_node_t *n1, const avltree_node_t *n2) {
 
-    isis_pkt_t *lsp_pkt1 = avltree_container_of(n1, isis_pkt_t, avl_node_glue);
-    isis_pkt_t *lsp_pkt2 = avltree_container_of(n2, isis_pkt_t, avl_node_glue);
+    isis_lsp_pkt_t *lsp_pkt1 = avltree_container_of(n1, isis_lsp_pkt_t, avl_node_glue);
+    isis_lsp_pkt_t *lsp_pkt2 = avltree_container_of(n2, isis_lsp_pkt_t, avl_node_glue);
 
     uint32_t *rtr_id1 = isis_get_lsp_pkt_rtr_id(lsp_pkt1);
     uint32_t *rtr_id2 = isis_get_lsp_pkt_rtr_id(lsp_pkt2);
@@ -297,7 +297,7 @@ isis_de_init(node_t *node) {
 
     /* De-Register for interested pkts */
     tcp_stack_de_register_l2_pkt_trap_rule(
-			node, isis_pkt_trap_rule, isis_pkt_recieve);
+			node, isis_lsp_pkt_trap_rule, isis_pkt_recieve);
 
     nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(node);
@@ -312,7 +312,7 @@ isis_init(node_t *node ) {
 
     /* Register for interested pkts */
     tcp_stack_register_l2_pkt_trap_rule(
-			node, isis_pkt_trap_rule, isis_pkt_recieve);
+			node, isis_lsp_pkt_trap_rule, isis_pkt_recieve);
 
     isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = node_info;
@@ -402,7 +402,7 @@ isis_proto_enable_disable_on_demand_flooding(
 
     avltree_t *lsdb;
     avltree_node_t *curr;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     isis_node_info_t *node_info;
 
     node_info = ISIS_NODE_INFO(node);
@@ -416,7 +416,7 @@ isis_proto_enable_disable_on_demand_flooding(
             isis_stop_lsp_pkt_periodic_flooding(node);
             ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
 
-                lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
+                lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
                 isis_stop_lsp_pkt_installation_timer(lsp_pkt);
             } ITERATE_AVL_TREE_END;
     }
@@ -426,7 +426,7 @@ isis_proto_enable_disable_on_demand_flooding(
         isis_start_lsp_pkt_periodic_flooding(node);
         ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
 
-                lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
+                lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
                 isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
         } ITERATE_AVL_TREE_END;
     }

@@ -6,10 +6,10 @@
      ((ISIS_NODE_INFO(node_ptr))->ted_db)
 
 void
-isis_ted_uninstall_lsp(node_t *node, isis_pkt_t *lsp_pkt) ;
+isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
 
 void
-isis_ted_install_lsp (node_t *node, isis_pkt_t *lsp_pkt);
+isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
 void
 isis_cleanup_teddb_root(node_t *node) ;

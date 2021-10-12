@@ -9,12 +9,12 @@
 #include "isis_ted.h"
 
 void
-isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
+isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv);
 
-static isis_pkt_t *gl_lsp_dummy_pkt = NULL;
+static isis_lsp_pkt_t *gl_lsp_dummy_pkt = NULL;
 
-static isis_pkt_t *
+static isis_lsp_pkt_t *
 isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
 
     uint32_t pkt_size;
@@ -22,7 +22,7 @@ isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
 
     if (!gl_lsp_dummy_pkt) {
     
-        gl_lsp_dummy_pkt = XCALLOC(0, 1, isis_pkt_t);
+        gl_lsp_dummy_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
 
         pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD +
                     ISIS_LSP_HDR_SIZE;
@@ -64,13 +64,13 @@ isis_get_lspdb_root(node_t *node) {
 void
 isis_install_lsp(node_t *node,
                  interface_t *iif,
-                 isis_pkt_t *new_lsp_pkt) {
+                 isis_lsp_pkt_t *new_lsp_pkt) {
 
     bool self_lsp;
     bool recvd_via_intf;
     uint32_t *rtr_id;
     ip_add_t rtr_id_str;
-    isis_pkt_t *old_lsp_pkt;
+    isis_lsp_pkt_t *old_lsp_pkt;
     isis_event_type_t event_type;
     bool duplicate_lsp;
     uint32_t *old_seq_no = NULL;
@@ -322,7 +322,7 @@ isis_install_lsp(node_t *node,
 }
 
 void
-isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
+isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv) {
 
     *on_demand_tlv = false;
@@ -356,8 +356,8 @@ isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt,
 
 void
 isis_parse_lsp_tlvs(node_t *node,
-                    isis_pkt_t *new_lsp_pkt,
-                    isis_pkt_t *old_lsp_pkt,
+                    isis_lsp_pkt_t *new_lsp_pkt,
+                    isis_lsp_pkt_t *old_lsp_pkt,
                     isis_event_type_t event_type) {
 
     bool need_spf = false;
@@ -464,25 +464,25 @@ isis_parse_lsp_tlvs(node_t *node,
     }
 }
 
-isis_pkt_t *
+isis_lsp_pkt_t *
 isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id) {
 
     avltree_t *lspdb = isis_get_lspdb_root(node);
 
     if (!lspdb) return NULL;
 
-    isis_pkt_t *dummy_lsp_pkt = isis_get_dummy_lsp_pkt_with_key(rtr_id);
+    isis_lsp_pkt_t *dummy_lsp_pkt = isis_get_dummy_lsp_pkt_with_key(rtr_id);
 
     avltree_node_t *avl_node =
         avltree_lookup(&dummy_lsp_pkt->avl_node_glue, lspdb);
 
     if (!avl_node) return NULL;
 
-    return avltree_container_of(avl_node, isis_pkt_t, avl_node_glue);
+    return avltree_container_of(avl_node, isis_lsp_pkt_t, avl_node_glue);
 }
 
 bool
-isis_our_lsp(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_our_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -497,14 +497,14 @@ void
 isis_cleanup_lsdb(node_t *node) {
 
     avltree_node_t *curr;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     avltree_t *lspdb = isis_get_lspdb_root(node);
 
     if (!lspdb) return;
 
     ITERATE_AVL_TREE_BEGIN(lspdb, curr){
 
-        lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
+        lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
         isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
     } ITERATE_AVL_TREE_END;
 }
@@ -513,7 +513,7 @@ void
 isis_show_lspdb(node_t *node) {
 
     int rc = 0;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     avltree_node_t *curr;
     avltree_t *lspdb = isis_get_lspdb_root(node);
     byte *buff = node->print_buff;
@@ -522,7 +522,7 @@ isis_show_lspdb(node_t *node) {
 
     ITERATE_AVL_TREE_BEGIN(lspdb, curr){
 
-        lsp_pkt = avltree_container_of(curr, isis_pkt_t, avl_node_glue);
+        lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
 
         rc += isis_show_one_lsp_pkt(lsp_pkt, buff + rc );
 
@@ -535,7 +535,7 @@ isis_show_lspdb(node_t *node) {
 /* lsp pkt printing */
 
 int
-isis_show_one_lsp_pkt( isis_pkt_t *lsp_pkt, byte *buff) {
+isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 
     int rc = 0;
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
@@ -567,7 +567,7 @@ void
 isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
 
     int rc = 0;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     uint32_t rtr_id_int;
     char *buff = node->print_buff;
 
@@ -636,7 +636,7 @@ isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
 }
 
 bool
-isis_is_lsp_diff(isis_pkt_t *lsp_pkt1, isis_pkt_t *lsp_pkt2) {
+isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pkt1, isis_lsp_pkt_t *lsp_pkt2) {
 
     if ((lsp_pkt1 && !lsp_pkt2) || (!lsp_pkt1 && lsp_pkt2)) {
 
@@ -664,7 +664,7 @@ isis_is_lsp_diff(isis_pkt_t *lsp_pkt1, isis_pkt_t *lsp_pkt2) {
 }
 
 byte*
-isis_print_lsp_id(isis_pkt_t *lsp_pkt) {
+isis_print_lsp_id(isis_lsp_pkt_t *lsp_pkt) {
 
     static byte lsp_id[32];
     
@@ -687,7 +687,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
             (isis_timer_data_t *)arg;
 
     node_t *node = timer_data->node;
-    isis_pkt_t *lsp_pkt = (isis_pkt_t *)timer_data->data;
+    isis_lsp_pkt_t *lsp_pkt = (isis_lsp_pkt_t *)timer_data->data;
 
     timer_data->data = NULL;
     XFREE(timer_data);
@@ -702,7 +702,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
 }
 
 void
-isis_start_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     wheel_timer_t *wt;
     isis_node_info_t *node_info;
@@ -716,7 +716,7 @@ isis_start_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
     isis_timer_data_t *timer_data = XCALLOC(0, 1, isis_timer_data_t);
     timer_data->node = node;
     timer_data->data = (void *)lsp_pkt;
-    timer_data->data_size = sizeof(isis_pkt_t);
+    timer_data->data_size = sizeof(isis_lsp_pkt_t);
     
     lsp_pkt->expiry_timer = timer_register_app_event(wt,
                                 isis_lsp_pkt_delete_from_lspdb_timer_cb,
@@ -727,7 +727,7 @@ isis_start_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
 }
 
 void
-isis_stop_lsp_pkt_installation_timer(isis_pkt_t *lsp_pkt) {
+isis_stop_lsp_pkt_installation_timer(isis_lsp_pkt_t *lsp_pkt) {
 
     if (!lsp_pkt->expiry_timer) return;
 
@@ -739,20 +739,20 @@ isis_stop_lsp_pkt_installation_timer(isis_pkt_t *lsp_pkt) {
 }
 
 void
-isis_refresh_lsp_pkt_installation_timer(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_refresh_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     isis_stop_lsp_pkt_installation_timer(lsp_pkt);
     isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
 }
 
 bool
-isis_is_lsp_pkt_installed_in_lspdb(isis_pkt_t *lsp_pkt) {
+isis_is_lsp_pkt_installed_in_lspdb(isis_lsp_pkt_t *lsp_pkt) {
 
     return lsp_pkt->installed_in_db;
 }
 
 void
-isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     avltree_t *lspdb = isis_get_lspdb_root(node);
 
@@ -771,7 +771,7 @@ isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_pkt_t *lsp_pkt) {
 }
 
 bool
-isis_add_lsp_pkt_in_lspdb(node_t *node, isis_pkt_t *lsp_pkt) {
+isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     avltree_t *lspdb = isis_get_lspdb_root(node);
 
@@ -800,7 +800,7 @@ isis_remove_lsp_from_lspdb(node_t *node, uint32_t rtr_id) {
 
     if (!lspdb) return ;
 
-    isis_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node, rtr_id);
+    isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node, rtr_id);
 
     if (!lsp_pkt) return;
 

@@ -10,26 +10,26 @@
 #include "isis_intf_group.h"
 
 extern void
-isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
+isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv);
 
 static void
 isis_assign_lsp_src_mac_addr(interface_t *intf,
-                             isis_pkt_t *lsp_pkt) {
+                             isis_lsp_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(lsp_pkt->pkt);
     memcpy(eth_hdr->src_mac.mac, IF_MAC(intf), sizeof(mac_add_t));                           
 }
 
 void
-isis_lsp_pkt_flood_complete(node_t *node, isis_pkt_t *lsp_pkt ){
+isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt ){
 
     assert(!lsp_pkt->flood_queue_count);
 }
 
 void
 isis_mark_isis_lsp_pkt_flood_ineligible(
-        node_t *node, isis_pkt_t *lsp_pkt) {
+        node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     lsp_pkt->flood_eligibility = false;
 }
@@ -38,7 +38,7 @@ isis_mark_isis_lsp_pkt_flood_ineligible(
 static void
 isis_check_xmit_lsp_sanity_before_transmission(
         node_t *node,
-        isis_pkt_t *lsp_pkt) {
+        isis_lsp_pkt_t *lsp_pkt) {
 
     bool on_demand_tlv_present; 
     isis_node_info_t *node_info;
@@ -61,7 +61,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     interface_t *intf;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     bool has_up_adjacency;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
     
@@ -129,7 +129,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 void
 isis_queue_lsp_pkt_for_transmission(
         interface_t *intf,
-        isis_pkt_t *lsp_pkt) {
+        isis_lsp_pkt_t *lsp_pkt) {
 
     isis_node_info_t *node_info;
     isis_intf_info_t *intf_info;
@@ -171,7 +171,7 @@ void
 isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
 
     glthread_t *curr;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     isis_intf_info_t *intf_info;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
 
@@ -198,7 +198,7 @@ isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
 
 void
 isis_schedule_lsp_flood(node_t *node, 
-                        isis_pkt_t *lsp_pkt,
+                        isis_lsp_pkt_t *lsp_pkt,
                         interface_t *exempt_iif,
                         isis_event_type_t event_type) {
 

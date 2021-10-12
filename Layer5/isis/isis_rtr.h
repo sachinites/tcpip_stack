@@ -32,7 +32,7 @@ typedef struct isis_overload_data_ {
 
 typedef struct node_info_ {
     /* pointer to self LSP pkt */
-    isis_pkt_t *self_lsp_pkt;
+    isis_lsp_pkt_t *self_lsp_pkt;
     /* Task to schedule self LSP pkt generation */
     task_t *lsp_pkt_gen_task;
     /*Task to schedule spf job*/
