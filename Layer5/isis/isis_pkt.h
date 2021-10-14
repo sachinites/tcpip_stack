@@ -8,15 +8,11 @@ typedef uint16_t isis_pkt_type_t;
 
 typedef struct isis_pkt_ {
 
-    /* The pkt type - Hellos or LSPs */
-    isis_pkt_type_t isis_pkt_type;
     /* The wired form of pkt */
     byte *pkt;
     /* pkt size, including eithernet hdr */
     size_t pkt_size;
-    /* Rest of the below fields are usually used in the
-    context of LSPs only */
-
+    
     /* ref count on this pkt */
     uint16_t ref_count;
     /* No of interfaces out of which LSP has been

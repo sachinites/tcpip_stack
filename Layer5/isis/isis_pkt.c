@@ -108,7 +108,6 @@ isis_process_lsp_pkt(node_t *node,
 
     new_lsp_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
     new_lsp_pkt->flood_eligibility = true;
-    new_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
     new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(new_lsp_pkt->pkt, (byte *)lsp_eth_hdr, pkt_size);
     new_lsp_pkt->pkt_size = pkt_size;
@@ -304,7 +303,6 @@ TLV_ADD_DONE:
 
     node_info->self_lsp_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
     node_info->self_lsp_pkt->flood_eligibility = true;
-    node_info->self_lsp_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
     node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
     node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
     node_info->self_lsp_pkt->ref_count = 1;

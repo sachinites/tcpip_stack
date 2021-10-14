@@ -29,7 +29,6 @@ isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
 
         gl_lsp_dummy_pkt->pkt = tcp_ip_get_new_pkt_buffer ( pkt_size);
                         
-        gl_lsp_dummy_pkt->isis_pkt_type = ISIS_LSP_PKT_TYPE;
         isis_mark_isis_lsp_pkt_flood_ineligible(0, gl_lsp_dummy_pkt);
         gl_lsp_dummy_pkt->pkt_size = pkt_size;
         gl_lsp_dummy_pkt->expiry_timer = NULL;
