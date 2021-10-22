@@ -263,7 +263,7 @@ ted_resurrect_link (ted_db_t *ted_db,
         if (ted_is_interface_plugged_in(to_intf)) {
             ted_plug_out_interface(to_intf);
         }
-        to_intf->ifindex - to_ifindex;
+        to_intf->ifindex = to_ifindex;
         ted_plug_in_interface(
                             to_node, to_intf );
         link = to_intf->link;

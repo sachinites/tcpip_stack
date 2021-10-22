@@ -119,13 +119,6 @@ isis_process_lsp_pkt(node_t *node,
         isis_print_lsp_id(new_lsp_pkt), iif ? iif->if_name : 0);
     tcp_trace(node, iif, tlb);
 
-#if 0
-    if (intf_info->intf_grp) {
-        seq_no = isis_get_lsp_pkt_seq_no(new_lsp_pkt);
-        isis_intf_grp_update_lsp_xmit_seq_no(
-                intf_info->intf_grp, *seq_no);
-    }
-#endif
     isis_install_lsp(node, iif, new_lsp_pkt);
     isis_deref_isis_pkt(new_lsp_pkt);
 }
