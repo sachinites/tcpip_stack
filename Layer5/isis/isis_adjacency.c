@@ -284,6 +284,12 @@ isis_update_interface_adjacency_from_hello(
                     nbr_attr_changed = true;
                 }
             break;
+            case ISIS_TLV_IF_MAC:
+                if (memcmp(adjacency->nbr_mac.mac, (byte *)tlv_value, tlv_len)) {
+                    memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
+                     force_bring_down_adj = true;
+                }
+            break;
             default: ;
         }
     }  ITERATE_TLV_END(hello_tlv_buffer, tlv_type, tlv_len, tlv_value, tlv_buff_size);
@@ -319,6 +325,15 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
         ip_addr_str,
         adjacency->remote_if_index);
         
+    PRINT_TABS(tab_spaces);
+    printf("Nbr Mac Addr : %02x:%02x:%02x:%02x:%02x:%02x\n", 
+            adjacency->nbr_mac.mac[0], 
+            adjacency->nbr_mac.mac[1], 
+            adjacency->nbr_mac.mac[2], 
+            adjacency->nbr_mac.mac[3], 
+            adjacency->nbr_mac.mac[4], 
+            adjacency->nbr_mac.mac[5]);
+
     PRINT_TABS(tab_spaces);
     printf("State : %s   HT : %u sec   Cost : %u\n",
         isis_adj_state_str(adjacency->adj_state),

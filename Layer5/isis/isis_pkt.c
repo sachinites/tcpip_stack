@@ -151,7 +151,8 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
         4 +
         4 +
         4 +
-        4;
+        4 +
+        6;                     /* MAc Address */
 
     *hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD +
         eth_hdr_payload_size;
@@ -198,6 +199,10 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_METRIC_VAL,
             4,
             (byte *)&cost);
+
+    temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_MAC,
+            6,
+            IF_MAC(intf) );
 
     SET_COMMON_ETH_FCS(hello_eth_hdr, eth_hdr_payload_size, 0);
 
@@ -248,6 +253,11 @@ isis_print_hello_pkt(byte *buff,
             case ISIS_TLV_METRIC_VAL:
                 rc += sprintf(buff + rc, "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
                 break;
+            case ISIS_TLV_IF_MAC:
+                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ",
+                     tlv_type, tlv_len, tlv_value[0], tlv_value[1], tlv_value[2],
+                     tlv_value[3], tlv_value[4], tlv_value[5]);
+                break;    
             default:    ;
         }
 
