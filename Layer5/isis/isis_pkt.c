@@ -524,6 +524,11 @@ isis_print_hello_pkt(byte *buff,
             case ISIS_TLV_METRIC_VAL:
                 rc += sprintf(buff + rc, "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
                 break;
+            case ISIS_TLV_IF_MAC:
+                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ",
+                     tlv_type, tlv_len, tlv_value[0], tlv_value[1], tlv_value[2],
+                     tlv_value[3], tlv_value[4], tlv_value[5]);
+                break;    
             default:    ;
         }
     } ITERATE_TLV_END(hello_tlv_buffer, tlv_type,
