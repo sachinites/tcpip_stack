@@ -75,10 +75,14 @@ isis_free_intf_info(interface_t *intf) {
 static void 
 isis_check_and_delete_intf_info(interface_t *intf) {
 
-    if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
-         ISIS_INTF_INFO(intf)->adjacency) {
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    if (!intf_info) return;
+
+    if (intf_info->hello_xmit_timer ||
+         intf_info->adjacency) {
        assert(0);
     }    
+    
     isis_free_intf_info(intf);
 }
 
