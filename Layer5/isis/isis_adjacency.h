@@ -100,4 +100,10 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
                                   byte *buff,
                                   uint16_t *tlv_len);
 
+uint16_t
+isis_size_to_encode_all_nbr_tlv(node_t *node);
+
+byte *
+isis_encode_all_nbr_tlvs(node_t *node, byte *buff) ;
+
 #endif 

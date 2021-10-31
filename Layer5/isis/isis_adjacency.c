@@ -442,7 +442,7 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
     start_buff = tlv_buffer_insert_tlv(start_buff,
                             ISIS_TLV_LOCAL_IP, 4,
                             (byte *)&ip_addr);
-                            j
+                            
     /* Encode subtlv 8 i.e. remote IP Address */
 
     start_buff = tlv_buffer_insert_tlv(start_buff,
@@ -452,7 +452,56 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
     return start_buff;
 }
 
+byte *
+isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
 
+    interface_t *intf;
+    uint16_t bytes_encoded;
+    isis_adjacency_t *adjacency;
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) return buff;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+        adjacency = ISIS_INTF_INFO(intf)->adjacency;
+        if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+        buff = isis_encode_nbr_tlv(adjacency, buff, &bytes_encoded);
+
+   } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    return buff;
+}
+
+
+uint16_t
+isis_size_to_encode_all_nbr_tlv(node_t *node) {
+
+    interface_t *intf;
+    uint16_t bytes_needed;
+    uint8_t subtlv_bytes_needed;
+    isis_adjacency_t *adjacency;
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    bytes_needed = 0;
+    subtlv_bytes_needed = 0;
+
+    if (!isis_is_protocol_enable_on_node(node)) return 0;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+        adjacency = ISIS_INTF_INFO(intf)->adjacency;
+        if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+        bytes_needed += isis_nbr_tlv_encode_size(adjacency, &subtlv_bytes_needed);
+
+   } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    return bytes_needed;
+}
 
 
 
