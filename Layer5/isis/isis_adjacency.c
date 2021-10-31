@@ -367,3 +367,96 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
                 (unsigned int)difftime(time(NULL), adjacency->uptime)));
     }
 }
+
+/* TLV 22 handling fns */
+uint8_t
+isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
+                                          uint8_t *total_subtlv_len) {
+
+    uint8_t ptlv_len = 0;
+    uint8_t subtlv_len = 0;
+
+    ptlv_len += TLV_OVERHEAD_SIZE ;
+    ptlv_len += 4; /* nbr loopback address */
+    ptlv_len += 4; /* metric */
+    ptlv_len += 1; /* total subtlv _len */
+
+    subtlv_len += TLV_OVERHEAD_SIZE + 4 + 4;
+    subtlv_len += TLV_OVERHEAD_SIZE + 4;
+    subtlv_len += TLV_OVERHEAD_SIZE + 4;
+
+    ptlv_len += subtlv_len;
+
+    *total_subtlv_len = subtlv_len;
+    return ptlv_len;
+}
+
+
+byte *
+isis_encode_nbr_tlv(isis_adjacency_t *adjacency, 
+                                  byte *buff,
+                                  uint16_t *tlv_len) {
+
+    uint8_t subtlv_len = 0;
+    byte *start_buff = buff;
+
+    *tlv_len = isis_nbr_tlv_encode_size(adjacency, &subtlv_len);
+
+    /* now start encoding the data into buffer */
+
+    *start_buff = ISIS_IS_REACH_TLV;
+    start_buff += 1;
+
+    *start_buff = *tlv_len - TLV_OVERHEAD_SIZE;
+    start_buff += 1;
+
+    /*loopback address */
+    memcpy(start_buff, (byte *)&adjacency->nbr_rtr_id, sizeof(adjacency->nbr_rtr_id));
+    start_buff += sizeof(adjacency->nbr_rtr_id);
+
+    /*Metric */
+    uint32_t metric = adjacency->cost;
+    memcpy(start_buff, (byte *)&metric, sizeof (metric));
+    start_buff += sizeof(uint32_t);
+
+    /* Total Subtlv len */
+    memcpy(start_buff, (byte *)&subtlv_len, sizeof(uint8_t));
+    start_buff += sizeof(uint8_t);
+
+    /* Now we will encode subtlv 4, i.e.
+    local ifindex and remote if index */
+
+    uint32_t if_indexes[2];
+
+    if_indexes[0] = IF_INDEX(adjacency->intf);
+    if_indexes[1] = adjacency->remote_if_index;
+
+    start_buff = tlv_buffer_insert_tlv(start_buff,
+                        ISIS_TLV_IF_INDEX, 8, 
+                        (byte *)if_indexes);
+
+    /* Encode Subtlv 6 i.e. local ip address of interface */
+
+    uint32_t ip_addr = tcp_ip_covert_ip_p_to_n(IF_IP(adjacency->intf));
+
+    start_buff = tlv_buffer_insert_tlv(start_buff,
+                            ISIS_TLV_LOCAL_IP, 4,
+                            (byte *)&ip_addr);
+                            j
+    /* Encode subtlv 8 i.e. remote IP Address */
+
+    start_buff = tlv_buffer_insert_tlv(start_buff,
+                            ISIS_TLV_REMOTE_IP, 4,
+                            (byte *)&adjacency->nbr_intf_ip);
+                            
+    return start_buff;
+}
+
+
+
+
+
+
+
+
+

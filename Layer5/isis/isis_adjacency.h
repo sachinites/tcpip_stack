@@ -90,4 +90,14 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
 void
 isis_delete_adjacency(isis_adjacency_t *adjacency) ;
 
+
+uint8_t
+isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
+                                          uint8_t *subtlv_len) ;
+
+byte *
+isis_encode_nbr_tlv(isis_adjacency_t *adjacency, 
+                                  byte *buff,
+                                  uint16_t *tlv_len);
+
 #endif 

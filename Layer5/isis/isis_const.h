@@ -17,6 +17,11 @@
 #define ISIS_TLV_METRIC_VAL 6
 #define ISIS_TLV_IF_INDEX        4    // as per standard
 
+#define ISIS_IS_REACH_TLV  22 // as per standard 0
+#define ISIS_TLV_LOCAL_IP   6 // as per standard
+#define ISIS_TLV_REMOTE_IP  8 // as per standard
+
+
 #define ISIS_HOLD_TIME_FACTOR 2
 
 #define ISIS_CONFIG_TRACE   "ISIS(CONFIG)"
