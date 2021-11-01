@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "libtree.h"
 
-/* This is the simplae example which shows the usage of AVL
+/* This is the simple example which shows the usage of AVL
  * tree. Refer to this example and use this AVL tree library in
  * your code the same way */
 
@@ -28,14 +28,18 @@ typedef struct complex_{
  * returns -1 , 1 or 0 based on the comparison. The fn accepts two args
  * of type avltree_node_t which are embedded avl nodes inside application
  * objects. Use avltree_container_of to retrieve original application
- * objects*/
+ * objects
+ * _c1_new - new node which is to be inserted into avl tree, or dummy node
+ * containing key for lookup operation
+ * _c1_existing - AVL node already present in avl tree
+ * */
 int
-compare_complex_no(const avltree_node_t *_c1, const avltree_node_t *_c2){
+compare_complex_no(const avltree_node_t *_c1_new, const avltree_node_t *_c2_existing){
 
     complex_t *c1,*c2;
 
-    c1 = avltree_container_of(_c1, complex_t, avl_node);
-    c2 = avltree_container_of(_c2, complex_t, avl_node);
+    c1 = avltree_container_of(_c1_new, complex_t, avl_node);
+    c2 = avltree_container_of(_c2_existing, complex_t, avl_node);
     
     if((c1->a *c1->a + c1->b*c1->b) < 
             (c2->a *c2->a + c2->b*c2->b)){
@@ -55,7 +59,7 @@ main(int argc, char **argv){
  	 * it if you dont want to take it as local variable*/
     avltree_t avl_root;
 
-	/* Initalize the AVL tree.*/
+	/* Initialize the AVL tree.*/
 	avltree_init(&avl_root, compare_complex_no);
 	
 	/* Now AVL tree is ready for insertion/deletion */
@@ -99,7 +103,7 @@ main(int argc, char **argv){
 	complex_t *result;
 	avltree_node_t *result_node;
 
-	/* The comparison fn wwill searcth the matching node in
+	/* The comparison fn will search the matching node in
  	 * AVL tree based on key passed as Ist arg */
 	result_node = avltree_lookup(&key.avl_node, &avl_root);
 
