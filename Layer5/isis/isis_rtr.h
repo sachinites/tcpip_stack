@@ -12,6 +12,7 @@ typedef struct isis_timer_data_ {
 typedef struct isis_node_info_ {
 
 uint16_t adj_up_count; 
+uint32_t seq_no;
 
 } isis_node_info_t ;
 

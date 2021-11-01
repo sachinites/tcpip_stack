@@ -4,6 +4,15 @@
 typedef uint16_t isis_pkt_type_t;
 typedef uint8_t  isis_pkt_hdr_flags_t;
 
+typedef struct isis_pkt_ {
+
+    /* The wired form of pkt */
+    byte *pkt;
+    /* pkt size, including eithernet hdr */
+    size_t pkt_size;
+} isis_lsp_pkt_t;
+
+
 #pragma pack (push,1)
 typedef struct isis_pkt_hdr_{
 
