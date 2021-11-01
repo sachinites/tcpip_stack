@@ -292,3 +292,63 @@ isis_print_pkt(void *arg, size_t arg_size) {
         default: ;
     }
 }
+
+void
+isis_create_fresh_lsp_pkt(node_t *node) {
+
+    /* 1. calculate the total size of new LSP pkt
+        2. malloc the buffer for new lsp pkt
+        3. fill the contents of new lsp pkt
+        4. Discard the old lsp pkt
+        5. cache the new lsp pkt */
+
+        size_t lsp_pkt_size_estimate = 0;
+        isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+        if (!node_info) return;
+
+        lsp_pkt_size_estimate += ETH_HDR_SIZE_EXCL_PAYLOAD;
+        lsp_pkt_size_estimate += sizeof(isis_pkt_hdr_t);
+
+        /* accomodate the size of host name TLV */
+        lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE;
+        /* accomodate the size of all TLV22 */
+        lsp_pkt_size_estimate += isis_size_to_encode_all_nbr_tlv(node);
+
+        if (lsp_pkt_size_estimate > MAX_PACKET_BUFFER_SIZE) {
+             return;
+        }
+
+        ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)
+                    tcp_ip_get_new_pkt_buffer(lsp_pkt_size_estimate);
+
+        memset (eth_hdr->src_mac.mac, 0, sizeof(mac_add_t));
+        layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
+        eth_hdr->type = ISIS_ETH_PKT_TYPE;
+
+        isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+
+        lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+        node_info->seq_no++;
+        lsp_pkt_hdr->seq_no = node_info->seq_no;
+        lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+
+        byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
+
+        lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
+                                        ISIS_TLV_HOLD_TIME,
+                                        NODE_NAME_SIZE, node->node_name);
+
+        lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
+
+        if (node_info->self_lsp_pkt) {
+            tcp_ip_free_pkt_buffer(node_info->self_lsp_pkt->pkt,
+                                                  node_info->self_lsp_pkt->pkt_size);
+            free(node_info->self_lsp_pkt);
+            node_info->self_lsp_pkt = NULL;
+        }
+
+        node_info->self_lsp_pkt = calloc(1, sizeof(isis_lsp_pkt_t));
+        node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
+        node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
+}

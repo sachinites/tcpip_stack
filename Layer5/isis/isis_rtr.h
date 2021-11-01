@@ -1,6 +1,8 @@
 #ifndef __ISIS_RTR__
 #define __ISIS_RTR__
 
+typedef struct isis_pkt_ isis_lsp_pkt_t;
+
 typedef struct isis_timer_data_ {
 
     node_t *node;
@@ -13,6 +15,7 @@ typedef struct isis_node_info_ {
 
 uint16_t adj_up_count; 
 uint32_t seq_no;
+isis_lsp_pkt_t *self_lsp_pkt;
 
 } isis_node_info_t ;
 
