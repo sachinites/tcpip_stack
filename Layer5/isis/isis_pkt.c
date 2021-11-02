@@ -336,7 +336,7 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 
         lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
-                                        ISIS_TLV_HOLD_TIME,
+                                        ISIS_TLV_HOSTNAME,
                                         NODE_NAME_SIZE, node->node_name);
 
         lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);

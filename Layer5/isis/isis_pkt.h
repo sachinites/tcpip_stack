@@ -45,7 +45,7 @@ isis_print_lsp_pkt(byte *buff,
 void
 isis_print_pkt(void *arg, size_t arg_size);
 
-static void
+void
 isis_create_fresh_lsp_pkt(node_t *node);
 
 #endif 
