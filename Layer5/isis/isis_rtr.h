@@ -16,6 +16,8 @@ typedef struct isis_node_info_ {
 uint16_t adj_up_count; 
 uint32_t seq_no;
 isis_lsp_pkt_t *self_lsp_pkt;
+/* LSP DB */
+avltree_t lspdb_avl_root;
 
 } isis_node_info_t ;
 

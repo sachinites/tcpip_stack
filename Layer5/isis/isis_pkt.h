@@ -10,6 +10,10 @@ typedef struct isis_pkt_ {
     byte *pkt;
     /* pkt size, including eithernet hdr */
     size_t pkt_size;
+
+    /* glue to attach this lsp pkt to lspdb*/
+    avltree_node_t avl_node_glue;
+    bool installed_in_db;
 } isis_lsp_pkt_t;
 
 
