@@ -1,6 +1,8 @@
 #ifndef __ISIS_LSDB__
 #define __ISIS_LSDB__
 
+typedef struct isis_pkt_hdr_ isis_pkt_hdr_t;
+
 void isis_cleanup_lsdb(node_t *node);
 
 avltree_t *
@@ -34,5 +36,8 @@ uint32_t
 isis_show_one_lsp_pkt_detail (byte *buff, 
                                                   isis_pkt_hdr_t *lsp_pkt_hdr,
                                                   size_t pkt_size);
-                                                  
+
+void
+isis_show_lspdb(node_t *node) ;
+
 #endif 

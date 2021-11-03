@@ -268,9 +268,6 @@ isis_show_one_lsp_pkt_detail (byte *buff,
         rc += printf ("TLVs\n");
     }
 
-
-
-
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
     uint16_t lsp_tlv_buffer_size = (uint16_t) (lsp_pkt->pkt_size -
                                                     ETH_HDR_SIZE_EXCL_PAYLOAD -
@@ -292,7 +289,7 @@ isis_show_one_lsp_pkt_detail (byte *buff,
                 }
             break;
             case ISIS_IS_REACH_TLV:
-                rc += isis_print_formatted_nbr_tlv22(buff + rc ,
+                rc += isis_print_formatted_nbr_tlv22(buff ? buff + rc  : NULL,
                                 tlv_value - TLV_OVERHEAD_SIZE,
                                 tlv_len + TLV_OVERHEAD_SIZE);
             break;
@@ -303,4 +300,25 @@ isis_show_one_lsp_pkt_detail (byte *buff,
                                                 tlv_len, tlv_value,
                                                 lsp_tlv_buffer_size); 
     return rc;
+}
+
+void
+isis_show_lspdb(node_t *node) {
+
+    isis_node_info_t *node_info;
+
+    if ( !isis_is_protocol_enable_on_node(node)) return;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    isis_create_fresh_lsp_pkt(node);
+    
+    isis_lsp_pkt_t *lsp_pkt = node_info->self_lsp_pkt;
+    if (!lsp_pkt) return;
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(lsp_pkt->pkt);
+    isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+    size_t lsp_pkt_size = lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+
+    isis_show_one_lsp_pkt_detail (NULL, lsp_pkt_hdr, lsp_pkt_size);
 }

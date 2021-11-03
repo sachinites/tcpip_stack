@@ -495,6 +495,7 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
 
         if (!isis_node_intf_is_enable(intf)) continue;
         adjacency = ISIS_INTF_INFO(intf)->adjacency;
+        if (adjacency == NULL) continue;
         if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
         bytes_needed += isis_nbr_tlv_encode_size(adjacency, &subtlv_bytes_needed);
 

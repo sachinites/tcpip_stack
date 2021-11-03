@@ -4,6 +4,7 @@
 #include "isis_rtr.h"
 #include "isis_intf.h"
 #include "isis_const.h"
+#include "isis_lsdb.h"
 
 /* show node <node-name> protocol isis */
 static int
@@ -48,6 +49,9 @@ isis_show_handler(param_t *param,
          case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF:
              isis_show_all_intf_stats(node);
              break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
+            isis_show_lspdb(node);
+            break;
          default:;
      }
      return 0;
@@ -227,6 +231,14 @@ isis_show_cli_tree(param_t *param) {
             libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&isis_proto, &interface);
             set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
+            {
+                /* show node <node-name> protocol isis lsdb */
+                static param_t lsdb;
+                init_param(&lsdb, CMD, "lsdb", isis_show_handler, 0, INVALID, 0, "isis lsdb");
+                libcli_register_param(&isis_proto, &lsdb);
+                set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
+
+            }
         }
     }
     return 0;
