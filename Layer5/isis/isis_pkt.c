@@ -472,7 +472,7 @@ isis_print_lsp_pkt(byte *buff,
                         tlv_type, tlv_value);
             break;
             case ISIS_IS_REACH_TLV:
-                rc += isis_print_formatted_nbr_tlv(buff + rc, 
+                rc += isis_print_formatted_nbr_tlv22(buff + rc, 
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;
