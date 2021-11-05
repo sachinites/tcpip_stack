@@ -112,5 +112,7 @@ isis_print_formatted_nbr_tlv(byte *out_buff,
                              byte *nbr_tlv_buffer,
                              uint8_t tlv_buffer_len);
                              
+uint32_t 
+isis_show_all_adjacencies (node_t *node) ;
 
 #endif /* __IGP_NBRSHIP__ */

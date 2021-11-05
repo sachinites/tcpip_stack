@@ -294,6 +294,12 @@ isis_show_handler(param_t *param,
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
         break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY:
+            if (!isis_is_protocol_enable_on_node(node)) break;
+            rc = isis_show_all_adjacencies (node);
+             assert ( rc < NODE_PRINT_BUFF_LEN);
+            cli_out (node->print_buff, rc);
+        break;
         default: ;
     }
     return 0;
@@ -448,6 +454,13 @@ isis_show_cli_tree(param_t *param) {
             libcli_register_param(&isis_proto, &interface);
             set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
             {
+                /* show node <node-name> protocol isis adjacency */
+                static param_t adjacency;
+                init_param(&adjacency, CMD, "adjacency", isis_show_handler, 0, INVALID, 0, "adjacency");
+                libcli_register_param(&isis_proto, &adjacency);
+                set_param_cmd_code(&adjacency, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY);
+            }
+            {
                 /* show node <node-name> protocol isis interface <if-name> */
                 static param_t if_name;
                 init_param(&if_name, LEAF, 0, isis_show_handler, 0, STRING, "if-name",
@@ -545,12 +558,21 @@ isis_clear_handler(param_t *param,
             ISIS_NODE_INFO(node)->seq_no = 0;
             isis_enter_reconciliation_phase(node);
         }
-            break;
+        break;
+        case CMDCODE_CLEAR_NODE_ISIS_ADJACENCY:
+        {
+            interface_t *intf;
+            ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+                if (!isis_node_intf_is_enable(intf)) continue;
+                    isis_delete_all_adjacencies(intf);  
+            }  ITERATE_NODE_INTERFACES_END(node, intf);
+        }
+        break;
         default: ;
     return 0;
     }
 }
-
 
 /* clear node <node-name> protocol ... */
 int
@@ -567,6 +589,13 @@ isis_clear_cli_tree(param_t *param) {
             init_param(&lsdb, CMD, "lsdb", isis_clear_handler, 0, INVALID, 0, "lsdb");
             libcli_register_param(&isis_proto, &lsdb);
             set_param_cmd_code(&lsdb, CMDCODE_CLEAR_NODE_ISIS_LSDB);
+        }
+        {
+             /* clear node <node-name> protocol isis adjacency */
+            static param_t adjacency;
+            init_param(&adjacency, CMD, "adjacency", isis_clear_handler, 0, INVALID, 0, "adjacency");
+            libcli_register_param(&isis_proto, &adjacency);
+            set_param_cmd_code(&adjacency, CMDCODE_CLEAR_NODE_ISIS_ADJACENCY);
         }
     }
     return 0;

@@ -157,6 +157,7 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
         ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
         isis_update_layer2_mapping_on_adjacency_down(adjacency);
+        isis_schedule_lsp_pkt_generation(adjacency->intf->att_node, isis_event_up_adj_deleted);
     }
     isis_dynamic_intf_grp_update_on_adjacency_delete(adjacency);
    XFREE(adjacency);
@@ -814,3 +815,35 @@ isis_print_formatted_nbr_tlv(byte *out_buff,
                         tlv_len, tlv_value, tlv_buffer_len);
     return rc;
 }
+
+uint32_t 
+isis_show_all_adjacencies (node_t *node) {
+
+     uint32_t rc = 0;
+     glthread_t *curr;
+     interface_t *intf;
+     isis_adjacency_t *adjacency;
+
+     byte *buff = node->print_buff;
+
+    ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
+
+        if ( !isis_node_intf_is_enable(intf)) continue;
+        
+        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
+
+            adjacency = glthread_to_isis_adjacency(curr);
+
+            if (!adjacency) continue;
+
+            rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %s\n", 
+            intf->if_name, adjacency->nbr_name,
+            isis_adj_state_str(adjacency->adj_state),
+            hrs_min_sec_format(
+                (unsigned int)difftime(time(NULL), adjacency->uptime)));
+
+        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    } ITERATE_NODE_INTERFACES_END (node, intf);
+    return rc;
+ }

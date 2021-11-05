@@ -13,6 +13,8 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT (1 << isis_event_admin_config_changed)
     isis_event_nbr_attribute_changed,
     #define ISIS_EVENT_NBR_ATTRIBUTE_CHANGED_BIT         (1 << isis_event_nbr_attribute_changed)
+    isis_event_up_adj_deleted,
+    #define ISIS_EVENT_UP_ADJ_DELETED_BIT                            ( 1 << isis_event_up_adj_deleted)
     /*lspdb update events begin*/
     isis_event_self_duplicate_lsp,
     #define ISIS_EVENT_SELF_DUPLICATE_LSP_BIT                     (1 << isis_event_self_duplicate_lsp)

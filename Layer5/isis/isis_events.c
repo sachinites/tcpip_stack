@@ -11,6 +11,8 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT ADMIN CONFIG CHANGED",
     //isis_event_nbr_attribute_changed
     "ISIS EVENT NBR ATTRIBUTE CHANGED",
+    //isis_event_up_adj_deleted
+    "ISIS_EVENT_UP_ADJACENCY_DELETED",
     /*lspdb update events*/
     //isis_event_self_duplicate_lsp,
     "ISIS EVENT SELF DUPLICATE LSP",
