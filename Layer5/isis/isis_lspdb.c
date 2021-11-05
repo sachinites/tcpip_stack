@@ -617,7 +617,7 @@ isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
                         tlv_type, tlv_value);
             break;
             case ISIS_IS_REACH_TLV:
-                 rc += isis_print_formatted_nbr_tlv( buff + rc,
+                 rc += isis_print_formatted_nbr_tlv22( buff + rc,
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;

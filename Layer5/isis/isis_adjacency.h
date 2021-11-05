@@ -108,7 +108,7 @@ uint16_t
 isis_size_to_encode_all_nbr_tlv(node_t *node);
 
 uint16_t
-isis_print_formatted_nbr_tlv(byte *out_buff, 
+isis_print_formatted_nbr_tlv22(byte *out_buff, 
                              byte *nbr_tlv_buffer,
                              uint8_t tlv_buffer_len);
                              
