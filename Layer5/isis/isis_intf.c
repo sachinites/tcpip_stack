@@ -257,8 +257,12 @@ isis_handle_interface_up_down (interface_t *intf, bool old_status) {
         isis_stop_sending_hellos(intf);
         isis_adjacency_t *adjacency = ISIS_INTF_INFO(intf)->adjacency;
         if (!adjacency) return;
+        isis_adj_state_t adj_state = adjacency->adj_state;
         isis_delete_adjacency(adjacency);
         ISIS_INTF_INFO(intf)->adjacency = NULL;
+        if (adj_state == ISIS_ADJ_STATE_UP) {
+            isis_create_fresh_lsp_pkt(intf->att_node);
+        }
     }
 }
 
@@ -285,7 +289,11 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
             isis_adjacency_t *adjacency = ISIS_INTF_INFO(intf)->adjacency;
             if (!adjacency) return;
             isis_delete_adjacency(adjacency);
+            isis_adj_state_t adj_state = adjacency->adj_state;
             ISIS_INTF_INFO(intf)->adjacency = NULL;
+            if (adj_state == ISIS_ADJ_STATE_UP) {
+                isis_create_fresh_lsp_pkt(intf->att_node);
+            }
             return;
         }
 
@@ -297,6 +305,11 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
     isis_interface_qualify_to_send_hellos(intf) ?
         isis_refresh_intf_hellos(intf) :
         isis_stop_sending_hellos(intf);
+
+    if (ISIS_INTF_INFO(intf)->adjacency && 
+         ISIS_INTF_INFO(intf)->adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+        isis_create_fresh_lsp_pkt(intf->att_node);
+    }
 }
 
 

@@ -33,6 +33,12 @@ void
 #define ISIS_NODE_INFO(node_ptr)    \
     ((isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info))
 
+#define ISIS_INCREMENT_NODE_STATS(node_ptr, field)  \
+    (ISIS_NODE_INFO(node_ptr))->field++;
+
+#define ISIS_DECREMENT_NODE_STATS(node_ptr, field)  \
+    (ISIS_NODE_INFO(node_ptr))->field--;
+    
  void
  isis_show_node_protocol_state(node_t *node);
 

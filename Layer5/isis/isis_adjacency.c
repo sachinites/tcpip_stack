@@ -208,8 +208,8 @@ void
 
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
         ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count--;
+        isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
     }
-
     free(adjacency);
  }
 
@@ -232,6 +232,7 @@ isis_update_interface_adjacency_from_hello(
     bool nbr_attr_changed = false;
     uint32_t ip_addr_int;
     bool force_bring_down_adj = false;
+    bool regen_lsp = false;
     isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(iif);
 
     isis_adjacency_t *adjacency = isis_intf_info->adjacency;
@@ -255,6 +256,7 @@ isis_update_interface_adjacency_from_hello(
             case ISIS_TLV_HOSTNAME:
                 if (memcmp(adjacency->nbr_name, tlv_value, tlv_len)) {
                     nbr_attr_changed = true;
+                    regen_lsp = true;
                     memcpy(adjacency->nbr_name, tlv_value, tlv_len);
                 }
             break;
@@ -270,10 +272,14 @@ isis_update_interface_adjacency_from_hello(
                     nbr_attr_changed = true;
                     adjacency->nbr_intf_ip = ip_addr_int;
                     force_bring_down_adj = true;
+                    regen_lsp = true;
                 }
             break;
             case ISIS_TLV_IF_INDEX:
+            if (adjacency->remote_if_index != *(uint32_t *)tlv_value) {
                 memcpy((byte *)&adjacency->remote_if_index, tlv_value, tlv_len);
+                regen_lsp = true;
+            }
             break;
             case ISIS_TLV_HOLD_TIME:
                 adjacency->hold_time = *((uint32_t *)tlv_value);
@@ -282,6 +288,7 @@ isis_update_interface_adjacency_from_hello(
                 if (adjacency->cost != *((uint32_t *)tlv_value)) {
                     adjacency->cost = *((uint32_t *)tlv_value);
                     nbr_attr_changed = true;
+                    regen_lsp = true;
                 }
             break;
             case ISIS_TLV_IF_MAC:
@@ -306,6 +313,11 @@ isis_update_interface_adjacency_from_hello(
         }
         isis_change_adjacency_state(adjacency, next_state);
     }
+
+    if (regen_lsp) {
+        isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
+    }
+    
     ISIS_INTF_INCREMENT_STATS(iif, good_hello_pkt_recvd);
  }
 
@@ -504,7 +516,31 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
     return bytes_needed;
 }
 
+uint32_t 
+isis_show_all_adjacencies (node_t *node) {
 
+     uint32_t rc = 0;
+     interface_t *intf;
+     isis_adjacency_t *adjacency;
+
+     byte *buff = node->print_buff;
+
+    ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
+
+        if ( !isis_node_intf_is_enable(intf)) continue;
+       
+            adjacency = ISIS_INTF_INFO(intf)->adjacency;
+            if (!adjacency) continue;
+
+            rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %s\n", 
+            intf->if_name, adjacency->nbr_name,
+            isis_adj_state_str(adjacency->adj_state),
+            hrs_min_sec_format(
+                (unsigned int)difftime(time(NULL), adjacency->uptime)));
+
+    } ITERATE_NODE_INTERFACES_END (node, intf);
+    return rc;
+ }
 
 
 
