@@ -276,3 +276,4 @@ int isis_clear_cli_tree(param_t *param)
         }
         return 0;
     }
+}

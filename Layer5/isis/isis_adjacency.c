@@ -3,6 +3,7 @@
 #include "isis_adjacency.h"
 #include "isis_intf.h"
 #include "isis_const.h"
+#include "isis_pkt.h"
 
 /* Timer APIs */
 
