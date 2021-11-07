@@ -247,7 +247,7 @@ isis_show_one_lsp_pkt_detail (byte *buff,
                             lsp_pkt_hdr->seq_no);
     }
     else {
-        rc += printf ( "LSP L %s(%u)\n", 
+        rc += printf ( "LSP : %s(%u)\n", 
                             tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, 0),
                             lsp_pkt_hdr->seq_no);
     }
@@ -268,7 +268,6 @@ isis_show_one_lsp_pkt_detail (byte *buff,
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
     uint16_t lsp_tlv_buffer_size = (uint16_t) (pkt_size -
-                                                    ETH_HDR_SIZE_EXCL_PAYLOAD -
                                                     sizeof(isis_pkt_hdr_t));
 
     ITERATE_TLV_BEGIN (lsp_tlv_buffer, tlv_type, 

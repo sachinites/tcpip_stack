@@ -316,7 +316,7 @@ isis_update_interface_adjacency_from_hello(
         isis_change_adjacency_state(adjacency, next_state);
     }
 
-    if (regen_lsp) {
+    if (!new_adj && regen_lsp) {
         isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
     }
     
