@@ -239,12 +239,10 @@ isis_show_one_lsp_pkt_detail (byte *buff,
                                                   size_t pkt_size) {
 
     uint32_t rc = 0;
-    isis_lsp_pkt_t *lsp_pkt;
-
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
     if (buff) {
-    rc += sprintf(buff + rc , "LSP L %s(%u)\n", 
+        rc += sprintf(buff + rc , "LSP : %s(%u)\n", 
                             tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, 0),
                             lsp_pkt_hdr->seq_no);
     }
@@ -255,21 +253,21 @@ isis_show_one_lsp_pkt_detail (byte *buff,
     }
 
     if (buff) {
-    rc += sprintf (buff + rc , "Flags : 0x%x\n", lsp_pkt_hdr->flags);
+        rc += sprintf (buff + rc , "Flags : 0x%x\n", lsp_pkt_hdr->flags);
     }
     else {
         rc += printf ("Flags : 0x%x\n", lsp_pkt_hdr->flags);
     }
 
     if (buff) {
-    rc += sprintf(buff + rc , "TLVs\n");
+        rc += sprintf(buff + rc , "TLVs\n");
     }
     else {
         rc += printf ("TLVs\n");
     }
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
-    uint16_t lsp_tlv_buffer_size = (uint16_t) (lsp_pkt->pkt_size -
+    uint16_t lsp_tlv_buffer_size = (uint16_t) (pkt_size -
                                                     ETH_HDR_SIZE_EXCL_PAYLOAD -
                                                     sizeof(isis_pkt_hdr_t));
 
@@ -281,7 +279,7 @@ isis_show_one_lsp_pkt_detail (byte *buff,
 
             case ISIS_TLV_HOSTNAME:
                 if (buff) {
-                rc += sprintf (buff + rc , "\tTLV%d Host-Name : %s\n", 
+                    rc += sprintf (buff + rc , "\tTLV%d Host-Name : %s\n", 
                             tlv_type, tlv_value);
                 }
                 else {
@@ -310,8 +308,6 @@ isis_show_lspdb(node_t *node) {
     if ( !isis_is_protocol_enable_on_node(node)) return;
 
     node_info = ISIS_NODE_INFO(node);
-
-    isis_create_fresh_lsp_pkt(node);
     
     isis_lsp_pkt_t *lsp_pkt = node_info->self_lsp_pkt;
     if (!lsp_pkt) return;

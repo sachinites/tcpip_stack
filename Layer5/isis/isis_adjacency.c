@@ -151,6 +151,7 @@ isis_change_adjacency_state(
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     isis_adjacency_set_uptime(adjacency);
                     ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count++;
+                    isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
                     break;
                 default: ;
             }
@@ -165,6 +166,7 @@ isis_change_adjacency_state(
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
                     ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count--;
+                    isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     break;
@@ -209,7 +211,6 @@ void
 
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
         ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count--;
-        isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
     }
     free(adjacency);
  }
@@ -480,6 +481,7 @@ isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
 
         if (!isis_node_intf_is_enable(intf)) continue;
         adjacency = ISIS_INTF_INFO(intf)->adjacency;
+        if (!adjacency) continue;
         if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
         buff = isis_encode_nbr_tlv(adjacency, buff, &bytes_encoded);
 
@@ -517,14 +519,12 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
     return bytes_needed;
 }
 
-uint32_t 
+void
 isis_show_all_adjacencies (node_t *node) {
 
      uint32_t rc = 0;
      interface_t *intf;
      isis_adjacency_t *adjacency;
-
-     byte *buff = node->print_buff;
 
     ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
 
@@ -533,17 +533,11 @@ isis_show_all_adjacencies (node_t *node) {
             adjacency = ISIS_INTF_INFO(intf)->adjacency;
             if (!adjacency) continue;
 
-            rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %s\n", 
+            printf( "%-16s   %-16s   %-6s   %s\n", 
             intf->if_name, adjacency->nbr_name,
             isis_adj_state_str(adjacency->adj_state),
             hrs_min_sec_format(
                 (unsigned int)difftime(time(NULL), adjacency->uptime)));
 
     } ITERATE_NODE_INTERFACES_END (node, intf);
-    return rc;
  }
-
-
-
-
-

@@ -5,6 +5,8 @@
 #include "isis_intf.h"
 #include "isis_const.h"
 #include "isis_lsdb.h"
+#include "isis_adjacency.h"
+#include "isis_pkt.h"
 
 /* show node <node-name> protocol isis */
 static int
@@ -51,6 +53,9 @@ isis_show_handler(param_t *param,
              break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
             isis_show_lspdb(node);
+            break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY:
+            isis_show_all_adjacencies(node);
             break;
          default:;
      }
@@ -251,13 +256,51 @@ isis_show_cli_tree(param_t *param) {
 }
 
 
-/* show node <node-name> protocol isis */
-static int
-isis_clear_handler(param_t *param,
-                                 ser_buff_t *tlv_buff,
-                                 op_mode enable_or_disable)  {
+/* clear node <node-name> protocol isis  */
+int
+isis_clear_handler(param_t *param, 
+                   ser_buff_t *tlv_buf,
+                   op_mode enable_or_disable) {
 
-    
+    node_t *node;
+    tlv_struct_t *tlv;
+    bool regen_lsp = false;
+    isis_adjacency_t *adjacency;
+    char *node_name = NULL;
+
+    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        else
+            assert(0);
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    switch(cmdcode) {
+        case CMDCODE_CLEAR_NODE_ISIS_ADJACENCY:
+        {
+            interface_t *intf;
+            ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+                if (!isis_node_intf_is_enable(intf)) continue;
+                adjacency = ISIS_INTF_INFO(intf)->adjacency;
+                if (!adjacency) continue;
+                if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
+                    regen_lsp = true;
+                }
+                isis_delete_adjacency(adjacency);  
+            }  ITERATE_NODE_INTERFACES_END(node, intf);
+            if (regen_lsp) {
+                isis_create_fresh_lsp_pkt(node);
+            }
+        }
+        break;
+        default: ;
+    return 0;
+    }
 }
 
 int isis_clear_cli_tree(param_t *param)

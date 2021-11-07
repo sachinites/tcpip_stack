@@ -106,7 +106,7 @@ isis_size_to_encode_all_nbr_tlv(node_t *node);
 byte *
 isis_encode_all_nbr_tlvs(node_t *node, byte *buff) ;
 
-uint32_t 
+void
 isis_show_all_adjacencies (node_t *node) ;
 
 #endif 

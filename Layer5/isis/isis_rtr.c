@@ -43,6 +43,7 @@ void
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lsdb_lsp_pkt);
     tcp_stack_register_l2_pkt_trap_rule(node, 
             isis_pkt_trap_rule, isis_pkt_receive);
+    isis_create_fresh_lsp_pkt(node);
  }
 
 static void

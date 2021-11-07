@@ -116,6 +116,7 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_clear_node_node_name_protcol_level[] =
 	{
+        isis_clear_cli_tree,
         /* Add more CB here */
 
         0 /*  Last member must be NULL */
