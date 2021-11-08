@@ -4,6 +4,7 @@
 #include "isis_const.h"
 #include "isis_pkt.h"
 #include "isis_adjacency.h"
+#include "isis_lsdb.h"
 
 bool
 isis_node_intf_is_enable(interface_t *intf) {
@@ -261,7 +262,7 @@ isis_handle_interface_up_down (interface_t *intf, bool old_status) {
         isis_delete_adjacency(adjacency);
         ISIS_INTF_INFO(intf)->adjacency = NULL;
         if (adj_state == ISIS_ADJ_STATE_UP) {
-            isis_create_fresh_lsp_pkt(intf->att_node);
+            isis_schedule_lsp_pkt_generation(intf->att_node);
         }
     }
 }
@@ -292,7 +293,7 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
             isis_adj_state_t adj_state = adjacency->adj_state;
             ISIS_INTF_INFO(intf)->adjacency = NULL;
             if (adj_state == ISIS_ADJ_STATE_UP) {
-                isis_create_fresh_lsp_pkt(intf->att_node);
+                isis_schedule_lsp_pkt_generation(intf->att_node);
             }
             return;
         }
@@ -308,7 +309,7 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
 
     if (ISIS_INTF_INFO(intf)->adjacency && 
          ISIS_INTF_INFO(intf)->adjacency->adj_state == ISIS_ADJ_STATE_UP) {
-        isis_create_fresh_lsp_pkt(intf->att_node);
+        isis_schedule_lsp_pkt_generation(intf->att_node);
     }
 }
 

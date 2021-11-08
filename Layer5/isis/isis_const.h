@@ -25,6 +25,7 @@
 #define ISIS_HOLD_TIME_FACTOR 2
 
 #define ISIS_CONFIG_TRACE   "ISIS(CONFIG)"
+#define ISIS_LSPDB_MGMT "ISIS(LSPDB MGMT)"
 
 #define ISIS_ERROR_NON_EXISTING_INTF \
     "Error : Non Existing Interface Specified"

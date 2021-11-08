@@ -18,6 +18,8 @@ uint32_t seq_no;
 isis_lsp_pkt_t *self_lsp_pkt;
 /* LSP DB */
 avltree_t lspdb_avl_root;
+/* Task to schedule self LSP pkt generation */
+task_t *lsp_pkt_gen_task;
 
 } isis_node_info_t ;
 

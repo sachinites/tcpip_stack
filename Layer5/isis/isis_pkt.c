@@ -4,6 +4,7 @@
 #include "isis_pkt.h"
 #include "isis_const.h"
 #include "isis_adjacency.h"
+#include "isis_lsdb.h"
 
 bool
 isis_pkt_trap_rule (char *pkt, size_t pkt_size) {
@@ -211,10 +212,10 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
 
 uint32_t
 isis_print_lsp_pkt(byte *buff, 
-                                  isis_pkt_hdr_t *hello_pkt_hdr,
-                                  uint32_t pkt_size ) {
+                              isis_pkt_hdr_t *lsp_pkt_hdr,
+                              uint32_t pkt_size ) {
 
-
+    return isis_show_one_lsp_pkt_detail(buff, lsp_pkt_hdr, pkt_size);
 }
 
 uint32_t

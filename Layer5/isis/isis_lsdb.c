@@ -317,3 +317,41 @@ isis_show_lspdb(node_t *node) {
 
     isis_show_one_lsp_pkt_detail (NULL, lsp_pkt_hdr, lsp_pkt_size);
 }
+
+static void
+ isis_generate_lsp_pkt(void *arg, uint32_t arg_size) {
+
+     node_t *node = (node_t *)arg;
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+     sprintf(tlb, "%s : Self-LSP Generation task %p triggered\n",
+            ISIS_LSPDB_MGMT,  node_info->lsp_pkt_gen_task);
+    tcp_trace(node, 0, tlb);
+    
+    node_info->lsp_pkt_gen_task = NULL;
+
+    isis_create_fresh_lsp_pkt(node);
+ }
+
+void
+isis_schedule_lsp_pkt_generation(node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    if (node_info->lsp_pkt_gen_task) {
+
+        sprintf(tlb, "%s : LSP generation Already scheduled\n",
+                ISIS_LSPDB_MGMT);
+        tcp_trace(node, 0, tlb);
+        return;
+    }
+
+    node_info->lsp_pkt_gen_task = 
+        task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
+
+    sprintf(tlb, "%s : LSP pkt generation task scheduled\n",
+             ISIS_LSPDB_MGMT);
+}

@@ -40,4 +40,7 @@ isis_show_one_lsp_pkt_detail (byte *buff,
 void
 isis_show_lspdb(node_t *node) ;
 
+void
+isis_schedule_lsp_pkt_generation(node_t *node);
+
 #endif 

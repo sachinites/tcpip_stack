@@ -4,6 +4,7 @@
 #include "isis_intf.h"
 #include "isis_const.h"
 #include "isis_pkt.h"
+#include "isis_lsdb.h"
 
 /* Timer APIs */
 
@@ -151,7 +152,7 @@ isis_change_adjacency_state(
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     isis_adjacency_set_uptime(adjacency);
                     ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count++;
-                    isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
+                    isis_schedule_lsp_pkt_generation(adjacency->intf->att_node);
                     break;
                 default: ;
             }
@@ -166,7 +167,7 @@ isis_change_adjacency_state(
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
                     ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count--;
-                    isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
+                    isis_schedule_lsp_pkt_generation(adjacency->intf->att_node);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     break;
@@ -317,7 +318,7 @@ isis_update_interface_adjacency_from_hello(
     }
 
     if (!new_adj && regen_lsp) {
-        isis_create_fresh_lsp_pkt(adjacency->intf->att_node);
+        isis_schedule_lsp_pkt_generation(adjacency->intf->att_node);
     }
     
     ISIS_INTF_INCREMENT_STATS(iif, good_hello_pkt_recvd);

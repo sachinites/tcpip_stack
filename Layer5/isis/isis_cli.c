@@ -294,7 +294,7 @@ isis_clear_handler(param_t *param,
                 isis_delete_adjacency(adjacency);  
             }  ITERATE_NODE_INTERFACES_END(node, intf);
             if (regen_lsp) {
-                isis_create_fresh_lsp_pkt(node);
+                isis_schedule_lsp_pkt_generation(node);
             }
         }
         break;
