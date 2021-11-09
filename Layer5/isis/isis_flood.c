@@ -221,6 +221,7 @@ isis_schedule_lsp_flood(node_t *node,
             sprintf(tlb, "%s : LSP %s flood skip out of intf %s, Reason :reciepient intf\n",
                         ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
             tcp_trace(node, 0, tlb);
+            continue;
         }
 
         if (ISIS_INTF_INFO(intf)->intf_grp) continue;
