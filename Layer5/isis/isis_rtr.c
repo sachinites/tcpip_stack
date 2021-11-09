@@ -54,9 +54,21 @@ isis_check_delete_node_info(node_t *node) {
     if ( !isis_node_info ) return;
 
     /* Place Assert checks here */
-
+    assert(isis_node_info->lsp_pkt_gen_task == NULL);
+    
     free(isis_node_info);
     node->node_nw_prop.isis_node_info = NULL;
+}
+
+static void
+isis_node_cancel_all_queued_jobs (node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (node_info->lsp_pkt_gen_task) {
+        task_cancel_job(node_info->lsp_pkt_gen_task);
+        node_info->lsp_pkt_gen_task = NULL;
+    }
 }
 
 void
@@ -75,7 +87,7 @@ void
 
     isis_cleanup_lsdb(node);
     isis_free_dummy_lsp_pkt();
-
+    isis_node_cancel_all_queued_jobs(node);
     isis_check_delete_node_info(node);
     node->node_nw_prop.isis_node_info = NULL;
 
