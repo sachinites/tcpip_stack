@@ -20,7 +20,8 @@ isis_lsp_pkt_t *self_lsp_pkt;
 avltree_t lspdb_avl_root;
 /* Task to schedule self LSP pkt generation */
 task_t *lsp_pkt_gen_task;
-
+/* Timer to flood lsp packet periodically*/
+timer_event_handle *periodic_lsp_flood_timer;
 } isis_node_info_t ;
 
 bool

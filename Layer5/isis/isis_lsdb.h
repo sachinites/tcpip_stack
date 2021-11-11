@@ -26,6 +26,9 @@ isis_free_dummy_lsp_pkt(void) ;
 bool
 isis_our_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
+byte*
+isis_print_lsp_id(isis_lsp_pkt_t *lsp_pkt);
+
 uint32_t *
 isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt);
 
@@ -42,5 +45,6 @@ isis_show_lspdb(node_t *node) ;
 
 void
 isis_schedule_lsp_pkt_generation(node_t *node);
+
 
 #endif 

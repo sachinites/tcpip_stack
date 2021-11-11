@@ -355,3 +355,16 @@ isis_schedule_lsp_pkt_generation(node_t *node) {
     sprintf(tlb, "%s : LSP pkt generation task scheduled\n",
              ISIS_LSPDB_MGMT);
 }
+
+byte*
+isis_print_lsp_id(isis_lsp_pkt_t *lsp_pkt) {
+
+    static byte lsp_id[32];
+    
+    memset(lsp_id, 0, sizeof(lsp_id));
+    uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
+    uint32_t *seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
+
+    sprintf(lsp_id, "%s-%u", tcp_ip_covert_ip_n_to_p(*rtr_id, 0), *seq_no);
+    return lsp_id;
+}
