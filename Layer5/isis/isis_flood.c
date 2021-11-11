@@ -57,13 +57,14 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
     interface_t *intf = (interface_t *)arg;
 
+    intf_info = ISIS_INTF_INFO(intf);
+    
     intf_info->lsp_xmit_job = NULL;
 
     if ( !isis_node_intf_is_enable(intf)) return;
 
     sprintf(tlb, "%s : lsp xmit job triggered\n", ISIS_LSPDB_MGMT);
     tcp_trace(intf->att_node, intf, tlb);
-
 
     intf_info = ISIS_INTF_INFO(intf);
 
@@ -87,8 +88,10 @@ isis_queue_lsp_pkt_for_transmission(interface_t *intf, isis_lsp_pkt_t *lsp_pkt) 
 
     if (!isis_node_intf_is_enable(intf)) return;
 
+    intf_info = ISIS_INTF_INFO(intf);
+
      if (!(intf_info->adjacency &&
-                     intf_info->adjacency->adj_state == ISIS_ADJ_STATE_UP)) {
+            intf_info->adjacency->adj_state == ISIS_ADJ_STATE_UP)) {
                 return;
     }
 
@@ -96,8 +99,6 @@ isis_queue_lsp_pkt_for_transmission(interface_t *intf, isis_lsp_pkt_t *lsp_pkt) 
 
     init_glthread(&lsp_xmit_elem->glue);
     lsp_xmit_elem->lsp_pkt = lsp_pkt;
-
-    intf_info = ISIS_INTF_INFO (intf);
 
     glthread_add_last (&intf_info->lsp_xmit_list_head, &lsp_xmit_elem->glue);
 

@@ -18,4 +18,6 @@ isis_stop_lsp_pkt_periodic_flooding(node_t *node);
 void
 isis_queue_lsp_pkt_for_transmission(interface_t *intf, isis_lsp_pkt_t *lsp_pkt);
 
+void
+isis_schedule_lsp_flood (node_t *node, isis_lsp_pkt_t *lsp_pkt, interface_t *exempt_iif);
 #endif 
