@@ -14,6 +14,8 @@ typedef struct isis_pkt_ {
     /* glue to attach this lsp pkt to lspdb*/
     avltree_node_t avl_node_glue;
     bool installed_in_db;
+    /* Ref_count */
+    uint16_t ref_count;
 } isis_lsp_pkt_t;
 
 
@@ -51,5 +53,11 @@ isis_print_pkt(void *arg, size_t arg_size);
 
 void
 isis_create_fresh_lsp_pkt(node_t *node);
+
+void
+isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
+
+void
+isis_ref_isis_pkt(isis_lsp_pkt_t *isis_pkt) ;
 
 #endif 

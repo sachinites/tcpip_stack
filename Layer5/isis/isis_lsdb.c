@@ -4,6 +4,7 @@
 #include "isis_pkt.h"
 #include "isis_lsdb.h"
 #include "isis_const.h"
+#include "isis_flood.h"
 
 static isis_lsp_pkt_t *gl_dummy_lsp_pkt = NULL;
 
@@ -332,6 +333,7 @@ static void
     node_info->lsp_pkt_gen_task = NULL;
 
     isis_create_fresh_lsp_pkt(node);
+    isis_schedule_lsp_flood (node, node_info->self_lsp_pkt, NULL);
  }
 
 void

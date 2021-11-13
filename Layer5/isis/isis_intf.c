@@ -5,6 +5,7 @@
 #include "isis_pkt.h"
 #include "isis_adjacency.h"
 #include "isis_lsdb.h"
+#include "isis_flood.h"
 
 bool
 isis_node_intf_is_enable(interface_t *intf) {
@@ -80,7 +81,8 @@ isis_check_and_delete_intf_info(interface_t *intf) {
     if (!intf_info) return;
 
     if (intf_info->hello_xmit_timer ||
-         intf_info->adjacency) {
+         intf_info->adjacency ||
+         !IS_GLTHREAD_LIST_EMPTY(&intf_info->lsp_xmit_list_head)) {
        assert(0);
     }    
     
@@ -95,6 +97,7 @@ isis_disable_protocol_on_interface(interface_t *intf ) {
     if (!intf_info)  return;
     isis_stop_sending_hellos(intf);
     isis_delete_adjacency(intf_info->adjacency);
+    isis_intf_purge_lsp_xmit_queue(intf) ;
     isis_check_and_delete_intf_info(intf);
 }
 

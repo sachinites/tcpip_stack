@@ -343,13 +343,36 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
 
         if (node_info->self_lsp_pkt) {
-            tcp_ip_free_pkt_buffer(node_info->self_lsp_pkt->pkt,
-                                                  node_info->self_lsp_pkt->pkt_size);
-            free(node_info->self_lsp_pkt);
+            isis_deref_isis_pkt(node_info->self_lsp_pkt);
             node_info->self_lsp_pkt = NULL;
         }
 
         node_info->self_lsp_pkt = calloc(1, sizeof(isis_lsp_pkt_t));
         node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
         node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
+        isis_ref_isis_pkt(node_info->self_lsp_pkt);
 }
+
+void
+isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt) {
+
+    assert(lsp_pkt->ref_count);
+
+    lsp_pkt->ref_count--;
+
+    if (lsp_pkt->ref_count == 0) {
+
+        tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->pkt_size);
+        free(lsp_pkt);
+    }
+}
+
+
+void
+isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt)  {
+
+    lsp_pkt->ref_count++;
+}
+
+
+

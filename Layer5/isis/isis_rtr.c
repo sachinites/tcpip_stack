@@ -88,6 +88,9 @@ void
             
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
+    if (isis_node_info->self_lsp_pkt) {
+        isis_deref_isis_pkt(isis_node_info->self_lsp_pkt);
+    }
     isis_cleanup_lsdb(node);
     isis_free_dummy_lsp_pkt();
     isis_node_cancel_all_queued_jobs(node);
