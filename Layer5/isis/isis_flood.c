@@ -58,7 +58,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
     interface_t *intf = (interface_t *)arg;
 
     intf_info = ISIS_INTF_INFO(intf);
-
+    
     intf_info->lsp_xmit_job = NULL;
 
     if ( !isis_node_intf_is_enable(intf)) return;
@@ -99,7 +99,6 @@ isis_queue_lsp_pkt_for_transmission(interface_t *intf, isis_lsp_pkt_t *lsp_pkt) 
     init_glthread(&lsp_xmit_elem->glue);
     lsp_xmit_elem->lsp_pkt = lsp_pkt;
     isis_ref_isis_pkt(lsp_xmit_elem->lsp_pkt);
-
     glthread_add_last (&intf_info->lsp_xmit_list_head, &lsp_xmit_elem->glue);
 
     sprintf(tlb, "%s : LSP %s scheduled to flood out of %s\n",

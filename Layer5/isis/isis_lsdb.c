@@ -333,7 +333,7 @@ static void
     node_info->lsp_pkt_gen_task = NULL;
 
     isis_create_fresh_lsp_pkt(node);
-    isis_schedule_lsp_flood (node, node_info->self_lsp_pkt, NULL);
+    isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, NULL);
  }
 
 void
