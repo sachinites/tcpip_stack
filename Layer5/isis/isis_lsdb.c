@@ -19,6 +19,7 @@ isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
             tcp_ip_get_new_pkt_buffer(ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(isis_pkt_hdr_t));
         gl_dummy_lsp_pkt->pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(isis_pkt_hdr_t);
         gl_dummy_lsp_pkt->installed_in_db = false;
+        isis_ref_isis_pkt(gl_dummy_lsp_pkt);
     }
 
     uint32_t *rtr_id_addr = isis_get_lsp_pkt_rtr_id(gl_dummy_lsp_pkt);
@@ -30,8 +31,7 @@ void
 isis_free_dummy_lsp_pkt(void) {
 
     if (gl_dummy_lsp_pkt) {
-        tcp_ip_free_pkt_buffer(gl_dummy_lsp_pkt->pkt, gl_dummy_lsp_pkt->pkt_size);
-        free(gl_dummy_lsp_pkt);
+        isis_deref_isis_pkt(gl_dummy_lsp_pkt);
         gl_dummy_lsp_pkt = NULL;
     }
 }
@@ -67,6 +67,7 @@ isis_remove_lsp_from_lsdb(node_t *node, uint32_t rtr_id) {
     isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node, rtr_id);
     if (!lsp_pkt) return;
     isis_remove_lsp_pkt_from_lsdb(node, lsp_pkt);
+    isis_deref_isis_pkt(lsp_pkt);
 }
 
 bool
@@ -79,6 +80,7 @@ isis_add_lsp_pkt_in_lsdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     avltree_insert(&lsp_pkt->avl_node_glue, lsdb);
     lsp_pkt->installed_in_db = true;
+    isis_ref_isis_pkt(lsp_pkt);
     return true;
 }
 
