@@ -13,7 +13,15 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_self_new_lsp,
     "ISIS EVENT SELF NEW LSP",
     //isis_event_self_old_lsp,
-    "ISIS EVENT SELF OLD LSP"
+    "ISIS EVENT SELF OLD LSP",
+     //isis_event_non_local_duplicate_lsp,
+    "ISIS EVENT NON LOCAL DUPLICATE LSP",
+    //isis_event_non_local_fresh_lsp,
+    "ISIS EVENT NON LOCAL FRESH LSP",
+    //isis_event_non_local_new_lsp,
+    "ISIS EVENT NON LOCAL NEW LSP",
+    //isis_event_non_local_old_lsp,
+    "ISIS EVENT NON LOCAL OLD LSP"
 } ;
 
 const char *
