@@ -46,5 +46,9 @@ isis_show_lspdb(node_t *node) ;
 void
 isis_schedule_lsp_pkt_generation(node_t *node);
 
-
+void
+isis_install_lsp(node_t *node,
+                 interface_t *iif,
+                 isis_lsp_pkt_t *new_lsp_pkt);
+                 
 #endif 

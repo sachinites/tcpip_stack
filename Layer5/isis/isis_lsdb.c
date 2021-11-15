@@ -336,6 +336,7 @@ static void
 
     isis_create_fresh_lsp_pkt(node);
     isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, NULL);
+    isis_install_lsp(node, NULL, node_info->self_lsp_pkt);
  }
 
 void
@@ -371,4 +372,12 @@ isis_print_lsp_id(isis_lsp_pkt_t *lsp_pkt) {
 
     sprintf(lsp_id, "%s-%u", tcp_ip_covert_ip_n_to_p(*rtr_id, 0), *seq_no);
     return lsp_id;
+}
+
+void
+isis_install_lsp(node_t *node,
+                 interface_t *iif,
+                 isis_lsp_pkt_t *new_lsp_pkt) {
+
+                 
 }

@@ -103,10 +103,23 @@ bad_hello:
 static void
 isis_process_lsp_pkt(node_t *node,
                        interface_t *iif,
-                       ethernet_hdr_t *hello_eth_hdr,
+                       ethernet_hdr_t *lsp_eth_hdr,
                        size_t pkt_size) {
 
+        isis_lsp_pkt_t *new_lsp_pkt;
+        if (!isis_node_intf_is_enable (iif)) return;
 
+        if (! (ISIS_INTF_INFO(iif)->adjacency &&
+               ISIS_INTF_INFO(iif)->adjacency->adj_state == ISIS_ADJ_STATE_UP )) {
+
+                return;
+        }
+
+        new_lsp_pkt = calloc( 1, sizeof(isis_lsp_pkt_t));
+        new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
+        memcpy(new_lsp_pkt->pkt, (byte *)lsp_eth_hdr, pkt_size);
+        new_lsp_pkt->pkt_size = pkt_size;
+        isis_install_lsp(node, iif, new_lsp_pkt);
 }
 
 void
