@@ -303,23 +303,43 @@ isis_show_one_lsp_pkt_detail (byte *buff,
     return rc;
 }
 
+static void
+isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt) {
+
+    int rc = 0;
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    byte *lsp_hdr = eth_hdr->payload;
+
+    uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
+    uint32_t *seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
+
+    byte *lsp_tlv_buffer = lsp_hdr + sizeof (isis_pkt_hdr_t);
+
+    unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, 0);
+    printf("LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
+            "ref_c : %-3u   \n",
+            rtr_id_str, *seq_no, 
+            lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+            lsp_pkt->ref_count);
+}
+
+
 void
 isis_show_lspdb(node_t *node) {
 
-    isis_node_info_t *node_info;
-
-    if ( !isis_is_protocol_enable_on_node(node)) return;
-
-    node_info = ISIS_NODE_INFO(node);
+    avltree_node_t *curr;
+    isis_lsp_pkt_t *lsp_pkt;
     
-    isis_lsp_pkt_t *lsp_pkt = node_info->self_lsp_pkt;
-    if (!lsp_pkt) return;
+    avltree_t *lspdb = isis_get_lspdb_root(node);
 
-    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(lsp_pkt->pkt);
-    isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
-    size_t lsp_pkt_size = lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+    if (!lspdb) return;
 
-    isis_show_one_lsp_pkt_detail (NULL, lsp_pkt_hdr, lsp_pkt_size);
+    ITERATE_AVL_TREE_BEGIN(lspdb, curr) {
+
+        lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
+        isis_show_one_lsp_pkt(lsp_pkt);
+
+    } ITERATE_AVL_TREE_END;
 }
 
 static void

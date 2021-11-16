@@ -16,6 +16,7 @@ isis_show_handler(param_t *param,
    
     node_t *node;
     int cmdcode = - 1;
+    char *rtr_id = NULL;
     interface_t *intf = NULL;
      tlv_struct_t *tlv = NULL;
     char *intf_name = NULL;
@@ -27,6 +28,9 @@ isis_show_handler(param_t *param,
 
             if (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) == 0) {
                 node_name = tlv->value;
+            }
+            else if (strncmp(tlv->leaf_id, "rtr-id", strlen("rtr-id")) == 0) {
+                rtr_id = tlv->value;
             }
             else {
                 assert(0);
@@ -57,6 +61,19 @@ isis_show_handler(param_t *param,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY:
             isis_show_all_adjacencies(node);
             break;
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP_DETAIL:
+        {
+            assert (rtr_id);
+            uint32_t rtr_id_int = tcp_ip_covert_ip_p_to_n(rtr_id) ;
+            isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node, rtr_id_int);
+            ethernet_hdr_t *lsp_eth_hdr = (ethernet_hdr_t *) (lsp_pkt->pkt);
+            size_t pkt_size = lsp_pkt->pkt_size;
+            isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(lsp_eth_hdr->payload);
+            size_t lsp_pkt_size = pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(lsp_eth_hdr);
+            if (!lsp_pkt) break;
+            isis_show_one_lsp_pkt_detail (NULL, lsp_pkt_hdr, lsp_pkt_size);
+        }
+        break;
          default:;
      }
      return 0;
@@ -242,6 +259,13 @@ isis_show_cli_tree(param_t *param) {
                 init_param(&lsdb, CMD, "lsdb", isis_show_handler, 0, INVALID, 0, "isis lsdb");
                 libcli_register_param(&isis_proto, &lsdb);
                 set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
+                {
+                    static param_t rtr_id;
+                    init_param(&rtr_id, LEAF, 0, isis_show_handler, 0, IPV4, "rtr-id",
+                        "Router-id in A.B.C.D format");
+                    libcli_register_param(&lsdb, &rtr_id);
+                    set_param_cmd_code(&rtr_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP_DETAIL);
+                }
             }
             {
                 /* show node <node-name> protocol isis adjacency */
