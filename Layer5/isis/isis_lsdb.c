@@ -336,7 +336,7 @@ static void
     node_info->lsp_pkt_gen_task = NULL;
 
     isis_create_fresh_lsp_pkt(node);
-    isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, NULL);
+    //isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, NULL);
     isis_install_lsp(node, NULL, node_info->self_lsp_pkt);
  }
 
@@ -486,7 +486,7 @@ isis_install_lsp(node_t *node,
                 rtr_id_str.ip_addr, *new_seq_no);
                 isis_remove_lsp_pkt_from_lsdb(node, old_lsp_pkt);
                 isis_add_lsp_pkt_in_lsdb(node, new_lsp_pkt);
-                isis_schedule_lsp_pkt_generation(node);
+                isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
         }
     }
 

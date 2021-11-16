@@ -27,8 +27,8 @@ typedef enum isis_events_ {
     isis_event_self_fresh_lsp,
     isis_event_self_new_lsp,
     isis_event_self_old_lsp,
-     isis_event_non_local_duplicate_lsp,
-     isis_event_non_local_fresh_lsp,
+    isis_event_non_local_duplicate_lsp,
+    isis_event_non_local_fresh_lsp,
     isis_event_non_local_new_lsp,
     isis_event_non_local_old_lsp,
     isis_event_max
