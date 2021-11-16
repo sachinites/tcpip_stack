@@ -115,6 +115,8 @@ isis_process_lsp_pkt(node_t *node,
                 return;
         }
 
+        ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
+
         new_lsp_pkt = calloc( 1, sizeof(isis_lsp_pkt_t));
         new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
         memcpy(new_lsp_pkt->pkt, (byte *)lsp_eth_hdr, pkt_size);

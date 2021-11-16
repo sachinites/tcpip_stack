@@ -202,38 +202,6 @@ isis_show_interface_protocol_state(interface_t *intf) {
    printf("\n");
 }
 
-/* show per intf stats */
-
-void
-isis_show_one_intf_stats (interface_t *intf) {
-
-    isis_intf_info_t *intf_info;
-
-    intf_info = ISIS_INTF_INFO(intf);
-    if (!intf_info) return;
-
-    printf ("%s\t", intf->if_name);
-    printf ("H Tx : %-4u H Rx : %-4u BadH Rx : %-4u\n",
-                        intf_info->hello_pkt_sent,
-                        intf_info->good_hello_pkt_recvd,
-                        intf_info->bad_hello_pkt_recvd);
-}
-
-void
-isis_show_all_intf_stats(node_t *node) {
-
-    interface_t *intf;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    if (!node_info) return;
-
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-        if (!isis_node_intf_is_enable(intf)) continue;
-        isis_show_one_intf_stats(intf);
-
-    } ITERATE_NODE_INTERFACES_END(node, intf);
-}
-
 void
 isis_refresh_intf_hellos(interface_t *intf) {
 
@@ -345,4 +313,41 @@ isis_interface_updates(void *arg, size_t arg_size) {
     case IF_METRIC_CHANGE_F:
     default:;
     }
+}
+
+/* show per intf stats */
+
+void
+isis_show_one_intf_stats (interface_t *intf) {
+
+    isis_intf_info_t *intf_info;
+
+    intf_info = ISIS_INTF_INFO(intf);
+    if (!intf_info) return;
+
+    printf ( "%s\t", intf->if_name);
+    printf ( "H Tx : %-4u H Rx : %-4u BadH Rx : %-4u "
+                                           "LSPs Tx : %-4u LSPs Rx : %-4u Bad LSPs Rx : %-4u\n",
+                        intf_info->hello_pkt_sent,
+                        intf_info->good_hello_pkt_recvd,
+                        intf_info->bad_hello_pkt_recvd,
+                        intf_info->lsp_pkt_sent,
+                        intf_info->good_lsps_pkt_recvd,
+                        intf_info->bad_lsps_pkt_recvd);
+    return ;
+}
+
+void
+isis_show_all_intf_stats(node_t *node) {
+
+    interface_t *intf;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        if (!isis_node_intf_is_enable(intf)) continue;
+        isis_show_one_intf_stats(intf);
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
 }

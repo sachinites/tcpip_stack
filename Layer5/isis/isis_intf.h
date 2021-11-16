@@ -11,6 +11,9 @@ typedef struct isis_intf_info_{
     uint32_t hello_pkt_sent;
     uint32_t good_hello_pkt_recvd;
     uint32_t bad_hello_pkt_recvd;
+    uint32_t lsp_pkt_sent;
+    uint32_t good_lsps_pkt_recvd;
+    uint32_t bad_lsps_pkt_recvd;
     glthread_t lsp_xmit_list_head;
     task_t *lsp_xmit_job;
 } isis_intf_info_t;

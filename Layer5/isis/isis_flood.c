@@ -74,6 +74,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
         free(lsp_xmit_elem);
        
         send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
+        ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
         isis_deref_isis_pkt(lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
