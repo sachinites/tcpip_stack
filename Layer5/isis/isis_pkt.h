@@ -31,6 +31,13 @@ typedef struct isis_pkt_hdr_{
 } isis_pkt_hdr_t;
 #pragma pack(pop)
 
+/* LSP pkt generation flags */
+#define ISIS_LSP_PKT_CREATE_PURGE_LSP   1
+#define ISIS_LSP_PKT_CREATE_OVERLOAD_LSP (1 << 1)
+
+bool
+isis_is_purge_lsp(isis_lsp_pkt_t *lsp_pkt);
+
 byte *
 isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size);
 

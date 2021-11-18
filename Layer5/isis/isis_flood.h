@@ -23,4 +23,11 @@ isis_schedule_lsp_flood (node_t *node, isis_lsp_pkt_t *lsp_pkt, interface_t *exe
 
 void
 isis_intf_purge_lsp_xmit_queue(interface_t *intf) ;
+
+void
+isis_flood_lsp_synchronously (node_t *node, isis_lsp_pkt_t *lsp_pkt);
+
+void
+isis_create_and_flood_purge_lsp_pkt_synchronously (node_t *node);
+
 #endif 

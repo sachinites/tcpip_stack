@@ -83,6 +83,8 @@ void
 
     if (!isis_node_info) return;
 
+    isis_create_and_flood_purge_lsp_pkt_synchronously(node);
+    
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
             isis_disable_protocol_on_interface(intf);

@@ -368,7 +368,6 @@ static void
     node_info->lsp_pkt_gen_task = NULL;
 
     isis_create_fresh_lsp_pkt(node);
-    //isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, NULL);
     isis_install_lsp(node, NULL, node_info->self_lsp_pkt);
  }
 
@@ -413,6 +412,7 @@ isis_install_lsp(node_t *node,
                  isis_lsp_pkt_t *new_lsp_pkt) {
 
     bool self_lsp;
+    bool purge_lsp;
     bool recvd_via_intf;
     uint32_t *rtr_id;
     ip_add_t rtr_id_str;
@@ -425,6 +425,8 @@ isis_install_lsp(node_t *node,
     self_lsp = isis_our_lsp(node, new_lsp_pkt);
     recvd_via_intf = iif ? true : false;
     event_type = isis_event_none;
+
+    purge_lsp = isis_is_purge_lsp(new_lsp_pkt);
 
     rtr_id = isis_get_lsp_pkt_rtr_id(new_lsp_pkt);
     tcp_ip_covert_ip_n_to_p(*rtr_id, rtr_id_str.ip_addr);
@@ -446,6 +448,10 @@ isis_install_lsp(node_t *node,
             old_lsp_pkt ? *old_seq_no : 0,
             old_lsp_pkt ? old_lsp_pkt->pkt : 0);
     tcp_trace(node, iif, tlb);
+
+    if (self_lsp && purge_lsp) {
+        return;
+    }
 
     duplicate_lsp = (old_lsp_pkt && (*new_seq_no == *old_seq_no));
 
@@ -579,7 +585,9 @@ else if (!self_lsp && duplicate_lsp) {
                     rtr_id_str.ip_addr, *new_seq_no);
             tcp_trace(node, iif, tlb);
 
-            isis_add_lsp_pkt_in_lsdb(node, new_lsp_pkt);
+            if (!purge_lsp) {
+                isis_add_lsp_pkt_in_lsdb(node, new_lsp_pkt);
+            }
             isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
         }
         else
@@ -597,14 +605,25 @@ else if (!self_lsp && duplicate_lsp) {
             1. if foreign lsp then replace in db and flood forward it
             2. if self originated lsp then assert, impossible case */
         if (recvd_via_intf) {
-            sprintf(tlb, "\t%s : Event : %s : LSP %s-%u to be replaced in LSPDB with"
+
+            if (!purge_lsp) {
+                sprintf(tlb, "\t%s : Event : %s : LSP %s-%u to be replaced in LSPDB with"
                     " LSP %s-%u and flood\n",
                     ISIS_LSPDB_MGMT, isis_event_str(event_type),
                     rtr_id_str.ip_addr, *old_seq_no,
                     rtr_id_str.ip_addr, *new_seq_no);
+            }
+            else {
+                 sprintf(tlb, "\t%s : Event : %s : Purge LSP %s-%u Deleted from LSDB"
+                    " and flood\n",
+                    ISIS_LSPDB_MGMT, isis_event_str(event_type),
+                    rtr_id_str.ip_addr, *old_seq_no);
+            }
             tcp_trace(node, iif, tlb);
             isis_remove_lsp_pkt_from_lsdb(node, old_lsp_pkt);
-            isis_add_lsp_pkt_in_lsdb(node, new_lsp_pkt);
+            if (!purge_lsp) {
+                isis_add_lsp_pkt_in_lsdb(node, new_lsp_pkt);
+            }
             isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
         } else {
             assert(0);

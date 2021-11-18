@@ -26,6 +26,12 @@
 
 #define ISIS_HOLD_TIME_FACTOR 2
 
+/* Flags in LSP pkt isis_lsp_pkt_t->lsp_gen_flags */
+#define ISIS_LSP_F_PURGE_LSP    1
+#define ISIS_LSP_F_OVERLOAD    (1 << 1 )
+
+
+
 #define ISIS_CONFIG_TRACE   "ISIS(CONFIG)"
 #define ISIS_LSPDB_MGMT "ISIS(LSPDB MGMT)"
 

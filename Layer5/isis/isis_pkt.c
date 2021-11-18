@@ -318,10 +318,14 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         4. Discard the old lsp pkt
         5. cache the new lsp pkt */
 
+        bool gen_purge_lsp ;
         size_t lsp_pkt_size_estimate = 0;
         isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
         if (!node_info) return;
+
+        gen_purge_lsp = IS_BIT_SET(node_info->lsp_gen_flags,
+                                    ISIS_LSP_PKT_CREATE_PURGE_LSP);
 
         lsp_pkt_size_estimate += ETH_HDR_SIZE_EXCL_PAYLOAD;
         lsp_pkt_size_estimate += sizeof(isis_pkt_hdr_t);
@@ -329,7 +333,10 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         /* accomodate the size of host name TLV */
         lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE;
         /* accomodate the size of all TLV22 */
-        lsp_pkt_size_estimate += isis_size_to_encode_all_nbr_tlv(node);
+
+        if (!gen_purge_lsp) {
+            lsp_pkt_size_estimate += isis_size_to_encode_all_nbr_tlv(node);
+        }
 
         if (lsp_pkt_size_estimate > MAX_PACKET_BUFFER_SIZE) {
              return;
@@ -348,14 +355,20 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         node_info->seq_no++;
         lsp_pkt_hdr->seq_no = node_info->seq_no;
         lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+        if (gen_purge_lsp) {
+            SET_BIT(lsp_pkt_hdr->flags, ISIS_LSP_F_PURGE_LSP);
+        }
 
+        
         byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 
         lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
-                                        ISIS_TLV_HOSTNAME,
-                                        NODE_NAME_SIZE, node->node_name);
+                                            ISIS_TLV_HOSTNAME,
+                                            NODE_NAME_SIZE, node->node_name);
 
-        lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
+        if (!gen_purge_lsp) {
+                lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
+        }
 
         if (node_info->self_lsp_pkt) {
             isis_deref_isis_pkt(node_info->self_lsp_pkt);
@@ -389,5 +402,11 @@ isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt)  {
     lsp_pkt->ref_count++;
 }
 
+bool
+isis_is_purge_lsp(isis_lsp_pkt_t *lsp_pkt) {
 
+    ethernet_hdr_t *lsp_eth_hdr = (ethernet_hdr_t *)(lsp_pkt->pkt);
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(lsp_eth_hdr->payload);
+    return (IS_BIT_SET(lsp_hdr->flags, ISIS_LSP_F_PURGE_LSP));
+}
 
