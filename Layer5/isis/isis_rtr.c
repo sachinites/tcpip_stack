@@ -41,6 +41,7 @@ void
     isis_node_info = calloc(1, sizeof(isis_node_info_t));
     node->node_nw_prop.isis_node_info = isis_node_info;
     isis_node_info->seq_no = 0;
+    isis_node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&isis_node_info->lspdb_avl_root, isis_compare_lsdb_lsp_pkt);
     tcp_stack_register_l2_pkt_trap_rule(node, 
             isis_pkt_trap_rule, isis_pkt_receive);

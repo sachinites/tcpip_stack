@@ -16,6 +16,8 @@ typedef struct isis_pkt_ {
     bool installed_in_db;
     /* Ref_count */
     uint16_t ref_count;
+     /* Life time timer */
+    timer_event_handle *expiry_timer;
 } isis_lsp_pkt_t;
 
 

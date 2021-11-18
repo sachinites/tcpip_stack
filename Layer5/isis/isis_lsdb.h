@@ -50,5 +50,14 @@ void
 isis_install_lsp(node_t *node,
                  interface_t *iif,
                  isis_lsp_pkt_t *new_lsp_pkt);
-                 
+
+void
+isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt);
+
+void
+isis_stop_lsp_pkt_installation_timer(isis_lsp_pkt_t *lsp_pkt);
+
+void
+isis_refresh_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt);
+
 #endif 

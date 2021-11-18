@@ -57,6 +57,7 @@ isis_remove_lsp_pkt_from_lsdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     avltree_remove(&lsp_pkt->avl_node_glue, lsdb);
     lsp_pkt->installed_in_db = false;
+    isis_stop_lsp_pkt_installation_timer(lsp_pkt);
 }
 
 void
@@ -82,6 +83,9 @@ isis_add_lsp_pkt_in_lsdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     avltree_insert(&lsp_pkt->avl_node_glue, lsdb);
     lsp_pkt->installed_in_db = true;
     isis_ref_isis_pkt(lsp_pkt);
+    if (!isis_our_lsp(node, lsp_pkt)) {
+         isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
+     }
     return true;
 }
 
@@ -317,10 +321,18 @@ isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt) {
 
     unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, 0);
     printf("LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
-            "ref_c : %-3u   \n",
+            "ref_c : %-3u   ",
             rtr_id_str, *seq_no, 
             lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
             lsp_pkt->ref_count);
+
+    if (lsp_pkt->expiry_timer) {
+        printf("Life Time Remaining : %u sec\n",
+                      wt_get_remaining_time(lsp_pkt->expiry_timer) / 1000);
+    }
+    else {
+        printf ("\n");
+    }
 }
 
 
@@ -626,4 +638,72 @@ else if (!self_lsp && duplicate_lsp) {
             old_lsp_pkt ? *old_seq_no : 0,
             isis_event_str(event_type));
     tcp_trace(node, iif, tlb);
+}
+
+/* LSP pkt Timers */
+
+static void
+isis_lsp_pkt_delete_from_lspdb_timer_cb(void *arg, uint32_t arg_size){
+
+    if (!arg) return;
+
+    isis_timer_data_t *timer_data = 
+            (isis_timer_data_t *)arg;
+
+    node_t *node = timer_data->node;
+    isis_lsp_pkt_t *lsp_pkt = (isis_lsp_pkt_t *)timer_data->data;
+
+    timer_data->data = NULL;
+    free(timer_data);
+
+    timer_de_register_app_event(lsp_pkt->expiry_timer);
+    lsp_pkt->expiry_timer = NULL;
+
+    avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node));
+    lsp_pkt->installed_in_db = false;
+    isis_deref_isis_pkt(lsp_pkt);
+}
+
+void
+isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+
+    wheel_timer_t *wt;
+    isis_node_info_t *node_info;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    wt = node_get_timer_instance(node);
+
+    if (lsp_pkt->expiry_timer) return;
+
+    isis_timer_data_t *timer_data = calloc( 1, sizeof(isis_timer_data_t));
+    timer_data->node = node;
+    timer_data->data = (void *)lsp_pkt;
+    timer_data->data_size = sizeof(isis_lsp_pkt_t);
+    
+    lsp_pkt->expiry_timer = timer_register_app_event(wt,
+                                isis_lsp_pkt_delete_from_lspdb_timer_cb,
+                                (void *)timer_data,
+                                sizeof(isis_timer_data_t),
+                                ISIS_NODE_INFO(node)->lsp_lifetime_interval * 1000,
+                                0);
+}
+
+void
+isis_stop_lsp_pkt_installation_timer(isis_lsp_pkt_t *lsp_pkt) {
+
+    if (!lsp_pkt->expiry_timer) return;
+
+    isis_timer_data_t *timer_data = wt_elem_get_and_set_app_data(
+                                        lsp_pkt->expiry_timer, 0);
+    XFREE(timer_data);                                 
+    timer_de_register_app_event(lsp_pkt->expiry_timer);
+    lsp_pkt->expiry_timer = NULL;
+}
+
+void
+isis_refresh_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+
+    isis_stop_lsp_pkt_installation_timer(lsp_pkt);
+    isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
 }

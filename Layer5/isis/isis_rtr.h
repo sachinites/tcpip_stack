@@ -22,6 +22,8 @@ avltree_t lspdb_avl_root;
 task_t *lsp_pkt_gen_task;
 /* Timer to flood lsp packet periodically*/
 timer_event_handle *periodic_lsp_flood_timer;
+/* lsp pkt life time interval in lspdb */
+    uint32_t lsp_lifetime_interval;
 } isis_node_info_t ;
 
 bool
