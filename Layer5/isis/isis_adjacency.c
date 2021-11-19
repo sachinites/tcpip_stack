@@ -448,16 +448,14 @@ isis_change_adjacency_state(
                         isis_intf_grp_refresh_member_interface (intf_info->intf);
                     }
 
-                    if (ISIS_NODE_INFO(node)->adjacency_up_count == 1) {
+                    if (!isis_is_reconciliation_in_progress(node)) {
                         isis_enter_reconciliation_phase(node);
                     }
                     else if (isis_is_reconciliation_in_progress(node)){
                         isis_restart_reconciliation_timer(node);
-                    }
-                    else {
-                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
-                    }
-
+                    }P
+                    /* Schedule LSP gen becaue Adj state has changed */
+                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
                     break;
                 default : ;
