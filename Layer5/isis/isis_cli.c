@@ -322,6 +322,9 @@ isis_clear_handler(param_t *param,
             }
         }
         break;
+        case CMDCODE_CLEAR_NODE_ISIS_LSDB:
+            isis_cleanup_lsdb(node);
+            break;
         default: ;
     return 0;
     }
@@ -340,6 +343,13 @@ int isis_clear_cli_tree(param_t *param)
             init_param(&adjacency, CMD, "adjacency", isis_clear_handler, 0, INVALID, 0, "isis adjacency");
             libcli_register_param(&isis_proto, &adjacency);
             set_param_cmd_code(&adjacency, CMDCODE_CLEAR_NODE_ISIS_ADJACENCY);
+        }
+        {
+            /* clear node <node-name> protocol isis lsdb */
+            static param_t lsdb;
+            init_param(&lsdb, CMD, "lsdb", isis_clear_handler, 0, INVALID, 0, "lsdb");
+            libcli_register_param(&isis_proto, &lsdb);
+            set_param_cmd_code(&lsdb, CMDCODE_CLEAR_NODE_ISIS_LSDB);
         }
         return 0;
     }

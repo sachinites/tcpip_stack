@@ -63,7 +63,7 @@ isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 
     if ( !isis_node_intf_is_enable(intf)) return;
 
-    sprintf(tlb, "%s : lsp xmit job triggered\n", ISIS_LSPDB_MGMT);
+    sprintf(tlb, "%s : lsp xmit job triggered\n", ISIS_LSPDB_TRACE);
     tcp_trace(intf->att_node, intf, tlb);
 
     ITERATE_GLTHREAD_BEGIN(&intf_info->lsp_xmit_list_head, curr) {
@@ -103,7 +103,7 @@ isis_queue_lsp_pkt_for_transmission(interface_t *intf, isis_lsp_pkt_t *lsp_pkt) 
     glthread_add_last (&intf_info->lsp_xmit_list_head, &lsp_xmit_elem->glue);
 
     sprintf(tlb, "%s : LSP %s scheduled to flood out of %s\n",
-            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt),
+            ISIS_LSPDB_TRACE, isis_print_lsp_id(lsp_pkt),
             intf->if_name);
     tcp_trace(intf->att_node, intf, tlb);
 
@@ -132,7 +132,7 @@ isis_schedule_lsp_flood (node_t *node, isis_lsp_pkt_t *lsp_pkt, interface_t *exe
              }
 
              sprintf(tlb, "%s : LSP %s scheduled for flood out of intf %s\n",
-                     ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
+                     ISIS_LSPDB_TRACE, isis_print_lsp_id(lsp_pkt), intf->if_name);
 
             isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
 

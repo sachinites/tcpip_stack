@@ -16,4 +16,6 @@
 #define CMDCODE_CLEAR_NODE_ISIS_ADJACENCY 9
 /* show node <node-name> protocol isis lsdb <A,B.C.D> */
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP_DETAIL 10
+/* clear node <node-name> protocol isis lsdb */
+#define CMDCODE_CLEAR_NODE_ISIS_LSDB 11
 #endif 
