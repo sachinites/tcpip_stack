@@ -453,7 +453,7 @@ isis_change_adjacency_state(
                     }
                     else if (isis_is_reconciliation_in_progress(node)){
                         isis_restart_reconciliation_timer(node);
-                    }P
+                    }
                     /* Schedule LSP gen becaue Adj state has changed */
                     isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
