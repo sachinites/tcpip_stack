@@ -300,11 +300,12 @@ isis_show_one_lsp_pkt_detail (byte *buff,
             break;
             case ISIS_TLV_ON_DEMAND:
             if (buff) {
-                rc += sprintf (buff + rc , "\t OD TLV Present\n");
+                rc += sprintf (buff + rc , "\tTLV%d On-Demand TLV\n", tlv_type);
             }
             else {
-                printf ("\t OD TLV Present\n");
+                printf ("\tTLV%d On-Demand TLV\n", tlv_type);
             }
+            break;
             default:;
         }
 
