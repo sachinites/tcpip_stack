@@ -332,6 +332,12 @@ isis_create_fresh_lsp_pkt(node_t *node) {
 
         /* accomodate the size of host name TLV */
         lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE;
+
+        if (isis_is_reconciliation_in_progress(node)) {
+            lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + sizeof(char);
+        }
+
+
         /* accomodate the size of all TLV22 */
 
         if (!gen_purge_lsp) {
@@ -365,6 +371,13 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
                                             ISIS_TLV_HOSTNAME,
                                             NODE_NAME_SIZE, node->node_name);
+
+        if (isis_is_reconciliation_in_progress(node)) {
+                bool tlv_value = true; 
+                lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
+                                            ISIS_TLV_ON_DEMAND,
+                                            1, &tlv_value);
+        }
 
         if (!gen_purge_lsp) {
                 lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
@@ -410,3 +423,28 @@ isis_is_purge_lsp(isis_lsp_pkt_t *lsp_pkt) {
     return (IS_BIT_SET(lsp_hdr->flags, ISIS_LSP_F_PURGE_LSP));
 }
 
+bool
+isis_on_demand_tlv_present(isis_lsp_pkt_t *lsp_pkt) {
+
+    ethernet_hdr_t *lsp_eth_hdr = (ethernet_hdr_t *)(lsp_pkt->pkt);
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(lsp_eth_hdr->payload);
+
+    byte *lsp_tlv_buffer = (byte *)(lsp_hdr + 1);
+    uint16_t tlv_buffer_size = lsp_pkt->pkt_size - 
+                                               GET_ETH_HDR_SIZE_EXCL_PAYLOAD(lsp_eth_hdr)
+                                               - sizeof(isis_pkt_hdr_t);
+
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+     ITERATE_TLV_BEGIN(lsp_tlv_buffer , tlv_type,
+                        tlv_len, tlv_value, tlv_buffer_size){
+
+         switch(tlv_type){
+            case ISIS_TLV_ON_DEMAND:
+                return true;
+            default : ;
+         }
+    } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, tlv_buffer_size);
+    return false;
+}

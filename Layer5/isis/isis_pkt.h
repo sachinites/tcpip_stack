@@ -69,4 +69,7 @@ isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *isis_pkt) ;
 
+bool
+isis_on_demand_tlv_present(isis_lsp_pkt_t *lsp_pkt);
+
 #endif 

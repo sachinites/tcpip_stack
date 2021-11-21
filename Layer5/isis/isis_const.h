@@ -9,6 +9,9 @@
 #define ISIS_ADJ_DEFAULT_DELETE_TIME (5 * 1000)
 #define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  30
 #define ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL (ISIS_LSP_DEFAULT_FLOOD_INTERVAL * 2)
+/* Reconciliation Constants*/
+#define ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME   (10 * 1000) 
+#define ISIS_DEFAULT_RECONCILIATION_FLOOD_INTERVAL ( 2 * 1000) 
 
 /*ISIS TLVs */
 #define ISIS_TLV_HOSTNAME    137  // as per standard 
@@ -23,6 +26,7 @@
 #define ISIS_TLV_LOCAL_IP   6 // as per standard
 #define ISIS_TLV_REMOTE_IP  8 // as per standard
 
+#define ISIS_TLV_ON_DEMAND 111
 
 #define ISIS_HOLD_TIME_FACTOR 2
 

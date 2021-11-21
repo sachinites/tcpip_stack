@@ -30,4 +30,23 @@ isis_flood_lsp_synchronously (node_t *node, isis_lsp_pkt_t *lsp_pkt);
 void
 isis_create_and_flood_purge_lsp_pkt_synchronously (node_t *node);
 
+/* Reconciliation API */
+void
+isis_enter_reconciliation_phase(node_t *node);
+
+void
+isis_exit_reconciliation_phase(node_t *node);
+
+void
+isis_restart_reconciliation_timer(node_t *node);
+
+void
+isis_start_reconciliation_timer(node_t *node);
+
+void
+isis_stop_reconciliation_timer(node_t *node);
+
+bool
+isis_is_reconciliation_in_progress(node_t *node);
+
 #endif 

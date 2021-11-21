@@ -657,6 +657,15 @@ else if (!self_lsp && duplicate_lsp) {
             old_lsp_pkt ? *old_seq_no : 0,
             isis_event_str(event_type));
     tcp_trace(node, iif, tlb);
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_reconciliation_in_progress(node) &&
+        !self_lsp &&
+        isis_on_demand_tlv_present(new_lsp_pkt) &&
+        !node_info->lsp_pkt_gen_task) {
+        isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, NULL);
+    }
 }
 
 /* LSP pkt Timers */

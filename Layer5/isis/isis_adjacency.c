@@ -5,6 +5,7 @@
 #include "isis_const.h"
 #include "isis_pkt.h"
 #include "isis_lsdb.h"
+#include "isis_flood.h"
 
 /* Timer APIs */
 
@@ -152,6 +153,12 @@ isis_change_adjacency_state(
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     isis_adjacency_set_uptime(adjacency);
                     ISIS_NODE_INFO(adjacency->intf->att_node)->adj_up_count++;
+                    if (!isis_is_reconciliation_in_progress(adjacency->intf->att_node)) {
+                        isis_enter_reconciliation_phase(adjacency->intf->att_node);
+                    }
+                    else {
+                        isis_restart_reconciliation_timer(adjacency->intf->att_node);
+                    }
                     isis_schedule_lsp_pkt_generation(adjacency->intf->att_node);
                     break;
                 default: ;

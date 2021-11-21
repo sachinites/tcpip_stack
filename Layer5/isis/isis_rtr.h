@@ -3,6 +3,14 @@
 
 typedef struct isis_pkt_ isis_lsp_pkt_t;
 
+typedef struct isis_reconc_data_ {
+
+   /* is reconciliation going on */
+    bool reconciliation_in_progress;
+    /* reconciliation timer */
+    timer_event_handle *reconciliation_timer;
+} isis_reconc_data_t;
+
 typedef struct isis_timer_data_ {
 
     node_t *node;
@@ -26,6 +34,8 @@ timer_event_handle *periodic_lsp_flood_timer;
 uint32_t lsp_lifetime_interval;
 /* lsp gen controlling flags */
 uint8_t lsp_gen_flags;
+/* Reconciliation */
+isis_reconc_data_t reconc;
 } isis_node_info_t ;
 
 bool

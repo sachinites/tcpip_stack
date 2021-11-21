@@ -119,6 +119,7 @@ void
     isis_node_info =  ISIS_NODE_INFO(node);
     
     printf("Adjacency up Count: %u\n", isis_node_info->adj_up_count);
+    printf("Reconciliation Status : %s\n", isis_is_reconciliation_in_progress(node) ? "On" : "Off");
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
