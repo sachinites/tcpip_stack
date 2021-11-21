@@ -7,6 +7,7 @@
 #include "isis_lsdb.h"
 #include "isis_adjacency.h"
 #include "isis_pkt.h"
+#include "isis_flood.h"
 
 /* show node <node-name> protocol isis */
 static int
@@ -324,6 +325,7 @@ isis_clear_handler(param_t *param,
         break;
         case CMDCODE_CLEAR_NODE_ISIS_LSDB:
             isis_cleanup_lsdb(node);
+            isis_enter_reconciliation_phase(node);
             break;
         default: ;
     return 0;
