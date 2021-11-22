@@ -59,6 +59,7 @@ isis_check_delete_node_info(node_t *node) {
     /* Place Assert checks here */
     assert(isis_node_info->lsp_pkt_gen_task == NULL);
     assert(isis_node_info->periodic_lsp_flood_timer == NULL);
+    assert(isis_node_info->reconc.reconciliation_timer == NULL);
     
     free(isis_node_info);
     node->node_nw_prop.isis_node_info = NULL;
@@ -98,6 +99,7 @@ void
     isis_free_dummy_lsp_pkt();
     isis_node_cancel_all_queued_jobs(node);
     isis_stop_lsp_pkt_periodic_flooding(node);
+    isis_exit_reconciliation_phase(node);
     isis_check_delete_node_info(node);
     node->node_nw_prop.isis_node_info = NULL;
 
