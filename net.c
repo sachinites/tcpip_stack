@@ -303,10 +303,11 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
 void
 dump_interface_stats(interface_t *interface){
 
-    printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u",
+    printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u,  send rate = %lu bps",
         interface->if_name, interface->intf_nw_props.pkt_sent,
         interface->intf_nw_props.pkt_recv,
-		interface->intf_nw_props.xmit_pkt_dropped);
+		interface->intf_nw_props.xmit_pkt_dropped,
+        interface->intf_nw_props.bit_rate.bit_rate);
 }
 
 void
@@ -370,4 +371,35 @@ wheel_timer_t *
 node_get_timer_instance(node_t *node){
 
 	return node->node_nw_prop.wt;
+}
+
+static void
+interface_bit_rate_sample_update(void *arg, uint32_t arg_size) {
+
+    if (!arg) return;
+
+    interface_t *interface = (interface_t *)arg;
+
+    interface->intf_nw_props.bit_rate.bit_rate = 
+         interface->intf_nw_props.bit_rate.new_bit_stats - 
+         interface->intf_nw_props.bit_rate.old_bit_stats;
+
+    interface->intf_nw_props.bit_rate.old_bit_stats = 
+         interface->intf_nw_props.bit_rate.new_bit_stats;
+}
+
+void
+intf_init_bit_rate_sampling_timer(interface_t *interface) {
+
+    wheel_timer_elem_t *wt_elem =
+        interface->intf_nw_props.bit_rate.bit_rate_sampling_timer;
+
+    assert(!wt_elem);
+
+    wheel_timer_t *timer = node_get_timer_instance(interface->att_node);
+    assert(timer);
+
+    interface->intf_nw_props.bit_rate.bit_rate_sampling_timer =
+        timer_register_app_event(timer, interface_bit_rate_sample_update,
+        (void *)interface, sizeof(*interface), 1000, 1);
 }

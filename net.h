@@ -172,6 +172,14 @@ typedef struct intf_nw_props_ {
     uint32_t pkt_recv;
     uint32_t pkt_sent;
 	uint32_t xmit_pkt_dropped;
+
+    struct {
+        uint64_t old_bit_stats;
+        uint64_t new_bit_stats;
+        uint64_t bit_rate;
+        wheel_timer_elem_t *bit_rate_sampling_timer;
+    }bit_rate;
+
 } intf_nw_props_t;
 
 typedef union intf_prop_changed_ {
@@ -215,6 +223,9 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
 
 void
 interface_assign_mac_address(interface_t *interface);
+
+void
+intf_init_bit_rate_sampling_timer(interface_t *interface);
 
 /*GET shorthand Macros*/
 #define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)

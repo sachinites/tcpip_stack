@@ -158,6 +158,8 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	interface->intf_nw_props.pkt_sent++;
+    interface->intf_nw_props.bit_rate.new_bit_stats += pkt_size * 8;
+    
 	tcp_dump_send_logger(sending_node, interface, 
 			pkt, pkt_size, ETH_HDR);
 
