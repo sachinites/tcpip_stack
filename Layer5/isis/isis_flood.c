@@ -340,11 +340,10 @@ isis_enter_reconciliation_phase(node_t *node) {
     }
 
     if (!node_info->on_demand_flooding) return;
-
     recon = &node_info->reconc;
-
     if (recon->reconciliation_in_progress) return;
-
+    isis_cancel_spf_job(node) ;
+    
     recon->reconciliation_in_progress = true;
 
     timer_reschedule(node_info->periodic_lsp_flood_timer,

@@ -1,6 +1,7 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_spf.h"
+#include "isis_flood.h"
 
 static void
 isis_run_spf(void *arg, uint32_t arg_size){
@@ -19,7 +20,8 @@ isis_schedule_spf_job(node_t *node) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_is_protocol_enable_on_node(node)) {
+    if (!isis_is_protocol_enable_on_node(node) ||
+         isis_is_reconciliation_in_progress(node)) {
         return;
     }
     
