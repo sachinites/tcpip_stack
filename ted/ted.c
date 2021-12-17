@@ -214,8 +214,10 @@ ted_link_t *
 ted_resurrect_link (ted_db_t *ted_db,
                                 uint32_t from_node_rtr_id,
                                 uint32_t from_if_index,
+                                uint32_t local_ip,
                                 uint32_t to_node_rtr_id,
-                                uint32_t to_ifindex) {
+                                uint32_t to_ifindex,
+                                uint32_t remote_ip) {
     
     ted_link_t *link;
     bool to_node_new = false;
@@ -251,6 +253,7 @@ ted_resurrect_link (ted_db_t *ted_db,
             ted_plug_out_interface(from_intf);
         }
         from_intf->ifindex = from_if_index;
+        from_intf->ip_addr = local_ip;
         ted_plug_in_interface(
                             from_node, from_intf );
         link = from_intf->link;
@@ -264,6 +267,7 @@ ted_resurrect_link (ted_db_t *ted_db,
             ted_plug_out_interface(to_intf);
         }
         to_intf->ifindex = to_ifindex;
+        to_intf->ip_addr = remote_ip;
         ted_plug_in_interface(
                             to_node, to_intf );
         link = to_intf->link;
@@ -287,7 +291,7 @@ ted_resurrect_link (ted_db_t *ted_db,
             XFREE(to_intf->link);
         }
 
-        link = ted_create_link (0, from_if_index, to_ifindex, 0, 0, 0, 0);
+        link = ted_create_link (0, from_if_index, to_ifindex, local_ip, 0, remote_ip, 0);
         ted_plug_in_interface(from_node, &link->intf1);
         ted_plug_in_interface(to_node, &link->intf2);
         goto done;
@@ -295,7 +299,7 @@ ted_resurrect_link (ted_db_t *ted_db,
 
     else {
         
-        link = ted_create_link (0, from_if_index, to_ifindex, 0, 0, 0, 0);
+        link = ted_create_link (0, from_if_index, to_ifindex, local_ip, 0, remote_ip, 0);
         ted_plug_in_interface(from_node, &link->intf1);
         ted_plug_in_interface(to_node, &link->intf2);
         goto done;
@@ -331,14 +335,14 @@ ted_create_or_update_node (ted_db_t *ted_db,
        link = ted_resurrect_link (ted_db, 
                                                 template_node_data->rtr_id,  
                                                 nbr_data->local_if_index, 
+                                                 nbr_data->local_ip,
                                                 nbr_data->nbr_rtr_id, 
-                                                nbr_data->remote_if_index);
-       /* Fix up other link attributes */
+                                                nbr_data->remote_if_index,
+                                                nbr_data->remote_ip);
+       /* Fix up cost attributes */
        from_intf = &link->intf1;
-       from_intf->ip_addr = nbr_data->local_ip;
        from_intf->cost = nbr_data->metric;
        to_intf = &link->intf2;
-       to_intf->ip_addr = nbr_data->remote_ip;
        to_intf->cost =  nbr_data->metric;
     }
 }

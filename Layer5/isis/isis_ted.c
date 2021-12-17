@@ -44,8 +44,8 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             strncpy(node_data->node_name, tlv_value, tlv_len);
             break;
         case ISIS_IS_REACH_TLV:
-            nbr_data = &node_data->nbr_data[nbr_index++];
-
+            nbr_data = &node_data->nbr_data[nbr_index];
+            nbr_index++;
             ip_addr_int = *(uint32_t *)tlv_value;
             metric = *(uint32_t *)(((uint32_t *)tlv_value) + 1);
             subtlv_len = *(uint8_t *)((uint32_t *)tlv_value + 2);

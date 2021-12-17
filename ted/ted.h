@@ -117,8 +117,10 @@ ted_link_t *
 ted_resurrect_link (ted_db_t *ted_db,
                                 uint32_t from_node_rtr_id,
                                 uint32_t from_if_index,
+                                uint32_t local_ip,
                                 uint32_t to_node_rtr_id,
-                                uint32_t to_ifindex);
+                                uint32_t to_ifindex,
+                                uint32_t remote_ip);
 
 /* Public APIs */
 
