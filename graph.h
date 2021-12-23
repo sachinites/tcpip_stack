@@ -152,21 +152,12 @@ get_node_intf_available_slot(node_t *node){
     return -1;
 }
 
-static inline interface_t *
-node_get_intf_by_name(node_t *node, char *if_name){
+interface_t *
+node_get_intf_by_name(node_t *node, char *if_name);
 
-    int i ;
-    interface_t *intf;
+interface_t *
+node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);
 
-    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
-        intf = node->intf[i];
-        if(!intf) return NULL;
-        if(strncmp(intf->if_name, if_name, IF_NAME_SIZE) == 0){
-            return intf;
-        }
-    }
-    return NULL;
-}
 
 static inline node_t *
 node_get_node_by_name(graph_t *topo, char *node_name){

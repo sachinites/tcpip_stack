@@ -371,8 +371,8 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
     TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
 
         nbr = ted_get_nbr_node(intf);
-        rc += sprintf (buff + rc , "    Local Intf : %u,  Ip-Address/Mask : %s/%d\n",
-                                intf->ifindex, tcp_ip_covert_ip_n_to_p(intf->ip_addr, 0), intf->mask);
+        rc += sprintf (buff + rc , "    Local Intf : %u,  Ip-Address/Mask : %s/%d,  cost = %u\n",
+                                intf->ifindex, tcp_ip_covert_ip_n_to_p(intf->ip_addr, 0), intf->mask, intf->cost);
 
         rc += sprintf (buff + rc, "    Nbr : %s[%u]", nbr ? nbr->node_name : "None",
                                 nbr ? nbr->seq_no : 0);
@@ -380,9 +380,9 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
         if (nbr) {
 
             other_intf = ted_link_get_other_interface(intf);
-            rc += sprintf (buff + rc, "   Remote if index : %u, Remote-Ip-Address/Mask : %s/%d\n",
+            rc += sprintf (buff + rc, "   Remote if index : %u, Remote-Ip-Address/Mask : %s/%d,  cost = %u\n",
                 other_intf->ifindex, tcp_ip_covert_ip_n_to_p(other_intf->ip_addr, 0),
-                other_intf->mask);
+                other_intf->mask, other_intf->cost);
         }
 
         rc += sprintf (buff + rc, "\n");

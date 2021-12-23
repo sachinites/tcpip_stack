@@ -37,6 +37,7 @@
 #include "graph.h"
 #include "../Layer2/layer2.h"
 #include "../Layer5/layer5.h"
+#include "rt_table/nexthop.h"
 #include "layer3.h"
 #include "tcpconst.h"
 #include "comm.h"
@@ -45,8 +46,8 @@
 #include "rt_notif.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
-extern void
-spf_flush_nexthops(nexthop_t **nexthop);
+extern int
+nh_flush_nexthops(nexthop_t **nexthop);
 
 extern void
 rt_table_kick_start_notif_job(rt_table_t *rt_table) ;
@@ -184,7 +185,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 								(char *)eth_hdr, pkt_size, ip_hdr->protocol);
                     break;
                 case ICMP_PRO:
-                    //printf("\nIP Address : %s, ping success\n", dest_ip_addr);
+                    printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     break;
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
@@ -316,24 +317,35 @@ rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask){
 void
 l3_route_free(l3_route_t *l3_route){
 
+    nxthop_proto_id_t nxthop_proto_id;
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
-    spf_flush_nexthops(l3_route->nexthops);
+    FOR_ALL_NXTHOP_PROTO(nxthop_proto_id) {
+        nh_flush_nexthops(l3_route->nexthops[nxthop_proto_id]);
+    }
     XFREE(l3_route);
 }
 
 void
-clear_rt_table(rt_table_t *rt_table){
+clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
 
+    int count;
     glthread_t *curr;
+    nexthop_t *nexthop;
     l3_route_t *l3_route;
+
+    nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
 
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
 
         l3_route = rt_glue_to_l3_route(curr);
         if(l3_is_direct_route(l3_route))
             continue;
+        count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+        l3_route->nh_count -= count;
+        if (l3_route->nh_count) continue;
+        l3_route->spf_metric[nh_proto] = 0;
         remove_glthread(curr);
         rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
@@ -343,35 +355,49 @@ clear_rt_table(rt_table_t *rt_table){
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route){
 
+    nexthop_t *nexthop;
+    nxthop_proto_id_t nh_proto;
+
     if(l3_is_direct_route(l3_route))
         return NULL;
     
-    nexthop_t *nexthop = l3_route->nexthops[l3_route->nxthop_idx];
-
-	if(!nexthop) return NULL;
-
-    l3_route->nxthop_idx++;
-
-    if(l3_route->nxthop_idx == MAX_NXT_HOPS || 
-        !l3_route->nexthops[l3_route->nxthop_idx]){
-        l3_route->nxthop_idx = 0;
+    FOR_ALL_NXTHOP_PROTO(nh_proto) {
+        nexthop = l3_route->nexthops[nh_proto][l3_route->nxthop_idx];
+        if (nexthop) {
+            l3_route->nxthop_idx++;
+            if (l3_route->nxthop_idx == MAX_NXT_HOPS || 
+                 !l3_route->nexthops[nh_proto][l3_route->nxthop_idx]){
+                l3_route->nxthop_idx = 0;
+            }
+            break;
+        }
+        else {
+            l3_route->nxthop_idx = 0;
+        }
     }
     return nexthop;
 }
 
-
 void
-rt_table_delete_route(rt_table_t *rt_table, 
-        char *ip_addr, char mask){
+rt_table_delete_route(
+        rt_table_t *rt_table, 
+        char *ip_addr,
+        char mask,
+        uint16_t proto_id){
 
+    int count;
     char dst_str_with_mask[16];
     
     apply_mask(ip_addr, mask, dst_str_with_mask); 
     l3_route_t *l3_route = rt_table_lookup(rt_table, dst_str_with_mask, mask);
 
-    if(!l3_route)
-        return;
+    if(!l3_route) return;
 
+    nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
+    count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+    l3_route->spf_metric[nh_proto] = 0;
+    l3_route->nh_count -= count;
+    if (l3_route->nh_count) return;
     remove_glthread(&l3_route->rt_glue);
     rt_table_add_route_to_notify_list (rt_table, l3_route, RT_DEL_F);
     rt_table_kick_start_notif_job(rt_table);
@@ -418,7 +444,7 @@ l3rib_lookup_lpm(rt_table_t *rt_table,
 void
 dump_rt_table(rt_table_t *rt_table){
 
-    int i = 0;
+    int i = 0, nxthop_cnt = 0;
     int count = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
@@ -429,6 +455,7 @@ dump_rt_table(rt_table_t *rt_table){
 
         l3_route = rt_glue_to_l3_route(curr);
         count++;
+        nxthop_cnt = 0;
 		
 		if(count != 0 && (count % 20) == 0) {
 			printf("continue ?\n");
@@ -437,43 +464,63 @@ dump_rt_table(rt_table_t *rt_table){
 
         if(l3_route->is_direct){
             if(count != 1){
-                printf("\t|===================|=======|====================|==============|==========|============|==============|\n");
+                printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
             }
             else{
-                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
             }
-            printf("\t|%-18s |  %-4d | %-18s | %-12s |          |  %-10s| 0            |\n", 
-                    l3_route->dest, l3_route->mask, "NA", "NA",
+            printf("\t|%-18s |  %-4d | %-10s | %-18s | %-10s   |          |  %-10s| 0            |\n", 
+                    l3_route->dest,
+                    l3_route->mask, 
+                    "",
+                    "NA", "NA",
 					RT_UP_TIME(l3_route));
             continue;
         }
 
-        for( i = 0; i < MAX_NXT_HOPS; i++){
-            if(l3_route->nexthops[i]) {
-                if(i == 0){
-                    if(count != 1){
-                        printf("\t|===================|=======|====================|==============|==========|============|==============|\n");
+        nxthop_proto_id_t nxthop_proto;
+
+        FOR_ALL_NXTHOP_PROTO(nxthop_proto) {
+            for( i = 0; i < MAX_NXT_HOPS; i++ , nxthop_cnt++){
+                if(l3_route->nexthops[nxthop_proto][i]) {
+                    if(nxthop_cnt == 0){
+                        if(count != 1){
+                            printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
+                        }
+                        else{
+                            printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                        }
+                        printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4u    |  %-10s| %-8llu     |\n", 
+                                l3_route->dest, l3_route->mask,
+                                proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
+                                l3_route->nexthops[nxthop_proto][i]->gw_ip, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name, 
+                                l3_route->spf_metric[nxthop_proto],
+                                RT_UP_TIME(l3_route),
+                                l3_route->nexthops[nxthop_proto][i]->hit_count);
+                    }
+                    else if ( i == 0) {
+                        /* Fst next hop of a given protocol */
+                        printf("\t|                   |       | %-10s | %-18s | %-12s |  %-4u   |  %-10s| %-8llu     |\n", 
+                                proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
+                                l3_route->nexthops[nxthop_proto][i]->gw_ip, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name,
+                                l3_route->spf_metric[nxthop_proto],
+                                "",
+                                l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
                     else{
-                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                        printf("\t|                   |       | %-10s | %-18s | %-12s |          |  %-10s| %-8llu     |\n", 
+                                proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
+                                l3_route->nexthops[nxthop_proto][i]->gw_ip, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name, "",
+                                l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
-                    printf("\t|%-18s |  %-4d | %-18s | %-12s |  %-4u    |  %-10s| %-8llu     |\n", 
-                            l3_route->dest, l3_route->mask,
-                            l3_route->nexthops[i]->gw_ip, 
-                            l3_route->nexthops[i]->oif->if_name, l3_route->spf_metric,
-							RT_UP_TIME(l3_route),
-                             l3_route->nexthops[i]->hit_count);
-                }
-                else{
-                    printf("\t|                   |       | %-18s | %-12s |          |  %-10s| %-8llu     |\n", 
-                            l3_route->nexthops[i]->gw_ip, 
-                            l3_route->nexthops[i]->oif->if_name, "",
-                            l3_route->nexthops[i]->hit_count);
                 }
             }
         }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
-    printf("\t|===================|=======|====================|==============|==========|============|==============|\n");
+    printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
 }
 
 static bool
@@ -491,7 +538,7 @@ void
 rt_table_add_direct_route(rt_table_t *rt_table,
                           char *dst, char mask){
 
-    rt_table_add_route(rt_table, dst, mask, 0, 0, 0);
+    rt_table_add_route(rt_table, dst, mask, 0, 0, 0, PROTO_STATIC);
 }
 
 l3_route_t *
@@ -526,14 +573,15 @@ l3rib_lookup(rt_table_t *rt_table,
  * */
 static bool
 l3_route_insert_nexthop(l3_route_t *l3_route,
-						 nexthop_t *nexthop) {
+						 nexthop_t *nexthop,
+                         nxthop_proto_id_t nxthop_proto) {
 
 	int i;
 	
 	nexthop_t *temp;
 	nexthop_t **nexthop_arr;
 
-	nexthop_arr = l3_route->nexthops;
+	nexthop_arr = l3_route->nexthops[nxthop_proto];
 
 	if (nexthop_arr[MAX_NXT_HOPS - 1]) {
 		
@@ -556,6 +604,7 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 		i--;
 	}
 	l3_route->install_time = time(NULL);
+    l3_route->nh_count++;
 	return true;
 }
 
@@ -563,8 +612,10 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 void
 rt_table_add_route(rt_table_t *rt_table,
                    char *dst, char mask,
-                   char *gw, interface_t *oif,
-                   uint32_t spf_metric){
+                   char *gw, 
+                   interface_t *oif,
+                   uint32_t spf_metric,
+                   uint8_t proto_id){
 
    uint32_t dst_int;
    char dst_str_with_mask[16];
@@ -572,7 +623,8 @@ rt_table_add_route(rt_table_t *rt_table,
 
     apply_mask(dst, mask, dst_str_with_mask); 
     dst_int = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
-   
+    nxthop_proto_id_t nxthop_proto = 
+        l3_rt_map_proto_id_to_nxthop_index(proto_id);
    l3_route_t *l3_route = l3rib_lookup(rt_table, dst_int, mask);
 
    if(!l3_route){
@@ -582,6 +634,7 @@ rt_table_add_route(rt_table_t *rt_table,
        l3_route->mask = mask;
        new_route = true;
        l3_route->is_direct = true;
+       l3_route->nh_count = 0;
    }
    
    int i = 0;
@@ -590,9 +643,9 @@ rt_table_add_route(rt_table_t *rt_table,
    if(!new_route){
        for( ; i < MAX_NXT_HOPS; i++){
 
-           if(l3_route->nexthops[i]){
-                if(strncmp(l3_route->nexthops[i]->gw_ip, gw, 16) == 0 && 
-                    l3_route->nexthops[i]->oif == oif){ 
+           if(l3_route->nexthops[nxthop_proto][i]){
+                if(strncmp(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
+                    l3_route->nexthops[nxthop_proto][i]->oif == oif){ 
                     printf("Error : Attempt to Add Duplicate Route\n");
                     return;
                 }
@@ -610,11 +663,13 @@ rt_table_add_route(rt_table_t *rt_table,
    if(gw && oif){
         nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
         l3_route->is_direct = false;
-        l3_route->spf_metric = spf_metric;
+        l3_route->spf_metric[nxthop_proto] = spf_metric;
         strncpy(nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
-		l3_route_insert_nexthop(l3_route, nexthop);
+        nexthop->ifindex = IF_INDEX(oif);
+        nexthop->proto = proto_id;
+		l3_route_insert_nexthop(l3_route, nexthop, nxthop_proto);
         if (!new_route) {
             rt_table_add_route_to_notify_list (rt_table, l3_route, RT_UPDATE_F);
             rt_table_kick_start_notif_job(rt_table);
@@ -874,7 +929,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
         intf_prop_changed.ip_addr.mask = IF_MASK(intf);
         SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-        rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf));
+        rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
         strncpy(IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
         rt_table_add_direct_route(NODE_RT_TABLE(node), IF_IP(intf), IF_MASK(intf));
@@ -912,7 +967,7 @@ interface_unset_ip_addr(node_t *node, interface_t *intf,
     IF_IP_EXIST(intf) = false;
     SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
 
-    rt_table_delete_route(NODE_RT_TABLE(node),  new_intf_ip_addr, new_mask);
+    rt_table_delete_route(NODE_RT_TABLE(node),  new_intf_ip_addr, new_mask, PROTO_STATIC);
 
     nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);

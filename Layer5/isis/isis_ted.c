@@ -51,6 +51,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             subtlv_len = *(uint8_t *)((uint32_t *)tlv_value + 2);
 
             nbr_data->nbr_rtr_id = ip_addr_int;
+            nbr_data->metric = metric;
 
             subtlv_navigator = tlv_value +
                                sizeof(uint32_t) + // 4B IP Addr

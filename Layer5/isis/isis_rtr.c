@@ -170,8 +170,10 @@ isis_is_protocol_admin_shutdown(node_t *node) {
 }
 
 static void
-isis_schedule_route_update_task(node_t *node,
+isis_schedule_route_delete_task(node_t *node,
         isis_event_type_t event_type){
+
+    clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
 
     isis_check_and_shutdown_protocol_now(node,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
@@ -199,7 +201,7 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
         
-        isis_schedule_route_update_task(node,
+        isis_schedule_route_delete_task(node,
                 isis_event_admin_action_shutdown_pending);
     }
 }
@@ -654,6 +656,13 @@ isis_ipv4_rt_notif_cbk (
         (rt_route_notif_data_t *)rt_notif_data;
 
     node = route_notif_data->node;
+
+    if (isis_is_protocol_shutdown_in_progress(node) ||
+         !isis_is_protocol_enable_on_node(node) ||
+         isis_is_protocol_admin_shutdown(node)) {
+             return;
+    }
+
     l3route = route_notif_data->l3route;
 
     isis_process_ipv4_route_notif(node, l3route);

@@ -112,16 +112,6 @@ typedef struct rt_table_{
     glthread_t flash_request_list_head;
 } rt_table_t;
 
-typedef struct nexthop_{
-
-    char gw_ip[16];
-    interface_t *oif;
-    uint32_t ref_count;
-	uint32_t ifindex;
-    uint8_t proto;
-    long long unsigned int hit_count;
-} nexthop_t;
-
 #define nexthop_node_name(nexthop_ptr)  \
    ((get_nbr_node(nexthop_ptr->oif))->node_name)
 
@@ -130,13 +120,37 @@ typedef struct nexthop_{
 #define RT_UPDATE_F (1 << 2)
 #define RT_FLASH_REQ_F (1 << 3)
 
+typedef enum {
+    proto_nxthop_first,
+    proto_nxthop_static = proto_nxthop_first,
+    proto_nxthop_isis,
+    proto_nxthop_max
+} nxthop_proto_id_t;
+
+#define FOR_ALL_NXTHOP_PROTO(nh_proto)  \
+    for (nh_proto = proto_nxthop_first; nh_proto < proto_nxthop_max; nh_proto++)
+
+static inline nxthop_proto_id_t
+l3_rt_map_proto_id_to_nxthop_index(uint8_t proto_id) {
+
+    switch(proto_id) {
+        case PROTO_STATIC:
+            return proto_nxthop_static;
+        case PROTO_ISIS:
+            return proto_nxthop_isis;
+        default:
+        ;
+    }
+}
+
 typedef struct l3_route_{
 
     char dest[16];        /* key*/
     char mask;            /* key*/
     bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
-    nexthop_t *nexthops[MAX_NXT_HOPS];
-    uint32_t spf_metric;
+    nexthop_t *nexthops[proto_nxthop_max][MAX_NXT_HOPS];
+    uint32_t spf_metric[proto_nxthop_max];
+    uint16_t nh_count;
     int nxthop_idx;
 	time_t install_time;
     glthread_t rt_glue;
@@ -164,16 +178,18 @@ void
 rt_table_set_active_status(rt_table_t *rt_table, bool active);
 
 void
-clear_rt_table(rt_table_t *rt_table);
+clear_rt_table(rt_table_t *rt_table, uint16_t proto);
 
 void
-rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask);
+rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask, uint16_t proto_id);
 
 void
 rt_table_add_route(rt_table_t *rt_table, 
                    char *dst, char mask,
-                   char *gw, interface_t *oif,
-                   uint32_t spf_metric);
+                   char *gw, 
+                   interface_t *oif,
+                   uint32_t spf_metric,
+                   uint8_t proto_id);
 
 void
 rt_table_add_direct_route(rt_table_t *rt_table,

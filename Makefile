@@ -11,6 +11,7 @@ OBJS=gluethread/glthread.o \
 		  Layer2/layer2.o  \
 		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
+		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
 		  Layer3/rt_notif.o	\
 		  Layer4/layer4.o  \
@@ -160,6 +161,9 @@ Layer2/l2switch.o:Layer2/l2switch.c
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
+
+Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
+	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
 
 Layer3/rt_notif.o:Layer3/rt_notif.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o

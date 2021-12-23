@@ -3,6 +3,7 @@
 #include "../graph.h"
 #include "../notif.h"
 #include "rt_notif.h"
+#include "rt_table/nexthop.h"
 #include "layer3.h"
 
 void

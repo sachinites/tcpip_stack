@@ -2,7 +2,10 @@
 #define __TED__
 
 #define TEDN_MAX_INTF_PER_NODE   (MAX_INTF_PER_NODE + 1)
-
+#define TED_PROTO_MAX   3
+#define TED_ISIS_PROTO  0
+#define TED_OSPF_PROTO  1
+#define TED_MPLS_PROTO  (TED_PROTO_MAX - 1)
 
 typedef struct ted_intf_{
 
@@ -20,6 +23,7 @@ typedef struct ted_link_ {
     ted_intf_t intf1;
     ted_intf_t intf2;
     uint32_t dirn_flag;
+    void *proto_data[TED_PROTO_MAX];
 } ted_link_t;
 
 typedef struct ted_node_ {
@@ -31,6 +35,7 @@ typedef struct ted_node_ {
     bool is_fake;
     uint32_t seq_no;
     ted_intf_t *intf[TEDN_MAX_INTF_PER_NODE];
+    void *proto_data[TED_PROTO_MAX];
     avltree_node_t avl_glue;
 } ted_node_t;
 
@@ -157,5 +162,27 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff, bool detail) ;
 void
 ted_refresh_node_seq_no (ted_db_t *ted_db, 
                                            uint32_t rtr_id, uint32_t new_seq_no);
+
+/*
+ * node_ptr - ted_node_t whose nbrs we want to iterate ( input )
+ * nbr_ptr - ted_node_t represents the visited nbr node (output )
+ * oif_ptr - ted_intf_t  OIF (output)
+ * ip_Addr - nexthop ip in uint32 format (output)
+ */ 
+#define ITERATE_TED_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, nxt_hop_ipisis) \
+    do{                                                                          \
+        int i = 0 ;                                                             \
+        ted_intf_t *other_intf;                                         \
+        for( i = 0 ; i < TEDN_MAX_INTF_PER_NODE; i++){     \
+            oif_ptr = node_ptr->intf[i];                                        \
+            if(!oif_ptr) continue;                                              \
+            other_intf = ted_link_get_other_interface(oif_ptr); \
+            if(!other_intf) continue;                                    \
+            nbr_ptr = ted_get_nbr_node(oif_ptr);                             \
+            if (!nbr_ptr) continue;                                         \
+            nxt_hop_ip = other_intf->ip_addr;                             \
+
+#define ITERATE_TED_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)  }}while(0);
+
 
 #endif /* __TED__ */

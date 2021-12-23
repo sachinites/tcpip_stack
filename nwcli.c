@@ -40,6 +40,7 @@
 #include "Layer5/app_handlers.h"
 #include "BitOp/bitsop.h"
 #include "tcpip_notif.h"
+#include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 
@@ -471,11 +472,12 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
 
 extern void
 rt_table_delete_route(rt_table_t *rt_table,
-        char *ip_addr, char mask);
+        char *ip_addr, char mask, uint16_t proto);
 extern void
 rt_table_add_route(rt_table_t *rt_table,
         char *dst, char mask,
-        char *gw, interface_t *oif, uint32_t spf_metric);
+        char *gw, interface_t *oif, uint32_t spf_metric,
+        uint8_t proto);
 
 static int
 l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
@@ -533,11 +535,11 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                             return -1;
                         }
                     }
-                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf, 0);
+                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf, 0, PROTO_STATIC);
                 }
                 break;
                 case CONFIG_DISABLE:
-                    rt_table_delete_route(NODE_RT_TABLE(node), dest, mask);
+                    rt_table_delete_route(NODE_RT_TABLE(node), dest, mask, PROTO_STATIC);
                     break;
                 default:
                     ;
