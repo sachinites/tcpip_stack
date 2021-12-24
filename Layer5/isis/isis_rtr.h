@@ -3,6 +3,7 @@
 
 #include "isis_events.h"
 #include "isis_pkt.h"
+#include "isis_spf.h"
 
 typedef struct isis_adv_data_ isis_adv_data_t;
 typedef struct ted_db_ ted_db_t;
@@ -83,6 +84,8 @@ typedef struct node_info_ {
     glthread_t adv_data_list_head;
     /* Ted DB */
     ted_db_t *ted_db;
+    /* SPF log list */
+    isis_spf_log_container_t spf_logc;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

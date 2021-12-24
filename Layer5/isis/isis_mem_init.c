@@ -7,6 +7,7 @@
 #include "isis_events.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
+#include "isis_spf.h"
 
 void
  isis_mem_init() {
@@ -24,4 +25,6 @@ void
      MM_REG_STRUCT(0, isis_lsp_xmit_elem_t);
      MM_REG_STRUCT(0, isis_intf_group_t);
      MM_REG_STRUCT(0, isis_adv_data_t);
+     MM_REG_STRUCT(0, isis_spf_log_container_t);
+     MM_REG_STRUCT(0, isis_spf_log_t);
  }

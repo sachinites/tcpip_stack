@@ -162,7 +162,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
     } ITERATE_TED_NODE_NBRS_END(ted_spf_root, nbr, oif, nxt_hop_ip);
 }
 
-#define ISIS_SPF_LOGGING 1
+#define ISIS_SPF_LOGGING 0
 
 static void
 isis_spf_record_result(ted_node_t *spf_root, 
@@ -565,7 +565,7 @@ isis_run_spf(void *arg, uint32_t arg_size){
 }
 
 void
-isis_schedule_spf_job(node_t *node) {
+isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -577,6 +577,8 @@ isis_schedule_spf_job(node_t *node) {
     ISIS_INCREMENT_NODE_STATS(node,
         isis_event_count[isis_event_spf_job_scheduled]);
 
+    isis_add_new_spf_log(node, event);
+
     if (node_info->spf_job_task) {
         
         sprintf(tlb, "%s : spf job already scheduled\n", ISIS_SPF);
@@ -586,4 +588,81 @@ isis_schedule_spf_job(node_t *node) {
     
     node_info->spf_job_task =
         task_create_new_job(node, isis_run_spf, TASK_ONE_SHOT);
+}
+
+void
+isis_add_new_spf_log(node_t *node, isis_event_type_t event) {
+
+    isis_spf_log_t *spf_log;
+    isis_node_info_t *node_info;
+
+    if (isis_is_protocol_shutdown_in_progress(node) ||
+         isis_is_protocol_admin_shutdown(node) ||
+         !isis_is_protocol_enable_on_node(node)) {
+        return;
+    }
+
+    node_info = ISIS_NODE_INFO(node);   
+    spf_log = XCALLOC(0, 1, isis_spf_log_t);
+    
+    spf_log->timestamp = time(NULL);
+    spf_log->event = event;
+    init_glthread(&spf_log->glue);
+    glthread_add_next(&node_info->spf_logc.head, &spf_log->glue);
+    node_info->spf_logc.count++;
+
+    if (node_info->spf_logc.count > ISIS_MAX_SPF_LOG_COUNT) {
+        node_info->spf_logc.count = ISIS_MAX_SPF_LOG_COUNT;
+        glthread_t *last_node = glthread_get_last(&node_info->spf_logc.head);
+        spf_log = isis_glue_spf_log(last_node);
+        remove_glthread(&spf_log->glue);
+        XFREE(spf_log);
+    }
+}
+
+void
+isis_show_spf_logs(node_t *node) {
+
+    int i = 0;
+    glthread_t *curr;
+    isis_spf_log_t *spf_log;
+    isis_node_info_t *node_info;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node(node)) return;
+
+     ITERATE_GLTHREAD_BEGIN(&node_info->spf_logc.head, curr) {
+
+         spf_log = isis_glue_spf_log(curr);
+         printf("%d. %s  %s\n", i, ctime(&spf_log->timestamp), isis_event_str(spf_log->event));
+         i++;
+     } ITERATE_GLTHREAD_END(&node_info->spf_logc.head, curr)
+}
+
+void
+isis_init_spf_logc(node_t *node) {
+
+    isis_node_info_t *node_info;
+
+    node_info = ISIS_NODE_INFO(node);
+    init_glthread(&node_info->spf_logc.head);
+    node_info->spf_logc.count = 0;
+}
+
+void
+isis_cleanup_spf_logc(node_t *node) {
+
+    glthread_t *curr;
+    isis_spf_log_t *spf_log;
+    isis_node_info_t *node_info;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    ITERATE_GLTHREAD_BEGIN(&node_info->spf_logc.head, curr) {
+
+        spf_log = isis_glue_spf_log(curr);
+        remove_glthread(&spf_log->glue);
+        XFREE(spf_log);
+    } ITERATE_GLTHREAD_END(&node_info->spf_logc.head, curr);
 }

@@ -228,7 +228,8 @@ isis_protocol_shut_down(node_t *node) {
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
     isis_free_dummy_lsp_pkt();
-
+    isis_cleanup_spf_logc(node);
+    
     SET_BIT( node_info->event_control_flags, 
         ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
 
@@ -329,6 +330,7 @@ isis_init(node_t *node ) {
     node_info->ted_db = XCALLOC(0, 1, ted_db_t);
     ted_init_teddb(node_info->ted_db, 0);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
+    isis_init_spf_logc(node);
 
     isis_start_lsp_pkt_periodic_flooding(node);
 

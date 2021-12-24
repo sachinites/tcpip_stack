@@ -307,7 +307,7 @@ isis_install_lsp(node_t *node,
     if (purge_lsp && event_type == isis_event_non_local_new_lsp) {
 
         /* purge LSP actually caused deletion from our DB, trigger spf*/
-        isis_schedule_spf_job(node);
+        isis_schedule_spf_job(node, event_type);
     }
 
     /* Now Decide what we need to do after updating LSP DB */
@@ -359,12 +359,12 @@ isis_parse_lsp_tlvs(node_t *node,
                     isis_lsp_pkt_t *old_lsp_pkt,
                     isis_event_type_t event_type) {
 
+    ip_add_t rtr_id_str;
     bool need_spf = false;
     bool pkt_diff = false;
     bool on_demand_tlv = false;
     bool need_pkt_diff = false;
     bool need_on_demand_flood = false;
-    ip_add_t rtr_id_str;
 
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(new_lsp_pkt);
     uint32_t *old_seq_no = old_lsp_pkt ? isis_get_lsp_pkt_seq_no(old_lsp_pkt) : 0;
@@ -393,9 +393,11 @@ isis_parse_lsp_tlvs(node_t *node,
         case isis_event_non_local_fresh_lsp:
             need_spf = true;
             if (on_demand_tlv) need_on_demand_flood = true;
+            break;
         case isis_event_non_local_new_lsp:
             need_pkt_diff = true;
             if (on_demand_tlv) need_on_demand_flood = true;
+            break;
         case isis_event_non_local_old_lsp:
         break;
         default: ;
@@ -411,7 +413,7 @@ isis_parse_lsp_tlvs(node_t *node,
     }
 
     if (need_spf) {
-        isis_schedule_spf_job(node);
+        isis_schedule_spf_job(node, event_type);
     }
 
     sprintf(tlb, "%s : Lsp Recvd : %s-%u, old lsp : %s-%u, Event : %s\n"

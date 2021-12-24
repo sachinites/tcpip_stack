@@ -209,7 +209,7 @@ initialize_direct_nbrs(node_t *spf_root){
     } ITERATE_NODE_NBRS_END(spf_root, nbr, oif, nxt_hop_ip);
 }
 
-#define SPF_LOGGING 1
+#define SPF_LOGGING 0
 
 static void
 spf_record_result(node_t *spf_root, 

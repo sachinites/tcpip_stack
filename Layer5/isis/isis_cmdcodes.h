@@ -49,4 +49,7 @@
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL 22
 /* clear node <node-name> protocol isis adjacency */
 #define CMDCODE_CLEAR_NODE_ISIS_ADJACENCY 23
+/*  show node <node-name> protocol isis spf-log */
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG 24
+
 #endif /* __ISIS_CMDCODES__ */

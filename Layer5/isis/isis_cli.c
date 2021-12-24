@@ -11,6 +11,7 @@
 #include "isis_layer2map.h"
 #include "../../ted/ted.h"
 #include "isis_ted.h"
+#include "isis_spf.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -300,6 +301,9 @@ isis_show_handler(param_t *param,
              assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
         break;
+        case  CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG:
+            isis_show_spf_logs(node);
+            break;
         default: ;
     }
     return 0;
@@ -516,6 +520,13 @@ isis_show_cli_tree(param_t *param) {
 	            init_param(&event_counters, CMD, "event-counters", isis_show_handler, 0, INVALID, 0, "event counters");
 	            libcli_register_param(&isis_proto, &event_counters);
 	            set_param_cmd_code(&event_counters, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS);
+        }
+         {
+                /*show node <node-name> protocol isis spf-log*/
+                static param_t spf_log;
+	            init_param(&spf_log, CMD, "spf-log", isis_show_handler, 0, INVALID, 0, "spf_log");
+	            libcli_register_param(&isis_proto, &spf_log);
+	            set_param_cmd_code(&spf_log, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG);
         }
         {
             static param_t intf_grps;
