@@ -233,6 +233,15 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
     /*Now Process the nbrs of the processed node, and evaluate if we have
      * reached them via shortest path cost.*/
 
+    if (IS_BIT_SET( curr_node->flags, ISIS_LSP_PKT_F_OVERLOAD_BIT) &&
+            spf_root != curr_node) {
+        #if ISIS_SPF_LOGGING
+        printf("root : %s : Event : Nbr Exploration Node : %s aborted, reason : Overloaded\n",
+                spf_root->node_name, curr_node->node_name);
+        #endif
+        return;
+    }
+
     ITERATE_TED_NODE_NBRS_BEGIN(curr_node, nbr, oif, nxt_hop_ip){
         #if ISIS_SPF_LOGGING
         printf("root : %s : Event : For Node %s , Processing nbr %s\n",

@@ -122,8 +122,8 @@ typedef struct rt_table_{
 
 typedef enum {
     proto_nxthop_first,
-    proto_nxthop_static = proto_nxthop_first,
-    proto_nxthop_isis,
+    proto_nxthop_isis = proto_nxthop_first,
+    proto_nxthop_static,
     proto_nxthop_max
 } nxthop_proto_id_t;
 

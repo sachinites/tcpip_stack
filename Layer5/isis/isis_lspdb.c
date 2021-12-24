@@ -649,9 +649,6 @@ isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pkt1, isis_lsp_pkt_t *lsp_pkt2) {
         return true;
     }
 
-
-    
-
     ethernet_hdr_t *lsp_eth_hdr1 = (ethernet_hdr_t *)lsp_pkt1->pkt;
     ethernet_hdr_t *lsp_eth_hdr2 = (ethernet_hdr_t *)lsp_pkt2->pkt;
 

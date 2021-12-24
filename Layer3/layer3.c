@@ -481,7 +481,7 @@ dump_rt_table(rt_table_t *rt_table){
         nxthop_proto_id_t nxthop_proto;
 
         FOR_ALL_NXTHOP_PROTO(nxthop_proto) {
-            for( i = 0; i < MAX_NXT_HOPS; i++ , nxthop_cnt++){
+            for( i = 0; i < MAX_NXT_HOPS; i++ ){
                 if(l3_route->nexthops[nxthop_proto][i]) {
                     if(nxthop_cnt == 0){
                         if(count != 1){
@@ -490,7 +490,7 @@ dump_rt_table(rt_table_t *rt_table){
                         else{
                             printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
                         }
-                        printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4u    |  %-10s| %-8llu     |\n", 
+                        printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4d    |  %-10s| %-8llu     |\n", 
                                 l3_route->dest, l3_route->mask,
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
@@ -501,7 +501,7 @@ dump_rt_table(rt_table_t *rt_table){
                     }
                     else if ( i == 0) {
                         /* Fst next hop of a given protocol */
-                        printf("\t|                   |       | %-10s | %-18s | %-12s |  %-4u   |  %-10s| %-8llu     |\n", 
+                        printf("\t|                   |       | %-10s | %-18s | %-12s |  %-4d   |  %-10s| %-8llu     |\n", 
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
                                 l3_route->nexthops[nxthop_proto][i]->oif->if_name,
@@ -516,6 +516,7 @@ dump_rt_table(rt_table_t *rt_table){
                                 l3_route->nexthops[nxthop_proto][i]->oif->if_name, "",
                                 l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
+                    nxthop_cnt++;
                 }
             }
         }
