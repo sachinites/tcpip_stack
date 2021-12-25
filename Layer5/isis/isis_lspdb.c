@@ -385,6 +385,7 @@ isis_parse_lsp_tlvs(node_t *node,
         case isis_event_self_new_lsp:
             /* spf would have scheduled already when event causing
                lsp generation happened */
+            need_pkt_diff = true;
         break;
         case isis_event_self_old_lsp:
         break;
