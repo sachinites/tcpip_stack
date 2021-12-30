@@ -41,6 +41,7 @@
 #include <pthread.h>
 #include "utils.h"
 #include "libtimer/WheelTimer.h"
+#include "Tree/libtree.h"
 #include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
@@ -180,6 +181,7 @@ typedef struct intf_nw_props_ {
         wheel_timer_elem_t *bit_rate_sampling_timer;
     }bit_rate;
 
+   avltree_t flow_avl_root;
 } intf_nw_props_t;
 
 typedef union intf_prop_changed_ {
@@ -196,6 +198,8 @@ typedef union intf_prop_changed_ {
 
 extern void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
+extern void
+snp_flow_init_flow_tree_root(avltree_t *avl_root) ;
 
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
@@ -219,6 +223,8 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->pkt_recv = 0;
     intf_nw_props->pkt_sent = 0;
 	intf_nw_props->xmit_pkt_dropped = 0;
+
+    snp_flow_init_flow_tree_root(&intf_nw_props->flow_avl_root);
 }
 
 void

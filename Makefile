@@ -45,6 +45,8 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_ted.o \
 		  ted/ted.o \
 		  LinuxMemoryManager/mm.o \
+		  flow/snp_flow.o \
+		  tcp_stack_mem_init.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -93,8 +95,14 @@ Layer5/isis/isis_ted.o:Layer5/isis/isis_ted.c
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
 
+flow/snp_flow.o:flow/snp_flow.c
+	${CC} ${CFLAGS} -c -I . flow/snp_flow.c -o flow/snp_flow.o
+
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
+
+tcp_stack_mem_init.o:tcp_stack_mem_init.c
+	${CC} ${CFLAGS} -c -I . tcp_stack_mem_init.c -o tcp_stack_mem_init.o
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
@@ -214,6 +222,7 @@ clean:
 	rm -f Tree/avl.o
 	rm -f *exe
 	rm -f ted/*.o
+	rm -f flow/*.o
 	rm -f Layer2/*.o
 	rm -f Layer3/*.o
 	rm -f Layer4/*.o

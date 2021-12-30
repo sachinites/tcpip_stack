@@ -62,6 +62,7 @@ extern void layer4_mem_init();
 extern void spf_algo_mem_init(); 
 extern void isis_mem_init();
 extern void ted_mem_init();
+extern void tcp_stack_miscellaneous_mem_init();
 
 graph_t *topo = NULL;
 
@@ -81,6 +82,7 @@ tcp_ip_stack_pre_topology_create_initializations() {
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */
     event_dispatcher_init();
+    tcp_stack_miscellaneous_mem_init();
 }
 
 int 
