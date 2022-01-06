@@ -254,6 +254,8 @@ intf_init_bit_rate_sampling_timer(interface_t *interface);
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == true)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
+#define IF_GET_FLOW_DB(intf_ptr) \
+    (&((intf_ptr)->intf_nw_props.flow_avl_root))
 
 /*APIs to set Network Node properties*/
 bool node_set_loopback_address(node_t *node, char *ip_addr);

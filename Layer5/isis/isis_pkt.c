@@ -285,7 +285,7 @@ TLV_ADD_DONE:
 
         /* On Demand TLV insertion */
         if (include_on_demand_tlv) {
-            bool true_f = true;
+            char true_f = true;
             lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
                                              ISIS_TLV_ON_DEMAND,
                                              1, (char *)&true_f);
