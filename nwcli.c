@@ -51,6 +51,8 @@ extern int traceoptions_handler(param_t *param,
                                 ser_buff_t *tlv_buf,
                                 op_mode enable_or_disable);
 
+extern param_t * policy_config_cli_tree () ;
+
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
@@ -1101,6 +1103,11 @@ nw_init_cli(){
         static param_t node_name;
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
+
+        {
+            param_t *import_policy_cli_root = policy_config_cli_tree();
+            libcli_register_param(&node_name, import_policy_cli_root);
+        }
 
         {
             {

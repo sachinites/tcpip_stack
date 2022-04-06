@@ -73,4 +73,7 @@
 #define CMDCODE_DEBUG_SHOW_MEMORY_USAGE 28 /* debug show mem-usage*/
 #define CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL 29 /*  debug show mem-usage detail <struct-name> */ 
 
+/* Policy Command Codes */
+#define CMDCODE_IMPORT_POLICY_CREATE_DELETE 30  /* config node <node-name> [no] import-policy <policy-name> */
+#define CMDCODE_IMPORT_POLICY_PREFIX 31 /* config node <node-name> [no] import-policy <policy-name> prefix <prefix> <mask>*/
 #endif /* __CMDCODES__ */

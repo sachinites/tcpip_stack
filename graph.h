@@ -101,6 +101,9 @@ struct node_ {
 	notif_chain_t layer2_proto_reg_db2;
     
     unsigned char *print_buff;
+
+    avltree_t import_policy_db;
+    avltree_t export_policy_db;
     
     glthread_t graph_glue;
 };
