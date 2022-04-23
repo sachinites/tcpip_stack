@@ -31,8 +31,8 @@
  */
 
 /* Visit my Website for more wonderful assignments and projects :
- * https://csepracticals.wixsite.com/csepracticals
- * if above URL dont work, then try visit : https://csepracticals.com*/
+ * www.csepracticals.com
+ */
 
 #ifndef __GRAPH__
 #define __GRAPH__
