@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
+typedef struct stack stack_t;
+
 typedef enum {
 	ZERO,
 	ONE,
@@ -18,12 +20,18 @@ typedef struct mtrie_node_ {
 	struct mtrie_node_ *parent;
 	struct mtrie_node_ *child[BIT_TYPE_MAX];
     void *data;
+	uint32_t stacked_prefix;
+	uint8_t stacked_prefix_matched_bits_count;
+	/* Stats for analysis */
+	uint32_t n_backtracks;
+	uint32_t n_comparisons;
 } mtrie_node_t;
 
 typedef struct mtrie_ {
 
     mtrie_node_t *root;
     uint16_t N; // No of nodes;
+	stack_t *stack;
 }mtrie_t;
 
 /*
@@ -91,6 +99,9 @@ bit_copy_preserve(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t d
 	*dst |= old_dst;
 }
 
+/* For all MTRIE APIs, mask is expressed in opposite way.
+For example, 10.0.0.0/24 , mask will be  ->  ..24 ZEROS...11111111
+*/
 void mtrie_insert_prefix (mtrie_t *mtrie, 
 										  uint32_t prefix,
 										  uint32_t mask,
@@ -98,7 +109,9 @@ void mtrie_insert_prefix (mtrie_t *mtrie,
 										  void *data);
 void mtrie_print_node(mtrie_node_t *node);
 void init_mtrie(mtrie_t *mtrie);
-void mtrie_print_ipv4(mtrie_t *mtree);
+void mtrie_traverse(mtrie_t *mtree, void (*process_fn_ptr)(uint32_t , uint32_t));
+mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix);
+bool mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) ;
 
 #define BIT_MASK_ITERATE_BEGIN(prefix, mask, prefix_len, index, bit) \
 {														  		\

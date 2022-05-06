@@ -5,7 +5,18 @@
 #include <stdbool.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include "mtrie.h"
+#include "../../stack/stack.h"
 
+#define LSHIFT(N, n) \
+    if (n != 32) N << n;  \
+    else                          \
+    N = 0;
+
+#define RSHIFT(N, n) \
+    if (n != 32) N >> n;  \
+    else                          \
+    N = 0;
+	
 static uint16_t node_id = 1;
 
 static inline uint16_t 
@@ -25,6 +36,12 @@ mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
      src_node->child[ZERO]  = NULL;
      src_node->child[ONE]  = NULL;
      src_node->child[DONT_CARE] = NULL;
+     if (dst_node->child[ZERO])
+         dst_node->child[ZERO]->parent = dst_node;
+     if (dst_node->child[ONE])
+         dst_node->child[ONE]->parent = dst_node;
+     if (dst_node->child[DONT_CARE])
+         dst_node->child[DONT_CARE]->parent = dst_node;
 }
 
 void
@@ -142,6 +159,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         mtrie->root->child[bit1]->mask = mask;
         mtrie->root->child[bit1]->prefix_len = prefix_len;
         mtrie->root->child[bit1]->data = data;
+        mtrie->root->child[bit1]->parent = mtrie->root;
         return;
     }
 
@@ -178,7 +196,10 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         }
         else {
              printf("Input TCAM entry exhausted\n");
-            mtrie_node_split(node, j);
+             /* All entries are of same size. Input entry cannot be of 
+             any arbitrary size  */
+             assert(0);
+            //mtrie_node_split(node, j);
         }
         return;
     }
@@ -187,8 +208,8 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     node->child[bit1]->node_id = mtrie_get_new_node_id();
     node->child[bit1]->parent = node;
     node = node->child[bit1];
-    bit_copy(&prefix, &node->prefix, j, 0, prefix_len - i);
-    bit_copy(&mask, &node->mask, j, 0, prefix_len - i );
+    bit_copy(&prefix, &node->prefix, i, 0, prefix_len - i);
+    bit_copy(&mask, &node->mask, i, 0, prefix_len - i );
     node->prefix_len = prefix_len - i;
     node->data = data;
 }
@@ -200,6 +221,176 @@ init_mtrie(mtrie_t *mtrie) {
     mtrie->root = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
     mtrie->root->node_id = mtrie_get_new_node_id();
     mtrie->N = 1;
+    mtrie->stack = get_new_stack();
+}
+
+static inline void 
+stack_push_node (stack_t *stack, mtrie_node_t *node, uint32_t prefix, 
+                                    uint8_t stacked_prefix_matched_bits_count) {
+
+    if (!node) return;
+    node->stacked_prefix = prefix;
+    node->stacked_prefix_matched_bits_count = stacked_prefix_matched_bits_count;
+    push(stack , (void *)node);
+}
+
+mtrie_node_t *
+mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix) {
+
+    uint8_t cum_n_bits_matched = 0;
+    uint32_t n_back_tracks = 0, 
+                  n_comparisons = 0;
+    mtrie_node_t *node, *next_node;
+    
+    reset_stack(mtrie->stack);
+
+    node = mtrie->root->child[BIT_AT(prefix, 0) ? ONE : ZERO];
+
+    if (node) {
+        stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix, cum_n_bits_matched);
+    }
+    else {
+        node = mtrie->root->child[DONT_CARE];
+    }
+
+    if (!node) return NULL;
+
+    while(true) {
+
+        n_comparisons++;
+        if (!prefix_match(prefix, node->prefix, node->mask, node->prefix_len)) {
+
+            node = (mtrie_node_t *)pop(mtrie->stack);
+
+            if (node) {
+
+                n_back_tracks++;
+                prefix = node->stacked_prefix;
+                cum_n_bits_matched = node->stacked_prefix_matched_bits_count;
+                node->stacked_prefix = 0;
+                node->stacked_prefix_matched_bits_count = 0;
+                stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix, cum_n_bits_matched);
+                continue;
+            }
+            return NULL;
+        }
+
+        cum_n_bits_matched += node->prefix_len;
+
+        if (cum_n_bits_matched == 32) {
+                assert(node->data);
+                node->n_comparisons = n_comparisons;
+                node->n_backtracks = n_back_tracks;
+                assert(!node->child[ZERO] && 
+                          !node->child[ONE] && 
+                          !node->child[DONT_CARE]);
+                return node;
+        }
+        
+        /* Shifts with data type width is not defined */
+        if (node->prefix_len != 32) {
+            prefix = (prefix << node->prefix_len);
+        }
+        else {
+            prefix = 0;
+        }
+
+        next_node = node->child[BIT_AT(prefix, 0) ? ONE : ZERO];
+
+        if (next_node) {
+            stack_push_node(mtrie->stack, next_node->child[DONT_CARE], prefix, cum_n_bits_matched);
+        }
+        else {
+            next_node = node->child[DONT_CARE];
+        }
+
+        if (!next_node) return NULL;
+        node = next_node;
+    }
+}
+
+/* To be called on node which has exactly one child*/
+static bool
+mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
+
+    uint8_t child_count = 0;
+    bit_type_t bit;
+
+    if (node->child[ZERO]) {
+        child_count++;
+        bit = ZERO;
+    }
+
+    if (node->child[ONE]) {
+        child_count++;
+        bit = ONE;
+    }
+
+    if (node->child[DONT_CARE]) {
+        child_count++;
+        bit = DONT_CARE;
+    }
+
+    /* A node is eligibe to merge its own child node only when
+    it has exactly one child branch*/
+    if (child_count != 1) return false;
+
+    mtrie_node_t *child_node = node->child[bit];
+
+    bit_copy_preserve(&child_node->prefix, &node->prefix, 0, node->prefix_len, child_node->prefix_len);
+    bit_copy_preserve(&child_node->mask, &node->mask, 0, node->prefix_len, child_node->prefix_len);
+    node->prefix_len += child_node->prefix_len;
+    
+    mtrie_move_children(child_node, node);
+    
+    if (child_node->data) free(child_node->data);
+    free(child_node);
+    mtrie->N--;
+    return true;
+}
+
+
+static mtrie_node_t *
+mtrie_exact_prefix_match_search(mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
+
+    return NULL;
+}
+
+bool
+mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
+
+    mtrie_node_t *parent_node;
+    mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, mask);
+
+    if (!node) {
+        return false;
+    }
+
+    /* Must be leaf node */
+    assert(!node->child[ZERO] &&
+           !node->child[ONE] &&
+           !node->child[DONT_CARE]);
+
+    parent_node = node->parent;
+    
+    /* Break the association between parent node and child node */
+    if (parent_node->child[ZERO] == node) {
+        parent_node->child[ZERO] = NULL;
+    }
+    else if (parent_node->child[ONE] == node) {
+        parent_node->child[ONE] = NULL;
+    }
+    else {
+        parent_node->child[DONT_CARE] = NULL;
+    }
+
+    if (!mtrie_merge_child_node(mtrie, parent_node)) {
+        if (node->data) free(node->data);
+        free(node);
+        mtrie->N--;
+    }
+    
+    return true;
 }
 
 #if 0
@@ -253,28 +444,10 @@ main(int argc, char **argv) {
     return 0;
 }
 #endif
-static void
-ipv4_route_print (uint32_t prefix, uint32_t mask) {
-
-    bit_type_t bit;
-    char cidr_ip[16];
-    uint8_t dmask = 0, index;
-
-    BIT_MASK_ITERATE_BEGIN(mask, mask, 32, index, bit) {
-
-        if (bit == DONT_CARE) dmask++;
-        
-    }BIT_MASK_ITERATE_END;
-
-    prefix = htonl(prefix);
-    inet_ntop(AF_INET, &prefix, cidr_ip, 16);
-    cidr_ip[15] = '\0';
-
-    printf ("Route = %s/%d\n", cidr_ip, dmask);
-}
 
 static void
- _mtrie_print_ipv4(mtrie_node_t *node, uint8_t pos, uint32_t *prefix, uint32_t *mask) {
+ _mtrie_traverse(mtrie_node_t *node, uint8_t pos, uint32_t *prefix, uint32_t *mask,
+                                void (*process_fn_ptr)(uint32_t , uint32_t)) {
 
     uint32_t prefix_temp, mask_temp;
 
@@ -293,18 +466,18 @@ static void
         mask_temp = *mask;
         mask_temp = ~mask_temp;
         prefix_temp &= mask_temp;
-        ipv4_route_print(prefix_temp, mask_temp);
+        process_fn_ptr(prefix_temp, mask_temp);
     }
 
-    _mtrie_print_ipv4(node->child[ZERO], pos + node->prefix_len, prefix, mask);
-    _mtrie_print_ipv4(node->child[ONE], pos + node->prefix_len, prefix, mask);
-    _mtrie_print_ipv4(node->child[DONT_CARE], pos + node->prefix_len, prefix, mask);
+    _mtrie_traverse(node->child[ZERO], pos + node->prefix_len, prefix, mask, process_fn_ptr);
+    _mtrie_traverse(node->child[ONE], pos + node->prefix_len, prefix, mask, process_fn_ptr);
+    _mtrie_traverse(node->child[DONT_CARE], pos + node->prefix_len, prefix, mask, process_fn_ptr);
  }
 
 void
-mtrie_print_ipv4(mtrie_t *mtrie) {
+mtrie_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(uint32_t , uint32_t)) {
 
     uint32_t prefix = 0;
     uint32_t mask = 0;
-    _mtrie_print_ipv4(mtrie->root, 0, &prefix, &mask);
+    _mtrie_traverse(mtrie->root, 0, &prefix, &mask, process_fn_ptr);
 }
