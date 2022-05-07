@@ -71,25 +71,6 @@ create_prefix(uint32_t prefix, uint32_t mask) {
     return _prefix;
 }
 
-static void
-ipv4_route_print (uint32_t prefix, uint32_t mask) {
-
-    bit_type_t bit;
-    char cidr_ip[16];
-    uint8_t dmask = 0, index;
-
-    dmask = convert_bin_mask_to_dmask(mask);
-
-    prefix = htonl(prefix);
-
-    inet_ntop(AF_INET, &prefix, cidr_ip, 16);
-
-    cidr_ip[15] = '\0';
-
-    printf ("Route = %s/%d\n", cidr_ip, dmask);
-}
-
-
 int
 main(int argc, char **argv) {
 
@@ -112,7 +93,7 @@ main(int argc, char **argv) {
    // mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
      //                   (void *)create_prefix(bin_ip, bin_mask));
 
-
+#if 0
     strcpy(ip1, "0.0.0.0");
     bin_ip = covert_ip_p_to_n(ip1);
     bin_mask = convert_dmask_to_bin_mask(0);
@@ -154,23 +135,88 @@ main(int argc, char **argv) {
     bin_mask = convert_dmask_to_bin_mask(24);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32,
                 (void *)create_prefix(bin_ip, bin_mask));
-
+#endif
     strcpy(ip1, "1.1.1.1");
     bin_ip = covert_ip_p_to_n(ip1);
     bin_mask = convert_dmask_to_bin_mask(32);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
                 (void *)create_prefix(bin_ip, bin_mask));
 
-    mtrie_traverse(&mtrie, ipv4_route_print );
+    strcpy(ip1, "1.1.1.0");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(24);
+    mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
+                (void *)create_prefix(bin_ip, bin_mask));
 
-    strcpy(ip1, "122.1.2.4");
+    strcpy(ip1, "1.1.0.0");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(16);
+    mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
+                (void *)create_prefix(bin_ip, bin_mask));
+
+    strcpy(ip1, "1.0.0.0");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(8);
+    mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
+                (void *)create_prefix(bin_ip, bin_mask));
+
+    strcpy(ip1, "1.1.1.1");
     bin_ip = covert_ip_p_to_n(ip1);
     mtrie_node_t *node;
     assert(node = mtrie_longest_prefix_match_search(&mtrie, bin_ip));
     prefix_t *route = (prefix_t *)node->data;
-    printf ("matching node = %s/%d   n_backtracks = %u   n_cmp = %u\n", 
+    printf ("mtrie.N = %u, matching node = %s/%d   n_backtracks = %u   n_cmp = %u\n", 
+                            mtrie.N,
                             covert_ip_n_to_p(route->prefix, 0), 
                             convert_bin_mask_to_dmask(route->mask),
                             node->n_backtracks, node->n_comparisons);
+
+    strcpy(ip1, "1.1.1.1");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(32);
+    assert(node = mtrie_exact_prefix_match_search (&mtrie, bin_ip, ~bin_mask));
+    route = (prefix_t *)node->data;
+    printf ("mtrie.N = %u, exact matching node = %s/%d   n_backtracks = %u   n_cmp = %u\n", 
+                            mtrie.N,
+                            covert_ip_n_to_p(route->prefix, 0), 
+                            convert_bin_mask_to_dmask(route->mask),
+                            node->n_backtracks, node->n_comparisons);
+
+    printf ("Deleting 1.1.1.1/32\n");
+    assert(mtrie_delete_prefix(&mtrie, bin_ip, ~bin_mask));
+
+    strcpy(ip1, "1.1.1.0");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(24);
+    printf ("Deleting 1.1.1.0/24\n");
+    assert(mtrie_delete_prefix(&mtrie, bin_ip, ~bin_mask));
+
+    strcpy(ip1, "1.1.0.0");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(16);
+    printf ("Deleting 1.1.0.0/16\n");
+    assert(mtrie_delete_prefix(&mtrie, bin_ip, ~bin_mask));
+
+    strcpy(ip1, "1.0.0.0");
+    bin_ip = covert_ip_p_to_n(ip1);
+    bin_mask = convert_dmask_to_bin_mask(8);
+    printf ("Deleting 1.0.0.0/8\n");
+    assert(mtrie_delete_prefix(&mtrie, bin_ip, ~bin_mask));
+
+    mtrie_print_ipv4_recursive(&mtrie);
+    printf("mtrie Linear Traversal \n");
+    glthread_t *curr;
+    ITERATE_GLTHREAD_BEGIN(&mtrie.list_head, curr)
+    {
+
+        node = list_glue_to_mtrie_node(curr);
+        route = (prefix_t *)node->data;
+        printf("route = %s/%d\n",
+               covert_ip_n_to_p(route->prefix, 0),
+               convert_bin_mask_to_dmask(route->mask));
+    }
+    ITERATE_GLTHREAD_END(&mtrie.list_head, curr);
+    mtrie_destroy(&mtrie);
+    printf("mtrie.N = %u\n", mtrie.N);
     return 0;
 }

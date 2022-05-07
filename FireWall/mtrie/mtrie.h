@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include "../../gluethread/glthread.h"
 
 typedef struct stack stack_t;
 
@@ -19,6 +20,7 @@ typedef struct mtrie_node_ {
     uint8_t prefix_len;
 	struct mtrie_node_ *parent;
 	struct mtrie_node_ *child[BIT_TYPE_MAX];
+	glthread_t list_glue;
     void *data;
 	uint32_t stacked_prefix;
 	uint8_t stacked_prefix_matched_bits_count;
@@ -26,12 +28,15 @@ typedef struct mtrie_node_ {
 	uint32_t n_backtracks;
 	uint32_t n_comparisons;
 } mtrie_node_t;
+GLTHREAD_TO_STRUCT(list_glue_to_mtrie_node, mtrie_node_t , list_glue);
 
 typedef struct mtrie_ {
 
     mtrie_node_t *root;
     uint16_t N; // No of nodes;
 	stack_t *stack;
+	/* linear List of all leaf nodes in mtrie*/
+	glthread_t list_head;
 }mtrie_t;
 
 /*
@@ -63,7 +68,7 @@ EFFECTIVE_BIT_AT(uint32_t prefix, uint32_t mask, uint8_t pos) {
 }
 
 static uint32_t
-bit_generate_ones(uint8_t start_offset, uint8_t end_offset) {
+bits_generate_ones(uint8_t start_offset, uint8_t end_offset) {
 
 	if (start_offset > 31 || end_offset > 31) assert(0);
 	assert(start_offset <= end_offset);
@@ -79,7 +84,7 @@ bit_generate_ones(uint8_t start_offset, uint8_t end_offset) {
 Assuming most significant bit starts from 0
 */
 static inline void
-bit_copy(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
+bits_copy(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
 
     *dst = 0;
     *dst = *src;
@@ -90,28 +95,22 @@ bit_copy(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_
 }
 
 static inline void
-bit_copy_preserve(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
+bits_copy_preserve(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
 
-	uint32_t dst_old_mask = bit_generate_ones(dst_start_pos, dst_start_pos + count - 1);
+	uint32_t dst_old_mask = bits_generate_ones(dst_start_pos, dst_start_pos + count - 1);
 	dst_old_mask = ~dst_old_mask;
 	uint32_t old_dst = *dst & dst_old_mask;
-	bit_copy(src, dst, src_start_pos, dst_start_pos, count);
+	bits_copy(src, dst, src_start_pos, dst_start_pos, count);
 	*dst |= old_dst;
 }
 
-/* For all MTRIE APIs, mask is expressed in opposite way.
-For example, 10.0.0.0/24 , mask will be  ->  ..24 ZEROS...11111111
-*/
-void mtrie_insert_prefix (mtrie_t *mtrie, 
-										  uint32_t prefix,
-										  uint32_t mask,
-										  uint8_t prefix_len,
-										  void *data);
-void mtrie_print_node(mtrie_node_t *node);
-void init_mtrie(mtrie_t *mtrie);
-void mtrie_traverse(mtrie_t *mtree, void (*process_fn_ptr)(uint32_t , uint32_t));
-mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix);
-bool mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) ;
+/* First count bits of bits1 need to be compare with first count bits of bits2 */
+static inline bool
+bits_compare (uint32_t bits1, uint32_t bits2, uint8_t count) {
+
+	uint32_t unwanted_bits = bits_generate_ones(0, count - 1);
+	return ((bits1 & unwanted_bits) == (bits2 & unwanted_bits));
+}
 
 #define BIT_MASK_ITERATE_BEGIN(prefix, mask, prefix_len, index, bit) \
 {														  		\
@@ -144,3 +143,30 @@ prefix_match(uint32_t input, uint32_t prefix, uint32_t mask, uint8_t prefix_len)
 	}
 	return false;
 }
+
+static inline bool
+mtrie_is_leaf_node (mtrie_node_t *node) {
+
+	return  (!node->child[ZERO] && !node->child[ONE] && !node->child[DONT_CARE]);
+}
+
+
+/* For all MTRIE APIs, mask is expressed in opposite way.
+For example, 10.0.0.0/24 , mask will be  ->  ..24 ZEROS...11111111
+*/
+
+void mtrie_print_node(mtrie_node_t *node);
+void mtrie_insert_prefix (mtrie_t *mtrie, 
+										  uint32_t prefix,
+										  uint32_t mask,
+										  uint8_t prefix_len,
+										  void *data);
+
+void init_mtrie(mtrie_t *mtrie);
+void mtrie_print_ipv4_recursive(mtrie_t *mtrie);
+mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix);
+mtrie_node_t *
+mtrie_exact_prefix_match_search(mtrie_t *mtrie, uint32_t prefix, uint32_t mask);
+bool mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) ;
+void mtrie_destroy(mtrie_t *mtrie) ;
+void mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *));

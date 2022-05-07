@@ -7,16 +7,20 @@
 #include "mtrie.h"
 #include "../../stack/stack.h"
 
-#define LSHIFT(N, n) \
-    if (n != 32) N << n;  \
-    else                          \
-    N = 0;
+static inline uint32_t 
+LSHIFT (uint32_t N, uint8_t n) {
+ 
+    if (n != 32) return (N << n);
+    else return (0);
+}
 
-#define RSHIFT(N, n) \
-    if (n != 32) N >> n;  \
-    else                          \
-    N = 0;
-	
+static inline uint32_t 
+RSHIFT (uint32_t N, uint8_t n) {
+ 
+    if (n != 32) return (N >> n); 
+    else return (0);
+}
+
 static uint16_t node_id = 1;
 
 static inline uint16_t 
@@ -80,8 +84,16 @@ mtrie_print_node(mtrie_node_t *node) {
     printf ("data = %p\n", node->data);
 }
 
+static void
+mtrie_node_delete(mtrie_node_t *node) {
+
+    free(node->data);
+    remove_glthread(&node->list_glue);
+    free(node);
+}
+
 static void 
-mtrie_node_split (mtrie_node_t *node, uint8_t split_offset) {
+mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
 
     mtrie_node_t *new_node;
     bit_type_t new_child_pos;
@@ -93,12 +105,19 @@ mtrie_node_split (mtrie_node_t *node, uint8_t split_offset) {
     /* Create a new mtrie node */
     new_node = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
     new_node->node_id = mtrie_get_new_node_id();
+    init_glthread(&new_node->list_glue);
+
+    /* If the parent node is leaf, then new node formed after split is necessarily
+        leaf */
+    if (mtrie_is_leaf_node(node)) {
+        glthread_add_next(&mtrie->list_head, &new_node->list_glue);
+    }
 
     /* COPY Prefix : copy node->prefix_len - split_offset + 1 bits 
         from parent node starting from split_offset to end of the prefix */
-    bit_copy(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
+    bits_copy(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
     /* COPY mask in the same way as above*/
-    bit_copy(&node->mask, &new_node->mask, split_offset, 0, node->prefix_len - split_offset );
+    bits_copy(&node->mask, &new_node->mask, split_offset, 0, node->prefix_len - split_offset );
     /* Set prefix len in new Node */
     new_node->prefix_len = node->prefix_len - split_offset;
 
@@ -127,13 +146,16 @@ mtrie_node_split (mtrie_node_t *node, uint8_t split_offset) {
         Though our mtrie will be constructed accurately, not getting rid
         of out of scope bits in prefix and mask would create issue in display of 
         data in show or in gdb. It may not have functional impact though because updating prefix len is enough*/
-    uint32_t temp = bit_generate_ones(split_offset, node->prefix_len - 1);
+    uint32_t temp = bits_generate_ones(split_offset, node->prefix_len - 1);
     temp = ~temp;
     node->prefix &= temp;
     node->mask &= temp;
 
     /* now update prefix len */
     node->prefix_len = split_offset;
+
+    /* Node which has just splitted cannot be leaf node anymore */
+    remove_glthread(&node->list_glue);
 }
 
 void
@@ -149,6 +171,9 @@ mtrie_insert_prefix (mtrie_t *mtrie,
 
     assert(mtrie->root && prefix_len);
     
+    /* Always install prefixes with applied masks */
+    prefix = prefix & (~mask);
+
     bit1 = EFFECTIVE_BIT_AT(prefix, mask, 0);
 
     if (!mtrie->root->child[bit1]) {
@@ -160,6 +185,9 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         mtrie->root->child[bit1]->prefix_len = prefix_len;
         mtrie->root->child[bit1]->data = data;
         mtrie->root->child[bit1]->parent = mtrie->root;
+        init_glthread(&mtrie->root->child[bit1]->list_glue);
+        glthread_add_next(&mtrie->list_head, &mtrie->root->child[bit1]->list_glue);
+        mtrie->N++;
         return;
     }
 
@@ -184,7 +212,8 @@ mtrie_insert_prefix (mtrie_t *mtrie,
             j++;
             continue;
         }
-        mtrie_node_split(node, j);
+        mtrie_node_split(mtrie, node, j);
+        mtrie->N++;
         assert(node->child[bit1] == NULL);
         break;
     }
@@ -199,7 +228,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
              /* All entries are of same size. Input entry cannot be of 
              any arbitrary size  */
              assert(0);
-            //mtrie_node_split(node, j);
+            //mtrie_node_split(mtrie, node, j);
         }
         return;
     }
@@ -208,10 +237,13 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     node->child[bit1]->node_id = mtrie_get_new_node_id();
     node->child[bit1]->parent = node;
     node = node->child[bit1];
-    bit_copy(&prefix, &node->prefix, i, 0, prefix_len - i);
-    bit_copy(&mask, &node->mask, i, 0, prefix_len - i );
+    bits_copy(&prefix, &node->prefix, i, 0, prefix_len - i);
+    bits_copy(&mask, &node->mask, i, 0, prefix_len - i );
     node->prefix_len = prefix_len - i;
     node->data = data;
+    init_glthread(&node->list_glue);
+    glthread_add_next(&mtrie->list_head, &node->list_glue);
+    mtrie->N++;
 }
 
 void
@@ -222,6 +254,7 @@ init_mtrie(mtrie_t *mtrie) {
     mtrie->root->node_id = mtrie_get_new_node_id();
     mtrie->N = 1;
     mtrie->stack = get_new_stack();
+    init_glthread(&mtrie->list_head);
 }
 
 static inline void 
@@ -298,7 +331,7 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix) {
         next_node = node->child[BIT_AT(prefix, 0) ? ONE : ZERO];
 
         if (next_node) {
-            stack_push_node(mtrie->stack, next_node->child[DONT_CARE], prefix, cum_n_bits_matched);
+            stack_push_node(mtrie->stack, node->child[DONT_CARE], prefix, cum_n_bits_matched);
         }
         else {
             next_node = node->child[DONT_CARE];
@@ -335,24 +368,59 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
     it has exactly one child branch*/
     if (child_count != 1) return false;
 
+    /* Parent-child association break */
     mtrie_node_t *child_node = node->child[bit];
+    node->child[bit] = NULL;
+    child_node->parent = NULL;
 
-    bit_copy_preserve(&child_node->prefix, &node->prefix, 0, node->prefix_len, child_node->prefix_len);
-    bit_copy_preserve(&child_node->mask, &node->mask, 0, node->prefix_len, child_node->prefix_len);
+    bits_copy_preserve(&child_node->prefix, &node->prefix, 0, 
+        node->prefix_len, child_node->prefix_len);
+    bits_copy_preserve(&child_node->mask, &node->mask, 0, 
+        node->prefix_len, child_node->prefix_len);
+
     node->prefix_len += child_node->prefix_len;
     
     mtrie_move_children(child_node, node);
     
-    if (child_node->data) free(child_node->data);
-    free(child_node);
+    if (mtrie_is_leaf_node(node)) {
+        glthread_add_next(&mtrie->list_head, &node->list_glue);
+        node->data = child_node->data;
+        child_node->data = NULL;
+    }
+
+    mtrie_node_delete(child_node);
     mtrie->N--;
     return true;
 }
 
-
-static mtrie_node_t *
+mtrie_node_t *
 mtrie_exact_prefix_match_search(mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
 
+    mtrie_node_t *node = mtrie->root;
+
+    if (mtrie_is_leaf_node(node)) return NULL;
+
+    node = node->child[EFFECTIVE_BIT_AT(prefix, mask, 0)];
+
+    if (!node) return NULL;
+
+    while (true) {
+
+        if (!(bits_compare(prefix, node->prefix, node->prefix_len) &&
+                bits_compare(mask, node->mask, node->prefix_len))) {
+
+                return NULL;
+         }
+
+         if (mtrie_is_leaf_node(node)) return node;
+
+         prefix = LSHIFT(prefix, node->prefix_len);
+         mask = LSHIFT(mask, node->prefix_len);
+
+        node = node->child[EFFECTIVE_BIT_AT(prefix, mask, 0)];
+
+        if (!node) return NULL;
+    }
     return NULL;
 }
 
@@ -367,9 +435,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
     }
 
     /* Must be leaf node */
-    assert(!node->child[ZERO] &&
-           !node->child[ONE] &&
-           !node->child[DONT_CARE]);
+    assert(mtrie_is_leaf_node(node));
 
     parent_node = node->parent;
     
@@ -383,15 +449,111 @@ mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
     else {
         parent_node->child[DONT_CARE] = NULL;
     }
-
-    if (!mtrie_merge_child_node(mtrie, parent_node)) {
-        if (node->data) free(node->data);
-        free(node);
-        mtrie->N--;
-    }
     
+    node->parent = NULL;
+    mtrie_node_delete(node);
+    mtrie->N--;
+
+    mtrie_merge_child_node(mtrie, parent_node);
+
     return true;
 }
+
+/* A routine Provided to traverse all the nodes of a mtrie in post order */
+static void
+_mtrie_post_order_traverse(mtrie_t *mtrie, mtrie_node_t *node, void (*process_fn_ptr)(mtrie_node_t *)) {
+
+    if (!node) return;
+
+    _mtrie_post_order_traverse(mtrie, node->child[ZERO], process_fn_ptr);
+    _mtrie_post_order_traverse(mtrie, node->child[ONE], process_fn_ptr);
+    _mtrie_post_order_traverse(mtrie, node->child[DONT_CARE], process_fn_ptr);
+
+    process_fn_ptr(node);
+    if (process_fn_ptr == mtrie_node_delete) mtrie->N--;
+}
+
+void
+mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *)) {
+
+    _mtrie_post_order_traverse(mtrie, mtrie->root, process_fn_ptr);
+}
+
+/* To Delete a tree, we need to do post order traversal */
+void mtrie_destroy(mtrie_t *mtrie) {
+
+    mtrie_post_order_traverse(mtrie, mtrie_node_delete);
+    free_stack(mtrie->stack);
+    assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
+}
+
+
+
+
+/* ***************************************************************** /
+
+/* IPV4 specific functions, when mtrie is used as IPV4 routing table */
+static void
+ipv4_route_print (uint32_t prefix, uint32_t mask) {
+
+    bit_type_t bit;
+    char cidr_ip[16];
+    uint8_t dmask = 0, index;
+
+    // convert_bin_mask_to_dmask
+    while(mask) {
+        if (mask & (1 << 31)) dmask++;
+        mask = mask << 1;
+    }
+
+    prefix = htonl(prefix);
+
+    inet_ntop(AF_INET, &prefix, cidr_ip, 16);
+
+    cidr_ip[15] = '\0';
+
+    printf ("Route = %s/%d\n", cidr_ip, dmask);
+}
+
+/* This functions recursively traverse the mtrie and build up prefix/mask. Printing 
+    through this function actually test the correctness of mtrie when used as IPV4 routing table. Do not use this fn in applications. Since, all routes are present at leaves, it is better to traverse only leaves of mtrie in order to traverse all routes linearly */
+static void
+ _mtrie_print_ipv4_recursive(mtrie_node_t *node, uint8_t pos, uint32_t *prefix, uint32_t *mask) {
+
+    uint32_t prefix_temp, mask_temp;
+
+    if (!node) {
+        return;
+    }
+
+    assert(pos <= 32);
+
+    if (node->prefix_len) {
+        bits_copy_preserve(&node->prefix, prefix, 0, pos, node->prefix_len);
+        bits_copy_preserve(&node->mask, mask, 0, pos, node->prefix_len);
+    }
+
+    if (node->data) {
+        prefix_temp = *prefix;
+        mask_temp = *mask;
+        mask_temp = ~mask_temp;
+        prefix_temp &= mask_temp;
+        ipv4_route_print(prefix_temp, mask_temp);
+    }
+
+    _mtrie_print_ipv4_recursive(node->child[ZERO], pos + node->prefix_len, prefix, mask);
+    _mtrie_print_ipv4_recursive(node->child[ONE], pos + node->prefix_len, prefix, mask);
+    _mtrie_print_ipv4_recursive(node->child[DONT_CARE], pos + node->prefix_len, prefix, mask);
+ }
+
+void
+mtrie_print_ipv4_recursive(mtrie_t *mtrie) {
+
+    uint32_t prefix = 0;
+    uint32_t mask = 0;
+    _mtrie_print_ipv4_recursive(mtrie->root, 0, &prefix, &mask);
+}
+
 
 #if 0
 int 
@@ -444,40 +606,3 @@ main(int argc, char **argv) {
     return 0;
 }
 #endif
-
-static void
- _mtrie_traverse(mtrie_node_t *node, uint8_t pos, uint32_t *prefix, uint32_t *mask,
-                                void (*process_fn_ptr)(uint32_t , uint32_t)) {
-
-    uint32_t prefix_temp, mask_temp;
-
-    if (!node)
-        return;
-
-    assert(pos <= 32);
-
-    if (node->prefix_len) {
-        bit_copy_preserve(&node->prefix, prefix, 0, pos, node->prefix_len);
-        bit_copy_preserve(&node->mask, mask, 0, pos, node->prefix_len);
-    }
-
-    if (node->data) {
-        prefix_temp = *prefix;
-        mask_temp = *mask;
-        mask_temp = ~mask_temp;
-        prefix_temp &= mask_temp;
-        process_fn_ptr(prefix_temp, mask_temp);
-    }
-
-    _mtrie_traverse(node->child[ZERO], pos + node->prefix_len, prefix, mask, process_fn_ptr);
-    _mtrie_traverse(node->child[ONE], pos + node->prefix_len, prefix, mask, process_fn_ptr);
-    _mtrie_traverse(node->child[DONT_CARE], pos + node->prefix_len, prefix, mask, process_fn_ptr);
- }
-
-void
-mtrie_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(uint32_t , uint32_t)) {
-
-    uint32_t prefix = 0;
-    uint32_t mask = 0;
-    _mtrie_traverse(mtrie->root, 0, &prefix, &mask, process_fn_ptr);
-}
