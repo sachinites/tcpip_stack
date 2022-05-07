@@ -3,19 +3,22 @@
 #include <memory.h>
 #include "bitmap.h"
 
-bitmap_t *
-bitmap_init(uint16_t size) {
+void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));
-    bitmap_t *bitmap = (bitmap_t *)calloc(1, sizeof(bitmap_t));
+    assert(!bitmap->bits);
     bitmap->bits = (uint32_t *)calloc(size/8, sizeof(uint8_t));
     bitmap->tsize = size;
     bitmap->next = 0;
 }
 
-void bitmap_free(bitmap_t *bitmap) {
+void bitmap_free_internal(bitmap_t *bitmap) {
     free(bitmap->bits);
-    free(bitmap);
+}
+
+void bitmap_free(bitmap_t *bitmap) {
+   bitmap_free_internal(bitmap);
+   free(bitmap);
 }
 
 void bitmap_reset(bitmap_t *bitmap) {
@@ -36,7 +39,7 @@ bitmap_set_bit_at(bitmap_t *bitmap, uint16_t index) {
 
     uint16_t n_blocks = index / 32;
     uint8_t bit_pos = index % 32;
-    uint32_t *ptr = (uint32_t *)bitmap->bits + n_blocks;
+    uint32_t *ptr = bitmap->bits + n_blocks;
     *ptr |=  (1 << (32 - bit_pos - 1));   
 }
 
@@ -45,8 +48,65 @@ bitmap_unset_bit_at(bitmap_t *bitmap, uint16_t index) {
 
     uint16_t n_blocks = index / 32;
     uint8_t bit_pos = index % 32;
-    uint32_t *ptr = (uint32_t *)bitmap->bits + n_blocks;
+    uint32_t *ptr = bitmap->bits + n_blocks;
     *ptr &=  (~(1 << (32 - bit_pos - 1)));   
+}
+
+void 
+bitmap_set(bitmap_t *bitmap, uint16_t start_offset, 
+                            uint16_t end_offset, bool set) {
+
+}
+
+void
+bitmap_prefix_apply_mask(bitmap_t *prefix, bitmap_t *mask, uint16_t count) {
+
+    int n_blocks = count / 32;
+    int rem_bits = count % 32;
+
+    if (rem_bits) {
+        n_blocks++;
+    }
+
+    int i;
+    for (i = 0; i < n_blocks - 1; i++) {
+        *(prefix->bits + i) &= *(mask->bits + i);
+    }
+
+    if (!rem_bits) {
+        *(prefix->bits + i) &= *(mask->bits + i);
+        return;
+    }
+
+    uint32_t temp = bits_generate_ones(0, rem_bits - 1);
+    temp = ~temp;
+    uint32_t mask2 = *(mask->bits + i);
+    mask2 |= temp;
+    *(prefix->bits + i) &= mask2;
+}
+
+void
+bitmap_inverse(bitmap_t *bitmap, uint16_t count) {
+
+    int n_blocks = count / 32;
+    int rem_bits = count % 32;
+
+    if (rem_bits) {
+        n_blocks++;
+    }
+
+    int i;
+    for (i = 0; i < n_blocks - 1; i++) {
+        *(bitmap->bits + i) = ~(*(bitmap->bits + i));
+    }
+
+    if (!rem_bits) {
+        *(bitmap->bits + i) = ~(*(bitmap->bits + i));
+            return ;
+    }
+
+    uint32_t temp = bits_generate_ones(0, rem_bits - 1);
+    *(bitmap->bits + i) ^= temp;
 }
 
 void
@@ -68,8 +128,36 @@ bitmap_slow_copy(bitmap_t *src,
         }
         dst_start_offset++;
         count--;
-        if (count == 0) return;
+        if (count == 0) {
+            return;
+        }
     } ITERATE_BITMAP_END;
+}
+
+void
+bitmap_fast_copy(bitmap_t *src, 
+                              bitmap_t *dst,
+                              uint16_t count) {
+
+    uint16_t index;
+    int n_blocks = count / 32;
+    int rem_bits = count % 32;
+
+    if (rem_bits) {
+        n_blocks++;
+    }
+
+    int i;
+    for (i = 0; i < n_blocks - 1; i++) {    
+        *(dst->bits + i) = *(src->bits + i);
+    }
+
+    if (!rem_bits) {
+        *(dst->bits + i) = *(src->bits + i);
+        return;
+    }
+
+    uint32_bits_copy(src->bits + i, dst->bits + i, 0, 0, rem_bits);
 }
 
 static void
@@ -142,35 +230,6 @@ bitmap_rshift(bitmap_t *bitmap, uint16_t count) {
     bitmap_rshift32(bitmap, N);
 }
 
-void
-bitmap_fast_copy(bitmap_t *src, 
-                              bitmap_t *dst,
-                              uint16_t count) {
-
-    uint16_t index;
-    uint16_t bits_copied = 0;
-    int n_blocks = count / 32;
-    int rem_bits = count % 32;
-
-    if (rem_bits) {
-        n_blocks++;
-    }
-
-    int i;
-    for (i = 0; i < n_blocks - 1; i++) {
-        *(dst->bits + i) = *(src->bits + i);
-        bits_copied += 32;
-    }
-
-    if (!rem_bits) {
-        *(dst->bits + i) = *(src->bits + i);
-        return;
-    }
-
-    bitmap_slow_copy(src, dst, bits_copied, bits_copied, rem_bits);
-}
-
-
 bool
 bitmap_slow_compare(bitmap_t *src, 
                       bitmap_t *dst,
@@ -197,7 +256,6 @@ bitmap_fast_compare(bitmap_t *src,
                                     bitmap_t *dst,
                                     uint16_t count) {
 
-    uint16_t bits_compared = 0;
     int n_blocks = count / 32;
     int rem_bits = count % 32;
 
@@ -208,7 +266,6 @@ bitmap_fast_compare(bitmap_t *src,
     int i;
     for (i = 0; i < n_blocks - 1; i++) {
         if (*(dst->bits + i) == *(src->bits + i)) {
-            bits_compared += 32;
             continue;
         }
         return false;
@@ -221,7 +278,7 @@ bitmap_fast_compare(bitmap_t *src,
         return false;
     }
 
-    return uint32_bits_compare(*(src->bits + i) , *(dst->bits + i), count - bits_compared);
+    return uint32_bits_compare(*(src->bits + i) , *(dst->bits + i), rem_bits);
 }
 
 bool 
@@ -246,6 +303,20 @@ bitmap_prefix_match(bitmap_t *input,
     return prefix32bit_match(*(input->bits + i), *(prefix->bits + i), 
                                             *(mask->bits + i), 
                                             !rem_bits ? 32 :  rem_bits);
+}
+
+bit_type_t 
+bitmap_effective_bit_at(bitmap_t *prefix, bitmap_t *mask, uint16_t pos) {
+
+     if (bitmap_at(mask, pos)) {
+            return DONT_CARE;
+        }
+        else if (bitmap_at(prefix, pos)) {
+            return ONE;
+        }
+        else {
+            return ZERO;
+        }
 }
 
 void
@@ -289,7 +360,7 @@ bitmap_prefix_print(bitmap_t *prefix, bitmap_t *mask, uint16_t count) {
     }ITERATE_MASKED_BITMAP_END;
 }
 
-/* Functions on 32 bit integers, used by bit arrays as helper fns */
+/* Functions on 32 bit integers, used by bitmaps as helper fns */
 
 bool
 prefix32bit_match(uint32_t input, uint32_t prefix, 
@@ -308,7 +379,7 @@ prefix32bit_match(uint32_t input, uint32_t prefix,
 }
 
 void
-uint32_bits_copy(uint32_t *src, uint32_t *dst,\
+uint32_bits_copy(uint32_t *src, uint32_t *dst,
                              uint8_t src_start_pos,
                              uint8_t dst_start_pos, uint8_t count) {
 
@@ -354,31 +425,34 @@ bits_generate_ones(uint8_t start_offset, uint8_t end_offset) {
 	return temp;
 }
 
-
+#if 0
 int
 main(int argc, char **argv) {
 
-    bitmap_t *bm = bitmap_init(64);
-    bitmap_set_bit_at(bm, 0);
-    bitmap_set_bit_at(bm, 1);
-    bitmap_set_bit_at(bm, 2);
-    bitmap_set_bit_at(bm, 3);
-    bitmap_set_bit_at(bm, 11);
-    bitmap_set_bit_at(bm, 12);
-    bitmap_set_bit_at(bm, 25);
-    bitmap_set_bit_at(bm, 26);
-    bitmap_set_bit_at(bm, 27);
-    bitmap_set_bit_at(bm, 32);
-    bitmap_set_bit_at(bm, 33);
-    bitmap_set_bit_at(bm, 50);
-    bitmap_set_bit_at(bm, 51);
-    bitmap_set_bit_at(bm, 60);
-    bitmap_set_bit_at(bm, 61);
-    bitmap_set_bit_at(bm, 63);
-    bitmap_t *bm1= bitmap_init(64);
-    bitmap_fast_copy(bm, bm1, 64);
-    bitmap_print(bm);
-    bitmap_print(bm1);
-    bitmap_prefix_print(bm, bm1, 64);
+    bitmap_t bm;
+     bitmap_init(&bm, 64);
+    bitmap_set_bit_at(&bm, 0);
+    bitmap_set_bit_at(&bm, 1);
+    bitmap_set_bit_at(&bm, 2);
+    bitmap_set_bit_at(&bm, 3);
+    bitmap_set_bit_at(&bm, 11);
+    bitmap_set_bit_at(&bm, 12);
+    bitmap_set_bit_at(&bm, 25);
+    bitmap_set_bit_at(&bm, 26);
+    bitmap_set_bit_at(&bm, 27);
+    bitmap_set_bit_at(&bm, 32);
+    bitmap_set_bit_at(&bm, 33);
+    bitmap_set_bit_at(&bm, 50);
+    bitmap_set_bit_at(&bm, 51);
+    bitmap_set_bit_at(&bm, 60);
+    bitmap_set_bit_at(&bm, 61);
+    bitmap_set_bit_at(&bm, 63);
+    bitmap_t bm1;
+    bitmap_init(&bm1, 64);
+    bitmap_fast_copy(&bm, &bm1, 64);
+    bitmap_print(&bm);
+    bitmap_print(&bm1);
+    bitmap_prefix_print(&bm, &bm1, 64);
     return 0;
 }
+#endif

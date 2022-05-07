@@ -19,12 +19,16 @@ typedef struct bitmap_ {
     uint16_t next;
 } bitmap_t;
 
-bitmap_t *bitmap_init(uint16_t size) ;
+void bitmap_init(bitmap_t *bitmap, uint16_t size) ;
+void bitmap_free_internal(bitmap_t *bitmap);
 void bitmap_free(bitmap_t *bitmap);
 void bitmap_reset();
 bool bitmap_at(bitmap_t *bitmap, uint16_t index);
+bit_type_t bitmap_effective_bit_at(bitmap_t *prefix, bitmap_t *mask, uint16_t pos);
 void bitmap_set_bit_at(bitmap_t *bitmap, uint16_t index) ;
 void bitmap_unset_bit_at(bitmap_t *bitmap, uint16_t index) ;
+void bitmap_inverse(bitmap_t *bitmap, uint16_t count);
+
 void
 bitmap_slow_copy(bitmap_t *src, 
                       bitmap_t *dst,
@@ -55,9 +59,13 @@ bitmap_prefix_match(bitmap_t *input,
                                     bitmap_t *mask,
                                     uint16_t prefix_len);
 
+void
+bitmap_prefix_apply_mask(bitmap_t *prefix, bitmap_t *mask, uint16_t count) ;
+
 void bitmap_lshift(bitmap_t *bitmap, uint16_t count); 
 void bitmap_rshift(bitmap_t *bitmap, uint16_t count);
-void bitmap_print(bitmap_t *bitmap); \
+void bitmap_print(bitmap_t *bitmap); 
+void bitmap_set(bitmap_t *bitmap, uint16_t start_offset, uint16_t end_offset, bool set);
 void bitmap_prefix_print(bitmap_t *prefix, bitmap_t *mask, uint16_t count);
 
 #define ITERATE_BITMAP_BEGIN(bitmap_ptr, start_index, _index, boolout) \
@@ -91,7 +99,7 @@ bool
 prefix32bit_match(uint32_t input, uint32_t prefix, uint32_t mask, uint8_t prefix_len);
 
 void
-uint32_bits_copy(uint32_t *src, uint32_t *dst,\
+uint32_bits_copy(uint32_t *src, uint32_t *dst,
                              uint8_t src_start_pos,
                              uint8_t dst_start_pos, uint8_t count);
 

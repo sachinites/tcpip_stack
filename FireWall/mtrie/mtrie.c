@@ -7,27 +7,16 @@
 #include "mtrie.h"
 #include "../../stack/stack.h"
 
-static inline uint32_t 
-LSHIFT (uint32_t N, uint8_t n) {
- 
-    if (n != 32) return (N << n);
-    else return (0);
-}
-
-static inline uint32_t 
-RSHIFT (uint32_t N, uint8_t n) {
- 
-    if (n != 32) return (N >> n); 
-    else return (0);
-}
-
 static uint16_t node_id = 1;
 
+/* To generate unique Node IDs. No functional, only for debugging
+purpose */
 static inline uint16_t 
 mtrie_get_new_node_id() {
     return (node_id++);
 }
 
+/* Move all children from src_node to dst_node */
 static void
 mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
 
@@ -48,6 +37,7 @@ mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
          dst_node->child[DONT_CARE]->parent = dst_node;
 }
 
+/* Fn to print mtrie_node details. Very helpful in debugging, via gdb especially */
 void
 mtrie_print_node(mtrie_node_t *node) {
 
@@ -56,25 +46,7 @@ mtrie_print_node(mtrie_node_t *node) {
 
     printf ("ID : %d\n", node->node_id);
     printf ("Prefix/Len : ");
-
-    for (i = 0; i < node->prefix_len; i++) {
-
-        bit = EFFECTIVE_BIT_AT(node->prefix, node->mask, i);
-        switch (bit)
-        {
-        case DONT_CARE:
-            printf("X");
-            break;
-        case ONE:
-            printf("1");
-            break;
-        case ZERO:
-            printf("0");
-            break;
-        default:;
-        }
-    }
-
+    bitmap_prefix_print(&node->prefix, &node->mask, node->prefix_len);
     printf ("/%d\n", node->prefix_len);
     printf ("Parent Node = %d\n", node->parent ? node->parent->node_id : 0);
     printf ("children = %d %d %d\n", 
@@ -84,14 +56,40 @@ mtrie_print_node(mtrie_node_t *node) {
     printf ("data = %p\n", node->data);
 }
 
+/* Delete and free the mtrie node */ 
 static void
 mtrie_node_delete(mtrie_node_t *node) {
 
+    bitmap_free_internal(&node->prefix);
+    bitmap_free_internal(&node->mask);
+    bitmap_free_internal(&node->stacked_prefix);
     free(node->data);
     remove_glthread(&node->list_glue);
     free(node);
 }
 
+mtrie_node_t *
+mtrie_create_new_node(uint16_t prefix_len) {
+
+    mtrie_node_t *node = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
+    node->node_id = mtrie_get_new_node_id();
+    bitmap_init(&node->prefix, prefix_len);
+    bitmap_init(&node->mask, prefix_len);
+    bitmap_init(&node->stacked_prefix, prefix_len);
+    return node;
+}
+
+/* A fn to split the node A at a given offset off. Algorithm is :
+1. Create a new node C
+2. Make C the child of Parent node A as per the bit at offset off in A's prefix. Make A the father of C as well.
+3. move the rest of the bits following offset from A to C
+4. Move all children of A to C, along with A's Data 
+5. If A had no children. add C to linear linked list.
+6. Create a new child  node B of Parent node A as per the bit at offset off in input prefix. Make A the father of B as well.
+7. Fix up parent child pointers between A and C.  
+8. C is always leaf node, add it to linear linked list 
+9. Decrease the prefix len of parent Node by number of bits moved to node C in step 3
+*/
 static void 
 mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
 
@@ -103,9 +101,7 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     assert(split_offset);
 
     /* Create a new mtrie node */
-    new_node = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
-    new_node->node_id = mtrie_get_new_node_id();
-    init_glthread(&new_node->list_glue);
+    new_node = mtrie_create_new_node(mtrie->prefix_len);
 
     /* If the parent node is leaf, then new node formed after split is necessarily
         leaf */
@@ -115,9 +111,9 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
 
     /* COPY Prefix : copy node->prefix_len - split_offset + 1 bits 
         from parent node starting from split_offset to end of the prefix */
-    bits_copy(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
+    bitmap_slow_copy(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
     /* COPY mask in the same way as above*/
-    bits_copy(&node->mask, &new_node->mask, split_offset, 0, node->prefix_len - split_offset );
+    bitmap_slow_copy(&node->mask, &new_node->mask, split_offset, 0, node->prefix_len - split_offset );
     /* Set prefix len in new Node */
     new_node->prefix_len = node->prefix_len - split_offset;
 
@@ -129,10 +125,10 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     /* Establish parent Child Relationship */
     new_node->parent = node;
 
-    if (BIT_AT(node->mask, split_offset)) {
+    if (bitmap_at(&node->mask, split_offset)) {
         new_child_pos = DONT_CARE;
     }
-    else if (BIT_AT(node->prefix, split_offset)) {
+    else if (bitmap_at(&node->prefix, split_offset)) {
         new_child_pos = ONE;
     }
     else {
@@ -146,10 +142,8 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
         Though our mtrie will be constructed accurately, not getting rid
         of out of scope bits in prefix and mask would create issue in display of 
         data in show or in gdb. It may not have functional impact though because updating prefix len is enough*/
-    uint32_t temp = bits_generate_ones(split_offset, node->prefix_len - 1);
-    temp = ~temp;
-    node->prefix &= temp;
-    node->mask &= temp;
+    bitmap_set(&node->prefix, split_offset, node->prefix_len - 1, false);
+    bitmap_set(&node->mask, split_offset, node->prefix_len - 1, false);
 
     /* now update prefix len */
     node->prefix_len = split_offset;
@@ -158,11 +152,19 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     remove_glthread(&node->list_glue);
 }
 
+/* A fn used to insert a prefix / mask combination in mtrie. Note that, mask is expressed as
+all bit 1's representing dont care 
+Algorithm : 
+We traverse from the root of the tree, comparing the input prefix with the node's prefix bit
+by bit. We descent down the tree using input prefix bit sequence as a guidance in the mtree. 
+We perform node-split and add a new node as soon as mis-match occurs. Note that, prefix_len
+cannot be any arbitrary len, it has to be mtrie->prefix_len always.
+*/
 void
 mtrie_insert_prefix (mtrie_t *mtrie, 
-    							  uint32_t prefix,
-								  uint32_t mask,
-								  uint8_t prefix_len,
+    							  bitmap_t *prefix,
+								  bitmap_t *mask,
+								  uint16_t prefix_len,
                                   void *data) {
 
     int i = 0, j = 0;
@@ -171,17 +173,13 @@ mtrie_insert_prefix (mtrie_t *mtrie,
 
     assert(mtrie->root && prefix_len);
     
-    /* Always install prefixes with applied masks */
-    prefix = prefix & (~mask);
-
-    bit1 = EFFECTIVE_BIT_AT(prefix, mask, 0);
+    bit1 =  bitmap_effective_bit_at(prefix, mask, 0);
 
     if (!mtrie->root->child[bit1]) {
 
-        mtrie->root->child[bit1] = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t ));
-        mtrie->root->child[bit1]->node_id = mtrie_get_new_node_id();
-        mtrie->root->child[bit1]->prefix = prefix;
-        mtrie->root->child[bit1]->mask = mask;
+        mtrie->root->child[bit1] = mtrie_create_new_node(mtrie->prefix_len);
+        bitmap_fast_copy(prefix, &mtrie->root->child[bit1]->prefix, prefix_len);
+        bitmap_fast_copy(mask, &mtrie->root->child[bit1]->mask, prefix_len);
         mtrie->root->child[bit1]->prefix_len = prefix_len;
         mtrie->root->child[bit1]->data = data;
         mtrie->root->child[bit1]->parent = mtrie->root;
@@ -192,10 +190,9 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     }
 
     node = mtrie->root->child[bit1];
-
     uint16_t node_prefix_len = node->prefix_len;
 
-    BIT_MASK_ITERATE_BEGIN(prefix, mask, prefix_len, i, bit1) {
+    ITERATE_MASKED_BITMAP_BEGIN(prefix, mask, prefix_len, i, bit1) {
 
         if (j == node_prefix_len ) {
             if (node->child[bit1]) {
@@ -207,7 +204,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
             break;
         }
 
-        bit2 = EFFECTIVE_BIT_AT(node->prefix, node->mask, j);
+        bit2 = bitmap_effective_bit_at(&node->prefix, &node->mask, j);
         if (bit1 == bit2) {
             j++;
             continue;
@@ -217,7 +214,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         assert(node->child[bit1] == NULL);
         break;
     }
-    BIT_MASK_ITERATE_END;
+    ITERATE_MASKED_BITMAP_END;
 
     if (i == prefix_len) {
         if (j == node_prefix_len) {
@@ -233,54 +230,54 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         return;
     }
 
-    node->child[bit1] = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
-    node->child[bit1]->node_id = mtrie_get_new_node_id();
+    node->child[bit1] = mtrie_create_new_node(mtrie->prefix_len);
     node->child[bit1]->parent = node;
     node = node->child[bit1];
-    bits_copy(&prefix, &node->prefix, i, 0, prefix_len - i);
-    bits_copy(&mask, &node->mask, i, 0, prefix_len - i );
+    bitmap_slow_copy(prefix, &node->prefix, i, 0, prefix_len - i);
+    bitmap_slow_copy(mask, &node->mask, i, 0, prefix_len - i);
     node->prefix_len = prefix_len - i;
     node->data = data;
     init_glthread(&node->list_glue);
     glthread_add_next(&mtrie->list_head, &node->list_glue);
     mtrie->N++;
+    /* Caller should free prefix , mask bitmaps */
 }
 
 void
-init_mtrie(mtrie_t *mtrie) {
+init_mtrie(mtrie_t *mtrie, uint16_t prefix_len) {
 
     assert(!mtrie->root);
-    mtrie->root = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
-    mtrie->root->node_id = mtrie_get_new_node_id();
+    mtrie->root = mtrie_create_new_node(prefix_len);
     mtrie->N = 1;
     mtrie->stack = get_new_stack();
     init_glthread(&mtrie->list_head);
+    mtrie->prefix_len = prefix_len;
 }
 
 static inline void 
-stack_push_node (stack_t *stack, mtrie_node_t *node, uint32_t prefix, 
-                                    uint8_t stacked_prefix_matched_bits_count) {
-
+stack_push_node (stack_t *stack, mtrie_node_t *node, bitmap_t *prefix) {
+                                    
     if (!node) return;
-    node->stacked_prefix = prefix;
-    node->stacked_prefix_matched_bits_count = stacked_prefix_matched_bits_count;
+    bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->tsize);
     push(stack , (void *)node);
 }
 
+/* A fn to search a given prefix in the mtrie as per the longest preffix match rule. 
+Returns NULL if match is not found, else returns the leaf node if match succeeds. The leaf node
+contains the data to be used by application. IT could be Route or ACL */
 mtrie_node_t *
-mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix) {
+mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
 
-    uint8_t cum_n_bits_matched = 0;
     uint32_t n_back_tracks = 0, 
                   n_comparisons = 0;
     mtrie_node_t *node, *next_node;
     
     reset_stack(mtrie->stack);
 
-    node = mtrie->root->child[BIT_AT(prefix, 0) ? ONE : ZERO];
+    node = mtrie->root->child[bitmap_at(prefix, 0) ? ONE : ZERO];
 
     if (node) {
-        stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix, cum_n_bits_matched);
+        stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix);
     }
     else {
         node = mtrie->root->child[DONT_CARE];
@@ -291,26 +288,23 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix) {
     while(true) {
 
         n_comparisons++;
-        if (!prefix_match(prefix, node->prefix, node->mask, node->prefix_len)) {
+        if (!bitmap_prefix_match(prefix, &node->prefix, 
+                                                 &node->mask, node->prefix_len)) {
 
             node = (mtrie_node_t *)pop(mtrie->stack);
 
             if (node) {
 
                 n_back_tracks++;
-                prefix = node->stacked_prefix;
-                cum_n_bits_matched = node->stacked_prefix_matched_bits_count;
-                node->stacked_prefix = 0;
-                node->stacked_prefix_matched_bits_count = 0;
-                stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix, cum_n_bits_matched);
+                bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.tsize);
+                bitmap_reset(&node->stacked_prefix);
+                stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix);
                 continue;
             }
             return NULL;
         }
 
-        cum_n_bits_matched += node->prefix_len;
-
-        if (cum_n_bits_matched == 32) {
+            if (mtrie_is_leaf_node(node)) {
                 assert(node->data);
                 node->n_comparisons = n_comparisons;
                 node->n_backtracks = n_back_tracks;
@@ -321,17 +315,12 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix) {
         }
         
         /* Shifts with data type width is not defined */
-        if (node->prefix_len != 32) {
-            prefix = (prefix << node->prefix_len);
-        }
-        else {
-            prefix = 0;
-        }
+        bitmap_lshift(prefix, node->prefix_len);
 
-        next_node = node->child[BIT_AT(prefix, 0) ? ONE : ZERO];
+        next_node = node->child[bitmap_at(prefix, 0) ? ONE : ZERO];
 
         if (next_node) {
-            stack_push_node(mtrie->stack, node->child[DONT_CARE], prefix, cum_n_bits_matched);
+            stack_push_node(mtrie->stack, node->child[DONT_CARE], prefix);
         }
         else {
             next_node = node->child[DONT_CARE];
@@ -342,7 +331,9 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, uint32_t prefix) {
     }
 }
 
-/* To be called on node which has exactly one child*/
+/* A fn To be called on node which has exactly one child. This fn is used as helper
+fn during node deletion from mtrie. In this fn, the parent node absorbs its only children
+within itself, eventually deleting the child node*/
 static bool
 mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
 
@@ -373,9 +364,9 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
     node->child[bit] = NULL;
     child_node->parent = NULL;
 
-    bits_copy_preserve(&child_node->prefix, &node->prefix, 0, 
+    bitmap_slow_copy(&child_node->prefix, &node->prefix, 0,
         node->prefix_len, child_node->prefix_len);
-    bits_copy_preserve(&child_node->mask, &node->mask, 0, 
+    bitmap_slow_copy(&child_node->mask, &node->mask, 0, 
         node->prefix_len, child_node->prefix_len);
 
     node->prefix_len += child_node->prefix_len;
@@ -393,39 +384,46 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
     return true;
 }
 
+/* A fn to search a given prefix in the mtrie but as per the exact match. Used for deleting the 
+entry from mtrie. 
+Returns NULL if match is not found, else returns the leaf node if match succeeds. The leaf node
+contains the data to be used by application. IT could be Route or ACL */
 mtrie_node_t *
-mtrie_exact_prefix_match_search(mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
+mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
 
     mtrie_node_t *node = mtrie->root;
 
     if (mtrie_is_leaf_node(node)) return NULL;
 
-    node = node->child[EFFECTIVE_BIT_AT(prefix, mask, 0)];
+    node = node->child[bitmap_effective_bit_at(prefix, mask, 0)];
 
     if (!node) return NULL;
 
     while (true) {
 
-        if (!(bits_compare(prefix, node->prefix, node->prefix_len) &&
-                bits_compare(mask, node->mask, node->prefix_len))) {
+        if (!(bitmap_fast_compare (prefix, &node->prefix, node->prefix_len) &&
+                bitmap_fast_compare(mask, &node->mask, node->prefix_len))) {
 
                 return NULL;
          }
 
          if (mtrie_is_leaf_node(node)) return node;
 
-         prefix = LSHIFT(prefix, node->prefix_len);
-         mask = LSHIFT(mask, node->prefix_len);
+        bitmap_lshift(prefix, node->prefix_len);
+        bitmap_lshift(mask, node->prefix_len);
 
-        node = node->child[EFFECTIVE_BIT_AT(prefix, mask, 0)];
+        node = node->child[bitmap_effective_bit_at(prefix, mask, 0)];
 
         if (!node) return NULL;
     }
     return NULL;
 }
 
+/* A function used to delete the leaf node from the mtrie , i.e, the actual data. 
+    Uses exact match API as helper API to locate the node of interest. 
+*/
 bool
-mtrie_delete_prefix (mtrie_t *mtrie, uint32_t prefix, uint32_t mask) {
+mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
 
     mtrie_node_t *parent_node;
     mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, mask);
@@ -515,6 +513,30 @@ ipv4_route_print (uint32_t prefix, uint32_t mask) {
     printf ("Route = %s/%d\n", cidr_ip, dmask);
 }
 
+
+/* The below APIs are used only when mtrie's prefix_len is 4B. i.e. when mtrie is used as
+ipv4 routing table*/
+static inline void
+bits_copy(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
+
+    *dst = 0;
+    *dst = *src;
+    *dst = (*dst) << src_start_pos;
+	*dst = (*dst) >> dst_start_pos;
+    *dst = *dst >> (32 - count - dst_start_pos );
+    *dst = *dst << (32 - count - dst_start_pos );
+}
+
+static inline void
+bits_copy_preserve(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
+
+	uint32_t dst_old_mask = bits_generate_ones(dst_start_pos, dst_start_pos + count - 1);
+	dst_old_mask = ~dst_old_mask;
+	uint32_t old_dst = *dst & dst_old_mask;
+	bits_copy(src, dst, src_start_pos, dst_start_pos, count);
+	*dst |= old_dst;
+}
+
 /* This functions recursively traverse the mtrie and build up prefix/mask. Printing 
     through this function actually test the correctness of mtrie when used as IPV4 routing table. Do not use this fn in applications. Since, all routes are present at leaves, it is better to traverse only leaves of mtrie in order to traverse all routes linearly */
 static void
@@ -529,8 +551,9 @@ static void
     assert(pos <= 32);
 
     if (node->prefix_len) {
-        bits_copy_preserve(&node->prefix, prefix, 0, pos, node->prefix_len);
-        bits_copy_preserve(&node->mask, mask, 0, pos, node->prefix_len);
+
+        bits_copy_preserve(node->prefix.bits, prefix, 0, pos, node->prefix_len);
+        bits_copy_preserve(node->mask.bits, mask, 0, pos, node->prefix_len);
     }
 
     if (node->data) {
