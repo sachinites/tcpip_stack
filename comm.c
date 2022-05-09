@@ -42,7 +42,9 @@
 #include "comm.h"
 #include "graph.h"
 #include "net.h"
+#include "Layer2/layer2.h"
 #include "EventDispatcher/event_dispatcher.h"
+#include "FireWall/acl/acldb.h"
 
 extern graph_t *topo;
 
@@ -130,7 +132,6 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = get_nbr_node(interface);
     
-    
     if(!IF_IS_UP(interface)){
 		interface->intf_nw_props.xmit_pkt_dropped++;
         return 0;
@@ -155,13 +156,21 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
+    if (access_list_evaluate_ip_packet(
+            interface->att_node, interface, 
+            (ethernet_hdr_t *)pkt, false)  == ACL_DENY) {
+        return -1;
+    }
+    
+    tcp_dump_send_logger(sending_node, interface, 
+			pkt, pkt_size, ETH_HDR);
+
 	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	interface->intf_nw_props.pkt_sent++;
     interface->intf_nw_props.bit_rate.new_bit_stats += pkt_size * 8;
     
-	tcp_dump_send_logger(sending_node, interface, 
-			pkt, pkt_size, ETH_HDR);
+
 
     return pkt_size; 
 }
@@ -174,8 +183,17 @@ int
 pkt_receive(node_t *node, interface_t *interface,
             char *pkt, uint32_t pkt_size){
 
+    ethernet_hdr_t *eth_hdr;
+
+    eth_hdr = (ethernet_hdr_t *)pkt;
+   
     tcp_dump_recv_logger(node, interface, 
             (char *)pkt, pkt_size, ETH_HDR);
+
+    if (access_list_evaluate_ip_packet(node, interface, eth_hdr, true) 
+                == ACL_DENY) {
+        return -1;
+    }
     
     /*Make room in the packet buffer by shifting the data towards
       right so that tcp/ip stack can append more hdrs to the packet 

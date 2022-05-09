@@ -96,7 +96,6 @@ void* pop(Stack_t *stack)
 
     if(stack->top == -1)
     {
-        printf("\nstack already empty\n");
         return NULL;
     }
 

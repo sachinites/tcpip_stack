@@ -148,6 +148,7 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
 typedef struct intf_nmp_ intf_nmp_t;
 typedef struct stp_vlan_intf_info_ stp_vlan_intf_info_t;
+typedef struct access_list_ access_list_t;
 
 typedef struct intf_nw_props_ {
 
@@ -182,6 +183,8 @@ typedef struct intf_nw_props_ {
     }bit_rate;
 
    avltree_t flow_avl_root;
+   access_list_t *ingress_acc_lst;
+   access_list_t *egress_acc_lst;
 } intf_nw_props_t;
 
 typedef union intf_prop_changed_ {
@@ -261,7 +264,6 @@ intf_init_bit_rate_sampling_timer(interface_t *interface);
 bool node_set_loopback_address(node_t *node, char *ip_addr);
 bool node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, char mask);
 bool node_unset_intf_ip_address(node_t *node, char *local_if);
-
 
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/

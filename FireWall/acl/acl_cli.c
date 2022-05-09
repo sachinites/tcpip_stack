@@ -6,9 +6,12 @@
 #include "../../utils.h"
 
 extern graph_t *topo;
+extern void
+display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 
 #define ACL_CMD_CONFIG  1
 #define ACL_CMD_SHOW 2
+#define ACL_CMD_ACCESS_GROUP_CONFIG 3
 
 /* ACL CLI format (Cisco Like ) :
     <permit/deny> <protocol> <src ip> <src mask> <dst ip> <dst mask> <eq | lt | gt | range> <port1> <port2> 
@@ -183,6 +186,58 @@ acl_config_handler(param_t *param,
     return 0;
 }
 
+static int
+access_group_config_handler(param_t *param, 
+                  ser_buff_t *tlv_buf,
+                  op_mode enable_or_disable) {
+    
+    char *dirn = NULL;
+    tlv_struct_t *tlv = NULL;
+    char *node_name = NULL;
+    char *if_name = NULL;
+    char *access_list_name = NULL;
+
+    int cmdcode = -1;
+
+    cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) == 0)
+            node_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "access-list-name", strlen("access-list-name")) == 0)
+            access_list_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "dirn", strlen("dirn")) == 0)
+            dirn = tlv->value;
+                    else if (strncmp(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
+            if_name = tlv->value;
+        else
+            assert(0);
+   } TLV_LOOP_END;
+
+    node_t *node = node_get_node_by_name(topo, node_name);
+    interface_t *intf = node_get_intf_by_name(node, if_name);
+    
+    if (!intf) {
+        printf ("Error : Interface do not exist\n");
+        return -1;
+    }
+
+    access_list_t *acc_lst = acl_lookup_access_list(node, access_list_name);
+    if (!acc_lst) {
+        printf ("Error : Access List not configured\n");
+        return -1;
+    } 
+
+    switch(enable_or_disable) {
+        case CONFIG_ENABLE:
+            return access_group_config(node, intf, dirn, acc_lst);
+        case CONFIG_DISABLE:
+            return access_group_unconfig(node, intf, dirn, acc_lst);
+    }
+    return 0;
+}
+
 void
 acl_build_config_cli(param_t *root) {
     {
@@ -293,6 +348,37 @@ acl_build_config_cli(param_t *root) {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+    {
+        /* access-group ...*/
+        static param_t access_grp;
+        init_param(&access_grp, CMD, "access-group", 0, 0, INVALID, 0, "Access Group");
+        libcli_register_param(root, &access_grp);
+        {
+             /* access-group access-list <name>... */
+            static param_t access_list_name;
+            init_param(&access_list_name, LEAF, 0, 0, 0, STRING, "access-list-name", "Access List Name");
+            libcli_register_param(&access_grp, &access_list_name);
+            {
+                /* access-group access-list <name> [in | out] ... */
+                static param_t dirn;
+                init_param(&dirn, LEAF, 0, 0, 0, STRING, "dirn", "Access List Direction");
+                libcli_register_param(&access_list_name, &dirn);
+                {
+                    /* access-group access-list <name> [in | out] interface ... */
+                    static param_t intf;
+                    init_param(&intf, CMD, "interface", 0, 0, INVALID, "interface", "Interface");
+                    libcli_register_param(&dirn, &intf);
+                    libcli_register_display_callback(&intf, display_node_interfaces);
+                    {
+                        static param_t if_name;
+                        init_param(&if_name, LEAF, 0, access_group_config_handler, 0, STRING, "if-name", "Interface Name");
+                        libcli_register_param(&intf, &if_name);
+                        set_param_cmd_code(&if_name, ACL_CMD_ACCESS_GROUP_CONFIG);
                     }
                 }
             }

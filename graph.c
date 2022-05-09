@@ -37,6 +37,7 @@
 #include "graph.h"
 #include "tcp_ip_trace.h"
 #include "prefix_policy/prefix_policy.h"
+#include "FireWall/acl/acldb.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -174,6 +175,13 @@ void dump_interface(interface_t *interface){
             nbr_node->node_name, 
             interface->att_node->node_name, 
             link->cost, IF_INDEX(interface));
+
+    if (interface->intf_nw_props.ingress_acc_lst) {
+        printf ("In Access List: %s\n", interface->intf_nw_props.ingress_acc_lst->name);
+    }
+    if (interface->intf_nw_props.egress_acc_lst) {
+        printf ("Out Access List: %s\n", interface->intf_nw_props.egress_acc_lst->name);
+    }
 }
 
 interface_t *

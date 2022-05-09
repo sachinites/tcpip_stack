@@ -8,6 +8,7 @@
 
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
+typedef struct ethernet_hdr_ ethernet_hdr_t;
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
@@ -97,6 +98,25 @@ void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_ent
 void access_list_free(access_list_t *access_list);
 bool acl_install(access_list_t *access_list, acl_entry_t *acl_entry);
 acl_action_t
-access_list_evaluate (access_list_t *acc_lst, bitmap_t *input);
+access_list_evaluate (access_list_t *acc_lst,
+                                uint16_t proto,
+                                uint32_t src_addr,
+                                uint32_t dst_addr,
+                                uint16_t src_port, 
+                                uint16_t dst_port);
 
+/* At config Level : 
+    [no] access-group <acl-name> <in | out > interface < interface-name > */
+void access_list_attach_to_interface_ingress(interface_t *intf, char *acc_lst_name);
+void access_list_attach_to_interface_egress(interface_t *intf, char *acc_lst_name);
+void access_list_ingress_detach_from_interface(interface_t *intf, char *acc_lst_name);
+void access_list_egress_detach_from_interface(interface_t *intf, char *acc_lst_name);
+void access_list_reference(access_list_t *acc_lst);
+void access_list_dereference(access_list_t *acc_lst);
+acl_action_t
+access_list_evaluate_ip_packet (node_t *node, interface_t *intf, 
+                                                    ethernet_hdr_t *eth_hdr, bool ingress);
+/* Return 0 on success */                    
+int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
+int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 #endif
