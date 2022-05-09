@@ -104,6 +104,7 @@ struct node_ {
 
     avltree_t import_policy_db;
     avltree_t export_policy_db;
+    glthread_t access_lists_db;
     
     glthread_t graph_glue;
 };

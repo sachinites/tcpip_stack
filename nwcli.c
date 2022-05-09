@@ -52,6 +52,8 @@ extern int traceoptions_handler(param_t *param,
                                 op_mode enable_or_disable);
 
 extern param_t * policy_config_cli_tree () ;
+extern void acl_build_config_cli(param_t *root) ;
+extern void acl_build_show_cli(param_t *root) ;
 
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
@@ -923,6 +925,11 @@ nw_init_cli(){
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
 				
+                 {
+                     /* show CLIs for Access list mounted here */
+                     acl_build_show_cli(&node_name);
+                 }
+
 				 {
 					 /* show node <node-name> protocol */
 					 static param_t protocol;
@@ -1103,6 +1110,11 @@ nw_init_cli(){
         static param_t node_name;
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
+
+        {
+            /* ACL CLIs are loaded */
+            acl_build_config_cli(&node_name);
+        }
 
         {
             param_t *import_policy_cli_root = policy_config_cli_tree();

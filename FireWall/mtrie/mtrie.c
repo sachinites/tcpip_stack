@@ -160,7 +160,7 @@ by bit. We descent down the tree using input prefix bit sequence as a guidance i
 We perform node-split and add a new node as soon as mis-match occurs. Note that, prefix_len
 cannot be any arbitrary len, it has to be mtrie->prefix_len always.
 */
-void
+bool
 mtrie_insert_prefix (mtrie_t *mtrie, 
     							  bitmap_t *prefix,
 								  bitmap_t *mask,
@@ -186,7 +186,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         init_glthread(&mtrie->root->child[bit1]->list_glue);
         glthread_add_next(&mtrie->list_head, &mtrie->root->child[bit1]->list_glue);
         mtrie->N++;
-        return;
+        return true;
     }
 
     node = mtrie->root->child[bit1];
@@ -227,7 +227,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
              assert(0);
             //mtrie_node_split(mtrie, node, j);
         }
-        return;
+        return false;
     }
 
     node->child[bit1] = mtrie_create_new_node(mtrie->prefix_len);
@@ -240,6 +240,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     init_glthread(&node->list_glue);
     glthread_add_next(&mtrie->list_head, &node->list_glue);
     mtrie->N++;
+    return true;
     /* Caller should free prefix , mask bitmaps */
 }
 
@@ -255,7 +256,7 @@ init_mtrie(mtrie_t *mtrie, uint16_t prefix_len) {
 }
 
 static inline void 
-stack_push_node (stack_t *stack, mtrie_node_t *node, bitmap_t *prefix) {
+stack_push_node (Stack_t *stack, mtrie_node_t *node, bitmap_t *prefix) {
                                     
     if (!node) return;
     bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->tsize);

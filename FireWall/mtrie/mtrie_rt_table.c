@@ -4,6 +4,7 @@
 #include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "mtrie.h"
 
 /* This file tests the mtrie implementation for IPV4 routing table */
@@ -75,7 +76,50 @@ create_prefix(uint32_t prefix, uint32_t mask) {
 int
 main(int argc, char **argv) {
 
-    mtrie_t mtrie = {NULL, 0};
+    int i, j, k, l;
+
+mtrie_t mtrie = {NULL, 0, 0, {0,0}, 0};
+    
+    init_mtrie(&mtrie, 32);
+    uint32_t mask2 = ~0;
+    bitmap_t ip, mask;
+    bitmap_init (&ip, 32);
+    bitmap_init (&mask, 32);
+    prefix_t *prefix;
+    
+    for (i = 0; i < 128; i++)
+    {
+        for (j = 0; j < 128; j++)
+        {
+            for (k = 0; k < 128; k++)
+            {
+                for (l = 0; l < 3; l++)
+                {
+                    ip.bits[0] |= (i << 24);
+                    ip.bits[0] |= (j << 16);
+                    ip.bits[0] |= (k << 8);
+                    ip.bits[0] |= l;
+                    prefix = create_prefix(ip.bits[0], ~mask.bits[0]);
+                    printf("Installing : %s/%d\n",covert_ip_n_to_p(ip.bits[0], 0), convert_bin_mask_to_dmask(~mask.bits[0]));
+                    /*mtrie_insert_prefix(&mtrie, &ip, &mask, 32,
+                                        (void *)prefix);
+                    mtrie_print_ipv4_recursive(&mtrie);
+                    */
+                    sleep(1);
+                }
+            }
+        }
+    }
+    mtrie_print_ipv4_recursive(&mtrie);
+    return 0;
+}
+
+#if 0
+
+int
+main(int argc, char **argv) {
+
+    mtrie_t mtrie = {NULL, 0, 0, {0,0}, 0};
     
     init_mtrie(&mtrie, 32);
 
@@ -256,3 +300,5 @@ main(int argc, char **argv) {
     printf("mtrie.N = %u\n", mtrie.N);
     return 0;
 }
+
+#endif

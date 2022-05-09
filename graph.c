@@ -128,6 +128,7 @@ create_graph_node(graph_t *graph, char *node_name){
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
     policy_init(&node->import_policy_db);
     policy_init(&node->export_policy_db);
+    init_glthread(&node->access_lists_db);
     init_glthread(&node->graph_glue);
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;

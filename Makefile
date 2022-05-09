@@ -3,6 +3,8 @@ CFLAGS=-g
 TARGET:tcpstack.exe pkt_gen.exe
 LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt
 OBJS=gluethread/glthread.o \
+		  BitOp/bitmap.o \
+		  stack/stack.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
 		  topologies.o	   \
@@ -201,6 +203,12 @@ Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 prefix_policy/prefix_policy.o:prefix_policy/prefix_policy.c
 	${CC} ${CFLAGS} -c prefix_policy/prefix_policy.c -o prefix_policy/prefix_policy.o
 
+BitOp/bitmap.c:BitOp/bitmap.o
+	${CC} ${CFLAGS} -c BitOp/bitmap.c -o BitOp/bitmap.o
+
+stack/stack.c:stack/stack.o
+	${CC} ${CFLAGS} -c stack/stack.c -o stack/stack.o
+
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -238,6 +246,8 @@ clean:
 	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
 	rm -f prefix_policy/*.o
+	rm -f Bitop/*.o
+	rm -f stack/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:

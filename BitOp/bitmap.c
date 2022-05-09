@@ -6,7 +6,6 @@
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));
-    assert(!bitmap->bits);
     bitmap->bits = (uint32_t *)calloc(size/8, sizeof(uint8_t));
     bitmap->tsize = size;
     bitmap->next = 0;
@@ -55,7 +54,7 @@ bitmap_unset_bit_at(bitmap_t *bitmap, uint16_t index) {
 void 
 bitmap_set(bitmap_t *bitmap, uint16_t start_offset, 
                             uint16_t end_offset, bool set) {
-
+    
 }
 
 void
@@ -139,7 +138,6 @@ bitmap_fast_copy(bitmap_t *src,
                               bitmap_t *dst,
                               uint16_t count) {
 
-    uint16_t index;
     int n_blocks = count / 32;
     int rem_bits = count % 32;
 
@@ -244,6 +242,8 @@ bitmap_slow_compare(bitmap_t *src,
 
         if (bitmap_at(dst, dst_start_offset) == bit) {
             dst_start_offset++;
+            count--;
+            if (count == 0) return true;
             continue;
         }
         return false;

@@ -1,10 +1,13 @@
+#ifndef __MTRIE__
+#define __MTRIE__
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 #include "../../BitOp/bitmap.h"
 #include "../../gluethread/glthread.h"
 
-typedef struct stack stack_t;
+typedef struct stack Stack_t;
 
 typedef struct mtrie_node_ {
 
@@ -27,7 +30,7 @@ typedef struct mtrie_ {
 
     mtrie_node_t *root;
     uint16_t N; // No of nodes;
-	stack_t *stack;
+	Stack_t *stack;
 	/* linear List of all leaf nodes in mtrie*/
 	glthread_t list_head;
 	uint16_t prefix_len;
@@ -40,7 +43,7 @@ mtrie_is_leaf_node (mtrie_node_t *node) {
 }
 
 void mtrie_print_node(mtrie_node_t *node);
-void mtrie_insert_prefix (mtrie_t *mtrie, 
+bool mtrie_insert_prefix (mtrie_t *mtrie, 
 										  bitmap_t *prefix,
 										  bitmap_t *mask,
 										  uint16_t prefix_len,
@@ -55,3 +58,5 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask
 bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) ;
 void mtrie_destroy(mtrie_t *mtrie) ;
 void mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *));
+
+#endif

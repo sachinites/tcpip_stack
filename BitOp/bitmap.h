@@ -22,7 +22,7 @@ typedef struct bitmap_ {
 void bitmap_init(bitmap_t *bitmap, uint16_t size) ;
 void bitmap_free_internal(bitmap_t *bitmap);
 void bitmap_free(bitmap_t *bitmap);
-void bitmap_reset();
+void bitmap_reset(bitmap_t *bitmap);
 bool bitmap_at(bitmap_t *bitmap, uint16_t index);
 bit_type_t bitmap_effective_bit_at(bitmap_t *prefix, bitmap_t *mask, uint16_t pos);
 void bitmap_set_bit_at(bitmap_t *bitmap, uint16_t index) ;

@@ -4,20 +4,20 @@
 #include <assert.h>
 #include "stack.h"
 
-stack_t*
+Stack_t*
 get_new_stack()
 {
-    stack_t *stack = calloc(1, sizeof(stack_t));
+    Stack_t *stack = calloc(1, sizeof(Stack_t));
     if(!stack)
         return NULL;
-    memset(stack, 0, sizeof(stack_t));
+    memset(stack, 0, sizeof(Stack_t));
     stack->top = -1;
     stack->count_of_push = 0;
     stack->count_of_pop = 0;
     return stack;
 }
 
-int isPresentinStack(stack_t *stack, void *elem)
+int isPresentinStack(Stack_t *stack, void *elem)
 {
     if(!stack)  assert(0);
     if(isStackEmpty(stack))
@@ -33,7 +33,7 @@ int isPresentinStack(stack_t *stack, void *elem)
     return 0;
  }
 
-void printStack(stack_t *stack)
+void printStack(Stack_t *stack)
 {
     if(!stack) assert(0);
     if(isStackEmpty(stack)) 
@@ -52,17 +52,17 @@ void printStack(stack_t *stack)
 
 
 int
-reset_stack(stack_t *stack)
+reset_stack(Stack_t *stack)
 {
     if(!stack)
         return 0;
 
-    memset(stack, 0, sizeof(stack_t));
+    memset(stack, 0, sizeof(Stack_t));
     stack->top = -1;
     return 0;
 }
 
-int push(stack_t *stack, void *node)
+int push(Stack_t *stack, void *node)
 {
     if(!stack || !node)
         return -1;
@@ -77,7 +77,7 @@ int push(stack_t *stack, void *node)
         return -1;
 }
 
-int isStackEmpty(stack_t *stack)
+int isStackEmpty(Stack_t *stack)
 {
     
     assert(stack);
@@ -88,7 +88,7 @@ int isStackEmpty(stack_t *stack)
         return 0;
     }
 
-void* pop(stack_t *stack)
+void* pop(Stack_t *stack)
 {
     void *ret = NULL;
     if(!stack)
@@ -106,7 +106,7 @@ void* pop(stack_t *stack)
     return ret;
 }
 
-void* getTopElem(stack_t *stack)
+void* getTopElem(Stack_t *stack)
 {
     if(!stack || stack->top == -1)
         return NULL;
@@ -114,7 +114,7 @@ void* getTopElem(stack_t *stack)
         return stack->slot[stack->top];
     }
 
-void free_stack(stack_t *stack)
+void free_stack(Stack_t *stack)
 {
     if(!stack)
         return;
