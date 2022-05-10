@@ -176,11 +176,11 @@ void dump_interface(interface_t *interface){
             interface->att_node->node_name, 
             link->cost, IF_INDEX(interface));
 
-    if (interface->intf_nw_props.ingress_acc_lst) {
-        printf ("In Access List: %s\n", interface->intf_nw_props.ingress_acc_lst->name);
+    if (interface->intf_nw_props.l3_ingress_acc_lst) {
+        printf ("\tIn Access List: %s\n", interface->intf_nw_props.l3_ingress_acc_lst->name);
     }
-    if (interface->intf_nw_props.egress_acc_lst) {
-        printf ("Out Access List: %s\n", interface->intf_nw_props.egress_acc_lst->name);
+    if (interface->intf_nw_props.l3_egress_acc_lst) {
+        printf ("\tOut Access List: %s\n", interface->intf_nw_props.l3_egress_acc_lst->name);
     }
 }
 

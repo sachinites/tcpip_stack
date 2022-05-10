@@ -39,26 +39,26 @@ mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
 
 /* Fn to print mtrie_node details. Very helpful in debugging, via gdb especially */
 void
-mtrie_print_node(mtrie_node_t *node) {
+mtrie_print_node(mtrie_node_t *node, void *data) {
 
     int i;
     bit_type_t bit;
 
     printf ("ID : %d\n", node->node_id);
-    printf ("Prefix/Len : ");
+    printf (" Prefix/Len : ");
     bitmap_prefix_print(&node->prefix, &node->mask, node->prefix_len);
     printf ("/%d\n", node->prefix_len);
-    printf ("Parent Node = %d\n", node->parent ? node->parent->node_id : 0);
-    printf ("children = %d %d %d\n", 
+    printf (" Parent Node = %d\n", node->parent ? node->parent->node_id : 0);
+    printf (" children = %d %d %d\n", 
         node->child[ZERO] ? node->child[ZERO]->node_id : 0,
         node->child[ONE] ? node->child[ONE]->node_id : 0,
         node->child[DONT_CARE] ? node->child[DONT_CARE]->node_id : 0);
-    printf ("data = %p\n", node->data);
+    printf (" data = %p\n", node->data);
 }
 
 /* Delete and free the mtrie node */ 
 static void
-mtrie_node_delete(mtrie_node_t *node) {
+mtrie_node_delete(mtrie_node_t *node, void *data) {
 
     bitmap_free_internal(&node->prefix);
     bitmap_free_internal(&node->mask);
@@ -66,6 +66,9 @@ mtrie_node_delete(mtrie_node_t *node) {
     free(node->data);
     remove_glthread(&node->list_glue);
     free(node);
+    if (data) {
+        ((mtrie_t *)data)->N--;
+    }
 }
 
 mtrie_node_t *
@@ -380,7 +383,7 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
         child_node->data = NULL;
     }
 
-    mtrie_node_delete(child_node);
+    mtrie_node_delete(child_node, NULL);
     mtrie->N--;
     return true;
 }
@@ -450,7 +453,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
     }
     
     node->parent = NULL;
-    mtrie_node_delete(node);
+    mtrie_node_delete(node, NULL);
     mtrie->N--;
 
     mtrie_merge_child_node(mtrie, parent_node);
@@ -458,30 +461,34 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
     return true;
 }
 
-/* A routine Provided to traverse all the nodes of a mtrie in post order */
+/* Mtrie Traversal in longest prefix first search order. Useful to  display user entries 
+    in priority order*/
 static void
-_mtrie_post_order_traverse(mtrie_t *mtrie, mtrie_node_t *node, void (*process_fn_ptr)(mtrie_node_t *)) {
+_mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
+                                                            mtrie_node_t *node,
+                                                            void (*process_fn_ptr)(mtrie_node_t *, void *),
+                                                            void *app_data) {
 
     if (!node) return;
 
-    _mtrie_post_order_traverse(mtrie, node->child[ZERO], process_fn_ptr);
-    _mtrie_post_order_traverse(mtrie, node->child[ONE], process_fn_ptr);
-    _mtrie_post_order_traverse(mtrie, node->child[DONT_CARE], process_fn_ptr);
-
-    process_fn_ptr(node);
-    if (process_fn_ptr == mtrie_node_delete) mtrie->N--;
+    _mtrie_longest_prefix_first_traverse(mtrie, node->child[ONE], process_fn_ptr, app_data);
+    _mtrie_longest_prefix_first_traverse(mtrie, node->child[ZERO], process_fn_ptr, app_data);
+    _mtrie_longest_prefix_first_traverse(mtrie, node->child[DONT_CARE], process_fn_ptr, app_data);
+    process_fn_ptr(node, app_data);
 }
 
 void
-mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *)) {
+mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
+                                                         void (*process_fn_ptr)(mtrie_node_t *, void *),
+                                                         void *app_data) {
 
-    _mtrie_post_order_traverse(mtrie, mtrie->root, process_fn_ptr);
+    _mtrie_longest_prefix_first_traverse(mtrie, mtrie->root, process_fn_ptr, app_data);
 }
 
 /* To Delete a tree, we need to do post order traversal */
 void mtrie_destroy(mtrie_t *mtrie) {
 
-    mtrie_post_order_traverse(mtrie, mtrie_node_delete);
+   mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete, (void *)mtrie);
     free_stack(mtrie->stack);
     assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
 }
@@ -514,32 +521,10 @@ ipv4_route_print (uint32_t prefix, uint32_t mask) {
     printf ("Route = %s/%d\n", cidr_ip, dmask);
 }
 
-
-/* The below APIs are used only when mtrie's prefix_len is 4B. i.e. when mtrie is used as
-ipv4 routing table*/
-static inline void
-bits_copy(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
-
-    *dst = 0;
-    *dst = *src;
-    *dst = (*dst) << src_start_pos;
-	*dst = (*dst) >> dst_start_pos;
-    *dst = *dst >> (32 - count - dst_start_pos );
-    *dst = *dst << (32 - count - dst_start_pos );
-}
-
-static inline void
-bits_copy_preserve(uint32_t *src, uint32_t *dst, uint8_t src_start_pos, uint8_t dst_start_pos, uint8_t count) {
-
-	uint32_t dst_old_mask = bits_generate_ones(dst_start_pos, dst_start_pos + count - 1);
-	dst_old_mask = ~dst_old_mask;
-	uint32_t old_dst = *dst & dst_old_mask;
-	bits_copy(src, dst, src_start_pos, dst_start_pos, count);
-	*dst |= old_dst;
-}
-
 /* This functions recursively traverse the mtrie and build up prefix/mask. Printing 
-    through this function actually test the correctness of mtrie when used as IPV4 routing table. Do not use this fn in applications. Since, all routes are present at leaves, it is better to traverse only leaves of mtrie in order to traverse all routes linearly */
+    through this function actually test the correctness of mtrie when used as IPV4 routing table. 
+    Do not use this fn in applications. Since, all routes are present at leaves, it is better to traverse 
+    only leaves of mtrie in order to traverse all routes linearly */
 static void
  _mtrie_print_ipv4_recursive(mtrie_node_t *node, uint8_t pos, uint32_t *prefix, uint32_t *mask) {
 
@@ -553,8 +538,8 @@ static void
 
     if (node->prefix_len) {
 
-        bits_copy_preserve(node->prefix.bits, prefix, 0, pos, node->prefix_len);
-        bits_copy_preserve(node->mask.bits, mask, 0, pos, node->prefix_len);
+        uint32_bits_copy_preserve(node->prefix.bits, prefix, 0, pos, node->prefix_len);
+        uint32_bits_copy_preserve(node->mask.bits, mask, 0, pos, node->prefix_len);
     }
 
     if (node->data) {

@@ -45,6 +45,7 @@
 #include "../notif.h"
 #include "rt_notif.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../FireWall/acl/acldb.h"
 
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
@@ -151,8 +152,15 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         return;
     }
 
+    /* Access List Evaluation at Layer 3 Entry point*/
+    if (access_list_evaluate_ip_packet(
+            node, interface, eth_hdr, true) == ACL_DENY) {
+        return ;
+    }
+
     /*Implement Layer 3 forwarding functionality*/
-    l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
+    l3_route_t *l3_route = l3rib_lookup_lpm(
+                                        NODE_RT_TABLE(node), ip_hdr->dst_ip);
 
     if(!l3_route){
         /*Router do not know what to do with the pkt. drop it*/
@@ -205,6 +213,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         }
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
+
         demote_pkt_to_layer2(
                 node,           /*Current processing node*/
                 0,              /*Dont know next hop IP as dest is present in local subnet*/
@@ -266,6 +275,12 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     case NF_DROP:
     case NF_STOLEN:
     case NF_STOP:
+        return;
+    }
+
+    /* Access List Evaluation at Layer 3 Exit point*/
+    if (access_list_evaluate_ip_packet(
+            node, nexthop->oif, eth_hdr, false) == ACL_DENY) {
         return;
     }
 

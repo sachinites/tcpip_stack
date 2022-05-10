@@ -165,10 +165,15 @@ typedef struct intf_nw_props_ {
     intf_nmp_t *nmp;
     void *isis_intf_info;
 	stp_vlan_intf_info_t *stp_vlan_intf_info;
+    access_list_t *l2_ingress_acc_lst;
+   access_list_t *l2_egress_acc_lst;
+
     /*L3 properties*/
     bool is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
+    access_list_t *l3_ingress_acc_lst;
+    access_list_t *l3_egress_acc_lst;
 
     /*Interface Statistics*/
     uint32_t pkt_recv;
@@ -183,8 +188,7 @@ typedef struct intf_nw_props_ {
     }bit_rate;
 
    avltree_t flow_avl_root;
-   access_list_t *ingress_acc_lst;
-   access_list_t *egress_acc_lst;
+
 } intf_nw_props_t;
 
 typedef union intf_prop_changed_ {

@@ -42,7 +42,7 @@ mtrie_is_leaf_node (mtrie_node_t *node) {
 	return  (!node->child[ZERO] && !node->child[ONE] && !node->child[DONT_CARE]);
 }
 
-void mtrie_print_node(mtrie_node_t *node);
+void mtrie_print_node(mtrie_node_t *node, void *data);
 bool mtrie_insert_prefix (mtrie_t *mtrie, 
 										  bitmap_t *prefix,
 										  bitmap_t *mask,
@@ -58,5 +58,8 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask
 bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) ;
 void mtrie_destroy(mtrie_t *mtrie) ;
 void mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *));
-
+void
+mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
+                                                         void (*process_fn_ptr)(mtrie_node_t *, void *),
+                                                         void *app_data) ;
 #endif

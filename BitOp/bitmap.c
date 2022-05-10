@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
+#include <arpa/inet.h>
 #include "bitmap.h"
 
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
@@ -30,25 +31,27 @@ bool bitmap_at(bitmap_t *bitmap, uint16_t index) {
     uint16_t n_blocks = index / 32;
     uint8_t bit_pos = index % 32;
     uint32_t *ptr = (uint32_t *)bitmap->bits + n_blocks;
-    return *ptr & (1 << (32 - bit_pos - 1));   
+    return htonl(*ptr) & (1 << (32 - bit_pos - 1));   
 }
 
+/* Endianess independent */
 void
 bitmap_set_bit_at(bitmap_t *bitmap, uint16_t index) {
 
-    uint16_t n_blocks = index / 32;
-    uint8_t bit_pos = index % 32;
-    uint32_t *ptr = bitmap->bits + n_blocks;
-    *ptr |=  (1 << (32 - bit_pos - 1));   
+    uint16_t n_blocks = index / 8;
+    uint8_t bit_pos = index % 8;
+    uint8_t *ptr = (uint8_t *)bitmap->bits + n_blocks;
+    *ptr |=  (1 << (8 - bit_pos - 1));   
 }
 
+/* Endianess independent */
 void
 bitmap_unset_bit_at(bitmap_t *bitmap, uint16_t index) {
 
-    uint16_t n_blocks = index / 32;
-    uint8_t bit_pos = index % 32;
-    uint32_t *ptr = bitmap->bits + n_blocks;
-    *ptr &=  (~(1 << (32 - bit_pos - 1)));   
+    uint16_t n_blocks = index / 8;
+    uint8_t bit_pos = index % 8;
+    uint8_t *ptr = (uint8_t *)bitmap->bits + n_blocks;
+    *ptr &=  (~(1 << (8 - bit_pos - 1)));   
 }
 
 void 
@@ -79,9 +82,9 @@ bitmap_prefix_apply_mask(bitmap_t *prefix, bitmap_t *mask, uint16_t count) {
 
     uint32_t temp = bits_generate_ones(0, rem_bits - 1);
     temp = ~temp;
-    uint32_t mask2 = *(mask->bits + i);
+    uint32_t mask2 = htonl(*(mask->bits + i));
     mask2 |= temp;
-    *(prefix->bits + i) &= mask2;
+    *(prefix->bits + i) = htonl(htonl(*(prefix->bits + i)) & mask2);
 }
 
 void
@@ -105,7 +108,7 @@ bitmap_inverse(bitmap_t *bitmap, uint16_t count) {
     }
 
     uint32_t temp = bits_generate_ones(0, rem_bits - 1);
-    *(bitmap->bits + i) ^= temp;
+    *(bitmap->bits + i) = htonl(htonl(*(bitmap->bits + i)) ^ temp);
 }
 
 void
@@ -168,15 +171,15 @@ bitmap_lshift32(bitmap_t *bitmap, uint16_t count) {
 
     assert(count <= 32);
     
-    *ptr = LSHIFT(*ptr, count);
+    *ptr = htonl(LSHIFT(htonl(*ptr), count));
     mask = bits_generate_ones(0, count - 1);
 
     for (i = 1; i < n_blocks; i++) {
         
-        temp = *(ptr + i) & mask;
+        temp = htonl(*(ptr + i)) & mask;
         temp = RSHIFT(temp, 32 - count);
-        *(ptr + i -1) |= temp;
-        *(ptr + i) = LSHIFT(*(ptr + i), count);
+        *(ptr + i -1) = htonl(htonl(*(ptr + i -1)) |  temp);
+        *(ptr + i) = htonl(LSHIFT(htonl(*(ptr + i)), count));
     }
 }
 
@@ -203,15 +206,15 @@ bitmap_rshift32(bitmap_t *bitmap, uint16_t count) {
 
     assert(count <= 32);
     
-    *(ptr + n_blocks -1)  = RSHIFT(*(ptr + n_blocks -1), count);
+    *(ptr + n_blocks -1)  = htonl(RSHIFT(htonl(*(ptr + n_blocks -1)), count));
     mask = bits_generate_ones(32 - count, 31);
 
     for (i = n_blocks - 2; i >= 0; i--) {
         
-        temp = *(ptr + i) & mask;
+        temp = htonl(*(ptr + i)) & mask;
         temp = LSHIFT(temp, 32 - count);
-        *(ptr + i + 1) |= temp;
-        *(ptr + i) = RSHIFT(*(ptr + i), count);
+         *(ptr + i +1) = htonl(htonl(*(ptr + i +1)) |  temp);
+        *(ptr + i) = htonl(RSHIFT(htonl(*(ptr + i)), count));
     }
 }
 
@@ -294,15 +297,17 @@ bitmap_prefix_match(bitmap_t *input,
     int i;
 
     for (i = 0; i < n_blocks - 1; i++) {
-        if (!prefix32bit_match(*(input->bits + i),  *(prefix->bits + i),  
-                                              *(mask->bits + i), 32)) {
+        if (!prefix32bit_match (htonl(*(input->bits + i)),
+                                             htonl(*(prefix->bits + i)),  
+                                             htonl(*(mask->bits + i)), 32)) {
             return false;
         }
     }
 
-    return prefix32bit_match(*(input->bits + i), *(prefix->bits + i), 
-                                            *(mask->bits + i), 
-                                            !rem_bits ? 32 :  rem_bits);
+    return prefix32bit_match (htonl(*(input->bits + i)), 
+                                              htonl(*(prefix->bits + i)), 
+                                              htonl(*(mask->bits + i)), 
+                                              !rem_bits ? 32 :  rem_bits);
 }
 
 bit_type_t 
@@ -389,19 +394,22 @@ uint32_bits_copy(uint32_t *src, uint32_t *dst,
 	*dst = (*dst) >> dst_start_pos;
     *dst = *dst >> (32 - count - dst_start_pos );
     *dst = *dst << (32 - count - dst_start_pos );
+    *dst = *dst;
 }
 
 void
-uint32_bits_copy_preserve(uint32_t *src, uint32_t *dst, 
-                                            uint8_t src_start_pos, uint8_t dst_start_pos,
+uint32_bits_copy_preserve(uint32_t *src, 
+                                            uint32_t *dst, 
+                                            uint8_t src_start_pos,
+                                            uint8_t dst_start_pos,
                                             uint8_t count) {
 
 	uint32_t dst_old_mask = 
         bits_generate_ones(dst_start_pos, dst_start_pos + count - 1);
 	dst_old_mask = ~dst_old_mask;
-	uint32_t old_dst = *dst & dst_old_mask;
+	uint32_t old_dst = htonl(*dst) & dst_old_mask;
 	uint32_bits_copy(src, dst, src_start_pos, dst_start_pos, count);
-	*dst |= old_dst;
+	*dst = htonl(htonl(*dst) | old_dst);
 }
 
 bool

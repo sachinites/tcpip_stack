@@ -2,11 +2,9 @@ CC=gcc
 CFLAGS=-g
 TARGET:libasa.a
 LIB=libasa.a
-OBJS=acl/acl.o acl/acl_cli.o acl/acldb.o mtrie/mtrie.o 
-${LIB}:acl/acl.o acl/acl_cli.o acl/acldb.o mtrie/mtrie.o
+OBJS=acl/acl_cli.o acl/acldb.o mtrie/mtrie.o 
+${LIB}:acl/acl_cli.o acl/acldb.o mtrie/mtrie.o
 	ar rs ${LIB} ${OBJS}
-acl/acl.o:acl/acl.c
-	${CC} ${CFLAGS} -c -I . -I ../ acl/acl.c -o acl/acl.o
 acl/acl_cli.o:acl/acl_cli.c
 	${CC} ${CFLAGS} -c -I . -I ../ acl/acl_cli.c -o acl/acl_cli.o
 acl/acldb.o:acl/acldb.c

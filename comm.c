@@ -156,7 +156,8 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-    if (access_list_evaluate_ip_packet(
+    /* Access List Evaluation at Layer 2 Exit point*/
+    if (access_list_evaluate_ethernet_packet(
             interface->att_node, interface, 
             (ethernet_hdr_t *)pkt, false)  == ACL_DENY) {
         return -1;
@@ -190,7 +191,9 @@ pkt_receive(node_t *node, interface_t *interface,
     tcp_dump_recv_logger(node, interface, 
             (char *)pkt, pkt_size, ETH_HDR);
 
-    if (access_list_evaluate_ip_packet(node, interface, eth_hdr, true) 
+    /* Access List Evaluation at Layer 2 Entry point*/ 
+    if (access_list_evaluate_ethernet_packet(
+                node, interface, eth_hdr, true) 
                 == ACL_DENY) {
         return -1;
     }

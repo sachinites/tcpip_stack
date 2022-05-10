@@ -43,65 +43,80 @@ void
 acl_compile (acl_entry_t *acl_entry) {
 
     bool rc;
-    uint32_t temp4;
-    uint16_t temp2;
+    uint16_t temp;
     uint16_t bytes_copied = 0;
 
     bitmap_t *prefix = &acl_entry->prefix;
     bitmap_t *mask = &acl_entry->mask;
 
-    uint8_t *prefix_pos = (uint8_t *)prefix->bits;
-    uint8_t *mask_pos = (uint8_t *)mask->bits;
+    bitmap_reset(prefix);
+    bitmap_reset(mask);
+    
+    uint16_t *prefix_ptr2 = (uint16_t *)prefix->bits;
+    uint32_t *prefix_ptr4 = (uint32_t *)prefix->bits;
+    uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
+    uint32_t *mask_ptr4 = (uint32_t *)mask->bits;
     
     /* Protocol 2 B*/
-    memcpy((char *)prefix_pos, (char *)&acl_entry->proto, sizeof(acl_entry->proto));
-    *mask_pos = 0;
-    *(mask_pos + 1) = 0;
-    prefix_pos++; mask_pos++; bytes_copied++;
+    *prefix_ptr2 = htons((uint16_t)acl_entry->proto);
+    *mask_ptr2 = 0;
+    bytes_copied += sizeof(*prefix_ptr2);
+    prefix_ptr2++; mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
 
     /* Src ip Address & Mask */
-    memcpy((char *)prefix_pos, (char *)&acl_entry->saddr.ip4.prefix, 4);
-    temp4 = ~acl_entry->saddr.ip4.mask;
-    memcpy((char *)mask_pos, (char *)&temp4, 4);
-    prefix_pos+=4; mask_pos+= 4; bytes_copied +=4;
+    *prefix_ptr4 = htonl(acl_entry->saddr.ip4.prefix);
+    *mask_ptr4 =  htonl(~acl_entry->saddr.ip4.mask);
+    bytes_copied += sizeof(*prefix_ptr4);
+    prefix_ptr4++; mask_ptr4++;
+    prefix_ptr2 = (uint16_t *)prefix_ptr4;
+    mask_ptr2 = (uint16_t *)mask_ptr4;
 
     /* Src Port Range */
     /* Not Supported Yet, fill it 16bit prefix as zero, and 16 bit mask as  all 1s */
-    temp2 = 0;
-    memcpy((char *)prefix_pos, (char *)&temp2, 2);
-    temp2 = ~temp2;
-    memcpy((char *)mask_pos, (char *)&temp2, 2);
-    prefix_pos+=2; mask_pos+= 2; bytes_copied +=2;
+    *prefix_ptr2 = 0;
+    *mask_ptr2 = htons(0xFFFF);
+     bytes_copied += sizeof(*prefix_ptr2);
+     prefix_ptr2++; mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
+
 
      /* Dst ip Address & Mask */
-    memcpy((char *)prefix_pos, (char *)&acl_entry->daddr.ip4.prefix, 4);
-    temp4 = ~acl_entry->daddr.ip4.mask;
-    memcpy((char *)mask_pos, (char *)&temp4, 4);
-    prefix_pos+=4; mask_pos+= 4; bytes_copied +=4;
+    *prefix_ptr4 = htonl(acl_entry->daddr.ip4.prefix);
+    *mask_ptr4 =  htonl(~acl_entry->daddr.ip4.mask);
+    bytes_copied += sizeof(*prefix_ptr4);
+    prefix_ptr4++; mask_ptr4++;
+    prefix_ptr2 = (uint16_t *)prefix_ptr4;
+    mask_ptr2 = (uint16_t *)mask_ptr4;
 
     /* Drt Port Range */
     /* Not Supported Yet, fill it 16bit prefix as zero, and 16 bit mask as  all 1s */
-    temp2 = 0;
-    memcpy((char *)prefix_pos, (char *)&temp2, 2);
-    temp2 = ~temp2;
-    memcpy((char *)mask_pos, (char *)&temp2, 2);
-    prefix_pos+=2; mask_pos+= 2; bytes_copied +=2;
+    *prefix_ptr2 = 0;
+    *mask_ptr2 = htons(0xFFFF);
+     bytes_copied += sizeof(*prefix_ptr2);
+     prefix_ptr2++; mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
 
     /* Fill the residual bits : prefix with Zeros, and Mask with 1s*/
     
     // Prefix : Already done
 
     // Mask :
-    uint16_t bits_copied = bytes_copied * 8;
-    temp4 = 0;
-    ITERATE_BITMAP_BEGIN(mask, bits_copied, temp2, rc) {
-        bitmap_set_bit_at(mask, temp2); // temp2 is used as an index
-        temp4++;
-    } ITERATE_BITMAP_END;
+    uint16_t bytes_remaining = (ACL_PREFIX_LEN/8) - bytes_copied ;
+    uint8_t *mask_ptr1 = (uint8_t *)mask_ptr2;
 
-    prefix->next = (bytes_copied * 8) + temp4;
+    while (bytes_remaining) {
+        *mask_ptr1 = 0xFF;
+        mask_ptr1++;
+        bytes_remaining--; 
+        bytes_copied++;
+    }
+    
+    prefix->next = bytes_copied * 8;
     mask->next = prefix->next;
-
     assert(prefix->next == ACL_PREFIX_LEN);
 }
 
@@ -211,66 +226,13 @@ access_list_attach_to_interface_ingress(interface_t *intf, char *acc_lst_name) {
         return;
     }
 
-    if (intf->intf_nw_props.ingress_acc_lst) {
+    if (intf->intf_nw_props.l3_ingress_acc_lst) {
         printf ("Error : Access List already applied to interface\n");
         return;
     }
 
-    intf->intf_nw_props.ingress_acc_lst = acc_lst;
+    intf->intf_nw_props.l3_ingress_acc_lst = acc_lst;
     access_list_reference(acc_lst);
-}
-
-void 
-access_list_attach_to_interface_egress(interface_t *intf, char *acc_lst_name) {
-
-    access_list_t *acc_lst = acl_lookup_access_list(intf->att_node, acc_lst_name);
-
-    if (!acc_lst) {
-        printf ("Error : Access List not configured\n");
-        return;
-    }
-
-    if (intf->intf_nw_props.egress_acc_lst) {
-        printf ("Error : Access List already applied to interface\n");
-        return;
-    }
-
-    intf->intf_nw_props.egress_acc_lst = acc_lst;
-    access_list_reference(acc_lst);
-}
-
-void 
-access_list_ingress_detach_from_interface(interface_t *intf, char *acc_lst_name) {
-
-    access_list_t *acc_lst = acl_lookup_access_list(intf->att_node, acc_lst_name);
-
-    if (!acc_lst) {
-        printf ("Error : Access List not configured\n");
-        return;
-    }
-
-    if (intf->intf_nw_props.ingress_acc_lst == acc_lst) {
-        intf->intf_nw_props.ingress_acc_lst = NULL;
-         access_list_dereference(acc_lst);
-        return;
-    }
-}
-
-void 
-access_list_egress_detach_from_interface(interface_t *intf, char *acc_lst_name) {
-
-    access_list_t *acc_lst = acl_lookup_access_list(intf->att_node, acc_lst_name);
-
-    if (!acc_lst) {
-        printf ("Error : Access List not configured\n");
-        return;
-    }
-
-    if (intf->intf_nw_props.egress_acc_lst == acc_lst) {
-        intf->intf_nw_props.egress_acc_lst = NULL;
-         access_list_dereference(acc_lst);
-        return;
-    }
 }
 
 void access_list_reference(access_list_t *acc_lst) {
@@ -306,24 +268,24 @@ bitmap_fill_with_params(
 
         uint16_t *ptr2 = (uint16_t *)(bitmap->bits);
 
-        *ptr2 = proto;
+        *ptr2 = htons(proto);
         ptr2++;
 
         uint32_t *ptr4 = (uint32_t *)ptr2;
-        *ptr4 = src_addr;
+        *ptr4 = htonl(src_addr);
         ptr4++;
 
         ptr2 = (uint16_t *)ptr4;
-        *ptr2 = src_port;
+        *ptr2 = htons(src_port);
         ptr2++;
 
         ptr4 = (uint32_t *)ptr2;
 
-        *ptr4 = dst_addr;
+        *ptr4 = htonl(dst_addr);
         ptr4++;
 
         ptr2 = (uint16_t *)ptr4;
-        *ptr2 = dst_port;
+        *ptr2 = htons(dst_port);
   }
 
 acl_action_t
@@ -380,19 +342,21 @@ access_list_evaluate_ip_packet (node_t *node,
     ip_hdr_t *ip_hdr;
     access_list_t *access_lst;
 
-    access_lst = ingress ? intf->intf_nw_props.ingress_acc_lst :
-                        intf->intf_nw_props.egress_acc_lst;
+    access_lst = ingress ? intf->intf_nw_props.l3_ingress_acc_lst :
+                        intf->intf_nw_props.l3_egress_acc_lst;
 
     if (!access_lst) return ACL_PERMIT;
 
     proto = (uint16_t)eth_hdr->type;
     
-    switch(eth_hdr->type) {
+    switch(proto) {
         case ETH_IP:
             ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
             src_ip = ip_hdr->src_ip;
             dst_ip = ip_hdr->dst_ip;
             break; 
+        default:
+            return ACL_DENY;
     }
     return access_list_evaluate(access_lst, 
                                                 proto, 
@@ -400,6 +364,16 @@ access_list_evaluate_ip_packet (node_t *node,
                                                 dst_ip,
                                                 src_port,
                                                 dst_port);
+}
+
+
+acl_action_t
+access_list_evaluate_ethernet_packet (node_t *node, 
+                                                    interface_t *intf, 
+                                                    ethernet_hdr_t *eth_hdr,
+                                                    bool ingress) {
+
+    return ACL_PERMIT;
 }
 
 /* Access Group Mgmt APIs */
@@ -413,10 +387,10 @@ access_group_config(node_t *node,
     access_list_t **configured_access_lst = NULL;
 
     if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
-        configured_access_lst = &intf->intf_nw_props.ingress_acc_lst;
+        configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
     }
     else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
-        configured_access_lst = &intf->intf_nw_props.egress_acc_lst;
+        configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can in - 'in' or 'out' only\n");

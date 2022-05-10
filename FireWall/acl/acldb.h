@@ -14,9 +14,8 @@ typedef struct ethernet_hdr_ ethernet_hdr_t;
 #define ACCESS_LIST_MAX_NAMELEN 64
 
 typedef enum {
-    ACL_PROTO_FIRST,
-    ACL_IP = ACL_PROTO_FIRST,
-    ACL_ICMP,
+    ACL_IP = 0x800,
+    ACL_ICMP = 0x1,
     ACL_IGMP,
     ACL_GGP,
     ACL_IPENCAP,
@@ -24,16 +23,16 @@ typedef enum {
     ACL_CBT,
     ACL_EGP,
     ACL_IGP,
-    ACL_TCP,
-    ACL_UDP,
+    ACL_TCP = 0x6,
+    ACL_UDP = 0x11,
     ACL_GRE,
     ACL_EIGRP,
     ACL_ESP,
     ACL_AH,
     ACL_OSPF,
     ACL_TP,
-    ACL_PROTO_MAX,
-    ACL_PROTO_NONE = ACL_PROTO_MAX
+    ACL_PROTO_MAX = 0xFFFF,
+    ACL_PROTO_NONE = 0xFFFF
 } acl_proto_t;
 
 typedef enum {
@@ -105,17 +104,20 @@ access_list_evaluate (access_list_t *acc_lst,
                                 uint16_t src_port, 
                                 uint16_t dst_port);
 
-/* At config Level : 
-    [no] access-group <acl-name> <in | out > interface < interface-name > */
-void access_list_attach_to_interface_ingress(interface_t *intf, char *acc_lst_name);
-void access_list_attach_to_interface_egress(interface_t *intf, char *acc_lst_name);
-void access_list_ingress_detach_from_interface(interface_t *intf, char *acc_lst_name);
-void access_list_egress_detach_from_interface(interface_t *intf, char *acc_lst_name);
 void access_list_reference(access_list_t *acc_lst);
 void access_list_dereference(access_list_t *acc_lst);
 acl_action_t
-access_list_evaluate_ip_packet (node_t *node, interface_t *intf, 
-                                                    ethernet_hdr_t *eth_hdr, bool ingress);
+access_list_evaluate_ip_packet (node_t *node, 
+                                                    interface_t *intf, 
+                                                    ethernet_hdr_t *eth_hdr,
+                                                    bool ingress);
+
+acl_action_t
+access_list_evaluate_ethernet_packet (node_t *node, 
+                                                              interface_t *intf, 
+                                                              ethernet_hdr_t *eth_hdr,
+                                                              bool ingress) ;
+
 /* Return 0 on success */                    
 int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);

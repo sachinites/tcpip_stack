@@ -117,14 +117,14 @@ bits_generate_ones(uint8_t start_offset, uint8_t end_offset);
 static inline uint32_t 
 LSHIFT (uint32_t N, uint16_t n) {
  
-    if (n != 32) return (N << n);
+    if (n != 32) return ((N << n));
     else return (0);
 }
 
 static inline uint32_t 
 RSHIFT (uint32_t N, uint16_t n) {
  
-    if (n != 32) return (N >> n); 
+    if (n != 32) return ((N >> n)); 
     else return (0);
 }
 

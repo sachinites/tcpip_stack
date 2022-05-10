@@ -387,16 +387,22 @@ acl_build_config_cli(param_t *root) {
 }
 
 static void
-acl_entry_show_one_acl_entry(acl_entry_t *acl_entry) {
+acl_entry_show_one_acl_entry(mtrie_node_t *node, void *data) {
 
-    printf ("  %s  %d  %s  ",
+    access_list_t *acc_lst = (access_list_t *)data;
+    acl_entry_t *acl_entry = (acl_entry_t *)node->data;
+
+    if (!acl_entry) return;
+    
+    printf ("ipv4 access-list %s %s %d %s ",
+        acc_lst->name,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
         acl_entry->proto, 
         tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.prefix, 0));
-    printf ("%s  ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, 0));
-    printf ("%s  ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , 0));
-    printf ("%s  ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, 0));
-    printf(" (hits %lu)\n", acl_entry->hit_count);
+    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, 0));
+    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , 0));
+    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, 0));
+    printf("(hits %lu)\n", acl_entry->hit_count);
 }
 
 static void
@@ -409,22 +415,20 @@ access_list_show_all(node_t *node) {
     ITERATE_GLTHREAD_BEGIN(&node->access_lists_db, curr) {
 
         acc_lst = glthread_to_access_list(curr);
-        printf ("Access-list : %s ref_count = %d\n" , acc_lst->name, acc_lst->ref_count);
-        
-        ITERATE_GLTHREAD_BEGIN(&acc_lst->head, curr1) {
-
-                acl_entry = glthread_to_acl_entry(curr1);
-                acl_entry_show_one_acl_entry(acl_entry);
-
-        } ITERATE_GLTHREAD_END(&acc_lst->head, curr1);
-        
-        /* For debugging enable the below two lines */
-        //printf ("\nAccess-List Mtrie : #Nodes = %d\n\n", acc_lst->mtrie->N);
-        //mtrie_post_order_traverse(acc_lst->mtrie, mtrie_print_node);
-
-        printf ("********\n");
+        printf ("Access-list : %s\n" , acc_lst->name);
+        mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
+                                                                  acl_entry_show_one_acl_entry,
+                                                                  (void *)acc_lst);
     } ITERATE_GLTHREAD_END(&node->access_lists_db, curr)
+   
+    #if 0
+    /* Debugging */
+    mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
+                                                                  mtrie_print_node,
+                                                                  NULL);
+    #endif
 }
+
 
 static int
 acl_show_handler(param_t *param,
