@@ -90,6 +90,16 @@ bool
 acl_process_user_config(node_t *node, 
                 char *access_list_name,
                 acl_entry_t *acl_entry);
+
+bool
+acl_process_user_config_for_deletion (
+                node_t *node, 
+                access_list_t *access_list,
+                acl_entry_t *acl_entry);
+
+void
+access_list_delete_complete(access_list_t *access_list);
+
 void acl_compile (acl_entry_t *acl_entry);
 access_list_t * acl_lookup_access_list(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);

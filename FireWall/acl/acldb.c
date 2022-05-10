@@ -34,8 +34,12 @@ acl_string_to_proto(unsigned char *proto_name) {
 }
 
 void 
-acl_entry_free(acl_entry_t *acl_entry) {
+acl_entry_free (acl_entry_t *acl_entry) {
 
+    bitmap_free_internal(&acl_entry->prefix);
+    bitmap_free_internal(&acl_entry->mask);
+    assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
+    free(acl_entry);
 }
 
 /* Convert the ACL entry into TCAM entry format */
@@ -214,6 +218,70 @@ acl_process_user_config(node_t *node,
 
     return true;
 }
+
+bool
+acl_process_user_config_for_deletion (
+                node_t *node, 
+                access_list_t *access_list,
+                acl_entry_t *acl_entry) {
+
+    bool rc = false;
+    void *acl_entry_in_mtrie = NULL;
+    acl_entry_t *installed_acl_entry = NULL;
+
+    acl_compile (acl_entry);
+
+   rc = mtrie_delete_prefix(access_list->mtrie, 
+                                            &acl_entry->prefix, 
+                                            &acl_entry->mask,
+                                            &acl_entry_in_mtrie);
+
+    if (!rc) {
+        printf ("Error : ACL Entry Do not Exist\n");
+        return false;
+    }
+
+    installed_acl_entry = (acl_entry_t *)acl_entry_in_mtrie;
+    remove_glthread(&installed_acl_entry->glue);
+
+    acl_entry_free(installed_acl_entry);
+
+    if (IS_GLTHREAD_LIST_EMPTY(&access_list->head)) {
+        access_list_delete_complete(access_list);
+    }
+
+    return true;
+}
+
+void
+access_list_delete_complete(access_list_t *access_list) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+
+    if (access_list->ref_count > 1) {
+        printf ("Access List is in use, Cannot delete\n");
+        return;
+    }
+
+    mtrie_destroy(access_list->mtrie);
+    free(access_list->mtrie);
+    access_list->mtrie = NULL;
+
+    ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
+
+        acl_entry = glthread_to_acl_entry(curr);
+        remove_glthread(&acl_entry->glue);
+        acl_entry_free(acl_entry);
+
+    }ITERATE_BITMAP_END(&access_list->head, curr);
+
+    remove_glthread(&access_list->glue);
+    access_list_dereference(access_list);
+
+    printf ("Access List Deleted\n");
+}
+
 
 /* Mgmt Functions */
 void 

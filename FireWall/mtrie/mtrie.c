@@ -63,8 +63,9 @@ mtrie_node_delete(mtrie_node_t *node, void *data) {
     bitmap_free_internal(&node->prefix);
     bitmap_free_internal(&node->mask);
     bitmap_free_internal(&node->stacked_prefix);
-    free(node->data);
-    remove_glthread(&node->list_glue);
+    /* Appln responsibility to delete app data*/
+    //free(node->data); 
+    remove_glthread(&node->list_glue );
     free(node);
     if (data) {
         ((mtrie_t *)data)->N--;
@@ -427,8 +428,9 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask
     Uses exact match API as helper API to locate the node of interest. 
 */
 bool
-mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
+mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) {
 
+    *app_data = NULL;
     mtrie_node_t *parent_node;
     mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, mask);
 
@@ -451,6 +453,8 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
     else {
         parent_node->child[DONT_CARE] = NULL;
     }
+
+    *app_data = node->data;
     
     node->parent = NULL;
     mtrie_node_delete(node, NULL);

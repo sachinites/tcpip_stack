@@ -42,19 +42,17 @@ acl_display_supported_protocols(param_t *param, ser_buff_t *tlv_buf) {
 
 }
 
-static int
-access_list_config(node_t *node, 
-                    char *access_list_name,
-                    char *action_name,
-                    char *proto,
-                    char *src_ip,
-                    char *src_mask,
-                    char *dst_ip,
-                    char *dst_mask) {
+static bool
+acl_parse_ace_config_entries(
+                              acl_entry_t *acl_entry,
+                             char *action_name,
+                             char *proto,
+                             char *src_ip,
+                             char *src_mask,
+                             char *dst_ip,
+                             char *dst_mask) {
 
-    acl_entry_t *acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
-
-    /* Action */
+                                  /* Action */
     if (strncmp(action_name, "permit", 6) == 0 ) {
         acl_entry->action = ACL_PERMIT;
     }
@@ -62,12 +60,12 @@ access_list_config(node_t *node,
         acl_entry->action = ACL_DENY;
     }
     else {
-        goto ACL_INSTALLATION_FAILED;
+        return false;
     }
 
     /* Protocol */
     acl_entry->proto = acl_string_to_proto(proto);
-    if (acl_entry->proto == ACL_PROTO_NONE) goto ACL_INSTALLATION_FAILED;
+    if (acl_entry->proto == ACL_PROTO_NONE) return false;
 
     /* Src ip */
     if (src_ip == NULL) {
@@ -104,12 +102,47 @@ access_list_config(node_t *node,
     bitmap_init(&acl_entry->prefix, ACL_PREFIX_LEN);
     bitmap_init(&acl_entry->mask, ACL_PREFIX_LEN);
 
-    if (acl_process_user_config(
-            node, access_list_name, acl_entry) == 0) {
+    return true;
+}
+
+static int
+access_list_config(node_t *node, 
+                    char *access_list_name,
+                    char *action_name,
+                    char *proto,
+                    char *src_ip,
+                    char *src_mask,
+                    char *dst_ip,
+                    char *dst_mask) {
+
+   acl_entry_t *acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
+
+    if (!action_name &&
+         !proto &&
+         !src_ip && !src_mask &&
+         !dst_ip && !dst_mask) {
+
         return 0;
     }
 
-    ACL_INSTALLATION_FAILED:
+   if (!acl_parse_ace_config_entries(
+                    acl_entry, 
+                    action_name,
+                    proto,
+                    src_ip,
+                    src_mask,
+                    dst_ip,
+                    dst_mask)) {
+
+         acl_entry_free(acl_entry);
+        return -1;
+    }
+
+    if (acl_process_user_config(
+            node, access_list_name, acl_entry)) {
+        return 0;
+    }
+    
     acl_entry_free(acl_entry);
     return -1;
 }
@@ -124,7 +157,45 @@ access_list_unconfig(node_t *node,
                     char *dst_ip,
                     char *dst_mask) {
 
-    return 0;
+   acl_entry_t acl_entry; 
+
+   access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
+
+    if (!access_list) {
+        printf ("Error : Access List do not Exist\n");
+        return false;
+    }
+
+    /* If USer has triggered only no <access-list-name>, then delete the entire access 
+        list */
+    if (!action_name &&
+         !proto &&
+         !src_ip && !src_mask &&
+         !dst_ip && !dst_mask) {
+
+        access_list_delete_complete(access_list);
+        return 0;
+    }
+
+
+   if (!acl_parse_ace_config_entries(
+                    &acl_entry, 
+                    action_name,
+                    proto,
+                    src_ip,
+                    src_mask,
+                    dst_ip,
+                    dst_mask)) {
+
+        return -1;
+    }
+
+    if (acl_process_user_config_for_deletion (
+            node, access_list, &acl_entry) == 0) {
+        return 0;
+    }
+
+    return -1;
 }
 
 static int
@@ -248,8 +319,9 @@ acl_build_config_cli(param_t *root) {
         {
             /* access-list <name>... */
             static param_t access_list_name;
-            init_param(&access_list_name, LEAF, 0, 0, 0, STRING, "access-list-name", "Access Policy Name");
+            init_param(&access_list_name, LEAF, 0,  acl_config_handler, 0, STRING, "access-list-name", "Access List Name");
             libcli_register_param(&access_list, &access_list_name);
+            set_param_cmd_code(&access_list_name, ACL_CMD_CONFIG);
             {
                 /* access-list <name> <action> ...*/
                 static param_t action;
@@ -419,14 +491,15 @@ access_list_show_all(node_t *node) {
         mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   acl_entry_show_one_acl_entry,
                                                                   (void *)acc_lst);
-    } ITERATE_GLTHREAD_END(&node->access_lists_db, curr)
-   
-    #if 0
+
+    #if 1
     /* Debugging */
     mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   mtrie_print_node,
                                                                   NULL);
     #endif
+    
+    } ITERATE_GLTHREAD_END(&node->access_lists_db, curr)
 }
 
 

@@ -17,7 +17,8 @@ typedef struct mtrie_node_ {
     uint16_t prefix_len;
 	struct mtrie_node_ *parent;
 	struct mtrie_node_ *child[BIT_TYPE_MAX];
-	glthread_t list_glue;
+	/* list of all leaf nodes in mtrie. Provided to ease a linear walk over all leaves */
+	glthread_t list_glue; 
     void *data;
 	bitmap_t stacked_prefix;
 	/* Stats for analysis */
@@ -55,7 +56,7 @@ void mtrie_print_ipv4_recursive(mtrie_t *mtrie);
 mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix);
 mtrie_node_t *
 mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask);
-bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) ;
+bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) ;
 void mtrie_destroy(mtrie_t *mtrie) ;
 void mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *));
 void

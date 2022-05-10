@@ -281,7 +281,7 @@ bitmap_fast_compare(bitmap_t *src,
         return false;
     }
 
-    return uint32_bits_compare(*(src->bits + i) , *(dst->bits + i), rem_bits);
+    return uint32_bits_compare(htonl(*(src->bits + i)) , htonl(*(dst->bits + i)), rem_bits);
 }
 
 bool 
