@@ -47,7 +47,9 @@ typedef enum{
 #define PROTO_ARP         806
 #define BROADCAST_MAC   0xFFFFFFFFFFFF
 #define ETH_IP          0x0800
-#define ICMP_PRO        1
+#define ICMP_PROTO        1
+#define TCP_PROTO 0x6
+#define UDP_PROTO   0x11
 #define ICMP_ECHO_REQ   8
 #define ICMP_ECHO_REP   0
 #define MTCP            20
@@ -69,7 +71,7 @@ typedef enum{
 
 
 /* Protocol IDs*/
-#define PROTO_STATIC 1
+#define PROTO_STATIC 101
 #define PROTO_ISIS       0x83
 
 static inline unsigned char *
@@ -82,9 +84,47 @@ proto_name_str (uint16_t proto) {
             return "static";
         case PROTO_ARP:
             return "arp";
-        default: ;
+        case ETH_IP:
+            return "ip";
+        case ICMP_PROTO:
+            return "icmp";
+        case TCP_PROTO:
+            return "tcp";
+        case UDP_PROTO:
+            return "udp";
+        default:
+            return NULL;
     }
 }
+
+#define APPLICATION_LAYER   5
+#define TRANSPORT_LAYER 4
+#define NETWORK_LAYER   3
+#define LINK_LAYER  2
+#define PHYSICAL_LAYER  1
+#define UNKNOWN_LAYER   0
+
+static inline uint8_t
+tcpip_protocol_classification(uint16_t proto) {
+
+    switch(proto) {
+
+        case ETH_IP:
+            return NETWORK_LAYER;
+        case ICMP_PROTO:
+            return APPLICATION_LAYER;
+        case PROTO_ISIS:
+            return LINK_LAYER;
+        case TCP_PROTO:
+        case UDP_PROTO:
+            return TRANSPORT_LAYER;
+        case PROTO_STATIC:
+            return NETWORK_LAYER;
+        default:
+            return UNKNOWN_LAYER;
+    }
+}
+
 
 #endif /* __TCPCONST__ */
 

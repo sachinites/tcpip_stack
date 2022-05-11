@@ -4,6 +4,7 @@
 #include "acldb.h"
 #include "../mtrie/mtrie.h"
 #include "../../utils.h"
+#include "../../tcpconst.h"
 
 extern graph_t *topo;
 extern void
@@ -466,10 +467,10 @@ acl_entry_show_one_acl_entry(mtrie_node_t *node, void *data) {
 
     if (!acl_entry) return;
     
-    printf ("ipv4 access-list %s %s %d %s ",
+    printf (" access-list %s %s %s %s ",
         acc_lst->name,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
-        acl_entry->proto, 
+        proto_name_str( acl_entry->proto),
         tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.prefix, 0));
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, 0));
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , 0));
@@ -492,13 +493,13 @@ access_list_show_all(node_t *node) {
                                                                   acl_entry_show_one_acl_entry,
                                                                   (void *)acc_lst);
 
-    #if 1
+    #if 0
     /* Debugging */
     mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   mtrie_print_node,
                                                                   NULL);
     #endif
-    
+
     } ITERATE_GLTHREAD_END(&node->access_lists_db, curr)
 }
 

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "../../gluethread/glthread.h"
 #include "../../BitOp/bitmap.h"
+#include "tcpconst.h"
 
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
@@ -14,17 +15,18 @@ typedef struct ethernet_hdr_ ethernet_hdr_t;
 #define ACCESS_LIST_MAX_NAMELEN 64
 
 typedef enum {
-    ACL_IP = 0x800,
-    ACL_ICMP = 0x1,
+    ACL_IP = ETH_IP,
+    ACL_ICMP = ICMP_PROTO,
     ACL_IGMP,
     ACL_GGP,
     ACL_IPENCAP,
     ACL_ST2,
     ACL_CBT,
     ACL_EGP,
-    ACL_IGP,
-    ACL_TCP = 0x6,
-    ACL_UDP = 0x11,
+    ACL_ISIS = PROTO_ISIS,
+    ACL_TCP = TCP_PROTO,
+    ACL_UDP = UDP_PROTO,
+    ACL_PROTO_STATIC = PROTO_STATIC,
     ACL_GRE,
     ACL_EIGRP,
     ACL_ESP,
@@ -104,7 +106,7 @@ void acl_compile (acl_entry_t *acl_entry);
 access_list_t * acl_lookup_access_list(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
-void access_list_free(access_list_t *access_list);
+void access_list_check_delete(access_list_t *access_list);
 bool acl_install(access_list_t *access_list, acl_entry_t *acl_entry);
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,

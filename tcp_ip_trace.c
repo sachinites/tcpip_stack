@@ -76,8 +76,8 @@ string_ip_hdr_protocol_val(uint8_t type){
     init_string_buffer();
     switch(type){
 
-        case ICMP_PRO:
-            strncpy(string_buffer, "ICMP_PRO", strlen("ICMP_PRO"));
+        case ICMP_PROTO:
+            strncpy(string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
             break;
         case DDCP_MSG_TYPE_UCAST_REPLY:
             strncpy(string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
@@ -115,7 +115,7 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
 
     switch(ip_hdr->protocol){
 
-        case ICMP_PRO:
+        case ICMP_PROTO:
             rc += tcp_dump_appln_hdr_protocol_icmp(buff + rc, INCREMENT_IPHDR(ip_hdr), 
                     IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;

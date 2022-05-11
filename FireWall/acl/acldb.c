@@ -61,9 +61,35 @@ acl_compile (acl_entry_t *acl_entry) {
     uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
     uint32_t *mask_ptr4 = (uint32_t *)mask->bits;
     
-    /* Protocol 2 B*/
-    *prefix_ptr2 = htons((uint16_t)acl_entry->proto);
-    *mask_ptr2 = 0;
+    uint8_t proto_layer = tcpip_protocol_classification(
+                                    (uint16_t)acl_entry->proto);
+
+    /* Transport Protocol 2 B*/
+    if (proto_layer == TRANSPORT_LAYER ||
+         proto_layer == APPLICATION_LAYER) {
+
+        *prefix_ptr2 = htons((uint16_t)acl_entry->proto);
+        *mask_ptr2 = 0;
+    }
+    else {
+        *mask_ptr2 = 0xFFFF;
+    }
+
+    bytes_copied += sizeof(*prefix_ptr2);
+    prefix_ptr2++; mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
+
+    /* Network Layer Protocol 2 B*/
+    if (proto_layer == NETWORK_LAYER) {
+     /* Protocol 2 B*/
+        *prefix_ptr2 = htons((uint16_t)acl_entry->proto);
+        *mask_ptr2 = 0;
+    }
+    else {
+        *mask_ptr2 = 0xFFFF;
+    }
+
     bytes_copied += sizeof(*prefix_ptr2);
     prefix_ptr2++; mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
@@ -176,9 +202,13 @@ acl_install(access_list_t *access_list, acl_entry_t *acl_entry) {
  }
 
  void 
- access_list_free(access_list_t *access_list) {
+ access_list_check_delete(access_list_t *access_list) {
 
-
+    assert(IS_GLTHREAD_LIST_EMPTY(&access_list->head));
+    assert(IS_GLTHREAD_LIST_EMPTY(&access_list->glue));
+    assert(!access_list->mtrie);
+    assert(access_list->ref_count == 0);
+    free(access_list);
  }
 
 bool
@@ -204,7 +234,7 @@ acl_process_user_config(node_t *node,
     if (!rc) {
         printf ("Error : ACL Installation into Mtrie Failed\n");
         if (new_access_list) {
-            access_list_free(access_list);
+            access_list_check_delete(access_list);
         }
         return false;
     }
@@ -277,7 +307,7 @@ access_list_delete_complete(access_list_t *access_list) {
     }ITERATE_BITMAP_END(&access_list->head, curr);
 
     remove_glthread(&access_list->glue);
-    access_list_dereference(access_list);
+    access_list_check_delete(access_list);
 
     printf ("Access List Deleted\n");
 }
@@ -311,14 +341,14 @@ void access_list_reference(access_list_t *acc_lst) {
 void access_list_dereference(access_list_t *acc_lst) {
 
     if (acc_lst->ref_count == 0) {
-        access_list_free(acc_lst);
+        access_list_delete_complete(acc_lst);
         return;
     }
 
     acc_lst->ref_count--;
 
     if (acc_lst->ref_count == 0) {
-        access_list_free(acc_lst);
+        access_list_delete_complete(acc_lst);
         return;
     }
 }
@@ -335,8 +365,28 @@ bitmap_fill_with_params(
         uint16_t dst_port) {
 
         uint16_t *ptr2 = (uint16_t *)(bitmap->bits);
+        uint8_t proto_layer = tcpip_protocol_classification(proto);
 
-        *ptr2 = htons(proto);
+        /* Transport Protocol 2 B*/
+        if (proto_layer == TRANSPORT_LAYER ||
+            proto_layer == APPLICATION_LAYER) {
+            *ptr2 = htons(proto);
+        }
+        else {
+            *ptr2 = 0xFFFF;
+        }
+
+        ptr2++;
+
+        /* Network Layer Protocol 2 B*/
+        if (proto_layer == NETWORK_LAYER) {
+            /* Protocol 2 B*/
+            *ptr2 = htons(proto);
+        }
+        else {
+            *ptr2 = 0xFFFF;
+        }
+
         ptr2++;
 
         uint32_t *ptr4 = (uint32_t *)ptr2;
@@ -354,6 +404,8 @@ bitmap_fill_with_params(
 
         ptr2 = (uint16_t *)ptr4;
         *ptr2 = htons(dst_port);
+
+        /* 128 bit ACL entry size is supported today */
   }
 
 acl_action_t

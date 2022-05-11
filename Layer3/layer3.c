@@ -192,7 +192,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
                     promote_pkt_to_layer4(node, interface, 
 								(char *)eth_hdr, pkt_size, ip_hdr->protocol);
                     break;
-                case ICMP_PRO:
+                case ICMP_PROTO:
                     printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     break;
                 case IP_IN_IP:
@@ -864,7 +864,7 @@ layer3_ping_fn(node_t *node, char *dst_ip_addr){
 
     /* We dont have any application or transport layer paylod, so, directly prepare
      * L3 hdr*/
-    demote_packet_to_layer3(node, NULL, 0, ICMP_PRO, addr_int);
+    demote_packet_to_layer3(node, NULL, 0, ICMP_PROTO, addr_int);
 }
 
 void
@@ -876,7 +876,7 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
     ip_hdr_t *inner_ip_hdr = XCALLOC(0, 1, ip_hdr_t);
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
-    inner_ip_hdr->protocol = ICMP_PRO;
+    inner_ip_hdr->protocol = ICMP_PROTO;
     
     uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
