@@ -93,5 +93,16 @@ tcp_ip_covert_ip_n_to_p(uint32_t ip_addr,
 uint32_t
 tcp_ip_covert_ip_p_to_n(char *ip_addr);
 
+static inline uint32_t
+tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
+
+    uint32_t bin_mask = 0xFFFFFFFF;
+    if (dmask == 0) return 0;
+    /* dont use below code for dmask = 0, undefined behavior */
+    bin_mask = (bin_mask >> (32 - dmask));
+    bin_mask = (bin_mask << (32 - dmask));
+    return bin_mask;
+}
+
 uint32_t get_new_ifindex();
 #endif /* __UTILS__ */

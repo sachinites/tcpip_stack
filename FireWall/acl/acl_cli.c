@@ -2,7 +2,7 @@
 #include "../CommandParser/cmdtlv.h"
 #include "../../graph.h"
 #include "acldb.h"
-#include "../mtrie/mtrie.h"
+#include "../../mtrie/mtrie.h"
 #include "../../utils.h"
 #include "../../tcpconst.h"
 

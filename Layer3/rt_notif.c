@@ -178,12 +178,13 @@ static void
 
     glthread_t *curr;
     l3_route_t *l3route;
-
+    mtrie_node_t *mnode;;
      if (rt_table->flash_job) return;
 
-     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr) {
+     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr) {
 
-        l3route = rt_glue_to_l3_route(curr);
+        mnode = list_glue_to_mtrie_node(curr);
+        l3route = (l3_route_t *)mnode->data;
         rt_table_add_route_to_flash_list (rt_table, l3route);
 
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr)

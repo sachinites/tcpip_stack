@@ -38,6 +38,7 @@
 #include "../notif.h"
 #include "../tcpconst.h"
 #include "../EventDispatcher/event_dispatcher.h"
+#include "../mtrie/mtrie.h"
 
 #pragma pack (push,1)
 
@@ -101,7 +102,7 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 
 typedef struct rt_table_{
 
-    glthread_t route_list;
+    mtrie_t route_list;
 	bool is_active;
     notif_chain_t nfc_rt_updates;
     glthread_t rt_notify_list_head;
@@ -141,6 +142,7 @@ l3_rt_map_proto_id_to_nxthop_index(uint8_t proto_id) {
         default:
         ;
     }
+    return proto_nxthop_max;
 }
 
 typedef struct l3_route_{
@@ -153,12 +155,10 @@ typedef struct l3_route_{
     uint16_t nh_count;
     int nxthop_idx;
 	time_t install_time;
-    glthread_t rt_glue;
     uint8_t rt_flags;
     glthread_t notif_glue;
     glthread_t flash_glue;
 } l3_route_t;
-GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
 GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
 GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
 
@@ -173,9 +173,6 @@ l3_route_get_active_nexthop(l3_route_t *l3_route);
 
 void
 init_rt_table(node_t *node, rt_table_t **rt_table);
-
-void 
-rt_table_set_active_status(rt_table_t *rt_table, bool active);
 
 void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto);

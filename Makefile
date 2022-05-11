@@ -6,6 +6,7 @@ OBJS=gluethread/glthread.o \
 		  BitOp/bitmap.o \
 		  stack/stack.o \
 		  Tree/avl.o	   \
+		  mtrie/mtrie.o	   \
 		  graph.o 		   \
 		  topologies.o	   \
 		  net.o			   \
@@ -135,6 +136,9 @@ gluethread/glthread.o:gluethread/glthread.c
 Tree/avl.o:Tree/avl.c
 	${CC} ${CFLAGS} -c -I Tree Tree/avl.c -o Tree/avl.o
 
+mtrie/mtrie.o:mtrie/mtrie.c
+	${CC} ${CFLAGS} -c -I mtrie mtrie/mtrie.c -o mtrie/mtrie.o
+
 libtimer/WheelTimer.o:libtimer/WheelTimer.c
 	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/WheelTimer.c -o libtimer/WheelTimer.o
 libtimer/timerlib..o:libtimer/timerlib.c
@@ -232,6 +236,7 @@ clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
 	rm -f Tree/avl.o
+	rm -f mtrie/*.o
 	rm -f *exe
 	rm -f ted/*.o
 	rm -f flow/*.o

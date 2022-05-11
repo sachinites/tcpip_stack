@@ -1,5 +1,9 @@
 {
     "files.associations": {
-        "isis_adjacency.h": "c"
-    }
+        "isis_adjacency.h": "c",
+        "uapi_mm.h": "c"
+    },
+    "cSpell.words": [
+        "mtrie"
+    ]
 }

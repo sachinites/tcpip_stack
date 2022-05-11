@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "../../BitOp/bitmap.h"
-#include "../../gluethread/glthread.h"
+#include "../BitOp/bitmap.h"
+#include "../gluethread/glthread.h"
 
 typedef struct stack Stack_t;
 
@@ -35,6 +35,7 @@ typedef struct mtrie_ {
 	/* linear List of all leaf nodes in mtrie*/
 	glthread_t list_head;
 	uint16_t prefix_len;
+	bool resurrct;
 }mtrie_t;
 
 static inline bool
@@ -43,7 +44,7 @@ mtrie_is_leaf_node (mtrie_node_t *node) {
 	return  (!node->child[ZERO] && !node->child[ONE] && !node->child[DONT_CARE]);
 }
 
-void mtrie_print_node(mtrie_node_t *node, void *data);
+void mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data);
 bool mtrie_insert_prefix (mtrie_t *mtrie, 
 										  bitmap_t *prefix,
 										  bitmap_t *mask,
@@ -52,15 +53,16 @@ bool mtrie_insert_prefix (mtrie_t *mtrie,
 
 mtrie_node_t *mtrie_create_new_node(uint16_t prefix_len);
 void init_mtrie(mtrie_t *mtrie, uint16_t prefix_len);
-void mtrie_print_ipv4_recursive(mtrie_t *mtrie);
 mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix);
-mtrie_node_t *
-mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask);
+mtrie_node_t *mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask);
 bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) ;
 void mtrie_destroy(mtrie_t *mtrie) ;
-void mtrie_post_order_traverse(mtrie_t *mtrie, void (*process_fn_ptr)(mtrie_node_t *));
 void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
-                                                         void (*process_fn_ptr)(mtrie_node_t *, void *),
+                                                         void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
                                                          void *app_data) ;
+
+void mtrie_resurrect(mtrie_t *mtrie);
+void mtrie_print_raw(mtrie_t *mtrie);
+
 #endif

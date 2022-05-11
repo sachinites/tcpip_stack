@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include "../../graph.h"
 #include "acldb.h"
-#include "../mtrie/mtrie.h"
+#include "../../mtrie/mtrie.h"
 #include "../../Layer2/layer2.h"
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/layer3.h"

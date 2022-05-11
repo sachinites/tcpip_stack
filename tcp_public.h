@@ -39,7 +39,7 @@
 #include "CommandParser/libcli.h"
 #include "CommandParser/cmdtlv.h"
 #include "stack/stack.h"
-#include "FireWall/mtrie/mtrie.h"
+#include "mtrie/mtrie.h"
 #include "BitOp/bitmap.h"
 #include "BitOp/bitsop.h"
 

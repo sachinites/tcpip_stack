@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include "mtrie.h"
-#include "../../stack/stack.h"
+#include "../stack/stack.h"
 
 static uint16_t node_id = 1;
 
@@ -39,7 +39,7 @@ mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
 
 /* Fn to print mtrie_node details. Very helpful in debugging, via gdb especially */
 void
-mtrie_print_node(mtrie_node_t *node, void *data) {
+mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     int i;
     bit_type_t bit;
@@ -58,18 +58,14 @@ mtrie_print_node(mtrie_node_t *node, void *data) {
 
 /* Delete and free the mtrie node */ 
 static void
-mtrie_node_delete(mtrie_node_t *node, void *data) {
+mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     bitmap_free_internal(&node->prefix);
     bitmap_free_internal(&node->mask);
     bitmap_free_internal(&node->stacked_prefix);
-    /* Appln responsibility to delete app data*/
-    //free(node->data); 
     remove_glthread(&node->list_glue );
     free(node);
-    if (data) {
-        ((mtrie_t *)data)->N--;
-    }
+    mtrie->N--;
 }
 
 mtrie_node_t *
@@ -257,6 +253,7 @@ init_mtrie(mtrie_t *mtrie, uint16_t prefix_len) {
     mtrie->stack = get_new_stack();
     init_glthread(&mtrie->list_head);
     mtrie->prefix_len = prefix_len;
+    mtrie->resurrct = false;
 }
 
 static inline void 
@@ -339,11 +336,14 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
 /* A fn To be called on node which has exactly one child. This fn is used as helper
 fn during node deletion from mtrie. In this fn, the parent node absorbs its only children
 within itself, eventually deleting the child node*/
-static bool
-mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
+static void
+mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
 
     uint8_t child_count = 0;
     bit_type_t bit;
+
+    /* root node is not allowed to merge its child */
+    if (node == mtrie->root) return ;
 
     if (node->child[ZERO]) {
         child_count++;
@@ -362,7 +362,7 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
 
     /* A node is eligibe to merge its own child node only when
     it has exactly one child branch*/
-    if (child_count != 1) return false;
+    if (child_count != 1) return ;
 
     /* Parent-child association break */
     mtrie_node_t *child_node = node->child[bit];
@@ -384,9 +384,7 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node) {
         child_node->data = NULL;
     }
 
-    mtrie_node_delete(child_node, NULL);
-    mtrie->N--;
-    return true;
+    mtrie_node_delete(mtrie, child_node, NULL);
 }
 
 /* A fn to search a given prefix in the mtrie but as per the exact match. Used for deleting the 
@@ -424,14 +422,45 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask
     return NULL;
 }
 
+/* Given a pointer to the leaf node of the mtrie, delete it */
+static void 
+mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
+
+    assert(mtrie_is_leaf_node(node));
+
+    mtrie_node_t *parent = node->parent;
+    
+    /* Its a root ! do not delete */
+    if (!parent) return;
+
+    if (parent->child[DONT_CARE] == node)
+    {
+        parent->child[DONT_CARE] = NULL;
+    }
+    else if (parent->child[ONE] == node)
+    {
+        parent->child[ONE] = NULL;
+    }
+    else
+    {
+        parent->child[ZERO] = NULL;
+    }
+
+    mtrie_node_delete(mtrie, node, NULL);
+    mtrie_merge_child_node(mtrie, parent, NULL);
+}
+
+
 /* A function used to delete the leaf node from the mtrie , i.e, the actual data. 
     Uses exact match API as helper API to locate the node of interest. 
 */
 bool
 mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) {
 
-    *app_data = NULL;
     mtrie_node_t *parent_node;
+
+    *app_data = NULL;
+
     mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, mask);
 
     if (!node) {
@@ -440,27 +469,10 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **ap
 
     /* Must be leaf node */
     assert(mtrie_is_leaf_node(node));
+  
+   *app_data = node->data;
 
-    parent_node = node->parent;
-    
-    /* Break the association between parent node and child node */
-    if (parent_node->child[ZERO] == node) {
-        parent_node->child[ZERO] = NULL;
-    }
-    else if (parent_node->child[ONE] == node) {
-        parent_node->child[ONE] = NULL;
-    }
-    else {
-        parent_node->child[DONT_CARE] = NULL;
-    }
-
-    *app_data = node->data;
-    
-    node->parent = NULL;
-    mtrie_node_delete(node, NULL);
-    mtrie->N--;
-
-    mtrie_merge_child_node(mtrie, parent_node);
+    mtrie_delete_leaf_node(mtrie, node);
 
     return true;
 }
@@ -470,7 +482,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **ap
 static void
 _mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
                                                             mtrie_node_t *node,
-                                                            void (*process_fn_ptr)(mtrie_node_t *, void *),
+                                                            void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
                                                             void *app_data) {
 
     if (!node) return;
@@ -478,144 +490,81 @@ _mtrie_longest_prefix_first_traverse(mtrie_t *mtrie,
     _mtrie_longest_prefix_first_traverse(mtrie, node->child[ONE], process_fn_ptr, app_data);
     _mtrie_longest_prefix_first_traverse(mtrie, node->child[ZERO], process_fn_ptr, app_data);
     _mtrie_longest_prefix_first_traverse(mtrie, node->child[DONT_CARE], process_fn_ptr, app_data);
-    process_fn_ptr(node, app_data);
+    process_fn_ptr(mtrie, node, app_data);
 }
 
 void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
-                                                         void (*process_fn_ptr)(mtrie_node_t *, void *),
+                                                         void (*process_fn_ptr)(mtrie_t *,mtrie_node_t *, void *),
                                                          void *app_data) {
 
     _mtrie_longest_prefix_first_traverse(mtrie, mtrie->root, process_fn_ptr, app_data);
 }
 
-/* To Delete a tree, we need to do post order traversal */
+/* To Delete a tree, we need to do post order traversal, the Tree is non usable and
+    need to be re-initialized by application to use it again*/
 void mtrie_destroy(mtrie_t *mtrie) {
 
-   mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete, (void *)mtrie);
+   mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete, NULL);
     free_stack(mtrie->stack);
     assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
+    mtrie->root = NULL;
 }
 
-
-
-
-/* ***************************************************************** /
-
-/* IPV4 specific functions, when mtrie is used as IPV4 routing table */
+/* API to be invoked by application to delete the leaf node containing 
+    app data from mtrie. After this operation, Appln need to invoke mtrie_resurrect()
+    to fix up the mtrie */ 
 static void
-ipv4_route_print (uint32_t prefix, uint32_t mask) {
+mtrie_appl_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
 
-    bit_type_t bit;
-    char cidr_ip[16];
-    uint8_t dmask = 0, index;
+   assert(mtrie_is_leaf_node(node));
+   assert(node->data);
 
-    // convert_bin_mask_to_dmask
-    while(mask) {
-        if (mask & (1 << 31)) dmask++;
-        mask = mask << 1;
+   mtrie_node_t *parent = node->parent;
+
+    if (parent->child[DONT_CARE] == node)
+    {
+        parent->child[DONT_CARE] = NULL;
+    }
+    else if (parent->child[ONE] == node)
+    {
+        parent->child[ONE] = NULL;
+    }
+    else
+    {
+        parent->child[ZERO] = NULL;
     }
 
-    prefix = htonl(prefix);
-
-    inet_ntop(AF_INET, &prefix, cidr_ip, 16);
-
-    cidr_ip[15] = '\0';
-
-    printf ("Route = %s/%d\n", cidr_ip, dmask);
+    mtrie_node_delete(mtrie, node, NULL);
+    mtrie->N--;
 }
 
-/* This functions recursively traverse the mtrie and build up prefix/mask. Printing 
-    through this function actually test the correctness of mtrie when used as IPV4 routing table. 
-    Do not use this fn in applications. Since, all routes are present at leaves, it is better to traverse 
-    only leaves of mtrie in order to traverse all routes linearly */
-static void
- _mtrie_print_ipv4_recursive(mtrie_node_t *node, uint8_t pos, uint32_t *prefix, uint32_t *mask) {
+/* If appln ever make a call to this API, make sure appln to call mtrie_resurrect()
+    immediately after traversing the mtrie */
+void *
+mtrie_extract_appln_data(mtrie_t *mtrie, mtrie_node_t *node) {
 
-    uint32_t prefix_temp, mask_temp;
-
-    if (!node) {
-        return;
-    }
-
-    assert(pos <= 32);
-
-    if (node->prefix_len) {
-
-        uint32_bits_copy_preserve(node->prefix.bits, prefix, 0, pos, node->prefix_len);
-        uint32_bits_copy_preserve(node->mask.bits, mask, 0, pos, node->prefix_len);
-    }
-
-    if (node->data) {
-        prefix_temp = *prefix;
-        mask_temp = *mask;
-        mask_temp = ~mask_temp;
-        prefix_temp &= mask_temp;
-        ipv4_route_print(prefix_temp, mask_temp);
-    }
-
-    _mtrie_print_ipv4_recursive(node->child[ZERO], pos + node->prefix_len, prefix, mask);
-    _mtrie_print_ipv4_recursive(node->child[ONE], pos + node->prefix_len, prefix, mask);
-    _mtrie_print_ipv4_recursive(node->child[DONT_CARE], pos + node->prefix_len, prefix, mask);
- }
-
-void
-mtrie_print_ipv4_recursive(mtrie_t *mtrie) {
-
-    uint32_t prefix = 0;
-    uint32_t mask = 0;
-    _mtrie_print_ipv4_recursive(mtrie->root, 0, &prefix, &mask);
+    void *app_data;
+    app_data = node->data;
+    mtrie_appl_delete_leaf_node(mtrie, node);
+    mtrie->resurrct = true;
+    return app_data;
 }
 
+/* API to delete all leaf nodes with NULL data assigned to it, Appln should call it
+    if the application has linearly traversed all leaf nodes of mtrie and assign NULL data
+    to few of them */
+void mtrie_resurrect(mtrie_t *mtrie) {
 
-#if 0
-int 
-main(int argc, char **argv) {
-
-    mtrie_t mtrie;
-    
-    init_mtrie(&mtrie);
-
-    uint32_t prefix = 0xAA000000; // Prefix : 10101010
-    uint32_t mask =  0;
-    uint8_t prefix_len = 8;
-
-    mtrie_insert_prefix(&mtrie, prefix, mask, prefix_len, NULL);
-
-    mtrie_print_node(mtrie.root);
-
-    prefix = 0xA8000000; // prefix : 101010*
-    mask = 0x3000000; // mask :      00000011
-
-    mtrie_insert_prefix(&mtrie, prefix, mask, prefix_len, NULL);
-
-
-    prefix = 0xC8000000; // prefix :    11001*
-    mask = 0x7000000;  // mask =       00000111
-
-    mtrie_insert_prefix(&mtrie, prefix, mask, prefix_len, NULL);
-
-    prefix = 0xC8000000;  // prefix = 11001*
-    mask = 0x4000000;      // mask :     000001
-    prefix_len = 6;
-
-    mtrie_insert_prefix(&mtrie, prefix, mask, prefix_len, NULL);
-
-    prefix = 0b00001000100000000000000000000000; // 0000 10xx 10xx xxx0
-    mask = 0b11111100110000010000000000000000;   // 1111 1100 1100 0001
-    mask = ~mask;
-    prefix_len = 16;
-
-    uint32_t value = 0b00001011101011000000000000000000; // match
-    value = 0b00101011110111000000000000000000;
-
-    if (prefix_match(value, prefix, mask, prefix_len)) {
-        printf ("match\n");
-    }
-    else {
-        printf ("no match\n");
-    }
-
-    return 0;
+        if (!mtrie->resurrct) return;
+        mtrie_longest_prefix_first_traverse(mtrie,
+             mtrie_merge_child_node, NULL);
+        mtrie->resurrct = false;
 }
-#endif
+
+void mtrie_print_raw(mtrie_t *mtrie) {
+
+    mtrie_longest_prefix_first_traverse(mtrie,
+            mtrie_print_node, NULL);
+}
+

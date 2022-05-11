@@ -46,6 +46,7 @@
 #include "rt_notif.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../FireWall/acl/acldb.h"
+#include "../mtrie/mtrie.h"
 
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
@@ -299,41 +300,53 @@ void
 init_rt_table(node_t *node, rt_table_t **rt_table){
 
     *rt_table = XCALLOC(0, 1, rt_table_t);
-    init_glthread(&((*rt_table)->route_list));
-	(*rt_table)->is_active = true;
+    
+    init_mtrie (&(*rt_table)->route_list, 32);
+
     strncpy( (*rt_table)->nfc_rt_updates.nfc_name, 
                  "NFC for IPV4 RT UPDATES",
                  sizeof((*rt_table)->nfc_rt_updates.nfc_name));
+
     init_glthread(&((*rt_table)->nfc_rt_updates.notif_chain_head));
+    
     (*rt_table)->node = node;
 }
 
-void
-rt_table_set_active_status(rt_table_t *rt_table, bool active){
-	rt_table->is_active = active;
-}
-
 l3_route_t *
-rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask){
+rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
     
-    glthread_t *curr;
     l3_route_t *l3_route;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+    bin_ip = tcp_ip_covert_ip_p_to_n(ip_addr);
+    bin_ip = htonl(bin_ip);
 
-        l3_route = rt_glue_to_l3_route(curr);
-        if(strncmp(l3_route->dest, ip_addr, 16) == 0 && 
-                l3_route->mask == mask){
-            return l3_route;
-        }
-    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask(mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
+
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    mtrie_node_t *node = mtrie_exact_prefix_match_search(
+                            &rt_table->route_list,
+                            &prefix_bm,
+                            &mask_bm);
+
+    if (!node) return NULL;
+
+    return (l3_route_t *)node->data;
 }
 
 void
 l3_route_free(l3_route_t *l3_route){
 
+    /* Assume the route has already been removed from main routing table */
     nxthop_proto_id_t nxthop_proto_id;
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
     assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
     FOR_ALL_NXTHOP_PROTO(nxthop_proto_id) {
@@ -349,21 +362,35 @@ clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
     glthread_t *curr;
     nexthop_t *nexthop;
     l3_route_t *l3_route;
+    mtrie_node_t *mnode;
 
     nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
 
-        l3_route = rt_glue_to_l3_route(curr);
-        if(l3_is_direct_route(l3_route))
+        mnode = list_glue_to_mtrie_node(curr);
+
+        l3_route = (l3_route_t *)mnode->data;
+       assert(l3_route);
+
+        if(l3_is_direct_route(l3_route)) {
             continue;
+        }
+
         count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
         l3_route->nh_count -= count;
         if (l3_route->nh_count) continue;
+
         l3_route->spf_metric[nh_proto] = 0;
-        remove_glthread(curr);
+       mtrie_extract_appln_data(&rt_table->route_list, mnode);
+
         rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
-    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
+
+    }ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr)
+     
+     /* Resurrect mtrie if you have traversed linearly all leaf nodes and 
+     choses to assign NULL data to some of them*/
+     mtrie_resurrect (&rt_table->route_list);
      rt_table_kick_start_notif_job(rt_table);
 }
 
@@ -401,19 +428,44 @@ rt_table_delete_route(
         uint16_t proto_id){
 
     int count;
+    bool rc;
+    l3_route_t *l3_route = NULL;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
     char dst_str_with_mask[16];
     
     apply_mask(ip_addr, mask, dst_str_with_mask); 
-    l3_route_t *l3_route = rt_table_lookup(rt_table, dst_str_with_mask, mask);
 
-    if(!l3_route) return;
+    bin_ip = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
+    bin_ip = htonl(bin_ip);
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask((uint8_t)mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
+
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    rc = mtrie_delete_prefix(&rt_table->route_list, 
+                                            &prefix_bm,
+                                            &mask_bm,
+                                            (void **)&l3_route);
+
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+
+    if (!rc) return;
+
+    assert(l3_route);
 
     nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
     count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
     l3_route->spf_metric[nh_proto] = 0;
     l3_route->nh_count -= count;
     if (l3_route->nh_count) return;
-    remove_glthread(&l3_route->rt_glue);
+
     rt_table_add_route_to_notify_list (rt_table, l3_route, RT_DEL_F);
     rt_table_kick_start_notif_job(rt_table);
 }
@@ -421,39 +473,25 @@ rt_table_delete_route(
 /*Look up L3 routing table using longest prefix match*/
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table, 
-                 uint32_t dest_ip){
+                               uint32_t dest_ip){
 
-    l3_route_t *l3_route = NULL,
-    *lpm_l3_route = NULL,
-    *default_l3_rt = NULL;
+    bitmap_t prefix;
+    uint32_t bin_ip;
+    mtrie_node_t *mnode ;
 
-    glthread_t *curr = NULL;
-    char subnet[16];
-    char dest_ip_str[16];
-    char longest_mask = 0;
+   bin_ip = htonl(dest_ip);
+   bitmap_init(&prefix, 32);
+
+   prefix.bits[0] = bin_ip;
    
-    dest_ip = htonl(dest_ip); 
-    inet_ntop(AF_INET, &dest_ip, dest_ip_str, 16);
-    dest_ip_str[15] = '\0';
-     
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+   mnode = mtrie_longest_prefix_match_search(
+                            &rt_table->route_list, &prefix);
 
-        l3_route = rt_glue_to_l3_route(curr);
-        memset(subnet, 0, 16);
-        apply_mask(dest_ip_str, l3_route->mask, subnet);
+    bitmap_free_internal(&prefix);
 
-        if(strncmp("0.0.0.0", l3_route->dest, 16) == 0 &&
-                l3_route->mask == 0){
-            default_l3_rt = l3_route;
-        }
-        else if(strncmp(subnet, l3_route->dest, strlen(subnet)) == 0){
-            if( l3_route->mask > longest_mask){
-                longest_mask = l3_route->mask;
-                lpm_l3_route = l3_route;
-            }
-        }
-    }ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
-    return lpm_l3_route ? lpm_l3_route : default_l3_rt;
+    if (!mnode) return NULL;
+    assert(mnode->data);
+    return (l3_route_t *)mnode->data;
 }
 
 void
@@ -463,12 +501,14 @@ dump_rt_table(rt_table_t *rt_table){
     int count = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
+    mtrie_node_t *mnode;
     
     printf("L3 Routing Table:\n");
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
 
-        l3_route = rt_glue_to_l3_route(curr);
+        mnode = list_glue_to_mtrie_node(curr);
+        l3_route = (l3_route_t *)mnode->data;
         count++;
         nxthop_cnt = 0;
 		
@@ -539,49 +579,11 @@ dump_rt_table(rt_table_t *rt_table){
     printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
 }
 
-static bool
-_rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
-
-    init_glthread(&l3_route->rt_glue);
-    glthread_add_next(&rt_table->route_list, &l3_route->rt_glue);
-	l3_route->install_time = time(NULL);
-    rt_table_add_route_to_notify_list (rt_table, l3_route, RT_ADD_F);
-    rt_table_kick_start_notif_job(rt_table);
-    return true;
-}
-
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
                           char *dst, char mask){
 
     rt_table_add_route(rt_table, dst, mask, 0, 0, 0, PROTO_STATIC);
-}
-
-l3_route_t *
-l3rib_lookup(rt_table_t *rt_table, 
-             uint32_t dest_ip, 
-             char mask){
-
-    char dest_ip_str[16];
-    glthread_t *curr = NULL;
-    char dst_str_with_mask[16];
-    l3_route_t *l3_route = NULL;
-
-    tcp_ip_covert_ip_n_to_p(dest_ip, dest_ip_str);
-
-    apply_mask(dest_ip_str, mask, dst_str_with_mask);
-
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
-
-        l3_route = rt_glue_to_l3_route(curr);
-        
-        if(strncmp(dst_str_with_mask, l3_route->dest, 16) == 0 &&
-            l3_route->mask == mask){
-            return l3_route;
-        }
-    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
-
-    return NULL;
 }
 
 /* 
@@ -624,24 +626,61 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 	return true;
 }
 
+static bool
+_rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
+
+    bool rc;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
+
+   bin_ip = tcp_ip_covert_ip_p_to_n(l3_route->dest);
+   bin_ip = htonl(bin_ip);
+   bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3_route->mask);
+   bin_mask = ~bin_mask;
+   bin_mask = htonl(bin_mask);
+
+   bitmap_init(&prefix_bm, 32);
+   bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    rc = mtrie_insert_prefix(&rt_table->route_list,
+                                            &prefix_bm,
+                                            &mask_bm,
+                                            32,
+                                            (void *)l3_route);
+
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+
+    if (!rc) return false;
+
+	l3_route->install_time = time(NULL);
+    rt_table_add_route_to_notify_list (rt_table, l3_route, RT_ADD_F);
+    rt_table_kick_start_notif_job(rt_table);
+    return rc;
+}
 
 void
 rt_table_add_route(rt_table_t *rt_table,
-                   char *dst, char mask,
-                   char *gw, 
-                   interface_t *oif,
-                   uint32_t spf_metric,
-                   uint8_t proto_id){
+                                char *dst, 
+                                char mask,
+                                char *gw, 
+                                interface_t *oif,
+                                uint32_t spf_metric,
+                                uint8_t proto_id){
 
-   uint32_t dst_int;
-   char dst_str_with_mask[16];
    bool new_route = false;
+   char dst_str_with_mask[16];
 
     apply_mask(dst, mask, dst_str_with_mask); 
-    dst_int = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
+
     nxthop_proto_id_t nxthop_proto = 
         l3_rt_map_proto_id_to_nxthop_index(proto_id);
-   l3_route_t *l3_route = l3rib_lookup(rt_table, dst_int, mask);
+    
+   l3_route_t *l3_route = rt_table_lookup_exact_match(
+                                            rt_table, dst_str_with_mask, mask);
 
    if(!l3_route){
        l3_route = XCALLOC(0, 1, l3_route_t);
