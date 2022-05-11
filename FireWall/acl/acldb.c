@@ -358,35 +358,21 @@ void access_list_dereference(access_list_t *acc_lst) {
 static void
 bitmap_fill_with_params(
         bitmap_t *bitmap,
-        uint16_t proto,
+        uint16_t l3proto,
+        uint16_t l4proto,
         uint32_t src_addr,
         uint32_t dst_addr,
         uint16_t src_port,
         uint16_t dst_port) {
 
         uint16_t *ptr2 = (uint16_t *)(bitmap->bits);
-        uint8_t proto_layer = tcpip_protocol_classification(proto);
 
         /* Transport Protocol 2 B*/
-        if (proto_layer == TRANSPORT_LAYER ||
-            proto_layer == APPLICATION_LAYER) {
-            *ptr2 = htons(proto);
-        }
-        else {
-            *ptr2 = 0xFFFF;
-        }
-
+        *ptr2 = htons(l4proto);
         ptr2++;
 
         /* Network Layer Protocol 2 B*/
-        if (proto_layer == NETWORK_LAYER) {
-            /* Protocol 2 B*/
-            *ptr2 = htons(proto);
-        }
-        else {
-            *ptr2 = 0xFFFF;
-        }
-
+        *ptr2 = htons(l3proto);
         ptr2++;
 
         uint32_t *ptr4 = (uint32_t *)ptr2;
@@ -410,7 +396,8 @@ bitmap_fill_with_params(
 
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
-                                uint16_t proto,
+                                uint16_t l3proto,
+                                uint16_t l4proto,
                                 uint32_t src_addr,
                                 uint32_t dst_addr,
                                 uint16_t src_port, 
@@ -423,7 +410,7 @@ access_list_evaluate (access_list_t *acc_lst,
     bitmap_t input;
     bitmap_init(&input, ACL_PREFIX_LEN);
 
-    bitmap_fill_with_params(&input, proto, src_addr, dst_addr, src_port, dst_port);
+    bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
 
     hit_node = mtrie_longest_prefix_match_search(acc_lst->mtrie, &input);
 
@@ -451,7 +438,8 @@ access_list_evaluate_ip_packet (node_t *node,
                                                     ethernet_hdr_t *eth_hdr,
                                                     bool ingress) {
 
-    uint16_t proto = 0;
+    uint16_t l3proto = 0;
+    uint16_t l4proto = 0;
     uint32_t src_ip = 0,
                   src_mask = 0,
                   dst_ip = 0,
@@ -467,19 +455,21 @@ access_list_evaluate_ip_packet (node_t *node,
 
     if (!access_lst) return ACL_PERMIT;
 
-    proto = (uint16_t)eth_hdr->type;
+    l3proto = (uint16_t)eth_hdr->type;
     
-    switch(proto) {
+    switch(l3proto) {
         case ETH_IP:
             ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
             src_ip = ip_hdr->src_ip;
             dst_ip = ip_hdr->dst_ip;
+            l4proto = ip_hdr->protocol;
             break; 
         default:
             return ACL_DENY;
     }
     return access_list_evaluate(access_lst, 
-                                                proto, 
+                                                l3proto, 
+                                                l4proto,
                                                 src_ip,
                                                 dst_ip,
                                                 src_port,
@@ -533,5 +523,25 @@ access_group_unconfig(node_t *node,
                                        char *dirn, 
                                       access_list_t *acc_lst) {
 
+    access_list_t **configured_access_lst = NULL;
+
+    if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
+        configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
+    }
+    else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
+        configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
+    }
+    else {
+        printf ("Error : Direction can in - 'in' or 'out' only\n");
+        return -1;
+    }
+
+    if (!( *configured_access_lst )) {
+        printf ("Error : Access List %s not applied\n", (*configured_access_lst)->name);
+        return -1;
+    }
+
+    *configured_access_lst = NULL;
+    access_list_dereference(acc_lst);
     return 0;
 }

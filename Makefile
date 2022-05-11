@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS=-g -Wall -Wextra 
 TARGET:tcpstack.exe pkt_gen.exe
 LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt
 OBJS=gluethread/glthread.o \

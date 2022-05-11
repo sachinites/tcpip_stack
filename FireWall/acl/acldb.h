@@ -110,7 +110,8 @@ void access_list_check_delete(access_list_t *access_list);
 bool acl_install(access_list_t *access_list, acl_entry_t *acl_entry);
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
-                                uint16_t proto,
+                                uint16_t l3proto,
+                                uint16_t l4roto,
                                 uint32_t src_addr,
                                 uint32_t dst_addr,
                                 uint16_t src_port, 
