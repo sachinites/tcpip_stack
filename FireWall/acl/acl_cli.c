@@ -125,6 +125,8 @@ access_list_config(node_t *node,
 
         return 0;
     }
+    
+    acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
 
    if (!acl_parse_ace_config_entries(
                     acl_entry, 
@@ -135,10 +137,9 @@ access_list_config(node_t *node,
                     dst_ip,
                     dst_mask)) {
 
+        acl_entry_free(acl_entry);
         return -1;
     }
-
-    acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
 
     if (acl_process_user_config(
             node, access_list_name, acl_entry)) {
