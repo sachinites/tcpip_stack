@@ -268,8 +268,16 @@ build_tlv_buffer(char **tokens,
 #endif
             }
 
-            else if(param == libcli_get_suboptions_param())
+            else if(param == libcli_get_suboptions_param()){
+
+                memset(command_code_tlv.value, 0, LEAF_VALUE_HOLDER_SIZE);
+                sprintf(command_code_tlv.value, "%d", parent->CMDCODE);
+                mark_checkpoint_serialize_buffer(tlv_buff);
                 display_sub_options_callback(parent, tlv_buff, MODE_UNKNOWN);
+                set_cmd_tree_cursor(parent);
+                build_mode_console_name(parent);
+                break;
+            }
 
             else if(param == libcli_get_mode_param()){
                 
