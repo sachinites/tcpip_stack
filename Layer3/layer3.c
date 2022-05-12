@@ -154,8 +154,11 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     }
 
     /* Access List Evaluation at Layer 3 Entry point*/
-    if (access_list_evaluate_ip_packet(
-            node, interface, eth_hdr, true) == ACL_DENY) {
+    if (interface && /* For local ping, interface will be NULL */
+            access_list_evaluate_ip_packet(
+            node, interface, 
+            (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr), 
+            true) == ACL_DENY) {
         return ;
     }
 
@@ -281,7 +284,9 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 
     /* Access List Evaluation at Layer 3 Exit point*/
     if (access_list_evaluate_ip_packet(
-            node, nexthop->oif, eth_hdr, false) == ACL_DENY) {
+            node, nexthop->oif, 
+            (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr), 
+            false) == ACL_DENY) {
         return;
     }
 
@@ -853,6 +858,11 @@ demote_packet_to_layer3(node_t *node,
         return;
     }
     
+    if (access_list_evaluate_ip_packet(node, 
+                nexthop->oif, 
+                (ip_hdr_t *)new_pkt, 
+                false) == ACL_DENY) return;
+
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
 

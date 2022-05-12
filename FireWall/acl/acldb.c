@@ -43,7 +43,7 @@ acl_entry_free (acl_entry_t *acl_entry) {
 }
 
 /* Convert the ACL entry into TCAM entry format */
-void
+static void
 acl_compile (acl_entry_t *acl_entry) {
 
     bool rc;
@@ -304,7 +304,7 @@ access_list_delete_complete(access_list_t *access_list) {
         remove_glthread(&acl_entry->glue);
         acl_entry_free(acl_entry);
 
-    }ITERATE_BITMAP_END(&access_list->head, curr);
+    }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
     remove_glthread(&access_list->glue);
     access_list_check_delete(access_list);
@@ -435,10 +435,9 @@ access_list_evaluate (access_list_t *acc_lst,
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
                                                     interface_t *intf, 
-                                                    ethernet_hdr_t *eth_hdr,
+                                                    ip_hdr_t *ip_hdr,
                                                     bool ingress) {
 
-    uint16_t l3proto = 0;
     uint16_t l4proto = 0;
     uint32_t src_ip = 0,
                   src_mask = 0,
@@ -447,7 +446,6 @@ access_list_evaluate_ip_packet (node_t *node,
     uint16_t src_port = 0,
                   dst_port = 0;
 
-    ip_hdr_t *ip_hdr;
     access_list_t *access_lst;
 
     access_lst = ingress ? intf->intf_nw_props.l3_ingress_acc_lst :
@@ -455,20 +453,12 @@ access_list_evaluate_ip_packet (node_t *node,
 
     if (!access_lst) return ACL_PERMIT;
 
-    l3proto = (uint16_t)eth_hdr->type;
-    
-    switch(l3proto) {
-        case ETH_IP:
-            ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
-            src_ip = ip_hdr->src_ip;
-            dst_ip = ip_hdr->dst_ip;
-            l4proto = ip_hdr->protocol;
-            break; 
-        default:
-            return ACL_DENY;
-    }
+    src_ip = ip_hdr->src_ip;
+    dst_ip = ip_hdr->dst_ip;
+    l4proto = ip_hdr->protocol;
+
     return access_list_evaluate(access_lst, 
-                                                l3proto, 
+                                                ETH_IP, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,

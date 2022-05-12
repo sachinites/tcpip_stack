@@ -116,7 +116,7 @@ access_list_config(node_t *node,
                     char *dst_ip,
                     char *dst_mask) {
 
-   acl_entry_t *acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
+   acl_entry_t *acl_entry = NULL;
 
     if (!action_name &&
          !proto &&
@@ -135,9 +135,10 @@ access_list_config(node_t *node,
                     dst_ip,
                     dst_mask)) {
 
-         acl_entry_free(acl_entry);
         return -1;
     }
+
+    acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
 
     if (acl_process_user_config(
             node, access_list_name, acl_entry)) {
@@ -248,7 +249,6 @@ acl_config_handler(param_t *param,
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
                 return access_list_config(node, access_list_name, action_name, proto, src_ip, src_mask, dst_ip, dst_mask);
-                break;
             case CONFIG_DISABLE:
                 return access_list_unconfig(node, access_list_name, action_name, proto, src_ip, src_mask, dst_ip, dst_mask);
         }
@@ -460,7 +460,7 @@ acl_build_config_cli(param_t *root) {
 }
 
 static void
-acl_entry_show_one_acl_entry(mtrie_node_t *node, void *data) {
+acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     access_list_t *acc_lst = (access_list_t *)data;
     acl_entry_t *acl_entry = (acl_entry_t *)node->data;

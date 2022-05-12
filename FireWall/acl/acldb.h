@@ -10,6 +10,7 @@
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
+typedef struct ip_hdr_ ip_hdr_t;
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
@@ -102,7 +103,6 @@ acl_process_user_config_for_deletion (
 void
 access_list_delete_complete(access_list_t *access_list);
 
-void acl_compile (acl_entry_t *acl_entry);
 access_list_t * acl_lookup_access_list(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
@@ -122,7 +122,7 @@ void access_list_dereference(access_list_t *acc_lst);
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
                                                     interface_t *intf, 
-                                                    ethernet_hdr_t *eth_hdr,
+                                                    ip_hdr_t *ip_hdr,
                                                     bool ingress);
 
 acl_action_t

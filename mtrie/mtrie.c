@@ -424,7 +424,7 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask
 
 /* Given a pointer to the leaf node of the mtrie, delete it */
 static void 
-mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
+mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge) {
 
     assert(mtrie_is_leaf_node(node));
 
@@ -447,7 +447,10 @@ mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
     }
 
     mtrie_node_delete(mtrie, node, NULL);
-    mtrie_merge_child_node(mtrie, parent, NULL);
+
+    if (merge) {
+        mtrie_merge_child_node(mtrie, parent, NULL);
+    }
 }
 
 
@@ -456,8 +459,6 @@ mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
 */
 bool
 mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) {
-
-    mtrie_node_t *parent_node;
 
     *app_data = NULL;
 
@@ -472,7 +473,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **ap
   
    *app_data = node->data;
 
-    mtrie_delete_leaf_node(mtrie, node);
+    mtrie_delete_leaf_node(mtrie, node, true);
 
     return true;
 }
@@ -511,34 +512,6 @@ void mtrie_destroy(mtrie_t *mtrie) {
     mtrie->root = NULL;
 }
 
-/* API to be invoked by application to delete the leaf node containing 
-    app data from mtrie. After this operation, Appln need to invoke mtrie_resurrect()
-    to fix up the mtrie */ 
-static void
-mtrie_appl_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
-
-   assert(mtrie_is_leaf_node(node));
-   assert(node->data);
-
-   mtrie_node_t *parent = node->parent;
-
-    if (parent->child[DONT_CARE] == node)
-    {
-        parent->child[DONT_CARE] = NULL;
-    }
-    else if (parent->child[ONE] == node)
-    {
-        parent->child[ONE] = NULL;
-    }
-    else
-    {
-        parent->child[ZERO] = NULL;
-    }
-
-    mtrie_node_delete(mtrie, node, NULL);
-    mtrie->N--;
-}
-
 /* If appln ever make a call to this API, make sure appln to call mtrie_resurrect()
     immediately after traversing the mtrie */
 void *
@@ -546,7 +519,9 @@ mtrie_extract_appln_data(mtrie_t *mtrie, mtrie_node_t *node) {
 
     void *app_data;
     app_data = node->data;
-    mtrie_appl_delete_leaf_node(mtrie, node);
+    /* Dont do merging here while application is extracting data. Merging will
+    be done via resurrection. Hence pass false */
+    mtrie_delete_leaf_node(mtrie, node, false);
     mtrie->resurrct = true;
     return app_data;
 }

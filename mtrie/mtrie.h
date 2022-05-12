@@ -41,7 +41,9 @@ typedef struct mtrie_ {
 static inline bool
 mtrie_is_leaf_node (mtrie_node_t *node) {
 
-	return  (!node->child[ZERO] && !node->child[ONE] && !node->child[DONT_CARE]);
+	return  (!node->child[ZERO] && 
+				!node->child[ONE] &&
+				!node->child[DONT_CARE]);
 }
 
 void mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data);

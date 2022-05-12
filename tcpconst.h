@@ -79,19 +79,19 @@ proto_name_str (uint16_t proto) {
 
     switch(proto) {
         case PROTO_ISIS:
-            return "isis";
+            return (unsigned char *)"isis";
         case PROTO_STATIC:
-            return "static";
+            return (unsigned char *)"static";
         case PROTO_ARP:
-            return "arp";
+            return (unsigned char *)"arp";
         case ETH_IP:
-            return "ip";
+            return (unsigned char *)"ip";
         case ICMP_PROTO:
-            return "icmp";
+            return (unsigned char *)"icmp";
         case TCP_PROTO:
-            return "tcp";
+            return (unsigned char *)"tcp";
         case UDP_PROTO:
-            return "udp";
+            return (unsigned char *)"udp";
         default:
             return NULL;
     }
