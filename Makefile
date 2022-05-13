@@ -5,6 +5,7 @@ LIBS=-lpthread -L ./CommandParser -lcli -lrt
 OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  graph.o 		   \
+		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \
 		  comm.o		   \
@@ -113,6 +114,9 @@ Layer5/nbrship_mgmt/nbrship_mgmt.o:Layer5/nbrship_mgmt/nbrship_mgmt.c
 
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
+
+cli_interface.o:cli_interface.c
+	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
 
 topologies.o:topologies.c
 	${CC} ${CFLAGS} -c -I . topologies.c -o topologies.o

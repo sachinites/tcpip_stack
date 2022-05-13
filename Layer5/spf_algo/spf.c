@@ -655,7 +655,7 @@ RUN_SPF:
 void
 init_spf_algo(){
     
-    compute_spf_all_nodes(topo);
+    //compute_spf_all_nodes(topo);
 	nfc_intf_register_for_events(spf_algo_interface_update);
 }
 

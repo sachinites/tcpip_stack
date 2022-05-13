@@ -129,6 +129,9 @@ task_cbk_handler_internal(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_si
 	free(unified_cli_data);
 }
 
+extern event_dispatcher_t *
+node_get_ev_dispatcher (ser_buff_t *tlv_buff); 
+
 static void
 task_invoke_appln_cbk_handler(param_t *param,
 						 ser_buff_t *tlv_buff,
@@ -147,7 +150,9 @@ task_invoke_appln_cbk_handler(param_t *param,
 		   get_serialize_buffer_size(tlv_buff));
 	unified_cli_data->enable_or_disable = enable_or_disable;
 
-	task_create_new_job_synchronous((void *)unified_cli_data,
+	task_create_new_job_synchronous(
+                        node_get_ev_dispatcher (tlv_buff),
+                        (void *)unified_cli_data,
 						task_cbk_handler_internal,
 						TASK_ONE_SHOT);						
 }
