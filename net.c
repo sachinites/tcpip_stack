@@ -374,7 +374,8 @@ node_get_timer_instance(node_t *node){
 }
 
 static void
-interface_bit_rate_sample_update(void *arg, uint32_t arg_size) {
+interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
+                                                        void *arg, uint32_t arg_size) {
 
     if (!arg) return;
 
@@ -386,11 +387,13 @@ interface_bit_rate_sample_update(void *arg, uint32_t arg_size) {
 
     interface->intf_nw_props.bit_rate.old_bit_stats = 
          interface->intf_nw_props.bit_rate.new_bit_stats;
+         
 }
 
 void
 intf_init_bit_rate_sampling_timer(interface_t *interface) {
 
+    return; 
     wheel_timer_elem_t *wt_elem =
         interface->intf_nw_props.bit_rate.bit_rate_sampling_timer;
 

@@ -58,7 +58,7 @@ isis_check_xmit_lsp_sanity_before_transmission(
 }
 
 static void
-isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
+isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     interface_t *intf;

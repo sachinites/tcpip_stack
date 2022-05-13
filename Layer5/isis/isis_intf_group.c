@@ -384,6 +384,7 @@ void
 
     node_info->dyn_intf_grp = true;
     isis_dynamic_intf_grp_build_intf_grp_db (node);
+    return 0;
  }
 
  int

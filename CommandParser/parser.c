@@ -280,7 +280,9 @@ build_tlv_buffer(char **tokens,
                 mark_checkpoint_serialize_buffer(tlv_buff);
                 display_sub_options_callback(parent, tlv_buff, MODE_UNKNOWN);
                 set_cmd_tree_cursor(parent);
-                build_mode_console_name(parent);
+                if (parent != libcli_get_root()) {
+                    build_mode_console_name(parent);
+                }
                 break;
             }
 

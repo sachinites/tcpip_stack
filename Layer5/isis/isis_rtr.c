@@ -453,7 +453,7 @@ isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
 }
 
 static void
-isis_overload_timer_expire(void *arg, uint32_t arg_size) {
+isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);

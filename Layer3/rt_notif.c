@@ -28,7 +28,7 @@ rt_table_add_route_to_notify_list (
 }
 
 static void
-rt_table_notif_job_cb(void *arg, uint32_t arg_size) {
+rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     l3_route_t *l3route;
@@ -140,7 +140,7 @@ rt_table_process_one_flash_client (rt_table_t *rt_table,  nfc_app_cb cbk) {
 }
 
 static void
-rt_table_flash_job (void *arg, uint32_t arg_size) {
+rt_table_flash_job (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     l3_route_t *l3route;
