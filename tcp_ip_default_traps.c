@@ -19,6 +19,7 @@
 
 #include <unistd.h>
 #include <stdbool.h>
+#include "net.h"
 #include "Layer5/layer5.h"
 #include "Layer3/netfilter.h"
 

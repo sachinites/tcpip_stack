@@ -3,6 +3,10 @@
 
 #include "isis_events.h"
 #include "isis_pkt.h"
+#include "isis_spf.h"
+
+typedef struct isis_adv_data_ isis_adv_data_t;
+typedef struct ted_db_ ted_db_t;
 
 typedef struct isis_timer_data_ {
 
@@ -20,9 +24,16 @@ typedef struct isis_reconc_data_ {
     timer_event_handle *reconciliation_timer;
 } isis_reconc_data_t;
 
-typedef struct isis_node_info_ {
+typedef struct isis_overload_data_ {
+
+    bool ovl_status;
+    uint32_t timeout_val;
+    timer_event_handle *ovl_timer;
+} isis_overload_data_t;
+
+typedef struct node_info_ {
     /* pointer to self LSP pkt */
-    isis_pkt_t *self_lsp_pkt;
+    isis_lsp_pkt_t *self_lsp_pkt;
     /* Task to schedule self LSP pkt generation */
     task_t *lsp_pkt_gen_task;
     /*Task to schedule spf job*/
@@ -57,8 +68,24 @@ typedef struct isis_node_info_ {
     unsigned long event_control_flags;
     /*flag to control protocol shutdown procedure*/
     uint16_t shutdown_pending_work_flags;
-    /* lsp generation flags */
-    uint16_t lsp_generation_flags;
+    /* overload object */
+    isis_overload_data_t ovl_data;
+    /* Miscellaneous flags */
+    uint64_t misc_flags;
+    /* Tree of interface Groups configured by User */
+    avltree_t intf_grp_avl_root;
+    /* Dynamic intf grp */
+    bool dyn_intf_grp;
+    /* Layer 2 Mapping */
+    bool layer2_mapping;
+    /* Rtr ID to be advertised */
+     isis_adv_data_t *adv_data_rtr_id;
+    /* List of Data to be advertised in local LSP pkt */
+    glthread_t adv_data_list_head;
+    /* Ted DB */
+    ted_db_t *ted_db;
+    /* SPF log list */
+    isis_spf_log_container_t spf_logc;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -69,6 +96,7 @@ typedef struct isis_node_info_ {
 
 #define ISIS_DECREMENT_NODE_STATS(node_ptr, field)  \
     (ISIS_NODE_INFO(node_ptr))->field--;
+
 
 bool
 isis_is_protocol_enable_on_node(node_t *node) ;
@@ -121,5 +149,20 @@ isis_protocol_shut_down(node_t *node);
 void
 isis_check_and_shutdown_protocol_now(
         node_t *node, uint16_t work_completed_flag);
+
+void
+isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
+
+void
+isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
+
+bool
+isis_is_overloaded(node_t *node, bool *ovl_timer_running);
+
+void
+isis_stop_overload_timer(node_t *node);
+
+bool
+isis_has_routes(node_t *node) ;
 
 #endif

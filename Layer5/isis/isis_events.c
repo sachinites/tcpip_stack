@@ -5,24 +5,14 @@ static char isis_event_str_arr[isis_event_max][128] =
     /* Warning : Order must match with enums */
     //isis_event_none
     "",
-    //isis_event_adj_state_goes_up    
-    "ISIS EVENT ADJ GOES UP",
-    //isis_event_adj_state_goes_down
-    "ISIS EVENT ADJ GOES DOWN",
-    //isis_event_protocol_enable
-    "ISIS EVENT PROTOCOL ENABLED",
-    //isis_event_protocol_disable
-    "ISIS EVENT PROTOCOL DISABLED",
-    //isis_event_protocol_disable_on_intf
-    "ISIS EVENT INTF DISABLED",
-    //isis_event_protocol_enable_on_intf
-    "ISIS EVENT INTF ENABLED",
-    //isis_nbr_ip_changed
-    "ISIS EVENT NBR IP CHANGED",
-    //isis_nbr_metric_changed
-    "ISIS EVENT NBR METRIC CHANGED",
-    //isis_nbr_rtr_id_changed
-    "ISIS EVENT NBR RTR ID CHANGED",
+    //isis_event_adj_state_changed    
+    "ISIS EVENT ADJ STATE CHANGED",
+    //isis_event_admin_config_changed
+    "ISIS EVENT ADMIN CONFIG CHANGED",
+    //isis_event_nbr_attribute_changed
+    "ISIS EVENT NBR ATTRIBUTE CHANGED",
+    //isis_event_up_adj_deleted
+    "ISIS EVENT UP ADJACENCY DELETED",
     /*lspdb update events*/
     //isis_event_self_duplicate_lsp,
     "ISIS EVENT SELF DUPLICATE LSP",
@@ -57,11 +47,21 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_spf_runs,
     "ISIS EVENT SPF RUNS",
     //isis_event_admin_Action_shutdown_pending
-    "ISIS EVENT ADMIN ACTION SHUTDOWN PENDING"
+    "ISIS EVENT ADMIN ACTION SHUTDOWN PENDING",
+    //isis_event_device_overload_config_changed
+    "ISIS EVENT DEVICE OVERLOAD CONFIG CHANGED",
+    //isis_event_overload_timeout
+    "ISIS EVENT OVERLOAD TIMEOUT"
 }; 
 
 const char *
 isis_event_str(isis_event_type_t isis_event_type) {
 
     return isis_event_str_arr[isis_event_type];
+}
+
+unsigned long
+isis_event_to_event_bit(isis_event_type_t event_type) {
+
+    return (1 << event_type);
 }

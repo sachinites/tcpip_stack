@@ -19,9 +19,11 @@
 #ifndef __LIBCLI__
 #define __LIBCLI__
 
+#include <unistd.h>
 #include "libcliid.h"
 #include "cmd_hier.h"
 
+extern int GL_FD_OUT;
 
 void
 init_libcli();
@@ -88,5 +90,8 @@ start_shell(void);
 
 #define HIDE_PARAM(param_ptr)   ((param_ptr)->ishidden = 1)
 #define IS_PARAM_HIDDEN(param_ptr)  ((param_ptr)->ishidden == 1)
+
+void
+cli_register_ctrlC_handler(void (*app_ctrlC_signal_handler)(void ));
 
 #endif

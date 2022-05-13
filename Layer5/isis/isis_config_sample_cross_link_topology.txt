@@ -1,0 +1,20 @@
+:CMD: clear log
+:CMD: conf node R0 pro isis /
+:CMD: interface all
+:CMD: cd
+:CMD: conf node R1 pro isis /
+:CMD: interface all
+:CMD: cd
+:CMD: conf node R2 pro isis /
+:CMD: interface all
+:CMD: cd
+:CMD: conf node R3 pro isis /
+:CMD: interface all
+:CMD: cd
+:CMD: conf node R4 pro isis /
+:CMD: interface all
+:CMD: cd
+:CMD: conf node R5 pro isis /
+:CMD: interface all
+:CMD: cd
+:CMD: show node R0 proto isis

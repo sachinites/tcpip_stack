@@ -51,6 +51,12 @@ float_validation_handler(leaf_t *leaf, char *value_passed);
 CLI_VAL_RC
 boolean_validation_handler(leaf_t *leaf, char *value_passed);
 
+int
+enable_disable_validation_handler(char *value_passed);
+
+int
+grep_pattern_validation(char *value_passed);
+
 /* Default command handlers */
 int
 config_console_name_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
@@ -88,6 +94,9 @@ negate_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
 int
 supportsave_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
 
+int 
+cli_terminate_handler (param_t *param, ser_buff_t *b, op_mode enable_or_disable);
+
 int
 show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
 
@@ -102,5 +111,8 @@ record_command(char *hist_file, char *cons_input_buffer, unsigned int cmd_len);
 
 int
 show_extension_param_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);
+
+int
+pipe_handler (param_t *param, ser_buff_t *b, op_mode enable_or_disable);
 
 #endif /* __CLISTD__ */

@@ -38,11 +38,7 @@
 
 #include <stdint.h>
 
-#define IS_BIT_SET(n, pos)      ((n & (1 << (pos))) != 0)
-#define TOGGLE_BIT(n, pos)      (n = n ^ (1 << (pos)))
-#define COMPLEMENT(num)         (num = num ^ 0xFFFFFFFF)
-#define UNSET_BIT(n, pos)       (n = n & ((1 << pos) ^ 0xFFFFFFFF))
-#define SET_BIT(n, pos)     (n = n | 1 << pos)
+typedef unsigned char byte;
 
 void
 apply_mask(char *prefix, char mask, char *str_prefix);
@@ -58,7 +54,7 @@ layer2_fill_with_broadcast_mac(char *mac_array);
 #define TLV_OVERHEAD_SIZE  2
 
 /*Macro to Type Length Value reply
- * unsigned char * - start_ptr, IN
+ * byte * - start_ptr, IN
  * unsigned char - type, OUT
  * unsigned char - length, OUT
  * unsigned char * - tlv_ptr, OUT
@@ -80,15 +76,15 @@ layer2_fill_with_broadcast_mac(char *mac_array);
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \
     }}
 
-unsigned char *
-tlv_buffer_get_particular_tlv(unsigned char *tlv_buff, /*Input TLV Buffer*/
+byte *
+tlv_buffer_get_particular_tlv(byte*tlv_buff, /*Input TLV Buffer*/
                               uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
                               uint8_t tlv_no, /*Input TLV Number*/
                               uint8_t *tlv_data_len); /*Output TLV Data len*/
 
-char *
-tlv_buffer_insert_tlv(char *tlv_buff, uint8_t tlv_no, 
-                     uint8_t data_len, char *data);
+byte *
+tlv_buffer_insert_tlv(byte *tlv_buff, uint8_t tlv_no, 
+                     uint8_t data_len, byte *data);
 
 char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
@@ -96,6 +92,17 @@ tcp_ip_covert_ip_n_to_p(uint32_t ip_addr,
 
 uint32_t
 tcp_ip_covert_ip_p_to_n(char *ip_addr);
+
+static inline uint32_t
+tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
+
+    uint32_t bin_mask = 0xFFFFFFFF;
+    if (dmask == 0) return 0;
+    /* dont use below code for dmask = 0, undefined behavior */
+    bin_mask = (bin_mask >> (32 - dmask));
+    bin_mask = (bin_mask << (32 - dmask));
+    return bin_mask;
+}
 
 uint32_t get_new_ifindex();
 #endif /* __UTILS__ */

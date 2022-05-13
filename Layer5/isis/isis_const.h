@@ -8,7 +8,7 @@
 #define ISIS_DEFAULT_INTF_COST  10  // as per standard
 #define ISIS_HOLD_TIME_FACTOR   2
 #define ISIS_ADJ_DEFAULT_DELETE_TIME (5 * 1000) // 5 sec
-#define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  600 // 1200 sec is standard
+#define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  1200 // 1200 sec is standard
 #define ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL (ISIS_LSP_DEFAULT_FLOOD_INTERVAL * 2)
 #define ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS true
 
@@ -28,7 +28,7 @@
 #define ISIS_TLV_LOCAL_IP   6 // as per standard
 #define ISIS_TLV_REMOTE_IP  8 // as per standard
 #define ISIS_TLV_ON_DEMAND  111 // imaginary
-
+#define ISIS_TLV_IF_MAC      131 // Imaginary
 
 #define ISIS_LSP_HDR_SIZE   sizeof(isis_pkt_hdr_t)
 
@@ -39,11 +39,20 @@
 #define ISIS_ERROR_PROTO_NOT_ENABLE \
     "Error : Protocol not enabled on Device"
 
+#define ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF \
+    "Error : Protocol not enabled on interface"
+
 /* Feature Name for logging */
 #define ISIS_ADJ_MGMT   " ISIS(ADJ MGMT)"
 #define ISIS_LSPDB_MGMT " ISIS(LSPDB MGMT)"
-#define ISIS_SPF    " ISIS(SPF)"
-#define ISIS_ERROR  " ISIS(ERROR)"
-#define ISIS_PKT    " ISIS(PKT)"
+#define ISIS_SPF        " ISIS(SPF)"
+#define ISIS_ERROR      " ISIS(ERROR)"
+#define ISIS_PKT        " ISIS(PKT)"
+
+/* ISIS Miscellaneous flags */
+#define ISIS_F_DISABLE_LSP_GEN  1
+
+
+
 
 #endif 

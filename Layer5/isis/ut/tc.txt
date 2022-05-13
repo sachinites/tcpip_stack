@@ -1,0 +1,60 @@
+:PRINT: Running Time 1
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 2
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 3
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 4
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 5
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 6
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 7
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 8
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 9
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 10
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 11
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 12
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 13
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 14
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 15
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 16
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 17
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 18
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 19
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 20
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 21
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 22
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 23
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 24
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 25
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 26
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 27
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 28
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 29
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3
+:PRINT: Running Time 30
+:CMD: run ut Layer5/isis/ut/isis_tc.ut 3

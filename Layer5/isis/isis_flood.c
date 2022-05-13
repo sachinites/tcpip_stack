@@ -7,37 +7,30 @@
 #include "isis_flood.h"
 #include "isis_adjacency.h"
 #include "isis_lspdb.h"
+#include "isis_intf_group.h"
+#include "isis_spf.h"
 
 extern void
-isis_parse_lsp_tlvs_internal(isis_pkt_t *new_lsp_pkt, 
+isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv);
-
-typedef struct isis_lsp_xmit_elem_ {
-
-    isis_pkt_t *lsp_pkt;
-    glthread_t glue;
-} isis_lsp_xmit_elem_t;
-GLTHREAD_TO_STRUCT(glue_to_lsp_xmit_elem, 
-    isis_lsp_xmit_elem_t, glue);
-
 
 static void
 isis_assign_lsp_src_mac_addr(interface_t *intf,
-                             isis_pkt_t *lsp_pkt) {
+                             isis_lsp_pkt_t *lsp_pkt) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(lsp_pkt->pkt);
     memcpy(eth_hdr->src_mac.mac, IF_MAC(intf), sizeof(mac_add_t));                           
 }
 
 void
-isis_lsp_pkt_flood_complete(node_t *node, isis_pkt_t *lsp_pkt ){
+isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt ){
 
     assert(!lsp_pkt->flood_queue_count);
 }
 
 void
 isis_mark_isis_lsp_pkt_flood_ineligible(
-        node_t *node, isis_pkt_t *lsp_pkt) {
+        node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     lsp_pkt->flood_eligibility = false;
 }
@@ -46,12 +39,12 @@ isis_mark_isis_lsp_pkt_flood_ineligible(
 static void
 isis_check_xmit_lsp_sanity_before_transmission(
         node_t *node,
-        isis_pkt_t *lsp_pkt) {
+        isis_lsp_pkt_t *lsp_pkt) {
 
     bool on_demand_tlv_present; 
-    isis_node_info_t *isis_node_info;
+    isis_node_info_t *node_info;
 
-    isis_node_info = ISIS_NODE_INFO(node);
+    node_info = ISIS_NODE_INFO(node);
 
     on_demand_tlv_present = false;
 
@@ -65,52 +58,43 @@ isis_check_xmit_lsp_sanity_before_transmission(
 }
 
 static void
-breakpoint() {
-
-}
-
-static void
-isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
+isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     interface_t *intf;
-    isis_pkt_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     bool has_up_adjacency;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
     
     intf = (interface_t *)arg;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(intf->att_node);
-    isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(intf);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(intf->att_node);
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
-    isis_intf_info->lsp_xmit_job = NULL;
+    intf_info->lsp_xmit_job = NULL;
 
     sprintf(tlb, "%s : lsp xmit job triggered\n", ISIS_LSPDB_MGMT);
     tcp_trace(intf->att_node, intf, tlb);
-
-    if (strcmp(intf->if_name, "eth9") == 0) {
-        breakpoint();
-    }
 
     if (!isis_node_intf_is_enable(intf)) return;
 
     has_up_adjacency = isis_any_adjacency_up_on_interface(intf);
 
-    ITERATE_GLTHREAD_BEGIN(&isis_intf_info->lsp_xmit_list_head, curr) {
+    ITERATE_GLTHREAD_BEGIN(&intf_info->lsp_xmit_list_head, curr) {
 
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         assert(lsp_pkt->flood_queue_count);
         lsp_pkt->flood_queue_count--;
-        isis_node_info->pending_lsp_flood_count--;
+        node_info->pending_lsp_flood_count--;
         
-        free(lsp_xmit_elem);
+        XFREE(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
-            ISIS_INCREMENT_STATS(intf, lsp_pkt_sent);
+            ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
 
             sprintf(tlb, "%s : LSP %s pushed out of interface %s\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
@@ -127,39 +111,45 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
         isis_deref_isis_pkt(lsp_pkt);
 
-    } ITERATE_GLTHREAD_END(&isis_intf_info->lsp_xmit_list_head, curr);
+    } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
-    if (isis_node_info->pending_lsp_flood_count ==0) {
+    /* If there are no more LSPs to be pushed out for flooding, and
+        we are shutting down and no more LSP generation is scheduled,
+        then, check and delete protocol configuration
+    */
+    if ( node_info->pending_lsp_flood_count ==0                &&
+         isis_is_protocol_shutdown_in_progress(intf->att_node)   &&
+         !node_info->lsp_pkt_gen_task                                    &&
+        IS_BIT_SET (node_info->misc_flags, ISIS_F_DISABLE_LSP_GEN)) {
         
         isis_check_and_shutdown_protocol_now(intf->att_node,
             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
     }
-
 }
 
 void
 isis_queue_lsp_pkt_for_transmission(
         interface_t *intf,
-        isis_pkt_t *lsp_pkt) {
+        isis_lsp_pkt_t *lsp_pkt) {
 
-    isis_node_info_t *isis_node_info;
-    isis_intf_info_t *isis_intf_info;
+    isis_node_info_t *node_info;
+    isis_intf_info_t *intf_info;
     
     if (!isis_node_intf_is_enable(intf)) return;
 
     if (!lsp_pkt->flood_eligibility) return;
 
-    isis_intf_info = ISIS_INTF_INFO(intf);
-    isis_node_info = ISIS_NODE_INFO(intf->att_node);
+    intf_info = ISIS_INTF_INFO(intf);
+    node_info = ISIS_NODE_INFO(intf->att_node);
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
-        calloc(1, sizeof(isis_lsp_xmit_elem_t));
+        XCALLOC(0, 1, isis_lsp_xmit_elem_t);
     
     init_glthread(&lsp_xmit_elem->glue);
     lsp_xmit_elem->lsp_pkt = lsp_pkt;
     isis_ref_isis_pkt(lsp_pkt);
 
-    glthread_add_last(&isis_intf_info->lsp_xmit_list_head,
+    glthread_add_last(&intf_info->lsp_xmit_list_head,
                       &lsp_xmit_elem->glue);
 
     sprintf(tlb, "%s : LSP %s scheduled to flood out of %s\n",
@@ -168,128 +158,115 @@ isis_queue_lsp_pkt_for_transmission(
     tcp_trace(intf->att_node, intf, tlb);
 
     lsp_pkt->flood_queue_count++;
-    isis_node_info->pending_lsp_flood_count++;
+    node_info->pending_lsp_flood_count++;
 
-    if (!isis_intf_info->lsp_xmit_job) {
+    if (!intf_info->lsp_xmit_job) {
 
-        isis_intf_info->lsp_xmit_job =
+       intf_info->lsp_xmit_job =
             task_create_new_job(EV(intf->att_node), 
                     intf, isis_lsp_xmit_job, TASK_ONE_SHOT);
     }
 }
 
+
 void
 isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
 
     glthread_t *curr;
-    isis_pkt_t *lsp_pkt;
-    isis_intf_info_t *isis_intf_info;
+    isis_lsp_pkt_t *lsp_pkt;
+    isis_intf_info_t *intf_info;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
 
     if (!isis_node_intf_is_enable(intf)) return;
     
-    isis_intf_info = ISIS_INTF_INFO(intf);
+    intf_info = ISIS_INTF_INFO(intf);
 
-    ITERATE_GLTHREAD_BEGIN(&isis_intf_info->lsp_xmit_list_head, curr) {
+    ITERATE_GLTHREAD_BEGIN(&intf_info->lsp_xmit_list_head, curr) {
 
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
-        free(lsp_xmit_elem);
+        XFREE(lsp_xmit_elem);
         lsp_pkt->flood_queue_count--;
         isis_deref_isis_pkt(lsp_pkt);
 
-    } ITERATE_GLTHREAD_END(&isis_intf_info->lsp_xmit_list_head, curr);
+    } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
-    if (isis_intf_info->lsp_xmit_job) {
-        task_cancel_job(EV(intf->att_node), isis_intf_info->lsp_xmit_job);
-        isis_intf_info->lsp_xmit_job = NULL;
+    if (intf_info->lsp_xmit_job) {
+        task_cancel_job(EV(intf->att_node), intf_info->lsp_xmit_job);
+        intf_info->lsp_xmit_job = NULL;
     }
 }
 
 void
 isis_schedule_lsp_flood(node_t *node, 
-                        isis_pkt_t *lsp_pkt,
+                        isis_lsp_pkt_t *lsp_pkt,
                         interface_t *exempt_iif,
                         isis_event_type_t event_type) {
 
     interface_t *intf;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    glthread_t *curr;
+    avltree_node_t *avl_node;
+    bool is_lsp_queued = false;
+    isis_intf_group_t *intf_grp;
+    isis_node_info_t *node_info;
+    
+    node_info  = ISIS_NODE_INFO(node);
 
     if (!lsp_pkt->flood_eligibility) return;
 
-    sprintf(tlb, "%s : LSP %s scheduled for flood\n",
-        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt));
-    tcp_trace(node, exempt_iif, tlb);
-
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
-        if (!isis_node_intf_is_enable(intf) ||
-                intf == exempt_iif) continue;
+        if (!isis_node_intf_is_enable(intf)) continue;
 
+        if (intf == exempt_iif) {
+            sprintf(tlb, "%s : LSP %s flood skip out of intf %s, Reason :reciepient intf\n",
+                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
+            tcp_trace(node, 0, tlb);
+            continue;
+        }
+
+        if (ISIS_INTF_INFO(intf)->intf_grp) continue;
+
+        sprintf(tlb, "%s : LSP %s scheduled for flood out of intf %s\n",
+            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name);
+        tcp_trace(node, 0, tlb);
         isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
+        is_lsp_queued = true;
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
-    ISIS_INCREMENT_NODE_STATS(node, lsp_flood_count);
-}
+    /* Now iterate over all interface grps */
+    ITERATE_AVL_TREE_BEGIN(&node_info->intf_grp_avl_root, avl_node) {
 
-void
-isis_update_lsp_flood_timer_with_new_lsp_pkt(
-        node_t *node,
-        isis_pkt_t *new_lsp_pkt) { /* Could be NULL */
+        intf_grp = avltree_container_of(avl_node, isis_intf_group_t, avl_glue);
 
-    isis_pkt_t *old_lsp_pkt;
-    isis_timer_data_t *old_isis_timer_data = NULL;
-    isis_timer_data_t *new_isis_timer_data = NULL;
-    
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
-    
-    timer_event_handle *wt_elem = isis_node_info->periodic_lsp_flood_timer;
+        if (exempt_iif && ISIS_INTF_INFO(exempt_iif)->intf_grp == intf_grp) { 
+        
+            sprintf(tlb, "%s : LSP %s flood skip out of intf %s, Reason : reciepient intf grp %s\n",
+                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), exempt_iif->if_name,
+                        ISIS_INTF_INFO(exempt_iif)->intf_grp->name);
+            tcp_trace(node, 0, tlb);
+            continue;
+        }
+        
+        intf = isis_intf_grp_get_first_active_intf_grp_member(node, intf_grp);
+        if (!intf || !isis_any_adjacency_up_on_interface(intf)) continue;
+        
+        sprintf(tlb, "%s : LSP %s scheduled for flood out of intf %s intf-grp %s\n",
+                    ISIS_LSPDB_MGMT,
+                    isis_print_lsp_id(lsp_pkt),
+                    intf->if_name,
+                    ISIS_INTF_INFO(intf)->intf_grp ? ISIS_INTF_INFO(intf)->intf_grp->name : "None");
+        tcp_trace(node, 0, tlb);
+        isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
+        is_lsp_queued = true;
 
-    if(!wt_elem) return;
+    }  ITERATE_AVL_TREE_END;
 
-    old_isis_timer_data = wt_elem_get_and_set_app_data(wt_elem, 0);
-
-    /* case 1 : */
-    if (!old_isis_timer_data && !new_lsp_pkt) goto done;
-
-    /* case 2 : */
-    else if (!old_isis_timer_data && new_lsp_pkt) {
-
-        new_isis_timer_data =
-            calloc(1, sizeof(isis_timer_data_t));
-
-        new_isis_timer_data->node = node;
-        new_isis_timer_data->intf = NULL;
-        new_isis_timer_data->data = (char *)new_lsp_pkt;
-        isis_ref_isis_pkt(new_lsp_pkt);
-        new_isis_timer_data->data_size = sizeof(isis_pkt_t);
-        wt_elem_get_and_set_app_data(wt_elem, new_isis_timer_data);
-        goto done;
+    if (is_lsp_queued) {
+        ISIS_INCREMENT_NODE_STATS(node, lsp_flood_count);
     }
-
-    /* case 3 : */
-    else if (old_isis_timer_data && !new_lsp_pkt) {
-
-        isis_deref_isis_pkt((isis_pkt_t *)old_isis_timer_data->data);
-        free(old_isis_timer_data);
-        assert(0);
-        goto done;
-    }
-
-    /* case 4 : Both are non null*/
-    else {
-
-        isis_deref_isis_pkt((isis_pkt_t *)old_isis_timer_data->data);
-        isis_ref_isis_pkt(new_lsp_pkt);
-        old_isis_timer_data->data = (char *)new_lsp_pkt;
-        wt_elem_get_and_set_app_data(wt_elem, old_isis_timer_data);
-        goto done;
-    }
-
-    done:
-        ;
 }
 
 static void
@@ -298,79 +275,46 @@ isis_timer_wrapper_lsp_flood(event_dispatcher_t *ev_dis,
 
     if (!arg) return;
     
-    isis_timer_data_t *isis_timer_data = 
-        (isis_timer_data_t *)arg;
-
-    ISIS_INCREMENT_NODE_STATS((isis_timer_data->node), seq_no);
-
-    uint32_t *seq_no = isis_get_lsp_pkt_seq_no(
-                        (isis_pkt_t *)isis_timer_data->data);
-    
-    *seq_no = (ISIS_NODE_INFO(isis_timer_data->node))->seq_no;
+    node_t *node = (node_t *)arg;
 
     isis_schedule_lsp_pkt_generation(
-            isis_timer_data->node,
+            node,
             isis_event_periodic_lsp_generation);
+
+    if ( !isis_is_reconciliation_in_progress(node)) {
+        ISIS_INCREMENT_NODE_STATS(node,
+            isis_event_count[isis_event_periodic_lsp_generation]);
+    }
 }
 
 void
 isis_start_lsp_pkt_periodic_flooding(node_t *node) {
 
-    wheel_timer_t *wt;
-    isis_pkt_t *self_lsp_pkt;
-    isis_node_info_t *isis_node_info;
-
-    wt = node_get_timer_instance(node);
-    isis_node_info = ISIS_NODE_INFO(node);
-    self_lsp_pkt = isis_node_info->self_lsp_pkt;
-
-    isis_timer_data_t *isis_timer_data = NULL;
-
-    /* Even if there is no LSP pkt to flood, start the
-        timer any way */
-    if (isis_node_info->self_lsp_pkt) {
-        
-        isis_timer_data = calloc(1, sizeof(isis_timer_data_t));
-        isis_timer_data->node = node;
-        isis_timer_data->intf = NULL;
-        isis_timer_data->data =
-            (char *)(isis_node_info->self_lsp_pkt);
-        isis_ref_isis_pkt(isis_node_info->self_lsp_pkt);
-        isis_timer_data->data_size = sizeof(isis_pkt_t);
-    }
-       
-    isis_node_info->periodic_lsp_flood_timer = 
-                timer_register_app_event(wt,
+    isis_node_info_t *node_info;
+    
+    node_info = ISIS_NODE_INFO(node);
+      
+    node_info->periodic_lsp_flood_timer = 
+                timer_register_app_event(node_get_timer_instance(node),
                 isis_timer_wrapper_lsp_flood,
-                (void *)isis_timer_data,
-                isis_timer_data ? sizeof(isis_timer_data_t) : 0,
-                isis_node_info->lsp_flood_interval * 1000,
+                (void *)node,
+                sizeof(node_t),
+                node_info->lsp_flood_interval * 1000,
                 1);
 }
 
 void
 isis_stop_lsp_pkt_periodic_flooding(node_t *node){
 
-    isis_timer_data_t *isis_timer_data = NULL;
     timer_event_handle *periodic_lsp_flood_timer;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    periodic_lsp_flood_timer = isis_node_info->periodic_lsp_flood_timer;
+    periodic_lsp_flood_timer = node_info->periodic_lsp_flood_timer;
 
     if (!periodic_lsp_flood_timer) return;
 
-    isis_timer_data = wt_elem_get_and_set_app_data(
-                            periodic_lsp_flood_timer, 0);
-
-    timer_de_register_app_event(periodic_lsp_flood_timer);
-
-    if (isis_timer_data) {
-
-        isis_deref_isis_pkt((isis_pkt_t *)isis_timer_data->data);
-        free(isis_timer_data);
-    }
-    
-    isis_node_info->periodic_lsp_flood_timer = NULL;
+    timer_de_register_app_event(periodic_lsp_flood_timer);   
+    node_info->periodic_lsp_flood_timer = NULL;
 }
 
 /* Reconciliation APIs */
@@ -378,13 +322,13 @@ bool
 isis_is_reconciliation_in_progress(node_t *node) {
 
     isis_reconc_data_t *recon;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         return false;
     }
     
-    recon = &isis_node_info->reconc;
+    recon = &node_info->reconc;
     return recon->reconciliation_in_progress;
 }
 
@@ -392,21 +336,20 @@ void
 isis_enter_reconciliation_phase(node_t *node) {
 
     isis_reconc_data_t *recon;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         return;
     }
 
-    if (!isis_node_info->on_demand_flooding) return;
-
-    recon = &isis_node_info->reconc;
-
+    if (!node_info->on_demand_flooding) return;
+    recon = &node_info->reconc;
     if (recon->reconciliation_in_progress) return;
-
+    isis_cancel_spf_job(node) ;
+    
     recon->reconciliation_in_progress = true;
 
-    timer_reschedule(isis_node_info->periodic_lsp_flood_timer,
+    timer_reschedule(node_info->periodic_lsp_flood_timer,
                       ISIS_DEFAULT_RECONCILIATION_FLOOD_INTERVAL);
 
     isis_start_reconciliation_timer(node);
@@ -420,23 +363,25 @@ void
 isis_exit_reconciliation_phase(node_t *node) {
 
     isis_reconc_data_t *recon;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         return;
     }
 
-    recon = &isis_node_info->reconc;
+    recon = &node_info->reconc;
 
     if (!recon->reconciliation_in_progress) return;
 
     recon->reconciliation_in_progress = false;
 
-    timer_reschedule(isis_node_info->periodic_lsp_flood_timer,
-                      isis_node_info->lsp_flood_interval * 1000);
+    timer_reschedule(node_info->periodic_lsp_flood_timer,
+                      node_info->lsp_flood_interval * 1000);
 
     isis_stop_reconciliation_timer(node);
     isis_schedule_lsp_pkt_generation(node, isis_event_reconciliation_exit);
+    
+    isis_schedule_spf_job(node, isis_event_reconciliation_exit);
 
     ISIS_INCREMENT_NODE_STATS(node,
         isis_event_count[isis_event_reconciliation_exit]);
@@ -446,13 +391,13 @@ void
 isis_restart_reconciliation_timer(node_t *node) {
 
     isis_reconc_data_t *recon;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         return;
     }
     
-    recon = &isis_node_info->reconc;
+    recon = &node_info->reconc;
 
     if (!recon->reconciliation_in_progress) return;
 
@@ -480,13 +425,13 @@ void
 isis_start_reconciliation_timer(node_t *node) {
 
     isis_reconc_data_t *recon;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         return;
     }
     
-    recon = &isis_node_info->reconc;
+    recon = &node_info->reconc;
 
     assert(recon->reconciliation_in_progress); 
 
@@ -498,20 +443,19 @@ isis_start_reconciliation_timer(node_t *node) {
                                     (void *)node, sizeof(node),
                                     ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME,
                                     0);
-
 }
 
 void
 isis_stop_reconciliation_timer(node_t *node) {
 
     isis_reconc_data_t *recon;
-    isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         return;
     }
 
-    recon = &isis_node_info->reconc;
+    recon = &node_info->reconc;
 
     if(!recon->reconciliation_timer) return;
 

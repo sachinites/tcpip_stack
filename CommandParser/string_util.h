@@ -19,6 +19,8 @@
 #ifndef __STRING_UTIL__
 #define __STRING_UTIL__
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 
 char** tokenizer(char* a_str, 
@@ -45,5 +47,16 @@ untokenize(unsigned int index);
 
 char *
 get_token(unsigned int index);
+
+void replaceSubstring(char string[], char sub[], char new_str[]);
+
+bool
+pattern_match(char string[], int string_size, char pattern[]);
+
+int
+grep (char string[], int string_size, char pattern[]);
+
+uint64_t
+string_fetch_integer(char *string, int string_size, int index);
 
 #endif

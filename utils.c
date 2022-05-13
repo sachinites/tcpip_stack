@@ -97,9 +97,11 @@ tcp_ip_covert_ip_p_to_n(char *ip_addr){
     return binary_prefix;
 }
 
-char *
-tlv_buffer_insert_tlv(char *buff, uint8_t tlv_no,
-                     uint8_t data_len, char *data){
+byte *
+tlv_buffer_insert_tlv(byte  *buff,
+                                  uint8_t tlv_no,
+                                  uint8_t data_len,
+                                  byte  *data){
 
     *buff = tlv_no;
     *(buff+1) = data_len;
@@ -107,13 +109,13 @@ tlv_buffer_insert_tlv(char *buff, uint8_t tlv_no,
     return buff + TLV_OVERHEAD_SIZE + data_len;
 }
 
-unsigned char *
-tlv_buffer_get_particular_tlv(unsigned char *tlv_buff, /*Input TLV Buffer*/
-                      uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
-                      uint8_t tlv_no,         /*Input TLV Number*/
-                      uint8_t *tlv_data_len){ /*Output TLV Data len*/
+byte  *
+tlv_buffer_get_particular_tlv(byte  *tlv_buff, /*Input TLV Buffer*/
+                      uint32_t tlv_buff_size,               /*Input TLV Buffer Total Size*/
+                      uint8_t tlv_no,                            /*Input TLV Number*/
+                      uint8_t *tlv_data_len){              /*Output TLV Data len*/
 
-    unsigned char tlv_type, tlv_len, *tlv_value = NULL;
+    byte tlv_type, tlv_len, *tlv_value = NULL;
     
     ITERATE_TLV_BEGIN(tlv_buff, tlv_type, tlv_len, tlv_value, tlv_buff_size){
         

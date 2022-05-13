@@ -3,6 +3,7 @@
 
 typedef enum isis_adj_state_ {
 
+    ISIS_ADJ_STATE_UNKNOWN,
     ISIS_ADJ_STATE_DOWN,
     ISIS_ADJ_STATE_INIT,
     ISIS_ADJ_STATE_UP
@@ -30,9 +31,11 @@ typedef struct isis_adjacency_{
     /* nbr Device Name */
     unsigned char nbr_name[NODE_NAME_SIZE];
     /* Nbr intf Ip */
-    ip_add_t nbr_intf_ip;
+   uint32_t nbr_intf_ip;
+   /* Mac Address */
+   mac_add_t nbr_mac;
     /*Nbr lo 0 address */
-    ip_add_t nbr_rtr_id;
+    uint32_t nbr_rtr_id;
     /* Nbr if index */
     uint32_t remote_if_index;
     /* Adj State */
@@ -64,7 +67,7 @@ isis_update_interface_adjacency_from_hello(interface_t *iif,
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
         interface_t *intf,
-        char *router_id);
+        uint32_t nbr_rtr_id);
 
 char *
 isis_adjacency_name(isis_adjacency_t *adjacency);
@@ -83,7 +86,7 @@ isis_get_next_adj_state_on_receiving_next_hello(
 void
 isis_delete_adjacency(isis_adjacency_t *adjacency);
 
-void
+int
 isis_delete_all_adjacencies(interface_t *intf);
 
 bool
@@ -104,10 +107,12 @@ isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
 uint16_t
 isis_size_to_encode_all_nbr_tlv(node_t *node);
 
-uint8_t
-isis_print_formatted_nbr_tlv(byte *out_buff, 
+uint16_t
+isis_print_formatted_nbr_tlv22(byte *out_buff, 
                              byte *nbr_tlv_buffer,
                              uint8_t tlv_buffer_len);
                              
+uint32_t 
+isis_show_all_adjacencies (node_t *node) ;
 
 #endif /* __IGP_NBRSHIP__ */

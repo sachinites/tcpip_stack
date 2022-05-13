@@ -11,7 +11,7 @@
  *       Compiler:  gcc
  *
  *         Author:  Er. Abhishek Sagar, Networking Developer (AS), sachinites@gmail.com
- *        Company:  Brocade Communications(Jul 2012- Mar 2016), Current : Juniper Networks(Apr 2017 - Present)
+ *        Company:  Brocade Communications(Jul 2012- Mar 2017), Current : Juniper Networks(Apr 2017 - Present)
  *        
  *        This file is part of the NetworkGraph distribution (https://github.com/sachinites).
  *        Copyright (c) 2017 Abhishek Sagar.
@@ -37,6 +37,7 @@
 #include "graph.h"
 #include <stdio.h>
 #include "CommandParser/libcli.h"
+#include "EventDispatcher/event_dispatcher.h"
 
 extern void init_tcp_ip_stack();
 
@@ -50,13 +51,46 @@ extern graph_t *cross_link_topology();
 
 extern void nw_init_cli();
 
+/* Memory Init Imports */
+extern void mm_init();
+extern void nfc_mem_init ();
+extern void event_dispatcher_mem_init(); 
+extern void layer2_mem_init();
+extern void layer3_mem_init();
+extern void layer4_mem_init();
+/* Layer 5*/
+extern void spf_algo_mem_init(); 
+extern void isis_mem_init();
+extern void ted_mem_init();
+extern void tcp_stack_miscellaneous_mem_init();
+
 graph_t *topo = NULL;
+extern event_dispatcher_t gev_dis;
+
+static void
+tcp_ip_stack_pre_topology_create_initializations() {
+
+    nw_init_cli();
+    mm_init();
+    nfc_mem_init();
+    event_dispatcher_mem_init();
+    layer2_mem_init();
+    layer3_mem_init();
+    layer4_mem_init();
+    spf_algo_mem_init();
+    isis_mem_init();
+    ted_mem_init();
+    /* Initialize the Scheduler before topology creation, as node
+        can fire certain jobs during initialization as well */
+    event_dispatcher_init(&gev_dis);
+    tcp_stack_miscellaneous_mem_init();
+}
 
 int 
 main(int argc, char **argv){
 
-    nw_init_cli();
-    topo = cross_link_topology();
+    tcp_ip_stack_pre_topology_create_initializations();
+    topo = build_first_topo();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;

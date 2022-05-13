@@ -36,6 +36,8 @@
 #include "graph.h"
 #include "utils.h"
 #include "tcpconst.h"
+#include "notif.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 /*Just some Random number generator*/
 static uint32_t
@@ -194,9 +196,9 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
     for( ; i < MAX_INTF_PER_NODE; i++){
     
         intf = node->intf[i];
-        if(!intf) return NULL;
+        if (!intf) return NULL;
 
-        if(intf->intf_nw_props.is_ipadd_config == false)
+        if (intf->intf_nw_props.is_ipadd_config == false)
             continue;
         
         intf_addr = IF_IP(intf);
@@ -207,7 +209,7 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
         apply_mask(intf_addr, mask, intf_subnet);
         apply_mask(ip_addr, mask, subnet2);
         
-        if(strncmp(intf_subnet, subnet2, 16) == 0){
+        if (strncmp(intf_subnet, subnet2, 16) == 0){
             return intf;
         }
     }
@@ -227,7 +229,7 @@ is_same_subnet(char *ip_addr, char mask,
     apply_mask(ip_addr, mask, intf_subnet);
     apply_mask(other_ip_addr, mask, subnet2);
 
-    if(strncmp(intf_subnet, subnet2, 16) == 0){
+    if (strncmp(intf_subnet, subnet2, 16) == 0){
         return true;
     }
     return false;
@@ -240,7 +242,7 @@ is_same_subnet(char *ip_addr, char mask,
 uint32_t
 get_access_intf_operating_vlan_id(interface_t *interface){
 
-    if(IF_L2_MODE(interface) != ACCESS){
+    if (IF_L2_MODE(interface) != ACCESS){
         assert(0);
     }
 
@@ -253,7 +255,7 @@ bool
 is_trunk_interface_vlan_enabled(interface_t *interface, 
                                 uint32_t vlan_id){
 
-    if(IF_L2_MODE(interface) != TRUNK){
+    if (IF_L2_MODE(interface) != TRUNK){
         assert(0);
     }
 
@@ -301,10 +303,11 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
 void
 dump_interface_stats(interface_t *interface){
 
-    printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u",
+    printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u,  send rate = %lu bps",
         interface->if_name, interface->intf_nw_props.pkt_sent,
         interface->intf_nw_props.pkt_recv,
-		interface->intf_nw_props.xmit_pkt_dropped);
+		interface->intf_nw_props.xmit_pkt_dropped,
+        interface->intf_nw_props.bit_rate.bit_rate);
 }
 
 void
@@ -327,34 +330,34 @@ bool
 is_interface_l3_bidirectional(interface_t *interface){
 
     /*if interface is in L2 mode*/
-    if(IF_L2_MODE(interface) == ACCESS || 
+    if (IF_L2_MODE(interface) == ACCESS || 
         IF_L2_MODE(interface) == TRUNK)
         return false;
 
     /* If interface is not configured 
      * with IP address*/
-    if(!IS_INTF_L3_MODE(interface))
+    if (!IS_INTF_L3_MODE(interface))
         return false;
 
     interface_t *other_interface = &interface->link->intf1 == interface ?    \
             &interface->link->intf2 : &interface->link->intf1;
 
-    if(!other_interface)
+    if (!other_interface)
         return false;
 
-    if(!IF_IS_UP(interface) ||
+    if (!IF_IS_UP(interface) ||
             !IF_IS_UP(other_interface)){
         return false;
     }
 
-    if(IF_L2_MODE(other_interface) == ACCESS ||
-        IF_L2_MODE(interface) == TRUNK)
+    if (IF_L2_MODE(other_interface) == ACCESS ||
+        IF_L2_MODE(other_interface) == TRUNK)
         return false;
 
-    if(!IS_INTF_L3_MODE(other_interface))
+    if (!IS_INTF_L3_MODE(other_interface))
         return false;
 
-    if(!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
+    if (!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
         IF_IP(other_interface)) &&
         is_same_subnet(IF_IP(other_interface), IF_MASK(other_interface),
         IF_IP(interface)))){
@@ -368,4 +371,35 @@ wheel_timer_t *
 node_get_timer_instance(node_t *node){
 
 	return node->node_nw_prop.wt;
+}
+
+static void
+interface_bit_rate_sample_update(void *arg, uint32_t arg_size) {
+
+    if (!arg) return;
+
+    interface_t *interface = (interface_t *)arg;
+
+    interface->intf_nw_props.bit_rate.bit_rate = 
+         interface->intf_nw_props.bit_rate.new_bit_stats - 
+         interface->intf_nw_props.bit_rate.old_bit_stats;
+
+    interface->intf_nw_props.bit_rate.old_bit_stats = 
+         interface->intf_nw_props.bit_rate.new_bit_stats;
+}
+
+void
+intf_init_bit_rate_sampling_timer(interface_t *interface) {
+
+    wheel_timer_elem_t *wt_elem =
+        interface->intf_nw_props.bit_rate.bit_rate_sampling_timer;
+
+    assert(!wt_elem);
+
+    wheel_timer_t *timer = node_get_timer_instance(interface->att_node);
+    assert(timer);
+
+    interface->intf_nw_props.bit_rate.bit_rate_sampling_timer =
+        timer_register_app_event(timer, interface_bit_rate_sample_update,
+        (void *)interface, sizeof(*interface), 1000, 1);
 }

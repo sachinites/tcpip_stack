@@ -1,17 +1,23 @@
 CC=gcc
-CFLAGS=-g
-TARGET:tcpstack.exe CommandParser/libcli.a pkt_gen.exe
-LIBS=-lpthread -L ./CommandParser -lcli -lrt
+CFLAGS=-g -Wall -Wextra 
+TARGET:tcpstack.exe pkt_gen.exe
+LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt
 OBJS=gluethread/glthread.o \
+		  BitOp/bitmap.o \
+		  stack/stack.o \
 		  Tree/avl.o	   \
+		  mtrie/mtrie.o	   \
 		  graph.o 		   \
 		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \
 		  comm.o		   \
 		  Layer2/layer2.o  \
+		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
+		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
+		  Layer3/rt_notif.o	\
 		  Layer4/layer4.o  \
 		  Layer5/layer5.o  \
 		  nwcli.o		   \
@@ -37,6 +43,15 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_flood.o \
 		  Layer5/isis/isis_lspdb.o \
 		  Layer5/isis/isis_spf.o \
+		  Layer5/isis/isis_mem_init.o \
+		  Layer5/isis/isis_intf_group.o \
+		  Layer5/isis/isis_layer2map.o \
+		  Layer5/isis/isis_ted.o \
+		  ted/ted.o \
+		  LinuxMemoryManager/mm.o \
+		  flow/snp_flow.o \
+		  tcp_stack_mem_init.o \
+		  prefix_policy/prefix_policy.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -58,7 +73,7 @@ Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
 Layer5/isis/isis_pkt.o:Layer5/isis/isis_pkt.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_pkt.c -o Layer5/isis/isis_pkt.o
 
-Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.o
+Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_flood.c -o Layer5/isis/isis_flood.o
 
 Layer5/isis/isis_events.o:Layer5/isis/isis_events.c
@@ -70,11 +85,32 @@ Layer5/isis/isis_lspdb.o:Layer5/isis/isis_lspdb.c
 Layer5/isis/isis_spf.o:Layer5/isis/isis_spf.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_spf.c -o Layer5/isis/isis_spf.o
 
+Layer5/isis/isis_mem_init.o:Layer5/isis/isis_mem_init.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_mem_init.c -o Layer5/isis/isis_mem_init.o
+
+Layer5/isis/isis_intf_group.o:Layer5/isis/isis_intf_group.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_intf_group.c -o Layer5/isis/isis_intf_group.o
+
+Layer5/isis/isis_layer2map.o:Layer5/isis/isis_layer2map.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_layer2map.c -o Layer5/isis/isis_layer2map.o
+
+Layer5/isis/isis_ted.o:Layer5/isis/isis_ted.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_ted.c -o Layer5/isis/isis_ted.o
+
+ted/ted.o:ted/ted.c
+	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
+
+flow/snp_flow.o:flow/snp_flow.c
+	${CC} ${CFLAGS} -c -I . flow/snp_flow.c -o flow/snp_flow.o
+
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
 
+tcp_stack_mem_init.o:tcp_stack_mem_init.c
+	${CC} ${CFLAGS} -c -I . tcp_stack_mem_init.c -o tcp_stack_mem_init.o
+
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
-	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o	
+	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
 
 pkt_gen.exe:pkt_gen.o utils.o
 	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
@@ -82,8 +118,8 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:testapp.o ${OBJS} CommandParser/libcli.a
-	${CC} ${CFLAGS} testapp.o ${OBJS} -o tcpstack.exe ${LIBS}
+tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a
+	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "Build Finished"
 
 notif.o:notif.c
@@ -92,14 +128,17 @@ notif.o:notif.c
 tcpip_notif.o:tcpip_notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . tcpip_notif.c -o tcpip_notif.o
 
-testapp.o:testapp.c
-	${CC} ${CFLAGS} -c testapp.c -o testapp.o
+main.o:main.c
+	${CC} ${CFLAGS} -c main.c -o main.o
 
 gluethread/glthread.o:gluethread/glthread.c
 	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o
 
 Tree/avl.o:Tree/avl.c
 	${CC} ${CFLAGS} -c -I Tree Tree/avl.c -o Tree/avl.o
+
+mtrie/mtrie.o:mtrie/mtrie.c
+	${CC} ${CFLAGS} -c -I mtrie mtrie/mtrie.c -o mtrie/mtrie.o
 
 libtimer/WheelTimer.o:libtimer/WheelTimer.c
 	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/WheelTimer.c -o libtimer/WheelTimer.o
@@ -133,11 +172,20 @@ tcp_ip_trace.o:tcp_ip_trace.c
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o
 
+Layer2/arp.o:Layer2/arp.c
+	${CC} ${CFLAGS} -c -I . Layer2/arp.c -o Layer2/arp.o
+
 Layer2/l2switch.o:Layer2/l2switch.c
 	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
+
+Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
+	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
+
+Layer3/rt_notif.o:Layer3/rt_notif.c
+	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o
 
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o
@@ -160,6 +208,15 @@ utils.o:utils.c
 Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 	${CC} ${CFLAGS} -c -I . -I Layer5/ddcp/ Layer5/ddcp/ddcp.c -o Layer5/ddcp/ddcp.o
 
+prefix_policy/prefix_policy.o:prefix_policy/prefix_policy.c
+	${CC} ${CFLAGS} -c prefix_policy/prefix_policy.c -o prefix_policy/prefix_policy.o
+
+BitOp/bitmap.o:BitOp/bitmap.c
+	${CC} ${CFLAGS} -c BitOp/bitmap.c -o BitOp/bitmap.o
+
+stack/stack.o:stack/stack.c
+	${CC} ${CFLAGS} -c stack/stack.c -o stack/stack.o
+
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -173,11 +230,20 @@ Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 
 CommandParser/libcli.a:
 	(cd CommandParser; make)
+LinuxMemoryManager/libmm.a:
+	(cd LinuxMemoryManager; make)
+FSMImplementation/libfsm.a:
+	(cd FSMImplementation; make)
+FireWall/libasa.a:
+	(cd FireWall; make)
 clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
 	rm -f Tree/avl.o
+	rm -f mtrie/*.o
 	rm -f *exe
+	rm -f ted/*.o
+	rm -f flow/*.o
 	rm -f Layer2/*.o
 	rm -f Layer3/*.o
 	rm -f Layer4/*.o
@@ -188,11 +254,17 @@ clean:
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
+	rm -f prefix_policy/*.o
+	rm -f Bitop/*.o
+	rm -f stack/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:
 	make
-
+	
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
+	(cd LinuxMemoryManager; make clean)
+	(cd FSMImplementation; make clean)
+	(cd FireWall; make clean)

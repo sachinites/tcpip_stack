@@ -22,8 +22,9 @@
 #include <assert.h>
 #include <unistd.h>
 #include "event_dispatcher.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
-bool static debug = false;
+static bool debug = false;
 
 
 void
@@ -82,7 +83,7 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 		if(debug) printf("Syn Task Returned\n");
 		/* Task finished, free now */
 		free(task->app_cond_var);
-		free(task);
+		XFREE(task);
 	}
 	else {
 		EV_DIS_UNLOCK(ev_dis);
@@ -105,7 +106,7 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 					pthread_cond_signal(task->app_cond_var);
 				}
 				else {
-					free(task);
+					XFREE(task);
 				}
 			}
 			else{
@@ -203,7 +204,7 @@ create_new_task(void *arg,
 				uint32_t arg_size,
 				event_cbk cbk){
 
-	task_t *task = calloc(1, sizeof(task_t));
+	task_t *task = XCALLOC(0, 1, task_t);
 	task->data = arg;
 	task->data_size = arg_size;
 	task->ev_cbk = cbk;
@@ -295,7 +296,7 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 		EV_DIS_LOCK(ev_dis);
 		remove_glthread(&pkt_q->glue);
 		remove_glthread(&task->glue);
-		free(task);
+		XFREE(task);
 		EV_DIS_UNLOCK(ev_dis);
 	}
 	else if (task->task_type == TASK_ONE_SHOT ||
@@ -303,7 +304,7 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 		EV_DIS_LOCK(ev_dis);
 		remove_glthread(&task->glue);
 		EV_DIS_UNLOCK(ev_dis);
-		free(task);	
+		XFREE(task);	
 	}
 }
 
@@ -393,3 +394,8 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 	pkt_q->ev_dis = ev_dis;
 }
 
+void
+event_dispatcher_mem_init() {
+
+	MM_REG_STRUCT(0, task_t);
+}

@@ -16,12 +16,13 @@
  * =====================================================================================
  */
 
-#include "string_util.h"
+
 #include <stdlib.h>
 #include <assert.h>
-#include "cliconst.h"
 #include <ctype.h>
 #include <stdio.h>
+#include "string_util.h"
+#include "cliconst.h"
 
 static char a_str[CONS_INPUT_BUFFER_SIZE];
 char temp[ LEAF_ID_SIZE + 2];
@@ -158,3 +159,158 @@ print_tokens(unsigned int index){
         printf("%s ", tokens[i]);
     }
 }
+
+void replaceSubstring(char string[], char sub[], char new_str[])
+{
+    int stringLen, subLen, newLen;
+    int i = 0, j, k;
+    int flag = 0, start, end;
+    stringLen = strlen(string);
+    subLen = strlen(sub);
+    newLen = strlen(new_str);
+
+    for (i = 0; i < stringLen; i++)
+    {
+        flag = 0;
+        start = i;
+        for (j = 0; string[i] == sub[j]; j++, i++)
+            if (j == subLen - 1)
+                flag = 1;
+        end = i;
+        if (flag == 0)
+            i -= j;
+        else
+        {
+            for (j = start; j < end; j++)
+            {
+                for (k = start; k < stringLen; k++)
+                    string[k] = string[k + 1];
+                stringLen--;
+                i--;
+            }
+
+            for (j = start; j < start + newLen; j++)
+            {
+                for (k = stringLen; k >= j; k--)
+                    string[k + 1] = string[k];
+                string[j] = new_str[j - start];
+                stringLen++;
+                i++;
+            }
+        }
+    }
+}
+
+
+bool
+pattern_match(char string[], int string_size, char pattern[]) {
+
+    if (string_size == 0) {
+        return false;
+    }
+    return (strstr(string, pattern));
+}
+
+int
+grep (char string[], int string_size, char pattern[]) {
+
+    int rc = 0;
+    char *token;
+
+    if (!string_size) return 0;
+    
+    char *temp_buff = calloc(1, string_size);
+    
+    memcpy(temp_buff, string, string_size);
+    memset (string, 0, string_size);
+
+    token = strtok(temp_buff, "\n");
+
+    while (token) {
+
+        if (pattern_match(token, strlen(token), pattern)) {
+
+            rc += sprintf(string + rc, "%s\n", token);
+        }
+        token = strtok(NULL, "\n");
+    }
+    free(temp_buff);
+    return rc;
+}
+
+static bool
+is_number (char *string) {
+
+    int i = 0;
+    while (string[i] != '\0') {
+
+        if (string[i] == '0' || 
+             string[i] == '1' ||
+             string[i] == '2' ||
+             string[i] == '3' ||
+             string[i] == '4' ||
+             string[i] == '5' ||
+             string[i] == '6' ||
+             string[i] == '7' ||
+             string[i] == '8' ||
+             string[i] == '9' ) {
+
+                i++;
+                continue;
+             }
+             else {
+                 return false;
+             }
+    }
+    return true;
+}
+
+
+uint64_t
+string_fetch_integer(char *string, int string_size, int index) {
+
+    int count = 0;
+    char *token;
+
+    if (!string_size) return 0;
+
+    char *temp_buff = calloc(1, string_size);
+    memcpy(temp_buff, string, string_size);
+    
+    token = strtok(temp_buff, " ");
+
+    while (token) {
+
+        if (!is_number(token)) {
+            token = strtok(NULL, " ");
+            continue;
+        }
+
+        count++;
+        if (index == count) {
+            free(temp_buff);
+            return atoi(token);
+        }
+        
+        token = strtok(NULL, " ");
+    }
+    free(temp_buff);
+    return 0;
+}
+
+#if 0
+int 
+main(int argc, char **argv) {
+
+    char *sample1 = "LSP : 122.1.1.0          Seq # : 14      size(B) : 95      ref_c : 1     Life Time Remaining : 2372 sec\0";
+    uint64_t int1 = string_fetch_integer(sample1, strlen(sample1), 1);
+    printf("%d %u\n", __LINE__, int1);
+    int1 = string_fetch_integer(sample1, strlen(sample1), 2);
+    printf("%d %u\n", __LINE__, int1);
+    int1 = string_fetch_integer(sample1, strlen(sample1), 3);
+    printf("%d %u\n", __LINE__, int1);
+     int1 = string_fetch_integer(sample1, strlen(sample1), 4);
+    printf("%d %u\n", __LINE__, int1);
+    return 0;
+}
+#endif

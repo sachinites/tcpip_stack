@@ -3,7 +3,7 @@
  *
  *       Filename:  layer4.c
  *
- *    Description:  This file implemets the routines for Transport Layer
+ *    Description:  This file implements the routines for Transport Layer
  *
  *        Version:  1.0
  *        Created:  Thursday 26 September 2019 06:52:37  IST
@@ -30,8 +30,12 @@
  * =====================================================================================
  */
 
-#include "graph.h"
 #include <stdint.h>
+#include "graph.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
+
+
+extern void layer4_mem_init() ;
 
 /*Public APIs to be used by Lower layers of TCP/IP Stack to promote
  * the pkt to Layer 4*/
@@ -48,6 +52,8 @@ promote_pkt_to_layer4(node_t *node, interface_t *recv_intf,
 void
 demote_pkt_to_layer4(node_t *node,
         char *pkt, uint32_t pkt_size,
-        int L4_protocol_number){  /*L5 (The application) need to tell L4-layer which transport layer protcocol to be used - UDP or TCP or other*/
+        int L4_protocol_number){  /*L5 (The application) need to tell L4-layer which transport layer protcol to be used - UDP or TCP or other*/
 
 }
+
+void layer4_mem_init() { }

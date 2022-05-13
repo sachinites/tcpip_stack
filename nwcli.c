@@ -40,6 +40,9 @@
 #include "Layer5/app_handlers.h"
 #include "BitOp/bitsop.h"
 #include "tcpip_notif.h"
+#include "Layer3/rt_table/nexthop.h"
+#include "Layer3/layer3.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -47,6 +50,37 @@ extern void tcp_ip_traceoptions_cli(param_t *node_name_param,
 extern int traceoptions_handler(param_t *param,
                                 ser_buff_t *tlv_buf,
                                 op_mode enable_or_disable);
+
+extern param_t * policy_config_cli_tree () ;
+extern void acl_build_config_cli(param_t *root) ;
+extern void acl_build_show_cli(param_t *root) ;
+
+static int
+display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
+                    op_mode enable_or_disable){
+
+    tlv_struct_t *tlv = NULL;
+    char *struct_name = NULL;
+    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(strncmp(tlv->leaf_id, "struct-name", strlen("struct-name")) == 0)
+            struct_name =  tlv->value;
+    } TLV_LOOP_END;
+
+    switch(cmdcode){
+        case CMDCODE_DEBUG_SHOW_MEMORY_USAGE:
+            mm_print_block_usage(0);
+            break;
+        case CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL:
+            mm_print_memory_usage(0, struct_name);
+            break;
+        default:
+            ;
+    }
+}
+
 /*
  * In the CLI hierarchy, it is very common to hook up new CLIs (config and show)
  * at node and interface level. Provided the mechanism where App developer can 
@@ -292,7 +326,7 @@ clear_topology_handler(param_t *param,
 
 typedef struct arp_table_ arp_table_t;
 extern void
-dump_arp_table(arp_table_t *arp_table);
+show_arp_table(arp_table_t *arp_table);
 
 static int
 show_arp_handler(param_t *param, ser_buff_t *tlv_buf, 
@@ -310,7 +344,7 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    dump_arp_table(NODE_ARP_TABLE(node));
+    show_arp_table(NODE_ARP_TABLE(node));
     return 0;
 }
 
@@ -441,12 +475,13 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
 }
 
 extern void
-delete_rt_table_entry(rt_table_t *rt_table,
-        char *ip_addr, char mask);
+rt_table_delete_route(rt_table_t *rt_table,
+        char *ip_addr, char mask, uint16_t proto);
 extern void
 rt_table_add_route(rt_table_t *rt_table,
         char *dst, char mask,
-        char *gw, interface_t *oif, uint32_t spf_metric);
+        char *gw, interface_t *oif, uint32_t spf_metric,
+        uint8_t proto);
 
 static int
 l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
@@ -504,11 +539,11 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                             return -1;
                         }
                     }
-                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf, 0);
+                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf, 0, PROTO_STATIC);
                 }
                 break;
                 case CONFIG_DISABLE:
-                    delete_rt_table_entry(NODE_RT_TABLE(node), dest, mask);
+                    rt_table_delete_route(NODE_RT_TABLE(node), dest, mask, PROTO_STATIC);
                     break;
                 default:
                     ;
@@ -561,13 +596,16 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
    char *node_name;
    char *intf_name;
    uint32_t vlan_id;
+   uint8_t mask;
    char *l2_mode_option;
+   char *intf_ip_addr = NULL;
    char *if_up_down;
    int CMDCODE;
    tlv_struct_t *tlv = NULL;
    node_t *node;
    interface_t *interface;
    uint32_t intf_new_matric_val;
+   intf_prop_changed_t intf_prop_changed;
 
    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
    
@@ -584,7 +622,11 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         else if(strncmp(tlv->leaf_id, "if-up-down", strlen("if-up-down")) == 0)
              if_up_down = tlv->value; 
         else if(strncmp(tlv->leaf_id, "metric-val", strlen("metric-val")) == 0)
-             intf_new_matric_val = atoi(tlv->value);            
+             intf_new_matric_val = atoi(tlv->value);      
+        else if(strncmp(tlv->leaf_id, "intf-ip-addr", strlen("intf-ip-addr")) == 0)
+             intf_ip_addr = tlv->value;     
+        else if(strncmp(tlv->leaf_id, "mask", strlen("mask")) == 0)
+             mask = atoi(tlv->value);  
         else
             assert(0);
     } TLV_LOOP_END;
@@ -604,6 +646,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
 
             if(intf_existing_metric != intf_new_matric_val){
                 SET_BIT(if_change_flags, IF_METRIC_CHANGE_F); 
+                intf_prop_changed.intf_metric = intf_existing_metric;
             }
 
             switch(enable_or_disable){
@@ -617,7 +660,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             }
             if(IS_BIT_SET(if_change_flags, IF_METRIC_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(
-					interface, 0, if_change_flags);
+					interface, &intf_prop_changed, if_change_flags);
             }
         }    
         break;
@@ -625,18 +668,20 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
             if(strncmp(if_up_down, "up", strlen("up")) == 0){
                 if(interface->intf_nw_props.is_up == false){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F); 
+                     intf_prop_changed.up_status = false;
                 }
                 interface->intf_nw_props.is_up = true;
             }
             else{
                 if(interface->intf_nw_props.is_up){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F);
+                     intf_prop_changed.up_status = true;
                 }
                 interface->intf_nw_props.is_up = false;
             }
             if(IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(
-					interface, 0, if_change_flags);
+					interface, &intf_prop_changed, if_change_flags);
             }
             break;
         case CMDCODE_INTF_CONFIG_L2_MODE:
@@ -658,6 +703,18 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     break;
                 case CONFIG_DISABLE:
                     interface_unset_vlan(node, interface, vlan_id);
+                    break;
+                default:
+                    ;
+            }
+            break;
+        case CMDCODE_INTF_CONFIG_IP_ADDR:
+             switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    interface_set_ip_addr(node, interface,  intf_ip_addr, mask);
+                    break;
+                case CONFIG_DISABLE:
+                    interface_unset_ip_addr(node, interface, intf_ip_addr, mask);
                     break;
                 default:
                     ;
@@ -743,6 +800,8 @@ nw_init_cli(){
 
     init_libcli();
 
+    cli_register_ctrlC_handler(tcp_ip_toggle_global_console_logging);
+
     param_t *show   = libcli_get_show_hook();
     param_t *debug  = libcli_get_debug_hook();
     param_t *config = libcli_get_config_hook();
@@ -774,6 +833,28 @@ nw_init_cli(){
 					libcli_register_param(&timer, &logs);
 					set_param_cmd_code(&logs, CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING);
 				}
+            }
+        }
+    }
+
+    {
+        /* debug show mem-usage*/
+        static param_t mem_usage;
+        init_param(&mem_usage, CMD, "mem-usage", display_mem_usage, 0, INVALID, 0, "Memory Usage");
+        libcli_register_param(debug_show, &mem_usage);
+        set_param_cmd_code(&mem_usage, CMDCODE_DEBUG_SHOW_MEMORY_USAGE);
+        {
+            /* debug show mem-usage detail*/
+            static param_t detail;
+            init_param(&detail, CMD, "detail", display_mem_usage, 0, INVALID, 0, "Memory Usage Detail");
+            libcli_register_param(&mem_usage, &detail);
+            set_param_cmd_code(&detail, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
+            {
+                /*  debug show mem-usage detail <struct-name> */
+                static param_t struct_name;
+                init_param(&struct_name, LEAF, 0, display_mem_usage, 0, STRING, "struct-name", "Structure Name Filter");
+                libcli_register_param(&detail, &struct_name);
+                set_param_cmd_code(&struct_name, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
             }
         }
     }
@@ -844,6 +925,11 @@ nw_init_cli(){
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
 				
+                 {
+                     /* show CLIs for Access list mounted here */
+                     acl_build_show_cli(&node_name);
+                 }
+
 				 {
 					 /* show node <node-name> protocol */
 					 static param_t protocol;
@@ -934,7 +1020,6 @@ nw_init_cli(){
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
-
 
 			{
 				/* run node <node-name> protocol */	
@@ -1027,6 +1112,16 @@ nw_init_cli(){
         libcli_register_param(&node, &node_name);
 
         {
+            /* ACL CLIs are loaded */
+            acl_build_config_cli(&node_name);
+        }
+
+        {
+            param_t *import_policy_cli_root = policy_config_cli_tree();
+            libcli_register_param(&node_name, import_policy_cli_root);
+        }
+
+        {
             {
                 /*config node <node-name> [no] protocol*/
                 static param_t protocol;
@@ -1088,6 +1183,23 @@ nw_init_cli(){
                         init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
                         libcli_register_param(&metric, &metric_val);
                         set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
+                    }
+                }
+                {
+                    /* config node <node-name> ineterface <if-name> ip-address <ip-addr> <mask>*/
+                    static param_t ip_addr;
+                    init_param(&ip_addr, CMD, "ip-address", 0, 0, INVALID, 0, "Interface IP Address");
+                    libcli_register_param(&if_name, &ip_addr);
+                    {
+                        static param_t ip_addr_val;
+                        init_param(&ip_addr_val, LEAF, 0, 0, 0, IPV4, "intf-ip-address", "IPV4 address");
+                        libcli_register_param(&ip_addr, &ip_addr_val);
+                        {
+                            static param_t mask;
+                            init_param(&mask, LEAF, 0, intf_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
+                            libcli_register_param(&ip_addr_val, &mask);
+                            set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
+                        }
                     }
                 }
                 {

@@ -16,14 +16,17 @@
  * =====================================================================================
  */
 
+#include <signal.h>
 #include "cmd_hier.h"
 #include "clistd.h"
 #include "cmdtlv.h"
 #include "libcli.h"
 #include "css.h"
-#include <signal.h>
 #include "clicbext.h"
 #include "string_util.h"
+#include "../FSMImplementation/std_fsm.h"
+
+int GL_FD_OUT = STDOUT_FILENO;
 
 extern CMD_PARSE_STATUS
 parse_input_cmd(char *input, unsigned int len);
@@ -66,7 +69,7 @@ dump_all_commands(param_t *root, unsigned int index){
 
 /*Default validation handlers for Data types*/
 
-int
+CLI_VAL_RC
 int_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -74,7 +77,7 @@ int_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 string_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -82,15 +85,19 @@ string_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 ipv4_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
-    return VALIDATION_SUCCESS;
+    if (ip_validate(value_passed)) {
+        return VALIDATION_SUCCESS;
+    }
+    return VALIDATION_FAILED;
+
 }
 
 
-int
+CLI_VAL_RC
 ipv6_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
@@ -98,18 +105,28 @@ ipv6_validation_handler(leaf_t *leaf, char *value_passed){
 }
 
 
-int
+CLI_VAL_RC
 float_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     return VALIDATION_SUCCESS;
 }
 
-int
+CLI_VAL_RC
 boolean_validation_handler(leaf_t *leaf, char *value_passed){
 
     if((strncmp(value_passed, "true", strlen("true")) == 0) || 
             (strncmp(value_passed, "false", strlen("false")) ==0))
+        return VALIDATION_SUCCESS;
+
+    return VALIDATION_FAILED;
+}
+
+int
+enable_disable_validation_handler(char *value_passed){
+
+     if((strncmp(value_passed, "enable", strlen("enable")) == 0) || 
+            (strncmp(value_passed, "disable", strlen("disable")) ==0))
         return VALIDATION_SUCCESS;
 
     return VALIDATION_FAILED;
@@ -323,6 +340,9 @@ load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 	char *file_name = NULL;
 	tlv_struct_t *tlv = NULL;
 
+    printf("No Op - Full type the command\n");
+    return 0;
+
 	TLV_LOOP_BEGIN(b, tlv) {
 
 		if (strncmp(tlv->leaf_id, "file-name",
@@ -365,6 +385,13 @@ supportsave_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 }
 
 int
+cli_terminate_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+
+    printf("Bye Bye\n");
+    exit(0);
+}
+
+int
 show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
     printf("Welcome to Help Wizard\n");
@@ -382,7 +409,7 @@ show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     printf("    f. debug show cmdtree - Show entire command tree\n");
     printf("    g. show history - show history of commands triggered\n");
     printf("    h. repeat - repeat the last command\n");
-	printf(ANSI_COLOR_YELLOW "                      Author : Abhishek Sagar, Juniper Networks\n" ANSI_COLOR_RESET);
+	printf(ANSI_COLOR_YELLOW "                      Author : Abhishek Sagar\n" ANSI_COLOR_RESET);
 	printf(ANSI_COLOR_YELLOW "                      Visit : www.csepracticals.com for more courses and projects\n" ANSI_COLOR_RESET);
     return 0;
 }
@@ -423,3 +450,20 @@ show_extension_param_handler(param_t *param, ser_buff_t *b, op_mode enable_or_di
     return 0;
 }
 
+int
+grep_pattern_validation(char *value_passed){
+
+    int i = 0;
+    while (value_passed[i] != '\0') {
+        if (value_passed[i]  == ' ' ) return VALIDATION_FAILED;
+        i++;
+    }
+    return VALIDATION_SUCCESS;
+}
+
+int
+pipe_handler (param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+
+    printf ("%s() called \n", __FUNCTION__);
+    return 0;
+}

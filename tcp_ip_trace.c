@@ -35,7 +35,7 @@ string_ethernet_hdr_type(unsigned short type){
         case ETH_IP:
             strncpy(string_buffer, "ETH_IP", strlen("ETH_IP"));
             break;
-        case ARP_MSG:
+        case PROTO_ARP:
             strncpy(string_buffer, "ARP_MSG", strlen("ARP_MSG"));
             break;
         case DDCP_MSG_TYPE_FLOOD_QUERY:
@@ -47,6 +47,7 @@ string_ethernet_hdr_type(unsigned short type){
 				strlen("NMP_HELLO_MSG_CODE"));
 			break;
         default:
+            sprintf(string_buffer, "L2 Proto : %hu", type);
             break;
     }
     return string_buffer;
@@ -75,8 +76,8 @@ string_ip_hdr_protocol_val(uint8_t type){
     init_string_buffer();
     switch(type){
 
-        case ICMP_PRO:
-            strncpy(string_buffer, "ICMP_PRO", strlen("ICMP_PRO"));
+        case ICMP_PROTO:
+            strncpy(string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
             break;
         case DDCP_MSG_TYPE_UCAST_REPLY:
             strncpy(string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
@@ -114,7 +115,7 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
 
     switch(ip_hdr->protocol){
 
-        case ICMP_PRO:
+        case ICMP_PROTO:
             rc += tcp_dump_appln_hdr_protocol_icmp(buff + rc, INCREMENT_IPHDR(ip_hdr), 
                     IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
@@ -208,7 +209,7 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                     (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                      payload_size);
             break;
-        case ARP_MSG:
+        case PROTO_ARP:
             rc += tcp_dump_arp_hdr(buff + rc,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size);
@@ -759,3 +760,16 @@ tcp_ip_refresh_tcp_log_file() {
 
 #define tcp_trace(node, intf, buff)	\
 	tcp_trace_internal(node, intf, buff, __FUNCTION__, __LINE__);
+
+void
+tcp_ip_toggle_global_console_logging(void) {
+
+    topo->gstdout  = ! topo->gstdout;
+
+    if (topo->gstdout) {
+        printf ("\nconsole logging enabled\n");
+    }
+    else {
+        printf ("\nconsole logging disabled\n");
+    }
+}

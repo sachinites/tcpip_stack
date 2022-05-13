@@ -74,6 +74,9 @@ typedef enum{
 #define CONFIG_CONSOLEN_NAME_NAME   6
 #define DEBUG_SHOW_CMDTREE          7
 #define CONFIG_LOAD_FILE			8
+#define CMDCODE_RUN_UT_TC   9 /* run ut <ut-file-name> <tc-no>*/
+#define CMDCODE_DEBUG_UT    10 /* debug ut [enable | disable] */
+#define CMD_CODE_GREP 11 /* <cmd> | grep <pattern> */
 
 typedef enum{
     COMPLETE,

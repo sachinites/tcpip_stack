@@ -34,7 +34,11 @@
 #define __LAYER3__
 
 #include <stdint.h>
+#include "../gluethread/glthread.h"
+#include "../notif.h"
 #include "../tcpconst.h"
+#include "../EventDispatcher/event_dispatcher.h"
+#include "../mtrie/mtrie.h"
 
 #pragma pack (push,1)
 
@@ -54,7 +58,6 @@ typedef struct ip_hdr_{
     uint32_t DF_flag : 1;   
     uint32_t MORE_flag : 1; 
     uint32_t frag_offset : 13;  
-
 
     char ttl;
     char protocol;
@@ -97,61 +100,93 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(ip_payload_size)  \
     (5 + (short)(ip_payload_size/4) + (short)((ip_payload_size % 4) ? 1 : 0))
 
-#include "../gluethread/glthread.h"
-
 typedef struct rt_table_{
 
-    glthread_t route_list;
+    mtrie_t route_list;
 	bool is_active;
+    notif_chain_t nfc_rt_updates;
+    glthread_t rt_notify_list_head;
+    glthread_t rt_flash_list_head;
+    task_t *notif_job;
+    task_t *flash_job;
+    node_t *node;
+    glthread_t flash_request_list_head;
 } rt_table_t;
-
-typedef struct nexthop_{
-
-    char gw_ip[16];
-    interface_t *oif;
-    uint32_t ref_count;
-	uint32_t ifindex;
-} nexthop_t;
 
 #define nexthop_node_name(nexthop_ptr)  \
    ((get_nbr_node(nexthop_ptr->oif))->node_name)
 
+#define RT_ADD_F        (1 << 0)
+#define RT_DEL_F         (1 << 1)
+#define RT_UPDATE_F (1 << 2)
+#define RT_FLASH_REQ_F (1 << 3)
+
+typedef enum {
+    proto_nxthop_first,
+    proto_nxthop_isis = proto_nxthop_first,
+    proto_nxthop_static,
+    proto_nxthop_max
+} nxthop_proto_id_t;
+
+#define FOR_ALL_NXTHOP_PROTO(nh_proto)  \
+    for (nh_proto = proto_nxthop_first; nh_proto < proto_nxthop_max; nh_proto++)
+
+static inline nxthop_proto_id_t
+l3_rt_map_proto_id_to_nxthop_index(uint8_t proto_id) {
+
+    switch(proto_id) {
+        case PROTO_STATIC:
+            return proto_nxthop_static;
+        case PROTO_ISIS:
+            return proto_nxthop_isis;
+        default:
+        ;
+    }
+    return proto_nxthop_max;
+}
+
 typedef struct l3_route_{
 
-    char dest[16];  /*key*/
-    char mask;      /*key*/
-    bool is_direct;    /*if set to True, then gw_ip and oif has no meaning*/
-    nexthop_t *nexthops[MAX_NXT_HOPS];
-    uint32_t spf_metric;
+    char dest[16];        /* key*/
+    char mask;            /* key*/
+    bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
+    nexthop_t *nexthops[proto_nxthop_max][MAX_NXT_HOPS];
+    uint32_t spf_metric[proto_nxthop_max];
+    uint16_t nh_count;
     int nxthop_idx;
 	time_t install_time;
-    glthread_t rt_glue;
+    uint8_t rt_flags;
+    glthread_t notif_glue;
+    glthread_t flash_glue;
 } l3_route_t;
-GLTHREAD_TO_STRUCT(rt_glue_to_l3_route, l3_route_t, rt_glue);
+GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
+GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
 
 #define RT_UP_TIME(l3_route_ptr)	\
 	hrs_min_sec_format((unsigned int)difftime(time(NULL), l3_route_ptr->install_time))
+
+void
+l3_route_free(l3_route_t *l3_route);
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route);
 
 void
-init_rt_table(rt_table_t **rt_table);
-
-void 
-rt_table_set_active_status(rt_table_t *rt_table, bool active);
+init_rt_table(node_t *node, rt_table_t **rt_table);
 
 void
-clear_rt_table(rt_table_t *rt_table);
+clear_rt_table(rt_table_t *rt_table, uint16_t proto);
 
 void
-delete_rt_table_entry(rt_table_t *rt_table, char *ip_addr, char mask);
+rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask, uint16_t proto_id);
 
 void
 rt_table_add_route(rt_table_t *rt_table, 
                    char *dst, char mask,
-                   char *gw, interface_t *oif,
-                   uint32_t spf_metric);
+                   char *gw, 
+                   interface_t *oif,
+                   uint32_t spf_metric,
+                   uint8_t proto_id);
 
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
@@ -170,5 +205,13 @@ l3rib_lookup(rt_table_t *rt_table, uint32_t dest_ip, char mask);
 void
 tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
                     int L5_protocol_id, uint32_t dest_ip_address);
+
+
+/* config of Layer 3 properties of interface*/
+void
+interface_set_ip_addr(node_t *node, interface_t *intf,  char *intf_ip_addr, uint8_t mask);
+
+void
+interface_unset_ip_addr(node_t *node, interface_t *intf, char *intf_ip_addr, uint8_t mask);
 
 #endif /* __LAYER3__ */

@@ -105,7 +105,7 @@ main(int argc, char **argv){
     /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
     initialize_ip_hdr(ip_hdr);
-    ip_hdr->protocol = ICMP_PRO;
+    ip_hdr->protocol = ICMP_PROTO;
     ip_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(DEST_IP_ADDR);
 
     uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 

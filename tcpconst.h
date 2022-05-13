@@ -33,6 +33,8 @@
 #ifndef __TCPCONST__
 #define __TCPCONST__
 
+#include <stdint.h>
+
 typedef enum{
 
     ETH_HDR,
@@ -42,10 +44,12 @@ typedef enum{
 /*Specified in ethernet_hdr->type*/
 #define ARP_BROAD_REQ   1
 #define ARP_REPLY       2
-#define ARP_MSG         806
+#define PROTO_ARP         806
 #define BROADCAST_MAC   0xFFFFFFFFFFFF
 #define ETH_IP          0x0800
-#define ICMP_PRO        1
+#define ICMP_PROTO        1
+#define TCP_PROTO 0x6
+#define UDP_PROTO   0x11
 #define ICMP_ECHO_REQ   8
 #define ICMP_ECHO_REP   0
 #define MTCP            20
@@ -56,12 +60,71 @@ typedef enum{
 #define INTF_MAX_METRIC     16777215 /*Choosen as per the standard = 2^24 -1*/
 #define INTF_METRIC_DEFAULT 1
 #define TCP_LOG_BUFFER_LEN	256
+ /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
+#define NODE_PRINT_BUFF_LEN (2048 * 10)
 
 /*Add DDCP Protocol Numbers*/
 #define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, should not exceed 2^16 -1*/
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
-#define PKT_BUFFER_RIGHT_ROOM        128
+#define PKT_BUFFER_RIGHT_ROOM        128   
 #define MAX_NXT_HOPS        4
+
+
+/* Protocol IDs*/
+#define PROTO_STATIC 101
+#define PROTO_ISIS       0x83
+
+static inline unsigned char *
+proto_name_str (uint16_t proto) {
+
+    switch(proto) {
+        case PROTO_ISIS:
+            return (unsigned char *)"isis";
+        case PROTO_STATIC:
+            return (unsigned char *)"static";
+        case PROTO_ARP:
+            return (unsigned char *)"arp";
+        case ETH_IP:
+            return (unsigned char *)"ip";
+        case ICMP_PROTO:
+            return (unsigned char *)"icmp";
+        case TCP_PROTO:
+            return (unsigned char *)"tcp";
+        case UDP_PROTO:
+            return (unsigned char *)"udp";
+        default:
+            return NULL;
+    }
+}
+
+#define APPLICATION_LAYER   5
+#define TRANSPORT_LAYER 4
+#define NETWORK_LAYER   3
+#define LINK_LAYER  2
+#define PHYSICAL_LAYER  1
+#define UNKNOWN_LAYER   0
+
+static inline uint8_t
+tcpip_protocol_classification(uint16_t proto) {
+
+    switch(proto) {
+
+        case ETH_IP:
+            return NETWORK_LAYER;
+        case ICMP_PROTO:
+            return APPLICATION_LAYER;
+        case PROTO_ISIS:
+            return LINK_LAYER;
+        case TCP_PROTO:
+        case UDP_PROTO:
+            return TRANSPORT_LAYER;
+        case PROTO_STATIC:
+            return NETWORK_LAYER;
+        default:
+            return UNKNOWN_LAYER;
+    }
+}
+
 
 #endif /* __TCPCONST__ */
 

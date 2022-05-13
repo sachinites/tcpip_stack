@@ -99,6 +99,8 @@ process_wt_reschedule_slotlist(wheel_timer_t *wt){
 				if(wt->debug){ printf("Freeing wt_elem %p\n", wt_elem); }
                 free_wheel_timer_element(wt_elem);
                 break;
+			case WTELEM_SCHEDULED:
+				break;
             default:
                 assert(0);
         }

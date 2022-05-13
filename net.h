@@ -41,6 +41,7 @@
 #include <pthread.h>
 #include "utils.h"
 #include "libtimer/WheelTimer.h"
+#include "Tree/libtree.h"
 #include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
@@ -102,19 +103,19 @@ typedef struct node_nw_prop_{
 
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
-extern void init_rt_table(rt_table_t **rt_table);
+extern void init_rt_table(node_t *node, rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 
 static inline void
-init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
+init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
     node_nw_prop->is_lb_addr_config = false;
     memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
-    init_rt_table(&(node_nw_prop->rt_table));
+    init_rt_table(node, &(node_nw_prop->rt_table));
 	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
     node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);
@@ -147,6 +148,7 @@ intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
 typedef struct intf_nmp_ intf_nmp_t;
 typedef struct stp_vlan_intf_info_ stp_vlan_intf_info_t;
+typedef struct access_list_ access_list_t;
 
 typedef struct intf_nw_props_ {
 
@@ -163,19 +165,48 @@ typedef struct intf_nw_props_ {
     intf_nmp_t *nmp;
     void *isis_intf_info;
 	stp_vlan_intf_info_t *stp_vlan_intf_info;
+    access_list_t *l2_ingress_acc_lst;
+   access_list_t *l2_egress_acc_lst;
+
     /*L3 properties*/
     bool is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
+    access_list_t *l3_ingress_acc_lst;
+    access_list_t *l3_egress_acc_lst;
 
     /*Interface Statistics*/
     uint32_t pkt_recv;
     uint32_t pkt_sent;
 	uint32_t xmit_pkt_dropped;
+
+    struct {
+        uint64_t old_bit_stats;
+        uint64_t new_bit_stats;
+        uint64_t bit_rate;
+        wheel_timer_elem_t *bit_rate_sampling_timer;
+    }bit_rate;
+
+   avltree_t flow_avl_root;
+
 } intf_nw_props_t;
+
+typedef union intf_prop_changed_ {
+
+        uint32_t intf_metric;
+        struct {
+            uint32_t ip_addr;
+            uint8_t mask;
+        } ip_addr;
+        bool up_status; /* True for up, false for down */
+        intf_l2_mode_t intf_l2_mode;
+        uint32_t vlan;
+} intf_prop_changed_t;
 
 extern void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
+extern void
+snp_flow_init_flow_tree_root(avltree_t *avl_root) ;
 
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
@@ -199,14 +230,20 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->pkt_recv = 0;
     intf_nw_props->pkt_sent = 0;
 	intf_nw_props->xmit_pkt_dropped = 0;
+
+    snp_flow_init_flow_tree_root(&intf_nw_props->flow_avl_root);
 }
 
 void
 interface_assign_mac_address(interface_t *interface);
 
+void
+intf_init_bit_rate_sampling_timer(interface_t *interface);
+
 /*GET shorthand Macros*/
 #define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)
 #define IF_IP(intf_ptr)    ((intf_ptr)->intf_nw_props.ip_add.ip_addr)
+#define IF_IP_EXIST(intf_ptr) ((intf_ptr)->intf_nw_props.is_ipadd_config)
 #define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
 #define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == true)
 #define IF_INDEX(intf_ptr) ((intf_ptr)->intf_nw_props.ifindex)
@@ -217,15 +254,20 @@ interface_assign_mac_address(interface_t *interface);
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
+#define IS_INTF_L2_MODE(intf_ptr)                                  \
+    (intf_ptr->intf_nw_props.intf_l2_mode == ACCESS ||      \
+    intf_ptr->intf_nw_props.intf_l2_mode == TRUNK)
+
 #define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == true)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
+#define IF_GET_FLOW_DB(intf_ptr) \
+    (&((intf_ptr)->intf_nw_props.flow_avl_root))
 
 /*APIs to set Network Node properties*/
 bool node_set_loopback_address(node_t *node, char *ip_addr);
 bool node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, char mask);
 bool node_unset_intf_ip_address(node_t *node, char *local_if);
-
 
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/
@@ -276,11 +318,11 @@ is_interface_l3_bidirectional(interface_t *interface);
 
 /* Interface Change Flags, used for Notification to 
  * Applications*/
-#define IF_UP_DOWN_CHANGE_F         (0)
-#define IF_IP_ADDR_CHANGE_F         (1)
-#define IF_OPER_MODE_CHANGE_F       (2)
-#define IF_VLAN_MEMBERSHIP_CHANGE_F (3)
-#define IF_METRIC_CHANGE_F          (4)
+#define IF_UP_DOWN_CHANGE_F         (1 << 0)
+#define IF_IP_ADDR_CHANGE_F         (1 << 1)
+#define IF_OPER_MODE_CHANGE_F       (1 << 2)
+#define IF_VLAN_MEMBERSHIP_CHANGE_F (1 << 3)
+#define IF_METRIC_CHANGE_F          (1 << 4)
 
 /*Macros to Iterate over Nbrs of a node*/
 

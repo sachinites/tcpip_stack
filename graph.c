@@ -36,6 +36,8 @@
 #include <memory.h>
 #include "graph.h"
 #include "tcp_ip_trace.h"
+#include "prefix_policy/prefix_policy.h"
+#include "FireWall/acl/acldb.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -75,6 +77,8 @@ insert_link_between_two_nodes(node_t *node1,
     interface_assign_mac_address(&link->intf1);
     interface_assign_mac_address(&link->intf2);
 
+    intf_init_bit_rate_sampling_timer(&link->intf1);
+
     tcp_ip_init_intf_log_info(&link->intf1);
     tcp_ip_init_intf_log_info(&link->intf2);
 }
@@ -109,8 +113,8 @@ create_graph_node(graph_t *graph, char *node_name){
 
     node_init_udp_socket(node);
 
-    init_node_nw_prop(&node->node_nw_prop);
-    
+    init_node_nw_prop(node, &node->node_nw_prop);
+
     node->spf_data = NULL;
 
     tcp_ip_init_node_log_info(node);
@@ -124,6 +128,10 @@ create_graph_node(graph_t *graph, char *node_name){
     tcp_ip_register_default_l2_pkt_trap_rules(node);
     tcp_ip_register_default_l3_pkt_trap_rules(node);
 
+    node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
+    policy_init(&node->import_policy_db);
+    policy_init(&node->export_policy_db);
+    init_glthread(&node->access_lists_db);
     init_glthread(&node->graph_glue);
     
     event_dispatcher_init(&node->ev_dis);
@@ -170,9 +178,47 @@ void dump_interface(interface_t *interface){
    link_t *link = interface->link;
    node_t *nbr_node = get_nbr_node(interface);
 
-   printf("Interface Name = %s\n\tNbr Node %s, Local Node : %s, cost = %u\n", 
+   printf("Interface Name = %s\n\tNbr Node %s, Local Node : %s, cost = %u, ifindex = %u\n", 
             interface->if_name,
             nbr_node->node_name, 
             interface->att_node->node_name, 
-            link->cost);
+            link->cost, IF_INDEX(interface));
+
+    if (interface->intf_nw_props.l3_ingress_acc_lst) {
+        printf ("\tIn Access List: %s\n", interface->intf_nw_props.l3_ingress_acc_lst->name);
+    }
+    if (interface->intf_nw_props.l3_egress_acc_lst) {
+        printf ("\tOut Access List: %s\n", interface->intf_nw_props.l3_egress_acc_lst->name);
+    }
+}
+
+interface_t *
+node_get_intf_by_name(node_t *node, char *if_name){
+
+    int i ;
+    interface_t *intf;
+
+    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
+        intf = node->intf[i];
+        if(!intf) return NULL;
+        if(strncmp(intf->if_name, if_name, IF_NAME_SIZE) == 0){
+            return intf;
+        }
+    }
+    return NULL;
+}
+
+interface_t *
+node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
+
+    int i ;
+    interface_t *intf;
+
+    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
+        intf = node->intf[i];
+        if(!intf) return NULL;
+        if (intf->intf_nw_props.ifindex == ifindex)
+            return intf;
+    }
+    return NULL;
 }

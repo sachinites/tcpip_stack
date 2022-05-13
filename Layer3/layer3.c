@@ -37,13 +37,28 @@
 #include "graph.h"
 #include "../Layer2/layer2.h"
 #include "../Layer5/layer5.h"
+#include "rt_table/nexthop.h"
 #include "layer3.h"
 #include "tcpconst.h"
 #include "comm.h"
 #include "netfilter.h"
+#include "../notif.h"
+#include "rt_notif.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../FireWall/acl/acldb.h"
+#include "../mtrie/mtrie.h"
+
+extern int
+nh_flush_nexthops(nexthop_t **nexthop);
 
 extern void
-spf_flush_nexthops(nexthop_t **nexthop);
+rt_table_kick_start_notif_job(rt_table_t *rt_table) ;
+
+extern void
+rt_table_add_route_to_notify_list (
+                rt_table_t *rt_table, 
+                l3_route_t *l3route,
+                uint8_t flag);
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
@@ -138,8 +153,18 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         return;
     }
 
+    /* Access List Evaluation at Layer 3 Entry point*/
+    if (interface && /* For local ping, interface will be NULL */
+            access_list_evaluate_ip_packet(
+            node, interface, 
+            (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr), 
+            true) == ACL_DENY) {
+        return ;
+    }
+
     /*Implement Layer 3 forwarding functionality*/
-    l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), ip_hdr->dst_ip);
+    l3_route_t *l3_route = l3rib_lookup_lpm(
+                                        NODE_RT_TABLE(node), ip_hdr->dst_ip);
 
     if(!l3_route){
         /*Router do not know what to do with the pkt. drop it*/
@@ -171,7 +196,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
                     promote_pkt_to_layer4(node, interface, 
 								(char *)eth_hdr, pkt_size, ip_hdr->protocol);
                     break;
-                case ICMP_PRO:
+                case ICMP_PROTO:
                     printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     break;
                 case IP_IN_IP:
@@ -192,6 +217,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         }
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
+
         demote_pkt_to_layer2(
                 node,           /*Current processing node*/
                 0,              /*Dont know next hop IP as dest is present in local subnet*/
@@ -256,157 +282,240 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         return;
     }
 
+    /* Access List Evaluation at Layer 3 Exit point*/
+    if (access_list_evaluate_ip_packet(
+            node, nexthop->oif, 
+            (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr), 
+            false) == ACL_DENY) {
+        return;
+    }
+
     demote_pkt_to_layer2(node, 
             next_hop_ip,
             nexthop->oif->if_name,
             (char *)ip_hdr, pkt_size,
             ETH_IP); /*Network Layer need to tell Data link layer, 
                        what type of payload it is passing down*/
+            nexthop->hit_count++;
 }
 
 
 /*Implementing Routing Table APIs*/
 void
-init_rt_table(rt_table_t **rt_table){
+init_rt_table(node_t *node, rt_table_t **rt_table){
 
-    *rt_table = calloc(1, sizeof(rt_table_t));
-    init_glthread(&((*rt_table)->route_list));
-	(*rt_table)->is_active = true;
-}
+    *rt_table = XCALLOC(0, 1, rt_table_t);
+    
+    init_mtrie (&(*rt_table)->route_list, 32);
 
-void
-rt_table_set_active_status(rt_table_t *rt_table, bool active){
-	rt_table->is_active = active;
+    strncpy( (*rt_table)->nfc_rt_updates.nfc_name, 
+                 "NFC for IPV4 RT UPDATES",
+                 sizeof((*rt_table)->nfc_rt_updates.nfc_name));
+
+    init_glthread(&((*rt_table)->nfc_rt_updates.notif_chain_head));
+    
+    (*rt_table)->node = node;
 }
 
 l3_route_t *
-rt_table_lookup(rt_table_t *rt_table, char *ip_addr, char mask){
+rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
     
-    glthread_t *curr;
     l3_route_t *l3_route;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+    bin_ip = tcp_ip_covert_ip_p_to_n(ip_addr);
+    bin_ip = htonl(bin_ip);
 
-        l3_route = rt_glue_to_l3_route(curr);
-        if(strncmp(l3_route->dest, ip_addr, 16) == 0 && 
-                l3_route->mask == mask){
-            return l3_route;
-        }
-    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
-}
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask(mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
 
-static void
-l3_route_free(l3_route_t *l3_route){
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
 
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->rt_glue));
-    spf_flush_nexthops(l3_route->nexthops);
-    free(l3_route);
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    mtrie_node_t *node = mtrie_exact_prefix_match_search(
+                            &rt_table->route_list,
+                            &prefix_bm,
+                            &mask_bm);
+
+    if (!node) return NULL;
+
+    return (l3_route_t *)node->data;
 }
 
 void
-clear_rt_table(rt_table_t *rt_table){
+l3_route_free(l3_route_t *l3_route){
 
+    /* Assume the route has already been removed from main routing table */
+    nxthop_proto_id_t nxthop_proto_id;
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
+    FOR_ALL_NXTHOP_PROTO(nxthop_proto_id) {
+        nh_flush_nexthops(l3_route->nexthops[nxthop_proto_id]);
+    }
+    XFREE(l3_route);
+}
+
+void
+clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
+
+    int count;
     glthread_t *curr;
+    nexthop_t *nexthop;
     l3_route_t *l3_route;
+    mtrie_node_t *mnode;
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+    nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
 
-        l3_route = rt_glue_to_l3_route(curr);
-        if(l3_is_direct_route(l3_route))
+    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
+
+        mnode = list_glue_to_mtrie_node(curr);
+
+        l3_route = (l3_route_t *)mnode->data;
+       assert(l3_route);
+
+        if(l3_is_direct_route(l3_route)) {
             continue;
-        remove_glthread(curr);
-        l3_route_free(l3_route);
-    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
+        }
+
+        count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+        l3_route->nh_count -= count;
+        if (l3_route->nh_count) continue;
+
+        l3_route->spf_metric[nh_proto] = 0;
+       mtrie_extract_appln_data(&rt_table->route_list, mnode);
+
+        rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
+
+    }ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr)
+     
+     /* Resurrect mtrie if you have traversed linearly all leaf nodes and 
+     choses to assign NULL data to some of them*/
+     mtrie_resurrect (&rt_table->route_list);
+     rt_table_kick_start_notif_job(rt_table);
 }
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route){
 
+    nexthop_t *nexthop;
+    nxthop_proto_id_t nh_proto;
+
     if(l3_is_direct_route(l3_route))
         return NULL;
     
-    nexthop_t *nexthop = l3_route->nexthops[l3_route->nxthop_idx];
-
-	if(!nexthop) return NULL;
-
-    l3_route->nxthop_idx++;
-
-    if(l3_route->nxthop_idx == MAX_NXT_HOPS || 
-        !l3_route->nexthops[l3_route->nxthop_idx]){
-        l3_route->nxthop_idx = 0;
+    FOR_ALL_NXTHOP_PROTO(nh_proto) {
+        nexthop = l3_route->nexthops[nh_proto][l3_route->nxthop_idx];
+        if (nexthop) {
+            l3_route->nxthop_idx++;
+            if (l3_route->nxthop_idx == MAX_NXT_HOPS || 
+                 !l3_route->nexthops[nh_proto][l3_route->nxthop_idx]){
+                l3_route->nxthop_idx = 0;
+            }
+            break;
+        }
+        else {
+            l3_route->nxthop_idx = 0;
+        }
     }
     return nexthop;
 }
 
-
 void
-delete_rt_table_entry(rt_table_t *rt_table, 
-        char *ip_addr, char mask){
+rt_table_delete_route(
+        rt_table_t *rt_table, 
+        char *ip_addr,
+        char mask,
+        uint16_t proto_id){
 
+    int count;
+    bool rc;
+    l3_route_t *l3_route = NULL;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
     char dst_str_with_mask[16];
     
     apply_mask(ip_addr, mask, dst_str_with_mask); 
-    l3_route_t *l3_route = rt_table_lookup(rt_table, dst_str_with_mask, mask);
 
-    if(!l3_route)
-        return;
+    bin_ip = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
+    bin_ip = htonl(bin_ip);
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask((uint8_t)mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
 
-    remove_glthread(&l3_route->rt_glue);
-    l3_route_free(l3_route);
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    rc = mtrie_delete_prefix(&rt_table->route_list, 
+                                            &prefix_bm,
+                                            &mask_bm,
+                                            (void **)&l3_route);
+
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+
+    if (!rc) return;
+
+    assert(l3_route);
+
+    nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
+    count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+    l3_route->spf_metric[nh_proto] = 0;
+    l3_route->nh_count -= count;
+    if (l3_route->nh_count) return;
+
+    rt_table_add_route_to_notify_list (rt_table, l3_route, RT_DEL_F);
+    rt_table_kick_start_notif_job(rt_table);
 }
 
 /*Look up L3 routing table using longest prefix match*/
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table, 
-                 uint32_t dest_ip){
+                               uint32_t dest_ip){
 
-    l3_route_t *l3_route = NULL,
-    *lpm_l3_route = NULL,
-    *default_l3_rt = NULL;
+    bitmap_t prefix;
+    uint32_t bin_ip;
+    mtrie_node_t *mnode ;
 
-    glthread_t *curr = NULL;
-    char subnet[16];
-    char dest_ip_str[16];
-    char longest_mask = 0;
+   bin_ip = htonl(dest_ip);
+   bitmap_init(&prefix, 32);
+
+   prefix.bits[0] = bin_ip;
    
-    dest_ip = htonl(dest_ip); 
-    inet_ntop(AF_INET, &dest_ip, dest_ip_str, 16);
-    dest_ip_str[15] = '\0';
-     
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+   mnode = mtrie_longest_prefix_match_search(
+                            &rt_table->route_list, &prefix);
 
-        l3_route = rt_glue_to_l3_route(curr);
-        memset(subnet, 0, 16);
-        apply_mask(dest_ip_str, l3_route->mask, subnet);
+    bitmap_free_internal(&prefix);
 
-        if(strncmp("0.0.0.0", l3_route->dest, 16) == 0 &&
-                l3_route->mask == 0){
-            default_l3_rt = l3_route;
-        }
-        else if(strncmp(subnet, l3_route->dest, strlen(subnet)) == 0){
-            if( l3_route->mask > longest_mask){
-                longest_mask = l3_route->mask;
-                lpm_l3_route = l3_route;
-            }
-        }
-    }ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
-    return lpm_l3_route ? lpm_l3_route : default_l3_rt;
+    if (!mnode) return NULL;
+    assert(mnode->data);
+    return (l3_route_t *)mnode->data;
 }
 
 void
 dump_rt_table(rt_table_t *rt_table){
 
-    int i = 0;
+    int i = 0, nxthop_cnt = 0;
     int count = 0;
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
+    mtrie_node_t *mnode;
     
     printf("L3 Routing Table:\n");
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
+    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
 
-        l3_route = rt_glue_to_l3_route(curr);
+        mnode = list_glue_to_mtrie_node(curr);
+        l3_route = (l3_route_t *)mnode->data;
         count++;
+        nxthop_cnt = 0;
 		
 		if(count != 0 && (count % 20) == 0) {
 			printf("continue ?\n");
@@ -415,84 +524,71 @@ dump_rt_table(rt_table_t *rt_table){
 
         if(l3_route->is_direct){
             if(count != 1){
-                printf("\t|===================|=======|====================|==============|==========|============|\n");
+                printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
             }
             else{
-                printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|\n");
+                printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
             }
-            printf("\t|%-18s |  %-4d | %-18s | %-12s |          |  %-10s|\n", 
-                    l3_route->dest, l3_route->mask, "NA", "NA",
+            printf("\t|%-18s |  %-4d | %-10s | %-18s | %-10s   |          |  %-10s| 0            |\n", 
+                    l3_route->dest,
+                    l3_route->mask, 
+                    "",
+                    "NA", "NA",
 					RT_UP_TIME(l3_route));
             continue;
         }
 
-        for( i = 0; i < MAX_NXT_HOPS; i++){
-            if(l3_route->nexthops[i]){
-                if(i == 0){
-                    if(count != 1){
-                        printf("\t|===================|=======|====================|==============|==========|============|\n");
+        nxthop_proto_id_t nxthop_proto;
+
+        FOR_ALL_NXTHOP_PROTO(nxthop_proto) {
+            for( i = 0; i < MAX_NXT_HOPS; i++ ){
+                if(l3_route->nexthops[nxthop_proto][i]) {
+                    if(nxthop_cnt == 0){
+                        if(count != 1){
+                            printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
+                        }
+                        else{
+                            printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                        }
+                        printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4d    |  %-10s| %-8llu     |\n", 
+                                l3_route->dest, l3_route->mask,
+                                proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
+                                l3_route->nexthops[nxthop_proto][i]->gw_ip, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name, 
+                                l3_route->spf_metric[nxthop_proto],
+                                RT_UP_TIME(l3_route),
+                                l3_route->nexthops[nxthop_proto][i]->hit_count);
+                    }
+                    else if ( i == 0) {
+                        /* Fst next hop of a given protocol */
+                        printf("\t|                   |       | %-10s | %-18s | %-12s |  %-4d   |  %-10s| %-8llu     |\n", 
+                                proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
+                                l3_route->nexthops[nxthop_proto][i]->gw_ip, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name,
+                                l3_route->spf_metric[nxthop_proto],
+                                "",
+                                l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
                     else{
-                        printf("\t|======= IP ========|== M ==|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|\n");
+                        printf("\t|                   |       | %-10s | %-18s | %-12s |          |  %-10s| %-8llu     |\n", 
+                                proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
+                                l3_route->nexthops[nxthop_proto][i]->gw_ip, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name, "",
+                                l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
-                    printf("\t|%-18s |  %-4d | %-18s | %-12s |  %-4u    |  %-10s|\n", 
-                            l3_route->dest, l3_route->mask,
-                            l3_route->nexthops[i]->gw_ip, 
-                            l3_route->nexthops[i]->oif->if_name, l3_route->spf_metric,
-							RT_UP_TIME(l3_route));
-                }
-                else{
-                    printf("\t|                   |       | %-18s | %-12s |          |  %-10s|\n", 
-                            l3_route->nexthops[i]->gw_ip, 
-                            l3_route->nexthops[i]->oif->if_name, "");
+                    nxthop_cnt++;
                 }
             }
         }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
-    printf("\t|===================|=======|====================|==============|==========|============|\n");
-}
-
-static bool
-_rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
-
-    init_glthread(&l3_route->rt_glue);
-    glthread_add_next(&rt_table->route_list, &l3_route->rt_glue);
-	l3_route->install_time = time(NULL);
-    return true;
+    printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
 }
 
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
                           char *dst, char mask){
 
-    rt_table_add_route(rt_table, dst, mask, 0, 0, 0);
-}
-
-l3_route_t *
-l3rib_lookup(rt_table_t *rt_table, 
-             uint32_t dest_ip, 
-             char mask){
-
-    char dest_ip_str[16];
-    glthread_t *curr = NULL;
-    char dst_str_with_mask[16];
-    l3_route_t *l3_route = NULL;
-
-    tcp_ip_covert_ip_n_to_p(dest_ip, dest_ip_str);
-
-    apply_mask(dest_ip_str, mask, dst_str_with_mask);
-
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list, curr){
-
-        l3_route = rt_glue_to_l3_route(curr);
-        
-        if(strncmp(dst_str_with_mask, l3_route->dest, 16) == 0 &&
-            l3_route->mask == mask){
-            return l3_route;
-        }
-    } ITERATE_GLTHREAD_END(&rt_table->route_list, curr);
-
-    return NULL;
+    rt_table_add_route(rt_table, dst, mask, 0, 0, 0, PROTO_STATIC);
 }
 
 /* 
@@ -500,14 +596,15 @@ l3rib_lookup(rt_table_t *rt_table,
  * */
 static bool
 l3_route_insert_nexthop(l3_route_t *l3_route,
-						 nexthop_t *nexthop) {
+						 nexthop_t *nexthop,
+                         nxthop_proto_id_t nxthop_proto) {
 
 	int i;
 	
 	nexthop_t *temp;
 	nexthop_t **nexthop_arr;
 
-	nexthop_arr = l3_route->nexthops;
+	nexthop_arr = l3_route->nexthops[nxthop_proto];
 
 	if (nexthop_arr[MAX_NXT_HOPS - 1]) {
 		
@@ -530,33 +627,74 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 		i--;
 	}
 	l3_route->install_time = time(NULL);
+    l3_route->nh_count++;
 	return true;
 }
 
+static bool
+_rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
+
+    bool rc;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
+
+   bin_ip = tcp_ip_covert_ip_p_to_n(l3_route->dest);
+   bin_ip = htonl(bin_ip);
+   bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3_route->mask);
+   bin_mask = ~bin_mask;
+   bin_mask = htonl(bin_mask);
+
+   bitmap_init(&prefix_bm, 32);
+   bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    rc = mtrie_insert_prefix(&rt_table->route_list,
+                                            &prefix_bm,
+                                            &mask_bm,
+                                            32,
+                                            (void *)l3_route);
+
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+
+    if (!rc) return false;
+
+	l3_route->install_time = time(NULL);
+    rt_table_add_route_to_notify_list (rt_table, l3_route, RT_ADD_F);
+    rt_table_kick_start_notif_job(rt_table);
+    return rc;
+}
 
 void
 rt_table_add_route(rt_table_t *rt_table,
-                   char *dst, char mask,
-                   char *gw, interface_t *oif,
-                   uint32_t spf_metric){
+                                char *dst, 
+                                char mask,
+                                char *gw, 
+                                interface_t *oif,
+                                uint32_t spf_metric,
+                                uint8_t proto_id){
 
-   uint32_t dst_int;
-   char dst_str_with_mask[16];
    bool new_route = false;
+   char dst_str_with_mask[16];
 
-   apply_mask(dst, mask, dst_str_with_mask); 
-   inet_pton(AF_INET, dst_str_with_mask, &dst_int);
-   dst_int = htonl(dst_int);
+    apply_mask(dst, mask, dst_str_with_mask); 
 
-   l3_route_t *l3_route = l3rib_lookup(rt_table, dst_int, mask);
+    nxthop_proto_id_t nxthop_proto = 
+        l3_rt_map_proto_id_to_nxthop_index(proto_id);
+    
+   l3_route_t *l3_route = rt_table_lookup_exact_match(
+                                            rt_table, dst_str_with_mask, mask);
 
    if(!l3_route){
-       l3_route = calloc(1, sizeof(l3_route_t));
+       l3_route = XCALLOC(0, 1, l3_route_t);
        strncpy(l3_route->dest, dst_str_with_mask, 16);
        l3_route->dest[15] = '\0';
        l3_route->mask = mask;
        new_route = true;
        l3_route->is_direct = true;
+       l3_route->nh_count = 0;
    }
    
    int i = 0;
@@ -565,9 +703,9 @@ rt_table_add_route(rt_table_t *rt_table,
    if(!new_route){
        for( ; i < MAX_NXT_HOPS; i++){
 
-           if(l3_route->nexthops[i]){
-                if(strncmp(l3_route->nexthops[i]->gw_ip, gw, 16) == 0 && 
-                    l3_route->nexthops[i]->oif == oif){ 
+           if(l3_route->nexthops[nxthop_proto][i]){
+                if(strncmp(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
+                    l3_route->nexthops[nxthop_proto][i]->oif == oif){ 
                     printf("Error : Attempt to Add Duplicate Route\n");
                     return;
                 }
@@ -583,13 +721,19 @@ rt_table_add_route(rt_table_t *rt_table,
    }
 
    if(gw && oif){
-        nexthop_t *nexthop = calloc(1, sizeof(nexthop_t));
+        nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
         l3_route->is_direct = false;
-        l3_route->spf_metric = spf_metric;
+        l3_route->spf_metric[nxthop_proto] = spf_metric;
         strncpy(nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
-		l3_route_insert_nexthop(l3_route, nexthop);
+        nexthop->ifindex = IF_INDEX(oif);
+        nexthop->proto = proto_id;
+		l3_route_insert_nexthop(l3_route, nexthop, nxthop_proto);
+        if (!new_route) {
+            rt_table_add_route_to_notify_list (rt_table, l3_route, RT_UPDATE_F);
+            rt_table_kick_start_notif_job(rt_table);
+        }
    }
 
    if(new_route){
@@ -634,18 +778,18 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
  * stack to layer 3*/
 void
 demote_packet_to_layer3(node_t *node, 
-                        char *pkt, uint32_t size,
-                        int protocol_number, /*L4 or L5 protocol type*/
-                        uint32_t dest_ip_address){
+                                           char *pkt,
+                                           uint32_t size,
+                                           int protocol_number, /*L4 or L5 protocol type*/
+                                           uint32_t dest_ip_address){
+
     ip_hdr_t iphdr;
     initialize_ip_hdr(&iphdr);  
       
     /*Now fill the non-default fields*/
     iphdr.protocol = protocol_number;
 
-    uint32_t addr_int = 0;
-    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
-    addr_int = htonl(addr_int);
+    uint32_t addr_int =  tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
     iphdr.src_ip = addr_int;
     iphdr.dst_ip = dest_ip_address;
 
@@ -655,34 +799,32 @@ demote_packet_to_layer3(node_t *node,
     uint32_t new_pkt_size = 0 ;
 
     new_pkt_size = IP_HDR_TOTAL_LEN_IN_BYTES((&iphdr));
-    new_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    new_pkt = tcp_ip_get_new_pkt_buffer (new_pkt_size);
 
     memcpy(new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
-    if(pkt && size)
+    if(pkt && size) {
         memcpy(new_pkt + IP_HDR_LEN_IN_BYTES((&iphdr)), pkt, size);
+    }
 
     /*Now Resolve Next hop*/
     l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
-                                iphdr.dst_ip);
+                                          iphdr.dst_ip);
     
     if(!l3_route){
         printf("Node : %s : No L3 route %s\n",
 			node->node_name, tcp_ip_covert_ip_n_to_p(iphdr.dst_ip, 0));   
-		free(new_pkt);
+		tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }
 
     bool is_direct_route = l3_is_direct_route(l3_route);
     
-    char *shifted_pkt_buffer = pkt_buffer_shift_right(new_pkt, 
-                    new_pkt_size, MAX_PACKET_BUFFER_SIZE);
-
     if(is_direct_route){
 
         int8_t nf_result = nf_invoke_netfilter_hook(
                 NF_IP_LOCAL_OUT,
-				shifted_pkt_buffer,
+				new_pkt,
                 new_pkt_size,
 				node, NULL,
                 IP_HDR);
@@ -699,7 +841,7 @@ demote_packet_to_layer3(node_t *node,
         demote_pkt_to_layer2(node,
                          dest_ip_address,
                          0,
-                         shifted_pkt_buffer, new_pkt_size,
+                         new_pkt, new_pkt_size,
                          ETH_IP);
         return;
     }
@@ -712,10 +854,15 @@ demote_packet_to_layer3(node_t *node,
     nexthop = l3_route_get_active_nexthop(l3_route);
     
     if(!nexthop){
-        free(new_pkt);
+        tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }
     
+    if (access_list_evaluate_ip_packet(node, 
+                nexthop->oif, 
+                (ip_hdr_t *)new_pkt, 
+                false) == ACL_DENY) return;
+
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
     next_hop_ip = htonl(next_hop_ip);
 
@@ -724,7 +871,7 @@ demote_packet_to_layer3(node_t *node,
 
     int8_t nf_result = nf_invoke_netfilter_hook(
             NF_IP_LOCAL_OUT,
-			shifted_pkt_buffer,
+			new_pkt,
             new_pkt_size,
 			node, nexthop->oif,
             IP_HDR);
@@ -735,16 +882,19 @@ demote_packet_to_layer3(node_t *node,
     case NF_DROP:
     case NF_STOLEN:
     case NF_STOP:
-        free(new_pkt);
+        tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }
 
     demote_pkt_to_layer2(node,
             next_hop_ip,
             nexthop->oif->if_name,
-            shifted_pkt_buffer, new_pkt_size,
+            new_pkt, new_pkt_size,
             ETH_IP);
-    free(new_pkt);
+
+    nexthop->hit_count++;
+
+    tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
 }
 
 /* This fn sends a dummy packet to test L3 and L2 routing
@@ -763,7 +913,7 @@ layer3_ping_fn(node_t *node, char *dst_ip_addr){
 
     /* We dont have any application or transport layer paylod, so, directly prepare
      * L3 hdr*/
-    demote_packet_to_layer3(node, NULL, 0, ICMP_PRO, addr_int);
+    demote_packet_to_layer3(node, NULL, 0, ICMP_PROTO, addr_int);
 }
 
 void
@@ -772,10 +922,10 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
 
     /*Prepare the payload and push it down to the network layer.
      The payload shall be inner ip hdr*/
-    ip_hdr_t *inner_ip_hdr = calloc(1, sizeof(ip_hdr_t));
+    ip_hdr_t *inner_ip_hdr = XCALLOC(0, 1, ip_hdr_t);
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
-    inner_ip_hdr->protocol = ICMP_PRO;
+    inner_ip_hdr->protocol = ICMP_PROTO;
     
     uint32_t addr_int = 0;
     inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
@@ -794,7 +944,7 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
     demote_packet_to_layer3(node, (char *)inner_ip_hdr, 
                             inner_ip_hdr->total_length * 4, 
                             IP_IN_IP, addr_int);
-    free(inner_ip_hdr);
+    XFREE(inner_ip_hdr);
 }
 
 /*Wrapper fn to be used by Applications*/
@@ -804,4 +954,95 @@ tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
 
     demote_packet_to_layer3(node, app_data, data_size,
             L5_protocol_id, dest_ip_address);
+}
+
+void
+interface_set_ip_addr(node_t *node, interface_t *intf, 
+                                    char *intf_ip_addr, uint8_t mask) {
+
+    uint32_t ip_addr_int;
+    uint32_t if_change_flags = 0;
+    intf_prop_changed_t intf_prop_changed;
+
+    if (IS_INTF_L2_MODE(intf)) {
+        printf("Error : Remove L2 config from interface first\n");
+        return;
+    }
+
+    /* new config */
+    if ( !IF_IP_EXIST(intf)) {
+        strncpy(IF_IP(intf), intf_ip_addr, 16);
+        IF_MASK(intf) = mask;
+        IF_IP_EXIST(intf) = true;
+
+        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+        ip_addr_int = tcp_ip_covert_ip_p_to_n(intf_ip_addr);
+        intf_prop_changed.ip_addr.ip_addr = 0;
+        intf_prop_changed.ip_addr.mask = 0;
+        rt_table_add_direct_route(NODE_RT_TABLE(node), intf_ip_addr, mask);
+
+        nfc_intf_invoke_notification_to_sbscribers(intf,  
+                &intf_prop_changed, if_change_flags);
+        return;
+    }
+
+    /* Existing config changed */
+    if (strncmp(IF_IP(intf), intf_ip_addr, 16) || 
+            IF_MASK(intf) != mask ) {
+
+        ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
+        intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
+        intf_prop_changed.ip_addr.mask = IF_MASK(intf);
+        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+        rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
+        strncpy(IF_IP(intf), intf_ip_addr, 16);
+        IF_MASK(intf) = mask;
+        rt_table_add_direct_route(NODE_RT_TABLE(node), IF_IP(intf), IF_MASK(intf));
+
+         nfc_intf_invoke_notification_to_sbscribers(intf,  
+                &intf_prop_changed, if_change_flags);
+    }
+}
+
+void
+interface_unset_ip_addr(node_t *node, interface_t *intf, 
+                                        char *new_intf_ip_addr, uint8_t new_mask) {
+
+    uint8_t mask;
+    uint32_t ip_addr_int;
+    uint32_t if_change_flags = 0;
+    intf_prop_changed_t intf_prop_changed;
+
+    if ( !IF_IP_EXIST(intf)) {
+        return;
+    }
+
+    if (strncmp(IF_IP(intf), new_intf_ip_addr, 16)  ||
+            IF_MASK(intf) != new_mask) {
+
+        printf("Error : Non Existing IP address Specified \n");
+        return;
+    }
+
+    ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
+    mask = IF_MASK(intf);
+    intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
+    intf_prop_changed.ip_addr.mask = mask;
+
+    IF_IP_EXIST(intf) = false;
+    SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
+
+    rt_table_delete_route(NODE_RT_TABLE(node),  new_intf_ip_addr, new_mask, PROTO_STATIC);
+
+    nfc_intf_invoke_notification_to_sbscribers(intf,  
+                &intf_prop_changed, if_change_flags);
+}
+
+void
+layer3_mem_init() {
+
+    MM_REG_STRUCT(0, ip_hdr_t);
+    MM_REG_STRUCT(0, rt_table_t);
+    MM_REG_STRUCT(0, nexthop_t);
+    MM_REG_STRUCT(0, l3_route_t);
 }
