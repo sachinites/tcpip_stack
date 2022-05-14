@@ -187,6 +187,7 @@ ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node) {
      assert(!node->is_installed_in_teddb);
      avltree_insert( &node->avl_glue, &ted_db->teddb);
      node->is_installed_in_teddb = true;
+     return true;
 }
 
 ted_node_t *
