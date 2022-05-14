@@ -348,6 +348,7 @@ _network_start_pkt_receiver_thread(void *arg){
             
         } ITERATE_GLTHREAD_END(&topo->node_list, curr);
     }
+    return NULL;
 }
 
 

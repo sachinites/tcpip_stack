@@ -307,6 +307,8 @@ access_list_delete_complete(access_list_t *access_list) {
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
     remove_glthread(&access_list->glue);
+    access_list_dereference(access_list);
+    
     access_list_check_delete(access_list);
 
     printf ("Access List Deleted\n");

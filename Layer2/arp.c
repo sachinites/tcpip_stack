@@ -502,6 +502,7 @@ arp_entry_create_expiration_timer(
 					 sizeof(*arp_entry),
 					 ARP_ENTRY_EXP_TIME * 1000,
 					 0); 				 
+    return arp_entry->exp_timer_wt_elem;
 }
 
 void

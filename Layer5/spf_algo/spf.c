@@ -222,8 +222,10 @@ spf_record_result(node_t *spf_root,
 
     /*Record result*/
     /*This result must not be present already*/
-    assert(!spf_lookup_spf_result_by_node(spf_root, processed_node));
-    spf_result_t *spf_result = XCALLOC(0, 1, spf_result_t);
+    spf_result_t *spf_result = NULL;
+    assert((spf_result = spf_lookup_spf_result_by_node(
+            spf_root, processed_node)) == NULL);
+    spf_result = XCALLOC(0, 1, spf_result_t);
     /*We record three things as a part of spf result for a node in 
      * topology : 
      * 1. The node itself
