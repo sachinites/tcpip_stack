@@ -154,7 +154,7 @@ task_invoke_appln_cbk_handler(param_t *param,
 		(unified_cli_data_t *)calloc(1, sizeof(unified_cli_data_t));
 
 	unified_cli_data->param = param;
-	unified_cli_data->tlv_ser_buff = calloc(1, sizeof(ser_buff_t));
+	unified_cli_data->tlv_ser_buff = (ser_buff_t *)calloc(1, sizeof(ser_buff_t));
 	memcpy(unified_cli_data->tlv_ser_buff, tlv_buff, sizeof(ser_buff_t));
 	unified_cli_data->tlv_ser_buff->b = calloc(1, 
 		get_serialize_buffer_size(tlv_buff));
@@ -175,7 +175,7 @@ static tlv_struct_t tlv;
 
 static CMD_PARSE_STATUS
 build_tlv_buffer(char **tokens, 
-                 size_t token_cnt){ 
+                            int token_cnt){ 
 
     int i = 0; 
     param_t *parent = NULL;
@@ -347,7 +347,7 @@ static void
 parser_replace_node_name_with_next_token(char *last_cmd, char *new_node_name) {
 
     int i = 0;
-    size_t token_cnt = 0;
+    int token_cnt = 0;
     char** tokens = NULL;
     char replica[CONS_INPUT_BUFFER_SIZE];
     char new_node_name_copy[64];
@@ -382,7 +382,7 @@ CMD_PARSE_STATUS
 parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
     char** tokens = NULL;
-    size_t token_cnt = 0;
+    int token_cnt = 0;
     char file_name[128];
     CMD_PARSE_STATUS status = COMPLETE;
     
@@ -537,7 +537,7 @@ parse_file(char *file_name) {
 
 	char line[256];
 	char** tokens = NULL;
-	size_t token_cnt = 0;
+	int token_cnt = 0;
 
 	FILE *fptr = fopen(file_name, "r");
 	

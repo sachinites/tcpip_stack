@@ -9,7 +9,7 @@ typedef struct stack{
 }Stack_t;
 
 Stack_t*
-get_new_stack();
+get_new_stack(void);
 
 int
 reset_stack(Stack_t *stack);

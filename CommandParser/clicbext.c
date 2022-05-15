@@ -36,7 +36,7 @@
 #include "clicbext.h"
 
 void
-terminate_signal_handler(){
+terminate_signal_handler(int a){
 
     /*-----------------------------------------------------------------------------
      *  Process has malfunctioned for some reason, user would like to see the memory

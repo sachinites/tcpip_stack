@@ -34,7 +34,7 @@ init_token_array(){
 
     int i = 0;
     for(; i < MAX_CMD_TREE_DEPTH; i++){
-        tokens[i] = calloc(1, LEAF_VALUE_HOLDER_SIZE);
+        tokens[i] = (char *)calloc(1, LEAF_VALUE_HOLDER_SIZE);
     }
 }
 
@@ -68,7 +68,7 @@ get_token(unsigned int index){
     return tokens[index];
 }
 
-char** tokenizer(char* _a_str, const char a_delim, size_t *token_cnt){
+char** tokenizer(char* _a_str, const char a_delim, int *token_cnt){
    
     char *token = NULL;
     int i = 0;
@@ -160,7 +160,7 @@ print_tokens(unsigned int index){
     }
 }
 
-void replaceSubstring(char string[], char sub[], char new_str[])
+void replaceSubstring(char string[], const char sub[], char new_str[])
 {
     int stringLen, subLen, newLen;
     int i = 0, j, k;
@@ -203,7 +203,7 @@ void replaceSubstring(char string[], char sub[], char new_str[])
 
 
 bool
-pattern_match(char string[], int string_size, char pattern[]) {
+pattern_match(char string[], int string_size, const char pattern[]) {
 
     if (string_size == 0) {
         return false;
@@ -219,7 +219,7 @@ grep (char string[], int string_size, char pattern[]) {
 
     if (!string_size) return 0;
     
-    char *temp_buff = calloc(1, string_size);
+    char *temp_buff = (char *)calloc(1, string_size);
     
     memcpy(temp_buff, string, string_size);
     memset (string, 0, string_size);
@@ -274,7 +274,7 @@ string_fetch_integer(char *string, int string_size, int index) {
 
     if (!string_size) return 0;
 
-    char *temp_buff = calloc(1, string_size);
+    char *temp_buff = (char *)calloc(1, string_size);
     memcpy(temp_buff, string, string_size);
     
     token = strtok(temp_buff, " ");

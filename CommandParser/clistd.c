@@ -241,7 +241,7 @@ static char file_cmsd_size[FILE_CMD_SIZE_MAX];
  int
 show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
    
-    unsigned int cmd_counter = 0;
+    int cmd_counter = 0;
 
     unsigned long cmd_offset[MAX_SAVED_CMDS];
 
@@ -285,7 +285,7 @@ show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 }
 
  void
-record_command(char *hist_file, char *cons_input_buffer, unsigned int cmd_len){
+record_command(const char *hist_file, char *cons_input_buffer, unsigned int cmd_len){
 
     assert(hist_file || cons_input_buffer || !cmd_len);
     

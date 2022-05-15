@@ -103,6 +103,9 @@ struct node_ {
 
     event_dispatcher_t ev_dis;
     pkt_q_t recvr_pkt_q;
+
+    event_dispatcher_t dp_ev_dis;
+    pkt_q_t dp_recvr_pkt_q;
     
     unsigned char *print_buff;
 

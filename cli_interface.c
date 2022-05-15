@@ -7,7 +7,10 @@ extern graph_t *topo;
 typedef struct event_dispatcher_ event_dispatcher_t;
 extern event_dispatcher_t gev_dis;
 
-extern event_dispatcher_t *
+event_dispatcher_t *
+node_get_ev_dispatcher (ser_buff_t *tlv_buff) ;
+
+event_dispatcher_t *
 node_get_ev_dispatcher (ser_buff_t *tlv_buff) {
 
     node_t *node;

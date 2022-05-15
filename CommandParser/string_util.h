@@ -25,7 +25,7 @@
 
 char** tokenizer(char* a_str, 
                  const char a_delim, 
-                 size_t *token_cnt);
+                 int *token_cnt);
 
 void
 string_space_trim(char *string);
@@ -48,10 +48,10 @@ untokenize(unsigned int index);
 char *
 get_token(unsigned int index);
 
-void replaceSubstring(char string[], char sub[], char new_str[]);
+void replaceSubstring(char string[], const char sub[], char new_str[]);
 
 bool
-pattern_match(char string[], int string_size, char pattern[]);
+pattern_match(char string[], int string_size, const char pattern[]);
 
 int
 grep (char string[], int string_size, char pattern[]);

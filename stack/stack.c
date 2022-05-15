@@ -5,9 +5,9 @@
 #include "stack.h"
 
 Stack_t*
-get_new_stack()
+get_new_stack(void)
 {
-    Stack_t *stack = calloc(1, sizeof(Stack_t));
+    Stack_t *stack = (Stack_t *)calloc(1, sizeof(Stack_t));
     if(!stack)
         return NULL;
     memset(stack, 0, sizeof(Stack_t));
@@ -82,17 +82,19 @@ int isStackEmpty(Stack_t *stack)
     
     assert(stack);
      
-     if(stack->top == -1)
+     if(stack->top == -1) {
         return 1;
+     }
 
-        return 0;
+     return 0;
 }
 
 void* pop(Stack_t *stack)
 {
     void *ret = NULL;
-    if(!stack)
+    if(!stack) {
         return NULL;
+    }
 
     if(stack->top == -1)
     {
@@ -107,16 +109,17 @@ void* pop(Stack_t *stack)
 
 void* getTopElem(Stack_t *stack)
 {
-    if(!stack || stack->top == -1)
+    if(!stack || stack->top == -1) {
         return NULL;
-
-        return stack->slot[stack->top];
     }
+
+    return stack->slot[stack->top];
+}
 
 void free_stack(Stack_t *stack)
 {
-    if(!stack)
+    if(!stack) {
         return;
+    }
     free(stack);
-    return;
 }

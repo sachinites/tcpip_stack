@@ -204,7 +204,7 @@ create_new_task(void *arg,
 				uint32_t arg_size,
 				event_cbk cbk){
 
-	task_t *task = XCALLOC(0, 1, task_t);
+	task_t *task = (task_t *)XCALLOC(0, 1, task_t);
 	task->data = arg;
 	task->data_size = arg_size;
 	task->ev_cbk = cbk;
@@ -230,7 +230,7 @@ event_dispatcher_run(event_dispatcher_t *ev_dis){
 	pthread_attr_t attr;
 	pthread_t *event_dis_thread;
 	
-	event_dis_thread = calloc(1, sizeof(pthread_t));
+	event_dis_thread = (pthread_t *)calloc(1, sizeof(pthread_t));
 	ev_dis->thread = event_dis_thread;
 
 	pthread_attr_init(&attr);
@@ -269,7 +269,7 @@ task_create_new_job_synchronous(
 
 	task_t *task = create_new_task(data, 0, cbk);
 	task->task_type = task_type;
-	task->app_cond_var = calloc(1, sizeof(pthread_cond_t));
+	task->app_cond_var = (pthread_cond_t *)calloc(1, sizeof(pthread_cond_t));
 	pthread_cond_init(task->app_cond_var, 0);
 	event_dispatcher_schedule_task(ev_dis, task);
 	return task;								
@@ -319,7 +319,7 @@ GLTHREAD_TO_STRUCT(glue_to_pkt, pkt_t, glue);
 static pkt_t *
 task_get_new_pkt(char *pkt, uint32_t pkt_size){
 
-	pkt_t *_pkt = calloc(1, sizeof(pkt_t));
+	pkt_t *_pkt = (pkt_t *)calloc(1, sizeof(pkt_t));
 	_pkt->pkt = pkt;
 	_pkt->pkt_size = pkt_size;
 	init_glthread(&_pkt->glue);

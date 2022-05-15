@@ -107,7 +107,7 @@ int
 show_cmd_tree(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable);
 
 void
-record_command(char *hist_file, char *cons_input_buffer, unsigned int cmd_len);
+record_command(const char *hist_file, char *cons_input_buffer, unsigned int cmd_len);
 
 int
 show_extension_param_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable);

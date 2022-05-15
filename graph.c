@@ -102,7 +102,7 @@ tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
 extern void 
 node_init_udp_socket(node_t *node);
 extern void
-pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
+dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
 
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
@@ -123,7 +123,7 @@ create_graph_node(graph_t *graph, char *node_name){
 
 	strncpy(node->layer2_proto_reg_db2.nfc_name,
 			"L2 proto registration db",
-			strlen("L2 proto registration db"));
+			strlen("L2 proto registration db") + 1);
 
     tcp_ip_register_default_l2_pkt_trap_rules(node);
     tcp_ip_register_default_l3_pkt_trap_rules(node);
@@ -134,9 +134,16 @@ create_graph_node(graph_t *graph, char *node_name){
     init_glthread(&node->access_lists_db);
     init_glthread(&node->graph_glue);
     
+    /* Start Control plane Thread/Scheduler */
     event_dispatcher_init(&node->ev_dis);
     event_dispatcher_run(&node->ev_dis);
-    init_pkt_q(&node->ev_dis, &node->recvr_pkt_q, pkt_recvr_job_cbk);
+    init_pkt_q(&node->ev_dis, &node->recvr_pkt_q, dp_pkt_recvr_job_cbk);
+
+    /* Start Data Path Thread/Scheduler */
+    event_dispatcher_init(&node->dp_ev_dis);
+    event_dispatcher_run(&node->dp_ev_dis);
+    init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
+
     wt_set_user_data(node_get_timer_instance(node), EV(node));
     
     glthread_add_next(&graph->node_list, &node->graph_glue);

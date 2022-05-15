@@ -34,7 +34,7 @@
 #define __CLICBEXTN__
 
 void
-terminate_signal_handler();
+terminate_signal_handler(int a);
 
 void
 collect_supportsave_data();

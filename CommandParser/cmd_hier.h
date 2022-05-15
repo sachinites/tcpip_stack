@@ -70,7 +70,7 @@ struct _param_t_{
     int CMDCODE;
 };
 
-char*
+const char*
 get_str_leaf_type(leaf_type_t leaf_type);
 
 

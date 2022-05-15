@@ -49,7 +49,7 @@
 extern graph_t *topo;
 
 void
-pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
+dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
 	node_t *receving_node;
 	interface_t *recv_intf;
@@ -85,7 +85,7 @@ pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 void
 init_pkt_recv_queue(event_dispatcher_t *ev_dis, pkt_q_t *recvr_pkt_q) {
 
-	init_pkt_q(ev_dis, recvr_pkt_q, pkt_recvr_job_cbk);
+	init_pkt_q(ev_dis, recvr_pkt_q, dp_pkt_recvr_job_cbk);
 }
 
 int

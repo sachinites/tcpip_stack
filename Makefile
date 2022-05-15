@@ -29,6 +29,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/ddcp/ddcp.o \
 		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
+		  pkt_block.o \
 		  tcp_ip_trace.o	\
  		  tcpip_notif.o \
 		  notif.o	\
@@ -162,6 +163,9 @@ topologies.o:topologies.c
 
 net.o:net.c
 	${CC} ${CFLAGS} -c -I . net.c -o net.o
+
+pkt_block.o:pkt_block.c
+	${CC} ${CFLAGS} -c -I . pkt_block.c -o pkt_block.o
 
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o

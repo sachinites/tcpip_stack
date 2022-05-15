@@ -76,7 +76,7 @@ GLTHREAD_TO_STRUCT(glue_to_tc_result, tc_result_t, glue);
 static void
 tc_append_result(glthread_t *head, uint16_t step_no, bool pass, bool match) {
 
-    tc_result_t *res = calloc(1, sizeof(tc_result_t));
+    tc_result_t *res = (tc_result_t *)calloc(1, sizeof(tc_result_t));
     res->step_no = step_no;
     res->pass = pass;
     res->pattern_match = match;
