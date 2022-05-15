@@ -3,7 +3,7 @@
  *
  *       Filename:  event_dispatcher.c
  *
- *    Description: This file defines the routine to imeplement Event Dispatcher
+ *    Description: This file defines the routine to implement Event Dispatcher
  *
  *        Version:  1.0
  *        Created:  10/20/2020 09:01:49 AM
@@ -47,7 +47,7 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
 	/* TASK_PKT_Q_JOB could be scheduled again because of
  	 * enque-ing of more pkts via external thread while
- 	 * the dispatcher mmay have removed it already from
+ 	 * the dispatcher may have removed it already from
  	 * its task_array_head Queue for processing.
  	 */
 	if (task->task_type == TASK_PKT_Q_JOB && 

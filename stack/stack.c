@@ -86,7 +86,7 @@ int isStackEmpty(Stack_t *stack)
         return 1;
 
         return 0;
-    }
+}
 
 void* pop(Stack_t *stack)
 {

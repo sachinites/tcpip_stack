@@ -82,8 +82,8 @@ struct _wheel_timer_t {
     slotlist_t reschd_list;
 	timer_resolution_t timer_resolution;
 	bool debug;
-    slotlist_t slotlist[0];
     void *user_data;
+    slotlist_t slotlist[0];
 };
 
 static inline void

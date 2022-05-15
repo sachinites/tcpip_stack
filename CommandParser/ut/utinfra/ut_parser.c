@@ -512,7 +512,7 @@ ut_test_handler (param_t *param,
 
     tlv_struct_t *tlv = NULL;
     char *ut_file_name = NULL;
-    char *ut_enable_flag = false;
+    char *ut_enable_flag = NULL;
     int tc_no = 0;
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 

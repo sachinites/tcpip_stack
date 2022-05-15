@@ -30,11 +30,13 @@ send_arp_broadcast_request(node_t *node,
         if(!oif){
             printf("Error : %s : No eligible subnet for ARP resolution for Ip-address : %s",
                     node->node_name, ip_addr);
+            free(ethernet_hdr);
             return;
         }
         if(strncmp(IF_IP(oif), ip_addr, 16) == 0){
             printf("Error : %s : Attemp to resolve ARP for local Ip-address : %s",
                     node->node_name, ip_addr);
+             free(ethernet_hdr);
             return;
         }
     }
