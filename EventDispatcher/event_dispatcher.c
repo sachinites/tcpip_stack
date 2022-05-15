@@ -124,7 +124,7 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 			pthread_mutex_lock(&pkt_q->q_mutex);
 			
 			if (IS_GLTHREAD_LIST_EMPTY(&pkt_q->q_head)) {
-				if(debug) printf("Queue Exhausted, will stop untill pkt enqueue..\n");
+				if(debug) printf("Queue Exhausted, will stop until pkt enqueue..\n");
 				pthread_mutex_unlock(&pkt_q->q_mutex);
 				return;
 			}

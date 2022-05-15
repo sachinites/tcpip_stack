@@ -76,16 +76,13 @@ layer2_fill_with_broadcast_mac(char *mac_array){
 
 char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
-                    char *output_buffer){
+                                        char *output_buffer){
 
-    char *out = NULL;
-    static char str_ip[16];
-    out = !output_buffer ? str_ip : output_buffer;
-    memset(out, 0, 16);
+    memset(output_buffer, 0, 16);
     ip_addr = htonl(ip_addr);
-    inet_ntop(AF_INET, &ip_addr, out, 16);
-    out[15] = '\0';
-    return out;
+    inet_ntop(AF_INET, &ip_addr, output_buffer, 16);
+    output_buffer[15] = '\0';
+    return output_buffer;
 }
 
 uint32_t

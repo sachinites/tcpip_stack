@@ -547,6 +547,8 @@ int
 isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 
     int rc = 0;
+    char ip_addr[16];
+
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     byte *lsp_hdr = eth_hdr->payload;
 
@@ -555,7 +557,7 @@ isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 
     byte *lsp_tlv_buffer = lsp_hdr + ISIS_LSP_HDR_SIZE;
 
-    unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, 0);
+    unsigned char *rtr_id_str = tcp_ip_covert_ip_n_to_p(*rtr_id, ip_addr);
     rc += sprintf(buff + rc, "LSP : %-16s   Seq # : %-4u    size(B) : %-4lu    "
             "ref_c : %-3u   ",
             rtr_id_str, *seq_no, 
@@ -576,8 +578,10 @@ void
 isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
 
     int rc = 0;
-    isis_lsp_pkt_t *lsp_pkt;
+    char ip_addr[16];
     uint32_t rtr_id_int;
+    isis_lsp_pkt_t *lsp_pkt;
+
     char *buff = node->print_buff;
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
@@ -602,7 +606,7 @@ isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
     isis_pkt_hdr_flags_t flags = isis_lsp_pkt_get_flags(lsp_pkt);
 
     rc += sprintf(buff + rc, "LSP : %s(%u)\n",
-        tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, 0), 
+        tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, ip_addr), 
         lsp_pkt_hdr->seq_no);
 
     rc += sprintf(buff + rc,  "Flags :  \n");
@@ -675,13 +679,14 @@ isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pkt1, isis_lsp_pkt_t *lsp_pkt2) {
 byte*
 isis_print_lsp_id(isis_lsp_pkt_t *lsp_pkt) {
 
+    char ip_addr[16];
     static byte lsp_id[32];
     
     memset(lsp_id, 0, sizeof(lsp_id));
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
     uint32_t *seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
 
-    sprintf(lsp_id, "%s-%u", tcp_ip_covert_ip_n_to_p(*rtr_id, 0), *seq_no);
+    sprintf(lsp_id, "%s-%u", tcp_ip_covert_ip_n_to_p(*rtr_id, ip_addr), *seq_no);
     return lsp_id;
 }
 

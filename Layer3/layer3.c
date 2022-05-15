@@ -786,6 +786,8 @@ demote_packet_to_layer3(node_t *node,
                                            uint32_t dest_ip_address){
 
     ip_hdr_t iphdr;
+    char ip_addr[16];
+    
     initialize_ip_hdr(&iphdr);  
       
     /*Now fill the non-default fields*/
@@ -815,7 +817,7 @@ demote_packet_to_layer3(node_t *node,
     
     if(!l3_route){
         printf("Node : %s : No L3 route %s\n",
-			node->node_name, tcp_ip_covert_ip_n_to_p(iphdr.dst_ip, 0));   
+			node->node_name, tcp_ip_covert_ip_n_to_p(iphdr.dst_ip, ip_addr));   
 		tcp_ip_free_pkt_buffer(new_pkt, new_pkt_size);
         return;
     }

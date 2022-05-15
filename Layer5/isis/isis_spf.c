@@ -86,6 +86,8 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
+    char ip_addr[16];
+
     rt_table_t *rt_table = 
         NODE_RT_TABLE(spf_root);
 
@@ -109,7 +111,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
             nexthop = spf_result->nexthops[i];
             if(!nexthop) continue;
             rt_table_add_route(rt_table, 
-                    tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, NULL), 32, 
+                    tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32, 
                     nexthop->gw_ip, nexthop->oif, 
                     spf_result->spf_metric,
                     PROTO_ISIS);
@@ -125,6 +127,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Initialize direct nbrs*/
     ted_node_t *nbr = NULL;
     uint32_t nxt_hop_ip ;
+    char ip_addr[16];
     ted_intf_t *oif;
     nexthop_t *nexthop = NULL;
     isis_spf_data_t *nbr_spf_data;
@@ -142,7 +145,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
         if (oif->cost < nbr_spf_data->spf_metric){
             nh_flush_nexthops(nbr_spf_data->nexthops);
             nexthop = nh_create_new_nexthop (oif->ifindex, 
-                                tcp_ip_covert_ip_n_to_p(nxt_hop_ip, 0), PROTO_STATIC);
+                                tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_STATIC);
             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
             nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
             nbr_spf_data->spf_metric = oif->cost;
@@ -153,7 +156,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
         /*Cover the ECMP case*/
         else if (oif->cost == nbr_spf_data->spf_metric){
             nexthop = nh_create_new_nexthop (oif->ifindex,
-                            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, 0), 
+                            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), 
                             PROTO_STATIC);
             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
             nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);

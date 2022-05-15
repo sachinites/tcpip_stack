@@ -30,7 +30,7 @@ isis_process_hello_pkt(node_t *node,
                        size_t pkt_size) {
 
     uint8_t intf_ip_len;
-    char *if_ip_addr_str;
+    char if_ip_addr_str[16];
     isis_pkt_hdr_t *hello_pkt_hdr;
 
     if (!isis_node_intf_is_enable(iif)) return;
@@ -67,7 +67,7 @@ isis_process_hello_pkt(node_t *node,
     /*If no Intf IP, then it is a bad hello*/
     if (!if_ip_addr_int) goto bad_hello;
 
-     if_ip_addr_str = tcp_ip_covert_ip_n_to_p(*if_ip_addr_int, 0);
+     tcp_ip_covert_ip_n_to_p(*if_ip_addr_int, if_ip_addr_str);
 
     if (!is_same_subnet(IF_IP(iif), 
                        iif->intf_nw_props.mask, 
@@ -450,7 +450,7 @@ isis_print_lsp_pkt(byte *buff,
                               uint32_t pkt_size ) {
 
     uint32_t rc = 0;
-    unsigned char *ip_addr;
+    char ip_addr[16];
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
@@ -458,7 +458,7 @@ isis_print_lsp_pkt(byte *buff,
     
     uint32_t seq_no = lsp_pkt_hdr->seq_no;
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
-    ip_addr = tcp_ip_covert_ip_n_to_p(rtr_id, 0);
+    tcp_ip_covert_ip_n_to_p(rtr_id, ip_addr);
 
     rc += sprintf(buff + rc, "LSP pkt : %s(%u) \n",
                     ip_addr, seq_no);
@@ -498,7 +498,7 @@ isis_print_hello_pkt(byte *buff,
                                   uint32_t pkt_size ) {
 
     uint32_t rc = 0;
-    char *ip_addr_str;
+    char ip_addr_str[16];
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
     byte *hello_tlv_buffer = (byte *)(hello_pkt_hdr + 1);
@@ -519,7 +519,7 @@ isis_print_hello_pkt(byte *buff,
                 break;
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
-                ip_addr_str = tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, 0);
+                tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, ip_addr_str);
                 rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
                 break;
             case ISIS_TLV_HOLD_TIME:

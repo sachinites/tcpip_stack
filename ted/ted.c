@@ -356,11 +356,13 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
     uint32_t rc = 0;
     ted_intf_t *intf, *other_intf;
     ted_node_t *nbr;
+    char ip_addr[16];
 
     rc += sprintf(buff + rc, "Node : %s[%u]  %s-%u   flags : 0x%x\n", 
                 node->node_name,
                 node->seq_no,
-                tcp_ip_covert_ip_n_to_p(node->rtr_id, 0), node->seq_no,
+                tcp_ip_covert_ip_n_to_p(node->rtr_id, ip_addr), 
+                node->seq_no,
                 node->flags);
     
     if (node->is_fake) {
@@ -373,7 +375,8 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
         nbr = ted_get_nbr_node(intf);
         rc += sprintf (buff + rc , "    Local Intf : %u,  Ip-Address/Mask : %s/%d,  cost = %u\n",
-                                intf->ifindex, tcp_ip_covert_ip_n_to_p(intf->ip_addr, 0), intf->mask, intf->cost);
+                                intf->ifindex, tcp_ip_covert_ip_n_to_p(intf->ip_addr, ip_addr),
+                                intf->mask, intf->cost);
 
         rc += sprintf (buff + rc, "    Nbr : %s[%u]", nbr ? nbr->node_name : "None",
                                 nbr ? nbr->seq_no : 0);
@@ -382,7 +385,8 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
             other_intf = ted_link_get_other_interface(intf);
             rc += sprintf (buff + rc, "   Remote if index : %u, Remote-Ip-Address/Mask : %s/%d,  cost = %u\n",
-                other_intf->ifindex, tcp_ip_covert_ip_n_to_p(other_intf->ip_addr, 0),
+                other_intf->ifindex,
+                tcp_ip_covert_ip_n_to_p(other_intf->ip_addr, ip_addr),
                 other_intf->mask, other_intf->cost);
         }
 
