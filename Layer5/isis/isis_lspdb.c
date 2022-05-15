@@ -12,42 +12,49 @@ void
 isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
                              bool *on_demand_tlv);
 
-static isis_lsp_pkt_t *gl_lsp_dummy_pkt = NULL;
-
 static isis_lsp_pkt_t *
-isis_get_dummy_lsp_pkt_with_key(uint32_t rtr_id) {
+isis_get_dummy_lsp_pkt_with_key(node_t *node, uint32_t rtr_id) {
 
     uint32_t pkt_size;
     uint32_t *rtr_id_addr;
+    isis_node_info_t *node_info ;
 
-    if (!gl_lsp_dummy_pkt) {
+    node_info = ISIS_NODE_INFO(node);
     
-        gl_lsp_dummy_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
+    if (!node_info || !isis_is_protocol_enable_on_node(node)) return;
 
-        pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD +
-                    ISIS_LSP_HDR_SIZE;
+    if (!node_info->lsp_dummy_pkt) {
+    
+        node_info->lsp_dummy_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
 
-        gl_lsp_dummy_pkt->pkt = tcp_ip_get_new_pkt_buffer ( pkt_size);
+        pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + ISIS_LSP_HDR_SIZE;
+
+       node_info->lsp_dummy_pkt->pkt = tcp_ip_get_new_pkt_buffer ( pkt_size);
                         
-        isis_mark_isis_lsp_pkt_flood_ineligible(0, gl_lsp_dummy_pkt);
-        gl_lsp_dummy_pkt->pkt_size = pkt_size;
-        gl_lsp_dummy_pkt->expiry_timer = NULL;
-        gl_lsp_dummy_pkt->installed_in_db = false;
-        isis_ref_isis_pkt(gl_lsp_dummy_pkt);
+        isis_mark_isis_lsp_pkt_flood_ineligible(0, node_info->lsp_dummy_pkt);
+        node_info->lsp_dummy_pkt->pkt_size = pkt_size;
+        node_info->lsp_dummy_pkt->expiry_timer = NULL;
+        node_info->lsp_dummy_pkt->installed_in_db = false;
+        isis_ref_isis_pkt(node_info->lsp_dummy_pkt);
     }
     
-    rtr_id_addr = isis_get_lsp_pkt_rtr_id(gl_lsp_dummy_pkt);
+    rtr_id_addr = isis_get_lsp_pkt_rtr_id(node_info->lsp_dummy_pkt);
     *rtr_id_addr = rtr_id;
-    return gl_lsp_dummy_pkt;
+    return node_info->lsp_dummy_pkt;
 }
 
 void
-isis_free_dummy_lsp_pkt(void){
+isis_free_dummy_lsp_pkt(node_t *node){
 
     int rc;
-    if(!gl_lsp_dummy_pkt) return ;
-    rc = isis_deref_isis_pkt(gl_lsp_dummy_pkt);
-    if (rc == 0) gl_lsp_dummy_pkt = NULL;
+    isis_node_info_t *node_info ;
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info || !isis_is_protocol_enable_on_node(node)) return;
+
+    if(!node_info->lsp_dummy_pkt) return ;
+    rc = isis_deref_isis_pkt(node_info->lsp_dummy_pkt);
+    if (rc == 0) node_info->lsp_dummy_pkt = NULL;
 }
 
 avltree_t *
@@ -473,7 +480,7 @@ isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id) {
 
     if (!lspdb) return NULL;
 
-    isis_lsp_pkt_t *dummy_lsp_pkt = isis_get_dummy_lsp_pkt_with_key(rtr_id);
+    isis_lsp_pkt_t *dummy_lsp_pkt = isis_get_dummy_lsp_pkt_with_key(node, rtr_id);
 
     avltree_node_t *avl_node =
         avltree_lookup(&dummy_lsp_pkt->avl_node_glue, lspdb);

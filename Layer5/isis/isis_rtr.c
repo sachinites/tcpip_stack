@@ -15,7 +15,6 @@
 #include "../../ted/ted.h"
 #include "isis_ted.h"
 
-extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
 extern void isis_ipv4_rt_notif_cbk (
         void *rt_notif_data, size_t arg_size);
@@ -227,7 +226,7 @@ isis_protocol_shut_down(node_t *node) {
   
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
-    isis_free_dummy_lsp_pkt();
+    isis_free_dummy_lsp_pkt(node);
     isis_cleanup_spf_logc(node);
     
     SET_BIT( node_info->event_control_flags, 

@@ -365,15 +365,16 @@ pkt_q_enqueue(event_dispatcher_t *ev_dis,
 
 	pthread_mutex_lock(&pkt_q->q_mutex);	
 	glthread_add_next(&pkt_q->q_head, &pkt->glue);
-	pthread_mutex_unlock(&pkt_q->q_mutex);
 
 	EV_DIS_LOCK(ev_dis);
 	/* Job is already scheduled to run */
 	if (!IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)){
 		EV_DIS_UNLOCK(ev_dis);
+		pthread_mutex_unlock(&pkt_q->q_mutex);
 		return;
 	}
 	EV_DIS_UNLOCK(ev_dis);
+	pthread_mutex_unlock(&pkt_q->q_mutex);
 	if (debug) printf("%s() calling event_dispatcher_schedule_task()\n",
 			__FUNCTION__);
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);	

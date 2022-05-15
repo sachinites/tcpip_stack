@@ -131,15 +131,15 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = get_nbr_node(interface);
     
-    if(!IF_IS_UP(interface)){
+    if (!IF_IS_UP(interface)){
 		interface->intf_nw_props.xmit_pkt_dropped++;
         return 0;
     }
 
-    if(!nbr_node)
+    if (!nbr_node)
         return -1;
 
-    if(pkt_size > MAX_PACKET_BUFFER_SIZE){
+    if (pkt_size > MAX_PACKET_BUFFER_SIZE){
         printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
         return -1;
     }
@@ -171,8 +171,6 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	interface->intf_nw_props.pkt_sent++;
     interface->intf_nw_props.bit_rate.new_bit_stats += pkt_size * 8;
     
-
-
     return pkt_size; 
 }
 

@@ -232,8 +232,8 @@ is_same_subnet(char *ip_addr, char mask,
     if (strncmp(intf_subnet, subnet2, 16) == 0){
         return true;
     }
+    assert(0);
     return false;
-
 }
 
 /*Interface Vlan mgmt APIs*/

@@ -92,6 +92,8 @@ typedef struct node_nw_prop_{
 
     /*Sending Buffer*/
     char *send_log_buffer; /*Used for logging */
+    /* Receiving Buffer */ 
+    char *recv_log_buffer; /* Used for logging */
 
     /*Device level Appln DS*/
     nmp_t *nmp;
@@ -119,7 +121,8 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
     node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     start_wheel_timer(node_nw_prop->wt);
-    node_nw_prop->send_log_buffer = calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->send_log_buffer = (char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->recv_log_buffer = (char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
 	init_glthread(&(node_nw_prop->traffic_gen_db_head));
 }
 

@@ -706,7 +706,8 @@ rt_table_add_route(rt_table_t *rt_table,
            if(l3_route->nexthops[nxthop_proto][i]){
                 if(strncmp(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
                     l3_route->nexthops[nxthop_proto][i]->oif == oif){ 
-                    printf("Error : Attempt to Add Duplicate Route\n");
+                    printf("%s Error : Attempt to Add Duplicate Route %s/%d\n",
+                            rt_table->node->node_name, dst_str_with_mask, mask);
                     return;
                 }
            }
@@ -715,8 +716,8 @@ rt_table_add_route(rt_table_t *rt_table,
    }
 
    if( i == MAX_NXT_HOPS){
-        printf("Error : No Nexthop space left for route %s/%u\n", 
-            dst_str_with_mask, mask);
+        printf("%s Error : No Nexthop space left for route %s/%u\n", 
+            rt_table->node->node_name, dst_str_with_mask, mask);
         return;
    }
 
@@ -738,7 +739,8 @@ rt_table_add_route(rt_table_t *rt_table,
 
    if(new_route){
        if(!_rt_table_entry_add(rt_table, l3_route)){
-           printf("Error : Route %s/%d Installation Failed\n", 
+           printf("%s Error : Route %s/%d Installation Failed\n", 
+                     rt_table->node->node_name,
                    dst_str_with_mask, mask);
            l3_route_free(l3_route);   
        }

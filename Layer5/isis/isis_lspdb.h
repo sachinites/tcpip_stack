@@ -105,4 +105,7 @@ isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff);
  void
 isis_show_lspdb(node_t *node) ;
 
+void
+isis_free_dummy_lsp_pkt(node_t *node);
+
 #endif /* */
