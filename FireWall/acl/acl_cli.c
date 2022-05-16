@@ -71,33 +71,55 @@ acl_parse_ace_config_entries(
     /* Src ip */
     if (src_ip == NULL) {
         acl_entry->saddr.ip4.prefix = 0;
+        acl_entry->saddr.ip4.mask = 0;
     }
     else {
         acl_entry->saddr.ip4.prefix =  tcp_ip_covert_ip_p_to_n(src_ip);
     }
    
     /* Src mask */
-    if (src_mask == NULL) {
-        acl_entry->saddr.ip4.mask = ~0;
+    if (src_ip) {
+        if (src_mask) {
+            acl_entry->saddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(src_mask);
+        }
+        else {
+            acl_entry->saddr.ip4.mask = ~0;
+        }
     }
     else {
-        acl_entry->saddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(src_mask);
+         if (src_mask) {
+           assert(0);
+        }
+        else {
+            acl_entry->saddr.ip4.mask = 0;
+        }
     }
 
     /* Dst ip */
     if (dst_ip == NULL) {
         acl_entry->daddr.ip4.prefix = 0;
+        acl_entry->daddr.ip4.mask = 0;
     }
     else {
         acl_entry->daddr.ip4.prefix =  tcp_ip_covert_ip_p_to_n(dst_ip);
     }
 
     /* Dst Mask */
-    if (dst_mask == NULL) {
-        acl_entry->daddr.ip4.mask = ~0;
+    if (dst_ip) {
+        if (dst_mask) {
+            acl_entry->daddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(dst_mask);
+        }
+        else {
+            acl_entry->daddr.ip4.mask = ~0;
+        }
     }
     else {
-        acl_entry->daddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(dst_mask);
+         if (dst_mask) {
+           assert(0);
+        }
+        else {
+            acl_entry->daddr.ip4.mask = 0;
+        }
     }
 
     bitmap_init(&acl_entry->prefix, ACL_PREFIX_LEN);

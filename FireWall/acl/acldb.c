@@ -245,6 +245,9 @@ acl_process_user_config(node_t *node,
         glthread_add_next(&node->access_lists_db, &access_list->glue);
         access_list_reference(access_list);
     }
+    else {
+        access_list_notify_clients(node, access_list);
+    }
 
     return true;
 }
@@ -279,6 +282,9 @@ acl_process_user_config_for_deletion (
     if (IS_GLTHREAD_LIST_EMPTY(&access_list->head)) {
         access_list_delete_complete(access_list);
     }
+    else {
+        access_list_notify_clients(node, access_list);
+    }
 
     return true;
 }
@@ -307,8 +313,8 @@ access_list_delete_complete(access_list_t *access_list) {
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
     remove_glthread(&access_list->glue);
+    access_list->ref_count--;
     access_list_check_delete(access_list);
-
     printf ("Access List Deleted\n");
 }
 
@@ -534,4 +540,24 @@ access_group_unconfig(node_t *node,
     *configured_access_lst = NULL;
     access_list_dereference(acc_lst);
     return 0;
+}
+
+/* ACL change notification */
+typedef void (*acl_change_cbk)(node_t *, access_list_t *);
+
+extern void isis_acl_change(node_t *node, access_list_t *access_lst);
+
+acl_change_cbk notif_arr[] = { isis_acl_change, 
+                                                  /*add_mode_callbacks_here,*/
+                                                  0,
+                                                };
+
+void
+access_list_notify_clients(node_t *node, access_list_t *acc_lst) {
+
+    int i = 0 ;
+    while (notif_arr[i]) {
+        notif_arr[i](node, acc_lst);
+        i++;
+    }
 }

@@ -134,4 +134,6 @@ access_list_evaluate_ethernet_packet (node_t *node,
 /* Return 0 on success */                    
 int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
+void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
+
 #endif

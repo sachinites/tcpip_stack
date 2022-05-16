@@ -14,6 +14,7 @@
 #include "isis_layer2map.h"
 #include "../../ted/ted.h"
 #include "isis_ted.h"
+#include "../../FireWall/acl/acldb.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
@@ -668,4 +669,16 @@ isis_ipv4_rt_notif_cbk (
     l3route = route_notif_data->l3route;
 
     isis_process_ipv4_route_notif(node, l3route);
+}
+
+void
+isis_acl_change(node_t *node, access_list_t *access_lst); 
+
+void
+isis_acl_change(node_t *node, access_list_t *access_lst) {
+
+    if (!isis_is_protocol_enable_on_node(node)) return;
+
+    printf ("Node %s : access lst %s update recvd\n", 
+        node->node_name, access_lst->name);
 }
