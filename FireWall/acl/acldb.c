@@ -30,6 +30,10 @@ acl_string_to_proto(unsigned char *proto_name) {
         return ACL_ICMP;
     }
 
+    if (strncmp(proto_name, "any", 3) == 0) {
+        return ACL_PROTO_ANY;
+    }
+
     return ACL_PROTO_NONE;
 }
 
@@ -61,6 +65,20 @@ acl_compile (acl_entry_t *acl_entry) {
     uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
     uint32_t *mask_ptr4 = (uint32_t *)mask->bits;
     
+    if (acl_entry->proto == ACL_PROTO_ANY) {
+        /* User has feed "any" in place of protocol in ACL */
+        /* Fill L4 proto field and L3 proto field with Dont Care */
+        *mask_ptr2 = 0xFFFF; 
+        prefix_ptr2++; mask_ptr2++;
+        bytes_copied += sizeof(*prefix_ptr2);
+        *mask_ptr2 = 0xFFFF;
+        prefix_ptr2++; mask_ptr2++;
+        bytes_copied += sizeof(*prefix_ptr2);
+        prefix_ptr4 = (uint32_t *)prefix_ptr2;
+        mask_ptr4 = (uint32_t *)mask_ptr2;
+        goto SRC_ADDR;
+    }
+
     uint8_t proto_layer = tcpip_protocol_classification(
                                     (uint16_t)acl_entry->proto);
 
@@ -94,6 +112,8 @@ acl_compile (acl_entry_t *acl_entry) {
     prefix_ptr2++; mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
     mask_ptr4 = (uint32_t *)mask_ptr2;
+
+    SRC_ADDR:
 
     /* Src ip Address & Mask */
     *prefix_ptr4 = htonl(acl_entry->saddr.ip4.prefix);

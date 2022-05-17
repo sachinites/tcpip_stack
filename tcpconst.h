@@ -73,6 +73,7 @@ typedef enum{
 /* Protocol IDs*/
 #define PROTO_STATIC 101
 #define PROTO_ISIS       0x83
+#define PROTO_ANY       (0xFFFF - 1)
 
 static inline unsigned char *
 proto_name_str (uint16_t proto) {
@@ -92,6 +93,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"tcp";
         case UDP_PROTO:
             return (unsigned char *)"udp";
+        case PROTO_ANY:
+            return (unsigned char *)"any";
         default:
             return NULL;
     }

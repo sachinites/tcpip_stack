@@ -23,6 +23,7 @@ isis_config_handler(param_t *param,
     tlv_struct_t *tlv = NULL;
     char *node_name = NULL;
     char *if_grp_name = NULL;
+    const char *access_lst_name = NULL;
     
     uint32_t ovl_timeout_val = 0;
 
@@ -36,6 +37,8 @@ isis_config_handler(param_t *param,
             ovl_timeout_val = atoi(tlv->value);
         else if (strncmp(tlv->leaf_id, "if-grp-name", strlen("if-grp-name")) ==0)
             if_grp_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "access-list-name", strlen("access-list-name")) ==0)
+            access_lst_name = tlv->value;
         else
             assert(0);
    } TLV_LOOP_END;
@@ -102,7 +105,26 @@ isis_config_handler(param_t *param,
                     return isis_un_config_layer2_map(node);
                 default: ;
          }
-        default: ;
+         break;
+         case CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY:
+            switch(enable_or_disable) {
+                case CONFIG_ENABLE:
+                    return isis_config_import_policy(node, access_lst_name);
+                case CONFIG_DISABLE:
+                    return isis_unconfig_import_policy(node, access_lst_name);
+                default: ;
+            }
+            break;
+         case CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY:
+             switch (enable_or_disable) {
+             case CONFIG_ENABLE:
+                 return isis_config_export_policy(node, access_lst_name);
+             case CONFIG_DISABLE:
+                 return isis_unconfig_export_policy(node, access_lst_name);
+             default:;
+             }
+             break;
+         default:;
     }
     return 0;
 }
@@ -318,23 +340,36 @@ int
 isis_config_cli_tree(param_t *param) {
 
     {
-        /* Enable ISIS on the device at node level
-        conf node <node-name> protocol isis
-        * Behavior : 
-            1. Device must register for all interested pkts 
-            2. Device must generate LSP paclet and install in ISIS LSP DB
-
-        * Negation : 
-            1. protocol must de-register for all ISIS pkts
-            2. Complete shutdown the protocol.
-                Must clean up all dynamic ISIS Data Structures,
-                and stop advertising Hellos and LSPs.
-                clean up node->node_info and intf->intf_info for all interfaces.
-        */
         static param_t isis_proto;
 	    init_param(&isis_proto, CMD, "isis", isis_config_handler, 0, INVALID, 0, "isis protocol");
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, ISIS_CONFIG_NODE_ENABLE);
+        {
+             static param_t import_policy;
+             init_param(&import_policy, CMD, "import-policy", 0, 0, INVALID, 0, "import policy");
+             libcli_register_param(&isis_proto, &import_policy);
+             //libcli_register_display_callback(&import_policy, access_list_show_all_brief);
+             {
+                 static param_t policy_name;
+                 init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "access-list-name",
+                            ("Access List Name"));
+                 libcli_register_param(&import_policy, &policy_name);
+                 set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY);
+             }
+        }
+        {
+            static param_t export_policy;
+            init_param(&export_policy, CMD, "export-policy", 0, 0, INVALID, 0, "export policy");
+            libcli_register_param(&isis_proto, &export_policy);
+            // libcli_register_display_callback(&import_policy, access_list_show_all_brief);
+            {
+                static param_t policy_name;
+                init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "access-list-name",
+                           ("Access List Name"));
+                libcli_register_param(&export_policy, &policy_name);
+                set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY);
+            }
+        }
         {
              /* conf node <node-name> [no] protocol isis overload */
             static param_t ovl;
@@ -581,8 +616,8 @@ isis_clear_handler(param_t *param,
         }
         break;
         default: ;
-    return 0;
     }
+    return 0;
 }
 
 /* clear node <node-name> protocol ... */

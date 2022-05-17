@@ -46,11 +46,11 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_intf_group.o \
 		  Layer5/isis/isis_layer2map.o \
 		  Layer5/isis/isis_ted.o \
+		  Layer5/isis/isis_policy.o \
 		  ted/ted.o \
 		  LinuxMemoryManager/mm.o \
 		  flow/snp_flow.o \
 		  tcp_stack_mem_init.o \
-		  prefix_policy/prefix_policy.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -95,6 +95,9 @@ Layer5/isis/isis_layer2map.o:Layer5/isis/isis_layer2map.c
 
 Layer5/isis/isis_ted.o:Layer5/isis/isis_ted.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_ted.c -o Layer5/isis/isis_ted.o
+
+Layer5/isis/isis_policy.o:Layer5/isis/isis_policy.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_policy.c -o Layer5/isis/isis_policy.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -204,9 +207,6 @@ utils.o:utils.c
 Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
 	${CC} ${CFLAGS} -c -I . -I Layer5/ddcp/ Layer5/ddcp/ddcp.c -o Layer5/ddcp/ddcp.o
 
-prefix_policy/prefix_policy.o:prefix_policy/prefix_policy.c
-	${CC} ${CFLAGS} -c prefix_policy/prefix_policy.c -o prefix_policy/prefix_policy.o
-
 BitOp/bitmap.o:BitOp/bitmap.c
 	${CC} ${CFLAGS} -c BitOp/bitmap.c -o BitOp/bitmap.o
 
@@ -250,7 +250,6 @@ clean:
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f Layer5/nbrship_mgmt/*.o
-	rm -f prefix_policy/*.o
 	rm -f Bitop/*.o
 	rm -f stack/*.o
 #STP

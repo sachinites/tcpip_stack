@@ -86,6 +86,11 @@ typedef struct node_info_ {
     ted_db_t *ted_db;
     /* SPF log list */
     isis_spf_log_container_t spf_logc;
+    /* import policy */
+    access_list_t *import_policy;
+    /* export policy */
+    access_list_t *export_policy;
+    
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

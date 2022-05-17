@@ -42,6 +42,7 @@
 #include "mtrie/mtrie.h"
 #include "BitOp/bitmap.h"
 #include "BitOp/bitsop.h"
+#include "FireWall/acl/acldb.h"
 
 #include "tcpconst.h"
 #include "graph.h"

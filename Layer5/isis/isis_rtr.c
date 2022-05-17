@@ -14,6 +14,7 @@
 #include "isis_layer2map.h"
 #include "../../ted/ted.h"
 #include "isis_ted.h"
+#include "isis_policy.h"
 #include "../../FireWall/acl/acldb.h"
 
 extern void isis_free_dummy_lsp_pkt(void);
@@ -230,6 +231,8 @@ isis_protocol_shut_down(node_t *node) {
     isis_node_cancel_all_timers(node);
     isis_free_dummy_lsp_pkt();
     isis_cleanup_spf_logc(node);
+    isis_unconfig_import_policy(node, NULL);
+    isis_unconfig_export_policy(node, NULL);
     
     SET_BIT( node_info->event_control_flags, 
         ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
@@ -258,6 +261,13 @@ isis_show_node_protocol_state(node_t *node) {
 
     printf("Reconciliation Status : %s\n",
         isis_is_reconciliation_in_progress(node) ? "In-Progress" : "Off");
+
+    if (node_info->import_policy) {
+        printf("Import Policy : %s\n", node_info->import_policy->name);
+    }
+    if (node_info->export_policy) {
+        printf("Export Policy : %s\n", node_info->export_policy->name);
+    }
 
     printf("Overload Status : %s   ", node_info->ovl_data.ovl_status ? "On" : "Off");
     if (node_info->ovl_data.ovl_status &&
@@ -669,16 +679,4 @@ isis_ipv4_rt_notif_cbk (
     l3route = route_notif_data->l3route;
 
     isis_process_ipv4_route_notif(node, l3route);
-}
-
-void
-isis_acl_change(node_t *node, access_list_t *access_lst); 
-
-void
-isis_acl_change(node_t *node, access_list_t *access_lst) {
-
-    if (!isis_is_protocol_enable_on_node(node)) return;
-
-    printf ("Node %s : access lst %s update recvd\n", 
-        node->node_name, access_lst->name);
 }

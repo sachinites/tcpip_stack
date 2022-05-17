@@ -65,8 +65,8 @@ acl_parse_ace_config_entries(
     }
 
     /* Protocol */
+   
     acl_entry->proto = acl_string_to_proto(proto);
-    if (acl_entry->proto == ACL_PROTO_NONE) return false;
 
     /* Src ip */
     if (src_ip == NULL) {

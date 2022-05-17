@@ -79,6 +79,7 @@ display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
         default:
             ;
     }
+    return 0;
 }
 
 /*
@@ -757,6 +758,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
         default:
         break;
    }
+   return 0;
 }
 
 static int 
@@ -1114,11 +1116,6 @@ nw_init_cli(){
         {
             /* ACL CLIs are loaded */
             acl_build_config_cli(&node_name);
-        }
-
-        {
-            param_t *import_policy_cli_root = policy_config_cli_tree();
-            libcli_register_param(&node_name, import_policy_cli_root);
         }
 
         {

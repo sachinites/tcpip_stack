@@ -5,10 +5,11 @@
 #include <stdbool.h>
 #include "../../gluethread/glthread.h"
 #include "../../BitOp/bitmap.h"
-#include "tcpconst.h"
+#include "../../tcpconst.h"
 
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
+typedef struct interface_ interface_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 typedef struct ip_hdr_ ip_hdr_t;
 
@@ -34,6 +35,7 @@ typedef enum {
     ACL_AH,
     ACL_OSPF,
     ACL_TP,
+    ACL_PROTO_ANY = PROTO_ANY,
     ACL_PROTO_MAX = 0xFFFF,
     ACL_PROTO_NONE = 0xFFFF
 } acl_proto_t;

@@ -102,9 +102,10 @@ struct node_ {
     
     unsigned char *print_buff;
 
-    avltree_t import_policy_db;
-    avltree_t export_policy_db;
     glthread_t access_lists_db;
+    
+    /* List of route-maps created on this node*/
+    glthread_t route_map_headtype;
     
     glthread_t graph_glue;
 };

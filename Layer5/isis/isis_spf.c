@@ -2,6 +2,7 @@
 #include "isis_rtr.h"
 #include "isis_spf.h"
 #include "isis_flood.h"
+#include "isis_policy.h"
 
 void
 isis_cancel_spf_job(node_t *node) {
@@ -86,8 +87,12 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
+    isis_node_info_t *node_info;
+
     rt_table_t *rt_table = 
         NODE_RT_TABLE(spf_root);
+
+    node_info = ISIS_NODE_INFO(spf_root);
 
     /*Clear all routes except direct routes*/
     clear_rt_table(rt_table, PROTO_ISIS);
@@ -105,9 +110,19 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
+
         for(i = 0; i < MAX_NXT_HOPS; i++){
+
             nexthop = spf_result->nexthops[i];
+
             if(!nexthop) continue;
+
+            if (!isis_evaluate_import_policy(spf_root, 
+                                                                node_info->import_policy,
+                                                                spf_result->node->rtr_id)) {
+                continue;
+            }
+
             rt_table_add_route(rt_table, 
                     tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, NULL), 32, 
                     nexthop->gw_ip, nexthop->oif, 
