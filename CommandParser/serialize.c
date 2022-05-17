@@ -88,9 +88,10 @@ get_serialize_buffer_checkpoint_offset(ser_buff_t *b){
 }
 
 void serialize_int(ser_buff_t *b, int data){
+    
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(int)){
@@ -114,9 +115,10 @@ void serialize_int(ser_buff_t *b, int data){
 
 
 void serialize_int8(ser_buff_t *b, char data){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(char)){
@@ -140,9 +142,10 @@ void serialize_int8(ser_buff_t *b, char data){
 
 
 void serialize_uint8(ser_buff_t *b, char data){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(char)){
@@ -165,9 +168,10 @@ void serialize_uint8(ser_buff_t *b, char data){
 }
 
 void serialize_int32(ser_buff_t *b, int data){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(int)){
@@ -190,9 +194,10 @@ void serialize_int32(ser_buff_t *b, int data){
 }
 
 void serialize_uint32(ser_buff_t *b, unsigned int data){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(unsigned int)){
@@ -217,9 +222,10 @@ void serialize_uint32(ser_buff_t *b, unsigned int data){
 
 
 void serialize_float(ser_buff_t *b, float data){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(float)){
@@ -244,9 +250,10 @@ void serialize_float(ser_buff_t *b, float data){
 
 
 void serialize_double(ser_buff_t *b, double data){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
     while(available_size < sizeof(double)){
@@ -269,12 +276,13 @@ void serialize_double(ser_buff_t *b, double data){
 }
 
 void serialize_string(ser_buff_t *b, char *data, int nbytes){
+
     if (b == NULL) assert(0);
     ser_buff_t *buff = (ser_buff_t *)(b);
-    int available_size = buff->size - buff->next;
+    size_t available_size = buff->size - buff->next;
     char isResize = 0;
 
-    while(available_size < nbytes){
+    while(available_size < (size_t)nbytes){
         buff->size = buff->size * 2;
         available_size = buff->size - buff->next;
         isResize = 1;
@@ -294,6 +302,7 @@ void serialize_string(ser_buff_t *b, char *data, int nbytes){
 }
 
 void truncate_serialize_buffer(ser_buff_t **b){
+
 	ser_buff_t *clone = NULL;
 
 	if((*b)->next == (*b)->size){
@@ -323,11 +332,9 @@ de_serialize_string(char *dest, ser_buff_t *b, int size){
 	if(!b || !b->b) assert(0);
 	if(!size) assert(0);;
 	if((b->size - b->next)< size) assert(0);	 
-	memcpy(dest, b->b + b->next, size);
+	memcpy(dest, (char *)(b->b) + b->next, size);
 	b->next += size;
 }
-
-
 
 void copy_in_serialized_buffer_by_offset(ser_buff_t *b, int size, char *value, int offset){
 	if((b->size - b->next) < size){
@@ -340,7 +347,7 @@ void copy_in_serialized_buffer_by_offset(ser_buff_t *b, int size, char *value, i
 		return;
 	}
 	
-	memcpy(b->b + offset, value, size);
+	memcpy((char *)(b->b) + offset, value, size);
 }
 
 void reset_serialize_buffer(ser_buff_t *b){

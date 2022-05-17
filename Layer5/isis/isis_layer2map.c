@@ -99,12 +99,14 @@ isis_is_layer2_mapping_enabled (node_t *node) {
 bool
 isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 
+    char ip_addr[16];
+
     if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
         return true;
     }
 
     return arp_entry_add(adjacency->intf->att_node, 
-                            tcp_ip_covert_ip_n_to_p (adjacency->nbr_intf_ip, 0),
+                            tcp_ip_covert_ip_n_to_p (adjacency->nbr_intf_ip, ip_addr),
                             adjacency->nbr_mac,
                             adjacency->intf, PROTO_ISIS);
 }
@@ -112,11 +114,14 @@ isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 bool
 isis_update_layer2_mapping_on_adjacency_down (isis_adjacency_t *adjacency) {
 
+    char ip_addr[16];
+
     if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
         return true;
     }
+    
     arp_entry_delete(adjacency->intf->att_node, 
-                                 tcp_ip_covert_ip_n_to_p(adjacency->nbr_intf_ip, 0),
+                                 tcp_ip_covert_ip_n_to_p(adjacency->nbr_intf_ip, ip_addr),
                                  PROTO_ISIS);
     return true;
 }

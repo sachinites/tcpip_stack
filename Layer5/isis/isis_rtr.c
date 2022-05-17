@@ -17,7 +17,6 @@
 #include "isis_policy.h"
 #include "../../FireWall/acl/acldb.h"
 
-extern void isis_free_dummy_lsp_pkt(void);
 extern void isis_mem_init();
 extern void isis_ipv4_rt_notif_cbk (
         void *rt_notif_data, size_t arg_size);
@@ -229,7 +228,7 @@ isis_protocol_shut_down(node_t *node) {
   
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
-    isis_free_dummy_lsp_pkt();
+    isis_free_dummy_lsp_pkt(node);
     isis_cleanup_spf_logc(node);
     isis_unconfig_import_policy(node, NULL);
     isis_unconfig_export_policy(node, NULL);
@@ -380,7 +379,7 @@ isis_schedule_job(node_t *node,
         return;
     }
 
-    *task = task_create_new_job(data, cbk, TASK_ONE_SHOT);
+    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT);
 
     if(*task) {
         printf("Node : %s : %s Scheduled. Reason : %s\n",
@@ -464,7 +463,7 @@ isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
 }
 
 static void
-isis_overload_timer_expire(void *arg, uint32_t arg_size) {
+isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);

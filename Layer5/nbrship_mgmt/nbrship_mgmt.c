@@ -59,7 +59,8 @@ nmp_print_hello_pkt(void *arg, size_t arg_size){
 }
 
 static void 
-transmit_hellos(void *arg, uint32_t sizeof_arg){
+transmit_hellos(event_dispatcher_t *ev_dis,
+                void *arg, uint32_t sizeof_arg){
 
     if (!arg) return;
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)arg;
@@ -399,7 +400,8 @@ adjacency_refresh_expiry_timer(interface_t *interface,
 }
 
 static void
-timer_expire_delete_adjacency_cb(void *arg, uint32_t sizeof_arg){
+timer_expire_delete_adjacency_cb(event_dispatcher_t *ev_dis,
+                                 void *arg, uint32_t sizeof_arg){
 
     if (!arg) return;
 

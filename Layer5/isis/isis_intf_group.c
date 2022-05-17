@@ -384,6 +384,7 @@ void
 
     node_info->dyn_intf_grp = true;
     isis_dynamic_intf_grp_build_intf_grp_db (node);
+    return 0;
  }
 
  int
@@ -411,6 +412,7 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
 
     node_t *node;
     interface_t *intf;
+    char nbr_rtr_id_str[16];
     isis_intf_info_t *intf_info;
     isis_intf_group_t *intf_grp;
     
@@ -423,7 +425,7 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
         return;
     }
 
-    char *nbr_rtr_id_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, 0);
+    tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, nbr_rtr_id_str);
     intf_grp = isis_intf_grp_look_up (node, nbr_rtr_id_str);
 
     if (!intf_grp) {
@@ -440,6 +442,7 @@ isis_dynamic_intf_grp_update_on_adjacency_delete (
 
     node_t *node;
     interface_t *intf;
+    char nbr_rtr_id_str[16];
     isis_intf_group_t *intf_grp;
     isis_intf_info_t *intf_info;
     
@@ -452,7 +455,7 @@ isis_dynamic_intf_grp_update_on_adjacency_delete (
         return;
     }
 
-    char *nbr_rtr_id_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, 0);
+    tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id,  nbr_rtr_id_str);
     intf_grp = isis_intf_grp_look_up (node, nbr_rtr_id_str);
     assert(intf_grp);
 

@@ -12,7 +12,7 @@ static uint16_t node_id = 1;
 /* To generate unique Node IDs. No functional, only for debugging
 purpose */
 static inline uint16_t 
-mtrie_get_new_node_id() {
+mtrie_get_new_node_id(void) {
     return (node_id++);
 }
 
@@ -41,8 +41,7 @@ mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
 void
 mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
-    int i;
-    bit_type_t bit;
+    (void) mtrie; (void) data;
 
     printf ("ID : %d\n", node->node_id);
     printf (" Prefix/Len : ");
@@ -59,6 +58,8 @@ mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 /* Delete and free the mtrie node */ 
 static void
 mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
+
+    (void)data;
 
     bitmap_free_internal(&node->prefix);
     bitmap_free_internal(&node->mask);
@@ -338,6 +339,8 @@ fn during node deletion from mtrie. In this fn, the parent node absorbs its only
 within itself, eventually deleting the child node*/
 static void
 mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
+
+    (void)unused;
 
     uint8_t child_count = 0;
     bit_type_t bit;

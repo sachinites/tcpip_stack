@@ -38,7 +38,7 @@
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
 
-#define TCP_PRINT_BUFFER_SIZE 1024
+#define TCP_PRINT_BUFFER_SIZE 1528
 
 typedef struct log_{
 
@@ -69,6 +69,8 @@ void tcp_init_send_logging_buffer(node_t *node);
 
 #define TCP_GET_NODE_SEND_LOG_BUFFER(node)  \
     (node->node_nw_prop.send_log_buffer)
+#define TCP_GET_NODE_RECV_LOG_BUFFER(node)  \
+    (node->node_nw_prop.recv_log_buffer)
 
 extern char tlb[TCP_LOG_BUFFER_LEN];
 

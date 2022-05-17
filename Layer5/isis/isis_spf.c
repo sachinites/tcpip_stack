@@ -12,7 +12,7 @@ isis_cancel_spf_job(node_t *node) {
     if (!node_info ||
         !node_info->spf_job_task) return;
 
-    task_cancel_job(node_info->spf_job_task);
+    task_cancel_job(EV(node),  node_info->spf_job_task);
     node_info->spf_job_task = NULL;
 }
 
@@ -87,6 +87,7 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
+    char ip_addr[16];
     isis_node_info_t *node_info;
 
     rt_table_t *rt_table = 
@@ -124,7 +125,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
             }
 
             rt_table_add_route(rt_table, 
-                    tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, NULL), 32, 
+                    tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32, 
                     nexthop->gw_ip, nexthop->oif, 
                     spf_result->spf_metric,
                     PROTO_ISIS);
@@ -140,6 +141,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Initialize direct nbrs*/
     ted_node_t *nbr = NULL;
     uint32_t nxt_hop_ip ;
+    char ip_addr[16];
     ted_intf_t *oif;
     nexthop_t *nexthop = NULL;
     isis_spf_data_t *nbr_spf_data;
@@ -157,7 +159,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
         if (oif->cost < nbr_spf_data->spf_metric){
             nh_flush_nexthops(nbr_spf_data->nexthops);
             nexthop = nh_create_new_nexthop (oif->ifindex, 
-                                tcp_ip_covert_ip_n_to_p(nxt_hop_ip, 0), PROTO_STATIC);
+                                tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_STATIC);
             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
             nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
             nbr_spf_data->spf_metric = oif->cost;
@@ -168,7 +170,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
         /*Cover the ECMP case*/
         else if (oif->cost == nbr_spf_data->spf_metric){
             nexthop = nh_create_new_nexthop (oif->ifindex,
-                            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, 0), 
+                            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), 
                             PROTO_STATIC);
             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
             nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
@@ -575,7 +577,7 @@ isis_show_spf_results(node_t *node, ted_node_t *ted_node){
 }
 
 static void
-isis_run_spf(void *arg, uint32_t arg_size){
+isis_run_spf(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
@@ -611,7 +613,7 @@ isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
     }
     
     node_info->spf_job_task =
-        task_create_new_job(node, isis_run_spf, TASK_ONE_SHOT);
+        task_create_new_job(EV(node), node, isis_run_spf, TASK_ONE_SHOT);
 }
 
 void

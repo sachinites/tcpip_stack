@@ -48,23 +48,21 @@
 
 extern graph_t *topo;
 
-pkt_q_t recvr_pkt_q;
-
-static void
-pkt_recvr_job_cbk(void *pkt, uint32_t pkt_size){
+void
+dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
 	node_t *receving_node;
 	interface_t *recv_intf;
 
 	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
-			(ev_dis_pkt_data_t *)task_get_next_pkt(&pkt_size);
+			(ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
 
 	if(!ev_dis_pkt_data) {
 		return;
 	}
 
 	for ( ; ev_dis_pkt_data; 
-			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(&pkt_size)) {
+			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
 		receving_node = ev_dis_pkt_data->recv_node;
 		recv_intf = ev_dis_pkt_data->recv_intf;
@@ -85,9 +83,9 @@ pkt_recvr_job_cbk(void *pkt, uint32_t pkt_size){
  * time of initialization
  * */
 void
-init_pkt_recv_queue() {
+init_pkt_recv_queue(event_dispatcher_t *ev_dis, pkt_q_t *recvr_pkt_q) {
 
-	init_pkt_q(&recvr_pkt_q, pkt_recvr_job_cbk);
+	init_pkt_q(ev_dis, recvr_pkt_q, dp_pkt_recvr_job_cbk);
 }
 
 int
@@ -114,7 +112,8 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+	pkt_q_enqueue(EV(nbr_node), PKT_Q(nbr_node) ,
+                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	tcp_dump_send_logger(sending_node, interface, 
 			pkt, pkt_size, ETH_HDR);
@@ -132,16 +131,23 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = get_nbr_node(interface);
     
-    if(!IF_IS_UP(interface)){
+    if (!IF_IS_UP(interface)){
 		interface->intf_nw_props.xmit_pkt_dropped++;
         return 0;
     }
 
-    if(!nbr_node)
+    if (!nbr_node)
         return -1;
 
-    if(pkt_size > MAX_PACKET_BUFFER_SIZE){
+    if (pkt_size > MAX_PACKET_BUFFER_SIZE){
         printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
+        return -1;
+    }
+
+    /* Access List Evaluation at Layer 2 Exit point*/
+    if (access_list_evaluate_ethernet_packet(
+            interface->att_node, interface, 
+            (ethernet_hdr_t *)pkt, false)  == ACL_DENY) {
         return -1;
     }
 
@@ -156,23 +162,15 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-    /* Access List Evaluation at Layer 2 Exit point*/
-    if (access_list_evaluate_ethernet_packet(
-            interface->att_node, interface, 
-            (ethernet_hdr_t *)pkt, false)  == ACL_DENY) {
-        return -1;
-    }
-    
     tcp_dump_send_logger(sending_node, interface, 
 			pkt, pkt_size, ETH_HDR);
 
-	pkt_q_enqueue(&recvr_pkt_q, (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+	pkt_q_enqueue(EV(nbr_node), PKT_Q(nbr_node),
+                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	interface->intf_nw_props.pkt_sent++;
     interface->intf_nw_props.bit_rate.new_bit_stats += pkt_size * 8;
     
-
-
     return pkt_size; 
 }
 
@@ -348,6 +346,7 @@ _network_start_pkt_receiver_thread(void *arg){
             
         } ITERATE_GLTHREAD_END(&topo->node_list, curr);
     }
+    return NULL;
 }
 
 

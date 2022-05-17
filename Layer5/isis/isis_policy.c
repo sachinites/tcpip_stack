@@ -158,8 +158,9 @@ isis_evaluate_export_policy (node_t *node, access_list_t *policy, l3_route_t *ro
     if (!policy) return true;
 
     uint32_t ip_addr = tcp_ip_covert_ip_p_to_n(route->dest);
+    uint8_t mask = route->mask;
 
-    if (access_list_evaluate (policy, 0, 0, ip_addr, 0, 0, 0) == ACL_PERMIT) {
+    if (access_list_evaluate (policy, 0, 0, ip_addr, (uint16_t)mask, 0, 0) == ACL_PERMIT) {
         return true;
     }
 

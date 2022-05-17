@@ -58,7 +58,7 @@ isis_check_xmit_lsp_sanity_before_transmission(
 }
 
 static void
-isis_lsp_xmit_job(void *arg, uint32_t arg_size) {
+isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     interface_t *intf;
@@ -162,8 +162,9 @@ isis_queue_lsp_pkt_for_transmission(
 
     if (!intf_info->lsp_xmit_job) {
 
-        intf_info->lsp_xmit_job =
-            task_create_new_job(intf, isis_lsp_xmit_job, TASK_ONE_SHOT);
+       intf_info->lsp_xmit_job =
+            task_create_new_job(EV(intf->att_node), 
+                    intf, isis_lsp_xmit_job, TASK_ONE_SHOT);
     }
 }
 
@@ -192,7 +193,7 @@ isis_intf_purge_lsp_xmit_queue(interface_t *intf) {
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
     if (intf_info->lsp_xmit_job) {
-        task_cancel_job(intf_info->lsp_xmit_job);
+        task_cancel_job(EV(intf->att_node), intf_info->lsp_xmit_job);
         intf_info->lsp_xmit_job = NULL;
     }
 }
@@ -269,7 +270,8 @@ isis_schedule_lsp_flood(node_t *node,
 }
 
 static void
-isis_timer_wrapper_lsp_flood(void *arg, uint32_t arg_size) {
+isis_timer_wrapper_lsp_flood(event_dispatcher_t *ev_dis,
+                             void *arg, uint32_t arg_size) {
 
     if (!arg) return;
     
@@ -410,7 +412,7 @@ isis_restart_reconciliation_timer(node_t *node) {
 
 static void
 isis_timer_wrapper_exit_reconciliation_phase(
-        void *arg, uint32_t arg_size) {
+        event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     if (!arg) return;
 

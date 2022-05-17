@@ -20,14 +20,16 @@ isis_init_adjacency(isis_adjacency_t *adjacency) {
 
 /* Timer fns for ISIS Adjacency Mgmt */
 static void
-isis_timer_expire_delete_adjacency_cb(void *arg, uint32_t arg_size){
+isis_timer_expire_delete_adjacency_cb(event_dispatcher_t *ev_dis,
+                                      void *arg, uint32_t arg_size){
 
     if (!arg) return;
     isis_delete_adjacency((isis_adjacency_t *)arg);
 }
 
 static void
-isis_timer_expire_down_adjacency_cb(void *arg, uint32_t arg_size){
+isis_timer_expire_down_adjacency_cb(event_dispatcher_t *ev_dis,
+                                     void *arg, uint32_t arg_size){
 
     if (!arg) return;
 
@@ -188,6 +190,7 @@ isis_update_interface_adjacency_from_hello(
         byte *hello_tlv_buffer,
         size_t tlv_buff_size) {
 
+    char ip_addr[16];
     char * router_id_str;
     uint8_t tlv_data_len;
     bool new_adj = false;
@@ -215,7 +218,7 @@ isis_update_interface_adjacency_from_hello(
         adjacency->intf = iif;
         glthread_add_next(ISIS_INTF_ADJ_LST_HEAD(iif), &adjacency->glue);
         new_adj = true;
-        router_id_str = tcp_ip_covert_ip_n_to_p(*router_id_int, 0);
+        router_id_str = tcp_ip_covert_ip_n_to_p(*router_id_int, ip_addr);
         sprintf(tlb, "%s : New Adjacency for nbr %s on intf %s Created\n",
             ISIS_ADJ_MGMT, router_id_str, iif->if_name);
         tcp_trace(iif->att_node, iif, tlb);
@@ -331,14 +334,14 @@ void
 isis_show_adjacency( isis_adjacency_t *adjacency,
                                     uint8_t tab_spaces) {
 
-    char *ip_addr_str;
+    char ip_addr_str[16];
 
     PRINT_TABS(tab_spaces);
-    ip_addr_str = tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, 0);
+    tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
     printf("Nbr : %s(%s)\n", adjacency->nbr_name, ip_addr_str);
 
     PRINT_TABS(tab_spaces);
-    ip_addr_str = tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, 0);
+    tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, ip_addr_str);
     printf("Nbr intf ip : %s  ifindex : %u\n",
         ip_addr_str,
         adjacency->remote_if_index);
@@ -745,7 +748,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
     uint16_t rc = 0;
     uint8_t subtlv_len;
     byte *subtlv_navigator;
-    unsigned char *ip_addr;
+    unsigned char ip_addr[16];
     uint32_t ip_addr_int, metric;
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
@@ -760,7 +763,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
         subtlv_len = *(uint8_t *)((uint32_t *)tlv_value + 2);
 
         rc += sprintf(out_buff + rc, "\t\tNbr Rtr ID : %s   Metric : %u   SubTLV Len : %d\n",
-                      tcp_ip_covert_ip_n_to_p(ip_addr_int, 0),
+                      tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr),
                       metric, subtlv_len);
 
         subtlv_navigator = tlv_value + 
@@ -790,7 +793,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
                     rc += sprintf(out_buff + rc,
                                   "\tSubTLV%d  Len : %d   Local IP : %s\n",
                                   tlv_type2, tlv_len2,
-                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
+                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr));
 
                     break;
                 case ISIS_TLV_REMOTE_IP:
@@ -799,7 +802,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
                     rc += sprintf(out_buff + rc,
                                   "\tSubTLV%d  Len : %d   Remote IP : %s\n",
                                   tlv_type2, tlv_len2,
-                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, 0));
+                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr));
 
                     break;
                 default:

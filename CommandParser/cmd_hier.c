@@ -196,7 +196,7 @@ void libcli_register_display_callback(param_t *param,
     param->disp_callback = disp_callback;
 }
 
-char *
+const char *
 get_str_leaf_type(leaf_type_t leaf_type)
 {
 
@@ -494,18 +494,18 @@ void init_libcli()
 
 void init_param(param_t *param,                                 /* pointer to static param_t variable*/
                 param_type_t param_type,                        /* CMD|LEAF*/
-                char *cmd_name,                                 /* <command name> | NULL*/
+                const char *cmd_name,                                 /* <command name> | NULL*/
                 cmd_callback callback,                          /* Callback field*/
                 user_validation_callback user_validation_cb_fn, /* NULL | <callback ptr>*/
                 leaf_type_t leaf_type,                          /* INVALID | leaf type*/
-                char *leaf_id,                                  /* NULL, <STRING>*/
-                char *help)
+                const char *leaf_id,                                  /* NULL, <STRING>*/
+                const char *help)
 { /* Help String*/
 
     int i = 0;
     if (param_type == CMD)
     {
-        GET_PARAM_CMD(param) = calloc(1, sizeof(cmd_t));
+        GET_PARAM_CMD(param) = (cmd_t *)calloc(1, sizeof(cmd_t));
         param->param_type = CMD;
         strncpy(GET_CMD_NAME(param), cmd_name, MIN(CMD_NAME_SIZE, strlen(cmd_name)));
         GET_CMD_NAME(param)
@@ -513,7 +513,7 @@ void init_param(param_t *param,                                 /* pointer to st
     }
     else if (param_type == LEAF)
     {
-        GET_PARAM_LEAF(param) = calloc(1, sizeof(leaf_t));
+        GET_PARAM_LEAF(param) = (leaf_t *)calloc(1, sizeof(leaf_t));
         param->param_type = LEAF;
         GET_PARAM_LEAF(param)->leaf_type = leaf_type;
         param->cmd_type.leaf->user_validation_cb_fn = user_validation_cb_fn;
@@ -523,7 +523,7 @@ void init_param(param_t *param,                                 /* pointer to st
     }
     else if (param_type == NO_CMD)
     {
-        GET_PARAM_CMD(param) = calloc(1, sizeof(cmd_t));
+        GET_PARAM_CMD(param) = (cmd_t *)calloc(1, sizeof(cmd_t));
         param->param_type = NO_CMD;
         memcpy(GET_CMD_NAME(param), NEGATE_CHARACTER, strlen(NEGATE_CHARACTER));
         GET_CMD_NAME(param)
@@ -569,7 +569,7 @@ void support_cmd_negation(param_t *param)
         return;
     }
 
-    param_t *no_param = calloc(1, sizeof(param_t));
+    param_t *no_param = (param_t *)calloc(1, sizeof(param_t));
     init_param(no_param, NO_CMD, NEGATE_CHARACTER, negate_callback, 0, INVALID, 0, "Command Negation");
 
     /*We cant leave the MODE_PARAM_INDEX empty, 
@@ -600,7 +600,7 @@ void set_device_name(const char *cons_name)
 {
 
     char **tokens = NULL;
-    size_t token_cnt = 0;
+    int token_cnt = 0;
 
     assert(cons_name);
 
@@ -716,7 +716,7 @@ void goto_top_of_cmd_tree(param_t *curr_cmd_tree_cursor)
 {
 
     char **tokens = NULL;
-    size_t token_cnt = 0;
+    int token_cnt = 0;
 
     assert(curr_cmd_tree_cursor);
 
@@ -746,7 +746,7 @@ void go_one_level_up_cmd_tree(param_t *curr_cmd_tree_cursor)
 {
 
     char **tokens = NULL;
-    size_t token_cnt = 0;
+    int token_cnt = 0;
 
     assert(curr_cmd_tree_cursor);
 
@@ -786,7 +786,7 @@ void build_mode_console_name(param_t *dst_param)
     assert(dst_param != &root); /*This fn should not be called for root*/
 
     int i = MAX_CMD_TREE_DEPTH - 1;
-    size_t token_cnt = 0;
+    int token_cnt = 0;
 
     char **tokens = NULL;
     char *append_string = NULL;
@@ -862,7 +862,7 @@ void build_cmd_tree_leaves_data(ser_buff_t *tlv_buff, /*Output serialize buffer*
     }
 
     /*Now reverse the TLV buffer*/
-    if (get_serialize_buffer_size(tlv_buff) < (sizeof(tlv_struct_t) << 1))
+    if (get_serialize_buffer_size(tlv_buff) <(int) (sizeof(tlv_struct_t) << 1))
     {
         return;
     }

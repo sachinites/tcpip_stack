@@ -485,6 +485,7 @@ acl_build_config_cli(param_t *root) {
 static void
 acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
+    char ip_addr[16];
     access_list_t *acc_lst = (access_list_t *)data;
     acl_entry_t *acl_entry = (acl_entry_t *)node->data;
 
@@ -494,10 +495,10 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         acc_lst->name,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
         proto_name_str( acl_entry->proto),
-        tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.prefix, 0));
-    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, 0));
-    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , 0));
-    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, 0));
+        tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.prefix, ip_addr));
+    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, ip_addr));
+    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , ip_addr));
+    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, ip_addr));
     printf("(hits %lu)\n", acl_entry->hit_count);
 }
 

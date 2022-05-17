@@ -5,6 +5,7 @@
 #include "timerlib.h"
 #include <stdint.h>
 #include "../gluethread/glthread.h"
+#include "../EventDispatcher/event_dispatcher.h"
 
 typedef enum {
 
@@ -13,7 +14,7 @@ typedef enum {
 } timer_resolution_t;
 
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
-typedef void (*app_call_back)(void *arg, uint32_t sizeof_arg);
+typedef void (*app_call_back)(event_dispatcher_t*, void *, uint32_t);
 typedef struct _wheel_timer_t wheel_timer_t;
 
 typedef struct slotlist_{
@@ -81,8 +82,14 @@ struct _wheel_timer_t {
     slotlist_t reschd_list;
 	timer_resolution_t timer_resolution;
 	bool debug;
+    void *user_data;
     slotlist_t slotlist[0];
 };
+
+static inline void
+wt_set_user_data(wheel_timer_t *wt, void *user_data) {
+    wt->user_data = user_data;
+}
 
 #define WT_UPTIME(wt_ptr)  \
     ((GET_WT_CURRENT_ABS_SLOT_NO(wt_ptr) * wt_get_clock_interval_in_milli_sec(wt_ptr))/1000)

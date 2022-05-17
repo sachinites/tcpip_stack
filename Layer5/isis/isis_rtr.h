@@ -90,7 +90,8 @@ typedef struct node_info_ {
     access_list_t *import_policy;
     /* export policy */
     access_list_t *export_policy;
-    
+    /* Dummy LSP PKT for lookup */
+    isis_lsp_pkt_t *lsp_dummy_pkt; 
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

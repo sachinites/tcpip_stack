@@ -41,13 +41,14 @@
 
 extern void init_tcp_ip_stack();
 
-extern graph_t *build_first_topo();
-extern graph_t *build_simple_l2_switch_topo();
-extern graph_t *build_square_topo();
-extern graph_t *build_linear_topo();
-extern graph_t *build_dualswitch_topo();
-extern graph_t *parallel_links_topology();
-extern graph_t *cross_link_topology();
+extern graph_t *build_first_topo(void);
+extern graph_t *build_simple_l2_switch_topo(void);
+extern graph_t *build_square_topo(void);
+extern graph_t *build_linear_topo(void);
+extern graph_t *build_dualswitch_topo(void);
+extern graph_t *parallel_links_topology(void);
+extern graph_t *cross_link_topology(void);
+
 
 extern void nw_init_cli();
 
@@ -65,9 +66,10 @@ extern void ted_mem_init();
 extern void tcp_stack_miscellaneous_mem_init();
 
 graph_t *topo = NULL;
+extern event_dispatcher_t gev_dis;
 
 static void
-tcp_ip_stack_pre_topology_create_initializations() {
+tcp_ip_stack_pre_topology_create_initializations(void) {
 
     nw_init_cli();
     mm_init();
@@ -81,12 +83,14 @@ tcp_ip_stack_pre_topology_create_initializations() {
     ted_mem_init();
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */
-    event_dispatcher_init();
+    event_dispatcher_init(&gev_dis);
     tcp_stack_miscellaneous_mem_init();
 }
 
 int 
 main(int argc, char **argv){
+    
+    (void )argc; (void) argv;
 
     tcp_ip_stack_pre_topology_create_initializations();
     topo = cross_link_topology();

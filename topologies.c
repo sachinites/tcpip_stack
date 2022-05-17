@@ -37,8 +37,16 @@
 #include "comm.h"
 #include "Layer2/layer2.h"
 
+graph_t *build_first_topo(void);
+graph_t *build_simple_l2_switch_topo(void);
+graph_t *build_square_topo(void);
+graph_t *build_linear_topo(void);
+graph_t *build_dualswitch_topo(void);
+graph_t *parallel_links_topology(void);
+graph_t *cross_link_topology(void);
+
 graph_t *
-build_first_topo(){
+build_first_topo(void){
 
 #if 0
 
@@ -87,7 +95,7 @@ build_first_topo(){
 
 
 graph_t *
-build_simple_l2_switch_topo(){
+build_simple_l2_switch_topo(void){
 
 #if 0             
                                        +-----------+
@@ -156,7 +164,7 @@ build_simple_l2_switch_topo(){
 
 
 graph_t *
-build_square_topo(){
+build_square_topo(void){
 
 #if 0     
 
@@ -224,7 +232,7 @@ run node R1 ping 122.1.1.3
 
 
 graph_t *
-build_linear_topo(){
+build_linear_topo(void){
 
     graph_t *topo = create_new_graph("Linear Topo");
     node_t *H1 = create_graph_node(topo, "H1");
@@ -247,7 +255,7 @@ build_linear_topo(){
 }
 
 graph_t *
-build_dualswitch_topo(){
+build_dualswitch_topo(void){
 
 #if 0
                                     +---------+                               +----------+
@@ -337,7 +345,7 @@ build_dualswitch_topo(){
 }
 
 graph_t *
-parallel_links_topology(){
+parallel_links_topology(void){
 
 /*
     +--------------+0/0 10.1.1.1        1                            10.1.1.2 0/5+----------------+
@@ -390,7 +398,7 @@ parallel_links_topology(){
 
 
 graph_t *
-cross_link_topology(){
+cross_link_topology(void){
 
 /*                                                +--------+-+
                    +---------+                    | R2       |

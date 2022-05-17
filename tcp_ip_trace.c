@@ -9,27 +9,11 @@
 
 extern graph_t *topo;
 
-/* A buffer used to store the data to be written into
- * logging files when pkt is receieved. For writing a
- * data into logging files for pkt sentm we use node
- * specific send_log_buffer*/
-static char tcp_print_recv_buffer[TCP_PRINT_BUFFER_SIZE];
-static char string_buffer[32];
-
-static void init_tcp_print_recv_buffer(){
-    memset(tcp_print_recv_buffer, 0, sizeof(tcp_print_recv_buffer));
-}
-
-static void init_string_buffer(){
-    memset(string_buffer, 0, sizeof(string_buffer));
-}
-
 static char *
-string_ethernet_hdr_type(unsigned short type){
+string_ethernet_hdr_type(unsigned short type, char *string_buffer){
 
     char *proto_str = NULL;
 
-    init_string_buffer();
     switch(type){
 
         case ETH_IP:
@@ -54,9 +38,8 @@ string_ethernet_hdr_type(unsigned short type){
 }
 
 static char *
-string_arp_hdr_type(int type){
+string_arp_hdr_type(int type,  char *string_buffer){
 
-    init_string_buffer();
     switch(type){
         case ARP_BROAD_REQ:
             strncpy(string_buffer, "ARP_BROAD_REQ", strlen("ARP_BROAD_REQ"));
@@ -71,9 +54,8 @@ string_arp_hdr_type(int type){
 }
 
 static char *
-string_ip_hdr_protocol_val(uint8_t type){
+string_ip_hdr_protocol_val(uint8_t type,   char *string_buffer){
 
-    init_string_buffer();
     switch(type){
 
         case ICMP_PROTO:
@@ -102,6 +84,7 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
      int rc = 0;
      char ip1[16];
      char ip2[16];
+    char string_buffer[32];
 
 	 pkt_info_t pkt_info;
      tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip1);
@@ -110,7 +93,7 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
      rc +=  sprintf(buff + rc, "IP Hdr : ");
      rc +=  sprintf(buff + rc, "TL: %dB PRO: %s %s -> %s ttl: %d\n", 
                         IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr),
-                      string_ip_hdr_protocol_val(ip_hdr->protocol),
+                      string_ip_hdr_protocol_val(ip_hdr->protocol, string_buffer),
                       ip1, ip2, ip_hdr->ttl);
 
     switch(ip_hdr->protocol){
@@ -138,11 +121,12 @@ tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr,
     int rc = 0;
     char ip1[16];
     char ip2[16];
+    char string_buffer[32];
 
     rc +=  sprintf(buff, "ARP Hdr : ");
     rc += sprintf(buff + rc, "Arp Type: %s %02x:%02x:%02x:%02x:%02x:%02x -> "
             "%02x:%02x:%02x:%02x:%02x:%02x %s -> %s\n",
-            string_arp_hdr_type(arp_hdr->op_code),
+            string_arp_hdr_type(arp_hdr->op_code, string_buffer),
             arp_hdr->src_mac.mac[0],
             arp_hdr->src_mac.mac[1],
             arp_hdr->src_mac.mac[2],
@@ -167,6 +151,8 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                         uint32_t pkt_size){
 
     int rc = 0;
+     char string_buffer[32];
+
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
 
     uint32_t payload_size = pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
@@ -197,8 +183,7 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
             eth_hdr->dst_mac.mac[4],
             eth_hdr->dst_mac.mac[5],
 
-            string_ethernet_hdr_type(type),
-
+            string_ethernet_hdr_type(type, string_buffer),
             vlan_8021q_hdr ? GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : 0,
             payload_size);
 
@@ -328,18 +313,17 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
             !log_file1 && !log_file2){
             return;
         }
-
-        init_tcp_print_recv_buffer();
-    
-        rc = sprintf(tcp_print_recv_buffer, "\n%s(%s) <-- \n", 
-                node->node_name, intf->if_name);
+   
+        rc = sprintf(TCP_GET_NODE_RECV_LOG_BUFFER(node), 
+                        "\n%s(%s) <-- \n", 
+                        node->node_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
                  pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
-                 tcp_print_recv_buffer,    /*Buffer into which the formatted output 
+                 TCP_GET_NODE_RECV_LOG_BUFFER(node),    /*Buffer into which the formatted output 
                                               is to be written*/
                  rc,                       /*write offset*/
                  TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/

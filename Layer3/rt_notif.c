@@ -28,7 +28,7 @@ rt_table_add_route_to_notify_list (
 }
 
 static void
-rt_table_notif_job_cb(void *arg, uint32_t arg_size) {
+rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     l3_route_t *l3route;
@@ -65,6 +65,7 @@ rt_table_kick_start_notif_job(rt_table_t *rt_table) {
 
     if (rt_table->notif_job) return;
     rt_table->notif_job = task_create_new_job(
+                                        EV(rt_table->node),
                                         rt_table, 
                                         rt_table_notif_job_cb,
                                         TASK_ONE_SHOT);
@@ -139,7 +140,7 @@ rt_table_process_one_flash_client (rt_table_t *rt_table,  nfc_app_cb cbk) {
 }
 
 static void
-rt_table_flash_job (void *arg, uint32_t arg_size) {
+rt_table_flash_job (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     l3_route_t *l3route;
@@ -156,7 +157,8 @@ rt_table_flash_job (void *arg, uint32_t arg_size) {
     free (flash_req);
 
     if (!IS_GLTHREAD_LIST_EMPTY(&rt_table->flash_request_list_head)) {
-        rt_table->flash_job = task_create_new_job(rt_table,
+        rt_table->flash_job = task_create_new_job(EV(rt_table->node), 
+                                                  rt_table,
                                                   rt_table_flash_job, TASK_ONE_SHOT);
     }
     else {
@@ -189,7 +191,8 @@ static void
 
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr)
 
-     rt_table->flash_job = task_create_new_job( rt_table, rt_table_flash_job, TASK_ONE_SHOT);
+     rt_table->flash_job = task_create_new_job( EV(rt_table->node) ,
+                                                rt_table, rt_table_flash_job, TASK_ONE_SHOT);
  }
 
 void

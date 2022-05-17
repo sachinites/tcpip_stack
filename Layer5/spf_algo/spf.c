@@ -222,8 +222,16 @@ spf_record_result(node_t *spf_root,
 
     /*Record result*/
     /*This result must not be present already*/
-    assert(!spf_lookup_spf_result_by_node(spf_root, processed_node));
-    spf_result_t *spf_result = XCALLOC(0, 1, spf_result_t);
+    spf_result_t *spf_result = NULL;
+    if ((spf_result = spf_lookup_spf_result_by_node(
+            spf_root, processed_node)) != NULL) {
+        #if SPF_LOGGING
+        printf("root : %s : Event : Result Recorded for node %s, "
+            "already present\n", spf_root->node_name, processed_node->node_name);
+        #endif
+        assert(0);
+    }
+    spf_result = XCALLOC(0, 1, spf_result_t);
     /*We record three things as a part of spf result for a node in 
      * topology : 
      * 1. The node itself
@@ -470,7 +478,7 @@ compute_spf(node_t *spf_root){
 }
 
 static void
-compute_spf_via_job(void *data, uint32_t data_size) {
+compute_spf_via_job(event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
 
 	compute_spf((node_t*)data);
 }
@@ -519,11 +527,16 @@ show_spf_results(node_t *node){
 static void
 compute_spf_all_nodes(graph_t *topo){
 
+    /* Now, that each node is multi-threaded, we cannot run spf on all nodes simultaneously as
+    it will cause race conditions. Good bye to computing static routes on start up. Rely on
+    ISIS routing protocol if you need unicast routes for each node */
+    return;
+
     glthread_t *curr;
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
-		task_create_new_job(node, compute_spf_via_job, TASK_ONE_SHOT);
+		task_create_new_job(EV(node), node, compute_spf_via_job, TASK_ONE_SHOT);
 
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }

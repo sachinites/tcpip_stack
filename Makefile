@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wall -Wextra 
+CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration
 TARGET:tcpstack.exe pkt_gen.exe
 LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt
 OBJS=gluethread/glthread.o \
@@ -8,6 +8,7 @@ OBJS=gluethread/glthread.o \
 		  Tree/avl.o	   \
 		  mtrie/mtrie.o	   \
 		  graph.o 		   \
+		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \
 		  comm.o		   \
@@ -28,6 +29,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/ddcp/ddcp.o \
 		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
+		  pkt_block.o \
 		  tcp_ip_trace.o	\
  		  tcpip_notif.o \
 		  notif.o	\
@@ -156,11 +158,17 @@ Layer5/nbrship_mgmt/nbrship_mgmt.o:Layer5/nbrship_mgmt/nbrship_mgmt.c
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
 
+cli_interface.o:cli_interface.c
+	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
+
 topologies.o:topologies.c
 	${CC} ${CFLAGS} -c -I . topologies.c -o topologies.o
 
 net.o:net.c
 	${CC} ${CFLAGS} -c -I . net.c -o net.o
+
+pkt_block.o:pkt_block.c
+	${CC} ${CFLAGS} -c -I . pkt_block.c -o pkt_block.o
 
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o

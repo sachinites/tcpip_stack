@@ -17,6 +17,9 @@ isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
 	if (eth_hdr->type == ISIS_ETH_PKT_TYPE) {
 		return true;
 	}
+
+
+
 	return false;
 }
 
@@ -27,7 +30,7 @@ isis_process_hello_pkt(node_t *node,
                        size_t pkt_size) {
 
     uint8_t intf_ip_len;
-    char *if_ip_addr_str;
+    char if_ip_addr_str[16];
     isis_pkt_hdr_t *hello_pkt_hdr;
 
     if (!isis_node_intf_is_enable(iif)) return;
@@ -64,7 +67,7 @@ isis_process_hello_pkt(node_t *node,
     /*If no Intf IP, then it is a bad hello*/
     if (!if_ip_addr_int) goto bad_hello;
 
-     if_ip_addr_str = tcp_ip_covert_ip_n_to_p(*if_ip_addr_int, 0);
+     tcp_ip_covert_ip_n_to_p(*if_ip_addr_int, if_ip_addr_str);
 
     if (!is_same_subnet(IF_IP(iif), 
                        iif->intf_nw_props.mask, 
@@ -304,7 +307,8 @@ TLV_ADD_DONE:
 }
 
 void
-isis_generate_lsp_pkt(void *arg, uint32_t arg_size_unused) {
+isis_generate_lsp_pkt(event_dispatcher_t *ev_dis,
+                     void *arg, uint32_t arg_size_unused) {
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
@@ -354,12 +358,12 @@ isis_schedule_lsp_pkt_generation(node_t *node,
         return;
     }
 
-    node_info->lsp_pkt_gen_task =
-        task_create_new_job(node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
-
-    sprintf(tlb, "%s : LSP pkt generation task scheduled %p, reason : %s\n",
-         ISIS_LSPDB_MGMT, node_info->lsp_pkt_gen_task, isis_event_str(event_type));
+    sprintf(tlb, "%s : LSP generation scheduled, reason : %s\n",
+            ISIS_LSPDB_MGMT, isis_event_str(event_type));
     tcp_trace(node, 0, tlb);
+
+    node_info->lsp_pkt_gen_task =
+        task_create_new_job(EV(node), node, isis_generate_lsp_pkt, TASK_ONE_SHOT);
 }
 
 byte *
@@ -446,7 +450,7 @@ isis_print_lsp_pkt(byte *buff,
                               uint32_t pkt_size ) {
 
     uint32_t rc = 0;
-    unsigned char *ip_addr;
+    char ip_addr[16];
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
@@ -454,7 +458,7 @@ isis_print_lsp_pkt(byte *buff,
     
     uint32_t seq_no = lsp_pkt_hdr->seq_no;
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
-    ip_addr = tcp_ip_covert_ip_n_to_p(rtr_id, 0);
+    tcp_ip_covert_ip_n_to_p(rtr_id, ip_addr);
 
     rc += sprintf(buff + rc, "LSP pkt : %s(%u) \n",
                     ip_addr, seq_no);
@@ -494,7 +498,7 @@ isis_print_hello_pkt(byte *buff,
                                   uint32_t pkt_size ) {
 
     uint32_t rc = 0;
-    char *ip_addr_str;
+    char ip_addr_str[16];
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
     byte *hello_tlv_buffer = (byte *)(hello_pkt_hdr + 1);
@@ -515,7 +519,7 @@ isis_print_hello_pkt(byte *buff,
                 break;
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
-                ip_addr_str = tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, 0);
+                tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, ip_addr_str);
                 rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
                 break;
             case ISIS_TLV_HOLD_TIME:
@@ -577,8 +581,8 @@ isis_cancel_lsp_pkt_generation_task(node_t *node) {
         return;
     }
 
-    task_cancel_job(node_info->lsp_pkt_gen_task);
-    node_info->lsp_pkt_gen_task = NULL;
+    task_cancel_job(EV(node), node_info->lsp_pkt_gen_task);
+    node_info->lsp_pkt_gen_task = NULL;    
 }
 
 uint32_t *
