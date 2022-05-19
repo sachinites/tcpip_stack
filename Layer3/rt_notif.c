@@ -180,7 +180,8 @@ static void
 
     glthread_t *curr;
     l3_route_t *l3route;
-    mtrie_node_t *mnode;;
+    mtrie_node_t *mnode;
+    
      if (rt_table->flash_job) return;
 
      ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr) {

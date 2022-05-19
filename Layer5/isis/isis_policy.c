@@ -21,8 +21,7 @@ isis_config_import_policy(node_t *node, const char *access_lst_name) {
 
     node_info = ISIS_NODE_INFO(node);
 
-    if (!node_info || 
-          !isis_is_protocol_enable_on_node(node) ||
+    if (!isis_is_protocol_enable_on_node(node) ||
           isis_is_protocol_shutdown_in_progress(node)) {
         return -1;
     }
@@ -32,16 +31,14 @@ isis_config_import_policy(node_t *node, const char *access_lst_name) {
     if (node_info->import_policy &&
         node_info->import_policy != access_lst) {
 
-        printf ("Error : Other Import policy %s is already being used",
+        printf ("Error : Other Import policy %s is already being used\n",
             node_info->import_policy->name);
         return -1;
     }
 
     node_info->import_policy = access_lst;
     access_list_reference(access_lst);
-
     isis_schedule_spf_job(node, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
-
     return 0;
 }
 
@@ -59,8 +56,7 @@ isis_config_export_policy(node_t *node, const char *access_lst_name) {
 
     node_info = ISIS_NODE_INFO(node);
 
-    if (!node_info || 
-         !isis_is_protocol_enable_on_node(node) ||
+    if ( !isis_is_protocol_enable_on_node(node) ||
           isis_is_protocol_shutdown_in_progress(node)) {
         return -1;
     }
@@ -70,16 +66,14 @@ isis_config_export_policy(node_t *node, const char *access_lst_name) {
     if (node_info->export_policy &&
          node_info->export_policy != access_lst) {
 
-        printf ("Error : Other Export policy %s is already being used",
+        printf ("Error : Other Export policy %s is already being used\n",
             node_info->export_policy->name);
         return -1;
     }
 
     node_info->export_policy = access_lst;
     access_list_reference(access_lst);
-
     nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
-
     return 0;
 }
 
@@ -112,7 +106,6 @@ isis_unconfig_import_policy(node_t *node, const char *access_lst_name) {
     access_list_dereference(node_info->import_policy);
     node_info->import_policy = NULL;
     isis_schedule_spf_job(node, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
-
     return 0;
 }
 
@@ -158,9 +151,9 @@ isis_evaluate_export_policy (node_t *node, access_list_t *policy, l3_route_t *ro
     if (!policy) return true;
 
     uint32_t ip_addr = tcp_ip_covert_ip_p_to_n(route->dest);
-    uint8_t mask = route->mask;
+    uint16_t mask = (uint16_t)route->mask;
 
-    if (access_list_evaluate (policy, 0, 0, ip_addr, (uint16_t)mask, 0, 0) == ACL_PERMIT) {
+    if (access_list_evaluate (policy, 0, 0, ip_addr, mask, 0, 0) == ACL_PERMIT) {
         return true;
     }
 

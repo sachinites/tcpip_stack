@@ -45,16 +45,6 @@ event_dispatcher_init(event_dispatcher_t *ev_dis){
 static void
 event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
-	/* TASK_PKT_Q_JOB could be scheduled again because of
- 	 * enque-ing of more pkts via external thread while
- 	 * the dispatcher may have removed it already from
- 	 * its task_array_head Queue for processing.
- 	 */
-	if (task->task_type == TASK_PKT_Q_JOB && 
-		!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
-		return;
-	}
-
 	assert(IS_GLTHREAD_LIST_EMPTY(&task->glue));
 
 	EV_DIS_LOCK(ev_dis);
@@ -121,6 +111,7 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 
 		case TASK_PKT_Q_JOB:	
 			pkt_q = (pkt_q_t *)(task->data);
+
 			pthread_mutex_lock(&pkt_q->q_mutex);
 			
 			if (IS_GLTHREAD_LIST_EMPTY(&pkt_q->q_head)) {
@@ -128,13 +119,21 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 				pthread_mutex_unlock(&pkt_q->q_mutex);
 				return;
 			}
-			pthread_mutex_unlock(&pkt_q->q_mutex);
+
 			if(debug) printf("more pkts in Queue, will continue..\n");
+
+			EV_DIS_LOCK(ev_dis);
+
+			if (!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
+				EV_DIS_UNLOCK(ev_dis);
+				pthread_mutex_unlock(&pkt_q->q_mutex);
+				break;
+			}
+			EV_DIS_UNLOCK(ev_dis);
+			pthread_mutex_unlock(&pkt_q->q_mutex);
 			event_dispatcher_schedule_task(ev_dis, task);
 			break;
-
-		default:
-		;
+		default: 		;
 	}
 }
 
@@ -151,51 +150,66 @@ static void *
 event_dispatcher_thread(void *arg) {
 
 	task_t *task;
-
 	event_dispatcher_t *ev_dis = (event_dispatcher_t *)arg;
 
-	EV_DIS_LOCK(ev_dis);
+	if (debug) {
+		printf("Dispatcher Thread started\n");
+	}
 
-	if(debug) printf("Dispatcher Thread started\n");
+	while (1) {
 
-	while(1) {
-		
-		task = event_dispatcher_get_next_task_to_run(ev_dis);
+		EV_DIS_LOCK(ev_dis);
 
-		if(!task) {
-			ev_dis->ev_dis_state = EV_DIS_IDLE;
-			if(debug) printf("No Task to run, EVE DIS moved to IDLE STATE\n");
-			ev_dis->signal_sent = false;
-			pthread_cond_wait(&ev_dis->ev_dis_cond_wait,
-					&ev_dis->ev_dis_mutex);
-			ev_dis->signal_recv_cnt++;
-			if(debug) printf("Eve Dis recvd Signal # %u, woken up\n",
-					ev_dis->signal_recv_cnt);
-		}
-		else {
-			ev_dis->pending_task_count--;
-			ev_dis->current_task = task;
+		while (!(task = event_dispatcher_get_next_task_to_run(ev_dis))) {
 			
-			if(ev_dis->ev_dis_state != EV_DIS_TASK_FIN_WAIT){
-				ev_dis->ev_dis_state = EV_DIS_TASK_FIN_WAIT;
-				if(debug) printf("EVE DIS moved to EV_DIS_TASK_FIN_WAIT, "
-						"dispatching the task\n");
+			ev_dis->ev_dis_state = EV_DIS_IDLE;
+			
+			if (debug) {
+				printf("No Task to run, EVE DIS moved to IDLE STATE\n");
+			}
+			
+			ev_dis->signal_sent = false;
+			
+			pthread_cond_wait(&ev_dis->ev_dis_cond_wait,
+							  &ev_dis->ev_dis_mutex);
+
+			ev_dis->signal_recv_cnt++;
+
+			if (debug) {
+				printf("Eve Dis recvd Signal # %u, woken up\n",
+					   ev_dis->signal_recv_cnt);
 			}
 
-			EV_DIS_UNLOCK(ev_dis);
+		} // inner while loop
 
-			if(debug) printf("invoking the task\n");
+		ev_dis->pending_task_count--;
+		ev_dis->current_task = task;
 
-			task->ev_cbk(ev_dis, task->data, task->data_size);
-			task->no_of_invocations++;
-			if(debug) printf("Job execution finished\n");
+		if (ev_dis->ev_dis_state != EV_DIS_TASK_FIN_WAIT) {
 
-			eve_dis_process_task_post_call(ev_dis, task);
+			ev_dis->ev_dis_state = EV_DIS_TASK_FIN_WAIT;
 
-			EV_DIS_LOCK(ev_dis);
-			ev_dis->current_task = NULL;
+			if (debug)
+				printf("EVE DIS moved to EV_DIS_TASK_FIN_WAIT, "
+					   "dispatching the task\n");
 		}
-	}
+
+		EV_DIS_UNLOCK(ev_dis);
+
+		if (debug) {
+			printf("invoking the task\n");
+		}
+
+		task->ev_cbk(ev_dis, task->data, task->data_size);
+		task->no_of_invocations++;
+
+		if (debug) {
+			printf("Job execution finished\n");
+		}
+
+		eve_dis_process_task_post_call(ev_dis, task);
+		ev_dis->current_task = NULL;
+	} // outer while ends
 	return 0;
 }
 
@@ -365,19 +379,14 @@ pkt_q_enqueue(event_dispatcher_t *ev_dis,
 
 	pthread_mutex_lock(&pkt_q->q_mutex);	
 	glthread_add_next(&pkt_q->q_head, &pkt->glue);
-
-	EV_DIS_LOCK(ev_dis);
-	/* Job is already scheduled to run */
-	if (!IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)){
-		EV_DIS_UNLOCK(ev_dis);
+	if ( !IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)) {
 		pthread_mutex_unlock(&pkt_q->q_mutex);
 		return;
 	}
-	EV_DIS_UNLOCK(ev_dis);
-	pthread_mutex_unlock(&pkt_q->q_mutex);
 	if (debug) printf("%s() calling event_dispatcher_schedule_task()\n",
 			__FUNCTION__);
-	event_dispatcher_schedule_task(ev_dis, pkt_q->task);	
+	event_dispatcher_schedule_task(ev_dis, pkt_q->task);
+	pthread_mutex_unlock(&pkt_q->q_mutex);
 }
 
 void

@@ -493,6 +493,8 @@ show_spf_results(node_t *node){
 
     printf("\nSPF run results for node = %s\n", node->node_name);
 
+    if (!node->spf_data) return;
+    
     ITERATE_GLTHREAD_BEGIN(&node->spf_data->spf_result_head, curr){
         
         res = spf_res_glue_to_spf_result(curr);
