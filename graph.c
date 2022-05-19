@@ -37,6 +37,7 @@
 #include "graph.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
+#include "packet-tracer/packet_tracer.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -143,6 +144,8 @@ create_graph_node(graph_t *graph, char *node_name){
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
 
     wt_set_user_data(node_get_timer_instance(node), EV(node));
+    
+    pkt_tracer_init(&node->pkt_tracer);
     
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;

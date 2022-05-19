@@ -78,6 +78,8 @@ get_link_cost(interface_t *interface){
 }
 
 typedef struct spf_data_ spf_data_t;
+typedef struct pkt_tracer_ pkt_tracer_t;
+
 struct node_ {
 
     char node_name[NODE_NAME_SIZE];
@@ -113,7 +115,9 @@ struct node_ {
     
     /* List of route-maps created on this node*/
     glthread_t route_map_headtype;
-    
+
+    /* Packet Tracer Object */
+    pkt_tracer_t *pkt_tracer;
     glthread_t graph_glue;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);

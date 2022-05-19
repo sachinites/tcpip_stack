@@ -53,6 +53,7 @@ OBJS=gluethread/glthread.o \
 		  LinuxMemoryManager/mm.o \
 		  flow/snp_flow.o \
 		  tcp_stack_mem_init.o \
+		  packet-tracer/pkt_tracer.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -221,6 +222,9 @@ BitOp/bitmap.o:BitOp/bitmap.c
 stack/stack.o:stack/stack.c
 	${CC} ${CFLAGS} -c stack/stack.c -o stack/stack.o
 
+packet-tracer/pkt_tracer.o:packet-tracer/pkt_tracer.c
+	${CC} ${CFLAGS} -c packet-tracer/pkt_tracer.c -o packet-tracer/pkt_tracer.o
+
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -260,6 +264,7 @@ clean:
 	rm -f Layer5/nbrship_mgmt/*.o
 	rm -f Bitop/*.o
 	rm -f stack/*.o
+	rm -f packet-tracer/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:
