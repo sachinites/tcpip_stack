@@ -257,13 +257,10 @@ validate_l2_mode_value(char *l2_mode_value){
 static int
 validate_mask_value(char *mask_str){
 
-    uint32_t mask = atoi(mask_str);
-    if(!mask){
-        printf("Error : Invalid Mask Value\n");
-        return VALIDATION_FAILED;
-    }
+    int mask = atoi(mask_str);
     if(mask >= 0 && mask <= 32)
         return VALIDATION_SUCCESS;
+    printf("Error : Invalid Mask Value\n");
     return VALIDATION_FAILED;
 }
 
@@ -755,6 +752,9 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
         break;
 		case CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING:
 			wt_enable_logging(node->node_nw_prop.wt);
+        case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
+            mtrie_longest_prefix_first_traverse(NODE_RT_TABLE(node), mtrie_print_node, NULL);
+            break;
         default:
         break;
    }
@@ -822,6 +822,18 @@ nw_init_cli(){
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
+            {
+                 /*debug show node <node-name> mtrie ...*/
+                static param_t mtrie;
+                init_param(&mtrie, CMD, "mtrie", 0, 0, INVALID, 0, "mtrie");
+                libcli_register_param(&node_name, &mtrie);
+                {
+                    static param_t rt;
+                    init_param(&rt, CMD, "rt", debug_show_node_handler, 0, INVALID, 0, "Routing Table");
+                    libcli_register_param(&mtrie, &rt);
+                    set_param_cmd_code(&rt, CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT);
+                }
+            }
             {
                 /*debug show node <node-name> timer*/
                 static param_t timer;

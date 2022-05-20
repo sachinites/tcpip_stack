@@ -44,6 +44,14 @@ graph_t *build_linear_topo(void);
 graph_t *build_dualswitch_topo(void);
 graph_t *parallel_links_topology(void);
 graph_t *cross_link_topology(void);
+graph_t *standalone_node_topology(void);
+
+graph_t *standalone_node_topology(void) {
+
+    graph_t *topo = create_new_graph("StandAlone Topo");
+    node_t *R0 = create_graph_node(topo, "R0");
+    return topo;
+}
 
 graph_t *
 build_first_topo(void){

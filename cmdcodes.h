@@ -76,4 +76,9 @@
 /* Policy Command Codes */
 #define CMDCODE_IMPORT_POLICY_CREATE_DELETE 30  /* config node <node-name> [no] import-policy <policy-name> */
 #define CMDCODE_IMPORT_POLICY_PREFIX 31 /* config node <node-name> [no] import-policy <policy-name> prefix <prefix> <mask>*/
+
+/* debug Commands */
+#define CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT 32 /* debug show node <node-name> mtrie rt */
+#define CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL 33 /* debug show node <node-name> mtrie acl <acl-name> */
+
 #endif /* __CMDCODES__ */
