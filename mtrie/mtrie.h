@@ -13,7 +13,7 @@ typedef struct mtrie_node_ {
 
 	uint16_t node_id;
 	bitmap_t prefix;
-	bitmap_t mask;
+	bitmap_t wildcard;
     uint16_t prefix_len;
 	struct mtrie_node_ *parent;
 	struct mtrie_node_ *child[BIT_TYPE_MAX];
@@ -49,15 +49,15 @@ mtrie_is_leaf_node (mtrie_node_t *node) {
 void mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data);
 bool mtrie_insert_prefix (mtrie_t *mtrie, 
 										  bitmap_t *prefix,
-										  bitmap_t *mask,
+										  bitmap_t *wildcard,
 										  uint16_t prefix_len,
 										  void *data);
 
 mtrie_node_t *mtrie_create_new_node(uint16_t prefix_len);
 void init_mtrie(mtrie_t *mtrie, uint16_t prefix_len);
 mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix);
-mtrie_node_t *mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask);
-bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) ;
+mtrie_node_t *mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard);
+bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) ;
 void mtrie_destroy(mtrie_t *mtrie) ;
 void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 

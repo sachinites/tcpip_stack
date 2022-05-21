@@ -48,7 +48,7 @@ extern graph_t *build_linear_topo(void);
 extern graph_t *build_dualswitch_topo(void);
 extern graph_t *parallel_links_topology(void);
 extern graph_t *cross_link_topology(void);
-graph_t *standalone_node_topology(void);
+extern graph_t *standalone_node_topology(void);
 
 extern void nw_init_cli();
 
@@ -93,7 +93,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
 
     tcp_ip_stack_pre_topology_create_initializations();
-    topo =standalone_node_topology();
+    topo = cross_link_topology();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;

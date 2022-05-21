@@ -45,7 +45,7 @@ mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     printf ("ID : %d\n", node->node_id);
     printf (" Prefix/Len : ");
-    bitmap_prefix_print(&node->prefix, &node->mask, node->prefix_len);
+    bitmap_prefix_print(&node->prefix, &node->wildcard, node->prefix_len);
     printf ("/%d\n", node->prefix_len);
     printf (" Parent Node = %d\n", node->parent ? node->parent->node_id : 0);
     printf (" children = %d %d %d\n", 
@@ -62,7 +62,7 @@ mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
     (void)data;
 
     bitmap_free_internal(&node->prefix);
-    bitmap_free_internal(&node->mask);
+    bitmap_free_internal(&node->wildcard);
     bitmap_free_internal(&node->stacked_prefix);
     remove_glthread(&node->list_glue );
     free(node);
@@ -75,7 +75,7 @@ mtrie_create_new_node(uint16_t prefix_len) {
     mtrie_node_t *node = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
     node->node_id = mtrie_get_new_node_id();
     bitmap_init(&node->prefix, prefix_len);
-    bitmap_init(&node->mask, prefix_len);
+    bitmap_init(&node->wildcard, prefix_len);
     bitmap_init(&node->stacked_prefix, prefix_len);
     return node;
 }
@@ -113,8 +113,8 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     /* COPY Prefix : copy node->prefix_len - split_offset + 1 bits 
         from parent node starting from split_offset to end of the prefix */
     bitmap_slow_copy(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
-    /* COPY mask in the same way as above*/
-    bitmap_slow_copy(&node->mask, &new_node->mask, split_offset, 0, node->prefix_len - split_offset );
+    /* COPY wildcard in the same way as above*/
+    bitmap_slow_copy(&node->wildcard, &new_node->wildcard, split_offset, 0, node->prefix_len - split_offset );
     /* Set prefix len in new Node */
     new_node->prefix_len = node->prefix_len - split_offset;
 
@@ -126,7 +126,7 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     /* Establish parent Child Relationship */
     new_node->parent = node;
 
-    if (bitmap_at(&node->mask, split_offset)) {
+    if (bitmap_at(&node->wildcard, split_offset)) {
         new_child_pos = DONT_CARE;
     }
     else if (bitmap_at(&node->prefix, split_offset)) {
@@ -137,14 +137,14 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     }
     node->child[new_child_pos] = new_node;
 
-    /* Update the parent node Prefix len/Prefix/mask*/
+    /* Update the parent node Prefix len/Prefix/wildcard*/
 
-    /* Update prefix and mask first. 
+    /* Update prefix and wildcard first. 
         Though our mtrie will be constructed accurately, not getting rid
-        of out of scope bits in prefix and mask would create issue in display of 
+        of out of scope bits in prefix and wildcard would create issue in display of 
         data in show or in gdb. It may not have functional impact though because updating prefix len is enough*/
     bitmap_set(&node->prefix, split_offset, node->prefix_len - 1, false);
-    bitmap_set(&node->mask, split_offset, node->prefix_len - 1, false);
+    bitmap_set(&node->wildcard, split_offset, node->prefix_len - 1, false);
 
     /* now update prefix len */
     node->prefix_len = split_offset;
@@ -153,7 +153,7 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
     remove_glthread(&node->list_glue);
 }
 
-/* A fn used to insert a prefix / mask combination in mtrie. Note that, mask is expressed as
+/* A fn used to insert a prefix / wildcard combination in mtrie. Note that, wildcard is expressed as
 all bit 1's representing dont care 
 Algorithm : 
 We traverse from the root of the tree, comparing the input prefix with the node's prefix bit
@@ -164,7 +164,7 @@ cannot be any arbitrary len, it has to be mtrie->prefix_len always.
 bool
 mtrie_insert_prefix (mtrie_t *mtrie, 
     							  bitmap_t *prefix,
-								  bitmap_t *mask,
+								  bitmap_t *wildcard,
 								  uint16_t prefix_len,
                                   void *data) {
 
@@ -174,13 +174,13 @@ mtrie_insert_prefix (mtrie_t *mtrie,
 
     assert(mtrie->root && prefix_len);
     
-    bit1 =  bitmap_effective_bit_at(prefix, mask, 0);
+    bit1 =  bitmap_effective_bit_at(prefix, wildcard, 0);
 
     if (!mtrie->root->child[bit1]) {
 
         mtrie->root->child[bit1] = mtrie_create_new_node(mtrie->prefix_len);
         bitmap_fast_copy(prefix, &mtrie->root->child[bit1]->prefix, prefix_len);
-        bitmap_fast_copy(mask, &mtrie->root->child[bit1]->mask, prefix_len);
+        bitmap_fast_copy(wildcard, &mtrie->root->child[bit1]->wildcard, prefix_len);
         mtrie->root->child[bit1]->prefix_len = prefix_len;
         mtrie->root->child[bit1]->data = data;
         mtrie->root->child[bit1]->parent = mtrie->root;
@@ -193,7 +193,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     node = mtrie->root->child[bit1];
     uint16_t node_prefix_len = node->prefix_len;
 
-    ITERATE_MASKED_BITMAP_BEGIN(prefix, mask, prefix_len, i, bit1) {
+    ITERATE_MASKED_BITMAP_BEGIN(prefix, wildcard, prefix_len, i, bit1) {
 
         if (j == node_prefix_len ) {
             if (node->child[bit1]) {
@@ -205,7 +205,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
             break;
         }
 
-        bit2 = bitmap_effective_bit_at(&node->prefix, &node->mask, j);
+        bit2 = bitmap_effective_bit_at(&node->prefix, &node->wildcard, j);
         if (bit1 == bit2) {
             j++;
             continue;
@@ -235,14 +235,14 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     node->child[bit1]->parent = node;
     node = node->child[bit1];
     bitmap_slow_copy(prefix, &node->prefix, i, 0, prefix_len - i);
-    bitmap_slow_copy(mask, &node->mask, i, 0, prefix_len - i);
+    bitmap_slow_copy(wildcard, &node->wildcard, i, 0, prefix_len - i);
     node->prefix_len = prefix_len - i;
     node->data = data;
     init_glthread(&node->list_glue);
     glthread_add_next(&mtrie->list_head, &node->list_glue);
     mtrie->N++;
     return true;
-    /* Caller should free prefix , mask bitmaps */
+    /* Caller should free prefix , wildcard bitmaps */
 }
 
 void
@@ -292,7 +292,7 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
 
         n_comparisons++;
         if (!bitmap_prefix_match(prefix, &node->prefix, 
-                                                 &node->mask, node->prefix_len)) {
+                                                 &node->wildcard, node->prefix_len)) {
 
             node = (mtrie_node_t *)pop(mtrie->stack);
 
@@ -374,7 +374,7 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
 
     bitmap_slow_copy(&child_node->prefix, &node->prefix, 0,
         node->prefix_len, child_node->prefix_len);
-    bitmap_slow_copy(&child_node->mask, &node->mask, 0, 
+    bitmap_slow_copy(&child_node->wildcard, &node->wildcard, 0, 
         node->prefix_len, child_node->prefix_len);
 
     node->prefix_len += child_node->prefix_len;
@@ -395,20 +395,20 @@ entry from mtrie.
 Returns NULL if match is not found, else returns the leaf node if match succeeds. The leaf node
 contains the data to be used by application. IT could be Route or ACL */
 mtrie_node_t *
-mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask) {
+mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard) {
 
     mtrie_node_t *node = mtrie->root;
 
     if (mtrie_is_leaf_node(node)) return NULL;
 
-    node = node->child[bitmap_effective_bit_at(prefix, mask, 0)];
+    node = node->child[bitmap_effective_bit_at(prefix, wildcard, 0)];
 
     if (!node) return NULL;
 
     while (true) {
 
         if (!(bitmap_fast_compare (prefix, &node->prefix, node->prefix_len) &&
-                bitmap_fast_compare(mask, &node->mask, node->prefix_len))) {
+                bitmap_fast_compare(wildcard, &node->wildcard, node->prefix_len))) {
 
                 return NULL;
          }
@@ -416,9 +416,9 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask
          if (mtrie_is_leaf_node(node)) return node;
 
         bitmap_lshift(prefix, node->prefix_len);
-        bitmap_lshift(mask, node->prefix_len);
+        bitmap_lshift(wildcard, node->prefix_len);
 
-        node = node->child[bitmap_effective_bit_at(prefix, mask, 0)];
+        node = node->child[bitmap_effective_bit_at(prefix, wildcard, 0)];
 
         if (!node) return NULL;
     }
@@ -461,11 +461,11 @@ mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge) {
     Uses exact match API as helper API to locate the node of interest. 
 */
 bool
-mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *mask, void **app_data) {
+mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) {
 
     *app_data = NULL;
 
-    mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, mask);
+    mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, wildcard);
 
     if (!node) {
         return false;
