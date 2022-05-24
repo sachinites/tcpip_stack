@@ -519,7 +519,7 @@ access_group_config(node_t *node,
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
     }
     else {
-        printf ("Error : Direction can in - 'in' or 'out' only\n");
+        printf ("Error : Direction can be - 'in' or 'out' only\n");
         return -1;
     }
 

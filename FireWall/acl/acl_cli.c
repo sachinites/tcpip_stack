@@ -333,6 +333,15 @@ access_group_config_handler(param_t *param,
     return 0;
 }
 
+static int
+acl_direction_validation(char *value) {
+
+    if ((strncmp(value, "in" , 2) == 0 && strlen(value) == 2) || 
+         (strncmp(value, "out" , 3) == 0 && strlen(value) == 3))
+        return VALIDATION_SUCCESS;
+    return VALIDATION_FAILED;
+}
+
 void
 acl_build_config_cli(param_t *root) {
     {
@@ -462,7 +471,7 @@ acl_build_config_cli(param_t *root) {
             {
                 /* access-group access-list <name> [in | out] ... */
                 static param_t dirn;
-                init_param(&dirn, LEAF, 0, 0, 0, STRING, "dirn", "Access List Direction");
+                init_param(&dirn, LEAF, 0, 0, acl_direction_validation, STRING, "dirn", " in | out - Access List Direction");
                 libcli_register_param(&access_list_name, &dirn);
                 {
                     /* access-group access-list <name> [in | out] interface ... */
