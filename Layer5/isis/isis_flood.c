@@ -295,7 +295,7 @@ isis_start_lsp_pkt_periodic_flooding(node_t *node) {
     node_info = ISIS_NODE_INFO(node);
       
     node_info->periodic_lsp_flood_timer = 
-                timer_register_app_event(node_get_timer_instance(node),
+                timer_register_app_event(CP_TIMER(node),
                 isis_timer_wrapper_lsp_flood,
                 (void *)node,
                 sizeof(node_t),
@@ -438,7 +438,7 @@ isis_start_reconciliation_timer(node_t *node) {
     if(recon->reconciliation_timer) return;
 
     recon->reconciliation_timer = timer_register_app_event(
-                                    node_get_timer_instance(node),
+                                    CP_TIMER(node),
                                     isis_timer_wrapper_exit_reconciliation_phase,
                                     (void *)node, sizeof(node),
                                     ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME,

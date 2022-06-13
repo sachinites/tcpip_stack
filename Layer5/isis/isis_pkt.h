@@ -5,6 +5,7 @@
 #include "isis_const.h"
 
 typedef uint16_t isis_pkt_type_t;
+typedef struct event_dispatcher_ event_dispatcher_t;
 
 typedef struct isis_pkt_ {
 
@@ -57,7 +58,7 @@ bool
 isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size);
 
 void
-isis_pkt_recieve(void *arg, size_t arg_size);
+isis_pkt_recieve(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
 isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type);

@@ -19,6 +19,7 @@
 
 extern void isis_mem_init();
 extern void isis_ipv4_rt_notif_cbk (
+        event_dispatcher_t *ev_dis,
         void *rt_notif_data, size_t arg_size);
 
 /* Checking if protocol enable at node & intf level */
@@ -488,7 +489,7 @@ isis_start_overload_timer(node_t *node, uint32_t timeout_val) {
 
     if (ovl_data->ovl_timer) return;
 
-    ovl_data->ovl_timer = timer_register_app_event(node_get_timer_instance(node),
+    ovl_data->ovl_timer = timer_register_app_event(CP_TIMER(node),
                                             isis_overload_timer_expire,
                                             (void *)node, 
                                             sizeof(node_t),
@@ -659,6 +660,7 @@ static void
 
 void
 isis_ipv4_rt_notif_cbk (
+        event_dispatcher_t *ev_dis,
         void *rt_notif_data, size_t arg_size) {
 
     node_t *node;

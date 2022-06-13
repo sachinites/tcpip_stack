@@ -493,7 +493,7 @@ promote_pkt_to_layer2(node_t *node, interface_t *iif,
     }
 
 	/* Unconditionally distribute pkt to interested applications */
-    promote_pkt_from_layer2_to_layer5(node, iif, 
+    cp_punt_promote_pkt_from_layer2_to_layer5(node, iif, 
                     (char *)ethernet_hdr,
                     pkt_size, ETH_HDR);
 }

@@ -44,7 +44,8 @@ rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) 
         l3route = notif_glue_to_l3_route(curr);
         rt_route_notif_data.l3route = l3route;
         rt_route_notif_data.node = rt_table->node;
-        nfc_invoke_notif_chain(&rt_table->nfc_rt_updates, 
+        nfc_invoke_notif_chain(NULL,
+                                               &rt_table->nfc_rt_updates, 
                                                &rt_route_notif_data,
                                                sizeof(rt_route_notif_data), 0, 0);
                                                
@@ -134,7 +135,7 @@ rt_table_process_one_flash_client (rt_table_t *rt_table,  nfc_app_cb cbk) {
         l3route = flash_glue_to_l3_route(curr);
         route_notif_data.l3route = l3route;
         route_notif_data.node = rt_table->node;
-        cbk(&route_notif_data, sizeof(route_notif_data));
+        cbk(NULL, &route_notif_data, sizeof(route_notif_data));
 
     }ITERATE_GLTHREAD_END_REVERSE (&rt_table->rt_flash_list_head, curr) 
 }

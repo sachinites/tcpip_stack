@@ -54,7 +54,8 @@ nfc_intf_invoke_notification_to_sbscribers(
 	intf_notif_data.old_intf_prop_changed = old_intf_prop_changed;
 	intf_notif_data.change_flags = change_flags;
 
-	nfc_invoke_notif_chain(&nfc_intf,
+	nfc_invoke_notif_chain(NULL, 
+							&nfc_intf,
 						   (void *) &intf_notif_data,
 							sizeof(intf_notif_data_t),
 							0, 0);
@@ -104,7 +105,8 @@ nfc_pkt_trace_invoke_notif_to_sbscribers(
 	pkt_info.pkt_print_buffer = pkt_print_buffer;
 	pkt_info.bytes_written = 0;
 
-	nfc_invoke_notif_chain(&nfc_print_pkts,
+	nfc_invoke_notif_chain(NULL,
+						   &nfc_print_pkts,
 						   (void *) &pkt_info,
 						   sizeof(pkt_info_t),
 						   (char *)&protocol_no,

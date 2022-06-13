@@ -127,7 +127,7 @@ isis_process_lsp_pkt(node_t *node,
 }
 
 void
-isis_pkt_recieve(void *arg, size_t arg_size) {
+isis_pkt_recieve(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
     node_t *node;
     interface_t *iif;
@@ -135,21 +135,23 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
     hdr_type_t hdr_code;
     ethernet_hdr_t *eth_hdr;
     isis_pkt_hdr_t *pkt_hdr;
-    pkt_notif_data_t *pkt_notif_data;
     isis_node_info_t *node_info;
+    pkt_notif_data_t *pkt_notif_data;
 
     pkt_notif_data = (pkt_notif_data_t *)arg;
 
     node        = pkt_notif_data->recv_node;
     iif         = pkt_notif_data->recv_interface;
-    eth_hdr     = (ethernet_hdr_t *) pkt_notif_data->pkt;
+    eth_hdr     = (ethernet_hdr_t *) (pkt_notif_data->pkt);
     pkt_size    = pkt_notif_data->pkt_size;
 	hdr_code    = pkt_notif_data->hdr_code;	
 
-    if (hdr_code != ETH_HDR) return;
+    free(pkt_notif_data);
+    
+    if (hdr_code != ETH_HDR) goto done;
     
     if (!isis_is_protocol_enable_on_node(node)) {
-        return;
+        goto done;
     }
 
     pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
@@ -166,24 +168,8 @@ isis_pkt_recieve(void *arg, size_t arg_size) {
         break;
         default:; 
     }
-}
-
-static bool
-isis_should_insert_on_demand_tlv(node_t *node, isis_event_type_t event_type) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info->on_demand_flooding) {
-        return false; 
-    }
-
-    switch(event_type) {
-
-        case isis_event_adj_state_changed:
-            return true;
-        default:
-            return false;
-    }
+    done:
+    tcp_ip_free_pkt_buffer((char *)eth_hdr, pkt_size);
 }
 
 static void

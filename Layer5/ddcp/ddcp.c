@@ -687,7 +687,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
     }
     else{
         /*Schedule periodic ddcp query firing*/
-        wheel_timer_t *wt = node->node_nw_prop.wt;
+        wheel_timer_t *wt = CP_TIMER(node);
         assert(wt);
 
         if((GET_NODE_DDCP_DB(node))->periodic_ddcp_query_wt_elem){

@@ -103,11 +103,16 @@ struct node_ {
 	/*L2 net-filter hook (simplified) */
 	notif_chain_t layer2_proto_reg_db2;
 
+    /* Control plane Scheduler */
     event_dispatcher_t ev_dis;
-    pkt_q_t recvr_pkt_q;
-
+    /* Data path scheduler */
     event_dispatcher_t dp_ev_dis;
+    /* Data Path ingress Pkt Queue */
     pkt_q_t dp_recvr_pkt_q;
+     /*CP Timer*/
+    wheel_timer_t *cp_wt;
+    /* Data Path Timer */
+    wheel_timer_t *dp_wt;
     
     unsigned char *print_buff;
 
@@ -121,9 +126,6 @@ struct node_ {
     glthread_t graph_glue;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
-
-#define EV(node_ptr)    (&node_ptr->ev_dis)
-#define PKT_Q(node_ptr) (&node_ptr->recvr_pkt_q)
 
 typedef struct graph_{
 

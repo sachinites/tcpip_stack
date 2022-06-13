@@ -724,7 +724,7 @@ isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     node_info = ISIS_NODE_INFO(node);
 
-    wt = node_get_timer_instance(node);
+    wt = CP_TIMER(node);
 
     if (lsp_pkt->expiry_timer) return;
 

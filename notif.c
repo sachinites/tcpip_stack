@@ -15,12 +15,12 @@
  *
  * =====================================================================================
  */
-
 #include <stdlib.h>
 #include <memory.h>
 #include <assert.h>
 #include "notif.h"
 #include "LinuxMemoryManager/uapi_mm.h"
+#include "EventDispatcher/event_dispatcher.h"
 
 /* returns true if both are identical else return false.
  * if key is set, then comparison is done based on keys only.
@@ -103,7 +103,9 @@ nfc_de_register_notif_chain(notif_chain_t *nfc,
 }
 
 void
-nfc_invoke_notif_chain(notif_chain_t *nfc,
+nfc_invoke_notif_chain(
+					  event_dispatcher_t *ev_dis,
+					   notif_chain_t *nfc,
 					   void *arg, size_t arg_size,
 					   char *key, size_t key_size){
 
@@ -123,21 +125,43 @@ nfc_invoke_notif_chain(notif_chain_t *nfc,
 			trap_pkt = nfce->pkt_trap_cb(key, key_size);
 
 			if (trap_pkt) {
-				nfce->app_cb(arg, arg_size);
+
+				if (!ev_dis)
+				{
+					nfce->app_cb(ev_dis, arg, arg_size);
+				}
+				else
+				{
+					task_create_new_job(ev_dis, arg, nfce->app_cb, TASK_ONE_SHOT);
+				}
 			}
 			continue;
 		}
 
-		if(!(key && key_size && 
+		if (!(key && key_size && 
 			 nfce->is_key_set && (key_size == nfce->key_size))){
-				
-				nfce->app_cb(arg, arg_size);
+
+			if (!ev_dis)
+			{
+				nfce->app_cb(ev_dis, arg, arg_size);
+			}
+			else
+			{
+				task_create_new_job(ev_dis, arg, nfce->app_cb, TASK_ONE_SHOT);
+			}
 		}
 		else {
 			
-			if(memcmp(key, nfce->key, key_size) == 0) {
+			if (memcmp(key, nfce->key, key_size) == 0) {
 
-				nfce->app_cb(arg, arg_size);
+				if (!ev_dis)
+				{
+					nfce->app_cb(ev_dis, arg, arg_size);
+				}
+				else
+				{
+					task_create_new_job(ev_dis, arg, nfce->app_cb, TASK_ONE_SHOT);
+				}
 			}
 		}
 	}ITERATE_GLTHREAD_END(&nfc->notif_chain_head, curr);

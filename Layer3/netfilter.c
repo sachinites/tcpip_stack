@@ -20,6 +20,8 @@
 #include "graph.h"
 #include "netfilter.h"
 #include "../Layer5/layer5.h"
+#include "EventDispatcher/event_dispatcher.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 static inline void
 nf_init_nf_hook(notif_chain_t *nfc,
@@ -53,23 +55,27 @@ nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
 						 hdr_type_t hdr_code) {
 
 	notif_chain_t *nfc;
-	pkt_notif_data_t pkt_notif_data;
+	pkt_notif_data_t *pkt_notif_data;
+
+	pkt_notif_data = (pkt_notif_data_t *)XCALLOC(0, 1, pkt_notif_data_t);
 
 	nfc = &node->nf_hook_db.nf_hook[nf_hook_type];
 
-    pkt_notif_data.recv_node = node;
-    pkt_notif_data.recv_interface = intf;
-    pkt_notif_data.pkt = pkt;
-    pkt_notif_data.pkt_size = pkt_size;
-	pkt_notif_data.hdr_code = hdr_code;
-    pkt_notif_data.return_code = NF_ACCEPT;
+    pkt_notif_data->recv_node = node;
+    pkt_notif_data->recv_interface = intf;
+    pkt_notif_data->pkt = pkt;
+    pkt_notif_data->pkt_size = pkt_size;
+	pkt_notif_data->hdr_code = hdr_code;
+    pkt_notif_data->return_code = NF_ACCEPT;
 
-    nfc_invoke_notif_chain(nfc,
-			(void *)&pkt_notif_data,
+    nfc_invoke_notif_chain(
+			EV(node),
+			nfc,
+			(void *)pkt_notif_data,
             sizeof(pkt_notif_data_t),
             pkt, pkt_size);
 
-    return pkt_notif_data.return_code;
+    return pkt_notif_data->return_code;
 }
 
 void

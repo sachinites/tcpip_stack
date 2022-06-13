@@ -50,22 +50,24 @@ promote_pkt_from_layer3_to_layer5(node_t *node,
 }
 
 void
-promote_pkt_from_layer2_to_layer5(node_t *node,
+cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
 					 interface_t *recv_intf, 
                      char *pkt,
                      uint32_t pkt_size,
 					 hdr_type_t hdr_code) { 
 
-	pkt_notif_data_t pkt_notif_data;
+	pkt_notif_data_t *pkt_notif_data;
+	pkt_notif_data = (pkt_notif_data_t *)calloc(1, sizeof(pkt_notif_data_t));
+	pkt_notif_data->recv_node = node;
+	pkt_notif_data->recv_interface = recv_intf;
+	pkt_notif_data->pkt = pkt;
+	pkt_notif_data->pkt_size = pkt_size;
+	pkt_notif_data->hdr_code = hdr_code;
 
-	pkt_notif_data.recv_node = node;
-	pkt_notif_data.recv_interface = recv_intf;
-	pkt_notif_data.pkt = pkt;
-	pkt_notif_data.pkt_size = pkt_size;
-	pkt_notif_data.hdr_code = hdr_code;
-
-	nfc_invoke_notif_chain(&node->layer2_proto_reg_db2,
-			(void *)&pkt_notif_data,
+	nfc_invoke_notif_chain(
+			EV(node),
+			&node->layer2_proto_reg_db2,
+			(void *)pkt_notif_data,
 			sizeof(pkt_notif_data_t),
 			pkt, pkt_size);	
 }

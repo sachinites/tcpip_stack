@@ -69,23 +69,14 @@ dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		pkt = ev_dis_pkt_data->pkt;		
 		recv_intf->intf_nw_props.pkt_recv++;
 
-		pkt_receive(receving_node, recv_intf, 
+		dp_pkt_receive(receving_node,
+                    recv_intf, 
 					pkt,
 					ev_dis_pkt_data->pkt_size);
 
 		free(ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
-		free(pkt);
 	}
-}
-
-/* called from init_tcp_ip_stack() at the
- * time of initialization
- * */
-void
-init_pkt_recv_queue(event_dispatcher_t *ev_dis, pkt_q_t *recvr_pkt_q) {
-
-	init_pkt_q(ev_dis, recvr_pkt_q, dp_pkt_recvr_job_cbk);
 }
 
 int
@@ -112,7 +103,7 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-	pkt_q_enqueue(EV(nbr_node), PKT_Q(nbr_node) ,
+	pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node) ,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	tcp_dump_send_logger(sending_node, interface, 
@@ -158,14 +149,14 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 
 	ev_dis_pkt_data->recv_node = nbr_node;
 	ev_dis_pkt_data->recv_intf = other_interface;
-	ev_dis_pkt_data->pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
     tcp_dump_send_logger(sending_node, interface, 
 			pkt, pkt_size, ETH_HDR);
 
-	pkt_q_enqueue(EV(nbr_node), PKT_Q(nbr_node),
+	pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
 	interface->intf_nw_props.pkt_sent++;
@@ -179,7 +170,7 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                      char *pkt, uint32_t pkt_size);
 
 int
-pkt_receive(node_t *node, interface_t *interface,
+dp_pkt_receive(node_t *node, interface_t *interface,
             char *pkt, uint32_t pkt_size){
 
     ethernet_hdr_t *eth_hdr;
@@ -195,13 +186,7 @@ pkt_receive(node_t *node, interface_t *interface,
                 == ACL_DENY) {
         return -1;
     }
-    
-    /*Make room in the packet buffer by shifting the data towards
-      right so that tcp/ip stack can append more hdrs to the packet 
-      as required */
-    pkt = pkt_buffer_shift_right(pkt, pkt_size, 
-            MAX_PACKET_BUFFER_SIZE - IF_NAME_SIZE);
-    
+       
     /*Do further processing of the pkt here*/
     layer2_frame_recv(node, interface, pkt, pkt_size );
     return 0;

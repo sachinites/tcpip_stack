@@ -20,46 +20,29 @@
 #define __PKT_BLOCK__
 
 #include <stdint.h>
-#include "stdbool.h"
+#include <stdbool.h>
 #include "tcpconst.h"
 
 typedef struct pkt_block_ {
 
     unsigned char *pkt;
-    uint16_t pkt_size;
+    size_t pkt_size;
     hdr_type_t hdr_type; /* Starting hdr type */
     uint8_t ref_count;
 } pkt_block_t;
 
-static inline void
-pkt_block_reference(pkt_block_t *pkt_block) {
+void
+pkt_block_reference(pkt_block_t *pkt_block);
 
-    pkt_block->ref_count++;
-}
+void
+pkt_block_free(pkt_block_t *pkt_block);
 
-static inline void
-pkt_block_free(pkt_block_t *pkt_block) {
+void
+pkt_block_dereference(pkt_block_t *pkt_block);
 
-    free(pkt_block->pkt);
-    free(pkt_block);
-}
+pkt_block_t *pkt_block_get_new(unsigned char *pkt, size_t pkt_size);
 
-static inline void
-pkt_block_dereference(pkt_block_t *pkt_block) {
-
-    if (pkt_block->ref_count == 0) {
-        pkt_block_free(pkt_block);
-        return;
-    }
-
-    pkt_block->ref_count--;
-
-    if (pkt_block->ref_count == 0) {
-        pkt_block_free(pkt_block);
-    }
-}
-
-pkt_block_t *
-pkt_block_get_new();
+void
+pkt_block_set_starting_hdr_type(pkt_block_t *pkt_block, hdr_type_t hdr_type) ;
 
 #endif

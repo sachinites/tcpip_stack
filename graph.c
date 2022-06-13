@@ -136,15 +136,22 @@ create_graph_node(graph_t *graph, char *node_name){
     /* Start Control plane Thread/Scheduler */
     event_dispatcher_init(&node->ev_dis);
     event_dispatcher_run(&node->ev_dis);
-    init_pkt_q(&node->ev_dis, &node->recvr_pkt_q, dp_pkt_recvr_job_cbk);
 
     /* Start Data Path Thread/Scheduler */
     event_dispatcher_init(&node->dp_ev_dis);
     event_dispatcher_run(&node->dp_ev_dis);
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
 
-    wt_set_user_data(node_get_timer_instance(node), EV(node));
-    
+    /* Start Control Plane Timer */
+    node->cp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
+    wt_set_user_data(node->cp_wt, EV(node));
+    start_wheel_timer(node->cp_wt);
+
+    /* Start DP Timer */
+    node->dp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
+    wt_set_user_data(node->dp_wt, EV_DP(node));
+    start_wheel_timer(node->dp_wt);
+
     pkt_tracer_init(&node->pkt_tracer);
     
     glthread_add_next(&graph->node_list, &node->graph_glue);

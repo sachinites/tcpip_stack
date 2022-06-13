@@ -53,7 +53,7 @@ isis_adjacency_start_expiry_timer(
     }
 
     adjacency->expiry_timer = timer_register_app_event(
-                                    node_get_timer_instance(adjacency->intf->att_node),
+                                    CP_TIMER(adjacency->intf->att_node),
                                     isis_timer_expire_down_adjacency_cb,
                                     (void *)adjacency, sizeof(isis_adjacency_t),
                                     adjacency->hold_time * 1000,
@@ -111,7 +111,7 @@ isis_adjacency_start_delete_timer(
     }
 
     adjacency->delete_timer = timer_register_app_event(
-                                    node_get_timer_instance(adjacency->intf->att_node),
+                                    CP_TIMER(adjacency->intf->att_node),
                                     isis_timer_expire_delete_adjacency_cb,
                                     (void *)adjacency, sizeof(isis_adjacency_t),
                                     ISIS_ADJ_DEFAULT_DELETE_TIME,

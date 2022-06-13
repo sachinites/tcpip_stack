@@ -367,12 +367,6 @@ is_interface_l3_bidirectional(interface_t *interface){
     return true;
 }
 
-wheel_timer_t *
-node_get_timer_instance(node_t *node){
-
-	return node->node_nw_prop.wt;
-}
-
 static void
 interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
                                                         void *arg, uint32_t arg_size) {
@@ -387,22 +381,24 @@ interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
 
     interface->intf_nw_props.bit_rate.old_bit_stats = 
          interface->intf_nw_props.bit_rate.new_bit_stats;
-         
 }
 
 void
 intf_init_bit_rate_sampling_timer(interface_t *interface) {
 
-    return; 
     wheel_timer_elem_t *wt_elem =
         interface->intf_nw_props.bit_rate.bit_rate_sampling_timer;
 
     assert(!wt_elem);
 
-    wheel_timer_t *timer = node_get_timer_instance(interface->att_node);
+    wheel_timer_t *timer = DP_TIMER(interface->att_node);
     assert(timer);
 
     interface->intf_nw_props.bit_rate.bit_rate_sampling_timer =
-        timer_register_app_event(timer, interface_bit_rate_sample_update,
-        (void *)interface, sizeof(*interface), 1000, 1);
+        timer_register_app_event(timer, 
+                                                 interface_bit_rate_sample_update,
+                                                (void *)interface,
+                                                sizeof(*interface),
+                                                1000,
+                                                1);
 }

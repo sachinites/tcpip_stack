@@ -27,4 +27,6 @@ void
      MM_REG_STRUCT(0, isis_adv_data_t);
      MM_REG_STRUCT(0, isis_spf_log_container_t);
      MM_REG_STRUCT(0, isis_spf_log_t);
+     MM_REG_STRUCT(0, isis_spf_data_t);
+     MM_REG_STRUCT(0, isis_spf_result_t);
  }

@@ -23,10 +23,12 @@
 #include "Layer5/layer5.h"
 #include "Layer3/netfilter.h"
 
+typedef struct event_dispatcher_ event_dispatcher_t;
+
 /*  Default pkt traps, enabled by default
  *  on all nodes */
 typedef bool (*pkt_trap_qualifier)(char *, size_t);
-typedef void (*pkt_processing_fn)(void *, size_t);
+typedef void (*pkt_processing_fn)(event_dispatcher_t *, void *, size_t);
 
 typedef struct pkt_trap_data_ {
 
@@ -39,7 +41,7 @@ typedef struct pkt_trap_data_ {
 extern bool
 ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size);
 extern void
-ddcp_process_ddcp_query_msg(void *arg, size_t arg_size);
+ddcp_process_ddcp_query_msg(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 static pkt_trap_data_t
 tcp_ip_default_l2_pkt_trap_rule[] = {
@@ -51,7 +53,7 @@ tcp_ip_default_l2_pkt_trap_rule[] = {
 extern bool
 ddcp_trap_l3_pkt_rule(char *pkt, size_t pkt_size);
 extern void
-ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size);
+ddcp_process_ddcp_reply_msg(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 static pkt_trap_data_t
 tcp_ip_default_l3_pkt_trap_rule[] = {

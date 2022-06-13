@@ -60,7 +60,7 @@ send_pkt_out(char *pkt, uint32_t pkt_size, interface_t *interface);
 
 /*API to recv packet from interface*/
 int
-pkt_receive(node_t *node, interface_t *interface, 
+dp_pkt_receive(node_t *node, interface_t *interface, 
             char *pkt, uint32_t pkt_size);
 
 /* API to flood the packet out of all interfaces

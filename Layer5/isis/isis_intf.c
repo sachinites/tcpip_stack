@@ -54,7 +54,7 @@ isis_start_sending_hellos(interface_t *intf) {
     assert(isis_node_intf_is_enable(intf));
     
     node = intf->att_node;
-    wheel_timer_t *wt = node_get_timer_instance(node);
+    wheel_timer_t *wt = CP_TIMER(node);
 
     char *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 

@@ -87,9 +87,6 @@ typedef struct node_nw_prop_{
     bool is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
 
-    /*Timer Properties*/
-    wheel_timer_t *wt;
-
     /*Sending Buffer*/
     char *send_log_buffer; /*Used for logging */
     /* Receiving Buffer */ 
@@ -119,8 +116,6 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(node, &(node_nw_prop->rt_table));
 	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
-    node_nw_prop->wt = init_wheel_timer(60, 1, TIMER_SECONDS);
-    start_wheel_timer(node_nw_prop->wt);
     node_nw_prop->send_log_buffer = (char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
 	init_glthread(&(node_nw_prop->traffic_gen_db_head));
@@ -344,7 +339,10 @@ is_interface_l3_bidirectional(interface_t *interface);
 
 #define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr)  }}while(0);
 
-wheel_timer_t *
-node_get_timer_instance(node_t *node);
+#define EV(node_ptr)    (&node_ptr->ev_dis)
+#define EV_DP(node_ptr) (&node_ptr->dp_ev_dis)
+#define DP_PKT_Q(node_ptr) (&node_ptr->dp_recvr_pkt_q)
+#define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
+#define DP_TIMER(node_ptr)  (node_ptr->dp_wt)
 
 #endif /* __NET__ */

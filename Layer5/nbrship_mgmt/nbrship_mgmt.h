@@ -89,9 +89,6 @@ is_hellos_scheduled_on_intf(interface_t *interface){
         return false;
 }
 
-#define node_get_timer_instance(node_ptr)   \
-    node_ptr->node_nw_prop.wt
-
 typedef struct adjacency_{
 
     char router_name[NODE_NAME_SIZE];

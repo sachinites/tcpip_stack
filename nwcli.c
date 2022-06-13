@@ -748,12 +748,15 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
 
    switch(CMDCODE){
         case CMDCODE_DEBUG_SHOW_NODE_TIMER:
-            print_wheel_timer(node->node_nw_prop.wt);         
+            print_wheel_timer(CP_TIMER(node));         
         break;
 		case CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING:
-			wt_enable_logging(node->node_nw_prop.wt);
+			wt_enable_logging(CP_TIMER(node));
+            break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
-            mtrie_longest_prefix_first_traverse(NODE_RT_TABLE(node), mtrie_print_node, NULL);
+            mtrie_longest_prefix_first_traverse(
+                    NODE_RT_TABLE(node),
+                    mtrie_print_node, NULL);
             break;
         default:
         break;

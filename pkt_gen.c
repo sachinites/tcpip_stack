@@ -117,7 +117,7 @@ main(int argc, char **argv){
                 total_data_size, SRC_NODE_UDP_PORT_NO);
                 n_pkts_send++;
         printf("No of bytes sent = %d, pkt no = %u\n", rc, n_pkts_send);
-        usleep(100 * 1000); /*100 msec, i.e. 10pkts per sec*/
+        usleep(10 * 1000); /*100 msec, i.e. 10pkts per sec*/
     }
     close(udp_sock_fd);
     return 0;

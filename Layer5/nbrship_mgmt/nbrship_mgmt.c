@@ -124,7 +124,7 @@ schedule_hello_on_interface(interface_t *intf,
     pkt_meta_data->pkt = (char *)hello_pkt;
     pkt_meta_data->pkt_size = pkt_size;
 
-    timer_event_handle *wt_elem = timer_register_app_event(node_get_timer_instance(intf->att_node),
+    timer_event_handle *wt_elem = timer_register_app_event(CP_TIMER(intf->att_node),
                                                      transmit_hellos,
                                                      (void *)pkt_meta_data,
                                                      sizeof(pkt_meta_data_t),
@@ -423,7 +423,7 @@ adjacency_start_expiry_timer(interface_t *interface,
     adj_key_t *adj_key = calloc(1, sizeof(adj_key_t));
     set_adjacency_key(interface, adjacency, adj_key);
 
-    adjacency->expiry_timer = timer_register_app_event(node_get_timer_instance(interface->att_node),
+    adjacency->expiry_timer = timer_register_app_event(CP_TIMER(interface->att_node),
                                     timer_expire_delete_adjacency_cb,
                                     (void *)adj_key, sizeof(adj_key_t),
                                     ADJ_DEF_EXPIRY_TIMER * 1000,
