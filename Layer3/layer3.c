@@ -449,20 +449,6 @@ rt_table_delete_route(
     bitmap_t prefix_bm, mask_bm;
     char dst_str_with_mask[16];
     
-    apply_mask(ip_addr, mask, dst_str_with_mask); 
-
-    bin_ip = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
-    bin_ip = htonl(bin_ip);
-    bin_mask = tcp_ip_convert_dmask_to_bin_mask((uint8_t)mask);
-    bin_mask = ~bin_mask;
-    bin_mask = htonl(bin_mask);
-
-    bitmap_init(&prefix_bm, 32);
-    bitmap_init(&mask_bm, 32);
-
-    prefix_bm.bits[0] = bin_ip;
-    mask_bm.bits[0] = bin_mask;
-
     pthread_rwlock_wrlock(&rt_table->rwlock);
 
     l3_route = rt_table_lookup_exact_match(rt_table, ip_addr, mask);
@@ -471,6 +457,14 @@ rt_table_delete_route(
         pthread_rwlock_unlock(&rt_table->rwlock);
         return;
     }
+
+    apply_mask(ip_addr, mask, dst_str_with_mask); 
+
+    bin_ip = tcp_ip_covert_ip_p_to_n(dst_str_with_mask);
+    bin_ip = htonl(bin_ip);
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask((uint8_t)mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
 
     nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
     count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
@@ -481,6 +475,12 @@ rt_table_delete_route(
         pthread_rwlock_unlock(&rt_table->rwlock);
         return;
     }
+
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
 
     assert(mtrie_delete_prefix(&rt_table->route_list, 
                                             &prefix_bm,
@@ -724,7 +724,7 @@ rt_table_add_route (rt_table_t *rt_table,
        new_route = true;
        l3_route->is_direct = true;
        l3_route->nh_count = 0;
-       l3_route->ref_count = 1;
+       l3_route->ref_count = 0;
    }
    
    int i = 0;

@@ -191,7 +191,11 @@ l3_route_free(l3_route_t *l3_route){
 static inline void
 l3_route_unlock (l3_route_t *l3_route) {
 
-    assert (l3_route->ref_count);
+    if (l3_route->ref_count == 0) {
+        l3_route_free(l3_route);
+        return;
+    }
+
     l3_route->ref_count--;
     if (l3_route->ref_count > 0) return;
     l3_route_free(l3_route);

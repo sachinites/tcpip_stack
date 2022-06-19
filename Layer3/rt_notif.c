@@ -131,10 +131,13 @@ static void
             l3route = flash_glue_to_l3_route(curr);
             UNSET_BIT8(l3route->rt_flags, RT_FLASH_REQ_F);
             remove_glthread(&l3route->flash_glue);
-            l3_route_unlock(l3route);
+
             if ( IS_BIT_SET(l3route->rt_flags, RT_DEL_F)) {
-                l3_route_unlock(l3route);
+                /* Will delete automatically as it is reference count object now */
+                //l3_route_unlock(l3route); 
             }
+            
+            l3_route_unlock(l3route);
      } ITERATE_GLTHREAD_END(&rt_table->rt_flash_list_head, curr)
  }
 
