@@ -99,7 +99,7 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
 
 	ev_dis_pkt_data->recv_node = nbr_node;
 	ev_dis_pkt_data->recv_intf = other_interface;
-	ev_dis_pkt_data->pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+	ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
