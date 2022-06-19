@@ -163,6 +163,8 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     }
 
     /*Implement Layer 3 forwarding functionality*/
+    pthread_rwlock_rdlock(&(NODE_RT_TABLE(node)->rwlock));
+
     l3_route_t *l3_route = l3rib_lookup_lpm(
                                         NODE_RT_TABLE(node), ip_hdr->dst_ip);
 
@@ -171,8 +173,14 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         printf("Router %s : Cannot Route IP : %s\n", 
                     node->node_name, dest_ip_addr);
 
+        pthread_rwlock_unlock(&NODE_RT_TABLE(node)->rwlock);
         return;
     }
+
+    l3_route_lock (l3_route);
+
+    /* Done with the RT table, release the lock */
+    pthread_rwlock_unlock(&NODE_RT_TABLE(node)->rwlock);
 
     /*L3 route exist, 3 cases now : 
      * case 1 : pkt is destined to self(this router only)
@@ -206,15 +214,18 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 									interface, 
 		                            (char *)INCREMENT_IPHDR(ip_hdr),
         		                    IP_HDR_PAYLOAD_SIZE(ip_hdr));
-                    return;
+                    goto done;
                 default:
                     ;
             }
+
 			promote_pkt_from_layer3_to_layer5(node, interface,
 											  (char *)eth_hdr,
 											   pkt_size, ETH_HDR);
-            return;
+
+           goto done;
         }
+         
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
 
@@ -224,7 +235,8 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
                 NULL,           /*No oif as dest is present in local subnet*/
                 (char *)ip_hdr, pkt_size,  /*Network Layer payload and size*/
                 ETH_IP);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
-        return;
+
+        goto done;
     }
 
     /*case 3 : L3 forwarding case*/
@@ -233,7 +245,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
 
     if(ip_hdr->ttl == 0){
         /*drop the pkt*/
-        return;
+       goto done;
     }
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
@@ -242,7 +254,9 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     nexthop_t *nexthop = NULL;
 
     nexthop = l3_route_get_active_nexthop(l3_route);
-	if(!nexthop) return;
+	if(!nexthop) {
+        goto done;
+    }
 
     nf_result = nf_invoke_netfilter_hook(
                     NF_IP_FORWARD,
@@ -257,7 +271,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     case NF_DROP:
     case NF_STOLEN:
     case NF_STOP:
-        return;
+         goto done;
     }
 
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
@@ -279,7 +293,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
     case NF_DROP:
     case NF_STOLEN:
     case NF_STOP:
-        return;
+        goto done;
     }
 
     /* Access List Evaluation at Layer 3 Exit point*/
@@ -287,7 +301,8 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
             node, nexthop->oif, 
             (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr), 
             false) == ACL_DENY) {
-        return;
+
+        goto done;
     }
 
     demote_pkt_to_layer2(node, 
@@ -296,7 +311,11 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
             (char *)ip_hdr, pkt_size,
             ETH_IP); /*Network Layer need to tell Data link layer, 
                        what type of payload it is passing down*/
-            nexthop->hit_count++;
+            nexthop->hit_count++
+            ;
+
+     done:
+         l3_route_unlock (l3_route);
 }
 
 
@@ -315,6 +334,8 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
     init_glthread(&((*rt_table)->nfc_rt_updates.notif_chain_head));
     
     (*rt_table)->node = node;
+
+    pthread_rwlock_init(&(*rt_table)->rwlock, NULL);
 }
 
 l3_route_t *
@@ -348,19 +369,6 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
 }
 
 void
-l3_route_free(l3_route_t *l3_route){
-
-    /* Assume the route has already been removed from main routing table */
-    nxthop_proto_id_t nxthop_proto_id;
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
-    FOR_ALL_NXTHOP_PROTO(nxthop_proto_id) {
-        nh_flush_nexthops(l3_route->nexthops[nxthop_proto_id]);
-    }
-    XFREE(l3_route);
-}
-
-void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
@@ -370,6 +378,8 @@ clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
     mtrie_node_t *mnode;
 
     nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
+
+    pthread_rwlock_wrlock(&rt_table->rwlock);
 
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
 
@@ -388,14 +398,15 @@ clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
 
         l3_route->spf_metric[nh_proto] = 0;
        mtrie_extract_appln_data(&rt_table->route_list, mnode);
-
-        rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
+       rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
+       l3_route_unlock(l3_route);
 
     }ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr)
      
      /* Resurrect mtrie if you have traversed linearly all leaf nodes and 
      choses to assign NULL data to some of them*/
      mtrie_resurrect (&rt_table->route_list);
+     pthread_rwlock_unlock(&rt_table->rwlock);
      rt_table_kick_start_notif_job(rt_table);
 }
 
@@ -433,7 +444,6 @@ rt_table_delete_route(
         uint16_t proto_id){
 
     int count;
-    bool rc;
     l3_route_t *l3_route = NULL;
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
@@ -453,26 +463,37 @@ rt_table_delete_route(
     prefix_bm.bits[0] = bin_ip;
     mask_bm.bits[0] = bin_mask;
 
-    rc = mtrie_delete_prefix(&rt_table->route_list, 
-                                            &prefix_bm,
-                                            &mask_bm,
-                                            (void **)&l3_route);
+    pthread_rwlock_wrlock(&rt_table->rwlock);
 
-    bitmap_free_internal(&prefix_bm);
-    bitmap_free_internal(&mask_bm);
+    l3_route = rt_table_lookup_exact_match(rt_table, ip_addr, mask);
 
-    if (!rc) return;
-
-    assert(l3_route);
+    if (!l3_route) {
+        pthread_rwlock_unlock(&rt_table->rwlock);
+        return;
+    }
 
     nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
     count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
     l3_route->spf_metric[nh_proto] = 0;
     l3_route->nh_count -= count;
-    if (l3_route->nh_count) return;
 
+    if (l3_route->nh_count) {
+        pthread_rwlock_unlock(&rt_table->rwlock);
+        return;
+    }
+
+    assert(mtrie_delete_prefix(&rt_table->route_list, 
+                                            &prefix_bm,
+                                            &mask_bm,
+                                            (void **)&l3_route));
+
+    pthread_rwlock_unlock(&rt_table->rwlock);
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+    assert(l3_route);
     rt_table_add_route_to_notify_list (rt_table, l3_route, RT_DEL_F);
     rt_table_kick_start_notif_job(rt_table);
+    l3_route_unlock(l3_route);
 }
 
 /*Look up L3 routing table using longest prefix match*/
@@ -509,6 +530,8 @@ dump_rt_table(rt_table_t *rt_table){
     mtrie_node_t *mnode;
     
     printf("L3 Routing Table:\n");
+
+    pthread_rwlock_rdlock(&rt_table->rwlock);
 
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
 
@@ -551,7 +574,8 @@ dump_rt_table(rt_table_t *rt_table){
                             printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
                         }
                         printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4d    |  %-10s| %-8llu     |\n", 
-                                l3_route->dest, l3_route->mask,
+                                l3_route->dest, 
+                                l3_route->mask,
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
                                 l3_route->nexthops[nxthop_proto][i]->oif->if_name, 
@@ -582,6 +606,7 @@ dump_rt_table(rt_table_t *rt_table){
         }
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
     printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
+    pthread_rwlock_unlock(&rt_table->rwlock);
 }
 
 void
@@ -668,7 +693,7 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 }
 
 void
-rt_table_add_route(rt_table_t *rt_table,
+rt_table_add_route (rt_table_t *rt_table,
                                 char *dst, 
                                 char mask,
                                 char *gw, 
@@ -684,6 +709,10 @@ rt_table_add_route(rt_table_t *rt_table,
     nxthop_proto_id_t nxthop_proto = 
         l3_rt_map_proto_id_to_nxthop_index(proto_id);
     
+    /* Taking Write lock because we need to add a route eventually to
+    RT table */
+    pthread_rwlock_wrlock(&rt_table->rwlock);
+
    l3_route_t *l3_route = rt_table_lookup_exact_match(
                                             rt_table, dst_str_with_mask, mask);
 
@@ -695,6 +724,7 @@ rt_table_add_route(rt_table_t *rt_table,
        new_route = true;
        l3_route->is_direct = true;
        l3_route->nh_count = 0;
+       l3_route->ref_count = 1;
    }
    
    int i = 0;
@@ -708,6 +738,7 @@ rt_table_add_route(rt_table_t *rt_table,
                     l3_route->nexthops[nxthop_proto][i]->oif == oif){ 
                     printf("%s Error : Attempt to Add Duplicate Route %s/%d\n",
                             rt_table->node->node_name, dst_str_with_mask, mask);
+                    pthread_rwlock_unlock(&rt_table->rwlock);
                     return;
                 }
            }
@@ -718,6 +749,8 @@ rt_table_add_route(rt_table_t *rt_table,
    if( i == MAX_NXT_HOPS){
         printf("%s Error : No Nexthop space left for route %s/%u\n", 
             rt_table->node->node_name, dst_str_with_mask, mask);
+        
+        pthread_rwlock_unlock(&rt_table->rwlock);
         return;
    }
 
@@ -742,9 +775,13 @@ rt_table_add_route(rt_table_t *rt_table,
            printf("%s Error : Route %s/%d Installation Failed\n", 
                      rt_table->node->node_name,
                    dst_str_with_mask, mask);
-           l3_route_free(l3_route);   
+           l3_route_unlock (l3_route);   
+       }
+       else {
+           l3_route_lock (l3_route);   
        }
    }
+   pthread_rwlock_unlock(&rt_table->rwlock);
 }
 
 static void

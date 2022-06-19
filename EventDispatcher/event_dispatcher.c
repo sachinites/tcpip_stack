@@ -25,10 +25,13 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 static bool debug = false;
-
+void event_dispatcher_mem_init(); 
 
 void
-event_dispatcher_init(event_dispatcher_t *ev_dis){
+event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
+
+	strncpy(ev_dis->name, name, sizeof(ev_dis->name) - 1);
+	ev_dis->name[sizeof(ev_dis->name) - 1] = '0';
 
 	pthread_mutex_init(&ev_dis->ev_dis_mutex, NULL);
 	init_glthread(&ev_dis->task_array_head);
@@ -202,6 +205,7 @@ event_dispatcher_thread(void *arg) {
 
 		task->ev_cbk(ev_dis, task->data, task->data_size);
 		task->no_of_invocations++;
+		ev_dis->n_task_exec++;
 
 		if (debug) {
 			printf("Job execution finished\n");

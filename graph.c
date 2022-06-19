@@ -107,6 +107,8 @@ dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
 
+    unsigned char ev_dis_name[EV_DIS_NAME_LEN];
+
     node_t *node = calloc(1, sizeof(node_t));
     strncpy(node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE -1] = '\0';
@@ -134,11 +136,13 @@ create_graph_node(graph_t *graph, char *node_name){
     init_glthread(&node->graph_glue);
     
     /* Start Control plane Thread/Scheduler */
-    event_dispatcher_init(&node->ev_dis);
+    snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
+    event_dispatcher_init(&node->ev_dis, (const char *)ev_dis_name);
     event_dispatcher_run(&node->ev_dis);
 
     /* Start Data Path Thread/Scheduler */
-    event_dispatcher_init(&node->dp_ev_dis);
+    snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", node_name);
+    event_dispatcher_init(&node->dp_ev_dis, (const char *)ev_dis_name);
     event_dispatcher_run(&node->dp_ev_dis);
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
 

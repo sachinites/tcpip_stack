@@ -83,7 +83,7 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     ted_mem_init();
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */
-    event_dispatcher_init(&gev_dis);
+    event_dispatcher_init(&gev_dis, "Global");
     tcp_stack_miscellaneous_mem_init();
 }
 

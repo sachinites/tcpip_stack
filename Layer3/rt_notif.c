@@ -5,6 +5,7 @@
 #include "rt_notif.h"
 #include "rt_table/nexthop.h"
 #include "layer3.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 
 void
 rt_table_add_route_to_notify_list (
@@ -13,7 +14,12 @@ rt_table_add_route_to_notify_list (
                 uint8_t flag) {
 
     uint8_t old_flags = l3route->rt_flags;
-    remove_glthread(&l3route->notif_glue);
+
+    if (!IS_GLTHREAD_LIST_EMPTY(&l3route->notif_glue)) {
+        remove_glthread(&l3route->notif_glue);
+        l3_route_unlock(l3route);
+    }
+
     UNSET_BIT8(l3route->rt_flags, RT_ADD_F);
     UNSET_BIT8(l3route->rt_flags, RT_DEL_F);
     UNSET_BIT8(l3route->rt_flags, RT_UPDATE_F);
@@ -25,6 +31,7 @@ rt_table_add_route_to_notify_list (
             SET_BIT(l3route->rt_flags, flag);
     }
     glthread_add_next(&rt_table->rt_notify_list_head, &l3route->notif_glue);
+    l3_route_lock(l3route);
 }
 
 static void
@@ -38,27 +45,34 @@ rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) 
 
     rt_route_notif_data_t rt_route_notif_data;
 
+    pthread_rwlock_rdlock(&rt_table->rwlock);
+
     /* Start Sending Notifications Now */
     ITERATE_GLTHREAD_BEGIN_REVERSE(&rt_table->rt_notify_list_head, curr) {
 
         l3route = notif_glue_to_l3_route(curr);
         rt_route_notif_data.l3route = l3route;
         rt_route_notif_data.node = rt_table->node;
+        l3_route_lock(l3route); // prevent premature deletion
+
         nfc_invoke_notif_chain(NULL,
                                                &rt_table->nfc_rt_updates, 
                                                &rt_route_notif_data,
                                                sizeof(rt_route_notif_data), 0, 0);
                                                
         remove_glthread(&l3route->notif_glue);
+        l3_route_unlock(l3route);
 
         if ( IS_BIT_SET(l3route->rt_flags, RT_DEL_F) ) {
-                l3_route_free(l3route);
                 continue;
         }
+
         UNSET_BIT8(l3route->rt_flags, RT_ADD_F);
         UNSET_BIT8(l3route->rt_flags, RT_UPDATE_F);
-        
+        l3_route_unlock(l3route);
+
     } ITERATE_GLTHREAD_END_REVERSE(&rt_table->rt_notify_list_head, curr)
+    pthread_rwlock_unlock(&rt_table->rwlock);
 }
 
 void
@@ -117,8 +131,9 @@ static void
             l3route = flash_glue_to_l3_route(curr);
             UNSET_BIT8(l3route->rt_flags, RT_FLASH_REQ_F);
             remove_glthread(&l3route->flash_glue);
+            l3_route_unlock(l3route);
             if ( IS_BIT_SET(l3route->rt_flags, RT_DEL_F)) {
-                l3_route_free(l3route);
+                l3_route_unlock(l3route);
             }
      } ITERATE_GLTHREAD_END(&rt_table->rt_flash_list_head, curr)
  }
@@ -170,10 +185,19 @@ rt_table_flash_job (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 static void
 rt_table_add_route_to_flash_list (rt_table_t *rt_table,
                                                       l3_route_t *l3route) {
-                                                
-    remove_glthread (&l3route->flash_glue);
+    
+    l3_route_lock(l3route); // prevent premature deletion
+
+    if (!IS_GLTHREAD_LIST_EMPTY(&l3route->flash_glue)) {
+        remove_glthread (&l3route->flash_glue);
+        l3_route_unlock(l3route);
+    }
+
     SET_BIT(l3route->rt_flags, RT_FLASH_REQ_F);
     glthread_add_next(&rt_table->rt_flash_list_head, &l3route->flash_glue);
+    l3_route_lock(l3route);
+
+    l3_route_unlock(l3route);
 }
 
 static void
@@ -193,8 +217,13 @@ static void
 
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr)
 
-     rt_table->flash_job = task_create_new_job( EV(rt_table->node) ,
-                                                rt_table, rt_table_flash_job, TASK_ONE_SHOT);
+    if (! rt_table->flash_job) {
+        rt_table->flash_job = task_create_new_job( 
+                                                EV(rt_table->node) ,
+                                                rt_table,
+                                                rt_table_flash_job,
+                                                TASK_ONE_SHOT);
+    }
  }
 
 void

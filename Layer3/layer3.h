@@ -39,6 +39,7 @@
 #include "../tcpconst.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../mtrie/mtrie.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 #pragma pack (push,1)
 
@@ -111,6 +112,7 @@ typedef struct rt_table_{
     task_t *flash_job;
     node_t *node;
     glthread_t flash_request_list_head;
+    pthread_rwlock_t rwlock;
 } rt_table_t;
 
 #define nexthop_node_name(nexthop_ptr)  \
@@ -158,6 +160,7 @@ typedef struct l3_route_{
     uint8_t rt_flags;
     glthread_t notif_glue;
     glthread_t flash_glue;
+    uint8_t ref_count;
 } l3_route_t;
 GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
 GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
@@ -165,21 +168,51 @@ GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
 #define RT_UP_TIME(l3_route_ptr)	\
 	hrs_min_sec_format((unsigned int)difftime(time(NULL), l3_route_ptr->install_time))
 
-void
-l3_route_free(l3_route_t *l3_route);
+static inline void
+l3_route_lock (l3_route_t *l3_route) {
+
+    l3_route->ref_count++;
+}
+
+static inline void
+l3_route_free(l3_route_t *l3_route){
+
+    /* Assume the route has already been removed from main routing table */
+    nxthop_proto_id_t nxthop_proto_id;
+    assert(l3_route->ref_count == 0);
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
+    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
+    FOR_ALL_NXTHOP_PROTO(nxthop_proto_id) {
+        nh_flush_nexthops(l3_route->nexthops[nxthop_proto_id]);
+    }
+    XFREE(l3_route);
+}
+
+static inline void
+l3_route_unlock (l3_route_t *l3_route) {
+
+    assert (l3_route->ref_count);
+    l3_route->ref_count--;
+    if (l3_route->ref_count > 0) return;
+    l3_route_free(l3_route);
+}
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route);
 
+/* Routing Table APIs */
 void
 init_rt_table(node_t *node, rt_table_t **rt_table);
 
+/* MP Safe */
 void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto);
 
+/* MP Safe */
 void
 rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask, uint16_t proto_id);
 
+/* MP Safe */
 void
 rt_table_add_route(rt_table_t *rt_table, 
                    char *dst, char mask,
@@ -188,19 +221,25 @@ rt_table_add_route(rt_table_t *rt_table,
                    uint32_t spf_metric,
                    uint8_t proto_id);
 
+/* MP Safe */
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
                           char *dst, char mask);
 
+/* MP Safe */
 void
 dump_rt_table(rt_table_t *rt_table);
 
+/* MP Unsafe */
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table,
                  uint32_t dest_ip);
 
+/* MP Unsafe */
 l3_route_t *
 l3rib_lookup(rt_table_t *rt_table, uint32_t dest_ip, char mask);
+
+/* Routing Table APIs */
 
 void
 tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,

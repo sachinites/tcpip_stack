@@ -27,7 +27,7 @@
 
 #define ENABLE_EVENT_DISPATCHER
 //#undef ENABLE_EVENT_DISPATCHER
-
+#define EV_DIS_NAME_LEN 32
 
 typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct task_ task_t;
@@ -91,6 +91,7 @@ typedef enum {
 
 struct event_dispatcher_{
 
+	unsigned char name[EV_DIS_NAME_LEN];
 	pthread_mutex_t ev_dis_mutex;
 
 	glthread_t task_array_head;	
@@ -105,6 +106,7 @@ struct event_dispatcher_{
 	uint32_t signal_sent_cnt;
 	uint32_t signal_recv_cnt;
 	pthread_t *thread;	
+	uint64_t n_task_exec;
 
 	task_t *current_task;
 };
@@ -120,7 +122,7 @@ task_t *
 eve_dis_get_current_task(event_dispatcher_t *ev_dis);
 
 void
-event_dispatcher_init(event_dispatcher_t *ev_dis);
+event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name);
 
 void
 event_dispatcher_run(event_dispatcher_t *ev_dis);

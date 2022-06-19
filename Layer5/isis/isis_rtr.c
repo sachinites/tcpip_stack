@@ -653,8 +653,8 @@ isis_has_routes(node_t *node) {
 static void
  isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
 
-     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
-        l3route->dest, l3route->mask, l3route->rt_flags);
+     sprintf(tlb, "Recv notif for Route %s/%d with code %d, ref_count = %d\n",
+        l3route->dest, l3route->mask, l3route->rt_flags, l3route->ref_count);
      tcp_trace(node, 0, tlb);
  }
 
