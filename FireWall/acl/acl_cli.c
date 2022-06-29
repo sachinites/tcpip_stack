@@ -1,5 +1,5 @@
 #include "../../CommandParser/libcli.h"
-#include "../CommandParser/cmdtlv.h"
+#include "../../CommandParser/cmdtlv.h"
 #include "../../graph.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
@@ -525,7 +525,11 @@ access_list_show_all(node_t *node) {
         mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   acl_entry_show_one_acl_entry,
                                                                   (void *)acc_lst);
-
+        
+        printf ("Access-list : %s Clone\n" , acc_lst->name);
+        mtrie_longest_prefix_first_traverse(acc_lst->clone_mtrie, 
+                                                                  acl_entry_show_one_acl_entry,
+                                                                  (void *)acc_lst);
     #if 0
     /* Debugging */
     mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 

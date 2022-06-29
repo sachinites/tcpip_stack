@@ -20,11 +20,13 @@
 #include <memory.h>
 #include "net.h"
 #include "tcpip_notif.h"
+#include "pkt_block.h"
 
 /* Create a notif chain for interface
  * config change notification to applications */
 static notif_chain_t nfc_intf = {
 	"Notif Chain for Interfaces",
+	0,
 	{0, 0}
 };
 
@@ -69,6 +71,7 @@ nfc_intf_invoke_notification_to_sbscribers(
 
 static notif_chain_t nfc_print_pkts = {
 	"Notif Chain For Tracing appln Pkts",
+	0,
 	{0, 0},
 };
 
@@ -93,15 +96,14 @@ nfc_register_for_pkt_tracing(
 int
 nfc_pkt_trace_invoke_notif_to_sbscribers(
 					uint32_t protocol_no,
-					char *pkt,
-					uint32_t pkt_size,
+					pkt_block_t *pkt_block,
 					char *pkt_print_buffer){
 
 	pkt_info_t pkt_info;
 	
 	pkt_info.protocol_no = protocol_no;
-	pkt_info.pkt = pkt;
-	pkt_info.pkt_size = pkt_size;
+	pkt_info.pkt_block = pkt_block;
+	pkt_block_reference(pkt_block);
 	pkt_info.pkt_print_buffer = pkt_print_buffer;
 	pkt_info.bytes_written = 0;
 
@@ -111,6 +113,9 @@ nfc_pkt_trace_invoke_notif_to_sbscribers(
 						   sizeof(pkt_info_t),
 						   (char *)&protocol_no,
 						   sizeof(protocol_no));
+
+	pkt_block_dereference(pkt_block);
+
 	return pkt_info.bytes_written;
 }
 

@@ -18,8 +18,6 @@ isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
 		return true;
 	}
 
-
-
 	return false;
 }
 
@@ -127,14 +125,15 @@ isis_process_lsp_pkt(node_t *node,
 }
 
 void
-isis_pkt_recieve(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
+isis_pkt_recieve (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
     node_t *node;
     interface_t *iif;
-    uint32_t pkt_size;
+    pkt_size_t pkt_size;
     hdr_type_t hdr_code;
     ethernet_hdr_t *eth_hdr;
     isis_pkt_hdr_t *pkt_hdr;
+    pkt_block_t *pkt_block;
     isis_node_info_t *node_info;
     pkt_notif_data_t *pkt_notif_data;
 
@@ -142,11 +141,18 @@ isis_pkt_recieve(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
     node        = pkt_notif_data->recv_node;
     iif         = pkt_notif_data->recv_interface;
-    eth_hdr     = (ethernet_hdr_t *) (pkt_notif_data->pkt);
-    pkt_size    = pkt_notif_data->pkt_size;
+    pkt_block = pkt_notif_data->pkt_block;
+    eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
 
-    free(pkt_notif_data);
+    /* Take Reference count because protocol would work
+        with this pkt block  now */
+    pkt_block_reference(pkt_block);
+
+    /* Free the pkt resources */
+    pkt_block_dereference(pkt_notif_data->pkt_block);
+    pkt_notif_data->pkt_block = NULL;
+    XFREE(pkt_notif_data);
     
     if (hdr_code != ETH_HDR) goto done;
     
@@ -169,7 +175,7 @@ isis_pkt_recieve(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
         default:; 
     }
     done:
-    tcp_ip_free_pkt_buffer((char *)eth_hdr, pkt_size);
+    assert(!pkt_block_dereference(pkt_block));
 }
 
 static void
@@ -532,14 +538,15 @@ void
 isis_print_pkt(void *arg, size_t arg_size) {
 
     byte *buff;
-    size_t pkt_size;
+    pkt_size_t pkt_size;
     pkt_info_t *pkt_info;
     isis_pkt_hdr_t *pkt_hdr;
+    pkt_block_t *pkt_block;
 
     pkt_info = (pkt_info_t *)arg;
 	buff = pkt_info->pkt_print_buffer;
-	pkt_size = pkt_info->pkt_size;
-    pkt_hdr = (isis_pkt_hdr_t *)(pkt_info->pkt);
+    pkt_block = pkt_info->pkt_block;
+    pkt_hdr = (isis_pkt_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size); 
 
     pkt_info->bytes_written = 0;
 	assert(pkt_info->protocol_no == ISIS_ETH_PKT_TYPE);

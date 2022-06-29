@@ -31,20 +31,22 @@
  */
 
 #include <stdint.h>
-#include "graph.h"
+#include "../graph.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
-
+#include "../pkt_block.h"
+#include "../tcpconst.h"
 
 extern void layer4_mem_init() ;
 
 /*Public APIs to be used by Lower layers of TCP/IP Stack to promote
  * the pkt to Layer 4*/
 void
-promote_pkt_to_layer4(node_t *node, interface_t *recv_intf,
-                      char *l4_hdr, uint32_t pkt_size,
+promote_pkt_to_layer4(node_t *node,
+                      interface_t *recv_intf,
+                      pkt_block_t *pkt_block,
                       int L4_protocol_number){ /*= TCP/UDP or what */
 
-
+        pkt_block_dereference(pkt_block);
 }
 
 /* Public APIs to be used by Higher/Application layers of TCP/IP Stack to demote

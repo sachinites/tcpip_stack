@@ -397,6 +397,8 @@ contains the data to be used by application. IT could be Route or ACL */
 mtrie_node_t *
 mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard) {
 
+    bitmap_t prefix_dup;
+    bitmap_t wildcard_dup;
     mtrie_node_t *node = mtrie->root;
 
     if (mtrie_is_leaf_node(node)) return NULL;
@@ -405,23 +407,42 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wild
 
     if (!node) return NULL;
 
+    bitmap_init (&prefix_dup, prefix->tsize);
+    bitmap_init (&wildcard_dup, wildcard->tsize);
+    bitmap_fast_copy (prefix, &prefix_dup, prefix->tsize);
+    bitmap_fast_copy (wildcard, &wildcard_dup, wildcard->tsize);
+
     while (true) {
 
-        if (!(bitmap_fast_compare (prefix, &node->prefix, node->prefix_len) &&
-                bitmap_fast_compare(wildcard, &node->wildcard, node->prefix_len))) {
+        if (!(bitmap_fast_compare (&prefix_dup, &node->prefix, node->prefix_len) &&
+                bitmap_fast_compare(&wildcard_dup, &node->wildcard, node->prefix_len))) {
 
+                bitmap_free_internal(&prefix_dup);
+                bitmap_free_internal(&wildcard_dup);
                 return NULL;
          }
 
-         if (mtrie_is_leaf_node(node)) return node;
+         if (mtrie_is_leaf_node(node)) {
 
-        bitmap_lshift(prefix, node->prefix_len);
-        bitmap_lshift(wildcard, node->prefix_len);
+                bitmap_free_internal(&prefix_dup);
+                bitmap_free_internal(&wildcard_dup);
+                return node;
+         }
 
-        node = node->child[bitmap_effective_bit_at(prefix, wildcard, 0)];
+        bitmap_lshift(&prefix_dup, node->prefix_len);
+        bitmap_lshift(&wildcard_dup, node->prefix_len);
 
-        if (!node) return NULL;
+        node = node->child[bitmap_effective_bit_at(&prefix_dup, &wildcard_dup, 0)];
+
+        if (!node) {
+            bitmap_free_internal(&prefix_dup);
+            bitmap_free_internal(&wildcard_dup);
+            return NULL;
+        }
     }
+
+    bitmap_free_internal(&prefix_dup);
+    bitmap_free_internal(&wildcard_dup);
     return NULL;
 }
 

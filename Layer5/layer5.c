@@ -32,44 +32,47 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "graph.h"
+#include "../graph.h"
 #include "../tcpconst.h"
 #include "../gluethread/glthread.h"
 #include "layer5.h"
 #include "../Layer3/netfilter.h"
+#include "../pkt_block.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 void
 promote_pkt_from_layer3_to_layer5(node_t *node,
 					 interface_t *recv_intf, 
-                     char *pkt,
-                     uint32_t pkt_size,
+					pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) {
 
 	nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
-			pkt, pkt_size, node, recv_intf, hdr_code);
+			pkt_block, node, recv_intf, hdr_code);
 }
 
 void
 cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
 					 interface_t *recv_intf, 
-                     char *pkt,
-                     uint32_t pkt_size,
+                     pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) { 
 
-	pkt_notif_data_t *pkt_notif_data;
-	pkt_notif_data = (pkt_notif_data_t *)calloc(1, sizeof(pkt_notif_data_t));
-	pkt_notif_data->recv_node = node;
-	pkt_notif_data->recv_interface = recv_intf;
-	pkt_notif_data->pkt = pkt;
-	pkt_notif_data->pkt_size = pkt_size;
-	pkt_notif_data->hdr_code = hdr_code;
+	char *pkt;
+	pkt_size_t pkt_size;
+	pkt_notif_data_t pkt_notif_data;
+
+	pkt_notif_data.recv_node = node;
+	pkt_notif_data.recv_interface = recv_intf;
+	pkt_notif_data.pkt_block = pkt_block;
+	pkt_notif_data.hdr_code = hdr_code;
+
+	pkt = (char *)pkt_block_get_pkt(pkt_notif_data.pkt_block, &pkt_size);
 
 	nfc_invoke_notif_chain(
 			EV(node),
 			&node->layer2_proto_reg_db2,
-			(void *)pkt_notif_data,
+			(void *)&pkt_notif_data,
 			sizeof(pkt_notif_data_t),
-			pkt, pkt_size);	
+			pkt, pkt_size);
 }
 
 void
@@ -109,3 +112,26 @@ tcp_stack_de_register_l2_pkt_trap_rule(
 		&nfce_template);	
 }
 
+extern void *
+netfilter_pkt_notif_data_dup_fn (void *arg);
+extern void
+tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
+
+void
+init_nfc_layer2_proto_reg_db2(node_t *node) {
+
+		strncpy(node->layer2_proto_reg_db2.nfc_name,
+			"L2 proto registration db",
+			strlen("L2 proto registration db") + 1);
+
+		node->layer2_proto_reg_db2.preprocessing_fn_ptr = NULL;
+		node->layer2_proto_reg_db2.copy_arg_fn_ptr = netfilter_pkt_notif_data_dup_fn;
+		tcp_ip_register_default_l2_pkt_trap_rules(node);
+}
+
+void pkt_notif_data_mem_init();
+void
+pkt_notif_data_mem_init() {
+
+    MM_REG_STRUCT(0, pkt_notif_data_t);
+}

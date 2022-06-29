@@ -2,14 +2,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-#include "graph.h"
+#include "../graph.h"
 #include "layer2.h"
 #include "arp.h"
-#include "comm.h"
+#include "../comm.h"
 #include "../Layer5/layer5.h"
 #include "../tcp_ip_trace.h"
 #include "../libtimer/WheelTimer.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../pkt_block.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -19,10 +20,12 @@ send_arp_broadcast_request(node_t *node,
                            interface_t *oif,
                            char *ip_addr){
 
+    pkt_block_t *pkt_block;
+
     /*Take memory which can accomodate Ethernet hdr + ARP hdr*/
     uint32_t payload_size = sizeof(arp_hdr_t);
 
-    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)calloc(1, 
+    ethernet_hdr_t *ethernet_hdr =  (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer (
                 ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
 
     if(!oif){
@@ -56,29 +59,33 @@ send_arp_broadcast_request(node_t *node,
 
     memcpy(arp_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
 
-    inet_pton(AF_INET, IF_IP(oif), &arp_hdr->src_ip);
-    arp_hdr->src_ip = htonl(arp_hdr->src_ip);
+    arp_hdr->src_ip = tcp_ip_covert_ip_p_to_n(IF_IP(oif));
 
     memset(arp_hdr->dst_mac.mac, 0,  sizeof(mac_add_t));
 
-    inet_pton(AF_INET, ip_addr, &arp_hdr->dst_ip);
-    arp_hdr->dst_ip = htonl(arp_hdr->dst_ip);
+    arp_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(ip_addr);
 
     SET_COMMON_ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t), 0); /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
-    send_pkt_out((char *)ethernet_hdr, 
-            ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size, oif);
-
-    free(ethernet_hdr);
+    pkt_block = pkt_block_get_new((uint8_t *)ethernet_hdr, 
+                            ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
+    pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+    send_pkt_out(pkt_block, oif);
+    pkt_block_dereference(pkt_block);
 }
 
+/* Fn is not suppose to modify the input pkt */
 static void
 send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
 
-    arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
+    pkt_block_t *pkt_block;
 
-    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)calloc(1, MAX_PACKET_BUFFER_SIZE);
+    arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
+    
+    pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
+
+    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(total_pkt_size);
 
     memcpy(ethernet_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
@@ -103,14 +110,9 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
   
     SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
 
-    uint32_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(arp_hdr_t);
-
-    char *shifted_pkt_buffer = pkt_buffer_shift_right((char *)ethernet_hdr_reply, 
-                               total_pkt_size, MAX_PACKET_BUFFER_SIZE);
-
-    send_pkt_out(shifted_pkt_buffer, total_pkt_size, oif);
-
-    free(ethernet_hdr_reply);  
+    pkt_block = pkt_block_get_new((uint8_t *)ethernet_hdr_reply, total_pkt_size);
+    send_pkt_out(pkt_block, oif);
+    pkt_block_dereference(pkt_block);
 }
 
 void
@@ -121,7 +123,7 @@ process_arp_reply_msg(node_t *node, interface_t *iif,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr), iif);    
 }
 
-
+/* Fn is not suppose to modify the input pkt */
 void
 process_arp_broadcast_request(node_t *node, interface_t *iif, 
                               ethernet_hdr_t *ethernet_hdr){
@@ -298,13 +300,15 @@ pending_arp_processing_callback_function(node_t *node,
                                          arp_entry_t *arp_entry,
                                          arp_pending_entry_t *arp_pending_entry){
 
-    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)arp_pending_entry->pkt;
-    uint32_t pkt_size = arp_pending_entry->pkt_size;
+    pkt_size_t pkt_size;
+    ethernet_hdr_t *ethernet_hdr = NULL;
+    pkt_block_t *pkt_block = arp_pending_entry->pkt_block;
+    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
     memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
     SET_COMMON_ETH_FCS(ethernet_hdr, 
         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
-    send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+    send_pkt_out(pkt_block, oif);
     arp_entry->hit_count++;
 }
 
@@ -318,10 +322,11 @@ process_arp_pending_entry(node_t *node, interface_t *oif,
 }
 
 static void
-delete_arp_pending_entry(arp_pending_entry_t *arp_pending_entry){
+delete_arp_pending_entry (arp_pending_entry_t *arp_pending_entry){
 
     remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
-    free(arp_pending_entry);
+    pkt_block_dereference(arp_pending_entry->pkt_block);
+    XFREE(arp_pending_entry);
 }
 
 void
@@ -422,18 +427,17 @@ delete_arp_entry(arp_entry_t *arp_entry){
 }
 
 void
-add_arp_pending_entry(arp_entry_t *arp_entry,
+add_arp_pending_entry (arp_entry_t *arp_entry,
         arp_processing_fn cb,
-        char *pkt,
-        uint32_t pkt_size){
+        pkt_block_t *pkt_block){
 
     arp_pending_entry_t *arp_pending_entry = 
-        calloc(1, sizeof(arp_pending_entry_t) + pkt_size);
+        calloc(1, sizeof(arp_pending_entry_t) );
 
     init_glthread(&arp_pending_entry->arp_pending_entry_glue);
     arp_pending_entry->cb = cb;
-    arp_pending_entry->pkt_size = pkt_size;
-    memcpy(arp_pending_entry->pkt, pkt, pkt_size);
+    arp_pending_entry->pkt_block = pkt_block;
+    pkt_block_reference(pkt_block);
 
     glthread_add_next(&arp_entry->arp_pending_list, 
                     &arp_pending_entry->arp_pending_entry_glue);
@@ -443,8 +447,7 @@ void
 create_arp_sane_entry(node_t *node,
 					                 arp_table_t *arp_table,
                                      char *ip_addr, 
-                                     char *pkt,
-                                     uint32_t pkt_size){
+                                     pkt_block_t *pkt_block){
 
     /*case 1 : If full entry already exist - assert. The L2 must have
      * not create ARP sane entry if the already was already existing*/
@@ -460,7 +463,7 @@ create_arp_sane_entry(node_t *node,
         /*ARP sane entry already exists, append the arp pending entry to it*/
         add_arp_pending_entry(arp_entry, 
                               pending_arp_processing_callback_function, 
-                              pkt, pkt_size);
+                              pkt_block);
 	    arp_entry_refresh_expiration_timer(arp_entry);	
         return;
     }
@@ -474,7 +477,7 @@ create_arp_sane_entry(node_t *node,
     arp_entry->proto = PROTO_ARP;
     add_arp_pending_entry(arp_entry, 
                           pending_arp_processing_callback_function, 
-                          pkt, pkt_size);
+                          pkt_block);
     assert(arp_table_entry_add(node, arp_table, arp_entry, 0));
 }
 

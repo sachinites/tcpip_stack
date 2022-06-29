@@ -96,8 +96,6 @@ create_new_graph(char *topology_name){
 }
 
 extern void
-tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
-extern void
 tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
 extern void 
 node_init_udp_socket(node_t *node);
@@ -121,14 +119,13 @@ create_graph_node(graph_t *graph, char *node_name){
 
     tcp_ip_init_node_log_info(node);
 
+    /* L3 pkt trapping to application is implemented using Netfilter
+    hooks built over NFC*/
 	nf_init_netfilters(&node->nf_hook_db);
-
-	strncpy(node->layer2_proto_reg_db2.nfc_name,
-			"L2 proto registration db",
-			strlen("L2 proto registration db") + 1);
-
-    tcp_ip_register_default_l2_pkt_trap_rules(node);
     tcp_ip_register_default_l3_pkt_trap_rules(node);
+    
+    /* L2 pkt trapping to application is implemented using pure NFCs only*/
+    init_nfc_layer2_proto_reg_db2(node);
 
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
 

@@ -21,15 +21,17 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "tcpconst.h"
 
-typedef struct pkt_block_ {
+typedef struct ip_hdr_ ip_hdr_t;
+typedef struct arp_hdr_ arp_hdr_t;
+typedef struct pkt_block_ pkt_block_t;
+typedef struct ethernet_hdr_ ethernet_hdr_t;
 
-    unsigned char *pkt;
-    size_t pkt_size;
-    hdr_type_t hdr_type; /* Starting hdr type */
-    uint8_t ref_count;
-} pkt_block_t;
+void
+pkt_block_mem_init ();
+
+hdr_type_t
+pkt_block_get_starting_hdr(pkt_block_t *pkt_block);
 
 void
 pkt_block_reference(pkt_block_t *pkt_block);
@@ -37,12 +39,46 @@ pkt_block_reference(pkt_block_t *pkt_block);
 void
 pkt_block_free(pkt_block_t *pkt_block);
 
-void
+uint8_t *
+pkt_block_get_pkt(pkt_block_t *pkt_block, pkt_size_t *pkt_size) ;
+
+uint8_t
 pkt_block_dereference(pkt_block_t *pkt_block);
 
-pkt_block_t *pkt_block_get_new(unsigned char *pkt, size_t pkt_size);
+pkt_block_t *
+pkt_block_get_new(uint8_t *pkt, pkt_size_t pkt_size);
 
 void
 pkt_block_set_starting_hdr_type(pkt_block_t *pkt_block, hdr_type_t hdr_type) ;
+
+ethernet_hdr_t *
+pkt_block_get_ethernet_hdr(pkt_block_t *pkt_block);
+
+arp_hdr_t *
+pkt_block_get_arp_hdr(pkt_block_t *pkt_block);
+
+ip_hdr_t *
+pkt_block_get_ip_hdr(pkt_block_t *pkt_block);
+
+void
+pkt_block_free_internals (pkt_block_t *pkt_block);
+
+void
+pkt_block_set_new_pkt(pkt_block_t *pkt_block, uint8_t *pkt, pkt_size_t pkt_size);
+
+pkt_block_t *
+pkt_block_dup(pkt_block_t *pkt_block);
+
+bool
+pkt_block_expand_buffer_left (pkt_block_t *pkt_block, pkt_size_t expand_bytes);
+
+bool
+pkt_block_verify_pkt (pkt_block_t *pkt_block, hdr_type_t hdr_type);
+
+void
+tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) ;
+
+void
+print_pkt_block(pkt_block_t *pkt_block);
 
 #endif

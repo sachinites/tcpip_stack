@@ -35,11 +35,20 @@
 
 #include <stdint.h>
 
+/* Internal Hdr representation */
 typedef enum{
 
     ETH_HDR,
-    IP_HDR
+    IP_HDR,
+    ARP_HDR,
+    ICMP_HDR,
+    TCP_HDR,
+    UDP_HDR,
+    IP_IN_IP_HDR,
+    MISC_APP_HDR
 } hdr_type_t;
+
+typedef uint16_t pkt_size_t;
 
 /*Specified in ethernet_hdr->type*/
 #define ARP_BROAD_REQ   1
@@ -128,6 +137,29 @@ tcpip_protocol_classification(uint16_t proto) {
     }
 }
 
+static inline uint16_t 
+tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
+
+    switch (hdr_type)
+    {
+    case ETH_HDR:
+        return 0;
+    case IP_HDR:
+        return ETH_IP;
+    case ARP_HDR:
+        return PROTO_ARP;
+    case ICMP_HDR:
+        return ICMP_PROTO;
+    case TCP_HDR:
+        return TCP_PROTO;
+    case UDP_HDR:
+        return UDP_PROTO;
+    case IP_IN_IP_HDR:
+        return IP_IN_IP;
+    default:;
+    }
+    return 0;
+}
 
 #endif /* __TCPCONST__ */
 

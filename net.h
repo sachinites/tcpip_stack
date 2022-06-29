@@ -170,7 +170,11 @@ typedef struct intf_nw_props_ {
     bool is_ipadd_config; 
     ip_add_t ip_add;
     char mask;
+
+    pthread_spinlock_t spin_lock_l3_ingress_acc_lst;
     access_list_t *l3_ingress_acc_lst;
+
+    pthread_spinlock_t spin_lock_l3_egress_acc_lst;
     access_list_t *l3_egress_acc_lst;
 
     /*Interface Statistics*/
@@ -228,6 +232,13 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     intf_nw_props->pkt_recv = 0;
     intf_nw_props->pkt_sent = 0;
 	intf_nw_props->xmit_pkt_dropped = 0;
+
+    /* Locks */
+    pthread_spin_init (&intf_nw_props->spin_lock_l3_ingress_acc_lst,
+                                                PTHREAD_PROCESS_PRIVATE);
+    pthread_spin_init (&intf_nw_props->spin_lock_l3_egress_acc_lst, 
+                                                PTHREAD_PROCESS_PRIVATE);
+
 
     snp_flow_init_flow_tree_root(&intf_nw_props->flow_avl_root);
 }

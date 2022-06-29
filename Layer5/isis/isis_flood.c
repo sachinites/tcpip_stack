@@ -62,6 +62,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
     interface_t *intf;
+    pkt_block_t *pkt_block;
     isis_lsp_pkt_t *lsp_pkt;
     bool has_up_adjacency;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
@@ -79,6 +80,8 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     has_up_adjacency = isis_any_adjacency_up_on_interface(intf);
 
+    pkt_block = pkt_block_get_new(NULL, 0);
+
     ITERATE_GLTHREAD_BEGIN(&intf_info->lsp_xmit_list_head, curr) {
 
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
@@ -93,7 +96,9 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
-            send_pkt_out(lsp_pkt->pkt, lsp_pkt->pkt_size, intf);
+            pkt_block_set_new_pkt(pkt_block, (uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
+            pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+            send_pkt_out(pkt_block, intf);
             ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
 
             sprintf(tlb, "%s : LSP %s pushed out of interface %s\n",
@@ -125,6 +130,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
         isis_check_and_shutdown_protocol_now(intf->att_node,
             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
     }
+    XFREE(pkt_block);
 }
 
 void

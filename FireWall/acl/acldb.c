@@ -9,6 +9,7 @@
 #include "../../Layer2/layer2.h"
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/layer3.h"
+#include "../../pkt_block.h"
 
 acl_proto_t
 acl_string_to_proto(unsigned char *proto_name) {
@@ -196,8 +197,11 @@ acl_create_new_access_list(char *access_list_name) {
     strncpy(acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
+    pthread_spin_init (&acc_lst->spin_lock, PTHREAD_PROCESS_PRIVATE);
     acc_lst->mtrie = (mtrie_t *)calloc(1, sizeof(mtrie_t));
     init_mtrie(acc_lst->mtrie, ACL_PREFIX_LEN);
+    acc_lst->clone_mtrie = (mtrie_t *)calloc(1, sizeof(mtrie_t));
+    init_mtrie(acc_lst->clone_mtrie, ACL_PREFIX_LEN);
     acc_lst->ref_count = 0;
     return acc_lst;
 }
@@ -212,10 +216,21 @@ access_list_add_acl_entry(
 
 
 bool
-acl_install(access_list_t *access_list, acl_entry_t *acl_entry) {
+acl_install_in_clone (access_list_t *access_list, acl_entry_t *acl_entry) {
 
      return mtrie_insert_prefix(
-                    access_list->mtrie, 
+                    access_list->clone_mtrie,
+                    &acl_entry->prefix,
+                    &acl_entry->mask,
+                    ACL_PREFIX_LEN,
+                    (void *)acl_entry);
+ }
+
+bool
+acl_install_in_active (access_list_t *access_list, acl_entry_t *acl_entry) {
+
+     return mtrie_insert_prefix(
+                    access_list->mtrie,
                     &acl_entry->prefix,
                     &acl_entry->mask,
                     ACL_PREFIX_LEN,
@@ -228,12 +243,13 @@ acl_install(access_list_t *access_list, acl_entry_t *acl_entry) {
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->head));
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->glue));
     assert(!access_list->mtrie);
+     assert(!access_list->clone_mtrie);
     assert(access_list->ref_count == 0);
     free(access_list);
  }
 
 bool
-acl_process_user_config(node_t *node, 
+acl_process_user_config (node_t *node, 
                 char *access_list_name,
                 acl_entry_t *acl_entry) {
 
@@ -250,7 +266,7 @@ acl_process_user_config(node_t *node,
         new_access_list = true;
     }
 
-    rc = acl_install(access_list, acl_entry);
+    rc = acl_install_in_clone (access_list, acl_entry);
 
     if (!rc) {
         printf ("Error : ACL Installation into Mtrie Failed\n");
@@ -260,14 +276,16 @@ acl_process_user_config(node_t *node,
         return false;
     }
 
-    access_list_add_acl_entry(access_list, acl_entry);
+    access_list_atomic_swap_mtries (access_list);
+    assert(acl_install_in_clone (access_list, acl_entry));
+    access_list_add_acl_entry (access_list, acl_entry);
 
     if (new_access_list) {
-        glthread_add_next(&node->access_lists_db, &access_list->glue);
-        access_list_reference(access_list);
+        glthread_add_next (&node->access_lists_db, &access_list->glue);
+        access_list_reference (access_list);
     }
     else {
-        access_list_notify_clients(node, access_list);
+        access_list_notify_clients (node, access_list);
     }
 
     return true;
@@ -280,22 +298,33 @@ acl_process_user_config_for_deletion (
                 acl_entry_t *acl_entry) {
 
     bool rc = false;
-    void *acl_entry_in_mtrie = NULL;
+    void *acl_entry_in_mtrie1 = NULL;
+    void *acl_entry_in_mtrie2 = NULL;
     acl_entry_t *installed_acl_entry = NULL;
 
     acl_compile (acl_entry);
 
-   rc = mtrie_delete_prefix(access_list->mtrie, 
+   rc = mtrie_delete_prefix (access_list->clone_mtrie, 
                                             &acl_entry->prefix, 
                                             &acl_entry->mask,
-                                            &acl_entry_in_mtrie);
+                                            &acl_entry_in_mtrie1);
 
     if (!rc) {
         printf ("Error : ACL Entry Do not Exist\n");
         return false;
     }
 
-    installed_acl_entry = (acl_entry_t *)acl_entry_in_mtrie;
+    access_list_atomic_swap_mtries(access_list);
+
+    assert(mtrie_delete_prefix(access_list->clone_mtrie, 
+                                            &acl_entry->prefix, 
+                                            &acl_entry->mask,
+                                            &acl_entry_in_mtrie2));
+
+    assert(acl_entry_in_mtrie1 == acl_entry_in_mtrie2);
+
+    installed_acl_entry = (acl_entry_t *)acl_entry_in_mtrie1;
+
     remove_glthread(&installed_acl_entry->glue);
 
     acl_entry_free(installed_acl_entry);
@@ -324,6 +353,9 @@ access_list_delete_complete(access_list_t *access_list) {
     mtrie_destroy(access_list->mtrie);
     free(access_list->mtrie);
     access_list->mtrie = NULL;
+    mtrie_destroy(access_list->clone_mtrie);
+    free(access_list->clone_mtrie);
+    access_list->clone_mtrie = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -335,6 +367,7 @@ access_list_delete_complete(access_list_t *access_list) {
 
     remove_glthread(&access_list->glue);
     access_list->ref_count--;
+    pthread_spin_destroy(&access_list->spin_lock);
     access_list_check_delete(access_list);
     printf ("Access List Deleted\n");
 }
@@ -356,7 +389,10 @@ access_list_attach_to_interface_ingress(interface_t *intf, char *acc_lst_name) {
         return;
     }
 
+    pthread_spin_lock(&intf->intf_nw_props.spin_lock_l3_ingress_acc_lst);
     intf->intf_nw_props.l3_ingress_acc_lst = acc_lst;
+    pthread_spin_unlock(&intf->intf_nw_props.spin_lock_l3_ingress_acc_lst);
+
     access_list_reference(acc_lst);
 }
 
@@ -439,7 +475,8 @@ access_list_evaluate (access_list_t *acc_lst,
 
     bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
 
-    hit_node = mtrie_longest_prefix_match_search(acc_lst->mtrie, &input);
+    hit_node = mtrie_longest_prefix_match_search(
+                    access_list_get_active_mtrie(acc_lst), &input);
 
     /* Deny by default */
     if (!hit_node) {
@@ -497,7 +534,7 @@ access_list_evaluate_ip_packet (node_t *node,
 acl_action_t
 access_list_evaluate_ethernet_packet (node_t *node, 
                                                     interface_t *intf, 
-                                                    ethernet_hdr_t *eth_hdr,
+                                                    pkt_block_t *pkt_block,
                                                     bool ingress) {
 
     return ACL_PERMIT;
@@ -511,13 +548,16 @@ access_group_config(node_t *node,
                                    char *dirn, 
                                    access_list_t *acc_lst) {
 
+    pthread_spinlock_t *spin_lock;
     access_list_t **configured_access_lst = NULL;
 
     if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
+        *spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
     }
     else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
+        *spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can be - 'in' or 'out' only\n");
@@ -529,8 +569,10 @@ access_group_config(node_t *node,
         return -1;
     }
 
+    pthread_spin_lock(spin_lock);
     *configured_access_lst = acc_lst;
     access_list_reference(acc_lst);
+    pthread_spin_unlock(spin_lock);
     return 0;
 }
 
@@ -540,13 +582,16 @@ access_group_unconfig(node_t *node,
                                        char *dirn, 
                                       access_list_t *acc_lst) {
 
+    pthread_spinlock_t *spin_lock;
     access_list_t **configured_access_lst = NULL;
 
     if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
+        *spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
     }
     else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
+        *spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can in - 'in' or 'out' only\n");
@@ -558,8 +603,10 @@ access_group_unconfig(node_t *node,
         return -1;
     }
 
+    pthread_spin_lock(spin_lock);
     *configured_access_lst = NULL;
     access_list_dereference(acc_lst);
+    pthread_spin_unlock(spin_lock);
     return 0;
 }
 

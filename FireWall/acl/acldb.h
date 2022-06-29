@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include "../../gluethread/glthread.h"
 #include "../../BitOp/bitmap.h"
 #include "../../tcpconst.h"
@@ -12,6 +13,7 @@ typedef struct node_ node_t;
 typedef struct interface_ interface_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 typedef struct ip_hdr_ ip_hdr_t;
+typedef struct pkt_block_ pkt_block_t;
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
@@ -84,13 +86,47 @@ typedef struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
     glthread_t head; // list of acl_entry_t in this access list
     glthread_t glue; // glues into node->access_list. A node can have many access lists
+    pthread_spinlock_t spin_lock;
     mtrie_t *mtrie;     // Mtrie for this access list
-    uint8_t ref_count; // how many systems using this access list
+    mtrie_t *clone_mtrie;
+    uint8_t ref_count; // how many sub-systems using this access list
 } access_list_t;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;
 void acl_entry_free(acl_entry_t *acl_entry);
+
+static inline void
+access_list_atomic_swap_mtries(access_list_t *access_list) {
+
+    mtrie_t *temp;
+    pthread_spin_lock(&access_list->spin_lock);
+    temp = access_list->clone_mtrie;
+    access_list->clone_mtrie = access_list->mtrie;
+    access_list->mtrie = temp;
+    pthread_spin_unlock(&access_list->spin_lock);
+}
+
+static inline mtrie_t *
+access_list_get_active_mtrie (access_list_t *access_list) {
+
+    mtrie_t *mtrie;
+    pthread_spin_lock(&access_list->spin_lock);
+    mtrie = access_list->mtrie;
+    pthread_spin_unlock(&access_list->spin_lock);
+    return mtrie;
+}
+
+static inline mtrie_t *
+access_list_get_clone_mtrie(access_list_t *access_list) {
+
+    mtrie_t *mtrie;
+    pthread_spin_lock(&access_list->spin_lock);
+    mtrie = access_list->clone_mtrie;
+    pthread_spin_unlock(&access_list->spin_lock);
+    return mtrie;
+}
+
 bool
 acl_process_user_config(node_t *node, 
                 char *access_list_name,
@@ -109,7 +145,9 @@ access_list_t * acl_lookup_access_list(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
 void access_list_check_delete(access_list_t *access_list);
-bool acl_install(access_list_t *access_list, acl_entry_t *acl_entry);
+bool acl_install_in_clone (access_list_t *access_list, acl_entry_t *acl_entry);
+bool acl_install_in_active (access_list_t *access_list, acl_entry_t *acl_entry);
+
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
                                 uint16_t l3proto,
@@ -130,7 +168,7 @@ access_list_evaluate_ip_packet (node_t *node,
 acl_action_t
 access_list_evaluate_ethernet_packet (node_t *node, 
                                                               interface_t *intf, 
-                                                              ethernet_hdr_t *eth_hdr,
+                                                             pkt_block_t *pkt_block,
                                                               bool ingress) ;
 
 /* Return 0 on success */                    

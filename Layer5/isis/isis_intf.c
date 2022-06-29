@@ -28,6 +28,8 @@ isis_interface_qualify_to_send_hellos(interface_t *intf){
 static void
 isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
+    pkt_block_t *pkt_block;
+
     if (!arg) return;
 
     isis_timer_data_t *isis_timer_data =
@@ -36,11 +38,13 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     node_t *node = isis_timer_data->node;
     interface_t *egress_intf = isis_timer_data->intf;
     char *hello_pkt = isis_timer_data->data;
-    size_t pkt_size = isis_timer_data->data_size;
+    pkt_size_t pkt_size = (pkt_size_t )isis_timer_data->data_size;
 
     if (hello_pkt && pkt_size) {
         ISIS_INTF_INCREMENT_STATS(egress_intf, hello_pkt_sent);
-        send_pkt_out(hello_pkt, pkt_size, egress_intf);
+        pkt_block = pkt_block_get_new((uint8_t *)hello_pkt, pkt_size);
+        send_pkt_out(pkt_block, egress_intf);
+        XFREE(pkt_block);
     }
 }
 

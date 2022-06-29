@@ -45,12 +45,19 @@
 #include "Layer2/layer2.h"
 #include "EventDispatcher/event_dispatcher.h"
 #include "FireWall/acl/acldb.h"
+#include "pkt_block.h"
 
 extern graph_t *topo;
+
+extern void
+l2_switch_recv_frame(node_t *node,
+                                     interface_t *interface,
+                                     pkt_block_t *pkt_block);
 
 void
 dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
+    pkt_block_t *pkt_block;
 	node_t *receving_node;
 	interface_t *recv_intf;
 
@@ -69,10 +76,15 @@ dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		pkt = ev_dis_pkt_data->pkt;		
 		recv_intf->intf_nw_props.pkt_recv++;
 
+        pkt_block = pkt_block_get_new(pkt, ev_dis_pkt_data->pkt_size);
+        pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+
+        /* Bump the ref counter since pkt is not being injected into data path*/
+        pkt_block_reference(pkt_block);
+
 		dp_pkt_receive(receving_node,
                     recv_intf, 
-					pkt,
-					ev_dis_pkt_data->pkt_size);
+                    pkt_block);
 
 		free(ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
@@ -80,20 +92,26 @@ dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 }
 
 int
-send_pkt_to_self(char *pkt, uint32_t pkt_size,
+send_pkt_to_self (
+                pkt_block_t *pkt_block,
                 interface_t *interface){
 
-    int rc = 0;    
+    int rc = 0;   
+    uint8_t *pkt;
+    pkt_size_t pkt_size;
+
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = sending_node;
   
 	ev_dis_pkt_data_t *ev_dis_pkt_data;
  
-    if(!IF_IS_UP(interface)){
+    if (!IF_IS_UP(interface)){
         return 0;
     }
 
     interface_t *other_interface =  interface;
+
+    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
 	ev_dis_pkt_data = calloc(1, sizeof(ev_dis_pkt_data_t));
 
@@ -106,22 +124,26 @@ send_pkt_to_self(char *pkt, uint32_t pkt_size,
 	pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node) ,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 	
-	tcp_dump_send_logger(sending_node, interface, 
-			pkt, pkt_size, ETH_HDR);
+	tcp_dump_send_logger(sending_node,
+                                           interface, 
+			                               pkt_block,
+                                           pkt_block_get_starting_hdr(pkt_block) );
 
     return pkt_size; 
-       
 }
 
 /*Public APIs to be used by the other modules*/
 int
-send_pkt_out(char *pkt, uint32_t pkt_size, 
+send_pkt_out (pkt_block_t *pkt_block,
              interface_t *interface){
 
+    pkt_size_t pkt_size;
 	ev_dis_pkt_data_t *ev_dis_pkt_data;
     node_t *sending_node = interface->att_node;
     node_t *nbr_node = get_nbr_node(interface);
     
+    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+
     if (!IF_IS_UP(interface)){
 		interface->intf_nw_props.xmit_pkt_dropped++;
         return 0;
@@ -138,7 +160,7 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     /* Access List Evaluation at Layer 2 Exit point*/
     if (access_list_evaluate_ethernet_packet(
             interface->att_node, interface, 
-            (ethernet_hdr_t *)pkt, false)  == ACL_DENY) {
+           pkt_block, false)  == ACL_DENY) {
         return -1;
     }
 
@@ -154,7 +176,7 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
     tcp_dump_send_logger(sending_node, interface, 
-			pkt, pkt_size, ETH_HDR);
+			pkt_block, pkt_block_get_starting_hdr(pkt_block));
 
 	pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
@@ -165,36 +187,56 @@ send_pkt_out(char *pkt, uint32_t pkt_size,
     return pkt_size; 
 }
 
-extern void
-layer2_frame_recv(node_t *node, interface_t *interface,
-                     char *pkt, uint32_t pkt_size);
+void
+dp_pkt_receive (node_t *node, 
+                           interface_t *interface,
+                           pkt_block_t *pkt_block){
 
-int
-dp_pkt_receive(node_t *node, interface_t *interface,
-            char *pkt, uint32_t pkt_size){
-
+    pkt_size_t pkt_size;
     ethernet_hdr_t *eth_hdr;
+    uint32_t vlan_id_to_tag = 0;
 
-    eth_hdr = (ethernet_hdr_t *)pkt;
+    eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
    
-    tcp_dump_recv_logger(node, interface, 
-            (char *)pkt, pkt_size, ETH_HDR);
+    tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
 
     /* Access List Evaluation at Layer 2 Entry point*/ 
     if (access_list_evaluate_ethernet_packet(
-                node, interface, eth_hdr, true) 
+                node, interface, pkt_block, true) 
                 == ACL_DENY) {
-        return -1;
+
+        assert(!pkt_block_dereference(pkt_block));
+        return;
     }
-       
-    /*Do further processing of the pkt here*/
-    layer2_frame_recv(node, interface, pkt, pkt_size );
-    return 0;
+
+    if (l2_frame_recv_qualify_on_interface(
+                                          node,
+                                          interface, 
+                                          pkt_block,
+                                          &vlan_id_to_tag) == false){
+        
+        printf("L2 Frame Rejected on node %s(%s)\n", 
+            node->node_name, interface->if_name);
+        assert(!pkt_block_dereference(pkt_block));
+        return;
+    }
+
+    if (vlan_id_to_tag &&
+        ( IF_L2_MODE(interface) == ACCESS) || IF_L2_MODE(interface) == TRUNK) {
+
+        tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
+        l2_switch_recv_frame(node, interface, pkt_block);
+    }
+
+    else if (IS_INTF_L3_MODE(interface)){
+            promote_pkt_to_layer2(node, interface, pkt_block);
+    }
 }
 
 int
-send_pkt_flood(node_t *node, interface_t *exempted_intf, 
-                char *pkt, uint32_t pkt_size){
+send_pkt_flood(node_t *node, 
+               interface_t *exempted_intf, 
+               pkt_block_t *pkt_block) {
 
     uint32_t i = 0;
     interface_t *intf; 
@@ -207,7 +249,7 @@ send_pkt_flood(node_t *node, interface_t *exempted_intf,
         if(intf == exempted_intf)
             continue;
 
-        send_pkt_out(pkt, pkt_size, intf);
+        send_pkt_out(pkt_block, intf);
     }
     return 0;
 }
@@ -267,9 +309,13 @@ _pkt_receive(node_t *receving_node,
         return;
     }
 
+    assert(0);
+    /*Disable pkt reception from pkt_gen.exe for the moment */
+    /*
     send_pkt_to_self(pkt_with_aux_data + IF_NAME_SIZE, 
                     pkt_size - IF_NAME_SIZE,
                     recv_intf);
+    */
 }
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];

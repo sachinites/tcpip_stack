@@ -46,6 +46,8 @@ GLTHREAD_TO_STRUCT(glthread_glue_to_notif_chain_elem,
 typedef struct notif_chain_ {
 
     char nfc_name[64];
+    void  (*preprocessing_fn_ptr)(void *);
+    void * (*copy_arg_fn_ptr)(void *);
     glthread_t notif_chain_head;
 } notif_chain_t;
 
@@ -53,7 +55,7 @@ void
 nfc_register_notif_chain(notif_chain_t *nfc,
                      notif_chain_elem_t *nfce);
 
-void
+uint16_t
 nfc_invoke_notif_chain(event_dispatcher_t *ev_dis,
                         notif_chain_t *nfc,
                        void *arg, size_t arg_size,

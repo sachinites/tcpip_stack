@@ -40,6 +40,7 @@
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
+typedef struct pkt_block_ pkt_block_t;
 
 typedef struct ev_dis_pkt_data_{
 
@@ -50,24 +51,25 @@ typedef struct ev_dis_pkt_data_{
 } ev_dis_pkt_data_t;
 
 int
-send_pkt_to_self(char *pkt, uint32_t pkt_size, interface_t *interface);
+send_pkt_to_self (pkt_block_t *pkt_block, interface_t *interface);
 
 /* API to send the packet out of the interface.
  * Nbr node must receieve the packet on other end
  * of the link*/
 int
-send_pkt_out(char *pkt, uint32_t pkt_size, interface_t *interface);
+send_pkt_out(pkt_block_t *pkt_block, interface_t *interface);
 
 /*API to recv packet from interface*/
-int
-dp_pkt_receive(node_t *node, interface_t *interface, 
-            char *pkt, uint32_t pkt_size);
+void
+dp_pkt_receive(node_t *node,
+                          interface_t *interface, 
+                          pkt_block_t *pkt_block);
 
 /* API to flood the packet out of all interfaces
  * of the node*/
 int
 send_pkt_flood(node_t *node, 
                interface_t *exempted_intf, 
-               char *pkt, uint32_t pkt_size);
+               pkt_block_t *pkt_block);
 
 #endif /* __COMM__ */

@@ -36,29 +36,28 @@
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
+typedef struct pkt_block_ pkt_block_t;
 
 typedef struct pkt_notif_data_{
 
 	node_t *recv_node;
 	interface_t *recv_interface;
-	char *pkt;
-	uint32_t pkt_size;
+	pkt_block_t *pkt_block;
 	hdr_type_t hdr_code;
 	int8_t return_code;
 } pkt_notif_data_t;
 
 void
-promote_pkt_from_layer2_to_layer5(node_t *node,
+cp_punt_promote_pkt_from_layer2_to_layer5(
+					 node_t *node,
 					  interface_t *recv_intf,
-        			  char *pkt,
-					  uint32_t pkt_size,
+        			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);
 
 void
 promote_pkt_from_layer3_to_layer5(node_t *node,
 					  interface_t *recv_intf,
-        			  char *pkt,
-					  uint32_t pkt_size,
+        			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);
 
 void

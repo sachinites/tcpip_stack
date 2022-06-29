@@ -20,16 +20,17 @@ nmp_print_hello_pkt(void *arg, size_t arg_size){
 
     int rc = 0;
 	char *buff;
-	uint32_t pkt_size;
+	pkt_size_t pkt_size;
+    pkt_block_t *pkt_block;
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
 	pkt_info_t *pkt_info = (pkt_info_t *)arg;
 
 	buff = pkt_info->pkt_print_buffer;
-	pkt_size = pkt_info->pkt_size;
+    pkt_block = pkt_info->pkt_block;
 
-    hello_t *hpkt = (hello_t *)(pkt_info->pkt);
+    hello_t *hpkt = (hello_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
 	assert(pkt_info->protocol_no == NMP_HELLO_MSG_CODE);
 
@@ -63,11 +64,17 @@ transmit_hellos(event_dispatcher_t *ev_dis,
                 void *arg, uint32_t sizeof_arg){
 
     if (!arg) return;
+
+    pkt_block_t *pkt_block = pkt_block_get_new(NULL, 0);
+
     pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)arg;
     intf_nmp_t *intf_nmp = NMP_GET_INTF_NMPDS(pkt_meta_data->intf);
     assert(intf_nmp);
-    send_pkt_out(pkt_meta_data->pkt, pkt_meta_data->pkt_size,
+    pkt_block_set_new_pkt (pkt_block, pkt_meta_data->pkt, pkt_meta_data->pkt_size);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+    send_pkt_out(pkt_block,
             pkt_meta_data->intf);
+    XFREE(pkt_block);
     intf_nmp->sent++;
 }
 
@@ -217,26 +224,28 @@ process_hello_msg(void *arg, size_t arg_size){
 	char *pkt;
 	node_t *node;
 	interface_t *iif;
-	uint32_t pkt_size;
+	pkt_size_t pkt_size;
 	hdr_type_t hdr_code;
 	uint32_t protocol_no;
-
+    pkt_block_t *pkt_block;
 	pkt_notif_data_t *pkt_notif_data;
 
 	pkt_notif_data = (pkt_notif_data_t *)arg;
 
 	node 	 	= pkt_notif_data->recv_node;
 	iif  	 	= pkt_notif_data->recv_interface;
-	pkt  	 	= pkt_notif_data->pkt;
-	pkt_size 	= pkt_notif_data->pkt_size; 
+	pkt_block  	 	= pkt_notif_data->pkt_block;
 	hdr_code    = pkt_notif_data->hdr_code;
 
 	assert(hdr_code == ETH_HDR);
+    XFREE(pkt_notif_data);
+
+    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     uint8_t intf_ip_len;
     intf_nmp_t *nmp  = NMP_GET_INTF_NMPDS(iif);
     
-    if(!nmp || !nmp->is_enabled) return;
+    if(!nmp || !nmp->is_enabled) goto done;
 
     ethernet_hdr_t *hello_eth_hdr = (ethernet_hdr_t *)pkt;
 
@@ -268,10 +277,14 @@ process_hello_msg(void *arg, size_t arg_size){
         goto bad_hello;
     }
     update_interface_adjacency_from_hello(iif, hello, tlv_buff_size);
+    pkt_block_dereference(pkt_block);
     return ;
 
     bad_hello:
     iif->intf_nw_props.nmp->bad_hellos++;
+
+    done:
+    pkt_block_dereference(pkt_block);
 }
 
 void

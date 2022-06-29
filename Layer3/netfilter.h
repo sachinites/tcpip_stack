@@ -19,6 +19,7 @@
 #ifndef __NF__
 #define __NF__
 
+#include <stdint.h>
 #include "../tcpconst.h"
 #include "../notif.h"
 
@@ -51,14 +52,16 @@ nf_init_netfilters(nf_hook_db_t *nf_hook_db);
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
+typedef struct pkt_block_ pkt_block_t;
 
 int8_t
-nf_invoke_netfilter_hook(nf_hook_t nf_hook_type,
-                         char *pkt,
-                         size_t pkt_size,
-                         node_t *node,
-                         interface_t *intf,
+nf_invoke_netfilter_hook(
+						nf_hook_t nf_hook_type,
+						 pkt_block_t *pkt_block,
+						 node_t *node,
+						 interface_t *intf,
 						 hdr_type_t hdr_code);
+
 void
 nf_register_netfilter_hook(node_t *node,
 						   nf_hook_t nf_hook_type,

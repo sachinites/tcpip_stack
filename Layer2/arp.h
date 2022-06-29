@@ -1,6 +1,8 @@
 #ifndef __ARP__HDR__
 #define __ARP__HDR__
 
+typedef struct pkt_block_ pkt_block_t;
+
 #pragma pack (push,1)
 typedef struct arp_hdr_{
 
@@ -37,8 +39,7 @@ struct arp_pending_entry_{
 
     glthread_t arp_pending_entry_glue;
     arp_processing_fn cb;
-    uint32_t pkt_size;  /*Including ether net hdr*/
-    char pkt[0];
+    pkt_block_t *pkt_block;
 };
 GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
     arp_pending_entry_t, arp_pending_entry_glue);
@@ -117,16 +118,15 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
 
 void
-add_arp_pending_entry(arp_entry_t *arp_entry, 
-                        arp_processing_fn, 
-                        char *pkt, 
-                        uint32_t pkt_size); 
+add_arp_pending_entry (arp_entry_t *arp_entry,
+        arp_processing_fn cb,
+        pkt_block_t *pkt_block);
 
 void
 create_arp_sane_entry(node_t *node,
 					  arp_table_t *arp_table,
-					  char *ip_addr,
-                      char *pkt, uint32_t pkt_size);
+                      char *ip_addr, 
+					  pkt_block_t *pkt_block);
 
 static bool 
 arp_entry_sane(arp_entry_t *arp_entry){

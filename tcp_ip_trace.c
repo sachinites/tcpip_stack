@@ -3,9 +3,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include "tcp_public.h"
-#include "CommandParser/libcli.h"
-#include "CommandParser/cmdtlv.h"
-#include "gluethread/glthread.h"
 
 extern graph_t *topo;
 
@@ -79,14 +76,14 @@ tcp_dump_appln_hdr_protocol_icmp(char *buff, char *appln_data, uint32_t pkt_size
 }
 
 static int
-tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
+tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
 
      int rc = 0;
      char ip1[16];
      char ip2[16];
     char string_buffer[32];
+    pkt_block_t *pkt_block;
 
-	 pkt_info_t pkt_info;
      tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip1);
      tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, ip2);
 
@@ -103,11 +100,16 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, uint32_t pkt_size){
                     IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
         default:
+            pkt_block = pkt_block_get_new((uint8_t *)INCREMENT_IPHDR(ip_hdr), 
+                                    (pkt_size_t )IP_HDR_PAYLOAD_SIZE(ip_hdr));
+            pkt_block_set_starting_hdr_type(pkt_block, IP_HDR);
+            pkt_block_reference(pkt_block);
+
 			rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
 					ip_hdr->protocol,
-					INCREMENT_IPHDR(ip_hdr),
-					IP_HDR_PAYLOAD_SIZE(ip_hdr),
+					pkt_block,
 					buff + rc);	
+            XFREE(pkt_block);
             break;
             ;
     }
@@ -147,10 +149,12 @@ tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr,
 }
 
 static int
-tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr, 
-                        uint32_t pkt_size){
+tcp_dump_ethernet_hdr(char *buff, 
+                        ethernet_hdr_t *eth_hdr, 
+                        pkt_size_t pkt_size){
 
     int rc = 0;
+    pkt_block_t *pkt_block;
      char string_buffer[32];
 
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
@@ -200,11 +204,17 @@ tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr,
                     payload_size);
             break;
         default:
-			rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
+            pkt_block = pkt_block_get_new(
+                                            (uint8_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
+                                           (pkt_size_t)payload_size);
+            pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+            pkt_block_reference(pkt_block);
+
+            rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
 					type,
-					(char *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
-					payload_size,
+					pkt_block,
 					buff + rc);
+            XFREE(pkt_block);
             break;
     }
     return rc;
@@ -256,15 +266,18 @@ static void
 tcp_dump(int sock_fd, 
          FILE *log_file1,
          FILE *log_file2,
-         char *pkt, 
-         uint32_t pkt_size, 
+         pkt_block_t *pkt_block,
          hdr_type_t hdr_type,
          char *out_buff, 
          uint32_t write_offset,
          uint32_t out_buff_size){
 
     int rc = 0;
-    
+    uint8_t *pkt = NULL;
+    pkt_size_t pkt_size;
+
+    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+
     switch(hdr_type){
 
         case ETH_HDR:
@@ -278,8 +291,7 @@ tcp_dump(int sock_fd,
         default:
 			rc = nfc_pkt_trace_invoke_notif_to_sbscribers(
 					hdr_type,
-					(char *)pkt,
-					pkt_size,
+                    pkt_block,
 					out_buff + write_offset);
             break;
     }
@@ -292,8 +304,10 @@ tcp_dump(int sock_fd,
 }
 
 void
-tcp_dump_recv_logger(node_t *node, interface_t *intf,
-              char *pkt, uint32_t pkt_size,
+tcp_dump_recv_logger(
+              node_t *node,
+              interface_t *intf,
+              pkt_block_t *pkt_block,
               hdr_type_t hdr_type){
 
     int rc = 0 ;
@@ -314,14 +328,14 @@ tcp_dump_recv_logger(node_t *node, interface_t *intf,
             return;
         }
    
-        rc = sprintf(TCP_GET_NODE_RECV_LOG_BUFFER(node), 
+        rc = sprintf (TCP_GET_NODE_RECV_LOG_BUFFER(node), 
                         "\n%s(%s) <-- \n", 
                         node->node_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
-                 pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
+                pkt_block,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
                  TCP_GET_NODE_RECV_LOG_BUFFER(node),    /*Buffer into which the formatted output 
                                               is to be written*/
@@ -359,7 +373,7 @@ tcp_dump_l3_fwding_logger(node_t *node,
 
 void
 tcp_dump_send_logger(node_t *node, interface_t *intf,
-              char *pkt, uint32_t pkt_size,
+              pkt_block_t *pkt_block,
               hdr_type_t hdr_type){
 
     int rc = 0;
@@ -390,7 +404,7 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
-                 pkt, pkt_size,            /*Pkt and Pkt size to be written in log file*/
+                 pkt_block,            /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
                  TCP_GET_NODE_SEND_LOG_BUFFER(node),    /*Buffer into which the formatted output is to be written*/
                  rc,                       /*write offset*/

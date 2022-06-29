@@ -61,6 +61,7 @@
 #include "tcpip_notif.h"
 #include "Layer3/netfilter.h"
 #include "ted/ted.h"
+#include "pkt_block.h"
 
 extern void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);

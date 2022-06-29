@@ -102,7 +102,7 @@ nfc_de_register_notif_chain(notif_chain_t *nfc,
 	}ITERATE_GLTHREAD_END(&nfc->notif_chain_head, curr);
 }
 
-void
+uint16_t
 nfc_invoke_notif_chain(
 					  event_dispatcher_t *ev_dis,
 					   notif_chain_t *nfc,
@@ -111,6 +111,8 @@ nfc_invoke_notif_chain(
 
 	bool trap_pkt;
 	glthread_t *curr;
+	uint16_t count = 0;
+	void *arg_copy;
 	notif_chain_elem_t *nfce;
 
 	assert(key_size <= MAX_NOTIF_KEY_SIZE);
@@ -126,13 +128,21 @@ nfc_invoke_notif_chain(
 
 			if (trap_pkt) {
 
+				if (nfc->preprocessing_fn_ptr) {
+					nfc->preprocessing_fn_ptr(arg);
+				}
+
+				arg_copy = nfc->copy_arg_fn_ptr ? nfc->copy_arg_fn_ptr(arg) : arg;
+
+				count++;
+
 				if (!ev_dis)
 				{
-					nfce->app_cb(ev_dis, arg, arg_size);
+					nfce->app_cb(ev_dis, arg_copy, arg_size);
 				}
 				else
 				{
-					task_create_new_job(ev_dis, arg, nfce->app_cb, TASK_ONE_SHOT);
+					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT);
 				}
 			}
 			continue;
@@ -141,30 +151,47 @@ nfc_invoke_notif_chain(
 		if (!(key && key_size && 
 			 nfce->is_key_set && (key_size == nfce->key_size))){
 
+			if (nfc->preprocessing_fn_ptr) {
+				nfc->preprocessing_fn_ptr(arg);
+			}
+			
+			arg_copy = nfc->copy_arg_fn_ptr ? nfc->copy_arg_fn_ptr(arg) : arg;
+
+			count++;
+
 			if (!ev_dis)
 			{
-				nfce->app_cb(ev_dis, arg, arg_size);
+				nfce->app_cb(ev_dis, arg_copy, arg_size);
 			}
 			else
 			{
-				task_create_new_job(ev_dis, arg, nfce->app_cb, TASK_ONE_SHOT);
+				task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT);
 			}
 		}
 		else {
 			
 			if (memcmp(key, nfce->key, key_size) == 0) {
 
+				if (nfc->preprocessing_fn_ptr) {
+					nfc->preprocessing_fn_ptr(arg);
+				}
+
+				arg_copy = nfc->copy_arg_fn_ptr ? nfc->copy_arg_fn_ptr(arg) : arg;
+
+				count++;
+
 				if (!ev_dis)
 				{
-					nfce->app_cb(ev_dis, arg, arg_size);
+					nfce->app_cb(ev_dis, arg_copy, arg_size);
 				}
 				else
 				{
-					task_create_new_job(ev_dis, arg, nfce->app_cb, TASK_ONE_SHOT);
+					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT);
 				}
 			}
 		}
 	}ITERATE_GLTHREAD_END(&nfc->notif_chain_head, curr);
+	return count;
 }
 
 void

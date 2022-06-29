@@ -65,9 +65,13 @@ ddcp_send_ddcp_query_out(char *pkt,
                          uint32_t pkt_size,
                          interface_t *oif){
 
+    pkt_block_t *pkt_block;
     if(ddcp_is_enabled_on_interface(GET_DDCP_INTF_PROP(oif)) == false) return;
     if(!IS_INTF_L3_MODE(oif)) return;
-    send_pkt_out(pkt, pkt_size, oif);
+    pkt_block = pkt_block_get_new(pkt, pkt_size);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+    send_pkt_out(pkt_block, oif);
+    XFREE(pkt_block);
 }
 
 
@@ -330,18 +334,20 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
     char *pkt;
     node_t *node;
     interface_t *iif;
-    uint32_t pkt_size;
+    pkt_size_t pkt_size;
 	hdr_type_t hdr_code;
-
+    pkt_block_t *pkt_block;
     pkt_notif_data_t *pkt_notif_data;
 
     pkt_notif_data = (pkt_notif_data_t *)arg;
 
     node        = pkt_notif_data->recv_node;
     iif         = pkt_notif_data->recv_interface;
-    pkt         = pkt_notif_data->pkt;
-    pkt_size    = pkt_notif_data->pkt_size;
+    pkt_block = pkt_notif_data->pkt_block;
+    pkt         = (char *)pkt_block_get_pkt (pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
+
+    XFREE(pkt_notif_data);
 
     char l5_protocol;
     char *ddcp_reply_msg = NULL;
@@ -360,6 +366,7 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
                 ddcp_query_msg->originator_ip, 
                 ddcp_query_msg->seq_no)){
 
+        pkt_block_dereference(pkt_block);
         return;
     }
 
@@ -370,11 +377,14 @@ ddcp_process_ddcp_query_msg(void *arg, size_t arg_size){
 
     if(!ddcp_reply_msg || !output_buff_len){
         printf("DDCP Reply msg Could not be prepared\n");
+        pkt_block_dereference(pkt_block);
         return;
     }
+
     ddcp_flood_ddcp_query_out(node, (char *)ethernet_hdr, pkt_size, iif);
 
     l5_protocol = DDCP_MSG_TYPE_UCAST_REPLY;
+    
     tcp_ip_send_ip_data(node, ddcp_reply_msg, 
             output_buff_len, l5_protocol,
             ddcp_query_msg->originator_ip);
@@ -479,23 +489,27 @@ ddcp_process_ddcp_reply_msg(void *arg, size_t arg_size){
     char *pkt;
     node_t *node;
     interface_t *recv_intf;
-    uint32_t pkt_size;
+    pkt_size_t pkt_size;
 	hdr_type_t hdr_code;
-
+    pkt_block_t *pkt_block;
     pkt_notif_data_t *pkt_notif_data;
 
     pkt_notif_data = (pkt_notif_data_t *)arg;
 
     node        = pkt_notif_data->recv_node;
     recv_intf   = pkt_notif_data->recv_interface;
-    pkt         = pkt_notif_data->pkt;
-    pkt_size    = pkt_notif_data->pkt_size;
+    pkt_block = pkt_notif_data->pkt_block;
+    pkt = (char *)pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;
 
 	assert(hdr_code == ETH_HDR);
+
+    XFREE(pkt_notif_data);
+
 	ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
 	ip_hdr_t *ip_hdr = (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
     ddcp_add_or_update_ddcp_reply_msg(node, INCREMENT_IPHDR(ip_hdr));
+    XFREE(pkt_block);
 }
 
 /*DDCP Query Database*/
