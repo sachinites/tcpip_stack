@@ -300,6 +300,7 @@ _pkt_receive(node_t *receving_node,
             char *pkt_with_aux_data, 
             uint32_t pkt_size){
 
+    pkt_block_t *pkt_block;
     char *recv_intf_name = pkt_with_aux_data;
     interface_t *recv_intf = node_get_intf_by_name(receving_node, recv_intf_name);
 
@@ -309,13 +310,16 @@ _pkt_receive(node_t *receving_node,
         return;
     }
 
-    assert(0);
-    /*Disable pkt reception from pkt_gen.exe for the moment */
-    /*
-    send_pkt_to_self(pkt_with_aux_data + IF_NAME_SIZE, 
-                    pkt_size - IF_NAME_SIZE,
-                    recv_intf);
-    */
+    pkt_block = pkt_block_get_new(NULL, 0);
+
+    pkt_block_set_new_pkt(pkt_block,
+                                            (uint8_t *)pkt_with_aux_data + IF_NAME_SIZE, 
+                                            pkt_size - IF_NAME_SIZE);
+
+    pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+
+    send_pkt_to_self (pkt_block, recv_intf);
+    XFREE(pkt_block);
 }
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];
