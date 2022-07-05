@@ -44,7 +44,7 @@ void
 apply_mask(char *prefix, char mask, char *str_prefix);
 
 void
-layer2_fill_with_broadcast_mac(char *mac_array);
+layer2_fill_with_broadcast_mac(unsigned char *mac_array);
 
 #define IS_MAC_BROADCAST_ADDR(mac)   \
     (mac[0] == 0xFF  &&  mac[1] == 0xFF && mac[2] == 0xFF && \
@@ -86,12 +86,12 @@ byte *
 tlv_buffer_insert_tlv(byte *tlv_buff, uint8_t tlv_no, 
                      uint8_t data_len, byte *data);
 
-char *
+unsigned char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
-                        char *output_buffer);
+                        unsigned char *output_buffer);
 
 uint32_t
-tcp_ip_covert_ip_p_to_n(char *ip_addr);
+tcp_ip_covert_ip_p_to_n(unsigned char *ip_addr);
 
 static inline uint32_t
 tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
@@ -105,4 +105,7 @@ tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
 }
 
 uint32_t get_new_ifindex();
+
+#define UNUSED(variable)    (void)variable
+
 #endif /* __UTILS__ */

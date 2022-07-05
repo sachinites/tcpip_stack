@@ -251,7 +251,7 @@ intf_init_bit_rate_sampling_timer(interface_t *interface);
 
 /*GET shorthand Macros*/
 #define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)
-#define IF_IP(intf_ptr)    ((intf_ptr)->intf_nw_props.ip_add.ip_addr)
+#define IF_IP(intf_ptr)    ((unsigned char *)((intf_ptr)->intf_nw_props.ip_add.ip_addr))
 #define IF_IP_EXIST(intf_ptr) ((intf_ptr)->intf_nw_props.is_ipadd_config)
 #define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
 #define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == true)

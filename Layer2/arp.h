@@ -8,8 +8,8 @@ typedef struct arp_hdr_{
 
     short hw_type;          /*1 for ethernet cable*/
     short proto_type;       /*0x0800 for IPV4*/
-    char hw_addr_len;       /*6 for MAC*/
-    char proto_addr_len;    /*4 for IPV4*/
+    unsigned char hw_addr_len;       /*6 for MAC*/
+    unsigned char proto_addr_len;    /*4 for IPV4*/
     short op_code;          /*req or reply*/
     mac_add_t src_mac;      /*MAC of OIF interface*/
     uint32_t src_ip;    /*IP of OIF*/
@@ -21,7 +21,7 @@ typedef struct arp_hdr_{
 void
 send_arp_broadcast_request(node_t *node, 
                            interface_t *oif, 
-                           char *ip_addr);
+                           unsigned char *ip_addr);
 
 /*ARP Table APIs*/
 typedef struct arp_table_{
@@ -49,7 +49,7 @@ struct arp_entry_{
 
     ip_add_t ip_addr;   /*key*/
     mac_add_t mac_addr;
-    char oif_name[IF_NAME_SIZE];
+    unsigned char oif_name[IF_NAME_SIZE];
     glthread_t arp_glue;
     bool is_sane;
     /* List of packets which are pending for
@@ -74,7 +74,7 @@ void
 init_arp_table(arp_table_t **arp_table);
 
 arp_entry_t *
-arp_table_lookup(arp_table_t *arp_table, char *ip_addr);
+arp_table_lookup(arp_table_t *arp_table, unsigned char *ip_addr);
 
 void
 clear_arp_table(arp_table_t *arp_table);
@@ -100,7 +100,7 @@ void
 delete_arp_entry(arp_entry_t *arp_entry);
 
 void
-arp_entry_delete(node_t *node, char *ip_addr, uint16_t proto);
+arp_entry_delete(node_t *node, unsigned char *ip_addr, uint16_t proto);
 
 bool
 arp_table_entry_add(node_t *node,
@@ -125,7 +125,7 @@ add_arp_pending_entry (arp_entry_t *arp_entry,
 void
 create_arp_sane_entry(node_t *node,
 					  arp_table_t *arp_table,
-                      char *ip_addr, 
+                      unsigned char *ip_addr, 
 					  pkt_block_t *pkt_block);
 
 static bool 
@@ -145,6 +145,6 @@ process_arp_reply_msg(node_t *node, interface_t *iif,
 /* ARP Table Public APIs to be exposed to applications */
 
 bool
-arp_entry_add(node_t *node, char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto);
+arp_entry_add(node_t *node, unsigned char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto);
 
 #endif

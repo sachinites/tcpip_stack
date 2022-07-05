@@ -64,7 +64,7 @@ apply_mask(char *prefix, char mask, char *str_prefix){
 }
 
 void
-layer2_fill_with_broadcast_mac(char *mac_array){
+layer2_fill_with_broadcast_mac(unsigned char *mac_array){
 
     mac_array[0] = 0xFF;
     mac_array[1] = 0xFF;
@@ -74,9 +74,9 @@ layer2_fill_with_broadcast_mac(char *mac_array){
     mac_array[5] = 0xFF;
 }
 
-char *
+unsigned char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
-                                        char *output_buffer){
+                                        unsigned char *output_buffer){
 
     memset(output_buffer, 0, 16);
     ip_addr = htonl(ip_addr);
@@ -86,7 +86,7 @@ tcp_ip_covert_ip_n_to_p(uint32_t ip_addr,
 }
 
 uint32_t
-tcp_ip_covert_ip_p_to_n(char *ip_addr){
+tcp_ip_covert_ip_p_to_n(unsigned char *ip_addr){
 
     uint32_t binary_prefix = 0;
     inet_pton(AF_INET, ip_addr, &binary_prefix);

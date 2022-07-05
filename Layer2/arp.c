@@ -18,7 +18,7 @@
 void
 send_arp_broadcast_request(node_t *node,
                            interface_t *oif,
-                           char *ip_addr){
+                           unsigned char *ip_addr){
 
     pkt_block_t *pkt_block;
 
@@ -31,15 +31,15 @@ send_arp_broadcast_request(node_t *node,
     if(!oif){
         oif = node_get_matching_subnet_interface(node, ip_addr);
         if(!oif){
-            printf("Error : %s : No eligible subnet for ARP resolution for Ip-address : %s",
+            printf("Error : %s : No eligible subnet for ARP resolution for Ip-address : %s\n",
                     node->node_name, ip_addr);
-            free(ethernet_hdr);
+            tcp_ip_free_pkt_buffer (ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
             return;
         }
-        if(strncmp(IF_IP(oif), ip_addr, 16) == 0){
-            printf("Error : %s : Attemp to resolve ARP for local Ip-address : %s",
+        if( strncmp(  (unsigned char *)IF_IP(oif),  (unsigned char *)ip_addr, 16) == 0){
+            printf("Error : %s : Attempt to resolve ARP for local Ip-address : %s\n",
                     node->node_name, ip_addr);
-             free(ethernet_hdr);
+             tcp_ip_free_pkt_buffer (ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
             return;
         }
     }
@@ -132,7 +132,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
    /* Now, this node need to reply to this ARP Broadcast req
     * msg if Dst ip address in ARP req msg matches iif's ip address*/
 
-    char ip_addr[16];
+    unsigned char ip_addr[16];
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
 
     uint32_t arp_dst_ip = htonl(arp_hdr->dst_ip);
@@ -140,7 +140,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
     inet_ntop(AF_INET, &arp_dst_ip, ip_addr, 16);
     ip_addr[15] = '\0';
     
-    if(strncmp(IF_IP(iif), ip_addr, 16)){
+    if(strncmp( (unsigned char *)IF_IP(iif),  (unsigned char *)ip_addr, 16)){
         #if 0
         printf("%s : Error : ARP Broadcast req msg dropped, "
                 "Dst IP address %s did not match with interface ip : %s\n", 
@@ -160,14 +160,14 @@ init_arp_table(arp_table_t **arp_table){
 }
 
 arp_entry_t *
-arp_table_lookup(arp_table_t *arp_table, char *ip_addr){
+arp_table_lookup(arp_table_t *arp_table, unsigned char *ip_addr){
 
     glthread_t *curr;
     arp_entry_t *arp_entry;
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
     
         arp_entry = arp_glue_to_arp_entry(curr);
-        if(strncmp(arp_entry->ip_addr.ip_addr, ip_addr, 16) == 0){
+        if(strncmp(  (unsigned char *)arp_entry->ip_addr.ip_addr,  (unsigned char *)ip_addr, 16) == 0){
             return arp_entry;
         }
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
@@ -188,7 +188,7 @@ clear_arp_table(arp_table_t *arp_table){
 }
 
 void
-arp_entry_delete(node_t *node, char *ip_addr, uint16_t proto){
+arp_entry_delete(node_t *node, unsigned char *ip_addr, uint16_t proto){
 
     arp_table_t *arp_table = NODE_ARP_TABLE(node);
     arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
@@ -278,9 +278,10 @@ arp_table_entry_add(node_t *node,
         arp_entry_sane(arp_entry_old) && 
         !arp_entry_sane(arp_entry)){
 
-        strncpy(arp_entry_old->mac_addr.mac,
-				arp_entry->mac_addr.mac, sizeof(mac_add_t));
-        strncpy(arp_entry_old->oif_name, arp_entry->oif_name, IF_NAME_SIZE);
+        strncpy( (char *)arp_entry_old->mac_addr.mac,
+				(char *)arp_entry->mac_addr.mac, sizeof(mac_add_t));
+        strncpy( (char *)arp_entry_old->oif_name, 
+                 ( char *)arp_entry->oif_name, IF_NAME_SIZE);
         arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
 
         if(arp_pending_list)
@@ -342,7 +343,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
     inet_ntop(AF_INET, &src_ip, arp_entry->ip_addr.ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, sizeof(mac_add_t));
-    strncpy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
+    strncpy(  (char *)arp_entry->oif_name,  (char *)iif->if_name, IF_NAME_SIZE);
     arp_entry->is_sane = false;
     arp_entry->proto = PROTO_ARP;
 
@@ -446,7 +447,7 @@ add_arp_pending_entry (arp_entry_t *arp_entry,
 void
 create_arp_sane_entry(node_t *node,
 					                 arp_table_t *arp_table,
-                                     char *ip_addr, 
+                                     unsigned char *ip_addr, 
                                      pkt_block_t *pkt_block){
 
     /*case 1 : If full entry already exist - assert. The L2 must have
@@ -470,7 +471,7 @@ create_arp_sane_entry(node_t *node,
 
     /*if ARP entry do not exist, create a new sane entry*/
     arp_entry = XCALLOC(0, 1,arp_entry_t);
-    strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
+    strncpy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
     arp_entry->is_sane = true;
@@ -486,6 +487,8 @@ arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
                            void *arg,
 						   uint32_t arg_size){
 
+    UNUSED(arg_size);
+    
     if(!arg) return;
 	arp_entry_t *arp_entry = (arp_entry_t *)arg;
 	delete_arp_entry(arp_entry);	
@@ -497,6 +500,8 @@ arp_entry_create_expiration_timer(
                                     node_t *node,
                                     arp_entry_t *arp_entry,
                                     uint16_t exp_time) {
+
+    UNUSED(exp_time);
 
 	assert(arp_entry->exp_timer_wt_elem == NULL);
 	
@@ -541,13 +546,13 @@ arp_entry_get_exp_time_left(
 }
 
 bool
-arp_entry_add(node_t *node, char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto) {
+arp_entry_add(node_t *node, unsigned char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto) {
 
     arp_entry_t *arp_entry = XCALLOC (0 , 1, arp_entry_t );
-    strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
+    strncpy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     memcpy(arp_entry->mac_addr.mac, mac.mac, sizeof(mac.mac));
     arp_entry->proto = proto;
-    strncpy(arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);
+    strncpy( (char *)arp_entry->oif_name, (char *)oif->if_name, IF_NAME_SIZE);
     if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0)) {
         XFREE(arp_entry);
         printf("Error : Failed to Add ARP Entry\n");

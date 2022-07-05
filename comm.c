@@ -54,8 +54,16 @@ l2_switch_recv_frame(node_t *node,
                                      interface_t *interface,
                                      pkt_block_t *pkt_block);
 
-void
-dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
+extern void
+network_start_pkt_receiver_thread(void);
+
+extern void
+dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
+extern void
+node_init_udp_socket(node_t *node);
+
+extern void
+dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
     pkt_block_t *pkt_block;
 	node_t *receving_node;
@@ -95,8 +103,7 @@ int
 send_pkt_to_self (
                 pkt_block_t *pkt_block,
                 interface_t *interface){
-
-    int rc = 0;   
+ 
     uint8_t *pkt;
     pkt_size_t pkt_size;
 
@@ -192,12 +199,8 @@ dp_pkt_receive (node_t *node,
                            interface_t *interface,
                            pkt_block_t *pkt_block){
 
-    pkt_size_t pkt_size;
-    ethernet_hdr_t *eth_hdr;
     uint32_t vlan_id_to_tag = 0;
-
-    eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-   
+  
     tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
 
     /* Access List Evaluation at Layer 2 Entry point*/ 
@@ -221,8 +224,8 @@ dp_pkt_receive (node_t *node,
         return;
     }
 
-    if (vlan_id_to_tag &&
-        ( IF_L2_MODE(interface) == ACCESS) || IF_L2_MODE(interface) == TRUNK) {
+    if ( (vlan_id_to_tag) &&
+       (( IF_L2_MODE(interface) == ACCESS) || (IF_L2_MODE(interface) == TRUNK))) {
 
         tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
         l2_switch_recv_frame(node, interface, pkt_block);
@@ -263,12 +266,12 @@ implementation */
 static uint32_t udp_port_number = 40000;
 
 static uint32_t 
-node_get_next_udp_port_number(){
+node_get_next_udp_port_number(void) {
     
     return udp_port_number++;
 }
 
-void
+extern void
 node_init_udp_socket(node_t *node){
 
     if(node->udp_port_number)
@@ -338,7 +341,7 @@ _network_start_pkt_receiver_thread(void *arg){
     
     graph_t *topo = (void *)arg;
 
-    int addr_len = sizeof(struct sockaddr);
+    uint32_t addr_len = sizeof(struct sockaddr);
 
     FD_ZERO(&active_sock_fd_set);
     FD_ZERO(&backup_sock_fd_set);
@@ -385,8 +388,8 @@ _network_start_pkt_receiver_thread(void *arg){
 }
 
 
-void
-network_start_pkt_receiver_thread(){
+extern void
+network_start_pkt_receiver_thread(void){
 
     pthread_attr_t attr;
     static pthread_t recv_pkt_thread;
