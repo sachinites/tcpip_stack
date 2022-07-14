@@ -36,14 +36,22 @@
 
 #include "graph.h"
 #include <stdio.h>
+#include "CommandParser/libcli.h"
 
 extern graph_t *build_first_topo();
-
+extern void nw_init_cli();
+graph_t *topo = NULL; 
 int 
 main(int argc, char **argv){
 
-    graph_t *topo = build_first_topo();
+    nw_init_cli();
+    topo = build_first_topo();
+    //dump_graph(topo);
+    start_shell();
     //dump_nw_graph(topo);
-    scanf("\n");
+    //sleep(2);
+
+    //node_t *snode = get_node_by_nodename()
+    //scanf("\n");
     return 0;
 }

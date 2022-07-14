@@ -48,5 +48,13 @@ typedef enum{
 #define COMPLEMENT(num)         (num = num ^ 0xFFFFFFFF)
 #define UNSET_BIT(n, pos)       (n = n & ((1 << pos) ^ 0xFFFFFFFF))
 #define SET_BIT(n, pos)     (n = n | 1 << pos)
+#define IS_MAC_BROADCAST_ADDR(mac)  (strcmp(mac, "FFFFFF") == 0)
+
+void
+apply_mask(char *prefix, char mask, char *str_prefix);
+
+void
+layer2_fill_with_broadcast_mac(char *mac_array);
+
 
 #endif /* __UTILS__ */

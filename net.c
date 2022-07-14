@@ -34,14 +34,34 @@
 #include <memory.h>
 #include "utils.h"
 #include <stdio.h>
+#include <arpa/inet.h>
 
 /*Heuristics, Assign a unique mac address to interface*/
+static unsigned int
+hash_code(void *ptr, unsigned int size){
+
+    unsigned int value = 0, i = 0;
+    char *str = (char *)ptr;
+    while(i < size)
+    {
+        value += *str;
+        value *= 97;
+        str++;
+        i++;
+    }
+    return value;
+
+}
 void
 interface_assign_mac_address(interface_t *interface){
 
-    memset(IF_MAC(interface), 0, 48);
-    strcpy(IF_MAC(interface), interface->att_node->node_name);
-    strcat(IF_MAC(interface), interface->if_name);
+    node_t *node = interface->att_node;
+    if(!node) return;
+    unsigned int hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
+    hash_code_val *= hash_code(interface->if_name, IF_NAME_SIZE);
+    memset(IF_MAC(interface), 0, sizeof(interface ->intf_nw_props.mac_add.mac));
+    strncpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(unsigned int));
+    //strcat(IF_MAC(interface), interface->if_name);
 }
 
 bool_t node_set_device_type(node_t *node, unsigned int F){
@@ -55,14 +75,14 @@ bool_t node_set_loopback_address(node_t *node, char *ip_addr){
     assert(ip_addr);
 
     if(IS_BIT_SET(node->node_nw_prop.flags, HUB))
-        assert(0); /*Wrong Config : A HUB do not have any IP addresses*/
+        ;//assert(0); /*Wrong Config : A HUB do not have any IP addresses*/
 
     if(!IS_BIT_SET(node->node_nw_prop.flags, L3_ROUTER))
-        assert(0); /*You must enable L3 routing on device first*/
+        ;//assert(0); /*You must enable L3 routing on device first*/
 
     node->node_nw_prop.is_lb_addr_config = TRUE;
-    strncpy(NODE_LO_ADDR(node), ip_addr, 16);
-    NODE_LO_ADDR(node)[16] = '\0';
+    strncpy(NODE_LO_ADDR(node), ip_addr, sizeof(ip_addr));
+    NODE_LO_ADDR(node)[sizeof(ip_addr) - 1] = '\0';
     
     return TRUE;
 }
@@ -71,10 +91,11 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
                                 char *ip_addr, char mask) {
 
     interface_t *interface = get_node_if_by_name(node, local_if);
-    if(!interface) assert(0);
+    if(!interface) 
+        ;//assert(0);
 
-    strncpy(IF_IP(interface), ip_addr, 16);
-    IF_IP(interface)[16] = '\0';
+    strncpy(IF_IP(interface), ip_addr, sizeof(ip_addr));
+    IF_IP(interface)[sizeof(ip_addr) - 1] = '\0';
     interface->intf_nw_props.mask = mask; 
     interface->intf_nw_props.is_ipadd_config = TRUE;
     return TRUE;
@@ -83,6 +104,26 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
 bool_t node_unset_intf_ip_address(node_t *node, char *local_if){
 
     return TRUE;
+}
+
+interface_t *
+node_get_matching_subnet_interface(node_t *node, char *ip_addr){
+
+    for(int i = 0; i < MAX_INTF_PER_NODE || node ->intf[i]; i++)
+    {
+        if(node ->intf[i]->intf_nw_props.is_ipadd_config)
+        {
+            char intf_subnet[16];
+            char ip_subnet[16];
+            memset(intf_subnet, 0, 16);
+            memset(ip_subnet, 0, 16);
+            apply_mask(node ->intf[i]->intf_nw_props.ip_add.ip_addr, node ->intf[i]->intf_nw_props.mask, intf_subnet);
+            apply_mask(ip_addr, node ->intf[i]->intf_nw_props.mask, ip_subnet);
+            if(strcmp(intf_subnet, ip_subnet) == 0)
+                return node ->intf[i];
+        }
+    }
+    return NULL;
 }
 
 void dump_node_nw_props(node_t *node){
@@ -130,5 +171,26 @@ void dump_nw_graph(graph_t *graph){
             dump_intf_props(interface);
         }
     } ITERATE_GLTHREAD_END(&graph->node_list, curr);
+
+}
+
+unsigned int
+convert_ip_from_str_to_int(char *ip_addr){
+
+    struct in_addr addr;
+
+    addr.s_addr = inet_addr(ip_addr);
+    return (unsigned int)addr.s_addr;
+}
+
+void
+convert_ip_from_int_to_str(unsigned int ip_addr, char *output_buffer){
+
+    struct in_addr addr;
+    addr.s_addr = ip_addr;
+    memset(output_buffer, 0, strlen(output_buffer));
+    //memcpy(output_buffer, inet_ntoa(addr), strlen(output_buffer));
+    inet_ntop(AF_INET, &ip_addr, output_buffer, 16);
+    //puts(output_buffer);
 
 }

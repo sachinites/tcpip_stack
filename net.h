@@ -51,7 +51,7 @@ typedef struct ip_add_ {
 } ip_add_t;
 
 typedef struct mac_add_ {
-    char mac[48];
+    char mac[8];
 } mac_add_t;
 
 typedef struct node_nw_prop_{
@@ -88,9 +88,9 @@ typedef struct intf_nw_props_ {
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
 
-    memset(intf_nw_props->mac_add.mac , 0 , 48);
+    memset(intf_nw_props->mac_add.mac , 0 , sizeof(intf_nw_props->mac_add.mac));
     intf_nw_props->is_ipadd_config = FALSE;
-    memset(intf_nw_props->ip_add.ip_addr, 0, 16);
+    memset(intf_nw_props->ip_add.ip_addr, 0, sizeof(intf_nw_props->ip_add.ip_addr));
     intf_nw_props->mask = 0;
 }
 
@@ -110,10 +110,20 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, cha
 bool_t node_unset_intf_ip_address(node_t *node, char *local_if);
 
 
+interface_t *
+node_get_matching_subnet_interface(node_t *node, char *ip_addr);
+
+
+
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/
 void dump_nw_graph(graph_t *graph);
 void dump_node_nw_props(node_t *node);
 void dump_intf_props(interface_t *interface);
   
+unsigned int
+convert_ip_from_str_to_int(char *ip_addr);
+void
+convert_ip_from_int_to_str(unsigned int ip_addr, char *output_buffer);
+
 #endif /* __NET__ */

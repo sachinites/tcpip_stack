@@ -52,7 +52,7 @@ pkt_receive(node_t *node, interface_t *interface,
 
 /* API to flood the packet out of all interfaces
  * of the node*/
-int
+void
 send_pkt_flood(node_t *node, char *pkt, unsigned int pkt_size);
 
 #endif /* __COMM__ */

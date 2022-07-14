@@ -138,6 +138,18 @@ get_node_if_by_name(node_t *node, char *if_name){
     return NULL;
 }
 
+static inline node_t * get_node_by_node_name(graph_t *topo, char *node_name){
+    assert(topo);
+    glthread_t* head = topo->node_list.right;
+    while(head){
+        node_t* head_node = graph_glue_to_node(head);
+        if(strncmp(head_node->node_name,node_name,NODE_NAME_SIZE) == 0){
+            return head_node;
+        }
+        head = head->right;
+    }
+    return NULL;
+}
 
 /*Display Routines*/
 void dump_graph(graph_t *graph);

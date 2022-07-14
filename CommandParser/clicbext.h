@@ -1,19 +1,19 @@
 /*
  * =====================================================================================
  *
- *       Filename:  layer2.c
+ *       Filename:  clicbext.h
  *
- *    Description:  This file implements all the Data link Layer functionality
+ *    Description:  Header file for cli Default Callback Extension functions
  *
  *        Version:  1.0
- *        Created:  Friday 20 September 2019 05:15:51  IST
+ *        Created:  Friday 18 August 2017 02:04:19  IST
  *       Revision:  1.0
  *       Compiler:  gcc
  *
  *         Author:  Er. Abhishek Sagar, Networking Developer (AS), sachinites@gmail.com
  *        Company:  Brocade Communications(Jul 2012- Mar 2016), Current : Juniper Networks(Apr 2017 - Present)
  *        
- *        This file is part of the NetworkGraph distribution (https://github.com/sachinites).
+ *        This file is part of the CommandParser distribution (https://github.com/sachinites).
  *        Copyright (c) 2017 Abhishek Sagar.
  *        This program is free software: you can redistribute it and/or modify
  *        it under the terms of the GNU General Public License as published by  
@@ -30,25 +30,12 @@
  * =====================================================================================
  */
 
-#include "../graph.h"
-#include <stdio.h>
+#ifndef __CLICBEXTN__
+#define __CLICBEXTN__
 
-extern void
-layer3_pkt_recv(node_t *node, interface_t *interface, 
-                char *pkt, unsigned int pkt_size);
-
-static void
-promote_pkt_to_layer3(node_t *node, interface_t *interface,
-                         char *pkt, unsigned int pkt_size){
-
-    layer3_pkt_recv(node, interface, pkt, pkt_size);
-}
 void
-layer2_frame_recv(node_t *node, interface_t *interface,
-                     char *pkt, unsigned int pkt_size){
+terminate_signal_handler();
 
-    printf("Layer 2 Frame Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
-            node->node_name, interface->if_name, pkt, pkt_size);
-
-    promote_pkt_to_layer3(node, interface, pkt, pkt_size);
-}
+void
+collect_supportsave_data();
+#endif /* __CLICBEXTN__ */
