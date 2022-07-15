@@ -59,7 +59,8 @@ interface_assign_mac_address(interface_t *interface){
     if(!node) return;
     unsigned int hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
     hash_code_val *= hash_code(interface->if_name, IF_NAME_SIZE);
-    memset(IF_MAC(interface), 0, sizeof(interface ->intf_nw_props.mac_add.mac));
+    
+    memset(IF_MAC(interface), 0, MAC_LEN);
     strncpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(unsigned int));
     //strcat(IF_MAC(interface), interface->if_name);
 }
@@ -81,8 +82,8 @@ bool_t node_set_loopback_address(node_t *node, char *ip_addr){
         ;//assert(0); /*You must enable L3 routing on device first*/
 
     node->node_nw_prop.is_lb_addr_config = TRUE;
-    strncpy(NODE_LO_ADDR(node), ip_addr, sizeof(ip_addr));
-    NODE_LO_ADDR(node)[sizeof(ip_addr) - 1] = '\0';
+    strncpy(NODE_LO_ADDR(node), ip_addr, IP_LEN);
+    NODE_LO_ADDR(node)[IP_LEN - 1] = '\0';
     
     return TRUE;
 }
@@ -94,8 +95,8 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
     if(!interface) 
         ;//assert(0);
 
-    strncpy(IF_IP(interface), ip_addr, sizeof(ip_addr));
-    IF_IP(interface)[sizeof(ip_addr) - 1] = '\0';
+    strncpy(IF_IP(interface), ip_addr, IP_LEN);
+    IF_IP(interface)[IP_LEN - 1] = '\0';
     interface->intf_nw_props.mask = mask; 
     interface->intf_nw_props.is_ipadd_config = TRUE;
     return TRUE;
@@ -113,10 +114,10 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
     {
         if(node ->intf[i]->intf_nw_props.is_ipadd_config)
         {
-            char intf_subnet[16];
-            char ip_subnet[16];
-            memset(intf_subnet, 0, 16);
-            memset(ip_subnet, 0, 16);
+            char intf_subnet[IP_LEN];
+            char ip_subnet[IP_LEN];
+            memset(intf_subnet, 0, IP_LEN);
+            memset(ip_subnet, 0, IP_LEN);
             apply_mask(node ->intf[i]->intf_nw_props.ip_add.ip_addr, node ->intf[i]->intf_nw_props.mask, intf_subnet);
             apply_mask(ip_addr, node ->intf[i]->intf_nw_props.mask, ip_subnet);
             if(strcmp(intf_subnet, ip_subnet) == 0)
@@ -141,15 +142,16 @@ void dump_intf_props(interface_t *interface){
 
     if(interface->intf_nw_props.is_ipadd_config){
         printf("\t IP Addr = %s/%u", IF_IP(interface), interface->intf_nw_props.mask);
+        
     }
     else{
          printf("\t IP Addr = %s/%u", "Nil", 0);
     }
 
-    printf("\t MAC : %u:%u:%u:%u:%u:%u\n", 
-        IF_MAC(interface)[0], IF_MAC(interface)[1],
-        IF_MAC(interface)[2], IF_MAC(interface)[3],
-        IF_MAC(interface)[4], IF_MAC(interface)[5]);
+    printf("\t MAC : %02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", 
+        (unsigned int)IF_MAC(interface)[0], (unsigned int)IF_MAC(interface)[1],
+        (unsigned int)IF_MAC(interface)[2], (unsigned int)IF_MAC(interface)[3],
+        (unsigned int)IF_MAC(interface)[4], (unsigned int)IF_MAC(interface)[5]);
 }
 
 void dump_nw_graph(graph_t *graph){
@@ -190,7 +192,7 @@ convert_ip_from_int_to_str(unsigned int ip_addr, char *output_buffer){
     addr.s_addr = ip_addr;
     memset(output_buffer, 0, strlen(output_buffer));
     //memcpy(output_buffer, inet_ntoa(addr), strlen(output_buffer));
-    inet_ntop(AF_INET, &ip_addr, output_buffer, 16);
+    inet_ntop(AF_INET, &ip_addr, output_buffer, IP_LEN);
     //puts(output_buffer);
 
 }

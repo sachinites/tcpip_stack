@@ -240,7 +240,8 @@ pkt_receive(node_t *node, interface_t *interface,
             char *pkt, unsigned int pkt_size){
 
     /*Do further processing of the pkt here*/
-    layer2_frame_recv(node, interface, pkt, pkt_size );
+    printf("msg received is %s, on node %s intf %s\n", pkt, node ->node_name, interface ->if_name);
+    //layer2_frame_recv(node, interface, pkt, pkt_size );
     return 0;
 }
 

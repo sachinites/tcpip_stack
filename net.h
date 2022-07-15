@@ -40,6 +40,8 @@
 #define L3_ROUTER   (1 << 0)
 #define L2_SWITCH   (1 << 1)
 #define HUB         (1 << 2)
+#define IP_LEN 16
+#define MAC_LEN  8
 
 typedef struct graph_ graph_t;
 typedef struct interface_ interface_t;
@@ -47,11 +49,11 @@ typedef struct node_ node_t;
 
 
 typedef struct ip_add_ {
-    char ip_addr[16];
+    char ip_addr[IP_LEN];
 } ip_add_t;
 
 typedef struct mac_add_ {
-    char mac[8];
+    char mac[MAC_LEN];
 } mac_add_t;
 
 typedef struct node_nw_prop_{
@@ -70,7 +72,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
     node_nw_prop->is_lb_addr_config = FALSE;
-    memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
+    memset(node_nw_prop->lb_addr.ip_addr, 0, IP_LEN);
 }
 
 typedef struct intf_nw_props_ {
@@ -88,9 +90,9 @@ typedef struct intf_nw_props_ {
 static inline void
 init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
 
-    memset(intf_nw_props->mac_add.mac , 0 , sizeof(intf_nw_props->mac_add.mac));
+    memset(intf_nw_props->mac_add.mac , 0 , MAC_LEN);
     intf_nw_props->is_ipadd_config = FALSE;
-    memset(intf_nw_props->ip_add.ip_addr, 0, sizeof(intf_nw_props->ip_add.ip_addr));
+    memset(intf_nw_props->ip_add.ip_addr, 0, IP_LEN);
     intf_nw_props->mask = 0;
 }
 

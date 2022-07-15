@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
 TARGET:test.exe
-LIBS=-lpthread -L ./CommandParser -lcli
+LIBS=-lpthread -L ./CommandParser -lcli -lrt
 OBJS=gluethread/glthread.o \
 		  graph.o 		   \
 		  nwcli.o          \

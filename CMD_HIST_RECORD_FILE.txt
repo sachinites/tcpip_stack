@@ -1,0 +1,8 @@
+show help
+show .
+show topology
+.
+cd
+cls
+.
+run node R0 resolve_arp 1.2.3.4
