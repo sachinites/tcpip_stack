@@ -37,8 +37,11 @@
 #include "graph.h"
 #include <stdio.h>
 #include "CommandParser/libcli.h"
+#include "comm.h"
 
 extern graph_t *build_first_topo();
+extern graph_t *
+build_linear_topo();
 extern void nw_init_cli();
 graph_t *topo = NULL; 
 int 
@@ -46,6 +49,7 @@ main(int argc, char **argv){
 
     nw_init_cli();
     topo = build_first_topo();
+    //topo = build_linear_topo();
     //dump_graph(topo);
     
     //dump_nw_graph(topo);
@@ -57,9 +61,8 @@ main(int argc, char **argv){
     char *data = "Ciao";
     send_pkt_out(data, strlen(data), oif);
 
-    pkt_receive(snode, oif,
-            data, sizeof(data));
-    start_shell();
+    //pkt_receive(snode, oif, data, strlen(data));
+    //start_shell();
     //scanf("\n");
     return 0;
 }

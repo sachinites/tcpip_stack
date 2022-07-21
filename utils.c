@@ -28,7 +28,10 @@ apply_mask(char *prefix, char mask, char *str_prefix){
 void
 layer2_fill_with_broadcast_mac(char *mac_array){
 
-     long fulmask = 0XFFFFFF;
-
-    sprintf(mac_array, "%ld", fulmask);
+    mac_array[0] = 0xFF;
+    mac_array[1] = 0xFF;
+    mac_array[2] = 0xFF;
+    mac_array[3] = 0xFF;
+    mac_array[4] = 0xFF;
+    mac_array[5] = 0xFF;
 }

@@ -196,3 +196,15 @@ convert_ip_from_int_to_str(unsigned int ip_addr, char *output_buffer){
     //puts(output_buffer);
 
 }
+
+char *
+pkt_buffer_shift_right(char *pkt, unsigned int pkt_size, unsigned int total_buffer_size)
+{
+    char *buf_start = pkt;
+    char *buf_end = pkt + total_buffer_size;
+
+    char *new_pos = buf_end - pkt_size;
+    memcpy(new_pos, pkt, pkt_size);
+    memset(buf_start, 0, pkt_size);
+    return new_pos;
+}

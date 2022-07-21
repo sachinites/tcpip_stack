@@ -238,10 +238,13 @@ layer2_frame_recv(node_t *node, interface_t *interface,
 int
 pkt_receive(node_t *node, interface_t *interface,
             char *pkt, unsigned int pkt_size){
-
+    
+    printf("pkt addr before shift %p\n", (void *)pkt);
+    pkt = pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE - IF_NAME_SIZE);
+    printf("pkt addr after shift %p\n", (void *)pkt);
     /*Do further processing of the pkt here*/
     printf("msg received is %s, on node %s intf %s\n", pkt, node ->node_name, interface ->if_name);
-    //layer2_frame_recv(node, interface, pkt, pkt_size );
+    layer2_frame_recv(node, interface, pkt, pkt_size );
     return 0;
 }
 

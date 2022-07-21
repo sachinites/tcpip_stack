@@ -27,6 +27,8 @@ validate_node_name(char *value)
     return 1;
 }
 
+extern void
+send_arp_broadcast_request(node_t *node, interface_t *oif, char *ip_address);
 static int
 arp_handler(param_t *param, ser_buff_t *tlv_buf,
                 op_mode enable_or_disable){
@@ -34,6 +36,7 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
     int cmd_code = EXTRACT_CMD_CODE(tlv_buf);
     printf("cmd code is %d\n", cmd_code);
     tlv_struct_t *tlv = NULL;
+    node_t *node;
     char *node_name = NULL;
     char *ip_address = NULL;
     TLV_LOOP_BEGIN(tlv_buf, tlv)
@@ -46,14 +49,16 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
     
     switch (cmd_code)
     {
-    case CMDCODE_RESOLVE_IP:
-        printf("Node name is %s, IP address is %s", node_name, ip_address);
-        break;
-    
-    default:
-        break;
+        case CMDCODE_RESOLVE_IP:
+            printf("Node name is %s, IP address is %s", node_name, ip_address);
+            break;
+        
+        default:
+            break;
     }
 
+    node = get_node_by_node_name(topo, node_name);
+    send_arp_broadcast_request(node, NULL, ip_address);
     return 0;
 }
 void

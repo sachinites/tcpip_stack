@@ -34,6 +34,7 @@
 #define __NET__
 
 #include "utils.h"
+//include "Layer2/layer2.h"
 #include <memory.h>
 
 /* Device IDS */
@@ -42,6 +43,7 @@
 #define HUB         (1 << 2)
 #define IP_LEN 16
 #define MAC_LEN  8
+#define IS_INTF_L3_MODE(intf_ptr) (intf_ptr -> intf_nw_props.is_ipadd_config)
 
 typedef struct graph_ graph_t;
 typedef struct interface_ interface_t;
@@ -56,23 +58,30 @@ typedef struct mac_add_ {
     char mac[MAC_LEN];
 } mac_add_t;
 
+typedef struct arp_table_ arp_table_t;
 typedef struct node_nw_prop_{
 
     /* Used to find various device types capabilities of
      * the node and other features*/
     unsigned int flags;
-     
+
+    /* L2 properties */ 
+    arp_table_t *arp_table;
     /*L3 properties*/ 
     bool_t is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
 } node_nw_prop_t;
 
+
+extern void
+init_arp_table(arp_table_t **arp_table);
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
-    node_nw_prop->is_lb_addr_config = FALSE;
+    node_nw_prop-> is_lb_addr_config = FALSE;
     memset(node_nw_prop->lb_addr.ip_addr, 0, IP_LEN);
+    init_arp_table(&(node_nw_prop -> arp_table));
 }
 
 typedef struct intf_nw_props_ {
@@ -127,5 +136,9 @@ unsigned int
 convert_ip_from_str_to_int(char *ip_addr);
 void
 convert_ip_from_int_to_str(unsigned int ip_addr, char *output_buffer);
+
+/* Shift the data to the right side of the pkt and return the pointer to the data */
+char *
+pkt_buffer_shift_right(char *pkt, unsigned int pkt_size, unsigned int total_buffer_size);
 
 #endif /* __NET__ */
