@@ -535,7 +535,7 @@ isis_print_hello_pkt(byte *buff,
 }
 
 void
-isis_print_pkt(void *arg, size_t arg_size) {
+isis_print_pkt(event_dispatcher_t*ev_dis, void *arg, size_t arg_size) {
 
     byte *buff;
     pkt_size_t pkt_size;

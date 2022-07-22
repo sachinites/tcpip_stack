@@ -70,7 +70,7 @@ byte *
 isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size);
 
 void
-isis_print_pkt(void *arg, size_t arg_size);
+isis_print_pkt(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
 isis_generate_lsp_pkt(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size_unused);
