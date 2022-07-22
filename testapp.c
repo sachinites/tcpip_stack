@@ -62,7 +62,7 @@ main(int argc, char **argv){
     send_pkt_out(data, strlen(data), oif);
 
     //pkt_receive(snode, oif, data, strlen(data));
-    //start_shell();
+    start_shell();
     //scanf("\n");
     return 0;
 }

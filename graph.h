@@ -77,6 +77,7 @@ struct node_ {
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 
+
 typedef struct graph_{
 
     char topology_name[32];

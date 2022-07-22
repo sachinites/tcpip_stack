@@ -102,6 +102,14 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
     return TRUE;
 }
 
+bool_t node_set_intf_l2_mode(node_t *node, char *local_if, intf_l2_mode_t intf_mode)
+{
+    interface_t *interface = get_node_if_by_name(node, local_if);
+    assert(interface);
+
+    interface->intf_nw_props.intf_l2_mode = intf_mode;
+    return TRUE;
+}
 bool_t node_unset_intf_ip_address(node_t *node, char *local_if){
 
     return TRUE;

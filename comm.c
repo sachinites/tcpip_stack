@@ -239,9 +239,9 @@ int
 pkt_receive(node_t *node, interface_t *interface,
             char *pkt, unsigned int pkt_size){
     
-    printf("pkt addr before shift %p\n", (void *)pkt);
+    //printf("pkt addr before shift %p\n", (void *)pkt);
     pkt = pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE - IF_NAME_SIZE);
-    printf("pkt addr after shift %p\n", (void *)pkt);
+    //printf("pkt addr after shift %p\n", (void *)pkt);
     /*Do further processing of the pkt here*/
     printf("msg received is %s, on node %s intf %s\n", pkt, node ->node_name, interface ->if_name);
     layer2_frame_recv(node, interface, pkt, pkt_size );
@@ -259,5 +259,21 @@ send_pkt_flood(node_t *node, char *pkt, unsigned int pkt_size){
         intf = node->intf[i];
         if(!intf) return;
         send_pkt_out(pkt, pkt_size, intf);
+    }
+}
+
+int
+send_pkt_flood_l2_intf_only(node_t *node, interface_t *exempted_intf,/*Interface on which the frame was recvd by L2 switch*/
+                        char *pkt, unsigned int pkt_size){
+
+    unsigned int i = 0;
+    interface_t *intf; 
+
+    for( ; i < MAX_INTF_PER_NODE; i++){
+
+        intf = node->intf[i];
+        if(intf && !strcmp(intf ->if_name, exempted_intf ->if_name) && !intf ->intf_nw_props.is_ipadd_config) 
+            send_pkt_out(pkt, pkt_size, intf);
+        
     }
 }

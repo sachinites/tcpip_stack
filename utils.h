@@ -55,7 +55,7 @@ void
 apply_mask(char *prefix, char mask, char *str_prefix);
 
 void
-layer2_fill_with_broadcast_mac(char *mac_array);
+layer2_fill_with_broadcast_mac(unsigned char *mac_array);
 
 
 #endif /* __UTILS__ */

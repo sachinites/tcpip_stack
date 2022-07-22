@@ -6,3 +6,29 @@ cd
 cls
 .
 run node R0 resolve_arp 1.2.3.4
+show .
+run .
+run node R0_re resolve_arp 20.1.1.2
+show .
+show node R0_re arp
+run .
+run node R0_re resolve_arp 20.1.1.2
+show node R0_re arp
+run .
+run node R0_re resolve_arp 20.1.1.2
+show topology
+run .
+run node R0_re resolve_arp 20.1.1.2
+run .
+run node R0_re resolve_arp 20.1.1.2
+show .
+show node R0_re arp
+show topology
+run .
+run node R0_re resolve_arp 20.1.1.2
+show .
+show node R0_re arp
+show topology
+run node R0_re resolve_arp 20.1.1.2
+run node R0_re resolve_arp 40.1.1.2
+show node R0_re arp
