@@ -10,6 +10,7 @@ OBJS=gluethread/glthread.o \
 		  comm.o		   \
 		  utils.o          \
 		  Layer2/layer2.o  \
+		  Layer2/l2switch.o \
 		  Layer3/layer3.o
 
 test.exe:testapp.o ${OBJS} CommandParser/libcli.a
@@ -36,7 +37,8 @@ CommandParser/libcli.a:
 	(cd CommandParser; make)
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I Layer2 Layer2/layer2.c -o Layer2/layer2.o
-
+Layer2/l2switch.o:Layer2/l2switch.c
+	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I Layer3 Layer3/layer3.c -o Layer3/layer3.o
 

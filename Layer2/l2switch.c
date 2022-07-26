@@ -119,21 +119,145 @@ dump_mac_table(mac_table_t *mac_table){
 static void
 l2_switch_perform_mac_learning(node_t *node, char *src_mac, char *if_name){
 
-    mac_table_t *mac_table = node ->node_nw_prop.mac_table;
-    mac_table_entry_t *mac_entry = mac_table_lookup(mac_table, src_mac);
-    if(mac_entry) return;
-
-    mac_table_entry_t *mac_new_entry = malloc(sizeof(mac_table_entry_t));
-    memset(mac_new_entry ->mac.mac, 0, MAC_LEN);
-    memcpy(mac_new_entry ->mac.mac, src_mac, MAC_LEN);
-    memset(mac_new_entry ->oif_name, 0, IF_NAME_SIZE);
-    memcpy(mac_new_entry ->oif_name, if_name, IF_NAME_SIZE);
-    mac_new_entry ->mac_entry_glue.left = NULL;
-    mac_new_entry ->mac_entry_glue.right = NULL;
-    mac_table_entry_add(mac_table, mac_new_entry);
+     bool_t rc;
+    mac_table_entry_t *mac_table_entry = calloc(1, sizeof(mac_table_entry_t));
+    memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_add_t));
+    strncpy(mac_table_entry->oif_name, if_name, IF_NAME_SIZE);
+    mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
+    rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
+    if(rc == FALSE){
+        free(mac_table_entry);
+    }
     
 }
 
+// static unsigned int 
+// get_access_intf_operating_vlan_id(interface_t *oif){
+
+//     return oif->intf_nw_props.vlans[0];
+// }
+
+// bool_t
+// is_trunk_interface_vlan_enabled(interface_t *oif, unsigned int pkt_vlan_id)
+// {
+//     for( int i= 0; i < MAX_INTF_PER_NODE; i++){
+        
+//         if(oif->intf_nw_props.vlans[i] == pkt_vlan_id)
+//             return TRUE;
+//     }
+//     return FALSE;
+    
+// }
+static bool_t
+l2_switch_send_pkt_out(char *pkt, unsigned int pkt_size,
+                        interface_t *oif){
+
+    /*L2 switch must not even try to send the pkt out of interface 
+      operating in L3 mode*/
+    assert(!IS_INTF_L3_MODE(oif));
+    
+    intf_l2_mode_t intf_l2_mode= IF_L2_MODE(oif);
+    
+    if(intf_l2_mode == L2_MODE_UNKNOWN){
+        return FALSE;
+    }
+    
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr =
+        is_pkt_vlan_tagged(ethernet_hdr);
+
+    switch(intf_l2_mode){
+        case ACCESS:
+            {
+                unsigned int intf_vlan_id = 
+                    get_access_intf_operating_vlan_id(oif);
+
+                /*Case 1 : If interface is operating in ACCESS mode, but
+                 not in any vlan, and pkt is also untagged, then simply
+                 forward it. This is default Vlan unaware case*/
+                if(!intf_vlan_id && !vlan_8021q_hdr){
+                    //send_pkt_out(pkt, pkt_size, oif);
+                    return FALSE;
+                }
+
+                /*Case 2 : if oif is VLAN aware, but pkt is untagged, simply
+                 drop the packet. This is not an error, it is a L2 switching 
+                 behavior*/
+                if(intf_vlan_id && !vlan_8021q_hdr){
+                    return FALSE;
+                }
+
+                /*Case 3 : If oif is VLAN AWARE, and pkt is also tagged, 
+                  forward the frame only if vlan IDs matches after untagging
+                  the frame. In this case we shall untag the ethernet header and send it out */
+                if(vlan_8021q_hdr && 
+                        (intf_vlan_id == GET_802_1Q_VLAN_ID(vlan_8021q_hdr))){
+
+                    unsigned int new_pkt_size = 0;
+                    ethernet_hdr = untag_pkt_with_vlan_id(ethernet_hdr,
+                                                          pkt_size,
+                                                          &new_pkt_size);
+                    send_pkt_out((char *)ethernet_hdr, new_pkt_size, oif);
+                    return TRUE;
+                }
+
+                /*case 4 : if oif is vlan unaware but pkt is vlan tagged, 
+                 simply drop the packet.*/
+                if(!intf_vlan_id && vlan_8021q_hdr){
+                    return FALSE;
+                }
+            }
+            break;
+        case TRUNK:
+            {
+                unsigned int pkt_vlan_id = 0;
+                
+                if(vlan_8021q_hdr){
+                    pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+                }
+
+                if(pkt_vlan_id && 
+                        is_trunk_interface_vlan_enabled(oif, pkt_vlan_id)){
+                    send_pkt_out(pkt, pkt_size, oif);
+                    return TRUE;
+                }
+
+                /*Do not send the pkt in any other case*/
+                return FALSE;
+            }
+            break;
+        case L2_MODE_UNKNOWN:
+            break;
+        default:
+            ;
+        return FALSE;
+    }
+}
+
+static bool_t 
+l2_switch_flood_pkt_out(node_t *node, interface_t *exempted_intf,
+                        char *pkt, unsigned int pkt_size){
+interface_t *oif = NULL;
+
+    unsigned int i = 0;
+
+    char *pkt_copy = NULL;
+    char *temp_pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+
+    pkt_copy = temp_pkt + MAX_PACKET_BUFFER_SIZE - pkt_size;
+
+    for( ; i < MAX_INTF_PER_NODE; i++){
+        
+        oif = node->intf[i];
+        if(!oif) break;
+        if(oif == exempted_intf) continue;
+        
+        memcpy(pkt_copy, pkt, pkt_size);
+        l2_switch_send_pkt_out(pkt_copy, pkt_size, oif);
+    }
+    free(temp_pkt);
+}
 static void
 l2_switch_forward_frame(node_t *node, interface_t *recv_intf, 
                         ethernet_hdr_t *ethernet_hdr, 
@@ -161,7 +285,7 @@ l2_switch_forward_frame(node_t *node, interface_t *recv_intf,
         return;
     }
 
-    send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+    l2_switch_send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
 }
 void
 l2_switch_recv_frame(interface_t *interface, 

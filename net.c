@@ -102,14 +102,14 @@ bool_t node_set_intf_ip_address(node_t *node, char *local_if,
     return TRUE;
 }
 
-bool_t node_set_intf_l2_mode(node_t *node, char *local_if, intf_l2_mode_t intf_mode)
-{
-    interface_t *interface = get_node_if_by_name(node, local_if);
-    assert(interface);
+// bool_t node_set_intf_l2_mode(node_t *node, char *local_if, intf_l2_mode_t intf_mode)
+// {
+//     interface_t *interface = get_node_if_by_name(node, local_if);
+//     assert(interface);
 
-    interface->intf_nw_props.intf_l2_mode = intf_mode;
-    return TRUE;
-}
+//     interface->intf_nw_props.intf_l2_mode = intf_mode;
+//     return TRUE;
+// }
 bool_t node_unset_intf_ip_address(node_t *node, char *local_if){
 
     return TRUE;
@@ -160,7 +160,18 @@ void dump_intf_props(interface_t *interface){
         (unsigned int)IF_MAC(interface)[0], (unsigned int)IF_MAC(interface)[1],
         (unsigned int)IF_MAC(interface)[2], (unsigned int)IF_MAC(interface)[3],
         (unsigned int)IF_MAC(interface)[4], (unsigned int)IF_MAC(interface)[5]);
+
+    if(interface->intf_nw_props.intf_l2_mode == ACCESS || interface->intf_nw_props.intf_l2_mode == TRUNK)
+    {
+        printf("VLAN id are ");
+        for(int i = 0; i < MAX_VLAN_MEMBERSHIP && interface->intf_nw_props.vlans[i]; i++)
+        {
+            
+            printf("%u ", interface->intf_nw_props.vlans[i]);
+        }
+    }
 }
+        
 
 void dump_nw_graph(graph_t *graph){
 
@@ -216,3 +227,28 @@ pkt_buffer_shift_right(char *pkt, unsigned int pkt_size, unsigned int total_buff
     memset(buf_start, 0, pkt_size);
     return new_pos;
 }
+
+unsigned int
+get_access_intf_operating_vlan_id(interface_t *interface){
+
+    if(interface->intf_nw_props.intf_l2_mode == ACCESS)
+        return interface->intf_nw_props.vlans[0];
+    return 0;
+}
+
+bool_t
+is_trunk_interface_vlan_enabled(interface_t *interface,
+                                unsigned int vlan_id)
+{
+    if(interface->intf_nw_props.intf_l2_mode == TRUNK)
+    {
+        for(int i = 0; i < MAX_VLAN_MEMBERSHIP && interface->intf_nw_props.vlans[i]; i++)
+        {
+            if(interface->intf_nw_props.vlans[i] == vlan_id)
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+                                

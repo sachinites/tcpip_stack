@@ -43,6 +43,7 @@
 #define HUB         (1 << 2)
 #define IP_LEN 16
 #define MAC_LEN  6
+#define MAX_VLAN_MEMBERSHIP 10
 #define IS_INTF_L3_MODE(intf_ptr) (intf_ptr -> intf_nw_props.is_ipadd_config)
 
 typedef struct graph_ graph_t;
@@ -99,6 +100,8 @@ typedef struct node_nw_prop_{
 #define NODE_MAC_TABLE(node_ptr) (node_ptr->node_nw_prop.mac_table)
 extern void
 init_arp_table(arp_table_t **arp_table);
+extern void
+init_mac_table(mac_table_t **mac_table);
 static inline void
 init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
 
@@ -106,6 +109,7 @@ init_node_nw_prop(node_nw_prop_t *node_nw_prop) {
     node_nw_prop-> is_lb_addr_config = FALSE;
     memset(node_nw_prop->lb_addr.ip_addr, 0, IP_LEN);
     init_arp_table(&(node_nw_prop -> arp_table));
+    init_mac_table(&(node_nw_prop->mac_table));
 }
 
 typedef struct intf_nw_props_ {
@@ -113,7 +117,7 @@ typedef struct intf_nw_props_ {
     /*L2 properties*/
     mac_add_t mac_add;      /*Mac are hard burnt in interface NIC*/
     intf_l2_mode_t intf_l2_mode;
-
+    unsigned int vlans[MAX_VLAN_MEMBERSHIP];
     /*L3 properties*/
     bool_t is_ipadd_config; /*Set to TRUE if ip add is configured, intf operates in L3 mode if ip address is configured on it*/
     ip_add_t ip_add;
@@ -165,5 +169,12 @@ convert_ip_from_int_to_str(unsigned int ip_addr, char *output_buffer);
 /* Shift the data to the right side of the pkt and return the pointer to the data */
 char *
 pkt_buffer_shift_right(char *pkt, unsigned int pkt_size, unsigned int total_buffer_size);
+
+unsigned int
+get_access_intf_operating_vlan_id(interface_t *interface);
+
+bool_t
+is_trunk_interface_vlan_enabled(interface_t *interface,
+                                unsigned int vlan_id);
 
 #endif /* __NET__ */

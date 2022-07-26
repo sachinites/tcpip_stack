@@ -114,7 +114,7 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
 typedef struct mac_table_ mac_table_t;
 extern void
-dump_mac_table(arp_table_t *arp_table);
+dump_mac_table(mac_table_t *mac_table);
 
 static int
 show_mac_handler(param_t *param, ser_buff_t *tlv_buf, 

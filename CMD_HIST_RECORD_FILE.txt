@@ -32,3 +32,35 @@ show topology
 run node R0_re resolve_arp 20.1.1.2
 run node R0_re resolve_arp 40.1.1.2
 show node R0_re arp
+show topology
+show topology
+show topology
+show topology
+show topology
+show topology
+run .
+run node H1 resolve_arp 10.1.1.6
+run node H1 resolve_arp 10.1.1.6
+show node H1 arp
+show node L2SW1 mac
+show node L2SW2 mac
+run node H1 resolve_arp 10.1.1.6
+show node H1 arp
+show node L2SW1 mac
+run node H1 resolve_arp 10.1.1.6
+show node H1 arp
+show node L2SW1 mac
+run node H1 resolve_arp 10.1.1.6
+run node H1 resolve_arp 10.1.1.6
+show node H1 arp
+show node L2SW1 mac
+show node L2SW2 mac
+run node H1 resolve_arp 10.1.1.6
+show node H1 arp
+show node L2SW1 mac
+show node L2SW2 mac
+show .
+run node H1 resolve_arp 10.1.1.6
+run node H1 resolve_arp 10.1.1.6
+show node L2SW1 mac
+show node L2SW2 mac
