@@ -104,7 +104,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
     
     arp_hdr_reply->hw_type = 1;
-    arp_hdr_reply->proto_type = 0x0800;
+    arp_hdr_reply->proto_type = ETH_IP;
     arp_hdr_reply->hw_addr_len = sizeof(mac_add_t);
     arp_hdr_reply->proto_addr_len = 4;
     
@@ -163,36 +163,15 @@ extern void
 layer3_pkt_recv(node_t *node, interface_t *interface, 
                 char *pkt, unsigned int pkt_size);
 
-static void
+extern void
 promote_pkt_to_layer3(node_t *node, interface_t *interface,
-                         char *pkt, unsigned int pkt_size){
+                         char *pkt, unsigned int pkt_size,
+                         int L3_protocol_type);
 
-    layer3_pkt_recv(node, interface, pkt, pkt_size);
-}
 void
-layer2_frame_recv(node_t *node, interface_t *interface,
-                     char *pkt, unsigned int pkt_size){
-
-    printf("Layer 2 Frame Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
-            node->node_name, interface->if_name, pkt, pkt_size);
-
-    //promote_pkt_to_layer3(node, interface, pkt, pkt_size);
-    unsigned int vlan_id_to_tag = 0;
-
-    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
-    
-    if(l2_frame_recv_qualify_on_interface(interface, 
-                                          ethernet_hdr, 
-                                          &vlan_id_to_tag) == FALSE){
-        
-        printf("L2 Frame Rejected on node %s\n", node->node_name);
-        return;
-    }
-    puts("L2 frame accepted!");
-    /*Handle Reception of a L2 Frame on L3 Interface*/
-    if(IS_INTF_L3_MODE(interface)){
-
-        switch(ethernet_hdr->type){
+promote_pkt_to_layer2(node_t *node, interface_t *interface,
+                         ethernet_hdr_t *ethernet_hdr, unsigned int pkt_size){
+     switch(ethernet_hdr->type){
             /*When L2 Frame is ARP MSG - could be request or reply*/   
             case ARP_MSG:
                 {
@@ -210,13 +189,40 @@ layer2_frame_recv(node_t *node, interface_t *interface,
                     }
                 }
                 break;
-            // case ETH_IP:
-            //     promote_pkt_to_layer3(node, interface, 
-            //         GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
-            //         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ETH_IP);
+            case ETH_IP:
+                promote_pkt_to_layer3(node, interface, 
+                    GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
+                    pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), ETH_IP);
             default:
                 break;
-        }
+        }                        
+    
+}
+
+void
+layer2_frame_recv(node_t *node, interface_t *interface,
+                     char *pkt, unsigned int pkt_size){
+
+    unsigned int vlan_id_to_tag = 0;
+
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
+    
+    printf("Layer 2 Frame Recvd : Rcv Node %s, Intf : %s, data recvd : %s, pkt size : %u\n",
+            node->node_name, interface->if_name, pkt, pkt_size);
+    if(l2_frame_recv_qualify_on_interface(interface, 
+                                          ethernet_hdr, 
+                                          &vlan_id_to_tag) == FALSE){
+        
+        printf("L2 Frame Rejected on node %s\n", node->node_name);
+        return;
+    }
+
+    printf("L2 Frame Accepted on node %s\n", node->node_name);
+
+    /*Handle Reception of a L2 Frame on L3 Interface*/
+    if(IS_INTF_L3_MODE(interface)){
+
+       promote_pkt_to_layer2(node, interface, ethernet_hdr, pkt_size);
     }
     else if(IF_L2_MODE(interface) == ACCESS ||
                 IF_L2_MODE(interface) == TRUNK){
@@ -234,7 +240,6 @@ layer2_frame_recv(node_t *node, interface_t *interface,
     else
         return; /*Do nothing, drop the packet*/
 }
-
 void
 init_arp_table(arp_table_t **arp_table){
 
@@ -284,20 +289,102 @@ delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr){
 }
 
 bool_t
-arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry){
+arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
+                    glthread_t **arp_pending_list){
+
+    if(arp_pending_list){
+        assert(*arp_pending_list == NULL);   
+    }
 
     arp_entry_t *arp_entry_old = arp_table_lookup(arp_table, 
-                                    arp_entry->ip_addr.ip_addr);
-    if(arp_entry_old && 
-            memcmp(arp_entry_old, arp_entry, sizeof(arp_entry_t)) == 0)
-        return FALSE;
+            arp_entry->ip_addr.ip_addr);
 
-    if(arp_entry_old){
-        delete_arp_table_entry(arp_table, arp_entry->ip_addr.ip_addr);
+    /* Case 0 : if ARP table do not exist already, then add it
+     * and return TRUE*/
+    if(!arp_entry_old){
+        glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
+        return TRUE;
     }
-    init_glthread(&arp_entry->arp_glue);
-    glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
-    return TRUE;
+    
+
+    /*Case 1 : If existing and new ARP entries are full and equal, then
+     * do nothing*/
+    if(arp_entry_old &&
+            IS_ARP_ENTRIES_EQUAL(arp_entry_old, arp_entry)){
+
+        return FALSE;
+    }
+
+    /*Case 2 : If there already exists full ARP table entry, then replace it*/
+    if(arp_entry_old && !arp_entry_sane(arp_entry_old)){
+        delete_arp_entry(arp_entry_old);
+        init_glthread(&arp_entry->arp_glue);
+        glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
+        return TRUE;
+    }
+
+    /*Case 3 : if existing ARP table entry is sane, and new one is also
+     * sane, then move the pending arp list from new to old one and return FALSE*/
+    if(arp_entry_old &&
+        arp_entry_sane(arp_entry_old) &&
+        arp_entry_sane(arp_entry)){
+    
+        if(!IS_GLTHREAD_LIST_EMPTY(&arp_entry->arp_pending_list)){
+            glthread_add_next(&arp_entry_old->arp_pending_list,
+                    arp_entry->arp_pending_list.right);
+        }
+        if(arp_pending_list)
+            *arp_pending_list = &arp_entry_old->arp_pending_list;
+        return FALSE;
+    }
+
+    /*Case 4 : If existing ARP table entry is sane, but new one if full,
+     * then copy contents of new ARP entry to old one, return FALSE*/
+    if(arp_entry_old && 
+        arp_entry_sane(arp_entry_old) && 
+        !arp_entry_sane(arp_entry)){
+
+        strncpy(arp_entry_old->mac_addr.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+        strncpy(arp_entry_old->oif_name, arp_entry->oif_name, IF_NAME_SIZE);
+        arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
+
+        if(arp_pending_list)
+            *arp_pending_list = &arp_entry_old->arp_pending_list;
+        return FALSE;
+    }
+
+    return FALSE;
+}
+
+static void
+process_arp_pending_entry(node_t *node, interface_t *oif, 
+                          arp_entry_t *arp_entry, 
+                          arp_pending_entry_t *arp_pending_entry){
+
+    arp_pending_entry->cb(node, oif, arp_entry, arp_pending_entry);  
+}
+
+static void
+delete_arp_pending_entry(arp_pending_entry_t *arp_pending_entry){
+
+    remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
+    free(arp_pending_entry);
+}
+
+void
+delete_arp_entry(arp_entry_t *arp_entry){
+    
+    glthread_t *curr;
+    arp_pending_entry_t *arp_pending_entry;
+    remove_glthread(&arp_entry->arp_glue);
+
+    ITERATE_GLTHREAD_BEGIN(&arp_entry->arp_pending_list, curr){
+
+        arp_pending_entry = arp_pending_entry_glue_to_arp_pending_entry(curr);
+        delete_arp_pending_entry(arp_pending_entry);
+    } ITERATE_GLTHREAD_END(&arp_entry->arp_pending_list, curr);
+
+    free(arp_entry);
 }
 
 void
@@ -305,20 +392,50 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
                                 arp_hdr_t *arp_hdr, interface_t *iif){
 
     unsigned int src_ip = 0;
+    glthread_t *arp_pending_list = NULL;
+
     assert(arp_hdr->op_code == ARP_REPLY);
+
     arp_entry_t *arp_entry = calloc(1, sizeof(arp_entry_t));
+
     src_ip = htonl(arp_hdr->src_ip);
-    inet_ntop(AF_INET, &src_ip, &arp_entry->ip_addr.ip_addr, IP_LEN);
-    arp_entry->ip_addr.ip_addr[IP_LEN - 1] = '\0';
-    memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_LEN);
+
+    inet_ntop(AF_INET, &src_ip, arp_entry->ip_addr.ip_addr, 16);
+
+    arp_entry->ip_addr.ip_addr[15] = '\0';
+
+    memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, sizeof(mac_add_t));
+
     strncpy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
 
-    bool_t rc = arp_table_entry_add(arp_table, arp_entry);
+    arp_entry->is_sane = FALSE;
+
+    bool_t rc = arp_table_entry_add(arp_table, arp_entry, &arp_pending_list);
+
+    glthread_t *curr;
+    arp_pending_entry_t *arp_pending_entry;
+
+    if(arp_pending_list){
+        
+        ITERATE_GLTHREAD_BEGIN(arp_pending_list, curr){
+        
+            arp_pending_entry = arp_pending_entry_glue_to_arp_pending_entry(curr);
+
+            remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
+
+            process_arp_pending_entry(iif->att_node, iif, arp_entry, arp_pending_entry);
+            
+            delete_arp_pending_entry(arp_pending_entry);
+
+        } ITERATE_GLTHREAD_END(arp_pending_list, curr);
+
+        (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = FALSE;
+    }
+
     if(rc == FALSE){
-        free(arp_entry);
+        delete_arp_entry(arp_entry);
     }
 }
-
 
 void
 dump_arp_table(arp_table_t *arp_table){
@@ -355,7 +472,7 @@ interface_set_l2_mode(node_t *node,
         intf_l2_mode = TRUNK;
     }
     else{
-        assert(0);
+        intf_l2_mode = L2_MODE_UNKNOWN;
     }
 
     /*Case 1 : if interface is working in L3 mode, i.e. IP address is configured.
@@ -483,6 +600,74 @@ node_set_intf_l2_mode(node_t *node, char *intf_name,
     interface_set_l2_mode(node, interface, intf_l2_mode_str(intf_l2_mode));
 }
 
+void
+add_arp_pending_entry(arp_entry_t *arp_entry,
+        arp_processing_fn cb,
+        char *pkt,
+        unsigned int pkt_size){
+
+    arp_pending_entry_t *arp_pending_entry = 
+        calloc(1, sizeof(arp_pending_entry_t) + pkt_size);
+
+    init_glthread(&arp_pending_entry->arp_pending_entry_glue);
+    arp_pending_entry->cb = cb;
+    arp_pending_entry->pkt_size = pkt_size;
+    memcpy(arp_pending_entry->pkt, pkt, pkt_size);
+
+    glthread_add_next(&arp_entry->arp_pending_list, 
+                    &arp_pending_entry->arp_pending_entry_glue);
+}
+
+static void 
+pending_arp_processing_callback_function(node_t *node,
+                                         interface_t *oif,
+                                         arp_entry_t *arp_entry,
+                                         arp_pending_entry_t *arp_pending_entry){
+
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)arp_pending_entry->pkt;
+    unsigned int pkt_size = arp_pending_entry->pkt_size;
+    memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+    memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+    SET_COMMON_ETH_FCS(ethernet_hdr, pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
+    send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+}
+
+void
+create_arp_sane_entry(arp_table_t *arp_table, char *ip_addr, 
+                       char *pkt, unsigned int pkt_size){
+
+    /*case 1 : If full entry already exist - assert. The L2 must have
+     * not create ARP sane entry if the already was already existing*/
+
+    arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
+    
+    if(arp_entry){
+    
+        if(!arp_entry_sane(arp_entry)){
+            assert(0);
+        }
+
+        /*ARP sane entry already exists, append the arp pending entry to it*/
+        add_arp_pending_entry(arp_entry, 
+                              pending_arp_processing_callback_function, 
+                              pkt, pkt_size);
+        return;
+    }
+
+    /*if ARP entry do not exist, create a new sane entry*/
+    arp_entry = calloc(1, sizeof(arp_entry_t));
+    strncpy(arp_entry->ip_addr.ip_addr, ip_addr, 16);
+    arp_entry->ip_addr.ip_addr[15] = '\0';
+    init_glthread(&arp_entry->arp_pending_list);
+    arp_entry->is_sane = TRUE;
+    add_arp_pending_entry(arp_entry, 
+                          pending_arp_processing_callback_function, 
+                          pkt, pkt_size);
+    bool_t rc = arp_table_entry_add(arp_table, arp_entry, 0);
+    if(rc == FALSE){
+        assert(0);
+    }
+}
 /* Return new packet size if pkt is untagged with the existing
  * vlan 801.1q hdr*/
 ethernet_hdr_t *
@@ -584,6 +769,172 @@ tag_pkt_with_vlan_id(ethernet_hdr_t *ethernet_hdr,
     SET_COMMON_ETH_FCS((ethernet_hdr_t *)vlan_ethernet_hdr, payload_size, 0 );
     *new_pkt_size = total_pkt_size  + sizeof(vlan_8021q_hdr_t);
     return (ethernet_hdr_t *)vlan_ethernet_hdr;
-
-
 }
+
+extern bool_t
+is_layer3_local_delivery(node_t *node, 
+                         uint32_t dst_ip);
+static void
+l2_forward_ip_packet(node_t *node, unsigned int next_hop_ip,
+                    char *outgoing_intf, ethernet_hdr_t *pkt, 
+                    unsigned int pkt_size){
+
+    interface_t *oif = NULL;
+    char next_hop_ip_str[16];
+    arp_entry_t * arp_entry = NULL;
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *)pkt;
+    unsigned int ethernet_payload_size = pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+
+    next_hop_ip = htonl(next_hop_ip);
+    inet_ntop(AF_INET, &next_hop_ip, next_hop_ip_str, 16);
+    
+    /*restore again, since htonl reverses the byte
+     * order*/
+    next_hop_ip = htonl(next_hop_ip);
+
+    if(outgoing_intf) {
+
+        /* Case 1 : Forwarding Case
+         * It means, L3 has resolved the nexthop, So its 
+         * time to L2 forward the pkt out of this interface*/
+        oif = get_node_if_by_name(node, outgoing_intf);
+        assert(oif);
+
+        arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
+
+        if (!arp_entry){
+
+            /*Time for ARP resolution*/
+            create_arp_sane_entry(NODE_ARP_TABLE(node),
+                    next_hop_ip_str,
+                    (char *)pkt,
+                    pkt_size);
+            
+            // add_arp_pending_entry(arp_entry,
+            //         pending_arp_processing_callback_function,
+            //         (char *)pkt, pkt_size);
+
+            send_arp_broadcast_request(node, oif, next_hop_ip_str);
+            return;
+
+        }
+        else if(arp_entry_sane(arp_entry)){
+            add_arp_pending_entry(arp_entry,
+                    pending_arp_processing_callback_function,
+                    (char *)pkt, pkt_size);
+            return;
+        }
+        else
+            goto l2_frame_prepare ;
+    }
+   
+    /*Case 4 : Self ping*/
+    if(is_layer3_local_delivery(node, next_hop_ip)){
+
+        promote_pkt_to_layer3(node, 0, GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr),
+                pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr),
+                ethernet_hdr->type);
+        return;
+    }
+
+    /* case 2 : Direct host Delivery
+       L2 has to forward the frame to machine on local connected subnet */
+    oif = node_get_matching_subnet_interface(node, next_hop_ip_str);
+
+    if(!oif){
+        printf("%s : Error : Local matching subnet for IP : %s could not be found\n",
+                    node->node_name, next_hop_ip_str);
+        return;
+    }
+
+    arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
+
+    if (!arp_entry){
+        /*Time for ARP resolution*/
+        create_arp_sane_entry(NODE_ARP_TABLE(node),
+                    next_hop_ip_str,
+                    (char *)pkt,
+                    pkt_size);
+
+        // add_arp_pending_entry(arp_entry,
+        //          pending_arp_processing_callback_function,
+        //          (char *)pkt, pkt_size);
+
+        send_arp_broadcast_request(node, oif, next_hop_ip_str);
+        return;
+    }
+    else if(arp_entry_sane(arp_entry)){
+        add_arp_pending_entry(arp_entry,
+                pending_arp_processing_callback_function,
+                (char *)pkt, pkt_size);
+        return;
+    }
+    l2_frame_prepare:
+        memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
+        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+        SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
+        send_pkt_out((char *)ethernet_hdr, pkt_size, oif);
+}
+/* An API to be used by Layer 3 or higher to push the pkt
+ * down the TCP IP Stack to L2. Note that, though most of the time
+ * this API shall be used by L3, but any Higher Layer API can use
+ * this API. For example, An application can run directly on L2 bypassing
+ * L3 altogether.*/
+// void
+// demote_pkt_to_layer2(node_t *node, /*Currenot node*/ 
+//         unsigned int next_hop_ip,  /*If pkt is forwarded to next router, then this is Nexthop IP address (gateway) provided by L3 layer. L2 need to resolve ARP for this IP address*/
+//         char *outgoing_intf,       /*The oif obtained from L3 lookup if L3 has decided to forward the pkt. If NULL, then L2 will find the appropriate interface*/
+//         char *pkt, unsigned int pkt_size,   /*Higher Layers payload*/
+//         int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
+
+//     assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
+
+//     if(protocol_number == ETH_IP){
+   
+//         ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
+//         empty_ethernet_hdr->type = ETH_IP;
+//         memcpy(empty_ethernet_hdr->payload, pkt, pkt_size);
+
+//         l2_forward_ip_packet(node, next_hop_ip, 
+//             outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
+
+//         free(empty_ethernet_hdr);
+//     }
+// }
+static void
+layer2_pkt_receieve_from_top(node_t *node, 
+                    unsigned int next_hop_ip,
+                    char *outgoing_intf,
+                    char *pkt, unsigned int pkt_size,
+                    int protocol_number){
+
+    assert(pkt_size < sizeof(((ethernet_hdr_t *)0)->payload));
+
+    if(protocol_number == ETH_IP){
+
+        ethernet_hdr_t *empty_ethernet_hdr = ALLOC_ETH_HDR_WITH_PAYLOAD(pkt, pkt_size); 
+        empty_ethernet_hdr->type = ETH_IP;
+
+        l2_forward_ip_packet(node, next_hop_ip, 
+                outgoing_intf, empty_ethernet_hdr, pkt_size + ETH_HDR_SIZE_EXCL_PAYLOAD);
+    }
+}
+
+/* An API to be used by Layer 3 or higher to push the pkt
+ * down the TCP IP Stack to L2. Note that, though most of the time
+ * this API shall be used by L3, but any Higher Layer API can use
+ * this API. For example, An application can run directly on L2 bypassing
+ * L3 altogether.*/
+void
+demote_pkt_to_layer2(node_t *node, /*Currenot node*/ 
+        unsigned int next_hop_ip,  /*If pkt is forwarded to next router, then this is Nexthop IP address (gateway) provided by L3 layer. L2 need to resolve ARP for this IP address*/
+        char *outgoing_intf,       /*The oif obtained from L3 lookup if L3 has decided to forward the pkt. If NULL, then L2 will find the appropriate interface*/
+        char *pkt, unsigned int pkt_size,   /*Higher Layers payload*/
+        int protocol_number){               /*Higher Layer need to tell L2 what value need to be feed in eth_hdr->type field*/
+
+    layer2_pkt_receieve_from_top(node, next_hop_ip,
+        outgoing_intf, pkt, pkt_size,
+        protocol_number);
+}
+
+

@@ -299,3 +299,109 @@ build_dualswitch_topo(){
     return topo;
 }
 
+graph_t *
+linear_3_node_topo(){
+
+#if 0
+
+                                        +---------|                                  +----------+
++--------+                              |         |                                  |R3        |
+|R1      |eth0/1                  eth0/2|R2       |eth0/3                      eth0/4|122.1.1.3 |
+|122.1.1.1+-----------------------------+122.1.1.2|+----------------------------------+         |
+|        |10.1.1.1/24        10.1.1.2/24|         |11.1.1.2/24            11.1.1.1/24|          |
++--------+                              +-------+-|                                  +----------+
+
+#endif
+
+
+    graph_t *topo = create_new_graph("3 node linerar topo");
+    node_t *R1 = create_graph_node(topo, "R1");
+    node_t *R2 = create_graph_node(topo, "R2");
+    node_t *R3 = create_graph_node(topo, "R3");
+
+    insert_link_between_two_nodes(R1, R2, "eth0/1", "eth0/2", 1);
+    insert_link_between_two_nodes(R2, R3, "eth0/3", "eth0/4", 1);
+
+    node_set_loopback_address(R1, "122.1.1.1");
+    node_set_intf_ip_address(R1, "eth0/1", "10.1.1.1", 24);
+    
+    node_set_loopback_address(R2, "122.1.1.2");
+    node_set_intf_ip_address(R2, "eth0/2", "10.1.1.2", 24);
+    node_set_intf_ip_address(R2, "eth0/3", "11.1.1.2", 24);
+
+    node_set_loopback_address(R3, "122.1.1.3");
+    node_set_intf_ip_address(R3, "eth0/4", "11.1.1.1", 24);
+
+    network_start_pkt_receiver_thread(topo);
+
+    return topo;
+}
+
+graph_t *
+build_square_topo(){
+
+#if 0     
+
+  +-----------+                      +--------+                            +--------+
+  |           |eth0/0     10.1.1.2/24|        | eth0/2               eth0/3|        |
+  | R1        +----------------------|  R2    +----------------------------+   R3   |
+  |122.1.1.1  |10.1.1.1/24     eth0/1|122.1.1.2|  20.1.1.1/24   20.1.1.2/24| 122.1.1.3|
+  +---+--+----+                      |        |                            +-       +
+         |eth0/7                     +--------+                            +----+---+
+         | 40.1.1.2/24                                                          | eth0/4   
+         |                                                                      |30.1.1.1/24
+         |                                                                      |
+         |                                                                      |
+         |                                                                      |
+         |                                                                      |
+         |                                                                      |
+         |                          +-----------+                               |
+         |                          |           |                               |
+         |                  eth0/6  |  R4       |                               |
+         +--------------------------+ 122.1.1.4 |                               |
+                         40.1.1.1/24|           +-------------------------------+
+                                    |           |eth0/5
+                                    +-----------+30.1.1.2/24
+
+config node R1 route /
+122.1.1.2 32 10.1.1.2 eth0/0
+122.1.1.3 32 10.1.1.2 eth0/0
+122.1.1.4 32 40.1.1.1 eth0/7
+cd
+conf node R2 route 122.1.1.3 32 20.1.1.2 eth0/2
+run node R1 ping 122.1.1.3
+
+
+#endif
+
+    graph_t *topo = create_new_graph("square Topo");
+    node_t *R1 = create_graph_node(topo, "R1");
+    node_t *R2 = create_graph_node(topo, "R2");
+    node_t *R3 = create_graph_node(topo, "R3");
+    node_t *R4 = create_graph_node(topo, "R4");
+
+    insert_link_between_two_nodes(R1, R2, "eth0/0", "eth0/1", 1);
+    insert_link_between_two_nodes(R2, R3, "eth0/2", "eth0/3", 1);
+    insert_link_between_two_nodes(R3, R4, "eth0/4", "eth0/5", 1);
+    insert_link_between_two_nodes(R4, R1, "eth0/6", "eth0/7", 1);
+
+    node_set_loopback_address(R1, "122.1.1.1");
+    node_set_intf_ip_address(R1, "eth0/0", "10.1.1.1", 24);
+    node_set_intf_ip_address(R1, "eth0/7", "40.1.1.2", 24);
+    
+    node_set_loopback_address(R2, "122.1.1.2");
+    node_set_intf_ip_address(R2, "eth0/1", "10.1.1.2", 24);
+    node_set_intf_ip_address(R2, "eth0/2", "20.1.1.1", 24);
+
+    node_set_loopback_address(R3, "122.1.1.3");
+    node_set_intf_ip_address(R3, "eth0/3", "20.1.1.2", 24);
+    node_set_intf_ip_address(R3, "eth0/4", "30.1.1.1", 24);
+    
+    node_set_loopback_address(R4, "122.1.1.4");
+    node_set_intf_ip_address(R4, "eth0/5", "30.1.1.2", 24);
+    node_set_intf_ip_address(R4, "eth0/6", "40.1.1.1", 24);
+    
+    network_start_pkt_receiver_thread(topo);
+
+    return topo;
+}

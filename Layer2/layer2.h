@@ -4,11 +4,12 @@
 #include "../net.h"
 #include "../gluethread/glthread.h"
 #include "../graph.h"
+#include "../tcpconst.h"
 #include <stdlib.h>
 
 #define ARP_BROAD_REQ   1
 #define ARP_REPLY       2
-#define ARP_MSG         806
+//define ARP_MSG         806
 #define BROADCAST_MAC   0xFFFFFFFFFFFF
 #define ETH_HDR_SIZE_EXCL_PAYLOAD (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
 #define ETH_FCS(eth_hdr_ptr, payload_size) *((unsigned int *)(((ethernet_hdr_t *)eth_hdr_ptr -> payload) + payload_size))
@@ -68,9 +69,33 @@ typedef struct arp_entry_{
     mac_add_t mac_addr;
     char oif_name[IF_NAME_SIZE];
     glthread_t arp_glue;
+
+    bool_t is_sane;
+    glthread_t arp_pending_list;
 } arp_entry_t;
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
+GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
 
+
+
+typedef struct arp_pending_entry_ arp_pending_entry_t;
+typedef void (* arp_processing_fn)(node_t *, interface_t *, arp_entry_t *, arp_pending_entry_t *);
+struct arp_pending_entry_{
+    glthread_t arp_pending_entry_glue;
+    arp_processing_fn cb;
+    u_int32_t pkt_size; /* Includeing eth hdr */
+    char pkt[0];
+
+};
+GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
+    arp_pending_entry_t, arp_pending_entry_glue);
+
+#define IS_ARP_ENTRIES_EQUAL(arp_entry_1, arp_entry_2)  \
+    (strncmp(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, IP_LEN) == 0 && \
+        strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, MAC_LEN) == 0 && \
+        strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
+        arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
+        arp_entry_1->is_sane == FALSE)
 void
 init_arp_table(arp_table_t **arp_table);
 
@@ -81,10 +106,13 @@ void
 clear_arp_table(arp_table_t *arp_table);
 
 void
+delete_arp_entry(arp_entry_t *arp_entry);
+void
 delete_arp_table_entry(arp_table_t *arp_table, char *ip_addr);
 
 bool_t
-arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry);
+arp_table_entry_add(arp_table_t *arp_table, arp_entry_t *arp_entry,
+                    glthread_t **arp_pending_list);
 
 void
 dump_arp_table(arp_table_t *arp_table);
@@ -93,6 +121,11 @@ void
 arp_table_update_from_arp_reply(arp_table_t *arp_table,
                                 arp_hdr_t *arp_hdr, interface_t *iif);
 
+static bool_t 
+arp_entry_sane(arp_entry_t *arp_entry){
+
+    return arp_entry->is_sane;
+}
 
 #pragma pack (push,1)
 /*Vlan 802.1q 4 byte hdr*/
@@ -115,7 +148,7 @@ typedef struct vlan_ethernet_hdr_{
 } vlan_ethernet_hdr_t;
 #pragma pack(pop)
 
-#define VLAN_8021Q_PROTO 1
+//define VLAN_8021Q_PROTO 1
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size) *((unsigned int *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr -> payload) + payload_size))
 #define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload))
 #define GET_COMMON_ETH_FCS(eth_hdr_ptr, payload_size) (is_pkt_vlan_tagged(ethernet_hdr) ? VLAN_ETH_FCS(ethernet_hdr, payload_size) \
@@ -313,4 +346,13 @@ node_set_intf_vlan_membsership(node_t *node, char *intf_name,
 void
 node_set_intf_l2_mode(node_t *node, char *intf_name, 
                         intf_l2_mode_t intf_l2_mode);
+
+void
+promote_pkt_to_layer2(node_t * node, interface_t *recv_interf,
+                        ethernet_hdr_t *ethernet_hdr, u_int32_t pkt_size);
+
+void
+demote_pkt_to_layer2(node_t * node, u_int32_t next_hop_ip,
+                    char *outgoing_intf,  char *pkt, u_int32_t pkt_size,
+                    int protocol_number);
 #endif /* __LAYER2__ */
