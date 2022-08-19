@@ -57,7 +57,7 @@ mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
 /* Delete and free the mtrie node */ 
 static void
-mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
+ mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     (void)data;
 

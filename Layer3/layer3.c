@@ -1037,15 +1037,15 @@ void
 tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
                     int L5_protocol_id, uint32_t dest_ip_address){
 
-        pkt_block_t *pkt_block = pkt_block_get_new(
-                            (uint8_t *)app_data, (pkt_size_t)data_size);
-        
-        pkt_block_set_starting_hdr_type(pkt_block, MISC_APP_HDR);
+    pkt_block_t *pkt_block = pkt_block_get_new(
+        (uint8_t *)app_data, (pkt_size_t)data_size);
 
-        pkt_block_reference(pkt_block);
+    pkt_block_set_starting_hdr_type(pkt_block, MISC_APP_HDR);
+
+    pkt_block_reference(pkt_block);
 
     demote_packet_to_layer3(node, pkt_block,
-            L5_protocol_id, dest_ip_address);
+                            L5_protocol_id, dest_ip_address);
 }
 
 void

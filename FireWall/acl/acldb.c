@@ -200,8 +200,6 @@ acl_create_new_access_list(char *access_list_name) {
     pthread_spin_init (&acc_lst->spin_lock, PTHREAD_PROCESS_PRIVATE);
     acc_lst->mtrie = (mtrie_t *)calloc(1, sizeof(mtrie_t));
     init_mtrie(acc_lst->mtrie, ACL_PREFIX_LEN);
-    acc_lst->clone_mtrie = (mtrie_t *)calloc(1, sizeof(mtrie_t));
-    init_mtrie(acc_lst->clone_mtrie, ACL_PREFIX_LEN);
     acc_lst->ref_count = 0;
     return acc_lst;
 }
@@ -216,25 +214,21 @@ access_list_add_acl_entry(
 
 
 bool
-acl_install_in_clone (access_list_t *access_list, acl_entry_t *acl_entry) {
+acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
 
-     return mtrie_insert_prefix(
-                    access_list->clone_mtrie,
-                    &acl_entry->prefix,
-                    &acl_entry->mask,
-                    ACL_PREFIX_LEN,
-                    (void *)acl_entry);
- }
+    bool rc;
 
-bool
-acl_install_in_active (access_list_t *access_list, acl_entry_t *acl_entry) {
+    pthread_spin_lock (&access_list->spin_lock);
 
-     return mtrie_insert_prefix(
+     rc = mtrie_insert_prefix(
                     access_list->mtrie,
                     &acl_entry->prefix,
                     &acl_entry->mask,
                     ACL_PREFIX_LEN,
                     (void *)acl_entry);
+
+    pthread_spin_unlock (&access_list->spin_lock);
+    return rc;
  }
 
  void 
@@ -243,8 +237,8 @@ acl_install_in_active (access_list_t *access_list, acl_entry_t *acl_entry) {
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->head));
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->glue));
     assert(!access_list->mtrie);
-     assert(!access_list->clone_mtrie);
     assert(access_list->ref_count == 0);
+    spin_lock_destroy(&access_list->spin_lock);
     free(access_list);
  }
 
@@ -266,7 +260,7 @@ acl_process_user_config (node_t *node,
         new_access_list = true;
     }
 
-    rc = acl_install_in_clone (access_list, acl_entry);
+    rc = acl_install (access_list, acl_entry);
 
     if (!rc) {
         printf ("Error : ACL Installation into Mtrie Failed\n");
@@ -276,8 +270,6 @@ acl_process_user_config (node_t *node,
         return false;
     }
 
-    access_list_atomic_swap_mtries (access_list);
-    assert(acl_install_in_clone (access_list, acl_entry));
     access_list_add_acl_entry (access_list, acl_entry);
 
     if (new_access_list) {
@@ -298,32 +290,26 @@ acl_process_user_config_for_deletion (
                 acl_entry_t *acl_entry) {
 
     bool rc = false;
-    void *acl_entry_in_mtrie1 = NULL;
-    void *acl_entry_in_mtrie2 = NULL;
+    void *acl_entry_in_mtrie = NULL;
     acl_entry_t *installed_acl_entry = NULL;
 
     acl_compile (acl_entry);
 
-   rc = mtrie_delete_prefix (access_list->clone_mtrie, 
+    pthread_spin_lock (&access_list->spin_lock);
+
+   rc = mtrie_delete_prefix (access_list->mtrie, 
                                             &acl_entry->prefix, 
                                             &acl_entry->mask,
-                                            &acl_entry_in_mtrie1);
+                                            &acl_entry_in_mtrie);
+
+    pthread_spin_unlock (&access_list->spin_lock);
 
     if (!rc) {
         printf ("Error : ACL Entry Do not Exist\n");
         return false;
     }
 
-    access_list_atomic_swap_mtries(access_list);
-
-    assert(mtrie_delete_prefix(access_list->clone_mtrie, 
-                                            &acl_entry->prefix, 
-                                            &acl_entry->mask,
-                                            &acl_entry_in_mtrie2));
-
-    assert(acl_entry_in_mtrie1 == acl_entry_in_mtrie2);
-
-    installed_acl_entry = (acl_entry_t *)acl_entry_in_mtrie1;
+    installed_acl_entry = (acl_entry_t *)acl_entry_in_mtrie;
 
     remove_glthread(&installed_acl_entry->glue);
 
@@ -353,9 +339,6 @@ access_list_delete_complete(access_list_t *access_list) {
     mtrie_destroy(access_list->mtrie);
     free(access_list->mtrie);
     access_list->mtrie = NULL;
-    mtrie_destroy(access_list->clone_mtrie);
-    free(access_list->clone_mtrie);
-    access_list->clone_mtrie = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -475,8 +458,10 @@ access_list_evaluate (access_list_t *acc_lst,
 
     bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
 
+    pthread_spin_lock (&acc_lst->spin_lock);
+
     hit_node = mtrie_longest_prefix_match_search(
-                    access_list_get_active_mtrie(acc_lst), &input);
+                            acc_lst->mtrie, &input);
 
     /* Deny by default */
     if (!hit_node) {
@@ -492,6 +477,7 @@ access_list_evaluate (access_list_t *acc_lst,
     goto done;
 
     done:
+    pthread_spin_unlock (&acc_lst->spin_lock);
     bitmap_free_internal(&input);
     return action;
 }
