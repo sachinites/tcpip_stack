@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../graph.h"
-#include "prefixlst.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "prefixlst.h"
 #include "../utils.h"
 #include "../CommandParser/libcli.h"
 #include "../CommandParser/cmdtlv.h"
@@ -66,6 +66,7 @@ prefix_lst_node_comp_fn (void *arg1, void *arg2) {
 
 bool
 prefix_list_add_rule (prefix_list_t *prefix_lst,
+                                   uint32_t seq_no,
                                    pfx_lst_result_t res,
                                    uint32_t prefix,
                                    uint8_t len,
@@ -87,11 +88,11 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
     if (pfx_lst_node_existing) {
         XFREE(pfx_lst_node);
         pfx_lst_node = NULL;
-        printf ("Error : Pfx list node already exists\n");
+        printf ("Error : This Prefix list rule already exists\n");
         return false;
     }
 
-    pfx_lst_node->seq_no = (prefix_lst->seq_no += 5);
+    pfx_lst_node->seq_no = !seq_no ? (prefix_lst->seq_no += PFX_LST_SEQ_NO_LAPS) : seq_no;
     pfx_lst_node->res = res;
 
     glthread_priority_insert (&prefix_lst->pfx_lst_head,
@@ -104,12 +105,22 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
 
 bool
 prefix_list_del_rule (prefix_list_t *prefix_lst,
-                                  uint32_t prefix,
-                                  uint8_t len,
-                                  uint8_t lb,
-                                  uint8_t ub) {
+                                  uint32_t seq_no) {
 
-    return true;
+    glthread_t *curr;
+    pfx_lst_node_t *pfx_lst_node;
+
+     ITERATE_GLTHREAD_BEGIN(&prefix_lst->pfx_lst_head, curr) {
+
+        pfx_lst_node = glue_to_pfx_lst_node(curr);
+        if (pfx_lst_node->seq_no == seq_no) {
+            remove_glthread(&pfx_lst_node->glue);
+           XFREE(pfx_lst_node);
+            return true;
+        }
+     } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr);
+
+    return false;
 }
 
 static void
@@ -249,9 +260,40 @@ prefix_lst_config_handler (param_t *param,
 
     node_t *node = node_get_node_by_name(topo, node_name);
 
+    prefix_list_t *prefix_lst = prefix_lst_lookup_by_name (&node->prefix_lst_db, pfx_lst_name);
+
+    /* Handle negation CLI Begin */
+    if (enable_or_disable == CONFIG_DISABLE) {
+
+        if (!prefix_lst) return -1;
+
+        if (seq_no) {
+            if (prefix_list_del_rule(prefix_lst, seq_no)) {
+                prefix_list_notify_clients(node, prefix_lst);
+                if (IS_GLTHREAD_LIST_EMPTY(&prefix_lst->pfx_lst_head)) {
+                    prefix_list_dereference(prefix_lst);
+                }
+                return 0;
+            }
+        } else {
+
+            if (prefix_list_dereference(prefix_lst) == 0) {
+                printf ("Delete Successful.\n");
+            }
+            else {
+                printf ("Error : Prefix List in Use, cannot delete\n");
+            }
+        }
+        return 0;
+    }
+    /* Handle negation CLI Done */
+
     pfx_lst_result_t res = (strcmp (res_str, "permit") == 0) ? PFX_LST_PERMIT : PFX_LST_DENY;
 
-    prefix_list_t *prefix_lst = prefix_lst_lookup_by_name (&node->prefix_lst_db, pfx_lst_name);
+    if (nw_prefix == NULL) {
+        printf ("Error : Incomplete Prefix List\n");
+        return -1;
+    }
 
     if (!prefix_lst) {
 
@@ -261,6 +303,7 @@ prefix_lst_config_handler (param_t *param,
     }
 
     if (!prefix_list_add_rule (prefix_lst,
+                                             seq_no,
                                              res, 
                                              tcp_ip_covert_ip_p_to_n(nw_prefix),
                                              len, lb, ub)) {
@@ -309,16 +352,18 @@ void prefix_list_cli_config_tree(param_t *param)
         libcli_register_param(param, &prefix_lst);
         {
             static param_t prefix_lst_name;
-            init_param(&prefix_lst_name, LEAF, NULL, NULL, NULL, STRING, "pfxlst-name", "prefix-list Name");
+            init_param(&prefix_lst_name, LEAF, NULL, prefix_lst_config_handler, NULL, STRING, "pfxlst-name", "prefix-list Name");
             libcli_register_param(&prefix_lst, &prefix_lst_name);
+            set_param_cmd_code(&prefix_lst_name, CMDCODE_CONFIG_PREFIX_LST);
             {
                 static param_t res;
                 init_param(&res, LEAF, NULL, NULL, prefix_lst_validate_input_result_value, STRING, "permit|deny", "prefix-list result [permit | deny]");
                 libcli_register_param(&prefix_lst_name, &res);
                 {
                     static param_t seq_no;
-                    init_param(&seq_no, LEAF, NULL, NULL, NULL, INT, "seq-no", "prefix-list Sequence No");
+                    init_param(&seq_no, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "seq-no", "prefix-list Sequence No");
                     libcli_register_param(&res, &seq_no);
+                    set_param_cmd_code(&seq_no, CMDCODE_CONFIG_PREFIX_LST);
                     {
                         static param_t nw_ip;
                         init_param(&nw_ip, LEAF, 0, 0, 0, IPV4, "nw-ip", "specify Network IPV4 Address");

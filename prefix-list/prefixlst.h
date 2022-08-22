@@ -8,6 +8,7 @@
 typedef glthread_t pfxlst_db;
 
 #define PFX_LST_NAME_LEN 64
+#define PFX_LST_SEQ_NO_LAPS 5
 
 typedef enum pfx_lst_result_ {
 
@@ -44,10 +45,10 @@ prefix_list_t *
 prefix_lst_lookup_by_name (pfxlst_db *pfxlstdb, unsigned char *pfxlst_name);
 
 bool
-prefix_list_add_rule (prefix_list_t *prefix_lst, pfx_lst_result_t res, uint32_t prefix, uint8_t len, int8_t lb, int8_t ub);
+prefix_list_add_rule (prefix_list_t *prefix_lst, uint32_t seq_no, pfx_lst_result_t res, uint32_t prefix, uint8_t len, int8_t lb, int8_t ub);
 
 bool
-prefix_list_del_rule (prefix_list_t *prefix_lst, uint32_t prefix, uint8_t len, uint8_t lb, uint8_t ub);
+prefix_list_del_rule (prefix_list_t *prefix_lst, uint32_t seq_no);
 
 void
 prefix_list_show (prefix_list_t *prefix_lst);

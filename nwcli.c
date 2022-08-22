@@ -580,8 +580,8 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                         if (rt_table->import_policy != prefix_lst) return 0;
                         if (!rt_table->import_policy) return 0;
                         prefix_list_dereference(rt_table->import_policy);
-                         rt_table->import_policy = NULL;
-                         break;
+                        rt_table->import_policy = NULL;
+                        break;
                     default:;
                 }
             }
