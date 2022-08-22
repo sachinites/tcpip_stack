@@ -81,7 +81,7 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
     pfx_lst_node->pfx_len = len;
 
     pfx_lst_node->lb = (lb == -1) ? len : lb;
-    pfx_lst_node->ub = ub;
+    pfx_lst_node->ub = (ub == -1) ? len : ub;
 
     pfx_lst_node_existing = prefix_lst_node_lookup (prefix_lst, pfx_lst_node);
 
@@ -454,7 +454,6 @@ prefix_lst_show_handler (param_t *param,
         {
              prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, pfx_lst_name);
              if (!prefix_lst) {
-                printf ("No such Prefix List Exist\n");
                 return -1;
              }
              prefix_list_show(prefix_lst);

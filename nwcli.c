@@ -99,8 +99,8 @@ typedef int (*cli_register_cb)(param_t *);
 static cli_register_cb
 	cli_register_cb_arr_config_node_node_name_protocol_level[] =
 	{
-		ddcp_config_cli_tree,
-		nmp_config_cli_tree,
+		//ddcp_config_cli_tree,
+		//nmp_config_cli_tree,
         isis_config_cli_tree,
 		
         /*  Add more CB here */
@@ -112,8 +112,8 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_show_node_node_name_protcol_level[] =
 	{
-		ddcp_show_cli_tree,
-		nmp_show_cli_tree,
+		//ddcp_show_cli_tree,
+		//nmp_show_cli_tree,
         isis_show_cli_tree,
 		
         /* Add more CB here */
@@ -136,7 +136,7 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_run_node_node_name_protocol_level[] =
 	{
-		ddcp_run_cli_tree,
+		//ddcp_run_cli_tree,
 		0
 		/* Add more CB here */
 	};
