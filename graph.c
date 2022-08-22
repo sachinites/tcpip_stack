@@ -130,6 +130,7 @@ create_graph_node(graph_t *graph, char *node_name){
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
 
     init_glthread(&node->access_lists_db);
+    init_glthread(&node->prefix_lst_db);
     init_glthread(&node->graph_glue);
     
     /* Start Control plane Thread/Scheduler */

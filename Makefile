@@ -54,6 +54,7 @@ OBJS=gluethread/glthread.o \
 		  flow/snp_flow.o \
 		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
+		  prefix-list/prefixlst.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -107,6 +108,9 @@ ted/ted.o:ted/ted.c
 
 flow/snp_flow.o:flow/snp_flow.c
 	${CC} ${CFLAGS} -c -I . flow/snp_flow.c -o flow/snp_flow.o
+
+prefix-list/prefixlst.o:prefix-list/prefixlst.c
+	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
@@ -265,6 +269,7 @@ clean:
 	rm -f Bitop/*.o
 	rm -f stack/*.o
 	rm -f packet-tracer/*.o
+	rm -f prefix-list/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:

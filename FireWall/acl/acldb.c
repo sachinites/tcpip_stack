@@ -127,12 +127,20 @@ acl_compile (acl_entry_t *acl_entry) {
 
     /* Src Port Range */
     /* Not Supported Yet, fill it 16bit prefix as zero, and 16 bit mask as  all 1s */
-    *prefix_ptr2 = 0;
-    *mask_ptr2 = htons(0xFFFF);
+    if (acl_entry->sport.lb == 0 && 
+         acl_entry->sport.ub == 0 ) {
+        *prefix_ptr2 = 0;
+        *mask_ptr2 = 0xFFFF;
+    }
+    else {
+        *prefix_ptr2 = htons(acl_entry->sport.lb);
+        *mask_ptr2 = 0;
+    }
+
      bytes_copied += sizeof(*prefix_ptr2);
      prefix_ptr2++; mask_ptr2++;
-    prefix_ptr4 = (uint32_t *)prefix_ptr2;
-    mask_ptr4 = (uint32_t *)mask_ptr2;
+     prefix_ptr4 = (uint32_t *)prefix_ptr2;
+     mask_ptr4 = (uint32_t *)mask_ptr2;
 
 
      /* Dst ip Address & Mask */
@@ -143,10 +151,18 @@ acl_compile (acl_entry_t *acl_entry) {
     prefix_ptr2 = (uint16_t *)prefix_ptr4;
     mask_ptr2 = (uint16_t *)mask_ptr4;
 
-    /* Drt Port Range */
+    /* Dst Port Range */
     /* Not Supported Yet, fill it 16bit prefix as zero, and 16 bit mask as  all 1s */
-    *prefix_ptr2 = 0;
-    *mask_ptr2 = htons(0xFFFF);
+    if (acl_entry->dport.lb == 0 && 
+         acl_entry->dport.ub == 0 ) {
+        *prefix_ptr2 = 0;
+        *mask_ptr2 = 0xFFFF;
+    }
+    else {
+        *prefix_ptr2 = htons(acl_entry->dport.lb);
+        *mask_ptr2 = 0;
+    }
+
      bytes_copied += sizeof(*prefix_ptr2);
      prefix_ptr2++; mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
@@ -238,7 +254,7 @@ acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->glue));
     assert(!access_list->mtrie);
     assert(access_list->ref_count == 0);
-    spin_lock_destroy(&access_list->spin_lock);
+    pthread_spin_destroy (&access_list->spin_lock);
     free(access_list);
  }
 
@@ -599,12 +615,9 @@ access_group_unconfig(node_t *node,
 /* ACL change notification */
 typedef void (*acl_change_cbk)(node_t *, access_list_t *);
 
-extern void isis_acl_change(node_t *node, access_list_t *access_lst);
-
-acl_change_cbk notif_arr[] = { isis_acl_change, 
-                                                  /*add_mode_callbacks_here,*/
-                                                  0,
-                                                };
+static acl_change_cbk notif_arr[] = { /*add_mode_callbacks_here,*/
+                                                            0,
+                                                          };
 
 void
 access_list_notify_clients(node_t *node, access_list_t *acc_lst) {

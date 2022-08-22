@@ -43,6 +43,7 @@
 #include "BitOp/bitmap.h"
 #include "BitOp/bitsop.h"
 #include "FireWall/acl/acldb.h"
+#include "prefix-list/prefixlst.h"
 
 #include "tcpconst.h"
 #include "graph.h"

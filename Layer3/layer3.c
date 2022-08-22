@@ -48,6 +48,7 @@
 #include "../FireWall/acl/acldb.h"
 #include "../mtrie/mtrie.h"
 #include "../pkt_block.h"
+#include "../prefix-list/prefixlst.h"
 
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
@@ -666,12 +667,42 @@ l3_route_insert_nexthop(l3_route_t *l3_route,
 	return true;
 }
 
+/* Return true if policy is passed, else false */
+
+static bool
+rt_table_evaluate_import_policy(rt_table_t *rt_table, l3_route_t *l3_route) {
+
+    uint32_t prefix;
+
+    if (!rt_table->import_policy) return true;
+
+    prefix = tcp_ip_covert_ip_p_to_n(l3_route->dest);
+
+    pfx_lst_result_t policy_res = prefix_list_evaluate (prefix, l3_route->mask, rt_table->import_policy) ;
+
+    switch (policy_res) {
+        case PFX_LST_DENY:
+            return false;
+        case PFX_LST_PERMIT:
+            return true;
+        case PFX_LST_SKIP:
+            return true;
+        case PFX_LST_UNKNOWN:
+            assert(0);
+    }
+    return false;
+}
+
 static bool
 _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 
     bool rc;
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
+
+    if (!rt_table_evaluate_import_policy(rt_table, l3_route)) {
+        return false;
+    }
 
    bin_ip = tcp_ip_covert_ip_p_to_n(l3_route->dest);
    bin_ip = htonl(bin_ip);

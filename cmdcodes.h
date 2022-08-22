@@ -81,4 +81,10 @@
 #define CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT 32 /* debug show node <node-name> mtrie rt */
 #define CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL 33 /* debug show node <node-name> mtrie acl <acl-name> */
 
+#define CMDCODE_CONFIG_PREFIX_LST   34 /* config node <node-name> prefix-list <name> <seq-no> <network> <mask> [le <N>] [ge <N>] */
+
+#define CMDCODE_SHOW_PREFIX_LST_ALL 35
+#define CMDCODE_SHOW_PREFIX_LST_ONE 36
+
+#define CMDCODE_CONF_RIB_IMPORT_POLICY 37  /* conf node <node-name> [no] rib <rib-name> import-policy <prefix-lst-name> */
 #endif /* __CMDCODES__ */

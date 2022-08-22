@@ -23,7 +23,7 @@ isis_config_handler(param_t *param,
     tlv_struct_t *tlv = NULL;
     char *node_name = NULL;
     char *if_grp_name = NULL;
-    const char *access_lst_name = NULL;
+    const char *prefix_lst_name = NULL;
     
     uint32_t ovl_timeout_val = 0;
 
@@ -37,8 +37,8 @@ isis_config_handler(param_t *param,
             ovl_timeout_val = atoi(tlv->value);
         else if (strncmp(tlv->leaf_id, "if-grp-name", strlen("if-grp-name")) ==0)
             if_grp_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "access-list-name", strlen("access-list-name")) ==0)
-            access_lst_name = tlv->value;
+        else if (strncmp(tlv->leaf_id, "prefix-list-name", strlen("prefix-list-name")) ==0)
+            prefix_lst_name = tlv->value;
         else
             assert(0);
    } TLV_LOOP_END;
@@ -109,18 +109,18 @@ isis_config_handler(param_t *param,
          case CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY:
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    return isis_config_import_policy(node, access_lst_name);
+                    return isis_config_import_policy(node, prefix_lst_name);
                 case CONFIG_DISABLE:
-                    return isis_unconfig_import_policy(node, access_lst_name);
+                    return isis_unconfig_import_policy(node, prefix_lst_name);
                 default: ;
             }
             break;
          case CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY:
              switch (enable_or_disable) {
              case CONFIG_ENABLE:
-                 return isis_config_export_policy(node, access_lst_name);
+                 return isis_config_export_policy(node, prefix_lst_name);
              case CONFIG_DISABLE:
-                 return isis_unconfig_export_policy(node, access_lst_name);
+                 return isis_unconfig_export_policy(node, prefix_lst_name);
              default:;
              }
              break;
@@ -351,7 +351,7 @@ isis_config_cli_tree(param_t *param) {
              //libcli_register_display_callback(&import_policy, access_list_show_all_brief);
              {
                  static param_t policy_name;
-                 init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "access-list-name",
+                 init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
                             ("Access List Name"));
                  libcli_register_param(&import_policy, &policy_name);
                  set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY);
@@ -364,8 +364,8 @@ isis_config_cli_tree(param_t *param) {
             // libcli_register_display_callback(&import_policy, access_list_show_all_brief);
             {
                 static param_t policy_name;
-                init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "access-list-name",
-                           ("Access List Name"));
+                init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
+                           ("Prefix List Name"));
                 libcli_register_param(&export_policy, &policy_name);
                 set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY);
             }

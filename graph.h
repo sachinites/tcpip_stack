@@ -117,6 +117,7 @@ struct node_ {
     unsigned char *print_buff;
 
     glthread_t access_lists_db;
+    glthread_t prefix_lst_db;
     
     /* List of route-maps created on this node*/
     glthread_t route_map_headtype;

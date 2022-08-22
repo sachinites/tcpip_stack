@@ -43,6 +43,7 @@
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "LinuxMemoryManager/uapi_mm.h"
+#include "prefix-list/prefixlst.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -54,6 +55,8 @@ extern int traceoptions_handler(param_t *param,
 extern param_t * policy_config_cli_tree () ;
 extern void acl_build_config_cli(param_t *root) ;
 extern void acl_build_show_cli(param_t *root) ;
+extern void prefix_list_cli_config_tree (param_t *param);
+extern void prefix_list_cli_show_tree(param_t *param) ;
 
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
@@ -490,6 +493,9 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
     char *gwip = NULL;
     char *mask_str = NULL;
     char *dest = NULL;
+    char *rib_name = NULL;
+    char *prefix_lst_name = NULL;
+
     int CMDCODE = -1;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf); 
@@ -508,6 +514,10 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
             mask_str = tlv->value;
         else if(strncmp(tlv->leaf_id, "oif", strlen("oif")) ==0)
             intf_name = tlv->value;
+        else if(strncmp(tlv->leaf_id, "rib-name", strlen("rib-name")) ==0)
+            rib_name = tlv->value;        
+        else if(strncmp(tlv->leaf_id, "prefix-lst-name", strlen("prefix-lst-name")) ==0)
+            prefix_lst_name = tlv->value;                   
         else
             assert(0);
 
@@ -547,6 +557,40 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                     ;
             }
             break;
+        case CMDCODE_CONF_RIB_IMPORT_POLICY:
+        {
+            if (strcmp(rib_name, "inet.0") == 0) {
+                rt_table_t *rt_table = NODE_RT_TABLE(node);
+                prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, prefix_lst_name);
+                if (!prefix_lst) {
+                    printf ("Error : Prefix List do not Exist\n");
+                    return -1;
+                }
+                switch (enable_or_disable) {
+                    case CONFIG_ENABLE:
+                        if (rt_table->import_policy == prefix_lst) return 0;
+                        if (rt_table->import_policy) {
+                            prefix_list_dereference(rt_table->import_policy);
+                            rt_table->import_policy = NULL;
+                        }
+                        rt_table->import_policy = prefix_lst;
+                        prefix_list_reference(prefix_lst);
+                        break;
+                    case CONFIG_DISABLE:
+                        if (rt_table->import_policy != prefix_lst) return 0;
+                        if (!rt_table->import_policy) return 0;
+                        prefix_list_dereference(rt_table->import_policy);
+                         rt_table->import_policy = NULL;
+                         break;
+                    default:;
+                }
+            }
+            else {
+                printf ("Error : Routing Table Support is inet.0\n");
+                return -1;
+            }
+        }
+        break;
         default:
             break;
     }
@@ -945,6 +989,8 @@ nw_init_cli(){
                  {
                      /* show CLIs for Access list mounted here */
                      acl_build_show_cli(&node_name);
+                     /* show CLIs for Prefix List are mounted here */
+                     prefix_list_cli_show_tree(&node_name);
                  }
 
 				 {
@@ -1131,6 +1177,32 @@ nw_init_cli(){
         {
             /* ACL CLIs are loaded */
             acl_build_config_cli(&node_name);
+
+            /* Prefix List CLI loaded */
+            prefix_list_cli_config_tree(&node_name);
+        }
+
+        {
+            /* conf node <node-name> rib <rib-name> import-policy <prefix-lst-name> */
+            static param_t rib;
+            init_param(&rib, CMD, "rib", 0, 0, INVALID, 0, "Routing Information Base rib");
+            libcli_register_param(&node_name, &rib);
+            {
+                static param_t rib_name;
+                init_param(&rib_name, LEAF, 0, 0, NULL, STRING, "rib-name", "Routing Table Name");
+                libcli_register_param(&rib, &rib_name);
+                {
+                    static param_t import_pol;
+                    init_param(&import_pol, CMD, "import-policy", 0, 0, INVALID, 0, "Import Policy Prefix Lst");
+                    libcli_register_param(&rib_name, &import_pol);
+                    {
+                        static param_t prefix_lst_name;
+                        init_param(&prefix_lst_name, LEAF, 0, l3_config_handler, NULL, STRING, "prefix-lst-name", "Prefix List Name");
+                        libcli_register_param(&import_pol, &prefix_lst_name);
+                        set_param_cmd_code(&prefix_lst_name, CMDCODE_CONF_RIB_IMPORT_POLICY);
+                    }
+                }                
+            }
         }
 
         {

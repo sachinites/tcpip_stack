@@ -101,6 +101,8 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(ip_payload_size)  \
     (5 + (short)(ip_payload_size/4) + (short)((ip_payload_size % 4) ? 1 : 0))
 
+typedef struct prefix_lst_ prefix_list_t;
+
 typedef struct rt_table_{
 
     mtrie_t route_list;
@@ -111,6 +113,8 @@ typedef struct rt_table_{
     task_t *notif_job;
     task_t *flash_job;
     node_t *node;
+    prefix_list_t *import_policy;
+    prefix_list_t *export_policy;
     glthread_t flash_request_list_head;
     pthread_rwlock_t rwlock;
 } rt_table_t;

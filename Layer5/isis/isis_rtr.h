@@ -7,6 +7,7 @@
 
 typedef struct isis_adv_data_ isis_adv_data_t;
 typedef struct ted_db_ ted_db_t;
+typedef struct prefix_lst_ prefix_list_t;
 
 typedef struct isis_timer_data_ {
 
@@ -87,9 +88,9 @@ typedef struct node_info_ {
     /* SPF log list */
     isis_spf_log_container_t spf_logc;
     /* import policy */
-    access_list_t *import_policy;
+    prefix_list_t *import_policy;
     /* export policy */
-    access_list_t *export_policy;
+    prefix_list_t *export_policy;
     /* Dummy LSP PKT for lookup */
     isis_lsp_pkt_t *lsp_dummy_pkt; 
 } isis_node_info_t;
