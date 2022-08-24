@@ -112,11 +112,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
 
-        for(i = 0; i < MAX_NXT_HOPS; i++){
+        for (i = 0; i < MAX_NXT_HOPS; i++){
 
             nexthop = spf_result->nexthops[i];
 
-            if(!nexthop) continue;
+            if (!nexthop) continue;
 
             if (isis_evaluate_policy(spf_root, 
                                                     node_info->import_policy,
@@ -136,7 +136,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 }
 
 void
-isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
+isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
     /*Initialize direct nbrs*/
     ted_node_t *nbr = NULL;
@@ -182,7 +182,7 @@ isis_initialize_direct_nbrs(node_t *spf_root, ted_node_t *ted_spf_root){
 #define ISIS_SPF_LOGGING 0
 
 static void
-isis_spf_record_result(ted_node_t *spf_root, 
+isis_spf_record_result (ted_node_t *spf_root, 
                                     ted_node_t *processed_node){ /*Dequeued Node*/
 
     isis_spf_data_t *spf_root_spf_data;
@@ -198,7 +198,7 @@ isis_spf_record_result(ted_node_t *spf_root,
 
     /*Record result*/
     /*This result must not be present already*/
-    assert(!isis_spf_lookup_spf_result_by_node(spf_root, processed_node));
+    assert (!isis_spf_lookup_spf_result_by_node(spf_root, processed_node));
 
     isis_spf_result_t *spf_result = XCALLOC(0, 1, isis_spf_result_t);
     /*We record three things as a part of spf result for a node in 
@@ -409,7 +409,7 @@ static void
  }
 
 static void
-isis_compute_spf(node_t *spf_root){
+isis_compute_spf (node_t *spf_root){
 
     ted_node_t *node, *nbr;
     ted_node_t *ted_spf_root;
@@ -464,7 +464,7 @@ isis_compute_spf(node_t *spf_root){
             isis_spf_data_offset_from_priority_thread_glue);
     /*Step 3 : End*/
 
-    /*Iterate untill the PQ go empty. Currently it has only spf_root*/
+    /*Iterate until the PQ go empty. Currently it has only spf_root*/
     while(!IS_GLTHREAD_LIST_EMPTY(&priority_lst)){
 
         /*Step 4 : Begin*/

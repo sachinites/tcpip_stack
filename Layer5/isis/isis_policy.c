@@ -157,7 +157,7 @@ isis_evaluate_policy (node_t *node, prefix_list_t *policy, uint32_t dest_nw, uin
 
     uint32_t subnet_mask = ~0;
 
-    if (!policy) return true;
+    if (!policy) return PFX_LST_SKIP;
 
     if (mask) {
         subnet_mask = subnet_mask << (32 - mask);
