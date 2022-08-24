@@ -61,7 +61,7 @@ prefix_lst_node_comp_fn (void *arg1, void *arg2) {
 
     if (new_node->seq_no == existing_node->seq_no) return 0;
 
-    return new_node->seq_no - existing_node->seq_no;
+    return  new_node->seq_no - existing_node->seq_no;
 }
 
 bool
@@ -375,7 +375,7 @@ void prefix_list_cli_config_tree(param_t *param)
                             set_param_cmd_code(&nw_mask, CMDCODE_CONFIG_PREFIX_LST);
                             {
                                 static param_t ge;
-                                init_param(&ge, CMD, "ge", 0, 0, STRING, 0, "specify greater than equal ");
+                                init_param(&ge, CMD, "ge", 0, 0, INVALID, 0, "specify greater than equal ");
                                 libcli_register_param(&nw_mask, &ge);
                                 {
                                     static param_t gen;
@@ -384,7 +384,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                     set_param_cmd_code(&gen, CMDCODE_CONFIG_PREFIX_LST);
                                     {
                                         static param_t le;
-                                        init_param(&le, CMD, "le", 0, 0, STRING, 0, "specify less than equal ");
+                                        init_param(&le, CMD, "le", 0, 0, INVALID, 0, "specify less than equal ");
                                         libcli_register_param(&gen, &le);
                                         {
                                             static param_t len;
@@ -397,7 +397,7 @@ void prefix_list_cli_config_tree(param_t *param)
                             }
                             {
                                 static param_t le;
-                                init_param(&le, CMD, "le", 0, 0, STRING, 0, "specify less than equal ");
+                                init_param(&le, CMD, "le", 0, 0, INVALID, 0, "specify less than equal ");
                                 libcli_register_param(&nw_mask, &le);
                                 {
                                     static param_t len;
