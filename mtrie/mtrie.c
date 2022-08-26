@@ -69,6 +69,16 @@ static void
     mtrie->N--;
 }
 
+/* Delete and free the mtrie node */ 
+static void
+ mtrie_node_delete_with_data(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
+
+    (void)data;
+    free(node->data);
+     mtrie_node_delete(mtrie, node, data);
+}
+
+
 mtrie_node_t *
 mtrie_create_new_node(uint16_t prefix_len) {
 
@@ -535,6 +545,15 @@ void mtrie_destroy(mtrie_t *mtrie) {
     assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
     mtrie->root = NULL;
 }
+
+void mtrie_destroy_with_app_data (mtrie_t *mtrie) {
+
+   mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete_with_data, NULL);
+    free_stack(mtrie->stack);
+    assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
+    mtrie->root = NULL;
+}
+
 
 /* If appln ever make a call to this API, make sure appln to call mtrie_resurrect()
     immediately after traversing the mtrie */

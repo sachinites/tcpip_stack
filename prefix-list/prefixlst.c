@@ -288,6 +288,11 @@ prefix_lst_config_handler (param_t *param,
     }
     /* Handle negation CLI Done */
 
+    if (nw_prefix == NULL || res_str == NULL) {
+        printf ("Error : Incomplete Prefix List\n");
+        return -1;
+    }
+
     pfx_lst_result_t res = (strcmp (res_str, "permit") == 0) ? PFX_LST_PERMIT : PFX_LST_DENY;
 
     if (nw_prefix == NULL) {

@@ -8,6 +8,8 @@
 #include "isis_flood.h"
 #include "isis_lspdb.h"
 #include "isis_spf.h"
+#include "isis_policy.h"
+#include "isis_tlv_struct.h"
 
 bool
 isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
@@ -185,12 +187,16 @@ isis_create_fresh_lsp_pkt(node_t *node) {
     isis_pkt_hdr_t *lsp_pkt_hdr;
     bool include_on_demand_tlv;
     bool is_proto_shutting_down;
+    bool advertise_exported_routes;
     size_t lsp_pkt_size_estimate = 0;
+    size_t bytes_filled = 0;
+    byte* temp = NULL;
     
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     create_purge_lsp = false;
     include_on_demand_tlv = false;
+    advertise_exported_routes = false;
     is_proto_shutting_down = isis_is_protocol_shutdown_in_progress(node);
 
     /* Dont use the fn isis_is_protocol_enable_on_node( ) because
@@ -228,6 +234,12 @@ isis_create_fresh_lsp_pkt(node_t *node) {
         lsp_pkt_size_estimate += TLV_OVERHEAD_SIZE + 1;
     }
 
+    if (!isis_is_overloaded(node, NULL)) {
+
+        lsp_pkt_size_estimate += isis_size_requirement_for_exported_routes(node);
+        advertise_exported_routes = true;
+    }
+
     if (lsp_pkt_size_estimate > MAX_PACKET_BUFFER_SIZE) {
         return;
     }
@@ -251,6 +263,9 @@ TLV_ADD_DONE:
     memset (eth_hdr->src_mac.mac, 0, sizeof(mac_add_t));
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
     eth_hdr->type = ISIS_ETH_PKT_TYPE;
+    bytes_filled += sizeof (eth_hdr->src_mac.mac) + 
+                              sizeof (eth_hdr->dst_mac.mac) + 
+                              sizeof (eth_hdr->type);
 
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
@@ -268,6 +283,7 @@ TLV_ADD_DONE:
     }
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
+    bytes_filled += sizeof (isis_pkt_hdr_t);
     
     if (!is_proto_shutting_down) {
 
@@ -276,7 +292,12 @@ TLV_ADD_DONE:
                                         ISIS_TLV_HOSTNAME,
                                         NODE_NAME_SIZE, node->node_name);
 
+        bytes_filled += NODE_NAME_SIZE + TLV_OVERHEAD_SIZE;
+
+        temp = lsp_tlv_buffer;
         lsp_tlv_buffer = isis_encode_all_nbr_tlvs(node, lsp_tlv_buffer);
+
+        bytes_filled += (size_t)(lsp_tlv_buffer - temp);
 
         /* On Demand TLV insertion */
         if (include_on_demand_tlv) {
@@ -284,7 +305,17 @@ TLV_ADD_DONE:
             lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
                                              ISIS_TLV_ON_DEMAND,
                                              1, (char *)&true_f);
+
+            bytes_filled += 1 + TLV_OVERHEAD_SIZE;
         }
+    }
+
+    if (advertise_exported_routes) {
+
+        /* Fill the LSP to advertise exported routes */
+        bytes_filled += isis_advertise_exported_routes (
+                                        node, lsp_tlv_buffer,  
+                                        lsp_pkt_size_estimate - bytes_filled);
     }
     
     SET_COMMON_ETH_FCS(eth_hdr, lsp_pkt_size_estimate, 0);
@@ -466,7 +497,7 @@ isis_print_lsp_pkt(byte *buff,
             case ISIS_TLV_HOSTNAME:
                 rc += sprintf(buff + rc, "\tTLV%d Host-Name : %s\n", 
                         tlv_type, tlv_value);
-            break;
+                break;
             case ISIS_IS_REACH_TLV:
                 rc += isis_print_formatted_nbr_tlv22(buff + rc, 
                         tlv_value - TLV_OVERHEAD_SIZE,
@@ -476,6 +507,10 @@ isis_print_lsp_pkt(byte *buff,
                 rc += sprintf(buff + rc,"\tTLV%d On-Demand TLV : %hhu\n",
                         tlv_type, *(uint8_t *)tlv_value);
                 break;
+            case ISIS_TLV_IP_REACH:
+                rc += isis_print_formatted_tlv130(buff + rc, 
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,

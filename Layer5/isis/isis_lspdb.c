@@ -7,6 +7,7 @@
 #include "isis_events.h"
 #include "isis_adjacency.h"
 #include "isis_ted.h"
+#include "isis_tlv_struct.h"
 
 void
 isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
@@ -632,6 +633,11 @@ isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
             break;
             case ISIS_IS_REACH_TLV:
                  rc += isis_print_formatted_nbr_tlv22( buff + rc,
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_IP_REACH:
+                rc += isis_print_formatted_tlv130(buff + rc, 
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;

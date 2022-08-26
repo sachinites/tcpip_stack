@@ -93,6 +93,8 @@ typedef struct node_info_ {
     prefix_list_t *export_policy;
     /* Dummy LSP PKT for lookup */
     isis_lsp_pkt_t *lsp_dummy_pkt; 
+    /* Exported Route Tree */
+    mtrie_t exported_routes;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

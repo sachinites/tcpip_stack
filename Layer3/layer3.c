@@ -374,6 +374,9 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
                             &prefix_bm,
                             &mask_bm);
 
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+    
     if (!node) return NULL;
 
     return (l3_route_t *)node->data;

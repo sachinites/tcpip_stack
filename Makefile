@@ -49,6 +49,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_layer2map.o \
 		  Layer5/isis/isis_ted.o \
 		  Layer5/isis/isis_policy.o \
+		  Layer5/isis/isis_tlv_struct.o \
 		  ted/ted.o \
 		  LinuxMemoryManager/mm.o \
 		  flow/snp_flow.o \
@@ -102,6 +103,9 @@ Layer5/isis/isis_ted.o:Layer5/isis/isis_ted.c
 
 Layer5/isis/isis_policy.o:Layer5/isis/isis_policy.c
 	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_policy.c -o Layer5/isis/isis_policy.o
+
+Layer5/isis/isis_tlv_struct.o:Layer5/isis/isis_tlv_struct.c
+	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_tlv_struct.c -o Layer5/isis/isis_tlv_struct.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o

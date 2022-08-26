@@ -79,7 +79,8 @@ isis_check_delete_node_info(node_t *node) {
     /*Hooked up Data Structures should be empty */
     assert (avltree_is_empty(&node_info->intf_grp_avl_root));
     assert(!node_info->ted_db);
-    
+    assert(!node_info->exported_routes.root);
+
     /* Timers */
     assert (!node_info->periodic_lsp_flood_timer);
     assert (!node_info->reconc.reconciliation_timer);
@@ -102,6 +103,7 @@ isis_protocol_shutdown_now (node_t *node) {
     }
 
     node_info->event_control_flags = 0;
+    mtrie_destroy(&node_info->exported_routes);
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
 
@@ -342,6 +344,7 @@ isis_init(node_t *node ) {
     ted_init_teddb(node_info->ted_db, 0);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
+    init_mtrie(&node_info->exported_routes, 32);
 
     isis_start_lsp_pkt_periodic_flooding(node);
 
@@ -653,9 +656,38 @@ isis_has_routes(node_t *node) {
 static void
  isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
 
+    isis_node_info_t *node_info;
+
      sprintf(tlb, "Recv notif for Route %s/%d with code %d, ref_count = %d\n",
         l3route->dest, l3route->mask, l3route->rt_flags, l3route->ref_count);
      tcp_trace(node, 0, tlb);
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info->export_policy) {
+        return;
+    }
+
+    nxthop_proto_id_t nxthop_proto = 
+        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
+
+    /* Reject routes which ISIS already knows */
+    if (l3route->nexthops[nxthop_proto][0]) {
+        sprintf(tlb, "Export Policy : Route %s/%d already known to ISIS\n", l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
+        return;
+    }
+
+    if (isis_evaluate_policy(node,
+                                            node_info->export_policy,
+                                            tcp_ip_covert_ip_p_to_n( l3route->dest), l3route->mask) != PFX_LST_PERMIT) {
+        
+        sprintf(tlb, "Export Policy : Route %s/%d rejected due to export policy.\n", l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
+        return;
+    }
+
+    isis_export_route (node, l3route);
  }
 
 void

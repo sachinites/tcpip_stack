@@ -2,6 +2,7 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_policy.h"
+#include "isis_tlv_struct.h"
 
 extern void
 isis_ipv4_rt_notif_cbk (
@@ -124,7 +125,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     if (!node_info)
         return 0;
 
-    if (!node_info->import_policy)
+    if (!node_info->export_policy)
         return 0;
 
     if (prefix_lst_name) {
@@ -146,7 +147,9 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
 
     prefix_list_dereference(node_info->export_policy);
     node_info->export_policy = NULL;
-    nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+    mtrie_destroy_with_app_data(&node_info->exported_routes);
+    init_mtrie(&node_info->exported_routes, 32);
+    isis_schedule_lsp_pkt_generation (node, isis_event_admin_config_changed);
     return 0;
 }
 
@@ -193,3 +196,226 @@ isis_prefix_list_change(node_t *node, prefix_list_t *prefix_list) {
     }
 }
 
+static isis_exported_rt_t *
+isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
+
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
+    isis_node_info_t *node_info;
+
+    bin_ip = tcp_ip_covert_ip_p_to_n (l3route->dest);
+    bin_ip = htonl(bin_ip);
+
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3route->mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
+
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
+                            &node_info->exported_routes,
+                            &prefix_bm,
+                            &mask_bm);
+
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+
+    if (mnode && mnode->data) {
+        return ( isis_exported_rt_t *)(mnode->data);
+    }
+
+    return NULL;
+}
+
+
+isis_exported_rt_t *
+isis_export_route (node_t *node, l3_route_t *l3route) {
+
+    isis_node_info_t *node_info;
+    isis_exported_rt_t *exported_rt;
+    uint32_t bin_ip, bin_mask;
+    bitmap_t prefix_bm, mask_bm;
+
+    sprintf(tlb, "Export Policy : Exporting Route %s/%d\n", l3route->dest, l3route->mask);
+    tcp_trace(node, 0, tlb);
+
+    if (exported_rt = isis_is_route_exported (node, l3route)) {
+
+        if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {
+
+            isis_unexport_route (node, l3route);
+            isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
+        }
+
+        else if (IS_BIT_SET (l3route->rt_flags, RT_ADD_F)) {
+           /* No Action */
+        }
+
+        else if (IS_BIT_SET (l3route->rt_flags, RT_UPDATE_F)) {
+            /* No Action */
+        }
+        return exported_rt;
+    }
+
+    exported_rt = (isis_exported_rt_t *)XCALLOC(0, 1, isis_exported_rt_t);
+    exported_rt->prefix = tcp_ip_covert_ip_p_to_n (l3route->dest);
+    exported_rt->mask = l3route->mask;
+    exported_rt->metric = ISIS_DEFAULT_INTF_COST;
+
+    node_info = ISIS_NODE_INFO(node);
+    bin_ip = tcp_ip_covert_ip_p_to_n(l3route->dest);
+    bin_ip = htonl(bin_ip);
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3route->mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
+
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    if (!mtrie_insert_prefix(&node_info->exported_routes,
+                                            &prefix_bm,
+                                            &mask_bm,
+                                            32,
+                                            (void *)exported_rt)) {
+        
+        sprintf(tlb, "Export Policy : Exporting Route %s/%d failed\n", l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
+        bitmap_free_internal(&prefix_bm);
+        bitmap_free_internal(&mask_bm);
+        XFREE(exported_rt);
+        return NULL;
+    }
+
+    isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+    return exported_rt;
+}
+
+bool
+isis_unexport_route (node_t *node, l3_route_t *l3route) {
+
+
+    void *exported_rt_data;
+    uint32_t bin_ip, bin_mask;
+    isis_node_info_t *node_info;
+    bitmap_t prefix_bm, mask_bm;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return false;
+
+    sprintf(tlb, "Export Policy : UnExporting Route %s/%d\n", l3route->dest, l3route->mask);
+    tcp_trace(node, 0, tlb);
+
+    bin_ip = tcp_ip_covert_ip_p_to_n (l3route->dest);
+    bin_ip = htonl(bin_ip);
+
+    bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3route->mask);
+    bin_mask = ~bin_mask;
+    bin_mask = htonl(bin_mask);
+
+    bitmap_init(&prefix_bm, 32);
+    bitmap_init(&mask_bm, 32);
+
+    prefix_bm.bits[0] = bin_ip;
+    mask_bm.bits[0] = bin_mask;
+
+    if (!mtrie_delete_prefix(
+                &node_info->exported_routes,
+                &prefix_bm,
+                &mask_bm, &exported_rt_data)) {
+
+        bitmap_free_internal(&prefix_bm);
+        bitmap_free_internal(&mask_bm);
+        return false;
+    }
+
+    assert(exported_rt_data);
+    XFREE(exported_rt_data);
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+    isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
+    sprintf(tlb, "Export Policy : UnExporting Route %s/%d is successful\n", l3route->dest, l3route->mask);
+    tcp_trace(node, 0, tlb);
+    return true;
+}
+
+size_t
+isis_size_requirement_for_exported_routes (node_t *node) {
+
+    glthread_t *curr = NULL;
+    isis_node_info_t *node_info;
+    size_t size_required = 0;
+
+    const size_t tlv_unit_size = 
+        sizeof (isis_tlv_130_t) + TLV_OVERHEAD_SIZE;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return 0;
+
+    ITERATE_GLTHREAD_BEGIN(&node_info->exported_routes.list_head, curr){
+
+        size_required +=  tlv_unit_size;
+    }ITERATE_GLTHREAD_END(&node_info->exported_routes.list_head, curr);
+
+    return size_required;
+}
+
+size_t
+isis_advertise_exported_routes (node_t *node, byte *lsp_tlv_buffer, size_t space_remaining) {
+
+    glthread_t *curr = NULL;
+    size_t bytes_encoded = 0;
+    isis_node_info_t *node_info;
+    mtrie_node_t *mnode;
+    isis_exported_rt_t *exported_rt;
+    isis_tlv_130_t  tlv_130_data;
+
+    const size_t tlv_unit_size = 
+        sizeof (isis_tlv_130_t) + TLV_OVERHEAD_SIZE;
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return 0;
+
+    ITERATE_GLTHREAD_BEGIN(&node_info->exported_routes.list_head, curr){
+
+        mnode = list_glue_to_mtrie_node(curr);
+        exported_rt = (isis_exported_rt_t *)mnode->data;
+        memset (&tlv_130_data, 0, sizeof(tlv_130_data));
+        tlv_130_data.prefix = htonl(exported_rt->prefix);
+        tlv_130_data.mask = exported_rt->mask;
+        tlv_130_data.metric = htonl(exported_rt->metric);
+        tlv_130_data.flags |=  ISIS_EXTERN_ROUTE_F;
+
+        if (space_remaining >= tlv_unit_size) {
+
+          lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
+                                        ISIS_TLV_IP_REACH,
+                                        sizeof(isis_tlv_130_t), 
+                                        (byte *)&tlv_130_data);
+
+            bytes_encoded += tlv_unit_size;
+            space_remaining -= tlv_unit_size;
+        }
+        else {
+            sprintf(tlb, "FATAL : LSP Pkt ran out of space\n", ISIS_LSPDB_MGMT);
+            tcp_trace(node, 0 , tlb);            
+            return bytes_encoded;
+        }
+
+    } ITERATE_GLTHREAD_END(&node_info->exported_routes.list_head, curr);
+
+    return bytes_encoded;
+}

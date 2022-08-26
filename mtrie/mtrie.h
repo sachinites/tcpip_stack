@@ -59,6 +59,7 @@ mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix
 mtrie_node_t *mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard);
 bool mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) ;
 void mtrie_destroy(mtrie_t *mtrie) ;
+void mtrie_destroy_with_app_data (mtrie_t *mtrie);
 void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
                                                          void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
