@@ -88,7 +88,10 @@ static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
     char ip_addr[16];
+    l3_route_t *l3route;
     isis_node_info_t *node_info;
+    uint32_t prefix32bit, mask32bit;
+    ted_prefix_t *ted_prefix, *ted_prefix_curr;
 
     rt_table_t *rt_table = 
         NODE_RT_TABLE(spf_root);
@@ -108,21 +111,25 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     nexthop_t *nexthop = NULL;
     isis_spf_data_t *spf_data = (isis_spf_data_t *)(ISIS_NODE_SPF_DATA(ted_spf_root));
 
+    nxthop_proto_id_t nxthop_proto = 
+        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
+
     ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
+
+        /* Router ID */
+        if (isis_evaluate_policy(spf_root, 
+                                              node_info->import_policy,
+                                              spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
+            continue;
+        }
 
         for (i = 0; i < MAX_NXT_HOPS; i++){
 
             nexthop = spf_result->nexthops[i];
 
-            if (!nexthop) continue;
-
-            if (isis_evaluate_policy(spf_root, 
-                                                    node_info->import_policy,
-                                                    spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
-                continue;
-            }
+            if (!nexthop) break;
 
             rt_table_add_route(rt_table, 
                     tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32, 
@@ -131,6 +138,95 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     PROTO_ISIS);
             count++;
         }
+
+            /* Exported Prefixes */
+            
+             ITERATE_AVL_TREE_BEGIN(&spf_result->node->prefix_tree_root, ted_prefix_curr){
+
+                    ted_prefix = avltree_container_of(ted_prefix_curr, ted_prefix_t, avl_glue);
+                    
+                    if (isis_evaluate_policy(spf_root, 
+                                                    node_info->import_policy,
+                                                    ted_prefix->prefix, ted_prefix->mask) == PFX_LST_DENY){
+                        continue;
+                    }
+
+                    mask32bit = tcp_ip_convert_dmask_to_bin_mask (ted_prefix->mask);
+                    prefix32bit = ted_prefix->prefix & mask32bit;
+
+                    l3route = rt_table_lookup_exact_match(rt_table, 
+                                        tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
+                                        ted_prefix->mask);
+
+                    /* Case 1 : No L3 route present in RIB by ISIS */
+                    if (!l3route ||  !l3route->nexthops[nxthop_proto][0] ) {
+
+                        for (i = 0; i < MAX_NXT_HOPS; i++){
+                            
+                            nexthop = spf_result->nexthops[i];
+                            if (!nexthop) break;
+
+                            rt_table_add_route(rt_table, 
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
+                                    ted_prefix->mask, 
+                                    nexthop->gw_ip, nexthop->oif, 
+                                    spf_result->spf_metric + ted_prefix->metric,
+                                    PROTO_ISIS);
+                             count++;
+                        }
+
+                        continue;
+                    }
+
+                        
+                    /* Case 2 : Better route already present in RIB */
+                    if (l3route->spf_metric[nxthop_proto] < 
+                            (spf_result->spf_metric + ted_prefix->metric)) {
+
+                        continue;
+                    }
+
+                    /* Case 3 : IF new route is a better route, then replace the route in routing table*/
+                    if (l3route->spf_metric[nxthop_proto] > 
+                            (spf_result->spf_metric + ted_prefix->metric)) {
+                        
+                        rt_table_delete_route (rt_table, 
+                                 tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), 
+                                 ted_prefix->mask, 
+                                 PROTO_ISIS);
+
+                        for (i = 0; i < MAX_NXT_HOPS; i++){
+
+                            nexthop = spf_result->nexthops[i];
+                            if (!nexthop) break;
+
+                            rt_table_add_route(rt_table, 
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
+                                    ted_prefix->mask, 
+                                    nexthop->gw_ip, nexthop->oif, 
+                                    spf_result->spf_metric + ted_prefix->metric,
+                                    PROTO_ISIS);
+                             count++;
+                        }
+                        continue;
+                    }
+
+                    /* Case 4: ECMP case, merge the nexthops */
+                    for (i = 0; i < MAX_NXT_HOPS; i++) {
+
+                        nexthop = spf_result->nexthops[i];
+                        if (!nexthop) break;
+
+                        rt_table_add_route(rt_table, 
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
+                                    ted_prefix->mask, 
+                                    nexthop->gw_ip, nexthop->oif, 
+                                    spf_result->spf_metric + ted_prefix->metric,
+                                    PROTO_ISIS);
+                         count++;
+                    }
+             } ITERATE_AVL_TREE_END;
+
     } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
     return count;
 }

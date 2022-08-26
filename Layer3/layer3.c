@@ -349,6 +349,7 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
     pthread_rwlock_init(&(*rt_table)->rwlock, NULL);
 }
 
+/* MP Unsafe */
 l3_route_t *
 rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
     
@@ -377,9 +378,13 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
     
-    if (!node) return NULL;
+    if (!node) {
+        return NULL;
+    }
 
-    return (l3_route_t *)node->data;
+    l3_route = (l3_route_t *)node->data;
+
+    return l3_route;
 }
 
 void
@@ -510,7 +515,8 @@ rt_table_delete_route(
     l3_route_unlock(l3_route);
 }
 
-/*Look up L3 routing table using longest prefix match*/
+/*Look up L3 routing table using longest prefix match
+    MP Unsafe */
 l3_route_t *
 l3rib_lookup_lpm(rt_table_t *rt_table, 
                                uint32_t dest_ip){

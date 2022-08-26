@@ -250,7 +250,6 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {
 
             isis_unexport_route (node, l3route);
-            isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
         }
 
         else if (IS_BIT_SET (l3route->rt_flags, RT_ADD_F)) {

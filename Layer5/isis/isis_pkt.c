@@ -405,8 +405,8 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
                 4   +                /* Data length of ISIS_TLV_IF_IP which is 16*/
                 4   +                /* Data length of ISIS_TLV_IF_INDEX which is 4*/
                 4   +                /* Data length for ISIS_ISIS_TLV_HOLD_TIME */
-                4   +                 /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
-                6;                     /* MAc Address */
+                4   +                /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
+                6;                    /* MAc Address */
 
     *hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
                                   eth_hdr_playload_size;

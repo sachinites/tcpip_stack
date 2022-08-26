@@ -1,6 +1,8 @@
 #ifndef __TED__
 #define __TED__
 
+#include "../Tree/libtree.h"
+
 #define TEDN_MAX_INTF_PER_NODE   (MAX_INTF_PER_NODE + 1)
 #define TED_PROTO_MAX   3
 #define TED_ISIS_PROTO  0
@@ -26,6 +28,15 @@ typedef struct ted_link_ {
     void *proto_data[TED_PROTO_MAX];
 } ted_link_t;
 
+typedef struct ted_prefix_ {
+
+    uint32_t prefix;
+    uint8_t mask;
+    uint32_t metric;
+    uint8_t flags;
+    avltree_node_t avl_glue;
+}ted_prefix_t;
+
 typedef struct ted_node_ {
 
     uint32_t rtr_id;
@@ -36,6 +47,7 @@ typedef struct ted_node_ {
     uint32_t seq_no;
     ted_intf_t *intf[TEDN_MAX_INTF_PER_NODE];
     void *proto_data[TED_PROTO_MAX];
+    avltree_t prefix_tree_root;
     avltree_node_t avl_glue;
 } ted_node_t;
 
@@ -154,7 +166,8 @@ ted_delete_node (ted_db_t *ted_db, uint32_t rtr_id);
 
 void
 ted_create_or_update_node (ted_db_t *ted_db,
-            ted_template_node_data_t *template_node_data);
+            ted_template_node_data_t *template_node_data,
+            avltree_t *prefix_tree);
 
 uint32_t 
 ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff, bool detail) ;
@@ -184,5 +197,7 @@ ted_refresh_node_seq_no (ted_db_t *ted_db,
 
 #define ITERATE_TED_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)  }}while(0);
 
+void
+ted_prefix_tree_cleanup_tree (ted_node_t *node);
 
 #endif /* __TED__ */

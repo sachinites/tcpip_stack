@@ -3,6 +3,10 @@
 #include "isis_pkt.h"
 #include "../../ted/ted.h"
 #include "isis_ted.h"
+#include "isis_tlv_struct.h"
+
+extern int
+avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
 
 void
 isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
@@ -12,6 +16,9 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     uint16_t subtlv_len ;
     uint32_t ip_addr_int;
     byte *subtlv_navigator;
+    avltree_t temp_prefix_tree_root;
+
+    avltree_init (&temp_prefix_tree_root, avltree_prefix_tree_comp_fn);
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = ( isis_pkt_hdr_t *)(eth_hdr->payload);
@@ -25,8 +32,8 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     
     ted_template_node_data_t *node_data = 
             calloc(1, 
-                sizeof(ted_template_node_data_t) + 
-                (n_tlv22 * sizeof(ted_template_nbr_data_t)));
+                sizeof (ted_template_node_data_t) + 
+                (n_tlv22 * sizeof (ted_template_nbr_data_t)));
 
     node_data->flags = lsp_pkt_hdr->flags;
     node_data->rtr_id = lsp_pkt_hdr->rtr_id;
@@ -80,6 +87,17 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             ITERATE_TLV_END(subtlv_navigator, tlv_type2,
                               tlv_len2, tlv_value2, subtlv_len);
             break;
+            case ISIS_TLV_IP_REACH:
+            {
+                isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)tlv_value;
+                ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC(0, 1 , ted_prefix_t );
+                ted_prefix->prefix = htonl(tlv_130->prefix);
+                ted_prefix->mask = tlv_130->mask;
+                ted_prefix->metric = htonl(tlv_130->metric);
+                ted_prefix->flags = tlv_130->flags;
+                avltree_insert(&ted_prefix->avl_glue, &temp_prefix_tree_root);
+            }
+            break;
             default: ;
         }
         }
@@ -88,7 +106,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
         node_data->n_nbrs = n_tlv22;
         ted_db_t *ted_db = ISIS_TED_DB(node);
-        ted_create_or_update_node(ted_db, node_data);
+        ted_create_or_update_node(ted_db, node_data, &temp_prefix_tree_root);
         free(node_data);
     }
 
