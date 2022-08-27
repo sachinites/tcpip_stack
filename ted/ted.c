@@ -236,7 +236,7 @@ ted_create_node (uint32_t rtr_id, bool is_fake) {
     ted_node_t *node = XCALLOC (0,  1, ted_node_t);
     node->is_fake = is_fake;
     node->rtr_id = rtr_id;
-    avltree_init (&node->prefix_tree_root, avltree_prefix_tree_comp_fn);
+    node->prefix_tree_root = NULL;
     return node;
 }
 
@@ -354,7 +354,7 @@ done:
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree) {
+            avltree_t *prefix_tree_root) {
 
     uint8_t i = 0;
     ted_link_t * link;
@@ -389,7 +389,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
        to_intf->cost =  nbr_data->metric;
     }
 
-    memcpy(&node->prefix_tree_root, prefix_tree, sizeof (avltree_t));
+    node->prefix_tree_root = prefix_tree_root;
     return node;
 }
 
@@ -440,7 +440,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
         rc += sprintf (buff + rc, "\n");
     } TED_ITERATE_NODE_INTF_END(node, intf);
 
-    ITERATE_AVL_TREE_BEGIN(&node->prefix_tree_root, curr){
+    ITERATE_AVL_TREE_BEGIN(node->prefix_tree_root, curr){
 
         ted_prefix = avltree_container_of(curr, ted_prefix_t, avl_glue);
         rc += sprintf (buff + rc, "  Prefix : %s/%d  metric %u  flags 0x%x\n",
@@ -492,13 +492,18 @@ ted_prefix_tree_cleanup_tree (ted_node_t *node) {
     avltree_node_t *curr;
     ted_prefix_t *ted_prefix;
 
-     ITERATE_AVL_TREE_BEGIN(&node->prefix_tree_root, curr){
+    if (!node->prefix_tree_root) return;
+
+     ITERATE_AVL_TREE_BEGIN(node->prefix_tree_root, curr){
 
          ted_prefix = avltree_container_of(curr, ted_prefix_t, avl_glue);
-         avltree_remove(curr, &node->prefix_tree_root);
+         avltree_remove(curr, node->prefix_tree_root);
          XFREE(ted_prefix);
 
      }  ITERATE_AVL_TREE_END;
+
+     XFREE(node->prefix_tree_root);
+     node->prefix_tree_root = NULL;
 }
 
 void

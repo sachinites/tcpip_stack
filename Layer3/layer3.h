@@ -247,6 +247,10 @@ l3rib_lookup_lpm(rt_table_t *rt_table,
 l3_route_t *
 l3rib_lookup(rt_table_t *rt_table, uint32_t dest_ip, char mask);
 
+/* MP Unsafe */
+l3_route_t *
+rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask);
+
 /* Routing Table APIs */
 
 void

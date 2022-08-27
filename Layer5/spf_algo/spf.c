@@ -544,7 +544,7 @@ compute_spf_all_nodes(graph_t *topo){
 }
 
 static void
-spf_algo_interface_update(void *arg, size_t arg_size){
+spf_algo_interface_update(event_dispatcher_t *ev_dis,  void *arg, size_t arg_size){
 
 	intf_notif_data_t *intf_notif_data = 
 		(intf_notif_data_t *)arg;

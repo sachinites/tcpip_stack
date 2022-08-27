@@ -47,7 +47,7 @@ typedef struct ted_node_ {
     uint32_t seq_no;
     ted_intf_t *intf[TEDN_MAX_INTF_PER_NODE];
     void *proto_data[TED_PROTO_MAX];
-    avltree_t prefix_tree_root;
+    avltree_t *prefix_tree_root;
     avltree_node_t avl_glue;
 } ted_node_t;
 

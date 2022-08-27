@@ -183,13 +183,14 @@ static inline int avltree_is_empty(struct avltree *tree) {
 /* Iterator over the AVL tree (delete safe loop)*/
 #define ITERATE_AVL_TREE_BEGIN(avltree_ptr, avltree_node_ptr)	\
 {																\
+	if (avltree_ptr) { 									\
 	struct avltree_node *next_avltree_node_ptr = NULL;			\
 	for(avltree_node_ptr = avltree_first(avltree_ptr); 			\
 		avltree_node_ptr;										\
 		avltree_node_ptr = next_avltree_node_ptr){				\
 		next_avltree_node_ptr = avltree_next(avltree_node_ptr);
 
-#define ITERATE_AVL_TREE_END	}}
+#define ITERATE_AVL_TREE_END	}}}
 
 /*
  * Splay tree

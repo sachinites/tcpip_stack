@@ -122,7 +122,8 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
         if (isis_evaluate_policy(spf_root, 
                                               node_info->import_policy,
                                               spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
-            continue;
+
+            goto Exported_Prefixes;
         }
 
         for (i = 0; i < MAX_NXT_HOPS; i++){
@@ -139,9 +140,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
             count++;
         }
 
+        Exported_Prefixes:
+
             /* Exported Prefixes */
             
-             ITERATE_AVL_TREE_BEGIN(&spf_result->node->prefix_tree_root, ted_prefix_curr){
+             ITERATE_AVL_TREE_BEGIN(spf_result->node->prefix_tree_root, ted_prefix_curr){
 
                     ted_prefix = avltree_container_of(ted_prefix_curr, ted_prefix_t, avl_glue);
                     

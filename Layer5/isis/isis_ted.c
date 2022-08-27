@@ -16,9 +16,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     uint16_t subtlv_len ;
     uint32_t ip_addr_int;
     byte *subtlv_navigator;
-    avltree_t temp_prefix_tree_root;
-
-    avltree_init (&temp_prefix_tree_root, avltree_prefix_tree_comp_fn);
+    avltree_t *prefix_tree_root = NULL;
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = ( isis_pkt_hdr_t *)(eth_hdr->payload);
@@ -89,13 +87,17 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             break;
             case ISIS_TLV_IP_REACH:
             {
+                if (!prefix_tree_root) {
+                    prefix_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
+                    avltree_init (prefix_tree_root, avltree_prefix_tree_comp_fn);
+                }
                 isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)tlv_value;
                 ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC(0, 1 , ted_prefix_t );
                 ted_prefix->prefix = htonl(tlv_130->prefix);
                 ted_prefix->mask = tlv_130->mask;
                 ted_prefix->metric = htonl(tlv_130->metric);
                 ted_prefix->flags = tlv_130->flags;
-                avltree_insert(&ted_prefix->avl_glue, &temp_prefix_tree_root);
+                avltree_insert(&ted_prefix->avl_glue, prefix_tree_root);
             }
             break;
             default: ;
@@ -106,7 +108,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
         node_data->n_nbrs = n_tlv22;
         ted_db_t *ted_db = ISIS_TED_DB(node);
-        ted_create_or_update_node(ted_db, node_data, &temp_prefix_tree_root);
+        ted_create_or_update_node(ted_db, node_data, prefix_tree_root);
         free(node_data);
     }
 

@@ -353,7 +353,6 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
 l3_route_t *
 rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
     
-    l3_route_t *l3_route;
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
 
@@ -382,9 +381,7 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
         return NULL;
     }
 
-    l3_route = (l3_route_t *)node->data;
-
-    return l3_route;
+    return  (l3_route_t *)node->data;
 }
 
 void

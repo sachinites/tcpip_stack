@@ -3,6 +3,7 @@
 
 typedef struct isis_intf_group_ isis_intf_group_t;
 typedef struct isis_adv_data_ isis_adv_data_t;
+typedef struct event_dispatcher_ event_dispatcher_t;
 
 typedef struct intf_info_ {
 
@@ -75,7 +76,7 @@ void
 isis_show_interface_protocol_state(interface_t *intf);
 
 void
-isis_interface_updates(void *arg, size_t arg_size);
+isis_interface_updates(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void 
 isis_check_and_delete_intf_info(interface_t *intf);

@@ -318,7 +318,7 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
 }
 
 void
-isis_interface_updates(void *arg, size_t arg_size) {
+isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
 	intf_notif_data_t *intf_notif_data = 
 		(intf_notif_data_t *)arg;
