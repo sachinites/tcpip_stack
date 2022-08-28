@@ -636,16 +636,17 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
    char *node_name;
-   char *intf_name;
+   char *intf_name = NULL;
    uint32_t vlan_id;
    uint8_t mask;
+    uint8_t lono;
    char *l2_mode_option;
    char *intf_ip_addr = NULL;
    char *if_up_down;
    int CMDCODE;
    tlv_struct_t *tlv = NULL;
    node_t *node;
-   interface_t *interface;
+   interface_t *interface = NULL;
    uint32_t intf_new_matric_val;
    intf_prop_changed_t intf_prop_changed;
 
@@ -669,17 +670,40 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
              intf_ip_addr = tlv->value;     
         else if(strncmp(tlv->leaf_id, "mask", strlen("mask")) == 0)
              mask = atoi(tlv->value);  
+        else if(strncmp(tlv->leaf_id, "lono", strlen("lono")) == 0)
+             lono = atoi(tlv->value);  
         else
             assert(0);
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    interface = node_get_intf_by_name(node, intf_name);
-
-    if(!interface){
-        printf("Error : Interface %s do not exist\n", interface->if_name);
-        return -1;
+    if (intf_name) {
+        interface = node_get_intf_by_name(node, intf_name);
     }
+
+    switch (CMDCODE) {
+        case CMDCODE_INTF_CONFIG_LOOPBACK:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    break;
+                case CONFIG_DISABLE:
+                    if (!interface) {
+                        printf("Error : Interface do not exist\n");
+                        return -1;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        break;
+        default:
+            if (!interface) {
+                printf("Error : Interface do not exist\n");
+                return -1;
+            }
+            break;
+    }
+
     uint32_t if_change_flags = 0;
     switch(CMDCODE){
         case CMDCODE_INTF_CONFIG_METRIC:
@@ -762,6 +786,18 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     ;
             }
             break;
+        case CMDCODE_INTF_CONFIG_LOOPBACK:
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    interface_loopback_create (node, lono);
+                    break;
+                case CONFIG_DISABLE:
+                    interface_loopback_delete (node, lono);
+                    break;
+                default:
+                    ;
+            }
+        break;
          default:
             ;    
     }
@@ -1256,6 +1292,17 @@ nw_init_cli(){
                         init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
                         libcli_register_param(&if_name, &if_up_down_status);
                         set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
+                    }
+                }
+                {
+                    static param_t loopback;
+                    init_param(&loopback, CMD, "loopback", 0, 0, INVALID, 0, "loopback");
+                    libcli_register_param(&interface, &loopback);
+                    {
+                        static param_t lono;
+                        init_param(&lono, LEAF, 0, intf_config_handler, NULL, INT, "lono", "Loopback ID");
+                        libcli_register_param(&loopback, &lono);
+                        set_param_cmd_code(&lono, CMDCODE_INTF_CONFIG_LOOPBACK);
                     }
                 }
                 {

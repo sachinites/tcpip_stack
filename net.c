@@ -402,3 +402,13 @@ intf_init_bit_rate_sampling_timer(interface_t *interface) {
                                                 1000,
                                                 1);
 }
+
+void
+interface_loopback_create (node_t *node, uint8_t lono) {
+
+}
+
+void
+interface_loopback_delete (node_t *node, uint8_t lono) {
+
+}

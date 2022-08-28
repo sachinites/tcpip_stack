@@ -87,4 +87,7 @@
 #define CMDCODE_SHOW_PREFIX_LST_ONE 36
 
 #define CMDCODE_CONF_RIB_IMPORT_POLICY 37  /* conf node <node-name> [no] rib <rib-name> import-policy <prefix-lst-name> */
+
+#define CMDCODE_INTF_CONFIG_LOOPBACK 38
+
 #endif /* __CMDCODES__ */
