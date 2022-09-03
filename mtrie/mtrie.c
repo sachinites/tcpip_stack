@@ -6,6 +6,7 @@
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include "mtrie.h"
 #include "../stack/stack.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 static uint16_t node_id = 1;
 
@@ -76,10 +77,11 @@ mtrie_node_get_parent_bit_pos (mtrie_node_t *node) {
     bitmap_free_internal(&node->wildcard);
     bitmap_free_internal(&node->stacked_prefix);
     remove_glthread(&node->list_glue );
-    free(node);
+    XFREE(node);
     mtrie->N--;
 }
 
+/* Not used */
 static mtrie_node_t *
 mtrie_node_get_sibling (mtrie_node_t *node) {
 
@@ -115,7 +117,7 @@ mtrie_node_get_sibling (mtrie_node_t *node) {
 static void
  mtrie_node_delete_with_data (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
-    free(node->data);
+    XFREE(node->data);
     mtrie_node_delete(mtrie, node, data);
 }
 
@@ -123,7 +125,7 @@ static void
 mtrie_node_t *
 mtrie_create_new_node (uint16_t prefix_len) {
 
-    mtrie_node_t *node = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
+    mtrie_node_t *node = (mtrie_node_t *)XCALLOC(0, 1, mtrie_node_t);
     node->node_id = mtrie_get_new_node_id();
     bitmap_init(&node->prefix, prefix_len);
     bitmap_init(&node->wildcard, prefix_len);
@@ -435,10 +437,11 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
     {
         /* Node may already be on thread incase we are deleting node while
             traversal */
-        if (IS_GLTHREAD_LIST_EMPTY(&node->list_glue))
-        {
+      //  if (IS_GLTHREAD_LIST_EMPTY(&node->list_glue))
+      // {
+            assert(IS_GLTHREAD_LIST_EMPTY(&node->list_glue));
             glthread_add_next(&child_node->list_glue, &node->list_glue);
-        }
+      //  }
         node->data = child_node->data;
         child_node->data = NULL;
     }
