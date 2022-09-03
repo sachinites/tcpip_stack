@@ -35,7 +35,6 @@ typedef struct mtrie_ {
 	/* linear List of all leaf nodes in mtrie*/
 	glthread_t list_head;
 	uint16_t prefix_len;
-	bool resurrct;
 }mtrie_t;
 
 static inline bool
@@ -64,9 +63,8 @@ void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
                                                          void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
                                                          void *app_data) ;
-void *
-mtrie_extract_appln_data(mtrie_t *mtrie, mtrie_node_t *node) ;
-void mtrie_resurrect(mtrie_t *mtrie);
+
 void mtrie_print_raw(mtrie_t *mtrie);
+glthread_t * mtrie_node_delete_while_traversal (mtrie_t *mtrie, mtrie_node_t *node);
 
 #endif

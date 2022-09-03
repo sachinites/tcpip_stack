@@ -26,14 +26,14 @@ mtrie_move_children(mtrie_node_t *src_node, mtrie_node_t *dst_node) {
     dst_node->child[ZERO]  = src_node->child[ZERO] ;
     dst_node->child[ONE]  = src_node->child[ONE] ;
     dst_node->child[DONT_CARE]  = src_node->child[DONT_CARE] ;
-     src_node->child[ZERO]  = NULL;
-     src_node->child[ONE]  = NULL;
-     src_node->child[DONT_CARE] = NULL;
-     if (dst_node->child[ZERO])
+    src_node->child[ZERO]  = NULL;
+    src_node->child[ONE]  = NULL;
+    src_node->child[DONT_CARE] = NULL;
+    if (dst_node->child[ZERO])
          dst_node->child[ZERO]->parent = dst_node;
-     if (dst_node->child[ONE])
+    if (dst_node->child[ONE])
          dst_node->child[ONE]->parent = dst_node;
-     if (dst_node->child[DONT_CARE])
+    if (dst_node->child[DONT_CARE])
          dst_node->child[DONT_CARE]->parent = dst_node;
 }
 
@@ -52,11 +52,22 @@ mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         node->child[ZERO] ? node->child[ZERO]->node_id : 0,
         node->child[ONE] ? node->child[ONE]->node_id : 0,
         node->child[DONT_CARE] ? node->child[DONT_CARE]->node_id : 0);
-    printf (" data = %p\n", node->data);
+    printf (" data = %p", node->data);
+    printf ("\nglthread(%p) : [%p %p]\n", &node->list_glue, node->list_glue.left, node->list_glue.right);
 }
 
-/* Delete and free the mtrie node */ 
-static void
+static bit_type_t
+mtrie_node_get_parent_bit_pos (mtrie_node_t *node) {
+
+    if (!node->parent) return BIT_TYPE_MAX;
+    mtrie_node_t *parent = node->parent;
+    if (parent->child[ZERO] == node) return ZERO;
+    if (parent->child[ONE] == node) return ONE;
+    if (parent->child[DONT_CARE] == node) return DONT_CARE;
+    return BIT_TYPE_MAX;
+}
+
+/* Delete and free the mtrie node */ static void
  mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     (void)data;
@@ -69,18 +80,48 @@ static void
     mtrie->N--;
 }
 
+static mtrie_node_t *
+mtrie_node_get_sibling (mtrie_node_t *node) {
+
+    mtrie_node_t *parent;
+
+    if (!node->parent) return NULL;
+
+    parent = node->parent;
+
+    if (node == parent->child[ZERO]) {
+
+        if (parent->child[ONE]) return parent->child[ONE];
+        return parent->child[DONT_CARE];
+    }
+
+    else if (node == parent->child[ONE]) {
+
+        if (parent->child[ZERO]) return parent->child[ZERO];
+        return parent->child[DONT_CARE];
+    }
+
+    else if (node == parent->child[DONT_CARE]) {
+
+        if (parent->child[ZERO]) return parent->child[ZERO];
+        return parent->child[ONE];
+    }
+
+    return NULL;
+}
+
+
 /* Delete and free the mtrie node */ 
 static void
- mtrie_node_delete_with_data(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
+ mtrie_node_delete_with_data (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
-    (void)data;
     free(node->data);
-     mtrie_node_delete(mtrie, node, data);
+    mtrie_node_delete(mtrie, node, data);
 }
 
 
 mtrie_node_t *
-mtrie_create_new_node(uint16_t prefix_len) {
+mtrie_create_new_node (uint16_t prefix_len) {
 
     mtrie_node_t *node = (mtrie_node_t *)calloc(1, sizeof(mtrie_node_t));
     node->node_id = mtrie_get_new_node_id();
@@ -264,7 +305,6 @@ init_mtrie(mtrie_t *mtrie, uint16_t prefix_len) {
     mtrie->stack = get_new_stack();
     init_glthread(&mtrie->list_head);
     mtrie->prefix_len = prefix_len;
-    mtrie->resurrct = false;
 }
 
 static inline void 
@@ -373,7 +413,7 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
         bit = DONT_CARE;
     }
 
-    /* A node is eligibe to merge its own child node only when
+    /* A node is eligible to merge its own child node only when
     it has exactly one child branch*/
     if (child_count != 1) return ;
 
@@ -390,9 +430,15 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
     node->prefix_len += child_node->prefix_len;
     
     mtrie_move_children(child_node, node);
-    
-    if (mtrie_is_leaf_node(node)) {
-        glthread_add_next(&mtrie->list_head, &node->list_glue);
+
+    if (mtrie_is_leaf_node(node))
+    {
+        /* Node may already be on thread incase we are deleting node while
+            traversal */
+        if (IS_GLTHREAD_LIST_EMPTY(&node->list_glue))
+        {
+            glthread_add_next(&child_node->list_glue, &node->list_glue);
+        }
         node->data = child_node->data;
         child_node->data = NULL;
     }
@@ -554,35 +600,42 @@ void mtrie_destroy_with_app_data (mtrie_t *mtrie) {
     mtrie->root = NULL;
 }
 
-
-/* If appln ever make a call to this API, make sure appln to call mtrie_resurrect()
-    immediately after traversing the mtrie */
-void *
-mtrie_extract_appln_data(mtrie_t *mtrie, mtrie_node_t *node) {
-
-    void *app_data;
-    app_data = node->data;
-    /* Dont do merging here while application is extracting data. Merging will
-    be done via resurrection. Hence pass false */
-    mtrie_delete_leaf_node(mtrie, node, false);
-    mtrie->resurrct = true;
-    return app_data;
-}
-
-/* API to delete all leaf nodes with NULL data assigned to it, Appln should call it
-    if the application has linearly traversed all leaf nodes of mtrie and assign NULL data
-    to few of them */
-void mtrie_resurrect(mtrie_t *mtrie) {
-
-        if (!mtrie->resurrct) return;
-        mtrie_longest_prefix_first_traverse(mtrie,
-             mtrie_merge_child_node, NULL);
-        mtrie->resurrct = false;
-}
-
-void mtrie_print_raw(mtrie_t *mtrie) {
+void mtrie_print_raw (mtrie_t *mtrie) {
 
     mtrie_longest_prefix_first_traverse(mtrie,
             mtrie_print_node, NULL);
 }
 
+glthread_t *
+ mtrie_node_delete_while_traversal (mtrie_t *mtrie, mtrie_node_t *node){
+
+    glthread_t *next ;
+
+    assert(mtrie_is_leaf_node(node));
+
+    mtrie_node_t *parent = node->parent;
+    
+    if (!parent) return NULL;
+
+    if (parent->child[DONT_CARE] == node)
+    {
+        parent->child[DONT_CARE] = NULL;
+    }
+    else if (parent->child[ONE] == node)
+    {
+        parent->child[ONE] = NULL;
+    }
+    else
+    {
+        parent->child[ZERO] = NULL;
+    }
+    node->parent = NULL;
+
+    mtrie_merge_child_node(mtrie, parent, NULL);
+
+    next = glthread_get_next(&node->list_glue);
+
+    mtrie_node_delete(mtrie, node, NULL);
+
+    return next;
+}

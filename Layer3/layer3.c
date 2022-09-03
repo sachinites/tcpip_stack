@@ -385,7 +385,7 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
 }
 
 void
-clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
+clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
     glthread_t *curr;
@@ -397,7 +397,9 @@ clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
 
     pthread_rwlock_wrlock(&rt_table->rwlock);
 
-    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
+    curr = glthread_get_next(&rt_table->route_list.list_head);
+
+    while(curr) {
 
         mnode = list_glue_to_mtrie_node(curr);
 
@@ -405,26 +407,27 @@ clear_rt_table(rt_table_t *rt_table, uint16_t proto_id){
        assert(l3_route);
 
         if(l3_is_direct_route(l3_route)) {
+            curr = glthread_get_next(curr);
             continue;
         }
 
         count = nh_flush_nexthops(l3_route->nexthops[nh_proto]);
         l3_route->nh_count -= count;
-        if (l3_route->nh_count) continue;
+        if (l3_route->nh_count) {
+            curr = glthread_get_next(curr);
+            continue;
+        }
 
-        l3_route->spf_metric[nh_proto] = 0;
-       mtrie_extract_appln_data(&rt_table->route_list, mnode);
+       l3_route->spf_metric[nh_proto] = 0;
+       curr = mtrie_node_delete_while_traversal (&rt_table->route_list, mnode);
        rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
        l3_route_unlock(l3_route);
-
-    }ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr)
+    }
      
-     /* Resurrect mtrie if you have traversed linearly all leaf nodes and 
-     choses to assign NULL data to some of them*/
-     mtrie_resurrect (&rt_table->route_list);
      pthread_rwlock_unlock(&rt_table->rwlock);
      rt_table_kick_start_notif_job(rt_table);
 }
+
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route){

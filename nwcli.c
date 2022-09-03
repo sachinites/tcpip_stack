@@ -44,6 +44,7 @@
 #include "Layer3/layer3.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "prefix-list/prefixlst.h"
+#include "tcpconst.h"
 
 extern graph_t *topo;
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -474,6 +475,31 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
     dump_rt_table(NODE_RT_TABLE(node));
     return 0;
 }
+
+extern void
+clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
+static int
+clear_rt_handler(param_t *param, ser_buff_t *tlv_buf,
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    char *node_name;
+    char *rib_name;
+    tlv_struct_t *tlv = NULL;
+    
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+            node_name = tlv->value;
+        if(strncmp(tlv->leaf_id, "rib-name", strlen("rib-name")) ==0)
+            rib_name = tlv->value;
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
+    return 0;
+}
+
 
 extern void
 rt_table_delete_route(rt_table_t *rt_table,
@@ -985,6 +1011,17 @@ nw_init_cli(){
 				cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_clear_node_node_name_protcol_level);
 			}
+            {
+                static param_t rib;
+                init_param(&rib, CMD, "rib", 0, 0, INVALID, 0, "Routing Information Base rib");
+                libcli_register_param(&node_name, &rib);
+                {
+                    static param_t rib_name;
+                    init_param(&rib_name, LEAF, 0, clear_rt_handler, NULL, STRING, "rib-name", "Routing Table Name");
+                    libcli_register_param(&rib, &rib_name);
+                    set_param_cmd_code(&rib_name, CMDCODE_CLEAR_RT_TABLE);
+                }
+            }
         }
     }
 

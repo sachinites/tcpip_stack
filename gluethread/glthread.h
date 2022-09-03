@@ -113,6 +113,12 @@ dequeue_glthread_first(glthread_t *base_glthread);
 glthread_t *
 glthread_get_last(glthread_t *curr_glthread_node);
 
+glthread_t *
+glthread_get_next (glthread_t *curr);
+
+glthread_t *
+glthread_get_prev (glthread_t *curr);
+
 #if 0
 void *
 gl_thread_search(glthread_t *base_glthread,

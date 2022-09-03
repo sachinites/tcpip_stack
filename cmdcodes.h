@@ -90,4 +90,6 @@
 
 #define CMDCODE_INTF_CONFIG_LOOPBACK 38
 
+#define CMDCODE_CLEAR_RT_TABLE 39
+
 #endif /* __CMDCODES__ */
