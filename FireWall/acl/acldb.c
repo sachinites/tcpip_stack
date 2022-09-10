@@ -41,10 +41,21 @@ acl_string_to_proto(unsigned char *proto_name) {
 void 
 acl_entry_free (acl_entry_t *acl_entry) {
 
-    bitmap_free_internal(&acl_entry->prefix);
-    bitmap_free_internal(&acl_entry->mask);
+    glthread_t *curr;
+    acl_tcam_t *acl_tcam = NULL;
+
+    ITERATE_GLTHREAD_BEGIN(&acl_entry->acl_tcam_list_head, curr) {
+
+         acl_tcam = glue_to_acl_tcam(curr);
+         remove_glthread(curr);
+         bitmap_free_internal(&acl_tcam->prefix);
+         bitmap_free_internal(&acl_tcam->mask);
+         XFREE(acl_tcam);
+    } ITERATE_GLTHREAD_END(&acl_entry->acl_tcam_list_head, curr);
+
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
-    free(acl_entry);
+
+    XFREE(acl_entry);
 }
 
 
@@ -56,8 +67,15 @@ acl_compile (acl_entry_t *acl_entry) {
     uint16_t temp;
     uint16_t bytes_copied = 0;
 
-    bitmap_t *prefix = &acl_entry->prefix;
-    bitmap_t *mask = &acl_entry->mask;
+    acl_tcam_t *acl_tcam = (acl_tcam_t *)XCALLOC(0, 1, acl_tcam_t);
+
+    bitmap_init(&acl_tcam->prefix, ACL_PREFIX_LEN);
+    bitmap_init(&acl_tcam->mask, ACL_PREFIX_LEN);
+    init_glthread(&acl_tcam->glue);
+    glthread_add_last(&acl_entry->acl_tcam_list_head, &acl_tcam->glue);
+
+    bitmap_t *prefix = &acl_tcam->prefix;
+    bitmap_t *mask = &acl_tcam->mask;
 
     bitmap_reset(prefix);
     bitmap_reset(mask);
@@ -228,23 +246,30 @@ access_list_add_acl_entry(
     glthread_add_last(&access_list->head, &acl_entry->glue);
 }
 
-
+/* Install all TCAM entries of a given ACL */
 bool
 acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
 
     bool rc;
+    glthread_t *curr;
+    acl_tcam_t *acl_tcam;
 
     pthread_spin_lock (&access_list->spin_lock);
 
-     rc = mtrie_insert_prefix(
+    ITERATE_GLTHREAD_BEGIN(&acl_entry->acl_tcam_list_head, curr) {
+
+        rc = false;
+        acl_tcam = glue_to_acl_tcam(curr);
+        rc = mtrie_insert_prefix(
                     access_list->mtrie,
-                    &acl_entry->prefix,
-                    &acl_entry->mask,
+                    &acl_tcam->prefix,
+                    &acl_tcam->mask,
                     ACL_PREFIX_LEN,
                     (void *)acl_entry);
+    } ITERATE_GLTHREAD_END(&acl_entry->acl_tcam_list_head, curr);
 
     pthread_spin_unlock (&access_list->spin_lock);
-    return rc;
+    return true;
  }
 
  void 
@@ -255,7 +280,7 @@ acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     assert(!access_list->mtrie);
     assert(access_list->ref_count == 0);
     pthread_spin_destroy (&access_list->spin_lock);
-    free(access_list);
+    XFREE(access_list);
  }
 
 bool
@@ -306,6 +331,8 @@ acl_process_user_config_for_deletion (
                 acl_entry_t *acl_entry) {
 
     bool rc = false;
+    glthread_t *curr;
+    acl_tcam_t *acl_tcam;
     void *acl_entry_in_mtrie = NULL;
     acl_entry_t *installed_acl_entry = NULL;
 
@@ -313,10 +340,16 @@ acl_process_user_config_for_deletion (
 
     pthread_spin_lock (&access_list->spin_lock);
 
-   rc = mtrie_delete_prefix (access_list->mtrie, 
-                                            &acl_entry->prefix, 
-                                            &acl_entry->mask,
+    ITERATE_GLTHREAD_BEGIN(&acl_entry->acl_tcam_list_head, curr) {
+    
+    acl_tcam = glue_to_acl_tcam(curr);
+
+    rc = mtrie_delete_prefix (access_list->mtrie, 
+                                            &acl_tcam->prefix, 
+                                            &acl_tcam->mask,
                                             &acl_entry_in_mtrie);
+
+    }  ITERATE_GLTHREAD_END(&acl_entry->acl_tcam_list_head, curr);
 
     pthread_spin_unlock (&access_list->spin_lock);
 
@@ -454,7 +487,7 @@ bitmap_fill_with_params(
         *ptr2 = htons(dst_port);
 
         /* 128 bit ACL entry size is supported today */
-  }
+}
 
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,

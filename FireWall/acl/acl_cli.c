@@ -122,9 +122,6 @@ acl_parse_ace_config_entries(
         }
     }
 
-    bitmap_init(&acl_entry->prefix, ACL_PREFIX_LEN);
-    bitmap_init(&acl_entry->mask, ACL_PREFIX_LEN);
-
     return true;
 }
 

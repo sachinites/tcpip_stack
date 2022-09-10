@@ -61,6 +61,14 @@ typedef struct {
     uint16_t ub;
 } acl_port_range_t;
 
+typedef struct acl_tcam_ {
+
+    bitmap_t prefix;
+    bitmap_t mask;
+    glthread_t glue;
+} acl_tcam_t;
+GLTHREAD_TO_STRUCT(glue_to_acl_tcam, acl_tcam_t, glue);
+
 /* Stores the info as read from CLI */
 typedef struct {
     acl_action_t action;
@@ -76,8 +84,9 @@ typedef struct {
     int priority;
     uint64_t hit_count;
     /* The above data is converted into value/mask format and stored here*/
-    bitmap_t prefix;
-    bitmap_t mask;
+    glthread_t acl_tcam_list_head;
+    //bitmap_t prefix;
+    //bitmap_t mask;
     glthread_t glue;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);

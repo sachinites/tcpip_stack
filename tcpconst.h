@@ -61,6 +61,7 @@ typedef uint16_t pkt_size_t;
 #define UDP_PROTO   0x11
 #define ICMP_ECHO_REQ   8
 #define ICMP_ECHO_REP   0
+#define EIGRP_PROTO   80
 #define MTCP            20
 #define USERAPP1        21
 #define VLAN_8021Q_PROTO    0x8100
@@ -104,6 +105,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"udp";
         case PROTO_ANY:
             return (unsigned char *)"any";
+        case EIGRP_PROTO:
+            return (unsigned char *)"eigrp";
         default:
             return NULL;
     }
