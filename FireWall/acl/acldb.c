@@ -77,9 +77,6 @@ acl_compile (acl_entry_t *acl_entry) {
     bitmap_t *prefix = &acl_tcam->prefix;
     bitmap_t *mask = &acl_tcam->mask;
 
-    bitmap_reset(prefix);
-    bitmap_reset(mask);
-    
     uint16_t *prefix_ptr2 = (uint16_t *)prefix->bits;
     uint32_t *prefix_ptr4 = (uint32_t *)prefix->bits;
     uint16_t *mask_ptr2 = (uint16_t *)mask->bits;

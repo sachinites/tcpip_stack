@@ -64,7 +64,7 @@ rt_table_add_route_to_notify_list (
 
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
-static bool
+bool
 l3_is_direct_route(l3_route_t *l3_route){
 
     return (l3_route->is_direct);

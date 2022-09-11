@@ -161,6 +161,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                                         tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
                                         ted_prefix->mask);
 
+                    /*Case 0 : If directly connected route, skip */
+                    if (l3route && l3_is_direct_route(l3route)) {
+                        continue;
+                    }
+
                     /* Case 1 : No L3 route present in RIB by ISIS */
                     if (!l3route ||  !l3route->nexthops[nxthop_proto][0] ) {
 

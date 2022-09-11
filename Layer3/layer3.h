@@ -34,6 +34,7 @@
 #define __LAYER3__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "../gluethread/glthread.h"
 #include "../notif.h"
 #include "../tcpconst.h"
@@ -177,6 +178,9 @@ l3_route_lock (l3_route_t *l3_route) {
 
     l3_route->ref_count++;
 }
+
+bool
+l3_is_direct_route(l3_route_t *l3_route);
 
 static inline void
 l3_route_free(l3_route_t *l3_route){

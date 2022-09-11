@@ -85,8 +85,7 @@ typedef struct {
     uint64_t hit_count;
     /* The above data is converted into value/mask format and stored here*/
     glthread_t acl_tcam_list_head;
-    //bitmap_t prefix;
-    //bitmap_t mask;
+    
     glthread_t glue;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
