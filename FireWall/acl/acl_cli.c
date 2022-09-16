@@ -50,8 +50,10 @@ acl_parse_ace_config_entries(
                              char *proto,
                              char *src_ip,
                              char *src_mask,
+                             uint16_t src_port_no,
                              char *dst_ip,
-                             char *dst_mask) {
+                             char *dst_mask,
+                             uint16_t dst_port_no) {
 
                                   /* Action */
     if (strncmp(action_name, "permit", 6) == 0 ) {
@@ -95,6 +97,10 @@ acl_parse_ace_config_entries(
         }
     }
 
+    /* Src Port Number */
+    acl_entry->sport.lb = src_port_no;
+    acl_entry->sport.ub = src_port_no;
+
     /* Dst ip */
     if (dst_ip == NULL) {
         acl_entry->daddr.ip4.prefix = 0;
@@ -122,6 +128,10 @@ acl_parse_ace_config_entries(
         }
     }
 
+    /* Drc Port Number */
+    acl_entry->dport.lb = dst_port_no;
+    acl_entry->dport.ub = dst_port_no;
+
     return true;
 }
 
@@ -132,8 +142,10 @@ access_list_config(node_t *node,
                     char *proto,
                     char *src_ip,
                     char *src_mask,
+                    uint16_t src_port_no,
                     char *dst_ip,
-                    char *dst_mask) {
+                    char *dst_mask,
+                    uint16_t dst_port_no) {
 
    acl_entry_t *acl_entry = NULL;
 
@@ -153,8 +165,10 @@ access_list_config(node_t *node,
                     proto,
                     src_ip,
                     src_mask,
+                    src_port_no,
                     dst_ip,
-                    dst_mask)) {
+                    dst_mask,
+                    dst_port_no)) {
 
         acl_entry_free(acl_entry);
         return -1;
@@ -176,8 +190,10 @@ access_list_unconfig(node_t *node,
                     char *proto,
                     char *src_ip,
                     char *src_mask,
+                    uint16_t src_port_no,
                     char *dst_ip,
-                    char *dst_mask) {
+                    char *dst_mask,
+                    uint16_t dst_port_no) {
 
    acl_entry_t acl_entry; 
 
@@ -206,8 +222,10 @@ access_list_unconfig(node_t *node,
                     proto,
                     src_ip,
                     src_mask,
+                    src_port_no,
                     dst_ip,
-                    dst_mask)) {
+                    dst_mask,
+                    dst_port_no)) {
 
         return -1;
     }
@@ -232,9 +250,13 @@ acl_config_handler(param_t *param,
     char *dst_mask = NULL;
     char *src_mask = NULL;
     tlv_struct_t *tlv = NULL;
+    char *host_src_ip = NULL;
+    char *host_dst_ip = NULL;
     char *node_name = NULL;
     char *action_name = NULL;
     char *access_list_name = NULL;
+    uint16_t src_port_no = 0,
+                  dst_port_no = 0;
 
     int cmdcode = -1;
 
@@ -246,31 +268,62 @@ acl_config_handler(param_t *param,
             node_name = tlv->value;
         else if (strncmp(tlv->leaf_id, "access-list-name", strlen("access-list-name")) == 0)
             access_list_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "action", strlen("action")) == 0)
+        else if (strncmp(tlv->leaf_id, "permit|deny", strlen("permit|deny")) == 0)
             action_name = tlv->value;
         else if (strncmp(tlv->leaf_id, "protocol", strlen("protocol")) == 0)
             proto = tlv->value;
         else if (strncmp(tlv->leaf_id, "src-ip", strlen("src-ip")) == 0)
             src_ip = tlv->value;
+        else if (strncmp(tlv->leaf_id, "host-src-ip", strlen("host-src-ip")) == 0)
+            host_src_ip = tlv->value;            
         else if (strncmp(tlv->leaf_id, "src-mask", strlen("src-mask")) == 0)
             src_mask = tlv->value;
         else if (strncmp(tlv->leaf_id, "dst-ip", strlen("dst-ip")) == 0)
             dst_ip = tlv->value;
+        else if (strncmp(tlv->leaf_id, "host-dst-ip", strlen("host-dst-ip")) == 0)
+            host_dst_ip = tlv->value;                  
         else if (strncmp(tlv->leaf_id, "dst-mask", strlen("dst-mask")) == 0)
             dst_mask = tlv->value;
+        else if (strncmp(tlv->leaf_id, "src-port-no", strlen("src-port-no")) == 0)
+            src_port_no = atoi(tlv->value);
+        else if (strncmp(tlv->leaf_id, "dst-port-no", strlen("dst-port-no")) == 0)
+            dst_port_no = atoi(tlv->value);                    
         else
             assert(0);
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
 
+    if (host_src_ip) {
+        src_ip = host_src_ip;
+        src_mask = "255.255.255.255";
+    }
+
+    if (host_dst_ip) {
+        dst_ip = host_dst_ip;
+        dst_mask = "255.255.255.255";
+    }
+
+    /* Sanity Checks */
+    if (src_port_no || dst_port_no) {
+        acl_proto_t protocol = acl_string_to_proto(proto);
+        switch(protocol) {
+            case ACL_UDP:
+            case ACL_TCP:
+            break;
+            default:
+                printf ("Error : Port number is supported only with udp/tcp protocols\n");
+                return -1;
+        }
+    }
+
     switch(cmdcode) {
         case ACL_CMD_CONFIG:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                return access_list_config(node, access_list_name, action_name, proto, src_ip, src_mask, dst_ip, dst_mask);
+                return access_list_config(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no, dst_ip, dst_mask, dst_port_no);
             case CONFIG_DISABLE:
-                return access_list_unconfig(node, access_list_name, action_name, proto, src_ip, src_mask, dst_ip, dst_mask);
+                return access_list_unconfig(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no, dst_ip, dst_mask, dst_port_no);
         }
         break;
         default: ;
@@ -339,10 +392,63 @@ acl_direction_validation(char *value) {
     return VALIDATION_FAILED;
 }
 
+static void
+acl_build_config_cli_destination (param_t *root) {
+
+    param_t *host = (param_t *)calloc(1, sizeof(param_t));
+    init_param(host, CMD, "host", 0, 0, STRING, 0, "specify host IP Address");
+    libcli_register_param(root, host);
+    {
+        /* access-list <name> <action> <proto> host <dst-ip> */
+        param_t *dst_ip = (param_t *)calloc(1, sizeof(param_t));
+        init_param(dst_ip, LEAF, 0, acl_config_handler, 0, IPV4, "host-dst-ip", "specify Host Dst IPV4 Address");
+        libcli_register_param(host, dst_ip);
+        set_param_cmd_code(dst_ip, ACL_CMD_CONFIG);
+        {
+            /* access-list <name> <action> <proto> host <dst-ip> port ...*/
+            param_t *port_no = (param_t *)calloc(1, sizeof(param_t));
+            init_param(port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
+            libcli_register_param(dst_ip, port_no);
+            {
+                /* access-list <name> <action> <proto> host <dst-ip> port <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, 0, INT, "dst-port-no", "specify Host Dst Port Number");
+                libcli_register_param(port_no, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+    }
+
+   /* access-list <name> <action> <proto> <dst-ip> ...*/
+    param_t *dst_ip =  (param_t *)calloc(1, sizeof(param_t));
+    init_param(dst_ip, LEAF, 0, 0, 0, IPV4, "dst-ip", "specify Dst IPV4 Address");
+    libcli_register_param(root, dst_ip);
+    {
+        /* access-list <name> <action> <proto> <dst-ip> <dst-mask>*/
+         param_t *dst_mask =  (param_t *)calloc(1, sizeof(param_t));
+        init_param(dst_mask, LEAF, 0, acl_config_handler, 0, IPV4, "dst-mask", "specify Dst IPV4 Mask");
+        libcli_register_param(dst_ip, dst_mask);
+        set_param_cmd_code(dst_mask, ACL_CMD_CONFIG);
+        {
+            /* access-list <name> <action> <proto> <dst-ip> <dst-mask> port ...*/
+            param_t *port_no = (param_t *)calloc(1, sizeof(param_t));
+            init_param(port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
+            libcli_register_param(dst_mask, port_no);
+            {
+                /* access-list <name> <action> <proto> <dst-ip> <dst-mask> port <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, 0, INT, "dst-port-no", "specify Host Dst Port Number");
+                libcli_register_param(port_no, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+    }
+}
+
 void
 acl_build_config_cli(param_t *root) {
     {
-        /* access-list .... */
+           /* access-list .... */
         static param_t access_list;
         init_param(&access_list, CMD, "access-list", 0, 0, INVALID, 0, "Access Policy");
         libcli_register_param(root, &access_list);
@@ -353,101 +459,70 @@ acl_build_config_cli(param_t *root) {
             libcli_register_param(&access_list, &access_list_name);
             set_param_cmd_code(&access_list_name, ACL_CMD_CONFIG);
             {
-                /* access-list <name> <action> ...*/
+                 /* access-list <name> <action> ...*/
                 static param_t action;
-                init_param(&action, LEAF, 0, 0, acl_action_validation_cbk, STRING, "action", "permit/deny");
+                init_param(&action, LEAF, 0, 0, acl_action_validation_cbk, STRING, "permit|deny", "permit/deny");
                 libcli_register_param(&access_list_name, &action);
                 libcli_register_display_callback(&action, acl_display_supported_protocols);
                 {
-                    /* access-list <name> <action> <proto>*/
+                     /* access-list <name> <action> <proto>*/
                     static param_t proto;
                     init_param(&proto, LEAF, 0, acl_config_handler, acl_proto_validation_cbk, STRING, "protocol", "specify protocol");
                     libcli_register_param(&action, &proto);
                     set_param_cmd_code(&proto, ACL_CMD_CONFIG);
                     {
-                        /* access-list <name> <action> <proto> <host>...*/
+                         /* access-list <name> <action> <proto> host...*/
                         static param_t host;
-                        init_param(&host, CMD, "host", 0, 0, STRING, 0, "specify host IP Address");
+                        init_param(&host, CMD, "host", 0, 0, INVALID, 0, "specify host IP Address");
                         libcli_register_param(&proto, &host);
                         {
-                            /* access-list <name> <action> <proto> <host> <src-ip-addr>*/
-                            /* host src ip */
+                             /* access-list <name> <action> <proto> host <src-ip>*/
                             static param_t src_ip;
-                            init_param(&src_ip, LEAF, 0, acl_config_handler, 0, IPV4, "src-ip", "specify Host Src IPV4 Address");
+                            init_param(&src_ip, LEAF, 0, acl_config_handler, 0, IPV4, "host-src-ip", "specify Host Src IPV4 Address");
                             libcli_register_param(&host, &src_ip);
                             set_param_cmd_code(&src_ip, ACL_CMD_CONFIG);
                             {
-                                /* access-list <name> <action> <proto> <host> <src-ip-addr> <dst ip address> ....*/
-                                /* Dst ip */
-                                static param_t dst_ip;
-                                init_param(&dst_ip, LEAF, 0, 0, 0, IPV4, "dst-ip", "specify Dst IPV4 Address");
-                                libcli_register_param(&src_ip, &dst_ip);
-                                {
-                                    /* access-list <name> <action> <proto> <host> <src-ip-addr> <dst ip address> <mask address>*/
-                                    /* Dst Mask */
-                                    static param_t dst_mask;
-                                    init_param(&dst_mask, LEAF, 0, acl_config_handler, 0, IPV4, "dst-mask", "specify Dst IPV4 Mask");
-                                    libcli_register_param(&dst_ip, &dst_mask);
-                                    set_param_cmd_code(&dst_mask, ACL_CMD_CONFIG);
-                                }
+                                 /* access-list <name> <action> <proto> host <src-ip> port ...*/
+                                 static param_t port_no;
+                                 init_param(&port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
+                                  libcli_register_param(&src_ip, &port_no);
+                                  {
+                                      /* access-list <name> <action> <proto> host <src-ip> port <src-port-no>*/
+                                      static param_t src_port_no;
+                                      init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no", "specify Src Port Number");
+                                      libcli_register_param(&port_no, &src_port_no);
+                                      set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                      acl_build_config_cli_destination(&src_port_no);
+                                  }
                             }
-                            {
-                                /* access-list <name> <action> <proto> <host> <src-ip-addr> host...*/
-                                /* Dst host */
-                                static param_t host;
-                                init_param(&host, CMD, "host", 0, 0, STRING, 0, "specify Dst host IP Address");
-                                libcli_register_param(&src_ip, &host);
-                                {
-                                    /* access-list <name> <action> <proto> <host> <src-ip-addr> host <dst-addr>.*/
-                                    static param_t dst_ip;
-                                    init_param(&dst_ip, LEAF, 0, acl_config_handler, 0, IPV4, "dst-ip", "specify Host Dst IPV4 Address");
-                                    libcli_register_param(&host, &dst_ip);
-                                    set_param_cmd_code(&dst_ip, ACL_CMD_CONFIG);
-                                }
-                            }
+                            acl_build_config_cli_destination(&src_ip);
                         }
                     }
                     {
-                        /* access-list <name> <action> <proto> <src-ip-addr>*/
-                        /* Src ip */
+                         /* access-list <name> <action> <proto> <src-ip>...*/
                         static param_t src_ip;
                         init_param(&src_ip, LEAF, 0, 0, 0, IPV4, "src-ip", "specify Src IPV4 Address");
                         libcli_register_param(&proto, &src_ip);
                         {
-                            /* access-list <name> <action> <proto> <src-ip-addr> <src-mask-addr>*/
-                            /* Src Mask */
+                             /* access-list <name> <action> <proto> <src-ip> <src-mask>*/
                             static param_t src_mask;
                             init_param(&src_mask, LEAF, 0, acl_config_handler, 0, IPV4, "src-mask", "specify Src IPV4 Mask");
                             libcli_register_param(&src_ip, &src_mask);
                             set_param_cmd_code(&src_mask, ACL_CMD_CONFIG);
+                            acl_build_config_cli_destination(&src_mask);
                             {
-                                /* access-list <name> <action> <proto> <src-ip-addr> <src-mask-addr> host...*/
-                                /* Dst host */
-                                static param_t host;
-                                init_param(&host, CMD, "host", 0, 0, STRING, 0, "specify Dst host IP Address");
-                                libcli_register_param(&src_mask, &host);
-                                {
-                                    /* access-list <name> <action> <proto> <src-ip-addr> <src-mask-addr> host <dst-ip-addr>*/
-                                    static param_t dst_ip;
-                                    init_param(&dst_ip, LEAF, 0, acl_config_handler, 0, IPV4, "dst-ip", "specify Host Dst IPV4 Address");
-                                    libcli_register_param(&host, &dst_ip);
-                                    set_param_cmd_code(&dst_ip, ACL_CMD_CONFIG);
-                                }
-                            }
-                            {
-                                /* access-list <name> <action> <proto> <src-ip-addr> <src-mask-addr> <dst-ip-addr> ...*/
-                                /* Dst ip */
-                                static param_t dst_ip;
-                                init_param(&dst_ip, LEAF, 0, 0, 0, IPV4, "dst-ip", "specify Dst IPV4 Address");
-                                libcli_register_param(&src_mask, &dst_ip);
-                                {
-                                    /* access-list <name> <action> <proto> <src-ip-addr> <src-mask-addr> <dst-ip-addr> <dst-mask>*/
-                                    /* Dst Mask */
-                                    static param_t dst_mask;
-                                    init_param(&dst_mask, LEAF, 0, acl_config_handler, 0, IPV4, "dst-mask", "specify Dst IPV4 Mask");
-                                    libcli_register_param(&dst_ip, &dst_mask);
-                                    set_param_cmd_code(&dst_mask, ACL_CMD_CONFIG);
-                                }
+                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> port...*/
+                                 static param_t port_no;
+                                 init_param(&port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
+                                 libcli_register_param(&src_mask, &port_no);
+                                 {
+                                     /* access-list <name> <action> <proto> <src-ip> <src-mask> port <src-port-no>*/
+                                     static param_t src_port_no;
+                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no", "specify Src Port Number");
+                                     libcli_register_param(&port_no, &src_port_no);
+                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                     acl_build_config_cli_destination(&src_port_no);
+                                 }
                             }
                         }
                     }
@@ -455,6 +530,7 @@ acl_build_config_cli(param_t *root) {
             }
         }
     }
+
     {
         /* access-group ...*/
         static param_t access_grp;
@@ -503,8 +579,28 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         proto_name_str( acl_entry->proto),
         tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.prefix, ip_addr));
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, ip_addr));
+
+    switch(acl_entry->proto) {
+        case ACL_UDP:
+        case ACL_TCP:
+            if (acl_entry->sport.lb || acl_entry->sport.ub)
+                printf ("port %d ", acl_entry->sport.lb);
+            break;
+        default:;
+    }
+   
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , ip_addr));
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, ip_addr));
+
+    switch (acl_entry->proto) {
+    case ACL_UDP:
+    case ACL_TCP:
+        if (acl_entry->sport.lb || acl_entry->sport.ub)
+             printf ("port %d ", acl_entry->sport.lb);
+        break;
+    default:;
+    }
+
     printf("(hits %lu)\n", acl_entry->hit_count);
 }
 

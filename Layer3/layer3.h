@@ -152,6 +152,9 @@ l3_rt_map_proto_id_to_nxthop_index(uint8_t proto_id) {
     return proto_nxthop_max;
 }
 
+#define RT_F_PROTO_STATIC   1
+#define RT_F_PROTO_ISIS         2
+
 typedef struct l3_route_{
 
     char dest[16];        /* key*/
