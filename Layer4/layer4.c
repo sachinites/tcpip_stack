@@ -46,6 +46,7 @@ promote_pkt_to_layer4(node_t *node,
                       pkt_block_t *pkt_block,
                       int L4_protocol_number){ /*= TCP/UDP or what */
 
+        //printf ("%s() : Protocol %d. Pkt Consumed\n", __FUNCTION__, L4_protocol_number);
         pkt_block_dereference(pkt_block);
 }
 

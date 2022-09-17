@@ -10,6 +10,7 @@
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/layer3.h"
 #include "../../pkt_block.h"
+#include "../../Layer4/udp.h"
 
 acl_proto_t
 acl_string_to_proto(unsigned char *proto_name) {
@@ -141,7 +142,6 @@ acl_compile (acl_entry_t *acl_entry) {
     mask_ptr2 = (uint16_t *)mask_ptr4;
 
     /* Src Port Range */
-    /* Not Supported Yet, fill it 16bit prefix as zero, and 16 bit mask as  all 1s */
     if (acl_entry->sport.lb == 0 && 
          acl_entry->sport.ub == 0 ) {
         *prefix_ptr2 = 0;
@@ -553,6 +553,18 @@ access_list_evaluate_ip_packet (node_t *node,
     dst_ip = ip_hdr->dst_ip;
     l4proto = ip_hdr->protocol;
 
+    switch (l4proto) {
+        case UDP_PROTO:
+            {
+                udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
+                src_port = udp_hdr->src_port_no;
+                dst_port = udp_hdr->dst_port_no;
+            }
+            break;
+        case TCP_PROTO:
+            break;
+    }
+
     return access_list_evaluate(access_lst, 
                                                 ETH_IP, 
                                                 l4proto,
@@ -585,11 +597,11 @@ access_group_config(node_t *node,
 
     if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
-        *spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
+        spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
     }
     else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
-        *spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
+        spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can be - 'in' or 'out' only\n");
@@ -619,11 +631,11 @@ access_group_unconfig(node_t *node,
 
     if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
-        *spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
+        spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
     }
     else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
-        *spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
+        spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can in - 'in' or 'out' only\n");

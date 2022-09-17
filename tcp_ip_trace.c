@@ -58,6 +58,12 @@ string_ip_hdr_protocol_val(uint8_t type,   char *string_buffer){
         case ICMP_PROTO:
             strncpy(string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
             break;
+        case UDP_PROTO:
+             strncpy(string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
+             break;
+        case TCP_PROTO:
+             strncpy(string_buffer, "TCP_PROTO", strlen("TCP_PROTO"));
+             break;             
         case DDCP_MSG_TYPE_UCAST_REPLY:
             strncpy(string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
                 strlen("DDCP_MSG_TYPE_UCAST_REPLY"));
@@ -96,9 +102,20 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
     switch(ip_hdr->protocol){
 
         case ICMP_PROTO:
-            rc += tcp_dump_appln_hdr_protocol_icmp(buff + rc, INCREMENT_IPHDR(ip_hdr), 
-                    IP_HDR_PAYLOAD_SIZE(ip_hdr));
+            rc += tcp_dump_appln_hdr_protocol_icmp(
+                        buff + rc,
+                        INCREMENT_IPHDR(ip_hdr), 
+                        IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
+        case UDP_PROTO:
+            rc += tcp_dump_transport_udp_protocol(
+                        buff + rc,
+                        INCREMENT_IPHDR(ip_hdr), 
+                        IP_HDR_PAYLOAD_SIZE(ip_hdr));
+            break;            
+        break;
+        case TCP_PROTO:
+        break;
         default:
             pkt_block = pkt_block_get_new((uint8_t *)INCREMENT_IPHDR(ip_hdr), 
                                     (pkt_size_t )IP_HDR_PAYLOAD_SIZE(ip_hdr));

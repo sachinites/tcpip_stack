@@ -20,7 +20,7 @@
 #define __LIBCLICONSTANTS__
 
 #define CMD_NAME_SIZE           32
-#define MAX_CMD_TREE_DEPTH      16
+#define MAX_CMD_TREE_DEPTH      20
 #define LEAF_VALUE_HOLDER_SIZE  64/* It should be atleast CMD_NAME_SIZE*/
 #define LEAF_ID_SIZE            32
 #define PARAM_HELP_STRING_SIZE  64

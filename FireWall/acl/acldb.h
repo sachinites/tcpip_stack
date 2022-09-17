@@ -17,6 +17,7 @@ typedef struct pkt_block_ pkt_block_t;
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
+#define ACL_MAX_PORTNO    0xFFFF
 
 typedef enum {
     ACL_IP = ETH_IP,

@@ -10,6 +10,7 @@ extern graph_t *topo;
 extern void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 
+
 #define ACL_CMD_CONFIG  1
 #define ACL_CMD_SHOW 2
 #define ACL_CMD_ACCESS_GROUP_CONFIG 3
@@ -43,6 +44,16 @@ acl_display_supported_protocols(param_t *param, ser_buff_t *tlv_buf) {
 
 }
 
+static int
+acl_port_no_validation (char *value) {
+
+    int64_t val_num = atoi(value);
+    if (val_num >= 0 && val_num <= ACL_PROTO_MAX)
+        return VALIDATION_SUCCESS;
+    printf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
+    return VALIDATION_FAILED;
+}
+
 static bool
 acl_parse_ace_config_entries(
                               acl_entry_t *acl_entry,
@@ -50,10 +61,12 @@ acl_parse_ace_config_entries(
                              char *proto,
                              char *src_ip,
                              char *src_mask,
-                             uint16_t src_port_no,
+                             uint16_t src_port_no1,
+                             uint16_t src_port_no2,
                              char *dst_ip,
                              char *dst_mask,
-                             uint16_t dst_port_no) {
+                             uint16_t dst_port_no1,
+                             uint16_t dst_port_no2) {
 
                                   /* Action */
     if (strncmp(action_name, "permit", 6) == 0 ) {
@@ -98,8 +111,8 @@ acl_parse_ace_config_entries(
     }
 
     /* Src Port Number */
-    acl_entry->sport.lb = src_port_no;
-    acl_entry->sport.ub = src_port_no;
+    acl_entry->sport.lb = src_port_no1;
+    acl_entry->sport.ub = src_port_no2;
 
     /* Dst ip */
     if (dst_ip == NULL) {
@@ -129,8 +142,8 @@ acl_parse_ace_config_entries(
     }
 
     /* Drc Port Number */
-    acl_entry->dport.lb = dst_port_no;
-    acl_entry->dport.ub = dst_port_no;
+    acl_entry->dport.lb = dst_port_no1;
+    acl_entry->dport.ub = dst_port_no2;
 
     return true;
 }
@@ -142,10 +155,12 @@ access_list_config(node_t *node,
                     char *proto,
                     char *src_ip,
                     char *src_mask,
-                    uint16_t src_port_no,
+                    uint16_t src_port_no1,
+                    uint16_t src_port_no2,
                     char *dst_ip,
                     char *dst_mask,
-                    uint16_t dst_port_no) {
+                    uint16_t dst_port_no1,
+                    uint16_t dst_port_no2) {
 
    acl_entry_t *acl_entry = NULL;
 
@@ -165,10 +180,12 @@ access_list_config(node_t *node,
                     proto,
                     src_ip,
                     src_mask,
-                    src_port_no,
+                    src_port_no1,
+                    src_port_no2,
                     dst_ip,
                     dst_mask,
-                    dst_port_no)) {
+                    dst_port_no1,
+                    dst_port_no2)) {
 
         acl_entry_free(acl_entry);
         return -1;
@@ -190,10 +207,12 @@ access_list_unconfig(node_t *node,
                     char *proto,
                     char *src_ip,
                     char *src_mask,
-                    uint16_t src_port_no,
+                    uint16_t src_port_no1,
+                    uint16_t src_port_no2,
                     char *dst_ip,
                     char *dst_mask,
-                    uint16_t dst_port_no) {
+                    uint16_t dst_port_no1,
+                    uint16_t dst_port_no2) {
 
    acl_entry_t acl_entry; 
 
@@ -222,10 +241,12 @@ access_list_unconfig(node_t *node,
                     proto,
                     src_ip,
                     src_mask,
-                    src_port_no,
+                    src_port_no1,
+                    src_port_no2,
                     dst_ip,
                     dst_mask,
-                    dst_port_no)) {
+                    dst_port_no1,
+                    dst_port_no2)) {
 
         return -1;
     }
@@ -255,8 +276,18 @@ acl_config_handler(param_t *param,
     char *node_name = NULL;
     char *action_name = NULL;
     char *access_list_name = NULL;
-    uint16_t src_port_no = 0,
-                  dst_port_no = 0;
+    uint16_t src_port_no_eq = 0,
+                  src_port_no_neq = 0,
+                  src_port_no_lt = 0,
+                  src_port_no_gt = 0,
+                  src_port_no1 = 0,
+                  src_port_no2 = 0,
+                  dst_port_no_eq = 0,
+                  dst_port_no_neq = 0,
+                  dst_port_no_lt = 0,
+                  dst_port_no_gt = 0,
+                  dst_port_no1 = 0,
+                  dst_port_no2 = 0;
 
     int cmdcode = -1;
 
@@ -284,10 +315,90 @@ acl_config_handler(param_t *param,
             host_dst_ip = tlv->value;                  
         else if (strncmp(tlv->leaf_id, "dst-mask", strlen("dst-mask")) == 0)
             dst_mask = tlv->value;
-        else if (strncmp(tlv->leaf_id, "src-port-no", strlen("src-port-no")) == 0)
-            src_port_no = atoi(tlv->value);
-        else if (strncmp(tlv->leaf_id, "dst-port-no", strlen("dst-port-no")) == 0)
-            dst_port_no = atoi(tlv->value);                    
+        else if (strncmp(tlv->leaf_id, "src-port-no-eq", strlen("src-port-no-eq")) == 0) {
+            src_port_no_eq = atoi(tlv->value);
+            if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "src-port-no-neq", strlen("src-port-no-neq")) == 0) {
+            src_port_no_neq = atoi(tlv->value);
+            if (!(src_port_no_neq > 0 && src_port_no_neq < ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Src neq value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "src-port-no-lt", strlen("src-port-no-lt")) == 0) {
+            src_port_no_lt = atoi(tlv->value);
+            if (src_port_no_lt <= 0 || src_port_no_lt > ACL_MAX_PORTNO) {
+                printf ("Error : Invalid Src lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "src-port-no-gt", strlen("src-port-no-gt")) == 0) {
+            src_port_no_gt = atoi(tlv->value);
+            if (src_port_no_gt < 0 || src_port_no_gt >= ACL_MAX_PORTNO) {
+                printf ("Error : Invalid Src gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "src-port-no1", strlen("src-port-no1")) == 0) {
+            src_port_no1 = atoi(tlv->value);
+            if (!(src_port_no1 >= 0 && src_port_no1 <= ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "src-port-no2", strlen("src-port-no2")) == 0) {
+            src_port_no2 = atoi(tlv->value);         
+            if (!(src_port_no2 >= 0 && src_port_no2 <= ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                return -1;
+            }                           
+        }
+        else if (strncmp(tlv->leaf_id, "dst-port-no-eq", strlen("dst-port-no-eq")) == 0) {
+            dst_port_no_eq = atoi(tlv->value);
+            if (!(dst_port_no_eq > 0 && dst_port_no_eq < ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "dst-port-no-neq", strlen("dst-port-no-neq")) == 0) {
+            dst_port_no_neq = atoi(tlv->value);
+            if (!(dst_port_no_neq > 0 && dst_port_no_neq < ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Dst neq value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "dst-port-no-lt", strlen("dst-port-no-lt")) == 0) {
+            dst_port_no_lt = atoi(tlv->value);
+            if (dst_port_no_lt <= 0 || dst_port_no_lt > ACL_MAX_PORTNO) {
+                printf ("Error : Invalid Dst lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "dst-port-no-gt", strlen("dst-port-no-gt")) == 0) {
+            dst_port_no_gt = atoi(tlv->value);
+            if (dst_port_no_gt < 0 || dst_port_no_gt >= ACL_MAX_PORTNO) {
+                printf ("Error : Invalid Dst gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "dst-port-no1", strlen("dst-port-no1")) == 0) {
+            dst_port_no1 = atoi(tlv->value);
+            if (!(dst_port_no1 >= 0 && dst_port_no1 <= ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                return -1;
+            }
+        }
+        else if (strncmp(tlv->leaf_id, "dst-port-no2", strlen("dst-port-no2")) == 0) {
+            dst_port_no2 = atoi(tlv->value);         
+            if (!(dst_port_no2 >= 0 && dst_port_no2 <= ACL_MAX_PORTNO)) {
+                printf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                return -1;
+            }                           
+        }
         else
             assert(0);
    } TLV_LOOP_END;
@@ -305,7 +416,19 @@ acl_config_handler(param_t *param,
     }
 
     /* Sanity Checks */
-    if (src_port_no || dst_port_no) {
+    if (  src_port_no_eq || 
+           src_port_no_neq || 
+           src_port_no_lt || 
+           src_port_no_gt || 
+           src_port_no1 || 
+           src_port_no2 ||
+           dst_port_no_eq || 
+           dst_port_no_neq || 
+           dst_port_no_lt || 
+           dst_port_no_gt || 
+           dst_port_no1 || 
+           dst_port_no2) {
+
         acl_proto_t protocol = acl_string_to_proto(proto);
         switch(protocol) {
             case ACL_UDP:
@@ -317,13 +440,56 @@ acl_config_handler(param_t *param,
         }
     }
 
+    if ((src_port_no1 > src_port_no2) || (dst_port_no1 > dst_port_no2)) {
+
+        printf ("Error : Port Number Ranges specified is incorrect\n");
+        return -1;
+    }
+
+    if (src_port_no_neq || dst_port_no_neq) {
+
+         printf ("Error : Port Number Not Equal specifier is not supported\n");
+         return -1;
+    }
+
+    /* Handling port numbers */
+    if ( src_port_no_eq ) {
+
+        src_port_no1 = src_port_no2 =  src_port_no_eq;
+    }
+    else if  ( src_port_no_lt ) {
+
+        src_port_no1 = 0;
+        src_port_no2 = src_port_no_lt;
+    }
+    else if  ( src_port_no_gt ) {
+
+        src_port_no1 = src_port_no_gt;
+        src_port_no2 = ACL_MAX_PORTNO;
+    }
+
+    if ( dst_port_no_eq ) {
+
+        dst_port_no1 = dst_port_no2 =  dst_port_no_eq;
+    }
+    else if  ( dst_port_no_lt ) {
+
+        dst_port_no1 = 0;
+        dst_port_no2 = dst_port_no_lt;
+    }
+    else if  ( dst_port_no_gt ) {
+
+        dst_port_no1 = dst_port_no_gt;
+        dst_port_no2 = ACL_MAX_PORTNO;
+    }
+
     switch(cmdcode) {
         case ACL_CMD_CONFIG:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                return access_list_config(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no, dst_ip, dst_mask, dst_port_no);
+                return access_list_config(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no1, src_port_no2, dst_ip, dst_mask, dst_port_no1, dst_port_no2);
             case CONFIG_DISABLE:
-                return access_list_unconfig(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no, dst_ip, dst_mask, dst_port_no);
+                return access_list_unconfig(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no1, src_port_no2, dst_ip, dst_mask, dst_port_no1, dst_port_no2);
         }
         break;
         default: ;
@@ -405,16 +571,74 @@ acl_build_config_cli_destination (param_t *root) {
         libcli_register_param(host, dst_ip);
         set_param_cmd_code(dst_ip, ACL_CMD_CONFIG);
         {
-            /* access-list <name> <action> <proto> host <dst-ip> port ...*/
-            param_t *port_no = (param_t *)calloc(1, sizeof(param_t));
-            init_param(port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
-            libcli_register_param(dst_ip, port_no);
+            /* access-list <name> <action> <proto> host <dst-ip> eq ...*/
+            param_t *eq = (param_t *)calloc(1, sizeof(param_t));
+            init_param(eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
+            libcli_register_param(dst_ip, eq);
             {
-                /* access-list <name> <action> <proto> host <dst-ip> port <dst-port-no>*/
+                /* access-list <name> <action> <proto> host <dst-ip> eq <dst-port-no>*/
                 param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
-                init_param(dst_port_no, LEAF, 0, acl_config_handler, 0, INT, "dst-port-no", "specify Host Dst Port Number");
-                libcli_register_param(port_no, dst_port_no);
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-eq", "specify Dst Port Number");
+                libcli_register_param(eq, dst_port_no);
                 set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> host <dst-ip> neq ...*/
+            param_t *neq = (param_t *)calloc(1, sizeof(param_t));
+            init_param(neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
+            libcli_register_param(dst_ip, neq);
+            {
+                /* access-list <name> <action> <proto> host <src-ip> neq <src-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-neq", "specify Dst Port Number");
+                libcli_register_param(neq, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> host <dst-ip> lt ...*/
+            param_t *lt = (param_t *)calloc(1, sizeof(param_t));
+            init_param(lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
+            libcli_register_param(dst_ip, lt);
+            {
+                /* access-list <name> <action> <proto> host <dst-ip> lt <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-lt", "specify Dst Port Number");
+                libcli_register_param(lt, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> host <dst-ip> gt ...*/
+            param_t *gt = (param_t *)calloc(1, sizeof(param_t));
+            init_param(gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
+            libcli_register_param(dst_ip, gt);
+            {
+                /* access-list <name> <action> <proto> host <dst-ip> lt <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-gt", "specify Dst Port Number");
+                libcli_register_param(gt, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }        
+        {
+            /* access-list <name> <action> <proto> host <dst-ip> range ...*/
+            param_t *range = (param_t *)calloc(1, sizeof(param_t));
+            init_param(range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+            libcli_register_param(dst_ip, range);
+            {
+                /* access-list <name> <action> <proto> host <dst-ip> range <dst-port-no1>*/
+                param_t *dst_port_no1 = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "dst-port-no1", "specify Dst Port Number Lower Bound");
+                libcli_register_param(range, dst_port_no1);
+                {
+                    /* access-list <name> <action> <proto> host <src-ip> range <dst-port-no1> <dst-port-no2>*/
+                    param_t *dst_port_no2 = (param_t *)calloc(1, sizeof(param_t));
+                    init_param(dst_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no2", "specify Dst Port Number Upper Bound");
+                    libcli_register_param(dst_port_no1, dst_port_no2);
+                    set_param_cmd_code(dst_port_no2, ACL_CMD_CONFIG);
+                }
             }
         }
     }
@@ -425,21 +649,79 @@ acl_build_config_cli_destination (param_t *root) {
     libcli_register_param(root, dst_ip);
     {
         /* access-list <name> <action> <proto> <dst-ip> <dst-mask>*/
-         param_t *dst_mask =  (param_t *)calloc(1, sizeof(param_t));
+        param_t *dst_mask = (param_t *)calloc(1, sizeof(param_t));
         init_param(dst_mask, LEAF, 0, acl_config_handler, 0, IPV4, "dst-mask", "specify Dst IPV4 Mask");
         libcli_register_param(dst_ip, dst_mask);
         set_param_cmd_code(dst_mask, ACL_CMD_CONFIG);
         {
-            /* access-list <name> <action> <proto> <dst-ip> <dst-mask> port ...*/
-            param_t *port_no = (param_t *)calloc(1, sizeof(param_t));
-            init_param(port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
-            libcli_register_param(dst_mask, port_no);
+            /*access-list <name> <action> <proto> <dst-ip> <dst-mask> eq ...*/
+            param_t *eq = (param_t *)calloc(1, sizeof(param_t));
+            init_param(eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
+            libcli_register_param(dst_mask, eq);
             {
-                /* access-list <name> <action> <proto> <dst-ip> <dst-mask> port <dst-port-no>*/
+                /* access-list <name> <action> <proto> <dst-ip> <dst-mask> eq <dst-port-no>*/
                 param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
-                init_param(dst_port_no, LEAF, 0, acl_config_handler, 0, INT, "dst-port-no", "specify Host Dst Port Number");
-                libcli_register_param(port_no, dst_port_no);
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-eq", "specify Dst Port Number");
+                libcli_register_param(eq, dst_port_no);
                 set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> <dst-ip> <dst-mask> neq ...*/
+            param_t *neq = (param_t *)calloc(1, sizeof(param_t));
+            init_param(neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
+            libcli_register_param(dst_mask, neq);
+            {
+                /*access-list <name> <action> <proto> <dst-ip> <dst-mask> neq <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-neq", "specify Dst Port Number");
+                libcli_register_param(neq, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> <dst-ip> <dst-mask> lt ...*/
+            param_t *lt = (param_t *)calloc(1, sizeof(param_t));
+            init_param(lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
+            libcli_register_param(dst_mask, lt);
+            {
+                /* access-list <name> <action> <proto> host <dst-ip> lt <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-lt", "specify Dst Port Number");
+                libcli_register_param(lt, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /*  access-list <name> <action> <proto> <dst-ip> <dst-mask> gt ...*/
+            param_t *gt = (param_t *)calloc(1, sizeof(param_t));
+            init_param(gt, CMD, "lt", 0, 0, INVALID, 0, "gt greater than");
+            libcli_register_param(dst_mask, gt);
+            {
+                /* access-list <name> <action> <proto> host <dst-ip> lt <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-gt", "specify Dst Port Number");
+                libcli_register_param(gt, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /*  access-list <name> <action> <proto> <dst-ip> <dst-mask> range ...*/
+            param_t *range = (param_t *)calloc(1, sizeof(param_t));
+            init_param(range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+            libcli_register_param(dst_mask, range);
+            {
+                /* access-list <name> <action> <proto> <dst-ip> <dst-mask> range <dst-port-no1>*/
+                param_t *dst_port_no1 = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "dst-port-no1", "specify Dst Port Number Lower Bound");
+                libcli_register_param(range, dst_port_no1);
+                {
+                    /* access-list <name> <action> <proto> <dst-ip> <dst-mask> range <dst-port-no1> <dst-port-no2>*/
+                    param_t *dst_port_no2 = (param_t *)calloc(1, sizeof(param_t));
+                    init_param(dst_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no2", "specify Dst Port Number Upper Bound");
+                    libcli_register_param(dst_port_no1, dst_port_no2);
+                    set_param_cmd_code(dst_port_no2, ACL_CMD_CONFIG);
+                }
             }
         }
     }
@@ -482,18 +764,80 @@ acl_build_config_cli(param_t *root) {
                             libcli_register_param(&host, &src_ip);
                             set_param_cmd_code(&src_ip, ACL_CMD_CONFIG);
                             {
-                                 /* access-list <name> <action> <proto> host <src-ip> port ...*/
-                                 static param_t port_no;
-                                 init_param(&port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
-                                  libcli_register_param(&src_ip, &port_no);
+                                 /* access-list <name> <action> <proto> host <src-ip> eq ...*/
+                                 static param_t eq;
+                                 init_param(&eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
+                                  libcli_register_param(&src_ip, &eq);
                                   {
-                                      /* access-list <name> <action> <proto> host <src-ip> port <src-port-no>*/
+                                      /* access-list <name> <action> <proto> host <src-ip> eq <src-port-no>*/
                                       static param_t src_port_no;
-                                      init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no", "specify Src Port Number");
-                                      libcli_register_param(&port_no, &src_port_no);
+                                      init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
+                                      libcli_register_param(&eq, &src_port_no);
                                       set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
                                       acl_build_config_cli_destination(&src_port_no);
                                   }
+                            }
+                            {
+                                /* access-list <name> <action> <proto> host <src-ip> neq ...*/
+                                static param_t neq;
+                                init_param(&neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
+                                libcli_register_param(&src_ip, &neq);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> neq <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-neq", "specify Src Port Number");
+                                    libcli_register_param(&neq, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_destination(&src_port_no);
+                                }
+                            }
+                            {
+                                /* access-list <name> <action> <proto> host <src-ip> lt ...*/
+                                static param_t lt;
+                                init_param(&lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
+                                libcli_register_param(&src_ip, &lt);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> lt <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no-lt", "specify Src Port Number");
+                                    libcli_register_param(&lt, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_destination(&src_port_no);
+                                }
+                            }           
+                            {
+                                /* access-list <name> <action> <proto> host <src-ip> gt ...*/
+                                static param_t gt;
+                                init_param(&gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
+                                libcli_register_param(&src_ip, &gt);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> gt <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
+                                    libcli_register_param(&gt, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_destination(&src_port_no);
+                                }
+                            }  
+                            {
+                                /* access-list <name> <action> <proto> host <src-ip> range ...*/
+                                static param_t range;
+                                init_param(&range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+                                libcli_register_param(&src_ip, &range);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> range <src-port-no1>*/
+                                    static param_t src_port_no1;
+                                    init_param(&src_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "src-port-no1", "specify Src Port Number Lower Bound");
+                                    libcli_register_param(&range, &src_port_no1);
+                                    {
+                                        /* access-list <name> <action> <proto> host <src-ip> range <src-port-no1> <src-port-no2>*/
+                                        static param_t src_port_no2;
+                                        init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
+                                        libcli_register_param(&src_port_no1, &src_port_no2);
+                                        set_param_cmd_code(&src_port_no2, ACL_CMD_CONFIG);
+                                         acl_build_config_cli_destination(&src_port_no2);
+                                    }
+                                }
                             }
                             acl_build_config_cli_destination(&src_ip);
                         }
@@ -510,19 +854,81 @@ acl_build_config_cli(param_t *root) {
                             libcli_register_param(&src_ip, &src_mask);
                             set_param_cmd_code(&src_mask, ACL_CMD_CONFIG);
                             acl_build_config_cli_destination(&src_mask);
+                               {
+                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> eq ...*/
+                                 static param_t eq;
+                                 init_param(&eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
+                                  libcli_register_param(&src_mask, &eq);
+                                  {
+                                      /* access-list <name> <action> <proto> <src-ip> <src-mask> eq <src-port-no>*/
+                                      static param_t src_port_no;
+                                      init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
+                                      libcli_register_param(&eq, &src_port_no);
+                                      set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                      acl_build_config_cli_destination(&src_port_no);
+                                  }
+                            }
                             {
-                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> port...*/
-                                 static param_t port_no;
-                                 init_param(&port_no, CMD, "port", 0, 0, INVALID, 0, "Port Number");
-                                 libcli_register_param(&src_mask, &port_no);
-                                 {
-                                     /* access-list <name> <action> <proto> <src-ip> <src-mask> port <src-port-no>*/
-                                     static param_t src_port_no;
-                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no", "specify Src Port Number");
-                                     libcli_register_param(&port_no, &src_port_no);
-                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                     acl_build_config_cli_destination(&src_port_no);
-                                 }
+                                /* access-list <name> <action> <proto> <src-ip> <src-mask> neq ...*/
+                                static param_t neq;
+                                init_param(&neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
+                                libcli_register_param(&src_mask, &neq);
+                                {
+                                    /*access-list <name> <action> <proto> <src-ip> <src-mask> neq <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-neq", "specify Src Port Number");
+                                    libcli_register_param(&neq, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_destination(&src_port_no);
+                                }
+                            }
+                            {
+                                /* access-list <name> <action> <proto> <src-ip> <src-mask> lt ...*/
+                                static param_t lt;
+                                init_param(&lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
+                                libcli_register_param(&src_mask, &lt);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> lt <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-lt", "specify Src Port Number");
+                                    libcli_register_param(&lt, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG );
+                                    acl_build_config_cli_destination(&src_port_no );
+                                }
+                            }           
+                            {
+                                /* access-list <name> <action> <proto> <src-ip> <src-mask> gt ...*/
+                                static param_t gt;
+                                init_param(&gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
+                                libcli_register_param(&src_mask, &gt);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> gt <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
+                                    libcli_register_param(&gt, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_destination(&src_port_no);
+                                }
+                            }  
+                            {
+                                /* access-list <name> <action> <proto> <src-ip> <src-mask> range ...*/
+                                static param_t range;
+                                init_param(&range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+                                libcli_register_param(&src_mask, &range);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> range <src-port-no1>*/
+                                    static param_t src_port_no1;
+                                    init_param(&src_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "src-port-no1", "specify Src Port Number Lower Bound");
+                                    libcli_register_param(&range, &src_port_no1);
+                                    {
+                                        /* access-list <name> <action> <proto> host <src-ip> range <src-port-no1> <src-port-no2>*/
+                                        static param_t src_port_no2;
+                                        init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
+                                        libcli_register_param(&src_port_no1, &src_port_no2);
+                                        set_param_cmd_code(&src_port_no2, ACL_CMD_CONFIG);
+                                         acl_build_config_cli_destination(&src_port_no2);
+                                    }
+                                }
                             }
                         }
                     }
@@ -583,22 +989,39 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
     switch(acl_entry->proto) {
         case ACL_UDP:
         case ACL_TCP:
-            if (acl_entry->sport.lb || acl_entry->sport.ub)
-                printf ("port %d ", acl_entry->sport.lb);
-            break;
+            if (acl_entry->sport.lb == 0 && acl_entry->sport.ub == 0)
+                break;
+            else if (acl_entry->sport.lb == 0 && acl_entry->sport.ub < ACL_MAX_PORTNO)
+                printf ("lt %d ", acl_entry->sport.ub);
+            else if (acl_entry->sport.lb > 0 && acl_entry->sport.ub == ACL_MAX_PORTNO)
+                printf ("gt %d ", acl_entry->sport.lb);
+            else if  (acl_entry->sport.lb == acl_entry->sport.ub)
+                printf ("eq %d ", acl_entry->sport.lb);
+            else
+                printf ("range %d %d ", acl_entry->sport.lb, acl_entry->sport.ub);
+            break;            
         default:;
     }
    
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , ip_addr));
     printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, ip_addr));
 
-    switch (acl_entry->proto) {
-    case ACL_UDP:
-    case ACL_TCP:
-        if (acl_entry->sport.lb || acl_entry->sport.ub)
-             printf ("port %d ", acl_entry->sport.lb);
-        break;
-    default:;
+    switch(acl_entry->proto) {
+        case ACL_UDP:
+        case ACL_TCP:
+            if (acl_entry->dport.lb == 0 && acl_entry->dport.ub == 0)
+                break;
+            else if (acl_entry->dport.lb == 0 && acl_entry->dport.ub < ACL_MAX_PORTNO)
+                printf ("lt %d ", acl_entry->dport.ub);
+            else if (acl_entry->dport.lb > 0 && acl_entry->dport.ub == ACL_MAX_PORTNO)
+                printf ("gt %d ", acl_entry->dport.lb);
+            else if  (acl_entry->dport.lb == acl_entry->dport.ub)
+                printf ("eq %d ", acl_entry->dport.lb);                
+            else
+                printf ("range %d %d ", acl_entry->dport.lb, acl_entry->dport.ub);
+                break;            
+            break;
+        default:;
     }
 
     printf("(hits %lu)\n", acl_entry->hit_count);

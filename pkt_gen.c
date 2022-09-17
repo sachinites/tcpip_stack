@@ -54,6 +54,11 @@ _send_pkt_out(int sock_fd, char *pkt_data, uint32_t pkt_size,
 }
 
 
+#define INCLUDE_UDP_HDR
+#define udp_src_port_no 20
+#define udp_dst_port_no 10
+//#undef INCLUDE_UDP_HDR
+
 int
 main(int argc, char **argv){
 
@@ -105,12 +110,28 @@ main(int argc, char **argv){
     /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
     initialize_ip_hdr(ip_hdr);
+#ifdef INCLUDE_UDP_HDR
+     ip_hdr->protocol = UDP_PROTO;
+     ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(sizeof(udp_hdr_t));
+#else
     ip_hdr->protocol = ICMP_PROTO;
+    ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(0);
+#endif
+
     ip_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(DEST_IP_ADDR);
 
+#ifdef INCLUDE_UDP_HDR
+    udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
+    udp_hdr->src_port_no = udp_src_port_no;
+    udp_hdr->dst_port_no = udp_dst_port_no;
+    udp_hdr->udp_length = sizeof(udp_hdr_t) + 0 /* Appln Payload */; 
+    udp_hdr->udp_checksum = 0;
+#endif
+
     uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
-                               IP_HDR_DEFAULT_SIZE +
-                               IF_NAME_SIZE;
+                                               (ip_hdr->total_length * 4) +
+                                               IF_NAME_SIZE;
+
     int rc = 0 ;
     while(1){
         rc = _send_pkt_out(udp_sock_fd, send_buffer, 

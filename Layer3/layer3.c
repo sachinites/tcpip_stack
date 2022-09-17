@@ -209,11 +209,17 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
                 case MTCP:
                     promote_pkt_to_layer4(node, interface, 
 								pkt_block, ip_hdr->protocol);
-                    break;
+                    return;
                 case ICMP_PROTO:
                     printf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     //pkt_block_dereference(pkt_block);
                     break;
+                case UDP_PROTO:
+                        promote_pkt_to_layer4 (
+                                              node, interface,
+											  pkt_block,
+                                              UDP_HDR);
+                        return;
                 case IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
