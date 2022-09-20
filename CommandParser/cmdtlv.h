@@ -79,6 +79,14 @@ print_tlv_content(tlv_struct_t *tlv){
     printf("tlv->value     = %s\n", tlv->value);
 }
 
+static inline bool
+parser_match_leaf_id (char *tlv_leaf_id, const char *leaf_id_manual) {
+
+    int len;
+    if ((len = strlen(tlv_leaf_id)) != strlen(leaf_id_manual)) return false;
+    return (strncmp(tlv_leaf_id, leaf_id_manual, len) == 0);
+}
+
 static inline void
 dump_tlv_serialized_buffer(ser_buff_t *tlv_ser_buff){
 
