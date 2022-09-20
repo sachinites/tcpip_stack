@@ -216,6 +216,8 @@ access_list_unconfig(node_t *node,
 
    acl_entry_t acl_entry; 
 
+   memset(&acl_entry, 0, sizeof(acl_entry_t));
+
    access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
 
     if (!access_list) {
