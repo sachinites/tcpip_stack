@@ -580,11 +580,11 @@ int traceoptions_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
         
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) == 0)
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "if-name"))
             if_name =  tlv->value;
-        else if(strncmp(tlv->leaf_id, "flag-val", strlen("flag-val")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "flag-val"))
             flag_val = tlv->value;
         else
             assert(0);

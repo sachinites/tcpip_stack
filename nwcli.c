@@ -69,7 +69,7 @@ display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "struct-name", strlen("struct-name")) == 0)
+        if(parser_match_leaf_id(tlv->leaf_id, "struct-name"))
             struct_name =  tlv->value;
     } TLV_LOOP_END;
 
@@ -284,7 +284,7 @@ show_nw_topology_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
         
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else
             assert(0);
@@ -340,7 +340,7 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
 
     }TLV_LOOP_END;
@@ -366,7 +366,7 @@ show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
 
     }TLV_LOOP_END;
@@ -393,9 +393,9 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "ip-address", strlen("ip-address")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
             ip_addr = tlv->value;
     } TLV_LOOP_END;
 
@@ -427,11 +427,11 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "ip-address", strlen("ip-address")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
             ip_addr = tlv->value;
-        else if(strncmp(tlv->leaf_id, "ero-ip-address", strlen("ero-ip-address")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
             ero_ip_addr = tlv->value;
         else
             assert(0);
@@ -466,7 +466,7 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
 
     }TLV_LOOP_END;
@@ -489,9 +489,9 @@ clear_rt_handler(param_t *param, ser_buff_t *tlv_buf,
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        if(strncmp(tlv->leaf_id, "rib-name", strlen("rib-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "rib-name"))
             rib_name = tlv->value;
     }TLV_LOOP_END;
 
@@ -530,19 +530,19 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "ip-address", strlen("ip-address")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
             dest = tlv->value;
-        else if(strncmp(tlv->leaf_id, "gw-ip", strlen("gw-ip")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "gw-ip"))
             gwip = tlv->value;
-        else if(strncmp(tlv->leaf_id, "mask", strlen("mask")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
             mask_str = tlv->value;
-        else if(strncmp(tlv->leaf_id, "oif", strlen("oif")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "oif"))
             intf_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "rib-name", strlen("rib-name")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "rib-name"))
             rib_name = tlv->value;        
-        else if(strncmp(tlv->leaf_id, "prefix-lst-name", strlen("prefix-lst-name")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "prefix-lst-name"))
             prefix_lst_name = tlv->value;                   
         else
             assert(0);
@@ -680,23 +680,23 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
    
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "if-name"))
             intf_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "vlan-id", strlen("vlan-d")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "vlan-id"))
             vlan_id = atoi(tlv->value);
-        else if(strncmp(tlv->leaf_id, "l2-mode-val", strlen("l2-mode-val")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "l2-mode-val"))
             l2_mode_option = tlv->value;
-        else if(strncmp(tlv->leaf_id, "if-up-down", strlen("if-up-down")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "if-up-down"))
              if_up_down = tlv->value; 
-        else if(strncmp(tlv->leaf_id, "metric-val", strlen("metric-val")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "metric-val"))
              intf_new_matric_val = atoi(tlv->value);      
-        else if(strncmp(tlv->leaf_id, "intf-ip-addr", strlen("intf-ip-addr")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "intf-ip-addr"))
              intf_ip_addr = tlv->value;     
-        else if(strncmp(tlv->leaf_id, "mask", strlen("mask")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
              mask = atoi(tlv->value);  
-        else if(strncmp(tlv->leaf_id, "lono", strlen("lono")) == 0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "lono"))
              lono = atoi(tlv->value);  
         else
             assert(0);
@@ -844,7 +844,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
         
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else
             assert(0);
@@ -885,9 +885,9 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "protocol-name", strlen("protocol-name")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "protocol-name"))
             protocol_name = tlv->value;        
         else
             assert(0);

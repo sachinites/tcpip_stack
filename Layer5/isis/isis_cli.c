@@ -31,13 +31,13 @@ isis_config_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "timeout-val", strlen("timeout-val")) ==0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "timeout-val"))
             ovl_timeout_val = atoi(tlv->value);
-        else if (strncmp(tlv->leaf_id, "if-grp-name", strlen("if-grp-name")) ==0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "if-grp-name"))
             if_grp_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "prefix-list-name", strlen("prefix-list-name")) ==0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "prefix-list-name"))
             prefix_lst_name = tlv->value;
         else
             assert(0);
@@ -148,11 +148,11 @@ isis_intf_config_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "if-name"))
             intf_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "if-grp-name", strlen("if-grp-name")) == 0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "if-grp-name"))
             if_grp_name = tlv->value;
         else
             assert(0);
@@ -248,11 +248,11 @@ isis_show_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "if-name"))
             intf_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "rtr-id", strlen("rtr-id")) ==0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "rtr-id"))
             rtr_id_str = tlv->value;
         else
             assert(0);

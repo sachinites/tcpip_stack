@@ -238,21 +238,21 @@ prefix_lst_config_handler (param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value; 
-        else if(strncmp(tlv->leaf_id, "pfxlst-name", strlen("pfxlst-name")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "pfxlst-name"))
             pfx_lst_name = tlv->value; 
-        else if(strncmp(tlv->leaf_id, "permit|deny", strlen("permit|deny")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "permit|deny"))
             res_str = tlv->value;
-        else if(strncmp(tlv->leaf_id, "seq-no", strlen("seq-no")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "seq-no"))
             seq_no = atoi(tlv->value);
-        else if(strncmp(tlv->leaf_id, "nw-ip", strlen("nw-ip")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "nw-ip"))
             nw_prefix = tlv->value;
-        else if(strncmp(tlv->leaf_id, "nw-mask", strlen("nw-mask")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "nw-mask"))
             len = atoi(tlv->value); 
-        else if(strncmp(tlv->leaf_id, "ge-n", strlen("ge-n")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "ge-n"))
             lb = atoi(tlv->value);                
-        else if(strncmp(tlv->leaf_id, "le-n", strlen("le-n")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "le-n"))
             ub = atoi(tlv->value);               
     } TLV_LOOP_END;
 
@@ -434,9 +434,9 @@ prefix_lst_show_handler (param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value; 
-        else if(strncmp(tlv->leaf_id, "pfxlst-name", strlen("pfxlst-name")) ==0)
+        else if(parser_match_leaf_id(tlv->leaf_id, "pfxlst-name"))
             pfx_lst_name = tlv->value; 
     } TLV_LOOP_END;
 

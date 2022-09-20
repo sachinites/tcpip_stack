@@ -489,9 +489,31 @@ acl_config_handler(param_t *param,
         case ACL_CMD_CONFIG:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                return access_list_config(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no1, src_port_no2, dst_ip, dst_mask, dst_port_no1, dst_port_no2);
+                return access_list_config(node,
+                                                         access_list_name,
+                                                         action_name,
+                                                         proto,
+                                                         src_ip,
+                                                         src_mask,
+                                                         src_port_no1,
+                                                         src_port_no2,
+                                                         dst_ip,
+                                                         dst_mask,
+                                                         dst_port_no1,
+                                                         dst_port_no2);
             case CONFIG_DISABLE:
-                return access_list_unconfig(node, access_list_name, action_name, proto, src_ip, src_mask, src_port_no1, src_port_no2, dst_ip, dst_mask, dst_port_no1, dst_port_no2);
+                return access_list_unconfig(node,
+                                                             access_list_name,
+                                                             action_name,
+                                                             proto,
+                                                             src_ip,
+                                                             src_mask,
+                                                             src_port_no1,
+                                                             src_port_no2,
+                                                             dst_ip,
+                                                             dst_mask,
+                                                             dst_port_no1,
+                                                             dst_port_no2);
         }
         break;
         default: ;
@@ -516,13 +538,13 @@ access_group_config_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) == 0)
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "access-list-name", strlen("access-list-name")) == 0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
             access_list_name = tlv->value;
-        else if (strncmp(tlv->leaf_id, "dirn", strlen("dirn")) == 0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "dirn"))
             dirn = tlv->value;
-                    else if (strncmp(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
+        else if (parser_match_leaf_id(tlv->leaf_id, "if-name"))
             if_name = tlv->value;
         else
             assert(0);
@@ -697,7 +719,7 @@ acl_build_config_cli_destination (param_t *root) {
         {
             /*  access-list <name> <action> <proto> <dst-ip> <dst-mask> gt ...*/
             param_t *gt = (param_t *)calloc(1, sizeof(param_t));
-            init_param(gt, CMD, "lt", 0, 0, INVALID, 0, "gt greater than");
+            init_param(gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
             libcli_register_param(dst_mask, gt);
             {
                 /* access-list <name> <action> <proto> host <dst-ip> lt <dst-port-no>*/
@@ -710,7 +732,7 @@ acl_build_config_cli_destination (param_t *root) {
         {
             /*  access-list <name> <action> <proto> <dst-ip> <dst-mask> range ...*/
             param_t *range = (param_t *)calloc(1, sizeof(param_t));
-            init_param(range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+            init_param(range, CMD, "range", 0, 0, INVALID, 0, "range <p1> <p2>");
             libcli_register_param(dst_mask, range);
             {
                 /* access-list <name> <action> <proto> <dst-ip> <dst-mask> range <dst-port-no1>*/
@@ -824,7 +846,7 @@ acl_build_config_cli(param_t *root) {
                             {
                                 /* access-list <name> <action> <proto> host <src-ip> range ...*/
                                 static param_t range;
-                                init_param(&range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+                                init_param(&range, CMD, "range", 0, 0, INVALID, 0, "range <p1> <p2>");
                                 libcli_register_param(&src_ip, &range);
                                 {
                                     /* access-list <name> <action> <proto> host <src-ip> range <src-port-no1>*/
@@ -1043,12 +1065,6 @@ access_list_show_all(node_t *node) {
         mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   acl_entry_show_one_acl_entry,
                                                                   (void *)acc_lst);
-    #if 0
-    /* Debugging */
-    mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
-                                                                  mtrie_print_node,
-                                                                  NULL);
-    #endif
 
     } ITERATE_GLTHREAD_END(&node->access_lists_db, curr)
 }
