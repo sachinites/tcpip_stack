@@ -16,10 +16,10 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 #define ACL_CMD_ACCESS_GROUP_CONFIG 3
 
 /* ACL CLI format (Cisco Like ) :
-    <permit/deny> <protocol> <src ip> <src mask> <dst ip> <dst mask> <eq | lt | gt | range> <port1> <port2> 
-    <permit/deny> <protocol> host <src ip> host <dst ip> <eq | lt | gt | range> <port1> <port2> 
-
+     <permit|deny> <protocol> <src-ip> <src-mask> range <src-port-no1> <src-port-no2> <dst-ip> <dst-mask> range <dst-port-no1> <dst-port-no2>
+    <permit/deny> <protocol> host <src ip> <eq | lt | gt | range> <port1> <port2>  host <dst ip> <eq | lt | gt | range> <port1> <port2> 
 */
+
 static int
 acl_action_validation_cbk(char *value) {
 

@@ -132,3 +132,120 @@ uint32_t get_new_ifindex(){
 	return (++ifindex);
 }
 
+/* Range to prefix/wildcard conversions */
+
+typedef struct {
+    int count;
+    uint16_t (*data)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint16_t (*mask)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+} acl_port_range_masks_t;
+
+typedef struct {
+    uint16_t lb;
+    uint16_t ub;
+} acl_port_range_t;
+
+static int
+range2mask_rec(acl_port_range_masks_t *masks, acl_port_range_t range,
+               uint16_t prefix, uint16_t mask, int b)
+{   
+    int ret;
+
+    if ( prefix >= range.lb && (prefix | mask) <= range.ub ) {
+        if ( masks->count >= MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT ) {
+            return -1;
+        }
+        *(masks->data[masks->count]) = prefix;
+        *(masks->mask[masks->count]) = mask;
+        masks->count++;
+        return 0;
+    } else if ( (prefix | mask) < range.lb || prefix > range.ub ) {
+        return 0;
+    } else {
+        /* Partial */
+    }
+    if ( !mask ) {
+        /* End of the recursion */
+        return 0;
+    }
+
+    mask >>= 1;
+    /* Left */
+    ret = range2mask_rec(masks, range, prefix, mask, b + 1);
+    if ( ret < 0 ) {
+        return ret;
+    }
+    /* Right */
+    prefix |= (1 << (15 - b));
+    ret = range2mask_rec(masks, range, prefix, mask, b + 1);
+    if ( ret < 0 ) {
+        return ret;
+    }
+    return 0;
+}
+
+
+static int
+range2mask (acl_port_range_masks_t *masks, acl_port_range_t range)
+{   
+    int b;
+    uint16_t x;
+    uint16_t y;
+    uint16_t prefix;
+    uint16_t mask;
+
+    masks->count = 0;
+    for ( b = 0; b < 16; b++ ) {
+        x = range.lb & (1 << (15 - b));
+        y = range.ub & (1 << (15 - b));
+        if ( x != y ) {
+            /* The most significant different bit */
+            break;
+        }
+    }
+    mask = (1 << (16 - b)) - 1;
+    prefix = range.lb & ~mask;
+
+    return range2mask_rec(masks, range, prefix, mask, b);
+}
+
+void
+range2_prefix_wildcard_conversion (uint16_t lb,  /* Input Lower bound */
+                                                            uint16_t ub, /* Input Upper Bound */
+                                                            uint16_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],      /* Array of Prefix , Caller need to provide memory */
+                                                            uint16_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
+                                                            int *n) {
+
+    acl_port_range_t range;
+    acl_port_range_masks_t masks;
+
+    range.lb = lb;
+    range.ub = ub;
+
+    memset (&masks, 0, sizeof(masks));
+    
+    masks.data = prefix;
+    masks.mask = wildcard;
+
+    range2mask (&masks, range);
+    *n = masks.count;
+    return;
+}
+
+#if 0
+#include <stdio.h>
+int 
+main(int arhc, char **argv) {
+
+    uint16_t prefix[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT] = {0};
+    uint16_t wcard[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT] = {0};
+
+    int n = 0;
+
+    range2_prefix_wildcard_conversion(1432, 1432, &prefix, &wcard, &n);
+
+    printf("n = %d\n", n);
+
+    return 0;
+}
+#endif

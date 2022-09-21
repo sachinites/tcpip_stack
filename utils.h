@@ -108,4 +108,13 @@ uint32_t get_new_ifindex();
 
 #define UNUSED(variable)    (void)variable
 
+#define MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT 32
+
+void
+range2_prefix_wildcard_conversion (uint16_t lb,  /* Input Lower bound */
+                                                            uint16_t ub, /* Input Upper Bound */
+                                                            uint16_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],      /* Array of Prefix , Caller need to provide memory */
+                                                            uint16_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
+                                                            int *n);
+
 #endif /* __UTILS__ */

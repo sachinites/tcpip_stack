@@ -73,7 +73,9 @@ CLI_VAL_RC
 int_validation_handler(leaf_t *leaf, char *value_passed){
     /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
-    return VALIDATION_SUCCESS;
+    if (fsm_is_integer (value_passed, strlen(value_passed)))
+        return VALIDATION_SUCCESS;
+    return VALIDATION_FAILED;
 }
 
 

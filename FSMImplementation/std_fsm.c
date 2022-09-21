@@ -539,6 +539,52 @@ normalize_ipv4_token(char *token, char *octet){
     }
 }
 
+fsm_t *
+fsm_for_integer_validation() {
+
+    tt_entry_t *tt_entry = NULL;
+
+    fsm_t *fsm = create_new_fsm("Integer Validator");
+
+     /*DEAD_STATE*/
+    state_t *DEAD_STATE = create_new_state("D", FSM_FALSE);
+    create_and_insert_new_tt_entry_wild_card (DEAD_STATE, DEAD_STATE, 0);
+
+    /* State q0 */
+    state_t *state_q0 = create_new_state("q0", FSM_TRUE);
+    set_fsm_initial_state(fsm, state_q0);
+
+     tt_entry = create_and_insert_new_tt_entry(&state_q0->state_trans_table,
+                                   0, 0, 0,
+                                   state_q0);
+    register_input_matching_tt_entry_cb(tt_entry, match_any_0_9_match_fn); 
+    create_and_insert_new_tt_entry_wild_card(state_q0, DEAD_STATE, 0); 
+
+    return fsm;
+}
+
+
+bool
+fsm_is_integer (char *integer, int size) {
+
+    static fsm_t *fsm = NULL;
+    fsm_error_t fsm_error;
+    fsm_bool_t fsm_result;
+
+    if (!fsm) {
+        fsm = fsm_for_integer_validation();
+    }
+
+    fsm_error = execute_fsm(fsm,
+                            integer,
+                            size,
+                            0,
+                            &fsm_result);   
+
+    if (fsm_result == FSM_TRUE) return true;
+    return false;
+}
+
 bool
 ip_validate(char *ip_addr_copy)
 {

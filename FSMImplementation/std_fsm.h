@@ -98,4 +98,10 @@ fsm_binary_to_hex();
 bool
 ip_validate(char *ip_addr_copy);
 
+bool
+fsm_is_integer (char *integer, int size);
+
+fsm_t *
+fsm_for_integer_validation() ;
+
 #endif /* __STD_FSM__ */

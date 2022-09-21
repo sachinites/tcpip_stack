@@ -11,7 +11,7 @@
 static uint16_t node_id = 1;
 
 /* To generate unique Node IDs. No functional, only for debugging
-purpose */
+purpose. This fn is thread unsafe and may cause some surprises! Fix it. */
 static inline uint16_t 
 mtrie_get_new_node_id(void) {
     return (node_id++);
