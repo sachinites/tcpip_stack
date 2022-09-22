@@ -73,20 +73,41 @@ GLTHREAD_TO_STRUCT(glue_to_acl_tcam, acl_tcam_t, glue);
 /* Stores the info as read from CLI */
 typedef struct {
     acl_action_t action;
+
     acl_proto_t proto;
+    uint16_t tcam_l4proto_prefix;
+    uint16_t tcam_l4proto_wcard;
+    uint16_t tcam_l3proto_prefix;
+    uint16_t tcam_l3proto_wcard;
+
     union {
         acl_ipv4_mask_t ip4;
     } saddr;
+    uint32_t tcam_saddr_prefix;
+    uint32_t tcam_saddr_wcard;
+
     acl_port_range_t sport;
+    uint8_t tcam_sport_count;
+    uint16_t (*tcam_sport_prefix)[32];
+    uint16_t (*tcam_sport_wcard)[32];
+
     union {
         acl_ipv4_mask_t ip4;
     } daddr;
+    uint32_t tcam_daddr_prefix;
+    uint32_t tcam_daddr_wcard;
+
     acl_port_range_t dport;
+    uint8_t tcam_dport_count;
+    uint16_t (*tcam_dport_prefix)[32];
+    uint16_t (*tcam_dport_wcard)[32];
+
     int priority;
     uint64_t hit_count;
-    /* The above data is converted into value/mask format and stored here*/
-    glthread_t acl_tcam_list_head;
     
+    uint16_t tcam_entries_count;\
+    /* To avoid Duplicate printing */
+    uint32_t show_cli_seq;
     glthread_t glue;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
@@ -98,11 +119,13 @@ typedef struct access_list_ {
     pthread_spinlock_t spin_lock;
     mtrie_t *mtrie;     // Mtrie for this access list
     uint8_t ref_count; // how many sub-systems using this access list
+    uint32_t show_cli_seq;
 } access_list_t;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;
 void acl_entry_free(acl_entry_t *acl_entry);
+void acl_entry_free_tcam_data (acl_entry_t *acl_entry) ;
 
 bool
 acl_process_user_config(node_t *node, 

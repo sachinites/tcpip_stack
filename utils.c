@@ -33,6 +33,8 @@
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <stdint.h>
 #include <memory.h>
+#include <stdio.h>
+#include <assert.h>
 #include "utils.h"
 
 /*Apply mask on prefix, and store result in 'str_prefix'
@@ -153,10 +155,10 @@ range2mask_rec(acl_port_range_masks_t *masks, acl_port_range_t range,
 
     if ( prefix >= range.lb && (prefix | mask) <= range.ub ) {
         if ( masks->count >= MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT ) {
-            return -1;
+            assert(0);
         }
-        *(masks->data[masks->count]) = prefix;
-        *(masks->mask[masks->count]) = mask;
+        (*(masks->data))[masks->count] = htons(prefix);
+        (*(masks->mask))[masks->count] = htons(mask);
         masks->count++;
         return 0;
     } else if ( (prefix | mask) < range.lb || prefix > range.ub ) {
@@ -229,11 +231,19 @@ range2_prefix_wildcard_conversion (uint16_t lb,  /* Input Lower bound */
 
     range2mask (&masks, range);
     *n = masks.count;
-    return;
 }
 
+void
+print_uint16_bits (uint16_t n) {
+
+    int i;
+    for (i = 15; i >= 0; i--) {
+        if (n & (1 << i)) printf ("1");
+        else printf("0");
+    }
+}
 #if 0
-#include <stdio.h>
+
 int 
 main(int arhc, char **argv) {
 
@@ -242,9 +252,17 @@ main(int arhc, char **argv) {
 
     int n = 0;
 
-    range2_prefix_wildcard_conversion(1432, 1432, &prefix, &wcard, &n);
+    range2_prefix_wildcard_conversion(10, 1000, &prefix, &wcard, &n);
 
     printf("n = %d\n", n);
+
+    int i;
+    for (i = 0; i < n; i++) {
+        print_uint16_bits(prefix[i]);
+        printf ("\n");
+        print_uint16_bits(wcard[i]);
+        printf("\n\n");
+    }
 
     return 0;
 }

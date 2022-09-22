@@ -12,6 +12,17 @@
 #include "../../pkt_block.h"
 #include "../../Layer4/udp.h"
 
+typedef struct acl_enumerator_ {
+
+    int src_port_index;
+    int dst_port_index;
+} acl_enumerator_t;
+
+static void
+acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input */
+                                                 acl_enumerator_t *acl_enumerator, /* Input */
+                                                 acl_tcam_t *tcam_entry) ;
+
 acl_proto_t
 acl_string_to_proto(unsigned char *proto_name) {
 
@@ -42,21 +53,33 @@ acl_string_to_proto(unsigned char *proto_name) {
 void 
 acl_entry_free (acl_entry_t *acl_entry) {
 
-    glthread_t *curr;
-    acl_tcam_t *acl_tcam = NULL;
-
-    ITERATE_GLTHREAD_BEGIN(&acl_entry->acl_tcam_list_head, curr) {
-
-         acl_tcam = glue_to_acl_tcam(curr);
-         remove_glthread(curr);
-         bitmap_free_internal(&acl_tcam->prefix);
-         bitmap_free_internal(&acl_tcam->mask);
-         XFREE(acl_tcam);
-    } ITERATE_GLTHREAD_END(&acl_entry->acl_tcam_list_head, curr);
-
+    acl_entry_free_tcam_data(acl_entry);
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
-
     XFREE(acl_entry);
+}
+
+void 
+acl_entry_free_tcam_data (acl_entry_t *acl_entry) {
+
+   if (acl_entry->tcam_sport_prefix) {
+        XFREE(acl_entry->tcam_sport_prefix);
+        acl_entry->tcam_sport_prefix = NULL;
+   }
+
+    if (acl_entry->tcam_sport_wcard) {
+        XFREE(acl_entry->tcam_sport_wcard);
+        acl_entry->tcam_sport_wcard = NULL;
+   }
+
+   if (acl_entry->tcam_dport_prefix) {
+        XFREE(acl_entry->tcam_dport_prefix);
+        acl_entry->tcam_dport_prefix = NULL;
+   }
+
+    if (acl_entry->tcam_dport_wcard) {
+        XFREE(acl_entry->tcam_dport_wcard);
+        acl_entry->tcam_dport_wcard = NULL;
+   }   
 }
 
 
@@ -64,36 +87,11 @@ acl_entry_free (acl_entry_t *acl_entry) {
 static void
 acl_compile (acl_entry_t *acl_entry) {
 
-    bool rc;
-    uint16_t temp;
-    uint16_t bytes_copied = 0;
-
-    acl_tcam_t *acl_tcam = (acl_tcam_t *)XCALLOC(0, 1, acl_tcam_t);
-
-    bitmap_init(&acl_tcam->prefix, ACL_PREFIX_LEN);
-    bitmap_init(&acl_tcam->mask, ACL_PREFIX_LEN);
-    init_glthread(&acl_tcam->glue);
-    glthread_add_last(&acl_entry->acl_tcam_list_head, &acl_tcam->glue);
-
-    bitmap_t *prefix = &acl_tcam->prefix;
-    bitmap_t *mask = &acl_tcam->mask;
-
-    uint16_t *prefix_ptr2 = (uint16_t *)prefix->bits;
-    uint32_t *prefix_ptr4 = (uint32_t *)prefix->bits;
-    uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
-    uint32_t *mask_ptr4 = (uint32_t *)mask->bits;
-    
     if (acl_entry->proto == ACL_PROTO_ANY) {
         /* User has feed "any" in place of protocol in ACL */
         /* Fill L4 proto field and L3 proto field with Dont Care */
-        *mask_ptr2 = 0xFFFF; 
-        prefix_ptr2++; mask_ptr2++;
-        bytes_copied += sizeof(*prefix_ptr2);
-        *mask_ptr2 = 0xFFFF;
-        prefix_ptr2++; mask_ptr2++;
-        bytes_copied += sizeof(*prefix_ptr2);
-        prefix_ptr4 = (uint32_t *)prefix_ptr2;
-        mask_ptr4 = (uint32_t *)mask_ptr2;
+        acl_entry->tcam_l4proto_wcard = 0xFFFF; 
+        acl_entry->tcam_l3proto_wcard = 0xFFFF; 
         goto SRC_ADDR;
     }
 
@@ -104,103 +102,96 @@ acl_compile (acl_entry_t *acl_entry) {
     if (proto_layer == TRANSPORT_LAYER ||
          proto_layer == APPLICATION_LAYER) {
 
-        *prefix_ptr2 = htons((uint16_t)acl_entry->proto);
-        *mask_ptr2 = 0;
+        acl_entry->tcam_l4proto_prefix = htons((uint16_t)acl_entry->proto);
+        acl_entry->tcam_l4proto_wcard = 0;
     }
     else {
-        *mask_ptr2 = 0xFFFF;
+        acl_entry->tcam_l4proto_wcard = 0xFFFF;
     }
-
-    bytes_copied += sizeof(*prefix_ptr2);
-    prefix_ptr2++; mask_ptr2++;
-    prefix_ptr4 = (uint32_t *)prefix_ptr2;
-    mask_ptr4 = (uint32_t *)mask_ptr2;
 
     /* Network Layer Protocol 2 B*/
     if (proto_layer == NETWORK_LAYER) {
      /* Protocol 2 B*/
-        *prefix_ptr2 = htons((uint16_t)acl_entry->proto);
-        *mask_ptr2 = 0;
+        acl_entry->tcam_l3proto_prefix = htons((uint16_t)acl_entry->proto);
+        acl_entry->tcam_l3proto_wcard = 0; 
     }
     else {
-        *mask_ptr2 = 0xFFFF;
+        acl_entry->tcam_l3proto_wcard = 0xFFFF;
     }
-
-    bytes_copied += sizeof(*prefix_ptr2);
-    prefix_ptr2++; mask_ptr2++;
-    prefix_ptr4 = (uint32_t *)prefix_ptr2;
-    mask_ptr4 = (uint32_t *)mask_ptr2;
 
     SRC_ADDR:
 
     /* Src ip Address & Mask */
-    *prefix_ptr4 = htonl(acl_entry->saddr.ip4.prefix);
-    *mask_ptr4 =  htonl(~acl_entry->saddr.ip4.mask);
-    bytes_copied += sizeof(*prefix_ptr4);
-    prefix_ptr4++; mask_ptr4++;
-    prefix_ptr2 = (uint16_t *)prefix_ptr4;
-    mask_ptr2 = (uint16_t *)mask_ptr4;
+    acl_entry->tcam_saddr_prefix = htonl(acl_entry->saddr.ip4.prefix);
+    acl_entry->tcam_saddr_wcard =  htonl(~acl_entry->saddr.ip4.mask);
 
     /* Src Port Range */
+    if (!acl_entry->tcam_sport_prefix) {
+        acl_entry->tcam_sport_prefix = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_sport_prefix));
+    }
+    else {
+        memset(acl_entry->tcam_sport_prefix, 0, sizeof(*acl_entry->tcam_sport_prefix));
+    }
+    if (!acl_entry->tcam_sport_wcard) {
+        acl_entry->tcam_sport_wcard = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_sport_wcard));
+    }
+    else {
+        memset(acl_entry->tcam_sport_wcard, 0, sizeof(*acl_entry->tcam_sport_wcard));
+    }
+
     if (acl_entry->sport.lb == 0 && 
          acl_entry->sport.ub == 0 ) {
-        *prefix_ptr2 = 0;
-        *mask_ptr2 = 0xFFFF;
+            
+            acl_entry->tcam_sport_count = 1;
+            (*acl_entry->tcam_sport_prefix)[0] = 0;
+            (*acl_entry->tcam_sport_wcard)[0] = 0xFFFF;
     }
-    else {
-        *prefix_ptr2 = htons(acl_entry->sport.lb);
-        *mask_ptr2 = 0;
+    else {      
+        range2_prefix_wildcard_conversion(
+            acl_entry->sport.lb,
+            acl_entry->sport.ub, 
+            acl_entry->tcam_sport_prefix,
+            acl_entry->tcam_sport_wcard, 
+            (int *)&acl_entry->tcam_sport_count);
     }
-
-     bytes_copied += sizeof(*prefix_ptr2);
-     prefix_ptr2++; mask_ptr2++;
-     prefix_ptr4 = (uint32_t *)prefix_ptr2;
-     mask_ptr4 = (uint32_t *)mask_ptr2;
-
 
      /* Dst ip Address & Mask */
-    *prefix_ptr4 = htonl(acl_entry->daddr.ip4.prefix);
-    *mask_ptr4 =  htonl(~acl_entry->daddr.ip4.mask);
-    bytes_copied += sizeof(*prefix_ptr4);
-    prefix_ptr4++; mask_ptr4++;
-    prefix_ptr2 = (uint16_t *)prefix_ptr4;
-    mask_ptr2 = (uint16_t *)mask_ptr4;
+    acl_entry->tcam_daddr_prefix = htonl(acl_entry->daddr.ip4.prefix);
+    acl_entry->tcam_daddr_wcard =  htonl(~acl_entry->daddr.ip4.mask);
 
     /* Dst Port Range */
-    /* Not Supported Yet, fill it 16bit prefix as zero, and 16 bit mask as  all 1s */
-    if (acl_entry->dport.lb == 0 && 
-         acl_entry->dport.ub == 0 ) {
-        *prefix_ptr2 = 0;
-        *mask_ptr2 = 0xFFFF;
+    if (!acl_entry->tcam_dport_prefix) {
+        acl_entry->tcam_dport_prefix = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_dport_prefix));
     }
     else {
-        *prefix_ptr2 = htons(acl_entry->dport.lb);
-        *mask_ptr2 = 0;
+        memset(acl_entry->tcam_dport_prefix, 0, sizeof(*acl_entry->tcam_dport_prefix));
+    }
+    if (!acl_entry->tcam_dport_wcard) {
+        acl_entry->tcam_dport_wcard = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_dport_wcard));
+    }
+    else {
+        memset(acl_entry->tcam_dport_wcard, 0, sizeof(*acl_entry->tcam_dport_wcard));
     }
 
-     bytes_copied += sizeof(*prefix_ptr2);
-     prefix_ptr2++; mask_ptr2++;
-    prefix_ptr4 = (uint32_t *)prefix_ptr2;
-    mask_ptr4 = (uint32_t *)mask_ptr2;
-
-    /* Fill the residual bits : prefix with Zeros, and Mask with 1s*/
-    
-    // Prefix : Already done
-
-    // Mask :
-    uint16_t bytes_remaining = (ACL_PREFIX_LEN/8) - bytes_copied ;
-    uint8_t *mask_ptr1 = (uint8_t *)mask_ptr2;
-
-    while (bytes_remaining) {
-        *mask_ptr1 = 0xFF;
-        mask_ptr1++;
-        bytes_remaining--; 
-        bytes_copied++;
+    if (acl_entry->dport.lb == 0 && 
+         acl_entry->dport.ub == 0 ) {
+            
+            acl_entry->tcam_dport_count = 1;
+            (*acl_entry->tcam_dport_prefix)[0] = 0;
+            (*acl_entry->tcam_dport_wcard)[0] = 0xFFFF;
     }
-    
-    prefix->next = bytes_copied * 8;
-    mask->next = prefix->next;
-    assert(prefix->next == ACL_PREFIX_LEN);
+    else {      
+        range2_prefix_wildcard_conversion(
+            acl_entry->dport.lb,
+            acl_entry->dport.ub, 
+            acl_entry->tcam_dport_prefix,
+            acl_entry->tcam_dport_wcard, 
+            (int *)&acl_entry->tcam_dport_count);
+    }
 }
 
 access_list_t *
@@ -243,32 +234,6 @@ access_list_add_acl_entry(
     glthread_add_last(&access_list->head, &acl_entry->glue);
 }
 
-/* Install all TCAM entries of a given ACL */
-bool
-acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
-
-    bool rc;
-    glthread_t *curr;
-    acl_tcam_t *acl_tcam;
-
-    pthread_spin_lock (&access_list->spin_lock);
-
-    ITERATE_GLTHREAD_BEGIN(&acl_entry->acl_tcam_list_head, curr) {
-
-        rc = false;
-        acl_tcam = glue_to_acl_tcam(curr);
-        rc = mtrie_insert_prefix(
-                    access_list->mtrie,
-                    &acl_tcam->prefix,
-                    &acl_tcam->mask,
-                    ACL_PREFIX_LEN,
-                    (void *)acl_entry);
-    } ITERATE_GLTHREAD_END(&acl_entry->acl_tcam_list_head, curr);
-
-    pthread_spin_unlock (&access_list->spin_lock);
-    return true;
- }
-
  void 
  access_list_check_delete(access_list_t *access_list) {
 
@@ -305,6 +270,7 @@ acl_process_user_config (node_t *node,
         if (new_access_list) {
             access_list_check_delete(access_list);
         }
+        acl_entry_free_tcam_data(acl_entry);
         return false;
     }
 
@@ -318,6 +284,7 @@ acl_process_user_config (node_t *node,
         access_list_notify_clients (node, access_list);
     }
 
+    acl_entry_free_tcam_data(acl_entry);
     return true;
 }
 
@@ -328,46 +295,73 @@ acl_process_user_config_for_deletion (
                 acl_entry_t *acl_entry) {
 
     bool rc = false;
-    glthread_t *curr;
-    acl_tcam_t *acl_tcam;
+    bool is_acl_updated;
+    int src_port_it, dst_port_it;
+    acl_enumerator_t acl_enum;
+    acl_tcam_t tcam_entry_template;
+
+    is_acl_updated = false;
     void *acl_entry_in_mtrie = NULL;
     acl_entry_t *installed_acl_entry = NULL;
 
     acl_compile (acl_entry);
 
+    bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
+    bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
+    init_glthread(&tcam_entry_template.glue);
+
     pthread_spin_lock (&access_list->spin_lock);
 
-    ITERATE_GLTHREAD_BEGIN(&acl_entry->acl_tcam_list_head, curr) {
-    
-    acl_tcam = glue_to_acl_tcam(curr);
+   for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
 
-    rc = mtrie_delete_prefix (access_list->mtrie, 
-                                            &acl_tcam->prefix, 
-                                            &acl_tcam->mask,
+        for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
+    
+            acl_enum.src_port_index = src_port_it;
+            acl_enum.dst_port_index = dst_port_it;
+
+            acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
+
+#if 0
+            printf ("Un-Installing TCAM Entry  : \n");
+            bitmap_print(&tcam_entry_template.prefix);
+            bitmap_print(&tcam_entry_template.mask);
+#endif
+            rc = mtrie_delete_prefix (access_list->mtrie, 
+                                            &tcam_entry_template.prefix, 
+                                            &tcam_entry_template.mask,
                                             &acl_entry_in_mtrie);
 
-    }  ITERATE_GLTHREAD_END(&acl_entry->acl_tcam_list_head, curr);
+            if (rc) {
+                assert(((acl_entry_t *)acl_entry_in_mtrie)->tcam_entries_count > 0);
+                ((acl_entry_t *)acl_entry_in_mtrie)->tcam_entries_count--;
+                is_acl_updated = true;
+            }
+            else {
+                printf ("Error : Tcam Un-Installation Failed for tcam entry %p\n", &tcam_entry_template);
+            }
+        }
+   }
 
     pthread_spin_unlock (&access_list->spin_lock);
 
-    if (!rc) {
-        printf ("Error : ACL Entry Do not Exist\n");
-        return false;
-    }
-
     installed_acl_entry = (acl_entry_t *)acl_entry_in_mtrie;
 
-    remove_glthread(&installed_acl_entry->glue);
+    if (installed_acl_entry->tcam_entries_count == 0) {
+        
+        remove_glthread(&installed_acl_entry->glue);
+        acl_entry_free(installed_acl_entry);
+    }
 
-    acl_entry_free(installed_acl_entry);
+    if (is_acl_updated) {
+        access_list_notify_clients(node, access_list);  
+    }
 
     if (IS_GLTHREAD_LIST_EMPTY(&access_list->head)) {
         access_list_delete_complete(access_list);
     }
-    else {
-        access_list_notify_clients(node, access_list);
-    }
 
+    bitmap_free_internal (&tcam_entry_template.prefix);
+    bitmap_free_internal (&tcam_entry_template.mask);
     return true;
 }
 
@@ -536,9 +530,8 @@ access_list_evaluate_ip_packet (node_t *node,
 
     uint16_t l4proto = 0;
     uint32_t src_ip = 0,
-                  src_mask = 0,
-                  dst_ip = 0,
-                  dst_mask = 0;
+                  dst_ip = 0;
+                 
     uint16_t src_port = 0,
                   dst_port = 0;
 
@@ -670,3 +663,157 @@ access_list_notify_clients(node_t *node, access_list_t *acc_lst) {
         i++;
     }
 }
+
+static void
+acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input */
+                                                 acl_enumerator_t *acl_enumerator, /* Input */
+                                                 acl_tcam_t *tcam_entry) {               /* Output */
+
+    uint16_t bytes_copied = 0;
+
+    bitmap_t *prefix = &tcam_entry->prefix;
+    bitmap_t *mask = &tcam_entry->mask;
+
+    bitmap_init (prefix, ACL_PREFIX_LEN);
+    bitmap_init (mask, ACL_PREFIX_LEN);
+    init_glthread(&tcam_entry->glue);
+
+    uint16_t *prefix_ptr2 = (uint16_t *)prefix->bits;
+    uint32_t *prefix_ptr4 = (uint32_t *)prefix->bits;
+    uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
+    uint32_t *mask_ptr4 = (uint32_t *)mask->bits;
+
+    /* L4 Protocol */
+    memcpy(prefix_ptr2, &acl_entry->tcam_l4proto_prefix, sizeof(*prefix_ptr2));
+    memcpy(mask_ptr2,  &acl_entry->tcam_l4proto_wcard, sizeof(*mask_ptr2));
+    prefix_ptr2++; mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
+    bytes_copied += sizeof(*prefix_ptr2);
+
+    /* L3 Protocol */
+    memcpy(prefix_ptr2, &acl_entry->tcam_l3proto_prefix, sizeof(*prefix_ptr2));
+    memcpy(mask_ptr2,  &acl_entry->tcam_l3proto_wcard, sizeof(*mask_ptr2));
+    prefix_ptr2++; mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
+    bytes_copied += sizeof(*prefix_ptr2);    
+
+    /* Src ip Address & Mask */
+    memcpy(prefix_ptr4, &acl_entry->tcam_saddr_prefix, sizeof(*prefix_ptr4));
+    memcpy(mask_ptr4, &acl_entry->tcam_saddr_wcard, sizeof(*mask_ptr4));
+    prefix_ptr4++; mask_ptr4++;
+    prefix_ptr2 = (uint16_t *)prefix_ptr4;
+    mask_ptr2 = (uint16_t *)mask_ptr4;
+    bytes_copied += sizeof(*prefix_ptr4);
+
+    /* Src Port */
+    if (acl_entry->tcam_sport_count == 0) {
+
+        *mask_ptr2 = 0xFFFF;
+    }
+    else {
+
+        memcpy(prefix_ptr2, 
+            &((*acl_entry->tcam_sport_prefix)[acl_enumerator->src_port_index]),
+            sizeof(*prefix_ptr2));
+
+        memcpy(mask_ptr2, 
+            &((*acl_entry->tcam_sport_wcard)[acl_enumerator->src_port_index]),
+            sizeof(*prefix_ptr2));
+    }
+
+    prefix_ptr2++;
+    mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
+    bytes_copied += sizeof(*prefix_ptr2);
+
+    /* Dst ip Address & Mask */
+    memcpy(prefix_ptr4, &acl_entry->tcam_daddr_prefix, sizeof(*prefix_ptr4));
+    memcpy(mask_ptr4, &acl_entry->tcam_daddr_wcard, sizeof(*mask_ptr4));
+    prefix_ptr4++; mask_ptr4++;
+    prefix_ptr2 = (uint16_t *)prefix_ptr4;
+    mask_ptr2 = (uint16_t *)mask_ptr4;
+    bytes_copied += sizeof(*prefix_ptr4);
+
+    /* Dst Port */
+    if (acl_entry->tcam_dport_count == 0) {
+
+        *mask_ptr2 = 0xFFFF;
+    }
+    else {
+
+        memcpy(prefix_ptr2, 
+            &((*acl_entry->tcam_dport_prefix)[acl_enumerator->dst_port_index]),
+            sizeof(*prefix_ptr2));
+
+        memcpy(mask_ptr2, 
+            &((*acl_entry->tcam_dport_wcard)[acl_enumerator->dst_port_index]),
+            sizeof(*prefix_ptr2));
+    }
+
+    prefix_ptr2++;
+    mask_ptr2++;
+    prefix_ptr4 = (uint32_t *)prefix_ptr2;
+    mask_ptr4 = (uint32_t *)mask_ptr2;
+    bytes_copied += sizeof(*prefix_ptr2);
+    
+    prefix->next = bytes_copied * 8;
+    mask->next = prefix->next;
+    assert(prefix->next == ACL_PREFIX_LEN);
+}
+
+/* Install all TCAM entries of a given ACL */
+bool
+acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
+
+    bool rc;
+    acl_enumerator_t acl_enum;
+    acl_tcam_t tcam_entry_template;
+    int src_port_it, dst_port_it;
+
+    bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
+    bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
+    init_glthread(&tcam_entry_template.glue);
+
+    assert(acl_entry->tcam_entries_count == 0);
+
+    pthread_spin_lock (&access_list->spin_lock);
+
+   for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
+
+        for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
+
+            acl_enum.src_port_index = src_port_it;
+            acl_enum.dst_port_index = dst_port_it;
+
+            acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
+
+#if 0
+            printf ("Installing TCAM Entry  : \n");
+            bitmap_print(&tcam_entry_template.prefix);
+            bitmap_print(&tcam_entry_template.mask);
+#endif
+            rc =  (mtrie_insert_prefix(
+                    access_list->mtrie,
+                    &tcam_entry_template.prefix,
+                    &tcam_entry_template.mask,
+                    ACL_PREFIX_LEN,
+                    (void *)acl_entry));
+
+            if (rc) {
+                acl_entry->tcam_entries_count++;
+            }
+            else {
+                printf ("Error : Tcam Installation Failed for tcam entry %p\n", &tcam_entry_template);
+            }
+        }
+   }
+   
+    pthread_spin_unlock (&access_list->spin_lock);
+    bitmap_free_internal(&tcam_entry_template.prefix);
+    bitmap_free_internal(&tcam_entry_template.mask);
+    
+    return true;
+ }

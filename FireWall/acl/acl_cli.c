@@ -129,7 +129,7 @@ acl_parse_ace_config_entries(
             acl_entry->daddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(dst_mask);
         }
         else {
-            acl_entry->daddr.ip4.mask = ~0;
+            assert(0);
         }
     }
     else {
@@ -1000,9 +1000,13 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
     char ip_addr[16];
     access_list_t *acc_lst = (access_list_t *)data;
     acl_entry_t *acl_entry = (acl_entry_t *)node->data;
-
+   
     if (!acl_entry) return;
     
+    if (acl_entry->show_cli_seq == acc_lst->show_cli_seq) return;
+
+    acl_entry->show_cli_seq = acc_lst->show_cli_seq;
+
     printf (" access-list %s %s %s %s ",
         acc_lst->name,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
@@ -1048,7 +1052,7 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         default:;
     }
 
-    printf("(hits %lu)\n", acl_entry->hit_count);
+    printf("(hits %lu, tcam-count %u)\n", acl_entry->hit_count, acl_entry->tcam_entries_count);
 }
 
 static void
@@ -1062,6 +1066,8 @@ access_list_show_all(node_t *node) {
 
         acc_lst = glthread_to_access_list(curr);
         printf ("Access-list : %s\n" , acc_lst->name);
+
+        acc_lst->show_cli_seq++;
         mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   acl_entry_show_one_acl_entry,
                                                                   (void *)acc_lst);
