@@ -57,6 +57,8 @@ extern param_t * policy_config_cli_tree () ;
 extern void acl_build_config_cli(param_t *root) ;
 extern void acl_build_show_cli(param_t *root) ;
 extern void prefix_list_cli_config_tree (param_t *param);
+extern void network_object_build_config_cli (param_t *root) ;
+extern void network_object_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
 
 static int
@@ -1064,6 +1066,8 @@ nw_init_cli(){
                      acl_build_show_cli(&node_name);
                      /* show CLIs for Prefix List are mounted here */
                      prefix_list_cli_show_tree(&node_name);
+                    /* Network Object Show CLIs */
+                     network_object_build_show_cli (&node_name);
                  }
 
 				 {
@@ -1253,6 +1257,10 @@ nw_init_cli(){
 
             /* Prefix List CLI loaded */
             prefix_list_cli_config_tree(&node_name);
+
+            /* Network Object Config CLIs */
+            network_object_build_config_cli (&node_name);
+            
         }
 
         {

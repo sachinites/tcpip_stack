@@ -38,6 +38,7 @@
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
 #include "packet-tracer/packet_tracer.h"
+#include "c-hashtable/hashtable.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -101,6 +102,8 @@ extern void
 node_init_udp_socket(node_t *node);
 extern void
 dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
+extern struct hashtable *
+object_network_create_new_ht() ;
 
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
@@ -131,6 +134,7 @@ create_graph_node(graph_t *graph, char *node_name){
 
     init_glthread(&node->access_lists_db);
     init_glthread(&node->prefix_lst_db);
+    node->object_network_ght = object_network_create_new_ht();
     init_glthread(&node->graph_glue);
     
     /* Start Control plane Thread/Scheduler */

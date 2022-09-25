@@ -14,7 +14,8 @@ typedef struct interface_ interface_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct pkt_block_ pkt_block_t;
-
+typedef struct access_list_  access_list_t;
+\
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
 #define ACL_MAX_PORTNO    0xFFFF
@@ -71,7 +72,7 @@ typedef struct acl_tcam_ {
 GLTHREAD_TO_STRUCT(glue_to_acl_tcam, acl_tcam_t, glue);
 
 /* Stores the info as read from CLI */
-typedef struct {
+typedef struct acl_entry_{
     acl_action_t action;
 
     acl_proto_t proto;
@@ -105,14 +106,15 @@ typedef struct {
     int priority;
     uint64_t hit_count;
     
-    uint16_t tcam_entries_count;\
+    uint16_t tcam_entries_count;
     /* To avoid Duplicate printing */
     uint32_t show_cli_seq;
+    access_list_t *access_lst; /* Back pointer to owning access list */
     glthread_t glue;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
 
-typedef struct access_list_ {
+struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
     glthread_t head; // list of acl_entry_t in this access list
     glthread_t glue; // glues into node->access_list. A node can have many access lists
@@ -120,7 +122,7 @@ typedef struct access_list_ {
     mtrie_t *mtrie;     // Mtrie for this access list
     uint8_t ref_count; // how many sub-systems using this access list
     uint32_t show_cli_seq;
-} access_list_t;
+} ;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;

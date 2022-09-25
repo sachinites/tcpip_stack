@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration
 TARGET:tcpstack.exe pkt_gen.exe
-LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt
+LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt -lm
 OBJS=gluethread/glthread.o \
 		  BitOp/bitmap.o \
 		  stack/stack.o \
@@ -57,6 +57,8 @@ OBJS=gluethread/glthread.o \
 		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \
+		  c-hashtable/hashtable.o \
+		  c-hashtable/hashtable_itr.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -237,6 +239,13 @@ stack/stack.o:stack/stack.c
 packet-tracer/pkt_tracer.o:packet-tracer/pkt_tracer.c
 	${CC} ${CFLAGS} -c packet-tracer/pkt_tracer.c -o packet-tracer/pkt_tracer.o
 
+#hasTable Files
+c-hashtable/hashtable.o:c-hashtable/hashtable.c
+	${CC} ${CFLAGS} -c c-hashtable/hashtable.c -o c-hashtable/hashtable.o
+
+c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
+	${CC} ${CFLAGS} -c c-hashtable/hashtable_itr.c -o c-hashtable/hashtable_itr.o
+		  
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -276,8 +285,10 @@ clean:
 	rm -f Layer5/nbrship_mgmt/*.o
 	rm -f Bitop/*.o
 	rm -f stack/*.o
+	rm -f hashmap/*.o
 	rm -f packet-tracer/*.o
 	rm -f prefix-list/*.o
+	(cd c-hashtable; make clean)
 #STP
 #	rm -f Layer2/stp/*.o
 all:

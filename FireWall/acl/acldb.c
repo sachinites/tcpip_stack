@@ -232,6 +232,8 @@ access_list_add_acl_entry(
                                 acl_entry_t *acl_entry) {
 
     glthread_add_last(&access_list->head, &acl_entry->glue);
+    assert(!acl_entry->access_lst);
+    acl_entry->access_lst = access_list;
 }
 
  void 
@@ -349,7 +351,11 @@ acl_process_user_config_for_deletion (
     if (installed_acl_entry->tcam_entries_count == 0) {
         
         remove_glthread(&installed_acl_entry->glue);
+        installed_acl_entry->access_lst = NULL;
         acl_entry_free(installed_acl_entry);
+    }
+    else {
+        acl_entry_free_tcam_data(acl_entry);
     }
 
     if (is_acl_updated) {

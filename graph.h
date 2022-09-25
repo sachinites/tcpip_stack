@@ -79,6 +79,7 @@ get_link_cost(interface_t *interface){
 
 typedef struct spf_data_ spf_data_t;
 typedef struct pkt_tracer_ pkt_tracer_t;
+struct hashtable;
 
 struct node_ {
 
@@ -118,6 +119,9 @@ struct node_ {
 
     glthread_t access_lists_db;
     glthread_t prefix_lst_db;
+
+    /* Network Object Hashtable */
+    struct hashtable *object_network_ght;
     
     /* List of route-maps created on this node*/
     glthread_t route_map_headtype;
