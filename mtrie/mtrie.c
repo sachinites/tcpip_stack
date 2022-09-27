@@ -363,9 +363,6 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
                 assert(node->data);
                 node->n_comparisons = n_comparisons;
                 node->n_backtracks = n_back_tracks;
-                assert(!node->child[ZERO] && 
-                          !node->child[ONE] && 
-                          !node->child[DONT_CARE]);
                 return node;
         }
         

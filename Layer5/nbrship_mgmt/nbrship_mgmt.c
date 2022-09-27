@@ -126,7 +126,7 @@ schedule_hello_on_interface(interface_t *intf,
    
     ethernet_hdr_t *hello_pkt = get_new_hello_pkt(node, intf, &pkt_size); 
     
-    pkt_meta_data_t *pkt_meta_data = calloc(1, sizeof(pkt_meta_data_t));
+    pkt_meta_data_t *pkt_meta_data = (pkt_meta_data_t *)calloc(1, sizeof(pkt_meta_data_t));
     pkt_meta_data->intf = intf;
     pkt_meta_data->pkt = (char *)hello_pkt;
     pkt_meta_data->pkt_size = pkt_size;
@@ -524,7 +524,7 @@ nbrship_mgmt_enable_disable_intf_nbrship_protocol(
     intf_nmp = NMP_GET_INTF_NMPDS(interface);
 	if(is_enabled){
 		if(!intf_nmp){
-			intf_nmp = calloc(1, sizeof(intf_nmp_t));
+			intf_nmp = (intf_nmp_t *)calloc(1, sizeof(intf_nmp_t));
 			init_glthread(&intf_nmp->adjacency_list);
 			NMP_GET_INTF_NMPDS(interface) = intf_nmp;
 		}

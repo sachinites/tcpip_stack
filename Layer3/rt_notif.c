@@ -233,7 +233,7 @@ void
 nfc_ipv4_rt_request_flash (node_t *node, nfc_app_cb cbk) {
 
     rt_route_flash_request_t *flash_req =
-        calloc(1, sizeof(rt_route_flash_request_t));
+        (rt_route_flash_request_t *)calloc(1, sizeof(rt_route_flash_request_t));
 
     flash_req->cbk = cbk;
     init_glthread(&flash_req->glue);

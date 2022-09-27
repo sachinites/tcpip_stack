@@ -128,16 +128,16 @@ typedef enum{
     L2_MODE_UNKNOWN
 } intf_l2_mode_t;
 
-static inline char *
+static inline const unsigned char *
 intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 
     switch(intf_l2_mode){
         case ACCESS:
-            return "access";
+            return ( const unsigned char *)"access";
         case TRUNK:
-            return "trunk";
+            return ( const unsigned char *)"trunk";
         default:
-            return "L2_MODE_UNKNWON";
+            return ( const unsigned char *)"L2_MODE_UNKNWON";
     }
 }
 
@@ -311,7 +311,7 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
 static inline char *
 tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
 
-    char *pkt = calloc(1, MAX_PACKET_BUFFER_SIZE);
+    char *pkt = (char *)calloc(1, MAX_PACKET_BUFFER_SIZE);
     return pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE);
 }
 

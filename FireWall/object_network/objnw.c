@@ -85,12 +85,12 @@ object_network_print (obj_nw_t *obj_nw) {
             printf (" network-object %s %s %s\n", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
             break;
         case OBJ_NW_TYPE_SUBNET:
-            printf ("%s ", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
-            printf ("%s\n", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
+             printf (" network-object %s %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
+             printf(" %s\n", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
             break;
         case OBJ_NW_TYPE_RANGE:
-            printf ("[%s -- ", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
-            printf ("%s]\n", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
+            printf (" network-object %s range %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
+            printf (" %s\n", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
             break;
         case OBJ_NW_TYPE_NONE:
             printf ("None\n");

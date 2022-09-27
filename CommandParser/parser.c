@@ -106,12 +106,16 @@ find_matching_param (param_t **options, const char *cmd_name){
 
     printf("Choice [0-%d] : ? ", j-1);
     scanf("%d", &choice);
+    
+    /* Read \n and discard */
+    if((fgets((char *)cons_input_buffer, sizeof(cons_input_buffer)-1, stdin) == NULL)){
+        printf("error in reading from stdin\n");
+    }
 
     if(choice < 0 || choice > (j-1)){
         printf("\nInvalid Choice");
         return NULL;
     }
-
     return array_of_possibilities[choice];   
 }
 
@@ -156,7 +160,7 @@ task_invoke_appln_cbk_handler(param_t *param,
 	unified_cli_data->param = param;
 	unified_cli_data->tlv_ser_buff = (ser_buff_t *)calloc(1, sizeof(ser_buff_t));
 	memcpy(unified_cli_data->tlv_ser_buff, tlv_buff, sizeof(ser_buff_t));
-	unified_cli_data->tlv_ser_buff->b = calloc(1, 
+	unified_cli_data->tlv_ser_buff->b = (char *)calloc(1, 
 		get_serialize_buffer_size(tlv_buff));
 	memcpy(unified_cli_data->tlv_ser_buff->b, 
 		   tlv_buff->b,

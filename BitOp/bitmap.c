@@ -394,7 +394,6 @@ uint32_bits_copy(uint32_t *src, uint32_t *dst,
 	*dst = (*dst) >> dst_start_pos;
     *dst = *dst >> (32 - count - dst_start_pos );
     *dst = *dst << (32 - count - dst_start_pos );
-    *dst = *dst;
 }
 
 void

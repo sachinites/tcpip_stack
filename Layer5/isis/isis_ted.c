@@ -29,7 +29,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     n_tlv22 = isis_count_tlv_occurrences (tlv_buffer, tlv_buff_size, ISIS_IS_REACH_TLV);
     
     ted_template_node_data_t *node_data = 
-            calloc(1, 
+            (ted_template_node_data_t *)calloc(1, 
                 sizeof (ted_template_node_data_t) + 
                 (n_tlv22 * sizeof (ted_template_nbr_data_t)));
 

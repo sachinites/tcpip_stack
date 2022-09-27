@@ -47,7 +47,7 @@ insert_link_between_two_nodes(node_t *node1,
         char *to_if_name,
         unsigned int cost){
 
-    link_t *link = calloc(1, sizeof(link_t));
+    link_t *link = (link_t *)calloc(1, sizeof(link_t));
 
     /*Set interface properties*/
     strncpy(link->intf1.if_name, from_if_name, IF_NAME_SIZE);
@@ -87,7 +87,7 @@ insert_link_between_two_nodes(node_t *node1,
 graph_t *
 create_new_graph(char *topology_name){
 
-    graph_t *graph = calloc(1, sizeof(graph_t));
+    graph_t *graph = (graph_t *)calloc(1, sizeof(graph_t));
     strncpy(graph->topology_name, topology_name, 32);
     graph->topology_name[31] = '\0';
 
@@ -104,13 +104,15 @@ extern void
 dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
 extern struct hashtable *
 object_network_create_new_ht() ;
+extern void 
+init_nfc_layer2_proto_reg_db2(node_t *node);
 
 node_t *
 create_graph_node(graph_t *graph, char *node_name){
 
     unsigned char ev_dis_name[EV_DIS_NAME_LEN];
 
-    node_t *node = calloc(1, sizeof(node_t));
+    node_t *node = (node_t *)calloc(1, sizeof(node_t));
     strncpy(node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE -1] = '\0';
 

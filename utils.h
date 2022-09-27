@@ -120,4 +120,14 @@ range2_prefix_wildcard_conversion (uint16_t lb,  /* Input Lower bound */
 void
 print_uint16_bits (uint16_t n);
 
+void
+range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
+                                                            uint32_t ub, /* Input Upper Bound */
+                                                            uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],      /* Array of Prefix , Caller need to provide memory */
+                                                            uint32_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
+                                                            int *n);
+
+void
+print_uint32_bits (uint32_t n);
+
 #endif /* __UTILS__ */

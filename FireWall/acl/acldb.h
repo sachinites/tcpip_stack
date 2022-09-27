@@ -8,6 +8,7 @@
 #include "../../BitOp/bitmap.h"
 #include "../../tcpconst.h"
 
+
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
@@ -15,7 +16,8 @@ typedef struct ethernet_hdr_ ethernet_hdr_t;
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct access_list_  access_list_t;
-\
+typedef struct obj_nw_ obj_nw_t;
+
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
 #define ACL_MAX_PORTNO    0xFFFF
@@ -71,6 +73,14 @@ typedef struct acl_tcam_ {
 } acl_tcam_t;
 GLTHREAD_TO_STRUCT(glue_to_acl_tcam, acl_tcam_t, glue);
 
+typedef enum acl_addr_format_ {
+
+    ACL_ADDR_NOT_SPECIFIED,
+    ACL_ADDR_HOST,
+    ACL_ADDR_SUBNET_MASK,
+    ACL_ADDR_OBJECT_NETWORK
+} acl_addr_format_t;
+
 /* Stores the info as read from CLI */
 typedef struct acl_entry_{
     acl_action_t action;
@@ -81,22 +91,35 @@ typedef struct acl_entry_{
     uint16_t tcam_l3proto_prefix;
     uint16_t tcam_l3proto_wcard;
 
-    union {
-        acl_ipv4_mask_t ip4;
-    } saddr;
-    uint32_t tcam_saddr_prefix;
-    uint32_t tcam_saddr_wcard;
+    /* Address Storage */
+    struct addr {
+        acl_addr_format_t acl_addr_format;
+        union {
+            uint32_t host_addr;
+            struct {
+                uint32_t subnet_addr;
+                uint32_t subnet_mask;
+            } subnet;
+            obj_nw_t *obj_nw;
+        }u;
+    };
+
+    /* Src Address */
+    struct addr src_addr;
+    uint8_t tcam_saddr_count;
+    uint32_t (*tcam_saddr_prefix)[32];
+    uint32_t (*tcam_saddr_wcard)[32];
 
     acl_port_range_t sport;
     uint8_t tcam_sport_count;
     uint16_t (*tcam_sport_prefix)[32];
     uint16_t (*tcam_sport_wcard)[32];
 
-    union {
-        acl_ipv4_mask_t ip4;
-    } daddr;
-    uint32_t tcam_daddr_prefix;
-    uint32_t tcam_daddr_wcard;
+    /* Dst Address */
+    struct addr dst_addr;
+    uint8_t tcam_daddr_count;
+    uint32_t (*tcam_daddr_prefix)[32];
+    uint32_t (*tcam_daddr_wcard)[32];
 
     acl_port_range_t dport;
     uint8_t tcam_dport_count;

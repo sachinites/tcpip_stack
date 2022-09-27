@@ -45,7 +45,7 @@ init_ddcp(node_t *node);
 void
 init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop){
 
-    *ddcp_interface_prop = calloc(1, sizeof(ddcp_interface_prop_t));
+    *ddcp_interface_prop = (ddcp_interface_prop_t *)calloc(1, sizeof(ddcp_interface_prop_t));
     (*ddcp_interface_prop)->is_enabled = true;
 }
 
@@ -518,7 +518,7 @@ void
 init_ddcp_query_db(ddcp_db_t **ddcp_db){
 
     assert(*ddcp_db == NULL);
-    *ddcp_db = calloc(1, sizeof(ddcp_db_t));
+    *ddcp_db = (ddcp_db_t *)calloc(1, sizeof(ddcp_db_t));
     init_glthread(&((*ddcp_db)->ddcp_query_head));
     init_glthread(&((*ddcp_db)->ddcp_reply_head));
     (*ddcp_db)->periodic_ddcp_query_wt_elem = NULL;
@@ -552,7 +552,7 @@ ddcp_update_ddcp_db_self_query_info(node_t *node){
         ddcp_get_ddcp_db_query_info(GET_NODE_DDCP_DB(node), addr_int);
 
     if(!ddcp_db_query_node){
-        ddcp_db_query_node = calloc(1, sizeof(ddcp_db_query_node_t));
+        ddcp_db_query_node = (ddcp_db_query_node_t *)calloc(1, sizeof(ddcp_db_query_node_t));
         ddcp_db_query_node->originator_ip = addr_int;
         ddcp_db_query_node->seq_no = 0;
         init_glthread(&ddcp_db_query_node->ddcp_db_query_node_glue);
@@ -710,7 +710,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
             return;
         }
         ddcp_pkt_meta_data_t *ddcp_pkt_meta_data =
-			calloc(1, sizeof(ddcp_pkt_meta_data_t));
+			(ddcp_pkt_meta_data_t *)calloc(1, sizeof(ddcp_pkt_meta_data_t));
         ddcp_pkt_meta_data->node = node;
         ddcp_pkt_meta_data->pkt = (char *)ethernet_hdr;
         ddcp_pkt_meta_data->pkt_size = ethernet_hdr_size;

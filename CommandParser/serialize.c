@@ -7,7 +7,7 @@
 void 
 init_serialized_buffer(ser_buff_t **b){
     (*b) = (ser_buff_t *)calloc(1, sizeof(ser_buff_t));
-    (*b)->b = calloc(1, SERIALIZE_BUFFER_DEFAULT_SIZE);
+    (*b)->b = (char *)calloc(1, SERIALIZE_BUFFER_DEFAULT_SIZE);
     (*b)->size = SERIALIZE_BUFFER_DEFAULT_SIZE;
     (*b)->next = 0;
     (*b)->checkpoint = 0;
@@ -17,7 +17,7 @@ init_serialized_buffer(ser_buff_t **b){
 void
 init_serialized_buffer_of_defined_size(ser_buff_t **b, int size){
     (*b) = (ser_buff_t *)calloc(1, sizeof(ser_buff_t));
-    (*b)->b = calloc(1, size);
+    (*b)->b = (char *)calloc(1, size);
     (*b)->size = size;
     (*b)->next = 0;
     (*b)->checkpoint = 0;

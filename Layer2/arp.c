@@ -433,7 +433,7 @@ add_arp_pending_entry (arp_entry_t *arp_entry,
         pkt_block_t *pkt_block){
 
     arp_pending_entry_t *arp_pending_entry = 
-        calloc(1, sizeof(arp_pending_entry_t) );
+        (arp_pending_entry_t *)calloc(1, sizeof(arp_pending_entry_t) );
 
     init_glthread(&arp_pending_entry->arp_pending_entry_glue);
     arp_pending_entry->cb = cb;

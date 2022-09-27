@@ -20,21 +20,21 @@ pkt_tracer_type_to_str(pkt_tracer_type_t type)
     switch (type)
     {
     case PTK_TR_TYPE_CAPTURE:
-        return "CAPTURE";
+        return (const unsigned char *)"CAPTURE";
     case PKT_TR_TYPE_ARP:
-        return "ARP";
+        return (const unsigned char *)"ARP";
     case PKT_TR_TYPE_L3:
-        return "L3";
+        return (const unsigned char *)"L3";
     case PKT_TR_TYPE_IP_ACCESS_LIST:
-        return "ACCESS LIST";
+        return (const unsigned char *)"ACCESS LIST";
     case PKT_TR_TYPE_L2:
-        return "L2";
+        return (const unsigned char *)"L2";
     case PKT_TR_TYPE_L4:
-        return "L4";
+        return (const unsigned char *)"L4";
     case PKT_TR_TYPE_L5:
-        return "L5";
+        return (const unsigned char *)"L5";
     case PKT_TR_TYPE_NAT:
-        return "NAT";
+        return (const unsigned char *)"NAT";
     case PKT_TR_TYPE_MAX:
     default:
         return NULL;

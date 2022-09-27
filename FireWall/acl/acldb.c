@@ -11,11 +11,14 @@
 #include "../../Layer3/layer3.h"
 #include "../../pkt_block.h"
 #include "../../Layer4/udp.h"
+#include "../object_network/objnw.h"
 
 typedef struct acl_enumerator_ {
 
     int src_port_index;
     int dst_port_index;
+    int src_addr_index;
+    int dst_addr_index;
 } acl_enumerator_t;
 
 static void
@@ -61,6 +64,16 @@ acl_entry_free (acl_entry_t *acl_entry) {
 void 
 acl_entry_free_tcam_data (acl_entry_t *acl_entry) {
 
+    if (acl_entry->tcam_saddr_prefix) {
+        XFREE(acl_entry->tcam_saddr_prefix);
+        acl_entry->tcam_saddr_prefix = NULL;
+    }
+
+    if (acl_entry->tcam_saddr_wcard) {
+        XFREE(acl_entry->tcam_saddr_wcard);
+        acl_entry->tcam_saddr_wcard = NULL;
+    }
+
    if (acl_entry->tcam_sport_prefix) {
         XFREE(acl_entry->tcam_sport_prefix);
         acl_entry->tcam_sport_prefix = NULL;
@@ -70,6 +83,16 @@ acl_entry_free_tcam_data (acl_entry_t *acl_entry) {
         XFREE(acl_entry->tcam_sport_wcard);
         acl_entry->tcam_sport_wcard = NULL;
    }
+
+    if (acl_entry->tcam_daddr_prefix) {
+        XFREE(acl_entry->tcam_daddr_prefix);
+        acl_entry->tcam_daddr_prefix = NULL;
+    }
+
+    if (acl_entry->tcam_daddr_wcard) {
+        XFREE(acl_entry->tcam_daddr_wcard);
+        acl_entry->tcam_daddr_wcard = NULL;
+    }
 
    if (acl_entry->tcam_dport_prefix) {
         XFREE(acl_entry->tcam_dport_prefix);
@@ -121,9 +144,64 @@ acl_compile (acl_entry_t *acl_entry) {
 
     SRC_ADDR:
 
-    /* Src ip Address & Mask */
-    acl_entry->tcam_saddr_prefix = htonl(acl_entry->saddr.ip4.prefix);
-    acl_entry->tcam_saddr_wcard =  htonl(~acl_entry->saddr.ip4.mask);
+    if (!acl_entry->tcam_saddr_prefix) {
+        acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_saddr_prefix));
+    }
+    else {
+        memset(acl_entry->tcam_saddr_prefix, 0, sizeof(*acl_entry->tcam_saddr_prefix));
+    }
+    if (!acl_entry->tcam_saddr_wcard) {
+        acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_saddr_wcard));
+    }
+    else {
+        memset(acl_entry->tcam_saddr_wcard, 0, sizeof(*acl_entry->tcam_saddr_wcard));
+    }
+
+    switch (acl_entry->src_addr.acl_addr_format) {
+
+        case ACL_ADDR_NOT_SPECIFIED:
+             acl_entry->tcam_saddr_count = 1;
+             (*acl_entry->tcam_saddr_prefix)[0] = 0;
+              (*acl_entry->tcam_saddr_wcard)[0] = 0xFFFFFFFF;
+              break;
+        case ACL_ADDR_HOST:
+             acl_entry->tcam_saddr_count = 1;
+             (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.host_addr);
+              (*acl_entry->tcam_saddr_wcard)[0] = 0;
+            break;
+        case ACL_ADDR_SUBNET_MASK:
+            acl_entry->tcam_saddr_count = 1;
+            (*acl_entry->tcam_saddr_prefix)[0] = 
+                htonl(acl_entry->src_addr.u.subnet.subnet_addr & acl_entry->src_addr.u.subnet.subnet_mask);
+             (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.subnet.subnet_mask);
+            break;
+        case ACL_ADDR_OBJECT_NETWORK:
+            switch (acl_entry->src_addr.u.obj_nw->type) {
+                case OBJ_NW_TYPE_HOST:
+                    acl_entry->tcam_saddr_count = 1;
+                    (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.obj_nw->u.host);
+                    (*acl_entry->tcam_saddr_wcard)[0] = 0;
+                    break;
+                case  OBJ_NW_TYPE_SUBNET:
+                    acl_entry->tcam_saddr_count = 1;
+                     (*acl_entry->tcam_saddr_prefix)[0] = 
+                            htonl(acl_entry->src_addr.u.obj_nw->u.subnet.network & acl_entry->src_addr.u.obj_nw->u.subnet.subnet);
+                     (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.obj_nw->u.subnet.subnet);
+                    break;
+                case OBJ_NW_TYPE_RANGE:
+                    range2_prefix_wildcard_conversion32(
+                        acl_entry->src_addr.u.obj_nw->u.range.lb,
+                        acl_entry->src_addr.u.obj_nw->u.range.ub,
+                        acl_entry->tcam_saddr_prefix,
+                        acl_entry->tcam_saddr_wcard,
+                        (int *)&acl_entry->tcam_saddr_count);
+                    break; 
+                case OBJ_NW_TYPE_NONE:
+                    assert(0);
+            }
+    }
 
     /* Src Port Range */
     if (!acl_entry->tcam_sport_prefix) {
@@ -158,8 +236,66 @@ acl_compile (acl_entry_t *acl_entry) {
     }
 
      /* Dst ip Address & Mask */
-    acl_entry->tcam_daddr_prefix = htonl(acl_entry->daddr.ip4.prefix);
-    acl_entry->tcam_daddr_wcard =  htonl(~acl_entry->daddr.ip4.mask);
+
+    if (!acl_entry->tcam_daddr_prefix) {
+        acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_daddr_prefix));
+    }
+    else {
+        memset(acl_entry->tcam_daddr_prefix, 0, sizeof(*acl_entry->tcam_daddr_prefix));
+    }
+    if (!acl_entry->tcam_daddr_wcard) {
+        acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+        calloc(1, sizeof(*acl_entry->tcam_daddr_wcard));
+    }
+    else {
+        memset(acl_entry->tcam_daddr_wcard, 0, sizeof(*acl_entry->tcam_daddr_wcard));
+    }
+
+    switch (acl_entry->dst_addr.acl_addr_format) {
+
+        case ACL_ADDR_NOT_SPECIFIED:
+             acl_entry->tcam_daddr_count = 1;
+             (*acl_entry->tcam_daddr_prefix)[0] = 0;
+              (*acl_entry->tcam_daddr_wcard)[0] = 0xFFFFFFFF;
+              break;
+        case ACL_ADDR_HOST:
+             acl_entry->tcam_daddr_count = 1;
+             (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.host_addr);
+              (*acl_entry->tcam_daddr_wcard)[0] = 0;
+            break;
+        case ACL_ADDR_SUBNET_MASK:
+            acl_entry->tcam_daddr_count = 1;
+            (*acl_entry->tcam_daddr_prefix)[0] = 
+                htonl(acl_entry->dst_addr.u.subnet.subnet_addr & acl_entry->dst_addr.u.subnet.subnet_mask);
+             (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.subnet.subnet_mask);
+            break;
+        case ACL_ADDR_OBJECT_NETWORK:
+            switch (acl_entry->dst_addr.u.obj_nw->type) {
+                case OBJ_NW_TYPE_HOST:
+                    acl_entry->tcam_daddr_count = 1;
+                    (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.obj_nw->u.host);
+                    (*acl_entry->tcam_daddr_wcard)[0] = 0;
+                    break;
+                case  OBJ_NW_TYPE_SUBNET:
+                    acl_entry->tcam_daddr_count = 1;
+                     (*acl_entry->tcam_daddr_prefix)[0] = 
+                            htonl(acl_entry->dst_addr.u.obj_nw->u.subnet.network & acl_entry->dst_addr.u.obj_nw->u.subnet.subnet);
+                     (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.obj_nw->u.subnet.subnet);
+                    break;
+                case OBJ_NW_TYPE_RANGE:
+                    range2_prefix_wildcard_conversion32(
+                        acl_entry->dst_addr.u.obj_nw->u.range.lb,
+                        acl_entry->dst_addr.u.obj_nw->u.range.ub,
+                        acl_entry->tcam_daddr_prefix,
+                        acl_entry->tcam_daddr_wcard,
+                        (int *)&acl_entry->tcam_daddr_count);
+                    break; 
+                case OBJ_NW_TYPE_NONE:
+                    assert(0);
+            }
+    }
+
 
     /* Dst Port Range */
     if (!acl_entry->tcam_dport_prefix) {
@@ -299,6 +435,7 @@ acl_process_user_config_for_deletion (
     bool rc = false;
     bool is_acl_updated;
     int src_port_it, dst_port_it;
+    int src_addr_it, dst_addr_it;
     acl_enumerator_t acl_enum;
     acl_tcam_t tcam_entry_template;
 
@@ -314,35 +451,43 @@ acl_process_user_config_for_deletion (
 
     pthread_spin_lock (&access_list->spin_lock);
 
-   for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
-
-        for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
+    for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
     
-            acl_enum.src_port_index = src_port_it;
-            acl_enum.dst_port_index = dst_port_it;
+        for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
 
-            acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
+            for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
+
+                for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
+
+                    acl_enum.src_port_index = src_port_it;
+                    acl_enum.dst_port_index = dst_port_it;
+                    acl_enum.src_addr_index = src_addr_it;
+                    acl_enum.dst_addr_index = dst_addr_it;
+
+                    acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
 
 #if 0
-            printf ("Un-Installing TCAM Entry  : \n");
-            bitmap_print(&tcam_entry_template.prefix);
-            bitmap_print(&tcam_entry_template.mask);
+                    printf ("Un-Installing TCAM Entry  : \n");
+                    bitmap_print(&tcam_entry_template.prefix);
+                    bitmap_print(&tcam_entry_template.mask);
 #endif
-            rc = mtrie_delete_prefix (access_list->mtrie, 
-                                            &tcam_entry_template.prefix, 
-                                            &tcam_entry_template.mask,
-                                            &acl_entry_in_mtrie);
+                    rc = mtrie_delete_prefix(access_list->mtrie,
+                                             &tcam_entry_template.prefix,
+                                             &tcam_entry_template.mask,
+                                             &acl_entry_in_mtrie);
 
-            if (rc) {
-                assert(((acl_entry_t *)acl_entry_in_mtrie)->tcam_entries_count > 0);
-                ((acl_entry_t *)acl_entry_in_mtrie)->tcam_entries_count--;
-                is_acl_updated = true;
-            }
-            else {
-                printf ("Error : Tcam Un-Installation Failed for tcam entry %p\n", &tcam_entry_template);
+                    if (rc) {
+                        assert(((acl_entry_t *)acl_entry_in_mtrie)->tcam_entries_count > 0);
+                        ((acl_entry_t *)acl_entry_in_mtrie)->tcam_entries_count--;
+                        is_acl_updated = true;
+                    }
+                    else {
+                        printf("Error : Tcam Un-Installation Failed for tcam entry %p\n", &tcam_entry_template);
+                    }
+                }
             }
         }
-   }
+    }
 
     pthread_spin_unlock (&access_list->spin_lock);
 
@@ -706,28 +851,22 @@ acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input
     bytes_copied += sizeof(*prefix_ptr2);    
 
     /* Src ip Address & Mask */
-    memcpy(prefix_ptr4, &acl_entry->tcam_saddr_prefix, sizeof(*prefix_ptr4));
-    memcpy(mask_ptr4, &acl_entry->tcam_saddr_wcard, sizeof(*mask_ptr4));
+    memcpy(prefix_ptr4, &((*acl_entry->tcam_saddr_prefix)[acl_enumerator->src_addr_index]), sizeof(*prefix_ptr4));
+    memcpy(mask_ptr4, &((*acl_entry->tcam_saddr_wcard)[acl_enumerator->src_addr_index]), sizeof(*mask_ptr4));
     prefix_ptr4++; mask_ptr4++;
     prefix_ptr2 = (uint16_t *)prefix_ptr4;
     mask_ptr2 = (uint16_t *)mask_ptr4;
     bytes_copied += sizeof(*prefix_ptr4);
 
     /* Src Port */
-    if (acl_entry->tcam_sport_count == 0) {
-
-        *mask_ptr2 = 0xFFFF;
-    }
-    else {
-
-        memcpy(prefix_ptr2, 
+    memcpy(prefix_ptr2, 
             &((*acl_entry->tcam_sport_prefix)[acl_enumerator->src_port_index]),
             sizeof(*prefix_ptr2));
 
-        memcpy(mask_ptr2, 
+    memcpy(mask_ptr2, 
             &((*acl_entry->tcam_sport_wcard)[acl_enumerator->src_port_index]),
             sizeof(*prefix_ptr2));
-    }
+
 
     prefix_ptr2++;
     mask_ptr2++;
@@ -736,28 +875,21 @@ acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input
     bytes_copied += sizeof(*prefix_ptr2);
 
     /* Dst ip Address & Mask */
-    memcpy(prefix_ptr4, &acl_entry->tcam_daddr_prefix, sizeof(*prefix_ptr4));
-    memcpy(mask_ptr4, &acl_entry->tcam_daddr_wcard, sizeof(*mask_ptr4));
+    memcpy(prefix_ptr4, &((*acl_entry->tcam_daddr_prefix)[acl_enumerator->dst_addr_index]), sizeof(*prefix_ptr4));
+    memcpy(mask_ptr4, &((*acl_entry->tcam_daddr_wcard)[acl_enumerator->dst_addr_index]), sizeof(*mask_ptr4));
     prefix_ptr4++; mask_ptr4++;
     prefix_ptr2 = (uint16_t *)prefix_ptr4;
     mask_ptr2 = (uint16_t *)mask_ptr4;
     bytes_copied += sizeof(*prefix_ptr4);
 
     /* Dst Port */
-    if (acl_entry->tcam_dport_count == 0) {
-
-        *mask_ptr2 = 0xFFFF;
-    }
-    else {
-
-        memcpy(prefix_ptr2, 
+    memcpy(prefix_ptr2, 
             &((*acl_entry->tcam_dport_prefix)[acl_enumerator->dst_port_index]),
             sizeof(*prefix_ptr2));
 
-        memcpy(mask_ptr2, 
+    memcpy(mask_ptr2, 
             &((*acl_entry->tcam_dport_wcard)[acl_enumerator->dst_port_index]),
             sizeof(*prefix_ptr2));
-    }
 
     prefix_ptr2++;
     mask_ptr2++;
@@ -775,9 +907,10 @@ bool
 acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
 
     bool rc;
+    int src_addr_it, dst_addr_it;
+    int src_port_it, dst_port_it;
     acl_enumerator_t acl_enum;
     acl_tcam_t tcam_entry_template;
-    int src_port_it, dst_port_it;
 
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
@@ -787,36 +920,44 @@ acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
 
     pthread_spin_lock (&access_list->spin_lock);
 
-   for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
+    for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
+    
+        for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
 
-        for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
+            for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
 
-            acl_enum.src_port_index = src_port_it;
-            acl_enum.dst_port_index = dst_port_it;
+                for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
 
-            acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
+                    acl_enum.src_port_index = src_port_it;
+                    acl_enum.dst_port_index = dst_port_it;
+                    acl_enum.src_addr_index = src_addr_it;
+                    acl_enum.dst_addr_index = dst_addr_it;
+
+                    acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
 
 #if 0
-            printf ("Installing TCAM Entry  : \n");
-            bitmap_print(&tcam_entry_template.prefix);
-            bitmap_print(&tcam_entry_template.mask);
+                    printf ("Installing TCAM Entry  : \n");
+                    bitmap_print(&tcam_entry_template.prefix);
+                    bitmap_print(&tcam_entry_template.mask);
 #endif
-            rc =  (mtrie_insert_prefix(
-                    access_list->mtrie,
-                    &tcam_entry_template.prefix,
-                    &tcam_entry_template.mask,
-                    ACL_PREFIX_LEN,
-                    (void *)acl_entry));
+                    rc = (mtrie_insert_prefix(
+                        access_list->mtrie,
+                        &tcam_entry_template.prefix,
+                        &tcam_entry_template.mask,
+                        ACL_PREFIX_LEN,
+                        (void *)acl_entry));
 
-            if (rc) {
-                acl_entry->tcam_entries_count++;
-            }
-            else {
-                printf ("Error : Tcam Installation Failed for tcam entry %p\n", &tcam_entry_template);
+                    if (rc) {
+                        acl_entry->tcam_entries_count++;
+                    }
+                    else {
+                        printf ("Error : Tcam Installation Failed for tcam entry %p\n", &tcam_entry_template);
+                    }
+                }
             }
         }
-   }
-   
+    }
+
     pthread_spin_unlock (&access_list->spin_lock);
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);

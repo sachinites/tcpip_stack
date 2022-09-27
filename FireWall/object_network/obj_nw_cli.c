@@ -24,8 +24,11 @@ network_object_config_handler (param_t *param,
 
     node_t *node;
     tlv_struct_t *tlv = NULL;
+    uint32_t lb, ub;
     char *node_name = NULL;
-    char *ip_addr1 = NULL;
+    char *host_addr = NULL;
+    char *subnet_addr = NULL;
+    char *subnet_mask = NULL;
     char *nw_obj_name = NULL;
 
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
@@ -35,10 +38,23 @@ network_object_config_handler (param_t *param,
         
     if (parser_match_leaf_id (tlv->leaf_id, "network-object-name"))
 	    nw_obj_name = tlv->value;
-    else if (parser_match_leaf_id (tlv->leaf_id, "ip"))
-	    ip_addr1 = tlv->value;
+    else if (parser_match_leaf_id (tlv->leaf_id, "host-addr"))
+	    host_addr = tlv->value;
     else if (parser_match_leaf_id (tlv->leaf_id, "node-name"))
         node_name = tlv->value;
+    else if (parser_match_leaf_id (tlv->leaf_id, "subnet-addr"))
+        subnet_addr = tlv->value;        
+    else if (parser_match_leaf_id (tlv->leaf_id, "subnet-mask"))
+        subnet_mask = tlv->value;           
+    else if (parser_match_leaf_id (tlv->leaf_id, "range-lb"))
+        lb = tcp_ip_covert_ip_p_to_n(tlv->value);       
+    else if (parser_match_leaf_id (tlv->leaf_id, "range-ub")) {
+        ub = tcp_ip_covert_ip_p_to_n(tlv->value);             
+        if (ub < lb) {
+            printf ("Error : Invalid Range\n");
+            return -1;
+        }
+    }
     else
         assert(0);
     } TLV_LOOP_END;
@@ -56,7 +72,7 @@ network_object_config_handler (param_t *param,
                             return -1;
                         }
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_HOST);
-                        obj_nw->u.host = tcp_ip_covert_ip_p_to_n(ip_addr1);
+                        obj_nw->u.host = tcp_ip_covert_ip_p_to_n(host_addr);
                         assert (network_object_insert_into_ht(node->object_network_ght, obj_nw));
                     }
                     break;
@@ -78,8 +94,68 @@ network_object_config_handler (param_t *param,
             }
         break;
         case NW_OBJ_CONFIG_SUBNET:
+        switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    {
+                        obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+                        if (obj_nw) {
+                            printf ("Error : Object Network Already defined\n");
+                            return -1;
+                        }
+                        obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_SUBNET);
+                        obj_nw->u.subnet.network = tcp_ip_covert_ip_p_to_n(subnet_addr);
+                        obj_nw->u.subnet.subnet = tcp_ip_covert_ip_p_to_n(subnet_mask);                        
+                        assert (network_object_insert_into_ht(node->object_network_ght, obj_nw));
+                    }
+                    break;
+                case CONFIG_DISABLE:
+                {
+                    obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+                    if (!obj_nw)
+                    {
+                        printf("Error : Object Network Do not Exist\n");
+                        return -1;
+                    }
+                    assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
+                    if (!network_object_check_and_delete (obj_nw)) {
+                        printf ("Error : Network Object Could not be deleted\n");
+                        return -1;
+                    }
+                }
+                break;
+            }
         break;
         case NW_OBJ_CONFIG_RANGE:
+         switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    {
+                        obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+                        if (obj_nw) {
+                            printf ("Error : Object Network Already defined\n");
+                            return -1;
+                        }
+                        obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_RANGE);
+                        obj_nw->u.range.lb = lb;
+                        obj_nw->u.range.ub = ub;
+                        assert (network_object_insert_into_ht(node->object_network_ght, obj_nw));
+                    }
+                    break;
+                case CONFIG_DISABLE:
+                {
+                    obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+                    if (!obj_nw)
+                    {
+                        printf("Error : Object Network Do not Exist\n");
+                        return -1;
+                    }
+                    assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
+                    if (!network_object_check_and_delete (obj_nw)) {
+                        printf ("Error : Network Object Could not be deleted\n");
+                        return -1;
+                    }
+                }
+                break;
+            }
         break;
         default:
             assert(0);
@@ -109,9 +185,41 @@ network_object_build_config_cli (param_t *root) {
                 {
                      /* network-object <name> host <ip-addr> */
                      static param_t ip;
-                     init_param(&ip, LEAF, 0, network_object_config_handler, 0, IPV4, "ip", "specify Host IPV4 Address");
+                     init_param(&ip, LEAF, 0, network_object_config_handler, 0, IPV4, "host-addr", "specify Host IPV4 Address");
                     libcli_register_param(&host, &ip);
                     set_param_cmd_code(&ip, NW_OBJ_CONFIG_HOST);
+                }
+        }
+        {
+             /* network-object <name> <subnet-ip-addr> ...*/
+             static param_t subnet_ip;
+             init_param(&subnet_ip, LEAF, 0, 0, 0, IPV4, "subnet-addr", "specify Subnet IPV4 Prefix Address");
+             libcli_register_param(&name, &subnet_ip);
+             {
+                 /* network-object <name> <subnet-ip-addr> <subnet-mask> */
+                 static param_t subnet_mask;
+                 init_param(&subnet_mask, LEAF, 0, network_object_config_handler, 0, IPV4, "subnet-mask", "specify Subnet IPV4 MaskAddress in A.B.C.D format");
+                 libcli_register_param(&subnet_ip, &subnet_mask);
+                 set_param_cmd_code(&subnet_mask, NW_OBJ_CONFIG_SUBNET);
+             }
+        }
+        {
+                /* network-object <name>range .... */
+                static param_t range;
+                init_param(&range, CMD, "range", 0, 0, INVALID, 0, "specify IP Address Range A.B.C.D E.F.G.H");
+                libcli_register_param(&name, &range);
+                {
+                     /* network-object <name> range <range-lb> ...*/
+                    static param_t range_lb;
+                    init_param(&range_lb, LEAF, 0, 0, 0, IPV4, "range-lb", "specify IPV4 Lower Range Address");
+                    libcli_register_param(&range, &range_lb);
+                    {
+                        /* network-object <name> range <range-lb> <range-ub>*/
+                        static param_t range_ub;
+                        init_param(&range_ub, LEAF, 0, network_object_config_handler, 0, IPV4, "range-ub", "specify IPV4 Upper Range Address");
+                        libcli_register_param(&range_lb, &range_ub);
+                        set_param_cmd_code(&range_ub, NW_OBJ_CONFIG_RANGE);
+                    }
                 }
         }
     }

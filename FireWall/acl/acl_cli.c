@@ -60,13 +60,15 @@ acl_parse_ace_config_entries(
                               acl_entry_t *acl_entry,
                              char *action_name,
                              char *proto,
-                             char *src_ip,
-                             char *src_mask,
+                             char *host_src_ip,
+                             char *subnet_src_ip,
+                             char *subnet_src_mask,
                              obj_nw_t *obj_nw_src,
                              uint16_t src_port_no1,
                              uint16_t src_port_no2,
-                             char *dst_ip,
-                             char *dst_mask,
+                             char *host_dst_ip,
+                             char *subnet_dst_ip,
+                             char *subnet_dst_mask,
                              obj_nw_t *obj_nw_dst,
                              uint16_t dst_port_no1,
                              uint16_t dst_port_no2) {
@@ -83,65 +85,42 @@ acl_parse_ace_config_entries(
     }
 
     /* Protocol */
-   
     acl_entry->proto = acl_string_to_proto(proto);
 
     /* Src ip */
-    if (src_ip == NULL) {
-        acl_entry->saddr.ip4.prefix = 0;
-        acl_entry->saddr.ip4.mask = 0;
+    acl_entry->src_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
+    if (host_src_ip) {
+        acl_entry->src_addr.acl_addr_format = ACL_ADDR_HOST;
+        acl_entry->src_addr.u.host_addr = tcp_ip_covert_ip_p_to_n(host_src_ip);
     }
-    else {
-        acl_entry->saddr.ip4.prefix =  tcp_ip_covert_ip_p_to_n(src_ip);
+    else if (subnet_src_ip && subnet_src_mask) {
+         acl_entry->src_addr.acl_addr_format = ACL_ADDR_SUBNET_MASK;
+         acl_entry->src_addr.u.subnet.subnet_addr =  tcp_ip_covert_ip_p_to_n(subnet_src_ip);
+         acl_entry->src_addr.u.subnet.subnet_mask =  tcp_ip_covert_ip_p_to_n(subnet_src_mask);
     }
-   
-    /* Src mask */
-    if (src_ip) {
-        if (src_mask) {
-            acl_entry->saddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(src_mask);
-        }
-        else {
-            acl_entry->saddr.ip4.mask = ~0;
-        }
-    }
-    else {
-         if (src_mask) {
-           assert(0);
-        }
-        else {
-            acl_entry->saddr.ip4.mask = 0;
-        }
+    else if (obj_nw_src) {
+        acl_entry->src_addr.acl_addr_format =  ACL_ADDR_OBJECT_NETWORK;
+        acl_entry->src_addr.u.obj_nw = obj_nw_src;
     }
 
     /* Src Port Number */
     acl_entry->sport.lb = src_port_no1;
     acl_entry->sport.ub = src_port_no2;
 
-    /* Dst ip */
-    if (dst_ip == NULL) {
-        acl_entry->daddr.ip4.prefix = 0;
-        acl_entry->daddr.ip4.mask = 0;
+    /* Drc ip */
+    acl_entry->dst_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
+    if (host_dst_ip) {
+        acl_entry->dst_addr.acl_addr_format = ACL_ADDR_HOST;
+        acl_entry->dst_addr.u.host_addr = tcp_ip_covert_ip_p_to_n(host_dst_ip);
     }
-    else {
-        acl_entry->daddr.ip4.prefix =  tcp_ip_covert_ip_p_to_n(dst_ip);
+    else if (subnet_dst_ip && subnet_dst_mask) {
+         acl_entry->dst_addr.acl_addr_format = ACL_ADDR_SUBNET_MASK;
+         acl_entry->dst_addr.u.subnet.subnet_addr =  tcp_ip_covert_ip_p_to_n(subnet_dst_ip);
+         acl_entry->dst_addr.u.subnet.subnet_mask =  tcp_ip_covert_ip_p_to_n(subnet_dst_mask);
     }
-
-    /* Dst Mask */
-    if (dst_ip) {
-        if (dst_mask) {
-            acl_entry->daddr.ip4.mask =  tcp_ip_covert_ip_p_to_n(dst_mask);
-        }
-        else {
-            assert(0);
-        }
-    }
-    else {
-         if (dst_mask) {
-           assert(0);
-        }
-        else {
-            acl_entry->daddr.ip4.mask = 0;
-        }
+    else if (obj_nw_dst) {
+        acl_entry->dst_addr.acl_addr_format =  ACL_ADDR_OBJECT_NETWORK;
+        acl_entry->dst_addr.u.obj_nw = obj_nw_dst;
     }
 
     /* Drc Port Number */
@@ -152,17 +131,19 @@ acl_parse_ace_config_entries(
 }
 
 static int
-access_list_config(node_t *node, 
+access_list_config (node_t *node, 
                     char *access_list_name,
                     char *action_name,
                     char *proto,
-                    char *src_ip,
-                    char *src_mask,
+                    char *host_src_ip,
+                    char *subnet_src_ip,
+                    char *subnet_src_mask,
                     obj_nw_t *obj_nw_src,
                     uint16_t src_port_no1,
                     uint16_t src_port_no2,
-                    char *dst_ip,
-                    char *dst_mask,
+                    char *host_dst_ip,
+                    char *subnet_dst_ip,
+                    char *subnet_dst_mask,
                     obj_nw_t *obj_nw_dst,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
@@ -171,8 +152,8 @@ access_list_config(node_t *node,
 
     if (!action_name &&
          !proto &&
-         !src_ip && !src_mask && !obj_nw_src &&
-         !dst_ip && !dst_mask && !obj_nw_dst) {
+         !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src &&
+         !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst) {
 
         return 0;
     }
@@ -183,13 +164,15 @@ access_list_config(node_t *node,
                     acl_entry, 
                     action_name,
                     proto,
-                    src_ip,
-                    src_mask,
+                    host_src_ip,
+                    subnet_src_ip,
+                    subnet_src_mask,
                     obj_nw_src,
                     src_port_no1,
                     src_port_no2,
-                    dst_ip,
-                    dst_mask,
+                    host_dst_ip,
+                    subnet_dst_ip,
+                    subnet_dst_mask,
                     obj_nw_dst,
                     dst_port_no1,
                     dst_port_no2)) {
@@ -212,13 +195,15 @@ access_list_unconfig(node_t *node,
                     char *access_list_name,
                     char *action_name,
                     char *proto,
-                    char *src_ip,
-                    char *src_mask,
+                    char *host_src_ip,
+                    char *subnet_src_ip,
+                    char *subnet_src_mask,
                     obj_nw_t *obj_nw_src,
                     uint16_t src_port_no1,
                     uint16_t src_port_no2,
-                    char *dst_ip,
-                    char *dst_mask,
+                    char *host_dst_ip,
+                    char *subnet_dst_ip,
+                    char *subnet_dst_mask,
                     obj_nw_t *obj_nw_dst,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
@@ -238,8 +223,8 @@ access_list_unconfig(node_t *node,
         list */
     if (!action_name &&
          !proto &&
-         !src_ip && !src_mask && !obj_nw_src &&
-         !dst_ip && !dst_mask && !obj_nw_dst) {
+         !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src &&
+         !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst) {
 
         access_list_delete_complete(access_list);
         return 0;
@@ -250,13 +235,15 @@ access_list_unconfig(node_t *node,
                     &acl_entry, 
                     action_name,
                     proto,
-                    src_ip,
-                    src_mask,
+                    host_src_ip,
+                    subnet_src_ip,
+                    subnet_src_mask,
                     obj_nw_src,
                     src_port_no1,
                     src_port_no2,
-                    dst_ip,
-                    dst_mask,
+                    host_dst_ip,
+                    subnet_dst_ip,
+                    subnet_dst_mask,
                     obj_nw_dst,
                     dst_port_no1,
                     dst_port_no2)) {
@@ -273,8 +260,8 @@ access_list_unconfig(node_t *node,
 }
 
 static int
-acl_config_handler(param_t *param, 
-                  ser_buff_t *tlv_buf,
+acl_config_handler (param_t *param, 
+                  ser_buff_t *tlv_buf,   
                   op_mode enable_or_disable) {
 
     char ip[16];
@@ -282,26 +269,27 @@ acl_config_handler(param_t *param,
     char *src_ip = NULL;
     char *dst_ip = NULL;
     node_t *node = NULL;
-    char *dst_mask = NULL;
-    char *src_mask = NULL;
     tlv_struct_t *tlv = NULL;
     char *host_src_ip = NULL;
     char *host_dst_ip = NULL;
     char *node_name = NULL;
     char *action_name = NULL;
+    char *subnet_src_ip = NULL;
+    char *subnet_dst_ip = NULL;
+    obj_nw_t *obj_nw_src = NULL;
+    obj_nw_t *obj_nw_dst = NULL;
+    char *subnet_dst_mask = NULL;
+    char *subnet_src_mask = NULL;
     char *access_list_name = NULL;
     char *obj_nw_name_src = NULL;
     char *obj_nw_name_dst = NULL;
-    obj_nw_t *obj_nw_src = NULL;
-    obj_nw_t *obj_nw_dst = NULL;
+
     uint16_t src_port_no_eq = 0,
-                  src_port_no_neq = 0,
                   src_port_no_lt = 0,
                   src_port_no_gt = 0,
                   src_port_no1 = 0,
                   src_port_no2 = 0,
                   dst_port_no_eq = 0,
-                  dst_port_no_neq = 0,
                   dst_port_no_lt = 0,
                   dst_port_no_gt = 0,
                   dst_port_no1 = 0,
@@ -313,7 +301,7 @@ acl_config_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+    if (parser_match_leaf_id (tlv->leaf_id, "node-name"))
 	    node_name = tlv->value;
 	else if (parser_match_leaf_id (tlv->leaf_id, "access-list-name"))
 	    access_list_name = tlv->value;
@@ -321,18 +309,18 @@ acl_config_handler(param_t *param,
             action_name = tlv->value;
         else if (parser_match_leaf_id (tlv->leaf_id, "protocol"))
             proto = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "src-ip"))
-            src_ip = tlv->value;
         else if (parser_match_leaf_id (tlv->leaf_id, "host-src-ip"))
-            host_src_ip = tlv->value;            
-        else if (parser_match_leaf_id (tlv->leaf_id, "src-mask"))
-            src_mask = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "dst-ip"))
-            dst_ip = tlv->value;
+            host_src_ip = tlv->value;
         else if (parser_match_leaf_id (tlv->leaf_id, "host-dst-ip"))
-            host_dst_ip = tlv->value;                  
+            host_dst_ip = tlv->value;            
+        else if (parser_match_leaf_id (tlv->leaf_id, "src-mask"))
+            subnet_src_mask = tlv->value;               
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-mask"))
-            dst_mask = tlv->value;
+            subnet_dst_mask = tlv->value;
+        else if (parser_match_leaf_id (tlv->leaf_id, "subnet-src-ip"))
+            subnet_src_ip = tlv->value;               
+        else if (parser_match_leaf_id (tlv->leaf_id, "subnet-dst-ip"))
+            subnet_dst_ip = tlv->value;            
         else if (parser_match_leaf_id (tlv->leaf_id, "network-object-name-src")) 
             obj_nw_name_src = tlv->value;
         else if (parser_match_leaf_id (tlv->leaf_id, "network-object-name-dst"))
@@ -341,13 +329,6 @@ acl_config_handler(param_t *param,
             src_port_no_eq = atoi(tlv->value);
             if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
-                return -1;
-            }
-        }
-        else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-neq")) {
-            src_port_no_neq = atoi(tlv->value);
-            if (!(src_port_no_neq > 0 && src_port_no_neq < ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Src neq value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -383,13 +364,6 @@ acl_config_handler(param_t *param,
             dst_port_no_eq = atoi(tlv->value);
             if (!(dst_port_no_eq > 0 && dst_port_no_eq < ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
-                return -1;
-            }
-        }
-        else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-neq")) {
-            dst_port_no_neq = atoi(tlv->value);
-            if (!(dst_port_no_neq > 0 && dst_port_no_neq < ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Dst neq value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -433,12 +407,6 @@ acl_config_handler(param_t *param,
             printf ("Error : Network Object %s do not exist\n", obj_nw_name_src);
             return -1;
         }
-
-        if (obj_nw_src->type == OBJ_NW_TYPE_RANGE) {
-            printf ("Error : Network Object %s of type range is not yet supported in ACLs\n", obj_nw_name_src);
-            return -1;
-        }
-
     }
 
     if (obj_nw_name_dst) {
@@ -446,68 +414,15 @@ acl_config_handler(param_t *param,
             printf ("Error : Network Object %s do not exist\n", obj_nw_name_dst);
             return -1;
         }
-
-        if (obj_nw_dst->type == OBJ_NW_TYPE_RANGE) {
-            printf ("Error : Network Object %s of type range is not yet supported in ACLs\n", obj_nw_name_dst);
-            return -1;
-        }
-
     }    
-
-    if (host_src_ip) {
-        src_ip = host_src_ip;
-        src_mask = "255.255.255.255";
-    }
-    #if 0
-    else if (obj_nw_src) {
-        switch(obj_nw_src->type) {
-            case OBJ_NW_TYPE_HOST:
-                src_ip = tcp_ip_covert_ip_n_to_p(obj_nw_src->u.host, ip);
-                src_mask = "255.255.255.255";
-                break;
-            case OBJ_NW_TYPE_SUBNET:
-                src_ip = tcp_ip_covert_ip_n_to_p(obj_nw_src->u.subnet.network, ip);
-                src_mask = tcp_ip_covert_ip_n_to_p(obj_nw_src->u.subnet.subnet, ip);
-                break;
-            case OBJ_NW_TYPE_RANGE:
-            //later
-            break;
-        }
-    }
-    #endif
-
-
-    if (host_dst_ip) {
-        dst_ip = host_dst_ip;
-        dst_mask = "255.255.255.255";
-    }
-    #if 0
-    else if (obj_nw_dst) {
-        switch(obj_nw_dst->type) {
-            case OBJ_NW_TYPE_HOST:
-                dst_ip = tcp_ip_covert_ip_n_to_p(obj_nw_dst->u.host, ip);
-                dst_mask = "255.255.255.255";
-                break;
-            case OBJ_NW_TYPE_SUBNET:
-                dst_ip = tcp_ip_covert_ip_n_to_p(obj_nw_dst->u.subnet.network, ip);
-                dst_mask = tcp_ip_covert_ip_n_to_p(obj_nw_dst->u.subnet.subnet, ip);
-                break;
-            case OBJ_NW_TYPE_RANGE:
-            //later
-            break;
-        }
-    }
-    #endif
 
     /* Sanity Checks */
     if (  src_port_no_eq || 
-           src_port_no_neq || 
            src_port_no_lt || 
            src_port_no_gt || 
            src_port_no1 || 
            src_port_no2 ||
            dst_port_no_eq || 
-           dst_port_no_neq || 
            dst_port_no_lt || 
            dst_port_no_gt || 
            dst_port_no1 || 
@@ -528,12 +443,6 @@ acl_config_handler(param_t *param,
 
         printf ("Error : Port Number Ranges specified is incorrect\n");
         return -1;
-    }
-
-    if (src_port_no_neq || dst_port_no_neq) {
-
-         printf ("Error : Port Number Not Equal specifier is not supported\n");
-         return -1;
     }
 
     /* Handling port numbers */
@@ -571,35 +480,39 @@ acl_config_handler(param_t *param,
         case ACL_CMD_CONFIG:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                return access_list_config(node,
+                return access_list_config (node,
                                                          access_list_name,
                                                          action_name,
                                                          proto,
-                                                         src_ip,
-                                                         src_mask,
+                                                         host_src_ip,
+                                                         subnet_src_ip,
+                                                         subnet_src_mask,
                                                          obj_nw_src,
                                                          src_port_no1,
                                                          src_port_no2,
-                                                         dst_ip,
-                                                         dst_mask,
+                                                         host_dst_ip,
+                                                         subnet_dst_ip,
+                                                         subnet_dst_mask,
                                                          obj_nw_dst,
                                                          dst_port_no1,
                                                          dst_port_no2);
             case CONFIG_DISABLE:
-                return access_list_unconfig(node,
-                                                             access_list_name,
-                                                             action_name,
-                                                             proto,
-                                                             src_ip,
-                                                             src_mask,
-                                                             obj_nw_src,
-                                                             src_port_no1,
-                                                             src_port_no2,
-                                                             dst_ip,
-                                                             dst_mask,
-                                                             obj_nw_dst,
-                                                             dst_port_no1,
-                                                             dst_port_no2);
+                return access_list_unconfig (node,
+                                                            access_list_name,
+                                                            action_name,
+                                                            proto,
+                                                            host_src_ip,
+                                                            subnet_src_ip,
+                                                            subnet_src_mask,
+                                                            obj_nw_src,
+                                                            src_port_no1,
+                                                            src_port_no2,
+                                                            host_dst_ip,
+                                                            subnet_dst_ip,
+                                                            subnet_dst_mask,
+                                                            obj_nw_dst,
+                                                            dst_port_no1,
+                                                            dst_port_no2);
         }
         break;
         default: ;
@@ -764,19 +677,6 @@ acl_build_config_cli_destination (param_t *root) {
             }
         }
         {
-            /* access-list <name> <action> <proto> host <dst-ip> neq ...*/
-            param_t *neq = (param_t *)calloc(1, sizeof(param_t));
-            init_param(neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
-            libcli_register_param(dst_ip, neq);
-            {
-                /* access-list <name> <action> <proto> host <src-ip> neq <src-port-no>*/
-                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
-                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-neq", "specify Dst Port Number");
-                libcli_register_param(neq, dst_port_no);
-                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
-            }
-        }
-        {
             /* access-list <name> <action> <proto> host <dst-ip> lt ...*/
             param_t *lt = (param_t *)calloc(1, sizeof(param_t));
             init_param(lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
@@ -825,7 +725,7 @@ acl_build_config_cli_destination (param_t *root) {
 
    /* access-list <name> <action> <proto> <dst-ip> ...*/
     param_t *dst_ip =  (param_t *)calloc(1, sizeof(param_t));
-    init_param(dst_ip, LEAF, 0, 0, 0, IPV4, "dst-ip", "specify Dst IPV4 Address");
+    init_param(dst_ip, LEAF, 0, 0, 0, IPV4, "subnet-dst-ip", "specify Dst IPV4 Address");
     libcli_register_param(root, dst_ip);
     {
         /* access-list <name> <action> <proto> <dst-ip> <dst-mask>*/
@@ -843,19 +743,6 @@ acl_build_config_cli_destination (param_t *root) {
                 param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
                 init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-eq", "specify Dst Port Number");
                 libcli_register_param(eq, dst_port_no);
-                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
-            }
-        }
-        {
-            /* access-list <name> <action> <proto> <dst-ip> <dst-mask> neq ...*/
-            param_t *neq = (param_t *)calloc(1, sizeof(param_t));
-            init_param(neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
-            libcli_register_param(dst_mask, neq);
-            {
-                /*access-list <name> <action> <proto> <dst-ip> <dst-mask> neq <dst-port-no>*/
-                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
-                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-neq", "specify Dst Port Number");
-                libcli_register_param(neq, dst_port_no);
                 set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
             }
         }
@@ -1034,20 +921,6 @@ acl_build_config_cli(param_t *root) {
                                   }
                             }
                             {
-                                /* access-list <name> <action> <proto> host <src-ip> neq ...*/
-                                static param_t neq;
-                                init_param(&neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
-                                libcli_register_param(&src_ip, &neq);
-                                {
-                                    /* access-list <name> <action> <proto> host <src-ip> neq <src-port-no>*/
-                                    static param_t src_port_no;
-                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-neq", "specify Src Port Number");
-                                    libcli_register_param(&neq, &src_port_no);
-                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
-                                }
-                            }
-                            {
                                 /* access-list <name> <action> <proto> host <src-ip> lt ...*/
                                 static param_t lt;
                                 init_param(&lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
@@ -1101,7 +974,7 @@ acl_build_config_cli(param_t *root) {
                     {
                          /* access-list <name> <action> <proto> <src-ip>...*/
                         static param_t src_ip;
-                        init_param(&src_ip, LEAF, 0, 0, 0, IPV4, "src-ip", "specify Src IPV4 Address");
+                        init_param(&src_ip, LEAF, 0, 0, 0, IPV4, "subnet-src-ip", "specify Src IPV4 Address");
                         libcli_register_param(&proto, &src_ip);
                         {
                              /* access-list <name> <action> <proto> <src-ip> <src-mask>*/
@@ -1123,20 +996,6 @@ acl_build_config_cli(param_t *root) {
                                       set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
                                       acl_build_config_cli_destination(&src_port_no);
                                   }
-                            }
-                            {
-                                /* access-list <name> <action> <proto> <src-ip> <src-mask> neq ...*/
-                                static param_t neq;
-                                init_param(&neq, CMD, "neq", 0, 0, INVALID, 0, "neq not equal");
-                                libcli_register_param(&src_mask, &neq);
-                                {
-                                    /*access-list <name> <action> <proto> <src-ip> <src-mask> neq <src-port-no>*/
-                                    static param_t src_port_no;
-                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-neq", "specify Src Port Number");
-                                    libcli_register_param(&neq, &src_port_no);
-                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
-                                }
                             }
                             {
                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> lt ...*/
@@ -1239,32 +1098,57 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     acl_entry->show_cli_seq = acc_lst->show_cli_seq;
 
-    printf (" access-list %s %s %s %s ",
+    printf (" access-list %s %s %s",
         acc_lst->name,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
-        proto_name_str( acl_entry->proto),
-        tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.prefix, ip_addr));
-    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->saddr.ip4.mask, ip_addr));
+        proto_name_str( acl_entry->proto));
 
+    switch (acl_entry->src_addr.acl_addr_format) {
+        case ACL_ADDR_NOT_SPECIFIED:
+            assert(0);
+        case ACL_ADDR_HOST:
+            printf (" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
+            break;
+        case  ACL_ADDR_SUBNET_MASK:
+            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
+            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
+            break;
+        case  ACL_ADDR_OBJECT_NETWORK:
+            printf (" network-object %s", acl_entry->src_addr.u.obj_nw->name);
+            break;
+    }
+        
     switch(acl_entry->proto) {
         case ACL_UDP:
         case ACL_TCP:
             if (acl_entry->sport.lb == 0 && acl_entry->sport.ub == 0)
                 break;
             else if (acl_entry->sport.lb == 0 && acl_entry->sport.ub < ACL_MAX_PORTNO)
-                printf ("lt %d ", acl_entry->sport.ub);
+                printf (" lt %d", acl_entry->sport.ub);
             else if (acl_entry->sport.lb > 0 && acl_entry->sport.ub == ACL_MAX_PORTNO)
-                printf ("gt %d ", acl_entry->sport.lb);
+                printf (" gt %d", acl_entry->sport.lb);
             else if  (acl_entry->sport.lb == acl_entry->sport.ub)
-                printf ("eq %d ", acl_entry->sport.lb);
+                printf (" eq %d", acl_entry->sport.lb);
             else
-                printf ("range %d %d ", acl_entry->sport.lb, acl_entry->sport.ub);
+                printf (" range %d %d", acl_entry->sport.lb, acl_entry->sport.ub);
             break;            
         default:;
     }
    
-    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.prefix , ip_addr));
-    printf ("%s ", tcp_ip_covert_ip_n_to_p(acl_entry->daddr.ip4.mask, ip_addr));
+    switch (acl_entry->dst_addr.acl_addr_format) {
+        case ACL_ADDR_NOT_SPECIFIED:
+           break;
+        case ACL_ADDR_HOST:
+            printf (" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.host_addr, ip_addr));
+            break;
+        case  ACL_ADDR_SUBNET_MASK:
+            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
+            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
+            break;
+        case  ACL_ADDR_OBJECT_NETWORK:
+            printf (" network-object %s", acl_entry->dst_addr.u.obj_nw->name);
+            break;
+    }
 
     switch(acl_entry->proto) {
         case ACL_UDP:
@@ -1272,19 +1156,19 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
             if (acl_entry->dport.lb == 0 && acl_entry->dport.ub == 0)
                 break;
             else if (acl_entry->dport.lb == 0 && acl_entry->dport.ub < ACL_MAX_PORTNO)
-                printf ("lt %d ", acl_entry->dport.ub);
+                printf (" lt %d", acl_entry->dport.ub);
             else if (acl_entry->dport.lb > 0 && acl_entry->dport.ub == ACL_MAX_PORTNO)
-                printf ("gt %d ", acl_entry->dport.lb);
+                printf (" gt %d", acl_entry->dport.lb);
             else if  (acl_entry->dport.lb == acl_entry->dport.ub)
-                printf ("eq %d ", acl_entry->dport.lb);                
+                printf (" eq %d", acl_entry->dport.lb);                
             else
-                printf ("range %d %d ", acl_entry->dport.lb, acl_entry->dport.ub);
+                printf (" range %d %d", acl_entry->dport.lb, acl_entry->dport.ub);
                 break;            
             break;
         default:;
     }
 
-    printf("(hits %lu, tcam-count %u)\n", acl_entry->hit_count, acl_entry->tcam_entries_count);
+    printf(" (hits %lu, tcam-count %u)\n", acl_entry->hit_count, acl_entry->tcam_entries_count);
 }
 
 static void
