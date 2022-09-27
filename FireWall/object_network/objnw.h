@@ -73,6 +73,8 @@ typedef struct obj_nw_ {
     uint32_t (*prefix)[32];
     uint32_t (*wcard)[32];
 
+    uint32_t ref_count;
+    
 } obj_nw_t;
 
 hashtable_t *object_network_create_new_ht () ;

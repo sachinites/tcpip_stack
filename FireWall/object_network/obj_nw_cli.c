@@ -84,10 +84,13 @@ network_object_config_handler (param_t *param,
                         printf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
+                    if (obj_nw->ref_count > 0) {
+                        printf ("Error : Network Object in Use\n");
+                        return -1;
+                    }
                     assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
                     if (!network_object_check_and_delete (obj_nw)) {
-                        printf ("Error : Network Object Could not be deleted\n");
-                        return -1;
+                        assert(0);
                     }
                 }
                 break;
@@ -116,10 +119,13 @@ network_object_config_handler (param_t *param,
                         printf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
+                    if (obj_nw->ref_count > 0) {
+                        printf("Error : Network Object in Use\n");
+                        return -1;
+                    }
                     assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
                     if (!network_object_check_and_delete (obj_nw)) {
-                        printf ("Error : Network Object Could not be deleted\n");
-                        return -1;
+                        assert(0);
                     }
                 }
                 break;
@@ -148,10 +154,13 @@ network_object_config_handler (param_t *param,
                         printf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
+                    if (obj_nw->ref_count > 0) {
+                        printf("Error : Network Object in Use\n");
+                        return -1;
+                    }
                     assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
                     if (!network_object_check_and_delete (obj_nw)) {
-                        printf ("Error : Network Object Could not be deleted\n");
-                        return -1;
+                        assert(0);
                     }
                 }
                 break;

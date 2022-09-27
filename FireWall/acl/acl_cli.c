@@ -177,6 +177,8 @@ access_list_config (node_t *node,
                     dst_port_no1,
                     dst_port_no2)) {
 
+        acl_entry_delink_object_networks(acl_entry, acl_entry->src_addr.u.obj_nw);
+        acl_entry_delink_object_networks(acl_entry, acl_entry->dst_addr.u.obj_nw);
         acl_entry_free(acl_entry);
         return -1;
     }
@@ -185,7 +187,9 @@ access_list_config (node_t *node,
             node, access_list_name, acl_entry)) {
         return 0;
     }
-    
+
+    acl_entry_delink_object_networks(acl_entry, acl_entry->src_addr.u.obj_nw);
+    acl_entry_delink_object_networks(acl_entry, acl_entry->dst_addr.u.obj_nw);
     acl_entry_free(acl_entry);
     return -1;
 }
@@ -1086,7 +1090,7 @@ acl_build_config_cli(param_t *root) {
 }
 
 static void
-acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
+acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     char ip_addr[16];
     access_list_t *acc_lst = (access_list_t *)data;
@@ -1105,7 +1109,7 @@ acl_entry_show_one_acl_entry(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     switch (acl_entry->src_addr.acl_addr_format) {
         case ACL_ADDR_NOT_SPECIFIED:
-            assert(0);
+            break;
         case ACL_ADDR_HOST:
             printf (" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
             break;

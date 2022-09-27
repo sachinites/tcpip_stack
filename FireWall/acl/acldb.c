@@ -57,6 +57,8 @@ void
 acl_entry_free (acl_entry_t *acl_entry) {
 
     acl_entry_free_tcam_data(acl_entry);
+    assert(!acl_entry->src_addr.u.obj_nw);
+    assert(!acl_entry->dst_addr.u.obj_nw);
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
     XFREE(acl_entry);
 }
@@ -413,6 +415,8 @@ acl_process_user_config (node_t *node,
     }
 
     access_list_add_acl_entry (access_list, acl_entry);
+    acl_entry_link_object_networks(acl_entry, acl_entry->src_addr.u.obj_nw);
+    acl_entry_link_object_networks(acl_entry, acl_entry->dst_addr.u.obj_nw);
 
     if (new_access_list) {
         glthread_add_next (&node->access_lists_db, &access_list->glue);
@@ -497,6 +501,10 @@ acl_process_user_config_for_deletion (
         
         remove_glthread(&installed_acl_entry->glue);
         installed_acl_entry->access_lst = NULL;
+        acl_entry_delink_object_networks(installed_acl_entry, installed_acl_entry->src_addr.u.obj_nw);
+        installed_acl_entry->src_addr.u.obj_nw = NULL;
+        acl_entry_delink_object_networks(installed_acl_entry, installed_acl_entry->dst_addr.u.obj_nw);
+        installed_acl_entry->dst_addr.u.obj_nw = NULL;
         acl_entry_free(installed_acl_entry);
     }
     else {
@@ -535,6 +543,8 @@ access_list_delete_complete(access_list_t *access_list) {
 
         acl_entry = glthread_to_acl_entry(curr);
         remove_glthread(&acl_entry->glue);
+        acl_entry_delink_object_networks(acl_entry, acl_entry->src_addr.u.obj_nw);
+        acl_entry_delink_object_networks(acl_entry, acl_entry->dst_addr.u.obj_nw);
         acl_entry_free(acl_entry);
 
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
@@ -964,3 +974,63 @@ acl_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     
     return true;
  }
+
+void 
+acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
+
+    if (!objnw) return;
+
+    assert(acl_entry->src_addr.u.obj_nw == objnw ||
+                acl_entry->dst_addr.u.obj_nw == objnw);
+
+    obj_nw_linkage_db_t *db = objnw->db;
+
+    if (!db) {
+
+        objnw->db = (obj_nw_linkage_db_t *)XCALLOC(0, 1, obj_nw_linkage_db_t);
+        db = objnw->db;
+        init_glthread(&db->acls_list);
+        init_glthread(&db->nat_list);
+    }
+
+    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = 
+        (obj_nw_linked_acl_thread_node_t *)XCALLOC(0, 1, obj_nw_linked_acl_thread_node_t);
+
+    obj_nw_linked_acl_thread_node->acl = acl_entry;
+    init_glthread(&obj_nw_linked_acl_thread_node->glue);
+
+    glthread_add_last(&db->acls_list, &obj_nw_linked_acl_thread_node->glue);
+    objnw->ref_count++;
+}
+
+void 
+acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
+
+    glthread_t *curr;
+    obj_nw_linkage_db_t *db = objnw->db;
+    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
+    
+    if (!objnw) return;
+
+    assert(db);
+
+    ITERATE_GLTHREAD_BEGIN(&db->acls_list, curr) {
+
+        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        if (obj_nw_linked_acl_thread_node->acl == acl_entry) {
+            remove_glthread(&obj_nw_linked_acl_thread_node->glue);
+            XFREE(obj_nw_linked_acl_thread_node);
+            objnw->ref_count--;
+
+            if (IS_GLTHREAD_LIST_EMPTY(&db->acls_list) &&
+                    IS_GLTHREAD_LIST_EMPTY(&db->nat_list)) {
+
+                XFREE(db);
+                objnw->db = NULL;
+                assert(!objnw->ref_count);
+            }
+            return;
+        }
+    } ITERATE_GLTHREAD_END(&db->acls_list, curr);
+    assert(0);
+}

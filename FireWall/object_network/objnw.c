@@ -67,7 +67,7 @@ network_object_insert_into_ht (hashtable_t *ht, obj_nw_t *obj_nw) {
 obj_nw_t *
 network_object_remove_from_ht_by_name (hashtable_t *ht, const char *name) {
 
-    return  (obj_nw_t *)hashtable_remove(ht, (void *)name);
+    return (obj_nw_t *)hashtable_remove(ht, (void *)name);
 }
 
 obj_nw_t *
@@ -82,20 +82,22 @@ object_network_print (obj_nw_t *obj_nw) {
     char ip[16];
     switch(obj_nw->type) {
         case OBJ_NW_TYPE_HOST:
-            printf (" network-object %s %s %s\n", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
+            printf (" network-object %s %s %s", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
             break;
         case OBJ_NW_TYPE_SUBNET:
              printf (" network-object %s %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
-             printf(" %s\n", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
+             printf(" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
             break;
         case OBJ_NW_TYPE_RANGE:
             printf (" network-object %s range %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
-            printf (" %s\n", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
+            printf (" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
             break;
         case OBJ_NW_TYPE_NONE:
-            printf ("None\n");
+            printf ("None");
             break;
     }
+
+    printf (" (ref-count : %u)\n", obj_nw->ref_count);
 
     printf ("  ACLs referenced:\n");
     
@@ -109,7 +111,8 @@ object_network_print (obj_nw_t *obj_nw) {
 
             obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
 
-            printf (" access-list : %s\n", obj_nw_linked_acl_thread_node->acl->access_lst->name);
+            printf ("   access-list %s \n", obj_nw_linked_acl_thread_node->acl->access_lst->name);
+
             
         }ITERATE_GLTHREAD_END(&db->acls_list, curr)
 
@@ -146,8 +149,16 @@ network_object_hashtable_print(hashtable_t *ht) {
     XFREE(itr);
 }
 
+void
+network_object_free_tcam_data(obj_nw_t *obj_nw) {
+
+}
+
 bool
 network_object_check_and_delete (obj_nw_t *obj_nw) {
 
+    if (obj_nw->ref_count) return false;
+    assert(!obj_nw->db);
+    network_object_free_tcam_data(obj_nw);
     return true;
 }

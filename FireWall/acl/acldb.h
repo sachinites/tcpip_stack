@@ -199,5 +199,6 @@ access_list_evaluate_ethernet_packet (node_t *node,
 int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
-
+ void acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
+ void acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
 #endif
