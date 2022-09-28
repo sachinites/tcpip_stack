@@ -113,7 +113,16 @@ void object_network_rebuild_all_dependent_nats(node_t *node, obj_nw_t *obj_nw);
 
 bool
 object_network_apply_change_host_address(node_t *node, obj_nw_t *obj_nw, char *host_addr);
-
+bool
+object_network_apply_change_subnet (node_t *node,
+                                                               obj_nw_t *obj_nw,
+                                                               char *subnet_addr,
+                                                               char *subnet_mask);
+bool
+object_network_apply_change_range (node_t *node,
+                                                               obj_nw_t *obj_nw,
+                                                               uint32_t lb,
+                                                               uint32_t ub) ;
 bool
 object_network_propogate_update (node_t *node, obj_nw_t *obj_nw);
 

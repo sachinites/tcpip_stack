@@ -117,11 +117,24 @@ network_object_config_handler (param_t *param,
         switch (enable_or_disable) {
                 case CONFIG_ENABLE:
                     {
-                        obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+                        obj_nw_t *obj_nw =
+                            network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+
                         if (obj_nw) {
-                            printf ("Error : Object Network Already defined\n");
+
+                            if (obj_nw->type != OBJ_NW_TYPE_SUBNET) {
+                                printf("Error : Object Network Type cannot be changed\n");
+                                return -1;
+                            }
+
+                            if (object_network_apply_change_subnet(node, obj_nw, subnet_addr, subnet_mask)) {
+                                return 0;
+                            }
+
+                            printf("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
+
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_SUBNET);
                         obj_nw->u.subnet.network = tcp_ip_covert_ip_p_to_n(subnet_addr);
                         obj_nw->u.subnet.subnet = tcp_ip_covert_ip_p_to_n(subnet_mask);                        
@@ -134,6 +147,11 @@ network_object_config_handler (param_t *param,
                     if (!obj_nw)
                     {
                         printf("Error : Object Network Do not Exist\n");
+                        return -1;
+                    }
+                    if (obj_nw->type != OBJ_NW_TYPE_SUBNET)
+                    {
+                        printf("Error : Object Network Type cannot be changed\n");
                         return -1;
                     }
                     if (obj_nw->ref_count > 0) {
@@ -153,10 +171,22 @@ network_object_config_handler (param_t *param,
                 case CONFIG_ENABLE:
                     {
                         obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+
                         if (obj_nw) {
-                            printf ("Error : Object Network Already defined\n");
+
+                            if (obj_nw->type != OBJ_NW_TYPE_RANGE) {
+                                printf("Error : Object Network Type cannot be changed\n");
+                                return -1;
+                            }
+
+                            if (object_network_apply_change_range(node, obj_nw, lb, ub)) {
+                                return 0;
+                            }
+
+                            printf("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
+
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_RANGE);
                         obj_nw->u.range.lb = lb;
                         obj_nw->u.range.ub = ub;
@@ -169,6 +199,11 @@ network_object_config_handler (param_t *param,
                     if (!obj_nw)
                     {
                         printf("Error : Object Network Do not Exist\n");
+                        return -1;
+                    }
+                    if (obj_nw->type != OBJ_NW_TYPE_RANGE)
+                    {
+                        printf("Error : Object Network Type cannot be changed\n");
                         return -1;
                     }
                     if (obj_nw->ref_count > 0) {

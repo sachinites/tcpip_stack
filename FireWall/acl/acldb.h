@@ -135,8 +135,14 @@ typedef struct acl_entry_{
 
     /* To avoid Duplicate printing */
     uint32_t show_cli_seq;
+
     access_list_t *access_lst; /* Back pointer to owning access list */
     glthread_t glue;
+
+    /* list of tcam entries successfully installed. These are
+    temporary data structures */
+    glthread_t tcam_success_list_head;
+    glthread_t tcam_failed_list_head;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
 
@@ -147,6 +153,7 @@ struct access_list_ {
     pthread_spinlock_t spin_lock;
     mtrie_t *mtrie;     // Mtrie for this access list
     uint8_t ref_count; // how many sub-systems using this access list
+    uint32_t seq_no_update; /* Used to avoid Duplicate update */
     uint32_t show_cli_seq;
 } ;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
@@ -175,6 +182,10 @@ void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_ent
 void access_list_check_delete(access_list_t *access_list);
 void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
 void acl_compile (acl_entry_t *acl_entry);
+void acl_entry_uninstall_installed_tcam_entries (
+                        access_list_t *access_list,
+                        acl_entry_t *acl_entry);
+void acl_entry_purge_tcam_entries_list (glthread_t *tcam_list_head);
 
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
@@ -205,8 +216,8 @@ int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_li
 void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
 void acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
 void acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
-void acl_entry_uninstall (acl_entry_t *acl_entry_template, acl_entry_t **installed_acl_entry) ;
-bool access_list_rebuild_mtrie (node_t *node, access_list_t *access_lst) ;
+void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry_template, acl_entry_t **installed_acl_entry) ;
+bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
 
 /* Caution : Do not use direct access acl_entry->src_addr.u.obj_nw
 to fetch Network object from ACL, as it is union */
