@@ -177,8 +177,6 @@ access_list_config (node_t *node,
                     dst_port_no1,
                     dst_port_no2)) {
 
-        acl_entry_delink_object_networks(acl_entry, acl_entry->src_addr.u.obj_nw);
-        acl_entry_delink_object_networks(acl_entry, acl_entry->dst_addr.u.obj_nw);
         acl_entry_free(acl_entry);
         return -1;
     }
@@ -188,8 +186,6 @@ access_list_config (node_t *node,
         return 0;
     }
 
-    acl_entry_delink_object_networks(acl_entry, acl_entry->src_addr.u.obj_nw);
-    acl_entry_delink_object_networks(acl_entry, acl_entry->dst_addr.u.obj_nw);
     acl_entry_free(acl_entry);
     return -1;
 }
@@ -212,9 +208,9 @@ access_list_unconfig(node_t *node,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
 
-   acl_entry_t acl_entry; 
+   acl_entry_t acl_entry_template; 
 
-   memset(&acl_entry, 0, sizeof(acl_entry_t));
+   memset(&acl_entry_template, 0, sizeof(acl_entry_t));
 
    access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
 
@@ -236,7 +232,7 @@ access_list_unconfig(node_t *node,
 
 
    if (!acl_parse_ace_config_entries(
-                    &acl_entry, 
+                    &acl_entry_template, 
                     action_name,
                     proto,
                     host_src_ip,
@@ -256,7 +252,7 @@ access_list_unconfig(node_t *node,
     }
 
     if (acl_process_user_config_for_deletion (
-            node, access_list, &acl_entry) == 0) {
+            node, access_list, &acl_entry_template)) {
         return 0;
     }
 
@@ -1172,7 +1168,9 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         default:;
     }
 
-    printf(" (hits %lu, tcam-count %u)\n", acl_entry->hit_count, acl_entry->tcam_entries_count);
+    printf(" (hits %lu, tcam-count (%u, %u)\n", acl_entry->hit_count, 
+            acl_entry->total_tcam_count,
+            acl_entry->tcam_installed_failed);
 }
 
 static void

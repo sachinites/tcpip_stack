@@ -129,7 +129,10 @@ typedef struct acl_entry_{
     int priority;
     uint64_t hit_count;
     
-    uint16_t tcam_entries_count;
+    uint16_t total_tcam_count;
+    uint16_t tcam_installed;
+    uint16_t tcam_installed_failed;
+
     /* To avoid Duplicate printing */
     uint32_t show_cli_seq;
     access_list_t *access_lst; /* Back pointer to owning access list */
@@ -170,7 +173,8 @@ access_list_t * acl_lookup_access_list(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
 void access_list_check_delete(access_list_t *access_list);
-bool acl_install (access_list_t *access_list, acl_entry_t *acl_entry);
+void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
+void acl_compile (acl_entry_t *acl_entry);
 
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
@@ -199,6 +203,51 @@ access_list_evaluate_ethernet_packet (node_t *node,
 int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
- void acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
- void acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
+void acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
+void acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
+void acl_entry_uninstall (acl_entry_t *acl_entry_template, acl_entry_t **installed_acl_entry) ;
+bool access_list_rebuild_mtrie (node_t *node, access_list_t *access_lst) ;
+
+/* Caution : Do not use direct access acl_entry->src_addr.u.obj_nw
+to fetch Network object from ACL, as it is union */
+
+static inline obj_nw_t *
+acl_get_src_network_object(acl_entry_t *acl_entry) {
+
+    if (acl_entry->src_addr.acl_addr_format == ACL_ADDR_OBJECT_NETWORK) {
+        return acl_entry->src_addr.u.obj_nw;
+    }
+    return NULL;
+}
+
+/* Caution : Do not use direct access acl_entry->dst_addr.u.obj_nw
+to fetch Network object from ACL, as it is union */
+static inline obj_nw_t *
+acl_get_dst_network_object(acl_entry_t *acl_entry) {
+
+    if (acl_entry->dst_addr.acl_addr_format == ACL_ADDR_OBJECT_NETWORK) {
+        return acl_entry->dst_addr.u.obj_nw;
+    }
+    return NULL;
+}
+
+static inline bool
+acl_entry_is_fully_installed (acl_entry_t *acl_entry) {
+
+    return (acl_entry->total_tcam_count &&
+                (acl_entry->total_tcam_count == acl_entry->tcam_installed));
+}
+
+static inline bool
+acl_entry_is_partially_installed (acl_entry_t *acl_entry) {
+
+    return (acl_entry->tcam_installed_failed > 0);
+}
+
+static inline bool
+acl_entry_is_not_installed_at_all (acl_entry_t *acl_entry) {
+
+    return (acl_entry->tcam_installed == 0);
+}
+
 #endif

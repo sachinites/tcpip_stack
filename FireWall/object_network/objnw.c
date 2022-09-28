@@ -162,3 +162,76 @@ network_object_check_and_delete (obj_nw_t *obj_nw) {
     network_object_free_tcam_data(obj_nw);
     return true;
 }
+
+bool
+object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
+
+    bool rc = false;
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
+
+    if (obj_nw->ref_count == 0) return true;
+
+    ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
+        
+        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        acl_entry = obj_nw_linked_acl_thread_node->acl;
+        pthread_spin_lock(&acl_entry->access_lst->spin_lock);
+        acl_entry_uninstall(acl_entry, NULL);
+        acl_entry_free_tcam_data(acl_entry);
+        acl_compile (acl_entry);
+        acl_entry_install(acl_entry->access_lst, acl_entry);
+        pthread_spin_unlock(&acl_entry->access_lst->spin_lock);
+        if (acl_entry_is_partially_installed(acl_entry)) {
+            return false;
+        }
+    } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
+    access_list_notify_clients (node, acl_entry->access_lst);
+    return true;
+}
+
+bool
+object_network_apply_change_host_address(node_t *node, obj_nw_t *obj_nw, char *host_addr) {
+
+    uint32_t old_host_addr;
+
+    assert(obj_nw->type == OBJ_NW_TYPE_HOST);
+
+    uint32_t host_addr_int = tcp_ip_covert_ip_p_to_n(host_addr);
+
+    if (obj_nw->u.host == host_addr_int) return true;
+
+    old_host_addr = obj_nw->u.host;
+    obj_nw->u.host = host_addr_int;
+
+    if (!object_network_propogate_update(node, obj_nw)) {
+        obj_nw->u.host = old_host_addr;
+        object_network_rebuild_all_dependent_acls(node, obj_nw);
+        object_network_rebuild_all_dependent_nats(node, obj_nw);
+        return false;
+    }
+    return true;
+}
+
+void
+object_network_rebuild_all_dependent_acls(node_t *node, obj_nw_t *obj_nw) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
+
+     ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
+
+        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        acl_entry = obj_nw_linked_acl_thread_node->acl;
+        assert(access_list_rebuild_mtrie (node, acl_entry->access_lst));
+
+    } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
+}
+
+void
+object_network_rebuild_all_dependent_nats(node_t *node, obj_nw_t *obj_nw) {
+
+    //printf ("%s() called ....\n", __FUNCTION__);
+}

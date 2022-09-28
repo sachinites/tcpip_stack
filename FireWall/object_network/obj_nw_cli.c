@@ -67,8 +67,19 @@ network_object_config_handler (param_t *param,
                 case CONFIG_ENABLE:
                     {
                         obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
+
                         if (obj_nw) {
-                            printf ("Error : Object Network Already defined\n");
+                            
+                            if (obj_nw->type != OBJ_NW_TYPE_HOST) {
+                                printf ("Error : Object Network Type cannot be changed\n");
+                                return -1;
+                            }
+
+                            if (object_network_apply_change_host_address(node, obj_nw, host_addr)) {
+                                return 0;
+                            }
+                            
+                            printf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_HOST);
@@ -84,6 +95,12 @@ network_object_config_handler (param_t *param,
                         printf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
+                    if (obj_nw->type != OBJ_NW_TYPE_HOST)
+                    {
+                        printf("Error : Object Network Type cannot be changed\n");
+                        return -1;
+                    }
+
                     if (obj_nw->ref_count > 0) {
                         printf ("Error : Network Object in Use\n");
                         return -1;
@@ -177,7 +194,7 @@ network_object_build_config_cli (param_t *root) {
 
     /* network-object ...*/
     static param_t nw_obj;
-    init_param (&nw_obj, CMD, "network-object", NULL, NULL, INVALID, NULL, "Network Object Configurations");
+    init_param (&nw_obj, CMD, "object-network", NULL, NULL, INVALID, NULL, "Object Network Configurations");
     libcli_register_param(root, &nw_obj);
 
     {
