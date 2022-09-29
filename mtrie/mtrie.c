@@ -272,10 +272,10 @@ mtrie_insert_prefix (mtrie_t *mtrie,
 
     if (i == prefix_len) {
         if (j == node_prefix_len) {
-            printf("Duplicate TCAM entry\n");
+            //printf("Duplicate TCAM entry\n");
         }
         else {
-             printf("Input TCAM entry exhausted\n");
+             //printf("Input TCAM entry exhausted\n");
              /* All entries are of same size. Input entry cannot be of 
              any arbitrary size  */
              assert(0);

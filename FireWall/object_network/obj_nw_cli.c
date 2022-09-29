@@ -3,6 +3,7 @@
 #include "objnw.h"
 #include "../../CommandParser/libcli.h"
 #include "../../CommandParser/cmdtlv.h"
+#include "../../CommandParser/css.h"
 
 extern graph_t *topo;
 
@@ -79,7 +80,7 @@ network_object_config_handler (param_t *param,
                                 return 0;
                             }
                             
-                            printf ("Error : Conflicting Changes, Configuration aborted\n");
+                            printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
                             return -1;
                         }
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_HOST);
@@ -131,7 +132,7 @@ network_object_config_handler (param_t *param,
                                 return 0;
                             }
 
-                            printf("Error : Conflicting Changes, Configuration aborted\n");
+                            printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
                             return -1;
                         }
 
@@ -183,7 +184,7 @@ network_object_config_handler (param_t *param,
                                 return 0;
                             }
 
-                            printf("Error : Conflicting Changes, Configuration aborted\n");
+                            printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
                             return -1;
                         }
 

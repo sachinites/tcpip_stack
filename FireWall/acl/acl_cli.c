@@ -1,5 +1,6 @@
 #include "../../CommandParser/libcli.h"
 #include "../../CommandParser/cmdtlv.h"
+#include "../../CommandParser/css.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
 #include "acldb.h"
@@ -1168,7 +1169,8 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         default:;
     }
 
-    printf(" (hits %lu, tcam-count (%u, %u, %u))\n", acl_entry->hit_count, 
+    printf(ANSI_COLOR_GREEN"  (Hits[%lu] Tcam-Count[%u, %u, %u])\n" ANSI_COLOR_RESET, 
+            acl_entry->hit_count, 
             acl_entry->total_tcam_count,
             acl_entry->tcam_installed,
             acl_entry->tcam_installed_failed);
