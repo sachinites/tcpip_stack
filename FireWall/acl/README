@@ -1,0 +1,51 @@
+Project :  [ May 2022 - Sept 2022]
+
+Implement Cisco-Like Access Control List
+===============================
+
+This Project is about Implementing Access Control List in C, similar to Cisco ASA Firewall in syntax ( as close as possible).
+Access Control Lits, abbreviated as ACLs, is a list of rules which are installed in routers or switches, where they act as filters, managing which traffic can access the network.
+
+Here in this project we implement ACLs purely in software. The Underlying data structure to implement 'longest prefix match' Or 'Best Match' based ACL search is mtrie Data structure.
+ 
+ We Compile ACLs into equivalent TCAM ( Ternary content addressable Memory) format and install the tcam format into mtrie data structure. Here, mtrie is the closest software replacement of actual TCAM hardware Memory.
+
+ACLs have inherent issues with scaling. Depending on ACL parameters specified by the user, a Single ACL entry may compiled into thousands of TCAM entries. Mtrie data structure guarantees
+that on an average, the ACL lookup has O(ACL SIZE in BITS) complexity. Currently, We implement 128 bit size Network/Transport Layer ACLs which accommodate L3 and L4 protocols, Src and Destination Addresses/Subnets, Src and Destination Port Numbers which could be specified in ranges as well.
+
+We can apply the ACL on ingress as well as Egress interfaces for filtering ingress and egress traffic on an interface. ACLs rules evaluate the packet on the combination of parameters extracted from IP packet as below :
+    <L3 protocol> <L4 protocol> <Src address> <Dst Address> <Src Port No> <Dst Port No> 
+
+We also support Object-Networks as a parameter to be specified in ACLs. It helps user to reduce the Number of ACLs to be configured while not comprising the level of security desired.
+
+
+Below is an Example Which shows how ACL is configured to block all mcast traffic ingressing into Router R2 on an interface eth3.
+
+Example Configurations :
+tcp-ip-stack> $ conf node R2 object-network multicast-prefixes range 224.0.0.1 239.255.255.255
+Parse Success.
+CLI returned
+
+tcp-ip-stack> $ conf node R2 access-list block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 object-network multicast-prefixes
+Parse Success.
+CLI returned
+
+tcp-ip-stack> $ conf node R2 access-list block-mcast-traffic permit any
+Parse Success.
+CLI returned
+
+tcp-ip-stack> $ show node R2 object-network
+Parse Success.
+# Object Networks : 1
+ object-network multicast-prefixes range 224.0.0.1 239.255.255.255 (ref-count : 1)
+  ACLs referenced:
+   access-list block-mcast-traffic 
+CLI returned
+
+tcp-ip-stack> $ show node R2 access-list
+Parse Success.
+Access-list : block-mcast-traffic
+ access-list block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 object-network multicast-prefixes  (Hits[0] Tcam-Count[28, 28, 0])
+ access-list block-mcast-traffic permit any  (Hits[0] Tcam-Count[1, 1, 0])
+CLI returned
+
