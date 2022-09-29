@@ -330,7 +330,7 @@ network_object_build_show_cli (param_t *root) {
     {
         /* show node <node-name> network-object */
         static param_t nw_obj;
-        init_param(&nw_obj, CMD, "network-object", network_object_show_handler, NULL, INVALID, NULL, "Network Object Configurations");
+        init_param(&nw_obj, CMD, "object-network", network_object_show_handler, NULL, INVALID, NULL, "Network Object Configurations");
         libcli_register_param(root, &nw_obj);
         set_param_cmd_code(&nw_obj, NW_OBJ_SHOW_ALL);
         {

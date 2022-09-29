@@ -82,14 +82,14 @@ object_network_print (obj_nw_t *obj_nw) {
     char ip[16];
     switch(obj_nw->type) {
         case OBJ_NW_TYPE_HOST:
-            printf (" network-object %s %s %s", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
+            printf (" object-network %s %s %s", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
             break;
         case OBJ_NW_TYPE_SUBNET:
-             printf (" network-object %s %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
+             printf (" object-network %s %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
              printf(" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
             break;
         case OBJ_NW_TYPE_RANGE:
-            printf (" network-object %s range %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
+            printf (" object-network %s range %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
             printf (" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
             break;
         case OBJ_NW_TYPE_NONE:

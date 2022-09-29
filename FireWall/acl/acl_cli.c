@@ -75,13 +75,14 @@ acl_parse_ace_config_entries(
                              uint16_t dst_port_no2) {
 
                                   /* Action */
-    if (strncmp(action_name, "permit", 6) == 0 ) {
+    if (strncmp(action_name, "permit", 6) == 0 && strlen(action_name) == 6) {
         acl_entry->action = ACL_PERMIT;
     }
-    else if (strncmp(action_name, "deny", 4) == 0 ) {
+    else if (strncmp(action_name, "deny", 4) == 0 && strlen(action_name) == 4) {
         acl_entry->action = ACL_DENY;
     }
     else {
+        printf ("Error : Bad ACL Action Name %s\n", action_name);
         return false;
     }
 
@@ -320,9 +321,9 @@ acl_config_handler (param_t *param,
             subnet_src_ip = tlv->value;               
         else if (parser_match_leaf_id (tlv->leaf_id, "subnet-dst-ip"))
             subnet_dst_ip = tlv->value;            
-        else if (parser_match_leaf_id (tlv->leaf_id, "network-object-name-src")) 
+        else if (parser_match_leaf_id (tlv->leaf_id, "object-network-name-src")) 
             obj_nw_name_src = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "network-object-name-dst"))
+        else if (parser_match_leaf_id (tlv->leaf_id, "object-network-name-dst"))
             obj_nw_name_dst = tlv->value;               
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-eq")) {
             src_port_no_eq = atoi(tlv->value);
@@ -584,21 +585,21 @@ static void
 acl_build_config_cli_destination (param_t *root) {
 
     param_t *obj_nw = (param_t *)calloc(1, sizeof(param_t));
-    init_param(obj_nw, CMD, "network-object", 0, 0, STRING, 0, "Network Object");
+    init_param(obj_nw, CMD, "object-network", 0, 0, STRING, 0, "Network Object");
     libcli_register_param(root, obj_nw);
     {
-        /* access-list <name> <action> <proto> network-object <network-object-name>*/
+        /* access-list <name> <action> <proto> object-network <object-network-name>*/
         param_t *obj_nw_name = (param_t *)calloc(1, sizeof(param_t));
-        init_param(obj_nw_name, LEAF, 0, acl_config_handler, 0, STRING, "network-object-name-dst", "specify Dst Network Object Name");
+        init_param(obj_nw_name, LEAF, 0, acl_config_handler, 0, STRING, "object-network-name-dst", "specify Dst Network Object Name");
         libcli_register_param(obj_nw, obj_nw_name);
         set_param_cmd_code(obj_nw_name, ACL_CMD_CONFIG);
         {
-            /* access-list <name> <action> <proto> network-object <network-object-name> eq ...*/
+            /* access-list <name> <action> <proto> object-network <object-network-name> eq ...*/
             param_t *eq = (param_t *)calloc(1, sizeof(param_t));
             init_param(eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
             libcli_register_param(obj_nw_name, eq);
             {
-                /* access-list <name> <action> <proto> network-object <network-object-name> eq <dst-port-no>*/
+                /* access-list <name> <action> <proto> object-network <object-network-name> eq <dst-port-no>*/
                 param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
                 init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-eq", "specify Dst Port Number");
                 libcli_register_param(eq, dst_port_no);
@@ -606,12 +607,12 @@ acl_build_config_cli_destination (param_t *root) {
             }
         }
         {
-            /* access-list <name> <action> <proto> network-object <network-object-name> lt ...*/
+            /* access-list <name> <action> <proto> object-network <object-network-name> lt ...*/
             param_t *lt = (param_t *)calloc(1, sizeof(param_t));
             init_param(lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
             libcli_register_param(obj_nw_name, lt);
             {
-                /* access-list <name> <action> <proto> network-object <network-object-name> lt <dst-port-no>*/
+                /* access-list <name> <action> <proto> object-network <object-network-name> lt <dst-port-no>*/
                 param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
                 init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-lt", "specify Dst Port Number");
                 libcli_register_param(lt, dst_port_no);
@@ -619,12 +620,12 @@ acl_build_config_cli_destination (param_t *root) {
             }
         }
         {
-            /* access-list <name> <action> <proto> network-object <network-object-name> gt ...*/
+            /* access-list <name> <action> <proto> object-network <object-network-name> gt ...*/
             param_t *gt = (param_t *)calloc(1, sizeof(param_t));
             init_param(gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
             libcli_register_param(obj_nw_name, gt);
             {
-                /* access-list <name> <action> <proto> network-object <network-object-name> lt <dst-port-no>*/
+                /* access-list <name> <action> <proto> object-network <object-network-name> lt <dst-port-no>*/
                 param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
                 init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-gt", "specify Dst Port Number");
                 libcli_register_param(gt, dst_port_no);
@@ -632,17 +633,17 @@ acl_build_config_cli_destination (param_t *root) {
             }
         }        
         {
-            /* access-list <name> <action> <proto> network-object <network-object-name> range ...*/
+            /* access-list <name> <action> <proto> object-network <object-network-name> range ...*/
             param_t *range = (param_t *)calloc(1, sizeof(param_t));
             init_param(range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
             libcli_register_param(obj_nw_name, range);
             {
-                /* access-list <name> <action> <proto> network-object <network-object-name> range <dst-port-no1>*/
+                /* access-list <name> <action> <proto> object-network <object-network-name> range <dst-port-no1>*/
                 param_t *dst_port_no1 = (param_t *)calloc(1, sizeof(param_t));
                 init_param(dst_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "dst-port-no1", "specify Dst Port Number Lower Bound");
                 libcli_register_param(range, dst_port_no1);
                 {
-                    /* access-list <name> <action> <proto> network-object <network-object-name> range <dst-port-no1> <dst-port-no2>*/
+                    /* access-list <name> <action> <proto> object-network <object-network-name> range <dst-port-no1> <dst-port-no2>*/
                     param_t *dst_port_no2 = (param_t *)calloc(1, sizeof(param_t));
                     init_param(dst_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no2", "specify Dst Port Number Upper Bound");
                     libcli_register_param(dst_port_no1, dst_port_no2);
@@ -819,23 +820,23 @@ acl_build_config_cli(param_t *root) {
                     libcli_register_param(&action, &proto);
                     set_param_cmd_code(&proto, ACL_CMD_CONFIG);
                     {
-                         /* access-list <name> <action> <proto> network-object...*/
+                         /* access-list <name> <action> <proto> object-network...*/
                         static param_t obj_nw;
-                        init_param(&obj_nw, CMD, "network-object", 0, 0, INVALID, 0, "Network Object");
+                        init_param(&obj_nw, CMD, "object-network", 0, 0, INVALID, 0, "Network Object");
                         libcli_register_param(&proto, &obj_nw);
                         {
-                             /* access-list <name> <action> <proto> network-object <network-object-name>*/
+                             /* access-list <name> <action> <proto> object-network <object-network-name>*/
                             static param_t obj_nw_name;
-                            init_param(&obj_nw_name, LEAF, 0, acl_config_handler, 0, STRING, "network-object-name-src", "specify Src Network Object Name");
+                            init_param(&obj_nw_name, LEAF, 0, acl_config_handler, 0, STRING, "object-network-name-src", "specify Src Network Object Name");
                             libcli_register_param(&obj_nw, &obj_nw_name);
                             set_param_cmd_code(&obj_nw_name, ACL_CMD_CONFIG);
                             {
-                                 /* access-list <name> <action> <proto> network-object <network-object-name> eq ...*/
+                                 /* access-list <name> <action> <proto> object-network <object-network-name> eq ...*/
                                  static param_t eq;
                                  init_param(&eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
                                   libcli_register_param(&obj_nw_name, &eq);
                                   {
-                                     /* access-list <name> <action> <proto> network-object <network-object-name> eq <src-port-no>*/
+                                     /* access-list <name> <action> <proto> object-network <object-network-name> eq <src-port-no>*/
                                       static param_t src_port_no;
                                       init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
                                       libcli_register_param(&eq, &src_port_no);
@@ -844,7 +845,7 @@ acl_build_config_cli(param_t *root) {
                                   }
                             }
                             {
-                                /* access-list <name> <action> <proto> network-object <network-object-name> lt ...*/
+                                /* access-list <name> <action> <proto> object-network <object-network-name> lt ...*/
                                 static param_t lt;
                                 init_param(&lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
                                 libcli_register_param(&obj_nw_name, &lt);
@@ -858,12 +859,12 @@ acl_build_config_cli(param_t *root) {
                                 }
                             }
                             {
-                                /* access-list <name> <action> <proto> network-object <network-object-name> gt ...*/
+                                /* access-list <name> <action> <proto> object-network <object-network-name> gt ...*/
                                 static param_t gt;
                                 init_param(&gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
                                 libcli_register_param(&obj_nw_name, &gt);
                                 {
-                                    /* access-list <name> <action> <proto> network-object <network-object-name> gt <src-port-no>*/
+                                    /* access-list <name> <action> <proto> object-network <object-network-name> gt <src-port-no>*/
                                     static param_t src_port_no;
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
                                     libcli_register_param(&gt, &src_port_no);
@@ -872,17 +873,17 @@ acl_build_config_cli(param_t *root) {
                                 }
                             }  
                             {
-                                /* access-list <name> <action> <proto> network-object <network-object-name> range ...*/
+                                /* access-list <name> <action> <proto> object-network <object-network-name> range ...*/
                                 static param_t range;
                                 init_param(&range, CMD, "range", 0, 0, INVALID, 0, "range <p1> <p2>");
                                 libcli_register_param(&obj_nw_name, &range);
                                 {
-                                    /* access-list <name> <action> <proto> network-object <network-object-name> range <src-port-no1>*/
+                                    /* access-list <name> <action> <proto> object-network <object-network-name> range <src-port-no1>*/
                                     static param_t src_port_no1;
                                     init_param(&src_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "src-port-no1", "specify Src Port Number Lower Bound");
                                     libcli_register_param(&range, &src_port_no1);
                                     {
-                                        /* access-list <name> <action> <proto> network-object <network-object-name> range <src-port-no1> <src-port-no2>*/
+                                        /* access-list <name> <action> <proto> object-network <object-network-name> range <src-port-no1> <src-port-no2>*/
                                         static param_t src_port_no2;
                                         init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
                                         libcli_register_param(&src_port_no1, &src_port_no2);
@@ -1113,7 +1114,7 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
             printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
             break;
         case  ACL_ADDR_OBJECT_NETWORK:
-            printf (" network-object %s", acl_entry->src_addr.u.obj_nw->name);
+            printf (" object-network %s", acl_entry->src_addr.u.obj_nw->name);
             break;
     }
         
@@ -1145,7 +1146,7 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
             printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
             break;
         case  ACL_ADDR_OBJECT_NETWORK:
-            printf (" network-object %s", acl_entry->dst_addr.u.obj_nw->name);
+            printf (" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
             break;
     }
 
