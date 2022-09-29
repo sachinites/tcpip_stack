@@ -214,14 +214,10 @@ access_list_evaluate_ethernet_packet (node_t *node,
 int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
 void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
-void acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
-void acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw);
-void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry_template, acl_entry_t **installed_acl_entry) ;
-bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
+
 
 /* Caution : Do not use direct access acl_entry->src_addr.u.obj_nw
 to fetch Network object from ACL, as it is union */
-
 static inline obj_nw_t *
 acl_get_src_network_object(acl_entry_t *acl_entry) {
 
@@ -241,6 +237,17 @@ acl_get_dst_network_object(acl_entry_t *acl_entry) {
     }
     return NULL;
 }
+
+/* Linking and Delinking Object-Networks and ACLs APIs */
+void acl_entry_link_src_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw) ;
+void acl_entry_link_dst_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw) ;
+void acl_entry_delink_src_object_networks(acl_entry_t *acl_entry) ;
+void acl_entry_delink_dst_object_networks(acl_entry_t *acl_entry) ;
+
+
+void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry_template, acl_entry_t **installed_acl_entry) ;
+bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
+
 
 static inline bool
 acl_entry_is_fully_installed (acl_entry_t *acl_entry) {

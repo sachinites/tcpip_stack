@@ -1,5 +1,6 @@
 #include "../../CommandParser/libcli.h"
 #include "../../CommandParser/cmdtlv.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
@@ -99,8 +100,7 @@ acl_parse_ace_config_entries(
          acl_entry->src_addr.u.subnet.subnet_mask =  tcp_ip_covert_ip_p_to_n(subnet_src_mask);
     }
     else if (obj_nw_src) {
-        acl_entry->src_addr.acl_addr_format =  ACL_ADDR_OBJECT_NETWORK;
-        acl_entry->src_addr.u.obj_nw = obj_nw_src;
+        acl_entry_link_src_object_networks(acl_entry, obj_nw_src);
     }
 
     /* Src Port Number */
@@ -119,8 +119,7 @@ acl_parse_ace_config_entries(
          acl_entry->dst_addr.u.subnet.subnet_mask =  tcp_ip_covert_ip_p_to_n(subnet_dst_mask);
     }
     else if (obj_nw_dst) {
-        acl_entry->dst_addr.acl_addr_format =  ACL_ADDR_OBJECT_NETWORK;
-        acl_entry->dst_addr.u.obj_nw = obj_nw_dst;
+        acl_entry_link_dst_object_networks(acl_entry, obj_nw_dst);
     }
 
     /* Drc Port Number */
@@ -158,7 +157,7 @@ access_list_config (node_t *node,
         return 0;
     }
     
-    acl_entry = (acl_entry_t *)calloc(1, sizeof(acl_entry_t));
+    acl_entry = (acl_entry_t *)XCALLOC(0, 1, acl_entry_t);
 
    if (!acl_parse_ace_config_entries(
                     acl_entry, 

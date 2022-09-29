@@ -57,10 +57,8 @@ void
 acl_entry_free (acl_entry_t *acl_entry) {
 
     acl_entry_free_tcam_data(acl_entry);
-    #if 0
-    assert(!acl_entry->src_addr.u.obj_nw);
-    assert(!acl_entry->dst_addr.u.obj_nw);
-    #endif
+    acl_entry_delink_src_object_networks(acl_entry);
+    acl_entry_delink_dst_object_networks(acl_entry);
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
     XFREE(acl_entry);
 }
@@ -428,8 +426,6 @@ acl_process_user_config (node_t *node,
     pthread_spin_unlock(&access_list->spin_lock);
     acl_entry_purge_tcam_entries_list(&acl_entry->tcam_success_list_head);
     access_list_add_acl_entry (access_list, acl_entry);
-    acl_entry_link_object_networks(acl_entry, acl_get_src_network_object(acl_entry));
-    acl_entry_link_object_networks(acl_entry, acl_get_dst_network_object(acl_entry));
 
     if (new_access_list) {
         glthread_add_next (&node->access_lists_db, &access_list->glue);
@@ -449,7 +445,6 @@ acl_process_user_config_for_deletion (
 
     bool rc = false;
     bool is_acl_updated;
-    obj_nw_t *obj_nw;
     acl_entry_t *installed_acl_entry = NULL;
 
     is_acl_updated = false;
@@ -469,21 +464,6 @@ acl_process_user_config_for_deletion (
         
         remove_glthread(&installed_acl_entry->glue);
         installed_acl_entry->access_lst = NULL;
-
-        obj_nw = acl_get_src_network_object(installed_acl_entry);
-
-        if (obj_nw) {
-            acl_entry_delink_object_networks(installed_acl_entry, obj_nw);
-            installed_acl_entry->src_addr.u.obj_nw = NULL;
-        }
-
-        obj_nw = acl_get_dst_network_object(installed_acl_entry);
-
-        if (obj_nw) {
-            acl_entry_delink_object_networks(installed_acl_entry, obj_nw);
-            installed_acl_entry->dst_addr.u.obj_nw = NULL;
-        }
-
         acl_entry_free(installed_acl_entry);
     }
 
@@ -504,7 +484,6 @@ void
 access_list_delete_complete(access_list_t *access_list) {
 
     glthread_t *curr;
-    obj_nw_t *obj_nw;
     acl_entry_t *acl_entry;
 
     if (access_list->ref_count > 1) {
@@ -520,21 +499,6 @@ access_list_delete_complete(access_list_t *access_list) {
 
         acl_entry = glthread_to_acl_entry(curr);
         remove_glthread(&acl_entry->glue);
-
-        obj_nw = acl_get_src_network_object(acl_entry);
-
-        if (obj_nw) {
-            acl_entry_delink_object_networks(acl_entry, obj_nw);
-            acl_entry->src_addr.u.obj_nw = NULL;
-        }
-
-        obj_nw = acl_get_dst_network_object(acl_entry);
-
-        if (obj_nw) {
-            acl_entry_delink_object_networks(acl_entry, obj_nw);
-            acl_entry->dst_addr.u.obj_nw = NULL;
-        }
-
         acl_entry_free(acl_entry);
 
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
@@ -1032,7 +996,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     }
  }
 
-void 
+static void 
 acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
 
     if (!objnw) return;
@@ -1057,7 +1021,7 @@ acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
     objnw->ref_count++;
 }
 
-void
+static void
 acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
 
     glthread_t *curr;
@@ -1091,6 +1055,60 @@ acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
     assert(0);
 }
 
+void
+acl_entry_delink_src_object_networks(acl_entry_t *acl_entry) {
+
+    obj_nw_t *obj_nw;
+
+    obj_nw = acl_get_src_network_object(acl_entry);
+
+    if (obj_nw) {
+        acl_entry_delink_object_networks(acl_entry, obj_nw);
+        acl_entry->src_addr.u.obj_nw = NULL;
+        acl_entry->src_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
+    }
+}
+
+void
+acl_entry_delink_dst_object_networks(acl_entry_t *acl_entry) {
+
+    obj_nw_t *obj_nw;
+
+    obj_nw = acl_get_dst_network_object(acl_entry);
+
+    if (obj_nw) {
+        acl_entry_delink_object_networks(acl_entry, obj_nw);
+        acl_entry->dst_addr.u.obj_nw = NULL;
+        acl_entry->dst_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
+    }
+}
+
+void
+acl_entry_link_src_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw) {
+
+    if (!obj_nw) return;
+    
+    assert(!acl_get_src_network_object(acl_entry));
+
+    acl_entry_link_object_networks(acl_entry, obj_nw);
+
+    acl_entry->src_addr.u.obj_nw = obj_nw;
+    acl_entry->src_addr.acl_addr_format = ACL_ADDR_OBJECT_NETWORK;
+}
+
+void
+acl_entry_link_dst_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw) {
+
+    if (!obj_nw) return;
+    
+    assert(!acl_get_dst_network_object(acl_entry));
+
+    acl_entry_link_object_networks(acl_entry, obj_nw);
+
+    acl_entry->dst_addr.u.obj_nw = obj_nw;
+    acl_entry->dst_addr.acl_addr_format = ACL_ADDR_OBJECT_NETWORK;
+}
+
 /* To be used when Access-list is partially installed Or uninstalled
     into mtrie */
 bool
@@ -1115,26 +1133,10 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
 
        acl_entry = glthread_to_acl_entry(curr);
        acl_entry_free_tcam_data(acl_entry);
-
-#if 0
-       obj_nw = acl_get_src_network_object(acl_entry);
-
-        if (obj_nw) {
-            acl_entry_delink_object_networks(acl_entry, obj_nw);
-        }
-
-        obj_nw = acl_get_dst_network_object(acl_entry);
-
-        if (obj_nw) {
-            acl_entry_delink_object_networks(acl_entry, obj_nw);
-        }
-#endif
        acl_compile(acl_entry);
        acl_entry_install(access_list, acl_entry);
        assert(acl_entry_is_fully_installed(acl_entry));
        acl_entry_purge_tcam_entries_list(&acl_entry->tcam_success_list_head);
-      // acl_entry_link_object_networks(acl_entry, acl_get_src_network_object(acl_entry));
-      // acl_entry_link_object_networks(acl_entry, acl_get_dst_network_object(acl_entry));
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
     
     pthread_spin_unlock(&access_list->spin_lock);
