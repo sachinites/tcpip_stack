@@ -79,7 +79,7 @@
 
 /* debug Commands */
 #define CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT 32 /* debug show node <node-name> mtrie rt */
-#define CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL 33 /* debug show node <node-name> mtrie acl <acl-name> */
+#define CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL 33 /* debug show node <node-name> mtrie access-list <acl-name> */
 
 #define CMDCODE_CONFIG_PREFIX_LST   34 /* config node <node-name> prefix-list <name> <seq-no> <network> <mask> [le <N>] [ge <N>] */
 

@@ -1086,10 +1086,89 @@ acl_build_config_cli(param_t *root) {
     }
 }
 
+void
+acl_print (acl_entry_t *acl_entry) {
+
+    char ip_addr[16];
+    switch (acl_entry->src_addr.acl_addr_format)
+    {
+    case ACL_ADDR_NOT_SPECIFIED:
+        break;
+    case ACL_ADDR_HOST:
+        printf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
+        break;
+    case ACL_ADDR_SUBNET_MASK:
+        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
+        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
+        break;
+    case ACL_ADDR_OBJECT_NETWORK:
+        printf(" object-network %s", acl_entry->src_addr.u.obj_nw->name);
+        break;
+    }
+
+    switch (acl_entry->proto)
+    {
+    case ACL_UDP:
+    case ACL_TCP:
+        if (acl_entry->sport.lb == 0 && acl_entry->sport.ub == 0)
+            break;
+        else if (acl_entry->sport.lb == 0 && acl_entry->sport.ub < ACL_MAX_PORTNO)
+            printf(" lt %d", acl_entry->sport.ub);
+        else if (acl_entry->sport.lb > 0 && acl_entry->sport.ub == ACL_MAX_PORTNO)
+            printf(" gt %d", acl_entry->sport.lb);
+        else if (acl_entry->sport.lb == acl_entry->sport.ub)
+            printf(" eq %d", acl_entry->sport.lb);
+        else
+            printf(" range %d %d", acl_entry->sport.lb, acl_entry->sport.ub);
+        break;
+    default:;
+    }
+
+    switch (acl_entry->dst_addr.acl_addr_format)
+    {
+    case ACL_ADDR_NOT_SPECIFIED:
+        break;
+    case ACL_ADDR_HOST:
+        printf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.host_addr, ip_addr));
+        break;
+    case ACL_ADDR_SUBNET_MASK:
+        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
+        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
+        break;
+    case ACL_ADDR_OBJECT_NETWORK:
+        printf(" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
+        break;
+    }
+
+    switch (acl_entry->proto)
+    {
+    case ACL_UDP:
+    case ACL_TCP:
+        if (acl_entry->dport.lb == 0 && acl_entry->dport.ub == 0)
+            break;
+        else if (acl_entry->dport.lb == 0 && acl_entry->dport.ub < ACL_MAX_PORTNO)
+            printf(" lt %d", acl_entry->dport.ub);
+        else if (acl_entry->dport.lb > 0 && acl_entry->dport.ub == ACL_MAX_PORTNO)
+            printf(" gt %d", acl_entry->dport.lb);
+        else if (acl_entry->dport.lb == acl_entry->dport.ub)
+            printf(" eq %d", acl_entry->dport.lb);
+        else
+            printf(" range %d %d", acl_entry->dport.lb, acl_entry->dport.ub);
+        break;
+        break;
+    default:;
+    }
+
+    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[%u, %u, %u])" ANSI_COLOR_RESET,
+           acl_entry->hit_count,
+           acl_entry->total_tcam_count,
+           acl_entry->tcam_installed,
+           acl_entry->tcam_installed_failed);
+}
+
 static void
 acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
-    char ip_addr[16];
     access_list_t *acc_lst = (access_list_t *)data;
     acl_entry_t *acl_entry = (acl_entry_t *)node->data;
    
@@ -1104,76 +1183,8 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
         proto_name_str( acl_entry->proto));
 
-    switch (acl_entry->src_addr.acl_addr_format) {
-        case ACL_ADDR_NOT_SPECIFIED:
-            break;
-        case ACL_ADDR_HOST:
-            printf (" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
-            break;
-        case  ACL_ADDR_SUBNET_MASK:
-            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
-            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
-            break;
-        case  ACL_ADDR_OBJECT_NETWORK:
-            printf (" object-network %s", acl_entry->src_addr.u.obj_nw->name);
-            break;
-    }
-        
-    switch(acl_entry->proto) {
-        case ACL_UDP:
-        case ACL_TCP:
-            if (acl_entry->sport.lb == 0 && acl_entry->sport.ub == 0)
-                break;
-            else if (acl_entry->sport.lb == 0 && acl_entry->sport.ub < ACL_MAX_PORTNO)
-                printf (" lt %d", acl_entry->sport.ub);
-            else if (acl_entry->sport.lb > 0 && acl_entry->sport.ub == ACL_MAX_PORTNO)
-                printf (" gt %d", acl_entry->sport.lb);
-            else if  (acl_entry->sport.lb == acl_entry->sport.ub)
-                printf (" eq %d", acl_entry->sport.lb);
-            else
-                printf (" range %d %d", acl_entry->sport.lb, acl_entry->sport.ub);
-            break;            
-        default:;
-    }
-   
-    switch (acl_entry->dst_addr.acl_addr_format) {
-        case ACL_ADDR_NOT_SPECIFIED:
-           break;
-        case ACL_ADDR_HOST:
-            printf (" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.host_addr, ip_addr));
-            break;
-        case  ACL_ADDR_SUBNET_MASK:
-            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
-            printf (" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
-            break;
-        case  ACL_ADDR_OBJECT_NETWORK:
-            printf (" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
-            break;
-    }
-
-    switch(acl_entry->proto) {
-        case ACL_UDP:
-        case ACL_TCP:
-            if (acl_entry->dport.lb == 0 && acl_entry->dport.ub == 0)
-                break;
-            else if (acl_entry->dport.lb == 0 && acl_entry->dport.ub < ACL_MAX_PORTNO)
-                printf (" lt %d", acl_entry->dport.ub);
-            else if (acl_entry->dport.lb > 0 && acl_entry->dport.ub == ACL_MAX_PORTNO)
-                printf (" gt %d", acl_entry->dport.lb);
-            else if  (acl_entry->dport.lb == acl_entry->dport.ub)
-                printf (" eq %d", acl_entry->dport.lb);                
-            else
-                printf (" range %d %d", acl_entry->dport.lb, acl_entry->dport.ub);
-                break;            
-            break;
-        default:;
-    }
-
-    printf(ANSI_COLOR_GREEN"  (Hits[%lu] Tcam-Count[%u, %u, %u])\n" ANSI_COLOR_RESET, 
-            acl_entry->hit_count, 
-            acl_entry->total_tcam_count,
-            acl_entry->tcam_installed,
-            acl_entry->tcam_installed_failed);
+    acl_print(acl_entry);
+    printf("\n");
 }
 
 static void

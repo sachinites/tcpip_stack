@@ -12,6 +12,7 @@
 #include "../../pkt_block.h"
 #include "../../Layer4/udp.h"
 #include "../object_network/objnw.h"
+#include "../../CommandParser/css.h"
 
 typedef struct acl_enumerator_ {
 
@@ -420,6 +421,8 @@ acl_process_user_config (node_t *node,
         if (new_access_list) {
             access_list_check_delete(access_list);
         }
+
+        printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
         return false;
     }
 
@@ -1181,3 +1184,66 @@ acl_entry_purge_tcam_entries_list (glthread_t *tcam_list_head) {
 
     } ITERATE_GLTHREAD_END (tcam_list_head, curr);
 }
+
+void
+access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry) {
+
+    acl_tcam_t tcam_entry;
+    int src_addr_it, dst_addr_it;
+    int src_port_it, dst_port_it;
+    acl_enumerator_t acl_enum;
+
+    printf (" access-list %s %s %s",
+        access_list->name,
+        acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
+        proto_name_str( acl_entry->proto));
+
+    acl_print(acl_entry);
+    printf("\n");
+
+    for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
+        for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
+            for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
+                for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
+
+                    acl_enum.src_port_index = src_port_it;
+                    acl_enum.dst_port_index = dst_port_it;
+                    acl_enum.src_addr_index = src_addr_it;
+                    acl_enum.dst_addr_index = dst_addr_it;
+
+                    bitmap_init(&tcam_entry.prefix, ACL_PREFIX_LEN);
+                    bitmap_init(&tcam_entry.mask, ACL_PREFIX_LEN);
+                    init_glthread(&tcam_entry.glue);
+                    acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry);
+                    bitmap_prefix_print(&tcam_entry.prefix, &tcam_entry.mask,ACL_PREFIX_LEN);
+                    printf("\n");
+                }
+            }
+        }
+    }
+    bitmap_free_internal(&tcam_entry.prefix);
+    bitmap_free_internal(&tcam_entry.mask);
+}
+
+void
+ access_list_print_bitmap(node_t *node, char *access_list_name) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+    
+    access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
+    
+    if (!access_list) return;
+
+     pthread_spin_lock(&access_list->spin_lock);
+
+     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
+
+       acl_entry = glthread_to_acl_entry(curr);
+
+       access_list_print_acl_bitmap(access_list, acl_entry);
+
+       }ITERATE_GLTHREAD_END(&access_list->head, curr);
+
+     pthread_spin_unlock(&access_list->spin_lock);
+ }

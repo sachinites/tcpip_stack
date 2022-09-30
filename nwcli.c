@@ -60,6 +60,7 @@ extern void prefix_list_cli_config_tree (param_t *param);
 extern void network_object_build_config_cli (param_t *root) ;
 extern void network_object_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
+extern void access_list_print_bitmap(node_t *node, char *access_list_name);
 
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
@@ -833,13 +834,17 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
 }
 
 /*Miscellaneous Commands*/
+
+
 static int
 debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
                          op_mode enable_or_disable){
 
+   node_t *node;
    char *node_name;
    tlv_struct_t *tlv = NULL;
-   node_t *node;
+   char *access_list_name = NULL;
+
    int CMDCODE;
 
    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
@@ -848,6 +853,8 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
         
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
+        else if   (parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
+            access_list_name = tlv->value;
         else
             assert(0);
     }TLV_LOOP_END;
@@ -857,7 +864,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
    switch(CMDCODE){
         case CMDCODE_DEBUG_SHOW_NODE_TIMER:
             print_wheel_timer(CP_TIMER(node));         
-        break;
+            break;
 		case CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING:
 			wt_enable_logging(CP_TIMER(node));
             break;
@@ -865,6 +872,9 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
             mtrie_longest_prefix_first_traverse(
                     NODE_RT_TABLE(node),
                     mtrie_print_node, NULL);
+            break;
+        case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:
+             access_list_print_bitmap(node, access_list_name);
             break;
         default:
         break;
@@ -933,6 +943,24 @@ nw_init_cli(){
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
+            {
+                    /*debug show node <node-name> access-list...*/
+                    static param_t access_lst;
+                    init_param(&access_lst, CMD, "access-list", 0, 0, INVALID, 0, "Access List");
+                    libcli_register_param(&node_name, &access_lst);
+                    {
+                        /*debug show node <node-name> access-list <access-list-name> ...*/
+                        static param_t access_list_name;
+                        init_param(&access_list_name, LEAF, 0, 0, 0, STRING, "access-list-name", "Access List Name");
+                        libcli_register_param(&access_lst, &access_list_name);
+                        {
+                            static param_t tcam;
+                            init_param(&tcam, CMD, "tcam", debug_show_node_handler, 0, INVALID, 0, "Tcam format");
+                            libcli_register_param(&access_list_name, &tcam);
+                            set_param_cmd_code(&tcam, CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL);
+                        }
+                    }
+                }
             {
                  /*debug show node <node-name> mtrie ...*/
                 static param_t mtrie;
@@ -1258,9 +1286,8 @@ nw_init_cli(){
             /* Prefix List CLI loaded */
             prefix_list_cli_config_tree(&node_name);
 
-            /* Network Object Config CLIs */
+            /* Object Network Config CLIs */
             network_object_build_config_cli (&node_name);
-            
         }
 
         {
