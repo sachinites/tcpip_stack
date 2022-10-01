@@ -369,12 +369,55 @@ acl_create_new_access_list(char *access_list_name) {
     return acc_lst;
 }
 
+static int
+acl_entry_seq_no_comp_fn(void *arg1, void *arg2) {
+
+    acl_entry_t *new_acl_entry = (acl_entry_t *)arg1;
+    acl_entry_t *existing_acl_entry = (acl_entry_t *)arg2;
+
+    if (new_acl_entry->seq_no < existing_acl_entry->seq_no) return -1;
+    if (new_acl_entry->seq_no > existing_acl_entry->seq_no) return 1;
+    return 0;
+}
+
 void
-access_list_add_acl_entry(
+access_list_add_acl_entry (
                                 access_list_t * access_list,
                                 acl_entry_t *acl_entry) {
 
-    glthread_add_last(&access_list->head, &acl_entry->glue);
+    glthread_t *curr;
+    acl_entry_t *acl_entry_prev;
+   
+    if (acl_entry->seq_no == 0) {
+
+        glthread_add_last(&access_list->head, &acl_entry->glue);
+
+        if (glthread_get_next(&access_list->head) == &acl_entry->glue) {
+            acl_entry->seq_no = 1;
+        }
+        else {
+            acl_entry_prev = glthread_to_acl_entry(glthread_get_prev(&acl_entry->glue));
+            acl_entry->seq_no = acl_entry_prev->seq_no + 1;
+        }
+        return;
+    }
+
+      ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
+
+            acl_entry_prev = glthread_to_acl_entry(curr);
+            if (acl_entry->seq_no > acl_entry_prev->seq_no) continue;
+            break;
+      }  ITERATE_GLTHREAD_END(&access_list->head, curr);
+
+    if (acl_entry_prev) {
+        glthread_add_next (&acl_entry_prev->glue, &acl_entry->glue);
+    }
+    else {
+        glthread_add_next (&access_list->head, &acl_entry->glue);
+    }
+
+     access_list_reenumerate_seq_no (access_list, &acl_entry->glue);
+
     assert(!acl_entry->access_lst);
     acl_entry->access_lst = access_list;
 }
@@ -400,14 +443,24 @@ acl_process_user_config (node_t *node,
     access_list_t *access_list;
     bool new_access_list = false;
 
-    acl_compile (acl_entry);
-
     access_list = acl_lookup_access_list(node, access_list_name);
 
     if (!access_list) {
         access_list = acl_create_new_access_list(access_list_name);
         new_access_list = true;
     }
+
+#if 0
+    if (!new_access_list && 
+        access_list_lookup_acl_entry_by_seq_no (access_list, acl_entry->seq_no)) {
+
+        printf (ANSI_COLOR_RED "Error : ACL with seq no already exist\n" ANSI_COLOR_RESET);
+        return false;
+    }
+
+#endif 
+
+    acl_compile (acl_entry);
 
     pthread_spin_lock(&access_list->spin_lock);
 
@@ -1194,8 +1247,9 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
     int src_port_it, dst_port_it;
     acl_enumerator_t acl_enum;
 
-    printf (" access-list %s %s %s",
+    printf (" access-list %s %u %s %s",
         access_list->name,
+        acl_entry->seq_no,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
         proto_name_str( acl_entry->proto));
 
@@ -1268,4 +1322,82 @@ access_list_schedule_notification (node_t *node, access_list_t *access_list) {
                                                             access_list_send_notif_cbk, TASK_ONE_SHOT);
 
     access_list_reference(access_list);
+}
+
+acl_entry_t *
+access_list_lookup_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq_no) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+
+    ITERATE_GLTHREAD_BEGIN (&access_list->head, curr) {
+
+        acl_entry = glthread_to_acl_entry(curr);
+        if (acl_entry->seq_no == seq_no) return acl_entry;
+
+    }ITERATE_GLTHREAD_END(&access_list->head, curr);
+
+    return NULL;
+}
+
+void 
+access_list_reenumerate_seq_no (access_list_t *access_list, 
+                                                        glthread_t *begin_node) {
+
+    uint32_t start_seq_no;
+    glthread_t *curr;
+    glthread_t *prev_glthread;
+    glthread_t *starting_node;
+    acl_entry_t *acl_entry = NULL;
+
+    if (begin_node) {
+        prev_glthread =  glthread_get_prev(begin_node);
+        if (prev_glthread == &access_list->head) {
+            start_seq_no = 1;
+            starting_node = &access_list->head;
+        }
+        else {
+            acl_entry = glthread_to_acl_entry(prev_glthread);
+            start_seq_no = acl_entry->seq_no + 1;
+            starting_node = prev_glthread;
+        }
+    }
+    else {
+         start_seq_no = 1;
+         starting_node = &access_list->head;
+    }
+
+    ITERATE_GLTHREAD_BEGIN(starting_node, curr) {
+
+        acl_entry = glthread_to_acl_entry(curr);
+        acl_entry->seq_no = start_seq_no++;
+
+    } ITERATE_GLTHREAD_END(starting_node, curr);
+}
+
+bool
+access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq_no) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+
+    acl_entry = access_list_lookup_acl_entry_by_seq_no(access_list, seq_no);
+    
+    if (!acl_entry) return false;
+
+    pthread_spin_lock (&access_list->spin_lock);
+
+    acl_entry_uninstall(access_list, acl_entry, NULL);
+    
+    curr = glthread_get_next (&acl_entry->glue);
+
+    remove_glthread(&acl_entry->glue);
+    
+    access_list_reenumerate_seq_no (access_list, curr);
+
+    pthread_spin_unlock (&access_list->spin_lock);
+
+    acl_entry_free(acl_entry);
+
+    return true;
 }

@@ -18,11 +18,6 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 #define ACL_CMD_SHOW 2
 #define ACL_CMD_ACCESS_GROUP_CONFIG 3
 
-/* ACL CLI format (Cisco Like ) :
-     <permit|deny> <protocol> <src-ip> <src-mask> range <src-port-no1> <src-port-no2> <dst-ip> <dst-mask> range <dst-port-no1> <dst-port-no2>
-    <permit/deny> <protocol> host <src ip> <eq | lt | gt | range> <port1> <port2>  host <dst ip> <eq | lt | gt | range> <port1> <port2> 
-*/
-
 static int
 acl_action_validation_cbk(char *value) {
 
@@ -59,7 +54,8 @@ acl_port_no_validation (char *value) {
 
 static bool
 acl_parse_ace_config_entries(
-                              acl_entry_t *acl_entry,
+                             acl_entry_t *acl_entry,
+                             uint32_t seq_no,
                              char *action_name,
                              char *proto,
                              char *host_src_ip,
@@ -75,7 +71,9 @@ acl_parse_ace_config_entries(
                              uint16_t dst_port_no1,
                              uint16_t dst_port_no2) {
 
-                                  /* Action */
+    acl_entry->seq_no = seq_no;
+
+    /* Action */
     if (strncmp(action_name, "permit", 6) == 0 && strlen(action_name) == 6) {
         acl_entry->action = ACL_PERMIT;
     }
@@ -134,6 +132,7 @@ acl_parse_ace_config_entries(
 static int
 access_list_config (node_t *node, 
                     char *access_list_name,
+                    uint32_t seq_no,
                     char *action_name,
                     char *proto,
                     char *host_src_ip,
@@ -163,6 +162,7 @@ access_list_config (node_t *node,
 
    if (!acl_parse_ace_config_entries(
                     acl_entry, 
+                    seq_no,
                     action_name,
                     proto,
                     host_src_ip,
@@ -194,6 +194,7 @@ access_list_config (node_t *node,
 static int
 access_list_unconfig(node_t *node, 
                     char *access_list_name,
+                    uint32_t seq_no,
                     char *action_name,
                     char *proto,
                     char *host_src_ip,
@@ -220,20 +221,27 @@ access_list_unconfig(node_t *node,
         return false;
     }
 
-    /* If USer has triggered only no <access-list-name>, then delete the entire access 
-        list */
     if (!action_name &&
          !proto &&
          !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src &&
          !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst) {
 
-        access_list_delete_complete(access_list);
+        /* If User has triggered only no <access-list-name>, then delete the entire access 
+            list */
+        if (seq_no == ~0) {
+            access_list_delete_complete(access_list);
+        }
+        else {
+        /* If User has triggered only no <access-list-name> <seq_no>, then delete the acl_entry from
+        the access list , uninstall it as well*/
+            access_list_delete_acl_entry_by_seq_no(access_list, seq_no);
+        }
         return 0;
     }
 
-
    if (!acl_parse_ace_config_entries(
                     &acl_entry_template, 
+                    seq_no,
                     action_name,
                     proto,
                     host_src_ip,
@@ -266,6 +274,7 @@ acl_config_handler (param_t *param,
                   op_mode enable_or_disable) {
 
     char ip[16];
+    uint32_t seq_no = ~0;
     char *proto = NULL;
     char *src_ip = NULL;
     char *dst_ip = NULL;
@@ -302,34 +311,36 @@ acl_config_handler (param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-    if (parser_match_leaf_id (tlv->leaf_id, "node-name"))
-	    node_name = tlv->value;
-	else if (parser_match_leaf_id (tlv->leaf_id, "access-list-name"))
-	    access_list_name = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "permit|deny"))
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
+            access_list_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "seq-no"))
+            seq_no = atoi(tlv->value);     
+        else if (parser_match_leaf_id(tlv->leaf_id, "permit|deny"))
             action_name = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "protocol"))
+        else if (parser_match_leaf_id(tlv->leaf_id, "protocol"))
             proto = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "host-src-ip"))
+        else if (parser_match_leaf_id(tlv->leaf_id, "host-src-ip"))
             host_src_ip = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "host-dst-ip"))
-            host_dst_ip = tlv->value;            
-        else if (parser_match_leaf_id (tlv->leaf_id, "src-mask"))
-            subnet_src_mask = tlv->value;               
-        else if (parser_match_leaf_id (tlv->leaf_id, "dst-mask"))
+        else if (parser_match_leaf_id(tlv->leaf_id, "host-dst-ip"))
+            host_dst_ip = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "src-mask"))
+            subnet_src_mask = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "dst-mask"))
             subnet_dst_mask = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "subnet-src-ip"))
-            subnet_src_ip = tlv->value;               
-        else if (parser_match_leaf_id (tlv->leaf_id, "subnet-dst-ip"))
-            subnet_dst_ip = tlv->value;            
-        else if (parser_match_leaf_id (tlv->leaf_id, "object-network-name-src")) 
+        else if (parser_match_leaf_id(tlv->leaf_id, "subnet-src-ip"))
+            subnet_src_ip = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "subnet-dst-ip"))
+            subnet_dst_ip = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "object-network-name-src"))
             obj_nw_name_src = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "object-network-name-dst"))
-            obj_nw_name_dst = tlv->value;               
-        else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-eq")) {
+        else if (parser_match_leaf_id(tlv->leaf_id, "object-network-name-dst"))
+            obj_nw_name_dst = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "src-port-no-eq")) {
             src_port_no_eq = atoi(tlv->value);
             if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                printf("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -483,6 +494,7 @@ acl_config_handler (param_t *param,
             case CONFIG_ENABLE:
                 return access_list_config (node,
                                                          access_list_name,
+                                                         seq_no,
                                                          action_name,
                                                          proto,
                                                          host_src_ip,
@@ -500,6 +512,7 @@ acl_config_handler (param_t *param,
             case CONFIG_DISABLE:
                 return access_list_unconfig (node,
                                                             access_list_name,
+                                                            seq_no,
                                                             action_name,
                                                             proto,
                                                             host_src_ip,
@@ -809,10 +822,16 @@ acl_build_config_cli(param_t *root) {
             libcli_register_param(&access_list, &access_list_name);
             set_param_cmd_code(&access_list_name, ACL_CMD_CONFIG);
             {
+                /* access-list <name> <seq-no> ...*/
+                static param_t seq_no;
+                init_param(&seq_no, LEAF, 0, acl_config_handler, 0, INT, "seq-no", "Sequence no");
+                libcli_register_param(&access_list_name, &seq_no);
+                set_param_cmd_code(&seq_no, ACL_CMD_CONFIG);
+            {
                  /* access-list <name> <action> ...*/
                 static param_t action;
                 init_param(&action, LEAF, 0, 0, acl_action_validation_cbk, STRING, "permit|deny", "permit/deny");
-                libcli_register_param(&access_list_name, &action);
+                libcli_register_param(&seq_no, &action);
                 libcli_register_display_callback(&action, acl_display_supported_protocols);
                 {
                      /* access-list <name> <action> <proto>*/
@@ -1050,6 +1069,7 @@ acl_build_config_cli(param_t *root) {
                     }
                 }
             }
+            }
         }
     }
 
@@ -1178,8 +1198,9 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     acl_entry->show_cli_seq = acc_lst->show_cli_seq;
 
-    printf (" access-list %s %s %s",
+    printf (" access-list %s %u %s %s",
         acc_lst->name,
+        acl_entry->seq_no,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
         proto_name_str( acl_entry->proto));
 
@@ -1192,17 +1213,35 @@ access_list_show_all(node_t *node) {
 
     glthread_t *curr, *curr1;
     acl_entry_t *acl_entry;
-    access_list_t *acc_lst;
+    access_list_t *access_list;
 
     ITERATE_GLTHREAD_BEGIN(&node->access_lists_db, curr) {
 
-        acc_lst = glthread_to_access_list(curr);
-        printf ("Access-list : %s\n" , acc_lst->name);
+        access_list = glthread_to_access_list(curr);
+        printf ("Access-list : %s\n" , access_list->name);
 
-        acc_lst->show_cli_seq++;
+        access_list->show_cli_seq++;
+
+        #if 0
         mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
                                                                   acl_entry_show_one_acl_entry,
                                                                   (void *)acc_lst);
+        #endif 
+
+         ITERATE_GLTHREAD_BEGIN (&access_list->head, curr1) {
+
+                acl_entry = glthread_to_acl_entry(curr1);
+
+                printf(" access-list %s %u %s %s",
+                       access_list->name,
+                       acl_entry->seq_no,
+                       acl_entry->action == ACL_PERMIT ? "permit" : "deny",
+                       proto_name_str(acl_entry->proto));
+
+                acl_print(acl_entry);
+                printf ("\n");
+
+         } ITERATE_GLTHREAD_END(&access_list->head, curr1);
 
     } ITERATE_GLTHREAD_END(&node->access_lists_db, curr)
 }

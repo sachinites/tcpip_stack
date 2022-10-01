@@ -84,6 +84,8 @@ typedef enum acl_addr_format_ {
 
 /* Stores the info as read from CLI */
 typedef struct acl_entry_{
+
+    uint32_t seq_no;
     acl_action_t action;
 
     acl_proto_t proto;
@@ -274,10 +276,10 @@ acl_entry_is_not_installed_at_all (acl_entry_t *acl_entry) {
 }
 
 void
-access_list_compute_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry) ;
+access_list_compute_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry) ;
 
 void
- access_list_print_bitmap(node_t *node, char *access_list_name) ;
+ access_list_print_bitmap (node_t *node, char *access_list_name) ;
 
 void
 acl_print (acl_entry_t *acl_entry);
@@ -285,4 +287,14 @@ acl_print (acl_entry_t *acl_entry);
 void
 access_list_schedule_notification (node_t *node, access_list_t *access_list) ;
 
+acl_entry_t *
+access_list_lookup_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq_no);
+
+bool
+access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq_no);
+
+void 
+access_list_reenumerate_seq_no (access_list_t *access_list, 
+                                                        glthread_t *begin_node);
+                                                        
 #endif

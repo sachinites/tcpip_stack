@@ -31,6 +31,7 @@ int SRC_NODE_UDP_PORT_NO =    40001   ;
 char *INGRESS_INTF_NAME  =    "eth1"  ;   
 /*Destination IP Address of the Remote node D of the topology*/
 char *DEST_IP_ADDR       =    "122.1.1.3";  
+char *SRC_IP_ADDR       =    "122.1.1.1";  
 
 
 static char send_buffer[MAX_PACKET_BUFFER_SIZE];
@@ -55,8 +56,8 @@ _send_pkt_out(int sock_fd, char *pkt_data, uint32_t pkt_size,
 
 
 #define INCLUDE_UDP_HDR
-#define udp_src_port_no 20
-#define udp_dst_port_no 10
+#define udp_src_port_no 32
+#define udp_dst_port_no 1500
 //#undef INCLUDE_UDP_HDR
 
 int
@@ -95,7 +96,7 @@ main(int argc, char **argv){
     memset(send_buffer, 0, MAX_PACKET_BUFFER_SIZE);
 
 
-    /*Provide Auxillay information - ingress intf name*/
+    /*Provide Auxillary information - ingress intf name*/
     strncpy(send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
 
     /*Prepare pseudo ethernet hdr*/
@@ -107,7 +108,7 @@ main(int argc, char **argv){
     eth_hdr->type = ETH_IP;
     SET_COMMON_ETH_FCS(eth_hdr, IP_HDR_DEFAULT_SIZE, 0);
 
-    /*Prepare pseudo IP hdr, Just set Dest ip and protocol number*/
+    /*Prepare pseudo IP hdr, Just set Src & Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
     initialize_ip_hdr(ip_hdr);
 #ifdef INCLUDE_UDP_HDR
@@ -118,7 +119,9 @@ main(int argc, char **argv){
     ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(0);
 #endif
 
+    ip_hdr->src_ip = tcp_ip_covert_ip_p_to_n(SRC_IP_ADDR);
     ip_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(DEST_IP_ADDR);
+    
 
 #ifdef INCLUDE_UDP_HDR
     udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
@@ -138,6 +141,7 @@ main(int argc, char **argv){
                 total_data_size, SRC_NODE_UDP_PORT_NO);
                 n_pkts_send++;
         printf("No of bytes sent = %d, pkt no = %u\n", rc, n_pkts_send);
+        break;
         usleep(10 * 1000); /*100 msec, i.e. 10pkts per sec*/
     }
     close(udp_sock_fd);
