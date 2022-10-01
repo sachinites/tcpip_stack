@@ -17,6 +17,7 @@ typedef struct ip_hdr_ ip_hdr_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct access_list_  access_list_t;
 typedef struct obj_nw_ obj_nw_t;
+typedef struct task_ task_t;
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
@@ -155,12 +156,16 @@ struct access_list_ {
     uint8_t ref_count; // how many sub-systems using this access list
     uint32_t seq_no_update; /* Used to avoid Duplicate update */
     uint32_t show_cli_seq;
+    task_t *notif_job; /* Used when notification is to be sent async to appln */
 } ;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;
 void acl_entry_free(acl_entry_t *acl_entry);
 void acl_entry_free_tcam_data (acl_entry_t *acl_entry) ;
+
+void
+access_list_schedule_notification (node_t *node, access_list_t *access_list);
 
 bool
 acl_process_user_config(node_t *node, 
@@ -276,5 +281,8 @@ void
 
 void
 acl_print (acl_entry_t *acl_entry);
+
+void
+access_list_schedule_notification (node_t *node, access_list_t *access_list) ;
 
 #endif

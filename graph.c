@@ -143,11 +143,13 @@ create_graph_node(graph_t *graph, char *node_name){
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
     event_dispatcher_init(&node->ev_dis, (const char *)ev_dis_name);
     event_dispatcher_run(&node->ev_dis);
+    node->ev_dis.app_data = (void *)node;
 
     /* Start Data Path Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", node_name);
     event_dispatcher_init(&node->dp_ev_dis, (const char *)ev_dis_name);
     event_dispatcher_run(&node->dp_ev_dis);
+    node->dp_ev_dis.app_data = (void *)node;
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
 
     /* Start Control Plane Timer */

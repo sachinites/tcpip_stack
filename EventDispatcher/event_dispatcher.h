@@ -107,7 +107,8 @@ struct event_dispatcher_{
 	uint32_t signal_recv_cnt;
 	pthread_t *thread;	
 	uint64_t n_task_exec;
-
+	/* Some optional app data */
+	void *app_data;
 	task_t *current_task;
 };
 

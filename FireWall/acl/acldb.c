@@ -13,6 +13,7 @@
 #include "../../Layer4/udp.h"
 #include "../object_network/objnw.h"
 #include "../../CommandParser/css.h"
+#include "../../EventDispatcher/event_dispatcher.h"
 
 typedef struct acl_enumerator_ {
 
@@ -1201,6 +1202,10 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
     acl_print(acl_entry);
     printf("\n");
 
+    bitmap_init(&tcam_entry.prefix, ACL_PREFIX_LEN);
+    bitmap_init(&tcam_entry.mask, ACL_PREFIX_LEN);
+    init_glthread(&tcam_entry.glue);
+
     for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
         for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
             for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
@@ -1210,10 +1215,6 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
                     acl_enum.dst_port_index = dst_port_it;
                     acl_enum.src_addr_index = src_addr_it;
                     acl_enum.dst_addr_index = dst_addr_it;
-
-                    bitmap_init(&tcam_entry.prefix, ACL_PREFIX_LEN);
-                    bitmap_init(&tcam_entry.mask, ACL_PREFIX_LEN);
-                    init_glthread(&tcam_entry.glue);
                     acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry);
                     bitmap_prefix_print(&tcam_entry.prefix, &tcam_entry.mask,ACL_PREFIX_LEN);
                     printf("\n");
@@ -1240,10 +1241,31 @@ void
      ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
        acl_entry = glthread_to_acl_entry(curr);
-
        access_list_print_acl_bitmap(access_list, acl_entry);
 
        }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
      pthread_spin_unlock(&access_list->spin_lock);
  }
+
+static void
+access_list_send_notif_cbk(event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
+
+    access_list_t *access_list = ( access_list_t  *)data;
+    access_list->notif_job = NULL;
+    access_list_notify_clients((node_t *)ev_dis->app_data, access_list);
+    access_list_dereference(access_list);
+}
+
+/* To be used when notification about access_list change is to be send out to applns
+asynchronously */
+void
+access_list_schedule_notification (node_t *node, access_list_t *access_list) {
+
+    if (access_list->notif_job) return;
+
+    access_list->notif_job = task_create_new_job(EV(node), (void *)access_list, 
+                                                            access_list_send_notif_cbk, TASK_ONE_SHOT);
+
+    access_list_reference(access_list);
+}

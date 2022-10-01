@@ -188,8 +188,9 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
         if (acl_entry_is_partially_installed(acl_entry)) {
             return false;
         }
+        /* This may send repeated/redundant notification to clients for the same access list, hence, kick a job to send notification for each access list exactly once , instead of doing it synchronously. */
+        access_list_schedule_notification (node, acl_entry->access_lst);
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
-    access_list_notify_clients (node, acl_entry->access_lst);
     return true;
 }
 
@@ -294,7 +295,7 @@ object_network_rebuild_all_dependent_acls(node_t *node, obj_nw_t *obj_nw) {
         if (acl_entry->access_lst->seq_no_update == seq_no) continue;
         acl_entry->access_lst->seq_no_update = seq_no;
         assert(access_list_reinstall (node, acl_entry->access_lst));
-        access_list_notify_clients (node, acl_entry->access_lst);
+        access_list_schedule_notification (node, acl_entry->access_lst) ;
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
 }
 
