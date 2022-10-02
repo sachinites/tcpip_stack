@@ -871,7 +871,6 @@ _layer3_pkt_recv_from_layer2(node_t *node,
             layer3_ip_pkt_recv_from_layer2(node, interface, pkt_block);
             break;
         default:
-            pkt_block_dereference(pkt_block);
             ;
     }
 }

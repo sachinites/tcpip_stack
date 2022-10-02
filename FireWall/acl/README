@@ -49,3 +49,12 @@ Access-list : block-mcast-traffic
  access-list block-mcast-traffic permit any  (Hits[0] Tcam-Count[1, 1, 0])
 CLI returned
 
+
+
+
+======================================
+Checking memory by the process :
+
+ps -eo size,pid,user,command --sort -size | \
+    awk '{ hr=$1/1024 ; printf("%13.2f Mb ",hr) } { for ( x=4 ; x<=NF ; x++ ) { printf("%s ",$x) } print "" }' |\
+    cut -d "" -f2 | cut -d "-" -f1

@@ -503,9 +503,11 @@ promote_pkt_to_layer2(
                 switch(arp_hdr->op_code){
                     case ARP_BROAD_REQ:
                         process_arp_broadcast_request(node, iif, ethernet_hdr);
+                        assert(!pkt_block_dereference(pkt_block));
                         return;
                     case ARP_REPLY:
                         process_arp_reply_msg(node, iif, ethernet_hdr);
+                        assert(!pkt_block_dereference(pkt_block));
                         return;
                     default:
                         assert(0);
@@ -519,7 +521,7 @@ promote_pkt_to_layer2(
                     ethernet_hdr->type);
             break;
         default:
-            ;
+            assert(!pkt_block_dereference(pkt_block));
     }
 }
 

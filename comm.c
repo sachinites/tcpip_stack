@@ -229,6 +229,7 @@ dp_pkt_receive (node_t *node,
 
         tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
         l2_switch_recv_frame(node, interface, pkt_block);
+        assert(!pkt_block_dereference(pkt_block));
     }
 
     else if (IS_INTF_L3_MODE(interface)){
