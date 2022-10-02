@@ -117,7 +117,9 @@ mtrie_node_get_sibling (mtrie_node_t *node) {
 static void
  mtrie_node_delete_with_data (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
-    XFREE(node->data);
+    if (node->data && mtrie->free_cbk) {
+        mtrie->free_cbk(node);
+    }
     mtrie_node_delete(mtrie, node, data);
 }
 
@@ -214,16 +216,18 @@ by bit. We descent down the tree using input prefix bit sequence as a guidance i
 We perform node-split and add a new node as soon as mis-match occurs. Note that, prefix_len
 cannot be any arbitrary len, it has to be mtrie->prefix_len always.
 */
-bool
+mtrie_ops_result_code_t
 mtrie_insert_prefix (mtrie_t *mtrie, 
     							  bitmap_t *prefix,
 								  bitmap_t *wildcard,
 								  uint16_t prefix_len,
-                                  void *data) {
+                                  mtrie_node_t **mnode) {
 
     int i = 0, j = 0;
     bit_type_t bit1, bit2;
     mtrie_node_t *node;
+
+    *mnode = NULL;
 
     assert(mtrie->root && prefix_len);
     
@@ -235,12 +239,12 @@ mtrie_insert_prefix (mtrie_t *mtrie,
         bitmap_fast_copy(prefix, &mtrie->root->child[bit1]->prefix, prefix_len);
         bitmap_fast_copy(wildcard, &mtrie->root->child[bit1]->wildcard, prefix_len);
         mtrie->root->child[bit1]->prefix_len = prefix_len;
-        mtrie->root->child[bit1]->data = data;
         mtrie->root->child[bit1]->parent = mtrie->root;
         init_glthread(&mtrie->root->child[bit1]->list_glue);
         glthread_add_next(&mtrie->list_head, &mtrie->root->child[bit1]->list_glue);
         mtrie->N++;
-        return true;
+        *mnode = mtrie->root->child[bit1];
+        return MTRIE_INSERT_SUCCESS;
     }
 
     node = mtrie->root->child[bit1];
@@ -272,16 +276,15 @@ mtrie_insert_prefix (mtrie_t *mtrie,
 
     if (i == prefix_len) {
         if (j == node_prefix_len) {
-            //printf("Duplicate TCAM entry\n");
+            *mnode = node;
+            return MTRIE_INSERT_DUPLICATE;
         }
         else {
              //printf("Input TCAM entry exhausted\n");
              /* All entries are of same size. Input entry cannot be of 
              any arbitrary size  */
-             assert(0);
-            //mtrie_node_split(mtrie, node, j);
+             return MTRIE_INSERT_FAILED;
         }
-        return false;
     }
 
     node->child[bit1] = mtrie_create_new_node(mtrie->prefix_len);
@@ -290,16 +293,16 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     bitmap_slow_copy(prefix, &node->prefix, i, 0, prefix_len - i);
     bitmap_slow_copy(wildcard, &node->wildcard, i, 0, prefix_len - i);
     node->prefix_len = prefix_len - i;
-    node->data = data;
     init_glthread(&node->list_glue);
     glthread_add_next(&mtrie->list_head, &node->list_glue);
     mtrie->N++;
-    return true;
+    *mnode = node;
+    return MTRIE_INSERT_SUCCESS;
     /* Caller should free prefix , wildcard bitmaps */
 }
 
 void
-init_mtrie(mtrie_t *mtrie, uint16_t prefix_len) {
+init_mtrie(mtrie_t *mtrie, uint16_t prefix_len, app_data_free_cbk free_cbk) {
 
     assert(!mtrie->root);
     mtrie->root = mtrie_create_new_node(prefix_len);
@@ -307,6 +310,7 @@ init_mtrie(mtrie_t *mtrie, uint16_t prefix_len) {
     mtrie->stack = get_new_stack();
     init_glthread(&mtrie->list_head);
     mtrie->prefix_len = prefix_len;
+    mtrie->free_cbk = free_cbk ? free_cbk : NULL;
 }
 
 static inline void 
@@ -503,7 +507,7 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wild
 }
 
 /* Given a pointer to the leaf node of the mtrie, delete it */
-static void 
+void 
 mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge) {
 
     assert(mtrie_is_leaf_node(node));
@@ -537,7 +541,7 @@ mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge) {
 /* A function used to delete the leaf node from the mtrie , i.e, the actual data. 
     Uses exact match API as helper API to locate the node of interest. 
 */
-bool
+mtrie_ops_result_code_t
 mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) {
 
     *app_data = NULL;
@@ -545,7 +549,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void 
     mtrie_node_t *node = mtrie_exact_prefix_match_search(mtrie, prefix, wildcard);
 
     if (!node) {
-        return false;
+        return MTRIE_DELETE_FAILED;
     }
 
     /* Must be leaf node */
@@ -555,7 +559,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void 
 
     mtrie_delete_leaf_node(mtrie, node, true);
 
-    return true;
+    return MTRIE_DELETE_SUCCESS;
 }
 
 /* Mtrie Traversal in longest prefix first search order. Useful to  display user entries 

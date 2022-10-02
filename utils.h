@@ -108,7 +108,7 @@ uint32_t get_new_ifindex();
 
 #define UNUSED(variable)    (void)variable
 
-#define MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT 32
+#define MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT 64
 
 void
 range2_prefix_wildcard_conversion (uint16_t lb,  /* Input Lower bound */

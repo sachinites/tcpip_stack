@@ -114,6 +114,16 @@ isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
     return 0;
 }
 
+void isis_free_exported_rt(mtrie_node_t *mnode);
+void
+isis_free_exported_rt(mtrie_node_t *mnode) {
+
+    if (!mnode->data) return;
+    isis_exported_rt_t *exported_rt = (isis_exported_rt_t *)mnode->data;
+    free(exported_rt);
+    mnode->data = NULL;
+}
+
 int
 isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
 
@@ -148,7 +158,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     prefix_list_dereference(node_info->export_policy);
     node_info->export_policy = NULL;
     mtrie_destroy_with_app_data(&node_info->exported_routes);
-    init_mtrie(&node_info->exported_routes, 32);
+    init_mtrie(&node_info->exported_routes, 32, isis_free_exported_rt);
     isis_schedule_lsp_pkt_generation (node, isis_event_admin_config_changed);
     return 0;
 }
@@ -237,6 +247,7 @@ isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
 isis_exported_rt_t *
 isis_export_route (node_t *node, l3_route_t *l3route) {
 
+    mtrie_node_t *mnode;
     isis_node_info_t *node_info;
     isis_exported_rt_t *exported_rt;
     uint32_t bin_ip, bin_mask;
@@ -280,11 +291,11 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     prefix_bm.bits[0] = bin_ip;
     mask_bm.bits[0] = bin_mask;
 
-    if (!mtrie_insert_prefix(&node_info->exported_routes,
+    if (mtrie_insert_prefix(&node_info->exported_routes,
                                             &prefix_bm,
                                             &mask_bm,
                                             32,
-                                            (void *)exported_rt)) {
+                                            &mnode) != MTRIE_INSERT_SUCCESS) {
         
         sprintf(tlb, "Export Policy : Exporting Route %s/%d failed\n", l3route->dest, l3route->mask);
         tcp_trace(node, 0, tlb);
@@ -293,7 +304,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         XFREE(exported_rt);
         return NULL;
     }
-
+    mnode->data = (void *)exported_rt;
     isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
@@ -329,10 +340,10 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     prefix_bm.bits[0] = bin_ip;
     mask_bm.bits[0] = bin_mask;
 
-    if (!mtrie_delete_prefix(
+    if (mtrie_delete_prefix(
                 &node_info->exported_routes,
                 &prefix_bm,
-                &mask_bm, &exported_rt_data)) {
+                &mask_bm, &exported_rt_data) == MTRIE_DELETE_FAILED) {
 
         bitmap_free_internal(&prefix_bm);
         bitmap_free_internal(&mask_bm);

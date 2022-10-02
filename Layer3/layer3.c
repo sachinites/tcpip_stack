@@ -342,7 +342,7 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
 
     *rt_table = XCALLOC(0, 1, rt_table_t);
     
-    init_mtrie (&(*rt_table)->route_list, 32);
+    init_mtrie (&(*rt_table)->route_list, 32, NULL);
 
     strncpy( (*rt_table)->nfc_rt_updates.nfc_name, 
                  "NFC for IPV4 RT UPDATES",
@@ -510,7 +510,7 @@ rt_table_delete_route(
     assert(mtrie_delete_prefix(&rt_table->route_list, 
                                             &prefix_bm,
                                             &mask_bm,
-                                            (void **)&l3_route));
+                                            (void **)&l3_route) == MTRIE_DELETE_SUCCESS);
 
     pthread_rwlock_unlock(&rt_table->rwlock);
     bitmap_free_internal(&prefix_bm);
@@ -711,9 +711,10 @@ rt_table_evaluate_import_policy(rt_table_t *rt_table, l3_route_t *l3_route) {
 static bool
 _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 
-    bool rc;
+    mtrie_node_t *mnode;
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
+    mtrie_ops_result_code_t rc;
 
     if (!rt_table_evaluate_import_policy(rt_table, l3_route)) {
         printf ("Info : Route Installation Rejected due to Import policy\n");
@@ -736,17 +737,18 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
                                             &prefix_bm,
                                             &mask_bm,
                                             32,
-                                            (void *)l3_route);
+                                            &mnode);
 
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
 
-    if (!rc) return false;
+    if (rc != MTRIE_INSERT_SUCCESS) return false;
 
+    mnode->data = (void *)l3_route;
 	l3_route->install_time = time(NULL);
     rt_table_add_route_to_notify_list (rt_table, l3_route, RT_ADD_F);
     rt_table_kick_start_notif_job(rt_table);
-    return rc;
+    return true;
 }
 
 void

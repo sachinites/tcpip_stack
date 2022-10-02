@@ -210,10 +210,6 @@ access_list_unconfig(node_t *node,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
 
-   acl_entry_t acl_entry_template; 
-
-   memset(&acl_entry_template, 0, sizeof(acl_entry_t));
-
    access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
 
     if (!access_list) {
@@ -221,29 +217,33 @@ access_list_unconfig(node_t *node,
         return -1;
     }
 
-    if (!action_name &&
-         !proto &&
-         !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src &&
-         !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst) {
-
-        /* If User has triggered only no <access-list-name>, then delete the entire access 
-            list */
+    /* If user has triggered only no <access-list-name>, then delete the entire access list */
         if (seq_no == ~0) {
             access_list_delete_complete(access_list);
         }
         else {
-        /* If User has triggered only no <access-list-name> <seq_no>, then delete the acl_entry from
-        the access list , uninstall it as well*/
+        /* If user has triggered only no <access-list-name> <seq_no>, then delete the acl_entry 
+            from the access list , uninstall it as well*/
             if (!access_list_delete_acl_entry_by_seq_no(access_list, seq_no)) {
                 printf ("Error : ACL with this Seq Number do not exist\n");
                 return -1;
             }
+
+            if (access_list->ref_count == 1 && 
+                    IS_GLTHREAD_LIST_EMPTY (&access_list->head)) {
+                    access_list_delete_complete(access_list);
+            }
+            else {
+                access_list_notify_clients(node, access_list);
+            }
+            
         }
         return 0;
-    }
+    
+   // Dead code
 
    if (!acl_parse_ace_config_entries(
-                    &acl_entry_template, 
+                    NULL, 
                     seq_no,
                     action_name,
                     proto,
@@ -264,7 +264,7 @@ access_list_unconfig(node_t *node,
     }
 
     if (acl_process_user_config_for_deletion (
-            node, access_list, &acl_entry_template)) {
+            node, access_list, NULL)) {
         return 0;
     }
 
@@ -1182,11 +1182,10 @@ acl_print (acl_entry_t *acl_entry) {
     default:;
     }
 
-    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[%u, %u, %u])" ANSI_COLOR_RESET,
+    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[%u, %u])" ANSI_COLOR_RESET,
            acl_entry->hit_count,
            acl_entry->total_tcam_count,
-           acl_entry->tcam_installed,
-           acl_entry->tcam_installed_failed);
+           acl_entry->tcam_conflicts_count);
 }
 
 static void

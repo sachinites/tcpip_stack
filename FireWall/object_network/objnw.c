@@ -173,21 +173,40 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
 
     if (obj_nw->ref_count == 0) return true;
 
+    /* Iterating over object network acls_list may have ACLs repeated twice,
+    therefore made following APIs idempotent for below logic to work correctly.
+        1. acl_entry_uninstall
+        2. acl_entry_install
+        3. acl_entry_free_tcam_data
+        4. acl_compile
+    */
+
     ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
         
         obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
         pthread_spin_lock(&acl_entry->access_lst->spin_lock);
-        acl_entry_uninstall(acl_entry->access_lst, acl_entry, NULL);
-        acl_entry_free_tcam_data(acl_entry);
-        acl_compile (acl_entry);
-        acl_entry_install(acl_entry->access_lst, acl_entry);
+        acl_entry_uninstall(acl_entry->access_lst, acl_entry);
         pthread_spin_unlock(&acl_entry->access_lst->spin_lock);
-        acl_entry_purge_tcam_entries_list(&acl_entry->tcam_success_list_head);
-        acl_entry_purge_tcam_entries_list(&acl_entry->tcam_failed_list_head);
-        if (acl_entry_is_partially_installed(acl_entry)) {
-            return false;
-        }
+        
+    } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
+
+    ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
+
+        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        acl_entry = obj_nw_linked_acl_thread_node->acl;
+        acl_entry_free_tcam_data(acl_entry);
+
+    } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
+
+    ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
+
+        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        acl_entry = obj_nw_linked_acl_thread_node->acl;
+        acl_compile (acl_entry);
+        pthread_spin_lock(&acl_entry->access_lst->spin_lock);
+        acl_entry_install(acl_entry->access_lst, acl_entry);
+        pthread_spin_unlock(&acl_entry->access_lst->spin_lock);;
         /* This may send repeated/redundant notification to clients for the same access list, hence, kick a job to send notification for each access list exactly once , instead of doing it synchronously. */
         access_list_schedule_notification (node, acl_entry->access_lst);
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
@@ -276,6 +295,7 @@ object_network_apply_change_range (node_t *node,
     return true;
 }
 
+/* Unused functions below */
 void
 object_network_rebuild_all_dependent_acls(node_t *node, obj_nw_t *obj_nw) {
 

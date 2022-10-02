@@ -7,6 +7,7 @@
 #include "../../gluethread/glthread.h"
 #include "../../BitOp/bitmap.h"
 #include "../../tcpconst.h"
+#include "../../utils.h"
 
 
 typedef struct mtrie_ mtrie_t;
@@ -110,42 +111,38 @@ typedef struct acl_entry_{
     /* Src Address */
     struct addr src_addr;
     uint8_t tcam_saddr_count;
-    uint32_t (*tcam_saddr_prefix)[32];
-    uint32_t (*tcam_saddr_wcard)[32];
+    uint32_t (*tcam_saddr_prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint32_t (*tcam_saddr_wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
 
     acl_port_range_t sport;
     uint8_t tcam_sport_count;
-    uint16_t (*tcam_sport_prefix)[32];
-    uint16_t (*tcam_sport_wcard)[32];
+    uint16_t (*tcam_sport_prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint16_t (*tcam_sport_wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
 
     /* Dst Address */
     struct addr dst_addr;
     uint8_t tcam_daddr_count;
-    uint32_t (*tcam_daddr_prefix)[32];
-    uint32_t (*tcam_daddr_wcard)[32];
+    uint32_t (*tcam_daddr_prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint32_t (*tcam_daddr_wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
 
     acl_port_range_t dport;
     uint8_t tcam_dport_count;
-    uint16_t (*tcam_dport_prefix)[32];
-    uint16_t (*tcam_dport_wcard)[32];
+    uint16_t (*tcam_dport_prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint16_t (*tcam_dport_wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
 
     int priority;
     uint64_t hit_count;
     
     uint16_t total_tcam_count;
-    uint16_t tcam_installed;
-    uint16_t tcam_installed_failed;
+    uint16_t tcam_conflicts_count;
 
     /* To avoid Duplicate printing */
     uint32_t show_cli_seq;
-
+    bool is_compiled;
+    bool is_installed;
+    
     access_list_t *access_lst; /* Back pointer to owning access list */
     glthread_t glue;
-
-    /* list of tcam entries successfully installed. These are
-    temporary data structures */
-    glthread_t tcam_success_list_head;
-    glthread_t tcam_failed_list_head;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
 
@@ -188,11 +185,9 @@ access_list_t * acl_create_new_access_list(char *access_list_name);
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
 void access_list_check_delete(access_list_t *access_list);
 void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
+void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry) ;
+bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
 void acl_compile (acl_entry_t *acl_entry);
-void acl_entry_uninstall_installed_tcam_entries (
-                        access_list_t *access_list,
-                        acl_entry_t *acl_entry);
-void acl_entry_purge_tcam_entries_list (glthread_t *tcam_list_head);
 
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
@@ -251,30 +246,6 @@ void acl_entry_link_dst_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw
 void acl_entry_delink_src_object_networks(acl_entry_t *acl_entry) ;
 void acl_entry_delink_dst_object_networks(acl_entry_t *acl_entry) ;
 
-
-void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry_template, acl_entry_t **installed_acl_entry) ;
-bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
-
-
-static inline bool
-acl_entry_is_fully_installed (acl_entry_t *acl_entry) {
-
-    return (acl_entry->total_tcam_count &&
-                (acl_entry->total_tcam_count == acl_entry->tcam_installed));
-}
-
-static inline bool
-acl_entry_is_partially_installed (acl_entry_t *acl_entry) {
-
-    return (acl_entry->tcam_installed_failed > 0);
-}
-
-static inline bool
-acl_entry_is_not_installed_at_all (acl_entry_t *acl_entry) {
-
-    return (acl_entry->tcam_installed == 0);
-}
-
 void
 access_list_compute_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry) ;
 
@@ -296,5 +267,5 @@ access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq
 void 
 access_list_reenumerate_seq_no (access_list_t *access_list, 
                                                         glthread_t *begin_node);
-                                                        
+
 #endif

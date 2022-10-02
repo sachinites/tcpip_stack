@@ -21,6 +21,7 @@ extern void isis_mem_init();
 extern void isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
         void *rt_notif_data, size_t arg_size);
+extern void isis_free_exported_rt(mtrie_node_t *mnode);
 
 /* Checking if protocol enable at node & intf level */
 bool
@@ -103,7 +104,7 @@ isis_protocol_shutdown_now (node_t *node) {
     }
 
     node_info->event_control_flags = 0;
-    mtrie_destroy(&node_info->exported_routes);
+    mtrie_destroy_with_app_data(&node_info->exported_routes);
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
 
@@ -344,7 +345,7 @@ isis_init(node_t *node ) {
     ted_init_teddb(node_info->ted_db, 0);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
-    init_mtrie(&node_info->exported_routes, 32);
+    init_mtrie(&node_info->exported_routes, 32, isis_free_exported_rt);
 
     isis_start_lsp_pkt_periodic_flooding(node);
 
