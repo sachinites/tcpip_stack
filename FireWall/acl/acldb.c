@@ -112,6 +112,138 @@ acl_entry_free_tcam_data (acl_entry_t *acl_entry) {
    acl_entry_purge_tcam_entries_list(&acl_entry->tcam_failed_list_head);
 }
 
+#if 0
+
+/* mtrie Callback function definitions */
+
+typedef struct mnode_acl_list_node_ {
+
+    acl_entry_t *acl_entry;
+    glthread_t glue;
+} mnode_acl_list_node_t;
+GLTHREAD_TO_STRUCT(glthread_to_mnode_acl_list_node, mnode_acl_list_node_t, glue);
+
+/* called when a a new ACL Tcam entry is inserted into mtrie
+    mnode - leaf node 
+    app_Data - ptr to acl_entry_t being inserted
+ */
+static void
+access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
+
+    glthread_t *list_head;
+    acl_entry_t *acl_entry;
+    mnode_acl_list_node_t *mnode_acl_list_node;
+
+    assert(!mnode->data);
+    assert(!app_data);
+
+    acl_entry = (acl_entry_t *)app_data;
+
+    mnode->data = XCALLOC(0, 1, glthread_t);
+
+    list_head = (glthread_t *)mnode->data;
+
+    mnode_acl_list_node = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
+    mnode_acl_list_node->acl_entry = acl_entry;
+    init_glthread(&mnode_acl_list_node->glue);
+    
+    glthread_add_next (list_head, &mnode_acl_list_node->glue);
+}
+
+/* Called When TCAM entry is deleted from mtrie. 
+    mnode - leaf node
+    app_data - acl_entry whose tcam member is being deleted */
+static void
+access_list_mtrie_deallocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
+
+    glthread_t *curr, *list_head;
+    acl_entry_t *acl_entry = (acl_entry_t *)app_data;
+    mnode_acl_list_node_t *mnode_acl_list_node;
+    
+    list_head = (glthread_t *)mnode->data;
+
+    ITERATE_GLTHREAD_BEGIN(list_head, curr) {
+
+        mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
+        
+        if (mnode_acl_list_node->acl_entry == acl_entry) {
+
+            remove_glthread(mnode_acl_list_node->glue);
+            XFREE(mnode_acl_list_node);
+
+            if (IS_GLTHREAD_LIST_EMPTY (list_head)) {
+                XFREE(list_head);
+                mnode->data = NULL;
+            }
+            return;
+        }
+
+    }ITERATE_GLTHREAD_END(list_head, curr);
+
+    assert(0);
+}
+
+static void
+access_list_mtrie_app_data_free_cbk (mtrie_node_t *mnode) {
+
+    glthread_t *curr, *list_head;
+    mnode_acl_list_node_t *mnode_acl_list_node;
+    
+    if (!mnode->data) return;
+
+    list_head = (glthread_t *)mnode->data;
+
+    ITERATE_GLTHREAD_BEGIN(list_head, curr) {
+
+        mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
+        remove_glthread(mnode_acl_list_node->glue);
+        XFREE(mnode_acl_list_node);
+
+    }ITERATE_GLTHREAD_END(list_head, curr);
+
+    XFREE(list_head);
+    mnode->data = NULL;
+}
+
+/* Called When mtrie hits the duplicate entry while inserting a new TCAM entry
+    mnode - leaf node
+    app_data - acl_entry_t whose member tcam is being inserted
+*/
+static void
+access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
+
+    glthread_t *list_head, *curr;
+    acl_entry_t *acl_entry;
+    mnode_acl_list_node_t *mnode_acl_list_node = NULL;
+    mnode_acl_list_node_t *mnode_acl_list_node2 = NULL;
+
+    acl_entry = (acl_entry_t *)app_data;
+    list_head = (gthread_t *)mnode->data;
+
+    ITERATE_GLTHREAD_BEGIN(list_head, curr) {
+
+        mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
+
+        if (acl_entry->seq_no > mnode_acl_list_node->acl_entry->seq_no) continue;
+        
+        if (acl_entry->seq_no == mnode_acl_list_node->acl_entry->seq_no) assert(0);
+
+        break;
+
+    } ITERATE_GLTHREAD_END(list_head, curr);
+
+    mnode_acl_list_node2 = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
+    mnode_acl_list_node2->acl_entry = acl_entry;
+    init_glthread(&mnode_acl_list_node2->glue);
+
+    if (mnode_acl_list_node) {
+        glthread_add_before(&mnode_acl_list_node->glue, &mnode_acl_list_node2->glue);
+    }
+    else {
+        glthread_add_last(head, &mnode_acl_list_node2->glue);
+    }
+}
+#endif
 
 /* Convert the ACL entry into TCAM entry format */
 void
@@ -1184,7 +1316,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
     }
 
     access_list->mtrie = (mtrie_t *)XCALLOC(0, 1, mtrie_t);
-    init_mtrie(access_list->mtrie, ACL_PREFIX_LEN); 
+    init_mtrie(access_list->mtrie, ACL_PREFIX_LEN);
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -1370,7 +1502,8 @@ access_list_reenumerate_seq_no (access_list_t *access_list,
     ITERATE_GLTHREAD_BEGIN(starting_node, curr) {
 
         acl_entry = glthread_to_acl_entry(curr);
-        acl_entry->seq_no = start_seq_no++;
+        acl_entry->seq_no = start_seq_no;
+        start_seq_no++;
 
     } ITERATE_GLTHREAD_END(starting_node, curr);
 }

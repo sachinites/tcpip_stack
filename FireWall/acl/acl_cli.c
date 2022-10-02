@@ -218,7 +218,7 @@ access_list_unconfig(node_t *node,
 
     if (!access_list) {
         printf ("Error : Access List do not Exist\n");
-        return false;
+        return -1;
     }
 
     if (!action_name &&
@@ -234,7 +234,10 @@ access_list_unconfig(node_t *node,
         else {
         /* If User has triggered only no <access-list-name> <seq_no>, then delete the acl_entry from
         the access list , uninstall it as well*/
-            access_list_delete_acl_entry_by_seq_no(access_list, seq_no);
+            if (!access_list_delete_acl_entry_by_seq_no(access_list, seq_no)) {
+                printf ("Error : ACL with this Seq Number do not exist\n");
+                return -1;
+            }
         }
         return 0;
     }
