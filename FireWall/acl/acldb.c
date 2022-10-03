@@ -282,37 +282,51 @@ acl_compile (acl_entry_t *acl_entry) {
 
     SRC_ADDR:
 
-    if (!acl_entry->tcam_saddr_prefix) {
+    acl_entry->tcam_saddr_count = 0;
+
+    switch (acl_entry->src_addr.acl_addr_format) {
+
+        case ACL_ADDR_NOT_SPECIFIED:
+        case ACL_ADDR_HOST:
+        case ACL_ADDR_SUBNET_MASK:
+            acl_entry->tcam_saddr_count = 1;
+            break;
+        case ACL_ADDR_OBJECT_NETWORK:
+            switch (acl_entry->src_addr.u.obj_nw->type) {
+                case OBJ_NW_TYPE_HOST:
+                case OBJ_NW_TYPE_SUBNET:
+                    acl_entry->tcam_saddr_count = 1;
+                    break;
+                case OBJ_NW_TYPE_RANGE:
+                    acl_entry->tcam_saddr_count = 0;      /* Calculate later */
+                    break;
+                default: ;
+            }
+            break;
+        default: ;
+    }
+
+    if (acl_entry->tcam_saddr_count) {
+
+        assert(!acl_entry->tcam_saddr_prefix);
         acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_saddr_prefix));
-    }
-    else {
-        memset(acl_entry->tcam_saddr_prefix, 0, 
-        sizeof(uint32_t) * sizeof(*acl_entry->tcam_saddr_prefix));
-    }
-    if (!acl_entry->tcam_saddr_wcard) {
+                calloc(sizeof(uint32_t), acl_entry->tcam_saddr_count);
+        assert(!acl_entry->tcam_saddr_wcard);
         acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_saddr_wcard));
-    }
-    else {
-        memset(acl_entry->tcam_saddr_wcard, 0, 
-        sizeof(uint32_t) * sizeof(*acl_entry->tcam_saddr_wcard));
+                calloc(sizeof(uint32_t), acl_entry->tcam_saddr_count);
     }
 
     switch (acl_entry->src_addr.acl_addr_format) {
 
         case ACL_ADDR_NOT_SPECIFIED:
-             acl_entry->tcam_saddr_count = 1;
              (*acl_entry->tcam_saddr_prefix)[0] = 0;
               (*acl_entry->tcam_saddr_wcard)[0] = 0xFFFFFFFF;
               break;
         case ACL_ADDR_HOST:
-             acl_entry->tcam_saddr_count = 1;
              (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.host_addr);
               (*acl_entry->tcam_saddr_wcard)[0] = 0;
             break;
         case ACL_ADDR_SUBNET_MASK:
-            acl_entry->tcam_saddr_count = 1;
             (*acl_entry->tcam_saddr_prefix)[0] = 
                 htonl(acl_entry->src_addr.u.subnet.subnet_addr & acl_entry->src_addr.u.subnet.subnet_mask);
              (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.subnet.subnet_mask);
@@ -320,17 +334,21 @@ acl_compile (acl_entry_t *acl_entry) {
         case ACL_ADDR_OBJECT_NETWORK:
             switch (acl_entry->src_addr.u.obj_nw->type) {
                 case OBJ_NW_TYPE_HOST:
-                    acl_entry->tcam_saddr_count = 1;
                     (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.obj_nw->u.host);
                     (*acl_entry->tcam_saddr_wcard)[0] = 0;
                     break;
                 case  OBJ_NW_TYPE_SUBNET:
-                    acl_entry->tcam_saddr_count = 1;
                      (*acl_entry->tcam_saddr_prefix)[0] = 
                             htonl(acl_entry->src_addr.u.obj_nw->u.subnet.network & acl_entry->src_addr.u.obj_nw->u.subnet.subnet);
                      (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.obj_nw->u.subnet.subnet);
                     break;
                 case OBJ_NW_TYPE_RANGE:
+                    assert(!acl_entry->tcam_saddr_prefix);
+                    assert(!acl_entry->tcam_saddr_wcard);
+                    acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_saddr_prefix));
+                    acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_saddr_wcard));
                     range2_prefix_wildcard_conversion32(
                         acl_entry->src_addr.u.obj_nw->u.range.lb,
                         acl_entry->src_addr.u.obj_nw->u.range.ub,
@@ -379,37 +397,51 @@ acl_compile (acl_entry_t *acl_entry) {
 
      /* Dst ip Address & Mask */
 
-    if (!acl_entry->tcam_daddr_prefix) {
+     acl_entry->tcam_daddr_count = 0;
+
+    switch (acl_entry->dst_addr.acl_addr_format) {
+
+        case ACL_ADDR_NOT_SPECIFIED:
+        case ACL_ADDR_HOST:
+        case ACL_ADDR_SUBNET_MASK:
+            acl_entry->tcam_daddr_count = 1;
+            break;
+        case ACL_ADDR_OBJECT_NETWORK:
+            switch (acl_entry->dst_addr.u.obj_nw->type) {
+                case OBJ_NW_TYPE_HOST:
+                case OBJ_NW_TYPE_SUBNET:
+                    acl_entry->tcam_daddr_count = 1;
+                    break;
+                case OBJ_NW_TYPE_RANGE:
+                    acl_entry->tcam_daddr_count = 0;      /* Calculate later */
+                    break;
+                default: ;
+            }
+            break;
+        default: ;
+    }
+
+    if (acl_entry->tcam_daddr_count) {
+
+        assert(!acl_entry->tcam_daddr_prefix);
         acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_daddr_prefix));
-    }
-    else {
-        memset(acl_entry->tcam_daddr_prefix, 0,
-        sizeof(uint32_t) * sizeof(*acl_entry->tcam_daddr_prefix));
-    }
-    if (!acl_entry->tcam_daddr_wcard) {
+                calloc(sizeof(uint32_t), acl_entry->tcam_daddr_count);
+        assert(!acl_entry->tcam_daddr_wcard);
         acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_daddr_wcard));
-    }
-    else {
-        memset(acl_entry->tcam_daddr_wcard, 0, 
-        sizeof(uint32_t) * sizeof(*acl_entry->tcam_daddr_wcard));
+                calloc(sizeof(uint32_t), acl_entry->tcam_daddr_count);
     }
 
     switch (acl_entry->dst_addr.acl_addr_format) {
 
         case ACL_ADDR_NOT_SPECIFIED:
-             acl_entry->tcam_daddr_count = 1;
              (*acl_entry->tcam_daddr_prefix)[0] = 0;
               (*acl_entry->tcam_daddr_wcard)[0] = 0xFFFFFFFF;
               break;
         case ACL_ADDR_HOST:
-             acl_entry->tcam_daddr_count = 1;
              (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.host_addr);
               (*acl_entry->tcam_daddr_wcard)[0] = 0;
             break;
         case ACL_ADDR_SUBNET_MASK:
-            acl_entry->tcam_daddr_count = 1;
             (*acl_entry->tcam_daddr_prefix)[0] = 
                 htonl(acl_entry->dst_addr.u.subnet.subnet_addr & acl_entry->dst_addr.u.subnet.subnet_mask);
              (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.subnet.subnet_mask);
@@ -417,17 +449,21 @@ acl_compile (acl_entry_t *acl_entry) {
         case ACL_ADDR_OBJECT_NETWORK:
             switch (acl_entry->dst_addr.u.obj_nw->type) {
                 case OBJ_NW_TYPE_HOST:
-                    acl_entry->tcam_daddr_count = 1;
                     (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.obj_nw->u.host);
                     (*acl_entry->tcam_daddr_wcard)[0] = 0;
                     break;
                 case  OBJ_NW_TYPE_SUBNET:
-                    acl_entry->tcam_daddr_count = 1;
                      (*acl_entry->tcam_daddr_prefix)[0] = 
                             htonl(acl_entry->dst_addr.u.obj_nw->u.subnet.network & acl_entry->dst_addr.u.obj_nw->u.subnet.subnet);
                      (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.obj_nw->u.subnet.subnet);
                     break;
                 case OBJ_NW_TYPE_RANGE:
+                    assert(!acl_entry->tcam_daddr_prefix);
+                    assert(!acl_entry->tcam_daddr_wcard);
+                    acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_daddr_prefix));
+                    acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_daddr_wcard));
                     range2_prefix_wildcard_conversion32(
                         acl_entry->dst_addr.u.obj_nw->u.range.lb,
                         acl_entry->dst_addr.u.obj_nw->u.range.ub,
@@ -603,42 +639,6 @@ acl_process_user_config (node_t *node,
     else {
         access_list_notify_clients (node, access_list);
     }
-    return true;
-}
-
-bool
-acl_process_user_config_for_deletion (
-                node_t *node, 
-                access_list_t *access_list,
-                acl_entry_t *acl_entry_template) {
-
-    bool rc = false;
-    bool is_acl_updated;
-    acl_entry_t *installed_acl_entry = NULL;
-
-    is_acl_updated = false;
-
-    acl_compile (acl_entry_template);
-
-    pthread_spin_lock(&access_list->spin_lock);
-    acl_entry_uninstall(access_list, acl_entry_template);
-    pthread_spin_unlock(&access_list->spin_lock);
-
-
-    if (installed_acl_entry) {
-        is_acl_updated = true;
-    }
-
-    acl_entry_free_tcam_data(acl_entry_template);
-    
-    if (is_acl_updated) {
-        access_list_notify_clients(node, access_list);  
-    }
-
-    if (IS_GLTHREAD_LIST_EMPTY(&access_list->head)) {
-        access_list_delete_complete(access_list);
-    }
-
     return true;
 }
 

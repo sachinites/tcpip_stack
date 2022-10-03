@@ -170,13 +170,6 @@ bool
 acl_process_user_config(node_t *node, 
                 char *access_list_name,
                 acl_entry_t *acl_entry);
-
-bool
-acl_process_user_config_for_deletion (
-                node_t *node, 
-                access_list_t *access_list,
-                acl_entry_t *acl_entry);
-
 void
 access_list_delete_complete(access_list_t *access_list);
 

@@ -239,36 +239,6 @@ access_list_unconfig(node_t *node,
             
         }
         return 0;
-    
-   // Dead code
-
-   if (!acl_parse_ace_config_entries(
-                    NULL, 
-                    seq_no,
-                    action_name,
-                    proto,
-                    host_src_ip,
-                    subnet_src_ip,
-                    subnet_src_mask,
-                    obj_nw_src,
-                    src_port_no1,
-                    src_port_no2,
-                    host_dst_ip,
-                    subnet_dst_ip,
-                    subnet_dst_mask,
-                    obj_nw_dst,
-                    dst_port_no1,
-                    dst_port_no2)) {
-
-        return -1;
-    }
-
-    if (acl_process_user_config_for_deletion (
-            node, access_list, NULL)) {
-        return 0;
-    }
-
-    return -1;
 }
 
 static int
