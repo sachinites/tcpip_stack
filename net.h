@@ -274,9 +274,9 @@ intf_init_bit_rate_sampling_timer(interface_t *interface);
     (&((intf_ptr)->intf_nw_props.flow_avl_root))
 
 /*APIs to set Network Node properties*/
-bool node_set_loopback_address(node_t *node, char *ip_addr);
-bool node_set_intf_ip_address(node_t *node, char *local_if, char *ip_addr, char mask);
-bool node_unset_intf_ip_address(node_t *node, char *local_if);
+bool node_set_loopback_address(node_t *node, const char *ip_addr);
+bool node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
+bool node_unset_intf_ip_address(node_t *node, const char *local_if);
 
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/
@@ -291,8 +291,9 @@ interface_t *
 node_get_matching_subnet_interface(node_t *node, char *ip_addr);
 
 bool
-is_same_subnet(char *ip_addr, char mask,
-               char *other_ip_addr);
+is_same_subnet(unsigned char *ip_addr,
+               char mask,
+               unsigned char *other_ip_addr);
 
 /*Interface Vlan mgmt APIs*/
 

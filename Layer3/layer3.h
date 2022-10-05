@@ -230,8 +230,8 @@ rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask, uint16_t p
 /* MP Safe */
 void
 rt_table_add_route(rt_table_t *rt_table, 
-                   char *dst, char mask,
-                   char *gw, 
+                   const char *dst, char mask,
+                   const char *gw, 
                    interface_t *oif,
                    uint32_t spf_metric,
                    uint8_t proto_id);
@@ -239,7 +239,8 @@ rt_table_add_route(rt_table_t *rt_table,
 /* MP Safe */
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
-                          char *dst, char mask);
+                                          const char *dst,
+                                          char mask);
 
 /* MP Safe */
 void

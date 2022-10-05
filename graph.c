@@ -43,16 +43,16 @@
 void
 insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
-        char *from_if_name,
-        char *to_if_name,
+        const char *from_if_name,
+        const char *to_if_name,
         unsigned int cost){
 
     link_t *link = (link_t *)calloc(1, sizeof(link_t));
 
     /*Set interface properties*/
-    strncpy(link->intf1.if_name, from_if_name, IF_NAME_SIZE);
+    strncpy((char *)link->intf1.if_name, from_if_name, IF_NAME_SIZE);
     link->intf1.if_name[IF_NAME_SIZE - 1] = '\0';
-    strncpy(link->intf2.if_name, to_if_name, IF_NAME_SIZE);
+    strncpy((char *)link->intf2.if_name, to_if_name, IF_NAME_SIZE);
     link->intf2.if_name[IF_NAME_SIZE - 1] = '\0';
     
     link->intf1.link= link; /*set back pointer to link*/
@@ -85,10 +85,10 @@ insert_link_between_two_nodes(node_t *node1,
 }
 
 graph_t *
-create_new_graph(char *topology_name){
+create_new_graph (const char *topology_name){
 
     graph_t *graph = (graph_t *)calloc(1, sizeof(graph_t));
-    strncpy(graph->topology_name, topology_name, 32);
+    strncpy((char *)graph->topology_name, topology_name, 32);
     graph->topology_name[31] = '\0';
 
     init_glthread(&graph->node_list);
@@ -108,12 +108,12 @@ extern void
 init_nfc_layer2_proto_reg_db2(node_t *node);
 
 node_t *
-create_graph_node(graph_t *graph, char *node_name){
+create_graph_node(graph_t *graph, const char *node_name){
 
-    unsigned char ev_dis_name[EV_DIS_NAME_LEN];
+    char ev_dis_name[EV_DIS_NAME_LEN];
 
     node_t *node = (node_t *)calloc(1, sizeof(node_t));
-    strncpy(node->node_name, node_name, NODE_NAME_SIZE);
+    strncpy((char *)node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE -1] = '\0';
 
     node_init_udp_socket(node);
@@ -162,7 +162,7 @@ create_graph_node(graph_t *graph, char *node_name){
     wt_set_user_data(node->dp_wt, EV_DP(node));
     start_wheel_timer(node->dp_wt);
 
-    pkt_tracer_init(&node->pkt_tracer);
+    pkt_tracer_init(node->pkt_tracer);
     
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
@@ -218,7 +218,7 @@ void dump_interface(interface_t *interface){
 }
 
 interface_t *
-node_get_intf_by_name(node_t *node, char *if_name){
+node_get_intf_by_name(node_t *node, const char *if_name){
 
     int i ;
     interface_t *intf;

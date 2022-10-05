@@ -151,7 +151,7 @@ l2_switch_perform_mac_learning(node_t *node, char *src_mac, char *if_name){
     bool rc;
     mac_table_entry_t *mac_table_entry = XCALLOC(0, 1, mac_table_entry_t);
     memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_add_t));
-    strncpy(mac_table_entry->oif_name, if_name, IF_NAME_SIZE);
+    strncpy((char *)mac_table_entry->oif_name, if_name, IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
     rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
     if(rc == false){

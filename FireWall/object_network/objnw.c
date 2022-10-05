@@ -45,7 +45,7 @@ network_object_create_new (const char *name, obj_nw_type_t type) {
 
     obj_nw_t *obj_nw = (obj_nw_t *) XCALLOC (0, 1, obj_nw_t);
     obj_nw->type = type;
-    strncpy(obj_nw->name, name, OBJ_NETWORK_NAME_LEN);
+    strncpy((char *)obj_nw->name, name, OBJ_NETWORK_NAME_LEN);
     obj_nw->name[OBJ_NETWORK_NAME_LEN] = '\0';
     obj_nw->db = (obj_nw_linkage_db_t *)XCALLOC(0, 1, obj_nw_linkage_db_t);
     return obj_nw;
@@ -55,7 +55,7 @@ bool
 network_object_insert_into_ht (hashtable_t *ht, obj_nw_t *obj_nw) {
 
     char *key = (char *)calloc (OBJ_NETWORK_NAME_LEN, sizeof(char));
-    strncpy (key, obj_nw->name, OBJ_NETWORK_NAME_LEN);
+    strncpy ((char *)key, obj_nw->name, OBJ_NETWORK_NAME_LEN);
     key[OBJ_NETWORK_NAME_LEN] = '\0';
 
     if (!hashtable_insert (ht, (void *)key, (void *)obj_nw)) {

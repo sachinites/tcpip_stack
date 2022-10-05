@@ -115,7 +115,7 @@ main(int argc, char **argv){
   }
 
   /*Assign the input buffer to FSM to execute*/
-  strncpy(fsm->input_buffer, "0101010101010\0", strlen("0101010101010"));
+  strncpy((char *)fsm->input_buffer, "0101010101010\0", strlen("0101010101010"));
   set_fsm_input_buffer_size(fsm, strlen("0101010101010\0"));
   fsm_error = execute_fsm(fsm, 
                           0,        /*We want to use FSM to use its internal Input Buffer which we have initialized above*/
@@ -169,7 +169,7 @@ main(int argc, char **argv){
 
     for( ; i < fsm_substr_counter->fsm_output_buff.curr_pos; i++){
         memset(str, 0, 5);
-        strncpy(str, (char *)(*(((unsigned int *)(fsm_substr_counter->fsm_output_buff.output_buffer)) + i)), 4);
+        strncpy((char *)str, (char *)(*(((unsigned int *)(fsm_substr_counter->fsm_output_buff.output_buffer)) + i)), 4);
         str[4] = '\0';
         printf("%s\n", str);
     }

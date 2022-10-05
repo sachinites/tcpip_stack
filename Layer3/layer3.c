@@ -344,7 +344,7 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
     
     init_mtrie (&(*rt_table)->route_list, 32, NULL);
 
-    strncpy( (*rt_table)->nfc_rt_updates.nfc_name, 
+    strncpy((char *) (*rt_table)->nfc_rt_updates.nfc_name, 
                  "NFC for IPV4 RT UPDATES",
                  sizeof((*rt_table)->nfc_rt_updates.nfc_name));
 
@@ -637,7 +637,8 @@ dump_rt_table(rt_table_t *rt_table){
 
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
-                          char *dst, char mask){
+                                          const char *dst, 
+                                          char mask){
 
     rt_table_add_route(rt_table, dst, mask, 0, 0, 0, PROTO_STATIC);
 }
@@ -753,9 +754,9 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 
 void
 rt_table_add_route (rt_table_t *rt_table,
-                                char *dst, 
+                                const char *dst, 
                                 char mask,
-                                char *gw, 
+                                const char *gw, 
                                 interface_t *oif,
                                 uint32_t spf_metric,
                                 uint8_t proto_id){
@@ -777,7 +778,7 @@ rt_table_add_route (rt_table_t *rt_table,
 
    if(!l3_route){
        l3_route = XCALLOC(0, 1, l3_route_t);
-       strncpy(l3_route->dest, dst_str_with_mask, 16);
+       strncpy((char *)l3_route->dest, dst_str_with_mask, 16);
        l3_route->dest[15] = '\0';
        l3_route->mask = mask;
        new_route = true;
@@ -817,7 +818,7 @@ rt_table_add_route (rt_table_t *rt_table,
         nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
         l3_route->is_direct = false;
         l3_route->spf_metric[nxthop_proto] = spf_metric;
-        strncpy(nexthop->gw_ip, gw, 16);
+        strncpy((char *)nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
         nexthop->ifindex = IF_INDEX(oif);
@@ -1111,7 +1112,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
 
     /* new config */
     if ( !IF_IP_EXIST(intf)) {
-        strncpy(IF_IP(intf), intf_ip_addr, 16);
+        strncpy((char *)IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
         IF_IP_EXIST(intf) = true;
 
@@ -1135,7 +1136,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         intf_prop_changed.ip_addr.mask = IF_MASK(intf);
         SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
         rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
-        strncpy(IF_IP(intf), intf_ip_addr, 16);
+        strncpy((char *)IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
         rt_table_add_direct_route(NODE_RT_TABLE(node), IF_IP(intf), IF_MASK(intf));
 

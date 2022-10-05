@@ -206,7 +206,7 @@ build_tlv_buffer(char **tokens,
                         /*Now collect this leaf information into TLV*/
                         prepare_tlv_from_leaf(GET_PARAM_LEAF(param), (&tlv));
                         put_value_in_tlv((&tlv), *(tokens +i));
-                        strncpy(GET_LEAF_VALUE_PTR(param), *(tokens +i), MIN(strlen(*(tokens +i)), LEAF_VALUE_HOLDER_SIZE));
+                        strncpy((char *)GET_LEAF_VALUE_PTR(param), *(tokens +i), MIN(strlen(*(tokens +i)), LEAF_VALUE_HOLDER_SIZE));
                         GET_LEAF_VALUE_PTR(param)[strlen(*(tokens +i))] = '\0';
                         collect_tlv(tlv_buff, &tlv);
                         memset(&tlv, 0, sizeof(tlv_struct_t));
@@ -356,8 +356,8 @@ parser_replace_node_name_with_next_token(char *last_cmd, char *new_node_name) {
     char replica[CONS_INPUT_BUFFER_SIZE];
     char new_node_name_copy[64];
 
-    strncpy(replica, last_cmd, strlen(last_cmd));
-    strncpy(new_node_name_copy, new_node_name, sizeof(new_node_name_copy));
+    strncpy((char *)replica, last_cmd, strlen(last_cmd));
+    strncpy((char *)new_node_name_copy, new_node_name, sizeof(new_node_name_copy));
     re_init_tokens(MAX_CMD_TREE_DEPTH);
 
     tokens = tokenizer(replica, ' ', &token_cnt);
@@ -452,7 +452,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
                 char *pend;
                 long int tc_no = strtol(tokens[3], &pend, 10);
-                strncpy(file_name, tokens[2], strlen(tokens[2]));
+                strncpy((char *)file_name, tokens[2], strlen(tokens[2]));
                 file_name[strlen(tokens[2])] = '\0';
                 run_test_case(file_name, tc_no);
     }
@@ -461,7 +461,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
                  !strncmp(tokens[1], "load" , strlen("load"))      &&
                  token_cnt == 3 ) {
 
-                strncpy(file_name, tokens[2], strlen(tokens[2]));
+                strncpy((char *)file_name, tokens[2], strlen(tokens[2]));
                 file_name[strlen(tokens[2])] = '\0';
                 parse_file(file_name);
     }
@@ -491,7 +491,7 @@ command_parser(void){
     memset(&command_code_tlv, 0, sizeof(tlv_struct_t));
 
     command_code_tlv.leaf_type = INT;
-    strncpy(command_code_tlv.leaf_id, "CMDCODE", LEAF_ID_SIZE);
+    strncpy((char *)command_code_tlv.leaf_id, "CMDCODE", LEAF_ID_SIZE);
     command_code_tlv.leaf_id[LEAF_ID_SIZE -1] = '\0';
     memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
 

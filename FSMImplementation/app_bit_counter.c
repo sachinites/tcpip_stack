@@ -142,7 +142,7 @@ main(int argc, char **argv){
   }
 
   /*Assign the input buffer to FSM to execute*/
-  strncpy(fsm->input_buffer, "0101010101010\0", strlen("0101010101010"));
+  strncpy((char *)fsm->input_buffer, "0101010101010\0", strlen("0101010101010"));
   set_fsm_input_buffer_size(fsm, strlen("0101010101010\0"));
   fsm_error = execute_fsm(fsm, 
                           0,        /*We want to use FSM to use its internal Input Buffer which we have initialized above*/

@@ -534,7 +534,7 @@ access_list_t *
 acl_create_new_access_list(char *access_list_name) {
 
     access_list_t *acc_lst = (access_list_t *)calloc(1, sizeof(access_list_t));
-    strncpy(acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
+    strncpy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
     pthread_spin_init (&acc_lst->spin_lock, PTHREAD_PROCESS_PRIVATE);

@@ -446,7 +446,7 @@ show_extension_param_handler(param_t *param, ser_buff_t *b, op_mode enable_or_di
     if(param == libcli_get_show_brief_extension_param()){
         put_value_in_tlv((&tlv), SHOW_EXTENSION_PARAM_BRIEF);
         tlv.leaf_type = INVALID;
-        strncpy(tlv.leaf_id, SHOW_EXTENSION_PARAM, strlen("SHOW_EXTENSION_PARAM"));
+        strncpy((char *)tlv.leaf_id, SHOW_EXTENSION_PARAM, strlen("SHOW_EXTENSION_PARAM"));
         collect_tlv(b, &tlv);
     }
     return 0;

@@ -30,7 +30,7 @@ void event_dispatcher_mem_init();
 void
 event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 
-	strncpy(ev_dis->name, name, sizeof(ev_dis->name) - 1);
+	strncpy((char *)ev_dis->name, name, sizeof(ev_dis->name) - 1);
 	ev_dis->name[sizeof(ev_dis->name) - 1] = '0';
 
 	pthread_mutex_init(&ev_dis->ev_dis_mutex, NULL);

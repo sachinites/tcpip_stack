@@ -97,7 +97,7 @@ main(int argc, char **argv){
 
 
     /*Provide Auxillary information - ingress intf name*/
-    strncpy(send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
+    strncpy((char *)send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
 
     /*Prepare pseudo ethernet hdr*/
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer + IF_NAME_SIZE);

@@ -14,17 +14,17 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
     switch(type){
 
         case ETH_IP:
-            strncpy(string_buffer, "ETH_IP", strlen("ETH_IP"));
+            strncpy((char *)string_buffer, "ETH_IP", strlen("ETH_IP"));
             break;
         case PROTO_ARP:
-            strncpy(string_buffer, "ARP_MSG", strlen("ARP_MSG"));
+            strncpy((char *)string_buffer, "ARP_MSG", strlen("ARP_MSG"));
             break;
         case DDCP_MSG_TYPE_FLOOD_QUERY:
-            strncpy(string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
+            strncpy((char *)string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
                 strlen("DDCP_MSG_TYPE_FLOOD_QUERY"));
             break;
 		case NMP_HELLO_MSG_CODE:
-			strncpy(string_buffer, "NMP_HELLO_MSG_CODE",
+			strncpy((char *)string_buffer, "NMP_HELLO_MSG_CODE",
 				strlen("NMP_HELLO_MSG_CODE"));
 			break;
         default:
@@ -39,10 +39,10 @@ string_arp_hdr_type(int type,  char *string_buffer){
 
     switch(type){
         case ARP_BROAD_REQ:
-            strncpy(string_buffer, "ARP_BROAD_REQ", strlen("ARP_BROAD_REQ"));
+            strncpy((char *)string_buffer, "ARP_BROAD_REQ", strlen("ARP_BROAD_REQ"));
             break;
         case ARP_REPLY:
-            strncpy(string_buffer, "ARP_REPLY", strlen("ARP_REPLY"));
+            strncpy((char *)string_buffer, "ARP_REPLY", strlen("ARP_REPLY"));
             break;
         default:
             ;
@@ -56,16 +56,16 @@ string_ip_hdr_protocol_val(uint8_t type,   char *string_buffer){
     switch(type){
 
         case ICMP_PROTO:
-            strncpy(string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
+            strncpy((char *)string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
             break;
         case UDP_PROTO:
-             strncpy(string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
+             strncpy((char *)string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
              break;
         case TCP_PROTO:
-             strncpy(string_buffer, "TCP_PROTO", strlen("TCP_PROTO"));
+             strncpy((char *)string_buffer, "TCP_PROTO", strlen("TCP_PROTO"));
              break;             
         case DDCP_MSG_TYPE_UCAST_REPLY:
-            strncpy(string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
+            strncpy((char *)string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
                 strlen("DDCP_MSG_TYPE_UCAST_REPLY"));
             break;
         default:
