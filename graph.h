@@ -140,16 +140,16 @@ typedef struct graph_{
 } graph_t;
 
 node_t *
-create_graph_node(graph_t *graph, char *node_name);
+create_graph_node(graph_t *graph, const char *node_name);
 
 graph_t *
-create_new_graph(char *topology_name);
+create_new_graph(const char *topology_name);
 
 void
 insert_link_between_two_nodes(node_t *node1, 
                              node_t *node2,
-                             char *from_if_name, 
-                             char *to_if_name, 
+                             const char *from_if_name, 
+                             const char *to_if_name, 
                              unsigned int cost);
 
 /*Helper functions*/
@@ -179,7 +179,7 @@ get_node_intf_available_slot(node_t *node){
 }
 
 interface_t *
-node_get_intf_by_name(node_t *node, char *if_name);
+node_get_intf_by_name(node_t *node, const char *if_name);
 
 interface_t *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);

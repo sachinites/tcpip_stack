@@ -74,14 +74,14 @@ interface_assign_mac_address(interface_t *interface){
 typedef struct l3_route_ l3_route_t;
 
 extern void
-rt_table_add_direct_route(rt_table_t *rt_table, char *ip_addr, char mask); 
+rt_table_add_direct_route(rt_table_t *rt_table, const char *ip_addr, char mask); 
 
-bool node_set_loopback_address(node_t *node, char *ip_addr){
+bool node_set_loopback_address(node_t *node, const char *ip_addr){
 
     assert(ip_addr);
 
     node->node_nw_prop.is_lb_addr_config = true;
-    strncpy(NODE_LO_ADDR(node), ip_addr, 16);
+    strncpy((char *)NODE_LO_ADDR(node), ip_addr, 16);
     NODE_LO_ADDR(node)[15] = '\0';
 
     /*Add it as direct route in routing table*/
@@ -89,13 +89,13 @@ bool node_set_loopback_address(node_t *node, char *ip_addr){
     return true;
 }
 
-bool node_set_intf_ip_address(node_t *node, char *local_if, 
-                                char *ip_addr, char mask) {
+bool node_set_intf_ip_address(node_t *node, const char *local_if, 
+                                const char *ip_addr, char mask) {
 
     interface_t *interface = node_get_intf_by_name(node, local_if);
     if(!interface) assert(0);
 
-    strncpy(IF_IP(interface), ip_addr, 16);
+    strncpy((char *)IF_IP(interface), ip_addr, 16);
     IF_IP(interface)[15] = '\0';
     interface->intf_nw_props.mask = mask; 
     interface->intf_nw_props.is_ipadd_config = true;
@@ -103,8 +103,10 @@ bool node_set_intf_ip_address(node_t *node, char *local_if,
     return true;
 }
 
-bool node_unset_intf_ip_address(node_t *node, char *local_if){
+bool node_unset_intf_ip_address(node_t *node, const char *local_if){
 
+    (unused) node;
+    (unused) local_if;
     return true;
 }
 
@@ -188,10 +190,10 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
     uint32_t i = 0;
     interface_t *intf;
 
-    char *intf_addr = NULL;
+    unsigned char *intf_addr = NULL;
     char mask;
-    char intf_subnet[16];
-    char subnet2[16];
+    unsigned char intf_subnet[16];
+    unsigned char subnet2[16];
 
     for( ; i < MAX_INTF_PER_NODE; i++){
     
@@ -207,9 +209,9 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
         memset(intf_subnet, 0 , 16);
         memset(subnet2, 0 , 16);
         apply_mask(intf_addr, mask, intf_subnet);
-        apply_mask(ip_addr, mask, subnet2);
+        apply_mask((unsigned char *)ip_addr, mask, subnet2);
         
-        if (strncmp(intf_subnet, subnet2, 16) == 0){
+        if (strncmp((char *)intf_subnet, (char *)subnet2, 16) == 0){
             return intf;
         }
     }
@@ -217,8 +219,9 @@ node_get_matching_subnet_interface(node_t *node, char *ip_addr){
 }
 
 bool 
-is_same_subnet(char *ip_addr, char mask, 
-               char *other_ip_addr){
+is_same_subnet(unsigned char *ip_addr,
+               char mask, 
+               unsigned char *other_ip_addr){
 
     char intf_subnet[16];
     char subnet2[16];
@@ -226,8 +229,8 @@ is_same_subnet(char *ip_addr, char mask,
     memset(intf_subnet, 0 , 16);
     memset(subnet2, 0 , 16);
 
-    apply_mask(ip_addr, mask, intf_subnet);
-    apply_mask(other_ip_addr, mask, subnet2);
+    apply_mask(ip_addr, mask, (unsigned char*)intf_subnet);
+    apply_mask(other_ip_addr, mask, (unsigned char*)subnet2);
 
     if (strncmp(intf_subnet, subnet2, 16) == 0){
         return true;
@@ -274,8 +277,9 @@ is_trunk_interface_vlan_enabled(interface_t *interface,
   simply shifts the pkt content present in the start of the pkt buffer
   towards right so that new room is created*/
 char *
-pkt_buffer_shift_right(char *pkt, uint32_t pkt_size, 
-                       uint32_t total_buffer_size){
+pkt_buffer_shift_right(char *pkt,
+                                    uint32_t pkt_size, 
+                                    uint32_t total_buffer_size){
 
     char *temp = NULL;
     bool need_temp_memory = false;
@@ -285,7 +289,7 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
     }
     
     if(need_temp_memory){
-        temp = calloc(1, pkt_size);
+        temp = (char *)calloc(1, pkt_size);
         memcpy(temp, pkt, pkt_size);
         memset(pkt, 0, total_buffer_size);
         memcpy(pkt + (total_buffer_size - pkt_size - PKT_BUFFER_RIGHT_ROOM), 
@@ -371,8 +375,11 @@ static void
 interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
                                                         void *arg, uint32_t arg_size) {
 
-    if (!arg) return;
+    (unused)ev_dis;
+    (unused)arg_size;
 
+    if (!arg) return;
+    
     interface_t *interface = (interface_t *)arg;
 
     interface->intf_nw_props.bit_rate.bit_rate = 
@@ -406,9 +413,13 @@ intf_init_bit_rate_sampling_timer(interface_t *interface) {
 void
 interface_loopback_create (node_t *node, uint8_t lono) {
 
+    (unused) node;
+    (unused) lono;
 }
 
 void
 interface_loopback_delete (node_t *node, uint8_t lono) {
 
+    (unused) node;
+    (unused) lono;
 }

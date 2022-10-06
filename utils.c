@@ -42,13 +42,13 @@
   will store 122.1.1.0
  * */
 void
-apply_mask(char *prefix, char mask, char *str_prefix){
+apply_mask(unsigned char *prefix, char mask, unsigned char *str_prefix){
 
     uint32_t binary_prefix = 0;
     uint32_t subnet_mask = ~0;
 
     if(mask == 32){
-        strncpy(str_prefix, prefix, 16);
+        strncpy((char *)str_prefix, prefix, 16);
         str_prefix[15] = '\0';
         return;
     }

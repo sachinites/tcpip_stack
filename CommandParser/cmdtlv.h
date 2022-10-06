@@ -47,12 +47,12 @@ typedef struct tlv_struct{
 #define TLV_LOOP_END    }
 
 #define tlv_copy_leaf_id(tlvptr, dst)                          \
-    strncpy(dst, tlvptr->leaf_id, strlen(tlvptr->leaf_id));    \
+    strncpy((char *)dst, tlvptr->leaf_id, strlen(tlvptr->leaf_id));    \
     dst[strlen(tlvptr->leaf_id)] = '\0';
 
 
 #define tlv_copy_leaf_value(tlvptr, dst)                         \
-    strncpy(dst, tlvptr->value, strlen(tlvptr->value));          \
+    strncpy((char *)dst, tlvptr->value, strlen(tlvptr->value));          \
     dst[strlen(tlvptr->value)] = '\0';
 
 #define collect_tlv(ser_buff, tlvptr)           \
@@ -60,7 +60,7 @@ typedef struct tlv_struct{
 
 #define prepare_tlv_from_leaf(leaf, tlvptr)    \
     tlvptr->leaf_type = leaf->leaf_type;       \
-    strncpy(tlvptr->leaf_id, leaf->leaf_id, MIN(LEAF_ID_SIZE, strlen(leaf->leaf_id)));
+    strncpy((char *)tlvptr->leaf_id, leaf->leaf_id, MIN(LEAF_ID_SIZE, strlen(leaf->leaf_id)));
 
 #define put_value_in_tlv(tlvptr, _val)         \
 	{										   \

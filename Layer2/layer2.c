@@ -197,8 +197,9 @@ interface_unset_vlan(node_t *node,
 
 /*APIs to be used to create topologies*/
 void
-node_set_intf_l2_mode(node_t *node, char *intf_name, 
-                        intf_l2_mode_t intf_l2_mode){
+node_set_intf_l2_mode(node_t *node,
+                                      const char *intf_name, 
+                                      intf_l2_mode_t intf_l2_mode){
 
     interface_t *interface = node_get_intf_by_name(node, intf_name);
     assert(interface);
@@ -207,8 +208,9 @@ node_set_intf_l2_mode(node_t *node, char *intf_name,
 }
 
 void
-node_set_intf_vlan_membership(node_t *node, char *intf_name, 
-                                uint32_t vlan_id){
+node_set_intf_vlan_membership(node_t *node, 
+                                                     const char *intf_name, 
+                                                     uint32_t vlan_id){
 
     interface_t *interface = node_get_intf_by_name(node, intf_name);
     assert(interface);

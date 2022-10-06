@@ -58,7 +58,7 @@ mm_init_new_instance();
 void
 mm_instantiate_new_page_family(
         mm_instance_t *mm_inst,
-        char *struct_name,
+        const char *struct_name,
         uint32_t struct_size);
 
 #define XCALLOC(mm_inst, units, struct_name) \

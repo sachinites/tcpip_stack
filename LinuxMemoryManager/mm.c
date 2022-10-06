@@ -57,7 +57,7 @@ mm_init(){
     gb_hsba = sbrk(0);
     misc_vm_page_family.first_page = NULL;
     memset(&misc_vm_page_family, 0, sizeof(vm_page_family_t));
-    strncpy(misc_vm_page_family.struct_name, "Misc" , 4);
+    strncpy((char *)misc_vm_page_family.struct_name, "Misc" , 4);
     misc_vm_page_family.struct_size = 0;
     init_glthread(&misc_vm_page_family.free_block_priority_list_head);
 }
@@ -274,7 +274,7 @@ allocate_vm_page(vm_page_family_t *vm_page_family, int units){
 void
 mm_instantiate_new_page_family(
     mm_instance_t *mm_inst,
-    char *struct_name,
+    const char *struct_name,
     uint32_t struct_size){
 
     vm_page_family_t *vm_page_family_curr = NULL;
@@ -287,7 +287,7 @@ mm_instantiate_new_page_family(
     if(!vm_page_for_families_global){
         vm_page_for_families_global = (vm_page_for_families_t *)mm_get_new_vm_page_from_kernel(1);
         vm_page_for_families_global->next = NULL;
-        strncpy(vm_page_for_families_global->vm_page_family[0].struct_name, struct_name,
+        strncpy((char *)vm_page_for_families_global->vm_page_family[0].struct_name, struct_name,
             MM_MAX_STRUCT_NAME);
         vm_page_for_families_global->vm_page_family[0].struct_size = struct_size;
         vm_page_for_families_global->vm_page_family[0].first_page = NULL;
@@ -322,7 +322,7 @@ mm_instantiate_new_page_family(
         vm_page_family_curr = &vm_page_for_families_global->vm_page_family[0];
     }
 
-    strncpy(vm_page_family_curr->struct_name, struct_name,
+    strncpy((char *)vm_page_family_curr->struct_name, struct_name,
             MM_MAX_STRUCT_NAME);
     vm_page_family_curr->struct_size = struct_size;
     vm_page_family_curr->first_page = NULL;

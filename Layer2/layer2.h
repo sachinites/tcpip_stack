@@ -63,10 +63,10 @@ typedef struct ethernet_hdr_{
 
 /*APIs to be used to create topologies*/
 void
-node_set_intf_l2_mode(node_t *node, char *intf_name, intf_l2_mode_t intf_l2_mode);
+node_set_intf_l2_mode(node_t *node, const char *intf_name, intf_l2_mode_t intf_l2_mode);
 
 void
-node_set_intf_vlan_membership(node_t *node, char *intf_name, uint32_t vlan_id);
+node_set_intf_vlan_membership(node_t *node, const char *intf_name, uint32_t vlan_id);
 
 
 /*VLAN support*/

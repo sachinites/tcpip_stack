@@ -84,7 +84,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		pkt = ev_dis_pkt_data->pkt;		
 		recv_intf->intf_nw_props.pkt_recv++;
 
-        pkt_block = pkt_block_get_new(pkt, ev_dis_pkt_data->pkt_size);
+        pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
         pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
 
         /* Bump the ref counter since pkt is not being injected into data path*/
@@ -120,7 +120,7 @@ send_pkt_to_self (
 
     pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
-	ev_dis_pkt_data = calloc(1, sizeof(ev_dis_pkt_data_t));
+	ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
 	ev_dis_pkt_data->recv_node = nbr_node;
 	ev_dis_pkt_data->recv_intf = other_interface;
@@ -174,7 +174,7 @@ send_pkt_out (pkt_block_t *pkt_block,
     interface_t *other_interface = &interface->link->intf1 == interface ? \
                                     &interface->link->intf2 : &interface->link->intf1;
 
-	ev_dis_pkt_data = calloc(1, sizeof(ev_dis_pkt_data_t));
+	ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
 	ev_dis_pkt_data->recv_node = nbr_node;
 	ev_dis_pkt_data->recv_intf = other_interface;
@@ -340,7 +340,7 @@ _network_start_pkt_receiver_thread(void *arg){
     int sock_max_fd = 0;
     int bytes_recvd = 0;
     
-    graph_t *topo = (void *)arg;
+    graph_t *topo = (graph_t *)arg;
 
     uint32_t addr_len = sizeof(struct sockaddr);
 

@@ -43,10 +43,10 @@ pkt_tracer_add_phase (pkt_tracer_t *pkt_tracer,
     phase->subtype = subtype;
     phase->res = res;
     for (i = 0; i < n_configs; i++) {
-        strncpy(phase->config[i], config[i], PKT_TRACER_PHASE_CONFIG_LEN);
+        strncpy((char *)phase->config[i], config[i], PKT_TRACER_PHASE_CONFIG_LEN);
     }
     phase->config_no = n_configs;
-    strncpy(phase->info, info, PKT_TRACER_PHASE_INFO_LEN);
+    strncpy((char *)phase->info, info, PKT_TRACER_PHASE_INFO_LEN);
     init_glthread(&phase->glue);
     glthread_add_last(&pkt_tracer->head, &phase->glue);
 }

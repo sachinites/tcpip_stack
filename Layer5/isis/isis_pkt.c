@@ -71,7 +71,7 @@ isis_process_hello_pkt(node_t *node,
 
     if (!is_same_subnet(IF_IP(iif), 
                        iif->intf_nw_props.mask, 
-                       if_ip_addr_str)){
+                       (unsigned char*)if_ip_addr_str)){
 
         isis_adjacency_t *adjacency = isis_find_adjacency_on_interface(iif, 0);
 

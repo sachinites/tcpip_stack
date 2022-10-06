@@ -273,7 +273,7 @@ process_hello_msg(void *arg, size_t arg_size){
 
     if(!is_same_subnet(IF_IP(iif), 
                        iif->intf_nw_props.mask, 
-                       if_ip_addr)){
+                       (unsigned char *)if_ip_addr)){
         goto bad_hello;
     }
     update_interface_adjacency_from_hello(iif, hello, tlv_buff_size);

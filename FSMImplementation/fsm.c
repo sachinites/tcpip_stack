@@ -72,7 +72,7 @@ fsm_echo_output_fn(state_t *from, state_t *to,
 fsm_t *create_new_fsm(const char *fsm_name){
 
     fsm_t * fsm = (fsm_t *)calloc(1, sizeof(fsm_t));
-    strncpy(fsm->fsm_name, fsm_name, MAX_FSM_NAME_SIZE - 1);
+    strncpy((char *)fsm->fsm_name, fsm_name, MAX_FSM_NAME_SIZE - 1);
     fsm->fsm_name[MAX_FSM_NAME_SIZE - 1] = '\0';
     fsm_register_input_matching_fn_cb(fsm, 
         fsm_default_input_matching_fn);
@@ -102,7 +102,7 @@ create_new_state(char *state_name,
     
     state_t *state = (state_t *)calloc(1, sizeof(state_t));
     
-    strncpy(state->state_name, state_name, MAX_STATE_NAME_SIZE -1);
+    strncpy((char *)state->state_name, state_name, MAX_STATE_NAME_SIZE -1);
     state->state_name[MAX_STATE_NAME_SIZE -1] = '\0';
 
     state->is_final = is_final;

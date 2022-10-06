@@ -507,7 +507,7 @@ void init_param(param_t *param,                                 /* pointer to st
     {
         GET_PARAM_CMD(param) = (cmd_t *)calloc(1, sizeof(cmd_t));
         param->param_type = CMD;
-        strncpy(GET_CMD_NAME(param), cmd_name, MIN(CMD_NAME_SIZE, strlen(cmd_name)));
+        strncpy((char *)GET_CMD_NAME(param), cmd_name, MIN(CMD_NAME_SIZE, strlen(cmd_name)));
         GET_CMD_NAME(param)
         [CMD_NAME_SIZE - 1] = '\0';
     }
@@ -517,7 +517,7 @@ void init_param(param_t *param,                                 /* pointer to st
         param->param_type = LEAF;
         GET_PARAM_LEAF(param)->leaf_type = leaf_type;
         param->cmd_type.leaf->user_validation_cb_fn = user_validation_cb_fn;
-        strncpy(GET_LEAF_ID(param), leaf_id, MIN(LEAF_ID_SIZE, strlen(leaf_id)));
+        strncpy((char *)GET_LEAF_ID(param), leaf_id, MIN(LEAF_ID_SIZE, strlen(leaf_id)));
         GET_LEAF_ID(param)
         [LEAF_ID_SIZE - 1] = '\0';
     }
@@ -806,7 +806,7 @@ void build_mode_console_name(param_t *dst_param)
         else
             append_string = GET_LEAF_VALUE_PTR(dst_param);
 
-        strncpy(cmd_names[i], append_string, strlen(append_string));
+        strncpy((char *)cmd_names[i], append_string, strlen(append_string));
         i--;
         dst_param = dst_param->parent;
     } while (dst_param != &root);

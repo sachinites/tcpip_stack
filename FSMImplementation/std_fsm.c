@@ -151,13 +151,13 @@ fsm_t *email_validator_fsm(){
     state_t *state_q6 = create_new_state("q6", FSM_FALSE);
 
     transition_keysize = strlen("gmail.com");
-    strncpy(transition_key, "gmail.com", transition_keysize);
+    strncpy((char *)transition_key, "gmail.com", transition_keysize);
     create_and_insert_new_tt_entry(&state_q6->state_trans_table,
                                    transition_key, transition_keysize, 0,
                                    state_F);
 
     transition_keysize = strlen("hotmail.com");
-    strncpy(transition_key, "hotmail.com", transition_keysize);
+    strncpy((char *)transition_key, "hotmail.com", transition_keysize);
     create_and_insert_new_tt_entry(&state_q6->state_trans_table,
                                    transition_key, transition_keysize, 0,
                                    state_F);
@@ -598,7 +598,7 @@ ip_validate(char *ip_addr_copy)
     
     char octet[4] = {'0', '0', '0', '\0'};
 
-    strncpy(ip_addr, ip_addr_copy, 16);
+    strncpy((char *)ip_addr, ip_addr_copy, 16);
 
     token = strtok(ip_addr, ".");
 

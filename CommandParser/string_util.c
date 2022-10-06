@@ -53,7 +53,7 @@ tokenize(char *token, unsigned int size, unsigned int index){
     if(size > LEAF_VALUE_HOLDER_SIZE)
         assert(0);
 
-    strncpy(tokens[index], token, size);
+    strncpy((char *)tokens[index], token, size);
 }
 
 void
@@ -74,7 +74,7 @@ char** tokenizer(char* _a_str, const char a_delim, int *token_cnt){
     int i = 0;
     char delim[2];
     memset(a_str, 0, CONS_INPUT_BUFFER_SIZE);
-    strncpy(a_str, _a_str, strlen(_a_str));
+    strncpy((char *)a_str, _a_str, strlen(_a_str));
     a_str[strlen(_a_str)] = '\0';
 
     string_space_trim(a_str);
@@ -90,7 +90,7 @@ char** tokenizer(char* _a_str, const char a_delim, int *token_cnt){
     token = strtok(a_str, delim);
     if(token){
         untokenize(i);
-        strncpy(tokens[i], token, strlen(token));
+        strncpy((char *)tokens[i], token, strlen(token));
         i++;
     }
     else{
@@ -104,7 +104,7 @@ char** tokenizer(char* _a_str, const char a_delim, int *token_cnt){
         token = strtok(NULL, delim);
         if(token){
             untokenize(i);
-            strncpy(tokens[i], token, strlen(token));
+            strncpy((char *)tokens[i], token, strlen(token));
             i++;
             if(i == MAX_CMD_TREE_DEPTH + 1){
                 //printf("Warning : Max token limit (= %d) support exceeded\n", MAX_CMD_TREE_DEPTH);
