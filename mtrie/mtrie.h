@@ -76,8 +76,7 @@ mtrie_node_t *mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, 
 mtrie_ops_result_code_t
 mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) ;
 
-void mtrie_destroy(mtrie_t *mtrie) ;
-void mtrie_destroy_with_app_data (mtrie_t *mtrie);
+void mtrie_destroy (mtrie_t *mtrie);
 void 
 mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge);
 

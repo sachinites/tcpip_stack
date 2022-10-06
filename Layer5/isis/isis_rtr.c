@@ -104,7 +104,7 @@ isis_protocol_shutdown_now (node_t *node) {
     }
 
     node_info->event_control_flags = 0;
-    mtrie_destroy_with_app_data(&node_info->exported_routes);
+    mtrie_destroy(&node_info->exported_routes);
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
 

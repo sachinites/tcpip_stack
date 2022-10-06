@@ -513,10 +513,11 @@ acl_compile (acl_entry_t *acl_entry) {
 }
 
 access_list_t *
-acl_lookup_access_list(node_t *node, char *access_list_name) {
+access_list_lookup_by_name (node_t *node, char *access_list_name) {
 
     glthread_t *curr;
     access_list_t *acc_lst;
+
     ITERATE_GLTHREAD_BEGIN(&node->access_lists_db, curr) {
 
         acc_lst = glthread_to_access_list(curr);
@@ -533,12 +534,12 @@ acl_lookup_access_list(node_t *node, char *access_list_name) {
 access_list_t *
 acl_create_new_access_list(char *access_list_name) {
 
-    access_list_t *acc_lst = (access_list_t *)calloc(1, sizeof(access_list_t));
+    access_list_t *acc_lst = (access_list_t *)XCALLOC(0, 1, access_list_t);
     strncpy(acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
     pthread_spin_init (&acc_lst->spin_lock, PTHREAD_PROCESS_PRIVATE);
-    acc_lst->mtrie = (mtrie_t *)calloc(1, sizeof(mtrie_t));
+    acc_lst->mtrie = (mtrie_t *)XCALLOC(0, 1, mtrie_t);
     init_mtrie(acc_lst->mtrie, ACL_PREFIX_LEN, access_list_mtrie_app_data_free_cbk);
     acc_lst->ref_count = 0;
     return acc_lst;
@@ -618,7 +619,7 @@ acl_process_user_config (node_t *node,
     access_list_t *access_list;
     bool new_access_list = false;
 
-    access_list = acl_lookup_access_list(node, access_list_name);
+    access_list = access_list_lookup_by_name(node, access_list_name);
 
     if (!access_list) {
         access_list = acl_create_new_access_list(access_list_name);
@@ -653,8 +654,8 @@ access_list_delete_complete(access_list_t *access_list) {
         return;
     }
 
-    mtrie_destroy_with_app_data(access_list->mtrie);
-    free(access_list->mtrie);
+    mtrie_destroy(access_list->mtrie);
+    XFREE(access_list->mtrie);
     access_list->mtrie = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
@@ -677,7 +678,7 @@ access_list_delete_complete(access_list_t *access_list) {
 void 
 access_list_attach_to_interface_ingress(interface_t *intf, char *acc_lst_name) {
 
-    access_list_t *acc_lst = acl_lookup_access_list(intf->att_node, acc_lst_name);
+    access_list_t *acc_lst = access_list_lookup_by_name(intf->att_node, acc_lst_name);
 
     if (!acc_lst) {
         printf ("Error : Access List not configured\n");
@@ -848,7 +849,6 @@ access_list_evaluate_ip_packet (node_t *node,
                                                 src_port,
                                                 dst_port);
 }
-
 
 acl_action_t
 access_list_evaluate_ethernet_packet (node_t *node, 
@@ -1081,7 +1081,7 @@ acl_entry_uninstall (access_list_t *access_list,
                     access_list_mtrie_deallocate_mnode_data(mnode, acl_entry);
 
                     if (mnode->data == NULL) {
-                        mtrie_delete_leaf_node(access_list->mtrie, mnode, true);
+                        mtrie_delete_leaf_node (access_list->mtrie, mnode, true);
                     }    
 
                     acl_entry->total_tcam_count--;
@@ -1306,6 +1306,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
        acl_entry_free_tcam_data(acl_entry);
        acl_compile(acl_entry);
        acl_entry_install(access_list, acl_entry);
+
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
     
     pthread_spin_unlock(&access_list->spin_lock);
@@ -1343,7 +1344,7 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
                     acl_enum.src_addr_index = src_addr_it;
                     acl_enum.dst_addr_index = dst_addr_it;
                     acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry);
-                    bitmap_prefix_print(&tcam_entry.prefix, &tcam_entry.mask,ACL_PREFIX_LEN);
+                    bitmap_prefix_print(&tcam_entry.prefix, &tcam_entry.mask, ACL_PREFIX_LEN);
                     printf("\n");
                 }
             }
@@ -1354,12 +1355,12 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
 }
 
 void
- access_list_print_bitmap(node_t *node, char *access_list_name) {
+ access_list_print_bitmap (node_t *node, char *access_list_name) {
 
     glthread_t *curr;
     acl_entry_t *acl_entry;
     
-    access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
+    access_list_t *access_list = access_list_lookup_by_name(node, access_list_name);
     
     if (!access_list) return;
 
@@ -1423,21 +1424,17 @@ access_list_reenumerate_seq_no (access_list_t *access_list,
     glthread_t *starting_node;
     acl_entry_t *acl_entry = NULL;
 
-    if (begin_node) {
-        prev_glthread =  glthread_get_prev(begin_node);
-        if (prev_glthread == &access_list->head) {
-            start_seq_no = 1;
-            starting_node = &access_list->head;
-        }
-        else {
-            acl_entry = glthread_to_acl_entry(prev_glthread);
-            start_seq_no = acl_entry->seq_no + 1;
-            starting_node = prev_glthread;
-        }
+    if (!begin_node) return;
+
+    prev_glthread = glthread_get_prev(begin_node);
+    if (prev_glthread == &access_list->head) {
+        start_seq_no = 1;
+        starting_node = &access_list->head;
     }
     else {
-         start_seq_no = 1;
-         starting_node = &access_list->head;
+        acl_entry = glthread_to_acl_entry(prev_glthread);
+        start_seq_no = acl_entry->seq_no + 1;
+        starting_node = prev_glthread;
     }
 
     ITERATE_GLTHREAD_BEGIN(starting_node, curr) {
@@ -1460,17 +1457,11 @@ access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq
     if (!acl_entry) return false;
 
     pthread_spin_lock (&access_list->spin_lock);
-
     acl_entry_uninstall(access_list, acl_entry);
-    
     curr = glthread_get_next (&acl_entry->glue);
-
     remove_glthread(&acl_entry->glue);
-    
     access_list_reenumerate_seq_no (access_list, curr);
-
     pthread_spin_unlock (&access_list->spin_lock);
-
     acl_entry_free(acl_entry);
 
     return true;

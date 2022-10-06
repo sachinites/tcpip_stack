@@ -210,7 +210,7 @@ access_list_unconfig(node_t *node,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
 
-   access_list_t *access_list = acl_lookup_access_list(node, access_list_name);
+   access_list_t *access_list = access_list_lookup_by_name(node, access_list_name);
 
     if (!access_list) {
         printf ("Error : Access List do not Exist\n");
@@ -229,14 +229,12 @@ access_list_unconfig(node_t *node,
                 return -1;
             }
 
+            access_list_notify_clients(node, access_list);
+
             if (access_list->ref_count == 1 && 
                     IS_GLTHREAD_LIST_EMPTY (&access_list->head)) {
                     access_list_delete_complete(access_list);
             }
-            else {
-                access_list_notify_clients(node, access_list);
-            }
-            
         }
         return 0;
 }
@@ -289,7 +287,7 @@ acl_config_handler (param_t *param,
         else if (parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
             access_list_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "seq-no"))
-            seq_no = atoi(tlv->value);     
+            seq_no = atoi(tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "permit|deny"))
             action_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "protocol"))
@@ -544,7 +542,7 @@ access_group_config_handler(param_t *param,
         return -1;
     }
 
-    access_list_t *acc_lst = acl_lookup_access_list(node, access_list_name);
+    access_list_t *acc_lst = access_list_lookup_by_name(node, access_list_name);
     if (!acc_lst) {
         printf ("Error : Access List not configured\n");
         return -1;
