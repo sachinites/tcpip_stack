@@ -310,10 +310,10 @@ acl_compile (acl_entry_t *acl_entry) {
 
         assert(!acl_entry->tcam_saddr_prefix);
         acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                calloc(sizeof(uint32_t), acl_entry->tcam_saddr_count);
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
         assert(!acl_entry->tcam_saddr_wcard);
         acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                calloc(sizeof(uint32_t), acl_entry->tcam_saddr_count);
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
     }
 
     switch (acl_entry->src_addr.acl_addr_format) {
@@ -346,9 +346,9 @@ acl_compile (acl_entry_t *acl_entry) {
                     assert(!acl_entry->tcam_saddr_prefix);
                     assert(!acl_entry->tcam_saddr_wcard);
                     acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_saddr_prefix));
+                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_saddr_prefix));
                     acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_saddr_wcard));
+                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_saddr_wcard));
                     range2_prefix_wildcard_conversion32(
                         acl_entry->src_addr.u.obj_nw->u.range.lb,
                         acl_entry->src_addr.u.obj_nw->u.range.ub,
@@ -364,7 +364,7 @@ acl_compile (acl_entry_t *acl_entry) {
     /* Src Port Range */
     if (!acl_entry->tcam_sport_prefix) {
         acl_entry->tcam_sport_prefix = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint16_t), sizeof(*acl_entry->tcam_sport_prefix));
+        XCALLOC_BUFF(0, sizeof(uint16_t) * sizeof(*acl_entry->tcam_sport_prefix));
     }
     else {
         memset(acl_entry->tcam_sport_prefix, 0, 
@@ -372,7 +372,7 @@ acl_compile (acl_entry_t *acl_entry) {
     }
     if (!acl_entry->tcam_sport_wcard) {
         acl_entry->tcam_sport_wcard = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint16_t), sizeof(*acl_entry->tcam_sport_wcard));
+        XCALLOC_BUFF(0, sizeof(uint16_t) * sizeof(*acl_entry->tcam_sport_wcard));
     }
     else {
         memset(acl_entry->tcam_sport_wcard, 0, 
@@ -425,10 +425,10 @@ acl_compile (acl_entry_t *acl_entry) {
 
         assert(!acl_entry->tcam_daddr_prefix);
         acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                calloc(sizeof(uint32_t), acl_entry->tcam_daddr_count);
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
         assert(!acl_entry->tcam_daddr_wcard);
         acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                calloc(sizeof(uint32_t), acl_entry->tcam_daddr_count);
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
     }
 
     switch (acl_entry->dst_addr.acl_addr_format) {
@@ -461,9 +461,9 @@ acl_compile (acl_entry_t *acl_entry) {
                     assert(!acl_entry->tcam_daddr_prefix);
                     assert(!acl_entry->tcam_daddr_wcard);
                     acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_daddr_prefix));
+                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_daddr_prefix));
                     acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        calloc(sizeof(uint32_t), sizeof(*acl_entry->tcam_daddr_wcard));
+                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_daddr_wcard));
                     range2_prefix_wildcard_conversion32(
                         acl_entry->dst_addr.u.obj_nw->u.range.lb,
                         acl_entry->dst_addr.u.obj_nw->u.range.ub,
@@ -480,14 +480,14 @@ acl_compile (acl_entry_t *acl_entry) {
     /* Dst Port Range */
     if (!acl_entry->tcam_dport_prefix) {
         acl_entry->tcam_dport_prefix = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint16_t), sizeof(*acl_entry->tcam_dport_prefix));
+        XCALLOC_BUFF(0, sizeof(uint16_t) * sizeof(*acl_entry->tcam_dport_prefix));
     }
     else {
         memset(acl_entry->tcam_dport_prefix, 0, sizeof(uint16_t) * sizeof(*acl_entry->tcam_dport_prefix));
     }
     if (!acl_entry->tcam_dport_wcard) {
         acl_entry->tcam_dport_wcard = (uint16_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-        calloc(sizeof(uint16_t), sizeof(*acl_entry->tcam_dport_wcard));
+        XCALLOC_BUFF(0, sizeof(uint16_t) * sizeof(*acl_entry->tcam_dport_wcard));
     }
     else {
         memset(acl_entry->tcam_dport_wcard, 0, sizeof(uint16_t) * sizeof(*acl_entry->tcam_dport_wcard));
@@ -533,26 +533,15 @@ acl_lookup_access_list(node_t *node, char *access_list_name) {
 access_list_t *
 acl_create_new_access_list(char *access_list_name) {
 
-    access_list_t *acc_lst = (access_list_t *)calloc(1, sizeof(access_list_t));
+    access_list_t *acc_lst = (access_list_t *)XCALLOC(0, 1, access_list_t);
     strncpy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
     pthread_spin_init (&acc_lst->spin_lock, PTHREAD_PROCESS_PRIVATE);
-    acc_lst->mtrie = (mtrie_t *)calloc(1, sizeof(mtrie_t));
+    acc_lst->mtrie = (mtrie_t *)XCALLOC(0, 1, mtrie_t);
     init_mtrie(acc_lst->mtrie, ACL_PREFIX_LEN, access_list_mtrie_app_data_free_cbk);
     acc_lst->ref_count = 0;
     return acc_lst;
-}
-
-static int
-acl_entry_seq_no_comp_fn(void *arg1, void *arg2) {
-
-    acl_entry_t *new_acl_entry = (acl_entry_t *)arg1;
-    acl_entry_t *existing_acl_entry = (acl_entry_t *)arg2;
-
-    if (new_acl_entry->seq_no < existing_acl_entry->seq_no) return -1;
-    if (new_acl_entry->seq_no > existing_acl_entry->seq_no) return 1;
-    return 0;
 }
 
 void
@@ -654,7 +643,7 @@ access_list_delete_complete(access_list_t *access_list) {
     }
 
     mtrie_destroy_with_app_data(access_list->mtrie);
-    free(access_list->mtrie);
+    XFREE(access_list->mtrie);
     access_list->mtrie = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
@@ -1292,7 +1281,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
     pthread_spin_lock(&access_list->spin_lock);
 
     if (access_list->mtrie) {
-        mtrie_destroy(access_list->mtrie);
+        mtrie_destroy_with_app_data(access_list->mtrie);
         XFREE(access_list->mtrie);
         access_list->mtrie = NULL;
     }
@@ -1474,4 +1463,13 @@ access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq
     acl_entry_free(acl_entry);
 
     return true;
+}
+
+void 
+acl_mem_init() {
+
+    MM_REG_STRUCT(0, acl_entry_t);
+    MM_REG_STRUCT(0, access_list_t);
+    MM_REG_STRUCT(0, acl_tcam_t);
+    MM_REG_STRUCT(0, mnode_acl_list_node_t);
 }

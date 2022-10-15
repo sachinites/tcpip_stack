@@ -185,7 +185,7 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
  * with subnet in which 'ip_addr' lies
  * */
 interface_t *
-node_get_matching_subnet_interface(node_t *node, char *ip_addr){
+node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
 
     uint32_t i = 0;
     interface_t *intf;

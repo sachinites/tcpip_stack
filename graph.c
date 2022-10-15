@@ -162,7 +162,7 @@ create_graph_node(graph_t *graph, const char *node_name){
     wt_set_user_data(node->dp_wt, EV_DP(node));
     start_wheel_timer(node->dp_wt);
 
-    pkt_tracer_init(node->pkt_tracer);
+    pkt_tracer_init (&node->pkt_tracer);
     
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;

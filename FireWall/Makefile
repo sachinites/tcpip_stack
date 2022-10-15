@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-g
 TARGET:libasa.a
 LIB=libasa.a
-OBJS=acl/acl_cli.o acl/acldb.o object_network/obj_nw_cli.o object_network/objnw.o
+OBJS=acl/acl_cli.o acl/acldb.o object_network/obj_nw_cli.o object_network/objnw.o Connection/conn.o
 ${LIB}:${OBJS}
 	ar rs ${LIB} ${OBJS}
 
@@ -16,7 +16,11 @@ object_network/obj_nw_cli.o:object_network/obj_nw_cli.c
 object_network/objnw.o:object_network/objnw.c
 	${CC} ${CFLAGS} -c -I . -I ../../ object_network/objnw.c -o object_network/objnw.o	
 
+Connection/conn.o:Connection/conn.c
+	${CC} ${CFLAGS} -c -I . -I ../../ Connection/conn.c -o Connection/conn.o
+
 clean:
 	rm -f acl/acl*.o
 	rm -f object_network/*.o
+	rm -f Connection/*.o
 	rm -f ${LIB}

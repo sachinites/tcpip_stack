@@ -436,12 +436,10 @@ mm_split_free_data_block_for_allocation(
 
     /*Case 1 : No Split*/
     if(!remaining_size){
-        /*No need to repair linkages, they do not change*/
-        //mm_bind_blocks_for_allocation(block_meta_data, next_block_meta_data);
         return MM_TRUE;
     }
 
-    /*Case 3 : Partial Split : Soft Internal Fragmentation*/
+    /*Case 2 : Partial Split : Soft Internal Fragmentation*/
     else if(sizeof(block_meta_data_t) < remaining_size && 
         remaining_size < (sizeof(block_meta_data_t) + vm_page_family->struct_size)){
         /*New Meta block is to be created*/
@@ -782,6 +780,11 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name){
 
     printf("Total Memory being used by Memory Manager = %lu Bytes\n",
         cumulative_vm_pages_claimed_from_kernel * SYSTEM_PAGE_SIZE); 
+
+    if (!struct_name) {
+        printf ("Printing Variable Buffers \n");
+        mm_print_variable_buffers(mm_inst);
+    }
 }
 
 void

@@ -3,22 +3,23 @@
 #include <memory.h>
 #include <arpa/inet.h>
 #include "bitmap.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));
-    bitmap->bits = (uint32_t *)calloc(size/8, sizeof(uint8_t));
+    bitmap->bits = (uint32_t *)XCALLOC_BUFF(0, (size/8) * sizeof(uint8_t));
     bitmap->tsize = size;
     bitmap->next = 0;
 }
 
 void bitmap_free_internal(bitmap_t *bitmap) {
-    free(bitmap->bits);
+    XFREE(bitmap->bits);
 }
 
 void bitmap_free(bitmap_t *bitmap) {
    bitmap_free_internal(bitmap);
-   free(bitmap);
+   XFREE(bitmap);
 }
 
 void bitmap_reset(bitmap_t *bitmap) {

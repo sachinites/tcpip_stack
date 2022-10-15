@@ -25,11 +25,11 @@ main(int argc, char **argv){
     mm_init();
     MM_REG_STRUCT(0, emp_t);
     MM_REG_STRUCT(0, student_t);
-    mm_print_registered_page_families(0);
 
+    #if 0
+    mm_print_registered_page_families(0);
     mm_print_memory_usage(0, 0);
     mm_print_block_usage(0);
-
     char *buff1 = XCALLOC_BUFF(0, 32);
     char *buff2 = XCALLOC_BUFF(0, 32);
     assert(buff1);
@@ -38,39 +38,44 @@ main(int argc, char **argv){
     xfree(buff1);
     xfree(buff2);
     mm_print_variable_buffers(0);
-#if 0    
+    #endif
+#if 0
     mm_print_memory_usage(0);
     mm_print_block_usage();
+#endif
 
+    emp_t *emp1 = XCALLOC(0, 1, emp_t);
+    emp_t *emp2 = XCALLOC(0, 1, emp_t);
+    emp_t *emp3 = XCALLOC(0, 1, emp_t);
+    emp_t *emp4 = XCALLOC(0, 1, emp_t);
 
-    emp_t *emp1 = xcalloc("emp_t", 1);
-    emp_t *emp2 = xcalloc("emp_t", 1);
-    emp_t *emp3 = xcalloc("emp_t", 1);
-    emp_t *emp4 = xcalloc("emp_t", 3);
-    student_t *stud1 = xcalloc("student_t", 1);
-    student_t *stud2 = xcalloc("student_t", 2);
-    student_t *stud3 = xcalloc("student_t", 1);
-    mm_print_memory_usage();
+    student_t *stud1 = XCALLOC(0, 1, student_t);
+    student_t *stud2 = XCALLOC(0, 1, student_t);
+    student_t *stud3 = XCALLOC(0, 1, student_t);
+
+    //mm_print_memory_usage(0, "emp_t");
     xfree(emp1);
-    mm_print_memory_usage();
     xfree(emp2);
-    mm_print_memory_usage();
     xfree(emp3);
-    mm_print_memory_usage();
+    emp1 = XCALLOC(0, 1, emp_t);
+    emp2 = XCALLOC(0, 1, emp_t);
+    emp3 = XCALLOC(0, 1, emp_t);
     xfree(emp4);
-    mm_print_memory_usage();
+    emp4 = XCALLOC(0, 1, emp_t);
     xfree(stud1);
-    mm_print_memory_usage();
     xfree(stud2);
-    mm_print_memory_usage();
     xfree(stud3);
-    mm_print_memory_usage();
-
+    xfree(emp1);
+    xfree(emp2);
+    xfree(emp3);
+    xfree(emp4);
+  
+#if 0
     int i = 0;
     student_t *stud = NULL, *prev = NULL;
     student_t *first = NULL;
     for( ; i < 120; i++){
-        stud = xcalloc("student_t", 1);
+        stud = XCALLOC(0, 1, student_t);
         if(i == 0)
             first = stud;
         assert(stud);
@@ -79,8 +84,8 @@ main(int argc, char **argv){
         }
         prev = stud;
     }
-    mm_print_memory_usage(0);
-    mm_print_block_usage();
+   // mm_print_memory_usage(0);
+   // mm_print_block_usage();
     #endif
     #if 0
     i = 0;
@@ -91,8 +96,9 @@ main(int argc, char **argv){
         xfree(first);
         i++;
     }
-    mm_print_memory_usage(0);
-    mm_print_block_usage();
     #endif
+    mm_print_memory_usage(0, "emp_t");
+    mm_print_memory_usage(0, "student_t");
+    mm_print_block_usage(0);
     return 0;
 }

@@ -21,7 +21,7 @@ typedef struct arp_hdr_{
 void
 send_arp_broadcast_request(node_t *node, 
                            interface_t *oif, 
-                           unsigned char *ip_addr);
+                           c_string ip_addr);
 
 /*ARP Table APIs*/
 typedef struct arp_table_{
@@ -63,9 +63,9 @@ GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
 GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
 
 #define IS_ARP_ENTRIES_EQUAL(arp_entry_1, arp_entry_2)  \
-    (strncmp(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, 16) == 0 && \
-        strncmp(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
-        strncmp(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
+    (string_compare(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, 16) == 0 && \
+        string_compare(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac, 6) == 0 && \
+        string_compare(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
         arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
         arp_entry_1->is_sane == false && \
         arp_entry_1->proto == arp_entry_2->proto)
@@ -74,7 +74,7 @@ void
 init_arp_table(arp_table_t **arp_table);
 
 arp_entry_t *
-arp_table_lookup(arp_table_t *arp_table, unsigned char *ip_addr);
+arp_table_lookup(arp_table_t *arp_table, c_string ip_addr);
 
 void
 clear_arp_table(arp_table_t *arp_table);
@@ -125,7 +125,7 @@ add_arp_pending_entry (arp_entry_t *arp_entry,
 void
 create_arp_sane_entry(node_t *node,
 					  arp_table_t *arp_table,
-                      unsigned char *ip_addr, 
+                      c_string ip_addr, 
 					  pkt_block_t *pkt_block);
 
 static bool 

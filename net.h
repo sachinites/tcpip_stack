@@ -128,16 +128,16 @@ typedef enum{
     L2_MODE_UNKNOWN
 } intf_l2_mode_t;
 
-static inline const unsigned char *
+static inline const c_string
 intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
 
     switch(intf_l2_mode){
         case ACCESS:
-            return ( const unsigned char *)"access";
+            return ( const c_string)"access";
         case TRUNK:
-            return ( const unsigned char *)"trunk";
+            return ( const c_string)"trunk";
         default:
-            return ( const unsigned char *)"L2_MODE_UNKNWON";
+            return ( const c_string)"L2_MODE_UNKNWON";
     }
 }
 
@@ -288,12 +288,12 @@ void dump_interface_stats(interface_t *interface);
 
 /*Helper Routines*/
 interface_t *
-node_get_matching_subnet_interface(node_t *node, char *ip_addr);
+node_get_matching_subnet_interface(node_t *node, c_string ip_addr);
 
 bool
-is_same_subnet(unsigned char *ip_addr,
+is_same_subnet(c_string ip_addr,
                char mask,
-               unsigned char *other_ip_addr);
+               c_string other_ip_addr);
 
 /*Interface Vlan mgmt APIs*/
 
@@ -317,7 +317,7 @@ tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
 }
 
 static inline void
-tcp_ip_free_pkt_buffer(char *pkt, uint32_t pkt_size){
+tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
 
     free(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
 }

@@ -39,13 +39,14 @@
 #include <stdint.h>
 
 typedef unsigned char byte;
+typedef unsigned char* c_string; 
 typedef void unused;
 
 void
-apply_mask(unsigned char *prefix, char mask, unsigned char *str_prefix);
+apply_mask(c_string prefix, char mask, c_string str_prefix);
 
 void
-layer2_fill_with_broadcast_mac(unsigned char *mac_array);
+layer2_fill_with_broadcast_mac(c_string mac_array);
 
 #define IS_MAC_BROADCAST_ADDR(mac)   \
     (mac[0] == 0xFF  &&  mac[1] == 0xFF && mac[2] == 0xFF && \
@@ -63,22 +64,22 @@ layer2_fill_with_broadcast_mac(unsigned char *mac_array);
  * */
 #define ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, tlv_size)           \
 {                                                                               \
-    unsigned int _len = 0; unsigned char _tlv_value_size = 0;                   \
+    unsigned int _len = 0; byte _tlv_value_size = 0;                   \
     type = 0; length = 0; tlv_ptr = NULL;                                       \
     for(tlv_ptr = (unsigned char *)start_ptr +                                  \
              TLV_OVERHEAD_SIZE; _len < tlv_size;                                \
             _len += _tlv_value_size + TLV_OVERHEAD_SIZE,                        \
              tlv_ptr = (tlv_ptr + TLV_OVERHEAD_SIZE + length)){                 \
         type = *(tlv_ptr - TLV_OVERHEAD_SIZE);                                  \
-        _tlv_value_size = (unsigned char)(*(tlv_ptr -                           \
-            TLV_OVERHEAD_SIZE + sizeof(unsigned char)));                        \
+        _tlv_value_size = (byte)(*(tlv_ptr -                           \
+            TLV_OVERHEAD_SIZE + sizeof(byte)));                        \
         length = _tlv_value_size;
 
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \
     }}
 
 byte *
-tlv_buffer_get_particular_tlv(byte*tlv_buff, /*Input TLV Buffer*/
+tlv_buffer_get_particular_tlv(byte *tlv_buff, /*Input TLV Buffer*/
                               uint32_t tlv_buff_size, /*Input TLV Buffer Total Size*/
                               uint8_t tlv_no, /*Input TLV Number*/
                               uint8_t *tlv_data_len); /*Output TLV Data len*/
@@ -89,10 +90,10 @@ tlv_buffer_insert_tlv(byte *tlv_buff, uint8_t tlv_no,
 
 unsigned char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
-                        unsigned char *output_buffer);
+                        c_string output_buffer);
 
 uint32_t
-tcp_ip_covert_ip_p_to_n(unsigned char *ip_addr);
+tcp_ip_covert_ip_p_to_n(c_string ip_addr);
 
 static inline uint32_t
 tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
@@ -118,17 +119,19 @@ range2_prefix_wildcard_conversion (uint16_t lb,  /* Input Lower bound */
                                                             uint16_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
                                                             int *n);
 
-void
-print_uint16_bits (uint16_t n);
+void print_uint16_bits (uint16_t n);
+void print_uint32_bits (uint32_t n);
 
 void
 range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
-                                                            uint32_t ub, /* Input Upper Bound */
-                                                            uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],      /* Array of Prefix , Caller need to provide memory */
-                                                            uint32_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
-                                                            int *n);
+                                                                uint32_t ub, /* Input Upper Bound */
+                                                                uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],      /* Array of Prefix , Caller need to provide memory */
+                                                                uint32_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
+                                                                int *n);
 
-void
-print_uint32_bits (uint32_t n);
+
+
+#define string_compare(a, b, len) (strncmp((const char *)a, (const char *)b, len))
+#define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len))
 
 #endif /* __UTILS__ */

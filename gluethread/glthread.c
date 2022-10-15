@@ -30,9 +30,9 @@
  * =====================================================================================
  */
 
-
-#include "glthread.h"
 #include <stdlib.h>
+#include "glthread.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 void
 init_glthread(glthread_t *glthread){
@@ -231,6 +231,12 @@ glthread_t *
 glthread_get_prev (glthread_t *curr) {
 
     return curr->left;
+}
+
+void
+glthread_mem_init() {
+
+    MM_REG_STRUCT(0, glthread_t);
 }
 
 #if 0

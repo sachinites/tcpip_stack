@@ -123,7 +123,7 @@ demote_pkt_to_layer2(node_t *node,
 
 
 static void
-layer3_ip_pkt_recv_from_layer2(node_t *node,
+layer3_ip_route_pkt(node_t *node,
 							   interface_t *interface,
 					           pkt_block_t *pkt_block) {
 
@@ -158,13 +158,15 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
         return;
     }
 
-    /* Access List Evaluation at Layer 3 Entry point*/
-    if (interface && /* For local ping, interface will be NULL */
-         access_list_evaluate_ip_packet(node, interface, 
-                                                            ip_hdr, true) == ACL_DENY) {
+    if (!connection_exist (node, pkt_block)) {
+        /* Access List Evaluation at Layer 3 Entry point*/
+        if (interface && /* For local ping, interface will be NULL */
+            access_list_evaluate_ip_packet(node, interface,
+                                           ip_hdr, true) == ACL_DENY) {
 
-        pkt_block_dereference(pkt_block);
-        return ;
+            pkt_block_dereference(pkt_block);
+            return;
+        }
     }
 
     /*Implement Layer 3 forwarding functionality*/
@@ -224,8 +226,9 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
                     pkt_block_set_new_pkt(pkt_block, 
-                                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr), IP_HDR_PAYLOAD_SIZE(ip_hdr));
-                    layer3_ip_pkt_recv_from_layer2(node,
+                                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr),
+                                                            IP_HDR_PAYLOAD_SIZE(ip_hdr));
+                    layer3_ip_route_pkt(node,
 									interface, 
                                     pkt_block);
                     goto done;
@@ -249,7 +252,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
                 0,              /*Dont know next hop IP as dest is present in local subnet*/
                 NULL,           /*No oif as dest is present in local subnet*/
                 pkt_block,  /*Network Layer payload and size*/
-                ETH_IP);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
+                IP_HDR);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 
         goto done;
     }
@@ -327,7 +330,7 @@ layer3_ip_pkt_recv_from_layer2(node_t *node,
             next_hop_ip,
             nexthop->oif->if_name,
             pkt_block,
-            ETH_IP); /*Network Layer need to tell Data link layer, 
+            IP_HDR); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
     nexthop->hit_count++;
 
@@ -869,7 +872,7 @@ _layer3_pkt_recv_from_layer2(node_t *node,
             pkt_block_set_starting_hdr_type(pkt_block, 
                 L3_protocol_type == ETH_IP ? IP_HDR : IP_IN_IP_HDR);
 
-            layer3_ip_pkt_recv_from_layer2(node, interface, pkt_block);
+            layer3_ip_route_pkt(node, interface, pkt_block);
             break;
         default:
             ;
@@ -964,7 +967,7 @@ demote_packet_to_layer3 (node_t *node,
                          dest_ip_address,
                          0,
                          pkt_block,
-                         ETH_IP);
+                         IP_HDR);
         return;
     }
 
@@ -1016,7 +1019,7 @@ demote_packet_to_layer3 (node_t *node,
             next_hop_ip,
             nexthop->oif->if_name,
             pkt_block,
-            ETH_IP);
+            IP_HDR);
 
     nexthop->hit_count++;
 }

@@ -38,7 +38,7 @@ typedef struct pkt_tracer_ {
 } pkt_tracer_t;
 
 void
-pkt_tracer_init (pkt_tracer_t *pkt_tracer);
+pkt_tracer_init (pkt_tracer_t **pkt_tracer);
 
 void
 pkt_tracer_logging_enable (pkt_tracer_t *pkt_tracer, bool enable);

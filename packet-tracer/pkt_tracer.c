@@ -4,13 +4,15 @@
 #include "packet_tracer.h"
 #include "../CommandParser/libcli.h"
 #include "../CommandParser/cmdtlv.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 void
-pkt_tracer_init (pkt_tracer_t *pkt_tracer) {
+pkt_tracer_init (pkt_tracer_t **pkt_tracer) {
 
-    pkt_tracer->phase_no = 0;
-    init_glthread(&pkt_tracer->head);
-    pkt_tracer->enable = false;
+    *pkt_tracer = (pkt_tracer_t *)XCALLOC(0, 1, pkt_tracer_t);
+    (*pkt_tracer)->phase_no = 0;
+    init_glthread(&((*pkt_tracer)->head));
+    (*pkt_tracer)->enable = false;
 }
 
 void
@@ -112,8 +114,14 @@ pkt_tracer_destroy_internal (pkt_tracer_t *pkt_tracer) {
 }
 
 /* conf node <node-name> [no] packet-tracer */
-/* run node <node-name> packet-tracer interface <intf-name> <proto > <src-ip> [<src-port>] <dst-ip> [<dst-port> ]*/
+/* run node <node-name> packet-tracer input <intf-name> <proto > <src-ip> [<src-port>] <dst-ip> [<dst-port> ]*/
 void
 pkt_tracer_build_cli_tree(param_t *param) {
 
+}
+
+void
+pkt_tracer_mem_init () {
+
+    MM_REG_STRUCT(0, pkt_tracer_t);
 }

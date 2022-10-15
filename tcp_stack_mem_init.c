@@ -19,10 +19,19 @@
 extern void snp_flow_mem_init();
 extern void pkt_block_mem_init();
 extern void pkt_notif_data_mem_init();
+extern void mtrie_mem_init();
+extern void pkt_tracer_mem_init ();
+extern void acl_mem_init();
+extern void glthread_mem_init();
+
 void
 tcp_stack_miscellaneous_mem_init() {
 
     snp_flow_mem_init();
     pkt_block_mem_init();
     pkt_notif_data_mem_init();
+    mtrie_mem_init();
+    pkt_tracer_mem_init ();
+    acl_mem_init();
+    glthread_mem_init();
 }

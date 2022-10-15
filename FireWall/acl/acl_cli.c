@@ -1082,7 +1082,13 @@ acl_build_config_cli(param_t *root) {
 void
 acl_print (acl_entry_t *acl_entry) {
 
-    char ip_addr[16];
+    byte ip_addr[16];
+
+    printf (" %u %s %s",
+        acl_entry->seq_no,
+        acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
+        proto_name_str( acl_entry->proto));
+
     switch (acl_entry->src_addr.acl_addr_format)
     {
     case ACL_ADDR_NOT_SPECIFIED:
@@ -1164,19 +1170,14 @@ acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
     access_list_t *acc_lst = (access_list_t *)data;
     acl_entry_t *acl_entry = (acl_entry_t *)node->data;
    
-    if (!acl_entry) return;
-    
+    if (!acl_entry) return;    
     if (acl_entry->show_cli_seq == acc_lst->show_cli_seq) return;
 
     acl_entry->show_cli_seq = acc_lst->show_cli_seq;
 
-    printf (" access-list %s %u %s %s",
-        acc_lst->name,
-        acl_entry->seq_no,
-        acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
-        proto_name_str( acl_entry->proto));
-
-    acl_print(acl_entry);
+    printf (" access-list %s", acc_lst->name);
+    acl_print (acl_entry);
+    
     printf("\n");
 }
 
@@ -1203,13 +1204,7 @@ access_list_show_all(node_t *node) {
          ITERATE_GLTHREAD_BEGIN (&access_list->head, curr1) {
 
                 acl_entry = glthread_to_acl_entry(curr1);
-
-                printf(" access-list %s %u %s %s",
-                       access_list->name,
-                       acl_entry->seq_no,
-                       acl_entry->action == ACL_PERMIT ? "permit" : "deny",
-                       proto_name_str(acl_entry->proto));
-
+                printf(" access-list %s", access_list->name);
                 acl_print(acl_entry);
                 printf ("\n");
 
@@ -1230,7 +1225,7 @@ acl_show_handler(param_t *param,
    
     TLV_LOOP_BEGIN(tlv_buf, tlv)
     {
-        if (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) == 0)
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
     }
     TLV_LOOP_END;

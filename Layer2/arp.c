@@ -11,6 +11,7 @@
 #include "../libtimer/WheelTimer.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
+#include "../utils.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -33,16 +34,18 @@ send_arp_broadcast_request(node_t *node,
         if(!oif){
             printf("Error : %s : No eligible subnet for ARP resolution for Ip-address : %s\n",
                     node->node_name, ip_addr);
-            tcp_ip_free_pkt_buffer (ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
+            tcp_ip_free_pkt_buffer ((byte *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
             return;
         }
-        if( strncmp(  (unsigned char *)IF_IP(oif),  (unsigned char *)ip_addr, 16) == 0){
+
+        if (string_compare(IF_IP(oif), ip_addr, 16) == 0) {
             printf("Error : %s : Attempt to resolve ARP for local Ip-address : %s\n",
                     node->node_name, ip_addr);
-             tcp_ip_free_pkt_buffer (ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
+             tcp_ip_free_pkt_buffer ((byte *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
             return;
         }
     }
+
     /*STEP 1 : Prepare ethernet hdr*/
     layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
     memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
@@ -101,10 +104,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
     
     arp_hdr_reply->op_code = ARP_REPLY;
     memcpy(arp_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-
-    inet_pton(AF_INET, IF_IP(oif), &arp_hdr_reply->src_ip);
-    arp_hdr_reply->src_ip =  htonl(arp_hdr_reply->src_ip);
-
+    arp_hdr_reply->src_ip = tcp_ip_covert_ip_p_to_n(IF_IP(oif));
     memcpy(arp_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
     arp_hdr_reply->dst_ip = arp_hdr_in->src_ip;
   
@@ -137,10 +137,9 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
 
     uint32_t arp_dst_ip = htonl(arp_hdr->dst_ip);
 
-    inet_ntop(AF_INET, &arp_dst_ip, ip_addr, 16);
-    ip_addr[15] = '\0';
+    tcp_ip_covert_ip_n_to_p(arp_dst_ip, ip_addr);
     
-    if(strncmp( (unsigned char *)IF_IP(iif),  (unsigned char *)ip_addr, 16)){
+    if (string_compare(IF_IP(iif), ip_addr, 16)) {
         #if 0
         printf("%s : Error : ARP Broadcast req msg dropped, "
                 "Dst IP address %s did not match with interface ip : %s\n", 
@@ -155,7 +154,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
 void
 init_arp_table(arp_table_t **arp_table){
 
-    *arp_table = XCALLOC(0, 1, arp_table_t);
+    *arp_table = (arp_table_t *)XCALLOC(0, 1, arp_table_t);
     init_glthread(&((*arp_table)->arp_entries));
 }
 
@@ -167,7 +166,7 @@ arp_table_lookup(arp_table_t *arp_table, unsigned char *ip_addr){
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
     
         arp_entry = arp_glue_to_arp_entry(curr);
-        if(strncmp(  (unsigned char *)arp_entry->ip_addr.ip_addr,  (unsigned char *)ip_addr, 16) == 0){
+        if (string_compare(arp_entry->ip_addr.ip_addr, ip_addr, 16) == 0) {
             return arp_entry;
         }
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
@@ -338,12 +337,12 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
     glthread_t *arp_pending_list = NULL;
 
     assert(arp_hdr->op_code == ARP_REPLY);
-    arp_entry_t *arp_entry = XCALLOC(0, 1, arp_entry_t);
-    src_ip = htonl(arp_hdr->src_ip);
-    inet_ntop(AF_INET, &src_ip, arp_entry->ip_addr.ip_addr, 16);
-    arp_entry->ip_addr.ip_addr[15] = '\0';
+
+    arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC(0, 1, arp_entry_t);
+
+    tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, arp_entry->ip_addr.ip_addr);
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, sizeof(mac_add_t));
-    strncpy(  (char *)arp_entry->oif_name,  (char *)iif->if_name, IF_NAME_SIZE);
+    string_copy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
     arp_entry->is_sane = false;
     arp_entry->proto = PROTO_ARP;
 
@@ -470,7 +469,7 @@ create_arp_sane_entry(node_t *node,
     }
 
     /*if ARP entry do not exist, create a new sane entry*/
-    arp_entry = XCALLOC(0, 1,arp_entry_t);
+    arp_entry = (arp_entry_t *)XCALLOC(0, 1,arp_entry_t);
     strncpy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
@@ -487,6 +486,7 @@ arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
                            void *arg,
 						   uint32_t arg_size){
 
+            
     UNUSED(arg_size);
     
     if(!arg) return;
@@ -548,7 +548,7 @@ arp_entry_get_exp_time_left(
 bool
 arp_entry_add(node_t *node, unsigned char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto) {
 
-    arp_entry_t *arp_entry = XCALLOC (0 , 1, arp_entry_t );
+    arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC (0 , 1, arp_entry_t );
     strncpy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     memcpy(arp_entry->mac_addr.mac, mac.mac, sizeof(mac.mac));
     arp_entry->proto = proto;

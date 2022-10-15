@@ -63,14 +63,14 @@ promote_pkt_to_layer3(node_t *node, interface_t *interface,
 void
 interface_set_l2_mode(node_t *node, 
                       interface_t *interface, 
-                      char *l2_mode_option){
+                      const c_string l2_mode_option){
 
     intf_l2_mode_t intf_l2_mode;
 
-    if(strncmp(l2_mode_option, "access", strlen("access")) == 0){
+    if(strncmp((const char *)l2_mode_option, "access", strlen("access")) == 0){
         intf_l2_mode = ACCESS;    
     }
-    else if(strncmp(l2_mode_option, "trunk", strlen("trunk")) ==0){
+    else if(strncmp((const char *)l2_mode_option, "trunk", strlen("trunk")) ==0){
         intf_l2_mode = TRUNK;
     }
     else{
@@ -228,8 +228,8 @@ l2_forward_ip_packet(node_t *node,
 
     pkt_size_t pkt_size;
     interface_t *oif = NULL;
-    char next_hop_ip_str[16];
-     ethernet_hdr_t *ethernet_hdr;
+    byte next_hop_ip_str[16];
+    ethernet_hdr_t *ethernet_hdr;
     arp_entry_t * arp_entry = NULL;
 
      ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -237,7 +237,7 @@ l2_forward_ip_packet(node_t *node,
     pkt_size_t ethernet_payload_size = 
         pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
 
-    tcp_ip_covert_ip_n_to_p(next_hop_ip, next_hop_ip_str);
+    tcp_ip_covert_ip_n_to_p(next_hop_ip, (c_string)next_hop_ip_str);
 
     if(outgoing_intf) {
 
@@ -272,7 +272,7 @@ l2_forward_ip_packet(node_t *node,
    
     /*If the destination IP address do not match any local subnet Nor
      * is it a self loopback address*/
-    if(!oif && strncmp(next_hop_ip_str, NODE_LO_ADDR(node), 16)){
+    if(!oif && strncmp((const char *)next_hop_ip_str, (const char *)NODE_LO_ADDR(node), 16)){
         printf("%s : Error : Local matching subnet for IP : %s could not be found\n",
                     node->node_name, next_hop_ip_str);
         pkt_block_dereference(pkt_block);
@@ -281,7 +281,7 @@ l2_forward_ip_packet(node_t *node,
 
     /*if the destination ip address is exact match to local interface
      * ip address*/
-    if((oif && strncmp(IF_IP(oif), next_hop_ip_str, 16) == 0)){
+    if((oif && strncmp((const char *)IF_IP(oif), (const char *)next_hop_ip_str, 16) == 0)){
         /*send to self*/
         memset(ethernet_hdr->dst_mac.mac, 0, sizeof(mac_add_t));
         memset(ethernet_hdr->src_mac.mac, 0, sizeof(mac_add_t));
@@ -293,7 +293,7 @@ l2_forward_ip_packet(node_t *node,
 
     /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
-    if(strncmp(next_hop_ip_str, NODE_LO_ADDR(node), 16) == 0){
+    if(strncmp((const char *)next_hop_ip_str, (const char *)NODE_LO_ADDR(node), 16) == 0){
          promote_pkt_to_layer3(node, 0, pkt_block, ethernet_hdr->type);
          return;
     }
@@ -346,7 +346,7 @@ demote_pkt_to_layer2 (node_t *node, /*Current node*/
 
     switch(hdr_type){
 
-        case ETH_IP:
+        case IP_HDR:
             {
                 tcp_ip_expand_buffer_ethernet_hdr(pkt_block); 
                 ethernet_hdr_t *empty_ethernet_hdr = 
