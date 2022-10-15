@@ -88,7 +88,8 @@ typedef struct acl_entry_{
 
     uint32_t seq_no;
     acl_action_t action;
-
+    unsigned char *remark;
+    
     acl_proto_t proto;
     uint16_t tcam_l4proto_prefix;
     uint16_t tcam_l4proto_wcard;
@@ -173,7 +174,7 @@ acl_process_user_config(node_t *node,
 void
 access_list_delete_complete(access_list_t *access_list);
 
-access_list_t * acl_lookup_access_list(node_t *node, char *access_list_name);
+access_list_t * access_list_lookup_by_name(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
 void access_list_check_delete(access_list_t *access_list);

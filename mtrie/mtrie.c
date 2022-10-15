@@ -57,21 +57,13 @@ mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
     printf ("\nglthread(%p) : [%p %p]\n", &node->list_glue, node->list_glue.left, node->list_glue.right);
 }
 
-static bit_type_t
-mtrie_node_get_parent_bit_pos (mtrie_node_t *node) {
+/* Delete and free the mtrie node */ 
+static void
+ mtrie_node_delete (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
-    if (!node->parent) return BIT_TYPE_MAX;
-    mtrie_node_t *parent = node->parent;
-    if (parent->child[ZERO] == node) return ZERO;
-    if (parent->child[ONE] == node) return ONE;
-    if (parent->child[DONT_CARE] == node) return DONT_CARE;
-    return BIT_TYPE_MAX;
-}
-
-/* Delete and free the mtrie node */ static void
- mtrie_node_delete(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
-
-    (void)data;
+    if (node->data && mtrie->free_cbk) {
+        mtrie->free_cbk(node);
+    }
 
     bitmap_free_internal(&node->prefix);
     bitmap_free_internal(&node->wildcard);
@@ -79,48 +71,6 @@ mtrie_node_get_parent_bit_pos (mtrie_node_t *node) {
     remove_glthread(&node->list_glue );
     XFREE(node);
     mtrie->N--;
-}
-
-/* Not used */
-static mtrie_node_t *
-mtrie_node_get_sibling (mtrie_node_t *node) {
-
-    mtrie_node_t *parent;
-
-    if (!node->parent) return NULL;
-
-    parent = node->parent;
-
-    if (node == parent->child[ZERO]) {
-
-        if (parent->child[ONE]) return parent->child[ONE];
-        return parent->child[DONT_CARE];
-    }
-
-    else if (node == parent->child[ONE]) {
-
-        if (parent->child[ZERO]) return parent->child[ZERO];
-        return parent->child[DONT_CARE];
-    }
-
-    else if (node == parent->child[DONT_CARE]) {
-
-        if (parent->child[ZERO]) return parent->child[ZERO];
-        return parent->child[ONE];
-    }
-
-    return NULL;
-}
-
-
-/* Delete and free the mtrie node */ 
-static void
- mtrie_node_delete_with_data (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
-
-    if (node->data && mtrie->free_cbk) {
-        mtrie->free_cbk(node);
-    }
-    mtrie_node_delete(mtrie, node, data);
 }
 
 
@@ -586,19 +536,9 @@ mtrie_longest_prefix_first_traverse(mtrie_t *mtrie,
     _mtrie_longest_prefix_first_traverse(mtrie, mtrie->root, process_fn_ptr, app_data);
 }
 
-/* To Delete a tree, we need to do post order traversal, the Tree is non usable and
-    need to be re-initialized by application to use it again*/
-void mtrie_destroy(mtrie_t *mtrie) {
+void mtrie_destroy (mtrie_t *mtrie) {
 
-   mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete, NULL);
-    free_stack(mtrie->stack);
-    assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
-    mtrie->root = NULL;
-}
-
-void mtrie_destroy_with_app_data (mtrie_t *mtrie) {
-
-   mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete_with_data, NULL);
+    mtrie_longest_prefix_first_traverse(mtrie, mtrie_node_delete, NULL);
     free_stack(mtrie->stack);
     assert(IS_GLTHREAD_LIST_EMPTY(&mtrie->list_head));
     mtrie->root = NULL;

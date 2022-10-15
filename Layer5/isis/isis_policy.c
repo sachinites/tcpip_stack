@@ -157,7 +157,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
 
     prefix_list_dereference(node_info->export_policy);
     node_info->export_policy = NULL;
-    mtrie_destroy_with_app_data(&node_info->exported_routes);
+    mtrie_destroy(&node_info->exported_routes);
     init_mtrie(&node_info->exported_routes, 32, isis_free_exported_rt);
     isis_schedule_lsp_pkt_generation (node, isis_event_admin_config_changed);
     return 0;
