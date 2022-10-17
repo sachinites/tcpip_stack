@@ -177,7 +177,7 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
     therefore made following APIs idempotent for below logic to work correctly.
         1. acl_entry_uninstall
         2. acl_entry_install
-        3. acl_entry_free_tcam_data
+        3. acl_decompile
         4. acl_compile
     */
 
@@ -195,7 +195,7 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
 
         obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
-        acl_entry_free_tcam_data(acl_entry);
+        acl_decompile(acl_entry);
 
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
 

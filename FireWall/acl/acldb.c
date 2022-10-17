@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
+#include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
@@ -58,7 +59,7 @@ acl_string_to_proto(unsigned char *proto_name) {
 void 
 acl_entry_free (acl_entry_t *acl_entry) {
 
-    acl_entry_free_tcam_data(acl_entry);
+    acl_decompile(acl_entry);
     acl_entry_delink_src_object_networks(acl_entry);
     acl_entry_delink_dst_object_networks(acl_entry);
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
@@ -66,7 +67,7 @@ acl_entry_free (acl_entry_t *acl_entry) {
 }
 
 void 
-acl_entry_free_tcam_data (acl_entry_t *acl_entry) {
+acl_decompile (acl_entry_t *acl_entry) {
 
     if (!acl_entry->is_compiled) return;
 
@@ -945,10 +946,6 @@ acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input
     bitmap_t *prefix = &tcam_entry->prefix;
     bitmap_t *mask = &tcam_entry->mask;
 
-    bitmap_init (prefix, ACL_PREFIX_LEN);
-    bitmap_init (mask, ACL_PREFIX_LEN);
-    init_glthread(&tcam_entry->glue);
-
     uint16_t *prefix_ptr2 = (uint16_t *)prefix->bits;
     uint32_t *prefix_ptr4 = (uint32_t *)prefix->bits;
     uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
@@ -1292,7 +1289,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
        acl_entry = glthread_to_acl_entry(curr);
-       acl_entry_free_tcam_data(acl_entry);
+       acl_decompile(acl_entry);
        acl_compile(acl_entry);
        acl_entry_install(access_list, acl_entry);
 

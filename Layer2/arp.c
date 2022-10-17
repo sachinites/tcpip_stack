@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
+#include "../LinuxMemoryManager/uapi_mm.h"
 #include "../graph.h"
 #include "layer2.h"
 #include "arp.h"
@@ -9,7 +10,6 @@
 #include "../Layer5/layer5.h"
 #include "../tcp_ip_trace.h"
 #include "../libtimer/WheelTimer.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
 #include "../utils.h"
 

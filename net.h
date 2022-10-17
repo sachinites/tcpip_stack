@@ -312,14 +312,14 @@ pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
 static inline char *
 tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
 
-    char *pkt = (char *)calloc(1, MAX_PACKET_BUFFER_SIZE);
+    char *pkt = (char *)XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
     return pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE);
 }
 
 static inline void
 tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
 
-    free(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
+    XFREE(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
 }
 
 bool

@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <memory.h>
+#include "LinuxMemoryManager/uapi_mm.h"
 #include "graph.h"
 #include "Layer2/layer2.h"
 #include "Layer2/arp.h"
@@ -26,7 +27,6 @@
 #include "Layer5/layer5.h"
 #include "tcpconst.h"
 #include "pkt_block.h"
-#include "LinuxMemoryManager/uapi_mm.h"
 
 struct pkt_block_ {
 
@@ -253,7 +253,7 @@ tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
     
     uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    char *temp = XCALLOC_BUFF(1, pkt_size);   
+    char *temp = (char *)XCALLOC_BUFF(0, pkt_size);   
 
     memcpy(temp, pkt, pkt_size);    
 

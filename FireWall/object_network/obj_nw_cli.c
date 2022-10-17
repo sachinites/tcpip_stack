@@ -1,4 +1,5 @@
 #include <assert.h>
+#include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
 #include "objnw.h"
 #include "../../CommandParser/libcli.h"

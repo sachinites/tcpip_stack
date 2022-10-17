@@ -162,7 +162,7 @@ GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;
 void acl_entry_free(acl_entry_t *acl_entry);
-void acl_entry_free_tcam_data (acl_entry_t *acl_entry) ;
+void acl_decompile (acl_entry_t *acl_entry) ;
 
 void
 access_list_schedule_notification (node_t *node, access_list_t *access_list);
