@@ -796,3 +796,24 @@ isis_cleanup_spf_logc(node_t *node) {
         XFREE(spf_log);
     } ITERATE_GLTHREAD_END(&node_info->spf_logc.head, curr);
 }
+
+void
+isis_spf_cleanup_spf_data (ted_node_t *ted_node) {
+
+    glthread_t *curr;
+    isis_spf_result_t *res;
+    isis_spf_data_t *spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(ted_node);
+    
+    if (!spf_data) return;
+
+    ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr) {
+        res = isis_spf_res_glue_to_spf_result(curr);
+        isis_free_spf_result(res);
+    } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
+
+    init_glthread(&spf_data->spf_result_head);
+    remove_glthread(&spf_data->priority_thread_glue);
+    nh_flush_nexthops(spf_data->nexthops);
+    XFREE(spf_data);
+    ISIS_NODE_SPF_DATA(ted_node) = NULL;
+}

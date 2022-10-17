@@ -324,3 +324,12 @@ object_network_rebuild_all_dependent_nats(node_t *node, obj_nw_t *obj_nw) {
 
     //printf ("%s() called ....\n", __FUNCTION__);
 }
+
+void
+object_network_mem_init () {
+
+    MM_REG_STRUCT(0, obj_nw_t);
+    MM_REG_STRUCT(0, obj_nw_type_t);
+    MM_REG_STRUCT(0, obj_nw_linked_acl_thread_node_t);
+    MM_REG_STRUCT(0, obj_nw_linkage_db_t);
+}

@@ -59,11 +59,13 @@ rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) 
                                                &rt_table->nfc_rt_updates, 
                                                &rt_route_notif_data,
                                                sizeof(rt_route_notif_data), 0, 0);
-                                               
+
+        l3_route_unlock(l3route);    
         remove_glthread(&l3route->notif_glue);
-        l3_route_unlock(l3route);
+
 
         if ( IS_BIT_SET(l3route->rt_flags, RT_DEL_F) ) {
+                l3_route_unlock(l3route);
                 continue;
         }
 

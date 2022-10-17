@@ -209,7 +209,7 @@ ted_lookup_node(ted_db_t *ted_db, uint32_t rtr_id) {
 }
 
 void
-ted_delete_node (ted_db_t *ted_db, uint32_t rtr_id) {
+ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id) {
 
     ted_node_t *node = ted_lookup_node(ted_db, rtr_id);
     if (!node) return;
@@ -219,6 +219,17 @@ ted_delete_node (ted_db_t *ted_db, uint32_t rtr_id) {
     node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(node);
     XFREE(node);
+}
+
+void
+ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
+
+    ted_unplug_all_interfaces(ted_node);
+    avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
+    assert(ted_node->is_installed_in_teddb);
+    ted_node->is_installed_in_teddb = false;
+    ted_prefix_tree_cleanup_tree(ted_node);
+    XFREE(ted_node);
 }
 
 bool
@@ -364,7 +375,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
     /* Delete the node, we would create it again from scratch. This is 
         Simplification and a bit brute-force*/
-    ted_delete_node(ted_db, template_node_data->rtr_id);
+    ted_delete_node_by_id(ted_db, template_node_data->rtr_id);
 
     node = ted_create_node(template_node_data->rtr_id, false);
     strncpy((char *)node->node_name, template_node_data->node_name, NODE_NAME_SIZE);

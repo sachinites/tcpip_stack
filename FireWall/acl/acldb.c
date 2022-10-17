@@ -643,7 +643,7 @@ access_list_delete_complete(access_list_t *access_list) {
         return;
     }
 
-    mtrie_destroy_with_app_data(access_list->mtrie);
+    mtrie_destroy(access_list->mtrie);
     XFREE(access_list->mtrie);
     access_list->mtrie = NULL;
 
@@ -1281,7 +1281,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
     pthread_spin_lock(&access_list->spin_lock);
 
     if (access_list->mtrie) {
-        mtrie_destroy_with_app_data(access_list->mtrie);
+        mtrie_destroy(access_list->mtrie);
         XFREE(access_list->mtrie);
         access_list->mtrie = NULL;
     }

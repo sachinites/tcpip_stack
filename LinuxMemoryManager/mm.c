@@ -36,6 +36,7 @@
 #include <unistd.h> /*for getpagesize*/
 #include <sys/mman.h>
 #include <errno.h>
+#include <pthread.h>
 #include "css.h"
 
 #define __USE_MMAP__
@@ -48,6 +49,7 @@ static size_t SYSTEM_PAGE_SIZE = 0;
 void *gb_hsba = NULL;
 static vm_page_t *vm_page_mm_instance = NULL;
 static mm_instance_t *next_mm_instance = NULL;
+pthread_spinlock_t spin_lock;
 
 void
 mm_init(){
@@ -60,6 +62,7 @@ mm_init(){
     strncpy((char *)misc_vm_page_family.struct_name, "Misc" , 4);
     misc_vm_page_family.struct_size = 0;
     init_glthread(&misc_vm_page_family.free_block_priority_list_head);
+    pthread_spin_init (&spin_lock, PTHREAD_PROCESS_PRIVATE);
 }
 
 static inline uint32_t
@@ -527,6 +530,8 @@ mm_allocate_free_data_block(
 void *
 xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
 
+    pthread_spin_lock(&spin_lock);
+
     /*Step 1*/
     vm_page_family_t *pg_family = 
         lookup_page_family_by_name(mm_inst, struct_name);
@@ -546,10 +551,13 @@ xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
                             pg_family, units * pg_family->struct_size);
 
     if(free_block_meta_data){
-        memset((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
-        return  (void *)(free_block_meta_data + 1);
+        memset ((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
+        assert (free_block_meta_data->is_free == MM_FALSE);
+        pthread_spin_unlock(&spin_lock);
+        return (void *)(free_block_meta_data + 1);
     }
 
+    pthread_spin_unlock(&spin_lock);
     return NULL;
 }
 
@@ -641,14 +649,21 @@ mm_free_blocks(block_meta_data_t *to_be_free_block){
     
     /*Now perform Merging*/
     if(next_block && next_block->is_free == MM_TRUE){
+
+        to_be_free_block->block_size += 
+            next_block->block_size + sizeof(block_meta_data_t);
         /*Union two free blocks*/
         mm_union_free_blocks(to_be_free_block, next_block);
         return_block = to_be_free_block;
     }
+
     /*Check the previous block if it was free*/
     block_meta_data_t *prev_block = PREV_META_BLOCK(to_be_free_block);
     
     if(prev_block && prev_block->is_free){
+        
+        prev_block->block_size += 
+            to_be_free_block->block_size + sizeof(block_meta_data_t);
         mm_union_free_blocks(prev_block, to_be_free_block);
         return_block = prev_block;
     }
@@ -657,6 +672,7 @@ mm_free_blocks(block_meta_data_t *to_be_free_block){
         mm_vm_page_delete_and_free(hosting_page);
         return NULL;
     }
+
     mm_add_free_block_meta_data_to_free_block_list(
             hosting_page->pg_family, return_block);
     
@@ -666,11 +682,14 @@ mm_free_blocks(block_meta_data_t *to_be_free_block){
 void
 xfree(void *app_data){
 
+    pthread_spin_lock(&spin_lock);
+
     block_meta_data_t *block_meta_data = 
         (block_meta_data_t *)((char *)app_data - sizeof(block_meta_data_t));
     
     assert(block_meta_data->is_free == MM_FALSE);
     mm_free_blocks(block_meta_data);
+    pthread_spin_unlock(&spin_lock);
 }
 
 vm_bool_t
@@ -925,6 +944,8 @@ mm_print_registered_page_families(mm_instance_t *mm_inst){
 void *
 xcalloc_buff(mm_instance_t *mm_inst,  uint32_t bytes) {
 
+    pthread_spin_lock(&spin_lock);
+
     vm_page_family_t *misc_vm_page_family_global;
 
     misc_vm_page_family_global = mm_inst ?
@@ -939,8 +960,10 @@ xcalloc_buff(mm_instance_t *mm_inst,  uint32_t bytes) {
 
     if(free_block_meta_data){
         memset((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
+        pthread_spin_unlock(&spin_lock);
         return  (void *)(free_block_meta_data + 1);
     }
 
+    pthread_spin_unlock(&spin_lock);
     return NULL;
 }

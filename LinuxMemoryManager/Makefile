@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS=-g -gdwarf-2 -g3
 TARGET:testapp.exe libmm.a
 OUTFILES=testapp.exe libmm.a
-EXTERNAL_LIBS=
+EXTERNAL_LIBS=-lpthread
 OBJS=../gluethread/glthread.o mm.o
 
 testapp.exe:testapp.o ${OBJS}

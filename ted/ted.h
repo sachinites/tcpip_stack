@@ -162,7 +162,10 @@ typedef struct  ted_template_node_data_ {
 } ted_template_node_data_t;
 
 void
-ted_delete_node (ted_db_t *ted_db, uint32_t rtr_id);
+ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id);
+
+void
+ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
 
 void
 ted_create_or_update_node (ted_db_t *ted_db,

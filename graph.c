@@ -78,7 +78,7 @@ insert_link_between_two_nodes(node_t *node1,
     interface_assign_mac_address(&link->intf1);
     interface_assign_mac_address(&link->intf2);
 
-    intf_init_bit_rate_sampling_timer(&link->intf1);
+    //intf_init_bit_rate_sampling_timer(&link->intf1);
 
     tcp_ip_init_intf_log_info(&link->intf1);
     tcp_ip_init_intf_log_info(&link->intf2);

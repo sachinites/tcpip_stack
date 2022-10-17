@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS=-g -gdwarf-2 -g3
 TARGET:libasa.a
 LIB=libasa.a
 OBJS=acl/acl_cli.o acl/acldb.o object_network/obj_nw_cli.o object_network/objnw.o Connection/conn.o

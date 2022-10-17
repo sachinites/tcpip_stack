@@ -23,6 +23,7 @@ extern void mtrie_mem_init();
 extern void pkt_tracer_mem_init ();
 extern void acl_mem_init();
 extern void glthread_mem_init();
+extern void object_network_mem_init () ;
 
 void
 tcp_stack_miscellaneous_mem_init() {
@@ -34,4 +35,5 @@ tcp_stack_miscellaneous_mem_init() {
     pkt_tracer_mem_init ();
     acl_mem_init();
     glthread_mem_init();
+    object_network_mem_init () ;
 }

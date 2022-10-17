@@ -72,4 +72,7 @@ isis_init_spf_logc(node_t *node);
 void
 isis_cleanup_spf_logc(node_t *node);
 
+void
+isis_spf_cleanup_spf_data(ted_node_t *ted_node);
+
 #endif 

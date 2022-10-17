@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration
+CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3
 TARGET:tcpstack.exe pkt_gen.exe
 LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt -lm
 OBJS=gluethread/glthread.o \

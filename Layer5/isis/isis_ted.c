@@ -13,25 +13,24 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     uint16_t n_tlv22;
     uint32_t metric;
-    uint16_t subtlv_len ;
+    uint16_t subtlv_len;
     uint32_t ip_addr_int;
     byte *subtlv_navigator;
     avltree_t *prefix_tree_root = NULL;
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
-    isis_pkt_hdr_t *lsp_pkt_hdr = ( isis_pkt_hdr_t *)(eth_hdr->payload);
+    isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
     uint16_t eth_payload_size = lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
 
     byte *tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 
     uint16_t tlv_buff_size = eth_payload_size - sizeof(isis_pkt_hdr_t);
 
-    n_tlv22 = isis_count_tlv_occurrences (tlv_buffer, tlv_buff_size, ISIS_IS_REACH_TLV);
-    
-    ted_template_node_data_t *node_data = 
-            (ted_template_node_data_t *)calloc(1, 
-                sizeof (ted_template_node_data_t) + 
-                (n_tlv22 * sizeof (ted_template_nbr_data_t)));
+    n_tlv22 = isis_count_tlv_occurrences(tlv_buffer, tlv_buff_size, ISIS_IS_REACH_TLV);
+
+    ted_template_node_data_t *node_data = (ted_template_node_data_t *)
+        XCALLOC_BUFF(0, sizeof(ted_template_node_data_t) +
+                            (n_tlv22 * sizeof(ted_template_nbr_data_t)));
 
     node_data->flags = lsp_pkt_hdr->flags;
     node_data->rtr_id = lsp_pkt_hdr->rtr_id;
@@ -45,6 +44,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                       tlv_len, tlv_value, tlv_buff_size) {
 
         switch (tlv_type) {
+
         case ISIS_TLV_HOSTNAME:
             strncpy((char *)node_data->node_name, tlv_value, tlv_len);
             break;
@@ -68,7 +68,9 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
             ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
                               tlv_len2, tlv_value2, subtlv_len) {
-                switch (tlv_type2) {
+
+                switch (tlv_type2)
+                {
                 case ISIS_TLV_IF_INDEX:
                     nbr_data->local_if_index = *(uint32_t *)tlv_value2;
                     nbr_data->remote_if_index = *(uint32_t *)((uint32_t *)tlv_value2 + 1);
@@ -79,47 +81,50 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                 case ISIS_TLV_REMOTE_IP:
                     nbr_data->remote_ip = *(uint32_t *)tlv_value2;
                     break;
-                default: ;
+                default:;
                 }
             }
             ITERATE_TLV_END(subtlv_navigator, tlv_type2,
-                              tlv_len2, tlv_value2, subtlv_len);
+                            tlv_len2, tlv_value2, subtlv_len);
             break;
-            case ISIS_TLV_IP_REACH:
+        case ISIS_TLV_IP_REACH:
+        {
+            if (!prefix_tree_root)
             {
-                if (!prefix_tree_root) {
-                    prefix_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
-                    avltree_init (prefix_tree_root, avltree_prefix_tree_comp_fn);
-                }
-                isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)tlv_value;
-                ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC(0, 1 , ted_prefix_t );
-                ted_prefix->prefix = htonl(tlv_130->prefix);
-                ted_prefix->mask = tlv_130->mask;
-                ted_prefix->metric = htonl(tlv_130->metric);
-                ted_prefix->flags = tlv_130->flags;
-                avltree_insert(&ted_prefix->avl_glue, prefix_tree_root);
+                prefix_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
+                avltree_init(prefix_tree_root, avltree_prefix_tree_comp_fn);
             }
-            break;
-            default: ;
+            isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)tlv_value;
+            ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC(0, 1, ted_prefix_t);
+            ted_prefix->prefix = htonl(tlv_130->prefix);
+            ted_prefix->mask = tlv_130->mask;
+            ted_prefix->metric = htonl(tlv_130->metric);
+            ted_prefix->flags = tlv_130->flags;
+            avltree_insert(&ted_prefix->avl_glue, prefix_tree_root);
         }
+        break;
+        default:;
         }
-        ITERATE_TLV_END(tlv_buffer, tlv_type,
-                        tlv_len, tlv_value, tlv_buff_size);
-
-        node_data->n_nbrs = n_tlv22;
-        ted_db_t *ted_db = ISIS_TED_DB(node);
-        ted_create_or_update_node(ted_db, node_data, prefix_tree_root);
-        free(node_data);
     }
+    ITERATE_TLV_END(tlv_buffer, tlv_type,
+                    tlv_len, tlv_value, tlv_buff_size);
+
+    node_data->n_nbrs = n_tlv22;
+    ted_db_t *ted_db = ISIS_TED_DB(node);
+    ted_create_or_update_node(ted_db, node_data, prefix_tree_root);
+    XFREE(node_data);
+}
 
 void
 isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     ted_db_t *ted_db = ISIS_TED_DB(node);
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
-    ted_delete_node (ted_db, *rtr_id);
+    ted_node_t *ted_node = ted_lookup_node(ted_db, *rtr_id);
+    assert(ted_node);
+    isis_spf_cleanup_spf_data(ted_node);
+    ted_delete_node (ted_db, ted_node);
 }
-
 
 void
 isis_cleanup_teddb_root(node_t *node) {
