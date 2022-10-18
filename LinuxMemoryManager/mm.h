@@ -32,9 +32,9 @@
 #define __MM__
 
 #include <stdint.h>
-#include "../gluethread/glthread.h"
+#include <pthread.h>
 #include <stddef.h> /*for size_t*/
-
+#include "../gluethread/glthread.h"
 
 typedef enum{
 
@@ -121,6 +121,7 @@ typedef struct mm_instance_ {
     vm_page_for_families_t *first_vm_page_for_families;
     vm_page_family_t misc_vm_page_family;
     void *gb_hsba;
+    pthread_spinlock_t spin_lock;
 } mm_instance_t;
 
 #define MAX_FAMILIES_PER_VM_PAGE   \
@@ -197,4 +198,6 @@ lookup_page_family_by_name(mm_instance_t *mm_inst, char *struct_name);
     }}
 
 void mm_vm_page_delete_and_free(vm_page_t *vm_page);
+void
+mm_print_variable_buffers(mm_instance_t *mm_inst);
 #endif /**/

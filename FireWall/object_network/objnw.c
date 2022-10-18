@@ -146,7 +146,7 @@ network_object_hashtable_print(hashtable_t *ht) {
         object_network_print(obj_nw);
     } while (hashtable_iterator_advance(itr));
 
-    XFREE(itr);
+    free(itr);
 }
 
 void

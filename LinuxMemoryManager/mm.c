@@ -28,7 +28,6 @@
  * =====================================================================================
  */
 
-#include "mm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -36,8 +35,8 @@
 #include <unistd.h> /*for getpagesize*/
 #include <sys/mman.h>
 #include <errno.h>
-#include <pthread.h>
 #include "css.h"
+#include "mm.h"
 
 #define __USE_MMAP__
 #undef __USE_BRK__
@@ -164,7 +163,14 @@ mm_init_new_instance() {
 
     if (next_mm_instance == NULL) {
         next_mm_instance = (mm_instance_t *)(vm_page);
+        next_mm_instance->first_vm_page_for_families = NULL;
+        next_mm_instance->misc_vm_page_family.first_page = NULL;
+        memset(&next_mm_instance->misc_vm_page_family, 0, sizeof(vm_page_family_t));
+        strncpy((char *)next_mm_instance->misc_vm_page_family.struct_name, "Misc" , 4);
+        next_mm_instance->misc_vm_page_family.struct_size = 0;
+        init_glthread(&next_mm_instance->misc_vm_page_family.free_block_priority_list_head);
         next_mm_instance->gb_hsba = sbrk(0);
+        pthread_spin_init(&next_mm_instance->spin_lock, PTHREAD_PROCESS_PRIVATE);
         return next_mm_instance;
     }
 
@@ -174,7 +180,14 @@ mm_init_new_instance() {
     }
 
     next_mm_instance++;
+    next_mm_instance->first_vm_page_for_families = NULL;
+    next_mm_instance->misc_vm_page_family.first_page = NULL;
+    memset(&next_mm_instance->misc_vm_page_family, 0, sizeof(vm_page_family_t));
+    strncpy((char *)next_mm_instance->misc_vm_page_family.struct_name, "Misc", 4);
+    next_mm_instance->misc_vm_page_family.struct_size = 0;
+    init_glthread(&next_mm_instance->misc_vm_page_family.free_block_priority_list_head);
     next_mm_instance->gb_hsba = sbrk(0);
+    pthread_spin_init(&next_mm_instance->spin_lock, PTHREAD_PROCESS_PRIVATE);
     return next_mm_instance;
 }
 
@@ -299,7 +312,6 @@ mm_instantiate_new_page_family(
             mm_inst->first_vm_page_for_families = vm_page_for_families_global;
         else 
             first_vm_page_for_families =  vm_page_for_families_global;
-    
         return;
     }
 
@@ -525,12 +537,17 @@ mm_allocate_free_data_block(
     return NULL;
 }
 
+#define MM_LOCK(mm_inst_ptr) \
+    { if (!mm_inst_ptr) pthread_spin_lock(&spin_lock); else pthread_spin_lock(&mm_inst->spin_lock); }
+#define MM_UNLOCK(mm_inst_ptr) \
+    { if (!mm_inst_ptr) pthread_spin_unlock(&spin_lock); else pthread_spin_unlock(&mm_inst->spin_lock); }
+
 /* The public fn to be invoked by the application for Dynamic 
  * Memory Allocations.*/
 void *
 xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
 
-    pthread_spin_lock(&spin_lock);
+    MM_LOCK(mm_inst);
 
     /*Step 1*/
     vm_page_family_t *pg_family = 
@@ -553,11 +570,11 @@ xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
     if(free_block_meta_data){
         memset ((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
         assert (free_block_meta_data->is_free == MM_FALSE);
-        pthread_spin_unlock(&spin_lock);
+        MM_UNLOCK(mm_inst)
         return (void *)(free_block_meta_data + 1);
     }
 
-    pthread_spin_unlock(&spin_lock);
+    MM_UNLOCK(mm_inst);
     return NULL;
 }
 
@@ -692,6 +709,19 @@ xfree(void *app_data){
     pthread_spin_unlock(&spin_lock);
 }
 
+void
+xfree_inst(mm_instance_t *mm_inst, void *app_data){
+
+    MM_LOCK(mm_inst);
+
+    block_meta_data_t *block_meta_data = 
+        (block_meta_data_t *)((char *)app_data - sizeof(block_meta_data_t));
+    
+    assert(block_meta_data->is_free == MM_FALSE);
+    mm_free_blocks(block_meta_data);
+    MM_UNLOCK(mm_inst);
+}
+
 vm_bool_t
 mm_is_vm_page_empty(vm_page_t *vm_page){
 
@@ -736,6 +766,8 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name){
     uint32_t total_memory_in_use_by_application = 0;
     uint32_t cumulative_vm_pages_claimed_from_kernel = 0;
     vm_page_for_families_t *vm_page_for_families_global;
+
+    MM_LOCK(mm_inst);
 
     vm_page_for_families_global = mm_inst ?
         mm_inst->first_vm_page_for_families :
@@ -800,10 +832,13 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name){
     printf("Total Memory being used by Memory Manager = %lu Bytes\n",
         cumulative_vm_pages_claimed_from_kernel * SYSTEM_PAGE_SIZE); 
 
+    MM_UNLOCK(mm_inst);
+
     if (!struct_name) {
         printf ("Printing Variable Buffers \n");
         mm_print_variable_buffers(mm_inst);
     }
+    
 }
 
 void
@@ -818,10 +853,15 @@ mm_print_block_usage(mm_instance_t *mm_inst){
 
     vm_page_for_families_t *first_vm_page_for_families_global;
 
+    MM_LOCK(mm_inst);
+
     first_vm_page_for_families_global = mm_inst ?
         mm_inst->first_vm_page_for_families : first_vm_page_for_families;
 
-    if (!first_vm_page_for_families_global) return;
+    if (!first_vm_page_for_families_global) {
+        MM_UNLOCK(mm_inst);
+        return;
+    }
 
     ITERATE_PAGE_FAMILIES_BEGIN(first_vm_page_for_families_global, vm_page_family_curr){
 
@@ -862,6 +902,8 @@ mm_print_block_usage(mm_instance_t *mm_inst){
         free_block_count, occupied_block_count, application_memory_usage);
 
     } ITERATE_PAGE_FAMILIES_END(first_vm_page_for_families_global, vm_page_family_curr); 
+
+    MM_UNLOCK(mm_inst);
 }
 
 void
@@ -876,6 +918,8 @@ mm_print_variable_buffers(mm_instance_t *mm_inst) {
     vm_page_family_t *vm_page_family_curr;
     block_meta_data_t *block_meta_data_curr;
     vm_page_family_t *misc_vm_page_family_global;
+
+    MM_LOCK(mm_inst);
 
     misc_vm_page_family_global = mm_inst ?
         &mm_inst->misc_vm_page_family : &misc_vm_page_family;
@@ -912,6 +956,7 @@ mm_print_variable_buffers(mm_instance_t *mm_inst) {
         misc_vm_page_family.struct_name, total_block_count,
         free_block_count, occupied_block_count, application_memory_usage);
 
+    MM_UNLOCK(mm_inst);
 }
 
 void
@@ -920,6 +965,8 @@ mm_print_registered_page_families(mm_instance_t *mm_inst){
     vm_page_family_t *vm_page_family_curr = NULL;
     vm_page_for_families_t *vm_page_for_families_curr = NULL;
     vm_page_for_families_t *vm_page_for_families_global;
+
+    MM_LOCK(mm_inst);
 
     vm_page_for_families_global = mm_inst ?
         mm_inst->first_vm_page_for_families : first_vm_page_for_families;
@@ -939,12 +986,13 @@ mm_print_registered_page_families(mm_instance_t *mm_inst){
         } ITERATE_PAGE_FAMILIES_END(vm_page_for_families_curr,
             vm_page_family_curr);
     }
+    MM_UNLOCK(mm_inst);
 }
 
 void *
 xcalloc_buff(mm_instance_t *mm_inst,  uint32_t bytes) {
 
-    pthread_spin_lock(&spin_lock);
+    MM_LOCK(mm_inst);
 
     vm_page_family_t *misc_vm_page_family_global;
 
@@ -960,10 +1008,10 @@ xcalloc_buff(mm_instance_t *mm_inst,  uint32_t bytes) {
 
     if(free_block_meta_data){
         memset((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
-        pthread_spin_unlock(&spin_lock);
+        MM_UNLOCK(mm_inst);
         return  (void *)(free_block_meta_data + 1);
     }
 
-    pthread_spin_unlock(&spin_lock);
+    MM_UNLOCK(mm_inst);
     return NULL;
 }
