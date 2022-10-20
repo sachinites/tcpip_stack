@@ -23,7 +23,7 @@
 #include <time.h>
 #include <stdbool.h>
 
-typedef struct wheel_timer_ wheel_timer_t;
+typedef struct _wheel_timer_t wheel_timer_t;
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
 typedef  struct hashtable hashtable_t;

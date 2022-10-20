@@ -120,7 +120,7 @@ isis_free_exported_rt(mtrie_node_t *mnode) {
 
     if (!mnode->data) return;
     isis_exported_rt_t *exported_rt = (isis_exported_rt_t *)mnode->data;
-    free(exported_rt);
+    XFREE(exported_rt);
     mnode->data = NULL;
 }
 

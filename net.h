@@ -40,6 +40,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include "utils.h"
+#include "LinuxMemoryManager/uapi_mm.h"
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"
 #include "comm.h"

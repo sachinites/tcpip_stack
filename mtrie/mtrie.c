@@ -583,10 +583,3 @@ glthread_t *
 
     return next;
 }
-
-void
-mtrie_mem_init() {
-
-    MM_REG_STRUCT(0, mtrie_t);
-    MM_REG_STRUCT(0, mtrie_node_t);
-}

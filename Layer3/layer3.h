@@ -225,7 +225,7 @@ clear_rt_table(rt_table_t *rt_table, uint16_t proto);
 
 /* MP Safe */
 void
-rt_table_delete_route(rt_table_t *rt_table, char *ip_addr, char mask, uint16_t proto_id);
+rt_table_delete_route(rt_table_t *rt_table, c_string ip_addr, char mask, uint16_t proto_id);
 
 /* MP Safe */
 void
@@ -257,7 +257,7 @@ l3rib_lookup(rt_table_t *rt_table, uint32_t dest_ip, char mask);
 
 /* MP Unsafe */
 l3_route_t *
-rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask);
+rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask);
 
 /* Routing Table APIs */
 

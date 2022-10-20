@@ -232,20 +232,3 @@ glthread_get_prev (glthread_t *curr) {
 
     return curr->left;
 }
-
-void
-glthread_mem_init() {
-
-    MM_REG_STRUCT(0, glthread_t);
-}
-
-#if 0
-void *
-gl_thread_search(glthread_t *glthread_head, 
-                 void *(*thread_to_struct_fn)(glthread_t *), 
-                 void *key, 
-                 int (*comparison_fn)(void *, void *)){
-
-    return NULL;
-}
-#endif

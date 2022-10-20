@@ -49,6 +49,7 @@ void *gb_hsba = NULL;
 static vm_page_t *vm_page_mm_instance = NULL;
 static mm_instance_t *next_mm_instance = NULL;
 pthread_spinlock_t spin_lock;
+static vm_page_family_t *last_cached_pg_family = NULL;
 
 void
 mm_init(){
@@ -547,12 +548,23 @@ mm_allocate_free_data_block(
 void *
 xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
 
+    vm_page_family_t *pg_family;
+
     MM_LOCK(mm_inst);
 
     /*Step 1*/
-    vm_page_family_t *pg_family = 
-        lookup_page_family_by_name(mm_inst, struct_name);
+    
+    if (last_cached_pg_family &&
+            !strcmp(last_cached_pg_family->struct_name, struct_name)) {
 
+        pg_family = last_cached_pg_family;
+    }
+    else {
+    
+        pg_family = lookup_page_family_by_name(mm_inst, struct_name);
+        last_cached_pg_family = pg_family;
+    }
+    
     if(!pg_family){
         
         printf("Error : Structure %s not registered with Memory Manager\n",
@@ -838,7 +850,7 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name){
         printf ("Printing Variable Buffers \n");
         mm_print_variable_buffers(mm_inst);
     }
-    
+
 }
 
 void

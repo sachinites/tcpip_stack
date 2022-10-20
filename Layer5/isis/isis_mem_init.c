@@ -8,6 +8,7 @@
 #include "isis_flood.h"
 #include "isis_intf_group.h"
 #include "isis_spf.h"
+#include "isis_policy.h"
 
 void
  isis_mem_init() {
@@ -29,4 +30,5 @@ void
      MM_REG_STRUCT(0, isis_spf_log_t);
      MM_REG_STRUCT(0, isis_spf_data_t);
      MM_REG_STRUCT(0, isis_spf_result_t);
+     MM_REG_STRUCT(0, isis_exported_rt_t);
  }

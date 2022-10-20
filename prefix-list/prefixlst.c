@@ -506,3 +506,11 @@ prefix_list_notify_clients(node_t *node, prefix_list_t *prefix_lst) {
         i++;
     }
 }
+
+void
+prefix_list_mem_init () {
+
+    MM_REG_STRUCT(0, prefix_list_t);
+    MM_REG_STRUCT(0, pfx_lst_result_t);
+    MM_REG_STRUCT(0, pfx_lst_node_t);
+}

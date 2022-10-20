@@ -28,7 +28,7 @@
 #define TERMINAL_NAME_SIZE      CONS_INPUT_BUFFER_SIZE
 #define TLV_MAX_BUFFER_SIZE     1024
 #define POSSIBILITY_ARRAY_SIZE  10 
-#define DEFAULT_DEVICE_NAME     "tcp-ip-stack"
+#define DEFAULT_DEVICE_NAME     "Soft-FireWall"
 #define MODE_CHARACTER          "/"
 #define SUBOPTIONS_CHARACTER    "?"
 #define CMD_EXPANSION_CHARACTER "."

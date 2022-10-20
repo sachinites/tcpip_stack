@@ -506,7 +506,7 @@ clear_rt_handler(param_t *param, ser_buff_t *tlv_buf,
 
 extern void
 rt_table_delete_route(rt_table_t *rt_table,
-        char *ip_addr, char mask, uint16_t proto);
+        c_string ip_addr, char mask, uint16_t proto);
 extern void
 rt_table_add_route(rt_table_t *rt_table,
         const char *dst, char mask,

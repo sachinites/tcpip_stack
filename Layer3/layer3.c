@@ -49,6 +49,7 @@
 #include "../mtrie/mtrie.h"
 #include "../pkt_block.h"
 #include "../prefix-list/prefixlst.h"
+#include "FireWall/Connection/conn.h"
 
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
@@ -79,13 +80,13 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
     char dest_ip_str[16];
     dest_ip_str[15] = '\0';
-    char *intf_addr = NULL;
+    c_string intf_addr = NULL;
 
     dst_ip = htonl(dst_ip);
     inet_ntop(AF_INET, &dst_ip, dest_ip_str, 16);
 
     /*checking with node's loopback address*/
-    if(strncmp(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
+    if(string_compare(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
         return true;
 
     /*checking with interface IP Addresses*/
@@ -102,7 +103,7 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
         intf_addr = IF_IP(intf);
 
-        if(strncmp(intf_addr, dest_ip_str, 16) == 0)
+        if(string_compare(intf_addr, dest_ip_str, 16) == 0)
             return true;
     }
     return false;
@@ -128,7 +129,6 @@ layer3_ip_route_pkt(node_t *node,
 					           pkt_block_t *pkt_block) {
 
     int8_t nf_result;
-    pkt_size_t pkt_size;
     char *l4_hdr, *l5_hdr;
     char dest_ip_addr[16];
     ip_hdr_t *ip_hdr = NULL;
@@ -139,7 +139,7 @@ layer3_ip_route_pkt(node_t *node,
 
     ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
 
-    tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, dest_ip_addr);
+    tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, (c_string)dest_ip_addr);
 
     nf_result = nf_invoke_netfilter_hook(
             NF_IP_PRE_ROUTING,
@@ -343,7 +343,7 @@ layer3_ip_route_pkt(node_t *node,
 void
 init_rt_table(node_t *node, rt_table_t **rt_table){
 
-    *rt_table = XCALLOC(0, 1, rt_table_t);
+    *rt_table = (rt_table_t *)XCALLOC(0, 1, rt_table_t);
     
     init_mtrie (&(*rt_table)->route_list, 32, NULL);
 
@@ -360,7 +360,7 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
 
 /* MP Unsafe */
 l3_route_t *
-rt_table_lookup_exact_match(rt_table_t *rt_table, char *ip_addr, char mask){
+rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask){
     
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
@@ -398,7 +398,6 @@ clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
     glthread_t *curr;
-    nexthop_t *nexthop;
     l3_route_t *l3_route;
     mtrie_node_t *mnode;
 
@@ -467,7 +466,7 @@ l3_route_get_active_nexthop(l3_route_t *l3_route){
 void
 rt_table_delete_route(
         rt_table_t *rt_table, 
-        char *ip_addr,
+        c_string ip_addr,
         char mask,
         uint16_t proto_id){
 
