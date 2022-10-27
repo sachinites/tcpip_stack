@@ -1,0 +1,809 @@
+conf node R2 pro isis 
+cd
+conf node R2 acc ac1 permit ip
+show node R2 acc
+conf node R2 acc acl1 permit ip
+show node R2 acc
+conf node R2 pro isis 
+conf node R2 access-list acl1 deny ip
+conf node R2 access-list acl1 permit ip 0.0.0.0 0.0.0.0 122.1.1.1 255.0.0.0
+show help
+cls
+show node R0 rt
+show node R2 rt
+cls
+show help
+cls
+show node R2 rt
+?
+.
+?
+.
+show help
+?
+cls
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+cls
+show node R2 rt
+show node R2 rt
+show node R2 rt
+.
+conf node R2 access-l acl1 /
+.
+?
+?
+.
+?
+?
+permit ?
+udp /
+?
+host 122.1.1.3
+cd
+show node R2 access
+conf node R2 access-l acl1 permit udp host 122.1.1.3
+show node R2 access-l
+conf node R2 access-list acl1 permit udp 
+show node R2 access-l
+conf node R2  access-list acl1 permit udp
+conf node R2 access-list acl1 permit udp 
+conf node R2 access-l acl1 permit udp
+show node R2 access-l
+ conf node R2 access-l acl1 permit udp
+conf node R2 access-l acl1 permit udp
+conf node R2 no access-l acl1 permit udp
+cls
+show help
+cls
+show node R2 rt
+cls
+conf node R2 /
+access-l acl1 permit /
+?
+any
+cd
+show node R2 access-l
+conf node R2 access-l acl1 permit udp 122.1.1.0 255.255.255.0 range 10 100 10.1.1.0 255.255.255.0 lt 500
+show node R2 access-l
+.
+conf node R2 access-l /
+acl1 /
+?
+.
+cd
+cls
+show help
+cls
+show help
+show node R2 /
+?
+cd
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+show node R2 pro isis adj
+show node R2 pro isis ls
+show node R2 pro isis ls
+show node R3 pro isis ls
+show node R2 rt
+conf node R2 /
+.
+access-l acl1 /
+.
+cd
+conf node R2 ne obj1 host 1.1.1.1
+conf node R2 ne /
+obj2 host 2.2.2.2
+obj3 host 3.3.3.3
+cd
+show node R2 ne
+cls
+show help
+cls
+show node R2 rt
+?
+cls
+.
+cls
+?
+?
+
+
+cls
+?
+cls
+?
+?
+.
+cls
+conf node R2 obj obj1 range 10.1.2.3 128.1.2.3
+ conf node R2 obj obj2 range 224.0.0.1 239.255.255.255
+conf node R2 /
+access-l acl1 permit udp ne obj1 range 200 60000 ne obj2 range 200 60000
+cd
+show node R2 acc
+conf node R2 obj ?
+obj1 range 10.1.2.4 128.1.2.4
+cd
+show node R2 acc
+show node R2 ne
+conf node R2 /
+access-list acl1 permit udp network-object obj2 range 200 60000 network-object obj1 range 200 60000
+cls
+conf node R2 /
+?
+?
+object multicast-prefixes range 224.0.0.0 239.255.255.255
+access-l block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 ne multicast-prefixes lt 100
+do show node R2 acc
+access-list block-mcast-traffic permit any
+ do show node R2 acc
+do show node R2 ne
+no access-list block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 network-object multicast-prefixes lt 100
+ do show node R2 ne
+do show node R2 acc
+access-list block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 network-object multicast-prefixes
+do show node R2 acc
+cd
+conf node R2 access-l acl1 permittance ip
+conf node R2 access-l acl1 permitt ip
+show node R2 acc
+conf node R2 access-l acl1 permitt ip
+show help
+cls
+show node R2 rt
+cls
+conf node R2 /
+access-l acl1 ?
+?
+.
+?
+cd
+show node R2 ?
+cd
+conf node R2 ?
+cd
+?
+.
+cls
+conf cons name FireWall
+?
+cls
+cls
+?
+cls
+conf cons name Cisco-ASA
+cls
+show node R2 rt
+?
+cls
+.
+cls
+cls
+?
+cls
+?
+.
+cls
+
+
+.
+cd
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000   
+conf node R2 access-list acl1 2 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+conf node R2 access-list acl1 3 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+show node R2 acc
+show node R2 acc
+conf node R2 access-l acl1 ?
+1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 200 500
+1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 250 400
+1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 300 350
+1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 330 340
+1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 eq 335
+do show node R2 acc
+cd
+conf node R2 access-l acl1 ?
+1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 200 500
+2 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 250 400
+3 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 300 350
+4 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 330 340
+5 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 330 340
+6 deny udp
+cd
+show node R2 acc
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+show node R2 acc
+conf node R2 no access-list acl1 5
+ show node R2 acc
+show node R2 pro isis ls
+show node R2 rt
+conf node R2 access-g acl1 in interface eth3
+show node R2 acc
+conf node R2 access-list acl1 4 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 eq 335
+ show node R2 acc
+show node R2 acc
+deb show node R2 access-l acl1 ?
+tcam
+cd
+show node R2 acc
+deb show node R2 access-l acl1 tcam
+show node R2 acc
+conf node R2 no access-l acl1
+conf node R2 ?
+no access-g acl1 in interface eth3
+no access-l acl1
+conf node R2 ?
+access-list acl1 1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 eq 335
+access-list acl1 2 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 330 340 
+access-list acl1 3 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 300 350
+access-list acl1 4 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 250 400 
+access-list acl1 5 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 200 500
+access-list acl1 6 deny udp
+cd
+show node R2 acc
+show node R2 acc
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+show node R2 acc
+conf node R2 access-l acl2 ?
+1 permit udp 0.0.0.0 0.0.0.0 eq 32
+cd
+conf node R2 obj all-ips range 0.0.0.0 255.255.255.255
+conf node R2 access-l acl2 2 permit udp obj all-ips eq 32
+show node R2 acc
+conf node R2 access-l acl2 0 deny udp 
+show node R2 acc
+conf node R2 ?
+access-list acl1 1 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 eq 335
+access-list acl1 4 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 250 400 
+access-list acl1 5 permit udp 0.0.0.0 0.0.0.0 0.0.0.0 0.0.0.0 range 200 500 
+cd
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000   
+conf node R2 access-list acl1 2 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000
+show node R2 acc
+show node R2 acc
+conf node R2 no access-l acl1
+?
+cls
+conf node R2 access-l acl1 ?
+?
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+0 permit ip
+cd
+show node R2 acc
+conf node R2 no access-l acl1
+cls
+conf node R2 ?
+cls
+access-l acl1 ?
+.
+1 permit ?
+.
+cd
+show help
+show node R2 rt
+?
+cls
+.
+cls
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000   
+conf node R2 access-list acl1 2 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+show node R2 rt
+show node R2 access-l
+show node R2 obj
+?
+cls
+.
+cls
+?
+.
+cls
+con node R2 access-l acl1 1 permit any
+deb show node R2 access-l acl1 ?
+tc
+cd
+con node R2 access-l acl1 1 permit any host 0.0.0.1 eq 1 host 0.0.0.1 eq 1
+con node R2 access-l acl1 1 permit udp  host 0.0.0.1 eq 1 host 0.0.0.1 eq 1
+ deb show node R2 access-l acl1 tc
+ deb show node R2 access-l acl1 tc
+show node R2 access-l
+?
+.
+?
+run node R1 res 20.1.1.2
+show node R1 arp
+show node R2 acc
+?
+cls
+.
+cls
+?
+show node R2 acc
+?
+cls
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+cls
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+cls
+show node R2 rt
+show node R2 rt
+?
+cls
+.
+cls
+show node R2 ?
+pro isis 
+pro isis ls
+cls
+cd
+show node R2 rt
+?
+cls
+conf node R2 access-l acl1 1 ?
+deny udp host 122.1.1.3
+permit udp 122.1.1.0 255.255.255.0
+deny any
+cd
+show node R2 acc
+conf node R2 no access-list acl1 2
+conf node R2 access-list acl1 3 deny any
+show node R2 acc
+run node R1 ping 122.1.1.3
+conf node R2 access-g acl1 in interface eth3
+run node R1 ping 122.1.1.3
+show node R2 acc
+show node R2 acc
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+conf node R2 access-l acl1 ?
+1 deny udp 0.0.0.0 0.0.0.0 host 122.1.1.3
+2 permit udp 0.0.0.0 0.0.0.0 122.1.1.0 255.255.255.0
+3 deny any
+cd..
+cd..
+access-g acl1 in interface eth3
+cd
+show node R2 access-l 
+run node R1 ping 122.1.1.3
+show node R2 access-l 
+conf node R2 access-l acl1 2 permit icmp 
+show node R2 access-l 
+run node R1 ping 122.1.1.3
+show node R2 access-l 
+deb show node R2 access-l acl1 tc
+run node R1 ping 122.1.1.3
+show node R2 access-l
+show node R2 access-l
+conf node R2 no access-l acl1
+cls
+show node R2 acc
+conf node R2 access-l acl2 1 permit any
+conf node R2 access-l acl2 2 permit icmp 122.1.1.0 255.255.255.0 host 122.1.1.3
+show node R2 acc
+conf node R2 no access-g acl1 in interface eth3
+conf node R2 access-g acl2 in inter eth3
+show node R2 acc
+run node R1 ping 122.1.1.3
+show help
+cls
+show node R2 rt
+?
+cls
+?
+cls
+cls
+?
+cls
+?
+cls
+.
+cls
+?
+?
+.
+?
+cls
+?
+conf node R2 /
+access-l acl1 1 ?
+permit ?
+icmp ?
+cd
+?
+cls
+?
+cls
+?
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000   
+conf node R2 access-list acl1 2 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+conf node R2 access-list acl1 3 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+cls
+?
+cls
+show node R2 access-l
+conf node R2 access-l acl1 4 deny any
+show node R2 access-l
+?
+.
+?
+cls
+show help
+?
+cls
+?
+.
+?
+?
+cls
+show node R2 rt
+show node R2 rt
+?
+cls
+show node R2 rt
+?
+cls
+show node R2 rt
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+cls
+show node R2 rt
+cls
+show node R2 rt
+cls
+show node R2 rt
+?
+cls
+show node R2 rt
+cls
+show node R2 rt
+cls
+?
+?
+.
+conf node R2 /
+cd
+show node R2 rt
+cls
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000  
+show node R2 object 
+show node R2 access
+conf node R2 no access-l acl 1
+conf node R2 no access-l acl1 1
+ conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254 
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254 
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 no access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 no access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 no access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+ conf node R2 no access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000   
+conf node R2 access-list acl1 2 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+conf node R2 access-list acl1 3 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000
+show node R2 acc
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000   
+conf node R2 access-list acl1 2 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000 
+conf node R2 access-list acl1 3 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 34000
+show node R2 acc
+show help
+cls
+conf node R2 object-network obj1 range 10.1.1.1 231.255.255.254
+conf node R2 access-list acl1 1 permit udp object-network obj1 range 200 44000 object-network obj1 range 200 44000  
+show node R2 acc
+conf node R2 no access-list acl1 1
+show help
+cls
+cls
+?
+cls
+show help
+cls
+show node R2 ?
+?
+cd
+conf node R2 /
+object-network multicast-prefixes range 224.0.0.1 239.255.255.255
+?
+do show node R2 obje
+?
+?
+?
+pro isis ?
+/
+?
+cd
+show node R2 pro isis
+show node R2 /
+pro isis /
+?
+e
+spf
+?
+adj
+ls
+ls
+adj
+conf node R2 /
+access-l acl1 1 permit any
+?
+cls
+.
+cls
+?
+cls
+.
+cls
+?
+show node R2 rt
+cls
+show node R2 rt
+?
+cls
+?
+cls
+.
+cls
+?
+cls
+cls
+show help
+cls
+?
+cls
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+cls
+show node R2 pro isis ls
+cls
+show node R2 pro isis ls
+cls
+?
+cls
+.
+cls
+show node R2 pro isis ls
+show node R2 rt
+cls
+conf node R2 ?
+access-l acl1 1 permit udp 
+cd
+show node R2 acc
+conf node R2 no  access-l acl1
+cls
+conf node R2 /
+obj obj1 range 1.1.1.1 192.168.45.66
+access-l acl1 1 permit udp obj obj1 range 22 62345 obj obj1  range 22 62345
+do show node R2 acc
+access-list acl1 2 permit tcp object-network obj1 range 221 62345 object-network obj1 range 221 62345
+do show node R2 acc
+deb show mem de
+show help
+cls
+show node R2 rt
+cls
+?
+cls
+?
+cls
+.
+cls
+?
+cls
+show node R2 rt
+?
+cls
+cls
+deb show mem de
+conf node R2 /
+access-l acl1 1 permit any
+cd
+deb show mem de
+conf node R2 no access-l acl1
+deb show mem de
+deb show mem
+show help
+cls
+show node R2 ?
+.
+?
+cls
+.
+arp
+mac
+rt
+?
+o
+pro isis ?
+/
+/
+/
+/
+cd
+conf node R2 pro isis
+show node R2 pro isis
+show node R2 pro isis 
+cls
+?
+.
+?
+show help
+cls
+show help
+cls
+show node R2 rt
+?
+cls
+.
+cls
+deb show node R2 ?
+cd
+show node R2 access
+?
+?
+cls
+show help
+cls
+?
+cls
+show node R2 rt
+?
+cls
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+deb show mem
+show help
+cls
+?
+.
+cls
+conf node R2 ?
+obj obj1 range 1.1.1.1 192.168.45.65
+cd
+conf node R2 access-l acl1 1 permit udp obj obj1 range 200 64320
+show node R2 acc
+show node R2 acc
+cls
+?
+cls
+show node R2 acc
+deb show mem
+cls
+cls
+show node R2 acc
+conf node R2 no  access-list acl1 
+?
+cls
+show node R2 access-l
+?
+cls
+show help
+cls
+show node R2 acc
+conf node R2 ?
+cd
+?
+cls
+conf node R2 ?
+cls
+?
+?
+cls
+cd
+?
+
+
+show help
+cls
+conf node R2 obj obj1 range 1.1.1.1 231.45.123.45
+conf node R2 access-l acl1 1 permit udp obj obj1 range 22 45324 obj obj1 range 22 45324 
+show node R2 acc
+conf node  R2 access-l acl1 ?
+2 permit tcp object-network obj1 range 22 45324 object-network obj1 range 22 45324
+do show node R2 acc
+3 deny any
+cd
+show node R2 acc
+show node R2 obj
+conf node R2 ?
+object-network obj1 range 1.1.1.1 221.45.123.46
+cd
+show node R2 acc
+conf node R2 object-network obj1 range 1.1.1.1 231.45.123.45
+show node R2 acc
+conf node R2 no access-l acl1 
+conf node R2 ?
+ access-list acl1 1 permit udp object-network obj1 range 22 45324 object-network obj1 range 22 45324
+access-list acl1 2 permit tcp object-network obj1 range 22 45324 object-network obj1 range 22 45324  
+no access-l acl1
+access-list acl1 1 permit udp object-network obj1 range 22 45324 object-network obj1 range 22 45324
+access-list acl1 2 permit tcp object-network obj1 range 22 45324 object-network obj1 range 22 45324
+do show node R2 acc
+no  access-list acl1 2 
+no  access-list acl1 1
+show help
+cls
+show help
+cls
+?
+cls
+show node R2 rt
+?
+cls
+show node R4 rt
+cls
+show node R2 rt
+?
+.
+cls
+deb show mem
+deb show mem
+deb show mem
+deb show mem de
+cls
+?
+cls
+cls
+show node R2 rt
+cls
+?
+cls
+.
+cls
+?
+cls
+?
+cls
+deb show .
+deb show node R2 mtr rt
+show node R2 rt
+cls
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+deb show mem
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+cls
+?
+cls
+show node R2 rt
+show node R2 pro isis ls
+show node R2 rt
+show node R1 rt
+conf node R2 no pro isis
+show node R2 rt
+conf node R2 pro isis /
+interface all
+cd
+show node R2 rt
+show node R2 rt
+show node R0 rt
+show node R2 pro isis
+show node R2 rt
+conf node R2 no pro isis
+show node R2 rt
+conf node R1 no pro isis
+deb show mem 
+deb show mem
+run ut Layer5/isis/isis_config_sample_cross_link_topology.txt 0
+show node R2 rt
+
+
+show node R2 pro isis ls
+show node R2 rt
+conf node R2 no pro isis
+show node R2 pro isis

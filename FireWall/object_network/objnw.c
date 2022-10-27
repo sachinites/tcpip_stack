@@ -47,7 +47,7 @@ network_object_create_new (const char *name, obj_nw_type_t type) {
     obj_nw->type = type;
     strncpy((char *)obj_nw->name, name, OBJ_NETWORK_NAME_LEN);
     obj_nw->name[OBJ_NETWORK_NAME_LEN] = '\0';
-    obj_nw->db = (obj_nw_linkage_db_t *)XCALLOC(0, 1, obj_nw_linkage_db_t);
+    obj_nw->db = NULL;
     return obj_nw;
 }
 
