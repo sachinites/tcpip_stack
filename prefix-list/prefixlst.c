@@ -22,7 +22,7 @@ prefix_lst_lookup_by_name (pfxlst_db *pfxlstdb, unsigned char *pfxlst_name) {
 
         prefix_lst = glue_to_pfx_lst(curr);
         
-        if (strncmp(prefix_lst->name, pfxlst_name, PFX_LST_NAME_LEN) == 0) {
+        if (string_compare(prefix_lst->name, pfxlst_name, PFX_LST_NAME_LEN) == 0) {
             return prefix_lst;
         }
 
@@ -271,13 +271,20 @@ prefix_lst_config_handler (param_t *param,
             if (prefix_list_del_rule(prefix_lst, seq_no)) {
                 prefix_list_notify_clients(node, prefix_lst);
                 if (IS_GLTHREAD_LIST_EMPTY(&prefix_lst->pfx_lst_head)) {
-                    prefix_list_dereference(prefix_lst);
+                    if (!prefix_list_is_in_use(prefix_lst))
+                    {
+                        remove_glthread(&prefix_lst->glue);
+                        prefix_list_dereference(prefix_lst);
+                        printf("Delete Successful.\n");
+                    }
                 }
                 return 0;
             }
         } else {
 
-            if (prefix_list_dereference(prefix_lst) == 0) {
+            if (!prefix_list_is_in_use(prefix_lst)) {
+                remove_glthread(&prefix_lst->glue);
+                prefix_list_dereference(prefix_lst);
                 printf ("Delete Successful.\n");
             }
             else {

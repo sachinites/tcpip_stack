@@ -85,8 +85,16 @@ prefix_list_dereference (prefix_list_t *prefix_lst) {
 
     } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr) ;
 
+    assert(IS_GLTHREAD_LIST_EMPTY(&prefix_lst->glue));
+
     XFREE(prefix_lst);
     return 0;
+}
+
+static inline bool
+prefix_list_is_in_use (prefix_list_t *prefix_lst) {
+
+    return prefix_lst->ref_count > 1;
 }
 
 #endif 
