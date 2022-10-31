@@ -4,6 +4,7 @@
 #define __HASHTABLE_CWC22_H__
 
 struct hashtable;
+typedef  struct hashtable hashtable_t;
 
 /* Example of use:
  *

@@ -5,9 +5,9 @@
 #include <stdbool.h>
 #include "../../graph.h"
 #include "../../gluethread/glthread.h"
+#include "../../c-hashtable/hashtable.h"
 
 typedef struct node_ node_t;
-typedef  struct hashtable hashtable_t;
 
 #define OBJ_NETWORK_NAME_LEN    32
 
@@ -107,9 +107,6 @@ network_object_hashtable_print (hashtable_t *ht) ;
 
 void 
 object_network_print (obj_nw_t *obj_nw);
-
-void object_network_rebuild_all_dependent_acls(node_t *node, obj_nw_t *obj_nw);
-void object_network_rebuild_all_dependent_nats(node_t *node, obj_nw_t *obj_nw);
 
 bool
 object_network_apply_change_host_address(node_t *node, obj_nw_t *obj_nw, char *host_addr);

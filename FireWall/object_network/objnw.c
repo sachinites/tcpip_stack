@@ -185,9 +185,9 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
         
         obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
-        pthread_spin_lock(&acl_entry->access_lst->spin_lock);
+        pthread_rwlock_wrlock(&acl_entry->access_lst->acc_rw_lst_lock);
         acl_entry_uninstall(acl_entry->access_lst, acl_entry);
-        pthread_spin_unlock(&acl_entry->access_lst->spin_lock);
+        pthread_rwlock_unlock(&acl_entry->access_lst->acc_rw_lst_lock);
         
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
 
@@ -203,12 +203,15 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
 
         obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
-        acl_compile (acl_entry);
-        pthread_spin_lock(&acl_entry->access_lst->spin_lock);
-        acl_entry_install(acl_entry->access_lst, acl_entry);
-        pthread_spin_unlock(&acl_entry->access_lst->spin_lock);;
-        /* This may send repeated/redundant notification to clients for the same access list, hence, kick a job to send notification for each access list exactly once , instead of doing it synchronously. */
-        access_list_schedule_notification (node, acl_entry->access_lst);
+
+        if (access_list_should_compile(acl_entry->access_lst)) {
+            acl_compile(acl_entry);
+            pthread_rwlock_wrlock(&acl_entry->access_lst->acc_rw_lst_lock);
+            acl_entry_install(acl_entry->access_lst, acl_entry);
+            pthread_rwlock_unlock(&acl_entry->access_lst->acc_rw_lst_lock);
+            /* This may send repeated/redundant notification to clients for the same access list, hence, kick a job to send notification for each access list exactly once , instead of doing it synchronously. */
+            access_list_schedule_notification(node, acl_entry->access_lst);
+        }
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
     return true;
 }
@@ -229,8 +232,7 @@ object_network_apply_change_host_address(node_t *node, obj_nw_t *obj_nw, char *h
 
     if (!object_network_propogate_update(node, obj_nw)) {
         obj_nw->u.host = old_host_addr;
-        object_network_rebuild_all_dependent_acls(node, obj_nw);
-        object_network_rebuild_all_dependent_nats(node, obj_nw);
+        object_network_propogate_update(node, obj_nw);
         return false;
     }
     return true;
@@ -260,8 +262,7 @@ object_network_apply_change_subnet (node_t *node,
     if (!object_network_propogate_update(node, obj_nw)) {
          obj_nw->u.subnet.network = old_subnet_addr;
          obj_nw->u.subnet.subnet = old_subnet_mask;
-         object_network_rebuild_all_dependent_acls(node, obj_nw);
-         object_network_rebuild_all_dependent_nats(node, obj_nw);
+        object_network_propogate_update(node, obj_nw);
         return false;
     }
     return true;
@@ -288,41 +289,10 @@ object_network_apply_change_range (node_t *node,
     if (!object_network_propogate_update(node, obj_nw)) {
          obj_nw->u.range.lb = old_lb;
          obj_nw->u.range.ub =old_ub;
-        object_network_rebuild_all_dependent_acls(node, obj_nw);
-        object_network_rebuild_all_dependent_nats(node, obj_nw);
+        object_network_propogate_update(node, obj_nw);
         return false;
     }
     return true;
-}
-
-/* Unused functions below */
-void
-object_network_rebuild_all_dependent_acls(node_t *node, obj_nw_t *obj_nw) {
-
-    uint32_t seq_no;
-    glthread_t *curr;
-    acl_entry_t *acl_entry;
-    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
-
-    if (!obj_nw->db) return;
-
-     seq_no = rand();
-
-     ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
-
-        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
-        acl_entry = obj_nw_linked_acl_thread_node->acl;
-        if (acl_entry->access_lst->seq_no_update == seq_no) continue;
-        acl_entry->access_lst->seq_no_update = seq_no;
-        assert(access_list_reinstall (node, acl_entry->access_lst));
-        access_list_schedule_notification (node, acl_entry->access_lst) ;
-    } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
-}
-
-void
-object_network_rebuild_all_dependent_nats(node_t *node, obj_nw_t *obj_nw) {
-
-    //printf ("%s() called ....\n", __FUNCTION__);
 }
 
 void

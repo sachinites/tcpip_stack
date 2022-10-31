@@ -151,9 +151,10 @@ struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
     glthread_t head; // list of acl_entry_t in this access list
     glthread_t glue; // glues into node->access_list. A node can have many access lists
-    pthread_spinlock_t spin_lock;
+    pthread_rwlock_t acc_rw_lst_lock;
     mtrie_t *mtrie;     // Mtrie for this access list
     uint8_t ref_count; // how many sub-systems using this access list
+    uint8_t intf_applied_ref_cnt;
     uint32_t seq_no_update; /* Used to avoid Duplicate update */
     uint32_t show_cli_seq;
     task_t *notif_job; /* Used when notification is to be sent async to appln */
@@ -181,6 +182,11 @@ void access_list_check_delete(access_list_t *access_list);
 void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
 void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry) ;
 bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
+bool access_list_is_compiled (access_list_t *access_list);
+void access_list_compile (access_list_t *access_list);
+void access_list_decompile (access_list_t *access_list) ;
+bool access_list_should_decompile (access_list_t *access_list) ;
+bool access_list_should_compile (access_list_t *access_list) ;
 void acl_compile (acl_entry_t *acl_entry);
 
 acl_action_t

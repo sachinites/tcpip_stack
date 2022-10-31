@@ -539,7 +539,7 @@ acl_create_new_access_list(char *access_list_name) {
     strncpy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
-    pthread_spin_init (&acc_lst->spin_lock, PTHREAD_PROCESS_PRIVATE);
+    pthread_rwlock_init(&acc_lst->acc_rw_lst_lock, NULL);
     acc_lst->mtrie = (mtrie_t *)XCALLOC(0, 1, mtrie_t);
     init_mtrie(acc_lst->mtrie, ACL_PREFIX_LEN, access_list_mtrie_app_data_free_cbk);
     acc_lst->ref_count = 0;
@@ -595,7 +595,7 @@ access_list_add_acl_entry (
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->glue));
     assert(!access_list->mtrie);
     assert(access_list->ref_count == 0);
-    pthread_spin_destroy (&access_list->spin_lock);
+    assert(access_list->intf_applied_ref_cnt == 0);
     XFREE(access_list);
  }
 
@@ -616,12 +616,14 @@ acl_process_user_config (node_t *node,
         new_access_list = true;
     }
 
-    acl_compile (acl_entry);
     access_list_add_acl_entry (access_list, acl_entry);
 
-    pthread_spin_lock(&access_list->spin_lock);
-    acl_entry_install (access_list, acl_entry);
-    pthread_spin_unlock(&access_list->spin_lock);
+    if (access_list_is_compiled(access_list)) {
+        pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
+        acl_compile(acl_entry);
+        acl_entry_install(access_list, acl_entry);
+        pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
+    }
 
     if (new_access_list) {
         glthread_add_next (&node->access_lists_db, &access_list->glue);
@@ -658,34 +660,11 @@ access_list_delete_complete(access_list_t *access_list) {
 
     remove_glthread(&access_list->glue);
     access_list->ref_count--;
-    pthread_spin_destroy(&access_list->spin_lock);
+    pthread_rwlock_destroy(&access_list->acc_rw_lst_lock);
     access_list_check_delete(access_list);
     printf ("Access List Deleted\n");
 }
 
-
-/* Mgmt Functions */
-void 
-access_list_attach_to_interface_ingress(interface_t *intf, char *acc_lst_name) {
-
-    access_list_t *acc_lst = access_list_lookup_by_name(intf->att_node, acc_lst_name);
-
-    if (!acc_lst) {
-        printf ("Error : Access List not configured\n");
-        return;
-    }
-
-    if (intf->intf_nw_props.l3_ingress_acc_lst) {
-        printf ("Error : Access List already applied to interface\n");
-        return;
-    }
-
-    pthread_spin_lock(&intf->intf_nw_props.spin_lock_l3_ingress_acc_lst);
-    intf->intf_nw_props.l3_ingress_acc_lst = acc_lst;
-    pthread_spin_unlock(&intf->intf_nw_props.spin_lock_l3_ingress_acc_lst);
-
-    access_list_reference(acc_lst);
-}
 
 void access_list_reference(access_list_t *acc_lst) {
 
@@ -768,7 +747,7 @@ access_list_evaluate (access_list_t *acc_lst,
 
     bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
 
-    pthread_spin_lock (&acc_lst->spin_lock);
+    pthread_rwlock_rdlock(&acc_lst->acc_rw_lst_lock);
 
     hit_node = mtrie_longest_prefix_match_search(
                             acc_lst->mtrie, &input);
@@ -790,7 +769,7 @@ access_list_evaluate (access_list_t *acc_lst,
     goto done;
 
     done:
-    pthread_spin_unlock (&acc_lst->spin_lock);
+    pthread_rwlock_unlock(&acc_lst->acc_rw_lst_lock);
     bitmap_free_internal(&input);
     return action;
 }
@@ -810,8 +789,16 @@ access_list_evaluate_ip_packet (node_t *node,
 
     access_list_t *access_lst;
 
+    pthread_spinlock_t *spin_lock = ingress ?
+        &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst:
+        &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
+
+    pthread_spin_lock(spin_lock);
+    
     access_lst = ingress ? intf->intf_nw_props.l3_ingress_acc_lst :
                         intf->intf_nw_props.l3_egress_acc_lst;
+
+    pthread_spin_unlock(spin_lock);
 
     if (!access_lst) return ACL_PERMIT;
 
@@ -878,8 +865,13 @@ access_group_config(node_t *node,
         return -1;
     }
 
+    if (!access_list_is_compiled(acc_lst)) {
+        access_list_compile(acc_lst);
+    }
+
     pthread_spin_lock(spin_lock);
     *configured_access_lst = acc_lst;
+    acc_lst->intf_applied_ref_cnt++;
     access_list_reference(acc_lst);
     pthread_spin_unlock(spin_lock);
     return 0;
@@ -912,10 +904,20 @@ access_group_unconfig(node_t *node,
         return -1;
     }
 
+    access_list_reference(acc_lst);
+
     pthread_spin_lock(spin_lock);
     *configured_access_lst = NULL;
     access_list_dereference(acc_lst);
     pthread_spin_unlock(spin_lock);
+
+    acc_lst->intf_applied_ref_cnt--;
+
+    if (access_list_should_decompile(acc_lst)) {
+        access_list_decompile (acc_lst) ;
+    }
+
+    access_list_dereference(acc_lst);
     return 0;
 }
 
@@ -1275,7 +1277,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
     obj_nw_t *obj_nw;
     acl_entry_t *acl_entry;
 
-    pthread_spin_lock(&access_list->spin_lock);
+    pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
 
     if (access_list->mtrie) {
         mtrie_destroy(access_list->mtrie);
@@ -1295,7 +1297,7 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
 
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
     
-    pthread_spin_unlock(&access_list->spin_lock);
+    pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
     return true;
 }
 
@@ -1350,7 +1352,7 @@ void
     
     if (!access_list) return;
 
-     pthread_spin_lock(&access_list->spin_lock);
+     pthread_rwlock_rdlock(&access_list->acc_rw_lst_lock);
 
      ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -1359,7 +1361,7 @@ void
 
        }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
-     pthread_spin_unlock(&access_list->spin_lock);
+     pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
  }
 
 static void
@@ -1442,15 +1444,67 @@ access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq
     
     if (!acl_entry) return false;
 
-    pthread_spin_lock (&access_list->spin_lock);
+    pthread_rwlock_rdlock(&access_list->acc_rw_lst_lock);
     acl_entry_uninstall(access_list, acl_entry);
     curr = glthread_get_next (&acl_entry->glue);
     remove_glthread(&acl_entry->glue);
     access_list_reenumerate_seq_no (access_list, curr);
-    pthread_spin_unlock (&access_list->spin_lock);
+    pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
     acl_entry_free(acl_entry);
-
     return true;
+}
+
+bool 
+access_list_should_decompile (access_list_t *access_list) {
+
+    return (access_list->intf_applied_ref_cnt == 0);
+}
+
+bool 
+access_list_should_compile (access_list_t *access_list) {
+
+    return (access_list->intf_applied_ref_cnt != 0);
+}
+
+bool 
+access_list_is_compiled (access_list_t *access_list) {
+
+    if (access_list->mtrie && 
+            !mtrie_is_leaf_node(access_list->mtrie->root)) {
+        
+        return true;
+     }
+     return false;
+}
+
+void 
+access_list_compile (access_list_t *access_list) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+
+    ITERATE_GLTHREAD_BEGIN(&access_list->head, curr)
+    {
+        acl_entry = glthread_to_acl_entry(curr);
+        acl_compile(acl_entry);
+        acl_entry_install(access_list, acl_entry);
+    }
+    ITERATE_GLTHREAD_END(&access_list->head, curr);
+}
+
+void 
+access_list_decompile (access_list_t *access_list) {
+
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+
+    ITERATE_GLTHREAD_BEGIN(&access_list->head, curr)
+    {
+        acl_entry = glthread_to_acl_entry(curr);
+         acl_entry_uninstall(access_list, acl_entry);
+         acl_decompile(acl_entry);
+    }
+    ITERATE_GLTHREAD_END(&access_list->head, curr);
 }
 
 void 
