@@ -23,12 +23,16 @@ extern void pkt_tracer_mem_init ();
 extern void acl_mem_init();
 extern void object_network_mem_init () ;
 extern void prefix_list_mem_init ();
+extern void object_group_mem_init ();
 
 #include "Tree/libtree.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "gluethread/glthread.h"
 #include "mtrie/mtrie.h"
 #include "stack/stack.h"
+
+void
+tcp_stack_miscellaneous_mem_init() ;
 
 void
 tcp_stack_miscellaneous_mem_init() {
@@ -40,6 +44,8 @@ tcp_stack_miscellaneous_mem_init() {
     acl_mem_init();
     object_network_mem_init () ;
     prefix_list_mem_init ();
+    object_group_mem_init ();
+
     /* Library structures */
     MM_REG_STRUCT (0, avltree_t);
     MM_REG_STRUCT (0, avltree_node_t);

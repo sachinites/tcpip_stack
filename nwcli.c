@@ -58,7 +58,9 @@ extern void acl_build_config_cli(param_t *root) ;
 extern void acl_build_show_cli(param_t *root) ;
 extern void prefix_list_cli_config_tree (param_t *param);
 extern void network_object_build_config_cli (param_t *root) ;
+extern void object_group_build_config_cli (param_t *root) ;
 extern void network_object_build_show_cli (param_t *root) ;
+extern void object_group_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
 extern void access_list_print_bitmap(node_t *node, char *access_list_name);
 
@@ -1096,6 +1098,8 @@ nw_init_cli(){
                      prefix_list_cli_show_tree(&node_name);
                     /* Network Object Show CLIs */
                      network_object_build_show_cli (&node_name);
+                     /* Object Group Show CLIs*/
+                     object_group_build_show_cli (&node_name);
                  }
 
 				 {
@@ -1288,6 +1292,9 @@ nw_init_cli(){
 
             /* Object Network Config CLIs */
             network_object_build_config_cli (&node_name);
+
+            /*Object Group Config CLIs */
+            object_group_build_config_cli  (&node_name);
         }
 
         {

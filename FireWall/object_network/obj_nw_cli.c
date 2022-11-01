@@ -212,7 +212,8 @@ network_object_config_handler (param_t *param,
                         printf("Error : Network Object in Use\n");
                         return -1;
                     }
-                    assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
+                    assert(network_object_remove_from_ht_by_name(
+                            node->object_network_ght, nw_obj_name) == obj_nw);
                     if (!network_object_check_and_delete (obj_nw)) {
                         assert(0);
                     }

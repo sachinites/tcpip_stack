@@ -8,6 +8,7 @@
 #include "../../utils.h"
 #include "../../tcpconst.h"
 #include "../object_network/objnw.h"
+#include "../object_network/object_group.h"
 
 extern graph_t *topo;
 extern void
@@ -241,8 +242,8 @@ access_list_unconfig(node_t *node,
 
 static int
 acl_config_handler (param_t *param, 
-                  ser_buff_t *tlv_buf,   
-                  op_mode enable_or_disable) {
+                                 ser_buff_t *tlv_buf,   
+                                 op_mode enable_or_disable) {
 
     char ip[16];
     uint32_t seq_no = ~0;
@@ -264,6 +265,10 @@ acl_config_handler (param_t *param,
     char *access_list_name = NULL;
     char *obj_nw_name_src = NULL;
     char *obj_nw_name_dst = NULL;
+    object_group_t *obj_grp_src = NULL;
+    object_group_t *obj_grp_dst = NULL;
+    c_string obj_grp_name_src = NULL;
+    c_string obj_grp_name_dst = NULL;
 
     uint16_t src_port_no_eq = 0,
                   src_port_no_lt = 0,
@@ -308,6 +313,10 @@ acl_config_handler (param_t *param,
             obj_nw_name_src = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "object-network-name-dst"))
             obj_nw_name_dst = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "object-group-name-src"))
+            obj_grp_name_src = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "object-group-name-dst"))
+            obj_grp_name_dst = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "src-port-no-eq")) {
             src_port_no_eq = atoi(tlv->value);
             if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO)) {
@@ -395,6 +404,21 @@ acl_config_handler (param_t *param,
     if (obj_nw_name_dst) {
         if (!(obj_nw_dst = network_object_lookup_by_name(node->object_network_ght, obj_nw_name_dst))) {
             printf ("Error : Network Object %s do not exist\n", obj_nw_name_dst);
+            return -1;
+        }
+    }    
+
+    /* Validation checks */
+    if (obj_grp_name_src) {
+        if (!(obj_grp_src = object_group_lookup_ht_by_name(node, node->object_group_ght, obj_grp_name_src))) {
+            printf ("Error : Network Group Object %s do not exist\n", obj_grp_name_src);
+            return -1;
+        }
+    }
+
+    if (obj_grp_name_dst) {
+        if (!(obj_grp_dst = object_group_lookup_ht_by_name(node, node->object_group_ght, obj_grp_name_dst))) {
+            printf ("Error : Network Group Object %s do not exist\n", obj_grp_name_dst);
             return -1;
         }
     }    
@@ -567,7 +591,80 @@ acl_direction_validation(char *value) {
 }
 
 static void
-acl_build_config_cli_destination (param_t *root) {
+acl_build_config_cli_object_group_destination (param_t *root) {
+
+    param_t *obj_grp = (param_t *)calloc(1, sizeof(param_t));
+    init_param(obj_grp, CMD, "object-group", 0, 0, STRING, 0, "Network Object Group");
+    libcli_register_param(root, obj_grp);
+    {
+        /* access-list <name> <action> <proto> object-group <object-group-name>*/
+        param_t *obj_grp_name = (param_t *)calloc(1, sizeof(param_t));
+        init_param(obj_grp_name, LEAF, 0, acl_config_handler, 0, STRING, "object-group-name-dst", "specify Dst Network Object Group Name");
+        libcli_register_param(obj_grp, obj_grp_name);
+        set_param_cmd_code(obj_grp_name, ACL_CMD_CONFIG);
+        {
+            /* access-list <name> <action> <proto> object-group <object-group-name> eq ...*/
+            param_t *eq = (param_t *)calloc(1, sizeof(param_t));
+            init_param(eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
+            libcli_register_param(obj_grp_name, eq);
+            {
+                /* access-list <name> <action> <proto> object-group <object-group-name> eq <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-eq", "specify Dst Port Number");
+                libcli_register_param(eq, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> object-group <object-group-name> lt ...*/
+            param_t *lt = (param_t *)calloc(1, sizeof(param_t));
+            init_param(lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
+            libcli_register_param(obj_grp_name, lt);
+            {
+                /* access-list <name> <action> <proto> object-group <object-group-name> lt <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-lt", "specify Dst Port Number");
+                libcli_register_param(lt, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }
+        {
+            /* access-list <name> <action> <proto> object-group <object-group-name> gt ...*/
+            param_t *gt = (param_t *)calloc(1, sizeof(param_t));
+            init_param(gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
+            libcli_register_param(obj_grp_name, gt);
+            {
+                /* access-list <name> <action> <proto> object-group <object-group-name> lt <dst-port-no>*/
+                param_t *dst_port_no = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no-gt", "specify Dst Port Number");
+                libcli_register_param(gt, dst_port_no);
+                set_param_cmd_code(dst_port_no, ACL_CMD_CONFIG);
+            }
+        }        
+        {
+            /* access-list <name> <action> <proto> object-group <object-group-name> range ...*/
+            param_t *range = (param_t *)calloc(1, sizeof(param_t));
+            init_param(range, CMD, "range", 0, 0, INVALID, 0, "range p1 p2");
+            libcli_register_param(obj_grp_name, range);
+            {
+                /* access-list <name> <action> <proto> object-group <object-group-name> range <dst-port-no1>*/
+                param_t *dst_port_no1 = (param_t *)calloc(1, sizeof(param_t));
+                init_param(dst_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "dst-port-no1", "specify Dst Port Number Lower Bound");
+                libcli_register_param(range, dst_port_no1);
+                {
+                    /* access-list <name> <action> <proto> object-group <object-group-name> range <dst-port-no1> <dst-port-no2>*/
+                    param_t *dst_port_no2 = (param_t *)calloc(1, sizeof(param_t));
+                    init_param(dst_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "dst-port-no2", "specify Dst Port Number Upper Bound");
+                    libcli_register_param(dst_port_no1, dst_port_no2);
+                    set_param_cmd_code(dst_port_no2, ACL_CMD_CONFIG);
+                }
+            }
+        }
+    }
+}
+
+static void
+acl_build_config_cli_object_network_destination (param_t *root) {
 
     param_t *obj_nw = (param_t *)calloc(1, sizeof(param_t));
     init_param(obj_nw, CMD, "object-network", 0, 0, STRING, 0, "Network Object");
@@ -810,6 +907,89 @@ acl_build_config_cli(param_t *root) {
                     init_param(&proto, LEAF, 0, acl_config_handler, acl_proto_validation_cbk, STRING, "protocol", "specify protocol");
                     libcli_register_param(&action, &proto);
                     set_param_cmd_code(&proto, ACL_CMD_CONFIG);
+
+                    {
+                        /* access-list <name> <action> <proto> object-group ...*/
+                        static param_t obj_grp;
+                        init_param(&obj_grp, CMD, "object-group", 0, 0, INVALID, 0, "Network Object Group");
+                        libcli_register_param(&proto, &obj_grp);
+                        {
+                            /* access-list <name> <action> <proto> object-group <object-group-name>*/
+                            static param_t obj_grp_name;
+                            init_param(&obj_grp_name, LEAF, 0, acl_config_handler, 0, STRING, "object-group-name-src", "specify Src Network Object Group Name");
+                            libcli_register_param(&obj_grp, &obj_grp_name);
+                            set_param_cmd_code(&obj_grp_name, ACL_CMD_CONFIG);
+                            {
+                                /* access-list <name> <action> <proto> object-group <object-group-name> eq ...*/
+                                static param_t eq;
+                                init_param(&eq, CMD, "eq", 0, 0, INVALID, 0, "eq equal");
+                                libcli_register_param(&obj_grp_name, &eq);
+                                {
+                                    /* access-list <name> <action> <proto> object-group <object-group-name> eq <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
+                                    libcli_register_param(&eq, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
+                                }
+                            }
+                            {
+                                /* access-list <name> <action> <proto> object-group <object-group-name> lt ...*/
+                                static param_t lt;
+                                init_param(&lt, CMD, "lt", 0, 0, INVALID, 0, "lt less than");
+                                libcli_register_param(&obj_grp_name, &lt);
+                                {
+                                    /* access-list <name> <action> <proto> host <src-ip> lt <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no-lt", "specify Src Port Number");
+                                    libcli_register_param(&lt, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
+                                }
+                            }
+                            {
+                                /* access-list <name> <action> <proto> object-group <object-group-name> gt ...*/
+                                static param_t gt;
+                                init_param(&gt, CMD, "gt", 0, 0, INVALID, 0, "gt greater than");
+                                libcli_register_param(&obj_grp_name, &gt);
+                                {
+                                    /* access-list <name> <action> <proto> object-network <object-network-name> gt <src-port-no>*/
+                                    static param_t src_port_no;
+                                    init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
+                                    libcli_register_param(&gt, &src_port_no);
+                                    set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
+                                }
+                            }
+                            {
+                                /* access-list <name> <action> <proto> object-group <object-group-name> range ...*/
+                                static param_t range;
+                                init_param(&range, CMD, "range", 0, 0, INVALID, 0, "range <p1> <p2>");
+                                libcli_register_param(&obj_grp_name, &range);
+                                {
+                                    /* access-list <name> <action> <proto> object-group <object-group-name> range <src-port-no1>*/
+                                    static param_t src_port_no1;
+                                    init_param(&src_port_no1, LEAF, 0, NULL, acl_port_no_validation, INT, "src-port-no1", "specify Src Port Number Lower Bound");
+                                    libcli_register_param(&range, &src_port_no1);
+                                    {
+                                        /* access-list <name> <action> <proto> object-group <object-group-name> range <src-port-no1> <src-port-no2>*/
+                                        static param_t src_port_no2;
+                                        init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
+                                        libcli_register_param(&src_port_no1, &src_port_no2);
+                                        set_param_cmd_code(&src_port_no2, ACL_CMD_CONFIG);
+                                        acl_build_config_cli_object_network_destination(&src_port_no2);
+                                        acl_build_config_cli_object_group_destination(&src_port_no2);
+                                    }
+                                }
+                            }
+                            acl_build_config_cli_object_network_destination(&obj_grp_name);
+                            acl_build_config_cli_object_group_destination(&obj_grp_name);
+                        }
+                    }
+
                     {
                          /* access-list <name> <action> <proto> object-network...*/
                         static param_t obj_nw;
@@ -832,7 +1012,8 @@ acl_build_config_cli(param_t *root) {
                                       init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
                                       libcli_register_param(&eq, &src_port_no);
                                       set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                      acl_build_config_cli_destination(&src_port_no);
+                                      acl_build_config_cli_object_network_destination(&src_port_no);
+                                     acl_build_config_cli_object_group_destination(&src_port_no);
                                   }
                             }
                             {
@@ -846,7 +1027,8 @@ acl_build_config_cli(param_t *root) {
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no-lt", "specify Src Port Number");
                                     libcli_register_param(&lt, &src_port_no);
                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
                             }
                             {
@@ -860,7 +1042,8 @@ acl_build_config_cli(param_t *root) {
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
                                     libcli_register_param(&gt, &src_port_no);
                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
                             }  
                             {
@@ -879,11 +1062,13 @@ acl_build_config_cli(param_t *root) {
                                         init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
                                         libcli_register_param(&src_port_no1, &src_port_no2);
                                         set_param_cmd_code(&src_port_no2, ACL_CMD_CONFIG);
-                                        acl_build_config_cli_destination(&src_port_no2);
+                                        acl_build_config_cli_object_network_destination(&src_port_no2);
+                                        acl_build_config_cli_object_group_destination(&src_port_no2);
                                     }
                                 }
                             }
-                            acl_build_config_cli_destination(&obj_nw_name);
+                            acl_build_config_cli_object_network_destination(&obj_nw_name);
+                            acl_build_config_cli_object_group_destination(&obj_nw_name);
                         }
                     }
                     {
@@ -908,7 +1093,8 @@ acl_build_config_cli(param_t *root) {
                                       init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
                                       libcli_register_param(&eq, &src_port_no);
                                       set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                      acl_build_config_cli_destination(&src_port_no);
+                                      acl_build_config_cli_object_network_destination(&src_port_no);
+                                      acl_build_config_cli_object_group_destination(&src_port_no);
                                   }
                             }
                             {
@@ -922,7 +1108,8 @@ acl_build_config_cli(param_t *root) {
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, 0, INT, "src-port-no-lt", "specify Src Port Number");
                                     libcli_register_param(&lt, &src_port_no);
                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
                             }           
                             {
@@ -936,7 +1123,8 @@ acl_build_config_cli(param_t *root) {
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
                                     libcli_register_param(&gt, &src_port_no);
                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
                             }  
                             {
@@ -955,11 +1143,13 @@ acl_build_config_cli(param_t *root) {
                                         init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
                                         libcli_register_param(&src_port_no1, &src_port_no2);
                                         set_param_cmd_code(&src_port_no2, ACL_CMD_CONFIG);
-                                         acl_build_config_cli_destination(&src_port_no2);
+                                        acl_build_config_cli_object_network_destination(&src_port_no2);
+                                        acl_build_config_cli_object_group_destination(&src_port_no2);
                                     }
                                 }
                             }
-                            acl_build_config_cli_destination(&src_ip);
+                            acl_build_config_cli_object_network_destination(&src_ip);
+                            acl_build_config_cli_object_group_destination(&src_ip);
                         }
                     }
                     {
@@ -973,7 +1163,8 @@ acl_build_config_cli(param_t *root) {
                             init_param(&src_mask, LEAF, 0, acl_config_handler, 0, IPV4, "src-mask", "specify Src IPV4 Mask");
                             libcli_register_param(&src_ip, &src_mask);
                             set_param_cmd_code(&src_mask, ACL_CMD_CONFIG);
-                            acl_build_config_cli_destination(&src_mask);
+                            acl_build_config_cli_object_network_destination(&src_mask);
+                            acl_build_config_cli_object_group_destination(&src_mask);
                                {
                                  /* access-list <name> <action> <proto> <src-ip> <src-mask> eq ...*/
                                  static param_t eq;
@@ -985,7 +1176,8 @@ acl_build_config_cli(param_t *root) {
                                       init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-eq", "specify Src Port Number");
                                       libcli_register_param(&eq, &src_port_no);
                                       set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                      acl_build_config_cli_destination(&src_port_no);
+                                      acl_build_config_cli_object_network_destination(&src_port_no);
+                                      acl_build_config_cli_object_group_destination(&src_port_no);
                                   }
                             }
                             {
@@ -999,7 +1191,8 @@ acl_build_config_cli(param_t *root) {
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-lt", "specify Src Port Number");
                                     libcli_register_param(&lt, &src_port_no);
                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG );
-                                    acl_build_config_cli_destination(&src_port_no );
+                                    acl_build_config_cli_object_network_destination(&src_port_no );
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
                             }           
                             {
@@ -1013,7 +1206,8 @@ acl_build_config_cli(param_t *root) {
                                     init_param(&src_port_no, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no-gt", "specify Src Port Number");
                                     libcli_register_param(&gt, &src_port_no);
                                     set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
-                                    acl_build_config_cli_destination(&src_port_no);
+                                    acl_build_config_cli_object_network_destination(&src_port_no);
+                                    acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
                             }  
                             {
@@ -1032,7 +1226,8 @@ acl_build_config_cli(param_t *root) {
                                         init_param(&src_port_no2, LEAF, 0, acl_config_handler, acl_port_no_validation, INT, "src-port-no2", "specify Src Port Number Upper Bound");
                                         libcli_register_param(&src_port_no1, &src_port_no2);
                                         set_param_cmd_code(&src_port_no2, ACL_CMD_CONFIG);
-                                         acl_build_config_cli_destination(&src_port_no2);
+                                        acl_build_config_cli_object_network_destination(&src_port_no2);
+                                        acl_build_config_cli_object_group_destination(&src_port_no2);
                                     }
                                 }
                             }
