@@ -7,6 +7,7 @@
 #include "../../gluethread/glthread.h"
 #include "../../c-hashtable/hashtable.h"
 #include "../../c-hashtable/hashtable_itr.h"
+#include "objects_common.h"
 
 #define OBJ_GRP_NAME_LEN    128
 
@@ -39,26 +40,45 @@ object_group_type_str(og_type_t type) {
     return NULL;
 }
 
+typedef enum object_group_tcam_compilation_state_ {
+
+    OG_TCAM_STATE_NOT_COMPILED,
+    OG_TCAM_STATE_COMPILED
+} og_tcam_compilation_state_t;
+
 typedef struct object_group_ {
 
     uint32_t cycle_det_id;
     unsigned char og_name[OBJ_GRP_NAME_LEN];
-    uint32_t og_ref_count;
+    /* child og's do not contribute to this ref_count */
+    uint32_t ref_count;
     c_string og_desc;
     og_type_t og_type;
     union {
         uint32_t host;
         struct {
-            uint32_t addr;
-            uint32_t mask;
-        } addr;
+            uint32_t network;
+            uint32_t subnet;
+        } subnet;
         struct {
-            uint32_t lb_ip_addr;
-            uint32_t ub_ip_addr;
+            uint32_t lb;
+            uint32_t ub;
         } range;
         glthread_t nested_og_list_head;
     }u;
     glthread_t parent_og_list_head;
+
+    objects_linkage_db_t *db;
+
+    /* The below four members are valid only for LEAF OGs */
+    /* Tcam Data */
+    uint16_t count;
+    uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint32_t (*wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint16_t tcam_entry_users_ref_count;
+
+    og_tcam_compilation_state_t tcam_state;
+
 } object_group_t;
 
 typedef struct obj_grp_list_node_ {
@@ -66,6 +86,20 @@ typedef struct obj_grp_list_node_ {
     glthread_t glue;    
 }obj_grp_list_node_t;
 GLTHREAD_TO_STRUCT(glue_to_obj_grp_list_node, obj_grp_list_node_t, glue);
+
+void
+object_group_tcam_compile(object_group_t *og) ;
+void
+object_group_tcam_decompile(object_group_t *og) ;
+void
+object_group_dec_tcam_users_count (object_group_t *og);
+void
+object_group_inc_tcam_users_count (object_group_t *og);
+void
+object_group_borrow_tcam_data (object_group_t *og,
+                            uint8_t *count, 
+                            uint32_t (**prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],
+                            uint32_t (**wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT]);
 
 object_group_t *
 object_group_lookup_ht_by_name (node_t *node, hashtable_t *ht, c_string og_name);

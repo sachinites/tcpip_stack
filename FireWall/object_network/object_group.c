@@ -38,6 +38,187 @@ hashtable_t *object_group_create_new_ht() {
     return h;
 }
 
+void
+object_group_tcam_compile (object_group_t *og)  {
+
+    if (og->tcam_state == OG_TCAM_STATE_COMPILED) {
+        return;
+    }
+
+    switch(og->og_type) {
+
+        case OBJECT_GRP_NET_HOST:
+            og->count = 1;
+            assert(!og->prefix);
+            og->prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * og->count);
+            assert(!og->wcard);
+            og->wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * og->count);
+            (*og->prefix)[0] = htonl(og->u.host);
+            (*og->wcard)[0] = 0;          
+            og->tcam_state = OG_TCAM_STATE_COMPILED;  
+            break;
+        case OBJECT_GRP_NET_ADDR:
+            og->count = 1;
+            assert(!og->prefix);
+            og->prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * og->count);
+            assert(!og->wcard);
+            og->wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * og->count);
+            (*og->prefix)[0] = htonl(og->u.subnet.network & og->u.subnet.subnet);
+            (*og->wcard)[0] = htonl(~og->u.subnet.subnet);   
+            og->tcam_state = OG_TCAM_STATE_COMPILED;  
+            break;
+        case OBJECT_GRP_NET_RANGE:
+            assert(!og->prefix);
+            assert(!og->wcard);
+            og->prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*og->prefix));
+            og->wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*og->wcard));
+            range2_prefix_wildcard_conversion32(
+                og->u.range.lb,
+                og->u.range.ub,
+                og->prefix,
+                og->wcard,
+                (int *)&og->count);
+                og->tcam_state = OG_TCAM_STATE_COMPILED;  
+            break;
+        case OBJECT_GRP_NESTED:
+        {
+            glthread_t *curr;
+            obj_grp_list_node_t *obj_grp_list_node;
+
+            og->tcam_state = OG_TCAM_STATE_COMPILED;
+
+            ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
+
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                object_group_tcam_compile(obj_grp_list_node->og);
+
+            } ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
+
+        }
+            break;
+        case OBJECT_GRP_TYPE_UNKNOWN:
+            assert(0);
+        default: ;
+    }
+}
+
+void
+object_group_tcam_decompile(object_group_t *og) {
+
+    if (og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) return;
+
+    switch (og->og_type)
+    {
+    case OBJECT_GRP_NET_ADDR:
+    case OBJECT_GRP_NET_HOST:
+    case OBJECT_GRP_NET_RANGE:
+        assert(og->prefix);
+        assert(og->wcard);
+        XFREE(og->prefix);
+        XFREE(og->wcard);
+        og->count = 0;
+        og->prefix = NULL;
+        og->wcard = NULL;
+        og->tcam_state = OG_TCAM_STATE_NOT_COMPILED;
+        break;
+    case OBJECT_GRP_NESTED:
+    {
+        glthread_t *curr;
+        obj_grp_list_node_t *obj_grp_list_node;
+
+        og->tcam_state = OG_TCAM_STATE_NOT_COMPILED;
+
+        ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr)
+        {
+            obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+            object_group_tcam_decompile(obj_grp_list_node->og);
+        }
+        ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
+    }
+    break;
+    }
+}
+
+void
+object_group_dec_tcam_users_count (object_group_t *og) {
+
+    assert(og->tcam_entry_users_ref_count > 0);
+
+    switch(og->og_type) {
+        case OBJECT_GRP_NET_ADDR:
+        case OBJECT_GRP_NET_HOST:
+        case  OBJECT_GRP_NET_RANGE:
+            og->tcam_entry_users_ref_count--;
+            if (og->tcam_entry_users_ref_count == 0) {
+                assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
+                object_group_tcam_decompile(og);
+            }
+            break;
+        case OBJECT_GRP_NESTED:
+        {
+            glthread_t *curr;
+            obj_grp_list_node_t *obj_grp_list_node;
+
+            ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr)
+            {
+
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                object_group_dec_tcam_users_count(obj_grp_list_node->og);
+            }
+            ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
+        }
+        break;
+    }
+}
+
+void
+object_group_inc_tcam_users_count (object_group_t *og) {
+
+    assert(og->tcam_state ==  OG_TCAM_STATE_COMPILED);
+
+    switch(og->og_type) {
+        case OBJECT_GRP_NET_ADDR:
+        case OBJECT_GRP_NET_HOST:
+        case  OBJECT_GRP_NET_RANGE:
+            og->tcam_entry_users_ref_count++;
+            break;
+        case OBJECT_GRP_NESTED:
+        {
+            glthread_t *curr;
+            obj_grp_list_node_t *obj_grp_list_node;
+
+            ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr)
+            {
+
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                object_group_inc_tcam_users_count(obj_grp_list_node->og);
+            }
+            ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
+        }
+        break;
+    }
+}
+
+void
+object_group_borrow_tcam_data (object_group_t *og,
+                            uint8_t *count, 
+                            uint32_t (**prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],
+                            uint32_t (**wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT]) {
+
+    assert(og->tcam_state == OG_TCAM_STATE_NOT_COMPILED);
+    *count = og->count;
+    *prefix = og->prefix;
+    *wcard = og->wcard;
+    object_group_inc_tcam_users_count(og);
+}
+
+
 object_group_t *
 object_group_lookup_ht_by_name (node_t *node, 
                                                           hashtable_t *ht,
@@ -81,7 +262,7 @@ object_group_malloc (const c_string name, og_type_t og_type) {
     og = (object_group_t *)XCALLOC(0, 1, object_group_t);
     og->cycle_det_id = 0;
     string_copy(og->og_name, name, OBJ_GRP_NAME_LEN);
-    og->og_ref_count = 0;
+    og->ref_count = 0;
     og->og_desc = NULL;
     og->og_type = og_type;
     init_glthread(&og->parent_og_list_head);
@@ -226,6 +407,8 @@ void
  object_group_free (node_t *node, object_group_t *og) {
 
     assert(IS_GLTHREAD_LIST_EMPTY(&og->parent_og_list_head));
+    assert(!og->ref_count);
+    assert(!og->tcam_entry_users_ref_count);
 
     if (og->og_type == OBJECT_GRP_NESTED) {
         assert(IS_GLTHREAD_LIST_EMPTY(&og->u.nested_og_list_head));
@@ -246,6 +429,8 @@ object_group_delete (node_t *node, object_group_t *og) {
     obj_grp_list_node_t *obj_grp_list_node2;
 
     assert(!object_group_in_use_by_other_og(og));
+    assert(!og->ref_count);
+    assert(!og->tcam_entry_users_ref_count);
 
     if (og->og_type == OBJECT_GRP_NET_ADDR ||
          og->og_type == OBJECT_GRP_NET_HOST ||

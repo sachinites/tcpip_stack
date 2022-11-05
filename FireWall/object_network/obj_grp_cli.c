@@ -100,7 +100,8 @@ object_group_config_handler (param_t *param,
                             printf ("Error : Object Group Do not Exist\n");
                             return -1;
                         }
-                        if (object_group_in_use_by_other_og(og)) {
+                        if (object_group_in_use_by_other_og(og) ||
+                                og->ref_count) {
                             printf ("Error : Object Group is in Use\n");
                             return -1;
                         }
@@ -198,8 +199,8 @@ object_group_config_handler (param_t *param,
                                 return 0;
                             }
                             c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_ADDR);
-                            c_og->u.addr.addr = host_addr_int1;
-                            c_og->u.addr.mask = host_addr_int2;
+                            c_og->u.subnet.network = host_addr_int1;
+                            c_og->u.subnet.subnet = host_addr_int2;
                             object_group_bind (p_og, c_og);
                             return 0;
                         }
@@ -208,8 +209,8 @@ object_group_config_handler (param_t *param,
                         host_addr_int2 = tcp_ip_covert_ip_p_to_n(subnet_mask);
                         object_group_network_construct_name(OBJECT_GRP_NET_HOST, host_addr_int1, host_addr_int2, c_obj_grp_name);
                         object_group_t *c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_ADDR);
-                        c_og->u.addr.addr = host_addr_int1;
-                        c_og->u.addr.mask = host_addr_int2;
+                        c_og->u.subnet.network = host_addr_int1;
+                        c_og->u.subnet.subnet = host_addr_int2;
                         p_og = object_group_malloc(objgrp_name, OBJECT_GRP_NESTED);
                         object_group_bind (p_og, c_og);
                         object_group_insert_into_ht(node, node->object_group_ght, p_og);
@@ -235,8 +236,8 @@ object_group_config_handler (param_t *param,
 
                         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
                         if (obj_grp_list_node->og->og_type != OBJECT_GRP_NET_ADDR) continue;
-                        if (obj_grp_list_node->og->u.addr.addr != host_addr_int1) continue;
-                        if (obj_grp_list_node->og->u.addr.mask != host_addr_int2) continue;
+                        if (obj_grp_list_node->og->u.subnet.network != host_addr_int1) continue;
+                        if (obj_grp_list_node->og->u.subnet.subnet != host_addr_int2) continue;
                         object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
@@ -265,16 +266,16 @@ object_group_config_handler (param_t *param,
                                 return 0;
                             }
                              c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_ADDR);
-                             c_og->u.range.lb_ip_addr = lb;
-                             c_og->u.range.ub_ip_addr = ub;
+                             c_og->u.range.lb = lb;
+                             c_og->u.range.ub = ub;
                             object_group_bind (p_og, c_og);
                             return 0;
                         }
 
                         object_group_network_construct_name(OBJECT_GRP_NET_RANGE, lb, ub, c_obj_grp_name);
                         object_group_t *c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_RANGE);
-                        c_og->u.range.lb_ip_addr = lb;
-                        c_og->u.range.ub_ip_addr = ub;                        
+                        c_og->u.range.lb = lb;
+                        c_og->u.range.ub = ub;                        
                         p_og = object_group_malloc(objgrp_name, OBJECT_GRP_NESTED);
                         object_group_bind (p_og, c_og);
                         object_group_insert_into_ht(node, node->object_group_ght, p_og);
@@ -298,8 +299,8 @@ object_group_config_handler (param_t *param,
 
                         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
                         if (obj_grp_list_node->og->og_type != OBJECT_GRP_NET_RANGE) continue;
-                        if (obj_grp_list_node->og->u.range.lb_ip_addr != lb) continue;
-                        if (obj_grp_list_node->og->u.range.ub_ip_addr != ub) continue;
+                        if (obj_grp_list_node->og->u.range.lb != lb) continue;
+                        if (obj_grp_list_node->og->u.range.ub != ub) continue;
                         object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
@@ -349,7 +350,7 @@ object_group_config_handler (param_t *param,
                     break;
                 case CONFIG_DISABLE:
                 {
-                    /* CLI Triggered : [no] object-group network group-object <og-name> */
+                    /* CLI Triggered : [no] object-group network <og-name> group-object <og-name> */
                         object_group_t *p_og = object_group_lookup_ht_by_name(node, node->object_group_ght, objgrp_name);
                         if (!p_og) {
                             printf ("Error : Object Group %s Do not exist\n", objgrp_name);

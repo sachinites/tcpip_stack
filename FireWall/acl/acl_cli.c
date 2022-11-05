@@ -63,12 +63,14 @@ acl_parse_ace_config_entries(
                              char *subnet_src_ip,
                              char *subnet_src_mask,
                              obj_nw_t *obj_nw_src,
+                             object_group_t *og_src,
                              uint16_t src_port_no1,
                              uint16_t src_port_no2,
                              char *host_dst_ip,
                              char *subnet_dst_ip,
                              char *subnet_dst_mask,
                              obj_nw_t *obj_nw_dst,
+                             object_group_t *og_dst,
                              uint16_t dst_port_no1,
                              uint16_t dst_port_no2) {
 
@@ -103,6 +105,9 @@ acl_parse_ace_config_entries(
     else if (obj_nw_src) {
         acl_entry_link_src_object_networks(acl_entry, obj_nw_src);
     }
+    else if (og_src) {
+        acl_entry_link_src_object_group(acl_entry, og_src);
+    }
 
     /* Src Port Number */
     acl_entry->sport.lb = src_port_no1;
@@ -122,6 +127,9 @@ acl_parse_ace_config_entries(
     else if (obj_nw_dst) {
         acl_entry_link_dst_object_networks(acl_entry, obj_nw_dst);
     }
+    else if (og_dst) {
+        acl_entry_link_dst_object_group(acl_entry, og_dst);
+    }
 
     /* Drc Port Number */
     acl_entry->dport.lb = dst_port_no1;
@@ -140,12 +148,14 @@ access_list_config (node_t *node,
                     char *subnet_src_ip,
                     char *subnet_src_mask,
                     obj_nw_t *obj_nw_src,
+                    object_group_t *og_src,
                     uint16_t src_port_no1,
                     uint16_t src_port_no2,
                     char *host_dst_ip,
                     char *subnet_dst_ip,
                     char *subnet_dst_mask,
                     obj_nw_t *obj_nw_dst,
+                    object_group_t *og_dst,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
 
@@ -153,8 +163,8 @@ access_list_config (node_t *node,
 
     if (!action_name &&
          !proto &&
-         !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src &&
-         !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst) {
+         !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src && !og_src &&
+         !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst && !og_dst) {
 
         return 0;
     }
@@ -170,12 +180,14 @@ access_list_config (node_t *node,
                     subnet_src_ip,
                     subnet_src_mask,
                     obj_nw_src,
+                    og_src,
                     src_port_no1,
                     src_port_no2,
                     host_dst_ip,
                     subnet_dst_ip,
                     subnet_dst_mask,
                     obj_nw_dst,
+                    og_dst,
                     dst_port_no1,
                     dst_port_no2)) {
 
@@ -202,12 +214,14 @@ access_list_unconfig(node_t *node,
                     char *subnet_src_ip,
                     char *subnet_src_mask,
                     obj_nw_t *obj_nw_src,
+                    object_group_t *og_src,
                     uint16_t src_port_no1,
                     uint16_t src_port_no2,
                     char *host_dst_ip,
                     char *subnet_dst_ip,
                     char *subnet_dst_mask,
                     obj_nw_t *obj_nw_dst,
+                    object_group_t *og_dst,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
 
@@ -496,12 +510,14 @@ acl_config_handler (param_t *param,
                                                          subnet_src_ip,
                                                          subnet_src_mask,
                                                          obj_nw_src,
+                                                         obj_grp_src,
                                                          src_port_no1,
                                                          src_port_no2,
                                                          host_dst_ip,
                                                          subnet_dst_ip,
                                                          subnet_dst_mask,
                                                          obj_nw_dst,
+                                                         obj_grp_dst,
                                                          dst_port_no1,
                                                          dst_port_no2);
             case CONFIG_DISABLE:
@@ -514,12 +530,14 @@ acl_config_handler (param_t *param,
                                                             subnet_src_ip,
                                                             subnet_src_mask,
                                                             obj_nw_src,
+                                                            obj_grp_src,
                                                             src_port_no1,
                                                             src_port_no2,
                                                             host_dst_ip,
                                                             subnet_dst_ip,
                                                             subnet_dst_mask,
                                                             obj_nw_dst,
+                                                            obj_grp_dst,
                                                             dst_port_no1,
                                                             dst_port_no2);
         }
@@ -1296,6 +1314,9 @@ acl_print (acl_entry_t *acl_entry) {
     case ACL_ADDR_OBJECT_NETWORK:
         printf(" object-network %s", acl_entry->src_addr.u.obj_nw->name);
         break;
+    case ACL_ADDR_OBJECT_GROUP:
+         printf(" object-group %s", acl_entry->src_addr.u.og->og_name);
+         break;
     }
 
     switch (acl_entry->proto)
@@ -1330,6 +1351,9 @@ acl_print (acl_entry_t *acl_entry) {
     case ACL_ADDR_OBJECT_NETWORK:
         printf(" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
         break;
+    case ACL_ADDR_OBJECT_GROUP:
+         printf(" object-group %s", acl_entry->src_addr.u.og->og_name);
+         break;        
     }
 
     switch (acl_entry->proto)

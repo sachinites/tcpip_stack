@@ -15,19 +15,16 @@
 #include "../object_network/objnw.h"
 #include "../../CommandParser/css.h"
 #include "../../EventDispatcher/event_dispatcher.h"
-
-typedef struct acl_enumerator_ {
-
-    int src_port_index;
-    int dst_port_index;
-    int src_addr_index;
-    int dst_addr_index;
-} acl_enumerator_t;
+#include "../object_network/object_group.h"
 
 static void
-acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input */
-                                                 acl_enumerator_t *acl_enumerator, /* Input */
-                                                 acl_tcam_t *tcam_entry) ;
+acl_get_member_tcam_entry (
+                acl_entry_t *acl_entry,                          /* Input */
+                acl_tcam_iterator_t *acl_tcam_src_it,  /* Input */
+                int src_port_it,                                       /* Input */
+                acl_tcam_iterator_t *acl_tcam_dst_it,      /* Input */
+                int dst_port_it,                                          /* Input */
+                acl_tcam_t *tcam_entry) ;                       /* output */
 
 acl_proto_t
 acl_string_to_proto(unsigned char *proto_name) {
@@ -62,6 +59,8 @@ acl_entry_free (acl_entry_t *acl_entry) {
     acl_decompile(acl_entry);
     acl_entry_delink_src_object_networks(acl_entry);
     acl_entry_delink_dst_object_networks(acl_entry);
+    acl_entry_delink_src_object_group(acl_entry);
+    acl_entry_delink_dst_object_group(acl_entry);
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
     XFREE(acl_entry);
 }
@@ -71,14 +70,39 @@ acl_decompile (acl_entry_t *acl_entry) {
 
     if (!acl_entry->is_compiled) return;
 
-    if (acl_entry->tcam_saddr_prefix) {
-        XFREE(acl_entry->tcam_saddr_prefix);
-        acl_entry->tcam_saddr_prefix = NULL;
-    }
-
-    if (acl_entry->tcam_saddr_wcard) {
-        XFREE(acl_entry->tcam_saddr_wcard);
-        acl_entry->tcam_saddr_wcard = NULL;
+    switch (acl_entry->src_addr.acl_addr_format) {
+        case ACL_ADDR_NOT_SPECIFIED:
+        case ACL_ADDR_HOST:
+        case ACL_ADDR_SUBNET_MASK:
+            assert(acl_entry->tcam_saddr_count);    
+            assert(acl_entry->tcam_saddr_prefix);
+            assert(acl_entry->tcam_saddr_wcard);
+            XFREE(acl_entry->tcam_saddr_prefix);
+            XFREE(acl_entry->tcam_saddr_wcard);
+            acl_entry->tcam_saddr_prefix = NULL;
+            acl_entry->tcam_saddr_wcard = NULL;
+            acl_entry->tcam_saddr_count = 0;
+            break;
+        case ACL_ADDR_OBJECT_NETWORK:
+            assert(object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw));
+            assert(acl_entry->tcam_saddr_count);    
+            assert(acl_entry->tcam_saddr_prefix);
+            assert(acl_entry->tcam_saddr_wcard);
+            acl_entry->tcam_saddr_prefix = NULL;
+            acl_entry->tcam_saddr_wcard = NULL;
+            acl_entry->tcam_saddr_count = 0;
+            object_network_dec_tcam_users_count(acl_entry->src_addr.u.obj_nw);
+            break;
+        case ACL_ADDR_OBJECT_GROUP:
+            assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
+            assert(acl_entry->tcam_saddr_count);    
+            assert(acl_entry->tcam_saddr_prefix);
+            assert(acl_entry->tcam_saddr_wcard);
+            acl_entry->tcam_saddr_prefix = NULL;
+            acl_entry->tcam_saddr_wcard = NULL;
+            acl_entry->tcam_saddr_count = 0;
+            object_group_dec_tcam_users_count(acl_entry->src_addr.u.og);
+            break;            
     }
 
    if (acl_entry->tcam_sport_prefix) {
@@ -91,14 +115,39 @@ acl_decompile (acl_entry_t *acl_entry) {
         acl_entry->tcam_sport_wcard = NULL;
    }
 
-    if (acl_entry->tcam_daddr_prefix) {
-        XFREE(acl_entry->tcam_daddr_prefix);
-        acl_entry->tcam_daddr_prefix = NULL;
-    }
-
-    if (acl_entry->tcam_daddr_wcard) {
-        XFREE(acl_entry->tcam_daddr_wcard);
-        acl_entry->tcam_daddr_wcard = NULL;
+    switch (acl_entry->dst_addr.acl_addr_format) {
+        case ACL_ADDR_NOT_SPECIFIED:
+        case ACL_ADDR_HOST:
+        case ACL_ADDR_SUBNET_MASK:
+            assert(acl_entry->tcam_daddr_count);    
+            assert(acl_entry->tcam_daddr_prefix);
+            assert(acl_entry->tcam_daddr_wcard);
+            XFREE(acl_entry->tcam_daddr_prefix);
+            XFREE(acl_entry->tcam_daddr_wcard);
+            acl_entry->tcam_daddr_prefix = NULL;
+            acl_entry->tcam_daddr_wcard = NULL;
+            acl_entry->tcam_daddr_count = 0;
+            break;
+        case ACL_ADDR_OBJECT_NETWORK:
+            assert(object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw));
+            assert(acl_entry->tcam_daddr_count);    
+            assert(acl_entry->tcam_daddr_prefix);
+            assert(acl_entry->tcam_daddr_wcard);
+            acl_entry->tcam_daddr_prefix = NULL;
+            acl_entry->tcam_daddr_wcard = NULL;
+            acl_entry->tcam_daddr_count = 0;
+            object_network_dec_tcam_users_count(acl_entry->dst_addr.u.obj_nw);
+            break;
+        case ACL_ADDR_OBJECT_GROUP:
+            assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
+            assert(acl_entry->tcam_daddr_count);    
+            assert(acl_entry->tcam_daddr_prefix);
+            assert(acl_entry->tcam_daddr_wcard);
+            acl_entry->tcam_daddr_prefix = NULL;
+            acl_entry->tcam_daddr_wcard = NULL;
+            acl_entry->tcam_daddr_count = 0;
+            object_group_dec_tcam_users_count(acl_entry->dst_addr.u.og);
+            break;            
     }
 
    if (acl_entry->tcam_dport_prefix) {
@@ -249,6 +298,13 @@ acl_compile (acl_entry_t *acl_entry) {
 
     if (acl_entry->is_compiled) return;
 
+    assert(acl_entry->tcam_saddr_count == 0);
+    assert(!acl_entry->tcam_saddr_prefix);
+    assert(!acl_entry->tcam_saddr_wcard);
+    assert(acl_entry->tcam_daddr_count == 0);
+    assert(!acl_entry->tcam_daddr_prefix);
+    assert(!acl_entry->tcam_daddr_wcard);
+
     if (acl_entry->proto == ACL_PROTO_ANY) {
         /* User has feed "any" in place of protocol in ACL */
         /* Fill L4 proto field and L3 proto field with Dont Care */
@@ -283,83 +339,67 @@ acl_compile (acl_entry_t *acl_entry) {
 
     SRC_ADDR:
 
-    acl_entry->tcam_saddr_count = 0;
-
     switch (acl_entry->src_addr.acl_addr_format) {
 
         case ACL_ADDR_NOT_SPECIFIED:
-        case ACL_ADDR_HOST:
-        case ACL_ADDR_SUBNET_MASK:
             acl_entry->tcam_saddr_count = 1;
-            break;
-        case ACL_ADDR_OBJECT_NETWORK:
-            switch (acl_entry->src_addr.u.obj_nw->type) {
-                case OBJ_NW_TYPE_HOST:
-                case OBJ_NW_TYPE_SUBNET:
-                    acl_entry->tcam_saddr_count = 1;
-                    break;
-                case OBJ_NW_TYPE_RANGE:
-                    acl_entry->tcam_saddr_count = 0;      /* Calculate later */
-                    break;
-                default: ;
-            }
-            break;
-        default: ;
-    }
-
-    if (acl_entry->tcam_saddr_count) {
-
-        assert(!acl_entry->tcam_saddr_prefix);
-        acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+            acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
                 XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
-        assert(!acl_entry->tcam_saddr_wcard);
-        acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+            acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
                 XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
-    }
-
-    switch (acl_entry->src_addr.acl_addr_format) {
-
-        case ACL_ADDR_NOT_SPECIFIED:
-             (*acl_entry->tcam_saddr_prefix)[0] = 0;
-              (*acl_entry->tcam_saddr_wcard)[0] = 0xFFFFFFFF;
-              break;
+            (*acl_entry->tcam_saddr_prefix)[0] = 0;
+            (*acl_entry->tcam_saddr_wcard)[0] = 0xFFFFFFFF;
+            break;
         case ACL_ADDR_HOST:
-             (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.host_addr);
-              (*acl_entry->tcam_saddr_wcard)[0] = 0;
+            acl_entry->tcam_saddr_count = 1;
+            acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
+            acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
+            (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.host_addr);
+            (*acl_entry->tcam_saddr_wcard)[0] = 0;
             break;
         case ACL_ADDR_SUBNET_MASK:
-            (*acl_entry->tcam_saddr_prefix)[0] = 
+             acl_entry->tcam_saddr_count = 1;
+             acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
+            acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_saddr_count);
+            (*acl_entry->tcam_saddr_prefix)[0] =
                 htonl(acl_entry->src_addr.u.subnet.subnet_addr & acl_entry->src_addr.u.subnet.subnet_mask);
-             (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.subnet.subnet_mask);
+            (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.subnet.subnet_mask);
             break;
         case ACL_ADDR_OBJECT_NETWORK:
-            switch (acl_entry->src_addr.u.obj_nw->type) {
-                case OBJ_NW_TYPE_HOST:
-                    (*acl_entry->tcam_saddr_prefix)[0] = htonl(acl_entry->src_addr.u.obj_nw->u.host);
-                    (*acl_entry->tcam_saddr_wcard)[0] = 0;
-                    break;
-                case  OBJ_NW_TYPE_SUBNET:
-                     (*acl_entry->tcam_saddr_prefix)[0] = 
-                            htonl(acl_entry->src_addr.u.obj_nw->u.subnet.network & acl_entry->src_addr.u.obj_nw->u.subnet.subnet);
-                     (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.obj_nw->u.subnet.subnet);
-                    break;
-                case OBJ_NW_TYPE_RANGE:
-                    assert(!acl_entry->tcam_saddr_prefix);
-                    assert(!acl_entry->tcam_saddr_wcard);
-                    acl_entry->tcam_saddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_saddr_prefix));
-                    acl_entry->tcam_saddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_saddr_wcard));
-                    range2_prefix_wildcard_conversion32(
-                        acl_entry->src_addr.u.obj_nw->u.range.lb,
-                        acl_entry->src_addr.u.obj_nw->u.range.ub,
-                        acl_entry->tcam_saddr_prefix,
-                        acl_entry->tcam_saddr_wcard,
-                        (int *)&acl_entry->tcam_saddr_count);
-                    break; 
-                case OBJ_NW_TYPE_NONE:
-                    assert(0);
+            if (!object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw)) {
+                object_network_tcam_compile(acl_entry->src_addr.u.obj_nw);
             }
+            object_network_borrow_tcam_data(acl_entry->src_addr.u.obj_nw,
+                &acl_entry->tcam_saddr_count,
+                &acl_entry->tcam_saddr_prefix,
+                &acl_entry->tcam_saddr_wcard);
+            break;
+        case ACL_ADDR_OBJECT_GROUP:
+            if (acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) {
+                object_group_tcam_compile(acl_entry->src_addr.u.og);
+            }
+            switch (acl_entry->src_addr.u.og->og_type)
+            {
+                case OBJECT_GRP_TYPE_UNKNOWN:
+                case OBJECT_GRP_NET_ADDR:
+                case OBJECT_GRP_NET_HOST:
+                case OBJECT_GRP_NET_RANGE:
+                    DEADCODE;
+                    object_group_borrow_tcam_data(acl_entry->src_addr.u.og,
+                                                  &acl_entry->tcam_saddr_count,
+                                                  &acl_entry->tcam_saddr_prefix,
+                                                  &acl_entry->tcam_saddr_wcard);
+                    break;
+                case OBJECT_GRP_NESTED:
+                /* Will handle at ACL installation time directly */
+                break;
+            }
+            break;
+            default : ;
     }
 
     /* Src Port Range */
@@ -398,85 +438,68 @@ acl_compile (acl_entry_t *acl_entry) {
 
      /* Dst ip Address & Mask */
 
-     acl_entry->tcam_daddr_count = 0;
-
     switch (acl_entry->dst_addr.acl_addr_format) {
 
         case ACL_ADDR_NOT_SPECIFIED:
-        case ACL_ADDR_HOST:
-        case ACL_ADDR_SUBNET_MASK:
             acl_entry->tcam_daddr_count = 1;
-            break;
-        case ACL_ADDR_OBJECT_NETWORK:
-            switch (acl_entry->dst_addr.u.obj_nw->type) {
-                case OBJ_NW_TYPE_HOST:
-                case OBJ_NW_TYPE_SUBNET:
-                    acl_entry->tcam_daddr_count = 1;
-                    break;
-                case OBJ_NW_TYPE_RANGE:
-                    acl_entry->tcam_daddr_count = 0;      /* Calculate later */
-                    break;
-                default: ;
-            }
-            break;
-        default: ;
-    }
-
-    if (acl_entry->tcam_daddr_count) {
-
-        assert(!acl_entry->tcam_daddr_prefix);
-        acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+            acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
                 XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
-        assert(!acl_entry->tcam_daddr_wcard);
-        acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+            acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
                 XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
-    }
-
-    switch (acl_entry->dst_addr.acl_addr_format) {
-
-        case ACL_ADDR_NOT_SPECIFIED:
-             (*acl_entry->tcam_daddr_prefix)[0] = 0;
-              (*acl_entry->tcam_daddr_wcard)[0] = 0xFFFFFFFF;
-              break;
+            (*acl_entry->tcam_daddr_prefix)[0] = 0;
+            (*acl_entry->tcam_daddr_wcard)[0] = 0xFFFFFFFF;
+            break;
         case ACL_ADDR_HOST:
-             (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.host_addr);
-              (*acl_entry->tcam_daddr_wcard)[0] = 0;
+            acl_entry->tcam_daddr_count = 1;
+            acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
+            acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
+            (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.host_addr);
+            (*acl_entry->tcam_daddr_wcard)[0] = 0;
             break;
         case ACL_ADDR_SUBNET_MASK:
-            (*acl_entry->tcam_daddr_prefix)[0] = 
+             acl_entry->tcam_daddr_count = 1;
+             acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
+            acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * acl_entry->tcam_daddr_count);
+            (*acl_entry->tcam_daddr_prefix)[0] =
                 htonl(acl_entry->dst_addr.u.subnet.subnet_addr & acl_entry->dst_addr.u.subnet.subnet_mask);
-             (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.subnet.subnet_mask);
+            (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.subnet.subnet_mask);
             break;
         case ACL_ADDR_OBJECT_NETWORK:
-            switch (acl_entry->dst_addr.u.obj_nw->type) {
-                case OBJ_NW_TYPE_HOST:
-                    (*acl_entry->tcam_daddr_prefix)[0] = htonl(acl_entry->dst_addr.u.obj_nw->u.host);
-                    (*acl_entry->tcam_daddr_wcard)[0] = 0;
-                    break;
-                case  OBJ_NW_TYPE_SUBNET:
-                     (*acl_entry->tcam_daddr_prefix)[0] = 
-                            htonl(acl_entry->dst_addr.u.obj_nw->u.subnet.network & acl_entry->dst_addr.u.obj_nw->u.subnet.subnet);
-                     (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.obj_nw->u.subnet.subnet);
-                    break;
-                case OBJ_NW_TYPE_RANGE:
-                    assert(!acl_entry->tcam_daddr_prefix);
-                    assert(!acl_entry->tcam_daddr_wcard);
-                    acl_entry->tcam_daddr_prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_daddr_prefix));
-                    acl_entry->tcam_daddr_wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
-                        XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*acl_entry->tcam_daddr_wcard));
-                    range2_prefix_wildcard_conversion32(
-                        acl_entry->dst_addr.u.obj_nw->u.range.lb,
-                        acl_entry->dst_addr.u.obj_nw->u.range.ub,
-                        acl_entry->tcam_daddr_prefix,
-                        acl_entry->tcam_daddr_wcard,
-                        (int *)&acl_entry->tcam_daddr_count);
-                    break; 
-                case OBJ_NW_TYPE_NONE:
-                    assert(0);
+            if (!object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw)) {
+                object_network_tcam_compile(acl_entry->dst_addr.u.obj_nw);
             }
+            object_network_borrow_tcam_data(acl_entry->dst_addr.u.obj_nw,
+                &acl_entry->tcam_daddr_count,
+                &acl_entry->tcam_daddr_prefix,
+                &acl_entry->tcam_daddr_wcard);
+            break;
+        case ACL_ADDR_OBJECT_GROUP:
+            if (acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) {
+                object_group_tcam_compile(acl_entry->dst_addr.u.og);
+            }
+            switch (acl_entry->dst_addr.u.og->og_type)
+            {
+                case OBJECT_GRP_TYPE_UNKNOWN:
+                case OBJECT_GRP_NET_ADDR:
+                case OBJECT_GRP_NET_HOST:
+                case OBJECT_GRP_NET_RANGE:
+                    DEADCODE;
+                    object_group_borrow_tcam_data(acl_entry->dst_addr.u.og,
+                                                  &acl_entry->tcam_daddr_count,
+                                                  &acl_entry->tcam_daddr_prefix,
+                                                  &acl_entry->tcam_daddr_wcard);
+                    break;
+                case OBJECT_GRP_NESTED:
+                /* Will handle at ACL installation time directly */
+                break;
+            }
+            break;
+            default : ;
     }
-
 
     /* Dst Port Range */
     if (!acl_entry->tcam_dport_prefix) {
@@ -939,9 +962,13 @@ access_list_notify_clients(node_t *node, access_list_t *acc_lst) {
 }
 
 static void
-acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input */
-                                                 acl_enumerator_t *acl_enumerator, /* Input */
-                                                 acl_tcam_t *tcam_entry) {               /* Output */
+acl_get_member_tcam_entry (
+                acl_entry_t *acl_entry,                          /* Input */
+                acl_tcam_iterator_t *acl_tcam_src_it,  /* Input */
+                int src_port_it,                                       /* Input */
+                acl_tcam_iterator_t *acl_tcam_dst_it,      /* Input */
+                int dst_port_it,                                          /* Input */
+                acl_tcam_t *tcam_entry) {                       /* output */
 
     uint16_t bytes_copied = 0;
 
@@ -967,26 +994,19 @@ acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input
     prefix_ptr2++; mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
     mask_ptr4 = (uint32_t *)mask_ptr2;
-    bytes_copied += sizeof(*prefix_ptr2);    
+    bytes_copied += sizeof(*prefix_ptr2);
 
     /* Src ip Address & Mask */
-    memcpy(prefix_ptr4, &((*acl_entry->tcam_saddr_prefix)[acl_enumerator->src_addr_index]), sizeof(*prefix_ptr4));
-    memcpy(mask_ptr4, &((*acl_entry->tcam_saddr_wcard)[acl_enumerator->src_addr_index]), sizeof(*mask_ptr4));
+    memcpy(prefix_ptr4, acl_tcam_src_it->addr_prefix, sizeof(*prefix_ptr4));
+    memcpy(mask_ptr4, acl_tcam_src_it->addr_wcard, sizeof(*mask_ptr4));
     prefix_ptr4++; mask_ptr4++;
     prefix_ptr2 = (uint16_t *)prefix_ptr4;
     mask_ptr2 = (uint16_t *)mask_ptr4;
     bytes_copied += sizeof(*prefix_ptr4);
 
     /* Src Port */
-    memcpy(prefix_ptr2, 
-            &((*acl_entry->tcam_sport_prefix)[acl_enumerator->src_port_index]),
-            sizeof(*prefix_ptr2));
-
-    memcpy(mask_ptr2, 
-            &((*acl_entry->tcam_sport_wcard)[acl_enumerator->src_port_index]),
-            sizeof(*prefix_ptr2));
-
-
+    memcpy(prefix_ptr2, &((*acl_entry->tcam_sport_prefix)[src_port_it]), sizeof(*prefix_ptr2));
+    memcpy(mask_ptr2, &((*acl_entry->tcam_sport_wcard)[src_port_it]), sizeof(*prefix_ptr2));
     prefix_ptr2++;
     mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
@@ -994,22 +1014,16 @@ acl_get_member_tcam_entry (acl_entry_t *acl_entry,                      /* Input
     bytes_copied += sizeof(*prefix_ptr2);
 
     /* Dst ip Address & Mask */
-    memcpy(prefix_ptr4, &((*acl_entry->tcam_daddr_prefix)[acl_enumerator->dst_addr_index]), sizeof(*prefix_ptr4));
-    memcpy(mask_ptr4, &((*acl_entry->tcam_daddr_wcard)[acl_enumerator->dst_addr_index]), sizeof(*mask_ptr4));
+    memcpy(prefix_ptr4, acl_tcam_dst_it->addr_prefix, sizeof(*prefix_ptr4));
+    memcpy(mask_ptr4, acl_tcam_dst_it->addr_wcard, sizeof(*mask_ptr4));
     prefix_ptr4++; mask_ptr4++;
     prefix_ptr2 = (uint16_t *)prefix_ptr4;
     mask_ptr2 = (uint16_t *)mask_ptr4;
     bytes_copied += sizeof(*prefix_ptr4);
 
     /* Dst Port */
-    memcpy(prefix_ptr2, 
-            &((*acl_entry->tcam_dport_prefix)[acl_enumerator->dst_port_index]),
-            sizeof(*prefix_ptr2));
-
-    memcpy(mask_ptr2, 
-            &((*acl_entry->tcam_dport_wcard)[acl_enumerator->dst_port_index]),
-            sizeof(*prefix_ptr2));
-
+    memcpy(prefix_ptr2, &((*acl_entry->tcam_dport_prefix)[dst_port_it]), sizeof(*prefix_ptr2));
+    memcpy(mask_ptr2, &((*acl_entry->tcam_dport_wcard)[dst_port_it]), sizeof(*prefix_ptr2));
     prefix_ptr2++;
     mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
@@ -1027,11 +1041,12 @@ acl_entry_uninstall (access_list_t *access_list,
                                 acl_entry_t *acl_entry) {
 
     mtrie_node_t *mnode;
-    mtrie_ops_result_code_t rc;
     int src_port_it, dst_port_it;
-    int src_addr_it, dst_addr_it;
-    acl_enumerator_t acl_enum;
+    mtrie_ops_result_code_t rc;
+    bool src_addr_it, dst_addr_it;    
     acl_tcam_t tcam_entry_template;
+    acl_tcam_iterator_t acl_tcam_src_it;
+    acl_tcam_iterator_t acl_tcam_dst_it;    
 
     if (!acl_entry->is_installed) return;
 
@@ -1039,20 +1054,21 @@ acl_entry_uninstall (access_list_t *access_list,
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
     init_glthread(&tcam_entry_template.glue);
 
-    for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
+    FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_src_it) {
     
         for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
 
-            for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
+            FOR_ALL_DST_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_dst_it) {
 
                 for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
 
-                    acl_enum.src_port_index = src_port_it;
-                    acl_enum.dst_port_index = dst_port_it;
-                    acl_enum.src_addr_index = src_addr_it;
-                    acl_enum.dst_addr_index = dst_addr_it;
-
-                    acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
+                    acl_get_member_tcam_entry(
+                            acl_entry, 
+                            &acl_tcam_src_it,
+                            src_port_it,
+                            &acl_tcam_dst_it,
+                            dst_port_it,
+                            &tcam_entry_template);
 
 #if 0
                     printf ("Un-Installing TCAM Entry  # %u: \n", acl_entry->total_tcam_count);
@@ -1074,9 +1090,9 @@ acl_entry_uninstall (access_list_t *access_list,
 
                     acl_entry->total_tcam_count--;
                 }
-            }
+            }FOR_ALL_ADDR_TCAM_END;
         }
-    }
+    }FOR_ALL_ADDR_TCAM_END;
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
     acl_entry->tcam_conflicts_count = 0;
@@ -1089,11 +1105,12 @@ void
 acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
 
     mtrie_node_t *mnode;
-    int src_addr_it, dst_addr_it;
     int src_port_it, dst_port_it;
-    acl_enumerator_t acl_enum;
-    acl_tcam_t tcam_entry_template;
     mtrie_ops_result_code_t rc;
+    acl_tcam_t tcam_entry_template;    
+    acl_tcam_iterator_t acl_tcam_src_it;
+    acl_tcam_iterator_t acl_tcam_dst_it;
+    bool src_addr_it, dst_addr_it;
 
     if (acl_entry->is_installed) return;
 
@@ -1104,20 +1121,21 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
     init_glthread(&tcam_entry_template.glue);
 
-    for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
+    FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_src_it) {
     
         for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
 
-            for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
+            FOR_ALL_DST_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_dst_it) {
 
                 for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
 
-                    acl_enum.src_port_index = src_port_it;
-                    acl_enum.dst_port_index = dst_port_it;
-                    acl_enum.src_addr_index = src_addr_it;
-                    acl_enum.dst_addr_index = dst_addr_it;
-
-                    acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry_template);
+                    acl_get_member_tcam_entry(
+                            acl_entry, 
+                            &acl_tcam_src_it,
+                            src_port_it,
+                            &acl_tcam_dst_it,
+                            dst_port_it,
+                            &tcam_entry_template);
 
 #if 0
                     printf ("Installing TCAM Entry  # %u\n", acl_entry->total_tcam_count);
@@ -1147,9 +1165,9 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
 
 
                 }
-            }
+            }FOR_ALL_ADDR_TCAM_END;
         }
-    }
+    } FOR_ALL_ADDR_TCAM_END;
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
     acl_entry->is_installed = true;
@@ -1160,18 +1178,18 @@ acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
 
     if (!objnw) return;
 
-    obj_nw_linkage_db_t *db = objnw->db;
+    objects_linkage_db_t *db = objnw->db;
 
     if (!db) {
 
-        objnw->db = (obj_nw_linkage_db_t *)XCALLOC(0, 1, obj_nw_linkage_db_t);
+        objnw->db = (objects_linkage_db_t *)XCALLOC(0, 1, objects_linkage_db_t);
         db = objnw->db;
         init_glthread(&db->acls_list);
         init_glthread(&db->nat_list);
     }
 
-    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = 
-        (obj_nw_linked_acl_thread_node_t *)XCALLOC(0, 1, obj_nw_linked_acl_thread_node_t);
+    objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = 
+        (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
 
     obj_nw_linked_acl_thread_node->acl = acl_entry;
     init_glthread(&obj_nw_linked_acl_thread_node->glue);
@@ -1184,8 +1202,8 @@ static void
 acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
 
     glthread_t *curr;
-    obj_nw_linkage_db_t *db;
-    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
+    objects_linkage_db_t *db;
+    objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
     
     if (!objnw) return;
 
@@ -1195,7 +1213,7 @@ acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
 
     ITERATE_GLTHREAD_BEGIN(&db->acls_list, curr) {
 
-        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
         if (obj_nw_linked_acl_thread_node->acl == acl_entry) {
             remove_glthread(&obj_nw_linked_acl_thread_node->glue);
             XFREE(obj_nw_linked_acl_thread_node);
@@ -1214,6 +1232,121 @@ acl_entry_delink_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
     assert(0);
 }
 
+static void 
+acl_entry_link_object_group(acl_entry_t *acl_entry, object_group_t *og) {
+
+    if (!og) return;
+
+    objects_linkage_db_t *db = og->db;
+
+    if (!db) {
+
+        og->db = (objects_linkage_db_t *)XCALLOC(0, 1, objects_linkage_db_t);
+        db = og->db;
+        init_glthread(&db->acls_list);
+        init_glthread(&db->nat_list);
+    }
+
+    objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = 
+        (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
+
+    obj_nw_linked_acl_thread_node->acl = acl_entry;
+    init_glthread(&obj_nw_linked_acl_thread_node->glue);
+
+    glthread_add_last(&db->acls_list, &obj_nw_linked_acl_thread_node->glue);
+    og->ref_count++;
+}
+
+static void
+acl_entry_delink_object_group(acl_entry_t *acl_entry, object_group_t *og) {
+
+    glthread_t *curr;
+    objects_linkage_db_t *db;
+    objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
+    
+    if (!og) return;
+
+    db  = og->db;
+
+    assert(db);
+
+    ITERATE_GLTHREAD_BEGIN(&db->acls_list, curr) {
+
+        obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
+        if (obj_nw_linked_acl_thread_node->acl == acl_entry) {
+            remove_glthread(&obj_nw_linked_acl_thread_node->glue);
+            XFREE(obj_nw_linked_acl_thread_node);
+            og->ref_count--;
+
+            if (IS_GLTHREAD_LIST_EMPTY(&db->acls_list) &&
+                    IS_GLTHREAD_LIST_EMPTY(&db->nat_list)) {
+
+                XFREE(db);
+                og->db = NULL;
+                assert(!og->ref_count);
+            }
+            return;
+        }
+    } ITERATE_GLTHREAD_END(&db->acls_list, curr);
+    assert(0);
+}
+
+/* Linking and Delinking APIs for Object Groups */
+void
+acl_entry_delink_src_object_group(acl_entry_t *acl_entry) {
+
+    object_group_t *og;
+
+    og = acl_get_src_network_object_group(acl_entry);
+
+    if (og) {
+        acl_entry_delink_object_group(acl_entry, og);
+        acl_entry->src_addr.u.og = NULL;
+        acl_entry->src_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
+    }
+}
+
+void
+acl_entry_delink_dst_object_group(acl_entry_t *acl_entry) {
+
+    object_group_t *og;
+
+    og = acl_get_dst_network_object_group(acl_entry);
+
+    if (og) {
+        acl_entry_delink_object_group(acl_entry, og);
+        acl_entry->dst_addr.u.og = NULL;
+        acl_entry->dst_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
+    }
+}
+
+void
+acl_entry_link_src_object_group(acl_entry_t *acl_entry, object_group_t *og) {
+
+    if (!og) return;
+    
+    assert(!acl_get_src_network_object_group(acl_entry));
+
+    acl_entry_link_object_group(acl_entry, og);
+
+    acl_entry->src_addr.u.og = og;
+    acl_entry->src_addr.acl_addr_format = ACL_ADDR_OBJECT_GROUP;
+}
+
+void
+acl_entry_link_dst_object_group(acl_entry_t *acl_entry, object_group_t *og) {
+
+    if (!og) return;
+    
+    assert(!acl_get_dst_network_object_group(acl_entry));
+
+    acl_entry_link_object_group(acl_entry, og);
+
+    acl_entry->dst_addr.u.og = og;
+    acl_entry->dst_addr.acl_addr_format = ACL_ADDR_OBJECT_GROUP;
+}
+
+/* Linking and Delinking APIs for Object Networks */
 void
 acl_entry_delink_src_object_networks(acl_entry_t *acl_entry) {
 
@@ -1291,8 +1424,11 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
        acl_entry = glthread_to_acl_entry(curr);
+       /* Optimization : Avoid Recalculation of TCAM Data */
+       acl_entry_increment_referenced_objects_tcam_user_count(acl_entry, 1, true, true);
        acl_decompile(acl_entry);
        acl_compile(acl_entry);
+       acl_entry_increment_referenced_objects_tcam_user_count(acl_entry, -1, true, true);
        acl_entry_install(access_list, acl_entry);
 
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
@@ -1305,9 +1441,10 @@ void
 access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry) {
 
     acl_tcam_t tcam_entry;
-    int src_addr_it, dst_addr_it;
     int src_port_it, dst_port_it;
-    acl_enumerator_t acl_enum;
+    bool src_addr_it, dst_addr_it;
+    acl_tcam_iterator_t acl_tcam_src_it;
+    acl_tcam_iterator_t acl_tcam_dst_it;        
 
     printf (" access-list %s %u %s %s",
         access_list->name,
@@ -1322,22 +1459,25 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
     bitmap_init(&tcam_entry.mask, ACL_PREFIX_LEN);
     init_glthread(&tcam_entry.glue);
 
-    for (src_addr_it = 0; src_addr_it < acl_entry->tcam_saddr_count; src_addr_it++) {
+    FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_src_it) {
         for (src_port_it = 0; src_port_it < acl_entry->tcam_sport_count; src_port_it++) {
-            for (dst_addr_it = 0; dst_addr_it < acl_entry->tcam_daddr_count; dst_addr_it++) {
+            FOR_ALL_DST_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_dst_it) {
                 for (dst_port_it = 0; dst_port_it < acl_entry->tcam_dport_count; dst_port_it++) {
 
-                    acl_enum.src_port_index = src_port_it;
-                    acl_enum.dst_port_index = dst_port_it;
-                    acl_enum.src_addr_index = src_addr_it;
-                    acl_enum.dst_addr_index = dst_addr_it;
-                    acl_get_member_tcam_entry(acl_entry, &acl_enum, &tcam_entry);
+                    acl_get_member_tcam_entry(
+                            acl_entry, 
+                            &acl_tcam_src_it,
+                            src_port_it,
+                            &acl_tcam_dst_it,
+                            dst_port_it,
+                            &tcam_entry);
+
                     bitmap_prefix_print(&tcam_entry.prefix, &tcam_entry.mask, ACL_PREFIX_LEN);
                     printf("\n");
                 }
-            }
+            }FOR_ALL_ADDR_TCAM_END;
         }
-    }
+    }FOR_ALL_ADDR_TCAM_END;
     bitmap_free_internal(&tcam_entry.prefix);
     bitmap_free_internal(&tcam_entry.mask);
 }
@@ -1506,6 +1646,273 @@ access_list_decompile (access_list_t *access_list) {
     }
     ITERATE_GLTHREAD_END(&access_list->head, curr);
 }
+
+void
+acl_entry_increment_referenced_objects_tcam_user_count(
+            acl_entry_t *acl_entry,
+            int8_t k,
+            bool object_networks,
+            bool object_groups) {
+
+        assert(k == 1 || k == -1);
+
+       if (object_networks && acl_entry->src_addr.acl_addr_format ==
+            ACL_ADDR_OBJECT_NETWORK) {
+            
+            if (object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw)) {
+                if (k == 1)
+                object_network_inc_tcam_users_count (acl_entry->src_addr.u.obj_nw);
+                else
+                object_network_dec_tcam_users_count (acl_entry->src_addr.u.obj_nw);
+            }
+       }
+       else if (object_groups && acl_entry->src_addr.acl_addr_format ==
+            ACL_ADDR_OBJECT_GROUP) {
+            
+            if (acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED) {
+                if (k == 1)
+                object_group_inc_tcam_users_count (acl_entry->src_addr.u.og);
+                else
+                object_group_dec_tcam_users_count (acl_entry->src_addr.u.og);
+            }
+       }
+        
+        if (object_networks && acl_entry->dst_addr.acl_addr_format ==
+            ACL_ADDR_OBJECT_NETWORK) {
+            
+            if (object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw)) {
+                if (k == 1)
+                object_network_inc_tcam_users_count (acl_entry->dst_addr.u.obj_nw);
+                else
+                object_network_dec_tcam_users_count (acl_entry->dst_addr.u.obj_nw);
+            }
+       }
+       else if (object_groups && acl_entry->dst_addr.acl_addr_format ==
+            ACL_ADDR_OBJECT_GROUP) {
+            
+            if (acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED) {
+                if (k == 1)
+                object_group_inc_tcam_users_count (acl_entry->dst_addr.u.og);
+                else
+                object_group_dec_tcam_users_count (acl_entry->dst_addr.u.og);
+            }
+       }
+}
+
+/* Iterators over ACL's Src and Dst TCAM Data */
+void
+acl_tcam_iterator_init (acl_entry_t *acl_entry, 
+                                     acl_tcam_iterator_t *acl_tcam_iterator,
+                                     acl_iterator_type_t it_type) {
+
+    acl_tcam_iterator->addr_prefix = NULL;
+    acl_tcam_iterator->addr_wcard = NULL;
+    acl_tcam_iterator->port_prefix = NULL;
+    acl_tcam_iterator->port_wcard = NULL;
+    acl_tcam_iterator->index = 0;
+    acl_tcam_iterator->acl_entry = acl_entry;
+    acl_tcam_iterator->it_type = it_type;
+    acl_tcam_iterator->curr_og = NULL;
+    if (acl_entry->src_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP) {
+        acl_tcam_iterator->curr_og = acl_entry->src_addr.u.og;
+    }
+}
+
+bool
+acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
+
+    acl_entry_t *acl_entry = acl_tcam_iterator->acl_entry;
+
+    switch (acl_tcam_iterator->it_type) {
+        case acl_iterator_src_addr:
+            switch (acl_entry->src_addr.acl_addr_format) {
+                case ACL_ADDR_NOT_SPECIFIED:
+                case ACL_ADDR_HOST:
+                case ACL_ADDR_SUBNET_MASK:
+                    acl_tcam_iterator->index = 0;
+                    acl_tcam_iterator->addr_prefix = &((*acl_entry->tcam_saddr_prefix)[0]);
+                    acl_tcam_iterator->addr_wcard = &((*acl_entry->tcam_saddr_wcard)[0]);
+                    return true;
+                case ACL_ADDR_OBJECT_NETWORK:
+                    assert(object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw));
+                    acl_tcam_iterator->index = 0;
+                    acl_tcam_iterator->addr_prefix = &((*acl_entry->src_addr.u.obj_nw->prefix)[0]);
+                    acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.obj_nw->wcard)[0]);
+                    return true;
+                case ACL_ADDR_OBJECT_GROUP:
+                    assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
+                    switch(acl_entry->src_addr.u.og->og_type) {
+                        case OBJECT_GRP_NET_ADDR:
+                        case OBJECT_GRP_NET_HOST:
+                        case OBJECT_GRP_NET_RANGE:
+                            acl_tcam_iterator->index = 0;
+                            acl_tcam_iterator->addr_prefix = &((*acl_entry->src_addr.u.og->prefix)[0]);
+                            acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.og->wcard)[0]);
+                            return true;
+                        case OBJECT_GRP_NESTED:
+                            {
+                                /* Stateful DFS walk on OG tree is required */
+                                return false;
+                            }
+                            break;
+                    }
+                break;
+            }
+            break;
+
+        case acl_iterator_dst_addr:
+            switch (acl_entry->dst_addr.acl_addr_format) {
+                case ACL_ADDR_NOT_SPECIFIED:
+                case ACL_ADDR_HOST:
+                case ACL_ADDR_SUBNET_MASK:
+                    acl_tcam_iterator->index = 0;
+                    acl_tcam_iterator->addr_prefix = &((*acl_entry->tcam_daddr_prefix)[0]);
+                    acl_tcam_iterator->addr_wcard = &((*acl_entry->tcam_daddr_wcard)[0]);
+                    return true;
+                case ACL_ADDR_OBJECT_NETWORK:
+                    assert(object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw));
+                    acl_tcam_iterator->index = 0;
+                    acl_tcam_iterator->addr_prefix = &((*acl_entry->dst_addr.u.obj_nw->prefix)[0]);
+                    acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.obj_nw->wcard)[0]);
+                    return true;
+                case ACL_ADDR_OBJECT_GROUP:
+                    assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
+                    switch(acl_entry->dst_addr.u.og->og_type) {
+                        case OBJECT_GRP_NET_ADDR:
+                        case OBJECT_GRP_NET_HOST:
+                        case OBJECT_GRP_NET_RANGE:
+                            acl_tcam_iterator->index = 0;
+                            acl_tcam_iterator->addr_prefix = &((*acl_entry->dst_addr.u.og->prefix)[0]);
+                            acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.og->wcard)[0]);
+                            return true;
+                        case OBJECT_GRP_NESTED:
+                            {
+                                /* Stateful DFS walk on OG tree is required */
+                            }
+                            break;
+                    }
+                break;
+            } 
+        break;
+        case acl_iterator_src_port:
+            assert(0);
+        break;        
+        case acl_iterator_dst_port:
+            assert(0);
+        break;        
+        default: ;
+    }    
+    return false;
+}
+
+bool
+acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
+
+    acl_entry_t *acl_entry = acl_tcam_iterator->acl_entry;
+
+    switch (acl_tcam_iterator->it_type) {
+        case acl_iterator_src_addr:
+            switch (acl_entry->src_addr.acl_addr_format) {
+                case ACL_ADDR_NOT_SPECIFIED:
+                case ACL_ADDR_HOST:
+                case ACL_ADDR_SUBNET_MASK:
+                    return false;
+                case ACL_ADDR_OBJECT_NETWORK:
+                    assert(object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw));
+                    switch(acl_entry->src_addr.u.obj_nw->type) {
+                        case OBJ_NW_TYPE_HOST:
+                        case OBJ_NW_TYPE_SUBNET:
+                            return false;
+                        case OBJ_NW_TYPE_RANGE:
+                            acl_tcam_iterator->index++;
+                            if (acl_tcam_iterator->index >= acl_entry->src_addr.u.obj_nw->count) {
+                                return false;
+                            }
+                            acl_tcam_iterator->addr_prefix = &((*acl_entry->src_addr.u.obj_nw->prefix)[acl_tcam_iterator->index]);
+                            acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.obj_nw->wcard)[acl_tcam_iterator->index]);
+                            return true;
+                    }
+                case ACL_ADDR_OBJECT_GROUP:
+                    assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
+                    switch(acl_entry->src_addr.u.og->og_type) {
+                        case OBJECT_GRP_NET_ADDR:
+                        case OBJECT_GRP_NET_HOST:
+                            return false;
+                        case OBJECT_GRP_NET_RANGE:
+                            acl_tcam_iterator->index++;
+                            if (acl_tcam_iterator->index >= acl_entry->src_addr.u.og->count) {
+                                return false;
+                            }
+                            acl_tcam_iterator->addr_prefix = &((*acl_entry->src_addr.u.og->prefix)[acl_tcam_iterator->index]);
+                            acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.og->wcard)[acl_tcam_iterator->index]);
+                            return true;
+                        case OBJECT_GRP_NESTED:
+                            {
+                                /* Stateful DFS walk on OG tree is required */
+                                return false;
+                            }
+                            break;
+                    }
+                break;
+            }
+            break;
+
+        case acl_iterator_dst_addr:
+            switch (acl_entry->dst_addr.acl_addr_format) {
+                case ACL_ADDR_NOT_SPECIFIED:
+                case ACL_ADDR_HOST:
+                case ACL_ADDR_SUBNET_MASK:
+                    return false;
+                case ACL_ADDR_OBJECT_NETWORK:
+                    assert(object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw));
+                    switch(acl_entry->dst_addr.u.obj_nw->type) {
+                        case OBJ_NW_TYPE_HOST:
+                        case OBJ_NW_TYPE_SUBNET:
+                            return false;
+                        case OBJ_NW_TYPE_RANGE:
+                            acl_tcam_iterator->index++;
+                            if (acl_tcam_iterator->index >= acl_entry->dst_addr.u.obj_nw->count) {
+                                return false;
+                            }
+                            acl_tcam_iterator->addr_prefix = &((*acl_entry->dst_addr.u.obj_nw->prefix)[acl_tcam_iterator->index]);
+                            acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.obj_nw->wcard)[acl_tcam_iterator->index]);
+                            return true;
+                    }
+                case ACL_ADDR_OBJECT_GROUP:
+                    assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
+                    switch(acl_entry->dst_addr.u.og->og_type) {
+                        case OBJECT_GRP_NET_ADDR:
+                        case OBJECT_GRP_NET_HOST:
+                            return false;
+                        case OBJECT_GRP_NET_RANGE:
+                            acl_tcam_iterator->index++;
+                            if (acl_tcam_iterator->index >= acl_entry->dst_addr.u.og->count) {
+                                return false;
+                            }
+                            acl_tcam_iterator->addr_prefix = &((*acl_entry->dst_addr.u.og->prefix)[acl_tcam_iterator->index]);
+                            acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.og->wcard)[acl_tcam_iterator->index]);
+                            return true;
+                        case OBJECT_GRP_NESTED:
+                            {
+                                /* Stateful DFS walk on OG tree is required */
+                                return false;
+                            }
+                            break;
+                    }
+                break;
+            }
+        break;
+        case acl_iterator_src_port:
+            assert(0);
+        break;        
+        case acl_iterator_dst_port:
+            assert(0);
+        break;        
+        default: ;
+    }    
+    return false;
+}
+
 
 void 
 acl_mem_init() {

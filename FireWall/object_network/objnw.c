@@ -97,11 +97,12 @@ object_network_print (obj_nw_t *obj_nw) {
             break;
     }
 
-    printf (" (ref-count : %u)\n", obj_nw->ref_count);
+    printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+        obj_nw->ref_count, obj_nw->tcam_entry_users_ref_count);
 
     printf ("  ACLs referenced:\n");
     
-    obj_nw_linkage_db_t *db = (obj_nw_linkage_db_t *)obj_nw->db;
+    objects_linkage_db_t *db = (objects_linkage_db_t *)obj_nw->db;
 
     glthread_t *curr;
 
@@ -109,7 +110,7 @@ object_network_print (obj_nw_t *obj_nw) {
 
         ITERATE_GLTHREAD_BEGIN(&db->acls_list, curr) {
 
-            obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+            objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
 
             printf ("   access-list %s \n", obj_nw_linked_acl_thread_node->acl->access_lst->name);
 
@@ -133,7 +134,7 @@ network_object_hashtable_print(hashtable_t *ht) {
 
     count = hashtable_count(ht);
 
-    printf("# Object Networks : %u\n", count);
+    printf("Number of Object Networks : %u\n", count);
 
     if (!count) return;
 
@@ -149,18 +150,13 @@ network_object_hashtable_print(hashtable_t *ht) {
     free(itr);
 }
 
-void
-network_object_free_tcam_data(obj_nw_t *obj_nw) {
-
-}
-
 bool
 network_object_check_and_delete (obj_nw_t *obj_nw) {
 
-    if (obj_nw->ref_count) return false;
     assert(!obj_nw->db);
-    network_object_free_tcam_data(obj_nw);
-    return true;
+    assert(!object_network_is_tcam_compiled(obj_nw));
+    assert(obj_nw->tcam_entry_users_ref_count == 0);
+    XFREE(obj_nw);
 }
 
 bool
@@ -169,7 +165,7 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
     bool rc = false;
     glthread_t *curr;
     acl_entry_t *acl_entry;
-    obj_nw_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
+    objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node;
 
     if (obj_nw->ref_count == 0) return true;
 
@@ -183,7 +179,7 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
 
     ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
         
-        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
         pthread_rwlock_wrlock(&acl_entry->access_lst->acc_rw_lst_lock);
         acl_entry_uninstall(acl_entry->access_lst, acl_entry);
@@ -193,15 +189,16 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
 
     ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
 
-        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
+        acl_entry_increment_referenced_objects_tcam_user_count(acl_entry, 1, true, false);
         acl_decompile(acl_entry);
-
+        acl_entry_increment_referenced_objects_tcam_user_count(acl_entry, -1, true, false);
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
 
     ITERATE_GLTHREAD_BEGIN(&obj_nw->db->acls_list, curr) {
 
-        obj_nw_linked_acl_thread_node = glue_to_obj_nw_linked_acl_thread_node(curr);
+        obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
 
         if (access_list_should_compile(acl_entry->access_lst)) {
@@ -295,11 +292,115 @@ object_network_apply_change_range (node_t *node,
     return true;
 }
 
+bool
+object_network_is_tcam_compiled (obj_nw_t *obj_nw) {
+
+    return obj_nw->count > 0;
+}
+
+void
+object_network_tcam_compile (obj_nw_t *obj_nw)  {
+
+    if (object_network_is_tcam_compiled(obj_nw)) {
+        return;
+    }
+
+    switch(obj_nw->type) {
+
+        case OBJ_NW_TYPE_HOST:
+            obj_nw->count = 1;
+            assert(!obj_nw->prefix);
+            obj_nw->prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * obj_nw->count);
+            assert(!obj_nw->wcard);
+            obj_nw->wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * obj_nw->count);
+            (*obj_nw->prefix)[0] = htonl(obj_nw->u.host);
+            (*obj_nw->wcard)[0] = 0;            
+            break;
+        case OBJ_NW_TYPE_SUBNET:
+            obj_nw->count = 1;
+            assert(!obj_nw->prefix);
+            obj_nw->prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * obj_nw->count);
+            assert(!obj_nw->wcard);
+            obj_nw->wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * obj_nw->count);
+            (*obj_nw->prefix)[0] = htonl(obj_nw->u.subnet.network & obj_nw->u.subnet.subnet);
+            (*obj_nw->wcard)[0] = htonl(~obj_nw->u.subnet.subnet);   
+            break;
+        case OBJ_NW_TYPE_RANGE:
+            assert(!obj_nw->prefix);
+            assert(!obj_nw->wcard);
+            obj_nw->prefix = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*obj_nw->prefix));
+            obj_nw->wcard = (uint32_t(*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])
+                XCALLOC_BUFF(0, sizeof(uint32_t) * sizeof(*obj_nw->wcard));
+            range2_prefix_wildcard_conversion32(
+                obj_nw->u.range.lb,
+                obj_nw->u.range.ub,
+                obj_nw->prefix,
+                obj_nw->wcard,
+                (int *)&obj_nw->count);
+            break;
+        case OBJ_NW_TYPE_NONE:
+            assert(0);
+        default: ;
+    }
+}
+
+void
+object_network_tcam_decompile(obj_nw_t *obj_nw)  {
+
+    if (!object_network_is_tcam_compiled(obj_nw)) {
+        return;
+    }
+    assert(obj_nw->prefix);
+    assert(obj_nw->wcard);
+    XFREE(obj_nw->prefix);
+    XFREE(obj_nw->wcard);
+    obj_nw->count = 0;
+    obj_nw->prefix = NULL;
+    obj_nw->wcard = NULL;
+}
+
+void
+object_network_dec_tcam_users_count (obj_nw_t *obj_nw) {
+
+    assert(obj_nw->tcam_entry_users_ref_count);
+    obj_nw->tcam_entry_users_ref_count--;
+    if (obj_nw->tcam_entry_users_ref_count == 0) {
+        object_network_tcam_decompile(obj_nw);
+    }
+}
+
+void
+object_network_inc_tcam_users_count (obj_nw_t *obj_nw) {
+
+    if (!object_network_is_tcam_compiled(obj_nw)) {
+        assert(0);
+    }
+    obj_nw->tcam_entry_users_ref_count++;
+}
+
+void
+object_network_borrow_tcam_data (obj_nw_t *obj_nw,
+                            uint8_t *count, 
+                            uint32_t (**prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],
+                            uint32_t (**wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT]) {
+
+    assert(object_network_is_tcam_compiled(obj_nw));
+    *count = obj_nw->count;
+    *prefix = (obj_nw->prefix);
+    *wcard = (obj_nw->wcard);
+    object_network_inc_tcam_users_count(obj_nw);
+}
+
 void
 object_network_mem_init () {
 
     MM_REG_STRUCT(0, obj_nw_t);
     MM_REG_STRUCT(0, obj_nw_type_t);
-    MM_REG_STRUCT(0, obj_nw_linked_acl_thread_node_t);
-    MM_REG_STRUCT(0, obj_nw_linkage_db_t);
+    MM_REG_STRUCT(0, objects_linked_acl_thread_node_t);
+    MM_REG_STRUCT(0, objects_linkage_db_t);
 }

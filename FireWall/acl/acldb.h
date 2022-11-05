@@ -18,6 +18,7 @@ typedef struct ip_hdr_ ip_hdr_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct access_list_  access_list_t;
 typedef struct obj_nw_ obj_nw_t;
+typedef struct object_group_ object_group_t;
 typedef struct task_ task_t;
 
 #define ACL_PREFIX_LEN  128
@@ -80,7 +81,8 @@ typedef enum acl_addr_format_ {
     ACL_ADDR_NOT_SPECIFIED,
     ACL_ADDR_HOST,
     ACL_ADDR_SUBNET_MASK,
-    ACL_ADDR_OBJECT_NETWORK
+    ACL_ADDR_OBJECT_NETWORK,
+    ACL_ADDR_OBJECT_GROUP
 } acl_addr_format_t;
 
 /* Stores the info as read from CLI */
@@ -106,6 +108,7 @@ typedef struct acl_entry_{
                 uint32_t subnet_mask;
             } subnet;
             obj_nw_t *obj_nw;
+            object_group_t *og;
         }u;
     };
 
@@ -246,6 +249,36 @@ void acl_entry_link_dst_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw
 void acl_entry_delink_src_object_networks(acl_entry_t *acl_entry) ;
 void acl_entry_delink_dst_object_networks(acl_entry_t *acl_entry) ;
 
+
+/* Caution : Do not use direct access acl_entry->src_addr.u.og
+to fetch object group from ACL, as it is union */
+static inline object_group_t *
+acl_get_src_network_object_group(acl_entry_t *acl_entry) {
+
+    if (acl_entry->src_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP) {
+        return acl_entry->src_addr.u.og;
+    }
+    return NULL;
+}
+
+/* Caution : Do not use direct access acl_entry->dst_addr.u.og
+to fetch Network object group from ACL, as it is union */
+static inline object_group_t *
+acl_get_dst_network_object_group (acl_entry_t *acl_entry) {
+
+    if (acl_entry->dst_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP) {
+        return acl_entry->dst_addr.u.og;
+    }
+    return NULL;
+}
+
+/* Linking and Delinking Object-Networks and ACLs APIs */
+void acl_entry_link_src_object_group(acl_entry_t *acl_entry, object_group_t *og) ;
+void acl_entry_link_dst_object_group(acl_entry_t *acl_entry, object_group_t *og) ;
+void acl_entry_delink_src_object_group(acl_entry_t *acl_entry) ;
+void acl_entry_delink_dst_object_group(acl_entry_t *acl_entry) ;
+
+
 void
 access_list_compute_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry) ;
 
@@ -267,5 +300,64 @@ access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq
 void 
 access_list_reenumerate_seq_no (access_list_t *access_list, 
                                                         glthread_t *begin_node);
+
+void
+acl_entry_increment_referenced_objects_tcam_user_count(
+            acl_entry_t *acl_entry,
+            int8_t k,
+            bool object_networks,
+            bool object_groups);
+
+/* Iterate over Object Group TREE to compile ACL TCAMs */
+typedef struct object_group_ object_group_t;
+
+typedef enum acl_iterator_type_ {
+    acl_iterator_src_addr,
+    acl_iterator_dst_addr,
+    acl_iterator_src_port,
+    acl_iterator_dst_port
+} acl_iterator_type_t;
+
+typedef struct acl_tcam_iterator_ {
+
+    uint32_t *addr_prefix;
+    uint32_t *addr_wcard;
+    uint16_t *port_prefix;
+    uint16_t *port_wcard;
+    uint8_t index;
+    object_group_t *curr_og;
+    acl_entry_t *acl_entry;
+    acl_iterator_type_t it_type;
+} acl_tcam_iterator_t;
+
+void
+acl_tcam_iterator_init (acl_entry_t *acl_entry, 
+                                     acl_tcam_iterator_t *acl_tcam_iterator,
+                                     acl_iterator_type_t it_type) ;
+
+bool
+acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator);
+
+bool
+acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator);
+
+#define FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry_ptr, acl_tcam_it_ptr)    \
+    { \
+    bool _i_src;    \
+    acl_tcam_iterator_init (acl_entry, acl_tcam_it_ptr, acl_iterator_src_addr);     \
+    for ( _i_src = acl_tcam_iterator_first (acl_tcam_it_ptr);    \
+        _i_src; \
+        _i_src =  acl_tcam_iterator_next (acl_tcam_it_ptr)) {
+
+#define FOR_ALL_ADDR_TCAM_END   }}
+
+
+#define FOR_ALL_DST_ADDR_TCAM_BEGIN(acl_entry_ptr, acl_tcam_it_ptr)    \
+    { \
+    bool _i_dst;    \
+    acl_tcam_iterator_init (acl_entry, acl_tcam_it_ptr, acl_iterator_dst_addr);     \
+    for ( _i_dst = acl_tcam_iterator_first (acl_tcam_it_ptr);    \
+        _i_dst; \
+        _i_dst =  acl_tcam_iterator_next (acl_tcam_it_ptr)) {
 
 #endif

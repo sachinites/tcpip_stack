@@ -129,9 +129,9 @@ range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
                                                                 uint32_t (*wildcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],  /* Array of Prefix , Caller need to provide memory */
                                                                 int *n);
 
-
-
 #define string_compare(a, b, len) (strncmp((const char *)a, (const char *)b, len))
 #define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len))
+
+#define DEADCODE    (assert(0))
 
 #endif /* __UTILS__ */

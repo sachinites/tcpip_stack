@@ -40,6 +40,8 @@ void *
 xcalloc_buff(mm_instance_t *mm_inst, uint32_t bytes) ;
 void
 xfree(void *app_ptr);
+void
+xfree_inst(mm_instance_t *mm_inst, void *app_ptr);
 
 /*Printing Functions*/
 void mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name);
@@ -72,5 +74,8 @@ mm_instantiate_new_page_family(
 
 #define XFREE(ptr)  \
    xfree(ptr)
+
+#define XFREE_INST(mm_inst, ptr)    \
+    xfree_inst(mm_inst, ptr);
 
 #endif /* __UAPI_MM__ */

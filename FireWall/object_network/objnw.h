@@ -6,10 +6,11 @@
 #include "../../graph.h"
 #include "../../gluethread/glthread.h"
 #include "../../c-hashtable/hashtable.h"
+#include "objects_common.h"
 
 typedef struct node_ node_t;
 
-#define OBJ_NETWORK_NAME_LEN    32
+#define OBJ_NETWORK_NAME_LEN    128
 
 typedef enum {
     OBJ_NW_TYPE_HOST,
@@ -34,23 +35,6 @@ obj_nw_type_str (obj_nw_type_t type) {
     return NULL;
 }
 
-typedef struct acl_entry_ acl_entry_t;
-typedef struct obj_nw_linked_acl_thread_node_ {
-
-    acl_entry_t *acl;
-    glthread_t glue;
-} obj_nw_linked_acl_thread_node_t;
-GLTHREAD_TO_STRUCT(glue_to_obj_nw_linked_acl_thread_node, \
-                                                obj_nw_linked_acl_thread_node_t, glue);
-
-
-typedef struct obj_nw_linkage_db_{
-
-    glthread_t acls_list;
-    glthread_t nat_list;
-} obj_nw_linkage_db_t;
-
-
 typedef struct obj_nw_ {
 
     obj_nw_type_t type;
@@ -67,17 +51,37 @@ typedef struct obj_nw_ {
         }range;
     }u;
 
-    obj_nw_linkage_db_t *db;
+    objects_linkage_db_t *db;
     
     /* Tcam Data */
     uint16_t count;
-    uint32_t (*prefix)[32];
-    uint32_t (*wcard)[32];
+    uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint32_t (*wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint16_t tcam_entry_users_ref_count;
 
-    uint32_t ref_count;
-    
+    uint16_t ref_count;
 } obj_nw_t;
 
+bool
+object_network_is_tcam_compiled (obj_nw_t *obj_nw) ;
+
+void
+object_network_tcam_compile(obj_nw_t *obj_nw) ;
+
+void
+object_network_tcam_decompile(obj_nw_t *obj_nw) ;
+
+void
+object_network_dec_tcam_users_count (obj_nw_t *obj_nw);
+
+void
+object_network_inc_tcam_users_count (obj_nw_t *obj_nw);
+
+void
+object_network_borrow_tcam_data (obj_nw_t *obj_nw,
+                            uint8_t *count, 
+                            uint32_t (**prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],
+                            uint32_t (**wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT]);
 
 hashtable_t *object_network_create_new_ht () ;
 
@@ -86,12 +90,6 @@ network_object_create_new (const char *name, obj_nw_type_t type);
 
 bool
 network_object_insert_into_ht (hashtable_t *ht, obj_nw_t *obj_nw);
-
-void
-network_object_compile (obj_nw_t *obj_nw) ;
-
-void
-network_object_free_tcam_data (obj_nw_t *obj_nw); 
 
 bool
 network_object_check_and_delete (obj_nw_t *obj_nw); 
