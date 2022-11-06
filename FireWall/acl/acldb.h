@@ -137,8 +137,9 @@ typedef struct acl_entry_{
     int priority;
     uint64_t hit_count;
     
-    uint16_t total_tcam_count;
-    uint16_t tcam_conflicts_count;
+    uint32_t tcam_total_count;
+    uint32_t tcam_self_conflicts_count;
+    uint32_t tcam_other_conflicts_count;
 
     /* To avoid Duplicate printing */
     uint32_t show_cli_seq;
@@ -308,7 +309,7 @@ acl_entry_increment_referenced_objects_tcam_user_count(
             bool object_networks,
             bool object_groups);
 
-/* Iterate over Object Group TREE to compile ACL TCAMs */
+
 typedef struct object_group_ object_group_t;
 
 typedef enum acl_iterator_type_ {
@@ -328,6 +329,7 @@ typedef struct acl_tcam_iterator_ {
     object_group_t *curr_og;
     acl_entry_t *acl_entry;
     acl_iterator_type_t it_type;
+    glthread_t og_leaves_lst_head;
 } acl_tcam_iterator_t;
 
 void
@@ -342,7 +344,7 @@ bool
 acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator);
 
 #define FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry_ptr, acl_tcam_it_ptr)    \
-    { \
+    {  \
     bool _i_src;    \
     acl_tcam_iterator_init (acl_entry, acl_tcam_it_ptr, acl_iterator_src_addr);     \
     for ( _i_src = acl_tcam_iterator_first (acl_tcam_it_ptr);    \

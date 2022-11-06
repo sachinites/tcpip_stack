@@ -29,13 +29,13 @@ object_group_type_str(og_type_t type) {
         case OBJECT_GRP_TYPE_UNKNOWN:
             return "Unknown";
         case OBJECT_GRP_NET_ADDR:
-            return "NET";
+            return "net";
         case OBJECT_GRP_NET_HOST:
-            return "HOST";
+            return "host";
         case OBJECT_GRP_NET_RANGE:
-            return "RANGE";
+            return "range";
         case OBJECT_GRP_NESTED:
-            return "NESTED";
+            return "nested";
     }
     return NULL;
 }
@@ -48,7 +48,7 @@ typedef enum object_group_tcam_compilation_state_ {
 
 typedef struct object_group_ {
 
-    uint32_t cycle_det_id;
+    int cycle_det_id;
     unsigned char og_name[OBJ_GRP_NAME_LEN];
     /* child og's do not contribute to this ref_count */
     uint32_t ref_count;
@@ -120,7 +120,7 @@ hashtable_t *
 object_group_create_new_ht (void);
 
 void
-object_group_display (node_t *node, object_group_t *og);
+object_group_display_detail (node_t *node, object_group_t *og);
 
 object_group_t *
 object_group_malloc (const c_string name, og_type_t og_type);
@@ -156,5 +156,8 @@ object_group_delete (node_t *node, object_group_t *og);
 
 obj_grp_list_node_t *
 object_group_search_by_ptr(glthread_t *head, object_group_t *og);
+
+void
+object_group_queue_all_leaf_ogs(object_group_t *og_root, glthread_t *list_head);
 
 #endif 

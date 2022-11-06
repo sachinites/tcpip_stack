@@ -95,9 +95,9 @@ acl_decompile (acl_entry_t *acl_entry) {
             break;
         case ACL_ADDR_OBJECT_GROUP:
             assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
-            assert(acl_entry->tcam_saddr_count);    
-            assert(acl_entry->tcam_saddr_prefix);
-            assert(acl_entry->tcam_saddr_wcard);
+            assert(!acl_entry->tcam_saddr_count);    
+            assert(!acl_entry->tcam_saddr_prefix);
+            assert(!acl_entry->tcam_saddr_wcard);
             acl_entry->tcam_saddr_prefix = NULL;
             acl_entry->tcam_saddr_wcard = NULL;
             acl_entry->tcam_saddr_count = 0;
@@ -167,6 +167,7 @@ acl_decompile (acl_entry_t *acl_entry) {
 typedef struct mnode_acl_list_node_ {
 
     acl_entry_t *acl_entry;
+    uint32_t ref_count;
     glthread_t glue;
 } mnode_acl_list_node_t;
 GLTHREAD_TO_STRUCT(glthread_to_mnode_acl_list_node, mnode_acl_list_node_t, glue);
@@ -193,8 +194,9 @@ access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 
     mnode_acl_list_node = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
     mnode_acl_list_node->acl_entry = acl_entry;
+    mnode_acl_list_node->ref_count = 1;
+    acl_entry->tcam_total_count++;
     init_glthread(&mnode_acl_list_node->glue);
-    
     glthread_add_next (list_head, &mnode_acl_list_node->glue);
 }
 
@@ -205,6 +207,8 @@ access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 static void
 access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
 
+    bool self_found = false;
+    uint32_t other_conflicts = 0;
     glthread_t *list_head, *curr;
     acl_entry_t *acl_entry;
     mnode_acl_list_node_t *mnode_acl_list_node = NULL;
@@ -217,16 +221,37 @@ access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
 
         mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
 
-        if (acl_entry->seq_no > mnode_acl_list_node->acl_entry->seq_no) continue;
+        if (acl_entry != mnode_acl_list_node->acl_entry) {
+             mnode_acl_list_node->acl_entry->tcam_other_conflicts_count++;
+             other_conflicts++;
+        }
+        else {
+            acl_entry->tcam_self_conflicts_count++;
+            mnode_acl_list_node->ref_count++;
+            self_found = true;
+        }
         
-        if (acl_entry->seq_no == mnode_acl_list_node->acl_entry->seq_no) assert(0);
+    } ITERATE_GLTHREAD_END(list_head, curr);
 
+    acl_entry->tcam_total_count++;
+
+    if (self_found) return;
+
+    ITERATE_GLTHREAD_BEGIN(list_head, curr) {
+
+        mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
+
+        if (acl_entry->seq_no > mnode_acl_list_node->acl_entry->seq_no) {
+            continue;
+        }
         break;
 
     } ITERATE_GLTHREAD_END(list_head, curr);
 
     mnode_acl_list_node2 = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
     mnode_acl_list_node2->acl_entry = acl_entry;
+    mnode_acl_list_node2->acl_entry->tcam_other_conflicts_count = other_conflicts;
+    mnode_acl_list_node2->ref_count = 1;
     init_glthread(&mnode_acl_list_node2->glue);
 
     if (curr) {
@@ -253,21 +278,27 @@ access_list_mtrie_deallocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 
         mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
         
-        if (mnode_acl_list_node->acl_entry == acl_entry) {
-
-            remove_glthread(&mnode_acl_list_node->glue);
-            XFREE(mnode_acl_list_node);
-
-            if (IS_GLTHREAD_LIST_EMPTY (list_head)) {
-                XFREE(list_head);
-                mnode->data = NULL;
-            }
-            return;
+        if (mnode_acl_list_node->acl_entry != acl_entry) {
+            mnode_acl_list_node->acl_entry->tcam_other_conflicts_count--;
         }
-
+        else {
+            acl_entry->tcam_total_count--;
+            if (mnode_acl_list_node->ref_count > 1) {
+                mnode_acl_list_node->ref_count--;
+                acl_entry->tcam_self_conflicts_count--;
+            }
+            else {
+                remove_glthread(&mnode_acl_list_node->glue);
+                XFREE(mnode_acl_list_node);
+            }
+        }
     }ITERATE_GLTHREAD_END(list_head, curr);
 
-    assert(0);
+    if (IS_GLTHREAD_LIST_EMPTY(list_head))
+    {
+        XFREE(list_head);
+        mnode->data = NULL;
+    }
 }
 
 static void
@@ -382,22 +413,7 @@ acl_compile (acl_entry_t *acl_entry) {
             if (acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) {
                 object_group_tcam_compile(acl_entry->src_addr.u.og);
             }
-            switch (acl_entry->src_addr.u.og->og_type)
-            {
-                case OBJECT_GRP_TYPE_UNKNOWN:
-                case OBJECT_GRP_NET_ADDR:
-                case OBJECT_GRP_NET_HOST:
-                case OBJECT_GRP_NET_RANGE:
-                    DEADCODE;
-                    object_group_borrow_tcam_data(acl_entry->src_addr.u.og,
-                                                  &acl_entry->tcam_saddr_count,
-                                                  &acl_entry->tcam_saddr_prefix,
-                                                  &acl_entry->tcam_saddr_wcard);
-                    break;
-                case OBJECT_GRP_NESTED:
-                /* Will handle at ACL installation time directly */
-                break;
-            }
+            object_group_inc_tcam_users_count(acl_entry->src_addr.u.og);
             break;
             default : ;
     }
@@ -481,22 +497,7 @@ acl_compile (acl_entry_t *acl_entry) {
             if (acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) {
                 object_group_tcam_compile(acl_entry->dst_addr.u.og);
             }
-            switch (acl_entry->dst_addr.u.og->og_type)
-            {
-                case OBJECT_GRP_TYPE_UNKNOWN:
-                case OBJECT_GRP_NET_ADDR:
-                case OBJECT_GRP_NET_HOST:
-                case OBJECT_GRP_NET_RANGE:
-                    DEADCODE;
-                    object_group_borrow_tcam_data(acl_entry->dst_addr.u.og,
-                                                  &acl_entry->tcam_daddr_count,
-                                                  &acl_entry->tcam_daddr_prefix,
-                                                  &acl_entry->tcam_daddr_wcard);
-                    break;
-                case OBJECT_GRP_NESTED:
-                /* Will handle at ACL installation time directly */
-                break;
-            }
+            object_group_inc_tcam_users_count(acl_entry->dst_addr.u.og);
             break;
             default : ;
     }
@@ -1043,12 +1044,13 @@ acl_entry_uninstall (access_list_t *access_list,
     mtrie_node_t *mnode;
     int src_port_it, dst_port_it;
     mtrie_ops_result_code_t rc;
-    bool src_addr_it, dst_addr_it;    
     acl_tcam_t tcam_entry_template;
     acl_tcam_iterator_t acl_tcam_src_it;
     acl_tcam_iterator_t acl_tcam_dst_it;    
 
     if (!acl_entry->is_installed) return;
+
+    assert(acl_entry->tcam_total_count);
 
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
@@ -1087,15 +1089,12 @@ acl_entry_uninstall (access_list_t *access_list,
                     if (mnode->data == NULL) {
                         mtrie_delete_leaf_node (access_list->mtrie, mnode, true);
                     }    
-
-                    acl_entry->total_tcam_count--;
                 }
             }FOR_ALL_ADDR_TCAM_END;
         }
     }FOR_ALL_ADDR_TCAM_END;
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
-    acl_entry->tcam_conflicts_count = 0;
     acl_entry->is_installed = false;
 }
 
@@ -1110,12 +1109,12 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     acl_tcam_t tcam_entry_template;    
     acl_tcam_iterator_t acl_tcam_src_it;
     acl_tcam_iterator_t acl_tcam_dst_it;
-    bool src_addr_it, dst_addr_it;
 
     if (acl_entry->is_installed) return;
 
-    acl_entry->total_tcam_count = 0;
-    acl_entry->tcam_conflicts_count = 0;
+    assert(acl_entry->tcam_total_count == 0);
+    assert(acl_entry->tcam_other_conflicts_count == 0);
+    assert(acl_entry->tcam_self_conflicts_count == 0);
 
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
@@ -1138,7 +1137,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
                             &tcam_entry_template);
 
 #if 0
-                    printf ("Installing TCAM Entry  # %u\n", acl_entry->total_tcam_count);
+                    printf ("Installing TCAM Entry  # %u\n", acl_entry->tcam_total_count);
                     bitmap_print(&tcam_entry_template.prefix);
                     bitmap_print(&tcam_entry_template.mask);
 #endif
@@ -1149,15 +1148,12 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
                                             ACL_PREFIX_LEN,
                                             &mnode));
 
-                    acl_entry->total_tcam_count++;
-
                     switch (rc ) {
                         case MTRIE_INSERT_SUCCESS:
                         access_list_mtrie_allocate_mnode_data(mnode, (void *)acl_entry);
                         break;
                     case MTRIE_INSERT_DUPLICATE:
                         access_list_mtrie_duplicate_entry_found(mnode, (void *)acl_entry);
-                        acl_entry->tcam_conflicts_count++;
                         break;
                     case MTRIE_INSERT_FAILED:
                         assert(0);
@@ -1442,7 +1438,6 @@ access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry)
 
     acl_tcam_t tcam_entry;
     int src_port_it, dst_port_it;
-    bool src_addr_it, dst_addr_it;
     acl_tcam_iterator_t acl_tcam_src_it;
     acl_tcam_iterator_t acl_tcam_dst_it;        
 
@@ -1710,11 +1705,25 @@ acl_tcam_iterator_init (acl_entry_t *acl_entry,
     acl_tcam_iterator->port_prefix = NULL;
     acl_tcam_iterator->port_wcard = NULL;
     acl_tcam_iterator->index = 0;
+    acl_tcam_iterator->curr_og = NULL;
     acl_tcam_iterator->acl_entry = acl_entry;
     acl_tcam_iterator->it_type = it_type;
-    acl_tcam_iterator->curr_og = NULL;
-    if (acl_entry->src_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP) {
-        acl_tcam_iterator->curr_og = acl_entry->src_addr.u.og;
+    init_glthread(&acl_tcam_iterator->og_leaves_lst_head);
+    
+    switch (it_type) {
+        case acl_iterator_src_addr:
+            if (acl_entry->src_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP)
+                acl_tcam_iterator->curr_og = acl_entry->src_addr.u.og;
+                break;
+        case acl_iterator_dst_addr:
+            if (acl_entry->dst_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP)
+                acl_tcam_iterator->curr_og = acl_entry->dst_addr.u.og;
+                break;
+        default: ;
+    }
+    if (acl_tcam_iterator->curr_og) {
+        object_group_queue_all_leaf_ogs(acl_tcam_iterator->curr_og, 
+        &acl_tcam_iterator->og_leaves_lst_head);
     }
 }
 
@@ -1745,14 +1754,29 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
                         case OBJECT_GRP_NET_RANGE:
+                            DEADCODE;
                             acl_tcam_iterator->index = 0;
                             acl_tcam_iterator->addr_prefix = &((*acl_entry->src_addr.u.og->prefix)[0]);
                             acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.og->wcard)[0]);
                             return true;
                         case OBJECT_GRP_NESTED:
                             {
-                                /* Stateful DFS walk on OG tree is required */
-                                return false;
+                                glthread_t *curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                if (!curr) return false;
+                                obj_grp_list_node_t *obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                object_group_t *og = obj_grp_list_node->og;
+                                switch (og->og_type)
+                                {
+                                    case OBJECT_GRP_NET_ADDR:
+                                    case OBJECT_GRP_NET_HOST:
+                                    case OBJECT_GRP_NET_RANGE:
+                                        acl_tcam_iterator->index = 0;
+                                        acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
+                                        acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
+                                        return true;
+                                    case OBJECT_GRP_NESTED:
+                                        assert(0);
+                                }
                             }
                             break;
                     }
@@ -1781,15 +1805,31 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
                         case OBJECT_GRP_NET_RANGE:
+                            DEADCODE;
                             acl_tcam_iterator->index = 0;
                             acl_tcam_iterator->addr_prefix = &((*acl_entry->dst_addr.u.og->prefix)[0]);
                             acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.og->wcard)[0]);
                             return true;
                         case OBJECT_GRP_NESTED:
+                        {
+                            glthread_t *curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                            if (!curr) return false;
+                            obj_grp_list_node_t *obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                            object_group_t *og = obj_grp_list_node->og;
+                            switch (og->og_type)
                             {
-                                /* Stateful DFS walk on OG tree is required */
+                            case OBJECT_GRP_NET_ADDR:
+                            case OBJECT_GRP_NET_HOST:
+                            case OBJECT_GRP_NET_RANGE:
+                                acl_tcam_iterator->index = 0;
+                                acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
+                                acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
+                                return true;
+                            case OBJECT_GRP_NESTED:
+                                assert(0);
                             }
-                            break;
+                        }
+                        break;
                     }
                 break;
             } 
@@ -1837,8 +1877,9 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                     switch(acl_entry->src_addr.u.og->og_type) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
-                            return false;
+                             DEADCODE;
                         case OBJECT_GRP_NET_RANGE:
+                             DEADCODE;
                             acl_tcam_iterator->index++;
                             if (acl_tcam_iterator->index >= acl_entry->src_addr.u.og->count) {
                                 return false;
@@ -1848,8 +1889,65 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                             return true;
                         case OBJECT_GRP_NESTED:
                             {
-                                /* Stateful DFS walk on OG tree is required */
-                                return false;
+                                /* Inspecting the prev object processed */
+                                 glthread_t *curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                  assert(curr);
+                                  obj_grp_list_node_t *obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                  object_group_t *og = obj_grp_list_node->og;
+                                   switch (og->og_type) {
+                                        case OBJECT_GRP_NET_ADDR:
+                                        case OBJECT_GRP_NET_HOST:
+                                            /* Prev object processing done */
+                                            dequeue_glthread_first(&acl_tcam_iterator->og_leaves_lst_head);
+                                            XFREE(obj_grp_list_node);
+                                            og->ref_count--;
+                                            /* Get and inspect the next object */
+                                            curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                            if (!curr) return false;
+                                            obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                            og = obj_grp_list_node->og;
+                                            switch (og->og_type) {
+                                                case OBJECT_GRP_NET_ADDR:
+                                                case OBJECT_GRP_NET_HOST:
+                                                case OBJECT_GRP_NET_RANGE:
+                                                    acl_tcam_iterator->index = 0;
+                                                    acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
+                                                    acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
+                                                    return true;
+                                                case OBJECT_GRP_NESTED:
+                                                    assert(0);
+                                            }
+                                        case OBJECT_GRP_NET_RANGE:
+                                            /* IF prev object is of type Range */
+                                            acl_tcam_iterator->index++;
+                                            if (acl_tcam_iterator->index < og->count) {
+                                                acl_tcam_iterator->addr_prefix = &((*og->prefix)[acl_tcam_iterator->index]);
+                                                acl_tcam_iterator->addr_wcard = &((*og->wcard)[acl_tcam_iterator->index]);
+                                                return true;
+                                            }
+                                            dequeue_glthread_first(&acl_tcam_iterator->og_leaves_lst_head);
+                                            XFREE(obj_grp_list_node);
+                                            og->ref_count--;
+                                            /* Get and inspect the next object */
+                                            curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                            if (!curr) return false;
+                                            obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                            og = obj_grp_list_node->og;
+                                            switch (og->og_type)
+                                            {
+                                                case OBJECT_GRP_NET_ADDR:
+                                                case OBJECT_GRP_NET_HOST:
+                                                case OBJECT_GRP_NET_RANGE:
+                                                    acl_tcam_iterator->index = 0;
+                                                    acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
+                                                    acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
+                                                     return true;
+                                                case OBJECT_GRP_NESTED:
+                                                    assert(0);
+                                            }
+                                        case OBJECT_GRP_NESTED:
+                                            assert(0);
+                                   }
                             }
                             break;
                     }
@@ -1894,8 +1992,65 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                             return true;
                         case OBJECT_GRP_NESTED:
                             {
-                                /* Stateful DFS walk on OG tree is required */
-                                return false;
+                                /* Inspecting the prev object processed */
+                                 glthread_t *curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                  assert(curr);
+                                  obj_grp_list_node_t *obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                  object_group_t *og = obj_grp_list_node->og;
+                                   switch (og->og_type) {
+                                        case OBJECT_GRP_NET_ADDR:
+                                        case OBJECT_GRP_NET_HOST:
+                                            /* Prev object processing done */
+                                            dequeue_glthread_first(&acl_tcam_iterator->og_leaves_lst_head);
+                                            XFREE(obj_grp_list_node);
+                                            og->ref_count--;
+                                            /* Get and inspect the next object */
+                                            curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                            if (!curr) return false;
+                                            obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                            og = obj_grp_list_node->og;
+                                            switch (og->og_type) {
+                                                case OBJECT_GRP_NET_ADDR:
+                                                case OBJECT_GRP_NET_HOST:
+                                                case OBJECT_GRP_NET_RANGE:
+                                                    acl_tcam_iterator->index = 0;
+                                                    acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
+                                                    acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
+                                                    return true;
+                                                case OBJECT_GRP_NESTED:
+                                                    assert(0);
+                                            }
+                                        case OBJECT_GRP_NET_RANGE:
+                                            /* IF prev object is of type Range */
+                                            acl_tcam_iterator->index++;
+                                            if (acl_tcam_iterator->index < og->count) {
+                                                acl_tcam_iterator->addr_prefix = &((*og->prefix)[acl_tcam_iterator->index]);
+                                                acl_tcam_iterator->addr_wcard = &((*og->wcard)[acl_tcam_iterator->index]);
+                                                return true;
+                                            }
+                                            dequeue_glthread_first(&acl_tcam_iterator->og_leaves_lst_head);
+                                            XFREE(obj_grp_list_node);
+                                            og->ref_count--;
+                                            /* Get and inspect the next object */
+                                            curr = glthread_get_next(&acl_tcam_iterator->og_leaves_lst_head);
+                                            if (!curr) return false;
+                                            obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                                            og = obj_grp_list_node->og;
+                                            switch (og->og_type)
+                                            {
+                                                case OBJECT_GRP_NET_ADDR:
+                                                case OBJECT_GRP_NET_HOST:
+                                                case OBJECT_GRP_NET_RANGE:
+                                                    acl_tcam_iterator->index = 0;
+                                                    acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
+                                                    acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
+                                                     return true;
+                                                case OBJECT_GRP_NESTED:
+                                                    assert(0);
+                                            }
+                                        case OBJECT_GRP_NESTED:
+                                            assert(0);
+                                   }
                             }
                             break;
                     }
@@ -1921,4 +2076,5 @@ acl_mem_init() {
     MM_REG_STRUCT(0, access_list_t);
     MM_REG_STRUCT(0, acl_tcam_t);
     MM_REG_STRUCT(0, mnode_acl_list_node_t);
+    MM_REG_STRUCT(0, acl_tcam_iterator_t);
 }

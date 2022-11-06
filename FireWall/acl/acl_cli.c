@@ -1375,10 +1375,11 @@ acl_print (acl_entry_t *acl_entry) {
     default:;
     }
 
-    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[%u, %u])" ANSI_COLOR_RESET,
+    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])" ANSI_COLOR_RESET,
            acl_entry->hit_count,
-           acl_entry->total_tcam_count,
-           acl_entry->tcam_conflicts_count);
+           acl_entry->tcam_total_count,
+           acl_entry->tcam_self_conflicts_count,
+           acl_entry->tcam_other_conflicts_count);
 }
 
 static void

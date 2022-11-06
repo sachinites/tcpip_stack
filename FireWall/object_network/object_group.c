@@ -4,6 +4,8 @@
 #include <memory.h>
 #include "../../graph.h"
 #include "object_group.h"
+#include "objects_common.h"
+#include "../acl/acldb.h"
 
 #define HASH_PRIME_CONST    5381
 
@@ -147,8 +149,6 @@ object_group_tcam_decompile(object_group_t *og) {
 
 void
 object_group_dec_tcam_users_count (object_group_t *og) {
-
-    assert(og->tcam_entry_users_ref_count > 0);
 
     switch(og->og_type) {
         case OBJECT_GRP_NET_ADDR:
@@ -336,28 +336,108 @@ object_group_find_child_object_group (object_group_t *og, c_string obj_grp_name)
 }
 
 void
-object_group_display (node_t *node, object_group_t *og) {
+object_group_display_detail (node_t *node, object_group_t *og) {
 
     glthread_t *curr;
     obj_grp_list_node_t *obj_grp_list_node;
 
-    printf ("OG : %s\n", og->og_name);
+    printf ("OG : %s  ", og->og_name);
+
+    printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+        og->ref_count, og->tcam_entry_users_ref_count);
 
     ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
-        printf ("  C-OG : %s\n", obj_grp_list_node->og->og_name);
+        printf ("  C-OG : %s ", obj_grp_list_node->og->og_name);
+        printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+        obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count);
 
     } ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
 
     ITERATE_GLTHREAD_BEGIN(&og->parent_og_list_head, curr) {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
-        printf ("  P-OG : %s\n", obj_grp_list_node->og->og_name);
+        printf ("  P-OG : %s ", obj_grp_list_node->og->og_name);
+        printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+        obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count);        
 
     } ITERATE_GLTHREAD_END(&og->parent_og_list_head, curr);
-
 }
+
+#if 0
+void 
+object_group_display (object_group_t *og) {
+
+    char ip[16];
+    switch(og->og_type) {
+        case OBJECT_GRP_NET_HOST:
+            printf ("  object-group network %s %s %s", og->og_name, 
+                object_group_type_str(og->og_type),
+                tcp_ip_covert_ip_n_to_p(og->u.host , ip));
+            printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+                og->ref_count, og->tcam_entry_users_ref_count);
+            break;
+        case OBJECT_GRP_NET_ADDR:
+             printf ("  object-group network %s %s", og->og_name, 
+             tcp_ip_covert_ip_n_to_p (og->u.subnet.network, ip));
+             printf(" %s", tcp_ip_covert_ip_n_to_p (og->u.subnet.subnet, ip));
+            printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+                og->ref_count, og->tcam_entry_users_ref_count);             
+            break;
+        case OBJECT_GRP_NET_RANGE:
+            printf ("  object-group network %s range %s", og->og_name, 
+            tcp_ip_covert_ip_n_to_p (og->u.range.lb, ip));
+            printf (" %s", tcp_ip_covert_ip_n_to_p (og->u.range.ub, ip));
+            printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+                og->ref_count, og->tcam_entry_users_ref_count);
+            break;
+        case OBJECT_GRP_NESTED:
+        {
+            glthread_t *curr;
+            obj_grp_list_node_t *obj_grp_list_node;
+
+            ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
+
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                printf (" object-group network %s group-object %s", 
+                    og->og_name, obj_grp_list_node->og->og_name);
+                printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+                og->ref_count, og->tcam_entry_users_ref_count);
+
+                object_group_display(obj_grp_list_node->og);
+
+            } ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
+        }
+        break;
+    }
+
+    printf ("  ACLs referenced:\n");
+    
+    objects_linkage_db_t *db = (objects_linkage_db_t *)og->db;
+
+    glthread_t *curr;
+
+    if (db) {
+
+        ITERATE_GLTHREAD_BEGIN(&db->acls_list, curr) {
+
+            objects_linked_acl_thread_node_t *objects_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
+
+            printf ("   access-list %s \n", objects_linked_acl_thread_node->acl->access_lst->name);
+
+            
+        }ITERATE_GLTHREAD_END(&db->acls_list, curr)
+
+
+        ITERATE_GLTHREAD_BEGIN(&db->nat_list, curr) {
+
+                
+
+        } ITERATE_GLTHREAD_END(&db->nat_list, curr)
+    }
+}
+#endif
 
 void 
 object_group_hashtable_print(node_t *node, hashtable_t *ht) {
@@ -377,7 +457,7 @@ object_group_hashtable_print(node_t *node, hashtable_t *ht) {
     {
         char *key = (char *)hashtable_iterator_key(itr);
         object_group_t *og = (object_group_t *)hashtable_iterator_value(itr);
-        object_group_display (node, og);
+        object_group_display_detail (node, og);
         printf ("\n");
     } while (hashtable_iterator_advance(itr));
 
@@ -525,6 +605,44 @@ object_group_unbind_child (object_group_t *p_og, object_group_t *c_og) {
     remove_glthread(&obj_grp_list_node->glue);
 
     XFREE(obj_grp_list_node);
+}
+
+static void
+_object_group_queue_all_leaf_ogs(object_group_t *og, glthread_t *list_head) {
+
+    glthread_t *curr;
+    obj_grp_list_node_t *obj_grp_list_node, *obj_grp_list_node2;
+    
+    ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
+
+        obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+        if (obj_grp_list_node->og->cycle_det_id == og->cycle_det_id) continue;
+        obj_grp_list_node->og->cycle_det_id = og->cycle_det_id;
+
+        switch (obj_grp_list_node->og->og_type) {
+            case OBJECT_GRP_NET_ADDR:
+            case OBJECT_GRP_NET_HOST:
+            case OBJECT_GRP_NET_RANGE:
+                obj_grp_list_node2 = (obj_grp_list_node_t *)XCALLOC(0, 1, obj_grp_list_node_t);
+                obj_grp_list_node2->og = obj_grp_list_node->og;
+                obj_grp_list_node->og->ref_count++;
+                init_glthread(&obj_grp_list_node2->glue);
+                glthread_add_next(list_head, &obj_grp_list_node2->glue);
+                break;
+            case OBJECT_GRP_NESTED:
+                _object_group_queue_all_leaf_ogs(obj_grp_list_node->og, list_head);
+                break;
+            default: ;
+        }
+    } ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
+}
+
+void
+object_group_queue_all_leaf_ogs(object_group_t *og_root, glthread_t *list_head) {
+
+    assert(og_root->og_type == OBJECT_GRP_NESTED);    
+    og_root->cycle_det_id = rand();
+    _object_group_queue_all_leaf_ogs(og_root, list_head);
 }
 
 void
