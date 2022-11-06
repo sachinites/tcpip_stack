@@ -135,9 +135,7 @@ process_arp_broadcast_request(node_t *node, interface_t *iif,
     unsigned char ip_addr[16];
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
 
-    uint32_t arp_dst_ip = htonl(arp_hdr->dst_ip);
-
-    tcp_ip_covert_ip_n_to_p(arp_dst_ip, ip_addr);
+    tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip_addr);
     
     if (string_compare(IF_IP(iif), ip_addr, 16)) {
         #if 0

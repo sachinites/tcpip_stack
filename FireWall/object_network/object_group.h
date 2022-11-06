@@ -40,6 +40,9 @@ object_group_type_str(og_type_t type) {
     return NULL;
 }
 
+/* Track whether the OG is compiled or not to avoid redundant compilation
+of OGs.  Note that only LEAF OGs are tracked, NESTED OGs are always assumed to
+be NOT Compiled */
 typedef enum object_group_tcam_compilation_state_ {
 
     OG_TCAM_STATE_NOT_COMPILED,
@@ -70,13 +73,12 @@ typedef struct object_group_ {
 
     objects_linkage_db_t *db;
 
-    /* The below four members are valid only for LEAF OGs */
-    /* Tcam Data */
+    /* The below five members are valid only for LEAF OGs*/
+    /*Tcam Data */
     uint16_t count;
     uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
     uint32_t (*wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
     uint16_t tcam_entry_users_ref_count;
-
     og_tcam_compilation_state_t tcam_state;
 
 } object_group_t;
@@ -91,6 +93,8 @@ void
 object_group_tcam_compile(object_group_t *og) ;
 void
 object_group_tcam_decompile(object_group_t *og) ;
+bool
+object_group_is_tcam_compiled(object_group_t *og);
 void
 object_group_dec_tcam_users_count (object_group_t *og);
 void

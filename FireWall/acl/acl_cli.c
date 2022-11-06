@@ -1352,7 +1352,7 @@ acl_print (acl_entry_t *acl_entry) {
         printf(" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
         break;
     case ACL_ADDR_OBJECT_GROUP:
-         printf(" object-group %s", acl_entry->src_addr.u.og->og_name);
+         printf(" object-group %s", acl_entry->dst_addr.u.og->og_name);
          break;        
     }
 

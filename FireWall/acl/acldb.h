@@ -137,9 +137,9 @@ typedef struct acl_entry_{
     int priority;
     uint64_t hit_count;
     
-    uint32_t tcam_total_count;
-    uint32_t tcam_self_conflicts_count;
-    uint32_t tcam_other_conflicts_count;
+    uint32_t tcam_total_count; /* No of TCAM entries installed in TCAM */
+    uint32_t tcam_self_conflicts_count; /* No of self TCAM entries conflicts with self tcam entries */ 
+    uint32_t tcam_other_conflicts_count; /* No of TCAM entries of other ACLs which conflicts with this ACL's */
 
     /* To avoid Duplicate printing */
     uint32_t show_cli_seq;

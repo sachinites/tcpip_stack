@@ -94,13 +94,9 @@ acl_decompile (acl_entry_t *acl_entry) {
             object_network_dec_tcam_users_count(acl_entry->src_addr.u.obj_nw);
             break;
         case ACL_ADDR_OBJECT_GROUP:
-            assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
             assert(!acl_entry->tcam_saddr_count);    
             assert(!acl_entry->tcam_saddr_prefix);
             assert(!acl_entry->tcam_saddr_wcard);
-            acl_entry->tcam_saddr_prefix = NULL;
-            acl_entry->tcam_saddr_wcard = NULL;
-            acl_entry->tcam_saddr_count = 0;
             object_group_dec_tcam_users_count(acl_entry->src_addr.u.og);
             break;            
     }
@@ -139,13 +135,9 @@ acl_decompile (acl_entry_t *acl_entry) {
             object_network_dec_tcam_users_count(acl_entry->dst_addr.u.obj_nw);
             break;
         case ACL_ADDR_OBJECT_GROUP:
-            assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
-            assert(acl_entry->tcam_daddr_count);    
-            assert(acl_entry->tcam_daddr_prefix);
-            assert(acl_entry->tcam_daddr_wcard);
-            acl_entry->tcam_daddr_prefix = NULL;
-            acl_entry->tcam_daddr_wcard = NULL;
-            acl_entry->tcam_daddr_count = 0;
+            assert(!acl_entry->tcam_daddr_count);    
+            assert(!acl_entry->tcam_daddr_prefix);
+            assert(!acl_entry->tcam_daddr_wcard);
             object_group_dec_tcam_users_count(acl_entry->dst_addr.u.og);
             break;            
     }
@@ -410,9 +402,7 @@ acl_compile (acl_entry_t *acl_entry) {
                 &acl_entry->tcam_saddr_wcard);
             break;
         case ACL_ADDR_OBJECT_GROUP:
-            if (acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) {
-                object_group_tcam_compile(acl_entry->src_addr.u.og);
-            }
+            object_group_tcam_compile(acl_entry->src_addr.u.og);
             object_group_inc_tcam_users_count(acl_entry->src_addr.u.og);
             break;
             default : ;
@@ -494,9 +484,7 @@ acl_compile (acl_entry_t *acl_entry) {
                 &acl_entry->tcam_daddr_wcard);
             break;
         case ACL_ADDR_OBJECT_GROUP:
-            if (acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) {
-                object_group_tcam_compile(acl_entry->dst_addr.u.og);
-            }
+            object_group_tcam_compile(acl_entry->dst_addr.u.og);
             object_group_inc_tcam_users_count(acl_entry->dst_addr.u.og);
             break;
             default : ;
@@ -1663,13 +1651,11 @@ acl_entry_increment_referenced_objects_tcam_user_count(
        }
        else if (object_groups && acl_entry->src_addr.acl_addr_format ==
             ACL_ADDR_OBJECT_GROUP) {
-            
-            if (acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED) {
-                if (k == 1)
-                object_group_inc_tcam_users_count (acl_entry->src_addr.u.og);
-                else
-                object_group_dec_tcam_users_count (acl_entry->src_addr.u.og);
-            }
+
+           if (k == 1)
+               object_group_inc_tcam_users_count(acl_entry->src_addr.u.og);
+           else
+               object_group_dec_tcam_users_count(acl_entry->src_addr.u.og);
        }
         
         if (object_networks && acl_entry->dst_addr.acl_addr_format ==
@@ -1684,13 +1670,11 @@ acl_entry_increment_referenced_objects_tcam_user_count(
        }
        else if (object_groups && acl_entry->dst_addr.acl_addr_format ==
             ACL_ADDR_OBJECT_GROUP) {
-            
-            if (acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED) {
-                if (k == 1)
-                object_group_inc_tcam_users_count (acl_entry->dst_addr.u.og);
-                else
-                object_group_dec_tcam_users_count (acl_entry->dst_addr.u.og);
-            }
+
+           if (k == 1)
+               object_group_inc_tcam_users_count(acl_entry->dst_addr.u.og);
+           else
+               object_group_dec_tcam_users_count(acl_entry->dst_addr.u.og);
        }
 }
 
@@ -1749,12 +1733,12 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
                     acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.obj_nw->wcard)[0]);
                     return true;
                 case ACL_ADDR_OBJECT_GROUP:
-                    assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
                     switch(acl_entry->src_addr.u.og->og_type) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
                         case OBJECT_GRP_NET_RANGE:
                             DEADCODE;
+                            assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
                             acl_tcam_iterator->index = 0;
                             acl_tcam_iterator->addr_prefix = &((*acl_entry->src_addr.u.og->prefix)[0]);
                             acl_tcam_iterator->addr_wcard = &((*acl_entry->src_addr.u.og->wcard)[0]);
@@ -1770,6 +1754,7 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
                                     case OBJECT_GRP_NET_ADDR:
                                     case OBJECT_GRP_NET_HOST:
                                     case OBJECT_GRP_NET_RANGE:
+                                        assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
                                         acl_tcam_iterator->index = 0;
                                         acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
                                         acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
@@ -1800,12 +1785,12 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
                     acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.obj_nw->wcard)[0]);
                     return true;
                 case ACL_ADDR_OBJECT_GROUP:
-                    assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
                     switch(acl_entry->dst_addr.u.og->og_type) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
                         case OBJECT_GRP_NET_RANGE:
                             DEADCODE;
+                            assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
                             acl_tcam_iterator->index = 0;
                             acl_tcam_iterator->addr_prefix = &((*acl_entry->dst_addr.u.og->prefix)[0]);
                             acl_tcam_iterator->addr_wcard = &((*acl_entry->dst_addr.u.og->wcard)[0]);
@@ -1821,6 +1806,7 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator) {
                             case OBJECT_GRP_NET_ADDR:
                             case OBJECT_GRP_NET_HOST:
                             case OBJECT_GRP_NET_RANGE:
+                                assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
                                 acl_tcam_iterator->index = 0;
                                 acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
                                 acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
@@ -1873,7 +1859,6 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                             return true;
                     }
                 case ACL_ADDR_OBJECT_GROUP:
-                    assert(acl_entry->src_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
                     switch(acl_entry->src_addr.u.og->og_type) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
@@ -1910,6 +1895,7 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                                                 case OBJECT_GRP_NET_ADDR:
                                                 case OBJECT_GRP_NET_HOST:
                                                 case OBJECT_GRP_NET_RANGE:
+                                                    assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
                                                     acl_tcam_iterator->index = 0;
                                                     acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
                                                     acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
@@ -1938,6 +1924,7 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                                                 case OBJECT_GRP_NET_ADDR:
                                                 case OBJECT_GRP_NET_HOST:
                                                 case OBJECT_GRP_NET_RANGE:
+                                                    assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
                                                     acl_tcam_iterator->index = 0;
                                                     acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
                                                     acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
@@ -1977,7 +1964,6 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                             return true;
                     }
                 case ACL_ADDR_OBJECT_GROUP:
-                    assert(acl_entry->dst_addr.u.og->tcam_state == OG_TCAM_STATE_COMPILED);
                     switch(acl_entry->dst_addr.u.og->og_type) {
                         case OBJECT_GRP_NET_ADDR:
                         case OBJECT_GRP_NET_HOST:
@@ -2013,6 +1999,7 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                                                 case OBJECT_GRP_NET_ADDR:
                                                 case OBJECT_GRP_NET_HOST:
                                                 case OBJECT_GRP_NET_RANGE:
+                                                    assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
                                                     acl_tcam_iterator->index = 0;
                                                     acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
                                                     acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);
@@ -2041,6 +2028,7 @@ acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator)  {
                                                 case OBJECT_GRP_NET_ADDR:
                                                 case OBJECT_GRP_NET_HOST:
                                                 case OBJECT_GRP_NET_RANGE:
+                                                    assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
                                                     acl_tcam_iterator->index = 0;
                                                     acl_tcam_iterator->addr_prefix = &((*og->prefix)[0]);
                                                     acl_tcam_iterator->addr_wcard = &((*og->wcard)[0]);

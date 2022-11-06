@@ -40,12 +40,11 @@ hashtable_t *object_group_create_new_ht() {
     return h;
 }
 
+/* NESTED OGs are always treated as NOT compiled */
 void
 object_group_tcam_compile (object_group_t *og)  {
 
-    if (og->tcam_state == OG_TCAM_STATE_COMPILED) {
-        return;
-    }
+    if (object_group_is_tcam_compiled(og)) return;
 
     switch(og->og_type) {
 
@@ -93,8 +92,6 @@ object_group_tcam_compile (object_group_t *og)  {
             glthread_t *curr;
             obj_grp_list_node_t *obj_grp_list_node;
 
-            og->tcam_state = OG_TCAM_STATE_COMPILED;
-
             ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
 
                 obj_grp_list_node = glue_to_obj_grp_list_node(curr);
@@ -113,13 +110,12 @@ object_group_tcam_compile (object_group_t *og)  {
 void
 object_group_tcam_decompile(object_group_t *og) {
 
-    if (og->tcam_state == OG_TCAM_STATE_NOT_COMPILED) return;
-
     switch (og->og_type)
     {
     case OBJECT_GRP_NET_ADDR:
     case OBJECT_GRP_NET_HOST:
     case OBJECT_GRP_NET_RANGE:
+        if (!object_group_is_tcam_compiled(og)) return;
         assert(og->prefix);
         assert(og->wcard);
         XFREE(og->prefix);
@@ -134,8 +130,6 @@ object_group_tcam_decompile(object_group_t *og) {
         glthread_t *curr;
         obj_grp_list_node_t *obj_grp_list_node;
 
-        og->tcam_state = OG_TCAM_STATE_NOT_COMPILED;
-
         ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr)
         {
             obj_grp_list_node = glue_to_obj_grp_list_node(curr);
@@ -144,8 +138,26 @@ object_group_tcam_decompile(object_group_t *og) {
         ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
     }
     break;
+    default: ;
     }
 }
+
+/* Nested OGs are always assumed to be NOT compiled*/
+bool
+object_group_is_tcam_compiled(object_group_t *og) {
+
+    switch (og->og_type) {
+        case OBJECT_GRP_NET_ADDR:
+        case OBJECT_GRP_NET_HOST:
+        case OBJECT_GRP_NET_RANGE:
+            return og->tcam_state == OG_TCAM_STATE_COMPILED;
+        case OBJECT_GRP_NESTED:
+            return false;
+        default:
+            assert(0);
+    }
+}
+
 
 void
 object_group_dec_tcam_users_count (object_group_t *og) {
@@ -180,12 +192,11 @@ object_group_dec_tcam_users_count (object_group_t *og) {
 void
 object_group_inc_tcam_users_count (object_group_t *og) {
 
-    assert(og->tcam_state ==  OG_TCAM_STATE_COMPILED);
-
     switch(og->og_type) {
         case OBJECT_GRP_NET_ADDR:
         case OBJECT_GRP_NET_HOST:
         case  OBJECT_GRP_NET_RANGE:
+            assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
             og->tcam_entry_users_ref_count++;
             break;
         case OBJECT_GRP_NESTED:
@@ -211,7 +222,6 @@ object_group_borrow_tcam_data (object_group_t *og,
                             uint32_t (**prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],
                             uint32_t (**wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT]) {
 
-    assert(og->tcam_state == OG_TCAM_STATE_NOT_COMPILED);
     *count = og->count;
     *prefix = og->prefix;
     *wcard = og->wcard;
@@ -343,15 +353,17 @@ object_group_display_detail (node_t *node, object_group_t *og) {
 
     printf ("OG : %s  ", og->og_name);
 
-    printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
-        og->ref_count, og->tcam_entry_users_ref_count);
+    printf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
+        og->ref_count, og->tcam_entry_users_ref_count,
+        og->tcam_state == OG_TCAM_STATE_COMPILED ? "Y" : "N");
 
     ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
         printf ("  C-OG : %s ", obj_grp_list_node->og->og_name);
-        printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
-        obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count);
+        printf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
+        obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count,
+        obj_grp_list_node->og->tcam_state == OG_TCAM_STATE_COMPILED ? "Y" : "N");
 
     } ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
 
@@ -359,8 +371,9 @@ object_group_display_detail (node_t *node, object_group_t *og) {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
         printf ("  P-OG : %s ", obj_grp_list_node->og->og_name);
-        printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
-        obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count);        
+        printf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
+        obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count,
+        obj_grp_list_node->og->tcam_state == OG_TCAM_STATE_COMPILED ? "Y" : "N");
 
     } ITERATE_GLTHREAD_END(&og->parent_og_list_head, curr);
 }
