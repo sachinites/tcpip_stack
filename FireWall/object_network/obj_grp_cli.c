@@ -265,7 +265,7 @@ object_group_config_handler (param_t *param,
                             if (c_og) {
                                 return 0;
                             }
-                             c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_ADDR);
+                             c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_RANGE);
                              c_og->u.range.lb = lb;
                              c_og->u.range.ub = ub;
                             object_group_bind (p_og, c_og);
