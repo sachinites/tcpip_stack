@@ -66,12 +66,6 @@ bool
 object_network_is_tcam_compiled (obj_nw_t *obj_nw) ;
 
 void
-object_network_tcam_compile(obj_nw_t *obj_nw) ;
-
-void
-object_network_tcam_decompile(obj_nw_t *obj_nw) ;
-
-void
 object_network_dec_tcam_users_count (obj_nw_t *obj_nw);
 
 void

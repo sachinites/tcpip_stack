@@ -102,7 +102,7 @@ object_group_config_handler (param_t *param,
                         }
                         if (object_group_in_use_by_other_og(og) ||
                                 og->ref_count) {
-                            printf ("Error : Object Group is in Use\n");
+                            printf ("Error : Cannot Delete, Object Group is in Use\n");
                             return -1;
                         }
                         object_group_delete(node, og);

@@ -41,7 +41,7 @@ hashtable_t *object_group_create_new_ht() {
 }
 
 /* NESTED OGs are always treated as NOT compiled */
-void
+static void
 object_group_tcam_compile (object_group_t *og)  {
 
     if (object_group_is_tcam_compiled(og)) return;
@@ -107,7 +107,7 @@ object_group_tcam_compile (object_group_t *og)  {
     }
 }
 
-void
+static void
 object_group_tcam_decompile(object_group_t *og) {
 
     switch (og->og_type)
@@ -196,7 +196,10 @@ object_group_inc_tcam_users_count (object_group_t *og) {
         case OBJECT_GRP_NET_ADDR:
         case OBJECT_GRP_NET_HOST:
         case  OBJECT_GRP_NET_RANGE:
-            assert(og->tcam_state == OG_TCAM_STATE_COMPILED);
+            if (og->tcam_entry_users_ref_count == 0) {
+                assert(og->tcam_state == OG_TCAM_STATE_NOT_COMPILED);
+                object_group_tcam_compile(og);
+            }
             og->tcam_entry_users_ref_count++;
             break;
         case OBJECT_GRP_NESTED:

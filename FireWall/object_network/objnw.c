@@ -298,12 +298,8 @@ object_network_is_tcam_compiled (obj_nw_t *obj_nw) {
     return obj_nw->count > 0;
 }
 
-void
+static void
 object_network_tcam_compile (obj_nw_t *obj_nw)  {
-
-    if (object_network_is_tcam_compiled(obj_nw)) {
-        return;
-    }
 
     switch(obj_nw->type) {
 
@@ -349,12 +345,9 @@ object_network_tcam_compile (obj_nw_t *obj_nw)  {
     }
 }
 
-void
+static void
 object_network_tcam_decompile(obj_nw_t *obj_nw)  {
 
-    if (!object_network_is_tcam_compiled(obj_nw)) {
-        return;
-    }
     assert(obj_nw->prefix);
     assert(obj_nw->wcard);
     XFREE(obj_nw->prefix);
@@ -370,6 +363,7 @@ object_network_dec_tcam_users_count (obj_nw_t *obj_nw) {
     assert(obj_nw->tcam_entry_users_ref_count);
     obj_nw->tcam_entry_users_ref_count--;
     if (obj_nw->tcam_entry_users_ref_count == 0) {
+        assert(object_network_is_tcam_compiled(obj_nw));
         object_network_tcam_decompile(obj_nw);
     }
 }
@@ -377,8 +371,9 @@ object_network_dec_tcam_users_count (obj_nw_t *obj_nw) {
 void
 object_network_inc_tcam_users_count (obj_nw_t *obj_nw) {
 
-    if (!object_network_is_tcam_compiled(obj_nw)) {
-        assert(0);
+    if (obj_nw->tcam_entry_users_ref_count == 0) {
+        assert(!object_network_is_tcam_compiled(obj_nw));
+        object_network_tcam_compile(obj_nw);
     }
     obj_nw->tcam_entry_users_ref_count++;
 }
@@ -389,11 +384,10 @@ object_network_borrow_tcam_data (obj_nw_t *obj_nw,
                             uint32_t (**prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT],
                             uint32_t (**wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT]) {
 
-    assert(object_network_is_tcam_compiled(obj_nw));
+    object_network_inc_tcam_users_count(obj_nw);
     *count = obj_nw->count;
     *prefix = (obj_nw->prefix);
     *wcard = (obj_nw->wcard);
-    object_network_inc_tcam_users_count(obj_nw);
 }
 
 void

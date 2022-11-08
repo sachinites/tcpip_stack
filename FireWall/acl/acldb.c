@@ -84,7 +84,6 @@ acl_decompile (acl_entry_t *acl_entry) {
             acl_entry->tcam_saddr_count = 0;
             break;
         case ACL_ADDR_OBJECT_NETWORK:
-            assert(object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw));
             assert(acl_entry->tcam_saddr_count);    
             assert(acl_entry->tcam_saddr_prefix);
             assert(acl_entry->tcam_saddr_wcard);
@@ -125,7 +124,6 @@ acl_decompile (acl_entry_t *acl_entry) {
             acl_entry->tcam_daddr_count = 0;
             break;
         case ACL_ADDR_OBJECT_NETWORK:
-            assert(object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw));
             assert(acl_entry->tcam_daddr_count);    
             assert(acl_entry->tcam_daddr_prefix);
             assert(acl_entry->tcam_daddr_wcard);
@@ -395,16 +393,12 @@ acl_compile (acl_entry_t *acl_entry) {
             (*acl_entry->tcam_saddr_wcard)[0] = htonl(~acl_entry->src_addr.u.subnet.subnet_mask);
             break;
         case ACL_ADDR_OBJECT_NETWORK:
-            if (!object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw)) {
-                object_network_tcam_compile(acl_entry->src_addr.u.obj_nw);
-            }
             object_network_borrow_tcam_data(acl_entry->src_addr.u.obj_nw,
                 &acl_entry->tcam_saddr_count,
                 &acl_entry->tcam_saddr_prefix,
                 &acl_entry->tcam_saddr_wcard);
             break;
         case ACL_ADDR_OBJECT_GROUP:
-            object_group_tcam_compile(acl_entry->src_addr.u.og);
             object_group_inc_tcam_users_count(acl_entry->src_addr.u.og);
             break;
             default : ;
@@ -477,16 +471,12 @@ acl_compile (acl_entry_t *acl_entry) {
             (*acl_entry->tcam_daddr_wcard)[0] = htonl(~acl_entry->dst_addr.u.subnet.subnet_mask);
             break;
         case ACL_ADDR_OBJECT_NETWORK:
-            if (!object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw)) {
-                object_network_tcam_compile(acl_entry->dst_addr.u.obj_nw);
-            }
             object_network_borrow_tcam_data(acl_entry->dst_addr.u.obj_nw,
                 &acl_entry->tcam_daddr_count,
                 &acl_entry->tcam_daddr_prefix,
                 &acl_entry->tcam_daddr_wcard);
             break;
         case ACL_ADDR_OBJECT_GROUP:
-            object_group_tcam_compile(acl_entry->dst_addr.u.og);
             object_group_inc_tcam_users_count(acl_entry->dst_addr.u.og);
             break;
             default : ;
@@ -1640,13 +1630,11 @@ acl_entry_increment_referenced_objects_tcam_user_count(
 
        if (object_networks && acl_entry->src_addr.acl_addr_format ==
             ACL_ADDR_OBJECT_NETWORK) {
-            
-            if (object_network_is_tcam_compiled(acl_entry->src_addr.u.obj_nw)) {
-                if (k == 1)
-                object_network_inc_tcam_users_count (acl_entry->src_addr.u.obj_nw);
-                else
-                object_network_dec_tcam_users_count (acl_entry->src_addr.u.obj_nw);
-            }
+
+           if (k == 1)
+               object_network_inc_tcam_users_count(acl_entry->src_addr.u.obj_nw);
+           else
+               object_network_dec_tcam_users_count(acl_entry->src_addr.u.obj_nw);
        }
        else if (object_groups && acl_entry->src_addr.acl_addr_format ==
             ACL_ADDR_OBJECT_GROUP) {
@@ -1659,13 +1647,11 @@ acl_entry_increment_referenced_objects_tcam_user_count(
         
         if (object_networks && acl_entry->dst_addr.acl_addr_format ==
             ACL_ADDR_OBJECT_NETWORK) {
-            
-            if (object_network_is_tcam_compiled(acl_entry->dst_addr.u.obj_nw)) {
-                if (k == 1)
-                object_network_inc_tcam_users_count (acl_entry->dst_addr.u.obj_nw);
-                else
-                object_network_dec_tcam_users_count (acl_entry->dst_addr.u.obj_nw);
-            }
+
+            if (k == 1)
+                object_network_inc_tcam_users_count(acl_entry->dst_addr.u.obj_nw);
+            else
+                object_network_dec_tcam_users_count(acl_entry->dst_addr.u.obj_nw);
        }
        else if (object_groups && acl_entry->dst_addr.acl_addr_format ==
             ACL_ADDR_OBJECT_GROUP) {

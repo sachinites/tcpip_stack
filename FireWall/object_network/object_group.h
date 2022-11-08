@@ -89,10 +89,6 @@ typedef struct obj_grp_list_node_ {
 }obj_grp_list_node_t;
 GLTHREAD_TO_STRUCT(glue_to_obj_grp_list_node, obj_grp_list_node_t, glue);
 
-void
-object_group_tcam_compile(object_group_t *og) ;
-void
-object_group_tcam_decompile(object_group_t *og) ;
 bool
 object_group_is_tcam_compiled(object_group_t *og);
 void
