@@ -717,7 +717,7 @@ isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
     }
     
     node_info->spf_job_task =
-        task_create_new_job(EV(node), node, isis_run_spf, TASK_ONE_SHOT);
+        task_create_new_job(EV(node), node, isis_run_spf, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM);
 }
 
 void

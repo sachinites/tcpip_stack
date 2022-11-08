@@ -50,9 +50,9 @@ insert_link_between_two_nodes(node_t *node1,
     link_t *link = (link_t *)calloc(1, sizeof(link_t));
 
     /*Set interface properties*/
-    strncpy((char *)link->intf1.if_name, from_if_name, IF_NAME_SIZE);
+    string_copy((char *)link->intf1.if_name, from_if_name, IF_NAME_SIZE);
     link->intf1.if_name[IF_NAME_SIZE - 1] = '\0';
-    strncpy((char *)link->intf2.if_name, to_if_name, IF_NAME_SIZE);
+    string_copy((char *)link->intf2.if_name, to_if_name, IF_NAME_SIZE);
     link->intf2.if_name[IF_NAME_SIZE - 1] = '\0';
     
     link->intf1.link= link; /*set back pointer to link*/
@@ -88,7 +88,7 @@ graph_t *
 create_new_graph (const char *topology_name){
 
     graph_t *graph = (graph_t *)calloc(1, sizeof(graph_t));
-    strncpy((char *)graph->topology_name, topology_name, 32);
+    string_copy((char *)graph->topology_name, topology_name, 32);
     graph->topology_name[31] = '\0';
 
     init_glthread(&graph->node_list);
@@ -112,7 +112,7 @@ create_graph_node(graph_t *graph, const char *node_name){
     char ev_dis_name[EV_DIS_NAME_LEN];
 
     node_t *node = (node_t *)calloc(1, sizeof(node_t));
-    strncpy((char *)node->node_name, node_name, NODE_NAME_SIZE);
+    string_copy((char *)node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE -1] = '\0';
 
     node_init_udp_socket(node);
@@ -226,7 +226,7 @@ node_get_intf_by_name(node_t *node, const char *if_name){
     for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
         intf = node->intf[i];
         if(!intf) return NULL;
-        if(strncmp(intf->if_name, if_name, IF_NAME_SIZE) == 0){
+        if(string_compare(intf->if_name, if_name, IF_NAME_SIZE) == 0){
             return intf;
         }
     }

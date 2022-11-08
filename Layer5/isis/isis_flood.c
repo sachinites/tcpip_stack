@@ -170,7 +170,8 @@ isis_queue_lsp_pkt_for_transmission(
 
        intf_info->lsp_xmit_job =
             task_create_new_job(EV(intf->att_node), 
-                    intf, isis_lsp_xmit_job, TASK_ONE_SHOT);
+                    intf, isis_lsp_xmit_job, TASK_ONE_SHOT,
+                    TASK_PRIORITY_MEDIUM);
     }
 }
 

@@ -275,9 +275,9 @@ arp_table_entry_add(node_t *node,
         arp_entry_sane(arp_entry_old) && 
         !arp_entry_sane(arp_entry)){
 
-        strncpy( (char *)arp_entry_old->mac_addr.mac,
+        string_copy( (char *)arp_entry_old->mac_addr.mac,
 				(char *)arp_entry->mac_addr.mac, sizeof(mac_add_t));
-        strncpy( (char *)arp_entry_old->oif_name, 
+        string_copy( (char *)arp_entry_old->oif_name, 
                  ( char *)arp_entry->oif_name, IF_NAME_SIZE);
         arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
 
@@ -468,7 +468,7 @@ create_arp_sane_entry(node_t *node,
 
     /*if ARP entry do not exist, create a new sane entry*/
     arp_entry = (arp_entry_t *)XCALLOC(0, 1,arp_entry_t);
-    strncpy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
+    string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
     arp_entry->is_sane = true;
@@ -547,10 +547,10 @@ bool
 arp_entry_add(node_t *node, unsigned char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto) {
 
     arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC (0 , 1, arp_entry_t );
-    strncpy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
+    string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     memcpy(arp_entry->mac_addr.mac, mac.mac, sizeof(mac.mac));
     arp_entry->proto = proto;
-    strncpy( (char *)arp_entry->oif_name, (char *)oif->if_name, IF_NAME_SIZE);
+    string_copy( (char *)arp_entry->oif_name, (char *)oif->if_name, IF_NAME_SIZE);
     if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0)) {
         XFREE(arp_entry);
         printf("Error : Failed to Add ARP Entry\n");

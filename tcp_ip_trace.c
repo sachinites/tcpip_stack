@@ -14,17 +14,17 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
     switch(type){
 
         case ETH_IP:
-            strncpy((char *)string_buffer, "ETH_IP", strlen("ETH_IP"));
+            string_copy((char *)string_buffer, "ETH_IP", strlen("ETH_IP"));
             break;
         case PROTO_ARP:
-            strncpy((char *)string_buffer, "ARP_MSG", strlen("ARP_MSG"));
+            string_copy((char *)string_buffer, "ARP_MSG", strlen("ARP_MSG"));
             break;
         case DDCP_MSG_TYPE_FLOOD_QUERY:
-            strncpy((char *)string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
+            string_copy((char *)string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
                 strlen("DDCP_MSG_TYPE_FLOOD_QUERY"));
             break;
 		case NMP_HELLO_MSG_CODE:
-			strncpy((char *)string_buffer, "NMP_HELLO_MSG_CODE",
+			string_copy((char *)string_buffer, "NMP_HELLO_MSG_CODE",
 				strlen("NMP_HELLO_MSG_CODE"));
 			break;
         default:
@@ -39,10 +39,10 @@ string_arp_hdr_type(int type,  char *string_buffer){
 
     switch(type){
         case ARP_BROAD_REQ:
-            strncpy((char *)string_buffer, "ARP_BROAD_REQ", strlen("ARP_BROAD_REQ"));
+            string_copy((char *)string_buffer, "ARP_BROAD_REQ", strlen("ARP_BROAD_REQ"));
             break;
         case ARP_REPLY:
-            strncpy((char *)string_buffer, "ARP_REPLY", strlen("ARP_REPLY"));
+            string_copy((char *)string_buffer, "ARP_REPLY", strlen("ARP_REPLY"));
             break;
         default:
             ;
@@ -56,16 +56,16 @@ string_ip_hdr_protocol_val(uint8_t type,   char *string_buffer){
     switch(type){
 
         case ICMP_PROTO:
-            strncpy((char *)string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
+            string_copy((char *)string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
             break;
         case UDP_PROTO:
-             strncpy((char *)string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
+             string_copy((char *)string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
              break;
         case TCP_PROTO:
-             strncpy((char *)string_buffer, "TCP_PROTO", strlen("TCP_PROTO"));
+             string_copy((char *)string_buffer, "TCP_PROTO", strlen("TCP_PROTO"));
              break;             
         case DDCP_MSG_TYPE_UCAST_REPLY:
-            strncpy((char *)string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
+            string_copy((char *)string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
                 strlen("DDCP_MSG_TYPE_UCAST_REPLY"));
             break;
         default:
@@ -520,16 +520,16 @@ validate_flag_values(char *value){
     int k = 0;
     int len = strlen(value);
 
-    if( (strncmp(value, "all",      k = strlen("all"))       ==   0   && k  == len)          || 
-        (strncmp(value, "no-all",   k = strlen("no-all"))    ==   0   && k  == len)          ||
-        (strncmp(value, "recv",     k = strlen("recv"))      ==   0   && k  == len)          ||
-        (strncmp(value, "no-recv",  k = strlen("no-recv"))   ==   0   && k  == len)          ||
-        (strncmp(value, "send",     k = strlen("send"))      ==   0   && k  == len)          ||
-        (strncmp(value, "no-send",  k = strlen("no-send"))   ==   0   && k  == len)          ||
-        (strncmp(value, "stdout",   k = strlen("stdout"))    ==   0   && k  == len)          ||
-        (strncmp(value, "no-stdout",k = strlen("no-stdout")) ==   0   && k  == len)          ||
-        (strncmp(value, "l3-fwd",   k = strlen("l3-fwd"))    ==   0   && k  == len)          ||
-        (strncmp(value, "no-l3-fwd",k = strlen("no-l3-fwd")) ==   0   && k  == len)){
+    if( (string_compare(value, "all",      k = strlen("all"))       ==   0   && k  == len)          || 
+        (string_compare(value, "no-all",   k = strlen("no-all"))    ==   0   && k  == len)          ||
+        (string_compare(value, "recv",     k = strlen("recv"))      ==   0   && k  == len)          ||
+        (string_compare(value, "no-recv",  k = strlen("no-recv"))   ==   0   && k  == len)          ||
+        (string_compare(value, "send",     k = strlen("send"))      ==   0   && k  == len)          ||
+        (string_compare(value, "no-send",  k = strlen("no-send"))   ==   0   && k  == len)          ||
+        (string_compare(value, "stdout",   k = strlen("stdout"))    ==   0   && k  == len)          ||
+        (string_compare(value, "no-stdout",k = strlen("no-stdout")) ==   0   && k  == len)          ||
+        (string_compare(value, "l3-fwd",   k = strlen("l3-fwd"))    ==   0   && k  == len)          ||
+        (string_compare(value, "no-l3-fwd",k = strlen("no-l3-fwd")) ==   0   && k  == len)){
         return VALIDATION_SUCCESS;
     }
     return VALIDATION_FAILED;

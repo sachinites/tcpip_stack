@@ -393,6 +393,8 @@ cli_terminate_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     exit(0);
 }
 
+extern unsigned int cli_count;
+
 int
 show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
@@ -427,6 +429,7 @@ show_resgistered_cmd_handler(param_t *param, ser_buff_t *b, op_mode enable_or_di
     
     unsigned int index = 0;
     dump_all_commands(root, index);
+    printf ("Number of Registered CLIs : %u\n", cli_count);
     return 0;
 }
 

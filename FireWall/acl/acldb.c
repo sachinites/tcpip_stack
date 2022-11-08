@@ -30,23 +30,23 @@ acl_proto_t
 acl_string_to_proto(unsigned char *proto_name) {
 
     /* To be replaced with hashmap when code is converted into C++ */
-    if (strncmp(proto_name, "ip", 2) == 0) {
+    if (string_compare(proto_name, "ip", 2) == 0) {
         return ACL_IP;
     }
 
-    if (strncmp(proto_name, "udp", 3) == 0) {
+    if (string_compare(proto_name, "udp", 3) == 0) {
         return ACL_UDP;
     }
 
-    if (strncmp(proto_name, "tcp", 3) == 0) {
+    if (string_compare(proto_name, "tcp", 3) == 0) {
         return ACL_TCP;
     }
 
-    if (strncmp(proto_name, "icmp", 4) == 0) {
+    if (string_compare(proto_name, "icmp", 4) == 0) {
         return ACL_ICMP;
     }
 
-    if (strncmp(proto_name, "any", 3) == 0) {
+    if (string_compare(proto_name, "any", 3) == 0) {
         return ACL_PROTO_ANY;
     }
 
@@ -225,7 +225,9 @@ access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
         
     } ITERATE_GLTHREAD_END(list_head, curr);
 
+
     acl_entry->tcam_total_count++;
+    acl_entry->tcam_other_conflicts_count += other_conflicts;
 
     if (self_found) return;
 
@@ -242,7 +244,7 @@ access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
 
     mnode_acl_list_node2 = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
     mnode_acl_list_node2->acl_entry = acl_entry;
-    mnode_acl_list_node2->acl_entry->tcam_other_conflicts_count = other_conflicts;
+    mnode_acl_list_node2->acl_entry->tcam_other_conflicts_count += other_conflicts;
     mnode_acl_list_node2->ref_count = 1;
     init_glthread(&mnode_acl_list_node2->glue);
 
@@ -534,7 +536,7 @@ access_list_lookup_by_name (node_t *node, char *access_list_name) {
     ITERATE_GLTHREAD_BEGIN(&node->access_lists_db, curr) {
 
         acc_lst = glthread_to_access_list(curr);
-        if (strncmp(acc_lst->name, 
+        if (string_compare(acc_lst->name, 
                            access_list_name, 
                             ACCESS_LIST_MAX_NAMELEN) == 0) {
             return acc_lst;
@@ -548,7 +550,7 @@ access_list_t *
 acl_create_new_access_list(char *access_list_name) {
 
     access_list_t *acc_lst = (access_list_t *)XCALLOC(0, 1, access_list_t);
-    strncpy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
+    string_copy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
     pthread_rwlock_init(&acc_lst->acc_rw_lst_lock, NULL);
@@ -859,11 +861,11 @@ access_group_config(node_t *node,
     pthread_spinlock_t *spin_lock;
     access_list_t **configured_access_lst = NULL;
 
-    if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
+    if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
         spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
     }
-    else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
+    else if (string_compare(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
         spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
     }
@@ -898,11 +900,11 @@ access_group_unconfig(node_t *node,
     pthread_spinlock_t *spin_lock;
     access_list_t **configured_access_lst = NULL;
 
-    if (strncmp(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
+    if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
         spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
     }
-    else if (strncmp(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
+    else if (string_compare(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
         spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
     }
@@ -1422,18 +1424,14 @@ access_list_reinstall (node_t *node, access_list_t *access_list) {
 }
 
 void
-access_list_print_acl_bitmap(access_list_t *access_list, acl_entry_t *acl_entry) {
+access_list_print_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry) {
 
     acl_tcam_t tcam_entry;
     int src_port_it, dst_port_it;
     acl_tcam_iterator_t acl_tcam_src_it;
-    acl_tcam_iterator_t acl_tcam_dst_it;        
+    acl_tcam_iterator_t acl_tcam_dst_it;          
 
-    printf (" access-list %s %u %s %s",
-        access_list->name,
-        acl_entry->seq_no,
-        acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
-        proto_name_str( acl_entry->proto));
+    printf (" access-list %s ",  access_list->name);
 
     acl_print(acl_entry);
     printf("\n");
@@ -1504,7 +1502,8 @@ access_list_schedule_notification (node_t *node, access_list_t *access_list) {
     if (access_list->notif_job) return;
 
     access_list->notif_job = task_create_new_job(EV(node), (void *)access_list, 
-                                                            access_list_send_notif_cbk, TASK_ONE_SHOT);
+                                                            access_list_send_notif_cbk, TASK_ONE_SHOT,
+                                                            TASK_PRIORITY_MEDIUM);
 
     access_list_reference(access_list);
 }
@@ -1684,12 +1683,13 @@ acl_tcam_iterator_init (acl_entry_t *acl_entry,
                                      acl_tcam_iterator_t *acl_tcam_iterator,
                                      acl_iterator_type_t it_type) {
 
+    object_group_t *og = NULL;
+
     acl_tcam_iterator->addr_prefix = NULL;
     acl_tcam_iterator->addr_wcard = NULL;
     acl_tcam_iterator->port_prefix = NULL;
     acl_tcam_iterator->port_wcard = NULL;
     acl_tcam_iterator->index = 0;
-    acl_tcam_iterator->curr_og = NULL;
     acl_tcam_iterator->acl_entry = acl_entry;
     acl_tcam_iterator->it_type = it_type;
     init_glthread(&acl_tcam_iterator->og_leaves_lst_head);
@@ -1697,16 +1697,16 @@ acl_tcam_iterator_init (acl_entry_t *acl_entry,
     switch (it_type) {
         case acl_iterator_src_addr:
             if (acl_entry->src_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP)
-                acl_tcam_iterator->curr_og = acl_entry->src_addr.u.og;
+                og = acl_entry->src_addr.u.og;
                 break;
         case acl_iterator_dst_addr:
             if (acl_entry->dst_addr.acl_addr_format == ACL_ADDR_OBJECT_GROUP)
-                acl_tcam_iterator->curr_og = acl_entry->dst_addr.u.og;
+                og = acl_entry->dst_addr.u.og;
                 break;
         default: ;
     }
-    if (acl_tcam_iterator->curr_og) {
-        object_group_queue_all_leaf_ogs(acl_tcam_iterator->curr_og, 
+    if (og) {
+        object_group_queue_all_leaf_ogs(og, 
         &acl_tcam_iterator->og_leaves_lst_head);
     }
 }

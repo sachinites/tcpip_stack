@@ -85,7 +85,8 @@ rt_table_kick_start_notif_job(rt_table_t *rt_table) {
                                         EV(rt_table->node),
                                         rt_table, 
                                         rt_table_notif_job_cb,
-                                        TASK_ONE_SHOT);
+                                        TASK_ONE_SHOT,
+                                        TASK_PRIORITY_MEDIUM);
 }
 
 void
@@ -180,7 +181,8 @@ rt_table_flash_job (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
     if (!IS_GLTHREAD_LIST_EMPTY(&rt_table->flash_request_list_head)) {
         rt_table->flash_job = task_create_new_job(EV(rt_table->node), 
                                                   rt_table,
-                                                  rt_table_flash_job, TASK_ONE_SHOT);
+                                                  rt_table_flash_job, TASK_ONE_SHOT,
+                                                  TASK_PRIORITY_MEDIUM);
     }
     else {
         rt_table_purge_flash_route_queue(rt_table);
@@ -227,7 +229,8 @@ static void
                                                 EV(rt_table->node) ,
                                                 rt_table,
                                                 rt_table_flash_job,
-                                                TASK_ONE_SHOT);
+                                                TASK_ONE_SHOT,
+                                                TASK_PRIORITY_MEDIUM);
     }
  }
 

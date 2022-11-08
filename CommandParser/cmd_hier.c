@@ -31,6 +31,7 @@
 leaf_type_handler leaf_handler_array[LEAF_MAX];
 ser_buff_t *tlv_buff;
 static param_t *cmd_tree_cursor = NULL;
+extern unsigned int cli_count = 0;
 
 extern int
 ut_test_handler (param_t *param, 
@@ -533,6 +534,9 @@ void init_param(param_t *param,                                 /* pointer to st
     param->ishidden = 0;
     param->parent = NULL;
     param->callback = callback;
+    if (callback) {
+        cli_count++;
+    }
     strncpy(GET_PARAM_HELP_STRING(param), help, MIN(PARAM_HELP_STRING_SIZE, strlen(help)));
     GET_PARAM_HELP_STRING(param)
     [PARAM_HELP_STRING_SIZE - 1] = '\0';

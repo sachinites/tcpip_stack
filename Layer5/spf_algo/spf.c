@@ -538,7 +538,8 @@ compute_spf_all_nodes(graph_t *topo){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node_t *node = graph_glue_to_node(curr);
-		task_create_new_job(EV(node), node, compute_spf_via_job, TASK_ONE_SHOT);
+		task_create_new_job(EV(node), node, compute_spf_via_job, TASK_ONE_SHOT,
+                TASK_PRIORITY_MEDIUM);
 
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
@@ -592,7 +593,7 @@ spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if     (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if     (string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
     
     }TLV_LOOP_END;

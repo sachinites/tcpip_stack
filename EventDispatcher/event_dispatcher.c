@@ -30,11 +30,14 @@ void event_dispatcher_mem_init();
 void
 event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 
+	task_priority_t priority;
 	strncpy((char *)ev_dis->name, name, sizeof(ev_dis->name) - 1);
 	ev_dis->name[sizeof(ev_dis->name) - 1] = '0';
 
 	pthread_mutex_init(&ev_dis->ev_dis_mutex, NULL);
-	init_glthread(&ev_dis->task_array_head);
+	for (priority = TASK_PRIORITY_FIRST; priority < TASK_PRIORITY_MAX; priority++) {
+		init_glthread(&ev_dis->task_array_head[priority]);
+	}
 	ev_dis->pending_task_count = 0;
 	
 	ev_dis->ev_dis_state = EV_DIS_IDLE;
@@ -52,9 +55,9 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
 	EV_DIS_LOCK(ev_dis);
 
-	glthread_add_last(&ev_dis->task_array_head, &task->glue);
+	glthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
 	
-	if(debug) printf("Task Added to Dispatcher's Queue\n");
+	if(debug) printf("Task Added to Dispatcher's Queue of priority %u\n", task->priority);
 	
 	ev_dis->pending_task_count++;
 
@@ -144,9 +147,13 @@ static task_t *
 event_dispatcher_get_next_task_to_run(event_dispatcher_t *ev_dis){
 
 	glthread_t *curr;
-	curr = dequeue_glthread_first(&ev_dis->task_array_head);
-	if(!curr) return NULL;
-	return glue_to_task(curr);
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
+	if(curr) return  glue_to_task(curr);
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
+	if(curr) return  glue_to_task(curr);
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
+	if(curr) return  glue_to_task(curr);
+	return NULL;
 }
 
 static void *
@@ -228,6 +235,7 @@ create_new_task(void *arg,
 	task->ev_cbk = cbk;
 	task->task_type = TASK_ONE_SHOT; /* default */
 	task->re_schedule = false;
+	task->priority = TASK_PRIORITY_MEDIUM;
 	init_glthread(&task->glue);
 	return task;
 }
@@ -270,10 +278,12 @@ task_create_new_job(
 	event_dispatcher_t *ev_dis,
 	void *data,
 	event_cbk cbk,
-	task_type_t task_type) {
+	task_type_t task_type,
+	task_priority_t priority) {
 
 	task_t *task = create_new_task(data, 0, cbk);
 	task->task_type = task_type;
+	task->priority = priority;
 	event_dispatcher_schedule_task(ev_dis, task);
 	return task;								
 }
@@ -283,10 +293,12 @@ task_create_new_job_synchronous(
 	event_dispatcher_t *ev_dis,
 	void *data,
 	event_cbk cbk,
-	task_type_t task_type) {
+	task_type_t task_type,
+	task_priority_t priority) {
 
 	task_t *task = create_new_task(data, 0, cbk);
 	task->task_type = task_type;
+	task->priority = priority;
 	task->app_cond_var = (pthread_cond_t *)calloc(1, sizeof(pthread_cond_t));
 	pthread_cond_init(task->app_cond_var, 0);
 	event_dispatcher_schedule_task(ev_dis, task);
@@ -337,7 +349,7 @@ GLTHREAD_TO_STRUCT(glue_to_pkt, pkt_t, glue);
 static pkt_t *
 task_get_new_pkt(char *pkt, uint32_t pkt_size){
 
-	pkt_t *_pkt = (pkt_t *)calloc(1, sizeof(pkt_t));
+	pkt_t *_pkt = (pkt_t *)XCALLOC(0, 1, pkt_t);
 	_pkt->pkt = pkt;
 	_pkt->pkt_size = pkt_size;
 	init_glthread(&_pkt->glue);
@@ -367,7 +379,7 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 	actual_pkt = pkt->pkt;
 	*pkt_size = pkt->pkt_size;
-	free(pkt);
+	XFREE(pkt);
 	return actual_pkt;
 }
 
@@ -403,6 +415,7 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 								  sizeof(*pkt_q),
 								  cbk);
 	pkt_q->task->task_type = TASK_PKT_Q_JOB;
+	pkt_q->task->priority = TASK_PRIORITY_HIGH;
 	init_glthread(&pkt_q->glue);
 	glthread_add_next(&ev_dis->pkt_queue_head, &pkt_q->glue);
 	pkt_q->ev_dis = ev_dis;
@@ -412,4 +425,5 @@ void
 event_dispatcher_mem_init() {
 
 	MM_REG_STRUCT(0, task_t);
+	MM_REG_STRUCT(0, pkt_t);
 }

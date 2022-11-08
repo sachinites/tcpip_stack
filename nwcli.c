@@ -182,7 +182,7 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
 
     }TLV_LOOP_END;
@@ -209,11 +209,11 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 static int 
 validate_if_up_down_status(char *value){
 
-    if(strncmp(value, "up", strlen("up")) == 0 && 
+    if(string_compare(value, "up", strlen("up")) == 0 && 
         strlen("up") == strlen(value)){
         return VALIDATION_SUCCESS;
     }
-    else if(strncmp(value, "down", strlen("down")) == 0 && 
+    else if(string_compare(value, "down", strlen("down")) == 0 && 
             strlen("down") == strlen(value)){
         return VALIDATION_SUCCESS;
     }
@@ -257,8 +257,8 @@ validate_vlan_id(char *vlan_value){
 static int
 validate_l2_mode_value(char *l2_mode_value){
 
-    if((strncmp(l2_mode_value, "access", strlen("access")) == 0) || 
-        (strncmp(l2_mode_value, "trunk", strlen("trunk")) == 0))
+    if((string_compare(l2_mode_value, "access", strlen("access")) == 0) || 
+        (string_compare(l2_mode_value, "trunk", strlen("trunk")) == 0))
         return VALIDATION_SUCCESS;
     return VALIDATION_FAILED;
 }
@@ -762,7 +762,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         }    
         break;
         case CMDCODE_CONF_INTF_UP_DOWN:
-            if(strncmp(if_up_down, "up", strlen("up")) == 0){
+            if(string_compare(if_up_down, "up", strlen("up")) == 0){
                 if(interface->intf_nw_props.is_up == false){
                     SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F); 
                      intf_prop_changed.up_status = false;

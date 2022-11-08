@@ -81,7 +81,7 @@ bool node_set_loopback_address(node_t *node, const char *ip_addr){
     assert(ip_addr);
 
     node->node_nw_prop.is_lb_addr_config = true;
-    strncpy((char *)NODE_LO_ADDR(node), ip_addr, 16);
+    string_copy((char *)NODE_LO_ADDR(node), ip_addr, 16);
     NODE_LO_ADDR(node)[15] = '\0';
 
     /*Add it as direct route in routing table*/
@@ -95,7 +95,7 @@ bool node_set_intf_ip_address(node_t *node, const char *local_if,
     interface_t *interface = node_get_intf_by_name(node, local_if);
     if(!interface) assert(0);
 
-    strncpy((char *)IF_IP(interface), ip_addr, 16);
+    string_copy((char *)IF_IP(interface), ip_addr, 16);
     IF_IP(interface)[15] = '\0';
     interface->intf_nw_props.mask = mask; 
     interface->intf_nw_props.is_ipadd_config = true;
@@ -211,7 +211,7 @@ node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
         apply_mask(intf_addr, mask, intf_subnet);
         apply_mask((unsigned char *)ip_addr, mask, subnet2);
         
-        if (strncmp((char *)intf_subnet, (char *)subnet2, 16) == 0){
+        if (string_compare((char *)intf_subnet, (char *)subnet2, 16) == 0){
             return intf;
         }
     }
@@ -232,7 +232,7 @@ is_same_subnet(unsigned char *ip_addr,
     apply_mask(ip_addr, mask, (unsigned char*)intf_subnet);
     apply_mask(other_ip_addr, mask, (unsigned char*)subnet2);
 
-    if (strncmp(intf_subnet, subnet2, 16) == 0){
+    if (string_compare(intf_subnet, subnet2, 16) == 0){
         return true;
     }
     assert(0);

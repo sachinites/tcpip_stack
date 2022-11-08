@@ -586,7 +586,7 @@ isis_clear_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if  (string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
         else
             assert(0);

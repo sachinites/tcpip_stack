@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include "packet_tracer.h"
+#include "../utils.h"
 #include "../CommandParser/libcli.h"
 #include "../CommandParser/cmdtlv.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
@@ -45,10 +46,10 @@ pkt_tracer_add_phase (pkt_tracer_t *pkt_tracer,
     phase->subtype = subtype;
     phase->res = res;
     for (i = 0; i < n_configs; i++) {
-        strncpy((char *)phase->config[i], config[i], PKT_TRACER_PHASE_CONFIG_LEN);
+        string_copy((char *)phase->config[i], config[i], PKT_TRACER_PHASE_CONFIG_LEN);
     }
     phase->config_no = n_configs;
-    strncpy((char *)phase->info, info, PKT_TRACER_PHASE_INFO_LEN);
+    string_copy((char *)phase->info, info, PKT_TRACER_PHASE_INFO_LEN);
     init_glthread(&phase->glue);
     glthread_add_last(&pkt_tracer->head, &phase->glue);
 }

@@ -10,7 +10,7 @@ isis_compare_intf_groups (const avltree_node_t *n1, const avltree_node_t *n2) {
     isis_intf_group_t *intf_grp1 = avltree_container_of(n1, isis_intf_group_t, avl_glue);
     isis_intf_group_t *intf_grp2 = avltree_container_of(n2, isis_intf_group_t, avl_glue);
 
-    return strncmp(intf_grp1->name, intf_grp2->name, ISIS_INTF_GRP_NAME_LEN);
+    return string_compare(intf_grp1->name, intf_grp2->name, ISIS_INTF_GRP_NAME_LEN);
 }
 
 void
@@ -28,7 +28,7 @@ isis_intf_grp_look_up (node_t *node, char *intf_grp_name) {
 
     node_info = ISIS_NODE_INFO(node);
 
-    strncpy((char *)dummy_intf_grp.name, intf_grp_name, ISIS_INTF_GRP_NAME_LEN);
+    string_copy((char *)dummy_intf_grp.name, intf_grp_name, ISIS_INTF_GRP_NAME_LEN);
     
     avltree_node_t *avl_node =
         avltree_lookup(&dummy_intf_grp.avl_glue , &node_info->intf_grp_avl_root);
@@ -56,7 +56,7 @@ isis_intf_group_create_new (char *grp_name) {
     isis_intf_group_t *intf_grp;
     intf_grp = XCALLOC(0, 1, isis_intf_group_t);
     assert(intf_grp);
-    strncpy((char *)intf_grp->name, grp_name, ISIS_INTF_GRP_NAME_LEN);
+    string_copy((char *)intf_grp->name, grp_name, ISIS_INTF_GRP_NAME_LEN);
     init_glthread(&intf_grp->intf_list_head);
     return intf_grp;
 }

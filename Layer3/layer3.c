@@ -347,7 +347,7 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
     
     init_mtrie (&(*rt_table)->route_list, 32, NULL);
 
-    strncpy((char *) (*rt_table)->nfc_rt_updates.nfc_name, 
+    string_copy((char *) (*rt_table)->nfc_rt_updates.nfc_name, 
                  "NFC for IPV4 RT UPDATES",
                  sizeof((*rt_table)->nfc_rt_updates.nfc_name));
 
@@ -780,7 +780,7 @@ rt_table_add_route (rt_table_t *rt_table,
 
    if(!l3_route){
        l3_route = XCALLOC(0, 1, l3_route_t);
-       strncpy((char *)l3_route->dest, dst_str_with_mask, 16);
+       string_copy((char *)l3_route->dest, dst_str_with_mask, 16);
        l3_route->dest[15] = '\0';
        l3_route->mask = mask;
        new_route = true;
@@ -796,7 +796,7 @@ rt_table_add_route (rt_table_t *rt_table,
        for( ; i < MAX_NXT_HOPS; i++){
 
            if(l3_route->nexthops[nxthop_proto][i]){
-                if(strncmp(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
+                if(string_compare(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
                     l3_route->nexthops[nxthop_proto][i]->oif == oif){ 
                     printf("%s Error : Attempt to Add Duplicate Route %s/%d\n",
                             rt_table->node->node_name, dst_str_with_mask, mask);
@@ -820,7 +820,7 @@ rt_table_add_route (rt_table_t *rt_table,
         nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
         l3_route->is_direct = false;
         l3_route->spf_metric[nxthop_proto] = spf_metric;
-        strncpy((char *)nexthop->gw_ip, gw, 16);
+        string_copy((char *)nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
         nexthop->ifindex = IF_INDEX(oif);
@@ -1114,7 +1114,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
 
     /* new config */
     if ( !IF_IP_EXIST(intf)) {
-        strncpy((char *)IF_IP(intf), intf_ip_addr, 16);
+        string_copy((char *)IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
         IF_IP_EXIST(intf) = true;
 
@@ -1130,7 +1130,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
     }
 
     /* Existing config changed */
-    if (strncmp(IF_IP(intf), intf_ip_addr, 16) || 
+    if (string_compare(IF_IP(intf), intf_ip_addr, 16) || 
             IF_MASK(intf) != mask ) {
 
         ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
@@ -1138,7 +1138,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         intf_prop_changed.ip_addr.mask = IF_MASK(intf);
         SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
         rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
-        strncpy((char *)IF_IP(intf), intf_ip_addr, 16);
+        string_copy((char *)IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
         rt_table_add_direct_route(NODE_RT_TABLE(node), IF_IP(intf), IF_MASK(intf));
 
@@ -1160,7 +1160,7 @@ interface_unset_ip_addr(node_t *node, interface_t *intf,
         return;
     }
 
-    if (strncmp(IF_IP(intf), new_intf_ip_addr, 16)  ||
+    if (string_compare(IF_IP(intf), new_intf_ip_addr, 16)  ||
             IF_MASK(intf) != new_mask) {
 
         printf("Error : Non Existing IP address Specified \n");

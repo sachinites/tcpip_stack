@@ -310,7 +310,7 @@ prefix_lst_config_handler (param_t *param,
     if (!prefix_lst) {
 
         prefix_lst = (prefix_list_t *)XCALLOC(0, 1, prefix_list_t);
-        strncpy ((char *)prefix_lst->name, pfx_lst_name, PFX_LST_NAME_LEN);
+        string_copy ((char *)prefix_lst->name, pfx_lst_name, PFX_LST_NAME_LEN);
         new_pfx_lst = true;
     }
 

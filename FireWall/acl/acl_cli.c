@@ -22,8 +22,8 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 static int
 acl_action_validation_cbk(char *value) {
 
-    if (strncmp(value, "permit", 6) == 0 || 
-            strncmp(value, "deny", 4) == 0) {
+    if (string_compare(value, "permit", 6) == 0 || 
+            string_compare(value, "deny", 4) == 0) {
 
         return VALIDATION_SUCCESS;
     }
@@ -77,10 +77,10 @@ acl_parse_ace_config_entries(
     acl_entry->seq_no = seq_no;
 
     /* Action */
-    if (strncmp(action_name, "permit", 6) == 0 && strlen(action_name) == 6) {
+    if (string_compare(action_name, "permit", 6) == 0 && strlen(action_name) == 6) {
         acl_entry->action = ACL_PERMIT;
     }
-    else if (strncmp(action_name, "deny", 4) == 0 && strlen(action_name) == 4) {
+    else if (string_compare(action_name, "deny", 4) == 0 && strlen(action_name) == 4) {
         acl_entry->action = ACL_DENY;
     }
     else {
@@ -602,8 +602,8 @@ access_group_config_handler(param_t *param,
 static int
 acl_direction_validation(char *value) {
 
-    if ((strncmp(value, "in" , 2) == 0 && strlen(value) == 2) || 
-         (strncmp(value, "out" , 3) == 0 && strlen(value) == 3))
+    if ((string_compare(value, "in" , 2) == 0 && strlen(value) == 2) || 
+         (string_compare(value, "out" , 3) == 0 && strlen(value) == 3))
         return VALIDATION_SUCCESS;
     return VALIDATION_FAILED;
 }

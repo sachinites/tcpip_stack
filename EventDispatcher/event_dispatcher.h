@@ -53,9 +53,11 @@ typedef enum {
 
 typedef enum {
 
+	TASK_PRIORITY_FIRST,
+	TASK_PRIORITY_HIGH = TASK_PRIORITY_FIRST,
 	TASK_PRIORITY_MEDIUM,
 	TASK_PRIORITY_LOW,
-	TASK_PRIORITY_HIGH
+	TASK_PRIORITY_MAX
 } task_priority_t;
 
 struct task_{
@@ -66,6 +68,7 @@ struct task_{
 	uint32_t no_of_invocations;
 	task_type_t task_type;
 	bool re_schedule;
+	task_priority_t priority;
 	pthread_cond_t *app_cond_var; /* For synchronous Schedules */
 	glthread_t glue;
 };
@@ -94,7 +97,7 @@ struct event_dispatcher_{
 	unsigned char name[EV_DIS_NAME_LEN];
 	pthread_mutex_t ev_dis_mutex;
 
-	glthread_t task_array_head;	
+	glthread_t task_array_head[TASK_PRIORITY_MAX];	
 	uint32_t pending_task_count;
 
 	glthread_t pkt_queue_head;
@@ -133,14 +136,16 @@ task_create_new_job(
 	event_dispatcher_t *ev_dis,
     void *data,
     event_cbk cbk,
-	task_type_t task_type);
+	task_type_t task_type,
+	task_priority_t priority);
 
 task_t *
 task_create_new_job_synchronous(
 	event_dispatcher_t *ev_dis,
     void *data,
     event_cbk cbk,
-	task_type_t task_type);
+	task_type_t task_type,
+	task_priority_t priority);
 
 void
 task_cancel_job(event_dispatcher_t *ev_dis, task_t *task);

@@ -196,7 +196,7 @@ node_get_node_by_name(graph_t *topo, char *node_name){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node = graph_glue_to_node(curr);
-        if(strncmp(node->node_name, node_name, strlen(node_name)) == 0)
+        if(string_compare(node->node_name, node_name, strlen(node_name)) == 0)
             return node;
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
     return NULL;

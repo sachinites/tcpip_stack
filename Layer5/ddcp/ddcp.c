@@ -466,7 +466,7 @@ ddcp_add_or_update_ddcp_reply_msg(node_t *node,
             if((DDCP_TLV_ID)type != DDCP_TLV_RTR_LO_ADDR)
                 continue;
             
-            if(strncmp(tlv_ptr, lo_addr, sizeof(ip_add_t)) == 0){
+            if(string_compare(tlv_ptr, lo_addr, sizeof(ip_add_t)) == 0){
                 if(old_seq_no < new_seq_no){
                     ddcp_update_ddcp_reply_from_ddcp_tlv(
                         node, ddcp_reply_msg, ddcp_tlv_msg);
@@ -835,11 +835,11 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
 
    TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if  (strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if  (string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "ddcp-q-interval", strlen("ddcp-q-interval")) == 0)
+        else if(string_compare(tlv->leaf_id, "ddcp-q-interval", strlen("ddcp-q-interval")) == 0)
             ddcp_q_interval = atoi(tlv->value);
-        else if(strncmp(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
+        else if(string_compare(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
             intf_name = tlv->value;
         else
             assert(0);

@@ -326,7 +326,6 @@ typedef struct acl_tcam_iterator_ {
     uint16_t *port_prefix;
     uint16_t *port_wcard;
     uint8_t index;
-    object_group_t *curr_og;
     acl_entry_t *acl_entry;
     acl_iterator_type_t it_type;
     glthread_t og_leaves_lst_head;

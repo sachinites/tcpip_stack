@@ -378,7 +378,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
     ted_delete_node_by_id(ted_db, template_node_data->rtr_id);
 
     node = ted_create_node(template_node_data->rtr_id, false);
-    strncpy((char *)node->node_name, template_node_data->node_name, NODE_NAME_SIZE);
+    string_copy((char *)node->node_name, template_node_data->node_name, NODE_NAME_SIZE);
     node->flags = template_node_data->flags;
     node->seq_no = template_node_data->seq_no;
     ted_insert_node_in_teddb(ted_db, node);

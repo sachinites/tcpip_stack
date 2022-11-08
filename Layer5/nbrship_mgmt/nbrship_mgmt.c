@@ -366,7 +366,7 @@ find_adjacency_on_interface(interface_t *interface, char *router_id){
     ITERATE_GLTHREAD_BEGIN(NMP_GET_INTF_ADJ_LIST(interface), curr){
 
         adjacency = glthread_to_adjacency(curr);
-        if(strncmp(adjacency->router_id, router_id, 16) == 0)
+        if(string_compare(adjacency->router_id, router_id, 16) == 0)
             return adjacency;
     } ITERATE_GLTHREAD_END(NMP_GET_INTF_ADJ_LIST(interface), curr);
     return NULL;
@@ -686,9 +686,9 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
         
-        if(strncmp(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if(string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
-        else if(strncmp(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
+        else if(string_compare(tlv->leaf_id, "if-name", strlen("if-name")) ==0)
             if_name = tlv->value;
         else
             assert(0);

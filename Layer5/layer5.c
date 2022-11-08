@@ -120,7 +120,7 @@ tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
 void
 init_nfc_layer2_proto_reg_db2(node_t *node) {
 
-		strncpy((char *)node->layer2_proto_reg_db2.nfc_name,
+		string_copy((char *)node->layer2_proto_reg_db2.nfc_name,
 			"L2 proto registration db",
 			strlen("L2 proto registration db") + 1);
 
