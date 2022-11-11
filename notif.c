@@ -142,7 +142,7 @@ nfc_invoke_notif_chain(
 				}
 				else
 				{
-					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM);
+					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
 				}
 			}
 			continue;
@@ -165,7 +165,7 @@ nfc_invoke_notif_chain(
 			}
 			else
 			{
-				task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM);
+				task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
 			}
 		}
 		else {
@@ -186,7 +186,7 @@ nfc_invoke_notif_chain(
 				}
 				else
 				{
-					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM);
+					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
 				}
 			}
 		}

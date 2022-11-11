@@ -387,7 +387,7 @@ isis_schedule_lsp_pkt_generation(node_t *node,
 
     node_info->lsp_pkt_gen_task =
         task_create_new_job(EV(node), node, isis_generate_lsp_pkt, TASK_ONE_SHOT,
-                TASK_PRIORITY_MEDIUM);
+                TASK_PRIORITY_MEDIUM_MEDIUM);
 }
 
 byte *

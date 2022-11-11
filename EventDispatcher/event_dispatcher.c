@@ -27,6 +27,8 @@
 static bool debug = false;
 void event_dispatcher_mem_init(); 
 
+#define EVENT_DIS_PREEMPT_INTERVAL_IN_MSEC	500
+
 void
 event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 
@@ -147,12 +149,11 @@ static task_t *
 event_dispatcher_get_next_task_to_run(event_dispatcher_t *ev_dis){
 
 	glthread_t *curr;
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
-	if(curr) return  glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
-	if(curr) return  glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
-	if(curr) return  glue_to_task(curr);
+	task_priority_t priority;
+	for (priority = TASK_PRIORITY_FIRST; priority < TASK_PRIORITY_MAX; priority++) {
+		curr = dequeue_glthread_first(&ev_dis->task_array_head[priority]);
+		if (curr) return  glue_to_task(curr);
+	}
 	return NULL;
 }
 
@@ -210,6 +211,7 @@ event_dispatcher_thread(void *arg) {
 			printf("invoking the task\n");
 		}
 
+		gettimeofday(&ev_dis->current_task_start_time, NULL);
 		task->ev_cbk(ev_dis, task->data, task->data_size);
 		task->no_of_invocations++;
 		ev_dis->n_task_exec++;
@@ -235,7 +237,7 @@ create_new_task(void *arg,
 	task->ev_cbk = cbk;
 	task->task_type = TASK_ONE_SHOT; /* default */
 	task->re_schedule = false;
-	task->priority = TASK_PRIORITY_MEDIUM;
+	task->priority = TASK_PRIORITY_MEDIUM_HIGH;
 	init_glthread(&task->glue);
 	return task;
 }
@@ -435,6 +437,16 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 bool
 event_dispatcher_should_suspend (event_dispatcher_t *ev_dis) {
 
+	struct timeval *start_time = &ev_dis->current_task_start_time;
+	struct timeval current_time;
+	gettimeofday(&current_time, NULL);
+	long long millisec_diff1 = (((long long)start_time->tv_sec)*1000) + (start_time->tv_usec/1000);
+	long long millisec_diff2 = (((long long)current_time.tv_sec)*1000) + (current_time.tv_usec/1000);
+	long long diff =  millisec_diff2 -  millisec_diff1;
+	if (diff  >= EVENT_DIS_PREEMPT_INTERVAL_IN_MSEC) {
+		if (debug) printf ("ED should suspend, diff = %llu\n", diff);
+		return true;
+	}
 	return false;
 }
 

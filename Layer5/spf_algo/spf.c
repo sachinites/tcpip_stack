@@ -539,7 +539,7 @@ compute_spf_all_nodes(graph_t *topo){
 
         node_t *node = graph_glue_to_node(curr);
 		task_create_new_job(EV(node), node, compute_spf_via_job, TASK_ONE_SHOT,
-                TASK_PRIORITY_MEDIUM);
+                TASK_PRIORITY_MEDIUM_MEDIUM);
 
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }

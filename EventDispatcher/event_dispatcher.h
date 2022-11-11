@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <sys/time.h>
 #include "../gluethread/glthread.h"
 
 
@@ -55,7 +56,9 @@ typedef enum {
 
 	TASK_PRIORITY_FIRST,
 	TASK_PRIORITY_HIGH = TASK_PRIORITY_FIRST,
-	TASK_PRIORITY_MEDIUM,
+	TASK_PRIORITY_MEDIUM_HIGH,
+	TASK_PRIORITY_MEDIUM_MEDIUM,
+	TASK_PRIORITY_MEDIUM_LOW,
 	TASK_PRIORITY_LOW,
 	TASK_PRIORITY_MAX
 } task_priority_t;
@@ -117,6 +120,7 @@ struct event_dispatcher_{
 	/* Some optional app data */
 	void *app_data;
 	task_t *current_task;
+	struct timeval current_task_start_time;
 };
 
 #define EV_DIS_LOCK(ev_dis_ptr)		\
