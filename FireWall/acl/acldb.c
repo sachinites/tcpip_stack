@@ -16,6 +16,7 @@
 #include "../../CommandParser/css.h"
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../object_network/object_group.h"
+#include "../fwall_trace_const.h"
 
 static void
 acl_get_member_tcam_entry (
@@ -68,7 +69,16 @@ acl_entry_free (acl_entry_t *acl_entry) {
 void 
 acl_decompile (acl_entry_t *acl_entry) {
 
-    if (!acl_entry->is_compiled) return;
+    if (!acl_entry->is_compiled) {
+        sprintf (tlb, "%s : Acl %s-%u is already decompiled\n", 
+            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+        tcp_trace(0, 0, tlb);        
+        return;
+    }
+
+    sprintf (tlb, "%s : Acl %s-%u is being decompiled\n", 
+            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+    tcp_trace(0, 0, tlb);
 
     switch (acl_entry->src_addr.acl_addr_format) {
         case ACL_ADDR_NOT_SPECIFIED:
@@ -319,7 +329,16 @@ access_list_mtrie_app_data_free_cbk (mtrie_node_t *mnode) {
 void
 acl_compile (acl_entry_t *acl_entry) {
 
-    if (acl_entry->is_compiled) return;
+    if (acl_entry->is_compiled) {
+        sprintf (tlb, "%s : Acl %s-%u is already compiled\n", 
+            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+        tcp_trace(0, 0, tlb);
+        return;
+    }
+
+    sprintf (tlb, "%s : Acl %s-%u is being compiled\n", 
+            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+    tcp_trace(0, 0, tlb);
 
     assert(acl_entry->tcam_saddr_count == 0);
     assert(!acl_entry->tcam_saddr_prefix);
@@ -1028,13 +1047,22 @@ acl_entry_uninstall (access_list_t *access_list,
     acl_tcam_iterator_t acl_tcam_src_it;
     acl_tcam_iterator_t acl_tcam_dst_it;    
 
-    if (!acl_entry->is_installed) return;
+    if (!acl_entry->is_installed) {
+        sprintf(tlb, "%s : Acl %s-%u is already un-installed\n", FWALL_ACL,
+            access_list->name, acl_entry->seq_no);
+        tcp_trace(0, 0, tlb);
+        return;
+    }
 
     assert(acl_entry->tcam_total_count);
 
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
     init_glthread(&tcam_entry_template.glue);
+
+    sprintf(tlb, "%s : Acl %s-%u tcam un-installation begin\n", FWALL_ACL,
+            access_list->name, acl_entry->seq_no);
+    tcp_trace(0, 0, tlb);
 
     FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_src_it) {
     
@@ -1076,6 +1104,9 @@ acl_entry_uninstall (access_list_t *access_list,
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
     acl_entry->is_installed = false;
+    sprintf(tlb, "%s : Acl %s-%u tcam un-installation finished\n", FWALL_ACL,
+            access_list->name, acl_entry->seq_no);
+    tcp_trace(0, 0, tlb);
 }
 
 
@@ -1090,7 +1121,12 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     acl_tcam_iterator_t acl_tcam_src_it;
     acl_tcam_iterator_t acl_tcam_dst_it;
 
-    if (acl_entry->is_installed) return;
+    if (acl_entry->is_installed) {
+        sprintf(tlb, "%s : Acl %s-%u is already installed\n", FWALL_ACL,
+            access_list->name, acl_entry->seq_no);
+        tcp_trace(0, 0, tlb);
+        return;
+    }
 
     assert(acl_entry->tcam_total_count == 0);
     assert(acl_entry->tcam_other_conflicts_count == 0);
@@ -1099,6 +1135,10 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
     init_glthread(&tcam_entry_template.glue);
+
+    sprintf(tlb, "%s : Acl %s-%u tcam installation begin\n", FWALL_ACL,
+            access_list->name, acl_entry->seq_no);
+    tcp_trace(0, 0, tlb);
 
     FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry, &acl_tcam_src_it) {
     
@@ -1117,7 +1157,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
                             &tcam_entry_template);
 
 #if 0
-                    printf ("Installing TCAM Entry  # %u\n", acl_entry->tcam_total_count);
+                    printf ("Installing TCAM Entry  # %u\n",  acl_entry->tcam_total_count);
                     bitmap_print(&tcam_entry_template.prefix);
                     bitmap_print(&tcam_entry_template.mask);
 #endif
@@ -1147,6 +1187,9 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
     acl_entry->is_installed = true;
+    sprintf(tlb, "%s : Acl %s-%u tcam installation finished\n", FWALL_ACL,
+            access_list->name, acl_entry->seq_no);
+    tcp_trace(0, 0, tlb);
  }
 
 static void 

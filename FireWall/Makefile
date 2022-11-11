@@ -9,6 +9,7 @@ OBJS=acl/acl_cli.o \
 			Connection/conn.o \
 			object_network/obj_grp_cli.o \
 			object_network/object_group.o \
+			object_network/object_group_update.o \
 
 ${LIB}:${OBJS}
 	ar rs ${LIB} ${OBJS}
@@ -27,6 +28,8 @@ object_network/obj_grp_cli.o:object_network/obj_grp_cli.c
 	${CC} ${CFLAGS} -c -I . -I ../../ object_network/obj_grp_cli.c -o object_network/obj_grp_cli.o
 object_network/object_group.o:object_network/object_group.c
 	${CC} ${CFLAGS} -c -I . -I ../../ object_network/object_group.c -o object_network/object_group.o
+object_network/object_group_update.o:object_network/object_group_update.c
+	${CC} ${CFLAGS} -c -I . -I ../../ object_network/object_group_update.c -o object_network/object_group_update.o	
 
 Connection/conn.o:Connection/conn.c
 	${CC} ${CFLAGS} -c -I . -I ../../ Connection/conn.c -o Connection/conn.o

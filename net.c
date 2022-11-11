@@ -324,10 +324,11 @@ dump_node_interface_stats(node_t *node){
     for(; i < MAX_INTF_PER_NODE; i++){
         interface = node->intf[i];
         if(!interface)
-            return;
+            continue;
         dump_interface_stats(interface);
         printf("\n");
     }
+    printf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }
 
 bool

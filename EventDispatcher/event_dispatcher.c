@@ -56,7 +56,7 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 	EV_DIS_LOCK(ev_dis);
 
 	glthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
-	
+		
 	if(debug) printf("Task Added to Dispatcher's Queue of priority %u\n", task->priority);
 	
 	ev_dis->pending_task_count++;
@@ -175,7 +175,7 @@ event_dispatcher_thread(void *arg) {
 			ev_dis->ev_dis_state = EV_DIS_IDLE;
 			
 			if (debug) {
-				printf("No Task to run, EVE DIS moved to IDLE STATE\n");
+				printf("No Task to run, EVE DIS %p moved to IDLE STATE\n", ev_dis);
 			}
 			
 			ev_dis->signal_sent = false;
@@ -375,6 +375,7 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 	if(!curr) return NULL;
 
+	pkt_q->pkt_count--;
 	pkt = glue_to_pkt(curr);
 
 	actual_pkt = pkt->pkt;
@@ -384,25 +385,35 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 }
 
 
-void
+bool
 pkt_q_enqueue(event_dispatcher_t *ev_dis,
 			  pkt_q_t *pkt_q,
 			  char *_pkt, uint32_t pkt_size){
+	
+	pthread_mutex_lock(&pkt_q->q_mutex);
+
+	if (pkt_q->pkt_count > PKT_Q_MAX_QUEUE_SIZE) {
+		pkt_q->drop_count++;
+		pthread_mutex_unlock(&pkt_q->q_mutex);
+		return false;
+	}
 
 	pkt_t *pkt = task_get_new_pkt(_pkt, pkt_size);
 	
 	if (debug) printf("%s() ... \n", __FUNCTION__);
-
-	pthread_mutex_lock(&pkt_q->q_mutex);	
+	
 	glthread_add_next(&pkt_q->q_head, &pkt->glue);
+	pkt_q->pkt_count++;
+
 	if ( !IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)) {
 		pthread_mutex_unlock(&pkt_q->q_mutex);
-		return;
+		return true;
 	}
 	if (debug) printf("%s() calling event_dispatcher_schedule_task()\n",
 			__FUNCTION__);
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);
 	pthread_mutex_unlock(&pkt_q->q_mutex);
+	return true;
 }
 
 void
@@ -419,6 +430,12 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 	init_glthread(&pkt_q->glue);
 	glthread_add_next(&ev_dis->pkt_queue_head, &pkt_q->glue);
 	pkt_q->ev_dis = ev_dis;
+}
+
+bool
+event_dispatcher_should_suspend (event_dispatcher_t *ev_dis) {
+
+	return false;
 }
 
 void

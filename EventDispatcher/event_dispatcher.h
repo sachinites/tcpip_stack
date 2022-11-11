@@ -75,9 +75,13 @@ struct task_{
 GLTHREAD_TO_STRUCT(glue_to_task,
 	task_t, glue);
 
+#define PKT_Q_MAX_QUEUE_SIZE	500
+
 struct pkt_q_{
 
 	glthread_t q_head;
+	uint32_t pkt_count;
+	uint32_t drop_count;
 	pthread_mutex_t q_mutex;
 	task_t *task;
 	glthread_t glue;
@@ -125,6 +129,9 @@ struct event_dispatcher_{
 task_t *
 eve_dis_get_current_task(event_dispatcher_t *ev_dis);
 
+bool
+event_dispatcher_should_suspend (event_dispatcher_t *ev_dis);
+
 void
 event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name);
 
@@ -153,7 +160,7 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task);
 void
 init_pkt_q(event_dispatcher_t *ev_dis, pkt_q_t *pkt_q, event_cbk cbk);
 
-void
+bool
 pkt_q_enqueue(event_dispatcher_t *ev_dis, 
 			   pkt_q_t *pkt_q,
 			  char *pkt, uint32_t pkt_size);
@@ -163,5 +170,15 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size);
 
 void
 task_schedule_again(event_dispatcher_t *ev_dis, task_t *task);
+
+static inline uint32_t 
+ptk_q_drop_count (pkt_q_t *pkt_q){
+
+	uint32_t rc;
+	pthread_mutex_lock(&pkt_q->q_mutex);
+	rc = pkt_q->drop_count;
+	pthread_mutex_unlock(&pkt_q->q_mutex);
+	return rc;
+}
 
 #endif /* EVENT_DISPATCHER  */

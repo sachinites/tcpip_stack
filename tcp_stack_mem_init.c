@@ -24,6 +24,7 @@ extern void acl_mem_init();
 extern void object_network_mem_init () ;
 extern void prefix_list_mem_init ();
 extern void object_group_mem_init ();
+extern void comm_mem_init();
 
 #include "Tree/libtree.h"
 #include "LinuxMemoryManager/uapi_mm.h"
@@ -45,6 +46,7 @@ tcp_stack_miscellaneous_mem_init() {
     object_network_mem_init () ;
     prefix_list_mem_init ();
     object_group_mem_init ();
+    comm_mem_init();
 
     /* Library structures */
     MM_REG_STRUCT (0, avltree_t);

@@ -95,7 +95,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
                     recv_intf, 
                     pkt_block);
 
-		free(ev_dis_pkt_data);
+		XFREE(ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
 	}
 }
@@ -175,7 +175,7 @@ send_pkt_out (pkt_block_t *pkt_block,
     interface_t *other_interface = &interface->link->intf1 == interface ? \
                                     &interface->link->intf2 : &interface->link->intf1;
 
-	ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
+	ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0,1, ev_dis_pkt_data_t);
 
 	ev_dis_pkt_data->recv_node = nbr_node;
 	ev_dis_pkt_data->recv_intf = other_interface;
@@ -186,8 +186,14 @@ send_pkt_out (pkt_block_t *pkt_block,
     tcp_dump_send_logger(sending_node, interface, 
 			pkt_block, pkt_block_get_starting_hdr(pkt_block));
 
-	pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
-                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+	if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
+                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t))) {
+
+        printf ("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
+
+        tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
+        XFREE(ev_dis_pkt_data);
+    }
 	
 	interface->intf_nw_props.pkt_sent++;
     interface->intf_nw_props.bit_rate.new_bit_stats += pkt_size * 8;
@@ -402,4 +408,9 @@ network_start_pkt_receiver_thread(void){
     pthread_create(&recv_pkt_thread, &attr, 
                     _network_start_pkt_receiver_thread, 
                     (void *)topo);
+}
+
+void comm_mem_init(){
+
+    MM_REG_STRUCT(0, ev_dis_pkt_data_t);
 }

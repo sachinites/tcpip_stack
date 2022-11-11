@@ -6,6 +6,7 @@
 #include "object_group.h"
 #include "objects_common.h"
 #include "../acl/acldb.h"
+#include "../fwall_trace_const.h"
 
 #define HASH_PRIME_CONST    5381
 
@@ -513,6 +514,9 @@ void
 
     assert(!object_group_remove_from_ht (node, node->object_group_ght, og));
 
+    sprintf (tlb, "%s : OG %s is deleted\n", FWALL_OBJGRP_UPDATE,
+        og->og_name);
+    tcp_trace(node, 0, tlb);
     XFREE(og);
 }
 
@@ -661,9 +665,11 @@ object_group_queue_all_leaf_ogs(object_group_t *og_root, glthread_t *list_head) 
     _object_group_queue_all_leaf_ogs(og_root, list_head);
 }
 
+extern void object_grp_update_mem_init();
 void
 object_group_mem_init () {
 
     MM_REG_STRUCT(0, object_group_t);
     MM_REG_STRUCT(0, obj_grp_list_node_t);
+    object_grp_update_mem_init();
 }

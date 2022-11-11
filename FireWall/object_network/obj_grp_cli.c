@@ -1,10 +1,11 @@
 #include <assert.h>
 #include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../graph.h"
-#include "object_group.h"
 #include "../../CommandParser/libcli.h"
 #include "../../CommandParser/cmdtlv.h"
 #include "../../CommandParser/css.h"
+#include "../../graph.h"
+#include "object_group.h"
+#include "object_grp_update.h"
 
 extern graph_t *topo;
 
@@ -134,7 +135,8 @@ object_group_config_handler (param_t *param,
                             }
                             c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_HOST);
                             c_og->u.host = host_addr_int;
-                            object_group_bind (p_og, c_og);
+                            //object_group_bind (p_og, c_og);
+                            object_group_update_referenced_acls(node, p_og, c_og, false);
                             return 0;
                         }
 
@@ -167,7 +169,8 @@ object_group_config_handler (param_t *param,
                         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
                         if (obj_grp_list_node->og->og_type != OBJECT_GRP_NET_HOST) continue;
                         if (obj_grp_list_node->og->u.host != host_addr_int) continue;
-                        object_group_delete(node, obj_grp_list_node->og);
+                        object_group_update_referenced_acls(node, og, obj_grp_list_node->og, true);
+                        //object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
                      printf ("Error : Configuration do not exist\n");
@@ -201,7 +204,8 @@ object_group_config_handler (param_t *param,
                             c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_ADDR);
                             c_og->u.subnet.network = host_addr_int1;
                             c_og->u.subnet.subnet = host_addr_int2;
-                            object_group_bind (p_og, c_og);
+                            object_group_update_referenced_acls(node, p_og, c_og, false);
+                            //object_group_bind (p_og, c_og);
                             return 0;
                         }
 
@@ -238,7 +242,8 @@ object_group_config_handler (param_t *param,
                         if (obj_grp_list_node->og->og_type != OBJECT_GRP_NET_ADDR) continue;
                         if (obj_grp_list_node->og->u.subnet.network != host_addr_int1) continue;
                         if (obj_grp_list_node->og->u.subnet.subnet != host_addr_int2) continue;
-                        object_group_delete(node, obj_grp_list_node->og);
+                        object_group_update_referenced_acls(node, og, obj_grp_list_node->og, true);
+                        //object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
                      printf ("Error : Configuration do not exist\n");
@@ -268,7 +273,8 @@ object_group_config_handler (param_t *param,
                              c_og = object_group_malloc(c_obj_grp_name, OBJECT_GRP_NET_RANGE);
                              c_og->u.range.lb = lb;
                              c_og->u.range.ub = ub;
-                            object_group_bind (p_og, c_og);
+                             object_group_update_referenced_acls(node, p_og, c_og, false);
+                            //object_group_bind (p_og, c_og);
                             return 0;
                         }
 
@@ -301,7 +307,8 @@ object_group_config_handler (param_t *param,
                         if (obj_grp_list_node->og->og_type != OBJECT_GRP_NET_RANGE) continue;
                         if (obj_grp_list_node->og->u.range.lb != lb) continue;
                         if (obj_grp_list_node->og->u.range.ub != ub) continue;
-                        object_group_delete(node, obj_grp_list_node->og);
+                        object_group_update_referenced_acls(node, og, obj_grp_list_node->og,  true);
+                        //object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
                      printf ("Error : Configuration do not exist\n");
@@ -338,7 +345,8 @@ object_group_config_handler (param_t *param,
                             if (object_group_find_child_object_group(p_og, nested_objgrp_name)) {
                                 return 0;
                             }
-                             object_group_bind (p_og, c_og);
+                            object_group_update_referenced_acls(node, p_og, c_og, false);
+                            //object_group_bind (p_og, c_og);
                             return 0;
                         }
 
@@ -360,9 +368,10 @@ object_group_config_handler (param_t *param,
                         if (!c_og) {
                             printf ("Error : Object Group %s Do not exist\n", nested_objgrp_name);
                             return -1;
-                        }                        
-                        object_group_unbind_parent (p_og, c_og);
-                        object_group_unbind_child (p_og, c_og);
+                        }
+                         object_group_update_referenced_acls(node, p_og, c_og, true);
+                        //object_group_unbind_parent (p_og, c_og);
+                        //object_group_unbind_child (p_og, c_og);
                         return 0;
                 }
                 break;
