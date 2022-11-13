@@ -252,7 +252,6 @@ access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
 
     mnode_acl_list_node2 = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
     mnode_acl_list_node2->acl_entry = acl_entry;
-    mnode_acl_list_node2->acl_entry->tcam_other_conflicts_count += other_conflicts;
     mnode_acl_list_node2->ref_count = 1;
     init_glthread(&mnode_acl_list_node2->glue);
 
