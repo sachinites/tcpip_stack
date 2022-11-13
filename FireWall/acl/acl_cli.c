@@ -234,12 +234,12 @@ access_list_unconfig(node_t *node,
 
     /* If user has triggered only no <access-list-name>, then delete the entire access list */
         if (seq_no == ~0) {
-            access_list_delete_complete(access_list);
+            access_list_delete_complete(node, access_list);
         }
         else {
         /* If user has triggered only no <access-list-name> <seq_no>, then delete the acl_entry 
             from the access list , uninstall it as well*/
-            if (!access_list_delete_acl_entry_by_seq_no(access_list, seq_no)) {
+            if (!access_list_delete_acl_entry_by_seq_no(node, access_list, seq_no)) {
                 printf ("Error : ACL with this Seq Number do not exist\n");
                 return -1;
             }
@@ -248,7 +248,7 @@ access_list_unconfig(node_t *node,
 
             if (access_list->ref_count == 1 && 
                     IS_GLTHREAD_LIST_EMPTY (&access_list->head)) {
-                    access_list_delete_complete(access_list);
+                    access_list_delete_complete(node, access_list);
             }
         }
         return 0;

@@ -48,6 +48,13 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 	ev_dis->thread = NULL;
 	ev_dis->signal_sent = false;
 	ev_dis->current_task = NULL;
+
+	/* Thread Pool Initialization */
+	thread_pool_init(&ev_dis->th_pool);
+	thread_t *thread1 = thread_create(0, "thread Purger 1");
+    thread_t *thread2 = thread_create(0, "thread Purger 2");
+	thread_pool_insert_new_thread(&ev_dis->th_pool, thread1);
+    thread_pool_insert_new_thread(&ev_dis->th_pool, thread2);
 }
 
 static void
@@ -338,6 +345,12 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 		EV_DIS_UNLOCK(ev_dis);
 		XFREE(task);	
 	}
+}
+
+void
+event_dispatcher_purge(event_dispatcher_t *ev_dis,  void *(fn_ptr)(void *), void *arg) {
+
+	thread_pool_dispatch_thread(&ev_dis->th_pool, fn_ptr, arg, false);
 }
 
 typedef struct pkt_{

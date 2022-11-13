@@ -59,10 +59,14 @@ OBJS=gluethread/glthread.o \
 		  prefix-list/prefixlst.o \
 		  c-hashtable/hashtable.o \
 		  c-hashtable/hashtable_itr.o \
+		  Threads/thread_pool/threadlib.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
 		  Layer2/stp/stp_vlandb.o \
+
+Threads/thread_pool/threadlib.o:
+	${CC} ${CFLAGS} -c -I gluethread -I Threads -I Bitop Threads/thread_pool/threadlib.c -o Threads/thread_pool/threadlib.o
 
 # ISIS protocol Files
 Layer5/isis/isis_adjacency.o:Layer5/isis/isis_adjacency.c
@@ -289,6 +293,7 @@ clean:
 	rm -f hashmap/*.o
 	rm -f packet-tracer/*.o
 	rm -f prefix-list/*.o
+	rm -f Threads/thread_pool/*.o
 	(cd c-hashtable; make clean)
 #STP
 #	rm -f Layer2/stp/*.o
