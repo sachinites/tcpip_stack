@@ -73,13 +73,13 @@ acl_decompile (acl_entry_t *acl_entry) {
 
     if (!acl_entry->is_compiled) {
         sprintf (tlb, "%s : Acl %s-%u is already decompiled\n", 
-            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
         tcp_trace(0, 0, tlb);        
         return;
     }
 
     sprintf (tlb, "%s : Acl %s-%u is being decompiled\n", 
-            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
     tcp_trace(0, 0, tlb);
 
     switch (acl_entry->src_addr.acl_addr_format) {
@@ -332,13 +332,13 @@ acl_compile (acl_entry_t *acl_entry) {
 
     if (acl_entry->is_compiled) {
         sprintf (tlb, "%s : Acl %s-%u is already compiled\n", 
-            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
         tcp_trace(0, 0, tlb);
         return;
     }
 
     sprintf (tlb, "%s : Acl %s-%u is being compiled\n", 
-            FWALL_ACL, acl_entry->access_lst->name, acl_entry->seq_no);
+            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
     tcp_trace(0, 0, tlb);
 
     assert(acl_entry->tcam_saddr_count == 0);
@@ -615,8 +615,8 @@ access_list_add_acl_entry (
 
      access_list_reenumerate_seq_no (access_list, &acl_entry->glue);
 
-    assert(!acl_entry->access_lst);
-    acl_entry->access_lst = access_list;
+    assert(!acl_entry->access_list);
+    acl_entry->access_list = access_list;
 }
 
  void 
@@ -814,7 +814,7 @@ access_list_evaluate_ip_packet (node_t *node,
     uint16_t src_port = 0,
                   dst_port = 0;
 
-    access_list_t *access_lst;
+    access_list_t *access_list;
 
     pthread_spinlock_t *spin_lock = ingress ?
         &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst:
@@ -822,12 +822,12 @@ access_list_evaluate_ip_packet (node_t *node,
 
     pthread_spin_lock(spin_lock);
     
-    access_lst = ingress ? intf->intf_nw_props.l3_ingress_acc_lst :
+    access_list = ingress ? intf->intf_nw_props.l3_ingress_acc_lst :
                         intf->intf_nw_props.l3_egress_acc_lst;
 
     pthread_spin_unlock(spin_lock);
 
-    if (!access_lst) return ACL_PERMIT;
+    if (!access_list) return ACL_PERMIT;
 
     src_ip = ip_hdr->src_ip;
     dst_ip = ip_hdr->dst_ip;
@@ -845,7 +845,7 @@ access_list_evaluate_ip_packet (node_t *node,
             break;
     }
 
-    return access_list_evaluate(access_lst, 
+    return access_list_evaluate(access_list, 
                                                 ETH_IP, 
                                                 l4proto,
                                                 src_ip,
@@ -2274,14 +2274,16 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
 
             if (access_list_processing_info->og_update_info) {
 
-                sprintf(tlb, "%s : Resuming Object Group Update Job\n", FWALL_ACL);
+                sprintf(tlb, "%s : Access-List %s Reporting back to Object Group Update Job\n", FWALL_ACL, access_list->name);
                 tcp_trace(node, 0, tlb);
-                object_group_update_reschedule_task(access_list_processing_info->og_update_info);
+                access_list_completed_object_group_update_fsm_stage(
+                        node, access_list, access_list_processing_info->og_update_info);
             }
 
             bitmap_free_internal(&tcam_entry_template->prefix);
             bitmap_free_internal(&tcam_entry_template->mask);
             XFREE(access_list_processing_info);
+            access_list->processing_info = NULL;
             access_list_schedule_notification (node, access_list);
             return;
         }

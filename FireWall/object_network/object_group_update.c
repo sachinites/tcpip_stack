@@ -15,7 +15,7 @@ static unsigned int
 hashfromkey_acl(void *key)
 {
 
-    acl_entry_t **key1 = (acl_entry_t **)key;
+    access_list_t **key1 = (access_list_t **)key;
     unsigned char *str = (unsigned char *)(*key1);
     unsigned int hash = HASH_PRIME_CONST;
     int c;
@@ -29,54 +29,44 @@ hashfromkey_acl(void *key)
 static int
 equalkeys_acl(void *k1, void *k2)
 {
-    acl_entry_t **key1 = (acl_entry_t **)k1;
-    acl_entry_t **key2 = (acl_entry_t **)k2;
+    access_list_t **key1 = (access_list_t **)k1;
+    access_list_t **key2 = (access_list_t **)k2;
     return *key1 == *key2;
 }
 
 static void
-object_group_collect_dependent_acls(object_group_t *og, hashtable_t *ht)
+object_group_collect_dependent_access_lists(object_group_t *og, hashtable_t *ht)
 {
-
     void *ht_key;
     glthread_t *curr;
-    acl_entry_t *acl1, *acl2;
-
+    acl_entry_t *acl;
+    access_list_t *access_list;
     objects_linked_acl_thread_node_t *objects_linked_acl_thread_node;
 
-    if (!og->db)
-        return;
+    if (!og->db) return;
 
-    ITERATE_GLTHREAD_BEGIN(&og->db->acls_list, curr)
-    {
+    ITERATE_GLTHREAD_BEGIN(&og->db->acls_list, curr) {
+
         objects_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
-        acl1 = objects_linked_acl_thread_node->acl;
-
-        if (!acl1->is_installed)
-            continue;
-
-        ht_key = (void *)acl1;
-        acl2 = (acl_entry_t *)hashtable_search(ht, (void *)&ht_key);
-
-        if (acl2)
-        {
-            assert(acl1 == acl2);
-            continue;
-        }
-
+        acl = objects_linked_acl_thread_node->acl;
+        /* We are interested only in access lists which are installed in TCAM */
+        if (!acl->is_installed) continue;
+        ht_key = (void *)acl->access_list;
+        access_list = (access_list_t *)hashtable_search(ht, (void *)&ht_key);
+        if (access_list) continue;
         ht_key = (void *)calloc(1, sizeof(void *));
-        void *temp = (void *)acl1;
+        void *temp = (void *)acl->access_list;
         memcpy(ht_key, &temp, sizeof(void *));
-        hashtable_insert(ht, (void *)ht_key, acl1);
-    }
-    ITERATE_GLTHREAD_END(&og->db->acls_list, curr)
+        hashtable_insert(ht, (void *)ht_key, (void *)acl->access_list);
+        access_list_reference(acl->access_list);
+
+    }     ITERATE_GLTHREAD_END(&og->db->acls_list, curr)
 }
 
 static void
-object_group_collect_dependent_acls_wrapper(object_group_t *og, void *ht)
+object_group_collect_dependent_access_lists_wrapper(object_group_t *og, void *ht)
 {
-
-    object_group_collect_dependent_acls(og, (hashtable_t *)ht);
+    object_group_collect_dependent_access_lists(og, (hashtable_t *)ht);
 }
 
 static void
@@ -85,7 +75,6 @@ object_group_traverse_bottom_up(
     void (*og_processing_fn_ptr)(object_group_t *, void *),
     void *arg)
 {
-
     glthread_t *curr;
     object_group_t *p_og;
     obj_grp_list_node_t *obj_grp_list_node;
@@ -99,21 +88,21 @@ object_group_traverse_bottom_up(
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
         object_group_traverse_bottom_up(
             obj_grp_list_node->og,
-            object_group_collect_dependent_acls_wrapper,
+            object_group_collect_dependent_access_lists_wrapper,
             arg);
     }
     ITERATE_GLTHREAD_END(&og->parent_og_list_head, curr)
 }
 
 static hashtable_t *
-object_group_collect_dependent_acls_bottom_up_traversal(object_group_t *og)
+object_group_collect_dependent_access_lists_bottom_up_traversal(object_group_t *og)
 {
 
     hashtable_t *h = create_hashtable(128, hashfromkey_acl, equalkeys_acl);
     assert(h);
     object_group_traverse_bottom_up(
         og,
-        object_group_collect_dependent_acls_wrapper,
+        object_group_collect_dependent_access_lists_wrapper,
         (void *)h);
     return h;
 }
@@ -133,24 +122,13 @@ object_group_update_reschedule_task(object_group_update_info_t *og_update_info)
                             TASK_PRIORITY_MEDIUM_MEDIUM);
 }
 
-#if 0
-static void
-object_group_update_fsm_goto_next_stage 
-    (object_group_update_info_t *og_update_info, og_update_acl_stage_t next_stage) {
-
-    og_update_info->stage = next_stage;
-    og_update_info->update_seed = rand();
-    object_group_update_reschedule_task(og_update_info);
-}
-#endif
-
 static void
 og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
 {
+    glthread_t *curr;
     acl_entry_t *acl_entry;
+    struct hashtable_itr *itr;
     access_list_t *access_list;
-    glthread_t *src, *dst, *curr;
-    objects_linked_acl_thread_node_t *objects_linked_acl_thread_node;
 
     object_group_update_info_t *og_update_info =
         (object_group_update_info_t *)arg;
@@ -159,161 +137,73 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
 
     og_update_info->og_update_task = NULL;
 
+    sprintf(tlb, "%s : Entering Stage  : %s\n",
+        FWALL_OBJGRP_UPDATE, og_update_acl_stage_to_string(og_update_info->stage));
+    tcp_trace(node, 0, tlb);
+
     switch (og_update_info->stage)
     {
-
     case og_update_fsm_stage_init:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_stage_init\n", FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
+        assert(!og_update_info->access_lists_ht);
+        og_update_info->access_lists_ht =
+            object_group_collect_dependent_access_lists_bottom_up_traversal(og_update_info->p_og);
 
-        assert(!og_update_info->acls_ht);
-        og_update_info->acls_ht =
-            object_group_collect_dependent_acls_bottom_up_traversal(og_update_info->p_og);
+         og_update_info->access_list_to_be_processed_count = hashtable_count(og_update_info->access_lists_ht);
+        og_update_info->access_list_processed_count = 0;
 
-        if (hashtable_count(og_update_info->acls_ht) == 0)
+        if (og_update_info->access_list_to_be_processed_count == 0)
         {
             og_update_info->stage = og_update_fsm_access_list_stage_og_association;
-            hashtable_destroy(og_update_info->acls_ht, 0);
-            og_update_info->acls_ht = NULL;
-            sprintf(tlb, "%s : Number of ACLs to be updated : 0\n", FWALL_OBJGRP_UPDATE);
-            tcp_trace(node, 0, tlb);
+            hashtable_destroy(og_update_info->access_lists_ht, 0);
+            og_update_info->access_lists_ht = NULL;
         }
         else
         {
             og_update_info->stage = og_update_fsm_access_list_stage_uninstall;
-            sprintf(tlb, "%s : Number of ACLs to be updated : %u\n", FWALL_OBJGRP_UPDATE, hashtable_count(og_update_info->acls_ht));
-            tcp_trace(node, 0, tlb);
         }
-
+        sprintf(tlb, "%s : Number of Access Lists to be updated : %u\n", FWALL_OBJGRP_UPDATE, og_update_info->access_list_to_be_processed_count);
+        tcp_trace(node, 0, tlb);
         object_group_update_reschedule_task(og_update_info);
-        return;
+        break;
+
 
     /* Uninstall all ACLs in the hashtable */
     case og_update_fsm_access_list_stage_uninstall:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_access_list_stage_uninstall\n",
-                FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
-
-        {
-            unsigned int count;
-            struct hashtable_itr *itr;
-            bool access_list_found = true;
-
-            count = hashtable_count(og_update_info->acls_ht);
-
-            if (!count)
-            {
-                og_update_info->stage = og_update_fsm_access_list_stage_og_association;
-                if (og_update_info->itr) {
-                    free(og_update_info->itr);
-                    og_update_info->itr = NULL;
-                }
-                hashtable_destroy(og_update_info->acls_ht, 0);
-                og_update_info->acls_ht = NULL;
-                object_group_update_reschedule_task(og_update_info);
-                return;
-            }
-
-            /* Get the Hashtable Iterator */
-            if (og_update_info->itr)
-            {
-                itr = og_update_info->itr;
-            }
-            else
-            {
-                itr = hashtable_iterator(og_update_info->acls_ht);
-                og_update_info->itr = itr;
-            }
-
-            /* Get the next valid access-list to be uninstalled */
-            while (1) {
-
-                acl_entry = (acl_entry_t *)hashtable_iterator_value(itr);
-
-                objects_linked_acl_thread_node =
-                    (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
-                objects_linked_acl_thread_node->acl = acl_entry;
-                init_glthread(&objects_linked_acl_thread_node->glue);
-                glthread_add_next(&og_update_info->pending_acls1,
-                                  &objects_linked_acl_thread_node->glue);
-
-                access_list = acl_entry->access_lst;
-
-                if (access_list->update_seed == og_update_info->update_seed) {
-                     if (hashtable_iterator_advance(itr)) continue;
-                     /* No Access-list remaining to uninstall, goto next stage*/
-                     access_list_found = false;
-                     break;
-                }
-                else {
-                    /* Access List to be processed found */
-                    if (!hashtable_iterator_advance(itr) ) {
-                        free(itr);
-                        og_update_info->itr = NULL;
-                    }
-                    access_list->update_seed = og_update_info->update_seed;
-                    access_list_trigger_uninstall_job(node, access_list, og_update_info);
-                    return;
-                }
-            }
-
-             /* All ACLs has been uninstalled, destroy hashtable and free it */
-            if (!access_list_found) {
-                free(itr);
-                og_update_info->itr = NULL;
-                hashtable_destroy(og_update_info->acls_ht, 0);
-                og_update_info->acls_ht = NULL;
-                /* Goto Next Stage */
-                og_update_info->stage = og_update_fsm_access_list_stage_decompile;
-                object_group_update_reschedule_task(og_update_info);
-                return;
-            }
+        itr = hashtable_iterator(og_update_info->access_lists_ht);
+        while (1) {
+            access_list = (access_list_t *)hashtable_iterator_value(itr);
+            access_list_trigger_uninstall_job(node, access_list, og_update_info);
+            if (!hashtable_iterator_advance(itr)) break;
         }
+        free(itr);
         break;
+
+
     case og_update_fsm_access_list_stage_decompile:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_acess_list_stage_decompile\n",
-                FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
-        {
-            if (og_update_info->pending_acl1_src) {
-                src = &og_update_info->pending_acls1;
-                dst = &og_update_info->pending_acls2;
-            }
-            else {
-                src = &og_update_info->pending_acls2;
-                dst = &og_update_info->pending_acls1;
-            }
+        itr = hashtable_iterator(og_update_info->access_lists_ht);
+        while (1) {
+            access_list = (access_list_t *)hashtable_iterator_value(itr);
 
-            while(1)
+            ITERATE_GLTHREAD_BEGIN(&access_list->head, curr)
             {
-                curr = dequeue_glthread_first(src);
-
-                if (!curr)
-                {
-                    og_update_info->stage = og_update_fsm_access_list_stage_og_association;
-                    og_update_info->pending_acl1_src = !og_update_info->pending_acl1_src;
-                    object_group_update_reschedule_task(og_update_info);
-                    return;
-                }
-
-                objects_linked_acl_thread_node =
-                    glue_to_objects_linked_acl_thread_node(curr);
-                remove_glthread(curr);
-                glthread_add_next(dst, curr);
-                acl_entry = objects_linked_acl_thread_node->acl;
+                acl_entry = glthread_to_acl_entry(curr);
                 acl_decompile(acl_entry);
 
                 if (event_dispatcher_should_suspend(EV(node))) {
                     object_group_update_reschedule_task(og_update_info);
                 }
             }
+            ITERATE_GLTHREAD_END(&access_list->head, curr);
+            if (!hashtable_iterator_advance(itr)) break;
         }
+        free(itr);
+        /* Move to Next Stage */
+        og_update_info->stage = og_update_fsm_access_list_stage_og_association;
+        object_group_update_reschedule_task(og_update_info);
         break;
-    case og_update_fsm_access_list_stage_og_association:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_access_list_stage_og_association\n",
-                FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
 
+
+    case og_update_fsm_access_list_stage_og_association:
         if (og_update_info->is_delete)
         {
             switch (og_update_info->c_og->og_type)
@@ -334,123 +224,78 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
         {
             object_group_bind(og_update_info->p_og, og_update_info->c_og);
         }
-
         /* Move to Next Stage */
-        og_update_info->stage = og_update_fsm_access_list_stage_compile;
+        og_update_info->stage = og_update_info->access_lists_ht ?
+            og_update_fsm_access_list_stage_compile : \
+            og_update_fsm_access_list_stage_cleanup;
         object_group_update_reschedule_task(og_update_info);
-        return;
         break;
+
+
     case og_update_fsm_access_list_stage_compile:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_acess_list_stage_compile\n",
-                FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
-        {
-            if (og_update_info->pending_acl1_src) {
-                src = &og_update_info->pending_acls1;
-                dst = &og_update_info->pending_acls2;
-            }
-            else {
-                src = &og_update_info->pending_acls2;
-                dst = &og_update_info->pending_acls1;
-            }
+        itr = hashtable_iterator(og_update_info->access_lists_ht);
+        while (1) {
+            access_list = (access_list_t *)hashtable_iterator_value(itr);
 
-            while (1)
+            ITERATE_GLTHREAD_BEGIN(&access_list->head, curr)
             {
-                curr = dequeue_glthread_first(src);
-
-                if (!curr)
-                {
-                    og_update_info->stage = og_update_fsm_access_list_stage_installation;
-                    og_update_info->update_seed = rand();
-                    og_update_info->pending_acl1_src = !og_update_info->pending_acl1_src;
-                    object_group_update_reschedule_task(og_update_info);
-                    return;
-                }
-
-                objects_linked_acl_thread_node =
-                    glue_to_objects_linked_acl_thread_node(curr);
-                remove_glthread(curr);
-                glthread_add_next(dst, curr);
-                acl_entry = objects_linked_acl_thread_node->acl;
+                acl_entry = glthread_to_acl_entry(curr);
                 acl_compile(acl_entry);
+
                 if (event_dispatcher_should_suspend(EV(node))) {
                     object_group_update_reschedule_task(og_update_info);
                 }
             }
+            ITERATE_GLTHREAD_END(&access_list->head, curr);
+            if (!hashtable_iterator_advance(itr)) break;
         }
+        free(itr);
+        /* Move to Next Stage */
+        og_update_info->stage = og_update_fsm_access_list_stage_installation;
+        object_group_update_reschedule_task(og_update_info);
         break;
+
+
     case og_update_fsm_access_list_stage_installation:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_acess_list_stage_installation\n",
-                FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
-        {
-            if (og_update_info->pending_acl1_src) {
-                src = &og_update_info->pending_acls1;
-                dst = &og_update_info->pending_acls2;
-            }
-            else {
-                src = &og_update_info->pending_acls2;
-                dst = &og_update_info->pending_acls1;
-            }
-
-            while (curr = dequeue_glthread_first(src))
-            {
-                objects_linked_acl_thread_node =
-                    glue_to_objects_linked_acl_thread_node(curr);
-                remove_glthread(curr);
-                glthread_add_next(dst, curr);
-                acl_entry = objects_linked_acl_thread_node->acl;
-                access_list = acl_entry->access_lst;
-                if (access_list->update_seed == og_update_info->update_seed) continue;
-                access_list->update_seed = og_update_info->update_seed;
-                access_list_trigger_install_job(node, access_list, og_update_info);
-                return;
-            }
-            og_update_info->stage = og_update_fsm_access_list_stage_cleanup;
-            og_update_info->pending_acl1_src = !og_update_info->pending_acl1_src;
-            object_group_update_reschedule_task(og_update_info);
-            return;
+        itr = hashtable_iterator(og_update_info->access_lists_ht);
+        while (1) {
+            access_list = (access_list_t *)hashtable_iterator_value(itr);
+            access_list_trigger_install_job(node, access_list, og_update_info);
+            if (!hashtable_iterator_advance(itr)) break;
         }
+        free(itr);
         break;
-    case og_update_fsm_access_list_stage_cleanup:
-        sprintf(tlb, "%s : Entering Stage  : og_update_fsm_access_list_stage_cleanup\n",
-                FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
-        sprintf(tlb, "%s : All ACLs has been successfully updated\n", FWALL_OBJGRP_UPDATE);
-        tcp_trace(node, 0, tlb);
-        assert(!og_update_info->acls_ht);
-        assert(!og_update_info->itr);
 
-        if (og_update_info->pending_acl1_src) {
-            assert(!IS_GLTHREAD_LIST_EMPTY(&og_update_info->pending_acls1));
-            assert(IS_GLTHREAD_LIST_EMPTY(&og_update_info->pending_acls2));
+
+    case og_update_fsm_access_list_stage_cleanup:
+        if (og_update_info->access_lists_ht) {
+            sprintf(tlb, "%s : All Access-Lists has been successfully updated\n", FWALL_OBJGRP_UPDATE);
         }
         else {
-            assert(IS_GLTHREAD_LIST_EMPTY(&og_update_info->pending_acls1));
-            assert(!IS_GLTHREAD_LIST_EMPTY(&og_update_info->pending_acls2));
+            sprintf(tlb, "%s : No Access-Lists need to be updated\n", FWALL_OBJGRP_UPDATE);
+        }
+        tcp_trace(node, 0, tlb);
+
+        /* Clean up the Hashtable */
+        if (og_update_info->access_lists_ht) {
+            itr = hashtable_iterator(og_update_info->access_lists_ht);
+            while (1)
+            {
+                access_list = (access_list_t *)hashtable_iterator_value(itr);
+                access_list_dereference(node, access_list);
+                if (!hashtable_iterator_advance(itr)) break;
+            }
+            free(itr);
+            hashtable_destroy(og_update_info->access_lists_ht, 0);
+            og_update_info->access_lists_ht = NULL;
         }
 
-        /* Only one of the below list will have elements */
-        ITERATE_GLTHREAD_BEGIN(&og_update_info->pending_acls1, curr)
-        {
-            objects_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
-            remove_glthread(curr);
-            XFREE(objects_linked_acl_thread_node);
-        }
-        ITERATE_GLTHREAD_END(&og_update_info->pending_acls1, curr);
-
-        ITERATE_GLTHREAD_BEGIN(&og_update_info->pending_acls2, curr)
-        {
-            objects_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
-            remove_glthread(curr);
-            XFREE(objects_linked_acl_thread_node);
-        }
-        ITERATE_GLTHREAD_END(&og_update_info->pending_acls2, curr);
         XFREE(og_update_info);
         break;
     default:;
     }
 }
+
 
 void object_group_update_referenced_acls(
     node_t *node,
@@ -461,22 +306,79 @@ void object_group_update_referenced_acls(
     object_group_update_info_t *og_update_info =
         (object_group_update_info_t *)XCALLOC(0, 1, object_group_update_info_t);
 
-    og_update_info->update_seed = rand();
     og_update_info->p_og = p_og;
     og_update_info->c_og = c_og;
     og_update_info->is_delete = is_delete;
     og_update_info->stage = og_update_fsm_stage_init;
-    init_glthread(&og_update_info->pending_acls1);
-    init_glthread(&og_update_info->pending_acls2);
     og_update_info->node = node;
-    og_update_info->acls_ht = NULL;
-    og_update_info->itr = NULL;
-    og_update_info->pending_acl1_src = true;
+    og_update_info->access_lists_ht = NULL;
     object_group_update_reschedule_task(og_update_info);
     sprintf(tlb, "%s : [p_og : %s,  c_og : %s]  Scheduling ACLs Update for %s\n",
             FWALL_OBJGRP_UPDATE, p_og->og_name, c_og->og_name,
             is_delete ? "delete" : "create");
     tcp_trace(node, 0, tlb);
+}
+
+void
+access_list_completed_object_group_update_fsm_stage (
+        node_t *node,
+        access_list_t *access_list, 
+        object_group_update_info_t *og_update_info) {
+
+        sprintf(tlb, "%s : Access List %s Completed Stage %s\n",
+             FWALL_OBJGRP_UPDATE, 
+             access_list->name,
+             og_update_acl_stage_to_string(og_update_info->stage));
+        tcp_trace(node, 0, tlb);
+
+    switch(og_update_info->stage) {
+
+        case og_update_fsm_stage_init:
+            assert(0);
+        case og_update_fsm_access_list_stage_uninstall:
+            og_update_info->access_list_processed_count++;
+            if (og_update_info->access_list_processed_count ==
+                    og_update_info->access_list_to_be_processed_count) {
+                og_update_info->access_list_processed_count = 0;
+                og_update_info->stage = og_update_fsm_access_list_stage_decompile;
+                object_group_update_reschedule_task(og_update_info);
+            }
+            break;
+        case og_update_fsm_access_list_stage_decompile:
+            og_update_info->access_list_processed_count++;
+            if (og_update_info->access_list_processed_count ==
+                og_update_info->access_list_to_be_processed_count) {
+                og_update_info->access_list_processed_count = 0;
+                og_update_info->stage = og_update_fsm_access_list_stage_og_association;
+                object_group_update_reschedule_task(og_update_info);
+            }
+            break;
+        case og_update_fsm_access_list_stage_og_association:
+            assert(0);
+            break;
+        case og_update_fsm_access_list_stage_compile:
+            og_update_info->access_list_processed_count++;
+            if (og_update_info->access_list_processed_count ==
+                og_update_info->access_list_to_be_processed_count) {
+                og_update_info->access_list_processed_count = 0;
+                og_update_info->stage = og_update_fsm_access_list_stage_installation;
+                object_group_update_reschedule_task(og_update_info);
+            }
+            break;        
+        case og_update_fsm_access_list_stage_installation:
+            og_update_info->access_list_processed_count++;
+            if (og_update_info->access_list_processed_count ==
+                og_update_info->access_list_to_be_processed_count) {
+                og_update_info->access_list_processed_count = 0;
+                og_update_info->stage = og_update_fsm_access_list_stage_cleanup;
+                object_group_update_reschedule_task(og_update_info);
+            }
+            break;
+        case og_update_fsm_access_list_stage_cleanup:
+            assert(0);
+            break;
+        default: ;
+    }
 }
 
 void object_grp_update_mem_init()

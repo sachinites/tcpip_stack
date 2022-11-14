@@ -147,7 +147,7 @@ typedef struct acl_entry_{
     bool is_compiled;
     bool is_installed;
     
-    access_list_t *access_lst; /* Back pointer to owning access list */
+    access_list_t *access_list; /* Back pointer to owning access list */
     glthread_t glue;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
@@ -227,7 +227,7 @@ void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_ent
 void access_list_check_delete(access_list_t *access_list);
 void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
 void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry) ;
-bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
+bool access_list_reinstall (node_t *node, access_list_t *access_list) ;
 bool access_list_is_compiled (access_list_t *access_list);
 bool access_list_should_decompile (access_list_t *access_list) ;
 bool access_list_should_compile (access_list_t *access_list) ;
