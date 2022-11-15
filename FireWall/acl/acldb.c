@@ -665,7 +665,9 @@ acl_process_user_config (node_t *node,
             access_list_trigger_install_job(node, access_list, NULL);
         }
         else {
+            pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
             acl_entry_install(access_list, acl_entry);
+            pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
         }
     }
 
@@ -1195,7 +1197,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     acl_tcam_iterator_first(&dst_port_it);
 
     acl_entry->installation_start_time = time(NULL);
-
+    
     do {
 
         acl_get_member_tcam_entry(
@@ -1486,19 +1488,20 @@ bool
 access_list_reinstall (node_t *node, access_list_t *access_list) {
 
     glthread_t *curr;
+    mtrie_t *mtrie;
     obj_nw_t *obj_nw;
     acl_entry_t *acl_entry;
 
     pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
 
-    if (access_list->mtrie) {
-        mtrie_destroy(access_list->mtrie);
-        XFREE(access_list->mtrie);
-        access_list->mtrie = NULL;
+    if (access_list_is_compiled(access_list)) {
+        mtrie = access_list->mtrie;
+        access_list->mtrie = access_list_get_new_tcam_mtrie();
+        access_list_purge_tcam_mtrie(node, mtrie);
     }
-
-    access_list->mtrie = (mtrie_t *)XCALLOC(0, 1, mtrie_t);
-    init_mtrie(access_list->mtrie, ACL_PREFIX_LEN, access_list_mtrie_app_data_free_cbk);
+    else if (!access_list->mtrie) {
+        access_list->mtrie = access_list_get_new_tcam_mtrie();
+    }
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -1705,7 +1708,9 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
 
     /*Sync Method*/
     if (acl_entry->tcam_total_count < ACL_ENTRY_TCAM_COUNT_THRESHOLD) {
+        pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
         acl_entry_uninstall(access_list, acl_entry);
+        pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
         acl_entry_free(acl_entry);
         return true;
     }
