@@ -26,6 +26,10 @@ typedef struct object_group_update_info_ object_group_update_info_t;
 #define ACCESS_LIST_MAX_NAMELEN 64
 #define ACL_MAX_PORTNO    0xFFFF
 
+/* If Single acl_entry compiles into less than this count value, then
+    we install/un-install it synchronously*/
+#define ACL_ENTRY_TCAM_COUNT_THRESHOLD 10000
+
 typedef enum {
     ACL_IP = ETH_IP,
     ACL_ICMP = ICMP_PROTO,

@@ -384,15 +384,9 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
     
     mtrie_move_children(child_node, node);
 
-    if (mtrie_is_leaf_node(node))
-    {
-        /* Node may already be on thread incase we are deleting node while
-            traversal */
-      //  if (IS_GLTHREAD_LIST_EMPTY(&node->list_glue))
-      // {
-            assert(IS_GLTHREAD_LIST_EMPTY(&node->list_glue));
-            glthread_add_next(&child_node->list_glue, &node->list_glue);
-      //  }
+    if (mtrie_is_leaf_node(node)) {
+        assert(IS_GLTHREAD_LIST_EMPTY(&node->list_glue));
+        glthread_add_next(&child_node->list_glue, &node->list_glue);
         node->data = child_node->data;
         child_node->data = NULL;
     }
@@ -458,7 +452,7 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wild
 
 /* Given a pointer to the leaf node of the mtrie, delete it */
 void 
-mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge) {
+mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
 
     assert(mtrie_is_leaf_node(node));
 
@@ -481,12 +475,8 @@ mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge) {
     }
 
     mtrie_node_delete(mtrie, node, NULL);
-
-    if (merge) {
-        mtrie_merge_child_node(mtrie, parent, NULL);
-    }
+    mtrie_merge_child_node(mtrie, parent, NULL);
 }
-
 
 /* A function used to delete the leaf node from the mtrie , i.e, the actual data. 
     Uses exact match API as helper API to locate the node of interest. 
@@ -507,7 +497,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void 
   
    *app_data = node->data;
 
-    mtrie_delete_leaf_node(mtrie, node, true);
+    mtrie_delete_leaf_node(mtrie, node);
 
     return MTRIE_DELETE_SUCCESS;
 }

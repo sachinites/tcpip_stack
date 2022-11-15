@@ -30,7 +30,6 @@ typedef struct access_list_ access_list_t;
 
 typedef enum og_update_acl_stage_
 {
-
     og_update_fsm_stage_init,
     og_update_fsm_access_list_stage_uninstall,
     og_update_fsm_access_list_stage_decompile,

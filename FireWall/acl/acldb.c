@@ -658,7 +658,15 @@ acl_process_user_config (node_t *node,
     }
 
     if (access_list_should_compile (access_list)) {
-        access_list_trigger_install_job(node, access_list, NULL);
+
+        acl_compile(acl_entry);
+        
+        if (acl_entry->expected_tcam_count > ACL_ENTRY_TCAM_COUNT_THRESHOLD) {
+            access_list_trigger_install_job(node, access_list, NULL);
+        }
+        else {
+            acl_entry_install(access_list, acl_entry);
+        }
     }
 
     return true;
@@ -1111,28 +1119,33 @@ acl_entry_uninstall (access_list_t *access_list,
             &tcam_entry_template);
 
 #if 0
-                    printf ("Un-Installing TCAM Entry  # %u: \n", acl_entry->total_tcam_count);
-                    bitmap_print(&tcam_entry_template.prefix);
-                    bitmap_print(&tcam_entry_template.mask);
+            printf ("Un-Installing TCAM Entry  # %u: \n", acl_entry->total_tcam_count);
+            bitmap_print(&tcam_entry_template.prefix);
+            bitmap_print(&tcam_entry_template.mask);
 #endif
-                    mnode = mtrie_exact_prefix_match_search (
-                                             access_list->mtrie,
-                                             &tcam_entry_template.prefix,
-                                             &tcam_entry_template.mask);
+        mnode = mtrie_exact_prefix_match_search(
+            access_list->mtrie,
+            &tcam_entry_template.prefix,
+            &tcam_entry_template.mask);
 
-                    assert(mnode);
+        assert(mnode);
 
-                    access_list_mtrie_deallocate_mnode_data(mnode, acl_entry);
+        access_list_mtrie_deallocate_mnode_data(mnode, acl_entry);
 
-                    if (mnode->data == NULL) {
-                        mtrie_delete_leaf_node (access_list->mtrie, mnode, true);
-                    }    
-            }while (acl_iterators_increment (
-                &src_it,
-                &dst_it,
-                &src_port_it,
-                &dst_port_it));
+        if (mnode->data == NULL) {
+            mtrie_delete_leaf_node(access_list->mtrie, mnode);
+        }
+    } while (acl_iterators_increment(
+        &src_it,
+        &dst_it,
+        &src_port_it,
+        &dst_port_it));
 
+    acl_tcam_iterator_deinit(&src_it);
+    acl_tcam_iterator_deinit(&dst_it);
+    acl_tcam_iterator_deinit(&src_port_it);
+    acl_tcam_iterator_deinit(&dst_port_it);
+    
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
     acl_entry->is_installed = false;
@@ -1181,6 +1194,8 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     acl_tcam_iterator_first(&src_port_it);
     acl_tcam_iterator_first(&dst_port_it);
 
+    acl_entry->installation_start_time = time(NULL);
+
     do {
 
         acl_get_member_tcam_entry(
@@ -1192,34 +1207,42 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
             &tcam_entry_template);
 
 #if 0
-                    printf ("Installing TCAM Entry  # %u\n",  acl_entry->tcam_total_count);
-                    bitmap_print(&tcam_entry_template.prefix);
-                    bitmap_print(&tcam_entry_template.mask);
+            printf ("Installing TCAM Entry  # %u\n",  acl_entry->tcam_total_count);
+            bitmap_print(&tcam_entry_template.prefix);
+            bitmap_print(&tcam_entry_template.mask);
 #endif
-                    rc = (mtrie_insert_prefix(
-                                            access_list->mtrie,
-                                            &tcam_entry_template.prefix,
-                                            &tcam_entry_template.mask,
-                                            ACL_PREFIX_LEN,
-                                            &mnode));
 
-                    switch (rc ) {
-                        case MTRIE_INSERT_SUCCESS:
-                        access_list_mtrie_allocate_mnode_data(mnode, (void *)acl_entry);
-                        break;
-                    case MTRIE_INSERT_DUPLICATE:
-                        access_list_mtrie_duplicate_entry_found(mnode, (void *)acl_entry);
-                        break;
-                    case MTRIE_INSERT_FAILED:
-                        assert(0);
-                    }
+        rc = (mtrie_insert_prefix(
+            access_list->mtrie,
+            &tcam_entry_template.prefix,
+            &tcam_entry_template.mask,
+            ACL_PREFIX_LEN,
+            &mnode));
 
+        switch (rc)
+        {
+        case MTRIE_INSERT_SUCCESS:
+            access_list_mtrie_allocate_mnode_data(mnode, (void *)acl_entry);
+            break;
+        case MTRIE_INSERT_DUPLICATE:
+            access_list_mtrie_duplicate_entry_found(mnode, (void *)acl_entry);
+            break;
+        case MTRIE_INSERT_FAILED:
+            assert(0);
+        }
 
     } while (acl_iterators_increment (
                 &src_it,
                 &dst_it,
                 &src_port_it,
                 &dst_port_it));
+
+    acl_entry->installation_end_time = time(NULL);
+
+    acl_tcam_iterator_deinit(&src_it);
+    acl_tcam_iterator_deinit(&dst_it);
+    acl_tcam_iterator_deinit(&src_port_it);
+    acl_tcam_iterator_deinit(&dst_port_it);
 
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
@@ -1672,10 +1695,24 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
     curr = glthread_get_next (&acl_entry->glue);
     remove_glthread(&acl_entry->glue);
     access_list_reenumerate_seq_no (access_list, curr);
-    acl_entry_free(acl_entry);
-    if (access_list_should_compile(access_list)) {
-        access_list_trigger_install_job(node, access_list, NULL);
+
+    if (!access_list_is_compiled(access_list)) {
+         acl_entry_free(acl_entry);
+         return true;
     }
+
+    assert(acl_entry->is_compiled);
+
+    /*Sync Method*/
+    if (acl_entry->tcam_total_count < ACL_ENTRY_TCAM_COUNT_THRESHOLD) {
+        acl_entry_uninstall(access_list, acl_entry);
+        acl_entry_free(acl_entry);
+        return true;
+    }
+
+    /* Async method */
+    acl_entry_free(acl_entry);
+    access_list_trigger_install_job(node, access_list, NULL);
     return true;
 }
 
@@ -2409,7 +2446,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
 
         access_list_mtrie_deallocate_mnode_data(mnode, acl_entry);
         if (mnode->data == NULL) {
-            mtrie_delete_leaf_node(access_list->mtrie, mnode, true);
+            mtrie_delete_leaf_node(access_list->mtrie, mnode);
         }
     }
     access_list_processing_info->acl_tcams_installed++;
@@ -2549,7 +2586,7 @@ access_list_trigger_acl_decompile_job(node_t *node,
                                 acl_entry_t *acl_entry,
                                 object_group_update_info_t *og_update_info) {
 
-   acl_compile (acl_entry);
+   acl_decompile (acl_entry);
 }
 
 void
@@ -2557,7 +2594,7 @@ access_list_trigger_acl_compile_job(node_t *node,
                                 acl_entry_t *acl_entry,
                                 object_group_update_info_t *og_update_info) {
 
-    acl_decompile(acl_entry);
+    acl_compile(acl_entry);
 }
 
 void
