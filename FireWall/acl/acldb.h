@@ -149,6 +149,11 @@ typedef struct acl_entry_{
     
     access_list_t *access_list; /* Back pointer to owning access list */
     glthread_t glue;
+
+    /*Stats */
+    time_t installation_start_time;
+    time_t installation_end_time;
+    bool installation_in_progress;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
 
@@ -187,6 +192,7 @@ typedef struct access_list_processing_info_ {
     acl_tcam_iterator_t acl_tcam_src_port_it;
     acl_tcam_iterator_t acl_tcam_dst_port_it;
     acl_tcam_t tcam_entry_template; 
+    uint32_t acl_tcams_installed;
 } access_list_processing_info_t;
 
 struct access_list_ {
@@ -203,6 +209,9 @@ struct access_list_ {
     task_t *notif_job; /* Used when notification is to be sent async to appln */
     access_list_processing_info_t *processing_info;    /* Store the context for 
     access-list install & uninstall operations */
+    /*Stats */
+    time_t installation_start_time;
+    time_t installation_end_time;
 } ;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
@@ -426,5 +435,11 @@ access_list_is_uninstallation_in_progress (access_list_t *access_list){
 
 void
 access_list_cancel_un_installation_operation (access_list_t *access_list);
+
+c_string
+access_list_get_installation_time_duration (access_list_t *access_list, c_string time_str, size_t size) ;
+
+c_string
+acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_str, size_t size);
 
 #endif

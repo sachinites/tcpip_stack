@@ -362,6 +362,26 @@ print_uint32_bits (uint32_t n) {
     }
 }
 
+c_string
+hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size){
+
+    unsigned int hrs = 0,  
+                 min =0, sec = 0;
+
+    if(seconds > 3600){
+        min = seconds/60;
+        sec = seconds%60;
+        hrs = min/60;
+        min = min%60;
+    }   
+    else{
+        min = seconds/60;
+        sec = seconds%60;
+    }   
+    memset(time_f, 0, sizeof(byte) * size);
+    sprintf(time_f, "%u::%u::%u", hrs, min, sec);
+    return time_f;
+}
 
 #if 0
 

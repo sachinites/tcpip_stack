@@ -129,6 +129,7 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
     acl_entry_t *acl_entry;
     struct hashtable_itr *itr;
     access_list_t *access_list;
+    mtrie_t *mtrie1, *mtrie2;
 
     object_group_update_info_t *og_update_info =
         (object_group_update_info_t *)arg;
@@ -159,7 +160,9 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
         }
         else
         {
-            og_update_info->stage = og_update_fsm_access_list_stage_uninstall;
+            /* We will skip the uninstall stage, and jump directly to decompile stage */
+            //og_update_info->stage = og_update_fsm_access_list_stage_uninstall;
+            og_update_info->stage = og_update_fsm_access_list_stage_decompile;
         }
         sprintf(tlb, "%s : Number of Access Lists to be updated : %u\n", FWALL_OBJGRP_UPDATE, og_update_info->access_list_to_be_processed_count);
         tcp_trace(node, 0, tlb);
@@ -178,7 +181,7 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
         free(itr);
         break;
 
-
+        
     case og_update_fsm_access_list_stage_decompile:
         itr = hashtable_iterator(og_update_info->access_lists_ht);
         while (1) {

@@ -173,8 +173,9 @@ typedef struct l3_route_{
 GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
 GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
 
-#define RT_UP_TIME(l3_route_ptr)	\
-	hrs_min_sec_format((unsigned int)difftime(time(NULL), l3_route_ptr->install_time))
+#define RT_UP_TIME(l3_route_ptr, buff, size)	\
+	hrs_min_sec_format((unsigned int)difftime(time(NULL), \
+        l3_route_ptr->install_time), buff, size)
 
 static inline void
 l3_route_lock (l3_route_t *l3_route) {

@@ -176,9 +176,6 @@ cancel_wheel_timer(wheel_timer_t *wt);
 void
 reset_wheel_timer(wheel_timer_t *wt);
 
-char*
-hrs_min_sec_format(unsigned int seconds);
-
 void
 wt_enable_logging(wheel_timer_t *wt);
 

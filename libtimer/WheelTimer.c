@@ -341,7 +341,6 @@ print_wheel_timer(wheel_timer_t *wt){
 	printf("wt->wheel_size         = %d\n", wt->wheel_size);
 	printf("wt->current_cycle_no   = %d\n", wt->current_cycle_no);
 	printf("wt->wheel_thread       = %p\n", &wt->wheel_thread);
-    printf("WT uptime              = %s\n", hrs_min_sec_format(WT_UPTIME(wt)));
 	printf("wt->timer_thread state = %u\n", timer_get_current_state(wt->wheel_thread));
 	printf("printing slots : \n");
 
@@ -377,29 +376,6 @@ void
 reset_wheel_timer(wheel_timer_t *wt){
 	wt->current_clock_tic = 0;
 	wt->current_cycle_no  = 0;
-}
-
-
-char*
-hrs_min_sec_format(unsigned int seconds){
-
-    static char time_f[16];
-    unsigned int hrs = 0,
-                 min =0, sec = 0;
-
-    if(seconds > 3600){
-        min = seconds/60;
-        sec = seconds%60;
-        hrs = min/60;
-        min = min%60;
-    }
-    else{
-        min = seconds/60;
-        sec = seconds%60;
-    }
-    memset(time_f, 0, sizeof(time_f));
-    sprintf(time_f, "%u::%u::%u", hrs, min, sec);
-    return time_f;
 }
 
 void

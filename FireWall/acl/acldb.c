@@ -2225,6 +2225,8 @@ access_list_reschedule_processing_job(
                                             TASK_PRIORITY_MEDIUM_MEDIUM);
 }
 
+#define ACCESS_LIST_PREEMPTION_THRESHOLD    10000
+
 static void
 access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
@@ -2260,6 +2262,10 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
                     access_list->name);
             tcp_trace(node, 0, tlb);
 
+            if (access_list_processing_info->is_installation) {
+                access_list->installation_end_time = time(NULL);
+            }
+
             /* Updating the Data Path */
             if (access_list_processing_info->is_installation) {
                 mtrie_t *temp = access_list->mtrie;
@@ -2291,6 +2297,9 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
         objects_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
         access_list_processing_info->current_acl = objects_linked_acl_thread_node->acl;
         acl_entry = access_list_processing_info->current_acl;
+        if (access_list_processing_info->is_installation) {
+            acl_entry->installation_start_time = time(NULL);
+        }
         XFREE(objects_linked_acl_thread_node );
 
         /* Compile the ACL is not already */
@@ -2313,6 +2322,11 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
         acl_tcam_iterator_first(acl_tcam_dst_it);
         acl_tcam_iterator_first(acl_tcam_src_port_it);
         acl_tcam_iterator_first(acl_tcam_dst_port_it);
+
+        if (access_list_processing_info->is_installation) {
+            acl_entry->installation_in_progress = true;
+        }
+
     }
     else {
         /* Retrieve Iterators */
@@ -2386,8 +2400,11 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
             mtrie_delete_leaf_node(access_list->mtrie, mnode, true);
         }
     }
+    access_list_processing_info->acl_tcams_installed++;
 
-    if (event_dispatcher_should_suspend(EV(node))) {
+    if ((access_list_processing_info->acl_tcams_installed % 
+                ACCESS_LIST_PREEMPTION_THRESHOLD) == 0 && 
+        event_dispatcher_should_suspend(EV(node))) {
 
         access_list_reschedule_processing_job(access_list_processing_info);
         sprintf (tlb, "%s : %sInstallation of ACL %s-%u suspended, Total tcam %sinstalled = %u\n", 
@@ -2411,6 +2428,11 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
             FWALL_ACL, access_list_processing_info->is_installation ? "" : "Un-",
             access_list->name, acl_entry->seq_no, acl_entry->tcam_total_count);
     tcp_trace(node, 0, tlb);
+
+     if (access_list_processing_info->is_installation) {
+        access_list_processing_info->current_acl->installation_end_time = time(NULL);
+        access_list_processing_info->current_acl->installation_in_progress = false;
+     }
 
     access_list_processing_info->current_acl->is_installed = 
         access_list_processing_info->is_installation;
@@ -2448,6 +2470,9 @@ access_list_trigger_install_job(node_t *node,
     access_list_processing_info->og_update_info = og_update_info;
     access_list_processing_info->access_list = access_list;
     access_list_processing_info->mtrie = access_list_get_new_tcam_mtrie();
+    access_list_processing_info->acl_tcams_installed = 0;
+    access_list->processing_info = access_list_processing_info;
+    access_list->installation_start_time = time(NULL);
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -2601,6 +2626,40 @@ access_list_purge_tcam_mtrie (node_t *node,
                                                     mtrie_t *mtrie) {
 
     event_dispatcher_purge(EV(node), mtrie_purge_cbk, (void *)mtrie);
+}
+
+c_string
+access_list_get_installation_time_duration (access_list_t *access_list, c_string time_str, size_t size) {
+
+    time_t end_time;
+
+    if (access_list_is_installation_in_progress(access_list)) {
+        end_time = time(NULL);
+    }
+    else if (access_list_is_compiled(access_list)){
+        end_time = access_list->installation_end_time;
+    }
+    else return NULL;
+
+    return hrs_min_sec_format(difftime(end_time, access_list->installation_start_time),
+                                                time_str, size);
+}
+
+c_string
+acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_str, size_t size) {
+
+    time_t end_time;
+
+    if (acl_entry->installation_in_progress) {
+        end_time = time(NULL);
+    }
+    else if (acl_entry->is_installed){
+        end_time = acl_entry->installation_end_time;
+    }
+    else return NULL;
+
+    return hrs_min_sec_format(difftime(end_time, acl_entry->installation_start_time),
+                                                time_str, size);
 }
 
 void 
