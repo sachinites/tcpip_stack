@@ -119,7 +119,7 @@ object_group_update_reschedule_task(object_group_update_info_t *og_update_info)
                             (void *)og_update_info,
                             og_update_acls_task,
                             TASK_ONE_SHOT,
-                            TASK_PRIORITY_MEDIUM_MEDIUM);
+                            TASK_PRIORITY_COMPUTE);
 }
 
 static void

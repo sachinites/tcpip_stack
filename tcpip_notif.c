@@ -60,7 +60,7 @@ nfc_intf_invoke_notification_to_sbscribers(
 							&nfc_intf,
 						   (void *) &intf_notif_data,
 							sizeof(intf_notif_data_t),
-							0, 0);
+							0, 0, TASK_PRIORITY_COMPUTE);
 }
 
 
@@ -112,7 +112,8 @@ nfc_pkt_trace_invoke_notif_to_sbscribers(
 						   (void *) &pkt_info,
 						   sizeof(pkt_info_t),
 						   (char *)&protocol_no,
-						   sizeof(protocol_no));
+						   sizeof(protocol_no),
+                           TASK_PRIORITY_LOW);
 
 	pkt_block_dereference(pkt_block);
 

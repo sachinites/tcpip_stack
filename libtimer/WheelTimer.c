@@ -143,7 +143,7 @@ wheel_fn(Timer_t *timer, void *arg){
 			  task_create_new_job((event_dispatcher_t *)wt->user_data,
 				  				  wt_elem->arg,
 								  wt_elem->app_callback,
-								  TASK_ONE_SHOT, TASK_PRIORITY_HIGH);
+								  TASK_ONE_SHOT, TASK_PRIORITY_TIMERS_CBK);
 			  if (!wt_elem->is_recurrence) {
 				remove_glthread(&wt_elem->glue); // appln must free it
 			  }

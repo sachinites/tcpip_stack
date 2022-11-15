@@ -384,7 +384,7 @@ isis_schedule_job(node_t *node,
         return;
     }
 
-    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
+    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE);
 
     if(*task) {
         printf("Node : %s : %s Scheduled. Reason : %s\n",

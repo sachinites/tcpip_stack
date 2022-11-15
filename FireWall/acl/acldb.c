@@ -1594,7 +1594,7 @@ access_list_schedule_notification (node_t *node, access_list_t *access_list) {
 
     access_list->notif_job = task_create_new_job(EV(node), (void *)access_list, 
                                                             access_list_send_notif_cbk, TASK_ONE_SHOT,
-                                                            TASK_PRIORITY_MEDIUM_HIGH);
+                                                            TASK_PRIORITY_COMPUTE);
 
     access_list_reference(access_list);
 }
@@ -2222,7 +2222,7 @@ access_list_reschedule_processing_job(
                                             (void *)access_list_processing_info,
                                             access_list_processing_job_cbk,
                                             TASK_ONE_SHOT,
-                                            TASK_PRIORITY_MEDIUM_MEDIUM);
+                                            TASK_PRIORITY_COMPUTE);
 }
 
 #define ACCESS_LIST_PREEMPTION_THRESHOLD    10000

@@ -20,7 +20,6 @@
 #include <assert.h>
 #include "notif.h"
 #include "LinuxMemoryManager/uapi_mm.h"
-#include "EventDispatcher/event_dispatcher.h"
 
 /* returns true if both are identical else return false.
  * if key is set, then comparison is done based on keys only.
@@ -107,7 +106,8 @@ nfc_invoke_notif_chain(
 					  event_dispatcher_t *ev_dis,
 					   notif_chain_t *nfc,
 					   void *arg, size_t arg_size,
-					   char *key, size_t key_size){
+					   char *key, size_t key_size,
+					   task_priority_t priority){
 
 	bool trap_pkt;
 	glthread_t *curr;
@@ -142,7 +142,7 @@ nfc_invoke_notif_chain(
 				}
 				else
 				{
-					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
+					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, priority);
 				}
 			}
 			continue;
@@ -165,7 +165,7 @@ nfc_invoke_notif_chain(
 			}
 			else
 			{
-				task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
+				task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, priority);
 			}
 		}
 		else {
@@ -186,7 +186,7 @@ nfc_invoke_notif_chain(
 				}
 				else
 				{
-					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, TASK_PRIORITY_MEDIUM_MEDIUM);
+					task_create_new_job(ev_dis, arg_copy, nfce->app_cb, TASK_ONE_SHOT, priority);
 				}
 			}
 		}

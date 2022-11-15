@@ -94,7 +94,7 @@ nf_invoke_netfilter_hook(
 			&node->nf_hook_db.nf_hook[nf_hook_type],
 			(void *)&pkt_notif_data,
             sizeof(pkt_notif_data_t),
-            pkt, pkt_size);
+            pkt, pkt_size, TASK_PRIORITY_PKT_PROCESSING);
 
 	pkt_block_dereference(pkt_block);
     return NF_ACCEPT;

@@ -72,7 +72,8 @@ cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
 			&node->layer2_proto_reg_db2,
 			(void *)&pkt_notif_data,
 			sizeof(pkt_notif_data_t),
-			pkt, pkt_size);
+			pkt, pkt_size,
+            TASK_PRIORITY_PKT_PROCESSING);
 }
 
 void

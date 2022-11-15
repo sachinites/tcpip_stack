@@ -244,7 +244,7 @@ create_new_task(void *arg,
 	task->ev_cbk = cbk;
 	task->task_type = TASK_ONE_SHOT; /* default */
 	task->re_schedule = false;
-	task->priority = TASK_PRIORITY_MEDIUM_HIGH;
+	task->priority = TASK_PRIORITY_MEDIUM;
 	init_glthread(&task->glue);
 	return task;
 }
@@ -441,7 +441,7 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 								  sizeof(*pkt_q),
 								  cbk);
 	pkt_q->task->task_type = TASK_PKT_Q_JOB;
-	pkt_q->task->priority = TASK_PRIORITY_HIGH;
+	pkt_q->task->priority = TASK_PRIORITY_PKT_PROCESSING;
 	init_glthread(&pkt_q->glue);
 	glthread_add_next(&ev_dis->pkt_queue_head, &pkt_q->glue);
 	pkt_q->ev_dis = ev_dis;

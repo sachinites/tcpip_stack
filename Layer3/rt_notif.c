@@ -58,7 +58,8 @@ rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) 
         nfc_invoke_notif_chain(NULL,
                                                &rt_table->nfc_rt_updates, 
                                                &rt_route_notif_data,
-                                               sizeof(rt_route_notif_data), 0, 0);
+                                               sizeof(rt_route_notif_data), 0, 0,
+                                               TASK_PRIORITY_COMPUTE);
 
         l3_route_unlock(l3route);    
         remove_glthread(&l3route->notif_glue);
@@ -86,7 +87,7 @@ rt_table_kick_start_notif_job(rt_table_t *rt_table) {
                                         rt_table, 
                                         rt_table_notif_job_cb,
                                         TASK_ONE_SHOT,
-                                        TASK_PRIORITY_MEDIUM_MEDIUM);
+                                        TASK_PRIORITY_COMPUTE);
 }
 
 void
@@ -182,7 +183,7 @@ rt_table_flash_job (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
         rt_table->flash_job = task_create_new_job(EV(rt_table->node), 
                                                   rt_table,
                                                   rt_table_flash_job, TASK_ONE_SHOT,
-                                                  TASK_PRIORITY_MEDIUM_MEDIUM);
+                                                  TASK_PRIORITY_COMPUTE);
     }
     else {
         rt_table_purge_flash_route_queue(rt_table);
@@ -230,7 +231,7 @@ static void
                                                 rt_table,
                                                 rt_table_flash_job,
                                                 TASK_ONE_SHOT,
-                                                TASK_PRIORITY_MEDIUM_MEDIUM);
+                                                TASK_PRIORITY_COMPUTE);
     }
  }
 

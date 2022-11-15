@@ -174,7 +174,7 @@ task_invoke_appln_cbk_handler(param_t *param,
                         (void *)unified_cli_data,
 						task_cbk_handler_internal,
 						TASK_ONE_SHOT, 
-                        TASK_PRIORITY_HIGH);
+                        TASK_PRIORITY_OPERATIONAL_CLI);
     }
     else {
 
@@ -183,7 +183,7 @@ task_invoke_appln_cbk_handler(param_t *param,
                         (void *)unified_cli_data,
 						task_cbk_handler_internal,
 						TASK_ONE_SHOT, 
-                        TASK_PRIORITY_LOW);
+                        TASK_PRIORITY_CONFIG_CLI);
     }
 }
 #endif
