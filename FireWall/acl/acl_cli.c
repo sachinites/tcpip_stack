@@ -1377,14 +1377,15 @@ acl_print (acl_entry_t *acl_entry) {
     default:;
     }
 
-    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])" ANSI_COLOR_RESET,
+    printf(ANSI_COLOR_GREEN "\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])" ANSI_COLOR_RESET,
            acl_entry->hit_count,
            acl_entry->tcam_total_count,
            acl_entry->tcam_self_conflicts_count,
            acl_entry->tcam_other_conflicts_count);
 
     time_str = acl_entry_get_installation_time_duration(acl_entry, time_buff, sizeof(time_buff));
-    printf (  "    [Install Duration : %s]\n", time_str ? time_str : (c_string) "NA");
+    printf (  "    [Install Duration : %s]  %u%c\n", time_str ? time_str : (c_string) "NA",
+    acl_entry->expected_tcam_count ? (acl_entry->tcam_total_count * 100) / acl_entry->expected_tcam_count : 0, PERCENT_ASCII_CODE);
 }
 
 static void

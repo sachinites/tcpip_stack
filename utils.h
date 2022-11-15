@@ -137,5 +137,6 @@ c_string
 hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size);
 
 #define DEADCODE    (assert(0))
+#define PERCENT_ASCII_CODE  37
 
 #endif /* __UTILS__ */

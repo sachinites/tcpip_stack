@@ -154,6 +154,7 @@ typedef struct acl_entry_{
     time_t installation_start_time;
     time_t installation_end_time;
     bool installation_in_progress;
+    uint32_t expected_tcam_count;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
 
@@ -441,5 +442,8 @@ access_list_get_installation_time_duration (access_list_t *access_list, c_string
 
 c_string
 acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_str, size_t size);
+
+uint32_t 
+acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry);
 
 #endif

@@ -162,6 +162,7 @@ acl_decompile (acl_entry_t *acl_entry) {
         acl_entry->tcam_dport_wcard = NULL;
    }
    acl_entry->is_compiled = false;
+   acl_entry->expected_tcam_count = acl_entry_get_tcam_entry_count (acl_entry);
 }
 
 /* mtrie Callback function definitions */
@@ -535,6 +536,8 @@ acl_compile (acl_entry_t *acl_entry) {
     }
 
      acl_entry->is_compiled = true;
+     assert(acl_entry->expected_tcam_count = 
+        acl_entry_get_tcam_entry_count (acl_entry));
 }
 
 access_list_t *
@@ -918,7 +921,9 @@ access_group_unconfig(node_t *node,
                                        interface_t *intf, 
                                        char *dirn, 
                                       access_list_t *acc_lst) {
-
+    
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
     pthread_spinlock_t *spin_lock;
     access_list_t **configured_access_lst = NULL;
 
@@ -950,7 +955,14 @@ access_group_unconfig(node_t *node,
     acc_lst->intf_applied_ref_cnt--;
 
     if (!access_list_should_compile(acc_lst)) {
-        access_list_reset_acl_counters(acc_lst);
+        
+        ITERATE_GLTHREAD_BEGIN(&acc_lst->head, curr) {
+            acl_entry = glthread_to_acl_entry(curr);
+            acl_entry_reset_counters(acl_entry);
+            acl_decompile(acl_entry);
+            acl_entry->is_installed = false;
+        } ITERATE_GLTHREAD_END(&acc_lst->head, curr);
+
         access_list_purge_tcam_mtrie(node, acc_lst->mtrie);
         acc_lst->mtrie = access_list_get_new_tcam_mtrie();
     }
@@ -1498,7 +1510,7 @@ access_list_reset_acl_counters (access_list_t *access_list) {
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
         acl_entry = glthread_to_acl_entry(curr);
-       acl_entry_reset_counters (acl_entry);
+        acl_entry_reset_counters (acl_entry);
 
     } ITERATE_GLTHREAD_END(&access_list->head, curr);    
 }
@@ -2660,6 +2672,96 @@ acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_
 
     return hrs_min_sec_format(difftime(end_time, acl_entry->installation_start_time),
                                                 time_str, size);
+}
+
+uint32_t 
+acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry) {
+
+    glthread_t *curr;
+    uint32_t count = 1, og_count = 0;
+    glthread_t og_list_head = {0,  0};
+    obj_grp_list_node_t *obj_grp_list_node;
+
+    if (!acl_entry->is_compiled) return 0;
+
+    switch (acl_entry->src_addr.acl_addr_format)
+    {
+    case ACL_ADDR_NOT_SPECIFIED:
+    case ACL_ADDR_HOST:
+    case ACL_ADDR_SUBNET_MASK:
+    case ACL_ADDR_OBJECT_NETWORK:
+        count *= acl_entry->tcam_saddr_count;
+        break;
+    case ACL_ADDR_OBJECT_GROUP:
+        switch (acl_entry->src_addr.u.og->og_type)
+        {
+        case OBJECT_GRP_TYPE_UNKNOWN:
+            assert(0);
+        case OBJECT_GRP_NET_ADDR:
+        case OBJECT_GRP_NET_HOST:
+        case OBJECT_GRP_NET_RANGE:
+            count *= acl_entry->src_addr.u.og->count;
+            break;
+        case OBJECT_GRP_NESTED:
+            object_group_queue_all_leaf_ogs(
+                acl_entry->src_addr.u.og, 
+                &og_list_head);
+             og_count = 0;
+            ITERATE_GLTHREAD_BEGIN(&og_list_head, curr) {
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                og_count += obj_grp_list_node->og->count;
+                obj_grp_list_node->og->ref_count--;
+                remove_glthread(curr);
+                XFREE(obj_grp_list_node);
+            } ITERATE_GLTHREAD_END(&og_list_head, curr);
+            count *= og_count;
+            break;
+        }
+        break;
+    default:;
+    }
+
+    count *= acl_entry->tcam_sport_count;
+
+    switch (acl_entry->dst_addr.acl_addr_format)
+    {
+    case ACL_ADDR_NOT_SPECIFIED:
+    case ACL_ADDR_HOST:
+    case ACL_ADDR_SUBNET_MASK:
+    case ACL_ADDR_OBJECT_NETWORK:
+        count *= acl_entry->tcam_daddr_count;
+        break;
+    case ACL_ADDR_OBJECT_GROUP:
+        switch (acl_entry->dst_addr.u.og->og_type)
+        {
+        case OBJECT_GRP_TYPE_UNKNOWN:
+            assert(0);
+        case OBJECT_GRP_NET_ADDR:
+        case OBJECT_GRP_NET_HOST:
+        case OBJECT_GRP_NET_RANGE:
+            count *= acl_entry->dst_addr.u.og->count;
+            break;
+        case OBJECT_GRP_NESTED:
+            object_group_queue_all_leaf_ogs(
+                acl_entry->dst_addr.u.og, 
+                &og_list_head);
+             og_count = 0;
+            ITERATE_GLTHREAD_BEGIN(&og_list_head, curr) {
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                og_count += obj_grp_list_node->og->count;
+                obj_grp_list_node->og->ref_count--;
+                remove_glthread(curr);
+                XFREE(obj_grp_list_node);
+            } ITERATE_GLTHREAD_END(&og_list_head, curr);
+            count *= og_count;
+            break;
+        }
+        break;
+    default:;
+    }
+
+    count *= acl_entry->tcam_dport_count;
+    return count;
 }
 
 void 
