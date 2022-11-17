@@ -1,0 +1,39 @@
+Object-Groups :
+
+Object-Groups are used to organize and club the network entities with similar properties/constraints or role together. They play a vital role in making the configuration of a network device manageable, and exponentially decrease the number of ACL/NAT rules the admin would need to configure otherwise. 
+Object-Groups are hierarchical, meaning nested object-groups can also exist and used by other systems of networking device such as ACLs/NATs, Policies etc. 
+
+Example of Configuration of Object-Groups :
+
+Soft-FireWall> config-node-R2 $ object-group network DNS-Servers host 120.1.1.1
+Parse Success.
+CLI returned
+
+Soft-FireWall> config-node-R2 $ object-group network DNS-Servers host 120.1.1.2
+Parse Success.
+CLI returned
+
+Soft-FireWall> config-node-R2 $ object-group network DNS-Servers range 120.1.1.3 120.1.1.4
+Parse Success.
+CLI returned
+
+Soft-FireWall> config-node-R2 $ object-group network DNS-Servers 121.1.1.0 255.255.255.0
+Parse Success.
+CLI returned
+
+Now Configure Access-List which to block all IP traffic destined to any of DNS Servers
+Soft-FireWall> config-node-R2 $ access-list block-dns-access 1 deny ip 0.0.0.0 0.0.0.0 object-group DNS-Servers
+Parse Success.
+CLI returned
+
+Now Apply ACL on inside interface of firewall
+Soft-FireWall> config-node-R2 $ access-group block-dns-access in interface eth3
+Parse Success.
+CLI returned
+
+You can see from above config steps, just one single ACL is suffice to block all ip traffic destined to several DNS Servers. This is how powerful tool object-groups are. 
+
+Language : C
+Data Structures : BiDirectional N-Trees ( to store object-groups)
+(N-Trees are trees where each node can have N children and M parents)
+Algorithms : Pre/Post Order traversal over N-Trees. 

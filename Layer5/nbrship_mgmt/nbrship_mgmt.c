@@ -290,6 +290,7 @@ process_hello_msg(void *arg, size_t arg_size){
 void
 dump_interface_adjacencies(interface_t *interface){
 
+    byte time_str[16];
     glthread_t *curr;
     adjacency_t *adjacency;
     time_t curr_time;
@@ -317,7 +318,8 @@ dump_interface_adjacencies(interface_t *interface){
                 adjacency->nbr_mac.mac[5],
                 wt_get_remaining_time(adjacency->expiry_timer),
                 hrs_min_sec_format(
-                    (uint32_t)difftime(curr_time, adjacency->uptime)));
+                    (uint32_t)difftime(curr_time, adjacency->uptime), 
+                    time_str, HRS_MIN_SEC_FMT_TIME_LEN));
     } ITERATE_GLTHREAD_END(NMP_GET_INTF_ADJ_LIST(interface), curr);    
 }
 

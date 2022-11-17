@@ -132,6 +132,11 @@ range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
 #define string_compare(a, b, len) (strncmp((const char *)a, (const char *)b, len))
 #define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len))
 
+#define HRS_MIN_SEC_FMT_TIME_LEN    16
+c_string
+hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size);
+
 #define DEADCODE    (assert(0))
+#define PERCENT_ASCII_CODE  37
 
 #endif /* __UTILS__ */

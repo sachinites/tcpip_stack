@@ -23,13 +23,14 @@
 #include <stdbool.h>
 #include "utils.h"
 #include "gluethread/glthread.h"
+#include "EventDispatcher/event_dispatcher.h"
 
 typedef struct event_dispatcher_ event_dispatcher_t;
 
 #define MAX_NOTIF_KEY_SIZE	1536
 
-typedef void (*nfc_app_cb)(event_dispatcher_t *, void *, size_t);
-typedef bool (*nfc_pkt_trap) (char *, size_t);
+typedef void (*nfc_app_cb)(event_dispatcher_t *, void *, unsigned int);
+typedef bool (*nfc_pkt_trap) (char *, unsigned int);
 
 typedef struct notif_chain_elem_{
 
@@ -59,7 +60,8 @@ uint16_t
 nfc_invoke_notif_chain(event_dispatcher_t *ev_dis,
                         notif_chain_t *nfc,
                        void *arg, size_t arg_size,
-                       char *key, size_t key_size);
+                       char *key, size_t key_size,
+                       task_priority_t priority);
 
 void
 nfc_de_register_notif_chain(notif_chain_t *nfc,

@@ -78,7 +78,7 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void 
 
 void mtrie_destroy (mtrie_t *mtrie);
 void 
-mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node, bool merge);
+mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node);
 
 void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 

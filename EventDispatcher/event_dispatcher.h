@@ -24,7 +24,7 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include "../gluethread/glthread.h"
-
+#include "../Threads/thread_pool/threadlib.h"
 
 #define ENABLE_EVENT_DISPATCHER
 //#undef ENABLE_EVENT_DISPATCHER
@@ -56,10 +56,15 @@ typedef enum {
 
 	TASK_PRIORITY_FIRST,
 	TASK_PRIORITY_HIGH = TASK_PRIORITY_FIRST,
-	TASK_PRIORITY_MEDIUM_HIGH,
-	TASK_PRIORITY_MEDIUM_MEDIUM,
-	TASK_PRIORITY_MEDIUM_LOW,
+	TASK_PRIORITY_PKT_PROCESSING = TASK_PRIORITY_HIGH,
+	TASK_PRIORITY_OPERATIONAL_CLI =  TASK_PRIORITY_HIGH,
+	TASK_PRIORITY_TIMERS_CBK = TASK_PRIORITY_HIGH,
+
+	TASK_PRIORITY_MEDIUM,
+	TASK_PRIORITY_COMPUTE = TASK_PRIORITY_MEDIUM,
+	
 	TASK_PRIORITY_LOW,
+	TASK_PRIORITY_CONFIG_CLI =  TASK_PRIORITY_LOW,
 	TASK_PRIORITY_MAX
 } task_priority_t;
 
@@ -121,6 +126,7 @@ struct event_dispatcher_{
 	void *app_data;
 	task_t *current_task;
 	struct timeval current_task_start_time;
+	thread_pool_t th_pool;  /* Pool of Purging Threads */
 };
 
 #define EV_DIS_LOCK(ev_dis_ptr)		\
@@ -141,6 +147,9 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name);
 
 void
 event_dispatcher_run(event_dispatcher_t *ev_dis);
+
+void
+event_dispatcher_purge(event_dispatcher_t *ev_dis, void *(fn_ptr)(void *), void *arg);
 
 task_t *
 task_create_new_job(

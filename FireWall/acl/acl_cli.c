@@ -234,12 +234,12 @@ access_list_unconfig(node_t *node,
 
     /* If user has triggered only no <access-list-name>, then delete the entire access list */
         if (seq_no == ~0) {
-            access_list_delete_complete(access_list);
+            access_list_delete_complete(node, access_list);
         }
         else {
         /* If user has triggered only no <access-list-name> <seq_no>, then delete the acl_entry 
             from the access list , uninstall it as well*/
-            if (!access_list_delete_acl_entry_by_seq_no(access_list, seq_no)) {
+            if (!access_list_delete_acl_entry_by_seq_no(node, access_list, seq_no)) {
                 printf ("Error : ACL with this Seq Number do not exist\n");
                 return -1;
             }
@@ -248,7 +248,7 @@ access_list_unconfig(node_t *node,
 
             if (access_list->ref_count == 1 && 
                     IS_GLTHREAD_LIST_EMPTY (&access_list->head)) {
-                    access_list_delete_complete(access_list);
+                    access_list_delete_complete(node, access_list);
             }
         }
         return 0;
@@ -1212,7 +1212,7 @@ acl_build_config_cli(param_t *root) {
                                     acl_build_config_cli_object_network_destination(&src_port_no );
                                     acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
-                            }           
+                            }
                             {
                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> gt ...*/
                                 static param_t gt;
@@ -1227,7 +1227,7 @@ acl_build_config_cli(param_t *root) {
                                     acl_build_config_cli_object_network_destination(&src_port_no);
                                     acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
-                            }  
+                            }
                             {
                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> range ...*/
                                 static param_t range;
@@ -1294,6 +1294,8 @@ void
 acl_print (acl_entry_t *acl_entry) {
 
     byte ip_addr[16];
+    c_string time_str;
+    byte time_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
     printf (" %u %s %s",
         acl_entry->seq_no,
@@ -1375,28 +1377,15 @@ acl_print (acl_entry_t *acl_entry) {
     default:;
     }
 
-    printf(ANSI_COLOR_GREEN "  (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])" ANSI_COLOR_RESET,
+    printf(ANSI_COLOR_GREEN "\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])" ANSI_COLOR_RESET,
            acl_entry->hit_count,
            acl_entry->tcam_total_count,
            acl_entry->tcam_self_conflicts_count,
            acl_entry->tcam_other_conflicts_count);
-}
 
-static void
-acl_entry_show_one_acl_entry (mtrie_t *mtrie, mtrie_node_t *node, void *data) {
-
-    access_list_t *acc_lst = (access_list_t *)data;
-    acl_entry_t *acl_entry = (acl_entry_t *)node->data;
-   
-    if (!acl_entry) return;    
-    if (acl_entry->show_cli_seq == acc_lst->show_cli_seq) return;
-
-    acl_entry->show_cli_seq = acc_lst->show_cli_seq;
-
-    printf (" access-list %s", acc_lst->name);
-    acl_print (acl_entry);
-    
-    printf("\n");
+    time_str = acl_entry_get_installation_time_duration(acl_entry, time_buff, sizeof(time_buff));
+    printf (  "    [Install Duration : %s]  %u%c\n", time_str ? time_str : (c_string) "NA",
+    acl_entry->expected_tcam_count ? (acl_entry->tcam_total_count * 100) / acl_entry->expected_tcam_count : 0, PERCENT_ASCII_CODE);
 }
 
 static void
@@ -1405,24 +1394,21 @@ access_list_show_all(node_t *node) {
     glthread_t *curr, *curr1;
     acl_entry_t *acl_entry;
     access_list_t *access_list;
+    byte time_buff[HRS_MIN_SEC_FMT_TIME_LEN];
+    c_string time_str;
 
     ITERATE_GLTHREAD_BEGIN(&node->access_lists_db, curr) {
 
         access_list = glthread_to_access_list(curr);
-        printf ("Access-list : %s\n" , access_list->name);
-
-        access_list->show_cli_seq++;
-
-        #if 0
-        mtrie_longest_prefix_first_traverse(acc_lst->mtrie, 
-                                                                  acl_entry_show_one_acl_entry,
-                                                                  (void *)acc_lst);
-        #endif 
+        printf ("Access-list : %s" , access_list->name);
+        time_str = access_list_get_installation_time_duration(access_list, time_buff, sizeof(time_buff));
+        printf (  "    [Install Duration : %s]\n", time_str ? time_str : (c_string) "NA");
 
          ITERATE_GLTHREAD_BEGIN (&access_list->head, curr1) {
 
                 acl_entry = glthread_to_acl_entry(curr1);
                 printf(" access-list %s", access_list->name);
+
                 acl_print(acl_entry);
                 printf ("\n");
 

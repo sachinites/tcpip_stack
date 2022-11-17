@@ -20,10 +20,15 @@ typedef struct access_list_  access_list_t;
 typedef struct obj_nw_ obj_nw_t;
 typedef struct object_group_ object_group_t;
 typedef struct task_ task_t;
+typedef struct object_group_update_info_ object_group_update_info_t;
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
 #define ACL_MAX_PORTNO    0xFFFF
+
+/* If Single acl_entry compiles into less than this count value, then
+    we install/un-install it synchronously*/
+#define ACL_ENTRY_TCAM_COUNT_THRESHOLD 10000
 
 typedef enum {
     ACL_IP = ETH_IP,
@@ -146,10 +151,54 @@ typedef struct acl_entry_{
     bool is_compiled;
     bool is_installed;
     
-    access_list_t *access_lst; /* Back pointer to owning access list */
+    access_list_t *access_list; /* Back pointer to owning access list */
     glthread_t glue;
+
+    /*Stats */
+    time_t installation_start_time;
+    time_t installation_end_time;
+    bool installation_in_progress;
+    uint32_t expected_tcam_count;
 } acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
+
+typedef enum acl_iterator_type_ {
+    acl_iterator_src_addr,
+    acl_iterator_dst_addr,
+    acl_iterator_src_port,
+    acl_iterator_dst_port
+} acl_iterator_type_t;
+
+typedef struct acl_tcam_iterator_ {
+
+    uint32_t *addr_prefix;
+    uint32_t *addr_wcard;
+    uint16_t *port_prefix;
+    uint16_t *port_wcard;
+    uint8_t index;
+    acl_entry_t *acl_entry;
+    acl_iterator_type_t it_type;
+    glthread_t og_leaves_lst_head;
+    glthread_t og_leaves_lst_head_processed;
+} acl_tcam_iterator_t;
+
+typedef struct access_list_processing_info_ {
+
+    task_t *task;
+    node_t *node;
+    mtrie_t *mtrie;
+    bool is_installation;
+    acl_entry_t *current_acl;    
+    glthread_t pending_acls;
+    access_list_t *access_list;
+    object_group_update_info_t *og_update_info;
+    acl_tcam_iterator_t acl_tcam_src_it;
+    acl_tcam_iterator_t acl_tcam_dst_it;
+    acl_tcam_iterator_t acl_tcam_src_port_it;
+    acl_tcam_iterator_t acl_tcam_dst_port_it;
+    acl_tcam_t tcam_entry_template; 
+    uint32_t acl_tcams_installed;
+} access_list_processing_info_t;
 
 struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
@@ -157,11 +206,15 @@ struct access_list_ {
     glthread_t glue; // glues into node->access_list. A node can have many access lists
     pthread_rwlock_t acc_rw_lst_lock;
     mtrie_t *mtrie;     // Mtrie for this access list
+    mtrie_t *backup_mtrie;
     uint8_t ref_count; // how many sub-systems using this access list
     uint8_t intf_applied_ref_cnt;
-    uint32_t seq_no_update; /* Used to avoid Duplicate update */
-    uint32_t show_cli_seq;
     task_t *notif_job; /* Used when notification is to be sent async to appln */
+    access_list_processing_info_t *processing_info;    /* Store the context for 
+    access-list install & uninstall operations */
+    /*Stats */
+    time_t installation_start_time;
+    time_t installation_end_time;
 } ;
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
@@ -177,21 +230,22 @@ acl_process_user_config(node_t *node,
                 char *access_list_name,
                 acl_entry_t *acl_entry);
 void
-access_list_delete_complete(access_list_t *access_list);
+access_list_delete_complete(node_t *node, access_list_t *access_list);
 
 access_list_t * access_list_lookup_by_name(node_t *node, char *access_list_name);
 access_list_t * acl_create_new_access_list(char *access_list_name);
+mtrie_t *access_list_get_new_tcam_mtrie ();
 void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_entry);
 void access_list_check_delete(access_list_t *access_list);
 void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
 void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry) ;
-bool access_list_reinstall (node_t *node, access_list_t *access_lst) ;
+bool access_list_reinstall (node_t *node, access_list_t *access_list) ;
 bool access_list_is_compiled (access_list_t *access_list);
-void access_list_compile (access_list_t *access_list);
-void access_list_decompile (access_list_t *access_list) ;
 bool access_list_should_decompile (access_list_t *access_list) ;
 bool access_list_should_compile (access_list_t *access_list) ;
 void acl_compile (acl_entry_t *acl_entry);
+void acl_entry_reset_counters(acl_entry_t *acl_entry);
+void access_list_reset_acl_counters (access_list_t *access_list);
 
 acl_action_t
 access_list_evaluate (access_list_t *acc_lst,
@@ -203,7 +257,7 @@ access_list_evaluate (access_list_t *acc_lst,
                                 uint16_t dst_port);
 
 void access_list_reference(access_list_t *acc_lst);
-void access_list_dereference(access_list_t *acc_lst);
+void access_list_dereference(node_t *node, access_list_t *acc_lst);
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
                                                     interface_t *intf, 
@@ -296,7 +350,7 @@ acl_entry_t *
 access_list_lookup_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq_no);
 
 bool
-access_list_delete_acl_entry_by_seq_no (access_list_t *access_list, uint32_t seq_no);
+access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list, uint32_t seq_no);
 
 void 
 access_list_reenumerate_seq_no (access_list_t *access_list, 
@@ -310,27 +364,6 @@ acl_entry_increment_referenced_objects_tcam_user_count(
             bool object_groups);
 
 
-typedef struct object_group_ object_group_t;
-
-typedef enum acl_iterator_type_ {
-    acl_iterator_src_addr,
-    acl_iterator_dst_addr,
-    acl_iterator_src_port,
-    acl_iterator_dst_port
-} acl_iterator_type_t;
-
-typedef struct acl_tcam_iterator_ {
-
-    uint32_t *addr_prefix;
-    uint32_t *addr_wcard;
-    uint16_t *port_prefix;
-    uint16_t *port_wcard;
-    uint8_t index;
-    acl_entry_t *acl_entry;
-    acl_iterator_type_t it_type;
-    glthread_t og_leaves_lst_head;
-} acl_tcam_iterator_t;
-
 void
 acl_tcam_iterator_init (acl_entry_t *acl_entry, 
                                      acl_tcam_iterator_t *acl_tcam_iterator,
@@ -342,23 +375,77 @@ acl_tcam_iterator_first (acl_tcam_iterator_t *acl_tcam_iterator);
 bool
 acl_tcam_iterator_next (acl_tcam_iterator_t *acl_tcam_iterator);
 
-#define FOR_ALL_SRC_ADDR_TCAM_BEGIN(acl_entry_ptr, acl_tcam_it_ptr)    \
-    {  \
-    bool _i_src;    \
-    acl_tcam_iterator_init (acl_entry, acl_tcam_it_ptr, acl_iterator_src_addr);     \
-    for ( _i_src = acl_tcam_iterator_first (acl_tcam_it_ptr);    \
-        _i_src; \
-        _i_src =  acl_tcam_iterator_next (acl_tcam_it_ptr)) {
+bool
+acl_iterators_increment(acl_tcam_iterator_t *src_it,
+                                        acl_tcam_iterator_t *dst_it, 
+                                        acl_tcam_iterator_t *src_port_it,
+                                        acl_tcam_iterator_t *dst_port_it);
 
-#define FOR_ALL_ADDR_TCAM_END   }}
+void
+acl_tcam_iterator_reset (acl_tcam_iterator_t *acl_tcam_iterator);
+
+void
+acl_tcam_iterator_deinit (acl_tcam_iterator_t *acl_tcam_iterator);
+
+void
+access_list_purge_tcam_mtrie (node_t *node, mtrie_t *mtrie);
+
+void
+access_list_trigger_install_job(node_t *node, 
+                                access_list_t *access_list,
+                                object_group_update_info_t *og_update_info) ;
+
+void
+access_list_trigger_uninstall_job(node_t *node, 
+                                access_list_t *access_list,
+                                object_group_update_info_t *og_update_info);
 
 
-#define FOR_ALL_DST_ADDR_TCAM_BEGIN(acl_entry_ptr, acl_tcam_it_ptr)    \
-    { \
-    bool _i_dst;    \
-    acl_tcam_iterator_init (acl_entry, acl_tcam_it_ptr, acl_iterator_dst_addr);     \
-    for ( _i_dst = acl_tcam_iterator_first (acl_tcam_it_ptr);    \
-        _i_dst; \
-        _i_dst =  acl_tcam_iterator_next (acl_tcam_it_ptr)) {
+void
+access_list_trigger_acl_decompile_job(node_t *node, 
+                                acl_entry_t *acl_entry,
+                                object_group_update_info_t *og_update_info);
+
+void
+access_list_trigger_acl_compile_job(node_t *node, 
+                                acl_entry_t *acl_entry,
+                                object_group_update_info_t *og_update_info);
+
+static inline bool
+access_list_is_installation_in_progress (access_list_t *access_list) {
+
+
+    if (!access_list->processing_info) return false;
+
+    access_list_processing_info_t *processing_info = 
+        access_list->processing_info;
+    
+    if (processing_info->is_installation) return true;
+    return false;
+}
+
+static inline bool
+access_list_is_uninstallation_in_progress (access_list_t *access_list){
+
+   if (!access_list->processing_info) return false;
+
+    access_list_processing_info_t *processing_info = 
+        access_list->processing_info;
+    
+    if (!processing_info->is_installation) return true;
+    return false;
+}
+
+void
+access_list_cancel_un_installation_operation (access_list_t *access_list);
+
+c_string
+access_list_get_installation_time_duration (access_list_t *access_list, c_string time_str, size_t size) ;
+
+c_string
+acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_str, size_t size);
+
+uint32_t 
+acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry);
 
 #endif

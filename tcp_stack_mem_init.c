@@ -52,6 +52,7 @@ tcp_stack_miscellaneous_mem_init() {
     MM_REG_STRUCT (0, avltree_t);
     MM_REG_STRUCT (0, avltree_node_t);
     MM_REG_STRUCT(0, glthread_t);
+    MM_REG_STRUCT(0, glthread_data_node_t);
     MM_REG_STRUCT(0, mtrie_t);
     MM_REG_STRUCT(0, mtrie_node_t);
     MM_REG_STRUCT(0, Stack_t);

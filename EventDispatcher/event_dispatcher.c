@@ -48,6 +48,13 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 	ev_dis->thread = NULL;
 	ev_dis->signal_sent = false;
 	ev_dis->current_task = NULL;
+
+	/* Thread Pool Initialization */
+	thread_pool_init(&ev_dis->th_pool);
+	thread_t *thread1 = thread_create(0, "thread Purger 1");
+    thread_t *thread2 = thread_create(0, "thread Purger 2");
+	thread_pool_insert_new_thread(&ev_dis->th_pool, thread1);
+    thread_pool_insert_new_thread(&ev_dis->th_pool, thread2);
 }
 
 static void
@@ -237,7 +244,7 @@ create_new_task(void *arg,
 	task->ev_cbk = cbk;
 	task->task_type = TASK_ONE_SHOT; /* default */
 	task->re_schedule = false;
-	task->priority = TASK_PRIORITY_MEDIUM_HIGH;
+	task->priority = TASK_PRIORITY_MEDIUM;
 	init_glthread(&task->glue);
 	return task;
 }
@@ -340,6 +347,12 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 	}
 }
 
+void
+event_dispatcher_purge(event_dispatcher_t *ev_dis,  void *(fn_ptr)(void *), void *arg) {
+
+	thread_pool_dispatch_thread(&ev_dis->th_pool, fn_ptr, arg, false);
+}
+
 typedef struct pkt_{
 
 	char *pkt;
@@ -372,12 +385,14 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 	pthread_mutex_lock(&pkt_q->q_mutex);
 	curr = dequeue_glthread_first(&pkt_q->q_head);
-	if(debug) printf("%s() ...\n", __FUNCTION__);
+	
+	if(!curr) {
+		pthread_mutex_unlock(&pkt_q->q_mutex);
+		return NULL;
+	}
+	pkt_q->pkt_count--;
 	pthread_mutex_unlock(&pkt_q->q_mutex);
 
-	if(!curr) return NULL;
-
-	pkt_q->pkt_count--;
 	pkt = glue_to_pkt(curr);
 
 	actual_pkt = pkt->pkt;
@@ -388,7 +403,7 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 
 bool
-pkt_q_enqueue(event_dispatcher_t *ev_dis,
+pkt_q_enqueue (event_dispatcher_t *ev_dis,
 			  pkt_q_t *pkt_q,
 			  char *_pkt, uint32_t pkt_size){
 	
@@ -407,10 +422,15 @@ pkt_q_enqueue(event_dispatcher_t *ev_dis,
 	glthread_add_next(&pkt_q->q_head, &pkt->glue);
 	pkt_q->pkt_count++;
 
+	EV_DIS_LOCK(ev_dis);
+
 	if ( !IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)) {
+		EV_DIS_UNLOCK(ev_dis);
 		pthread_mutex_unlock(&pkt_q->q_mutex);
 		return true;
 	}
+
+	EV_DIS_UNLOCK(ev_dis);
 	if (debug) printf("%s() calling event_dispatcher_schedule_task()\n",
 			__FUNCTION__);
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);
@@ -428,7 +448,7 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 								  sizeof(*pkt_q),
 								  cbk);
 	pkt_q->task->task_type = TASK_PKT_Q_JOB;
-	pkt_q->task->priority = TASK_PRIORITY_HIGH;
+	pkt_q->task->priority = TASK_PRIORITY_PKT_PROCESSING;
 	init_glthread(&pkt_q->glue);
 	glthread_add_next(&ev_dis->pkt_queue_head, &pkt_q->glue);
 	pkt_q->ev_dis = ev_dis;

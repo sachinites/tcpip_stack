@@ -167,11 +167,24 @@ task_invoke_appln_cbk_handler(param_t *param,
 		   get_serialize_buffer_size(tlv_buff));
 	unified_cli_data->enable_or_disable = enable_or_disable;
 
-	task_create_new_job_synchronous(
+    if (enable_or_disable == OPERATIONAL) {
+
+        	task_create_new_job_synchronous(
                         node_get_ev_dispatcher (tlv_buff),
                         (void *)unified_cli_data,
 						task_cbk_handler_internal,
-						TASK_ONE_SHOT, TASK_PRIORITY_LOW);						
+						TASK_ONE_SHOT, 
+                        TASK_PRIORITY_OPERATIONAL_CLI);
+    }
+    else {
+
+	task_create_new_job(
+                        node_get_ev_dispatcher (tlv_buff),
+                        (void *)unified_cli_data,
+						task_cbk_handler_internal,
+						TASK_ONE_SHOT, 
+                        TASK_PRIORITY_CONFIG_CLI);
+    }
 }
 #endif
 

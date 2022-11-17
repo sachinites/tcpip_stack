@@ -335,6 +335,7 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
                                     uint8_t tab_spaces) {
 
     char ip_addr_str[16];
+    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
@@ -385,7 +386,8 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
 
         PRINT_TABS(tab_spaces);
         printf("Up Time : %s\n", hrs_min_sec_format(
-                (unsigned int)difftime(time(NULL), adjacency->uptime)));
+                (unsigned int)difftime(time(NULL), adjacency->uptime), 
+                time_str, HRS_MIN_SEC_FMT_TIME_LEN));
     }
 }
 
@@ -824,6 +826,7 @@ isis_show_all_adjacencies (node_t *node) {
      glthread_t *curr;
      interface_t *intf;
      isis_adjacency_t *adjacency;
+     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
      byte *buff = node->print_buff;
 
@@ -841,7 +844,8 @@ isis_show_all_adjacencies (node_t *node) {
             intf->if_name, adjacency->nbr_name,
             isis_adj_state_str(adjacency->adj_state),
             hrs_min_sec_format(
-                (unsigned int)difftime(time(NULL), adjacency->uptime)));
+                (unsigned int)difftime(time(NULL), adjacency->uptime),
+                time_str, HRS_MIN_SEC_FMT_TIME_LEN));
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 

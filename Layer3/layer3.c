@@ -556,7 +556,8 @@ dump_rt_table(rt_table_t *rt_table){
     glthread_t *curr = NULL;
     l3_route_t *l3_route = NULL;
     mtrie_node_t *mnode;
-    
+    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+
     printf("L3 Routing Table:\n");
 
     pthread_rwlock_rdlock(&rt_table->rwlock);
@@ -585,7 +586,7 @@ dump_rt_table(rt_table_t *rt_table){
                     l3_route->mask, 
                     "",
                     "NA", "NA",
-					RT_UP_TIME(l3_route));
+					RT_UP_TIME(l3_route, time_str, HRS_MIN_SEC_FMT_TIME_LEN));
             continue;
         }
 
@@ -608,7 +609,7 @@ dump_rt_table(rt_table_t *rt_table){
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
                                 l3_route->nexthops[nxthop_proto][i]->oif->if_name, 
                                 l3_route->spf_metric[nxthop_proto],
-                                RT_UP_TIME(l3_route),
+                                RT_UP_TIME(l3_route, time_str, HRS_MIN_SEC_FMT_TIME_LEN),
                                 l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
                     else if ( i == 0) {

@@ -65,6 +65,13 @@ glthread_add_last(glthread_t *base_glthread, glthread_t *new_glthread);
         return (structure_name *)((char *)(glthreadptr) - (char *)&(((structure_name *)0)->field_name)); \
     }
 
+typedef struct _glthread_data_node_ {
+
+    void *data;
+    glthread_t glue;
+} glthread_data_node_t;
+GLTHREAD_TO_STRUCT(glue_to_glthread_data_node, glthread_data_node_t, glue);
+
 /* delete safe loop*/
 /*Normal continue and break can be used with this loop macro*/
 
