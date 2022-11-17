@@ -1043,7 +1043,7 @@ acl_get_member_tcam_entry (
 
     /* Src Port */
     memcpy(prefix_ptr2, &((*acl_entry->tcam_sport_prefix)[src_port_it->index]), sizeof(*prefix_ptr2));
-    memcpy(mask_ptr2, &((*acl_entry->tcam_sport_wcard)[src_port_it->index]), sizeof(*prefix_ptr2));
+    memcpy(mask_ptr2, &((*acl_entry->tcam_sport_wcard)[src_port_it->index]), sizeof(*mask_ptr2));
     prefix_ptr2++;
     mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;
@@ -1060,7 +1060,7 @@ acl_get_member_tcam_entry (
 
     /* Dst Port */
     memcpy(prefix_ptr2, &((*acl_entry->tcam_dport_prefix)[dst_port_it->index]), sizeof(*prefix_ptr2));
-    memcpy(mask_ptr2, &((*acl_entry->tcam_dport_wcard)[dst_port_it->index]), sizeof(*prefix_ptr2));
+    memcpy(mask_ptr2, &((*acl_entry->tcam_dport_wcard)[dst_port_it->index]), sizeof(*mask_ptr2));
     prefix_ptr2++;
     mask_ptr2++;
     prefix_ptr4 = (uint32_t *)prefix_ptr2;

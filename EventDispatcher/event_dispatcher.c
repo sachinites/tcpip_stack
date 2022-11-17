@@ -385,12 +385,14 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 	pthread_mutex_lock(&pkt_q->q_mutex);
 	curr = dequeue_glthread_first(&pkt_q->q_head);
-	if(debug) printf("%s() ...\n", __FUNCTION__);
+	
+	if(!curr) {
+		pthread_mutex_unlock(&pkt_q->q_mutex);
+		return NULL;
+	}
+	pkt_q->pkt_count--;
 	pthread_mutex_unlock(&pkt_q->q_mutex);
 
-	if(!curr) return NULL;
-
-	pkt_q->pkt_count--;
 	pkt = glue_to_pkt(curr);
 
 	actual_pkt = pkt->pkt;
@@ -401,7 +403,7 @@ task_get_next_pkt(event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 
 bool
-pkt_q_enqueue(event_dispatcher_t *ev_dis,
+pkt_q_enqueue (event_dispatcher_t *ev_dis,
 			  pkt_q_t *pkt_q,
 			  char *_pkt, uint32_t pkt_size){
 	
@@ -420,10 +422,15 @@ pkt_q_enqueue(event_dispatcher_t *ev_dis,
 	glthread_add_next(&pkt_q->q_head, &pkt->glue);
 	pkt_q->pkt_count++;
 
+	EV_DIS_LOCK(ev_dis);
+
 	if ( !IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)) {
+		EV_DIS_UNLOCK(ev_dis);
 		pthread_mutex_unlock(&pkt_q->q_mutex);
 		return true;
 	}
+
+	EV_DIS_UNLOCK(ev_dis);
 	if (debug) printf("%s() calling event_dispatcher_schedule_task()\n",
 			__FUNCTION__);
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);

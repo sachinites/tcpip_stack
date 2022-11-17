@@ -1212,7 +1212,7 @@ acl_build_config_cli(param_t *root) {
                                     acl_build_config_cli_object_network_destination(&src_port_no );
                                     acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
-                            }           
+                            }
                             {
                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> gt ...*/
                                 static param_t gt;
@@ -1227,7 +1227,7 @@ acl_build_config_cli(param_t *root) {
                                     acl_build_config_cli_object_network_destination(&src_port_no);
                                     acl_build_config_cli_object_group_destination(&src_port_no);
                                 }
-                            }  
+                            }
                             {
                                 /* access-list <name> <action> <proto> <src-ip> <src-mask> range ...*/
                                 static param_t range;
@@ -1403,8 +1403,6 @@ access_list_show_all(node_t *node) {
         printf ("Access-list : %s" , access_list->name);
         time_str = access_list_get_installation_time_duration(access_list, time_buff, sizeof(time_buff));
         printf (  "    [Install Duration : %s]\n", time_str ? time_str : (c_string) "NA");
-
-        access_list->show_cli_seq++;
 
          ITERATE_GLTHREAD_BEGIN (&access_list->head, curr1) {
 

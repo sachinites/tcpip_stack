@@ -209,8 +209,6 @@ struct access_list_ {
     mtrie_t *backup_mtrie;
     uint8_t ref_count; // how many sub-systems using this access list
     uint8_t intf_applied_ref_cnt;
-    uint32_t update_seed; /* Used to avoid Duplicate update */
-    uint32_t show_cli_seq;
     task_t *notif_job; /* Used when notification is to be sent async to appln */
     access_list_processing_info_t *processing_info;    /* Store the context for 
     access-list install & uninstall operations */
