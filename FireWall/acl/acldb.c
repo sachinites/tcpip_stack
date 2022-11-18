@@ -660,11 +660,13 @@ acl_process_user_config (node_t *node,
     if (access_list_should_compile (access_list)) {
 
         acl_compile(acl_entry);
-        
+
+        /* Async Method */
         if (acl_entry->expected_tcam_count > ACL_ENTRY_TCAM_COUNT_THRESHOLD) {
             access_list_trigger_install_job(node, access_list, NULL);
         }
         else {
+            /* Sync Method */
             pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
             acl_entry_install(access_list, acl_entry);
             pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
@@ -2608,8 +2610,6 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
     glthread_t *curr;
     acl_entry_t *acl_entry;
     objects_linked_acl_thread_node_t *objects_linked_acl_thread_node;
-
-    if (!access_list->processing_info->task) return;
     
     if (access_list_is_installation_in_progress(access_list)) {
 
@@ -2625,6 +2625,9 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
         access_list->mtrie = access_list_get_new_tcam_mtrie();
         pthread_rwlock_unlock (&access_list->acc_rw_lst_lock);
         access_list_purge_tcam_mtrie(access_list->processing_info->node, temp);
+    }
+    else {
+        return;
     }
 
     task_cancel_job(EV(access_list->processing_info->node),
@@ -2648,7 +2651,10 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
 
     /* Was this job triggered due to OG update */
     if (access_list->processing_info->og_update_info) {
-        object_group_update_reschedule_task(access_list->processing_info->og_update_info);
+        access_list_completed_object_group_update_fsm_stage(
+            access_list->processing_info->node,
+            access_list,
+            access_list->processing_info->og_update_info);
     }
 
     /* Reset ALCs flags */
