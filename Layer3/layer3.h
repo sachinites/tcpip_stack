@@ -44,6 +44,8 @@
 
 #pragma pack (push,1)
 
+typedef struct ref_count_  * ref_count_t;
+
 /*The Ip hdr format as per the standard specification*/
 typedef struct ip_hdr_{
 
@@ -168,7 +170,8 @@ typedef struct l3_route_{
     uint8_t rt_flags;
     glthread_t notif_glue;
     glthread_t flash_glue;
-    uint8_t ref_count;
+    ref_count_t ref_count;
+    pthread_rwlock_t lock;
 } l3_route_t;
 GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
 GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
@@ -178,40 +181,39 @@ GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);
         l3_route_ptr->install_time), buff, size)
 
 static inline void
-l3_route_lock (l3_route_t *l3_route) {
-
-    l3_route->ref_count++;
+l3_route_rdlock (l3_route_t *l3_route) {
+    pthread_rwlock_rdlock(&l3_route->lock);
 }
 
-bool
-l3_is_direct_route(l3_route_t *l3_route);
-
 static inline void
-l3_route_free(l3_route_t *l3_route){
-
-    /* Assume the route has already been removed from main routing table */
-    nxthop_proto_id_t nxthop_proto_id;
-    assert(l3_route->ref_count == 0);
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->notif_glue));
-    assert(IS_GLTHREAD_LIST_EMPTY(&l3_route->flash_glue));
-    FOR_ALL_NXTHOP_PROTO(nxthop_proto_id) {
-        nh_flush_nexthops(l3_route->nexthops[nxthop_proto_id]);
-    }
-    XFREE(l3_route);
+l3_route_wrlock (l3_route_t *l3_route) {
+    pthread_rwlock_wrlock(&l3_route->lock);
 }
 
 static inline void
 l3_route_unlock (l3_route_t *l3_route) {
-
-    if (l3_route->ref_count == 0) {
-        l3_route_free(l3_route);
-        return;
-    }
-
-    l3_route->ref_count--;
-    if (l3_route->ref_count > 0) return;
-    l3_route_free(l3_route);
+    pthread_rwlock_unlock(&l3_route->lock);
 }
+
+l3_route_t * l3_route_get_new_route () ;
+void l3_route_free(l3_route_t *l3_route);
+
+static inline void
+thread_using_route (l3_route_t *l3_route) {
+
+    ref_count_inc(l3_route->ref_count);
+}
+
+static inline void
+thread_using_route_done (l3_route_t *l3_route) {
+    
+    if (ref_count_dec(l3_route->ref_count)) {
+        l3_route_free(l3_route);
+    }
+}
+
+bool
+l3_is_direct_route(l3_route_t *l3_route);
 
 nexthop_t *
 l3_route_get_active_nexthop(l3_route_t *l3_route);

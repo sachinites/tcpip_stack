@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../Threads/refcount.h"
 #include "../../graph.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
