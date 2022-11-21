@@ -1591,6 +1591,10 @@ access_list_print_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry
                 &src_port_it,
                 &dst_port_it));
 
+    acl_tcam_iterator_deinit(&src_it);
+    acl_tcam_iterator_deinit(&dst_it);
+    acl_tcam_iterator_deinit(&src_port_it);
+    acl_tcam_iterator_deinit(&dst_port_it);
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
 }
@@ -2674,8 +2678,8 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
     access_list->processing_info = NULL;
 }
 
-static void *
-mtrie_purge_cbk (void *mtrie) {
+static void
+mtrie_purge_cbk (event_dispatcher_t *ev_dis, void *mtrie, uint32_t arg_size) {
 
     mtrie_destroy((mtrie_t *)mtrie);
     XFREE(mtrie);
@@ -2686,7 +2690,11 @@ void
 access_list_purge_tcam_mtrie (node_t *node, 
                                                     mtrie_t *mtrie) {
 
-    event_dispatcher_purge(EV(node), mtrie_purge_cbk, (void *)mtrie);
+    task_create_new_job(EV_PURGER(node), 
+                         (void *)mtrie, 
+                         mtrie_purge_cbk, 
+                         TASK_ONE_SHOT,
+                         TASK_PRIORITY_GARBAGE_COLLECTOR);
 }
 
 c_string

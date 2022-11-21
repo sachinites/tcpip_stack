@@ -354,6 +354,7 @@ is_interface_l3_bidirectional(interface_t *interface);
 
 #define EV(node_ptr)    (&node_ptr->ev_dis)
 #define EV_DP(node_ptr) (&node_ptr->dp_ev_dis)
+#define EV_PURGER(node_ptr) (&node->purger_ev_dis)
 #define DP_PKT_Q(node_ptr) (&node_ptr->dp_recvr_pkt_q)
 #define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
 #define DP_TIMER(node_ptr)  (node_ptr->dp_wt)

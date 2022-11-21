@@ -59,15 +59,11 @@ OBJS=gluethread/glthread.o \
 		  prefix-list/prefixlst.o \
 		  c-hashtable/hashtable.o \
 		  c-hashtable/hashtable_itr.o \
-		  Threads/thread_pool/threadlib.o \
 		  Threads/refcount.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
 		  Layer2/stp/stp_vlandb.o \
-
-Threads/thread_pool/threadlib.o:
-	${CC} ${CFLAGS} -c -I gluethread -I Threads -I Bitop Threads/thread_pool/threadlib.c -o Threads/thread_pool/threadlib.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o

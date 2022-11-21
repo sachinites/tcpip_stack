@@ -108,6 +108,8 @@ struct node_ {
     event_dispatcher_t ev_dis;
     /* Data path scheduler */
     event_dispatcher_t dp_ev_dis;
+    /* Objects Purger */
+    event_dispatcher_t purger_ev_dis;
     /* Data Path ingress Pkt Queue */
     pkt_q_t dp_recvr_pkt_q;
      /*CP Timer*/

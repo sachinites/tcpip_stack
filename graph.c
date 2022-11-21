@@ -152,6 +152,12 @@ create_graph_node(graph_t *graph, const char *node_name){
     node->dp_ev_dis.app_data = (void *)node;
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
 
+    /* Start Object purger Thread/Scheduler */
+    snprintf (ev_dis_name, EV_DIS_NAME_LEN, "Purger-%s", node_name);
+    event_dispatcher_init(&node->purger_ev_dis, (const char *)ev_dis_name);
+    event_dispatcher_run(&node->purger_ev_dis);
+    node->purger_ev_dis.app_data = (void *)node;
+
     /* Start Control Plane Timer */
     node->cp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     wt_set_user_data(node->cp_wt, EV(node));
