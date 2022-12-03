@@ -1,7 +1,21 @@
 CC=gcc
 CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3
 TARGET:tcpstack.exe pkt_gen.exe
-LIBS=-lpthread -lcli -lrt -L CommandParser -lcli -L LinuxMemoryManager -lmm -L FSMImplementation -lfsm -L FireWall -lasa -lrt -lm
+
+# Proto Libs
+ISIS_LIB=Layer5/isis/libisis.so
+ISIS_LIB_PATH=-L Layer5/isis -lisis
+# proto Libs
+
+LIBS=-lpthread \
+		   -lcli -lrt \
+		   -L CommandParser -lcli \
+		    -L LinuxMemoryManager -lmm \
+			-L FSMImplementation -lfsm \
+			-L FireWall -lasa \
+			-lrt -lm \
+			${ISIS_LIB_PATH} \
+
 OBJS=gluethread/glthread.o \
 		  BitOp/bitmap.o \
 		  stack/stack.o \
@@ -26,6 +40,7 @@ OBJS=gluethread/glthread.o \
 		  Layer2/l2switch.o \
           libtimer/WheelTimer.o   \
           libtimer/timerlib.o   \
+		  libtimer/timedef.o \
           Layer5/nbrship_mgmt/nbrship_mgmt.o \
 		  Layer5/ddcp/ddcp.o \
 		  Layer5/spf_algo/spf.o \
@@ -36,21 +51,6 @@ OBJS=gluethread/glthread.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
-		  Layer5/isis/isis_adjacency.o \
-		  Layer5/isis/isis_cli.o \
-		  Layer5/isis/isis_rtr.o \
-		  Layer5/isis/isis_intf.o \
-		  Layer5/isis/isis_pkt.o \
-		  Layer5/isis/isis_events.o \
-		  Layer5/isis/isis_flood.o \
-		  Layer5/isis/isis_lspdb.o \
-		  Layer5/isis/isis_spf.o \
-		  Layer5/isis/isis_mem_init.o \
-		  Layer5/isis/isis_intf_group.o \
-		  Layer5/isis/isis_layer2map.o \
-		  Layer5/isis/isis_ted.o \
-		  Layer5/isis/isis_policy.o \
-		  Layer5/isis/isis_tlv_struct.o \
 		  ted/ted.o \
 		  LinuxMemoryManager/mm.o \
 		  flow/snp_flow.o \
@@ -67,52 +67,6 @@ OBJS=gluethread/glthread.o \
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
-
-# ISIS protocol Files
-Layer5/isis/isis_adjacency.o:Layer5/isis/isis_adjacency.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_adjacency.c -o Layer5/isis/isis_adjacency.o
-
-Layer5/isis/isis_cli.o:Layer5/isis/isis_cli.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_cli.c -o Layer5/isis/isis_cli.o
-
-Layer5/isis/isis_rtr.o:Layer5/isis/isis_rtr.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_rtr.c -o Layer5/isis/isis_rtr.o
-
-Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_intf.c -o Layer5/isis/isis_intf.o
-
-Layer5/isis/isis_pkt.o:Layer5/isis/isis_pkt.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_pkt.c -o Layer5/isis/isis_pkt.o
-
-Layer5/isis/isis_flood.o:Layer5/isis/isis_flood.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_flood.c -o Layer5/isis/isis_flood.o
-
-Layer5/isis/isis_events.o:Layer5/isis/isis_events.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_events.c -o Layer5/isis/isis_events.o
-
-Layer5/isis/isis_lspdb.o:Layer5/isis/isis_lspdb.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_lspdb.c -o Layer5/isis/isis_lspdb.o
-
-Layer5/isis/isis_spf.o:Layer5/isis/isis_spf.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_spf.c -o Layer5/isis/isis_spf.o
-
-Layer5/isis/isis_mem_init.o:Layer5/isis/isis_mem_init.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_mem_init.c -o Layer5/isis/isis_mem_init.o
-
-Layer5/isis/isis_intf_group.o:Layer5/isis/isis_intf_group.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_intf_group.c -o Layer5/isis/isis_intf_group.o
-
-Layer5/isis/isis_layer2map.o:Layer5/isis/isis_layer2map.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_layer2map.c -o Layer5/isis/isis_layer2map.o
-
-Layer5/isis/isis_ted.o:Layer5/isis/isis_ted.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_ted.c -o Layer5/isis/isis_ted.o
-
-Layer5/isis/isis_policy.o:Layer5/isis/isis_policy.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_policy.c -o Layer5/isis/isis_policy.o
-
-Layer5/isis/isis_tlv_struct.o:Layer5/isis/isis_tlv_struct.c
-	${CC} ${CFLAGS} -c -I . Layer5/isis/isis_tlv_struct.c -o Layer5/isis/isis_tlv_struct.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -134,13 +88,14 @@ EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 
 pkt_gen.exe:pkt_gen.o utils.o
 	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
+	@echo "pkt_gen.exe Build Finished"
 	
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a
+tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
-	@echo "Build Finished"
+	@echo "tcpstack.exe Build Finished"
 
 notif.o:notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . notif.c -o notif.o
@@ -162,8 +117,10 @@ mtrie/mtrie.o:mtrie/mtrie.c
 
 libtimer/WheelTimer.o:libtimer/WheelTimer.c
 	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/WheelTimer.c -o libtimer/WheelTimer.o
-libtimer/timerlib..o:libtimer/timerlib.c
+libtimer/timerlib.o:libtimer/timerlib.c
 	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/timerlib.c -o libtimer/timerlib.o
+libtimer/timedef.o:libtimer/timedef.c
+	${CC} ${CFLAGS} -c -I libtimer libtimer/timedef.c -o libtimer/timedef.o	
 
 tcp_stack_init.o:tcp_stack_init.c
 	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
@@ -269,6 +226,9 @@ FSMImplementation/libfsm.a:
 	(cd FSMImplementation; make)
 FireWall/libasa.a:
 	(cd FireWall; make)
+${ISIS_LIB}:
+	(cd Layer5/isis; make)
+
 clean:
 	rm -f *.o
 	rm -f gluethread/glthread.o
@@ -283,7 +243,7 @@ clean:
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
 	rm -f Layer5/ddcp/*.o
-	rm -f Layer5/isis/*.o
+	(cd Layer5/isis; make clean)
 	rm -f Layer5/spf_algo/*.o
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o

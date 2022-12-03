@@ -306,14 +306,14 @@ get_access_intf_operating_vlan_id(interface_t *interface);
 bool
 is_trunk_interface_vlan_enabled(interface_t *interface, uint32_t vlan_id);  
 
-char *
-pkt_buffer_shift_right(char *pkt, uint32_t pkt_size,
+byte *
+pkt_buffer_shift_right(byte *pkt, uint32_t pkt_size,
                                uint32_t total_buffer_size);
 
-static inline char *
+static inline byte *
 tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
 
-    char *pkt = (char *)XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
+    byte *pkt = (byte *)XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
     return pkt_buffer_shift_right(pkt, pkt_size, MAX_PACKET_BUFFER_SIZE);
 }
 

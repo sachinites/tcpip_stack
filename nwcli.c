@@ -62,6 +62,7 @@ extern void object_group_build_config_cli (param_t *root) ;
 extern void network_object_build_show_cli (param_t *root) ;
 extern void object_group_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
+extern void time_range_config_cli_tree (param_t *root) ;
 extern void access_list_print_bitmap(node_t *node, char *access_list_name);
 
 static int
@@ -666,17 +667,17 @@ static int
 intf_config_handler(param_t *param, ser_buff_t *tlv_buf, 
                     op_mode enable_or_disable){
 
-   char *node_name;
-   char *intf_name = NULL;
+   node_t *node;
+   c_string intf_name = NULL;
+   c_string node_name = NULL;
    uint32_t vlan_id;
    uint8_t mask;
-    uint8_t lono;
-   char *l2_mode_option;
-   char *intf_ip_addr = NULL;
-   char *if_up_down;
+   uint8_t lono;
+   c_string l2_mode_option;
+   c_string if_up_down;
    int CMDCODE;
    tlv_struct_t *tlv = NULL;
-   node_t *node;
+   c_string intf_ip_addr = NULL;
    interface_t *interface = NULL;
    uint32_t intf_new_matric_val;
    intf_prop_changed_t intf_prop_changed;
@@ -697,7 +698,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
              if_up_down = tlv->value; 
         else if(parser_match_leaf_id(tlv->leaf_id, "metric-val"))
              intf_new_matric_val = atoi(tlv->value);      
-        else if(parser_match_leaf_id(tlv->leaf_id, "intf-ip-addr"))
+        else if(parser_match_leaf_id(tlv->leaf_id, "intf-ip-address"))
              intf_ip_addr = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
              mask = atoi(tlv->value);  
@@ -1295,6 +1296,9 @@ nw_init_cli(){
 
             /*Object Group Config CLIs */
             object_group_build_config_cli  (&node_name);
+
+            /* Timer Range CLIs */
+            time_range_config_cli_tree  (&node_name);
         }
 
         {

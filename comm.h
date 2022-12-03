@@ -35,6 +35,7 @@
 #define __COMM__
 
 #include <stdint.h>
+#include "utils.h"
 
 #define MAX_PACKET_BUFFER_SIZE   2048
 
@@ -46,7 +47,7 @@ typedef struct ev_dis_pkt_data_{
 
     node_t *recv_node;
     interface_t *recv_intf;
-    char *pkt;
+    byte *pkt;
     uint32_t pkt_size;
 } ev_dis_pkt_data_t;
 

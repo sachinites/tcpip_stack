@@ -659,7 +659,7 @@ dump_rt_table(rt_table_t *rt_table){
 
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
-                                          const char *dst, 
+                                          const c_string dst, 
                                           char mask){
 
     rt_table_add_route(rt_table, dst, mask, 0, 0, 0, PROTO_STATIC);
@@ -1148,7 +1148,7 @@ tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
 
 void
 interface_set_ip_addr(node_t *node, interface_t *intf, 
-                                    char *intf_ip_addr, uint8_t mask) {
+                                    c_string intf_ip_addr, uint8_t mask) {
 
     uint32_t ip_addr_int;
     uint32_t if_change_flags = 0;
@@ -1187,7 +1187,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
         string_copy((char *)IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
-        rt_table_add_direct_route(NODE_RT_TABLE(node), IF_IP(intf), IF_MASK(intf));
+        rt_table_add_direct_route(NODE_RT_TABLE(node), (const) IF_IP(intf), IF_MASK(intf));
 
          nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);
@@ -1196,7 +1196,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
 
 void
 interface_unset_ip_addr(node_t *node, interface_t *intf, 
-                                        char *new_intf_ip_addr, uint8_t new_mask) {
+                                        c_string new_intf_ip_addr, uint8_t new_mask) {
 
     uint8_t mask;
     uint32_t ip_addr_int;

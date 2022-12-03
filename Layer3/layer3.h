@@ -242,7 +242,7 @@ rt_table_add_route(rt_table_t *rt_table,
 /* MP Safe */
 void
 rt_table_add_direct_route(rt_table_t *rt_table,
-                                          const char *dst,
+                                          const c_string dst,
                                           char mask);
 
 /* MP Safe */
@@ -271,9 +271,9 @@ tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
 
 /* config of Layer 3 properties of interface*/
 void
-interface_set_ip_addr(node_t *node, interface_t *intf,  char *intf_ip_addr, uint8_t mask);
+interface_set_ip_addr(node_t *node, interface_t *intf,  c_string intf_ip_addr, uint8_t mask);
 
 void
-interface_unset_ip_addr(node_t *node, interface_t *intf, char *intf_ip_addr, uint8_t mask);
+interface_unset_ip_addr(node_t *node, interface_t *intf, c_string intf_ip_addr, uint8_t mask);
 
 #endif /* __LAYER3__ */

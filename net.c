@@ -276,12 +276,12 @@ is_trunk_interface_vlan_enabled(interface_t *interface,
   room in the pkt buffer to attach more new headers. Below function
   simply shifts the pkt content present in the start of the pkt buffer
   towards right so that new room is created*/
-char *
-pkt_buffer_shift_right(char *pkt,
+byte *
+pkt_buffer_shift_right(byte *pkt,
                                     uint32_t pkt_size, 
                                     uint32_t total_buffer_size){
 
-    char *temp = NULL;
+    byte *temp = NULL;
     bool need_temp_memory = false;
 
     if(pkt_size * 2 > (total_buffer_size - PKT_BUFFER_RIGHT_ROOM)){
@@ -289,7 +289,7 @@ pkt_buffer_shift_right(char *pkt,
     }
     
     if(need_temp_memory){
-        temp = (char *)calloc(1, pkt_size);
+        temp = (byte *)calloc(1, pkt_size);
         memcpy(temp, pkt, pkt_size);
         memset(pkt, 0, total_buffer_size);
         memcpy(pkt + (total_buffer_size - pkt_size - PKT_BUFFER_RIGHT_ROOM), 

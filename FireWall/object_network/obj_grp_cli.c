@@ -507,7 +507,7 @@ object_group_build_show_cli (param_t *root) {
     {
         /* show node <node-name> object-group */
         static param_t og;
-        init_param(&og, CMD, "object-group", object_group_show_handler, NULL, INVALID, NULL, " Object Group Display");
+        init_param(&og, CMD, "object-group", object_group_show_handler, NULL, INVALID, NULL, "Object Group Display");
         libcli_register_param(root, &og);
         set_param_cmd_code(&og, OBJ_GRP_SHOW_ALL);
         {

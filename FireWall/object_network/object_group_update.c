@@ -60,7 +60,7 @@ object_group_collect_dependent_access_lists(object_group_t *og, hashtable_t *ht)
         hashtable_insert(ht, (void *)ht_key, (void *)acl->access_list);
         access_list_reference(acl->access_list);
 
-    }     ITERATE_GLTHREAD_END(&og->db->acls_list, curr)
+    } ITERATE_GLTHREAD_END(&og->db->acls_list, curr)
 }
 
 static void
@@ -164,7 +164,9 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
             //og_update_info->stage = og_update_fsm_access_list_stage_uninstall;
             og_update_info->stage = og_update_fsm_access_list_stage_decompile;
         }
-        sprintf(tlb, "%s : Number of Access Lists to be updated : %u\n", FWALL_OBJGRP_UPDATE, og_update_info->access_list_to_be_processed_count);
+        sprintf(tlb, "%s : Number of Access Lists to be updated : %u\n",
+            FWALL_OBJGRP_UPDATE,
+            og_update_info->access_list_to_be_processed_count);
         tcp_trace(node, 0, tlb);
         object_group_update_reschedule_task(og_update_info);
         break;

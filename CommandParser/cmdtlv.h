@@ -29,8 +29,8 @@
 #pragma pack (push,1)
 typedef struct tlv_struct{
     leaf_type_t leaf_type;
-    char leaf_id[LEAF_ID_SIZE];
-    char value[LEAF_VALUE_HOLDER_SIZE];
+    unsigned char leaf_id[LEAF_ID_SIZE];
+    unsigned char value[LEAF_VALUE_HOLDER_SIZE];
 } tlv_struct_t;
 #pragma pack(pop)
 
