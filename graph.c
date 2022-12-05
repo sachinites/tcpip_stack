@@ -107,7 +107,7 @@ extern struct hashtable *object_group_create_new_ht() ;
 extern void init_nfc_layer2_proto_reg_db2(node_t *node);
 
 node_t *
-create_graph_node(graph_t *graph, const char *node_name){
+create_graph_node(graph_t *graph, const c_string node_name){
 
     char ev_dis_name[EV_DIS_NAME_LEN];
 

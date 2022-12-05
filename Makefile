@@ -3,7 +3,7 @@ CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Proto Libs
-ISIS_LIB=Layer5/isis/libisis.so
+ISIS_LIB=Layer5/isis/libisis.a
 ISIS_LIB_PATH=-L Layer5/isis -lisis
 # proto Libs
 
@@ -253,7 +253,6 @@ clean:
 	rm -f hashmap/*.o
 	rm -f packet-tracer/*.o
 	rm -f prefix-list/*.o
-	rm -f Threads/thread_pool/*.o
 	rm -f Threads/*.o
 	(cd c-hashtable; make clean)
 #STP

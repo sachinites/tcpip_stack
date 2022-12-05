@@ -144,7 +144,7 @@ typedef struct graph_{
 } graph_t;
 
 node_t *
-create_graph_node(graph_t *graph, const char *node_name);
+create_graph_node(graph_t *graph, const c_string node_name);
 
 graph_t *
 create_new_graph(const char *topology_name);
@@ -190,7 +190,7 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);
 
 
 static inline node_t *
-node_get_node_by_name(graph_t *topo, char *node_name){
+node_get_node_by_name(graph_t *topo, c_string node_name){
 
     node_t *node;
     glthread_t *curr;    
@@ -198,7 +198,7 @@ node_get_node_by_name(graph_t *topo, char *node_name){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node = graph_glue_to_node(curr);
-        if(string_compare(node->node_name, node_name, strlen(node_name)) == 0)
+        if(string_compare(node->node_name, node_name, NODE_NAME_SIZE) == 0)
             return node;
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
     return NULL;

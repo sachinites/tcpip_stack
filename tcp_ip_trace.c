@@ -568,7 +568,7 @@ int traceoptions_handler(param_t *param,
         op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
+    c_string node_name;
     char *if_name;
     uint32_t flags;
     interface_t *intf;

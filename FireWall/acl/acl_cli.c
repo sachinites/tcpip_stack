@@ -268,7 +268,7 @@ acl_config_handler (param_t *param,
     tlv_struct_t *tlv = NULL;
     char *host_src_ip = NULL;
     char *host_dst_ip = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *action_name = NULL;
     char *subnet_src_ip = NULL;
     char *subnet_dst_ip = NULL;
@@ -554,7 +554,7 @@ access_group_config_handler(param_t *param,
     
     char *dirn = NULL;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *if_name = NULL;
     char *access_list_name = NULL;
 
@@ -1425,7 +1425,7 @@ acl_show_handler(param_t *param,
 
     node_t *node = NULL;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
    
     TLV_LOOP_BEGIN(tlv_buf, tlv)
     {

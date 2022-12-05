@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include "../../utils.h"
 #include "../../tcp_public.h"
 
 int
@@ -28,7 +29,7 @@ nh_flush_nexthops(nexthop_t **nexthop){
 nexthop_t *
 nh_create_new_nexthop(uint32_t oif_index, char *gw_ip, uint8_t proto){
 
-    nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
+    nexthop_t *nexthop = ( nexthop_t *)XCALLOC(0, 1, nexthop_t);
     nexthop->ifindex = oif_index;
     string_copy((char *)nexthop->gw_ip, gw_ip, 16);
     nexthop->ref_count = 0;

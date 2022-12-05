@@ -28,9 +28,9 @@ ref_count_destroy (ref_count_t ref_count) {
 void
 ref_count_inc (ref_count_t ref_count) {
 
-   // pthread_spin_lock(&ref_count->spinlock);
+    pthread_spin_lock(&ref_count->spinlock);
     ref_count->ref_count++;
-    //pthread_spin_unlock(&ref_count->spinlock);
+    pthread_spin_unlock(&ref_count->spinlock);
 }
 
 bool

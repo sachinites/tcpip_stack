@@ -70,7 +70,7 @@ display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
     tlv_struct_t *tlv = NULL;
-    char *struct_name = NULL;
+    c_string struct_name = NULL;
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -178,7 +178,7 @@ void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;
-    char *node_name;
+    c_string node_name;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -232,7 +232,7 @@ validate_interface_metric_val(char *value){
 
 
 static int
-validate_node_extistence(char *node_name){
+validate_node_extistence(c_string node_name){
 
     node_t *node = node_get_node_by_name(topo, node_name);
     if(node)
@@ -283,7 +283,7 @@ show_nw_topology_handler(param_t *param,
 
     int CMDCODE = -1;
     node_t *node = NULL;
-    char *node_name = NULL;;
+    c_string node_name = NULL;;
     tlv_struct_t *tlv = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
@@ -341,7 +341,7 @@ show_arp_handler(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
+    c_string node_name;
     tlv_struct_t *tlv = NULL;
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -367,7 +367,7 @@ show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
+    c_string node_name;
     tlv_struct_t *tlv = NULL;
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -387,14 +387,14 @@ show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
 extern void
 send_arp_broadcast_request(node_t *node,
                            interface_t *oif,
-                           char *ip_addr);
+                           c_string ip_addr);
 static int
 arp_handler(param_t *param, ser_buff_t *tlv_buf,
                 op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
-    char *ip_addr;
+    c_string node_name;
+    c_string ip_addr;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -413,19 +413,19 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
 /*Layer 3 Commands*/
 extern void
-layer3_ping_fn(node_t *node, char *dst_ip_addr);
+layer3_ping_fn(node_t *node, c_string dst_ip_addr);
 extern void
-layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
-                            char *ero_ip_address);
+layer3_ero_ping_fn(node_t *node, c_string dst_ip_addr,
+                            c_string ero_ip_address);
 
 static int
 ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
     int CMDCODE;
     node_t *node;
-    char *ip_addr = NULL, 
-         *ero_ip_addr = NULL;
-    char *node_name;
+    c_string ip_addr = NULL;
+    c_string ero_ip_addr = NULL;
+    c_string node_name = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -467,7 +467,7 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
+    c_string node_name;
     tlv_struct_t *tlv = NULL;
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -489,8 +489,8 @@ clear_rt_handler(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
-    char *rib_name;
+    c_string node_name;
+    c_string rib_name;
     tlv_struct_t *tlv = NULL;
     
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -520,13 +520,13 @@ static int
 l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
     node_t *node = NULL;
-    char *node_name = NULL;
-    char *intf_name = NULL;
-    char *gwip = NULL;
-    char *mask_str = NULL;
-    char *dest = NULL;
-    char *rib_name = NULL;
-    char *prefix_lst_name = NULL;
+    c_string node_name = NULL;
+    c_string intf_name = NULL;
+    c_string gwip = NULL;
+    c_string mask_str = NULL;
+    c_string dest = NULL;
+    c_string rib_name = NULL;
+    c_string prefix_lst_name = NULL;
 
     int CMDCODE = -1;
 
@@ -844,7 +844,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
                          op_mode enable_or_disable){
 
    node_t *node;
-   char *node_name;
+   c_string node_name;
    tlv_struct_t *tlv = NULL;
    char *access_list_name = NULL;
 
@@ -891,7 +891,7 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
     
     int CMDCODE;
     node_t *node;
-    char *node_name;
+    c_string node_name;
     char *protocol_name = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);

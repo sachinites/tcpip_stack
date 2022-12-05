@@ -27,7 +27,7 @@ network_object_config_handler (param_t *param,
     node_t *node;
     tlv_struct_t *tlv = NULL;
     uint32_t lb, ub;
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *host_addr = NULL;
     char *subnet_addr = NULL;
     char *subnet_mask = NULL;
@@ -296,7 +296,7 @@ network_object_show_handler (param_t *param,
 
     node_t *node;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *nw_obj_name = NULL;
 
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);

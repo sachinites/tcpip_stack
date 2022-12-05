@@ -470,7 +470,7 @@ object_group_show_handler (param_t *param,
 
     node_t *node;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *nw_obj_name = NULL;
 
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);

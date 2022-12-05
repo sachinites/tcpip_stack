@@ -231,7 +231,7 @@ prefix_lst_config_handler (param_t *param,
     char *pfx_lst_name = NULL;
     char *res_str = NULL;
 
-    char *node_name = NULL;
+    c_string node_name = NULL;
     uint8_t lb = -1, ub = -1, len = 0;
 
     char *nw_prefix = NULL;
@@ -432,7 +432,7 @@ prefix_lst_show_handler (param_t *param,
                                            ser_buff_t *tlv_buf,
                                            op_mode enable_or_disable){
 
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *pfx_lst_name = NULL;
     node_t *node;
     tlv_struct_t *tlv = NULL;

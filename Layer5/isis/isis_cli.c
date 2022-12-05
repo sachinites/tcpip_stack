@@ -21,7 +21,7 @@ isis_config_handler(param_t *param,
     int cmdcode = -1;
     node_t *node = NULL;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
     char *if_grp_name = NULL;
     const char *prefix_lst_name = NULL;
     
@@ -140,7 +140,7 @@ isis_intf_config_handler(param_t *param,
     char *intf_name = NULL;
     interface_t *intf = NULL;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
 
     char *if_grp_name = NULL;
 
@@ -242,7 +242,7 @@ isis_show_handler(param_t *param,
     char *intf_name = NULL;
     interface_t *intf = NULL;
     tlv_struct_t *tlv = NULL;
-    char *node_name = NULL;
+    c_string node_name = NULL;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -580,7 +580,7 @@ isis_clear_handler(param_t *param,
 
     node_t *node;
     tlv_struct_t *tlv;
-    char *node_name = NULL;
+    c_string node_name = NULL;
 
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 

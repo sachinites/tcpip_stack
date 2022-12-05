@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3
-SO_LIBNAME=libisis.so
-TARGET:${SO_LIBNAME}
+STATIC_LIBNAME=libisis.a
+TARGET:${STATIC_LIBNAME}
 ISIS_OBJS=isis_adjacency.o \
 		  isis_cli.o \
 		  isis_rtr.o \
@@ -63,10 +63,10 @@ isis_policy.o:isis_policy.c
 isis_tlv_struct.o:isis_tlv_struct.c
 	${CC} ${CFLAGS} -c -fPIC  -I . isis_tlv_struct.c -o isis_tlv_struct.o
 
-${SO_LIBNAME}:${ISIS_OBJS}
-	${CC} ${ISIS_OBJS} -shared -o ${SO_LIBNAME}
-	@echo ISIS Library ${SO_LIBNAME} compiled successfully
+${STATIC_LIBNAME}:${ISIS_OBJS}
+	ar rs ${STATIC_LIBNAME} ${ISIS_OBJS}
+	@echo ISIS Library ${STATIC_LIBNAME} compiled successfully
 
 clean:
 	rm -f *.o 
-	rm -f *.so
+	rm -f *.a

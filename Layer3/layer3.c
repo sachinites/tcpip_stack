@@ -34,6 +34,7 @@
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <memory.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include "../graph.h"
 #include "../Layer2/layer2.h"
 #include "../Layer5/layer5.h"
@@ -123,6 +124,11 @@ demote_pkt_to_layer2(node_t *node,
                      pkt_block_t *pkt_block,
                      hdr_type_t hdr_type);
 
+
+#define layer3_ip_route_pkt_done    \
+     l3_route_unlock(l3_route);           \
+    thread_using_route_done(l3_route);  \
+    return;
 
 static void
 layer3_ip_route_pkt(node_t *node,
@@ -237,7 +243,7 @@ layer3_ip_route_pkt(node_t *node,
                     layer3_ip_route_pkt(node,
 									interface, 
                                     pkt_block);
-                    goto done;
+                    layer3_ip_route_pkt_done;
                 default:
                     ;
             }
@@ -247,7 +253,7 @@ layer3_ip_route_pkt(node_t *node,
 											  pkt_block,
                                               IP_HDR);
             pkt_block_dereference(pkt_block);
-           goto done;
+           layer3_ip_route_pkt_done;
         }
          
         /* case 2 : It means, the dst ip address lies in direct connected
@@ -260,7 +266,7 @@ layer3_ip_route_pkt(node_t *node,
                 pkt_block,  /*Network Layer payload and size*/
                 IP_HDR);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 
-        goto done;
+        layer3_ip_route_pkt_done;
     }
 
     /*case 3 : L3 forwarding case*/
@@ -269,7 +275,7 @@ layer3_ip_route_pkt(node_t *node,
 
     if(ip_hdr->ttl == 0){
         pkt_block_dereference(pkt_block);
-       goto done;
+       layer3_ip_route_pkt_done;
     }
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
@@ -280,7 +286,7 @@ layer3_ip_route_pkt(node_t *node,
     nexthop = l3_route_get_active_nexthop(l3_route);
 	if(!nexthop) {
         pkt_block_dereference(pkt_block);
-        goto done;
+        layer3_ip_route_pkt_done;
     }
 
     nf_result = nf_invoke_netfilter_hook(
@@ -297,7 +303,7 @@ layer3_ip_route_pkt(node_t *node,
     case NF_STOLEN:
     case NF_STOP:
         pkt_block_dereference(pkt_block);
-         goto done;
+         layer3_ip_route_pkt_done;
     }
 
     inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
@@ -319,7 +325,7 @@ layer3_ip_route_pkt(node_t *node,
     case NF_STOLEN:
     case NF_STOP:
         pkt_block_dereference(pkt_block);   
-        goto done;
+        layer3_ip_route_pkt_done;
     }
 
     /* Access List Evaluation at Layer 3 Exit point*/
@@ -329,7 +335,7 @@ layer3_ip_route_pkt(node_t *node,
             false) == ACL_DENY) {
 
         pkt_block_dereference(pkt_block);
-        goto done;
+        layer3_ip_route_pkt_done;
     }
 
     demote_pkt_to_layer2(node, 
@@ -339,11 +345,6 @@ layer3_ip_route_pkt(node_t *node,
             IP_HDR); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
     nexthop->hit_count++;
-
-     done:
-
-         l3_route_unlock(l3_route);
-         thread_using_route_done(l3_route);
 }
 
 
@@ -485,7 +486,7 @@ rt_table_delete_route(
     l3_route_t *l3_route = NULL;
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
-    char dst_str_with_mask[16];
+    byte dst_str_with_mask[16];
     
     pthread_rwlock_wrlock(&rt_table->rwlock);
 
@@ -662,7 +663,7 @@ rt_table_add_direct_route(rt_table_t *rt_table,
                                           const c_string dst, 
                                           char mask){
 
-    rt_table_add_route(rt_table, dst, mask, 0, 0, 0, PROTO_STATIC);
+    rt_table_add_route(rt_table, (const char *)dst, mask, 0, 0, 0, PROTO_STATIC);
 }
 
 /* 
@@ -789,9 +790,9 @@ rt_table_add_route (rt_table_t *rt_table,
                                 uint8_t proto_id){
 
    bool new_route = false;
-   char dst_str_with_mask[16];
+   byte dst_str_with_mask[16];
 
-    apply_mask(dst, mask, dst_str_with_mask); 
+    apply_mask((c_string)dst, mask, dst_str_with_mask); 
 
     nxthop_proto_id_t nxthop_proto = 
         l3_rt_map_proto_id_to_nxthop_index(proto_id);
@@ -844,7 +845,7 @@ rt_table_add_route (rt_table_t *rt_table,
    }
 
    if(gw && oif){
-        nexthop_t *nexthop = XCALLOC(0, 1, nexthop_t);
+        nexthop_t *nexthop = (nexthop_t *)XCALLOC(0, 1, nexthop_t);
         l3_route->is_direct = false;
         l3_route->spf_metric[nxthop_proto] = spf_metric;
         string_copy((char *)nexthop->gw_ip, gw, 16);
@@ -878,12 +879,11 @@ _layer3_pkt_recv_from_layer2(node_t *node,
                            pkt_block_t *pkt_block,
                             int L3_protocol_type) {
 
-    uint8_t *pkt;
     pkt_size_t pkt_size;
 
     assert(pkt_block_verify_pkt (pkt_block, ETH_HDR));
 
-    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    pkt_block_get_pkt(pkt_block, &pkt_size);
 
     switch(L3_protocol_type){
         
@@ -926,12 +926,12 @@ demote_packet_to_layer3 (node_t *node,
                                            uint32_t dest_ip_address){
 
     ip_hdr_t iphdr;
-    char ip_addr[16];
+    byte ip_addr[16];
     pkt_size_t pkt_size;
 
     initialize_ip_hdr(&iphdr);  
       
-    uint8_t *pkt = pkt_block_get_pkt(pkt_block,  &pkt_size);
+    pkt_block_get_pkt(pkt_block,  &pkt_size);
 
     /*Now fill the non-default fields*/
     iphdr.protocol = tcp_ip_convert_internal_proto_to_std_proto(protocol_number);
@@ -1075,7 +1075,7 @@ demote_packet_to_layer3 (node_t *node,
  * Layer on node 'node' to destination address 'dst_ip_addr'
  * using below fn*/
 void
-layer3_ping_fn(node_t *node, char *dst_ip_addr){
+layer3_ping_fn(node_t *node, c_string dst_ip_addr){
 
     uint32_t addr_int;
     pkt_block_t *pkt_block;
@@ -1093,29 +1093,25 @@ layer3_ping_fn(node_t *node, char *dst_ip_addr){
 }
 
 void
-layer3_ero_ping_fn(node_t *node, char *dst_ip_addr, 
-                    char *ero_ip_address){
+layer3_ero_ping_fn(node_t *node, 
+                    c_string dst_ip_addr, 
+                    c_string ero_ip_address){
 
     /*Prepare the payload and push it down to the network layer.
      The payload shall be inner ip hdr*/
-    ip_hdr_t *inner_ip_hdr = XCALLOC(0, 1, ip_hdr_t);
+    ip_hdr_t *inner_ip_hdr = (ip_hdr_t *)XCALLOC(0, 1, ip_hdr_t);
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
     inner_ip_hdr->protocol = ICMP_PROTO;
     
-    uint32_t addr_int = 0;
-    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
-    addr_int = htonl(addr_int);
+    uint32_t addr_int = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+    
     inner_ip_hdr->src_ip = addr_int;
     
-    addr_int = 0;
-    inet_pton(AF_INET, dst_ip_addr, &addr_int);
-    addr_int = htonl(addr_int);
+    addr_int =  tcp_ip_covert_ip_p_to_n(dst_ip_addr);
     inner_ip_hdr->dst_ip = addr_int;
 
-    addr_int = 0;
-    inet_pton(AF_INET, ero_ip_address, &addr_int);
-    addr_int = htonl(addr_int);
+    addr_int = tcp_ip_covert_ip_p_to_n(ero_ip_address);
 
     pkt_block_t *pkt_block = pkt_block_get_new(
                             (uint8_t *)inner_ip_hdr,
@@ -1126,14 +1122,16 @@ layer3_ero_ping_fn(node_t *node, char *dst_ip_addr,
 
     demote_packet_to_layer3(node, 
                             pkt_block,
-                            IP_IN_IP, 
+                            IP_IN_IP_HDR, 
                             addr_int);
 }
 
 /*Wrapper fn to be used by Applications*/
 void
-tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
-                    int L5_protocol_id, uint32_t dest_ip_address){
+tcp_ip_send_ip_data(node_t *node, 
+                                  c_string app_data, uint32_t data_size,
+                                  hdr_type_t L5_protocol_id, 
+                                  uint32_t dest_ip_address) {
 
     pkt_block_t *pkt_block = pkt_block_get_new(
         (uint8_t *)app_data, (pkt_size_t)data_size);
@@ -1142,8 +1140,10 @@ tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
 
     pkt_block_reference(pkt_block);
 
-    demote_packet_to_layer3(node, pkt_block,
-                            L5_protocol_id, dest_ip_address);
+    demote_packet_to_layer3(node, 
+                                              pkt_block,
+                                              L5_protocol_id,
+                                              dest_ip_address);
 }
 
 void
@@ -1187,7 +1187,7 @@ interface_set_ip_addr(node_t *node, interface_t *intf,
         rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
         string_copy((char *)IF_IP(intf), intf_ip_addr, 16);
         IF_MASK(intf) = mask;
-        rt_table_add_direct_route(NODE_RT_TABLE(node), (const) IF_IP(intf), IF_MASK(intf));
+        rt_table_add_direct_route(NODE_RT_TABLE(node), (const c_string) IF_IP(intf), IF_MASK(intf));
 
          nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);
@@ -1235,7 +1235,7 @@ l3_route_get_new_route () {
     init_glthread(&l3route->notif_glue);
     init_glthread(&l3route->flash_glue);
     ref_count_init (&l3route->ref_count);
-    pthread_rwlock_init(&l3route->lock, PTHREAD_PROCESS_PRIVATE);
+    pthread_rwlock_init(&l3route->lock, NULL);
     return l3route;
 }
 

@@ -824,7 +824,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
 
    int CMDCODE = -1;
    node_t *node = NULL;
-   char *node_name = NULL;
+   c_string node_name = NULL;
    char *intf_name = NULL;
    int ddcp_q_interval = 0 ;
    interface_t *intf = NULL;

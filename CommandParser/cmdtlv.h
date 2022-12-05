@@ -20,11 +20,12 @@
 #ifndef __CMDTLV__H
 #define __CMDTLV__H
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "libcliid.h"
 #include "serialize.h"
-#include <stdio.h>
 #include "cmd_hier.h"
-#include <stdlib.h>
+
 
 #pragma pack (push,1)
 typedef struct tlv_struct{
@@ -34,8 +35,13 @@ typedef struct tlv_struct{
 } tlv_struct_t;
 #pragma pack(pop)
 
+#ifdef CPLUSPLUS
 #define EXTRACT_CMD_CODE(ser_buff_ptr)  \
-    atoi(((tlv_struct_t *)(ser_buff_ptr->b) + (get_serialize_buffer_size(ser_buff_ptr)/sizeof(tlv_struct_t) -1))->value)
+    atoi(reinterpret_cast<const char *>(((tlv_struct_t *)(ser_buff_ptr->b) + (get_serialize_buffer_size(ser_buff_ptr)/sizeof(tlv_struct_t) -1))->value))
+#else 
+#define EXTRACT_CMD_CODE(ser_buff_ptr)  \
+     atoi(((tlv_struct_t *)(ser_buff_ptr->b) + (get_serialize_buffer_size(ser_buff_ptr)/sizeof(tlv_struct_t) -1))->value)
+#endif
 
 #define TLV_LOOP_BEGIN(ser_buff, tlvptr)                                                \
 {                                                                                       \
@@ -80,11 +86,11 @@ print_tlv_content(tlv_struct_t *tlv){
 }
 
 static inline bool
-parser_match_leaf_id (char *tlv_leaf_id, const char *leaf_id_manual) {
+parser_match_leaf_id (unsigned char *tlv_leaf_id, const char *leaf_id_manual) {
 
-    int len;
-    if ((len = strlen(tlv_leaf_id)) != strlen(leaf_id_manual)) return false;
-    return (strncmp(tlv_leaf_id, leaf_id_manual, len) == 0);
+    size_t len;
+    if ((len = strlen((const char *)tlv_leaf_id)) != strlen(leaf_id_manual)) return false;
+    return (strncmp((const char *)tlv_leaf_id, leaf_id_manual, len) == 0);
 }
 
 static inline void

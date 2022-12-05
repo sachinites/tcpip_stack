@@ -675,7 +675,7 @@ nbrship_mgmt_handler(param_t *param, ser_buff_t *tlv_buf,
                 op_mode enable_or_disable){
 
     node_t *node;
-    char *node_name;
+    c_string node_name;
     char *if_name;
     interface_t *intf;
 

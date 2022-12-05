@@ -19,7 +19,7 @@
 void
 send_arp_broadcast_request(node_t *node,
                            interface_t *oif,
-                           unsigned char *ip_addr){
+                           c_string ip_addr){
 
     pkt_block_t *pkt_block;
 

@@ -22,7 +22,7 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 
 /* returns true if both are identical else return false.
- * if key is set, then comparison is done based on keys only.
+ * if key is set, then comparison is done based on keys only.   
  * if key is not set in either of them, then comparison is done
  * based on callbacks registered
  * */

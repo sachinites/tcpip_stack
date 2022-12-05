@@ -36,11 +36,22 @@
 #ifndef __UTILS__
 #define __UTILS__
 
+#define CPLUSPLUS
+#undef CPLUSPLUS
+
+
 #include <stdint.h>
+#include <stddef.h>
+
+#ifdef  CPLUSPLUS
+#include <cstddef> // for size_t
+#endif
 
 typedef unsigned char byte;
 typedef unsigned char* c_string; 
 typedef void unused;
+
+
 
 void
 apply_mask(c_string prefix, char mask, c_string str_prefix);

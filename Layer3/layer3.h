@@ -36,6 +36,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../gluethread/glthread.h"
+#include "../Threads/refcount.h"
 #include "../notif.h"
 #include "../tcpconst.h"
 #include "../EventDispatcher/event_dispatcher.h"
@@ -131,14 +132,35 @@ typedef struct rt_table_{
 #define RT_FLASH_REQ_F (1 << 3)
 
 typedef enum {
-    proto_nxthop_first,
-    proto_nxthop_isis = proto_nxthop_first,
+    proto_nxthop_isis,
     proto_nxthop_static,
     proto_nxthop_max
 } nxthop_proto_id_t;
 
+static inline  nxthop_proto_id_t
+next_next_hop_proto ( nxthop_proto_id_t proto_id) {
+
+    switch (proto_id) {
+        case proto_nxthop_isis:
+            return proto_nxthop_static;
+        case proto_nxthop_static:
+            return proto_nxthop_max;
+        case proto_nxthop_max:
+            assert(0);
+            return proto_nxthop_max;
+    }
+    return proto_nxthop_max;
+}
+
+static inline  nxthop_proto_id_t
+next_next_hop_first ( void ) {
+
+    return proto_nxthop_isis;
+}
+
 #define FOR_ALL_NXTHOP_PROTO(nh_proto)  \
-    for (nh_proto = proto_nxthop_first; nh_proto < proto_nxthop_max; nh_proto++)
+    for (nh_proto = next_next_hop_first(); nh_proto < proto_nxthop_max; \
+         nh_proto = next_next_hop_proto(nh_proto))
 
 static inline nxthop_proto_id_t
 l3_rt_map_proto_id_to_nxthop_index(uint8_t proto_id) {
@@ -159,7 +181,7 @@ l3_rt_map_proto_id_to_nxthop_index(uint8_t proto_id) {
 
 typedef struct l3_route_{
 
-    char dest[16];        /* key*/
+    byte dest[16];        /* key*/
     char mask;            /* key*/
     bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
     nexthop_t *nexthops[proto_nxthop_max][MAX_NXT_HOPS];
@@ -265,8 +287,10 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask);
 /* Routing Table APIs */
 
 void
-tcp_ip_send_ip_data(node_t *node, char *app_data, uint32_t data_size,
-                    int L5_protocol_id, uint32_t dest_ip_address);
+tcp_ip_send_ip_data(node_t *node, 
+                                  c_string app_data, uint32_t data_size,
+                                  hdr_type_t L5_protocol_id, 
+                                  uint32_t dest_ip_address);
 
 
 /* config of Layer 3 properties of interface*/

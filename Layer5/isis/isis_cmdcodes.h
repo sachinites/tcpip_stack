@@ -53,9 +53,9 @@
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG 24
 
 /* Policies */
-/* conf node <node-name> protocol isis import-policy <access-list-name> */
+/* config node <node-name> protocol isis import-policy <pfx-list-name> */
 #define CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY 25
-/* conf node <node-name> protocol isis export-policy <access-list-name> */
+/* config node <node-name> protocol isis export-policy <pfx-list-name> */
 #define CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY 26
 
 #endif /* __ISIS_CMDCODES__ */

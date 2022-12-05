@@ -586,7 +586,7 @@ spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
 
     int CMDCODE;
     node_t *node;
-    char *node_name;
+    c_string node_name;
     tlv_struct_t *tlv = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
