@@ -396,24 +396,25 @@ void
 isis_show_event_counters(node_t *node) {
 
     int rc = 0;
+    int enum_int;
     isis_event_type_t event_type;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
-    #ifndef CPLUSPLUS
     rc = snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, "Event Counters :\n");
 
-    for(event_type = isis_event_none + 1; 
-        event_type < isis_event_max;
-        event_type++){
+    for(enum_int = (int)(isis_event_none + 1); 
+        enum_int < (int)isis_event_max;
+        enum_int++){
         
-    rc += snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, 
+        event_type = static_cast <isis_event_type_t> (enum_int);
+
+        rc += snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, 
                 " %s : %u\n", isis_event_str(event_type), 
                 node_info->isis_event_count[event_type]);
     }
     cli_out(node->print_buff , rc);
-    #endif
 }
 
 void
