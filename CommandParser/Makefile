@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-g -Wall -gdwarf-2 -g3
+CC=g++
+CFLAGS=-g -fpermissive -Wall -gdwarf-2 -g3
 INCLUDES=-I .
 CLILIB=libcli.a
 TARGET:${CLILIB}

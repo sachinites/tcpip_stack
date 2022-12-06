@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS= -g
+CC=g++
+CFLAGS= -g -fpermissive
 FSMLIB=libfsm.a
 TARGET:${FSMLIB}
 ${FSMLIB}:fsm.o std_fsm.o

@@ -76,7 +76,7 @@ void
 nfc_register_notif_chain(notif_chain_t *nfc,
 					 notif_chain_elem_t *nfce){
 
-	notif_chain_elem_t *new_nfce = XCALLOC(0, 1, notif_chain_elem_t);
+	notif_chain_elem_t *new_nfce = (notif_chain_elem_t *)XCALLOC(0, 1, notif_chain_elem_t);
 	memcpy(new_nfce, nfce, sizeof(notif_chain_elem_t));
 	init_glthread(&new_nfce->glue);
 	glthread_add_next(&nfc->notif_chain_head, &new_nfce->glue);	

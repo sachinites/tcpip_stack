@@ -80,7 +80,7 @@ static void
 init_node_spf_data(node_t *node, bool delete_spf_result){
 
     if(!node->spf_data){
-        node->spf_data = XCALLOC(0, 1, spf_data_t);
+        node->spf_data = (spf_data_t *)XCALLOC(0, 1, spf_data_t);
         init_glthread(&node->spf_data->spf_result_head);
         node->spf_data->node = node;
     }
@@ -160,8 +160,8 @@ spf_install_routes(node_t *spf_root){
                 nexthop->oif = node_get_intf_by_ifindex(spf_root, nexthop->ifindex);
             }
             #endif
-            rt_table_add_route(rt_table, NODE_LO_ADDR(spf_result->node), 32, 
-                                            nexthop->gw_ip, 
+            rt_table_add_route(rt_table, (const char *)NODE_LO_ADDR(spf_result->node), 32, 
+                                            (const char *)nexthop->gw_ip, 
                                             nexthop->oif,
                                             spf_result->spf_metric,
                                             PROTO_STATIC);
@@ -176,7 +176,7 @@ initialize_direct_nbrs(node_t *spf_root){
 
     /*Initialize direct nbrs*/
     node_t *nbr = NULL;
-    char *nxt_hop_ip = NULL;
+    c_string nxt_hop_ip = NULL;
     interface_t *oif = NULL;
     nexthop_t *nexthop = NULL;
 
@@ -231,7 +231,7 @@ spf_record_result(node_t *spf_root,
         #endif
         assert(0);
     }
-    spf_result = XCALLOC(0, 1, spf_result_t);
+    spf_result = (spf_result_t *)XCALLOC(0, 1, spf_result_t);
     /*We record three things as a part of spf result for a node in 
      * topology : 
      * 1. The node itself
@@ -264,7 +264,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
 
     node_t *nbr;
     interface_t *oif;
-    char *nxt_hop_ip = NULL;
+    c_string nxt_hop_ip = NULL;
 
     #if SPF_LOGGING
     printf("root : %s : Event : Nbr Exploration Start for Node : %s\n",
@@ -373,7 +373,7 @@ compute_spf(node_t *spf_root){
            *nbr;
     glthread_t *curr;
     interface_t *oif;
-    char *nxt_hop_ip = NULL;
+    c_string nxt_hop_ip = NULL;
     spf_data_t *curr_spf_data;
     
     #if SPF_LOGGING
@@ -545,7 +545,7 @@ compute_spf_all_nodes(graph_t *topo){
 }
 
 static void
-spf_algo_interface_update(event_dispatcher_t *ev_dis,  void *arg, size_t arg_size){
+spf_algo_interface_update(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size){
 
 	intf_notif_data_t *intf_notif_data = 
 		(intf_notif_data_t *)arg;

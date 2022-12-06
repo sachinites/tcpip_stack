@@ -33,11 +33,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "graph.h"
 #include "utils.h"
 #include "tcpconst.h"
 #include "notif.h"
 #include "LinuxMemoryManager/uapi_mm.h"
+#include "graph.h"
+#include "Layer3/rt_table/nexthop.h"
+#include "Layer3/layer3.h"
+
 
 /*Just some Random number generator*/
 static uint32_t
@@ -74,7 +77,7 @@ interface_assign_mac_address(interface_t *interface){
 typedef struct l3_route_ l3_route_t;
 
 extern void
-rt_table_add_direct_route(rt_table_t *rt_table, const char *ip_addr, char mask); 
+rt_table_add_direct_route(rt_table_t *rt_table, const c_string ip_addr, char mask); 
 
 bool node_set_loopback_address(node_t *node, const char *ip_addr){
 

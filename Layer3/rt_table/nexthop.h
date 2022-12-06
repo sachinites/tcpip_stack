@@ -1,11 +1,13 @@
 #ifndef __NEXTHOP__
 #define __NEXTHOP__
 
+#include "../../utils.h"
+
 typedef struct nexthop_{
 
     /* Below 3 fields are the keys of the nexthop */
     uint32_t ifindex;  
-    char gw_ip[16];
+    byte gw_ip[16];
     uint8_t proto;
 
     /* internal fields */
@@ -18,7 +20,7 @@ int
 nh_flush_nexthops(nexthop_t **nexthop);
 
 nexthop_t *
-nh_create_new_nexthop(uint32_t oif_index, char *gw_ip, uint8_t proto);
+nh_create_new_nexthop(uint32_t oif_index, c_string gw_ip, uint8_t proto);
 
 bool 
 nh_insert_new_nexthop_nh_array(

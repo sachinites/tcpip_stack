@@ -29,7 +29,7 @@
 int GL_FD_OUT = STDOUT_FILENO;
 
 extern CMD_PARSE_STATUS
-parse_input_cmd(char *input, unsigned int len);
+parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd);
 
 extern char *
 get_last_command();
@@ -160,11 +160,12 @@ config_console_name_handler(param_t *param, ser_buff_t *b, op_mode enable_or_dis
 /*repeat*/
  int
 repeat_last_command(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+    bool is_repeat_cmd;
     static char new_line_consume[2];
     char *last_cmd = get_last_command();
     printf("prev : %s", last_cmd);
     scanf("%c", new_line_consume);;
-    parse_input_cmd(last_cmd, strlen(last_cmd));
+    parse_input_cmd(last_cmd, strlen(last_cmd), &is_repeat_cmd);
     return 0;
 }
 
@@ -244,6 +245,7 @@ static char file_cmsd_size[FILE_CMD_SIZE_MAX];
 show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
    
     int cmd_counter = 0;
+    bool is_repeat_cmd;
 
     unsigned long cmd_offset[MAX_SAVED_CMDS];
 
@@ -280,7 +282,7 @@ show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
    file_cmsd_size[FILE_CMD_SIZE_MAX -1] = '\0';
 
    printf("Command to be triggered : %s", file_cmsd_size); 
-   parse_input_cmd(file_cmsd_size, strlen(file_cmsd_size));   
+   parse_input_cmd(file_cmsd_size, strlen(file_cmsd_size), &is_repeat_cmd);   
 
    fclose(f) ;
    return 0; 

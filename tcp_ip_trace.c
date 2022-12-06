@@ -6,10 +6,10 @@
 
 extern graph_t *topo;
 
-static char *
+static c_string
 string_ethernet_hdr_type(unsigned short type, char *string_buffer){
 
-    char *proto_str = NULL;
+    c_string proto_str = NULL;
 
     switch(type){
 
@@ -28,13 +28,13 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
 				strlen("NMP_HELLO_MSG_CODE"));
 			break;
         default:
-            sprintf(string_buffer, "L2 Proto : %hu", type);
+            sprintf((char *)string_buffer, "L2 Proto : %hu", type);
             break;
     }
     return string_buffer;
 }
 
-static char *
+static c_string
 string_arp_hdr_type(int type,  char *string_buffer){
 
     switch(type){
@@ -50,8 +50,8 @@ string_arp_hdr_type(int type,  char *string_buffer){
     return string_buffer;
 }
 
-static char *
-string_ip_hdr_protocol_val(uint8_t type,   char *string_buffer){
+static c_string
+string_ip_hdr_protocol_val(uint8_t type,   c_string string_buffer){
 
     switch(type){
 
@@ -76,25 +76,25 @@ string_ip_hdr_protocol_val(uint8_t type,   char *string_buffer){
 
 
 static int
-tcp_dump_appln_hdr_protocol_icmp(char *buff, char *appln_data, uint32_t pkt_size){
+tcp_dump_appln_hdr_protocol_icmp(c_string buff, c_string appln_data, uint32_t pkt_size){
 
     return 0;
 }
 
 static int
-tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
+tcp_dump_ip_hdr(c_string buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
 
      int rc = 0;
-     char ip1[16];
-     char ip2[16];
-    char string_buffer[32];
-    pkt_block_t *pkt_block;
+     byte ip1[16];
+     byte ip2[16];
+     byte string_buffer[32];
+     pkt_block_t *pkt_block;
 
      tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip1);
      tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, ip2);
 
-     rc +=  sprintf(buff + rc, "IP Hdr : ");
-     rc +=  sprintf(buff + rc, "TL: %dB PRO: %s %s -> %s ttl: %d\n", 
+     rc +=  sprintf((char *)(buff + rc), "IP Hdr : ");
+     rc +=  sprintf((char *)(buff + rc), "TL: %dB PRO: %s %s -> %s ttl: %d\n", 
                         IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr),
                       string_ip_hdr_protocol_val(ip_hdr->protocol, string_buffer),
                       ip1, ip2, ip_hdr->ttl);
@@ -104,13 +104,13 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
         case ICMP_PROTO:
             rc += tcp_dump_appln_hdr_protocol_icmp(
                         buff + rc,
-                        INCREMENT_IPHDR(ip_hdr), 
+                        (c_string)INCREMENT_IPHDR(ip_hdr), 
                         IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;
         case UDP_PROTO:
             rc += tcp_dump_transport_udp_protocol(
                         buff + rc,
-                        INCREMENT_IPHDR(ip_hdr), 
+                        (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr)), 
                         IP_HDR_PAYLOAD_SIZE(ip_hdr));
             break;            
         break;
@@ -134,18 +134,18 @@ tcp_dump_ip_hdr(char *buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
 }
 
 static int
-tcp_dump_arp_hdr(char *buff, arp_hdr_t *arp_hdr, 
+tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr, 
                   uint32_t pkt_size){
 
     int rc = 0;
-    char ip1[16];
-    char ip2[16];
-    char string_buffer[32];
+    byte ip1[16];
+    byte ip2[16];
+    byte string_buffer[32];
 
-    rc +=  sprintf(buff, "ARP Hdr : ");
-    rc += sprintf(buff + rc, "Arp Type: %s %02x:%02x:%02x:%02x:%02x:%02x -> "
+    rc +=  sprintf((char *)buff, "ARP Hdr : ");
+    rc += sprintf((char *)buff + rc, "Arp Type: %s %02x:%02x:%02x:%02x:%02x:%02x -> "
             "%02x:%02x:%02x:%02x:%02x:%02x %s -> %s\n",
-            string_arp_hdr_type(arp_hdr->op_code, string_buffer),
+            string_arp_hdr_type(arp_hdr->op_code, (char *)string_buffer),
             arp_hdr->src_mac.mac[0],
             arp_hdr->src_mac.mac[1],
             arp_hdr->src_mac.mac[2],
@@ -285,7 +285,7 @@ tcp_dump(int sock_fd,
          FILE *log_file2,
          pkt_block_t *pkt_block,
          hdr_type_t hdr_type,
-         char *out_buff, 
+         c_string out_buff, 
          uint32_t write_offset,
          uint32_t out_buff_size){
 
@@ -363,7 +363,7 @@ tcp_dump_recv_logger(
 
 void
 tcp_dump_l3_fwding_logger(node_t *node,
-            char *oif_name, char *gw_ip){
+            c_string oif_name, c_string gw_ip){
 
     int rc = 0;
 
@@ -515,10 +515,10 @@ static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){
 }
 
 int
-validate_flag_values(char *value){
+validate_flag_values(c_string value){
 
     int k = 0;
-    int len = strlen(value);
+    int len = strlen((const char *)value);
 
     if( (string_compare(value, "all",      k = strlen("all"))       ==   0   && k  == len)          || 
         (string_compare(value, "no-all",   k = strlen("no-all"))    ==   0   && k  == len)          ||
@@ -569,11 +569,11 @@ int traceoptions_handler(param_t *param,
 
     node_t *node;
     c_string node_name;
-    char *if_name;
+    c_string if_name;
     uint32_t flags;
     interface_t *intf;
     int cmdcode = -1;
-    char *flag_val;
+    c_string flag_val;
     log_t *log_info = NULL;
     tlv_struct_t *tlv = NULL;
     int CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
@@ -604,7 +604,7 @@ int traceoptions_handler(param_t *param,
         break;
         case CMDCODE_DEBUG_LOGGING_PER_INTF:
             node =  node_get_node_by_name(topo, node_name);
-            intf = node_get_intf_by_name(node, if_name);
+            intf = node_get_intf_by_name(node,(const char *) if_name);
             if(!intf){
                 printf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
@@ -617,10 +617,10 @@ int traceoptions_handler(param_t *param,
 
     if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE ||
             CMDCODE == CMDCODE_DEBUG_LOGGING_PER_INTF){
-        if(strcmp(flag_val, "all") == 0){
+        if(strcmp((const char *)flag_val, "all") == 0){
             tcp_ip_set_all_log_info_params(log_info, true);
         }
-        else if(strcmp(flag_val, "no-all") == 0){
+        else if(strcmp((const char *)flag_val, "no-all") == 0){
             tcp_ip_set_all_log_info_params(log_info, false);
             
             /*disable logging for all interfaces also*/
@@ -634,28 +634,28 @@ int traceoptions_handler(param_t *param,
                 }
             }
         }
-        else if(strcmp(flag_val, "recv") == 0){
+        else if(strcmp((const char *)flag_val, "recv") == 0){
             log_info->recv = true;
         }
-        else if(strcmp(flag_val, "no-recv") == 0){
+        else if(strcmp((const char *)flag_val, "no-recv") == 0){
             log_info->recv = false;
         }
-        else if(strcmp(flag_val, "send") == 0){
+        else if(strcmp((const char *)flag_val, "send") == 0){
             log_info->send = true;
         }
-        else if(strcmp(flag_val, "no-send") == 0){
+        else if(strcmp((const char *)flag_val, "no-send") == 0){
             log_info->send = false;
         }
-        else if(strcmp(flag_val, "stdout") == 0){
+        else if(strcmp((const char *)flag_val, "stdout") == 0){
             log_info->is_stdout = true;
         }
-        else if(strcmp(flag_val, "no-stdout") == 0){
+        else if(strcmp((const char *)flag_val, "no-stdout") == 0){
             log_info->is_stdout = false;
         }
-        else if(strcmp(flag_val, "l3-fwd") == 0){
+        else if(strcmp((const char *)flag_val, "l3-fwd") == 0){
             log_info->l3_fwd = true;
         }
-        else if(strcmp(flag_val, "no-l3-fwd") == 0){
+        else if(strcmp((const char *)flag_val, "no-l3-fwd") == 0){
             log_info->l3_fwd = false;
         }
     }
@@ -748,19 +748,19 @@ tcp_trace_internal(node_t *node,
 			   interface_t *interface, 
 			   char *buff, const char *fn, int lineno) {
 
-	char lineno_str[16];
+	byte lineno_str[16];
 
 	fwrite(fn, sizeof(char), strlen(fn), tcp_log_file);
 	memset(lineno_str, 0, sizeof(lineno_str));
-	sprintf(lineno_str, " (%u) :", lineno);
-	fwrite(lineno_str, sizeof(char), strlen(lineno_str), tcp_log_file);	
+	sprintf((char *)lineno_str, " (%u) :", lineno);
+	fwrite(lineno_str, sizeof(char), strlen((const char *)lineno_str), tcp_log_file);	
 
 	if (node) {
-		fwrite(node->node_name, sizeof(char), strlen(node->node_name), tcp_log_file);
+		fwrite(node->node_name, sizeof(char), strlen((const char *)node->node_name), tcp_log_file);
 		fwrite(":", sizeof(char), 1, tcp_log_file);
 	}
 	if (interface) {
-		fwrite(interface->if_name, sizeof(char), strlen(interface->if_name), tcp_log_file);
+		fwrite(interface->if_name, sizeof(char), strlen((const char *)interface->if_name), tcp_log_file);
 		fwrite(":", sizeof(char), 1, tcp_log_file);
 	}
     fwrite(buff, sizeof(char), strlen(buff), tcp_log_file);

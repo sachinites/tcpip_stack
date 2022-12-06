@@ -127,7 +127,7 @@ interface_set_l2_mode(node_t *node,
 void
 interface_unset_l2_mode(node_t *node, 
                       interface_t *interface, 
-                      char *l2_mode_option){
+                      c_string l2_mode_option){
 
     
 }
@@ -331,7 +331,7 @@ demote_pkt_to_layer2 (node_t *node, /*Current node*/
                                        uint32_t next_hop_ip,   /*If pkt is forwarded to next router, 
                                                                                 then this is Nexthop IP address (gateway) 
                                                                                 provided by L3 layer. L2 need to resolve ARP for this IP address*/
-                                       char *outgoing_intf,    /* The oif obtained from L3 lookup if L3 
+                                      c_string outgoing_intf,    /* The oif obtained from L3 lookup if L3 
                                                                                 has decided to forward the pkt. If NULL, 
                                                                                 then L2 will find the appropriate interface*/
                                       pkt_block_t *pkt_block, /*Higher Layers payload*/

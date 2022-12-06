@@ -48,7 +48,7 @@ typedef struct ethernet_hdr_{
     mac_add_t dst_mac;
     mac_add_t src_mac;
     unsigned short type;
-    char payload[248];  /*Max allowed 1500*/
+    byte payload[248];  /*Max allowed 1500*/
     uint32_t FCS;
 } ethernet_hdr_t;
 #pragma pack(pop)
@@ -87,7 +87,7 @@ typedef struct vlan_ethernet_hdr_{
     mac_add_t src_mac;
     vlan_8021q_hdr_t vlan_8021q_hdr;
     unsigned short type;
-    char payload[248];  /*Max allowed 1500*/
+    byte payload[248];  /*Max allowed 1500*/
     uint32_t FCS;
 } vlan_ethernet_hdr_t;
 #pragma pack(pop)
@@ -122,7 +122,7 @@ is_pkt_vlan_tagged(ethernet_hdr_t *ethernet_hdr){
 }
 
 /*fn to get access to ethernet payload address*/
-static inline char *
+static inline c_string
 GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
 
    if(is_pkt_vlan_tagged(ethernet_hdr)){
@@ -184,7 +184,7 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 typedef struct mac_table_entry_{
 
     mac_add_t mac;
-    char oif_name[IF_NAME_SIZE];
+    byte oif_name[IF_NAME_SIZE];
     glthread_t mac_entry_glue;
 } mac_table_entry_t;
 GLTHREAD_TO_STRUCT(mac_entry_glue_to_mac_entry, mac_table_entry_t, mac_entry_glue);

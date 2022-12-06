@@ -46,7 +46,7 @@ acl_display_supported_protocols(param_t *param, ser_buff_t *tlv_buf) {
 static int
 acl_port_no_validation (char *value) {
 
-    int64_t val_num = atoi(value);
+    int64_t val_num = atoi((const char *)value);
     if (val_num >= 0 && val_num <= ACL_PROTO_MAX)
         return VALIDATION_SUCCESS;
     printf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
@@ -306,7 +306,7 @@ acl_config_handler (param_t *param,
         else if (parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
             access_list_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "seq-no"))
-            seq_no = atoi(tlv->value);
+            seq_no = atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "permit|deny"))
             action_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "protocol"))
@@ -332,70 +332,70 @@ acl_config_handler (param_t *param,
         else if (parser_match_leaf_id(tlv->leaf_id, "object-group-name-dst"))
             obj_grp_name_dst = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "src-port-no-eq")) {
-            src_port_no_eq = atoi(tlv->value);
+            src_port_no_eq = atoi((const char *)tlv->value);
             if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO)) {
                 printf("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-lt")) {
-            src_port_no_lt = atoi(tlv->value);
+            src_port_no_lt = atoi((const char *)tlv->value);
             if (src_port_no_lt <= 0 || src_port_no_lt > ACL_MAX_PORTNO) {
                 printf ("Error : Invalid Src lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-gt")) {
-            src_port_no_gt = atoi(tlv->value);
+            src_port_no_gt = atoi((const char *)tlv->value);
             if (src_port_no_gt < 0 || src_port_no_gt >= ACL_MAX_PORTNO) {
                 printf ("Error : Invalid Src gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no1")) {
-            src_port_no1 = atoi(tlv->value);
+            src_port_no1 = atoi((const char *)tlv->value);
             if (!(src_port_no1 >= 0 && src_port_no1 <= ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no2")) {
-            src_port_no2 = atoi(tlv->value);         
+            src_port_no2 = atoi((const char *)tlv->value);         
             if (!(src_port_no2 >= 0 && src_port_no2 <= ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }                           
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-eq")) {
-            dst_port_no_eq = atoi(tlv->value);
+            dst_port_no_eq = atoi((const char *)tlv->value);
             if (!(dst_port_no_eq > 0 && dst_port_no_eq < ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-lt")) {
-            dst_port_no_lt = atoi(tlv->value);
+            dst_port_no_lt = atoi((const char *)tlv->value);
             if (dst_port_no_lt <= 0 || dst_port_no_lt > ACL_MAX_PORTNO) {
                 printf ("Error : Invalid Dst lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-gt")) {
-            dst_port_no_gt = atoi(tlv->value);
+            dst_port_no_gt = atoi((const char *)tlv->value);
             if (dst_port_no_gt < 0 || dst_port_no_gt >= ACL_MAX_PORTNO) {
                 printf ("Error : Invalid Dst gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no1")) {
-            dst_port_no1 = atoi(tlv->value);
+            dst_port_no1 = atoi((const char *)tlv->value);
             if (!(dst_port_no1 >= 0 && dst_port_no1 <= ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no2")) {
-            dst_port_no2 = atoi(tlv->value);         
+            dst_port_no2 = atoi((const char *)tlv->value);         
             if (!(dst_port_no2 >= 0 && dst_port_no2 <= ACL_MAX_PORTNO)) {
                 printf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;

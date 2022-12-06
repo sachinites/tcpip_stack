@@ -12,6 +12,7 @@
 #include "../../ted/ted.h"
 #include "isis_ted.h"
 #include "isis_spf.h"
+#include "isis_policy.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -34,7 +35,7 @@ isis_config_handler(param_t *param,
         if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "timeout-val"))
-            ovl_timeout_val = atoi(tlv->value);
+            ovl_timeout_val = atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "if-grp-name"))
             if_grp_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "prefix-list-name"))
@@ -141,7 +142,7 @@ isis_intf_config_handler(param_t *param,
     interface_t *intf = NULL;
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
-
+    isis_intf_group_t *intf_grp = NULL;
     char *if_grp_name = NULL;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
@@ -205,7 +206,7 @@ isis_intf_config_handler(param_t *param,
                     return -1;
                 }
 
-                isis_intf_group_t *intf_grp = isis_intf_grp_look_up(node, if_grp_name);
+                intf_grp = isis_intf_grp_look_up(node, if_grp_name);
                 
                 if (!intf_grp) {
                     printf("Error : Interface Group do not exist\n");
@@ -224,6 +225,7 @@ isis_intf_config_handler(param_t *param,
                     return isis_intf_group_remove_intf_membership(intf_grp, intf);
                 default:;
                 }
+        break;
         default: ;
     }
     return 0;

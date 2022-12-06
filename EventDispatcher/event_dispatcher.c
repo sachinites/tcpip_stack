@@ -32,14 +32,14 @@ void event_dispatcher_mem_init();
 void
 event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 
-	task_priority_t priority;
 	strncpy((char *)ev_dis->name, name, sizeof(ev_dis->name) - 1);
 	ev_dis->name[sizeof(ev_dis->name) - 1] = '0';
 
 	pthread_mutex_init(&ev_dis->ev_dis_mutex, NULL);
-	for (priority = TASK_PRIORITY_FIRST; priority < TASK_PRIORITY_MAX; priority++) {
-		init_glthread(&ev_dis->task_array_head[priority]);
-	}
+	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
+	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
+	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
+
 	ev_dis->pending_task_count = 0;
 	
 	ev_dis->ev_dis_state = EV_DIS_IDLE;
@@ -149,11 +149,13 @@ static task_t *
 event_dispatcher_get_next_task_to_run(event_dispatcher_t *ev_dis){
 
 	glthread_t *curr;
-	task_priority_t priority;
-	for (priority = TASK_PRIORITY_FIRST; priority < TASK_PRIORITY_MAX; priority++) {
-		curr = dequeue_glthread_first(&ev_dis->task_array_head[priority]);
-		if (curr) return  glue_to_task(curr);
-	}
+
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
+	if (curr) return glue_to_task(curr);
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
+	if (curr) return glue_to_task(curr);
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
+	if (curr) return glue_to_task(curr);
 	return NULL;
 }
 

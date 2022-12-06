@@ -810,7 +810,7 @@ ddcp_de_init(node_t *node){
 int
 ddcp_validate_query_interval(char *ddcp_q_interval){
 
-    int ddcp_q_intvl = atoi(ddcp_q_interval);
+    int ddcp_q_intvl = atoi((const char *)ddcp_q_interval);
     if(ddcp_q_intvl < 1){
         printf("Error : Invalid Value, expected > 1\n");
         return VALIDATION_FAILED;
@@ -838,7 +838,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
         if  (string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
         else if(string_compare(tlv->leaf_id, "ddcp-q-interval", strlen("ddcp-q-interval")) == 0)
-            ddcp_q_interval = atoi(tlv->value);
+            ddcp_q_interval = atoi((const char *)tlv->value);
         else if(string_compare(tlv->leaf_id, "if-name", strlen("if-name")) == 0)
             intf_name = tlv->value;
         else

@@ -332,6 +332,8 @@ access_list_mtrie_app_data_free_cbk (mtrie_node_t *mnode) {
 void
 acl_compile (acl_entry_t *acl_entry) {
 
+    uint8_t proto_layer = 0;
+
     if (acl_entry->is_compiled) {
         sprintf (tlb, "%s : Acl %s-%u is already compiled\n", 
             FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
@@ -358,7 +360,7 @@ acl_compile (acl_entry_t *acl_entry) {
         goto SRC_ADDR;
     }
 
-    uint8_t proto_layer = tcpip_protocol_classification(
+    proto_layer = tcpip_protocol_classification(
                                     (uint16_t)acl_entry->proto);
 
     /* Transport Protocol 2 B*/
@@ -1600,7 +1602,7 @@ access_list_print_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry
 }
 
 void
- access_list_print_bitmap (node_t *node, char *access_list_name) {
+ access_list_print_bitmap (node_t *node, c_string access_list_name) {
 
     glthread_t *curr;
     acl_entry_t *acl_entry;

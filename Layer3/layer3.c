@@ -120,7 +120,7 @@ promote_pkt_to_layer4(node_t *node, interface_t *recv_intf,
 extern void
 demote_pkt_to_layer2(node_t *node,
                      uint32_t next_hop_ip,
-                     char *outgoing_intf, 
+                     c_string outgoing_intf, 
                      pkt_block_t *pkt_block,
                      hdr_type_t hdr_type);
 
@@ -306,8 +306,7 @@ layer3_ip_route_pkt(node_t *node,
          layer3_ip_route_pkt_done;
     }
 
-    inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
-    next_hop_ip = htonl(next_hop_ip);
+    next_hop_ip = tcp_ip_covert_ip_p_to_n(nexthop->gw_ip);
    
     tcp_dump_l3_fwding_logger(node, 
         nexthop->oif->if_name, nexthop->gw_ip);
@@ -1034,8 +1033,7 @@ demote_packet_to_layer3 (node_t *node,
         return;
     }
 
-    inet_pton(AF_INET, nexthop->gw_ip, &next_hop_ip);
-    next_hop_ip = htonl(next_hop_ip);
+    next_hop_ip = tcp_ip_covert_ip_p_to_n(nexthop->gw_ip);
 
     tcp_dump_l3_fwding_logger(node,
                                                     nexthop->oif->if_name, 
