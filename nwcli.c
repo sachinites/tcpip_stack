@@ -63,7 +63,8 @@ extern void network_object_build_show_cli (param_t *root) ;
 extern void object_group_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
 extern void time_range_config_cli_tree (param_t *root) ;
-extern void access_list_print_bitmap(node_t *node, char *access_list_name);
+extern void gre_cli_config_tree (param_t *interface);
+extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
@@ -208,23 +209,21 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 /*General Validations*/
 
 static int 
-validate_if_up_down_status(char *value){
+validate_if_up_down_status(c_string value){
 
-    if(string_compare(value, "up", strlen("up")) == 0 && 
-        strlen("up") == strlen(value)){
+    if(string_compare(value, "up", strlen("up")) == 0 ) {
         return VALIDATION_SUCCESS;
     }
-    else if(string_compare(value, "down", strlen("down")) == 0 && 
-            strlen("down") == strlen(value)){
+    else if(string_compare(value, "down", strlen("down")) == 0) {
         return VALIDATION_SUCCESS;
     }
     return VALIDATION_FAILED;
 }
 
 static int
-validate_interface_metric_val(char *value){
+validate_interface_metric_val(c_string  value){
 
-    uint32_t metric_val = atoi(value);
+    uint32_t metric_val = atoi((const char *)value);
     if(metric_val > 0 && metric_val <= INTF_MAX_METRIC)
         return VALIDATION_SUCCESS;
     return VALIDATION_FAILED;
@@ -242,9 +241,9 @@ validate_node_extistence(c_string node_name){
 }
 
 static int
-validate_vlan_id(char *vlan_value){
+validate_vlan_id(c_string vlan_value){
 
-    uint32_t vlan = atoi(vlan_value);
+    uint32_t vlan = atoi((const char *)vlan_value);
     if(!vlan){
         printf("Error : Invalid Vlan Value\n");
         return VALIDATION_FAILED;
@@ -256,7 +255,7 @@ validate_vlan_id(char *vlan_value){
 }
 
 static int
-validate_l2_mode_value(char *l2_mode_value){
+validate_l2_mode_value(c_string l2_mode_value){
 
     if((string_compare(l2_mode_value, "access", strlen("access")) == 0) || 
         (string_compare(l2_mode_value, "trunk", strlen("trunk")) == 0))
@@ -264,10 +263,13 @@ validate_l2_mode_value(char *l2_mode_value){
     return VALIDATION_FAILED;
 }
 
-static int
-validate_mask_value(char *mask_str){
+int
+validate_mask_value(c_string mask_str);
 
-    int mask = atoi(mask_str);
+int
+validate_mask_value(c_string mask_str){
+
+    int mask = atoi((const char *)mask_str);
     if(mask >= 0 && mask <= 32)
         return VALIDATION_SUCCESS;
     printf("Error : Invalid Mask Value\n");
@@ -559,7 +561,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
 
     char mask;
     if(mask_str){
-        mask = atoi(mask_str);
+        mask = atoi((const char *)(const char *)mask_str);
     }
 
     switch(CMDCODE){
@@ -569,7 +571,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                 {
                     interface_t *intf;
                     if(intf_name){
-                        intf = node_get_intf_by_name(node, intf_name);
+                        intf = node_get_intf_by_name(node, (const char *)intf_name);
                         if(!intf){
                             printf("Config Error : Non-Existing Interface : %s\n", intf_name);
                             return -1;
@@ -579,7 +581,8 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                             return -1;
                         }
                     }
-                    rt_table_add_route(NODE_RT_TABLE(node), dest, mask, gwip, intf, 0, PROTO_STATIC);
+                    rt_table_add_route(NODE_RT_TABLE(node), (const char *)dest, mask, 
+                        (const char *)gwip, intf, 0, PROTO_STATIC);
                 }
                 break;
                 case CONFIG_DISABLE:
@@ -591,7 +594,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
             break;
         case CMDCODE_CONF_RIB_IMPORT_POLICY:
         {
-            if (strcmp(rib_name, "inet.0") == 0) {
+            if (string_compare(rib_name, "inet.0", 6) == 0) {
                 rt_table_t *rt_table = NODE_RT_TABLE(node);
                 prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, prefix_lst_name);
                 if (!prefix_lst) {
@@ -642,12 +645,12 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
 extern void
 interface_set_l2_mode(node_t *node,
                        interface_t *interface,
-                       char *l2_mode_option);
+                       c_string l2_mode_option);
 
 extern void
 interface_unset_l2_mode(node_t *node,
                          interface_t *interface,
-                         char *l2_mode_option);
+                         c_string l2_mode_option);
 extern void
 interface_set_vlan(node_t *node,
                     interface_t *interface,
@@ -691,26 +694,26 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         else if(parser_match_leaf_id(tlv->leaf_id, "if-name"))
             intf_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "vlan-id"))
-            vlan_id = atoi(tlv->value);
+            vlan_id = atoi((const char *)tlv->value);
         else if(parser_match_leaf_id(tlv->leaf_id, "l2-mode-val"))
             l2_mode_option = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "if-up-down"))
              if_up_down = tlv->value; 
         else if(parser_match_leaf_id(tlv->leaf_id, "metric-val"))
-             intf_new_matric_val = atoi(tlv->value);      
+             intf_new_matric_val = atoi((const char *)tlv->value);      
         else if(parser_match_leaf_id(tlv->leaf_id, "intf-ip-address"))
              intf_ip_addr = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
-             mask = atoi(tlv->value);  
+             mask = atoi((const char *)tlv->value);  
         else if(parser_match_leaf_id(tlv->leaf_id, "lono"))
-             lono = atoi(tlv->value);  
+             lono = atoi((const char *)tlv->value);  
         else
             assert(0);
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
     if (intf_name) {
-        interface = node_get_intf_by_name(node, intf_name);
+        interface = node_get_intf_by_name(node, (const char *)intf_name);
     }
 
     switch (CMDCODE) {
@@ -846,7 +849,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
    node_t *node;
    c_string node_name;
    tlv_struct_t *tlv = NULL;
-   char *access_list_name = NULL;
+   c_string access_list_name = NULL;
 
    int CMDCODE;
 
@@ -873,7 +876,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
             mtrie_longest_prefix_first_traverse(
-                    NODE_RT_TABLE(node),
+                    &NODE_RT_TABLE(node)->route_list,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:
@@ -892,7 +895,7 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
     int CMDCODE;
     node_t *node;
     c_string node_name;
-    char *protocol_name = NULL;
+    c_string protocol_name = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
@@ -1345,6 +1348,11 @@ nw_init_cli(){
             init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
             libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&node_name, &interface);
+            {
+                /* CLI for GRE Tunneling are mounted here*/
+                gre_cli_config_tree(&interface);
+            }
+
             {
                 /*config node <node-name> interface <if-name>*/
                 static param_t if_name;

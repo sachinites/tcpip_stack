@@ -27,7 +27,7 @@ nh_flush_nexthops(nexthop_t **nexthop){
 }
 
 nexthop_t *
-nh_create_new_nexthop(uint32_t oif_index, char *gw_ip, uint8_t proto){
+nh_create_new_nexthop(uint32_t oif_index, c_string gw_ip, uint8_t proto){
 
     nexthop_t *nexthop = ( nexthop_t *)XCALLOC(0, 1, nexthop_t);
     nexthop->ifindex = oif_index;

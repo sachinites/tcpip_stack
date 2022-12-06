@@ -30,8 +30,12 @@ isis_process_hello_pkt(node_t *node,
                        size_t pkt_size) {
 
     uint8_t intf_ip_len;
+    size_t tlv_buff_size;
     char if_ip_addr_str[16];
+    uint32_t *if_ip_addr_int;
     isis_pkt_hdr_t *hello_pkt_hdr;
+    byte *hello_tlv_buffer = NULL;
+    isis_adjacency_t *adjacency = NULL;    
 
     if (!isis_node_intf_is_enable(iif)) return;
 
@@ -51,14 +55,14 @@ isis_process_hello_pkt(node_t *node,
     hello_pkt_hdr = (isis_pkt_hdr_t *)
         GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
     
-    byte *hello_tlv_buffer = (byte *) (hello_pkt_hdr + 1);
+    hello_tlv_buffer = (byte *) (hello_pkt_hdr + 1);
 
-    size_t tlv_buff_size = pkt_size - \
+    tlv_buff_size = pkt_size - \
                                        ETH_HDR_SIZE_EXCL_PAYLOAD - \
                                        sizeof(isis_pkt_hdr_t); 
 
     /*Fetch the IF IP Address Value from TLV buffer*/
-    uint32_t *if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv (
+    if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv (
                                                                 hello_tlv_buffer, 
                                                                 tlv_buff_size, 
                                                                 ISIS_TLV_IF_IP, 
@@ -73,7 +77,7 @@ isis_process_hello_pkt(node_t *node,
                        iif->intf_nw_props.mask, 
                        (unsigned char*)if_ip_addr_str)){
 
-        isis_adjacency_t *adjacency = isis_find_adjacency_on_interface(iif, 0);
+       adjacency = isis_find_adjacency_on_interface(iif, 0);
 
         if (adjacency) {
             sprintf(tlb, "%s : Adjacency %s will be brought down, bad hello recvd\n",
@@ -137,6 +141,7 @@ isis_pkt_recieve (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
     isis_pkt_hdr_t *pkt_hdr;
     pkt_block_t *pkt_block;
     isis_node_info_t *node_info;
+    isis_pkt_type_t isis_pkt_type;
     pkt_notif_data_t *pkt_notif_data;
 
     pkt_notif_data = (pkt_notif_data_t *)arg;
@@ -164,7 +169,7 @@ isis_pkt_recieve (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
     pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
-    isis_pkt_type_t isis_pkt_type = pkt_hdr->isis_pkt_type;
+    isis_pkt_type = pkt_hdr->isis_pkt_type;
 
     switch(isis_pkt_type) {
 

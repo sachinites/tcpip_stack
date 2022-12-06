@@ -769,7 +769,7 @@ mm_print_vm_page_details(vm_page_t *vm_page, uint32_t i){
 }
 
 void
-mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name){
+mm_print_memory_usage(mm_instance_t *mm_inst,  unsigned char *struct_name){
 
     uint32_t i = 0;
     vm_page_t *vm_page = NULL;

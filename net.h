@@ -89,9 +89,9 @@ typedef struct node_nw_prop_{
     ip_add_t lb_addr; /*loopback address of node*/
 
     /*Sending Buffer*/
-    char *send_log_buffer; /*Used for logging */
+    c_string send_log_buffer; /*Used for logging */
     /* Receiving Buffer */ 
-    char *recv_log_buffer; /* Used for logging */
+    c_string recv_log_buffer; /* Used for logging */
 
     /*Device level Appln DS*/
     nmp_t *nmp;
@@ -117,8 +117,8 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(node, &(node_nw_prop->rt_table));
 	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
-    node_nw_prop->send_log_buffer = (char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
-    node_nw_prop->recv_log_buffer = (char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
 	init_glthread(&(node_nw_prop->traffic_gen_db_head));
 }
 
@@ -286,6 +286,8 @@ void dump_node_nw_props(node_t *node);
 void dump_intf_props(interface_t *interface);
 void dump_node_interface_stats(node_t *node);
 void dump_interface_stats(interface_t *interface);
+void interface_loopback_create (node_t *node, uint8_t lono) ;
+void interface_loopback_delete (node_t *node, uint8_t lono) ;
 
 /*Helper Routines*/
 interface_t *

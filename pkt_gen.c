@@ -77,14 +77,14 @@ main(int argc, char **argv){
         case 1:
             break;
         case 2:
-            SRC_NODE_UDP_PORT_NO = atoi(argv[1]);
+            SRC_NODE_UDP_PORT_NO = atoi((const char *)argv[1]);
             break;
         case 3:
-            SRC_NODE_UDP_PORT_NO = atoi(argv[1]);
+            SRC_NODE_UDP_PORT_NO = atoi((const char *)argv[1]);
             INGRESS_INTF_NAME = argv[2];
             break;
         case 4:
-            SRC_NODE_UDP_PORT_NO = atoi(argv[1]);
+            SRC_NODE_UDP_PORT_NO = atoi((const char *)argv[1]);
             INGRESS_INTF_NAME = argv[2];
             DEST_IP_ADDR = argv[3];
             break;

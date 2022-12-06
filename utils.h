@@ -37,7 +37,7 @@
 #define __UTILS__
 
 #define CPLUSPLUS
-#undef CPLUSPLUS
+//#undef CPLUSPLUS
 
 
 #include <stdint.h>

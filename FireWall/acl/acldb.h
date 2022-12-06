@@ -338,7 +338,7 @@ void
 access_list_compute_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry) ;
 
 void
- access_list_print_bitmap (node_t *node, char *access_list_name) ;
+ access_list_print_bitmap (node_t *node, c_string access_list_name) ;
 
 void
 acl_print (acl_entry_t *acl_entry);

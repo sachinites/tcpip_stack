@@ -245,15 +245,15 @@ prefix_lst_config_handler (param_t *param,
         else if(parser_match_leaf_id(tlv->leaf_id, "permit|deny"))
             res_str = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "seq-no"))
-            seq_no = atoi(tlv->value);
+            seq_no = atoi((const char *)tlv->value);
         else if(parser_match_leaf_id(tlv->leaf_id, "nw-ip"))
             nw_prefix = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "nw-mask"))
-            len = atoi(tlv->value); 
+            len = atoi((const char *)tlv->value); 
         else if(parser_match_leaf_id(tlv->leaf_id, "ge-n"))
-            lb = atoi(tlv->value);                
+            lb = atoi((const char *)tlv->value);                
         else if(parser_match_leaf_id(tlv->leaf_id, "le-n"))
-            ub = atoi(tlv->value);               
+            ub = atoi((const char *)tlv->value);               
     } TLV_LOOP_END;
 
     new_pfx_lst = false;
@@ -497,7 +497,7 @@ void prefix_list_cli_show_tree(param_t *param) {
 /* Prefix-list change notification */
 typedef void (*prefix_list_change_cbk)(node_t *, prefix_list_t *);
 
-extern void isis_prefix_list_change(node_t *node, access_list_t *access_lst);
+extern void isis_prefix_list_change(node_t *node, prefix_list_t *pfx_lst);
 
 static prefix_list_change_cbk notif_arr[] = { isis_prefix_list_change,
                                                                         /*add_mode_callbacks_here,*/

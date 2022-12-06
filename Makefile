@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-g -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3
+CC=g++
+CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Proto Libs
@@ -29,6 +29,7 @@ OBJS=gluethread/glthread.o \
 		  Layer2/layer2.o  \
 		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
+		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
 		  Layer3/rt_notif.o	\
@@ -41,8 +42,6 @@ OBJS=gluethread/glthread.o \
           libtimer/WheelTimer.o   \
           libtimer/timerlib.o   \
 		  libtimer/timedef.o \
-          Layer5/nbrship_mgmt/nbrship_mgmt.o \
-		  Layer5/ddcp/ddcp.o \
 		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
 		  pkt_block.o \
@@ -125,9 +124,6 @@ libtimer/timedef.o:libtimer/timedef.c
 tcp_stack_init.o:tcp_stack_init.c
 	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
 
-Layer5/nbrship_mgmt/nbrship_mgmt.o:Layer5/nbrship_mgmt/nbrship_mgmt.c
-	${CC} ${CFLAGS} -c -I . Layer5/nbrship_mgmt/nbrship_mgmt.c -o Layer5/nbrship_mgmt/nbrship_mgmt.o
-
 graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
 
@@ -188,9 +184,6 @@ nwcli.o:nwcli.c
 utils.o:utils.c
 	${CC} ${CFLAGS} -c -I . utils.c -o utils.o
 
-Layer5/ddcp/ddcp.o:Layer5/ddcp/ddcp.c
-	${CC} ${CFLAGS} -c -I . -I Layer5/ddcp/ Layer5/ddcp/ddcp.c -o Layer5/ddcp/ddcp.o
-
 BitOp/bitmap.o:BitOp/bitmap.c
 	${CC} ${CFLAGS} -c BitOp/bitmap.c -o BitOp/bitmap.o
 
@@ -206,7 +199,11 @@ c-hashtable/hashtable.o:c-hashtable/hashtable.c
 
 c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
 	${CC} ${CFLAGS} -c c-hashtable/hashtable_itr.c -o c-hashtable/hashtable_itr.o
-		  
+
+#GRE files
+Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.c
+	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.c -o Layer3/gre-tunneling/grecli.o
+
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -242,19 +239,18 @@ clean:
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
-	rm -f Layer5/ddcp/*.o
 	(cd Layer5/isis; make clean)
 	rm -f Layer5/spf_algo/*.o
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
-	rm -f Layer5/nbrship_mgmt/*.o
-	rm -f Bitop/*.o
+	rm -f BitOp/*.o
 	rm -f stack/*.o
 	rm -f hashmap/*.o
 	rm -f packet-tracer/*.o
 	rm -f prefix-list/*.o
 	rm -f Threads/*.o
 	(cd c-hashtable; make clean)
+	rm -f Layer3/gre-tunneling/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:

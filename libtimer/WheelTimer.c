@@ -188,7 +188,7 @@ wheel_timer_t*
 init_wheel_timer(int wheel_size, int clock_tic_interval,
 				 timer_resolution_t timer_resolution){
 	
-	wheel_timer_t *wt = calloc(1, sizeof(wheel_timer_t) + 
+	wheel_timer_t *wt = (wheel_timer_t *)calloc(1, sizeof(wheel_timer_t) + 
 				(wheel_size * sizeof(slotlist_t)));
 
 	wt->clock_tic_interval = clock_tic_interval;
@@ -263,7 +263,7 @@ timer_register_app_event(wheel_timer_t *wt,
 		assert(0);
 	}
 
-	wheel_timer_elem_t *wt_elem = calloc(1, sizeof(wheel_timer_elem_t));
+	wheel_timer_elem_t *wt_elem = (wheel_timer_elem_t *)calloc(1, sizeof(wheel_timer_elem_t));
 	wt_elem->wt = wt;
 	wt_elem->app_callback  = call_back;
     if(arg && arg_size){

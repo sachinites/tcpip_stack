@@ -89,9 +89,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
     char ip_addr[16];
     l3_route_t *l3route;
+    ted_prefix_t *ted_prefix;
+    avltree_node_t *avl_node;
     isis_node_info_t *node_info;
     uint32_t prefix32bit, mask32bit;
-    ted_prefix_t *ted_prefix, *ted_prefix_curr;
+
 
     rt_table_t *rt_table = 
         NODE_RT_TABLE(spf_root);
@@ -144,9 +146,9 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
             /* Exported Prefixes */
             
-             ITERATE_AVL_TREE_BEGIN(spf_result->node->prefix_tree_root, ted_prefix_curr){
+             ITERATE_AVL_TREE_BEGIN(spf_result->node->prefix_tree_root, avl_node){
 
-                    ted_prefix = avltree_container_of(ted_prefix_curr, ted_prefix_t, avl_glue);
+                    ted_prefix = avltree_container_of(avl_node, ted_prefix_t, avl_glue);
                     
                     if (isis_evaluate_policy(spf_root, 
                                                     node_info->import_policy,

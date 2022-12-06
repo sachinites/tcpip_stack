@@ -44,7 +44,7 @@ void
 xfree_inst(mm_instance_t *mm_inst, void *app_ptr);
 
 /*Printing Functions*/
-void mm_print_memory_usage(mm_instance_t *mm_inst,  char *struct_name);
+void mm_print_memory_usage(mm_instance_t *mm_inst,  unsigned char *struct_name);
 void mm_print_block_usage(mm_instance_t *mm_inst);
 void mm_print_registered_page_families(mm_instance_t *mm_inst);
 void mm_print_variable_buffers(mm_instance_t *mm_inst);

@@ -90,7 +90,7 @@ setup_timer(
     void *user_arg,                  	/*  Arg to timer callback */
 	bool exponential_backoff){			/*  Is Timer Exp backoff*/
 
-	Timer_t *timer = calloc(1, sizeof(Timer_t));	
+	Timer_t *timer = (Timer_t *)calloc(1, sizeof(Timer_t));	
 
 	timer->user_arg = user_arg;
 	timer->exp_timer = exp_timer;

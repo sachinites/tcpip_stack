@@ -43,12 +43,12 @@
 void
 init_mac_table(mac_table_t **mac_table){
 
-    *mac_table =XCALLOC(0, 1, mac_table_t);
+    *mac_table = (mac_table_t *)XCALLOC(0, 1, mac_table_t);
     init_glthread(&((*mac_table)->mac_entries));
 }
 
 mac_table_entry_t *
-mac_table_lookup(mac_table_t *mac_table, char *mac){
+mac_table_lookup(mac_table_t *mac_table, c_string mac){
 
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
@@ -78,7 +78,7 @@ clear_mac_table(mac_table_t *mac_table){
 }
 
 void
-delete_mac_table_entry(mac_table_t *mac_table, char *mac){
+delete_mac_table_entry(mac_table_t *mac_table, c_string mac){
 
     mac_table_entry_t *mac_table_entry;
     mac_table_entry = mac_table_lookup(mac_table, mac);
@@ -146,10 +146,10 @@ dump_mac_table(mac_table_t *mac_table){
 }
 
 static void
-l2_switch_perform_mac_learning(node_t *node, char *src_mac, char *if_name){
+l2_switch_perform_mac_learning(node_t *node, c_string src_mac, c_string if_name){
 
     bool rc;
-    mac_table_entry_t *mac_table_entry = XCALLOC(0, 1, mac_table_entry_t);
+    mac_table_entry_t *mac_table_entry = ( mac_table_entry_t *)XCALLOC(0, 1, mac_table_entry_t);
     memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_add_t));
     string_copy((char *)mac_table_entry->oif_name, if_name, IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
@@ -250,7 +250,7 @@ l2_switch_send_pkt_out(
     return false;
 }
 
-static bool 
+static void
 l2_switch_flood_pkt_out (node_t *node, 
                                           interface_t *exempted_intf,
                                           pkt_block_t *pkt_block) {
@@ -301,8 +301,8 @@ l2_switch_forward_frame(
         return;
     }
 
-    char *oif_name = mac_table_entry->oif_name;
-    interface_t *oif = node_get_intf_by_name(node, oif_name);
+    c_string oif_name = mac_table_entry->oif_name;
+    interface_t *oif = node_get_intf_by_name(node, (const char *)oif_name);
 
     if(!oif){
         return;
@@ -321,8 +321,8 @@ l2_switch_recv_frame(node_t *node,
     ethernet_hdr_t *ethernet_hdr = 
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    char *dst_mac = (char *)ethernet_hdr->dst_mac.mac;
-    char *src_mac = (char *)ethernet_hdr->src_mac.mac;
+    c_string dst_mac = (c_string)ethernet_hdr->dst_mac.mac;
+    c_string src_mac = (c_string)ethernet_hdr->src_mac.mac;
 
     l2_switch_perform_mac_learning(node, src_mac, interface->if_name);
     l2_switch_forward_frame(node, interface, pkt_block);

@@ -71,6 +71,6 @@ int
 nfc_pkt_trace_invoke_notif_to_sbscribers(
                     uint32_t protocol_no,
                     pkt_block_t *pkt_block,
-					char *pkt_print_buffer);
+					c_string pkt_print_buffer);
 
 #endif /* __TCPIP_NOTIF_C */

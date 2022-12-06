@@ -17,6 +17,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     uint32_t ip_addr_int;
     byte *subtlv_navigator;
     avltree_t *prefix_tree_root = NULL;
+    byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
@@ -64,8 +65,6 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                                sizeof(uint8_t);   // 1B subtlv len
 
             /* Now Read the Sub TLVs */
-            byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
-
             ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
                               tlv_len2, tlv_value2, subtlv_len) {
 

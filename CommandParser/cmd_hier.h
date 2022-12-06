@@ -29,7 +29,7 @@
 
 typedef struct serialized_buffer ser_buff_t;
 typedef int (*cmd_callback)(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_diable);
-typedef int (*user_validation_callback)(char *leaf_value);
+typedef int (*user_validation_callback)(unsigned char *leaf_value);
 typedef void (*display_possible_values_callback)(param_t *, ser_buff_t *);
 
 typedef struct _param_t_ param_t;
@@ -159,7 +159,7 @@ get_child_array_ptr(param_t *param){
 }
 
 static inline int
-INVOKE_LEAF_USER_VALIDATION_CALLBACK(param_t *param, char *leaf_value) {
+INVOKE_LEAF_USER_VALIDATION_CALLBACK(param_t *param, unsigned char *leaf_value) {
 
     assert(param);
     assert(leaf_value);

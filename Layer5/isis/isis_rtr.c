@@ -18,9 +18,9 @@
 #include "../../FireWall/acl/acldb.h"
 
 extern void isis_mem_init();
-extern void isis_ipv4_rt_notif_cbk (
+void isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
-        void *rt_notif_data, size_t arg_size);
+        void *rt_notif_data, unsigned int arg_size);
 extern void isis_free_exported_rt(mtrie_node_t *mnode);
 
 /* Checking if protocol enable at node & intf level */
@@ -401,6 +401,7 @@ isis_show_event_counters(node_t *node) {
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
+    #ifndef CPLUSPLUS
     rc = snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, "Event Counters :\n");
 
     for(event_type = isis_event_none + 1; 
@@ -412,6 +413,7 @@ isis_show_event_counters(node_t *node) {
                 node_info->isis_event_count[event_type]);
     }
     cli_out(node->print_buff , rc);
+    #endif
 }
 
 void
@@ -659,8 +661,8 @@ static void
 
     isis_node_info_t *node_info;
 
-     sprintf(tlb, "Recv notif for Route %s/%d with code %d, ref_count = %d\n",
-        l3route->dest, l3route->mask, l3route->rt_flags, l3route->ref_count);
+     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
+        l3route->dest, l3route->mask, l3route->rt_flags);
      tcp_trace(node, 0, tlb);
 
     node_info = ISIS_NODE_INFO(node);
@@ -694,7 +696,7 @@ static void
 void
 isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
-        void *rt_notif_data, size_t arg_size) {
+        void *rt_notif_data, unsigned int arg_size) {
 
     node_t *node;
     l3_route_t *l3route;

@@ -26,7 +26,7 @@
  * config change notification to applications */
 static notif_chain_t nfc_intf = {
 	"Notif Chain for Interfaces",
-	0,
+	0, 0,
 	{0, 0}
 };
 
@@ -71,7 +71,7 @@ nfc_intf_invoke_notification_to_sbscribers(
 
 static notif_chain_t nfc_print_pkts = {
 	"Notif Chain For Tracing appln Pkts",
-	0,
+	0, 0,
 	{0, 0},
 };
 
@@ -97,7 +97,7 @@ int
 nfc_pkt_trace_invoke_notif_to_sbscribers(
 					uint32_t protocol_no,
 					pkt_block_t *pkt_block,
-					char *pkt_print_buffer){
+					c_string pkt_print_buffer){
 
 	pkt_info_t pkt_info;
 	

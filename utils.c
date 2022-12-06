@@ -48,7 +48,7 @@ apply_mask(unsigned char *prefix, char mask, unsigned char *str_prefix){
     uint32_t subnet_mask = ~0;
 
     if(mask == 32){
-        strncpy((char *)str_prefix, prefix, 16);
+        string_copy(str_prefix, prefix, 16);
         str_prefix[15] = '\0';
         return;
     }
@@ -78,20 +78,20 @@ layer2_fill_with_broadcast_mac(unsigned char *mac_array){
 
 unsigned char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
-                                        unsigned char *output_buffer){
+                                        c_string output_buffer){
 
     memset(output_buffer, 0, 16);
     ip_addr = htonl(ip_addr);
-    inet_ntop(AF_INET, &ip_addr, output_buffer, 16);
+    inet_ntop(AF_INET, &ip_addr, (char *)output_buffer, 16);
     output_buffer[15] = '\0';
     return output_buffer;
 }
 
 uint32_t
-tcp_ip_covert_ip_p_to_n(unsigned char *ip_addr){
+tcp_ip_covert_ip_p_to_n(c_string ip_addr){
 
     uint32_t binary_prefix = 0;
-    inet_pton(AF_INET, ip_addr, &binary_prefix);
+    inet_pton(AF_INET, (const char *)ip_addr, &binary_prefix);
     binary_prefix = htonl(binary_prefix);
     return binary_prefix;
 }
@@ -379,7 +379,7 @@ hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size){
         sec = seconds%60;
     }   
     memset(time_f, 0, sizeof(byte) * size);
-    sprintf(time_f, "%u::%u::%u", hrs, min, sec);
+    sprintf((char *)time_f, "%u::%u::%u", hrs, min, sec);
     return time_f;
 }
 

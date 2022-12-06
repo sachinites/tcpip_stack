@@ -4,9 +4,9 @@
 #include "isis_policy.h"
 #include "isis_tlv_struct.h"
 
-extern void
-isis_ipv4_rt_notif_cbk (
-        void *rt_notif_data, size_t arg_size) ;
+extern void isis_ipv4_rt_notif_cbk (
+        event_dispatcher_t *ev_dis,
+        void *rt_notif_data, unsigned int arg_size);
 
 int
 isis_config_import_policy(node_t *node, const char *prefix_lst_name) {

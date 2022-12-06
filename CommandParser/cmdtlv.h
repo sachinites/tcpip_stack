@@ -26,6 +26,9 @@
 #include "serialize.h"
 #include "cmd_hier.h"
 
+#ifndef CPLUSPLUS
+#define CPLUSPLUS
+#endif
 
 #pragma pack (push,1)
 typedef struct tlv_struct{
