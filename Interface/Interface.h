@@ -73,6 +73,8 @@ class Interface {
         avltree_t flow_avl_root;
 
         uint32_t GetLinkCost();
+        node_t *GetNbrNode ();
+        Interface *GetOtherInterface();
 
         virtual void InterfaceSetIpAddressMask (uint32_t ip_addr, uint8_t mask);
         virtual void InterfaceGetIpAddressMask (uint32_t *ip_addr, uint8_t *mask);
@@ -80,6 +82,9 @@ class Interface {
         virtual mac_addr_t *GetMacAddr( );
         virtual bool IsIpConfigured ();
         virtual void PrintInterfaceDetails ();
+        virtual void Xmit_pkt_dropped_inc();
+        virtual void PktSentInc();
+        virtual void BitRateNewBitStatsInc(uint64_t val);
 };
 
 
@@ -117,6 +122,9 @@ class PhysicalInterface : public Interface {
         virtual mac_addr_t *GetMacAddr();
         virtual bool IsIpConfigured();
         virtual void PrintInterfaceDetails ();
+        virtual void Xmit_pkt_dropped_inc();
+        virtual void PktSentInc();
+        virtual void BitRateNewBitStatsInc(uint64_t val);
 };
 
 

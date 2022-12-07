@@ -12,7 +12,7 @@
 
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
-typedef struct interface_ interface_t;
+class Interface;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct pkt_block_ pkt_block_t;
@@ -260,19 +260,19 @@ void access_list_reference(access_list_t *acc_lst);
 void access_list_dereference(node_t *node, access_list_t *acc_lst);
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
-                                                    interface_t *intf, 
+                                                    Interface*intf, 
                                                     ip_hdr_t *ip_hdr,
                                                     bool ingress);
 
 acl_action_t
 access_list_evaluate_ethernet_packet (node_t *node, 
-                                                              interface_t *intf, 
-                                                             pkt_block_t *pkt_block,
+                                                              Interface *intf, 
+                                                              pkt_block_t *pkt_block,
                                                               bool ingress) ;
 
 /* Return 0 on success */                    
-int access_group_config(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
-int access_group_unconfig(node_t *node, interface_t *intf, char *dirn, access_list_t *acc_lst);
+int access_group_config(node_t *node, Interface *intf, char *dirn, access_list_t *acc_lst);
+int access_group_unconfig(node_t *node, Interface *intf, char *dirn, access_list_t *acc_lst);
 void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
 
 

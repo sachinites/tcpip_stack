@@ -165,6 +165,7 @@ layer3_ip_route_pkt(node_t *node,
         return;
     }
 
+#if 0
     if (!connection_exist (node, pkt_block)) {
         /* Access List Evaluation at Layer 3 Entry point*/
         if (interface && /* For local ping, interface will be NULL */
@@ -175,6 +176,7 @@ layer3_ip_route_pkt(node_t *node,
             return;
         }
     }
+#endif 
 
     /*Implement Layer 3 forwarding functionality*/
     pthread_rwlock_rdlock(&(NODE_RT_TABLE(node)->rwlock));
@@ -327,6 +329,7 @@ layer3_ip_route_pkt(node_t *node,
         layer3_ip_route_pkt_done;
     }
 
+#if 0
     /* Access List Evaluation at Layer 3 Exit point*/
     if (access_list_evaluate_ip_packet(
             node, nexthop->oif, 
@@ -336,7 +339,7 @@ layer3_ip_route_pkt(node_t *node,
         pkt_block_dereference(pkt_block);
         layer3_ip_route_pkt_done;
     }
-
+#endif 
     demote_pkt_to_layer2(node, 
             next_hop_ip,
             nexthop->oif->if_name,
@@ -1021,7 +1024,8 @@ demote_packet_to_layer3 (node_t *node,
         thread_using_route_done(l3_route);
         return;
     }
-    
+
+#if 0
     if (access_list_evaluate_ip_packet(node, 
                 nexthop->oif, 
                 (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block),
@@ -1032,7 +1036,7 @@ demote_packet_to_layer3 (node_t *node,
         thread_using_route_done(l3_route);
         return;
     }
-
+#endif 
     next_hop_ip = tcp_ip_covert_ip_p_to_n(nexthop->gw_ip);
 
     tcp_dump_l3_fwding_logger(node,

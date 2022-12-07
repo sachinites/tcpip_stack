@@ -119,6 +119,46 @@ Interface::PrintInterfaceDetails () {
     printf ("Metric = %u\n", this->GetLinkCost());
 }
 
+void 
+Interface::Xmit_pkt_dropped_inc() {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+void 
+Interface::PktSentInc() {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+void 
+Interface::BitRateNewBitStatsInc(uint64_t val) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+node_t *
+Interface::GetNbrNode () {
+
+    Interface *interface = this;
+
+    assert(this->att_node);
+    assert(this->link);
+    
+    linkage_t *link = interface->link;
+    if (link->intf1 == interface)
+        return link->intf2->att_node;
+    else
+        return link->intf1->att_node;
+}
+
+Interface *
+Interface::GetOtherInterface() {
+
+    return  this->link->intf1 == this ? \
+                this->link->intf2 : this->link->intf1;
+}
+
 
 
 
@@ -185,6 +225,24 @@ PhysicalInterface::PrintInterfaceDetails () {
     this->Interface::PrintInterfaceDetails();
 }
 
+void 
+PhysicalInterface::Xmit_pkt_dropped_inc() {
+
+    this->xmit_pkt_dropped++;
+}
+
+void 
+PhysicalInterface::PktSentInc() {
+
+    this->pkt_sent++;
+}
+
+
+void 
+PhysicalInterface::BitRateNewBitStatsInc(uint64_t val) {
+
+    this->bit_rate.new_bit_stats += val;
+}
 
 
 

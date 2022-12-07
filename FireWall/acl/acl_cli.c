@@ -3,6 +3,7 @@
 #include "../../CommandParser/css.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
+#include "../../Interface/Interface.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
 #include "../../utils.h"
@@ -577,7 +578,7 @@ access_group_config_handler(param_t *param,
    } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
-    interface_t *intf = node_get_intf_by_name(node, if_name);
+    Interface *intf = node_get_intf_by_name2(node, if_name);
     
     if (!intf) {
         printf ("Error : Interface do not exist\n");

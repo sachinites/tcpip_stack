@@ -6,6 +6,7 @@
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../Threads/refcount.h"
 #include "../../graph.h"
+#include "../../Interface/Interface.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
 #include "../../Layer2/layer2.h"
@@ -821,7 +822,7 @@ access_list_evaluate (access_list_t *acc_lst,
 
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
-                                                    interface_t *intf, 
+                                                    Interface *intf, 
                                                     ip_hdr_t *ip_hdr,
                                                     bool ingress) {
 
@@ -835,13 +836,13 @@ access_list_evaluate_ip_packet (node_t *node,
     access_list_t *access_list;
 
     pthread_spinlock_t *spin_lock = ingress ?
-        &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst:
-        &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
+        &intf->spin_lock_l3_ingress_acc_lst:
+        &intf->spin_lock_l3_egress_acc_lst;
 
     pthread_spin_lock(spin_lock);
     
-    access_list = ingress ? intf->intf_nw_props.l3_ingress_acc_lst :
-                        intf->intf_nw_props.l3_egress_acc_lst;
+    access_list = ingress ? intf->l3_ingress_acc_lst :
+                        intf->l3_egress_acc_lst;
 
     pthread_spin_unlock(spin_lock);
 
@@ -874,7 +875,7 @@ access_list_evaluate_ip_packet (node_t *node,
 
 acl_action_t
 access_list_evaluate_ethernet_packet (node_t *node, 
-                                                    interface_t *intf, 
+                                                    Interface *intf, 
                                                     pkt_block_t *pkt_block,
                                                     bool ingress) {
 
@@ -885,7 +886,7 @@ access_list_evaluate_ethernet_packet (node_t *node,
 /* Return 0 on success */                    
 int 
 access_group_config(node_t *node, 
-                                   interface_t *intf, 
+                                   Interface *intf, 
                                    char *dirn, 
                                    access_list_t *acc_lst) {
 
@@ -893,12 +894,12 @@ access_group_config(node_t *node,
     access_list_t **configured_access_lst = NULL;
 
     if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
-        configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
-        spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
+        configured_access_lst = &intf->l3_ingress_acc_lst;
+        spin_lock = &intf->spin_lock_l3_ingress_acc_lst;
     }
     else if (string_compare(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
-        configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
-        spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
+        configured_access_lst = &intf->l3_egress_acc_lst;
+        spin_lock = &intf->spin_lock_l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can be - 'in' or 'out' only\n");
@@ -933,7 +934,7 @@ access_group_config(node_t *node,
 
 int 
 access_group_unconfig(node_t *node, 
-                                       interface_t *intf, 
+                                       Interface *intf, 
                                        char *dirn, 
                                       access_list_t *acc_lst) {
     
@@ -943,12 +944,12 @@ access_group_unconfig(node_t *node,
     access_list_t **configured_access_lst = NULL;
 
     if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
-        configured_access_lst = &intf->intf_nw_props.l3_ingress_acc_lst;
-        spin_lock = &intf->intf_nw_props.spin_lock_l3_ingress_acc_lst;
+        configured_access_lst = &intf->l3_ingress_acc_lst;
+        spin_lock = &intf->spin_lock_l3_ingress_acc_lst;
     }
     else if (string_compare(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
-        configured_access_lst = &intf->intf_nw_props.l3_egress_acc_lst;
-        spin_lock = &intf->intf_nw_props.spin_lock_l3_egress_acc_lst;
+        configured_access_lst = &intf->l3_egress_acc_lst;
+        spin_lock = &intf->spin_lock_l3_egress_acc_lst;
     }
     else {
         printf ("Error : Direction can in - 'in' or 'out' only\n");

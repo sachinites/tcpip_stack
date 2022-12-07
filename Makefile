@@ -3,8 +3,8 @@ CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Proto Libs
-ISIS_LIB=Layer5/isis/libisis.a
-ISIS_LIB_PATH=-L Layer5/isis -lisis
+#ISIS_LIB=Layer5/isis/libisis.a
+#ISIS_LIB_PATH=-L Layer5/isis -lisis
 # proto Libs
 
 LIBS=-lpthread \

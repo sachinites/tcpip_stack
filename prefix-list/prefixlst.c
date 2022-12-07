@@ -496,10 +496,13 @@ void prefix_list_cli_show_tree(param_t *param) {
 
 /* Prefix-list change notification */
 typedef void (*prefix_list_change_cbk)(node_t *, prefix_list_t *);
-
+#ifdef ISIS_ENABLED
 extern void isis_prefix_list_change(node_t *node, prefix_list_t *pfx_lst);
-
-static prefix_list_change_cbk notif_arr[] = { isis_prefix_list_change,
+#endif
+static prefix_list_change_cbk notif_arr[] = { 
+    #ifdef ISIS_ENABLED
+                                                                        isis_prefix_list_change,
+    #endif
                                                                         /*add_mode_callbacks_here,*/
                                                                         0,
                                                                         };

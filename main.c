@@ -79,7 +79,9 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     layer3_mem_init();
     layer4_mem_init();
     spf_algo_mem_init();
-    isis_mem_init();
+#ifdef ISIS_ENABLED
+    isis_mem_init()
+#endif;
     ted_mem_init();
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */

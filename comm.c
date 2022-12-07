@@ -166,13 +166,14 @@ send_pkt_out (pkt_block_t *pkt_block,
         return -1;
     }
 
+#if 0
     /* Access List Evaluation at Layer 2 Exit point*/
     if (access_list_evaluate_ethernet_packet(
             interface->att_node, interface, 
            pkt_block, false)  == ACL_DENY) {
         return -1;
     }
-
+#endif 
     interface_t *other_interface = &interface->link->intf1 == interface ? \
                                     &interface->link->intf2 : &interface->link->intf1;
 
@@ -202,6 +203,69 @@ send_pkt_out (pkt_block_t *pkt_block,
     return pkt_size; 
 }
 
+int
+send_pkt_out2 (pkt_block_t *pkt_block,
+             Interface *interface){
+
+    pkt_size_t pkt_size;
+	ev_dis_pkt_data_t *ev_dis_pkt_data;
+    node_t *sending_node = interface->att_node;
+    node_t *nbr_node = interface->GetNbrNode();
+    
+    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    if (!(interface->is_up)){
+        interface->Xmit_pkt_dropped_inc();
+        return 0;
+    }
+
+    if (!nbr_node)
+        return -1;
+
+    if (pkt_size > MAX_PACKET_BUFFER_SIZE){
+        printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
+        return -1;
+    }
+
+#if 0
+    /* Access List Evaluation at Layer 2 Exit point*/
+    if (access_list_evaluate_ethernet_packet(
+            interface->att_node, interface, 
+           pkt_block, false)  == ACL_DENY) {
+        return -1;
+    }
+#endif 
+
+    Interface *other_interface = interface->GetOtherInterface();
+
+	ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0,1, ev_dis_pkt_data_t);
+
+	ev_dis_pkt_data->recv_node = nbr_node;
+	ev_dis_pkt_data->recv_Intf = other_interface;
+    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
+	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
+	ev_dis_pkt_data->pkt_size = pkt_size;
+
+#if 0
+    tcp_dump_send_logger(sending_node, interface, 
+			pkt_block, pkt_block_get_starting_hdr(pkt_block));
+#endif 
+
+	if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
+                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t))) {
+
+        printf ("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
+
+        tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
+        XFREE(ev_dis_pkt_data);
+    }
+	
+    interface->PktSentInc();
+    interface->BitRateNewBitStatsInc(pkt_size * 8);
+    
+    return pkt_size; 
+}
+
 void
 dp_pkt_receive (node_t *node, 
                            interface_t *interface,
@@ -211,6 +275,7 @@ dp_pkt_receive (node_t *node,
   
     tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
 
+#if 0
     /* Access List Evaluation at Layer 2 Entry point*/ 
     if (access_list_evaluate_ethernet_packet(
                 node, interface, pkt_block, true) 
@@ -219,6 +284,7 @@ dp_pkt_receive (node_t *node,
         assert(!pkt_block_dereference(pkt_block));
         return;
     }
+#endif 
 
     if (l2_frame_recv_qualify_on_interface(
                                           node,
