@@ -26,10 +26,6 @@
 #include "serialize.h"
 #include "cmd_hier.h"
 
-#ifndef CPLUSPLUS
-#define CPLUSPLUS
-#endif
-
 #pragma pack (push,1)
 typedef struct tlv_struct{
     leaf_type_t leaf_type;
@@ -38,13 +34,9 @@ typedef struct tlv_struct{
 } tlv_struct_t;
 #pragma pack(pop)
 
-#ifdef CPLUSPLUS
+
 #define EXTRACT_CMD_CODE(ser_buff_ptr)  \
     atoi(reinterpret_cast<const char *>(((tlv_struct_t *)(ser_buff_ptr->b) + (get_serialize_buffer_size(ser_buff_ptr)/sizeof(tlv_struct_t) -1))->value))
-#else 
-#define EXTRACT_CMD_CODE(ser_buff_ptr)  \
-     atoi(((tlv_struct_t *)(ser_buff_ptr->b) + (get_serialize_buffer_size(ser_buff_ptr)/sizeof(tlv_struct_t) -1))->value)
-#endif
 
 #define TLV_LOOP_BEGIN(ser_buff, tlvptr)                                                \
 {                                                                                       \

@@ -51,6 +51,9 @@
 
 typedef struct graph_ graph_t;
 typedef struct interface_ interface_t;
+#ifndef __INTERFACE__
+class Interface;
+#endif
 typedef struct node_ node_t;
 
 #pragma pack (push,1)
@@ -244,8 +247,8 @@ init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
     snp_flow_init_flow_tree_root(&intf_nw_props->flow_avl_root);
 }
 
-void
-interface_assign_mac_address(interface_t *interface);
+void interface_assign_mac_address(interface_t *interface);
+void interface_assign_mac_address2(Interface *interface);
 
 void
 intf_init_bit_rate_sampling_timer(interface_t *interface);
@@ -277,6 +280,7 @@ intf_init_bit_rate_sampling_timer(interface_t *interface);
 /*APIs to set Network Node properties*/
 bool node_set_loopback_address(node_t *node, const char *ip_addr);
 bool node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
+bool node_set_intf_ip_address2(node_t *node, const char *local_if, const char *ip_addr, char mask);
 bool node_unset_intf_ip_address(node_t *node, const char *local_if);
 
 /*Dumping Functions to dump network information

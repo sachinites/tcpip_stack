@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS= -g -fpermissive
+CFLAGS= -g -fpermissive -Wignored-qualifiers
 FSMLIB=libfsm.a
 TARGET:${FSMLIB}
 ${FSMLIB}:fsm.o std_fsm.o

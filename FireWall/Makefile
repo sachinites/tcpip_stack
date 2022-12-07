@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-g -fpermissive -gdwarf-2 -g3
+CFLAGS=-g -fpermissive -gdwarf-2 -g3 -Wignored-qualifiers
 TARGET:libasa.a
 LIB=libasa.a
 OBJS=acl/acl_cli.o \

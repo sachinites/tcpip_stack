@@ -39,6 +39,7 @@
 #include "FireWall/acl/acldb.h"
 #include "packet-tracer/packet_tracer.h"
 #include "c-hashtable/hashtable.h"
+#include "Interface/Interface.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -82,6 +83,44 @@ insert_link_between_two_nodes(node_t *node1,
 
     tcp_ip_init_intf_log_info(&link->intf1);
     tcp_ip_init_intf_log_info(&link->intf2);
+}
+
+void
+insert_link_between_two_nodes2(node_t *node1,
+        node_t *node2,
+        const char *from_if_name,
+        const char *to_if_name,
+        unsigned int cost){
+
+    linkage_t *link = (linkage_t *)calloc(1, sizeof(linkage_t));
+    link->intf1 = new P2PInterface(std::string (from_if_name) , NULL);
+    link->intf2 = new P2PInterface(std::string (to_if_name) , NULL);
+    
+    link->intf1->link = link;
+    link->intf2->link = link;
+
+    link->intf1->att_node = node1;
+    link->intf2->att_node = node2;
+
+    link->cost = cost;
+
+    int empty_intf_slot;
+
+    /*Plugin interface ends into Node*/
+    empty_intf_slot = get_node_intf_available_slot2(node1);
+    node1->Intf[empty_intf_slot] = link->intf1;
+
+    empty_intf_slot = get_node_intf_available_slot2(node2);
+    node2->Intf[empty_intf_slot] = link->intf2;
+
+    /*Now Assign Random generated Mac address to the Interfaces*/
+    interface_assign_mac_address2(link->intf1);
+    interface_assign_mac_address2(link->intf2);
+ 
+    //intf_init_bit_rate_sampling_timer(&link->intf1);
+
+    tcp_ip_init_intf_log_info2(link->intf1);
+    tcp_ip_init_intf_log_info2(link->intf2);
 }
 
 graph_t *
@@ -239,6 +278,22 @@ node_get_intf_by_name(node_t *node, const char *if_name){
     return NULL;
 }
 
+Interface *
+node_get_intf_by_name2(node_t *node, const char *if_name){
+
+    int i ;
+    Interface *intf;
+
+    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
+        intf = node->Intf[i];
+        if(!intf) return NULL;
+        if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
+            return intf;
+        }
+    }
+    return NULL;
+}
+
 interface_t *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
@@ -249,6 +304,21 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
         intf = node->intf[i];
         if(!intf) return NULL;
         if (intf->intf_nw_props.ifindex == ifindex)
+            return intf;
+    }
+    return NULL;
+}
+
+Interface *
+node_get_intf_by_ifindex2(node_t *node, uint32_t ifindex) {
+
+    int i ;
+    Interface *intf;
+
+    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
+        intf = node->Intf[i];
+        if(!intf) return NULL;
+        if (intf->ifindex == ifindex)
             return intf;
     }
     return NULL;

@@ -47,6 +47,7 @@
 #include "Layer2/layer2.h"
 #include "FireWall/acl/acldb.h"
 #include "pkt_block.h"
+#include "Interface/Interface.h"
 
 extern graph_t *topo;
 

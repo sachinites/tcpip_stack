@@ -53,7 +53,7 @@
 /*Forward Declarations*/
 typedef struct node_ node_t;
 typedef struct link_ link_t;
-
+class Interface;
 
 typedef struct interface_ {
 
@@ -85,7 +85,8 @@ struct node_ {
 
     char node_name[NODE_NAME_SIZE];
     interface_t *intf[MAX_INTF_PER_NODE];
-    
+    Interface *Intf[MAX_INTF_PER_NODE];
+
     /* For Network Sockets */
     unsigned int udp_port_number;
     int udp_sock_fd;
@@ -155,6 +156,12 @@ insert_link_between_two_nodes(node_t *node1,
                              const char *from_if_name, 
                              const char *to_if_name, 
                              unsigned int cost);
+void
+insert_link_between_two_nodes2(node_t *node1,
+        node_t *node2,
+        const char *from_if_name,
+        const char *to_if_name,
+        unsigned int cost);
 
 /*Helper functions*/
 static inline node_t *
@@ -182,12 +189,29 @@ get_node_intf_available_slot(node_t *node){
     return -1;
 }
 
+static inline int
+get_node_intf_available_slot2(node_t *node){
+
+    int i ;
+    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
+        if(node->Intf[i])
+            continue;
+        return i;
+    }
+    return -1;
+}
+
 interface_t *
 node_get_intf_by_name(node_t *node, const char *if_name);
 
 interface_t *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);
 
+Interface *
+node_get_intf_by_name2(node_t *node, const char *if_name);
+
+Interface *
+node_get_intf_by_ifindex2(node_t *node, uint32_t ifindex);
 
 static inline node_t *
 node_get_node_by_name(graph_t *topo, c_string node_name){

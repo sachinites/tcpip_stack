@@ -470,6 +470,28 @@ initialize_interface_log_file(interface_t *intf){
     return fptr;
 }
 
+static FILE *
+initialize_interface_log_file2(Interface *intf){
+
+    char file_name[64];
+
+    memset(file_name, 0, sizeof(file_name));
+
+    node_t *node = intf->att_node;
+
+    sprintf(file_name, "logs/%s-%s.txt", node->node_name, intf->if_name.c_str());
+
+    FILE *fptr = fopen(file_name, "w");
+
+    if(!fptr){
+        printf("Error : Could not open log file %s, errno = %d\n", 
+            file_name, errno);
+        return 0;
+    }
+
+    return fptr;
+}
+
 void
 tcp_ip_init_node_log_info(node_t *node){
 
@@ -503,6 +525,17 @@ tcp_ip_init_intf_log_info(interface_t *intf){
     log_info->send      = false;
     log_info->is_stdout = false;
     log_info->log_file  = initialize_interface_log_file(intf);
+}
+
+void
+tcp_ip_init_intf_log_info2(Interface *intf){
+    
+    log_t *log_info     = &intf->log_info;
+    log_info->all       = false;
+    log_info->recv      = false;
+    log_info->send      = false;
+    log_info->is_stdout = false;
+    log_info->log_file  = initialize_interface_log_file2(intf);
 }
 
 static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){

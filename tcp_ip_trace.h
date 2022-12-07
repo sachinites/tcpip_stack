@@ -37,6 +37,7 @@
 
 typedef struct node_ node_t;
 typedef struct interface_ interface_t;
+class Interface;
 typedef struct pkt_block_ pkt_block_t;
 
 #define TCP_PRINT_BUFFER_SIZE 1528
@@ -63,6 +64,7 @@ tcp_dump_send_logger(node_t *node, interface_t *intf,
 
 void tcp_ip_init_node_log_info(node_t *node);
 void tcp_ip_init_intf_log_info(interface_t *intf);
+void tcp_ip_init_intf_log_info2(Interface *intf);
 void tcp_ip_set_all_log_info_params(log_t *log_info, bool status);
 void tcp_ip_show_log_status(node_t *node);
 void tcp_dump_l3_fwding_logger(node_t *node, c_string oif_name, c_string gw_ip);

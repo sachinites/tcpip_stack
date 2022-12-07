@@ -48,6 +48,7 @@
 
 #include "tcpconst.h"
 #include "graph.h"
+#include "Interface/Interface.h"
 #include "net.h"
 #include "Layer2/layer2.h"
 #include "Layer2/arp.h"

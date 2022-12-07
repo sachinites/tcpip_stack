@@ -40,7 +40,7 @@
 #include "graph.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
-
+#include "Interface/Interface.h"
 
 /*Just some Random number generator*/
 static uint32_t
@@ -74,6 +74,20 @@ interface_assign_mac_address(interface_t *interface){
     memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(uint32_t));
 }
 
+void
+interface_assign_mac_address2 (Interface *interface){
+
+    node_t *node = interface->att_node;
+    
+    if(!node)
+        return;
+
+    uint32_t hash_code_val = 0;
+    hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
+    hash_code_val *= hash_code(interface->if_name.c_str(), IF_NAME_SIZE);
+    interface->SetMacAddr((mac_addr_t *)&hash_code_val);
+}
+
 typedef struct l3_route_ l3_route_t;
 
 extern void
@@ -102,6 +116,17 @@ bool node_set_intf_ip_address(node_t *node, const char *local_if,
     IF_IP(interface)[15] = '\0';
     interface->intf_nw_props.mask = mask; 
     interface->intf_nw_props.is_ipadd_config = true;
+    rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
+    return true;
+}
+
+bool node_set_intf_ip_address2(node_t *node, const char *local_if, 
+                                const char *ip_addr, char mask) {
+
+    uint32_t ip_addr_int;
+    Interface *interface = node_get_intf_by_name2(node, local_if);
+    if(!interface) assert(0);
+    interface->InterfaceSetIpAddressMask(tcp_ip_covert_ip_p_to_n((c_string)ip_addr), mask);
     rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
     return true;
 }
@@ -158,6 +183,7 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
     node_t *node;
     glthread_t *curr;
     interface_t *interface;
+    Interface *Intf;
     uint32_t i;
     
     printf("Topology Name = %s\n", graph->topology_name);
@@ -169,8 +195,11 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
             dump_node_nw_props(node);
             for( i = 0; i < MAX_INTF_PER_NODE; i++){
                 interface = node->intf[i];
+                Intf = node->Intf[i];
                 if(!interface) break;
+                if (!Intf) break;
                 dump_intf_props(interface);
+                Intf->PrintInterfaceDetails();
             }
         } ITERATE_GLTHREAD_END(&graph->node_list, curr);
     }
@@ -178,8 +207,11 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
         dump_node_nw_props(node1);
         for( i = 0; i < MAX_INTF_PER_NODE; i++){
             interface = node1->intf[i];
+            Intf = node1->Intf[i];
             if(!interface) break;
+            if (!Intf) break;
             dump_intf_props(interface);
+            Intf->PrintInterfaceDetails();
         }
     }
 }

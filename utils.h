@@ -36,22 +36,14 @@
 #ifndef __UTILS__
 #define __UTILS__
 
-#define CPLUSPLUS
-//#undef CPLUSPLUS
-
-
 #include <stdint.h>
 #include <stddef.h>
-
-#ifdef  CPLUSPLUS
-#include <cstddef> // for size_t
-#endif
 
 typedef unsigned char byte;
 typedef unsigned char* c_string; 
 typedef void unused;
 
-
+#define TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS    assert(0)
 
 void
 apply_mask(c_string prefix, char mask, c_string str_prefix);
@@ -149,5 +141,12 @@ hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size);
 
 #define DEADCODE    (assert(0))
 #define PERCENT_ASCII_CODE  37
+
+#define TABS(n)            \
+do{                                  \
+   unsigned short _i = 0;  \
+   for(; _i < n; _i++)         \
+       printf("  ");               \
+} while(0);
 
 #endif /* __UTILS__ */

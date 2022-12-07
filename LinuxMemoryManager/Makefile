@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-g -gdwarf-2 -g3
+CFLAGS=-g -gdwarf-2 -g3 -Wignored-qualifiers
 TARGET:libmm.a
 OUTFILES=libmm.a
 EXTERNAL_LIBS=-lpthread

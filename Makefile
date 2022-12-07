@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3
+CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Proto Libs
@@ -59,6 +59,7 @@ OBJS=gluethread/glthread.o \
 		  c-hashtable/hashtable.o \
 		  c-hashtable/hashtable_itr.o \
 		  Threads/refcount.o \
+		  Interface/Interface.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -204,6 +205,10 @@ c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
 Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.c
 	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.c -o Layer3/gre-tunneling/grecli.o
 
+#OOPs Interface Files 
+Interface/Interface.o:Interface/Interface.cpp
+	${CC} ${CFLAGS} -c Interface/Interface.cpp -o Interface/Interface.o
+
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -251,6 +256,7 @@ clean:
 	rm -f Threads/*.o
 	(cd c-hashtable; make clean)
 	rm -f Layer3/gre-tunneling/*.o
+	rm -f Interface/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:
