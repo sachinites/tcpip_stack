@@ -85,7 +85,7 @@ interface_assign_mac_address2 (Interface *interface){
     uint32_t hash_code_val = 0;
     hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
     hash_code_val *= hash_code(interface->if_name.c_str(), IF_NAME_SIZE);
-    interface->SetMacAddr((mac_addr_t *)&hash_code_val);
+    IntfSetMacAddress(interface, (mac_addr_t *)&hash_code_val);
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -123,10 +123,9 @@ bool node_set_intf_ip_address(node_t *node, const char *local_if,
 bool node_set_intf_ip_address2(node_t *node, const char *local_if, 
                                 const char *ip_addr, char mask) {
 
-    uint32_t ip_addr_int;
     Interface *interface = node_get_intf_by_name2(node, local_if);
     if(!interface) assert(0);
-    interface->InterfaceSetIpAddressMask(tcp_ip_covert_ip_p_to_n((c_string)ip_addr), mask);
+    IntfSetIpAddressMask(interface, tcp_ip_covert_ip_p_to_n((c_string)ip_addr), mask);
     rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
     return true;
 }

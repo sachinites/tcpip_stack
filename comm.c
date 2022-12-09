@@ -59,10 +59,8 @@ l2_switch_recv_frame(node_t *node,
 extern void
 network_start_pkt_receiver_thread(void);
 
-extern void
-dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
-extern void
-node_init_udp_socket(node_t *node);
+extern void dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
+extern void node_init_udp_socket(node_t *node);
 
 extern void
 dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
@@ -215,7 +213,7 @@ send_pkt_out2 (pkt_block_t *pkt_block,
     uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     if (!(interface->is_up)){
-        interface->Xmit_pkt_dropped_inc();
+        interface->xmit_pkt_dropped++;
         return 0;
     }
 
@@ -260,9 +258,8 @@ send_pkt_out2 (pkt_block_t *pkt_block,
         XFREE(ev_dis_pkt_data);
     }
 	
-    interface->PktSentInc();
-    interface->BitRateNewBitStatsInc(pkt_size * 8);
-    
+    interface->pkt_sent++;
+      
     return pkt_size; 
 }
 

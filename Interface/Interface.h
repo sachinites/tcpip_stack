@@ -29,6 +29,9 @@ typedef struct node_ node_t;
 typedef struct linkage_ linkage_t;
 typedef struct access_list_ access_list_t;
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
+typedef struct pkt_block_ pkt_block_t;
+
+#define INTF_MAX_VLAN_MEMBERSHIP 10
 
 #pragma pack (push,1)
 
@@ -38,17 +41,18 @@ typedef struct mac_addr_ {
 
 #pragma pack(pop)
 
+
 class Interface {
 
     private:
-        
+       
     protected:
+        InterfaceType_t iftype;
         Interface(std::string if_name, InterfaceType_t iftype);
         ~Interface();
     public:
         uint16_t ref_count;
         std::string if_name;
-        InterfaceType_t iftype;
         node_t *att_node;
         log_t log_info;
         linkage_t *link;
@@ -56,6 +60,9 @@ class Interface {
         /* L1 Properties of Interface */
         bool is_up;
         uint32_t ifindex;
+        uint32_t pkt_recv;
+        uint32_t pkt_sent;
+        uint32_t xmit_pkt_dropped;
 
         /* L2 Properties : Ingress & egress L2 Access_list */
         access_list_t *l2_ingress_acc_lst;
@@ -76,15 +83,8 @@ class Interface {
         node_t *GetNbrNode ();
         Interface *GetOtherInterface();
 
-        virtual void InterfaceSetIpAddressMask (uint32_t ip_addr, uint8_t mask);
-        virtual void InterfaceGetIpAddressMask (uint32_t *ip_addr, uint8_t *mask);
-        virtual void SetMacAddr( mac_addr_t *mac_add);
-        virtual mac_addr_t *GetMacAddr( );
-        virtual bool IsIpConfigured ();
+        virtual int SendPacketOut(pkt_block_t *pkt_block);
         virtual void PrintInterfaceDetails ();
-        virtual void Xmit_pkt_dropped_inc();
-        virtual void PktSentInc();
-        virtual void BitRateNewBitStatsInc(uint64_t val);
 };
 
 
@@ -96,36 +96,47 @@ class PhysicalInterface : public Interface {
 
     private:
     protected:
-         PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
-        ~PhysicalInterface();
     public:
+        PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
+        ~PhysicalInterface();
 
-        /* L1 Properties */
-        uint32_t pkt_recv;
-        uint32_t pkt_sent;
-        uint32_t xmit_pkt_dropped;
-
-        struct
+        enum IntfL2Mode
         {
-            uint64_t old_bit_stats;
-            uint64_t new_bit_stats;
-            uint64_t bit_rate;
-            wheel_timer_elem_t *bit_rate_sampling_timer;
-        } bit_rate;
+            LAN_MODE_NONE,
+            LAN_ACCESS_MODE,
+            LAN_TRUNK_MODE
+        };
 
         /* L2 Properties */
+        bool switchport;
         mac_addr_t mac_add;
+        IntfL2Mode l2_mode;
+        uint32_t vlans[INTF_MAX_VLAN_MEMBERSHIP];  
 
         /* L3 properties */
         uint32_t ip_addr;
         uint8_t mask;
-        virtual mac_addr_t *GetMacAddr();
-        virtual bool IsIpConfigured();
+
+        static std::string L2ModeToString(IntfL2Mode l2_mode);
+        void SetMacAddr( mac_addr_t *mac_add);
+        mac_addr_t *GetMacAddr( );
+        bool IsIpConfigured() ;
+        void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) ;
+        void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) ;
+        uint32_t GetVlanId();
+        bool IsVlanTrunked (uint32_t vlan_id);
+        void SetSwitchport(bool enable);        
+        
         virtual void PrintInterfaceDetails ();
-        virtual void Xmit_pkt_dropped_inc();
-        virtual void PktSentInc();
-        virtual void BitRateNewBitStatsInc(uint64_t val);
+        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
 };
+
+typedef struct linkage_ {
+
+    PhysicalInterface *Intf1;
+    PhysicalInterface *Intf2;
+    uint32_t cost;
+} linkage_t;
 
 
 
@@ -137,65 +148,10 @@ class VirtualInterface : public Interface {
          VirtualInterface(std::string ifname, InterfaceType_t iftype);
         ~VirtualInterface();
     public:
-        /* L1 Properties */
-        uint32_t pkt_recv;
-        uint32_t pkt_sent;
-        uint32_t xmit_pkt_dropped;
         virtual void PrintInterfaceDetails ();
 };
 
 
-/* ************ */
-class P2PInterface : public PhysicalInterface {
-
-    private:     
-    protected:
-    public:
-        P2PInterface(std::string if_name, mac_addr_t *mac_addr);
-        P2PInterface();
-        ~P2PInterface();
-        virtual void InterfaceSetIpAddressMask (uint32_t ip_addr, uint8_t mask);
-        virtual void InterfaceGetIpAddressMask (uint32_t *ip_addr, uint8_t *mask);
-        virtual void SetMacAddr( mac_addr_t *mac_add);
-        virtual void PrintInterfaceDetails ();
-};
-
-struct linkage_ {
-
-    PhysicalInterface *intf1;
-    PhysicalInterface *intf2;
-    uint32_t cost;
-}; 
-
-
-
-
-/* ************ */
-class LANInterface : public PhysicalInterface {
-
-    enum IntfL2Mode {
-
-        LAN_MODE_NONE,
-        LAN_ACCESS_MODE,
-        LAN_TRUNK_MODE
-    };
-
-    private:
-    protected:
-    public:
-        /* L2 Properties */
-        IntfL2Mode l2_mode;
-
-        static std::string L2ModeToString(LANInterface *interface);
-        LANInterface(std::string if_name, mac_addr_t *mac_addr);
-        LANInterface();
-        ~LANInterface();
-        virtual void InterfaceSetIpAddressMask (uint32_t ip_addr, uint8_t mask);
-        virtual void InterfaceGetIpAddressMask (uint32_t *ip_addr, uint8_t *mask);
-        virtual void SetMacAddr( mac_addr_t *mac_add);
-        void SetL2Mode ( IntfL2Mode l2_mode);
-        virtual void PrintInterfaceDetails ();
-};
 
 
 
@@ -227,10 +183,11 @@ public:
     ~GRETunnelInterface();
     uint32_t GetTunnelId();
     bool IsGRETunnelActive();
-    void SetTunnelSource(Interface *interface);
+    void SetTunnelSource(PhysicalInterface *interface);
     void SetTunnelDestination(uint32_t ip_addr);
     void SetTunnelLclIpMask(uint32_t ip_addr, uint8_t mask);
     virtual void PrintInterfaceDetails ();
+    virtual int SendPacketOut(pkt_block_t *pkt_block) final;
 };
 
 #endif

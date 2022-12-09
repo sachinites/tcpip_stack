@@ -93,14 +93,14 @@ insert_link_between_two_nodes2(node_t *node1,
         unsigned int cost){
 
     linkage_t *link = (linkage_t *)calloc(1, sizeof(linkage_t));
-    link->intf1 = new P2PInterface(std::string (from_if_name) , NULL);
-    link->intf2 = new P2PInterface(std::string (to_if_name) , NULL);
+    link->Intf1 = new PhysicalInterface(std::string (from_if_name) , INTF_TYPE_P2P, NULL);
+    link->Intf2 = new PhysicalInterface(std::string (to_if_name) , INTF_TYPE_P2P, NULL);
     
-    link->intf1->link = link;
-    link->intf2->link = link;
+    link->Intf1->link = link;
+    link->Intf2->link = link;
 
-    link->intf1->att_node = node1;
-    link->intf2->att_node = node2;
+    link->Intf1->att_node = node1;
+    link->Intf2->att_node = node2;
 
     link->cost = cost;
 
@@ -108,19 +108,19 @@ insert_link_between_two_nodes2(node_t *node1,
 
     /*Plugin interface ends into Node*/
     empty_intf_slot = get_node_intf_available_slot2(node1);
-    node1->Intf[empty_intf_slot] = link->intf1;
+    node1->Intf[empty_intf_slot] = link->Intf1;
 
     empty_intf_slot = get_node_intf_available_slot2(node2);
-    node2->Intf[empty_intf_slot] = link->intf2;
+    node2->Intf[empty_intf_slot] = link->Intf2;
 
     /*Now Assign Random generated Mac address to the Interfaces*/
-    interface_assign_mac_address2(link->intf1);
-    interface_assign_mac_address2(link->intf2);
+    interface_assign_mac_address2(link->Intf1);
+    interface_assign_mac_address2(link->Intf2);
  
     //intf_init_bit_rate_sampling_timer(&link->intf1);
 
-    tcp_ip_init_intf_log_info2(link->intf1);
-    tcp_ip_init_intf_log_info2(link->intf2);
+    tcp_ip_init_intf_log_info2(link->Intf1);
+    tcp_ip_init_intf_log_info2(link->Intf2);
 }
 
 graph_t *
