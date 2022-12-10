@@ -23,7 +23,7 @@
  *        WITHOUT ANY WARRANTY; without even the implied warranty of 
  *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
  *        General Public License for more details.
- *
+ *Interface
  *        You should have received a copy of the GNU General Public License 
  *        along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
@@ -47,13 +47,13 @@
 #include "Layer2/layer2.h"
 #include "FireWall/acl/acldb.h"
 #include "pkt_block.h"
-#include "Interface/Interface.h"
+#include "Interface/InterfaceUApi.h"
 
 extern graph_t *topo;
 
 extern void
 l2_switch_recv_frame(node_t *node,
-                                     interface_t *interface,
+                                     Interface *interface,
                                      pkt_block_t *pkt_block);
 
 extern void
@@ -67,7 +67,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
     pkt_block_t *pkt_block;
 	node_t *receving_node;
-	interface_t *recv_intf;
+	Interface *recv_intf;
 
 	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
 			(ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
@@ -82,7 +82,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		receving_node = ev_dis_pkt_data->recv_node;
 		recv_intf = ev_dis_pkt_data->recv_intf;
 		pkt = ev_dis_pkt_data->pkt;		
-		recv_intf->intf_nw_props.pkt_recv++;
+        recv_intf->pkt_recv++;
 
         pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
         pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
@@ -102,7 +102,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 int
 send_pkt_to_self (
                 pkt_block_t *pkt_block,
-                interface_t *interface){
+                Interface *interface){
  
     uint8_t *pkt;
     pkt_size_t pkt_size;
@@ -112,11 +112,11 @@ send_pkt_to_self (
   
 	ev_dis_pkt_data_t *ev_dis_pkt_data;
  
-    if (!IF_IS_UP(interface)){
+    if (!interface->is_up){
         return 0;
     }
 
-    interface_t *other_interface =  interface;
+    Interface *other_interface =  interface;
 
     pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
@@ -139,140 +139,15 @@ send_pkt_to_self (
     return pkt_size; 
 }
 
-/*Public APIs to be used by the other modules*/
-int
-send_pkt_out (pkt_block_t *pkt_block,
-             interface_t *interface){
-
-    pkt_size_t pkt_size;
-	ev_dis_pkt_data_t *ev_dis_pkt_data;
-    node_t *sending_node = interface->att_node;
-    node_t *nbr_node = get_nbr_node(interface);
-    
-    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    if (!IF_IS_UP(interface)){
-		interface->intf_nw_props.xmit_pkt_dropped++;
-        return 0;
-    }
-
-    if (!nbr_node)
-        return -1;
-
-    if (pkt_size > MAX_PACKET_BUFFER_SIZE){
-        printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
-        return -1;
-    }
-
-#if 0
-    /* Access List Evaluation at Layer 2 Exit point*/
-    if (access_list_evaluate_ethernet_packet(
-            interface->att_node, interface, 
-           pkt_block, false)  == ACL_DENY) {
-        return -1;
-    }
-#endif 
-    interface_t *other_interface = &interface->link->intf1 == interface ? \
-                                    &interface->link->intf2 : &interface->link->intf1;
-
-	ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0,1, ev_dis_pkt_data_t);
-
-	ev_dis_pkt_data->recv_node = nbr_node;
-	ev_dis_pkt_data->recv_intf = other_interface;
-    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
-	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
-	ev_dis_pkt_data->pkt_size = pkt_size;
-
-    tcp_dump_send_logger(sending_node, interface, 
-			pkt_block, pkt_block_get_starting_hdr(pkt_block));
-
-	if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
-                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t))) {
-
-        printf ("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
-
-        tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
-        XFREE(ev_dis_pkt_data);
-    }
-	
-	interface->intf_nw_props.pkt_sent++;
-    interface->intf_nw_props.bit_rate.new_bit_stats += pkt_size * 8;
-    
-    return pkt_size; 
-}
-
-int
-send_pkt_out2 (pkt_block_t *pkt_block,
-             Interface *interface){
-
-    pkt_size_t pkt_size;
-	ev_dis_pkt_data_t *ev_dis_pkt_data;
-    node_t *sending_node = interface->att_node;
-    node_t *nbr_node = interface->GetNbrNode();
-    
-    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    if (!(interface->is_up)){
-        interface->xmit_pkt_dropped++;
-        return 0;
-    }
-
-    if (!nbr_node)
-        return -1;
-
-    if (pkt_size > MAX_PACKET_BUFFER_SIZE){
-        printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
-        return -1;
-    }
-
-#if 0
-    /* Access List Evaluation at Layer 2 Exit point*/
-    if (access_list_evaluate_ethernet_packet(
-            interface->att_node, interface, 
-           pkt_block, false)  == ACL_DENY) {
-        return -1;
-    }
-#endif 
-
-    Interface *other_interface = interface->GetOtherInterface();
-
-	ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0,1, ev_dis_pkt_data_t);
-
-	ev_dis_pkt_data->recv_node = nbr_node;
-	ev_dis_pkt_data->recv_Intf = other_interface;
-    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
-	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
-	ev_dis_pkt_data->pkt_size = pkt_size;
-
-#if 0
-    tcp_dump_send_logger(sending_node, interface, 
-			pkt_block, pkt_block_get_starting_hdr(pkt_block));
-#endif 
-
-	if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
-                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t))) {
-
-        printf ("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
-
-        tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
-        XFREE(ev_dis_pkt_data);
-    }
-	
-    interface->pkt_sent++;
-      
-    return pkt_size; 
-}
-
 void
 dp_pkt_receive (node_t *node, 
-                           interface_t *interface,
+                           Interface *interface,
                            pkt_block_t *pkt_block){
 
     uint32_t vlan_id_to_tag = 0;
   
     tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
 
-#if 0
     /* Access List Evaluation at Layer 2 Entry point*/ 
     if (access_list_evaluate_ethernet_packet(
                 node, interface, pkt_block, true) 
@@ -281,7 +156,6 @@ dp_pkt_receive (node_t *node,
         assert(!pkt_block_dereference(pkt_block));
         return;
     }
-#endif 
 
     if (l2_frame_recv_qualify_on_interface(
                                           node,
@@ -290,31 +164,30 @@ dp_pkt_receive (node_t *node,
                                           &vlan_id_to_tag) == false){
         
         printf("L2 Frame Rejected on node %s(%s)\n", 
-            node->node_name, interface->if_name);
+            node->node_name, interface->if_name.c_str());
         assert(!pkt_block_dereference(pkt_block));
         return;
     }
 
-    if ( (vlan_id_to_tag) &&
-       (( IF_L2_MODE(interface) == ACCESS) || (IF_L2_MODE(interface) == TRUNK))) {
+    if ( vlan_id_to_tag && (interface->GetL2Mode() != LAN_MODE_NONE)) {
 
         tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
         l2_switch_recv_frame(node, interface, pkt_block);
         assert(!pkt_block_dereference(pkt_block));
     }
 
-    else if (IS_INTF_L3_MODE(interface)){
+    else if (interface->IsIpConfigured()){
             promote_pkt_to_layer2(node, interface, pkt_block);
     }
 }
 
 int
 send_pkt_flood(node_t *node, 
-               interface_t *exempted_intf, 
+               Interface *exempted_intf, 
                pkt_block_t *pkt_block) {
 
     uint32_t i = 0;
-    interface_t *intf; 
+    Interface *intf; 
 
     for( ; i < MAX_INTF_PER_NODE; i++){
 
@@ -324,7 +197,7 @@ send_pkt_flood(node_t *node,
         if(intf == exempted_intf)
             continue;
 
-        send_pkt_out(pkt_block, intf);
+        intf->SendPacketOut(pkt_block);
     }
     return 0;
 }
@@ -372,12 +245,12 @@ node_init_udp_socket(node_t *node){
 
 static void
 _pkt_receive(node_t *receving_node, 
-            char *pkt_with_aux_data, 
+            c_string pkt_with_aux_data, 
             uint32_t pkt_size){
 
     pkt_block_t *pkt_block;
-    char *recv_intf_name = pkt_with_aux_data;
-    interface_t *recv_intf = node_get_intf_by_name(receving_node, recv_intf_name);
+    c_string recv_intf_name = pkt_with_aux_data;
+    Interface *recv_intf = node_get_intf_by_name(receving_node, recv_intf_name);
 
     if(!recv_intf){
         printf("Error : Pkt recvd on unknown interface %s on node %s\n", 

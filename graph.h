@@ -55,28 +55,6 @@ typedef struct node_ node_t;
 typedef struct link_ link_t;
 class Interface;
 
-typedef struct interface_ {
-
-    byte if_name[IF_NAME_SIZE];
-    struct node_ *att_node;
-    struct link_ *link;
-    intf_nw_props_t intf_nw_props;
-    log_t log_info;
-} interface_t;
-
-struct link_ {
-
-    interface_t intf1;
-    interface_t intf2;
-    unsigned int cost;
-}; 
-
-static inline uint32_t
-get_link_cost(interface_t *interface){
-
-    return interface->link->cost;
-}
-
 typedef struct spf_data_ spf_data_t;
 typedef struct pkt_tracer_ pkt_tracer_t;
 typedef struct hashtable hashtable_t;
@@ -84,8 +62,7 @@ typedef struct hashtable hashtable_t;
 struct node_ {
 
     char node_name[NODE_NAME_SIZE];
-    interface_t *intf[MAX_INTF_PER_NODE];
-    Interface *Intf[MAX_INTF_PER_NODE];
+    Interface *intf[MAX_INTF_PER_NODE];
 
     /* For Network Sockets */
     unsigned int udp_port_number;
@@ -151,31 +128,11 @@ graph_t *
 create_new_graph(const char *topology_name);
 
 void
-insert_link_between_two_nodes(node_t *node1, 
-                             node_t *node2,
-                             const char *from_if_name, 
-                             const char *to_if_name, 
-                             unsigned int cost);
-void
-insert_link_between_two_nodes2(node_t *node1,
+insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
         const char *from_if_name,
         const char *to_if_name,
         unsigned int cost);
-
-/*Helper functions*/
-static inline node_t *
-get_nbr_node(interface_t *interface){
-
-    assert(interface->att_node);
-    assert(interface->link);
-    
-    link_t *link = interface->link;
-    if(&link->intf1 == interface)
-        return link->intf2.att_node;
-    else
-        return link->intf1.att_node;
-}
 
 static inline int
 get_node_intf_available_slot(node_t *node){
@@ -189,29 +146,11 @@ get_node_intf_available_slot(node_t *node){
     return -1;
 }
 
-static inline int
-get_node_intf_available_slot2(node_t *node){
-
-    int i ;
-    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
-        if(node->Intf[i])
-            continue;
-        return i;
-    }
-    return -1;
-}
-
-interface_t *
+Interface *
 node_get_intf_by_name(node_t *node, const char *if_name);
 
-interface_t *
+Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);
-
-Interface *
-node_get_intf_by_name2(node_t *node, const char *if_name);
-
-Interface *
-node_get_intf_by_ifindex2(node_t *node, uint32_t ifindex);
 
 static inline node_t *
 node_get_node_by_name(graph_t *topo, c_string node_name){
@@ -231,7 +170,7 @@ node_get_node_by_name(graph_t *topo, c_string node_name){
 /*Display Routines*/
 void dump_graph(graph_t *graph);
 void dump_node(node_t *node);
-void dump_interface(interface_t *interface);
+void dump_interface(Interface *interface);
 
 #define ITERATE_NODE_INTERFACES_BEGIN(node_ptr, intf_ptr) \
 {                                                         \
@@ -242,7 +181,4 @@ void dump_interface(interface_t *interface);
 
 #define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr) }}
     
-
-
-
 #endif /* __NW_GRAPH_ */

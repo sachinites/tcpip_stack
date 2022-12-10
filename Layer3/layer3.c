@@ -51,7 +51,8 @@
 #include "../mtrie/mtrie.h"
 #include "../pkt_block.h"
 #include "../prefix-list/prefixlst.h"
-#include "FireWall/Connection/conn.h"
+#include "../FireWall/Connection/conn.h"
+#include "../Interface/InterfaceUApi.h"
 
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
@@ -82,10 +83,9 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
     char dest_ip_str[16];
     dest_ip_str[15] = '\0';
-    c_string intf_addr = NULL;
+    uint32_t intf_addr ;
 
-    dst_ip = htonl(dst_ip);
-    inet_ntop(AF_INET, &dst_ip, dest_ip_str, 16);
+    tcp_ip_covert_ip_n_to_p(dst_ip, dest_ip_str);
 
     /*checking with node's loopback address*/
     if(string_compare(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
@@ -93,26 +93,24 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
     /*checking with interface IP Addresses*/
     uint32_t i = 0;
-    interface_t *intf;
+    Interface *intf;
 
     for( ; i < MAX_INTF_PER_NODE; i++){
         
         intf = node->intf[i];
         if(!intf) return false;
 
-        if(intf->intf_nw_props.is_ipadd_config == false)
-            continue;
+        if (!intf->IsIpConfigured()) continue;
 
         intf_addr = IF_IP(intf);
 
-        if(string_compare(intf_addr, dest_ip_str, 16) == 0)
-            return true;
+        if  (intf_addr == dst_ip)  return true;
     }
     return false;
 }
 
 extern void
-promote_pkt_to_layer4(node_t *node, interface_t *recv_intf, 
+promote_pkt_to_layer4(node_t *node, Interface *recv_intf, 
                       pkt_block_t *pkt_block,
                       int L4_protocol_number);
 
@@ -132,7 +130,7 @@ demote_pkt_to_layer2(node_t *node,
 
 static void
 layer3_ip_route_pkt(node_t *node,
-							   interface_t *interface,
+							   Interface *interface,
 					           pkt_block_t *pkt_block) {
 
     int8_t nf_result;
@@ -311,7 +309,7 @@ layer3_ip_route_pkt(node_t *node,
     next_hop_ip = tcp_ip_covert_ip_p_to_n(nexthop->gw_ip);
    
     tcp_dump_l3_fwding_logger(node, 
-        nexthop->oif->if_name, nexthop->gw_ip);
+        nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
     nf_result = nf_invoke_netfilter_hook(
                     NF_IP_POST_ROUTING,
@@ -342,7 +340,7 @@ layer3_ip_route_pkt(node_t *node,
 #endif 
     demote_pkt_to_layer2(node, 
             next_hop_ip,
-            nexthop->oif->if_name,
+            nexthop->oif->if_name.c_str(),
             pkt_block,
             IP_HDR); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
@@ -787,7 +785,7 @@ rt_table_add_route (rt_table_t *rt_table,
                                 const char *dst, 
                                 char mask,
                                 const char *gw, 
-                                interface_t *oif,
+                                Interface *oif,
                                 uint32_t spf_metric,
                                 uint8_t proto_id){
 
@@ -853,7 +851,7 @@ rt_table_add_route (rt_table_t *rt_table,
         string_copy((char *)nexthop->gw_ip, gw, 16);
         nexthop->gw_ip[15] = '\0';
         nexthop->oif = oif;
-        nexthop->ifindex = IF_INDEX(oif);
+        nexthop->ifindex = oif->ifindex;
         nexthop->proto = proto_id;
         l3_route_wrlock(l3_route);
 		l3_route_insert_nexthop(l3_route, nexthop, nxthop_proto);
@@ -877,7 +875,7 @@ rt_table_add_route (rt_table_t *rt_table,
 
 static void
 _layer3_pkt_recv_from_layer2(node_t *node, 
-                            interface_t *interface,
+                            Interface *interface,
                            pkt_block_t *pkt_block,
                             int L3_protocol_type) {
 
@@ -910,7 +908,7 @@ _layer3_pkt_recv_from_layer2(node_t *node,
  * pkts to Layer 3 in TCP IP Stack*/
 void
 promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt is received*/
-                      interface_t *interface,  /*ingress interface*/
+                      Interface *interface,  /*ingress interface*/
                       pkt_block_t *pkt_block, /*L3 payload*/
                       int L3_protocol_number) {  /*obtained from eth_hdr->type field*/
 	
@@ -1040,7 +1038,7 @@ demote_packet_to_layer3 (node_t *node,
     next_hop_ip = tcp_ip_covert_ip_p_to_n(nexthop->gw_ip);
 
     tcp_dump_l3_fwding_logger(node,
-                                                    nexthop->oif->if_name, 
+                                                    nexthop->oif->if_name.c_str(), 
                                                     nexthop->gw_ip);
 
     int8_t nf_result = nf_invoke_netfilter_hook(
@@ -1063,7 +1061,7 @@ demote_packet_to_layer3 (node_t *node,
 
     demote_pkt_to_layer2(node,
             next_hop_ip,
-            nexthop->oif->if_name,
+            nexthop->oif->if_name.c_str(),
             pkt_block,
             IP_HDR);
 
@@ -1148,87 +1146,6 @@ tcp_ip_send_ip_data(node_t *node,
                                               dest_ip_address);
 }
 
-void
-interface_set_ip_addr(node_t *node, interface_t *intf, 
-                                    c_string intf_ip_addr, uint8_t mask) {
-
-    uint32_t ip_addr_int;
-    uint32_t if_change_flags = 0;
-    intf_prop_changed_t intf_prop_changed;
-
-    if (IS_INTF_L2_MODE(intf)) {
-        printf("Error : Remove L2 config from interface first\n");
-        return;
-    }
-
-    /* new config */
-    if ( !IF_IP_EXIST(intf)) {
-        string_copy((char *)IF_IP(intf), intf_ip_addr, 16);
-        IF_MASK(intf) = mask;
-        IF_IP_EXIST(intf) = true;
-
-        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-        ip_addr_int = tcp_ip_covert_ip_p_to_n(intf_ip_addr);
-        intf_prop_changed.ip_addr.ip_addr = 0;
-        intf_prop_changed.ip_addr.mask = 0;
-        rt_table_add_direct_route(NODE_RT_TABLE(node), intf_ip_addr, mask);
-
-        nfc_intf_invoke_notification_to_sbscribers(intf,  
-                &intf_prop_changed, if_change_flags);
-        return;
-    }
-
-    /* Existing config changed */
-    if (string_compare(IF_IP(intf), intf_ip_addr, 16) || 
-            IF_MASK(intf) != mask ) {
-
-        ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
-        intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
-        intf_prop_changed.ip_addr.mask = IF_MASK(intf);
-        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-        rt_table_delete_route(NODE_RT_TABLE(node),  IF_IP(intf), IF_MASK(intf), PROTO_STATIC);
-        string_copy((char *)IF_IP(intf), intf_ip_addr, 16);
-        IF_MASK(intf) = mask;
-        rt_table_add_direct_route(NODE_RT_TABLE(node), (const c_string) IF_IP(intf), IF_MASK(intf));
-
-         nfc_intf_invoke_notification_to_sbscribers(intf,  
-                &intf_prop_changed, if_change_flags);
-    }
-}
-
-void
-interface_unset_ip_addr(node_t *node, interface_t *intf, 
-                                        c_string new_intf_ip_addr, uint8_t new_mask) {
-
-    uint8_t mask;
-    uint32_t ip_addr_int;
-    uint32_t if_change_flags = 0;
-    intf_prop_changed_t intf_prop_changed;
-
-    if ( !IF_IP_EXIST(intf)) {
-        return;
-    }
-
-    if (string_compare(IF_IP(intf), new_intf_ip_addr, 16)  ||
-            IF_MASK(intf) != new_mask) {
-
-        printf("Error : Non Existing IP address Specified \n");
-        return;
-    }
-
-    ip_addr_int = tcp_ip_covert_ip_p_to_n(IF_IP(intf));
-    mask = IF_MASK(intf);
-    intf_prop_changed.ip_addr.ip_addr = ip_addr_int;
-    intf_prop_changed.ip_addr.mask = mask;
-
-    IF_IP_EXIST(intf) = false;
-    SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-
-    rt_table_delete_route(NODE_RT_TABLE(node),  new_intf_ip_addr, new_mask, PROTO_STATIC);
-
-    nfc_intf_invoke_notification_to_sbscribers(intf,  
-                &intf_prop_changed, if_change_flags);
-}
 
 l3_route_t *
 l3_route_get_new_route () {

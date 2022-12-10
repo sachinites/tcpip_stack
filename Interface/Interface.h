@@ -24,6 +24,7 @@
 #include "../Tree/libtree.h"
 #include "InterfacEnums.h"
 #include "../tcp_ip_trace.h"
+#include "../net.h"
 
 typedef struct node_ node_t;
 typedef struct linkage_ linkage_t;
@@ -33,14 +34,13 @@ typedef struct pkt_block_ pkt_block_t;
 
 #define INTF_MAX_VLAN_MEMBERSHIP 10
 
-#pragma pack (push,1)
-
-typedef struct mac_addr_ {
-    unsigned char mac[6];
-} mac_addr_t;
-
-#pragma pack(pop)
-
+/* Interface Change Flags, used for Notification to 
+ * Applications*/
+#define IF_UP_DOWN_CHANGE_F         (1 << 0)
+#define IF_IP_ADDR_CHANGE_F           (1 << 1)
+#define IF_OPER_MODE_CHANGE_F    (1 << 2)
+#define IF_VLAN_MEMBERSHIP_CHANGE_F (1 << 3)
+#define IF_METRIC_CHANGE_F          (1 << 4)
 
 class Interface {
 
@@ -83,8 +83,21 @@ class Interface {
         node_t *GetNbrNode ();
         Interface *GetOtherInterface();
 
+        /* APIs to work with Interfaces */
         virtual int SendPacketOut(pkt_block_t *pkt_block);
         virtual void PrintInterfaceDetails ();
+        virtual void SetMacAddr( mac_addr_t *mac_add);
+        virtual mac_addr_t *GetMacAddr( );
+        virtual bool IsIpConfigured() ;
+        virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) ;
+        virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) ;
+        virtual uint32_t GetVlanId();
+        virtual bool IsVlanTrunked (uint32_t vlan_id);
+        virtual bool IntfConfigVlan(uint32_t vlan_id, bool add);
+        virtual void SetSwitchport(bool enable);      
+        virtual bool GetSwitchport(); 
+        virtual IntfL2Mode GetL2Mode ();
+        virtual void SetL2Mode (IntfL2Mode l2_mode);
 };
 
 
@@ -95,38 +108,34 @@ class Interface {
 class PhysicalInterface : public Interface {
 
     private:
-    protected:
-    public:
-        PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
-        ~PhysicalInterface();
-
-        enum IntfL2Mode
-        {
-            LAN_MODE_NONE,
-            LAN_ACCESS_MODE,
-            LAN_TRUNK_MODE
-        };
-
         /* L2 Properties */
         bool switchport;
         mac_addr_t mac_add;
         IntfL2Mode l2_mode;
-        uint32_t vlans[INTF_MAX_VLAN_MEMBERSHIP];  
-
+       
         /* L3 properties */
         uint32_t ip_addr;
         uint8_t mask;
+    protected:
+    public:
+         uint32_t vlans[INTF_MAX_VLAN_MEMBERSHIP];  
+
+        PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
+        ~PhysicalInterface();
 
         static std::string L2ModeToString(IntfL2Mode l2_mode);
-        void SetMacAddr( mac_addr_t *mac_add);
-        mac_addr_t *GetMacAddr( );
-        bool IsIpConfigured() ;
-        void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) ;
-        void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) ;
-        uint32_t GetVlanId();
-        bool IsVlanTrunked (uint32_t vlan_id);
-        void SetSwitchport(bool enable);        
-        
+        virtual void SetMacAddr( mac_addr_t *mac_add) final;
+        virtual mac_addr_t *GetMacAddr( ) final;
+        virtual bool IsIpConfigured() final;
+        virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
+        virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
+        virtual uint32_t GetVlanId() final;
+        virtual bool IsVlanTrunked (uint32_t vlan_id) final;
+        virtual bool IntfConfigVlan(uint32_t vlan_id, bool add) final;
+        virtual void SetSwitchport(bool enable) final;
+        virtual bool GetSwitchport() final;
+        virtual IntfL2Mode GetL2Mode () final;
+        virtual void SetL2Mode (IntfL2Mode l2_mode) final;
         virtual void PrintInterfaceDetails ();
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
 };
@@ -189,5 +198,19 @@ public:
     virtual void PrintInterfaceDetails ();
     virtual int SendPacketOut(pkt_block_t *pkt_block) final;
 };
+
+
+typedef union intf_prop_changed_ {
+
+        uint32_t intf_metric;
+        struct {
+            uint32_t ip_addr;
+            uint8_t mask;
+        } ip_addr;
+        bool up_status; /* True for up, false for down */
+        IntfL2Mode intf_l2_mode;
+        uint32_t vlan;
+} intf_prop_changed_t;
+
 
 #endif

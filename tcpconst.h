@@ -164,5 +164,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
     return 0;
 }
 
+#define MAC_ADDR_SIZE   6
+#define IPV4_ADDR_LEN   4
+
 #endif /* __TCPCONST__ */
 

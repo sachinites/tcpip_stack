@@ -12,13 +12,14 @@
 #include "../libtimer/WheelTimer.h"
 #include "../pkt_block.h"
 #include "../utils.h"
+#include "../Interface/InterfaceUApi.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
 /*A Routine to resolve ARP out of oif*/
 void
 send_arp_broadcast_request(node_t *node,
-                           interface_t *oif,
+                           Interface *oif,
                            c_string ip_addr){
 
     pkt_block_t *pkt_block;
@@ -38,7 +39,7 @@ send_arp_broadcast_request(node_t *node,
             return;
         }
 
-        if (string_compare(IF_IP(oif), ip_addr, 16) == 0) {
+        if (IF_IP(oif) == tcp_ip_covert_ip_p_to_n( ip_addr)) {
             printf("Error : %s : Attempt to resolve ARP for local Ip-address : %s\n",
                     node->node_name, ip_addr);
              tcp_ip_free_pkt_buffer ((byte *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
@@ -48,23 +49,23 @@ send_arp_broadcast_request(node_t *node,
 
     /*STEP 1 : Prepare ethernet hdr*/
     layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
-    memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+    memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
     ethernet_hdr->type = PROTO_ARP;
 
     /*Step 2 : Prepare ARP Broadcast Request Msg out of oif*/
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
     arp_hdr->hw_type = 1;
     arp_hdr->proto_type = 0x0800;
-    arp_hdr->hw_addr_len = sizeof(mac_add_t);
+    arp_hdr->hw_addr_len = MAC_ADDR_SIZE;
     arp_hdr->proto_addr_len = 4;
 
     arp_hdr->op_code = ARP_BROAD_REQ;
 
-    memcpy(arp_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+    memcpy(arp_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
 
-    arp_hdr->src_ip = tcp_ip_covert_ip_p_to_n(IF_IP(oif));
+    arp_hdr->src_ip = IF_IP(oif);
 
-    memset(arp_hdr->dst_mac.mac, 0,  sizeof(mac_add_t));
+    memset(arp_hdr->dst_mac.mac, 0,  MAC_ADDR_SIZE);
 
     arp_hdr->dst_ip = tcp_ip_covert_ip_p_to_n(ip_addr);
 
@@ -74,13 +75,13 @@ send_arp_broadcast_request(node_t *node,
     pkt_block = pkt_block_get_new((uint8_t *)ethernet_hdr, 
                             ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
     pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
-    send_pkt_out(pkt_block, oif);
+    oif->SendPacketOut(pkt_block);
     pkt_block_dereference(pkt_block);
 }
 
 /* Fn is not suppose to modify the input pkt */
 static void
-send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
+send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
 
     pkt_block_t *pkt_block;
 
@@ -90,8 +91,8 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
 
     ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(total_pkt_size);
 
-    memcpy(ethernet_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
-    memcpy(ethernet_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+    memcpy(ethernet_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_addr_t));
+    memcpy(ethernet_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_addr_t));
     
     ethernet_hdr_reply->type = PROTO_ARP;
     
@@ -99,24 +100,24 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, interface_t *oif){
     
     arp_hdr_reply->hw_type = 1;
     arp_hdr_reply->proto_type = 0x0800;
-    arp_hdr_reply->hw_addr_len = sizeof(mac_add_t);
+    arp_hdr_reply->hw_addr_len = sizeof(mac_addr_t);
     arp_hdr_reply->proto_addr_len = 4;
     
     arp_hdr_reply->op_code = ARP_REPLY;
-    memcpy(arp_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
-    arp_hdr_reply->src_ip = tcp_ip_covert_ip_p_to_n(IF_IP(oif));
-    memcpy(arp_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_add_t));
+    memcpy(arp_hdr_reply->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
+    arp_hdr_reply->src_ip = IF_IP(oif);
+    memcpy(arp_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, MAC_ADDR_SIZE);
     arp_hdr_reply->dst_ip = arp_hdr_in->src_ip;
   
     SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
 
     pkt_block = pkt_block_get_new((uint8_t *)ethernet_hdr_reply, total_pkt_size);
-    send_pkt_out(pkt_block, oif);
+    oif->SendPacketOut(pkt_block);
     pkt_block_dereference(pkt_block);
 }
 
 void
-process_arp_reply_msg(node_t *node, interface_t *iif,
+process_arp_reply_msg(node_t *node, Interface *iif,
                         ethernet_hdr_t *ethernet_hdr){
 
     arp_table_update_from_arp_reply( NODE_ARP_TABLE(node), 
@@ -125,19 +126,16 @@ process_arp_reply_msg(node_t *node, interface_t *iif,
 
 /* Fn is not suppose to modify the input pkt */
 void
-process_arp_broadcast_request(node_t *node, interface_t *iif, 
+process_arp_broadcast_request(node_t *node, Interface *iif, 
                               ethernet_hdr_t *ethernet_hdr){
 
    /* ARP broadcast request msg has passed MAC Address check*/
    /* Now, this node need to reply to this ARP Broadcast req
     * msg if Dst ip address in ARP req msg matches iif's ip address*/
 
-    unsigned char ip_addr[16];
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
-
-    tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip_addr);
-    
-    if (string_compare(IF_IP(iif), ip_addr, 16)) {
+   
+    if (arp_hdr->dst_ip != IF_IP(iif)) {
         #if 0
         printf("%s : Error : ARP Broadcast req msg dropped, "
                 "Dst IP address %s did not match with interface ip : %s\n", 
@@ -185,7 +183,7 @@ clear_arp_table(arp_table_t *arp_table){
 }
 
 void
-arp_entry_delete(node_t *node, unsigned char *ip_addr, uint16_t proto){
+arp_entry_delete(node_t *node, c_string ip_addr, uint16_t proto){
 
     arp_table_t *arp_table = NODE_ARP_TABLE(node);
     arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
@@ -206,8 +204,9 @@ arp_table_entry_add(node_t *node,
         assert(*arp_pending_list == NULL);   
     }
 
-    arp_entry_t *arp_entry_old = arp_table_lookup(arp_table, 
-            arp_entry->ip_addr.ip_addr);
+    arp_entry_t *arp_entry_old = 
+                arp_table_lookup(arp_table, 
+                arp_entry->ip_addr.ip_addr);
 
     /* Case 0 : if ARP table entry do not exist already, then add it
      * and return true*/
@@ -276,7 +275,7 @@ arp_table_entry_add(node_t *node,
         !arp_entry_sane(arp_entry)){
 
         string_copy( (char *)arp_entry_old->mac_addr.mac,
-				(char *)arp_entry->mac_addr.mac, sizeof(mac_add_t));
+				(char *)arp_entry->mac_addr.mac, sizeof(mac_addr_t));
         string_copy( (char *)arp_entry_old->oif_name, 
                  ( char *)arp_entry->oif_name, IF_NAME_SIZE);
         arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
@@ -294,7 +293,7 @@ arp_table_entry_add(node_t *node,
 
 static void 
 pending_arp_processing_callback_function(node_t *node,
-                                         interface_t *oif,
+                                         Interface *oif,
                                          arp_entry_t *arp_entry,
                                          arp_pending_entry_t *arp_pending_entry){
 
@@ -302,17 +301,17 @@ pending_arp_processing_callback_function(node_t *node,
     ethernet_hdr_t *ethernet_hdr = NULL;
     pkt_block_t *pkt_block = arp_pending_entry->pkt_block;
     ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-    memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
-    memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+    memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
+    memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
     SET_COMMON_ETH_FCS(ethernet_hdr, 
         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
-    send_pkt_out(pkt_block, oif);
+    oif->SendPacketOut(pkt_block);
     arp_entry->hit_count++;
 }
 
 
 static void
-process_arp_pending_entry(node_t *node, interface_t *oif, 
+process_arp_pending_entry(node_t *node, Interface *oif, 
                           arp_entry_t *arp_entry, 
                           arp_pending_entry_t *arp_pending_entry){
 
@@ -329,7 +328,7 @@ delete_arp_pending_entry (arp_pending_entry_t *arp_pending_entry){
 
 void
 arp_table_update_from_arp_reply(arp_table_t *arp_table, 
-                                arp_hdr_t *arp_hdr, interface_t *iif){
+                                arp_hdr_t *arp_hdr, Interface *iif){
 
     uint32_t src_ip = 0;
     glthread_t *arp_pending_list = NULL;
@@ -339,8 +338,8 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
     arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC(0, 1, arp_entry_t);
 
     tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, arp_entry->ip_addr.ip_addr);
-    memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, sizeof(mac_add_t));
-    string_copy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
+    memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_ADDR_SIZE);
+    string_copy(arp_entry->oif_name, iif->if_name.c_str(), IF_NAME_SIZE);
     arp_entry->is_sane = false;
     arp_entry->proto = PROTO_ARP;
 
@@ -444,7 +443,7 @@ add_arp_pending_entry (arp_entry_t *arp_entry,
 void
 create_arp_sane_entry(node_t *node,
 					                 arp_table_t *arp_table,
-                                     unsigned char *ip_addr, 
+                                     c_string ip_addr, 
                                      pkt_block_t *pkt_block){
 
     /*case 1 : If full entry already exist - assert. The L2 must have
@@ -544,13 +543,13 @@ arp_entry_get_exp_time_left(
 }
 
 bool
-arp_entry_add(node_t *node, unsigned char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto) {
+arp_entry_add(node_t *node, unsigned char *ip_addr, mac_addr_t mac, Interface *oif, uint16_t proto) {
 
     arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC (0 , 1, arp_entry_t );
     string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
-    memcpy(arp_entry->mac_addr.mac, mac.mac, sizeof(mac.mac));
+    memcpy(arp_entry->mac_addr.mac, mac.mac, MAC_ADDR_SIZE);
     arp_entry->proto = proto;
-    string_copy( (char *)arp_entry->oif_name, (char *)oif->if_name, IF_NAME_SIZE);
+    string_copy( arp_entry->oif_name, oif->if_name.c_str(), IF_NAME_SIZE);
     if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0)) {
         XFREE(arp_entry);
         printf("Error : Failed to Add ARP Entry\n");

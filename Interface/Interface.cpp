@@ -69,7 +69,7 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block) {
 	ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0,1, ev_dis_pkt_data_t);
 
 	ev_dis_pkt_data->recv_node = nbr_node;
-	ev_dis_pkt_data->recv_Intf = other_interface;
+	ev_dis_pkt_data->recv_intf = other_interface;
     ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
@@ -103,9 +103,9 @@ SendPacketOutLAN(PhysicalInterface *Intf, pkt_block_t *pkt_block) {
     
     pkt_size_t pkt_size;
   
-    PhysicalInterface::IntfL2Mode intf_l2_mode = Intf->l2_mode;
+    IntfL2Mode intf_l2_mode = Intf->GetL2Mode();
     
-    if (intf_l2_mode == PhysicalInterface::IntfL2Mode::LAN_MODE_NONE){
+    if (intf_l2_mode == LAN_MODE_NONE){
         return false;
     }
     
@@ -116,7 +116,7 @@ SendPacketOutLAN(PhysicalInterface *Intf, pkt_block_t *pkt_block) {
 
     switch(intf_l2_mode){
 
-        case PhysicalInterface::IntfL2Mode::LAN_ACCESS_MODE:
+        case LAN_ACCESS_MODE:
             {
                 uint32_t intf_vlan_id = Intf->GetVlanId();
 
@@ -151,7 +151,7 @@ SendPacketOutLAN(PhysicalInterface *Intf, pkt_block_t *pkt_block) {
                 }
             }
             break;
-        case PhysicalInterface::IntfL2Mode::LAN_TRUNK_MODE:
+        case  LAN_TRUNK_MODE:
             {
                 uint32_t pkt_vlan_id = 0;
                 
@@ -169,7 +169,7 @@ SendPacketOutLAN(PhysicalInterface *Intf, pkt_block_t *pkt_block) {
                 return 0;
             }
             break;
-        case PhysicalInterface::IntfL2Mode::LAN_MODE_NONE:
+        case LAN_MODE_NONE:
             break;
         default:
             ;
@@ -214,8 +214,6 @@ Interface::GetLinkCost() {
 
     return this->link->cost;
 }
-
-
 
 void 
 Interface::PrintInterfaceDetails () {
@@ -268,6 +266,81 @@ Interface::SendPacketOut(pkt_block_t *pkt_block) {
     TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
     return -1;
 }
+
+void 
+Interface::SetMacAddr( mac_addr_t *mac_add) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+mac_addr_t *
+Interface::GetMacAddr( ) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+bool 
+Interface::IsIpConfigured() {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+void 
+Interface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+void 
+Interface::InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+uint32_t 
+Interface::GetVlanId() {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+bool 
+Interface::IsVlanTrunked (uint32_t vlan_id) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+void 
+Interface::SetSwitchport(bool enable) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+ bool 
+ Interface::GetSwitchport() {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+    return false;
+ }
+
+IntfL2Mode 
+Interface::GetL2Mode () {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+    return LAN_MODE_NONE;
+}
+
+void 
+Interface::SetL2Mode (IntfL2Mode l2_mode) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+bool
+Interface::IntfConfigVlan(uint32_t vlan_id, bool add) {
+
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+
 
 
 
@@ -332,6 +405,11 @@ PhysicalInterface::PrintInterfaceDetails () {
 
 void 
 PhysicalInterface::InterfaceSetIpAddressMask (uint32_t ip_addr, uint8_t mask) {
+
+    if (this->switchport) {
+        printf ("Error : Remove L2 Config first\n");
+        return;
+    }
 
     this->ip_addr = ip_addr;
     this->mask = mask;
@@ -410,6 +488,12 @@ PhysicalInterface::SetSwitchport(bool enable) {
     }
 }
 
+bool 
+PhysicalInterface::GetSwitchport() {
+
+    return this->switchport;
+}
+
 int 
 PhysicalInterface::SendPacketOut(pkt_block_t *pkt_block) {
 
@@ -420,6 +504,95 @@ PhysicalInterface::SendPacketOut(pkt_block_t *pkt_block) {
         return SendPacketOutRaw(this, pkt_block);
     }
 }
+
+IntfL2Mode 
+PhysicalInterface::GetL2Mode () {
+
+    return this->l2_mode;
+}
+
+void 
+PhysicalInterface::SetL2Mode (IntfL2Mode l2_mode) {
+
+    if (this->IsIpConfigured()) {
+        printf ("Error : Remove L3 config first\n");
+        return;
+    }
+
+    if (!this->switchport) {
+        printf ("Error : Configure switchport first\n");
+        return;
+    }
+
+    if (this->l2_mode == l2_mode ) return;
+
+    if (this->l2_mode != LAN_MODE_NONE) {
+        printf ("Error : Remove configured L2 Mode first\n");
+        return;
+    }
+
+    this->l2_mode = l2_mode;
+}
+
+bool
+PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add) {
+
+    int i;
+    if (!this->switchport) return false;
+
+    if (add) {
+        switch (this->l2_mode) {
+            case LAN_MODE_NONE:
+                printf("Error : Interface Not in Access Or Trunk Mode\n");
+                return false;
+            
+            case LAN_ACCESS_MODE:
+                if (this->vlans[0]) {
+                    printf ("Error : Access Mode Interface already in vlan %u\n", this->vlans[0]);
+                    return false;
+                 }
+                 this->vlans[0] = vlan_id;
+                 return true;
+        case LAN_TRUNK_MODE:
+            for (i = 0; i < INTF_MAX_VLAN_MEMBERSHIP; i++) {
+                if (this->vlans[i]) continue;
+                this->vlans[i] = vlan_id;
+                return true;
+            }
+            printf("Error : Interface %s : Max Vlan membership limit reached",this->if_name.c_str());
+            return false;
+            default:;
+        }
+    }
+    else {
+
+        switch (this->l2_mode)
+        {
+        case LAN_MODE_NONE:
+            return false;
+
+        case LAN_ACCESS_MODE:
+            if (this->vlans[0] == vlan_id) {
+                this->vlans[0] = 0;
+                return true;
+            }
+            return false;
+
+        case LAN_TRUNK_MODE:
+            for (i = 0; i < INTF_MAX_VLAN_MEMBERSHIP; i++)
+            {
+                if (this->vlans[i] != vlan_id) continue;
+                this->vlans[i] = 0;
+                return true;
+            }
+            return false;
+        default:;
+        }
+    }
+    return true;
+}
+
+
 
 
 
@@ -444,23 +617,6 @@ VirtualInterface::PrintInterfaceDetails () {
 
     this->Interface::PrintInterfaceDetails();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

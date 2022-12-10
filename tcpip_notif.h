@@ -21,7 +21,7 @@
 
 #include "notif.h"
 
-typedef struct interface_ interface_t;
+#include "Interface/InterfaceUApi.h"
 typedef struct pkt_block_ pkt_block_t;
 typedef struct intf_nw_props_ intf_nw_props_t;
 /* 
@@ -31,7 +31,7 @@ typedef struct intf_nw_props_ intf_nw_props_t;
 
 typedef struct intf_notif_data_{
 
-	interface_t *interface;
+	Interface *interface;
 	intf_prop_changed_t *old_intf_prop_changed;
 	uint32_t change_flags;
 } intf_notif_data_t;
@@ -42,7 +42,7 @@ nfc_intf_register_for_events(nfc_app_cb app_cb);
 
 void
 nfc_intf_invoke_notification_to_sbscribers(
-	interface_t *intf,
+	Interface *intf,
     intf_prop_changed_t *old_intf_prop_changed,
     uint32_t change_flags);
 

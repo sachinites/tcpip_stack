@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+class Interface;
+
 typedef struct snp_l2_flow_info_ {
 
 
@@ -44,7 +46,7 @@ typedef struct snp_flow_ {
     /* Flow keys */
     snp_flow_key_t flow_key;
     /*back pointer to ingress interface*/
-    interface_t *ingress_intf;
+    Interface *ingress_intf;
     snp_l2_flow_info_t l2_flow_info;
     snp_l3_flow_info_t l3_flow_info;
     snp_l4_flow_info_t l4_flow_info;

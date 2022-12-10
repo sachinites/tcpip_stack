@@ -40,7 +40,7 @@
 #include "graph.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
-#include "Interface/Interface.h"
+#include "Interface/InterfaceUApi.h"
 
 /*Just some Random number generator*/
 static uint32_t
@@ -60,22 +60,7 @@ hash_code(void *ptr, uint32_t size){
 
 /*Heuristics, Assign a unique mac address to interface*/
 void
-interface_assign_mac_address(interface_t *interface){
-
-    node_t *node = interface->att_node;
-    
-    if(!node)
-        return;
-
-    uint32_t hash_code_val = 0;
-    hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
-    hash_code_val *= hash_code(interface->if_name, IF_NAME_SIZE);
-    memset(IF_MAC(interface), 0, sizeof(IF_MAC(interface)));
-    memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(uint32_t));
-}
-
-void
-interface_assign_mac_address2 (Interface *interface){
+interface_assign_mac_address(Interface *interface){
 
     node_t *node = interface->att_node;
     
@@ -85,7 +70,23 @@ interface_assign_mac_address2 (Interface *interface){
     uint32_t hash_code_val = 0;
     hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
     hash_code_val *= hash_code(interface->if_name.c_str(), IF_NAME_SIZE);
-    IntfSetMacAddress(interface, (mac_addr_t *)&hash_code_val);
+    memset(IF_MAC(interface), 0, sizeof(IF_MAC(interface)));
+    memcpy(IF_MAC(interface), (char *)&hash_code_val, sizeof(uint32_t));
+}
+
+void
+interface_assign_mac_address2 (Interface *interface){
+
+    mac_addr_t mac_addr;
+    node_t *node = interface->att_node;
+    
+    if(!node) return;
+
+    uint32_t hash_code_val = 0;
+    hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
+    hash_code_val *= hash_code(interface->if_name.c_str(), IF_NAME_SIZE);
+    memcpy((void *)mac_addr.mac, (void *)hash_code_val, MAC_ADDR_SIZE);
+    interface->SetMacAddr(&mac_addr);
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -106,35 +107,13 @@ bool node_set_loopback_address(node_t *node, const char *ip_addr){
     return true;
 }
 
-bool node_set_intf_ip_address(node_t *node, const char *local_if, 
+void 
+node_set_intf_ip_address(node_t *node, const char *local_if, 
                                 const char *ip_addr, char mask) {
 
-    interface_t *interface = node_get_intf_by_name(node, local_if);
-    if(!interface) assert(0);
-
-    string_copy((char *)IF_IP(interface), ip_addr, 16);
-    IF_IP(interface)[15] = '\0';
-    interface->intf_nw_props.mask = mask; 
-    interface->intf_nw_props.is_ipadd_config = true;
-    rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
-    return true;
-}
-
-bool node_set_intf_ip_address2(node_t *node, const char *local_if, 
-                                const char *ip_addr, char mask) {
-
-    Interface *interface = node_get_intf_by_name2(node, local_if);
-    if(!interface) assert(0);
-    IntfSetIpAddressMask(interface, tcp_ip_covert_ip_p_to_n((c_string)ip_addr), mask);
-    rt_table_add_direct_route(NODE_RT_TABLE(node), ip_addr, mask);
-    return true;
-}
-
-bool node_unset_intf_ip_address(node_t *node, const char *local_if){
-
-    (unused) node;
-    (unused) local_if;
-    return true;
+    Interface *intf = node_get_intf_by_name(node, local_if);
+    interface_set_ip_addr(node, intf, 
+                                    ip_addr, mask);
 }
 
 void dump_node_nw_props(node_t *node){
@@ -151,26 +130,33 @@ void dump_node_nw_props(node_t *node){
     printf("\n");
 }
 
-void dump_intf_props(interface_t *interface){
+void dump_intf_props(Interface *interface){
+
+    uint8_t intf_mask;
+    uint32_t intf_ip_addr;
+    byte intf_ip_addr_str[16];
 
     dump_interface(interface);
 
-    printf("\t If Status : %s\n", IF_IS_UP(interface) ? "UP" : "DOWN");
+    printf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
 
-    if(interface->intf_nw_props.is_ipadd_config){
-        printf("\t IP Addr = %s/%u", IF_IP(interface), interface->intf_nw_props.mask);
+    if(interface->IsIpConfigured()){
+        interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
+        tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
+        printf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
         printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n", 
                 IF_MAC(interface)[0], IF_MAC(interface)[1],
                 IF_MAC(interface)[2], IF_MAC(interface)[3],
                 IF_MAC(interface)[4], IF_MAC(interface)[5]);
     }
     else{
-         printf("\t l2 mode = %s", intf_l2_mode_str(IF_L2_MODE(interface)));
+         printf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
          printf("\t vlan membership : ");
          int i = 0;
-         for(; i < MAX_VLAN_MEMBERSHIP; i++){
-            if(interface->intf_nw_props.vlans[i]){
-                printf("%u  ", interface->intf_nw_props.vlans[i]);
+         PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(interface);
+         for(; i < INTF_MAX_VLAN_MEMBERSHIP; i++){
+            if(phyIntf->vlans[i]){
+                printf("%u  ", phyIntf->vlans[i]);
             }
          }
          printf("\n");
@@ -181,8 +167,7 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
 
     node_t *node;
     glthread_t *curr;
-    interface_t *interface;
-    Interface *Intf;
+    Interface *interface;
     uint32_t i;
     
     printf("Topology Name = %s\n", graph->topology_name);
@@ -194,11 +179,8 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
             dump_node_nw_props(node);
             for( i = 0; i < MAX_INTF_PER_NODE; i++){
                 interface = node->intf[i];
-                Intf = node->Intf[i];
                 if(!interface) break;
-                if (!Intf) break;
                 dump_intf_props(interface);
-                Intf->PrintInterfaceDetails();
             }
         } ITERATE_GLTHREAD_END(&graph->node_list, curr);
     }
@@ -206,11 +188,8 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
         dump_node_nw_props(node1);
         for( i = 0; i < MAX_INTF_PER_NODE; i++){
             interface = node1->intf[i];
-            Intf = node1->Intf[i];
             if(!interface) break;
-            if (!Intf) break;
             dump_intf_props(interface);
-            Intf->PrintInterfaceDetails();
         }
     }
 }
@@ -218,34 +197,33 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
 /*Returns the local interface of the node which is configured 
  * with subnet in which 'ip_addr' lies
  * */
-interface_t *
+Interface *
 node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
 
     uint32_t i = 0;
-    interface_t *intf;
+    Interface *intf;
 
-    unsigned char *intf_addr = NULL;
-    char mask;
-    unsigned char intf_subnet[16];
-    unsigned char subnet2[16];
+    byte intf_addr[16];
+    uint32_t intf_addr_int;
+    uint8_t mask;
+    byte intf_subnet[16];
+    byte subnet2[16];
 
     for( ; i < MAX_INTF_PER_NODE; i++){
     
         intf = node->intf[i];
         if (!intf) return NULL;
 
-        if (intf->intf_nw_props.is_ipadd_config == false)
-            continue;
+        if (!intf->IsIpConfigured()) continue;
         
-        intf_addr = IF_IP(intf);
-        mask = intf->intf_nw_props.mask;
-
+        intf->InterfaceGetIpAddressMask(&intf_addr_int, mask);
+        tcp_ip_covert_ip_n_to_p(intf_addr_int, intf_addr);
         memset(intf_subnet, 0 , 16);
         memset(subnet2, 0 , 16);
         apply_mask(intf_addr, mask, intf_subnet);
-        apply_mask((unsigned char *)ip_addr, mask, subnet2);
+        apply_mask(ip_addr, mask, subnet2);
         
-        if (string_compare((char *)intf_subnet, (char *)subnet2, 16) == 0){
+        if (string_compare(intf_subnet, subnet2, 16) == 0){
             return intf;
         }
     }
@@ -253,12 +231,12 @@ node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
 }
 
 bool 
-is_same_subnet(unsigned char *ip_addr,
+is_same_subnet(c_string ip_addr,
                char mask, 
-               unsigned char *other_ip_addr){
+               c_string other_ip_addr){
 
-    char intf_subnet[16];
-    char subnet2[16];
+    byte intf_subnet[16];
+    byte subnet2[16];
 
     memset(intf_subnet, 0 , 16);
     memset(subnet2, 0 , 16);
@@ -270,39 +248,6 @@ is_same_subnet(unsigned char *ip_addr,
         return true;
     }
     assert(0);
-    return false;
-}
-
-/*Interface Vlan mgmt APIs*/
-
-/*Should be Called only for interface operating in Access mode*/
-uint32_t
-get_access_intf_operating_vlan_id(interface_t *interface){
-
-    if (IF_L2_MODE(interface) != ACCESS){
-        assert(0);
-    }
-
-    return interface->intf_nw_props.vlans[0];
-}
-
-
-/*Should be Called only for interface operating in Trunk mode*/
-bool
-is_trunk_interface_vlan_enabled(interface_t *interface, 
-                                uint32_t vlan_id){
-
-    if (IF_L2_MODE(interface) != TRUNK){
-        assert(0);
-    }
-
-    uint32_t i = 0;
-
-    for( ; i < MAX_VLAN_MEMBERSHIP; i++){
-
-        if(interface->intf_nw_props.vlans[i] == vlan_id)
-            return true;
-    }
     return false;
 }
 
@@ -339,19 +284,18 @@ pkt_buffer_shift_right(byte *pkt,
 }
 
 void
-dump_interface_stats(interface_t *interface){
+dump_interface_stats(Interface *interface){
 
     printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u,  send rate = %lu bps",
-        interface->if_name, interface->intf_nw_props.pkt_sent,
-        interface->intf_nw_props.pkt_recv,
-		interface->intf_nw_props.xmit_pkt_dropped,
-        interface->intf_nw_props.bit_rate.bit_rate);
+        interface->if_name.c_str(), interface->pkt_sent,
+        interface->pkt_recv,
+		interface->xmit_pkt_dropped);
 }
 
 void
 dump_node_interface_stats(node_t *node){
 
-    interface_t *interface;
+    Interface *interface;
 
     uint32_t i = 0;
 
@@ -365,47 +309,7 @@ dump_node_interface_stats(node_t *node){
     printf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }
 
-bool
-is_interface_l3_bidirectional(interface_t *interface){
-
-    /*if interface is in L2 mode*/
-    if (IF_L2_MODE(interface) == ACCESS || 
-        IF_L2_MODE(interface) == TRUNK)
-        return false;
-
-    /* If interface is not configured 
-     * with IP address*/
-    if (!IS_INTF_L3_MODE(interface))
-        return false;
-
-    interface_t *other_interface = &interface->link->intf1 == interface ?    \
-            &interface->link->intf2 : &interface->link->intf1;
-
-    if (!other_interface)
-        return false;
-
-    if (!IF_IS_UP(interface) ||
-            !IF_IS_UP(other_interface)){
-        return false;
-    }
-
-    if (IF_L2_MODE(other_interface) == ACCESS ||
-        IF_L2_MODE(other_interface) == TRUNK)
-        return false;
-
-    if (!IS_INTF_L3_MODE(other_interface))
-        return false;
-
-    if (!(is_same_subnet(IF_IP(interface), IF_MASK(interface), 
-        IF_IP(other_interface)) &&
-        is_same_subnet(IF_IP(other_interface), IF_MASK(other_interface),
-        IF_IP(interface)))){
-        return false;
-    }
-
-    return true;
-}
-
+#if 0
 static void
 interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
                                                         void *arg, uint32_t arg_size) {
@@ -415,7 +319,7 @@ interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
 
     if (!arg) return;
     
-    interface_t *interface = (interface_t *)arg;
+    Interface *interface = (Interface *)arg;
 
     interface->intf_nw_props.bit_rate.bit_rate = 
          interface->intf_nw_props.bit_rate.new_bit_stats - 
@@ -426,7 +330,7 @@ interface_bit_rate_sample_update(event_dispatcher_t*ev_dis,
 }
 
 void
-intf_init_bit_rate_sampling_timer(interface_t *interface) {
+intf_init_bit_rate_sampling_timer(Interface *interface) {
 
     wheel_timer_elem_t *wt_elem =
         interface->intf_nw_props.bit_rate.bit_rate_sampling_timer;
@@ -444,17 +348,4 @@ intf_init_bit_rate_sampling_timer(interface_t *interface) {
                                                 1000,
                                                 1);
 }
-
-void
-interface_loopback_create (node_t *node, uint8_t lono) {
-
-    (unused) node;
-    (unused) lono;
-}
-
-void
-interface_loopback_delete (node_t *node, uint8_t lono) {
-
-    (unused) node;
-    (unused) lono;
-}
+#endif

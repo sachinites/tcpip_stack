@@ -2,6 +2,7 @@
 #define __ARP__HDR__
 
 typedef struct pkt_block_ pkt_block_t;
+class Interface;
 
 #pragma pack (push,1)
 typedef struct arp_hdr_{
@@ -11,16 +12,16 @@ typedef struct arp_hdr_{
     unsigned char hw_addr_len;       /*6 for MAC*/
     unsigned char proto_addr_len;    /*4 for IPV4*/
     short op_code;          /*req or reply*/
-    mac_add_t src_mac;      /*MAC of OIF interface*/
+    mac_addr_t src_mac;      /*MAC of OIF interface*/
     uint32_t src_ip;    /*IP of OIF*/
-    mac_add_t dst_mac;      /*?*/
+    mac_addr_t dst_mac;      /*?*/
     uint32_t dst_ip;        /*IP for which ARP is being resolved*/
 } arp_hdr_t;
 #pragma pack(pop)
 
 void
 send_arp_broadcast_request(node_t *node, 
-                           interface_t *oif, 
+                           Interface *oif, 
                            c_string ip_addr);
 
 /*ARP Table APIs*/
@@ -32,7 +33,7 @@ typedef struct arp_table_{
 typedef struct arp_pending_entry_ arp_pending_entry_t;
 typedef struct arp_entry_ arp_entry_t;
 typedef void (*arp_processing_fn)(node_t *, 
-                                  interface_t *oif,
+                                  Interface *oif,
                                   arp_entry_t *, 
                                   arp_pending_entry_t *);
 struct arp_pending_entry_{
@@ -48,7 +49,7 @@ GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
 struct arp_entry_{
 
     ip_add_t ip_addr;   /*key*/
-    mac_add_t mac_addr;
+    mac_addr_t mac_addr;
     unsigned char oif_name[IF_NAME_SIZE];
     glthread_t arp_glue;
     bool is_sane;
@@ -114,7 +115,7 @@ show_arp_table(arp_table_t *arp_table);
 
 void
 arp_table_update_from_arp_reply(arp_table_t *arp_table,
-                                arp_hdr_t *arp_hdr, interface_t *iif);
+                                arp_hdr_t *arp_hdr, Interface *iif);
 
 
 void
@@ -135,16 +136,16 @@ arp_entry_sane(arp_entry_t *arp_entry){
 }
 
 void
-process_arp_broadcast_request(node_t *node, interface_t *iif, 
+process_arp_broadcast_request(node_t *node, Interface *iif, 
                                                     ethernet_hdr_t *ethernet_hdr);
 
 void
-process_arp_reply_msg(node_t *node, interface_t *iif,
+process_arp_reply_msg(node_t *node, Interface *iif,
                                         ethernet_hdr_t *ethernet_hdr);
 
 /* ARP Table Public APIs to be exposed to applications */
 
 bool
-arp_entry_add(node_t *node, unsigned char *ip_addr, mac_add_t mac, interface_t *oif, uint16_t proto);
+arp_entry_add(node_t *node, unsigned char *ip_addr, mac_addr_t mac, Interface *oif, uint16_t proto);
 
 #endif

@@ -578,7 +578,7 @@ access_group_config_handler(param_t *param,
    } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
-    Interface *intf = node_get_intf_by_name2(node, if_name);
+    Interface *intf = node_get_intf_by_name(node, if_name);
     
     if (!intf) {
         printf ("Error : Interface do not exist\n");

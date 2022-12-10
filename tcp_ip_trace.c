@@ -323,7 +323,7 @@ tcp_dump(int sock_fd,
 void
 tcp_dump_recv_logger(
               node_t *node,
-              interface_t *intf,
+              Interface *intf,
               pkt_block_t *pkt_block,
               hdr_type_t hdr_type){
 
@@ -389,7 +389,7 @@ tcp_dump_l3_fwding_logger(node_t *node,
 }
 
 void
-tcp_dump_send_logger(node_t *node, interface_t *intf,
+tcp_dump_send_logger(node_t *node, Interface *intf,
               pkt_block_t *pkt_block,
               hdr_type_t hdr_type){
 
@@ -449,7 +449,7 @@ initialize_node_log_file(node_t *node){
 }
 
 static FILE *
-initialize_interface_log_file(interface_t *intf){
+initialize_interface_log_file(Interface *intf){
 
     char file_name[64];
 
@@ -517,18 +517,7 @@ tcp_ip_set_all_log_info_params(log_t *log_info, bool status){
 
 
 void
-tcp_ip_init_intf_log_info(interface_t *intf){
-    
-    log_t *log_info     = &intf->log_info;
-    log_info->all       = false;
-    log_info->recv      = false;
-    log_info->send      = false;
-    log_info->is_stdout = false;
-    log_info->log_file  = initialize_interface_log_file(intf);
-}
-
-void
-tcp_ip_init_intf_log_info2(Interface *intf){
+tcp_ip_init_intf_log_info(Interface *intf){
     
     log_t *log_info     = &intf->log_info;
     log_info->all       = false;
@@ -572,7 +561,7 @@ validate_flag_values(c_string value){
 void tcp_ip_show_log_status(node_t *node){
 
     int i = 0;
-    interface_t *intf;
+    Interface *intf;
     log_t *log_info = &node->log_info;
     
     printf("Log Status : Device : %s\n", node->node_name);
@@ -588,7 +577,7 @@ void tcp_ip_show_log_status(node_t *node){
         if(!intf) continue;
 
         log_info = &intf->log_info;
-        printf("\tLog Status : %s(%s)\n", intf->if_name, IF_IS_UP(intf) ? "UP" : "DOWN");
+        printf("\tLog Status : %s(%s)\n", intf->if_name, intf->is_up ? "UP" : "DOWN");
         printf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
         printf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
         printf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
@@ -604,7 +593,7 @@ int traceoptions_handler(param_t *param,
     c_string node_name;
     c_string if_name;
     uint32_t flags;
-    interface_t *intf;
+    Interface *intf;
     int cmdcode = -1;
     c_string flag_val;
     log_t *log_info = NULL;
@@ -659,7 +648,7 @@ int traceoptions_handler(param_t *param,
             /*disable logging for all interfaces also*/
             if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE){
                 int i = 0;
-                interface_t *intf;
+                Interface *intf;
                 for(; i < MAX_INTF_PER_NODE; i++){
                     intf = node->intf[i];
                     if(!intf) continue;
@@ -778,7 +767,7 @@ init_tcp_logging() {
 
 void 
 tcp_trace_internal(node_t *node,
-			   interface_t *interface, 
+			   Interface *interface, 
 			   char *buff, const char *fn, int lineno) {
 
 	byte lineno_str[16];
@@ -793,7 +782,7 @@ tcp_trace_internal(node_t *node,
 		fwrite(":", sizeof(char), 1, tcp_log_file);
 	}
 	if (interface) {
-		fwrite(interface->if_name, sizeof(char), strlen((const char *)interface->if_name), tcp_log_file);
+		fwrite(interface->if_name.c_str(), sizeof(char), strlen((const char *)interface->if_name.c_str()), tcp_log_file);
 		fwrite(":", sizeof(char), 1, tcp_log_file);
 	}
     fwrite(buff, sizeof(char), strlen(buff), tcp_log_file);

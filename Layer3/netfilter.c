@@ -73,7 +73,7 @@ nf_invoke_netfilter_hook(
 						nf_hook_t nf_hook_type,
 						 pkt_block_t *pkt_block,
 						 node_t *node,
-						 interface_t *intf,
+						 Interface *intf,
 						 hdr_type_t hdr_code) {
 
 	char *pkt;

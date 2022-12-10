@@ -46,6 +46,8 @@
 #pragma pack (push,1)
 
 typedef struct ref_count_  * ref_count_t;
+class Interface;
+typedef struct nexthop_ nexthop_t;
 
 /*The Ip hdr format as per the standard specification*/
 typedef struct ip_hdr_{
@@ -124,7 +126,7 @@ typedef struct rt_table_{
 } rt_table_t;
 
 #define nexthop_node_name(nexthop_ptr)  \
-   ((get_nbr_node(nexthop_ptr->oif))->node_name)
+    (nexthop_ptr->oif->GetNbrNode ()->node_name)
 
 #define RT_ADD_F        (1 << 0)
 #define RT_DEL_F         (1 << 1)
@@ -257,7 +259,7 @@ void
 rt_table_add_route(rt_table_t *rt_table, 
                    const char *dst, char mask,
                    const char *gw, 
-                   interface_t *oif,
+                   Interface *oif,
                    uint32_t spf_metric,
                    uint8_t proto_id);
 
@@ -292,12 +294,5 @@ tcp_ip_send_ip_data(node_t *node,
                                   hdr_type_t L5_protocol_id, 
                                   uint32_t dest_ip_address);
 
-
-/* config of Layer 3 properties of interface*/
-void
-interface_set_ip_addr(node_t *node, interface_t *intf,  c_string intf_ip_addr, uint8_t mask);
-
-void
-interface_unset_ip_addr(node_t *node, interface_t *intf, c_string intf_ip_addr, uint8_t mask);
 
 #endif /* __LAYER3__ */

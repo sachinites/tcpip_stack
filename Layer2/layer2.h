@@ -39,14 +39,16 @@
 #include "../gluethread/glthread.h"
 #include "../tcpconst.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../Interface/InterfacEnums.h"
 
 typedef struct pkt_block_ pkt_block_t;
+class Interface;
 
 #pragma pack (push,1)
 typedef struct ethernet_hdr_{
 
-    mac_add_t dst_mac;
-    mac_add_t src_mac;
+    mac_addr_t dst_mac;
+    mac_addr_t src_mac;
     unsigned short type;
     byte payload[248];  /*Max allowed 1500*/
     uint32_t FCS;
@@ -63,11 +65,10 @@ typedef struct ethernet_hdr_{
 
 /*APIs to be used to create topologies*/
 void
-node_set_intf_l2_mode(node_t *node, const char *intf_name, intf_l2_mode_t intf_l2_mode);
+node_set_intf_l2_mode(node_t *node, const char *intf_name, IntfL2Mode intf_l2_mode);
 
 void
 node_set_intf_vlan_membership(node_t *node, const char *intf_name, uint32_t vlan_id);
-
 
 /*VLAN support*/
 
@@ -83,8 +84,8 @@ typedef struct vlan_8021q_hdr_{
 
 typedef struct vlan_ethernet_hdr_{
 
-    mac_add_t dst_mac;
-    mac_add_t src_mac;
+    mac_addr_t dst_mac;
+    mac_addr_t src_mac;
     vlan_8021q_hdr_t vlan_8021q_hdr;
     unsigned short type;
     byte payload[248];  /*Max allowed 1500*/
@@ -113,7 +114,7 @@ is_pkt_vlan_tagged(ethernet_hdr_t *ethernet_hdr){
      *      * if is value is 0x8100 then it is vlan tagged*/
 
     vlan_8021q_hdr_t *vlan_8021q_hdr =
-        (vlan_8021q_hdr_t *)((char *)ethernet_hdr + (sizeof(mac_add_t) * 2));
+        (vlan_8021q_hdr_t *)((char *)ethernet_hdr + (sizeof(mac_addr_t) * 2));
 
     if(vlan_8021q_hdr->tpid == VLAN_8021Q_PROTO)
         return vlan_8021q_hdr;
@@ -152,14 +153,14 @@ SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr,
 bool 
 l2_frame_recv_qualify_on_interface(
                                     node_t *node,
-                                    interface_t *interface, 
+                                    Interface *interface, 
                                     pkt_block_t *pkt_block,
                                     uint32_t *output_vlan_id);
 
 void
 promote_pkt_to_layer2(
                     node_t *node,
-                    interface_t *iif, 
+                    Interface *iif, 
                     pkt_block_t *pkt_block);
                     
 static inline uint32_t 
@@ -183,7 +184,7 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 
 typedef struct mac_table_entry_{
 
-    mac_add_t mac;
+    mac_addr_t mac;
     byte oif_name[IF_NAME_SIZE];
     glthread_t mac_entry_glue;
 } mac_table_entry_t;

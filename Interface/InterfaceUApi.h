@@ -2,20 +2,43 @@
 #define __INTERFACE_UAPI__
 
 #include "Interface.h"
+#include "../utils.h"
 
-/* Access Macros */
-static inline void 
-IntfSetMacAddress (Interface *Intf, mac_addr_t *mac_addr) {
+typedef struct node_ node_t;
 
-    PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(Intf);
-    phyIntf->SetMacAddr(mac_addr);    
+void
+interface_set_ip_addr (node_t *node, Interface *intf, 
+                                    c_string intf_ip_addr, uint8_t mask) ;
+
+void
+interface_unset_ip_addr (node_t *node, Interface *intf, 
+                                    c_string intf_ip_addr, uint8_t mask) ;                                    
+
+void interface_loopback_create (node_t *node, uint8_t lono);
+void interface_loopback_delete (node_t *node, uint8_t lono) ;
+
+#define IF_MAC(intf)    (intf->GetMacAddr()->mac)
+
+static inline uint32_t 
+IF_IP(Interface *intf) {
+
+    uint32_t ip_addr;
+    uint8_t mask;
+
+    if (!intf->IsIpConfigured()) assert(0);
+    intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
+    return ip_addr;
 }
 
-static inline void
-IntfSetIpAddressMask (Interface *Intf, uint32_t ip_addr, uint8_t mask) {
+static inline uint32_t 
+IF_MASK(Interface *intf) {
 
-    PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(Intf);
-    phyIntf->InterfaceSetIpAddressMask(ip_addr, mask);
+    uint32_t ip_addr;
+    uint8_t mask;
+
+    if (!intf->IsIpConfigured()) assert(0);
+    intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
+    return mask;
 }
 
 #endif 

@@ -2,7 +2,7 @@
 #define __NEXTHOP__
 
 #include "../../utils.h"
-
+class Interface;
 typedef struct nexthop_{
 
     /* Below 3 fields are the keys of the nexthop */
@@ -12,7 +12,7 @@ typedef struct nexthop_{
 
     /* internal fields */
     uint32_t ref_count;
-    interface_t *oif;
+    Interface *oif;
     long long unsigned int hit_count;
 } nexthop_t;
 

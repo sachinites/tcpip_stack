@@ -43,6 +43,7 @@
 #include "../libtimer/WheelTimer.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
+#include "../Interface/InterfaceUApi.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -50,161 +51,25 @@
 extern void layer2_mem_init(); 
 
 extern void
-l2_switch_recv_frame(interface_t *interface,
+l2_switch_recv_frame(Interface *interface,
                      char *pkt, uint32_t pkt_size);
 
 extern void
-promote_pkt_to_layer3(node_t *node, interface_t *interface,
+promote_pkt_to_layer3(node_t *node, Interface *interface,
                          pkt_block_t *pkt_block,
                          int L3_protocol_type);
 
 /*Interface config APIs for L2 mode configuration*/
 
-void
-interface_set_l2_mode(node_t *node, 
-                      interface_t *interface, 
-                      const c_string l2_mode_option){
-
-    intf_l2_mode_t intf_l2_mode;
-
-    if(string_compare((const char *)l2_mode_option, "access", strlen("access")) == 0){
-        intf_l2_mode = ACCESS;    
-    }
-    else if(string_compare((const char *)l2_mode_option, "trunk", strlen("trunk")) ==0){
-        intf_l2_mode = TRUNK;
-    }
-    else{
-        assert(0);
-    }
-
-    /*Case 1 : if interface is working in L3 mode, i.e. IP address is configured.
-     * then disable ip address, and set interface in L2 mode*/
-    if(IS_INTF_L3_MODE(interface)){
-        interface->intf_nw_props.is_ipadd_config_backup = true;
-        interface->intf_nw_props.is_ipadd_config = false;
-
-        IF_L2_MODE(interface) = intf_l2_mode;
-        return;
-    }
-
-    /*Case 2 : if interface is working neither in L2 mode or L3 mode, then
-     * apply L2 config*/
-    if(IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
-        IF_L2_MODE(interface) = intf_l2_mode;
-        return;
-    }
-
-    /*case 3 : if interface is operating in same mode, and user config same mode
-     * again, then do nothing*/
-    if(IF_L2_MODE(interface) == intf_l2_mode){
-        return;
-    }
-
-    /*case 4 : if interface is operating in access mode, and user config trunk mode,
-     * then overwrite*/
-    if(IF_L2_MODE(interface) == ACCESS &&
-            intf_l2_mode == TRUNK){
-        IF_L2_MODE(interface) = intf_l2_mode;
-        return;
-    }
-
-    /* case 5 : if interface is operating in trunk mode, and user config access mode,
-     * then overwrite, remove all vlans from interface, user must enable vlan again 
-     * on interface*/
-    if(IF_L2_MODE(interface) == TRUNK &&
-           intf_l2_mode == ACCESS){
-
-        IF_L2_MODE(interface) = intf_l2_mode;
-
-        uint32_t i = 0;
-
-        for ( ; i < MAX_VLAN_MEMBERSHIP; i++){
-            interface->intf_nw_props.vlans[i] = 0;
-        }
-    }
-}
-
-void
-interface_unset_l2_mode(node_t *node, 
-                      interface_t *interface, 
-                      c_string l2_mode_option){
-
-    
-}
-
-void
-interface_set_vlan(node_t *node,
-                   interface_t *interface,
-                   uint32_t vlan_id){
-
-    /* Case 1 : Cant set vlans on interface configured with ip
-     * address*/
-    if(IS_INTF_L3_MODE(interface)){
-        printf("Error : Interface %s : L3 mode enabled\n", interface->if_name);
-        return;
-    }
-
-    /*Case 2 : Cant set vlan on interface not operating in L2 mode*/
-    if(IF_L2_MODE(interface) != ACCESS &&
-        IF_L2_MODE(interface) != TRUNK){
-        printf("Error : Interface %s : L2 mode not Enabled\n", interface->if_name);
-        return;
-    }
-
-    /*case 3 : Can set only one vlan on interface operating in ACCESS mode*/
-    if(interface->intf_nw_props.intf_l2_mode == ACCESS){
-        
-        uint32_t i = 0, *vlan = NULL;    
-        for( ; i < MAX_VLAN_MEMBERSHIP; i++){
-            if(interface->intf_nw_props.vlans[i]){
-                vlan = &interface->intf_nw_props.vlans[i];
-            }
-        }
-        if(vlan){
-            *vlan = vlan_id;
-            return;
-        }
-        interface->intf_nw_props.vlans[0] = vlan_id;
-    }
-    /*case 4 : Add vlan membership on interface operating in TRUNK mode*/
-    if(interface->intf_nw_props.intf_l2_mode == TRUNK){
-
-        uint32_t i = 0, *vlan = NULL;
-
-        for( ; i < MAX_VLAN_MEMBERSHIP; i++){
-
-            if(!vlan && interface->intf_nw_props.vlans[i] == 0){
-                vlan = &interface->intf_nw_props.vlans[i];
-            }
-            else if(interface->intf_nw_props.vlans[i] == vlan_id){
-                return;
-            }
-        }
-        if(vlan){
-            *vlan = vlan_id;
-            return;
-        }
-        printf("Error : Interface %s : Max Vlan membership limit reached", interface->if_name);
-    }
-}
-
-void
-interface_unset_vlan(node_t *node,
-                   interface_t *interface,
-                   uint32_t vlan){
-
-}
-
 /*APIs to be used to create topologies*/
 void
 node_set_intf_l2_mode(node_t *node,
                                       const char *intf_name, 
-                                      intf_l2_mode_t intf_l2_mode){
+                                      IntfL2Mode intf_l2_mode){
 
-    interface_t *interface = node_get_intf_by_name(node, intf_name);
+    Interface *interface = node_get_intf_by_name(node, intf_name);
     assert(interface);
-
-    interface_set_l2_mode(node, interface, intf_l2_mode_str(intf_l2_mode));
+    interface->SetL2Mode(intf_l2_mode);
 }
 
 void
@@ -212,27 +77,26 @@ node_set_intf_vlan_membership(node_t *node,
                                                      const char *intf_name, 
                                                      uint32_t vlan_id){
 
-    interface_t *interface = node_get_intf_by_name(node, intf_name);
+    Interface *interface = node_get_intf_by_name(node, intf_name);
     assert(interface);
-
-    interface_set_vlan(node, interface, vlan_id);
+    interface->IntfConfigVlan(vlan_id, true);
 }
 
 static void
 l2_forward_ip_packet(node_t *node,
                                     uint32_t next_hop_ip,
-                                    char *outgoing_intf,
+                                    c_string outgoing_intf,
                                     pkt_block_t *pkt_block){
 
 
 
     pkt_size_t pkt_size;
-    interface_t *oif = NULL;
+    Interface *oif = NULL;
     byte next_hop_ip_str[16];
     ethernet_hdr_t *ethernet_hdr;
     arp_entry_t * arp_entry = NULL;
 
-     ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     
     pkt_size_t ethernet_payload_size = 
         pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
@@ -281,10 +145,10 @@ l2_forward_ip_packet(node_t *node,
 
     /*if the destination ip address is exact match to local interface
      * ip address*/
-    if((oif && string_compare((const char *)IF_IP(oif), (const char *)next_hop_ip_str, 16) == 0)){
+    if (oif && (next_hop_ip == IF_IP(oif))) {
         /*send to self*/
-        memset(ethernet_hdr->dst_mac.mac, 0, sizeof(mac_add_t));
-        memset(ethernet_hdr->src_mac.mac, 0, sizeof(mac_add_t));
+        memset(ethernet_hdr->dst_mac.mac, 0, MAC_ADDR_SIZE);
+        memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         send_pkt_to_self(pkt_block, oif);
         pkt_block_dereference(pkt_block);
@@ -311,10 +175,10 @@ l2_forward_ip_packet(node_t *node,
     }
 
     l2_frame_prepare:
-        memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, sizeof(mac_add_t));
-        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), sizeof(mac_add_t));
+        memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
+        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        send_pkt_out(pkt_block, oif);
+        oif->SendPacketOut(pkt_block);
         pkt_block_dereference(pkt_block);
 		arp_entry_refresh_expiration_timer(arp_entry);
         arp_entry->hit_count++;
@@ -411,9 +275,9 @@ tag_pkt_with_vlan_id (
     memset((char *)vlan_ethernet_hdr, 0, 
                 VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
     memcpy(vlan_ethernet_hdr->dst_mac.mac, 
-        ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
+        ethernet_hdr_old.dst_mac.mac, MAC_ADDR_SIZE);
     memcpy(vlan_ethernet_hdr->src_mac.mac, 
-        ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
+        ethernet_hdr_old.src_mac.mac, MAC_ADDR_SIZE);
 
     /*Come to 802.1Q vlan hdr*/
     vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
@@ -463,8 +327,8 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
 
     ethernet_hdr = (ethernet_hdr_t *)((char *)ethernet_hdr + sizeof(vlan_8021q_hdr_t));
    
-    memcpy(ethernet_hdr->dst_mac.mac, vlan_ethernet_hdr_old.dst_mac.mac, sizeof(mac_add_t));
-    memcpy(ethernet_hdr->src_mac.mac, vlan_ethernet_hdr_old.src_mac.mac, sizeof(mac_add_t));
+    memcpy(ethernet_hdr->dst_mac.mac, vlan_ethernet_hdr_old.dst_mac.mac, MAC_ADDR_SIZE);
+    memcpy(ethernet_hdr->src_mac.mac, vlan_ethernet_hdr_old.src_mac.mac, MAC_ADDR_SIZE);
 
     ethernet_hdr->type = vlan_ethernet_hdr_old.type;
     
@@ -481,7 +345,7 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
 void
 promote_pkt_to_layer2(
                     node_t *node,
-                    interface_t *iif, 
+                    Interface *iif, 
                     pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
@@ -530,7 +394,7 @@ promote_pkt_to_layer2(
 bool 
 l2_frame_recv_qualify_on_interface(
                                     node_t *node,
-                                    interface_t *interface, 
+                                    Interface *interface, 
                                     pkt_block_t *pkt_block,
                                     uint32_t *output_vlan_id){
 
@@ -550,8 +414,8 @@ l2_frame_recv_qualify_on_interface(
 
     /* case 10 : If receiving interface is neither working in L3 mode
      * nor in L2 mode, then reject the packet*/
-    if(!IS_INTF_L3_MODE(interface) &&
-        IF_L2_MODE(interface) == L2_MODE_UNKNOWN){
+    if (!interface->IsIpConfigured() &&
+            !interface->GetSwitchport()) {
 
         return false;
     }
@@ -560,8 +424,8 @@ l2_frame_recv_qualify_on_interface(
      * same time not operating within a vlan, then it must
      * accept untagged packet only*/
 
-    if(IF_L2_MODE(interface) == ACCESS &&
-        get_access_intf_operating_vlan_id(interface) == 0){
+    if (interface->GetL2Mode() == LAN_ACCESS_MODE &&
+            interface->GetVlanId() == 0) {
 
         if(!vlan_8021q_hdr)
             return true;    /*case 3*/
@@ -577,9 +441,9 @@ l2_frame_recv_qualify_on_interface(
     uint32_t intf_vlan_id = 0,
                  pkt_vlan_id = 0;
 
-    if(IF_L2_MODE(interface) == ACCESS){
+    if(interface->GetL2Mode() == LAN_ACCESS_MODE){
         
-        intf_vlan_id = get_access_intf_operating_vlan_id(interface);
+        intf_vlan_id = interface->GetVlanId();
             
         if(!vlan_8021q_hdr && intf_vlan_id){
             *output_vlan_id = intf_vlan_id;
@@ -603,7 +467,7 @@ l2_frame_recv_qualify_on_interface(
     /* if interface is operating in a TRUNK mode, then it must discard all untagged
      * frames*/
     
-    if(IF_L2_MODE(interface) == TRUNK){
+    if(interface->GetL2Mode() == LAN_TRUNK_MODE){
        
         if(!vlan_8021q_hdr){
             /*case 7 & 8*/
@@ -614,11 +478,11 @@ l2_frame_recv_qualify_on_interface(
     /* if interface is operating in a TRUNK mode, then it must accept the frame
      * which are tagged with any vlan-id in which interface is operating.*/
 
-    if(IF_L2_MODE(interface) == TRUNK && 
+    if((interface->GetL2Mode() == LAN_TRUNK_MODE) && 
             vlan_8021q_hdr){
         
         pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
-        if(is_trunk_interface_vlan_enabled(interface, pkt_vlan_id)){
+        if (interface->IsVlanTrunked(pkt_vlan_id)) {
             return true;    /*case 9*/
         }
         else{
@@ -627,24 +491,24 @@ l2_frame_recv_qualify_on_interface(
     }
     
     /*If the interface is operating in L3 mode, and recv vlan tagged frame, drop it*/
-    if(IS_INTF_L3_MODE(interface) && vlan_8021q_hdr){
+    if(interface->IsIpConfigured() && vlan_8021q_hdr){
         /*case 2*/
         return false;
     }
 
     /* If interface is working in L3 mode, then accept the frame only when
      * its dst mac matches with receiving interface MAC*/
-    if(IS_INTF_L3_MODE(interface) &&
+    if(interface->IsIpConfigured()  &&
         memcmp(IF_MAC(interface), 
         ethernet_hdr->dst_mac.mac, 
-        sizeof(mac_add_t)) == 0){
+        MAC_ADDR_SIZE) == 0){
         /*case 1*/
         return true;
     }
 
     /*If interface is working in L3 mode, then accept the frame with
      * broadcast MAC*/
-    if(IS_INTF_L3_MODE(interface) &&
+    if(interface->IsIpConfigured()  &&
         IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
         /*case 1*/
         return true;

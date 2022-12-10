@@ -1,12 +1,12 @@
 #include "../gluethread/glthread.h"
 #include "../BitOp/bitsop.h"
-#include "Threads/refcount.h"
+#include "../Threads/refcount.h"
 #include "../graph.h"
 #include "../notif.h"
 #include "rt_notif.h"
 #include "rt_table/nexthop.h"
 #include "layer3.h"
-#include "LinuxMemoryManager/uapi_mm.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 void
 rt_table_add_route_to_notify_list (

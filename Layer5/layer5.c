@@ -42,7 +42,7 @@
 
 void
 promote_pkt_from_layer3_to_layer5(node_t *node,
-					 interface_t *recv_intf, 
+					 Interface *recv_intf, 
 					pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) {
 
@@ -52,7 +52,7 @@ promote_pkt_from_layer3_to_layer5(node_t *node,
 
 void
 cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
-					 interface_t *recv_intf, 
+					 Interface *recv_intf, 
                      pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) { 
 

@@ -50,10 +50,7 @@
 /*Do not #include Layer2/layer2.h*/
 
 typedef struct graph_ graph_t;
-typedef struct interface_ interface_t;
-#ifndef __INTERFACE__
 class Interface;
-#endif
 typedef struct node_ node_t;
 
 #pragma pack (push,1)
@@ -61,9 +58,9 @@ typedef struct ip_add_ {
     unsigned char ip_addr[16];
 } ip_add_t;
 
-typedef struct mac_add_ {
+typedef struct mac_addr_ {
     unsigned char mac[6];
-} mac_add_t;
+} mac_addr_t;
 #pragma pack(pop)
 
 /*Forward Declaration*/
@@ -125,153 +122,15 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 	init_glthread(&(node_nw_prop->traffic_gen_db_head));
 }
 
-typedef enum{
-
-    ACCESS,
-    TRUNK,
-    L2_MODE_UNKNOWN
-} intf_l2_mode_t;
-
-static inline const c_string
-intf_l2_mode_str(intf_l2_mode_t intf_l2_mode){
-
-    switch(intf_l2_mode){
-        case ACCESS:
-            return ( const c_string)"access";
-        case TRUNK:
-            return ( const c_string)"trunk";
-        default:
-            return ( const c_string)"L2_MODE_UNKNWON";
-    }
-}
-
-#define MAX_VLAN_MEMBERSHIP 10
-
-typedef struct ddcp_interface_prop_ ddcp_interface_prop_t;
-typedef struct intf_nmp_ intf_nmp_t;
-typedef struct stp_vlan_intf_info_ stp_vlan_intf_info_t;
-typedef struct access_list_ access_list_t;
-
-typedef struct intf_nw_props_ {
-
-    /*L1 Properties*/
-    bool is_up;
-	uint32_t ifindex;
-
-    /*L2 properties*/
-    mac_add_t mac_add;              /*Mac are hard burnt in interface NIC*/
-    intf_l2_mode_t  intf_l2_mode;   /*if IP-address is configured on this interface, then this should be set to UNKNOWN*/
-    uint32_t vlans[MAX_VLAN_MEMBERSHIP];    /*If the interface is operating in Trunk mode, it can be a member of these many vlans*/
-    bool is_ipadd_config_backup;
-    ddcp_interface_prop_t *ddcp_interface_prop;
-    intf_nmp_t *nmp;
-    void *isis_intf_info;
-	stp_vlan_intf_info_t *stp_vlan_intf_info;
-    access_list_t *l2_ingress_acc_lst;
-   access_list_t *l2_egress_acc_lst;
-
-    /*L3 properties*/
-    bool is_ipadd_config; 
-    ip_add_t ip_add;
-    char mask;
-
-    pthread_spinlock_t spin_lock_l3_ingress_acc_lst;
-    access_list_t *l3_ingress_acc_lst;
-
-    pthread_spinlock_t spin_lock_l3_egress_acc_lst;
-    access_list_t *l3_egress_acc_lst;
-
-    /*Interface Statistics*/
-    uint32_t pkt_recv;
-    uint32_t pkt_sent;
-	uint32_t xmit_pkt_dropped;
-
-    struct {
-        uint64_t old_bit_stats;
-        uint64_t new_bit_stats;
-        uint64_t bit_rate;
-        wheel_timer_elem_t *bit_rate_sampling_timer;
-    }bit_rate;
-
-   avltree_t flow_avl_root;
-
-} intf_nw_props_t;
-
-typedef union intf_prop_changed_ {
-
-        uint32_t intf_metric;
-        struct {
-            uint32_t ip_addr;
-            uint8_t mask;
-        } ip_addr;
-        bool up_status; /* True for up, false for down */
-        intf_l2_mode_t intf_l2_mode;
-        uint32_t vlan;
-} intf_prop_changed_t;
-
-extern void
-init_ddcp_interface_props(ddcp_interface_prop_t **ddcp_interface_prop);
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root) ;
-
-static inline void
-init_intf_nw_prop(intf_nw_props_t *intf_nw_props) {
-
-    /*L1 properties*/
-    intf_nw_props->is_up = true;
-	intf_nw_props->ifindex = get_new_ifindex();
-
-    /*L2 properties*/
-    memset(intf_nw_props->mac_add.mac , 0 , 
-        sizeof(intf_nw_props->mac_add.mac));
-    intf_nw_props->intf_l2_mode = L2_MODE_UNKNOWN;
-    memset(intf_nw_props->vlans, 0, sizeof(intf_nw_props->vlans));
-
-    /*L3 properties*/
-    intf_nw_props->is_ipadd_config = false;
-    memset(intf_nw_props->ip_add.ip_addr, 0, 16);
-    intf_nw_props->mask = 0;
-
-    /*Interface Statistics*/
-    intf_nw_props->pkt_recv = 0;
-    intf_nw_props->pkt_sent = 0;
-	intf_nw_props->xmit_pkt_dropped = 0;
-
-    /* Locks */
-    pthread_spin_init (&intf_nw_props->spin_lock_l3_ingress_acc_lst,
-                                                PTHREAD_PROCESS_PRIVATE);
-    pthread_spin_init (&intf_nw_props->spin_lock_l3_egress_acc_lst, 
-                                                PTHREAD_PROCESS_PRIVATE);
-
-
-    snp_flow_init_flow_tree_root(&intf_nw_props->flow_avl_root);
-}
-
-void interface_assign_mac_address(interface_t *interface);
-void interface_assign_mac_address2(Interface *interface);
-
-void
-intf_init_bit_rate_sampling_timer(interface_t *interface);
-
-/*GET shorthand Macros*/
-#define IF_MAC(intf_ptr)   ((intf_ptr)->intf_nw_props.mac_add.mac)
-#define IF_IP(intf_ptr)    ((unsigned char *)((intf_ptr)->intf_nw_props.ip_add.ip_addr))
-#define IF_IP_EXIST(intf_ptr) ((intf_ptr)->intf_nw_props.is_ipadd_config)
-#define IF_MASK(intf_ptr)  ((intf_ptr)->intf_nw_props.mask)
-#define IF_IS_UP(intf_ptr) ((intf_ptr)->intf_nw_props.is_up == true)
-#define IF_INDEX(intf_ptr) ((intf_ptr)->intf_nw_props.ifindex)
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
-#define IF_L2_MODE(intf_ptr)    (intf_ptr->intf_nw_props.intf_l2_mode)
-#define IS_INTF_L2_MODE(intf_ptr)                                  \
-    (intf_ptr->intf_nw_props.intf_l2_mode == ACCESS ||      \
-    intf_ptr->intf_nw_props.intf_l2_mode == TRUNK)
 
-#define IS_INTF_L3_MODE(intf_ptr)   (intf_ptr->intf_nw_props.is_ipadd_config == true)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
 #define IF_GET_FLOW_DB(intf_ptr) \
@@ -279,38 +138,24 @@ intf_init_bit_rate_sampling_timer(interface_t *interface);
 
 /*APIs to set Network Node properties*/
 bool node_set_loopback_address(node_t *node, const char *ip_addr);
-bool node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
-bool node_set_intf_ip_address2(node_t *node, const char *local_if, const char *ip_addr, char mask);
-bool node_unset_intf_ip_address(node_t *node, const char *local_if);
+void node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
 
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/
 void dump_nw_graph(graph_t *graph, node_t *node);
 void dump_node_nw_props(node_t *node);
-void dump_intf_props(interface_t *interface);
 void dump_node_interface_stats(node_t *node);
-void dump_interface_stats(interface_t *interface);
-void interface_loopback_create (node_t *node, uint8_t lono) ;
-void interface_loopback_delete (node_t *node, uint8_t lono) ;
+void dump_interface_stats(Interface *interface);
+
 
 /*Helper Routines*/
-interface_t *
+Interface *
 node_get_matching_subnet_interface(node_t *node, c_string ip_addr);
 
 bool
 is_same_subnet(c_string ip_addr,
                char mask,
                c_string other_ip_addr);
-
-/*Interface Vlan mgmt APIs*/
-
-/*Should be Called only for interface operating in Access mode*/
-uint32_t
-get_access_intf_operating_vlan_id(interface_t *interface);
-/*Should be Called only for interface operating in Trunk mode*/
-
-bool
-is_trunk_interface_vlan_enabled(interface_t *interface, uint32_t vlan_id);  
 
 byte *
 pkt_buffer_shift_right(byte *pkt, uint32_t pkt_size,
@@ -329,34 +174,22 @@ tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
     XFREE(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
 }
 
-bool
-is_interface_l3_bidirectional(interface_t *interface);
-
-
-/* Interface Change Flags, used for Notification to 
- * Applications*/
-#define IF_UP_DOWN_CHANGE_F         (1 << 0)
-#define IF_IP_ADDR_CHANGE_F         (1 << 1)
-#define IF_OPER_MODE_CHANGE_F       (1 << 2)
-#define IF_VLAN_MEMBERSHIP_CHANGE_F (1 << 3)
-#define IF_METRIC_CHANGE_F          (1 << 4)
-
 /*Macros to Iterate over Nbrs of a node*/
+void interface_assign_mac_address(Interface *interface);
 
-#define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr) \
+#define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr) \
     do{                                                                  \
         int i = 0 ;                                                      \
-        interface_t *other_intf;                                         \
+        Interface *other_intf;                                         \
         for( i = 0 ; i < MAX_INTF_PER_NODE; i++){                        \
             oif_ptr = node_ptr->intf[i];                                 \
             if(!oif_ptr) continue;                                       \
-            other_intf = &oif_ptr->link->intf1 == oif_ptr ?              \
-            &oif_ptr->link->intf2 : &oif_ptr->link->intf1;               \
+            other_intf = oif_ptr->GetOtherInterface();      \
             if(!other_intf) continue;                                    \
-            nbr_ptr = get_nbr_node(oif_ptr);                             \
-            ip_addr_ptr = IF_IP(other_intf);                             \
+            nbr_ptr = oif_ptr->GetNbrNode ();                 \
+            ip_addr = IF_IP(other_intf);                      \
 
-#define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr_ptr)  }}while(0);
+#define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)  }}while(0);
 
 #define EV(node_ptr)    (&node_ptr->ev_dis)
 #define EV_DP(node_ptr) (&node_ptr->dp_ev_dis)

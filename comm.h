@@ -40,39 +40,31 @@
 #define MAX_PACKET_BUFFER_SIZE   2048
 
 typedef struct node_ node_t;
-typedef struct interface_ interface_t;
 class Interface;
 typedef struct pkt_block_ pkt_block_t;
 
 typedef struct ev_dis_pkt_data_{
 
     node_t *recv_node;
-    interface_t *recv_intf;
-    Interface *recv_Intf;
+    Interface *recv_intf;
     byte *pkt;
     uint32_t pkt_size;
 } ev_dis_pkt_data_t;
 
 int
-send_pkt_to_self (pkt_block_t *pkt_block, interface_t *interface);
-
-/* API to send the packet out of the interface.
- * Nbr node must receieve the packet on other end
- * of the link*/
-int send_pkt_out(pkt_block_t *pkt_block, interface_t *interface);
-int send_pkt_out2(pkt_block_t *pkt_block, Interface *interface);
+send_pkt_to_self (pkt_block_t *pkt_block, Interface *interface);
 
 /*API to recv packet from interface*/
 void
 dp_pkt_receive(node_t *node,
-                          interface_t *interface, 
+                         Interface *interface, 
                           pkt_block_t *pkt_block);
 
 /* API to flood the packet out of all interfaces
  * of the node*/
 int
 send_pkt_flood(node_t *node, 
-               interface_t *exempted_intf, 
+               Interface *exempted_intf, 
                pkt_block_t *pkt_block);
 
 #endif /* __COMM__ */

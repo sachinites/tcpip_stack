@@ -76,6 +76,52 @@ free_spf_result(spf_result_t *spf_result){
     XFREE(spf_result);
 }
 
+static bool
+is_interface_l3_bidirectional(Interface *interface){
+
+    uint32_t intf_ip_addr, other_intf_ip_addr;
+    uint8_t intf_ip_mask, other_intf_mask;
+
+    byte intf_ip_addr_str[16];
+    byte other_intf_ip_addr_str[16];
+
+    /*if interface is in L2 mode*/
+    if (interface->GetSwitchport())  return false;
+
+    /* If interface is not configured with IP address*/
+    if (!interface->IsIpConfigured())  return false;
+
+    Interface *other_interface = interface->GetOtherInterface();
+    if (!other_interface)
+        return false;
+
+    if (!interface->is_up || !other_interface->is_up) {
+        return false;
+    }
+
+    if (other_interface->GetSwitchport())  return false;
+        return false;
+
+     if (!other_interface->IsIpConfigured())  return false;
+
+
+    interface->InterfaceGetIpAddressMask(&intf_ip_addr, intf_ip_mask);
+    other_interface->InterfaceGetIpAddressMask(&other_intf_ip_addr, other_intf_mask);
+
+    tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
+    tcp_ip_covert_ip_n_to_p(other_intf_ip_addr, other_intf_ip_addr_str);
+
+    if (!(is_same_subnet(intf_ip_addr_str, IF_MASK(interface), 
+        other_intf_ip_addr) &&
+        is_same_subnet(other_intf_ip_addr, IF_MASK(other_interface),
+        intf_ip_addr_str))){
+        return false;
+    }
+
+    return true;
+}
+
+
 static void
 init_node_spf_data(node_t *node, bool delete_spf_result){
 
@@ -176,8 +222,9 @@ initialize_direct_nbrs(node_t *spf_root){
 
     /*Initialize direct nbrs*/
     node_t *nbr = NULL;
-    c_string nxt_hop_ip = NULL;
-    interface_t *oif = NULL;
+    uint32_t nxt_hop_ip = NULL;
+    byte nxt_hop_ip_str[16];
+    Interface *oif = NULL;
     nexthop_t *nexthop = NULL;
 
     ITERATE_NODE_NBRS_BEGIN(spf_root, nbr, oif, nxt_hop_ip){
@@ -189,19 +236,20 @@ initialize_direct_nbrs(node_t *spf_root){
 
         /*Step 2.1 : Begin*/
         /*Populate nexthop array of directly connected nbrs of spf_root*/
-        if (get_link_cost(oif) < SPF_METRIC(nbr)){
+        if (oif->GetLinkCost() < SPF_METRIC(nbr)){
             nh_flush_nexthops(nbr->spf_data->nexthops);
-            nexthop = nh_create_new_nexthop (IF_INDEX(oif), nxt_hop_ip, PROTO_STATIC);
+            nexthop = nh_create_new_nexthop (oif->ifindex, nxt_hop_ip, PROTO_STATIC);
             nexthop->oif = oif;
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
-            SPF_METRIC(nbr) = get_link_cost(oif);
+            SPF_METRIC(nbr) = oif->GetLinkCost();
         }
         /*Step 2.1 : End*/
 
         /*Step 2.2 : Begin*/
         /*Cover the ECMP case*/
-        else if (get_link_cost(oif) == SPF_METRIC(nbr)){
-            nexthop = nh_create_new_nexthop (IF_INDEX(oif), nxt_hop_ip, PROTO_STATIC);
+        else if (oif->GetLinkCost() == SPF_METRIC(nbr)){
+            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, nxt_hop_ip_str);
+            nexthop = nh_create_new_nexthop (oif->ifindex, nxt_hop_ip_str, PROTO_STATIC);
             nexthop->oif = oif;
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
         }
@@ -263,8 +311,9 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
                  glthread_t *priority_lst){
 
     node_t *nbr;
-    interface_t *oif;
-    c_string nxt_hop_ip = NULL;
+    Interface *oif;
+    uint32_t nxt_hop_ip;
+    byte nxt_hop_ip_str[16];
 
     #if SPF_LOGGING
     printf("root : %s : Event : Nbr Exploration Start for Node : %s\n",
@@ -287,13 +336,13 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
                 " spf_metric(%s, %u) + link cost(%u) < spf_metric(%s, %u)\n",
                 spf_root->node_name, curr_node->node_name, 
                 curr_node->spf_data->spf_metric, 
-                get_link_cost(oif), nbr->node_name, nbr->spf_data->spf_metric);
+                oif->GetLinkCost(), nbr->node_name, nbr->spf_data->spf_metric);
         #endif
         /*Step 6.1 : Begin*/
         /* We have just found that a nbr node is reachable via even better 
          * shortest path cost. Simply adjust the nbr's node's position in PQ
          * by removing (if present) and adding it back to PQ*/
-        if(SPF_METRIC(curr_node) + get_link_cost(oif) < 
+        if(SPF_METRIC(curr_node) + oif->GetLinkCost() < 
                 SPF_METRIC(nbr)){
 
             #if SPF_LOGGING
@@ -307,7 +356,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
             nh_union_nexthops_arrays(curr_node->spf_data->nexthops,
                     nbr->spf_data->nexthops);
             /*Update shortest path cose of nbr node*/
-            SPF_METRIC(nbr) = SPF_METRIC(curr_node) + get_link_cost(oif);
+            SPF_METRIC(nbr) = SPF_METRIC(curr_node) + oif->GetLinkCost();
 
             #if SPF_LOGGING
             printf("root : %s : Event : Primary Nexthops Copied "
@@ -340,7 +389,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
          * So, instead of replacing the obsolete nexthops of nbr node, We will
          * do union of old and new nexthops since both nexthops are valid. 
          * Remove Duplicates however*/
-        else if(SPF_METRIC(curr_node) + get_link_cost(oif) == 
+        else if(SPF_METRIC(curr_node) + oif->GetLinkCost() == 
                 SPF_METRIC(nbr)){
         #if SPF_LOGGING
             printf("root : %s : Event : Primary Nexthops Union of Current Node"
@@ -369,11 +418,10 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
 static void
 compute_spf(node_t *spf_root){
 
-    node_t *node, 
-           *nbr;
+    node_t *node, *nbr;
     glthread_t *curr;
-    interface_t *oif;
-    c_string nxt_hop_ip = NULL;
+    Interface *oif;
+    uint32_t nxt_hop_ip;
     spf_data_t *curr_spf_data;
     
     #if SPF_LOGGING
@@ -488,7 +536,7 @@ show_spf_results(node_t *node){
 
     int i = 0, j = 0;
     glthread_t *curr;
-    interface_t *oif = NULL;
+    Interface *oif = NULL;
     spf_result_t *res = NULL;
 
     printf("\nSPF run results for node = %s\n", node->node_name);
@@ -512,14 +560,14 @@ show_spf_results(node_t *node){
             if(j == 0){
                 printf("%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
                         nexthop_node_name(res->nexthops[i]),
-                        oif->if_name, res->nexthops[i]->gw_ip, 
+                        oif->if_name.c_str(), res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }
             else{
                 printf("                                              : "
                         "%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
                         nexthop_node_name(res->nexthops[i]),
-                        oif->if_name, res->nexthops[i]->gw_ip, 
+                        oif->if_name.c_str(), res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }
         }
@@ -551,7 +599,7 @@ spf_algo_interface_update(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_s
 		(intf_notif_data_t *)arg;
 
 	uint32_t flags = intf_notif_data->change_flags;
-	interface_t *interface = intf_notif_data->interface;
+	Interface *interface = intf_notif_data->interface;
      intf_prop_changed_t *intf_prop_changed = intf_notif_data->old_intf_prop_changed;
     
 	/*Run spf if interface is transition to up/down*/
