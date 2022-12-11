@@ -139,7 +139,7 @@ isis_intf_config_handler(param_t *param,
     int cmdcode = -1;
     node_t *node = NULL;
     char *intf_name = NULL;
-    interface_t *intf = NULL;
+    Interface *intf = NULL;
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
     isis_intf_group_t *intf_grp = NULL;
@@ -242,7 +242,7 @@ isis_show_handler(param_t *param,
     node_t *node = NULL;
     char *rtr_id_str = NULL;
     char *intf_name = NULL;
-    interface_t *intf = NULL;
+    Interface *intf = NULL;
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
 
@@ -609,7 +609,7 @@ isis_clear_handler(param_t *param,
         break;
         case CMDCODE_CLEAR_NODE_ISIS_ADJACENCY:
         {
-            interface_t *intf;
+            Interface *intf;
             ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
                 if (!isis_node_intf_is_enable(intf)) continue;

@@ -86,7 +86,7 @@ isis_intf_group_remove_from_intf_grp_db (
 }
 
 static bool
-isis_intf_grp_is_member_intf_active(interface_t *intf) {
+isis_intf_grp_is_member_intf_active(Interface *intf) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -115,7 +115,7 @@ intf_grp_membership_add_comp_fn(void *n1, void *n2) {
 
 int
 isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp, 
-                                                                interface_t *intf) {
+                                                                Interface *intf) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -131,7 +131,7 @@ isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp,
 }
 
 void
-isis_intf_grp_refresh_member_interface (interface_t *intf) {
+isis_intf_grp_refresh_member_interface (Interface *intf) {
 
     isis_intf_group_t *intf_grp;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
@@ -146,13 +146,13 @@ isis_intf_grp_refresh_member_interface (interface_t *intf) {
                              offsetof(isis_intf_info_t, intf_grp_member_glue));
 
     sprintf(tlb, "%s : Refresh interface Grp %s with interface %s\n",
-            ISIS_ADJ_MGMT, intf_grp->name, intf->if_name);
+            ISIS_ADJ_MGMT, intf_grp->name, intf->if_name.c_str());
     tcp_trace(intf->att_node, intf, tlb);
 }
 
 int
 isis_intf_group_remove_intf_membership (isis_intf_group_t *intf_grp,
-                                                                      interface_t *intf) {
+                                                                      Interface *intf) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -171,7 +171,7 @@ void
 isis_dynamic_intf_group_remove_intf_membership (
                     isis_adjacency_t *adjacency) { 
                         
-    interface_t *intf = adjacency->intf;
+    Interface *intf = adjacency->intf;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(adjacency->intf);
     isis_intf_group_t *intf_grp = intf_info->intf_grp;
     isis_node_info_t *node_info = ISIS_NODE_INFO(adjacency->intf->att_node);
@@ -215,7 +215,7 @@ isis_show_one_interface_group(node_t *node,
 
         intf_info = intf_grp_member_glue_to_intf_info(curr);
         rc += sprintf (buff + rc,  "  %s%s  ",
-                                intf_info->intf->if_name,
+                                intf_info->intf->if_name.c_str(),
                                 isis_intf_grp_is_member_intf_active(intf_info->intf) ? "*" : "");
 
     } ITERATE_GLTHREAD_END (&intf_grp->intf_list_head, curr) 
@@ -313,7 +313,7 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
 
 static bool
 isis_intf_grp_test_membership ( isis_intf_group_t *intf_grp, 
-                                                     interface_t *intf) {
+                                                     Interface *intf) {
 
      isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
      if (!intf_info) return false;
@@ -350,7 +350,7 @@ void
     } ITERATE_AVL_TREE_END;
  }
 
- interface_t *
+ Interface *
  isis_intf_grp_get_first_active_intf_grp_member (
             node_t *node,
             isis_intf_group_t *intf_grp) {
@@ -411,7 +411,7 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
                     isis_adjacency_t *adjacency) {
 
     node_t *node;
-    interface_t *intf;
+    Interface *intf;
     char nbr_rtr_id_str[16];
     isis_intf_info_t *intf_info;
     isis_intf_group_t *intf_grp;
@@ -441,7 +441,7 @@ isis_dynamic_intf_grp_update_on_adjacency_delete (
                     isis_adjacency_t *adjacency) {
 
     node_t *node;
-    interface_t *intf;
+    Interface *intf;
     char nbr_rtr_id_str[16];
     isis_intf_group_t *intf_grp;
     isis_intf_info_t *intf_info;
@@ -472,7 +472,7 @@ void
 isis_dynamic_intf_grp_build_intf_grp_db (node_t *node) {
 
     glthread_t *curr;
-    interface_t *intf;
+    Interface *intf;
     isis_intf_info_t *intf_info;
     isis_adjacency_t *adjacency;
     isis_node_info_t *node_info;

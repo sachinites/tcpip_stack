@@ -25,13 +25,12 @@ isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
 
 static void
 isis_process_hello_pkt(node_t *node,
-                       interface_t *iif,
+                       Interface *iif,
                        ethernet_hdr_t *hello_eth_hdr,
                        size_t pkt_size) {
 
     uint8_t intf_ip_len;
     size_t tlv_buff_size;
-    char if_ip_addr_str[16];
     uint32_t *if_ip_addr_int;
     isis_pkt_hdr_t *hello_pkt_hdr;
     byte *hello_tlv_buffer = NULL;
@@ -71,11 +70,7 @@ isis_process_hello_pkt(node_t *node,
     /*If no Intf IP, then it is a bad hello*/
     if (!if_ip_addr_int) goto bad_hello;
 
-     tcp_ip_covert_ip_n_to_p(*if_ip_addr_int, if_ip_addr_str);
-
-    if (!is_same_subnet(IF_IP(iif), 
-                       iif->intf_nw_props.mask, 
-                       (unsigned char*)if_ip_addr_str)){
+    if (!iif->IsSameSubnet(*if_ip_addr_int)) {
 
        adjacency = isis_find_adjacency_on_interface(iif, 0);
 
@@ -97,7 +92,7 @@ isis_process_hello_pkt(node_t *node,
 
 static void
 isis_process_lsp_pkt(node_t *node,
-                     interface_t *iif,
+                     Interface *iif,
                      ethernet_hdr_t *lsp_eth_hdr,
                      size_t pkt_size) {
 
@@ -123,7 +118,7 @@ isis_process_lsp_pkt(node_t *node,
 
     sprintf(tlb, "%s : lsp %s recvd on intf %s\n",
         ISIS_LSPDB_MGMT,
-        isis_print_lsp_id(new_lsp_pkt), iif ? iif->if_name : 0);
+        isis_print_lsp_id(new_lsp_pkt), iif ? iif->if_name.c_str() : 0);
     tcp_trace(node, iif, tlb);
 
     isis_install_lsp(node, iif, new_lsp_pkt);
@@ -134,7 +129,7 @@ void
 isis_pkt_recieve (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
     node_t *node;
-    interface_t *iif;
+    Interface *iif;
     pkt_size_t pkt_size;
     hdr_type_t hdr_code;
     ethernet_hdr_t *eth_hdr;
@@ -265,7 +260,7 @@ TLV_ADD_DONE:
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)
                                 tcp_ip_get_new_pkt_buffer(lsp_pkt_size_estimate);
     
-    memset (eth_hdr->src_mac.mac, 0, sizeof(mac_add_t));
+    memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
     eth_hdr->type = ISIS_ETH_PKT_TYPE;
     bytes_filled += sizeof (eth_hdr->src_mac.mac) + 
@@ -396,7 +391,7 @@ isis_schedule_lsp_pkt_generation(node_t *node,
 }
 
 byte *
-isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
+isis_prepare_hello_pkt(Interface *intf, size_t *hello_pkt_size) {
 
     byte *temp;
     node_t *node;
@@ -420,7 +415,7 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
     ethernet_hdr_t *hello_eth_hdr =
         (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(*hello_pkt_size);
 
-    memset(hello_eth_hdr->src_mac.mac, 0, sizeof(mac_add_t));
+    memset(hello_eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
     layer2_fill_with_broadcast_mac(hello_eth_hdr->dst_mac.mac);
     hello_eth_hdr->type = ISIS_ETH_PKT_TYPE;
 
@@ -443,14 +438,14 @@ isis_prepare_hello_pkt(interface_t *intf, size_t *hello_pkt_size) {
                                                    4, 
                                                    (byte *)(&hello_pkt_hdr->rtr_id));
 
-    int_ip_addr = tcp_ip_covert_ip_p_to_n (IF_IP(intf));
+    int_ip_addr = IF_IP(intf);
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_IP, 
                                                   4, 
                                                   (byte *)&int_ip_addr);
 
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_INDEX,
                                                     4, 
-                                                    (byte *)&IF_INDEX(intf));
+                                                    (byte *)&intf->ifindex);
 
     uint32_t hold_time =
         ISIS_INTF_HELLO_INTERVAL(intf) * ISIS_HOLD_TIME_FACTOR;

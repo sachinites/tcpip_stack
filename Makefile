@@ -3,8 +3,8 @@ CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Proto Libs
-#ISIS_LIB=Layer5/isis/libisis.a
-#ISIS_LIB_PATH=-L Layer5/isis -lisis
+ISIS_LIB=Layer5/isis/libisis.a
+ISIS_LIB_PATH=-L Layer5/isis -lisis
 # proto Libs
 
 LIBS=-lpthread \
@@ -60,6 +60,8 @@ OBJS=gluethread/glthread.o \
 		  c-hashtable/hashtable_itr.o \
 		  Threads/refcount.o \
 		  Interface/Interface.o \
+		  Interface/InterfaceUApi.o \
+		  Interface/InterfaceCli.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -209,6 +211,12 @@ Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.c
 Interface/Interface.o:Interface/Interface.cpp
 	${CC} ${CFLAGS} -c Interface/Interface.cpp -o Interface/Interface.o
 
+Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
+	${CC} ${CFLAGS} -c Interface/InterfaceUApi.cpp -o Interface/InterfaceUApi.o
+
+Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
+	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
+	
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c

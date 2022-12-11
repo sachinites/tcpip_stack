@@ -98,6 +98,7 @@ class Interface {
         virtual bool GetSwitchport(); 
         virtual IntfL2Mode GetL2Mode ();
         virtual void SetL2Mode (IntfL2Mode l2_mode);
+        virtual bool IsSameSubnet (uint32_t ip_addr);
 };
 
 
@@ -138,6 +139,7 @@ class PhysicalInterface : public Interface {
         virtual void SetL2Mode (IntfL2Mode l2_mode) final;
         virtual void PrintInterfaceDetails ();
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        virtual bool IsSameSubnet (uint32_t ip_addr) final;
 };
 
 typedef struct linkage_ {

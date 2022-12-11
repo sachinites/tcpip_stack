@@ -11,7 +11,7 @@
 #define PKT_TRACER_PHASE_CONFIG_LEN   128
 #define PKT_TRACER_PHASE_INFO_LEN   256
 
-typedef struct interface_ interface_t;
+class Interface;
 
 typedef struct pkt_tracer_phase_ {
 
@@ -31,8 +31,8 @@ typedef struct pkt_tracer_ {
     uint8_t phase_no;
     glthread_t head;
     bool enable;
-    interface_t *ingress_intf;
-    interface_t *egress_intf;
+    Interface *ingress_intf;
+    Interface *egress_intf;
     time_t start_time;
     time_t end_time;
 } pkt_tracer_t;

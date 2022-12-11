@@ -7,7 +7,7 @@ typedef struct event_dispatcher_ event_dispatcher_t;
 
 typedef struct intf_info_ {
 
-    interface_t *intf;
+    Interface *intf;
     uint16_t hello_interval;
 
     /*  Timer to retransmit hellos out of
@@ -41,48 +41,48 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
                                             
 /* Some short-hand macros to make life easy */
 #define ISIS_INTF_INFO(intf_ptr)    \
-    ((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))
+    ((isis_intf_info_t *)((intf_ptr)->isis_intf_info))
 #define ISIS_INTF_HELLO_XMIT_TIMER(intf_ptr)  \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_xmit_timer)
+    (((isis_intf_info_t *)((intf_ptr)->isis_intf_info))->hello_xmit_timer)
 #define ISIS_INTF_COST(intf_ptr) \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->cost)
+    (((isis_intf_info_t *)((intf_ptr)->isis_intf_info))->cost)
 #define ISIS_INTF_HELLO_INTERVAL(intf_ptr) \
-    (((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->hello_interval)
+    (((isis_intf_info_t *)((intf_ptr)->isis_intf_info))->hello_interval)
 #define ISIS_INTF_ADJ_LST_HEAD(intf_ptr) \
-    (&(((isis_intf_info_t *)((intf_ptr)->intf_nw_props.isis_intf_info))->adj_list_head))
+    (&(((isis_intf_info_t *)((intf_ptr)->isis_intf_info))->adj_list_head))
 #define ISIS_INTF_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
 
 
 bool
-isis_node_intf_is_enable(interface_t *intf) ;
+isis_node_intf_is_enable(Interface *intf) ;
 
 void
-isis_enable_protocol_on_interface(interface_t *intf);
+isis_enable_protocol_on_interface(Interface *intf);
 
 void
-isis_disable_protocol_on_interface(interface_t *intf);
+isis_disable_protocol_on_interface(Interface *intf);
 
 void
-isis_start_sending_hellos(interface_t *intf) ;
+isis_start_sending_hellos(Interface *intf) ;
 
 void
-isis_stop_sending_hellos(interface_t *intf);
+isis_stop_sending_hellos(Interface *intf);
 
 void
-isis_refresh_intf_hellos(interface_t *intf);
+isis_refresh_intf_hellos(Interface *intf);
 
 void
-isis_show_interface_protocol_state(interface_t *intf);
+isis_show_interface_protocol_state(Interface *intf);
 
 void
 isis_interface_updates(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void 
-isis_check_and_delete_intf_info(interface_t *intf);
+isis_check_and_delete_intf_info(Interface *intf);
 
 bool
-isis_interface_qualify_to_send_hellos(interface_t *intf);
+isis_interface_qualify_to_send_hellos(Interface *intf);
 
 bool
 isis_atleast_one_interface_protocol_enabled(node_t *node);
@@ -91,6 +91,6 @@ uint32_t
 isis_show_all_intf_stats(node_t *node);
 
 uint32_t
-isis_show_one_intf_stats (interface_t *intf, uint32_t rc);
+isis_show_one_intf_stats (Interface *intf, uint32_t rc);
 
 #endif // ! __ISIS_INTF__

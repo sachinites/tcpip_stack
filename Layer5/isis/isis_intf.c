@@ -8,17 +8,17 @@
 #include "isis_intf_group.h"
 
 bool
-isis_node_intf_is_enable(interface_t *intf) {
+isis_node_intf_is_enable(Interface *intf) {
 
-    return !(intf->intf_nw_props.isis_intf_info == NULL);
+    return !(intf->isis_intf_info == NULL);
 }
 
 bool
-isis_interface_qualify_to_send_hellos(interface_t *intf){
+isis_interface_qualify_to_send_hellos(Interface *intf){
 
     if (isis_node_intf_is_enable(intf) &&
-         IS_INTF_L3_MODE(intf) &&
-         IF_IS_UP(intf)) {
+         intf->IsIpConfigured() &&
+         intf->is_up) {
              
             return true;
     }
@@ -36,20 +36,20 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
         (isis_timer_data_t *)arg;
 
     node_t *node = isis_timer_data->node;
-    interface_t *egress_intf = isis_timer_data->intf;
+    Interface *egress_intf = isis_timer_data->intf;
     char *hello_pkt = isis_timer_data->data;
     pkt_size_t pkt_size = (pkt_size_t )isis_timer_data->data_size;
 
     if (hello_pkt && pkt_size) {
         ISIS_INTF_INCREMENT_STATS(egress_intf, hello_pkt_sent);
         pkt_block = pkt_block_get_new((uint8_t *)hello_pkt, pkt_size);
-        send_pkt_out(pkt_block, egress_intf);
+        egress_intf->SendPacketOut(pkt_block);
         XFREE(pkt_block);
     }
 }
 
 void
-isis_start_sending_hellos(interface_t *intf) {
+isis_start_sending_hellos(Interface *intf) {
 
     node_t *node;
     size_t hello_pkt_size;
@@ -80,14 +80,14 @@ isis_start_sending_hellos(interface_t *intf) {
     
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL) {
         printf("Error : Failed to xmit hellos on interface (%s)%s",
-            node->node_name, intf->if_name);
+            node->node_name, intf->if_name.c_str());
         XFREE(isis_timer_data);
         return;
     }
 }
 
 void
-isis_stop_sending_hellos(interface_t *intf){
+isis_stop_sending_hellos(Interface *intf){
 
     timer_event_handle *hello_xmit_timer = NULL;
 
@@ -109,7 +109,7 @@ isis_stop_sending_hellos(interface_t *intf){
 }
 
 void
-isis_refresh_intf_hellos(interface_t *intf) {
+isis_refresh_intf_hellos(Interface *intf) {
 
     isis_stop_sending_hellos(intf);
     isis_start_sending_hellos(intf);
@@ -117,7 +117,7 @@ isis_refresh_intf_hellos(interface_t *intf) {
 
 
 static void
-isis_init_intf_info (interface_t *intf) {
+isis_init_intf_info (Interface *intf) {
     
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
     memset(intf_info, 0, sizeof(isis_intf_info_t));
@@ -130,7 +130,7 @@ isis_init_intf_info (interface_t *intf) {
 }
 
 void
-isis_enable_protocol_on_interface(interface_t *intf) {
+isis_enable_protocol_on_interface(Interface *intf) {
 
     isis_intf_info_t *intf_info = NULL;
 
@@ -143,7 +143,7 @@ isis_enable_protocol_on_interface(interface_t *intf) {
     if (! intf_info ) {
 
         intf_info = XCALLOC(0, 1, isis_intf_info_t);
-        intf->intf_nw_props.isis_intf_info = intf_info;
+        intf->isis_intf_info = intf_info;
         isis_init_intf_info(intf);
     }
     
@@ -156,15 +156,15 @@ isis_enable_protocol_on_interface(interface_t *intf) {
 }
 
 static void
-isis_free_intf_info(interface_t *intf) {
+isis_free_intf_info(Interface *intf) {
 
     if (!ISIS_INTF_INFO(intf)) return;
     XFREE(ISIS_INTF_INFO(intf));
-    intf->intf_nw_props.isis_intf_info = NULL;
+    intf->isis_intf_info = NULL;
 }
 
 void 
-isis_check_and_delete_intf_info(interface_t *intf) {
+isis_check_and_delete_intf_info(Interface *intf) {
 
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
          !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
@@ -178,7 +178,7 @@ isis_check_and_delete_intf_info(interface_t *intf) {
 }
 
 void
-isis_disable_protocol_on_interface(interface_t *intf) {
+isis_disable_protocol_on_interface(Interface *intf) {
 
     isis_intf_info_t *intf_info;
 
@@ -195,7 +195,7 @@ isis_disable_protocol_on_interface(interface_t *intf) {
 }
 
 void
-isis_show_interface_protocol_state(interface_t *intf) {
+isis_show_interface_protocol_state(Interface *intf) {
 
     bool is_enabled;
     glthread_t *curr;
@@ -204,11 +204,11 @@ isis_show_interface_protocol_state(interface_t *intf) {
 
     is_enabled = isis_node_intf_is_enable(intf);
 
-    printf(" %s : %sabled\n", intf->if_name, is_enabled ? "En" : "Dis");
+    printf(" %s : %sabled\n", intf->if_name.c_str(), is_enabled ? "En" : "Dis");
     
     if(!is_enabled) return;
 
-    intf_info = intf->intf_nw_props.isis_intf_info;
+    intf_info = intf->isis_intf_info;
    
     if (intf_info->intf_grp) {
          PRINT_TABS(2);
@@ -250,7 +250,7 @@ isis_show_interface_protocol_state(interface_t *intf) {
 }
 
 static void
-isis_handle_interface_up_down (interface_t *intf, bool old_status) {
+isis_handle_interface_up_down (Interface *intf, bool old_status) {
 
     bool any_adj_up = false;
 
@@ -277,12 +277,12 @@ isis_handle_interface_up_down (interface_t *intf, bool old_status) {
 }
 
 static void
-isis_handle_interface_ip_addr_changed (interface_t *intf, 
+isis_handle_interface_ip_addr_changed (Interface *intf, 
                                                                 uint32_t old_ip_addr, uint8_t old_mask) {
 
     /* case 1 : New IP Address Added, start sending hellos if intf qualifies*/
 
-    if (IF_IP_EXIST(intf) && !old_ip_addr && !old_mask) {
+    if (intf->IsIpConfigured() && !old_ip_addr && !old_mask) {
 
         if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
@@ -292,7 +292,7 @@ isis_handle_interface_ip_addr_changed (interface_t *intf,
 
     /* case 2 : IP Address Removed, stop sending hellos, delete all adj on this intf, regen LSP*/
 
-    if (!IF_IP_EXIST(intf) && old_ip_addr && old_mask) {
+    if (!intf->IsIpConfigured() && old_ip_addr && old_mask) {
 
         bool any_up_adj = false;
         any_up_adj = isis_any_adjacency_up_on_interface(intf);
@@ -324,7 +324,7 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) 
 		(intf_notif_data_t *)arg;
 
 	uint32_t flags = intf_notif_data->change_flags;
-	interface_t *intf = intf_notif_data->interface;
+	Interface *intf = intf_notif_data->interface;
 	intf_prop_changed_t *old_intf_prop_changed =
             intf_notif_data->old_intf_prop_changed;
 
@@ -350,7 +350,7 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) 
 bool
 isis_atleast_one_interface_protocol_enabled(node_t *node) {
 
-    interface_t *intf;
+    Interface *intf;
     
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
      
@@ -365,7 +365,7 @@ isis_atleast_one_interface_protocol_enabled(node_t *node) {
 /* show per intf stats */
 
 uint32_t
-isis_show_one_intf_stats (interface_t *intf, uint32_t rc) {
+isis_show_one_intf_stats (Interface *intf, uint32_t rc) {
 
     byte *buff;
     uint32_t rc_old;
@@ -377,7 +377,7 @@ isis_show_one_intf_stats (interface_t *intf, uint32_t rc) {
     buff = intf->att_node->print_buff ;
     rc_old = rc;
 
-    rc += sprintf (buff + rc, "%s\t", intf->if_name);
+    rc += sprintf (buff + rc, "%s\t", intf->if_name.c_str());
     rc +=  sprintf (buff + rc, "H Tx : %-4u H Rx : %-4u BadH Rx : %-4u "
                                            "LSPs Tx : %-4u LSPs Rx : %-4u Bad LSPs Rx : %-4u\n",
                         intf_info->hello_pkt_sent,
@@ -393,7 +393,7 @@ uint32_t
 isis_show_all_intf_stats(node_t *node) {
 
     uint32_t rc = 0;
-    interface_t *intf;
+    Interface *intf;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return 0;
 

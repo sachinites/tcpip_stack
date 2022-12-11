@@ -10,6 +10,7 @@ OBJS=acl/acl_cli.o \
 			object_network/obj_grp_cli.o \
 			object_network/object_group.o \
 			object_network/object_group_update.o \
+			../Interface/InterfaceCli.o \
 
 ${LIB}:${OBJS}
 	ar rs ${LIB} ${OBJS}
@@ -30,6 +31,9 @@ object_network/object_group.o:object_network/object_group.c
 	${CC} ${CFLAGS} -c -I . -I ../../ object_network/object_group.c -o object_network/object_group.o
 object_network/object_group_update.o:object_network/object_group_update.c
 	${CC} ${CFLAGS} -c -I . -I ../../ object_network/object_group_update.c -o object_network/object_group_update.o	
+
+../Interface/InterfaceCli.o:../Interface/InterfaceCli.cpp
+	${CC} ${CFLAGS} -c ../Interface/InterfaceCli.cpp -o ../Interface/InterfaceCli.o
 
 Connection/conn.o:Connection/conn.c
 	${CC} ${CFLAGS} -c -I . -I ../../ Connection/conn.c -o Connection/conn.o

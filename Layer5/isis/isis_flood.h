@@ -12,16 +12,16 @@ GLTHREAD_TO_STRUCT(glue_to_lsp_xmit_elem,
 
 void
 isis_queue_lsp_pkt_for_transmission(
-        interface_t *intf,
+        Interface *intf,
         isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_intf_purge_lsp_xmit_queue(interface_t *intf);
+isis_intf_purge_lsp_xmit_queue(Interface *intf);
 
 void
 isis_schedule_lsp_flood(node_t *node, 
                         isis_lsp_pkt_t *lsp_pkt,
-                        interface_t *exempt_intf,
+                        Interface *exempt_intf,
                         isis_event_type_t event_type);
 
 void

@@ -166,7 +166,7 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
 }
 
 int
-isis_delete_all_adjacencies(interface_t *intf) {
+isis_delete_all_adjacencies(Interface *intf) {
 
     int rc = 0;
     glthread_t *curr;
@@ -186,7 +186,7 @@ isis_delete_all_adjacencies(interface_t *intf) {
 
 void
 isis_update_interface_adjacency_from_hello(
-        interface_t *iif,
+        Interface *iif,
         byte *hello_tlv_buffer,
         size_t tlv_buff_size) {
 
@@ -220,7 +220,7 @@ isis_update_interface_adjacency_from_hello(
         new_adj = true;
         router_id_str = tcp_ip_covert_ip_n_to_p(*router_id_int, ip_addr);
         sprintf(tlb, "%s : New Adjacency for nbr %s on intf %s Created\n",
-            ISIS_ADJ_MGMT, router_id_str, iif->if_name);
+            ISIS_ADJ_MGMT, router_id_str, iif->if_name.c_str());
         tcp_trace(iif->att_node, iif, tlb);
     }
     else {
@@ -301,13 +301,13 @@ isis_adjacency_name(isis_adjacency_t *adjacency) {
 
     static char adj_name[64];
 
-    sprintf(adj_name, adjacency->intf->if_name, "::", adjacency->nbr_name);
+    sprintf(adj_name, adjacency->intf->if_name.c_str(), "::", adjacency->nbr_name);
     return adj_name;
 }
 
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
-        interface_t *intf,
+        Interface *intf,
         uint32_t nbr_rtr_id) {
 
     glthread_t *curr;
@@ -521,7 +521,7 @@ isis_get_next_adj_state_on_receiving_next_hello(
 }
 
 bool
-isis_any_adjacency_up_on_interface(interface_t *intf) {
+isis_any_adjacency_up_on_interface(Interface *intf) {
 
     glthread_t *curr;
     isis_adjacency_t *adjacency;
@@ -656,7 +656,7 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
        Encoding SubTLV 4
     */
 
-    if_indexes[0] = IF_INDEX(adjacency->intf);
+    if_indexes[0] = adjacency->intf->ifindex;
     if_indexes[1] = adjacency->remote_if_index;
 
     start_buff = tlv_buffer_insert_tlv(start_buff,
@@ -665,7 +665,7 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
 
     /* Encode local ip Address 
        Encoding SubTLV 6 */
-    four_byte_data = tcp_ip_covert_ip_p_to_n(IF_IP(adjacency->intf));
+    four_byte_data = IF_IP(adjacency->intf);
 
     start_buff = tlv_buffer_insert_tlv(start_buff,
                         ISIS_TLV_LOCAL_IP, 4,
@@ -684,7 +684,7 @@ byte *
 isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
 
     glthread_t *curr;
-    interface_t *intf;
+    Interface *intf;
     uint16_t bytes_encoded;
     isis_adjacency_t *adjacency;
 
@@ -713,7 +713,7 @@ uint16_t
 isis_size_to_encode_all_nbr_tlv(node_t *node) {
 
     glthread_t *curr;
-    interface_t *intf;
+    Interface *intf;
     uint16_t bytes_needed;
     uint8_t subtlv_bytes_needed;
     isis_adjacency_t *adjacency;
@@ -824,7 +824,7 @@ isis_show_all_adjacencies (node_t *node) {
 
      uint32_t rc = 0;
      glthread_t *curr;
-     interface_t *intf;
+     Interface *intf;
      isis_adjacency_t *adjacency;
      byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
@@ -841,7 +841,7 @@ isis_show_all_adjacencies (node_t *node) {
             if (!adjacency) continue;
 
             rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %s\n", 
-            intf->if_name, adjacency->nbr_name,
+            intf->if_name.c_str(), adjacency->nbr_name,
             isis_adj_state_str(adjacency->adj_state),
             hrs_min_sec_format(
                 (unsigned int)difftime(time(NULL), adjacency->uptime),

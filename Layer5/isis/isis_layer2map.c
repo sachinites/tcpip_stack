@@ -7,7 +7,7 @@
 static int
 isis_build_layer2_mapping (node_t *node) {
 
-    interface_t *intf;
+    Interface *intf;
     glthread_t *curr;
     isis_adjacency_t *adjacency;
 
@@ -35,7 +35,7 @@ isis_build_layer2_mapping (node_t *node) {
 static int
 isis_destroy_layer2_mapping (node_t *node) {
 
-    interface_t *intf;
+    Interface *intf;
     glthread_t *curr;
     isis_adjacency_t *adjacency;
 

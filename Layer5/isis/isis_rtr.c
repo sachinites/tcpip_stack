@@ -95,7 +95,7 @@ isis_check_delete_node_info(node_t *node) {
 static void
 isis_protocol_shutdown_now (node_t *node) {
 
-    interface_t *intf;
+    Interface *intf;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if(node_info->self_lsp_pkt){
@@ -214,7 +214,7 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
 void
 isis_protocol_shut_down(node_t *node) {
 
-    interface_t *intf;
+    Interface *intf;
     isis_intf_info_t *intf_info;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -247,7 +247,7 @@ void
 isis_show_node_protocol_state(node_t *node) {
 
     bool is_enabled ;
-    interface_t *intf;
+    Interface *intf;
     isis_node_info_t *node_info;
     is_enabled = isis_is_protocol_enable_on_node(node);
 

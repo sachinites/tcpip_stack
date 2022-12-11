@@ -340,7 +340,11 @@ Interface::IntfConfigVlan(uint32_t vlan_id, bool add) {
     TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
 }
 
+bool
+Interface::IsSameSubnet (uint32_t ip_addr) {
 
+    if (!this->IsIpConfigured())  return false;
+}
 
 
 
@@ -592,7 +596,23 @@ PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add) {
     return true;
 }
 
+bool
+PhysicalInterface::IsSameSubnet (uint32_t ip_addr) {
 
+    uint8_t mask;
+    uint32_t intf_ip_addr;
+    uint32_t subnet_mask = ~0;
+
+    if (!this->IsIpConfigured()) return false;
+
+    this->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
+    
+    if (mask != 32) {
+        subnet_mask = subnet_mask << (32 - mask);
+    }
+
+    return ((intf_ip_addr & subnet_mask) == (ip_addr & subnet_mask));
+}
 
 
 

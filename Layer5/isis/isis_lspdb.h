@@ -53,7 +53,7 @@ isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id);
 
 void
 isis_install_lsp(node_t *node,
-                 interface_t *iif,
+                 Interface *iif,
                  isis_lsp_pkt_t *new_lsp_pkt);
 
 void

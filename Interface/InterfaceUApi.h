@@ -3,6 +3,7 @@
 
 #include "Interface.h"
 #include "../utils.h"
+#include "../CommandParser/cmdtlv.h"
 
 typedef struct node_ node_t;
 
@@ -40,5 +41,8 @@ IF_MASK(Interface *intf) {
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
     return mask;
 }
+
+void
+display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 
 #endif 

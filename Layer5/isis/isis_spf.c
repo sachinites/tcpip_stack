@@ -641,7 +641,7 @@ isis_show_spf_results(node_t *node, ted_node_t *ted_node){
 
     int i = 0, j = 0;
     glthread_t *curr;
-    interface_t *oif = NULL;
+    Interface *oif = NULL;
     isis_spf_result_t *res = NULL;
     isis_spf_data_t *node_spf_data = ISIS_NODE_SPF_DATA(ted_node);
 
@@ -667,14 +667,14 @@ isis_show_spf_results(node_t *node, ted_node_t *ted_node){
 
             if (j == 0){
                 printf("OIF : %-7s    gateway : %-16s ref_count = %u\n",
-                        oif->if_name,
+                        oif->if_name.c_str(),
                         res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }
             else{
                 printf("                                              : "
                         "OIF : %-7s    gateway : %-16s ref_count = %u\n",
-                        oif->if_name,
+                        oif->if_name.c_str(),
                         res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }

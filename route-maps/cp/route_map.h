@@ -20,7 +20,8 @@
 #include "../../gluethread/glthread.h"
 
 #define RMAP_MAX_NAME_LENGTH 64
-typedef struct interface_ interface_t;
+class Interface;
+
 /*
  * Client processes that make use of of route-maps library
  */
@@ -68,7 +69,7 @@ typedef struct route_map_matchtype_ {
 } route_map_matchtype;
 
 typedef struct route_map_interface_ {
-    interface_t                     *idb;      /* Valid on RP, NULL on LC */
+    Interface                      *idb;      /* Valid on RP, NULL on LC */
     uint32_t                        if_number; /* fib uses this, both on RP/LC*/
     struct route_maptype_       *map;      /* back ptr */
     bool is_cost;           /* adaptive_interface cost set*/

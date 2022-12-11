@@ -60,7 +60,7 @@ validate_if_up_down_status(c_string value){
 }
 
 /*Display Node Interfaces*/
-static void
+void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;
@@ -84,112 +84,11 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     for(; i < MAX_INTF_PER_NODE; i++){
 
-        intf = node->Intf[i];
+        intf = node->intf[i];
         if(!intf) continue;
 
         printf(" %s\n", intf->if_name.c_str());
     }
-}
-
-void
-Interface_config_cli_tree (param_t *root) {
-
-            /*config node <node-name> interface*/
-            static param_t interface;
-            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
-            libcli_register_display_callback(&interface, display_node_interfaces);
-            libcli_register_param(root, &interface);
-            {
-                /* CLI for GRE Tunneling are mounted here*/
-                gre_cli_config_tree(&interface);
-            }
-
-            {
-                /*config node <node-name> interface <if-name>*/
-                static param_t if_name;
-                init_param(&if_name, LEAF, 0, 0, 0, STRING, "if-name", "Interface Name");
-                libcli_register_param(&interface, &if_name);
-	
-                {
-                    /*CLI for traceoptions at interface level are hooked up here in tree */
-                    tcp_ip_traceoptions_cli (0, &if_name);
-                    {
-                    #if 0
-                        /*config node <node-name> interface <if-name> l2mode*/
-                        static param_t l2_mode;
-                        init_param(&l2_mode, CMD, "l2mode", 0, 0, INVALID, 0, "\"l2mode\" keyword");
-                        libcli_register_param(&if_name, &l2_mode);
-                        {
-                            /*config node <node-name> interface <if-name> l2mode <access|trunk>*/
-                            static param_t l2_mode_val;
-                            init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value, STRING, "l2-mode-val", "access|trunk");
-                            libcli_register_param(&l2_mode, &l2_mode_val);
-                            set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
-                        }
-                    #endif
-                    }
-                    {
-                        /*config node <node-name> interface <if-name> <up|down>*/
-                        static param_t if_up_down_status;
-                        init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
-                        libcli_register_param(&if_name, &if_up_down_status);
-                        set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
-                    }
-                }
-                {
-                    static param_t loopback;
-                    init_param(&loopback, CMD, "loopback", 0, 0, INVALID, 0, "loopback");
-                    libcli_register_param(&interface, &loopback);
-                    {
-                        static param_t lono;
-                        init_param(&lono, LEAF, 0, intf_config_handler, NULL, INT, "lono", "Loopback ID");
-                        libcli_register_param(&loopback, &lono);
-                        set_param_cmd_code(&lono, CMDCODE_INTF_CONFIG_LOOPBACK);
-                    }
-                }
-                {
-                    static param_t metric;
-                    init_param(&metric, CMD, "metric", 0, 0, INVALID, 0, "Interface Metric");
-                    libcli_register_param(&if_name, &metric);
-                    {
-                        static param_t metric_val;
-                        init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
-                        libcli_register_param(&metric, &metric_val);
-                        set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
-                    }
-                }
-                {
-                    /* config node <node-name> ineterface <if-name> ip-address <ip-addr> <mask>*/
-                    static param_t ip_addr;
-                    init_param(&ip_addr, CMD, "ip-address", 0, 0, INVALID, 0, "Interface IP Address");
-                    libcli_register_param(&if_name, &ip_addr);
-                    {
-                        static param_t ip_addr_val;
-                        init_param(&ip_addr_val, LEAF, 0, 0, 0, IPV4, "intf-ip-address", "IPV4 address");
-                        libcli_register_param(&ip_addr, &ip_addr_val);
-                        {
-                            static param_t mask;
-                            init_param(&mask, LEAF, 0, intf_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
-                            libcli_register_param(&ip_addr_val, &mask);
-                            set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
-                        }
-                    }
-                }
-                {
-                    /*config node <node-name> interface <if-name> vlan*/
-                    static param_t vlan;
-                    init_param(&vlan, CMD, "vlan", 0, 0, INVALID, 0, "\"vlan\" keyword");
-                    libcli_register_param(&if_name, &vlan);
-                    {
-                        /*config node <node-name> interface <if-name> vlan <vlan-id>*/
-                         static param_t vlan_id;
-                         init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
-                         libcli_register_param(&vlan, &vlan_id);
-                         set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
-                    }
-                }    
-            }
-            support_cmd_negation(&interface); 
 }
 
 
@@ -240,7 +139,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
 
     node = node_get_node_by_name(topo, node_name);
     if (intf_name) {
-        interface = node_get_intf_by_name2(node, (const char *)intf_name);
+        interface = node_get_intf_by_name(node, (const char *)intf_name);
     }
 
     switch (CMDCODE) {
@@ -365,3 +264,105 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
     }
     return 0;
 }
+
+void
+Interface_config_cli_tree (param_t *root) {
+
+            /*config node <node-name> interface*/
+            static param_t interface;
+            init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
+            libcli_register_display_callback(&interface, display_node_interfaces);
+            libcli_register_param(root, &interface);
+            {
+                /* CLI for GRE Tunneling are mounted here*/
+                gre_cli_config_tree(&interface);
+            }
+
+            {
+                /*config node <node-name> interface <if-name>*/
+                static param_t if_name;
+                init_param(&if_name, LEAF, 0, 0, 0, STRING, "if-name", "Interface Name");
+                libcli_register_param(&interface, &if_name);
+	
+                {
+                    /*CLI for traceoptions at interface level are hooked up here in tree */
+                    tcp_ip_traceoptions_cli (0, &if_name);
+                    {
+                    #if 0
+                        /*config node <node-name> interface <if-name> l2mode*/
+                        static param_t l2_mode;
+                        init_param(&l2_mode, CMD, "l2mode", 0, 0, INVALID, 0, "\"l2mode\" keyword");
+                        libcli_register_param(&if_name, &l2_mode);
+                        {
+                            /*config node <node-name> interface <if-name> l2mode <access|trunk>*/
+                            static param_t l2_mode_val;
+                            init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value, STRING, "l2-mode-val", "access|trunk");
+                            libcli_register_param(&l2_mode, &l2_mode_val);
+                            set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
+                        }
+                    #endif
+                    }
+                    {
+                        /*config node <node-name> interface <if-name> <up|down>*/
+                        static param_t if_up_down_status;
+                        init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
+                        libcli_register_param(&if_name, &if_up_down_status);
+                        set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
+                    }
+                }
+                {
+                    static param_t loopback;
+                    init_param(&loopback, CMD, "loopback", 0, 0, INVALID, 0, "loopback");
+                    libcli_register_param(&interface, &loopback);
+                    {
+                        static param_t lono;
+                        init_param(&lono, LEAF, 0, intf_config_handler, NULL, INT, "lono", "Loopback ID");
+                        libcli_register_param(&loopback, &lono);
+                        set_param_cmd_code(&lono, CMDCODE_INTF_CONFIG_LOOPBACK);
+                    }
+                }
+                {
+                    static param_t metric;
+                    init_param(&metric, CMD, "metric", 0, 0, INVALID, 0, "Interface Metric");
+                    libcli_register_param(&if_name, &metric);
+                    {
+                        static param_t metric_val;
+                        init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
+                        libcli_register_param(&metric, &metric_val);
+                        set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
+                    }
+                }
+                {
+                    /* config node <node-name> ineterface <if-name> ip-address <ip-addr> <mask>*/
+                    static param_t ip_addr;
+                    init_param(&ip_addr, CMD, "ip-address", 0, 0, INVALID, 0, "Interface IP Address");
+                    libcli_register_param(&if_name, &ip_addr);
+                    {
+                        static param_t ip_addr_val;
+                        init_param(&ip_addr_val, LEAF, 0, 0, 0, IPV4, "intf-ip-address", "IPV4 address");
+                        libcli_register_param(&ip_addr, &ip_addr_val);
+                        {
+                            static param_t mask;
+                            init_param(&mask, LEAF, 0, intf_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
+                            libcli_register_param(&ip_addr_val, &mask);
+                            set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
+                        }
+                    }
+                }
+                {
+                    /*config node <node-name> interface <if-name> vlan*/
+                    static param_t vlan;
+                    init_param(&vlan, CMD, "vlan", 0, 0, INVALID, 0, "\"vlan\" keyword");
+                    libcli_register_param(&if_name, &vlan);
+                    {
+                        /*config node <node-name> interface <if-name> vlan <vlan-id>*/
+                         static param_t vlan_id;
+                         init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
+                         libcli_register_param(&vlan, &vlan_id);
+                         set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
+                    }
+                }    
+            }
+            support_cmd_negation(&interface); 
+}
+

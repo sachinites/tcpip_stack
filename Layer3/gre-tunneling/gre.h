@@ -39,12 +39,12 @@ typedef struct gre_tunnel_data_ {
 } gre_tunnel_data_t;
 
 bool
-gre_tunnel_activate (node_t *node, interface_t *tunnel_intf);
+gre_tunnel_activate (node_t *node, Interface *tunnel_intf);
 
 void
-gre_tunnel_deactivate (node_t *node, interface_t *tunnel_intf);
+gre_tunnel_deactivate (node_t *node, Interface *tunnel_intf);
 
 void
-gre_tunnel_send_pkt_out (node_t *node, interface_t *tunnel_intf, pkt_block_t *pkt_block);
+gre_tunnel_send_pkt_out (node_t *node, Interface *tunnel_intf, pkt_block_t *pkt_block);
 
 #endif 

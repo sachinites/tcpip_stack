@@ -12,7 +12,7 @@ typedef struct prefix_lst_ prefix_list_t;
 typedef struct isis_timer_data_ {
 
     node_t *node;
-    interface_t *intf;
+    Interface *intf;
     void *data;
     size_t data_size;
 } isis_timer_data_t;

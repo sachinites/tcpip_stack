@@ -70,7 +70,7 @@ isis_get_lspdb_root(node_t *node) {
 
 void
 isis_install_lsp(node_t *node,
-                 interface_t *iif,
+                 Interface *iif,
                  isis_lsp_pkt_t *new_lsp_pkt) {
 
     bool self_lsp;
@@ -107,7 +107,7 @@ isis_install_lsp(node_t *node,
             ISIS_LSPDB_MGMT,
             rtr_id_str.ip_addr, *new_seq_no, 
             new_lsp_pkt->pkt,
-            iif ? iif->if_name : 0,
+            iif ? iif->if_name.c_str() : 0,
             old_lsp_pkt ? rtr_id_str.ip_addr : 0,
             old_lsp_pkt ? *old_seq_no : 0,
             old_lsp_pkt ? old_lsp_pkt->pkt : 0);
@@ -293,7 +293,7 @@ isis_install_lsp(node_t *node,
             sprintf(tlb, "\t%s : Event : %s Old LSP %s-%u will be back fired out of intf %s\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
                 rtr_id_str.ip_addr, *old_seq_no,
-                iif->if_name);
+                iif->if_name.c_str());
             tcp_trace(node, iif, tlb);
             isis_queue_lsp_pkt_for_transmission(iif, old_lsp_pkt);
         } else {

@@ -25,7 +25,7 @@
 
 typedef struct _wheel_timer_t wheel_timer_t;
 typedef struct node_ node_t;
-typedef struct interface_ interface_t;
+class Interface;
 typedef  struct hashtable hashtable_t;
 typedef struct pkt_block_ pkt_block_t;
 
@@ -43,8 +43,8 @@ typedef struct conn_ {
     conn_tuple_t conn_tuple;
     time_t create_time;
     wheel_timer_t * expiry_time;
-    interface_t *ingress_intf;
-    interface_t *egress_intf;
+    Interface *ingress_intf;
+    Interface *egress_intf;
     struct conn_ *reverse_conn;
 } conn_t;
 
