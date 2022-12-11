@@ -17,12 +17,13 @@ interface_set_ip_addr(node_t *node, Interface *intf,
         return;
     }
 
+    ip_addr_int = tcp_ip_covert_ip_p_to_n(intf_ip_addr);
+    
     /* new config */
     if (!intf->IsIpConfigured()) {
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-        ip_addr_int = tcp_ip_covert_ip_p_to_n(intf_ip_addr);
         intf_prop_changed.ip_addr.ip_addr = 0;
         intf_prop_changed.ip_addr.mask = 0;
         rt_table_add_direct_route(NODE_RT_TABLE(node), intf_ip_addr, mask);

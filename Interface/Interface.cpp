@@ -74,10 +74,8 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block) {
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
-#if 0
     tcp_dump_send_logger(sending_node, interface, 
 			pkt_block, pkt_block_get_starting_hdr(pkt_block));
-#endif 
 
 	if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t))) {

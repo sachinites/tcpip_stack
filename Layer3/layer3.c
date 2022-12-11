@@ -163,7 +163,6 @@ layer3_ip_route_pkt(node_t *node,
         return;
     }
 
-#if 0
     if (!connection_exist (node, pkt_block)) {
         /* Access List Evaluation at Layer 3 Entry point*/
         if (interface && /* For local ping, interface will be NULL */
@@ -174,7 +173,6 @@ layer3_ip_route_pkt(node_t *node,
             return;
         }
     }
-#endif 
 
     /*Implement Layer 3 forwarding functionality*/
     pthread_rwlock_rdlock(&(NODE_RT_TABLE(node)->rwlock));
@@ -625,7 +623,7 @@ dump_rt_table(rt_table_t *rt_table){
                                 l3_route->mask,
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
-                                l3_route->nexthops[nxthop_proto][i]->oif->if_name, 
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name.c_str(), 
                                 l3_route->spf_metric[nxthop_proto],
                                 RT_UP_TIME(l3_route, time_str, HRS_MIN_SEC_FMT_TIME_LEN),
                                 l3_route->nexthops[nxthop_proto][i]->hit_count);
@@ -635,7 +633,7 @@ dump_rt_table(rt_table_t *rt_table){
                         printf("\t|                   |       | %-10s | %-18s | %-12s |  %-4d   |  %-10s| %-8llu     |\n", 
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
-                                l3_route->nexthops[nxthop_proto][i]->oif->if_name,
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name.c_str(),
                                 l3_route->spf_metric[nxthop_proto],
                                 "",
                                 l3_route->nexthops[nxthop_proto][i]->hit_count);
@@ -644,7 +642,7 @@ dump_rt_table(rt_table_t *rt_table){
                         printf("\t|                   |       | %-10s | %-18s | %-12s |          |  %-10s| %-8llu     |\n", 
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
-                                l3_route->nexthops[nxthop_proto][i]->oif->if_name, "",
+                                l3_route->nexthops[nxthop_proto][i]->oif->if_name.c_str(), "",
                                 l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
                     nxthop_cnt++;

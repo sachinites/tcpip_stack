@@ -202,30 +202,19 @@ node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
 
     uint32_t i = 0;
     Interface *intf;
-
-    byte intf_addr[16];
-    uint32_t intf_addr_int;
+    uint32_t ip_addr_int;
     uint8_t mask;
-    byte intf_subnet[16];
-    byte subnet2[16];
+
+    ip_addr_int =  tcp_ip_covert_ip_p_to_n (ip_addr);
 
     for( ; i < MAX_INTF_PER_NODE; i++){
     
         intf = node->intf[i];
-        if (!intf) return NULL;
+        if (!intf) continue;
 
         if (!intf->IsIpConfigured()) continue;
         
-        intf->InterfaceGetIpAddressMask(&intf_addr_int, mask);
-        tcp_ip_covert_ip_n_to_p(intf_addr_int, intf_addr);
-        memset(intf_subnet, 0 , 16);
-        memset(subnet2, 0 , 16);
-        apply_mask(intf_addr, mask, intf_subnet);
-        apply_mask(ip_addr, mask, subnet2);
-        
-        if (string_compare(intf_subnet, subnet2, 16) == 0){
-            return intf;
-        }
+        if (intf->IsSameSubnet (ip_addr_int)) return intf;
     }
     return NULL;
 }
