@@ -347,7 +347,7 @@ tcp_dump_recv_logger(
    
         rc = sprintf (TCP_GET_NODE_RECV_LOG_BUFFER(node), 
                         "\n%s(%s) <-- \n", 
-                        node->node_name, intf->if_name);
+                        node->node_name, intf->if_name.c_str());
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
@@ -416,7 +416,7 @@ tcp_dump_send_logger(node_t *node, Interface *intf,
         
         rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node),
                 "\n%s(%s) --> \n", 
-                node->node_name, intf->if_name);
+                node->node_name, intf->if_name.c_str());
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
@@ -457,7 +457,7 @@ initialize_interface_log_file(Interface *intf){
 
     node_t *node = intf->att_node;
 
-    sprintf(file_name, "logs/%s-%s.txt", node->node_name, intf->if_name);
+    sprintf(file_name, "logs/%s-%s.txt", node->node_name, intf->if_name.c_str());
 
     FILE *fptr = fopen(file_name, "w");
 
@@ -577,7 +577,7 @@ void tcp_ip_show_log_status(node_t *node){
         if(!intf) continue;
 
         log_info = &intf->log_info;
-        printf("\tLog Status : %s(%s)\n", intf->if_name, intf->is_up ? "UP" : "DOWN");
+        printf("\tLog Status : %s(%s)\n", intf->if_name.c_str(), intf->is_up ? "UP" : "DOWN");
         printf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
         printf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
         printf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
