@@ -1,6 +1,7 @@
 #ifndef __INTERFACE_UAPI__
 #define __INTERFACE_UAPI__
 
+#include "InterfacEnums.h"
 #include "Interface.h"
 #include "../utils.h"
 #include "../CommandParser/cmdtlv.h"

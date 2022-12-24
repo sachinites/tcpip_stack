@@ -2,15 +2,88 @@
 #include "../../CommandParser/cmdtlv.h"
 #include "../../CommandParser/libcli.h"
 #include "grecmdcodes.h"
+#include "../../graph.h"
+#include "../../Interface/InterfaceUApi.h"
+#include "greuapi.h"
+
+extern graph_t *topo;
 
 extern int
 validate_mask_value(c_string mask_str);
 
 static int
-gre_tunnel_config_handler(param_t *param, 
+gre_tunnel_config_handler (param_t *param, 
                     ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
 
+    node_t *node = NULL;
+    uint16_t gre_tun_id;
+    c_string node_name = NULL;
+    Interface *gre_tunnel = NULL;
+    tlv_struct_t *tlv;
+    c_string src_addr = NULL;
+    c_string if_name = NULL;
+
+    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv) {
+
+        if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "tunnel-id"))
+            gre_tun_id = atoi((const char *)tlv->value);
+        else if  (parser_match_leaf_id (tlv->leaf_id, "tunnel-src-ip"))
+            src_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "if-name"))
+            if_name = tlv->value;
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    switch (cmdcode) {
+
+        case GRE_CONFIG_CREATE_TUNNEL_INTF:
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    gre_tunnel_create (node, gre_tun_id);
+                    break;
+                case CONFIG_DISABLE:
+                    gre_tunnel_destroy (node, gre_tun_id);
+                    break;
+            }
+        break;
+
+        case GRE_CONFIG_TUNNEL_SOURCE_IPADDR:
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    gre_tunnel_set_src_addr (node, gre_tun_id, src_addr);
+                    break;
+                case CONFIG_DISABLE:
+                    gre_tunnel_unset_src_addr (node, gre_tun_id);
+                    break;
+                default: ;
+            }
+        break;
+
+        case GRE_CONFIG_TUNNEL_SOURCE_INTF:
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    gre_tunnel_set_src_interface (node, gre_tun_id, if_name);
+                    break;
+                case CONFIG_DISABLE:
+                    gre_tunnel_unset_src_interface (node, gre_tun_id);
+                    break;
+                default: ;
+            }
+        break;
+
+    }
     return 0;
 }
 
@@ -81,7 +154,7 @@ gre_cli_config_tree (param_t *interface) {
                          static param_t mask;
                          init_param(&mask, LEAF, 0, gre_tunnel_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
                          libcli_register_param(&ip_addr_val, &mask);
-                         set_param_cmd_code(&mask, GRE_CONFIG_TUNNEL_LOCA_IP);
+                         set_param_cmd_code(&mask, GRE_CONFIG_TUNNEL_LOCAL_IP);
                      }
                  }
              }

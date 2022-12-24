@@ -130,7 +130,7 @@ void dump_node_nw_props(node_t *node){
     printf("\n");
 }
 
-void dump_intf_props(Interface *interface){
+void dump_intf_props (Interface *interface){
 
     uint8_t intf_mask;
     uint32_t intf_ip_addr;
@@ -149,17 +149,23 @@ void dump_intf_props(Interface *interface){
                 IF_MAC(interface)[2], IF_MAC(interface)[3],
                 IF_MAC(interface)[4], IF_MAC(interface)[5]);
     }
-    else{
-         printf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
-         printf("\t vlan membership : ");
-         int i = 0;
-         PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(interface);
-         for(; i < INTF_MAX_VLAN_MEMBERSHIP; i++){
-            if(phyIntf->vlans[i]){
-                printf("%u  ", phyIntf->vlans[i]);
+    else
+    {
+        printf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
+        int i = 0;
+        PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(interface);
+        if (phyIntf)
+        {
+            printf("\t vlan membership : ");
+            for (; i < INTF_MAX_VLAN_MEMBERSHIP; i++)
+            {
+                if (phyIntf->vlans[i])
+                {
+                    printf("%u  ", phyIntf->vlans[i]);
+                }
             }
-         }
-         printf("\n");
+        }
+        printf("\n");
     }
 }
 

@@ -29,7 +29,6 @@ OBJS=gluethread/glthread.o \
 		  Layer2/layer2.o  \
 		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
-		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
 		  Layer3/rt_notif.o	\
@@ -62,6 +61,8 @@ OBJS=gluethread/glthread.o \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
+		  Layer3/gre-tunneling/grecli.o \
+		  Layer3/gre-tunneling/gre.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -204,8 +205,10 @@ c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
 	${CC} ${CFLAGS} -c c-hashtable/hashtable_itr.c -o c-hashtable/hashtable_itr.o
 
 #GRE files
-Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.c
-	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.c -o Layer3/gre-tunneling/grecli.o
+Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.cpp
+	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
+Layer3/gre-tunneling/gre.o:Layer3/gre-tunneling/gre.cpp
+	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
 
 #OOPs Interface Files 
 Interface/Interface.o:Interface/Interface.cpp

@@ -168,15 +168,15 @@ l2_switch_flood_pkt_out (node_t *node,
 
     Interface *oif;
     pkt_block_t *pkt_block2;
-
+   
     ITERATE_NODE_INTERFACES_BEGIN(node, oif){
         
         if(oif == exempted_intf) continue;
 
-        if (oif->GetSwitchport()) continue;
+        if (!oif->GetSwitchport()) continue;
 
         pkt_block2 = pkt_block_dup(pkt_block);
-        oif->SendPacketOut(pkt_block);
+        oif->SendPacketOut(pkt_block2);
         pkt_block_dereference(pkt_block2);
 
     } ITERATE_NODE_INTERFACES_END(node, oif);

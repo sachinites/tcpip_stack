@@ -140,12 +140,15 @@ process_arp_broadcast_request(node_t *node, Interface *iif,
 
     if (arp_hdr->dst_ip != IF_IP(iif)) {
         
+#if 0
         tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, arp_ip_addr_str);
         tcp_ip_covert_ip_n_to_p(IF_IP(iif), intf_ip_addr_str);
+
 
         printf("%s : Error : ARP Broadcast req msg dropped, "
                 "Dst IP address %s did not match with interface ip : %s\n", 
                 node->node_name, arp_ip_addr_str, intf_ip_addr_str);
+#endif
         return;
     }
 

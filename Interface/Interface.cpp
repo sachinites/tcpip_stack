@@ -280,7 +280,7 @@ Interface::GetMacAddr( ) {
 bool 
 Interface::IsIpConfigured() {
 
-    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+    return false;
 }
 void 
 Interface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) {
@@ -322,7 +322,6 @@ Interface::SetSwitchport(bool enable) {
 IntfL2Mode 
 Interface::GetL2Mode () {
 
-    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
     return LAN_MODE_NONE;
 }
 
@@ -475,6 +474,12 @@ void
 PhysicalInterface::SetSwitchport(bool enable) {
 
     if (this->switchport == enable) return;
+
+    if (this->used_as_underlying_tunnel_intf > 0) {
+        printf ("Error : Intf being used as underlying tunnel interface\n");
+        return;
+    }
+
     this->switchport = enable;
 
     if (enable) {
@@ -521,8 +526,8 @@ PhysicalInterface::SetL2Mode (IntfL2Mode l2_mode) {
         return;
     }
 
-    if (!this->switchport) {
-        printf ("Error : Configure switchport first\n");
+    if (this->used_as_underlying_tunnel_intf > 0) {
+        printf ("Error : Intf being used as underlying tunnel interface\n");
         return;
     }
 
@@ -534,6 +539,7 @@ PhysicalInterface::SetL2Mode (IntfL2Mode l2_mode) {
     }
 
     this->l2_mode = l2_mode;
+    this->switchport = true;
 }
 
 bool
@@ -541,6 +547,10 @@ PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add) {
 
     int i;
     if (!this->switchport) return false;
+    if (this->used_as_underlying_tunnel_intf > 0) {
+        printf ("Error : Intf being used as underlying tunnel interface\n");
+        return false;
+    }
 
     if (add) {
         switch (this->l2_mode) {
@@ -678,8 +688,13 @@ GRETunnelInterface::SetTunnelSource (PhysicalInterface *interface) {
     uint32_t ip_addr;
     uint8_t mask;
 
+    if (this->config_flags & GRE_TUNNEL_SRC_INTF_SET) {
+        printf ("Error : Src Interface already Set\n");
+        return;
+    }
+
     this->tunnel_src_intf = interface;
-    interface->ref_count++;
+    interface->used_as_underlying_tunnel_intf++;
     this->config_flags |= GRE_TUNNEL_SRC_INTF_SET;
 
    interface->InterfaceGetIpAddressMask(&ip_addr, &mask);
@@ -704,12 +719,41 @@ GRETunnelInterface::SetTunnelLclIpMask (uint32_t ip_addr, uint8_t mask) {
 }
 
 void 
+GRETunnelInterface::SetTunnelSrcIp(uint32_t src_addr) {
+
+    if (this->config_flags & GRE_TUNNEL_SRC_ADDR_SET) {
+        printf ("Error : Src Address Already Set\n");
+        return;
+    }
+
+    this->tunnel_src_ip = src_addr;
+    this->config_flags |= GRE_TUNNEL_SRC_ADDR_SET ;
+}
+
+void 
+GRETunnelInterface::UnSetTunnelSrcIp() {
+
+    if (this->config_flags & GRE_TUNNEL_SRC_INTF_SET) {
+        printf ("Error : Src Address Derived from Interface, Cannot be removed directly\n");
+        return;
+    }
+
+     if (this->config_flags & GRE_TUNNEL_SRC_ADDR_SET) {
+        this->tunnel_src_ip = 0;
+        this->config_flags &= ~GRE_TUNNEL_SRC_ADDR_SET ;
+     }
+}
+
+
+
+void 
 GRETunnelInterface::PrintInterfaceDetails () {
 
     byte ip_str[16];
     
     printf ("Tunnel Id : %u\n", this->tunnel_id);
-    printf ("Tunnel Src Intf  : %s\n", this->tunnel_src_intf->if_name.c_str());
+    printf ("Tunnel Src Intf  : %s\n", 
+        this->tunnel_src_intf ? this->tunnel_src_intf->if_name.c_str() : "Not Set");
     printf ("Tunnel Src Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_src_ip, ip_str));
     printf ("Tunnel Dst Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_dst_ip, ip_str));
     printf ("Tunnel Lcl Ip/Mask : %s%d\n",  tcp_ip_covert_ip_n_to_p(this->lcl_ip, ip_str), this->mask);

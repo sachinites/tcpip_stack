@@ -63,10 +63,10 @@ insert_link_between_two_nodes(node_t *node1,
     int empty_intf_slot;
 
     /*Plugin interface ends into Node*/
-    empty_intf_slot = get_node_intf_available_slot(node1);
+    empty_intf_slot = node_get_intf_available_slot(node1);
     node1->intf[empty_intf_slot] = link->Intf1;
 
-    empty_intf_slot = get_node_intf_available_slot(node2);
+    empty_intf_slot = node_get_intf_available_slot(node2);
     node2->intf[empty_intf_slot] = link->Intf2;
 
     /*Now Assign Random generated Mac address to the Interfaces*/
@@ -216,7 +216,7 @@ node_get_intf_by_name(node_t *node, const char *if_name){
         if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
             return intf;
         }
-    }
+    }   
     return NULL;
 }
 

@@ -135,7 +135,7 @@ insert_link_between_two_nodes(node_t *node1,
         unsigned int cost);
 
 static inline int
-get_node_intf_available_slot(node_t *node){
+node_get_intf_available_slot(node_t *node){
 
     int i ;
     for( i = 0 ; i < MAX_INTF_PER_NODE; i++){

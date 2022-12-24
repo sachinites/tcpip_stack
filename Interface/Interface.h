@@ -47,10 +47,10 @@ class Interface {
     private:
        
     protected:
-        InterfaceType_t iftype;
         Interface(std::string if_name, InterfaceType_t iftype);
         ~Interface();
     public:
+        InterfaceType_t iftype;
         uint16_t ref_count;
         std::string if_name;
         node_t *att_node;
@@ -117,8 +117,10 @@ class PhysicalInterface : public Interface {
         /* L3 properties */
         uint32_t ip_addr;
         uint8_t mask;
+        
     protected:
     public:
+        uint16_t used_as_underlying_tunnel_intf;
          uint32_t vlans[INTF_MAX_VLAN_MEMBERSHIP];  
 
         PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
@@ -162,12 +164,25 @@ class VirtualInterface : public Interface {
         virtual void PrintInterfaceDetails ();
 };
 
-
+z
 
 
 
 /* ************ */
 class GRETunnelInterface : public VirtualInterface {
+
+
+
+private:
+protected:
+public:
+    
+    uint32_t tunnel_id;
+    Interface *tunnel_src_intf;
+    uint32_t tunnel_src_ip;
+    uint32_t tunnel_dst_ip;
+    uint32_t lcl_ip;
+    uint8_t mask;
 
     enum GreTunnelConfigEnum
     {
@@ -178,18 +193,7 @@ class GRETunnelInterface : public VirtualInterface {
         GRE_TUNNEL_LCL_IP_SET = 16
     };
 
-private:
-
-    uint8_t config_flags;
-
-protected:
-    uint32_t tunnel_id;
-    Interface *tunnel_src_intf;
-    uint32_t tunnel_src_ip;
-    uint32_t tunnel_dst_ip;
-    uint32_t lcl_ip;
-    uint8_t mask;
-public:   
+    uint16_t config_flags;
     GRETunnelInterface(uint32_t tunnel_id);
     ~GRETunnelInterface();
     uint32_t GetTunnelId();
@@ -199,6 +203,8 @@ public:
     void SetTunnelLclIpMask(uint32_t ip_addr, uint8_t mask);
     virtual void PrintInterfaceDetails ();
     virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+    void SetTunnelSrcIp(uint32_t src_addr);
+    void UnSetTunnelSrcIp();
 };
 
 

@@ -12,6 +12,6 @@
 #define GRE_CONFIG_TUNNEL_DESTINATION 4
 
 /* config node <node-name> interface tunnel <tunnel-id> ip-address <intf-ip-address> <mask> */
-#define GRE_CONFIG_TUNNEL_LOCA_IP   5
+#define GRE_CONFIG_TUNNEL_LOCAL_IP   5
 
 #endif 

@@ -64,6 +64,7 @@ extern void network_object_build_show_cli (param_t *root) ;
 extern void object_group_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
 extern void time_range_config_cli_tree (param_t *root) ;
+extern void Interface_config_cli_tree (param_t *root);
 extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 
 static int
@@ -1034,6 +1035,9 @@ nw_init_cli(){
 
             /* Timer Range CLIs */
             time_range_config_cli_tree  (&node_name);
+
+            /* Interface CLIs */
+            Interface_config_cli_tree(&node_name);
         }
 
         {
