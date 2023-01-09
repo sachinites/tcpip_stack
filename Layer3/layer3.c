@@ -242,6 +242,9 @@ layer3_ip_route_pkt(node_t *node,
 									interface, 
                                     pkt_block);
                     layer3_ip_route_pkt_done;
+                case GRE_PROTO:
+                    printf ("GRE pkt recvd\n");
+                    layer3_ip_route_pkt_done;
                 default:
                     ;
             }

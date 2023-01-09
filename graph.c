@@ -58,8 +58,6 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf1->att_node = node1;
     link->Intf2->att_node = node2;
 
-    link->cost = cost;
-
     int empty_intf_slot;
 
     /*Plugin interface ends into Node*/

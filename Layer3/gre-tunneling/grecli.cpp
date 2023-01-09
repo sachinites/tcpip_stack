@@ -22,6 +22,9 @@ gre_tunnel_config_handler (param_t *param,
     Interface *gre_tunnel = NULL;
     tlv_struct_t *tlv;
     c_string src_addr = NULL;
+    c_string dst_addr = NULL;
+    c_string intf_ip_addr = NULL;
+    uint8_t mask = 0;
     c_string if_name = NULL;
 
     int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
@@ -34,6 +37,12 @@ gre_tunnel_config_handler (param_t *param,
             gre_tun_id = atoi((const char *)tlv->value);
         else if  (parser_match_leaf_id (tlv->leaf_id, "tunnel-src-ip"))
             src_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "tunnel-dst-ip"))
+            dst_addr = tlv->value;     
+        else if  (parser_match_leaf_id (tlv->leaf_id, "intf-ip-address"))
+            intf_ip_addr = tlv->value;                     
+        else if  (parser_match_leaf_id (tlv->leaf_id, "mask"))
+            mask = atoi((const char *)tlv->value);                     
         else if  (parser_match_leaf_id (tlv->leaf_id, "if-name"))
             if_name = tlv->value;
     } TLV_LOOP_END;
@@ -63,7 +72,7 @@ gre_tunnel_config_handler (param_t *param,
                     gre_tunnel_set_src_addr (node, gre_tun_id, src_addr);
                     break;
                 case CONFIG_DISABLE:
-                    gre_tunnel_unset_src_addr (node, gre_tun_id);
+                    gre_tunnel_set_src_addr (node, gre_tun_id, NULL);
                     break;
                 default: ;
             }
@@ -77,11 +86,37 @@ gre_tunnel_config_handler (param_t *param,
                     gre_tunnel_set_src_interface (node, gre_tun_id, if_name);
                     break;
                 case CONFIG_DISABLE:
-                    gre_tunnel_unset_src_interface (node, gre_tun_id);
+                    gre_tunnel_set_src_interface (node, gre_tun_id, NULL);
                     break;
                 default: ;
             }
         break;
+     
+        case GRE_CONFIG_TUNNEL_DESTINATION:
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    gre_tunnel_set_dst_addr (node, gre_tun_id, dst_addr);
+                    break;
+                case CONFIG_DISABLE:
+                    gre_tunnel_set_dst_addr (node, gre_tun_id, NULL);
+                    break;
+                default:
+                    ;
+            }    
+        break;  
+
+        case GRE_CONFIG_TUNNEL_LOCAL_IP:
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    gre_tunnel_set_lcl_ip_addr(node, gre_tun_id, intf_ip_addr, mask);
+                    break;
+                case CONFIG_DISABLE:
+                    gre_tunnel_set_lcl_ip_addr(node, gre_tun_id, NULL, 0);
+                    break;
+                default:
+                    ;
+            }
+        break;             
 
     }
     return 0;

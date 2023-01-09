@@ -13,12 +13,12 @@ void
 gre_tunnel_set_src_addr (node_t *node, uint16_t tunnel_id, c_string src_addr);
 
 void
-gre_tunnel_unset_src_addr (node_t *node, uint16_t tunnel_id);
+gre_tunnel_set_dst_addr (node_t *node, uint16_t tunnel_id, c_string src_addr);
+
+void 
+gre_tunnel_set_lcl_ip_addr(node_t *node, uint16_t gre_tun_id, c_string intf_ip_addr, uint8_t mask);
 
 void
  gre_tunnel_set_src_interface (node_t *node, uint16_t gre_tun_id, c_string if_name);
-
- void
- gre_tunnel_unset_src_interface (node_t *node, uint16_t gre_tun_id);
 
 #endif

@@ -236,18 +236,18 @@ initialize_direct_nbrs(node_t *spf_root){
 
         /*Step 2.1 : Begin*/
         /*Populate nexthop array of directly connected nbrs of spf_root*/
-        if (oif->GetLinkCost() < SPF_METRIC(nbr)){
+        if (oif->GetIntfCost() < SPF_METRIC(nbr)){
             nh_flush_nexthops(nbr->spf_data->nexthops);
             nexthop = nh_create_new_nexthop (oif->ifindex, nxt_hop_ip, PROTO_STATIC);
             nexthop->oif = oif;
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
-            SPF_METRIC(nbr) = oif->GetLinkCost();
+            SPF_METRIC(nbr) = oif->GetIntfCost();
         }
         /*Step 2.1 : End*/
 
         /*Step 2.2 : Begin*/
         /*Cover the ECMP case*/
-        else if (oif->GetLinkCost() == SPF_METRIC(nbr)){
+        else if (oif->GetIntfCost() == SPF_METRIC(nbr)){
             tcp_ip_covert_ip_n_to_p(nxt_hop_ip, nxt_hop_ip_str);
             nexthop = nh_create_new_nexthop (oif->ifindex, nxt_hop_ip_str, PROTO_STATIC);
             nexthop->oif = oif;
@@ -336,13 +336,13 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
                 " spf_metric(%s, %u) + link cost(%u) < spf_metric(%s, %u)\n",
                 spf_root->node_name, curr_node->node_name, 
                 curr_node->spf_data->spf_metric, 
-                oif->GetLinkCost(), nbr->node_name, nbr->spf_data->spf_metric);
+                oif->GetIntfCost(), nbr->node_name, nbr->spf_data->spf_metric);
         #endif
         /*Step 6.1 : Begin*/
         /* We have just found that a nbr node is reachable via even better 
          * shortest path cost. Simply adjust the nbr's node's position in PQ
          * by removing (if present) and adding it back to PQ*/
-        if(SPF_METRIC(curr_node) + oif->GetLinkCost() < 
+        if(SPF_METRIC(curr_node) + oif->GetIntfCost() < 
                 SPF_METRIC(nbr)){
 
             #if SPF_LOGGING
@@ -356,7 +356,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
             nh_union_nexthops_arrays(curr_node->spf_data->nexthops,
                     nbr->spf_data->nexthops);
             /*Update shortest path cose of nbr node*/
-            SPF_METRIC(nbr) = SPF_METRIC(curr_node) + oif->GetLinkCost();
+            SPF_METRIC(nbr) = SPF_METRIC(curr_node) + oif->GetIntfCost();
 
             #if SPF_LOGGING
             printf("root : %s : Event : Primary Nexthops Copied "
@@ -389,7 +389,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
          * So, instead of replacing the obsolete nexthops of nbr node, We will
          * do union of old and new nexthops since both nexthops are valid. 
          * Remove Duplicates however*/
-        else if(SPF_METRIC(curr_node) + oif->GetLinkCost() == 
+        else if(SPF_METRIC(curr_node) + oif->GetIntfCost() == 
                 SPF_METRIC(nbr)){
         #if SPF_LOGGING
             printf("root : %s : Event : Primary Nexthops Union of Current Node"

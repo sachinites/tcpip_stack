@@ -45,6 +45,7 @@ typedef enum{
     TCP_HDR,
     UDP_HDR,
     IP_IN_IP_HDR,
+    GRE_HDR,
     MISC_APP_HDR
 } hdr_type_t;
 
@@ -59,6 +60,7 @@ typedef uint16_t pkt_size_t;
 #define ICMP_PROTO        1
 #define TCP_PROTO 0x6
 #define UDP_PROTO   0x11
+#define GRE_PROTO 47
 #define ICMP_ECHO_REQ   8
 #define ICMP_ECHO_REP   0
 #define EIGRP_PROTO   80
@@ -159,6 +161,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
         return UDP_PROTO;
     case IP_IN_IP_HDR:
         return IP_IN_IP;
+    case GRE_HDR:
+        return GRE_PROTO;
     default:;
     }
     return 0;

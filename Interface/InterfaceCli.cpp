@@ -133,6 +133,8 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
              mask = atoi((const char *)tlv->value);  
         else if(parser_match_leaf_id(tlv->leaf_id, "lono"))
              lono = atoi((const char *)tlv->value);  
+        else if(parser_match_leaf_id(tlv->leaf_id, ""))
+             lono = atoi((const char *)tlv->value);               
         else
             assert(0);
     } TLV_LOOP_END;
@@ -169,7 +171,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
     switch(CMDCODE){
         case CMDCODE_INTF_CONFIG_METRIC:
         {
-            uint32_t intf_existing_metric = interface->GetLinkCost();
+            uint32_t intf_existing_metric = interface->GetIntfCost();
 
             if(intf_existing_metric != intf_new_matric_val){
                 SET_BIT(if_change_flags, IF_METRIC_CHANGE_F); 
@@ -178,10 +180,10 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
 
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    interface->link->cost = intf_new_matric_val;        
+                    interface->cost = intf_new_matric_val;        
                 break;
                 case CONFIG_DISABLE:
-                    interface->link->cost = INTF_METRIC_DEFAULT;
+                    interface->cost = INTF_METRIC_DEFAULT;
                 break;
                 default: ;
             }
@@ -241,7 +243,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
                     interface_set_ip_addr(node, interface, intf_ip_addr, mask);
                     break;
                 case CONFIG_DISABLE:
-                    interface_unset_ip_addr(node, interface, intf_ip_addr, mask);
+                    interface_unset_ip_addr(node, interface);
                     break;
                 default:
                     ;
@@ -250,15 +252,13 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         case CMDCODE_INTF_CONFIG_LOOPBACK:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    
                     break;
                 case CONFIG_DISABLE:
-                    
                     break;
                 default:
                     ;
             }
-        break;
+        break;  
          default:
             ;    
     }

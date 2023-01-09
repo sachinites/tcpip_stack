@@ -61,8 +61,7 @@ interface_set_ip_addr(node_t *node, Interface *intf,
 }
 
 void
-interface_unset_ip_addr(node_t *node, Interface *intf, 
-                                        c_string new_intf_ip_addr, uint8_t new_mask) {
+interface_unset_ip_addr(node_t *node, Interface *intf) {
 
     uint8_t mask;
     byte ip_addr_str[16];
@@ -72,19 +71,11 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     uint32_t if_change_flags = 0;
     intf_prop_changed_t intf_prop_changed;
 
-    uint32_t new_ip_addr_int = tcp_ip_covert_ip_p_to_n(new_intf_ip_addr);
-
     if ( !intf->IsIpConfigured()) {
         return;
     }
 
     intf->InterfaceGetIpAddressMask(&existing_ip_addr, &existing_mask);
-
-    if ((existing_ip_addr != ip_addr_int) || (existing_mask != mask)) {
-        printf("Error : Non Existing IP address Specified \n");
-        return;
-    }
-
     intf_prop_changed.ip_addr.ip_addr = existing_ip_addr;
     intf_prop_changed.ip_addr.mask = existing_mask;
     SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
@@ -93,7 +84,9 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
                                             tcp_ip_covert_ip_n_to_p(existing_ip_addr, ip_addr_str),
                                             existing_mask,
                                             PROTO_STATIC);
-
+    
+    intf->InterfaceSetIpAddressMask(0, 0);
+    
     nfc_intf_invoke_notification_to_sbscribers(intf,  
                 &intf_prop_changed, if_change_flags);
 }

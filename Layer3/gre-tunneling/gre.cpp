@@ -70,11 +70,17 @@ gre_tunnel_set_src_addr (node_t *node, uint16_t tunnel_id, c_string src_addr) {
     }
 
     GRETunnelInterface *gre_tunnel = dynamic_cast <GRETunnelInterface *> (tunnel);
-    gre_tunnel->SetTunnelSrcIp(tcp_ip_covert_ip_p_to_n(src_addr));
+
+    if (src_addr) {
+        gre_tunnel->SetTunnelSrcIp(tcp_ip_covert_ip_p_to_n(src_addr));
+    }
+    else {
+        gre_tunnel->UnSetTunnelSrcIp();
+    }
 }
 
 void
-gre_tunnel_unset_src_addr (node_t *node, uint16_t tunnel_id) {
+gre_tunnel_set_dst_addr (node_t *node, uint16_t tunnel_id, c_string dst_addr) {
 
     Interface *tunnel;
     byte intf_name[IF_NAME_SIZE];
@@ -89,8 +95,15 @@ gre_tunnel_unset_src_addr (node_t *node, uint16_t tunnel_id) {
     }
 
     GRETunnelInterface *gre_tunnel = dynamic_cast <GRETunnelInterface *> (tunnel);
-    gre_tunnel->UnSetTunnelSrcIp();
+
+    if (dst_addr) {
+        gre_tunnel->SetTunnelDestination(tcp_ip_covert_ip_p_to_n(dst_addr));
+    }
+    else {
+        gre_tunnel->SetTunnelDestination(0);
+    }
 }
+
 
 void
  gre_tunnel_set_src_interface (node_t *node, uint16_t tunnel_id, c_string if_name) {
@@ -127,18 +140,24 @@ void
     }
 
     GRETunnelInterface *gre_tunnel = dynamic_cast <GRETunnelInterface *> (tunnel);
-    gre_tunnel->SetTunnelSource(dynamic_cast <PhysicalInterface *>(phyIntf));
+    if (phyIntf) {
+        gre_tunnel->SetTunnelSource(dynamic_cast <PhysicalInterface *>(phyIntf));
+    }
+    else {
+        gre_tunnel->SetTunnelSource(NULL);
+    }
  }
 
- void
- gre_tunnel_unset_src_interface (node_t *node, uint16_t tunnel_id) {
+void 
+gre_tunnel_set_lcl_ip_addr(node_t *node, 
+                                             uint16_t gre_tun_id,
+                                             c_string intf_ip_addr,
+                                             uint8_t mask) {
 
     Interface *tunnel;
-    PhysicalInterface *phyIntf;
-
     byte intf_name[IF_NAME_SIZE];
 
-    snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
+    snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
 
     tunnel = node_get_intf_by_name(node, (const char *)intf_name);
 
@@ -152,16 +171,10 @@ void
         return;
     }
 
-    GRETunnelInterface *gre_tunnel = dynamic_cast <GRETunnelInterface *> (tunnel);
-
-    if (!(gre_tunnel->config_flags & GRETunnelInterface::GRE_TUNNEL_SRC_INTF_SET)) {
-        return;
+    if (intf_ip_addr && mask) {
+        interface_set_ip_addr(node, tunnel, intf_ip_addr, mask);
     }
-
-    assert(gre_tunnel->tunnel_src_intf);
-    phyIntf =  dynamic_cast <PhysicalInterface *> (gre_tunnel->tunnel_src_intf);
-    assert(phyIntf->used_as_underlying_tunnel_intf);
-    phyIntf->used_as_underlying_tunnel_intf--;
-    gre_tunnel->tunnel_src_intf = NULL;
-    gre_tunnel->config_flags &= ~ GRETunnelInterface::GRE_TUNNEL_SRC_INTF_SET;
- }
+    else {
+         interface_unset_ip_addr(node, tunnel);
+    }
+}

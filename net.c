@@ -135,7 +135,7 @@ void dump_intf_props (Interface *interface){
     uint8_t intf_mask;
     uint32_t intf_ip_addr;
     byte intf_ip_addr_str[16];
-
+    mac_addr_t *mac_addr;
     dump_interface(interface);
 
     printf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
@@ -144,10 +144,17 @@ void dump_intf_props (Interface *interface){
         interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
         tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
         printf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
-        printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n", 
-                IF_MAC(interface)[0], IF_MAC(interface)[1],
-                IF_MAC(interface)[2], IF_MAC(interface)[3],
-                IF_MAC(interface)[4], IF_MAC(interface)[5]);
+
+        mac_addr = interface->GetMacAddr();
+        if (!mac_addr) {
+            printf("\t MAC : Nil\n");
+        }
+        else {
+            printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
+                   mac_addr->mac[0], mac_addr->mac[1],
+                   mac_addr->mac[2], mac_addr->mac[3],
+                   mac_addr->mac[4], mac_addr->mac[5]);
+        }
     }
     else
     {

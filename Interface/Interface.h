@@ -63,6 +63,7 @@ class Interface {
         uint32_t pkt_recv;
         uint32_t pkt_sent;
         uint32_t xmit_pkt_dropped;
+        uint32_t cost;
 
         /* L2 Properties : Ingress & egress L2 Access_list */
         access_list_t *l2_ingress_acc_lst;
@@ -79,7 +80,7 @@ class Interface {
 
         avltree_t flow_avl_root;
 
-        uint32_t GetLinkCost();
+        uint32_t GetIntfCost();
         node_t *GetNbrNode ();
         Interface *GetOtherInterface();
 
@@ -148,7 +149,6 @@ typedef struct linkage_ {
 
     PhysicalInterface *Intf1;
     PhysicalInterface *Intf2;
-    uint32_t cost;
 } linkage_t;
 
 
@@ -164,14 +164,11 @@ class VirtualInterface : public Interface {
         virtual void PrintInterfaceDetails ();
 };
 
-z
 
 
 
 /* ************ */
 class GRETunnelInterface : public VirtualInterface {
-
-
 
 private:
 protected:
@@ -205,6 +202,11 @@ public:
     virtual int SendPacketOut(pkt_block_t *pkt_block) final;
     void SetTunnelSrcIp(uint32_t src_addr);
     void UnSetTunnelSrcIp();
+    virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
+    virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
+    virtual bool IsIpConfigured() final;
+    virtual bool IsSameSubnet(uint32_t ip_addr);
+    virtual mac_addr_t * GetMacAddr() final;
 };
 
 

@@ -13,8 +13,7 @@ interface_set_ip_addr (node_t *node, Interface *intf,
                                     c_string intf_ip_addr, uint8_t mask) ;
 
 void
-interface_unset_ip_addr (node_t *node, Interface *intf, 
-                                    c_string intf_ip_addr, uint8_t mask) ;                                    
+interface_unset_ip_addr (node_t *node, Interface *intf);                                  
 
 void interface_loopback_create (node_t *node, uint8_t lono);
 void interface_loopback_delete (node_t *node, uint8_t lono) ;
