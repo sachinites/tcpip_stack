@@ -217,8 +217,6 @@ show_nw_topology_handler(param_t *param,
         
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else
-            assert(0);
     } TLV_LOOP_END;
 
     if(node_name)
@@ -365,8 +363,6 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
             ip_addr = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
             ero_ip_addr = tlv->value;
-        else
-            assert(0);
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -476,9 +472,6 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
             rib_name = tlv->value;        
         else if(parser_match_leaf_id(tlv->leaf_id, "prefix-lst-name"))
             prefix_lst_name = tlv->value;                   
-        else
-            assert(0);
-
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -594,8 +587,6 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
             node_name = tlv->value;
         else if   (parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
             access_list_name = tlv->value;
-        else
-            assert(0);
     }TLV_LOOP_END;
 
    node = node_get_node_by_name(topo, node_name);
@@ -640,8 +631,6 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "protocol-name"))
             protocol_name = tlv->value;        
-        else
-            assert(0);
     } TLV_LOOP_END;
    
     node = node_get_node_by_name(topo, node_name);

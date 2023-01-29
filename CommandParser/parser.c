@@ -129,16 +129,32 @@ typedef struct unified_cli_data_{
 	op_mode enable_or_disable;
 } unified_cli_data_t;
 
+extern void 
+parser_config_commit_internal (void *node, ser_buff_t *tlv_ser_buff, op_mode enable_or_disable);
+
+static void
+parser_config_commit(void *node, ser_buff_t *tlv_ser_buff, op_mode enable_or_disable) {
+
+    parser_config_commit_internal (node, tlv_ser_buff, enable_or_disable);
+}
+
 static void
 task_cbk_handler_internal(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 	
+    int rc; 
+
 	unified_cli_data_t *unified_cli_data =
 		(unified_cli_data_t *)arg;
 
-	unified_cli_data->param->callback(
+	rc = unified_cli_data->param->callback(
 		unified_cli_data->param,
 		unified_cli_data->tlv_ser_buff,
 		unified_cli_data->enable_or_disable);
+
+    /* Config Commit now*/
+    if (!rc && unified_cli_data->enable_or_disable != OPERATIONAL) {
+        parser_config_commit (ev_dis->app_data, unified_cli_data->tlv_ser_buff, unified_cli_data->enable_or_disable);
+    }
 
 	/*  Free the memory now */
 
@@ -148,8 +164,12 @@ task_cbk_handler_internal(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_si
 
 extern event_dispatcher_t *
 node_get_ev_dispatcher (ser_buff_t *tlv_buff); 
+void
+task_invoke_appln_cbk_handler(param_t *param,
+						 ser_buff_t *tlv_buff,
+						 op_mode enable_or_disable) ;
 
-static void
+void
 task_invoke_appln_cbk_handler(param_t *param,
 						 ser_buff_t *tlv_buff,
 						 op_mode enable_or_disable) {
@@ -236,11 +256,40 @@ build_tlv_buffer(char **tokens,
                 break;
             }
             else{
-                if(IS_PARAM_NO_CMD(param)){
+                if (IS_PARAM_NO_CMD(param))
+                {
                     enable_or_disable = CONFIG_DISABLE;
+                    /* Insert no keyword also in TLV */
+                    //tlv.tlv_type = TLV_TYPE_NEGATE;
+                    //tlv.leaf_type = BOOLEAN;
                 }
-                continue;
+                else
+                {
+                    /* Normal fixed CMD param*/
+                    /* Filter the special characters - ? / . */
+                    if (strncmp (GET_CMD_NAME(param) , 
+                            MODE_CHARACTER, strlen (GET_CMD_NAME(param) )) == 0) {
+                        continue;
+                    }
+                    
+                    if (strncmp (GET_CMD_NAME(param) , 
+                            SUBOPTIONS_CHARACTER, strlen (GET_CMD_NAME(param) )) == 0) {
+                        continue;
+                    }
+                    
+                    if (strncmp (GET_CMD_NAME(param) , 
+                            CMD_EXPANSION_CHARACTER, strlen (GET_CMD_NAME(param) )) == 0) {
+                        continue;
+                    }
+
+                    tlv.tlv_type = TLV_TYPE_CMD_NAME;
+                    tlv.leaf_type = STRING;
+                    put_value_in_tlv((&tlv), GET_CMD_NAME(param));
+                    collect_tlv(tlv_buff, &tlv);
+                    memset(&tlv, 0, sizeof(tlv_struct_t));
+                }
             }
+            continue;
         }
 
         status = CMD_NOT_FOUND;
@@ -436,7 +485,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
                 /*User is in the config mode only */
                 set_cmd_tree_cursor(old_cursor_state);
                 /*We need to rebuild the TLV buffer afresh*/
-                build_cmd_tree_leaves_data(tlv_buff, libcli_get_root(), get_cmd_tree_cursor());
+                build_cmd_tree_leaves_data(tlv_buff, libcli_get_config_hook(), get_cmd_tree_cursor());
                 mark_checkpoint_serialize_buffer(tlv_buff);
             }
         }

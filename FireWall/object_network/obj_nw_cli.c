@@ -57,8 +57,6 @@ network_object_config_handler (param_t *param,
             return -1;
         }
     }
-    else
-        assert(0);
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);

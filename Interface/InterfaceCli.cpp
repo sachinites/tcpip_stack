@@ -64,18 +64,15 @@ void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
     node_t *node;
-    c_string node_name;
+    c_string node_name = NULL;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if(string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
 
     }TLV_LOOP_END;
-
-    if(!node_name)
-        return;
 
     node = node_get_node_by_name(topo, node_name);
     

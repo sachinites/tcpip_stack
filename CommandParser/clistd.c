@@ -25,6 +25,7 @@
 #include "clicbext.h"
 #include "string_util.h"
 #include "../FSMImplementation/std_fsm.h"
+#include "../EventDispatcher/event_dispatcher.h"
 
 int GL_FD_OUT = STDOUT_FILENO;
 
@@ -169,9 +170,13 @@ repeat_last_command(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     return 0;
 }
 
+extern void
+task_invoke_appln_cbk_handler(param_t *param,
+						 ser_buff_t *tlv_buff,
+						 op_mode enable_or_disable) ;
 
  int
-mode_enter_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
+mode_enter_callback(param_t *param, ser_buff_t *tlv_buff, op_mode enable_or_disable){
  
     if(param == libcli_get_root()){
         printf(ANSI_COLOR_YELLOW "Info : Mode not supported at root level\n" ANSI_COLOR_RESET);
@@ -179,10 +184,16 @@ mode_enter_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     }
     set_cmd_tree_cursor(param);
     build_mode_console_name(param);
-    
-    if(IS_APPLICATION_CALLBACK_HANDLER_REGISTERED(param))
-        INVOKE_APPLICATION_CALLBACK_HANDLER(param, b, enable_or_disable);
 
+    if (IS_APPLICATION_CALLBACK_HANDLER_REGISTERED(param))
+    {
+#ifndef ENABLE_EVENT_DISPATCHER
+        INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
+#else
+        task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
+        printf("CLI returned\n");
+#endif
+    }
     return 0;
 }
  

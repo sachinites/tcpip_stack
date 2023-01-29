@@ -760,12 +760,12 @@ void go_one_level_up_cmd_tree(param_t *curr_cmd_tree_cursor)
         return;
     }
 
-    if (IS_PARAM_LEAF(curr_cmd_tree_cursor))
-    {
+    if (IS_PARAM_LEAF(curr_cmd_tree_cursor)) {
         memset(GET_LEAF_VALUE_PTR(curr_cmd_tree_cursor), 0, LEAF_VALUE_HOLDER_SIZE);
-        serialize_buffer_skip(tlv_buff, -1 * (int)sizeof(tlv_struct_t)); /*Rewind*/
-        mark_checkpoint_serialize_buffer(tlv_buff);
     }
+    
+    serialize_buffer_skip(tlv_buff, -1 * (int)sizeof(tlv_struct_t)); /*Rewind*/
+    mark_checkpoint_serialize_buffer(tlv_buff);
 
     set_cmd_tree_cursor(curr_cmd_tree_cursor->parent);
 
@@ -844,21 +844,31 @@ void build_cmd_tree_leaves_data(ser_buff_t *tlv_buff, /*Output serialize buffer*
 
     while (dst_param != src_param)
     {
-        if (IS_PARAM_CMD(dst_param))
-        {
-            dst_param = dst_param->parent;
-            continue;
+        if (IS_PARAM_CMD(dst_param)) {
+
+            tlv.tlv_type = TLV_TYPE_CMD_NAME;
+            tlv.leaf_type = STRING;
+            put_value_in_tlv((&tlv), GET_CMD_NAME(dst_param));
+            collect_tlv(tlv_buff, &tlv);
         }
-
-        prepare_tlv_from_leaf(GET_PARAM_LEAF(dst_param), (&tlv));
-        put_value_in_tlv((&tlv), GET_LEAF_VALUE_PTR(dst_param));
-        collect_tlv(tlv_buff, &tlv);
+        else
+        {
+            prepare_tlv_from_leaf(GET_PARAM_LEAF(dst_param), (&tlv));
+            put_value_in_tlv((&tlv), GET_LEAF_VALUE_PTR(dst_param));
+            collect_tlv(tlv_buff, &tlv);
+        }
         memset(&tlv, 0, sizeof(tlv_struct_t));
-
         dst_param = dst_param->parent;
     }
 
-    if (IS_PARAM_LEAF(dst_param))
+    if (IS_PARAM_CMD(dst_param)) {
+
+        tlv.tlv_type = TLV_TYPE_CMD_NAME;
+        tlv.leaf_type = STRING;
+        put_value_in_tlv((&tlv), GET_CMD_NAME(dst_param));
+        collect_tlv(tlv_buff, &tlv);
+    }
+    else
     {
         prepare_tlv_from_leaf(GET_PARAM_LEAF(dst_param), (&tlv));
         put_value_in_tlv((&tlv), GET_LEAF_VALUE_PTR(dst_param));

@@ -608,8 +608,6 @@ int traceoptions_handler(param_t *param,
             if_name =  tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "flag-val"))
             flag_val = tlv->value;
-        else
-            assert(0);
     }TLV_LOOP_END;
 
     switch(CMDCODE){

@@ -402,8 +402,6 @@ acl_config_handler (param_t *param,
                 return -1;
             }                           
         }
-        else
-            assert(0);
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -573,8 +571,6 @@ access_group_config_handler(param_t *param,
             dirn = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "if-name"))
             if_name = tlv->value;
-        else
-            assert(0);
    } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);

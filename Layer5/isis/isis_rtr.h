@@ -159,10 +159,10 @@ void
 isis_check_and_shutdown_protocol_now(
         node_t *node, uint16_t work_completed_flag);
 
-void
+int
 isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
 
-void
+int
 isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
 
 bool

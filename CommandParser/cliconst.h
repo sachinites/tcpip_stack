@@ -89,4 +89,9 @@ typedef enum{
     UNKNOWN
 } CMD_PARSE_STATUS;
 
+/* Reserved TLV Types */
+#define TLV_TYPE_NORMAL    0      /* Normal TLVs which store user CLI values */
+#define TLV_TYPE_CMD_NAME    255  /* TLVs which store CMD params name*/
+#define TLV_TYPE_NEGATE    254  /* 'no' keyword */
+
 #endif /* __LIBCLICONSTANTS__ */

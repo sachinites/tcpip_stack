@@ -73,8 +73,6 @@ object_group_config_handler (param_t *param,
             return -1;
         }
     }
-    else
-        assert(0);
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -494,8 +492,6 @@ object_group_show_handler (param_t *param,
             break;
         case OBJ_GRP_SHOW_ONE:
             break;
-        default:
-            assert(0);
     }
 
     return 0;

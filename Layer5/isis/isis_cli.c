@@ -32,6 +32,8 @@ isis_config_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
+        if (tlv->tlv_type != TLV_TYPE_NORMAL ) continue;
+
         if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "timeout-val"))
@@ -40,8 +42,6 @@ isis_config_handler(param_t *param,
             if_grp_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "prefix-list-name"))
             prefix_lst_name = tlv->value;
-        else
-            assert(0);
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -50,9 +50,11 @@ isis_config_handler(param_t *param,
         case ISIS_CONFIG_NODE_ENABLE:
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
+                    if (isis_is_protocol_enable_on_node(node)) return -1;
                     isis_init(node);
                     break;
                 case CONFIG_DISABLE:
+                    if (!isis_is_protocol_enable_on_node(node)) return -1;
                     isis_de_init(node);
                     break;
                 default: ;
@@ -61,10 +63,10 @@ isis_config_handler(param_t *param,
         case CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD:
          switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    isis_set_overload(node, 0, cmdcode);
+                    return isis_set_overload(node, 0, cmdcode);
                     break;
                 case CONFIG_DISABLE:
-                    isis_unset_overload(node, 0,  cmdcode);
+                    return isis_unset_overload(node, 0,  cmdcode);
                     break;
                 default: ;
          }
@@ -72,10 +74,10 @@ isis_config_handler(param_t *param,
         case CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT:
         switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    isis_set_overload(node, ovl_timeout_val,  cmdcode);
+                    return isis_set_overload(node, ovl_timeout_val,  cmdcode);
                     break;
                 case CONFIG_DISABLE:
-                    isis_unset_overload(node, ovl_timeout_val,  cmdcode);
+                    return isis_unset_overload(node, ovl_timeout_val,  cmdcode);
                     break;
                 default: ;
          }
@@ -155,8 +157,6 @@ isis_intf_config_handler(param_t *param,
             intf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "if-grp-name"))
             if_grp_name = tlv->value;
-        else
-            assert(0);
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -256,8 +256,6 @@ isis_show_handler(param_t *param,
             intf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "rtr-id"))
             rtr_id_str = tlv->value;
-        else
-            assert(0);
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);

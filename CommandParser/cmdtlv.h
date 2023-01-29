@@ -22,12 +22,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "libcliid.h"
 #include "serialize.h"
 #include "cmd_hier.h"
 
 #pragma pack (push,1)
 typedef struct tlv_struct{
+    uint8_t tlv_type;
     leaf_type_t leaf_type;
     unsigned char leaf_id[LEAF_ID_SIZE];
     unsigned char value[LEAF_VALUE_HOLDER_SIZE];
@@ -42,8 +44,8 @@ typedef struct tlv_struct{
 {                                                                                       \
     assert(ser_buff);                                                                   \
     tlvptr = (tlv_struct_t *)(ser_buff->b);                                             \
-    unsigned int i = 0, k = get_serialize_buffer_size(ser_buff)/sizeof(tlv_struct_t);   \
-    for(; i < k-1; i++, tlvptr++)
+    unsigned int _i = 0, k = get_serialize_buffer_size(ser_buff)/sizeof(tlv_struct_t);   \
+    for(; _i < k-1; _i++, tlvptr++)
 
 #define TLV_LOOP_END    }
 
@@ -60,6 +62,7 @@ typedef struct tlv_struct{
     serialize_string(ser_buff, (char *)tlvptr, sizeof(tlv_struct_t))
 
 #define prepare_tlv_from_leaf(leaf, tlvptr)    \
+    tlvptr->tlv_type = TLV_TYPE_NORMAL; \
     tlvptr->leaf_type = leaf->leaf_type;       \
     strncpy((char *)tlvptr->leaf_id, leaf->leaf_id, MIN(LEAF_ID_SIZE, strlen(leaf->leaf_id)));
 
@@ -75,6 +78,7 @@ print_tlv_content(tlv_struct_t *tlv){
     if(!tlv)
         return;
 
+    printf ("tlv->tlv_type = %d\n", tlv->tlv_type);
     printf("tlv->leaf_type = %s\n", get_str_leaf_type(tlv->leaf_type));
     printf("tlv->leaf_id   = %s\n", tlv->leaf_id);
     printf("tlv->value     = %s\n", tlv->value);

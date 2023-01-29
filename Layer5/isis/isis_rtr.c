@@ -520,16 +520,17 @@ isis_stop_overload_timer(node_t *node) {
     ovl_data->ovl_timer = NULL;
 }
 
-void
+int
 isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
 
+    int rc = 0;
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
         printf( ISIS_ERROR_PROTO_NOT_ENABLE "\n");  
-        return;
+        return -1;
     }
 
     ovl_data = &node_info->ovl_data;
@@ -537,6 +538,7 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     if (!ovl_data->ovl_status) {
         ovl_data->ovl_status = true;
         regen_lsp = true;
+        rc = 0;
     }
 
     /* case 1 : user has fired : ...isis overload
@@ -577,7 +579,8 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
             if (timeout_val) {
                 /* case 2.1.1 : <value is non-zero> -> trigger the timer */
                 ovl_data->timeout_val = timeout_val;
-                isis_start_overload_timer(node, timeout_val);                                                       
+                isis_start_overload_timer(node, timeout_val);
+                rc = 0;                                    
             }
             else {
                 /* case 2.1.2 : <value is zero> -> no action on timer */
@@ -594,11 +597,13 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
                          /* case 2.1.1.2 : timeout val is changed -> reschedule timer */
                          ovl_data->timeout_val = timeout_val;
                          timer_reschedule(ovl_data->ovl_timer, timeout_val * 1000);
+                         rc = 0;
                      }
                 }
                 else {
                     /* case 2.1.2 : <value is zero> -> switch off the timer */
                     isis_stop_overload_timer(node);
+                    rc  = 0;
                 }
         }
      }
@@ -606,24 +611,27 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
      done:
         if (regen_lsp) {
             isis_schedule_lsp_pkt_generation(node, isis_event_device_overload_config_changed);
+            return 0;
         }
+        
+        return rc;
 }
 
-void
+int
 isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!isis_is_protocol_enable_on_node(node)) return;
+    if (!isis_is_protocol_enable_on_node(node)) return -1;
 
     ovl_data = &node_info->ovl_data;
 
     if (cmdcode == CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD) {
 
         /* user triggered : ...no protocol isis overload */
-        if (!ovl_data->ovl_status)  return;
+        if (!ovl_data->ovl_status)  return -1;
 
         ovl_data->ovl_status = false;
         regen_lsp = true;
@@ -648,7 +656,10 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     done:
         if (regen_lsp) {
             isis_schedule_lsp_pkt_generation(node, isis_event_device_overload_config_changed);
+            return 0;
         }
+
+        return -1;
 }
 
 bool
