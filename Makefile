@@ -8,6 +8,7 @@ ISIS_LIB_PATH=-L Layer5/isis -lisis
 # proto Libs
 
 LIBS=-lpthread \
+			-lpqxx -lpq \
 		   -lcli -lrt \
 		   -L CommandParser -lcli \
 		    -L LinuxMemoryManager -lmm \
@@ -46,6 +47,7 @@ OBJS=gluethread/glthread.o \
 		  pkt_block.o \
 		  tcp_ip_trace.o	\
  		  tcpip_notif.o \
+		  configdb.o \
 		  notif.o	\
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
@@ -63,6 +65,7 @@ OBJS=gluethread/glthread.o \
 		  Interface/InterfaceCli.o \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
+		  PostgresLibpq/postgresLib.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -139,6 +142,9 @@ topologies.o:topologies.c
 
 net.o:net.c
 	${CC} ${CFLAGS} -c -I . net.c -o net.o
+
+configdb.o:configdb.cpp
+	${CC} ${CFLAGS} -c -I . configdb.cpp -o configdb.o
 
 pkt_block.o:pkt_block.c
 	${CC} ${CFLAGS} -c -I . pkt_block.c -o pkt_block.o
@@ -219,7 +225,12 @@ Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
 
 Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
 	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
-	
+
+#postgresLib files
+PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
+	${CC} ${CFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
+
+
 # Protocols Specific
 # STP
 #Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
@@ -268,6 +279,7 @@ clean:
 	(cd c-hashtable; make clean)
 	rm -f Layer3/gre-tunneling/*.o
 	rm -f Interface/*.o
+	rm -f postgresLib/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:

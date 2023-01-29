@@ -45,6 +45,7 @@
 #include "tcp_ip_trace.h"
 #include "Layer3/netfilter.h"
 #include "EventDispatcher/event_dispatcher.h"
+#include "PostgresLibpq/postgresLib.h"
 
 #define NODE_NAME_SIZE   16
 #define IF_NAME_SIZE     16
@@ -110,6 +111,10 @@ struct node_ {
 
     /* Packet Tracer Object */
     pkt_tracer_t *pkt_tracer;
+
+    /* config DB connection */
+    PGconn* conn;
+
     glthread_t graph_glue;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);

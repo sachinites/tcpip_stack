@@ -34,12 +34,15 @@
 #include <string.h>
 #include <stdio.h>
 #include <memory.h>
+#include <ctype.h>
+#include "configdb.h"
 #include "graph.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
 #include "packet-tracer/packet_tracer.h"
 #include "c-hashtable/hashtable.h"
 #include "Interface/InterfaceUApi.h"
+
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -163,6 +166,8 @@ create_graph_node(graph_t *graph, const c_string node_name){
 
     pkt_tracer_init (&node->pkt_tracer);
     
+    node_config_db_init (node);
+
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
 }

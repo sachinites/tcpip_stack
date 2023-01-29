@@ -45,6 +45,7 @@
 #include "FireWall/acl/acldb.h"
 #include "prefix-list/prefixlst.h"
 #include "Threads/refcount.h"
+#include "PostgresLibpq/postgresLib.h"
 
 #include "tcpconst.h"
 #include "graph.h"
