@@ -92,7 +92,7 @@ static cli_register_cb
 	{
 		ddcp_config_cli_tree,
 		nmp_config_cli_tree,
-		
+		isis_config_cli_tree,
         /*  Add more CB here */
         
         0 /* Last member must be NULL */
@@ -104,7 +104,7 @@ static cli_register_cb
 	{
 		ddcp_show_cli_tree,
 		nmp_show_cli_tree,
-		
+		isis_show_cli_tree,
         /* Add more CB here */
 
         0 /*  Last member must be NULL */

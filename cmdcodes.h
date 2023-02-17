@@ -72,5 +72,4 @@
 
 #define CMDCODE_DEBUG_SHOW_MEMORY_USAGE 28 /* debug show mem-usage*/
 #define CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL 29 /*  debug show mem-usage detail <struct-name> */ 
-
 #endif /* __CMDCODES__ */
