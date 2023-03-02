@@ -19,6 +19,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/isis/isis_rtr.o \
 		  Layer5/isis/isis_intf.o\
 		  Layer5/isis/isis_cli.o \
+		  Layer5/isis/isis_pkt.o \
 		  nwcli.o		   \
 		  utils.o		   \
 		  Layer2/l2switch.o \
@@ -51,6 +52,9 @@ Layer5/isis/isis_intf.o:Layer5/isis/isis_intf.c
 
 Layer5/isis/isis_cli.o:Layer5/isis/isis_cli.c
 	${CC} ${CFLAGS} -c Layer5/isis/isis_cli.c -o Layer5/isis/isis_cli.o
+
+Layer5/isis/isis_pkt.o:Layer5/isis/isis_pkt.c
+	${CC} ${CFLAGS} -c Layer5/isis/isis_pkt.c -o Layer5/isis/isis_pkt.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o

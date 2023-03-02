@@ -4,21 +4,12 @@
 #include "../../tcp_public.h"
 #include <stdbool.h>
 #include "isis_intf.h"
-typedef struct isis_intf_info_
-{
-	uint32_t cost; // Represents the cost associated with the interface
-
-	uint32_t hello_interval; // Hello pkts time interval in seconds
-
-} isis_intf_info_t;
-
-static void
-isis_init_isis_intf_info(interface *intf)
+static void isis_init_isis_intf_info(interface_t *intf)
 {
 	isis_intf_info_t *isis_intf_info = ISIS_INTF_INFO(intf);
-	memset(isis_inft_info, 0, sizeof(isis_intf_info_t));
-	isis_intf_info_t->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
-	isis_intf_info_t->cost = ISIS_DEFAULT_INTF_COST;
+	memset(isis_intf_info, 0, sizeof(isis_intf_info_t));
+	isis_intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
+	isis_intf_info->cost = ISIS_DEFAULT_INTF_COST;
 }
 
 bool is_isis_procotol_enabled_on_interface(interface_t *intf)
@@ -70,7 +61,65 @@ void isis_config_disable_on_intf(interface_t *intf)
 void isis_show_intf_protocol_state(interface_t *intf)
 {
 	printf("%s: %s\n",
-		   intf->if_name, is_isis_procotol_enabled_on_interface(intf) ? "Enabled" : "Disabled");
+			intf->if_name, is_isis_procotol_enabled_on_interface(intf) ? "Enabled" : "Disabled");
+}
+
+static void isis_transmit_hello(void *arg, uint32_t arg_size)
+{
+
+	if (arg != NULL)
+	{
+		return;
+	}
+
+	isis_timer_data_t *isis_timer_data = (isis_timer_data_t *)arg;
+
+	node_t *node = isis_timer_data->node;
+	interface_t *intf = isis_timer_data->intf;
+	byte *hello_pkt = (byte *)isis_timer_data->data;
+	uint32_t pkt_size = isis_timer_data->data_size;
+
+	send_pkt_out(hello_pkt, pkt_size, intf);
+}
+
+void isis_start_sending_hellos(interface_t *intf)
+{
+
+	node_t *node;
+	uint32_t hello_pkt_size;
+
+	wheel_timer_t *wt = node_get_timer_instance(node);
+	byte *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
+	isis_timer_data_t *isis_timer_data;
+
+	isis_timer_data->node = intf->att_node;
+	isis_timer_data->intf = intf;
+	isis_timer_data->data = (void *)hello_pkt;
+	isis_timer_data->data_size = hello_pkt_size;
+
+	ISIS_INTF_HELLO_XMIT_TIMER(intf) = timer_register_app_event(wt,
+			isis_transmit_hello,
+			(void *)isis_timer_data,
+			sizeof(isis_timer_data_t),
+			ISIS_INTF_HELLO_INTERVAL(intf) * 1000,
+			1);
+}
+
+void isis_stop_sending_hellos(interface_t *intf)
+{
+		timer_event_handle *hello_xmit_timer=NULL;
+
+		hello_xmit_timer = ISIS_INTF_HELLO_XMIT_TIMER(intf);
+
+		if(!hello_xmit_timer)return;
+
+		isis_timer_data_t *isis_timer_data = (isis_timer_data_t *)wt_elem_get_and_set_app_data(hello_xmit_timer, 0);
+
+		tcp_ip_free_pkt_buffer(isis_timer_data->data, isis_timer_data->data_size);
+
+		timer_de_register_app_event(hello_xmit_timer);
+		
+		ISIS_INTF_HELLO_XMIT_TIMER(intf)=NULL;
 }
 
 #endif

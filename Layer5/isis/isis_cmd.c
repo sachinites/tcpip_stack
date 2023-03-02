@@ -2,22 +2,20 @@
 #include <assert.h>
 #include "../../tcp_public.h"
 #include "isis_cmdcodes.h"
+#include "isis_pkt.h"
 #include "isis_cmd.h"
 
-static void
-isis_init(node_t *node)
-{
+
+void isis_init(node_t *node){
 	isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 	if (isis_node_info)
 		return;
 	isis_node_info = calloc(1, sizeof(isis_node_info_t));
 	node->node_nw_prop.isis_node_info = isis_node_info;
-        tcp_stack_register_l2_pkt_trap_rule(node,isis_pkt_trap_rule,isis_pkt_receive);
+	tcp_stack_register_l2_pkt_trap_rule(node,isis_pkt_trap_rule,isis_pkt_receive);
 }
-	
-static void
-isis_de_init(node_t *node)
-{
+
+void isis_de_init(node_t *node){
 	printf("Function triggered %s\n", __func__);
 	isis_node_info_t *isis_node_info = ISIS_NODE_INFO(node);
 
@@ -31,8 +29,7 @@ isis_de_init(node_t *node)
 
 int isis_config_handler(param_t *param,
 		ser_buff_t *tlv_buf,
-		op_mode enable_or_disable)
-{
+		op_mode enable_or_disable){
 
 	tlv_struct_t *tlv;
 	char *node_name;
@@ -75,8 +72,7 @@ int isis_config_handler(param_t *param,
 }
 
 int isis_show_handler(param_t *param, ser_buff_t *tlv_buf,
-		op_mode enable_or_disable)
-{
+		op_mode enable_or_disable){
 	tlv_struct_t *tlv;
 	char *node_name;
 	node_t *node;
@@ -117,8 +113,7 @@ int isis_show_handler(param_t *param, ser_buff_t *tlv_buf,
 }
 
 int isis_intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
-		op_mode enable_or_disable)
-{
+		op_mode enable_or_disable){
 	tlv_struct_t *tlv;
 	char *node_name;
 	node_t *node;
