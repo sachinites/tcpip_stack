@@ -45,6 +45,10 @@ void isis_config_enable_on_intf(interface_t *intf)
 	// isis_init_isis_intf_info();
 	intf->intf_nw_props.isis_intf_info = isis_intf_info;
 	isis_init_isis_intf_info(intf);
+
+	if(isis_interface_quality_to_hellos(intf)){
+        isis_start_sending_hellos(intf);
+ 	}
 }
 
 void isis_config_disable_on_intf(interface_t *intf)
@@ -56,13 +60,16 @@ void isis_config_disable_on_intf(interface_t *intf)
 	}
 	free(isis_intf_info);
 	intf->intf_nw_props.isis_intf_info = NULL;
+     
+	 isis_stop_sending_hellos(intf);
+ 	
 }
 
 void isis_show_intf_protocol_state(interface_t *intf)
 {
 	printf("%s: %s\n",
 			intf->if_name, is_isis_procotol_enabled_on_interface(intf) ? "Enabled" : "Disabled");
-}
+ }
 
 static void isis_transmit_hello(void *arg, uint32_t arg_size)
 {
@@ -120,6 +127,19 @@ void isis_stop_sending_hellos(interface_t *intf)
 		timer_de_register_app_event(hello_xmit_timer);
 		
 		ISIS_INTF_HELLO_XMIT_TIMER(intf)=NULL;
+}
+
+bool
+isis_intf_is_qualify_to_send_hellos(interface_t *intf){
+
+if(is_isis_procotol_enabled_on_interface(intf) &&
+   intf->intf_nw_props.is_up &&
+   intf->intf_nw_props.is_ipadd_config){
+
+	return true;
+   }
+return false;
+
 }
 
 #endif

@@ -59,3 +59,13 @@ isis_prepare_hello_pkt(interface_t* intf, size_t *hello_pkt_size){
 }
 
 
+static uint32_t
+isis_print_hello_pkt(byte *byte,
+					isis_pkt_hdr_t *hello_pkt_hdr,
+					uint32_t pkt_size){
+   char* node_name; 
+   byte *tlv_buff= (byte *)(hello_pkt_hdr +1);				
+   node_name = tlv_buffer_get_particular_tlv(tlv_buff ,(TLV_OVERHEAD_SIZE * 6)+ NODE_NAME_SIZE + 20 , ISIS_TLV_HOSTNAME ,NODE_NAME_SIZE );
+
+
+}
