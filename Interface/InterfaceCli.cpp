@@ -132,8 +132,6 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
              lono = atoi((const char *)tlv->value);  
         else if(parser_match_leaf_id(tlv->leaf_id, ""))
              lono = atoi((const char *)tlv->value);               
-        else
-            assert(0);
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);

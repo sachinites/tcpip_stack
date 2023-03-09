@@ -680,7 +680,7 @@ acl_process_user_config (node_t *node,
     return true;
 }
 
-void
+bool
 access_list_delete_complete(node_t *node, access_list_t *access_list) {
 
     glthread_t *curr;
@@ -688,7 +688,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
 
     if (access_list->ref_count > 1) {
         printf ("Access List is in use, Cannot delete\n");
-        return;
+        return false;
     }
 
     if (access_list->mtrie) {
@@ -709,6 +709,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
     pthread_rwlock_destroy(&access_list->acc_rw_lst_lock);
     access_list_check_delete(access_list);
     printf ("Access List Deleted\n");
+    return true;
 }
 
 

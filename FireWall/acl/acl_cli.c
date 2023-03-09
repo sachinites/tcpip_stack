@@ -226,6 +226,7 @@ access_list_unconfig(node_t *node,
                     uint16_t dst_port_no1,
                     uint16_t dst_port_no2) {
 
+   int rc = 0;
    access_list_t *access_list = access_list_lookup_by_name(node, access_list_name);
 
     if (!access_list) {
@@ -235,7 +236,7 @@ access_list_unconfig(node_t *node,
 
     /* If user has triggered only no <access-list-name>, then delete the entire access list */
         if (seq_no == ~0) {
-            access_list_delete_complete(node, access_list);
+            if(!access_list_delete_complete(node, access_list)) return -1;
         }
         else {
         /* If user has triggered only no <access-list-name> <seq_no>, then delete the acl_entry 
@@ -249,10 +250,10 @@ access_list_unconfig(node_t *node,
 
             if (access_list->ref_count == 1 && 
                     IS_GLTHREAD_LIST_EMPTY (&access_list->head)) {
-                    access_list_delete_complete(node, access_list);
+                    rc = 0 ? access_list_delete_complete(node, access_list) : -1;
             }
         }
-        return 0;
+        return rc;
 }
 
 static int

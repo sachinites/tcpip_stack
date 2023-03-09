@@ -229,7 +229,7 @@ bool
 acl_process_user_config(node_t *node, 
                 char *access_list_name,
                 acl_entry_t *acl_entry);
-void
+bool
 access_list_delete_complete(node_t *node, access_list_t *access_list);
 
 access_list_t * access_list_lookup_by_name(node_t *node, char *access_list_name);

@@ -1,0 +1,29 @@
+sudo vim /etc/postgresql/12/main/pg_hba.conf
+change :
+local   all             postgres                                peer
+local   all             postgres                                md5
+sudo service postgresql restart
+
+
+Create New User : 
+sudo -u postgres createuser vm  ( New User vm is created )
+
+Create New DB :
+sudo -u postgres createdb <dbname> 
+
+Login as postgres super user :
+sudo -u <db-name> psql
+eg : sudo -u postgres psql
+
+sudo -u postgres psql
+grant all privileges on database <dbname> to <username> ;
+
+Doing purely via psql
+sudo -u postgres psql
+CREATE DATABASE yourdbname;
+CREATE USER youruser WITH ENCRYPTED PASSWORD 'yourpass';
+GRANT ALL PRIVILEGES ON DATABASE yourdbname TO youruser;
+
+Login as User/DB :
+psql -d YOUR_DB_NAME -U my_user
+psql -h localhost -U vm1 -d vm1db -W
