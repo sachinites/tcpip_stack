@@ -20,6 +20,8 @@
 #define __OBJ_GRP_UPDATE_
 
 #include <stdbool.h>
+#include <stdint.h>
+#include "../../utils.h"
 #include "../../c-hashtable/hashtable.h"
 #include "../../c-hashtable/hashtable_itr.h"
 
@@ -84,11 +86,5 @@ object_group_update_referenced_acls (
 
 void
 object_group_update_reschedule_task(object_group_update_info_t *og_update_info);
-
-void
-access_list_completed_object_group_update_fsm_stage (
-        node_t *node,
-        access_list_t *access_list, 
-        object_group_update_info_t *og_update_info);
 
 #endif 

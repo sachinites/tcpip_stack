@@ -2345,10 +2345,14 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
 
             if (access_list_processing_info->og_update_info) {
 
-                sprintf(tlb, "%s : Access-List %s Reporting back to Object Group Update Job\n", FWALL_ACL, access_list->name);
-                tcp_trace(node, 0, tlb);
-                access_list_completed_object_group_update_fsm_stage(
-                        node, access_list, access_list_processing_info->og_update_info);
+                access_list_processing_info->og_update_info->access_list_processed_count++;
+
+                if (access_list_processing_info->og_update_info->access_list_processed_count ==
+                    access_list_processing_info->og_update_info->access_list_to_be_processed_count) {
+                    access_list_processing_info->og_update_info->stage = og_update_fsm_access_list_stage_cleanup;
+                    object_group_update_reschedule_task(access_list_processing_info->og_update_info);
+                }
+
             }
 
             bitmap_free_internal(&tcam_entry_template->prefix);
@@ -2660,10 +2664,12 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
 
     /* Was this job triggered due to OG update */
     if (access_list->processing_info->og_update_info) {
-        access_list_completed_object_group_update_fsm_stage(
-            access_list->processing_info->node,
-            access_list,
-            access_list->processing_info->og_update_info);
+        access_list->processing_info->og_update_info->access_list_to_be_processed_count--;
+        hashtable_remove (access_list->processing_info->og_update_info->access_lists_ht, (void *)access_list);
+        access_list_purge_tcam_mtrie(
+                access_list->processing_info->node, 
+                access_list->processing_info->mtrie);
+        access_list->processing_info->mtrie = NULL;
     }
 
     /* Reset ALCs flags */

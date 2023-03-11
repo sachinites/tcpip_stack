@@ -320,68 +320,6 @@ void object_group_update_referenced_acls(
     tcp_trace(node, 0, tlb);
 }
 
-void
-access_list_completed_object_group_update_fsm_stage (
-        node_t *node,
-        access_list_t *access_list, 
-        object_group_update_info_t *og_update_info) {
-
-        sprintf(tlb, "%s : Access List %s Completed Stage %s\n",
-             FWALL_OBJGRP_UPDATE, 
-             access_list->name,
-             og_update_acl_stage_to_string(og_update_info->stage));
-        tcp_trace(node, 0, tlb);
-
-    switch(og_update_info->stage) {
-
-        case og_update_fsm_stage_init:
-            assert(0);
-        case og_update_fsm_access_list_stage_uninstall:
-            og_update_info->access_list_processed_count++;
-            if (og_update_info->access_list_processed_count ==
-                    og_update_info->access_list_to_be_processed_count) {
-                og_update_info->access_list_processed_count = 0;
-                og_update_info->stage = og_update_fsm_access_list_stage_decompile;
-                object_group_update_reschedule_task(og_update_info);
-            }
-            break;
-        case og_update_fsm_access_list_stage_decompile:
-            og_update_info->access_list_processed_count++;
-            if (og_update_info->access_list_processed_count ==
-                og_update_info->access_list_to_be_processed_count) {
-                og_update_info->access_list_processed_count = 0;
-                og_update_info->stage = og_update_fsm_access_list_stage_og_association;
-                object_group_update_reschedule_task(og_update_info);
-            }
-            break;
-        case og_update_fsm_access_list_stage_og_association:
-            assert(0);
-            break;
-        case og_update_fsm_access_list_stage_compile:
-            og_update_info->access_list_processed_count++;
-            if (og_update_info->access_list_processed_count ==
-                og_update_info->access_list_to_be_processed_count) {
-                og_update_info->access_list_processed_count = 0;
-                og_update_info->stage = og_update_fsm_access_list_stage_installation;
-                object_group_update_reschedule_task(og_update_info);
-            }
-            break;        
-        case og_update_fsm_access_list_stage_installation:
-            og_update_info->access_list_processed_count++;
-            if (og_update_info->access_list_processed_count ==
-                og_update_info->access_list_to_be_processed_count) {
-                og_update_info->access_list_processed_count = 0;
-                og_update_info->stage = og_update_fsm_access_list_stage_cleanup;
-                object_group_update_reschedule_task(og_update_info);
-            }
-            break;
-        case og_update_fsm_access_list_stage_cleanup:
-            assert(0);
-            break;
-        default: ;
-    }
-}
-
 void object_grp_update_mem_init()
 {
     MM_REG_STRUCT(0, object_group_update_info_t);
