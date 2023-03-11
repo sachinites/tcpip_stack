@@ -149,7 +149,7 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
         og_update_info->access_lists_ht =
             object_group_collect_dependent_access_lists_bottom_up_traversal(og_update_info->p_og);
 
-         og_update_info->access_list_to_be_processed_count = hashtable_count(og_update_info->access_lists_ht);
+        og_update_info->access_list_to_be_processed_count = hashtable_count(og_update_info->access_lists_ht);
         og_update_info->access_list_processed_count = 0;
 
         if (og_update_info->access_list_to_be_processed_count == 0)
@@ -160,7 +160,11 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
         }
         else
         {
-            /* We will skip the uninstall stage, and jump directly to decompile stage */
+            /* We will skip the uninstall stage, and jump directly to decompile stage.
+             * This is doe because we will create a new TCAM from scratch and replace
+             * the ptr of older TCAM with new one in data path. So no need to uninstall
+             * ACLs from older tcam now. We will flush the older TCAM by offloading it 
+             * to purging thread*/
             //og_update_info->stage = og_update_fsm_access_list_stage_uninstall;
             og_update_info->stage = og_update_fsm_access_list_stage_decompile;
         }
@@ -193,10 +197,6 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
             {
                 acl_entry = glthread_to_acl_entry(curr);
                 acl_decompile(acl_entry);
-
-                if (event_dispatcher_should_suspend(EV(node))) {
-                    object_group_update_reschedule_task(og_update_info);
-                }
             }
             ITERATE_GLTHREAD_END(&access_list->head, curr);
             if (!hashtable_iterator_advance(itr)) break;
@@ -246,10 +246,6 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
             {
                 acl_entry = glthread_to_acl_entry(curr);
                 acl_compile(acl_entry);
-
-                if (event_dispatcher_should_suspend(EV(node))) {
-                    object_group_update_reschedule_task(og_update_info);
-                }
             }
             ITERATE_GLTHREAD_END(&access_list->head, curr);
             if (!hashtable_iterator_advance(itr)) break;
