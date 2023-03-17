@@ -31,6 +31,9 @@ network_object_lookup_by_name (hashtable_t *ht, const char *name);
 void
 object_group_build_config_cli (param_t *root);
 
+extern void
+object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf);
+
 static int
 object_group_config_handler (param_t *param, 
                                                   ser_buff_t *tlv_buf,
@@ -392,6 +395,7 @@ void object_group_build_config_cli (param_t *root)
         static param_t network;
         init_param(&network, CMD, "network", NULL, NULL, INVALID, NULL, "Object Group Network");
         libcli_register_param(&obj_grp, &network);
+        libcli_register_display_callback(&network, object_group_display_name_cli_callback);
         {
             /* object-group network <og-name> ...*/
             static param_t name;
@@ -513,4 +517,42 @@ object_group_build_show_cli (param_t *root) {
              set_param_cmd_code(&name, OBJ_GRP_SHOW_ONE);
         }
     }
+}
+
+void
+object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf){
+
+    node_t *node;
+    hashtable_t *og_ght;
+    struct hashtable_itr *itr;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+    
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if (parser_match_leaf_id (tlv->leaf_id, "node-name")) {
+            node_name = tlv->value;
+            break;
+        }
+
+    } TLV_LOOP_END;
+
+    if (!node_name) return;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    og_ght = node->object_group_ght;
+    
+    if (!og_ght) return;
+
+    itr = hashtable_iterator(og_ght);
+
+    do {
+        char *key = (char *)hashtable_iterator_key(itr);
+        object_group_t *og = (object_group_t *)hashtable_iterator_value(itr);
+        printf ("%s\n", og->og_name);
+        
+    } while (hashtable_iterator_advance(itr));
+
+    free(itr);  
 }

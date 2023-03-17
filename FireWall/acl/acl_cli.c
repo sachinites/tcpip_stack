@@ -12,9 +12,8 @@
 #include "../object_network/object_group.h"
 
 extern graph_t *topo;
-extern void
-display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
-
+extern void display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
+extern void object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf);
 
 #define ACL_CMD_CONFIG  1
 #define ACL_CMD_SHOW 2
@@ -612,6 +611,7 @@ acl_build_config_cli_object_group_destination (param_t *root) {
     param_t *obj_grp = (param_t *)calloc(1, sizeof(param_t));
     init_param(obj_grp, CMD, "object-group", 0, 0, STRING, 0, "Network Object Group");
     libcli_register_param(root, obj_grp);
+    libcli_register_display_callback(obj_grp, object_group_display_name_cli_callback);
     {
         /* access-list <name> <action> <proto> object-group <object-group-name>*/
         param_t *obj_grp_name = (param_t *)calloc(1, sizeof(param_t));
@@ -929,6 +929,7 @@ acl_build_config_cli(param_t *root) {
                         static param_t obj_grp;
                         init_param(&obj_grp, CMD, "object-group", 0, 0, INVALID, 0, "Network Object Group");
                         libcli_register_param(&proto, &obj_grp);
+                        libcli_register_display_callback(&obj_grp, object_group_display_name_cli_callback);
                         {
                             /* access-list <name> <action> <proto> object-group <object-group-name>*/
                             static param_t obj_grp_name;
