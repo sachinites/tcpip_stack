@@ -42,9 +42,11 @@
 #include "mtrie/mtrie.h"
 #include "BitOp/bitmap.h"
 #include "BitOp/bitsop.h"
+#include "Threads/refcount.h"
+#include "c-hashtable/hashtable.h"
+#include "c-hashtable/hashtable_itr.h"
 #include "FireWall/acl/acldb.h"
 #include "prefix-list/prefixlst.h"
-#include "Threads/refcount.h"
 #include "PostgresLibpq/postgresLib.h"
 
 #include "tcpconst.h"

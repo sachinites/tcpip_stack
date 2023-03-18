@@ -8,6 +8,7 @@
 typedef struct isis_adv_data_ isis_adv_data_t;
 typedef struct ted_db_ ted_db_t;
 typedef struct prefix_lst_ prefix_list_t;
+typedef struct isis_advt_db_ isis_advt_db_t;
 
 typedef struct isis_timer_data_ {
 
@@ -95,6 +96,8 @@ typedef struct node_info_ {
     isis_lsp_pkt_t *lsp_dummy_pkt; 
     /* Exported Route Tree */
     mtrie_t exported_routes;
+    /* Advertisement DB per PN*/
+    isis_advt_db_t* advt_db[ISIS_MAX_PN_SUPPORTED];
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

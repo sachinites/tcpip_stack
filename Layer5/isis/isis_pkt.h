@@ -33,6 +33,7 @@ typedef struct isis_pkt_ {
 
 #define ISIS_LSP_PKT_F_OVERLOAD_BIT 1
 #define ISIS_LSP_PKT_F_PURGE_BIT    (1 << 1)
+#define ISIS_LSP_PKT_F_ON_DEMAND_BIT (1 << 2)
 
 /*  LSP generation flags, used to control lsp manufacturing,
     these flags are set in node_info->lsp_generation_flags 
@@ -50,6 +51,8 @@ typedef struct isis_pkt_hdr_{
     isis_pkt_type_t isis_pkt_type;
     uint32_t seq_no; /* meaningful only for LSPs */
     uint32_t rtr_id;
+    uint8_t pn_no;
+    uint8_t fr_no;
     isis_pkt_hdr_flags_t flags;
 } isis_pkt_hdr_t;
 #pragma pack(pop)

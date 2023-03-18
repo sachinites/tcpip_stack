@@ -1,6 +1,8 @@
 #ifndef __IGP_NBRSHIP__
 #define __IGP_NBRSHIP__
 
+#include "isis_advt.h"
+
 typedef enum isis_adj_state_ {
 
     ISIS_ADJ_STATE_UNKNOWN,
@@ -52,6 +54,8 @@ typedef struct isis_adjacency_{
     timer_event_handle *delete_timer;
     /* uptime */
     time_t uptime;
+    /*Advertisement info*/
+     isis_advt_info_t advt_info;
     glthread_t glue;
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);

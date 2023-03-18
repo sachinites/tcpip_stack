@@ -15,6 +15,7 @@
 #include "../../ted/ted.h"
 #include "isis_ted.h"
 #include "isis_policy.h"
+#include "isis_advt.h"
 #include "../../FireWall/acl/acldb.h"
 
 extern void isis_mem_init();
@@ -82,6 +83,8 @@ isis_check_delete_node_info(node_t *node) {
     assert(!node_info->ted_db);
     assert(!node_info->exported_routes.root);
 
+    isis_assert_check_all_advt_db_cleanedup(node_info);
+
     /* Timers */
     assert (!node_info->periodic_lsp_flood_timer);
     assert (!node_info->reconc.reconciliation_timer);
@@ -107,7 +110,8 @@ isis_protocol_shutdown_now (node_t *node) {
     mtrie_destroy(&node_info->exported_routes);
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
-
+    isis_destroy_all_advt_db(node_info);
+    
     /* Queue All interfaces for Purge */
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
 
@@ -346,6 +350,7 @@ isis_init(node_t *node ) {
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
     init_mtrie(&node_info->exported_routes, 32, isis_free_exported_rt);
+    isis_create_advt_db(node_info, 0);
 
     isis_start_lsp_pkt_periodic_flooding(node);
 
