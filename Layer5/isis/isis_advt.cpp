@@ -24,6 +24,22 @@ isis_get_new_fragment_no (isis_advt_db_t *advt_db) {
     return -1;
 }
 
+static isis_adv_data_t *
+isis_fragment_lookup_advt_data(isis_fragment_t *fragment, advt_id_t adv_id ) {
+
+    glthread_t *curr;
+    isis_adv_data_t *adv_data;
+
+    ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+
+        adv_data = glue_to_isis_advt_data(curr);
+        if (adv_data->advt_id == adv_id) return adv_data;
+
+    } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
+
+    return NULL;
+}
+
 uint16_t 
 isis_get_adv_data_size (isis_adv_data_t *adv_data) {
 
@@ -53,6 +69,17 @@ static int
     return 0;
  }
 
+/* Fragmebt generate and delete */
+static void
+isis_delete_fragment (isis_node_info_t *node_info, isis_fragment_t *fragment){
+
+}
+
+static void
+isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) {
+
+}
+
 isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
                                     uint8_t pn_no,
@@ -61,6 +88,7 @@ isis_record_tlv_advertisement (node_t *node,
 
     int frag_no;
     glthread_t *curr;
+    bool new_frag = false;
     bool new_advt_db = false;
     isis_pkt_hdr_t *lsp_pkt_hdr;
     isis_node_info_t *node_info;
@@ -103,13 +131,16 @@ isis_record_tlv_advertisement (node_t *node,
         }
 
         fragment = (isis_fragment_t  *)XCALLOC(0, 1, isis_fragment_t);
+        new_frag = true;
         fragment->seq_no = 0;
         fragment->fr_no = frag_no;
         fragment->pn_no = pn_no;
+        fragment->ref_count = 0;
         fragment->bytes_filled = ETH_HDR_SIZE_EXCL_PAYLOAD +  sizeof(isis_pkt_hdr_t);
         init_glthread(&fragment->priority_list_glue);
         init_glthread(&fragment->tlv_list_head);
         advt_db->fragments[frag_no] = fragment;
+        isis_fragment_lock(fragment);
     }
 
     assert(IS_GLTHREAD_LIST_EMPTY(&adv_data->glue));
@@ -120,7 +151,9 @@ isis_record_tlv_advertisement (node_t *node,
                              &fragment->priority_list_glue,
                              isis_fragment_size_comp_fn,
                              (int)&((isis_fragment_t *)0)->priority_list_glue);
-
+    if (new_frag) {
+        isis_fragment_lock(fragment);
+    }
     advt_info_out->advt_id = adv_data->advt_id;
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
@@ -138,7 +171,6 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     ethernet_hdr_t *eth_hdr;
     isis_node_info_t *node_info;
     isis_pkt_hdr_t *lsp_pkt_hdr;
-    bool include_on_demand_tlv;
 
     node_info = ISIS_NODE_INFO(node);
 
@@ -161,21 +193,28 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
     /* Drain the older pkt contents */
     eth_hdr = pkt_block_get_ethernet_hdr(fragment->lsp_pkt);
-    memset ((byte *)eth_hdr, 0, fragment->bytes_filled);
 
     /* Re-manufacture ethernet hdr */
-    memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
-    layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
-    eth_hdr->type = ISIS_ETH_PKT_TYPE;
+    if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_REWRITE_ETH_HDR)) {
+        memset((byte *)eth_hdr, 0, fragment->bytes_filled);
+        // memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
+        layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
+        eth_hdr->type = ISIS_ETH_PKT_TYPE;
+    }
+
     bytes_filled += (ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
 
     /* Re-manufactue LSP Pkt Hdr */
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
-    lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
-    lsp_pkt_hdr->seq_no = (++fragment->seq_no);
-    lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
-    lsp_pkt_hdr->pn_no = fragment->pn_no;
-    lsp_pkt_hdr->fr_no = fragment->fr_no;
+
+    if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_RENEW_LSP_PKT_HDR)) {
+        lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+        lsp_pkt_hdr->seq_no = (++fragment->seq_no);
+        lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+        lsp_pkt_hdr->pn_no = fragment->pn_no;
+        lsp_pkt_hdr->fr_no = fragment->fr_no;
+    }
+
     bytes_filled += sizeof (isis_pkt_hdr_t);
 
     if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_PURGE_BIT) ) {
@@ -209,13 +248,45 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
 
-    assert (bytes_filled == fragment->bytes_filled);
+    assert ((bytes_filled + ETH_FCS_SIZE ) == fragment->bytes_filled);
 }
 
 isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,
                                     isis_advt_info_t *advt_info){
 
+    
+    isis_adv_data_t *adv_data;
+    isis_fragment_t *fragment;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return ISIS_TLV_WD_SUCCESS;
+
+    if (!advt_info->advt_id) return ISIS_TLV_WD_FAILED;
+
+    fragment = ISIS_GET_FRAGMENT(node_info, advt_info);
+
+    if (!fragment) ISIS_TLV_WD_FRAG_NOT_FOUND;
+
+    adv_data = isis_fragment_lookup_advt_data(fragment, advt_info->advt_id);
+
+    if (!adv_data) return ISIS_TLV_WD_TLV_NOT_FOUND;
+    
+    remove_glthread (&adv_data->glue);
+
+    fragment->bytes_filled -= isis_get_adv_data_size(adv_data);
+
+    XFREE(adv_data);
+
+    if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
+        /* Empty fragment, remove it if it is non-zero fragment */
+        if (fragment->fr_no) {
+            isis_delete_fragment (node_info, fragment);
+        }
+    }
+    else {
+        isis_schedule_regen_fragment (node, fragment);
+    }
     return ISIS_TLV_WD_SUCCESS;
 }
 

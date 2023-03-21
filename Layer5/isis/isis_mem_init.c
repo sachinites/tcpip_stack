@@ -9,6 +9,7 @@
 #include "isis_intf_group.h"
 #include "isis_spf.h"
 #include "isis_policy.h"
+#include "isis_advt.h"
 
 void
  isis_mem_init() {
@@ -31,4 +32,7 @@ void
      MM_REG_STRUCT(0, isis_spf_data_t);
      MM_REG_STRUCT(0, isis_spf_result_t);
      MM_REG_STRUCT(0, isis_exported_rt_t);
+     MM_REG_STRUCT(0, isis_fragment_t);
+     MM_REG_STRUCT(0, isis_advt_db_t);
+     MM_REG_STRUCT(0, isis_advt_info_t);
  }

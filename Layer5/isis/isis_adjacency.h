@@ -54,8 +54,8 @@ typedef struct isis_adjacency_{
     timer_event_handle *delete_timer;
     /* uptime */
     time_t uptime;
-    /*Advertisement info*/
-     isis_advt_info_t advt_info;
+    /*is this is LAN adj and self is dis, then advertise PN to nbr*/
+     isis_advt_info_t lan_pn_to_adj_adv_data;
     glthread_t glue;
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);

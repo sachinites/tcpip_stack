@@ -10,13 +10,46 @@ Dependencies
 
 #endif 
 
+#include "isis_const.h"
+#include "isis_rtr.h"
+
 typedef struct node_info_ isis_node_info_t;
+typedef uint64_t advt_id_t;
+
+
+typedef enum isis_tlv_record_advt_return_code_ {
+
+    ISIS_TLV_RECORD_ADVT_SUCCESS,
+    ISIS_TLV_RECORD_ADVT_ALREADY,
+    ISIS_TLV_RECORD_ADVT_NO_SPACE,
+    ISIS_TLV_RECORD_ADVT_NO_FRAG,
+    ISIS_TLV_RECORD_ADVT_NOT_FOUND,
+    ISIS_TLV_RECORD_ADVT_FAILED
+}isis_tlv_record_advt_return_code_t;
+
+typedef enum isis_tlv_wd_return_code_ {
+
+    ISIS_TLV_WD_SUCCESS,
+    ISIS_TLV_WD_FRAG_NOT_FOUND,
+    ISIS_TLV_WD_TLV_NOT_FOUND,
+    ISIS_TLV_WD_FAILED
+}isis_tlv_wd_return_code_t;
+
+
+/* LSP PKT Regen control flags*/
+#define ISIS_SHOULD_INCL_PURGE_BIT  1
+#define ISIS_SHOULD_INCL_OL_BIT (1 << 1)
+#define ISIS_SHOULD_INCL_ON_DEM_BIT (1 << 2)
+#define ISIS_SHOULD_RENEW_LSP_PKT_HDR   (1 << 3)
+#define ISIS_SHOULD_REWRITE_ETH_HDR (1 << 4)
+
+
 
 typedef struct isis_advt_info_ {
 
     uint8_t pn_no;
     uint8_t fr_no;
-    uint64_t advt_id;
+    advt_id_t advt_id;
 } isis_advt_info_t;
 
 
@@ -24,7 +57,7 @@ typedef struct isis_advt_info_ {
     LSPs */
 typedef struct isis_adv_data_ {
 
-    uint64_t advt_id;
+    advt_id_t advt_id;
     uint16_t tlv_no;
 
     union {
@@ -74,27 +107,11 @@ typedef struct isis_fragment_ {
     uint8_t pn_no;
     uint8_t fr_no;
     pkt_block_t *lsp_pkt;
+    uint8_t ref_count;
 }isis_fragment_t;
 GLTHREAD_TO_STRUCT(isis_priority_list_glue_to_fragment,
                                                isis_fragment_t,
                                                priority_list_glue);
-
-typedef enum isis_tlv_record_advt_return_code_ {
-
-    ISIS_TLV_RECORD_ADVT_SUCCESS,
-    ISIS_TLV_RECORD_ADVT_ALREADY,
-    ISIS_TLV_RECORD_ADVT_NO_SPACE,
-    ISIS_TLV_RECORD_ADVT_NO_FRAG,
-    ISIS_TLV_RECORD_ADVT_NOT_FOUND,
-    ISIS_TLV_RECORD_ADVT_FAILED
-}isis_tlv_record_advt_return_code_t;
-
-typedef enum isis_tlv_wd_return_code_ {
-
-    ISIS_TLV_WD_SUCCESS,
-    ISIS_TLV_WD_NOT_FOUND,
-    ISIS_TLV_WD_FAILED
-}isis_tlv_wd_return_code_t;
 
 typedef struct isis_advt_db_ {
 
@@ -102,19 +119,37 @@ typedef struct isis_advt_db_ {
     glthread_t fragment_priority_list;
 } isis_advt_db_t;
 
-/* LSP PKT Regen control flags*/
-#define ISIS_SHOULD_INCL_PURGE_BIT  1
-#define ISIS_SHOULD_INCL_OL_BIT 2
-#define ISIS_SHOULD_INCL_ON_DEM_BIT 4
+
+
+/* Short hand macros */
+#define ISIS_GET_FRAGMENT(node_info, advt_info)   \
+    (node_info->advt_db[advt_info->pn_no]->fragments[advt_info->fr_no])
+
+static inline void
+isis_fragment_lock (isis_fragment_t *fragment) {
+
+    fragment->ref_count++;
+}
+
+static inline void
+isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+
+    fragment->ref_count--;
+    if (fragment->ref_count) return;
+    /* Should not leak any memory*/
+    assert(IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head));
+    assert(!fragment->lsp_pkt);
+    /*should not leave dangling pointers by referenced objects*/
+    assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
+    assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
+    XFREE(fragment);
+}
 
 isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
                                     uint8_t pn_no,
                                     isis_adv_data_t *adv_data,
                                     isis_advt_info_t *advt_info_out);
-
-void
-isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_ctrl_flags);
 
 isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,

@@ -2,8 +2,9 @@
 #define __ISIS_INTF__
 
 typedef struct isis_intf_group_ isis_intf_group_t;
-typedef struct isis_adv_data_ isis_adv_data_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
+
+#include "isis_advt.h"
 
 typedef struct intf_info_ {
 
@@ -24,6 +25,10 @@ typedef struct intf_info_ {
     /* intf cost */
     uint32_t cost;
 
+    /* Pseudonode id to be used is this interface is
+        selected as DIS for lan segment*/
+    uint8_t pn_id;
+
     /* Adj list on this interface */
     glthread_t adj_list_head;
     glthread_t lsp_xmit_list_head;
@@ -33,8 +38,17 @@ typedef struct intf_info_ {
     glthread_t intf_grp_member_glue;
     isis_intf_group_t *intf_grp;
 
-    /* Interface Data to be advertised */
-    isis_adv_data_t *adv_data_rtr_id;
+    union {
+        /* Interface Data to be advertised for P2P interface*/
+        isis_advt_info_t p2p_adv_data;
+        /* if this intf is LAN and self is DIS, then advertise self-dis to PN*/
+        isis_advt_info_t lan_selfdis_to_pn_adv_data;
+        /* If this interface is LAN and self is not DIS, then advertise self to PN*/
+        isis_advt_info_t lan_self_non_dis_to_pn_adv_data;
+    } adv_data;
+    /* if this interface is LAN and self is DIS, then advertise PN to self-dis */
+    isis_advt_info_t pn_to_selfdis_adv_data;
+
 } isis_intf_info_t;
 GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info, 
                                             isis_intf_info_t,  intf_grp_member_glue);
