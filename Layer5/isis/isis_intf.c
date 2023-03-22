@@ -123,6 +123,8 @@ isis_init_intf_info (Interface *intf) {
     memset(intf_info, 0, sizeof(isis_intf_info_t));
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
+    intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
+    intf_info->intf_type = isis_intf_type_lan;
     init_glthread(&intf_info->adj_list_head);
     init_glthread(&intf_info->intf_grp_member_glue);
     /* Back Linkage */
@@ -405,4 +407,24 @@ isis_show_all_intf_stats(node_t *node) {
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
     return rc;
+}
+
+int
+isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
+
+    node_t *node = intf->att_node;
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    if (!intf_info) return -1;
+
+    if (intf_info->intf_type == intf_type) return -1;
+
+    isis_delete_all_adjacencies(intf);
+    isis_stop_sending_hellos(intf);
+    intf_info->intf_type = intf_type;
+
+    if (isis_interface_qualify_to_send_hellos(intf)) {
+        isis_start_sending_hellos(intf);
+    }
+    return 0;
 }

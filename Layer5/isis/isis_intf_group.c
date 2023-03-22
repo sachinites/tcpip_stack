@@ -124,6 +124,8 @@ isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp,
         return -1;
     }
 
+    if (intf_info->intf_type != isis_intf_type_p2p) return -1;
+
     if (intf_info->intf_grp == intf_grp) return -1;
     intf_info->intf_grp = intf_grp;
     isis_intf_grp_refresh_member_interface(intf);
@@ -421,7 +423,8 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
     node = intf->att_node;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!node_info || !intf_info || !node_info->dyn_intf_grp) {
+    if (!node_info || !intf_info || !node_info->dyn_intf_grp || 
+        (intf_info->intf_type != isis_intf_type_p2p)) {
         return;
     }
 
@@ -457,7 +460,7 @@ isis_dynamic_intf_grp_update_on_adjacency_delete (
 
     tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id,  nbr_rtr_id_str);
     intf_grp = isis_intf_grp_look_up (node, nbr_rtr_id_str);
-    assert(intf_grp);
+    if (!intf_grp) return;
 
    isis_intf_group_remove_intf_membership (intf_grp, intf);
 
@@ -484,6 +487,8 @@ isis_dynamic_intf_grp_build_intf_grp_db (node_t *node) {
         intf_info = ISIS_INTF_INFO(intf);
         if (!intf_info) continue;
         assert (!intf_info->intf_grp);
+        if (intf_info->intf_type != isis_intf_type_p2p) continue;
+        
         ITERATE_GLTHREAD_BEGIN(&intf_info->adj_list_head, curr) {
 
             adjacency = glthread_to_isis_adjacency(curr);

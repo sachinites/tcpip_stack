@@ -226,6 +226,22 @@ isis_intf_config_handler(param_t *param,
                 default:;
                 }
         break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P:
+            intf = node_get_intf_by_name(node, intf_name);
+            if (!intf) {
+                    printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+            }
+            return isis_config_interface_link_type(intf, isis_intf_type_p2p);
+            break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN:
+            intf = node_get_intf_by_name(node, intf_name);
+            if (!intf) {
+                    printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+            }
+            return isis_config_interface_link_type(intf, isis_intf_type_lan);
+            break;
         default: ;
     }
     return 0;
@@ -461,6 +477,20 @@ isis_config_cli_tree(param_t *param) {
                         libcli_register_param(&intf_grp, &if_grp_name);
                         set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP);
                     }
+                }
+                {
+                    /* config node <node-name> protocol isis interface <if-name> p2p */
+                    static param_t p2p;
+                    init_param(&p2p, CMD, "point-to-point", isis_intf_config_handler, 0, INVALID, 0, "Point to Point Interface");
+                    libcli_register_param(&if_name, &p2p);
+                    set_param_cmd_code(&p2p,  CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P);
+                }
+                {
+                    /* config node <node-name> protocol isis interface <if-name> lan */
+                    static param_t lan;
+                    init_param(&lan, CMD, "broadcast", isis_intf_config_handler, 0, INVALID, 0, "Broadcast Interface");
+                    libcli_register_param(&if_name, &lan);
+                    set_param_cmd_code(&lan, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN);
                 }
             }
             {

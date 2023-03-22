@@ -97,4 +97,7 @@ uint16_t
 isis_count_tlv_occurrences (byte *tlv_buffer,
                                               uint16_t tlv_buff_size, uint8_t tlv_no) ;
 
+const c_string 
+isis_pkt_type_str (isis_pkt_type_t pkt_type) ;
+
 #endif // !__ISIS_PKT__

@@ -6,10 +6,17 @@ typedef struct event_dispatcher_ event_dispatcher_t;
 
 #include "isis_advt.h"
 
+typedef enum isis_intf_type_ {
+
+    isis_intf_type_p2p,
+    isis_intf_type_lan
+} isis_intf_type_t;
+
 typedef struct intf_info_ {
 
     Interface *intf;
     uint16_t hello_interval;
+    uint16_t priority;
 
     /*  Timer to retransmit hellos out of
         the interface */
@@ -24,6 +31,8 @@ typedef struct intf_info_ {
     uint32_t hello_pkt_sent;
     /* intf cost */
     uint32_t cost;
+
+    isis_intf_type_t intf_type;
 
     /* Pseudonode id to be used is this interface is
         selected as DIS for lan segment*/
@@ -106,5 +115,8 @@ isis_show_all_intf_stats(node_t *node);
 
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc);
+
+int
+isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type);
 
 #endif // ! __ISIS_INTF__

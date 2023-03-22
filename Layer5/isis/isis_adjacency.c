@@ -825,6 +825,7 @@ isis_show_all_adjacencies (node_t *node) {
      uint32_t rc = 0;
      glthread_t *curr;
      Interface *intf;
+     isis_intf_info_t *intf_info;
      isis_adjacency_t *adjacency;
      byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
@@ -834,15 +835,18 @@ isis_show_all_adjacencies (node_t *node) {
 
         if ( !isis_node_intf_is_enable(intf)) continue;
         
+        intf_info = ISIS_INTF_INFO(intf);
+        
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
 
             adjacency = glthread_to_isis_adjacency(curr);
 
             if (!adjacency) continue;
 
-            rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %s\n", 
+            rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %-4s %s\n", 
             intf->if_name.c_str(), adjacency->nbr_name,
             isis_adj_state_str(adjacency->adj_state),
+             (intf_info->intf_type == isis_intf_type_p2p) ? "p2p" : "lan",
             hrs_min_sec_format(
                 (unsigned int)difftime(time(NULL), adjacency->uptime),
                 time_str, HRS_MIN_SEC_FMT_TIME_LEN));
