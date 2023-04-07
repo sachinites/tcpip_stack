@@ -34,7 +34,7 @@
 #define __CMDCODES__
 
 #define CMDCODE_SHOW_NW_TOPOLOGY    1   /*show topology*/
-#define CMDCODE_PING                2   /*run <node-name> ping <ip-address>*/
+#define CMDCODE_PING                2   /*run node <node-name> ping <ip-address> -c <count>*/
 #define CMDCODE_SHOW_NODE_ARP_TABLE 3   /*show node <node-name> arp*/
 #define CMDCODE_RUN_ARP             4   /*run node <node-name> resolve-arp <ip-address>*/
 #define CMDCODE_INTF_CONFIG_L2_MODE 5   /*config node <node-name> interface <intf-name> l2mode <access|trunk>*/

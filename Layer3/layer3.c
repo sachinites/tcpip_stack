@@ -1076,21 +1076,25 @@ demote_packet_to_layer3 (node_t *node,
  * Layer on node 'node' to destination address 'dst_ip_addr'
  * using below fn*/
 void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr){
+layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count){
 
+    uint32_t i;
     uint32_t addr_int;
     pkt_block_t *pkt_block;
 
-    printf("Src node : %s, Ping ip : %s\n", node->node_name, dst_ip_addr);
-    
     addr_int = tcp_ip_covert_ip_p_to_n(dst_ip_addr);
 
-    /* We dont have any application or transport layer paylod, so, directly prepare
-     * L3 hdr*/
-    pkt_block = pkt_block_get_new(NULL, 0);
-    pkt_block_reference(pkt_block);
+    for (i = 0; i < count ; i ++) {
 
-    demote_packet_to_layer3(node, pkt_block,  ICMP_HDR, addr_int);
+        printf("Src node : %s, Ping ip : %s\n", node->node_name, dst_ip_addr);
+        
+        /* We dont have any application or transport layer paylod, so, directly prepare
+         * L3 hdr*/
+        pkt_block = pkt_block_get_new(NULL, 0);
+        pkt_block_reference(pkt_block);
+
+        demote_packet_to_layer3(node, pkt_block, ICMP_HDR, addr_int);
+    }
 }
 
 void

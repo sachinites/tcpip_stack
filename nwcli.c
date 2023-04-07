@@ -337,7 +337,7 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
 
 /*Layer 3 Commands*/
 extern void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr);
+layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count);
 extern void
 layer3_ero_ping_fn(node_t *node, c_string dst_ip_addr,
                             c_string ero_ip_address);
@@ -347,6 +347,7 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
     int CMDCODE;
     node_t *node;
+    uint32_t count = 1;
     c_string ip_addr = NULL;
     c_string ero_ip_addr = NULL;
     c_string node_name = NULL;
@@ -363,6 +364,8 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
             ip_addr = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
             ero_ip_addr = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "count"))
+            count = atoi(tlv->value);
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -370,7 +373,7 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
     switch(CMDCODE){
 
         case CMDCODE_PING:
-            layer3_ping_fn(node, ip_addr);
+            layer3_ping_fn(node, ip_addr, count);
             break;
         case CMDCODE_ERO_PING:
             layer3_ero_ping_fn(node, ip_addr, ero_ip_addr);
@@ -941,6 +944,18 @@ nw_init_cli(){
                     init_param(&ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ip-address", "Ipv4 Address");
                     libcli_register_param(&ping, &ip_addr);
                     set_param_cmd_code(&ip_addr, CMDCODE_PING);
+                    {
+                        /*run node <node-name> ping <ip-address> -c */
+                            static param_t _c;
+                            init_param(&_c, CMD, "-c", 0, 0, INVALID, 0, "-c count switch");
+                            libcli_register_param(&ip_addr, &_c);
+                            {
+                                 static param_t count;
+                                 init_param(&count, LEAF, 0, ping_handler, 0, INT, "count", "No of Pings to send");
+                                 libcli_register_param(&_c, &count);
+                                 set_param_cmd_code(&count, CMDCODE_PING);
+                            }
+                    }
                     {
                         static param_t ero;
                         init_param(&ero, CMD, "ero", 0, 0, INVALID, 0, "ERO(Explicit Route Object)");
