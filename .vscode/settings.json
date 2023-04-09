@@ -18,7 +18,7 @@ bitmap{
     ],
     "editor.fontFamily": "comicsans, serif, 'Courier New', Consolas, monospace",
     "workbench.editor.untitled.hint": "hidden",
-    "editor.fontSize": 16,
+    "editor.fontSize": 20,
     "editor.wordWrap": "on",
     "json.schemas": [
     
