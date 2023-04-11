@@ -412,6 +412,7 @@ isis_show_all_intf_stats(node_t *node) {
 int
 isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
+    bool gen_lsp = false;
     node_t *node = intf->att_node;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -419,11 +420,38 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
     if (intf_info->intf_type == intf_type) return -1;
 
+    if (isis_any_adjacency_up_on_interface(intf)) {
+        gen_lsp = true;
+    }
     isis_delete_all_adjacencies(intf);
     isis_stop_sending_hellos(intf);
     intf_info->intf_type = intf_type;
 
     if (isis_interface_qualify_to_send_hellos(intf)) {
+        isis_start_sending_hellos(intf);
+    }
+    if (gen_lsp) {
+        isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
+    }
+    return 0;
+}
+
+int
+isis_interface_set_priority (Interface *intf, uint16_t priority) {
+
+   node_t *node = intf->att_node;
+
+   isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+   if (!intf_info) return -1;
+
+    if (intf_info->priority == priority) return -1;
+
+    intf_info->priority = priority;
+
+    isis_stop_sending_hellos(intf);
+
+    if (isis_interface_qualify_to_send_hellos (intf)) {
         isis_start_sending_hellos(intf);
     }
     return 0;

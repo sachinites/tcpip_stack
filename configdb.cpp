@@ -23,6 +23,8 @@
 #include "CommandParser/libcli.h"
 #include "graph.h"
 
+#define PGSQL_DISABLE return
+
 void 
 node_config_db_init (node_t *node) {
 
@@ -35,6 +37,8 @@ node_config_db_init (node_t *node) {
     unsigned char node_name[NODE_NAME_SIZE];
 
     if (node->conn) return;
+
+    PGSQL_DISABLE;
 
     assert ( (NODE_NAME_SIZE + strlen ("dbuser")) <= sizeof(user_name));
     assert ( (NODE_NAME_SIZE + strlen ("db")) <= sizeof(db_name));
@@ -113,6 +117,8 @@ parser_config_commit_internal (void *_node, ser_buff_t *tlv_ser_buff, op_mode en
     unsigned char config_stmt[256];
     unsigned char node_name[NODE_NAME_SIZE];
 
+    PGSQL_DISABLE;
+    
     node_t *node = (node_t *)_node;
 
     do

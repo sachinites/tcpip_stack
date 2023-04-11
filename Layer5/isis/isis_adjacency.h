@@ -121,4 +121,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
 uint32_t 
 isis_show_all_adjacencies (node_t *node) ;
 
+void
+isis_reposition_adjacency (isis_adjacency_t *adjacency);
+
 #endif /* __IGP_NBRSHIP__ */

@@ -64,5 +64,7 @@
 /* config node <node-name> protocol isis interface <if-name> lan */
 #define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN   28
 
+ /* config node <node-name> protocol isis interface <if-name> priority <val>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY 29
 
 #endif /* __ISIS_CMDCODES__ */

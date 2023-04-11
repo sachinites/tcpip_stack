@@ -184,6 +184,23 @@ isis_delete_all_adjacencies(Interface *intf) {
     return rc;
 }
 
+static int
+isis_adjacency_comp_fn(void *data1, void *data2) {
+
+    isis_adjacency_t *adj1 = (isis_adjacency_t *)data1;
+    isis_adjacency_t *adj2 = (isis_adjacency_t *)data2;
+    
+    if (adj1->adj_state != adj2->adj_state) {
+        if (adj1->adj_state == ISIS_ADJ_STATE_UP) return -1;
+    }
+    if (adj1->priority < adj2->priority) return -1;
+    if (adj1->priority > adj2->priority) return 1;
+    if (adj1->nbr_rtr_id < adj2->nbr_rtr_id) return -1;
+    if (adj1->nbr_rtr_id > adj2->nbr_rtr_id) return 1;
+
+    return 0;
+}
+
 void
 isis_update_interface_adjacency_from_hello(
         Interface *iif,
@@ -216,7 +233,10 @@ isis_update_interface_adjacency_from_hello(
         adjacency = (isis_adjacency_t *)XCALLOC(0, 1, isis_adjacency_t);
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
-        glthread_add_next(ISIS_INTF_ADJ_LST_HEAD(iif), &adjacency->glue);
+        glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(iif), 
+                                                &adjacency->glue,
+                                                isis_adjacency_comp_fn,
+                                                (int)&((isis_adjacency_t *)0)->glue);
         new_adj = true;
         router_id_str = tcp_ip_covert_ip_n_to_p(*router_id_int, ip_addr);
         sprintf(tlb, "%s : New Adjacency for nbr %s on intf %s Created\n",
@@ -339,7 +359,7 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
-    printf("Nbr : %s(%s)\n", adjacency->nbr_name, ip_addr_str);
+    printf("Nbr : %s(%s)   priority : %u\n", adjacency->nbr_name, ip_addr_str, adjacency->priority);
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, ip_addr_str);
@@ -462,6 +482,7 @@ isis_change_adjacency_state(
                     /* Schedule LSP gen becaue Adj state has changed */
                     isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
+                    isis_reposition_adjacency(adjacency);
                     break;
                 default : ;
             }   
@@ -490,6 +511,7 @@ isis_change_adjacency_state(
                         isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
+                    isis_reposition_adjacency(adjacency);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);
@@ -856,3 +878,13 @@ isis_show_all_adjacencies (node_t *node) {
     } ITERATE_NODE_INTERFACES_END (node, intf);
     return rc;
  }
+
+void
+isis_reposition_adjacency (isis_adjacency_t *adjacency) {
+    
+    remove_glthread(&adjacency->glue);
+    glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(adjacency->intf),
+                                            &adjacency->glue,
+                                            isis_adjacency_comp_fn,
+                                            (int)&((isis_adjacency_t *)0)->glue);
+}

@@ -139,6 +139,7 @@ isis_intf_config_handler(param_t *param,
                     op_mode enable_or_disable){
 
     int cmdcode = -1;
+    uint16_t priority;
     node_t *node = NULL;
     char *intf_name = NULL;
     Interface *intf = NULL;
@@ -157,6 +158,8 @@ isis_intf_config_handler(param_t *param,
             intf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "if-grp-name"))
             if_grp_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "priority"))
+            priority = atoi(tlv->value);
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -241,6 +244,14 @@ isis_intf_config_handler(param_t *param,
                     return -1;
             }
             return isis_config_interface_link_type(intf, isis_intf_type_lan);
+            break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY:
+            intf = node_get_intf_by_name(node, intf_name);
+            if (!intf) {
+                    printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+            }
+            return isis_interface_set_priority (intf, priority);
             break;
         default: ;
     }
@@ -491,6 +502,20 @@ isis_config_cli_tree(param_t *param) {
                     init_param(&lan, CMD, "broadcast", isis_intf_config_handler, 0, INVALID, 0, "Broadcast Interface");
                     libcli_register_param(&if_name, &lan);
                     set_param_cmd_code(&lan, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN);
+                }
+                {
+                    /* config node <node-name> protocol isis interface <if-name> priority... */
+                    static param_t priority;
+                    init_param(&priority, CMD, "priority", NULL, 0, INVALID, 0, "Interface Priority (0 - 65535)");
+                    libcli_register_param(&if_name, &priority);
+                    {
+                        /* config node <node-name> protocol isis interface <if-name> priority <val>*/
+                        static param_t priority_val;
+                        init_param(&priority_val, LEAF, 0, isis_intf_config_handler, 0, INT, "priority",
+                        ("Intf Priority Value"));
+                        libcli_register_param(&priority, &priority_val);
+                        set_param_cmd_code(&priority_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY);
+                    }
                 }
             }
             {

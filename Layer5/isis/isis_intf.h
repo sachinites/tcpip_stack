@@ -76,7 +76,6 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
 #define ISIS_INTF_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
 
-
 bool
 isis_node_intf_is_enable(Interface *intf) ;
 
@@ -118,5 +117,8 @@ isis_show_one_intf_stats (Interface *intf, uint32_t rc);
 
 int
 isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type);
+
+int
+isis_interface_set_priority (Interface *intf, uint16_t priority)
 
 #endif // ! __ISIS_INTF__

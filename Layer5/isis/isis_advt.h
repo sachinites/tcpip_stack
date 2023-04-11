@@ -12,6 +12,7 @@ Dependencies
 
 #include "isis_const.h"
 #include "isis_rtr.h"
+#include "isis_pn.h"
 
 typedef struct node_info_ isis_node_info_t;
 typedef uint64_t advt_id_t;
@@ -147,7 +148,7 @@ isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
 
 isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
-                                    uint8_t pn_no,
+                                    pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
                                     isis_advt_info_t *advt_info_out);
 
@@ -155,8 +156,8 @@ isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,
                                     isis_advt_info_t *advt_info);
 
-void isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no);
-void isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no);
+void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
+void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_all_advt_db(isis_node_info_t *node_info);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
 
