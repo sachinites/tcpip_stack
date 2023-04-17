@@ -26,7 +26,7 @@ typedef enum ISIS_LVL_ {
 
     isis_level_1 = 1,
     isis_level_2 = 2,
-    isis_level12 = 3
+    isis_level_12 = 3
 } ISIS_LVL;
 #pragma pack(pop)
 

@@ -318,7 +318,9 @@ isis_de_init(node_t *node) {
 
     /* De-Register for interested pkts */
     tcp_stack_de_register_l2_pkt_trap_rule(
-			node, isis_lsp_pkt_trap_rule, isis_pkt_recieve);
+			node, isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
+    tcp_stack_register_l2_pkt_trap_rule(
+			node, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
     nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(node);
@@ -333,7 +335,9 @@ isis_init(node_t *node ) {
 
     /* Register for interested pkts */
     tcp_stack_register_l2_pkt_trap_rule(
-			node, isis_lsp_pkt_trap_rule, isis_pkt_recieve);
+			node, isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
+    tcp_stack_register_l2_pkt_trap_rule(
+			node, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
     isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = node_info;
@@ -365,7 +369,8 @@ void
 isis_one_time_registration() {
 
     nfc_intf_register_for_events(isis_interface_updates);
-    nfc_register_for_pkt_tracing(ISIS_ETH_PKT_TYPE, isis_print_pkt);
+    nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
+    nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
 }
 
 void

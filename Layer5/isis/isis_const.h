@@ -1,7 +1,8 @@
 #ifndef __ISIS_CONST__
 #define __ISIS_CONST__
 
-#define ISIS_ETH_PKT_TYPE       131 // ( Randomly chosen, no logic)
+#define ISIS_HELLO_ETH_PKT_TYPE       131 // ( Randomly chosen, no logic)
+#define ISIS_LSP_ETH_PKT_TYPE       132 // ( Randomly chosen, no logic)
 #define ISIS_LAN_L1_HELLO_PKT_TYPE  15 // as per standard
 #define ISIS_LAN_L2_HELLO_PKT_TYPE  16 // as per standard
 #define ISIS_PTP_HELLO_PKT_TYPE 17  // as per standard

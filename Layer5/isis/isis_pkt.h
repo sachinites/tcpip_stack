@@ -60,10 +60,22 @@ typedef struct isis_pkt_hdr_{
 #pragma pack(pop)
 
 bool
+isis_hello_pkt_trap_rule(char *pkt, size_t pkt_size);
+
+bool
 isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size);
 
 void
-isis_pkt_recieve(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+isis_lsp_pkt_recieve_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+
+void
+isis_hello_pkt_recieve_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+
+void
+isis_print_lsp_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+
+void
+isis_print_hello_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
 isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type);
@@ -74,8 +86,8 @@ isis_cancel_lsp_pkt_generation_task(node_t *node);
 byte *
 isis_prepare_hello_pkt(Interface *intf, size_t *hello_pkt_size);
 
-void
-isis_print_pkt(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+byte *
+isis_prepare_hello_pkt2(Interface *intf, size_t *hello_pkt_size);
 
 void
 isis_generate_lsp_pkt(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size_unused);
@@ -148,5 +160,8 @@ isis_init_p2p_hello_pkt_hdr (isis_p2p_hello_pkt_hdr_t *hdr, Interface *intf);
 
 isis_lan_hello_pkt_hdr_t *
 isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf);
+
+byte *
+isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, uint16_t *tlv_size);
 
 #endif // !__ISIS_PKT__

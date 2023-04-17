@@ -3,6 +3,8 @@
 
 #include "isis_advt.h"
 
+typedef struct isis_common_hdr_ isis_common_hdr_t;
+
 typedef enum isis_adj_state_ {
 
     ISIS_ADJ_STATE_UNKNOWN,
@@ -68,7 +70,7 @@ isis_adjacency_set_uptime(isis_adjacency_t *adjacency);
 void
 isis_update_interface_adjacency_from_hello(
         Interface *iif,
-        isis_pkt_hdr_t *hello_pkt_hdr,
+        isis_common_hdr_t *cmn_hdr,
         size_t hello_pkt_size);
 
 isis_adjacency_t *

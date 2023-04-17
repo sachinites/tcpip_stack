@@ -214,26 +214,34 @@ isis_adjacency_comp_fn(void *data1, void *data2) {
 void
 isis_update_interface_adjacency_from_hello(
         Interface *iif,
-        isis_pkt_hdr_t *hello_pkt_hdr,
+        isis_common_hdr_t *cmn_hdr,
         size_t hello_pkt_size) {
 
     char ip_addr[16];
-    size_t tlv_buff_size;
-    char * router_id_str;
+    uint16_t tlv_buff_size;
+    c_string router_id_str;
     uint8_t tlv_data_len;
     bool new_adj = false;
     bool regen_lsp = false;
     byte *hello_tlv_buffer;
-    char *intf_ip_addr_str;
+    c_string intf_ip_addr_str;
     uint32_t *router_id_int;
     uint32_t four_byte_data;
     uint32_t intf_ip_addr_int;
     isis_adjacency_t *adjacency = NULL;
     isis_adjacency_t adjacency_backup;
+    isis_p2p_hello_pkt_hdr_t *p2p_hdr = NULL;
+    isis_lan_hello_pkt_hdr_t *lan_hdr = NULL;
     bool force_bring_down_adjacency = false;
 
-    hello_tlv_buffer = (byte *)(hello_pkt_hdr + 1);
-    tlv_buff_size = hello_pkt_size - sizeof(isis_pkt_hdr_t);
+    hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, &tlv_buff_size);
+
+    switch (cmn_hdr->pdu_type) {
+        case ISIS_PTP_HELLO_PKT_TYPE:
+            p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
+        default:
+            lan_hdr = (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
+    }
 
     router_id_int = (uint32_t *)tlv_buffer_get_particular_tlv(
                     hello_tlv_buffer, 
@@ -247,7 +255,7 @@ isis_update_interface_adjacency_from_hello(
         adjacency = (isis_adjacency_t *)XCALLOC(0, 1, isis_adjacency_t);
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
-        adjacency->priority = hello_pkt_hdr->priority;
+        adjacency->priority = lan_hdr ? lan_hdr->priority : ISIS_INTF_DEFAULT_PRIORITY;
         glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(iif), 
                                                 &adjacency->glue,
                                                 isis_adjacency_comp_fn,
@@ -262,9 +270,11 @@ isis_update_interface_adjacency_from_hello(
         memcpy(&adjacency_backup, adjacency, sizeof(isis_adjacency_t));
     }
 
-    if (!new_adj && (adjacency->priority != hello_pkt_hdr->priority)) {
-        adjacency->priority =  hello_pkt_hdr->priority;
-        isis_reposition_adjacency (adjacency);
+    if (!new_adj &&
+          lan_hdr &&
+        (adjacency->priority != lan_hdr->priority)) {
+            adjacency->priority =  lan_hdr->priority;
+            isis_reposition_adjacency (adjacency);
     }
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
