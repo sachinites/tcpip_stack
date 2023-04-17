@@ -5,7 +5,8 @@
 #define ISIS_LAN_L1_HELLO_PKT_TYPE  15 // as per standard
 #define ISIS_LAN_L2_HELLO_PKT_TYPE  16 // as per standard
 #define ISIS_PTP_HELLO_PKT_TYPE 17  // as per standard
-#define ISIS_LSP_PKT_TYPE       18  // as per standard
+#define ISIS_L1_LSP_PKT_TYPE       18  // as per standard
+#define ISIS_L2_LSP_PKT_TYPE       20  // as per standard
 #define ISIS_DEFAULT_HELLO_INTERVAL 3
 #define ISIS_DEFAULT_INTF_COST  10  // as per standard
 #define ISIS_HOLD_TIME_FACTOR   2

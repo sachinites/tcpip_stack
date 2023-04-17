@@ -5,6 +5,7 @@ typedef struct isis_intf_group_ isis_intf_group_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 
 #include "isis_advt.h"
+#include "isis_struct.h"
 
 typedef enum isis_intf_type_ {
 
@@ -33,10 +34,10 @@ typedef struct intf_info_ {
     uint32_t cost;
 
     isis_intf_type_t intf_type;
-
-    /* Pseudonode id to be used is this interface is
-        selected as DIS for lan segment*/
-    uint8_t pn_id;
+    ISIS_LVL level;
+    
+    /* LAN-ID for this interface if this interface is LAN*/
+    isis_lan_id_t lan_id;
 
     /* Adj list on this interface */
     glthread_t adj_list_head;
@@ -119,6 +120,6 @@ int
 isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type);
 
 int
-isis_interface_set_priority (Interface *intf, uint16_t priority)
+isis_interface_set_priority (Interface *intf, uint16_t priority);
 
 #endif // ! __ISIS_INTF__

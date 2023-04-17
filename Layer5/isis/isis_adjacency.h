@@ -66,9 +66,10 @@ void
 isis_adjacency_set_uptime(isis_adjacency_t *adjacency);
 
 void
-isis_update_interface_adjacency_from_hello(Interface *iif,
-        unsigned char *hello_tlv_buffer,
-        size_t tlv_buff_size);
+isis_update_interface_adjacency_from_hello(
+        Interface *iif,
+        isis_pkt_hdr_t *hello_pkt_hdr,
+        size_t hello_pkt_size);
 
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
@@ -123,5 +124,13 @@ isis_show_all_adjacencies (node_t *node) ;
 
 void
 isis_reposition_adjacency (isis_adjacency_t *adjacency);
+
+/* DIS Mgmt Functions */
+
+/* Deletet the Current DIS*/
+void  isis_resign_dis (Interface *intf);
+
+/* Trigger DIS Re-election, return rtr id of the DIS*/
+uint32_t isis_dis_election (Interface *intf);
 
 #endif /* __IGP_NBRSHIP__ */

@@ -19,6 +19,7 @@ ISIS_OBJS=isis_adjacency.o \
 		  isis_tlv_struct.o \
 		  isis_advt.o \
 		  isis_pn.o \
+		  isis_utils.o \
 
 isis_adjacency.o:isis_adjacency.c
 	${CC} ${CFLAGS} -c -fPIC -I . isis_adjacency.c -o isis_adjacency.o
@@ -70,6 +71,9 @@ isis_advt.o:isis_advt.cpp
 
 isis_pn.o:isis_pn.cpp
 	${CC} ${CFLAGS} -c -fPIC  -I . isis_pn.cpp -o isis_pn.o
+
+isis_utils.o:isis_utils.cpp
+	${CC} ${CFLAGS} -c -fPIC  -I . isis_utils.cpp -o isis_utils.o
 
 ${STATIC_LIBNAME}:${ISIS_OBJS}
 	ar rs ${STATIC_LIBNAME} ${ISIS_OBJS}

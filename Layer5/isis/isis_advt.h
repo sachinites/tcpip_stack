@@ -1,15 +1,6 @@
 #ifndef __ISIS_ADVT__
 #define __ISIS_ADVT__
 
-#if 0
-
-Dependencies 
-    <stdint.h>
-    "../../gluethread/glthread.h"
-    "../../graph.h"
-
-#endif 
-
 #include "isis_const.h"
 #include "isis_rtr.h"
 #include "isis_pn.h"

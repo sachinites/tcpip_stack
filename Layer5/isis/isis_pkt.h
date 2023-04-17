@@ -3,6 +3,7 @@
 
 #include "isis_events.h"
 #include "isis_const.h"
+#include "isis_struct.h"
 
 typedef uint16_t isis_pkt_type_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
@@ -51,6 +52,7 @@ typedef struct isis_pkt_hdr_{
     isis_pkt_type_t isis_pkt_type;
     uint32_t seq_no; /* meaningful only for LSPs */
     uint32_t rtr_id;
+    uint16_t priority;/* meaningful only for hellos */
     uint8_t pn_no;
     uint8_t fr_no;
     isis_pkt_hdr_flags_t flags;
@@ -99,5 +101,52 @@ isis_count_tlv_occurrences (byte *tlv_buffer,
 
 const c_string 
 isis_pkt_type_str (isis_pkt_type_t pkt_type) ;
+
+/* For ISIS RFC complying pkts , refer to 
+https://techhub.hpe.com/eginfolib/networking/docs/switches/3600v2/5998-7619r_l3-ip-rtng_cg/content/442284234.htm
+*/
+
+#pragma pack (push,1)
+typedef struct isis_common_hdr_ {
+
+    uint8_t desc;
+    uint8_t length_indicator;
+    uint8_t protocol;
+    uint8_t id_len;
+    uint8_t pdu_type;
+    uint8_t version;
+    uint8_t reserved;
+    uint8_t max_area_addr;
+}  isis_common_hdr_t;
+
+typedef struct isis_p2p_hello_pkt_hdr_ {
+
+    uint8_t circuit_type;
+    isis_system_id_t source_id;
+    uint16_t hold_time;
+    uint16_t pdu_len;
+    uint8_t local_circuit_id;
+} isis_p2p_hello_pkt_hdr_t;
+
+typedef struct isis_lan_hello_pkt_hdr_ {
+
+    uint8_t circuit_type;
+    isis_system_id_t source_id;
+    uint16_t hold_time;
+    uint16_t pdu_len;
+    uint8_t priority;
+    isis_lan_id_t lan_id;
+} isis_lan_hello_pkt_hdr_t;
+
+#pragma pack(pop)
+
+isis_common_hdr_t *
+isis_init_common_hdr (isis_common_hdr_t *hdr, uint8_t pdu_type);
+
+isis_p2p_hello_pkt_hdr_t *
+isis_init_p2p_hello_pkt_hdr (isis_p2p_hello_pkt_hdr_t *hdr, Interface *intf);
+
+isis_lan_hello_pkt_hdr_t *
+isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf);
 
 #endif // !__ISIS_PKT__

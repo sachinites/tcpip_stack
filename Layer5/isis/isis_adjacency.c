@@ -15,6 +15,7 @@ isis_init_adjacency(isis_adjacency_t *adjacency) {
     memset(adjacency, 0, sizeof(isis_adjacency_t));
     adjacency->last_transition_time = time(NULL); /* Current system time */
     adjacency->adj_state = ISIS_ADJ_STATE_DOWN;
+    adjacency->priority = ISIS_INTF_DEFAULT_PRIORITY;
     init_glthread(&adjacency->glue);
 }
 
@@ -184,42 +185,55 @@ isis_delete_all_adjacencies(Interface *intf) {
     return rc;
 }
 
+
+
 static int
 isis_adjacency_comp_fn(void *data1, void *data2) {
+
+    int8_t rc;
 
     isis_adjacency_t *adj1 = (isis_adjacency_t *)data1;
     isis_adjacency_t *adj2 = (isis_adjacency_t *)data2;
     
     if (adj1->adj_state != adj2->adj_state) {
-        if (adj1->adj_state == ISIS_ADJ_STATE_UP) return -1;
+        if (adj1->adj_state != ISIS_ADJ_STATE_UP) return CMP_NOT_PREFERRED;
     }
-    if (adj1->priority < adj2->priority) return -1;
-    if (adj1->priority > adj2->priority) return 1;
-    if (adj1->nbr_rtr_id < adj2->nbr_rtr_id) return -1;
-    if (adj1->nbr_rtr_id > adj2->nbr_rtr_id) return 1;
+    if (adj1->priority < adj2->priority) return CMP_NOT_PREFERRED;
+    if (adj1->priority > adj2->priority) return CMP_PREFERRED;
+    if (adj1->nbr_rtr_id < adj2->nbr_rtr_id) return CMP_NOT_PREFERRED;
+    if (adj1->nbr_rtr_id > adj2->nbr_rtr_id) return CMP_PREFERRED;
 
-    return 0;
+    rc = memcmp (&adj1->nbr_mac, &adj2->nbr_mac, sizeof(adj2->nbr_mac));
+
+    if (rc > 0) return CMP_PREFERRED;
+    if (rc < 0) return CMP_NOT_PREFERRED;
+
+    return CMP_PREF_EQUAL;
 }
 
 void
 isis_update_interface_adjacency_from_hello(
         Interface *iif,
-        byte *hello_tlv_buffer,
-        size_t tlv_buff_size) {
+        isis_pkt_hdr_t *hello_pkt_hdr,
+        size_t hello_pkt_size) {
 
     char ip_addr[16];
+    size_t tlv_buff_size;
     char * router_id_str;
     uint8_t tlv_data_len;
     bool new_adj = false;
     bool regen_lsp = false;
+    byte *hello_tlv_buffer;
     char *intf_ip_addr_str;
     uint32_t *router_id_int;
     uint32_t four_byte_data;
     uint32_t intf_ip_addr_int;
-    isis_intf_info_t *intf_info;
     isis_adjacency_t *adjacency = NULL;
     isis_adjacency_t adjacency_backup;
     bool force_bring_down_adjacency = false;
+
+    hello_tlv_buffer = (byte *)(hello_pkt_hdr + 1);
+    tlv_buff_size = hello_pkt_size - sizeof(isis_pkt_hdr_t);
 
     router_id_int = (uint32_t *)tlv_buffer_get_particular_tlv(
                     hello_tlv_buffer, 
@@ -233,6 +247,7 @@ isis_update_interface_adjacency_from_hello(
         adjacency = (isis_adjacency_t *)XCALLOC(0, 1, isis_adjacency_t);
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
+        adjacency->priority = hello_pkt_hdr->priority;
         glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(iif), 
                                                 &adjacency->glue,
                                                 isis_adjacency_comp_fn,
@@ -245,6 +260,11 @@ isis_update_interface_adjacency_from_hello(
     }
     else {
         memcpy(&adjacency_backup, adjacency, sizeof(isis_adjacency_t));
+    }
+
+    if (!new_adj && (adjacency->priority != hello_pkt_hdr->priority)) {
+        adjacency->priority =  hello_pkt_hdr->priority;
+        isis_reposition_adjacency (adjacency);
     }
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
@@ -539,7 +559,8 @@ isis_get_next_adj_state_on_receiving_next_hello(
         case ISIS_ADJ_STATE_UP:
             return ISIS_ADJ_STATE_UP;
         default : ; 
-    }   
+    }
+    return ISIS_ADJ_STATE_UNKNOWN;
 }
 
 bool
@@ -887,4 +908,61 @@ isis_reposition_adjacency (isis_adjacency_t *adjacency) {
                                             &adjacency->glue,
                                             isis_adjacency_comp_fn,
                                             (int)&((isis_adjacency_t *)0)->glue);
+}
+
+
+/* DIS Mgmt Functions */
+
+/* Deletet the Current DIS*/
+void 
+isis_resign_dis (Interface *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+
+    if (!intf_info) return;
+
+    /* Delete the DIS data ...*/
+}
+
+/* Trigger DIS Re-election, return rtr id of the DIS*/
+uint32_t 
+isis_dis_election (Interface *intf) {
+
+    int8_t rc;
+    node_t *node;
+    uint32_t rtr_id;
+    glthread_t *curr;
+    isis_adjacency_t *adj;
+    isis_node_info_t *node_info;
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+
+    if (!intf_info) return 0;    
+
+    if (intf_info->intf_type == isis_intf_type_p2p) return 0;
+
+    node = intf->att_node;
+    node_info = ISIS_NODE_INFO(node);
+
+    rtr_id =  tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+
+    if (IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf))) {
+        return rtr_id;
+    }
+
+    curr = glthread_get_next (ISIS_INTF_ADJ_LST_HEAD(intf));
+    adj = glthread_to_isis_adjacency(curr);
+
+    if (adj->adj_state != ISIS_ADJ_STATE_UP) return rtr_id;
+
+    if (intf_info->priority > adj->priority) return rtr_id;
+    if (intf_info->priority < adj->priority) return 0;
+
+    if (rtr_id > adj->nbr_rtr_id) return rtr_id;
+    if (rtr_id < adj->nbr_rtr_id) return 0;
+
+    /* Now Tie based on MAC Address*/
+    rc = memcmp (intf->GetMacAddr(), &adj->nbr_mac, sizeof(mac_addr_t));
+    if (rc > 0) return rtr_id;
+    return 0;
 }

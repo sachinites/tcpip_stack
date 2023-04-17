@@ -125,6 +125,7 @@ isis_init_intf_info (Interface *intf) {
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
     intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
     intf_info->intf_type = isis_intf_type_lan;
+    intf_info->level = isis_level_1; /* Only Lvl 1 is Supported for now*/
     init_glthread(&intf_info->adj_list_head);
     init_glthread(&intf_info->intf_grp_member_glue);
     /* Back Linkage */

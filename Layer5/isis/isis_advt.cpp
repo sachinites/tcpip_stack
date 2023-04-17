@@ -208,7 +208,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
     if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_RENEW_LSP_PKT_HDR)) {
-        lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+        lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
         lsp_pkt_hdr->seq_no = (++fragment->seq_no);
         lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
         lsp_pkt_hdr->pn_no = fragment->pn_no;

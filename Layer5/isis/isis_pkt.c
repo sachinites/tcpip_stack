@@ -99,7 +99,7 @@ isis_process_hello_pkt(node_t *node,
         }
         goto bad_hello;
     }
-    isis_update_interface_adjacency_from_hello (iif, hello_tlv_buffer, tlv_buff_size);
+    isis_update_interface_adjacency_from_hello (iif, hello_pkt_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
     return ;
 
     bad_hello:
@@ -190,7 +190,7 @@ isis_pkt_recieve (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             isis_process_hello_pkt(node, iif, eth_hdr, pkt_size); 
         break;
-        case ISIS_LSP_PKT_TYPE:
+        case ISIS_L1_LSP_PKT_TYPE:
             isis_process_lsp_pkt(node, iif, eth_hdr, pkt_size);
         break;
         default:; 
@@ -289,7 +289,7 @@ TLV_ADD_DONE:
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
     /* pkt type */
-    lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+    lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
     lsp_pkt_hdr->seq_no = node_info->seq_no;
     lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
     
@@ -452,6 +452,7 @@ isis_prepare_hello_pkt(Interface *intf, size_t *hello_pkt_size) {
     hello_pkt_hdr->rtr_id =
         tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(intf->att_node));
     hello_pkt_hdr->flags = 0;
+    hello_pkt_hdr->priority = intf_info->priority;
 
     temp = (byte *)(hello_pkt_hdr + 1);
 
@@ -503,7 +504,7 @@ isis_print_lsp_pkt(byte *buff,
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
-    rc = sprintf(buff + rc, "ISIS_LSP_PKT_TYPE : ");
+    rc = sprintf(buff + rc, "ISIS_L1_LSP_PKT_TYPE : ");
     
     uint32_t seq_no = lsp_pkt_hdr->seq_no;
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
@@ -555,8 +556,8 @@ isis_pkt_type_str (isis_pkt_type_t pkt_type) {
             return "ISIS_LAN_L1_HELLO_PKT_TYPE";
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             return "ISIS_LAN_L2_HELLO_PKT_TYPE"; 
-        case ISIS_LSP_PKT_TYPE:
-            return "ISIS_LSP_PKT_TYPE";
+        case ISIS_L1_LSP_PKT_TYPE:
+            return "ISIS_L1_LSP_PKT_TYPE";
         default: ;
     }
     return NULL;
@@ -635,7 +636,7 @@ isis_print_pkt(event_dispatcher_t*ev_dis, void *arg, size_t arg_size) {
         case ISIS_PTP_HELLO_PKT_TYPE:
             pkt_info->bytes_written += isis_print_hello_pkt(buff, pkt_hdr, pkt_size);
             break;
-        case ISIS_LSP_PKT_TYPE:
+        case ISIS_L1_LSP_PKT_TYPE:
             pkt_info->bytes_written += isis_print_lsp_pkt(buff, pkt_hdr, pkt_size);
             break;
         default: ;
@@ -740,4 +741,45 @@ isis_count_tlv_occurrences (byte *tlv_buffer,
     } ITERATE_TLV_END(tlv_buffer, tlv_type,
                         tlv_len, tlv_value, tlv_buff_size);
     return rc;
+}
+
+isis_common_hdr_t *
+isis_init_common_hdr (isis_common_hdr_t *hdr, uint8_t pdu_type) {
+
+    hdr->desc = 0x83;
+    hdr->length_indicator = 0;  // len of common hdr + specific hdr
+    hdr->protocol = 1;
+    hdr->id_len = sizeof(isis_system_id_t);
+    hdr->pdu_type = pdu_type;
+    hdr->version = 1;
+    hdr->reserved = 0;
+    hdr->max_area_addr = 3;
+    return hdr;
+}
+
+isis_p2p_hello_pkt_hdr_t *
+isis_init_p2p_hello_pkt_hdr (isis_p2p_hello_pkt_hdr_t *hdr, Interface *intf) {
+
+    node_t *node = intf->att_node;
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+    hdr->circuit_type = intf_info->level; 
+    hdr->source_id.rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(node));
+    hdr->hold_time = intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR;
+    hdr->pdu_len = 0; /* Total len of pdu in bytes*/
+    hdr->local_circuit_id = intf->ifindex;
+    return hdr;
+}
+
+isis_lan_hello_pkt_hdr_t *
+isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf) {
+
+    node_t *node = intf->att_node;
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+    hdr->circuit_type =  intf_info->level;  
+    hdr->source_id.rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(node));
+    hdr->hold_time = intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR;
+    hdr->pdu_len = 0; /* Total len of pdu in bytes*/
+    hdr->priority = intf_info->priority;
+    memcpy (&hdr->lan_id, &intf_info->lan_id, sizeof(isis_lan_id_t));
+    return hdr;
 }
