@@ -130,6 +130,7 @@ snp_flow_init_flow_tree_root(avltree_t *avl_root) ;
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
+#define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node_ptr)))
 
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)

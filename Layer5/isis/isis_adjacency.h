@@ -2,6 +2,7 @@
 #define __IGP_NBRSHIP__
 
 #include "isis_advt.h"
+#include "isis_struct.h"
 
 typedef struct isis_common_hdr_ isis_common_hdr_t;
 
@@ -40,6 +41,8 @@ typedef struct isis_adjacency_{
      mac_addr_t nbr_mac;
     /*Nbr lo 0 address */
     uint32_t nbr_rtr_id;
+    /* LAN ID, only for LAN Adj*/
+    isis_lan_id_t lan_id;
     /* Nbrs Priority */
     uint16_t priority;
     /* Nbr if index */
@@ -63,6 +66,12 @@ typedef struct isis_adjacency_{
     glthread_t glue;
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);
+
+#define isis_adjacency_is_lan(adjacency_ptr) \
+    (ISIS_INTF_INFO(adjacency_ptr->intf)->intf_type == isis_intf_type_lan)
+
+#define isis_adjacency_is_p2p(adjacency_ptr) \
+    (ISIS_INTF_INFO(adjacency_ptr->intf)->intf_type == isis_intf_type_p2p)
 
 void
 isis_adjacency_set_uptime(isis_adjacency_t *adjacency);
@@ -130,9 +139,12 @@ isis_reposition_adjacency (isis_adjacency_t *adjacency);
 /* DIS Mgmt Functions */
 
 /* Deletet the Current DIS*/
-void  isis_resign_dis (Interface *intf);
+void  isis_intf_resign_dis (Interface *intf);
 
 /* Trigger DIS Re-election, return rtr id of the DIS*/
-uint32_t isis_dis_election (Interface *intf);
+isis_lan_id_t isis_intf_reelect_dis (Interface *intf);
+
+void
+isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id);
 
 #endif /* __IGP_NBRSHIP__ */

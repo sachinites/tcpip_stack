@@ -39,6 +39,9 @@ typedef struct intf_info_ {
     /* LAN-ID for this interface if this interface is LAN*/
     isis_lan_id_t lan_id;
 
+    /* For P2P, it will be null*/
+    isis_lan_id_t elected_dis;
+
     /* Adj list on this interface */
     glthread_t adj_list_head;
     glthread_t lsp_xmit_list_head;
@@ -76,6 +79,12 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
     (&(((isis_intf_info_t *)((intf_ptr)->isis_intf_info))->adj_list_head))
 #define ISIS_INTF_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
+
+#define isis_intf_is_lan(intf_ptr) \
+    (ISIS_INTF_INFO(intf_ptr)->intf_type == isis_intf_type_lan)
+
+#define isis_intf_is_p2p(intf_ptr) \
+    (ISIS_INTF_INFO(intf_ptr)->intf_type == isis_intf_type_p2p)
 
 bool
 isis_node_intf_is_enable (Interface *intf) ;
@@ -124,5 +133,11 @@ isis_interface_set_priority (Interface *intf, uint16_t priority);
 
 void
 isis_interface_reset_stats (Interface *intf) ;
+
+void
+isis_intf_allocate_lan_id (Interface *intf);
+
+void
+isis_intf_deallocate_lan_id (Interface *intf);
 
 #endif // ! __ISIS_INTF__

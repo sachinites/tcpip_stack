@@ -8,6 +8,7 @@
 #include "isis_flood.h"
 #include "isis_intf_group.h"
 #include "isis_layer2map.h"
+#include "isis_utils.h"
 
 static void
 isis_init_adjacency(isis_adjacency_t *adjacency) {
@@ -218,11 +219,13 @@ isis_update_interface_adjacency_from_hello(
         size_t hello_pkt_size) {
 
     char ip_addr[16];
+    byte lan_id_str[32];
     uint16_t tlv_buff_size;
     c_string router_id_str;
     uint8_t tlv_data_len;
     bool new_adj = false;
     bool regen_lsp = false;
+    bool repos_adj = false;
     byte *hello_tlv_buffer;
     c_string intf_ip_addr_str;
     uint32_t *router_id_int;
@@ -256,6 +259,7 @@ isis_update_interface_adjacency_from_hello(
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
         adjacency->priority = lan_hdr ? lan_hdr->priority : ISIS_INTF_DEFAULT_PRIORITY;
+        if (lan_hdr) adjacency->lan_id = lan_hdr->lan_id;
         glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(iif), 
                                                 &adjacency->glue,
                                                 isis_adjacency_comp_fn,
@@ -270,11 +274,39 @@ isis_update_interface_adjacency_from_hello(
         memcpy(&adjacency_backup, adjacency, sizeof(isis_adjacency_t));
     }
 
+    /* Change in Nbr's LAN-ID */
+    if (!new_adj && lan_hdr && 
+            (isis_lan_id_compare (&adjacency->lan_id, &lan_hdr->lan_id) != CMP_PREF_EQUAL)) {
+        
+        sprintf(tlb, "%s : Nbr %s reported new lan-id %s on intf %s\n",
+             ISIS_ADJ_MGMT, router_id_str, isis_lan_id_tostring(&lan_hdr->lan_id, lan_id_str), 
+             iif->if_name.c_str());
+        tcp_trace(iif->att_node, iif, tlb);
+
+        if (isis_lan_id_compare(
+                &(ISIS_INTF_INFO(iif)->elected_dis), 
+                &lan_hdr->lan_id) != CMP_PREF_EQUAL) {
+            /* We dont need to do any action if the new lan-id reported was not DIS*/
+            adjacency->lan_id = lan_hdr->lan_id;
+        }
+        else {
+            sprintf(tlb, "%s : Dis Election will happen on intf %s, reason new lan-id reported is was also elected DIS\n",
+                 ISIS_ADJ_MGMT,  iif->if_name.c_str());
+            tcp_trace(iif->att_node, iif, tlb);
+            adjacency->lan_id = lan_hdr->lan_id;
+            repos_adj = true;
+        }
+    }
+
     if (!new_adj &&
           lan_hdr &&
         (adjacency->priority != lan_hdr->priority)) {
             adjacency->priority =  lan_hdr->priority;
-            isis_reposition_adjacency (adjacency);
+            repos_adj = true;
+    }
+
+    if (repos_adj) {
+        isis_reposition_adjacency (adjacency);
     }
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
@@ -385,11 +417,17 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
                                     uint8_t tab_spaces) {
 
     char ip_addr_str[16];
+    byte lan_id_str[32];
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
     printf("Nbr : %s(%s)   priority : %u\n", adjacency->nbr_name, ip_addr_str, adjacency->priority);
+
+    if (ISIS_INTF_INFO(adjacency->intf)->intf_type == isis_intf_type_lan) {
+        PRINT_TABS(tab_spaces);
+        printf ("Nbr Lan-id : %s\n", isis_lan_id_tostring (&adjacency->lan_id, lan_id_str));
+    }
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, ip_addr_str);
@@ -913,11 +951,30 @@ isis_show_all_adjacencies (node_t *node) {
 void
 isis_reposition_adjacency (isis_adjacency_t *adjacency) {
     
+    Interface *intf;
+    isis_lan_id_t old_dis_id,
+                          new_dis_id;
+    isis_intf_info_t *intf_info;
+
+    intf = adjacency->intf;
     remove_glthread(&adjacency->glue);
-    glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(adjacency->intf),
+    glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(intf),
                                             &adjacency->glue,
                                             isis_adjacency_comp_fn,
                                             (int)&((isis_adjacency_t *)0)->glue);
+
+    if (isis_adjacency_is_p2p(adjacency)) return;
+
+    intf_info = ISIS_INTF_INFO(intf);
+    old_dis_id = intf_info->elected_dis;
+    new_dis_id =  isis_intf_reelect_dis(intf);
+    
+    if (isis_lan_id_compare (&old_dis_id, &new_dis_id) == CMP_PREF_EQUAL) {
+        return;
+    }
+
+    isis_intf_resign_dis (intf);
+    isis_intf_assign_new_dis (intf,  new_dis_id);
 }
 
 
@@ -925,54 +982,67 @@ isis_reposition_adjacency (isis_adjacency_t *adjacency) {
 
 /* Deletet the Current DIS*/
 void 
-isis_resign_dis (Interface *intf) {
+isis_intf_resign_dis (Interface *intf) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
 
     if (!intf_info) return;
 
     /* Delete the DIS data ...*/
+    intf_info->elected_dis = {0, 0};
 }
 
 /* Trigger DIS Re-election, return rtr id of the DIS*/
-uint32_t 
-isis_dis_election (Interface *intf) {
+isis_lan_id_t
+isis_intf_reelect_dis (Interface *intf) {
 
     int8_t rc;
-    node_t *node;
     uint32_t rtr_id;
     glthread_t *curr;
     isis_adjacency_t *adj;
-    isis_node_info_t *node_info;
+    isis_lan_id_t self_lan_id;     
+    isis_lan_id_t null_lan_id;   
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
 
-    if (!intf_info) return 0;    
+    null_lan_id = {0, 0};
+    self_lan_id = intf_info->lan_id;
 
-    if (intf_info->intf_type == isis_intf_type_p2p) return 0;
+    if (!intf_info) return null_lan_id; 
 
-    node = intf->att_node;
-    node_info = ISIS_NODE_INFO(node);
-
-    rtr_id =  tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+    if (intf_info->intf_type == isis_intf_type_p2p) return null_lan_id;
 
     if (IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf))) {
-        return rtr_id;
+        return self_lan_id;
     }
 
     curr = glthread_get_next (ISIS_INTF_ADJ_LST_HEAD(intf));
     adj = glthread_to_isis_adjacency(curr);
 
-    if (adj->adj_state != ISIS_ADJ_STATE_UP) return rtr_id;
+    if (adj->adj_state != ISIS_ADJ_STATE_UP) return self_lan_id;
 
-    if (intf_info->priority > adj->priority) return rtr_id;
-    if (intf_info->priority < adj->priority) return 0;
+    if (intf_info->priority > adj->priority) return self_lan_id;
+    if (intf_info->priority < adj->priority) return adj->lan_id;
 
-    if (rtr_id > adj->nbr_rtr_id) return rtr_id;
-    if (rtr_id < adj->nbr_rtr_id) return 0;
+    rtr_id = NODE_LO_ADDR_INT(intf->att_node);
+    if (rtr_id > adj->nbr_rtr_id) return self_lan_id;
+    if (rtr_id < adj->nbr_rtr_id) return adj->lan_id;
+    
+    return null_lan_id;
+}
 
-    /* Now Tie based on MAC Address*/
-    rc = memcmp (intf->GetMacAddr(), &adj->nbr_mac, sizeof(mac_addr_t));
-    if (rc > 0) return rtr_id;
-    return 0;
+void
+isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    
+    if (!intf_info) return;
+
+    assert(intf_info->elected_dis.rtr_id == 0 &&
+                intf_info->elected_dis.pn_id == 0);
+
+    intf_info->elected_dis = new_dis_id;
+    ISIS_INCREMENT_NODE_STATS(intf->att_node,
+        isis_event_count[isis_event_dis_changed]);
+    // .. .
 }

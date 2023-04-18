@@ -119,30 +119,23 @@ isis_refresh_intf_hellos(Interface *intf) {
 
 static void
 isis_init_intf_info (Interface *intf) {
-    
-    bool rc;
-    uint32_t rtr_id;
-    
+      
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
     isis_node_info_t *node_info = ISIS_NODE_INFO (intf->att_node);
-    
-    rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(intf->att_node));
-    
+       
     memset(intf_info, 0, sizeof(isis_intf_info_t));
-
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
     intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
     intf_info->intf_type = isis_intf_type_lan;
     intf_info->level = isis_level_1; /* Only Lvl 1 is Supported for now*/
-    intf_info->lan_id = {rtr_id, 0};
+    intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), 0};
     init_glthread(&intf_info->adj_list_head);
     init_glthread(&intf_info->intf_grp_member_glue);
-    if ( intf_info->intf_type == isis_intf_type_lan) {
-        pn_id_t pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
-        assert(rc);
-        isis_create_advt_db (node_info, pn_id);
-        intf_info->lan_id = {rtr_id, pn_id};
+    if ( isis_intf_is_lan (intf)) {
+        isis_intf_allocate_lan_id (intf);
+        intf_info->elected_dis = {0, 0};
+        isis_intf_assign_new_dis (intf, intf_info->lan_id);
     }
     /* Back Linkage */
     intf_info->intf = intf;
@@ -189,10 +182,12 @@ isis_check_and_delete_intf_info(Interface *intf) {
          !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head) ||
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
-         ISIS_INTF_INFO(intf)->lsp_xmit_job) {
+         ISIS_INTF_INFO(intf)->lsp_xmit_job ||
+         ISIS_INTF_INFO(intf)->lan_id.pn_id ||
+         (ISIS_INTF_INFO(intf)->elected_dis.rtr_id || ISIS_INTF_INFO(intf)->elected_dis.pn_id)) {
 
        assert(0);
-    }    
+    }  
     isis_free_intf_info(intf);
 }
 
@@ -210,6 +205,10 @@ isis_disable_protocol_on_interface(Interface *intf) {
     isis_intf_purge_lsp_xmit_queue(intf);
     remove_glthread(&intf_info->intf_grp_member_glue);
     intf_info->intf_grp = NULL;
+    if (isis_intf_is_lan(intf)) {
+        isis_intf_deallocate_lan_id (intf);
+        isis_intf_resign_dis(intf);
+    }
     isis_check_and_delete_intf_info(intf);
 }
 
@@ -233,7 +232,8 @@ isis_show_interface_protocol_state(Interface *intf) {
    PRINT_TABS(2);
    printf ("link-type: %s", intf_info->intf_type == isis_intf_type_p2p ? "p2p" : "lan");
    if (intf_info->intf_type == isis_intf_type_lan) {
-        printf ("   lan-id : %s\n", isis_lan_id_tostring(&intf_info->lan_id, buffer));
+        printf ("    lan-id : %s\n", isis_lan_id_tostring(&intf_info->lan_id, buffer));
+        printf ("    elected dis-id : %s\n", isis_lan_id_tostring(&intf_info->elected_dis, buffer));
    }
    else {
         printf ("\n");
@@ -458,19 +458,12 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     isis_stop_sending_hellos(intf);
 
     if (intf_type == isis_intf_type_p2p) {
-        /* Intf switching from LAN to P2P */
-        pn_id = intf_info->lan_id.pn_id;
-        assert(pn_id);
-        isis_destroy_advt_db (node_info, pn_id);
-        intf_info->lan_id = {0, 0};
+        isis_intf_deallocate_lan_id (intf);
+        isis_intf_resign_dis (intf);
     }
     else {
-         /* Intf switching from P2P to LAN */
-        pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
-        assert(pn_id);
-        isis_create_advt_db (node_info, pn_id);
-        rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(intf->att_node));
-        intf_info->lan_id = {rtr_id, pn_id};
+        isis_intf_allocate_lan_id (intf);
+        isis_intf_assign_new_dis (intf, intf_info->lan_id);
     }
 
     intf_info->intf_type = intf_type;
@@ -488,6 +481,9 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 int
 isis_interface_set_priority (Interface *intf, uint16_t priority) {
 
+    isis_lan_id_t old_dis_id,
+                          new_dis_id;
+
    node_t *node = intf->att_node;
 
    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
@@ -503,6 +499,18 @@ isis_interface_set_priority (Interface *intf, uint16_t priority) {
     if (isis_interface_qualify_to_send_hellos (intf)) {
         isis_start_sending_hellos(intf);
     }
+
+    if (isis_intf_is_p2p(intf)) return 0;
+
+    old_dis_id = intf_info->elected_dis;
+    new_dis_id =  isis_intf_reelect_dis(intf);    
+
+    if (isis_lan_id_compare (&old_dis_id, &new_dis_id) == CMP_PREF_EQUAL) {
+        return 0;
+    }
+
+    isis_intf_resign_dis (intf);
+    isis_intf_assign_new_dis (intf,  new_dis_id);
     return 0;
 }
 
@@ -519,4 +527,39 @@ isis_interface_reset_stats (Interface *intf) {
     intf_info->bad_lsps_pkt_recvd = 0;
     intf_info->lsp_pkt_sent = 0;
     intf_info ->hello_pkt_sent = 0;
+}
+
+void
+isis_intf_allocate_lan_id (Interface *intf) {
+
+    bool rc;
+    pn_id_t pn_id;
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    
+    if (!intf_info) return;
+
+    assert(intf_info->intf_type == isis_intf_type_lan);
+    assert (intf_info->lan_id.pn_id == 0);
+
+    pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
+    assert(rc);
+
+    isis_create_advt_db (ISIS_NODE_INFO (intf->att_node) , pn_id);
+    intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), pn_id};
+}
+
+void
+isis_intf_deallocate_lan_id (Interface *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    
+    if (!intf_info) return;
+
+    assert(intf_info->intf_type == isis_intf_type_lan);
+    assert (intf_info->lan_id.pn_id); 
+
+    isis_destroy_advt_db (ISIS_NODE_INFO(intf->att_node), 
+                                            intf_info->lan_id.pn_id); 
+    intf_info->lan_id = {0, 0};
 }

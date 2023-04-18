@@ -641,10 +641,9 @@ isis_clear_handler(param_t *param,
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
 
-        if  (string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else
-            assert(0);
+            
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -666,7 +665,9 @@ isis_clear_handler(param_t *param,
             ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
                 if (!isis_node_intf_is_enable(intf)) continue;
-                    isis_delete_all_adjacencies(intf);  
+                isis_delete_all_adjacencies(intf);  
+                if (isis_intf_is_lan(intf)) isis_intf_resign_dis (intf);
+
             }  ITERATE_NODE_INTERFACES_END(node, intf);
         }
         break;
