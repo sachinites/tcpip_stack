@@ -151,5 +151,5 @@ void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_all_advt_db(isis_node_info_t *node_info);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
-
+void isis_delete_fragment (isis_fragment_t *fragment) ;
 #endif  

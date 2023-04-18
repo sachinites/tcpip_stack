@@ -6,6 +6,7 @@
 #include "isis_rtr.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
+#include "isis_utils.h"
 
 bool
 isis_node_intf_is_enable(Interface *intf) {
@@ -119,15 +120,30 @@ isis_refresh_intf_hellos(Interface *intf) {
 static void
 isis_init_intf_info (Interface *intf) {
     
+    bool rc;
+    uint32_t rtr_id;
+    
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    isis_node_info_t *node_info = ISIS_NODE_INFO (intf->att_node);
+    
+    rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(intf->att_node));
+    
     memset(intf_info, 0, sizeof(isis_intf_info_t));
+
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
     intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
     intf_info->intf_type = isis_intf_type_lan;
     intf_info->level = isis_level_1; /* Only Lvl 1 is Supported for now*/
+    intf_info->lan_id = {rtr_id, 0};
     init_glthread(&intf_info->adj_list_head);
     init_glthread(&intf_info->intf_grp_member_glue);
+    if ( intf_info->intf_type == isis_intf_type_lan) {
+        pn_id_t pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
+        assert(rc);
+        isis_create_advt_db (node_info, pn_id);
+        intf_info->lan_id = {rtr_id, pn_id};
+    }
     /* Back Linkage */
     intf_info->intf = intf;
 }
@@ -202,6 +218,7 @@ isis_show_interface_protocol_state(Interface *intf) {
 
     bool is_enabled;
     glthread_t *curr;
+    byte buffer[32];
     isis_adjacency_t *adjacency = NULL;
     isis_intf_info_t *intf_info = NULL;
 
@@ -213,6 +230,14 @@ isis_show_interface_protocol_state(Interface *intf) {
 
     intf_info = intf->isis_intf_info;
    
+   PRINT_TABS(2);
+   printf ("link-type: %s", intf_info->intf_type == isis_intf_type_p2p ? "p2p" : "lan");
+   if (intf_info->intf_type == isis_intf_type_lan) {
+        printf ("   lan-id : %s\n", isis_lan_id_tostring(&intf_info->lan_id, buffer));
+   }
+   else {
+        printf ("\n");
+   }
     if (intf_info->intf_grp) {
          PRINT_TABS(2);
         printf("Intf Group : %s \n", intf_info->intf_grp->name);
@@ -413,9 +438,14 @@ isis_show_all_intf_stats(node_t *node) {
 int
 isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
+    bool rc;
+    pn_id_t pn_id;
+    uint32_t rtr_id;
     bool gen_lsp = false;
     node_t *node = intf->att_node;
+
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!intf_info) return -1;
 
@@ -426,7 +456,25 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     }
     isis_delete_all_adjacencies(intf);
     isis_stop_sending_hellos(intf);
+
+    if (intf_type == isis_intf_type_p2p) {
+        /* Intf switching from LAN to P2P */
+        pn_id = intf_info->lan_id.pn_id;
+        assert(pn_id);
+        isis_destroy_advt_db (node_info, pn_id);
+        intf_info->lan_id = {0, 0};
+    }
+    else {
+         /* Intf switching from P2P to LAN */
+        pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
+        assert(pn_id);
+        isis_create_advt_db (node_info, pn_id);
+        rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(intf->att_node));
+        intf_info->lan_id = {rtr_id, pn_id};
+    }
+
     intf_info->intf_type = intf_type;
+    isis_interface_reset_stats (intf);
 
     if (isis_interface_qualify_to_send_hellos(intf)) {
         isis_start_sending_hellos(intf);
@@ -456,4 +504,19 @@ isis_interface_set_priority (Interface *intf, uint16_t priority) {
         isis_start_sending_hellos(intf);
     }
     return 0;
+}
+
+void
+isis_interface_reset_stats (Interface *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+    
+    if (!intf_info) return;
+
+    intf_info->good_hello_pkt_recvd = 0;
+    intf_info->bad_hello_pkt_recvd = 0;
+    intf_info->good_lsps_pkt_recvd = 0;
+    intf_info->bad_lsps_pkt_recvd = 0;
+    intf_info->lsp_pkt_sent = 0;
+    intf_info ->hello_pkt_sent = 0;
 }

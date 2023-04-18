@@ -94,7 +94,6 @@ isis_record_tlv_advertisement (node_t *node,
     isis_node_info_t *node_info;
     isis_fragment_t  *fragment = NULL;
 
-
     node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return ISIS_TLV_RECORD_ADVT_FAILED;
@@ -104,9 +103,8 @@ isis_record_tlv_advertisement (node_t *node,
     isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
 
     if (!advt_db) {
-        node_info->advt_db[pn_no] = (isis_advt_db_t *)XCALLOC(0, 1, isis_advt_db_t );
-        advt_db = node_info->advt_db[pn_no];
-        init_glthread(&advt_db->fragment_priority_list);
+        isis_create_advt_db (node_info, pn_no);
+        advt_db =  node_info->advt_db[pn_no];
         new_advt_db = true;
     }
 
@@ -294,12 +292,41 @@ isis_withdraw_tlv_advertisement (node_t *node,
 void 
 isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 
+    isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
+    assert(!advt_db);
+    advt_db = (isis_advt_db_t *)XCALLOC(0, 1, isis_advt_db_t );
+    node_info->advt_db[pn_no] = advt_db;
+    init_glthread(&advt_db->fragment_priority_list);
 }
 
 void
 isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
 
+    int i;
+    isis_advt_db_t *advt_db;
+    isis_fragment_t *fragment;
+
     if (!node_info) return;
+     
+     advt_db = node_info->advt_db[pn_no];
+    
+    if (!advt_db) return;
+
+    for (i = 0; i < ISIS_MAX_FRAGMENT_SUPPORTED; i++) {
+
+        fragment = advt_db->fragments[i];
+        if (!fragment) continue;
+        advt_db->fragments[i] = NULL;
+        isis_delete_fragment (fragment);
+    }
+
+    XFREE(advt_db);
+    node_info->advt_db[pn_no] = NULL;
+}
+
+void
+isis_delete_fragment (isis_fragment_t *fragment) {
+
 }
 
 void

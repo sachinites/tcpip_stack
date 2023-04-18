@@ -78,48 +78,51 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
 
 bool
-isis_node_intf_is_enable(Interface *intf) ;
+isis_node_intf_is_enable (Interface *intf) ;
 
 void
-isis_enable_protocol_on_interface(Interface *intf);
+isis_enable_protocol_on_interface (Interface *intf);
 
 void
-isis_disable_protocol_on_interface(Interface *intf);
+isis_disable_protocol_on_interface (Interface *intf);
 
 void
-isis_start_sending_hellos(Interface *intf) ;
+isis_start_sending_hellos (Interface *intf) ;
 
 void
-isis_stop_sending_hellos(Interface *intf);
+isis_stop_sending_hellos (Interface *intf);
 
 void
-isis_refresh_intf_hellos(Interface *intf);
+isis_refresh_intf_hellos (Interface *intf);
 
 void
-isis_show_interface_protocol_state(Interface *intf);
+isis_show_interface_protocol_state (Interface *intf);
 
 void
-isis_interface_updates(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void 
-isis_check_and_delete_intf_info(Interface *intf);
+isis_check_and_delete_intf_info (Interface *intf);
 
 bool
-isis_interface_qualify_to_send_hellos(Interface *intf);
+isis_interface_qualify_to_send_hellos (Interface *intf);
 
 bool
 isis_atleast_one_interface_protocol_enabled(node_t *node);
 
 uint32_t 
-isis_show_all_intf_stats(node_t *node);
+isis_show_all_intf_stats (node_t *node);
 
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc);
 
 int
-isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type);
+isis_config_interface_link_type (Interface *intf, isis_intf_type_t intf_type);
 
 int
 isis_interface_set_priority (Interface *intf, uint16_t priority);
+
+void
+isis_interface_reset_stats (Interface *intf) ;
 
 #endif // ! __ISIS_INTF__
