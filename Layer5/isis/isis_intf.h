@@ -134,10 +134,4 @@ isis_interface_set_priority (Interface *intf, uint16_t priority);
 void
 isis_interface_reset_stats (Interface *intf) ;
 
-void
-isis_intf_allocate_lan_id (Interface *intf);
-
-void
-isis_intf_deallocate_lan_id (Interface *intf);
-
 #endif // ! __ISIS_INTF__

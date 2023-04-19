@@ -84,6 +84,9 @@ typedef struct isis_adv_data_ {
     isis_advt_info_t advt_info;
     glthread_t glue;
     
+    /* back-linkage*/
+    struct isis_adv_data_ **back_linkage;
+    struct isis_adv_data_ *back_linkage_static;
 } isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 
@@ -151,5 +154,6 @@ void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_all_advt_db(isis_node_info_t *node_info);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
-void isis_delete_fragment (isis_fragment_t *fragment) ;
+void isis_discard_fragment (isis_fragment_t *fragment, bool purge) ;
+
 #endif  

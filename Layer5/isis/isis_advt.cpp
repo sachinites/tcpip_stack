@@ -317,7 +317,7 @@ isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
         fragment = advt_db->fragments[i];
         if (!fragment) continue;
         advt_db->fragments[i] = NULL;
-        isis_delete_fragment (fragment);
+        isis_discard_fragment (fragment, false);
     }
 
     XFREE(advt_db);
@@ -325,8 +325,9 @@ isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
 }
 
 void
-isis_delete_fragment (isis_fragment_t *fragment) {
+isis_discard_fragment (isis_fragment_t *fragment, bool purge) {
 
+    
 }
 
 void

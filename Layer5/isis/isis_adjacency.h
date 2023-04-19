@@ -136,15 +136,4 @@ isis_show_all_adjacencies (node_t *node) ;
 void
 isis_reposition_adjacency (isis_adjacency_t *adjacency);
 
-/* DIS Mgmt Functions */
-
-/* Deletet the Current DIS*/
-void  isis_intf_resign_dis (Interface *intf);
-
-/* Trigger DIS Re-election, return rtr id of the DIS*/
-isis_lan_id_t isis_intf_reelect_dis (Interface *intf);
-
-void
-isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id);
-
 #endif /* __IGP_NBRSHIP__ */

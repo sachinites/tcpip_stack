@@ -8,6 +8,7 @@
 #include "isis_flood.h"
 #include "isis_intf_group.h"
 #include "isis_layer2map.h"
+#include "isis_pn.h"
 #include "isis_utils.h"
 
 static void
@@ -975,74 +976,4 @@ isis_reposition_adjacency (isis_adjacency_t *adjacency) {
 
     isis_intf_resign_dis (intf);
     isis_intf_assign_new_dis (intf,  new_dis_id);
-}
-
-
-/* DIS Mgmt Functions */
-
-/* Deletet the Current DIS*/
-void 
-isis_intf_resign_dis (Interface *intf) {
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
-
-    if (!intf_info) return;
-
-    /* Delete the DIS data ...*/
-    intf_info->elected_dis = {0, 0};
-}
-
-/* Trigger DIS Re-election, return rtr id of the DIS*/
-isis_lan_id_t
-isis_intf_reelect_dis (Interface *intf) {
-
-    int8_t rc;
-    uint32_t rtr_id;
-    glthread_t *curr;
-    isis_adjacency_t *adj;
-    isis_lan_id_t self_lan_id;     
-    isis_lan_id_t null_lan_id;   
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
-
-    null_lan_id = {0, 0};
-    self_lan_id = intf_info->lan_id;
-
-    if (!intf_info) return null_lan_id; 
-
-    if (intf_info->intf_type == isis_intf_type_p2p) return null_lan_id;
-
-    if (IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf))) {
-        return self_lan_id;
-    }
-
-    curr = glthread_get_next (ISIS_INTF_ADJ_LST_HEAD(intf));
-    adj = glthread_to_isis_adjacency(curr);
-
-    if (adj->adj_state != ISIS_ADJ_STATE_UP) return self_lan_id;
-
-    if (intf_info->priority > adj->priority) return self_lan_id;
-    if (intf_info->priority < adj->priority) return adj->lan_id;
-
-    rtr_id = NODE_LO_ADDR_INT(intf->att_node);
-    if (rtr_id > adj->nbr_rtr_id) return self_lan_id;
-    if (rtr_id < adj->nbr_rtr_id) return adj->lan_id;
-    
-    return null_lan_id;
-}
-
-void
-isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    
-    if (!intf_info) return;
-
-    assert(intf_info->elected_dis.rtr_id == 0 &&
-                intf_info->elected_dis.pn_id == 0);
-
-    intf_info->elected_dis = new_dis_id;
-    ISIS_INCREMENT_NODE_STATS(intf->att_node,
-        isis_event_count[isis_event_dis_changed]);
-    // .. .
 }

@@ -6,6 +6,7 @@
 #include "isis_rtr.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
+#include "isis_pn.h"
 #include "isis_utils.h"
 
 bool
@@ -527,39 +528,4 @@ isis_interface_reset_stats (Interface *intf) {
     intf_info->bad_lsps_pkt_recvd = 0;
     intf_info->lsp_pkt_sent = 0;
     intf_info ->hello_pkt_sent = 0;
-}
-
-void
-isis_intf_allocate_lan_id (Interface *intf) {
-
-    bool rc;
-    pn_id_t pn_id;
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    
-    if (!intf_info) return;
-
-    assert(intf_info->intf_type == isis_intf_type_lan);
-    assert (intf_info->lan_id.pn_id == 0);
-
-    pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
-    assert(rc);
-
-    isis_create_advt_db (ISIS_NODE_INFO (intf->att_node) , pn_id);
-    intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), pn_id};
-}
-
-void
-isis_intf_deallocate_lan_id (Interface *intf) {
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    
-    if (!intf_info) return;
-
-    assert(intf_info->intf_type == isis_intf_type_lan);
-    assert (intf_info->lan_id.pn_id); 
-
-    isis_destroy_advt_db (ISIS_NODE_INFO(intf->att_node), 
-                                            intf_info->lan_id.pn_id); 
-    intf_info->lan_id = {0, 0};
 }
