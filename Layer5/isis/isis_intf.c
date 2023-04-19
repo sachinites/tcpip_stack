@@ -6,6 +6,8 @@
 #include "isis_rtr.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
+#include "isis_pn.h"
+#include "isis_utils.h"
 
 bool
 isis_node_intf_is_enable(Interface *intf) {
@@ -118,13 +120,24 @@ isis_refresh_intf_hellos(Interface *intf) {
 
 static void
 isis_init_intf_info (Interface *intf) {
-    
+      
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    isis_node_info_t *node_info = ISIS_NODE_INFO (intf->att_node);
+       
     memset(intf_info, 0, sizeof(isis_intf_info_t));
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
+    intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
+    intf_info->intf_type = isis_intf_type_lan;
+    intf_info->level = isis_level_1; /* Only Lvl 1 is Supported for now*/
+    intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), 0};
     init_glthread(&intf_info->adj_list_head);
     init_glthread(&intf_info->intf_grp_member_glue);
+    if ( isis_intf_is_lan (intf)) {
+        isis_intf_allocate_lan_id (intf);
+        intf_info->elected_dis = {0, 0};
+        isis_intf_assign_new_dis (intf, intf_info->lan_id);
+    }
     /* Back Linkage */
     intf_info->intf = intf;
 }
@@ -170,10 +183,12 @@ isis_check_and_delete_intf_info(Interface *intf) {
          !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head) ||
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
-         ISIS_INTF_INFO(intf)->lsp_xmit_job) {
+         ISIS_INTF_INFO(intf)->lsp_xmit_job ||
+         ISIS_INTF_INFO(intf)->lan_id.pn_id ||
+         (ISIS_INTF_INFO(intf)->elected_dis.rtr_id || ISIS_INTF_INFO(intf)->elected_dis.pn_id)) {
 
        assert(0);
-    }    
+    }  
     isis_free_intf_info(intf);
 }
 
@@ -191,6 +206,10 @@ isis_disable_protocol_on_interface(Interface *intf) {
     isis_intf_purge_lsp_xmit_queue(intf);
     remove_glthread(&intf_info->intf_grp_member_glue);
     intf_info->intf_grp = NULL;
+    if (isis_intf_is_lan(intf)) {
+        isis_intf_deallocate_lan_id (intf);
+        isis_intf_resign_dis(intf);
+    }
     isis_check_and_delete_intf_info(intf);
 }
 
@@ -199,6 +218,7 @@ isis_show_interface_protocol_state(Interface *intf) {
 
     bool is_enabled;
     glthread_t *curr;
+    byte buffer[32];
     isis_adjacency_t *adjacency = NULL;
     isis_intf_info_t *intf_info = NULL;
 
@@ -210,6 +230,15 @@ isis_show_interface_protocol_state(Interface *intf) {
 
     intf_info = intf->isis_intf_info;
    
+   PRINT_TABS(2);
+   printf ("link-type: %s", intf_info->intf_type == isis_intf_type_p2p ? "p2p" : "lan");
+   if (intf_info->intf_type == isis_intf_type_lan) {
+        printf ("    lan-id : %s\n", isis_lan_id_tostring(&intf_info->lan_id, buffer));
+        printf ("    elected dis-id : %s\n", isis_lan_id_tostring(&intf_info->elected_dis, buffer));
+   }
+   else {
+        printf ("\n");
+   }
     if (intf_info->intf_grp) {
          PRINT_TABS(2);
         printf("Intf Group : %s \n", intf_info->intf_grp->name);
@@ -405,4 +434,98 @@ isis_show_all_intf_stats(node_t *node) {
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
     return rc;
+}
+
+int
+isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
+
+    bool rc;
+    pn_id_t pn_id;
+    uint32_t rtr_id;
+    bool gen_lsp = false;
+    node_t *node = intf->att_node;
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!intf_info) return -1;
+
+    if (intf_info->intf_type == intf_type) return -1;
+
+    if (isis_any_adjacency_up_on_interface(intf)) {
+        gen_lsp = true;
+    }
+    isis_delete_all_adjacencies(intf);
+    isis_stop_sending_hellos(intf);
+
+    if (intf_type == isis_intf_type_p2p) {
+        isis_intf_deallocate_lan_id (intf);
+        isis_intf_resign_dis (intf);
+    }
+    else {
+        isis_intf_allocate_lan_id (intf);
+        isis_intf_assign_new_dis (intf, intf_info->lan_id);
+    }
+
+    intf_info->intf_type = intf_type;
+    isis_interface_reset_stats (intf);
+
+    if (isis_interface_qualify_to_send_hellos(intf)) {
+        isis_start_sending_hellos(intf);
+    }
+    if (gen_lsp) {
+        isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
+    }
+    return 0;
+}
+
+int
+isis_interface_set_priority (Interface *intf, uint16_t priority) {
+
+    isis_lan_id_t old_dis_id,
+                          new_dis_id;
+
+   node_t *node = intf->att_node;
+
+   isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+   if (!intf_info) return -1;
+
+    if (intf_info->priority == priority) return -1;
+
+    intf_info->priority = priority;
+
+    isis_stop_sending_hellos(intf);
+
+    if (isis_interface_qualify_to_send_hellos (intf)) {
+        isis_start_sending_hellos(intf);
+    }
+
+    if (isis_intf_is_p2p(intf)) return 0;
+
+    old_dis_id = intf_info->elected_dis;
+    new_dis_id =  isis_intf_reelect_dis(intf);    
+
+    if (isis_lan_id_compare (&old_dis_id, &new_dis_id) == CMP_PREF_EQUAL) {
+        return 0;
+    }
+
+    isis_intf_resign_dis (intf);
+    isis_intf_assign_new_dis (intf,  new_dis_id);
+    return 0;
+}
+
+void
+isis_interface_reset_stats (Interface *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+    
+    if (!intf_info) return;
+
+    intf_info->good_hello_pkt_recvd = 0;
+    intf_info->bad_hello_pkt_recvd = 0;
+    intf_info->good_lsps_pkt_recvd = 0;
+    intf_info->bad_lsps_pkt_recvd = 0;
+    intf_info->lsp_pkt_sent = 0;
+    intf_info ->hello_pkt_sent = 0;
 }

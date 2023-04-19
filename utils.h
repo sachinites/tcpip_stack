@@ -149,4 +149,12 @@ do{                                  \
        printf("  ");               \
 } while(0);
 
+/* To be used for comparison fns*/
+typedef enum comp_fn_res_ {
+
+    CMP_PREFERRED  =   -1,
+    CMP_NOT_PREFERRED = 1,
+    CMP_PREF_EQUAL = 0
+} comp_fn_res_t;
+
 #endif /* __UTILS__ */

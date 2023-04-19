@@ -316,10 +316,10 @@ build_dualswitch_topo(void){
     node_t *H4 = create_graph_node(topo, (const c_string)"H4");
     node_set_loopback_address(H4, "122.1.1.4");
     node_t *H5 = create_graph_node(topo, (const c_string)"H5");
-
     node_set_loopback_address(H5, "122.1.1.5");
     node_t *H6 = create_graph_node(topo, (const c_string)"H6");
     node_set_loopback_address(H6, "122.1.1.6");
+
     node_t *L2SW1 = create_graph_node(topo, (const c_string)"L2SW1");
     node_t *L2SW2 = create_graph_node(topo, (const c_string)"L2SW2");
     
@@ -344,19 +344,19 @@ build_dualswitch_topo(void){
     node_set_intf_vlan_membership(L2SW1, "eth7", 10);
     node_set_intf_l2_mode(L2SW1, "eth5", LAN_TRUNK_MODE);
     node_set_intf_vlan_membership(L2SW1, "eth5", 10);
-    node_set_intf_vlan_membership(L2SW1, "eth5", 11);
+    //node_set_intf_vlan_membership(L2SW1, "eth5", 10);
     node_set_intf_l2_mode(L2SW1, "eth6", LAN_ACCESS_MODE);
-    node_set_intf_vlan_membership(L2SW1, "eth6", 11);
+    node_set_intf_vlan_membership(L2SW1, "eth6", 10);
 
     node_set_intf_l2_mode(L2SW2, "eth7", LAN_TRUNK_MODE);
     node_set_intf_vlan_membership(L2SW2, "eth7", 10);
-    node_set_intf_vlan_membership(L2SW2, "eth7", 11);
+    //node_set_intf_vlan_membership(L2SW2, "eth7", 10);
     node_set_intf_l2_mode(L2SW2, "eth9", LAN_ACCESS_MODE);
     node_set_intf_vlan_membership(L2SW2, "eth9", 10);
     node_set_intf_l2_mode(L2SW2, "eth10", LAN_ACCESS_MODE);
     node_set_intf_vlan_membership(L2SW2, "eth10", 10);
     node_set_intf_l2_mode(L2SW2, "eth12", LAN_ACCESS_MODE);
-    node_set_intf_vlan_membership(L2SW2, "eth12", 11);
+    node_set_intf_vlan_membership(L2SW2, "eth12", 10);
 
     return topo;
 }

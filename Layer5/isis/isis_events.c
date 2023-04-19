@@ -53,7 +53,9 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_overload_timeout
     "ISIS EVENT OVERLOAD TIMEOUT",
     //isis_event_route_rib_update
-    "ISIS EVENT ROUTE RIB UPDATE"
+    "ISIS EVENT ROUTE RIB UPDATE",
+    //isis_event_dis_changed
+    "ISIS EVENT DIS CHANGED"
 }; 
 
 const char *

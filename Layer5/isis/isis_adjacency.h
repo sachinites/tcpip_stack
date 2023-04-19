@@ -2,6 +2,9 @@
 #define __IGP_NBRSHIP__
 
 #include "isis_advt.h"
+#include "isis_struct.h"
+
+typedef struct isis_common_hdr_ isis_common_hdr_t;
 
 typedef enum isis_adj_state_ {
 
@@ -38,6 +41,10 @@ typedef struct isis_adjacency_{
      mac_addr_t nbr_mac;
     /*Nbr lo 0 address */
     uint32_t nbr_rtr_id;
+    /* LAN ID, only for LAN Adj*/
+    isis_lan_id_t lan_id;
+    /* Nbrs Priority */
+    uint16_t priority;
     /* Nbr if index */
     uint32_t remote_if_index;
     /* Adj State */
@@ -60,13 +67,20 @@ typedef struct isis_adjacency_{
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);
 
+#define isis_adjacency_is_lan(adjacency_ptr) \
+    (ISIS_INTF_INFO(adjacency_ptr->intf)->intf_type == isis_intf_type_lan)
+
+#define isis_adjacency_is_p2p(adjacency_ptr) \
+    (ISIS_INTF_INFO(adjacency_ptr->intf)->intf_type == isis_intf_type_p2p)
+
 void
 isis_adjacency_set_uptime(isis_adjacency_t *adjacency);
 
 void
-isis_update_interface_adjacency_from_hello(Interface *iif,
-        unsigned char *hello_tlv_buffer,
-        size_t tlv_buff_size);
+isis_update_interface_adjacency_from_hello(
+        Interface *iif,
+        isis_common_hdr_t *cmn_hdr,
+        size_t hello_pkt_size);
 
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
@@ -118,5 +132,8 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
                              
 uint32_t 
 isis_show_all_adjacencies (node_t *node) ;
+
+void
+isis_reposition_adjacency (isis_adjacency_t *adjacency);
 
 #endif /* __IGP_NBRSHIP__ */

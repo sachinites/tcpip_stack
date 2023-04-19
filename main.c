@@ -34,8 +34,8 @@
  * www.csepracticals.com
  * if above URL dont work, then try visit : https://csepracticals.com*/
 
-#include "graph.h"
 #include <stdio.h>
+#include "graph.h"
 #include "CommandParser/libcli.h"
 #include "EventDispatcher/event_dispatcher.h"
 
@@ -92,7 +92,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
 
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = cross_link_topology();
+    topo = build_dualswitch_topo();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;

@@ -94,7 +94,6 @@ isis_record_tlv_advertisement (node_t *node,
     isis_node_info_t *node_info;
     isis_fragment_t  *fragment = NULL;
 
-
     node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return ISIS_TLV_RECORD_ADVT_FAILED;
@@ -104,9 +103,8 @@ isis_record_tlv_advertisement (node_t *node,
     isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
 
     if (!advt_db) {
-        node_info->advt_db[pn_no] = (isis_advt_db_t *)XCALLOC(0, 1, isis_advt_db_t );
-        advt_db = node_info->advt_db[pn_no];
-        init_glthread(&advt_db->fragment_priority_list);
+        isis_create_advt_db (node_info, pn_no);
+        advt_db =  node_info->advt_db[pn_no];
         new_advt_db = true;
     }
 
@@ -199,7 +197,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
         memset((byte *)eth_hdr, 0, fragment->bytes_filled);
         // memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
         layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
-        eth_hdr->type = ISIS_ETH_PKT_TYPE;
+        eth_hdr->type = ISIS_HELLO_ETH_PKT_TYPE;
     }
 
     bytes_filled += (ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
@@ -208,7 +206,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
     if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_RENEW_LSP_PKT_HDR)) {
-        lsp_pkt_hdr->isis_pkt_type = ISIS_LSP_PKT_TYPE;
+        lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
         lsp_pkt_hdr->seq_no = (++fragment->seq_no);
         lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
         lsp_pkt_hdr->pn_no = fragment->pn_no;
@@ -294,12 +292,42 @@ isis_withdraw_tlv_advertisement (node_t *node,
 void 
 isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 
+    isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
+    assert(!advt_db);
+    advt_db = (isis_advt_db_t *)XCALLOC(0, 1, isis_advt_db_t );
+    node_info->advt_db[pn_no] = advt_db;
+    init_glthread(&advt_db->fragment_priority_list);
 }
 
 void
 isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
 
+    int i;
+    isis_advt_db_t *advt_db;
+    isis_fragment_t *fragment;
+
     if (!node_info) return;
+     
+     advt_db = node_info->advt_db[pn_no];
+    
+    if (!advt_db) return;
+
+    for (i = 0; i < ISIS_MAX_FRAGMENT_SUPPORTED; i++) {
+
+        fragment = advt_db->fragments[i];
+        if (!fragment) continue;
+        advt_db->fragments[i] = NULL;
+        isis_discard_fragment (fragment, false);
+    }
+
+    XFREE(advt_db);
+    node_info->advt_db[pn_no] = NULL;
+}
+
+void
+isis_discard_fragment (isis_fragment_t *fragment, bool purge) {
+
+    
 }
 
 void

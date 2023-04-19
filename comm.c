@@ -169,9 +169,12 @@ dp_pkt_receive (node_t *node,
         return;
     }
 
-    if ( vlan_id_to_tag && (interface->GetL2Mode() != LAN_MODE_NONE)) {
 
-        tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
+    if ((interface->GetL2Mode() != LAN_MODE_NONE)) {
+
+        if (vlan_id_to_tag) {
+            tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
+        }
         l2_switch_recv_frame(node, interface, pkt_block);
         assert(!pkt_block_dereference(pkt_block));
     }
@@ -265,9 +268,8 @@ _pkt_receive(node_t *receving_node,
                                             pkt_size - IF_NAME_SIZE);
 
     pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
-
     send_pkt_to_self (pkt_block, recv_intf);
-    XFREE(pkt_block);
+    pkt_block_dereference(pkt_block);
 }
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];

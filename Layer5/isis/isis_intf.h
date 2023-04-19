@@ -5,11 +5,19 @@ typedef struct isis_intf_group_ isis_intf_group_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 
 #include "isis_advt.h"
+#include "isis_struct.h"
+
+typedef enum isis_intf_type_ {
+
+    isis_intf_type_p2p,
+    isis_intf_type_lan
+} isis_intf_type_t;
 
 typedef struct intf_info_ {
 
     Interface *intf;
     uint16_t hello_interval;
+    uint16_t priority;
 
     /*  Timer to retransmit hellos out of
         the interface */
@@ -25,9 +33,14 @@ typedef struct intf_info_ {
     /* intf cost */
     uint32_t cost;
 
-    /* Pseudonode id to be used is this interface is
-        selected as DIS for lan segment*/
-    uint8_t pn_id;
+    isis_intf_type_t intf_type;
+    ISIS_LVL level;
+    
+    /* LAN-ID for this interface if this interface is LAN*/
+    isis_lan_id_t lan_id;
+
+    /* For P2P, it will be null*/
+    isis_lan_id_t elected_dis;
 
     /* Adj list on this interface */
     glthread_t adj_list_head;
@@ -67,44 +80,58 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
 #define ISIS_INTF_INCREMENT_STATS(intf_ptr, pkt_type)  \
     (((ISIS_INTF_INFO(intf_ptr))->pkt_type)++)
 
+#define isis_intf_is_lan(intf_ptr) \
+    (ISIS_INTF_INFO(intf_ptr)->intf_type == isis_intf_type_lan)
+
+#define isis_intf_is_p2p(intf_ptr) \
+    (ISIS_INTF_INFO(intf_ptr)->intf_type == isis_intf_type_p2p)
 
 bool
-isis_node_intf_is_enable(Interface *intf) ;
+isis_node_intf_is_enable (Interface *intf) ;
 
 void
-isis_enable_protocol_on_interface(Interface *intf);
+isis_enable_protocol_on_interface (Interface *intf);
 
 void
-isis_disable_protocol_on_interface(Interface *intf);
+isis_disable_protocol_on_interface (Interface *intf);
 
 void
-isis_start_sending_hellos(Interface *intf) ;
+isis_start_sending_hellos (Interface *intf) ;
 
 void
-isis_stop_sending_hellos(Interface *intf);
+isis_stop_sending_hellos (Interface *intf);
 
 void
-isis_refresh_intf_hellos(Interface *intf);
+isis_refresh_intf_hellos (Interface *intf);
 
 void
-isis_show_interface_protocol_state(Interface *intf);
+isis_show_interface_protocol_state (Interface *intf);
 
 void
-isis_interface_updates(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void 
-isis_check_and_delete_intf_info(Interface *intf);
+isis_check_and_delete_intf_info (Interface *intf);
 
 bool
-isis_interface_qualify_to_send_hellos(Interface *intf);
+isis_interface_qualify_to_send_hellos (Interface *intf);
 
 bool
 isis_atleast_one_interface_protocol_enabled(node_t *node);
 
 uint32_t 
-isis_show_all_intf_stats(node_t *node);
+isis_show_all_intf_stats (node_t *node);
 
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc);
+
+int
+isis_config_interface_link_type (Interface *intf, isis_intf_type_t intf_type);
+
+int
+isis_interface_set_priority (Interface *intf, uint16_t priority);
+
+void
+isis_interface_reset_stats (Interface *intf) ;
 
 #endif // ! __ISIS_INTF__

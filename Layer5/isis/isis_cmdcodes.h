@@ -58,4 +58,13 @@
 /* config node <node-name> protocol isis export-policy <pfx-list-name> */
 #define CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY 26
 
+/* Interface Types*/
+/* config node <node-name> protocol isis interface <if-name> p2p */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P   27
+/* config node <node-name> protocol isis interface <if-name> lan */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN   28
+
+ /* config node <node-name> protocol isis interface <if-name> priority <val>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY 29
+
 #endif /* __ISIS_CMDCODES__ */

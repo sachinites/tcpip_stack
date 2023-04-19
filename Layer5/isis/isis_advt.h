@@ -1,17 +1,9 @@
 #ifndef __ISIS_ADVT__
 #define __ISIS_ADVT__
 
-#if 0
-
-Dependencies 
-    <stdint.h>
-    "../../gluethread/glthread.h"
-    "../../graph.h"
-
-#endif 
-
 #include "isis_const.h"
 #include "isis_rtr.h"
+#include "isis_pn.h"
 
 typedef struct node_info_ isis_node_info_t;
 typedef uint64_t advt_id_t;
@@ -92,6 +84,9 @@ typedef struct isis_adv_data_ {
     isis_advt_info_t advt_info;
     glthread_t glue;
     
+    /* back-linkage*/
+    struct isis_adv_data_ **back_linkage;
+    struct isis_adv_data_ *back_linkage_static;
 } isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 
@@ -147,7 +142,7 @@ isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
 
 isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
-                                    uint8_t pn_no,
+                                    pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
                                     isis_advt_info_t *advt_info_out);
 
@@ -155,9 +150,10 @@ isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,
                                     isis_advt_info_t *advt_info);
 
-void isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no);
-void isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no);
+void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
+void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_all_advt_db(isis_node_info_t *node_info);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
+void isis_discard_fragment (isis_fragment_t *fragment, bool purge) ;
 
 #endif  
