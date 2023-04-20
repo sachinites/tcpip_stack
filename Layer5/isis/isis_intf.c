@@ -461,8 +461,8 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     isis_stop_sending_hellos(intf);
 
     if (intf_type == isis_intf_type_p2p) {
-        isis_intf_deallocate_lan_id (intf);
         isis_intf_resign_dis (intf);
+        isis_intf_deallocate_lan_id (intf);
         intf_info->intf_type = intf_type;
     }
     else {

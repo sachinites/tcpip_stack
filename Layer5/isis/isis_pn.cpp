@@ -57,7 +57,7 @@ isis_intf_deallocate_lan_id (Interface *intf) {
     assert(intf_info->intf_type == isis_intf_type_lan);
     assert (intf_info->lan_id.pn_id); 
 
-    isis_destroy_advt_db (ISIS_NODE_INFO(intf->att_node), 
+    isis_destroy_advt_db (intf->att_node, 
                                             intf_info->lan_id.pn_id); 
     intf_info->lan_id = {0, 0};
 }

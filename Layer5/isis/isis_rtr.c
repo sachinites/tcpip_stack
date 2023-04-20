@@ -119,7 +119,7 @@ isis_protocol_shutdown_now (node_t *node) {
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
     isis_intf_grp_cleanup(node);
-    isis_destroy_advt_db(node_info, 0);
+    isis_destroy_advt_db(node, 0);
     isis_check_delete_node_info(node);      
 }
 

@@ -60,6 +60,7 @@ typedef struct isis_fragment_ {
     uint8_t pn_no;
     uint8_t fr_no;
     pkt_block_t *lsp_pkt;
+    uint32_t regen_flags;
     uint8_t ref_count;
 }isis_fragment_t;
 GLTHREAD_TO_STRUCT(isis_priority_list_glue_to_fragment,
@@ -133,6 +134,7 @@ isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
     /*should not leave dangling pointers by referenced objects*/
     assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
     assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
+    printf ("fragment [%hu][%hu] deleted\n", fragment->pn_no, fragment->fr_no);
     XFREE(fragment);
 }
 
@@ -148,10 +150,9 @@ isis_withdraw_tlv_advertisement (node_t *node,
                                     isis_adv_data_t *adv_data);
 
 void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
-void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
-void isis_destroy_all_advt_db(isis_node_info_t *node_info);
+void isis_destroy_advt_db (node_t *node, pn_id_t pn_no);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
-void isis_discard_fragment (isis_fragment_t *fragment, bool purge) ;
+void isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) ;
 uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
 

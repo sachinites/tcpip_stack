@@ -70,12 +70,6 @@ static int
     return 0;
  }
 
-/* Fragmebt generate and delete */
-static void
-isis_delete_fragment (isis_node_info_t *node_info, isis_fragment_t *fragment){
-
-}
-
 static void
 isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) {
 
@@ -160,6 +154,7 @@ isis_record_tlv_advertisement (node_t *node,
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
     adv_data->holder = back_linkage;
+    isis_schedule_regen_fragment(node, fragment);
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
 }
 
@@ -269,7 +264,8 @@ isis_withdraw_tlv_advertisement (node_t *node,
     fragment = adv_data->fragment;
 
     assert (fragment) ;
-    
+    isis_fragment_lock(fragment);
+
     advt_db = node_info->advt_db[fragment->pn_no];
     assert(advt_db);
     
@@ -285,18 +281,17 @@ isis_withdraw_tlv_advertisement (node_t *node,
     if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
         /* Empty fragment, remove it if it is non-zero fragment */
         if (fragment->pn_no || fragment->fr_no) {
-            isis_discard_fragment (fragment, true);
+            isis_discard_fragment (node, fragment, false /*Later : true*/);
         }
     }
     else {
-        isis_fragment_lock(fragment);
-        isis_schedule_regen_fragment (node, fragment);
+        isis_schedule_regen_fragment(node, fragment);
     }
     adv_data->fragment = NULL;
+    isis_fragment_unlock(node_info, fragment);
     *(adv_data->holder) = NULL;
     XFREE(adv_data);
     isis_fragment_unlock(node_info, fragment);
-
     return ISIS_TLV_WD_SUCCESS;
 }
 
@@ -312,11 +307,12 @@ isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 }
 
 void
-isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
+isis_destroy_advt_db (node_t *node, uint8_t pn_no) {
 
     int i;
     isis_advt_db_t *advt_db;
     isis_fragment_t *fragment;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
      
@@ -328,8 +324,7 @@ isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
 
         fragment = advt_db->fragments[i];
         if (!fragment) continue;
-        advt_db->fragments[i] = NULL;
-        isis_discard_fragment (fragment, false);
+        isis_discard_fragment (node, fragment, false);
     }
 
     XFREE(advt_db);
@@ -337,20 +332,64 @@ isis_destroy_advt_db (isis_node_info_t *node_info, uint8_t pn_no) {
 }
 
 void
-isis_discard_fragment (isis_fragment_t *fragment, bool purge) {
+isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
 
-    
+    glthread_t *curr;
+    pkt_size_t pkt_size;
+    isis_lsp_pkt_t *lsp_pkt;
+    pkt_block_t *pkt_block;
+    isis_adv_data_t *advt_data;
+    isis_advt_db_t *advt_db;
+    isis_node_info_t *node_info;
+
+    isis_fragment_lock(fragment);
+    node_info = ISIS_NODE_INFO(node);
+
+    ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+
+        advt_data = glue_to_isis_advt_data(curr);
+        remove_glthread(&advt_data->glue);
+        assert(advt_data->fragment);
+        advt_data->fragment = NULL;
+        isis_fragment_unlock(node_info, fragment);
+        assert(advt_data->holder && *(advt_data->holder));
+        *(advt_data->holder) = NULL;
+        fragment->bytes_filled -= isis_get_adv_data_size(advt_data);
+        XFREE(advt_data);
+    }
+    ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
+
+    remove_glthread(&fragment->priority_list_glue);
+    isis_fragment_unlock(node_info, fragment);
+
+    advt_db = node_info->advt_db[fragment->pn_no];
+    assert(advt_db->fragments[fragment->fr_no]);
+    advt_db->fragments[fragment->fr_no] = NULL;
+    isis_fragment_unlock(node_info, fragment);
+
+    if (!purge) {
+        if (fragment->lsp_pkt) { // remove this check later
+            pkt_block_dereference(fragment->lsp_pkt);
+        }
+        fragment->lsp_pkt = NULL;
+        isis_fragment_unlock(node_info, fragment);
+        return;
+    }
+
+    assert(0); // not supported yet
+    pkt_block = fragment->lsp_pkt;
+    fragment->lsp_pkt = NULL;
+
+    fragment->regen_flags = (ISIS_SHOULD_INCL_PURGE_BIT | 
+                                ISIS_SHOULD_RENEW_LSP_PKT_HDR);
+
+    isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
+    lsp_pkt = ( isis_lsp_pkt_t *)pkt_block_get_pkt(fragment->lsp_pkt, &pkt_size);
+    /* Fix Me ; We should really use pkt_block instead of raw lsp pkt. Once we do these changes, we
+        can uncomment below line*/
+    //isis_schedule_lsp_flood (node, lsp_pkt, NULL,  isis_event_discard_fragment);
+    isis_fragment_unlock(node_info, fragment);
 }
-
-void
- isis_destroy_all_advt_db(isis_node_info_t *node_info) {
-
-    int i;
-
-    for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
-        isis_destroy_advt_db(node_info, i);
-    }  
- }
 
 void
 isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info) {
