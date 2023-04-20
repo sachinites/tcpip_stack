@@ -11,6 +11,8 @@
 #include "isis_pn.h"
 #include "isis_utils.h"
 
+extern advt_id_t isis_gen_avt_id () ;
+
 static void
 isis_init_adjacency(isis_adjacency_t *adjacency) {
 
@@ -307,7 +309,7 @@ isis_update_interface_adjacency_from_hello(
     }
 
     if (repos_adj) {
-        isis_reposition_adjacency (adjacency);
+        isis_update_dis_on_adjacency_transition (adjacency);
     }
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
@@ -551,7 +553,8 @@ isis_change_adjacency_state(
                     /* Schedule LSP gen becaue Adj state has changed */
                     isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
-                    isis_reposition_adjacency(adjacency);
+                    isis_update_dis_on_adjacency_transition(adjacency);
+                    isis_adjacency_advertise_is_reach(adjacency);
                     break;
                 default : ;
             }   
@@ -580,7 +583,8 @@ isis_change_adjacency_state(
                         isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
-                    isis_reposition_adjacency(adjacency);
+                    isis_update_dis_on_adjacency_transition(adjacency);
+                    isis_adjacency_withdraw_is_reach(adjacency);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);
@@ -950,7 +954,7 @@ isis_show_all_adjacencies (node_t *node) {
  }
 
 void
-isis_reposition_adjacency (isis_adjacency_t *adjacency) {
+isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     
     Interface *intf;
     isis_lan_id_t old_dis_id,
@@ -977,3 +981,133 @@ isis_reposition_adjacency (isis_adjacency_t *adjacency) {
     isis_intf_resign_dis (intf);
     isis_intf_assign_new_dis (intf,  new_dis_id);
 }
+
+static isis_tlv_record_advt_return_code_t
+ isis_adjacency_advertise_lan (isis_adjacency_t *adjacency) {
+
+    isis_intf_info_t *intf_info;
+    isis_advt_info_t advt_info;
+    isis_adv_data_t *advt_data;
+    isis_tlv_record_advt_return_code_t rc;
+
+    assert(isis_adjacency_is_lan (adjacency));
+
+    intf_info = ISIS_INTF_INFO(adjacency->intf);
+
+    /* If I am not a DIS, I have nothing to advertise for this adjacency*/
+    if (!isis_am_i_dis(adjacency->intf)) 
+        return ISIS_TLV_RECORD_ADVT_SUCCESS ;
+
+    /* If I am DIS, it is my responsibility to advertise adjacency on behalf of PN*/
+    if (adjacency->u.lan_pn_to_nbr_adv_data) {
+
+        if (adjacency->u.lan_pn_to_nbr_adv_data->fragment) {
+            return ISIS_TLV_RECORD_ADVT_ALREADY;
+        }
+
+        return isis_record_tlv_advertisement(
+            adjacency->intf->att_node,
+            intf_info->elected_dis.pn_id,
+            adjacency->u.lan_pn_to_nbr_adv_data,
+            &advt_info);
+    }
+
+    adjacency->u.lan_pn_to_nbr_adv_data =
+        (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+
+    advt_data = adjacency->u.lan_pn_to_nbr_adv_data;
+
+    advt_data->advt_id = isis_gen_avt_id();
+    advt_data->tlv_no = ISIS_IS_REACH_TLV;
+    advt_data->u.adj_data.nbr_sys_id = adjacency->nbr_sys_id;
+    advt_data->u.adj_data.metric = adjacency->cost;
+    advt_data->u.adj_data.local_ifindex = 0;
+    advt_data->u.adj_data.remote_ifindex = adjacency->remote_if_index;
+    advt_data->u.adj_data.local_intf_ip = 0;
+    advt_data->u.adj_data.remote_intf_ip = adjacency->nbr_intf_ip;
+    init_glthread(&advt_data->glue);
+    advt_data->fragment = NULL;
+
+    return isis_record_tlv_advertisement(
+            adjacency->intf->att_node,
+            intf_info->elected_dis.pn_id,
+            advt_data,
+            &advt_info);
+ }
+
+static isis_tlv_record_advt_return_code_t
+isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
+
+    isis_advt_info_t advt_info;
+    isis_adv_data_t *advt_data;
+    isis_tlv_record_advt_return_code_t rc;
+
+    assert(isis_adjacency_is_p2p (adjacency));
+
+    advt_data = adjacency->u.p2p_adv_data;
+
+    if (advt_data) {
+            if (advt_data->fragment) {
+                    return ISIS_TLV_RECORD_ADVT_ALREADY;
+            }
+            else {
+                return isis_record_tlv_advertisement (
+                                adjacency->intf->att_node,
+                                0,
+                                advt_data,
+                                &advt_info);
+            }
+        }
+
+        advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
+
+        advt_data->advt_id = isis_gen_avt_id ();
+        advt_data->tlv_no = ISIS_IS_REACH_TLV;
+        advt_data->u.adj_data.nbr_sys_id = adjacency->nbr_sys_id;
+        advt_data->u.adj_data.metric = adjacency->cost;
+        advt_data->u.adj_data.local_ifindex = adjacency->intf->ifindex;
+        advt_data->u.adj_data.remote_ifindex = adjacency->remote_if_index;
+        advt_data->u.adj_data.local_intf_ip =  IF_IP(adjacency->intf);
+        advt_data->u.adj_data.remote_intf_ip = adjacency->nbr_intf_ip;
+        init_glthread(&advt_data->glue);
+        adjacency->u.p2p_adv_data = advt_data;
+        advt_data->fragment = NULL;
+
+        return isis_record_tlv_advertisement (
+                                adjacency->intf->att_node,
+                                0,
+                                advt_data,
+                                &advt_info);
+}
+
+void
+isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
+
+    isis_tlv_record_advt_return_code_t rc;
+
+    if (adjacency->adj_state != ISIS_ADJ_STATE_UP) return;
+
+    if (isis_adjacency_is_p2p (adjacency)) {
+        rc = isis_adjacency_advertise_p2p (adjacency);
+    }
+    else {
+        rc = isis_adjacency_advertise_lan (adjacency);
+    }
+
+    switch (rc) {
+        case ISIS_TLV_RECORD_ADVT_SUCCESS:
+        break;
+        case ISIS_TLV_RECORD_ADVT_ALREADY:
+        assert(0);
+        case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        assert(0);
+        default:
+        assert(0);
+    }
+}
+
+void
+isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {
+
+}
+ 

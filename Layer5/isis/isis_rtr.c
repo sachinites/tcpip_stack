@@ -306,9 +306,9 @@ isis_compare_lspdb_lsp_pkt(const avltree_node_t *n1, const avltree_node_t *n2) {
     uint32_t *rtr_id1 = isis_get_lsp_pkt_rtr_id(lsp_pkt1);
     uint32_t *rtr_id2 = isis_get_lsp_pkt_rtr_id(lsp_pkt2);
 
-    if (*rtr_id1 < *rtr_id2) return -1;
-    if (*rtr_id1 > *rtr_id2) return 1;
-    return 0;
+    if (*rtr_id1 < *rtr_id2) return CMP_PREFERRED;
+    if (*rtr_id1 > *rtr_id2) return CMP_NOT_PREFERRED;
+    return CMP_PREF_EQUAL;
 }
 
 void
@@ -355,12 +355,9 @@ isis_init(node_t *node ) {
     isis_init_spf_logc(node);
     init_mtrie(&node_info->exported_routes, 32, isis_free_exported_rt);
     isis_create_advt_db(node_info, 0);
-
     isis_start_lsp_pkt_periodic_flooding(node);
-
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
-
     isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
 }
 

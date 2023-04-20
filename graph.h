@@ -47,7 +47,7 @@
 #include "EventDispatcher/event_dispatcher.h"
 #include "PostgresLibpq/postgresLib.h"
 
-#define NODE_NAME_SIZE   16
+#define NODE_NAME_SIZE   24
 #define IF_NAME_SIZE     16
 #define MAX_INTF_PER_NODE   10
 

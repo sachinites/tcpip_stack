@@ -34,6 +34,8 @@ typedef struct isis_overload_data_ {
 } isis_overload_data_t;
 
 typedef struct node_info_ {
+    /* self system id -> <rtrid-0>*/
+    isis_system_id_t sys_id;
     /* pointer to self LSP pkt */
     isis_lsp_pkt_t *self_lsp_pkt;
     /* Task to schedule self LSP pkt generation */

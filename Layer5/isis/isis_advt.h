@@ -35,8 +35,6 @@ typedef enum isis_tlv_wd_return_code_ {
 #define ISIS_SHOULD_RENEW_LSP_PKT_HDR   (1 << 3)
 #define ISIS_SHOULD_REWRITE_ETH_HDR (1 << 4)
 
-
-
 typedef struct isis_advt_info_ {
 
     uint8_t pn_no;
@@ -44,6 +42,35 @@ typedef struct isis_advt_info_ {
     advt_id_t advt_id;
 } isis_advt_info_t;
 
+static inline bool
+isis_is_advt_info_empty (isis_advt_info_t *advt_info) {
+
+    return (!advt_info->pn_no && !advt_info->fr_no && !advt_info->advt_id);
+}
+
+pkt_size_t
+isis_get_adv_data_size (isis_adv_data_t *adv_data);
+
+typedef struct isis_fragment_ {
+
+    pkt_size_t bytes_filled;
+    glthread_t tlv_list_head;
+    glthread_t priority_list_glue;
+    uint32_t seq_no;
+    uint8_t pn_no;
+    uint8_t fr_no;
+    pkt_block_t *lsp_pkt;
+    uint8_t ref_count;
+}isis_fragment_t;
+GLTHREAD_TO_STRUCT(isis_priority_list_glue_to_fragment,
+                                               isis_fragment_t,
+                                               priority_list_glue);
+
+typedef struct isis_advt_db_ {
+
+    isis_fragment_t *fragments[ISIS_MAX_FRAGMENT_SUPPORTED];
+    glthread_t fragment_priority_list;
+} isis_advt_db_t;
 
 /* A Data structure which holds the data to be advertised as TLVs in 
     LSPs */
@@ -57,9 +84,7 @@ typedef struct isis_adv_data_ {
         uint32_t rtr_id;
 
         struct {
-
-            char nbr_name[NODE_NAME_SIZE];
-            uint32_t nbr_rtr_id;
+            isis_system_id_t nbr_sys_id;
             uint32_t metric;
             uint32_t local_ifindex;
             uint32_t remote_ifindex;
@@ -81,40 +106,11 @@ typedef struct isis_adv_data_ {
 
     }u;
 
-    isis_advt_info_t advt_info;
     glthread_t glue;
-    
-    /* back-linkage*/
-    struct isis_adv_data_ **back_linkage;
-    struct isis_adv_data_ *back_linkage_static;
+    isis_fragment_t *fragment;
+
 } isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
-
-uint16_t 
-isis_get_adv_data_size (isis_adv_data_t *adv_data);
-
-typedef struct isis_fragment_ {
-
-    uint16_t bytes_filled;
-    glthread_t tlv_list_head;
-    glthread_t priority_list_glue;
-    uint32_t seq_no;
-    uint8_t pn_no;
-    uint8_t fr_no;
-    pkt_block_t *lsp_pkt;
-    uint8_t ref_count;
-}isis_fragment_t;
-GLTHREAD_TO_STRUCT(isis_priority_list_glue_to_fragment,
-                                               isis_fragment_t,
-                                               priority_list_glue);
-
-typedef struct isis_advt_db_ {
-
-    isis_fragment_t *fragments[ISIS_MAX_FRAGMENT_SUPPORTED];
-    glthread_t fragment_priority_list;
-} isis_advt_db_t;
-
-
 
 /* Short hand macros */
 #define ISIS_GET_FRAGMENT(node_info, advt_info)   \
@@ -148,7 +144,7 @@ isis_record_tlv_advertisement (node_t *node,
 
 isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,
-                                    isis_advt_info_t *advt_info);
+                                    isis_adv_data_t *adv_data);
 
 void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);

@@ -28,4 +28,7 @@ isis_lan_id_t isis_intf_reelect_dis (Interface *intf);
 void
 isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id);
 
+bool
+isis_am_i_dis (Interface *intf) ;
+
 #endif 

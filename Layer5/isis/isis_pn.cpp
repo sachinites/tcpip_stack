@@ -5,20 +5,23 @@
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_pn.h"
+#include "isis_utils.h"
+
+extern advt_id_t isis_gen_avt_id () ;
 
 pn_id_t
 isis_reserve_new_pn_id (node_t *node, bool *found) {
 
-    pn_id_t pn_id;
+    int i;
     *found = false;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    for (pn_id = 0; pn_id < ISIS_MAX_PN_SUPPORTED; pn_id++) {
+    for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
 
-        if (node_info->advt_db[pn_id] ) continue;
+        if (node_info->advt_db[i] ) continue;
         *found = true;
-        return pn_id;
+        return (pn_id_t)i;
     }
     
     return 0;
@@ -61,18 +64,6 @@ isis_intf_deallocate_lan_id (Interface *intf) {
 
 /* DIS Mgmt Functions */
 
-/* Deletet the Current DIS*/
-void 
-isis_intf_resign_dis (Interface *intf) {
-
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
-
-    if (!intf_info) return;
-
-    /* Delete the DIS data ...*/
-    intf_info->elected_dis = {0, 0};
-}
-
 /* Trigger DIS Re-election, return rtr id of the DIS*/
 isis_lan_id_t
 isis_intf_reelect_dis (Interface *intf) {
@@ -80,8 +71,8 @@ isis_intf_reelect_dis (Interface *intf) {
     uint32_t rtr_id;
     glthread_t *curr;
     isis_adjacency_t *adj;
-    isis_lan_id_t self_lan_id;     
-    isis_lan_id_t null_lan_id;   
+    isis_lan_id_t self_lan_id;
+    isis_lan_id_t null_lan_id;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
 
@@ -111,8 +102,68 @@ isis_intf_reelect_dis (Interface *intf) {
     return null_lan_id;
 }
 
+/* Deletet the Current DIS*/
+void 
+isis_intf_resign_dis (Interface *intf) {
+
+    glthread_t *curr;
+    isis_adjacency_t *adjacency;
+    isis_tlv_wd_return_code_t rc;
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
+
+    if (!intf_info) return;
+
+    /* Delete the DIS data ...
+        I am resigning as a DIS, so withdraw all advertisements which I did
+        with DIS privileges
+    */
+    /* Step 1 : 
+        Since, we are resigning as DIS, Delete ISIS REACH advt info
+        from from PN to self i.e  intf_info->lan_pn_to_self_adv_data;
+    */
+    if (intf_info->lan_pn_to_self_adv_data) {
+        
+        assert(isis_am_i_dis (intf));
+
+        rc = isis_withdraw_tlv_advertisement(intf->att_node,
+                                             intf_info->lan_pn_to_self_adv_data);
+        intf_info->lan_pn_to_self_adv_data = NULL;
+    }
+
+    /* Step 2 : 
+        Since, we are resigning as DIS, Delete all ISIS REACH advt info
+        from from PN to all Nbrs i.e. on all ajacencies on this interface,
+        delete advt info adjacency->lan_pn_to_adj_adv_data
+        Also, Purge all the fragments generate by this PN
+    */
+    ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+
+        adjacency = glthread_to_isis_adjacency(curr);
+        
+        if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+
+        rc = isis_withdraw_tlv_advertisement(intf->att_node,
+                                             adjacency->u.lan_pn_to_nbr_adv_data);
+        adjacency->u.lan_pn_to_nbr_adv_data = NULL;
+
+    } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    /* Step 3 : Forget who the DIS is. Therefore, withdraw the intf_info->lan_self_to_pn_adv_data*/
+    rc = isis_withdraw_tlv_advertisement(intf->att_node,
+                                             intf_info->lan_self_to_pn_adv_data);
+    intf_info->lan_self_to_pn_adv_data = NULL;
+
+    intf_info->elected_dis = {0, 0};
+}
+
 void
 isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
+
+    glthread_t *curr;
+    isis_adjacency_t *adjacency;    
+    isis_advt_info_t advt_info;
+    isis_adv_data_t *advt_data;
+    isis_tlv_record_advt_return_code_t rc;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
     
@@ -124,5 +175,110 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     intf_info->elected_dis = new_dis_id;
     ISIS_INCREMENT_NODE_STATS(intf->att_node,
         isis_event_count[isis_event_dis_changed]);
-    // .. .
+
+    /* Prepare new Advertisements since i am elected as new DIS*/
+
+    /* Step 1 : 
+        Advertise intf_info->adv_data.lan_self_to_pn_adv_data
+    */
+    assert(!intf_info->lan_self_to_pn_adv_data);
+    
+    intf_info->lan_self_to_pn_adv_data = 
+        (isis_adv_data_t *)XCALLOC(0, 1, sizeof(isis_adv_data_t)) ;
+    
+    advt_data = intf_info->lan_self_to_pn_adv_data;
+
+    advt_data->advt_id = isis_gen_avt_id ();
+    advt_data->tlv_no = ISIS_IS_REACH_TLV;
+    advt_data->u.adj_data.nbr_sys_id.rtr_id = intf_info->elected_dis.rtr_id;
+    advt_data->u.adj_data.nbr_sys_id.pn_id = intf_info->elected_dis.pn_id;
+    advt_data->u.adj_data.metric = intf_info->cost;
+    advt_data->u.adj_data.local_ifindex = intf->ifindex;
+    advt_data->u.adj_data.remote_ifindex = 0;
+    advt_data->u.adj_data.local_intf_ip =  IF_IP(intf);
+    advt_data->u.adj_data.remote_intf_ip = 0;
+    init_glthread(&advt_data->glue);
+    advt_data->fragment = NULL;
+
+    rc =  isis_record_tlv_advertisement (
+                                intf->att_node,
+                                0,
+                                advt_data,
+                                &advt_info);
+
+    switch (rc) {
+        case ISIS_TLV_RECORD_ADVT_SUCCESS:
+        break;
+        case ISIS_TLV_RECORD_ADVT_ALREADY:
+        assert(0);
+        case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        assert(0);
+        default:
+        assert(0);
+    }
+
+    /* Step 2 : 
+        Advertise intf_info->pn_to_self_adv_data
+    */
+    assert(!intf_info->lan_pn_to_self_adv_data);
+
+    if (!isis_am_i_dis (intf)) return;
+
+    intf_info->lan_pn_to_self_adv_data = 
+        (isis_adv_data_t *)XCALLOC(0, 1, sizeof(isis_adv_data_t)) ;
+    
+    advt_data = intf_info->lan_pn_to_self_adv_data;
+
+    advt_data->advt_id = isis_gen_avt_id ();
+    advt_data->tlv_no = ISIS_IS_REACH_TLV;
+    advt_data->u.adj_data.nbr_sys_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
+    advt_data->u.adj_data.metric = 0;
+    advt_data->u.adj_data.local_ifindex = 0;
+    advt_data->u.adj_data.remote_ifindex = intf->ifindex;
+    advt_data->u.adj_data.local_intf_ip = 0;
+    advt_data->u.adj_data.remote_intf_ip = IF_IP(intf);
+    init_glthread(&advt_data->glue);
+    advt_data->fragment = NULL;
+
+    rc = isis_record_tlv_advertisement (
+                                intf->att_node,
+                                intf_info->elected_dis.pn_id,
+                                advt_data,
+                                &advt_info);
+
+    switch (rc) {
+
+    case ISIS_TLV_RECORD_ADVT_SUCCESS:
+        break;
+    case ISIS_TLV_RECORD_ADVT_ALREADY:
+        assert(0);
+    case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        assert(0);
+    default:
+        assert(0);
+    }
+
+    /* Step 3 : Advertise all Adjacencies on this interface as PN--> Nbr*/
+    ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+
+        adjacency = glthread_to_isis_adjacency(curr);
+        if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+        isis_adjacency_advertise_is_reach(adjacency);
+
+    } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+}
+
+bool
+isis_am_i_dis (Interface *intf) {
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    if (!intf_info) return false;
+
+    if (isis_intf_is_p2p (intf)) return false;
+
+    if (isis_lan_id_compare (&intf_info->elected_dis, &intf_info->lan_id) ==
+                CMP_PREF_EQUAL) return true;
+
+    return false;
 }

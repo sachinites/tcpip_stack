@@ -461,13 +461,14 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     if (intf_type == isis_intf_type_p2p) {
         isis_intf_deallocate_lan_id (intf);
         isis_intf_resign_dis (intf);
+        intf_info->intf_type = intf_type;
     }
     else {
+        intf_info->intf_type = intf_type;
         isis_intf_allocate_lan_id (intf);
         isis_intf_assign_new_dis (intf, intf_info->lan_id);
     }
 
-    intf_info->intf_type = intf_type;
     isis_interface_reset_stats (intf);
 
     if (isis_interface_qualify_to_send_hellos(intf)) {

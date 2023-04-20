@@ -49,7 +49,8 @@ const c_string
 isis_system_id_tostring (isis_system_id_t *sys_id, const c_string buffer) {
 
     unsigned char ip_addr_str[16];
-    tcp_ip_covert_ip_n_to_p (sys_id->rtr_id, buffer);
+    tcp_ip_covert_ip_n_to_p (sys_id->rtr_id, ip_addr_str);
+    snprintf ((char *)buffer, 32, "%s-%d", ip_addr_str, sys_id->pn_id);
     return buffer;
 }
 
@@ -59,5 +60,7 @@ isis_system_id_compare (isis_system_id_t *sys_id1,
 
     if (sys_id1->rtr_id > sys_id2->rtr_id) return CMP_PREFERRED;
     if (sys_id1->rtr_id < sys_id2->rtr_id) return CMP_NOT_PREFERRED;
+    if (sys_id1->pn_id > sys_id2->pn_id) return CMP_PREFERRED;
+    if (sys_id1->pn_id < sys_id2->pn_id) return CMP_NOT_PREFERRED;
     return CMP_PREF_EQUAL;
 }

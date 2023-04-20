@@ -8,6 +8,7 @@
 typedef struct isis_system_id_ {
 
     uint32_t rtr_id;
+     uint8_t pn_id;
 } isis_system_id_t;
 
 typedef struct isis_lan_id_ {

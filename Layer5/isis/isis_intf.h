@@ -51,23 +51,17 @@ typedef struct intf_info_ {
     glthread_t intf_grp_member_glue;
     isis_intf_group_t *intf_grp;
 
-    union {
-        /* Interface Data to be advertised for P2P interface*/
-        isis_advt_info_t p2p_adv_data;
-        /* if this intf is LAN and self is DIS, then advertise self-dis to PN*/
-        isis_advt_info_t lan_selfdis_to_pn_adv_data;
-        /* If this interface is LAN and self is not DIS, then advertise self to PN*/
-        isis_advt_info_t lan_self_non_dis_to_pn_adv_data;
-    } adv_data;
-    /* if this interface is LAN and self is DIS, then advertise PN to self-dis */
-    isis_advt_info_t pn_to_selfdis_adv_data;
+    /* if this intf is LAN, then advertise self to PN irrespective whether I am DIS or not*/
+    isis_adv_data_t *lan_self_to_pn_adv_data;
+    /* if this interface is LAN and self is DIS, then advertise PN to self */
+    isis_adv_data_t *lan_pn_to_self_adv_data;
 
 } isis_intf_info_t;
 GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info, 
                                             isis_intf_info_t,  intf_grp_member_glue);
                                             
 /* Some short-hand macros to make life easy */
-#define ISIS_INTF_INFO(intf_ptr)    \
+#define  ISIS_INTF_INFO(intf_ptr)    \
     ((isis_intf_info_t *)((intf_ptr)->isis_intf_info))
 #define ISIS_INTF_HELLO_XMIT_TIMER(intf_ptr)  \
     (((isis_intf_info_t *)((intf_ptr)->isis_intf_info))->hello_xmit_timer)

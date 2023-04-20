@@ -4,14 +4,14 @@
 #include "isis_advt.h"
 #include "isis_flood.h"
 
-static uint64_t isis_advt_id = 0;
+static advt_id_t isis_advt_id = 0;
+advt_id_t isis_gen_avt_id (); 
 
-static inline uint64_t
+advt_id_t
 isis_gen_avt_id () {
 
     return (++isis_advt_id);
 }
-
 
 static int 
 isis_get_new_fragment_no (isis_advt_db_t *advt_db) {
@@ -40,7 +40,7 @@ isis_fragment_lookup_advt_data(isis_fragment_t *fragment, advt_id_t adv_id ) {
     return NULL;
 }
 
-uint16_t 
+pkt_size_t
 isis_get_adv_data_size (isis_adv_data_t *adv_data) {
 
     return 0;
@@ -98,7 +98,7 @@ isis_record_tlv_advertisement (node_t *node,
 
     if (!node_info) return ISIS_TLV_RECORD_ADVT_FAILED;
 
-    uint8_t tlv_size = isis_get_adv_data_size(adv_data);
+    pkt_size_t tlv_size = isis_get_adv_data_size(adv_data);
 
     isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
 
@@ -143,6 +143,8 @@ isis_record_tlv_advertisement (node_t *node,
 
     assert(IS_GLTHREAD_LIST_EMPTY(&adv_data->glue));
     glthread_add_last(&fragment->tlv_list_head, &adv_data->glue);
+    adv_data->fragment = fragment;
+    isis_fragment_lock(fragment);
     fragment->bytes_filled += tlv_size;
     remove_glthread(&fragment->priority_list_glue);
     glthread_priority_insert(&advt_db->fragment_priority_list,
@@ -251,40 +253,47 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
 isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,
-                                    isis_advt_info_t *advt_info){
+                                    isis_adv_data_t *adv_data){
 
     
-    isis_adv_data_t *adv_data;
     isis_fragment_t *fragment;
+    isis_advt_db_t *advt_db;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return ISIS_TLV_WD_SUCCESS;
 
-    if (!advt_info->advt_id) return ISIS_TLV_WD_FAILED;
+    if (!adv_data->advt_id) return ISIS_TLV_WD_FAILED;
 
-    fragment = ISIS_GET_FRAGMENT(node_info, advt_info);
+    fragment = adv_data->fragment;
 
-    if (!fragment) ISIS_TLV_WD_FRAG_NOT_FOUND;
-
-    adv_data = isis_fragment_lookup_advt_data(fragment, advt_info->advt_id);
-
-    if (!adv_data) return ISIS_TLV_WD_TLV_NOT_FOUND;
+    assert (fragment) ;
+    
+    advt_db = node_info->advt_db[fragment->pn_no];
+    assert(advt_db);
     
     remove_glthread (&adv_data->glue);
-
     fragment->bytes_filled -= isis_get_adv_data_size(adv_data);
+    remove_glthread(&fragment->priority_list_glue);
+    glthread_priority_insert(&advt_db->fragment_priority_list,
+                             &fragment->priority_list_glue,
+                             isis_fragment_size_comp_fn,
+                             (int)&((isis_fragment_t *)0)->priority_list_glue);
 
-    XFREE(adv_data);
 
     if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
         /* Empty fragment, remove it if it is non-zero fragment */
-        if (fragment->fr_no) {
-            isis_delete_fragment (node_info, fragment);
+        if (fragment->pn_no || fragment->fr_no) {
+            isis_discard_fragment (fragment, true);
         }
     }
     else {
+        isis_fragment_lock(fragment);
         isis_schedule_regen_fragment (node, fragment);
     }
+    adv_data->fragment = NULL;
+    XFREE(adv_data);
+    isis_fragment_unlock(node_info, fragment);
+
     return ISIS_TLV_WD_SUCCESS;
 }
 

@@ -41,6 +41,8 @@ typedef struct isis_adjacency_{
      mac_addr_t nbr_mac;
     /*Nbr lo 0 address */
     uint32_t nbr_rtr_id;
+    /* Nbr System ID*/
+    isis_system_id_t nbr_sys_id;
     /* LAN ID, only for LAN Adj*/
     isis_lan_id_t lan_id;
     /* Nbrs Priority */
@@ -61,8 +63,13 @@ typedef struct isis_adjacency_{
     timer_event_handle *delete_timer;
     /* uptime */
     time_t uptime;
-    /*is this is LAN adj and self is dis, then advertise PN to nbr*/
-     isis_advt_info_t lan_pn_to_adj_adv_data;
+    /* IS Reach Advertisement */
+    union {
+        isis_adv_data_t *p2p_adv_data;
+        /*is this is LAN adj and self is dis, then advertise PN to nbr*/
+        isis_adv_data_t *lan_pn_to_nbr_adv_data;
+    } u;
+
     glthread_t glue;
 } isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);
@@ -134,6 +141,12 @@ uint32_t
 isis_show_all_adjacencies (node_t *node) ;
 
 void
-isis_reposition_adjacency (isis_adjacency_t *adjacency);
+isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency);
+
+void
+isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency);
+
+void
+isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency);
 
 #endif /* __IGP_NBRSHIP__ */
