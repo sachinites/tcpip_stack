@@ -13,6 +13,7 @@
 #include "isis_ted.h"
 #include "isis_spf.h"
 #include "isis_policy.h"
+#include "isis_advt.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -353,6 +354,11 @@ isis_show_handler(param_t *param,
         case  CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG:
             isis_show_spf_logs(node);
             break;
+        case CMCODE_SHOW_ISIS_ADVT_DB:
+            rc = isis_show_advt_db (node);
+            assert ( rc < NODE_PRINT_BUFF_LEN);
+            cli_out (node->print_buff, rc);
+            break;
         default: ;
     }
     return 0;
@@ -602,6 +608,13 @@ isis_show_cli_tree(param_t *param) {
                     libcli_register_param(&ted, &detail);
                     set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL);
                 }
+            }
+            {
+                /* show node <node-name> protocol isis advt-db*/
+                static param_t advtdb;
+                init_param(&advtdb, CMD, "advt-db", isis_show_handler, 0, INVALID, 0, "Advertisement database");
+                libcli_register_param(&isis_proto, &advtdb);
+                set_param_cmd_code(&advtdb, CMCODE_SHOW_ISIS_ADVT_DB);
             }
         }
         {

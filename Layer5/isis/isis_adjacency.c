@@ -165,6 +165,7 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
         ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
         isis_update_layer2_mapping_on_adjacency_down(adjacency);
         isis_schedule_lsp_pkt_generation(adjacency->intf->att_node, isis_event_up_adj_deleted);
+        isis_adjacency_withdraw_is_reach (adjacency);
     }
     isis_dynamic_intf_grp_update_on_adjacency_delete(adjacency);
    XFREE(adjacency);
@@ -223,15 +224,15 @@ isis_update_interface_adjacency_from_hello(
 
     char ip_addr[16];
     byte lan_id_str[32];
+    byte sys_id_str[32];
     uint16_t tlv_buff_size;
-    c_string router_id_str;
     uint8_t tlv_data_len;
     bool new_adj = false;
     bool regen_lsp = false;
     bool repos_adj = false;
     byte *hello_tlv_buffer;
+    isis_system_id_t sys_id;
     c_string intf_ip_addr_str;
-    uint32_t *router_id_int;
     uint32_t four_byte_data;
     uint32_t intf_ip_addr_int;
     isis_adjacency_t *adjacency = NULL;
@@ -245,22 +246,21 @@ isis_update_interface_adjacency_from_hello(
     switch (cmn_hdr->pdu_type) {
         case ISIS_PTP_HELLO_PKT_TYPE:
             p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
+            sys_id = p2p_hdr->source_id;
         default:
             lan_hdr = (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
+            sys_id = lan_hdr->source_id;
     }
 
-    router_id_int = (uint32_t *)tlv_buffer_get_particular_tlv(
-                    hello_tlv_buffer, 
-                    tlv_buff_size,
-                    ISIS_TLV_RTR_ID, 
-                    &tlv_data_len);
+    isis_system_id_tostring (&sys_id, sys_id_str);
 
-    adjacency = isis_find_adjacency_on_interface(iif, *router_id_int);
+    adjacency = isis_find_adjacency_on_interface(iif, &sys_id);
 
     if(!adjacency){
         adjacency = (isis_adjacency_t *)XCALLOC(0, 1, isis_adjacency_t);
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
+        adjacency->nbr_sys_id = sys_id;
         adjacency->priority = lan_hdr ? lan_hdr->priority : ISIS_INTF_DEFAULT_PRIORITY;
         if (lan_hdr) adjacency->lan_id = lan_hdr->lan_id;
         glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(iif), 
@@ -268,9 +268,8 @@ isis_update_interface_adjacency_from_hello(
                                                 isis_adjacency_comp_fn,
                                                 (int)&((isis_adjacency_t *)0)->glue);
         new_adj = true;
-        router_id_str = tcp_ip_covert_ip_n_to_p(*router_id_int, ip_addr);
         sprintf(tlb, "%s : New Adjacency for nbr %s on intf %s Created\n",
-            ISIS_ADJ_MGMT, router_id_str, iif->if_name.c_str());
+            ISIS_ADJ_MGMT, sys_id_str, iif->if_name.c_str());
         tcp_trace(iif->att_node, iif, tlb);
     }
     else {
@@ -282,7 +281,7 @@ isis_update_interface_adjacency_from_hello(
             (isis_lan_id_compare (&adjacency->lan_id, &lan_hdr->lan_id) != CMP_PREF_EQUAL)) {
         
         sprintf(tlb, "%s : Nbr %s reported new lan-id %s on intf %s\n",
-             ISIS_ADJ_MGMT, router_id_str, isis_lan_id_tostring(&lan_hdr->lan_id, lan_id_str), 
+             ISIS_ADJ_MGMT, sys_id_str, isis_lan_id_tostring(&lan_hdr->lan_id, lan_id_str), 
              iif->if_name.c_str());
         tcp_trace(iif->att_node, iif, tlb);
 
@@ -393,7 +392,7 @@ isis_adjacency_name(isis_adjacency_t *adjacency) {
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
         Interface *intf,
-        uint32_t nbr_rtr_id) {
+        isis_system_id_t *sys_id) {
 
     glthread_t *curr;
     isis_adjacency_t *adjacency;
@@ -403,11 +402,16 @@ isis_find_adjacency_on_interface(
 
     if(!intf_info) return NULL;
 
+    if (!sys_id) {
+        curr = glthread_get_next (ISIS_INTF_ADJ_LST_HEAD(intf));
+        if (!curr) return NULL;
+        return glthread_to_isis_adjacency(curr);
+    }
+
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr){
 
         adjacency = glthread_to_isis_adjacency(curr);
-        if (!nbr_rtr_id) return adjacency;
-        if (adjacency->nbr_rtr_id == nbr_rtr_id) {
+        if (isis_system_id_compare (&adjacency->nbr_sys_id, sys_id)  == CMP_PREF_EQUAL) {
             return adjacency;
         }
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -426,6 +430,8 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
     printf("Nbr : %s(%s)   priority : %u\n", adjacency->nbr_name, ip_addr_str, adjacency->priority);
+    PRINT_TABS(tab_spaces);
+    printf ("Nbr Sys-id : %s\n", isis_system_id_tostring (&adjacency->nbr_sys_id, lan_id_str));
 
     if (ISIS_INTF_INFO(adjacency->intf)->intf_type == isis_intf_type_lan) {
         PRINT_TABS(tab_spaces);
@@ -553,8 +559,10 @@ isis_change_adjacency_state(
                     /* Schedule LSP gen becaue Adj state has changed */
                     isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
-                    isis_update_dis_on_adjacency_transition(adjacency);
-                    isis_adjacency_advertise_is_reach(adjacency);
+                    if (!isis_update_dis_on_adjacency_transition(adjacency)) {
+                        /* If DIS is chnged, then all adj advertisements are also handled*/
+                        isis_adjacency_advertise_is_reach(adjacency);
+                    }
                     break;
                 default : ;
             }   
@@ -583,8 +591,10 @@ isis_change_adjacency_state(
                         isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
-                    isis_update_dis_on_adjacency_transition(adjacency);
-                    isis_adjacency_withdraw_is_reach(adjacency);
+                    if (!isis_update_dis_on_adjacency_transition(adjacency)) {
+                        /* If DIS is chnged, then all adj advertisements are also handled*/
+                        isis_adjacency_withdraw_is_reach(adjacency);
+                    }
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);
@@ -953,7 +963,8 @@ isis_show_all_adjacencies (node_t *node) {
     return rc;
  }
 
-void
+/* Return true if DIS is changed */
+bool
 isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     
     Interface *intf;
@@ -975,11 +986,12 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     new_dis_id =  isis_intf_reelect_dis(intf);
     
     if (isis_lan_id_compare (&old_dis_id, &new_dis_id) == CMP_PREF_EQUAL) {
-        return;
+        return false;
     }
 
     isis_intf_resign_dis (intf);
     isis_intf_assign_new_dis (intf,  new_dis_id);
+    return true;
 }
 
 static isis_tlv_record_advt_return_code_t
@@ -1009,6 +1021,7 @@ static isis_tlv_record_advt_return_code_t
             adjacency->intf->att_node,
             intf_info->elected_dis.pn_id,
             adjacency->u.lan_pn_to_nbr_adv_data,
+            &adjacency->u.lan_pn_to_nbr_adv_data,
             &advt_info);
     }
 
@@ -1032,6 +1045,7 @@ static isis_tlv_record_advt_return_code_t
             adjacency->intf->att_node,
             intf_info->elected_dis.pn_id,
             advt_data,
+            &adjacency->u.lan_pn_to_nbr_adv_data,
             &advt_info);
  }
 
@@ -1055,6 +1069,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
                                 adjacency->intf->att_node,
                                 0,
                                 advt_data,
+                                &adjacency->u.p2p_adv_data,
                                 &advt_info);
             }
         }
@@ -1077,6 +1092,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
                                 adjacency->intf->att_node,
                                 0,
                                 advt_data,
+                                &adjacency->u.p2p_adv_data,
                                 &advt_info);
 }
 
@@ -1106,8 +1122,57 @@ isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
     }
 }
 
+static isis_tlv_wd_return_code_t
+isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
+
+    assert (isis_adjacency_is_p2p (adjacency));
+
+    if (!adjacency->u.p2p_adv_data) return ISIS_TLV_WD_SUCCESS;
+
+    return isis_withdraw_tlv_advertisement (
+                                            adjacency->intf->att_node,
+                                            adjacency->u.p2p_adv_data);
+}
+
+static isis_tlv_wd_return_code_t
+isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
+    
+     isis_tlv_wd_return_code_t rc;
+
+     assert (isis_adjacency_is_lan (adjacency));
+
+    /* Nothing to withdraw if nbr goes down as i am not DIS*/
+    if (!isis_am_i_dis (adjacency->intf)) return ISIS_TLV_WD_TLV_NOT_FOUND;
+
+    /* Not Advertising alredy, ok !*/
+    if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) return ISIS_TLV_WD_TLV_NOT_FOUND;
+
+    /* Withdraw PN-->ME advertisement for this Adjacency*/
+    rc = isis_withdraw_tlv_advertisement(adjacency->intf->att_node,
+                                                                adjacency->u.lan_pn_to_nbr_adv_data);
+
+    adjacency->u.lan_pn_to_nbr_adv_data = NULL;
+    return rc;
+}
+
 void
 isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {
 
+    isis_tlv_wd_return_code_t rc;
+
+    if (isis_adjacency_is_p2p (adjacency)) {
+        rc = isis_adjacency_withdraw_p2p_is_reach (adjacency);
+    }
+    else {
+        rc = isis_adjacency_withdraw_lan_is_reach (adjacency);
+    }
+
+    switch (rc) {
+        case ISIS_TLV_WD_SUCCESS:
+        case ISIS_TLV_WD_FRAG_NOT_FOUND:
+        case ISIS_TLV_WD_TLV_NOT_FOUND:
+        case ISIS_TLV_WD_FAILED:
+        default: ;
+    }
 }
  

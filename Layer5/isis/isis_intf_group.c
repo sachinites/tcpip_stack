@@ -91,7 +91,7 @@ isis_intf_grp_is_member_intf_active(Interface *intf) {
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
     isis_adjacency_t *adjacency =
-        isis_find_adjacency_on_interface(intf_info->intf, 0);
+        isis_find_adjacency_on_interface(intf_info->intf, NULL);
 
     if (intf_info->intf_grp &&
          adjacency               &&

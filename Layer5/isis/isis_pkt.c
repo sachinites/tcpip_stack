@@ -903,7 +903,7 @@ isis_init_p2p_hello_pkt_hdr (isis_p2p_hello_pkt_hdr_t *hdr, Interface *intf) {
     node_t *node = intf->att_node;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
     hdr->circuit_type = intf_info->level; 
-    hdr->source_id.rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(node));
+    hdr->source_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
     hdr->hold_time = intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR;
     hdr->pdu_len = 0; /* Total len of pdu in bytes*/
     hdr->local_circuit_id = intf->ifindex;
@@ -916,6 +916,7 @@ isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf) {
     node_t *node = intf->att_node;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
     hdr->circuit_type =  intf_info->level;  
+    hdr->source_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
     hdr->source_id.rtr_id = tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(node));
     hdr->hold_time = intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR;
     hdr->pdu_len = 0; /* Total len of pdu in bytes*/

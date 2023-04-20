@@ -92,7 +92,7 @@ isis_update_interface_adjacency_from_hello(
 isis_adjacency_t *
 isis_find_adjacency_on_interface(
         Interface *intf,
-        uint32_t nbr_rtr_id);
+        isis_system_id_t *sys_id);
 
 char *
 isis_adjacency_name(isis_adjacency_t *adjacency);
@@ -140,7 +140,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
 uint32_t 
 isis_show_all_adjacencies (node_t *node) ;
 
-void
+bool
 isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency);
 
 void

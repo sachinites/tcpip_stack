@@ -108,7 +108,7 @@ typedef struct isis_adv_data_ {
 
     glthread_t glue;
     isis_fragment_t *fragment;
-
+    struct isis_adv_data_ **holder;
 } isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 
@@ -140,6 +140,7 @@ isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
                                     pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
+                                    isis_adv_data_t **back_linkage,
                                     isis_advt_info_t *advt_info_out);
 
 isis_tlv_wd_return_code_t
@@ -151,5 +152,7 @@ void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_all_advt_db(isis_node_info_t *node_info);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
 void isis_discard_fragment (isis_fragment_t *fragment, bool purge) ;
+uint32_t isis_show_advt_db (node_t *node) ;
+uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
 
 #endif  

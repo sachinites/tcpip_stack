@@ -3,6 +3,7 @@
 #include "isis_rtr.h"
 #include "isis_advt.h"
 #include "isis_flood.h"
+#include "isis_utils.h"
 
 static advt_id_t isis_advt_id = 0;
 advt_id_t isis_gen_avt_id (); 
@@ -84,6 +85,7 @@ isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
                                     uint8_t pn_no,
                                     isis_adv_data_t *adv_data,
+                                    isis_adv_data_t **back_linkage,
                                     isis_advt_info_t *advt_info_out) {
 
     int frag_no;
@@ -157,7 +159,7 @@ isis_record_tlv_advertisement (node_t *node,
     advt_info_out->advt_id = adv_data->advt_id;
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
-
+    adv_data->holder = back_linkage;
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
 }
 
@@ -291,6 +293,7 @@ isis_withdraw_tlv_advertisement (node_t *node,
         isis_schedule_regen_fragment (node, fragment);
     }
     adv_data->fragment = NULL;
+    *(adv_data->holder) = NULL;
     XFREE(adv_data);
     isis_fragment_unlock(node_info, fragment);
 
@@ -360,3 +363,66 @@ isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info) {
     }
 }
 
+uint32_t 
+isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
+
+    uint32_t rc = 0;
+    glthread_t *curr;
+    byte system_id_str[32];
+    isis_adv_data_t *advt_data;
+
+    rc = sprintf (buff + rc, "fragment : [%hu][%hu]  , seq_no : %u\n",
+                fragment->pn_no, fragment->fr_no, fragment->seq_no);
+    rc += sprintf (buff + rc, "  bytes filled : %hu, ref_count : %u\n",
+                fragment->bytes_filled, fragment->ref_count);
+
+    rc += sprintf (buff + rc, "    TLVs:\n");
+
+    ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+
+        advt_data = glue_to_isis_advt_data (curr);
+        rc += sprintf (buff + rc, "     TLV %hu\n", advt_data->tlv_no);
+
+        switch (advt_data->tlv_no) {
+            case ISIS_IS_REACH_TLV:
+                rc += sprintf (buff + rc, "       nbr sys id : %s\n", 
+                    isis_system_id_tostring (&advt_data->u.adj_data.nbr_sys_id, system_id_str));
+                rc +=  sprintf (buff + rc, "       metric : %u\n", advt_data->u.adj_data.metric);
+                rc +=  sprintf (buff + rc, "       local ifindex : %u\n", advt_data->u.adj_data.local_ifindex);
+                rc +=  sprintf (buff + rc, "       remote ifindex : %u\n", advt_data->u.adj_data.remote_ifindex);
+                rc +=  sprintf (buff + rc, "       local ip : %s\n", tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.local_intf_ip, system_id_str));
+                rc +=  sprintf (buff + rc, "       remote ip : %s\n", tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.remote_intf_ip, system_id_str)); 
+                break;
+        }
+    } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
+
+    return rc;
+}
+
+uint32_t 
+isis_show_advt_db (node_t *node) {
+
+    int i, j;
+    uint32_t rc = 0;
+    isis_advt_db_t *advt_db;
+    isis_fragment_t *fragment;
+
+    byte *buff = node->print_buff;
+    
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return 0;
+
+    for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
+
+        advt_db =      node_info->advt_db[i];
+        if (!advt_db) continue;
+
+        for (j = 0 ; j < ISIS_MAX_FRAGMENT_SUPPORTED; j++) {
+            fragment = advt_db->fragments[j];
+            if (!fragment) continue;
+            rc += isis_fragment_print (node, fragment, buff + rc);
+        }
+    }
+    return rc;
+}

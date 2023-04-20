@@ -142,6 +142,9 @@ isis_intf_resign_dis (Interface *intf) {
         
         if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
 
+        /* Adjacency may not have advertised by now, skip ...*/
+        if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) continue;
+
         rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                              adjacency->u.lan_pn_to_nbr_adv_data);
         adjacency->u.lan_pn_to_nbr_adv_data = NULL;
@@ -184,7 +187,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     assert(!intf_info->lan_self_to_pn_adv_data);
     
     intf_info->lan_self_to_pn_adv_data = 
-        (isis_adv_data_t *)XCALLOC(0, 1, sizeof(isis_adv_data_t)) ;
+        (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
     
     advt_data = intf_info->lan_self_to_pn_adv_data;
 
@@ -204,6 +207,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
                                 intf->att_node,
                                 0,
                                 advt_data,
+                                &intf_info->lan_self_to_pn_adv_data,
                                 &advt_info);
 
     switch (rc) {
@@ -225,7 +229,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     if (!isis_am_i_dis (intf)) return;
 
     intf_info->lan_pn_to_self_adv_data = 
-        (isis_adv_data_t *)XCALLOC(0, 1, sizeof(isis_adv_data_t)) ;
+        (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
     
     advt_data = intf_info->lan_pn_to_self_adv_data;
 
@@ -244,6 +248,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
                                 intf->att_node,
                                 intf_info->elected_dis.pn_id,
                                 advt_data,
+                                &intf_info->lan_pn_to_self_adv_data,
                                 &advt_info);
 
     switch (rc) {

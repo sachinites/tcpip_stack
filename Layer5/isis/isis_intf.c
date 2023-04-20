@@ -185,7 +185,9 @@ isis_check_and_delete_intf_info(Interface *intf) {
          !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
          ISIS_INTF_INFO(intf)->lsp_xmit_job ||
          ISIS_INTF_INFO(intf)->lan_id.pn_id ||
-         (ISIS_INTF_INFO(intf)->elected_dis.rtr_id || ISIS_INTF_INFO(intf)->elected_dis.pn_id)) {
+         (ISIS_INTF_INFO(intf)->elected_dis.rtr_id || ISIS_INTF_INFO(intf)->elected_dis.pn_id) ||
+         ISIS_INTF_INFO(intf)->lan_self_to_pn_adv_data ||
+         ISIS_INTF_INFO(intf)->lan_pn_to_self_adv_data ) {
 
        assert(0);
     }  
@@ -207,8 +209,8 @@ isis_disable_protocol_on_interface(Interface *intf) {
     remove_glthread(&intf_info->intf_grp_member_glue);
     intf_info->intf_grp = NULL;
     if (isis_intf_is_lan(intf)) {
-        isis_intf_deallocate_lan_id (intf);
         isis_intf_resign_dis(intf);
+        isis_intf_deallocate_lan_id (intf);
     }
     isis_check_and_delete_intf_info(intf);
 }

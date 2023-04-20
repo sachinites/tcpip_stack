@@ -110,7 +110,6 @@ isis_protocol_shutdown_now (node_t *node) {
     mtrie_destroy(&node_info->exported_routes);
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
-    isis_destroy_all_advt_db(node_info);
     
     /* Queue All interfaces for Purge */
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
@@ -120,7 +119,7 @@ isis_protocol_shutdown_now (node_t *node) {
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
     isis_intf_grp_cleanup(node);
-
+    isis_destroy_advt_db(node_info, 0);
     isis_check_delete_node_info(node);      
 }
 
@@ -341,6 +340,7 @@ isis_init(node_t *node ) {
 
     isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = node_info;
+    node_info->sys_id = {NODE_LO_ADDR_INT(node), 0};
     node_info->seq_no = 0;
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
