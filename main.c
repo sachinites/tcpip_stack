@@ -80,6 +80,7 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     layer4_mem_init();
     spf_algo_mem_init();
     isis_mem_init();
+    ted_mem_init();
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */
     event_dispatcher_init(&gev_dis, "Global");

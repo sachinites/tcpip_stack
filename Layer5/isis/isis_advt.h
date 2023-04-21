@@ -134,7 +134,6 @@ isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
     /*should not leave dangling pointers by referenced objects*/
     assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
     assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
-    printf ("fragment [%hu][%hu] deleted\n", fragment->pn_no, fragment->fr_no);
     XFREE(fragment);
 }
 
