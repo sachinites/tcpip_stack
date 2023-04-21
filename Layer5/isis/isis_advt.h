@@ -102,7 +102,7 @@ typedef struct isis_adv_data_ {
         struct {
             uint32_t prefix;
             uint8_t mask;
-            uint32_t cost;
+            uint32_t metric;
         } pfx;
 
     }u;
@@ -110,6 +110,7 @@ typedef struct isis_adv_data_ {
     glthread_t glue;
     isis_fragment_t *fragment;
     struct isis_adv_data_ **holder;
+    pkt_size_t tlv_size;
 } isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 

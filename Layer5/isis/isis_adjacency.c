@@ -806,6 +806,7 @@ isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
 
             adjacency = glthread_to_isis_adjacency(curr);
             if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+             if (isis_adjacency_is_lan(adjacency)) continue;
             buff = isis_encode_nbr_tlv(adjacency, buff, &bytes_encoded);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -838,6 +839,8 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
 
             adjacency = glthread_to_isis_adjacency(curr);
             if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+            if (isis_adjacency_is_lan(adjacency)) continue;
+
             bytes_needed += isis_nbr_tlv_encode_size(adjacency, &subtlv_bytes_needed);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -1040,7 +1043,7 @@ static isis_tlv_record_advt_return_code_t
     advt_data->u.adj_data.remote_intf_ip = adjacency->nbr_intf_ip;
     init_glthread(&advt_data->glue);
     advt_data->fragment = NULL;
-
+    advt_data->tlv_size = isis_get_adv_data_size(advt_data);
     return isis_record_tlv_advertisement(
             adjacency->intf->att_node,
             intf_info->elected_dis.pn_id,
@@ -1087,7 +1090,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
         init_glthread(&advt_data->glue);
         adjacency->u.p2p_adv_data = advt_data;
         advt_data->fragment = NULL;
-
+        advt_data->tlv_size = isis_get_adv_data_size(advt_data);
         return isis_record_tlv_advertisement (
                                 adjacency->intf->att_node,
                                 0,

@@ -31,7 +31,6 @@ void
      MM_REG_STRUCT(0, isis_spf_log_t);
      MM_REG_STRUCT(0, isis_spf_data_t);
      MM_REG_STRUCT(0, isis_spf_result_t);
-     MM_REG_STRUCT(0, isis_exported_rt_t);
      MM_REG_STRUCT(0, isis_fragment_t);
      MM_REG_STRUCT(0, isis_advt_db_t);
      MM_REG_STRUCT(0, isis_advt_info_t);

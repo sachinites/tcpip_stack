@@ -22,7 +22,6 @@ extern void isis_mem_init();
 void isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
         void *rt_notif_data, unsigned int arg_size);
-extern void isis_free_exported_rt(mtrie_node_t *mnode);
 
 /* Checking if protocol enable at node & intf level */
 bool
@@ -353,7 +352,7 @@ isis_init(node_t *node ) {
     ted_init_teddb(node_info->ted_db, 0);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
-    init_mtrie(&node_info->exported_routes, 32, isis_free_exported_rt);
+    init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);
     isis_start_lsp_pkt_periodic_flooding(node);
     ISIS_INCREMENT_NODE_STATS(node,

@@ -202,6 +202,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->u.adj_data.remote_intf_ip = 0;
     init_glthread(&advt_data->glue);
     advt_data->fragment = NULL;
+    advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
     rc =  isis_record_tlv_advertisement (
                                 intf->att_node,
@@ -243,6 +244,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->u.adj_data.remote_intf_ip = IF_IP(intf);
     init_glthread(&advt_data->glue);
     advt_data->fragment = NULL;
+    advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
     rc = isis_record_tlv_advertisement (
                                 intf->att_node,
