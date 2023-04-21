@@ -1147,7 +1147,7 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
     /* Nothing to withdraw if nbr goes down as i am not DIS*/
     if (!isis_am_i_dis (adjacency->intf)) return ISIS_TLV_WD_TLV_NOT_FOUND;
 
-    /* Not Advertising alredy, ok !*/
+    /* Not Advertising already, ok !*/
     if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) return ISIS_TLV_WD_TLV_NOT_FOUND;
 
     /* Withdraw PN-->ME advertisement for this Adjacency*/

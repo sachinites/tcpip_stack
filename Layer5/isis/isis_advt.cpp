@@ -3,6 +3,7 @@
 #include "isis_rtr.h"
 #include "isis_advt.h"
 #include "isis_flood.h"
+#include "isis_lspdb.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 
@@ -91,9 +92,80 @@ static int
     return CMP_PREF_EQUAL;
  }
 
+void
+isis_cancel_lsp_fragment_regen_job (node_t *node) {
+
+    glthread_t *curr;
+    isis_fragment_t *fragment;
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info->lsp_fragment_gen_task) return;
+
+    task_cancel_job (EV(node), node_info->lsp_fragment_gen_task);
+    node_info->lsp_fragment_gen_task = NULL;
+
+    while ((curr = dequeue_glthread_first(&node_info->pending_lsp_gen_queue))) {
+
+        fragment = isis_frag_regen_glue_to_fragment (curr);
+        isis_fragment_unlock (node_info, fragment);
+    }
+}
+
 static void
+isis_lsp_fragment_regen_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
+
+    glthread_t *curr;
+    isis_fragment_t *fragment;
+
+    node_t *node = (node_t *)(arg);
+    
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    node_info->lsp_fragment_gen_task = NULL;
+
+    while ((curr = dequeue_glthread_first(&node_info->pending_lsp_gen_queue))) {
+
+        fragment = isis_frag_regen_glue_to_fragment (curr);
+        isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
+        //isis_install_lsp (node, NULL, fragment->lsp_pkt);
+        isis_fragment_unlock (node_info, fragment);
+    }
+}
+
+void
 isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) {
 
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    if (isis_is_protocol_shutdown_in_progress(node)) {
+        /* No Op : We would still allow fragment regen, as when we are in the process
+        of shutting down the protocol, we still need to regen purge LSPs*/
+    }
+
+    /* Fragment is already Queued up for regen*/
+    if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
+        return;
+    }
+
+    /* Queue the fragment for LSP regen */
+    glthread_add_last (&node_info->pending_lsp_gen_queue, &fragment->frag_regen_glue);
+    isis_fragment_lock (fragment);
+
+    /* If the LSP gen job is already scheduled, then we are done */
+    if (node_info->lsp_fragment_gen_task) {
+        return;
+    }
+
+    node_info->lsp_fragment_gen_task = task_create_new_job (EV(node),
+                                                        (void *)node,
+                                                        isis_lsp_fragment_regen_cbk,
+                                                        TASK_ONE_SHOT,
+                                                        TASK_PRIORITY_COMPUTE);
 }
 
 isis_tlv_record_advt_return_code_t
@@ -154,6 +226,7 @@ isis_record_tlv_advertisement (node_t *node,
         fragment->bytes_filled = ETH_HDR_SIZE_EXCL_PAYLOAD +  sizeof(isis_pkt_hdr_t);
         init_glthread(&fragment->priority_list_glue);
         init_glthread(&fragment->tlv_list_head);
+        init_glthread(&fragment->frag_regen_glue);
         advt_db->fragments[frag_no] = fragment;
         isis_fragment_lock(fragment);
     }
@@ -175,6 +248,7 @@ isis_record_tlv_advertisement (node_t *node,
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
     adv_data->holder = back_linkage;
+    fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
     isis_schedule_regen_fragment(node, fragment);
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
 }
@@ -204,18 +278,31 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     }
 
     if (!fragment->lsp_pkt) {
-        fragment->lsp_pkt = pkt_block_get_new (NULL, fragment->bytes_filled);
-        pkt_block_set_starting_hdr_type(fragment->lsp_pkt, ETH_HDR);
-        pkt_block_reference(fragment->lsp_pkt);
+        fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
+        isis_ref_isis_pkt (fragment->lsp_pkt);
+        fragment->lsp_pkt->fragment = fragment;
+        isis_fragment_lock (fragment);
+        fragment->lsp_pkt->flood_eligibility = true;
+    }
+    else {
+        if (fragment->lsp_pkt->pkt) {
+            tcp_ip_free_pkt_buffer (fragment->lsp_pkt->pkt, fragment->lsp_pkt->pkt_size);
+            fragment->lsp_pkt->pkt = NULL;
+            fragment->lsp_pkt->pkt_size = 0;
+        }
     }
 
+    fragment->lsp_pkt->flood_eligibility = true;
+    fragment->lsp_pkt->pkt  = (byte *)tcp_ip_get_new_pkt_buffer(fragment->bytes_filled);
+    fragment->lsp_pkt->pkt_size = fragment->bytes_filled;
+
     /* Drain the older pkt contents */
-    eth_hdr = pkt_block_get_ethernet_hdr(fragment->lsp_pkt);
+    eth_hdr = (ethernet_hdr_t *)(fragment->lsp_pkt->pkt);
 
     /* Re-manufacture ethernet hdr */
     if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_REWRITE_ETH_HDR)) {
         memset((byte *)eth_hdr, 0, fragment->bytes_filled);
-        // memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
+        memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
         layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
         eth_hdr->type = ISIS_HELLO_ETH_PKT_TYPE;
     }
@@ -265,8 +352,6 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
         bytes_filled += tlv_size;
 
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
-
-    assert ((bytes_filled + ETH_FCS_SIZE ) == fragment->bytes_filled);
 }
 
 isis_tlv_wd_return_code_t
@@ -390,27 +475,29 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
     advt_db->fragments[fragment->fr_no] = NULL;
     isis_fragment_unlock(node_info, fragment);
 
+    if (fragment->lsp_pkt) {
+        isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
+    }
+
+    if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
+        remove_glthread(&fragment->frag_regen_glue);
+        isis_fragment_unlock(node_info, fragment);
+    }
+
     if (!purge) {
-        if (fragment->lsp_pkt) { // remove this check later
-            pkt_block_dereference(fragment->lsp_pkt);
+        if (fragment->lsp_pkt) {
+            isis_deref_isis_pkt(node_info, fragment->lsp_pkt);
+            fragment->lsp_pkt = NULL;
         }
-        fragment->lsp_pkt = NULL;
         isis_fragment_unlock(node_info, fragment);
         return;
     }
-
-    assert(0); // not supported yet
-    pkt_block = fragment->lsp_pkt;
-    fragment->lsp_pkt = NULL;
 
     fragment->regen_flags = (ISIS_SHOULD_INCL_PURGE_BIT | 
                                 ISIS_SHOULD_RENEW_LSP_PKT_HDR);
 
     isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
-    lsp_pkt = ( isis_lsp_pkt_t *)pkt_block_get_pkt(fragment->lsp_pkt, &pkt_size);
-    /* Fix Me ; We should really use pkt_block instead of raw lsp pkt. Once we do these changes, we
-        can uncomment below line*/
-    //isis_schedule_lsp_flood (node, lsp_pkt, NULL,  isis_event_discard_fragment);
+    isis_schedule_lsp_flood(node, fragment->lsp_pkt, NULL);
     isis_fragment_unlock(node_info, fragment);
 }
 
@@ -518,6 +605,7 @@ isis_show_advt_db (node_t *node) {
     isis_fragment_t *fragment;
 
     byte *buff = node->print_buff;
+    memset(buff, 0, NODE_PRINT_BUFF_LEN);
     
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 

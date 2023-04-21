@@ -7,6 +7,8 @@
 
 typedef uint16_t isis_pkt_type_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
+typedef struct isis_fragment_ isis_fragment_t;
+typedef struct node_info_ isis_node_info_t;
 
 typedef struct isis_pkt_ {
 
@@ -28,6 +30,8 @@ typedef struct isis_pkt_ {
     timer_event_handle *expiry_timer;
     /* to check if this LSP is present in lspdb or not */
     bool installed_in_db;
+    /* Back pointer to the owning fragment*/
+    isis_fragment_t *fragment;
 } isis_lsp_pkt_t;
 
 /*LSP Flags in lsp pkts*/
@@ -99,7 +103,7 @@ isis_pkt_hdr_flags_t
 isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt);
 
 uint32_t
-isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
+isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
 
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);

@@ -126,7 +126,6 @@ isis_process_lsp_pkt(node_t *node,
     uint32_t *seq_no;
     isis_lsp_pkt_t *new_lsp_pkt;
     isis_intf_info_t *intf_info;
-    isis_node_info_t *node_info;
     
     if (!isis_node_intf_is_enable(iif)) return;  
     if (!isis_any_adjacency_up_on_interface(iif)) return;
@@ -149,7 +148,7 @@ isis_process_lsp_pkt(node_t *node,
     tcp_trace(node, iif, tlb);
 
     isis_install_lsp(node, iif, new_lsp_pkt);
-    isis_deref_isis_pkt(new_lsp_pkt);
+    isis_deref_isis_pkt(ISIS_NODE_INFO(node), new_lsp_pkt);
 }
 
 void
@@ -338,7 +337,7 @@ TLV_ADD_DONE:
         /* Debar this pkt from going out of the box*/
         isis_mark_isis_lsp_pkt_flood_ineligible(node, 
                 node_info->self_lsp_pkt);
-        isis_deref_isis_pkt(node_info->self_lsp_pkt);
+        isis_deref_isis_pkt(node_info, node_info->self_lsp_pkt);
         node_info->self_lsp_pkt = NULL;
     }
 
@@ -814,13 +813,11 @@ isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt) {
 }
 
 uint32_t
-isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt) {
+isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t rc;
 
-    assert(lsp_pkt->pkt &&
-           lsp_pkt->pkt_size &&
-           lsp_pkt->ref_count);
+    assert(lsp_pkt->ref_count);
 
     lsp_pkt->ref_count--;
     rc = lsp_pkt->ref_count;
@@ -838,6 +835,10 @@ isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt) {
             timer_de_register_app_event(lsp_pkt->expiry_timer);
             lsp_pkt->expiry_timer = NULL;
         }
+        if (lsp_pkt->fragment) {
+            isis_fragment_unlock(node_info, lsp_pkt->fragment);
+            lsp_pkt->fragment = NULL;
+        }
         XFREE(lsp_pkt);
     }
     return rc;
@@ -845,9 +846,6 @@ isis_deref_isis_pkt(isis_lsp_pkt_t *lsp_pkt) {
 
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *isis_pkt) {
-
-    assert(isis_pkt->pkt &&
-           isis_pkt->pkt_size);
 
     isis_pkt->ref_count++;
 }

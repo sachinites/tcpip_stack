@@ -114,7 +114,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
             isis_lsp_pkt_flood_complete(intf->att_node, lsp_pkt);
         }
 
-        isis_deref_isis_pkt(lsp_pkt);
+        isis_deref_isis_pkt(node_info, lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
@@ -195,7 +195,7 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf) {
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         XFREE(lsp_xmit_elem);
         lsp_pkt->flood_queue_count--;
-        isis_deref_isis_pkt(lsp_pkt);
+        isis_deref_isis_pkt(ISIS_NODE_INFO(intf->att_node), lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
@@ -208,8 +208,7 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf) {
 void
 isis_schedule_lsp_flood(node_t *node, 
                         isis_lsp_pkt_t *lsp_pkt,
-                        Interface *exempt_iif,
-                        isis_event_type_t event_type) {
+                        Interface *exempt_iif) {
 
     Interface *intf;
     glthread_t *curr;

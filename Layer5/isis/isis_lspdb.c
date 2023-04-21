@@ -54,7 +54,7 @@ isis_free_dummy_lsp_pkt(node_t *node){
     if (!node_info || !isis_is_protocol_enable_on_node(node)) return;
 
     if(!node_info->lsp_dummy_pkt) return ;
-    rc = isis_deref_isis_pkt(node_info->lsp_dummy_pkt);
+    rc = isis_deref_isis_pkt(node_info,node_info->lsp_dummy_pkt);
     if (rc == 0) node_info->lsp_dummy_pkt = NULL;
 }
 
@@ -156,7 +156,7 @@ isis_install_lsp(node_t *node,
                 ISIS_LSPDB_MGMT, isis_event_str(event_type));
             tcp_trace(node, iif, tlb);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0, event_type);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
         }
     }
 
@@ -187,7 +187,7 @@ isis_install_lsp(node_t *node,
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
             isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0, event_type);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
         }
     }
 
@@ -204,7 +204,7 @@ isis_install_lsp(node_t *node,
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
                 rtr_id_str.ip_addr, *old_seq_no);
             tcp_trace(node, iif, tlb);
-            isis_schedule_lsp_flood(node, old_lsp_pkt, 0, event_type);
+            isis_schedule_lsp_flood(node, old_lsp_pkt, 0);
         } else {
 
             assert(0);
@@ -246,7 +246,7 @@ isis_install_lsp(node_t *node,
             if (!purge_lsp) {
                 isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
                 /* Do not flood purge LSP if it do not removes LSP from our DB*/
-                isis_schedule_lsp_flood(node, new_lsp_pkt, iif, event_type);
+                isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
             }
         } else {
 
@@ -274,7 +274,7 @@ isis_install_lsp(node_t *node,
             if (!purge_lsp) {
                 isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
             }
-            isis_schedule_lsp_flood(node, new_lsp_pkt, iif, event_type);
+            isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
         } else {
 
             assert(0);
@@ -324,7 +324,7 @@ isis_install_lsp(node_t *node,
     }
 
     if (old_lsp_pkt) {
-        isis_deref_isis_pkt(old_lsp_pkt);
+        isis_deref_isis_pkt(ISIS_NODE_INFO(node), old_lsp_pkt);
     }
 }
 
@@ -458,8 +458,7 @@ isis_parse_lsp_tlvs(node_t *node,
                     isis_print_lsp_id(node_info->self_lsp_pkt));
                 tcp_trace(node, 0, tlb);
 
-                isis_schedule_lsp_flood(node, node_info->self_lsp_pkt,
-                                        0, isis_event_on_demand_flood);
+                isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, 0);
 
                 ISIS_INCREMENT_NODE_STATS(node,
                     isis_event_count[isis_event_on_demand_flood]);
@@ -527,7 +526,8 @@ isis_show_lspdb(node_t *node) {
     avltree_node_t *curr;
     avltree_t *lspdb = isis_get_lspdb_root(node);
     byte *buff = node->print_buff;
-
+    memset(buff, 0, NODE_PRINT_BUFF_LEN);
+    
     if (!lspdb) return;
 
     ITERATE_AVL_TREE_BEGIN(lspdb, curr){
@@ -584,6 +584,7 @@ isis_show_one_lsp_pkt_detail(node_t *node, char *rtr_id_str) {
     isis_lsp_pkt_t *lsp_pkt;
 
     char *buff = node->print_buff;
+    memset(buff, 0, NODE_PRINT_BUFF_LEN);
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
@@ -719,7 +720,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
     avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node));
     lsp_pkt->installed_in_db = false;
     isis_ted_uninstall_lsp(node, lsp_pkt);
-    isis_deref_isis_pkt(lsp_pkt);
+    isis_deref_isis_pkt(ISIS_NODE_INFO(node), lsp_pkt);
 }
 
 void
@@ -788,7 +789,7 @@ isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     sprintf(tlb, "%s : LSP %s removed from LSPDB\n", ISIS_LSPDB_MGMT,
         isis_print_lsp_id(lsp_pkt));
     tcp_trace(node, 0, tlb);
-    isis_deref_isis_pkt(lsp_pkt);
+    isis_deref_isis_pkt(ISIS_NODE_INFO(node), lsp_pkt);
 }
 
 bool

@@ -41,6 +41,7 @@ isis_node_cancel_all_queued_jobs(node_t *node) {
 
     isis_cancel_lsp_pkt_generation_task(node);
     isis_cancel_spf_job(node);
+    isis_cancel_lsp_fragment_regen_job(node);
 }
 
 static void
@@ -101,7 +102,7 @@ isis_protocol_shutdown_now (node_t *node) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if(node_info->self_lsp_pkt){
-        isis_deref_isis_pkt(node_info->self_lsp_pkt);
+        isis_deref_isis_pkt(node_info, node_info->self_lsp_pkt);
         node_info->self_lsp_pkt = NULL;
     }
 
@@ -354,6 +355,7 @@ isis_init(node_t *node ) {
     isis_init_spf_logc(node);
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);
+    init_glthread (&node_info->pending_lsp_gen_queue);
     isis_start_lsp_pkt_periodic_flooding(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);

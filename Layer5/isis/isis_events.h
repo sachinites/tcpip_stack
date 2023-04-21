@@ -61,7 +61,11 @@ typedef enum isis_events_ {
     isis_event_route_rib_update,
     #define ISIS_EVENT_ROUTE_RIB_UPDATE_BIT                     (1 << isis_event_route_rib_update)
     isis_event_dis_changed,
-    #define ISIS_EVENT_DIS_CHANGED_BIT                                 (1 << isis_event_dis_changed)    
+    #define ISIS_EVENT_DIS_CHANGED_BIT                                 (1 << isis_event_dis_changed) 
+    isis_event_discard_fragment,
+    #define ISIS_EVENT_DISCARD_FRAGMENT_BIT                    (1 << isis_event_discard_fragment)
+    isis_event_fragment_regen,
+    #define ISIS_EVENT_FRAGMENT_REGEN_BIT                        (1 << isis_event_fragment_regen)
     isis_event_max                                                                                 /* Do not cross more than 63 */
     #define ISIS_EVENT_MAX                                                            (1 << isis_event_max)
 } isis_event_type_t;

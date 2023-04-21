@@ -1,7 +1,6 @@
 #ifndef __ISIS_FLOOD__
 #define __ISIS_FLOOD__
 
-
 typedef struct isis_lsp_xmit_elem_ {
 
     isis_lsp_pkt_t *lsp_pkt;
@@ -21,8 +20,7 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf);
 void
 isis_schedule_lsp_flood(node_t *node, 
                         isis_lsp_pkt_t *lsp_pkt,
-                        Interface *exempt_intf,
-                        isis_event_type_t event_type);
+                        Interface *exempt_intf);
 
 void
 isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt);

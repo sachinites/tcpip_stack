@@ -34,6 +34,14 @@ typedef enum isis_tlv_wd_return_code_ {
 #define ISIS_SHOULD_INCL_ON_DEM_BIT (1 << 2)
 #define ISIS_SHOULD_RENEW_LSP_PKT_HDR   (1 << 3)
 #define ISIS_SHOULD_REWRITE_ETH_HDR (1 << 4)
+#define ISIS_SHOULD_IS_REACH_TLVS (1 << 5)
+#define ISIS_SHOULD_IP_REACH_TLVS (1 << 6)
+
+#define ISIS_LSP_DEF_REGEN_FLAGS \
+    ( ISIS_SHOULD_REWRITE_ETH_HDR | \
+      ISIS_SHOULD_RENEW_LSP_PKT_HDR | \
+      ISIS_SHOULD_IS_REACH_TLVS | \
+      ISIS_SHOULD_IP_REACH_TLVS )
 
 typedef struct isis_advt_info_ {
 
@@ -59,13 +67,17 @@ typedef struct isis_fragment_ {
     uint32_t seq_no;
     uint8_t pn_no;
     uint8_t fr_no;
-    pkt_block_t *lsp_pkt;
+    isis_lsp_pkt_t *lsp_pkt;
     uint32_t regen_flags;
     uint8_t ref_count;
+    glthread_t frag_regen_glue;
 }isis_fragment_t;
 GLTHREAD_TO_STRUCT(isis_priority_list_glue_to_fragment,
                                                isis_fragment_t,
                                                priority_list_glue);
+GLTHREAD_TO_STRUCT(isis_frag_regen_glue_to_fragment,
+                                               isis_fragment_t,
+                                               frag_regen_glue);
 
 typedef struct isis_advt_db_ {
 
@@ -124,18 +136,26 @@ isis_fragment_lock (isis_fragment_t *fragment) {
     fragment->ref_count++;
 }
 
-static inline void
+static inline u_int8_t
 isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
 
     fragment->ref_count--;
-    if (fragment->ref_count) return;
+    if (fragment->ref_count) return (fragment->ref_count);
     /* Should not leak any memory*/
     assert(IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head));
-    assert(!fragment->lsp_pkt);
+    /* Fragment and LSP pkt have their own life time a.ka. reference count.
+        It is possible that ref_count of fragment is reduced to 0, but lsp pkt yet is in use*/
+    if (fragment->lsp_pkt) {
+        isis_deref_isis_pkt (node_info, fragment->lsp_pkt);
+        fragment->lsp_pkt = NULL;
+    }
+    /* Fragment must not be Queued for regeneration */
+    assert(!IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue));
     /*should not leave dangling pointers by referenced objects*/
     assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
     assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
     XFREE(fragment);
+    return 0;
 }
 
 isis_tlv_record_advt_return_code_t
@@ -155,5 +175,8 @@ void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
 void isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) ;
 uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
+void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) ;
+void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
+void  isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_flags);
 
 #endif  

@@ -55,7 +55,11 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_route_rib_update
     "ISIS EVENT ROUTE RIB UPDATE",
     //isis_event_dis_changed
-    "ISIS EVENT DIS CHANGED"
+    "ISIS EVENT DIS CHANGED",
+    //isis_event_discard_fragment
+    "ISIS EVENT DISCARD FRAGMENT",
+    //isis_event_fragment_regen
+    "ISIS EVENT FRAGMENT REGEN"
 }; 
 
 const char *
