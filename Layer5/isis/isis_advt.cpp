@@ -168,6 +168,9 @@ isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) {
                                                         TASK_PRIORITY_COMPUTE);
 }
 
+/* This is Top level fn to insert a new TLV in ADVT-DB. Inserting a new TLV in ADVT-DB
+    requires finding the fragment which can accomodate the TLV, regen the fragment's LSP pkt
+    and flood it.*/
 isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
                                     uint8_t pn_no,
@@ -253,14 +256,17 @@ isis_record_tlv_advertisement (node_t *node,
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
 }
 
+/* This fn regenerate fragment;s LSP pkt from scratch. regen_ctrl_flags controls as to what content
+    will go in LSP pkt.*/
 void
 isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_ctrl_flags) {
 
     glthread_t *curr;
-    uint16_t tlv_size;
-    uint16_t bytes_filled;
+    pkt_size_t tlv_size;
+    pkt_size_t bytes_filled;
     bool create_purge_lsp;
     ethernet_hdr_t *eth_hdr;
+    pkt_size_t eth_payload_size;
     isis_node_info_t *node_info;
     isis_pkt_hdr_t *lsp_pkt_hdr;
 
@@ -269,6 +275,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     if (!node_info) return;
 
     bytes_filled = 0;
+    eth_payload_size = 0;
 
     /* When protocol shut is in progress, then only zero fragment
         is allowed to be regenerated and advertised */
@@ -278,23 +285,12 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     }
 
     if (!fragment->lsp_pkt) {
-        fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
-        isis_ref_isis_pkt (fragment->lsp_pkt);
-        fragment->lsp_pkt->fragment = fragment;
-        isis_fragment_lock (fragment);
-        fragment->lsp_pkt->flood_eligibility = true;
+        isis_fragment_alloc_new_lsp_pkt (node_info, fragment);
     }
     else {
-        if (fragment->lsp_pkt->pkt) {
-            tcp_ip_free_pkt_buffer (fragment->lsp_pkt->pkt, fragment->lsp_pkt->pkt_size);
-            fragment->lsp_pkt->pkt = NULL;
-            fragment->lsp_pkt->pkt_size = 0;
-        }
+        isis_fragment_dealloc_lsp_pkt (node_info, fragment);
+        isis_fragment_alloc_new_lsp_pkt (node_info, fragment);
     }
-
-    fragment->lsp_pkt->flood_eligibility = true;
-    fragment->lsp_pkt->pkt  = (byte *)tcp_ip_get_new_pkt_buffer(fragment->bytes_filled);
-    fragment->lsp_pkt->pkt_size = fragment->bytes_filled;
 
     /* Drain the older pkt contents */
     eth_hdr = (ethernet_hdr_t *)(fragment->lsp_pkt->pkt);
@@ -321,6 +317,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     }
 
     bytes_filled += sizeof (isis_pkt_hdr_t);
+    eth_payload_size +=  sizeof (isis_pkt_hdr_t);
 
     if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_PURGE_BIT) ) {
         SET_BIT(lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_PURGE_BIT);
@@ -350,8 +347,13 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
                                         isis_get_adv_data_tlv_content(advt_data,  tlv_content));
 
         bytes_filled += tlv_size;
+        eth_payload_size += tlv_size;
 
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
+
+    SET_COMMON_ETH_FCS (eth_hdr, eth_payload_size, 0 );
+    bytes_filled +=  ETH_FCS_SIZE;
+    fragment->lsp_pkt->pkt_size = bytes_filled ;
 }
 
 isis_tlv_wd_return_code_t
@@ -370,7 +372,7 @@ isis_withdraw_tlv_advertisement (node_t *node,
     fragment = adv_data->fragment;
 
     assert (fragment) ;
-    isis_fragment_lock(fragment);
+    isis_fragment_prevent_premature_deletion(fragment);
 
     advt_db = node_info->advt_db[fragment->pn_no];
     assert(advt_db);
@@ -399,7 +401,7 @@ isis_withdraw_tlv_advertisement (node_t *node,
         *(adv_data->holder) = NULL;
     }
     XFREE(adv_data);
-    isis_fragment_unlock(node_info, fragment);
+    isis_fragment_relieve_premature_deletion(node_info, fragment);
     return ISIS_TLV_WD_SUCCESS;
 }
 
@@ -432,7 +434,7 @@ isis_destroy_advt_db (node_t *node, uint8_t pn_no) {
 
         fragment = advt_db->fragments[i];
         if (!fragment) continue;
-        isis_discard_fragment (node, fragment, false);
+        isis_discard_fragment (node, fragment, !fragment->pn_no && !fragment->fr_no);
     }
 
     XFREE(advt_db);
@@ -450,7 +452,7 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
     isis_advt_db_t *advt_db;
     isis_node_info_t *node_info;
 
-    isis_fragment_lock(fragment);
+    isis_fragment_prevent_premature_deletion (fragment);
     node_info = ISIS_NODE_INFO(node);
 
     ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
@@ -486,10 +488,9 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
 
     if (!purge) {
         if (fragment->lsp_pkt) {
-            isis_deref_isis_pkt(node_info, fragment->lsp_pkt);
-            fragment->lsp_pkt = NULL;
+            isis_fragment_dealloc_lsp_pkt (node_info, fragment);
         }
-        isis_fragment_unlock(node_info, fragment);
+        isis_fragment_relieve_premature_deletion(node_info, fragment);
         return;
     }
 
@@ -497,8 +498,8 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
                                 ISIS_SHOULD_RENEW_LSP_PKT_HDR);
 
     isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
-    isis_schedule_lsp_flood(node, fragment->lsp_pkt, NULL);
-    isis_fragment_unlock(node_info, fragment);
+    //isis_schedule_lsp_flood(node, fragment->lsp_pkt, NULL);
+    isis_fragment_relieve_premature_deletion(node_info, fragment);
 }
 
 void
@@ -523,8 +524,10 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
 
     rc = printf ("fragment : [%hu][%hu]  , seq_no : %u\n",
                 fragment->pn_no, fragment->fr_no, fragment->seq_no);
-    rc += printf ("  bytes filled : %hu, ref_count : %u\n",
-                fragment->bytes_filled, fragment->ref_count);
+
+    rc += printf ("  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
+                fragment->bytes_filled, fragment->ref_count,
+                fragment->lsp_pkt->pkt_size, fragment->lsp_pkt->ref_count);
 
     rc += printf ("    TLVs:\n");
 
@@ -564,8 +567,10 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
 
     rc = sprintf (buff + rc, "fragment : [%hu][%hu]  , seq_no : %u\n",
                 fragment->pn_no, fragment->fr_no, fragment->seq_no);
-    rc += sprintf (buff + rc, "  bytes filled : %hu, ref_count : %u\n",
-                fragment->bytes_filled, fragment->ref_count);
+                
+    rc += printf ("  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
+                fragment->bytes_filled, fragment->ref_count,
+                fragment->lsp_pkt->pkt_size, fragment->lsp_pkt->ref_count);
 
     rc += sprintf (buff + rc, "    TLVs:\n");
 
@@ -623,4 +628,57 @@ isis_show_advt_db (node_t *node) {
         }
     }
     return rc;
+}
+
+void
+isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+
+    assert(fragment->lsp_pkt);
+    isis_fragment_prevent_premature_deletion (fragment);
+    isis_deref_isis_pkt(node_info, fragment->lsp_pkt);
+    fragment->lsp_pkt = NULL;
+    isis_fragment_relieve_premature_deletion(node_info, fragment);
+}
+
+void
+isis_fragment_alloc_new_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+
+    assert(!fragment->lsp_pkt);
+    fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
+    isis_ref_isis_pkt(fragment->lsp_pkt);
+    fragment->lsp_pkt->fragment = fragment;
+    isis_fragment_lock(fragment);
+    fragment->lsp_pkt->flood_eligibility = true;
+    fragment->lsp_pkt->pkt = (byte *)tcp_ip_get_new_pkt_buffer(fragment->bytes_filled);
+    fragment->lsp_pkt->pkt_size = 0;
+}
+
+void
+isis_fragment_lock (isis_fragment_t *fragment) {
+    
+    fragment->ref_count++;
+}
+
+u_int8_t
+isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+
+    fragment->ref_count--;
+    if (fragment->ref_count) return (fragment->ref_count);
+
+    /* Should not leak any memory*/
+    assert(IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head));
+
+    /* Fragment and LSP pkt have their own life time a.ka. reference count.
+        It is possible that ref_count of fragment is reduced to 0, but lsp pkt yet is in use*/
+    if (fragment->lsp_pkt) {
+        isis_fragment_dealloc_lsp_pkt(node_info, fragment);
+    }
+
+    /* Fragment must not be Queued for regeneration */
+    assert(!IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue));
+    /*should not leave dangling pointers by referenced objects*/
+    assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
+    assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
+    XFREE(fragment);
+    return 0;
 }

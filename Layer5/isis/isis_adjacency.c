@@ -560,7 +560,7 @@ isis_change_adjacency_state(
                     isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
                     if (!isis_update_dis_on_adjacency_transition(adjacency)) {
-                        /* If DIS is chnged, then all adj advertisements are also handled*/
+                        /* If DIS is changed, then all adj advertisements are also handled*/
                         isis_adjacency_advertise_is_reach(adjacency);
                     }
                     break;
@@ -592,7 +592,7 @@ isis_change_adjacency_state(
                     }
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
                     if (!isis_update_dis_on_adjacency_transition(adjacency)) {
-                        /* If DIS is chnged, then all adj advertisements are also handled*/
+                        /* If DIS is changed, then all adj advertisements are also handled*/
                         isis_adjacency_withdraw_is_reach(adjacency);
                     }
                     break;
@@ -966,7 +966,13 @@ isis_show_all_adjacencies (node_t *node) {
     return rc;
  }
 
-/* Return true if DIS is changed */
+/* Whenever the Adjacency state transitions  between DOWN and UP on a LAN,
+    DIS relection should happen. We repositon the adjacency in interface adj list which is
+    sorted list of Adjacencies based on priority order. This is DIS-election only. DIS re-election
+    may result in DIS either changed or not. If DIS is not changed, then no action need to be performed.
+    But if DIS is changed, we need to forgot the current DIS (which in turn result in withdrawing the required
+    advertisements) and learn a new DIS (which in-turn result in starting required advertisements ).
+    Return true if DIS is changed */
 bool
 isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     
@@ -997,6 +1003,12 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     return true;
 }
 
+/* This fn advertise LAN adjacency by a ISIS rtr. On a LAN, when we learn
+    Nbr, we need to advertise this nbr as link ( is-reach ) info in our advertisements.
+    For a Nbr on a LAN, this responsibility is performed only by elected DIS node
+    If I am DIS, and i have a Nbr N:
+        advertise adjacency to Nbr N as : PN --> Nbr ( i.e. advertise on behalf of PN)
+    */
 static isis_tlv_record_advt_return_code_t
  isis_adjacency_advertise_lan (isis_adjacency_t *adjacency) {
 
@@ -1052,6 +1064,11 @@ static isis_tlv_record_advt_return_code_t
             &advt_info);
  }
 
+/* This fn advertise P2P adjacency by a ISIS rtr. On a P2P, when we learn
+    Nbr, we need to advertise this nbr as link ( is-reach ) info in our advertisements.
+    For a Nbr on a P2P interface.
+        advertise adjacency to Nbr N as : SELF --> Nbr.
+*/
 static isis_tlv_record_advt_return_code_t
 isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
 
@@ -1099,6 +1116,8 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
                                 &advt_info);
 }
 
+/* This is Top level API to looks after Adjacency/Nbr advertisement when
+    Adjacency goes UP*/
 void
 isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
 
@@ -1125,6 +1144,12 @@ isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
     }
 }
 
+/* This fn is to withdraw P2P Nbr advertisement when Adjacency is deleted Or goes DOWN.
+    Note whenever the TLV is removed or added, we trigger sequence of operations as follows :
+        TLV Removed from fragment's TLV list --> Fragment's LSP Pkt regenerated --> 
+        Fragment's LSP Pkt flooded
+        This fn does exactly opposite of  isis_adjacency_advertise_p2p( ).
+    */
 static isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
 
@@ -1137,6 +1162,14 @@ isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
                                             adjacency->u.p2p_adv_data);
 }
 
+/* This fn is to withdraw LAN Nbr advertisement when Adjacency is deleted Or goes DOWN.
+    Note whenever the TLV is removed or added, we trigger sequence of operations as follows :
+        TLV Removed from fragment's TLV list --> Fragment's LSP Pkt regenerated --> 
+        Fragment's LSP Pkt flooded
+        This fn does exactly opposite of  isis_adjacency_advertise_lan( ).
+        When the Nbr is unlearnt ( adjacency delete or goes down), If I am not DIS, no action.
+        If am DIS, then withdraw PN --> NBR advertisements.
+*/
 static isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
     
@@ -1150,13 +1183,16 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
     /* Not Advertising already, ok !*/
     if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) return ISIS_TLV_WD_TLV_NOT_FOUND;
 
-    /* Withdraw PN-->ME advertisement for this Adjacency*/
+    /* Withdraw PN-->NBR advertisement for this Adjacency*/
     rc = isis_withdraw_tlv_advertisement(adjacency->intf->att_node,
-                                                                adjacency->u.lan_pn_to_nbr_adv_data);
+                                                                 adjacency->u.lan_pn_to_nbr_adv_data);
 
     adjacency->u.lan_pn_to_nbr_adv_data = NULL;
     return rc;
 }
+
+/* This is Top level API to looks after Adjacency/Nbr advertisement when
+    Adjacency goes DOWN or deleted*/
 
 void
 isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {

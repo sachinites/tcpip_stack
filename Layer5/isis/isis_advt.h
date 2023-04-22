@@ -130,33 +130,13 @@ GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 #define ISIS_GET_FRAGMENT(node_info, advt_info)   \
     (node_info->advt_db[advt_info->pn_no]->fragments[advt_info->fr_no])
 
-static inline void
-isis_fragment_lock (isis_fragment_t *fragment) {
-
-    fragment->ref_count++;
-}
-
-static inline u_int8_t
-isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
-
-    fragment->ref_count--;
-    if (fragment->ref_count) return (fragment->ref_count);
-    /* Should not leak any memory*/
-    assert(IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head));
-    /* Fragment and LSP pkt have their own life time a.ka. reference count.
-        It is possible that ref_count of fragment is reduced to 0, but lsp pkt yet is in use*/
-    if (fragment->lsp_pkt) {
-        isis_deref_isis_pkt (node_info, fragment->lsp_pkt);
-        fragment->lsp_pkt = NULL;
-    }
-    /* Fragment must not be Queued for regeneration */
-    assert(!IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue));
-    /*should not leave dangling pointers by referenced objects*/
-    assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
-    assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
-    XFREE(fragment);
-    return 0;
-}
+/* Fragment locking and Unlocking APIs */
+void isis_fragment_lock (isis_fragment_t *fragment);
+u_int8_t isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment);
+void isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
+void isis_fragment_alloc_new_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
+#define isis_fragment_prevent_premature_deletion    isis_fragment_lock
+#define isis_fragment_relieve_premature_deletion  isis_fragment_unlock
 
 isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 

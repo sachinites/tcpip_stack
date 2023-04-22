@@ -107,7 +107,6 @@ isis_protocol_shutdown_now (node_t *node) {
     }
 
     node_info->event_control_flags = 0;
-    mtrie_destroy(&node_info->exported_routes);
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
     
@@ -120,7 +119,13 @@ isis_protocol_shutdown_now (node_t *node) {
     
     isis_intf_grp_cleanup(node);
     isis_destroy_advt_db(node, 0);
-    isis_check_delete_node_info(node);      
+    isis_node_cancel_all_queued_jobs(node);
+    isis_node_cancel_all_timers(node);
+    isis_free_dummy_lsp_pkt(node);
+    isis_cleanup_spf_logc(node);
+    isis_unconfig_import_policy(node, NULL);
+    isis_unconfig_export_policy(node, NULL);
+    isis_check_delete_node_info(node); 
 }
 
 void
@@ -232,14 +237,7 @@ isis_protocol_shut_down(node_t *node) {
         printf("Protocol Already In ShutDown State\n");
         return;
     }
-  
-    isis_node_cancel_all_queued_jobs(node);
-    isis_node_cancel_all_timers(node);
-    isis_free_dummy_lsp_pkt(node);
-    isis_cleanup_spf_logc(node);
-    isis_unconfig_import_policy(node, NULL);
-    isis_unconfig_export_policy(node, NULL);
-    
+      
     SET_BIT( node_info->event_control_flags, 
         ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
 

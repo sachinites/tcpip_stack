@@ -64,7 +64,8 @@ isis_intf_deallocate_lan_id (Interface *intf) {
 
 /* DIS Mgmt Functions */
 
-/* Trigger DIS Re-election, return rtr id of the DIS*/
+/* Trigger DIS Re-election, return LAN-ID of the Node which is 
+	elected as DIS. This fn do not modifies the protocol state in anyway. */
 isis_lan_id_t
 isis_intf_reelect_dis (Interface *intf) {
 
@@ -102,7 +103,11 @@ isis_intf_reelect_dis (Interface *intf) {
     return null_lan_id;
 }
 
-/* Deletet the Current DIS*/
+/* This fn delete the known DIS by this node. The DIS could be self or some-other
+	Nbr. This fn looks after to update Advt -DB (and hence the protocol advertisements)
+	When DIS is forgotten (resigned). This fn performs 3 steps as commented below. The
+	Ist two steps are meaningful to be performed only by self DIS, whereas last step is performed
+	whether I am DIS or not*/
 void 
 isis_intf_resign_dis (Interface *intf) {
 
@@ -118,8 +123,9 @@ isis_intf_resign_dis (Interface *intf) {
         with DIS privileges
     */
     /* Step 1 : 
-        Since, we are resigning as DIS, Delete ISIS REACH advt info
-        from from PN to self i.e  intf_info->lan_pn_to_self_adv_data;
+        Since, we are resigning as self-DIS, Delete ISIS REACH advt info
+        from from PN to self i.e. intf_info->lan_pn_to_self_adv_data; This Advertisement
+        is done only by DIS node.
     */
     if (intf_info->lan_pn_to_self_adv_data) {
         
@@ -131,34 +137,45 @@ isis_intf_resign_dis (Interface *intf) {
     }
 
     /* Step 2 : 
-        Since, we are resigning as DIS, Delete all ISIS REACH advt info
+        Since, we are resigning as self-DIS, Delete all ISIS REACH advt info
         from from PN to all Nbrs i.e. on all ajacencies on this interface,
-        delete advt info adjacency->lan_pn_to_adj_adv_data
-        Also, Purge all the fragments generate by this PN
+        delete advt info adjacency->lan_pn_to_adj_adv_data. So, basically
+        we are removing IS-REACH advertisements from PN's fragments. If
+        fragments goes empty, we discard them without purging.
     */
-    ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+	if (isis_am_i_dis (intf)) {
+    	ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
-        adjacency = glthread_to_isis_adjacency(curr);
+        	adjacency = glthread_to_isis_adjacency(curr);
         
-        if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
+        	if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
 
-        /* Adjacency may not have advertised by now, skip ...*/
-        if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) continue;
+        	/* Adjacency may not have advertised by now, skip ...*/
+        	if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) continue;
 
-        rc = isis_withdraw_tlv_advertisement(intf->att_node,
+        	rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                              adjacency->u.lan_pn_to_nbr_adv_data);
-        adjacency->u.lan_pn_to_nbr_adv_data = NULL;
+        	adjacency->u.lan_pn_to_nbr_adv_data = NULL;
 
-    } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+    	} ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+	}
 
-    /* Step 3 : Forget who the DIS is. Therefore, withdraw the intf_info->lan_self_to_pn_adv_data*/
+    /* Step 3 : Now eventually Forget who the DIS is. Therefore, 
+        withdraw the intf_info->lan_self_to_pn_adv_data.advt_id.
+	    This step is performed irrespective whether weare DIS or not
+    */
     rc = isis_withdraw_tlv_advertisement(intf->att_node,
-                                             intf_info->lan_self_to_pn_adv_data);
+                                       intf_info->lan_self_to_pn_adv_data);
     intf_info->lan_self_to_pn_adv_data = NULL;
 
     intf_info->elected_dis = {0, 0};
 }
 
+/* This fn assigns a new DIS to the LAN intf of the node. The DIS could be some
+	other Nbr node, or self. This fn implements three steps. Step 1 is performed when
+	We come to know who the DIS is (including myself), Step 2 & 3is performed only when
+	I am selected as DIS. This fn looks after the avertisement responsibilities to be perforned
+	when self becomes DIS (steps 2 and 3)*/
 void
 isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
 
@@ -179,9 +196,8 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     ISIS_INCREMENT_NODE_STATS(intf->att_node,
         isis_event_count[isis_event_dis_changed]);
 
-    /* Prepare new Advertisements since i am elected as new DIS*/
-
     /* Step 1 : 
+    	Advertise self --> PN is-reach info.
         Advertise intf_info->adv_data.lan_self_to_pn_adv_data
     */
     assert(!intf_info->lan_self_to_pn_adv_data);
@@ -223,6 +239,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     }
 
     /* Step 2 : 
+    	Advertise PN-->SELF is-reach info.
         Advertise intf_info->pn_to_self_adv_data
     */
     assert(!intf_info->lan_pn_to_self_adv_data);
@@ -265,7 +282,10 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         assert(0);
     }
 
-    /* Step 3 : Advertise all Adjacencies on this interface as PN--> Nbr*/
+    /* Step 3 : 
+		Advertise PN-->NBR is-reach info. That is we are advertising is-reach TLVs
+		on behalf of PN.
+    	Advertise all Adjacencies on this interface as PN--> Nbr*/
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
         adjacency = glthread_to_isis_adjacency(curr);

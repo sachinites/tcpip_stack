@@ -113,6 +113,7 @@ isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
 
     prefix_list_dereference(node_info->import_policy);
     node_info->import_policy = NULL;
+    if (isis_is_protocol_shutdown_in_progress(node)) return;
     isis_schedule_spf_job(node, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
     return 0;
 }
@@ -206,6 +207,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     node_info->export_policy = NULL;
     isis_free_all_exported_rt_advt_data(node);
     mtrie_destroy(&node_info->exported_routes);
+    if (isis_is_protocol_shutdown_in_progress(node)) return 0;
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_schedule_lsp_pkt_generation (node, isis_event_admin_config_changed);
     return 0;
