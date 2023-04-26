@@ -108,6 +108,9 @@ isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
 
+#define isis_lsp_pkt_prevent_premature_deletion isis_ref_isis_pkt
+#define isis_lsp_pkt_relieve_premature_deletion isis_deref_isis_pkt
+
 uint16_t
 isis_count_tlv_occurrences (byte *tlv_buffer,
                                               uint16_t tlv_buff_size, uint8_t tlv_no) ;

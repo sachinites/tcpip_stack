@@ -26,6 +26,20 @@ void
 isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt ){
 
     assert(!lsp_pkt->flood_queue_count);
+    
+    /* If this is purge pkt, dessociate it with fragment because fragment leaked object now*/
+    isis_pkt_hdr_t *lsp_pkt_hdr = 
+        (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)lsp_pkt->pkt);
+
+    if (IS_BIT_SET (lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_PURGE_BIT)) {
+        if (lsp_pkt->fragment) { // remove this check later
+            isis_fragment_dealloc_lsp_pkt (ISIS_NODE_INFO(node), lsp_pkt->fragment);
+        }
+        if (isis_is_lsp_pkt_installed_in_lspdb (lsp_pkt)) {
+            isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+        }
+    }
+
 }
 
 void
@@ -87,10 +101,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
-        assert(lsp_pkt->flood_queue_count);
-        lsp_pkt->flood_queue_count--;
-        node_info->pending_lsp_flood_count--;
-        
+        assert(lsp_pkt->flood_queue_count);       
         XFREE(lsp_xmit_elem);
         
         if (has_up_adjacency && lsp_pkt->flood_eligibility){
@@ -109,6 +120,9 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name.c_str());
             tcp_trace(intf->att_node, intf, tlb);
         }
+
+        lsp_pkt->flood_queue_count--;
+        node_info->pending_lsp_flood_count--;
 
         if (!lsp_pkt->flood_queue_count) {
             isis_lsp_pkt_flood_complete(intf->att_node, lsp_pkt);

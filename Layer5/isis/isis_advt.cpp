@@ -389,7 +389,7 @@ isis_withdraw_tlv_advertisement (node_t *node,
     if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
         /* Empty fragment, remove it if it is non-zero fragment */
         if (fragment->pn_no || fragment->fr_no) {
-            isis_discard_fragment (node, fragment, false /*Later : true*/);
+            isis_discard_fragment (node, fragment);
         }
     }
     else {
@@ -434,7 +434,7 @@ isis_destroy_advt_db (node_t *node, uint8_t pn_no) {
 
         fragment = advt_db->fragments[i];
         if (!fragment) continue;
-        isis_discard_fragment (node, fragment, !fragment->pn_no && !fragment->fr_no);
+        isis_discard_fragment (node, fragment);
     }
 
     XFREE(advt_db);
@@ -442,7 +442,7 @@ isis_destroy_advt_db (node_t *node, uint8_t pn_no) {
 }
 
 void
-isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
+isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
 
     glthread_t *curr;
     pkt_size_t pkt_size;
@@ -477,28 +477,14 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) {
     advt_db->fragments[fragment->fr_no] = NULL;
     isis_fragment_unlock(node_info, fragment);
 
-    if (fragment->lsp_pkt) {
-        isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
-    }
+    isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
 
     if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
         remove_glthread(&fragment->frag_regen_glue);
         isis_fragment_unlock(node_info, fragment);
     }
 
-    if (!purge) {
-        if (fragment->lsp_pkt) {
-            isis_fragment_dealloc_lsp_pkt (node_info, fragment);
-        }
-        isis_fragment_relieve_premature_deletion(node_info, fragment);
-        return;
-    }
-
-    fragment->regen_flags = (ISIS_SHOULD_INCL_PURGE_BIT | 
-                                ISIS_SHOULD_RENEW_LSP_PKT_HDR);
-
-    isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
-    //isis_schedule_lsp_flood(node, fragment->lsp_pkt, NULL);
+    isis_fragment_dealloc_lsp_pkt(node_info, fragment);
     isis_fragment_relieve_premature_deletion(node_info, fragment);
 }
 
@@ -630,14 +616,29 @@ isis_show_advt_db (node_t *node) {
     return rc;
 }
 
+/* This fn handles when lsp pkt do not reference back the fragment */
 void
 isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) {
 
-    assert(fragment->lsp_pkt);
+    isis_lsp_pkt_t *lsp_pkt;
+
+    if (!fragment->lsp_pkt) return;
+    
+    lsp_pkt = fragment->lsp_pkt;
+
     isis_fragment_prevent_premature_deletion (fragment);
-    isis_deref_isis_pkt(node_info, fragment->lsp_pkt);
+    isis_lsp_pkt_prevent_premature_deletion(fragment->lsp_pkt);
+
     fragment->lsp_pkt = NULL;
-    isis_fragment_relieve_premature_deletion(node_info, fragment);
+    isis_deref_isis_pkt(node_info, lsp_pkt);
+
+    if (lsp_pkt->fragment == fragment) {
+        lsp_pkt->fragment = NULL;
+        isis_fragment_unlock(node_info, fragment);
+    }
+
+    isis_lsp_pkt_relieve_premature_deletion(node_info, lsp_pkt);    //isis_fragment_relieve_premature_deletion(node_info, fragment); 
+    fragment->ref_count--; // make this API work even if fragment has initial ref_count = 1
 }
 
 void
@@ -657,6 +658,11 @@ void
 isis_fragment_lock (isis_fragment_t *fragment) {
     
     fragment->ref_count++;
+}
+
+static void
+isis_fragment_delete (isis_fragment_t *fragment) {
+    XFREE(fragment);
 }
 
 u_int8_t
@@ -679,6 +685,6 @@ isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
     /*should not leave dangling pointers by referenced objects*/
     assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
     assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
-    XFREE(fragment);
+    isis_fragment_delete (fragment);
     return 0;
 }

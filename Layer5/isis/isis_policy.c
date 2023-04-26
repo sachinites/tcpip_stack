@@ -183,8 +183,13 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     if (!node_info)
         return 0;
 
-    if (!node_info->export_policy)
-        return 0;
+    if (!node_info->export_policy) {
+        if (isis_is_protocol_admin_shutdown(node) ||
+             isis_is_protocol_shutdown_in_progress(node)) {
+            mtrie_destroy(&node_info->exported_routes);
+            return 0;
+        }
+    }
 
     if (prefix_lst_name) {
 
@@ -200,14 +205,21 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
         export_policy = node_info->export_policy;
     }
 
-    if (!export_policy && !prefix_lst_name)
+    if (!export_policy && !prefix_lst_name) {
+
+        if (isis_is_protocol_shutdown_in_progress(node) ||
+             isis_is_protocol_admin_shutdown(node)) {
+            mtrie_destroy(&node_info->exported_routes);
+        }
         return 0;
+    }
 
     prefix_list_dereference(node_info->export_policy);
     node_info->export_policy = NULL;
     isis_free_all_exported_rt_advt_data(node);
     mtrie_destroy(&node_info->exported_routes);
-    if (isis_is_protocol_shutdown_in_progress(node)) return 0;
+    if (isis_is_protocol_shutdown_in_progress(node) ||
+             isis_is_protocol_admin_shutdown(node)) return 0;
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_schedule_lsp_pkt_generation (node, isis_event_admin_config_changed);
     return 0;

@@ -835,7 +835,7 @@ isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
             timer_de_register_app_event(lsp_pkt->expiry_timer);
             lsp_pkt->expiry_timer = NULL;
         }
-        if (lsp_pkt->fragment) {
+        if  (lsp_pkt->fragment) {
             isis_fragment_unlock(node_info, lsp_pkt->fragment);
             lsp_pkt->fragment = NULL;
         }

@@ -106,25 +106,23 @@ isis_protocol_shutdown_now (node_t *node) {
         node_info->self_lsp_pkt = NULL;
     }
 
-    node_info->event_control_flags = 0;
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
-    
-    /* Queue All interfaces for Purge */
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
-
-        isis_disable_protocol_on_interface(intf);
-        
-    } ITERATE_NODE_INTERFACES_END(node, intf);
-    
     isis_intf_grp_cleanup(node);
-    isis_destroy_advt_db(node, 0);
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
     isis_free_dummy_lsp_pkt(node);
     isis_cleanup_spf_logc(node);
     isis_unconfig_import_policy(node, NULL);
     isis_unconfig_export_policy(node, NULL);
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
+        isis_disable_protocol_on_interface(intf);
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+    
+    isis_destroy_advt_db(node, 0);
+    
+    node_info->event_control_flags = 0;
     isis_check_delete_node_info(node); 
 }
 

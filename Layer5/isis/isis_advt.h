@@ -152,7 +152,7 @@ isis_withdraw_tlv_advertisement (node_t *node,
 void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_destroy_advt_db (node_t *node, pn_id_t pn_no);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
-void isis_discard_fragment (node_t *node, isis_fragment_t *fragment, bool purge) ;
+void isis_discard_fragment (node_t *node, isis_fragment_t *fragment);
 uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
 void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) ;
