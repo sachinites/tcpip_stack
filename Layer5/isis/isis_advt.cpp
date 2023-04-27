@@ -5,6 +5,7 @@
 #include "isis_flood.h"
 #include "isis_lspdb.h"
 #include "isis_tlv_struct.h"
+#include "isis_struct.h"
 #include "isis_utils.h"
 
 static advt_id_t isis_advt_id = 0;
@@ -41,44 +42,6 @@ isis_fragment_lookup_advt_data(isis_fragment_t *fragment, advt_id_t adv_id ) {
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
 
     return NULL;
-}
-
-pkt_size_t
-isis_get_adv_data_size(isis_adv_data_t *adv_data)
-{
-    pkt_size_t ptlv_data_len = 0;
-    pkt_size_t total_subtlv_len = 0;
-
-    switch (adv_data->tlv_no) {
-    
-    case ISIS_IS_REACH_TLV:
-        ptlv_data_len += TLV_OVERHEAD_SIZE;
-        ptlv_data_len += sizeof(isis_system_id_t); /* Nbr Sys Id */
-        ptlv_data_len += 4;                                      /* Cost/Metric */
-        ptlv_data_len += 1;                                      /* total Sub TLV len */
-
-        /* encode subtlv 4 */
-        total_subtlv_len += TLV_OVERHEAD_SIZE + 4 + 4;
-        /* encode subtlv 6 */
-        total_subtlv_len += TLV_OVERHEAD_SIZE + 4;
-        /* encode subtlv 8 */
-        total_subtlv_len += TLV_OVERHEAD_SIZE + 4;
-
-        ptlv_data_len += total_subtlv_len;
-        break;
-
-    case ISIS_TLV_IP_REACH:
-        ptlv_data_len += sizeof (isis_tlv_130_t) + TLV_OVERHEAD_SIZE;
-        break;
-    default: ;
-    }
-    return ptlv_data_len;
-}
-
-static byte *
-isis_get_adv_data_tlv_content(isis_adv_data_t *advt_data,  byte *tlv_content) {
-
-    return tlv_content;
 }
 
 static int

@@ -115,6 +115,7 @@ typedef struct isis_adv_data_ {
             uint32_t prefix;
             uint8_t mask;
             uint32_t metric;
+            uint8_t flags;
         } pfx;
 
     }u;

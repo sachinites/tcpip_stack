@@ -109,6 +109,18 @@ tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
     return bin_mask;
 }
 
+static inline uint8_t
+tcp_ip_convert_bin_mask_to_dmask(uint32_t bin_mask) {
+
+    uint cnt = 0;
+
+    while(bin_mask) {
+        cnt++;
+        bin_mask = bin_mask << 1;
+    }
+    return cnt;
+}
+
 uint32_t get_new_ifindex();
 
 #define UNUSED(variable)    (void)variable

@@ -806,7 +806,6 @@ isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
 
             adjacency = glthread_to_isis_adjacency(curr);
             if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
-             if (isis_adjacency_is_lan(adjacency)) continue;
             buff = isis_encode_nbr_tlv(adjacency, buff, &bytes_encoded);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -839,8 +838,6 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
 
             adjacency = glthread_to_isis_adjacency(curr);
             if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
-            if (isis_adjacency_is_lan(adjacency)) continue;
-
             bytes_needed += isis_nbr_tlv_encode_size(adjacency, &subtlv_bytes_needed);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
