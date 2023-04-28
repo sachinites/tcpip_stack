@@ -7,8 +7,6 @@
 #include "isis_pn.h"
 #include "isis_utils.h"
 
-extern advt_id_t isis_gen_avt_id () ;
-
 pn_id_t
 isis_reserve_new_pn_id (node_t *node, bool *found) {
 
@@ -60,6 +58,7 @@ isis_intf_deallocate_lan_id (Interface *intf) {
     isis_destroy_advt_db (intf->att_node, 
                                             intf_info->lan_id.pn_id); 
     intf_info->lan_id = {0, 0};
+    isis_stop_sending_hellos(intf);
 }
 
 /* DIS Mgmt Functions */
@@ -112,6 +111,7 @@ void
 isis_intf_resign_dis (Interface *intf) {
 
     glthread_t *curr;
+    bool update_hello = false;
     isis_adjacency_t *adjacency;
     isis_tlv_wd_return_code_t rc;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
@@ -134,6 +134,7 @@ isis_intf_resign_dis (Interface *intf) {
         rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                              intf_info->lan_pn_to_self_adv_data);
         intf_info->lan_pn_to_self_adv_data = NULL;
+        update_hello = true;
     }
 
     /* Step 2 : 
@@ -164,11 +165,23 @@ isis_intf_resign_dis (Interface *intf) {
         withdraw the intf_info->lan_self_to_pn_adv_data.advt_id.
 	    This step is performed irrespective whether weare DIS or not
     */
-    rc = isis_withdraw_tlv_advertisement(intf->att_node,
+   if (intf_info->lan_self_to_pn_adv_data) {
+    
+        rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                        intf_info->lan_self_to_pn_adv_data);
-    intf_info->lan_self_to_pn_adv_data = NULL;
+        intf_info->lan_self_to_pn_adv_data = NULL;
+   }
 
     intf_info->elected_dis = {0, 0};
+
+    if (update_hello) {
+        /* Start sending hellos at normal  time interval since i am no more DIS
+            on this intefrace*/
+        isis_stop_sending_hellos (intf);
+        if (isis_interface_qualify_to_send_hellos (intf)) {
+            isis_start_sending_hellos (intf);
+        }
+    }
 }
 
 /* This fn assigns a new DIS to the LAN intf of the node. The DIS could be some
@@ -207,7 +220,6 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     
     advt_data = intf_info->lan_self_to_pn_adv_data;
 
-    advt_data->advt_id = isis_gen_avt_id ();
     advt_data->tlv_no = ISIS_IS_REACH_TLV;
     advt_data->u.adj_data.nbr_sys_id.rtr_id = intf_info->elected_dis.rtr_id;
     advt_data->u.adj_data.nbr_sys_id.pn_id = intf_info->elected_dis.pn_id;
@@ -251,7 +263,6 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     
     advt_data = intf_info->lan_pn_to_self_adv_data;
 
-    advt_data->advt_id = isis_gen_avt_id ();
     advt_data->tlv_no = ISIS_IS_REACH_TLV;
     advt_data->u.adj_data.nbr_sys_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
     advt_data->u.adj_data.metric = 0;
@@ -293,6 +304,13 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         isis_adjacency_advertise_is_reach(adjacency);
 
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    /* ToDo : Update Hellos, start sending Hellos at interval of 3.3 seconds since i am
+            DIS on this interface*/
+    isis_stop_sending_hellos (intf);
+    if (isis_interface_qualify_to_send_hellos (intf)) {
+        isis_start_sending_hellos (intf);
+    }
 }
 
 bool

@@ -47,14 +47,7 @@ typedef struct isis_advt_info_ {
 
     uint8_t pn_no;
     uint8_t fr_no;
-    advt_id_t advt_id;
 } isis_advt_info_t;
-
-static inline bool
-isis_is_advt_info_empty (isis_advt_info_t *advt_info) {
-
-    return (!advt_info->pn_no && !advt_info->fr_no && !advt_info->advt_id);
-}
 
 pkt_size_t
 isis_get_adv_data_size (isis_adv_data_t *adv_data);
@@ -89,7 +82,6 @@ typedef struct isis_advt_db_ {
     LSPs */
 typedef struct isis_adv_data_ {
 
-    advt_id_t advt_id;
     uint16_t tlv_no;
 
     union {

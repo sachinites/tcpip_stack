@@ -5,8 +5,6 @@
 #include "isis_tlv_struct.h"
 #include "isis_advt.h"
 
-extern advt_id_t isis_gen_avt_id () ;
-
 extern void isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
         void *rt_notif_data, unsigned int arg_size);
@@ -338,7 +336,6 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     }
 
     exported_rt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
-    exported_rt->advt_id = isis_gen_avt_id();
     exported_rt->tlv_no = ISIS_TLV_IP_REACH;
     exported_rt->u.pfx.prefix = tcp_ip_covert_ip_p_to_n (l3route->dest);
     exported_rt->u.pfx.mask = l3route->mask;

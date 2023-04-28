@@ -1,5 +1,6 @@
 #include "../../tcp_public.h"
 #include "isis_tlv_struct.h"
+#include "isis_utils.h"
 
 uint32_t
 isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_len) {
@@ -111,4 +112,143 @@ isis_get_adv_data_tlv_content(
         default: ;
     }
     return start_ptr;
+}
+
+pkt_size_t
+isis_format_nbr_tlv22(byte *out_buff, 
+                             byte *nbr_tlv_buffer,
+                             uint8_t tlv_buffer_len) {
+    
+    pkt_size_t rc = 0;
+    uint32_t metric;
+    uint8_t subtlv_len;
+    byte system_id_str[32];
+    uint32_t ip_addr_int;
+    byte *subtlv_navigator;
+    unsigned char ip_addr[16];
+    isis_system_id_t system_id;
+
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+    ITERATE_TLV_BEGIN(nbr_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, tlv_buffer_len) {
+
+        rc += sprintf(out_buff + rc,
+                      "\tTLV%d  Len : %d\n", tlv_type, tlv_len);
+
+        tlv22_hdr_t *tlv22_hdr = (tlv22_hdr_t *)tlv_value;
+        system_id = tlv22_hdr->system_id;
+        metric = tlv22_hdr->metric;
+        subtlv_len = tlv22_hdr->subtlv_len;
+
+        rc += sprintf(out_buff + rc, "\tNbr System ID : %s   Metric : %u   SubTLV Len : %d\n",
+                     isis_system_id_tostring(&system_id, system_id_str), 
+                      metric, subtlv_len);
+
+        subtlv_navigator = (byte *)(tlv22_hdr + 1);
+
+        /* Now Read the Sub TLVs */
+        byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
+
+        ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
+                        tlv_len2, tlv_value2, subtlv_len) {
+
+            switch(tlv_type2) {
+                case ISIS_TLV_IF_INDEX:
+
+                    rc += sprintf(out_buff + rc,
+                                  "\t SubTLV%d  Len : %d   if-indexes [local : %u, remote : %u]\n",
+                                  tlv_type2, tlv_len2,
+                                  *(uint32_t *)tlv_value2,
+                                  *(uint32_t *)((uint32_t *)tlv_value2 + 1));
+
+                    break;
+                case ISIS_TLV_LOCAL_IP:
+                    ip_addr_int = *(uint32_t *)tlv_value2;
+
+                    rc += sprintf(out_buff + rc,
+                                  "\t SubTLV%d  Len : %d   Local IP : %s\n",
+                                  tlv_type2, tlv_len2,
+                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr));
+
+                    break;
+                case ISIS_TLV_REMOTE_IP:
+                    ip_addr_int = *(uint32_t *)tlv_value2;
+
+                    rc += sprintf(out_buff + rc,
+                                  "\t SubTLV%d  Len : %d   Remote IP : %s\n",
+                                  tlv_type2, tlv_len2,
+                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr));
+
+                    break;
+                default:
+                    ;
+            }
+
+        } ITERATE_TLV_END(subtlv_navigator, tlv_type2,
+                        tlv_len2, tlv_value2, subtlv_len);
+ 
+    } ITERATE_TLV_END(nbr_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value, tlv_buffer_len);
+    return rc;
+}
+
+uint32_t
+isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
+
+    uint32_t rc = 0;
+    byte ip_addr[16];
+
+    byte tlv_type, tlv_len, *tlv_value = NULL;
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+    isis_pkt_hdr_flags_t flags = isis_lsp_pkt_get_flags(lsp_pkt);
+
+    rc += sprintf(buff + rc, "LSP PKT\nLSP : %s-%hu-%hu (%u)\n",
+        tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, ip_addr), 
+        lsp_pkt_hdr->pn_no,  lsp_pkt_hdr->fr_no, lsp_pkt_hdr->seq_no);
+
+    rc += sprintf(buff + rc,  "Flags :  \n");
+    rc += sprintf(buff + rc,  
+                "  OL bit : %s\n", flags & ISIS_LSP_PKT_F_OVERLOAD_BIT ? "Set" : "UnSet");
+    rc += sprintf(buff + rc, 
+                "  Purge bit : %s\n", flags & ISIS_LSP_PKT_F_PURGE_BIT ? "Set" : "UnSet");
+    rc += sprintf(buff + rc, "\tTLVs\n");
+
+    byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
+    pkt_size_t lsp_tlv_buffer_size = (uint16_t)(lsp_pkt->pkt_size -
+                                        ETH_HDR_SIZE_EXCL_PAYLOAD -
+                                        sizeof(isis_pkt_hdr_t)) ;
+
+    ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value,
+                        lsp_tlv_buffer_size) {
+
+        switch(tlv_type) {
+            case ISIS_TLV_HOSTNAME:
+                rc += sprintf(buff + rc,  "\tTLV%d Host-Name : %s\n", 
+                        tlv_type, tlv_value);
+            break;
+            case ISIS_IS_REACH_TLV:
+                 rc += isis_format_nbr_tlv22( buff + rc,
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_IP_REACH:
+                rc += isis_print_formatted_tlv130(buff + rc, 
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_ON_DEMAND:
+                rc += sprintf(buff + rc, "\tTLV%d On-Demand TLV : %hhu\n",
+                        tlv_type, *(uint8_t *)tlv_value);
+                break;
+            default: ;
+        }
+    } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
+                        tlv_len, tlv_value,
+                        lsp_tlv_buffer_size);
+
+    return rc;
 }

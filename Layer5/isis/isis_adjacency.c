@@ -11,8 +11,6 @@
 #include "isis_pn.h"
 #include "isis_utils.h"
 
-extern advt_id_t isis_gen_avt_id () ;
-
 static void
 isis_init_adjacency(isis_adjacency_t *adjacency) {
 
@@ -1042,7 +1040,6 @@ static isis_tlv_record_advt_return_code_t
 
     advt_data = adjacency->u.lan_pn_to_nbr_adv_data;
 
-    advt_data->advt_id = isis_gen_avt_id();
     advt_data->tlv_no = ISIS_IS_REACH_TLV;
     advt_data->u.adj_data.nbr_sys_id = adjacency->nbr_sys_id;
     advt_data->u.adj_data.metric = adjacency->cost;
@@ -1093,7 +1090,6 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
 
         advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
 
-        advt_data->advt_id = isis_gen_avt_id ();
         advt_data->tlv_no = ISIS_IS_REACH_TLV;
         advt_data->u.adj_data.nbr_sys_id = adjacency->nbr_sys_id;
         advt_data->u.adj_data.metric = adjacency->cost;

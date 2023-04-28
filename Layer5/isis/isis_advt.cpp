@@ -8,15 +8,6 @@
 #include "isis_struct.h"
 #include "isis_utils.h"
 
-static advt_id_t isis_advt_id = 0;
-advt_id_t isis_gen_avt_id (); 
-
-advt_id_t
-isis_gen_avt_id () {
-
-    return (++isis_advt_id);
-}
-
 static int 
 isis_get_new_fragment_no (isis_advt_db_t *advt_db) {
 
@@ -26,22 +17,6 @@ isis_get_new_fragment_no (isis_advt_db_t *advt_db) {
         if (!advt_db->fragments[i]) return i;
     }
     return -1;
-}
-
-static isis_adv_data_t *
-isis_fragment_lookup_advt_data(isis_fragment_t *fragment, advt_id_t adv_id ) {
-
-    glthread_t *curr;
-    isis_adv_data_t *adv_data;
-
-    ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
-
-        adv_data = glue_to_isis_advt_data(curr);
-        if (adv_data->advt_id == adv_id) return adv_data;
-
-    } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
-
-    return NULL;
 }
 
 static int
@@ -210,7 +185,7 @@ isis_record_tlv_advertisement (node_t *node,
     if (new_frag) {
         isis_fragment_lock(fragment);
     }
-    advt_info_out->advt_id = adv_data->advt_id;
+    
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
     adv_data->holder = back_linkage;
@@ -329,8 +304,6 @@ isis_withdraw_tlv_advertisement (node_t *node,
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return ISIS_TLV_WD_SUCCESS;
-
-    if (!adv_data->advt_id) return ISIS_TLV_WD_FAILED;
 
     fragment = adv_data->fragment;
 
@@ -462,7 +435,7 @@ isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info) {
     }
 }
 
-#if 1
+#if 0
 uint32_t 
 isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
 
@@ -517,7 +490,7 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
     rc = sprintf (buff + rc, "fragment : [%hu][%hu]  , seq_no : %u\n",
                 fragment->pn_no, fragment->fr_no, fragment->seq_no);
                 
-    rc += printf ("  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
+    rc += sprintf (buff + rc, "  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
                 fragment->bytes_filled, fragment->ref_count,
                 fragment->lsp_pkt->pkt_size, fragment->lsp_pkt->ref_count);
 
@@ -574,6 +547,7 @@ isis_show_advt_db (node_t *node) {
             fragment = advt_db->fragments[j];
             if (!fragment) continue;
             rc += isis_fragment_print (node, fragment, buff + rc);
+            rc += isis_show_one_lsp_pkt_detail_info (buff + rc, fragment->lsp_pkt);
         }
     }
     return rc;
@@ -600,7 +574,7 @@ isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fra
         isis_fragment_unlock(node_info, fragment);
     }
 
-    isis_lsp_pkt_relieve_premature_deletion(node_info, lsp_pkt);    //isis_fragment_relieve_premature_deletion(node_info, fragment); 
+    isis_lsp_pkt_relieve_premature_deletion(node_info, lsp_pkt); 
     fragment->ref_count--; // make this API work even if fragment has initial ref_count = 1
 }
 
