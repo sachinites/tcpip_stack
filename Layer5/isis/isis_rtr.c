@@ -303,6 +303,19 @@ isis_compare_lspdb_lsp_pkt(const avltree_node_t *n1, const avltree_node_t *n2) {
 
     if (*rtr_id1 < *rtr_id2) return CMP_PREFERRED;
     if (*rtr_id1 > *rtr_id2) return CMP_NOT_PREFERRED;
+
+    pn_id_t pn1 = isis_get_lsp_pkt_pn_id(lsp_pkt1);
+    pn_id_t pn2 = isis_get_lsp_pkt_pn_id(lsp_pkt2);
+
+    if (pn1 < pn2) return CMP_PREFERRED;
+    if (pn1 > pn2) return CMP_NOT_PREFERRED;
+
+    uint8_t fr1 = isis_get_lsp_pkt_fr_no (lsp_pkt1);
+    uint8_t fr2 = isis_get_lsp_pkt_fr_no (lsp_pkt2);
+
+    if (fr1 < fr2) return CMP_PREFERRED;
+    if (fr1 > fr2) return CMP_NOT_PREFERRED;
+
     return CMP_PREF_EQUAL;
 }
 

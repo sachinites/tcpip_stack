@@ -80,6 +80,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
     isis_lsp_pkt_t *lsp_pkt;
     bool has_up_adjacency;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     
     intf = (Interface *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(intf->att_node);
@@ -113,11 +114,11 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
             ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
 
             sprintf(tlb, "%s : LSP %s pushed out of interface %s\n",
-                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name.c_str());
+                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
             tcp_trace(intf->att_node, intf, tlb);
         } else {
             sprintf(tlb, "%s : LSP %s discarded from output flood Queue of interface %s\n",
-                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name.c_str());
+                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
             tcp_trace(intf->att_node, intf, tlb);
         }
 
@@ -154,7 +155,8 @@ isis_queue_lsp_pkt_for_transmission(
 
     isis_node_info_t *node_info;
     isis_intf_info_t *intf_info;
-    
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
+
     if (!isis_node_intf_is_enable(intf)) return;
 
     if (!lsp_pkt->flood_eligibility) return;
@@ -173,7 +175,7 @@ isis_queue_lsp_pkt_for_transmission(
                       &lsp_xmit_elem->glue);
 
     sprintf(tlb, "%s : LSP %s scheduled to flood out of %s\n",
-            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt),
+            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str),
             intf->if_name.c_str());
     tcp_trace(intf->att_node, intf, tlb);
 
@@ -230,7 +232,8 @@ isis_schedule_lsp_flood(node_t *node,
     bool is_lsp_queued = false;
     isis_intf_group_t *intf_grp;
     isis_node_info_t *node_info;
-    
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
+
     node_info  = ISIS_NODE_INFO(node);
 
     if (!lsp_pkt->flood_eligibility) return;
@@ -241,7 +244,7 @@ isis_schedule_lsp_flood(node_t *node,
 
         if (intf == exempt_iif) {
             sprintf(tlb, "%s : LSP %s flood skip out of intf %s, Reason :reciepient intf\n",
-                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name.c_str());
+                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
             tcp_trace(node, 0, tlb);
             continue;
         }
@@ -249,7 +252,7 @@ isis_schedule_lsp_flood(node_t *node,
         if (ISIS_INTF_INFO(intf)->intf_grp) continue;
 
         sprintf(tlb, "%s : LSP %s scheduled for flood out of intf %s\n",
-            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), intf->if_name.c_str());
+            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
         tcp_trace(node, 0, tlb);
         isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
         is_lsp_queued = true;
@@ -264,7 +267,7 @@ isis_schedule_lsp_flood(node_t *node,
         if (exempt_iif && ISIS_INTF_INFO(exempt_iif)->intf_grp == intf_grp) { 
         
             sprintf(tlb, "%s : LSP %s flood skip out of intf %s, Reason : reciepient intf grp %s\n",
-                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt), exempt_iif->if_name.c_str(),
+                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), exempt_iif->if_name.c_str(),
                         ISIS_INTF_INFO(exempt_iif)->intf_grp->name);
             tcp_trace(node, 0, tlb);
             continue;
@@ -275,7 +278,7 @@ isis_schedule_lsp_flood(node_t *node,
         
         sprintf(tlb, "%s : LSP %s scheduled for flood out of intf %s intf-grp %s\n",
                     ISIS_LSPDB_MGMT,
-                    isis_print_lsp_id(lsp_pkt),
+                    isis_print_lsp_id(lsp_pkt, lsp_id_str),
                     intf->if_name.c_str(),
                     ISIS_INTF_INFO(intf)->intf_grp ? ISIS_INTF_INFO(intf)->intf_grp->name : "None");
         tcp_trace(node, 0, tlb);

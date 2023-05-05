@@ -137,6 +137,11 @@ isis_free_all_exported_rt_advt_data(node_t *node) {
         mnode = list_glue_to_mtrie_node(curr);
         advt_data = (isis_adv_data_t *)(mnode->data);
 
+        /* Break the backlinkage because to prevent mnode deletion so that our
+            loop runs wihout any problem*/
+        assert(advt_data->src.mnode);
+        advt_data->src.mnode = NULL;
+
         tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, ip_addr_str);
         mask = advt_data->u.pfx.mask;
 
@@ -370,6 +375,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         return NULL;
     }
     mnode->data = (void *)exported_rt;
+    exported_rt->src.mnode = mnode;
 
     rc =  isis_record_tlv_advertisement(node, 0, 
                                 (isis_adv_data_t *)exported_rt,
@@ -407,6 +413,7 @@ bool
 isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     bool res = false;
+    mtrie_node_t *mnode;
     void *exported_rt_data;
     uint32_t bin_ip, bin_mask;
     isis_tlv_wd_return_code_t rc;
@@ -433,16 +440,16 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     prefix_bm.bits[0] = bin_ip;
     mask_bm.bits[0] = bin_mask;
 
-    if (mtrie_delete_prefix(
+    if ((mnode = mtrie_exact_prefix_match_search(
                 &node_info->exported_routes,
-                &prefix_bm,
-                &mask_bm, &exported_rt_data) == MTRIE_DELETE_FAILED) {
+                &prefix_bm, &mask_bm))) {
 
         bitmap_free_internal(&prefix_bm);
         bitmap_free_internal(&mask_bm);
         return false;
     }
 
+    exported_rt_data = mnode->data;
     assert(exported_rt_data);
 
     rc = isis_withdraw_tlv_advertisement (node, (isis_adv_data_t *)exported_rt_data);

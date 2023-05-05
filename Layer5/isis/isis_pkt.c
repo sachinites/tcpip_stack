@@ -126,6 +126,7 @@ isis_process_lsp_pkt(node_t *node,
     uint32_t *seq_no;
     isis_lsp_pkt_t *new_lsp_pkt;
     isis_intf_info_t *intf_info;
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     
     if (!isis_node_intf_is_enable(iif)) return;  
     if (!isis_any_adjacency_up_on_interface(iif)) return;
@@ -144,7 +145,7 @@ isis_process_lsp_pkt(node_t *node,
 
     sprintf(tlb, "%s : lsp %s recvd on intf %s\n",
         ISIS_LSPDB_MGMT,
-        isis_print_lsp_id(new_lsp_pkt), iif ? iif->if_name.c_str() : 0);
+        isis_print_lsp_id(new_lsp_pkt, lsp_id_str), iif ? iif->if_name.c_str() : 0);
     tcp_trace(node, iif, tlb);
 
     isis_install_lsp(node, iif, new_lsp_pkt);
@@ -440,6 +441,8 @@ isis_schedule_lsp_pkt_generation(node_t *node,
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
+
+    return;
 
     if ( IS_BIT_SET (node_info->misc_flags,
                 ISIS_F_DISABLE_LSP_GEN)) {
@@ -801,6 +804,24 @@ isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) {
     isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
 
    return &lsp_hdr->rtr_id;
+}
+
+pn_id_t
+isis_get_lsp_pkt_pn_id (isis_lsp_pkt_t *lsp_pkt) {
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+
+   return lsp_hdr->pn_no;
+}
+
+uint8_t
+isis_get_lsp_pkt_fr_no (isis_lsp_pkt_t *lsp_pkt) {
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+
+   return lsp_hdr->fr_no;
 }
 
 uint32_t *

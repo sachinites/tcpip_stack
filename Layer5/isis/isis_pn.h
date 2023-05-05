@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include "isis_struct.h"
 
-typedef uint8_t pn_id_t;
 class Interface;
 typedef struct node_ node_t;
 

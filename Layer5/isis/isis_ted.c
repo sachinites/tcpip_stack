@@ -19,6 +19,8 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     avltree_t *prefix_tree_root = NULL;
     byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
 
+    return;
+    
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
     uint16_t eth_payload_size = lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
@@ -117,6 +119,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 void
 isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
+    return;
     ted_db_t *ted_db = ISIS_TED_DB(node);
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
     ted_node_t *ted_node = ted_lookup_node(ted_db, *rtr_id);

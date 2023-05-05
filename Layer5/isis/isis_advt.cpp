@@ -68,7 +68,7 @@ isis_lsp_fragment_regen_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg
 
         fragment = isis_frag_regen_glue_to_fragment (curr);
         isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
-        //isis_install_lsp (node, NULL, fragment->lsp_pkt);
+        isis_install_lsp (node, NULL, fragment->lsp_pkt);
         isis_fragment_unlock (node_info, fragment);
     }
 }
@@ -105,6 +105,25 @@ isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) {
                                                         TASK_ONE_SHOT,
                                                         TASK_PRIORITY_COMPUTE);
 }
+
+void
+isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t * adv_data) {
+
+    switch (adv_data->tlv_no) {
+        case ISIS_IS_REACH_TLV:
+            if (adv_data->src.holder && *adv_data->src.holder)
+                *adv_data->src.holder = NULL;
+            break;
+        case ISIS_TLV_IP_REACH:
+            if (adv_data->src.mnode) {
+                mtrie_delete_leaf_node (&node_info->exported_routes, adv_data->src.mnode);
+                adv_data->src.mnode = NULL;
+            }
+            break;
+        default: ;
+    }
+}
+
 
 /* This is Top level fn to insert a new TLV in ADVT-DB. Inserting a new TLV in ADVT-DB
     requires finding the fragment which can accomodate the TLV, regen the fragment's LSP pkt
@@ -188,7 +207,7 @@ isis_record_tlv_advertisement (node_t *node,
     
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
-    adv_data->holder = back_linkage;
+    adv_data->src.holder = back_linkage;
     fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
     isis_schedule_regen_fragment(node, fragment);
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
@@ -333,9 +352,7 @@ isis_withdraw_tlv_advertisement (node_t *node,
     }
     adv_data->fragment = NULL;
     isis_fragment_unlock(node_info, fragment);
-    if (adv_data->holder) {
-        *(adv_data->holder) = NULL;
-    }
+    isis_advt_data_clear_backlinkage (node_info, adv_data);
     XFREE(adv_data);
     isis_fragment_relieve_premature_deletion(node_info, fragment);
     return ISIS_TLV_WD_SUCCESS;
@@ -398,8 +415,7 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
         assert(advt_data->fragment);
         advt_data->fragment = NULL;
         isis_fragment_unlock(node_info, fragment);
-        assert(advt_data->holder && *(advt_data->holder));
-        *(advt_data->holder) = NULL;
+        isis_advt_data_clear_backlinkage (node_info, advt_data);
         fragment->bytes_filled -=advt_data->tlv_size;
         XFREE(advt_data);
     }

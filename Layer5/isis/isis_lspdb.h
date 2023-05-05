@@ -1,6 +1,8 @@
 #ifndef __ISIS_LSPDB__
 #define __ISIS_LSPDB__
 
+#include "isis_struct.h"
+
 avltree_t *
 isis_get_lspdb_root(node_t *node);
 
@@ -9,7 +11,7 @@ isis_install_lsp_pkt_in_lspdb(node_t *node,
                               isis_lsp_pkt_t *isis_lsp_pkt);
 
 isis_lsp_pkt_t *
-isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id);
+isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no);
 
 void
 isis_install_lsp(node_t *node,
@@ -25,8 +27,8 @@ isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pk1, isis_lsp_pkt_t *lsp_pkt2);
 bool
 isis_our_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
-byte*
-isis_print_lsp_id(isis_lsp_pkt_t *lsp_pkt);
+byte *
+isis_print_lsp_id (isis_lsp_pkt_t *lsp_pkt, byte *lsp_id_str);
 
 /* LSP pkt Timers */
 void
@@ -42,7 +44,7 @@ void
 isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_remove_lsp_from_lspdb(node_t *node, uint32_t rtr_id);
+isis_remove_lsp_from_lspdb(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no);
 
 bool
 isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt);

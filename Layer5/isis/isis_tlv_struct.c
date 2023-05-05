@@ -1,4 +1,6 @@
 #include "../../tcp_public.h"
+#include "isis_pkt.h"
+#include "isis_lspdb.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 
@@ -198,19 +200,17 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t rc = 0;
     byte ip_addr[16];
-
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
     isis_pkt_hdr_flags_t flags = isis_lsp_pkt_get_flags(lsp_pkt);
 
-    rc += sprintf(buff + rc, "LSP PKT\nLSP : %s-%hu-%hu (%u)\n",
-        tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, ip_addr), 
-        lsp_pkt_hdr->pn_no,  lsp_pkt_hdr->fr_no, lsp_pkt_hdr->seq_no);
+    rc += sprintf (buff + rc, "LSP PKT\nLSP : %s\n", isis_print_lsp_id (lsp_pkt,  lsp_id_str));
 
-    rc += sprintf(buff + rc,  "Flags :  \n");
-    rc += sprintf(buff + rc,  
+    rc += sprintf (buff + rc,  "Flags :  \n");
+    rc += sprintf (buff + rc,  
                 "  OL bit : %s\n", flags & ISIS_LSP_PKT_F_OVERLOAD_BIT ? "Set" : "UnSet");
     rc += sprintf(buff + rc, 
                 "  Purge bit : %s\n", flags & ISIS_LSP_PKT_F_PURGE_BIT ? "Set" : "UnSet");

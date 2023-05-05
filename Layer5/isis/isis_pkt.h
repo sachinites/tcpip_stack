@@ -16,7 +16,6 @@ typedef struct isis_pkt_ {
     byte *pkt;
     /* pkt size, including eithernet hdr */
     size_t pkt_size;
-    
     /* ref count on this pkt */
     uint16_t ref_count;
     /* No of interfaces out of which LSP has been
@@ -98,6 +97,12 @@ isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) ;
 
 uint32_t *
 isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt);
+
+pn_id_t
+isis_get_lsp_pkt_pn_id(isis_lsp_pkt_t *lsp_pkt) ;
+
+uint8_t
+isis_get_lsp_pkt_fr_no (isis_lsp_pkt_t *lsp_pkt) ;
 
 isis_pkt_hdr_flags_t
 isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt);

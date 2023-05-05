@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+typedef uint8_t pn_id_t;
+
 #pragma pack (push,1)
 
 typedef struct isis_system_id_ {

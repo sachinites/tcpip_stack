@@ -114,20 +114,23 @@ typedef struct isis_adv_data_ {
 
     glthread_t glue;
     isis_fragment_t *fragment;
-    struct isis_adv_data_ **holder;
+
+    union {
+        struct isis_adv_data_ **holder; // for IS REACH
+        mtrie_node_t *mnode; // for IP-REACH
+    }src;
+
     pkt_size_t tlv_size;
 } isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
-
-/* Short hand macros */
-#define ISIS_GET_FRAGMENT(node_info, advt_info)   \
-    (node_info->advt_db[advt_info->pn_no]->fragments[advt_info->fr_no])
 
 /* Fragment locking and Unlocking APIs */
 void isis_fragment_lock (isis_fragment_t *fragment);
 u_int8_t isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment);
 void isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
 void isis_fragment_alloc_new_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
+void isis_advt_data_clear_backlinkage(isis_node_info_t *node_info, isis_adv_data_t * isis_adv_data);
+
 #define isis_fragment_prevent_premature_deletion    isis_fragment_lock
 #define isis_fragment_relieve_premature_deletion  isis_fragment_unlock
 
