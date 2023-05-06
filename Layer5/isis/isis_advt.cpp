@@ -242,11 +242,11 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     }
 
     if (!fragment->lsp_pkt) {
-        isis_fragment_alloc_new_lsp_pkt (node_info, fragment);
+        isis_fragment_alloc_new_lsp_pkt (fragment);
     }
     else {
         isis_fragment_dealloc_lsp_pkt (node_info, fragment);
-        isis_fragment_alloc_new_lsp_pkt (node_info, fragment);
+        isis_fragment_alloc_new_lsp_pkt (fragment);
     }
 
     /* Drain the older pkt contents */
@@ -257,7 +257,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
         memset((byte *)eth_hdr, 0, fragment->bytes_filled);
         memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
         layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
-        eth_hdr->type = ISIS_HELLO_ETH_PKT_TYPE;
+        eth_hdr->type = ISIS_LSP_ETH_PKT_TYPE;
     }
 
     bytes_filled += (ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
@@ -595,7 +595,7 @@ isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fra
 }
 
 void
-isis_fragment_alloc_new_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) {
 
     assert(!fragment->lsp_pkt);
     fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);

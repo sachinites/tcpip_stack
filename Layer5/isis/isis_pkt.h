@@ -31,6 +31,8 @@ typedef struct isis_pkt_ {
     bool installed_in_db;
     /* Back pointer to the owning fragment*/
     isis_fragment_t *fragment;
+    /*Timer to flood self LSP periodically */
+    timer_event_handle *periodic_lsp_flood_timer;
 } isis_lsp_pkt_t;
 
 /*LSP Flags in lsp pkts*/
@@ -73,6 +75,15 @@ isis_lsp_pkt_recieve_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size)
 
 void
 isis_hello_pkt_recieve_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
+
+void
+isis_lsp_pkt_flood_timer_start (node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
+
+void
+isis_lsp_pkt_flood_timer_stop (isis_lsp_pkt_t *lsp_pkt) ;
+
+void
+isis_lsp_pkt_flood_timer_restart (node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
 
 void
 isis_print_lsp_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);

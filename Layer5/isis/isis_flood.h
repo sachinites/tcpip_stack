@@ -53,4 +53,7 @@ isis_stop_reconciliation_timer(node_t *node);
 bool
 isis_is_reconciliation_in_progress(node_t *node);
 
+void
+isis_walk_all_self_lsp_pkt (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *));
+
 #endif /* __ISIS_FLOOD__ */

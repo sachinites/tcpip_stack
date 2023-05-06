@@ -292,54 +292,6 @@ isis_schedule_lsp_flood(node_t *node,
     }
 }
 
-static void
-isis_timer_wrapper_lsp_flood(event_dispatcher_t *ev_dis,
-                             void *arg, uint32_t arg_size) {
-
-    if (!arg) return;
-    
-    node_t *node = (node_t *)arg;
-
-    isis_schedule_lsp_pkt_generation(
-            node,
-            isis_event_periodic_lsp_generation);
-
-    if ( !isis_is_reconciliation_in_progress(node)) {
-        ISIS_INCREMENT_NODE_STATS(node,
-            isis_event_count[isis_event_periodic_lsp_generation]);
-    }
-}
-
-void
-isis_start_lsp_pkt_periodic_flooding(node_t *node) {
-
-    isis_node_info_t *node_info;
-    
-    node_info = ISIS_NODE_INFO(node);
-      
-    node_info->periodic_lsp_flood_timer = 
-                timer_register_app_event(CP_TIMER(node),
-                isis_timer_wrapper_lsp_flood,
-                (void *)node,
-                sizeof(node_t),
-                node_info->lsp_flood_interval * 1000,
-                1);
-}
-
-void
-isis_stop_lsp_pkt_periodic_flooding(node_t *node){
-
-    timer_event_handle *periodic_lsp_flood_timer;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    periodic_lsp_flood_timer = node_info->periodic_lsp_flood_timer;
-
-    if (!periodic_lsp_flood_timer) return;
-
-    timer_de_register_app_event(periodic_lsp_flood_timer);   
-    node_info->periodic_lsp_flood_timer = NULL;
-}
-
 /* Reconciliation APIs */
 bool
 isis_is_reconciliation_in_progress(node_t *node) {
@@ -353,6 +305,12 @@ isis_is_reconciliation_in_progress(node_t *node) {
     
     recon = &node_info->reconc;
     return recon->reconciliation_in_progress;
+}
+
+static void
+isis_lsp_pkt_flood_cbk (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+
+    isis_schedule_lsp_flood (node, lsp_pkt, NULL);
 }
 
 void
@@ -372,11 +330,8 @@ isis_enter_reconciliation_phase(node_t *node) {
     
     recon->reconciliation_in_progress = true;
 
-    timer_reschedule(node_info->periodic_lsp_flood_timer,
-                      ISIS_DEFAULT_RECONCILIATION_FLOOD_INTERVAL);
-
     isis_start_reconciliation_timer(node);
-    isis_schedule_lsp_pkt_generation(node, isis_event_reconciliation_triggered);
+    isis_walk_all_self_lsp_pkt (node, isis_lsp_pkt_flood_cbk);
 
     ISIS_INCREMENT_NODE_STATS(node,
         isis_event_count[isis_event_reconciliation_triggered]);
@@ -397,9 +352,6 @@ isis_exit_reconciliation_phase(node_t *node) {
     if (!recon->reconciliation_in_progress) return;
 
     recon->reconciliation_in_progress = false;
-
-    timer_reschedule(node_info->periodic_lsp_flood_timer,
-                      node_info->lsp_flood_interval * 1000);
 
     isis_stop_reconciliation_timer(node);
     isis_schedule_lsp_pkt_generation(node, isis_event_reconciliation_exit);
@@ -484,4 +436,10 @@ isis_stop_reconciliation_timer(node_t *node) {
 
     timer_de_register_app_event(recon->reconciliation_timer);
     recon->reconciliation_timer = NULL;
+}
+
+void
+isis_walk_all_self_lsp_pkt (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *)) {
+
+
 }

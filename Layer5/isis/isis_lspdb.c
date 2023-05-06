@@ -736,13 +736,6 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
 void
 isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
-    wheel_timer_t *wt;
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
-
-    wt = CP_TIMER(node);
-
     if (lsp_pkt->expiry_timer) return;
 
     isis_timer_data_t *timer_data = XCALLOC(0, 1, isis_timer_data_t);
@@ -750,7 +743,7 @@ isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     timer_data->data = (void *)lsp_pkt;
     timer_data->data_size = sizeof(isis_lsp_pkt_t);
     
-    lsp_pkt->expiry_timer = timer_register_app_event(wt,
+    lsp_pkt->expiry_timer = timer_register_app_event(CP_TIMER(node),
                                 isis_lsp_pkt_delete_from_lspdb_timer_cb,
                                 (void *)timer_data,
                                 sizeof(isis_timer_data_t),
@@ -820,9 +813,10 @@ isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
      lsp_pkt->installed_in_db = true;
      isis_ted_install_lsp(node, lsp_pkt);
 
-     if (!isis_our_lsp(node, lsp_pkt)) {
-         isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
-     }
+    isis_our_lsp(node, lsp_pkt) ? \
+        isis_lsp_pkt_flood_timer_start (node, lsp_pkt) :        \
+        isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
+
      isis_ref_isis_pkt(lsp_pkt);
      isis_print_lsp_id (lsp_pkt,  lsp_id_str);
      sprintf(tlb, "%s : LSP %s added to LSPDB\n", ISIS_LSPDB_MGMT , 

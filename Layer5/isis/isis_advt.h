@@ -128,7 +128,7 @@ GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 void isis_fragment_lock (isis_fragment_t *fragment);
 u_int8_t isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment);
 void isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
-void isis_fragment_alloc_new_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
+void isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) ;
 void isis_advt_data_clear_backlinkage(isis_node_info_t *node_info, isis_adv_data_t * isis_adv_data);
 
 #define isis_fragment_prevent_premature_deletion    isis_fragment_lock

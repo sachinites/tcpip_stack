@@ -833,6 +833,51 @@ isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt) {
    return &lsp_hdr->seq_no;
 }
 
+static void
+lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
+
+    node_t *node;
+    uint32_t *seq_no;
+    isis_lsp_pkt_t *lsp_pkt;
+    avltree_t *lspdb = isis_get_lspdb_root(node);
+
+    if (!arg) return;
+
+    node = (node_t *) (ev_dis->app_data);
+    lsp_pkt = (isis_lsp_pkt_t *)arg;
+    seq_no = isis_get_lsp_pkt_seq_no (lsp_pkt);
+    (*seq_no)++;
+    lsp_pkt->fragment->seq_no = *seq_no;
+    isis_schedule_lsp_flood (node, lsp_pkt, NULL);
+}
+
+void
+isis_lsp_pkt_flood_timer_start (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+
+    if (lsp_pkt->periodic_lsp_flood_timer) return;
+    lsp_pkt->periodic_lsp_flood_timer = timer_register_app_event (CP_TIMER(node),
+                                                                    lsp_pkt_flood_timer_cbk,
+                                                                    lsp_pkt, sizeof(*lsp_pkt), 
+                                                                    ISIS_NODE_INFO(node)->lsp_flood_interval * 1000,
+                                                                    1);
+}
+
+void
+isis_lsp_pkt_flood_timer_stop (isis_lsp_pkt_t *lsp_pkt) {
+
+     if (!lsp_pkt->periodic_lsp_flood_timer) return;
+     timer_de_register_app_event (lsp_pkt->periodic_lsp_flood_timer);
+     lsp_pkt->periodic_lsp_flood_timer = NULL;
+}
+
+void
+isis_lsp_pkt_flood_timer_restart (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+
+    if (!lsp_pkt->periodic_lsp_flood_timer) return;
+    isis_lsp_pkt_flood_timer_stop (lsp_pkt);
+    isis_lsp_pkt_flood_timer_start  (node, lsp_pkt);
+}
+
 uint32_t
 isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
@@ -847,7 +892,8 @@ isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
         assert(!lsp_pkt->installed_in_db);
         tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->pkt_size);
-        
+        isis_lsp_pkt_flood_timer_stop (lsp_pkt);
+
         if (lsp_pkt->expiry_timer) {
 
             isis_timer_data_t *timer_data = (isis_timer_data_t *)

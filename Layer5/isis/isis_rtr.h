@@ -46,8 +46,6 @@ typedef struct node_info_ {
     bool is_shutting_down;
     /* LSP sequence no */
     uint32_t seq_no;
-    /*Timer to flood self LSP periodically */
-    timer_event_handle *periodic_lsp_flood_timer;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
     /* lsp pkt life time interval in lspdb */
@@ -141,11 +139,6 @@ isis_schedule_job(node_t *node,
 
 void
 isis_show_event_counters(node_t *node);
-
-void
-isis_proto_enable_disable_on_demand_flooding(
-        node_t *node,
-        bool enable);
 
 /* Protocol Shutdown related APIs and Constants */
 #define ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK    (1 << 0)

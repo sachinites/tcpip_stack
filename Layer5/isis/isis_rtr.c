@@ -47,7 +47,6 @@ isis_node_cancel_all_queued_jobs(node_t *node) {
 static void
 isis_node_cancel_all_timers(node_t *node){
 
-    isis_stop_lsp_pkt_periodic_flooding(node);
     isis_stop_reconciliation_timer(node);
     isis_stop_overload_timer(node);
 }
@@ -86,7 +85,6 @@ isis_check_delete_node_info(node_t *node) {
     isis_assert_check_all_advt_db_cleanedup(node_info);
 
     /* Timers */
-    assert (!node_info->periodic_lsp_flood_timer);
     assert (!node_info->reconc.reconciliation_timer);
     assert (!node_info->ovl_data.ovl_timer);
 
@@ -365,7 +363,6 @@ isis_init(node_t *node ) {
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);
     init_glthread (&node_info->pending_lsp_gen_queue);
-    isis_start_lsp_pkt_periodic_flooding(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
     isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
@@ -432,43 +429,6 @@ isis_show_event_counters(node_t *node) {
                 node_info->isis_event_count[event_type]);
     }
     cli_out(node->print_buff , rc);
-}
-
-void
-isis_proto_enable_disable_on_demand_flooding(
-        node_t *node,
-        bool enable) {
-
-    avltree_t *lsdb;
-    avltree_node_t *curr;
-    isis_lsp_pkt_t *lsp_pkt;
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node)) return;
-    lsdb = isis_get_lspdb_root(node);
-
-    if (enable) {
-        if (node_info->on_demand_flooding) return;
-            node_info->on_demand_flooding = true;
-            isis_stop_lsp_pkt_periodic_flooding(node);
-            ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
-
-                lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
-                isis_stop_lsp_pkt_installation_timer(lsp_pkt);
-            } ITERATE_AVL_TREE_END;
-    }
-    else {
-        if (!node_info->on_demand_flooding) return;
-        node_info->on_demand_flooding = false;
-        isis_start_lsp_pkt_periodic_flooding(node);
-        ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
-
-                lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
-                isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
-        } ITERATE_AVL_TREE_END;
-    }
 }
 
 bool
