@@ -100,7 +100,7 @@ isis_protocol_shutdown_now (node_t *node) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if(node_info->self_lsp_pkt){
-        isis_deref_isis_pkt(node_info, node_info->self_lsp_pkt);
+        isis_deref_isis_pkt(node, node_info->self_lsp_pkt);
         node_info->self_lsp_pkt = NULL;
     }
 
@@ -200,9 +200,8 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
 
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
-    
-        isis_schedule_lsp_pkt_generation(node,
-            isis_event_admin_action_shutdown_pending);
+
+        isis_walk_all_self_zero_lsps (node, isis_schedule_purge_lsp_flood_cbk);
     }
     
     if (isis_has_routes(node)) {

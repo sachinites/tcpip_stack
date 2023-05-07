@@ -2,6 +2,7 @@
 #define __ISIS_ADVT__
 
 #include "isis_const.h"
+#include "isis_events.h"
 #include "isis_rtr.h"
 #include "isis_pn.h"
 
@@ -126,8 +127,8 @@ GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 
 /* Fragment locking and Unlocking APIs */
 void isis_fragment_lock (isis_fragment_t *fragment);
-u_int8_t isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment);
-void isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
+u_int8_t isis_fragment_unlock (node_t *node, isis_fragment_t *fragment);
+void isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) ;
 void isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) ;
 void isis_advt_data_clear_backlinkage(isis_node_info_t *node_info, isis_adv_data_t * isis_adv_data);
 
@@ -151,7 +152,7 @@ void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
 void isis_discard_fragment (node_t *node, isis_fragment_t *fragment);
 uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
-void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) ;
+void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment, isis_event_type_t event_type) ;
 void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
 void  isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_flags);
 

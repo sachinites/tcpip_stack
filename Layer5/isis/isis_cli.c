@@ -14,6 +14,7 @@
 #include "isis_spf.h"
 #include "isis_policy.h"
 #include "isis_advt.h"
+#include "isis_tlv_struct.h"
 
 static int
 isis_config_handler(param_t *param, 
@@ -266,12 +267,15 @@ isis_show_handler(param_t *param,
                   op_mode enable_or_disable){
 
     uint32_t rc = 0;
+    pn_id_t pn_id;
+    uint8_t fr_no;
     int cmdcode = -1;
     node_t *node = NULL;
     char *rtr_id_str = NULL;
     char *intf_name = NULL;
     Interface *intf = NULL;
     tlv_struct_t *tlv = NULL;
+
     c_string node_name = NULL;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);
@@ -284,6 +288,10 @@ isis_show_handler(param_t *param,
             intf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "rtr-id"))
             rtr_id_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "pn-id"))
+            pn_id = atoi(tlv->value);
+        else if (parser_match_leaf_id(tlv->leaf_id, "fr-no"))
+            fr_no = atoi(tlv->value);            
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -312,7 +320,13 @@ isis_show_handler(param_t *param,
             isis_show_event_counters (node);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP:
-            isis_show_one_lsp_pkt_detail(node, rtr_id_str);
+            {
+                isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node,
+                                                            tcp_ip_covert_ip_p_to_n(rtr_id_str), pn_id, fr_no);
+                if (!lsp_pkt) return 0;
+                rc = isis_show_one_lsp_pkt_detail_info (node->print_buff, lsp_pkt);
+                cli_out (node->print_buff, rc);
+            }
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
             rc = isis_show_all_interface_group (node);
@@ -569,16 +583,27 @@ isis_show_cli_tree(param_t *param) {
                 set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF);
             }
             {
+                 /* show node <node-name> protocol isis lsdb */
                 static param_t lsdb;
 	            init_param(&lsdb, CMD, "lsdb", isis_show_handler, 0, INVALID, 0, "isis protocol");
 	            libcli_register_param(&isis_proto, &lsdb);
 	            set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
                 {
                     static param_t rtr_id;
-                    init_param(&rtr_id, LEAF, 0, isis_show_handler, 0, IPV4, "rtr-id",
-                        "Router-id in A.B.C.D format");
+                    init_param(&rtr_id, LEAF, 0, 0, 0, IPV4, "rtr-id", "Router-id in A.B.C.D format");
                     libcli_register_param(&lsdb, &rtr_id);
-                    set_param_cmd_code(&rtr_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP);
+                    {
+                        static param_t pn_id;
+                        init_param(&pn_id, LEAF, 0, 0, 0, INT, "pn-id", "PN Id [0-255]");
+                        libcli_register_param(&rtr_id, &pn_id);
+                        {
+                            /* show node <node-name> protocol isis lsdb <A.B.C.D> <PN-ID> <Fr-No>*/
+                            static param_t fr_no;
+                            init_param(&fr_no, LEAF, 0, isis_show_handler, 0, INT, "fr-no", "Fr No [0-255]");
+                            libcli_register_param(&pn_id, &fr_no);
+                            set_param_cmd_code(&fr_no, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP);
+                        }
+                    }
                 }
             }
             {

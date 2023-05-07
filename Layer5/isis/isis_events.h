@@ -66,6 +66,10 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_DISCARD_FRAGMENT_BIT                    (1 << isis_event_discard_fragment)
     isis_event_fragment_regen,
     #define ISIS_EVENT_FRAGMENT_REGEN_BIT                        (1 << isis_event_fragment_regen)
+    isis_event_tlv_added,
+    #define ISIS_EVENT_TLV_ADD_BIT                                          (1 << isis_event_tlv_added)
+    isis_event_tlv_removed,
+    #define ISIS_EVENT_TLV_WITHDRAWL_BIT                          (1 << isis_event_tlv_removed)
     isis_event_max                                                                                 /* Do not cross more than 63 */
     #define ISIS_EVENT_MAX                                                            (1 << isis_event_max)
 } isis_event_type_t;

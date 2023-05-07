@@ -46,7 +46,7 @@ isis_cancel_lsp_fragment_regen_job (node_t *node) {
     while ((curr = dequeue_glthread_first(&node_info->pending_lsp_gen_queue))) {
 
         fragment = isis_frag_regen_glue_to_fragment (curr);
-        isis_fragment_unlock (node_info, fragment);
+        isis_fragment_unlock (node, fragment);
     }
 }
 
@@ -69,12 +69,16 @@ isis_lsp_fragment_regen_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg
         fragment = isis_frag_regen_glue_to_fragment (curr);
         isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
         isis_install_lsp (node, NULL, fragment->lsp_pkt);
-        isis_fragment_unlock (node_info, fragment);
+        isis_fragment_unlock (node, fragment);
     }
 }
 
 void
-isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment) {
+isis_schedule_regen_fragment (node_t *node,
+                                                    isis_fragment_t *fragment,
+                                                    isis_event_type_t event_type) {
+
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -209,7 +213,7 @@ isis_record_tlv_advertisement (node_t *node,
     advt_info_out->fr_no = frag_no;
     adv_data->src.holder = back_linkage;
     fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
-    isis_schedule_regen_fragment(node, fragment);
+    isis_schedule_regen_fragment(node, fragment, isis_event_tlv_added);
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
 }
 
@@ -221,7 +225,6 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     glthread_t *curr;
     pkt_size_t tlv_size;
     pkt_size_t bytes_filled;
-    bool create_purge_lsp;
     ethernet_hdr_t *eth_hdr;
     pkt_size_t eth_payload_size;
     isis_node_info_t *node_info;
@@ -234,18 +237,11 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     bytes_filled = 0;
     eth_payload_size = 0;
 
-    /* When protocol shut is in progress, then only zero fragment
-        is allowed to be regenerated and advertised */
-    if (isis_is_protocol_shutdown_in_progress(node) &&
-            (fragment->pn_no || fragment->fr_no)) {
-        return;
-    }
-
     if (!fragment->lsp_pkt) {
         isis_fragment_alloc_new_lsp_pkt (fragment);
     }
     else {
-        isis_fragment_dealloc_lsp_pkt (node_info, fragment);
+        isis_fragment_dealloc_lsp_pkt (node, fragment);
         isis_fragment_alloc_new_lsp_pkt (fragment);
     }
 
@@ -292,22 +288,24 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     isis_adv_data_t *advt_data;
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 
-    ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_IS_REACH_TLVS)) {
 
-        advt_data = glue_to_isis_advt_data(curr);
-        tlv_size =  advt_data->tlv_size;
+        ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
 
-        lsp_tlv_buffer = tlv_buffer_insert_tlv(
+            advt_data = glue_to_isis_advt_data(curr);
+            tlv_size =  advt_data->tlv_size;
+
+            lsp_tlv_buffer = tlv_buffer_insert_tlv(
                                         lsp_tlv_buffer,
                                         (uint8_t)advt_data->tlv_no,
                                         tlv_size - TLV_OVERHEAD_SIZE,
                                         isis_get_adv_data_tlv_content(advt_data,  tlv_content));
 
-        bytes_filled += tlv_size;
-        eth_payload_size += tlv_size;
+            bytes_filled += tlv_size;
+            eth_payload_size += tlv_size;
 
-    } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
-
+        } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
+    }
     SET_COMMON_ETH_FCS (eth_hdr, eth_payload_size, 0 );
     bytes_filled +=  ETH_FCS_SIZE;
     fragment->lsp_pkt->pkt_size = bytes_filled ;
@@ -348,13 +346,13 @@ isis_withdraw_tlv_advertisement (node_t *node,
         }
     }
     else {
-        isis_schedule_regen_fragment(node, fragment);
+        isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
     }
     adv_data->fragment = NULL;
-    isis_fragment_unlock(node_info, fragment);
+    isis_fragment_unlock(node, fragment);
     isis_advt_data_clear_backlinkage (node_info, adv_data);
     XFREE(adv_data);
-    isis_fragment_relieve_premature_deletion(node_info, fragment);
+    isis_fragment_relieve_premature_deletion(node, fragment);
     return ISIS_TLV_WD_SUCCESS;
 }
 
@@ -414,7 +412,7 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
         remove_glthread(&advt_data->glue);
         assert(advt_data->fragment);
         advt_data->fragment = NULL;
-        isis_fragment_unlock(node_info, fragment);
+        isis_fragment_unlock(node, fragment);
         isis_advt_data_clear_backlinkage (node_info, advt_data);
         fragment->bytes_filled -=advt_data->tlv_size;
         XFREE(advt_data);
@@ -422,22 +420,22 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
     ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
 
     remove_glthread(&fragment->priority_list_glue);
-    isis_fragment_unlock(node_info, fragment);
+    isis_fragment_unlock(node, fragment);
 
     advt_db = node_info->advt_db[fragment->pn_no];
     assert(advt_db->fragments[fragment->fr_no]);
     advt_db->fragments[fragment->fr_no] = NULL;
-    isis_fragment_unlock(node_info, fragment);
+    isis_fragment_unlock(node, fragment);
 
     isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
 
     if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
         remove_glthread(&fragment->frag_regen_glue);
-        isis_fragment_unlock(node_info, fragment);
+        isis_fragment_unlock(node, fragment);
     }
 
-    isis_fragment_dealloc_lsp_pkt(node_info, fragment);
-    isis_fragment_relieve_premature_deletion(node_info, fragment);
+    isis_fragment_dealloc_lsp_pkt(node, fragment);
+    isis_fragment_relieve_premature_deletion(node, fragment);
 }
 
 void
@@ -460,8 +458,8 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
     byte system_id_str[32];
     isis_adv_data_t *advt_data;
 
-    rc = printf ("fragment : [%hu][%hu]  , seq_no : %u\n",
-                fragment->pn_no, fragment->fr_no, fragment->seq_no);
+    rc += printf ("fragment : [%hu][%hu]  , seq_no : %u %p\n",
+                fragment->pn_no, fragment->fr_no, fragment->seq_no, fragment);
 
     rc += printf ("  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
                 fragment->bytes_filled, fragment->ref_count,
@@ -503,12 +501,12 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
     byte system_id_str[32];
     isis_adv_data_t *advt_data;
 
-    rc = sprintf (buff + rc, "fragment : [%hu][%hu]  , seq_no : %u\n",
-                fragment->pn_no, fragment->fr_no, fragment->seq_no);
+    rc += sprintf (buff + rc, "fragment : [%hu][%hu]  , seq_no : %u %p\n",
+                fragment->pn_no, fragment->fr_no, fragment->seq_no, fragment);
                 
     rc += sprintf (buff + rc, "  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
                 fragment->bytes_filled, fragment->ref_count,
-                fragment->lsp_pkt->pkt_size, fragment->lsp_pkt->ref_count);
+                (pkt_size_t)fragment->lsp_pkt->pkt_size, fragment->lsp_pkt->ref_count);
 
     rc += sprintf (buff + rc, "    TLVs:\n");
 
@@ -571,7 +569,7 @@ isis_show_advt_db (node_t *node) {
 
 /* This fn handles when lsp pkt do not reference back the fragment */
 void
-isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) {
 
     isis_lsp_pkt_t *lsp_pkt;
 
@@ -583,14 +581,17 @@ isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fra
     isis_lsp_pkt_prevent_premature_deletion(fragment->lsp_pkt);
 
     fragment->lsp_pkt = NULL;
-    isis_deref_isis_pkt(node_info, lsp_pkt);
+    isis_deref_isis_pkt(node, lsp_pkt);
+    isis_lsp_pkt_flood_timer_stop (lsp_pkt);
+    isis_mark_isis_lsp_pkt_flood_ineligible (node, lsp_pkt);
+    isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
 
     if (lsp_pkt->fragment == fragment) {
         lsp_pkt->fragment = NULL;
-        isis_fragment_unlock(node_info, fragment);
+        isis_fragment_unlock(node, fragment);
     }
 
-    isis_lsp_pkt_relieve_premature_deletion(node_info, lsp_pkt); 
+    isis_lsp_pkt_relieve_premature_deletion(node, lsp_pkt); 
     fragment->ref_count--; // make this API work even if fragment has initial ref_count = 1
 }
 
@@ -604,6 +605,7 @@ isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) {
     isis_fragment_lock(fragment);
     fragment->lsp_pkt->flood_eligibility = true;
     fragment->lsp_pkt->pkt = (byte *)tcp_ip_get_new_pkt_buffer(fragment->bytes_filled);
+    fragment->lsp_pkt->alloc_size = fragment->bytes_filled;
     fragment->lsp_pkt->pkt_size = 0;
 }
 
@@ -619,25 +621,33 @@ isis_fragment_delete (isis_fragment_t *fragment) {
 }
 
 u_int8_t
-isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment) {
+isis_fragment_unlock (node_t *node, isis_fragment_t *fragment) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO (node);
 
     fragment->ref_count--;
     if (fragment->ref_count) return (fragment->ref_count);
 
-    /* Should not leak any memory*/
+    /* No Object Should hold a reference to this fragment. Let us examing
+        one bye one 
+    */
     assert(IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head));
-
-    /* Fragment and LSP pkt have their own life time a.ka. reference count.
-        It is possible that ref_count of fragment is reduced to 0, but lsp pkt yet is in use*/
-    if (fragment->lsp_pkt) {
-        isis_fragment_dealloc_lsp_pkt(node_info, fragment);
-    }
 
     /* Fragment must not be Queued for regeneration */
     assert(!IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue));
-    /*should not leave dangling pointers by referenced objects*/
+
+    /*should not be pointed to by Advt_db */
     assert(!node_info->advt_db[fragment->pn_no]->fragments[fragment->fr_no]);
+
+    /* Should be already dettached from priority list*/
     assert(!IS_QUEUED_UP_IN_THREAD(&fragment->priority_list_glue));
+
+    /* Now release resources held by this fragment */
+    if (fragment->lsp_pkt) {
+        isis_deref_isis_pkt(node, fragment->lsp_pkt);
+        fragment->lsp_pkt = NULL;
+    }
+
     isis_fragment_delete (fragment);
     return 0;
 }

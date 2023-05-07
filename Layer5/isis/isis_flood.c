@@ -25,21 +25,10 @@ isis_assign_lsp_src_mac_addr(Interface *intf,
 void
 isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt ){
 
-    assert(!lsp_pkt->flood_queue_count);
-    
-    /* If this is purge pkt, dessociate it with fragment because fragment leaked object now*/
-    isis_pkt_hdr_t *lsp_pkt_hdr = 
-        (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)lsp_pkt->pkt);
-
-    if (IS_BIT_SET (lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_PURGE_BIT)) {
-        if (lsp_pkt->fragment) { // remove this check later
-            isis_fragment_dealloc_lsp_pkt (ISIS_NODE_INFO(node), lsp_pkt->fragment);
-        }
-        if (isis_is_lsp_pkt_installed_in_lspdb (lsp_pkt)) {
-            isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
-        }
-    }
-
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
+    sprintf(tlb, "%s : Flooding of LSP %s completed\n", ISIS_LSPDB_MGMT,
+            isis_print_lsp_id (lsp_pkt, lsp_id_str));
+    tcp_trace(node, 0, tlb);
 }
 
 void
@@ -129,23 +118,22 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
             isis_lsp_pkt_flood_complete(intf->att_node, lsp_pkt);
         }
 
-        isis_deref_isis_pkt(node_info, lsp_pkt);
+        isis_deref_isis_pkt(intf->att_node, lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
+    XFREE(pkt_block);
+
     /* If there are no more LSPs to be pushed out for flooding, and
-        we are shutting down and no more LSP generation is scheduled,
-        then, check and delete protocol configuration
+        we are shutting down then, check and delete protocol configuration
     */
     if ( node_info->pending_lsp_flood_count ==0                &&
-         isis_is_protocol_shutdown_in_progress(intf->att_node)   &&
-         !node_info->lsp_pkt_gen_task                                    &&
-        IS_BIT_SET (node_info->misc_flags, ISIS_F_DISABLE_LSP_GEN)) {
+         isis_is_protocol_shutdown_in_progress(intf->att_node)) {
         
         isis_check_and_shutdown_protocol_now(intf->att_node,
             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
     }
-    XFREE(pkt_block);
+    
 }
 
 void
@@ -211,7 +199,7 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf) {
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         XFREE(lsp_xmit_elem);
         lsp_pkt->flood_queue_count--;
-        isis_deref_isis_pkt(ISIS_NODE_INFO(intf->att_node), lsp_pkt);
+        isis_deref_isis_pkt(intf->att_node, lsp_pkt);
 
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
@@ -331,8 +319,7 @@ isis_enter_reconciliation_phase(node_t *node) {
     recon->reconciliation_in_progress = true;
 
     isis_start_reconciliation_timer(node);
-    isis_walk_all_self_lsp_pkt (node, isis_lsp_pkt_flood_cbk);
-
+    
     ISIS_INCREMENT_NODE_STATS(node,
         isis_event_count[isis_event_reconciliation_triggered]);
 }
@@ -439,7 +426,46 @@ isis_stop_reconciliation_timer(node_t *node) {
 }
 
 void
-isis_walk_all_self_lsp_pkt (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *)) {
+isis_schedule_purge_lsp_flood_cbk (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
+    isis_fragment_t *fragment;
 
+    fragment = lsp_pkt->fragment;
+
+    fragment->regen_flags |=  ISIS_SHOULD_RENEW_LSP_PKT_HDR;
+    fragment->regen_flags |= ISIS_SHOULD_INCL_PURGE_BIT;
+    fragment->regen_flags &= ~ISIS_SHOULD_IS_REACH_TLVS;
+    fragment->regen_flags &= ~ISIS_SHOULD_IP_REACH_TLVS;
+
+    isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
+
+    sprintf(tlb, "%s : Purging LSP %s\n", ISIS_LSPDB_MGMT,
+            isis_print_lsp_id (fragment->lsp_pkt, lsp_id_str));
+    tcp_trace(node, 0, tlb);
+
+    isis_schedule_lsp_flood (node, fragment->lsp_pkt, NULL);
+}
+
+void
+isis_walk_all_self_zero_lsps (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *)) {
+
+    int i;
+    isis_advt_db_t *advt_db;
+    isis_fragment_t *fragment0;
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO (node);
+
+    for (i = 0 ; i < ISIS_MAX_PN_SUPPORTED; i++) {
+
+        advt_db = node_info->advt_db[i];
+        if (!advt_db) continue;
+
+        fragment0 = advt_db->fragments[0];
+
+        /* fragment may not exist if node is not DIS for this LAN*/
+        if (!fragment0 || !fragment0->lsp_pkt) continue;
+
+        fn_ptr (node, fragment0->lsp_pkt);
+    }
 }

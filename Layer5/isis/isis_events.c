@@ -59,7 +59,11 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_discard_fragment
     "ISIS EVENT DISCARD FRAGMENT",
     //isis_event_fragment_regen
-    "ISIS EVENT FRAGMENT REGEN"
+    "ISIS EVENT FRAGMENT REGEN",
+    //isis_event_tlv_added
+    "ISIS EVENT TLV ADDED",
+    // isis_event_tlv_removed
+    "ISIS EVENT TLV REMOVED"
 }; 
 
 const char *

@@ -140,6 +140,7 @@ isis_process_lsp_pkt(node_t *node,
     new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(new_lsp_pkt->pkt, (byte *)lsp_eth_hdr, pkt_size);
     new_lsp_pkt->pkt_size = pkt_size;
+    new_lsp_pkt->alloc_size = pkt_size;
 
     isis_ref_isis_pkt(new_lsp_pkt);
 
@@ -149,7 +150,7 @@ isis_process_lsp_pkt(node_t *node,
     tcp_trace(node, iif, tlb);
 
     isis_install_lsp(node, iif, new_lsp_pkt);
-    isis_deref_isis_pkt(ISIS_NODE_INFO(node), new_lsp_pkt);
+    isis_deref_isis_pkt(node, new_lsp_pkt);
 }
 
 void
@@ -338,7 +339,7 @@ TLV_ADD_DONE:
         /* Debar this pkt from going out of the box*/
         isis_mark_isis_lsp_pkt_flood_ineligible(node, 
                 node_info->self_lsp_pkt);
-        isis_deref_isis_pkt(node_info, node_info->self_lsp_pkt);
+        isis_deref_isis_pkt(node, node_info->self_lsp_pkt);
         node_info->self_lsp_pkt = NULL;
     }
 
@@ -411,6 +412,7 @@ TLV_ADD_DONE:
     node_info->self_lsp_pkt->flood_eligibility = true;
     node_info->self_lsp_pkt->pkt = (byte *)eth_hdr;
     node_info->self_lsp_pkt->pkt_size = lsp_pkt_size_estimate;
+    node_info->self_lsp_pkt->alloc_size = lsp_pkt_size_estimate;
     node_info->self_lsp_pkt->ref_count = 1;
     UNSET_BIT64(node_info->event_control_flags,
         ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT);
@@ -879,7 +881,7 @@ isis_lsp_pkt_flood_timer_restart (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 }
 
 uint32_t
-isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
+isis_deref_isis_pkt(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t rc;
 
@@ -888,27 +890,40 @@ isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
     lsp_pkt->ref_count--;
     rc = lsp_pkt->ref_count;
 
-    if (lsp_pkt->ref_count == 0) {
+    if ( rc ) return rc;
 
-        assert(!lsp_pkt->installed_in_db);
-        tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->pkt_size);
-        isis_lsp_pkt_flood_timer_stop (lsp_pkt);
-
-        if (lsp_pkt->expiry_timer) {
-
-            isis_timer_data_t *timer_data = (isis_timer_data_t *)
-                            wt_elem_get_and_set_app_data(lsp_pkt->expiry_timer, 0);
-            XFREE(timer_data);
-            timer_de_register_app_event(lsp_pkt->expiry_timer);
-            lsp_pkt->expiry_timer = NULL;
-        }
-        if  (lsp_pkt->fragment) {
-            assert(lsp_pkt->fragment->lsp_pkt != lsp_pkt);
-            isis_fragment_unlock(node_info, lsp_pkt->fragment);
-            lsp_pkt->fragment = NULL;
-        }
-        XFREE(lsp_pkt);
+    /* Check other objects must not hold a reference to it*/
+    assert(!lsp_pkt->installed_in_db);
+    
+    if (lsp_pkt->fragment) {
+        assert (lsp_pkt->fragment->lsp_pkt != lsp_pkt);
     }
+
+    /* release the resources held by this pkt buffer */
+    tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->alloc_size);
+
+    /* Stop the associated timers */
+    isis_lsp_pkt_flood_timer_stop(lsp_pkt);
+
+    if (lsp_pkt->expiry_timer) {
+
+        isis_timer_data_t *timer_data = (isis_timer_data_t *)
+            wt_elem_get_and_set_app_data(lsp_pkt->expiry_timer, 0);
+        XFREE(timer_data);
+        timer_de_register_app_event(lsp_pkt->expiry_timer);
+        lsp_pkt->expiry_timer = NULL;
+    }
+
+    /* dissociate the fragment*/
+    if (lsp_pkt->fragment) {
+
+        isis_fragment_unlock(node, lsp_pkt->fragment);
+        lsp_pkt->fragment = NULL;
+    }
+    XFREE(lsp_pkt);
+
+    /* Caller may use the return value as zero to know that lsp
+        pkt is actually freed */
     return rc;
 }
 

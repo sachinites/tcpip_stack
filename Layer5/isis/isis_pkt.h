@@ -14,8 +14,10 @@ typedef struct isis_pkt_ {
 
     /* The wired form of pkt */
     byte *pkt;
-    /* pkt size, including eithernet hdr */
-    size_t pkt_size;
+    /* pkt content size, including eithernet hdr */
+    pkt_size_t pkt_size;
+    /* Actually allocated size of the pkt*/
+    pkt_size_t alloc_size;
     /* ref count on this pkt */
     uint16_t ref_count;
     /* No of interfaces out of which LSP has been
@@ -119,7 +121,7 @@ isis_pkt_hdr_flags_t
 isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt);
 
 uint32_t
-isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
+isis_deref_isis_pkt(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
