@@ -364,7 +364,6 @@ isis_init(node_t *node ) {
     init_glthread (&node_info->pending_lsp_gen_queue);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
-    isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
 }
 
 
@@ -458,8 +457,11 @@ isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
     
     timer_de_register_app_event(ovl_data->ovl_timer);
     ovl_data->ovl_timer = NULL;
-    
-    isis_schedule_lsp_pkt_generation(node, isis_event_overload_timeout);
+
+    isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
+    fragment0->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
+    isis_schedule_regen_fragment(node, fragment0, isis_event_overload_timeout);
+
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_overload_timeout]);
 }
 
@@ -586,7 +588,9 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
 
      done:
         if (regen_lsp) {
-            isis_schedule_lsp_pkt_generation(node, isis_event_device_overload_config_changed);
+            isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
+            fragment0->regen_flags = ISIS_SHOULD_INCL_OL_BIT;
+            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config_changed);
             return 0;
         }
         
@@ -631,7 +635,9 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
 
     done:
         if (regen_lsp) {
-            isis_schedule_lsp_pkt_generation(node, isis_event_device_overload_config_changed);
+            isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
+            fragment0->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
+            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config_changed);
             return 0;
         }
 

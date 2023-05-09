@@ -1,12 +1,14 @@
 #include <assert.h>
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
+#include "isis_intf.h"
 #include "isis_advt.h"
 #include "isis_flood.h"
 #include "isis_lspdb.h"
 #include "isis_tlv_struct.h"
 #include "isis_struct.h"
 #include "isis_utils.h"
+#include "isis_adjacency.h"
 
 static int 
 isis_get_new_fragment_no (isis_advt_db_t *advt_db) {
@@ -249,25 +251,21 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     eth_hdr = (ethernet_hdr_t *)(fragment->lsp_pkt->pkt);
 
     /* Re-manufacture ethernet hdr */
-    if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_REWRITE_ETH_HDR)) {
-        memset((byte *)eth_hdr, 0, fragment->bytes_filled);
-        memset (eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
-        layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
-        eth_hdr->type = ISIS_LSP_ETH_PKT_TYPE;
-    }
+    memset((byte *)eth_hdr, 0, fragment->bytes_filled);
+    memset(eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
+    layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
+    eth_hdr->type = ISIS_LSP_ETH_PKT_TYPE;
 
     bytes_filled += (ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
 
     /* Re-manufactue LSP Pkt Hdr */
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
 
-    if (IS_BIT_SET (regen_ctrl_flags, ISIS_SHOULD_RENEW_LSP_PKT_HDR)) {
-        lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
-        lsp_pkt_hdr->seq_no = (++fragment->seq_no);
-        lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
-        lsp_pkt_hdr->pn_no = fragment->pn_no;
-        lsp_pkt_hdr->fr_no = fragment->fr_no;
-    }
+    lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
+    lsp_pkt_hdr->seq_no = (++fragment->seq_no);
+    lsp_pkt_hdr->rtr_id = tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node));
+    lsp_pkt_hdr->pn_no = fragment->pn_no;
+    lsp_pkt_hdr->fr_no = fragment->fr_no;
 
     bytes_filled += sizeof (isis_pkt_hdr_t);
     eth_payload_size +=  sizeof (isis_pkt_hdr_t);
@@ -288,7 +286,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     isis_adv_data_t *advt_data;
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 
-    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_IS_REACH_TLVS)) {
+    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_IS_REACH_TLVS)) {
 
         ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
 
@@ -306,6 +304,12 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
         } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
     }
+
+    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_IP_REACH_TLVS)) {
+
+        /* ToDo*/
+    }
+
     SET_COMMON_ETH_FCS (eth_hdr, eth_payload_size, 0 );
     bytes_filled +=  ETH_FCS_SIZE;
     fragment->lsp_pkt->pkt_size = bytes_filled ;
@@ -338,20 +342,23 @@ isis_withdraw_tlv_advertisement (node_t *node,
                              isis_fragment_size_comp_fn,
                              (int)&((isis_fragment_t *)0)->priority_list_glue);
 
+    adv_data->fragment = NULL;
+    isis_fragment_unlock(node, fragment);
+    isis_advt_data_clear_backlinkage (node_info, adv_data);
+    XFREE(adv_data);
 
     if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
-        /* Empty fragment, remove it if it is non-zero fragment */
+        /* Empty fragment, remove it if it is not massiah fragment */
         if (fragment->pn_no || fragment->fr_no) {
+            fragment->regen_flags = ISIS_SHOULD_INCL_PURGE_BIT;
+            isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
+            isis_schedule_lsp_flood (node, fragment->lsp_pkt, NULL);
             isis_discard_fragment (node, fragment);
         }
     }
     else {
         isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
     }
-    adv_data->fragment = NULL;
-    isis_fragment_unlock(node, fragment);
-    isis_advt_data_clear_backlinkage (node_info, adv_data);
-    XFREE(adv_data);
     isis_fragment_relieve_premature_deletion(node, fragment);
     return ISIS_TLV_WD_SUCCESS;
 }
@@ -583,7 +590,11 @@ isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) {
     fragment->lsp_pkt = NULL;
     isis_deref_isis_pkt(node, lsp_pkt);
     isis_lsp_pkt_flood_timer_stop (lsp_pkt);
+    /*purge pkt could have queued for transmission, dont mark the pkt ineligible
+       for flood */
+    #if 0 
     isis_mark_isis_lsp_pkt_flood_ineligible (node, lsp_pkt);
+    #endif
     isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
 
     if (lsp_pkt->fragment == fragment) {
@@ -650,4 +661,53 @@ isis_fragment_unlock (node_t *node, isis_fragment_t *fragment) {
 
     isis_fragment_delete (fragment);
     return 0;
+}
+
+extern void isis_ipv4_rt_notif_cbk (
+        event_dispatcher_t *ev_dis,
+        void *rt_notif_data, unsigned int arg_size);
+
+void
+isis_regen_all_fragments_from_scratch (node_t *node) {
+
+    int i;
+    Interface *intf;
+    glthread_t *curr;
+    isis_advt_db_t *advt_db;
+    isis_adjacency_t *adjacency;
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!isis_is_protocol_enable_on_node (node)) return;
+    if (isis_is_protocol_shutdown_in_progress (node)) return;
+
+    /* Cleanup all existing fragments and local LSP pkts*/
+    for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
+
+        advt_db = node_info->advt_db[i];
+        if (!advt_db) continue;
+        isis_destroy_advt_db(node, i);
+    }
+
+    /* Now Regen all fragments by advertising all TLVs*/
+
+    /* Advertise IS REACH TLVs*/
+    ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
+
+        if (isis_node_intf_is_enable (intf)) continue;
+        
+        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+
+            adjacency = glthread_to_isis_adjacency (curr);
+            isis_adjacency_advertise_is_reach (adjacency);
+
+        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    } ITERATE_NODE_INTERFACES_END (node, intf);
+
+    /* Advertise IP REACH TLVs : Exported Routes*/
+    if (node_info->export_policy) {
+
+         nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+    }
 }

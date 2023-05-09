@@ -190,7 +190,7 @@ isis_check_and_delete_intf_info(Interface *intf) {
          ISIS_INTF_INFO(intf)->lan_pn_to_self_adv_data ) {
 
        assert(0);
-    }  
+    }
     isis_free_intf_info(intf);
 }
 
@@ -283,27 +283,26 @@ isis_show_interface_protocol_state(Interface *intf) {
 static void
 isis_handle_interface_up_down (Interface *intf, bool old_status) {
 
-    bool any_adj_up = false;
+    isis_lan_id_t new_dis;
 
     if (old_status == false) {
+
+        new_dis = isis_intf_reelect_dis (intf);
+        isis_intf_assign_new_dis (intf, new_dis);
         /* Interace has been no-shut */
         /* 1. Start sending hellos out of interface if it qualifies
             2. Start processing hellos on this interface if it qualifies */
-
-            if (!isis_interface_qualify_to_send_hellos(intf)) {
-                return;
-            }
-            isis_start_sending_hellos(intf);
+        if (!isis_interface_qualify_to_send_hellos(intf)) {
+            return;
+        }
+        isis_start_sending_hellos (intf);
     }
     else {
+
         /* interface has been shut down */
         isis_stop_sending_hellos(intf);
-        any_adj_up = isis_any_adjacency_up_on_interface(intf);
         isis_delete_all_adjacencies(intf);
-        if (any_adj_up) {
-            isis_schedule_lsp_pkt_generation(intf->att_node,
-                                isis_event_admin_config_changed);
-        }
+        isis_intf_resign_dis (intf);
     }
 }
 
@@ -311,12 +310,33 @@ static void
 isis_handle_interface_ip_addr_changed (Interface *intf, 
                                                                 uint32_t old_ip_addr, uint8_t old_mask) {
 
+    uint8_t mask;
+    uint32_t ip_addr;
+    glthread_t *curr;
+    isis_lan_id_t new_dis;
+    isis_intf_info_t *intf_info;    
+    isis_adv_data_t *advt_data;
+    isis_adjacency_t *adjacency;
+
     /* case 1 : New IP Address Added, start sending hellos if intf qualifies*/
 
     if (intf->IsIpConfigured() && !old_ip_addr && !old_mask) {
 
+        /* Update Hellos*/
         if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
+        }
+
+        /* Adding an IP Address may make interface eligible for DIS election. Though it
+            wont have any adjacency at this point, we would go ahead and re-elect self as DIS
+            and accordingly advertise IS reach TLVs.*/
+        if (isis_intf_is_lan (intf)) {
+            isis_intf_resign_dis (intf);
+            new_dis = isis_intf_reelect_dis (intf);
+            isis_intf_assign_new_dis (intf, new_dis);
+        }
+        else {
+            /* No Action needed*/
         }
         return;
     }
@@ -325,27 +345,61 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
 
     if (!intf->IsIpConfigured() && old_ip_addr && old_mask) {
 
-        bool any_up_adj = false;
-        any_up_adj = isis_any_adjacency_up_on_interface(intf);
         isis_stop_sending_hellos(intf);
         isis_delete_all_adjacencies(intf);
-        if (any_up_adj) {
-            isis_schedule_lsp_pkt_generation(intf->att_node, 
-                isis_event_admin_config_changed);
-        }
+         if (isis_intf_is_lan (intf)) {
+            isis_intf_resign_dis (intf);
+         }
+         else {
+            /* No Action needed*/
+         }
         return;
     }
 
     /*case 3 : IP Address changed, start sending hellos if intf qualifies with new IP Address
         Nbr must bring down adj if new IP Address do not matches same subnet 
-        Nbr must update its Adj data and LSP as per new Ip Address info recvd from this rtr
-    */
+        Nbr must update its Adj data and LSP as per new Ip Address info recvd from this rtr */
     
     isis_interface_qualify_to_send_hellos(intf) ?   \
         isis_refresh_intf_hellos(intf) :                       \
         isis_stop_sending_hellos(intf);
-        isis_schedule_lsp_pkt_generation(intf->att_node, 
-                isis_event_admin_config_changed);
+
+    /* Update local IP advertised in IS REACH TLVs */
+    if (isis_intf_is_lan (intf)) {
+
+        intf_info = ISIS_INTF_INFO (intf);
+        intf->InterfaceGetIpAddressMask (&ip_addr, &mask);
+
+        /* Update advt_data from self to PN i.e. intf_info->lan_self_to_pn_adv_data */
+        if (intf_info->lan_self_to_pn_adv_data) {
+
+            advt_data = intf_info->lan_self_to_pn_adv_data;
+            advt_data->u.adj_data.local_intf_ip = ip_addr;
+            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+        }
+
+        /* Update advt_data from PN to self-DIS i.e. intf_info->lan_pn_to_self_adv_data */
+        if (intf_info->lan_pn_to_self_adv_data) {
+
+            advt_data = intf_info->lan_pn_to_self_adv_data;
+            advt_data->u.adj_data.remote_intf_ip =  ip_addr;
+            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+        }
+    }
+    else {
+        
+        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+            
+            adjacency = glthread_to_isis_adjacency(curr);
+             if (!adjacency->u.p2p_adv_data) continue;
+             advt_data = adjacency->u.p2p_adv_data;
+             intf->InterfaceGetIpAddressMask (&ip_addr, &mask);
+             advt_data->u.adj_data.local_intf_ip = ip_addr;
+            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+
+        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    }
 }
 
 void

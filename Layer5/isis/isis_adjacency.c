@@ -162,7 +162,6 @@ isis_delete_adjacency(isis_adjacency_t *adjacency) {
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
         ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
         isis_update_layer2_mapping_on_adjacency_down(adjacency);
-        isis_schedule_lsp_pkt_generation(adjacency->intf->att_node, isis_event_up_adj_deleted);
         isis_adjacency_withdraw_is_reach (adjacency);
     }
     isis_dynamic_intf_grp_update_on_adjacency_delete(adjacency);
@@ -227,7 +226,7 @@ isis_update_interface_adjacency_from_hello(
     uint8_t tlv_data_len;
     bool new_adj = false;
     bool regen_lsp = false;
-    bool repos_adj = false;
+    bool reelect_dis = false;
     byte *hello_tlv_buffer;
     isis_system_id_t sys_id;
     c_string intf_ip_addr_str;
@@ -294,7 +293,7 @@ isis_update_interface_adjacency_from_hello(
                  ISIS_ADJ_MGMT,  iif->if_name.c_str());
             tcp_trace(iif->att_node, iif, tlb);
             adjacency->lan_id = lan_hdr->lan_id;
-            repos_adj = true;
+            reelect_dis = true;
         }
     }
 
@@ -302,10 +301,10 @@ isis_update_interface_adjacency_from_hello(
           lan_hdr &&
         (adjacency->priority != lan_hdr->priority)) {
             adjacency->priority =  lan_hdr->priority;
-            repos_adj = true;
+            reelect_dis = true;
     }
 
-    if (repos_adj) {
+    if (reelect_dis) {
         isis_update_dis_on_adjacency_transition (adjacency);
     }
 
@@ -373,7 +372,8 @@ isis_update_interface_adjacency_from_hello(
    if (regen_lsp && !force_bring_down_adjacency) {
        sprintf(tlb, "%s : ISIS Adjacency attributes changed, regen LSP \n",  ISIS_ADJ_MGMT);
         tcp_trace(iif->att_node, iif, tlb);
-        isis_schedule_lsp_pkt_generation(iif->att_node, isis_event_nbr_attribute_changed);
+        isis_adjacency_withdraw_is_reach(adjacency);
+        isis_adjacency_advertise_is_reach(adjacency);
    }
     ISIS_INTF_INCREMENT_STATS(iif, good_hello_pkt_recvd);
 }

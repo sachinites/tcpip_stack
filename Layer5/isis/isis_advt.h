@@ -33,16 +33,12 @@ typedef enum isis_tlv_wd_return_code_ {
 #define ISIS_SHOULD_INCL_PURGE_BIT  1
 #define ISIS_SHOULD_INCL_OL_BIT (1 << 1)
 #define ISIS_SHOULD_INCL_ON_DEM_BIT (1 << 2)
-#define ISIS_SHOULD_RENEW_LSP_PKT_HDR   (1 << 3)
-#define ISIS_SHOULD_REWRITE_ETH_HDR (1 << 4)
-#define ISIS_SHOULD_IS_REACH_TLVS (1 << 5)
-#define ISIS_SHOULD_IP_REACH_TLVS (1 << 6)
+#define ISIS_SHOULD_INCL_IS_REACH_TLVS (1 << 3)
+#define ISIS_SHOULD_INCL_IP_REACH_TLVS (1 << 4)
 
 #define ISIS_LSP_DEF_REGEN_FLAGS \
-    ( ISIS_SHOULD_REWRITE_ETH_HDR | \
-      ISIS_SHOULD_RENEW_LSP_PKT_HDR | \
-      ISIS_SHOULD_IS_REACH_TLVS | \
-      ISIS_SHOULD_IP_REACH_TLVS )
+    ( ISIS_SHOULD_INCL_IS_REACH_TLVS | \
+      ISIS_SHOULD_INCL_IP_REACH_TLVS )
 
 typedef struct isis_advt_info_ {
 
@@ -155,5 +151,6 @@ uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buf
 void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment, isis_event_type_t event_type) ;
 void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
 void  isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_flags);
+void isis_regen_all_fragments_from_scratch (node_t *node);
 
 #endif  

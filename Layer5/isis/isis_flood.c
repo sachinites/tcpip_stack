@@ -106,8 +106,9 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
             tcp_trace(intf->att_node, intf, tlb);
         } else {
-            sprintf(tlb, "%s : LSP %s discarded from output flood Queue of interface %s\n",
-                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
+            sprintf(tlb, "%s : LSP %s discarded from output flood Queue of interface %s, %d %d\n",
+                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str(),
+                has_up_adjacency, lsp_pkt->flood_eligibility);
             tcp_trace(intf->att_node, intf, tlb);
         }
 
@@ -432,14 +433,9 @@ isis_schedule_purge_lsp_flood_cbk (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     isis_fragment_t *fragment;
 
     fragment = lsp_pkt->fragment;
-
-    fragment->regen_flags |=  ISIS_SHOULD_RENEW_LSP_PKT_HDR;
-    fragment->regen_flags |= ISIS_SHOULD_INCL_PURGE_BIT;
-    fragment->regen_flags &= ~ISIS_SHOULD_IS_REACH_TLVS;
-    fragment->regen_flags &= ~ISIS_SHOULD_IP_REACH_TLVS;
-
+    fragment->regen_flags = ISIS_SHOULD_INCL_PURGE_BIT;
     isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
-
+    
     sprintf(tlb, "%s : Purging LSP %s\n", ISIS_LSPDB_MGMT,
             isis_print_lsp_id (fragment->lsp_pkt, lsp_id_str));
     tcp_trace(node, 0, tlb);

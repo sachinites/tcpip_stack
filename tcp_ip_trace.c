@@ -224,7 +224,7 @@ tcp_dump_ethernet_hdr(char *buff,
             pkt_block = pkt_block_get_new(
                                             (uint8_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                                            (pkt_size_t)payload_size);
-            pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+            pkt_block_set_starting_hdr_type(pkt_block, MISC_APP_HDR);
             pkt_block_reference(pkt_block);
 
             rc += nfc_pkt_trace_invoke_notif_to_sbscribers(

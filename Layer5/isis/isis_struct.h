@@ -2,6 +2,7 @@
 #define __ISIS_STRUCT__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef uint8_t pn_id_t;
 
@@ -32,5 +33,11 @@ typedef enum ISIS_LVL_ {
     isis_level_12 = 3
 } ISIS_LVL;
 #pragma pack(pop)
+
+static bool
+isis_is_lan_id_null (isis_lan_id_t lan_id) {
+
+    return (!lan_id.pn_id && !lan_id.rtr_id);
+}
 
 #endif

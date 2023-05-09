@@ -607,8 +607,8 @@ isis_print_lsp_pkt(byte *buff,
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
     tcp_ip_covert_ip_n_to_p(rtr_id, ip_addr);
 
-    rc += sprintf(buff + rc, "LSP pkt : %s(%u) \n",
-                    ip_addr, seq_no);
+    rc += sprintf(buff + rc, "LSP pkt : %s-%hu-%hu[%u]   , pkt size = %hu\n",
+                    ip_addr, lsp_pkt_hdr->pn_no,  lsp_pkt_hdr->fr_no, seq_no, (pkt_size_t)pkt_size);
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
     pkt_size_t lsp_tlv_buffer_size = (pkt_size_t)(pkt_size - sizeof(isis_pkt_hdr_t));
@@ -623,9 +623,9 @@ isis_print_lsp_pkt(byte *buff,
                         tlv_type, tlv_value);
                 break;
             case ISIS_IS_REACH_TLV:
-                rc += isis_print_formatted_nbr_tlv22(buff + rc, 
-                        tlv_value - TLV_OVERHEAD_SIZE,
-                        tlv_len + TLV_OVERHEAD_SIZE);
+                rc += isis_format_nbr_tlv22 (buff + rc,
+                            tlv_value - TLV_OVERHEAD_SIZE,
+                            tlv_len + TLV_OVERHEAD_SIZE);
                 break;
             case ISIS_TLV_ON_DEMAND:
                 rc += sprintf(buff + rc,"\tTLV%d On-Demand TLV : %hhu\n",

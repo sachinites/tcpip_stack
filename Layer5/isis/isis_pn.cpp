@@ -72,16 +72,16 @@ isis_intf_reelect_dis (Interface *intf) {
     glthread_t *curr;
     isis_adjacency_t *adj;
     isis_lan_id_t self_lan_id;
-    isis_lan_id_t null_lan_id;
+    isis_lan_id_t null_lan_id = {0, 0};
+
+    if (!intf->is_up || !intf->IsIpConfigured()) return null_lan_id;
+    if (isis_intf_is_p2p (intf)) return null_lan_id;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
 
-    null_lan_id = {0, 0};
-    self_lan_id = intf_info->lan_id;
-
     if (!intf_info) return null_lan_id; 
 
-    if (intf_info->intf_type == isis_intf_type_p2p) return null_lan_id;
+    self_lan_id = intf_info->lan_id;
 
     if (IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf))) {
         return self_lan_id;
@@ -198,14 +198,17 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     isis_adv_data_t *advt_data;
     isis_tlv_record_advt_return_code_t rc;
 
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    
-    if (!intf_info) return;
+    if (!intf->is_up) return; 
+    if (isis_intf_is_p2p (intf)) return; 
+    if (isis_is_lan_id_null (new_dis_id)) return;
 
-    assert(intf_info->elected_dis.rtr_id == 0 &&
-                intf_info->elected_dis.pn_id == 0);
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    if (!intf_info) return;
+    
+    assert (isis_is_lan_id_null (intf_info->elected_dis));
 
     intf_info->elected_dis = new_dis_id;
+
     ISIS_INCREMENT_NODE_STATS(intf->att_node,
         isis_event_count[isis_event_dis_changed]);
 

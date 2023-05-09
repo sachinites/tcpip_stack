@@ -224,7 +224,6 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     if (isis_is_protocol_shutdown_in_progress(node) ||
              isis_is_protocol_admin_shutdown(node)) return 0;
     init_mtrie(&node_info->exported_routes, 32, NULL);
-    isis_schedule_lsp_pkt_generation (node, isis_event_admin_config_changed);
     return 0;
 }
 
@@ -387,7 +386,6 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
             sprintf(tlb, "%s : Route %s/%d advertised\n", ISIS_LSPDB_MGMT,
                 l3route->dest, l3route->mask);
             tcp_trace(node, 0, tlb);
-            isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
             break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             sprintf(tlb, "%s : Route %s/%d is already advertised\n", ISIS_LSPDB_MGMT,
@@ -458,7 +456,6 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
             sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d is successful\n",
                 ISIS_LSPDB_MGMT, l3route->dest, l3route->mask);
             tcp_trace(node, 0, tlb);
-            isis_schedule_lsp_pkt_generation(node, isis_event_route_rib_update);
             res = true;
             break;
         case ISIS_TLV_WD_FRAG_NOT_FOUND:
