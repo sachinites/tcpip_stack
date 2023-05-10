@@ -112,7 +112,7 @@ tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
 static inline uint8_t
 tcp_ip_convert_bin_mask_to_dmask(uint32_t bin_mask) {
 
-    uint cnt = 0;
+    uint8_t cnt = 0;
 
     while(bin_mask) {
         cnt++;
