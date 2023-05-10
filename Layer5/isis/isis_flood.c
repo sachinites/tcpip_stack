@@ -345,7 +345,6 @@ isis_exit_reconciliation_phase(node_t *node) {
     recon->reconciliation_in_progress = false;
 
     isis_stop_reconciliation_timer(node);
-    isis_schedule_lsp_pkt_generation(node, isis_event_reconciliation_exit);
     
     isis_schedule_spf_job(node, isis_event_reconciliation_exit);
 

@@ -555,7 +555,6 @@ isis_change_adjacency_state(
                         isis_restart_reconciliation_timer(node);
                     }
                     /* Schedule LSP gen becaue Adj state has changed */
-                    isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
                     if (!isis_update_dis_on_adjacency_transition(adjacency)) {
                         /* If DIS is changed, then all adj advertisements are also handled*/
@@ -584,9 +583,6 @@ isis_change_adjacency_state(
                         ISIS_NODE_INFO(node)->adjacency_up_count){
 
                         isis_restart_reconciliation_timer(node);
-                    }
-                    else {
-                        isis_schedule_lsp_pkt_generation(node, isis_event_adj_state_changed);
                     }
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
                     if (!isis_update_dis_on_adjacency_transition(adjacency)) {

@@ -531,9 +531,6 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     if (isis_interface_qualify_to_send_hellos(intf)) {
         isis_start_sending_hellos(intf);
     }
-    if (gen_lsp) {
-        isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
-    }
     return 0;
 }
 

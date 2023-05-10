@@ -475,7 +475,6 @@ isis_parse_lsp_tlvs(node_t *node,
                 ISIS_LSPDB_MGMT, isis_event_str(event_type),
                 isis_print_lsp_id(node_info->self_lsp_pkt, lsp_id_str1));
             tcp_trace(node, 0, tlb);
-            isis_schedule_lsp_pkt_generation(node, isis_event_on_demand_flood);
         }
     }
 }

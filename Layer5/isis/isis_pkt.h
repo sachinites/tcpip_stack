@@ -94,9 +94,6 @@ void
 isis_print_hello_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
-isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type);
-
-void
 isis_cancel_lsp_pkt_generation_task(node_t *node);
 
 byte *
