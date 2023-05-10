@@ -4,7 +4,7 @@
 #include "isis_const.h"
 #include "isis_events.h"
 #include "isis_rtr.h"
-#include "isis_pn.h"
+#include "isis_dis.h"
 
 typedef struct node_info_ isis_node_info_t;
 typedef uint64_t advt_id_t;

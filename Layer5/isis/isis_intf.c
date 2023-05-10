@@ -6,7 +6,7 @@
 #include "isis_rtr.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
-#include "isis_pn.h"
+#include "isis_dis.h"
 #include "isis_utils.h"
 
 bool

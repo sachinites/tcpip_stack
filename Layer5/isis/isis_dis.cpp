@@ -4,7 +4,7 @@
 #include "isis_rtr.h"
 #include "isis_intf.h"
 #include "isis_adjacency.h"
-#include "isis_pn.h"
+#include "isis_dis.h"
 #include "isis_utils.h"
 
 pn_id_t
