@@ -479,6 +479,7 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff, bool detail) {
     }
 
     rc = 0;
+
     ITERATE_AVL_TREE_BEGIN(&ted_db->teddb, avl_node) {
 
         node = avltree_container_of(avl_node, ted_node_t , avl_glue);

@@ -147,17 +147,12 @@ isis_install_lsp(node_t *node,
         sprintf(tlb, "\t%s : Event : %s\n", ISIS_LSPDB_MGMT, isis_event_str(event_type));
         tcp_trace(node, iif, tlb);
         /* Action :
-            1. if foriegn lsp then ignore, and regenerate self lsp with higher sequence
-                no and flood on all intf
+            1. if foriegn rtr has send me my own LSP, and I never had such a LSP in my local db
+            then ignore such a LSP.
             2. if self originated lsp then install in db and flood on all intf*/
         if (recvd_via_intf) {
-
-            ((isis_node_info_t *)(node->node_nw_prop.isis_node_info))->seq_no = *new_seq_no;
-
-            sprintf(tlb, "\t%s : Event : %s : self-LSP to be generated with seq no %u\n",
-                ISIS_LSPDB_MGMT, isis_event_str(event_type), *new_seq_no + 1);
-            tcp_trace(node, iif, tlb);
-            isis_schedule_regen_fragment (node, new_lsp_pkt->fragment, event_type);
+            return;
+            assert(0);     
         } else {
             sprintf(tlb, "\t%s : Event : %s : LSP to be Added in LSPDB and flood\n",
                 ISIS_LSPDB_MGMT, isis_event_str(event_type));

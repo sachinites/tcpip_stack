@@ -247,8 +247,8 @@ isis_show_interface_protocol_state(Interface *intf) {
         printf("Intf Group : %s \n", intf_info->intf_grp->name);
     }
     PRINT_TABS(2);
-    printf("hello interval : %u sec, Intf Cost : %u\n",
-        intf_info->hello_interval, intf_info->cost);
+    printf("hello interval : %u sec, Intf Cost : %u, Priority : %hu\n",
+        intf_info->hello_interval, intf_info->cost, intf_info->priority);
 
     PRINT_TABS(2);
     printf("hello Transmission : %s\n",
@@ -293,10 +293,9 @@ isis_handle_interface_up_down (Interface *intf, bool old_status) {
         /* Interace has been no-shut */
         /* 1. Start sending hellos out of interface if it qualifies
             2. Start processing hellos on this interface if it qualifies */
-        if (!isis_interface_qualify_to_send_hellos(intf)) {
-            return;
+        if (isis_interface_qualify_to_send_hellos(intf)) {
+             isis_start_sending_hellos (intf);
         }
-        isis_start_sending_hellos (intf);
     }
     else {
 

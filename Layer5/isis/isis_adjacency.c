@@ -23,11 +23,16 @@ isis_init_adjacency(isis_adjacency_t *adjacency) {
 
 /* Timer fns for ISIS Adjacency Mgmt */
 static void
-isis_timer_expire_delete_adjacency_cb(event_dispatcher_t *ev_dis,
-                                      void *arg, uint32_t arg_size){
+isis_timer_expire_delete_adjacency_cb(
+                                      event_dispatcher_t *ev_dis,
+                                      void *arg,
+                                      uint32_t arg_size){
 
     if (!arg) return;
-    isis_delete_adjacency((isis_adjacency_t *)arg);
+    isis_adjacency_t *adjacency = (isis_adjacency_t *)arg;
+    timer_de_register_app_event(adjacency->delete_timer);
+    adjacency->delete_timer = NULL;
+    isis_delete_adjacency(adjacency);
 }
 
 static void

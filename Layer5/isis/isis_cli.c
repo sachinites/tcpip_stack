@@ -262,7 +262,7 @@ isis_intf_config_handler(param_t *param,
 
 
 static int
-isis_show_handler(param_t *param, 
+isis_show_handler (param_t *param, 
                   ser_buff_t *tlv_buf,
                   op_mode enable_or_disable){
 
@@ -329,18 +329,21 @@ isis_show_handler(param_t *param,
             }
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = isis_show_all_interface_group (node);
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED:
             if (!isis_is_protocol_enable_on_node(node)) break;
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = ted_show_ted_db(ISIS_TED_DB(node), 0, node->print_buff, false);
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY:
             if (!isis_is_protocol_enable_on_node(node)) break;
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = ted_show_ted_db(ISIS_TED_DB(node),
                                                 tcp_ip_covert_ip_p_to_n(rtr_id_str), node->print_buff, false);
             assert ( rc < NODE_PRINT_BUFF_LEN);
@@ -348,12 +351,14 @@ isis_show_handler(param_t *param,
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL:
             if (!isis_is_protocol_enable_on_node(node)) break;
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = ted_show_ted_db(ISIS_TED_DB(node), 0, node->print_buff, true);
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL:
             if (!isis_is_protocol_enable_on_node(node)) break;
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = ted_show_ted_db(ISIS_TED_DB(node),
                                                 tcp_ip_covert_ip_p_to_n(rtr_id_str), node->print_buff, true);
             assert ( rc < NODE_PRINT_BUFF_LEN);
@@ -361,6 +366,7 @@ isis_show_handler(param_t *param,
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY:
             if (!isis_is_protocol_enable_on_node(node)) break;
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = isis_show_all_adjacencies (node);
              assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
@@ -369,6 +375,7 @@ isis_show_handler(param_t *param,
             isis_show_spf_logs(node);
             break;
         case CMCODE_SHOW_ISIS_ADVT_DB:
+            memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = isis_show_advt_db (node);
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);

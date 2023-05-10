@@ -355,6 +355,10 @@ isis_withdraw_tlv_advertisement (node_t *node,
             isis_schedule_lsp_flood (node, fragment->lsp_pkt, NULL);
             isis_discard_fragment (node, fragment);
         }
+        else {
+            fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
+            isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
+        }
     }
     else {
         isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
@@ -436,6 +440,7 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
 
     isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
 
+    /* Cancel fragment regeneration if scheduled*/
     if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
         remove_glthread(&fragment->frag_regen_glue);
         isis_fragment_unlock(node, fragment);
@@ -553,7 +558,6 @@ isis_show_advt_db (node_t *node) {
     isis_fragment_t *fragment;
 
     byte *buff = node->print_buff;
-    memset(buff, 0, NODE_PRINT_BUFF_LEN);
     
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
