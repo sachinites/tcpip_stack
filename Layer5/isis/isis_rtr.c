@@ -82,6 +82,8 @@ isis_check_delete_node_info(node_t *node) {
     assert(!node_info->ted_db);
     assert(!node_info->exported_routes.root);
 
+    /* Must not be any pending LSP for regeneration*/
+    assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
     isis_assert_check_all_advt_db_cleanedup(node_info);
 
     /* Timers */

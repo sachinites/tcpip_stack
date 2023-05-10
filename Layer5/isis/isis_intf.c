@@ -176,21 +176,20 @@ isis_free_intf_info(Interface *intf) {
     intf->isis_intf_info = NULL;
 }
 
-void 
+static void 
 isis_check_and_delete_intf_info(Interface *intf) {
 
-    if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
-         !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
-         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head) ||
-         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
-         ISIS_INTF_INFO(intf)->lsp_xmit_job ||
-         ISIS_INTF_INFO(intf)->lan_id.pn_id ||
-         (ISIS_INTF_INFO(intf)->elected_dis.rtr_id || ISIS_INTF_INFO(intf)->elected_dis.pn_id) ||
-         ISIS_INTF_INFO(intf)->lan_self_to_pn_adv_data ||
-         ISIS_INTF_INFO(intf)->lan_pn_to_self_adv_data ) {
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    assert (!ISIS_INTF_HELLO_XMIT_TIMER(intf));
+    assert (IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) );
+    assert (IS_GLTHREAD_LIST_EMPTY(&intf_info->lsp_xmit_list_head) );
+    assert (IS_GLTHREAD_LIST_EMPTY(&intf_info->intf_grp_member_glue) );
+    assert (!intf_info->lsp_xmit_job);
+    assert (isis_is_lan_id_null (intf_info->lan_id));
+    assert (isis_is_lan_id_null (intf_info->elected_dis) );
+    assert (!intf_info->lan_self_to_pn_adv_data);
+    assert (!intf_info->lan_pn_to_self_adv_data);
 
-       assert(0);
-    }
     isis_free_intf_info(intf);
 }
 
@@ -205,13 +204,15 @@ isis_disable_protocol_on_interface(Interface *intf) {
 
     isis_stop_sending_hellos(intf);
     isis_delete_all_adjacencies(intf);
-    isis_intf_purge_lsp_xmit_queue(intf);
     remove_glthread(&intf_info->intf_grp_member_glue);
     intf_info->intf_grp = NULL;
     if (isis_intf_is_lan(intf)) {
         isis_intf_resign_dis(intf);
         isis_intf_deallocate_lan_id (intf);
     }
+    /* Must be last call in this fn, as prev call could
+        result in LSP pkts queuing again*/
+     isis_intf_purge_lsp_xmit_queue(intf);
     isis_check_and_delete_intf_info(intf);
 }
 

@@ -187,11 +187,13 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf) {
     glthread_t *curr;
     isis_lsp_pkt_t *lsp_pkt;
     isis_intf_info_t *intf_info;
+    isis_node_info_t *node_info;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
 
     if (!isis_node_intf_is_enable(intf)) return;
     
     intf_info = ISIS_INTF_INFO(intf);
+    node_info = ISIS_NODE_INFO(intf->att_node);
 
     ITERATE_GLTHREAD_BEGIN(&intf_info->lsp_xmit_list_head, curr) {
 
@@ -199,9 +201,10 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf) {
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         XFREE(lsp_xmit_elem);
-        lsp_pkt->flood_queue_count--;
         isis_deref_isis_pkt(intf->att_node, lsp_pkt);
-
+        lsp_pkt->flood_queue_count--;
+        node_info->pending_lsp_flood_count--;
+        
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
     if (intf_info->lsp_xmit_job) {
