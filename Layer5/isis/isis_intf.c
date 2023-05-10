@@ -51,17 +51,14 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 }
 
 void
-isis_start_sending_hellos(Interface *intf) {
+isis_start_sending_hellos (Interface *intf) {
 
     node_t *node;
     size_t hello_pkt_size;
 
-    assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
-    assert(isis_node_intf_is_enable(intf));
-    
+    if (ISIS_INTF_HELLO_XMIT_TIMER(intf)) return;
+   
     node = intf->att_node;
-    wheel_timer_t *wt = CP_TIMER(node);
-
     char *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 
     isis_timer_data_t *isis_timer_data =
@@ -72,13 +69,13 @@ isis_start_sending_hellos(Interface *intf) {
     isis_timer_data->data = hello_pkt;
     isis_timer_data->data_size = hello_pkt_size;
 
-    ISIS_INTF_HELLO_XMIT_TIMER(intf) = timer_register_app_event(wt,
+    ISIS_INTF_HELLO_XMIT_TIMER(intf) = timer_register_app_event(
+                                        CP_TIMER(node),
                                         isis_transmit_hello,
                                         (void *)isis_timer_data,
                                         sizeof(isis_timer_data_t),
                                         ISIS_INTF_HELLO_INTERVAL(intf) * 1000,
                                         1);
-
     
     if (ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL) {
         printf("Error : Failed to xmit hellos on interface (%s)%s",
