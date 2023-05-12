@@ -404,6 +404,14 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask){
 }
 
 void
+rt_table_perform_app_operation_on_routes (
+                            rt_table_t *rt_table, 
+                            void (*app_cbk) (mtrie_t *, mtrie_node_t *, void *)) {
+
+    mtrie_longest_prefix_first_traverse (&rt_table->route_list, app_cbk,  NULL);
+}
+
+void
 clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
@@ -425,7 +433,7 @@ clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
        assert(l3_route);
        thread_using_route(l3_route);
 
-        if(l3_is_direct_route(l3_route)) {
+        if (l3_is_direct_route(l3_route)) {
             curr = glthread_get_next(curr);
             thread_using_route_done(l3_route);
             continue;

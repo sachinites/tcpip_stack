@@ -252,3 +252,17 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
 
     return rc;
 }
+
+bool
+isis_is_zero_fragment_tlv (uint16_t tlv_no) {
+
+    switch (tlv_no) {
+
+        case ISIS_IS_REACH_TLV:
+        case ISIS_TLV_IP_REACH:
+            return false;
+        default: 
+            return false;
+    }
+    return false;
+}

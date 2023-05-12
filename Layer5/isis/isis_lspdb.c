@@ -437,41 +437,6 @@ isis_parse_lsp_tlvs(node_t *node,
             need_spf, on_demand_tlv, need_on_demand_flood);
     tcp_trace(node, 0, tlb);
 
-
-    if (need_on_demand_flood) {
-
-        /* Somebody requested us On-Demand Flood */
-        if (node_info->lsp_pkt_gen_task ||
-            isis_is_reconciliation_in_progress(node)) {
-            return;
-        }
-
-        if (node_info->self_lsp_pkt &&
-            node_info->self_lsp_pkt->flood_eligibility) {
-
-                uint32_t *seq_no = isis_get_lsp_pkt_seq_no(node_info->self_lsp_pkt);
-                ISIS_INCREMENT_NODE_STATS(node, seq_no);
-                *seq_no = node_info->seq_no;
-                
-                isis_ted_refresh_seq_no(node, *seq_no);
-
-                sprintf(tlb, "\t%s : Event : %s : self-LSP %s to be on-demand flooded\n",
-                    ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                    isis_print_lsp_id(node_info->self_lsp_pkt, lsp_id_str1));
-                tcp_trace(node, 0, tlb);
-
-                isis_schedule_lsp_flood(node, node_info->self_lsp_pkt, 0);
-
-                ISIS_INCREMENT_NODE_STATS(node,
-                    isis_event_count[isis_event_on_demand_flood]);
-        }
-        else {
-            sprintf(tlb, "\t%s : Event : %s : self-LSP %s to be re-generated with next seq no\n",
-                ISIS_LSPDB_MGMT, isis_event_str(event_type),
-                isis_print_lsp_id(node_info->self_lsp_pkt, lsp_id_str1));
-            tcp_trace(node, 0, tlb);
-        }
-    }
 }
 
 isis_lsp_pkt_t *
@@ -504,7 +469,7 @@ isis_our_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 }
 
 void
-isis_cleanup_lsdb(node_t *node) {
+isis_cleanup_lsdb (node_t *node) {
 
     avltree_node_t *curr;
     isis_lsp_pkt_t *lsp_pkt;
@@ -542,9 +507,7 @@ isis_show_lspdb(node_t *node) {
     cli_out (buff, rc);
 }
 
-
 /* lsp pkt printing */
-
 int
 isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 

@@ -287,6 +287,10 @@ l3_route_t *
 rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask);
 
 /* Routing Table APIs */
+void
+rt_table_perform_app_operation_on_routes (
+                            rt_table_t *rt_table, 
+                            void (*app_cbk) (mtrie_t *, mtrie_node_t *, void *));
 
 void
 tcp_ip_send_ip_data(node_t *node, 

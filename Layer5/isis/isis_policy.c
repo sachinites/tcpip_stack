@@ -308,7 +308,7 @@ isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
 }
 
 
-isis_adv_data_t *
+isis_tlv_record_advt_return_code_t
 isis_export_route (node_t *node, l3_route_t *l3route) {
 
     mtrie_node_t *mnode;
@@ -336,12 +336,12 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         else if (IS_BIT_SET (l3route->rt_flags, RT_UPDATE_F)) {
             /* No Action */
         }
-        return exported_rt;
+        return ISIS_TLV_RECORD_ADVT_ALREADY;
     }
 
     exported_rt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
     exported_rt->tlv_no = ISIS_TLV_IP_REACH;
-    exported_rt->u.pfx.prefix = tcp_ip_covert_ip_p_to_n (l3route->dest);
+    exported_rt->u.pfx.prefix = htonl(tcp_ip_covert_ip_p_to_n (l3route->dest));
     exported_rt->u.pfx.mask = l3route->mask;
     exported_rt->u.pfx.metric = ISIS_DEFAULT_INTF_COST;
     exported_rt->tlv_size = isis_get_adv_data_size (exported_rt);
@@ -371,14 +371,14 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         bitmap_free_internal(&prefix_bm);
         bitmap_free_internal(&mask_bm);
         XFREE(exported_rt);
-        return NULL;
+        return ISIS_TLV_RECORD_ADVT_FAILED;
     }
     mnode->data = (void *)exported_rt;
     exported_rt->src.mnode = mnode;
 
     rc =  isis_record_tlv_advertisement(node, 0, 
                                 (isis_adv_data_t *)exported_rt,
-                                NULL, &advt_info_out);
+                                &advt_info_out);
 
     switch (rc) {
 
@@ -404,7 +404,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
 
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
-    return exported_rt;
+    return rc;
 }
 
 bool
@@ -500,55 +500,4 @@ isis_size_requirement_for_exported_routes (node_t *node) {
     }ITERATE_GLTHREAD_END(&node_info->exported_routes.list_head, curr);
 
     return size_required;
-}
-
-size_t
-isis_advertise_exported_routes (node_t *node,
-                                                    byte *lsp_tlv_buffer,
-                                                    size_t space_remaining) {
-
-    byte ip_addr_str[16];
-    mtrie_node_t *mnode;    
-    glthread_t *curr = NULL;
-    size_t bytes_encoded = 0;
-    isis_node_info_t *node_info;
-    isis_adv_data_t *exported_rt;
-    isis_tlv_130_t  tlv_130_data;
-
-    const size_t tlv_unit_size = 
-        sizeof (isis_tlv_130_t) + TLV_OVERHEAD_SIZE;
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) return 0;
-
-    ITERATE_GLTHREAD_BEGIN(&node_info->exported_routes.list_head, curr){
-
-        mnode = list_glue_to_mtrie_node(curr);
-        exported_rt = (isis_adv_data_t *)(mnode->data);
-        memset (&tlv_130_data, 0, sizeof(tlv_130_data));
-        tlv_130_data.prefix = htonl(exported_rt->u.pfx.prefix);
-        tlv_130_data.mask = exported_rt->u.pfx.mask;
-        tlv_130_data.metric = htonl(exported_rt->u.pfx.metric);
-        tlv_130_data.flags |=  ISIS_EXTERN_ROUTE_F;
-
-        if (space_remaining >= tlv_unit_size) {
-
-          lsp_tlv_buffer = tlv_buffer_insert_tlv(lsp_tlv_buffer,
-                                        ISIS_TLV_IP_REACH,
-                                        sizeof(isis_tlv_130_t), 
-                                        (byte *)&tlv_130_data);
-
-            bytes_encoded += tlv_unit_size;
-            space_remaining -= tlv_unit_size;
-        }
-        else {
-            sprintf(tlb, "%s : FATAL : LSP Pkt ran out of space\n", ISIS_LSPDB_MGMT);
-            tcp_trace(node, 0 , tlb);
-            return bytes_encoded;
-        }
-
-    } ITERATE_GLTHREAD_END(&node_info->exported_routes.list_head, curr);
-
-    return bytes_encoded;
 }

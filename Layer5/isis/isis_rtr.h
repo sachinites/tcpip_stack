@@ -36,10 +36,6 @@ typedef struct isis_overload_data_ {
 typedef struct node_info_ {
     /* self system id -> <rtrid-0>*/
     isis_system_id_t sys_id;
-    /* pointer to self LSP pkt */
-    isis_lsp_pkt_t *self_lsp_pkt;
-    /* Task to schedule self LSP pkt generation */
-    task_t *lsp_pkt_gen_task;
     /*Task to schedule spf job*/
     task_t *spf_job_task;
     /* Boolean to track if node is shutting down */
@@ -156,6 +152,9 @@ isis_is_protocol_admin_shutdown(node_t *node);
 
 void
 isis_protocol_shut_down(node_t *node);
+
+bool
+isis_is_protocol_shutdown_pending_work_completed (node_t *node);
 
 void
 isis_check_and_shutdown_protocol_now(

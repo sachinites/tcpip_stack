@@ -706,6 +706,10 @@ isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
         return;
     }
     
+    if (isis_is_protocol_admin_shutdown (node)) {
+        return;
+    }
+    
     ISIS_INCREMENT_NODE_STATS(node,
         isis_event_count[isis_event_spf_job_scheduled]);
 

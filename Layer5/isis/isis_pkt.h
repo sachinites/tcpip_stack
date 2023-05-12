@@ -99,9 +99,6 @@ isis_cancel_lsp_pkt_generation_task(node_t *node);
 byte *
 isis_prepare_hello_pkt(Interface *intf, size_t *hello_pkt_size);
 
-void
-isis_generate_lsp_pkt(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size_unused);
-
 uint32_t *
 isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) ;
 

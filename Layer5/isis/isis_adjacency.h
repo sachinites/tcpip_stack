@@ -143,7 +143,7 @@ isis_show_all_adjacencies (node_t *node) ;
 bool
 isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency);
 
-void
+isis_tlv_record_advt_return_code_t
 isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency);
 
 void

@@ -135,7 +135,6 @@ isis_tlv_record_advt_return_code_t
 isis_record_tlv_advertisement (node_t *node, 
                                     pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
-                                    isis_adv_data_t **back_linkage,
                                     isis_advt_info_t *advt_info_out);
 
 isis_tlv_wd_return_code_t
@@ -150,7 +149,11 @@ uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
 void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment, isis_event_type_t event_type) ;
 void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
+isis_fragment_t *isis_alloc_new_fragment () ;
 void  isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_flags);
 void isis_regen_all_fragments_from_scratch (node_t *node);
+void isis_regen_zeroth_fragment(node_t *node) ;
+void isis_force_insert_advt_data_in_this_fragment (node_t *node,
+            isis_adv_data_t *advt_data, isis_fragment_t *fragment) ;
 
 #endif  

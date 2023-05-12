@@ -39,7 +39,6 @@ isis_is_protocol_enable_on_node(node_t *node) {
 static void
 isis_node_cancel_all_queued_jobs(node_t *node) {
 
-    isis_cancel_lsp_pkt_generation_task(node);
     isis_cancel_spf_job(node);
     isis_cancel_lsp_fragment_regen_job(node);
 }
@@ -73,8 +72,7 @@ isis_check_delete_node_info(node_t *node) {
     if ( !node_info ) return;
 
     /* Scheduled jobs */
-    assert (!node_info->self_lsp_pkt);
-    assert (!node_info->lsp_pkt_gen_task);
+    assert (!node_info->lsp_fragment_gen_task);
     assert (!node_info->spf_job_task);
 
     /*Hooked up Data Structures should be empty */
@@ -100,11 +98,6 @@ isis_protocol_shutdown_now (node_t *node) {
 
     Interface *intf;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if(node_info->self_lsp_pkt){
-        isis_deref_isis_pkt(node, node_info->self_lsp_pkt);
-        node_info->self_lsp_pkt = NULL;
-    }
 
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
@@ -198,7 +191,7 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
     node_info->shutdown_pending_work_flags = 0;
 
     /* Set the flags to track what work needs to be done before we die out */
-    if (isis_atleast_one_interface_protocol_enabled(node)) {
+    if (node_info->adjacency_up_count) {
 
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
@@ -214,6 +207,18 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
         isis_schedule_route_delete_task(node,
                 isis_event_admin_action_shutdown_pending);
     }
+}
+
+bool
+isis_is_protocol_shutdown_pending_work_completed (node_t *node) {
+
+    if (isis_is_protocol_admin_shutdown(node) &&
+            !isis_is_protocol_shutdown_in_progress(node)) {
+
+        return true;
+    }
+
+    return false;
 }
 
 void
@@ -334,11 +339,9 @@ isis_de_init(node_t *node) {
 }
 
 void
-isis_init(node_t *node ) {
+isis_init (node_t *node ) {
 
-    size_t lsp_pkt_size = 0;
-
-    if (isis_is_protocol_enable_on_node(node)) return;
+     if (isis_is_protocol_enable_on_node(node)) return;
 
     /* Register for interested pkts */
     tcp_stack_register_l2_pkt_trap_rule(
@@ -364,6 +367,7 @@ isis_init(node_t *node ) {
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);
     init_glthread (&node_info->pending_lsp_gen_queue);
+    isis_regen_zeroth_fragment(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
 }
