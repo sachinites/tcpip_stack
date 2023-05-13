@@ -29,9 +29,6 @@ isis_export_route (node_t *node, l3_route_t *l3route);
 bool
 isis_unexport_route (node_t *node, l3_route_t *l3route);
 
-size_t
-isis_size_requirement_for_exported_routes (node_t *node) ;
-
 void
 isis_free_all_exported_rt_advt_data (node_t *node);
 
