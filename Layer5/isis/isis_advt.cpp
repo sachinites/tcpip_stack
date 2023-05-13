@@ -10,6 +10,7 @@
 #include "isis_utils.h"
 #include "isis_adjacency.h"
 #include"isis_policy.h"
+#include "isis_dis.h"
 #include "isis_cmdcodes.h"
 
 static int 
@@ -52,6 +53,33 @@ isis_cancel_lsp_fragment_regen_job (node_t *node) {
         fragment = isis_frag_regen_glue_to_fragment (curr);
         isis_fragment_unlock (node, fragment);
     }
+}
+
+void
+isis_cancel_all_fragment_regen_job (node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info->regen_all_fragment_task) return;
+
+    task_cancel_job (EV(node), node_info->regen_all_fragment_task);
+    node_info->regen_all_fragment_task = NULL;
+}
+
+void
+isis_schedule_all_fragment_regen_job (node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (node_info->regen_all_fragment_task) return;
+
+    node_info->regen_all_fragment_task =
+        task_create_new_job(
+            EV(node),
+            (void *)node,
+            isis_regen_all_fragments_from_scratch,
+            TASK_ONE_SHOT,
+            TASK_PRIORITY_LOW);
 }
 
 static void
@@ -128,10 +156,28 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
                 *adv_data->src.holder = NULL;
             break;
         case ISIS_TLV_IP_REACH:
-            if (adv_data->src.mnode) {
-                mtrie_delete_leaf_node (&node_info->exported_routes, adv_data->src.mnode);
-                adv_data->src.mnode = NULL;
+        {
+            void *app_data;
+            mtrie_ops_result_code_t rc;
+            uint32_t bin_ip, bin_mask;
+            bitmap_t prefix_bm, mask_bm;
+            bin_ip = adv_data->u.pfx.prefix;
+            bin_mask = tcp_ip_convert_dmask_to_bin_mask(adv_data->u.pfx.mask);
+            bin_mask = ~bin_mask;
+            bin_mask = htonl(bin_mask);
+            bitmap_init(&prefix_bm, 32);
+            bitmap_init(&mask_bm, 32);
+            prefix_bm.bits[0] = bin_ip;
+            mask_bm.bits[0] = bin_mask;
+            rc = mtrie_delete_prefix (&node_info->exported_routes,
+                                                 &prefix_bm, &mask_bm,
+                                                 &app_data);
+            if (rc == MTRIE_DELETE_SUCCESS) {
+                assert (adv_data == (isis_adv_data_t *)app_data);
             }
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);            
+        }
             break;
         default: ;
     }
@@ -141,11 +187,11 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
 /* This is Top level fn to insert a new TLV in ADVT-DB. Inserting a new TLV in ADVT-DB
     requires finding the fragment which can accomodate the TLV, regen the fragment's LSP pkt
     and flood it.*/
-isis_tlv_record_advt_return_code_t
-isis_record_tlv_advertisement (node_t *node, 
-                                    uint8_t pn_no,
-                                    isis_adv_data_t *adv_data,
-                                    isis_advt_info_t *advt_info_out) {
+isis_advt_tlv_return_code_t
+isis_advertise_tlv (node_t *node, 
+                              uint8_t pn_no,
+                              isis_adv_data_t *adv_data,
+                              isis_advt_info_t *advt_info_out) {
 
     int frag_no;
     glthread_t *curr;
@@ -178,7 +224,7 @@ isis_record_tlv_advertisement (node_t *node,
     if (!curr || (fragment && 
             (ISIS_LSP_MAX_PKT_SIZE - fragment->bytes_filled) < tlv_size)) {
 
-        frag_no = (uint8_t)isis_get_new_fragment_no(advt_db);
+        frag_no = isis_get_new_fragment_no(advt_db);
         
         if (frag_no < 0) {
 
@@ -216,6 +262,58 @@ isis_record_tlv_advertisement (node_t *node,
     fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
     isis_schedule_regen_fragment(node, fragment, isis_event_tlv_added);
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
+}
+
+isis_tlv_wd_return_code_t
+isis_withdraw_tlv_advertisement (node_t *node,
+                                    isis_adv_data_t *adv_data){
+    
+    isis_fragment_t *fragment;
+    isis_advt_db_t *advt_db;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    fragment = adv_data->fragment;
+
+    /* Due to space exhaustion, some advt data may not have assigned fragment,
+        Simply delete the advt data*/
+    if (!fragment) {
+        return ISIS_TLV_WD_FRAG_NOT_FOUND;
+    }
+
+    isis_fragment_prevent_premature_deletion(fragment);
+
+    advt_db = node_info->advt_db[fragment->pn_no];
+    assert(advt_db);
+    
+    remove_glthread (&adv_data->glue);
+    fragment->bytes_filled -= adv_data->tlv_size;
+    remove_glthread(&fragment->priority_list_glue);
+    glthread_priority_insert(&advt_db->fragment_priority_list,
+                             &fragment->priority_list_glue,
+                             isis_fragment_size_comp_fn,
+                             (int)&((isis_fragment_t *)0)->priority_list_glue);
+
+    adv_data->fragment = NULL;
+    isis_fragment_unlock(node, fragment);
+
+    if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
+        /* Empty fragment, remove it if it is not massiah fragment */
+        if (fragment->pn_no || fragment->fr_no) {
+            fragment->regen_flags = ISIS_SHOULD_INCL_PURGE_BIT;
+            isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
+            isis_schedule_lsp_flood (node, fragment->lsp_pkt, NULL);
+            isis_discard_fragment (node, fragment);
+        }
+        else {
+            fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
+            isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
+        }
+    }
+    else {
+        isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
+    }
+    isis_fragment_relieve_premature_deletion(node, fragment);
+    return ISIS_TLV_WD_SUCCESS;
 }
 
 /* This fn regenerate fragment;s LSP pkt from scratch. regen_ctrl_flags controls as to what content
@@ -334,59 +432,6 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     fragment->lsp_pkt->pkt_size = bytes_filled ;
 }
 
-isis_tlv_wd_return_code_t
-isis_withdraw_tlv_advertisement (node_t *node,
-                                    isis_adv_data_t *adv_data){
-
-    
-    isis_fragment_t *fragment;
-    isis_advt_db_t *advt_db;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) return ISIS_TLV_WD_SUCCESS;
-
-    fragment = adv_data->fragment;
-
-    assert (fragment) ;
-    isis_fragment_prevent_premature_deletion(fragment);
-
-    advt_db = node_info->advt_db[fragment->pn_no];
-    assert(advt_db);
-    
-    remove_glthread (&adv_data->glue);
-    fragment->bytes_filled -= adv_data->tlv_size;
-    remove_glthread(&fragment->priority_list_glue);
-    glthread_priority_insert(&advt_db->fragment_priority_list,
-                             &fragment->priority_list_glue,
-                             isis_fragment_size_comp_fn,
-                             (int)&((isis_fragment_t *)0)->priority_list_glue);
-
-    adv_data->fragment = NULL;
-    isis_fragment_unlock(node, fragment);
-    isis_advt_data_clear_backlinkage (node_info, adv_data);
-    XFREE(adv_data);
-
-    if (IS_GLTHREAD_LIST_EMPTY(&fragment->tlv_list_head)) {
-        /* Empty fragment, remove it if it is not massiah fragment */
-        if (fragment->pn_no || fragment->fr_no) {
-            fragment->regen_flags = ISIS_SHOULD_INCL_PURGE_BIT;
-            isis_regenerate_lsp_fragment (node, fragment, fragment->regen_flags);
-            isis_schedule_lsp_flood (node, fragment->lsp_pkt, NULL);
-            isis_discard_fragment (node, fragment);
-        }
-        else {
-            fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
-            isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
-        }
-    }
-    else {
-        isis_schedule_regen_fragment(node, fragment, isis_event_tlv_removed);
-    }
-    isis_fragment_relieve_premature_deletion(node, fragment);
-    return ISIS_TLV_WD_SUCCESS;
-}
-
-
 void 
 isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 
@@ -461,8 +506,8 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
         isis_advt_data_clear_backlinkage (node_info, advt_data);
         fragment->bytes_filled -=advt_data->tlv_size;
         XFREE(advt_data);
-    }
-    ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
+
+    } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
 
     remove_glthread(&fragment->priority_list_glue);
     isis_fragment_unlock(node, fragment);
@@ -494,14 +539,17 @@ isis_force_insert_advt_data_in_this_fragment (node_t *node,
     glthread_t *curr;
     isis_advt_db_t *advt_db;
     pkt_size_t available_space;
+    isis_node_info_t *node_info;
     isis_adv_data_t *old_advt_data;
     isis_advt_info_t advt_info_out;
-    isis_tlv_record_advt_return_code_t rc;
+    isis_advt_tlv_return_code_t rc;
 
     assert (!fragment->fr_no); // to be called only for zero fragment as of now.
     assert(!advt_data->fragment);
     assert (!IS_QUEUED_UP_IN_THREAD (&advt_data->glue));
 
+    node_info = ISIS_NODE_INFO(node);
+    
     advt_db = ISIS_NODE_INFO(node)->advt_db[fragment->pn_no];
 
     available_space = ISIS_LSP_MAX_PKT_SIZE - fragment->bytes_filled;
@@ -522,18 +570,18 @@ isis_force_insert_advt_data_in_this_fragment (node_t *node,
         pkt_size_t required_space = advt_data->tlv_size - available_space;
         pkt_size_t size_freed = 0;
 
-        remove_glthread (&fragment->priority_list_glue);
+        remove_glthread (&fragment->priority_list_glue);//0
 
         ITERATE_GLTHREAD_BEGIN (&fragment->tlv_list_head, curr) {
 
             old_advt_data =  glue_to_isis_advt_data(curr);
             if (isis_is_zero_fragment_tlv (old_advt_data->tlv_no)) continue;
-            remove_glthread (&old_advt_data->glue);
-            old_advt_data->fragment = NULL;
-            fragment->bytes_filled -= old_advt_data->tlv_size;
-            isis_fragment_unlock (node, fragment);
-            size_freed +=  old_advt_data->tlv_size;
-            rc = isis_record_tlv_advertisement (node, 
+            remove_glthread (&old_advt_data->glue); // 1
+            old_advt_data->fragment = NULL; // 2
+            fragment->bytes_filled -= old_advt_data->tlv_size; //3
+            isis_fragment_unlock (node, fragment); // 4
+            size_freed +=  old_advt_data->tlv_size; //5
+            rc = isis_advertise_tlv (node, 
                                                               fragment->pn_no, old_advt_data,
                                                               &advt_info_out);
 
@@ -542,13 +590,18 @@ isis_force_insert_advt_data_in_this_fragment (node_t *node,
                 rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
                 rc == ISIS_TLV_RECORD_ADVT_FAILED) {
 
-                /* revert the operations*/
-                glthread_add_last(&fragment->tlv_list_head, &old_advt_data->glue);
-                old_advt_data->fragment = fragment;
-                fragment->bytes_filled += old_advt_data->tlv_size;
-                isis_fragment_lock(fragment);
-                size_freed -= old_advt_data->tlv_size;
-                isis_regen_all_fragments_from_scratch (node);
+                /* revert the operations [0-5] performed above*/
+                glthread_add_last(&fragment->tlv_list_head, &old_advt_data->glue); //1
+                old_advt_data->fragment = fragment; //2
+                fragment->bytes_filled += old_advt_data->tlv_size; //3
+                isis_fragment_lock(fragment); //4
+                size_freed -= old_advt_data->tlv_size; //5
+                glthread_priority_insert(&advt_db->fragment_priority_list,
+                             &fragment->priority_list_glue,
+                             isis_fragment_size_comp_fn,
+                             (int)&((isis_fragment_t *)0)->priority_list_glue); //0
+                isis_fragment_relieve_premature_deletion (node, fragment);
+                isis_schedule_all_fragment_regen_job (node);
                 return;
             }
 
@@ -811,7 +864,7 @@ isis_fragment_unlock (node_t *node, isis_fragment_t *fragment) {
 }
 
 void
-isis_regen_all_fragments_from_scratch (node_t *node) {
+isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     int i;
     Interface *intf;
@@ -819,13 +872,16 @@ isis_regen_all_fragments_from_scratch (node_t *node) {
     isis_advt_db_t *advt_db;
     isis_advt_info_t advt_info;
     isis_adjacency_t *adjacency;
-    isis_tlv_record_advt_return_code_t rc;
+    isis_advt_tlv_return_code_t rc;
 
+    node_t *node = (node_t *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
 
-    if (!isis_is_protocol_enable_on_node (node)) return;
+    node_info->regen_all_fragment_task = NULL;
+
     if (isis_is_protocol_shutdown_in_progress (node)) return;
+
+    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[ isis_event_full_lsp_regen]);
 
     /* Cleanup all existing fragments and local LSP pkts*/
     for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
@@ -842,52 +898,43 @@ isis_regen_all_fragments_from_scratch (node_t *node) {
     /* Advertise IS REACH TLVs*/
     ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
 
-        if (isis_node_intf_is_enable (intf)) continue;
-        
-        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+        if (!isis_node_intf_is_enable (intf)) continue;
 
-            adjacency = glthread_to_isis_adjacency (curr);
-            rc = isis_adjacency_advertise_is_reach (adjacency);
+        /* For P2P ineterface, simply advertise adjacency on a interface*/
+        if (isis_intf_is_p2p(intf)) {
 
-            if ( rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
-                  rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ||
-                  rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
-                  rc == ISIS_TLV_RECORD_ADVT_FAILED) {
+            ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+
+                adjacency = glthread_to_isis_adjacency(curr);
+                rc = isis_adjacency_advertise_is_reach(adjacency);
+
+                if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
+                    rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ||
+                    rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
+                    rc == ISIS_TLV_RECORD_ADVT_FAILED) {
+
+                    isis_set_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
+                    return;
+                }
+            }
+            ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+        } else {
+
+            /* For LAN interface, Doing the DIS election will do all required advertisement
+            for us i.e. advertise IS REACH info : self --> PN And if self is DIS, then advertise
+            on behalf of PN also */
+            isis_intf_resign_dis(intf);
+            rc = isis_intf_assign_new_dis (intf, isis_intf_reelect_dis(intf));
+
+            if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
+                rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ||
+                rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
+                rc == ISIS_TLV_RECORD_ADVT_FAILED) {
 
                 isis_set_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
                 return;
             }
-
-        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
-
-        /* Advertise Interface IS REACH info*/
-        if (intf_info->lan_self_to_pn_adv_data) {
-
-            rc = isis_record_tlv_advertisement (node, 0, intf_info->lan_self_to_pn_adv_data, &advt_info);
-
-            if ( rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
-                  rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ||
-                  rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
-                  rc == ISIS_TLV_RECORD_ADVT_FAILED) {
-
-                isis_set_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
-                return;
-            }            
-        }
-
-        if (intf_info->lan_pn_to_self_adv_data) {
-
-            rc = isis_record_tlv_advertisement (node, intf_info->lan_id.pn_id,
-                                    intf_info->lan_self_to_pn_adv_data, &advt_info);
-
-            if ( rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
-                  rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ||
-                  rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
-                  rc == ISIS_TLV_RECORD_ADVT_FAILED) {
-
-                isis_set_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
-                return;
-            }         
         }
 
     } ITERATE_NODE_INTERFACES_END (node, intf);
@@ -906,7 +953,7 @@ isis_regen_all_fragments_from_scratch (node_t *node) {
 
     rt_table = NODE_RT_TABLE (node);
 
-    pthread_rwlock_wrlock(&rt_table->rwlock);
+    pthread_rwlock_rdlock(&rt_table->rwlock);
 
     ITERATE_GLTHREAD_BEGIN (&rt_table->route_list.list_head, curr) {
 
@@ -947,4 +994,7 @@ isis_regen_all_fragments_from_scratch (node_t *node) {
     }  ITERATE_GLTHREAD_END (&rt_table->route_list.list_head, curr) ;
 
     pthread_rwlock_unlock(&rt_table->rwlock);
+
+    /* If we were in overload, then come out of it */
+    isis_unset_overload (node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
 }

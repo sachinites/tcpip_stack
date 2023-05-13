@@ -63,7 +63,9 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_tlv_added
     "ISIS EVENT TLV ADDED",
     // isis_event_tlv_removed
-    "ISIS EVENT TLV REMOVED"
+    "ISIS EVENT TLV REMOVED",
+    // isis_event_full_lsp_regen
+    "ISIS EVENT FULL LSP REGEN BIT"
 }; 
 
 const char *

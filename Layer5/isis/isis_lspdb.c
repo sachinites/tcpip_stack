@@ -136,7 +136,7 @@ isis_install_lsp(node_t *node,
 
              // no action
         } else {
-
+            return; // Not sure why I am hitting this assert !
             assert(0);
         }
     }

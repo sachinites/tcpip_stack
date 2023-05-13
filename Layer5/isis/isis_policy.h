@@ -23,7 +23,7 @@ isis_unconfig_export_policy (node_t *node, const char *access_lst_name);
 pfx_lst_result_t
 isis_evaluate_policy (node_t *node, prefix_list_t *policy, uint32_t dest_nw, uint8_t mask);
 
-isis_tlv_record_advt_return_code_t
+isis_advt_tlv_return_code_t
 isis_export_route (node_t *node, l3_route_t *l3route);
 
 bool

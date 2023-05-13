@@ -1,5 +1,6 @@
 #include "../../tcp_public.h"
 #include "isis_const.h"
+#include "isis_enums.h"
 #include "isis_struct.h"
 #include "isis_rtr.h"
 #include "isis_intf.h"
@@ -133,6 +134,7 @@ isis_intf_resign_dis (Interface *intf) {
 
         rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                              intf_info->lan_pn_to_self_adv_data);
+        XFREE( intf_info->lan_pn_to_self_adv_data);
         intf_info->lan_pn_to_self_adv_data = NULL;
         update_hello = true;
     }
@@ -156,6 +158,7 @@ isis_intf_resign_dis (Interface *intf) {
 
         	rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                              adjacency->u.lan_pn_to_nbr_adv_data);
+            XFREE(adjacency->u.lan_pn_to_nbr_adv_data);
         	adjacency->u.lan_pn_to_nbr_adv_data = NULL;
 
     	} ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -169,6 +172,7 @@ isis_intf_resign_dis (Interface *intf) {
     
         rc = isis_withdraw_tlv_advertisement(intf->att_node,
                                        intf_info->lan_self_to_pn_adv_data);
+        XFREE(intf_info->lan_self_to_pn_adv_data);
         intf_info->lan_self_to_pn_adv_data = NULL;
    }
 
@@ -189,21 +193,21 @@ isis_intf_resign_dis (Interface *intf) {
 	We come to know who the DIS is (including myself), Step 2 & 3is performed only when
 	I am selected as DIS. This fn looks after the avertisement responsibilities to be perforned
 	when self becomes DIS (steps 2 and 3)*/
-void
+isis_advt_tlv_return_code_t
 isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
 
     glthread_t *curr;
     isis_adjacency_t *adjacency;    
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
-    isis_tlv_record_advt_return_code_t rc;
+    isis_advt_tlv_return_code_t rc;
 
-    if (!intf->is_up) return; 
-    if (isis_intf_is_p2p (intf)) return; 
-    if (isis_is_lan_id_null (new_dis_id)) return;
+    if (!intf->is_up) return ISIS_TLV_RECORD_ADVT_FAILED;
+    if (isis_intf_is_p2p (intf)) return ISIS_TLV_RECORD_ADVT_FAILED;
+    if (isis_is_lan_id_null (new_dis_id)) return ISIS_TLV_RECORD_ADVT_FAILED;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    if (!intf_info) return;
+    if (!intf_info) return ISIS_TLV_RECORD_ADVT_FAILED;
     
     assert (isis_is_lan_id_null (intf_info->elected_dis));
 
@@ -236,7 +240,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->fragment = NULL;
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
-    rc =  isis_record_tlv_advertisement (
+    rc =  isis_advertise_tlv (
                                 intf->att_node,
                                 0,
                                 advt_data,
@@ -244,13 +248,12 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
 
     switch (rc) {
         case ISIS_TLV_RECORD_ADVT_SUCCESS:
-        break;
+            break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
-        assert(0);
+            break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
-        assert(0);
-        default:
-        assert(0);
+            return rc;
+        default: ;
     }
 
     /* Step 2 : 
@@ -259,7 +262,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     */
     assert(!intf_info->lan_pn_to_self_adv_data);
 
-    if (!isis_am_i_dis (intf)) return;
+    if (!isis_am_i_dis (intf)) return ISIS_TLV_RECORD_ADVT_SUCCESS;
 
     intf_info->lan_pn_to_self_adv_data = 
         (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
@@ -278,22 +281,20 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->fragment = NULL;
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
-    rc = isis_record_tlv_advertisement (
+    rc = isis_advertise_tlv (
                                 intf->att_node,
                                 intf_info->elected_dis.pn_id,
                                 advt_data,
                                 &advt_info);
 
     switch (rc) {
-
-    case ISIS_TLV_RECORD_ADVT_SUCCESS:
-        break;
-    case ISIS_TLV_RECORD_ADVT_ALREADY:
-        assert(0);
-    case ISIS_TLV_RECORD_ADVT_NO_SPACE:
-        assert(0);
-    default:
-        assert(0);
+        case ISIS_TLV_RECORD_ADVT_SUCCESS:
+            break;
+        case ISIS_TLV_RECORD_ADVT_ALREADY:
+            break;
+        case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+            return rc;
+        default: ;
     }
 
     /* Step 3 : 
@@ -304,8 +305,18 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
 
         adjacency = glthread_to_isis_adjacency(curr);
         if (adjacency->adj_state != ISIS_ADJ_STATE_UP) continue;
-        isis_adjacency_advertise_is_reach(adjacency);
+        rc = isis_adjacency_advertise_is_reach(adjacency);
 
+        switch (rc)
+        {
+        case ISIS_TLV_RECORD_ADVT_SUCCESS:
+            break;
+        case ISIS_TLV_RECORD_ADVT_ALREADY:
+            break;
+        case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+            return rc;
+        default: ;
+        }
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
     /* ToDo : Update Hellos, start sending Hellos at interval of 3.3 seconds since i am
@@ -314,6 +325,8 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     if (isis_interface_qualify_to_send_hellos (intf)) {
         isis_start_sending_hellos (intf);
     }
+
+    return rc;
 }
 
 bool

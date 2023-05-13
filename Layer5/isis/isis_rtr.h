@@ -94,10 +94,12 @@ typedef struct node_info_ {
     mtrie_t exported_routes;
     /* Advertisement DB per PN*/
     isis_advt_db_t* advt_db[ISIS_MAX_PN_SUPPORTED];
-    /* Task for generating the LSP fragments*/
-    task_t *lsp_fragment_gen_task;
     /* Queue holding fragments to be regenerated*/
     glthread_t pending_lsp_gen_queue;
+    /* Task for generating the LSP fragments*/
+    task_t *lsp_fragment_gen_task;
+    /* Task to regenrate all fragments from scratch*/
+    task_t *regen_all_fragment_task;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

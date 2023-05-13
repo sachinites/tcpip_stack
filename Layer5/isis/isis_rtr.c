@@ -41,6 +41,7 @@ isis_node_cancel_all_queued_jobs(node_t *node) {
 
     isis_cancel_spf_job(node);
     isis_cancel_lsp_fragment_regen_job(node);
+    isis_cancel_all_fragment_regen_job (node);
 }
 
 static void
@@ -73,6 +74,7 @@ isis_check_delete_node_info(node_t *node) {
 
     /* Scheduled jobs */
     assert (!node_info->lsp_fragment_gen_task);
+    assert (!node_info->regen_all_fragment_task);
     assert (!node_info->spf_job_task);
 
     /*Hooked up Data Structures should be empty */
@@ -593,8 +595,8 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
      }
 
      done:
+        isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
         if (regen_lsp) {
-            isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
             fragment0->regen_flags = ISIS_SHOULD_INCL_OL_BIT;
             isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config_changed);
             return 0;
@@ -640,9 +642,9 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     }
 
     done:
+        isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
+        fragment0->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
         if (regen_lsp) {
-            isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
-            fragment0->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
             isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config_changed);
             return 0;
         }
@@ -660,6 +662,7 @@ static void
  isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
 
     isis_node_info_t *node_info;
+    isis_advt_tlv_return_code_t rc;
 
      sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
         l3route->dest, l3route->mask, l3route->rt_flags);
@@ -668,6 +671,13 @@ static void
     node_info = ISIS_NODE_INFO(node);
 
     if (!node_info->export_policy) {
+        return;
+    }
+
+    if (isis_is_overloaded (node, NULL)) {
+        sprintf(tlb, "Export Policy : Route %s/%d could not be exported, System Overloaded\n", 
+                            l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
         return;
     }
 
@@ -690,7 +700,16 @@ static void
         return;
     }
 
-    isis_export_route (node, l3route);
+    rc = isis_export_route (node, l3route);
+
+    if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
+          rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ) {
+
+        sprintf(tlb, "Export Policy : Route %s/%d could not be exported, space Exhaustion\n", 
+                            l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
+       isis_schedule_all_fragment_regen_job (node);
+    }
  }
 
 void
@@ -707,12 +726,10 @@ isis_ipv4_rt_notif_cbk (
     node = route_notif_data->node;
 
     if (isis_is_protocol_shutdown_in_progress(node) ||
-         !isis_is_protocol_enable_on_node(node) ||
-         isis_is_protocol_admin_shutdown(node)) {
+         !isis_is_protocol_enable_on_node(node) ) {
              return;
     }
 
     l3route = route_notif_data->l3route;
-
     isis_process_ipv4_route_notif(node, l3route);
 }

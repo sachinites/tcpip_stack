@@ -70,6 +70,8 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_TLV_ADD_BIT                                          (1 << isis_event_tlv_added)
     isis_event_tlv_removed,
     #define ISIS_EVENT_TLV_WITHDRAWL_BIT                          (1 << isis_event_tlv_removed)
+    isis_event_full_lsp_regen,
+    #define ISIS_EVENT_FULL_LSP_REGEN_BIT                          (1 <<  isis_event_full_lsp_regen)
     isis_event_max                                                                                 /* Do not cross more than 63 */
     #define ISIS_EVENT_MAX                                                            (1 << isis_event_max)
 } isis_event_type_t;

@@ -14,6 +14,7 @@
 #include "isis_spf.h"
 #include "isis_policy.h"
 #include "isis_advt.h"
+#include "isis_dis.h"
 #include "isis_tlv_struct.h"
 
 static int

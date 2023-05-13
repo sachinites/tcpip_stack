@@ -1,6 +1,7 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_const.h"
+#include "isis_enums.h"
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_pkt.h"
@@ -984,7 +985,7 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
                                             isis_adjacency_comp_fn,
                                             (int)&((isis_adjacency_t *)0)->glue);
 
-    if (isis_adjacency_is_p2p(adjacency)) return;
+    if (isis_adjacency_is_p2p(adjacency)) return false;
 
     intf_info = ISIS_INTF_INFO(intf);
     old_dis_id = intf_info->elected_dis;
@@ -1005,13 +1006,12 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     If I am DIS, and i have a Nbr N:
         advertise adjacency to Nbr N as : PN --> Nbr ( i.e. advertise on behalf of PN)
     */
-static isis_tlv_record_advt_return_code_t
+static isis_advt_tlv_return_code_t
  isis_adjacency_advertise_lan (isis_adjacency_t *adjacency) {
 
     isis_intf_info_t *intf_info;
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
-    isis_tlv_record_advt_return_code_t rc;
 
     assert(isis_adjacency_is_lan (adjacency));
 
@@ -1028,7 +1028,7 @@ static isis_tlv_record_advt_return_code_t
             return ISIS_TLV_RECORD_ADVT_ALREADY;
         }
 
-        return isis_record_tlv_advertisement(
+        return isis_advertise_tlv(
             adjacency->intf->att_node,
             intf_info->elected_dis.pn_id,
             adjacency->u.lan_pn_to_nbr_adv_data,
@@ -1051,7 +1051,7 @@ static isis_tlv_record_advt_return_code_t
     init_glthread(&advt_data->glue);
     advt_data->fragment = NULL;
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
-    return isis_record_tlv_advertisement(
+    return isis_advertise_tlv(
             adjacency->intf->att_node,
             intf_info->elected_dis.pn_id,
             advt_data,
@@ -1063,12 +1063,11 @@ static isis_tlv_record_advt_return_code_t
     For a Nbr on a P2P interface.
         advertise adjacency to Nbr N as : SELF --> Nbr.
 */
-static isis_tlv_record_advt_return_code_t
+static isis_advt_tlv_return_code_t
 isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
 
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
-    isis_tlv_record_advt_return_code_t rc;
 
     assert(isis_adjacency_is_p2p (adjacency));
 
@@ -1079,7 +1078,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
                     return ISIS_TLV_RECORD_ADVT_ALREADY;
             }
             else {
-                return isis_record_tlv_advertisement (
+                return isis_advertise_tlv (
                                 adjacency->intf->att_node,
                                 0,
                                 advt_data,
@@ -1101,7 +1100,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
         advt_data->src.holder = &adjacency->u.p2p_adv_data;
         advt_data->fragment = NULL;
         advt_data->tlv_size = isis_get_adv_data_size(advt_data);
-        return isis_record_tlv_advertisement (
+        return isis_advertise_tlv (
                                 adjacency->intf->att_node,
                                 0,
                                 advt_data,
@@ -1110,10 +1109,10 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
 
 /* This is Top level API to looks after Adjacency/Nbr advertisement when
     Adjacency goes UP*/
-isis_tlv_record_advt_return_code_t
+isis_advt_tlv_return_code_t
 isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
 
-    isis_tlv_record_advt_return_code_t rc;
+    isis_advt_tlv_return_code_t rc;
 
     if (adjacency->adj_state != ISIS_ADJ_STATE_UP) return;
 
@@ -1146,13 +1145,19 @@ isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
 static isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
 
+    isis_tlv_wd_return_code_t rc;
+
     assert (isis_adjacency_is_p2p (adjacency));
 
     if (!adjacency->u.p2p_adv_data) return ISIS_TLV_WD_SUCCESS;
 
-    return isis_withdraw_tlv_advertisement (
+    rc = isis_withdraw_tlv_advertisement (
                                             adjacency->intf->att_node,
                                             adjacency->u.p2p_adv_data);
+    
+    XFREE(adjacency->u.p2p_adv_data);
+    adjacency->u.p2p_adv_data = NULL;
+    return rc;
 }
 
 /* This fn is to withdraw LAN Nbr advertisement when Adjacency is deleted Or goes DOWN.
@@ -1180,6 +1185,7 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
     rc = isis_withdraw_tlv_advertisement(adjacency->intf->att_node,
                                                                  adjacency->u.lan_pn_to_nbr_adv_data);
 
+    XFREE(adjacency->u.lan_pn_to_nbr_adv_data);
     adjacency->u.lan_pn_to_nbr_adv_data = NULL;
     return rc;
 }
@@ -1187,7 +1193,7 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
 /* This is Top level API to looks after Adjacency/Nbr advertisement when
     Adjacency goes DOWN or deleted*/
 
-void
+isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {
 
     isis_tlv_wd_return_code_t rc;
@@ -1206,5 +1212,6 @@ isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {
         case ISIS_TLV_WD_FAILED:
         default: ;
     }
+    return rc;
 }
  

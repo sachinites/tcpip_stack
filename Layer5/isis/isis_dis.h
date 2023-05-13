@@ -21,10 +21,10 @@ isis_intf_deallocate_lan_id (Interface *intf);
 /* Deletet the Current DIS*/
 void  isis_intf_resign_dis (Interface *intf);
 
-/* Trigger DIS Re-election, return rtr id of the DIS*/
+/* Trigger DIS Re-election, return LAN-ID of the DIS*/
 isis_lan_id_t isis_intf_reelect_dis (Interface *intf);
 
-void
+isis_advt_tlv_return_code_t
 isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id);
 
 bool

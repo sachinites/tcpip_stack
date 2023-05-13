@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include "../../tcp_public.h"
+#include "isis_enums.h"
 #include "isis_rtr.h"
 #include "isis_policy.h"
 #include "isis_tlv_struct.h"
@@ -136,13 +137,8 @@ isis_free_all_exported_rt_advt_data(node_t *node) {
 
         mnode = list_glue_to_mtrie_node(curr);
         advt_data = (isis_adv_data_t *)(mnode->data);
-
-        /* Break the backlinkage because to prevent mnode deletion so that our
-            loop runs wihout any problem*/
-        assert(advt_data->src.mnode);
-        advt_data->src.mnode = NULL;
-
-        tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, ip_addr_str);
+     
+        tcp_ip_covert_ip_n_to_p (htonl(advt_data->u.pfx.prefix), ip_addr_str);
         mask = advt_data->u.pfx.mask;
 
         rc = isis_withdraw_tlv_advertisement(node, advt_data);
@@ -170,7 +166,8 @@ isis_free_all_exported_rt_advt_data(node_t *node) {
             tcp_trace(node, 0, tlb);
             break;
         }
-
+        mnode->data = NULL;
+        XFREE(advt_data);
         curr = mtrie_node_delete_while_traversal (&node_info->exported_routes, mnode);
     }
 }
@@ -308,7 +305,7 @@ isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
 }
 
 
-isis_tlv_record_advt_return_code_t
+isis_advt_tlv_return_code_t
 isis_export_route (node_t *node, l3_route_t *l3route) {
 
     mtrie_node_t *mnode;
@@ -317,7 +314,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     isis_adv_data_t *exported_rt;
     isis_advt_info_t advt_info_out;
     bitmap_t prefix_bm, mask_bm;
-    isis_tlv_record_advt_return_code_t rc;
+    isis_advt_tlv_return_code_t rc;
 
     sprintf(tlb, "Export Policy : Exporting Route %s/%d\n", l3route->dest, l3route->mask);
     tcp_trace(node, 0, tlb);
@@ -374,17 +371,17 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         return ISIS_TLV_RECORD_ADVT_FAILED;
     }
     mnode->data = (void *)exported_rt;
-    exported_rt->src.mnode = mnode;
 
-    rc =  isis_record_tlv_advertisement(node, 0, 
+    rc =  isis_advertise_tlv(node, 0, 
                                 (isis_adv_data_t *)exported_rt,
                                 &advt_info_out);
 
     switch (rc) {
 
         case ISIS_TLV_RECORD_ADVT_SUCCESS:
-            sprintf(tlb, "%s : Route %s/%d advertised\n", ISIS_LSPDB_MGMT,
-                l3route->dest, l3route->mask);
+            sprintf(tlb, "%s : Route %s/%d advertised in LSP [%hu][%hu]\n",
+                ISIS_LSPDB_MGMT,
+                l3route->dest, l3route->mask, advt_info_out.pn_no, advt_info_out.fr_no);
             tcp_trace(node, 0, tlb);
             break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
@@ -393,6 +390,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
             tcp_trace(node, 0, tlb);
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        case ISIS_TLV_RECORD_ADVT_NO_FRAG:
             sprintf(tlb, "%s : Route %s/%d Failed to advertised, No Space available\n",
                 ISIS_LSPDB_MGMT,
                 l3route->dest, l3route->mask);
@@ -451,6 +449,7 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     assert(exported_rt_data);
 
     rc = isis_withdraw_tlv_advertisement (node, (isis_adv_data_t *)exported_rt_data);
+
     switch(rc) {
         case ISIS_TLV_WD_SUCCESS:
             sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d is successful\n",
@@ -477,6 +476,9 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
+    mnode->data = NULL;
+    XFREE(exported_rt_data);
+    mtrie_delete_leaf_node ( &node_info->exported_routes, mnode);
     return res;
 }
 

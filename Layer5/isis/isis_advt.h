@@ -2,32 +2,12 @@
 #define __ISIS_ADVT__
 
 #include "isis_const.h"
+#include "isis_enums.h"
 #include "isis_events.h"
 #include "isis_rtr.h"
-#include "isis_dis.h"
 
 typedef struct node_info_ isis_node_info_t;
 typedef uint64_t advt_id_t;
-
-
-typedef enum isis_tlv_record_advt_return_code_ {
-
-    ISIS_TLV_RECORD_ADVT_SUCCESS,
-    ISIS_TLV_RECORD_ADVT_ALREADY,
-    ISIS_TLV_RECORD_ADVT_NO_SPACE,
-    ISIS_TLV_RECORD_ADVT_NO_FRAG,
-    ISIS_TLV_RECORD_ADVT_NOT_FOUND,
-    ISIS_TLV_RECORD_ADVT_FAILED
-}isis_tlv_record_advt_return_code_t;
-
-typedef enum isis_tlv_wd_return_code_ {
-
-    ISIS_TLV_WD_SUCCESS,
-    ISIS_TLV_WD_FRAG_NOT_FOUND,
-    ISIS_TLV_WD_TLV_NOT_FOUND,
-    ISIS_TLV_WD_FAILED
-}isis_tlv_wd_return_code_t;
-
 
 /* LSP PKT Regen control flags*/
 #define ISIS_SHOULD_INCL_PURGE_BIT  1
@@ -114,7 +94,6 @@ typedef struct isis_adv_data_ {
 
     union {
         struct isis_adv_data_ **holder; // for IS REACH
-        mtrie_node_t *mnode; // for IP-REACH
     }src;
 
     pkt_size_t tlv_size;
@@ -131,8 +110,8 @@ void isis_advt_data_clear_backlinkage(isis_node_info_t *node_info, isis_adv_data
 #define isis_fragment_prevent_premature_deletion    isis_fragment_lock
 #define isis_fragment_relieve_premature_deletion  isis_fragment_unlock
 
-isis_tlv_record_advt_return_code_t
-isis_record_tlv_advertisement (node_t *node, 
+isis_advt_tlv_return_code_t
+isis_advertise_tlv (node_t *node, 
                                     pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
                                     isis_advt_info_t *advt_info_out);
@@ -149,9 +128,11 @@ uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
 void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment, isis_event_type_t event_type) ;
 void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
+void isis_cancel_all_fragment_regen_job (node_t *node) ;
+void isis_schedule_all_fragment_regen_job (node_t *node) ;
 isis_fragment_t *isis_alloc_new_fragment () ;
 void  isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_flags);
-void isis_regen_all_fragments_from_scratch (node_t *node);
+void isis_regen_all_fragments_from_scratch (event_dispatcher_t *, void *, uint32_t);
 void isis_regen_zeroth_fragment(node_t *node) ;
 void isis_force_insert_advt_data_in_this_fragment (node_t *node,
             isis_adv_data_t *advt_data, isis_fragment_t *fragment) ;
