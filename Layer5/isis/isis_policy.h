@@ -26,6 +26,10 @@ isis_evaluate_policy (node_t *node, prefix_list_t *policy, uint32_t dest_nw, uin
 isis_advt_tlv_return_code_t
 isis_export_route (node_t *node, l3_route_t *l3route);
 
+
+isis_adv_data_t *
+isis_is_route_exported (node_t *node, l3_route_t *l3route );
+
 bool
 isis_unexport_route (node_t *node, l3_route_t *l3route);
 

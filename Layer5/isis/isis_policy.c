@@ -270,61 +270,7 @@ isis_prefix_list_change(node_t *node, prefix_list_t *prefix_list) {
     }
 }
 
-void
- isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
-
-    isis_node_info_t *node_info;
-    isis_advt_tlv_return_code_t rc;
-
-     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
-        l3route->dest, l3route->mask, l3route->rt_flags);
-     tcp_trace(node, 0, tlb);
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info->export_policy) {
-        return;
-    }
-
-    if (isis_is_overloaded (node, NULL)) {
-        sprintf(tlb, "Export Policy : Route %s/%d could not be exported, System Overloaded\n", 
-                            l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
-        return;
-    }
-
-    nxthop_proto_id_t nxthop_proto = 
-        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
-
-    /* Reject routes which ISIS already knows */
-    if (l3route->nexthops[nxthop_proto][0]) {
-        sprintf(tlb, "Export Policy : Route %s/%d already known to ISIS\n", l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
-        return;
-    }
-
-    if (isis_evaluate_policy(node,
-                                            node_info->export_policy,
-                                            tcp_ip_covert_ip_p_to_n( l3route->dest), l3route->mask) != PFX_LST_PERMIT) {
-        
-        sprintf(tlb, "Export Policy : Route %s/%d rejected due to export policy.\n", l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
-        return;
-    }
-
-    rc = isis_export_route (node, l3route);
-
-    if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
-          rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ) {
-
-        sprintf(tlb, "Export Policy : Route %s/%d could not be exported, space Exhaustion\n", 
-                            l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
-       isis_schedule_all_fragment_regen_job (node);
-    }
- }
-
-static isis_adv_data_t *
+isis_adv_data_t *
 isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
 
     uint32_t bin_ip, bin_mask;
@@ -375,23 +321,6 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
 
     sprintf(tlb, "Export Policy : Exporting Route %s/%d\n", l3route->dest, l3route->mask);
     tcp_trace(node, 0, tlb);
-
-    if ((exported_rt = isis_is_route_exported (node, l3route))) {
-
-        if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {
-
-            isis_unexport_route (node, l3route);
-        }
-
-        else if (IS_BIT_SET (l3route->rt_flags, RT_ADD_F)) {
-           /* No Action */
-        }
-
-        else if (IS_BIT_SET (l3route->rt_flags, RT_UPDATE_F)) {
-            /* No Action */
-        }
-        return ISIS_TLV_RECORD_ADVT_ALREADY;
-    }
 
     exported_rt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
     exported_rt->tlv_no = ISIS_TLV_IP_REACH;
@@ -540,3 +469,62 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     mtrie_delete_leaf_node ( &node_info->exported_routes, mnode);
     return res;
 }
+
+
+void
+ isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
+
+    bool policy_eval_failed;
+    isis_adv_data_t *exported_rt;
+    isis_node_info_t *node_info;
+    isis_advt_tlv_return_code_t rc;
+    
+     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
+        l3route->dest, l3route->mask, l3route->rt_flags);
+     tcp_trace(node, 0, tlb);
+
+    node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info->export_policy) {
+        return;
+    }
+
+    policy_eval_failed = isis_evaluate_policy(node,
+                                 node_info->export_policy,
+                                 tcp_ip_covert_ip_p_to_n(l3route->dest), l3route->mask) != PFX_LST_PERMIT;
+
+    if (policy_eval_failed) {
+
+        isis_unexport_route (node, l3route);
+        return;
+    }
+
+    /* Dont export the deleted route*/
+    if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {        
+        return;
+    }
+
+    nxthop_proto_id_t nxthop_proto =
+        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
+
+    /* Reject routes which ISIS already knows */
+    if (l3route->nexthops[nxthop_proto][0]) {
+
+        sprintf(tlb, "Export Policy : Route %s/%d already known to ISIS\n",
+            l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
+        return;
+    }
+
+    rc = isis_export_route (node, l3route);
+
+    if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
+        rc == ISIS_TLV_RECORD_ADVT_NO_FRAG) {
+
+        sprintf(tlb, "Export Policy : Route %s/%d could not be exported, space Exhaustion\n",
+                l3route->dest, l3route->mask);
+        tcp_trace(node, 0, tlb);
+        isis_schedule_all_fragment_regen_job(node);
+    }
+    
+ }
