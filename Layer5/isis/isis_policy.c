@@ -121,34 +121,38 @@ isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
 }
 
 void
-isis_free_all_exported_rt_advt_data(node_t *node) {
+isis_free_all_exported_rt_advt_data (node_t *node) {
 
     glthread_t *curr;
     uint8_t mask;
     byte ip_addr_str[16];
     mtrie_node_t *mnode;
+    isis_fragment_t *fragment;
     isis_adv_data_t *advt_data;
     isis_tlv_wd_return_code_t rc;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
-
+    
     curr = glthread_get_next(&node_info->exported_routes.list_head);
 
     while (curr) {
 
         mnode = list_glue_to_mtrie_node(curr);
         advt_data = (isis_adv_data_t *)(mnode->data);
-     
-        tcp_ip_covert_ip_n_to_p (htonl(advt_data->u.pfx.prefix), ip_addr_str);
-        mask = advt_data->u.pfx.mask;
+        fragment = advt_data->fragment;
 
-        if (!advt_data->fragment) {
+        if (!fragment) {
              isis_wait_list_advt_data_remove(node, advt_data);
              isis_free_advt_data (advt_data);
-             return;
+             mnode->data = NULL;
+             curr = mtrie_node_delete_while_traversal (&node_info->exported_routes, mnode);
+             continue;
         }
+
+        tcp_ip_covert_ip_n_to_p (htonl(advt_data->u.pfx.prefix), ip_addr_str);
+        mask = advt_data->u.pfx.mask;
 
         rc = isis_withdraw_tlv_advertisement(node, advt_data);
 
@@ -227,8 +231,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     node_info->export_policy = NULL;
     isis_free_all_exported_rt_advt_data(node);
     mtrie_destroy(&node_info->exported_routes);
-    if (isis_is_protocol_shutdown_in_progress(node) ||
-             isis_is_protocol_admin_shutdown(node)) return 0;
+    if (isis_is_protocol_admin_shutdown(node)) return 0;
     init_mtrie(&node_info->exported_routes, 32, NULL);
     return 0;
 }
@@ -403,6 +406,7 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     bool res = false;
     mtrie_node_t *mnode;
     void *exported_rt_data;
+    isis_adv_data_t *adv_data;
     uint32_t bin_ip, bin_mask;
     isis_tlv_wd_return_code_t rc;
     isis_node_info_t *node_info;
@@ -441,6 +445,15 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     exported_rt_data = mnode->data;
     assert(exported_rt_data);
+    adv_data = (isis_adv_data_t *)exported_rt_data;
+
+    if (!adv_data->fragment) {
+       isis_wait_list_advt_data_remove(node, adv_data);
+       isis_free_advt_data (adv_data);
+       mnode->data = NULL;
+       mtrie_delete_leaf_node (&node_info->exported_routes, mnode);
+       return true;
+    }
 
     rc = isis_withdraw_tlv_advertisement (node, (isis_adv_data_t *)exported_rt_data);
 
@@ -506,7 +519,9 @@ void
     }
 
     /* Dont export the deleted route*/
-    if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {        
+    if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {
+
+        isis_unexport_route (node, l3route);
         return;
     }
 

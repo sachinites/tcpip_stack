@@ -864,7 +864,7 @@ isis_print_formatted_nbr_tlv22(byte *out_buff,
                         tlv_len, tlv_value, tlv_buffer_len) {
 
         rc += sprintf(out_buff + rc,
-                      "\tTLV%d  Len : %d\n", tlv_type, tlv_len);
+                      "\tTLV%d  IS-REACH TLV   Len:%dB\n", tlv_type, tlv_len);
 
         ip_addr_int = *(uint32_t *)tlv_value;
         metric = *(uint32_t *)(((uint32_t *)tlv_value) + 1);

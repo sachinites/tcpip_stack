@@ -36,10 +36,6 @@ typedef struct isis_overload_data_ {
 typedef struct node_info_ {
     /* self system id -> <rtrid-0>*/
     isis_system_id_t sys_id;
-    /*Task to schedule spf job*/
-    task_t *spf_job_task;
-    /* Boolean to track if node is shutting down */
-    bool is_shutting_down;
     /* LSP sequence no */
     uint32_t seq_no;
     /* self LSP flood time interval */
@@ -63,23 +59,17 @@ typedef struct node_info_ {
     /*Adjacency up count */
     uint16_t adjacency_up_count;
     /* event flags */
-    unsigned long event_control_flags;
+    uint64_t event_control_flags;
     /*flag to control protocol shutdown procedure*/
     uint16_t shutdown_pending_work_flags;
     /* overload object */
     isis_overload_data_t ovl_data;
-    /* Miscellaneous flags */
-    uint64_t misc_flags;
     /* Tree of interface Groups configured by User */
     avltree_t intf_grp_avl_root;
     /* Dynamic intf grp */
     bool dyn_intf_grp;
     /* Layer 2 Mapping */
     bool layer2_mapping;
-    /* Rtr ID to be advertised */
-     isis_adv_data_t *adv_data_rtr_id;
-    /* List of Data to be advertised in local LSP pkt */
-    glthread_t adv_data_list_head;
     /* Ted DB */
     ted_db_t *ted_db;
     /* SPF log list */
@@ -100,8 +90,8 @@ typedef struct node_info_ {
     task_t *lsp_fragment_gen_task;
     /* Task to regenrate all fragments from scratch*/
     task_t *regen_all_fragment_task;
-    /* Wait list advt_data*/
-    glthread_t wait_list_head;
+    /*Task to schedule spf job*/
+    task_t *spf_job_task;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

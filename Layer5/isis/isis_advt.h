@@ -7,7 +7,6 @@
 #include "isis_rtr.h"
 
 typedef struct node_info_ isis_node_info_t;
-typedef uint64_t advt_id_t;
 
 /* LSP PKT Regen control flags*/
 #define ISIS_SHOULD_INCL_PURGE_BIT  1
@@ -53,6 +52,7 @@ typedef struct isis_advt_db_ {
 
     isis_fragment_t *fragments[ISIS_MAX_FRAGMENT_SUPPORTED];
     glthread_t fragment_priority_list;
+    glthread_t advt_data_wait_list_head;
 } isis_advt_db_t;
 
 /* A Data structure which holds the data to be advertised as TLVs in 
@@ -126,7 +126,9 @@ void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
 void isis_discard_fragment (node_t *node, isis_fragment_t *fragment);
 uint32_t isis_show_advt_db (node_t *node) ;
 uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
-void isis_schedule_regen_fragment (node_t *node, isis_fragment_t *fragment, isis_event_type_t event_type) ;
+void isis_schedule_regen_fragment (node_t *node, 
+                            isis_fragment_t *fragment,
+                            isis_event_type_t event_type) ;
 void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
 void isis_cancel_all_fragment_regen_job (node_t *node) ;
 void isis_schedule_all_fragment_regen_job (node_t *node) ;
@@ -136,9 +138,9 @@ void isis_regen_all_fragments_from_scratch (event_dispatcher_t *, void *, uint32
 void isis_regen_zeroth_fragment(node_t *node) ;
 bool isis_advertise_advt_data_in_this_fragment (node_t *node,
             isis_adv_data_t *advt_data, isis_fragment_t *fragment, bool force) ;
-void isis_wait_list_advt_data (node_t *node, isis_adv_data_t *adv_data);
+void isis_wait_list_advt_data_add (node_t *node, uint8_t pn_no, isis_adv_data_t *adv_data);
 void isis_wait_list_advt_data_remove (node_t *node, isis_adv_data_t *adv_data);
-void isis_free_wait_listed_advt_data (node_t *node);
 void isis_free_advt_data (isis_adv_data_t *adv_data);
+uint32_t isis_get_waitlisted_advt_data_count (node_t *node);
 
 #endif  
