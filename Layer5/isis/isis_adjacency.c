@@ -1145,18 +1145,27 @@ isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
 static isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
 
+    isis_adv_data_t *adv_data;
     isis_tlv_wd_return_code_t rc;
 
     assert (isis_adjacency_is_p2p (adjacency));
 
-    if (!adjacency->u.p2p_adv_data) return ISIS_TLV_WD_SUCCESS;
+    if (!adjacency->u.p2p_adv_data) return ISIS_TLV_WD_TLV_NOT_FOUND;
 
-    rc = isis_withdraw_tlv_advertisement (
-                                            adjacency->intf->att_node,
-                                            adjacency->u.p2p_adv_data);
-    
-    XFREE(adjacency->u.p2p_adv_data);
-    adjacency->u.p2p_adv_data = NULL;
+    adv_data = adjacency->u.p2p_adv_data;
+
+    isis_advt_data_clear_backlinkage(
+            ISIS_NODE_INFO(adjacency->intf->att_node), adv_data);
+    assert (!adjacency->u.p2p_adv_data);
+
+    if (!adv_data->fragment) {
+        isis_wait_list_advt_data_remove(adjacency->intf->att_node, adv_data);
+        isis_free_advt_data(adv_data);
+        return ISIS_TLV_WD_FRAG_NOT_FOUND;
+    }
+
+    rc = isis_withdraw_tlv_advertisement (adjacency->intf->att_node, adv_data);
+    isis_free_advt_data(adv_data);
     return rc;
 }
 
@@ -1171,6 +1180,7 @@ isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
 static isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
     
+    isis_adv_data_t *adv_data;
      isis_tlv_wd_return_code_t rc;
 
      assert (isis_adjacency_is_lan (adjacency));
@@ -1181,12 +1191,21 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
     /* Not Advertising already, ok !*/
     if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) return ISIS_TLV_WD_TLV_NOT_FOUND;
 
-    /* Withdraw PN-->NBR advertisement for this Adjacency*/
-    rc = isis_withdraw_tlv_advertisement(adjacency->intf->att_node,
-                                                                 adjacency->u.lan_pn_to_nbr_adv_data);
+    adv_data = adjacency->u.lan_pn_to_nbr_adv_data;
 
-    XFREE(adjacency->u.lan_pn_to_nbr_adv_data);
-    adjacency->u.lan_pn_to_nbr_adv_data = NULL;
+    isis_advt_data_clear_backlinkage(
+            ISIS_NODE_INFO(adjacency->intf->att_node), adv_data);
+    assert( !adjacency->u.lan_pn_to_nbr_adv_data);
+
+    if (!adv_data->fragment) {
+        isis_wait_list_advt_data_remove (adjacency->intf->att_node, adv_data);
+        isis_free_advt_data(adv_data);
+        return ISIS_TLV_WD_FRAG_NOT_FOUND;
+    }
+
+    /* Withdraw PN-->NBR advertisement for this Adjacency*/
+    rc = isis_withdraw_tlv_advertisement(adjacency->intf->att_node, adv_data);
+    isis_free_advt_data(adv_data);
     return rc;
 }
 

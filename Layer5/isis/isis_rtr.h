@@ -100,6 +100,8 @@ typedef struct node_info_ {
     task_t *lsp_fragment_gen_task;
     /* Task to regenrate all fragments from scratch*/
     task_t *regen_all_fragment_task;
+    /* Wait list advt_data*/
+    glthread_t wait_list_head;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

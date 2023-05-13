@@ -144,6 +144,12 @@ isis_free_all_exported_rt_advt_data(node_t *node) {
         tcp_ip_covert_ip_n_to_p (htonl(advt_data->u.pfx.prefix), ip_addr_str);
         mask = advt_data->u.pfx.mask;
 
+        if (!advt_data->fragment) {
+             isis_wait_list_advt_data_remove(node, advt_data);
+             isis_free_advt_data (advt_data);
+             return;
+        }
+
         rc = isis_withdraw_tlv_advertisement(node, advt_data);
 
         switch (rc)
@@ -170,7 +176,7 @@ isis_free_all_exported_rt_advt_data(node_t *node) {
             break;
         }
         mnode->data = NULL;
-        XFREE(advt_data);
+        isis_free_advt_data (advt_data);
         curr = mtrie_node_delete_while_traversal (&node_info->exported_routes, mnode);
     }
 }
@@ -353,7 +359,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
         tcp_trace(node, 0, tlb);
         bitmap_free_internal(&prefix_bm);
         bitmap_free_internal(&mask_bm);
-        XFREE(exported_rt);
+        isis_free_advt_data (exported_rt);
         return ISIS_TLV_RECORD_ADVT_FAILED;
     }
     mnode->data = (void *)exported_rt;
@@ -465,7 +471,7 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
     mnode->data = NULL;
-    XFREE(exported_rt_data);
+    isis_free_advt_data (exported_rt_data);
     mtrie_delete_leaf_node ( &node_info->exported_routes, mnode);
     return res;
 }
@@ -524,7 +530,5 @@ void
         sprintf(tlb, "Export Policy : Route %s/%d could not be exported, space Exhaustion\n",
                 l3route->dest, l3route->mask);
         tcp_trace(node, 0, tlb);
-        isis_schedule_all_fragment_regen_job(node);
     }
-    
  }

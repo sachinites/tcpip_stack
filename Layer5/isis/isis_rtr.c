@@ -81,6 +81,8 @@ isis_check_delete_node_info(node_t *node) {
     assert (avltree_is_empty(&node_info->intf_grp_avl_root));
     assert(!node_info->ted_db);
     assert(!node_info->exported_routes.root);
+    assert (IS_GLTHREAD_LIST_EMPTY (&node_info->wait_list_head));
+    assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
 
     /* Must not be any pending LSP for regeneration*/
     assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
@@ -99,7 +101,6 @@ static void
 isis_protocol_shutdown_now (node_t *node) {
 
     Interface *intf;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     isis_cleanup_lsdb(node);
     isis_cleanup_teddb_root(node);
@@ -116,8 +117,7 @@ isis_protocol_shutdown_now (node_t *node) {
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
     isis_destroy_advt_db(node, 0);
-    
-    node_info->event_control_flags = 0;
+    isis_free_wait_listed_advt_data (node);
     isis_check_delete_node_info(node); 
 }
 
@@ -460,18 +460,20 @@ isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
-    ovl_data->ovl_status = false;
-    ovl_data->timeout_val = 0;
-    
     timer_de_register_app_event(ovl_data->ovl_timer);
     ovl_data->ovl_timer = NULL;
-
-    isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
-    fragment0->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
-    isis_schedule_regen_fragment(node, fragment0, isis_event_overload_timeout);
+    ovl_data->timeout_val = 0;
 
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_overload_timeout]);
-}
+
+    if (IS_BIT_SET (node_info->event_control_flags, 
+        ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT)) {
+        return;
+    }
+
+    ovl_data->ovl_status = false;
+    isis_regen_zeroth_fragment (node);
+    }
 
 static void
 isis_start_overload_timer(node_t *node, uint32_t timeout_val) {
@@ -598,7 +600,7 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
         isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
         if (regen_lsp) {
             fragment0->regen_flags = ISIS_SHOULD_INCL_OL_BIT;
-            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config_changed);
+            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config);
             return 0;
         }
         
@@ -645,7 +647,7 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
         isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
         fragment0->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
         if (regen_lsp) {
-            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config_changed);
+            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config);
             return 0;
         }
 

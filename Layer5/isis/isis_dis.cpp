@@ -112,6 +112,7 @@ void
 isis_intf_resign_dis (Interface *intf) {
 
     glthread_t *curr;
+    isis_adv_data_t *adv_data;
     bool update_hello = false;
     isis_adjacency_t *adjacency;
     isis_tlv_wd_return_code_t rc;
@@ -132,10 +133,20 @@ isis_intf_resign_dis (Interface *intf) {
         
         assert(isis_am_i_dis (intf));
 
-        rc = isis_withdraw_tlv_advertisement(intf->att_node,
-                                             intf_info->lan_pn_to_self_adv_data);
-        XFREE( intf_info->lan_pn_to_self_adv_data);
-        intf_info->lan_pn_to_self_adv_data = NULL;
+        adv_data = intf_info->lan_pn_to_self_adv_data;
+
+        isis_advt_data_clear_backlinkage(
+            ISIS_NODE_INFO(intf->att_node), adv_data);
+        assert (!intf_info->lan_pn_to_self_adv_data);
+
+        if (!adv_data->fragment) {
+            isis_wait_list_advt_data_remove(intf->att_node, adv_data);
+            isis_free_advt_data(adv_data);
+            return ISIS_TLV_WD_FRAG_NOT_FOUND;
+        }
+
+        isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
+        isis_free_advt_data( adv_data); 
         update_hello = true;
     }
 
@@ -156,11 +167,21 @@ isis_intf_resign_dis (Interface *intf) {
         	/* Adjacency may not have advertised by now, skip ...*/
         	if (adjacency->u.lan_pn_to_nbr_adv_data == NULL) continue;
 
-        	rc = isis_withdraw_tlv_advertisement(intf->att_node,
-                                             adjacency->u.lan_pn_to_nbr_adv_data);
-            XFREE(adjacency->u.lan_pn_to_nbr_adv_data);
-        	adjacency->u.lan_pn_to_nbr_adv_data = NULL;
+            adv_data = adjacency->u.lan_pn_to_nbr_adv_data;
 
+            isis_advt_data_clear_backlinkage(
+                    ISIS_NODE_INFO(intf->att_node), adv_data);
+            assert(!adjacency->u.lan_pn_to_nbr_adv_data);
+
+            if (!adv_data->fragment) {
+                isis_wait_list_advt_data_remove (intf->att_node, adv_data);
+                isis_free_advt_data(adv_data);
+                return ISIS_TLV_WD_FRAG_NOT_FOUND;
+            }
+
+            isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
+            isis_free_advt_data(adv_data);
+        	 
     	} ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 	}
 
@@ -170,10 +191,20 @@ isis_intf_resign_dis (Interface *intf) {
     */
    if (intf_info->lan_self_to_pn_adv_data) {
     
-        rc = isis_withdraw_tlv_advertisement(intf->att_node,
-                                       intf_info->lan_self_to_pn_adv_data);
-        XFREE(intf_info->lan_self_to_pn_adv_data);
-        intf_info->lan_self_to_pn_adv_data = NULL;
+        adv_data = intf_info->lan_self_to_pn_adv_data;
+
+        isis_advt_data_clear_backlinkage(
+            ISIS_NODE_INFO(intf->att_node), adv_data);
+        assert (!intf_info->lan_self_to_pn_adv_data);
+
+        if (!adv_data->fragment) {
+            isis_wait_list_advt_data_remove (intf->att_node, adv_data);
+            isis_free_advt_data(adv_data);
+            return ISIS_TLV_WD_FRAG_NOT_FOUND;
+        }
+
+        isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
+        isis_free_advt_data(adv_data);
    }
 
     intf_info->elected_dis = {0, 0};
@@ -193,7 +224,7 @@ isis_intf_resign_dis (Interface *intf) {
 	We come to know who the DIS is (including myself), Step 2 & 3is performed only when
 	I am selected as DIS. This fn looks after the avertisement responsibilities to be perforned
 	when self becomes DIS (steps 2 and 3)*/
-isis_advt_tlv_return_code_t
+void
 isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
 
     glthread_t *curr;
@@ -240,7 +271,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->fragment = NULL;
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
-    rc =  isis_advertise_tlv (
+    rc = isis_advertise_tlv (
                                 intf->att_node,
                                 0,
                                 advt_data,
@@ -252,7 +283,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
-            return rc;
+            break;
         default: ;
     }
 
@@ -293,7 +324,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
-            return rc;
+            break;
         default: ;
     }
 
@@ -314,7 +345,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
-            return rc;
+            break;
         default: ;
         }
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -326,7 +357,6 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         isis_start_sending_hellos (intf);
     }
 
-    return rc;
 }
 
 bool

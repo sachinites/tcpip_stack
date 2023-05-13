@@ -66,9 +66,14 @@ isis_config_handler(param_t *param,
         case CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD:
          switch(enable_or_disable) {
                 case CONFIG_ENABLE:
+                    SET_BIT(ISIS_NODE_INFO(node)->event_control_flags, 
+                        ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT);
                     return isis_set_overload(node, 0, cmdcode);
                     break;
                 case CONFIG_DISABLE:
+                    UNSET_BIT64(ISIS_NODE_INFO(node)->event_control_flags, 
+                        ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT);
+                    if (IS_BIT_SET (ISIS_NODE_INFO(node)->event_control_flags,  ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT)) return 0;
                     return isis_unset_overload(node, 0,  cmdcode);
                     break;
                 default: ;

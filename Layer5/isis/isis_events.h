@@ -53,9 +53,11 @@ typedef enum isis_events_ {
     isis_event_admin_action_shutdown_pending,
     #define ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT \
                                                                                                                (1 << isis_event_admin_action_shutdown_pending)
-    isis_event_device_overload_config_changed,
-    #define ISIS_EVENT_DEVICE_OVERLOAD_CONFIG_CHANGED_BIT  \
-                                                                                                               (1 << isis_event_device_overload_config_changed)
+    isis_event_device_overload_config,
+    #define ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT  \
+                                                                                                               (1 << isis_event_device_overload_config)
+    isis_event_device_dynamic_overload,
+    #define ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT  (1 <<   isis_event_device_dynamic_overload)
     isis_event_overload_timeout,
     #define ISIS_EVENT_OVERLOAD_TIMEOUT_BIT                   (1 << isis_event_overload_timeout)
     isis_event_route_rib_update,
@@ -66,6 +68,10 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_DISCARD_FRAGMENT_BIT                    (1 << isis_event_discard_fragment)
     isis_event_fragment_regen,
     #define ISIS_EVENT_FRAGMENT_REGEN_BIT                        (1 << isis_event_fragment_regen)
+    isis_event_wait_list_tlv_advertised,
+    #define ISIS_EVENT_WAIT_LIST_TLV_ADVERTISED_BIT     (1 << isis_event_wait_list_tlv_advertised)
+    isis_event_tlv_wait_listed,
+    #define ISIS_EVENT_TLV_WAIT_LISTED                                  (1 << isis_event_tlv_wait_listed)
     isis_event_tlv_added,
     #define ISIS_EVENT_TLV_ADD_BIT                                          (1 << isis_event_tlv_added)
     isis_event_tlv_removed,

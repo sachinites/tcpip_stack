@@ -48,8 +48,10 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT SPF RUNS",
     //isis_event_admin_Action_shutdown_pending
     "ISIS EVENT ADMIN ACTION SHUTDOWN PENDING",
-    //isis_event_device_overload_config_changed
-    "ISIS EVENT DEVICE OVERLOAD CONFIG CHANGED",
+    //isis_event_device_overload_config
+    "ISIS EVENT DEVICE OVERLOAD BY ADMIN",
+    //isis_event_device_dynamic_overload
+    "ISIS EVENT DEVICE DYNAMIC OVERLOAD",
     //isis_event_overload_timeout
     "ISIS EVENT OVERLOAD TIMEOUT",
     //isis_event_route_rib_update
@@ -60,11 +62,15 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT DISCARD FRAGMENT",
     //isis_event_fragment_regen
     "ISIS EVENT FRAGMENT REGEN",
+    //isis_event_wait_list_tlv_advertised
+    "ISIS EVENT WAIT LIST TLV ADVERTISED",
+    //isis_event_tlv_wait_listed
+    "ISIS EVENT TLV WAIT LISTED",
     //isis_event_tlv_added
     "ISIS EVENT TLV ADDED",
-    // isis_event_tlv_removed
+    //isis_event_tlv_removed
     "ISIS EVENT TLV REMOVED",
-    // isis_event_full_lsp_regen
+    //isis_event_full_lsp_regen
     "ISIS EVENT FULL LSP REGEN BIT"
 }; 
 
