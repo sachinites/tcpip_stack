@@ -30,16 +30,8 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT NON LOCAL NEW LSP",
     //isis_event_non_local_old_lsp,
     "ISIS EVENT NON LOCAL OLD LSP",
-    //isis_event_on_demand_flood
-    "ISIS EVENT ON DEMAND FLOOD",
     //isis_event_periodic_lsp_generation
     "ISIS EVENT PERIODIC LSP GENERATION",
-    //isis_event_reconciliation_triggered
-    "ISIS EVENT RECONCILIATION TRIGGERED",
-    //isis_event_reconciliation_restarted
-    "ISIS EVENT RECONCILIATION RESTARTED",
-    //isis_event_reconciliation_exit,
-    "ISIS EVENT RECONCILIATION EXIT",
     //isis_event_admin_action_db_clear
     "ISIS EVENT ADMIN ACTION DB CLEAR",
     //isis_event_spf_job_scheduled,

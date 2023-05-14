@@ -115,7 +115,6 @@ isis_intf_resign_dis (Interface *intf) {
     isis_adv_data_t *adv_data;
     bool update_hello = false;
     isis_adjacency_t *adjacency;
-    isis_tlv_wd_return_code_t rc;
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
 
     if (!intf_info) return;
@@ -142,7 +141,7 @@ isis_intf_resign_dis (Interface *intf) {
         if (!adv_data->fragment) {
             isis_wait_list_advt_data_remove(intf->att_node, adv_data);
             isis_free_advt_data(adv_data);
-            return ISIS_TLV_WD_FRAG_NOT_FOUND;
+            return;
         }
 
         isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
@@ -176,7 +175,7 @@ isis_intf_resign_dis (Interface *intf) {
             if (!adv_data->fragment) {
                 isis_wait_list_advt_data_remove (intf->att_node, adv_data);
                 isis_free_advt_data(adv_data);
-                return ISIS_TLV_WD_FRAG_NOT_FOUND;
+                return ;
             }
 
             isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
@@ -200,7 +199,7 @@ isis_intf_resign_dis (Interface *intf) {
         if (!adv_data->fragment) {
             isis_wait_list_advt_data_remove (intf->att_node, adv_data);
             isis_free_advt_data(adv_data);
-            return ISIS_TLV_WD_FRAG_NOT_FOUND;
+            return;
         }
 
         isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
@@ -233,12 +232,12 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     isis_adv_data_t *advt_data;
     isis_advt_tlv_return_code_t rc;
 
-    if (!intf->is_up) return ISIS_TLV_RECORD_ADVT_FAILED;
-    if (isis_intf_is_p2p (intf)) return ISIS_TLV_RECORD_ADVT_FAILED;
-    if (isis_is_lan_id_null (new_dis_id)) return ISIS_TLV_RECORD_ADVT_FAILED;
+    if (!intf->is_up) return;
+    if (isis_intf_is_p2p (intf)) return;
+    if (isis_is_lan_id_null (new_dis_id)) return;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    if (!intf_info) return ISIS_TLV_RECORD_ADVT_FAILED;
+    if (!intf_info) return ;
     
     assert (isis_is_lan_id_null (intf_info->elected_dis));
 
@@ -293,7 +292,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     */
     assert(!intf_info->lan_pn_to_self_adv_data);
 
-    if (!isis_am_i_dis (intf)) return ISIS_TLV_RECORD_ADVT_SUCCESS;
+    if (!isis_am_i_dis (intf)) return ;
 
     intf_info->lan_pn_to_self_adv_data = 
         (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;

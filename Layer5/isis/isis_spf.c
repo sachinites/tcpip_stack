@@ -700,11 +700,6 @@ void
 isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node) ||
-         isis_is_reconciliation_in_progress(node)) {
-        return;
-    }
     
     if (isis_is_protocol_admin_shutdown (node)) {
         return;

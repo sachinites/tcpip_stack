@@ -14,13 +14,8 @@
 #define ISIS_ADJ_DEFAULT_DELETE_TIME (5 * 1000) // 5 sec
 #define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  30 // 1200 sec is standard
 #define ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL (ISIS_LSP_DEFAULT_FLOOD_INTERVAL * 2)
-#define ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS false
 #define ISIS_INTF_DEFAULT_PRIORITY  64
 #define ISIS_LSP_ID_STR_SIZE    32 //  abc.def.ghi.jkl-123-123
-
-/* Reconciliation Constants */
-#define ISIS_DEFAULT_RECONCILIATION_THRESHOLD_TIME   (10 * 1000) // msec
-#define ISIS_DEFAULT_RECONCILIATION_FLOOD_INTERVAL   (2 * 1000) // msec
 
 /*ISIS TLVs */
 #define ISIS_TLV_HOSTNAME   137 // as per standard 
@@ -33,13 +28,12 @@
 #define ISIS_TLV_IF_INDEX   4 // as per standard
 #define ISIS_TLV_LOCAL_IP   6 // as per standard
 #define ISIS_TLV_REMOTE_IP  8 // as per standard
-#define ISIS_TLV_ON_DEMAND  111 // imaginary
 #define ISIS_TLV_IF_MAC      131 // Imaginary
 #define ISIS_TLV_IP_REACH   130
 
 #define ISIS_LSP_HDR_SIZE   sizeof(isis_pkt_hdr_t)
 #define ISIS_LSP_MAX_PKT_SIZE   256 //1492
-#define ISIS_MAX_FRAGMENT_SUPPORTED 2 //256
+#define ISIS_MAX_FRAGMENT_SUPPORTED 256
 #define ISIS_MAX_PN_SUPPORTED   256
 
 /* Common Error Msgs */

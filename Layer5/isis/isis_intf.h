@@ -107,9 +107,6 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 bool
 isis_interface_qualify_to_send_hellos (Interface *intf);
 
-bool
-isis_atleast_one_interface_protocol_enabled(node_t *node);
-
 uint32_t 
 isis_show_all_intf_stats (node_t *node);
 

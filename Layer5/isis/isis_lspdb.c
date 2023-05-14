@@ -10,10 +10,6 @@
 #include "isis_tlv_struct.h"
 #include "isis_advt.h"
 
-void
-isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
-                             bool *on_demand_tlv);
-
 static isis_lsp_pkt_t *
 isis_get_dummy_lsp_pkt_with_key(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no) {
 
@@ -330,39 +326,6 @@ isis_install_lsp(node_t *node,
 }
 
 void
-isis_parse_lsp_tlvs_internal(isis_lsp_pkt_t *new_lsp_pkt, 
-                             bool *on_demand_tlv) {
-
-    *on_demand_tlv = false;
-
-    /* Now parse and see on demand TLV is present */
-
-    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(new_lsp_pkt->pkt);
-    byte *lsp_hdr = eth_hdr->payload;
-    byte *lsp_tlv_buffer = lsp_hdr + ISIS_LSP_HDR_SIZE;
-    uint16_t lsp_tlv_buffer_size = new_lsp_pkt->pkt_size - 
-                                   ETH_HDR_SIZE_EXCL_PAYLOAD -
-                                   ISIS_LSP_HDR_SIZE;
-
-    byte tlv_type, tlv_len, *tlv_value = NULL;
-
-    ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type, 
-                      tlv_len, tlv_value, 
-                      lsp_tlv_buffer_size) {
-
-        switch(tlv_type) {
-
-            case ISIS_TLV_ON_DEMAND:
-                *on_demand_tlv = true;
-            break;
-            default: ;
-        }
-    } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type, 
-                      tlv_len, tlv_value,
-                      lsp_tlv_buffer_size)
-}
-
-void
 isis_parse_lsp_tlvs(node_t *node,
                     isis_lsp_pkt_t *new_lsp_pkt,
                     isis_lsp_pkt_t *old_lsp_pkt,
@@ -371,9 +334,7 @@ isis_parse_lsp_tlvs(node_t *node,
     ip_add_t rtr_id_str;
     bool need_spf = false;
     bool pkt_diff = false;
-    bool on_demand_tlv = false;
     bool need_pkt_diff = false;
-    bool need_on_demand_flood = false;
     byte lsp_id_str1[ISIS_LSP_ID_STR_SIZE];
     byte lsp_id_str2[ISIS_LSP_ID_STR_SIZE];
 
@@ -384,8 +345,6 @@ isis_parse_lsp_tlvs(node_t *node,
     tcp_ip_covert_ip_n_to_p(*rtr_id, rtr_id_str.ip_addr);
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    isis_parse_lsp_tlvs_internal(new_lsp_pkt, &on_demand_tlv);
 
     switch(event_type) {
         case isis_event_self_duplicate_lsp:
@@ -404,11 +363,9 @@ isis_parse_lsp_tlvs(node_t *node,
         break;
         case isis_event_non_local_fresh_lsp:
             need_spf = true;
-            if (on_demand_tlv) need_on_demand_flood = true;
             break;
         case isis_event_non_local_new_lsp:
             need_pkt_diff = true;
-            if (on_demand_tlv) need_on_demand_flood = true;
             break;
         case isis_event_non_local_old_lsp:
         break;
@@ -429,12 +386,11 @@ isis_parse_lsp_tlvs(node_t *node,
     }
 
     sprintf(tlb, "%s : Lsp Recvd : %s, old lsp : %s, Event : %s\n"
-            "\tneed_spf : %u  on_demand_tlv : %u  need_on_demand_flood : %u\n",
+            "\tneed_spf : %u\n",
             ISIS_LSPDB_MGMT,
             isis_print_lsp_id(new_lsp_pkt, lsp_id_str1),
             old_lsp_pkt ? isis_print_lsp_id(old_lsp_pkt, lsp_id_str2) : "none",
-            isis_event_str(event_type),
-            need_spf, on_demand_tlv, need_on_demand_flood);
+            isis_event_str(event_type), need_spf);
     tcp_trace(node, 0, tlb);
 
 }

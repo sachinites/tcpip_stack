@@ -33,16 +33,8 @@ typedef enum isis_events_ {
     isis_event_non_local_old_lsp,
     #define ISIS_EVENT_NON_LOCAL_OLD_LSP_BIT                    (1 << isis_event_non_local_old_lsp)
     /*lspdb update events end*/
-    isis_event_on_demand_flood,
-    #define ISIS_EVENT_ON_DEMAND_FLOOD_BIT                      (1 << isis_event_on_demand_flood)
     isis_event_periodic_lsp_generation,
     #define ISIS_EVENT_PERIODIC_LSP_GENERATION_BIT       (1 << isis_event_periodic_lsp_generation)
-    isis_event_reconciliation_triggered,
-    #define ISIS_EVENT_RECONCILIATION_TRIGGERED_BIT    (1 << isis_event_reconciliation_triggered)
-    isis_event_reconciliation_restarted,
-    #define ISIS_EVENT_RECONCILIATION_RESTARTED_BIT    (1 << isis_event_reconciliation_restarted)
-    isis_event_reconciliation_exit,
-    #define ISIS_EVENT_RECONCILIATION_EXIT_BIT                 (1 << isis_event_reconciliation_exit)
     isis_event_admin_action_db_clear,
     #define ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT        (1 << isis_event_admin_action_db_clear)
     /* SPF related events */

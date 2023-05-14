@@ -414,10 +414,6 @@ isis_print_lsp_pkt(byte *buff,
                             tlv_value - TLV_OVERHEAD_SIZE,
                             tlv_len + TLV_OVERHEAD_SIZE);
                 break;
-            case ISIS_TLV_ON_DEMAND:
-                rc += sprintf(buff + rc,"\tTLV%d On-Demand TLV : %hhu\n",
-                        tlv_type, *(uint8_t *)tlv_value);
-                break;
             case ISIS_TLV_IP_REACH:
                 rc += isis_print_formatted_tlv130(buff + rc, 
                         tlv_value - TLV_OVERHEAD_SIZE,

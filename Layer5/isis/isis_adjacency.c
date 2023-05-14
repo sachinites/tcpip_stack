@@ -554,12 +554,6 @@ isis_change_adjacency_state(
                         isis_intf_grp_refresh_member_interface (intf_info->intf);
                     }
 
-                    if (!isis_is_reconciliation_in_progress(node)) {
-                        isis_enter_reconciliation_phase(node);
-                    }
-                    else if (isis_is_reconciliation_in_progress(node)){
-                        isis_restart_reconciliation_timer(node);
-                    }
                     /* Schedule LSP gen becaue Adj state has changed */
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
                     if (!isis_update_dis_on_adjacency_transition(adjacency)) {
@@ -584,12 +578,7 @@ isis_change_adjacency_state(
                     if (intf_info->intf_grp) {
                         isis_intf_grp_refresh_member_interface (intf_info->intf);
                     }
-
-                    if (isis_is_reconciliation_in_progress(node) &&
-                        ISIS_NODE_INFO(node)->adjacency_up_count){
-
-                        isis_restart_reconciliation_timer(node);
-                    }
+                    
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
                     if (!isis_update_dis_on_adjacency_transition(adjacency)) {
                         /* If DIS is changed, then all adj advertisements are also handled*/

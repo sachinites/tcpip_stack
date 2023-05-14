@@ -240,10 +240,6 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;
-            case ISIS_TLV_ON_DEMAND:
-                rc += sprintf(buff + rc, "\tTLV%d On-Demand TLV : %hhu\n",
-                        tlv_type, *(uint8_t *)tlv_value);
-                break;
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,

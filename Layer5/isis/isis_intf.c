@@ -429,23 +429,7 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) 
     }
 }
 
-bool
-isis_atleast_one_interface_protocol_enabled(node_t *node) {
-
-    Interface *intf;
-    
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-     
-            if (isis_node_intf_is_enable(intf)) return true;
-            
-     } ITERATE_NODE_INTERFACES_END(node, intf);
-
-    return false;
-}
-
-
 /* show per intf stats */
-
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc) {
 
@@ -495,7 +479,6 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     bool rc;
     pn_id_t pn_id;
     uint32_t rtr_id;
-    bool gen_lsp = false;
     node_t *node = intf->att_node;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
@@ -505,9 +488,6 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
     if (intf_info->intf_type == intf_type) return -1;
 
-    if (isis_any_adjacency_up_on_interface(intf)) {
-        gen_lsp = true;
-    }
     isis_delete_all_adjacencies(intf);
     isis_stop_sending_hellos(intf);
 

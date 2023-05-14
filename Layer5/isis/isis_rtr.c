@@ -47,7 +47,6 @@ isis_node_cancel_all_queued_jobs(node_t *node) {
 static void
 isis_node_cancel_all_timers(node_t *node){
 
-    isis_stop_reconciliation_timer(node);
     isis_stop_overload_timer(node);
 }
 
@@ -88,7 +87,6 @@ isis_check_delete_node_info(node_t *node) {
     isis_assert_check_all_advt_db_cleanedup(node_info);
 
     /* Timers */
-    assert (!node_info->reconc.reconciliation_timer);
     assert (!node_info->ovl_data.ovl_timer);
 
     /* Should not have any pending work to do */
@@ -265,9 +263,6 @@ isis_show_node_protocol_state(node_t *node) {
     printf("Seq No : %u\n", node_info->seq_no);
     printf("Adjacency up Count: %u\n", node_info->adjacency_up_count);
 
-    printf("Reconciliation Status : %s\n",
-        isis_is_reconciliation_in_progress(node) ? "In-Progress" : "Off");
-
     if (node_info->import_policy) {
         printf("Import Policy : %s\n", node_info->import_policy->name);
     }
@@ -357,7 +352,6 @@ isis_init (node_t *node ) {
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
     isis_init_intf_group_avl_tree(&node_info->intf_grp_avl_root);
-    node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
     node_info->dyn_intf_grp = true;  /* True By Default */
     node_info->layer2_mapping = true;   /* True By Default */
     node_info->ted_db = XCALLOC(0, 1, ted_db_t);

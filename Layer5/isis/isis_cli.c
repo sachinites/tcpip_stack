@@ -703,11 +703,9 @@ isis_clear_handler(param_t *param,
 
         case CMDCODE_CLEAR_NODE_ISIS_LSDB:
         {
-            isis_cleanup_lsdb(node);
             isis_node_info_t *node_info = ISIS_NODE_INFO(node);
             if (!isis_is_protocol_enable_on_node(node)) break;
-            ISIS_NODE_INFO(node)->seq_no = 0;
-            isis_enter_reconciliation_phase(node);
+            isis_schedule_all_fragment_regen_job (node);
         }
         break;
         case CMDCODE_CLEAR_NODE_ISIS_ADJACENCY:
