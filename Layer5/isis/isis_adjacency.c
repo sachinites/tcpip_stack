@@ -978,6 +978,9 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
                           new_dis_id;
     isis_intf_info_t *intf_info;
 
+    assert (adjacency->adj_state == ISIS_ADJ_STATE_UP ||
+            adjacency->adj_state == ISIS_ADJ_STATE_DOWN);
+
     intf = adjacency->intf;
     remove_glthread(&adjacency->glue);
     glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(intf),
@@ -992,7 +995,21 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     new_dis_id =  isis_intf_reelect_dis(intf);
     
     if (isis_lan_id_compare (&old_dis_id, &new_dis_id) == CMP_PREF_EQUAL) {
-        return false;
+        
+        /* DIS has not changed, Now i have to take action depending on whether I am DIS
+            Or not*/
+            if (isis_am_i_dis (adjacency->intf)) {
+                    (adjacency->adj_state == ISIS_ADJ_STATE_DOWN ) ?
+                    /* with Draw PN --> NBR ISIS IS REACH advertisement*/
+                    isis_adjacency_withdraw_is_reach (adjacency) :
+                    /* Advertise PN --> NBR ISIS IS REACH Advertisement*/ 
+                    isis_adjacency_advertise_is_reach (adjacency);
+            }
+            else {
+                    /* No Action to be done by me. Non-DIS do not update any IS REACH
+                    advertisement for a LAN interface*/
+            }
+            return true;
     }
 
     isis_intf_resign_dis (intf);

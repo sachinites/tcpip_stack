@@ -1,4 +1,5 @@
 #include "../../tcp_public.h"
+#include "isis_utils.h"
 #include "isis_const.h"
 #include "isis_enums.h"
 #include "isis_struct.h"
@@ -6,7 +7,6 @@
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_dis.h"
-#include "isis_utils.h"
 
 pn_id_t
 isis_reserve_new_pn_id (node_t *node, bool *found) {
