@@ -652,7 +652,7 @@ isis_advertise_advt_data_in_this_fragment (node_t *node,
 
     node_info = ISIS_NODE_INFO(node);
     
-    advt_db = ISIS_NODE_INFO(node)->advt_db[fragment->pn_no];
+    advt_db = node_info->advt_db[fragment->pn_no];
 
     available_space = ISIS_LSP_MAX_PKT_SIZE - fragment->bytes_filled;
 
@@ -977,7 +977,6 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     isis_advt_db_t *advt_db;
     isis_advt_info_t advt_info;
     isis_adjacency_t *adjacency;
-    isis_advt_tlv_return_code_t rc;
 
     node_t *node = (node_t *)arg;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
@@ -1012,17 +1011,9 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
             ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
                 adjacency = glthread_to_isis_adjacency(curr);
-                rc = isis_adjacency_advertise_is_reach(adjacency);
+                isis_adjacency_advertise_is_reach(adjacency);
 
-                if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
-                    rc == ISIS_TLV_RECORD_ADVT_NO_FRAG ||
-                    rc == ISIS_TLV_RECORD_ADVT_NOT_FOUND ||
-                    rc == ISIS_TLV_RECORD_ADVT_FAILED) {
-
-                    isis_set_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
-                }
-            }
-            ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+            } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
         } else {
 
@@ -1077,22 +1068,19 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
             continue;
         }
 
-        rc = isis_export_route (node, l3_route);
-
-        if (rc != ISIS_TLV_RECORD_ADVT_SUCCESS) {
-            isis_set_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
-            thread_using_route_done(l3_route);
-            pthread_rwlock_unlock(&rt_table->rwlock);
-        }
-
+        isis_export_route (node, l3_route);
         thread_using_route_done(l3_route);
 
     }  ITERATE_GLTHREAD_END (&rt_table->route_list.list_head, curr) ;
 
     pthread_rwlock_unlock(&rt_table->rwlock);
-
     UNSET_BIT64 (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);
+   
+    if (isis_get_waitlisted_advt_data_count (node)) return;
+    if (!isis_is_overloaded (node, NULL)) return;
 
-    /* If we were in overload, then come out of it */
-    isis_unset_overload (node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
+    UNSET_BIT64(node_info->event_control_flags, ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT);
+    if (!IS_BIT_SET(node_info->event_control_flags, ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT)) {
+        isis_unset_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
+    }
 }

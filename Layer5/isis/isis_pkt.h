@@ -166,6 +166,24 @@ typedef struct isis_lan_hello_pkt_hdr_ {
     isis_lan_id_t lan_id;
 } isis_lan_hello_pkt_hdr_t;
 
+typedef struct isis_lsp_hdr_ {
+
+    uint16_t pdu_len;
+    uint16_t rem_time;
+    isis_lsp_id_t lsp_id;
+    uint32_t seq_no;
+    uint16_t checksum;
+    #define LSP_HDR_P_BIT   (1 << 7)
+    #define LSP_HDR_ATT_ERROR_BIT (1 << 6)
+    #define LSP_HDR_ATT_EXPENSE_BIT (1 << 5)
+    #define LSP_HDR_ATT_DELAY_BIT (1 << 4)
+    #define LSP_HDR_ATT_DEFAULT_BIT (1 << 3)
+    #define LSP_HDR_OL_BIT (1 << 2)
+    #define LSP_HDR_IS_TYPE_BIT1 (1 << 1)
+    #define LSP_HDR_IS_TYPE_BIT0 (1)
+    uint8_t attributes;
+} isis_lsp_hdr_t;
+
 #pragma pack(pop)
 
 isis_common_hdr_t *
@@ -179,5 +197,30 @@ isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf);
 
 byte *
 isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, uint16_t *tlv_size);
+
+/* LSP Hdr processing fns */
+static inline ISIS_LVL
+isis_rtr_is_type ( isis_lsp_hdr_t *lsp_hdr) {
+
+    if (IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT0) &&
+        !IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT1)) {
+        
+        return  isis_level_1;
+    }
+
+    if (!IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT0) &&
+        IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT1)) {
+        
+        return  isis_level_2;
+    }
+
+    if (IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT0) &&
+        IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT1)) {
+        
+        return  isis_level_12;
+    }
+
+    assert(0);
+}
 
 #endif // !__ISIS_PKT__
