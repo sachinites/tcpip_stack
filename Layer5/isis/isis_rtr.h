@@ -52,10 +52,6 @@ typedef struct node_info_ {
     uint32_t spf_runs;
     /*event counts*/
     uint32_t isis_event_count[isis_event_max];
-    /* on demand flooding */
-    bool on_demand_flooding;
-    /* Reconciliation data */
-    isis_reconc_data_t reconc;
     /*Adjacency up count */
     uint16_t adjacency_up_count;
     /* event flags */

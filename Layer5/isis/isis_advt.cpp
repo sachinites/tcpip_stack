@@ -36,6 +36,38 @@ static int
  }
 
 static void
+isis_fragment_bind_advt_data (
+            node_t *node,
+            isis_fragment_t *fragment,
+            isis_adv_data_t *advt_data) {
+
+    assert (!advt_data->fragment);
+    assert (!IS_QUEUED_UP_IN_THREAD (&advt_data->glue));
+    assert ((ISIS_LSP_MAX_PKT_SIZE - fragment->bytes_filled) >= advt_data->tlv_size);
+
+    glthread_add_last (&fragment->tlv_list_head, &advt_data->glue);
+    advt_data->fragment = fragment;
+    isis_fragment_lock (fragment);
+    fragment->bytes_filled += advt_data->tlv_size;
+    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_added]);
+}
+
+static void
+isis_fragment_unbind_advt_data (node_t *node,
+            isis_fragment_t *fragment,
+            isis_adv_data_t *advt_data) {
+
+    assert (advt_data->fragment && advt_data->fragment == fragment );
+    assert (IS_QUEUED_UP_IN_THREAD (&advt_data->glue));
+    remove_glthread (&advt_data->glue);
+    fragment->bytes_filled -= advt_data->tlv_size;
+    advt_data->fragment = NULL;
+    isis_fragment_unlock (node, fragment);
+    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_removed]);
+}
+
+
+static void
 isis_try_accomodate_wait_list_data (node_t *node, isis_fragment_t *fragment);
 
 void
@@ -117,6 +149,7 @@ isis_wait_list_advt_data_add (node_t *node, uint8_t pn_no, isis_adv_data_t *adv_
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
     isis_set_overload (node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
     SET_BIT (ISIS_NODE_INFO(node)->event_control_flags, ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT);
+    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_device_dynamic_overload]);
 }
 
 void 
@@ -162,7 +195,7 @@ isis_schedule_regen_fragment (node_t *node,
     }
 
     /* Queue the fragment for LSP regen */
-    glthread_add_last (&node_info->pending_lsp_gen_queue, &fragment->frag_regen_glue);
+    glthread_add_next (&node_info->pending_lsp_gen_queue, &fragment->frag_regen_glue);
     isis_fragment_lock (fragment);
 
     /* If the LSP gen job is already scheduled, then we are done */
@@ -284,11 +317,8 @@ isis_advertise_tlv (node_t *node,
         isis_fragment_lock(fragment);
     }
 
-    assert(IS_GLTHREAD_LIST_EMPTY(&adv_data->glue));
-    glthread_add_last(&fragment->tlv_list_head, &adv_data->glue);
-    adv_data->fragment = fragment;
-    isis_fragment_lock(fragment);
-    fragment->bytes_filled += tlv_size;
+    isis_fragment_bind_advt_data (node, fragment, adv_data);
+
     remove_glthread(&fragment->priority_list_glue);
     glthread_priority_insert(&advt_db->fragment_priority_list,
                              &fragment->priority_list_glue,
@@ -326,17 +356,14 @@ isis_withdraw_tlv_advertisement (node_t *node,
 
     advt_db = node_info->advt_db[fragment->pn_no];
     assert(advt_db);
-    
-    remove_glthread (&adv_data->glue);
-    fragment->bytes_filled -= adv_data->tlv_size;
+    isis_fragment_unbind_advt_data (node, fragment, adv_data);
     remove_glthread(&fragment->priority_list_glue);
     glthread_priority_insert(&advt_db->fragment_priority_list,
                              &fragment->priority_list_glue,
                              isis_fragment_size_comp_fn,
                              (int)&((isis_fragment_t *)0)->priority_list_glue);
 
-    adv_data->fragment = NULL;
-    isis_fragment_unlock(node, fragment);
+
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_removed]);
 
     isis_try_accomodate_wait_list_data (node, fragment);
@@ -557,12 +584,8 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
     ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
 
         advt_data = glue_to_isis_advt_data(curr);
-        remove_glthread(&advt_data->glue);
-        assert(advt_data->fragment);
-        advt_data->fragment = NULL;
-        isis_fragment_unlock(node, fragment);
+        isis_fragment_unbind_advt_data  (node, fragment, advt_data);
         isis_advt_data_clear_backlinkage (node_info, advt_data);
-        fragment->bytes_filled -=advt_data->tlv_size;
         isis_free_advt_data (advt_data);
 
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
@@ -658,11 +681,7 @@ isis_advertise_advt_data_in_this_fragment (node_t *node,
 
     if (available_space >= advt_data->tlv_size) {
 
-        glthread_add_last (&fragment->tlv_list_head, &advt_data->glue);
-        fragment->bytes_filled += advt_data->tlv_size;
-        advt_data->fragment = fragment;
-        isis_fragment_lock (fragment);
-        ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_added]);
+        isis_fragment_bind_advt_data (node, fragment, advt_data);
         return true;
     }
 
@@ -687,11 +706,10 @@ isis_advertise_advt_data_in_this_fragment (node_t *node,
             continue;
         }
 
-        remove_glthread(&old_advt_data->glue);  
-        old_advt_data->fragment = NULL;  
-        fragment->bytes_filled -= old_advt_data->tlv_size;
-        isis_fragment_unlock(node, fragment);              
-        size_freed += old_advt_data->tlv_size;  
+        isis_fragment_unbind_advt_data (node, fragment, advt_data);       
+
+        size_freed += old_advt_data->tlv_size;
+
         isis_advertise_tlv(node,
                            fragment->pn_no, old_advt_data,
                            &advt_info_out);
@@ -711,12 +729,9 @@ isis_advertise_advt_data_in_this_fragment (node_t *node,
         return false;
     }
 
-    glthread_add_last(&fragment->tlv_list_head, &advt_data->glue);
-    advt_data->fragment = fragment;
-    isis_fragment_lock(fragment);
-    fragment->bytes_filled += advt_data->tlv_size;
+    isis_fragment_bind_advt_data (node, fragment, advt_data);
 
-    glthread_priority_insert(&advt_db->fragment_priority_list,
+   glthread_priority_insert(&advt_db->fragment_priority_list,
                              &fragment->priority_list_glue,
                              isis_fragment_size_comp_fn,
                              (int)&((isis_fragment_t *)0)->priority_list_glue);

@@ -245,10 +245,10 @@ void
 isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
     /*Initialize direct nbrs*/
-    ted_node_t *nbr = NULL;
-    uint32_t nxt_hop_ip ;
-    char ip_addr[16];
     ted_intf_t *oif;
+    char ip_addr[16];
+    uint32_t nxt_hop_ip ;
+    ted_node_t *nbr = NULL;
     nexthop_t *nexthop = NULL;
     isis_spf_data_t *nbr_spf_data;
 
@@ -517,11 +517,11 @@ static void
 static void
 isis_compute_spf (node_t *spf_root){
 
+    ted_intf_t *oif;
+    glthread_t *curr;
+    uint32_t nxt_hop_ip;
     ted_node_t *node, *nbr;
     ted_node_t *ted_spf_root;
-    glthread_t *curr;
-    ted_intf_t *oif;
-    uint32_t nxt_hop_ip;
     isis_spf_data_t *curr_spf_data;
     isis_spf_data_t *spf_root_spf_data = NULL;
     isis_spf_data_t *nbr_node_spf_data = NULL;

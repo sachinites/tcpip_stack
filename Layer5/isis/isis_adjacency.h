@@ -65,6 +65,7 @@ typedef struct isis_adjacency_{
     time_t uptime;
     /* IS Reach Advertisement */
     union {
+        /* Advertise P2P adjacency */
         isis_adv_data_t *p2p_adv_data;
         /*is this is LAN adj and self is dis, then advertise PN to nbr*/
         isis_adv_data_t *lan_pn_to_nbr_adv_data;

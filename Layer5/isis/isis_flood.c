@@ -138,7 +138,7 @@ isis_queue_lsp_pkt_for_transmission(
     lsp_xmit_elem->lsp_pkt = lsp_pkt;
     isis_ref_isis_pkt(lsp_pkt);
 
-    glthread_add_last(&intf_info->lsp_xmit_list_head,
+    glthread_add_next(&intf_info->lsp_xmit_list_head,
                       &lsp_xmit_elem->glue);
 
     sprintf(tlb, "%s : LSP %s scheduled to flood out of %s\n",
@@ -157,7 +157,6 @@ isis_queue_lsp_pkt_for_transmission(
                     TASK_PRIORITY_COMPUTE);
     }
 }
-
 
 void
 isis_intf_purge_lsp_xmit_queue(Interface *intf) {
