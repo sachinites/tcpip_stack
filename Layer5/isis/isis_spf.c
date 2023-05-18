@@ -257,7 +257,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
         /*No need to process any nbr which is not conneted via
          * Bi-Directional L3 link. This will remove any L2 Switch
          * present in topology as well.*/
-        if (!ted_link_is_bidirectional(oif->link)) continue;
+        if (!ted_is_link_bidirectional(oif->link)) continue;
 
         /*Step 2.1 : Begin*/
         nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
@@ -371,7 +371,7 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
                 spf_root->node_name, curr_node->node_name, 
                 nbr->node_name);
         #endif
-        if(!ted_link_is_bidirectional(oif->link)) continue;
+        if(!ted_is_link_bidirectional(oif->link)) continue;
 
         nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
 
@@ -533,7 +533,7 @@ isis_compute_spf (node_t *spf_root){
 
     ted_spf_root = ted_lookup_node(
                                 node_info->ted_db,
-                                tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(spf_root)));
+                                tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(spf_root)), 0);
 
     if (!ted_spf_root) return;
 
@@ -587,7 +587,7 @@ isis_compute_spf (node_t *spf_root){
 
             ITERATE_TED_NODE_NBRS_BEGIN(curr_spf_data->node, nbr, oif, nxt_hop_ip){
 
-                if(!ted_link_is_bidirectional(oif->link)) continue;
+                if(!ted_is_link_bidirectional(oif->link)) continue;
                 
                 nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
                 if(IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){

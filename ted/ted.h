@@ -24,7 +24,6 @@ typedef struct ted_link_ {
 
     ted_intf_t intf1;
     ted_intf_t intf2;
-    uint32_t dirn_flag;
     void *proto_data[TED_PROTO_MAX];
 } ted_link_t;
 
@@ -40,6 +39,7 @@ typedef struct ted_prefix_ {
 typedef struct ted_node_ {
 
     uint32_t rtr_id;
+    uint8_t pn_no;
     char node_name[NODE_NAME_SIZE];
     uint32_t flags;
     bool is_installed_in_teddb;
@@ -110,16 +110,16 @@ void
 ted_unplug_all_interfaces(ted_node_t *node) ;
 
 bool
-ted_is_interface_plugged_in(ted_intf_t *intf) ;
+ted_is_link_bidirectional (ted_link_t *ted_link);
 
 bool
-ted_link_is_bidirectional (ted_link_t *ted_link);
+ted_is_interface_plugged_in(ted_intf_t *intf) ;
 
 bool
 ted_is_link_dettached(ted_link_t *ted_link);
 
 ted_node_t *
-ted_lookup_node(ted_db_t *ted_db, uint32_t rtr_id);
+ted_lookup_node(ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no);
 
 ted_intf_t *
 ted_node_lookup_intf (ted_node_t *node, uint32_t ifindex);
@@ -133,9 +133,11 @@ ted_create_node(uint32_t rtr_id, bool is_fake);
 ted_link_t *
 ted_resurrect_link (ted_db_t *ted_db,
                                 uint32_t from_node_rtr_id,
+                                uint8_t from_node_pn_no,
                                 uint32_t from_if_index,
                                 uint32_t local_ip,
                                 uint32_t to_node_rtr_id,
+                                uint8_t to_node_pn_no,
                                 uint32_t to_ifindex,
                                 uint32_t remote_ip);
 
@@ -148,12 +150,14 @@ typedef struct ted_template_nbr_data_ {
     uint32_t local_ip;
     uint32_t remote_ip;
     uint32_t nbr_rtr_id;
+    uint8_t nbr_pn_no;
     uint32_t metric;
 } ted_template_nbr_data_t;
 
 typedef struct  ted_template_node_data_ {
 
     uint32_t rtr_id;
+    uint8_t pn_no;
     char node_name[NODE_NAME_SIZE];
     uint32_t seq_no;
     uint8_t n_nbrs;
@@ -162,7 +166,7 @@ typedef struct  ted_template_node_data_ {
 } ted_template_node_data_t;
 
 void
-ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id);
+ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no);
 
 void
 ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
@@ -173,11 +177,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
             avltree_t *prefix_tree);
 
 uint32_t 
-ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, byte *buff, bool detail) ;
-
-void
-ted_refresh_node_seq_no (ted_db_t *ted_db, 
-                                           uint32_t rtr_id, uint32_t new_seq_no);
+ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, bool detail) ;
 
 /*
  * node_ptr - ted_node_t whose nbrs we want to iterate ( input )

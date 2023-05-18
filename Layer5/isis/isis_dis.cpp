@@ -282,6 +282,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        case ISIS_TLV_RECORD_ADVT_NO_FRAG:
             break;
         default: ;
     }
@@ -323,6 +324,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        case ISIS_TLV_RECORD_ADVT_NO_FRAG:
             break;
         default: ;
     }
@@ -344,6 +346,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
         case ISIS_TLV_RECORD_ADVT_ALREADY:
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
+        case ISIS_TLV_RECORD_ADVT_NO_FRAG:
             break;
         default: ;
         }

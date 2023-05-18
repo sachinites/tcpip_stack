@@ -41,11 +41,11 @@
 #define CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP 18
 /* show node <node-name> protocol isis ted*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED 19
-/* show node <node-name> protocol isis ted <rtr-id>*/
+/* show node <node-name> protocol isis ted <rtr-id> <pn-id>*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY 20
 /* show node <node-name> protocol isis ted detail*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL 21
-/* show node <node-name> protocol isis ted <rtr-id> detail*/
+/* show node <node-name> protocol isis ted <rtr-id> <pn-id> detail*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL 22
 /* clear node <node-name> protocol isis adjacency */
 #define CMDCODE_CLEAR_NODE_ISIS_ADJACENCY 23
