@@ -87,4 +87,7 @@ tcp_trace_internal(node_t *node,
 void
 tcp_ip_toggle_global_console_logging(void);
 
+void
+variadic_sprintf (node_t *node, Interface *intf, const char *format, ...);
+
 #endif /* __TCP_IP_TRACE__ */

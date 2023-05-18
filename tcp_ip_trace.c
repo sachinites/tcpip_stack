@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdarg.h>
 #include "tcp_public.h"
 
 extern graph_t *topo;
@@ -470,28 +471,6 @@ initialize_interface_log_file(Interface *intf){
     return fptr;
 }
 
-static FILE *
-initialize_interface_log_file2(Interface *intf){
-
-    char file_name[64];
-
-    memset(file_name, 0, sizeof(file_name));
-
-    node_t *node = intf->att_node;
-
-    sprintf(file_name, "logs/%s-%s.txt", node->node_name, intf->if_name.c_str());
-
-    FILE *fptr = fopen(file_name, "w");
-
-    if(!fptr){
-        printf("Error : Could not open log file %s, errno = %d\n", 
-            file_name, errno);
-        return 0;
-    }
-
-    return fptr;
-}
-
 void
 tcp_ip_init_node_log_info(node_t *node){
 
@@ -524,7 +503,7 @@ tcp_ip_init_intf_log_info(Interface *intf){
     log_info->recv      = false;
     log_info->send      = false;
     log_info->is_stdout = false;
-    log_info->log_file  = initialize_interface_log_file2(intf);
+    log_info->log_file  = initialize_interface_log_file(intf);
 }
 
 static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){
@@ -807,4 +786,13 @@ tcp_ip_toggle_global_console_logging(void) {
     else {
         printf ("\nconsole logging disabled\n");
     }
+}
+
+void
+variadic_sprintf (node_t *node, Interface *intf, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+   // vsprintf(node->logging_buffer, format, args);
+    va_end(args);
 }
