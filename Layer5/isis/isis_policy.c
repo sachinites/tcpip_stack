@@ -316,7 +316,6 @@ isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
     return NULL;
 }
 
-
 isis_advt_tlv_return_code_t
 isis_export_route (node_t *node, l3_route_t *l3route) {
 
@@ -488,7 +487,6 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
     mtrie_delete_leaf_node ( &node_info->exported_routes, mnode);
     return res;
 }
-
 
 void
  isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {

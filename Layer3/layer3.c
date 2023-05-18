@@ -449,7 +449,7 @@ clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
 
        l3_route->spf_metric[nh_proto] = 0;
        curr = mtrie_node_delete_while_traversal (&rt_table->route_list, mnode);
-       assert(!ref_count_dec(l3_route->ref_count));
+       ref_count_dec(l3_route->ref_count);
        rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
        thread_using_route_done(l3_route);
     }

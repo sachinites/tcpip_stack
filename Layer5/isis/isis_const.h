@@ -32,7 +32,7 @@
 #define ISIS_TLV_IP_REACH   130
 
 #define ISIS_LSP_HDR_SIZE   sizeof(isis_pkt_hdr_t)
-#define ISIS_LSP_MAX_PKT_SIZE   256 //1492
+#define ISIS_LSP_MAX_PKT_SIZE   1492
 #define ISIS_MAX_FRAGMENT_SUPPORTED 256
 #define ISIS_MAX_PN_SUPPORTED   256
 
