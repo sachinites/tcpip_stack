@@ -67,6 +67,11 @@ extern void time_range_config_cli_tree (param_t *root) ;
 extern void Interface_config_cli_tree (param_t *root);
 extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 
+extern int
+isis_show_handler (param_t *param, 
+                  ser_buff_t *tlv_buf,
+                  op_mode enable_or_disable);
+                  
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
@@ -985,7 +990,7 @@ nw_init_cli(){
             {
                 /*run node <node-name> spf*/
                 static param_t spf;
-                init_param(&spf, CMD, "spf", spf_algo_handler, 0, INVALID, 0, "Trigger SPF");
+                init_param(&spf, CMD, "spf", isis_show_handler, 0, INVALID, 0, "Trigger SPF");
                 libcli_register_param(&node_name, &spf);
                 set_param_cmd_code(&spf, CMDCODE_RUN_SPF);
             }

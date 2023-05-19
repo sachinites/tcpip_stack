@@ -137,7 +137,7 @@ ted_is_link_bidirectional (ted_link_t *ted_link) {
 
 
 void
-ted_unplug_all_interfaces(ted_node_t *node) {
+ted_unplug_all_local_interfaces(ted_node_t *node) {
 
     ted_intf_t *intf;
 
@@ -148,6 +148,21 @@ ted_unplug_all_interfaces(ted_node_t *node) {
         if (ted_is_link_dettached(intf->link)) {
             XFREE(intf->link);
         }
+
+    } TED_ITERATE_NODE_INTF_END(node, intf);
+}
+
+void
+ted_unplug_all_remote_interfaces(ted_node_t *node) {
+
+    ted_intf_t *intf;
+    ted_intf_t *other_intf;
+
+    TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
+
+        other_intf = ted_link_get_other_interface (intf);
+        if (!other_intf) continue;
+        ted_plug_out_interface(other_intf);
 
     } TED_ITERATE_NODE_INTF_END(node, intf);
 }
@@ -187,10 +202,10 @@ ted_db_default_cmp_fn (const avltree_node_t *n1, const avltree_node_t *n2) {
     ted_node_t *node1 = avltree_container_of (n1, ted_node_t, avl_glue);
     ted_node_t *node2 = avltree_container_of (n2, ted_node_t, avl_glue);
 
-   if ((node1->rtr_id - node2->rtr_id) < 0) return  CMP_PREFERRED;
-   if ((node1->rtr_id - node2->rtr_id) > 0) return  CMP_NOT_PREFERRED;
-   if ((node1->pn_no - node2->pn_no) < 0) return  CMP_PREFERRED;
-   if ((node1->pn_no - node2->pn_no) > 0) return  CMP_NOT_PREFERRED;
+    if (node1->rtr_id < node2->rtr_id) return  CMP_PREFERRED;
+    if (node1->rtr_id > node2->rtr_id) return  CMP_NOT_PREFERRED;
+    if (node1->pn_no < node2->pn_no) return  CMP_PREFERRED;
+    if (node1->pn_no > node2->pn_no) return  CMP_NOT_PREFERRED;
    return CMP_PREF_EQUAL;
 }
 
@@ -224,7 +239,8 @@ ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no) {
 
     ted_node_t *node = ted_lookup_node(ted_db, rtr_id, pn_no);
     if (!node) return;
-    ted_unplug_all_interfaces(node);
+    ted_unplug_all_remote_interfaces(node);
+    ted_unplug_all_local_interfaces(node);
     avltree_remove(&node->avl_glue, &ted_db->teddb);
     assert(node->is_installed_in_teddb);
     node->is_installed_in_teddb = false;
@@ -235,7 +251,8 @@ ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no) {
 void
 ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
 
-    ted_unplug_all_interfaces(ted_node);
+    ted_unplug_all_remote_interfaces(ted_node);
+    ted_unplug_all_local_interfaces(ted_node);
     avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
     assert(ted_node->is_installed_in_teddb);
     ted_node->is_installed_in_teddb = false;
@@ -308,6 +325,12 @@ ted_resurrect_link (ted_db_t *ted_db,
         to_node_new = true;
     }
 
+    /* Adjust interface indexes to handle PNs. We are creating
+        an illusion here that PN's local interfaces has valid ifindices*/
+    assert (!(from_node_pn_no && to_node_pn_no));
+    if (from_node_pn_no) from_if_index = remote_ip;
+    if (to_node_pn_no) to_ifindex = local_ip;
+    
     ted_intf_t *from_intf = from_node_new ?
             NULL : ted_node_lookup_intf (from_node, from_if_index);
 

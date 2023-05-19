@@ -266,8 +266,15 @@ isis_intf_config_handler(param_t *param,
     return 0;
 }
 
+int
+isis_show_handler (param_t *param, 
+                  ser_buff_t *tlv_buf,
+                  op_mode enable_or_disable);
 
-static int
+extern void
+isis_compute_spf (node_t *spf_root);
+
+int
 isis_show_handler (param_t *param, 
                   ser_buff_t *tlv_buf,
                   op_mode enable_or_disable){
@@ -303,6 +310,9 @@ isis_show_handler (param_t *param,
     node = node_get_node_by_name(topo, node_name);
     
     switch(cmdcode) {
+        case CMDCODE_RUN_SPF:
+            isis_compute_spf (node);
+            break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL:
            isis_show_node_protocol_state (node);
         break;

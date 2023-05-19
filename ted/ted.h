@@ -107,7 +107,10 @@ int8_t
 ted_plug_out_interface(ted_intf_t *intf);
 
 void
-ted_unplug_all_interfaces(ted_node_t *node) ;
+ted_unplug_all_local_interfaces(ted_node_t *node) ;
+
+void
+ted_unplug_all_remote_interfaces(ted_node_t *node);
 
 bool
 ted_is_link_bidirectional (ted_link_t *ted_link);
@@ -185,7 +188,7 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
  * oif_ptr - ted_intf_t  OIF (output)
  * ip_Addr - nexthop ip in uint32 format (output)
  */ 
-#define ITERATE_TED_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, nxt_hop_ipisis) \
+#define ITERATE_TED_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, nxt_hop_ip) \
     do{                                                                          \
         int i = 0 ;                                                             \
         ted_intf_t *other_intf;                                         \

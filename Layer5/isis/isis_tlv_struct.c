@@ -30,6 +30,9 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
 
     switch (adv_data->tlv_no) {
     
+    case ISIS_TLV_HOSTNAME:
+        ptlv_data_len += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE;
+        break;
     case ISIS_IS_REACH_TLV:
         ptlv_data_len += TLV_OVERHEAD_SIZE;
         ptlv_data_len += sizeof(isis_system_id_t); /* Nbr Sys Id */
@@ -111,6 +114,9 @@ isis_get_adv_data_tlv_content(
             tlv_content += sizeof(uint32_t);
             *(uint8_t *)tlv_content = advt_data->u.pfx.flags;
         break;
+        case ISIS_TLV_HOSTNAME:
+                strncpy (tlv_content, advt_data->u.host_name, advt_data->tlv_size - TLV_OVERHEAD_SIZE);
+                break;
         default: ;
     }
     return start_ptr;
@@ -253,7 +259,8 @@ bool
 isis_is_zero_fragment_tlv (uint16_t tlv_no) {
 
     switch (tlv_no) {
-
+        case  ISIS_TLV_HOSTNAME:
+            return true;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IP_REACH:
             return false;

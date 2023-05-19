@@ -223,6 +223,8 @@ void
 isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t * adv_data) {
 
     switch (adv_data->tlv_no) {
+        case ISIS_TLV_HOSTNAME:
+            break;
         case ISIS_IS_REACH_TLV:
             if (adv_data->src.holder && *adv_data->src.holder)
                 *(adv_data->src.holder) = NULL;
@@ -317,6 +319,15 @@ isis_advertise_tlv (node_t *node,
         isis_fragment_lock(fragment);
     }
 
+        if (0 && pn_no && !frag_no) {
+
+            isis_adv_data_t *advt_data_hname = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+            advt_data_hname->tlv_no = ISIS_TLV_HOSTNAME;
+            snprintf (advt_data_hname->u.host_name, NODE_NAME_SIZE, "%s-PN", node->node_name);
+            advt_data_hname->tlv_size = isis_get_adv_data_size(advt_data_hname);
+            isis_advertise_advt_data_in_this_fragment(node, advt_data_hname, fragment, true);
+        }
+    
     isis_fragment_bind_advt_data (node, fragment, adv_data);
 
     remove_glthread(&fragment->priority_list_glue);
@@ -455,6 +466,26 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
     isis_adv_data_t *advt_data;
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 
+    /* Fill other TLVs*/
+    ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+
+        advt_data = glue_to_isis_advt_data(curr);
+        if (advt_data->tlv_no == ISIS_IS_REACH_TLV) continue;
+        if (advt_data->tlv_no == ISIS_TLV_IP_REACH) continue;
+        tlv_size = advt_data->tlv_size;
+
+        lsp_tlv_buffer = tlv_buffer_insert_tlv(
+            lsp_tlv_buffer,
+            (uint8_t)advt_data->tlv_no,
+            tlv_size - TLV_OVERHEAD_SIZE,
+            isis_get_adv_data_tlv_content(advt_data, tlv_content));
+
+        bytes_filled += tlv_size;
+        eth_payload_size += tlv_size;
+        
+    } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
+
+
     if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_IS_REACH_TLVS)) {
 
         ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
@@ -574,8 +605,8 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
     pkt_size_t pkt_size;
     isis_lsp_pkt_t *lsp_pkt;
     pkt_block_t *pkt_block;
-    isis_adv_data_t *advt_data;
     isis_advt_db_t *advt_db;
+    isis_adv_data_t *advt_data;
     isis_node_info_t *node_info;
 
     isis_fragment_prevent_premature_deletion (fragment);
@@ -753,8 +784,11 @@ isis_insert_zero_fragment_tlvs (node_t *node) {
 
     /* Insert zero fragment TLVs here i.e. TLVs which mandatorily goes in
         fragment zero . . . */
-
-    // Use API : isis_advertise_advt_data_in_this_fragment( )
+    isis_adv_data_t *advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    advt_data->tlv_no = ISIS_TLV_HOSTNAME;
+    strncpy (advt_data->u.host_name, node->node_name, NODE_NAME_SIZE);
+    advt_data->tlv_size = isis_get_adv_data_size (advt_data);
+    isis_advertise_advt_data_in_this_fragment (node, advt_data, fragment0, true);
 }
 
 void

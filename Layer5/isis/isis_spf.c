@@ -60,10 +60,18 @@ isis_spf_comparison_fn(void *data1, void *data2){
     isis_spf_data_t *spf_data_2 = (isis_spf_data_t *)data2;
 
     if(spf_data_1->spf_metric < spf_data_2->spf_metric)
-        return -1;
+        return CMP_PREFERRED;
     if(spf_data_1->spf_metric > spf_data_2->spf_metric)
-        return 1;
-    return 0;
+        return CMP_NOT_PREFERRED;
+
+#if 0
+    if (spf_data1->node->pn_no && !spf_data2->node->pn_no)
+        return CMP_PREFERRED;
+    if (!spf_data1->node->pn_no && spf_data2->node->pn_no)
+        return CMP_NOT_PREFERRED;
+#endif
+
+    return CMP_PREF_EQUAL;
 }
 
 static isis_spf_result_t *
@@ -249,43 +257,104 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
     char ip_addr[16];
     uint32_t nxt_hop_ip ;
     ted_node_t *nbr = NULL;
+    ted_node_t *nbr_of_pn = NULL;
     nexthop_t *nexthop = NULL;
     isis_spf_data_t *nbr_spf_data;
 
     ITERATE_TED_NODE_NBRS_BEGIN(ted_spf_root, nbr, oif, nxt_hop_ip){
 
         /*No need to process any nbr which is not conneted via
-         * Bi-Directional L3 link. This will remove any L2 Switch
-         * present in topology as well.*/
+         * Bi-Directional L3 link. */
         if (!ted_is_link_bidirectional(oif->link)) continue;
 
-        /*Step 2.1 : Begin*/
-        nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
-        /*Populate nexthop array of directly connected nbrs of spf_root*/
-        if (oif->cost < nbr_spf_data->spf_metric){
-            nh_flush_nexthops(nbr_spf_data->nexthops);
-            nexthop = nh_create_new_nexthop (oif->ifindex, 
-                                tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_STATIC);
-            nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
-            nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
-            nbr_spf_data->spf_metric = oif->cost;
-        }
-        /*Step 2.1 : End*/
+        /* Case 1 : When root and nbr both are non PNs*/
+        if (!ted_spf_root->pn_no && !nbr->pn_no)
+        {
+                    /*Step 2.1 : Begin*/
+                    nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
+                    /*Populate nexthop array of directly connected nbrs of spf_root*/
+                    if (oif->cost < nbr_spf_data->spf_metric)
+                    {
+                         nh_flush_nexthops(nbr_spf_data->nexthops);
+                         nexthop = nh_create_new_nexthop(oif->ifindex,
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_STATIC);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
+                         nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                         nbr_spf_data->spf_metric = oif->cost;
+                    }
+                    /*Step 2.1 : End*/
 
-        /*Step 2.2 : Begin*/
-        /*Cover the ECMP case*/
-        else if (oif->cost == nbr_spf_data->spf_metric){
-            nexthop = nh_create_new_nexthop (oif->ifindex,
-                            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), 
-                            PROTO_STATIC);
-            nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
-            nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                    /*Step 2.2 : Begin*/
+                    /*Cover the ECMP case*/
+                    else if (oif->cost == nbr_spf_data->spf_metric)
+                    {
+                         nexthop = nh_create_new_nexthop(oif->ifindex,
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr),
+                                                         PROTO_ISIS);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
+                         nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                    }
         }
+
+        /*Case 2 : When root is PN and Nbr is not PN*/
+        else if (ted_spf_root->pn_no && !nbr->pn_no) {
+            /* We never run SPF on PN as spf root*/
+            assert(0);
+        }
+
+        /*Case 3 : When root and nbr both are PNs*/
+        else if (ted_spf_root->pn_no && nbr->pn_no) {
+            /* IGP topology never have 2 PNs adjacent to each other*/
+            assert(0);
+        }
+
+        /* Case 4 : When root is non-PN and nbr is PN. */
+        else if (!ted_spf_root->pn_no && nbr->pn_no) {
+
+              uint32_t root_to_pn_cost = oif->cost;
+              ted_intf_t *root_to_pn_oif = oif;
+             nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
+             nbr_spf_data->spf_metric = root_to_pn_cost;
+
+             ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif, nxt_hop_ip){
+
+                    if (!ted_is_link_bidirectional(oif->link)) continue;
+                    if (nbr_of_pn == ted_spf_root) continue;
+
+                    /*Step 2.1 : Begin*/
+                    nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr_of_pn);
+                    /*Populate nexthop array of directly connected nbrs of spf_root*/
+                    if (root_to_pn_cost < nbr_spf_data->spf_metric)
+                    {
+                         nh_flush_nexthops(nbr_spf_data->nexthops);
+                         nexthop = nh_create_new_nexthop(root_to_pn_oif->ifindex,
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_ISIS);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
+                         nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                         nbr_spf_data->spf_metric = root_to_pn_cost + oif->cost;
+                    }
+                    /*Step 2.1 : End*/
+
+                    /*Step 2.2 : Begin*/
+                    /*Cover the ECMP case*/
+                    else if (root_to_pn_cost== nbr_spf_data->spf_metric)
+                    {
+                         nexthop = nh_create_new_nexthop(oif->ifindex,
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr),
+                                                         PROTO_ISIS);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
+                         nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                    }
+
+
+             } ITERATE_TED_NODE_NBRS_END(nbr, nbr_of_pn, oif, nxt_hop_ip);
+        }
+
         /*Step 2.2 : End*/
     } ITERATE_TED_NODE_NBRS_END(ted_spf_root, nbr, oif, nxt_hop_ip);
 }
 
-#define ISIS_SPF_LOGGING 0
+#define ISIS_SPF_LOGGING 1
 
 static void
 isis_spf_record_result (ted_node_t *spf_root, 
@@ -514,7 +583,10 @@ static void
     }
  }
 
-static void
+void
+isis_compute_spf (node_t *spf_root);
+
+void
 isis_compute_spf (node_t *spf_root){
 
     ted_intf_t *oif;
@@ -689,7 +761,8 @@ isis_run_spf(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     node_info->spf_job_task = NULL;
-    
+    return ;
+
     ISIS_INCREMENT_NODE_STATS(node, spf_runs);
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_spf_runs]);
 

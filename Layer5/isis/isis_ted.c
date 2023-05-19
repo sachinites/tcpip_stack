@@ -63,10 +63,7 @@ isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             nbr_data->nbr_pn_no = system_id.pn_id;
             nbr_data->metric = metric;
 
-            subtlv_navigator = tlv_value + 
-                               sizeof( isis_system_id_t) + // 5B System ID
-                               sizeof(uint32_t) + // 4B metric
-                               sizeof(uint8_t);   // 1B subtlv len
+            subtlv_navigator = tlv_value + sizeof (tlv22_hdr_t );
 
             /* Now Read the Sub TLVs */
             ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
