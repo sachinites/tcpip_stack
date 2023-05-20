@@ -557,7 +557,7 @@ isis_change_adjacency_state(
                     isis_update_layer2_mapping_on_adjacency_up(adjacency);
                      (isis_adjacency_is_lan (adjacency)) ? 
                         isis_update_dis_on_adjacency_transition(adjacency) :
-                        isis_adjacency_withdraw_is_reach(adjacency);
+                        isis_adjacency_advertise_is_reach(adjacency);
                     break;
                 default : ;
             }   
@@ -579,7 +579,7 @@ isis_change_adjacency_state(
                     
                     isis_update_layer2_mapping_on_adjacency_down(adjacency);
                     (isis_adjacency_is_lan(adjacency)) ? 
-                        isis_update_dis_on_adjacency_transition(adjacency) : isis_adjacency_advertise_is_reach(adjacency);
+                        isis_update_dis_on_adjacency_transition(adjacency) : isis_adjacency_withdraw_is_reach(adjacency);
                     break;
                 case ISIS_ADJ_STATE_INIT:
                     assert(0);

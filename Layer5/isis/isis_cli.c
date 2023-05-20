@@ -148,6 +148,7 @@ isis_intf_config_handler(param_t *param,
 
     int cmdcode = -1;
     uint16_t priority;
+    uint32_t metric;
     node_t *node = NULL;
     char *intf_name = NULL;
     Interface *intf = NULL;
@@ -168,6 +169,8 @@ isis_intf_config_handler(param_t *param,
             if_grp_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "priority"))
             priority = atoi(tlv->value);
+        else if (parser_match_leaf_id(tlv->leaf_id, "metric"))
+            metric = atoi(tlv->value);            
    } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -261,6 +264,13 @@ isis_intf_config_handler(param_t *param,
             }
             return isis_interface_set_priority (intf, priority);
             break;
+        case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC:
+            intf = node_get_intf_by_name(node, intf_name);
+            if (!intf) {
+                    printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+            }
+            return isis_interface_set_metric (intf, metric);
         default: ;
     }
     return 0;
@@ -558,6 +568,20 @@ isis_config_cli_tree(param_t *param) {
                         ("Intf Priority Value"));
                         libcli_register_param(&priority, &priority_val);
                         set_param_cmd_code(&priority_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY);
+                    }
+                }
+                {
+                    /* config node <node-name> protocol isis interface <if-name> metric... */
+                    static param_t metric;
+                    init_param(&metric, CMD, "metric", NULL, 0, INVALID, 0, "Interface metric (0 - 65535)");
+                    libcli_register_param(&if_name, &metric);
+                    {
+                        /* config node <node-name> protocol isis interface <if-name> metric <val>*/
+                        static param_t metric_val;
+                        init_param(&metric_val, LEAF, 0, isis_intf_config_handler, 0, INT, "metric",
+                                   ("Intf Metric Value"));
+                        libcli_register_param(&metric, &metric_val);
+                        set_param_cmd_code(&metric_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC);
                     }
                 }
             }

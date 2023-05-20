@@ -260,6 +260,12 @@ ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     XFREE(ted_node);
 }
 
+void
+ted_detach_node (ted_db_t *ted_db, ted_node_t *ted_node) {
+
+    ted_unplug_all_remote_interfaces(ted_node);
+}
+
 bool
 ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node) {
 
@@ -293,7 +299,7 @@ ted_node_lookup_intf (ted_node_t *node, uint32_t ifindex) {
     return NULL;
 }
 
-ted_link_t *
+static ted_link_t *
 ted_resurrect_link (ted_db_t *ted_db,
                                 uint32_t from_node_rtr_id,
                                 uint8_t from_node_pn_no,
@@ -302,11 +308,21 @@ ted_resurrect_link (ted_db_t *ted_db,
                                 uint32_t to_node_rtr_id,
                                 uint8_t to_node_pn_no,
                                 uint32_t to_ifindex,
-                                uint32_t remote_ip) {
+                                uint32_t remote_ip,
+                                uint32_t from_metric) {
     
     ted_link_t *link;
+    uint32_t to_metric;
     bool to_node_new = false;
     bool from_node_new = false;
+    
+    if (from_node_pn_no && !to_node_pn_no) {
+        assert (from_metric > 0);
+    }
+
+    if (!from_node_pn_no && to_node_pn_no) {
+        assert (!from_metric);
+    }
 
     ted_node_t *from_node = ted_lookup_node (ted_db, from_node_rtr_id, from_node_pn_no);
     
@@ -324,12 +340,6 @@ ted_resurrect_link (ted_db_t *ted_db,
         ted_insert_node_in_teddb(ted_db, to_node);
         to_node_new = true;
     }
-
-    /* Adjust interface indexes to handle PNs. We are creating
-        an illusion here that PN's local interfaces has valid ifindices*/
-    assert (!(from_node_pn_no && to_node_pn_no));
-    if (from_node_pn_no) from_if_index = remote_ip;
-    if (to_node_pn_no) to_ifindex = local_ip;
     
     ted_intf_t *from_intf = from_node_new ?
             NULL : ted_node_lookup_intf (from_node, from_if_index);
@@ -345,6 +355,7 @@ ted_resurrect_link (ted_db_t *ted_db,
         }
         from_intf->ifindex = from_if_index;
         from_intf->ip_addr = local_ip;
+        from_intf->cost = from_metric;
         ted_plug_in_interface(
                             from_node, from_intf );
         link = from_intf->link;
@@ -353,6 +364,7 @@ ted_resurrect_link (ted_db_t *ted_db,
 
     else if ( from_intf && !to_intf ) {
 
+        from_intf->cost = from_metric;
         to_intf = ted_link_get_other_interface(from_intf);
         if (ted_is_interface_plugged_in(to_intf)) {
             ted_plug_out_interface(to_intf);
@@ -367,11 +379,12 @@ ted_resurrect_link (ted_db_t *ted_db,
 
     else if (from_intf && to_intf ) { 
         
+        from_intf->cost = from_metric;
         if (from_intf->link == to_intf->link) {
             link = to_intf->link;
             goto done;
         }
-
+         to_metric = to_intf->cost;
          ted_plug_out_interface(from_intf);
          ted_plug_out_interface(to_intf);
 
@@ -396,6 +409,8 @@ ted_resurrect_link (ted_db_t *ted_db,
         link = ted_create_link (0, from_if_index, to_ifindex, local_ip, 0, remote_ip, 0);
         ted_plug_in_interface(from_node, &link->intf1);
         ted_plug_in_interface(to_node, &link->intf2);
+        link->intf1.cost = from_metric;
+        link->intf2.cost = to_metric;
         goto done;
     }
 
@@ -404,6 +419,7 @@ ted_resurrect_link (ted_db_t *ted_db,
         link = ted_create_link (0, from_if_index, to_ifindex, local_ip, 0, remote_ip, 0);
         ted_plug_in_interface(from_node, &link->intf1);
         ted_plug_in_interface(to_node, &link->intf2);
+        link->intf1.cost = from_metric;
         goto done;
     }
 
@@ -418,59 +434,77 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
     uint8_t i = 0;
     ted_link_t * link;
-    ted_node_t *node;
+    ted_node_t *ted_node;
+    unsigned char ip_addr_str[16];
     ted_intf_t *from_intf, *to_intf;
+    uint32_t from_ifindex, to_ifindex;
     ted_template_nbr_data_t *nbr_data;
 
-    /* Delete the node, we would create it again from scratch. This is 
-        Simplification and a bit brute-force*/
-    ted_delete_node_by_id(ted_db, template_node_data->rtr_id, template_node_data->pn_no);
-
-    node = ted_create_node(template_node_data->rtr_id, template_node_data->pn_no, false);
-    string_copy((char *)node->node_name, template_node_data->node_name, NODE_NAME_SIZE);
-    node->flags = template_node_data->flags;
-    node->seq_no = template_node_data->seq_no;
-    ted_insert_node_in_teddb(ted_db, node);
-
-    for ( ; i < template_node_data->n_nbrs; i++) {
-
-       nbr_data = &template_node_data->nbr_data[i]; 
-       link = ted_resurrect_link (ted_db, 
-                                                template_node_data->rtr_id,  
-                                                template_node_data->pn_no,
-                                                nbr_data->local_if_index, 
-                                                nbr_data->local_ip,
-                                                nbr_data->nbr_rtr_id, 
-                                                nbr_data->nbr_pn_no,
-                                                nbr_data->remote_if_index,
-                                                nbr_data->remote_ip);
-       /* Fix up cost attributes */
-       from_intf = &link->intf1;
-       from_intf->cost = nbr_data->metric;
-       to_intf = &link->intf2;
-       to_intf->cost =  nbr_data->metric;
+    /* Delete the node, we would create it again from scratch. This is Simplification and a bit brute-force*/
+    ted_node = ted_lookup_node (ted_db,  template_node_data->rtr_id, template_node_data->pn_no);
+                     
+    if (ted_node) {
+        ted_unplug_all_remote_interfaces (ted_node) ;
+    }
+    else { 
+        ted_node = ted_create_node (template_node_data->rtr_id, template_node_data->pn_no, false);
+        ted_insert_node_in_teddb(ted_db, ted_node);
     }
 
-    node->prefix_tree_root = prefix_tree_root;
-    return node;
+    /* PNs dont have host name, cook up one for ease of debugging*/
+    if ( template_node_data->pn_no) {
+        tcp_ip_covert_ip_n_to_p (template_node_data->rtr_id, ip_addr_str);
+        snprintf ((char *)ted_node->node_name, NODE_NAME_SIZE, "%s-%hu",
+                            ip_addr_str, template_node_data->pn_no);
+    }
+    else {
+        string_copy((char *)ted_node->node_name, template_node_data->node_name, NODE_NAME_SIZE);
+    }
+
+    ted_node->flags = template_node_data->flags;
+    ted_node->seq_no = template_node_data->seq_no;
+
+    for (; i < template_node_data->n_nbrs; i++) {
+
+        nbr_data = &template_node_data->nbr_data[i];
+
+        /* Adjust interface indexes to handle PNs. We are creating
+        an illusion here that PN's local interfaces has valid ifindices*/
+        assert(!(template_node_data->pn_no && nbr_data->nbr_pn_no));
+        from_ifindex = (template_node_data->pn_no) ? nbr_data->remote_ip : nbr_data->local_if_index;
+        to_ifindex = (nbr_data->nbr_pn_no) ? nbr_data->local_ip : nbr_data->remote_if_index;
+
+        link = ted_resurrect_link(ted_db,
+                                  template_node_data->rtr_id,
+                                  template_node_data->pn_no,
+                                  from_ifindex,
+                                  nbr_data->local_ip,
+                                  nbr_data->nbr_rtr_id,
+                                  nbr_data->nbr_pn_no,
+                                  to_ifindex,
+                                  nbr_data->remote_ip,
+                                  nbr_data->metric);
+    }
+
+    ted_node->prefix_tree_root = prefix_tree_root;
+    return ted_node;
 }
-
-
 
 static uint32_t 
 ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
     uint32_t rc = 0;
-    ted_intf_t *intf, *other_intf;
     ted_node_t *nbr;
     char ip_addr[16];
     avltree_node_t *curr;
     ted_prefix_t *ted_prefix;
+    ted_intf_t *intf, *other_intf;
 
-    rc += sprintf(buff + rc, "Node : %s[%s-%hu]   flags : 0x%x\n", 
+    rc += sprintf(buff + rc, "Node : %s[%s-%hu][%u]   flags : 0x%x\n", 
                 node->node_name,
                 tcp_ip_covert_ip_n_to_p(node->rtr_id, ip_addr), 
                 node->pn_no,
+                node->seq_no,
                 node->flags);
     
     if (node->is_fake) {
@@ -536,7 +570,7 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
 
         node = avltree_container_of(avl_node, ted_node_t , avl_glue);
         rc +=  ted_show_one_node (node, buff + rc, detail);
-    } ITERATE_AVL_TREE_END(&ted_db->teddb, avl_node);
+    } ITERATE_AVL_TREE_END;
     return rc;
 }
 

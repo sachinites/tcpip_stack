@@ -107,6 +107,9 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 bool
 isis_interface_qualify_to_send_hellos (Interface *intf);
 
+void
+isis_send_hello_immediately (Interface *intf) ;
+
 uint32_t 
 isis_show_all_intf_stats (node_t *node);
 
@@ -118,6 +121,9 @@ isis_config_interface_link_type (Interface *intf, isis_intf_type_t intf_type);
 
 int
 isis_interface_set_priority (Interface *intf, uint16_t priority);
+
+int
+isis_interface_set_metric (Interface *intf, uint32_t metric);
 
 void
 isis_interface_reset_stats (Interface *intf) ;

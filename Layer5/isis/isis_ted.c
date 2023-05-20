@@ -1,7 +1,6 @@
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_pkt.h"
-#include "../../ted/ted.h"
 #include "isis_ted.h"
 #include "isis_tlv_struct.h"
 
@@ -9,7 +8,7 @@ extern int
 avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
 
 void
-isis_ted_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     uint16_t n_tlv22;
     uint32_t metric;
@@ -128,6 +127,18 @@ isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 }
 
 void
+isis_ted_detach_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+
+    ted_db_t *ted_db = ISIS_TED_DB(node);
+    uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
+    uint8_t pn_no = isis_get_lsp_pkt_pn_id (lsp_pkt);
+    ted_node_t *ted_node = ted_lookup_node(ted_db, *rtr_id, pn_no);
+    if (!ted_node) return;
+    isis_spf_cleanup_spf_data(ted_node);
+    ted_unplug_all_remote_interfaces (ted_node);
+}
+
+void
 isis_cleanup_teddb_root(node_t *node) {
 
     ted_db_t *ted_db = ISIS_TED_DB(node);
@@ -136,3 +147,12 @@ isis_cleanup_teddb_root(node_t *node) {
     XFREE(ted_db);
     ISIS_TED_DB(node) = NULL;
  }
+
+void
+isis_ted_increase_seq_no (node_t *node, uint32_t rtr_id, uint8_t pn_no) {
+
+    ted_db_t *ted_db = ISIS_TED_DB(node);
+    if (!ted_db) return;
+    ted_node_t *ted_node = ted_lookup_node(ted_db, rtr_id, pn_no);
+    ted_node->seq_no++;
+}

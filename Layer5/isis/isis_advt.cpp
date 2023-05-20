@@ -11,6 +11,7 @@
 #include "isis_adjacency.h"
 #include"isis_policy.h"
 #include "isis_dis.h"
+#include "isis_ted.h"
 #include "isis_cmdcodes.h"
 
 static int 
@@ -45,7 +46,7 @@ isis_fragment_bind_advt_data (
     assert (!IS_QUEUED_UP_IN_THREAD (&advt_data->glue));
     assert ((ISIS_LSP_MAX_PKT_SIZE - fragment->bytes_filled) >= advt_data->tlv_size);
 
-    glthread_add_last (&fragment->tlv_list_head, &advt_data->glue);
+    glthread_add_next (&fragment->tlv_list_head, &advt_data->glue);
     advt_data->fragment = fragment;
     isis_fragment_lock (fragment);
     fragment->bytes_filled += advt_data->tlv_size;
@@ -289,7 +290,7 @@ isis_advertise_tlv (node_t *node,
         new_advt_db = true;
     }
 
-    curr = glthread_get_next(&advt_db->fragment_priority_list);
+    curr = glthread_get_next (&advt_db->fragment_priority_list);
 
     if (curr) {
         fragment = isis_priority_list_glue_to_fragment(curr);
@@ -318,15 +319,6 @@ isis_advertise_tlv (node_t *node,
         advt_db->fragments[frag_no] = fragment;
         isis_fragment_lock(fragment);
     }
-
-        if (0 && pn_no && !frag_no) {
-
-            isis_adv_data_t *advt_data_hname = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
-            advt_data_hname->tlv_no = ISIS_TLV_HOSTNAME;
-            snprintf (advt_data_hname->u.host_name, NODE_NAME_SIZE, "%s-PN", node->node_name);
-            advt_data_hname->tlv_size = isis_get_adv_data_size(advt_data_hname);
-            isis_advertise_advt_data_in_this_fragment(node, advt_data_hname, fragment, true);
-        }
     
     isis_fragment_bind_advt_data (node, fragment, adv_data);
 
@@ -630,6 +622,7 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
     isis_fragment_unlock(node, fragment);
 
     isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
+    isis_ted_uninstall_lsp(node, fragment->lsp_pkt);
 
     /* Cancel fragment regeneration if scheduled*/
     if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
@@ -948,6 +941,7 @@ isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) {
     isis_mark_isis_lsp_pkt_flood_ineligible (node, lsp_pkt);
     #endif
     isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+    isis_ted_uninstall_lsp (node, lsp_pkt);
 
     if (lsp_pkt->fragment == fragment) {
         lsp_pkt->fragment = NULL;

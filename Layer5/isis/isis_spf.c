@@ -253,13 +253,13 @@ void
 isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
     /*Initialize direct nbrs*/
-    ted_intf_t *oif;
     char ip_addr[16];
-    uint32_t nxt_hop_ip ;
+    ted_intf_t *oif, *oif2;
     ted_node_t *nbr = NULL;
-    ted_node_t *nbr_of_pn = NULL;
     nexthop_t *nexthop = NULL;
     isis_spf_data_t *nbr_spf_data;
+    ted_node_t *nbr_of_pn = NULL;
+    uint32_t nxt_hop_ip , nxt_hop_ip2;
 
     ITERATE_TED_NODE_NBRS_BEGIN(ted_spf_root, nbr, oif, nxt_hop_ip){
 
@@ -316,9 +316,9 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
              nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
              nbr_spf_data->spf_metric = root_to_pn_cost;
 
-             ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif, nxt_hop_ip){
+             ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif2, nxt_hop_ip2){
 
-                    if (!ted_is_link_bidirectional(oif->link)) continue;
+                    if (!ted_is_link_bidirectional(oif2->link)) continue;
                     if (nbr_of_pn == ted_spf_root) continue;
 
                     /*Step 2.1 : Begin*/
@@ -328,10 +328,10 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     {
                          nh_flush_nexthops(nbr_spf_data->nexthops);
                          nexthop = nh_create_new_nexthop(root_to_pn_oif->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_ISIS);
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
-                         nbr_spf_data->spf_metric = root_to_pn_cost + oif->cost;
+                         nbr_spf_data->spf_metric = root_to_pn_cost + oif2->cost;
                     }
                     /*Step 2.1 : End*/
 
@@ -339,15 +339,15 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     /*Cover the ECMP case*/
                     else if (root_to_pn_cost== nbr_spf_data->spf_metric)
                     {
-                         nexthop = nh_create_new_nexthop(oif->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr),
+                         nexthop = nh_create_new_nexthop(oif2->ifindex,
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr),
                                                          PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                     }
 
 
-             } ITERATE_TED_NODE_NBRS_END(nbr, nbr_of_pn, oif, nxt_hop_ip);
+             } ITERATE_TED_NODE_NBRS_END(nbr, nbr_of_pn, oif2, nxt_hop_ip2);
         }
 
         /*Step 2.2 : End*/
@@ -659,8 +659,8 @@ isis_compute_spf (node_t *spf_root){
 
             ITERATE_TED_NODE_NBRS_BEGIN(curr_spf_data->node, nbr, oif, nxt_hop_ip){
 
-                if(!ted_is_link_bidirectional(oif->link)) continue;
-                
+               if(!ted_is_link_bidirectional(oif->link)) continue;
+                                
                 nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
                 if(IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){
                     #if ISIS_SPF_LOGGING

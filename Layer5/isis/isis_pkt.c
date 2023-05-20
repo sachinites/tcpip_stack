@@ -9,6 +9,7 @@
 #include "isis_lspdb.h"
 #include "isis_spf.h"
 #include "isis_policy.h"
+#include "isis_ted.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 
@@ -609,6 +610,7 @@ lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_siz
 
     node_t *node;
     uint32_t *seq_no;
+    ted_node_t *ted_node;
     isis_lsp_pkt_t *lsp_pkt;
     avltree_t *lspdb = isis_get_lspdb_root(node);
 
@@ -619,6 +621,13 @@ lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_siz
     seq_no = isis_get_lsp_pkt_seq_no (lsp_pkt);
     (*seq_no)++;
     lsp_pkt->fragment->seq_no = *seq_no;
+    #if 1
+        isis_ted_increase_seq_no (node, 
+            *isis_get_lsp_pkt_rtr_id (lsp_pkt),
+            isis_get_lsp_pkt_pn_id (lsp_pkt));
+    #else 
+        isis_ted_update_or_install_lsp (node, lsp_pkt);
+    #endif
     isis_schedule_lsp_flood (node, lsp_pkt, NULL);
 }
 

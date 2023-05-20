@@ -19,7 +19,7 @@ isis_install_lsp(node_t *node,
                  isis_lsp_pkt_t *new_lsp_pkt);
 
 void
-isis_cleanup_lsdb(node_t *node);
+isis_cleanup_lsdb(node_t *node, bool ted_remove);
 
 bool
 isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pk1, isis_lsp_pkt_t *lsp_pkt2);
@@ -41,10 +41,11 @@ void
 isis_refresh_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt);
+isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt );
 
 void
-isis_remove_lsp_from_lspdb(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no);
+isis_remove_lsp_from_lspdb(node_t *node, uint32_t rtr_id, 
+                                               pn_id_t pn_id, uint8_t fr_no);
 
 bool
 isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt);

@@ -93,7 +93,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
 
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = build_dualswitch_topo();
+    topo = cross_link_topology();
     init_tcp_ip_stack();
     start_shell(); 
     return 0;

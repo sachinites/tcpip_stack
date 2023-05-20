@@ -133,17 +133,6 @@ ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node);
 ted_node_t *
 ted_create_node(uint32_t rtr_id, bool is_fake);
 
-ted_link_t *
-ted_resurrect_link (ted_db_t *ted_db,
-                                uint32_t from_node_rtr_id,
-                                uint8_t from_node_pn_no,
-                                uint32_t from_if_index,
-                                uint32_t local_ip,
-                                uint32_t to_node_rtr_id,
-                                uint8_t to_node_pn_no,
-                                uint32_t to_ifindex,
-                                uint32_t remote_ip);
-
 /* Public APIs */
 
 typedef struct ted_template_nbr_data_ {
@@ -173,6 +162,9 @@ ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no);
 
 void
 ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
+
+void
+ted_detach_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
 
 void
 ted_create_or_update_node (ted_db_t *ted_db,

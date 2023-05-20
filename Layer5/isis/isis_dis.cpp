@@ -260,7 +260,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->tlv_no = ISIS_IS_REACH_TLV;
     advt_data->u.adj_data.nbr_sys_id.rtr_id = intf_info->elected_dis.rtr_id;
     advt_data->u.adj_data.nbr_sys_id.pn_id = intf_info->elected_dis.pn_id;
-    advt_data->u.adj_data.metric = intf_info->cost;
+    advt_data->u.adj_data.metric = 0;
     advt_data->u.adj_data.local_ifindex = intf->ifindex;
     advt_data->u.adj_data.remote_ifindex = 0;
     advt_data->u.adj_data.local_intf_ip =  IF_IP(intf);
@@ -301,7 +301,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->src.holder = &intf_info->lan_pn_to_self_adv_data;
     advt_data->tlv_no = ISIS_IS_REACH_TLV;
     advt_data->u.adj_data.nbr_sys_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
-    advt_data->u.adj_data.metric = 0;
+    advt_data->u.adj_data.metric = intf_info->cost;
     advt_data->u.adj_data.local_ifindex = 0;
     advt_data->u.adj_data.remote_ifindex = intf->ifindex;
     advt_data->u.adj_data.local_intf_ip = 0;

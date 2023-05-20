@@ -67,7 +67,10 @@
  /* config node <node-name> protocol isis interface <if-name> priority <val>*/
 #define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY 29
 
+ /* config node <node-name> protocol isis interface <if-name> metric <val>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC 30
+
 /* show node <node-name> protocol isis link-state-database*/
-#define CMCODE_SHOW_ISIS_ADVT_DB  30
+#define CMCODE_SHOW_ISIS_ADVT_DB  31
 
 #endif /* __ISIS_CMDCODES__ */

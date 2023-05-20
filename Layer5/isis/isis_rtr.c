@@ -99,7 +99,7 @@ isis_protocol_shutdown_now (node_t *node) {
 
     Interface *intf;
 
-    isis_cleanup_lsdb(node);
+    isis_cleanup_lsdb(node, true);
     isis_cleanup_teddb_root(node);
     isis_intf_grp_cleanup(node);
     isis_node_cancel_all_queued_jobs(node);
