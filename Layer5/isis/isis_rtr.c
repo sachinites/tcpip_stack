@@ -99,8 +99,6 @@ isis_protocol_shutdown_now (node_t *node) {
 
     Interface *intf;
 
-    isis_cleanup_lsdb(node, true);
-    isis_cleanup_teddb_root(node);
     isis_intf_grp_cleanup(node);
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
@@ -113,7 +111,11 @@ isis_protocol_shutdown_now (node_t *node) {
         isis_disable_protocol_on_interface(intf);
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
+    /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node, 0);
+    isis_cleanup_lsdb(node, true);
+    isis_cleanup_teddb (node);
+
     isis_check_delete_node_info(node); 
 }
 

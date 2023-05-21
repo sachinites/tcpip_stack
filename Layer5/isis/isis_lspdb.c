@@ -443,8 +443,16 @@ isis_cleanup_lsdb (node_t *node, bool ted_remove) {
     ITERATE_AVL_TREE_BEGIN(lspdb, curr){
 
         lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
-        isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
-        if (ted_remove) isis_ted_uninstall_lsp (node, lsp_pkt);
+
+        if (ted_remove) {
+            isis_lsp_pkt_prevent_premature_deletion(lsp_pkt);
+            isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+            isis_ted_uninstall_lsp (node, lsp_pkt);
+            isis_lsp_pkt_relieve_premature_deletion(node, lsp_pkt);
+        }
+        else {
+            isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+        }
 
     } ITERATE_AVL_TREE_END;
 }

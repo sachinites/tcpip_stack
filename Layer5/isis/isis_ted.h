@@ -19,6 +19,9 @@ void
 isis_cleanup_teddb_root (node_t *node) ;
 
 void
+isis_cleanup_teddb (node_t *node) ;
+
+void
 isis_ted_increase_seq_no (node_t *node, uint32_t rtr_id, uint8_t pn_no);
 
 #endif /**/

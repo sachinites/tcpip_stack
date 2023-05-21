@@ -310,7 +310,10 @@ isis_update_interface_adjacency_from_hello(
             reelect_dis = true;
     }
 
-    if (reelect_dis) {
+    if (reelect_dis && 
+            (adjacency->adj_state == ISIS_ADJ_STATE_DOWN || 
+            adjacency->adj_state == ISIS_ADJ_STATE_UP)) {
+    
         isis_update_dis_on_adjacency_transition (adjacency);
     }
 

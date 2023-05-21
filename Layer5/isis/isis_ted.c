@@ -139,6 +139,37 @@ isis_ted_detach_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 }
 
 void
+isis_ted_increase_seq_no (node_t *node, uint32_t rtr_id, uint8_t pn_no) {
+
+    ted_db_t *ted_db = ISIS_TED_DB(node);
+    if (!ted_db) return;
+    ted_node_t *ted_node = ted_lookup_node(ted_db, rtr_id, pn_no);
+    ted_node->seq_no++;
+}
+
+void
+isis_cleanup_teddb (node_t *node) {
+
+    ted_node_t *ted_node;
+    ted_db_t *ted_db = ISIS_TED_DB(node);
+    
+    if (!ted_db) return;
+    
+    avltree_node_t *curr;
+    avltree_t *teddb_tree = &ted_db->teddb;
+
+    ITERATE_AVL_TREE_BEGIN(teddb_tree, curr){
+
+        ted_node = avltree_container_of(curr, ted_node_t, avl_glue);
+        ted_delete_node (ted_db, ted_node);
+
+    } ITERATE_AVL_TREE_END;
+
+    XFREE(ted_db);
+    ISIS_TED_DB(node) = NULL;
+}
+
+void
 isis_cleanup_teddb_root(node_t *node) {
 
     ted_db_t *ted_db = ISIS_TED_DB(node);
@@ -147,12 +178,3 @@ isis_cleanup_teddb_root(node_t *node) {
     XFREE(ted_db);
     ISIS_TED_DB(node) = NULL;
  }
-
-void
-isis_ted_increase_seq_no (node_t *node, uint32_t rtr_id, uint8_t pn_no) {
-
-    ted_db_t *ted_db = ISIS_TED_DB(node);
-    if (!ted_db) return;
-    ted_node_t *ted_node = ted_lookup_node(ted_db, rtr_id, pn_no);
-    ted_node->seq_no++;
-}
