@@ -70,7 +70,7 @@ isis_send_hello_immediately (Interface *intf) {
         new_hello = false;
     }
     else {
-    
+
         hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
         new_hello = true;
     }

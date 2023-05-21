@@ -249,7 +249,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     return count;
 }
 
-void
+static void
 isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
     /*Initialize direct nbrs*/
@@ -276,8 +276,9 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     if (oif->cost < nbr_spf_data->spf_metric)
                     {
                          nh_flush_nexthops(nbr_spf_data->nexthops);
-                         nexthop = nh_create_new_nexthop(oif->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_STATIC);
+                         nexthop = nh_create_new_nexthop(nbr->node_name,
+                                                         oif->ifindex,
+                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          nbr_spf_data->spf_metric = oif->cost;
@@ -288,7 +289,8 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     /*Cover the ECMP case*/
                     else if (oif->cost == nbr_spf_data->spf_metric)
                     {
-                         nexthop = nh_create_new_nexthop(oif->ifindex,
+                         nexthop = nh_create_new_nexthop(nbr->node_name,
+                                                        oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr),
                                                          PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
@@ -313,21 +315,22 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
               uint32_t root_to_pn_cost = oif->cost;
               ted_intf_t *root_to_pn_oif = oif;
-             nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
-             nbr_spf_data->spf_metric = root_to_pn_cost;
+              nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr);
+              nbr_spf_data->spf_metric = root_to_pn_cost;
 
-             ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif2, nxt_hop_ip2){
+              ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif2, nxt_hop_ip2){
 
-                    if (!ted_is_link_bidirectional(oif2->link)) continue;
+                     if (!ted_is_link_bidirectional(oif2->link)) continue;
                     if (nbr_of_pn == ted_spf_root) continue;
 
                     /*Step 2.1 : Begin*/
                     nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr_of_pn);
                     /*Populate nexthop array of directly connected nbrs of spf_root*/
-                    if (root_to_pn_cost < nbr_spf_data->spf_metric)
+                    if ( (root_to_pn_cost + oif2-> cost ) < nbr_spf_data->spf_metric)
                     {
                          nh_flush_nexthops(nbr_spf_data->nexthops);
-                         nexthop = nh_create_new_nexthop(root_to_pn_oif->ifindex,
+                         nexthop = nh_create_new_nexthop(nbr_of_pn->node_name,
+                                                        root_to_pn_oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
@@ -337,9 +340,10 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
                     /*Step 2.2 : Begin*/
                     /*Cover the ECMP case*/
-                    else if (root_to_pn_cost== nbr_spf_data->spf_metric)
+                    else if ((root_to_pn_cost + oif2-> cost )== nbr_spf_data->spf_metric)
                     {
-                         nexthop = nh_create_new_nexthop(oif2->ifindex,
+                         nexthop = nh_create_new_nexthop(nbr_of_pn->node_name,
+                                                         oif2->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr),
                                                          PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
@@ -354,12 +358,13 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
     } ITERATE_TED_NODE_NBRS_END(ted_spf_root, nbr, oif, nxt_hop_ip);
 }
 
-#define ISIS_SPF_LOGGING 1
+#define ISIS_SPF_LOGGING 0
 
 static void
 isis_spf_record_result (ted_node_t *spf_root, 
                                     ted_node_t *processed_node){ /*Dequeued Node*/
 
+    unsigned char log_buff[256];
     isis_spf_data_t *spf_root_spf_data;
     isis_spf_data_t *processed_node_spf_data;
 
@@ -392,7 +397,7 @@ isis_spf_record_result (ted_node_t *spf_root,
             "Next hops : %s, spf_metric = %u\n",
             spf_root->node_name, 
             processed_node->node_name,
-            nh_nexthops_str(spf_result->nexthops),
+            nh_nexthops_str(spf_result->nexthops, log_buff, sizeof(log_buff)),
             spf_result->spf_metric);
     #endif
     /*Add the result Data structure for node which has been processed
@@ -413,6 +418,7 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
     ted_intf_t *oif;
     ted_node_t *nbr;
     uint32_t nxt_hop_ip;
+    unsigned char log_buf[256];
 
     isis_spf_data_t *curr_node_spf_data = ISIS_NODE_SPF_DATA(curr_node);
     isis_spf_data_t *nbr_node_spf_data;
@@ -476,7 +482,8 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
             printf("root : %s : Event : Primary Nexthops Copied "
             "from Node %s to Node %s, Next hops : %s\n",
                     spf_root->node_name, curr_node->node_name, 
-                    nbr->node_name, nh_nexthops_str(nbr_node_spf_data->nexthops));
+                    nbr->node_name,
+                    nh_nexthops_str(nbr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
             #endif
             /*If the nbr node is already present in PQ, remove it from PQ and it 
              * back so that it takes correct position in PQ as per new spf metric*/
@@ -507,13 +514,36 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
                     nbr_node_spf_data->spf_metric){
         #if ISIS_SPF_LOGGING
             printf("root : %s : Event : Primary Nexthops Union of Current Node"
-                    " %s(%s) with Nbr Node %s(%s)\n",
+                    " %s(%s) with Nbr Node ",
                     spf_root->node_name,  curr_node->node_name, 
-                    nh_nexthops_str(curr_node_spf_data->nexthops),
-                    nbr->node_name, nh_nexthops_str(nbr_node_spf_data->nexthops));
+                    nh_nexthops_str(curr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
+            printf("%s(%s)\n",  nbr->node_name, 
+                    nh_nexthops_str(nbr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
         #endif
             nh_union_nexthops_arrays(curr_node_spf_data->nexthops,
                     nbr_node_spf_data->nexthops);
+
+            /*If the nbr node is already present in PQ, remove it from PQ and it 
+             * back so that it takes correct position in PQ as per new spf metric. This Code
+                is required for topologies containing VLANs/PNs. Remove below step and
+                build_dualswitch_topo( ) will fail to compute routes*/
+            if(!IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){
+                #if ISIS_SPF_LOGGING
+                printf("root : %s : Event : Node %s Already On priority Queue, removing it from PQ\n",
+                        spf_root->node_name, nbr->node_name);
+                #endif
+                remove_glthread(&nbr_node_spf_data->priority_thread_glue);
+            }
+            #if ISIS_SPF_LOGGING
+            printf("root : %s : Event : Node %s inserted into priority Queue "
+                        "with spf_metric = %u\n",
+                         spf_root->node_name,  nbr->node_name, nbr_node_spf_data->spf_metric);
+            #endif
+            glthread_priority_insert(priority_lst, 
+                    &nbr_node_spf_data->priority_thread_glue,
+                    isis_spf_comparison_fn, 
+                    isis_spf_data_offset_from_priority_thread_glue);
+
         }
         /*Step 6.2 : End*/
     } ITERATE_TED_NODE_NBRS_END(curr_node, nbr, oif, nxt_hop_ip);
@@ -521,7 +551,7 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
     #if ISIS_SPF_LOGGING
     printf("root : %s : Event : Node %s has been processed, nexthops %s\n",
             spf_root->node_name, curr_node->node_name, 
-            nh_nexthops_str(curr_node_spf_data->nexthops));
+            nh_nexthops_str(curr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
     #endif
     /* We are done processing the curr_node, remove its nexthops to lower the
      * ref count*/
@@ -761,7 +791,6 @@ isis_run_spf(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     node_info->spf_job_task = NULL;
-    return ;
 
     ISIS_INCREMENT_NODE_STATS(node, spf_runs);
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_spf_runs]);

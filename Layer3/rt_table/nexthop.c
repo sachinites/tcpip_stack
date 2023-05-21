@@ -27,11 +27,14 @@ nh_flush_nexthops(nexthop_t **nexthop){
 }
 
 nexthop_t *
-nh_create_new_nexthop(uint32_t oif_index, c_string gw_ip, uint8_t proto){
+nh_create_new_nexthop(c_string node_name, uint32_t oif_index, c_string gw_ip, uint8_t proto){
 
     nexthop_t *nexthop = ( nexthop_t *)XCALLOC(0, 1, nexthop_t);
     nexthop->ifindex = oif_index;
     string_copy((char *)nexthop->gw_ip, gw_ip, 16);
+    if (node_name) {
+        string_copy (nexthop->node_name , node_name, NODE_NAME_SIZE);
+    }
     nexthop->ref_count = 0;
     nexthop->proto = proto;
     return nexthop;
@@ -97,18 +100,17 @@ nh_union_nexthops_arrays(nexthop_t **src, nexthop_t **dst){
     return copied_count;
 }
 
-char *
-nh_nexthops_str(nexthop_t **nexthops){
+c_string
+nh_nexthops_str(nexthop_t **nexthops,  c_string buffer,  uint16_t buffer_size){
 
-    static char buffer[256];
-    memset(buffer, 0 , 256);
+    memset(buffer, 0 , buffer_size);
 
-    int i = 0;
+    int i = 0, rc = 0;
 
     for( ; i < MAX_NXT_HOPS; i++){
 
         if(!nexthops[i]) continue;
-        snprintf(buffer, 256, "%s ", nexthop_node_name(nexthops[i]));
+        rc += snprintf(buffer + rc, buffer_size - rc, "%s ", nexthops[i]->node_name);
     }
     return buffer;
 }

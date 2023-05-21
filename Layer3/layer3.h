@@ -125,9 +125,6 @@ typedef struct rt_table_{
     pthread_rwlock_t rwlock;
 } rt_table_t;
 
-#define nexthop_node_name(nexthop_ptr)  \
-    (nexthop_ptr->oif->GetNbrNode ()->node_name)
-
 #define RT_ADD_F        (1 << 0)
 #define RT_DEL_F         (1 << 1)
 #define RT_UPDATE_F (1 << 2)

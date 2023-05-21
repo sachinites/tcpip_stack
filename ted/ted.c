@@ -486,6 +486,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
                                   nbr_data->metric);
     }
 
+    ted_prefix_tree_cleanup_tree (ted_node);
     ted_node->prefix_tree_root = prefix_tree_root;
     return ted_node;
 }

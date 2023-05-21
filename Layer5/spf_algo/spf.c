@@ -238,7 +238,7 @@ initialize_direct_nbrs(node_t *spf_root){
         /*Populate nexthop array of directly connected nbrs of spf_root*/
         if (oif->GetIntfCost() < SPF_METRIC(nbr)){
             nh_flush_nexthops(nbr->spf_data->nexthops);
-            nexthop = nh_create_new_nexthop (oif->ifindex, nxt_hop_ip, PROTO_STATIC);
+            nexthop = nh_create_new_nexthop (nbr->node_name, oif->ifindex, nxt_hop_ip, PROTO_STATIC);
             nexthop->oif = oif;
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
             SPF_METRIC(nbr) = oif->GetIntfCost();
@@ -249,7 +249,7 @@ initialize_direct_nbrs(node_t *spf_root){
         /*Cover the ECMP case*/
         else if (oif->GetIntfCost() == SPF_METRIC(nbr)){
             tcp_ip_covert_ip_n_to_p(nxt_hop_ip, nxt_hop_ip_str);
-            nexthop = nh_create_new_nexthop (oif->ifindex, nxt_hop_ip_str, PROTO_STATIC);
+            nexthop = nh_create_new_nexthop (nbr->node_name, oif->ifindex, nxt_hop_ip_str, PROTO_STATIC);
             nexthop->oif = oif;
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
         }
@@ -263,6 +263,7 @@ static void
 spf_record_result(node_t *spf_root, 
                   node_t *processed_node){ /*Dequeued Node*/
 
+    unsigned char log_buf[256];
     /*Step 5 : Begin*/
     /* We are here because the node taken off the PQ is some node in Graph
      * to which shortest path has been calculated. We are done with this node
@@ -293,7 +294,7 @@ spf_record_result(node_t *spf_root,
     printf("root : %s : Event : Result Recorded for node %s, "
             "Next hops : %s, spf_metric = %u\n",
             spf_root->node_name, processed_node->node_name,
-            nh_nexthops_str(spf_result->nexthops),
+            nh_nexthops_str(spf_result->nexthops, log_buf, sizeof(log_buf)),
             spf_result->spf_metric);
     #endif
     /*Add the result Data structure for node which has been processed
@@ -314,6 +315,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
     Interface *oif;
     uint32_t nxt_hop_ip;
     byte nxt_hop_ip_str[16];
+    unsigned char log_buf[256];
 
     #if SPF_LOGGING
     printf("root : %s : Event : Nbr Exploration Start for Node : %s\n",
@@ -362,7 +364,8 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
             printf("root : %s : Event : Primary Nexthops Copied "
             "from Node %s to Node %s, Next hops : %s\n",
                     spf_root->node_name, curr_node->node_name, 
-                    nbr->node_name, nh_nexthops_str(nbr->spf_data->nexthops));
+                    nbr->node_name, 
+                    nh_nexthops_str(nbr->spf_data->nexthops,  log_buf, sizeof(log_buf)));
             #endif
             /*If the nbr node is already present in PQ, remove it from PQ and it 
              * back so that it takes correct position in PQ as per new spf metric*/
@@ -395,8 +398,9 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
             printf("root : %s : Event : Primary Nexthops Union of Current Node"
                     " %s(%s) with Nbr Node %s(%s)\n",
                     spf_root->node_name,  curr_node->node_name, 
-                    nh_nexthops_str(curr_node->spf_data->nexthops),
-                    nbr->node_name, nh_nexthops_str(nbr->spf_data->nexthops));
+                    nh_nexthops_str(curr_node->spf_data->nexthops,  log_buf, sizeof(log_buf)),
+                    nbr->node_name, 
+                    nh_nexthops_str(nbr->spf_data->nexthops,  log_buf, sizeof(log_buf)));
         #endif
             nh_union_nexthops_arrays(curr_node->spf_data->nexthops,
                     nbr->spf_data->nexthops);
@@ -407,7 +411,7 @@ spf_explore_nbrs(node_t *spf_root,   /*Only used for logging*/
     #if SPF_LOGGING
     printf("root : %s : Event : Node %s has been processed, nexthops %s\n",
             spf_root->node_name, curr_node->node_name, 
-            nh_nexthops_str(curr_node->spf_data->nexthops));
+            nh_nexthops_str(curr_node->spf_data->nexthops,  log_buf, sizeof(log_buf)));
     #endif
     /* We are done processing the curr_node, remove its nexthops to lower the
      * ref count*/
@@ -559,14 +563,14 @@ show_spf_results(node_t *node){
             oif = res->nexthops[i]->oif;
             if(j == 0){
                 printf("%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
-                        nexthop_node_name(res->nexthops[i]),
+                        res->nexthops[i]->node_name,
                         oif->if_name.c_str(), res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }
             else{
                 printf("                                              : "
                         "%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
-                        nexthop_node_name(res->nexthops[i]),
+                        res->nexthops[i]->node_name,
                         oif->if_name.c_str(), res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }
