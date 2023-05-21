@@ -51,6 +51,7 @@ isis_init_node_spf_data(ted_node_t *node, bool delete_spf_result){
     spf_data->spf_metric = ISIS_INFINITE_METRIC;
     remove_glthread(&spf_data->priority_thread_glue);
     nh_flush_nexthops(spf_data->nexthops);
+    spf_data->is_spf_processed = false;
 }
 
 static int 
@@ -377,8 +378,9 @@ isis_spf_record_result (ted_node_t *spf_root,
      * hence record the spf result in spf_root's local data structure*/
 
     /*Record result*/
-    /*This result must not be present already*/
-    assert (!isis_spf_lookup_spf_result_by_node(spf_root, processed_node));
+    /*This result must not be present already but due to transient TEDs, anything
+        could happen, hence do not assert, just return*/
+    assert (!isis_spf_lookup_spf_result_by_node(spf_root, processed_node) );
 
     isis_spf_result_t *spf_result = XCALLOC(0, 1, isis_spf_result_t);
     /*We record three things as a part of spf result for a node in 
@@ -449,6 +451,14 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
         if(!ted_is_link_bidirectional(oif->link)) continue;
 
         nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
+
+        if (nbr_node_spf_data->is_spf_processed) {
+            #if ISIS_SPF_LOGGING
+            printf ("root : %s : Event : Nbr node %s skipped, already processed\n",
+                spf_root->node_name, nbr_node_spf_data->node->node_name);
+            #endif
+            continue;
+        }
 
         #if ISIS_SPF_LOGGING
         printf("root : %s : Event : Testing Inequality : " 
@@ -678,6 +688,7 @@ isis_compute_spf (node_t *spf_root){
         /*Step 4 : Begin*/
         curr = dequeue_glthread_first(&priority_lst);
         curr_spf_data = isis_priority_thread_glue_to_spf_data(curr);
+        curr_spf_data->is_spf_processed = true;
 
         #if ISIS_SPF_LOGGING
         printf("root : %s : Event : Node %s taken out of priority queue\n",

@@ -101,18 +101,9 @@ ted_plug_out_interface(ted_intf_t *intf) {
 bool
 ted_is_interface_plugged_in(ted_intf_t *intf) {
 
-    if  (!(intf->att_node &&
-            intf->slot_no != (~0) &&
-            intf->att_node->intf[intf->slot_no] == intf )) return false;
-
-    ted_intf_t *other_intf = ted_link_get_other_interface (intf);
-
-    if  (!(other_intf && 
-            other_intf->att_node &&
-            other_intf->slot_no != (~0) &&
-            other_intf->att_node->intf[other_intf->slot_no] == other_intf )) return false;
-
-    return true;
+     return (intf->att_node &&
+                 intf->slot_no != (~0) &&
+                 intf->att_node->intf[intf->slot_no] == intf );
 }
 
 bool
@@ -162,7 +153,12 @@ ted_unplug_all_remote_interfaces(ted_node_t *node) {
 
         other_intf = ted_link_get_other_interface (intf);
         if (!other_intf) continue;
+        
         ted_plug_out_interface(other_intf);
+
+        if (ted_is_link_dettached(intf->link)) {
+            XFREE(intf->link);
+        }
 
     } TED_ITERATE_NODE_INTF_END(node, intf);
 }
