@@ -161,6 +161,7 @@ isis_cleanup_teddb (node_t *node) {
     ITERATE_AVL_TREE_BEGIN(teddb_tree, curr){
 
         ted_node = avltree_container_of(curr, ted_node_t, avl_glue);
+        isis_spf_cleanup_spf_data (ted_node);
         ted_delete_node (ted_db, ted_node);
 
     } ITERATE_AVL_TREE_END;

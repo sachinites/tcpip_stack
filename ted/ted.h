@@ -198,4 +198,7 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
 void
 ted_prefix_tree_cleanup_tree (ted_node_t *node);
 
+void 
+ted_assert_check_protocol_data (ted_node_t *ted_node);
+
 #endif /* __TED__ */

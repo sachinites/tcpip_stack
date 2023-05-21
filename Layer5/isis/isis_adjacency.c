@@ -1130,13 +1130,9 @@ isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
 
     switch (rc) {
         case ISIS_TLV_RECORD_ADVT_SUCCESS:
-        break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
-        assert(0);
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
-        assert(0);
-        default:
-        assert(0);
+        default: ;
     }
     return rc;
 }

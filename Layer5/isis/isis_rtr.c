@@ -503,7 +503,7 @@ isis_stop_overload_timer(node_t *node) {
 }
 
 int
-isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
+isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
 
     int rc = 0;
     bool regen_lsp = false;
