@@ -36,6 +36,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     node_data->flags = lsp_pkt_hdr->flags;
     node_data->rtr_id = lsp_pkt_hdr->rtr_id;
     node_data->pn_no = lsp_pkt_hdr->pn_no;
+    node_data->fr_no = lsp_pkt_hdr->fr_no;
     node_data->seq_no = lsp_pkt_hdr->seq_no;
 
     ted_template_nbr_data_t *nbr_data;
@@ -99,6 +100,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             ted_prefix->mask = tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask);
             ted_prefix->metric = htonl(tlv_130->metric);
             ted_prefix->flags = tlv_130->flags;
+            ted_prefix->src = lsp_pkt_hdr->fr_no;
             avltree_insert(&ted_prefix->avl_glue, prefix_tree_root);
         }
         break;
@@ -110,7 +112,9 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     node_data->n_nbrs = n_tlv22;
     ted_db_t *ted_db = ISIS_TED_DB(node);
-    ted_create_or_update_node(ted_db, node_data, prefix_tree_root);
+    ted_create_or_update_node(ted_db, node_data, 
+                                                 prefix_tree_root,
+                                                 isis_spf_cleanup_spf_data);
     XFREE(node_data);
 }
 

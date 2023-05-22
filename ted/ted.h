@@ -9,6 +9,9 @@
 #define TED_OSPF_PROTO  1
 #define TED_MPLS_PROTO  (TED_PROTO_MAX - 1)
 
+typedef uint8_t ted_src_fr_no_t;
+#define TED_SRC_FR_NO_UNKNOWN   0xFF
+
 typedef struct ted_intf_{
 
     uint32_t ifindex;
@@ -24,6 +27,7 @@ typedef struct ted_link_ {
 
     ted_intf_t intf1;
     ted_intf_t intf2;
+    ted_src_fr_no_t src;
     void *proto_data[TED_PROTO_MAX];
 } ted_link_t;
 
@@ -33,6 +37,7 @@ typedef struct ted_prefix_ {
     uint8_t mask;
     uint32_t metric;
     uint8_t flags;
+    ted_src_fr_no_t src;
     avltree_node_t avl_glue;
 }ted_prefix_t;
 
@@ -116,7 +121,7 @@ bool
 ted_is_link_bidirectional (ted_link_t *ted_link);
 
 uint32_t 
-ted_cleanup_all_half_links (ted_node_t *node) ;
+ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) ;
 
 bool
 ted_is_interface_plugged_in(ted_intf_t *intf) ;
@@ -153,6 +158,7 @@ typedef struct  ted_template_node_data_ {
 
     uint32_t rtr_id;
     uint8_t pn_no;
+    uint8_t fr_no;
     char node_name[NODE_NAME_SIZE];
     uint32_t seq_no;
     uint8_t n_nbrs;
@@ -172,7 +178,8 @@ ted_detach_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree);
+            avltree_t *prefix_tree,
+            void (*cleanup_app_data) (ted_node_t *));
 
 uint32_t 
 ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, bool detail) ;
@@ -202,6 +209,17 @@ void
 ted_prefix_tree_cleanup_tree (ted_node_t *node);
 
 void 
+ted_prefix_tree_cleanup_internal (avltree_t *prefix_tree) ;
+
+void 
 ted_assert_check_protocol_data (ted_node_t *ted_node);
+
+/* APIs related to support for multiple fragments */
+
+void
+ted_relocate_link_src (ted_db_t *ted_db,
+                                     ted_link_t *link,
+                                     ted_src_fr_no_t src_fr_no,
+                                     ted_src_fr_no_t dst_fr_no);
 
 #endif /* __TED__ */

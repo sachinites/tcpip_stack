@@ -189,6 +189,7 @@ ted_create_link ( ted_link_t *ted_link ,
     ted_link->intf2.slot_no = ~0;
     ted_link->intf1.link = ted_link;
     ted_link->intf2.link = ted_link;
+    ted_link->src = TED_SRC_FR_NO_UNKNOWN;
     return ted_link;
 }
 
@@ -438,10 +439,12 @@ done:
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree_root) {
+            avltree_t *prefix_tree_root,
+            void (*cleanup_app_data) (ted_node_t *)) {
 
     uint8_t i = 0;
     ted_link_t * link;
+    bool lone_node;
     ted_node_t *ted_node;
     unsigned char ip_addr_str[16];
     ted_intf_t *from_intf, *to_intf;
@@ -492,12 +495,31 @@ ted_create_or_update_node (ted_db_t *ted_db,
                                   to_ifindex,
                                   nbr_data->remote_ip,
                                   nbr_data->metric);
+
+        /* Fix up the Src Fragment No*/
+        if (link->src == TED_SRC_FR_NO_UNKNOWN) {
+            link->src = template_node_data->fr_no;
+        }
+        else {
+            link->src != template_node_data->fr_no;
+            ted_relocate_link_src (ted_db, link, link->src, template_node_data->fr_no);
+        }
     }
 
+    ted_cleanup_all_half_links (ted_node, &lone_node);
     ted_prefix_tree_cleanup_tree (ted_node);
-    ted_cleanup_all_half_links (ted_node);
-    ted_node->prefix_tree_root = prefix_tree_root;
-    return ted_node;
+
+    if (lone_node) {
+        ted_prefix_tree_cleanup_internal (prefix_tree_root);
+        prefix_tree_root = NULL;
+        avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
+        cleanup_app_data (ted_node);
+        ted_assert_check_protocol_data (ted_node);
+        XFREE(ted_node);
+    }
+    else {
+        ted_node->prefix_tree_root = prefix_tree_root;
+    }
 }
 
 static uint32_t 
@@ -585,43 +607,62 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
 }
 
 /* TED prefix tree function */
-void
-ted_prefix_tree_cleanup_tree (ted_node_t *node) {
+
+void 
+ted_prefix_tree_cleanup_internal (avltree_t *prefix_tree) {
 
     avltree_node_t *curr;
     ted_prefix_t *ted_prefix;
 
-    if (!node->prefix_tree_root) return;
+    if (!prefix_tree) return;
 
-     ITERATE_AVL_TREE_BEGIN(node->prefix_tree_root, curr){
+     ITERATE_AVL_TREE_BEGIN(prefix_tree, curr){
 
          ted_prefix = avltree_container_of(curr, ted_prefix_t, avl_glue);
-         avltree_remove(curr, node->prefix_tree_root);
+         avltree_remove(curr, prefix_tree);
          XFREE(ted_prefix);
 
      }  ITERATE_AVL_TREE_END;
 
-     XFREE(node->prefix_tree_root);
-     node->prefix_tree_root = NULL;
+     XFREE(prefix_tree);
+}
+
+void
+ted_prefix_tree_cleanup_tree (ted_node_t *ted_node) {
+
+    ted_prefix_tree_cleanup_internal (ted_node->prefix_tree_root);
+    ted_node->prefix_tree_root = NULL;
 }
 
 uint32_t 
-ted_cleanup_all_half_links (ted_node_t *node) {
+ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) {
 
      ted_intf_t *intf;
      ted_intf_t *other_intf;
 
+    *lone_node = true;
+
      TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
 
-        other_intf =    ted_link_get_other_interface (intf);
+         other_intf =    ted_link_get_other_interface (intf);
         if (!ted_is_interface_plugged_in(other_intf)) {
             ted_plug_out_interface (intf);
             XFREE(intf->link);
+            continue;
         }
+
+         *lone_node = false;
 
      } TED_ITERATE_NODE_INTF_END(node, intf);
 }
 
+void
+ted_relocate_link_src (ted_db_t *ted_db,
+                                     ted_link_t *link,
+                                     ted_src_fr_no_t src_fr_no,
+                                     ted_src_fr_no_t dst_fr_no) {
+
+}
 
 void
 ted_mem_init() {
