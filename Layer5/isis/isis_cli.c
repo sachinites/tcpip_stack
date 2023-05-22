@@ -859,6 +859,7 @@ isis_clear_handler(param_t *param,
 
         case CMDCODE_CLEAR_NODE_ISIS_LSDB:
         {
+            isis_cleanup_lsdb (node, true);
             isis_node_info_t *node_info = ISIS_NODE_INFO(node);
             if (!isis_is_protocol_enable_on_node(node)) break;
             isis_schedule_all_fragment_regen_job (node);
