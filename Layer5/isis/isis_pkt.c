@@ -621,7 +621,7 @@ lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_siz
     seq_no = isis_get_lsp_pkt_seq_no (lsp_pkt);
     (*seq_no)++;
     lsp_pkt->fragment->seq_no = *seq_no;
-    #if 1
+    #if 0
         isis_ted_increase_seq_no (node, 
             *isis_get_lsp_pkt_rtr_id (lsp_pkt),
             isis_get_lsp_pkt_pn_id (lsp_pkt));

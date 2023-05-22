@@ -115,6 +115,9 @@ ted_unplug_all_remote_interfaces(ted_node_t *node);
 bool
 ted_is_link_bidirectional (ted_link_t *ted_link);
 
+uint32_t 
+ted_cleanup_all_half_links (ted_node_t *node) ;
+
 bool
 ted_is_interface_plugged_in(ted_intf_t *intf) ;
 

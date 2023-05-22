@@ -495,6 +495,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
     }
 
     ted_prefix_tree_cleanup_tree (ted_node);
+    ted_cleanup_all_half_links (ted_node);
     ted_node->prefix_tree_root = prefix_tree_root;
     return ted_node;
 }
@@ -603,6 +604,24 @@ ted_prefix_tree_cleanup_tree (ted_node_t *node) {
      XFREE(node->prefix_tree_root);
      node->prefix_tree_root = NULL;
 }
+
+uint32_t 
+ted_cleanup_all_half_links (ted_node_t *node) {
+
+     ted_intf_t *intf;
+     ted_intf_t *other_intf;
+
+     TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
+
+        other_intf =    ted_link_get_other_interface (intf);
+        if (!ted_is_interface_plugged_in(other_intf)) {
+            ted_plug_out_interface (intf);
+            XFREE(intf->link);
+        }
+
+     } TED_ITERATE_NODE_INTF_END(node, intf);
+}
+
 
 void
 ted_mem_init() {

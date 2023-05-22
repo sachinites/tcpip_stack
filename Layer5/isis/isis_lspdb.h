@@ -6,10 +6,6 @@
 avltree_t *
 isis_get_lspdb_root(node_t *node);
 
-int
-isis_install_lsp_pkt_in_lspdb(node_t *node, 
-                              isis_lsp_pkt_t *isis_lsp_pkt);
-
 isis_lsp_pkt_t *
 isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no);
 

@@ -277,6 +277,122 @@ isis_intf_config_handler(param_t *param,
 }
 
 int
+isis_run_handler (param_t *param, 
+                             ser_buff_t *tlv_buf,
+                             op_mode enable_or_disable) ;
+
+int
+isis_run_handler (param_t *param, 
+                             ser_buff_t *tlv_buf,
+                             op_mode enable_or_disable) {
+
+    node_t *node;
+    uint8_t fr_no;
+    pn_id_t pn_no;
+    tlv_struct_t *tlv = NULL;
+    c_string ip_addr = NULL;
+    c_string node_name = NULL;
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv) {
+
+            if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+                    node_name = tlv->value;
+            else if (parser_match_leaf_id(tlv->leaf_id, "rtr-id"))
+                    ip_addr = tlv->value;
+            else if (parser_match_leaf_id(tlv->leaf_id, "pn-id"))
+                    pn_no = atoi(tlv->value);
+
+    } TLV_LOOP_END;
+
+    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    node = node_get_node_by_name(topo, node_name);
+
+    switch (cmdcode) {
+
+        case CMDCODE_RUN_ISIS_LSP_TED_INSTALL:
+            {
+                uint32_t rtr_id = tcp_ip_covert_ip_p_to_n (ip_addr);
+                isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb (node, rtr_id, pn_no, 0);
+                if (!lsp_pkt) {
+                    printf ("Error: No LSP found\n");
+                    return 0;
+                }
+                ted_db_t *ted_db = ISIS_TED_DB(node);
+                if (!ted_db) {
+                    printf ("Error : TED-DB not initialized\n");
+                    return 0;
+                }
+                isis_ted_update_or_install_lsp (node, lsp_pkt);
+            }
+            break;
+        case CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL:
+            {
+                uint32_t rtr_id = tcp_ip_covert_ip_p_to_n (ip_addr);
+                isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb (node, rtr_id, pn_no, 0);
+                if (!lsp_pkt) {
+                    printf ("Error: No LSP found\n");
+                    return 0;
+                }
+                ted_db_t *ted_db = ISIS_TED_DB(node);
+                if (!ted_db) {
+                    printf ("Error : TED-DB not initialized\n");
+                    return 0;
+                }
+                ted_node_t *ted_node = ted_lookup_node (ted_db, rtr_id, pn_no);
+                if (!ted_node) {
+                    printf ("LSP not installed in TED\n");
+                    return 0;
+                }
+                isis_ted_uninstall_lsp (node, lsp_pkt);
+            }
+        default :
+            break;
+    }
+
+    return 0;
+}
+
+/* run node <node-name> protocol ... */
+int
+isis_run_cli_tree (param_t *param) {
+
+    {
+        static param_t isis_proto;
+	    init_param(&isis_proto, CMD, "isis", 0, 0, INVALID, 0, "isis protocol");
+	    libcli_register_param(param, &isis_proto);
+        {
+            static param_t lsp;
+            init_param(&lsp, CMD, "lsp", 0, 0, INVALID, 0, "Link State Pkt");
+            libcli_register_param(&isis_proto, &lsp);
+            {
+                static param_t rtr_id;
+                init_param(&rtr_id, LEAF, 0, 0, 0, IPV4, "rtr-id", "Router IPV4 ID");
+                libcli_register_param(&lsp, &rtr_id);
+                {
+                    static param_t pn_id;
+                    init_param(&pn_id, LEAF, 0, 0, 0, INT, "pn-id", "PN ID[0-255]");
+                    libcli_register_param(&rtr_id, &pn_id);
+                    {
+                        static param_t install;
+                        init_param(&install, CMD, "install", isis_run_handler, 0, INVALID, 0, "Install LSP in TED");
+                        libcli_register_param(&pn_id, &install);
+                        set_param_cmd_code(&install, CMDCODE_RUN_ISIS_LSP_TED_INSTALL);
+                    }
+                    {
+                        static param_t uninstall;
+                        init_param(&uninstall, CMD, "uninstall", isis_run_handler, 0, INVALID, 0, "Un-Install LSP from TED");
+                        libcli_register_param(&pn_id, &uninstall);
+                        set_param_cmd_code(&uninstall, CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL);
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+int
 isis_show_handler (param_t *param, 
                   ser_buff_t *tlv_buf,
                   op_mode enable_or_disable);
@@ -289,16 +405,15 @@ isis_show_handler (param_t *param,
                   ser_buff_t *tlv_buf,
                   op_mode enable_or_disable){
 
+    uint8_t fr_no;
     uint32_t rc = 0;
     pn_id_t pn_id;
-    uint8_t fr_no;
     int cmdcode = -1;
     node_t *node = NULL;
+    Interface *intf = NULL;
     char *rtr_id_str = NULL;
     char *intf_name = NULL;
-    Interface *intf = NULL;
     tlv_struct_t *tlv = NULL;
-
     c_string node_name = NULL;
 
     cmdcode = EXTRACT_CMD_CODE(tlv_buf);

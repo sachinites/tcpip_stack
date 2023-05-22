@@ -73,4 +73,10 @@
 /* show node <node-name> protocol isis link-state-database*/
 #define CMCODE_SHOW_ISIS_ADVT_DB  31
 
+/* run node <node-name> protocol isis lsp <rtr-id> <pn-id> install*/
+#define CMDCODE_RUN_ISIS_LSP_TED_INSTALL 32
+
+/* run node <node-name> protocol isis lsp <rtr-id> <pn-id> uninstall*/
+#define CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL 33
+
 #endif /* __ISIS_CMDCODES__ */

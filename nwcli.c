@@ -71,7 +71,7 @@ extern int
 isis_show_handler (param_t *param, 
                   ser_buff_t *tlv_buf,
                   op_mode enable_or_disable);
-                  
+
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
@@ -150,7 +150,7 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_run_node_node_name_protocol_level[] =
 	{
-		//ddcp_run_cli_tree,
+		isis_run_cli_tree,
 		0
 		/* Add more CB here */
 	};

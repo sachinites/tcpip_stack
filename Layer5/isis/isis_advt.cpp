@@ -162,12 +162,12 @@ isis_wait_list_advt_data_remove (node_t *node, isis_adv_data_t *adv_data) {
     remove_glthread (&adv_data->glue);
     ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
     if (isis_is_protocol_admin_shutdown (node)) return;
-    if (isis_get_waitlisted_advt_data_count (node)) return;
+    if (isis_get_waitlisted_advt_data_count (node)) return; 
     UNSET_BIT64(node_info->event_control_flags, ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT);
     if (!IS_BIT_SET (node_info->event_control_flags, ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT)) {
         isis_unset_overload (node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
     }
-}
+}   
 
 void
 isis_schedule_regen_fragment (node_t *node,
@@ -872,16 +872,18 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
         switch (advt_data->tlv_no) {
             case ISIS_IS_REACH_TLV:
                 rc += sprintf (buff + rc, "       nbr sys id : %s\n", 
-                    isis_system_id_tostring (&advt_data->u.adj_data.nbr_sys_id, system_id_str));
+                            isis_system_id_tostring (&advt_data->u.adj_data.nbr_sys_id, system_id_str));
                 rc +=  sprintf (buff + rc, "       metric : %u\n", advt_data->u.adj_data.metric);
                 rc +=  sprintf (buff + rc, "       local ifindex : %u\n", advt_data->u.adj_data.local_ifindex);
                 rc +=  sprintf (buff + rc, "       remote ifindex : %u\n", advt_data->u.adj_data.remote_ifindex);
-                rc +=  sprintf (buff + rc, "       local ip : %s\n", tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.local_intf_ip, system_id_str));
-                rc +=  sprintf (buff + rc, "       remote ip : %s\n", tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.remote_intf_ip, system_id_str)); 
+                rc +=  sprintf (buff + rc, "       local ip : %s\n",
+                             tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.local_intf_ip, system_id_str));
+                rc +=  sprintf (buff + rc, "       remote ip : %s\n",
+                             tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.remote_intf_ip, system_id_str)); 
                 break;
             case ISIS_TLV_IP_REACH:
                 rc += sprintf (buff + rc, "       Prefix : %s/%d   metric : %u\n",
-                tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, system_id_str),
+                            tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, system_id_str),
                 advt_data->u.pfx.mask, advt_data->u.pfx.metric);
                 break;
         }
@@ -935,11 +937,6 @@ isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) {
     fragment->lsp_pkt = NULL;
     isis_deref_isis_pkt(node, lsp_pkt);
     isis_lsp_pkt_flood_timer_stop (lsp_pkt);
-    /*purge pkt could have queued for transmission, dont mark the pkt ineligible
-       for flood */
-    #if 0 
-    isis_mark_isis_lsp_pkt_flood_ineligible (node, lsp_pkt);
-    #endif
     isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
     isis_ted_uninstall_lsp (node, lsp_pkt);
 
@@ -949,7 +946,7 @@ isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) {
     }
 
     isis_lsp_pkt_relieve_premature_deletion(node, lsp_pkt); 
-    fragment->ref_count--; // make this API work even if fragment has initial ref_count = 1
+    isis_fragment_relieve_premature_deletion (node, fragment);
 }
 
 void

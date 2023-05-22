@@ -12,11 +12,9 @@
 #include "isis_cmdcodes.h"
 #include "isis_intf_group.h"
 #include "isis_layer2map.h"
-#include "../../ted/ted.h"
 #include "isis_ted.h"
 #include "isis_policy.h"
 #include "isis_advt.h"
-#include "../../FireWall/acl/acldb.h"
 
 extern void isis_mem_init();
 void isis_ipv4_rt_notif_cbk (
