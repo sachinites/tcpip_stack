@@ -444,7 +444,6 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
     uint8_t i = 0;
     ted_link_t * link;
-    bool lone_node;
     ted_node_t *ted_node;
     unsigned char ip_addr_str[16];
     ted_intf_t *from_intf, *to_intf;
@@ -506,20 +505,9 @@ ted_create_or_update_node (ted_db_t *ted_db,
         }
     }
 
-    ted_cleanup_all_half_links (ted_node, &lone_node);
+  
     ted_prefix_tree_cleanup_tree (ted_node);
-
-    if (lone_node) {
-        ted_prefix_tree_cleanup_internal (prefix_tree_root);
-        prefix_tree_root = NULL;
-        avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
-        cleanup_app_data (ted_node);
-        ted_assert_check_protocol_data (ted_node);
-        XFREE(ted_node);
-    }
-    else {
-        ted_node->prefix_tree_root = prefix_tree_root;
-    }
+    ted_node->prefix_tree_root = prefix_tree_root;
 }
 
 static uint32_t 
