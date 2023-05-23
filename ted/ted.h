@@ -51,6 +51,7 @@ typedef struct ted_node_ {
     bool is_fake;
     uint32_t seq_no;
     ted_intf_t *intf[TEDN_MAX_INTF_PER_NODE];
+    uint16_t n_intf_count;
     void *proto_data[TED_PROTO_MAX];
     avltree_t *prefix_tree_root;
     avltree_node_t avl_glue;
@@ -59,10 +60,12 @@ typedef struct ted_node_ {
 typedef struct ted_db_ {
 
     avltree_t teddb;
+    void (*cleanup_app_data) (ted_node_t *);
 } ted_db_t;
 
 void
-ted_init_teddb(ted_db_t *ted_db, avltree_cmp_fn_t cmp_fn) ;
+ted_init_teddb(ted_db_t *ted_db, avltree_cmp_fn_t cmp_fn, 
+                            void (*cleanup_app_data)(ted_node_t *)) ;
 
 static inline ted_intf_t *
 ted_link_get_other_interface (ted_intf_t *intf) {
@@ -141,6 +144,9 @@ ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node);
 ted_node_t *
 ted_create_node(uint32_t rtr_id, bool is_fake);
 
+void
+ted_delete_lone_fake_node (ted_db_t *ted_db, ted_node_t *ted_node);
+
 /* Public APIs */
 
 typedef struct ted_template_nbr_data_ {
@@ -178,8 +184,7 @@ ted_detach_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree,
-            void (*cleanup_app_data) (ted_node_t *));
+            avltree_t *prefix_tree);
 
 uint32_t 
 ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, bool detail) ;

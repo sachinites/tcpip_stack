@@ -81,6 +81,7 @@ ted_plug_in_interface(ted_node_t *node, ted_intf_t *intf) {
     intf->att_node = node;
     node->intf[available_slot] = intf;
     intf->slot_no = available_slot;
+    node->n_intf_count++;
     return available_slot;
 }
 
@@ -93,8 +94,9 @@ ted_plug_out_interface(ted_intf_t *intf) {
     }
     slot_no = intf->slot_no;
     intf->att_node->intf[intf->slot_no] = NULL;
-    intf->att_node = NULL;
     intf->slot_no = ~0;
+    intf->att_node->n_intf_count--;
+    intf->att_node = NULL;
     return slot_no;
 }
 
@@ -207,11 +209,13 @@ ted_db_default_cmp_fn (const avltree_node_t *n1, const avltree_node_t *n2) {
 }
 
 void
-ted_init_teddb(ted_db_t *ted_db,  avltree_cmp_fn_t cmp_fn)  {
+ted_init_teddb(ted_db_t *ted_db,  avltree_cmp_fn_t cmp_fn,
+                void (*cleanup_app_data)(ted_node_t *))  {
 
     avltree_cmp_fn_t cmp_fn2;
     cmp_fn2 = cmp_fn ? cmp_fn : ted_db_default_cmp_fn;
     avltree_init(&ted_db->teddb, cmp_fn2);
+    ted_db->cleanup_app_data = cleanup_app_data;
 }
 
 ted_node_t *
@@ -242,6 +246,7 @@ ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no) {
     assert(node->is_installed_in_teddb);
     node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(node);
+    ted_db->cleanup_app_data (node);
     ted_assert_check_protocol_data(node);
     XFREE(node);
 }
@@ -255,8 +260,23 @@ ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     assert(ted_node->is_installed_in_teddb);
     ted_node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(ted_node);
+    ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
+}
+
+void
+ted_delete_lone_fake_node (ted_db_t *ted_db, ted_node_t *ted_node) {
+
+    if (!ted_node) return;
+    if (ted_node->n_intf_count ) return;
+    if (ted_node->is_fake == false) return;
+    avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
+    ted_prefix_tree_cleanup_tree(ted_node);
+    ted_db->cleanup_app_data (ted_node);
+    ted_assert_check_protocol_data(ted_node);
+    XFREE(ted_node);
+    printf ("%s() : Yahoo !!!\n", __FUNCTION__);
 }
 
 void 
@@ -324,6 +344,8 @@ ted_resurrect_link (ted_db_t *ted_db,
     uint32_t to_metric;
     bool to_node_new = false;
     bool from_node_new = false;
+    ted_node_t *temp_node1 = NULL;
+    ted_node_t *temp_node2 = NULL;
     
     if (from_node_pn_no && !to_node_pn_no) {
         assert (from_metric > 0);
@@ -360,6 +382,7 @@ ted_resurrect_link (ted_db_t *ted_db,
 
         from_intf = ted_link_get_other_interface(to_intf);
         if (ted_is_interface_plugged_in(from_intf)) {
+            temp_node1 = from_intf->att_node;
             ted_plug_out_interface(from_intf);
         }
         from_intf->ifindex = from_if_index;
@@ -367,6 +390,7 @@ ted_resurrect_link (ted_db_t *ted_db,
         from_intf->cost = from_metric;
         ted_plug_in_interface(
                             from_node, from_intf );
+        ted_delete_lone_fake_node (ted_db, temp_node1);
         link = from_intf->link;
         goto done;
     }
@@ -376,12 +400,14 @@ ted_resurrect_link (ted_db_t *ted_db,
         from_intf->cost = from_metric;
         to_intf = ted_link_get_other_interface(from_intf);
         if (ted_is_interface_plugged_in(to_intf)) {
+            temp_node1 = to_intf->att_node;
             ted_plug_out_interface(to_intf);
         }
         to_intf->ifindex = to_ifindex;
         to_intf->ip_addr = remote_ip;
         ted_plug_in_interface(
                             to_node, to_intf );
+        ted_delete_lone_fake_node (ted_db, temp_node1);
         link = to_intf->link;
         goto done;
     }
@@ -394,7 +420,9 @@ ted_resurrect_link (ted_db_t *ted_db,
             goto done;
         }
          to_metric = to_intf->cost;
+         temp_node1 = from_intf->att_node;
          ted_plug_out_interface(from_intf);
+         temp_node2 = to_intf->att_node;
          ted_plug_out_interface(to_intf);
 
          if (from_intf->link != to_intf->link)
@@ -418,6 +446,8 @@ ted_resurrect_link (ted_db_t *ted_db,
         link = ted_create_link (0, from_if_index, to_ifindex, local_ip, 0, remote_ip, 0);
         ted_plug_in_interface(from_node, &link->intf1);
         ted_plug_in_interface(to_node, &link->intf2);
+        ted_delete_lone_fake_node (ted_db, temp_node1);
+        ted_delete_lone_fake_node (ted_db, temp_node2);
         link->intf1.cost = from_metric;
         link->intf2.cost = to_metric;
         goto done;
@@ -439,8 +469,7 @@ done:
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree_root,
-            void (*cleanup_app_data) (ted_node_t *)) {
+            avltree_t *prefix_tree_root) {
 
     uint8_t i = 0;
     ted_link_t * link;
@@ -473,7 +502,9 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
     ted_node->flags = template_node_data->flags;
     ted_node->seq_no = template_node_data->seq_no;
-
+    ted_prefix_tree_cleanup_tree (ted_node);
+    ted_node->prefix_tree_root = prefix_tree_root;
+    
     for (; i < template_node_data->n_nbrs; i++) {
 
         nbr_data = &template_node_data->nbr_data[i];
@@ -496,10 +527,6 @@ ted_create_or_update_node (ted_db_t *ted_db,
                                   nbr_data->metric);
 
     }
-
-    ted_prefix_tree_cleanup_tree (ted_node);
-    ted_cleanup_all_half_links (ted_node, NULL);
-    ted_node->prefix_tree_root = prefix_tree_root;
 }
 
 static uint32_t 

@@ -113,8 +113,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     node_data->n_nbrs = n_tlv22;
     ted_db_t *ted_db = ISIS_TED_DB(node);
     ted_create_or_update_node(ted_db, node_data, 
-                                                 prefix_tree_root,
-                                                 isis_spf_cleanup_spf_data);
+                                                 prefix_tree_root);
     XFREE(node_data);
 }
 
@@ -126,7 +125,6 @@ isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     uint8_t pn_no = isis_get_lsp_pkt_pn_id (lsp_pkt);
     ted_node_t *ted_node = ted_lookup_node(ted_db, *rtr_id, pn_no);
     if (!ted_node) return;
-    isis_spf_cleanup_spf_data(ted_node);
     ted_delete_node (ted_db, ted_node);
 }
 

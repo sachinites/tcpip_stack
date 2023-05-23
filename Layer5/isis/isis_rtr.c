@@ -353,7 +353,7 @@ isis_init (node_t *node ) {
     node_info->dyn_intf_grp = true;  /* True By Default */
     node_info->layer2_mapping = true;   /* True By Default */
     node_info->ted_db = XCALLOC(0, 1, ted_db_t);
-    ted_init_teddb(node_info->ted_db, 0);
+    ted_init_teddb(node_info->ted_db, NULL, isis_spf_cleanup_spf_data);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
     init_mtrie(&node_info->exported_routes, 32, NULL);
@@ -363,7 +363,6 @@ isis_init (node_t *node ) {
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
 }
-
 
 void
 isis_one_time_registration() {
