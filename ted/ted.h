@@ -191,17 +191,18 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
  * ip_Addr - nexthop ip in uint32 format (output)
  */ 
 #define ITERATE_TED_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, nxt_hop_ip) \
-    do{                                                                          \
-        int i = 0 ;                                                             \
-        ted_intf_t *other_intf;                                         \
-        for( i = 0 ; i < TEDN_MAX_INTF_PER_NODE; i++){     \
-            oif_ptr = node_ptr->intf[i];                                        \
-            if(!oif_ptr) continue;                                              \
-            other_intf = ted_link_get_other_interface(oif_ptr); \
-            if(!other_intf) continue;                                    \
+    do{                                                                                         \
+        int i = 0 ;                                                                            \
+        ted_intf_t *other_intf;                                                        \
+        for( i = 0 ; i < TEDN_MAX_INTF_PER_NODE; i++){   \
+            oif_ptr = node_ptr->intf[i];                                             \
+            if(!oif_ptr) continue;                                                       \
+            other_intf = ted_link_get_other_interface(oif_ptr);       \
+            if(!other_intf) continue;                                                  \
             nbr_ptr = ted_get_nbr_node(oif_ptr);                             \
-            if (!nbr_ptr) continue;                                         \
-            nxt_hop_ip = other_intf->ip_addr;                             \
+            if (!nbr_ptr) continue;                                                     \
+            if (nbr_ptr->is_fake) continue;                                       \
+            nxt_hop_ip = other_intf->ip_addr;                                \
 
 #define ITERATE_TED_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)  }}while(0);
 

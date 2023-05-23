@@ -11,9 +11,8 @@ typedef struct node_info_ isis_node_info_t;
 /* LSP PKT Regen control flags*/
 #define ISIS_SHOULD_INCL_PURGE_BIT  1
 #define ISIS_SHOULD_INCL_OL_BIT (1 << 1)
-#define ISIS_SHOULD_INCL_ON_DEM_BIT (1 << 2)
-#define ISIS_SHOULD_INCL_IS_REACH_TLVS (1 << 3)
-#define ISIS_SHOULD_INCL_IP_REACH_TLVS (1 << 4)
+#define ISIS_SHOULD_INCL_IS_REACH_TLVS (1 << 2)
+#define ISIS_SHOULD_INCL_IP_REACH_TLVS (1 << 3)
 
 #define ISIS_LSP_DEF_REGEN_FLAGS \
     ( ISIS_SHOULD_INCL_IS_REACH_TLVS | \

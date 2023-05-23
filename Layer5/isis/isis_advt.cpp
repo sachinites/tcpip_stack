@@ -67,6 +67,15 @@ isis_fragment_unbind_advt_data (node_t *node,
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_removed]);
 }
 
+static void
+isis_fragment_set_regen_flags (node_t *node, isis_fragment_t *fragment) {
+
+    if (isis_is_overloaded (node, NULL)) {
+            fragment->regen_flags |= ISIS_SHOULD_INCL_OL_BIT;
+    }
+
+    fragment->regen_flags |= ISIS_LSP_DEF_REGEN_FLAGS;
+}
 
 static void
 isis_try_accomodate_wait_list_data (node_t *node, isis_fragment_t *fragment);
@@ -333,7 +342,7 @@ isis_advertise_tlv (node_t *node,
     
     advt_info_out->pn_no = pn_no;
     advt_info_out->fr_no = frag_no;
-    fragment->regen_flags = ISIS_LSP_DEF_REGEN_FLAGS;
+    isis_fragment_set_regen_flags (node, fragment);
     isis_schedule_regen_fragment(node, fragment, isis_event_tlv_added);
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_added]);
     return ISIS_TLV_RECORD_ADVT_SUCCESS;
@@ -448,10 +457,6 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
     if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_OL_BIT) ) {
         SET_BIT(lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_OVERLOAD_BIT);
-    }
-
-    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_ON_DEM_BIT)) {
-        SET_BIT(lsp_pkt_hdr->flags, ISIS_LSP_PKT_F_ON_DEMAND_BIT);
     }
 
     byte tlv_content[255];

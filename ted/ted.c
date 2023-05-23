@@ -123,7 +123,7 @@ ted_is_link_bidirectional (ted_link_t *ted_link) {
             ted_is_interface_plugged_in(&ted_link->intf2) ) {
                 return true;
     }
-    return true;
+    return false;
 }
 
 
@@ -495,18 +495,10 @@ ted_create_or_update_node (ted_db_t *ted_db,
                                   nbr_data->remote_ip,
                                   nbr_data->metric);
 
-        /* Fix up the Src Fragment No*/
-        if (link->src == TED_SRC_FR_NO_UNKNOWN) {
-            link->src = template_node_data->fr_no;
-        }
-        else {
-            link->src != template_node_data->fr_no;
-            ted_relocate_link_src (ted_db, link, link->src, template_node_data->fr_no);
-        }
     }
 
-  
     ted_prefix_tree_cleanup_tree (ted_node);
+    ted_cleanup_all_half_links (ted_node, NULL);
     ted_node->prefix_tree_root = prefix_tree_root;
 }
 
@@ -628,7 +620,7 @@ ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) {
      ted_intf_t *intf;
      ted_intf_t *other_intf;
 
-    *lone_node = true;
+    if (lone_node)  *lone_node = true;
 
      TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
 
@@ -639,7 +631,7 @@ ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) {
             continue;
         }
 
-         *lone_node = false;
+         if (lone_node) *lone_node = false;
 
      } TED_ITERATE_NODE_INTF_END(node, intf);
 }

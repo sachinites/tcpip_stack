@@ -158,13 +158,11 @@ static void
 isis_init_intf_info (Interface *intf) {
       
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    isis_node_info_t *node_info = ISIS_NODE_INFO (intf->att_node);
-       
     memset(intf_info, 0, sizeof(isis_intf_info_t));
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
     intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
-    intf_info->intf_type = isis_intf_type_p2p;
+    intf_info->intf_type = isis_intf_type_lan;
     intf_info->level = isis_level_1; /* Only Lvl 1 is Supported for now*/
     intf_info->lan_id = {0, 0};
     init_glthread(&intf_info->adj_list_head);
@@ -197,8 +195,7 @@ isis_enable_protocol_on_interface(Interface *intf) {
     }
     
     if (intf_info->hello_xmit_timer == NULL) {
-        if (isis_interface_qualify_to_send_hellos(intf) &&
-            !ISIS_INTF_INFO(intf)->hello_xmit_timer) {
+        if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
             isis_send_hello_immediately (intf);
         }

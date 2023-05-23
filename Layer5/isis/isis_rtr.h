@@ -36,8 +36,6 @@ typedef struct isis_overload_data_ {
 typedef struct node_info_ {
     /* self system id -> <rtrid-0>*/
     isis_system_id_t sys_id;
-    /* LSP sequence no */
-    uint32_t seq_no;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
     /* lsp pkt life time interval in lspdb */

@@ -359,7 +359,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
     } ITERATE_TED_NODE_NBRS_END(ted_spf_root, nbr, oif, nxt_hop_ip);
 }
 
-#define ISIS_SPF_LOGGING 0
+#define ISIS_SPF_LOGGING 1
 
 static void
 isis_spf_record_result (ted_node_t *spf_root, 

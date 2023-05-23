@@ -260,7 +260,6 @@ isis_show_node_protocol_state(node_t *node) {
 
     printf("LSP flood count : %u\n", node_info->lsp_flood_count);
     printf("SPF runs : %u\n", node_info->spf_runs);
-    printf("Seq No : %u\n", node_info->seq_no);
     printf("Adjacency up Count: %u\n", node_info->adjacency_up_count);
 
     if (node_info->import_policy) {
@@ -347,7 +346,6 @@ isis_init (node_t *node ) {
     isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = node_info;
     node_info->sys_id = {NODE_LO_ADDR_INT(node), 0};
-    node_info->seq_no = 0;
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
