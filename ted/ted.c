@@ -276,7 +276,6 @@ ted_delete_lone_fake_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
-    printf ("%s() : Yahoo !!!\n", __FUNCTION__);
 }
 
 void 
