@@ -246,12 +246,20 @@ isis_intf_config_handler(param_t *param,
                     printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
             }
+            if (!isis_node_intf_is_enable(intf)) {
+                    printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+                    return -1;
+            }            
             return isis_config_interface_link_type(intf, isis_intf_type_p2p);
             break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN:
             intf = node_get_intf_by_name(node, intf_name);
             if (!intf) {
                     printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+            }
+            if (!isis_node_intf_is_enable(intf)) {
+                    printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
                     return -1;
             }
             return isis_config_interface_link_type(intf, isis_intf_type_lan);
@@ -262,12 +270,20 @@ isis_intf_config_handler(param_t *param,
                     printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
             }
+            if (!isis_node_intf_is_enable(intf)) {
+                    printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+                    return -1;
+            }
             return isis_interface_set_priority (intf, priority);
             break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC:
             intf = node_get_intf_by_name(node, intf_name);
             if (!intf) {
                     printf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    return -1;
+            }
+            if (!isis_node_intf_is_enable(intf)) {
+                    printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
                     return -1;
             }
             return isis_interface_set_metric (intf, metric);
