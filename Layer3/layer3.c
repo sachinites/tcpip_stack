@@ -778,7 +778,7 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
    bitmap_free_internal(&prefix_bm);
    bitmap_free_internal(&mask_bm);
 
-   if (rc != MTRIE_INSERT_SUCCESS)
+   if (rc != MTRIE_INSERT_SUCCESS) 
        return false;
 
    mnode->data = (void *)l3_route;

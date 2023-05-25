@@ -103,7 +103,6 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     isis_node_info_t *node_info;
     uint32_t prefix32bit, mask32bit;
 
-
     rt_table_t *rt_table = 
         NODE_RT_TABLE(spf_root);
 

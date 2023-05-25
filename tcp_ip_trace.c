@@ -730,16 +730,16 @@ tcp_init_send_logging_buffer(node_t *node){
     memset(TCP_GET_NODE_SEND_LOG_BUFFER(node), 0, TCP_PRINT_BUFFER_SIZE);
 }
 
-/* TCP Internal Logging */
-static FILE *tcp_log_file;
 char tlb[TCP_LOG_BUFFER_LEN];
 
 void
-init_tcp_logging() {
+init_tcp_logging(node_t *node) {
 
-    tcp_log_file = fopen("logs/tcp_log_file", "w");
-    assert(tcp_log_file);
-    memset(tlb, 0, sizeof(tlb));
+    unsigned char log_file_name[NODE_NAME_SIZE + 16];
+    if (node->node_nw_prop.log_file) return;
+    snprintf (log_file_name, sizeof (log_file_name), "logs/%s-log.txt", node->node_name);
+    node->node_nw_prop.log_file = fopen(log_file_name, "w");
+    assert (node->node_nw_prop.log_file);
 }
 
 void 
@@ -749,27 +749,27 @@ tcp_trace_internal(node_t *node,
 
 	byte lineno_str[16];
 
-	fwrite(fn, sizeof(char), strlen(fn), tcp_log_file);
+	fwrite(fn, sizeof(char), strlen(fn), NODE_LOG_FILE(node));
 	memset(lineno_str, 0, sizeof(lineno_str));
 	sprintf((char *)lineno_str, " (%u) :", lineno);
-	fwrite(lineno_str, sizeof(char), strlen((const char *)lineno_str), tcp_log_file);	
+	fwrite(lineno_str, sizeof(char), strlen((const char *)lineno_str), NODE_LOG_FILE(node));	
 
 	if (node) {
-		fwrite(node->node_name, sizeof(char), strlen((const char *)node->node_name), tcp_log_file);
-		fwrite(":", sizeof(char), 1, tcp_log_file);
+		fwrite(node->node_name, sizeof(char), strlen((const char *)node->node_name), NODE_LOG_FILE(node));
+		fwrite(":", sizeof(char), 1, NODE_LOG_FILE(node));
 	}
 	if (interface) {
-		fwrite(interface->if_name.c_str(), sizeof(char), strlen((const char *)interface->if_name.c_str()), tcp_log_file);
-		fwrite(":", sizeof(char), 1, tcp_log_file);
+		fwrite(interface->if_name.c_str(), sizeof(char), strlen((const char *)interface->if_name.c_str()), NODE_LOG_FILE(node));
+		fwrite(":", sizeof(char), 1, NODE_LOG_FILE(node));
 	}
-    fwrite(buff, sizeof(char), strlen(buff), tcp_log_file);
-	fflush(tcp_log_file);
+    fwrite(buff, sizeof(char), strlen(buff), NODE_LOG_FILE(node));
+	fflush(NODE_LOG_FILE(node));
 }
 
 void
-tcp_ip_refresh_tcp_log_file() {
+tcp_ip_refresh_tcp_log_file(node_t *node) {
 
-    tcp_log_file = freopen(NULL, "w", tcp_log_file);
+    node->node_nw_prop.log_file = freopen(NULL, "w", NODE_LOG_FILE(node));
 }
 
 #define tcp_trace(node, intf, buff)	\

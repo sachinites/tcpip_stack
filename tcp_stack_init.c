@@ -30,7 +30,6 @@
 
 #include <unistd.h>
 
-extern void init_tcp_logging();
 extern void init_spf_algo();
 extern void network_start_pkt_receiver_thread();
 extern void isis_one_time_registration();
@@ -42,10 +41,7 @@ event_dispatcher_t gev_dis;
 void
 init_tcp_ip_stack(){
 
-	event_dispatcher_run(&gev_dis);
-
-	init_tcp_logging();
-    
+	event_dispatcher_run(&gev_dis);   
     init_spf_algo();
 	isis_one_time_registration();
 	network_start_pkt_receiver_thread();

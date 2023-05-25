@@ -239,20 +239,32 @@ show_nw_topology_handler(param_t *param,
 }
 
 extern void
-tcp_ip_refresh_tcp_log_file();
+tcp_ip_refresh_tcp_log_file(node_t *);
 
 static int
 clear_topology_handler(param_t *param,
                        ser_buff_t *tlv_buf,
                        op_mode enable_or_disable){
 
+    node_t *node;
     int CMDCODE = -1;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
     switch(CMDCODE) {
         case CMDCODE_CLEAR_LOG_FILE:
-            tcp_ip_refresh_tcp_log_file();
+            tcp_ip_refresh_tcp_log_file(node);
             break;
         default: ;
     }

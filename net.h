@@ -92,7 +92,10 @@ typedef struct node_nw_prop_{
     c_string send_log_buffer; /*Used for logging */
     /* Receiving Buffer */ 
     c_string recv_log_buffer; /* Used for logging */
-
+    /* Main Log Buffer*/
+    c_string log_buffer;
+    /* FILE Ptr to main logigng file File*/
+    FILE *log_file;
     /*Device level Appln DS*/
     nmp_t *nmp;
     void *isis_node_info;
@@ -106,6 +109,7 @@ extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(node_t *node, rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
+extern void init_tcp_logging(node_t *);
 
 static inline void
 init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
@@ -119,6 +123,8 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 	//stp_init_stp_node_info(&(node_nw_prop->stp_node_info));
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
+    init_tcp_logging(node);
 	init_glthread(&(node_nw_prop->traffic_gen_db_head));
 }
 
@@ -131,6 +137,7 @@ snp_flow_init_flow_tree_root(avltree_t *avl_root) ;
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_covert_ip_p_to_n(NODE_LO_ADDR(node_ptr)))
+#define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
 
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
