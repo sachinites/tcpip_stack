@@ -375,7 +375,6 @@ isis_withdraw_tlv_advertisement (node_t *node,
                              isis_fragment_size_comp_fn,
                              (int)&((isis_fragment_t *)0)->priority_list_glue);
 
-
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_removed]);
 
     isis_try_accomodate_wait_list_data (node, fragment);

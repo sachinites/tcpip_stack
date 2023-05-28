@@ -111,9 +111,11 @@ isis_protocol_shutdown_now (node_t *node) {
     
     /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node, 0);
+    /* This should be No-Op, buts lets do*/
     isis_cleanup_lsdb(node, true);
+    /*This would cleanup fake nodes, if any*/
     isis_cleanup_teddb (node);
-
+    
     isis_check_delete_node_info(node); 
 }
 

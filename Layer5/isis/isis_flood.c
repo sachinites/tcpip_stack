@@ -178,8 +178,8 @@ isis_intf_purge_lsp_xmit_queue(Interface *intf) {
         remove_glthread(curr);
         lsp_pkt = lsp_xmit_elem->lsp_pkt;
         XFREE(lsp_xmit_elem);
-        isis_deref_isis_pkt(intf->att_node, lsp_pkt);
         lsp_pkt->flood_queue_count--;
+        isis_deref_isis_pkt(intf->att_node, lsp_pkt);
         node_info->pending_lsp_flood_count--;
         
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
