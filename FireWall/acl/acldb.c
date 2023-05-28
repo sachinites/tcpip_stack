@@ -633,7 +633,6 @@ access_list_add_acl_entry (
     assert(IS_GLTHREAD_LIST_EMPTY(&access_list->glue));
     assert(!access_list->mtrie);
     assert(access_list->ref_count == 0);
-    assert(access_list->intf_applied_ref_cnt == 0);
     XFREE(access_list);
  }
 
@@ -821,6 +820,12 @@ access_list_evaluate (access_list_t *acc_lst,
     return action;
 }
 
+acl_action_t 
+access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_block) {
+
+    return ACL_PERMIT;
+}
+
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
                                                     Interface *intf, 
@@ -914,11 +919,10 @@ access_group_config(node_t *node,
 
     pthread_spin_lock(spin_lock);
     *configured_access_lst = acc_lst;
-    acc_lst->intf_applied_ref_cnt++;
     access_list_reference(acc_lst);
     pthread_spin_unlock(spin_lock);
 
-    if (acc_lst->intf_applied_ref_cnt == 1) {
+    if (access_list_is_compiled (acc_lst)) {
         if (access_list_is_uninstallation_in_progress(acc_lst))
         {
             access_list_cancel_un_installation_operation(acc_lst);
@@ -968,8 +972,6 @@ access_group_unconfig(node_t *node,
     *configured_access_lst = NULL;
     access_list_dereference(node, acc_lst);
     pthread_spin_unlock(spin_lock);
-
-    acc_lst->intf_applied_ref_cnt--;
 
     if (!access_list_should_compile(acc_lst)) {
         
@@ -1737,13 +1739,13 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
 bool 
 access_list_should_decompile (access_list_t *access_list) {
 
-    return (access_list->intf_applied_ref_cnt == 0);
+    return (access_list->ref_count <= 1);
 }
 
 bool 
 access_list_should_compile (access_list_t *access_list) {
 
-    return (access_list->intf_applied_ref_cnt != 0);
+    return (access_list->ref_count > 1);
 }
 
 bool 
@@ -2362,6 +2364,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
             XFREE(access_list_processing_info);
             access_list->processing_info = NULL;
             access_list_schedule_notification (node, access_list);
+            access_list_dereference(node, access_list);
             return;
         }
 
@@ -2540,6 +2543,7 @@ access_list_trigger_install_job(node_t *node,
     access_list_processing_info->node = node;
     access_list_processing_info->og_update_info = og_update_info;
     access_list_processing_info->access_list = access_list;
+    access_list_reference (access_list);
     access_list_processing_info->mtrie = access_list_get_new_tcam_mtrie();
     access_list_processing_info->acl_tcams_installed = 0;
     access_list->processing_info = access_list_processing_info;

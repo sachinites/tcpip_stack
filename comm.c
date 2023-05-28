@@ -269,7 +269,7 @@ _pkt_receive(node_t *receving_node,
 
     pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
     send_pkt_to_self (pkt_block, recv_intf);
-    pkt_block_dereference(pkt_block);
+    XFREE(pkt_block);
 }
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];

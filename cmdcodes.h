@@ -92,4 +92,7 @@
 
 #define CMDCODE_CLEAR_RT_TABLE 39
 
+/* conf node <node-name> no traceoptions access-list <access-list-name>*/
+#define CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME 40
+
 #endif /* __CMDCODES__ */

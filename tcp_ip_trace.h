@@ -42,6 +42,9 @@ typedef struct pkt_block_ pkt_block_t;
 
 #define TCP_PRINT_BUFFER_SIZE 1528
 
+typedef struct access_list_  access_list_t;
+typedef struct prefix_lst_ prefix_list_t;
+
 typedef struct log_{
 
     bool all;
@@ -50,6 +53,7 @@ typedef struct log_{
     bool is_stdout;
     bool l3_fwd;
     FILE *log_file;
+    access_list_t *acc_lst_filter;
 } log_t;
 
 void 

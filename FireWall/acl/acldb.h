@@ -208,7 +208,6 @@ struct access_list_ {
     mtrie_t *mtrie;     // Mtrie for this access list
     mtrie_t *backup_mtrie;
     uint8_t ref_count; // how many sub-systems using this access list
-    uint8_t intf_applied_ref_cnt;
     task_t *notif_job; /* Used when notification is to be sent async to appln */
     access_list_processing_info_t *processing_info;    /* Store the context for 
     access-list install & uninstall operations */
@@ -447,5 +446,8 @@ acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_
 
 uint32_t 
 acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry);
+
+acl_action_t 
+access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_block);
 
 #endif

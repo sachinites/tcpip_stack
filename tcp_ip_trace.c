@@ -395,6 +395,7 @@ tcp_dump_send_logger(node_t *node, Interface *intf,
               hdr_type_t hdr_type){
 
     int rc = 0;
+    acl_action_t acl_action;
 
     if(node->log_info.all || 
          node->log_info.send ||
@@ -407,12 +408,22 @@ tcp_dump_send_logger(node_t *node, Interface *intf,
                 node->log_info.log_file : NULL;
         FILE *log_file2 = (intf->log_info.send || intf->log_info.all) ? 
                 intf->log_info.log_file : NULL;
-        
+
+        if (log_file1 && node->log_info.acc_lst_filter) {
+            acl_action = access_list_evaluate_pkt_block (node->log_info.acc_lst_filter, pkt_block);
+           if (acl_action == ACL_DENY) log_file1 = NULL;
+        }
+
+        if (log_file2 && intf->log_info.acc_lst_filter) {
+            acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
+           if (acl_action == ACL_DENY) log_file2 = NULL;
+        }
+
         if(sock_fd == -1 && 
             !log_file1 && !log_file2){
             return;
         }
-
+        
         tcp_init_send_logging_buffer(node);
         
         rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node),
@@ -481,6 +492,7 @@ tcp_ip_init_node_log_info(node_t *node){
     log_info->is_stdout = false;
     log_info->l3_fwd    = false;
     log_info->log_file  = initialize_node_log_file(node); 
+    log_info->acc_lst_filter = NULL;
 }
 
 void
@@ -504,6 +516,7 @@ tcp_ip_init_intf_log_info(Interface *intf){
     log_info->send      = false;
     log_info->is_stdout = false;
     log_info->log_file  = initialize_interface_log_file(intf);
+    log_info->acc_lst_filter = NULL;
 }
 
 static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){
@@ -550,6 +563,8 @@ void tcp_ip_show_log_status(node_t *node){
     printf("\tsend    : %s\n", log_info->send ? "ON" : "OFF");
     printf("\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
     printf("\tl3_fwd  : %s\n", log_info->l3_fwd ? "ON" : "OFF");
+    printf ("\taccess list filter : %s\n", 
+            log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
 
     for( ; i < MAX_INTF_PER_NODE; i++){
         intf = node->intf[i];
@@ -561,6 +576,8 @@ void tcp_ip_show_log_status(node_t *node){
         printf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
         printf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
         printf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
+        printf ("\t\taccess list filter : %s\n", 
+            log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
     }
 }
 
@@ -575,8 +592,12 @@ int traceoptions_handler(param_t *param,
     Interface *intf;
     int cmdcode = -1;
     c_string flag_val;
+    access_list_t *access_list;
     log_t *log_info = NULL;
     tlv_struct_t *tlv = NULL;
+    c_string access_list_name = NULL;
+
+
     int CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
     TLV_LOOP_BEGIN(tlv_buf, tlv){
@@ -587,6 +608,8 @@ int traceoptions_handler(param_t *param,
             if_name =  tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "flag-val"))
             flag_val = tlv->value;
+         else if(parser_match_leaf_id(tlv->leaf_id, "access-list-name"))
+            access_list_name = tlv->value;
     }TLV_LOOP_END;
 
     switch(CMDCODE){
@@ -609,6 +632,52 @@ int traceoptions_handler(param_t *param,
                 return -1;
             }
             log_info = &intf->log_info;
+        break;
+
+        case CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME:
+        node = node_get_node_by_name(topo, node_name);
+        access_list = access_list_lookup_by_name(node, access_list_name);
+                if (!access_list)
+                {
+                    printf("Error : Access-list do not exist\n");
+                    return -1;
+                }
+                log_info = &node->log_info;
+        switch (enable_or_disable)
+        {
+        case CONFIG_ENABLE:
+                if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
+                {
+                    access_list_dereference(node, log_info->acc_lst_filter);
+                    if (access_list_should_decompile(log_info->acc_lst_filter))
+                    {
+                        access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
+                    }
+                    log_info->acc_lst_filter = NULL;
+                }
+                log_info->acc_lst_filter = access_list;
+                access_list_reference(log_info->acc_lst_filter);
+                if (access_list_should_compile(log_info->acc_lst_filter))
+                {
+                    access_list_trigger_install_job(node, log_info->acc_lst_filter, NULL);
+                }
+                break;
+        case CONFIG_DISABLE:
+                if (!log_info->acc_lst_filter) {
+                    return -1;
+                }
+                if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list)) {
+                    printf("Error : access-list is not configured\n");
+                    return -1;
+                }
+                access_list_dereference (node, log_info->acc_lst_filter);
+                if (access_list_should_decompile(log_info->acc_lst_filter))
+                {
+                    access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
+                }
+                 log_info->acc_lst_filter = NULL;
+                break;
+        }
         break;
         default:
             ;
@@ -684,6 +753,17 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
                 set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_NODE);
             }
         }
+        {
+            static param_t acl_filter;
+            init_param(&acl_filter, CMD, "access-list", 0, 0, INVALID, 0, "access-list keyword");
+            libcli_register_param(&traceoptions, &acl_filter);
+            {
+                static param_t acl_name;
+                init_param(&acl_name, LEAF, 0, traceoptions_handler, NULL, STRING, "access-list-name", "Access-list name");
+                libcli_register_param(&acl_filter, &acl_name);
+                set_param_cmd_code(&acl_name, CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME);
+            }
+        }
     }
 }
 
@@ -748,7 +828,7 @@ tcp_trace_internal(node_t *node,
 			   char *buff, const char *fn, int lineno) {
 
 	byte lineno_str[16];
-
+    return;
 	fwrite(fn, sizeof(char), strlen(fn), NODE_LOG_FILE(node));
 	memset(lineno_str, 0, sizeof(lineno_str));
 	sprintf((char *)lineno_str, " (%u) :", lineno);
