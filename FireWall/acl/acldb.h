@@ -204,13 +204,13 @@ struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
     glthread_t head; // list of acl_entry_t in this access list
     glthread_t glue; // glues into node->access_list. A node can have many access lists
-    pthread_rwlock_t acc_rw_lst_lock;
-    mtrie_t *mtrie;     // Mtrie for this access list
-    mtrie_t *backup_mtrie;
+    mtrie_t *mtrie;     // Mtrie for this access list, assignment to this ptr should be atomic
+    /* lock the mtrie if we are updating it, only when being updated synchronously*/
+    pthread_rwlock_t mtrie_update_lock;
     uint8_t ref_count; // how many sub-systems using this access list
     task_t *notif_job; /* Used when notification is to be sent async to appln */
-    access_list_processing_info_t *processing_info;    /* Store the context for 
-    access-list install & uninstall operations */
+    /* Store the context for   access-list install & uninstall operations */
+    access_list_processing_info_t *processing_info;   
     /*Stats */
     time_t installation_start_time;
     time_t installation_end_time;
@@ -238,7 +238,6 @@ void access_list_add_acl_entry(access_list_t * access_list, acl_entry_t *acl_ent
 void access_list_check_delete(access_list_t *access_list);
 void acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry);
 void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry) ;
-bool access_list_reinstall (node_t *node, access_list_t *access_list) ;
 bool access_list_is_compiled (access_list_t *access_list);
 bool access_list_should_decompile (access_list_t *access_list) ;
 bool access_list_should_compile (access_list_t *access_list) ;

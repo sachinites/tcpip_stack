@@ -578,7 +578,7 @@ acl_create_new_access_list(char *access_list_name) {
     string_copy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
-    pthread_rwlock_init(&acc_lst->acc_rw_lst_lock, NULL);
+    pthread_rwlock_init(&acc_lst->mtrie_update_lock, NULL);
     acc_lst->mtrie = access_list_get_new_tcam_mtrie();
     acc_lst->ref_count = 0;
     return acc_lst;
@@ -670,9 +670,9 @@ acl_process_user_config (node_t *node,
         }
         else {
             /* Sync Method */
-            pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
+            pthread_rwlock_wrlock(&access_list->mtrie_update_lock);
             acl_entry_install(access_list, acl_entry);
-            pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
+            pthread_rwlock_unlock(&access_list->mtrie_update_lock);
         }
     }
 
@@ -705,7 +705,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
 
     remove_glthread(&access_list->glue);
     access_list->ref_count--;
-    pthread_rwlock_destroy(&access_list->acc_rw_lst_lock);
+    pthread_rwlock_destroy(&access_list->mtrie_update_lock);
     access_list_check_delete(access_list);
     printf ("Access List Deleted\n");
     return true;
@@ -792,8 +792,8 @@ access_list_evaluate (access_list_t *acc_lst,
     bitmap_init(&input, ACL_PREFIX_LEN);
 
     bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
-
-    pthread_rwlock_rdlock(&acc_lst->acc_rw_lst_lock);
+    
+    pthread_rwlock_rdlock(&acc_lst->mtrie_update_lock);
 
     hit_node = mtrie_longest_prefix_match_search(
                             acc_lst->mtrie, &input);
@@ -815,7 +815,7 @@ access_list_evaluate (access_list_t *acc_lst,
     goto done;
 
     done:
-    pthread_rwlock_unlock(&acc_lst->acc_rw_lst_lock);
+    pthread_rwlock_unlock(&acc_lst->mtrie_update_lock);
     bitmap_free_internal(&input);
     return action;
 }
@@ -823,7 +823,88 @@ access_list_evaluate (access_list_t *acc_lst,
 acl_action_t 
 access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_block) {
 
-    return ACL_PERMIT;
+    byte *pkt;
+    pkt_size_t pkt_size;
+    ip_hdr_t *ip_hdr = NULL;
+    ethernet_hdr_t *eth_hdr = NULL;
+
+    hdr_type_t starting_hdr = pkt_block_get_starting_hdr (pkt_block);
+
+    uint16_t l4proto = 0;
+    uint32_t src_ip = 0,
+                  dst_ip = 0;
+                 
+    uint16_t src_port = 0,
+                  dst_port = 0;
+
+    switch (starting_hdr)
+    {
+    case ETH_HDR:
+    {
+        eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+        if (eth_hdr->type == ETH_IP)
+        {
+            ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
+            src_ip = ip_hdr->src_ip;
+            dst_ip = ip_hdr->dst_ip;
+            l4proto = ip_hdr->protocol;
+
+            switch (l4proto)
+            {
+            case UDP_PROTO:
+            {
+                udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
+                src_port = udp_hdr->src_port_no;
+                dst_port = udp_hdr->dst_port_no;
+            }
+            break;
+            case TCP_PROTO:
+                break;
+            }
+
+            return access_list_evaluate(access_list, 
+                                                ETH_IP, 
+                                                l4proto,
+                                                src_ip,
+                                                dst_ip,
+                                                src_port,
+                                                dst_port);
+        }
+    }
+    break;
+    case IP_HDR:
+        {
+            ip_hdr =  (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+            src_ip = ip_hdr->src_ip;
+            dst_ip = ip_hdr->dst_ip;
+            l4proto = ip_hdr->protocol;
+
+            switch (l4proto)
+            {
+            case UDP_PROTO:
+            {
+                udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
+                src_port = udp_hdr->src_port_no;
+                dst_port = udp_hdr->dst_port_no;
+            }
+            break;
+            case TCP_PROTO:
+                break;
+            }
+
+            return access_list_evaluate(access_list, 
+                                                ETH_IP, 
+                                                l4proto,
+                                                src_ip,
+                                                dst_ip,
+                                                src_port,
+                                                dst_port);
+        }
+        break;
+    default: ;
+    }
+    return ACL_DENY;
 }
 
 acl_action_t
@@ -922,23 +1003,17 @@ access_group_config(node_t *node,
     access_list_reference(acc_lst);
     pthread_spin_unlock(spin_lock);
 
-    if (access_list_is_compiled (acc_lst)) {
-        if (access_list_is_uninstallation_in_progress(acc_lst))
-        {
-            access_list_cancel_un_installation_operation(acc_lst);
-        }
+    if (!access_list_is_compiled (acc_lst) &&
+         access_list_should_compile (acc_lst)) {
 
-        if (!access_list_is_installation_in_progress(acc_lst))
-        {
-            access_list_trigger_install_job(node, acc_lst, NULL);
-        }
+        access_list_trigger_install_job(node, acc_lst, NULL);
     }
 
     return 0;
 }
 
 int 
-access_group_unconfig(node_t *node, 
+access_group_unconfig (node_t *node, 
                                        Interface *intf, 
                                        char *dirn, 
                                       access_list_t *acc_lst) {
@@ -966,27 +1041,16 @@ access_group_unconfig(node_t *node,
         return -1;
     }
 
-    access_list_reference(acc_lst);
-
     pthread_spin_lock(spin_lock);
     *configured_access_lst = NULL;
     access_list_dereference(node, acc_lst);
     pthread_spin_unlock(spin_lock);
 
-    if (!access_list_should_compile(acc_lst)) {
-        
-        ITERATE_GLTHREAD_BEGIN(&acc_lst->head, curr) {
-            acl_entry = glthread_to_acl_entry(curr);
-            acl_entry_reset_counters(acl_entry);
-            acl_decompile(acl_entry);
-            acl_entry->is_installed = false;
-        } ITERATE_GLTHREAD_END(&acc_lst->head, curr);
+    if ( access_list_is_compiled(acc_lst) &&
+           access_list_should_decompile (acc_lst)) {
 
-        access_list_purge_tcam_mtrie(node, acc_lst->mtrie);
-        acc_lst->mtrie = access_list_get_new_tcam_mtrie();
+        access_list_trigger_uninstall_job (node, acc_lst, NULL);
     }
-
-    access_list_dereference(node, acc_lst);
     return 0;
 }
 
@@ -1491,43 +1555,6 @@ acl_entry_link_dst_object_networks(acl_entry_t *acl_entry, obj_nw_t *obj_nw) {
     acl_entry->dst_addr.acl_addr_format = ACL_ADDR_OBJECT_NETWORK;
 }
 
-/* To be used when Access-list is partially installed Or uninstalled
-    into mtrie */
-bool
-access_list_reinstall (node_t *node, access_list_t *access_list) {
-
-    glthread_t *curr;
-    mtrie_t *mtrie;
-    obj_nw_t *obj_nw;
-    acl_entry_t *acl_entry;
-
-    pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
-
-    if (access_list_is_compiled(access_list)) {
-        mtrie = access_list->mtrie;
-        access_list->mtrie = access_list_get_new_tcam_mtrie();
-        access_list_purge_tcam_mtrie(node, mtrie);
-    }
-    else if (!access_list->mtrie) {
-        access_list->mtrie = access_list_get_new_tcam_mtrie();
-    }
-
-    ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
-
-       acl_entry = glthread_to_acl_entry(curr);
-       /* Optimization : Avoid Recalculation of TCAM Data */
-       acl_entry_increment_referenced_objects_tcam_user_count(acl_entry, 1, true, true);
-       acl_decompile(acl_entry);
-       acl_compile(acl_entry);
-       acl_entry_increment_referenced_objects_tcam_user_count(acl_entry, -1, true, true);
-       acl_entry_install(access_list, acl_entry);
-
-    }ITERATE_GLTHREAD_END(&access_list->head, curr);
-    
-    pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
-    return true;
-}
-
 void
 acl_entry_reset_counters(acl_entry_t *acl_entry) {
 
@@ -1615,7 +1642,7 @@ void
     
     if (!access_list) return;
 
-     pthread_rwlock_rdlock(&access_list->acc_rw_lst_lock);
+     pthread_rwlock_rdlock(&access_list->mtrie_update_lock);
 
      ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -1624,7 +1651,7 @@ void
 
        }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
-     pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
+     pthread_rwlock_unlock(&access_list->mtrie_update_lock);
  }
 
 static void
@@ -1723,9 +1750,9 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
 
     /*Sync Method*/
     if (acl_entry->tcam_total_count < ACL_ENTRY_TCAM_COUNT_THRESHOLD) {
-        pthread_rwlock_wrlock(&access_list->acc_rw_lst_lock);
+        pthread_rwlock_wrlock(&access_list->mtrie_update_lock);
         acl_entry_uninstall(access_list, acl_entry);
-        pthread_rwlock_unlock(&access_list->acc_rw_lst_lock);
+        pthread_rwlock_unlock(&access_list->mtrie_update_lock);
         acl_entry_free(acl_entry);
         return true;
     }
@@ -2338,9 +2365,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
             /* Updating the Data Path */
             if (access_list_processing_info->is_installation) {
                 mtrie_t *temp = access_list->mtrie;
-                pthread_rwlock_wrlock (&access_list->acc_rw_lst_lock);
                 access_list->mtrie = access_list_processing_info->mtrie;
-                pthread_rwlock_unlock (&access_list->acc_rw_lst_lock);
                 access_list_purge_tcam_mtrie(node, temp);
                 sprintf(tlb, "%s : Data Path Updated for  Access-list %s\n",
                     FWALL_ACL, access_list->name);
@@ -2558,7 +2583,7 @@ access_list_trigger_install_job(node_t *node,
         acl_entry_reset_counters(acl_entry);
         init_glthread(&objects_linked_acl_thread_node->glue);
         glthread_add_next(&access_list_processing_info->pending_acls, &objects_linked_acl_thread_node->glue);
-
+    
     } ITERATE_GLTHREAD_END(&access_list->head, curr);
 
     bitmap_init(&access_list_processing_info->tcam_entry_template.prefix, ACL_PREFIX_LEN);
@@ -2585,7 +2610,9 @@ access_list_trigger_uninstall_job(node_t *node,
     access_list_processing_info->node = node;
     access_list_processing_info->og_update_info = og_update_info;
     access_list_processing_info->access_list = access_list;
+    access_list_reference (access_list);
     access_list_processing_info->mtrie = access_list->mtrie;
+    access_list->mtrie = access_list_get_new_tcam_mtrie();
     access_list ->processing_info = access_list_processing_info;
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
@@ -2630,26 +2657,17 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
     acl_entry_t *acl_entry;
     objects_linked_acl_thread_node_t *objects_linked_acl_thread_node;
     
-    if (access_list_is_installation_in_progress(access_list)) {
-
-        access_list_purge_tcam_mtrie(access_list->processing_info->node,
-            access_list->backup_mtrie);
-        access_list->backup_mtrie = NULL;
-    }
-    else if (access_list_is_uninstallation_in_progress (access_list)) {
-
-        mtrie_t *temp;
-        pthread_rwlock_wrlock (&access_list->acc_rw_lst_lock);
-        temp = access_list->mtrie;
-        access_list->mtrie = access_list_get_new_tcam_mtrie();
-        pthread_rwlock_unlock (&access_list->acc_rw_lst_lock);
-        access_list_purge_tcam_mtrie(access_list->processing_info->node, temp);
-    }
-    else {
+    if (!access_list_is_installation_in_progress(access_list) &&
+         !access_list_is_uninstallation_in_progress (access_list)) {
+        
         return;
     }
 
-    task_cancel_job(EV(access_list->processing_info->node),
+    access_list_purge_tcam_mtrie
+            (access_list->processing_info->node, access_list->processing_info->mtrie);
+        access_list->processing_info->mtrie = NULL;
+
+   task_cancel_job(EV(access_list->processing_info->node),
                                       access_list->processing_info->task);
 
     access_list->processing_info->task = NULL;
@@ -2672,10 +2690,6 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
     if (access_list->processing_info->og_update_info) {
         access_list->processing_info->og_update_info->access_list_to_be_processed_count--;
         hashtable_remove (access_list->processing_info->og_update_info->access_lists_ht, (void *)access_list);
-        access_list_purge_tcam_mtrie(
-                access_list->processing_info->node, 
-                access_list->processing_info->mtrie);
-        access_list->processing_info->mtrie = NULL;
     }
 
     /* Reset ALCs flags */
@@ -2690,6 +2704,7 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
                     FWALL_ACL, access_list->name, access_list->processing_info->is_installation ? "" : "Un-");
     tcp_trace(access_list->processing_info->node, 0, tlb);
 
+    access_list_dereference (access_list->processing_info->node, access_list);
     XFREE(access_list->processing_info);
     access_list->processing_info = NULL;
 }

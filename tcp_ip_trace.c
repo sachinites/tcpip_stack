@@ -329,6 +329,8 @@ tcp_dump_recv_logger(
               hdr_type_t hdr_type){
 
     int rc = 0 ;
+    acl_action_t acl_action;
+
     if(node->log_info.all || 
         node->log_info.recv ||
         intf->log_info.recv){
@@ -340,6 +342,20 @@ tcp_dump_recv_logger(
                 node->log_info.log_file : NULL;
         FILE *log_file2 = (intf->log_info.recv || intf->log_info.all) ?
                 intf->log_info.log_file : NULL;
+
+        if (log_file1 && 
+             node->log_info.acc_lst_filter ) {
+
+            acl_action = access_list_evaluate_pkt_block (node->log_info.acc_lst_filter, pkt_block);
+           if (acl_action == ACL_DENY) log_file1 = NULL;
+        }
+
+        if (log_file2 && 
+             intf->log_info.acc_lst_filter ) {
+
+            acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
+           if (acl_action == ACL_DENY) log_file2 = NULL;
+        }
 
         if(sock_fd == -1 && 
             !log_file1 && !log_file2){
@@ -409,12 +425,16 @@ tcp_dump_send_logger(node_t *node, Interface *intf,
         FILE *log_file2 = (intf->log_info.send || intf->log_info.all) ? 
                 intf->log_info.log_file : NULL;
 
-        if (log_file1 && node->log_info.acc_lst_filter) {
+        if (log_file1 && 
+             node->log_info.acc_lst_filter ) {
+
             acl_action = access_list_evaluate_pkt_block (node->log_info.acc_lst_filter, pkt_block);
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
 
-        if (log_file2 && intf->log_info.acc_lst_filter) {
+        if (log_file2 && 
+             intf->log_info.acc_lst_filter ) {
+
             acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
            if (acl_action == ACL_DENY) log_file2 = NULL;
         }
@@ -423,7 +443,7 @@ tcp_dump_send_logger(node_t *node, Interface *intf,
             !log_file1 && !log_file2){
             return;
         }
-        
+
         tcp_init_send_logging_buffer(node);
         
         rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node),
