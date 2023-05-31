@@ -6,14 +6,14 @@
 
 int
 node_callback_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
-    printf("%s() is called ...\n", __FUNCTION__);
+    printw("%s() is called ...\n", __FUNCTION__);
     return 0;
 }
 
 int
 validate_node_name(char *value){
 
-    printf("%s() is called with value = %s\n", __FUNCTION__, value);
+    printw("%s() is called with value = %s\n", __FUNCTION__, value);
     return VALIDATION_SUCCESS; /*else return VALIDATION_FAILED*/
 }
 
@@ -22,10 +22,10 @@ int
 node_loopback_callback_handler(param_t *param, 
                                ser_buff_t *tlv_buf,         /*This is the buffer in which all leaf values in the command are present*/
                                op_mode enable_or_disable){  /*This is meaningful for config commands, will discuss later*/
-    printf("%s() is called ...\n", __FUNCTION__);
+    printw("%s() is called ...\n", __FUNCTION__);
 
     int cmd_code = EXTRACT_CMD_CODE(tlv_buf);               /*Extract the cmdcode. If you did not specify the command during command tree building, default cmdcode would come as -1 */
-    printf("cmd_code = %d\n", cmd_code);
+    printw("cmd_code = %d\n", cmd_code);
 
     tlv_struct_t *tlv = NULL; 
     char *node_name = NULL;
@@ -42,7 +42,7 @@ node_loopback_callback_handler(param_t *param,
 
     switch(cmd_code){
         case CMDODE_SHOW_NODE_LOOPBACK:
-            printf("node_name = %s. lo-address = %s\n", node_name, lo_address);
+            printw("node_name = %s. lo-address = %s\n", node_name, lo_address);
             break;
         default:
             ;
@@ -53,7 +53,7 @@ node_loopback_callback_handler(param_t *param,
 int
 validate_loopback_address(char *value){
 
-    printf("%s() is called with value = %s\n", __FUNCTION__, value);
+    printw("%s() is called with value = %s\n", __FUNCTION__, value);
     return VALIDATION_SUCCESS; /*else return VALIDATION_FAILED*/
 }
 

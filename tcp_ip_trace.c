@@ -699,6 +699,59 @@ int traceoptions_handler(param_t *param,
                 break;
         }
         break;
+        case CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF:
+        node = node_get_node_by_name(topo, node_name);
+        intf = node_get_intf_by_name(node, (const char *)if_name);
+        if (!intf)
+        {
+                printf("Error : No interface %s on Node %s\n", if_name, node_name);
+                return -1;
+        }
+        access_list = access_list_lookup_by_name(node, access_list_name);
+        if (!access_list)
+        {
+                printf("Error : Access-list do not exist\n");
+                return -1;
+        }
+        log_info = &intf->log_info;
+        switch (enable_or_disable)
+        {
+        case CONFIG_ENABLE:
+                if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
+                {
+                    access_list_dereference(node, log_info->acc_lst_filter);
+                    if (access_list_should_decompile(log_info->acc_lst_filter))
+                    {
+                        access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
+                    }
+                    log_info->acc_lst_filter = NULL;
+                }
+                log_info->acc_lst_filter = access_list;
+                access_list_reference(log_info->acc_lst_filter);
+                if (access_list_should_compile(log_info->acc_lst_filter))
+                {
+                    access_list_trigger_install_job(node, log_info->acc_lst_filter, NULL);
+                }
+                break;
+        case CONFIG_DISABLE:
+                if (!log_info->acc_lst_filter)
+                {
+                    return -1;
+                }
+                if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
+                {
+                    printf("Error : access-list is not configured\n");
+                    return -1;
+                }
+                access_list_dereference(node, log_info->acc_lst_filter);
+                if (access_list_should_decompile(log_info->acc_lst_filter))
+                {
+                    access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
+                }
+                log_info->acc_lst_filter = NULL;
+                break;
+        }
+        break;
         default:
             ;
     }
@@ -807,6 +860,17 @@ tcp_ip_build_intf_traceoptions_cli(param_t *intf_name_param){
                 set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_INTF);
             }
         }
+        {
+            static param_t acl_filter;
+            init_param(&acl_filter, CMD, "access-list", 0, 0, INVALID, 0, "access-list keyword");
+            libcli_register_param(&traceoptions, &acl_filter);
+            {
+                static param_t acl_name;
+                init_param(&acl_name, LEAF, 0, traceoptions_handler, NULL, STRING, "access-list-name", "Access-list name");
+                libcli_register_param(&acl_filter, &acl_name);
+                set_param_cmd_code(&acl_name, CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF);
+            }
+        }        
     }
 }
 

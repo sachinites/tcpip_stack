@@ -45,7 +45,7 @@ static param_t show;
 static param_t debug;
 static param_t debug_show;
 static param_t config;
-static param_t clear;
+static param_t clearp;
 static param_t run;
 static param_t repeat;
 static param_t show_brief_extension;
@@ -124,7 +124,7 @@ libcli_get_config_hook(void)
 param_t *
 libcli_get_clear_hook(void)
 {
-    return &clear;
+    return &clearp;
 }
 
 param_t *
@@ -228,7 +228,7 @@ void (*app_ctrlC_signal_handler)(void);
 static void
 ctrlC_signal_handler(int sig)
 {
-    printf("Ctrl-C pressed\n");
+    printw("Ctrl-C pressed\n");
 
     if (app_ctrlC_signal_handler)
     {
@@ -236,7 +236,7 @@ ctrlC_signal_handler(int sig)
     }
     else
     {
-        printf("Bye Bye\n");
+        printw("Bye Bye\n");
         exit(0);
     }
 }
@@ -389,8 +389,8 @@ void init_libcli()
     set_param_cmd_code(&supportsave_enable, CONFIG_SUPPORTSAVE_ENABLE);
 
     /*clear hook*/
-    init_param(&clear, CMD, "clear", 0, 0, INVALID, 0, "clear cmds");
-    libcli_register_param(&root, &clear);
+    init_param(&clearp, CMD, "clear", 0, 0, INVALID, 0, "clear cmds");
+    libcli_register_param(&root, &clearp);
 
     /*run hook*/
     init_param(&run, CMD, "run", 0, 0, INVALID, 0, "run cmds");
@@ -426,7 +426,7 @@ void init_libcli()
     do_hook.options[CMD_EXPANSION_INDEX] = libcli_get_cmd_expansion_param();
     do_hook.options[CHILDREN_START_INDEX] = &show;
     do_hook.options[CHILDREN_START_INDEX + 1] = &debug;
-    do_hook.options[CHILDREN_START_INDEX + 2] = &clear;
+    do_hook.options[CHILDREN_START_INDEX + 2] = &clearp;
 
     /*configure repeat*/
     init_param(&repeat, CMD, "repeat", repeat_last_command, 0, INVALID, 0, "repeat");
@@ -569,7 +569,7 @@ void support_cmd_negation(param_t *param)
 
     if (negate_param && IS_PARAM_NO_CMD(negate_param))
     {
-        printf("Error : Attempt to add Duplicate Negate param in cmd : %s\n", GET_CMD_NAME(param));
+        printw("Error : Attempt to add Duplicate Negate param in cmd : %s\n", GET_CMD_NAME(param));
         return;
     }
 
@@ -653,7 +653,7 @@ void libcli_register_param(param_t *parent, param_t *child)
         return;
     }
 
-    printf("%s() : Error : No space for new command\n", __FUNCTION__);
+    printw("%s() : Error : No space for new command\n", __FUNCTION__);
     assert(0);
 }
 
@@ -666,15 +666,15 @@ _dump_one_cmd(param_t *param, unsigned short tabs)
     PRINT_TABS(tabs);
 
     if (IS_PARAM_CMD(param) || IS_PARAM_NO_CMD(param))
-        printf("-->%s(%d)", GET_CMD_NAME(param), tabs);
+        printw("-->%s(%d)", GET_CMD_NAME(param), tabs);
     else
-        printf("-->%s(%d)", GET_LEAF_TYPE_STR(param), tabs);
+        printw("-->%s(%d)", GET_LEAF_TYPE_STR(param), tabs);
 
     for (; i < MAX_OPTION_SIZE; i++)
     {
         if (param->options[i])
         {
-            printf("\n");
+            printw("\n");
             _dump_one_cmd(param->options[i], ++tabs);
             --tabs;
         }
@@ -688,9 +688,7 @@ void dump_cmd_tree()
     _dump_one_cmd(&root, 0);
 }
 
-extern void command_parser(void);
-
-extern void enhanced_command_parser(void);
+extern void command_parser();
 
 void start_shell(void)
 {
@@ -726,7 +724,7 @@ void goto_top_of_cmd_tree(param_t *curr_cmd_tree_cursor)
 
     if (curr_cmd_tree_cursor == &root)
     {
-        printf(ANSI_COLOR_BLUE "Info : At Roof top Already\n" ANSI_COLOR_RESET);
+        printw(ANSI_COLOR_BLUE "Info : At Roof top Already\n" ANSI_COLOR_RESET);
         return;
     }
 
@@ -756,7 +754,7 @@ void go_one_level_up_cmd_tree(param_t *curr_cmd_tree_cursor)
 
     if (curr_cmd_tree_cursor == &root)
     {
-        printf(ANSI_COLOR_BLUE "Info : At Roof top Already\n" ANSI_COLOR_RESET);
+        printw(ANSI_COLOR_BLUE "Info : At Roof top Already\n" ANSI_COLOR_RESET);
         return;
     }
 

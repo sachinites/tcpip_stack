@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include "serialize.h"
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "serialize.h"
 
 void 
 init_serialized_buffer(ser_buff_t **b){
@@ -317,10 +317,10 @@ void truncate_serialize_buffer(ser_buff_t **b){
 
 
 void print_buffer_details(ser_buff_t *b, const char *fn, int lineno){
-#if 1
-    printf("%s():%d : starting address = %p\n", fn, lineno, b);
-    printf("size = %d\n", b->size);
-    printf("next = %d\n", b->next);
+#if 0
+    printw("%s():%d : starting address = %p\n", fn, lineno, b);
+    printw("size = %d\n", b->size);
+    printw("next = %d\n", b->next);
 #endif
     return;
 }
@@ -338,12 +338,12 @@ de_serialize_string(char *dest, ser_buff_t *b, int size){
 
 void copy_in_serialized_buffer_by_offset(ser_buff_t *b, int size, char *value, int offset){
 	if((b->size - b->next) < size){
-		printf("%s(): Error : Insufficient buffer space\n", __FUNCTION__);
+		//printw("%s(): Error : Insufficient buffer space\n", __FUNCTION__);
 		return;
 	}
 	
 	if(offset > b->size){
-		printf("%s(): Error : Attemt to write outside buffer boundaries\n", __FUNCTION__);
+		//printw("%s(): Error : Attemt to write outside buffer boundaries\n", __FUNCTION__);
 		return;
 	}
 	
