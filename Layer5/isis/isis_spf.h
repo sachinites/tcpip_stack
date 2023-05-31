@@ -18,6 +18,7 @@ typedef struct isis_spf_data_{
     /*Temp fields used for calculations*/
     uint32_t spf_metric;
     glthread_t priority_thread_glue;
+    bool is_spf_processed;
     nexthop_t *nexthops[MAX_NXT_HOPS];
 } isis_spf_data_t;
 GLTHREAD_TO_STRUCT(isis_priority_thread_glue_to_spf_data, 

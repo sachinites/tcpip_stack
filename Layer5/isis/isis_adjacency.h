@@ -65,6 +65,7 @@ typedef struct isis_adjacency_{
     time_t uptime;
     /* IS Reach Advertisement */
     union {
+        /* Advertise P2P adjacency */
         isis_adv_data_t *p2p_adv_data;
         /*is this is LAN adj and self is dis, then advertise PN to nbr*/
         isis_adv_data_t *lan_pn_to_nbr_adv_data;
@@ -131,22 +132,17 @@ isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
 
 uint16_t
 isis_size_to_encode_all_nbr_tlv(node_t *node);
-
-uint16_t
-isis_print_formatted_nbr_tlv22(byte *out_buff, 
-                             byte *nbr_tlv_buffer,
-                             uint8_t tlv_buffer_len);
-                             
+                           
 uint32_t 
 isis_show_all_adjacencies (node_t *node) ;
 
 bool
 isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency);
 
-void
+isis_advt_tlv_return_code_t
 isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency);
 
-void
+isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency);
 
 #endif /* __IGP_NBRSHIP__ */

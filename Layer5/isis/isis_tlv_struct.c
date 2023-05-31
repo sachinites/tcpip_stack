@@ -1,4 +1,6 @@
 #include "../../tcp_public.h"
+#include "isis_pkt.h"
+#include "isis_lspdb.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 
@@ -10,7 +12,7 @@ isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_le
 
     isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)(tlv130_start + TLV_OVERHEAD_SIZE);
 
-    rc += sprintf(out_buff + rc, "\tTLV%d IP-REACH TLV : \n", ISIS_TLV_IP_REACH);
+    rc += sprintf(out_buff + rc, "\tTLV%d IP-REACH TLV   len:%dB\n", ISIS_TLV_IP_REACH, tlv_len);
     rc += sprintf(out_buff + rc, "\t\t%s/%d  metric = %u  %s\n",
                 tcp_ip_covert_ip_n_to_p(htonl(tlv_130->prefix), ip_addr_str),
                 tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask),
@@ -28,6 +30,9 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
 
     switch (adv_data->tlv_no) {
     
+    case ISIS_TLV_HOSTNAME:
+        ptlv_data_len += TLV_OVERHEAD_SIZE + NODE_NAME_SIZE;
+        break;
     case ISIS_IS_REACH_TLV:
         ptlv_data_len += TLV_OVERHEAD_SIZE;
         ptlv_data_len += sizeof(isis_system_id_t); /* Nbr Sys Id */
@@ -109,6 +114,9 @@ isis_get_adv_data_tlv_content(
             tlv_content += sizeof(uint32_t);
             *(uint8_t *)tlv_content = advt_data->u.pfx.flags;
         break;
+        case ISIS_TLV_HOSTNAME:
+                strncpy (tlv_content, advt_data->u.host_name, advt_data->tlv_size - TLV_OVERHEAD_SIZE);
+                break;
         default: ;
     }
     return start_ptr;
@@ -198,19 +206,17 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t rc = 0;
     byte ip_addr[16];
-
+    byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
     isis_pkt_hdr_flags_t flags = isis_lsp_pkt_get_flags(lsp_pkt);
 
-    rc += sprintf(buff + rc, "LSP PKT\nLSP : %s-%hu-%hu (%u)\n",
-        tcp_ip_covert_ip_n_to_p(lsp_pkt_hdr->rtr_id, ip_addr), 
-        lsp_pkt_hdr->pn_no,  lsp_pkt_hdr->fr_no, lsp_pkt_hdr->seq_no);
+    rc += sprintf (buff + rc, "LSP PKT\nLSP : %s\n", isis_print_lsp_id (lsp_pkt,  lsp_id_str));
 
-    rc += sprintf(buff + rc,  "Flags :  \n");
-    rc += sprintf(buff + rc,  
+    rc += sprintf (buff + rc,  "Flags :  \n");
+    rc += sprintf (buff + rc,  
                 "  OL bit : %s\n", flags & ISIS_LSP_PKT_F_OVERLOAD_BIT ? "Set" : "UnSet");
     rc += sprintf(buff + rc, 
                 "  Purge bit : %s\n", flags & ISIS_LSP_PKT_F_PURGE_BIT ? "Set" : "UnSet");
@@ -240,10 +246,6 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;
-            case ISIS_TLV_ON_DEMAND:
-                rc += sprintf(buff + rc, "\tTLV%d On-Demand TLV : %hhu\n",
-                        tlv_type, *(uint8_t *)tlv_value);
-                break;
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
@@ -251,4 +253,19 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                         lsp_tlv_buffer_size);
 
     return rc;
+}
+
+bool
+isis_is_zero_fragment_tlv (uint16_t tlv_no) {
+
+    switch (tlv_no) {
+        case  ISIS_TLV_HOSTNAME:
+            return true;
+        case ISIS_IS_REACH_TLV:
+        case ISIS_TLV_IP_REACH:
+            return false;
+        default: 
+            return false;
+    }
+    return false;
 }

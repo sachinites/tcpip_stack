@@ -6,7 +6,7 @@
 #include "isis_rtr.h"
 #include "isis_flood.h"
 #include "isis_intf_group.h"
-#include "isis_pn.h"
+#include "isis_dis.h"
 #include "isis_utils.h"
 
 bool
@@ -51,18 +51,54 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 }
 
 void
-isis_start_sending_hellos(Interface *intf) {
+isis_send_hello_immediately (Interface *intf) {
+
+     byte *hello_pkt;
+     bool new_hello;
+     pkt_block_t *pkt_block;
+     size_t hello_pkt_size;
+     isis_timer_data_t *isis_timer_data;
+     timer_event_handle *hello_xmit_timer ;
+
+    hello_xmit_timer = ISIS_INTF_HELLO_XMIT_TIMER(intf);
+
+    if (hello_xmit_timer) {
+        isis_timer_data =
+        (isis_timer_data_t *)wt_elem_get_and_set_app_data(hello_xmit_timer, hello_xmit_timer->arg);
+        hello_pkt = (byte *) isis_timer_data->data;
+        hello_pkt_size =isis_timer_data->data_size;
+        new_hello = false;
+    }
+    else {
+
+        hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
+        new_hello = true;
+    }
+
+     if (hello_pkt && hello_pkt_size) {
+
+            ISIS_INTF_INCREMENT_STATS(intf, hello_pkt_sent);
+            pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
+            intf->SendPacketOut(pkt_block);
+            new_hello ? pkt_block_free (pkt_block) : XFREE(pkt_block);
+    }
+ 
+}
+
+void
+isis_start_sending_hellos (Interface *intf) {
 
     node_t *node;
     size_t hello_pkt_size;
+    isis_intf_info_t *intf_info;
 
-    assert(ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL);
-    assert(isis_node_intf_is_enable(intf));
+    intf_info = ISIS_INTF_INFO (intf);
     
+    if (!intf_info) return;
+    if (intf_info->hello_xmit_timer) return;
+   
     node = intf->att_node;
-    wheel_timer_t *wt = CP_TIMER(node);
-
-    char *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
+    byte *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 
     isis_timer_data_t *isis_timer_data =
         XCALLOC(0, 1, isis_timer_data_t);
@@ -72,19 +108,16 @@ isis_start_sending_hellos(Interface *intf) {
     isis_timer_data->data = hello_pkt;
     isis_timer_data->data_size = hello_pkt_size;
 
-    ISIS_INTF_HELLO_XMIT_TIMER(intf) = timer_register_app_event(wt,
+    intf_info->hello_xmit_timer = timer_register_app_event(
+                                        CP_TIMER(node),
                                         isis_transmit_hello,
                                         (void *)isis_timer_data,
                                         sizeof(isis_timer_data_t),
                                         ISIS_INTF_HELLO_INTERVAL(intf) * 1000,
                                         1);
-
     
-    if (ISIS_INTF_HELLO_XMIT_TIMER(intf) == NULL) {
-        printf("Error : Failed to xmit hellos on interface (%s)%s",
-            node->node_name, intf->if_name.c_str());
+    if (intf_info->hello_xmit_timer == NULL) {
         XFREE(isis_timer_data);
-        return;
     }
 }
 
@@ -114,7 +147,10 @@ void
 isis_refresh_intf_hellos(Interface *intf) {
 
     isis_stop_sending_hellos(intf);
-    isis_start_sending_hellos(intf);
+    if (isis_interface_qualify_to_send_hellos (intf)) {
+        isis_start_sending_hellos(intf);
+        isis_send_hello_immediately (intf);
+    }
 }
 
 
@@ -122,15 +158,13 @@ static void
 isis_init_intf_info (Interface *intf) {
       
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    isis_node_info_t *node_info = ISIS_NODE_INFO (intf->att_node);
-       
     memset(intf_info, 0, sizeof(isis_intf_info_t));
     intf_info->hello_interval = ISIS_DEFAULT_HELLO_INTERVAL;
     intf_info->cost = ISIS_DEFAULT_INTF_COST;
     intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
     intf_info->intf_type = isis_intf_type_lan;
     intf_info->level = isis_level_1; /* Only Lvl 1 is Supported for now*/
-    intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), 0};
+    intf_info->lan_id = {0, 0};
     init_glthread(&intf_info->adj_list_head);
     init_glthread(&intf_info->intf_grp_member_glue);
     if ( isis_intf_is_lan (intf)) {
@@ -161,9 +195,9 @@ isis_enable_protocol_on_interface(Interface *intf) {
     }
     
     if (intf_info->hello_xmit_timer == NULL) {
-        if (isis_interface_qualify_to_send_hellos(intf) &&
-            !ISIS_INTF_INFO(intf)->hello_xmit_timer) {
+        if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
+            isis_send_hello_immediately (intf);
         }
     }
 }
@@ -176,21 +210,20 @@ isis_free_intf_info(Interface *intf) {
     intf->isis_intf_info = NULL;
 }
 
-void 
+static void 
 isis_check_and_delete_intf_info(Interface *intf) {
 
-    if (ISIS_INTF_HELLO_XMIT_TIMER(intf) ||
-         !IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) ||
-         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->lsp_xmit_list_head) ||
-         !IS_GLTHREAD_LIST_EMPTY(&ISIS_INTF_INFO(intf)->intf_grp_member_glue) ||
-         ISIS_INTF_INFO(intf)->lsp_xmit_job ||
-         ISIS_INTF_INFO(intf)->lan_id.pn_id ||
-         (ISIS_INTF_INFO(intf)->elected_dis.rtr_id || ISIS_INTF_INFO(intf)->elected_dis.pn_id) ||
-         ISIS_INTF_INFO(intf)->lan_self_to_pn_adv_data ||
-         ISIS_INTF_INFO(intf)->lan_pn_to_self_adv_data ) {
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+    assert (!ISIS_INTF_HELLO_XMIT_TIMER(intf));
+    assert (IS_GLTHREAD_LIST_EMPTY(ISIS_INTF_ADJ_LST_HEAD(intf)) );
+    assert (IS_GLTHREAD_LIST_EMPTY(&intf_info->lsp_xmit_list_head) );
+    assert (IS_GLTHREAD_LIST_EMPTY(&intf_info->intf_grp_member_glue) );
+    assert (!intf_info->lsp_xmit_job);
+    assert (isis_is_lan_id_null (intf_info->lan_id));
+    assert (isis_is_lan_id_null (intf_info->elected_dis) );
+    assert (!intf_info->lan_self_to_pn_adv_data);
+    assert (!intf_info->lan_pn_to_self_adv_data);
 
-       assert(0);
-    }  
     isis_free_intf_info(intf);
 }
 
@@ -205,13 +238,15 @@ isis_disable_protocol_on_interface(Interface *intf) {
 
     isis_stop_sending_hellos(intf);
     isis_delete_all_adjacencies(intf);
-    isis_intf_purge_lsp_xmit_queue(intf);
     remove_glthread(&intf_info->intf_grp_member_glue);
     intf_info->intf_grp = NULL;
     if (isis_intf_is_lan(intf)) {
         isis_intf_resign_dis(intf);
         isis_intf_deallocate_lan_id (intf);
     }
+    /* Must be last call in this fn, as prev call could
+        result in LSP pkts queuing again*/
+     isis_intf_purge_lsp_xmit_queue(intf);
     isis_check_and_delete_intf_info(intf);
 }
 
@@ -246,8 +281,8 @@ isis_show_interface_protocol_state(Interface *intf) {
         printf("Intf Group : %s \n", intf_info->intf_grp->name);
     }
     PRINT_TABS(2);
-    printf("hello interval : %u sec, Intf Cost : %u\n",
-        intf_info->hello_interval, intf_info->cost);
+    printf("hello interval : %u sec, Intf Cost : %u, Priority : %hu\n",
+        intf_info->hello_interval, intf_info->cost, intf_info->priority);
 
     PRINT_TABS(2);
     printf("hello Transmission : %s\n",
@@ -283,27 +318,26 @@ isis_show_interface_protocol_state(Interface *intf) {
 static void
 isis_handle_interface_up_down (Interface *intf, bool old_status) {
 
-    bool any_adj_up = false;
+    isis_lan_id_t new_dis;
 
     if (old_status == false) {
+
+        new_dis = isis_intf_reelect_dis (intf);
+        isis_intf_assign_new_dis (intf, new_dis);
         /* Interace has been no-shut */
         /* 1. Start sending hellos out of interface if it qualifies
             2. Start processing hellos on this interface if it qualifies */
-
-            if (!isis_interface_qualify_to_send_hellos(intf)) {
-                return;
-            }
-            isis_start_sending_hellos(intf);
+        if (isis_interface_qualify_to_send_hellos(intf)) {
+             isis_start_sending_hellos (intf);
+             isis_send_hello_immediately (intf);
+        }
     }
     else {
+
         /* interface has been shut down */
         isis_stop_sending_hellos(intf);
-        any_adj_up = isis_any_adjacency_up_on_interface(intf);
         isis_delete_all_adjacencies(intf);
-        if (any_adj_up) {
-            isis_schedule_lsp_pkt_generation(intf->att_node,
-                                isis_event_admin_config_changed);
-        }
+        isis_intf_resign_dis (intf);
     }
 }
 
@@ -311,12 +345,34 @@ static void
 isis_handle_interface_ip_addr_changed (Interface *intf, 
                                                                 uint32_t old_ip_addr, uint8_t old_mask) {
 
+    uint8_t mask;
+    uint32_t ip_addr;
+    glthread_t *curr;
+    isis_lan_id_t new_dis;
+    isis_intf_info_t *intf_info;    
+    isis_adv_data_t *advt_data;
+    isis_adjacency_t *adjacency;
+
     /* case 1 : New IP Address Added, start sending hellos if intf qualifies*/
 
     if (intf->IsIpConfigured() && !old_ip_addr && !old_mask) {
 
+        /* Update Hellos*/
         if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
+            isis_send_hello_immediately (intf);
+        }
+
+        /* Adding an IP Address may make interface eligible for DIS election. Though it
+            wont have any adjacency at this point, we would go ahead and re-elect self as DIS
+            and accordingly advertise IS reach TLVs.*/
+        if (isis_intf_is_lan (intf)) {
+            isis_intf_resign_dis (intf);
+            new_dis = isis_intf_reelect_dis (intf);
+            isis_intf_assign_new_dis (intf, new_dis);
+        }
+        else {
+            /* No Action needed*/
         }
         return;
     }
@@ -325,27 +381,63 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
 
     if (!intf->IsIpConfigured() && old_ip_addr && old_mask) {
 
-        bool any_up_adj = false;
-        any_up_adj = isis_any_adjacency_up_on_interface(intf);
         isis_stop_sending_hellos(intf);
         isis_delete_all_adjacencies(intf);
-        if (any_up_adj) {
-            isis_schedule_lsp_pkt_generation(intf->att_node, 
-                isis_event_admin_config_changed);
-        }
+         if (isis_intf_is_lan (intf)) {
+            isis_intf_resign_dis (intf);
+         }
+         else {
+            /* No Action needed*/
+         }
         return;
     }
 
     /*case 3 : IP Address changed, start sending hellos if intf qualifies with new IP Address
         Nbr must bring down adj if new IP Address do not matches same subnet 
-        Nbr must update its Adj data and LSP as per new Ip Address info recvd from this rtr
-    */
+        Nbr must update its Adj data and LSP as per new Ip Address info recvd from this rtr */
     
-    isis_interface_qualify_to_send_hellos(intf) ?   \
-        isis_refresh_intf_hellos(intf) :                       \
-        isis_stop_sending_hellos(intf);
-        isis_schedule_lsp_pkt_generation(intf->att_node, 
-                isis_event_admin_config_changed);
+    isis_stop_sending_hellos(intf);
+    if (isis_interface_qualify_to_send_hellos(intf)) {
+        isis_refresh_intf_hellos(intf);
+        isis_send_hello_immediately (intf);
+    }     
+
+    /* Update local IP advertised in IS REACH TLVs */
+    if (isis_intf_is_lan (intf)) {
+
+        intf_info = ISIS_INTF_INFO (intf);
+        intf->InterfaceGetIpAddressMask (&ip_addr, &mask);
+
+        /* Update advt_data from self to PN i.e. intf_info->lan_self_to_pn_adv_data */
+        if (intf_info->lan_self_to_pn_adv_data) {
+
+            advt_data = intf_info->lan_self_to_pn_adv_data;
+            advt_data->u.adj_data.local_intf_ip = ip_addr;
+            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+        }
+
+        /* Update advt_data from PN to self-DIS i.e. intf_info->lan_pn_to_self_adv_data */
+        if (intf_info->lan_pn_to_self_adv_data) {
+
+            advt_data = intf_info->lan_pn_to_self_adv_data;
+            advt_data->u.adj_data.remote_intf_ip =  ip_addr;
+            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+        }
+    }
+    else {
+        
+        ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
+            
+            adjacency = glthread_to_isis_adjacency(curr);
+             if (!adjacency->u.p2p_adv_data) continue;
+             advt_data = adjacency->u.p2p_adv_data;
+             intf->InterfaceGetIpAddressMask (&ip_addr, &mask);
+             advt_data->u.adj_data.local_intf_ip = ip_addr;
+            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+
+        } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
+
+    }
 }
 
 void
@@ -378,23 +470,7 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) 
     }
 }
 
-bool
-isis_atleast_one_interface_protocol_enabled(node_t *node) {
-
-    Interface *intf;
-    
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-     
-            if (isis_node_intf_is_enable(intf)) return true;
-            
-     } ITERATE_NODE_INTERFACES_END(node, intf);
-
-    return false;
-}
-
-
 /* show per intf stats */
-
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc) {
 
@@ -444,7 +520,6 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     bool rc;
     pn_id_t pn_id;
     uint32_t rtr_id;
-    bool gen_lsp = false;
     node_t *node = intf->att_node;
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
@@ -454,9 +529,6 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
     if (intf_info->intf_type == intf_type) return -1;
 
-    if (isis_any_adjacency_up_on_interface(intf)) {
-        gen_lsp = true;
-    }
     isis_delete_all_adjacencies(intf);
     isis_stop_sending_hellos(intf);
 
@@ -475,9 +547,7 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
     if (isis_interface_qualify_to_send_hellos(intf)) {
         isis_start_sending_hellos(intf);
-    }
-    if (gen_lsp) {
-        isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
+        isis_send_hello_immediately (intf);
     }
     return 0;
 }
@@ -502,6 +572,7 @@ isis_interface_set_priority (Interface *intf, uint16_t priority) {
 
     if (isis_interface_qualify_to_send_hellos (intf)) {
         isis_start_sending_hellos(intf);
+        isis_send_hello_immediately (intf);
     }
 
     if (isis_intf_is_p2p(intf)) return 0;
@@ -515,6 +586,49 @@ isis_interface_set_priority (Interface *intf, uint16_t priority) {
 
     isis_intf_resign_dis (intf);
     isis_intf_assign_new_dis (intf,  new_dis_id);
+    return 0;
+}
+
+int
+isis_interface_set_metric (Interface *intf, uint32_t metric) {
+
+    isis_adv_data_t *advt_data;
+
+    isis_lan_id_t old_dis_id,
+                          new_dis_id;
+
+   node_t *node = intf->att_node;
+
+   isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+   if (!intf_info) return -1;
+
+    if (intf_info->cost == metric) return -1;
+
+    intf_info->cost = metric;
+
+    isis_stop_sending_hellos(intf);
+
+    if (isis_interface_qualify_to_send_hellos (intf)) {
+        isis_start_sending_hellos(intf);
+        isis_send_hello_immediately (intf);
+    }
+
+    if (isis_intf_is_p2p(intf)) return 0;
+
+   /* Update all advertisments in which we are advertising the metrics*/
+
+   advt_data = intf_info->lan_pn_to_self_adv_data;
+
+    if (advt_data) {
+
+        advt_data->u.adj_data.metric = intf_info->cost;
+
+        if (advt_data->fragment) {
+            isis_schedule_regen_fragment (node, advt_data->fragment, isis_event_admin_config_changed);
+        }
+    }
+
     return 0;
 }
 

@@ -191,8 +191,8 @@ void dump_node(node_t *node){
     unsigned int i = 0;
     Interface *intf;
 
-    printf("Node Name = %s UDP Port # : %u\n",
-        node->node_name, node->udp_port_number);
+    printf("Node Name = %s(%p) UDP Port # : %u\n",
+        node->node_name, node, node->udp_port_number);
 
     for( ; i < MAX_INTF_PER_NODE; i++){
         

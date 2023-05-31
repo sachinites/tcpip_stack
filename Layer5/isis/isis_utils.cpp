@@ -1,5 +1,6 @@
 #include "../../tcp_public.h"
 #include "isis_struct.h"
+#include "isis_utils.h"
 
 /* Buffer passed shuld be minimum 32B*/
 const c_string
@@ -38,7 +39,7 @@ int
 isis_lsp_id_compare (isis_lsp_id_t *lsp_id1,
                                     isis_lsp_id_t *lsp_id2) {
 
-    int8_t rc = isis_lan_id_compare (&lsp_id1->sys_id, &lsp_id2->sys_id);
+    int rc = isis_system_id_compare (&lsp_id1->sys_id, &lsp_id2->sys_id);
     if (rc != CMP_PREF_EQUAL) return rc;
     if (lsp_id1->fragment > lsp_id2->fragment) return CMP_PREFERRED;
     if (lsp_id1->fragment < lsp_id2->fragment) return CMP_NOT_PREFERRED;

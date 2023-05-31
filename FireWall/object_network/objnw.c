@@ -181,9 +181,9 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
         
         obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
         acl_entry = obj_nw_linked_acl_thread_node->acl;
-        pthread_rwlock_wrlock(&acl_entry->access_list->acc_rw_lst_lock);
+        pthread_rwlock_wrlock(&acl_entry->access_list->mtrie_update_lock);
         acl_entry_uninstall(acl_entry->access_list, acl_entry);
-        pthread_rwlock_unlock(&acl_entry->access_list->acc_rw_lst_lock);
+        pthread_rwlock_unlock(&acl_entry->access_list->mtrie_update_lock);
         
     } ITERATE_GLTHREAD_END(&obj_nw->db->acls_list, curr);
 
@@ -203,9 +203,9 @@ object_network_propogate_update (node_t *node, obj_nw_t *obj_nw) {
 
         if (access_list_should_compile(acl_entry->access_list)) {
             acl_compile(acl_entry);
-            pthread_rwlock_wrlock(&acl_entry->access_list->acc_rw_lst_lock);
+            pthread_rwlock_wrlock(&acl_entry->access_list->mtrie_update_lock);
             acl_entry_install(acl_entry->access_list, acl_entry);
-            pthread_rwlock_unlock(&acl_entry->access_list->acc_rw_lst_lock);
+            pthread_rwlock_unlock(&acl_entry->access_list->mtrie_update_lock);
             /* This may send repeated/redundant notification to clients for the same access list, hence, kick a job to send notification for each access list exactly once , instead of doing it synchronously. */
             access_list_schedule_notification(node, acl_entry->access_list);
         }

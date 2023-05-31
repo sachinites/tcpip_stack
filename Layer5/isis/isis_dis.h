@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include "isis_struct.h"
 
-typedef uint8_t pn_id_t;
 class Interface;
 typedef struct node_ node_t;
 
@@ -22,7 +21,7 @@ isis_intf_deallocate_lan_id (Interface *intf);
 /* Deletet the Current DIS*/
 void  isis_intf_resign_dis (Interface *intf);
 
-/* Trigger DIS Re-election, return rtr id of the DIS*/
+/* Trigger DIS Re-election, return LAN-ID of the DIS*/
 isis_lan_id_t isis_intf_reelect_dis (Interface *intf);
 
 void

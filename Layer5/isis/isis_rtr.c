@@ -12,11 +12,9 @@
 #include "isis_cmdcodes.h"
 #include "isis_intf_group.h"
 #include "isis_layer2map.h"
-#include "../../ted/ted.h"
 #include "isis_ted.h"
 #include "isis_policy.h"
 #include "isis_advt.h"
-#include "../../FireWall/acl/acldb.h"
 
 extern void isis_mem_init();
 void isis_ipv4_rt_notif_cbk (
@@ -39,16 +37,14 @@ isis_is_protocol_enable_on_node(node_t *node) {
 static void
 isis_node_cancel_all_queued_jobs(node_t *node) {
 
-    isis_cancel_lsp_pkt_generation_task(node);
     isis_cancel_spf_job(node);
     isis_cancel_lsp_fragment_regen_job(node);
+    isis_cancel_all_fragment_regen_job (node);
 }
 
 static void
 isis_node_cancel_all_timers(node_t *node){
 
-    isis_stop_lsp_pkt_periodic_flooding(node);
-    isis_stop_reconciliation_timer(node);
     isis_stop_overload_timer(node);
 }
 
@@ -74,20 +70,21 @@ isis_check_delete_node_info(node_t *node) {
     if ( !node_info ) return;
 
     /* Scheduled jobs */
-    assert (!node_info->self_lsp_pkt);
-    assert (!node_info->lsp_pkt_gen_task);
+    assert (!node_info->lsp_fragment_gen_task);
+    assert (!node_info->regen_all_fragment_task);
     assert (!node_info->spf_job_task);
 
     /*Hooked up Data Structures should be empty */
     assert (avltree_is_empty(&node_info->intf_grp_avl_root));
     assert(!node_info->ted_db);
     assert(!node_info->exported_routes.root);
+    assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
 
+    /* Must not be any pending LSP for regeneration*/
+    assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
     isis_assert_check_all_advt_db_cleanedup(node_info);
 
     /* Timers */
-    assert (!node_info->periodic_lsp_flood_timer);
-    assert (!node_info->reconc.reconciliation_timer);
     assert (!node_info->ovl_data.ovl_timer);
 
     /* Should not have any pending work to do */
@@ -99,15 +96,7 @@ static void
 isis_protocol_shutdown_now (node_t *node) {
 
     Interface *intf;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if(node_info->self_lsp_pkt){
-        isis_deref_isis_pkt(node_info, node_info->self_lsp_pkt);
-        node_info->self_lsp_pkt = NULL;
-    }
-
-    isis_cleanup_lsdb(node);
-    isis_cleanup_teddb_root(node);
     isis_intf_grp_cleanup(node);
     isis_node_cancel_all_queued_jobs(node);
     isis_node_cancel_all_timers(node);
@@ -120,9 +109,13 @@ isis_protocol_shutdown_now (node_t *node) {
         isis_disable_protocol_on_interface(intf);
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
+    /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node, 0);
+    /* This should be No-Op, buts lets do*/
+    isis_cleanup_lsdb(node, true);
+    /*This would cleanup fake nodes, if any*/
+    isis_cleanup_teddb (node);
     
-    node_info->event_control_flags = 0;
     isis_check_delete_node_info(node); 
 }
 
@@ -155,7 +148,7 @@ isis_is_protocol_shutdown_in_progress(node_t *node) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if (!node_info) false;
+    if (!node_info) return false;
 
     if (IS_BIT_SET(node_info->shutdown_pending_work_flags ,
                             ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK)) {
@@ -170,7 +163,7 @@ isis_is_protocol_admin_shutdown(node_t *node) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if ( !node_info ) false;
+    if ( !node_info ) return false;
 
     if ( IS_BIT_SET(node_info->event_control_flags,
                 ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT)) {
@@ -198,13 +191,12 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
     node_info->shutdown_pending_work_flags = 0;
 
     /* Set the flags to track what work needs to be done before we die out */
-    if (isis_atleast_one_interface_protocol_enabled(node)) {
+    if (node_info->adjacency_up_count) {
 
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
-    
-        isis_schedule_lsp_pkt_generation(node,
-            isis_event_admin_action_shutdown_pending);
+
+        isis_walk_all_self_zero_lsps (node, isis_schedule_purge_lsp_flood_cbk);
     }
     
     if (isis_has_routes(node)) {
@@ -215,6 +207,18 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
         isis_schedule_route_delete_task(node,
                 isis_event_admin_action_shutdown_pending);
     }
+}
+
+bool
+isis_is_protocol_shutdown_pending_work_completed (node_t *node) {
+
+    if (isis_is_protocol_admin_shutdown(node) &&
+            !isis_is_protocol_shutdown_in_progress(node)) {
+
+        return true;
+    }
+
+    return false;
 }
 
 void
@@ -258,11 +262,7 @@ isis_show_node_protocol_state(node_t *node) {
 
     printf("LSP flood count : %u\n", node_info->lsp_flood_count);
     printf("SPF runs : %u\n", node_info->spf_runs);
-    printf("Seq No : %u\n", node_info->seq_no);
     printf("Adjacency up Count: %u\n", node_info->adjacency_up_count);
-
-    printf("Reconciliation Status : %s\n",
-        isis_is_reconciliation_in_progress(node) ? "In-Progress" : "Off");
 
     if (node_info->import_policy) {
         printf("Import Policy : %s\n", node_info->import_policy->name);
@@ -303,6 +303,19 @@ isis_compare_lspdb_lsp_pkt(const avltree_node_t *n1, const avltree_node_t *n2) {
 
     if (*rtr_id1 < *rtr_id2) return CMP_PREFERRED;
     if (*rtr_id1 > *rtr_id2) return CMP_NOT_PREFERRED;
+
+    pn_id_t pn1 = isis_get_lsp_pkt_pn_id(lsp_pkt1);
+    pn_id_t pn2 = isis_get_lsp_pkt_pn_id(lsp_pkt2);
+
+    if (pn1 < pn2) return CMP_PREFERRED;
+    if (pn1 > pn2) return CMP_NOT_PREFERRED;
+
+    uint8_t fr1 = isis_get_lsp_pkt_fr_no (lsp_pkt1);
+    uint8_t fr2 = isis_get_lsp_pkt_fr_no (lsp_pkt2);
+
+    if (fr1 < fr2) return CMP_PREFERRED;
+    if (fr1 > fr2) return CMP_NOT_PREFERRED;
+
     return CMP_PREF_EQUAL;
 }
 
@@ -322,11 +335,9 @@ isis_de_init(node_t *node) {
 }
 
 void
-isis_init(node_t *node ) {
+isis_init (node_t *node ) {
 
-    size_t lsp_pkt_size = 0;
-
-    if (isis_is_protocol_enable_on_node(node)) return;
+     if (isis_is_protocol_enable_on_node(node)) return;
 
     /* Register for interested pkts */
     tcp_stack_register_l2_pkt_trap_rule(
@@ -337,27 +348,23 @@ isis_init(node_t *node ) {
     isis_node_info_t *node_info = XCALLOC(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = node_info;
     node_info->sys_id = {NODE_LO_ADDR_INT(node), 0};
-    node_info->seq_no = 0;
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
     avltree_init(&node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
     isis_init_intf_group_avl_tree(&node_info->intf_grp_avl_root);
-    node_info->on_demand_flooding    = ISIS_DEFAULT_ON_DEMAND_FLOODING_STATUS;
     node_info->dyn_intf_grp = true;  /* True By Default */
     node_info->layer2_mapping = true;   /* True By Default */
     node_info->ted_db = XCALLOC(0, 1, ted_db_t);
-    ted_init_teddb(node_info->ted_db, 0);
+    ted_init_teddb(node_info->ted_db, NULL, isis_spf_cleanup_spf_data);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);
     init_glthread (&node_info->pending_lsp_gen_queue);
-    isis_start_lsp_pkt_periodic_flooding(node);
+    isis_regen_zeroth_fragment(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
-    isis_schedule_lsp_pkt_generation(node, isis_event_admin_config_changed);
 }
-
 
 void
 isis_one_time_registration() {
@@ -421,43 +428,6 @@ isis_show_event_counters(node_t *node) {
     cli_out(node->print_buff , rc);
 }
 
-void
-isis_proto_enable_disable_on_demand_flooding(
-        node_t *node,
-        bool enable) {
-
-    avltree_t *lsdb;
-    avltree_node_t *curr;
-    isis_lsp_pkt_t *lsp_pkt;
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node)) return;
-    lsdb = isis_get_lspdb_root(node);
-
-    if (enable) {
-        if (node_info->on_demand_flooding) return;
-            node_info->on_demand_flooding = true;
-            isis_stop_lsp_pkt_periodic_flooding(node);
-            ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
-
-                lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
-                isis_stop_lsp_pkt_installation_timer(lsp_pkt);
-            } ITERATE_AVL_TREE_END;
-    }
-    else {
-        if (!node_info->on_demand_flooding) return;
-        node_info->on_demand_flooding = false;
-        isis_start_lsp_pkt_periodic_flooding(node);
-        ITERATE_AVL_TREE_BEGIN(lsdb, curr) {
-
-                lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
-                isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
-        } ITERATE_AVL_TREE_END;
-    }
-}
-
 bool
 isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
 
@@ -481,14 +451,19 @@ isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
-    ovl_data->ovl_status = false;
-    ovl_data->timeout_val = 0;
-    
     timer_de_register_app_event(ovl_data->ovl_timer);
     ovl_data->ovl_timer = NULL;
-    
-    isis_schedule_lsp_pkt_generation(node, isis_event_overload_timeout);
+    ovl_data->timeout_val = 0;
+
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_overload_timeout]);
+
+    if (IS_BIT_SET (node_info->event_control_flags, 
+        ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT)) {
+        return;
+    }
+
+    ovl_data->ovl_status = false;
+    isis_regen_zeroth_fragment (node);
 }
 
 static void
@@ -525,7 +500,7 @@ isis_stop_overload_timer(node_t *node) {
 }
 
 int
-isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
+isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
 
     int rc = 0;
     bool regen_lsp = false;
@@ -542,6 +517,7 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     if (!ovl_data->ovl_status) {
         ovl_data->ovl_status = true;
         regen_lsp = true;
+
         rc = 0;
     }
 
@@ -614,7 +590,9 @@ isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
 
      done:
         if (regen_lsp) {
-            isis_schedule_lsp_pkt_generation(node, isis_event_device_overload_config_changed);
+            isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
+            fragment0->regen_flags = ISIS_SHOULD_INCL_OL_BIT | ISIS_LSP_DEF_REGEN_FLAGS;
+            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config);
             return 0;
         }
         
@@ -658,8 +636,11 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
     }
 
     done:
+
         if (regen_lsp) {
-            isis_schedule_lsp_pkt_generation(node, isis_event_device_overload_config_changed);
+            isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
+            fragment0->regen_flags &= ~ISIS_SHOULD_INCL_OL_BIT;            
+            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config);
             return 0;
         }
 
@@ -672,43 +653,9 @@ isis_has_routes(node_t *node) {
     return true;
 }
 
-static void
- isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
-
-    isis_node_info_t *node_info;
-
-     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
-        l3route->dest, l3route->mask, l3route->rt_flags);
-     tcp_trace(node, 0, tlb);
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info->export_policy) {
-        return;
-    }
-
-    nxthop_proto_id_t nxthop_proto = 
-        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
-
-    /* Reject routes which ISIS already knows */
-    if (l3route->nexthops[nxthop_proto][0]) {
-        sprintf(tlb, "Export Policy : Route %s/%d already known to ISIS\n", l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
-        return;
-    }
-
-    if (isis_evaluate_policy(node,
-                                            node_info->export_policy,
-                                            tcp_ip_covert_ip_p_to_n( l3route->dest), l3route->mask) != PFX_LST_PERMIT) {
-        
-        sprintf(tlb, "Export Policy : Route %s/%d rejected due to export policy.\n", l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
-        return;
-    }
-
-    isis_export_route (node, l3route);
- }
-
+extern void
+ isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) ;
+ 
 void
 isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
@@ -723,12 +670,10 @@ isis_ipv4_rt_notif_cbk (
     node = route_notif_data->node;
 
     if (isis_is_protocol_shutdown_in_progress(node) ||
-         !isis_is_protocol_enable_on_node(node) ||
-         isis_is_protocol_admin_shutdown(node)) {
+         !isis_is_protocol_enable_on_node(node) ) {
              return;
     }
 
     l3route = route_notif_data->l3route;
-
     isis_process_ipv4_route_notif(node, l3route);
 }

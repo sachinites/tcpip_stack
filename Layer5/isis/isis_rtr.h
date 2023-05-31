@@ -36,18 +36,6 @@ typedef struct isis_overload_data_ {
 typedef struct node_info_ {
     /* self system id -> <rtrid-0>*/
     isis_system_id_t sys_id;
-    /* pointer to self LSP pkt */
-    isis_lsp_pkt_t *self_lsp_pkt;
-    /* Task to schedule self LSP pkt generation */
-    task_t *lsp_pkt_gen_task;
-    /*Task to schedule spf job*/
-    task_t *spf_job_task;
-    /* Boolean to track if node is shutting down */
-    bool is_shutting_down;
-    /* LSP sequence no */
-    uint32_t seq_no;
-    /*Timer to flood self LSP periodically */
-    timer_event_handle *periodic_lsp_flood_timer;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
     /* lsp pkt life time interval in lspdb */
@@ -62,30 +50,20 @@ typedef struct node_info_ {
     uint32_t spf_runs;
     /*event counts*/
     uint32_t isis_event_count[isis_event_max];
-    /* on demand flooding */
-    bool on_demand_flooding;
-    /* Reconciliation data */
-    isis_reconc_data_t reconc;
     /*Adjacency up count */
     uint16_t adjacency_up_count;
     /* event flags */
-    unsigned long event_control_flags;
+    uint64_t event_control_flags;
     /*flag to control protocol shutdown procedure*/
     uint16_t shutdown_pending_work_flags;
     /* overload object */
     isis_overload_data_t ovl_data;
-    /* Miscellaneous flags */
-    uint64_t misc_flags;
     /* Tree of interface Groups configured by User */
     avltree_t intf_grp_avl_root;
     /* Dynamic intf grp */
     bool dyn_intf_grp;
     /* Layer 2 Mapping */
     bool layer2_mapping;
-    /* Rtr ID to be advertised */
-     isis_adv_data_t *adv_data_rtr_id;
-    /* List of Data to be advertised in local LSP pkt */
-    glthread_t adv_data_list_head;
     /* Ted DB */
     ted_db_t *ted_db;
     /* SPF log list */
@@ -100,10 +78,14 @@ typedef struct node_info_ {
     mtrie_t exported_routes;
     /* Advertisement DB per PN*/
     isis_advt_db_t* advt_db[ISIS_MAX_PN_SUPPORTED];
-    /* Task for generating the LSP fragments*/
-    task_t *lsp_fragment_gen_task;
     /* Queue holding fragments to be regenerated*/
     glthread_t pending_lsp_gen_queue;
+    /* Task for generating the LSP fragments*/
+    task_t *lsp_fragment_gen_task;
+    /* Task to regenrate all fragments from scratch*/
+    task_t *regen_all_fragment_task;
+    /*Task to schedule spf job*/
+    task_t *spf_job_task;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -142,11 +124,6 @@ isis_schedule_job(node_t *node,
 void
 isis_show_event_counters(node_t *node);
 
-void
-isis_proto_enable_disable_on_demand_flooding(
-        node_t *node,
-        bool enable);
-
 /* Protocol Shutdown related APIs and Constants */
 #define ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK    (1 << 0)
 #define ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK       (1 << 1)
@@ -163,6 +140,9 @@ isis_is_protocol_admin_shutdown(node_t *node);
 
 void
 isis_protocol_shut_down(node_t *node);
+
+bool
+isis_is_protocol_shutdown_pending_work_completed (node_t *node);
 
 void
 isis_check_and_shutdown_protocol_now(

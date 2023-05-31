@@ -23,34 +23,16 @@ isis_schedule_lsp_flood(node_t *node,
                         Interface *exempt_intf);
 
 void
+isis_schedule_purge_lsp_flood_cbk (node_t *node, isis_lsp_pkt_t *lsp_pkt);
+
+void
 isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt);
-
-void
-isis_start_lsp_pkt_periodic_flooding(node_t *node);
-
-void
-isis_stop_lsp_pkt_periodic_flooding(node_t *node);
 
 void
 isis_mark_isis_lsp_pkt_flood_ineligible(
         node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_enter_reconciliation_phase(node_t *node);
-
-void
-isis_exit_reconciliation_phase(node_t *node);
-
-void
-isis_restart_reconciliation_timer(node_t *node);
-
-void
-isis_start_reconciliation_timer(node_t *node);
-
-void
-isis_stop_reconciliation_timer(node_t *node);
-
-bool
-isis_is_reconciliation_in_progress(node_t *node);
+isis_walk_all_self_zero_lsps (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *));
 
 #endif /* __ISIS_FLOOD__ */

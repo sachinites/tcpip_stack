@@ -2,13 +2,15 @@ CC=g++
 CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers
 TARGET:tcpstack.exe pkt_gen.exe
 
+# Install external dependent libs :   sudo apt-get install libpq-dev
+
 # Proto Libs
 ISIS_LIB=Layer5/isis/libisis.a
 ISIS_LIB_PATH=-L Layer5/isis -lisis
 # proto Libs
 
 LIBS=-lpthread \
-			-lpqxx -lpq \
+			-lpq \
 		   -lcli -lrt \
 		   -L CommandParser -lcli \
 		    -L LinuxMemoryManager -lmm \

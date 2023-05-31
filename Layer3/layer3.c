@@ -404,6 +404,14 @@ rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask){
 }
 
 void
+rt_table_perform_app_operation_on_routes (
+                            rt_table_t *rt_table, 
+                            void (*app_cbk) (mtrie_t *, mtrie_node_t *, void *)) {
+
+    mtrie_longest_prefix_first_traverse (&rt_table->route_list, app_cbk,  NULL);
+}
+
+void
 clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
@@ -425,7 +433,7 @@ clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
        assert(l3_route);
        thread_using_route(l3_route);
 
-        if(l3_is_direct_route(l3_route)) {
+        if (l3_is_direct_route(l3_route)) {
             curr = glthread_get_next(curr);
             thread_using_route_done(l3_route);
             continue;
@@ -441,7 +449,7 @@ clear_rt_table (rt_table_t *rt_table, uint16_t proto_id){
 
        l3_route->spf_metric[nh_proto] = 0;
        curr = mtrie_node_delete_while_traversal (&rt_table->route_list, mnode);
-       assert(!ref_count_dec(l3_route->ref_count));
+       ref_count_dec(l3_route->ref_count);
        rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
        thread_using_route_done(l3_route);
     }
@@ -596,7 +604,7 @@ dump_rt_table(rt_table_t *rt_table){
                 printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
             }
             else{
-                printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                printf("\t|======= IP ========|== M ==|== proto ===|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
             }
             printf("\t|%-18s |  %-4d | %-10s | %-18s | %-10s   |          |  %-10s| 0            |\n", 
                     l3_route->dest,
@@ -619,7 +627,7 @@ dump_rt_table(rt_table_t *rt_table){
                             printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
                         }
                         else{
-                            printf("\t|======= IP ========|== M ==|===proto====|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                            printf("\t|======= IP ========|== M ==|== proto ===|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
                         }
                         printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4d    |  %-10s| %-8llu     |\n", 
                                 l3_route->dest, 
@@ -770,7 +778,7 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
    bitmap_free_internal(&prefix_bm);
    bitmap_free_internal(&mask_bm);
 
-   if (rc != MTRIE_INSERT_SUCCESS)
+   if (rc != MTRIE_INSERT_SUCCESS) 
        return false;
 
    mnode->data = (void *)l3_route;

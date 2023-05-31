@@ -30,16 +30,8 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT NON LOCAL NEW LSP",
     //isis_event_non_local_old_lsp,
     "ISIS EVENT NON LOCAL OLD LSP",
-    //isis_event_on_demand_flood
-    "ISIS EVENT ON DEMAND FLOOD",
     //isis_event_periodic_lsp_generation
     "ISIS EVENT PERIODIC LSP GENERATION",
-    //isis_event_reconciliation_triggered
-    "ISIS EVENT RECONCILIATION TRIGGERED",
-    //isis_event_reconciliation_restarted
-    "ISIS EVENT RECONCILIATION RESTARTED",
-    //isis_event_reconciliation_exit,
-    "ISIS EVENT RECONCILIATION EXIT",
     //isis_event_admin_action_db_clear
     "ISIS EVENT ADMIN ACTION DB CLEAR",
     //isis_event_spf_job_scheduled,
@@ -48,8 +40,10 @@ static char isis_event_str_arr[isis_event_max][128] =
     "ISIS EVENT SPF RUNS",
     //isis_event_admin_Action_shutdown_pending
     "ISIS EVENT ADMIN ACTION SHUTDOWN PENDING",
-    //isis_event_device_overload_config_changed
-    "ISIS EVENT DEVICE OVERLOAD CONFIG CHANGED",
+    //isis_event_device_overload_config
+    "ISIS EVENT DEVICE OVERLOAD BY ADMIN",
+    //isis_event_device_dynamic_overload
+    "ISIS EVENT DEVICE DYNAMIC OVERLOAD",
     //isis_event_overload_timeout
     "ISIS EVENT OVERLOAD TIMEOUT",
     //isis_event_route_rib_update
@@ -59,7 +53,17 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_discard_fragment
     "ISIS EVENT DISCARD FRAGMENT",
     //isis_event_fragment_regen
-    "ISIS EVENT FRAGMENT REGEN"
+    "ISIS EVENT FRAGMENT REGEN",
+    //isis_event_wait_list_tlv_advertised
+    "ISIS EVENT WAIT LIST TLV ADVERTISED",
+    //isis_event_tlv_wait_listed
+    "ISIS EVENT TLV WAIT LISTED",
+    //isis_event_tlv_added
+    "ISIS EVENT TLV ADDED",
+    //isis_event_tlv_removed
+    "ISIS EVENT TLV REMOVED",
+    //isis_event_full_lsp_regen
+    "ISIS EVENT FULL LSP REGEN BIT"
 }; 
 
 const char *

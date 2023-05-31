@@ -118,8 +118,8 @@ node_set_intf_ip_address(node_t *node, const char *local_if,
 
 void dump_node_nw_props(node_t *node){
 
-    printf("\nNode Name = %s UDP Port # : %u\n",
-        node->node_name, node->udp_port_number);
+    printf("\nNode Name = %s(%p) UDP Port # : %u\n",
+        node->node_name, node, node->udp_port_number);
 
     printf("\t node flags : %u", node->node_nw_prop.flags);
 

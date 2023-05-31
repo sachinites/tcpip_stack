@@ -125,9 +125,6 @@ typedef struct rt_table_{
     pthread_rwlock_t rwlock;
 } rt_table_t;
 
-#define nexthop_node_name(nexthop_ptr)  \
-    (nexthop_ptr->oif->GetNbrNode ()->node_name)
-
 #define RT_ADD_F        (1 << 0)
 #define RT_DEL_F         (1 << 1)
 #define RT_UPDATE_F (1 << 2)
@@ -287,6 +284,10 @@ l3_route_t *
 rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask);
 
 /* Routing Table APIs */
+void
+rt_table_perform_app_operation_on_routes (
+                            rt_table_t *rt_table, 
+                            void (*app_cbk) (mtrie_t *, mtrie_node_t *, void *));
 
 void
 tcp_ip_send_ip_data(node_t *node, 

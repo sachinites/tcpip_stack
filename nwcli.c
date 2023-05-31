@@ -67,6 +67,11 @@ extern void time_range_config_cli_tree (param_t *root) ;
 extern void Interface_config_cli_tree (param_t *root);
 extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 
+extern int
+isis_show_handler (param_t *param, 
+                  ser_buff_t *tlv_buf,
+                  op_mode enable_or_disable);
+
 static int
 display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
                     op_mode enable_or_disable){
@@ -145,7 +150,7 @@ static cli_register_cb
 static cli_register_cb
 	cli_register_cb_arr_run_node_node_name_protocol_level[] =
 	{
-		//ddcp_run_cli_tree,
+		isis_run_cli_tree,
 		0
 		/* Add more CB here */
 	};
@@ -234,20 +239,32 @@ show_nw_topology_handler(param_t *param,
 }
 
 extern void
-tcp_ip_refresh_tcp_log_file();
+tcp_ip_refresh_tcp_log_file(node_t *);
 
 static int
 clear_topology_handler(param_t *param,
                        ser_buff_t *tlv_buf,
                        op_mode enable_or_disable){
 
+    node_t *node;
     int CMDCODE = -1;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
 
     CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
 
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
     switch(CMDCODE) {
         case CMDCODE_CLEAR_LOG_FILE:
-            tcp_ip_refresh_tcp_log_file();
+            tcp_ip_refresh_tcp_log_file(node);
             break;
         default: ;
     }
@@ -985,7 +1002,7 @@ nw_init_cli(){
             {
                 /*run node <node-name> spf*/
                 static param_t spf;
-                init_param(&spf, CMD, "spf", spf_algo_handler, 0, INVALID, 0, "Trigger SPF");
+                init_param(&spf, CMD, "spf", isis_show_handler, 0, INVALID, 0, "Trigger SPF");
                 libcli_register_param(&node_name, &spf);
                 set_param_cmd_code(&spf, CMDCODE_RUN_SPF);
             }

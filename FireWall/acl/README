@@ -26,11 +26,11 @@ tcp-ip-stack> $ conf node R2 object-network multicast-prefixes range 224.0.0.1 2
 Parse Success.
 CLI returned
 
-tcp-ip-stack> $ conf node R2 access-list block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 object-network multicast-prefixes
+tcp-ip-stack> $ conf node R2 access-list block-mcast-traffic 1 deny udp 0.0.0.0 0.0.0.0 object-network multicast-prefixes
 Parse Success.
 CLI returned
 
-tcp-ip-stack> $ conf node R2 access-list block-mcast-traffic permit any
+tcp-ip-stack> $ conf node R2 access-list block-mcast-traffic 2 permit any
 Parse Success.
 CLI returned
 
@@ -42,15 +42,16 @@ Parse Success.
    access-list block-mcast-traffic 
 CLI returned
 
-tcp-ip-stack> $ show node R2 access-list
+tcp-ip-stack> $  show node R2 access-list
 Parse Success.
-Access-list : block-mcast-traffic
- access-list block-mcast-traffic deny udp 0.0.0.0 0.0.0.0 object-network multicast-prefixes  (Hits[0] Tcam-Count[28, 28, 0])
- access-list block-mcast-traffic permit any  (Hits[0] Tcam-Count[1, 1, 0])
+Access-list : block-mcast-traffic    [Install Duration : NA]
+ access-list block-mcast-traffic 1 deny udp 0.0.0.0 0.0.0.0 object-network multicast-prefixes
+   (Hits[0] Tcam-Count[T:0 Sc:0 Oc:0])    [Install Duration : NA]  0%
+
+ access-list block-mcast-traffic 2 permit any
+   (Hits[0] Tcam-Count[T:0 Sc:0 Oc:0])    [Install Duration : NA]  0%
+
 CLI returned
-
-
-
 
 ======================================
 Checking memory by the process :

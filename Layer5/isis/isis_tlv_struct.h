@@ -47,4 +47,6 @@ isis_get_adv_data_tlv_content(
 uint32_t
 isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt);
 
+bool isis_is_zero_fragment_tlv (uint16_t tlv_no);
+
 #endif

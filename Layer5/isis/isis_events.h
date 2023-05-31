@@ -33,16 +33,8 @@ typedef enum isis_events_ {
     isis_event_non_local_old_lsp,
     #define ISIS_EVENT_NON_LOCAL_OLD_LSP_BIT                    (1 << isis_event_non_local_old_lsp)
     /*lspdb update events end*/
-    isis_event_on_demand_flood,
-    #define ISIS_EVENT_ON_DEMAND_FLOOD_BIT                      (1 << isis_event_on_demand_flood)
     isis_event_periodic_lsp_generation,
     #define ISIS_EVENT_PERIODIC_LSP_GENERATION_BIT       (1 << isis_event_periodic_lsp_generation)
-    isis_event_reconciliation_triggered,
-    #define ISIS_EVENT_RECONCILIATION_TRIGGERED_BIT    (1 << isis_event_reconciliation_triggered)
-    isis_event_reconciliation_restarted,
-    #define ISIS_EVENT_RECONCILIATION_RESTARTED_BIT    (1 << isis_event_reconciliation_restarted)
-    isis_event_reconciliation_exit,
-    #define ISIS_EVENT_RECONCILIATION_EXIT_BIT                 (1 << isis_event_reconciliation_exit)
     isis_event_admin_action_db_clear,
     #define ISIS_EVENT_ADMIN_ACTION_DB_CLEAR_BIT        (1 << isis_event_admin_action_db_clear)
     /* SPF related events */
@@ -53,9 +45,11 @@ typedef enum isis_events_ {
     isis_event_admin_action_shutdown_pending,
     #define ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT \
                                                                                                                (1 << isis_event_admin_action_shutdown_pending)
-    isis_event_device_overload_config_changed,
-    #define ISIS_EVENT_DEVICE_OVERLOAD_CONFIG_CHANGED_BIT  \
-                                                                                                               (1 << isis_event_device_overload_config_changed)
+    isis_event_device_overload_config,
+    #define ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT  \
+                                                                                                               (1 << isis_event_device_overload_config)
+    isis_event_device_dynamic_overload,
+    #define ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT  (1 <<   isis_event_device_dynamic_overload)
     isis_event_overload_timeout,
     #define ISIS_EVENT_OVERLOAD_TIMEOUT_BIT                   (1 << isis_event_overload_timeout)
     isis_event_route_rib_update,
@@ -66,6 +60,16 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_DISCARD_FRAGMENT_BIT                    (1 << isis_event_discard_fragment)
     isis_event_fragment_regen,
     #define ISIS_EVENT_FRAGMENT_REGEN_BIT                        (1 << isis_event_fragment_regen)
+    isis_event_wait_list_tlv_advertised,
+    #define ISIS_EVENT_WAIT_LIST_TLV_ADVERTISED_BIT     (1 << isis_event_wait_list_tlv_advertised)
+    isis_event_tlv_wait_listed,
+    #define ISIS_EVENT_TLV_WAIT_LISTED                                  (1 << isis_event_tlv_wait_listed)
+    isis_event_tlv_added,
+    #define ISIS_EVENT_TLV_ADD_BIT                                          (1 << isis_event_tlv_added)
+    isis_event_tlv_removed,
+    #define ISIS_EVENT_TLV_WITHDRAWL_BIT                          (1 << isis_event_tlv_removed)
+    isis_event_full_lsp_regen,
+    #define ISIS_EVENT_FULL_LSP_REGEN_BIT                          (1 <<  isis_event_full_lsp_regen)
     isis_event_max                                                                                 /* Do not cross more than 63 */
     #define ISIS_EVENT_MAX                                                            (1 << isis_event_max)
 } isis_event_type_t;

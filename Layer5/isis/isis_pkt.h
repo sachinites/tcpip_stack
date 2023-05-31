@@ -14,9 +14,10 @@ typedef struct isis_pkt_ {
 
     /* The wired form of pkt */
     byte *pkt;
-    /* pkt size, including eithernet hdr */
-    size_t pkt_size;
-    
+    /* pkt content size, including eithernet hdr */
+    pkt_size_t pkt_size;
+    /* Actually allocated size of the pkt*/
+    pkt_size_t alloc_size;
     /* ref count on this pkt */
     uint16_t ref_count;
     /* No of interfaces out of which LSP has been
@@ -32,6 +33,8 @@ typedef struct isis_pkt_ {
     bool installed_in_db;
     /* Back pointer to the owning fragment*/
     isis_fragment_t *fragment;
+    /*Timer to flood self LSP periodically */
+    timer_event_handle *periodic_lsp_flood_timer;
 } isis_lsp_pkt_t;
 
 /*LSP Flags in lsp pkts*/
@@ -76,13 +79,19 @@ void
 isis_hello_pkt_recieve_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
+isis_lsp_pkt_flood_timer_start (node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
+
+void
+isis_lsp_pkt_flood_timer_stop (isis_lsp_pkt_t *lsp_pkt) ;
+
+void
+isis_lsp_pkt_flood_timer_restart (node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
+
+void
 isis_print_lsp_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
 isis_print_hello_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
-
-void
-isis_schedule_lsp_pkt_generation(node_t *node, isis_event_type_t event_type);
 
 void
 isis_cancel_lsp_pkt_generation_task(node_t *node);
@@ -90,20 +99,23 @@ isis_cancel_lsp_pkt_generation_task(node_t *node);
 byte *
 isis_prepare_hello_pkt(Interface *intf, size_t *hello_pkt_size);
 
-void
-isis_generate_lsp_pkt(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size_unused);
-
 uint32_t *
 isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) ;
 
 uint32_t *
 isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt);
 
+pn_id_t
+isis_get_lsp_pkt_pn_id(isis_lsp_pkt_t *lsp_pkt) ;
+
+uint8_t
+isis_get_lsp_pkt_fr_no (isis_lsp_pkt_t *lsp_pkt) ;
+
 isis_pkt_hdr_flags_t
 isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt);
 
 uint32_t
-isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
+isis_deref_isis_pkt(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
@@ -154,6 +166,24 @@ typedef struct isis_lan_hello_pkt_hdr_ {
     isis_lan_id_t lan_id;
 } isis_lan_hello_pkt_hdr_t;
 
+typedef struct isis_lsp_hdr_ {
+
+    uint16_t pdu_len;
+    uint16_t rem_time;
+    isis_lsp_id_t lsp_id;
+    uint32_t seq_no;
+    uint16_t checksum;
+    #define LSP_HDR_P_BIT   (1 << 7)
+    #define LSP_HDR_ATT_ERROR_BIT (1 << 6)
+    #define LSP_HDR_ATT_EXPENSE_BIT (1 << 5)
+    #define LSP_HDR_ATT_DELAY_BIT (1 << 4)
+    #define LSP_HDR_ATT_DEFAULT_BIT (1 << 3)
+    #define LSP_HDR_OL_BIT (1 << 2)
+    #define LSP_HDR_IS_TYPE_BIT1 (1 << 1)
+    #define LSP_HDR_IS_TYPE_BIT0 (1)
+    uint8_t attributes;
+} isis_lsp_hdr_t;
+
 #pragma pack(pop)
 
 isis_common_hdr_t *
@@ -167,5 +197,30 @@ isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf);
 
 byte *
 isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, uint16_t *tlv_size);
+
+/* LSP Hdr processing fns */
+static inline ISIS_LVL
+isis_rtr_is_type ( isis_lsp_hdr_t *lsp_hdr) {
+
+    if (IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT0) &&
+        !IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT1)) {
+        
+        return  isis_level_1;
+    }
+
+    if (!IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT0) &&
+        IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT1)) {
+        
+        return  isis_level_2;
+    }
+
+    if (IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT0) &&
+        IS_BIT_SET (lsp_hdr->attributes, LSP_HDR_IS_TYPE_BIT1)) {
+        
+        return  isis_level_12;
+    }
+
+    assert(0);
+}
 
 #endif // !__ISIS_PKT__

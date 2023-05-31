@@ -41,11 +41,11 @@
 #define CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP 18
 /* show node <node-name> protocol isis ted*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED 19
-/* show node <node-name> protocol isis ted <rtr-id>*/
+/* show node <node-name> protocol isis ted <rtr-id> <pn-id>*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY 20
 /* show node <node-name> protocol isis ted detail*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL 21
-/* show node <node-name> protocol isis ted <rtr-id> detail*/
+/* show node <node-name> protocol isis ted <rtr-id> <pn-id> detail*/
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL 22
 /* clear node <node-name> protocol isis adjacency */
 #define CMDCODE_CLEAR_NODE_ISIS_ADJACENCY 23
@@ -67,7 +67,16 @@
  /* config node <node-name> protocol isis interface <if-name> priority <val>*/
 #define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY 29
 
+ /* config node <node-name> protocol isis interface <if-name> metric <val>*/
+#define CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC 30
+
 /* show node <node-name> protocol isis link-state-database*/
-#define CMCODE_SHOW_ISIS_ADVT_DB  30
+#define CMCODE_SHOW_ISIS_ADVT_DB  31
+
+/* run node <node-name> protocol isis lsp <rtr-id> <pn-id> install*/
+#define CMDCODE_RUN_ISIS_LSP_TED_INSTALL 32
+
+/* run node <node-name> protocol isis lsp <rtr-id> <pn-id> uninstall*/
+#define CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL 33
 
 #endif /* __ISIS_CMDCODES__ */
