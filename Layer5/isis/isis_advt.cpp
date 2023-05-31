@@ -658,7 +658,7 @@ isis_try_accomodate_wait_list_data (node_t *node, isis_fragment_t *fragment) {
         assert (!adv_data->fragment);
 
         if (isis_advertise_advt_data_in_this_fragment (node, adv_data, fragment, false)) {
-            N +=1 ;
+            N++;
             ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
             ISIS_INCREMENT_NODE_STATS(node, isis_event_count[ isis_event_wait_list_tlv_advertised]);
             continue;
@@ -679,7 +679,6 @@ isis_try_accomodate_wait_list_data (node_t *node, isis_fragment_t *fragment) {
     if (!IS_BIT_SET(node_info->event_control_flags, ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT)) {
         isis_unset_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
     }
-
  }
 
 /* This will be Used when TLV is generated which need to compulsorily need
