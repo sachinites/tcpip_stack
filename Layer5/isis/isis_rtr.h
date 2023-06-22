@@ -86,6 +86,8 @@ typedef struct node_info_ {
     task_t *regen_all_fragment_task;
     /*Task to schedule spf job*/
     task_t *spf_job_task;
+    /* ISIS specific logging */
+    tracer_t *tr;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
@@ -97,6 +99,8 @@ typedef struct node_info_ {
 #define ISIS_DECREMENT_NODE_STATS(node_ptr, field)  \
     (ISIS_NODE_INFO(node_ptr))->field--;
 
+#define ISIS_TR(node_ptr)  \
+    ((ISIS_NODE_INFO(node_ptr))->tr)
 
 bool
 isis_is_protocol_enable_on_node(node_t *node) ;

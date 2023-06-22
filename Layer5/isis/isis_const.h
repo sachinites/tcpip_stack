@@ -53,6 +53,14 @@
 #define ISIS_ERROR      " ISIS(ERROR)"
 #define ISIS_PKT        " ISIS(PKT)"
 
+/* ISIS Trace Codes*/
+#define TR_ISIS_SPF  1
+#define TR_ISIS_EVENTS  2
+#define ISIS_TR_ALL (TR_ISIS_SPF | TR_ISIS_EVENTS)
+
+
+
+
 /* ISIS Miscellaneous flags */
 #define ISIS_F_DISABLE_LSP_GEN  1
 

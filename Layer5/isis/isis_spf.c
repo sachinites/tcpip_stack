@@ -360,10 +360,9 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
     } ITERATE_TED_NODE_NBRS_END(ted_spf_root, nbr, oif, nxt_hop_ip);
 }
 
-#define ISIS_SPF_LOGGING 0
-
 static void
-isis_spf_record_result (ted_node_t *spf_root, 
+isis_spf_record_result (tracer_t *tr,
+                                    ted_node_t *spf_root, 
                                     ted_node_t *processed_node){ /*Dequeued Node*/
 
     unsigned char log_buff[256];
@@ -395,14 +394,14 @@ isis_spf_record_result (ted_node_t *spf_root,
             processed_node_spf_data->nexthops,
             spf_result->nexthops);
 
-    #if ISIS_SPF_LOGGING
-    printf("root : %s : Event : Result Recorded for node %s, "
+    trace (tr, TR_ISIS_SPF,
+        "root : %s : Event : Result Recorded for node %s, "
             "Next hops : %s, spf_metric = %u\n",
             spf_root->node_name, 
             processed_node->node_name,
             nh_nexthops_str(spf_result->nexthops, log_buff, sizeof(log_buff)),
             spf_result->spf_metric);
-    #endif
+
     /*Add the result Data structure for node which has been processed
      * to the spf result table (= linked list) in spf root*/
     init_glthread(&spf_result->spf_res_glue);
@@ -414,7 +413,8 @@ isis_spf_record_result (ted_node_t *spf_root,
 
 
 static void
-isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
+isis_spf_explore_nbrs(tracer_t *tr,
+                                    ted_node_t *spf_root,           /*Only used for logging*/
                                     ted_node_t *curr_node,        /*Current Node being explored*/
                                     glthread_t *priority_lst){
 
@@ -426,49 +426,48 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
     isis_spf_data_t *curr_node_spf_data = ISIS_NODE_SPF_DATA(curr_node);
     isis_spf_data_t *nbr_node_spf_data;
 
-    #if ISIS_SPF_LOGGING
-    printf("root : %s : Event : Nbr Exploration Start for Node : %s\n",
+    trace (tr, TR_ISIS_SPF,
+        "root : %s : Event : Nbr Exploration Start for Node : %s\n",
             spf_root->node_name, curr_node->node_name);
-    #endif
+
     /*Step 6 : Begin*/
     /*Now Process the nbrs of the processed node, and evaluate if we have
      * reached them via shortest path cost.*/
 
     if (IS_BIT_SET( curr_node->flags, ISIS_LSP_PKT_F_OVERLOAD_BIT) &&
             spf_root != curr_node) {
-        #if ISIS_SPF_LOGGING
-        printf("root : %s : Event : Nbr Exploration Node : %s aborted, reason : Overloaded\n",
+        trace (tr, TR_ISIS_SPF,
+            "root : %s : Event : Nbr Exploration Node : %s aborted, reason : Overloaded\n",
                 spf_root->node_name, curr_node->node_name);
-        #endif
         return;
     }
 
     ITERATE_TED_NODE_NBRS_BEGIN(curr_node, nbr, oif, nxt_hop_ip){
-        #if ISIS_SPF_LOGGING
-        printf("root : %s : Event : For Node %s , Processing nbr %s\n",
+        
+        trace (tr, TR_ISIS_SPF,
+            "root : %s : Event : For Node %s , Processing nbr %s\n",
                 spf_root->node_name, curr_node->node_name, 
                 nbr->node_name);
-        #endif
+
         if(!ted_is_link_bidirectional(oif->link)) continue;
 
         nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
 
         if (nbr_node_spf_data->is_spf_processed) {
-            #if ISIS_SPF_LOGGING
-            printf ("root : %s : Event : Nbr node %s skipped, already processed\n",
+            trace (tr, TR_ISIS_SPF,
+                "root : %s : Event : Nbr node %s skipped, already processed\n",
                 spf_root->node_name, nbr_node_spf_data->node->node_name);
-            #endif
             continue;
         }
 
-        #if ISIS_SPF_LOGGING
-        printf("root : %s : Event : Testing Inequality : " 
+         trace (tr, TR_ISIS_SPF,
+            "root : %s : Event : Testing Inequality : " 
                 " spf_metric(%s, %u) + link cost(%u) < spf_metric(%s, %u)\n",
                 spf_root->node_name, curr_node->node_name, 
                 curr_node_spf_data->spf_metric, 
                 oif->cost, nbr->node_name,
                 nbr_node_spf_data->spf_metric);
-        #endif
+
         /*Step 6.1 : Begin*/
         /* We have just found that a nbr node is reachable via even better 
          * shortest path cost. Simply adjust the nbr's node's position in PQ
@@ -476,10 +475,10 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
         if (curr_node_spf_data->spf_metric + oif->cost < 
                 nbr_node_spf_data->spf_metric) {
 
-            #if ISIS_SPF_LOGGING
-            printf("root : %s : Event : For Node %s , Primary Nexthops Flushed\n",
+            trace (tr, TR_ISIS_SPF,
+                "root : %s : Event : For Node %s , Primary Nexthops Flushed\n",
                     spf_root->node_name, nbr->node_name);
-            #endif
+
             /*Remove the obsolete Nexthops */
             nh_flush_nexthops(nbr_node_spf_data->nexthops);
             /*copy the new set of nexthops from predecessor node 
@@ -489,27 +488,29 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
             /*Update shortest path cost of nbr node*/
             nbr_node_spf_data->spf_metric = curr_node_spf_data->spf_metric + oif->cost;
 
-            #if ISIS_SPF_LOGGING
-            printf("root : %s : Event : Primary Nexthops Copied "
-            "from Node %s to Node %s, Next hops : %s\n",
+            trace (tr, TR_ISIS_SPF,
+                "root : %s : Event : Primary Nexthops Copied "
+                "from Node %s to Node %s, Next hops : %s\n",
                     spf_root->node_name, curr_node->node_name, 
                     nbr->node_name,
                     nh_nexthops_str(nbr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
-            #endif
+
             /*If the nbr node is already present in PQ, remove it from PQ and it 
              * back so that it takes correct position in PQ as per new spf metric*/
             if(!IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){
-                #if ISIS_SPF_LOGGING
-                printf("root : %s : Event : Node %s Already On priority Queue\n",
+
+                trace (tr, TR_ISIS_SPF,
+                    "root : %s : Event : Node %s Already On priority Queue\n",
                         spf_root->node_name, nbr->node_name);
-                #endif
+               
                 remove_glthread(&nbr_node_spf_data->priority_thread_glue);
             }
-            #if ISIS_SPF_LOGGING
-            printf("root : %s : Event : Node %s inserted into priority Queue "
+
+             trace (tr, TR_ISIS_SPF,
+                "root : %s : Event : Node %s inserted into priority Queue "
                         "with spf_metric = %u\n",
                          spf_root->node_name,  nbr->node_name, nbr_node_spf_data->spf_metric);
-            #endif
+
             glthread_priority_insert(priority_lst, 
                     &nbr_node_spf_data->priority_thread_glue,
                     isis_spf_comparison_fn, 
@@ -523,14 +524,17 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
          * Remove Duplicates however*/
         else if(curr_node_spf_data->spf_metric + oif->cost == 
                     nbr_node_spf_data->spf_metric){
-        #if ISIS_SPF_LOGGING
-            printf("root : %s : Event : Primary Nexthops Union of Current Node"
-                    " %s(%s) with Nbr Node ",
-                    spf_root->node_name,  curr_node->node_name, 
-                    nh_nexthops_str(curr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
-            printf("%s(%s)\n",  nbr->node_name, 
-                    nh_nexthops_str(nbr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
-        #endif
+
+            trace (tr, TR_ISIS_SPF,
+                "root : %s : Event : Primary Nexthops Union of Current Node"
+                " %s(%s) with Nbr Node ",
+                spf_root->node_name,  curr_node->node_name, 
+                nh_nexthops_str(curr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
+
+            trace (tr, TR_ISIS_SPF,
+                "%s(%s)\n",  nbr->node_name, 
+                nh_nexthops_str(nbr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
+
             nh_union_nexthops_arrays(curr_node_spf_data->nexthops,
                     nbr_node_spf_data->nexthops);
 
@@ -539,17 +543,18 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
                 is required for topologies containing VLANs/PNs. Remove below step and
                 build_dualswitch_topo( ) will fail to compute routes*/
             if(!IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){
-                #if ISIS_SPF_LOGGING
-                printf("root : %s : Event : Node %s Already On priority Queue, removing it from PQ\n",
+
+                trace (tr, TR_ISIS_SPF,
+                    "root : %s : Event : Node %s Already On priority Queue, removing it from PQ\n",
                         spf_root->node_name, nbr->node_name);
-                #endif
                 remove_glthread(&nbr_node_spf_data->priority_thread_glue);
             }
-            #if ISIS_SPF_LOGGING
-            printf("root : %s : Event : Node %s inserted into priority Queue "
+
+            trace (tr, TR_ISIS_SPF,
+                "root : %s : Event : Node %s inserted into priority Queue "
                         "with spf_metric = %u\n",
                          spf_root->node_name,  nbr->node_name, nbr_node_spf_data->spf_metric);
-            #endif
+
             glthread_priority_insert(priority_lst, 
                     &nbr_node_spf_data->priority_thread_glue,
                     isis_spf_comparison_fn, 
@@ -559,11 +564,10 @@ isis_spf_explore_nbrs(ted_node_t *spf_root,           /*Only used for logging*/
         /*Step 6.2 : End*/
     } ITERATE_TED_NODE_NBRS_END(curr_node, nbr, oif, nxt_hop_ip);
         
-    #if ISIS_SPF_LOGGING
-    printf("root : %s : Event : Node %s has been processed, nexthops %s\n",
+     trace (tr, TR_ISIS_SPF,
+        "root : %s : Event : Node %s has been processed, nexthops %s\n",
             spf_root->node_name, curr_node->node_name, 
             nh_nexthops_str(curr_node_spf_data->nexthops, log_buf, sizeof(log_buf)));
-    #endif
     /* We are done processing the curr_node, remove its nexthops to lower the
      * ref count*/
     nh_flush_nexthops(curr_node_spf_data->nexthops); 
@@ -650,9 +654,8 @@ isis_compute_spf (node_t *spf_root){
 
     if (!ted_spf_root) return;
 
-    #if ISIS_SPF_LOGGING
-    printf("root : %s : Event : Running Spf\n", spf_root->node_name);
-    #endif
+    trace (ISIS_TR(spf_root), TR_ISIS_SPF, 
+        "root : %s : Event : Running Spf\n", spf_root->node_name);
 
     /*Step 1 : Begin*/
     /* Clear old spf Result list from spf_root, and clear
@@ -691,10 +694,10 @@ isis_compute_spf (node_t *spf_root){
         curr_spf_data = isis_priority_thread_glue_to_spf_data(curr);
         curr_spf_data->is_spf_processed = true;
 
-        #if ISIS_SPF_LOGGING
-        printf("root : %s : Event : Node %s taken out of priority queue\n",
+        trace (ISIS_TR(spf_root), TR_ISIS_SPF, 
+            "root : %s : Event : Node %s taken out of priority queue\n",
                 spf_root->node_name, curr_spf_data->node->node_name);
-        #endif
+
         /* if the current node that is removed from PQ is spf root itself. 
          * Then No need to rcord the result. Process nbrs and put them in PQ*/
         if(curr_spf_data->node == ted_spf_root){
@@ -705,37 +708,37 @@ isis_compute_spf (node_t *spf_root){
                                 
                 nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
                 if(IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){
-                    #if ISIS_SPF_LOGGING
-                    printf("root : %s : Event : Processing Direct Nbr %s\n", 
+
+                    trace (ISIS_TR(spf_root), TR_ISIS_SPF,
+                        "root : %s : Event : Processing Direct Nbr %s\n", 
                         spf_root->node_name, nbr->node_name);
-                    #endif
+
                     glthread_priority_insert(&priority_lst, 
                             &nbr_node_spf_data->priority_thread_glue,
                             isis_spf_comparison_fn, 
                             isis_spf_data_offset_from_priority_thread_glue);
 
-                    #if ISIS_SPF_LOGGING
-                    printf("root : %s : Event : Direct Nbr %s added to priority Queue\n",
+                    trace (ISIS_TR(spf_root), TR_ISIS_SPF,
+                        "root : %s : Event : Direct Nbr %s added to priority Queue\n",
                             spf_root->node_name, nbr->node_name);
-                    #endif
                 }
             } ITERATE_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
 
-            #if ISIS_SPF_LOGGING
-            printf("root : %s : Event : Root %s Processing Finished\n", 
+            trace (ISIS_TR(spf_root), TR_ISIS_SPF,
+                "root : %s : Event : Root %s Processing Finished\n", 
                     spf_root->node_name, curr_spf_data->node->node_name);
-            #endif
+
             continue;
         }
         /*Step 4 : End*/
 
         /*Step 5  : Begin
          *Record Result */
-        isis_spf_record_result(ted_spf_root, curr_spf_data->node);
+        isis_spf_record_result(ISIS_TR(spf_root), ted_spf_root, curr_spf_data->node);
         /*Step 5  : End*/
 
         /*Step 6 : Begin */
-        isis_spf_explore_nbrs(ted_spf_root, curr_spf_data->node, &priority_lst);
+        isis_spf_explore_nbrs(ISIS_TR(spf_root), ted_spf_root, curr_spf_data->node, &priority_lst);
         /*Step 6 : End */
     }
 
@@ -744,10 +747,8 @@ isis_compute_spf (node_t *spf_root){
     int count = isis_spf_install_routes(spf_root, ted_spf_root);
     /*Step 7 : End*/
 
-    #if ISIS_SPF_LOGGING
-    printf("root : %s : Event : Route Installation Count = %d\n", 
-            spf_root->node_name, count);
-    #endif
+    trace (ISIS_TR(spf_root), TR_ISIS_SPF,
+        "root : %s : Event : Route Installation Count = %d\n", spf_root->node_name, count);
 }
 
 static void
@@ -826,8 +827,8 @@ isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
 
     if (node_info->spf_job_task) {
         
-        sprintf(tlb, "%s : spf job already scheduled\n", ISIS_SPF);
-        tcp_trace(node, 0, tlb);
+        trace (ISIS_TR(node), TR_ISIS_SPF | TR_ISIS_EVENTS,
+            "%s : spf job already scheduled\n", node->node_name);
         return;
     }
     

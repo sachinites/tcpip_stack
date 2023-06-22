@@ -89,6 +89,8 @@ isis_check_delete_node_info(node_t *node) {
 
     /* Should not have any pending work to do */
     assert (!node_info->shutdown_pending_work_flags);
+    /* ensure tracing objects is cleaned up*/
+    assert (!node_info->tr);
     isis_free_node_info (node);
 }
 
@@ -115,7 +117,8 @@ isis_protocol_shutdown_now (node_t *node) {
     isis_cleanup_lsdb(node, true);
     /*This would cleanup fake nodes, if any*/
     isis_cleanup_teddb (node);
-    
+    tracer_deinit (ISIS_NODE_INFO(node)->tr);
+    ISIS_NODE_INFO(node)->tr = NULL;
     isis_check_delete_node_info(node); 
 }
 
@@ -337,6 +340,7 @@ isis_de_init(node_t *node) {
 void
 isis_init (node_t *node ) {
 
+    char log_file_name[NODE_NAME_SIZE + 16] = {0};
      if (isis_is_protocol_enable_on_node(node)) return;
 
     /* Register for interested pkts */
@@ -361,6 +365,10 @@ isis_init (node_t *node ) {
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);
     init_glthread (&node_info->pending_lsp_gen_queue);
+    snprintf (log_file_name, sizeof (log_file_name), "logs/%s-isis-log.txt", node->node_name);
+    node_info->tr = tracer_init ("isis", log_file_name, STDOUT_FILENO, ISIS_TR_ALL);
+    //tracer_enable_console_logging (node_info->tr, true);
+    tracer_enable_file_logging (node_info->tr, true);
     isis_regen_zeroth_fragment(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);

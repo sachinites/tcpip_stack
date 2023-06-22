@@ -44,6 +44,7 @@ OBJS=gluethread/glthread.o \
           libtimer/WheelTimer.o   \
           libtimer/timerlib.o   \
 		  libtimer/timedef.o \
+		  Tracer/tracer.o \
 		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
 		  pkt_block.o \
@@ -75,6 +76,9 @@ OBJS=gluethread/glthread.o \
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
+
+Tracer/tracer.o:Tracer/tracer.cpp
+	${CC} ${CFLAGS} -I Tracer -c Tracer/tracer.cpp -o Tracer/tracer.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -282,6 +286,7 @@ clean:
 	rm -f Layer3/gre-tunneling/*.o
 	rm -f Interface/*.o
 	rm -f postgresLib/*.o
+	rm -f Tracer/*.o
 #STP
 #	rm -f Layer2/stp/*.o
 all:
