@@ -705,7 +705,7 @@ nw_init_cli(){
                             static param_t tcam;
                             init_param(&tcam, CMD, "tcam", debug_show_node_handler, 0, INVALID, 0, "Tcam format");
                             libcli_register_param(&access_list_name, &tcam);
-                            set_param_cmd_code(&tcam, CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL);
+                            libcli_set_param_cmd_code(&tcam, CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL);
                         }
                     }
                 }
@@ -718,7 +718,7 @@ nw_init_cli(){
                     static param_t rt;
                     init_param(&rt, CMD, "rt", debug_show_node_handler, 0, INVALID, 0, "Routing Table");
                     libcli_register_param(&mtrie, &rt);
-                    set_param_cmd_code(&rt, CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT);
+                    libcli_set_param_cmd_code(&rt, CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT);
                 }
             }
             {
@@ -726,13 +726,13 @@ nw_init_cli(){
                 static param_t timer;
                 init_param(&timer, CMD, "timer", debug_show_node_handler, 0, INVALID, 0, "Timer State");
                 libcli_register_param(&node_name, &timer);
-                set_param_cmd_code(&timer, CMDCODE_DEBUG_SHOW_NODE_TIMER);
+                libcli_set_param_cmd_code(&timer, CMDCODE_DEBUG_SHOW_NODE_TIMER);
 				{
 					/*debug show node <node-name> timer logs*/
 					static param_t logs;
 					init_param(&logs, CMD, "logging", debug_show_node_handler, 0, INVALID, 0, "Timer Logging");
 					libcli_register_param(&timer, &logs);
-					set_param_cmd_code(&logs, CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING);
+					libcli_set_param_cmd_code(&logs, CMDCODE_DEBUG_SHOW_NODE_TIMER_LOGGING);
 				}
             }
         }
@@ -743,19 +743,19 @@ nw_init_cli(){
         static param_t mem_usage;
         init_param(&mem_usage, CMD, "mem-usage", display_mem_usage, 0, INVALID, 0, "Memory Usage");
         libcli_register_param(debug_show, &mem_usage);
-        set_param_cmd_code(&mem_usage, CMDCODE_DEBUG_SHOW_MEMORY_USAGE);
+        libcli_set_param_cmd_code(&mem_usage, CMDCODE_DEBUG_SHOW_MEMORY_USAGE);
         {
             /* debug show mem-usage detail*/
             static param_t detail;
             init_param(&detail, CMD, "detail", display_mem_usage, 0, INVALID, 0, "Memory Usage Detail");
             libcli_register_param(&mem_usage, &detail);
-            set_param_cmd_code(&detail, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
+            libcli_set_param_cmd_code(&detail, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
             {
                 /*  debug show mem-usage detail <struct-name> */
                 static param_t struct_name;
                 init_param(&struct_name, LEAF, 0, display_mem_usage, 0, STRING, "struct-name", "Structure Name Filter");
                 libcli_register_param(&detail, &struct_name);
-                set_param_cmd_code(&struct_name, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
+                libcli_set_param_cmd_code(&struct_name, CMDCODE_DEBUG_SHOW_MEMORY_USAGE_DETAIL);
             }
         }
     }
@@ -767,7 +767,7 @@ nw_init_cli(){
             static param_t log_file;
             init_param(&log_file, CMD, "log-file", clear_topology_handler, 0, INVALID, 0, "clear log-file");
             libcli_register_param(clear, &log_file);
-            set_param_cmd_code(&log_file, CMDCODE_CLEAR_LOG_FILE);
+            libcli_set_param_cmd_code(&log_file, CMDCODE_CLEAR_LOG_FILE);
         }
         /*clear node ...*/    
         static param_t node;
@@ -797,7 +797,7 @@ nw_init_cli(){
                     static param_t rib_name;
                     init_param(&rib_name, LEAF, 0, clear_rt_handler, NULL, STRING, "rib-name", "Routing Table Name");
                     libcli_register_param(&rib, &rib_name);
-                    set_param_cmd_code(&rib_name, CMDCODE_CLEAR_RT_TABLE);
+                    libcli_set_param_cmd_code(&rib_name, CMDCODE_CLEAR_RT_TABLE);
                 }
             }
         }
@@ -809,7 +809,7 @@ nw_init_cli(){
          static param_t topology;
          init_param(&topology, CMD, "topology", show_nw_topology_handler, 0, INVALID, 0, "Dump Complete Network Topology");
          libcli_register_param(show, &topology);
-         set_param_cmd_code(&topology, CMDCODE_SHOW_NW_TOPOLOGY);
+         libcli_set_param_cmd_code(&topology, CMDCODE_SHOW_NW_TOPOLOGY);
          {
              /*show topology node*/ 
              static param_t node;
@@ -821,7 +821,7 @@ nw_init_cli(){
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, show_nw_topology_handler, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
-                 set_param_cmd_code(&node_name, CMDCODE_SHOW_NW_TOPOLOGY);
+                 libcli_set_param_cmd_code(&node_name, CMDCODE_SHOW_NW_TOPOLOGY);
              }
          }
          
@@ -863,35 +863,35 @@ nw_init_cli(){
                      static param_t log_status;
                      init_param(&log_status, CMD, "log-status", traceoptions_handler, 0, INVALID, 0, "log-status");
                      libcli_register_param(&node_name, &log_status);
-                     set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
+                     libcli_set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
                  }
                  {
                     /*show node <node-name> spf-result*/
                     static param_t spf_result;
                     init_param(&spf_result, CMD, "spf-result", spf_algo_handler, 0, INVALID, 0, "SPF Results");
                     libcli_register_param(&node_name, &spf_result);
-                    set_param_cmd_code(&spf_result, CMDCODE_SHOW_SPF_RESULTS);
+                    libcli_set_param_cmd_code(&spf_result, CMDCODE_SHOW_SPF_RESULTS);
                  }
                  {
                     /*show node <node-name> arp*/
                     static param_t arp;
                     init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
                     libcli_register_param(&node_name, &arp);
-                    set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
+                    libcli_set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
                  }
                  {
                     /*show node <node-name> mac*/
                     static param_t mac;
                     init_param(&mac, CMD, "mac", show_mac_handler, 0, INVALID, 0, "Dump Mac Table");
                     libcli_register_param(&node_name, &mac);
-                    set_param_cmd_code(&mac, CMDCODE_SHOW_NODE_MAC_TABLE);
+                    libcli_set_param_cmd_code(&mac, CMDCODE_SHOW_NODE_MAC_TABLE);
                  }
                  {
                     /*show node <node-name> rt*/
                     static param_t rt;
                     init_param(&rt, CMD, "rt", show_rt_handler, 0, INVALID, 0, "Dump L3 Routing table");
                     libcli_register_param(&node_name, &rt);
-                    set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
+                    libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
                  {
                     /*show node <node-name> interface*/
@@ -904,7 +904,7 @@ nw_init_cli(){
                         static param_t stats;
                         init_param(&stats, CMD, "statistics", show_interface_handler, 0, INVALID, 0, "Interface Statistics");
                         libcli_register_param(&interface, &stats);
-                        set_param_cmd_code(&stats, CMDCODE_SHOW_INTF_STATS);
+                        libcli_set_param_cmd_code(&stats, CMDCODE_SHOW_INTF_STATS);
                     }
                  }
 
@@ -923,7 +923,7 @@ nw_init_cli(){
             static param_t all;
             init_param(&all, CMD, "all" , spf_algo_handler, 0, INVALID, 0, "All nodes");
             libcli_register_param(&spf, &all);
-            set_param_cmd_code(&all, CMDCODE_RUN_SPF_ALL);
+            libcli_set_param_cmd_code(&all, CMDCODE_RUN_SPF_ALL);
         }
     }
 
@@ -960,7 +960,7 @@ nw_init_cli(){
                     static param_t ip_addr;
                     init_param(&ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ip-address", "Ipv4 Address");
                     libcli_register_param(&ping, &ip_addr);
-                    set_param_cmd_code(&ip_addr, CMDCODE_PING);
+                    libcli_set_param_cmd_code(&ip_addr, CMDCODE_PING);
                     {
                         /*run node <node-name> ping <ip-address> -c */
                             static param_t _c;
@@ -970,7 +970,7 @@ nw_init_cli(){
                                  static param_t count;
                                  init_param(&count, LEAF, 0, ping_handler, 0, INT, "count", "No of Pings to send");
                                  libcli_register_param(&_c, &count);
-                                 set_param_cmd_code(&count, CMDCODE_PING);
+                                 libcli_set_param_cmd_code(&count, CMDCODE_PING);
                             }
                     }
                     {
@@ -981,7 +981,7 @@ nw_init_cli(){
                             static param_t ero_ip_addr;
                             init_param(&ero_ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ero-ip-address", "ERO Ipv4 Address");
                             libcli_register_param(&ero, &ero_ip_addr);
-                            set_param_cmd_code(&ero_ip_addr, CMDCODE_ERO_PING);
+                            libcli_set_param_cmd_code(&ero_ip_addr, CMDCODE_ERO_PING);
                         }
                     }
                 }
@@ -996,7 +996,7 @@ nw_init_cli(){
                     static param_t ip_addr;
                     init_param(&ip_addr, LEAF, 0, arp_handler, 0, IPV4, "ip-address", "Nbr IPv4 Address");
                     libcli_register_param(&resolve_arp, &ip_addr);
-                    set_param_cmd_code(&ip_addr, CMDCODE_RUN_ARP);
+                    libcli_set_param_cmd_code(&ip_addr, CMDCODE_RUN_ARP);
                 }
             }
             {
@@ -1004,7 +1004,7 @@ nw_init_cli(){
                 static param_t spf;
                 init_param(&spf, CMD, "spf", isis_show_handler, 0, INVALID, 0, "Trigger SPF");
                 libcli_register_param(&node_name, &spf);
-                set_param_cmd_code(&spf, CMDCODE_RUN_SPF);
+                libcli_set_param_cmd_code(&spf, CMDCODE_RUN_SPF);
             }
         }
     }
@@ -1019,14 +1019,14 @@ nw_init_cli(){
             static param_t _stdout;
             init_param(&_stdout, CMD, "stdout", traceoptions_handler, 0, INVALID, 0, "Turn on stdio logging");
             libcli_register_param(&global, &_stdout);
-            set_param_cmd_code(&_stdout, CMDCODE_DEBUG_GLOBAL_STDOUT);
+            libcli_set_param_cmd_code(&_stdout, CMDCODE_DEBUG_GLOBAL_STDOUT);
         }
         {
             /*config global no-stdout*/
             static param_t _no_stdout;
             init_param(&_no_stdout, CMD, "no-stdout", traceoptions_handler, 0, INVALID, 0, "Turn off stdio logging");
             libcli_register_param(&global, &_no_stdout);
-            set_param_cmd_code(&_no_stdout, CMDCODE_DEBUG_GLOBAL_NO_STDOUT);
+            libcli_set_param_cmd_code(&_no_stdout, CMDCODE_DEBUG_GLOBAL_NO_STDOUT);
         }
     }
     {
@@ -1078,7 +1078,7 @@ nw_init_cli(){
                         static param_t prefix_lst_name;
                         init_param(&prefix_lst_name, LEAF, 0, l3_config_handler, NULL, STRING, "prefix-lst-name", "Prefix List Name");
                         libcli_register_param(&import_pol, &prefix_lst_name);
-                        set_param_cmd_code(&prefix_lst_name, CMDCODE_CONF_RIB_IMPORT_POLICY);
+                        libcli_set_param_cmd_code(&prefix_lst_name, CMDCODE_CONF_RIB_IMPORT_POLICY);
                     }
                 }                
             }
@@ -1094,7 +1094,7 @@ nw_init_cli(){
 				/* config node <node-name> protocol....*/
 				cli_register_application_cli_trees(&protocol, 
 						cli_register_cb_arr_config_node_node_name_protocol_level);
-                support_cmd_negation(&protocol);
+                libcli_support_cmd_negation(&protocol);
             }
 
             /*CLI for traceoptions at node level are hooked up here in tree */
@@ -1116,7 +1116,7 @@ nw_init_cli(){
                     static param_t mask;
                     init_param(&mask, LEAF, 0, l3_config_handler, validate_mask_value, INT, "mask", "mask(0-32");
                     libcli_register_param(&ip_addr, &mask);
-                    set_param_cmd_code(&mask, CMDCODE_CONF_NODE_L3ROUTE);
+                    libcli_set_param_cmd_code(&mask, CMDCODE_CONF_NODE_L3ROUTE);
                     {
                         /*config node <node-name> route <ip-address> <mask> <gw-ip>*/
                         static param_t gwip;
@@ -1127,15 +1127,15 @@ nw_init_cli(){
                             static param_t oif;
                             init_param(&oif, LEAF, 0, l3_config_handler, 0, STRING, "oif", "Out-going intf Name");
                             libcli_register_param(&gwip, &oif);
-                            set_param_cmd_code(&oif, CMDCODE_CONF_NODE_L3ROUTE);
+                            libcli_set_param_cmd_code(&oif, CMDCODE_CONF_NODE_L3ROUTE);
                         }
                     }
                 }
             }    
         }    
-        support_cmd_negation(&node_name);
+        libcli_support_cmd_negation(&node_name);
       }
     }
-    support_cmd_negation(config);
+    libcli_support_cmd_negation(config);
     /*Do not Add any param here*/
 }

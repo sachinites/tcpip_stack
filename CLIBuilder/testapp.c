@@ -15,16 +15,22 @@
  *
  * =====================================================================================
  */
-#include <stdio.h>
-#include "cmdtlv.h"
-#include "libcli.h"
+
 #include <stdlib.h>
+#include "libcli.h"
+#include "Tracer/tracer.h"
 
 #define MTRACE_SOURCE               1
 #define MTRACE_SOURCE_DEST          2
 #define MTRACE_SOURCE_DEST_GROUP    3
 #define MTRACE_SOURCE_GROUP         4
 
+#define MTRACE_LOG  1
+#define IGMP_LOG 2
+tracer_t *tr;
+
+extern void acl_build_show_cli(param_t *root);
+extern void acl_build_config_cli(param_t *root) ;
 
 static void
 list_vlans(param_t *param, ser_buff_t *tlv_buf){
@@ -32,65 +38,71 @@ list_vlans(param_t *param, ser_buff_t *tlv_buf){
     unsigned int i = 1;
     for(; i <= 10; i++){
 
-        printf("%d\n", i);
+        printf ("\n%d", i);
     }
 }
 
 int
-show_ip_igmp_groups_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
+show_ip_igmp_groups_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
-    dump_tlv_serialized_buffer(tlv_buf);
+    printf ("\nenable or disable = %d", enable_or_disable);
+    trace (tr, IGMP_LOG, "igmp logs %s\n", "printed");
+}
+
+int
+mtrace_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+
+    printf ("\nenable or disable = %d", enable_or_disable);
     
-#if 0
-    TLV_LOOP(tlv_buf, tlv, i){
-        if(strncmp(tlv->leaf_id, "group-ip", strlen("group-ip")) == 0){
-            printf("Group Ip Recvd in application = %s\n", tlv->value);   
-        }
-        else if(strncmp(tlv->leaf_id, "vlan-id", strlen("vlan-id")) == 0){
-            printf("vlan recieved in application = %s\n", tlv->value);
-        }
-    }
-#endif
-    return 0;
-}
+    trace (tr, MTRACE_LOG, "mtrace logs %s\n", "printed");
+    //trace (tr, MTRACE_LOG, "%s(%d) :: mtrace logs %s\n", FNL, "printed");
 
-int
-mtrace_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
+    tlv_struct_t *tlv;
+    TLV_LOOP_STACK_BEGIN (tlv_stack, tlv) {
 
-    dump_tlv_serialized_buffer(tlv_buf);
+        print_tlv_content (tlv);
+
+    } TLV_LOOP_END;
     return 0;
 }
 
 
 int
-config_router_name_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
-    set_device_name("router2");
+config_router_name_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+
     return 0;
 }
 
 
 int
-user_vlan_validation_callback(char *vlan_id){
+user_vlan_validation_callback(Stack_t *tlv_stack, char *vlan_id){
 
     int vlan_no = atoi(vlan_id);
 
     if(vlan_no > 0 && vlan_no < 4096)
         return 0;
 
-    printf("Invalid vlan. Pls follow Help\n");
+    printf("\nInvalid vlan. Pls follow Help\n");
     return -1;
 }
 
 int
 main(int argc, char **argv){
     
-    init_libcli();
+    libcli_init ();
     /*Level 0*/
+
+    tr = tracer_init ("mcast", "sample-log.txt", NULL, STDOUT_FILENO, MTRACE_LOG | IGMP_LOG);
+    tracer_enable_file_logging (tr, true);
+    tracer_enable_console_logging(tr, true);
 
     param_t *show   = libcli_get_show_hook();
     //param_t *debug  = libcli_get_debug_hook();
     param_t *config = libcli_get_config_hook();
 
+    acl_build_show_cli (show);
+    acl_build_config_cli (config);
+    
     static param_t cmsh;
     init_param(&cmsh, CMD, "cmsh", 0, 0, INVALID, 0, "cmsh hidden commands");
     libcli_register_param(0, &cmsh);
@@ -134,7 +146,7 @@ main(int argc, char **argv){
     static param_t show_ip_igmp_groups_vlan;
     init_param(&show_ip_igmp_groups_vlan, CMD, "vlan", 0, 0, INVALID, 0, "vlan");
     libcli_register_param(&show_ip_igmp_groups, &show_ip_igmp_groups_vlan);
-    libcli_register_display_callback(&show_ip_igmp_groups_vlan, list_vlans);
+    //libcli_register_display_callback(&show_ip_igmp_groups_vlan, list_vlans);
 
     static param_t show_ip_igmp_groups_vlan_vlan;
     init_param(&show_ip_igmp_groups_vlan_vlan, LEAF, 0, show_ip_igmp_groups_handler, user_vlan_validation_callback,
@@ -205,8 +217,8 @@ main(int argc, char **argv){
     libcli_register_param(&group2, &group_ip2);
     libcli_set_param_cmd_code(&group_ip2, MTRACE_SOURCE_DEST_GROUP);
 
-    libcli_support_cmd_negation(config);
-
+     libcli_support_cmd_negation (&dest_ip);
+    libcli_init_done ();
     cli_start_shell();
     return 0;
 }

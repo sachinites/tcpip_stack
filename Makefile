@@ -11,8 +11,11 @@ ISIS_LIB_PATH=-L Layer5/isis -lisis
 
 LIBS=-lpthread \
 			-lpq \
-		   -lcli -lrt \
+		    -lrt \
+			-lncurses \
+			-lpthread \
 		   -L CommandParser -lcli \
+		   -L CLIBuilder -lclibuilder \
 		    -L LinuxMemoryManager -lmm \
 			-L FSMImplementation -lfsm \
 			-L FireWall -lasa \
@@ -105,7 +108,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
+tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -218,9 +221,9 @@ c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
 
 #GRE files
 Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.cpp
-	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
+	${CC} ${CFLAGS} -c -I CommandParser -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
 Layer3/gre-tunneling/gre.o:Layer3/gre-tunneling/gre.cpp
-	${CC} ${CFLAGS} -c -I CommandParser -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
+	${CC} ${CFLAGS} -c -I CommandParser -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
 
 #OOPs Interface Files 
 Interface/Interface.o:Interface/Interface.cpp
@@ -250,6 +253,8 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 
 CommandParser/libcli.a:
 	(cd CommandParser; make)
+CLIBuilder/clibuilder.a:
+	(cd CLIBuilder; make)
 LinuxMemoryManager/libmm.a:
 	(cd LinuxMemoryManager; make)
 FSMImplementation/libfsm.a:
@@ -295,6 +300,7 @@ all:
 cleanall:
 	make clean
 	(cd CommandParser; make clean)
+	(cd CLIBuilder; make clean)
 	(cd LinuxMemoryManager; make clean)
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)

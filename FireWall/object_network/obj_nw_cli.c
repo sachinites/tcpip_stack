@@ -249,7 +249,7 @@ network_object_build_config_cli (param_t *root) {
                      static param_t ip;
                      init_param(&ip, LEAF, 0, network_object_config_handler, 0, IPV4, "host-addr", "specify Host IPV4 Address");
                     libcli_register_param(&host, &ip);
-                    set_param_cmd_code(&ip, NW_OBJ_CONFIG_HOST);
+                    libcli_set_param_cmd_code(&ip, NW_OBJ_CONFIG_HOST);
                 }
         }
         {
@@ -262,7 +262,7 @@ network_object_build_config_cli (param_t *root) {
                  static param_t subnet_mask;
                  init_param(&subnet_mask, LEAF, 0, network_object_config_handler, 0, IPV4, "subnet-mask", "specify Subnet IPV4 MaskAddress in A.B.C.D format");
                  libcli_register_param(&subnet_ip, &subnet_mask);
-                 set_param_cmd_code(&subnet_mask, NW_OBJ_CONFIG_SUBNET);
+                 libcli_set_param_cmd_code(&subnet_mask, NW_OBJ_CONFIG_SUBNET);
              }
         }
         {
@@ -280,7 +280,7 @@ network_object_build_config_cli (param_t *root) {
                         static param_t range_ub;
                         init_param(&range_ub, LEAF, 0, network_object_config_handler, 0, IPV4, "range-ub", "specify IPV4 Upper Range Address");
                         libcli_register_param(&range_lb, &range_ub);
-                        set_param_cmd_code(&range_ub, NW_OBJ_CONFIG_RANGE);
+                        libcli_set_param_cmd_code(&range_ub, NW_OBJ_CONFIG_RANGE);
                     }
                 }
         }
@@ -331,13 +331,13 @@ network_object_build_show_cli (param_t *root) {
         static param_t nw_obj;
         init_param(&nw_obj, CMD, "object-network", network_object_show_handler, NULL, INVALID, NULL, "Network Object Configurations");
         libcli_register_param(root, &nw_obj);
-        set_param_cmd_code(&nw_obj, NW_OBJ_SHOW_ALL);
+        libcli_set_param_cmd_code(&nw_obj, NW_OBJ_SHOW_ALL);
         {
              /* show node <node-name> network-object <name>*/
              static param_t name;
              init_param(&name, LEAF, 0, network_object_show_handler, 0, STRING, "network-object-name", "Network Object Name");
              libcli_register_param(&nw_obj, &name);
-             set_param_cmd_code(&name, NW_OBJ_SHOW_ONE);
+             libcli_set_param_cmd_code(&name, NW_OBJ_SHOW_ONE);
         }
     }
 }

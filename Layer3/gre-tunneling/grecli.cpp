@@ -136,7 +136,7 @@ gre_cli_config_tree (param_t *interface) {
              static param_t tunnel_id;
              init_param(&tunnel_id, LEAF, NULL, gre_tunnel_config_handler, NULL, INT, "tunnel-id", "Config GRE Tunnel ID");
              libcli_register_param(&tunnel, &tunnel_id);
-             set_param_cmd_code (&tunnel_id, GRE_CONFIG_CREATE_TUNNEL_INTF);
+             libcli_set_param_cmd_code (&tunnel_id, GRE_CONFIG_CREATE_TUNNEL_INTF);
              {
                  /* ... tunnel <tunnel-id> tunnel-source ...*/
                  static param_t tunnelsrc;
@@ -147,7 +147,7 @@ gre_cli_config_tree (param_t *interface) {
                      static param_t src_ip;
                      init_param(&src_ip, LEAF, 0, gre_tunnel_config_handler, 0, IPV4, "tunnel-src-ip", "specify Tunnel Src IPV4 Address");
                      libcli_register_param(&tunnelsrc, &src_ip);
-                     set_param_cmd_code(&src_ip, GRE_CONFIG_TUNNEL_SOURCE_IPADDR);
+                     libcli_set_param_cmd_code(&src_ip, GRE_CONFIG_TUNNEL_SOURCE_IPADDR);
                  }
                  {
                     /* ... tunnel <tunnel-id> tunnel-source interface ....*/
@@ -159,7 +159,7 @@ gre_cli_config_tree (param_t *interface) {
                         static param_t if_name;
                         init_param(&if_name, LEAF, 0, gre_tunnel_config_handler, 0, STRING, "if-name", "Interface Name");
                         libcli_register_param(&interface, &if_name);
-                        set_param_cmd_code(&if_name, GRE_CONFIG_TUNNEL_SOURCE_INTF);
+                        libcli_set_param_cmd_code(&if_name, GRE_CONFIG_TUNNEL_SOURCE_INTF);
                     }
                  }
              }
@@ -173,7 +173,7 @@ gre_cli_config_tree (param_t *interface) {
                     static param_t dst_ip;
                     init_param(&dst_ip, LEAF, 0, gre_tunnel_config_handler, 0, IPV4, "tunnel-dst-ip", "specify Tunnel Dst IPV4 Address");
                     libcli_register_param(&tunneldst, &dst_ip);
-                    set_param_cmd_code(&dst_ip, GRE_CONFIG_TUNNEL_DESTINATION);
+                    libcli_set_param_cmd_code(&dst_ip, GRE_CONFIG_TUNNEL_DESTINATION);
                  }
              }
              {
@@ -189,7 +189,7 @@ gre_cli_config_tree (param_t *interface) {
                          static param_t mask;
                          init_param(&mask, LEAF, 0, gre_tunnel_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
                          libcli_register_param(&ip_addr_val, &mask);
-                         set_param_cmd_code(&mask, GRE_CONFIG_TUNNEL_LOCAL_IP);
+                         libcli_set_param_cmd_code(&mask, GRE_CONFIG_TUNNEL_LOCAL_IP);
                      }
                  }
              }

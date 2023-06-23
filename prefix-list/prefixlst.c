@@ -366,7 +366,7 @@ void prefix_list_cli_config_tree(param_t *param)
             static param_t prefix_lst_name;
             init_param(&prefix_lst_name, LEAF, NULL, prefix_lst_config_handler, NULL, STRING, "pfxlst-name", "prefix-list Name");
             libcli_register_param(&prefix_lst, &prefix_lst_name);
-            set_param_cmd_code(&prefix_lst_name, CMDCODE_CONFIG_PREFIX_LST);
+            libcli_set_param_cmd_code(&prefix_lst_name, CMDCODE_CONFIG_PREFIX_LST);
             {
                 static param_t res;
                 init_param(&res, LEAF, NULL, NULL, prefix_lst_validate_input_result_value, STRING, "permit|deny", "prefix-list result [permit | deny]");
@@ -375,7 +375,7 @@ void prefix_list_cli_config_tree(param_t *param)
                     static param_t seq_no;
                     init_param(&seq_no, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "seq-no", "prefix-list Sequence No");
                     libcli_register_param(&res, &seq_no);
-                    set_param_cmd_code(&seq_no, CMDCODE_CONFIG_PREFIX_LST);
+                    libcli_set_param_cmd_code(&seq_no, CMDCODE_CONFIG_PREFIX_LST);
                     {
                         static param_t nw_ip;
                         init_param(&nw_ip, LEAF, 0, 0, 0, IPV4, "nw-ip", "specify Network IPV4 Address");
@@ -384,7 +384,7 @@ void prefix_list_cli_config_tree(param_t *param)
                             static param_t nw_mask;
                             init_param(&nw_mask, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "nw-mask", "specify IPV4 Mask");
                             libcli_register_param(&nw_ip, &nw_mask);
-                            set_param_cmd_code(&nw_mask, CMDCODE_CONFIG_PREFIX_LST);
+                            libcli_set_param_cmd_code(&nw_mask, CMDCODE_CONFIG_PREFIX_LST);
                             {
                                 static param_t ge;
                                 init_param(&ge, CMD, "ge", 0, 0, INVALID, 0, "specify greater than equal ");
@@ -393,7 +393,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                     static param_t gen;
                                     init_param(&gen, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "ge-n", "greater than equal Number");
                                     libcli_register_param(&ge, &gen);
-                                    set_param_cmd_code(&gen, CMDCODE_CONFIG_PREFIX_LST);
+                                    libcli_set_param_cmd_code(&gen, CMDCODE_CONFIG_PREFIX_LST);
                                     {
                                         static param_t le;
                                         init_param(&le, CMD, "le", 0, 0, INVALID, 0, "specify less than equal ");
@@ -402,7 +402,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                             static param_t len;
                                             init_param(&len, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "le-n", "less than equal Number");
                                             libcli_register_param(&le, &len);
-                                            set_param_cmd_code(&len, CMDCODE_CONFIG_PREFIX_LST);
+                                            libcli_set_param_cmd_code(&len, CMDCODE_CONFIG_PREFIX_LST);
                                         }
                                     }
                                 }
@@ -415,7 +415,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                     static param_t len;
                                     init_param(&len, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "le-n", "less than equal Number");
                                     libcli_register_param(&le, &len);
-                                    set_param_cmd_code(&len, CMDCODE_CONFIG_PREFIX_LST);
+                                    libcli_set_param_cmd_code(&len, CMDCODE_CONFIG_PREFIX_LST);
                                 }
                             }
                         }
@@ -484,12 +484,12 @@ void prefix_list_cli_show_tree(param_t *param) {
         static param_t prefix_lst;
         init_param(&prefix_lst, CMD, "prefix-list",prefix_lst_show_handler, NULL, INVALID, NULL, "prefix-list");
         libcli_register_param(param, &prefix_lst);
-        set_param_cmd_code(&prefix_lst, CMDCODE_SHOW_PREFIX_LST_ALL);
+        libcli_set_param_cmd_code(&prefix_lst, CMDCODE_SHOW_PREFIX_LST_ALL);
         {
             static param_t prefix_lst_name;
             init_param(&prefix_lst_name, LEAF, NULL, prefix_lst_show_handler, NULL, STRING, "pfxlst-name", "prefix-list Name");
             libcli_register_param(&prefix_lst, &prefix_lst_name);
-            set_param_cmd_code(&prefix_lst_name, CMDCODE_SHOW_PREFIX_LST_ONE);
+            libcli_set_param_cmd_code(&prefix_lst_name, CMDCODE_SHOW_PREFIX_LST_ONE);
         }
     }
 }

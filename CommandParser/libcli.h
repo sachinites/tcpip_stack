@@ -56,7 +56,7 @@ void
 enable_show_extension_param_brief(param_t *param);
 
 void
-set_param_cmd_code(param_t *param, int cmd_code);
+libcli_set_param_cmd_code(param_t *param, int cmd_code);
 
 /*See the definition of this fn to know about arguments*/
 void
@@ -80,13 +80,13 @@ show_ext_t
 get_show_extension_type(ser_buff_t *b);
 /*After this call, libcli_register_param MUST not be invoked on param*/
 void
-support_cmd_negation(param_t *param);
+libcli_support_cmd_negation(param_t *param);
 
 void
 dump_cmd_tree();
 
 void
-start_shell(void);
+cli_start_shell(void);
 
 #define HIDE_PARAM(param_ptr)   ((param_ptr)->ishidden = 1)
 #define IS_PARAM_HIDDEN(param_ptr)  ((param_ptr)->ishidden == 1)

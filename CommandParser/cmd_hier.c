@@ -241,8 +241,8 @@ ctrlC_signal_handler(int sig)
     }
 }
 
-void cli_register_ctrlC_handler(void (*fn_ptr)(void))
-{
+void
+cli_register_ctrlC_handler(void (*fn_ptr)(void)) {
 
     app_ctrlC_signal_handler = fn_ptr;
 }
@@ -250,7 +250,6 @@ void cli_register_ctrlC_handler(void (*fn_ptr)(void))
 show_ext_t
 get_show_extension_type(ser_buff_t *b)
 {
-
     assert(b);
     unsigned int tlv_units = get_serialize_buffer_size(b) / sizeof(tlv_struct_t);
     tlv_struct_t *show_ext_tlv = NULL;
@@ -317,18 +316,18 @@ void init_libcli()
     static param_t help;
     init_param(&help, CMD, "help", show_help_handler, 0, INVALID, 0, "help how to use this CLI");
     libcli_register_param(&show, &help);
-    set_param_cmd_code(&help, SHOW_HELP);
+    libcli_set_param_cmd_code(&help, SHOW_HELP);
 
     /*show history*/
     static param_t show_history;
     init_param(&show_history, CMD, "history", show_history_callback, 0, INVALID, 0, "Command history");
     libcli_register_param(&show, &show_history);
-    set_param_cmd_code(&show_history, SHOW_HISTORY);
+    libcli_set_param_cmd_code(&show_history, SHOW_HISTORY);
 
     static param_t no_of_commands;
     init_param(&no_of_commands, LEAF, "N", show_history_callback, 0, INT, "N", "No Of Commands to fetch");
     libcli_register_param(&show_history, &no_of_commands);
-    set_param_cmd_code(&no_of_commands, SHOW_HISTORY_N);
+    libcli_set_param_cmd_code(&no_of_commands, SHOW_HISTORY_N);
 
     /*show registered commands*/
     static param_t show_resgistered;
@@ -338,7 +337,7 @@ void init_libcli()
     static param_t show_resgistered_cmds;
     init_param(&show_resgistered_cmds, CMD, "commands", show_resgistered_cmd_handler, 0, INVALID, 0, "commands");
     libcli_register_param(&show_resgistered, &show_resgistered_cmds);
-    set_param_cmd_code(&show_resgistered_cmds, SHOW_REGISTERED_COMMANDS);
+    libcli_set_param_cmd_code(&show_resgistered_cmds, SHOW_REGISTERED_COMMANDS);
 
     /*debug hook*/
     init_param(&debug, CMD, "debug", 0, 0, INVALID, 0, "debug cmds");
@@ -352,7 +351,7 @@ void init_libcli()
              static param_t enable;
              init_param(&enable, LEAF, 0, ut_test_handler, enable_disable_validation_handler, STRING, "ut-enable", "enable | disable");
              libcli_register_param(&ut, &enable);
-             set_param_cmd_code(&enable, CMDCODE_DEBUG_UT);
+             libcli_set_param_cmd_code(&enable, CMDCODE_DEBUG_UT);
          }
     }
 
@@ -364,7 +363,7 @@ void init_libcli()
     static param_t debug_show_cmdtree;
     init_param(&debug_show_cmdtree, CMD, "cmdtree", show_cmd_tree, 0, INVALID, 0, "Display command tree");
     libcli_register_param(&debug_show, &debug_show_cmdtree);
-    set_param_cmd_code(&debug_show_cmdtree, DEBUG_SHOW_CMDTREE);
+    libcli_set_param_cmd_code(&debug_show_cmdtree, DEBUG_SHOW_CMDTREE);
 
     /*configure hook*/
     init_param(&config, CMD, "config", config_mode_enter_handler, 0, INVALID, 0, "config cmds");
@@ -377,7 +376,7 @@ void init_libcli()
     static param_t file_name;
     init_param(&file_name, LEAF, 0, load_file_handler, 0, STRING, "file-name", "Name of the file");
     libcli_register_param(&load, &file_name);
-    set_param_cmd_code(&file_name, CONFIG_LOAD_FILE);
+    libcli_set_param_cmd_code(&file_name, CONFIG_LOAD_FILE);
 
     static param_t supportsave;
     init_param(&supportsave, CMD, "supportsave", 0, 0, INVALID, 0, "Collect Support Save Data");
@@ -386,7 +385,7 @@ void init_libcli()
     static param_t supportsave_enable;
     init_param(&supportsave_enable, CMD, "enable", supportsave_handler, 0, INVALID, 0, "enable/disable Support Save Data Collection");
     libcli_register_param(&supportsave, &supportsave_enable);
-    set_param_cmd_code(&supportsave_enable, CONFIG_SUPPORTSAVE_ENABLE);
+    libcli_set_param_cmd_code(&supportsave_enable, CONFIG_SUPPORTSAVE_ENABLE);
 
     /*clear hook*/
     init_param(&clear, CMD, "clear", 0, 0, INVALID, 0, "clear cmds");
@@ -414,7 +413,7 @@ void init_libcli()
                 static param_t tc_no;
                 init_param(&tc_no, LEAF, 0, ut_test_handler, 0, INT, "tc-no", "Test Case Number");
                 libcli_register_param(&ut_file_path, &tc_no);
-                set_param_cmd_code(&tc_no, CMDCODE_RUN_UT_TC);
+                libcli_set_param_cmd_code(&tc_no, CMDCODE_RUN_UT_TC);
             }
         }
     }
@@ -444,7 +443,7 @@ void init_libcli()
     static param_t config_console_name_name;
     init_param(&config_console_name_name, LEAF, 0, config_console_name_handler, 0, STRING, "cons-name", "Name of Console");
     libcli_register_param(&config_console_name, &config_console_name_name);
-    set_param_cmd_code(&config_console_name_name, CONFIG_CONSOLEN_NAME_NAME);
+    libcli_set_param_cmd_code(&config_console_name_name, CONFIG_CONSOLEN_NAME_NAME);
 
     /* Install clear command "cls"*/
     static param_t cls;
@@ -476,7 +475,7 @@ void init_libcli()
             static param_t grep_pattern;
             init_param(&grep_pattern, LEAF,  0, pipe_handler, grep_pattern_validation, INVALID, "grep-pattern-val", "grep the pattern");
             libcli_register_param(&grep_param, &grep_pattern );
-            set_param_cmd_code(&grep_pattern, CMD_CODE_GREP);
+            libcli_set_param_cmd_code(&grep_pattern, CMD_CODE_GREP);
         }
     }
 
@@ -487,7 +486,7 @@ void init_libcli()
     /*Command Negation API Should be called by application and not by infra
      * else application would not be allowed to add more children into config 
      * param*/
-    //support_cmd_negation(&config);
+    //libcli_support_cmd_negation(&config);
 
     /* Resgister CTRL-C signal handler*/
     signal(SIGINT, ctrlC_signal_handler);
@@ -550,7 +549,7 @@ void init_param(param_t *param,                                 /* pointer to st
     param->CMDCODE = -1;
 }
 
-void set_param_cmd_code(param_t *param, int cmd_code)
+void libcli_set_param_cmd_code(param_t *param, int cmd_code)
 {
 
     if (param->callback == NULL)
@@ -558,7 +557,7 @@ void set_param_cmd_code(param_t *param, int cmd_code)
     param->CMDCODE = cmd_code;
 }
 
-void support_cmd_negation(param_t *param)
+void libcli_support_cmd_negation(param_t *param)
 {
 
     int i = 0;
@@ -692,7 +691,7 @@ extern void command_parser(void);
 
 extern void enhanced_command_parser(void);
 
-void start_shell(void)
+void cli_start_shell(void)
 {
     command_parser();
 }

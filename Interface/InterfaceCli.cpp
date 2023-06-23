@@ -293,7 +293,7 @@ Interface_config_cli_tree (param_t *root) {
                             static param_t l2_mode_val;
                             init_param(&l2_mode_val, LEAF, 0, intf_config_handler, validate_l2_mode_value, STRING, "l2-mode-val", "access|trunk");
                             libcli_register_param(&l2_mode, &l2_mode_val);
-                            set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
+                            libcli_set_param_cmd_code(&l2_mode_val, CMDCODE_INTF_CONFIG_L2_MODE);
                         }
                     #endif
                     }
@@ -302,7 +302,7 @@ Interface_config_cli_tree (param_t *root) {
                         static param_t if_up_down_status;
                         init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
                         libcli_register_param(&if_name, &if_up_down_status);
-                        set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
+                        libcli_set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
                     }
                 }
                 {
@@ -313,7 +313,7 @@ Interface_config_cli_tree (param_t *root) {
                         static param_t lono;
                         init_param(&lono, LEAF, 0, intf_config_handler, NULL, INT, "lono", "Loopback ID");
                         libcli_register_param(&loopback, &lono);
-                        set_param_cmd_code(&lono, CMDCODE_INTF_CONFIG_LOOPBACK);
+                        libcli_set_param_cmd_code(&lono, CMDCODE_INTF_CONFIG_LOOPBACK);
                     }
                 }
                 {
@@ -324,7 +324,7 @@ Interface_config_cli_tree (param_t *root) {
                         static param_t metric_val;
                         init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
                         libcli_register_param(&metric, &metric_val);
-                        set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
+                        libcli_set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
                     }
                 }
                 {
@@ -340,7 +340,7 @@ Interface_config_cli_tree (param_t *root) {
                             static param_t mask;
                             init_param(&mask, LEAF, 0, intf_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
                             libcli_register_param(&ip_addr_val, &mask);
-                            set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
+                            libcli_set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
                         }
                     }
                 }
@@ -354,10 +354,10 @@ Interface_config_cli_tree (param_t *root) {
                          static param_t vlan_id;
                          init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
                          libcli_register_param(&vlan, &vlan_id);
-                         set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
+                         libcli_set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
                     }
                 }    
             }
-            support_cmd_negation(&interface); 
+            libcli_support_cmd_negation(&interface); 
 }
 

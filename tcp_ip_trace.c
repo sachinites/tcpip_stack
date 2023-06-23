@@ -823,7 +823,7 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
                 init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
                         "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout | l3-fwd | no-l3-fwd>");
                 libcli_register_param(&flag, &flag_val);
-                set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_NODE);
+                libcli_set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_NODE);
             }
         }
         {
@@ -834,7 +834,7 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
                 static param_t acl_name;
                 init_param(&acl_name, LEAF, 0, traceoptions_handler, NULL, STRING, "access-list-name", "Access-list name");
                 libcli_register_param(&acl_filter, &acl_name);
-                set_param_cmd_code(&acl_name, CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME);
+                libcli_set_param_cmd_code(&acl_name, CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME);
             }
         }
     }
@@ -857,7 +857,7 @@ tcp_ip_build_intf_traceoptions_cli(param_t *intf_name_param){
                 init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
                     "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>");
                 libcli_register_param(&flag, &flag_val);
-                set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_INTF);
+                libcli_set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_INTF);
             }
         }
         {
@@ -868,7 +868,7 @@ tcp_ip_build_intf_traceoptions_cli(param_t *intf_name_param){
                 static param_t acl_name;
                 init_param(&acl_name, LEAF, 0, traceoptions_handler, NULL, STRING, "access-list-name", "Access-list name");
                 libcli_register_param(&acl_filter, &acl_name);
-                set_param_cmd_code(&acl_name, CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF);
+                libcli_set_param_cmd_code(&acl_name, CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF);
             }
         }        
     }

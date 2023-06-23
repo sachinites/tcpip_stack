@@ -95,6 +95,6 @@ main(int argc, char **argv){
     tcp_ip_stack_pre_topology_create_initializations();
     topo = build_dualswitch_topo();
     init_tcp_ip_stack();
-    start_shell(); 
+    cli_start_shell(); 
     return 0;
 }

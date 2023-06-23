@@ -574,13 +574,13 @@ isis_run_cli_tree (param_t *param) {
                         static param_t install;
                         init_param(&install, CMD, "install", isis_run_handler, 0, INVALID, 0, "Install LSP in TED");
                         libcli_register_param(&pn_id, &install);
-                        set_param_cmd_code(&install, CMDCODE_RUN_ISIS_LSP_TED_INSTALL);
+                        libcli_set_param_cmd_code(&install, CMDCODE_RUN_ISIS_LSP_TED_INSTALL);
                     }
                     {
                         static param_t uninstall;
                         init_param(&uninstall, CMD, "uninstall", isis_run_handler, 0, INVALID, 0, "Un-Install LSP from TED");
                         libcli_register_param(&pn_id, &uninstall);
-                        set_param_cmd_code(&uninstall, CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL);
+                        libcli_set_param_cmd_code(&uninstall, CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL);
                     }
                 }
             }
@@ -742,48 +742,48 @@ isis_config_buid_traceoptions (param_t *param) {
             static param_t console;
             init_param(&console, CMD, "console", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Console logging");
             libcli_register_param(&traceoptions, &console);
-            set_param_cmd_code (&console, CMDCODE_CONF_ISIS_LOG_CONSOLE);
+            libcli_set_param_cmd_code (&console, CMDCODE_CONF_ISIS_LOG_CONSOLE);
         }
         {
             /* ... traceoptions file-logging */
             static param_t filel;
             init_param(&filel, CMD, "file-logging", isis_config_traceoption_handler, 0, INVALID, 0, "Enable File logging (check logs/ dir)");
             libcli_register_param(&traceoptions, &filel);
-            set_param_cmd_code (&filel, CMDCODE_CONF_ISIS_LOG_FILE);
+            libcli_set_param_cmd_code (&filel, CMDCODE_CONF_ISIS_LOG_FILE);
         }
         {
             /* ... traceoptions spf */
             static param_t spf;
             init_param(&spf, CMD, "spf", isis_config_traceoption_handler, 0, INVALID, 0, "Enable SPF logging");
             libcli_register_param(&traceoptions, &spf);
-            set_param_cmd_code (&spf, CMDCODE_CONF_ISIS_LOG_SPF);            
+            libcli_set_param_cmd_code (&spf, CMDCODE_CONF_ISIS_LOG_SPF);            
         }
         {
             /* ... traceoptions lsdb */
             static param_t lsdb;
             init_param(&lsdb, CMD, "lsdb", isis_config_traceoption_handler, 0, INVALID, 0, "Enable LSDB logging");
             libcli_register_param(&traceoptions, &lsdb);
-            set_param_cmd_code (&lsdb, CMDCODE_CONF_ISIS_LOG_LSDB);            
+            libcli_set_param_cmd_code (&lsdb, CMDCODE_CONF_ISIS_LOG_LSDB);            
         }
         {
             /* ... traceoptions packet */
             static param_t packet;
             init_param(&packet, CMD, "packet", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Packet logging");
             libcli_register_param(&traceoptions, &packet);
-            set_param_cmd_code (&packet, CMDCODE_CONF_ISIS_LOG_PACKET);
+            libcli_set_param_cmd_code (&packet, CMDCODE_CONF_ISIS_LOG_PACKET);
             {
                 /* ... traceoptions packet hello*/
                 static param_t hello;
                 init_param(&hello, CMD, "hello", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Hello Packet logging");
                 libcli_register_param(&packet, &hello);
-                set_param_cmd_code(&hello, CMDCODE_CONF_ISIS_LOG_PACKET_HELLO);
+                libcli_set_param_cmd_code(&hello, CMDCODE_CONF_ISIS_LOG_PACKET_HELLO);
             }
             {
                 /* ... traceoptions packet lsp*/
                 static param_t lsp;
                 init_param(&lsp, CMD, "lsp", isis_config_traceoption_handler, 0, INVALID, 0, "Enable LSP Packet logging");
                 libcli_register_param(&packet, &lsp);
-                set_param_cmd_code(&lsp, CMDCODE_CONF_ISIS_LOG_PACKET_LSP);
+                libcli_set_param_cmd_code(&lsp, CMDCODE_CONF_ISIS_LOG_PACKET_LSP);
             }            
         }
         {
@@ -791,44 +791,44 @@ isis_config_buid_traceoptions (param_t *param) {
             static param_t adj;
             init_param(&adj, CMD, "adjacency", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Adjacency logging");
             libcli_register_param(&traceoptions, &adj);
-            set_param_cmd_code(&adj, CMDCODE_CONF_ISIS_LOG_ADJ);
+            libcli_set_param_cmd_code(&adj, CMDCODE_CONF_ISIS_LOG_ADJ);
         }
         {
             /* ... traceoptions route */
             static param_t route;
             init_param(&route, CMD, "route", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Route logging");
             libcli_register_param(&traceoptions, &route);
-            set_param_cmd_code(&route, CMDCODE_CONF_ISIS_LOG_ROUTE);
+            libcli_set_param_cmd_code(&route, CMDCODE_CONF_ISIS_LOG_ROUTE);
         }
         {
             /* ... traceoptions all */
             static param_t all;
             init_param(&all, CMD, "all", isis_config_traceoption_handler, 0, INVALID, 0, "Enable All logging");
             libcli_register_param(&traceoptions, &all);
-            set_param_cmd_code(&all, CMDCODE_CONF_ISIS_LOG_ALL);;
+            libcli_set_param_cmd_code(&all, CMDCODE_CONF_ISIS_LOG_ALL);;
         }
         {
             /* ... traceoptions policy */
             static param_t policy;
             init_param(&policy, CMD, "policy", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Policy logging");
             libcli_register_param(&traceoptions, &policy);
-            set_param_cmd_code(&policy, CMDCODE_CONF_ISIS_LOG_POLICY);
+            libcli_set_param_cmd_code(&policy, CMDCODE_CONF_ISIS_LOG_POLICY);
         }
         {
             /* ... traceoptions events */
             static param_t events;
             init_param(&events, CMD, "events", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Events logging");
             libcli_register_param(&traceoptions, &events);
-            set_param_cmd_code(&events, CMDCODE_CONF_ISIS_LOG_EVENTS);
+            libcli_set_param_cmd_code(&events, CMDCODE_CONF_ISIS_LOG_EVENTS);
         }
         {
             /* ... traceoptions errors */
             static param_t errors;
             init_param(&errors, CMD, "errors", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Errors logging");
             libcli_register_param(&traceoptions, &errors);
-            set_param_cmd_code(&errors, CMDCODE_CONF_ISIS_LOG_ERRORS);
+            libcli_set_param_cmd_code(&errors, CMDCODE_CONF_ISIS_LOG_ERRORS);
         }
-         support_cmd_negation (&traceoptions);
+         libcli_support_cmd_negation (&traceoptions);
     }
 }
 
@@ -841,7 +841,7 @@ isis_config_cli_tree(param_t *param) {
         static param_t isis_proto;
 	    init_param(&isis_proto, CMD, "isis", isis_config_handler, 0, INVALID, 0, "isis protocol");
 	    libcli_register_param(param, &isis_proto);
-	    set_param_cmd_code(&isis_proto, ISIS_CONFIG_NODE_ENABLE);
+	    libcli_set_param_cmd_code(&isis_proto, ISIS_CONFIG_NODE_ENABLE);
         {
             isis_config_buid_traceoptions (&isis_proto);
         }
@@ -855,7 +855,7 @@ isis_config_cli_tree(param_t *param) {
                  init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
                             ("Access List Name"));
                  libcli_register_param(&import_policy, &policy_name);
-                 set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY);
+                 libcli_set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY);
              }
         }
         {
@@ -868,7 +868,7 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
                            ("Prefix List Name"));
                 libcli_register_param(&export_policy, &policy_name);
-                set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY);
+                libcli_set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY);
             }
         }
         {
@@ -877,7 +877,7 @@ isis_config_cli_tree(param_t *param) {
             init_param(&ovl, CMD, "overload", isis_config_handler, 0, INVALID, 0,
                         ("Overload Device"));
             libcli_register_param(&isis_proto, &ovl);
-            set_param_cmd_code(&ovl, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
+            libcli_set_param_cmd_code(&ovl, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
             {
                 static param_t timeout;
                 init_param(&timeout, CMD, "timeout", 0, 0, INVALID, 0,
@@ -888,7 +888,7 @@ isis_config_cli_tree(param_t *param) {
                     init_param(&timeout_val, LEAF,  0, isis_config_handler, 0,  INT, "timeout-val",
                         ("timeout in sec"));
                     libcli_register_param(&timeout, &timeout_val);
-                    set_param_cmd_code(&timeout_val, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT);
+                    libcli_set_param_cmd_code(&timeout_val, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD_TIMEOUT);
                 }
             }
         }
@@ -899,7 +899,7 @@ isis_config_cli_tree(param_t *param) {
             init_param(&layer2_map, CMD, "layer2-map", isis_config_handler, 0, INVALID, 0,
                         ("Layer 2 Map"));
             libcli_register_param(&isis_proto, &layer2_map);
-            set_param_cmd_code(&layer2_map, CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP);
+            libcli_set_param_cmd_code(&layer2_map, CMDCODE_CONF_NODE_ISIS_PROTO_LAYER2_MAP);
         }
         
         {
@@ -913,7 +913,7 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&if_grp_name, LEAF, 0, isis_config_handler, 0, STRING, "if-grp-name",
                         ("Interface Group Name"));
                 libcli_register_param(&interface_group, &if_grp_name);
-                set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP);
+                libcli_set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP);
             }
         }
         {
@@ -921,7 +921,7 @@ isis_config_cli_tree(param_t *param) {
             init_param(&dynamic_interface_group, CMD, "dynamic-interface-group", isis_config_handler, 0, INVALID, 0, 
                 "dynamic-interface-group");
             libcli_register_param(&isis_proto, &dynamic_interface_group);
-            set_param_cmd_code(&dynamic_interface_group,  CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP);
+            libcli_set_param_cmd_code(&dynamic_interface_group,  CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP);
         }
 
         {
@@ -948,7 +948,7 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&if_name, LEAF, 0, isis_intf_config_handler, 0, STRING, "if-name",
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
-                set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE);
+                libcli_set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE);
                 {
                     /*  conf node <node-name> [no] protocol isis interface <if-name> interface-group */
                     static param_t intf_grp;
@@ -960,7 +960,7 @@ isis_config_cli_tree(param_t *param) {
                         init_param(&if_grp_name, LEAF, 0, isis_intf_config_handler, 0, STRING, "if-grp-name",
                                    ("Interface Group Name"));
                         libcli_register_param(&intf_grp, &if_grp_name);
-                        set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP);
+                        libcli_set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP);
                     }
                 }
                 {
@@ -968,14 +968,14 @@ isis_config_cli_tree(param_t *param) {
                     static param_t p2p;
                     init_param(&p2p, CMD, "point-to-point", isis_intf_config_handler, 0, INVALID, 0, "Point to Point Interface");
                     libcli_register_param(&if_name, &p2p);
-                    set_param_cmd_code(&p2p,  CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P);
+                    libcli_set_param_cmd_code(&p2p,  CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P);
                 }
                 {
                     /* config node <node-name> protocol isis interface <if-name> lan */
                     static param_t lan;
                     init_param(&lan, CMD, "broadcast", isis_intf_config_handler, 0, INVALID, 0, "Broadcast Interface");
                     libcli_register_param(&if_name, &lan);
-                    set_param_cmd_code(&lan, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN);
+                    libcli_set_param_cmd_code(&lan, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN);
                 }
                 {
                     /* config node <node-name> protocol isis interface <if-name> priority... */
@@ -988,7 +988,7 @@ isis_config_cli_tree(param_t *param) {
                         init_param(&priority_val, LEAF, 0, isis_intf_config_handler, 0, INT, "priority",
                         ("Intf Priority Value"));
                         libcli_register_param(&priority, &priority_val);
-                        set_param_cmd_code(&priority_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY);
+                        libcli_set_param_cmd_code(&priority_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY);
                     }
                 }
                 {
@@ -1002,7 +1002,7 @@ isis_config_cli_tree(param_t *param) {
                         init_param(&metric_val, LEAF, 0, isis_intf_config_handler, 0, INT, "metric",
                                    ("Intf Metric Value"));
                         libcli_register_param(&metric, &metric_val);
-                        set_param_cmd_code(&metric_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC);
+                        libcli_set_param_cmd_code(&metric_val, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC);
                     }
                 }
             }
@@ -1012,7 +1012,7 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&all, CMD, "all", isis_intf_config_handler, 0, INVALID, 0,
                         ("All Interfaces"));
                 libcli_register_param(&interface, &all);
-                set_param_cmd_code(&all, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ALL_ENABLE);
+                libcli_set_param_cmd_code(&all, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ALL_ENABLE);
             }
         }
     }
@@ -1027,20 +1027,20 @@ isis_show_cli_tree(param_t *param) {
         static param_t isis_proto;
 	    init_param(&isis_proto, CMD, "isis", isis_show_handler, 0, INVALID, 0, "isis protocol");
 	    libcli_register_param(param, &isis_proto);
-	    set_param_cmd_code(&isis_proto, CMDCODE_SHOW_NODE_ISIS_PROTOCOL);
+	    libcli_set_param_cmd_code(&isis_proto, CMDCODE_SHOW_NODE_ISIS_PROTOCOL);
         {
             /* show node <node-name> protocol isis interface */
             static param_t interface;
             init_param(&interface, CMD, "interface",  isis_show_handler, 0, INVALID, 0, "interface");
             libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&isis_proto, &interface);
-            set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
+            libcli_set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
             {
                 /* show node <node-name> protocol isis adjacency */
                 static param_t adjacency;
                 init_param(&adjacency, CMD, "adjacency", isis_show_handler, 0, INVALID, 0, "adjacency");
                 libcli_register_param(&isis_proto, &adjacency);
-                set_param_cmd_code(&adjacency, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY);
+                libcli_set_param_cmd_code(&adjacency, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY);
             }
             {
                 /* show node <node-name> protocol isis interface <if-name> */
@@ -1048,14 +1048,14 @@ isis_show_cli_tree(param_t *param) {
                 init_param(&if_name, LEAF, 0, isis_show_handler, 0, STRING, "if-name",
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
-                set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF);
+                libcli_set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF);
             }
             {
                  /* show node <node-name> protocol isis lsdb */
                 static param_t lsdb;
 	            init_param(&lsdb, CMD, "lsdb", isis_show_handler, 0, INVALID, 0, "isis protocol");
 	            libcli_register_param(&isis_proto, &lsdb);
-	            set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
+	            libcli_set_param_cmd_code(&lsdb, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB);
                 {
                     static param_t rtr_id;
                     init_param(&rtr_id, LEAF, 0, 0, 0, IPV4, "rtr-id", "Router-id in A.B.C.D format");
@@ -1069,7 +1069,7 @@ isis_show_cli_tree(param_t *param) {
                             static param_t fr_no;
                             init_param(&fr_no, LEAF, 0, isis_show_handler, 0, INT, "fr-no", "Fr No [0-255]");
                             libcli_register_param(&pn_id, &fr_no);
-                            set_param_cmd_code(&fr_no, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP);
+                            libcli_set_param_cmd_code(&fr_no, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP);
                         }
                     }
                 }
@@ -1079,7 +1079,7 @@ isis_show_cli_tree(param_t *param) {
                 static param_t ted;
 	            init_param(&ted, CMD, "ted", isis_show_handler, 0, INVALID, 0, "TED database");
 	            libcli_register_param(&isis_proto, &ted);
-	            set_param_cmd_code(&ted, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED);
+	            libcli_set_param_cmd_code(&ted, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED);
                  {
                     static param_t rtr_id;
                     init_param(&rtr_id, LEAF, 0, NULL, 0, IPV4, "rtr-id",
@@ -1091,13 +1091,13 @@ isis_show_cli_tree(param_t *param) {
                         init_param(&pn_id, LEAF, 0, isis_show_handler, 0, INT, "pn-id",
                                    "PN id [0-255]");
                         libcli_register_param(&rtr_id, &pn_id);
-                        set_param_cmd_code(&pn_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY);
+                        libcli_set_param_cmd_code(&pn_id, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY);
                         {
                             static param_t detail;
                             init_param(&detail, CMD, "detail", isis_show_handler, 0, INVALID, 0,
                                        "Detailed output");
                             libcli_register_param(&pn_id, &detail);
-                            set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL);
+                            libcli_set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL);
                         }
                     }
                 }
@@ -1106,7 +1106,7 @@ isis_show_cli_tree(param_t *param) {
                     init_param(&detail, CMD, "detail", isis_show_handler, 0, INVALID, 0,
                         "Detailed output");
                     libcli_register_param(&ted, &detail);
-                    set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL);
+                    libcli_set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL);
                 }
             }
             {
@@ -1114,14 +1114,14 @@ isis_show_cli_tree(param_t *param) {
                 static param_t advtdb;
                 init_param(&advtdb, CMD, "advt-db", isis_show_handler, 0, INVALID, 0, "Advertisement database");
                 libcli_register_param(&isis_proto, &advtdb);
-                set_param_cmd_code(&advtdb, CMCODE_SHOW_ISIS_ADVT_DB);
+                libcli_set_param_cmd_code(&advtdb, CMCODE_SHOW_ISIS_ADVT_DB);
             }
             {
                 /* show node <node-name> protocol isis traceoptions*/
                 static param_t traceoptions;
                 init_param(&traceoptions, CMD, "traceoptions", isis_show_handler, 0, INVALID, 0, "logging status");
                 libcli_register_param(&isis_proto, &traceoptions);
-                set_param_cmd_code(&traceoptions, CMCODE_SHOW_ISIS_TRACEOPTIONS);
+                libcli_set_param_cmd_code(&traceoptions, CMCODE_SHOW_ISIS_TRACEOPTIONS);
             }
         }
         {
@@ -1129,20 +1129,20 @@ isis_show_cli_tree(param_t *param) {
                 static param_t event_counters;
 	            init_param(&event_counters, CMD, "event-counters", isis_show_handler, 0, INVALID, 0, "event counters");
 	            libcli_register_param(&isis_proto, &event_counters);
-	            set_param_cmd_code(&event_counters, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS);
+	            libcli_set_param_cmd_code(&event_counters, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_EVENT_COUNTERS);
         }
          {
                 /*show node <node-name> protocol isis spf-log*/
                 static param_t spf_log;
 	            init_param(&spf_log, CMD, "spf-log", isis_show_handler, 0, INVALID, 0, "spf_log");
 	            libcli_register_param(&isis_proto, &spf_log);
-	            set_param_cmd_code(&spf_log, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG);
+	            libcli_set_param_cmd_code(&spf_log, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG);
         }
         {
             static param_t intf_grps;
             init_param(&intf_grps, CMD, "interface-groups", isis_show_handler, 0, INVALID, 0, "interface-groups");
             libcli_register_param(&isis_proto, &intf_grps);
-            set_param_cmd_code(&intf_grps, CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS);
+            libcli_set_param_cmd_code(&intf_grps, CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS);
         }
     }
     return 0;
@@ -1216,21 +1216,21 @@ isis_clear_cli_tree(param_t *param) {
             static param_t lsdb;
             init_param(&lsdb, CMD, "lsdb", isis_clear_handler, 0, INVALID, 0, "lsdb");
             libcli_register_param(&isis_proto, &lsdb);
-            set_param_cmd_code(&lsdb, CMDCODE_CLEAR_NODE_ISIS_LSDB);
+            libcli_set_param_cmd_code(&lsdb, CMDCODE_CLEAR_NODE_ISIS_LSDB);
         }
         {
              /* clear node <node-name> protocol isis adjacency */
             static param_t adjacency;
             init_param(&adjacency, CMD, "adjacency", isis_clear_handler, 0, INVALID, 0, "adjacency");
             libcli_register_param(&isis_proto, &adjacency);
-            set_param_cmd_code(&adjacency, CMDCODE_CLEAR_NODE_ISIS_ADJACENCY);
+            libcli_set_param_cmd_code(&adjacency, CMDCODE_CLEAR_NODE_ISIS_ADJACENCY);
         }
         {
              /* clear node <node-name> protocol isis reset-log-file */
             static param_t reset_log_file;
             init_param(&reset_log_file, CMD, "reset-log-file", isis_clear_handler, 0, INVALID, 0, "Reset Log File logs/*-isis-log.txt");
             libcli_register_param(&isis_proto, &reset_log_file);
-            set_param_cmd_code(&reset_log_file, CMDCODE_RESET_NODE_ISIS_LOG_FILE);
+            libcli_set_param_cmd_code(&reset_log_file, CMDCODE_RESET_NODE_ISIS_LOG_FILE);
         }        
     }
     return 0;

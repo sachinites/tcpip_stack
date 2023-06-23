@@ -401,7 +401,7 @@ void object_group_build_config_cli (param_t *root)
             static param_t name;
             init_param(&name, LEAF, 0, object_group_config_handler, 0, STRING, "object-group-name", "Object Group Name");
             libcli_register_param(&network, &name);
-            set_param_cmd_code(&name, OBJ_GRP_CONFIG_NAME);
+            libcli_set_param_cmd_code(&name, OBJ_GRP_CONFIG_NAME);
 
             {
                 /* object-group network <og-name> host ... */
@@ -413,7 +413,7 @@ void object_group_build_config_cli (param_t *root)
                     static param_t ip;
                     init_param(&ip, LEAF, 0, object_group_config_handler, 0, IPV4, "host-addr", "specify Host IPV4 Address");
                     libcli_register_param(&host, &ip);
-                    set_param_cmd_code(&ip, OBJ_GRP_CONFIG_HOST);
+                    libcli_set_param_cmd_code(&ip, OBJ_GRP_CONFIG_HOST);
                 }
             }
             {
@@ -426,7 +426,7 @@ void object_group_build_config_cli (param_t *root)
                     static param_t subnet_mask;
                     init_param(&subnet_mask, LEAF, 0, object_group_config_handler, 0, IPV4, "subnet-mask", "specify Subnet IPV4 MaskAddress in A.B.C.D format");
                     libcli_register_param(&subnet_ip, &subnet_mask);
-                    set_param_cmd_code(&subnet_mask, OBJ_GRP_CONFIG_SUBNET);
+                    libcli_set_param_cmd_code(&subnet_mask, OBJ_GRP_CONFIG_SUBNET);
                 }
             }
             {
@@ -444,7 +444,7 @@ void object_group_build_config_cli (param_t *root)
                         static param_t range_ub;
                         init_param(&range_ub, LEAF, 0, object_group_config_handler, 0, IPV4, "range-ub", "specify IPV4 Upper Range Address");
                         libcli_register_param(&range_lb, &range_ub);
-                        set_param_cmd_code(&range_ub, OBJ_GRP_CONFIG_RANGE);
+                        libcli_set_param_cmd_code(&range_ub, OBJ_GRP_CONFIG_RANGE);
                     }
                 }
             }
@@ -458,7 +458,7 @@ void object_group_build_config_cli (param_t *root)
                     static param_t og_name;
                     init_param(&og_name, LEAF, 0, object_group_config_handler, 0, STRING, "nested-og-name", "specify Object-Group Name");
                     libcli_register_param(&grp_object, &og_name);
-                    set_param_cmd_code(&og_name, OBJ_GRP_CONFIG_NESTED);
+                    libcli_set_param_cmd_code(&og_name, OBJ_GRP_CONFIG_NESTED);
                 }
             }
         }
@@ -508,13 +508,13 @@ object_group_build_show_cli (param_t *root) {
         static param_t og;
         init_param(&og, CMD, "object-group", object_group_show_handler, NULL, INVALID, NULL, "Object Group Display");
         libcli_register_param(root, &og);
-        set_param_cmd_code(&og, OBJ_GRP_SHOW_ALL);
+        libcli_set_param_cmd_code(&og, OBJ_GRP_SHOW_ALL);
         {
              /* show node <node-name> object-group <name>*/
              static param_t name;
              init_param(&name, LEAF, 0,  object_group_show_handler, 0, STRING, "object-group-name", "Object Group Name");
              libcli_register_param(&og, &name);
-             set_param_cmd_code(&name, OBJ_GRP_SHOW_ONE);
+             libcli_set_param_cmd_code(&name, OBJ_GRP_SHOW_ONE);
         }
     }
 }

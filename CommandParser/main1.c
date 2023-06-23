@@ -13,8 +13,8 @@ main(int argc, char **argv){
     param_t *run    = libcli_get_run_hook();
 
 
-    support_cmd_negation(config);
+    libcli_support_cmd_negation(config);
     /*Do not add any param in config command tree after above line*/
-    start_shell();
+    cli_start_shell();
     return 0;
 }

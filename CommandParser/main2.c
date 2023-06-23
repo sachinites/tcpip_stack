@@ -72,7 +72,7 @@ main(int argc, char **argv){
             /*The below API should be called for param upto which the command is supposed to invoke application callback rouine. 
              * The CMDODE_SHOW_NODE code is sent to application using which we find which command was triggered, and accordingly what 
              * are expected leaf params we need to parse. More on this ater.*/
-            set_param_cmd_code(&node_name, CMDODE_SHOW_NODE);
+            libcli_set_param_cmd_code(&node_name, CMDODE_SHOW_NODE);
 
             /*Implementing CMD2*/
 
@@ -106,14 +106,14 @@ main(int argc, char **argv){
                     /* The below API should be called for param at which the command is supposed to invoke application callback rouine. 
                      * This CMDODE_SHOW_NODE_LOOPBACK code is sent to application using which we find which command was triggered, and accordingly what 
                      * are expected leaf params we need to parse. More on this ater.*/
-                    set_param_cmd_code(&node_name, CMDODE_SHOW_NODE_LOOPBACK);
+                    libcli_set_param_cmd_code(&node_name, CMDODE_SHOW_NODE_LOOPBACK);
                 }
             }
         }
     }   
 
-    support_cmd_negation(config);
+    libcli_support_cmd_negation(config);
     /*Do not add any param in config command tree after above line*/
-    start_shell();
+    cli_start_shell();
     return 0;
 }

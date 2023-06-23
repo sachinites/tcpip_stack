@@ -24,12 +24,12 @@ static void
         param_t *dd_mm_yyyy = (param_t *)calloc (1, sizeof(param_t));
         init_param(dd_mm_yyyy, LEAF, 0, time_range_config_handler, 0, STRING, "dd-mm-yyyy", "DD-MM-YYYY");
         libcli_register_param(root, dd_mm_yyyy);
-       set_param_cmd_code(dd_mm_yyyy, CMDCODE_CONFIG_TIME_RANGE);
+       libcli_set_param_cmd_code(dd_mm_yyyy, CMDCODE_CONFIG_TIME_RANGE);
        {
            param_t *hh_mm = (param_t *)calloc(1, sizeof(param_t));
            init_param(hh_mm, LEAF, 0, time_range_config_handler, 0, STRING, "hh::mm", "hh-mm format Eg16::30");
            libcli_register_param(dd_mm_yyyy, hh_mm);
-           set_param_cmd_code(hh_mm, CMDCODE_CONFIG_TIME_RANGE);
+           libcli_set_param_cmd_code(hh_mm, CMDCODE_CONFIG_TIME_RANGE);
        }
     }
 

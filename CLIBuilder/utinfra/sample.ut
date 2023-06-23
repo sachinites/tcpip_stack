@@ -1,0 +1,47 @@
+:TESTCASE-BEGIN:1
+:DESC: Test case to test ISIS Reconciliation feature
+
+:PRINT: Topology to be loaded in testapp.c : cross_link_topology(); 
+
+
+:PRINT:                                                  +--------+-+
+:PRINT:                   +---------+                    | R2       |
+:PRINT:               eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+:PRINT:       +-----------+122.1.1.1+--------------------+          +------------------+
+:PRINT:       |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+:PRINT:       |           +---------+                    +-----+--+-+                  +
+:PRINT:       +                                         eth4/  |eth7                   |
+:PRINT:       |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+:PRINT:       |eth0                                       /    |                  eth9 |50.1.1.2/24
+:PRINT:   +---+---+--+                                   /     |                  +----+-----+
+:PRINT:   |          |                                  /      |                  |    R3    |
+:PRINT:   | R0       |                                 /       |                  | 122.1.1.3|
+:PRINT:   |122.1.1.0 |                                /        |                  |          |
+:PRINT:   |          |                               /         |                  +----+-----+
+:PRINT:   +---+---+--|               ---------------/          |                       |eth10
+:PRINT:       |eth14                /                          |                       |60.1.1.1/24
+:PRINT:       |80.1.1.1/24         /                           |                       |
+:PRINT:       |                   /                            |                       |
+:PRINT:       |                  /                        eth6 |40.1.1.1/24            |
+:PRINT:       |             eth5/30.1.1.2/24             +-----+----+                  |
+:PRINT:       |           +----/----+                    |   R4     |                  |
+:PRINT:       |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |
+:PRINT:       +-----------+122.1.1.5|+-------------------+          +------------------+
+:PRINT:        80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24
+:PRINT:                  -+---------+                    +----------+
+
+
+:PRINT: Config the Protocol 
+
+:STEP:1
+:CMD:show help | include [
+:STEP:2
+:CMD:show ip igmp groups
+:STEP:3
+:CMD:show help | include Abhishek
+:STEP:4
+:CMD:show help | include Abhishek | count
+:STEP5:
+:PATTERN-MATCH:1
+
+:TESTCASE-END:1
