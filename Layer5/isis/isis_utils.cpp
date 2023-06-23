@@ -1,6 +1,8 @@
 #include "../../tcp_public.h"
+#include "isis_rtr.h"
 #include "isis_struct.h"
 #include "isis_utils.h"
+#include "isis_const.h"
 
 /* Buffer passed shuld be minimum 32B*/
 const c_string
@@ -64,4 +66,29 @@ isis_system_id_compare (isis_system_id_t *sys_id1,
     if (sys_id1->pn_id > sys_id2->pn_id) return CMP_PREFERRED;
     if (sys_id1->pn_id < sys_id2->pn_id) return CMP_NOT_PREFERRED;
     return CMP_PREF_EQUAL;
+}
+
+void
+isis_show_traceoptions (node_t *node) {
+
+    if (!isis_is_protocol_enable_on_node (node)) return;
+
+    tracer_t *tr = ISIS_TR(node);
+    
+    if (!tr) return;
+
+    printf ("ISIS log file : logs/%s-isis-log.txt\n", node->node_name);
+    printf (" Console logging : %c\n", tracer_is_console_logging_enable (tr) ? 'Y' : 'N');
+    printf (" File logging : %c\n", tracer_is_file_logging_enable (tr) ? 'Y' : 'N');
+    printf (" SPF logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_SPF) ? 'Y' : 'N');
+    printf (" Packet logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT) ? 'Y' : 'N');
+    printf ("  Hello logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_HELLO) ? 'Y' : 'N');
+    printf ("  LSP logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_LSP) ? 'Y' : 'N');
+    printf (" Event logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_EVENTS) ? 'Y' : 'N');
+    printf (" LSDB logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_LSDB) ? 'Y' : 'N');
+    printf (" Adjacency logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ADJ) ? 'Y' : 'N');
+    printf (" Route logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ROUTE) ? 'Y' : 'N');
+    printf (" Policy logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_POLICY) ? 'Y' : 'N');
+    printf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ERRORS) ? 'Y' : 'N');
+    printf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ALL) ? 'Y' : 'N');
 }

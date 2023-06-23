@@ -9,7 +9,7 @@
 typedef struct tracer_ tracer_t;
 
 tracer_t *
-tracer_init (const char *tr_str_id, const char *file_name, int out_fd, uint64_t logging_bits) ;
+tracer_init (const char *tr_str_id, const char *file_name, const char *hdr, int out_fd, uint64_t logging_bits);
 
 void
 tracer_deinit (tracer_t *tracer) ;
@@ -26,13 +26,25 @@ tracer_enable_file_logging (tracer_t *tracer, bool enable);
 void 
 tracer_enable_console_logging (tracer_t *tracer, bool enable);
 
+bool 
+tracer_is_console_logging_enable (tracer_t *tracer);
+
+bool 
+tracer_is_file_logging_enable (tracer_t *tracer);
+
 void 
 tracer_log_bit_set (tracer_t *tracer, uint64_t log_bit);
 
 void 
 tracer_log_bit_unset (tracer_t *tracer, uint64_t log_bit);
 
+bool 
+tracer_is_bit_set (tracer_t *tracer, uint64_t log_bit);
+
 void 
 tracer_clear_log_file (tracer_t *tracer);
+
+void 
+tracer_disable_hdr_print (tracer_t *tracer);
 
 #endif 

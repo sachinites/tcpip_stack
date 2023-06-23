@@ -16,6 +16,187 @@
 #include "isis_advt.h"
 #include "isis_dis.h"
 #include "isis_tlv_struct.h"
+#include "isis_utils.h"
+
+static int
+isis_config_traceoption_handler (param_t *param, 
+                    ser_buff_t *tlv_buf,
+                    op_mode enable_or_disable) {
+
+    int cmdcode = -1;
+    node_t *node = NULL;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+
+    cmdcode = EXTRACT_CMD_CODE(tlv_buf);
+
+    TLV_LOOP_BEGIN(tlv_buf, tlv){
+
+    if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+        node_name = tlv->value;
+
+     } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    if (!isis_is_protocol_enable_on_node(node)) {
+        printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        return -1;
+    }
+
+    tracer_t *tr = ISIS_TR (node);
+
+    switch (cmdcode) {
+
+        case CMDCODE_CONF_ISIS_LOG_CONSOLE:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_enable_console_logging (tr, true);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_enable_console_logging (tr, false);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_FILE:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_enable_file_logging (tr, true);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_enable_file_logging (tr, false);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_SPF:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_SPF);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_SPF);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_LSDB:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_LSDB);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_LSDB);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_PACKET:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_PKT);
+                    tracer_log_bit_set (tr, TR_ISIS_PKT_HELLO);
+                    tracer_log_bit_set (tr, TR_ISIS_PKT_LSP);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_PKT);
+                    tracer_log_bit_unset (tr, TR_ISIS_PKT_HELLO);
+                    tracer_log_bit_unset (tr, TR_ISIS_PKT_LSP);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_PACKET_HELLO:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_PKT_HELLO);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_PKT_HELLO);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_PACKET_LSP:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_PKT_LSP);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_PKT_LSP);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_ADJ:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_ADJ);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_ADJ);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_ROUTE:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_ROUTE);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_ROUTE);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_POLICY:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_POLICY);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_POLICY);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_EVENTS:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_EVENTS);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_EVENTS);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_ERRORS:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_ERRORS);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_ERRORS);
+                break;
+            }
+            break;
+
+        case CMDCODE_CONF_ISIS_LOG_ALL:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_ALL);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_ALL);
+                break;
+            }
+            break;            
+    }
+    return 0;
+}
 
 static int
 isis_config_handler(param_t *param, 
@@ -537,6 +718,9 @@ isis_show_handler (param_t *param,
             assert ( rc < NODE_PRINT_BUFF_LEN);
             cli_out (node->print_buff, rc);
             break;
+        case CMCODE_SHOW_ISIS_TRACEOPTIONS:
+            isis_show_traceoptions (node);
+            break;
         default: ;
     }
     return 0;
@@ -545,6 +729,109 @@ isis_show_handler (param_t *param,
 /* CLI format */
 
 /* config CLI format */
+
+static void 
+isis_config_buid_traceoptions (param_t *param) {
+
+    {
+        static param_t traceoptions;
+	    init_param(&traceoptions, CMD, "traceoptions", 0, 0, INVALID, 0, "isis traceoptions");
+	    libcli_register_param(param, &traceoptions);
+        {
+            /* ... traceoptions console */
+            static param_t console;
+            init_param(&console, CMD, "console", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Console logging");
+            libcli_register_param(&traceoptions, &console);
+            set_param_cmd_code (&console, CMDCODE_CONF_ISIS_LOG_CONSOLE);
+        }
+        {
+            /* ... traceoptions file-logging */
+            static param_t filel;
+            init_param(&filel, CMD, "file-logging", isis_config_traceoption_handler, 0, INVALID, 0, "Enable File logging (check logs/ dir)");
+            libcli_register_param(&traceoptions, &filel);
+            set_param_cmd_code (&filel, CMDCODE_CONF_ISIS_LOG_FILE);
+        }
+        {
+            /* ... traceoptions spf */
+            static param_t spf;
+            init_param(&spf, CMD, "spf", isis_config_traceoption_handler, 0, INVALID, 0, "Enable SPF logging");
+            libcli_register_param(&traceoptions, &spf);
+            set_param_cmd_code (&spf, CMDCODE_CONF_ISIS_LOG_SPF);            
+        }
+        {
+            /* ... traceoptions lsdb */
+            static param_t lsdb;
+            init_param(&lsdb, CMD, "lsdb", isis_config_traceoption_handler, 0, INVALID, 0, "Enable LSDB logging");
+            libcli_register_param(&traceoptions, &lsdb);
+            set_param_cmd_code (&lsdb, CMDCODE_CONF_ISIS_LOG_LSDB);            
+        }
+        {
+            /* ... traceoptions packet */
+            static param_t packet;
+            init_param(&packet, CMD, "packet", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Packet logging");
+            libcli_register_param(&traceoptions, &packet);
+            set_param_cmd_code (&packet, CMDCODE_CONF_ISIS_LOG_PACKET);
+            {
+                /* ... traceoptions packet hello*/
+                static param_t hello;
+                init_param(&hello, CMD, "hello", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Hello Packet logging");
+                libcli_register_param(&packet, &hello);
+                set_param_cmd_code(&hello, CMDCODE_CONF_ISIS_LOG_PACKET_HELLO);
+            }
+            {
+                /* ... traceoptions packet lsp*/
+                static param_t lsp;
+                init_param(&lsp, CMD, "lsp", isis_config_traceoption_handler, 0, INVALID, 0, "Enable LSP Packet logging");
+                libcli_register_param(&packet, &lsp);
+                set_param_cmd_code(&lsp, CMDCODE_CONF_ISIS_LOG_PACKET_LSP);
+            }            
+        }
+        {
+            /* ... traceoptions adj */
+            static param_t adj;
+            init_param(&adj, CMD, "adjacency", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Adjacency logging");
+            libcli_register_param(&traceoptions, &adj);
+            set_param_cmd_code(&adj, CMDCODE_CONF_ISIS_LOG_ADJ);
+        }
+        {
+            /* ... traceoptions route */
+            static param_t route;
+            init_param(&route, CMD, "route", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Route logging");
+            libcli_register_param(&traceoptions, &route);
+            set_param_cmd_code(&route, CMDCODE_CONF_ISIS_LOG_ROUTE);
+        }
+        {
+            /* ... traceoptions all */
+            static param_t all;
+            init_param(&all, CMD, "all", isis_config_traceoption_handler, 0, INVALID, 0, "Enable All logging");
+            libcli_register_param(&traceoptions, &all);
+            set_param_cmd_code(&all, CMDCODE_CONF_ISIS_LOG_ALL);;
+        }
+        {
+            /* ... traceoptions policy */
+            static param_t policy;
+            init_param(&policy, CMD, "policy", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Policy ogging");
+            libcli_register_param(&traceoptions, &policy);
+            set_param_cmd_code(&policy, CMDCODE_CONF_ISIS_LOG_POLICY);
+        }
+        {
+            /* ... traceoptions events */
+            static param_t events;
+            init_param(&events, CMD, "events", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Events logging");
+            libcli_register_param(&traceoptions, &events);
+            set_param_cmd_code(&events, CMDCODE_CONF_ISIS_LOG_EVENTS);
+        }
+        {
+            /* ... traceoptions errors */
+            static param_t errors;
+            init_param(&errors, CMD, "errors", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Errors logging");
+            libcli_register_param(&traceoptions, &errors);
+            set_param_cmd_code(&errors, CMDCODE_CONF_ISIS_LOG_ERRORS);
+        }
+         support_cmd_negation (&traceoptions);
+    }
+}
+
 
 /* conf node <node-name> protocol ... */
 int
@@ -555,6 +842,9 @@ isis_config_cli_tree(param_t *param) {
 	    init_param(&isis_proto, CMD, "isis", isis_config_handler, 0, INVALID, 0, "isis protocol");
 	    libcli_register_param(param, &isis_proto);
 	    set_param_cmd_code(&isis_proto, ISIS_CONFIG_NODE_ENABLE);
+        {
+            isis_config_buid_traceoptions (&isis_proto);
+        }
         {
              static param_t import_policy;
              init_param(&import_policy, CMD, "import-policy", 0, 0, INVALID, 0, "import policy");
@@ -826,6 +1116,13 @@ isis_show_cli_tree(param_t *param) {
                 libcli_register_param(&isis_proto, &advtdb);
                 set_param_cmd_code(&advtdb, CMCODE_SHOW_ISIS_ADVT_DB);
             }
+            {
+                /* show node <node-name> protocol isis traceoptions*/
+                static param_t traceoptions;
+                init_param(&traceoptions, CMD, "traceoptions", isis_show_handler, 0, INVALID, 0, "logging status");
+                libcli_register_param(&isis_proto, &traceoptions);
+                set_param_cmd_code(&traceoptions, CMCODE_SHOW_ISIS_TRACEOPTIONS);
+            }
         }
         {
                 /*show node <node-name> protocol isis event-counters*/
@@ -924,3 +1221,4 @@ isis_clear_cli_tree(param_t *param) {
     }
     return 0;
 }
+

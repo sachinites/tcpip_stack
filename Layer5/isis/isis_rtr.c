@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <unistd.h>
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_const.h"
@@ -196,6 +197,9 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
     /* Set the flags to track what work needs to be done before we die out */
     if (node_info->adjacency_up_count) {
 
+        trace (ISIS_TR(node), TR_ISIS_EVENTS, 
+            "%s : Generating Pre-shutdown work - Purging Zero LSPs\n", node->node_name);
+
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
 
@@ -203,6 +207,9 @@ isis_launch_prior_shutdown_tasks(node_t *node) {
     }
     
     if (isis_has_routes(node)) {
+
+        trace (ISIS_TR(node), TR_ISIS_EVENTS, 
+            "%s : Generating Pre-shutdown work - Route deletion\n", node->node_name);
 
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
@@ -366,8 +373,8 @@ isis_init (node_t *node ) {
     isis_create_advt_db(node_info, 0);
     init_glthread (&node_info->pending_lsp_gen_queue);
     snprintf (log_file_name, sizeof (log_file_name), "logs/%s-isis-log.txt", node->node_name);
-    node_info->tr = tracer_init ("isis", log_file_name, STDOUT_FILENO, ISIS_TR_ALL);
-    //tracer_enable_console_logging (node_info->tr, true);
+    node_info->tr = tracer_init ("isis", log_file_name, node->node_name, STDOUT_FILENO, TR_ISIS_ALL);
+    tracer_enable_console_logging (node_info->tr, true);
     tracer_enable_file_logging (node_info->tr, true);
     isis_regen_zeroth_fragment(node);
     ISIS_INCREMENT_NODE_STATS(node,

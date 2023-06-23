@@ -54,14 +54,26 @@
 #define ISIS_PKT        " ISIS(PKT)"
 
 /* ISIS Trace Codes*/
-#define TR_ISIS_SPF  1
-#define TR_ISIS_EVENTS  2
-#define ISIS_TR_ALL (TR_ISIS_SPF | TR_ISIS_EVENTS)
-
-
-
-
-/* ISIS Miscellaneous flags */
-#define ISIS_F_DISABLE_LSP_GEN  1
+#define TR_ISIS_SPF                   (1 << 0)
+#define TR_ISIS_EVENTS          (1 << 1)
+#define TR_ISIS_LSDB               (1 << 2)
+#define TR_ISIS_PKT                  (1 << 3)
+#define TR_ISIS_PKT_HELLO   (1 << 4)
+#define TR_ISIS_PKT_LSP         (1 << 5)
+#define TR_ISIS_ADJ                  (1 << 6)
+#define TR_ISIS_ROUTE            (1 << 7)
+#define TR_ISIS_POLICY           (1 << 8)
+#define TR_ISIS_ERRORS         (1 << 9)
+#define TR_ISIS_ALL                 (TR_ISIS_SPF |  \
+                                                       TR_ISIS_EVENTS | \
+                                                       TR_ISIS_LSDB | \
+                                                       TR_ISIS_PKT | \
+                                                       TR_ISIS_PKT_HELLO | \
+                                                       TR_ISIS_PKT_LSP | \
+                                                       TR_ISIS_ADJ | \
+                                                       TR_ISIS_ROUTE | \
+                                                       TR_ISIS_POLICY | \
+                                                       TR_ISIS_ERRORS \
+                                                        )
 
 #endif 

@@ -79,4 +79,35 @@
 /* run node <node-name> protocol isis lsp <rtr-id> <pn-id> uninstall*/
 #define CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL 33
 
+/* Enable/Disable Tracing options for ISIS*/
+/* config node <node-name> protocol isis [no] traceoptions console*/
+#define CMDCODE_CONF_ISIS_LOG_CONSOLE    34
+/* config node <node-name> protocol isis [no] traceoptions file-logging*/
+#define CMDCODE_CONF_ISIS_LOG_FILE    35
+/* config node <node-name> protocol isis [no] traceoptions spf */
+#define CMDCODE_CONF_ISIS_LOG_SPF    36
+/* config node <node-name> protocol isis [no] traceoptions lsdb */
+#define CMDCODE_CONF_ISIS_LOG_LSDB    37
+/* config node <node-name> protocol isis [no] traceoptions packet */
+#define CMDCODE_CONF_ISIS_LOG_PACKET    38
+/* config node <node-name> protocol isis [no] traceoptions packet hello*/
+#define CMDCODE_CONF_ISIS_LOG_PACKET_HELLO    39
+/* config node <node-name> protocol isis [no] traceoptions packet lsp*/
+#define CMDCODE_CONF_ISIS_LOG_PACKET_LSP    40
+/* config node <node-name> protocol isis [no] traceoptions adjacency*/
+#define CMDCODE_CONF_ISIS_LOG_ADJ    41
+/* config node <node-name> protocol isis [no] traceoptions route*/
+#define CMDCODE_CONF_ISIS_LOG_ROUTE    42
+/* config node <node-name> protocol isis [no] traceoptions policy*/
+#define CMDCODE_CONF_ISIS_LOG_POLICY    43
+/* config node <node-name> protocol isis [no] traceoptions events*/
+#define CMDCODE_CONF_ISIS_LOG_EVENTS    44
+/* config node <node-name> protocol isis [no] traceoptions errors*/
+#define CMDCODE_CONF_ISIS_LOG_ERRORS    45
+/* config node <node-name> protocol isis [no] traceoptions all*/
+#define CMDCODE_CONF_ISIS_LOG_ALL    46
+
+/* show noe <node-name> protocol isis traceoptions*/
+#define CMCODE_SHOW_ISIS_TRACEOPTIONS 47
+
 #endif /* __ISIS_CMDCODES__ */

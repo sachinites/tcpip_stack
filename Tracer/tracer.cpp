@@ -6,7 +6,10 @@
 #include <pthread.h>
 #include "tracer.h"
 
+
+#define HDR_SIZE    32
 #define LOG_BUFFER_SIZE 256
+
 #define CLI_INTG
 #undef CLI_INTG
 
@@ -21,7 +24,8 @@ static uint64_t flush_count = 0;
 typedef enum log_flags_ {
 
     ENABLE_FILE_LOG = 1,
-    ENABLE_CONSOLE_LOG = 2
+    ENABLE_CONSOLE_LOG = 2,
+    DISABLE_HDR_PRINTING = 4
 }log_flags_t;
 
 typedef struct tracer_ {
@@ -29,6 +33,7 @@ typedef struct tracer_ {
     unsigned char tr_name[12];
     unsigned char Logbuffer[LOG_BUFFER_SIZE];
     int log_msg_len;
+    int hdr_size;
     FILE *log_file;
     int out_fd;
     uint64_t bits;
@@ -50,7 +55,7 @@ tracer_save (tracer_t *tracer) {
 }
 
 tracer_t *
-tracer_init (const char *tr_str_id, const char *file_name, int out_fd, uint64_t logging_bits) {
+tracer_init (const char *tr_str_id, const char *file_name, const char *hdr, int out_fd, uint64_t logging_bits) {
 
     assert (tr_str_id);
 
@@ -60,6 +65,10 @@ tracer_init (const char *tr_str_id, const char *file_name, int out_fd, uint64_t 
         tr->log_file = fopen (file_name, "w+");
     }
 
+    if (hdr) {
+        tr->hdr_size = snprintf (tr->Logbuffer, HDR_SIZE, "%s : ", hdr);
+    }
+    tr->log_msg_len = tr->hdr_size;
     tr->out_fd = out_fd;
     tr->bits = logging_bits;
     pthread_spin_init (&tr->spin_lock, PTHREAD_PROCESS_PRIVATE);
@@ -89,7 +98,6 @@ tracer_remove(tracer_t *tracer){
     tracer->left = 0;
     tracer->right = 0;
 }
-
 
 void
 tracer_deinit (tracer_t *tracer) {
@@ -134,16 +142,22 @@ trace_internal (tracer_t *tracer,
     }
 
     va_start(args, format);
-
-    memset (tracer->Logbuffer, 0, tracer->log_msg_len);
-    tracer->log_msg_len = sprintf ((char *)tracer->Logbuffer , "%s(%d): ", FN, lineno);
+    memset (tracer->Logbuffer + tracer->hdr_size, 0, tracer->log_msg_len - tracer->hdr_size);
+    tracer->log_msg_len = tracer->hdr_size;
+    tracer->log_msg_len += sprintf ((char *)tracer->Logbuffer + tracer->log_msg_len , "%s(%d): ", FN, lineno);
     tracer->log_msg_len += vsnprintf((char *)tracer->Logbuffer + tracer->log_msg_len, LOG_BUFFER_SIZE - tracer->log_msg_len, format, args);
     tracer->log_msg_len++;   // count \0 character
     va_end(args);
 
     if (tracer->log_file && (tracer->op_flags & ENABLE_FILE_LOG)) {
         
-        fwrite (tracer->Logbuffer, 1 , tracer->log_msg_len, tracer->log_file);
+        if (tracer->op_flags & DISABLE_HDR_PRINTING) {
+            fwrite (tracer->Logbuffer + HDR_SIZE, 1 , tracer->log_msg_len - HDR_SIZE, tracer->log_file);
+        }
+        else {
+             fwrite (tracer->Logbuffer, 1 , tracer->log_msg_len, tracer->log_file);
+        }
+
         flush_count++;
         if (flush_count % FLUSH_MAX == 0) {
             fflush (tracer->log_file);
@@ -152,12 +166,18 @@ trace_internal (tracer_t *tracer,
 
     if (tracer->op_flags & ENABLE_CONSOLE_LOG) {
         #ifndef CLI_INTG
-        write (tracer->out_fd, tracer->Logbuffer, tracer->log_msg_len);
+        if (tracer->op_flags & DISABLE_HDR_PRINTING) {
+            write (tracer->out_fd, tracer->Logbuffer + HDR_SIZE, tracer->log_msg_len - HDR_SIZE);
+        }
+        else {
+            write (tracer->out_fd, tracer->Logbuffer, tracer->log_msg_len);
+        }
         #else 
         cprintf ("%s",  tracer->Logbuffer);
         #endif
     }
 
+    tracer->op_flags &= ~DISABLE_HDR_PRINTING;
     pthread_spin_unlock (&tracer->spin_lock);
  }
 
@@ -173,6 +193,14 @@ tracer_enable_file_logging (tracer_t *tracer, bool enable) {
         tracer->op_flags &= ~ENABLE_FILE_LOG;
     }
 
+    pthread_spin_unlock (&tracer->spin_lock);
+}
+
+void 
+tracer_disable_hdr_print (tracer_t *tracer) {
+
+    pthread_spin_lock (&tracer->spin_lock);
+     tracer->op_flags |= DISABLE_HDR_PRINTING;
     pthread_spin_unlock (&tracer->spin_lock);
 }
 
@@ -215,4 +243,22 @@ tracer_clear_log_file (tracer_t *tracer) {
         tracer->log_file = freopen (NULL, "w+", tracer->log_file);
     }
     pthread_spin_unlock (&tracer->spin_lock);
+}
+
+bool 
+tracer_is_bit_set (tracer_t *tracer, uint64_t log_bit) {
+
+    return tracer->bits & log_bit;
+}
+
+bool 
+tracer_is_console_logging_enable (tracer_t *tracer) {
+
+    return tracer->op_flags & ENABLE_CONSOLE_LOG;
+}
+
+bool 
+tracer_is_file_logging_enable (tracer_t *tracer) {
+
+    return tracer->op_flags & ENABLE_FILE_LOG;
 }

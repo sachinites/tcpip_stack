@@ -29,4 +29,7 @@ int
 isis_system_id_compare (isis_system_id_t *sys_id1,
                                          isis_system_id_t *sys_id2);
 
+void
+isis_show_traceoptions (node_t *node) ;
+
 #endif
