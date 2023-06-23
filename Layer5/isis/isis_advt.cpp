@@ -1095,8 +1095,9 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         /* Reject routes which ISIS already knows */
         if (l3_route->nexthops[nxthop_proto][0]) {
 
-            sprintf(tlb, "Export Policy : Route %s/%d already known to ISIS\n", l3_route->dest, l3_route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY,
+                "%s : Route %s/%d already known to ISIS\n",
+                ISIS_EXPOLICY,  l3_route->dest, l3_route->mask);
             thread_using_route_done(l3_route);
             continue;
         }
@@ -1105,8 +1106,9 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
                                  node_info->export_policy,
                                  tcp_ip_covert_ip_p_to_n(l3_route->dest), l3_route->mask) != PFX_LST_PERMIT) {
 
-            sprintf(tlb, "Export Policy : Route %s/%d rejected due to export policy.\n", l3_route->dest, l3_route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY,
+                "%s : Route %s/%d rejected due to export policy.\n",
+                ISIS_EXPOLICY, l3_route->dest, l3_route->mask);
             thread_using_route_done(l3_route);
             continue;
         }

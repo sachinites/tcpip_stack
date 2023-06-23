@@ -57,10 +57,7 @@ isis_free_node_info(node_t *node) {
     XFREE(node_info);
     node->node_nw_prop.isis_node_info = NULL;
 
-    sprintf(tlb, "%s : Protocol successfully shutdown\n",
-        ISIS_LSPDB_MGMT);
-
-    tcp_trace(node, 0, tlb);
+    printf ("ISIS Protocol successfully shutdown\n");
 }
 
 static void
@@ -373,9 +370,7 @@ isis_init (node_t *node ) {
     isis_create_advt_db(node_info, 0);
     init_glthread (&node_info->pending_lsp_gen_queue);
     snprintf (log_file_name, sizeof (log_file_name), "logs/%s-isis-log.txt", node->node_name);
-    node_info->tr = tracer_init ("isis", log_file_name, node->node_name, STDOUT_FILENO, TR_ISIS_ALL);
-    tracer_enable_console_logging (node_info->tr, true);
-    tracer_enable_file_logging (node_info->tr, true);
+    node_info->tr = tracer_init ("isis", log_file_name, node->node_name, STDOUT_FILENO, 0);
     isis_regen_zeroth_fragment(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
@@ -398,23 +393,22 @@ isis_schedule_job(node_t *node,
                   isis_event_type_t event_type) {
 
     if (*task) {
-        printf("Node : %s : %s Already Scheduled. Reason : %s\n",
-            node->node_name, job_name, isis_event_str(event_type));
+        trace (ISIS_TR(node), TR_ISIS_SPF, "%s Already Scheduled. Reason : %s\n",
+            job_name, isis_event_str(event_type));
         return;
     }
     
     if (!isis_is_protocol_enable_on_node(node)) {
-        printf("Node : %s : Protocol not Enable. %s Will not be Scheduled."
-                " Reason : %s\n", node->node_name, job_name,
-                isis_event_str(event_type));
+        trace (ISIS_TR(node), TR_ISIS_SPF, "Protocol not Enable. %s Will not be Scheduled."
+                " Reason : %s\n", job_name, isis_event_str(event_type));
         return;
     }
 
     *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE);
 
     if(*task) {
-        printf("Node : %s : %s Scheduled. Reason : %s\n",
-            node->node_name, job_name, isis_event_str(event_type));        
+        trace (ISIS_TR(node), TR_ISIS_SPF, "%s Scheduled. Reason : %s\n",
+            job_name, isis_event_str(event_type));        
     }
 }
 

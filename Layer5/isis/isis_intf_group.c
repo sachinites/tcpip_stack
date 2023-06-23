@@ -146,10 +146,6 @@ isis_intf_grp_refresh_member_interface (Interface *intf) {
                              &intf_info->intf_grp_member_glue,
                              intf_grp_membership_add_comp_fn,
                              offsetof(isis_intf_info_t, intf_grp_member_glue));
-
-    sprintf(tlb, "%s : Refresh interface Grp %s with interface %s\n",
-            ISIS_ADJ_MGMT, intf_grp->name, intf->if_name.c_str());
-    tcp_trace(intf->att_node, intf, tlb);
 }
 
 int

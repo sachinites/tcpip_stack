@@ -102,9 +102,9 @@ isis_process_hello_pkt(node_t *node,
        adjacency = isis_find_adjacency_on_interface(iif, 0);
 
         if (adjacency) {
-            sprintf(tlb, "%s : Adjacency %s will be brought down, bad hello recvd\n",
-                ISIS_ADJ_MGMT, isis_adjacency_name(adjacency));
-            tcp_trace(iif->att_node, iif, tlb);
+            trace(ISIS_TR(iif->att_node), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS, 
+                "%s : Adjacency %s will be brought down, bad hello recvd\n",
+                ISIS_ERROR, isis_adjacency_name(adjacency));
             isis_change_adjacency_state(adjacency, ISIS_ADJ_STATE_DOWN);
         }
         goto bad_hello;
@@ -145,10 +145,9 @@ isis_process_lsp_pkt(node_t *node,
 
     isis_ref_isis_pkt(new_lsp_pkt);
 
-    sprintf(tlb, "%s : lsp %s recvd on intf %s\n",
-        ISIS_LSPDB_MGMT,
-        isis_print_lsp_id(new_lsp_pkt, lsp_id_str), iif ? iif->if_name.c_str() : 0);
-    tcp_trace(node, iif, tlb);
+    trace (ISIS_TR (node), TR_ISIS_PKT_LSP | TR_ISIS_EVENTS,
+        "%s : lsp %s recvd on intf %s\n",
+       ISIS_PKT, isis_print_lsp_id(new_lsp_pkt, lsp_id_str), iif ? iif->if_name.c_str() : 0);
 
     isis_install_lsp(node, iif, new_lsp_pkt);
     isis_deref_isis_pkt(node, new_lsp_pkt);

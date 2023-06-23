@@ -52,6 +52,7 @@
 #define ISIS_SPF        " ISIS(SPF)"
 #define ISIS_ERROR      " ISIS(ERROR)"
 #define ISIS_PKT        " ISIS(PKT)"
+#define ISIS_EXPOLICY " ISIS(EX-POLICY)"
 
 /* ISIS Trace Codes*/
 #define TR_ISIS_SPF                   (1 << 0)

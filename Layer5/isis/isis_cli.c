@@ -810,7 +810,7 @@ isis_config_buid_traceoptions (param_t *param) {
         {
             /* ... traceoptions policy */
             static param_t policy;
-            init_param(&policy, CMD, "policy", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Policy ogging");
+            init_param(&policy, CMD, "policy", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Policy logging");
             libcli_register_param(&traceoptions, &policy);
             set_param_cmd_code(&policy, CMDCODE_CONF_ISIS_LOG_POLICY);
         }
@@ -1167,14 +1167,18 @@ isis_clear_handler(param_t *param,
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    
+    if (!isis_is_protocol_enable_on_node(node)) {
+        printf (ISIS_ERROR_PROTO_NOT_ENABLE"\n");
+        return;
+    }
 
     switch(cmdcode) {
 
         case CMDCODE_CLEAR_NODE_ISIS_LSDB:
         {
             isis_cleanup_lsdb (node, true);
-            isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-            if (!isis_is_protocol_enable_on_node(node)) break;
             isis_schedule_all_fragment_regen_job (node);
         }
         break;
@@ -1190,6 +1194,9 @@ isis_clear_handler(param_t *param,
             }  ITERATE_NODE_INTERFACES_END(node, intf);
         }
         break;
+        case CMDCODE_RESET_NODE_ISIS_LOG_FILE:
+            tracer_clear_log_file (ISIS_TR(node));
+            break;
         default: ;
     }
     return 0;
@@ -1218,6 +1225,13 @@ isis_clear_cli_tree(param_t *param) {
             libcli_register_param(&isis_proto, &adjacency);
             set_param_cmd_code(&adjacency, CMDCODE_CLEAR_NODE_ISIS_ADJACENCY);
         }
+        {
+             /* clear node <node-name> protocol isis reset-log-file */
+            static param_t reset_log_file;
+            init_param(&reset_log_file, CMD, "reset-log-file", isis_clear_handler, 0, INVALID, 0, "Reset Log File logs/*-isis-log.txt");
+            libcli_register_param(&isis_proto, &reset_log_file);
+            set_param_cmd_code(&reset_log_file, CMDCODE_RESET_NODE_ISIS_LOG_FILE);
+        }        
     }
     return 0;
 }

@@ -159,24 +159,18 @@ isis_free_all_exported_rt_advt_data (node_t *node) {
         switch (rc)
         {
         case ISIS_TLV_WD_SUCCESS:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d is successful\n",
-                    ISIS_LSPDB_MGMT, ip_addr_str, mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d is successful\n",
+                    ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         case ISIS_TLV_WD_FRAG_NOT_FOUND:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d failed, Fragment Not Found\n",
-                    ISIS_LSPDB_MGMT, ip_addr_str, mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, Fragment Not Found\n", ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         case ISIS_TLV_WD_TLV_NOT_FOUND:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d failed, TLV Not Found\n",
-                    ISIS_LSPDB_MGMT, ip_addr_str, mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, TLV Not Found\n",
+                    ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         case ISIS_TLV_WD_FAILED:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d failed, reason Unknown\n",
-                    ISIS_LSPDB_MGMT, ip_addr_str, mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         }
         mnode->data = NULL;
@@ -327,8 +321,8 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     bitmap_t prefix_bm, mask_bm;
     isis_advt_tlv_return_code_t rc;
 
-    sprintf(tlb, "Export Policy : Exporting Route %s/%d\n", l3route->dest, l3route->mask);
-    tcp_trace(node, 0, tlb);
+    trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Exporting Route %s/%d\n",
+        ISIS_EXPOLICY, l3route->dest, l3route->mask);
 
     exported_rt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
     exported_rt->tlv_no = ISIS_TLV_IP_REACH;
@@ -356,9 +350,8 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
                                             32,
                                             &mnode) != MTRIE_INSERT_SUCCESS) {
         
-        sprintf(tlb, "Export Policy : Exporting Route %s/%d failed\n",
-            l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
+        trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Exporting Route %s/%d failed\n",
+            ISIS_EXPOLICY, l3route->dest, l3route->mask);
         bitmap_free_internal(&prefix_bm);
         bitmap_free_internal(&mask_bm);
         isis_free_advt_data (exported_rt);
@@ -373,22 +366,15 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     switch (rc) {
 
         case ISIS_TLV_RECORD_ADVT_SUCCESS:
-            sprintf(tlb, "%s : Route %s/%d advertised in LSP [%hu][%hu]\n",
-                ISIS_LSPDB_MGMT,
-                l3route->dest, l3route->mask, advt_info_out.pn_no, advt_info_out.fr_no);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d advertised in LSP [%hu][%hu]\n",
+                ISIS_EXPOLICY, l3route->dest, l3route->mask, advt_info_out.pn_no, advt_info_out.fr_no);
             break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
-            sprintf(tlb, "%s : Route %s/%d is already advertised\n", ISIS_LSPDB_MGMT,
-                l3route->dest, l3route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d is already advertised\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
         case ISIS_TLV_RECORD_ADVT_NO_FRAG:
-            sprintf(tlb, "%s : Route %s/%d Failed to advertised, No Space available\n",
-                ISIS_LSPDB_MGMT,
-                l3route->dest, l3route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d Failed to advertised, No Space available\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;
         default:
             assert(0);
@@ -415,8 +401,8 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     if (!node_info) return false;
 
-    sprintf(tlb, "Export Policy : UnExporting Route %s/%d\n", l3route->dest, l3route->mask);
-    tcp_trace(node, 0, tlb);
+    trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d\n",
+        ISIS_EXPOLICY, l3route->dest, l3route->mask);
 
     bin_ip = tcp_ip_covert_ip_p_to_n (l3route->dest);
     bin_ip = htonl(bin_ip);
@@ -458,25 +444,17 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     switch(rc) {
         case ISIS_TLV_WD_SUCCESS:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d is successful\n",
-                ISIS_LSPDB_MGMT, l3route->dest, l3route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d is successful\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             res = true;
             break;
         case ISIS_TLV_WD_FRAG_NOT_FOUND:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d failed, Fragment Not Found\n",
-                ISIS_LSPDB_MGMT, l3route->dest, l3route->mask);
-            tcp_trace(node, 0, tlb);
+           trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, Fragment Not Found\n",ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;            
         case ISIS_TLV_WD_TLV_NOT_FOUND:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d failed, TLV Not Found\n",
-                ISIS_LSPDB_MGMT, l3route->dest, l3route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, TLV Not Found\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;
         case ISIS_TLV_WD_FAILED:
-            sprintf(tlb, "%s : Export Policy : UnExporting Route %s/%d failed, reason Unknown\n",
-                ISIS_LSPDB_MGMT, l3route->dest, l3route->mask);
-            tcp_trace(node, 0, tlb);
+            trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;            
     }
 
@@ -496,9 +474,8 @@ void
     isis_node_info_t *node_info;
     isis_advt_tlv_return_code_t rc;
     
-     sprintf(tlb, "Recv notif for Route %s/%d with code %d\n",
-        l3route->dest, l3route->mask, l3route->rt_flags);
-     tcp_trace(node, 0, tlb);
+      trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Recv notif for Route %s/%d with code %d\n",
+        ISIS_EXPOLICY, l3route->dest, l3route->mask, l3route->rt_flags);
 
     node_info = ISIS_NODE_INFO(node);
 
@@ -529,9 +506,8 @@ void
     /* Reject routes which ISIS already knows */
     if (l3route->nexthops[nxthop_proto][0]) {
 
-        sprintf(tlb, "Export Policy : Route %s/%d already known to ISIS\n",
-            l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
+        trace (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d already known to ISIS\n",
+            ISIS_EXPOLICY, l3route->dest, l3route->mask);
         return;
     }
 
@@ -540,8 +516,8 @@ void
     if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
         rc == ISIS_TLV_RECORD_ADVT_NO_FRAG) {
 
-        sprintf(tlb, "Export Policy : Route %s/%d could not be exported, space Exhaustion\n",
-                l3route->dest, l3route->mask);
-        tcp_trace(node, 0, tlb);
+        trace (ISIS_TR(node), TR_ISIS_POLICY | TR_ISIS_ERRORS,
+                "%s : Route %s/%d could not be exported, space Exhaustion\n",
+                ISIS_EXPOLICY, l3route->dest, l3route->mask);
     }
  }

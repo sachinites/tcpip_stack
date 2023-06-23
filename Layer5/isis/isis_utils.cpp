@@ -71,7 +71,10 @@ isis_system_id_compare (isis_system_id_t *sys_id1,
 void
 isis_show_traceoptions (node_t *node) {
 
-    if (!isis_is_protocol_enable_on_node (node)) return;
+    if (!isis_is_protocol_enable_on_node (node)) {
+        printf (ISIS_ERROR_PROTO_NOT_ENABLE"\n");
+        return;
+    }
 
     tracer_t *tr = ISIS_TR(node);
     
@@ -90,5 +93,4 @@ isis_show_traceoptions (node_t *node) {
     printf (" Route logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ROUTE) ? 'Y' : 'N');
     printf (" Policy logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_POLICY) ? 'Y' : 'N');
     printf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ERRORS) ? 'Y' : 'N');
-    printf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ALL) ? 'Y' : 'N');
 }

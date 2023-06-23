@@ -107,7 +107,8 @@
 /* config node <node-name> protocol isis [no] traceoptions all*/
 #define CMDCODE_CONF_ISIS_LOG_ALL    46
 
-/* show noe <node-name> protocol isis traceoptions*/
+/* show node <node-name> protocol isis traceoptions*/
 #define CMCODE_SHOW_ISIS_TRACEOPTIONS 47
-
+/* clear node <node-name> protocol isis reset-log-file*/
+#define CMDCODE_RESET_NODE_ISIS_LOG_FILE 48
 #endif /* __ISIS_CMDCODES__ */
