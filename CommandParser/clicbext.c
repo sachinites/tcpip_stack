@@ -33,6 +33,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ncurses.h>
 #include "clicbext.h"
 
 void
@@ -49,5 +50,5 @@ terminate_signal_handler(int a){
 
 void
 collect_supportsave_data(){
-    printf("%s() is called ...\n", __FUNCTION__);
+    printw("%s() is called ...\n", __FUNCTION__);
 }

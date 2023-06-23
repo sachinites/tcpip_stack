@@ -19,7 +19,7 @@ LIBS=-lpthread \
 		    -L LinuxMemoryManager -lmm \
 			-L FSMImplementation -lfsm \
 			-L FireWall -lasa \
-			-lrt -lm \
+			-lrt -lm -lncurses \
 			${ISIS_LIB_PATH} \
 
 OBJS=gluethread/glthread.o \

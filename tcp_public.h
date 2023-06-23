@@ -31,6 +31,7 @@
 #ifndef __TCP_IP_STACK__
 #define __TCP_IP_STACK__
 
+#include <ncurses.h>
 #include "gluethread/glthread.h"
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"

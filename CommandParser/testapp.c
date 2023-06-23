@@ -32,7 +32,7 @@ list_vlans(param_t *param, ser_buff_t *tlv_buf){
     unsigned int i = 1;
     for(; i <= 10; i++){
 
-        printf("%d\n", i);
+        printw("%d\n", i);
     }
 }
 
@@ -44,10 +44,10 @@ show_ip_igmp_groups_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_
 #if 0
     TLV_LOOP(tlv_buf, tlv, i){
         if(strncmp(tlv->leaf_id, "group-ip", strlen("group-ip")) == 0){
-            printf("Group Ip Recvd in application = %s\n", tlv->value);   
+            printw("Group Ip Recvd in application = %s\n", tlv->value);   
         }
         else if(strncmp(tlv->leaf_id, "vlan-id", strlen("vlan-id")) == 0){
-            printf("vlan recieved in application = %s\n", tlv->value);
+            printw("vlan recieved in application = %s\n", tlv->value);
         }
     }
 #endif
@@ -77,7 +77,7 @@ user_vlan_validation_callback(char *vlan_id){
     if(vlan_no > 0 && vlan_no < 4096)
         return 0;
 
-    printf("Invalid vlan. Pls follow Help\n");
+    printw("Invalid vlan. Pls follow Help\n");
     return -1;
 }
 

@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <ncurses.h>
 #include "libcliid.h"
 #include "serialize.h"
 #include "cmd_hier.h"
@@ -78,10 +79,10 @@ print_tlv_content(tlv_struct_t *tlv){
     if(!tlv)
         return;
 
-    printf ("tlv->tlv_type = %d\n", tlv->tlv_type);
-    printf("tlv->leaf_type = %s\n", get_str_leaf_type(tlv->leaf_type));
-    printf("tlv->leaf_id   = %s\n", tlv->leaf_id);
-    printf("tlv->value     = %s\n", tlv->value);
+    printw ("tlv->tlv_type = %d\n", tlv->tlv_type);
+    printw("tlv->leaf_type = %s\n", get_str_leaf_type(tlv->leaf_type));
+    printw("tlv->leaf_id   = %s\n", tlv->leaf_id);
+    printw("tlv->value     = %s\n", tlv->value);
 }
 
 static inline bool
@@ -97,10 +98,10 @@ dump_tlv_serialized_buffer(ser_buff_t *tlv_ser_buff){
 
     tlv_struct_t *tlv = NULL;
 
-    printf("cmd code = %d\n", EXTRACT_CMD_CODE(tlv_ser_buff));
+    printw("cmd code = %d\n", EXTRACT_CMD_CODE(tlv_ser_buff));
     TLV_LOOP_BEGIN(tlv_ser_buff, tlv){
         print_tlv_content(tlv);
-        printf("\n");
+        printw("\n");
     } TLV_LOOP_END;
 }
 

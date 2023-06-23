@@ -44,8 +44,8 @@ array_of_possibilities[POSSIBILITY_ARRAY_SIZE];
 void
 place_console(char new_line){
     if(new_line)
-        printf("\n");
-    printf("%s $ ", console_name);
+        printw("\n");
+    printw("%s $ ", console_name);
 }
 
 static char cons_input_buffer[CONS_INPUT_BUFFER_SIZE];
@@ -100,20 +100,20 @@ find_matching_param (param_t **options, const char *cmd_name){
         return array_of_possibilities[0];
 
     /* More than one param matched*/
-    printf("%d possibilities :\n", j);
+    printw("%d possibilities :\n", j);
     for(i = 0; i < j; i++)
-        printf("%-2d. %s\n", i, GET_CMD_NAME(array_of_possibilities[i]));
+        printw("%-2d. %s\n", i, GET_CMD_NAME(array_of_possibilities[i]));
 
-    printf("Choice [0-%d] : ? ", j-1);
+    printw("Choice [0-%d] : ? ", j-1);
     scanf("%d", &choice);
     
     /* Read \n and discard */
     if((fgets((char *)cons_input_buffer, sizeof(cons_input_buffer)-1, stdin) == NULL)){
-        printf("error in reading from stdin\n");
+        printw("error in reading from stdin\n");
     }
 
     if(choice < 0 || choice > (j-1)){
-        printf("\nInvalid Choice");
+        printw("\nInvalid Choice");
         return NULL;
     }
     return array_of_possibilities[choice];   
@@ -308,22 +308,22 @@ build_tlv_buffer(char **tokens,
             break;
 
         case CMD_NOT_FOUND:
-            printf(ANSI_COLOR_RED "Error : Following Token not registered : %s\n" ANSI_COLOR_RESET, *(tokens +i));
+            printw(ANSI_COLOR_RED "Error : Following Token not registered : %s\n" ANSI_COLOR_RESET, *(tokens +i));
             break;
 
         case INVALID_LEAF:
-            printf(ANSI_COLOR_RED "Error : Following leaf value could not be validated : %s, Expected Data type = %s\n"
+            printw(ANSI_COLOR_RED "Error : Following leaf value could not be validated : %s, Expected Data type = %s\n"
                     ANSI_COLOR_RESET, *(tokens +i), GET_LEAF_TYPE_STR(param));
             break;
 
         case COMPLETE:
-            //printf(ANSI_COLOR_GREEN "Parse Success.\n" ANSI_COLOR_RESET);
-            printf("Parse Success.\n");
+            //printw(ANSI_COLOR_GREEN "Parse Success.\n" ANSI_COLOR_RESET);
+            printw("Parse Success.\n");
 
             if(param == libcli_get_show_brief_extension_param()){
                 if(!IS_APPLICATION_CALLBACK_HANDLER_REGISTERED(parent)){
                     status = INCOMPLETE_COMMAND;
-                    printf(ANSI_COLOR_YELLOW "Error : Incomplete Command\n" ANSI_COLOR_RESET);
+                    printw(ANSI_COLOR_YELLOW "Error : Incomplete Command\n" ANSI_COLOR_RESET);
                     break;
                 }
                 /*Add the show extension param TLV to tlv buffer, this is really not an
@@ -337,7 +337,7 @@ build_tlv_buffer(char **tokens,
                 INVOKE_APPLICATION_CALLBACK_HANDLER(parent, tlv_buff, enable_or_disable);
 #else
 				task_invoke_appln_cbk_handler(parent, tlv_buff, enable_or_disable);
-				printf("CLI returned\n");
+				printw("CLI returned\n");
 #endif
             }
 
@@ -398,22 +398,22 @@ build_tlv_buffer(char **tokens,
                 INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
 #else
 				    task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
-                    printf("CLI returned\n");
+                    printw("CLI returned\n");
 #endif
             }
             break;
 
         case USER_INVALID_LEAF:
-            printf(ANSI_COLOR_YELLOW "Error : User validation has failed : Invalid value for Leaf : %s\n", GET_LEAF_ID(param));
-            printf(ANSI_COLOR_RESET);
+            printw(ANSI_COLOR_YELLOW "Error : User validation has failed : Invalid value for Leaf : %s\n", GET_LEAF_ID(param));
+            printw(ANSI_COLOR_RESET);
             break;
 
         case INCOMPLETE_COMMAND:
-            printf(ANSI_COLOR_YELLOW "Error : Incomplete Command\n" ANSI_COLOR_RESET);
+            printw(ANSI_COLOR_YELLOW "Error : Incomplete Command\n" ANSI_COLOR_RESET);
             break;
 
         default:
-            printf(ANSI_COLOR_RED "FATAL : Unknown case fall\n" ANSI_COLOR_RESET);
+            printw(ANSI_COLOR_RED "FATAL : Unknown case fall\n" ANSI_COLOR_RESET);
     }
     return status;;
 }
@@ -500,7 +500,7 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
             }
         }
         else
-            printf("Info : do is supported from within config mode only\n");
+            printw("Info : do is supported from within config mode only\n");
     }
 
     else if (strncmp (tokens[0], "repeat" , strlen(tokens[0])) == 0) {
@@ -553,12 +553,12 @@ parse_input_cmd(char *input, unsigned int len, bool *is_repeat_cmd){
 
 
 void
-command_parser(void){
+command_parser() {
 
     bool is_repeat_cmd;
     CMD_PARSE_STATUS status = UNKNOWN;
 
-    printf("run - \'show help\' cmd to learn more");
+    printw("run - \'show help\' cmd to learn more");
     place_console(1);
     memset(&command_code_tlv, 0, sizeof(tlv_struct_t));
 
@@ -572,7 +572,7 @@ command_parser(void){
         is_repeat_cmd  = false;
 
         if((fgets((char *)cons_input_buffer, sizeof(cons_input_buffer)-1, stdin) == NULL)){
-            printf("error in reading from stdin\n");
+            printw("error in reading from stdin\n");
             exit(EXIT_SUCCESS);
         }
     
@@ -608,6 +608,27 @@ command_parser(void){
     }
 }
 
+int
+command_parser2(unsigned char *command, int size) {
+
+    bool is_repeat_cmd;
+    CMD_PARSE_STATUS status = UNKNOWN;
+
+    memset(&command_code_tlv, 0, sizeof(tlv_struct_t));
+    
+    command_code_tlv.leaf_type = INT;
+    strncpy((char *)command_code_tlv.leaf_id, "CMDCODE", LEAF_ID_SIZE);
+    command_code_tlv.leaf_id[LEAF_ID_SIZE -1] = '\0';
+    memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
+
+    strncpy (cons_input_buffer, command, size);
+
+    status = parse_input_cmd(cons_input_buffer, size, &is_repeat_cmd);
+    memset(cons_input_buffer, 0, CONS_INPUT_BUFFER_SIZE);
+    if (status == COMPLETE) return 0;
+    return -1;
+}
+
 void
 parse_file(char *file_name) {
 
@@ -619,7 +640,7 @@ parse_file(char *file_name) {
 	
 	if (!fptr) {
 	
-		printf("Error : Could not open log file %s, errno = %d\n",
+		printw("Error : Could not open log file %s, errno = %d\n",
 				file_name, errno);
 		return;
 	}
@@ -632,7 +653,7 @@ parse_file(char *file_name) {
 
 	while (fgets(line, sizeof(line) - 1, fptr)) {
 
-		printf("Executing : %s", line);
+		printw("Executing : %s", line);
 
 		tokens = tokenizer(line, ' ', &token_cnt);		
 

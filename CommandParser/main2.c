@@ -6,28 +6,28 @@
 
 int
 node_callback_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
-    printf("%s() is called ...\n", __FUNCTION__);
+    printw("%s() is called ...\n", __FUNCTION__);
     return 0;
 }
 
 int
 validate_node_name(char *value){
 
-    printf("%s() is called with value = %s\n", __FUNCTION__, value);
+    printw("%s() is called with value = %s\n", __FUNCTION__, value);
     return VALIDATION_SUCCESS; /*else return VALIDATION_FAILED*/
 }
 
 
 int
 node_loopback_callback_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
-    printf("%s() is called ...\n", __FUNCTION__);
+    printw("%s() is called ...\n", __FUNCTION__);
     return 0;
 }
 
 int
 validate_loopback_address(char *value){
 
-    printf("%s() is called with value = %s\n", __FUNCTION__, value);
+    printw("%s() is called with value = %s\n", __FUNCTION__, value);
     return VALIDATION_SUCCESS; /*else return VALIDATION_FAILED*/
 }
 

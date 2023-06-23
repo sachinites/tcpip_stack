@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <ncurses.h>
 #include "string_util.h"
 #include "cliconst.h"
 
@@ -107,7 +108,7 @@ char** tokenizer(char* _a_str, const char a_delim, int *token_cnt){
             strncpy((char *)tokens[i], token, strlen(token));
             i++;
             if(i == MAX_CMD_TREE_DEPTH + 1){
-                //printf("Warning : Max token limit (= %d) support exceeded\n", MAX_CMD_TREE_DEPTH);
+                //printw("Warning : Max token limit (= %d) support exceeded\n", MAX_CMD_TREE_DEPTH);
                 re_init_tokens(MAX_CMD_TREE_DEPTH);
                 *token_cnt = 0;
                 return &tokens[0];
@@ -156,7 +157,7 @@ print_tokens(unsigned int index){
         if(tokens[i] == NULL)
             break;
 
-        printf("%s ", tokens[i]);
+        printw("%s ", tokens[i]);
     }
 }
 
@@ -304,13 +305,13 @@ main(int argc, char **argv) {
 
     char *sample1 = "LSP : 122.1.1.0          Seq # : 14      size(B) : 95      ref_c : 1     Life Time Remaining : 2372 sec\0";
     uint64_t int1 = string_fetch_integer(sample1, strlen(sample1), 1);
-    printf("%d %u\n", __LINE__, int1);
+    printw("%d %u\n", __LINE__, int1);
     int1 = string_fetch_integer(sample1, strlen(sample1), 2);
-    printf("%d %u\n", __LINE__, int1);
+    printw("%d %u\n", __LINE__, int1);
     int1 = string_fetch_integer(sample1, strlen(sample1), 3);
-    printf("%d %u\n", __LINE__, int1);
+    printw("%d %u\n", __LINE__, int1);
      int1 = string_fetch_integer(sample1, strlen(sample1), 4);
-    printf("%d %u\n", __LINE__, int1);
+    printw("%d %u\n", __LINE__, int1);
     return 0;
 }
 #endif

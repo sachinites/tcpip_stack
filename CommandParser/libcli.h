@@ -20,6 +20,7 @@
 #define __LIBCLI__
 
 #include <unistd.h>
+#include <ncurses.h>
 #include "libcliid.h"
 #include "cmd_hier.h"
 

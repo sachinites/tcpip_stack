@@ -64,7 +64,7 @@ dump_all_commands(param_t *root, unsigned int index){
         
         if(IS_APPLICATION_CALLBACK_HANDLER_REGISTERED(root)){
             print_tokens(index + 1);
-            printf("\n");
+            printw("\n");
         }
 }
 
@@ -72,7 +72,7 @@ dump_all_commands(param_t *root, unsigned int index){
 
 CLI_VAL_RC
 int_validation_handler(leaf_t *leaf, char *value_passed){
-    /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
+    /*printw("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     if (fsm_is_integer (value_passed, strlen(value_passed)))
         return VALIDATION_SUCCESS;
@@ -82,7 +82,7 @@ int_validation_handler(leaf_t *leaf, char *value_passed){
 
 CLI_VAL_RC
 string_validation_handler(leaf_t *leaf, char *value_passed){
-    /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
+    /*printw("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     return VALIDATION_SUCCESS;
 }
@@ -90,7 +90,7 @@ string_validation_handler(leaf_t *leaf, char *value_passed){
 
 CLI_VAL_RC
 ipv4_validation_handler(leaf_t *leaf, char *value_passed){
-    /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
+    /*printw("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     if (ip_validate(value_passed)) {
         return VALIDATION_SUCCESS;
@@ -102,7 +102,7 @@ ipv4_validation_handler(leaf_t *leaf, char *value_passed){
 
 CLI_VAL_RC
 ipv6_validation_handler(leaf_t *leaf, char *value_passed){
-    /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
+    /*printw("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     return VALIDATION_SUCCESS;
 }
@@ -110,7 +110,7 @@ ipv6_validation_handler(leaf_t *leaf, char *value_passed){
 
 CLI_VAL_RC
 float_validation_handler(leaf_t *leaf, char *value_passed){
-    /*printf("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
+    /*printw("%s is called for leaf type = %s, leaf value = %s\n", __FUNCTION__,
      *                             get_str_leaf_type(leaf->leaf_type), value_passed);*/
     return VALIDATION_SUCCESS;
 }
@@ -152,7 +152,7 @@ config_console_name_handler(param_t *param, ser_buff_t *b, op_mode enable_or_dis
             if(strncmp(tlv->value, console_name, strlen(tlv->value)) == 0)
                 set_device_name(DEFAULT_DEVICE_NAME);
             else
-                printf("Error : Incorrect device name\n");
+                printw("Error : Incorrect device name\n");
         }
     }TLV_LOOP_END;
     return 0;
@@ -164,7 +164,7 @@ repeat_last_command(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     bool is_repeat_cmd;
     static char new_line_consume[2];
     char *last_cmd = get_last_command();
-    printf("prev : %s", last_cmd);
+    printw("prev : %s", last_cmd);
     scanf("%c", new_line_consume);;
     parse_input_cmd(last_cmd, strlen(last_cmd), &is_repeat_cmd);
     return 0;
@@ -179,7 +179,7 @@ task_invoke_appln_cbk_handler(param_t *param,
 mode_enter_callback(param_t *param, ser_buff_t *tlv_buff, op_mode enable_or_disable){
  
     if(param == libcli_get_root()){
-        printf(ANSI_COLOR_YELLOW "Info : Mode not supported at root level\n" ANSI_COLOR_RESET);
+        printw(ANSI_COLOR_YELLOW "Info : Mode not supported at root level\n" ANSI_COLOR_RESET);
         return 0;   
     }
     set_cmd_tree_cursor(param);
@@ -191,7 +191,7 @@ mode_enter_callback(param_t *param, ser_buff_t *tlv_buff, op_mode enable_or_disa
         INVOKE_APPLICATION_CALLBACK_HANDLER(param, tlv_buff, enable_or_disable);
 #else
         task_invoke_appln_cbk_handler(param, tlv_buff, enable_or_disable);
-        printf("CLI returned\n");
+        printw("CLI returned\n");
 #endif
     }
     return 0;
@@ -205,7 +205,7 @@ display_sub_options_callback(param_t *param, ser_buff_t *b, op_mode enable_or_di
     tlv_struct_t dummy;
 
     if(IS_APPLICATION_CALLBACK_HANDLER_REGISTERED(param))
-        printf("<Enter>\n");
+        printw("<Enter>\n");
 
     for(i = CHILDREN_START_INDEX; i <= CHILDREN_END_INDEX; i++){
         if(param->options[i]){
@@ -214,10 +214,10 @@ display_sub_options_callback(param_t *param, ser_buff_t *b, op_mode enable_or_di
                 continue;
 
             if(IS_PARAM_CMD(param->options[i]) || IS_PARAM_NO_CMD(param->options[i])){
-                printf(ANSI_COLOR_MAGENTA "nxt cmd  -> %-31s   |   %s\n" ANSI_COLOR_RESET, GET_CMD_NAME(param->options[i]), GET_PARAM_HELP_STRING(param->options[i]));
+                printw(ANSI_COLOR_MAGENTA "nxt cmd  -> %-31s   |   %s\n" ANSI_COLOR_RESET, GET_CMD_NAME(param->options[i]), GET_PARAM_HELP_STRING(param->options[i]));
                 continue;
             }
-            printf(ANSI_COLOR_CYAN "nxt leaf -> %-32s  |   %s\n" ANSI_COLOR_RESET, GET_LEAF_TYPE_STR(param->options[i]), GET_PARAM_HELP_STRING(param->options[i]));
+            printw(ANSI_COLOR_CYAN "nxt leaf -> %-32s  |   %s\n" ANSI_COLOR_RESET, GET_LEAF_TYPE_STR(param->options[i]), GET_PARAM_HELP_STRING(param->options[i]));
             continue;
         }
         break;
@@ -229,9 +229,9 @@ display_sub_options_callback(param_t *param, ser_buff_t *b, op_mode enable_or_di
         /*Add a dummy TLV to compensate for the cmd code TLV*/
         memset(&dummy, 0, sizeof(tlv_struct_t));
         collect_tlv(b, &dummy);
-        printf(ANSI_COLOR_YELLOW "possible values :\n");
+        printw(ANSI_COLOR_YELLOW "possible values :\n");
         param->disp_callback(param, b);
-        printf(ANSI_COLOR_RESET);
+        printw(ANSI_COLOR_RESET);
     }
     return 0;
 }
@@ -264,7 +264,7 @@ show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
     FILE *f = fopen(CMD_HIST_RECORD_FILE, "r");
     
     if(!f){
-        printf("Error : History file could not be read\n");
+        printw("Error : History file could not be read\n");
         return 0;
     }
    
@@ -272,16 +272,16 @@ show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
   
    cmd_offset[cmd_counter++] = ftell(f);
    while(fgets(file_cmsd_size, FILE_CMD_SIZE_MAX, f) != NULL) {
-       printf("%d. %s", cmd_counter - 1, file_cmsd_size);
+       printw("%d. %s", cmd_counter - 1, file_cmsd_size);
        cmd_offset[cmd_counter++] = ftell(f);
        memset(file_cmsd_size, 0, FILE_CMD_SIZE_MAX);
    } 
  
     int cmd_choice;
-    printf("Enter command no to trigger : ");
+    printw("Enter command no to trigger : ");
     scanf("%d", &cmd_choice);
     if(!(cmd_choice >= 0 && cmd_choice < cmd_counter)){
-        printf("Invalid choice\n");
+        printw("Invalid choice\n");
         fclose(f) ;
         return 0;
     }
@@ -292,7 +292,7 @@ show_history_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
    fgets(file_cmsd_size, FILE_CMD_SIZE_MAX, f);
    file_cmsd_size[FILE_CMD_SIZE_MAX -1] = '\0';
 
-   printf("Command to be triggered : %s", file_cmsd_size); 
+   printw("Command to be triggered : %s", file_cmsd_size); 
    parse_input_cmd(file_cmsd_size, strlen(file_cmsd_size), &is_repeat_cmd);   
 
    fclose(f) ;
@@ -355,7 +355,7 @@ load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 	char *file_name = NULL;
 	tlv_struct_t *tlv = NULL;
 
-    printf("No Op - Full type the command\n");
+    printw("No Op - Full type the command\n");
     return 0;
 
 	TLV_LOOP_BEGIN(b, tlv) {
@@ -375,7 +375,7 @@ load_file_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
 int
 negate_callback(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
-    printf("Command Negation - Type the cmd following to Negate\n");
+    printw("Command Negation - Type the cmd following to Negate\n");
     return 0;
 }
 
@@ -402,7 +402,7 @@ supportsave_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 int
 cli_terminate_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
-    printf("Bye Bye\n");
+    printw("Bye Bye\n");
     exit(0);
 }
 
@@ -411,23 +411,23 @@ extern unsigned int cli_count;
 int
 show_help_handler(param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
-    printf("Welcome to Help Wizard\n");
-    printf("========================\n");
-    printf("1. Use '%s' Character after the command to enter command mode\n", MODE_CHARACTER);
-    printf("2. Use '%s' Character after the command to see possible follow up suboptions\n", SUBOPTIONS_CHARACTER);
-    printf("3. Use '%s' from within the config branch to directly trigger operational commands\n", DO);
-    printf("4. Use '%s' Character after the command to see possible complete command completions\n", CMD_EXPANSION_CHARACTER);
-    printf("5. Built-in commands:\n");
-    printf("    a. %s - clear screen\n", CLEAR_SCR_STRING);
-    printf("    b. %s - jump to top of cmd tree\n", GOTO_TOP_STRING);
-    printf("    c. %s - jump one level up of command tree\n", GOTO_ONE_LVL_UP_STRING);
-    printf("    d. config [%s] console name <console name> - set/unset new console name\n", NEGATE_CHARACTER);
-    printf("    e. config [%s] supportsave enable - enable/disable supportsave facility\n", NEGATE_CHARACTER);
-    printf("    f. debug show cmdtree - Show entire command tree\n");
-    printf("    g. show history - show history of commands triggered\n");
-    printf("    h. repeat - repeat the last command\n");
-	printf(ANSI_COLOR_YELLOW "                      Author : Abhishek Sagar\n" ANSI_COLOR_RESET);
-	printf(ANSI_COLOR_YELLOW "                      Visit : www.csepracticals.com for more courses and projects\n" ANSI_COLOR_RESET);
+    printw("Welcome to Help Wizard\n");
+    printw("========================\n");
+    printw("1. Use '%s' Character after the command to enter command mode\n", MODE_CHARACTER);
+    printw("2. Use '%s' Character after the command to see possible follow up suboptions\n", SUBOPTIONS_CHARACTER);
+    printw("3. Use '%s' from within the config branch to directly trigger operational commands\n", DO);
+    printw("4. Use '%s' Character after the command to see possible complete command completions\n", CMD_EXPANSION_CHARACTER);
+    printw("5. Built-in commands:\n");
+    printw("    a. %s - clear screen\n", CLEAR_SCR_STRING);
+    printw("    b. %s - jump to top of cmd tree\n", GOTO_TOP_STRING);
+    printw("    c. %s - jump one level up of command tree\n", GOTO_ONE_LVL_UP_STRING);
+    printw("    d. config [%s] console name <console name> - set/unset new console name\n", NEGATE_CHARACTER);
+    printw("    e. config [%s] supportsave enable - enable/disable supportsave facility\n", NEGATE_CHARACTER);
+    printw("    f. debug show cmdtree - Show entire command tree\n");
+    printw("    g. show history - show history of commands triggered\n");
+    printw("    h. repeat - repeat the last command\n");
+	printw(ANSI_COLOR_YELLOW "                      Author : Abhishek Sagar\n" ANSI_COLOR_RESET);
+	printw(ANSI_COLOR_YELLOW "                      Visit : www.csepracticals.com for more courses and projects\n" ANSI_COLOR_RESET);
     return 0;
 }
 
@@ -442,7 +442,7 @@ show_resgistered_cmd_handler(param_t *param, ser_buff_t *b, op_mode enable_or_di
     
     unsigned int index = 0;
     dump_all_commands(root, index);
-    printf ("Number of Registered CLIs : %u\n", cli_count);
+    printw ("Number of Registered CLIs : %u\n", cli_count);
     return 0;
 }
 
@@ -482,6 +482,6 @@ grep_pattern_validation(char *value_passed){
 int
 pipe_handler (param_t *param, ser_buff_t *b, op_mode enable_or_disable){
 
-    printf ("%s() called \n", __FUNCTION__);
+    printw ("%s() called \n", __FUNCTION__);
     return 0;
 }
