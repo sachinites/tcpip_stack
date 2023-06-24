@@ -103,7 +103,7 @@ task_invoke_appln_cbk_handler (param_t *param,
         unified_cli_data->tlv_stack = (Stack_t *)get_new_stack();
         unified_cli_data->enable_or_disable = enable_or_disable;
 
-        if (enable_or_disable == OPERATIONAL) {
+        if ( enable_or_disable == OPERATIONAL) {
 
             for (i = 0; i <= tlv_stack->top; i++) {
 
@@ -118,7 +118,7 @@ task_invoke_appln_cbk_handler (param_t *param,
                 TASK_ONE_SHOT,
                 TASK_PRIORITY_OPERATIONAL_CLI);
             }
-            
+
         else {
 
             for (i = 0; i <= tlv_stack->top; i++) {

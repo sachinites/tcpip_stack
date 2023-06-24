@@ -1065,24 +1065,26 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
 
     if (!cli_is_char_mode_on()) return;
     if (!cli_cursor_is_at_end_of_line (cli)) return;
-    if (cli_is_buffer_empty(cli)) return;
+    if (cmdtc->cmdtc_state != cmdt_cur_state_init) return;
 
+    /* If user is simply pressing / without typing anything in the current line*/
     if (cli_cursor_is_at_begin_of_line (cli)) {
-        /* User is simply pressing / without ttyping anything. Fire the CLI*/
+
+        /* if user is at roof top, no action, stay silent*/
+        if (cmdtc->curr_param == libcli_get_root_hook()) return;
+
+        if (cmdtc_get_branch_hook (cmdtc) == libcli_get_config_hook()) {
+            /* No action to be taken if user is working in branch hook*/
+            return;
+        }
+         /* User is simply pressing / without typing anything. Fire the CLI in all
+                case except if user is working in config branch*/
         cmd_tree_trigger_cli  (cmdtc);
         cmd_tree_post_cli_trigger (cmdtc);
         cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
         cli_printsc (cli, true);
         return;
     }
-
-    /* Allow Mode when we are either in init state Or 
-        in multiple match state but with i_cursor index as 0initde_init which
-        means, user has multiple options to choose from, but not yet
-        typed a single character yet*/
-    if ( ! ((cmdtc->cmdtc_state == cmdt_cur_state_init) ||
-            (cmdtc->cmdtc_state == cmdt_cur_state_multiple_matches &&
-                cmdtc->icursor == 0))) return;
 
     /* No point in going into Mode if we are at bottom of the cmd tree*/
     if (cmdtc_is_cursor_at_bottom_mode_node (cmdtc)) return;
@@ -1406,7 +1408,8 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     /* Handle Trigger of Operational Or Config-Negate Cmds. Both Commands
         types are triggered in same way - just once*/
     if (enable_or_diable == OPERATIONAL ||
-            enable_or_diable == CONFIG_DISABLE) {
+            enable_or_diable == CONFIG_DISABLE ||
+             enable_or_diable == CONFIG_ENABLE) {
 
         cmdtc_set_filter_context (cmdtc);
         
@@ -1423,6 +1426,8 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
         return;
     }
+
+    /* Dead Code */
 
     /* Handle Trigger of Config Command. Config Commands are triggered in
         patches !*/
