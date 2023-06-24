@@ -753,14 +753,14 @@ isis_show_spf_results(node_t *node, ted_node_t *ted_node){
     isis_spf_result_t *res = NULL;
     isis_spf_data_t *node_spf_data = ISIS_NODE_SPF_DATA(ted_node);
 
-    printf("\nSPF run results for node = %s\n", ted_node->node_name);
+    cprintf("\nSPF run results for node = %s\n", ted_node->node_name);
 
     ITERATE_GLTHREAD_BEGIN(&node_spf_data->spf_result_head, curr){
         
         res = isis_spf_res_glue_to_spf_result(curr);
 
-        printf("DEST : %-10s spf_metric : %-6u", res->node->node_name, res->spf_metric);
-        printf(" Nxt Hop : ");
+        cprintf("DEST : %-10s spf_metric : %-6u", res->node->node_name, res->spf_metric);
+        cprintf(" Nxt Hop : ");
 
         j = 0;
 
@@ -774,13 +774,13 @@ isis_show_spf_results(node_t *node, ted_node_t *ted_node){
             }
 
             if (j == 0){
-                printf("OIF : %-7s    gateway : %-16s ref_count = %u\n",
+                cprintf("OIF : %-7s    gateway : %-16s ref_count = %u\n",
                         oif->if_name.c_str(),
                         res->nexthops[i]->gw_ip, 
                         res->nexthops[i]->ref_count);
             }
             else{
-                printf("                                              : "
+                cprintf("                                              : "
                         "OIF : %-7s    gateway : %-16s ref_count = %u\n",
                         oif->if_name.c_str(),
                         res->nexthops[i]->gw_ip, 
@@ -874,7 +874,7 @@ isis_show_spf_logs(node_t *node) {
      ITERATE_GLTHREAD_BEGIN(&node_info->spf_logc.head, curr) {
 
          spf_log = isis_glue_spf_log(curr);
-         printf("%d. %s  %s\n", i, ctime(&spf_log->timestamp), isis_event_str(spf_log->event));
+         cprintf("%d. %s  %s\n", i, ctime(&spf_log->timestamp), isis_event_str(spf_log->event));
          i++;
      } ITERATE_GLTHREAD_END(&node_info->spf_logc.head, curr)
 }

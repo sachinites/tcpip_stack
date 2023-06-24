@@ -1,8 +1,6 @@
 #include <assert.h>
 #include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../CommandParser/libcli.h"
-#include "../../CommandParser/cmdtlv.h"
-#include "../../CommandParser/css.h"
+#include "../../CLIBuilder/libcli.h"
 #include "../../graph.h"
 #include "object_group.h"
 #include "object_grp_update.h"
@@ -32,11 +30,11 @@ void
 object_group_build_config_cli (param_t *root);
 
 extern void
-object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf);
+object_group_display_name_cli_callback (param_t *param, Stack_t *tlv_stack);
 
 static int
-object_group_config_handler (param_t *param, 
-                                                  ser_buff_t *tlv_buf,
+object_group_config_handler (int cmdcode,
+                                                  Stack_t *tlv_stack,
                                                   op_mode enable_or_disable) {
 
     node_t *node;
@@ -51,9 +49,7 @@ object_group_config_handler (param_t *param,
 
     byte c_obj_grp_name[OBJ_GRP_NAME_LEN]; 
 
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
     if (parser_match_leaf_id (tlv->leaf_id, "object-group-name"))
 	    objgrp_name = tlv->value;
@@ -466,8 +462,8 @@ void object_group_build_config_cli (param_t *root)
 }
 
 static int
-object_group_show_handler (param_t *param, 
-                                                     ser_buff_t *tlv_buf,
+object_group_show_handler (int cmdcode, 
+                                                     Stack_t *tlv_stack,
                                                      op_mode enable_or_disable) {
 
     node_t *node;
@@ -475,9 +471,7 @@ object_group_show_handler (param_t *param,
     c_string node_name = NULL;
     char *nw_obj_name = NULL;
 
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
     if (parser_match_leaf_id (tlv->leaf_id, "object-group-name"))
 	    nw_obj_name = tlv->value;
@@ -520,7 +514,7 @@ object_group_build_show_cli (param_t *root) {
 }
 
 void
-object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf){
+object_group_display_name_cli_callback (param_t *param, Stack_t *tlv_stack){
 
     node_t *node;
     hashtable_t *og_ght;
@@ -528,7 +522,7 @@ object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf){
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
     
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if (parser_match_leaf_id (tlv->leaf_id, "node-name")) {
             node_name = tlv->value;

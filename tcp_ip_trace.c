@@ -539,7 +539,7 @@ tcp_ip_init_intf_log_info(Interface *intf){
     log_info->acc_lst_filter = NULL;
 }
 
-static void display_expected_flag(param_t *param, ser_buff_t *tlv_buf){
+static void display_expected_flag(param_t *param, Stack_t *tlv_stack){
 
     printf(" : all | no-all\n");
     printf(" : recv | no-recv\n");
@@ -564,9 +564,9 @@ validate_flag_values(c_string value){
         (string_compare(value, "no-stdout",k = strlen("no-stdout")) ==   0   && k  == len)          ||
         (string_compare(value, "l3-fwd",   k = strlen("l3-fwd"))    ==   0   && k  == len)          ||
         (string_compare(value, "no-l3-fwd",k = strlen("no-l3-fwd")) ==   0   && k  == len)){
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
     }
-    return VALIDATION_FAILED;
+    return LEAF_VALIDATION_FAILED;
 }
 
 
@@ -601,8 +601,8 @@ void tcp_ip_show_log_status(node_t *node){
     }
 }
 
-int traceoptions_handler(param_t *param, 
-        ser_buff_t *tlv_buf, 
+int traceoptions_handler(int cmdcode, 
+        Stack_t *tlv_stack, 
         op_mode enable_or_disable){
 
     node_t *node;
@@ -610,17 +610,13 @@ int traceoptions_handler(param_t *param,
     c_string if_name;
     uint32_t flags;
     Interface *intf;
-    int cmdcode = -1;
     c_string flag_val;
     access_list_t *access_list;
     log_t *log_info = NULL;
     tlv_struct_t *tlv = NULL;
     c_string access_list_name = NULL;
 
-
-    int CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -632,7 +628,7 @@ int traceoptions_handler(param_t *param,
             access_list_name = tlv->value;
     }TLV_LOOP_END;
 
-    switch(CMDCODE){
+    switch(cmdcode){
         case CMDCODE_DEBUG_GLOBAL_STDOUT:
             topo->gstdout = true;
             break;
@@ -756,8 +752,8 @@ int traceoptions_handler(param_t *param,
             ;
     }
 
-    if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE ||
-            CMDCODE == CMDCODE_DEBUG_LOGGING_PER_INTF){
+    if(cmdcode == CMDCODE_DEBUG_LOGGING_PER_NODE ||
+            cmdcode == CMDCODE_DEBUG_LOGGING_PER_INTF){
         if(strcmp((const char *)flag_val, "all") == 0){
             tcp_ip_set_all_log_info_params(log_info, true);
         }
@@ -765,7 +761,7 @@ int traceoptions_handler(param_t *param,
             tcp_ip_set_all_log_info_params(log_info, false);
             
             /*disable logging for all interfaces also*/
-            if(CMDCODE == CMDCODE_DEBUG_LOGGING_PER_NODE){
+            if(cmdcode == CMDCODE_DEBUG_LOGGING_PER_NODE){
                 int i = 0;
                 Interface *intf;
                 for(; i < MAX_INTF_PER_NODE; i++){
@@ -800,7 +796,7 @@ int traceoptions_handler(param_t *param,
             log_info->l3_fwd = false;
         }
     }
-    else if(CMDCODE == CMDCODE_DEBUG_SHOW_LOG_STATUS){
+    else if(cmdcode == CMDCODE_DEBUG_SHOW_LOG_STATUS){
         tcp_ip_show_log_status(node);
     }
     return 0;

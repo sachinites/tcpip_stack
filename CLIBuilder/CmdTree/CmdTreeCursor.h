@@ -42,7 +42,7 @@ cmdtc_get_state_str (cmd_tree_cursor_t *cmdtc);
 void 
 cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc);
 
-void 
+bool
 cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) ;
 
 bool 

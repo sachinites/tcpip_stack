@@ -1,6 +1,4 @@
-#include "../../CommandParser/libcli.h"
-#include "../../CommandParser/cmdtlv.h"
-#include "../../CommandParser/css.h"
+#include "../../CLIBuilder/libcli.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
 #include "../../Interface/Interface.h"
@@ -12,45 +10,45 @@
 #include "../object_network/object_group.h"
 
 extern graph_t *topo;
-extern void display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
-extern void object_group_display_name_cli_callback (param_t *param, ser_buff_t *tlv_buf);
+extern void display_node_interfaces(param_t *param, Stack_t *tlv_stack);
+extern void object_group_display_name_cli_callback (param_t *param, Stack_t *tlv_stack);
 
 #define ACL_CMD_CONFIG  1
 #define ACL_CMD_SHOW 2
 #define ACL_CMD_ACCESS_GROUP_CONFIG 3
 
 static int
-acl_action_validation_cbk(char *value) {
+acl_action_validation_cbk(Stack_t *tlv_stack, unsigned char *value) {
 
     if (string_compare(value, "permit", 6) == 0 || 
             string_compare(value, "deny", 4) == 0) {
 
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
     }
-    return VALIDATION_FAILED;
+    return LEAF_VALIDATION_FAILED;
 }
 
 static int
-acl_proto_validation_cbk(char *value) {
+acl_proto_validation_cbk(Stack_t *tlv_stack, unsigned char *value) {
 
     acl_proto_t proto = acl_string_to_proto(value);
-    if (proto == ACL_PROTO_NONE) return VALIDATION_FAILED;
-    return VALIDATION_SUCCESS;
+    if (proto == ACL_PROTO_NONE) return LEAF_VALIDATION_FAILED;
+    return LEAF_VALIDATION_SUCCESS;
 }
 
 static void
-acl_display_supported_protocols(param_t *param, ser_buff_t *tlv_buf) {
+acl_display_supported_protocols(param_t *param, Stack_t *tlv_stack) {
 
 }
 
 static int
-acl_port_no_validation (char *value) {
+acl_port_no_validation (Stack_t *tlv_stack, unsigned char *value) {
 
     int64_t val_num = atoi((const char *)value);
     if (val_num >= 0 && val_num <= ACL_PROTO_MAX)
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
     printf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
-    return VALIDATION_FAILED;
+    return LEAF_VALIDATION_FAILED;
 }
 
 static bool
@@ -256,8 +254,8 @@ access_list_unconfig(node_t *node,
 }
 
 static int
-acl_config_handler (param_t *param, 
-                                 ser_buff_t *tlv_buf,   
+acl_config_handler (int cmdcode, 
+                                 Stack_t *tlv_stack,
                                  op_mode enable_or_disable) {
 
     char ip[16];
@@ -296,11 +294,7 @@ acl_config_handler (param_t *param,
                   dst_port_no1 = 0,
                   dst_port_no2 = 0;
 
-    int cmdcode = -1;
-
-    cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -547,8 +541,8 @@ acl_config_handler (param_t *param,
 }
 
 static int
-access_group_config_handler(param_t *param, 
-                  ser_buff_t *tlv_buf,
+access_group_config_handler(int cmdcode, 
+                  Stack_t *tlv_stack,
                   op_mode enable_or_disable) {
     
     char *dirn = NULL;
@@ -557,11 +551,7 @@ access_group_config_handler(param_t *param,
     char *if_name = NULL;
     char *access_list_name = NULL;
 
-    int cmdcode = -1;
-
-    cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -597,12 +587,12 @@ access_group_config_handler(param_t *param,
 }
 
 static int
-acl_direction_validation(char *value) {
+acl_direction_validation(Stack_t *, unsigned char *leaf_value) {
 
-    if ((string_compare(value, "in" , 2) == 0 && strlen(value) == 2) || 
-         (string_compare(value, "out" , 3) == 0 && strlen(value) == 3))
-        return VALIDATION_SUCCESS;
-    return VALIDATION_FAILED;
+    if ((string_compare(leaf_value, "in" , 2) == 0 && strlen(leaf_value) == 2) || 
+         (string_compare(leaf_value, "out" , 3) == 0 && strlen(leaf_value) == 3))
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
 }
 
 static void
@@ -1030,7 +1020,7 @@ acl_build_config_cli(param_t *root) {
                                       libcli_register_param(&eq, &src_port_no);
                                       libcli_set_param_cmd_code(&src_port_no, ACL_CMD_CONFIG);
                                       acl_build_config_cli_object_network_destination(&src_port_no);
-                                     acl_build_config_cli_object_group_destination(&src_port_no);
+                                      acl_build_config_cli_object_group_destination(&src_port_no);
                                   }
                             }
                             {
@@ -1376,7 +1366,7 @@ acl_print (acl_entry_t *acl_entry) {
     default:;
     }
 
-    printf(ANSI_COLOR_GREEN "\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])" ANSI_COLOR_RESET,
+    printf("\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])",
            acl_entry->hit_count,
            acl_entry->tcam_total_count,
            acl_entry->tcam_self_conflicts_count,
@@ -1418,15 +1408,15 @@ access_list_show_all(node_t *node) {
 
 
 static int
-acl_show_handler(param_t *param,
-                 ser_buff_t *tlv_buf,
+acl_show_handler(int cmdcode,
+                 Stack_t *tlv_stack,
                  op_mode enable_or_disable) {
 
     node_t *node = NULL;
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
    
-    TLV_LOOP_BEGIN(tlv_buf, tlv)
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
     {
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;

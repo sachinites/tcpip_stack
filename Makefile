@@ -14,7 +14,6 @@ LIBS=-lpthread \
 		    -lrt \
 			-lncurses \
 			-lpthread \
-		   -L CommandParser -lcli \
 		   -L CLIBuilder -lclibuilder \
 		    -L LinuxMemoryManager -lmm \
 			-L FSMImplementation -lfsm \
@@ -108,7 +107,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} CommandParser/libcli.a CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
+tcpstack.exe:main.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -221,9 +220,9 @@ c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
 
 #GRE files
 Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.cpp
-	${CC} ${CFLAGS} -c -I CommandParser -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
+	${CC} ${CFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
 Layer3/gre-tunneling/gre.o:Layer3/gre-tunneling/gre.cpp
-	${CC} ${CFLAGS} -c -I CommandParser -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
+	${CC} ${CFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
 
 #OOPs Interface Files 
 Interface/Interface.o:Interface/Interface.cpp
@@ -251,8 +250,6 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 #Layer2/stp/stp_vlandb.o:Layer2/stp/stp_vlandb.c
 #	${CC} ${CFLAGS} -c Layer2/stp/stp_vlandb.c -o Layer2/stp/stp_vlandb.o
 
-CommandParser/libcli.a:
-	(cd CommandParser; make)
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
 LinuxMemoryManager/libmm.a:
@@ -299,7 +296,6 @@ all:
 	
 cleanall:
 	make clean
-	(cd CommandParser; make clean)
 	(cd CLIBuilder; make clean)
 	(cd LinuxMemoryManager; make clean)
 	(cd FSMImplementation; make clean)

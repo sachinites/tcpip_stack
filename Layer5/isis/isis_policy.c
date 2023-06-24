@@ -22,7 +22,7 @@ isis_config_import_policy(node_t *node, const char *prefix_lst_name) {
                                                 &node->prefix_lst_db, prefix_lst_name);
     
     if (!prefix_lst) {
-        printf ("Error : Prefix List Do Not Exist\n");
+        cprintf ("Error : Prefix List Do Not Exist\n");
         return -1;
     }
 
@@ -38,7 +38,7 @@ isis_config_import_policy(node_t *node, const char *prefix_lst_name) {
     if (node_info->import_policy &&
         node_info->import_policy !=  prefix_lst) {
 
-        printf ("Error : Other Import policy %s is already being used\n",
+        cprintf ("Error : Other Import policy %s is already being used\n",
             node_info->import_policy->name);
         return -1;
     }
@@ -58,7 +58,7 @@ isis_config_export_policy(node_t *node, const char *prefix_lst_name) {
                                                 &node->prefix_lst_db, prefix_lst_name);
     
     if (!prefix_lst) {
-        printf ("Error : Prefix List Do Not Exist\n");
+        cprintf ("Error : Prefix List Do Not Exist\n");
         return -1;
     }
 
@@ -74,7 +74,7 @@ isis_config_export_policy(node_t *node, const char *prefix_lst_name) {
     if (node_info->export_policy &&
          node_info->export_policy != prefix_lst) {
 
-        printf ("Error : Other Export policy %s is already being used\n",
+        cprintf ("Error : Other Export policy %s is already being used\n",
             node_info->export_policy->name);
         return -1;
     }
@@ -103,7 +103,7 @@ isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
                                                 &node->prefix_lst_db, prefix_lst_name);
 
         if (!import_policy) {
-            printf ("Error : Prefix List Do Not Exist\n");
+            cprintf ("Error : Prefix List Do Not Exist\n");
             return -1;
         }
     }
@@ -203,7 +203,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
         export_policy =  prefix_lst_lookup_by_name(
                                             &node->prefix_lst_db, prefix_lst_name);
         if (!export_policy) {
-            printf("Error : Prefix List Do Not Exist\n");
+            cprintf("Error : Prefix List Do Not Exist\n");
             return -1;
         }
     }

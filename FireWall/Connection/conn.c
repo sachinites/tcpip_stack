@@ -21,5 +21,5 @@
 bool
 connection_exist(node_t *node, pkt_block_t *pkt_block) {
 
-    false;
+    return false;
 }

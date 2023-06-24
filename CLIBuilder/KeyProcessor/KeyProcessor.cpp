@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <signal.h>
-#include "../stack/stack.h"
+#include "../../stack/stack.h"
 #include "../cli_const.h"
 #include "cmdtlv.h"
 #include "KeyProcessor.h"
@@ -91,6 +91,7 @@ key_processor_should_enter_line_mode (int key) {
     return false;
 }
 
+/* Return 0 on success */
 static int
 cli_submit (cli_t *cli) {
 
@@ -101,9 +102,8 @@ cli_submit (cli_t *cli) {
 
     if (cli_is_char_mode_on ()) {
 
-        cmd_tree_process_carriage_return_key(cli->cmdtc);
-        /* Record the cmd only if the application returned success*/
-        if (1 || cmdtc_get_cmd_trigger_status (cli->cmdtc)) ret = 0;
+        parse_rc = cmd_tree_process_carriage_return_key(cli->cmdtc);
+        if (parse_rc) ret = 0;
     }
     else {
         /* If the historical cmd is modified, then current pos may be diff from end pos, sync it*/
@@ -643,8 +643,9 @@ cli_process_key_interrupt(int ch)
         {
             cli_screen_cursor_save_screen_pos(default_cli);
             move(default_cli->row_store, default_cli->end_pos);
-            cli_submit(default_cli);
-            cli_content_reset(default_cli);
+            if (cli_submit(default_cli) == 0) {
+                cli_content_reset(default_cli);
+            }
             cli_printsc(default_cli, true);
         }
         else

@@ -72,7 +72,7 @@ void
 isis_show_traceoptions (node_t *node) {
 
     if (!isis_is_protocol_enable_on_node (node)) {
-        printf (ISIS_ERROR_PROTO_NOT_ENABLE"\n");
+        cprintf (ISIS_ERROR_PROTO_NOT_ENABLE"\n");
         return;
     }
 
@@ -80,17 +80,17 @@ isis_show_traceoptions (node_t *node) {
     
     if (!tr) return;
 
-    printf ("ISIS log file : logs/%s-isis-log.txt\n", node->node_name);
-    printf (" Console logging : %c\n", tracer_is_console_logging_enable (tr) ? 'Y' : 'N');
-    printf (" File logging : %c\n", tracer_is_file_logging_enable (tr) ? 'Y' : 'N');
-    printf (" SPF logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_SPF) ? 'Y' : 'N');
-    printf (" Packet logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT) ? 'Y' : 'N');
-    printf ("  Hello logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_HELLO) ? 'Y' : 'N');
-    printf ("  LSP logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_LSP) ? 'Y' : 'N');
-    printf (" Event logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_EVENTS) ? 'Y' : 'N');
-    printf (" LSDB logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_LSDB) ? 'Y' : 'N');
-    printf (" Adjacency logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ADJ) ? 'Y' : 'N');
-    printf (" Route logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ROUTE) ? 'Y' : 'N');
-    printf (" Policy logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_POLICY) ? 'Y' : 'N');
-    printf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ERRORS) ? 'Y' : 'N');
+    cprintf ("ISIS log file : logs/%s-isis-log.txt\n", node->node_name);
+    cprintf (" Console logging : %c\n", tracer_is_console_logging_enable (tr) ? 'Y' : 'N');
+    cprintf (" File logging : %c\n", tracer_is_file_logging_enable (tr) ? 'Y' : 'N');
+    cprintf (" SPF logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_SPF) ? 'Y' : 'N');
+    cprintf (" Packet logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT) ? 'Y' : 'N');
+    cprintf ("  Hello logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_HELLO) ? 'Y' : 'N');
+    cprintf ("  LSP logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_LSP) ? 'Y' : 'N');
+    cprintf (" Event logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_EVENTS) ? 'Y' : 'N');
+    cprintf (" LSDB logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_LSDB) ? 'Y' : 'N');
+    cprintf (" Adjacency logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ADJ) ? 'Y' : 'N');
+    cprintf (" Route logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ROUTE) ? 'Y' : 'N');
+    cprintf (" Policy logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_POLICY) ? 'Y' : 'N');
+    cprintf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ERRORS) ? 'Y' : 'N');
 }

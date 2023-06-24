@@ -33,8 +33,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "graph.h"
-#include "CommandParser/libcli.h"
-#include "CommandParser/cmdtlv.h"
+#include "CLIBuilder/libcli.h"
+#include "CLIBuilder/cmdtlv.h"
 #include "cmdcodes.h"
 #include "libtimer/WheelTimer.h"
 #include "Layer5/app_handlers.h"
@@ -49,8 +49,8 @@
 extern graph_t *topo;
 class Interface;
 
-extern int traceoptions_handler(param_t *param,
-                                ser_buff_t *tlv_buf,
+extern int traceoptions_handler(int cmdcode,
+                                Stack_t *tlv_stack,
                                 op_mode enable_or_disable);
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
                                  param_t *intf_name_param);
@@ -68,19 +68,18 @@ extern void Interface_config_cli_tree (param_t *root);
 extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 
 extern int
-isis_show_handler (param_t *param, 
-                  ser_buff_t *tlv_buf,
+isis_show_handler (int cmdcode,
+                  Stack_t *tlv_stack,
                   op_mode enable_or_disable);
 
 static int
-display_mem_usage(param_t *param, ser_buff_t *tlv_buf,
+display_mem_usage(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     tlv_struct_t *tlv = NULL;
     c_string struct_name = NULL;
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
 
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "struct-name"))
             struct_name =  tlv->value;
@@ -168,7 +167,7 @@ cli_register_application_cli_trees(param_t *param,
 
 /* Display functions when user presses ?*/
 void
-display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
+display_graph_nodes(param_t *param, Stack_t *tlv_stack){
 
     node_t *node;
     glthread_t *curr;
@@ -176,49 +175,44 @@ display_graph_nodes(param_t *param, ser_buff_t *tlv_buf){
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node = graph_glue_to_node(curr);
-        printf("%s\n", node->node_name);
+        cprintf("%s\n", node->node_name);
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 }
 
 
 static int
-validate_node_extistence(c_string node_name){
+validate_node_extistence(Stack_t *tlv_stack, c_string node_name){
 
     node_t *node = node_get_node_by_name(topo, node_name);
     if(node)
-        return VALIDATION_SUCCESS;
-    printf("Error : Node %s do not exist\n", node_name);
-    return VALIDATION_FAILED;
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
 }
 
 int
-validate_mask_value(c_string mask_str);
+validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
 int
-validate_mask_value(c_string mask_str){
+validate_mask_value(Stack_t *tlv_stack, c_string mask_str){
 
     int mask = atoi((const char *)mask_str);
     if(mask >= 0 && mask <= 32)
-        return VALIDATION_SUCCESS;
-    printf("Error : Invalid Mask Value\n");
-    return VALIDATION_FAILED;
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
 }
 
 
 /*Generic Topology Commands*/
 static int
-show_nw_topology_handler(param_t *param,
-                         ser_buff_t *tlv_buf,
+show_nw_topology_handler(int cmdcode,
+                         Stack_t *tlv_stack,
                          op_mode enable_or_disable){
 
-    int CMDCODE = -1;
     node_t *node = NULL;
     c_string node_name = NULL;;
     tlv_struct_t *tlv = NULL;
 
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -227,7 +221,7 @@ show_nw_topology_handler(param_t *param,
     if(node_name)
         node = node_get_node_by_name(topo, node_name);
 
-    switch(CMDCODE){
+    switch(cmdcode){
 
         case CMDCODE_SHOW_NW_TOPOLOGY:
             dump_nw_graph(topo, node);
@@ -242,18 +236,15 @@ extern void
 tcp_ip_refresh_tcp_log_file(node_t *);
 
 static int
-clear_topology_handler(param_t *param,
-                       ser_buff_t *tlv_buf,
+clear_topology_handler(int cmdcode,
+                       Stack_t *tlv_stack,
                        op_mode enable_or_disable){
 
     node_t *node;
-    int CMDCODE = -1;
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
 
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -262,7 +253,7 @@ clear_topology_handler(param_t *param,
 
     node = node_get_node_by_name(topo, node_name);
 
-    switch(CMDCODE) {
+    switch(cmdcode) {
         case CMDCODE_CLEAR_LOG_FILE:
             tcp_ip_refresh_tcp_log_file(node);
             break;
@@ -278,14 +269,14 @@ extern void
 show_arp_table(arp_table_t *arp_table);
 
 static int
-show_arp_handler(param_t *param, ser_buff_t *tlv_buf, 
+show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
                     op_mode enable_or_disable){
 
     node_t *node;
     c_string node_name;
     tlv_struct_t *tlv = NULL;
     
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -304,14 +295,14 @@ typedef struct mac_table_ mac_table_t;
 extern void
 dump_mac_table(mac_table_t *mac_table);
 static int
-show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
+show_mac_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
     c_string node_name;
     tlv_struct_t *tlv = NULL;
     
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -323,14 +314,12 @@ show_mac_handler(param_t *param, ser_buff_t *tlv_buf,
     return 0;
 }
 
-
-
 extern void
 send_arp_broadcast_request(node_t *node,
                            Interface *oif,
                            c_string ip_addr);
 static int
-arp_handler(param_t *param, ser_buff_t *tlv_buf,
+arp_handler(int cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
 
     node_t *node;
@@ -338,7 +327,7 @@ arp_handler(param_t *param, ser_buff_t *tlv_buf,
     c_string ip_addr;
     tlv_struct_t *tlv = NULL;
 
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -360,20 +349,17 @@ layer3_ero_ping_fn(node_t *node, c_string dst_ip_addr,
                             c_string ero_ip_address);
 
 static int
-ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
+ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
-    int CMDCODE;
     node_t *node;
     uint32_t count = 1;
     c_string ip_addr = NULL;
     c_string ero_ip_addr = NULL;
     c_string node_name = NULL;
 
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
     tlv_struct_t *tlv = NULL;
 
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -387,7 +373,7 @@ ping_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
 
     node = node_get_node_by_name(topo, node_name);
 
-    switch(CMDCODE){
+    switch(cmdcode){
 
         case CMDCODE_PING:
             layer3_ping_fn(node, ip_addr, count);
@@ -405,14 +391,14 @@ typedef struct rt_table_ rt_table_t;
 extern void
 dump_rt_table(rt_table_t *rt_table);
 static int
-show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
+show_rt_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
     c_string node_name;
     tlv_struct_t *tlv = NULL;
     
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -427,7 +413,7 @@ show_rt_handler(param_t *param, ser_buff_t *tlv_buf,
 extern void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
-clear_rt_handler(param_t *param, ser_buff_t *tlv_buf,
+clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
@@ -435,7 +421,7 @@ clear_rt_handler(param_t *param, ser_buff_t *tlv_buf,
     c_string rib_name;
     tlv_struct_t *tlv = NULL;
     
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -459,7 +445,7 @@ rt_table_add_route(rt_table_t *rt_table,
         uint8_t proto);
 
 static int
-l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable){
+l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     node_t *node = NULL;
     c_string node_name = NULL;
@@ -469,14 +455,10 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
     c_string dest = NULL;
     c_string rib_name = NULL;
     c_string prefix_lst_name = NULL;
-
-    int CMDCODE = -1;
-
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf); 
     
     tlv_struct_t *tlv = NULL;
     
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -501,7 +483,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
         mask = atoi((const char *)(const char *)mask_str);
     }
 
-    switch(CMDCODE){
+    switch(cmdcode){
         case CMDCODE_CONF_NODE_L3ROUTE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
@@ -510,11 +492,11 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                     if(intf_name){
                         intf = node_get_intf_by_name(node, (const char *)intf_name);
                         if(!intf){
-                            printf("Config Error : Non-Existing Interface : %s\n", intf_name);
+                            cprintf("Config Error : Non-Existing Interface : %s\n", intf_name);
                             return -1;
                         }
                         if (!intf->IsIpConfigured()) {
-                            printf("Config Error : Not L3 Mode Interface : %s\n", intf_name);
+                            cprintf("Config Error : Not L3 Mode Interface : %s\n", intf_name);
                             return -1;
                         }
                     }
@@ -535,7 +517,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                 rt_table_t *rt_table = NODE_RT_TABLE(node);
                 prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, prefix_lst_name);
                 if (!prefix_lst) {
-                    printf ("Error : Prefix List do not Exist\n");
+                    cprintf ("Error : Prefix List do not Exist\n");
                     return -1;
                 }
                 switch (enable_or_disable) {
@@ -558,7 +540,7 @@ l3_config_handler(param_t *param, ser_buff_t *tlv_buf, op_mode enable_or_disable
                 }
             }
             else {
-                printf ("Error : Routing Table Support is inet.0\n");
+                cprintf ("Error : Routing Table Support is inet.0\n");
                 return -1;
             }
         }
@@ -589,7 +571,7 @@ stop_interface_hellos(Interface *interface);
 
 
 static int
-debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
+debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
                          op_mode enable_or_disable){
 
    node_t *node;
@@ -597,11 +579,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
    tlv_struct_t *tlv = NULL;
    c_string access_list_name = NULL;
 
-   int CMDCODE;
-
-   CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -611,7 +589,7 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
 
    node = node_get_node_by_name(topo, node_name);
 
-   switch(CMDCODE){
+   switch(cmdcode){
         case CMDCODE_DEBUG_SHOW_NODE_TIMER:
             print_wheel_timer(CP_TIMER(node));         
             break;
@@ -633,19 +611,16 @@ debug_show_node_handler(param_t *param, ser_buff_t *tlv_buf,
 }
 
 static int 
-show_interface_handler(param_t *param, ser_buff_t *tlv_buf, 
+show_interface_handler(int cmdcode, Stack_t *tlv_stack,
                        op_mode enable_or_disable){
     
-    int CMDCODE;
     node_t *node;
     c_string node_name;
     c_string protocol_name = NULL;
 
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
     tlv_struct_t *tlv = NULL;
 
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -655,7 +630,7 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
    
     node = node_get_node_by_name(topo, node_name);
 
-    switch(CMDCODE){
+    switch(cmdcode){
 
         case CMDCODE_SHOW_INTF_STATS:
             dump_node_interface_stats(node);
@@ -669,8 +644,6 @@ show_interface_handler(param_t *param, ser_buff_t *tlv_buf,
 void
 nw_init_cli(){
 
-    init_libcli();
-
     cli_register_ctrlC_handler(tcp_ip_toggle_global_console_logging);
 
     param_t *show   = libcli_get_show_hook();
@@ -678,9 +651,10 @@ nw_init_cli(){
     param_t *config = libcli_get_config_hook();
     param_t *run    = libcli_get_run_hook();
     param_t *clear    = libcli_get_clear_hook();
-    param_t *debug_show = libcli_get_debug_show_hook();
-    param_t *root = libcli_get_root();
+    //param_t *debug_show = libcli_get_debug_show_hook();
+    param_t *root = libcli_get_root_hook();
 
+#if 0
     {
         /*debug show node*/
         static param_t node;
@@ -759,6 +733,7 @@ nw_init_cli(){
             }
         }
     }
+    #endif
 
     /* clear commands */
     {
@@ -1136,6 +1111,4 @@ nw_init_cli(){
         libcli_support_cmd_negation(&node_name);
       }
     }
-    libcli_support_cmd_negation(config);
-    /*Do not Add any param here*/
 }

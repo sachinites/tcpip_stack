@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "../CommandParser/cmdtlv.h"
-#include "../CommandParser/libcli.h"
+#include "../CLIBuilder/cmdtlv.h"
+#include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
 #include "../utils.h"
 #include "../tcpip_notif.h"
@@ -13,61 +13,61 @@ extern void tcp_ip_traceoptions_cli(
                                 param_t *node_name_param, 
                                  param_t *intf_name_param);
 
-extern int validate_mask_value(c_string mask_str);
+extern int validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
 static int
-validate_vlan_id(c_string vlan_value){
+validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
 
     uint32_t vlan = atoi((const char *)vlan_value);
     if(!vlan){
         printf("Error : Invalid Vlan Value\n");
-        return VALIDATION_FAILED;
+        return LEAF_VALIDATION_FAILED;
     }
     if(vlan >= 1 && vlan <= 4095)
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
 
-    return VALIDATION_FAILED;
+    return LEAF_VALIDATION_FAILED;
 };
 
 static int
-validate_l2_mode_value(c_string l2_mode_value){
+validate_l2_mode_value(Stack_t *tlv_stack, c_string l2_mode_value){
 
     if((string_compare(l2_mode_value, "access", strlen("access")) == 0) || 
         (string_compare(l2_mode_value, "trunk", strlen("trunk")) == 0))
-        return VALIDATION_SUCCESS;
-    return VALIDATION_FAILED;
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
 }
 
 static int
-validate_interface_metric_val(c_string  value){
+validate_interface_metric_val(Stack_t *tlv_stack, c_string  value){
 
     uint32_t metric_val = atoi((const char *)value);
     if(metric_val > 0 && metric_val <= INTF_MAX_METRIC)
-        return VALIDATION_SUCCESS;
-    return VALIDATION_FAILED;
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
 }
 
 static int 
-validate_if_up_down_status(c_string value){
+validate_if_up_down_status(Stack_t *tlv_stack, c_string value){
 
     if(string_compare(value, "up", strlen("up")) == 0 ) {
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
     }
     else if(string_compare(value, "down", strlen("down")) == 0) {
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
     }
-    return VALIDATION_FAILED;
+    return LEAF_VALIDATION_FAILED;
 }
 
 /*Display Node Interfaces*/
 void
-display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
+display_node_interfaces(param_t *param, Stack_t *tlv_stack){
 
     node_t *node;
     c_string node_name = NULL;
     tlv_struct_t *tlv = NULL;
 
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -90,7 +90,7 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf){
 
 
 static int
-intf_config_handler(param_t *param, ser_buff_t *tlv_buf, 
+intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
    node_t *node;
@@ -101,16 +101,13 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
    uint8_t lono;
    c_string l2_mode_option;
    c_string if_up_down;
-   int CMDCODE;
    tlv_struct_t *tlv = NULL;
    c_string intf_ip_addr = NULL;
    Interface *interface = NULL;
    uint32_t intf_new_matric_val;
    intf_prop_changed_t intf_prop_changed;
-
-   CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
    
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
@@ -139,7 +136,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
         interface = node_get_intf_by_name(node, (const char *)intf_name);
     }
 
-    switch (CMDCODE) {
+    switch (cmdcode) {
         case CMDCODE_INTF_CONFIG_LOOPBACK:
             switch (enable_or_disable) {
                 case CONFIG_ENABLE:
@@ -163,7 +160,7 @@ intf_config_handler(param_t *param, ser_buff_t *tlv_buf,
     }
 
     uint32_t if_change_flags = 0;
-    switch(CMDCODE){
+    switch(cmdcode){
         case CMDCODE_INTF_CONFIG_METRIC:
         {
             uint32_t intf_existing_metric = interface->GetIntfCost();

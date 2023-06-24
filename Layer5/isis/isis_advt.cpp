@@ -858,34 +858,34 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
     byte system_id_str[32];
     isis_adv_data_t *advt_data;
 
-    rc += sprintf (buff + rc, "fragment : [%hu][%hu]  , seq_no : %u %p\n",
+    rc += cprintf ("fragment : [%hu][%hu]  , seq_no : %u %p\n",
                 fragment->pn_no, fragment->fr_no, fragment->seq_no, fragment);
                 
-    rc += sprintf (buff + rc, "  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
+    rc += cprintf ("  bytes filled : %hu, ref_count : %u   \n  lsp pkt bytes filled : %hu , ref_count : %u\n",
                 fragment->bytes_filled, fragment->ref_count,
                 (pkt_size_t)fragment->lsp_pkt->pkt_size, fragment->lsp_pkt->ref_count);
 
-    rc += sprintf (buff + rc, "    TLVs:\n");
+    rc += cprintf ("    TLVs:\n");
 
     ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
 
         advt_data = glue_to_isis_advt_data (curr);
-        rc += sprintf (buff + rc, "     TLV %hu (%huB)\n", advt_data->tlv_no, advt_data->tlv_size);
+        rc += cprintf ("     TLV %hu (%huB)\n", advt_data->tlv_no, advt_data->tlv_size);
 
         switch (advt_data->tlv_no) {
             case ISIS_IS_REACH_TLV:
-                rc += sprintf (buff + rc, "       nbr sys id : %s\n", 
+                rc += cprintf ("       nbr sys id : %s\n", 
                             isis_system_id_tostring (&advt_data->u.adj_data.nbr_sys_id, system_id_str));
-                rc +=  sprintf (buff + rc, "       metric : %u\n", advt_data->u.adj_data.metric);
-                rc +=  sprintf (buff + rc, "       local ifindex : %u\n", advt_data->u.adj_data.local_ifindex);
-                rc +=  sprintf (buff + rc, "       remote ifindex : %u\n", advt_data->u.adj_data.remote_ifindex);
-                rc +=  sprintf (buff + rc, "       local ip : %s\n",
+                rc +=  cprintf ("       metric : %u\n", advt_data->u.adj_data.metric);
+                rc +=  cprintf ("       local ifindex : %u\n", advt_data->u.adj_data.local_ifindex);
+                rc +=  cprintf ("       remote ifindex : %u\n", advt_data->u.adj_data.remote_ifindex);
+                rc +=  cprintf ("       local ip : %s\n",
                              tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.local_intf_ip, system_id_str));
-                rc +=  sprintf (buff + rc, "       remote ip : %s\n",
+                rc +=  cprintf ("       remote ip : %s\n",
                              tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.remote_intf_ip, system_id_str)); 
                 break;
             case ISIS_TLV_IP_REACH:
-                rc += sprintf (buff + rc, "       Prefix : %s/%d   metric : %u\n",
+                rc += cprintf ("       Prefix : %s/%d   metric : %u\n",
                             tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, system_id_str),
                 advt_data->u.pfx.mask, advt_data->u.pfx.metric);
                 break;

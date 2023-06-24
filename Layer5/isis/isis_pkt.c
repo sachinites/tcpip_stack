@@ -388,13 +388,13 @@ isis_print_lsp_pkt(byte *buff,
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
-    rc = sprintf(buff + rc, "ISIS_L1_LSP_PKT_TYPE : ");
+    rc = cprintf("ISIS_L1_LSP_PKT_TYPE : ");
     
     uint32_t seq_no = lsp_pkt_hdr->seq_no;
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
     tcp_ip_covert_ip_n_to_p(rtr_id, ip_addr);
 
-    rc += sprintf(buff + rc, "LSP pkt : %s-%hu-%hu[%u]   , pkt size = %hu\n",
+    rc += cprintf("LSP pkt : %s-%hu-%hu[%u]   , pkt size = %hu\n",
                     ip_addr, lsp_pkt_hdr->pn_no,  lsp_pkt_hdr->fr_no, seq_no, (pkt_size_t)pkt_size);
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
@@ -406,7 +406,7 @@ isis_print_lsp_pkt(byte *buff,
 
         switch(tlv_type) {
             case ISIS_TLV_HOSTNAME:
-                rc += sprintf(buff + rc, "\tTLV%d Host-Name : %s\n", 
+                rc += cprintf("\tTLV%d Host-Name : %s\n", 
                         tlv_type, tlv_value);
                 break;
             case ISIS_IS_REACH_TLV:
@@ -455,7 +455,7 @@ isis_print_hello_pkt(byte *buff,
     isis_p2p_hello_pkt_hdr_t *p2p_hdr;
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
-    rc = sprintf (buff, "  cmn hdr : %d %d %d %d %s %d %d %d\n",
+    rc = cprintf ("  cmn hdr : %d %d %d %d %s %d %d %d\n",
             cmn_hdr->desc,
             cmn_hdr->length_indicator,
             cmn_hdr->protocol,
@@ -469,7 +469,7 @@ isis_print_hello_pkt(byte *buff,
 
         case ISIS_PTP_HELLO_PKT_TYPE:
             p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
-            rc += sprintf (buff + rc, "    p2p hdr : ctype %d srcid %s ht %d len %d cid %d\n",
+            rc += cprintf ("    p2p hdr : ctype %d srcid %s ht %d len %d cid %d\n",
                 p2p_hdr->circuit_type,
                 isis_system_id_tostring(&p2p_hdr->source_id, system_lan_id_str[0]),
                 p2p_hdr->hold_time,
@@ -479,7 +479,7 @@ isis_print_hello_pkt(byte *buff,
         case ISIS_LAN_L1_HELLO_PKT_TYPE:
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             lan_hdr = (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
-            rc += sprintf (buff + rc, "    lan hdr : ctype %d srcid %s ht %d len %d pr %d lan-id %s\n",
+            rc += cprintf ("    lan hdr : ctype %d srcid %s ht %d len %d pr %d lan-id %s\n",
                 lan_hdr->circuit_type,
                 isis_system_id_tostring(&lan_hdr->source_id, system_lan_id_str[0]),
                 lan_hdr->hold_time,
@@ -489,7 +489,7 @@ isis_print_hello_pkt(byte *buff,
         break;
     }
 
-    rc += sprintf(buff + rc, "      ");
+    rc += cprintf("      ");
 
     pkt_size_t hello_tlv_buffer_size;
     byte *hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, &hello_tlv_buffer_size);
@@ -499,25 +499,25 @@ isis_print_hello_pkt(byte *buff,
 
         switch(tlv_type){
             case ISIS_TLV_IF_INDEX:
-                rc += sprintf(buff + rc, "%d %d %u :: ", 
+                rc += cprintf("%d %d %u :: ", 
                     tlv_type, tlv_len, *(uint32_t *)(tlv_value));
             break;
             case ISIS_TLV_HOSTNAME:
-                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
+                rc += cprintf("%d %d %s :: ", tlv_type, tlv_len, tlv_value);
                 break;
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
                 tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, ip_addr_str);
-                rc += sprintf(buff + rc, "%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
+                rc += cprintf("%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
                 break;
             case ISIS_TLV_HOLD_TIME:
-                rc += sprintf(buff + rc, "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
+                rc += cprintf("%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
                 break;
             case ISIS_TLV_METRIC_VAL:
-                rc += sprintf(buff + rc, "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
+                rc += cprintf("%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
                 break;
             case ISIS_TLV_IF_MAC:
-                rc += sprintf(buff + rc, "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ",
+                rc += cprintf("%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ",
                      tlv_type, tlv_len, tlv_value[0], tlv_value[1], tlv_value[2],
                      tlv_value[3], tlv_value[4], tlv_value[5]);
                 break;    

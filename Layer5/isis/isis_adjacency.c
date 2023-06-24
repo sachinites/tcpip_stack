@@ -433,23 +433,23 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
-    printf("Nbr : %s(%s)   priority : %u\n", adjacency->nbr_name, ip_addr_str, adjacency->priority);
+    cprintf("Nbr : %s(%s)   priority : %u\n", adjacency->nbr_name, ip_addr_str, adjacency->priority);
     PRINT_TABS(tab_spaces);
-    printf ("Nbr Sys-id : %s\n", isis_system_id_tostring (&adjacency->nbr_sys_id, lan_id_str));
+    cprintf ("Nbr Sys-id : %s\n", isis_system_id_tostring (&adjacency->nbr_sys_id, lan_id_str));
 
     if (ISIS_INTF_INFO(adjacency->intf)->intf_type == isis_intf_type_lan) {
         PRINT_TABS(tab_spaces);
-        printf ("Nbr Lan-id : %s\n", isis_lan_id_tostring (&adjacency->lan_id, lan_id_str));
+        cprintf ("Nbr Lan-id : %s\n", isis_lan_id_tostring (&adjacency->lan_id, lan_id_str));
     }
 
     PRINT_TABS(tab_spaces);
     tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, ip_addr_str);
-    printf("Nbr intf ip : %s  ifindex : %u\n",
+    cprintf("Nbr intf ip : %s  ifindex : %u\n",
         ip_addr_str,
         adjacency->remote_if_index);
 
     PRINT_TABS(tab_spaces);
-    printf("Nbr Mac Addr : %02x:%02x:%02x:%02x:%02x:%02x\n", 
+    cprintf("Nbr Mac Addr : %02x:%02x:%02x:%02x:%02x:%02x\n", 
             adjacency->nbr_mac.mac[0], 
             adjacency->nbr_mac.mac[1], 
             adjacency->nbr_mac.mac[2], 
@@ -458,7 +458,7 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
             adjacency->nbr_mac.mac[5]);
         
     PRINT_TABS(tab_spaces);
-    printf("State : %s   HT : %u sec   Cost : %u\n",
+    cprintf("State : %s   HT : %u sec   Cost : %u\n",
         isis_adj_state_str(adjacency->adj_state),
         adjacency->hold_time,
         adjacency->cost);
@@ -466,27 +466,27 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
     PRINT_TABS(tab_spaces);
 
     if (adjacency->expiry_timer) {
-        printf("Expiry Timer Remaining : %u msec\n",
+        cprintf("Expiry Timer Remaining : %u msec\n",
             wt_get_remaining_time(adjacency->expiry_timer));
     }
     else {
-        printf("Expiry Timer : Nil\n");
+        cprintf("Expiry Timer : Nil\n");
     }
 
     PRINT_TABS(tab_spaces);
 
     if (adjacency->delete_timer) {
-        printf("Delete Timer Remaining : %u msec\n",
+        cprintf("Delete Timer Remaining : %u msec\n",
             wt_get_remaining_time(adjacency->delete_timer));
     }
     else {
-        printf("Delete Timer : Nil\n");
+        cprintf("Delete Timer : Nil\n");
     }
 
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
 
         PRINT_TABS(tab_spaces);
-        printf("Up Time : %s\n", hrs_min_sec_format(
+        cprintf("Up Time : %s\n", hrs_min_sec_format(
                 (unsigned int)difftime(time(NULL), adjacency->uptime), 
                 time_str, HRS_MIN_SEC_FMT_TIME_LEN));
     }
@@ -700,7 +700,7 @@ isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
     ptlv_data_len += total_subtlv_len;
 
     if (ptlv_data_len > 0xFF) {
-        printf("Error : TLV size exceeded\n");
+        cprintf("Error : TLV size exceeded\n");
         return 0;
     }
     *subtlv_len = total_subtlv_len;
@@ -857,7 +857,7 @@ isis_show_all_adjacencies (node_t *node) {
 
             if (!adjacency) continue;
 
-            rc += sprintf(buff + rc, "%-16s   %-16s   %-6s   %-4s %s\n", 
+            rc += cprintf("%-16s   %-16s   %-6s   %-4s %s\n", 
             intf->if_name.c_str(), adjacency->nbr_name,
             isis_adj_state_str(adjacency->adj_state),
              (intf_info->intf_type == isis_intf_type_p2p) ? "p2p" : "lan",

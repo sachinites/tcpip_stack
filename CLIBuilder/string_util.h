@@ -65,7 +65,7 @@ string_fetch_integer(char *string, int string_size, int index);
 do{                       \
    unsigned short _i = 0; \
    for(; _i < n; _i++)    \
-       printw("  ");      \
+       cprintf ("  ");      \
 } while(0);
 
 #endif

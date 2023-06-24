@@ -45,7 +45,7 @@ ut_parser_init ( ) {
 
     struct mq_attr attr;
 
-    ut_log_file = fopen("utinfra/ut_log_file.txt", "w");
+    ut_log_file = fopen("CLIBuilder/utinfra/ut_log_file.txt", "w");
     assert(ut_log_file);
 
     attr.mq_flags = 0;
@@ -506,7 +506,7 @@ set_ut_debug_flag(char * ut_enable_flag) {
 
 /* This API is not used */
 int
-ut_test_handler (param_t *param, 
+ut_test_handler (int cmdcode,
                             Stack_t *tlv_stack,
                             op_mode enable_or_disable) {
 
@@ -514,7 +514,6 @@ ut_test_handler (param_t *param,
     unsigned char *ut_file_name = NULL;
     unsigned char *ut_enable_flag = NULL;
     int tc_no = 0;
-    int cmdcode = param->CMDCODE;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 

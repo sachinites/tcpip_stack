@@ -120,7 +120,7 @@ isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp,
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
     if (!intf_info) {
-        printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+        cprintf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
         return -1;
     }
 
@@ -155,7 +155,7 @@ isis_intf_group_remove_intf_membership (isis_intf_group_t *intf_grp,
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
     if (!intf_info) {
-        printf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
+        cprintf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
         return -1;
     }
 
@@ -206,19 +206,19 @@ isis_show_one_interface_group(node_t *node,
     
     if ( !isis_is_protocol_enable_on_node(node) ) return 0;
 
-    rc += sprintf (buff + rc, "Intf-grp name : %s\n", intf_grp->name);
-    rc += sprintf (buff + rc, "  Member Interfaces : ");
+    rc += cprintf ("Intf-grp name : %s\n", intf_grp->name);
+    rc += cprintf ("  Member Interfaces : ");
 
     ITERATE_GLTHREAD_BEGIN (&intf_grp->intf_list_head, curr) {
 
         intf_info = intf_grp_member_glue_to_intf_info(curr);
-        rc += sprintf (buff + rc,  "  %s%s  ",
+        rc += cprintf ("  %s%s  ",
                                 intf_info->intf->if_name.c_str(),
                                 isis_intf_grp_is_member_intf_active(intf_info->intf) ? "*" : "");
 
     } ITERATE_GLTHREAD_END (&intf_grp->intf_list_head, curr) 
 
-    rc += sprintf ( buff + rc, "\n");
+    rc += cprintf ( "\n");
     bytes_written  = rc - bytes_written;
    return bytes_written;
 }
@@ -236,7 +236,7 @@ isis_show_all_interface_group(node_t *node) {
 
     if ( !isis_is_protocol_enable_on_node(node) ) return 0;
     
-    rc = sprintf (buff,  "Interface Groups : \n");
+    rc = cprintf ("Interface Groups : \n");
 
     ITERATE_AVL_TREE_BEGIN(&node_info->intf_grp_avl_root, avl_node) {
 
@@ -253,7 +253,7 @@ isis_config_intf_grp (node_t *node, char *if_grp_name) {
     isis_node_info_t *node_info;
 
     if (!isis_is_protocol_enable_on_node(node)) {
-        printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        cprintf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
         return -1;
     }
 
@@ -268,7 +268,7 @@ isis_config_intf_grp (node_t *node, char *if_grp_name) {
 
     if (!isis_intf_group_insert_in_intf_grp_db(node, intf_grp)) {
 
-        printf("Error : Intf-grp Already Exist\n");
+        cprintf("Error : Intf-grp Already Exist\n");
         XFREE(intf_grp);
         return -1;
     }
@@ -285,7 +285,7 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
     if (!isis_is_protocol_enable_on_node(node)) return 0;
 
     if (ISIS_NODE_INFO(node)->dyn_intf_grp) {
-        printf("Error : Dynamic Intf-grp is enabled\n");
+        cprintf("Error : Dynamic Intf-grp is enabled\n");
         return -1;
     }
 
@@ -304,7 +304,7 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
     if (avltree_is_empty(&(ISIS_NODE_INFO(node)->intf_grp_avl_root))) {
         ISIS_NODE_INFO(node)->dyn_intf_grp = true;
         isis_dynamic_intf_grp_build_intf_grp_db(node);
-        printf("Info : Switched to Dynamic interface Group\n"); 
+        cprintf("Info : Switched to Dynamic interface Group\n"); 
     }
     return 0;
 }
@@ -369,14 +369,14 @@ void
      isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if ( !node_info ) {
-        printf (ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        cprintf (ISIS_ERROR_PROTO_NOT_ENABLE "\n");
         return -1;
     }
 
     if (node_info->dyn_intf_grp) return 0;
 
     if ( !avltree_is_empty(&node_info->intf_grp_avl_root )) {
-        printf("Error : Static interface Group(s) is/are configured\n");
+        cprintf("Error : Static interface Group(s) is/are configured\n");
         return -1;
     }
 

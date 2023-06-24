@@ -5,13 +5,13 @@
 
 #define MAX_COMMAND_LENGTH 256
 
-#define DEF_CLI_HDR  "Router>$ "
+#define DEF_CLI_HDR  "Soft-Firewall>$ "
 #define CMD_NAME_SIZE   32
 #define LEAF_VALUE_HOLDER_SIZE 32
 #define LEAF_ID_SIZE    32
 #define PARAM_HELP_STRING_SIZE 64
 #define MAX_OPTION_SIZE 16
-#define MAX_CMD_TREE_DEPTH 16
+#define MAX_CMD_TREE_DEPTH 24
 #define CHILDREN_START_INDEX    0
 #define CHILDREN_END_INDEX      (MAX_OPTION_SIZE -1)
 #define TLV_MAX_BUFFER_SIZE     1024

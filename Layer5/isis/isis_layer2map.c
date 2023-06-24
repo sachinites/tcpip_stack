@@ -62,7 +62,7 @@ isis_config_layer2_map (node_t *node) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) {
-        printf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        cprintf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
         return -1;
     }
 

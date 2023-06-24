@@ -1,3 +1,6 @@
+#ifndef __STACK__
+#define __STACK__
+
 #define MAX_STACK_SIZE 32
 
 
@@ -18,8 +21,10 @@ int push(Stack_t *stack, void *node);
 
 void* pop(Stack_t *stack);
 
-void* getTopElem(Stack_t *stack);
+void* StackGetTopElem(Stack_t *stack);
 int isStackEmpty(Stack_t *stack);
 void free_stack(Stack_t *stack);
 int isPresentinStack(Stack_t *stack, void *elem);
 void printStack(Stack_t *stack);
+
+#endif 

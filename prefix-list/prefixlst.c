@@ -5,8 +5,7 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "prefixlst.h"
 #include "../utils.h"
-#include "../CommandParser/libcli.h"
-#include "../CommandParser/cmdtlv.h"
+#include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
 
 extern graph_t *topo;
@@ -221,8 +220,8 @@ prefix_list_evaluate (uint32_t prefix, uint8_t len, prefix_list_t *prefix_lst) {
 }
 
 static int
-prefix_lst_config_handler (param_t *param, 
-                                           ser_buff_t *tlv_buf,
+prefix_lst_config_handler (int cmdcode,
+                                           Stack_t *tlv_stack,
                                            op_mode enable_or_disable){
 
     bool new_pfx_lst;
@@ -236,7 +235,7 @@ prefix_lst_config_handler (param_t *param,
 
     char *nw_prefix = NULL;
 
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value; 
@@ -341,16 +340,16 @@ prefix_lst_config_handler (param_t *param,
 }
 
 static int
-prefix_lst_validate_input_result_value(char *value) {
+prefix_lst_validate_input_result_value(Stack_t *tlv_stack, char *value) {
 
     if (strcmp(value, "permit") == 0 || 
             strcmp(value, "deny") == 0) {
 
-        return VALIDATION_SUCCESS;
+        return LEAF_VALIDATION_SUCCESS;
     }
 
     printf ("Mention either : permit Or deny. Case sensitive\n");
-    return VALIDATION_FAILED;
+    return LEAF_VALIDATION_FAILED;
 }
 
 
@@ -428,8 +427,8 @@ void prefix_list_cli_config_tree(param_t *param)
 
 
 static int
-prefix_lst_show_handler (param_t *param, 
-                                           ser_buff_t *tlv_buf,
+prefix_lst_show_handler (int cmdcode,
+                                          Stack_t *tlv_stack,
                                            op_mode enable_or_disable){
 
     c_string node_name = NULL;
@@ -437,9 +436,7 @@ prefix_lst_show_handler (param_t *param,
     node_t *node;
     tlv_struct_t *tlv = NULL;
 
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value; 

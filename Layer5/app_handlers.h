@@ -1,10 +1,12 @@
 #ifndef __APP_HANDLERS__
 #define __APP_HANDLERS__
 
-#include "../CommandParser/libcli.h"
+#include "../CLIBuilder/libcli.h"
+
+typedef struct stack Stack_t ;
 
 int
-spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
+spf_algo_handler(int cmdcode, Stack_t *tlv_stack,
                           op_mode enable_or_disable);
 
 int

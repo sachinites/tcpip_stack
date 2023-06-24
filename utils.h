@@ -158,7 +158,7 @@ hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size);
 do{                                  \
    unsigned short _i = 0;  \
    for(; _i < n; _i++)         \
-       printf("  ");               \
+       cprintf("  ");               \
 } while(0);
 
 /* To be used for comparison fns*/

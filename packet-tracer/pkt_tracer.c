@@ -3,8 +3,8 @@
 #include <memory.h>
 #include "packet_tracer.h"
 #include "../utils.h"
-#include "../CommandParser/libcli.h"
-#include "../CommandParser/cmdtlv.h"
+#include "../CLIBuilder/libcli.h"
+#include "../CLIBuilder/cmdtlv.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 void

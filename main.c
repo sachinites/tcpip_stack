@@ -36,9 +36,8 @@
 
 #include <stdio.h>
 #include "graph.h"
-#include "CommandParser/libcli.h"
+#include "CLIBuilder/libcli.h"
 #include "EventDispatcher/event_dispatcher.h"
-#include "CommandParser/KeyProcessor.h"
 
 extern void init_tcp_ip_stack();
 
@@ -68,14 +67,10 @@ extern void tcp_stack_miscellaneous_mem_init();
 
 graph_t *topo = NULL;
 extern event_dispatcher_t gev_dis;
-cli_t *cli = NULL;
-extern int
-command_parser2(unsigned char *command, int size);
 
 static void
 tcp_ip_stack_pre_topology_create_initializations(void) {
 
-    cli_key_processor_init (&cli, command_parser2);
     nw_init_cli();
     mm_init();
     nfc_mem_init();
@@ -96,10 +91,11 @@ int
 main(int argc, char **argv){
     
     (void )argc; (void) argv;
-
+    libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
     topo = build_dualswitch_topo();
     init_tcp_ip_stack();
+    libcli_init_done ();
     cli_start_shell(); 
     return 0;
 }

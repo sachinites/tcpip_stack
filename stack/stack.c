@@ -102,12 +102,13 @@ void* pop(Stack_t *stack)
     }
 
     ret = stack->slot[stack->top];
+    stack->slot[stack->top] = NULL;
     stack->top--;
     stack->count_of_pop++;
     return ret;
 }
 
-void* getTopElem(Stack_t *stack)
+void* StackGetTopElem(Stack_t *stack)
 {
     if(!stack || stack->top == -1) {
         return NULL;

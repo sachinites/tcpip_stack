@@ -157,6 +157,7 @@ network_object_check_and_delete (obj_nw_t *obj_nw) {
     assert(!object_network_is_tcam_compiled(obj_nw));
     assert(obj_nw->tcam_entry_users_ref_count == 0);
     XFREE(obj_nw);
+    return true;
 }
 
 bool

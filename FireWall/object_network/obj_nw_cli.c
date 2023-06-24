@@ -2,9 +2,7 @@
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../graph.h"
 #include "objnw.h"
-#include "../../CommandParser/libcli.h"
-#include "../../CommandParser/cmdtlv.h"
-#include "../../CommandParser/css.h"
+#include "../../CLIBuilder/libcli.h"
 
 extern graph_t *topo;
 
@@ -20,8 +18,8 @@ extern graph_t *topo;
 /* show node <node-name> network-object <nw-obj-name>*/
 
 static int
-network_object_config_handler (param_t *param, 
-                                                     ser_buff_t *tlv_buf,
+network_object_config_handler (int cmdcode,
+                                                     Stack_t *tlv_stack,
                                                      op_mode enable_or_disable) {
 
     node_t *node;
@@ -33,10 +31,7 @@ network_object_config_handler (param_t *param,
     char *subnet_mask = NULL;
     char *nw_obj_name = NULL;
 
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
-
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
     if (parser_match_leaf_id (tlv->leaf_id, "network-object-name"))
 	    nw_obj_name = tlv->value;
@@ -79,7 +74,7 @@ network_object_config_handler (param_t *param,
                                 return 0;
                             }
                             
-                            printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
+                            printf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_HOST);
@@ -131,7 +126,7 @@ network_object_config_handler (param_t *param,
                                 return 0;
                             }
 
-                            printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
+                            printf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
 
@@ -183,7 +178,7 @@ network_object_config_handler (param_t *param,
                                 return 0;
                             }
 
-                            printf (ANSI_COLOR_RED "Error : Conflicting Changes, Configuration aborted\n"ANSI_COLOR_RESET);
+                            printf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
 
@@ -288,8 +283,8 @@ network_object_build_config_cli (param_t *root) {
 }
 
 static int
-network_object_show_handler (param_t *param, 
-                                                     ser_buff_t *tlv_buf,
+network_object_show_handler (int cmdcode,
+                                                     Stack_t *tlv_stack,
                                                      op_mode enable_or_disable) {
 
     node_t *node;
@@ -297,9 +292,7 @@ network_object_show_handler (param_t *param,
     c_string node_name = NULL;
     char *nw_obj_name = NULL;
 
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
     if (parser_match_leaf_id (tlv->leaf_id, "network-object-name"))
 	    nw_obj_name = tlv->value;

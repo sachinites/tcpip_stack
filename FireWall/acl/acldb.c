@@ -15,7 +15,6 @@
 #include "../../pkt_block.h"
 #include "../../Layer4/udp.h"
 #include "../object_network/objnw.h"
-#include "../../CommandParser/css.h"
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../object_network/object_group.h"
 #include "../fwall_trace_const.h"

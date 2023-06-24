@@ -469,7 +469,7 @@ isis_show_lspdb(node_t *node) {
 
     } ITERATE_AVL_TREE_END;
 
-    cli_out (buff, rc);
+    cprintf ("%s", buff);
 }
 
 /* lsp pkt printing */
@@ -483,18 +483,18 @@ isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 
     byte *lsp_tlv_buffer = lsp_hdr + ISIS_LSP_HDR_SIZE;
 
-    rc += sprintf(buff + rc, "LSP : %s  size(B) : %-4lu    "
+    rc += cprintf("LSP : %s  size(B) : %-4lu    "
             "ref_c : %-3u   ",
             isis_print_lsp_id (lsp_pkt,  lsp_id_str),
             lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
             lsp_pkt->ref_count);
 
     if (lsp_pkt->expiry_timer) {
-        rc += sprintf(buff + rc, "Life Time Remaining : %u sec\n",
+        rc += cprintf("Life Time Remaining : %u sec\n",
             wt_get_remaining_time(lsp_pkt->expiry_timer)/1000);
     }
     else {
-        rc += sprintf(buff + rc, "\n");
+        rc += cprintf("\n");
     }
    return rc;
 }

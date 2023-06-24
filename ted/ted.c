@@ -538,7 +538,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
     ted_prefix_t *ted_prefix;
     ted_intf_t *intf, *other_intf;
 
-    rc += sprintf(buff + rc, "Node : %s[%s-%hu][%u]   flags : 0x%x\n", 
+    rc += cprintf("Node : %s[%s-%hu][%u]   flags : 0x%x\n", 
                 node->node_name,
                 tcp_ip_covert_ip_n_to_p(node->rtr_id, ip_addr), 
                 node->pn_no,
@@ -546,7 +546,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
                 node->flags);
     
     if (node->is_fake) {
-        rc += sprintf(buff + rc, "  is_fake : %s\n", node->is_fake ? "Yes" : "No");
+        rc += cprintf("  is_fake : %s\n", node->is_fake ? "Yes" : "No");
     }
 
     if (!detail) return rc;
@@ -554,11 +554,11 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
     TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
 
         nbr = ted_get_nbr_node(intf);
-        rc += sprintf (buff + rc , "    Local Intf : %u,  Ip-Address/Mask : %s/%d,  cost = %u\n",
+        rc += cprintf ("    Local Intf : %u,  Ip-Address/Mask : %s/%d,  cost = %u\n",
                                 intf->ifindex, tcp_ip_covert_ip_n_to_p(intf->ip_addr, ip_addr),
                                 intf->mask, intf->cost);
 
-        rc += sprintf (buff + rc, "    Nbr : %s[%s-%hu]", 
+        rc += cprintf ("    Nbr : %s[%s-%hu]", 
                                 nbr ? nbr->node_name : "-",
                                 nbr ? tcp_ip_covert_ip_n_to_p(nbr->rtr_id, ip_addr)  : "-",
                                 nbr ? nbr->pn_no : 0);
@@ -566,19 +566,19 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
         if (nbr) {
 
             other_intf = ted_link_get_other_interface(intf);
-            rc += sprintf (buff + rc, "   Remote if index : %u, Remote-Ip-Address/Mask : %s/%d,  cost = %u\n",
+            rc += cprintf ("   Remote if index : %u, Remote-Ip-Address/Mask : %s/%d,  cost = %u\n",
                 other_intf->ifindex,
                 tcp_ip_covert_ip_n_to_p(other_intf->ip_addr, ip_addr),
                 other_intf->mask, other_intf->cost);
         }
 
-        rc += sprintf (buff + rc, "\n");
+        rc += cprintf ("\n");
     } TED_ITERATE_NODE_INTF_END(node, intf);
 
     ITERATE_AVL_TREE_BEGIN(node->prefix_tree_root, curr){
 
         ted_prefix = avltree_container_of(curr, ted_prefix_t, avl_glue);
-        rc += sprintf (buff + rc, "  Prefix : %s/%d  metric %u  flags 0x%x\n",
+        rc += cprintf ("  Prefix : %s/%d  metric %u  flags 0x%x\n",
                         tcp_ip_covert_ip_n_to_p(ted_prefix->prefix, ip_addr),
                         ted_prefix->mask,
                         ted_prefix->metric,

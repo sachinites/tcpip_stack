@@ -4,7 +4,7 @@
 #include "InterfacEnums.h"
 #include "Interface.h"
 #include "../utils.h"
-#include "../CommandParser/cmdtlv.h"
+#include "../CLIBuilder/libcli.h"
 
 typedef struct node_ node_t;
 
@@ -43,6 +43,6 @@ IF_MASK(Interface *intf) {
 }
 
 void
-display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
+display_node_interfaces(param_t *param, Stack_t *tlv_stack);
 
 #endif 

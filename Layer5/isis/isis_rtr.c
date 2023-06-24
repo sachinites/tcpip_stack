@@ -57,7 +57,7 @@ isis_free_node_info(node_t *node) {
     XFREE(node_info);
     node->node_nw_prop.isis_node_info = NULL;
 
-    printf ("ISIS Protocol successfully shutdown\n");
+    cprintf ("ISIS Protocol successfully shutdown\n");
 }
 
 static void
@@ -238,12 +238,12 @@ isis_protocol_shut_down(node_t *node) {
     if(!node_info) return;
 
     if (isis_is_protocol_shutdown_in_progress(node)) {
-        printf("Protocol Busy shutting down... Please Wait.\n");
+        cprintf("Protocol Busy shutting down... Please Wait.\n");
         return;
     }
 
     if (isis_is_protocol_admin_shutdown(node)){
-        printf("Protocol Already In ShutDown State\n");
+        cprintf("Protocol Already In ShutDown State\n");
         return;
     }
       
@@ -261,33 +261,33 @@ isis_show_node_protocol_state(node_t *node) {
     isis_node_info_t *node_info;
     is_enabled = isis_is_protocol_enable_on_node(node);
 
-    printf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
+    cprintf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
 
     if(!is_enabled) return;
 
     node_info = ISIS_NODE_INFO(node);
 
-    printf("LSP flood count : %u\n", node_info->lsp_flood_count);
-    printf("SPF runs : %u\n", node_info->spf_runs);
-    printf("Adjacency up Count: %u\n", node_info->adjacency_up_count);
+    cprintf("LSP flood count : %u\n", node_info->lsp_flood_count);
+    cprintf("SPF runs : %u\n", node_info->spf_runs);
+    cprintf("Adjacency up Count: %u\n", node_info->adjacency_up_count);
 
     if (node_info->import_policy) {
-        printf("Import Policy : %s\n", node_info->import_policy->name);
+        cprintf("Import Policy : %s\n", node_info->import_policy->name);
     }
     if (node_info->export_policy) {
-        printf("Export Policy : %s\n", node_info->export_policy->name);
+        cprintf("Export Policy : %s\n", node_info->export_policy->name);
     }
 
-    printf("Overload Status : %s   ", node_info->ovl_data.ovl_status ? "On" : "Off");
+    cprintf("Overload Status : %s   ", node_info->ovl_data.ovl_status ? "On" : "Off");
     if (node_info->ovl_data.ovl_status &&
             node_info->ovl_data.ovl_timer) {
-        printf("Timer : %usec left\n", wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
+        cprintf("Timer : %usec left\n", wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
     }
     else {
-        printf("Timer : Not Running\n");
+        cprintf("Timer : Not Running\n");
     }
 
-    printf("Layer2-Mapping : %sabled\n", isis_is_layer2_mapping_enabled(node) ? "En" : "Dis");
+    cprintf("Layer2-Mapping : %sabled\n", isis_is_layer2_mapping_enabled(node) ? "En" : "Dis");
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
@@ -422,7 +422,7 @@ isis_show_event_counters(node_t *node) {
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
-    rc = snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, "Event Counters :\n");
+    cprintf("Event Counters :\n");
 
     for(enum_int = (int)(isis_event_none + 1); 
         enum_int < (int)isis_event_max;
@@ -430,11 +430,9 @@ isis_show_event_counters(node_t *node) {
         
         event_type = static_cast <isis_event_type_t> (enum_int);
 
-        rc += snprintf(node->print_buff + rc,  NODE_PRINT_BUFF_LEN, 
-                " %s : %u\n", isis_event_str(event_type), 
+        cprintf(" %s : %u\n", isis_event_str(event_type), 
                 node_info->isis_event_count[event_type]);
     }
-    cli_out(node->print_buff , rc);
 }
 
 bool
@@ -517,7 +515,7 @@ isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!isis_is_protocol_enable_on_node(node)) {
-        printf( ISIS_ERROR_PROTO_NOT_ENABLE "\n");  
+        cprintf( ISIS_ERROR_PROTO_NOT_ENABLE "\n");  
         return -1;
     }
 

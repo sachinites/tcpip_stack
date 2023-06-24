@@ -19,8 +19,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include "PostgresLibpq/postgresLib.h"
-#include "CommandParser/cmdtlv.h"
-#include "CommandParser/libcli.h"
+#include "CLIBuilder/libcli.h"
 #include "graph.h"
 
 #define DISABLE_CONFIGDB    return
@@ -109,7 +108,7 @@ node_config_db_init (node_t *node) {
 }
 
 void
-parser_config_commit_internal (void *_node, ser_buff_t *tlv_ser_buff, op_mode enable_or_disable) {
+parser_config_commit_internal (void *_node, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     int i = 0;
     tlv_struct_t *tlv = NULL;
@@ -138,7 +137,7 @@ parser_config_commit_internal (void *_node, ser_buff_t *tlv_ser_buff, op_mode en
 
     i = 0;
 
-    TLV_LOOP_BEGIN(tlv_ser_buff, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
        //print_tlv_content (tlv);
 

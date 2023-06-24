@@ -22,7 +22,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ncurses.h>
-#include "../stack/stack.h"
+#include "../../stack/stack.h"
 #include "../cmdtlv.h"
 #include "../string_util.h"
 #include "CmdTree.h"
@@ -79,6 +79,9 @@ typedef struct cmd_tree_cursor_ {
 
 /* This cursor will be used to prse the CLIs when Operating in Char-by-char Mode*/
 static cmd_tree_cursor_t *cmdtc_cbc = NULL;
+
+static void cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) ;
+static void cmd_tree_post_cli_trigger (cli_t *cli);
 
 void 
 cmd_tree_cursor_init (cmd_tree_cursor_t **cmdtc) {
@@ -736,7 +739,7 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 return cmdt_cursor_ok;
             }
 
-            /* Do auto completion until the tie point amonst several matching key-words*/
+            /* Do auto completion until the tie point amongst several matching key-words*/
             len = cmdtc_find_common_intial_lcs_len (&cmdtc->matching_params_list, cmdtc->icursor);
             param = glue_to_param (glthread_get_next (&cmdtc->matching_params_list));
             while (len--) {
@@ -1054,10 +1057,17 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
 
     cli = cli_get_default_cli();
 
-    if (cmdtc->root == cmdtc->curr_param) return;
-    if (!cli_cursor_is_at_end_of_line (cli)) return;
-    if (cli_cursor_is_at_begin_of_line (cli)) return;
     if (!cli_is_char_mode_on()) return;
+    if (!cli_cursor_is_at_end_of_line (cli)) return;
+
+    if (cli_cursor_is_at_begin_of_line (cli)) {
+        /* User is simply pressing / without ttyping anything. Fire the CLI*/
+        cmd_tree_trigger_cli  (cmdtc);
+        cmd_tree_post_cli_trigger (cli_get_default_cli());
+        cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+        cli_printsc (cli, true);
+        return;
+    }
 
     /* Allow Mode when we are either in init state Or 
         in multiple match state but with i_cursor index as 0initde_init which
@@ -1187,6 +1197,13 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
     cmdtc->stack_checkpoint = cmdtc->params_stack->top;
 
     cmd_tree_install_universal_params (cmdtc->root, cmdtc_get_branch_hook(cmdtc));
+
+    if (cmdtc->root->callback) {
+        cmd_tree_trigger_cli (cmdtc);
+        cmd_tree_post_cli_trigger (cli_get_default_cli());
+        cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+    }
+
     /* Finally display the new  prompt to the user */
     cli_printsc (cli, true);
 }
@@ -1265,7 +1282,7 @@ cmdtc_get_branch_hook (cmd_tree_cursor_t *cmdtc) {
 
 /* CLI Trigger Code */
 
-static void 
+void 
 cmd_tree_post_cli_trigger (cli_t *cli) {
 
     attron (COLOR_PAIR(GREEN_ON_BLACK));
@@ -1299,7 +1316,7 @@ cmdtc_set_filter_context (cmd_tree_cursor_t *cmdtc) {
 }
 
 /* This function eventually submit the CLI to the backend application */
-static void 
+void 
 cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
     int i;
@@ -1399,17 +1416,19 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 }
 
 /* Fn to process user CLI when he press ENTER key while working in 
-    char mode */
-void
+    char mode. Return true if the command is subnitted to backend */
+bool
 cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
 
+    bool rc;
+    param_t *param;
     cli_t *cli = cli_get_default_cli();
 
     /* User has simply pressed the entry key wihout typing anything.
         Nothing to do by cmdtree cursor, Keyprocessor will simply shift
         the cursor to next line*/
-    if (cli_is_buffer_empty (cli)) return;
-    if (!cli_is_char_mode_on ()) return;
+    if (cli_is_buffer_empty (cli)) return true;
+    if (!cli_is_char_mode_on ()) return false;
     
     switch (cmdtc->cmdtc_state) {
         
@@ -1417,12 +1436,30 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             /*User has typed the complete current word, fir the CLI if last word
                 has appln callback, thenFire the CLI*/
             cmd_tree_trigger_cli (cmdtc);
-            if (cmdtc->success) {  cmd_tree_post_cli_trigger (cli);   }
-            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            return;
+            rc = cmdtc->success;
+            if (rc) {  
+                cmd_tree_post_cli_trigger (cli);   
+                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+            }
+            return rc;
         case cmdt_cur_state_multiple_matches:
-            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            return;
+            /* If the user press enter key while he still have multiple matches to choose from,
+                dont process anything. Return false, so user CLI context is maintained the same
+                by the keyProcessor*/
+            param =  cmdtc_filter_word_by_word_size 
+                            (&cmdtc->matching_params_list, cmdtc->icursor);
+            rc = false;
+            if (param) {
+                cmdtc->curr_param = param;
+                cmd_tree_cursor_move_to_next_level (cmdtc);
+                cmd_tree_trigger_cli (cmdtc);
+                rc = cmdtc->success;
+                if (rc) {
+                    cmd_tree_post_cli_trigger(cli);
+                    cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
+                }
+            }
+            return rc;
         case cmdt_cur_state_single_word_match:
             /* Auto complete the word , push into the params_stack and TLV buffer and fire the CLI*/
             /* only one option is matching and that is fixed word , do auto-completion*/
@@ -1430,11 +1467,16 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 cli_process_key_interrupt (
                         (int)GET_CMD_NAME(cmdtc->curr_param)[cmdtc->icursor]);
             }
-            cmd_tree_cursor_move_to_next_level (cmdtc);
+            /* Process space after word completion so that cmd tree cursor is updated and move to
+                next param */
+            cli_process_key_interrupt (' ');
             cmd_tree_trigger_cli (cmdtc);
-            if (cmdtc->success) {  cmd_tree_post_cli_trigger (cli);   }
-            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            return;
+            rc = cmdtc->success;
+            if (rc) {  
+                cmd_tree_post_cli_trigger (cli);   
+                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+            }
+            return rc;
         case cmdt_cur_state_matching_leaf:
             /* Standard Validation Checks on Leaf */
             tlv_struct_t *tlv;
@@ -1449,20 +1491,24 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 attroff(COLOR_PAIR(RED_ON_BLACK));
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
                 free(tlv);
-                return;
+                return false;
             }       
             free(tlv);
             /* Push it into the params_stack and Fire the CLI*/
             cmd_tree_cursor_move_to_next_level (cmdtc);
             cmd_tree_trigger_cli (cmdtc);
-            if (cmdtc->success) {  cmd_tree_post_cli_trigger (cli);   }
-            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            return;
+            rc = cmdtc->success;
+            if (rc) {  
+                cmd_tree_post_cli_trigger (cli);   
+                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+            }
+            return rc;
         case cmdt_cur_state_no_match:
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            return;
+            return false;
         default: ;
     }
+    return false;
  }
 
 

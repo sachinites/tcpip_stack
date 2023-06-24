@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "../cli_const.h"
-#include "../gluethread/glthread.h"
+#include "../../gluethread/glthread.h"
 #include "CmdTreeEnums.h"
 
 typedef struct _param_t_ param_t;

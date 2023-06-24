@@ -1,7 +1,7 @@
 #include <time.h>
 #include "timedef.h"
-#include "../CommandParser/libcli.h"
-#include "../CommandParser/cmdtlv.h"
+#include "../CLIBuilder/libcli.h"
+#include "../CLIBuilder/cmdtlv.h"
 
 #define CMDCODE_CONFIG_TIME_RANGE 1
 

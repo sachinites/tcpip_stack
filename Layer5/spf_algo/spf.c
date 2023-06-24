@@ -633,17 +633,14 @@ init_spf_algo(){
 }
 
 int
-spf_algo_handler(param_t *param, ser_buff_t *tlv_buf, 
+spf_algo_handler(int cmdcode, Stack_t *tlv_stack, 
                          op_mode enable_or_disable){
 
-    int CMDCODE;
     node_t *node;
     c_string node_name;
     tlv_struct_t *tlv = NULL;
 
-    CMDCODE = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv){
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if     (string_compare(tlv->leaf_id, "node-name", strlen("node-name")) ==0)
             node_name = tlv->value;
@@ -654,7 +651,7 @@ spf_algo_handler(param_t *param, ser_buff_t *tlv_buf,
         node = node_get_node_by_name(topo, node_name);
     }
 
-    switch(CMDCODE){
+    switch(cmdcode){
         case CMDCODE_SHOW_SPF_RESULTS:
             show_spf_results(node);        
             break;

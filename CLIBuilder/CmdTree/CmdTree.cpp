@@ -12,7 +12,7 @@
 #include "../cmdtlv.h"
 
 extern int
-ut_test_handler (param_t *param, 
+ut_test_handler (int cmdcode,
                             Stack_t *tlv_stack,
                             op_mode enable_or_disable) ;
 
@@ -209,6 +209,13 @@ static void
                 libcli_set_param_cmd_code(&tc_no, CMDCODE_RUN_UT_TC);
             }   
         }   
+    }
+
+    {
+        /* run terminate*/
+        static param_t terminate;
+        init_param(&terminate, CMD, "term", cli_terminate_handler, 0, INVALID, 0, "Terminate appln");
+        libcli_register_param(&run, &terminate);
     }
 
     hook = libcli_get_debug_hook();
@@ -588,4 +595,9 @@ cmd_tree_is_filter_param (param_t *param) {
                 param == &save_file || param == &include || 
                 param == &include_leaf || param == &exclude ||
                 param == &exclude_leaf);
+}
+
+void 
+libcli_register_display_callback (param_t *param, display_possible_values_callback cbk) {
+
 }

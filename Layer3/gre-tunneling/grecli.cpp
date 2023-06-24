@@ -1,6 +1,5 @@
 #include "../../utils.h"
-#include "../../CommandParser/cmdtlv.h"
-#include "../../CommandParser/libcli.h"
+#include "../../CLIBuilder/libcli.h"
 #include "grecmdcodes.h"
 #include "../../graph.h"
 #include "../../Interface/InterfaceUApi.h"
@@ -9,11 +8,11 @@
 extern graph_t *topo;
 
 extern int
-validate_mask_value(c_string mask_str);
+validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
 static int
-gre_tunnel_config_handler (param_t *param, 
-                    ser_buff_t *tlv_buf,
+gre_tunnel_config_handler (int cmdcode,
+                    Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node = NULL;
@@ -27,9 +26,7 @@ gre_tunnel_config_handler (param_t *param,
     uint8_t mask = 0;
     c_string if_name = NULL;
 
-    int cmdcode = EXTRACT_CMD_CODE(tlv_buf);
-
-    TLV_LOOP_BEGIN(tlv_buf, tlv) {
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
         if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
             node_name = tlv->value;
