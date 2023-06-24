@@ -137,7 +137,7 @@ l2_forward_ip_packet(node_t *node,
     /*If the destination IP address do not match any local subnet Nor
      * is it a self loopback address*/
     if(!oif && string_compare((const char *)next_hop_ip_str, (const char *)NODE_LO_ADDR(node), 16)){
-        printf("%s : Error : Local matching subnet for IP : %s could not be found\n",
+        cprintf("%s : Error : Local matching subnet for IP : %s could not be found\n",
                     node->node_name, next_hop_ip_str);
         pkt_block_dereference(pkt_block);
         return;

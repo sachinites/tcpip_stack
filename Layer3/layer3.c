@@ -182,7 +182,7 @@ layer3_ip_route_pkt(node_t *node,
 
     if(!l3_route){
         /*Router do not know what to do with the pkt. drop it*/
-        printf("Router %s : Cannot Route IP : %s\n", 
+        cprintf("Router %s : Cannot Route IP : %s\n", 
                     node->node_name, dest_ip_addr);
 
         pthread_rwlock_unlock(&NODE_RT_TABLE(node)->rwlock);
@@ -221,7 +221,7 @@ layer3_ip_route_pkt(node_t *node,
                     thread_using_route_done(l3_route);
                     return;
                 case ICMP_PROTO:
-                    printf("\nIP Address : %s, ping success\n", dest_ip_addr);
+                    cprintf("\nIP Address : %s, ping success\n", dest_ip_addr);
                     //pkt_block_dereference(pkt_block);
                     break;
                 case UDP_PROTO:
@@ -243,7 +243,7 @@ layer3_ip_route_pkt(node_t *node,
                                     pkt_block);
                     layer3_ip_route_pkt_done;
                 case GRE_PROTO:
-                    printf ("GRE pkt recvd\n");
+                    cprintf ("GRE pkt recvd\n");
                     layer3_ip_route_pkt_done;
                 default:
                     ;
@@ -581,7 +581,7 @@ dump_rt_table(rt_table_t *rt_table){
     mtrie_node_t *mnode;
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
-    printf("L3 Routing Table:\n");
+    cprintf("L3 Routing Table:\n");
 
     pthread_rwlock_rdlock(&rt_table->rwlock);
 
@@ -595,18 +595,18 @@ dump_rt_table(rt_table_t *rt_table){
         nxthop_cnt = 0;
 		
 		if(count != 0 && (count % 20) == 0) {
-			printf("continue ?\n");
+			cprintf("continue ?\n");
 			getchar();			
 		}
 
         if(l3_route->is_direct){
             if(count != 1){
-                printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
+                cprintf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
             }
             else{
-                printf("\t|======= IP ========|== M ==|== proto ===|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                cprintf("\t|======= IP ========|== M ==|== proto ===|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
             }
-            printf("\t|%-18s |  %-4d | %-10s | %-18s | %-10s   |          |  %-10s| 0            |\n", 
+            cprintf("\t|%-18s |  %-4d | %-10s | %-18s | %-10s   |          |  %-10s| 0            |\n", 
                     l3_route->dest,
                     l3_route->mask, 
                     "",
@@ -624,12 +624,12 @@ dump_rt_table(rt_table_t *rt_table){
                 if(l3_route->nexthops[nxthop_proto][i]) {
                     if(nxthop_cnt == 0){
                         if(count != 1){
-                            printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
+                            cprintf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
                         }
                         else{
-                            printf("\t|======= IP ========|== M ==|== proto ===|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
+                            cprintf("\t|======= IP ========|== M ==|== proto ===|======== Gw ========|===== Oif ====|== Cost ==|== uptime ==|=== hits =====|\n");
                         }
-                        printf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4d    |  %-10s| %-8llu     |\n", 
+                        cprintf("\t|%-18s |  %-4d | %-10s | %-18s | %-12s |  %-4d    |  %-10s| %-8llu     |\n", 
                                 l3_route->dest, 
                                 l3_route->mask,
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
@@ -641,7 +641,7 @@ dump_rt_table(rt_table_t *rt_table){
                     }
                     else if ( i == 0) {
                         /* Fst next hop of a given protocol */
-                        printf("\t|                   |       | %-10s | %-18s | %-12s |  %-4d   |  %-10s| %-8llu     |\n", 
+                        cprintf("\t|                   |       | %-10s | %-18s | %-12s |  %-4d   |  %-10s| %-8llu     |\n", 
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
                                 l3_route->nexthops[nxthop_proto][i]->oif->if_name.c_str(),
@@ -650,7 +650,7 @@ dump_rt_table(rt_table_t *rt_table){
                                 l3_route->nexthops[nxthop_proto][i]->hit_count);
                     }
                     else{
-                        printf("\t|                   |       | %-10s | %-18s | %-12s |          |  %-10s| %-8llu     |\n", 
+                        cprintf("\t|                   |       | %-10s | %-18s | %-12s |          |  %-10s| %-8llu     |\n", 
                                 proto_name_str(l3_route->nexthops[nxthop_proto][i]->proto),
                                 l3_route->nexthops[nxthop_proto][i]->gw_ip, 
                                 l3_route->nexthops[nxthop_proto][i]->oif->if_name.c_str(), "",
@@ -663,7 +663,7 @@ dump_rt_table(rt_table_t *rt_table){
         thread_using_route_done(l3_route);
         l3_route_unlock(l3_route);
     } ITERATE_GLTHREAD_END(&rt_table->route_list, curr); 
-    printf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
+    cprintf("\t|===================|=======|============|====================|==============|==========|============|==============|\n");
     pthread_rwlock_unlock(&rt_table->rwlock);
 }
 
@@ -753,7 +753,7 @@ _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
     mtrie_ops_result_code_t rc;
 
     if (!rt_table_evaluate_import_policy(rt_table, l3_route)) {
-        printf ("Info : Route Installation Rejected due to Import policy\n");
+        cprintf ("Info : Route Installation Rejected due to Import policy\n");
         return false;
     }
 
@@ -834,7 +834,7 @@ rt_table_add_route (rt_table_t *rt_table,
            if(l3_route->nexthops[nxthop_proto][i]){
                 if(string_compare(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
                     l3_route->nexthops[nxthop_proto][i]->oif == oif){ 
-                    printf("%s Error : Attempt to Add Duplicate Route %s/%d\n",
+                    cprintf("%s Error : Attempt to Add Duplicate Route %s/%d\n",
                             rt_table->node->node_name, dst_str_with_mask, mask);
                     thread_using_route_done(l3_route);
                     pthread_rwlock_unlock(&rt_table->rwlock);
@@ -846,7 +846,7 @@ rt_table_add_route (rt_table_t *rt_table,
    }
 
    if( i == MAX_NXT_HOPS){
-        printf("%s Error : No Nexthop space left for route %s/%u\n", 
+        cprintf("%s Error : No Nexthop space left for route %s/%u\n", 
             rt_table->node->node_name, dst_str_with_mask, mask);
          thread_using_route_done(l3_route);
          pthread_rwlock_unlock(&rt_table->rwlock);
@@ -873,7 +873,7 @@ rt_table_add_route (rt_table_t *rt_table,
 
    if(new_route){
        if(!_rt_table_entry_add(rt_table, l3_route)){
-           printf("%s Error : Route %s/%d Installation Failed\n", 
+           cprintf("%s Error : Route %s/%d Installation Failed\n", 
                      rt_table->node->node_name,
                    dst_str_with_mask, mask);
        }
@@ -974,7 +974,7 @@ demote_packet_to_layer3 (node_t *node,
    
 
     if(!l3_route){
-        printf("Node : %s : No L3 route %s\n",
+        cprintf("\nNode : %s : No L3 route %s",
 			node->node_name, tcp_ip_covert_ip_n_to_p(iphdr.dst_ip, ip_addr));   
 		pkt_block_dereference(pkt_block);
         pthread_rwlock_unlock(&NODE_RT_TABLE(node)->rwlock);
@@ -1094,7 +1094,7 @@ layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count){
 
     for (i = 0; i < count ; i ++) {
 
-        printf("Src node : %s, Ping ip : %s\n", node->node_name, dst_ip_addr);
+        cprintf("\nSrc node : %s, Ping ip : %s", node->node_name, dst_ip_addr);
         
         /* We dont have any application or transport layer paylod, so, directly prepare
          * L3 hdr*/

@@ -472,7 +472,7 @@ initialize_node_log_file(node_t *node){
     FILE *fptr = fopen(file_name, "w");
 
     if(!fptr){
-        printf("Error : Could not open log file %s, errno = %d\n", 
+        cprintf("Error : Could not open log file %s, errno = %d\n", 
             file_name, errno);
         return 0;
     }
@@ -494,7 +494,7 @@ initialize_interface_log_file(Interface *intf){
     FILE *fptr = fopen(file_name, "w");
 
     if(!fptr){
-        printf("Error : Could not open log file %s, errno = %d\n", 
+        cprintf("Error : Could not open log file %s, errno = %d\n", 
             file_name, errno);
         return 0;
     }
@@ -541,11 +541,11 @@ tcp_ip_init_intf_log_info(Interface *intf){
 
 static void display_expected_flag(param_t *param, Stack_t *tlv_stack){
 
-    printf(" : all | no-all\n");
-    printf(" : recv | no-recv\n");
-    printf(" : send | no-send\n");
-    printf(" : stdout | no-stdout\n");
-    printf(" : l3-fwd | no-l3-fwd\n");
+    cprintf(" : all | no-all\n");
+    cprintf(" : recv | no-recv\n");
+    cprintf(" : send | no-send\n");
+    cprintf(" : stdout | no-stdout\n");
+    cprintf(" : l3-fwd | no-l3-fwd\n");
 }
 
 int
@@ -576,14 +576,14 @@ void tcp_ip_show_log_status(node_t *node){
     Interface *intf;
     log_t *log_info = &node->log_info;
     
-    printf("Log Status : Device : %s\n", node->node_name);
+    cprintf("Log Status : Device : %s\n", node->node_name);
 
-    printf("\tall     : %s\n", log_info->all ? "ON" : "OFF");
-    printf("\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
-    printf("\tsend    : %s\n", log_info->send ? "ON" : "OFF");
-    printf("\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
-    printf("\tl3_fwd  : %s\n", log_info->l3_fwd ? "ON" : "OFF");
-    printf ("\taccess list filter : %s\n", 
+    cprintf("\tall     : %s\n", log_info->all ? "ON" : "OFF");
+    cprintf("\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
+    cprintf("\tsend    : %s\n", log_info->send ? "ON" : "OFF");
+    cprintf("\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
+    cprintf("\tl3_fwd  : %s\n", log_info->l3_fwd ? "ON" : "OFF");
+    cprintf ("\taccess list filter : %s\n", 
             log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
 
     for( ; i < MAX_INTF_PER_NODE; i++){
@@ -591,12 +591,12 @@ void tcp_ip_show_log_status(node_t *node){
         if(!intf) continue;
 
         log_info = &intf->log_info;
-        printf("\tLog Status : %s(%s)\n", intf->if_name.c_str(), intf->is_up ? "UP" : "DOWN");
-        printf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
-        printf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
-        printf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
-        printf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
-        printf ("\t\taccess list filter : %s\n", 
+        cprintf("\tLog Status : %s(%s)\n", intf->if_name.c_str(), intf->is_up ? "UP" : "DOWN");
+        cprintf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
+        cprintf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
+        cprintf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
+        cprintf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
+        cprintf ("\t\taccess list filter : %s\n", 
             log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
     }
 }
@@ -644,7 +644,7 @@ int traceoptions_handler(int cmdcode,
             node =  node_get_node_by_name(topo, node_name);
             intf = node_get_intf_by_name(node,(const char *) if_name);
             if(!intf){
-                printf("Error : No interface %s on Node %s\n", if_name, node_name);
+                cprintf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
             }
             log_info = &intf->log_info;
@@ -655,7 +655,7 @@ int traceoptions_handler(int cmdcode,
         access_list = access_list_lookup_by_name(node, access_list_name);
                 if (!access_list)
                 {
-                    printf("Error : Access-list do not exist\n");
+                    cprintf("Error : Access-list do not exist\n");
                     return -1;
                 }
                 log_info = &node->log_info;
@@ -683,7 +683,7 @@ int traceoptions_handler(int cmdcode,
                     return -1;
                 }
                 if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list)) {
-                    printf("Error : access-list is not configured\n");
+                    cprintf("Error : access-list is not configured\n");
                     return -1;
                 }
                 access_list_dereference (node, log_info->acc_lst_filter);
@@ -700,13 +700,13 @@ int traceoptions_handler(int cmdcode,
         intf = node_get_intf_by_name(node, (const char *)if_name);
         if (!intf)
         {
-                printf("Error : No interface %s on Node %s\n", if_name, node_name);
+                cprintf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
         }
         access_list = access_list_lookup_by_name(node, access_list_name);
         if (!access_list)
         {
-                printf("Error : Access-list do not exist\n");
+                cprintf("Error : Access-list do not exist\n");
                 return -1;
         }
         log_info = &intf->log_info;
@@ -736,7 +736,7 @@ int traceoptions_handler(int cmdcode,
                 }
                 if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
                 {
-                    printf("Error : access-list is not configured\n");
+                    cprintf("Error : access-list is not configured\n");
                     return -1;
                 }
                 access_list_dereference(node, log_info->acc_lst_filter);
@@ -941,10 +941,10 @@ tcp_ip_toggle_global_console_logging(void) {
     topo->gstdout  = ! topo->gstdout;
 
     if (topo->gstdout) {
-        printf ("\nconsole logging enabled\n");
+        cprintf ("\nconsole logging enabled\n");
     }
     else {
-        printf ("\nconsole logging disabled\n");
+        cprintf ("\nconsole logging disabled\n");
     }
 }
 

@@ -6,6 +6,7 @@
 #include "../../FireWall/acl/acldb.h"
 #include "../../utils.h"
 #include "objnw.h"
+#include "../../CLIBuilder/libcli.h"
 
 #define HASH_PRIME_CONST    5381
 
@@ -82,25 +83,25 @@ object_network_print (obj_nw_t *obj_nw) {
     char ip[16];
     switch(obj_nw->type) {
         case OBJ_NW_TYPE_HOST:
-            printf (" object-network %s %s %s", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
+            cprintf (" object-network %s %s %s", obj_nw->name, obj_nw_type_str(obj_nw->type), tcp_ip_covert_ip_n_to_p(obj_nw->u.host , ip));
             break;
         case OBJ_NW_TYPE_SUBNET:
-             printf (" object-network %s %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
-             printf(" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
+             cprintf (" object-network %s %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.network, ip));
+             cprintf(" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.subnet.subnet, ip));
             break;
         case OBJ_NW_TYPE_RANGE:
-            printf (" object-network %s range %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
-            printf (" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
+            cprintf (" object-network %s range %s", obj_nw->name, tcp_ip_covert_ip_n_to_p (obj_nw->u.range.lb, ip));
+            cprintf (" %s", tcp_ip_covert_ip_n_to_p (obj_nw->u.range.ub, ip));
             break;
         case OBJ_NW_TYPE_NONE:
-            printf ("None");
+            cprintf ("None");
             break;
     }
 
-    printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+    cprintf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
         obj_nw->ref_count, obj_nw->tcam_entry_users_ref_count);
 
-    printf ("  ACLs referenced:\n");
+    cprintf ("  ACLs referenced:\n");
     
     objects_linkage_db_t *db = (objects_linkage_db_t *)obj_nw->db;
 
@@ -112,7 +113,7 @@ object_network_print (obj_nw_t *obj_nw) {
 
             objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
 
-            printf ("   access-list %s \n", obj_nw_linked_acl_thread_node->acl->access_list->name);
+            cprintf ("   access-list %s \n", obj_nw_linked_acl_thread_node->acl->access_list->name);
 
             
         }ITERATE_GLTHREAD_END(&db->acls_list, curr)
@@ -134,7 +135,7 @@ network_object_hashtable_print(hashtable_t *ht) {
 
     count = hashtable_count(ht);
 
-    printf("Number of Object Networks : %u\n", count);
+    cprintf("Number of Object Networks : %u\n", count);
 
     if (!count) return;
 

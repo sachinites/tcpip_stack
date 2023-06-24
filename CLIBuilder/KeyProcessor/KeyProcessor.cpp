@@ -106,15 +106,9 @@ cli_submit (cli_t *cli) {
         if (parse_rc) ret = 0;
     }
     else {
-        /* If the historical cmd is modified, then current pos may be diff from end pos, sync it*/
         cli->current_pos = cli->end_pos;
-         parse_rc = cmdtc_parse_full_command(cli);
-         if (parse_rc &&         /* if the cmd syntactically has been parsed successfully in line mode*/
-            !cli_is_historical (cli) &&  /* if it is not a historical cmd*/
-            (1 || cmdtc_get_cmd_trigger_status (cli->cmdtc))) { /* If the application returned success*/
-        
-            ret = 0;
-        }
+         cmdtc_parse_full_command(cli);
+         ret = 0;
     }
 
     return ret;
@@ -223,10 +217,12 @@ cli_register_ctrlC_handler(void (*fn_ptr)(void))
     app_ctrlC_signal_handler = fn_ptr;
 }
 
+extern int cprintf (const char* format, ...) ;
+
 static void
 ctrlC_signal_handler(int sig)
 {
-    printf("Ctrl-C pressed\n");
+    cprintf("Ctrl-C pressed\n");
 
     if (app_ctrlC_signal_handler)
     {   
@@ -234,7 +230,7 @@ ctrlC_signal_handler(int sig)
     }   
     else
     {   
-        printf("Bye Bye\n");
+        cprintf("Bye Bye\n");
         exit(0);
     }   
 }

@@ -120,10 +120,10 @@ int
 isis_config_interface_link_type (Interface *intf, isis_intf_type_t intf_type);
 
 int
-isis_interface_set_priority (Interface *intf, uint16_t priority);
+isis_interface_set_priority (Interface *intf, uint16_t priority, bool enable);
 
 int
-isis_interface_set_metric (Interface *intf, uint32_t metric);
+isis_interface_set_metric (Interface *intf, uint32_t metric, bool enable);
 
 void
 isis_interface_reset_stats (Interface *intf) ;

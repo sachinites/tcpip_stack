@@ -29,9 +29,6 @@
 #include "cli_const.h"
 #include "string_util.h"
 
-int cprintf (const char* format, ...) ;
-#define printf cprintf
-
 #pragma pack (push,1)
 typedef struct tlv_struct{
     uint8_t tlv_type;
@@ -74,10 +71,10 @@ print_tlv_content (tlv_struct_t *tlv){
     if(!tlv)
         return;
 
-    printf ("\ntlv->tlv_type = %d", tlv->tlv_type);
-    printf("\ntlv->leaf_type = %s", get_str_leaf_type(tlv->leaf_type));
-    printf("\ntlv->leaf_id   = %s", tlv->leaf_id);
-    printf("\ntlv->value     = %s", tlv->value);
+    //cprintf ("\ntlv->tlv_type = %d", tlv->tlv_type);
+    //cprintf("\ntlv->leaf_type = %s", get_str_leaf_type(tlv->leaf_type));
+    //cprintf("\ntlv->leaf_id   = %s", tlv->leaf_id);
+    //cprintf("\ntlv->value     = %s", tlv->value);
 }
 
 #endif /* __CMDTLV__H */

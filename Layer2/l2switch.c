@@ -127,12 +127,12 @@ dump_mac_table(mac_table_t *mac_table){
         count++;
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
         if(count == 1){
-            printf("\t|========= MAC =========|==== Ports ===|\n");
+            cprintf("\t|========= MAC =========|==== Ports ===|\n");
         }
         else {
-            printf("\t|=======================|==============|\n");
+            cprintf("\t|=======================|==============|\n");
         }
-        printf("\t| %02x:%02x:%02x:%02x:%02x:%02x     | %-12s |\n", 
+        cprintf("\t| %02x:%02x:%02x:%02x:%02x:%02x     | %-12s |\n", 
             mac_table_entry->mac.mac[0], 
             mac_table_entry->mac.mac[1],
             mac_table_entry->mac.mac[2],
@@ -142,7 +142,7 @@ dump_mac_table(mac_table_t *mac_table){
             mac_table_entry->oif_name);
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
     if(count){
-        printf("\t|=======================|==============|\n");
+        cprintf("\t|=======================|==============|\n");
     }
 }
 

@@ -527,7 +527,7 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 
     if (!intf_info) return -1;
 
-    if (intf_info->intf_type == intf_type) return -1;
+    if (intf_info->intf_type == intf_type) return 0;
 
     isis_delete_all_adjacencies(intf);
     isis_stop_sending_hellos(intf);
@@ -553,7 +553,7 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
 }
 
 int
-isis_interface_set_priority (Interface *intf, uint16_t priority) {
+isis_interface_set_priority (Interface *intf, uint16_t priority,  bool enable) {
 
     isis_lan_id_t old_dis_id,
                           new_dis_id;
@@ -564,9 +564,14 @@ isis_interface_set_priority (Interface *intf, uint16_t priority) {
 
    if (!intf_info) return -1;
 
-    if (intf_info->priority == priority) return -1;
-
-    intf_info->priority = priority;
+    if (enable) {
+        if (intf_info->priority == priority) return 0;
+        intf_info->priority = priority;
+    }
+    else {
+        if (intf_info->priority == ISIS_INTF_DEFAULT_PRIORITY) return 0;
+        intf_info->priority = ISIS_INTF_DEFAULT_PRIORITY;
+    }
 
     isis_stop_sending_hellos(intf);
 
@@ -590,7 +595,7 @@ isis_interface_set_priority (Interface *intf, uint16_t priority) {
 }
 
 int
-isis_interface_set_metric (Interface *intf, uint32_t metric) {
+isis_interface_set_metric (Interface *intf, uint32_t metric, bool enable) {
 
     isis_adv_data_t *advt_data;
 
@@ -603,9 +608,14 @@ isis_interface_set_metric (Interface *intf, uint32_t metric) {
 
    if (!intf_info) return -1;
 
-    if (intf_info->cost == metric) return -1;
-
-    intf_info->cost = metric;
+    if (enable) {
+        if (intf_info->cost == metric) return 0;
+        intf_info->cost = metric;
+    }
+    else {
+        if (intf_info->cost == ISIS_DEFAULT_INTF_COST) return 0;
+        intf_info->cost = ISIS_DEFAULT_INTF_COST;
+    }
 
     isis_stop_sending_hellos(intf);
 

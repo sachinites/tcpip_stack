@@ -275,8 +275,8 @@ tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
 void
 print_pkt_block(pkt_block_t *pkt_block) {
 
-    printf ("pkt_block->pkt = %p\n", pkt_block->pkt);
-    printf ("pkt_block->pkt_size = %d\n", pkt_block->pkt_size);
-    printf ("pkt_block->hdr_type = %d\n", pkt_block->hdr_type);
-    printf ("pkt_block->ref_count = %d\n", pkt_block->ref_count);
+    cprintf ("pkt_block->pkt = %p\n", pkt_block->pkt);
+    cprintf ("pkt_block->pkt_size = %d\n", pkt_block->pkt_size);
+    cprintf ("pkt_block->hdr_type = %d\n", pkt_block->hdr_type);
+    cprintf ("pkt_block->ref_count = %d\n", pkt_block->ref_count);
 }

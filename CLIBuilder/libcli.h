@@ -7,6 +7,8 @@
 #include "CmdTree/CmdTree.h"
 #include "cmdtlv.h"
 
+int cprintf (const char* format, ...) ;
+
 void
 libcli_init ();
 
@@ -48,9 +50,5 @@ void
 cli_start_shell();
 
 void cli_register_ctrlC_handler(void (*fn_ptr)(void));
-
-int cprintf (const char* format, ...) ;
-
-#define printf cprintf
 
 #endif

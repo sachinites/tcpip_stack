@@ -29,7 +29,7 @@ acl_port_no_LEAF_VALIDATION (Stack_t *stack, unsigned char *value) {
     int64_t val_num = atoi((const char *)value);
     if (val_num >= 0 && val_num <= ACL_PROTO_MAX)
         return LEAF_VALIDATION_SUCCESS;
-    printf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
+    cprintf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
     return LEAF_VALIDATION_FAILED;
 }
 
@@ -93,7 +93,7 @@ acl_config_handler(int cmdcode,
             src_port_no_eq = atoi((const char *)tlv->value);
             if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO))
             {
-                printf("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -102,7 +102,7 @@ acl_config_handler(int cmdcode,
             src_port_no_lt = atoi((const char *)tlv->value);
             if (src_port_no_lt <= 0 || src_port_no_lt > ACL_MAX_PORTNO)
             {
-                printf("Error : Invalid Src lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Src lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -111,7 +111,7 @@ acl_config_handler(int cmdcode,
             src_port_no_gt = atoi((const char *)tlv->value);
             if (src_port_no_gt < 0 || src_port_no_gt >= ACL_MAX_PORTNO)
             {
-                printf("Error : Invalid Src gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Src gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -120,7 +120,7 @@ acl_config_handler(int cmdcode,
             src_port_no1 = atoi((const char *)tlv->value);
             if (!(src_port_no1 >= 0 && src_port_no1 <= ACL_MAX_PORTNO))
             {
-                printf("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -129,7 +129,7 @@ acl_config_handler(int cmdcode,
             src_port_no2 = atoi((const char *)tlv->value);
             if (!(src_port_no2 >= 0 && src_port_no2 <= ACL_MAX_PORTNO))
             {
-                printf("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -138,7 +138,7 @@ acl_config_handler(int cmdcode,
             dst_port_no_eq = atoi((const char *)tlv->value);
             if (!(dst_port_no_eq > 0 && dst_port_no_eq < ACL_MAX_PORTNO))
             {
-                printf("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -147,7 +147,7 @@ acl_config_handler(int cmdcode,
             dst_port_no_lt = atoi((const char *)tlv->value);
             if (dst_port_no_lt <= 0 || dst_port_no_lt > ACL_MAX_PORTNO)
             {
-                printf("Error : Invalid Dst lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Dst lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -156,7 +156,7 @@ acl_config_handler(int cmdcode,
             dst_port_no_gt = atoi((const char *)tlv->value);
             if (dst_port_no_gt < 0 || dst_port_no_gt >= ACL_MAX_PORTNO)
             {
-                printf("Error : Invalid Dst gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Dst gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -165,7 +165,7 @@ acl_config_handler(int cmdcode,
             dst_port_no1 = atoi((const char *)tlv->value);
             if (!(dst_port_no1 >= 0 && dst_port_no1 <= ACL_MAX_PORTNO))
             {
-                printf("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -174,7 +174,7 @@ acl_config_handler(int cmdcode,
             dst_port_no2 = atoi((const char *)tlv->value);
             if (!(dst_port_no2 >= 0 && dst_port_no2 <= ACL_MAX_PORTNO))
             {
-                printf("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
@@ -197,7 +197,7 @@ acl_config_handler(int cmdcode,
         if ((src_port_no1 > src_port_no2) || (dst_port_no1 > dst_port_no2))
         {
 
-            printf("Error : Port Number Ranges specified is incorrect\n");
+            cprintf("Error : Port Number Ranges specified is incorrect\n");
             return -1;
         }
 
@@ -245,12 +245,12 @@ acl_config_handler(int cmdcode,
             {
             case CONFIG_ENABLE:
 
-                printf("Access list : config enable\n");
+                cprintf("Access list : config enable\n");
                 break;
 
             case CONFIG_DISABLE:
 
-                printf("Access list : config disable\n");
+                cprintf("Access list : config disable\n");
                 break;
             }
             break;

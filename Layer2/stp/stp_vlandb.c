@@ -312,7 +312,7 @@ stp_print_vlan_db(node_t *node,
 	stp_intf_vlan_node_t *stp_intf_vlan_node;
 	stp_vlan_intf_info_t *stp_vlan_intf_info;
 
-	printf("STP Vlan DB\n");
+	cprintf("STP Vlan DB\n");
 
 	if (vlan_id && ifindex ) {
 

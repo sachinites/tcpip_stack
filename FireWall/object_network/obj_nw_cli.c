@@ -48,7 +48,7 @@ network_object_config_handler (int cmdcode,
     else if (parser_match_leaf_id (tlv->leaf_id, "range-ub")) {
         ub = tcp_ip_covert_ip_p_to_n(tlv->value);             
         if (ub < lb) {
-            printf ("Error : Invalid Range\n");
+            cprintf ("Error : Invalid Range\n");
             return -1;
         }
     }
@@ -66,7 +66,7 @@ network_object_config_handler (int cmdcode,
                         if (obj_nw) {
                             
                             if (obj_nw->type != OBJ_NW_TYPE_HOST) {
-                                printf ("Error : Object Network Type cannot be changed\n");
+                                cprintf ("Error : Object Network Type cannot be changed\n");
                                 return -1;
                             }
 
@@ -74,7 +74,7 @@ network_object_config_handler (int cmdcode,
                                 return 0;
                             }
                             
-                            printf ("Error : Conflicting Changes, Configuration aborted\n");
+                            cprintf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_HOST);
@@ -87,17 +87,17 @@ network_object_config_handler (int cmdcode,
                     obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
                     if (!obj_nw)
                     {
-                        printf("Error : Object Network Do not Exist\n");
+                        cprintf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
                     if (obj_nw->type != OBJ_NW_TYPE_HOST)
                     {
-                        printf("Error : Object Network Type cannot be changed\n");
+                        cprintf("Error : Object Network Type cannot be changed\n");
                         return -1;
                     }
 
                     if (obj_nw->ref_count > 0) {
-                        printf ("Error : Network Object in Use\n");
+                        cprintf ("Error : Network Object in Use\n");
                         return -1;
                     }
                     assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
@@ -118,7 +118,7 @@ network_object_config_handler (int cmdcode,
                         if (obj_nw) {
 
                             if (obj_nw->type != OBJ_NW_TYPE_SUBNET) {
-                                printf("Error : Object Network Type cannot be changed\n");
+                                cprintf("Error : Object Network Type cannot be changed\n");
                                 return -1;
                             }
 
@@ -126,7 +126,7 @@ network_object_config_handler (int cmdcode,
                                 return 0;
                             }
 
-                            printf ("Error : Conflicting Changes, Configuration aborted\n");
+                            cprintf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
 
@@ -141,16 +141,16 @@ network_object_config_handler (int cmdcode,
                     obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
                     if (!obj_nw)
                     {
-                        printf("Error : Object Network Do not Exist\n");
+                        cprintf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
                     if (obj_nw->type != OBJ_NW_TYPE_SUBNET)
                     {
-                        printf("Error : Object Network Type cannot be changed\n");
+                        cprintf("Error : Object Network Type cannot be changed\n");
                         return -1;
                     }
                     if (obj_nw->ref_count > 0) {
-                        printf("Error : Network Object in Use\n");
+                        cprintf("Error : Network Object in Use\n");
                         return -1;
                     }
                     assert(network_object_remove_from_ht_by_name(node->object_network_ght, nw_obj_name) == obj_nw);
@@ -170,7 +170,7 @@ network_object_config_handler (int cmdcode,
                         if (obj_nw) {
 
                             if (obj_nw->type != OBJ_NW_TYPE_RANGE) {
-                                printf("Error : Object Network Type cannot be changed\n");
+                                cprintf("Error : Object Network Type cannot be changed\n");
                                 return -1;
                             }
 
@@ -178,7 +178,7 @@ network_object_config_handler (int cmdcode,
                                 return 0;
                             }
 
-                            printf ("Error : Conflicting Changes, Configuration aborted\n");
+                            cprintf ("Error : Conflicting Changes, Configuration aborted\n");
                             return -1;
                         }
 
@@ -193,16 +193,16 @@ network_object_config_handler (int cmdcode,
                     obj_nw_t *obj_nw = network_object_lookup_by_name(node->object_network_ght, nw_obj_name);
                     if (!obj_nw)
                     {
-                        printf("Error : Object Network Do not Exist\n");
+                        cprintf("Error : Object Network Do not Exist\n");
                         return -1;
                     }
                     if (obj_nw->type != OBJ_NW_TYPE_RANGE)
                     {
-                        printf("Error : Object Network Type cannot be changed\n");
+                        cprintf("Error : Object Network Type cannot be changed\n");
                         return -1;
                     }
                     if (obj_nw->ref_count > 0) {
-                        printf("Error : Network Object in Use\n");
+                        cprintf("Error : Network Object in Use\n");
                         return -1;
                     }
                     assert(network_object_remove_from_ht_by_name(

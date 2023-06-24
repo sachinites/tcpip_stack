@@ -20,7 +20,7 @@ validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
 
     uint32_t vlan = atoi((const char *)vlan_value);
     if(!vlan){
-        printf("Error : Invalid Vlan Value\n");
+        cprintf("Error : Invalid Vlan Value\n");
         return LEAF_VALIDATION_FAILED;
     }
     if(vlan >= 1 && vlan <= 4095)
@@ -84,7 +84,7 @@ display_node_interfaces(param_t *param, Stack_t *tlv_stack){
         intf = node->intf[i];
         if(!intf) continue;
 
-        printf(" %s\n", intf->if_name.c_str());
+        cprintf(" %s\n", intf->if_name.c_str());
     }
 }
 
@@ -143,7 +143,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     break;
                 case CONFIG_DISABLE:
                     if (!interface) {
-                        printf("Error : Interface do not exist\n");
+                        cprintf("Error : Interface do not exist\n");
                         return -1;
                     }
                     break;
@@ -153,7 +153,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         break;
         default:
             if (!interface) {
-                printf("Error : Interface do not exist\n");
+                cprintf("Error : Interface do not exist\n");
                 return -1;
             }
             break;

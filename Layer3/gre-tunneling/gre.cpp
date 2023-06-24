@@ -13,7 +13,7 @@ gre_tunnel_create (node_t *node, uint16_t tunnel_id) {
     tunnel = node_get_intf_by_name(node, (const char *)intf_name);
 
     if (tunnel) {
-        printf ("Error : %s already exist\n", intf_name);
+        cprintf ("Error : %s already exist\n", intf_name);
         return false;
     }
 
@@ -21,14 +21,14 @@ gre_tunnel_create (node_t *node, uint16_t tunnel_id) {
 
     if (empty_intf_slot < 0) {
 
-        printf ("Error : No NIC slot available in a device\n");
+        cprintf ("Error : No NIC slot available in a device\n");
         return false;
     }
 
     tunnel = new GRETunnelInterface(tunnel_id);
 
     if (!tunnel ) {
-        printf ("Error : GRE Tunnel creation failed\n");
+        cprintf ("Error : GRE Tunnel creation failed\n");
         return false;
     }
 
@@ -65,7 +65,7 @@ gre_tunnel_set_src_addr (node_t *node, uint16_t tunnel_id, c_string src_addr) {
     tunnel = node_get_intf_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
-        printf ("Error : Tunnel Do Not  Exist\n");
+        cprintf ("Error : Tunnel Do Not  Exist\n");
         return;
     }
 
@@ -90,7 +90,7 @@ gre_tunnel_set_dst_addr (node_t *node, uint16_t tunnel_id, c_string dst_addr) {
     tunnel = node_get_intf_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
-        printf ("Error : Tunnel Do Not  Exist\n");
+        cprintf ("Error : Tunnel Do Not  Exist\n");
         return;
     }
 
@@ -118,24 +118,24 @@ void
     tunnel = node_get_intf_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
-        printf ("Error : Tunnel Do Not  Exist\n");
+        cprintf ("Error : Tunnel Do Not  Exist\n");
         return;
     }
 
     if (tunnel->iftype != INTF_TYPE_GRE_TUNNEL) {
-        printf ("Error : Specified tunnel is not GRE tunnel\n");
+        cprintf ("Error : Specified tunnel is not GRE tunnel\n");
         return;
     }
 
     phyIntf = node_get_intf_by_name(node, (const char *)if_name);
 
     if (!phyIntf) {
-        printf ("Error : Source Interface do not exist\n");
+        cprintf ("Error : Source Interface do not exist\n");
         return;
     }
 
     if (phyIntf->GetL2Mode() != LAN_MODE_NONE) {
-        printf ("Error : Source Interface must be P2P interface\n");
+        cprintf ("Error : Source Interface must be P2P interface\n");
         return;
     }
 
@@ -162,12 +162,12 @@ gre_tunnel_set_lcl_ip_addr(node_t *node,
     tunnel = node_get_intf_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
-        printf ("Error : Tunnel Do Not  Exist\n");
+        cprintf ("Error : Tunnel Do Not  Exist\n");
         return;
     }
 
     if (tunnel->iftype != INTF_TYPE_GRE_TUNNEL) {
-        printf ("Error : Specified tunnel is not GRE tunnel\n");
+        cprintf ("Error : Specified tunnel is not GRE tunnel\n");
         return;
     }
 

@@ -177,7 +177,7 @@ void dump_graph(graph_t *graph){
     node_t *node;
     glthread_t *curr;
     
-    printf("Topology Name = %s\n", graph->topology_name);
+    cprintf("Topology Name = %s\n", graph->topology_name);
 
     ITERATE_GLTHREAD_BEGIN(&graph->node_list, curr){
 
@@ -191,7 +191,7 @@ void dump_node(node_t *node){
     unsigned int i = 0;
     Interface *intf;
 
-    printf("Node Name = %s(%p) UDP Port # : %u\n",
+    cprintf("Node Name = %s(%p) UDP Port # : %u\n",
         node->node_name, node, node->udp_port_number);
 
     for( ; i < MAX_INTF_PER_NODE; i++){

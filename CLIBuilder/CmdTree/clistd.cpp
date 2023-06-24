@@ -9,6 +9,8 @@
 #include "../cmdtlv.h"
 #include "../string_util.h"
 
+extern int cprintf (const char* format, ...) ;
+
 /* Standard Validations Begin*/
 
 typedef leaf_validation_rc_t (*leaf_type_handler)(char *value_passed);

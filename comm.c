@@ -163,7 +163,7 @@ dp_pkt_receive (node_t *node,
                                           pkt_block,
                                           &vlan_id_to_tag) == false){
         
-        printf("L2 Frame Rejected on node %s(%s)\n", 
+        cprintf("L2 Frame Rejected on node %s(%s)\n", 
             node->node_name, interface->if_name.c_str());
         assert(!pkt_block_dereference(pkt_block));
         return;
@@ -230,7 +230,7 @@ node_init_udp_socket(node_t *node){
     int udp_sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP );
     
     if(udp_sock_fd == -1){
-        printf("Socket Creation Failed for node %s\n", node->node_name);
+        cprintf("Socket Creation Failed for node %s\n", node->node_name);
         return;   
     }
 
@@ -239,7 +239,7 @@ node_init_udp_socket(node_t *node){
     node_addr.sin_port        = node->udp_port_number;
     node_addr.sin_addr.s_addr = INADDR_ANY;
     if (bind(udp_sock_fd, (struct sockaddr *)&node_addr, sizeof(struct sockaddr)) == -1) {
-        printf("Error : socket bind failed for Node %s\n", node->node_name);
+        cprintf("Error : socket bind failed for Node %s\n", node->node_name);
         return;
     }
 
@@ -256,7 +256,7 @@ _pkt_receive(node_t *receving_node,
     Interface *recv_intf = node_get_intf_by_name(receving_node, recv_intf_name);
 
     if(!recv_intf){
-        printf("Error : Pkt recvd on unknown interface %s on node %s\n", 
+        cprintf("Error : Pkt recvd on unknown interface %s on node %s\n", 
                     recv_intf_name, receving_node->node_name);
         return;
     }

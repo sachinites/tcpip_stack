@@ -37,7 +37,7 @@ isis_config_traceoption_handler (int cmdcode,
     node = node_get_node_by_name(topo, node_name);
 
     if (!isis_is_protocol_enable_on_node(node)) {
-        cprintf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
+        cprintf("\n" ISIS_ERROR_PROTO_NOT_ENABLE "\n");
         return -1;
     }
 
@@ -228,11 +228,11 @@ isis_config_handler(int cmdcode,
         case ISIS_CONFIG_NODE_ENABLE:
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    if (isis_is_protocol_enable_on_node(node)) return -1;
+                    if (isis_is_protocol_enable_on_node(node)) return 0;
                     isis_init(node);
                     break;
                 case CONFIG_DISABLE:
-                    if (!isis_is_protocol_enable_on_node(node)) return -1;
+                    if (!isis_is_protocol_enable_on_node(node)) return 0;
                     isis_de_init(node);
                     break;
                 default: ;
@@ -357,7 +357,7 @@ isis_intf_config_handler(int cmdcode,
            intf = node_get_intf_by_name(node, intf_name);
 
             if(!intf) {
-                cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                cprintf("\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
             switch(enable_or_disable) {
@@ -388,7 +388,7 @@ isis_intf_config_handler(int cmdcode,
             case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP:
                 intf = node_get_intf_by_name(node, intf_name);
                 if (!intf) {
-                    cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    cprintf( "\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
                 }
 
@@ -415,7 +415,7 @@ isis_intf_config_handler(int cmdcode,
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P:
             intf = node_get_intf_by_name(node, intf_name);
             if (!intf) {
-                    cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    cprintf("\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
             }
             if (!isis_node_intf_is_enable(intf)) {
@@ -427,7 +427,7 @@ isis_intf_config_handler(int cmdcode,
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN:
             intf = node_get_intf_by_name(node, intf_name);
             if (!intf) {
-                    cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    cprintf("\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
             }
             if (!isis_node_intf_is_enable(intf)) {
@@ -439,26 +439,28 @@ isis_intf_config_handler(int cmdcode,
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY:
             intf = node_get_intf_by_name(node, intf_name);
             if (!intf) {
-                    cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    cprintf("\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
             }
             if (!isis_node_intf_is_enable(intf)) {
                     cprintf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
                     return -1;
             }
-            return isis_interface_set_priority (intf, priority);
+            return isis_interface_set_priority (intf, priority, 
+                        enable_or_disable == CONFIG_ENABLE ? true : false);
             break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC:
             intf = node_get_intf_by_name(node, intf_name);
             if (!intf) {
-                    cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                    cprintf("\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                     return -1;
             }
             if (!isis_node_intf_is_enable(intf)) {
                     cprintf(ISIS_ERROR_PROTO_NOT_ENABLE_ON_INTF "\n");
                     return -1;
             }
-            return isis_interface_set_metric (intf, metric);
+            return isis_interface_set_metric (intf, metric,
+                    enable_or_disable == CONFIG_ENABLE ? true : false);
         default: ;
     }
     return 0;
@@ -627,15 +629,13 @@ isis_show_handler (int cmdcode,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF:
             intf = node_get_intf_by_name (node, intf_name);
             if (!intf) {
-                cprintf(ISIS_ERROR_NON_EXISTING_INTF "\n");
+                cprintf("\n" ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;
             }
-            rc = isis_show_one_intf_stats (intf, 0);
-            cprintf("%s", node->print_buff);
+            isis_show_one_intf_stats (intf, 0);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF:
-            rc =  isis_show_all_intf_stats (node);
-            cprintf ("%s", node->print_buff);
+             isis_show_all_intf_stats (node);
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_LSDB:
             isis_show_lspdb (node);
@@ -648,61 +648,46 @@ isis_show_handler (int cmdcode,
                 isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node,
                                                             tcp_ip_covert_ip_p_to_n(rtr_id_str), pn_id, fr_no);
                 if (!lsp_pkt) return 0;
-                rc = isis_show_one_lsp_pkt_detail_info (node->print_buff, lsp_pkt);
-               cprintf ("%s", node->print_buff);
+                isis_show_one_lsp_pkt_detail_info (node->print_buff, lsp_pkt);
             }
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS:
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
             rc = isis_show_all_interface_group (node);
-            assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
             break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED:
             if (!isis_is_protocol_enable_on_node(node)) break;
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
-            rc = ted_show_ted_db(ISIS_TED_DB(node), 0, 0, node->print_buff, false);
-            assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
+            ted_show_ted_db(ISIS_TED_DB(node), 0, 0, node->print_buff, false);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY:
             if (!isis_is_protocol_enable_on_node(node)) break;
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
-            rc = ted_show_ted_db(ISIS_TED_DB(node),
+            ted_show_ted_db(ISIS_TED_DB(node),
                                                 tcp_ip_covert_ip_p_to_n(rtr_id_str), pn_id, node->print_buff, false);
-            assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL:
             if (!isis_is_protocol_enable_on_node(node)) break;
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
-            rc = ted_show_ted_db(ISIS_TED_DB(node), 0, 0, node->print_buff, true);
-            assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
+            ted_show_ted_db(ISIS_TED_DB(node), 0, 0, node->print_buff, true);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL:
             if (!isis_is_protocol_enable_on_node(node)) break;
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
-            rc = ted_show_ted_db(ISIS_TED_DB(node),
+            ted_show_ted_db(ISIS_TED_DB(node),
                                                 tcp_ip_covert_ip_p_to_n(rtr_id_str), pn_id, node->print_buff, true);
-            assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY:
             if (!isis_is_protocol_enable_on_node(node)) break;
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
-            rc = isis_show_all_adjacencies (node);
-             assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
+            isis_show_all_adjacencies (node);
         break;
         case  CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_LOG:
             isis_show_spf_logs(node);
             break;
         case CMCODE_SHOW_ISIS_ADVT_DB:
             memset(node->print_buff, 0, NODE_PRINT_BUFF_LEN);
-            rc = isis_show_advt_db (node);
-            assert ( rc < NODE_PRINT_BUFF_LEN);
-            cprintf ("%s", node->print_buff);
+            isis_show_advt_db (node);
             break;
         case CMCODE_SHOW_ISIS_TRACEOPTIONS:
             isis_show_traceoptions (node);

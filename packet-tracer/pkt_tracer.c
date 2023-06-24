@@ -62,17 +62,17 @@ pkt_tracer_print_phase (char *out_buff,
     int i;
     uint32_t rc = 0;
     
-    rc += printf ("Phase 2 : %d\n", phase->phase_no);
-    rc += printf ("Type: %s\n", pkt_tracer_type_to_str(phase->type));
-    rc += printf ("Subtype: %s\n", pkt_tracer_subtype_to_str(phase->subtype));
-    rc += printf ("Result: %s\n", phase->res ? "ALLOW" : "DROP");
-    rc += printf ("Config:\n");
+    rc += cprintf ("Phase 2 : %d\n", phase->phase_no);
+    rc += cprintf ("Type: %s\n", pkt_tracer_type_to_str(phase->type));
+    rc += cprintf ("Subtype: %s\n", pkt_tracer_subtype_to_str(phase->subtype));
+    rc += cprintf ("Result: %s\n", phase->res ? "ALLOW" : "DROP");
+    rc += cprintf ("Config:\n");
     for (i = 0; i < phase->config_no; i++) {
-        rc += printf ("%s\n", phase->config[i]);
+        rc += cprintf ("%s\n", phase->config[i]);
     }
-    rc += printf ("Additional Information:\n");
-    rc += printf ("%s\n", phase->info);
-    rc += printf ("\n\n");
+    rc += cprintf ("Additional Information:\n");
+    rc += cprintf ("%s\n", phase->info);
+    rc += cprintf ("\n\n");
     return rc;
 }
 

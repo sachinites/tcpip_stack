@@ -13,7 +13,7 @@ interface_set_ip_addr(node_t *node, Interface *intf,
     intf_prop_changed_t intf_prop_changed;
 
     if (intf->GetSwitchport ()) {
-        printf("Error : Remove L2 config from interface first\n");
+        cprintf("Error : Remove L2 config from interface first\n");
         return;
     }
 

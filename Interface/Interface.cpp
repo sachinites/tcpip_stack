@@ -30,6 +30,7 @@
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../Layer2/layer2.h"
 #include "../Layer3/layer3.h"
+#include "../CLIBuilder/libcli.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -57,7 +58,7 @@ send_xmit_out(Interface *interface, pkt_block_t *pkt_block)
 
     if (pkt_size > MAX_PACKET_BUFFER_SIZE)
     {
-        printf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
+        cprintf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
         return -1;
     }
 
@@ -86,7 +87,7 @@ send_xmit_out(Interface *interface, pkt_block_t *pkt_block)
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
 
-        printf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
+        cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
 
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
         XFREE(ev_dis_pkt_data);
@@ -233,25 +234,25 @@ Interface::GetIntfCost()
 void Interface::PrintInterfaceDetails()
 {
 
-    printf("%s   index = %u   Owning-Dev %s\n",
+    cprintf("%s   index = %u   Owning-Dev %s\n",
            this->if_name.c_str(), this->ifindex, this->att_node->node_name);
 
-    printf("State : Administratively %s\n", this->is_up ? "Up" : "Down");
+    cprintf("State : Administratively %s\n", this->is_up ? "Up" : "Down");
 
-    printf("L2 access Lists : Ingress - %s, Egress - %s\n",
+    cprintf("L2 access Lists : Ingress - %s, Egress - %s\n",
            this->l2_ingress_acc_lst ? (const char *)this->l2_ingress_acc_lst->name : "None",
            this->l2_egress_acc_lst ? (const char *)this->l2_egress_acc_lst->name : "None");
 
-    printf("L3 access Lists : Ingress - %s, Egress - %s\n",
+    cprintf("L3 access Lists : Ingress - %s, Egress - %s\n",
            this->l3_ingress_acc_lst ? (const char *)this->l3_ingress_acc_lst->name : "None",
            this->l3_egress_acc_lst ? (const char *)this->l3_egress_acc_lst->name : "None");
 
     if (this->isis_intf_info)
     {
-        printf("ISIS Running\n");
+        cprintf("ISIS Running\n");
     }
 
-    printf("Metric = %u\n", this->GetIntfCost());
+    cprintf("Metric = %u\n", this->GetIntfCost());
 }
 
 node_t *
@@ -406,7 +407,7 @@ void PhysicalInterface::PrintInterfaceDetails()
 
     byte ip_addr[16];
 
-    printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
+    cprintf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
            this->mac_add.mac[0],
            this->mac_add.mac[1],
            this->mac_add.mac[2],
@@ -416,14 +417,14 @@ void PhysicalInterface::PrintInterfaceDetails()
 
     if (this->IsIpConfigured())
     {
-        printf("IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_addr), this->mask);
+        cprintf("IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_addr), this->mask);
     }
     else
     {
-        printf("IP Addr : Not Configured\n");
+        cprintf("IP Addr : Not Configured\n");
     }
 
-    printf("Vlan L2 Mode : %s\n", PhysicalInterface::L2ModeToString(this->l2_mode).c_str());
+    cprintf("Vlan L2 Mode : %s\n", PhysicalInterface::L2ModeToString(this->l2_mode).c_str());
 
     this->Interface::PrintInterfaceDetails();
 }
@@ -433,7 +434,7 @@ void PhysicalInterface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask
 
     if (this->switchport)
     {
-        printf("Error : Remove L2 Config first\n");
+        cprintf("Error : Remove L2 Config first\n");
         return;
     }
 
@@ -511,7 +512,7 @@ void PhysicalInterface::SetSwitchport(bool enable)
 
     if (this->used_as_underlying_tunnel_intf > 0)
     {
-        printf("Error : Intf being used as underlying tunnel interface\n");
+        cprintf("Error : Intf being used as underlying tunnel interface\n");
         return;
     }
 
@@ -563,13 +564,13 @@ void PhysicalInterface::SetL2Mode(IntfL2Mode l2_mode)
 
     if (this->IsIpConfigured())
     {
-        printf("Error : Remove L3 config first\n");
+        cprintf("Error : Remove L3 config first\n");
         return;
     }
 
     if (this->used_as_underlying_tunnel_intf > 0)
     {
-        printf("Error : Intf being used as underlying tunnel interface\n");
+        cprintf("Error : Intf being used as underlying tunnel interface\n");
         return;
     }
 
@@ -578,7 +579,7 @@ void PhysicalInterface::SetL2Mode(IntfL2Mode l2_mode)
 
     if (this->l2_mode != LAN_MODE_NONE)
     {
-        printf("Error : Remove configured L2 Mode first\n");
+        cprintf("Error : Remove configured L2 Mode first\n");
         return;
     }
 
@@ -594,7 +595,7 @@ bool PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add)
         return false;
     if (this->used_as_underlying_tunnel_intf > 0)
     {
-        printf("Error : Intf being used as underlying tunnel interface\n");
+        cprintf("Error : Intf being used as underlying tunnel interface\n");
         return false;
     }
 
@@ -603,13 +604,13 @@ bool PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add)
         switch (this->l2_mode)
         {
         case LAN_MODE_NONE:
-            printf("Error : Interface Not in Access Or Trunk Mode\n");
+            cprintf("Error : Interface Not in Access Or Trunk Mode\n");
             return false;
 
         case LAN_ACCESS_MODE:
             if (this->vlans[0])
             {
-                printf("Error : Access Mode Interface already in vlan %u\n", this->vlans[0]);
+                cprintf("Error : Access Mode Interface already in vlan %u\n", this->vlans[0]);
                 return false;
             }
             this->vlans[0] = vlan_id;
@@ -622,7 +623,7 @@ bool PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add)
                 this->vlans[i] = vlan_id;
                 return true;
             }
-            printf("Error : Interface %s : Max Vlan membership limit reached", this->if_name.c_str());
+            cprintf("Error : Interface %s : Max Vlan membership limit reached", this->if_name.c_str());
             return false;
         default:;
         }
@@ -694,7 +695,7 @@ VirtualInterface::~VirtualInterface()
 void VirtualInterface::PrintInterfaceDetails()
 {
 
-    printf("pkt recvd : %u   pkt sent : %u   xmit pkt dropped : %u\n",
+    cprintf("pkt recvd : %u   pkt sent : %u   xmit pkt dropped : %u\n",
            this->pkt_recv, this->pkt_sent, this->xmit_pkt_dropped);
 
     this->Interface::PrintInterfaceDetails();
@@ -743,7 +744,7 @@ void GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
     {
         if (this->config_flags & GRE_TUNNEL_SRC_INTF_SET)
         {
-            printf("Error : Src Interface already Set\n");
+            cprintf("Error : Src Interface already Set\n");
             return;
         }
 
@@ -795,7 +796,7 @@ GRETunnelInterface::SetTunnelSrcIp(uint32_t src_addr)
 
     if (this->config_flags & GRE_TUNNEL_SRC_ADDR_SET)
     {
-        printf("Error : Src Address Already Set\n");
+        cprintf("Error : Src Address Already Set\n");
         return;
     }
 
@@ -865,11 +866,11 @@ void GRETunnelInterface::PrintInterfaceDetails()
 
     byte ip_str[16];
 
-    printf("Tunnel Id : %u\n", this->tunnel_id);
-    printf("Tunnel Src Intf  : %s\n",
+    cprintf("Tunnel Id : %u\n", this->tunnel_id);
+    cprintf("Tunnel Src Intf  : %s\n",
            this->tunnel_src_intf ? this->tunnel_src_intf->if_name.c_str() : "Not Set");
     if (this->config_flags & GRE_TUNNEL_SRC_ADDR_SET) {
-        printf("Tunnel Src Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_src_ip, ip_str));
+        cprintf("Tunnel Src Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_src_ip, ip_str));
     }
     else if (this->config_flags & GRE_TUNNEL_SRC_INTF_SET ){
         uint32_t ip_addr;
@@ -878,11 +879,11 @@ void GRETunnelInterface::PrintInterfaceDetails()
         ("Tunnel Src Ip : %s\n", tcp_ip_covert_ip_n_to_p(ip_addr, ip_str));
     }
     else {
-        printf("Tunnel Src Ip : Nil\n"); 
+        cprintf("Tunnel Src Ip : Nil\n"); 
     }
-    printf("Tunnel Dst Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_dst_ip, ip_str));
-    printf("Tunnel Lcl Ip/Mask : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->lcl_ip, ip_str), this->mask);
-    printf("Is Tunnel Active : %s\n", this->IsGRETunnelActive() ? "Y" : "N");
+    cprintf("Tunnel Dst Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_dst_ip, ip_str));
+    cprintf("Tunnel Lcl Ip/Mask : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->lcl_ip, ip_str), this->mask);
+    cprintf("Is Tunnel Active : %s\n", this->IsGRETunnelActive() ? "Y" : "N");
 
     this->VirtualInterface::PrintInterfaceDetails();
 }

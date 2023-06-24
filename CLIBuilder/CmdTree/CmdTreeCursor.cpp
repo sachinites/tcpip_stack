@@ -81,7 +81,7 @@ typedef struct cmd_tree_cursor_ {
 static cmd_tree_cursor_t *cmdtc_cbc = NULL;
 
 static void cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) ;
-static void cmd_tree_post_cli_trigger (cli_t *cli);
+static void cmd_tree_post_cli_trigger (cmd_tree_cursor_t *cli_cmdtc);
 
 void 
 cmd_tree_cursor_init (cmd_tree_cursor_t **cmdtc) {
@@ -1059,11 +1059,12 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
 
     if (!cli_is_char_mode_on()) return;
     if (!cli_cursor_is_at_end_of_line (cli)) return;
+    if (cli_is_buffer_empty(cli)) return;
 
     if (cli_cursor_is_at_begin_of_line (cli)) {
         /* User is simply pressing / without ttyping anything. Fire the CLI*/
         cmd_tree_trigger_cli  (cmdtc);
-        cmd_tree_post_cli_trigger (cli_get_default_cli());
+        cmd_tree_post_cli_trigger (cmdtc);
         cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
         cli_printsc (cli, true);
         return;
@@ -1200,7 +1201,7 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
 
     if (cmdtc->root->callback) {
         cmd_tree_trigger_cli (cmdtc);
-        cmd_tree_post_cli_trigger (cli_get_default_cli());
+        cmd_tree_post_cli_trigger (cmdtc);
         cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
     }
 
@@ -1283,12 +1284,21 @@ cmdtc_get_branch_hook (cmd_tree_cursor_t *cmdtc) {
 /* CLI Trigger Code */
 
 void 
-cmd_tree_post_cli_trigger (cli_t *cli) {
+cmd_tree_post_cli_trigger (cmd_tree_cursor_t *cmdtc) {
 
-    attron (COLOR_PAIR(GREEN_ON_BLACK));
-    printw ("\nParse Success\n");
-    attroff (COLOR_PAIR(GREEN_ON_BLACK));
-    cli_record_copy (cli_get_default_history(), cli);
+    if (cmdtc->success) {
+        attron (COLOR_PAIR(GREEN_ON_BLACK));
+        printw ("\nParse Success\n");
+        attroff (COLOR_PAIR(GREEN_ON_BLACK));
+    }
+    else {
+        attron (COLOR_PAIR(RED_ON_BLACK));
+        printw ("\nCommand Rejected\n");
+        attroff (COLOR_PAIR(RED_ON_BLACK));
+    }
+    if (!cmdtc->success) return;
+
+    //cli_record_copy (cli_get_default_history(), cli);
 }
 
 static param_t *
@@ -1438,7 +1448,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             cmd_tree_trigger_cli (cmdtc);
             rc = cmdtc->success;
             if (rc) {  
-                cmd_tree_post_cli_trigger (cli);   
+                cmd_tree_post_cli_trigger (cmdtc);   
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             }
             return rc;
@@ -1455,7 +1465,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 cmd_tree_trigger_cli (cmdtc);
                 rc = cmdtc->success;
                 if (rc) {
-                    cmd_tree_post_cli_trigger(cli);
+                    cmd_tree_post_cli_trigger(cmdtc);
                     cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
                 }
             }
@@ -1473,7 +1483,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             cmd_tree_trigger_cli (cmdtc);
             rc = cmdtc->success;
             if (rc) {  
-                cmd_tree_post_cli_trigger (cli);   
+                cmd_tree_post_cli_trigger (cmdtc);   
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             }
             return rc;
@@ -1494,12 +1504,14 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 return false;
             }       
             free(tlv);
-            /* Push it into the params_stack and Fire the CLI*/
-            cmd_tree_cursor_move_to_next_level (cmdtc);
+
+            /* Process space after word completion so that cmd tree cursor is updated and move to
+                next param */
+            cli_process_key_interrupt (' ');
             cmd_tree_trigger_cli (cmdtc);
             rc = cmdtc->success;
             if (rc) {  
-                cmd_tree_post_cli_trigger (cli);   
+                cmd_tree_post_cli_trigger (cmdtc);
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             }
             return rc;
@@ -1515,7 +1527,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
 static unsigned char command[MAX_COMMAND_LENGTH];
 
 /* Fn to process user CLI when he press ENTER key while working in 
-    line mode */
+    line mode. This fn always return true */
 bool
 cmdtc_parse_full_command (cli_t *cli) {
 
@@ -1594,7 +1606,7 @@ cmdtc_parse_full_command (cli_t *cli) {
                 cmd_tree_cursor_destroy_internals (cmdtc, true);
                 free(cmdtc);
             }
-            return false;
+            return true;
         }
 
         if (IS_PARAM_LEAF(param)) {
@@ -1620,7 +1632,7 @@ cmdtc_parse_full_command (cli_t *cli) {
                 }
 
                 free(tlvptr);
-                return false;
+                return true;
             }
             free(tlvptr);
 
@@ -1639,7 +1651,7 @@ cmdtc_parse_full_command (cli_t *cli) {
                 else {
                     cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
                 }
-                return false;
+                return true;
             }
 
             push(cmdtc->params_stack, (void *)param);
@@ -1673,19 +1685,15 @@ cmdtc_parse_full_command (cli_t *cli) {
     /* Set the curr param to the top of the stack */
     cmdtc->curr_param = (param_t *)StackGetTopElem (cmdtc->params_stack);
     cmd_tree_trigger_cli (cmdtc);
-
-    if (cmdtc->success) { 
-        cmd_tree_post_cli_trigger (cli);   
-    }
+    cmd_tree_post_cli_trigger (cmdtc);
 
     if (is_new_cmdtc) {
         cmd_tree_cursor_destroy_internals (cmdtc, true);
         free(cmdtc);
+        return true;
     }
-    else {
-        cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
-    }
-    
+
+    cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
     return true;
 }
 

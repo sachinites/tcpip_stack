@@ -422,7 +422,7 @@ isis_show_event_counters(node_t *node) {
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
-    cprintf("Event Counters :\n");
+    cprintf ("\nEvent Counters :\n");
 
     for(enum_int = (int)(isis_event_none + 1); 
         enum_int < (int)isis_event_max;
@@ -430,7 +430,7 @@ isis_show_event_counters(node_t *node) {
         
         event_type = static_cast <isis_event_type_t> (enum_int);
 
-        cprintf(" %s : %u\n", isis_event_str(event_type), 
+        cprintf (" %s : %u\n", isis_event_str(event_type), 
                 node_info->isis_event_count[event_type]);
     }
 }

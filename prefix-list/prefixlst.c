@@ -87,7 +87,7 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
     if (pfx_lst_node_existing) {
         XFREE(pfx_lst_node);
         pfx_lst_node = NULL;
-        printf ("Error : This Prefix list rule already exists\n");
+        cprintf ("Error : This Prefix list rule already exists\n");
         return false;
     }
 
@@ -127,7 +127,7 @@ print_pfx_lst_node ( pfx_lst_node_t *pfx_lst_node) {
 
     unsigned char out_buff[16];
 
-    printf ("%s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
+    cprintf ("%s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
         pfx_lst_node->res == PFX_LST_DENY ? "deny" : "permit",
         pfx_lst_node->seq_no,
         tcp_ip_covert_ip_n_to_p(pfx_lst_node->pfx,  out_buff),
@@ -148,7 +148,7 @@ prefix_list_show (prefix_list_t *prefix_lst) {
 
         pfx_lst_node = glue_to_pfx_lst_node(curr);
 
-        printf ("prefix-list %s ", prefix_lst->name);
+        cprintf ("prefix-list %s ", prefix_lst->name);
         print_pfx_lst_node (pfx_lst_node);
 
      } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr);
@@ -274,7 +274,7 @@ prefix_lst_config_handler (int cmdcode,
                     {
                         remove_glthread(&prefix_lst->glue);
                         prefix_list_dereference(prefix_lst);
-                        printf("Delete Successful.\n");
+                        cprintf("Delete Successful.\n");
                     }
                 }
                 return 0;
@@ -284,10 +284,10 @@ prefix_lst_config_handler (int cmdcode,
             if (!prefix_list_is_in_use(prefix_lst)) {
                 remove_glthread(&prefix_lst->glue);
                 prefix_list_dereference(prefix_lst);
-                printf ("Delete Successful.\n");
+                cprintf ("Delete Successful.\n");
             }
             else {
-                printf ("Error : Prefix List in Use, cannot delete\n");
+                cprintf ("Error : Prefix List in Use, cannot delete\n");
             }
         }
         return 0;
@@ -295,14 +295,14 @@ prefix_lst_config_handler (int cmdcode,
     /* Handle negation CLI Done */
 
     if (nw_prefix == NULL || res_str == NULL) {
-        printf ("Error : Incomplete Prefix List\n");
+        cprintf ("Error : Incomplete Prefix List\n");
         return -1;
     }
 
     pfx_lst_result_t res = (strcmp (res_str, "permit") == 0) ? PFX_LST_PERMIT : PFX_LST_DENY;
 
     if (nw_prefix == NULL) {
-        printf ("Error : Incomplete Prefix List\n");
+        cprintf ("Error : Incomplete Prefix List\n");
         return -1;
     }
 
@@ -319,7 +319,7 @@ prefix_lst_config_handler (int cmdcode,
                                              tcp_ip_covert_ip_p_to_n(nw_prefix),
                                              len, lb, ub)) {
         
-        printf ("Error : Rule Could not be configured\n");
+        cprintf ("Error : Rule Could not be configured\n");
 
         if (new_pfx_lst) {
             XFREE(prefix_lst);
@@ -348,7 +348,7 @@ prefix_lst_validate_input_result_value(Stack_t *tlv_stack, char *value) {
         return LEAF_VALIDATION_SUCCESS;
     }
 
-    printf ("Mention either : permit Or deny. Case sensitive\n");
+    cprintf ("Mention either : permit Or deny. Case sensitive\n");
     return LEAF_VALIDATION_FAILED;
 }
 

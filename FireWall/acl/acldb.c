@@ -20,6 +20,7 @@
 #include "../fwall_trace_const.h"
 #include "../object_network/objects_common.h"
 #include "../object_network/object_grp_update.h"
+#include "../../CLIBuilder/libcli.h"
 
 static void
 acl_get_member_tcam_entry (
@@ -685,7 +686,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
     acl_entry_t *acl_entry;
 
     if (access_list->ref_count > 1) {
-        printf ("Access List is in use, Cannot delete\n");
+        cprintf ("Access List is in use, Cannot delete\n");
         return false;
     }
 
@@ -706,7 +707,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
     access_list->ref_count--;
     pthread_rwlock_destroy(&access_list->mtrie_update_lock);
     access_list_check_delete(access_list);
-    printf ("Access List Deleted\n");
+    cprintf ("Access List Deleted\n");
     return true;
 }
 
@@ -988,12 +989,12 @@ access_group_config(node_t *node,
         spin_lock = &intf->spin_lock_l3_egress_acc_lst;
     }
     else {
-        printf ("Error : Direction can be - 'in' or 'out' only\n");
+        cprintf ("Error : Direction can be - 'in' or 'out' only\n");
         return -1;
     }
 
     if (*configured_access_lst) {
-        printf ("Error : Access List %s already applied\n", (*configured_access_lst)->name);
+        cprintf ("Error : Access List %s already applied\n", (*configured_access_lst)->name);
         return -1;
     }
 
@@ -1031,12 +1032,12 @@ access_group_unconfig (node_t *node,
         spin_lock = &intf->spin_lock_l3_egress_acc_lst;
     }
     else {
-        printf ("Error : Direction can in - 'in' or 'out' only\n");
+        cprintf ("Error : Direction can in - 'in' or 'out' only\n");
         return -1;
     }
 
     if (!( *configured_access_lst )) {
-        printf ("Error : Access List %s not applied\n", (*configured_access_lst)->name);
+        cprintf ("Error : Access List %s not applied\n", (*configured_access_lst)->name);
         return -1;
     }
 
@@ -1193,7 +1194,7 @@ acl_entry_uninstall (access_list_t *access_list,
             &tcam_entry_template);
 
 #if 0
-            printf ("Un-Installing TCAM Entry  # %u: \n", acl_entry->total_tcam_count);
+            cprintf ("Un-Installing TCAM Entry  # %u: \n", acl_entry->total_tcam_count);
             bitmap_print(&tcam_entry_template.prefix);
             bitmap_print(&tcam_entry_template.mask);
 #endif
@@ -1281,7 +1282,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
             &tcam_entry_template);
 
 #if 0
-            printf ("Installing TCAM Entry  # %u\n",  acl_entry->tcam_total_count);
+            cprintf ("Installing TCAM Entry  # %u\n",  acl_entry->tcam_total_count);
             bitmap_print(&tcam_entry_template.prefix);
             bitmap_print(&tcam_entry_template.mask);
 #endif
@@ -1584,10 +1585,10 @@ access_list_print_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry
     acl_tcam_t tcam_entry_template;
     acl_tcam_iterator_t src_port_it, dst_port_it;          
 
-    printf (" access-list %s ",  access_list->name);
+    cprintf (" access-list %s ",  access_list->name);
 
     acl_print(acl_entry);
-    printf("\n");
+    cprintf("\n");
 
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
     bitmap_init(&tcam_entry_template.mask, ACL_PREFIX_LEN);
@@ -1615,7 +1616,7 @@ access_list_print_acl_bitmap (access_list_t *access_list, acl_entry_t *acl_entry
             bitmap_prefix_print(&tcam_entry_template.prefix, 
                                              &tcam_entry_template.mask, 
                                              ACL_PREFIX_LEN);
-            printf("\n");
+            cprintf("\n");
 
     } while (acl_iterators_increment (
                 &src_it,
@@ -2458,7 +2459,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
             tcam_entry_template);
 
 #if 0
-        printf("%sInstalling TCAM Entry\n", access_list_processing_info->is_installation ? "" : "Un-");
+        cprintf("%sInstalling TCAM Entry\n", access_list_processing_info->is_installation ? "" : "Un-");
         bitmap_print(&tcam_entry_template->prefix);
         bitmap_print(&tcam_entry_template->mask);
 #endif    

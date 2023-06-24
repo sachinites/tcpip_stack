@@ -51,6 +51,7 @@ Algorithms : Pre/Post Order traversal over N-Trees.
 #include "objects_common.h"
 #include "../acl/acldb.h"
 #include "../fwall_trace_const.h"
+#include "../../CLIBuilder/libcli.h"
 
 #define HASH_PRIME_CONST    5381
 
@@ -399,17 +400,17 @@ object_group_display_detail (node_t *node, object_group_t *og) {
     glthread_t *curr;
     obj_grp_list_node_t *obj_grp_list_node;
 
-    printf ("OG : %s  ", og->og_name);
+    cprintf ("OG : %s  ", og->og_name);
 
-    printf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
+    cprintf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
         og->ref_count, og->tcam_entry_users_ref_count,
         og->tcam_state == OG_TCAM_STATE_COMPILED ? "Y" : "N");
 
     ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
-        printf ("  C-OG : %s ", obj_grp_list_node->og->og_name);
-        printf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
+        cprintf ("  C-OG : %s ", obj_grp_list_node->og->og_name);
+        cprintf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
         obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count,
         obj_grp_list_node->og->tcam_state == OG_TCAM_STATE_COMPILED ? "Y" : "N");
 
@@ -418,8 +419,8 @@ object_group_display_detail (node_t *node, object_group_t *og) {
     ITERATE_GLTHREAD_BEGIN(&og->parent_og_list_head, curr) {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
-        printf ("  P-OG : %s ", obj_grp_list_node->og->og_name);
-        printf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
+        cprintf ("  P-OG : %s ", obj_grp_list_node->og->og_name);
+        cprintf (" (ref-count : %u, #Tcam-Users-Count : %u, Compiled ? %s)\n", 
         obj_grp_list_node->og->ref_count, obj_grp_list_node->og->tcam_entry_users_ref_count,
         obj_grp_list_node->og->tcam_state == OG_TCAM_STATE_COMPILED ? "Y" : "N");
 
@@ -433,24 +434,24 @@ object_group_display (object_group_t *og) {
     char ip[16];
     switch(og->og_type) {
         case OBJECT_GRP_NET_HOST:
-            printf ("  object-group network %s %s %s", og->og_name, 
+            cprintf ("  object-group network %s %s %s", og->og_name, 
                 object_group_type_str(og->og_type),
                 tcp_ip_covert_ip_n_to_p(og->u.host , ip));
-            printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+            cprintf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
                 og->ref_count, og->tcam_entry_users_ref_count);
             break;
         case OBJECT_GRP_NET_ADDR:
-             printf ("  object-group network %s %s", og->og_name, 
+             cprintf ("  object-group network %s %s", og->og_name, 
              tcp_ip_covert_ip_n_to_p (og->u.subnet.network, ip));
-             printf(" %s", tcp_ip_covert_ip_n_to_p (og->u.subnet.subnet, ip));
-            printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+             cprintf(" %s", tcp_ip_covert_ip_n_to_p (og->u.subnet.subnet, ip));
+            cprintf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
                 og->ref_count, og->tcam_entry_users_ref_count);             
             break;
         case OBJECT_GRP_NET_RANGE:
-            printf ("  object-group network %s range %s", og->og_name, 
+            cprintf ("  object-group network %s range %s", og->og_name, 
             tcp_ip_covert_ip_n_to_p (og->u.range.lb, ip));
-            printf (" %s", tcp_ip_covert_ip_n_to_p (og->u.range.ub, ip));
-            printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+            cprintf (" %s", tcp_ip_covert_ip_n_to_p (og->u.range.ub, ip));
+            cprintf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
                 og->ref_count, og->tcam_entry_users_ref_count);
             break;
         case OBJECT_GRP_NESTED:
@@ -461,9 +462,9 @@ object_group_display (object_group_t *og) {
             ITERATE_GLTHREAD_BEGIN(&og->u.nested_og_list_head, curr) {
 
                 obj_grp_list_node = glue_to_obj_grp_list_node(curr);
-                printf (" object-group network %s group-object %s", 
+                cprintf (" object-group network %s group-object %s", 
                     og->og_name, obj_grp_list_node->og->og_name);
-                printf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
+                cprintf (" (ref-count : %u, #Tcam-Users-Count : %u)\n", 
                 og->ref_count, og->tcam_entry_users_ref_count);
 
                 object_group_display(obj_grp_list_node->og);
@@ -473,7 +474,7 @@ object_group_display (object_group_t *og) {
         break;
     }
 
-    printf ("  ACLs referenced:\n");
+    cprintf ("  ACLs referenced:\n");
     
     objects_linkage_db_t *db = (objects_linkage_db_t *)og->db;
 
@@ -485,7 +486,7 @@ object_group_display (object_group_t *og) {
 
             objects_linked_acl_thread_node_t *objects_linked_acl_thread_node = glue_to_objects_linked_acl_thread_node(curr);
 
-            printf ("   access-list %s \n", objects_linked_acl_thread_node->acl->access_lst->name);
+            cprintf ("   access-list %s \n", objects_linked_acl_thread_node->acl->access_lst->name);
 
             
         }ITERATE_GLTHREAD_END(&db->acls_list, curr)
@@ -508,7 +509,7 @@ object_group_hashtable_print(node_t *node, hashtable_t *ht) {
 
     count = hashtable_count(ht);
 
-    printf("Number of Object Groups : %u\n", count);
+    cprintf("Number of Object Groups : %u\n", count);
 
     if (!count) return;
 
@@ -519,7 +520,7 @@ object_group_hashtable_print(node_t *node, hashtable_t *ht) {
         char *key = (char *)hashtable_iterator_key(itr);
         object_group_t *og = (object_group_t *)hashtable_iterator_value(itr);
         object_group_display_detail (node, og);
-        printf ("\n");
+        cprintf ("\n");
     } while (hashtable_iterator_advance(itr));
 
     free(itr);

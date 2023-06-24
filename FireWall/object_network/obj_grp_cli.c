@@ -68,7 +68,7 @@ object_group_config_handler (int cmdcode,
     else if (parser_match_leaf_id (tlv->leaf_id, "range-ub")) {
         ub = tcp_ip_covert_ip_p_to_n(tlv->value);             
         if (ub < lb) {
-            printf ("Error : Invalid Range\n");
+            cprintf ("Error : Invalid Range\n");
             return -1;
         }
     }
@@ -82,25 +82,25 @@ object_group_config_handler (int cmdcode,
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
                     /* CLI : object-group network <og-name> */ 
-                    printf ("Error : Incomplete Command\n");
+                    cprintf ("Error : Incomplete Command\n");
                     return -1;
                 case CONFIG_DISABLE:
                     /* CLI : [no] object-group network <og-name> */ 
                     {
                         if (network_object_lookup_by_name(node->object_network_ght, objgrp_name))
                         {
-                            printf("Error : Attempt to perform operation on Network Object\n");
+                            cprintf("Error : Attempt to perform operation on Network Object\n");
                             return -1;
                         }
 
                         object_group_t *og = object_group_lookup_ht_by_name(node, node->object_group_ght, objgrp_name);
                         if (!og) {
-                            printf ("Error : Object Group Do not Exist\n");
+                            cprintf ("Error : Object Group Do not Exist\n");
                             return -1;
                         }
                         if (object_group_in_use_by_other_og(og) ||
                                 og->ref_count) {
-                            printf ("Error : Cannot Delete, Object Group is in Use\n");
+                            cprintf ("Error : Cannot Delete, Object Group is in Use\n");
                             return -1;
                         }
                         object_group_delete(node, og);
@@ -117,7 +117,7 @@ object_group_config_handler (int cmdcode,
 
                         /* CLI Triggered : object-group network <og-name> host <A.B.C.D> */
                         if (network_object_lookup_by_name (node->object_network_ght, objgrp_name)) {
-                            printf ("Error : Network Object already exist by this name\n");
+                            cprintf ("Error : Network Object already exist by this name\n");
                             return -1;
                         }
 
@@ -153,7 +153,7 @@ object_group_config_handler (int cmdcode,
                     object_group_t *og = object_group_lookup_ht_by_name(
                                                         node, node->object_group_ght, objgrp_name);
                     if (!og) {
-                        printf ("Error : Object Group Do not Exist\n");
+                        cprintf ("Error : Object Group Do not Exist\n");
                         return -1;
                     }
 
@@ -170,7 +170,7 @@ object_group_config_handler (int cmdcode,
                         //object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
-                     printf ("Error : Configuration do not exist\n");
+                     cprintf ("Error : Configuration do not exist\n");
                      return -1;
                 }
                 break;
@@ -184,7 +184,7 @@ object_group_config_handler (int cmdcode,
 
                         /* CLI Triggered : object-group network <og-name>  <A.B.C.D> <A.B.C.D>*/
                         if (network_object_lookup_by_name (node->object_network_ght, objgrp_name)) {
-                            printf ("Error : Network Object already exist by this name\n");
+                            cprintf ("Error : Network Object already exist by this name\n");
                             return -1;
                         }
 
@@ -224,7 +224,7 @@ object_group_config_handler (int cmdcode,
                     object_group_t *og = object_group_lookup_ht_by_name(
                                                         node, node->object_group_ght, objgrp_name);
                     if (!og) {
-                        printf ("Error : Object Group Do not Exist\n");
+                        cprintf ("Error : Object Group Do not Exist\n");
                         return -1;
                     }
 
@@ -243,7 +243,7 @@ object_group_config_handler (int cmdcode,
                         //object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
-                     printf ("Error : Configuration do not exist\n");
+                     cprintf ("Error : Configuration do not exist\n");
                      return -1;
                 }
                 break;
@@ -255,7 +255,7 @@ object_group_config_handler (int cmdcode,
                     {
                         /* CLI Triggered : object-group network <og-name>  range <A.B.C.D> <A.B.C.D>*/
                         if (network_object_lookup_by_name (node->object_network_ght, objgrp_name)) {
-                            printf ("Error : Network Object already exist by this name\n");
+                            cprintf ("Error : Network Object already exist by this name\n");
                             return -1;
                         }
 
@@ -291,7 +291,7 @@ object_group_config_handler (int cmdcode,
                     object_group_t *og = object_group_lookup_ht_by_name(
                                                         node, node->object_group_ght, objgrp_name);
                     if (!og) {
-                        printf ("Error : Object Group Do not Exist\n");
+                        cprintf ("Error : Object Group Do not Exist\n");
                         return -1;
                     }
 
@@ -308,7 +308,7 @@ object_group_config_handler (int cmdcode,
                         //object_group_delete(node, obj_grp_list_node->og);
                         return 0;
                      }  ITERATE_GLTHREAD_END(&og->u.nested_og_list_head, curr);
-                     printf ("Error : Configuration do not exist\n");
+                     cprintf ("Error : Configuration do not exist\n");
                      return -1;
                 }
                 break;
@@ -320,19 +320,19 @@ object_group_config_handler (int cmdcode,
                     {
                         /* CLI Triggered : object-group network <og-name>  group-object <og-name>*/
                         if (network_object_lookup_by_name (node->object_network_ght, objgrp_name)) {
-                            printf ("Error : Network Object already exist by name %s\n", objgrp_name);
+                            cprintf ("Error : Network Object already exist by name %s\n", objgrp_name);
                             return -1;
                         }
 
                         if (network_object_lookup_by_name (node->object_network_ght, nested_objgrp_name)) {
-                            printf ("Error : Network Object already exist name %s\n", nested_objgrp_name);
+                            cprintf ("Error : Network Object already exist name %s\n", nested_objgrp_name);
                             return -1;
                         }
 
                         object_group_t *c_og = object_group_lookup_ht_by_name(node, node->object_group_ght, nested_objgrp_name);
 
                         if (!c_og) {
-                            printf ("Error : Nested Object Group Do not exist\n");
+                            cprintf ("Error : Nested Object Group Do not exist\n");
                             return -1;
                         }
 
@@ -358,12 +358,12 @@ object_group_config_handler (int cmdcode,
                     /* CLI Triggered : [no] object-group network <og-name> group-object <og-name> */
                         object_group_t *p_og = object_group_lookup_ht_by_name(node, node->object_group_ght, objgrp_name);
                         if (!p_og) {
-                            printf ("Error : Object Group %s Do not exist\n", objgrp_name);
+                            cprintf ("Error : Object Group %s Do not exist\n", objgrp_name);
                             return -1;
                         }
                         object_group_t *c_og = object_group_lookup_ht_by_name(node, node->object_group_ght, nested_objgrp_name);                        
                         if (!c_og) {
-                            printf ("Error : Object Group %s Do not exist\n", nested_objgrp_name);
+                            cprintf ("Error : Object Group %s Do not exist\n", nested_objgrp_name);
                             return -1;
                         }
                          object_group_update_referenced_acls(node, p_og, c_og, true);
@@ -544,7 +544,7 @@ object_group_display_name_cli_callback (param_t *param, Stack_t *tlv_stack){
     do {
         char *key = (char *)hashtable_iterator_key(itr);
         object_group_t *og = (object_group_t *)hashtable_iterator_value(itr);
-        printf ("%s\n", og->og_name);
+        cprintf ("%s\n", og->og_name);
         
     } while (hashtable_iterator_advance(itr));
 

@@ -33,14 +33,14 @@ send_arp_broadcast_request(node_t *node,
     if(!oif){
         oif = node_get_matching_subnet_interface(node, ip_addr);
         if(!oif){
-            printf("Error : %s : No eligible subnet for ARP resolution for Ip-address : %s\n",
+            cprintf("Error : %s : No eligible subnet for ARP resolution for Ip-address : %s\n",
                     node->node_name, ip_addr);
             tcp_ip_free_pkt_buffer ((byte *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
             return;
         }
 
         if (IF_IP(oif) == tcp_ip_covert_ip_p_to_n( ip_addr)) {
-            printf("Error : %s : Attempt to resolve ARP for local Ip-address : %s\n",
+            cprintf("Error : %s : Attempt to resolve ARP for local Ip-address : %s\n",
                     node->node_name, ip_addr);
              tcp_ip_free_pkt_buffer ((byte *)ethernet_hdr, ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
             return;
@@ -145,7 +145,7 @@ process_arp_broadcast_request(node_t *node, Interface *iif,
         tcp_ip_covert_ip_n_to_p(IF_IP(iif), intf_ip_addr_str);
 
 
-        printf("%s : Error : ARP Broadcast req msg dropped, "
+        cprintf("%s : Error : ARP Broadcast req msg dropped, "
                 "Dst IP address %s did not match with interface ip : %s\n", 
                 node->node_name, arp_ip_addr_str, intf_ip_addr_str);
 #endif
@@ -389,12 +389,12 @@ show_arp_table(arp_table_t *arp_table){
         count++;
         arp_entry = arp_glue_to_arp_entry(curr);
         if(count == 1){
-            printf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|== hits ===|\n");
+            cprintf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|== hits ===|\n");
         }
         else{
-            printf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
+            cprintf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
         }
-        printf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  | %-6llu    |\n", 
+        cprintf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  | %-6llu    |\n", 
             arp_entry->ip_addr.ip_addr, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
@@ -409,7 +409,7 @@ show_arp_table(arp_table_t *arp_table){
             arp_entry->hit_count);
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
     if(count){
-        printf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
+        cprintf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
     }
 }
 
@@ -560,7 +560,7 @@ arp_entry_add(node_t *node, unsigned char *ip_addr, mac_addr_t mac, Interface *o
     string_copy( arp_entry->oif_name, oif->if_name.c_str(), IF_NAME_SIZE);
     if (!arp_table_entry_add (node, NODE_ARP_TABLE(node), arp_entry, 0)) {
         XFREE(arp_entry);
-        printf("Error : Failed to Add ARP Entry\n");
+        cprintf("Error : Failed to Add ARP Entry\n");
         return false;
     }
     return true;

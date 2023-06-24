@@ -41,6 +41,7 @@
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Interface/InterfaceUApi.h"
+#include "CLIBuilder/libcli.h"
 
 /*Just some Random number generator*/
 static uint32_t
@@ -118,16 +119,16 @@ node_set_intf_ip_address(node_t *node, const char *local_if,
 
 void dump_node_nw_props(node_t *node){
 
-    printf("\nNode Name = %s(%p) UDP Port # : %u\n",
+    cprintf("\nNode Name = %s(%p) UDP Port # : %u\n",
         node->node_name, node, node->udp_port_number);
 
-    printf("\t node flags : %u", node->node_nw_prop.flags);
+    cprintf("\t node flags : %u", node->node_nw_prop.flags);
 
     if(node->node_nw_prop.is_lb_addr_config){
-        printf("\t  lo addr : %s/32", NODE_LO_ADDR(node));
+        cprintf("\t  lo addr : %s/32", NODE_LO_ADDR(node));
     }
 
-    printf("\n");
+    cprintf("\n");
 }
 
 void dump_intf_props (Interface *interface){
@@ -138,19 +139,19 @@ void dump_intf_props (Interface *interface){
     mac_addr_t *mac_addr;
     dump_interface(interface);
 
-    printf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
+    cprintf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
 
     if(interface->IsIpConfigured()){
         interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
         tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
-        printf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
+        cprintf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
 
         mac_addr = interface->GetMacAddr();
         if (!mac_addr) {
-            printf("\t MAC : Nil\n");
+            cprintf("\t MAC : Nil\n");
         }
         else {
-            printf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
+            cprintf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
                    mac_addr->mac[0], mac_addr->mac[1],
                    mac_addr->mac[2], mac_addr->mac[3],
                    mac_addr->mac[4], mac_addr->mac[5]);
@@ -158,21 +159,21 @@ void dump_intf_props (Interface *interface){
     }
     else
     {
-        printf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
+        cprintf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
         int i = 0;
         PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(interface);
         if (phyIntf)
         {
-            printf("\t vlan membership : ");
+            cprintf("\t vlan membership : ");
             for (; i < INTF_MAX_VLAN_MEMBERSHIP; i++)
             {
                 if (phyIntf->vlans[i])
                 {
-                    printf("%u  ", phyIntf->vlans[i]);
+                    cprintf("%u  ", phyIntf->vlans[i]);
                 }
             }
         }
-        printf("\n");
+        cprintf("\n");
     }
 }
 
@@ -183,7 +184,7 @@ void dump_nw_graph(graph_t *graph, node_t *node1){
     Interface *interface;
     uint32_t i;
     
-    printf("Topology Name = %s\n", graph->topology_name);
+    cprintf("Topology Name = %s\n", graph->topology_name);
     
     if(!node1){
         ITERATE_GLTHREAD_BEGIN(&graph->node_list, curr){
@@ -288,7 +289,7 @@ pkt_buffer_shift_right(byte *pkt,
 void
 dump_interface_stats(Interface *interface){
 
-    printf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u,  send rate = %lu bps",
+    cprintf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u,  send rate = %lu bps",
         interface->if_name.c_str(), interface->pkt_sent,
         interface->pkt_recv,
 		interface->xmit_pkt_dropped);
@@ -306,9 +307,9 @@ dump_node_interface_stats(node_t *node){
         if(!interface)
             continue;
         dump_interface_stats(interface);
-        printf("\n");
+        cprintf("\n");
     }
-    printf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
+    cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }
 
 #if 0

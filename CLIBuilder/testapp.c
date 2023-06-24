@@ -38,21 +38,21 @@ list_vlans(param_t *param, ser_buff_t *tlv_buf){
     unsigned int i = 1;
     for(; i <= 10; i++){
 
-        printf ("\n%d", i);
+        cprintf ("\n%d", i);
     }
 }
 
 int
 show_ip_igmp_groups_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
-    printf ("\nenable or disable = %d", enable_or_disable);
+    cprintf ("\nenable or disable = %d", enable_or_disable);
     trace (tr, IGMP_LOG, "igmp logs %s\n", "printed");
 }
 
 int
 mtrace_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
-    printf ("\nenable or disable = %d", enable_or_disable);
+    cprintf ("\nenable or disable = %d", enable_or_disable);
     
     trace (tr, MTRACE_LOG, "mtrace logs %s\n", "printed");
     //trace (tr, MTRACE_LOG, "%s(%d) :: mtrace logs %s\n", FNL, "printed");
@@ -82,7 +82,7 @@ user_vlan_validation_callback(Stack_t *tlv_stack, char *vlan_id){
     if(vlan_no > 0 && vlan_no < 4096)
         return 0;
 
-    printf("\nInvalid vlan. Pls follow Help\n");
+    cprintf("\nInvalid vlan. Pls follow Help\n");
     return -1;
 }
 

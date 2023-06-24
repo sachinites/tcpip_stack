@@ -47,7 +47,7 @@ acl_port_no_validation (Stack_t *tlv_stack, unsigned char *value) {
     int64_t val_num = atoi((const char *)value);
     if (val_num >= 0 && val_num <= ACL_PROTO_MAX)
         return LEAF_VALIDATION_SUCCESS;
-    printf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
+    cprintf ("%s is Invalid. Valid Value Range : [0 %d]\n", value, ACL_PROTO_MAX);
     return LEAF_VALIDATION_FAILED;
 }
 
@@ -82,7 +82,7 @@ acl_parse_ace_config_entries(
         acl_entry->action = ACL_DENY;
     }
     else {
-        printf ("Error : Bad ACL Action Name %s\n", action_name);
+        cprintf ("Error : Bad ACL Action Name %s\n", action_name);
         return false;
     }
 
@@ -227,7 +227,7 @@ access_list_unconfig(node_t *node,
    access_list_t *access_list = access_list_lookup_by_name(node, access_list_name);
 
     if (!access_list) {
-        printf ("Error : Access List do not Exist\n");
+        cprintf ("Error : Access List do not Exist\n");
         return -1;
     }
 
@@ -239,7 +239,7 @@ access_list_unconfig(node_t *node,
         /* If user has triggered only no <access-list-name> <seq_no>, then delete the acl_entry 
             from the access list , uninstall it as well*/
             if (!access_list_delete_acl_entry_by_seq_no(node, access_list, seq_no)) {
-                printf ("Error : ACL with this Seq Number do not exist\n");
+                cprintf ("Error : ACL with this Seq Number do not exist\n");
                 return -1;
             }
 
@@ -329,70 +329,70 @@ acl_config_handler (int cmdcode,
         else if (parser_match_leaf_id(tlv->leaf_id, "src-port-no-eq")) {
             src_port_no_eq = atoi((const char *)tlv->value);
             if (!(src_port_no_eq > 0 && src_port_no_eq < ACL_MAX_PORTNO)) {
-                printf("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                cprintf("Error : Invalid Src lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-lt")) {
             src_port_no_lt = atoi((const char *)tlv->value);
             if (src_port_no_lt <= 0 || src_port_no_lt > ACL_MAX_PORTNO) {
-                printf ("Error : Invalid Src lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Src lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no-gt")) {
             src_port_no_gt = atoi((const char *)tlv->value);
             if (src_port_no_gt < 0 || src_port_no_gt >= ACL_MAX_PORTNO) {
-                printf ("Error : Invalid Src gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Src gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no1")) {
             src_port_no1 = atoi((const char *)tlv->value);
             if (!(src_port_no1 >= 0 && src_port_no1 <= ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "src-port-no2")) {
             src_port_no2 = atoi((const char *)tlv->value);         
             if (!(src_port_no2 >= 0 && src_port_no2 <= ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Src Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }                           
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-eq")) {
             dst_port_no_eq = atoi((const char *)tlv->value);
             if (!(dst_port_no_eq > 0 && dst_port_no_eq < ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Dst lt value. Supported (0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-lt")) {
             dst_port_no_lt = atoi((const char *)tlv->value);
             if (dst_port_no_lt <= 0 || dst_port_no_lt > ACL_MAX_PORTNO) {
-                printf ("Error : Invalid Dst lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Dst lt value. Supported (0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no-gt")) {
             dst_port_no_gt = atoi((const char *)tlv->value);
             if (dst_port_no_gt < 0 || dst_port_no_gt >= ACL_MAX_PORTNO) {
-                printf ("Error : Invalid Dst gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Dst gt value. Supported [0, %d)\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no1")) {
             dst_port_no1 = atoi((const char *)tlv->value);
             if (!(dst_port_no1 >= 0 && dst_port_no1 <= ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "dst-port-no2")) {
             dst_port_no2 = atoi((const char *)tlv->value);         
             if (!(dst_port_no2 >= 0 && dst_port_no2 <= ACL_MAX_PORTNO)) {
-                printf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
+                cprintf ("Error : Invalid Dst Port Range value. Supported [0, %d]\n", ACL_MAX_PORTNO);
                 return -1;
             }                           
         }
@@ -403,14 +403,14 @@ acl_config_handler (int cmdcode,
     /* Validation checks */
     if (obj_nw_name_src) {
         if (!(obj_nw_src = network_object_lookup_by_name(node->object_network_ght, obj_nw_name_src))) {
-            printf ("Error : Network Object %s do not exist\n", obj_nw_name_src);
+            cprintf ("Error : Network Object %s do not exist\n", obj_nw_name_src);
             return -1;
         }
     }
 
     if (obj_nw_name_dst) {
         if (!(obj_nw_dst = network_object_lookup_by_name(node->object_network_ght, obj_nw_name_dst))) {
-            printf ("Error : Network Object %s do not exist\n", obj_nw_name_dst);
+            cprintf ("Error : Network Object %s do not exist\n", obj_nw_name_dst);
             return -1;
         }
     }    
@@ -418,14 +418,14 @@ acl_config_handler (int cmdcode,
     /* Validation checks */
     if (obj_grp_name_src) {
         if (!(obj_grp_src = object_group_lookup_ht_by_name(node, node->object_group_ght, obj_grp_name_src))) {
-            printf ("Error : Network Group Object %s do not exist\n", obj_grp_name_src);
+            cprintf ("Error : Network Group Object %s do not exist\n", obj_grp_name_src);
             return -1;
         }
     }
 
     if (obj_grp_name_dst) {
         if (!(obj_grp_dst = object_group_lookup_ht_by_name(node, node->object_group_ght, obj_grp_name_dst))) {
-            printf ("Error : Network Group Object %s do not exist\n", obj_grp_name_dst);
+            cprintf ("Error : Network Group Object %s do not exist\n", obj_grp_name_dst);
             return -1;
         }
     }    
@@ -448,14 +448,14 @@ acl_config_handler (int cmdcode,
             case ACL_TCP:
             break;
             default:
-                printf ("Error : Port number is supported only with udp/tcp protocols\n");
+                cprintf ("Error : Port number is supported only with udp/tcp protocols\n");
                 return -1;
         }
     }
 
     if ((src_port_no1 > src_port_no2) || (dst_port_no1 > dst_port_no2)) {
 
-        printf ("Error : Port Number Ranges specified is incorrect\n");
+        cprintf ("Error : Port Number Ranges specified is incorrect\n");
         return -1;
     }
 
@@ -567,13 +567,13 @@ access_group_config_handler(int cmdcode,
     Interface *intf = node_get_intf_by_name(node, if_name);
     
     if (!intf) {
-        printf ("Error : Interface do not exist\n");
+        cprintf ("Error : Interface do not exist\n");
         return -1;
     }
 
     access_list_t *acc_lst = access_list_lookup_by_name(node, access_list_name);
     if (!acc_lst) {
-        printf ("Error : Access List not configured\n");
+        cprintf ("Error : Access List not configured\n");
         return -1;
     } 
 
@@ -1286,7 +1286,7 @@ acl_print (acl_entry_t *acl_entry) {
     c_string time_str;
     byte time_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
-    printf (" %u %s %s",
+    cprintf (" %u %s %s",
         acl_entry->seq_no,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
         proto_name_str( acl_entry->proto));
@@ -1296,17 +1296,17 @@ acl_print (acl_entry_t *acl_entry) {
     case ACL_ADDR_NOT_SPECIFIED:
         break;
     case ACL_ADDR_HOST:
-        printf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
+        cprintf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
         break;
     case ACL_ADDR_SUBNET_MASK:
-        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
-        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
+        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
+        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
         break;
     case ACL_ADDR_OBJECT_NETWORK:
-        printf(" object-network %s", acl_entry->src_addr.u.obj_nw->name);
+        cprintf(" object-network %s", acl_entry->src_addr.u.obj_nw->name);
         break;
     case ACL_ADDR_OBJECT_GROUP:
-         printf(" object-group %s", acl_entry->src_addr.u.og->og_name);
+         cprintf(" object-group %s", acl_entry->src_addr.u.og->og_name);
          break;
     }
 
@@ -1317,13 +1317,13 @@ acl_print (acl_entry_t *acl_entry) {
         if (acl_entry->sport.lb == 0 && acl_entry->sport.ub == 0)
             break;
         else if (acl_entry->sport.lb == 0 && acl_entry->sport.ub < ACL_MAX_PORTNO)
-            printf(" lt %d", acl_entry->sport.ub);
+            cprintf(" lt %d", acl_entry->sport.ub);
         else if (acl_entry->sport.lb > 0 && acl_entry->sport.ub == ACL_MAX_PORTNO)
-            printf(" gt %d", acl_entry->sport.lb);
+            cprintf(" gt %d", acl_entry->sport.lb);
         else if (acl_entry->sport.lb == acl_entry->sport.ub)
-            printf(" eq %d", acl_entry->sport.lb);
+            cprintf(" eq %d", acl_entry->sport.lb);
         else
-            printf(" range %d %d", acl_entry->sport.lb, acl_entry->sport.ub);
+            cprintf(" range %d %d", acl_entry->sport.lb, acl_entry->sport.ub);
         break;
     default:;
     }
@@ -1333,17 +1333,17 @@ acl_print (acl_entry_t *acl_entry) {
     case ACL_ADDR_NOT_SPECIFIED:
         break;
     case ACL_ADDR_HOST:
-        printf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.host_addr, ip_addr));
+        cprintf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.host_addr, ip_addr));
         break;
     case ACL_ADDR_SUBNET_MASK:
-        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
-        printf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
+        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
+        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
         break;
     case ACL_ADDR_OBJECT_NETWORK:
-        printf(" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
+        cprintf(" object-network %s", acl_entry->dst_addr.u.obj_nw->name);
         break;
     case ACL_ADDR_OBJECT_GROUP:
-         printf(" object-group %s", acl_entry->dst_addr.u.og->og_name);
+         cprintf(" object-group %s", acl_entry->dst_addr.u.og->og_name);
          break;        
     }
 
@@ -1354,26 +1354,26 @@ acl_print (acl_entry_t *acl_entry) {
         if (acl_entry->dport.lb == 0 && acl_entry->dport.ub == 0)
             break;
         else if (acl_entry->dport.lb == 0 && acl_entry->dport.ub < ACL_MAX_PORTNO)
-            printf(" lt %d", acl_entry->dport.ub);
+            cprintf(" lt %d", acl_entry->dport.ub);
         else if (acl_entry->dport.lb > 0 && acl_entry->dport.ub == ACL_MAX_PORTNO)
-            printf(" gt %d", acl_entry->dport.lb);
+            cprintf(" gt %d", acl_entry->dport.lb);
         else if (acl_entry->dport.lb == acl_entry->dport.ub)
-            printf(" eq %d", acl_entry->dport.lb);
+            cprintf(" eq %d", acl_entry->dport.lb);
         else
-            printf(" range %d %d", acl_entry->dport.lb, acl_entry->dport.ub);
+            cprintf(" range %d %d", acl_entry->dport.lb, acl_entry->dport.ub);
         break;
         break;
     default:;
     }
 
-    printf("\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])",
+    cprintf("\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])",
            acl_entry->hit_count,
            acl_entry->tcam_total_count,
            acl_entry->tcam_self_conflicts_count,
            acl_entry->tcam_other_conflicts_count);
 
     time_str = acl_entry_get_installation_time_duration(acl_entry, time_buff, sizeof(time_buff));
-    printf (  "    [Install Duration : %s]  %u%c\n", time_str ? time_str : (c_string) "NA",
+    cprintf (  "    [Install Duration : %s]  %u%c\n", time_str ? time_str : (c_string) "NA",
     acl_entry->expected_tcam_count ? (acl_entry->tcam_total_count * 100) / acl_entry->expected_tcam_count : 0, PERCENT_ASCII_CODE);
 }
 
@@ -1389,17 +1389,17 @@ access_list_show_all(node_t *node) {
     ITERATE_GLTHREAD_BEGIN(&node->access_lists_db, curr) {
 
         access_list = glthread_to_access_list(curr);
-        printf ("Access-list : %s" , access_list->name);
+        cprintf ("Access-list : %s" , access_list->name);
         time_str = access_list_get_installation_time_duration(access_list, time_buff, sizeof(time_buff));
-        printf (  "    [Install Duration : %s]\n", time_str ? time_str : (c_string) "NA");
+        cprintf (  "    [Install Duration : %s]\n", time_str ? time_str : (c_string) "NA");
 
          ITERATE_GLTHREAD_BEGIN (&access_list->head, curr1) {
 
                 acl_entry = glthread_to_acl_entry(curr1);
-                printf(" access-list %s", access_list->name);
+                cprintf(" access-list %s", access_list->name);
 
                 acl_print(acl_entry);
-                printf ("\n");
+                cprintf ("\n");
 
          } ITERATE_GLTHREAD_END(&access_list->head, curr1);
 

@@ -115,7 +115,7 @@ render_line (unsigned char *Obuffer, int msg_len) {
     cum_buffer_byte_cnt += msg_len;
 }
 
-
+/* override glibc printf */
 int cprintf (const char* format, ...) {
 
     int i;

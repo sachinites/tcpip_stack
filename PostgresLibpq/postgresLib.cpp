@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <memory.h>
 #include <stdbool.h>
+#include "../CLIBuilder/libcli.h"
 #include "postgresLib.h"
 
 static bool log = false;
@@ -39,14 +40,14 @@ int postgresql_create_new_user(const char *server_ip_addr, const char *user_name
     if (!conn)
     {
         if (log) {
-        printf("DBServer : %s : Connection Failed\n",
+        cprintf("DBServer : %s : Connection Failed\n",
                server_ip_addr ? server_ip_addr : "localhost");
         }
         return PGSQL_FAILED;
     }
 
     if (log) {
-        printf("DBServer : %s : Connection Successful\n",
+        cprintf("DBServer : %s : Connection Successful\n",
            server_ip_addr ? server_ip_addr : "localhost");
     }
 
@@ -73,7 +74,7 @@ int postgresql_create_new_user(const char *server_ip_addr, const char *user_name
     if (PQresultStatus(sql_query_result) != PGRES_COMMAND_OK)
     {
         if (log) {
-        printf("DBServer : %s : Failed to create user %s, error code = %d\n",
+        cprintf("DBServer : %s : Failed to create user %s, error code = %d\n",
                server_ip_addr ? server_ip_addr : "localhost",
                user_name, PQresultStatus(sql_query_result));
         }
@@ -83,7 +84,7 @@ int postgresql_create_new_user(const char *server_ip_addr, const char *user_name
     }
 
     if (log) {
-        printf("DBServer : %s : User %s Created Successfully with password %s\n",
+        cprintf("DBServer : %s : User %s Created Successfully with password %s\n",
            server_ip_addr ? server_ip_addr : "localhost",
            user_name, user_name);
     }
@@ -102,7 +103,7 @@ int postgresql_create_new_database(const char *server_ip_addr, const char *db_na
     if (!conn)
     {
         if (log) {
-            printf("DBServer : %s : Connection Failed\n",
+            cprintf("DBServer : %s : Connection Failed\n",
                server_ip_addr ? server_ip_addr : "localhost");
         }
         return PGSQL_FAILED;
@@ -130,7 +131,7 @@ int postgresql_create_new_database(const char *server_ip_addr, const char *db_na
     if (PQresultStatus(sql_query_result) != PGRES_COMMAND_OK)
     {
         if (log) {
-            printf("Failed to create database %s, error code = %d\n",
+            cprintf("Failed to create database %s, error code = %d\n",
                db_name, PQresultStatus(sql_query_result));
         }
         PQclear(sql_query_result);
@@ -139,7 +140,7 @@ int postgresql_create_new_database(const char *server_ip_addr, const char *db_na
     }
 
     if (log) {
-        printf("Database %s Created Successfully\n", db_name);
+        cprintf("Database %s Created Successfully\n", db_name);
     }
     PQclear(sql_query_result);
     PQfinish(conn);
@@ -197,7 +198,7 @@ int postgresql_delete_user(const char *server_ip_addr, const char *user_name)
     if (PQresultStatus(sql_query_result) != PGRES_COMMAND_OK)
     {
         if (log) {
-            printf("DBServer : %s : Failed to delete user %s, error code = %d\n",
+            cprintf("DBServer : %s : Failed to delete user %s, error code = %d\n",
                server_ip_addr ? server_ip_addr : "localhost",
                user_name, PQresultStatus(sql_query_result));
         }
@@ -250,7 +251,7 @@ int postgresql_delete_database(const char *server_ip_addr, const char *db_name)
     if (PQresultStatus(sql_query_result) != PGRES_COMMAND_OK)
     {
         if (log) {
-            printf("DBServer : %s : Failed to delete database %s, error code = %d\n",
+            cprintf("DBServer : %s : Failed to delete database %s, error code = %d\n",
                server_ip_addr ? server_ip_addr : "localhost",
                db_name, PQresultStatus(sql_query_result));
         }
@@ -274,13 +275,13 @@ main(int argc , char **argv) {
 
     switch (rc) {
     case PGSQL_FAILED:
-        printf ("Create new User : Operation Failed\n");
+        cprintf ("Create new User : Operation Failed\n");
         break;
     case PGSQL_NOOP:
-        printf ("Create new User : User Already Exist\n");
+        cprintf ("Create new User : User Already Exist\n");
         break;
     case PGSQL_SUCCESS:
-        printf ("Create new User : User Created Successfully\n");
+        cprintf ("Create new User : User Created Successfully\n");
         break;
     default: ;
     }
@@ -288,13 +289,13 @@ main(int argc , char **argv) {
     rc = postgresql_create_new_database (NULL, "vm1db");
     switch (rc) {
     case PGSQL_FAILED:
-        printf ("Create new DB : Operation Failed\n");
+        cprintf ("Create new DB : Operation Failed\n");
         break;
     case PGSQL_NOOP:
-        printf ("Create new DB : DB Already Exist\n");
+        cprintf ("Create new DB : DB Already Exist\n");
         break;
     case PGSQL_SUCCESS:
-        printf ("Create new DB : DB Created Successfully\n");
+        cprintf ("Create new DB : DB Created Successfully\n");
         break;
     default: ;
     }
@@ -305,13 +306,13 @@ main(int argc , char **argv) {
     PQfinish(conn);
     switch (rc) {
     case PGSQL_FAILED:
-        printf ("Assign DB to new User : Operation Failed\n");
+        cprintf ("Assign DB to new User : Operation Failed\n");
         break;
     case PGSQL_NOOP:
-        printf ("Assign DB to new User : No Op\n");
+        cprintf ("Assign DB to new User : No Op\n");
         break;
     case PGSQL_SUCCESS:
-        printf ("Assign DB to new User : Assignment Successfully\n");
+        cprintf ("Assign DB to new User : Assignment Successfully\n");
         break;
     default: ;
     }
@@ -321,13 +322,13 @@ main(int argc , char **argv) {
 
     switch (rc) {
     case PGSQL_FAILED:
-        printf ("Delete DB : Operation Failed\n");
+        cprintf ("Delete DB : Operation Failed\n");
         break;
     case PGSQL_NOOP:
-        printf ("Delete DB : DB Do Not Exist\n");
+        cprintf ("Delete DB : DB Do Not Exist\n");
         break;
     case PGSQL_SUCCESS:
-        printf ("Delete DB : DB Deleted Successfully\n");
+        cprintf ("Delete DB : DB Deleted Successfully\n");
         break;
     default: ;
     }
@@ -336,13 +337,13 @@ main(int argc , char **argv) {
 
     switch (rc) {
     case PGSQL_FAILED:
-        printf ("Delete User : Operation Failed\n");
+        cprintf ("Delete User : Operation Failed\n");
         break;
     case PGSQL_NOOP:
-        printf ("Delete User : User Do Not Exist\n");
+        cprintf ("Delete User : User Do Not Exist\n");
         break;
     case PGSQL_SUCCESS:
-        printf ("Delete User : User Deleted Successfully\n");
+        cprintf ("Delete User : User Deleted Successfully\n");
         break;
     default: ;
     }    
