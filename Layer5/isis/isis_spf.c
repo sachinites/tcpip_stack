@@ -395,7 +395,7 @@ isis_spf_record_result (tracer_t *tr,
             spf_result->nexthops);
 
     trace (tr, TR_ISIS_SPF,
-        "%s : %s : Result Recorded for node %s, "
+        "%s : Result Recorded for node %s, "
             "Next hops : %s, spf_metric = %u\n", ISIS_SPF,
             processed_node->node_name,
             nh_nexthops_str(spf_result->nexthops, log_buff, sizeof(log_buff)),

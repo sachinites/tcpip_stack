@@ -4,6 +4,7 @@
 #include <memory.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <ncurses.h>
 #include "tracer.h"
 
 
@@ -11,7 +12,6 @@
 #define LOG_BUFFER_SIZE 256
 
 #define CLI_INTG
-#undef CLI_INTG
 
 #ifdef CLI_INTG
 extern int cprintf (const char* format, ...) ;
@@ -63,10 +63,11 @@ tracer_init (const char *tr_str_id, const char *file_name, const char *hdr, int 
     
     if (file_name) {
         tr->log_file = fopen (file_name, "w+");
+        assert (tr->log_file);
     }
 
     if (hdr) {
-        tr->hdr_size = snprintf (tr->Logbuffer, HDR_SIZE, "%s : ", hdr);
+        tr->hdr_size = snprintf ((char *)tr->Logbuffer, HDR_SIZE, "%s : ", hdr);
     }
     tr->log_msg_len = tr->hdr_size;
     tr->out_fd = out_fd;
@@ -173,7 +174,13 @@ trace_internal (tracer_t *tracer,
             write (tracer->out_fd, tracer->Logbuffer, tracer->log_msg_len);
         }
         #else 
-        cprintf ("%s",  tracer->Logbuffer);
+        if (tracer->op_flags & DISABLE_HDR_PRINTING) {
+            cprintf ("%s", tracer->Logbuffer + HDR_SIZE, tracer->log_msg_len - HDR_SIZE);
+        }
+        else {
+            cprintf ("%s",  tracer->Logbuffer);
+        }
+       refresh();
         #endif
     }
 

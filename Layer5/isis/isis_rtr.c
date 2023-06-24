@@ -56,8 +56,7 @@ isis_free_node_info(node_t *node) {
 
     XFREE(node_info);
     node->node_nw_prop.isis_node_info = NULL;
-
-    cprintf ("ISIS Protocol successfully shutdown\n");
+    cprintf ("%s: ISIS Protocol successfully shutdown\n", node->node_name);
 }
 
 static void

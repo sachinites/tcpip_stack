@@ -688,6 +688,12 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                     no leaf at this level. Auto-complete to the matching point amoing all params here*/
                 len = cmdtc_find_common_intial_lcs_len (&cmdtc->matching_params_list, 0);
 
+                if (len == 0) {
+                    /* User has just typed ' ' and none of the options progress to auto-completion (even partially). Just display options and stay in the same state*/
+                    cmdt_cursor_display_options (cmdtc);
+                    return cmdt_cursor_no_match_further;
+                }
+
                 /* Take any param from the list*/
                 param = glue_to_param (glthread_get_next (&cmdtc->matching_params_list));
 
@@ -1443,19 +1449,15 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
     switch (cmdtc->cmdtc_state) {
         
         case cmdt_cur_state_init:
-            /*User has typed the complete current word, fir the CLI if last word
+            /*User has typed the complete current word, fire the CLI if last word
                 has appln callback, thenFire the CLI*/
             cmd_tree_trigger_cli (cmdtc);
-            rc = cmdtc->success;
-            if (rc) {  
-                cmd_tree_post_cli_trigger (cmdtc);   
-                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            }
-            return rc;
+            cmd_tree_post_cli_trigger (cmdtc);   
+            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+            return true;
         case cmdt_cur_state_multiple_matches:
-            /* If the user press enter key while he still have multiple matches to choose from,
-                dont process anything. Return false, so user CLI context is maintained the same
-                by the keyProcessor*/
+            /* If the user press enter key while he still have multiple matches to choose from, check if the last work user has typed out matches exactly with
+            one of the options, yes, then accept the word.*/
             param =  cmdtc_filter_word_by_word_size 
                             (&cmdtc->matching_params_list, cmdtc->icursor);
             rc = false;
@@ -1463,9 +1465,9 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 cmdtc->curr_param = param;
                 cmd_tree_cursor_move_to_next_level (cmdtc);
                 cmd_tree_trigger_cli (cmdtc);
+                cmd_tree_post_cli_trigger(cmdtc);
                 rc = cmdtc->success;
                 if (rc) {
-                    cmd_tree_post_cli_trigger(cmdtc);
                     cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
                 }
             }
@@ -1477,16 +1479,12 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 cli_process_key_interrupt (
                         (int)GET_CMD_NAME(cmdtc->curr_param)[cmdtc->icursor]);
             }
-            /* Process space after word completion so that cmd tree cursor is updated and move to
-                next param */
+            /* Process space after word completion so that cmd tree cursor is updated and move to next param */
             cli_process_key_interrupt (' ');
             cmd_tree_trigger_cli (cmdtc);
-            rc = cmdtc->success;
-            if (rc) {  
-                cmd_tree_post_cli_trigger (cmdtc);   
-                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            }
-            return rc;
+            cmd_tree_post_cli_trigger (cmdtc);   
+            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+            return true;
         case cmdt_cur_state_matching_leaf:
             /* Standard Validation Checks on Leaf */
             tlv_struct_t *tlv;
@@ -1505,16 +1503,12 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             }       
             free(tlv);
 
-            /* Process space after word completion so that cmd tree cursor is updated and move to
-                next param */
+            /* Process space after word completion so that cmd tree cursor is updated and move to next param */
             cli_process_key_interrupt (' ');
             cmd_tree_trigger_cli (cmdtc);
-            rc = cmdtc->success;
-            if (rc) {  
-                cmd_tree_post_cli_trigger (cmdtc);
-                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-            }
-            return rc;
+            cmd_tree_post_cli_trigger (cmdtc);
+            cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+            return true;
         case cmdt_cur_state_no_match:
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return false;
