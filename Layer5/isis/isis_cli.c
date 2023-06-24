@@ -210,8 +210,6 @@ isis_config_handler(int cmdcode,
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
-        if (tlv->tlv_type != TLV_TYPE_NORMAL ) continue;
-
         if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "timeout-val"))

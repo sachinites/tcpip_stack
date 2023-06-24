@@ -1331,6 +1331,17 @@ cmdtc_set_filter_context (cmd_tree_cursor_t *cmdtc) {
                                   cmdtc->tlv_stack->top - cmdtc->filter_checkpoint + 1);
 }
 
+
+#define SCHED_SUBMISSION
+
+#ifdef SCHED_SUBMISSION
+extern void
+task_invoke_appln_cbk_handler (param_t *param,
+                                                     Stack_t  *tlv_stack,
+                                                     op_mode enable_or_disable);
+#endif 
+
+
 /* This function eventually submit the CLI to the backend application */
 void 
 cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
@@ -1399,9 +1410,13 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
         cmdtc_set_filter_context (cmdtc);
         
+        #ifndef SCHED_SUBMISSION
         if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
             cli_cmdtc->success = false;
         }
+        #else 
+        task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_diable);
+        #endif
 
         UnsetFilterContext ();
 
@@ -1421,11 +1436,15 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         /* Temporarily over-write the size of TLV buffer */
 
         cmdtc->tlv_stack->top = i;
-
+        
+        #ifndef SCHED_SUBMISSION
         if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
             cli_cmdtc->success = false;
             break;
         }
+        #else 
+        task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_diable);
+        #endif 
     }
     cmdtc->tlv_stack->top = cmdtc->params_stack->top;
     if (temp_cmdtc) { cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
