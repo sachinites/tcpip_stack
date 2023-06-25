@@ -41,6 +41,7 @@ struct _param_t_{
     cmd_callback callback;
     char help[PARAM_HELP_STRING_SIZE];
     struct _param_t_ *options[MAX_OPTION_SIZE];
+    struct _param_t_ *parent;
     display_possible_values_callback disp_callback;
     int CMDCODE;
     uint8_t flags;
@@ -62,6 +63,7 @@ GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 #define PARAM_F_NO_EXPAND   1
 #define PARAM_F_NO_DISPLAY_QUESMARK 2
 #define PARAM_F_DISABLE_PARAM   4
+#define PARAM_F_CONFIG_BATCH_CMD   8
 
 void 
 cmd_tree_init ();

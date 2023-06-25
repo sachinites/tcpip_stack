@@ -7,6 +7,9 @@ extern graph_t *topo;
 typedef struct event_dispatcher_ event_dispatcher_t;
 extern event_dispatcher_t gev_dis;
 
+/* With N-Curses we will disable async mode of CLI submission to backend app*/
+#define ASYNC_MODE_DISABLED
+
 void
 task_invoke_appln_cbk_handler (param_t *param,
                                                       Stack_t  *tlv_stack,
@@ -49,14 +52,16 @@ task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
         parser_config_commit(ev_dis->app_data, unified_cli_data->tlv_stack, unified_cli_data->enable_or_disable);
     }
 
-    if (unified_cli_data->enable_or_disable == CONFIG_ENABLE ||
-        unified_cli_data->enable_or_disable == CONFIG_DISABLE)
+#ifndef ASYNC_MODE_DISABLED
+    if ((unified_cli_data->enable_or_disable == CONFIG_ENABLE ||
+        unified_cli_data->enable_or_disable == CONFIG_DISABLE))
     {
         while ((tlv = (tlv_struct_t *)pop(unified_cli_data->tlv_stack)))
         {
             free(tlv);
         }
     }
+#endif 
     /*  Free the memory now */
     free_stack(unified_cli_data->tlv_stack);
     free(unified_cli_data);
@@ -87,6 +92,7 @@ node_get_ev_dispatcher (Stack_t *tlv_stack) {
     return &node->ev_dis;
 }
 
+
 /* Public API to be called by CLIBuilder*/
 void
 task_invoke_appln_cbk_handler (param_t *param,
@@ -103,8 +109,11 @@ task_invoke_appln_cbk_handler (param_t *param,
         unified_cli_data->tlv_stack = (Stack_t *)get_new_stack();
         unified_cli_data->enable_or_disable = enable_or_disable;
 
-        if ( enable_or_disable == OPERATIONAL) {
-
+#ifndef ASYNC_MODE_DISABLED
+        if (enable_or_disable == OPERATIONAL) {
+#else 
+        if (true) {
+#endif 
             for (i = 0; i <= tlv_stack->top; i++) {
 
                 unified_cli_data->tlv_stack->slot[i] = tlv_stack->slot[i];
@@ -116,7 +125,9 @@ task_invoke_appln_cbk_handler (param_t *param,
                 (void *)unified_cli_data,
                 task_cbk_handler_internal,
                 TASK_ONE_SHOT,
-                TASK_PRIORITY_OPERATIONAL_CLI);
+                 enable_or_disable == OPERATIONAL ? 
+                     TASK_PRIORITY_OPERATIONAL_CLI :
+                     TASK_PRIORITY_CONFIG_CLI);
             }
 
         else {

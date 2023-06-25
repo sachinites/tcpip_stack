@@ -21,6 +21,7 @@
 #include <memory.h>
 #include <assert.h>
 #include <unistd.h>
+#include <ncurses.h>
 #include "event_dispatcher.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
@@ -168,6 +169,8 @@ event_dispatcher_thread(void *arg) {
 	if (debug) {
 		printf("Dispatcher Thread started\n");
 	}
+
+	initscr();
 
 	while (1) {
 

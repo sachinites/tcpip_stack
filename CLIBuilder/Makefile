@@ -2,7 +2,7 @@ CC=g++
 CFLAGS=-g -fpermissive -Wall -gdwarf-2 -g3 -Wignored-qualifiers
 INCLUDES=-I .
 CLILIB=libclibuilder.a
-TARGET:${CLILIB} testapp.exe
+TARGET:${CLILIB}
 OBJ=KeyProcessor/KeyProcessor.o \
 		 string_util.o \
 		 ../stack/stack.o \
@@ -12,7 +12,6 @@ OBJ=KeyProcessor/KeyProcessor.o \
 		 ../gluethread/glthread.o \
 		 Filters/filters.o \
 		 utinfra/ut_parser.o \
-		 Tracer/tracer.o \
 		 
 KeyProcessor/KeyProcessor.o:KeyProcessor/KeyProcessor.cpp
 	@echo "Building KeyProcessor/KeyProcessor.o"
@@ -50,10 +49,6 @@ utinfra/ut_parser.o:utinfra/ut_parser.cpp
 	@echo "Building utinfra/ut_parser.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} utinfra/ut_parser.cpp -o utinfra/ut_parser.o
 
-Tracer/tracer.o:Tracer/tracer.cpp
-	@echo "Building Tracer/tracer.o"
-	@ ${CC} ${CFLAGS} -c -I Tracer Tracer/tracer.cpp -o Tracer/tracer.o 
-
 testapp.o:testapp.c
 	@echo "Building testapp.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} testapp.c -o testapp.o
@@ -66,11 +61,6 @@ acl_cli.o:acl_cli.c
 	@echo "Building acl_cli.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} acl_cli.c -o acl_cli.o
 
-testapp.exe:testapp.o acl_cli.o ${CLILIB}
-	@echo "Building testapp.exe"
-	${CC} -g testapp.o acl_cli.o -o testapp.exe -L . -lcli -lncurses -lrt -lpthread
-	@echo "Build Finished : " ${CLILIB} testapp.exe
-
 clean:
 	rm -f *.exe
 	rm -f *.o
@@ -78,5 +68,4 @@ clean:
 	rm -f KeyProcessor/*.o
 	rm -f Filters/*.o
 	rm -f utinfra/*.o
-	rm -f Tracer/*.o
 	rm -f ${CLILIB}

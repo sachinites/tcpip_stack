@@ -55,6 +55,9 @@ libcli_set_param_cmd_code(param_t *param, int cmd_code) ;
 void
 libcli_support_cmd_negation (param_t *param);
 
+void 
+libcli_set_tail_config_one_shot (param_t *param);
+
 void
 init_param(param_t *param,    
            param_type_t param_type,    
@@ -106,7 +109,6 @@ init_param(param_t *param,
     init_glthread (&param->glue);
 }
 
-
 void 
 libcli_register_param(param_t *parent, param_t *child) {
 
@@ -118,6 +120,7 @@ libcli_register_param(param_t *parent, param_t *child) {
         if (parent->options[i])
             continue;
         parent->options[i] = child;
+        child->parent = parent;
         return;
     }   
     assert(0);
@@ -129,6 +132,29 @@ libcli_set_param_cmd_code(param_t *param, int cmd_code) {
     if (param->callback == NULL)
         assert(0);
     param->CMDCODE = cmd_code;
+}
+
+void 
+libcli_set_tail_config_batch_processing (param_t *param) {
+
+    param_t *origp = param;
+
+    while ( param != libcli_get_config_hook () ) {
+
+            if (param->flags & PARAM_F_CONFIG_BATCH_CMD) break;
+            
+            if (param->callback ) {
+                param->flags |= PARAM_F_CONFIG_BATCH_CMD;
+            }
+            
+            param = param->parent;
+    }
+
+    /* This is required while copy-pasting the param sub-trees across branches in
+        config tree*/
+    if (!origp->callback) {
+        param->flags &= ~PARAM_F_CONFIG_BATCH_CMD;
+    }
 }
 
 static void 
@@ -509,6 +535,29 @@ libcli_support_cmd_negation (param_t *param) {
     negate_param->flags = PARAM_F_NO_EXPAND;
 }
 
+static void 
+libcli_cleanup_parent_pointers_internal (param_t *param) {
+
+    int i;
+
+    if (!param) return;
+    if (param == &pipe) return;
+
+    for (i = CHILDREN_START_INDEX ; i <= CHILDREN_END_INDEX; i++) {
+        libcli_cleanup_parent_pointers_internal (param->options[i]);
+    }
+
+    /* In our library design, param->parent is suppose to be null during normal
+        opn*/
+    param->parent = NULL;
+}
+
+static void 
+libcli_cleanup_parent_pointers () {
+
+    libcli_cleanup_parent_pointers_internal (libcli_get_root_hook());
+}
+
 static void
 cmd_tree_construct_filter_subtree () {
 
@@ -580,6 +629,7 @@ libcli_init_done () {
     cmd_tree_construct_filter_subtree();
     libcli_augment_show_cmds ();
     libcli_support_cmd_negation (libcli_get_config_hook());
+    libcli_cleanup_parent_pointers ();
 }
 
 bool 

@@ -251,7 +251,7 @@ libcli_init () {
     cbreak();         // Disable line buffering
     noecho();        // Disable character echoing
     refresh();        // Update the screen
-    
+
     assert (has_colors() );
     start_color();
     init_pair(GRASS_PAIR, COLOR_YELLOW, COLOR_GREEN);

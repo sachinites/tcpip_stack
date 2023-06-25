@@ -1409,7 +1409,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         types are triggered in same way - just once*/
     if (enable_or_diable == OPERATIONAL ||
             enable_or_diable == CONFIG_DISABLE ||
-             enable_or_diable == CONFIG_ENABLE) {
+             (!(param->flags & PARAM_F_CONFIG_BATCH_CMD))) {
 
         cmdtc_set_filter_context (cmdtc);
         
@@ -1427,10 +1427,11 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         return;
     }
 
-    /* Dead Code */
+    /* Execute Tail one shot config commands */
+    assert (param->flags & PARAM_F_CONFIG_BATCH_CMD);
 
     /* Handle Trigger of Config Command. Config Commands are triggered in
-        patches !*/
+        batches if PARAM_F_CONFIG_BATCH_CMD flag is set !*/
     for (i = cmdtc->stack_checkpoint + 1 ; i <= cmdtc->params_stack->top; i++) {
 
         param = (param_t *)cmdtc->params_stack->slot[i];
