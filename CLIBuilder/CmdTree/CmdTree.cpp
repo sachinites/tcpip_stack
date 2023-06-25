@@ -33,6 +33,8 @@ static param_t include;
 static param_t include_leaf;
 static param_t exclude;
  static param_t exclude_leaf;
+static param_t grepx;
+static param_t grepx_leaf;
 
 static param_t *universal_params[] = {&show, &config};
 
@@ -589,6 +591,15 @@ cmd_tree_construct_filter_subtree () {
             libcli_register_param (&exclude_leaf, &pipe);
         }
     }
+    {
+        init_param(&grepx, CMD, "grep", NULL, NULL, INVALID, NULL, "grep RegEx Pattern");
+        libcli_register_param(&pipe, &grepx);
+        {
+            init_param(&grepx_leaf, LEAF, NULL, NULL, NULL, STRING, "grep-pattern", "Grep Pattern");
+            libcli_register_param(&grepx, &grepx_leaf);
+            libcli_register_param(&grepx_leaf, &pipe);
+        }
+    }
 }
 
 static void 
@@ -644,7 +655,8 @@ cmd_tree_is_filter_param (param_t *param) {
     return (param == &pipe || param == &count || param == &save ||
                 param == &save_file || param == &include || 
                 param == &include_leaf || param == &exclude ||
-                param == &exclude_leaf);
+                param == &exclude_leaf ||
+                param == &grepx || param == &grepx_leaf);
 }
 
 void 

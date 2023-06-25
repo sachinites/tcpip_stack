@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <mqueue.h>
+#include <regex.h>
 #include "../cmdtlv.h"
 
 #define OBUFFER_SIZE  256
@@ -152,7 +153,7 @@ int cprintf (const char* format, ...) {
         }
         else if (strcmp ((const char *)tlv->leaf_id, "excl-pattern") == 0) {
 
-             inc_exc_pattern_present = true;
+            inc_exc_pattern_present = true;
 
             patt_rc = filter_exclusion (Obuffer, msg_len, 
                                                 (unsigned char *)tlv->value, 
@@ -160,6 +161,34 @@ int cprintf (const char* format, ...) {
 
             if (!patt_rc) return 0;
         }
+
+        else if (strcmp ((const char *)tlv->leaf_id, "grep-pattern") == 0) {
+            
+            inc_exc_pattern_present = true;
+            regex_t regex;
+            char error_buffer[128];
+
+            int match = regcomp(&regex, (const char *)tlv->value, REG_EXTENDED);
+
+            if (match) {
+                regerror(match, &regex, error_buffer, sizeof(error_buffer));
+                printw ("\nFailed to compile regex pattern %s, error : %s",
+                    tlv->value, error_buffer);
+                regfree(&regex);
+                return 0;
+            }
+
+            match = regexec(&regex, (const char *)Obuffer, 0, NULL, 0);
+
+            if (match) {
+                 regfree(&regex);
+                return 0;
+            }
+
+            patt_rc = true;
+            regfree(&regex);
+        }
+
         else if (strcmp ((const char *)tlv->value, "count") == 0) {
             
             count_filter_present  = true;

@@ -7,7 +7,7 @@
 
 #define DEF_CLI_HDR  "Soft-Firewall>$ "
 #define CMD_NAME_SIZE   32
-#define LEAF_VALUE_HOLDER_SIZE 32
+#define LEAF_VALUE_HOLDER_SIZE 64
 #define LEAF_ID_SIZE    32
 #define PARAM_HELP_STRING_SIZE 64
 #define MAX_OPTION_SIZE 16
