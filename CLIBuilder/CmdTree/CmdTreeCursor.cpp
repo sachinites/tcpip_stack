@@ -24,6 +24,7 @@
 #include <ncurses.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <semaphore.h>
 #include "../../stack/stack.h"
 #include "../cmdtlv.h"
 #include "../string_util.h"
@@ -85,6 +86,7 @@ typedef struct cmd_tree_cursor_ {
         bool is_refresh;
         int refresh_val;
         pthread_t *th;
+        sem_t sem;
     } refresh;
 
 } cmd_tree_cursor_t;
@@ -208,6 +210,13 @@ cmd_tree_cursor_deinit (cmd_tree_cursor_t *cmdtc) {
     cmdtc->success = false;
     cmdtc->is_negate = false;
     cmdtc->refresh.is_refresh = false;
+    cmdtc->refresh.refresh_val = 0;
+    if (cmdtc->refresh.th) {
+        pthread_cancel (*cmdtc->refresh.th);
+        free(cmdtc->refresh.th);
+        cmdtc->refresh.th = NULL;
+        sem_destroy (&cmdtc->refresh.sem);
+    } 
 }
 
 void 
@@ -1387,10 +1396,14 @@ cmd_trigger_cli_repeat (void *arg) {
     while (1) {
 
         cmd_tree_trigger_cli (cmdtc);
+        /* Both refresh and fflush are required when working with threads*/
+        refresh();
+        fflush(stdout);
         sleep (cmdtc->refresh.refresh_val);
         if (CtrlC_refresh_terminate) {
             CtrlC_refresh_terminate = false;
             is_refresh_in_progress = false;
+            sem_post (&cmdtc->refresh.sem);
             pthread_exit(0);
         }
         cli_printsc(cli_get_default_cli(), true);
@@ -1406,7 +1419,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     cmd_tree_cursor_t *cmdtc;
     op_mode enable_or_diable;
     cmd_tree_cursor_t *temp_cmdtc = NULL;
-   
+
     /* Handle Refresh*/
     if (cli_cmdtc->refresh.is_refresh &&
             is_refresh_in_progress == false) {
@@ -1417,16 +1430,22 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         pthread_attr_t attr;
         pthread_attr_init (&attr);
         pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_JOINABLE);
-        cli_cmdtc->refresh.th = (pthread_t *)calloc (1, sizeof (pthread_t));
-        pthread_create (cli_cmdtc->refresh.th, &attr, cmd_trigger_cli_repeat, (void *)cli_cmdtc);
-        pthread_join (*cli_cmdtc->refresh.th, NULL);
+        cmdtc->refresh.th = (pthread_t *)calloc (1, sizeof (pthread_t));
+        sem_init (&cmdtc->refresh.sem, 0, 0);
+        pthread_create (cli_cmdtc->refresh.th, &attr, cmd_trigger_cli_repeat, (void *)
+        cli_cmdtc);
+        sem_wait (&cli_cmdtc->refresh.sem);
+        return;
+
         #else
 
         while (1) {
 
             cmd_tree_trigger_cli (cli_cmdtc);
             assert (cli_cmdtc->refresh.refresh_val);
+            /* Both refresh and fflush are required when working with threads*/
             refresh();
+            fflush(stdout);
             sleep(cli_cmdtc->refresh.refresh_val);
             if (CtrlC_refresh_terminate) {
                 CtrlC_refresh_terminate = false;
@@ -1563,6 +1582,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
         case cmdt_cur_state_init:
             /*User has typed the complete current word, fire the CLI if last word
                 has appln callback, thenFire the CLI*/
+            cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
             cmd_tree_trigger_cli (cmdtc);
             cmd_tree_post_cli_trigger (cmdtc);   
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
@@ -1576,6 +1596,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             if (param) {
                 cmdtc->curr_param = param;
                 cmd_tree_cursor_move_to_next_level (cmdtc);
+                cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
                 cmd_tree_trigger_cli (cmdtc);
                 cmd_tree_post_cli_trigger(cmdtc);
                 rc = cmdtc->success;
@@ -1593,6 +1614,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             }
             /* Process space after word completion so that cmd tree cursor is updated and move to next param */
             cli_process_key_interrupt (' ');
+            cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
             cmd_tree_trigger_cli (cmdtc);
             cmd_tree_post_cli_trigger (cmdtc);   
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
@@ -1609,13 +1631,10 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                     tlv->value,
                     GET_LEAF_TYPE_STR(cmdtc->curr_param));
                 attroff(COLOR_PAIR(RED_ON_BLACK));
-                 /* invoke exit on the last param to comply with the design*/
-                cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
-
                 free(tlv);
                 return false;
-            }       
+            }
             free(tlv);
 
             /* Process space after word completion so that cmd tree cursor is updated and move to next param */
@@ -1627,8 +1646,6 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return true;
         case cmdt_cur_state_no_match:
-             /* invoke exit on the last param to comply with the design*/
-            cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return false;
         default: ;
