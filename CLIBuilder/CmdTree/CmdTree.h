@@ -89,7 +89,10 @@ param_t *
 libcli_get_run_hook(void);
 
 param_t *
-libcli_get_no_hook(void);
+libcli_get_refresh_hook(void);
+
+param_t *
+libcli_get_refresh_val_hook(void);
 
 bool
 cmd_tree_leaf_char_save (unsigned char *curr_leaf_value, unsigned char c, int index);

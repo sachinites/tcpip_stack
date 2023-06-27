@@ -22,6 +22,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ncurses.h>
+#include <pthread.h>
+#include <unistd.h>
 #include "../../stack/stack.h"
 #include "../cmdtlv.h"
 #include "../string_util.h"
@@ -35,6 +37,9 @@ cli_process_key_interrupt(int ch);
 
 extern void  SetFilterContext (tlv_struct_t **lfilter_array, int lsize) ;
 extern void UnsetFilterContext () ;
+
+static bool is_refresh_in_progress = false;
+static bool CtrlC_refresh_terminate = false;
 
 typedef enum cmdt_cursor_state_ {
 
@@ -75,6 +80,13 @@ typedef struct cmd_tree_cursor_ {
     bool is_negate;
     /* Filter checkpoint */
     int filter_checkpoint;
+    /* need to refresh */
+    struct {
+        bool is_refresh;
+        int refresh_val;
+        pthread_t *th;
+    } refresh;
+
 } cmd_tree_cursor_t;
 
 /* This cursor will be used to prse the CLIs when Operating in Char-by-char Mode*/
@@ -98,7 +110,7 @@ cmd_tree_init_cursors () {
     cmd_tree_cursor_init (&cmdtc_cbc);
 }
 
-/* We are about to exit this Param while moving down in the cmd tree
+/* We are about to exit this Param (2nd arg) while moving down in the cmd tree
     cmdtc->curr_param is already updated to point to new param, params_stack is not
 */
 static void 
@@ -125,6 +137,19 @@ cmdtc_param_entered_forward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         cmdtc->filter_checkpoint == -1) {
         cmdtc->filter_checkpoint = cmdtc->params_stack->top;
     }
+
+    if (param == libcli_get_refresh_hook()) {
+        cmdtc->refresh.is_refresh = true;
+        cmdtc->refresh.refresh_val = 0;
+    }
+    else if (param == libcli_get_refresh_val_hook()) {
+        assert (cmdtc->refresh.is_refresh);
+        cmdtc->refresh.refresh_val = atoi ((const char *)cmdtc->curr_leaf_value);
+    }
+
+    if (IS_PARAM_LEAF (param)) {
+        memset (cmdtc->curr_leaf_value, 0, sizeof (cmdtc->curr_leaf_value));
+    }
 }
 
 /* We are about to exit this param Or has just exited this param already. Do the 
@@ -137,6 +162,11 @@ cmdtc_param_exit_backward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         cmdtc->is_negate = false;
         param->flags |= PARAM_F_NO_EXPAND;
     }
+
+    if (param == libcli_get_refresh_hook()) {
+        cmdtc->refresh.is_refresh = false;
+    }
+
 }
 
 /* We  have just entered this param while moving up in the cmd tree.
@@ -177,6 +207,7 @@ cmd_tree_cursor_deinit (cmd_tree_cursor_t *cmdtc) {
     cmdtc->leaf_param = NULL;
     cmdtc->success = false;
     cmdtc->is_negate = false;
+    cmdtc->refresh.is_refresh = false;
 }
 
 void 
@@ -314,7 +345,6 @@ cmd_tree_cursor_move_to_next_level (cmd_tree_cursor_t *cmdtc) {
     push(cmdtc->params_stack, (void *)cmdtc->curr_param);
     push (cmdtc->tlv_stack, (void *) cmd_tree_convert_param_to_tlv (
                                 cmdtc->curr_param, cmdtc->curr_leaf_value));
-    memset (cmdtc->curr_leaf_value, 0, sizeof (cmdtc->curr_leaf_value));
     cmdtc->icursor = 0;
     cmdtc->cmdtc_state = cmdt_cur_state_init;
     while (dequeue_glthread_first(&cmdtc->matching_params_list));
@@ -1344,6 +1374,29 @@ task_invoke_appln_cbk_handler (param_t *param,
 #endif 
 
 
+static void *
+cmd_trigger_cli_repeat (void *arg) {
+
+    cmd_tree_cursor_t *cmdtc;
+    
+    pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, 0);
+    pthread_setcanceltype (PTHREAD_CANCEL_DEFERRED, 0);
+
+    cmdtc = (cmd_tree_cursor_t *)arg;
+
+    while (1) {
+
+        cmd_tree_trigger_cli (cmdtc);
+        sleep (cmdtc->refresh.refresh_val);
+        if (CtrlC_refresh_terminate) {
+            CtrlC_refresh_terminate = false;
+            is_refresh_in_progress = false;
+            pthread_exit(0);
+        }
+        cli_printsc(cli_get_default_cli(), true);
+    }
+}
+
 /* This function eventually submit the CLI to the backend application */
 void 
 cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
@@ -1354,6 +1407,40 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     op_mode enable_or_diable;
     cmd_tree_cursor_t *temp_cmdtc = NULL;
    
+    /* Handle Refresh*/
+    if (cli_cmdtc->refresh.is_refresh &&
+            is_refresh_in_progress == false) {
+           
+        is_refresh_in_progress = true;
+
+        #if 0
+        pthread_attr_t attr;
+        pthread_attr_init (&attr);
+        pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_JOINABLE);
+        cli_cmdtc->refresh.th = (pthread_t *)calloc (1, sizeof (pthread_t));
+        pthread_create (cli_cmdtc->refresh.th, &attr, cmd_trigger_cli_repeat, (void *)cli_cmdtc);
+        pthread_join (*cli_cmdtc->refresh.th, NULL);
+        #else
+
+        while (1) {
+
+            cmd_tree_trigger_cli (cli_cmdtc);
+            assert (cli_cmdtc->refresh.refresh_val);
+            refresh();
+            sleep(cli_cmdtc->refresh.refresh_val);
+            if (CtrlC_refresh_terminate) {
+                CtrlC_refresh_terminate = false;
+                is_refresh_in_progress = false;
+                break;
+            }
+            cli_printsc (cli_get_default_cli (), true);
+        }
+        return;
+
+        #endif 
+    }
+
+
     /* if user is in nested mode, then we will use temporary cmdtc because
         original cmdtc's params_stack and TLV buffer we dont want */
     if ( cmdtc_am_i_working_in_nested_mode (cli_cmdtc)) {
@@ -1470,7 +1557,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
         the cursor to next line*/
     if (cli_is_buffer_empty (cli)) return true;
     if (!cli_is_char_mode_on ()) return false;
-    
+
     switch (cmdtc->cmdtc_state) {
         
         case cmdt_cur_state_init:
@@ -1522,7 +1609,10 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                     tlv->value,
                     GET_LEAF_TYPE_STR(cmdtc->curr_param));
                 attroff(COLOR_PAIR(RED_ON_BLACK));
+                 /* invoke exit on the last param to comply with the design*/
+                cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+
                 free(tlv);
                 return false;
             }       
@@ -1530,11 +1620,15 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
 
             /* Process space after word completion so that cmd tree cursor is updated and move to next param */
             cli_process_key_interrupt (' ');
+             /* invoke exit on the last param to comply with the design*/
+            cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
             cmd_tree_trigger_cli (cmdtc);
             cmd_tree_post_cli_trigger (cmdtc);
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return true;
         case cmdt_cur_state_no_match:
+             /* invoke exit on the last param to comply with the design*/
+            cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return false;
         default: ;
@@ -1673,26 +1767,30 @@ cmdtc_parse_full_command (cli_t *cli) {
                 return true;
             }
 
+            cmdtc->curr_param = param;
+            cmdtc_param_exit_forward (cmdtc, (param_t *)StackGetTopElem (cmdtc->params_stack));
             push(cmdtc->params_stack, (void *)param);
             push (cmdtc->tlv_stack, (void *)cmd_tree_convert_param_to_tlv (
                                         param, (unsigned char *)*(tokens +i)));
+            cmdtc_param_entered_forward (cmdtc, param);
         }
 
         else if (IS_PARAM_CMD(param)){
+            cmdtc->curr_param = param;
+            cmdtc_param_exit_forward (cmdtc, (param_t *)StackGetTopElem (cmdtc->params_stack));
             push(cmdtc->params_stack, (void *)param);
             push (cmdtc->tlv_stack, (void *)cmd_tree_convert_param_to_tlv (param, NULL));
-
-            /* Set the filter checkpoint if we encounter the first pipe*/
-            if (cmd_tree_is_param_pipe (param) && cmdtc->filter_checkpoint == -1) {
-                cmdtc->filter_checkpoint = cmdtc->params_stack->top;
-            }
+            cmdtc_param_entered_forward (cmdtc, param);
         }
 
         else if (IS_PARAM_NO_CMD (param)) {
+            cmdtc->curr_param = param;
             if (!cmdtc->is_negate) {
                 cmdtc->is_negate = true;
+                cmdtc_param_exit_forward (cmdtc, (param_t *)StackGetTopElem (cmdtc->params_stack));
                 push(cmdtc->params_stack, (void *)param);
                 push (cmdtc->tlv_stack, (void *)cmd_tree_convert_param_to_tlv (param, NULL));
+                cmdtc_param_entered_forward (cmdtc, param);
             }
             else {
                 /* Negation appearing more than once in the command, ignore the subsequent
@@ -1701,8 +1799,6 @@ cmdtc_parse_full_command (cli_t *cli) {
         }
     }
 
-    /* Set the curr param to the top of the stack */
-    cmdtc->curr_param = (param_t *)StackGetTopElem (cmdtc->params_stack);
     cmd_tree_trigger_cli (cmdtc);
     cmd_tree_post_cli_trigger (cmdtc);
 
@@ -1732,4 +1828,14 @@ cmdtc_parse_raw_command (unsigned char *command, int cmd_size) {
     free (cmdtc);
     free (cli);
     return rc;
+}
+
+bool
+libcli_terminate_refresh () {
+
+    if (is_refresh_in_progress) {
+        CtrlC_refresh_terminate = true;
+        return true;
+    }
+    return false;
 }

@@ -218,11 +218,16 @@ cli_register_ctrlC_handler(void (*fn_ptr)(void))
 }
 
 extern int cprintf (const char* format, ...) ;
+extern bool libcli_terminate_refresh ();
 
 static void
 ctrlC_signal_handler(int sig)
 {
     cprintf("Ctrl-C pressed\n");
+
+    if (libcli_terminate_refresh ()) {
+        return;
+    }
 
     if (app_ctrlC_signal_handler)
     {   

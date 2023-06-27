@@ -171,6 +171,8 @@ int cprintf (const char* format, ...) {
             int match = regcomp(&regex, (const char *)tlv->value, REG_EXTENDED);
 
             if (match) {
+
+                memset (error_buffer, 0, sizeof (error_buffer));
                 regerror(match, &regex, error_buffer, sizeof(error_buffer));
                 printw ("\nFailed to compile regex pattern %s, error : %s",
                     tlv->value, error_buffer);
@@ -206,7 +208,7 @@ int cprintf (const char* format, ...) {
         }        
     }
 
-    if (inc_exc_pattern_present && patt_rc && !count_filter_present && !save_filter_present) {
+    if (!count_filter_present && !save_filter_present) {
 
         render_line (Obuffer, msg_len);
     }

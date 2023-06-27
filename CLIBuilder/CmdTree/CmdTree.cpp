@@ -35,6 +35,9 @@ static param_t exclude;
  static param_t exclude_leaf;
 static param_t grepx;
 static param_t grepx_leaf;
+static param_t refreshx;
+static param_t refresh_val;
+
 
 static param_t *universal_params[] = {&show, &config};
 
@@ -298,6 +301,18 @@ param_t *
 libcli_get_run_hook(void)
 {
     return &run;
+}
+
+param_t *
+libcli_get_refresh_hook(void)
+{
+    return &refreshx;
+}
+
+param_t *
+libcli_get_refresh_val_hook(void)
+{
+    return &refresh_val;
 }
 
 bool
@@ -569,9 +584,12 @@ cmd_tree_construct_filter_subtree () {
     init_param (&save, CMD, "save", NULL, NULL, INVALID, NULL, "save to a file");
     init_param (&save_file, LEAF, NULL, NULL, NULL, STRING, "sfile-name", "file name");
     libcli_register_param (&save, &save_file);
-
+    init_param (&refreshx, CMD, "refresh", NULL, NULL, INVALID, NULL, "Refresh the command repeatedly");
+    init_param (&refresh_val, LEAF, NULL, NULL, NULL, INT, "refresh-val", "Refresh Time Interval in Sec");
+    libcli_register_param (&refreshx, &refresh_val);
     libcli_register_param (&pipe, &count);
     libcli_register_param (&pipe, &save);
+    libcli_register_param (&pipe, &refreshx);
 
     {
         init_param (&include,  CMD, "include", NULL, NULL, INVALID, NULL, "Include Pattern");
