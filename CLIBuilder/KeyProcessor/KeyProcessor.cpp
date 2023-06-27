@@ -123,28 +123,6 @@ cli_is_same (cli_t *cli1, cli_t *cli2) {
     return false;
 }
 
-static cli_t *cli_clone (cli_t *cli) {
-
-    tlv_struct_t *tlv;
-    int top = 1, rc = 0;
-    Stack_t *stack;
-    cli_t *new_cli = (cli_t *)calloc (1, sizeof (cli_t));
-    rc = strlen (DEF_CLI_HDR);
-    cli_set_hdr (new_cli, (unsigned char *)DEF_CLI_HDR, rc);
-    new_cli->cmdtc = NULL;
-    stack = cmdtc_get_tlv_stack(cli->cmdtc);
-    int topx = stack->top + 1;
-    while (top != topx) {
-        tlv = (tlv_struct_t *)stack->slot[top];
-        rc += sprintf ((char *)new_cli->clibuff + rc , "%s ", tlv->value);
-        top++;
-    }
-    new_cli->cnt = rc;
-    new_cli->current_pos = new_cli->cnt;
-    new_cli->end_pos =  new_cli->cnt;
-    return new_cli;
-}   
-
 bool 
 cli_is_historical (cli_t *cli) {
     
@@ -165,20 +143,11 @@ cli_set_cmd_tree_cursor (cli_t *cli, cmd_tree_cursor_t *cmdtc)  {
 }
 
 void 
-cli_record_copy (cli_history_t *cli_history, cli_t *new_cli) {
+cli_record_cli_history (cli_history_t *cli_history, cli_t *new_cli) {
 
     if (cli_is_buffer_empty (new_cli)) return;
     if (default_cli_history_list->curr_ptr == new_cli) return;
     
-
-    cli_t *cli = cli_clone (new_cli);
-    if (cli_history->first == NULL) {
-        cli_history->first = cli;
-        cli_history->last = cli;
-        cli_history->count++;
-        return;
-    }
-
     if (cli_history->count ==  CLI_HISTORY_LIMIT) {
         
         cli_t *new_last = cli_history->last->prev;
@@ -188,14 +157,19 @@ cli_record_copy (cli_history_t *cli_history, cli_t *new_cli) {
 
     cli_t *first_cli = cli_history->first;
 
-    if (cli_is_same (cli, first_cli)) {
-        free(cli);
+    if (!first_cli) {
+        cli_history->first = new_cli;
         return;
     }
 
-    cli->next = first_cli;
-    first_cli->prev = cli;
-    cli_history->first = cli;
+    if (cli_is_same (new_cli, first_cli)) {
+        free(new_cli);
+        return;
+    }
+
+    new_cli->next = first_cli;
+    first_cli->prev = new_cli;
+    cli_history->first = new_cli;
     cli_history->count++;
 }
 

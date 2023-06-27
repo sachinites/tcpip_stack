@@ -1330,6 +1330,35 @@ cmdtc_get_branch_hook (cmd_tree_cursor_t *cmdtc) {
 
 /* CLI Trigger Code */
 
+static void 
+cmdtc_record_cli_history (cmd_tree_cursor_t *cmdtc) {
+
+    int i;
+    param_t *param;
+    tlv_struct_t *tlv;
+
+    cli_t *cli = cli_malloc ();
+    cli_set_hdr (cli, (unsigned char *)DEF_CLI_HDR,  (uint8_t)strlen (DEF_CLI_HDR));
+
+    for ( i = cmdtc->params_stack->top; i > -1 ; i--) {
+        param = (param_t *)cmdtc->params_stack->slot[i];
+        if (param_is_hook (param)) break;
+    }
+
+    for (; i < cmdtc->params_stack->top; i++) {
+
+        tlv = (tlv_struct_t *) cmdtc->tlv_stack->slot[i];
+        cli_append_user_command (cli, tlv->value, strlen ((const char *)tlv->value));
+        cli_append_user_command (cli, (unsigned char *) " ", 1);
+    }
+
+    tlv = (tlv_struct_t *) cmdtc->tlv_stack->slot[i];
+    cli_append_user_command (cli, tlv->value, strlen ((const char *)tlv->value));
+    cli_append_user_command (cli, (unsigned char *) "\0", 1);
+
+    cli_record_cli_history (cli_get_default_history(), cli);
+}
+
 void 
 cmd_tree_post_cli_trigger (cmd_tree_cursor_t *cmdtc) {
 
@@ -1343,9 +1372,9 @@ cmd_tree_post_cli_trigger (cmd_tree_cursor_t *cmdtc) {
         printw ("\nCommand Rejected\n");
         attroff (COLOR_PAIR(RED_ON_BLACK));
     }
-    if (!cmdtc->success) return;
 
-    //cli_record_copy (cli_get_default_history(), cli);
+    if (!cmdtc->success) return;
+    cmdtc_record_cli_history (cmdtc);
 }
 
 static param_t *
