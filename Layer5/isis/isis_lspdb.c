@@ -456,47 +456,37 @@ isis_show_lspdb(node_t *node) {
     isis_lsp_pkt_t *lsp_pkt;
     avltree_node_t *curr;
     avltree_t *lspdb = isis_get_lspdb_root(node);
-    byte *buff = node->print_buff;
-    memset(buff, 0, NODE_PRINT_BUFF_LEN);
-    
+   
     if (!lspdb) return;
 
     ITERATE_AVL_TREE_BEGIN(lspdb, curr){
 
         lsp_pkt = avltree_container_of(curr, isis_lsp_pkt_t, avl_node_glue);
 
-        rc += isis_show_one_lsp_pkt(lsp_pkt, buff + rc );
+        rc += isis_show_one_lsp_pkt(lsp_pkt, NULL );
 
     } ITERATE_AVL_TREE_END;
 
-    cprintf ("%s", buff);
 }
 
 /* lsp pkt printing */
 int
 isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 
-    int rc = 0;
     byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     byte *lsp_hdr = eth_hdr->payload;
 
     byte *lsp_tlv_buffer = lsp_hdr + ISIS_LSP_HDR_SIZE;
 
-    rc += cprintf("LSP : %s  size(B) : %-4lu    "
-            "ref_c : %-3u   ",
+    cprintf ("LSP : %s  size(B) : %-4lu    "
+            "ref_c : %-3u   Life Time Remaining : %u sec\n",
             isis_print_lsp_id (lsp_pkt,  lsp_id_str),
             lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
-            lsp_pkt->ref_count);
+            lsp_pkt->ref_count,
+            lsp_pkt->expiry_timer ? wt_get_remaining_time(lsp_pkt->expiry_timer)/1000 : 0);
 
-    if (lsp_pkt->expiry_timer) {
-        rc += cprintf("Life Time Remaining : %u sec\n",
-            wt_get_remaining_time(lsp_pkt->expiry_timer)/1000);
-    }
-    else {
-        rc += cprintf("\n");
-    }
-   return rc;
+   return 0;
 }
 
 bool

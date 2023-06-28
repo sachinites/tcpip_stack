@@ -1442,7 +1442,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         while (1) {
 
             cmd_tree_trigger_cli (cli_cmdtc);
-            assert (cli_cmdtc->refresh.refresh_val);
+            if (!cli_cmdtc->refresh.refresh_val) break;
             /* Both refresh and fflush are required when working with threads*/
             refresh();
             fflush(stdout);
