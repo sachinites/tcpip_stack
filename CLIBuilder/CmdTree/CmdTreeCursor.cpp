@@ -148,9 +148,7 @@ cmdtc_param_entered_forward (cmd_tree_cursor_t *cmdtc, param_t *param) {
     else if (param == libcli_get_refresh_val_hook()) {
         assert (cmdtc->refresh.is_refresh);
         cmdtc->refresh.refresh_val = atoi ((const char *)cmdtc->curr_leaf_value);
-        #if 0
         (libcli_get_refresh_hook()->flags) |= PARAM_F_DISABLE_PARAM;
-        #endif
     }
 
     if (IS_PARAM_LEAF (param)) {
@@ -173,11 +171,9 @@ cmdtc_param_exit_backward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         cmdtc->refresh.is_refresh = false;
     }
 
-#if 0
     else if (param == libcli_get_refresh_val_hook()) {
         libcli_get_refresh_hook()->flags &= ~PARAM_F_DISABLE_PARAM;
     }
-#endif 
 }
 
 /* We  have just entered this param while moving up in the cmd tree.
@@ -198,9 +194,18 @@ cmd_tree_cursor_deinit (cmd_tree_cursor_t *cmdtc) {
     param_t *param;
     tlv_struct_t *tlv;
 
+    if (!isStackEmpty (cmdtc->params_stack)) {
+        cmdtc_param_entered_backward (cmdtc, 
+            (param_t *)StackGetTopElem (cmdtc->params_stack));
+    }
     while ((param = (param_t *)pop(cmdtc->params_stack))) {
         cmdtc_param_exit_backward (cmdtc, param);
+        if (!isStackEmpty(cmdtc->params_stack)) {
+            cmdtc_param_entered_backward(cmdtc,
+                                         (param_t *)StackGetTopElem(cmdtc->params_stack));
+        }
     }
+
     while ((tlv = (tlv_struct_t *)pop(cmdtc->tlv_stack))) {
         free(tlv);
     }

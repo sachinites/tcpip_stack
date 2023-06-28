@@ -213,6 +213,7 @@ cli_register_ctrlC_handler(void (*fn_ptr)(void))
 
 extern int cprintf (const char* format, ...) ;
 extern bool libcli_terminate_refresh ();
+extern void init_filters () ;
 
 static void
 ctrlC_signal_handler(int sig)
@@ -262,6 +263,7 @@ libcli_init () {
 
     ut_parser_init ( ) ;
     signal(SIGINT, ctrlC_signal_handler);
+    init_filters () ;
 }
 
 void

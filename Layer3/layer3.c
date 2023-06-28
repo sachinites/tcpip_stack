@@ -221,7 +221,8 @@ layer3_ip_route_pkt(node_t *node,
                     thread_using_route_done(l3_route);
                     return;
                 case ICMP_PROTO:
-                    cprintf("\nIP Address : %s, ping success\n", dest_ip_addr);
+                    cprintf("IP Address : %s, ping success\n", dest_ip_addr);
+                    refresh();
                     //pkt_block_dereference(pkt_block);
                     break;
                 case UDP_PROTO:

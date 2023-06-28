@@ -20,7 +20,6 @@ extern int cprintf (const char* format, ...) ;
 static uint64_t flush_count = 0;
 #define FLUSH_MAX   10
 
-
 typedef enum log_flags_ {
 
     ENABLE_FILE_LOG = 1,

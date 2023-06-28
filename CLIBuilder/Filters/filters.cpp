@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <mqueue.h>
 #include <regex.h>
+#include <pthread.h>
 #include "../cmdtlv.h"
 
 #define OBUFFER_SIZE  256
@@ -42,6 +43,15 @@ static bool first_line = false;
 
 extern bool TC_RUNNING ;
 extern int UT_PARSER_MSG_Q_FD; 
+
+
+static pthread_spinlock_t cprintf_spinlock;
+
+void 
+init_filters () {
+
+    pthread_spin_init (&cprintf_spinlock, 0);
+}
 
 static bool
 filter_inclusion (unsigned char *buffer, int size, unsigned char *pattern, int pattern_size) {
@@ -136,6 +146,8 @@ int cprintf (const char* format, ...) {
     bool patt_rc = false;
     bool inc_exc_pattern_present = false;
 
+    pthread_spin_lock (&cprintf_spinlock);
+
     va_start(args, format);
     memset (Obuffer, 0, OBUFFER_SIZE);
     vsnprintf((char *)Obuffer, OBUFFER_SIZE, format, args);
@@ -146,6 +158,7 @@ int cprintf (const char* format, ...) {
     if (filter_array_size == 0) {
 
          render_line (Obuffer, msg_len);
+         pthread_spin_unlock (&cprintf_spinlock);
          return 0;
     }
 
@@ -159,7 +172,10 @@ int cprintf (const char* format, ...) {
             patt_rc = filter_inclusion (Obuffer, msg_len, 
                                                 (unsigned char *)tlv->value, 
                                                 strlen ((const char *)tlv->value));
-            if (!patt_rc) return 0;
+            if (!patt_rc) {
+                pthread_spin_unlock (&cprintf_spinlock);
+                return 0;
+            }
         }
         else if (strcmp ((const char *)tlv->leaf_id, "excl-pattern") == 0) {
 
@@ -169,7 +185,10 @@ int cprintf (const char* format, ...) {
                                                 (unsigned char *)tlv->value, 
                                                 strlen ((const char *)tlv->value));
 
-            if (!patt_rc) return 0;
+            if (!patt_rc) {
+                pthread_spin_unlock (&cprintf_spinlock);
+                return 0;
+            }
         }
 
         else if (strcmp ((const char *)tlv->leaf_id, "grep-pattern") == 0) {
@@ -187,6 +206,7 @@ int cprintf (const char* format, ...) {
                 printw ("\nFailed to compile regex pattern %s, error : %s",
                     tlv->value, error_buffer);
                 regfree(&regex);
+                pthread_spin_unlock (&cprintf_spinlock);
                 return 0;
             }
 
@@ -194,6 +214,7 @@ int cprintf (const char* format, ...) {
 
             if (match) {
                  regfree(&regex);
+                 pthread_spin_unlock (&cprintf_spinlock);
                 return 0;
             }
 
@@ -226,5 +247,6 @@ int cprintf (const char* format, ...) {
         render_line (Obuffer, msg_len);
     }
 
+    pthread_spin_unlock (&cprintf_spinlock);
     return 0;
 }
