@@ -37,7 +37,7 @@ static unsigned char Cumbuffer[CUM_BUFFER_MAX_SIZE] = {0};
 static uint16_t cum_buffer_byte_cnt = 0;
 static int count_lines = 0;
 static bool count_filter_present = false;
-static bool save_filter_present = false;
+FILE *fileptr = NULL;
 static bool first_line = false;
 
 extern bool TC_RUNNING ;
@@ -78,7 +78,12 @@ UnsetFilterContext () {
     filter_array_size = 0;
     count_lines = 0;
     count_filter_present = false;
-    save_filter_present = false;
+    
+    if (fileptr) {
+        fclose (fileptr);
+        fileptr = NULL;
+    }
+
     first_line = false;
 
     if (TC_RUNNING) {
@@ -99,21 +104,26 @@ UnsetFilterContext () {
 static void 
 render_line (unsigned char *Obuffer, int msg_len) {
 
-    if (!TC_RUNNING && !first_line) {
+    if (TC_RUNNING) {
+    /* If the Test case is running, then collect individual printf statements in a Cumbuffer
+        until all the show o/p of the command is collected. */
+        memcpy(Cumbuffer + cum_buffer_byte_cnt, Obuffer, msg_len);
+        cum_buffer_byte_cnt += msg_len;
+        return;
+    }
+
+    if (fileptr) {
+        fwrite (Obuffer, 1, msg_len, fileptr);
+        return;
+    }
+
+    if (!first_line) {
 
         printw("\n");
         first_line = true;
     }
 
-    if (!TC_RUNNING) {
-        printw("%s", Obuffer);
-        return;
-    }
-
-    /* If the Test case is running, then collect individual printf statements in a Cumbuffer
-        until all the show o/p of the command is collected. */
-    memcpy (Cumbuffer +  cum_buffer_byte_cnt, Obuffer,  msg_len);
-    cum_buffer_byte_cnt += msg_len;
+     printw("%s", Obuffer);
 }
 
 /* override glibc printf */
@@ -204,11 +214,14 @@ int cprintf (const char* format, ...) {
         }
         else if (strcmp ((const char *)tlv->leaf_id, "sfile-name") == 0) {
             
-            save_filter_present = true;
+            if (!fileptr) {
+                fileptr = fopen ((const char *) tlv->value, "w+");
+                assert(fileptr);
+            }
         }        
     }
 
-    if (!count_filter_present && !save_filter_present) {
+    if (!count_filter_present ) {
 
         render_line (Obuffer, msg_len);
     }

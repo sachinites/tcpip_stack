@@ -48,7 +48,7 @@ void
 cli_content_shift_left (cli_t *cli);
 
 void 
-cli_record_copy (cli_history_t *cli_history, cli_t *new_cli);
+cli_record_cli_history (cli_history_t *cli_history, cli_t *new_cli);
 
 bool 
 cli_is_prev_char (cli_t *cli, unsigned char ch);

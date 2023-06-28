@@ -583,14 +583,16 @@ cmd_tree_construct_filter_subtree () {
     init_param (&count, CMD, "count", NULL, NULL, INVALID, NULL, "count lines");
     init_param (&save, CMD, "save", NULL, NULL, INVALID, NULL, "save to a file");
     init_param (&save_file, LEAF, NULL, NULL, NULL, STRING, "sfile-name", "file name");
-    libcli_register_param (&save, &save_file);
-    init_param (&refreshx, CMD, "refresh", NULL, NULL, INVALID, NULL, "Refresh the command repeatedly");
-    init_param (&refresh_val, LEAF, NULL, NULL, NULL, INT, "refresh-val", "Refresh Time Interval in Sec");
-    libcli_register_param (&refreshx, &refresh_val);
-    libcli_register_param (&pipe, &count);
-    libcli_register_param (&pipe, &save);
-    libcli_register_param (&pipe, &refreshx);
 
+    {
+        libcli_register_param (&save, &save_file);
+    }
+    {
+        libcli_register_param (&pipe, &count);
+    }
+    {
+        libcli_register_param (&pipe, &save);
+    }
     {
         init_param (&include,  CMD, "include", NULL, NULL, INVALID, NULL, "Include Pattern");
         libcli_register_param (&pipe, &include);
@@ -617,6 +619,13 @@ cmd_tree_construct_filter_subtree () {
             libcli_register_param(&grepx, &grepx_leaf);
             libcli_register_param(&grepx_leaf, &pipe);
         }
+    }
+    {
+        init_param (&refreshx, CMD, "refresh", NULL, NULL, INVALID, NULL, "Refresh the command repeatedly");
+        init_param (&refresh_val, LEAF, NULL, NULL, NULL, INT, "refresh-val", "Refresh Time Interval in Sec");
+        libcli_register_param (&refreshx, &refresh_val);
+        libcli_register_param (&pipe, &refreshx);
+        libcli_register_param (&refresh_val, &pipe);
     }
 }
 
