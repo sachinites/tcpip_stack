@@ -144,9 +144,13 @@ cmdtc_param_entered_forward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         cmdtc->refresh.is_refresh = true;
         cmdtc->refresh.refresh_val = 0;
     }
+
     else if (param == libcli_get_refresh_val_hook()) {
         assert (cmdtc->refresh.is_refresh);
         cmdtc->refresh.refresh_val = atoi ((const char *)cmdtc->curr_leaf_value);
+        #if 0
+        (libcli_get_refresh_hook()->flags) |= PARAM_F_DISABLE_PARAM;
+        #endif
     }
 
     if (IS_PARAM_LEAF (param)) {
@@ -165,10 +169,15 @@ cmdtc_param_exit_backward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         param->flags |= PARAM_F_NO_EXPAND;
     }
 
-    if (param == libcli_get_refresh_hook()) {
+    else if (param == libcli_get_refresh_hook()) {
         cmdtc->refresh.is_refresh = false;
     }
 
+#if 0
+    else if (param == libcli_get_refresh_val_hook()) {
+        libcli_get_refresh_hook()->flags &= ~PARAM_F_DISABLE_PARAM;
+    }
+#endif 
 }
 
 /* We  have just entered this param while moving up in the cmd tree.
@@ -222,15 +231,30 @@ cmd_tree_cursor_deinit (cmd_tree_cursor_t *cmdtc) {
 void 
 cmd_tree_cursor_destroy_internals (cmd_tree_cursor_t *cmdtc, bool free_tlvs) {
 
+    param_t *param;
     tlv_struct_t *tlv;
 
     if (cmdtc->params_stack) {
-        reset_stack (cmdtc->params_stack);
+
+        cmdtc_param_entered_backward (cmdtc, 
+            (param_t *)StackGetTopElem (cmdtc->params_stack));
+
+        while ((param = (param_t *)pop(cmdtc->params_stack))) {
+
+            cmdtc_param_exit_backward (cmdtc, param);
+            
+            if (!isStackEmpty (cmdtc->params_stack)) {
+                cmdtc_param_entered_backward (cmdtc, 
+                    (param_t *)StackGetTopElem (cmdtc->params_stack));
+            }
+        }
+
         free_stack (cmdtc->params_stack);
         cmdtc->params_stack = NULL;
     }
 
     if (cmdtc->tlv_stack) {
+
         while ((tlv = (tlv_struct_t *)pop(cmdtc->tlv_stack))) {
             if (free_tlvs) free(tlv);
         }
@@ -1266,11 +1290,21 @@ cmd_tree_cursor_reset_for_nxt_cmd (cmd_tree_cursor_t *cmdtc) {
     assert(cmdtc->params_stack->top >= cmdtc->stack_checkpoint);
 
     /* Restore the params_stack to the checkpoint */
+    if (cmdtc->params_stack->top > cmdtc->stack_checkpoint) {
+        cmdtc_param_entered_backward (cmdtc, 
+            (param_t *)StackGetTopElem (cmdtc->params_stack));
+    }
+
     while (cmdtc->params_stack->top > cmdtc->stack_checkpoint) {
 
         param = (param_t *)pop(cmdtc->params_stack);
         cmdtc_param_exit_backward (cmdtc, param);
         free (pop(cmdtc->tlv_stack));
+
+        if (!isStackEmpty (cmdtc->params_stack)) {
+        cmdtc_param_entered_backward (cmdtc, 
+            (param_t *)StackGetTopElem (cmdtc->params_stack));
+        }
     }
 
     if (cmdtc->params_stack->top < cmdtc->filter_checkpoint) {

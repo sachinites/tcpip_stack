@@ -142,29 +142,49 @@ cli_set_cmd_tree_cursor (cli_t *cli, cmd_tree_cursor_t *cmdtc)  {
     cli->cmdtc = cmdtc;
 }
 
+static const char *exceptional_cmds [] = { 
+                                    "show history\0",
+                                    "show help\0",
+                                    NULL};
+
 void 
 cli_record_cli_history (cli_history_t *cli_history, cli_t *new_cli) {
 
     if (cli_is_buffer_empty (new_cli)) return;
     if (default_cli_history_list->curr_ptr == new_cli) return;
     
-    if (cli_history->count ==  CLI_HISTORY_LIMIT) {
+    int i = 0, size;
+    while (exceptional_cmds[i]) {
+
+        if (strncmp ((const char *)cli_get_user_command(new_cli, &size),
+                             exceptional_cmds[i],
+                             strlen (exceptional_cmds[i]))) {
+            i++;
+            continue;
+        }
         
-        cli_t *new_last = cli_history->last->prev;
-        free(new_last->next);
-        new_last->next = NULL;
+        free(new_cli);
+        return;
     }
 
     cli_t *first_cli = cli_history->first;
 
     if (!first_cli) {
         cli_history->first = new_cli;
+        cli_history->count++;
         return;
     }
 
     if (cli_is_same (new_cli, first_cli)) {
         free(new_cli);
         return;
+    }
+
+    if (cli_history->count ==  CLI_HISTORY_LIMIT) {
+        
+        cli_t *new_last = cli_history->last->prev;
+        free(new_last->next);
+        new_last->next = NULL;
     }
 
     new_cli->next = first_cli;
