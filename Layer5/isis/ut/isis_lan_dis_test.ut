@@ -25,3 +25,27 @@
 :CMD: conf node H4 protocol isis interface eth11 priority 4
 :CMD: conf node H5 protocol isis interface eth8 priority 5
 :CMD: conf node H6 protocol isis interface eth11 priority 6
+
+:CMD: conf node H6 protocol isis traceoptions spf 
+:CMD: conf node H6 protocol isis traceoptions errors 
+:CMD: conf node H6 protocol isis traceoptions file-logging 
+
+:CMD: conf node H5 protocol isis traceoptions spf 
+:CMD: conf node H5 protocol isis traceoptions errors 
+:CMD: conf node H5 protocol isis traceoptions file-logging 
+
+:CMD: conf node H4 protocol isis traceoptions spf 
+:CMD: conf node H4 protocol isis traceoptions errors 
+:CMD: conf node H4 protocol isis traceoptions file-logging 
+
+:CMD: conf node H3 protocol isis traceoptions spf 
+:CMD: conf node H3 protocol isis traceoptions errors 
+:CMD: conf node H3 protocol isis traceoptions file-logging 
+
+:CMD: conf node H2 protocol isis traceoptions spf 
+:CMD: conf node H2 protocol isis traceoptions errors 
+:CMD: conf node H2 protocol isis traceoptions file-logging 
+
+:CMD: conf node H1 protocol isis traceoptions spf 
+:CMD: conf node H1 protocol isis traceoptions errors 
+:CMD: conf node H1 protocol isis traceoptions file-logging 

@@ -844,7 +844,7 @@ isis_config_cli_tree(param_t *param) {
             static param_t export_policy;
             init_param(&export_policy, CMD, "export-policy", 0, 0, INVALID, 0, "export policy");
             libcli_register_param(&isis_proto, &export_policy);
-            // libcli_register_display_callback(&import_policy, access_list_show_all_brief);
+            //libcli_register_display_callback(&import_policy, access_list_show_all_brief);
             {
                 static param_t policy_name;
                 init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
@@ -915,7 +915,6 @@ isis_config_cli_tree(param_t *param) {
             /* conf node <node-name> [no] protocol isis interface ... */
             static param_t interface;
             init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "interface");
-            libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&isis_proto, &interface);
             {
                 /*  conf node <node-name> [no] protocol isis interface <intf-name>
@@ -935,6 +934,7 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&if_name, LEAF, 0, isis_intf_config_handler, 0, STRING, "if-name",
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
+                libcli_register_display_callback(&if_name, display_node_interfaces);
                 libcli_set_param_cmd_code(&if_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE);
                 {
                     /*  conf node <node-name> [no] protocol isis interface <if-name> interface-group */
@@ -1025,7 +1025,6 @@ isis_show_cli_tree(param_t *param) {
             /* show node <node-name> protocol isis interface */
             static param_t interface;
             init_param(&interface, CMD, "interface",  isis_show_handler, 0, INVALID, 0, "interface");
-            libcli_register_display_callback(&interface, display_node_interfaces);
             libcli_register_param(&isis_proto, &interface);
             libcli_set_param_cmd_code(&interface, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_INTF);
             {
@@ -1041,6 +1040,7 @@ isis_show_cli_tree(param_t *param) {
                 init_param(&if_name, LEAF, 0, isis_show_handler, 0, STRING, "if-name",
                         ("Interface Name"));
                 libcli_register_param(&interface, &if_name);
+                libcli_register_display_callback(&if_name, display_node_interfaces);
                 libcli_set_param_cmd_code(&if_name, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF);
             }
             {

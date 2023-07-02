@@ -689,4 +689,5 @@ cmd_tree_is_filter_param (param_t *param) {
 void 
 libcli_register_display_callback (param_t *param, display_possible_values_callback cbk) {
 
+    param->disp_callback = cbk;
 }

@@ -194,16 +194,11 @@ cmd_tree_cursor_deinit (cmd_tree_cursor_t *cmdtc) {
     param_t *param;
     tlv_struct_t *tlv;
 
-    if (!isStackEmpty (cmdtc->params_stack)) {
+    while (!isStackEmpty (cmdtc->params_stack)) {
         cmdtc_param_entered_backward (cmdtc, 
             (param_t *)StackGetTopElem (cmdtc->params_stack));
-    }
-    while ((param = (param_t *)pop(cmdtc->params_stack))) {
+        param = (param_t *)pop(cmdtc->params_stack);
         cmdtc_param_exit_backward (cmdtc, param);
-        if (!isStackEmpty(cmdtc->params_stack)) {
-            cmdtc_param_entered_backward(cmdtc,
-                                         (param_t *)StackGetTopElem(cmdtc->params_stack));
-        }
     }
 
     while ((tlv = (tlv_struct_t *)pop(cmdtc->tlv_stack))) {
@@ -241,19 +236,12 @@ cmd_tree_cursor_destroy_internals (cmd_tree_cursor_t *cmdtc, bool free_tlvs) {
 
     if (cmdtc->params_stack) {
 
-        cmdtc_param_entered_backward (cmdtc, 
-            (param_t *)StackGetTopElem (cmdtc->params_stack));
-
-        while ((param = (param_t *)pop(cmdtc->params_stack))) {
-
-            cmdtc_param_exit_backward (cmdtc, param);
-            
-            if (!isStackEmpty (cmdtc->params_stack)) {
-                cmdtc_param_entered_backward (cmdtc, 
-                    (param_t *)StackGetTopElem (cmdtc->params_stack));
-            }
+        while (!isStackEmpty(cmdtc->params_stack)) {
+            cmdtc_param_entered_backward(cmdtc,
+                                         (param_t *)StackGetTopElem(cmdtc->params_stack));
+            param = (param_t *)pop(cmdtc->params_stack);
+            cmdtc_param_exit_backward(cmdtc, param);
         }
-
         free_stack (cmdtc->params_stack);
         cmdtc->params_stack = NULL;
     }
@@ -672,7 +660,7 @@ cmdtc_collect_all_matching_params (cmd_tree_cursor_t *cmdtc, unsigned char c, bo
 }
 
 static void 
-cmdt_cursor_display_options (cmd_tree_cursor_t *cmdtc) {
+cmdtc_cursor_display_options (cmd_tree_cursor_t *cmdtc) {
 
     glthread_t *curr;
     param_t *param;
@@ -711,7 +699,12 @@ cmdt_cursor_display_options (cmd_tree_cursor_t *cmdtc) {
         
         printw ("\nnxt cmd  -> %-32s   |   %s", 
             GET_LEAF_TYPE_STR(cmdtc->leaf_param), 
-            GET_PARAM_HELP_STRING(cmdtc->leaf_param));        
+            GET_PARAM_HELP_STRING(cmdtc->leaf_param));
+
+        if (cmdtc->leaf_param->disp_callback) {
+            printw ("\nLeaf Values : \n");
+             cmdtc->leaf_param->disp_callback (cmdtc->leaf_param, cmdtc->tlv_stack);
+        }
     }
 
     done:
@@ -744,7 +737,7 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 if (cmdtc->leaf_param) {
                     /* Leaf is available at this level, user just cant type ' '. Undo
                         the state change and block user cursor*/
-                    cmdt_cursor_display_options (cmdtc);
+                    cmdtc_cursor_display_options (cmdtc);
                     cmdtc->leaf_param = NULL;
                     return cmdt_cursor_no_match_further;
                 }
@@ -758,7 +751,7 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
 
                 if (len == 0) {
                     /* User has just typed ' ' and none of the options progress to auto-completion (even partially). Just display options and stay in the same state*/
-                    cmdt_cursor_display_options (cmdtc);
+                    cmdtc_cursor_display_options (cmdtc);
                     return cmdt_cursor_no_match_further;
                 }
 
@@ -770,7 +763,7 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                     cli_process_key_interrupt (
                         (int)GET_CMD_NAME(param)[cmdtc->icursor]);
                 }
-                cmdt_cursor_display_options (cmdtc);
+                cmdtc_cursor_display_options (cmdtc);
                 cmdtc->cmdtc_state = cmdt_cur_state_multiple_matches;
                 return cmdt_cursor_no_match_further;
             }
@@ -820,7 +813,7 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 cli_process_key_interrupt (
                         (int)GET_CMD_NAME(param)[cmdtc->icursor]);
             }
-            cmdt_cursor_display_options (cmdtc);
+            cmdtc_cursor_display_options (cmdtc);
             return cmdt_cursor_no_match_further;
 
 
@@ -1094,7 +1087,7 @@ cmdtc_process_question_mark (cmd_tree_cursor_t *cmdtc) {
     if (!IS_GLTHREAD_LIST_EMPTY (&cmdtc->matching_params_list) ||
             cmdtc->leaf_param) {
         
-        cmdt_cursor_display_options (cmdtc);
+        cmdtc_cursor_display_options (cmdtc);
         return;
     }
 
@@ -1102,7 +1095,7 @@ cmdtc_process_question_mark (cmd_tree_cursor_t *cmdtc) {
         set pf alternatives*/
 
     mcount = cmdtc_collect_all_matching_params (cmdtc, 'X', true);
-    cmdt_cursor_display_options (cmdtc);
+    cmdtc_cursor_display_options (cmdtc);
     cmdtc->leaf_param = NULL;
     while (dequeue_glthread_first(&cmdtc->matching_params_list)) ;
 }
@@ -1181,6 +1174,7 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
         cmd_tree_uninstall_universal_params ((param_t *)StackGetTopElem(cmdtc->params_stack));
 
         while (!cmdtc_is_params_stack_empty (cmdtc->params_stack)) {
+            cmdtc_param_entered_backward (cmdtc, (param_t *)StackGetTopElem (cmdtc->params_stack));
             param = (param_t *)pop(cmdtc->params_stack);
             cmdtc_param_exit_backward (cmdtc, param);
         }
@@ -1295,21 +1289,13 @@ cmd_tree_cursor_reset_for_nxt_cmd (cmd_tree_cursor_t *cmdtc) {
     assert(cmdtc->params_stack->top >= cmdtc->stack_checkpoint);
 
     /* Restore the params_stack to the checkpoint */
-    if (cmdtc->params_stack->top > cmdtc->stack_checkpoint) {
-        cmdtc_param_entered_backward (cmdtc, 
-            (param_t *)StackGetTopElem (cmdtc->params_stack));
-    }
-
     while (cmdtc->params_stack->top > cmdtc->stack_checkpoint) {
 
+        cmdtc_param_entered_backward (cmdtc, 
+            (param_t *)StackGetTopElem (cmdtc->params_stack));
         param = (param_t *)pop(cmdtc->params_stack);
         cmdtc_param_exit_backward (cmdtc, param);
         free (pop(cmdtc->tlv_stack));
-
-        if (!isStackEmpty (cmdtc->params_stack)) {
-        cmdtc_param_entered_backward (cmdtc, 
-            (param_t *)StackGetTopElem (cmdtc->params_stack));
-        }
     }
 
     if (cmdtc->params_stack->top < cmdtc->filter_checkpoint) {

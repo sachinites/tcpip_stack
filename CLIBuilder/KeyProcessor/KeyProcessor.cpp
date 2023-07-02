@@ -171,6 +171,7 @@ cli_record_cli_history (cli_history_t *cli_history, cli_t *new_cli) {
 
     if (!first_cli) {
         cli_history->first = new_cli;
+        cli_history->last = new_cli;
         cli_history->count++;
         return;
     }
@@ -185,6 +186,7 @@ cli_record_cli_history (cli_history_t *cli_history, cli_t *new_cli) {
         cli_t *new_last = cli_history->last->prev;
         free(new_last->next);
         new_last->next = NULL;
+        cli_history->last = new_last;
     }
 
     new_cli->next = first_cli;
@@ -923,6 +925,5 @@ cli_history_show () {
         printw ("\n%s", cli->clibuff);
         cli = cli->next;
     }
-    cli_printsc (default_cli, true);
 }
 

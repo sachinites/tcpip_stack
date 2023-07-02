@@ -61,7 +61,7 @@ validate_if_up_down_status(Stack_t *tlv_stack, c_string value){
 
 /*Display Node Interfaces*/
 void
-display_node_interfaces(param_t *param, Stack_t *tlv_stack){
+display_node_interfaces (param_t *param, Stack_t *tlv_stack){
 
     node_t *node;
     c_string node_name = NULL;
@@ -84,7 +84,7 @@ display_node_interfaces(param_t *param, Stack_t *tlv_stack){
         intf = node->intf[i];
         if(!intf) continue;
 
-        cprintf(" %s\n", intf->if_name.c_str());
+        printw (" %s\n", intf->if_name.c_str());
     }
 }
 
