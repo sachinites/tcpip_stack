@@ -406,6 +406,7 @@ cmd_tree_cursor_move_one_level_up (
 
     int count = 0;
     tlv_struct_t *tlv;
+    param_t *param;
 
     switch (cmdtc->cmdtc_state) {
         case cmdt_cur_state_init:
@@ -417,7 +418,7 @@ cmd_tree_cursor_move_one_level_up (
             }
 
             if (cmdtc->filter_checkpoint == cmdtc->params_stack->top) {
-                    cmdtc->filter_checkpoint = -1;
+                cmdtc->filter_checkpoint = -1;
             }
 
             /* Lower down the checkpoint of the params_stack if we are at checkpoint*/
@@ -425,8 +426,9 @@ cmd_tree_cursor_move_one_level_up (
                 cmdtc->stack_checkpoint--;
             }
             
-            cmdtc_param_exit_backward (cmdtc, cmdtc->curr_param);
-            pop(cmdtc->params_stack);
+            cmdtc_param_entered_backward (cmdtc, cmdtc->curr_param);
+            param = (param_t *)pop(cmdtc->params_stack);
+            cmdtc_param_exit_backward (cmdtc, param);
             tlv = (tlv_struct_t *)pop(cmdtc->tlv_stack);
             
             count = (IS_PARAM_CMD (cmdtc->curr_param) || IS_PARAM_NO_CMD(cmdtc->curr_param)) ? \
@@ -450,6 +452,8 @@ cmd_tree_cursor_move_one_level_up (
                     cmd_tree_install_universal_params (cmdtc->root, cmdtc_get_branch_hook (cmdtc));
                 }
             }
+            while (dequeue_glthread_first(&cmdtc->matching_params_list));
+            cmdtc->leaf_param = NULL;
         break;
         case cmdt_cur_state_multiple_matches:
             if (cmdtc->leaf_param) {
@@ -1092,7 +1096,7 @@ cmdtc_process_question_mark (cmd_tree_cursor_t *cmdtc) {
     }
 
     /* If user has not typed beginning a new word in a cli, then compute the next
-        set pf alternatives*/
+        set of alternatives*/
 
     mcount = cmdtc_collect_all_matching_params (cmdtc, 'X', true);
     cmdtc_cursor_display_options (cmdtc);
