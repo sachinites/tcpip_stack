@@ -11,7 +11,7 @@
  *       Compiler:  gcc
  *
  *         Author:  Er. Abhishek Sagar, Networking Developer (AS), sachinites@gmail.com
- *        Company:  Brocade Communications(2012-2016)
+ *        Company:  Brocade Communications(2012-2017)
  *                          Juniper Networks(2017-2021)
  *                          Cisco Systems(2021-2023)
  *                          CALIX(2023-Present)
@@ -26,7 +26,7 @@
 #include <mqueue.h>
 #include <regex.h>
 #include <pthread.h>
-#include "../cmdtlv.h"
+#include "../libcli.h"
 
 #define OBUFFER_SIZE  256
 #define CUM_BUFFER_MAX_SIZE 4096 /* must match with MAX_MSG_SIZE*/
@@ -165,7 +165,8 @@ int cprintf (const char* format, ...) {
     for (i = 0; i < filter_array_size; i++) {
         
         tlv = filter_array[i];
-        if (strcmp ((const char *)tlv->leaf_id, "incl-pattern") == 0) {
+
+        if (parser_match_leaf_id (tlv->leaf_id, "incl-pattern")) {
 
              inc_exc_pattern_present = true;
 
@@ -177,7 +178,7 @@ int cprintf (const char* format, ...) {
                 return 0;
             }
         }
-        else if (strcmp ((const char *)tlv->leaf_id, "excl-pattern") == 0) {
+        else if (parser_match_leaf_id (tlv->leaf_id, "excl-pattern")) {
 
             inc_exc_pattern_present = true;
 
@@ -191,7 +192,7 @@ int cprintf (const char* format, ...) {
             }
         }
 
-        else if (strcmp ((const char *)tlv->leaf_id, "grep-pattern") == 0) {
+        else if (parser_match_leaf_id (tlv->leaf_id, "grep-pattern")) {
             
             inc_exc_pattern_present = true;
             regex_t regex;
@@ -222,7 +223,7 @@ int cprintf (const char* format, ...) {
             regfree(&regex);
         }
 
-        else if (strcmp ((const char *)tlv->value, "count") == 0) {
+        else if (parser_match_leaf_id (tlv->value, "count")) {
             
             count_filter_present  = true;
 
@@ -233,7 +234,7 @@ int cprintf (const char* format, ...) {
                 count_lines++;
             }
         }
-        else if (strcmp ((const char *)tlv->leaf_id, "sfile-name") == 0) {
+        else if (parser_match_leaf_id (tlv->leaf_id, "sfile-name")) {
             
             if (!fileptr) {
                 fileptr = fopen ((const char *) tlv->value, "w+");

@@ -1847,6 +1847,7 @@ cmdtc_parse_full_command (cli_t *cli) {
             push(cmdtc->params_stack, (void *)param);
             push (cmdtc->tlv_stack, (void *)cmd_tree_convert_param_to_tlv (
                                         param, (unsigned char *)*(tokens +i)));
+            strncpy ((char *)cmdtc->curr_leaf_value, *(tokens +i), LEAF_VALUE_HOLDER_SIZE);
             cmdtc_param_entered_forward (cmdtc, param);
         }
 

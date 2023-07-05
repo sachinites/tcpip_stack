@@ -18,6 +18,9 @@ task_invoke_appln_cbk_handler (param_t *param,
 typedef struct unified_cli_data_{
     
         param_t *param;
+        cmd_callback cbk;
+        int cmdcode;
+        int rc;
         Stack_t  *tlv_stack;
         op_mode enable_or_disable;
 } unified_cli_data_t;
@@ -41,8 +44,8 @@ task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
     unified_cli_data_t *unified_cli_data =
         (unified_cli_data_t *)arg;
 
-    rc = unified_cli_data->param->callback(
-        unified_cli_data->param->CMDCODE,
+    unified_cli_data->rc = unified_cli_data->cbk(
+        unified_cli_data->cmdcode,
         unified_cli_data->tlv_stack,
         unified_cli_data->enable_or_disable);
 
@@ -105,7 +108,9 @@ task_invoke_appln_cbk_handler (param_t *param,
         unified_cli_data_t *unified_cli_data =
                 (unified_cli_data_t *)calloc(1, sizeof(unified_cli_data_t));
 
-        unified_cli_data->param = param;
+        //unified_cli_data->param = param;
+        unified_cli_data->cbk = param->callback;
+        unified_cli_data->cmdcode = param->CMDCODE;
         unified_cli_data->tlv_stack = (Stack_t *)get_new_stack();
         unified_cli_data->enable_or_disable = enable_or_disable;
 
