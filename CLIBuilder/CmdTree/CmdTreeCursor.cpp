@@ -151,9 +151,10 @@ cmdtc_param_entered_forward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         (libcli_get_refresh_hook()->flags) |= PARAM_F_DISABLE_PARAM;
     }
 
-    if (IS_PARAM_LEAF (param)) {
-        memset (cmdtc->curr_leaf_value, 0, sizeof (cmdtc->curr_leaf_value));
-    }
+    /* Unconditionally cleanup the leaf as the current param may be CMD type,
+        but still we record  key strokes in curr_leaf_value if we have a leaf at current
+        level*/
+    memset (cmdtc->curr_leaf_value, 0, sizeof (cmdtc->curr_leaf_value));
 }
 
 /* We are about to exit this param Or has just exited this param already. Do the 
@@ -257,6 +258,7 @@ cmd_tree_cursor_destroy_internals (cmd_tree_cursor_t *cmdtc, bool free_tlvs) {
 
     memset (cmdtc->curr_leaf_value, 0, sizeof (cmdtc->curr_leaf_value));
     while ((dequeue_glthread_first (&cmdtc->matching_params_list)));
+    cmdtc->leaf_param = NULL;
 }
 
 
