@@ -652,9 +652,8 @@ cli_process_key_interrupt(int ch)
         {
             cli_screen_cursor_save_screen_pos(default_cli);
             move(default_cli->row_store, default_cli->end_pos);
-            if (cli_submit(default_cli) == 0) {
-                cli_content_reset(default_cli);
-            }
+            cli_submit(default_cli);
+            cli_content_reset(default_cli);
             cli_printsc(default_cli, true);
         }
         else
