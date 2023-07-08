@@ -570,6 +570,16 @@ cli_process_key_interrupt(int ch)
 
             /* in Char mode we are always at the end of line*/
             assert(cli_cursor_is_at_end_of_line (default_cli));
+
+            if (cmd_tree_cursor_move_one_char_back (default_cli->cmdtc)) {
+
+                cli_screen_cursor_move_cursor_left (1, true);
+                default_cli->clibuff[--default_cli->end_pos] = '\0';
+                default_cli->cnt--;
+                default_cli->current_pos--;
+                break;
+            }
+
             bs_count = cmd_tree_cursor_move_one_level_up (default_cli->cmdtc, true, false);
             if (bs_count) {
                 cli_screen_cursor_move_cursor_left (bs_count, true);

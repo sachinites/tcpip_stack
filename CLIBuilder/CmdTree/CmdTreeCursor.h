@@ -26,6 +26,9 @@ cmdtc_tree_get_cursor ();
 void 
 cmd_tree_cursor_move_to_next_level (cmd_tree_cursor_t *cmdtc) ;
 
+bool
+cmd_tree_cursor_move_one_char_back (cmd_tree_cursor_t *cmdtc);
+
 int
 cmd_tree_cursor_move_one_level_up (cmd_tree_cursor_t *cmdtc,
                                                                 bool honor_checkpoint, bool update_root) ;

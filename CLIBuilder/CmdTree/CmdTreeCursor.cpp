@@ -395,6 +395,31 @@ cmdtc_is_cursor_at_apex_root (cmd_tree_cursor_t *cmdtc) {
     return rc;
 }
 
+bool
+cmd_tree_cursor_move_one_char_back (cmd_tree_cursor_t *cmdtc) {
+
+    switch (cmdtc->cmdtc_state) {
+        
+        case cmdt_cur_state_init:
+        case cmdt_cur_state_multiple_matches:
+        case cmdt_cur_state_single_word_match:
+            return false;
+        case cmdt_cur_state_matching_leaf:
+            cmdtc->curr_leaf_value[--cmdtc->icursor] = '\0';
+            if (cmdtc->icursor == 0) {
+                cmdtc->cmdtc_state =  cmdt_cur_state_init;
+                cmdtc->curr_param = (param_t *)StackGetTopElem (cmdtc->params_stack);
+                while ((dequeue_glthread_first (&cmdtc->matching_params_list)));
+                cmdtc->leaf_param = NULL;
+            }
+            return true;
+        case cmdt_cur_state_no_match:
+        default: ;
+    }
+    return false;
+}
+
+
 /* Fn to move the cursor one level up in the cmd tree. Note that this fn is called to implement BackSpace and Page UP
 In case of BackSpace, we would not like to lower down the checkpoints and update root
 In case of of Page UP, we would like to update checkpoints as well as root. Hence, pass
