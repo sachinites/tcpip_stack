@@ -728,12 +728,8 @@ isis_count_tlv_occurrences (byte *tlv_buffer,
     ITERATE_TLV_BEGIN(tlv_buffer , tlv_type,
                         tlv_len, tlv_value, tlv_buff_size){
 
-         switch(tlv_type){
+        if (tlv_type == tlv_no) rc++;
 
-                case ISIS_IS_REACH_TLV:
-                    rc++;
-                default: ;
-         }
     } ITERATE_TLV_END(tlv_buffer, tlv_type,
                         tlv_len, tlv_value, tlv_buff_size);
     return rc;

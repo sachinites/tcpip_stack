@@ -250,6 +250,7 @@ isis_update_interface_adjacency_from_hello(
         case ISIS_PTP_HELLO_PKT_TYPE:
             p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
             sys_id = p2p_hdr->source_id;
+            break;
         default:
             lan_hdr = (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
             sys_id = lan_hdr->source_id;
