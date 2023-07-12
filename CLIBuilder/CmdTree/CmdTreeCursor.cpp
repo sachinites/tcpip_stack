@@ -1685,10 +1685,8 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 cmd_tree_trigger_cli (cmdtc);
                 cmd_tree_post_cli_trigger(cmdtc);
                 rc = cmdtc->success;
-                if (rc) {
-                    cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
-                }
             }
+            cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
             return rc;
         case cmdt_cur_state_single_word_match:
             /* Auto complete the word , push into the params_stack and TLV buffer and fire the CLI*/
