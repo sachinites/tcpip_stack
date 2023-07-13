@@ -1346,6 +1346,7 @@ cmd_tree_cursor_reset_for_nxt_cmd (cmd_tree_cursor_t *cmdtc) {
     cmdtc->curr_param = cmdtc->root;
 
     cmdtc->icursor = 0;
+    memset (cmdtc->curr_leaf_value, 0, sizeof (cmdtc->curr_leaf_value));
     cmdtc->success = false;
     cmdtc->cmdtc_state= cmdt_cur_state_init;
 
@@ -1681,8 +1682,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return true;
         case cmdt_cur_state_multiple_matches:
-            /* If the user press enter key while he still have multiple matches to choose from, check if the last work user has typed out matches exactly with
-            one of the options, yes, then accept the word.*/
+            /* If the user press enter key while he still have multiple matches to choose from, check if the last word user has typed out matches exactly with one of the options, yes, then accept the word.*/
             param =  cmdtc_filter_word_by_word_size 
                             (&cmdtc->matching_params_list, cmdtc->icursor);
             rc = false;
