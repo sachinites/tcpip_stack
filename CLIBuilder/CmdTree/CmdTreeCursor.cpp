@@ -84,6 +84,7 @@ typedef struct cmd_tree_cursor_ {
     /* need to refresh */
     struct {
         bool is_refresh;
+        bool clrscr;
         int refresh_val;
         pthread_t *th;
         sem_t sem;
@@ -151,6 +152,10 @@ cmdtc_param_entered_forward (cmd_tree_cursor_t *cmdtc, param_t *param) {
         (libcli_get_refresh_hook()->flags) |= PARAM_F_DISABLE_PARAM;
     }
 
+    else if (param == libcli_get_clrscr_hook()) {
+        cmdtc->refresh.clrscr = true;
+    }
+
     /* Unconditionally cleanup the leaf as the current param may be CMD type,
         but still we record  key strokes in curr_leaf_value if we have a leaf at current
         level*/
@@ -174,6 +179,7 @@ cmdtc_param_exit_backward (cmd_tree_cursor_t *cmdtc, param_t *param) {
 
     else if (param == libcli_get_refresh_val_hook()) {
         libcli_get_refresh_hook()->flags &= ~PARAM_F_DISABLE_PARAM;
+        cmdtc->refresh.clrscr = false;
     }
 }
 
@@ -221,6 +227,7 @@ cmd_tree_cursor_deinit (cmd_tree_cursor_t *cmdtc) {
     cmdtc->is_negate = false;
     cmdtc->refresh.is_refresh = false;
     cmdtc->refresh.refresh_val = 0;
+    cmdtc->refresh.clrscr = false;
     if (cmdtc->refresh.th) {
         pthread_cancel (*cmdtc->refresh.th);
         free(cmdtc->refresh.th);
@@ -1537,6 +1544,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                 is_refresh_in_progress = false;
                 break;
             }
+            if (cli_cmdtc->refresh.clrscr) clear();
             cli_printsc (cli_get_default_cli (), true);
         }
         return;

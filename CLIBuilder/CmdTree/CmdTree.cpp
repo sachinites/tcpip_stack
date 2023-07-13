@@ -37,6 +37,7 @@ static param_t grepx;
 static param_t grepx_leaf;
 static param_t refreshx;
 static param_t refresh_val;
+static param_t clrscr;
 
 
 static param_t *universal_params[] = {&show, &config};
@@ -313,6 +314,12 @@ param_t *
 libcli_get_refresh_val_hook(void)
 {
     return &refresh_val;
+}
+
+param_t *
+libcli_get_clrscr_hook(void)
+{
+    return &clrscr;
 }
 
 bool
@@ -626,6 +633,10 @@ cmd_tree_construct_filter_subtree () {
         libcli_register_param (&refreshx, &refresh_val);
         libcli_register_param (&pipe, &refreshx);
         libcli_register_param (&refresh_val, &pipe);
+        {
+             init_param (&clrscr, CMD, "cls", NULL, NULL, INVALID, NULL, "Clear the screen");
+             libcli_register_param (&refresh_val, &clrscr);
+        }
     }
 }
 

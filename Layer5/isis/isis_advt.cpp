@@ -1103,8 +1103,8 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         }
 
         if (isis_evaluate_policy(node,
-                                 node_info->export_policy,
-                                 tcp_ip_covert_ip_p_to_n(l3_route->dest), l3_route->mask) != PFX_LST_PERMIT) {
+                node_info->export_policy,
+                tcp_ip_covert_ip_p_to_n(l3_route->dest), l3_route->mask) != PFX_LST_PERMIT) {
 
             trace (ISIS_TR(node), TR_ISIS_POLICY,
                 "%s : Route %s/%d rejected due to export policy.\n",
