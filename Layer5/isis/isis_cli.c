@@ -834,8 +834,9 @@ isis_config_cli_tree(param_t *param) {
              {
                  static param_t policy_name;
                  init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
-                            ("Access List Name"));
+                            ("Prefix List Name"));
                  libcli_register_param(&import_policy, &policy_name);
+                 libcli_param_recursive(&policy_name);
                  libcli_set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY);
                  libcli_set_tail_config_batch_processing (&policy_name);
              }

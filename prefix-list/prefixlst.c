@@ -294,17 +294,13 @@ prefix_lst_config_handler (int cmdcode,
     }
     /* Handle negation CLI Done */
 
-    if (nw_prefix == NULL || res_str == NULL) {
+    if (res_str == NULL) {
         cprintf ("Error : Incomplete Prefix List\n");
         return -1;
     }
 
     pfx_lst_result_t res = (strcmp (res_str, "permit") == 0) ? PFX_LST_PERMIT : PFX_LST_DENY;
 
-    if (nw_prefix == NULL) {
-        cprintf ("Error : Incomplete Prefix List\n");
-        return -1;
-    }
 
     if (!prefix_lst) {
 
@@ -316,7 +312,7 @@ prefix_lst_config_handler (int cmdcode,
     if (!prefix_list_add_rule (prefix_lst,
                                              seq_no,
                                              res, 
-                                             tcp_ip_covert_ip_p_to_n(nw_prefix),
+                                             nw_prefix ? tcp_ip_covert_ip_p_to_n(nw_prefix) : 0,
                                              len, lb, ub)) {
         
         cprintf ("Error : Rule Could not be configured\n");
@@ -363,9 +359,8 @@ void prefix_list_cli_config_tree(param_t *param)
         libcli_register_param(param, &prefix_lst);
         {
             static param_t prefix_lst_name;
-            init_param(&prefix_lst_name, LEAF, NULL, prefix_lst_config_handler, NULL, STRING, "pfxlst-name", "prefix-list Name");
+            init_param(&prefix_lst_name, LEAF, NULL, NULL, NULL, STRING, "pfxlst-name", "prefix-list Name");
             libcli_register_param(&prefix_lst, &prefix_lst_name);
-            libcli_set_param_cmd_code(&prefix_lst_name, CMDCODE_CONFIG_PREFIX_LST);
             {
                 static param_t res;
                 init_param(&res, LEAF, NULL, NULL, prefix_lst_validate_input_result_value, STRING, "permit|deny", "prefix-list result [permit | deny]");

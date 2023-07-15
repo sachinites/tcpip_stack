@@ -32,6 +32,9 @@ libcli_set_param_cmd_code (param_t *param, int cmd_code) ;
 void
 libcli_support_cmd_negation (param_t *param);
 
+void 
+libcli_param_recursive (param_t *param);
+
 static inline bool
 parser_match_leaf_id (unsigned char *tlv_leaf_id, const char *leaf_id_manual) {
 

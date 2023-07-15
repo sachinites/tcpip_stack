@@ -90,6 +90,12 @@ typedef struct cmd_tree_cursor_ {
         sem_t sem;
     } refresh;
 
+    /*
+    Tracking double Quotes
+    */
+   int dqoute_open_cnt;
+   int dqoute_closed_cnt;
+
 } cmd_tree_cursor_t;
 
 /* This cursor will be used to prse the CLIs when Operating in Char-by-char Mode*/
@@ -902,6 +908,37 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
     return cmdt_cursor_no_match_further;
 }
 
+static bool 
+cmdtc_cursor_is_double_qoute_open (cmd_tree_cursor_t *cmdtc) {
+
+    return (cmdtc->dqoute_open_cnt > cmdtc->dqoute_closed_cnt);
+}
+
+static  cmdt_cursor_op_res_t
+cmdt_cursor_process_double_quotes (cmd_tree_cursor_t *cmdtc) {
+
+    int mcount;
+
+    if (cmdtc->dqoute_open_cnt == cmdtc->dqoute_closed_cnt) {
+        cmdtc->dqoute_open_cnt++;
+    }
+    else {
+        cmdtc->dqoute_closed_cnt++;
+    }
+
+    switch (cmdtc->cmdtc_state) { 
+
+        case cmdt_cur_state_init:
+        case cmdt_cur_state_multiple_matches:
+        case cmdt_cur_state_single_word_match:
+        case cmdt_cur_state_matching_leaf:
+        case cmdt_cur_state_no_match:
+        default:;
+    }
+    
+    return cmdt_cursor_no_match_further;
+}
+
  cmdt_cursor_op_res_t
  cmdt_cursor_parse_next_char (cmd_tree_cursor_t *cmdtc, unsigned char c) {
 
@@ -916,6 +953,11 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
     if ((c == KEY_ASCII_SPACE) || (c == KEY_ASCII_TAB)) {
 
         return cmdt_cursor_process_space (cmdtc);
+    }
+
+    if (c == KEY_ASCII_DOUBLE_QUOTES) {
+
+        return cmdt_cursor_process_double_quotes (cmdtc);
     }
 
     /* Starting from the beginning */
@@ -1127,6 +1169,7 @@ cmdtc_process_question_mark (cmd_tree_cursor_t *cmdtc) {
         
         cmdtc_cursor_display_options (cmdtc);
         return;
+
     }
 
     /* If user has not typed beginning a new word in a cli, then compute the next
@@ -1467,6 +1510,7 @@ cmdtc_set_filter_context (cmd_tree_cursor_t *cmdtc) {
 
 
 #define SCHED_SUBMISSION
+#undef SCHED_SUBMISSION
 
 #ifdef SCHED_SUBMISSION
 extern void
@@ -1682,7 +1726,9 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return true;
         case cmdt_cur_state_multiple_matches:
-            /* If the user press enter key while he still have multiple matches to choose from, check if the last word user has typed out matches exactly with one of the options, yes, then accept the word.*/
+            /* If the user press enter key while he still have multiple matches to
+            choose from, check if the last word user has typed out matches exactly
+            with one of the options, yes, then accept the word.*/
             param =  cmdtc_filter_word_by_word_size 
                             (&cmdtc->matching_params_list, cmdtc->icursor);
             rc = false;

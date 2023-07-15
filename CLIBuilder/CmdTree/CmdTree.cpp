@@ -32,7 +32,7 @@ static param_t save_file;
 static param_t include;
 static param_t include_leaf;
 static param_t exclude;
- static param_t exclude_leaf;
+static param_t exclude_leaf;
 static param_t grepx;
 static param_t grepx_leaf;
 static param_t refreshx;
@@ -122,6 +122,13 @@ libcli_register_param(param_t *parent, param_t *child) {
 
     if (!parent) parent = libcli_get_root_hook();
 
+    /* You cannot add a LEAF param as child of Recursive param because Recursive
+        param itself is its own child, Wierd but true*/
+    if ( (parent != child) && 
+            parent->flags & PARAM_F_RECURSIVE) {
+        assert (!IS_PARAM_LEAF (child));
+    }
+
     for (i = CHILDREN_START_INDEX; i <= CHILDREN_END_INDEX; i++) {
         if (parent->options[i])
             continue;
@@ -138,6 +145,16 @@ libcli_set_param_cmd_code(param_t *param, int cmd_code) {
     if (param->callback == NULL)
         assert(0);
     param->CMDCODE = cmd_code;
+}
+
+void 
+libcli_param_recursive (param_t *param) {
+
+    assert (IS_PARAM_LEAF (param));
+    param_t *parent = param->parent;
+    libcli_register_param (param, param);
+    param->parent = parent;
+    param->flags |= PARAM_F_RECURSIVE;
 }
 
 void 
@@ -356,7 +373,7 @@ cmd_tree_convert_param_to_tlv (param_t *param, unsigned char *curr_leaf_value) {
     return tlv;
 }
 
-static unsigned char temp[ LEAF_ID_SIZE + 2];
+static unsigned char temp[ LEAF_ID_SIZE + 2]; // 2 for < > 
 void
 cmd_tree_display_all_complete_commands(
                 param_t *root, unsigned int index) {
@@ -380,9 +397,11 @@ cmd_tree_display_all_complete_commands(
 
         unsigned int i = CHILDREN_START_INDEX;
 
-        for ( ; i <= CHILDREN_END_INDEX; i++)
+        for ( ; i <= CHILDREN_END_INDEX; i++) {
+            if (root->options[i]->flags & PARAM_F_RECURSIVE) continue;
             cmd_tree_display_all_complete_commands(
                     root->options[i], index+1);
+        }
     
         if (root->callback){
             print_tokens(index + 1); 
@@ -543,7 +562,7 @@ libcli_support_cmd_negation (param_t *param) {
     }
 
     negate_param = (param_t *)calloc (1, sizeof (param_t));
-    init_param (negate_param , NO_CMD, "no", NULL, NULL, INVALID, NULL, "Cmd Negation");
+    init_param (negate_param , NO_CMD, NEGATE_CHARACTER, NULL, NULL, INVALID, NULL, "Cmd Negation");
 
     for (i = CHILDREN_START_INDEX; i <= CHILDREN_END_INDEX; i++) {
 
@@ -568,6 +587,7 @@ libcli_cleanup_parent_pointers_internal (param_t *param) {
     if (param == &pipe) return;
 
     for (i = CHILDREN_START_INDEX ; i <= CHILDREN_END_INDEX; i++) {
+        if (param->options[i]->flags & PARAM_F_RECURSIVE) continue;
         libcli_cleanup_parent_pointers_internal (param->options[i]);
     }
 
