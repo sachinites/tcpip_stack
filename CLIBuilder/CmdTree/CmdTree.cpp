@@ -587,7 +587,7 @@ libcli_cleanup_parent_pointers_internal (param_t *param) {
     if (param == &pipe) return;
 
     for (i = CHILDREN_START_INDEX ; i <= CHILDREN_END_INDEX; i++) {
-        if (param->options[i]->flags & PARAM_F_RECURSIVE) continue;
+        if (param->options[i] && (param->options[i]->flags & PARAM_F_RECURSIVE)) continue;
         libcli_cleanup_parent_pointers_internal (param->options[i]);
     }
 
