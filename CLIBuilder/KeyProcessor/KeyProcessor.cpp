@@ -341,7 +341,12 @@ cli_append_user_command (cli_t *cli, unsigned char *cmd, int size) {
 
 void cli_printsc (cli_t *cli, bool next_line) {
 
+    #if 0
+    /* It dont scroll the screen up*/
     if (next_line) cli_screen_cursor_move_next_line ();
+    #else
+    if (next_line) printw("\n");
+    #endif
     printw("%s", cli->clibuff);
 }
 
@@ -901,13 +906,16 @@ cli_start_shell () {
 
         if (cli_is_char_mode_on()) {
 
-            if (key_processor_should_enter_line_mode (ch)) {
+
+
+            if ( key_processor_should_enter_line_mode (ch)) {
                 keyp_char_mode = false;
                 /* Reset the cmd tree cbc cursor to be used for next command now afresh*/
                 cmd_tree_cursor_reset_for_nxt_cmd (default_cli->cmdtc);
                 MODE_MSG_DISPLAY;
             }
         }
+
         cli_process_key_interrupt ((int)ch);
     }
 }
