@@ -880,7 +880,13 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
             /* Standard Validation Checks on Leaf */
             tlv_struct_t *tlv;
             tlv = cmd_tree_convert_param_to_tlv (cmdtc->curr_param, cmdtc->curr_leaf_value);
+            
             if (clistd_validate_leaf (tlv) != LEAF_VALIDATION_SUCCESS) {
+                
+                cli_screen_cursor_move_cursor_left (cmdtc->icursor, true);
+                attron(COLOR_PAIR(RED_ON_BLACK));
+                printw ("%s",  cmdtc->curr_leaf_value);
+                attroff(COLOR_PAIR(RED_ON_BLACK));
                 free(tlv);
                 return cmdt_cursor_no_match_further;
             }
