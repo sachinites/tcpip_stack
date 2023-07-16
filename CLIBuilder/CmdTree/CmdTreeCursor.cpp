@@ -890,8 +890,9 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn(
                     cmdtc->tlv_stack,  cmdtc->curr_leaf_value) == LEAF_VALIDATION_FAILED)) {
                 
+                cli_screen_cursor_move_cursor_left (cmdtc->icursor, true);
                 attron(COLOR_PAIR(RED_ON_BLACK));
-                printw ("\nCLI Error : User Validation Failed for value : %s", cmdtc->curr_leaf_value);
+                printw ("%s",  cmdtc->curr_leaf_value);
                 attroff(COLOR_PAIR(RED_ON_BLACK));
 
                 return cmdt_cursor_no_match_further;
@@ -1657,54 +1658,54 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     switch (enable_or_diable) {
 
         case CONFIG_ENABLE:
-            /* Handle Trigger of Config Command. Config Commands are triggered in
-                batches if PARAM_F_CONFIG_BATCH_CMD flag is set !*/
-            if (param->flags & PARAM_F_CONFIG_BATCH_CMD) {
+                /* Handle Trigger of Config Command. Config Commands are triggered in
+                    batches if PARAM_F_CONFIG_BATCH_CMD flag is set !*/
+                if (param->flags & PARAM_F_CONFIG_BATCH_CMD) {
 
-                for (i = cmdtc->stack_checkpoint + 1; i <= cmdtc->params_stack->top; i++) {
+                    for (i = cmdtc->stack_checkpoint + 1; i <= cmdtc->params_stack->top; i++) {
 
-                    param = (param_t *)cmdtc->params_stack->slot[i];
+                        param = (param_t *)cmdtc->params_stack->slot[i];
 
-                    if (!param->callback) {
-                        continue;
-                    }
-
-                    if (param->flags & PARAM_F_RECURSIVE) {
-
-                        if ( (i < cmdtc->params_stack->top) &&
-                                (param == (param_t *)cmdtc->params_stack->slot[i+1])) {
+                        if (!param->callback) {
                             continue;
                         }
+
+                        if (param->flags & PARAM_F_RECURSIVE) {
+
+                            if ( (i < cmdtc->params_stack->top) &&
+                                    (param == (param_t *)cmdtc->params_stack->slot[i+1])) {
+                                continue;
+                            }
+                        }
+
+                        /* Temporarily over-write the size of TLV buffer */
+                        cmdtc->tlv_stack->top = i;
+
+                        #ifndef SCHED_SUBMISSION
+                        if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
+                            cli_cmdtc->success = false;
+                            break;
+                        }
+                        #else
+                        task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_diable);
+                        #endif
                     }
-
-                    /* Temporarily over-write the size of TLV buffer */
-                    cmdtc->tlv_stack->top = i;
-
+                    cmdtc->tlv_stack->top = cmdtc->params_stack->top;
+                    if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
+                }
+                    /* Handle CONFIG NON Batch Command*/
+                else {
+                    
                     #ifndef SCHED_SUBMISSION
-                    if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
+                    if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
                         cli_cmdtc->success = false;
-                        break;
                     }
-                    #else
-                    task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_diable);
+                    #else 
+                        task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_diable);
                     #endif
+                    if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
                 }
-                cmdtc->tlv_stack->top = cmdtc->params_stack->top;
-                if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
-            }
-                /* Handle CONFIG NON Batch Command*/
-            else {
-                
-                 #ifndef SCHED_SUBMISSION
-                if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
-                    cli_cmdtc->success = false;
-                }
-                #else 
-                    task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_diable);
-                #endif
-                if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
-            }
-            break;
+                break;
 
 
             case CONFIG_DISABLE:
@@ -1722,18 +1723,18 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
             case OPERATIONAL:
                 
-                cmdtc_set_filter_context (cmdtc); 
+                    cmdtc_set_filter_context (cmdtc); 
 
-                #ifndef SCHED_SUBMISSION
-                if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
-                    cli_cmdtc->success = false;
-                }
-                #else 
-                task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_diable);
-                #endif
-                UnsetFilterContext ();
-                if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
-                break;
+                    #ifndef SCHED_SUBMISSION
+                    if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_diable)) {
+                        cli_cmdtc->success = false;
+                    }
+                    #else 
+                    task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_diable);
+                    #endif
+                    UnsetFilterContext ();
+                    if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
+                    break;
     }
 }
 
