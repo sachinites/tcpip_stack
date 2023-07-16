@@ -548,8 +548,8 @@ static void display_expected_flag(param_t *param, Stack_t *tlv_stack){
     cprintf(" : l3-fwd | no-l3-fwd\n");
 }
 
-int
-validate_flag_values(c_string value){
+static int
+validate_flag_values(stack_t *tlv_stack, c_string value){
 
     int k = 0;
     int len = strlen((const char *)value);
@@ -817,8 +817,9 @@ tcp_ip_build_node_traceoptions_cli(param_t *node_name_param){
             {
                 static param_t flag_val;
                 init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
-                        "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout | l3-fwd | no-l3-fwd>");
+                        "<[no-]all | [no-]recv | [no-]send | [no-]stdout | [no-]l3-fwd>");
                 libcli_register_param(&flag, &flag_val);
+                libcli_param_recursive (&flag_val);
                 libcli_set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_NODE);
             }
         }
@@ -851,8 +852,9 @@ tcp_ip_build_intf_traceoptions_cli(param_t *intf_name_param){
             {
                 static param_t flag_val;
                 init_param(&flag_val, LEAF, 0, traceoptions_handler, validate_flag_values, STRING, "flag-val", 
-                    "<all | no-all | recv | no-recv | send | no-send | stdout | no-stdout>");
+                    "<[no-]all | [no-]recv | [no-]send | [no-]stdout");
                 libcli_register_param(&flag, &flag_val);
+                libcli_param_recursive (&flag_val);
                 libcli_set_param_cmd_code(&flag_val, CMDCODE_DEBUG_LOGGING_PER_INTF);
             }
         }

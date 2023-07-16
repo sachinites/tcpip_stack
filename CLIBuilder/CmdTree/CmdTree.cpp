@@ -398,7 +398,7 @@ cmd_tree_display_all_complete_commands(
         unsigned int i = CHILDREN_START_INDEX;
 
         for ( ; i <= CHILDREN_END_INDEX; i++) {
-            if (root->options[i]->flags & PARAM_F_RECURSIVE) continue;
+            if (root->options[i] && (root->options[i]->flags & PARAM_F_RECURSIVE)) continue;
             cmd_tree_display_all_complete_commands(
                     root->options[i], index+1);
         }

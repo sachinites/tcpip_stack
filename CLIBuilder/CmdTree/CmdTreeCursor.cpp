@@ -890,6 +890,10 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn(
                     cmdtc->tlv_stack,  cmdtc->curr_leaf_value) == LEAF_VALIDATION_FAILED)) {
                 
+                attron(COLOR_PAIR(RED_ON_BLACK));
+                printw ("\nCLI Error : User Validation Failed for value : %s", cmdtc->curr_leaf_value);
+                attroff(COLOR_PAIR(RED_ON_BLACK));
+
                 return cmdt_cursor_no_match_further;
             }
 
@@ -1806,6 +1810,17 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 return false;
             }
             free(tlv);
+
+            if (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn &&
+                (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn(
+                    cmdtc->tlv_stack,  cmdtc->curr_leaf_value) != LEAF_VALIDATION_SUCCESS)) {
+                
+                attron(COLOR_PAIR(RED_ON_BLACK));
+                printw ("\nCLI Error : User Validation Failed for value : %s", cmdtc->curr_leaf_value);
+                attroff(COLOR_PAIR(RED_ON_BLACK));
+                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+                return false;
+            }
 
             /* Process space after word completion so that cmd tree cursor is updated and move to next param */
             cli_process_key_interrupt (' ');

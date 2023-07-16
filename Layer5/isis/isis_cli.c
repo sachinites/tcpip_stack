@@ -851,8 +851,9 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
                            ("Prefix List Name"));
                 libcli_register_param(&export_policy, &policy_name);
+                libcli_param_recursive(&policy_name);
                 libcli_set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY);
-                 libcli_set_tail_config_batch_processing (&policy_name);
+                libcli_set_tail_config_batch_processing (&policy_name);
             }
         }
         {
@@ -899,6 +900,7 @@ isis_config_cli_tree(param_t *param) {
                 init_param(&if_grp_name, LEAF, 0, isis_config_handler, 0, STRING, "if-grp-name",
                         ("Interface Group Name"));
                 libcli_register_param(&interface_group, &if_grp_name);
+                libcli_param_recursive(&if_grp_name);
                 libcli_set_param_cmd_code(&if_grp_name, CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GRP);
                 libcli_set_tail_config_batch_processing (&if_grp_name);
             }
