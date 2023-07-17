@@ -3,6 +3,7 @@
 #include "isis_spf.h"
 #include "isis_flood.h"
 #include "isis_policy.h"
+#include "isis_ted.h"
 
 void
 isis_cancel_spf_job(node_t *node) {
@@ -641,6 +642,9 @@ isis_compute_spf (node_t *spf_root){
     isis_spf_data_t *nbr_node_spf_data = NULL;
     isis_node_info_t *node_info = ISIS_NODE_INFO(spf_root);
 
+    cprintf ("%s : ISIS Dump TED Content before Running ISIS SPF :\n", spf_root->node_name);
+    ted_show_ted_db(ISIS_TED_DB(spf_root), 0, 0, NULL, false);
+
     if (!isis_is_protocol_enable_on_node(spf_root)) {
         return;
     }
@@ -744,13 +748,24 @@ isis_compute_spf (node_t *spf_root){
         "%s : Route Installation Count = %d\n", ISIS_SPF, count);
 }
 
-static void
-isis_show_spf_results(node_t *node, ted_node_t *ted_node){
+void
+isis_show_spf_results (node_t *node){
 
     int i = 0, j = 0;
     glthread_t *curr;
     Interface *oif = NULL;
+    ted_node_t *ted_node;
     isis_spf_result_t *res = NULL;
+
+    ted_db_t *ted_db = ISIS_TED_DB(node);
+
+    if (!ted_db) return;
+
+    ted_node = ted_lookup_node(ted_db, 
+                        tcp_ip_covert_ip_p_to_n (NODE_LO_ADDR(node)), 0);
+
+    if (!ted_node) return;
+
     isis_spf_data_t *node_spf_data = ISIS_NODE_SPF_DATA(ted_node);
 
     cprintf("\nSPF run results for node = %s\n", ted_node->node_name);
@@ -805,7 +820,7 @@ isis_run_spf(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 }
 
 void
-isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
+isis_schedule_spf_job (node_t *node, isis_event_type_t event) {
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     
@@ -826,7 +841,9 @@ isis_schedule_spf_job(node_t *node, isis_event_type_t event) {
     }
     
     node_info->spf_job_task =
-        task_create_new_job(EV(node), node, isis_run_spf, TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE);
+        task_create_new_job (EV(node), node, isis_run_spf, 
+                                            TASK_ONE_SHOT,
+                                            TASK_PRIORITY_COMPUTE);
 }
 
 void

@@ -111,4 +111,7 @@
 #define CMCODE_SHOW_ISIS_TRACEOPTIONS 47
 /* clear node <node-name> protocol isis reset-log-file*/
 #define CMDCODE_RESET_NODE_ISIS_LOG_FILE 48
+/* show node <node-name> protocol isis spf-result */
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT 49
+
 #endif /* __ISIS_CMDCODES__ */

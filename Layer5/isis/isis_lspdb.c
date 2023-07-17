@@ -79,13 +79,16 @@ isis_install_lsp(node_t *node,
     ip_add_t rtr_id_str;
     bool duplicate_lsp;
     bool recvd_via_intf;
+    bool run_spf_job = false;
     isis_lsp_pkt_t *old_lsp_pkt;
     isis_event_type_t event_type;
     uint32_t *old_seq_no = NULL;
     isis_pkt_hdr_flags_t lsp_flags;
+    isis_node_info_t *node_info = NULL;
     byte lsp_id_str_old[ISIS_LSP_ID_STR_SIZE];
     byte lsp_id_str_new[ISIS_LSP_ID_STR_SIZE];
     
+    node_info = ISIS_NODE_INFO (node);
     recvd_via_intf = iif ? true : false;
     self_lsp = isis_our_lsp(node, new_lsp_pkt);
     event_type = isis_event_none;
@@ -310,15 +313,32 @@ isis_install_lsp(node_t *node,
 
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[event_type]);
     
-    if (purge_lsp && event_type == isis_event_non_local_new_lsp) {
+    switch (event_type) {
 
-        /* purge LSP actually caused deletion from our DB, trigger spf*/
-        isis_schedule_spf_job(node, event_type);
+        case isis_event_self_duplicate_lsp:
+        case isis_event_self_old_lsp:
+        case isis_event_non_local_duplicate_lsp:
+        case isis_event_non_local_old_lsp:
+            break;
+        case isis_event_self_fresh_lsp:
+        case isis_event_non_local_fresh_lsp:
+            run_spf_job = true;
+            trace (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_SPF,
+                "%s : SPF Job will be scheduled - event %s\n",
+                ISIS_LSPDB_MGMT, isis_event_str (event_type));
+            break;
+        case isis_event_self_new_lsp:
+        case isis_event_non_local_new_lsp:
+                trace (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_SPF,
+                "%s : SPF Job will be scheduled based on pkt diff - event %s\n",
+                ISIS_LSPDB_MGMT, isis_event_str (event_type));
+            isis_parse_lsp_tlvs(node, new_lsp_pkt, old_lsp_pkt, event_type);
+            break;
+        default: ;
     }
 
-    /* Now Decide what we need to do after updating LSP DB */
-    if (!purge_lsp) {
-        isis_parse_lsp_tlvs(node, new_lsp_pkt, old_lsp_pkt, event_type);
+    if (!node_info->spf_job_task && run_spf_job) {
+        isis_schedule_spf_job (node, event_type);
     }
 
     if (old_lsp_pkt) {
@@ -333,9 +353,7 @@ isis_parse_lsp_tlvs(node_t *node,
                     isis_event_type_t event_type) {
 
     ip_add_t rtr_id_str;
-    bool need_spf = false;
     bool pkt_diff = false;
-    bool need_pkt_diff = false;
     byte lsp_id_str1[ISIS_LSP_ID_STR_SIZE];
     byte lsp_id_str2[ISIS_LSP_ID_STR_SIZE];
 
@@ -346,52 +364,16 @@ isis_parse_lsp_tlvs(node_t *node,
     tcp_ip_covert_ip_n_to_p(*rtr_id, rtr_id_str.ip_addr);
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    switch(event_type) {
-        case isis_event_self_duplicate_lsp:
-        break;
-        case isis_event_self_fresh_lsp:
-            need_spf = true;
-        break;
-        case isis_event_self_new_lsp:
-            /* spf would have scheduled already when event causing
-               lsp generation happened */
-            need_pkt_diff = true;
-        break;
-        case isis_event_self_old_lsp:
-        break;
-        case isis_event_non_local_duplicate_lsp:
-        break;
-        case isis_event_non_local_fresh_lsp:
-            need_spf = true;
-            break;
-        case isis_event_non_local_new_lsp:
-            need_pkt_diff = true;
-            break;
-        case isis_event_non_local_old_lsp:
-        break;
-        default: ;
-    }
-    
-    if (!need_spf && need_pkt_diff) {
-
-        pkt_diff = isis_is_lsp_diff(new_lsp_pkt, old_lsp_pkt);
+   
+    pkt_diff = isis_is_lsp_diff(new_lsp_pkt, old_lsp_pkt);
         
-        if (pkt_diff) {
-            need_spf = true;
-        }
-    }
-
-    if (need_spf) {
+    if (pkt_diff) {
         isis_schedule_spf_job(node, event_type);
     }
-
-    trace (ISIS_TR(node), TR_ISIS_PKT_LSP, "%s : Lsp Recvd : %s, old lsp : %s, Event : %s\n"
-            "\tneed_spf : %u\n",
-            ISIS_LSPDB_MGMT,
-            isis_print_lsp_id(new_lsp_pkt, lsp_id_str1),
-            old_lsp_pkt ? isis_print_lsp_id(old_lsp_pkt, lsp_id_str2) : "none",
-            isis_event_str(event_type), need_spf);
+    else {
+        trace (ISIS_TR(node), TR_ISIS_PKT_LSP, "%s : ISIS is not scheduled because of pkt diff\n",
+        ISIS_LSPDB_MGMT);
+    }
 }
 
 isis_lsp_pkt_t *

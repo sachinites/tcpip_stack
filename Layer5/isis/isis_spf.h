@@ -76,4 +76,7 @@ isis_cleanup_spf_logc(node_t *node);
 void
 isis_spf_cleanup_spf_data(ted_node_t *ted_node);
 
+void
+isis_show_spf_results (node_t *node);
+
 #endif 

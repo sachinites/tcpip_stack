@@ -618,6 +618,9 @@ isis_show_handler (int cmdcode,
     node = node_get_node_by_name(topo, node_name);
     
     switch(cmdcode) {
+        case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT:
+            isis_show_spf_results (node);
+        break;
         case CMDCODE_RUN_SPF:
             isis_compute_spf (node);
             break;
@@ -1038,6 +1041,13 @@ isis_show_cli_tree(param_t *param) {
                 libcli_set_param_cmd_code(&adjacency, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY);
             }
             {
+                 /* show node <node-name> protocol isis spf-result */
+                 static param_t spf_result;
+                 init_param(&spf_result, CMD, "spf-result", isis_show_handler, 0, INVALID, 0, "Raw SPF Result");
+                 libcli_register_param(&isis_proto, &spf_result);
+                 libcli_set_param_cmd_code(&spf_result, CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT);
+            }
+            {
                 /* show node <node-name> protocol isis interface <if-name> */
                 static param_t if_name;
                 init_param(&if_name, LEAF, 0, isis_show_handler, 0, STRING, "if-name",
@@ -1229,3 +1239,4 @@ isis_clear_cli_tree(param_t *param) {
     }
     return 0;
 }
+
