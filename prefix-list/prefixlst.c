@@ -123,11 +123,12 @@ prefix_list_del_rule (prefix_list_t *prefix_lst,
 }
 
 static void
-print_pfx_lst_node ( pfx_lst_node_t *pfx_lst_node) {
+print_pfx_lst_node ( prefix_list_t *prefix_lst, pfx_lst_node_t *pfx_lst_node) {
 
     unsigned char out_buff[16];
 
-    cprintf ("%s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
+    cprintf ("prefix-list %s %s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
+        prefix_lst->name,
         pfx_lst_node->res == PFX_LST_DENY ? "deny" : "permit",
         pfx_lst_node->seq_no,
         tcp_ip_covert_ip_n_to_p(pfx_lst_node->pfx,  out_buff),
@@ -147,9 +148,7 @@ prefix_list_show (prefix_list_t *prefix_lst) {
     ITERATE_GLTHREAD_BEGIN(&prefix_lst->pfx_lst_head, curr) {
 
         pfx_lst_node = glue_to_pfx_lst_node(curr);
-
-        cprintf ("prefix-list %s ", prefix_lst->name);
-        print_pfx_lst_node (pfx_lst_node);
+        print_pfx_lst_node (prefix_lst, pfx_lst_node);
 
      } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr);
 }

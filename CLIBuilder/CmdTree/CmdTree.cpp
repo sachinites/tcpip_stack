@@ -722,3 +722,13 @@ libcli_register_display_callback (param_t *param, display_possible_values_callba
 
     param->disp_callback = cbk;
 }
+
+void 
+libcli_param_match_regex (param_t *param, char *reg_ex) {
+
+    assert (!cmd_tree_is_filter_param(param));
+    assert (IS_PARAM_LEAF (param));
+    assert (!(param->flags & PARAM_F_REG_EX_MATCH));
+    param->flags |= PARAM_F_REG_EX_MATCH;
+    strncpy (param->cmd_type.leaf->reg_ex, reg_ex, LEAF_REG_EX_MAX_LEN);
+}

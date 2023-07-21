@@ -27,6 +27,7 @@ typedef struct leaf {
     leaf_type_t leaf_type;
     user_validation_callback user_validation_cb_fn;
     char leaf_id[LEAF_ID_SIZE];/*Within a single command, it should be unique*/
+    char reg_ex[LEAF_REG_EX_MAX_LEN];
 } leaf_t;
 
 
@@ -65,6 +66,7 @@ GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 #define PARAM_F_DISABLE_PARAM   4
 #define PARAM_F_CONFIG_BATCH_CMD   8
 #define PARAM_F_RECURSIVE   16
+#define PARAM_F_REG_EX_MATCH    32
 
 void 
 cmd_tree_init ();
