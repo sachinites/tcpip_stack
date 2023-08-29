@@ -642,9 +642,6 @@ isis_compute_spf (node_t *spf_root){
     isis_spf_data_t *nbr_node_spf_data = NULL;
     isis_node_info_t *node_info = ISIS_NODE_INFO(spf_root);
 
-    cprintf ("%s : ISIS Dump TED Content before Running ISIS SPF :\n", spf_root->node_name);
-    ted_show_ted_db(ISIS_TED_DB(spf_root), 0, 0, NULL, false);
-
     if (!isis_is_protocol_enable_on_node(spf_root)) {
         return;
     }

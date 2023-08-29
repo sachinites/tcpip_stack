@@ -1270,6 +1270,7 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
             param = (param_t *)pop(cmdtc->params_stack);
             cmdtc_param_exit_backward (cmdtc, param);
         }
+
         while (!cmdtc_is_tlv_stack_empty (cmdtc->tlv_stack)) {  
             free(pop(cmdtc->tlv_stack));
         }
@@ -1291,7 +1292,6 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
         cmdtc->root = libcli_get_root_hook ();
         cmdtc->curr_param = (param_t *)StackGetTopElem(cmdtc->params_stack);
     }
-
 
     /* Algorithm to enter mode starts here */
 
