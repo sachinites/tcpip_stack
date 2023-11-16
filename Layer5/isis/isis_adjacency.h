@@ -96,7 +96,7 @@ isis_find_adjacency_on_interface(
         isis_system_id_t *sys_id);
 
 char *
-isis_adjacency_name(isis_adjacency_t *adjacency);
+isis_adjacency_name(char *adj_name, isis_adjacency_t *adjacency);
 
 void
 isis_show_adjacency(isis_adjacency_t *adjacency, uint8_t tab_spaces);

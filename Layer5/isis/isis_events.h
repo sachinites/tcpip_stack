@@ -32,6 +32,8 @@ typedef enum isis_events_ {
     #define ISIS_EVENT_NON_LOCAL_NEW_LSP_BIT                   (1 << isis_event_non_local_new_lsp)
     isis_event_non_local_old_lsp,
     #define ISIS_EVENT_NON_LOCAL_OLD_LSP_BIT                    (1 << isis_event_non_local_old_lsp)
+    isis_event_lsp_time_out,
+    #define ISIS_EVENT_LSP_TIMEOUT_LSP_BIT                           (1 << isis_event_lsp_time_out)
     /*lspdb update events end*/
     isis_event_periodic_lsp_generation,
     #define ISIS_EVENT_PERIODIC_LSP_GENERATION_BIT       (1 << isis_event_periodic_lsp_generation)

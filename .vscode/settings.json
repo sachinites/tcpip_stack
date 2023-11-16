@@ -49,7 +49,7 @@ bitmap{
     "terminal.integrated.scrollback": 10000,
     "files.autoSave": "afterDelay",
     "terminal.integrated.tabs.location": "left",
-    "terminal.integrated.fontSize": 16,
+    "terminal.integrated.fontSize": 18,
     "window.zoomLevel": 1,
     "terminal.integrated.allowChords": false,
     "terminal.integrated.environmentChangesRelaunch": false,

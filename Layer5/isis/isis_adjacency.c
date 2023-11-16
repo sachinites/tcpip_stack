@@ -42,13 +42,14 @@ isis_timer_expire_down_adjacency_cb(event_dispatcher_t *ev_dis,
 
     if (!arg) return;
 
+    char adj_name[128];
     isis_adjacency_t *adjacency = (isis_adjacency_t *)arg;
     timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 
    trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
         "Adjacency %s Up timer Expired\n",
-        isis_adjacency_name(adjacency));
+        isis_adjacency_name(adj_name, adjacency));
 
     isis_change_adjacency_state((isis_adjacency_t *)arg, ISIS_ADJ_STATE_DOWN);
 }
@@ -61,6 +62,8 @@ isis_adjacency_start_expiry_timer(
         return;
     }
 
+    char adj_name[128];
+
     adjacency->expiry_timer = timer_register_app_event(
                                     CP_TIMER(adjacency->intf->att_node),
                                     isis_timer_expire_down_adjacency_cb,
@@ -72,13 +75,13 @@ isis_adjacency_start_expiry_timer(
         
         trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ERRORS,
             "Adjacency %s Expiry timer failed to start\n",
-            isis_adjacency_name(adjacency));
+            isis_adjacency_name(adj_name, adjacency));
         return;
     }
 
     trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
         "Adjacency %s Expiry timer started\n",
-        isis_adjacency_name(adjacency));
+        isis_adjacency_name(adj_name, adjacency));
 }
 
  static void
@@ -97,11 +100,13 @@ isis_adjacency_stop_expiry_timer(
         return;
     }
 
+    char adj_name[128];
+
     timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
     trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
         "Adjacency %s Expiry timer stopped\n",
-        isis_adjacency_name(adjacency));
+        isis_adjacency_name(adj_name, adjacency));
 }
 
 void
@@ -119,6 +124,8 @@ isis_adjacency_start_delete_timer(
         return;
     }
 
+    char adj_name[128];
+
     adjacency->delete_timer = timer_register_app_event(
                                     CP_TIMER(adjacency->intf->att_node),
                                     isis_timer_expire_delete_adjacency_cb,
@@ -129,13 +136,13 @@ isis_adjacency_start_delete_timer(
     if (!adjacency->delete_timer){
         trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ERRORS,
             "Adjacency %s Delete timer could not be started\n",
-            isis_adjacency_name(adjacency));
+            isis_adjacency_name(adj_name, adjacency));
         return;
     }
 
    trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ, 
             "Adjacency %s Delete timer started\n",
-             isis_adjacency_name(adjacency));
+             isis_adjacency_name(adj_name, adjacency));
 }
 
 static void
@@ -146,12 +153,13 @@ isis_adjacency_stop_delete_timer(
         return;
     }
 
+    char adj_name[128];
     timer_de_register_app_event(adjacency->delete_timer);
     adjacency->delete_timer = NULL;
 
      trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
             "Adjacency %s Delete timer stopped\n",
-            isis_adjacency_name(adjacency));
+            isis_adjacency_name(adj_name, adjacency));
 }
 
 /* Timer fns for ISIS Adjacency Mgmt End */
@@ -160,11 +168,12 @@ isis_adjacency_stop_delete_timer(
 void
 isis_delete_adjacency(isis_adjacency_t *adjacency) {
 
+    char adj_name[128];
     remove_glthread(&adjacency->glue);
     isis_adjacency_stop_expiry_timer(adjacency);
     isis_adjacency_stop_delete_timer(adjacency);
     trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
-        "Adjacency %s Deleted\n", isis_adjacency_name(adjacency));
+        "Adjacency %s Deleted\n", isis_adjacency_name(adj_name, adjacency));
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
         ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
         isis_update_layer2_mapping_on_adjacency_down(adjacency);
@@ -386,11 +395,11 @@ isis_update_interface_adjacency_from_hello(
 }
 
 char *
-isis_adjacency_name(isis_adjacency_t *adjacency) {
+isis_adjacency_name(char *adj_name, isis_adjacency_t *adjacency) {
 
-    static char adj_name[64];
-
-    sprintf(adj_name, adjacency->intf->if_name.c_str(), "::", adjacency->nbr_name);
+    snprintf(adj_name, sizeof(adj_name), "%s::%s", 
+        adjacency->intf->if_name.c_str(), 
+        adjacency->nbr_name);
     return adj_name;
 }
 
@@ -498,6 +507,7 @@ isis_change_adjacency_state(
             isis_adjacency_t *adjacency,
             isis_adj_state_t new_adj_state) {
 
+    char adj_name[128];
     isis_intf_info_t *intf_info;
     node_t *node = adjacency->intf->att_node;
     isis_adj_state_t old_adj_state = adjacency->adj_state;
@@ -508,7 +518,7 @@ isis_change_adjacency_state(
         trace (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
             "%s : Adj %s state moving from %s to %s\n",
             ISIS_ADJ_MGMT,
-            isis_adjacency_name(adjacency),
+            isis_adjacency_name(adj_name, adjacency),
             isis_adj_state_str(old_adj_state),
             isis_adj_state_str(new_adj_state));
     }

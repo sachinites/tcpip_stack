@@ -43,6 +43,7 @@ isis_process_hello_pkt(node_t *node,
                        ethernet_hdr_t *hello_eth_hdr,
                        size_t pkt_size) {
 
+    char adj_name[128];
     uint8_t intf_ip_len;
     pkt_size_t tlv_buff_size;
     uint32_t *if_ip_addr_int;
@@ -104,7 +105,7 @@ isis_process_hello_pkt(node_t *node,
         if (adjacency) {
             trace(ISIS_TR(iif->att_node), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS, 
                 "%s : Adjacency %s will be brought down, bad hello recvd\n",
-                ISIS_ERROR, isis_adjacency_name(adjacency));
+                ISIS_ERROR, isis_adjacency_name(adj_name, adjacency));
             isis_change_adjacency_state(adjacency, ISIS_ADJ_STATE_DOWN);
         }
         goto bad_hello;

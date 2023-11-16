@@ -337,7 +337,7 @@ isis_install_lsp(node_t *node,
         default: ;
     }
 
-    if (!node_info->spf_job_task && run_spf_job) {
+    if (run_spf_job) {
         isis_schedule_spf_job (node, event_type);
     }
 
@@ -371,7 +371,7 @@ isis_parse_lsp_tlvs(node_t *node,
         isis_schedule_spf_job(node, event_type);
     }
     else {
-        trace (ISIS_TR(node), TR_ISIS_PKT_LSP, "%s : ISIS is not scheduled because of pkt diff\n",
+        trace (ISIS_TR(node), TR_ISIS_PKT_LSP | TR_ISIS_SPF, "%s : No pkt diff found\n",
         ISIS_LSPDB_MGMT);
     }
 }
@@ -543,6 +543,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
     lsp_pkt->installed_in_db = false;
     isis_ted_uninstall_lsp(node, lsp_pkt);
     isis_deref_isis_pkt(node, lsp_pkt);
+    isis_schedule_spf_job (node, isis_event_lsp_time_out);
 }
 
 void

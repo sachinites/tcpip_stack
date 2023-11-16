@@ -240,7 +240,7 @@ int cprintf (const char* format, ...) {
                 fileptr = fopen ((const char *) tlv->value, "w+");
                 assert(fileptr);
             }
-        }        
+        }
     }
 
     if (!count_filter_present ) {

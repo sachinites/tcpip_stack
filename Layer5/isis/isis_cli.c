@@ -476,10 +476,12 @@ isis_run_handler (int cmdcode,
 
     node_t *node;
     uint8_t fr_no;
+    uint32_t rtr_id;
     pn_id_t pn_no;
     tlv_struct_t *tlv = NULL;
     c_string ip_addr = NULL;
     c_string node_name = NULL;
+    isis_lsp_pkt_t *lsp_pkt = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -498,8 +500,8 @@ isis_run_handler (int cmdcode,
 
         case CMDCODE_RUN_ISIS_LSP_TED_INSTALL:
             {
-                uint32_t rtr_id = tcp_ip_covert_ip_p_to_n (ip_addr);
-                isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb (node, rtr_id, pn_no, 0);
+                rtr_id = tcp_ip_covert_ip_p_to_n (ip_addr);
+                lsp_pkt = isis_lookup_lsp_from_lsdb (node, rtr_id, pn_no, 0);
                 if (!lsp_pkt) {
                     cprintf ("Error: No LSP found\n");
                     return 0;
@@ -514,8 +516,8 @@ isis_run_handler (int cmdcode,
             break;
         case CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL:
             {
-                uint32_t rtr_id = tcp_ip_covert_ip_p_to_n (ip_addr);
-                isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb (node, rtr_id, pn_no, 0);
+                rtr_id = tcp_ip_covert_ip_p_to_n (ip_addr);
+                lsp_pkt = isis_lookup_lsp_from_lsdb (node, rtr_id, pn_no, 0);
                 if (!lsp_pkt) {
                     cprintf ("Error: No LSP found\n");
                     return 0;
@@ -530,7 +532,13 @@ isis_run_handler (int cmdcode,
                     cprintf ("LSP not installed in TED\n");
                     return 0;
                 }
+                isis_lsp_pkt_prevent_premature_deletion (lsp_pkt);
+                isis_remove_lsp_pkt_from_lspdb (node, lsp_pkt);
                 isis_ted_uninstall_lsp (node, lsp_pkt);
+                if (isis_our_lsp (node, lsp_pkt)) {
+                    isis_schedule_lsp_flood (node, lsp_pkt, NULL);
+                }
+                 isis_lsp_pkt_relieve_premature_deletion(node, lsp_pkt);
             }
         default :
             break;

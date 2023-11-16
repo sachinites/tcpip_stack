@@ -129,10 +129,14 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
         
+        trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Computing Routes Begin\n", 
+                        ISIS_ROUTE,
+                        spf_result->node->node_name);
+
         if (spf_result->node->pn_no) continue;
 
         /* Router ID */
-        if (isis_evaluate_policy(spf_root, 
+        if (isis_evaluate_policy(spf_root,
                                               node_info->import_policy,
                                               spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
 
@@ -144,6 +148,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
             nexthop = spf_result->nexthops[i];
 
             if (!nexthop) break;
+
+            trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                        ISIS_ROUTE,
+                        spf_result->node->node_name,
+                        tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32);            
 
             rt_table_add_route(rt_table, 
                     tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32, 
@@ -170,12 +179,21 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     mask32bit = tcp_ip_convert_dmask_to_bin_mask (ted_prefix->mask);
                     prefix32bit = ted_prefix->prefix & mask32bit;
 
+
                     l3route = rt_table_lookup_exact_match(rt_table, 
                                         tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
                                         ted_prefix->mask);
+                    
+                    trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
+                                    ISIS_ROUTE, spf_result->node->node_name,
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
 
                     /*Case 0 : If directly connected route, skip */
                     if (l3route && l3_is_direct_route(l3route)) {
+                        trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route %s/%d is Local, skipped",
+                                    ISIS_ROUTE, spf_result->node->node_name,
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
+
                         continue;
                     }
 
@@ -186,6 +204,10 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                             
                             nexthop = spf_result->nexthops[i];
                             if (!nexthop) break;
+
+                        trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                                    ISIS_ROUTE, spf_result->node->node_name,
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
 
                             rt_table_add_route(rt_table, 
                                     tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
@@ -210,7 +232,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     /* Case 3 : IF new route is a better route, then replace the route in routing table*/
                     if (l3route->spf_metric[nxthop_proto] > 
                             (spf_result->spf_metric + ted_prefix->metric)) {
-                        
+
+                        trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
+                                    ISIS_ROUTE, spf_result->node->node_name,
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
+
                         rt_table_delete_route (rt_table, 
                                  tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), 
                                  ted_prefix->mask, 
@@ -220,6 +246,10 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                             nexthop = spf_result->nexthops[i];
                             if (!nexthop) break;
+
+                        trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
+                                    ISIS_ROUTE, spf_result->node->node_name,
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
 
                             rt_table_add_route(rt_table, 
                                     tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
@@ -237,6 +267,10 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                         nexthop = spf_result->nexthops[i];
                         if (!nexthop) break;
+
+                        trace (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
+                                    ISIS_ROUTE, spf_result->node->node_name,
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);  
 
                         rt_table_add_route(rt_table, 
                                     tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
@@ -260,15 +294,24 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
     ted_intf_t *oif, *oif2;
     ted_node_t *nbr = NULL;
     nexthop_t *nexthop = NULL;
+    unsigned char log_buf[256];
     isis_spf_data_t *nbr_spf_data;
     ted_node_t *nbr_of_pn = NULL;
     uint32_t nxt_hop_ip , nxt_hop_ip2;
 
+    trace (ISIS_TR(spf_root), TR_ISIS_SPF, 
+        "%s : ISIS initializing direct nbrs\n", ISIS_SPF);
+    
     ITERATE_TED_NODE_NBRS_BEGIN(ted_spf_root, nbr, oif, nxt_hop_ip){
 
         /*No need to process any nbr which is not conneted via
          * Bi-Directional L3 link. */
-        if (!ted_is_link_bidirectional(oif->link)) continue;
+        if (!ted_is_link_bidirectional(oif->link)) {
+
+                trace (ISIS_TR(spf_root), TR_ISIS_SPF, 
+                    "%s : nbr %s is not birectional, skipping it\n", ISIS_SPF, nbr->node_name);
+            continue;
+        }
 
         /* Case 1 : When root and nbr both are non PNs*/
         if (!ted_spf_root->pn_no && !nbr->pn_no)
@@ -278,6 +321,9 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     /*Populate nexthop array of directly connected nbrs of spf_root*/
                     if (oif->cost < nbr_spf_data->spf_metric)
                     {
+                         trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops flushed :  %s\n",
+                            ISIS_SPF, nbr->node_name,
+                            nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                          nh_flush_nexthops(nbr_spf_data->nexthops);
                          nexthop = nh_create_new_nexthop(nbr->node_name,
                                                          oif->ifindex,
@@ -285,6 +331,10 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          nbr_spf_data->spf_metric = oif->cost;
+                         nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf));
+                         trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
+                            ISIS_SPF, nbr->node_name,
+                            nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                     }
                     /*Step 2.1 : End*/
 
@@ -298,6 +348,9 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                                                          PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                         trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
+                            ISIS_SPF, nbr->node_name,
+                            nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                     }
         }
 
@@ -323,20 +376,40 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
               ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif2, nxt_hop_ip2){
 
-                     if (!ted_is_link_bidirectional(oif2->link)) continue;
-                    if (nbr_of_pn == ted_spf_root) continue;
+                     trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Initializing PN's %s direct nbr %s\n", 
+                        ISIS_SPF, nbr->node_name, nbr_of_pn->node_name);
+                        
+                     if (!ted_is_link_bidirectional(oif2->link)){ 
+                        trace (ISIS_TR(spf_root), TR_ISIS_SPF, 
+                            "%s : PN's %s direct nbr %s is not birectional, skipping it\n", ISIS_SPF,  
+                            nbr->node_name, nbr_of_pn->node_name);
+                        continue;
+                     }
+
+                    if (nbr_of_pn == ted_spf_root) {
+                        trace (ISIS_TR(spf_root), TR_ISIS_SPF, 
+                            "%s : PN's %s direct nbr %s is self root, skipping it\n", ISIS_SPF,  
+                            nbr->node_name, nbr_of_pn->node_name);
+                        continue;
+                    }
 
                     /*Step 2.1 : Begin*/
                     nbr_spf_data = (isis_spf_data_t *)ISIS_NODE_SPF_DATA(nbr_of_pn);
                     /*Populate nexthop array of directly connected nbrs of spf_root*/
                     if ( (root_to_pn_cost + oif2-> cost ) < nbr_spf_data->spf_metric)
                     {
+                         trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops flushed :  %s\n",
+                            ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
+                            nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));                        
                          nh_flush_nexthops(nbr_spf_data->nexthops);
                          nexthop = nh_create_new_nexthop(nbr_of_pn->node_name,
                                                         root_to_pn_oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                         trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
+                            ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
+                            nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));                          
                          nbr_spf_data->spf_metric = root_to_pn_cost + oif2->cost;
                     }
                     /*Step 2.1 : End*/
@@ -351,8 +424,10 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                                                          PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
+                         trace (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
+                            ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
+                            nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));                         
                     }
-
 
              } ITERATE_TED_NODE_NBRS_END(nbr, nbr_of_pn, oif2, nxt_hop_ip2);
         }
@@ -822,13 +897,13 @@ isis_schedule_spf_job (node_t *node, isis_event_type_t event) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     
     if (isis_is_protocol_admin_shutdown (node)) {
+        trace (ISIS_TR(node), TR_ISIS_SPF,
+            "%s : spf job not scheduled, protocol is admin shutdown\n", ISIS_SPF);
         return;
     }
     
     ISIS_INCREMENT_NODE_STATS(node,
         isis_event_count[isis_event_spf_job_scheduled]);
-
-    isis_add_new_spf_log(node, event);
 
     if (node_info->spf_job_task) {
         
@@ -837,10 +912,18 @@ isis_schedule_spf_job (node_t *node, isis_event_type_t event) {
         return;
     }
     
+    isis_add_new_spf_log(node, event);
+    
     node_info->spf_job_task =
         task_create_new_job (EV(node), node, isis_run_spf, 
                                             TASK_ONE_SHOT,
                                             TASK_PRIORITY_COMPUTE);
+
+    if (node_info->spf_job_task) {
+        
+        trace (ISIS_TR(node), TR_ISIS_SPF | TR_ISIS_EVENTS,
+            "%s : New spf job successfully scheduled\n", ISIS_SPF);
+    }
 }
 
 void
