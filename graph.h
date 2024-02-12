@@ -32,7 +32,7 @@
 
 /* Visit my Website for more wonderful assignments and projects :
  * www.csepracticals.com
- * if above URL dont work, then try visit : https://csepracticals.com*/
+ * if above URL dont work, then try visit : https://www.csepracticals.com*/
 
 #ifndef __GRAPH__
 #define __GRAPH__

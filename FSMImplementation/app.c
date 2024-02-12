@@ -153,7 +153,7 @@ main(int argc, char **argv){
   //fsm_register_input_matching_fn_cb(fsm_substr_counter, match_any_character_match_fn);
   char *input_string = 
     "Hello, My name is Abhi. "
-    "Visit my website : https://csepracticals.com "
+    "Visit my website : https://www.csepracticals.com "
     "which was created by Abhishek Sagar\0";
 
   fsm_error = execute_fsm(fsm_substr_counter,

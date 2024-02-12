@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.com), sachinites@gmail.com
+ *         Author:  Er. Abhishek Sagar, Juniper Networks (https://www.csepracticals.com), sachinites@gmail.com
  *        Company:  Juniper Networks
  *
  *        This file is part of the Linux Memory Manager distribution (https://github.com/sachinites) 
@@ -23,7 +23,7 @@
  *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  *        General Public License for more details.
  *
- *        visit website : https://csepracticals.com for more courses and projects
+ *        visit website : https://www.csepracticals.com for more courses and projects
  *                                  
  * =====================================================================================
  */
