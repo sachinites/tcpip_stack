@@ -114,4 +114,7 @@
 /* show node <node-name> protocol isis spf-result */
 #define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT 49
 
+ /* debug node <node-name> protocol isis toggle-lsdb-advt */
+ #define CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT 50
+ 
 #endif /* __ISIS_CMDCODES__ */

@@ -37,4 +37,7 @@ isis_clear_cli_tree(param_t *param) ;
 int
 isis_run_cli_tree(param_t *param) ;
 
+int
+isis_debug_cli_tree(param_t *param) ;
+
 #endif /* __APP_HANDLERS__ */

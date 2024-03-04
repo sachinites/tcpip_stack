@@ -474,6 +474,8 @@ isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
 bool
 isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pkt1, isis_lsp_pkt_t *lsp_pkt2) {
 
+    int rc;
+
     if ((lsp_pkt1 && !lsp_pkt2) || (!lsp_pkt1 && lsp_pkt2)) {
 
         return true;
@@ -496,9 +498,11 @@ isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pkt1, isis_lsp_pkt_t *lsp_pkt2) {
 
     if (lsp_hdr1->flags != lsp_hdr2->flags) return true;
 
-    return memcmp( (byte *) (lsp_hdr1 + 1) , 
+    rc =  memcmp( (byte *) (lsp_hdr1 + 1) , 
                                 (byte *) (lsp_hdr2 + 1),
                                 lsp_pkt1->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ISIS_LSP_HDR_SIZE);
+    if (rc == 0) return false;
+    return true;
 }
 
 byte *

@@ -373,6 +373,7 @@ isis_init (node_t *node ) {
     isis_regen_zeroth_fragment(node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
+    node_info->lsdb_advt_block = false;
 }
 
 void

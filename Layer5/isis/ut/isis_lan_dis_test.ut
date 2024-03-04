@@ -28,32 +28,38 @@
 
 Enable Logging --
 
-:CMD: config node H6 protocol isis traceoptions spf 
-:CMD: config node H1 protocol isis traceoptions lsdb
-:CMD: config node H6 protocol isis traceoptions errors 
-:CMD: config node H6 protocol isis traceoptions file-logging 
-
-:CMD: config node H5 protocol isis traceoptions spf 
-:CMD: config node H1 protocol isis traceoptions lsdb
-:CMD: config node H5 protocol isis traceoptions errors 
-:CMD: config node H5 protocol isis traceoptions file-logging 
-
-:CMD: config node H4 protocol isis traceoptions spf 
-:CMD: config node H1 protocol isis traceoptions lsdb
-:CMD: config node H4 protocol isis traceoptions errors 
-:CMD: config node H4 protocol isis traceoptions file-logging 
-
-:CMD: config node H3 protocol isis traceoptions spf 
-:CMD: config node H1 protocol isis traceoptions lsdb
-:CMD: config node H3 protocol isis traceoptions errors 
-:CMD: config node H3 protocol isis traceoptions file-logging 
-
-:CMD: config node H2 protocol isis traceoptions spf 
-:CMD: config node H1 protocol isis traceoptions lsdb
-:CMD: config node H2 protocol isis traceoptions errors 
-:CMD: config node H2 protocol isis traceoptions file-logging 
-
 :CMD: config node H1 protocol isis traceoptions spf 
+:CMD: config node H1 protocol isis traceoptions packet lsp
 :CMD: config node H1 protocol isis traceoptions lsdb
 :CMD: config node H1 protocol isis traceoptions errors 
 :CMD: config node H1 protocol isis traceoptions file-logging 
+
+:CMD: config node H2 protocol isis traceoptions spf 
+:CMD: config node H2 protocol isis traceoptions packet lsp
+:CMD: config node H2 protocol isis traceoptions lsdb
+:CMD: config node H2 protocol isis traceoptions errors 
+:CMD: config node H2 protocol isis traceoptions file-logging 
+
+:CMD: config node H3 protocol isis traceoptions spf 
+:CMD: config node H3 protocol isis traceoptions packet lsp
+:CMD: config node H3 protocol isis traceoptions lsdb
+:CMD: config node H3 protocol isis traceoptions errors 
+:CMD: config node H3 protocol isis traceoptions file-logging 
+
+:CMD: config node H4 protocol isis traceoptions spf 
+:CMD: config node H4 protocol isis traceoptions packet lsp
+:CMD: config node H4 protocol isis traceoptions lsdb
+:CMD: config node H4 protocol isis traceoptions errors 
+:CMD: config node H4 protocol isis traceoptions file-logging 
+
+:CMD: config node H5 protocol isis traceoptions spf 
+:CMD: config node H5 protocol isis traceoptions packet lsp
+:CMD: config node H5 protocol isis traceoptions lsdb
+:CMD: config node H5 protocol isis traceoptions errors 
+:CMD: config node H5 protocol isis traceoptions file-logging 
+
+:CMD: config node H6 protocol isis traceoptions spf 
+:CMD: config node H6 protocol isis traceoptions packet lsp
+:CMD: config node H6 protocol isis traceoptions lsdb
+:CMD: config node H6 protocol isis traceoptions errors 
+:CMD: config node H6 protocol isis traceoptions file-logging 

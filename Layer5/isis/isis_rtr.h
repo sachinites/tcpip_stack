@@ -88,6 +88,8 @@ typedef struct node_info_ {
     task_t *spf_job_task;
     /* ISIS specific logging */
     tracer_t *tr;
+    /* LSDB advt block/unblock, used for debugging*/
+    bool lsdb_advt_block;
 } isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \

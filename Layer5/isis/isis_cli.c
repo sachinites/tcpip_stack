@@ -1248,3 +1248,65 @@ isis_clear_cli_tree(param_t *param) {
     return 0;
 }
 
+
+int
+isis_debug_handler(int cmdcode,
+                   Stack_t *tlv_stack,
+                   op_mode enable_or_disable) {
+
+    node_t *node;
+    tlv_struct_t *tlv;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    
+    if (!isis_is_protocol_enable_on_node(node)) {
+        cprintf ("\n"ISIS_ERROR_PROTO_NOT_ENABLE);
+        return;
+    }
+
+    switch(cmdcode) {
+
+        case CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT:
+        {
+            node_info->lsdb_advt_block = !node_info->lsdb_advt_block;
+            cprintf ("%s : %s\n", node_name, node_info->lsdb_advt_block ? \
+                "LSDB Advt Block" : "LSDB Advt UnBlock");
+        }
+        break;
+
+        default: ;
+    }
+    return 0;
+}
+
+
+/* debug node <node-name> protocol ... */
+int
+isis_debug_cli_tree(param_t *param) {
+
+    {
+        /* debug node <node-name> protocol isis ...*/
+        static param_t isis_proto;
+	    init_param(&isis_proto, CMD, "isis", 0, 0, INVALID, 0, "isis protocol");
+	    libcli_register_param(param, &isis_proto);
+        {
+            /* debug node <node-name> protocol isis toggle-lsdb-advt */
+            static param_t toggle_lsdb_advt;
+            init_param(&toggle_lsdb_advt, CMD, "toggle-lsdb-advt", isis_debug_handler, 0, INVALID, 0, "toggle-lsdb-advt");
+            libcli_register_param(&isis_proto, &toggle_lsdb_advt);
+            libcli_set_param_cmd_code(&toggle_lsdb_advt, CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT);
+        } 
+    }
+    return 0;
+}
+
+

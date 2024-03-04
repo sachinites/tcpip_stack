@@ -72,7 +72,8 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
         assert(lsp_pkt->flood_queue_count);       
         XFREE(lsp_xmit_elem);
         
-        if (has_up_adjacency && lsp_pkt->flood_eligibility){
+        if (has_up_adjacency && lsp_pkt->flood_eligibility && 
+            !node_info->lsdb_advt_block){
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             pkt_block_set_new_pkt(pkt_block, (uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
@@ -82,7 +83,8 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
             trace (ISIS_TR(intf->att_node), TR_ISIS_LSDB, "%s : LSP %s pushed out of interface %s\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
         } else {
-            trace (ISIS_TR(intf->att_node), TR_ISIS_LSDB, "%s : LSP %s discarded from output flood Queue of interface %s, %d %d\n",
+            trace (ISIS_TR(intf->att_node), TR_ISIS_LSDB, 
+                "%s : LSP %s discarded from output flood Queue of interface %s, %d %d\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str(),
                 has_up_adjacency, lsp_pkt->flood_eligibility);
         }
@@ -208,8 +210,10 @@ isis_schedule_lsp_flood(node_t *node,
         if (!isis_node_intf_is_enable(intf)) continue;
 
         if (intf == exempt_iif) {
-           trace (ISIS_TR(node), TR_ISIS_LSDB, "%s : LSP %s flood skip out of intf %s, Reason :reciepient intf\n", ISIS_LSPDB_MGMT, 
-           isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
+           trace (ISIS_TR(node), TR_ISIS_LSDB, 
+                "%s : LSP %s flood skip out of intf %s, Reason :reciepient intf\n",
+                ISIS_LSPDB_MGMT,  isis_print_lsp_id(lsp_pkt, lsp_id_str), 
+                intf->if_name.c_str());
             continue;
         }
 

@@ -154,6 +154,16 @@ static cli_register_cb
 		/* Add more CB here */
 	};
 
+/* debug node <node-name> protocol .... */
+static cli_register_cb
+	cli_register_cb_arr_debug_node_node_name_protocol_level[] =
+	{
+		isis_debug_cli_tree,
+		0
+		/* Add more CB here */
+	};
+
+
 static void
 cli_register_application_cli_trees(param_t *param,
 			cli_register_cb *cli_register_cb_arr){
@@ -734,6 +744,31 @@ nw_init_cli(){
         }
     }
     #endif
+
+    /* Debug commands */
+    {
+        static param_t node;
+        init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
+        libcli_register_param(debug, &node);
+        libcli_register_display_callback(&node, display_graph_nodes);
+        {
+            /* debug node <node-name> . . .*/
+            static param_t node_name;
+            init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
+            libcli_register_param(&node, &node_name);
+		    {
+			    /* debug node <node-name> protocol */
+				static param_t protocol;
+				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
+				libcli_register_param(&node_name, &protocol);
+
+				/* debug node <node-name> protocol ...*/
+				cli_register_application_cli_trees(&protocol, 
+							 cli_register_cb_arr_debug_node_node_name_protocol_level);
+			}            
+        }
+    }
+
 
     /* clear commands */
     {
