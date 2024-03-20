@@ -857,6 +857,8 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 cli_process_key_interrupt (
                         (int)GET_CMD_NAME(param)[cmdtc->icursor]);
             }
+            /* Disable below line if you dont want to 
+                display next options on auto-completion */
             cmdtc_cursor_display_options (cmdtc);
             return cmdt_cursor_no_match_further;
 
@@ -1472,8 +1474,6 @@ cmdtc_record_cli_history (cmd_tree_cursor_t *cmdtc) {
 
     tlv = (tlv_struct_t *) cmdtc->tlv_stack->slot[i];
     cli_append_user_command (cli, tlv->value, strlen ((const char *)tlv->value));
-    cli_append_user_command (cli, (unsigned char *) "\0", 1);
-
     cli_record_cli_history (cli_get_default_history(), cli);
 }
 
