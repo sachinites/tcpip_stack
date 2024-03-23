@@ -31,6 +31,7 @@ typedef struct linkage_ linkage_t;
 typedef struct access_list_ access_list_t;
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef struct pkt_block_ pkt_block_t;
+class TransportService;
 
 #define INTF_MAX_VLAN_MEMBERSHIP 10
 
@@ -100,6 +101,8 @@ class Interface {
         virtual IntfL2Mode GetL2Mode ();
         virtual void SetL2Mode (IntfL2Mode l2_mode);
         virtual bool IsSameSubnet (uint32_t ip_addr);
+        virtual bool IntfConfigTransportSvc(std::string& trans_svc);
+        virtual bool IntfUnConfigTransportSvc(std::string& trans_svc);
 };
 
 
@@ -114,6 +117,7 @@ class PhysicalInterface : public Interface {
         bool switchport;
         mac_addr_t mac_add;
         IntfL2Mode l2_mode;
+        
        
         /* L3 properties */
         uint32_t ip_addr;
@@ -121,8 +125,9 @@ class PhysicalInterface : public Interface {
         
     protected:
     public:
-        uint16_t used_as_underlying_tunnel_intf;
+         uint16_t used_as_underlying_tunnel_intf;
          uint32_t vlans[INTF_MAX_VLAN_MEMBERSHIP];  
+        TransportService *trans_svc;
 
         PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
         ~PhysicalInterface();
@@ -143,6 +148,8 @@ class PhysicalInterface : public Interface {
         virtual void PrintInterfaceDetails ();
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsSameSubnet (uint32_t ip_addr) final;
+        virtual bool IntfConfigTransportSvc(std::string& trans_svc) final;
+        virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;
 };
 
 typedef struct linkage_ {
@@ -213,13 +220,17 @@ public:
 typedef union intf_prop_changed_ {
 
         uint32_t intf_metric;
+
         struct {
             uint32_t ip_addr;
             uint8_t mask;
         } ip_addr;
+        
         bool up_status; /* True for up, false for down */
         IntfL2Mode intf_l2_mode;
         uint32_t vlan;
+        TransportService *trans_svc;
+
 } intf_prop_changed_t;
 
 

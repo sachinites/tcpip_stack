@@ -98,4 +98,17 @@
 /* conf node <node-name> [no]  interface <if-name> traceoptions access-list <access-list-name>*/
 #define CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF 41
 
+
+/* config node <node-name> transport-service-profile <transport-service-name> */
+#define CMDCODE_CONFIG_NODE_TRANSPORT_SVC   42
+
+/* config node <node-name> transport-service-profile <transport-service-name> vlan add <vlan-d>*/
+#define CMDCODE_CONFIG_NODE_TRANSPORT_SVC_VLAN_ADD  43
+
+/* config node <node-name> transport-service-profile <transport-service-name> vlan del <vlan-d>*/
+#define CMDCODE_CONFIG_NODE_TRANSPORT_SVC_VLAN_DEL  44
+
+/* config node <node-name> transport-service-profile <transport-service-name> vlan del all*/
+#define CMDCODE_CONFIG_NODE_TRANSPORT_SVC_VLAN_DEL_ALL  45
+
 #endif /* __CMDCODES__ */

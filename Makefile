@@ -32,6 +32,7 @@ OBJS=gluethread/glthread.o \
 		  net.o			   \
 		  comm.o		   \
 		  Layer2/layer2.o  \
+		  Layer2/transport_svc.o  \
 		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
 		  Layer3/rt_table/nexthop.o \
@@ -171,6 +172,9 @@ Layer2/arp.o:Layer2/arp.c
 
 Layer2/l2switch.o:Layer2/l2switch.c
 	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o
+
+Layer2/transport_svc.o:Layer2/transport_svc.cpp 
+	${CC} ${CFLAGS} -c -I . Layer2/transport_svc.cpp -o Layer2/transport_svc.o
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o

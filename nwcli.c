@@ -66,6 +66,7 @@ extern void prefix_list_cli_show_tree(param_t *param) ;
 extern void time_range_config_cli_tree (param_t *root) ;
 extern void Interface_config_cli_tree (param_t *root);
 extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
+extern int config_node_build_transport_svc_cli_tree (param_t *param) ;
 
 extern int
 isis_show_handler (int cmdcode,
@@ -115,7 +116,7 @@ static cli_register_cb
 		//ddcp_config_cli_tree,
 		//nmp_config_cli_tree,
         isis_config_cli_tree,
-		
+
         /*  Add more CB here */
         
         0 /* Last member must be NULL */
@@ -1053,22 +1054,25 @@ nw_init_cli(){
 
         {
             /* ACL CLIs are loaded */
-            acl_build_config_cli(&node_name);
+            acl_build_config_cli (&node_name);
 
             /* Prefix List CLI loaded */
-            prefix_list_cli_config_tree(&node_name);
+            prefix_list_cli_config_tree (&node_name);
 
             /* Object Network Config CLIs */
             network_object_build_config_cli (&node_name);
 
             /*Object Group Config CLIs */
-            object_group_build_config_cli  (&node_name);
+            object_group_build_config_cli (&node_name);
 
             /* Timer Range CLIs */
-            time_range_config_cli_tree  (&node_name);
+            time_range_config_cli_tree (&node_name);
 
             /* Interface CLIs */
-            Interface_config_cli_tree(&node_name);
+            Interface_config_cli_tree (&node_name);
+
+            /* Transport Svc Profile CLIs*/
+            config_node_build_transport_svc_cli_tree (&node_name);
         }
 
         {

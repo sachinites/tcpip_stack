@@ -31,6 +31,8 @@
 #include "../Layer2/layer2.h"
 #include "../Layer3/layer3.h"
 #include "../CLIBuilder/libcli.h"
+#include "../Layer2/transport_svc.h"
+
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -333,6 +335,16 @@ void Interface::SetSwitchport(bool enable)
     TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
 }
 
+bool Interface::IntfConfigTransportSvc(std::string& trans_svc) 
+{
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
+bool Interface::IntfUnConfigTransportSvc(std::string& trans_svc) 
+{
+    TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS;
+}
+
 bool Interface::GetSwitchport()
 {
     return false;
@@ -573,6 +585,13 @@ void PhysicalInterface::SetL2Mode(IntfL2Mode l2_mode)
         cprintf("Error : Intf being used as underlying tunnel interface\n");
         return;
     }
+    
+    if (this->trans_svc && 
+            l2_mode == LAN_ACCESS_MODE) {
+
+        cprintf("Error : Intf being used in Transport Service\n");
+        return;
+    }
 
     if (this->l2_mode == l2_mode)
         return;
@@ -587,7 +606,49 @@ void PhysicalInterface::SetL2Mode(IntfL2Mode l2_mode)
     this->switchport = true;
 }
 
-bool PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add)
+bool
+PhysicalInterface::IntfConfigTransportSvc(std::string& trans_svc_name) {
+
+    if (!this->switchport) {
+        printf ("Error : Interface %s is not L2 interface\n", this->if_name.c_str());
+        return false;
+    }
+
+    TransportService *trans_svc_obj = TransportServiceLookUp (trans_svc_name);
+    
+    if (!trans_svc_obj) {
+        printf ("Error : Transport Svc do not exist\n");
+        return false;
+    }
+
+    if (this->trans_svc == trans_svc_obj) return true;
+
+    /* Remove old Transport svc if any*/
+    if (this->trans_svc) {
+
+        this->trans_svc->DeAttachInterface(this);
+        this->trans_svc = NULL;
+    }
+
+    trans_svc_obj->AttachInterface(this);
+    this->trans_svc = trans_svc_obj;
+    return true;
+}
+
+bool 
+PhysicalInterface::IntfUnConfigTransportSvc(std::string& trans_svc_name) {
+
+    if (!this->trans_svc) return true;
+    TransportService *trans_svc_obj = TransportServiceLookUp (trans_svc_name);
+    if (!trans_svc_obj) return true;
+    if (this->trans_svc != trans_svc_obj) return true;
+    this->trans_svc->DeAttachInterface (this);
+    this->trans_svc = NULL;
+    return true;
+}
+
+bool 
+PhysicalInterface::IntfConfigVlan(uint32_t vlan_id, bool add)
 {
 
     int i;
