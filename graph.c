@@ -204,7 +204,7 @@ void dump_node(node_t *node){
 
     unsigned int i = 0;
     Interface *intf;
-    std::unordered_map<std::uint16_t , VlanInterface *> *vlan_intf_db;
+    std::unordered_map<uint16_t , VlanInterface *> *vlan_intf_db;
 
     cprintf("Node Name = %s(%p) UDP Port # : %u\n",
         node->node_name, node, node->udp_port_number);
