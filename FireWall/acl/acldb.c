@@ -7,6 +7,7 @@
 #include "../../Threads/refcount.h"
 #include "../../graph.h"
 #include "../../Interface/Interface.h"
+#include "../../common/l3_hdrs.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
 #include "../../Layer2/layer2.h"

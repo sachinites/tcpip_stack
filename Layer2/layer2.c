@@ -35,6 +35,7 @@
 #include <unistd.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <string>
+#include "../common/l2_hdrs.h"
 #include "../graph.h"
 #include "layer2.h"
 #include "arp.h"
@@ -46,6 +47,7 @@
 #include "../pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
 #include "transport_svc.h"
+#include "../Tracer/tracer.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -459,8 +461,16 @@ l2_frame_recv_qualify_on_interface(
 
     /* case 10 : If receiving interface is neither working in L3 mode
      * nor in L2 mode, then reject the packet*/
+
+    tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s received on interface %s being tested for "
+        "RECV-Qualification test\n", pkt_block_str(pkt_block), interface->if_name.c_str());
+
     if (!interface->IsIpConfigured() &&
             !interface->GetSwitchport()) {
+
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+            "failed RECV-Qualification test : Interface is neither L3 interface or L2 switchport\n",
+            pkt_block_str(pkt_block), interface->if_name.c_str());
 
         return false;
     }
@@ -474,8 +484,13 @@ l2_frame_recv_qualify_on_interface(
 
         if(!vlan_8021q_hdr)
             return true;    /*case 3*/
-        else
+        
+        else {
+            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Tagged pkt recvd on Access interface not operating in any vlan\n",
+                pkt_block_str(pkt_block), interface->if_name.c_str());
             return false;   /*case 4*/
+        }
     }
 
     /* if interface is working in ACCESS mode and operating with in
@@ -505,6 +520,9 @@ l2_frame_recv_qualify_on_interface(
             return true;    /*case 5*/
         }
         else{
+            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Vlan Mismatch, 802.1Q vlan  %d != Interface vlan %d\n", 
+                pkt_block_str(pkt_block), interface->if_name.c_str(),  pkt_vlan_id, intf_vlan_id);
             return false;   /*case 5*/
         }
     }
@@ -516,6 +534,9 @@ l2_frame_recv_qualify_on_interface(
        
         if(!vlan_8021q_hdr){
             /*case 7 & 8*/
+            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Untagged pkt recvd on Trunk Interface", 
+                pkt_block_str(pkt_block), interface->if_name.c_str());
             return false;
         }
     }
@@ -531,10 +552,13 @@ l2_frame_recv_qualify_on_interface(
             return true;    /*case 9*/
         }
         else{
+            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Trunk Interface is not configured with Pkt vlan %d\n", 
+                pkt_block_str(pkt_block), interface->if_name.c_str(),  pkt_vlan_id);
             return false;   /*case 9*/
         }
     }
-    
+
     /* Tagged Ethernet pkt is allowed on GRE interface due to Vlan
     Extension*/
     if (interface->iftype == INTF_TYPE_GRE_TUNNEL &&
@@ -548,6 +572,9 @@ l2_frame_recv_qualify_on_interface(
     /*If the interface is operating in L3 mode, and recv vlan tagged frame, drop it*/
     if(interface->IsIpConfigured() && vlan_8021q_hdr){
         /*case 2*/
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+            "failed RECV-Qualification test : Vlan tagged pkt recvd on L3 interface\n", 
+            pkt_block_str(pkt_block), interface->if_name.c_str());
         return false;
     }
 
@@ -569,6 +596,11 @@ l2_frame_recv_qualify_on_interface(
         return true;
     }
 
+    tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+        "failed RECV-Qualification test : Unknown Reason\n", 
+        pkt_block_str(pkt_block), interface->if_name.c_str());    
+
+    interface->recvd_pkt_dropped++;
     return false;
 }
 

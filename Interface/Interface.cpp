@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
+#include "../common/l3_hdrs.h"
 #include "../tcpconst.h"
 #include "../utils.h"
 #include "../BitOp/bitsop.h"
@@ -35,7 +36,7 @@
 #include "../Layer3/gre-tunneling/gre.h"
 #include "../CLIBuilder/libcli.h"
 #include "../Layer2/transport_svc.h"
-
+#include "../Tracer/tracer.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -82,6 +83,9 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
         return -1;
     }
 
+    tracer (sending_node->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
+        pkt_block_str (pkt_block), interface->if_name.c_str());
+
     Interface *other_interface = interface->GetOtherInterface();
 
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0, 1, ev_dis_pkt_data_t);
@@ -98,7 +102,6 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
     if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
-
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
 
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
@@ -223,6 +226,11 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->is_up = true;
     this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
+    
+    this->pkt_recv = 0;
+    this->pkt_sent = 0;
+    this->xmit_pkt_dropped = 0;
+    this->recvd_pkt_dropped = 0;
 
     this->l2_egress_acc_lst = NULL;
     this->l2_ingress_acc_lst = NULL;
@@ -509,6 +517,9 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
 {
 
     this->switchport = false;
+    
+    memset (this->mac_add.mac, 0, sizeof(this->mac_add.mac));
+
     if (mac_add)
     {
         memcpy(this->mac_add.mac, mac_add->mac, sizeof(*mac_add));
@@ -516,7 +527,9 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
     this->l2_mode = LAN_MODE_NONE;
     this->ip_addr = 0;
     this->mask = 0;
-    this->cost = INTF_METRIC_DEFAULT;
+    this->used_as_underlying_tunnel_intf = 0;
+    this->trans_svc = NULL;
+    this->access_vlan_intf = NULL;
 }
 
 PhysicalInterface::~PhysicalInterface()
@@ -948,6 +961,13 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
     this->tunnel_id = tunnel_id;
     this->config_flags = 0;
     this->config_flags |= GRE_TUNNEL_TUNNEL_ID_SET;
+    this->tunnel_src_intf = NULL;
+    this->tunnel_src_ip = 0;
+    this->tunnel_dst_ip = 0;
+    this->lcl_ip = 0;
+    this->mask = 0;
+    this->virtual_port_intf = NULL;
+
 }
 
 GRETunnelInterface::~GRETunnelInterface() {
@@ -1211,7 +1231,8 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
 VirtualPort::VirtualPort(std::string ifname) 
     : VirtualInterface(ifname, INTF_TYPE_VIRTUAL_PORT)
 {
-
+    this->olay_tunnel_intf = NULL;
+    this->trans_svc = NULL;
 }
 
 VirtualPort::~VirtualPort()

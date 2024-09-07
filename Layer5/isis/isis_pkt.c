@@ -667,7 +667,6 @@ isis_deref_isis_pkt(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     /* release the resources held by this pkt buffer */
     tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->alloc_size);
-
     /* Stop the associated timers */
     isis_lsp_pkt_flood_timer_stop(lsp_pkt);
 

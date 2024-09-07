@@ -39,6 +39,7 @@
 #include <netinet/in.h>
 #include <assert.h>
 #include <pthread.h>
+#include "common/cmn_struct.h"
 #include "utils.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "libtimer/WheelTimer.h"
@@ -52,16 +53,6 @@
 typedef struct graph_ graph_t;
 class Interface;
 typedef struct node_ node_t;
-
-#pragma pack (push,1)
-typedef struct ip_add_ {
-    unsigned char ip_addr[16];
-} ip_add_t;
-
-typedef struct mac_addr_ {
-    unsigned char mac[6];
-} mac_addr_t;
-#pragma pack(pop)
 
 /*Forward Declaration*/
 typedef struct arp_table_ arp_table_t;

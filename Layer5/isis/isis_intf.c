@@ -127,6 +127,12 @@ isis_start_sending_hellos (Interface *intf) {
     }
 }
 
+static void 
+free_timer_data (isis_timer_data_t *timer_data) {
+
+    XFREE(timer_data);
+}
+
 void
 isis_stop_sending_hellos(Interface *intf){
 
@@ -141,7 +147,7 @@ isis_stop_sending_hellos(Interface *intf){
 
     timer_de_register_app_event(hello_xmit_timer);
     pkt_block_dereference((pkt_block_t *)isis_timer_data->data);
-    XFREE(isis_timer_data);
+    free_timer_data(isis_timer_data);
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
 }
 

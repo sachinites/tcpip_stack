@@ -668,74 +668,74 @@ void tcp_ip_show_log_status(node_t *node){
     tracer_t *tr = node->dptr;
     
     if (tracer_is_bit_set (tr, DARP | DARP_DET)) 
-        cprintf ("\t  ARP : ON\n" );
+        cprintf ("\t  DARP     :     ON\n" );
     else 
-        cprintf ("\t  ARP : OFF\n" );
+        cprintf ("\t  DARP     :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DL3FWD | DL3FWD_DET)) 
-        cprintf ("\t  DL3FWD : ON\n" );
+        cprintf ("\t  DL3FWD   :     ON\n" );
     else 
-        cprintf ("\t  DL3FWD : OFF\n" );    
+        cprintf ("\t  DL3FWD   :     OFF\n" );    
 
     if (tracer_is_bit_set (tr, DL2FWD | DL2FWD_DET)) 
-        cprintf ("\t  DL2FWD : ON\n" );
+        cprintf ("\t  DL2FWD   :     ON\n" );
     else 
-        cprintf ("\t  DL2FWD : OFF\n" );        
+        cprintf ("\t  DL2FWD   :     OFF\n" );        
     
     if (tracer_is_bit_set (tr, DRTM | DRTM_DET)) 
-        cprintf ("\t  DRTM : ON\n" );
+        cprintf ("\t  DRTM     :     ON\n" );
     else 
-        cprintf ("\t  DRTM : OFF\n" );
+        cprintf ("\t  DRTM     :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DACL | DACL_DET)) 
-        cprintf ("\t  DACL : ON\n" );
+        cprintf ("\t  DACL     :     ON\n" );
     else 
-        cprintf ("\t  DACL : OFF\n" );
+        cprintf ("\t  DACL     :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DIPC | DIPC_DET)) 
-        cprintf ("\t  DIPC : ON\n" );
+        cprintf ("\t  DIPC     :     ON\n" );
     else 
-        cprintf ("\t  DIPC : OFF\n" );
+        cprintf ("\t  DIPC     :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DINTF | DINTF_DET)) 
-        cprintf ("\t  DINTF : ON\n" );
+        cprintf ("\t  DINTF    :     ON\n" );
     else 
-        cprintf ("\t  DINTF : OFF\n" );
+        cprintf ("\t  DINTF    :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DFLOW | DFLOW_DET)) 
-        cprintf ("\t  DFLOW : ON\n" );
+        cprintf ("\t  DFLOW    :     ON\n" );
     else 
-        cprintf ("\t  DFLOW : OFF\n" );
+        cprintf ("\t  DFLOW    :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DTUNNEL | DTUNNEL_DET)) 
-        cprintf ("\t  DTUNNEL : ON\n" );
+        cprintf ("\t  DTUN     :     ON\n" );
     else 
-        cprintf ("\t  DTUNNEL : OFF\n" );
+        cprintf ("\t  DTUN     :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DL2SW | DL2SW_DET)) 
-        cprintf ("\t  DL2SW : ON\n" );
+        cprintf ("\t  DL2SW    :     ON\n" );
     else 
-        cprintf ("\t  DL2SW : OFF\n" );
+        cprintf ("\t  DL2SW    :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DTIMER | DTIMER_DET)) 
-        cprintf ("\t  DTIMER : ON\n" );
+        cprintf ("\t  DTIMER   :     ON\n" );
     else 
-        cprintf ("\t  DTIMER : OFF\n" );
+        cprintf ("\t  DTIMER   :     OFF\n" );
 
     if (tracer_is_bit_set (tr, DALWAYS_FLUSH)) 
-        cprintf ("\t  DALWAYS_FLUSH : ON\n" );
+        cprintf ("\t  DALWAYS_FLUSH: ON\n" );
     else 
-        cprintf ("\t  DALWAYS_FLUSH : OFF\n" );    
+        cprintf ("\t  DALWAYS_FLUSH: OFF\n" );
 
     if (tracer_is_bit_set (tr, DERR)) 
-        cprintf ("\t  DERR : ON\n" );
+        cprintf ("\t  DERR     :     ON\n" );
     else 
-        cprintf ("\t  DERR : OFF\n" );    
+        cprintf ("\t  DERR     :     OFF\n" );    
 
     if (tracer_is_bit_set (tr, DALL_LOGGING))
-        cprintf ("\t  DALL : ON\n" );
+        cprintf ("\t  DALL     :     ON\n" );
     else 
-        cprintf ("\t  DALL : OFF\n" );
+        cprintf ("\t  DALL     :     OFF\n" );
 }
 
 int traceoptions_handler(int cmdcode, 
