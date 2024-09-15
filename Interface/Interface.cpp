@@ -1515,7 +1515,7 @@ VlanInterface::VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id) {
 
     if (!node->vlan_intf_db) return NULL;
 
-    std::unordered_map<std::uint16_t , VlanInterface *>::iterator it;
+    std::unordered_map<uint16_t , VlanInterface *>::iterator it;
     it = node->vlan_intf_db->find(vlan_id);
     if (it != node->vlan_intf_db->end()) {
         vlan_intf = it->second;

@@ -466,7 +466,7 @@ show_vlan_members (int cmdcode,
     Interface *member_intf;
     c_string node_name = NULL;
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
-    std::unordered_map<std::uint16_t , VlanInterface *> *vlan_intf_db;
+    std::unordered_map<uint16_t , VlanInterface *> *vlan_intf_db;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
