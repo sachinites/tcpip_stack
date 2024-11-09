@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
+#include "../common/l3_hdrs.h"
 #include "../tcpconst.h"
 #include "../utils.h"
 #include "../BitOp/bitsop.h"
@@ -35,7 +36,7 @@
 #include "../Layer3/gre-tunneling/gre.h"
 #include "../CLIBuilder/libcli.h"
 #include "../Layer2/transport_svc.h"
-
+#include "../Tracer/tracer.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -82,6 +83,9 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
         return -1;
     }
 
+    tracer (sending_node->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
+        pkt_block_str (pkt_block), interface->if_name.c_str());
+
     Interface *other_interface = interface->GetOtherInterface();
 
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0, 1, ev_dis_pkt_data_t);
@@ -98,7 +102,6 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
     if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
-
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
 
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
@@ -223,6 +226,11 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->is_up = true;
     this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
+    
+    this->pkt_recv = 0;
+    this->pkt_sent = 0;
+    this->xmit_pkt_dropped = 0;
+    this->recvd_pkt_dropped = 0;
 
     this->l2_egress_acc_lst = NULL;
     this->l2_ingress_acc_lst = NULL;
@@ -337,11 +345,13 @@ vlan_id_t
 Interface::GetVlanId()
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return 0;
 }
 
 bool Interface::IsVlanTrunked(vlan_id_t vlan_id)
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 void Interface::SetSwitchport(bool enable)
@@ -352,11 +362,13 @@ void Interface::SetSwitchport(bool enable)
 bool Interface::IntfConfigTransportSvc(std::string& trans_svc) 
 {
    cprintf ("Error : Operation %s not supported\n", __func__);
+   return false;
 }
 
 bool Interface::IntfUnConfigTransportSvc(std::string& trans_svc) 
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 bool Interface::GetSwitchport()
@@ -509,6 +521,9 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
 {
 
     this->switchport = false;
+    
+    memset (this->mac_add.mac, 0, sizeof(this->mac_add.mac));
+
     if (mac_add)
     {
         memcpy(this->mac_add.mac, mac_add->mac, sizeof(*mac_add));
@@ -516,7 +531,9 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
     this->l2_mode = LAN_MODE_NONE;
     this->ip_addr = 0;
     this->mask = 0;
-    this->cost = INTF_METRIC_DEFAULT;
+    this->used_as_underlying_tunnel_intf = 0;
+    this->trans_svc = NULL;
+    this->access_vlan_intf = NULL;
 }
 
 PhysicalInterface::~PhysicalInterface()
@@ -659,7 +676,6 @@ void PhysicalInterface::SetSwitchport(bool enable)
     {
         this->InterfaceSetIpAddressMask(0, 0);
         this->l2_mode = LAN_MODE_NONE;
-        this->iftype = INTF_TYPE_VLAN;
     }
     else
     {
@@ -669,7 +685,6 @@ void PhysicalInterface::SetSwitchport(bool enable)
             return;
         }
         this->l2_mode = LAN_MODE_NONE;
-        this->iftype = INTF_TYPE_PHY;
     }
     this->switchport = enable;
 }
@@ -927,6 +942,7 @@ void VirtualInterface::PrintInterfaceDetails()
 bool 
 VirtualInterface::IsInterfaceUp(vlan_id_t vlan_id) {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 
@@ -948,6 +964,13 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
     this->tunnel_id = tunnel_id;
     this->config_flags = 0;
     this->config_flags |= GRE_TUNNEL_TUNNEL_ID_SET;
+    this->tunnel_src_intf = NULL;
+    this->tunnel_src_ip = 0;
+    this->tunnel_dst_ip = 0;
+    this->lcl_ip = 0;
+    this->mask = 0;
+    this->virtual_port_intf = NULL;
+
 }
 
 GRETunnelInterface::~GRETunnelInterface() {
@@ -997,7 +1020,7 @@ GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
     {
         if (this->tunnel_src_intf == interface)
         {
-            return;
+            return true;
         }
 	if (this->tunnel_src_intf &&
 		this->tunnel_src_intf != interface) {
@@ -1211,7 +1234,8 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
 VirtualPort::VirtualPort(std::string ifname) 
     : VirtualInterface(ifname, INTF_TYPE_VIRTUAL_PORT)
 {
-
+    this->olay_tunnel_intf = NULL;
+    this->trans_svc = NULL;
 }
 
 VirtualPort::~VirtualPort()
@@ -1587,4 +1611,53 @@ bool
 VlanInterface::IsSVI () {
 
     return ( this->ip_addr && this->mask ) ;
+}
+
+void 
+dump_intf_props (Interface *interface){
+
+    uint8_t intf_mask;
+    uint32_t intf_ip_addr;
+    byte intf_ip_addr_str[16];
+    mac_addr_t *mac_addr;
+    PhysicalInterface *phyIntf;
+
+    dump_interface(interface);
+
+    cprintf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
+
+    if (interface->IsIpConfigured()) {
+
+        interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
+        tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
+        cprintf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
+
+        mac_addr = interface->GetMacAddr();
+        if (!mac_addr) {
+            cprintf("\t MAC : Nil\n");
+        }
+        else {
+            cprintf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
+                   mac_addr->mac[0], mac_addr->mac[1],
+                   mac_addr->mac[2], mac_addr->mac[3],
+                   mac_addr->mac[4], mac_addr->mac[5]);
+        }
+    }
+    else
+    {
+        cprintf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
+
+        phyIntf = dynamic_cast<PhysicalInterface *>(interface);
+
+        if (phyIntf) {
+
+            if (interface->GetL2Mode() == LAN_ACCESS_MODE) {
+                cprintf("\t vlan membership : %u", phyIntf->access_vlan_intf->GetVlanId());
+            }
+            else if (interface->GetL2Mode() == LAN_TRUNK_MODE) {
+                cprintf ("\t transport svc profile : %s", phyIntf->trans_svc->trans_svc.c_str());
+            }
+        }
+        cprintf("\n");
+    }
 }

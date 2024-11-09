@@ -4,6 +4,7 @@
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../graph.h"
+#include "../common/l2_hdrs.h"
 #include "layer2.h"
 #include "arp.h"
 #include "../comm.h"

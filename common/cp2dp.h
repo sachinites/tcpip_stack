@@ -4,6 +4,20 @@
 #include <stdint.h>
 
 typedef struct node_ node_t;
+class Interface;
+typedef struct pkt_block_ pkt_block_t; 
+
+/* Route update msg to RTM*/
+typedef struct rt_update_msg_ {
+
+    uint32_t prefix;
+    uint8_t   mask;
+    uint32_t gateway;
+    Interface *oif;
+    uint32_t metric;
+    uint16_t proto_id;
+
+} rt_update_msg_t;
 
 typedef enum DP_COMPONENT_TYPE_ {
 

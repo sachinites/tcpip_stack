@@ -79,7 +79,7 @@ interface_assign_mac_address (Interface *interface){
 void 
 node_assign_router_mac (node_t *node) {
 
-    uint32_t hash_code_val = 0;
+    uint64_t hash_code_val = 0;
     hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE );
     hash_code_val *= hash_code_val;
     hash_code_val = hash_code_val << 15;
@@ -124,54 +124,6 @@ void dump_node_nw_props(node_t *node){
     }
 
     cprintf("\n");
-}
-
-void 
-dump_intf_props (Interface *interface){
-
-    uint8_t intf_mask;
-    uint32_t intf_ip_addr;
-    byte intf_ip_addr_str[16];
-    mac_addr_t *mac_addr;
-
-    dump_interface(interface);
-
-    cprintf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
-
-    if (interface->IsIpConfigured()) {
-
-        interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
-        tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
-        cprintf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
-
-        mac_addr = interface->GetMacAddr();
-        if (!mac_addr) {
-            cprintf("\t MAC : Nil\n");
-        }
-        else {
-            cprintf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
-                   mac_addr->mac[0], mac_addr->mac[1],
-                   mac_addr->mac[2], mac_addr->mac[3],
-                   mac_addr->mac[4], mac_addr->mac[5]);
-        }
-    }
-    else
-    {
-        cprintf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
-
-        PhysicalInterface *phyIntf = dynamic_cast<PhysicalInterface *>(interface);
-
-        if (phyIntf) {
-
-            if (interface->GetL2Mode() == LAN_ACCESS_MODE) {
-                cprintf("\t vlan membership : %u", phyIntf->access_vlan_intf->GetVlanId());
-            }
-            else if (interface->GetL2Mode() == LAN_TRUNK_MODE) {
-                cprintf ("\t transport svc profile : %s", phyIntf->trans_svc->trans_svc.c_str());
-            }
-        }
-        cprintf("\n");
-    }
 }
 
 void 

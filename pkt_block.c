@@ -27,7 +27,7 @@
 #include "Layer5/layer5.h"
 #include "tcpconst.h"
 #include "pkt_block.h"
-
+#include "common/l3_hdrs.h"
 void
 pkt_block_mem_init () {
 
@@ -241,6 +241,7 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->ref_count = 1;
     pkt_block2->lineno = lineno;
     pkt_block2->fn_name = fn_name;    
+    pkt_block2->no_modify = pkt_block->no_modify;
     return pkt_block2;
 }
 
@@ -422,6 +423,7 @@ pkt_block_str (pkt_block_t *pkt_block) {
         break;
 
         case IP_HDR:
+        case IP_IN_IP_HDR:
         {
             ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
             pkt_size_t old_pkt_size;

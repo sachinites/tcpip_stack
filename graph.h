@@ -40,6 +40,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <string>
 #include "gluethread/glthread.h"
 #include "net.h"

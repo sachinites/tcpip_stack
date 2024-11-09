@@ -78,11 +78,13 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             pkt_block_set_new_pkt(pkt_block, (uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
             pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
-            pkt_block_set_no_modify (pkt_block, true);
-            cp2dp_xmit_pkt(intf->att_node, pkt_block, intf);
+            /* This needs an optimization, but code changes will be too much !*/
+            pkt_block_t *pkt_block2 = pkt_block_dup(pkt_block);
+            cp2dp_xmit_pkt(intf->att_node, pkt_block2, intf);
             ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
             tracer (ISIS_TR(intf->att_node), TR_ISIS_LSDB, "%s : LSP %s pushed out of interface %s\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
+            pkt_block_dereference(pkt_block2);
         } else {
             tracer (ISIS_TR(intf->att_node), TR_ISIS_LSDB, 
                 "%s : LSP %s discarded from output flood Queue of interface %s, %d %d\n",

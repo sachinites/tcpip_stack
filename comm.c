@@ -48,6 +48,7 @@
 #include "FireWall/acl/acldb.h"
 #include "pkt_block.h"
 #include "Interface/InterfaceUApi.h"
+#include "Tracer/tracer.h"
 
 extern graph_t *topo;
 
@@ -155,7 +156,9 @@ dp_pkt_receive (node_t *node,
     if (access_list_evaluate_ethernet_packet (
                 node, interface, pkt_block, true) 
                 == ACL_DENY) {
-
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s : Pkt Dropped : L2 ACL Denied on ingress interface %s\n", 
+            pkt_block_str(pkt_block), interface->if_name.c_str());
         return;
     }
 
@@ -165,8 +168,11 @@ dp_pkt_receive (node_t *node,
                                           pkt_block,
                                           &vlan_id_to_tag) == false){
         
-        cprintf("L2 Frame Rejected on node %s(%s)\n", 
+        cprintf("Error : L2 Frame Rejected on node %s(%s)\n", 
             node->node_name, interface->if_name.c_str());
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s : L2 Frame Rejected in Interface %s, qualification Test Failed\n", 
+            pkt_block_str(pkt_block), interface->if_name.c_str());
         return;
     }
 
@@ -174,6 +180,8 @@ dp_pkt_receive (node_t *node,
 
         if (vlan_id_to_tag) {
             tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
+            tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Tagged with VLAN ID %d\n", 
+                pkt_block_str(pkt_block), vlan_id_to_tag);
         }
         
         vlan_8021q_hdr_t *vlan_8021q_hdr = 
@@ -192,15 +200,23 @@ dp_pkt_receive (node_t *node,
 
         GRETunnelInterface *gre_intf = 
             dynamic_cast <GRETunnelInterface *> (interface);
+
+        tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
+            pkt_block_str(pkt_block), gre_intf->if_name.c_str());  
+
         dp_pkt_receive (node, gre_intf->virtual_port_intf, pkt_block);
     }
 
     else if (interface->IsIpConfigured()){
+        tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L2Fwding\n", 
+            pkt_block_str(pkt_block), interface->if_name.c_str());
         promote_pkt_to_layer2(node, interface, pkt_block);
     }
 
     else {
         /* We dont know what to do with the pkt*/
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s : pkt dropped, Unknown pkt recvd on Interface %s\n", 
+            pkt_block_str(pkt_block), interface->if_name.c_str());
         interface->recvd_pkt_dropped++;
     }
 

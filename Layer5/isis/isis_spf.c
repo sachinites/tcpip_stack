@@ -856,6 +856,8 @@ isis_show_spf_results (node_t *node){
     ted_node_t *ted_node;
     isis_spf_result_t *res = NULL;
 
+    if (!isis_is_protocol_enable_on_node (node)) return;
+
     ted_db_t *ted_db = ISIS_TED_DB(node);
 
     if (!ted_db) return;

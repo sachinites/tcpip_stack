@@ -309,5 +309,7 @@ typedef union intf_prop_changed_ {
 
 } intf_prop_changed_t;
 
+void 
+dump_intf_props (Interface *interface);
 
 #endif

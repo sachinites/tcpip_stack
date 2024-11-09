@@ -35,11 +35,11 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "../common/l3_hdrs.h"
 #include "../graph.h"
 #include "../Layer2/layer2.h"
 #include "../Layer5/layer5.h"
 #include "rt_table/nexthop.h"
-#include "rt_table/np_rt_table.h"
 #include "../Threads/refcount.h"
 #include "layer3.h"
 #include "../tcpconst.h"
@@ -54,7 +54,7 @@
 #include "../prefix-list/prefixlst.h"
 #include "../FireWall/Connection/conn.h"
 #include "../Interface/InterfaceUApi.h"
-#include "../cp2dp.h"
+#include "../common/cp2dp.h"
 #include "../Tracer/tracer.h"
 
 extern int
@@ -169,7 +169,8 @@ layer3_ip_route_pkt(node_t *node,
             access_list_evaluate_ip_packet(node, interface,
                                            ip_hdr, true) == ACL_DENY) {
 
-            tracer (node->dptr, DL3FWD, "Dest : %s : Pkt Dropped :  L3 ACL Denied\n", dest_ip_addr);
+            tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt Dropped :  L3 ACL Denied on ingress interface %s\n",
+            pkt_block_str(pkt_block), interface->if_name.c_str());
             return;
         }
     }
@@ -183,11 +184,12 @@ layer3_ip_route_pkt(node_t *node,
         /*Router do not know what to do with the pkt. drop it*/
         //cprintf("Router %s : Cannot Route IP : %s\n", 
         //         node->node_name, dest_ip_addr);
-        tracer (node->dptr, DL3FWD | DERR, "Dest : %s : Pkt Dropped :  No L3 Route\n", dest_ip_addr);
+        tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
         return;
     }
 
-    tracer (node->dptr, DL3FWD, "Dest : %s : L3 Route Found\n", dest_ip_addr);
+    tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route Found\n", 
+    pkt_block_str(pkt_block));
 
     /*L3 route exist, 3 cases now : 
      * case 1 : pkt is destined to self(this router only)
@@ -201,12 +203,12 @@ layer3_ip_route_pkt(node_t *node,
         /* case 1 : local delivery:  dst ip address in pkt must exact match with
          * ip of any local interface of the router, including loopback*/
 
-        tracer (node->dptr, DL3FWD, "Dest : %s : L3 Route found is local route\n", dest_ip_addr);
+        tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", pkt_block_str(pkt_block));
 
         if (is_layer3_local_delivery(node, ip_hdr->dst_ip)) {
 
-            tracer (node->dptr, DL3FWD, "Dest : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
-                 dest_ip_addr, proto_name_str(ip_hdr->protocol));
+            tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
+                 pkt_block_str(pkt_block), proto_name_str(ip_hdr->protocol));
 
             l4_hdr = (char *)INCREMENT_IPHDR(ip_hdr);
             l5_hdr = l4_hdr;
@@ -235,9 +237,10 @@ layer3_ip_route_pkt(node_t *node,
                     pkt_block_set_new_pkt(pkt_block, 
                                                             (uint8_t *)INCREMENT_IPHDR(ip_hdr),
                                                             pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
-                    pkt_block_set_starting_hdr_type (pkt_block, PROTO_IP_IN_IP);
+
+                    pkt_block_set_starting_hdr_type (pkt_block, IP_IN_IP_HDR);
                      
-                     tracer (node->dptr, DL3FWD, "Dest : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n", dest_ip_addr);
+                     tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n", pkt_block_str (pkt_block));
 
                     layer3_ip_route_pkt(node,
                                                       interface, 
@@ -249,7 +252,7 @@ layer3_ip_route_pkt(node_t *node,
                                                             (uint8_t *)INCREMENT_IPHDR(ip_hdr),
                                                             pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
                     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
-                    tracer (node->dptr, DL3FWD, "Dest : %s : Pkt is being subjected to GRE Decapsulation\n", dest_ip_addr);
+                    tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to GRE Decapsulation\n", pkt_block_str (pkt_block));
                     gre_decapsulate (node, pkt_block, 
                         gre_lookup_tunnel_intf (node, ip_hdr->dst_ip, ip_hdr->src_ip));
                     return;
@@ -257,7 +260,8 @@ layer3_ip_route_pkt(node_t *node,
                 default: ;
             }
 
-            tracer (node->dptr, DL3FWD, "Dest : %s : Pkt is being subjected to Layer 5\n",  dest_ip_addr);
+            tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to Layer 5\n",  pkt_block_str (pkt_block));
+
             promote_pkt_from_layer3_to_layer5(
                                                 node, interface,
                                                 pkt_block,
@@ -268,19 +272,17 @@ layer3_ip_route_pkt(node_t *node,
          * subnet of this router, time for l2 routing*/
         nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif);
 
-        tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", dest_ip_addr, 
-            nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+        tracer (node->dptr, DL3FWD, "Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
         /* If src ip address is not feeded by application, then take the OIF IP address*/
         if (ip_hdr->src_ip == 0) {
             
             char ip_addr_str[16];
             ip_hdr->src_ip = IF_IP(nexthop->oif);
-            tracer (node->dptr, DL3FWD, "Dest : %s : Using OIF IP as Src IP : %s\n", dest_ip_addr, 
-                tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
+            tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
         }
 
-        tracer (node->dptr, DL3FWD, "Dest : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", dest_ip_addr);
+        tracer (node->dptr, DL3FWD, "Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", pkt_block_str (pkt_block));
 
         demote_pkt_to_layer2 (
                 node,           /*Current processing node*/
