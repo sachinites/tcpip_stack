@@ -345,11 +345,13 @@ vlan_id_t
 Interface::GetVlanId()
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return 0;
 }
 
 bool Interface::IsVlanTrunked(vlan_id_t vlan_id)
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 void Interface::SetSwitchport(bool enable)
@@ -360,11 +362,13 @@ void Interface::SetSwitchport(bool enable)
 bool Interface::IntfConfigTransportSvc(std::string& trans_svc) 
 {
    cprintf ("Error : Operation %s not supported\n", __func__);
+   return false;
 }
 
 bool Interface::IntfUnConfigTransportSvc(std::string& trans_svc) 
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 bool Interface::GetSwitchport()
@@ -672,7 +676,6 @@ void PhysicalInterface::SetSwitchport(bool enable)
     {
         this->InterfaceSetIpAddressMask(0, 0);
         this->l2_mode = LAN_MODE_NONE;
-        this->iftype = INTF_TYPE_VLAN;
     }
     else
     {
@@ -682,7 +685,6 @@ void PhysicalInterface::SetSwitchport(bool enable)
             return;
         }
         this->l2_mode = LAN_MODE_NONE;
-        this->iftype = INTF_TYPE_PHY;
     }
     this->switchport = enable;
 }
@@ -940,6 +942,7 @@ void VirtualInterface::PrintInterfaceDetails()
 bool 
 VirtualInterface::IsInterfaceUp(vlan_id_t vlan_id) {
     cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 
@@ -1017,7 +1020,7 @@ GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
     {
         if (this->tunnel_src_intf == interface)
         {
-            return;
+            return true;
         }
 	if (this->tunnel_src_intf &&
 		this->tunnel_src_intf != interface) {
@@ -1608,4 +1611,53 @@ bool
 VlanInterface::IsSVI () {
 
     return ( this->ip_addr && this->mask ) ;
+}
+
+void 
+dump_intf_props (Interface *interface){
+
+    uint8_t intf_mask;
+    uint32_t intf_ip_addr;
+    byte intf_ip_addr_str[16];
+    mac_addr_t *mac_addr;
+    PhysicalInterface *phyIntf;
+
+    dump_interface(interface);
+
+    cprintf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
+
+    if (interface->IsIpConfigured()) {
+
+        interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
+        tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
+        cprintf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
+
+        mac_addr = interface->GetMacAddr();
+        if (!mac_addr) {
+            cprintf("\t MAC : Nil\n");
+        }
+        else {
+            cprintf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
+                   mac_addr->mac[0], mac_addr->mac[1],
+                   mac_addr->mac[2], mac_addr->mac[3],
+                   mac_addr->mac[4], mac_addr->mac[5]);
+        }
+    }
+    else
+    {
+        cprintf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
+
+        phyIntf = dynamic_cast<PhysicalInterface *>(interface);
+
+        if (phyIntf) {
+
+            if (interface->GetL2Mode() == LAN_ACCESS_MODE) {
+                cprintf("\t vlan membership : %u", phyIntf->access_vlan_intf->GetVlanId());
+            }
+            else if (interface->GetL2Mode() == LAN_TRUNK_MODE) {
+                cprintf ("\t transport svc profile : %s", phyIntf->trans_svc->trans_svc.c_str());
+            }
+        }
+        cprintf("\n");
+    }
 }
