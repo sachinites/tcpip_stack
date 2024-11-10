@@ -11,9 +11,13 @@ extern graph_t *topo;
 
 static std::unordered_map<std::string , TransportService *> TransPortSvcDB;
 
-TransportService::TransportService(std::string& svc_name) {
+TransportService::TransportService(std::string& svc_name):
+	vlanSet{}, ifSet{}
+{
 
     this->trans_svc = svc_name;
+    
+    this->ref_count = 0;
 }
 
 TransportService::~TransportService() {

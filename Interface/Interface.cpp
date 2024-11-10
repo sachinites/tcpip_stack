@@ -918,10 +918,6 @@ PhysicalInterface::InterfaceReleaseAllResources() {
 VirtualInterface::VirtualInterface(std::string ifname, InterfaceType_t iftype)
     : Interface(ifname, iftype)
 {
-    this->pkt_recv = 0;
-    this->pkt_sent = 0;
-    this->xmit_pkt_dropped = 0;
-    this->recvd_pkt_dropped = 0;
 }
 
 VirtualInterface::~VirtualInterface()
