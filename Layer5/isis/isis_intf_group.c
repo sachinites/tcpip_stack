@@ -23,7 +23,7 @@ isis_init_intf_group_avl_tree (avltree_t *avl_root) {
 isis_intf_group_t *
 isis_intf_grp_look_up (node_t *node, char *intf_grp_name) {
 
-    isis_intf_group_t dummy_intf_grp;
+    isis_intf_group_t dummy_intf_grp = {0};
     isis_node_info_t *node_info; 
 
     node_info = ISIS_NODE_INFO(node);

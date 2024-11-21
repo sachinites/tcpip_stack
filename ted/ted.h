@@ -34,17 +34,16 @@ typedef struct ted_link_ {
 typedef struct ted_prefix_ {
 
     uint32_t prefix;
-    uint8_t mask;
     uint32_t metric;
+    avltree_node_t avl_glue;
+    uint8_t mask;
     uint8_t flags;
     ted_src_fr_no_t src;
-    avltree_node_t avl_glue;
-}ted_prefix_t;
+} __attribute__((aligned(8))) ted_prefix_t;
 
 typedef struct ted_node_ {
 
     uint32_t rtr_id;
-    uint8_t pn_no;
     char node_name[NODE_NAME_SIZE];
     uint32_t flags;
     bool is_installed_in_teddb;
@@ -55,7 +54,8 @@ typedef struct ted_node_ {
     void *proto_data[TED_PROTO_MAX];
     avltree_t *prefix_tree_root;
     avltree_node_t avl_glue;
-} ted_node_t;
+    uint8_t pn_no;
+} __attribute__((aligned(8))) ted_node_t;
 
 typedef struct ted_db_ {
 

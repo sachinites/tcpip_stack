@@ -23,10 +23,10 @@ typedef struct isis_pkt_ {
     /* No of interfaces out of which LSP has been
     Queued to xmit */
     uint16_t flood_queue_count;
-    /* if set to false, this LSP would not xmit out */
-    bool flood_eligibility;
     /* glue to attach this lsp pkt to lspdb*/
     avltree_node_t avl_node_glue;
+    /* if set to false, this LSP would not xmit out */
+    bool flood_eligibility;
     /* Life time timer */
     timer_event_handle *expiry_timer;
     /* to check if this LSP is present in lspdb or not */
@@ -35,7 +35,7 @@ typedef struct isis_pkt_ {
     isis_fragment_t *fragment;
     /*Timer to flood self LSP periodically */
     timer_event_handle *periodic_lsp_flood_timer;
-} isis_lsp_pkt_t;
+} __attribute__((aligned(8))) isis_lsp_pkt_t;
 
 /*LSP Flags in lsp pkts*/
 
