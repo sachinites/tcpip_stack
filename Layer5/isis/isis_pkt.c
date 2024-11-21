@@ -600,22 +600,14 @@ lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_siz
     uint32_t *seq_no;
     ted_node_t *ted_node;
     isis_lsp_pkt_t *lsp_pkt;
-    avltree_t *lspdb = isis_get_lspdb_root(node);
-
-    if (!arg) return;
-
+    
     node = (node_t *) (ev_dis->app_data);
+    if (!arg) return;
     lsp_pkt = (isis_lsp_pkt_t *)arg;
     seq_no = isis_get_lsp_pkt_seq_no (lsp_pkt);
     (*seq_no)++;
     lsp_pkt->fragment->seq_no = *seq_no;
-    #if 0
-        isis_ted_increase_seq_no (node, 
-            *isis_get_lsp_pkt_rtr_id (lsp_pkt),
-            isis_get_lsp_pkt_pn_id (lsp_pkt));
-    #else 
-        isis_ted_update_or_install_lsp (node, lsp_pkt);
-    #endif
+    isis_ted_update_or_install_lsp (node, lsp_pkt);
     isis_schedule_lsp_flood (node, lsp_pkt, NULL);
 }
 

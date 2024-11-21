@@ -10,7 +10,7 @@ typedef struct isis_intf_group_ {
     char name[ISIS_INTF_GRP_NAME_LEN];  /* key */
     glthread_t intf_list_head;
     avltree_node_t avl_glue;
-} isis_intf_group_t;
+} __attribute__((aligned(8))) isis_intf_group_t;
 
 void
 isis_init_intf_group_avl_tree(avltree_t *avl_root);

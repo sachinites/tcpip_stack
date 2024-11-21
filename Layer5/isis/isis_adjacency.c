@@ -363,7 +363,8 @@ isis_update_interface_adjacency_from_hello(
                 }
             break;
             case ISIS_TLV_IF_MAC:
-                if (memcmp(adjacency->nbr_mac.mac, (byte *)tlv_value, tlv_len)) {
+                if (memcmp(adjacency->nbr_mac.mac, (byte *)tlv_value, 
+                    sizeof(adjacency->nbr_mac.mac))) {
                     memcpy(adjacency->nbr_mac.mac, tlv_value, tlv_len);
                     force_bring_down_adjacency = true;
                 }

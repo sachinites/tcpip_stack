@@ -38,7 +38,6 @@ parser_config_commit(void *node, Stack_t  *tlv_stack, op_mode enable_or_disable)
 static void
 task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 
-    int rc;
     tlv_struct_t *tlv;
 
     unified_cli_data_t *unified_cli_data =
@@ -50,7 +49,7 @@ task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
         unified_cli_data->enable_or_disable);
 
     /* Config Commit now*/
-    if (!rc && unified_cli_data->enable_or_disable != OPERATIONAL) {
+    if (!unified_cli_data->rc && unified_cli_data->enable_or_disable != OPERATIONAL) {
 
         parser_config_commit(ev_dis->app_data, unified_cli_data->tlv_stack, unified_cli_data->enable_or_disable);
     }
