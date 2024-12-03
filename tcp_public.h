@@ -33,6 +33,7 @@
 
 #include <ncurses.h>
 #include <pthread.h>
+#include <memory>
 #include "gluethread/glthread.h"
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"

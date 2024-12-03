@@ -49,6 +49,7 @@
 #include "EventDispatcher/event_dispatcher.h"
 #include "PostgresLibpq/postgresLib.h"
 #include <unordered_map>
+#include "Interface/InterfaceFwd.h"
 
 #define NODE_NAME_SIZE   24
 #define IF_NAME_SIZE     16
@@ -57,9 +58,9 @@
 /*Forward Declarations*/
 typedef struct node_ node_t;
 typedef struct link_ link_t;
-class Interface;
+
 class TransportService;
-class VlanInterface;
+
 
 typedef struct spf_data_ spf_data_t;
 typedef struct pkt_tracer_ pkt_tracer_t;
@@ -68,8 +69,8 @@ typedef struct tracer_ tracer_t;
 
 struct node_ {
 
+    InterfaceP intf[MAX_INTF_PER_NODE];
     char node_name[NODE_NAME_SIZE];
-    Interface *intf[MAX_INTF_PER_NODE];
 
     /* For Network Sockets */
     unsigned int udp_port_number;
@@ -192,7 +193,7 @@ void dump_interface(Interface *interface);
 {                                                         \
     int _i = 0;                                           \
     for(; _i < MAX_INTF_PER_NODE; _i++){                  \
-        intf_ptr = node_ptr->intf[_i];                     \
+        intf_ptr = node_ptr->intf[_i].get();                     \
         if(!intf_ptr) continue;
 
 #define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr) }}

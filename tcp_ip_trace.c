@@ -635,7 +635,6 @@ validate_flag_values(stack_t *tlv_stack, c_string value){
 
 void tcp_ip_show_log_status(node_t *node){
 
-    int i = 0;
     Interface *intf;
     log_t *log_info = &node->log_info;
     
@@ -649,10 +648,8 @@ void tcp_ip_show_log_status(node_t *node){
     cprintf ("\taccess list filter : %s\n", 
             log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
-        intf = node->intf[i];
-        if(!intf) continue;
-
+     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+        
         log_info = &intf->log_info;
         cprintf("\tLog Status : %s(%s)\n", intf->if_name.c_str(), intf->is_up ? "UP" : "DOWN");
         cprintf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
@@ -661,7 +658,8 @@ void tcp_ip_show_log_status(node_t *node){
         cprintf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
         cprintf ("\t\taccess list filter : %s\n", 
             log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
-    }
+
+    }  ITERATE_NODE_INTERFACES_END(node, intf);
 
     cprintf ("\tDebug Logging Status:\n");
 
@@ -899,13 +897,14 @@ int traceoptions_handler(int cmdcode,
             
             /*disable logging for all interfaces also*/
             if(cmdcode == CMDCODE_DEBUG_LOGGING_PER_NODE){
-                int i = 0;
+
                 Interface *intf;
-                for(; i < MAX_INTF_PER_NODE; i++){
-                    intf = node->intf[i];
+                ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
                     if(!intf) continue;
                     tcp_ip_set_all_log_info_params(&intf->log_info, false);
-                }
+
+                }  ITERATE_NODE_INTERFACES_END(node, intf);
             }
         }
         else if(strcmp((const char *)flag_val, "recv") == 0){

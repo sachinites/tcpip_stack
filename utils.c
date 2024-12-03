@@ -30,12 +30,15 @@
  * =====================================================================================
  */
 
+#include <stdlib.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <stdint.h>
 #include <memory.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <time.h>
+
 #include "utils.h"
 
 /*Apply mask on prefix, and store result in 'str_prefix'
@@ -394,6 +397,17 @@ mac_address_compare ( char *mac1, char *mac2) {
         return true;
 }
 
+// Invoke below line in caller before invoking this
+// srand((unsigned int) time(NULL));
+void 
+tcp_ip_generate_random_mac_address (unsigned char (*mac)[6]) {
+
+    (*mac)[0] = (rand() % 256) & (0xFE | 0x02);  // Set U/L bit to 1, multicast bit to 0
+    
+    for (int i = 1; i < 6; i++) {
+        (*mac)[i] = (rand() % 256);
+    }
+}
 
 #if 0
 

@@ -51,15 +51,15 @@ nfc_intf_invoke_notification_to_sbscribers(
 	intf_prop_changed_t *old_intf_prop_changed,
 	uint32_t change_flags) {
 
-	intf_notif_data_t intf_notif_data;
+	intf_notif_data_t *intf_notif_data = new intf_notif_data_t;
 	
-	intf_notif_data.interface = intf;
-	intf_notif_data.old_intf_prop_changed = old_intf_prop_changed;
-	intf_notif_data.change_flags = change_flags;
+	intf_notif_data->interface = intf->GetSharedPtr();
+	intf_notif_data->old_intf_prop_changed = old_intf_prop_changed;
+	intf_notif_data->change_flags = change_flags;
 
 	nfc_invoke_notif_chain(NULL, 
 							&nfc_intf,
-						   (void *) &intf_notif_data,
+						   (void *) intf_notif_data,
 							sizeof(intf_notif_data_t),
 							0, 0, TASK_PRIORITY_COMPUTE);
 }

@@ -15,16 +15,16 @@ promote_pkt_to_layer3(node_t *node,
                       int L3_protocol_number) ;
 
 bool
-gre_tunnel_create (node_t *node, uint16_t tunnel_id) {
+gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
 
-    Interface *tunnel;
+    Interface *intf;
     byte intf_name[IF_NAME_SIZE];
+    GRETunnelInterfaceP gre_shared_ptr ;
 
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
+    intf = node_get_intf_by_name(node, (const char *)intf_name);
 
-    tunnel = node_get_intf_by_name(node, (const char *)intf_name);
-
-    if (tunnel) {
+    if (intf) {
         return false;
     }
 
@@ -36,23 +36,20 @@ gre_tunnel_create (node_t *node, uint16_t tunnel_id) {
         return false;
     }
 
-    tunnel = new GRETunnelInterface(tunnel_id);
+    /* Creating a new interface is a 2 step process as below.*/
+    gre_shared_ptr = std::make_shared<GRETunnelInterface>(tunnel_id);
+    gre_shared_ptr->SetSharedPtr(gre_shared_ptr);
 
-    if (!tunnel ) {
-        cprintf ("Error : GRE Tunnel creation failed\n");
-        return false;
-    }
-
-    node->intf[empty_intf_slot] = tunnel;
-    tunnel->att_node = node;
-    tunnel->InterfaceLockStatic();
+    node->intf[empty_intf_slot] = gre_shared_ptr;
+    gre_shared_ptr->att_node = node;
+    gre_shared_ptr->InterfaceLockStatic();
     return true;
 }
 
 bool
-gre_tunnel_destroy (node_t *node, uint16_t tunnel_id) {
+gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
     
-    int i;
+    int i = 0;
     Interface *tunnel;
     uint32_t if_change_flags = 0;
     byte intf_name[IF_NAME_SIZE];
@@ -61,13 +58,14 @@ gre_tunnel_destroy (node_t *node, uint16_t tunnel_id) {
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
+   ITERATE_NODE_INTERFACES_BEGIN(node, tunnel) {
 
-        tunnel = node->intf[i];
+        i++;
         if (!tunnel) continue;
         if (string_compare (tunnel->if_name.c_str(), intf_name, IF_NAME_SIZE)) continue;
         break;
-    }
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
 
     if (i == MAX_INTF_PER_NODE) {
         cprintf ("Error : Tunnel %s Do Not  Exist\n", intf_name);
@@ -79,7 +77,7 @@ gre_tunnel_destroy (node_t *node, uint16_t tunnel_id) {
         return false;
     }
 
-    node->intf[i] = NULL;
+    node->intf[i] = nullptr;
 
     if (!tunnel->InterfaceUnLockStatic()) {
         /* Send Delete notification to all Subscribers */
@@ -92,7 +90,7 @@ gre_tunnel_destroy (node_t *node, uint16_t tunnel_id) {
 }
 
 void
-gre_tunnel_set_src_addr (node_t *node, uint16_t tunnel_id, c_string src_addr) {
+gre_tunnel_set_src_addr (node_t *node, uint32_t tunnel_id, c_string src_addr) {
 
     Interface *tunnel;
     byte intf_name[IF_NAME_SIZE];
@@ -117,7 +115,7 @@ gre_tunnel_set_src_addr (node_t *node, uint16_t tunnel_id, c_string src_addr) {
 }
 
 void
-gre_tunnel_set_dst_addr (node_t *node, uint16_t tunnel_id, c_string dst_addr) {
+gre_tunnel_set_dst_addr (node_t *node, uint32_t tunnel_id, c_string dst_addr) {
 
     Interface *tunnel;
     byte intf_name[IF_NAME_SIZE];
@@ -142,7 +140,7 @@ gre_tunnel_set_dst_addr (node_t *node, uint16_t tunnel_id, c_string dst_addr) {
 }
 
 bool
- gre_tunnel_set_src_interface (node_t *node, uint16_t tunnel_id, c_string if_name) {
+ gre_tunnel_set_src_interface (node_t *node, uint32_t tunnel_id, c_string if_name) {
 
     Interface *tunnel;
     Interface *phyIntf;
@@ -186,7 +184,7 @@ bool
 
 void 
 gre_tunnel_set_lcl_ip_addr(node_t *node, 
-                                             uint16_t gre_tun_id,
+                                             uint32_t gre_tun_id,
                                              c_string intf_ip_addr,
                                              uint8_t mask) {
 
@@ -222,10 +220,12 @@ gre_interface_updates (event_dispatcher_t *ev_dis, void *arg, unsigned int arg_s
 		(intf_notif_data_t *)arg;
 
 	uint32_t flags = intf_notif_data->change_flags;
-	Interface *intf = intf_notif_data->interface;
+	Interface *intf = intf_notif_data->interface.get();
 	intf_prop_changed_t *old_intf_prop_changed =
             intf_notif_data->old_intf_prop_changed;
 
+    delete intf_notif_data ;
+    
     /* GRE tunnel module dont need these events */
     if (intf->iftype == INTF_TYPE_GRE_TUNNEL ||
          intf->iftype ==  INTF_TYPE_VLAN) {

@@ -34,6 +34,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <memory.h>
+#include <memory>
 #include <ctype.h>
 #include "configdb.h"
 #include "graph.h"
@@ -51,10 +52,12 @@ insert_link_between_two_nodes(node_t *node1,
         const char *to_if_name,
         unsigned int cost){
 
-    linkage_t *link = (linkage_t *)calloc(1, sizeof(linkage_t));
-    link->Intf1 = new PhysicalInterface(std::string (from_if_name) , INTF_TYPE_PHY, NULL);
-    link->Intf2 = new PhysicalInterface(std::string (to_if_name) , INTF_TYPE_PHY, NULL);
-    
+    linkage_t *link = new linkage_t;
+    link->Intf1 = std::make_shared<PhysicalInterface>(from_if_name, INTF_TYPE_PHY, nullptr);
+    link->Intf1->SetSharedPtr(link->Intf1);
+    link->Intf2 = std::make_shared<PhysicalInterface>(to_if_name, INTF_TYPE_PHY, nullptr);
+    link->Intf2->SetSharedPtr(link->Intf2);
+
     link->Intf1->link = link;
     link->Intf2->link = link;
 
@@ -73,22 +76,21 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf2->InterfaceLockStatic();
 
     /*Now Assign Random generated Mac address to the Interfaces*/
-    interface_assign_mac_address(link->Intf1);
-    interface_assign_mac_address(link->Intf2);
- 
+    interface_assign_mac_address(link->Intf1.get());
+    interface_assign_mac_address(link->Intf2.get());
+
     //intf_init_bit_rate_sampling_timer(&link->intf1);
 
-    tcp_ip_init_intf_log_info(link->Intf1);
-    tcp_ip_init_intf_log_info(link->Intf2);
+    tcp_ip_init_intf_log_info(link->Intf1.get());
+    tcp_ip_init_intf_log_info(link->Intf2.get());
 }
 
 graph_t *
 create_new_graph (const char *topology_name){
 
     graph_t *graph = (graph_t *)calloc(1, sizeof(graph_t));
-    string_copy((char *)graph->topology_name, topology_name, 32);
-    graph->topology_name[31] = '\0';
-
+    string_copy((char *)graph->topology_name, topology_name, sizeof(graph->topology_name));
+    graph->topology_name[sizeof(graph->topology_name)] = '\0';
     init_glthread(&graph->node_list);
     graph->gstdout = false;
     return graph;
@@ -106,10 +108,10 @@ extern int debug_dp_bits_to_str (char *buffer, uint64_t bits) ;
 node_t *
 create_graph_node(graph_t *graph, const c_string node_name){
 
-    char file_name[32];
+    char file_name[64];
     char ev_dis_name[EV_DIS_NAME_LEN];
 
-    node_t *node = (node_t *)calloc(1, sizeof(node_t));
+    node_t *node = new node_t;
     string_copy((char *)node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE -1] = '\0';
 
@@ -202,20 +204,19 @@ void dump_graph(graph_t *graph){
 
 void dump_node(node_t *node){
 
-    unsigned int i = 0;
     Interface *intf;
     std::unordered_map<uint16_t , VlanInterface *> *vlan_intf_db;
 
     cprintf("Node Name = %s(%p) UDP Port # : %u\n",
         node->node_name, node, node->udp_port_number);
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
+     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
         
-        intf = node->intf[i];
         if(!intf) break;
         dump_interface(intf);
         cprintf ("\n");
-    }
+
+    }  ITERATE_NODE_INTERFACES_END(node, intf);
 
     vlan_intf_db = node->vlan_intf_db;
 
@@ -236,30 +237,29 @@ void dump_interface(Interface *interface){
 Interface *
 node_get_intf_by_name(node_t *node, const char *if_name){
 
-    int i ;
     Interface *intf;
 
-    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
-        intf = node->intf[i];
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
         if(!intf) return NULL;
         if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
             return intf;
         }
-    }
+    }  ITERATE_NODE_INTERFACES_END(node, intf);
     return NULL;
 }
 
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
-    int i ;
     Interface *intf;
 
-    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
-        intf = node->intf[i];
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
         if(!intf) return NULL;
-        if (intf->ifindex == ifindex)
-            return intf;
-    }
+        if (intf->ifindex == ifindex)return intf;
+
+    }  ITERATE_NODE_INTERFACES_END(node, intf);
+
     return NULL;
 }

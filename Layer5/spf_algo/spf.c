@@ -208,7 +208,7 @@ spf_install_routes(node_t *spf_root){
             #endif
             rt_table_add_route(rt_table, (const char *)NODE_LO_ADDR(spf_result->node), 32, 
                                             (const char *)nexthop->gw_ip, 
-                                            nexthop->oif,
+                                            nexthop->oif.get(),
                                             spf_result->spf_metric,
                                             PROTO_STATIC);
             count++;
@@ -239,7 +239,7 @@ initialize_direct_nbrs(node_t *spf_root){
         if (oif->GetIntfCost() < SPF_METRIC(nbr)){
             nh_flush_nexthops(nbr->spf_data->nexthops);
             nexthop = nh_create_new_nexthop (nbr->node_name, oif->ifindex, nxt_hop_ip, PROTO_STATIC);
-            nexthop->oif = oif;
+            nexthop->oif = oif->GetSharedPtr();
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
             SPF_METRIC(nbr) = oif->GetIntfCost();
         }
@@ -250,7 +250,7 @@ initialize_direct_nbrs(node_t *spf_root){
         else if (oif->GetIntfCost() == SPF_METRIC(nbr)){
             tcp_ip_covert_ip_n_to_p(nxt_hop_ip, nxt_hop_ip_str);
             nexthop = nh_create_new_nexthop (nbr->node_name, oif->ifindex, nxt_hop_ip_str, PROTO_STATIC);
-            nexthop->oif = oif;
+            nexthop->oif = oif->GetSharedPtr();
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);
         }
         /*Step 2.2 : End*/
@@ -560,7 +560,7 @@ show_spf_results(node_t *node){
 
             if(!res->nexthops[i]) continue;
 
-            oif = res->nexthops[i]->oif;
+            oif = res->nexthops[i]->oif.get();
             if(j == 0){
                 cprintf("%-8s       OIF : %-7s    gateway : %-16s ref_count = %u\n",
                         res->nexthops[i]->node_name,
@@ -603,9 +603,11 @@ spf_algo_interface_update(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_s
 		(intf_notif_data_t *)arg;
 
 	uint32_t flags = intf_notif_data->change_flags;
-	Interface *interface = intf_notif_data->interface;
+	Interface *interface = intf_notif_data->interface.get();
      intf_prop_changed_t *intf_prop_changed = intf_notif_data->old_intf_prop_changed;
-    
+
+    delete intf_notif_data;
+
 	/*Run spf if interface is transition to up/down*/
     if ( IS_BIT_SET (flags, IF_UP_DOWN_CHANGE_F ) ||
           IS_BIT_SET (flags, IF_METRIC_CHANGE_F )     ||

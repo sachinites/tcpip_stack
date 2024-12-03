@@ -47,11 +47,11 @@
 #include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
+#include "Interface/InterfaceFwd.h"
 
 /*Do not #include Layer2/layer2.h*/
 
 typedef struct graph_ graph_t;
-class Interface;
 typedef struct node_ node_t;
 
 /*Forward Declaration*/
@@ -171,15 +171,16 @@ tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
     XFREE(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
 }
 
-/*Macros to Iterate over Nbrs of a node*/
-void interface_assign_mac_address(Interface *interface);
 
+void interface_assign_mac_address (Interface *interface);
+
+/*Macros to Iterate over Nbrs of a node*/
 #define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr) \
     do{                                                                  \
         int i = 0 ;                                                      \
         Interface *other_intf;                                         \
         for( i = 0 ; i < MAX_INTF_PER_NODE; i++){                        \
-            oif_ptr = node_ptr->intf[i];                                 \
+            oif_ptr = node_ptr->intf[i].get();                                 \
             if(!oif_ptr) continue;                                       \
             other_intf = oif_ptr->GetOtherInterface();      \
             if(!other_intf) continue;                                    \

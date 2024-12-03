@@ -227,19 +227,19 @@ send_pkt_flood(node_t *node,
                Interface *exempted_intf, 
                pkt_block_t *pkt_block) {
 
-    uint32_t i = 0;
     Interface *intf; 
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
-        intf = node->intf[i];
         if(!intf) return 0;
 
         if(intf == exempted_intf)
             continue;
 
         intf->SendPacketOut(pkt_block);
-    }
+
+    } ITERATE_NODE_INTERFACES_END(node, intf) ;
+    
     return 0;
 }
 

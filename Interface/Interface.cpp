@@ -239,6 +239,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->l3_egress_acc_lst2 = NULL;
 
     this->isis_intf_info = NULL;
+    this->intfP.reset(); 
 }
 
 Interface::~Interface()
@@ -246,8 +247,20 @@ Interface::~Interface()
 
     assert(this->config_ref_count == 0);
     assert(this->dynamic_ref_count == 0);
+    assert(this->intfP.expired());
     cprintf ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
 }
+
+InterfaceP 
+Interface::GetSharedPtr () {
+    return this->intfP.lock();
+}
+
+void
+Interface::SetSharedPtr (InterfaceP intfP) {
+    this->intfP = intfP;
+}
+
 
 uint32_t
 Interface::GetIntfCost()
@@ -279,21 +292,21 @@ void Interface::PrintInterfaceDetails()
     }
 
     cprintf("Metric = %u\n", this->GetIntfCost());
-    cprintf ("config_ref_count  = %u, dynamic_ref_count = %u\n", 
-        this->config_ref_count, this->dynamic_ref_count);
+    cprintf ("config_ref_count  = %u, dynamic_ref_count = %u, shared_ptr count = %u\n", 
+        this->config_ref_count, 
+        this->dynamic_ref_count,
+        this->GetSharedPtr().use_count());
 }
 
 node_t *
 Interface::GetNbrNode()
 {
-
     Interface *interface = this;
-
     assert(this->att_node);
     assert(this->link);
 
     linkage_t *link = interface->link;
-    if (link->Intf1 == interface)
+    if (link->Intf1.get() == interface)
         return link->Intf2->att_node;
     else
         return link->Intf1->att_node;
@@ -302,8 +315,7 @@ Interface::GetNbrNode()
 Interface *
 Interface::GetOtherInterface()
 {
-
-    return this->link->Intf1 == this ? this->link->Intf2 : this->link->Intf1;
+    return this->link->Intf1.get() == this ? this->link->Intf2.get() : this->link->Intf1.get();
 }
 
 int Interface::SendPacketOut(pkt_block_t *pkt_block)
@@ -413,7 +425,7 @@ Interface:: IsInterfaceUp(vlan_id_t vlan_id) {
 bool 
 Interface::IsCrossReferenced() {
 
-    return (this->config_ref_count > 1 );
+    return (this->GetSharedPtr().use_count() > 1);
 }
 
 void 
@@ -956,9 +968,8 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
 
     : VirtualInterface(std::string("tunnel") + std::to_string(tunnel_id), INTF_TYPE_GRE_TUNNEL)
 {
-
     this->tunnel_id = tunnel_id;
-    this->config_flags = 0;
+    this->config_flags = (uint16_t)0;
     this->config_flags |= GRE_TUNNEL_TUNNEL_ID_SET;
     this->tunnel_src_intf = NULL;
     this->tunnel_src_ip = 0;
@@ -966,7 +977,6 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
     this->lcl_ip = 0;
     this->mask = 0;
     this->virtual_port_intf = NULL;
-
 }
 
 GRETunnelInterface::~GRETunnelInterface() {

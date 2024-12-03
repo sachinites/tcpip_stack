@@ -171,4 +171,7 @@ typedef enum comp_fn_res_ {
     CMP_PREF_EQUAL = 0
 } comp_fn_res_t;
 
+void 
+tcp_ip_generate_random_mac_address (unsigned char (*mac)[6]) ;
+
 #endif /* __UTILS__ */

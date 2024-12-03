@@ -157,7 +157,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                 rt_ipv4_route_add (spf_root, 
                         spf_result->node->rtr_id, 32,
                         tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                        nexthop->oif,
+                        nexthop->oif.get(),
                         spf_result->spf_metric,
                         PROTO_ISIS, true);       
 
@@ -213,7 +213,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                             rt_ipv4_route_add (spf_root, 
                                     prefix32bit, ted_prefix->mask, 
                                     tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                                    nexthop->oif,
+                                    nexthop->oif.get(),
                                     spf_result->spf_metric + ted_prefix->metric,
                                     PROTO_ISIS, true);       
 
@@ -254,7 +254,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                             rt_ipv4_route_add (spf_root, 
                                     prefix32bit, ted_prefix->mask, 
                                     tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                                    nexthop->oif,
+                                    nexthop->oif.get(),
                                     spf_result->spf_metric + ted_prefix->metric,
                                     PROTO_ISIS, true);       
 
@@ -276,7 +276,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                         rt_ipv4_route_add (spf_root, 
                                     prefix32bit, ted_prefix->mask, 
                                     tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                                    nexthop->oif,
+                                    nexthop->oif.get(),
                                     spf_result->spf_metric + ted_prefix->metric,
                                     PROTO_ISIS, true);       
 
@@ -330,7 +330,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          nexthop = nh_create_new_nexthop(nbr->node_name,
                                                          oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_ISIS);
-                         nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
                          nexthop->oif->InterfaceLockDynamic();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          nbr_spf_data->spf_metric = oif->cost;
@@ -352,7 +352,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
 
-                            nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
+                            nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
                             nexthop->oif->InterfaceLockDynamic();
                             tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
                                 ISIS_SPF, nbr->node_name,
@@ -363,7 +363,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                             tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops not learned :  %s, ECMP limit reached\n",
                                 ISIS_SPF, nbr->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
-                            XFREE(nexthop);
+                            delete (nexthop);
                          }
                     }
         }
@@ -419,7 +419,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          nexthop = nh_create_new_nexthop(nbr_of_pn->node_name,
                                                         root_to_pn_oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), PROTO_ISIS);
-                         nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex)->GetSharedPtr();
                          nexthop->oif->InterfaceLockDynamic();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
@@ -437,11 +437,11 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                                                          oif2->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr),
                                                          PROTO_ISIS);
-                         nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex);
+                         nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex)->GetSharedPtr();
 
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
 
-                            nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex);
+                            nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
                             nexthop->oif->InterfaceLockDynamic();
                             tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
                                 ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
@@ -452,7 +452,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                             tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s, ECMP limit reached\n",
                                 ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf))); 
-                            XFREE(nexthop);
+                            delete (nexthop);
                          }                 
                     }
 
@@ -884,7 +884,7 @@ isis_show_spf_results (node_t *node){
 
             if(!res->nexthops[i]) continue;
 
-            oif = res->nexthops[i]->oif;
+            oif = res->nexthops[i]->oif.get();
             if (!oif) {
                 oif = node_get_intf_by_ifindex(node, res->nexthops[i]->ifindex);
             }

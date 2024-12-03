@@ -35,6 +35,7 @@
  * if above URL dont work, then try visit : https://www.csepracticals.com*/
 
 #include <stdio.h>
+#include <stdlib.h> 
 #include "graph.h"
 #include "CLIBuilder/libcli.h"
 #include "EventDispatcher/event_dispatcher.h"
@@ -82,6 +83,8 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     spf_algo_mem_init();
     isis_mem_init();
     ted_mem_init();
+    srand((unsigned int) time(NULL));
+
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */
     event_dispatcher_init(&gev_dis, "Global");
@@ -94,7 +97,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = vlan_extension_topo();
+    topo = standalone_node_topology();
     init_tcp_ip_stack();
     libcli_init_done ();
     cli_start_shell(); 

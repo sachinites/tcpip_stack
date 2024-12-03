@@ -16,7 +16,7 @@ gre_tunnel_config_handler (int cmdcode,
                     op_mode enable_or_disable){
 
     node_t *node = NULL;
-    uint16_t gre_tun_id;
+    uint32_t gre_tun_id;
     c_string node_name = NULL;
     Interface *gre_tunnel = NULL;
     tlv_struct_t *tlv;

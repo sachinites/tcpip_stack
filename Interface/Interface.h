@@ -28,19 +28,24 @@
 #include "../net.h"
 #include <vector>
 
+#include "InterfaceFwd.h"
+
 typedef struct node_ node_t;
 typedef struct linkage_ linkage_t;
 typedef struct access_list_ access_list_t;
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef struct pkt_block_ pkt_block_t;
-class TransportService;
+typedef struct intf_info_  isis_intf_info_t;
 
+class TransportService;
 
 class Interface {
 
     private:
         uint16_t config_ref_count;
         uint16_t dynamic_ref_count;
+        std::weak_ptr<Interface> intfP;
+
     protected:
  
         Interface(std::string if_name, InterfaceType_t iftype);
@@ -69,7 +74,7 @@ class Interface {
         std::atomic<access_list_t *> l3_egress_acc_lst2;
 
         /* L5 protocols */
-        void *isis_intf_info;
+        isis_intf_info_t *isis_intf_info;
 
         uint32_t GetIntfCost();
         node_t *GetNbrNode ();
@@ -77,6 +82,9 @@ class Interface {
 
         /* APIs to work with Interfaces */
         virtual ~Interface();
+        virtual InterfaceP GetSharedPtr () final;
+        virtual void SetSharedPtr (InterfaceP intfP) final;
+
         virtual int SendPacketOut(pkt_block_t *pkt_block);
         virtual void PrintInterfaceDetails ();
         virtual void SetMacAddr( mac_addr_t *mac_add);
@@ -107,21 +115,7 @@ class Interface {
 };
 
 
-class VlanMemberInterface {
-
-    private:
-    protected:
-    public:
-        TransportService *trans_svc;
-        VlanMemberInterface();
-        virtual ~VlanMemberInterface();
-        virtual void PrintInterfaceDetails ();
-        virtual void InterfaceReleaseAllResources() ;
-};
-
-
 /* ************ */
-class VlanInterface;
 class PhysicalInterface : public Interface {
 
     private:
@@ -170,8 +164,8 @@ class PhysicalInterface : public Interface {
 
 typedef struct linkage_ {
 
-    PhysicalInterface *Intf1;
-    PhysicalInterface *Intf2;
+    PhysicalInterfaceP Intf1;
+    PhysicalInterfaceP Intf2;
 } linkage_t;
 
 
@@ -219,7 +213,16 @@ class VlanInterface : public VirtualInterface {
         virtual mac_addr_t *GetMacAddr( );
 };
 
-class VirtualPort;
+enum GreTunnelConfigEnum
+{
+    GRE_TUNNEL_TUNNEL_ID_SET = 1,
+    GRE_TUNNEL_SRC_INTF_SET = 2,
+    GRE_TUNNEL_SRC_ADDR_SET = 4,
+    GRE_TUNNEL_DST_ADDR_SET = 8,
+    GRE_TUNNEL_OVLAY_IP_SET = 16,
+    GRE_TUNNEL_ADMIN_SHUT_SET = 32
+};
+
 class GRETunnelInterface : public VirtualInterface {
 
 private:
@@ -233,16 +236,6 @@ public:
     uint32_t lcl_ip;
     uint8_t mask;
     VirtualPort *virtual_port_intf;
-
-    enum GreTunnelConfigEnum
-    {
-        GRE_TUNNEL_TUNNEL_ID_SET = 1,
-        GRE_TUNNEL_SRC_INTF_SET = 2,
-        GRE_TUNNEL_SRC_ADDR_SET = 4,
-        GRE_TUNNEL_DST_ADDR_SET = 8,
-        GRE_TUNNEL_OVLAY_IP_SET = 16,
-        GRE_TUNNEL_ADMIN_SHUT_SET = 32
-    };
 
     uint16_t config_flags;
     GRETunnelInterface(uint32_t tunnel_id);

@@ -31,7 +31,7 @@ typedef struct intf_nw_props_ intf_nw_props_t;
 
 typedef struct intf_notif_data_{
 
-	Interface *interface;
+	InterfaceP interface;
 	intf_prop_changed_t *old_intf_prop_changed;
 	uint32_t change_flags;
 } intf_notif_data_t;

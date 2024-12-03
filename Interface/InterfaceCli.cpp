@@ -83,16 +83,13 @@ display_node_interfaces (param_t *param, Stack_t *tlv_stack){
 
     node = node_get_node_by_name(topo, node_name);
     
-    int i = 0;
     Interface *intf;
 
-    for(; i < MAX_INTF_PER_NODE; i++){
-
-        intf = node->intf[i];
-        if(!intf) continue;
+     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         printw (" %s\n", intf->if_name.c_str());
-    }
+
+    }  ITERATE_NODE_INTERFACES_END(node, intf);
 }
 
 static Interface *
@@ -450,7 +447,7 @@ intf_config_virtual_port_create_handler ( int cmdcode,
     uint32_t if_change_flags = 0;
     c_string intf_name = NULL;
     c_string node_name = NULL;
-
+    Interface *intf;
     intf_prop_changed_t intf_prop_changed;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
@@ -468,62 +465,61 @@ intf_config_virtual_port_create_handler ( int cmdcode,
 
         case CONFIG_ENABLE:
         {
-            VirtualPort *vport_intf = reinterpret_cast<VirtualPort *>(
-                 node_get_intf_by_name(node, (const char *)intf_name));
+            intf = node_get_intf_by_name(node, (const char *)intf_name);
             
-            if (vport_intf) return 0;
+            if (intf) return 0;
 
-            vport_intf = new VirtualPort(std::string((char *)intf_name));
-            vport_intf->att_node = node;
+            VirtualPortP vportP = std::make_shared<VirtualPort>(std::string((char *)intf_name));
+            vportP->SetSharedPtr(vportP);
+            intf = vportP.get();
+            intf->att_node = node;
+
             int ifslot = node_get_intf_available_slot(node);
-
             if (ifslot < 0)
             {
                 cprintf ("Error : Interface slot not available\n");
-                vport_intf->InterfaceReleaseAllResources();
-                delete vport_intf;
+                intf->InterfaceReleaseAllResources();
                 return -1;
             }
 
-            node->intf[ifslot] = vport_intf;
-            vport_intf->InterfaceLockStatic();
+            node->intf[ifslot] = vportP;
+            intf->InterfaceLockStatic();
             SET_BIT(if_change_flags, IF_CREATE_F);
             nfc_intf_invoke_notification_to_sbscribers(
-                vport_intf, &intf_prop_changed, if_change_flags);
+                intf, &intf_prop_changed, if_change_flags);
         }
         break;
         case CONFIG_DISABLE:
-        {
-            int i;
-            VirtualPort *vport_intf = reinterpret_cast<VirtualPort *>(
-                node_get_intf_by_name(node, (const char *)intf_name));
+        { 
+            int i = 0;
+            Interface *intf2;
+            intf = node_get_intf_by_name(node, (const char *)intf_name);
 
-            if (!vport_intf)
+            if (!intf)
             {
                 cprintf("Error : Virtual Port do not exist\n");
                 return -1;
             }
 
-            if (vport_intf->IsCrossReferenced())
+            if (intf->IsCrossReferenced())
             {
                 cprintf("Error : Virtual Port is in use\n");
                 return -1;
             }
 
-            for (i = 0; i < MAX_INTF_PER_NODE; i++)
+             ITERATE_NODE_INTERFACES_BEGIN(node, intf2) 
             {
-                if (node->intf[i] != vport_intf)
-                    continue;
+                i++;
+                if (intf != intf2) continue;
                 break;
-            }
+            } ITERATE_NODE_INTERFACES_END(node, intf2);
 
             /* Interface us being dynamically used by some entities, send Delete notification */
             SET_BIT(if_change_flags, IF_DELETE_F);
             nfc_intf_invoke_notification_to_sbscribers(
-                vport_intf, &intf_prop_changed, if_change_flags);
-
-            node->intf[i] = NULL;
-            vport_intf->InterfaceUnLockStatic();
+                intf, &intf_prop_changed, if_change_flags);
+            intf->InterfaceUnLockStatic();
+            node->intf[i] = nullptr;
         }
         break;
     }

@@ -32,7 +32,7 @@ int nh_flush_nexthops(nexthop_t **nexthop)
                 default:
                     assert(0);
                 }
-                XFREE(nexthop[i]);
+                delete (nexthop[i]);
             }
             nexthop[i] = NULL;
             count++;
@@ -44,7 +44,7 @@ int nh_flush_nexthops(nexthop_t **nexthop)
 nexthop_t *
 nh_create_new_nexthop(c_string node_name, uint32_t oif_index, c_string gw_ip, uint16_t proto){
 
-    nexthop_t *nexthop = ( nexthop_t *)XCALLOC(0, 1, nexthop_t);
+    nexthop_t *nexthop = new nexthop_t;
     nexthop->ifindex = oif_index;
     string_copy((char *)nexthop->gw_ip, gw_ip, 16);
     if (node_name) {

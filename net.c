@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
+#include "net.h"
 #include "utils.h"
 #include "tcpconst.h"
 #include "notif.h"
@@ -44,46 +45,19 @@
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 
-/*Just some Random number generator*/
-static uint32_t
-hash_code(void *ptr, uint32_t size){
-    uint32_t value=0, i =0;
-    char *str = (char*)ptr;
-    while(i < size)
-    {
-        value += *str;
-        value*=97;
-        str++;
-        i++;
-    }
-    return value;
-}
-
 void
 interface_assign_mac_address (Interface *interface){
 
     mac_addr_t mac_addr;
-    node_t *node = interface->att_node;
-    
-    if(!node) return;
-
-    uint64_t hash_code_val = 0;
-    hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE);
-    hash_code_val *= hash_code(interface->if_name.c_str(), IF_NAME_SIZE);
-    memset (&mac_addr, 0, sizeof(mac_addr_t));
-    hash_code_val = hash_code_val << 15;
-    memcpy((void *)mac_addr.mac, (void *)&hash_code_val, MAC_ADDR_SIZE);
+    tcp_ip_generate_random_mac_address (&mac_addr.mac);
     interface->SetMacAddr(&mac_addr);
 }
 
 void 
 node_assign_router_mac (node_t *node) {
 
-    uint64_t hash_code_val = 0;
-    hash_code_val = hash_code(node->node_name, NODE_NAME_SIZE );
-    hash_code_val *= hash_code_val;
-    hash_code_val = hash_code_val << 15;
-    memcpy((void *)node->node_nw_prop.rmac.mac, (void *)&hash_code_val, MAC_ADDR_SIZE );
+    tcp_ip_generate_random_mac_address (
+            &node->node_nw_prop.rmac.mac);
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -129,7 +103,6 @@ void dump_node_nw_props(node_t *node){
 void 
 dump_nw_graph(graph_t *graph, node_t *node1){
 
-    uint32_t i;
     node_t *node;
     glthread_t *curr;
     Interface *interface;
@@ -141,20 +114,20 @@ dump_nw_graph(graph_t *graph, node_t *node1){
 
             node = graph_glue_to_node(curr);
             dump_node_nw_props(node);
-            for( i = 0; i < MAX_INTF_PER_NODE; i++){
-                interface = node->intf[i];
+            
+            ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
                 if(!interface) break;
                 dump_intf_props(interface);
-            }
+            } ITERATE_NODE_INTERFACES_END(node, interface);
+
         } ITERATE_GLTHREAD_END(&graph->node_list, curr);
     }
     else{
         dump_node_nw_props(node1);
-        for( i = 0; i < MAX_INTF_PER_NODE; i++){
-            interface = node1->intf[i];
+        ITERATE_NODE_INTERFACES_BEGIN(node1, interface) {
             if(!interface) break;
             dump_intf_props(interface);
-        }
+        } ITERATE_NODE_INTERFACES_END(node1, interface);
     }
 }
 
@@ -164,22 +137,21 @@ dump_nw_graph(graph_t *graph, node_t *node1){
 Interface *
 node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
 
-    uint32_t i = 0;
     Interface *intf;
     uint32_t ip_addr_int;
     uint8_t mask;
 
     ip_addr_int =  tcp_ip_convert_ip_p_to_n (ip_addr);
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
+     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
     
-        intf = node->intf[i];
         if (!intf) continue;
 
         if (!intf->IsIpConfigured()) continue;
         
         if (intf->IsSameSubnet (ip_addr_int)) return intf;
-    }
+
+    }  ITERATE_NODE_INTERFACES_END(node, intf);
     return NULL;
 }
 
@@ -218,14 +190,14 @@ dump_node_interface_stats(node_t *node){
 
     Interface *interface;
 
-    uint32_t i = 0;
+    ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
 
-    for(; i < MAX_INTF_PER_NODE; i++){
-        interface = node->intf[i];
-        if(!interface)
-            continue;
+        if(!interface) continue;
         dump_interface_stats(interface);
         cprintf("\n");
-    }
+
+    }  ITERATE_NODE_INTERFACES_END(node, interface);
+
+
     cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }

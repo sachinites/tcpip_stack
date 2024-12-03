@@ -95,12 +95,10 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
         return true;
 
     /*checking with interface IP Addresses*/
-    uint32_t i = 0;
     Interface *intf;
 
-    for( ; i < MAX_INTF_PER_NODE; i++){
+     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
         
-        intf = node->intf[i];
         if(!intf) return false;
 
         if (!intf->IsIpConfigured()) continue;
@@ -108,7 +106,8 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
         intf_addr = IF_IP(intf);
 
         if  (intf_addr == dst_ip)  return true;
-    }
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
     return false;
 }
 
@@ -278,7 +277,7 @@ layer3_ip_route_pkt(node_t *node,
         if (ip_hdr->src_ip == 0) {
             
             char ip_addr_str[16];
-            ip_hdr->src_ip = IF_IP(nexthop->oif);
+            ip_hdr->src_ip = IF_IP(nexthop->oif.get());
             tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
         }
 
@@ -318,7 +317,7 @@ layer3_ip_route_pkt(node_t *node,
                         NF_IP_FORWARD,
                         pkt_block,
                         node, 
-                        nexthop->oif,
+                        nexthop->oif.get(),
                         IP_HDR);
 
     switch (nf_result) {
@@ -338,7 +337,7 @@ layer3_ip_route_pkt(node_t *node,
     nf_result = nf_invoke_netfilter_hook(
                     NF_IP_POST_ROUTING,
 		            pkt_block,
-		            node, nexthop->oif,
+		            node, nexthop->oif.get(),
                     IP_HDR);
 
     switch (nf_result) {
@@ -492,7 +491,7 @@ l3_route_get_active_nexthop (l3_route_t *l3_route, Interface *exclude_oif) {
                 continue;
             }
 
-            if (nexthop->oif == exclude_oif && exclude_oif) {
+            if (nexthop->oif.get() == exclude_oif && exclude_oif) {
 
                 l3_route->nxthop_idx++;
 
@@ -831,7 +830,7 @@ rt_table_add_route (rt_table_t *rt_table,
            if (l3_route->nexthops[nxthop_proto][i]){
 
                 if (gw && string_compare(l3_route->nexthops[nxthop_proto][i]->gw_ip, gw, 16) == 0 && 
-                    l3_route->nexthops[nxthop_proto][i]->oif == oif) { 
+                    l3_route->nexthops[nxthop_proto][i]->oif.get() == oif) { 
 
                     tracer(node->dptr, DRTM | DERR, 
                         "Error : Route %s/%d : Attempt to Add Duplicate \n", dst, mask);
@@ -849,7 +848,7 @@ rt_table_add_route (rt_table_t *rt_table,
 
    if(oif){
 
-        nexthop_t *nexthop = (nexthop_t *)XCALLOC(0, 1, nexthop_t);
+        nexthop_t *nexthop = new nexthop_t;
         if (gw) l3_route->is_direct = false;
         l3_route->spf_metric[nxthop_proto] = spf_metric;
         if (gw) {
@@ -860,7 +859,7 @@ rt_table_add_route (rt_table_t *rt_table,
         }
         nexthop->gw_ip[15] = '\0';
         nexthop->proto = proto_id;
-        nexthop->oif = oif;
+        nexthop->oif = oif->GetSharedPtr();
         nexthop->ifindex = oif->ifindex;
 
         switch (proto_id) {
@@ -1089,7 +1088,7 @@ demote_packet_to_layer3 (node_t *node,
             nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
     if (pkt_block->exclude_oif &&
-            pkt_block->exclude_oif == nexthop->oif) assert(0);
+            pkt_block->exclude_oif == nexthop->oif.get()) assert(0);
 
 #if 0
     if (access_list_evaluate_ip_packet(node, 
@@ -1112,7 +1111,7 @@ demote_packet_to_layer3 (node_t *node,
     int8_t nf_result = nf_invoke_netfilter_hook(
             NF_IP_LOCAL_OUT,
 			pkt_block,
-			node, nexthop->oif,
+			node, nexthop->oif.get(),
             IP_HDR);
 
     switch (nf_result) {
