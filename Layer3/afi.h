@@ -41,36 +41,35 @@
 
 #include <stdint.h>
 
-typedef struct afi4_ {
+typedef struct addr4_ {
 
     uint32_t addr;
     uint8_t mask;
 
-} afi4_t;
+} addr4_t;
 
-typedef struct afi6_ {
+typedef struct addr6_ {
 
-    uint16_t addr[8];
+    uint8_t addr[16];
     uint16_t mask;
 
-} afi6_t;
+} addr6_t;
 
+typedef struct addr46_ {
 
-typedef struct afi46_ {
-
-    uint8_t afi;
+    uint8_t af;
     
     union {
-        afi4_t addr;
-        afi6_t addr;
+        addr4_t v4addr;
+        addr6_t v6addr;
     } u;
 
-} afi46_t;
+} addr46_t;
 
 void 
-afi46_init (char *ipc6_addr, uint16_t mask, uint8_t afi_type, afi46_t *afi);
+addr46_init (char *ip6_addr, uint16_t mask, uint8_t af, addr46_t *addr);
 
 char *
-afi46_get_addr_str (char *buffer, afi46_t *afi);
+addr46_get_addr_str (char *buffer, addr46_t *addr);
 
 #endif 
