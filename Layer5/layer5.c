@@ -134,5 +134,5 @@ void pkt_notif_data_mem_init();
 void
 pkt_notif_data_mem_init() {
 
-    MM_REG_STRUCT(0, pkt_notif_data_t);
+    //MM_REG_STRUCT(0, pkt_notif_data_t);
 }

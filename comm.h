@@ -49,7 +49,7 @@ typedef struct ev_dis_pkt_data_{
     Interface *recv_intf;
     byte *pkt;
     uint32_t pkt_size;
-} ev_dis_pkt_data_t;
+}ev_dis_pkt_data_t;
 
 int
 send_pkt_to_self (pkt_block_t *pkt_block, Interface *interface);

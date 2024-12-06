@@ -1238,6 +1238,6 @@ layer3_mem_init() {
 
     MM_REG_STRUCT(0, ip_hdr_t);
     MM_REG_STRUCT(0, rt_table_t);
-    MM_REG_STRUCT(0, nexthop_t);
+    //MM_REG_STRUCT(0, nexthop_t);
     MM_REG_STRUCT(0, l3_route_t);
 }

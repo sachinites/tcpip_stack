@@ -229,7 +229,7 @@ isis_free_intf_info(Interface *intf) {
 }
 
 static void 
-isis_check_and_delete_intf_info(Interface *intf) {
+isis_check_and_delete_intf_info (Interface *intf) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
     assert (!ISIS_INTF_HELLO_XMIT_TIMER(intf));
@@ -241,7 +241,6 @@ isis_check_and_delete_intf_info(Interface *intf) {
     assert (isis_is_lan_id_null (intf_info->elected_dis) );
     assert (!intf_info->lan_self_to_pn_adv_data);
     assert (!intf_info->lan_pn_to_self_adv_data);
-
     isis_free_intf_info(intf);
 }
 

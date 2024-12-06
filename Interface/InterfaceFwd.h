@@ -6,7 +6,6 @@ class Interface ;
 class VlanInterface;
 class PhysicalInterface;
 class VirtualInterface;
-class VlanInterface;
 class VirtualPort;
 class GRETunnelInterface ;
 
