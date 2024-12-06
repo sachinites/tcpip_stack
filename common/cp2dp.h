@@ -4,8 +4,11 @@
 #include <stdint.h>
 
 typedef struct node_ node_t;
-class Interface;
 typedef struct pkt_block_ pkt_block_t; 
+
+#include "../Interface/InterfaceFwd.h"
+
+#define CP2DP_MSG_SIZE_MAX  256
 
 /* Route update msg to RTM*/
 typedef struct rt_update_msg_ {
@@ -13,7 +16,7 @@ typedef struct rt_update_msg_ {
     uint32_t prefix;
     uint8_t   mask;
     uint32_t gateway;
-    Interface *oif;
+    uint32_t ifindex;
     uint32_t metric;
     uint16_t proto_id;
 
@@ -42,7 +45,7 @@ typedef struct dp_msg_ {
     DP_OPR_TYPE_T opr_type;
     uint16_t flags;
     uint32_t data_size;
-    uint8_t data[0];
+    uint8_t data[CP2DP_MSG_SIZE_MAX];
 
 } dp_msg_t;
 
@@ -50,10 +53,10 @@ void
 cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async);
 
 dp_msg_t *
-cp2dp_msg_alloc (node_t *node, uint32_t data_size);
+cp2dp_msg_alloc ();
 
 void
-cp2dp_msg_free (node_t *node, dp_msg_t *dp_msg);
+cp2dp_msg_free (dp_msg_t *dp_msg);
 
 void
 cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface) ;

@@ -45,6 +45,13 @@ nfc_intf_register_for_events(nfc_app_cb app_cb){
 	nfc_register_notif_chain(&nfc_intf, &nfce_template);
 }
 
+static void
+intf_notif_data_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
+{
+	intf_notif_data_t *intf_notif_data = (intf_notif_data_t *)arg;
+	delete intf_notif_data;
+}
+
 void
 nfc_intf_invoke_notification_to_sbscribers(
 	Interface *intf,
@@ -57,11 +64,20 @@ nfc_intf_invoke_notification_to_sbscribers(
 	intf_notif_data->old_intf_prop_changed = old_intf_prop_changed;
 	intf_notif_data->change_flags = change_flags;
 
+	/* Distribute the same copy of intf_notif_data to all subscribers */
 	nfc_invoke_notif_chain(NULL, 
 							&nfc_intf,
 						   (void *) intf_notif_data,
 							sizeof(intf_notif_data_t),
 							0, 0, TASK_PRIORITY_COMPUTE);
+
+	/* Scedule the destruction of the intf_notif_data in a Lowest priority queue. It would mean
+		When the CPU has finished all tasks , then only it would bother to free the intf_notif_data */
+	task_create_new_job (EV(intf->att_node), 
+									    (void *)intf_notif_data, 
+										intf_notif_data_destroy, 
+										TASK_ONE_SHOT,  
+										TASK_PRIORITY_GARBAGE_COLLECTOR);
 }
 
 

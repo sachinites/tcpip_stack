@@ -82,7 +82,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
 		receving_node = ev_dis_pkt_data->recv_node;
-		recv_intf = ev_dis_pkt_data->recv_intf;
+		recv_intf = ev_dis_pkt_data->recv_intf.get();
 		pkt = ev_dis_pkt_data->pkt;		
 
         pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
@@ -93,7 +93,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
                     pkt_block);
 
         pkt_block_dereference(pkt_block);
-		XFREE(ev_dis_pkt_data);
+		delete (ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
 	}
 }
@@ -119,10 +119,10 @@ send_pkt_to_self (
 
     pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
-	ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(NULL, 1, ev_dis_pkt_data_t);
+	ev_dis_pkt_data = new  ev_dis_pkt_data_t;
 
 	ev_dis_pkt_data->recv_node = nbr_node;
-	ev_dis_pkt_data->recv_intf = other_interface;
+	ev_dis_pkt_data->recv_intf = other_interface->GetSharedPtr();
 	ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
@@ -390,5 +390,5 @@ network_start_pkt_receiver_thread(void){
 
 void comm_mem_init(){
 
-    MM_REG_STRUCT(0, ev_dis_pkt_data_t);
+    //MM_REG_STRUCT(0, ev_dis_pkt_data_t);
 }

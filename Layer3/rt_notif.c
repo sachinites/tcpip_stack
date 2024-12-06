@@ -43,6 +43,13 @@ rt_table_add_route_to_notify_list (
 }
 
 static void
+rt_route_notif_data_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
+{
+	rt_route_notif_data_t *rt_route_notif_data = (rt_route_notif_data_t *)arg;
+	delete rt_route_notif_data;
+}
+
+static void
 rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
@@ -51,23 +58,30 @@ rt_table_notif_job_cb(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) 
     
     rt_table->notif_job = NULL;
 
-    rt_route_notif_data_t rt_route_notif_data;
+    rt_route_notif_data_t *rt_route_notif_data;
 
     /* Start Sending Notifications Now */
     ITERATE_GLTHREAD_BEGIN_REVERSE(&rt_table->rt_notify_list_head, curr) {
 
+        rt_route_notif_data = new rt_route_notif_data_t;
         l3route = notif_glue_to_l3_route(curr);
-        rt_route_notif_data.l3route = l3route;
-        rt_route_notif_data.node = rt_table->node;
+        rt_route_notif_data->l3route = l3route;
+        rt_route_notif_data->node = rt_table->node;
 
         tracer (rt_table->node->dptr, DIPC_DET, "Route %s/%d : Notification Invoked\n",
             l3route->dest, l3route->mask);
 
         nfc_invoke_notif_chain(NULL,
                                                &rt_table->nfc_rt_updates, 
-                                               &rt_route_notif_data,
-                                               sizeof(rt_route_notif_data), 0, 0,
+                                               (void *)rt_route_notif_data,
+                                               sizeof(rt_route_notif_data_t), 0, 0,
                                                TASK_PRIORITY_COMPUTE);
+
+        task_create_new_job (EV(rt_table->node), 
+									    (void *)rt_route_notif_data,
+										rt_route_notif_data_destroy,
+										TASK_ONE_SHOT,  
+										TASK_PRIORITY_GARBAGE_COLLECTOR);
 
         remove_glthread(&l3route->notif_glue);
         if (l3_route_dec_ref_count(l3route) == 0) {

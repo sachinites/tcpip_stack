@@ -468,8 +468,6 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) 
 	intf_prop_changed_t *old_intf_prop_changed =
             intf_notif_data->old_intf_prop_changed;
 
-    delete intf_notif_data;
-
     if (!isis_node_intf_is_enable(intf)) return;
 
     switch(flags) {

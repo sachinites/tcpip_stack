@@ -28,7 +28,7 @@ np_recv_cp_pkt_block (node_t *node, dp_msg_t *dp_msg) {
     }
 
     pkt_block_dereference(pkt_block);
-    cp2dp_msg_free (node, dp_msg);
+    cp2dp_msg_free (dp_msg);
 }
 
 static void 
@@ -52,18 +52,19 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
         default:
             break;
     }
+    node->cp2dp_msg_count++;
 }
 
 dp_msg_t *
-cp2dp_msg_alloc (node_t *node, uint32_t data_size) {
+cp2dp_msg_alloc () {
 
-    return (dp_msg_t *)XCALLOC_BUFF (NULL, (sizeof(dp_msg_t) + data_size));
+    return new dp_msg_t;
 }
 
 void
-cp2dp_msg_free (node_t *node, dp_msg_t *dp_msg) {
+cp2dp_msg_free (dp_msg_t *dp_msg) {
     
-        XFREE (dp_msg);
+        delete (dp_msg);
 }
 
 
@@ -88,13 +89,13 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
 			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
 		receving_node = ev_dis_pkt_data->recv_node;
-		xmit_intf = ev_dis_pkt_data->recv_intf;
+		xmit_intf = ev_dis_pkt_data->recv_intf.get();
 		pkt_block = (pkt_block_t *)ev_dis_pkt_data->pkt;		
         tracer (node->dptr,  DIPC | DFLOW, "Pkt : %s : Recvd by Data path\n", pkt_block_str(pkt_block));
         xmit_intf->SendPacketOut (pkt_block);
         pkt_block_dereference(pkt_block);
         xmit_intf->InterfaceUnLockDynamic();
-		XFREE(ev_dis_pkt_data);
+		delete (ev_dis_pkt_data);
 	}
 }
 
@@ -104,9 +105,9 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
 void
 cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface) {
     
-        ev_dis_pkt_data_t *ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0, 1, ev_dis_pkt_data_t);
+        ev_dis_pkt_data_t *ev_dis_pkt_data = new ev_dis_pkt_data_t;
         ev_dis_pkt_data->recv_node = node;
-        ev_dis_pkt_data->recv_intf = xmit_interface;
+        ev_dis_pkt_data->recv_intf = xmit_interface->GetSharedPtr();
         ev_dis_pkt_data->pkt = (byte *)pkt_block;
         xmit_interface->InterfaceLockDynamic();
         pkt_block_reference(pkt_block);
@@ -142,7 +143,7 @@ cp2dp_send_ip_data ( node_t *node,
     ip_hdr->dst_ip = dest_ip_addr;
     ip_hdr->total_length = 
         IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN((pkt_size - sizeof (ip_hdr_t)));
-    dp_msg_t *dp_msg = cp2dp_msg_alloc (node, sizeof (uintptr_t));
+    dp_msg_t *dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = PKT_BLOCK;
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
     dp_msg->flags = 0;

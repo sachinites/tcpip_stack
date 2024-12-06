@@ -904,7 +904,7 @@ rt_ipv4_route_add (node_t *node,
     rt_update_msg_t *rt_update_msg;
     rt_table_t *rt_table = NODE_RT_TABLE(node);
 
-    dp_msg = cp2dp_msg_alloc (node, sizeof (rt_update_msg_t));
+    dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = RT_TABLE_IPV4;
     dp_msg->opr_type = DP_CREATE;
     dp_msg->flags = 0;
@@ -913,7 +913,7 @@ rt_ipv4_route_add (node_t *node,
     rt_update_msg->prefix = prefix;
     rt_update_msg->mask = mask;
     rt_update_msg->gateway = gw_ip;
-    rt_update_msg->oif = oif;
+    rt_update_msg->ifindex = oif ? oif->ifindex : 0;
     if (oif) oif->InterfaceLockDynamic();
     rt_update_msg->metric = metric;
     rt_update_msg->proto_id = proto_id;
@@ -931,7 +931,7 @@ rt_ipv4_route_del (node_t *node,
     rt_update_msg_t *rt_update_msg;
     rt_table_t *rt_table = NODE_RT_TABLE(node);
 
-    dp_msg = cp2dp_msg_alloc (node, sizeof (rt_update_msg_t));
+    dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = RT_TABLE_IPV4;
     dp_msg->opr_type = DP_DEL;
     dp_msg->flags = 0;

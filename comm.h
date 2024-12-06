@@ -37,16 +37,17 @@
 #include <stdint.h>
 #include "utils.h"
 
+#include "Interface/InterfaceFwd.h"
+
 #define MAX_PACKET_BUFFER_SIZE   2048
 
 typedef struct node_ node_t;
-class Interface;
 typedef struct pkt_block_ pkt_block_t;
 
 typedef struct ev_dis_pkt_data_{
 
     node_t *recv_node;
-    Interface *recv_intf;
+    InterfaceP recv_intf;
     byte *pkt;
     uint32_t pkt_size;
 }ev_dis_pkt_data_t;
