@@ -624,8 +624,8 @@ dump_rt_table(rt_table_t *rt_table){
         nxthop_cnt = 0;
 		
 		if(count != 0 && (count % 20) == 0) {
-			cprintf("continue ?\n");
-			getchar();			
+			//cprintf("continue ?\n");
+			//getchar();			
 		}
 
         nxthop_proto_id_t nxthop_proto;
