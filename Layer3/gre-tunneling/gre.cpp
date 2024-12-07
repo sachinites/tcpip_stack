@@ -223,8 +223,6 @@ gre_interface_updates (event_dispatcher_t *ev_dis, void *arg, unsigned int arg_s
 	Interface *intf = intf_notif_data->interface.get();
 	intf_prop_changed_t *old_intf_prop_changed =
             intf_notif_data->old_intf_prop_changed;
-
-    delete intf_notif_data ;
     
     /* GRE tunnel module dont need these events */
     if (intf->iftype == INTF_TYPE_GRE_TUNNEL ||

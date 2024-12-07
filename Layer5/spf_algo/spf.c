@@ -606,8 +606,6 @@ spf_algo_interface_update(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_s
 	Interface *interface = intf_notif_data->interface.get();
      intf_prop_changed_t *intf_prop_changed = intf_notif_data->old_intf_prop_changed;
 
-    delete intf_notif_data;
-
 	/*Run spf if interface is transition to up/down*/
     if ( IS_BIT_SET (flags, IF_UP_DOWN_CHANGE_F ) ||
           IS_BIT_SET (flags, IF_METRIC_CHANGE_F )     ||

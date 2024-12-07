@@ -128,6 +128,8 @@ struct node_ {
     /* config DB connection */
     PGconn* conn;
     glthread_t graph_glue;
+    /* System Telemetry */
+    uint32_t cp2dp_msg_count;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 

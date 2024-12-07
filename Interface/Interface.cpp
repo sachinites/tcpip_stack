@@ -88,10 +88,10 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
 
     Interface *other_interface = interface->GetOtherInterface();
 
-    ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC(0, 1, ev_dis_pkt_data_t);
+    ev_dis_pkt_data = new ev_dis_pkt_data_t;
 
     ev_dis_pkt_data->recv_node = nbr_node;
-    ev_dis_pkt_data->recv_intf = other_interface;
+    ev_dis_pkt_data->recv_intf = other_interface->GetSharedPtr();
     ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
@@ -105,7 +105,7 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
 
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
-        XFREE(ev_dis_pkt_data);
+        delete (ev_dis_pkt_data);
     }
 
     interface->pkt_sent++;

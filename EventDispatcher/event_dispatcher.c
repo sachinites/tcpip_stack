@@ -40,6 +40,7 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
 	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
 	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
+	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_VERY_LOW]);
 	ev_dis->pending_task_count = 0;
 	ev_dis->ev_dis_state = EV_DIS_IDLE;
 	pthread_cond_init(&ev_dis->ev_dis_cond_wait, NULL);
@@ -155,6 +156,8 @@ event_dispatcher_get_next_task_to_run(event_dispatcher_t *ev_dis){
 	if (curr) return glue_to_task(curr);
 	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
 	if (curr) return glue_to_task(curr);
+	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_VERY_LOW]);
+	if (curr) return glue_to_task(curr);	
 	return NULL;
 }
 

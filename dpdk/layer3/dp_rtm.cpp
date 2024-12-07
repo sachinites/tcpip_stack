@@ -11,7 +11,6 @@
 void 
 np_rt_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
-    bool rc;
     unsigned char gw_str[16];
     unsigned char dest_str[16];
     rt_update_msg_t *rt_update_msg;
@@ -26,20 +25,12 @@ np_rt_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
             rt_update_msg = (rt_update_msg_t *)dp_msg->data;
 
-            if (rt_update_msg->oif) {
-
-                if (rt_update_msg->oif->InterfaceUnLockDynamic()) {
-                    cp2dp_msg_free (node, dp_msg);
-                    return;
-                }
-            }
-
             rt_table_add_route (rt_table, 
                     (const char *)tcp_ip_covert_ip_n_to_p (rt_update_msg->prefix, dest_str),
                     rt_update_msg->mask,
                     rt_update_msg->gateway ? 
                     (const char *)tcp_ip_covert_ip_n_to_p (rt_update_msg->gateway, gw_str) : NULL,
-                    rt_update_msg->oif,
+                    node_get_intf_by_ifindex (node, rt_update_msg->ifindex),
                     rt_update_msg->metric,
                     rt_update_msg->proto_id);
             break;
@@ -62,5 +53,5 @@ np_rt_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         default:
             break;
     }
-    cp2dp_msg_free (node, dp_msg);
+    cp2dp_msg_free (dp_msg);
 }

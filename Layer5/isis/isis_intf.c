@@ -36,7 +36,7 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     if (!arg) return;
 
     isis_timer_data_t *isis_timer_data = (isis_timer_data_t *)arg;
-
+    
     node_t *node = isis_timer_data->node;
     Interface *egress_intf = isis_timer_data->intf;
     pkt_block = (pkt_block_t *)isis_timer_data->data;
@@ -467,8 +467,6 @@ isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) 
 	Interface *intf = intf_notif_data->interface.get();
 	intf_prop_changed_t *old_intf_prop_changed =
             intf_notif_data->old_intf_prop_changed;
-
-    delete intf_notif_data;
 
     if (!isis_node_intf_is_enable(intf)) return;
 
