@@ -212,6 +212,8 @@ l3_route_get_active_nexthop(l3_route_t *l3_route, Interface *exclude_oif);
 /* Routing Table APIs */
 void
 init_rt_table(node_t *node, rt_table_t **rt_table);
+void
+init_rtv6_table(node_t *node, rt_table_t **rt_table);
 
 /* MP Safe */
 void

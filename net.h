@@ -72,6 +72,7 @@ typedef struct node_nw_prop_{
     mac_addr_t rmac;
 
     rt_table_t *rt_table;
+    rt_table_t *ipv6_rt_table;
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;
@@ -99,6 +100,7 @@ typedef struct node_nw_prop_{
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(node_t *node, rt_table_t **rt_table);
+extern void init_rtv6_table(node_t *node, rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 extern void init_tcp_logging(node_t *);
@@ -113,6 +115,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(node, &(node_nw_prop->rt_table));
+    init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
     node_assign_router_mac (node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
@@ -125,6 +128,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
+#define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)

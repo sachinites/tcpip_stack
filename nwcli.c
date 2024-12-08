@@ -69,6 +69,7 @@ extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 extern void config_node_build_transport_svc_cli_tree (param_t *param) ;
 extern void show_node_transport_svc_cli_tree (param_t *param) ;
 extern void tcp_ip_build_debug_cli_tree (param_t *root);
+extern void ipv6_build_cli_tree (param_t *root);
 
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
@@ -1087,6 +1088,9 @@ nw_init_cli(){
 
             /* Debug options */
             tcp_ip_build_debug_cli_tree (&node_name);
+
+            /* Mount ipv6 CLIs*/
+            ipv6_build_cli_tree (&node_name);
         }
 
         {

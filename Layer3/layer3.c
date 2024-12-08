@@ -378,6 +378,22 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
     (*rt_table)->node = node;
 }
 
+void
+init_rtv6_table(node_t *node, rt_table_t **rt_table){
+
+    *rt_table = (rt_table_t *)XCALLOC(0, 1, rt_table_t);
+    
+    init_mtrie (&(*rt_table)->route_list, 128, NULL);
+
+    string_copy((char *) (*rt_table)->nfc_rt_updates.nfc_name, 
+                 "NFC for IPV6 RT UPDATES",
+                 sizeof((*rt_table)->nfc_rt_updates.nfc_name));
+
+    init_glthread(&((*rt_table)->nfc_rt_updates.notif_chain_head));
+    
+    (*rt_table)->node = node;
+}
+
 /* MP Unsafe */
 l3_route_t *
 rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask){

@@ -75,6 +75,8 @@ OBJS=gluethread/glthread.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
+		  ipv6/ipv6cli.o \
+		  ipv6/SRv6/Srv6Cli.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -254,6 +256,12 @@ Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
 PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 	${CC} ${CFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
 
+#ipv6 files 
+ipv6/ipv6cli.o:ipv6/ipv6cli.cpp
+	${CC} ${CFLAGS} -c ipv6/ipv6cli.cpp -o ipv6/ipv6cli.o
+ipv6/SRv6/Srv6Cli.o:ipv6/SRv6/Srv6Cli.cpp 
+	${CC} ${CFLAGS} -c ipv6/SRv6/Srv6Cli.cpp -o ipv6/SRv6/Srv6Cli.o
+
 
 # Protocols Specific
 # STP
@@ -307,6 +315,9 @@ clean:
 	rm -f Tracer/*.o
 	rm -f common/*.o
 	rm -f dpdk/layer3/*.o
+	rm -f ipv6/*.o
+	rm -f ipv6/SRv6/*.o
+	
 #STP
 #	rm -f Layer2/stp/*.o
 all:
