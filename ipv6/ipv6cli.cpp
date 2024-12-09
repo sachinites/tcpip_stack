@@ -1,6 +1,9 @@
 #include "../CLIBuilder/libcli.h"
 #include "../graph.h"
 #include "../Interface/InterfaceUApi.h"
+#include "ipv6_hdrs.h"
+#include "ipv6_utils.h"
+#include "ipv6_route.h"
 
 extern graph_t *topo;
 extern void  srv6_build_cli_tree (param_t *root);
@@ -17,9 +20,96 @@ ipv6_config_handler
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
+    tlv_struct_t *tlv;
+    uint8_t prefix_len = 0;
+    node_t *node = NULL;
+    c_string gw_ip = NULL;
+    c_string oif_name = NULL;
+    c_string ipv6_addr = NULL;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
+            ipv6_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "mask"))
+            prefix_len = atoi((const char *)tlv->value);
+        else if  (parser_match_leaf_id (tlv->leaf_id, "nexthop"))
+            gw_ip = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "oif-name"))
+            oif_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    Interface *intf = node_get_intf_by_name(node, (const char *)oif_name);
+
+    if (!intf) {
+        cprintf ("Error : Interface not found\n");
+        return -1;
+    }
+
+    switch (cmdcode) {
+
+        case IPV6_RT_CONFIG:
+        {
+            switch (enable_or_disable ) {
+
+                case CONFIG_ENABLE:
+                {
+                    ipv6_addr_t prefix;
+                    ipv6_addr_t gw;
+                    inet_pton6 ((char *)ipv6_addr, &prefix);
+                    inet_pton6 ((char *)gw_ip, &gw);
+                    ipv6_route_install (node, 
+                                                    &prefix,
+                                                    prefix_len,
+                                                    &gw,
+                                                    intf,
+                                                    0,
+                                                    PROTO_STATIC);
+                }
+                break;
+
+                case CONFIG_DISABLE:
+                {
+                    ipv6_addr_t prefix;
+                    ipv6_addr_t gw;
+                    inet_pton6 ((char *)ipv6_addr, &prefix);
+                    inet_pton6 ((char *)gw_ip, &gw);
+                    ipv6_route_delete (node, 
+                                                    &prefix,
+                                                    prefix_len,
+                                                    &gw,
+                                                    intf,
+                                                    PROTO_STATIC);
+                }
+                break;
+            }
+        }
+    }
     return 0;
 }
 
+void 
+show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+
+    node_t *node;
+    c_string node_name;
+    tlv_struct_t *tlv = NULL;
+    
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    v6_rt_table_show(NODE_V6RT_TABLE(node));
+}
 
 void 
 ipv6_build_cli_tree (param_t *root)

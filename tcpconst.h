@@ -118,6 +118,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"gre-en-ethernet";
         case PROTO_IP_IN_IP:
             return (unsigned char *)"ip-in-ip";
+        case PROTO_SRv6:
+            return (unsigned char *)"srv6";
         default:
             return NULL;
     }

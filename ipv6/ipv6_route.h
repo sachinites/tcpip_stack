@@ -7,18 +7,8 @@
 #include "../Layer3/layer3.h"
 #include "SRv6/SRv6-EndPoint.h"
 #include "ipv6_hdrs.h"
+#include "v6nexthop.h"
 
-typedef struct v6nexthop_{
-
-    /* Below 3 fields are the keys of the nexthop */
-    uint32_t ifindex;  
-    ipv6_addr_t gw;
-    uint16_t proto;
-    /* internal fields */
-    uint32_t ref_count;
-    InterfaceP oif;
-    long long unsigned int hit_count;
-} v6nexthop_t;
 
 typedef struct ipv6_route_ {
 
@@ -38,6 +28,22 @@ typedef struct ipv6_route_ {
     uint32_t rt_ref_count;
 
 } ipv6_route_t;
+
+static inline uint32_t
+l3_v6route_dec_ref_count (ipv6_route_t *l3_route) {
+
+    assert (l3_route->rt_ref_count);
+    l3_route->rt_ref_count--;
+    if ( l3_route->rt_ref_count ) return l3_route->rt_ref_count;
+    free (l3_route);
+    return 0;
+}
+
+static inline void 
+l3_v6route_inc_ref_count (ipv6_route_t *l3_route) {
+
+    l3_route->rt_ref_count++;
+}
 
 ipv6_route_t* 
 l3rib_v6lookup_lpm ( rt_table_t *v6rt_table, uint8_t (*ipv6_addr)[16]);
@@ -59,3 +65,14 @@ l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, 
                                 Interface* oif, 
                                 uint32_t spf_metric,
                                 uint16_t proto_id);
+
+ bool 
+ ipv6_route_delete (node_t *node, 
+                                ipv6_addr_t *prefix,
+                                uint8_t prefix_len,
+                                ipv6_addr_t *gw,
+                                Interface* oif, 
+                                uint16_t proto_id);
+
+void 
+v6_rt_table_show (rt_table_t *rt_table) ;

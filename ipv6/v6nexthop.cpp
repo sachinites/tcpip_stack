@@ -1,0 +1,122 @@
+#include <stdio.h>
+#include <stdint.h>
+#include "../utils.h"
+#include "../tcp_public.h"
+#include "v6nexthop.h"
+
+int 
+v6nh_flush_nexthops(v6nexthop_t **nexthop)
+{
+
+    int i = 0;
+    int count = 0;
+
+    if (!nexthop)
+        return 0;
+
+    for (; i < MAX_NXT_HOPS; i++)
+    {
+
+        if (nexthop[i])
+        {
+            assert(nexthop[i]->ref_count);
+            nexthop[i]->ref_count--;
+            if (nexthop[i]->ref_count == 0)
+            {
+                delete (nexthop[i]);
+		        nexthop[i] = nullptr;
+            }
+            nexthop[i] = nullptr;
+            count++;
+        }
+    }
+    return count;
+}
+
+bool 
+v6nh_insert_new_nexthop_nh_array(
+                       v6nexthop_t **nexthop_arry, 
+                       v6nexthop_t *nxthop){
+
+    int i = 0;
+
+    for( ; i < MAX_NXT_HOPS; i++){
+        if(nexthop_arry[i]) continue;
+        nexthop_arry[i] = nxthop;
+        nexthop_arry[i]->ref_count++;
+        return true;
+    }
+    return false;
+}
+
+bool
+v6nh_is_nexthop_exist_in_nh_array(
+                        v6nexthop_t **nexthop_array, 
+                        v6nexthop_t *nxthop){
+
+    int i = 0;
+    for( ; i < MAX_NXT_HOPS; i++){
+        
+        if (!nexthop_array[i])
+            continue;
+
+        if (nexthop_array[i]->oif == nxthop->oif && 
+                (memcmp(&nexthop_array[i]->gw, &nxthop->gw, 16) == 0) &&
+                nexthop_array[i]->proto == nxthop->proto )
+            return true;
+    }
+
+    return false;
+}
+
+/*Copy all nexthops of src to dst, do not copy which are already
+ * present*/
+ int
+v6nh_union_nexthops_arrays(v6nexthop_t **src, v6nexthop_t **dst){
+
+    int i = 0;
+    int j = 0;
+    int copied_count = 0;
+
+    while(j < MAX_NXT_HOPS && dst[j]){
+        j++;
+    }
+
+    if(j == MAX_NXT_HOPS) return 0;
+
+    for(; i < MAX_NXT_HOPS && j < MAX_NXT_HOPS; i++, j++){
+
+        if(src[i] && v6nh_is_nexthop_exist_in_nh_array(dst, src[i]) == false){
+            dst[j] = src[i];
+            dst[j]->ref_count++;
+            copied_count++;
+        }
+    }
+    return copied_count;
+}
+
+
+v6nexthop_t *
+v6nexthop_find (v6nexthop_t **nexthops, 
+                            ipv6_addr_t *gw, 
+                            uint32_t ifindex, 
+                            uint16_t proto, 
+                            int *index) {
+
+    int i = 0;
+    for( ; i < MAX_NXT_HOPS; i++){
+        
+        if (!nexthops[i])
+            continue;
+
+        if (nexthops[i]->oif->ifindex == ifindex && 
+                (memcmp(&nexthops[i]->gw, gw, 16) == 0) &&
+                nexthops[i]->proto == proto )
+        {
+            if (index) *index = i;
+            return nexthops[i];
+        }
+    }
+
+    return NULL;
+}

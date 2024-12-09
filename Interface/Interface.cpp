@@ -215,8 +215,7 @@ SendPacketOutLAN(PhysicalInterface *Intf, pkt_block_t *pkt_block)
 
 Interface::Interface(std::string if_name, InterfaceType_t iftype)
 {
-
-    this->if_name = if_name;
+    this->if_name = std::move(if_name);
     this->iftype = iftype;
     this->att_node = NULL;
     memset(&this->log_info, 0, sizeof(this->log_info));

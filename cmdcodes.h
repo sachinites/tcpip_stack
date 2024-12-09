@@ -128,4 +128,8 @@
 
 /*config node <node-name> interface virtual-port <if-name> overlay-tunnel <tunnel-name>*/
 #define CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL 53
+
+/* show node <node-name> rt6*/
+#define CMDCODE_SHOW_NODE_RT6_TABLE 54
+
 #endif /* __CMDCODES__ */

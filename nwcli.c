@@ -70,7 +70,7 @@ extern void config_node_build_transport_svc_cli_tree (param_t *param) ;
 extern void show_node_transport_svc_cli_tree (param_t *param) ;
 extern void tcp_ip_build_debug_cli_tree (param_t *root);
 extern void ipv6_build_cli_tree (param_t *root);
-
+extern void show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
@@ -915,6 +915,15 @@ nw_init_cli(){
                     libcli_register_param(&node_name, &rt);
                     libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
+
+                 {
+                    /*show node <node-name> rt6*/
+                    static param_t rt6;
+                    init_param(&rt6, CMD, "rt6", show_rt6_handler, 0, INVALID, 0, "Dump L3 V6 Routing table");
+                    libcli_register_param(&node_name, &rt6);
+                    libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_RT6_TABLE);
+                 }
+
                  {
                     /*show node <node-name> interface*/
                     static param_t interface;

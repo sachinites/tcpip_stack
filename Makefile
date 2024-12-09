@@ -79,6 +79,7 @@ OBJS=gluethread/glthread.o \
 		  ipv6/SRv6/Srv6Cli.o \
 		  ipv6/ipv6_route.o \
 		  ipv6/ipv6_utils.o \
+		  ipv6/v6nexthop.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -265,6 +266,8 @@ ipv6/SRv6/Srv6Cli.o:ipv6/SRv6/Srv6Cli.cpp
 	${CC} ${CFLAGS} -c ipv6/SRv6/Srv6Cli.cpp -o ipv6/SRv6/Srv6Cli.o
 ipv6/ipv6_route.o:ipv6/ipv6_route.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6_route.cpp -o ipv6/ipv6_route.o
+ipv6/v6nexthop.o:ipv6/v6nexthop.cpp
+	${CC} ${CFLAGS} -c ipv6/v6nexthop.cpp -o ipv6/v6nexthop.o
 ipv6/ipv6_utils.o:ipv6/ipv6_utils.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6_utils.cpp -o ipv6/ipv6_utils.o
 
