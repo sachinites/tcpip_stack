@@ -218,8 +218,6 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 
     this->if_name = if_name;
     this->iftype = iftype;
-    this->config_ref_count = 0;
-    this->dynamic_ref_count = 0;
     this->att_node = NULL;
     memset(&this->log_info, 0, sizeof(this->log_info));
     this->link = NULL;
@@ -244,10 +242,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 
 Interface::~Interface()
 {
-
-    assert(this->config_ref_count == 0);
-    assert(this->dynamic_ref_count == 0);
-    assert(this->intfP.expired());
+    InterfaceReleaseAllResources();
     cprintf ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
 }
 
@@ -292,10 +287,7 @@ void Interface::PrintInterfaceDetails()
     }
 
     cprintf("Metric = %u\n", this->GetIntfCost());
-    cprintf ("config_ref_count  = %u, dynamic_ref_count = %u, shared_ptr count = %u\n", 
-        this->config_ref_count, 
-        this->dynamic_ref_count,
-        this->GetSharedPtr().use_count());
+    cprintf ("shared_ptr count = %u\n", this->GetSharedPtr().use_count());
 }
 
 node_t *
@@ -425,7 +417,8 @@ Interface:: IsInterfaceUp(vlan_id_t vlan_id) {
 bool 
 Interface::IsCrossReferenced() {
 
-    return (this->GetSharedPtr().use_count() > 1);
+    cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
 }
 
 void 
@@ -457,70 +450,6 @@ Interface::InterfaceReleaseAllResources() {
     assert (!this->isis_intf_info);
 }
 
-
-void 
-Interface::InterfaceLockStatic() {
-
-    this->config_ref_count++;
-}
-void 
-Interface::InterfaceLockDynamic() {
-
-    this->dynamic_ref_count++;
-}
-
-bool
-Interface::InterfaceUnLockStatic() {
-
-    assert (this->config_ref_count);
-    this->config_ref_count--;
-
-    if (this->config_ref_count == 0 &&
-         this->dynamic_ref_count == 0 ) {
-
-        /* Delete the interface and all its resources */
-        this->InterfaceReleaseAllResources();
-
-        if (this->iftype != INTF_TYPE_PHY) {
-            delete this;
-            return true;
-        }
-    }
-    return false;
-}
-
-bool
-Interface::InterfaceUnLockDynamic() {
-
-    assert (this->dynamic_ref_count);
-    this->dynamic_ref_count--;
-
-    if (this->config_ref_count == 0 &&
-         this->dynamic_ref_count == 0 ) {
-
-        /* Delete the interface and all its resources */
-        this->InterfaceReleaseAllResources();
-
-        if (this->iftype != INTF_TYPE_PHY) {
-            delete this;
-            return true;
-        }
-    }
-    return false;
-}
-
-uint16_t 
-Interface::GetConfigRefCount() {
-
-    return this->config_ref_count;
-}
-
-uint16_t 
-Interface::GetDynamicRefCount() {
-
-    return this->dynamic_ref_count;
-}
-
 bool 
 Interface::IsSVI () {
 
@@ -545,7 +474,7 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
     this->mask = 0;
     this->used_as_underlying_tunnel_intf = 0;
     this->trans_svc = NULL;
-    this->access_vlan_intf = NULL;
+    this->access_vlan_intf = nullptr;
 }
 
 PhysicalInterface::~PhysicalInterface()
@@ -828,17 +757,16 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
             return false;
         }
 
-        this->access_vlan_intf = VlanInterface::VlanInterfaceLookUp(this->att_node, vlan_id);
+        this->access_vlan_intf = std::dynamic_pointer_cast<VlanInterface>
+                (VlanInterface::VlanInterfaceLookUp(this->att_node, vlan_id)->GetSharedPtr());
         
         if (!this->access_vlan_intf)
         {
             cprintf("Error : Vlan Interface not found");
             return false;
         }
-        this->access_vlan_intf->access_member_intf_lst.push_back(this);
+        this->access_vlan_intf->access_member_intf_lst.push_back(this->GetSharedPtr());
         this->l2_mode = LAN_ACCESS_MODE;
-        this->access_vlan_intf->InterfaceLockStatic();
-        this->InterfaceLockStatic();
         return true;
     }
     else
@@ -846,10 +774,9 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
         if (this->access_vlan_intf->GetVlanId() == vlan_id)
             {
                 this->access_vlan_intf->access_member_intf_lst.erase(
-                    std::remove (this->access_vlan_intf->access_member_intf_lst.begin(), this->access_vlan_intf->access_member_intf_lst.end(), this),
+                    std::remove (this->access_vlan_intf->access_member_intf_lst.begin(), this->access_vlan_intf->access_member_intf_lst.end(),
+                    this->GetSharedPtr()),
                     this->access_vlan_intf->access_member_intf_lst.end());
-                this->InterfaceUnLockStatic();
-                this->access_vlan_intf->InterfaceUnLockStatic();
                 this->access_vlan_intf = NULL;
                 this->l2_mode = LAN_MODE_NONE;
 
@@ -925,6 +852,16 @@ PhysicalInterface::InterfaceReleaseAllResources() {
     this->Interface::InterfaceReleaseAllResources();
 }
 
+/* Physical interface, by defauls are qued into nodes and linkage_t
+    which take away '2' ref count. Anything more than that, interface is suppose to be
+    in use*/
+bool
+PhysicalInterface::IsCrossReferenced() {
+
+    if (this->GetSharedPtr().use_count() > 3) return true;
+    return false;
+}
+
 
 /* ************ Virtual Interface ************ */
 VirtualInterface::VirtualInterface(std::string ifname, InterfaceType_t iftype)
@@ -960,6 +897,15 @@ VirtualInterface::InterfaceReleaseAllResources() {
     /* Nothing to release */
     this->Interface::InterfaceReleaseAllResources();
 }
+
+
+bool
+VirtualInterface::IsCrossReferenced() {
+
+    cprintf ("Error : Operation %s not supported\n", __func__);
+    return false;
+}
+
 
 
 
@@ -1024,25 +970,27 @@ GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
 
     if (interface)
     {
-        if (this->tunnel_src_intf == interface)
+        if (this->tunnel_src_intf == interface->GetSharedPtr())
         {
             return true;
         }
 	if (this->tunnel_src_intf &&
-		this->tunnel_src_intf != interface) {
-		cprintf ("Error : Tunnel Src Interface %s already set\n", this->tunnel_src_intf->if_name.c_str());
+		this->tunnel_src_intf != interface->GetSharedPtr()) {
+		    cprintf ("Error : Tunnel Src Interface %s already set\n",
+            this->tunnel_src_intf->if_name.c_str());
 		return false;
 	}
-        this->tunnel_src_intf = interface;
+        this->tunnel_src_intf = std::dynamic_pointer_cast
+            <PhysicalInterface>( interface->GetSharedPtr());
         interface->used_as_underlying_tunnel_intf++;
         this->config_flags |= GRE_TUNNEL_SRC_INTF_SET;
     }
     else {
 
 	if (this->tunnel_src_intf == NULL) return true;
-        PhysicalInterface *tunnel_src_intf = dynamic_cast<PhysicalInterface *>(this->tunnel_src_intf );
+        PhysicalInterface *tunnel_src_intf = std::dynamic_pointer_cast<PhysicalInterface>(this->tunnel_src_intf ).get();
         tunnel_src_intf->used_as_underlying_tunnel_intf--;
-        this->tunnel_src_intf = NULL;
+        this->tunnel_src_intf = nullptr;
         this->config_flags &= ~GRE_TUNNEL_SRC_INTF_SET;
     }
     return true;
@@ -1234,6 +1182,15 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
     this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
+/* GRETunnelInterface when created are queued up node->intf array only,
+     therefore taking refcount
+    of 1. Anything more than that, GRETunnelInterface is suppose to be in use*/
+bool
+GRETunnelInterface::IsCrossReferenced() {
+
+    if (this->GetSharedPtr().use_count() > 2) return true;
+    return false;
+}
 
 /* ******** VirtualPort **************** */
 
@@ -1348,6 +1305,16 @@ VirtualPort::GetL2Mode ( ) {
         return LAN_TRUNK_MODE;
 }
 
+/* VirtualPort when created are hooked up in l2 Switch,
+     therefore taking refcount
+    of 1. Anything more than that, VirtualPort is suppose to be in use*/
+bool
+VirtualPort::IsCrossReferenced() {
+
+    if (this->GetSharedPtr().use_count() > 2) return true;
+    return false;
+}
+
 
 bool 
 VirtualPort::IntfConfigTransportSvc(std::string& trans_svc_name) 
@@ -1383,25 +1350,24 @@ VirtualPort::IntfUnConfigTransportSvc(std::string& trans_svc_name)
 }
 
 bool 
-VirtualPort::BindOverlayTunnel(Interface *tunnel) {
+VirtualPort::BindOverlayTunnel(VirtualInterface *tunnel) {
 
-    if (this->olay_tunnel_intf == tunnel) return true;
+    if (this->olay_tunnel_intf == tunnel->GetSharedPtr()) return true;
 
     if (this->olay_tunnel_intf) {
         cprintf ("Error : Overlay Tunnel already set\n");
         return false;
     }
 
-    this->olay_tunnel_intf = tunnel;
-    tunnel->InterfaceLockStatic();
+    this->olay_tunnel_intf = std::dynamic_pointer_cast<VirtualInterface> (tunnel->GetSharedPtr());
 
     /* If tunnel is GRE Interface*/
     switch (tunnel->iftype) {
         case INTF_TYPE_GRE_TUNNEL:
             {
                 GRETunnelInterface *gre_tunnel_intf = dynamic_cast<GRETunnelInterface *>(tunnel);
-                gre_tunnel_intf->virtual_port_intf = this;
-                this->InterfaceLockStatic();
+                gre_tunnel_intf->virtual_port_intf =
+                    std::dynamic_pointer_cast<VirtualPort>( this->GetSharedPtr());
             }
             break;
     }
@@ -1410,30 +1376,29 @@ VirtualPort::BindOverlayTunnel(Interface *tunnel) {
 
 
 bool 
-VirtualPort::UnBindOverlayTunnel(Interface *tunnel) {
+VirtualPort::UnBindOverlayTunnel(VirtualInterface *tunnel) {
 
     Interface *overlay_tunnel;
     
     if (!this->olay_tunnel_intf) return true;
 
-    if (this->olay_tunnel_intf != tunnel) {
+    if (this->olay_tunnel_intf != tunnel->GetSharedPtr()) {
         cprintf ("Error : Could not unbind Tunnel\n");
         return false;
     }
 
-    overlay_tunnel = this->olay_tunnel_intf;
+    overlay_tunnel = this->olay_tunnel_intf.get();
     switch (overlay_tunnel->iftype) {
         case INTF_TYPE_GRE_TUNNEL:
             {
                 GRETunnelInterface *gre_tunnel_intf = dynamic_cast<GRETunnelInterface *>(overlay_tunnel);
-                assert (gre_tunnel_intf->virtual_port_intf == this);
-                gre_tunnel_intf->virtual_port_intf = NULL;
-                this->InterfaceUnLockStatic();
+                assert (gre_tunnel_intf->virtual_port_intf ==
+                    std::dynamic_pointer_cast<VirtualPort>( this->GetSharedPtr()));
+                gre_tunnel_intf->virtual_port_intf = nullptr;
             }
             break;
     }
-    this->olay_tunnel_intf->InterfaceUnLockStatic();
-    this->olay_tunnel_intf = NULL;
+    this->olay_tunnel_intf = nullptr;
     return true;
 }
 
@@ -1459,6 +1424,16 @@ VlanInterface::~VlanInterface() {
 
     assert (this->access_member_intf_lst.empty());
 }
+
+/* Vlan interfaces when are queued up in vlanDB, therefore taking refcount
+    of 1. Anything more than that, vlaninterface is suppose to be in use*/
+bool
+VlanInterface::IsCrossReferenced() {
+
+    if (this->GetSharedPtr().use_count() > 2) return true;
+    return false;
+}
+
 
 void 
 VlanInterface::PrintInterfaceDetails() {
@@ -1541,16 +1516,12 @@ VlanInterface::GetVlanId() {
 VlanInterface *
 VlanInterface::VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id) {
 
-    VlanInterface *vlan_intf = NULL;
-
     if (!node->vlan_intf_db) return NULL;
-
-    std::unordered_map<uint16_t , VlanInterface *>::iterator it;
-    it = node->vlan_intf_db->find(vlan_id);
+    auto it = node->vlan_intf_db->find(vlan_id);
     if (it != node->vlan_intf_db->end()) {
-        vlan_intf = it->second;
+        return it->second.get();
     }
-    return vlan_intf;
+    return NULL;
 }
 
 /* Vlan interface can have member ports which are : 

@@ -269,9 +269,10 @@ layer3_ip_route_pkt(node_t *node,
          
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
-        nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif);
+        nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
 
-        tracer (node->dptr, DL3FWD, "Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+        tracer (node->dptr, DL3FWD, "Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
+            pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
         /* If src ip address is not feeded by application, then take the OIF IP address*/
         if (ip_hdr->src_ip == 0) {
@@ -308,7 +309,7 @@ layer3_ip_route_pkt(node_t *node,
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
-    nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif);
+    nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
 
     tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", dest_ip_addr, 
             nexthop->oif->if_name.c_str(), nexthop->gw_ip);
@@ -861,20 +862,10 @@ rt_table_add_route (rt_table_t *rt_table,
         nexthop->proto = proto_id;
         nexthop->oif = oif->GetSharedPtr();
         nexthop->ifindex = oif->ifindex;
-
-        switch (proto_id) {
-            case PROTO_STATIC:
-                oif->InterfaceLockStatic();
-            break;
-            case PROTO_ISIS:
-                oif->InterfaceLockDynamic();
-            break;
-            default:
-                assert (0);
-        }
+	
+	l3_route_insert_nexthop(l3_route, nexthop, nxthop_proto);
         
-		l3_route_insert_nexthop(l3_route, nexthop, nxthop_proto);
-        if (!new_route) {
+	if (!new_route) {
             tracer(node->dptr, DRTM, "Route %s/%d : Nexthop %s %s added to Rib\n", 
                 dst, mask, nexthop->gw_ip, nexthop->oif ? nexthop->oif->if_name.c_str() : "None");
             rt_table_add_route_to_notify_list (rt_table, l3_route, RT_UPDATE_F);
@@ -914,7 +905,6 @@ rt_ipv4_route_add (node_t *node,
     rt_update_msg->mask = mask;
     rt_update_msg->gateway = gw_ip;
     rt_update_msg->ifindex = oif ? oif->ifindex : 0;
-    if (oif) oif->InterfaceLockDynamic();
     rt_update_msg->metric = metric;
     rt_update_msg->proto_id = proto_id;
     cp2dp_submit(node, dp_msg, async);
@@ -1077,7 +1067,7 @@ demote_packet_to_layer3 (node_t *node,
     uint32_t next_hop_ip;
     nexthop_t *nexthop = NULL;
 
-    nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif);
+    nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
     
     if(!nexthop){
         tracer (node->dptr, DL3FWD | DERR, "Dest : %s :  Pkt Dropped : No nexthop found\n", dst_ip_addr_str);
@@ -1088,7 +1078,7 @@ demote_packet_to_layer3 (node_t *node,
             nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
     if (pkt_block->exclude_oif &&
-            pkt_block->exclude_oif == nexthop->oif.get()) assert(0);
+            pkt_block->exclude_oif == nexthop->oif) assert(0);
 
 #if 0
     if (access_list_evaluate_ip_packet(node, 

@@ -45,7 +45,7 @@
 void
 init_mac_table(mac_table_t **mac_table){
 
-    *mac_table = (mac_table_t *)XCALLOC(0, 1, mac_table_t);
+    *mac_table = new mac_table_t;
     init_glthread(&((*mac_table)->mac_entries));
 }
 
@@ -76,9 +76,8 @@ clear_mac_table(mac_table_t *mac_table){
     ITERATE_GLTHREAD_BEGIN(&mac_table->mac_entries, curr){
         
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
-        mac_table_entry->oif->InterfaceUnLockDynamic();
         remove_glthread(curr);
-        XFREE(mac_table_entry);
+        delete (mac_table_entry);
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
 }
 
@@ -90,7 +89,6 @@ delete_mac_table_entry(mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
     if(!mac_table_entry)
         return;
     remove_glthread(&mac_table_entry->mac_entry_glue);
-    mac_table_entry->oif->InterfaceUnLockDynamic();
     tracer (mac_table_entry->oif->att_node->dptr, DL2SW, 
             "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Deleted\n", 
             mac_table_entry->vlan_id, 
@@ -101,7 +99,7 @@ delete_mac_table_entry(mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
             mac_table_entry->mac.mac[4],
             mac_table_entry->mac.mac[5],
             mac_table_entry->oif_name     );
-    XFREE(mac_table_entry);
+    delete (mac_table_entry);
 }
 
 #define IS_MAC_TABLE_ENTRY_EQUAL(mac_entry_1, mac_entry_2)   \
@@ -193,16 +191,15 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_ma
         return;
     }
 
-    mac_table_entry_t *mac_table_entry = ( mac_table_entry_t *)XCALLOC(0, 1, mac_table_entry_t);
+    mac_table_entry_t *mac_table_entry = new mac_table_entry_t;
     mac_table_entry->vlan_id = vlan_id;
     memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_addr_t));
     string_copy((char *)mac_table_entry->oif_name, oif->if_name.c_str(), IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
-    mac_table_entry->oif = oif;
-    oif->InterfaceLockDynamic();
+    mac_table_entry->oif = oif->GetSharedPtr();
     rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
     if(rc == false){
-        XFREE(mac_table_entry);
+        delete (mac_table_entry);
     }
 }
 

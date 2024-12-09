@@ -112,18 +112,19 @@ node_set_intf_vlan_membership(node_t *node,
     }
 
     /* Create VLAN also*/
-    VlanInterface *vlan_intf =
-                    static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
+    VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp(node, vlan_id);
+    VlanInterfaceP vlan_intfP;
 
     if(!vlan_intf) {
 
-        vlan_intf = new VlanInterface(vlan_id);
+        vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
+        vlan_intfP->SetSharedPtr(vlan_intfP);
+        vlan_intf = vlan_intfP.get();
         vlan_intf->att_node = node;
         if (!node->vlan_intf_db) {
-            node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterface *>;
+            node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
         }
-        node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intf));
-        vlan_intf->InterfaceLockStatic();
+        node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
     }
 
     if (Trunk) {
@@ -615,5 +616,5 @@ layer2_mem_init() {
     MM_REG_STRUCT(0,  vlan_8021q_hdr_t);
     MM_REG_STRUCT(0,  vlan_ethernet_hdr_t);
     MM_REG_STRUCT(0,  mac_table_t);
-    MM_REG_STRUCT(0,  mac_table_entry_t);
+    //MM_REG_STRUCT(0,  mac_table_entry_t);
 }

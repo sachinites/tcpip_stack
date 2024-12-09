@@ -59,7 +59,7 @@ do { \
 {   \
     VlanInterface *_vlan_intf = dynamic_cast<VlanInterface *>(vlan_intf_ptr);    \
     for (auto _it = _vlan_intf->access_member_intf_lst.begin(); _it != _vlan_intf->access_member_intf_lst.end(); ++_it) { \
-        member_intf = *_it; \
+        member_intf = (*_it).get(); \
         assert(member_intf->GetL2Mode() == LAN_ACCESS_MODE);
 
 

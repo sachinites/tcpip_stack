@@ -304,13 +304,13 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
                 if (vlan_intf)
                     return 0;
-                vlan_intf = new VlanInterface(vlan_id);
-                vlan_intf->att_node = node;
+                VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
+		vlan_intfP->SetSharedPtr(vlan_intfP);
+                vlan_intfP->att_node = node;
                 if (!node->vlan_intf_db) {
-                    node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterface *>;
+                    node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
                 }
-                node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intf));
-                vlan_intf->InterfaceLockStatic();
+                node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
             }
             break;
             case CONFIG_DISABLE:
@@ -325,14 +325,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     return -1;
                 }
 
-                node->vlan_intf_db->erase(vlan_id);
-                if (vlan_intf->InterfaceUnLockStatic() ) {
-                    return 0;
-                }
                 /* Interface us being dynamically used by some entities, send Delete notification */
                 SET_BIT(if_change_flags, IF_DELETE_F);
                 nfc_intf_invoke_notification_to_sbscribers(
 					vlan_intf, &intf_prop_changed, if_change_flags);
+                node->vlan_intf_db->erase(vlan_id);
             }
             break;
             default:;
@@ -483,7 +480,6 @@ intf_config_virtual_port_create_handler ( int cmdcode,
             }
 
             node->intf[ifslot] = vportP;
-            intf->InterfaceLockStatic();
             SET_BIT(if_change_flags, IF_CREATE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
@@ -518,7 +514,6 @@ intf_config_virtual_port_create_handler ( int cmdcode,
             SET_BIT(if_change_flags, IF_DELETE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
-            intf->InterfaceUnLockStatic();
             node->intf[i] = nullptr;
         }
         break;
@@ -553,7 +548,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             libcli_register_param(if_name, &switchport);
             libcli_set_param_cmd_code(&switchport, CMDCODE_INTF_CONFIG_SWITCHPORT);
             {
-                /*/* config node <node-name> interface . . . <if-name> switchport access ...*/
+                /* config node <node-name> interface . . . <if-name> switchport access ...*/
                 static param_t access;
                 init_param(&access, CMD, "access", intf_config_handler, 0, INVALID, 0, "\"switchport\" keyword");
                 libcli_register_param(&switchport, &access);

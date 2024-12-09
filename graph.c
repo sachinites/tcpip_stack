@@ -69,11 +69,9 @@ insert_link_between_two_nodes(node_t *node1,
     /*Plugin interface ends into Node*/
     empty_intf_slot = node_get_intf_available_slot(node1);
     node1->intf[empty_intf_slot] = link->Intf1;
-    link->Intf1->InterfaceLockStatic();
 
     empty_intf_slot = node_get_intf_available_slot(node2);
     node2->intf[empty_intf_slot] = link->Intf2;
-    link->Intf2->InterfaceLockStatic();
 
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(link->Intf1.get());
@@ -205,7 +203,7 @@ void dump_graph(graph_t *graph){
 void dump_node(node_t *node){
 
     Interface *intf;
-    std::unordered_map<uint16_t , VlanInterface *> *vlan_intf_db;
+    std::unordered_map<uint16_t , VlanInterfaceP> *vlan_intf_db;
 
     cprintf("Node Name = %s(%p) UDP Port # : %u\n",
         node->node_name, node, node->udp_port_number);
@@ -223,7 +221,7 @@ void dump_node(node_t *node){
     if(vlan_intf_db){
         
         for(auto it = vlan_intf_db->begin(); it != vlan_intf_db->end(); it++){
-            dump_interface(it->second);
+            dump_interface(it->second.get());
             cprintf ("\n");
         }
     }

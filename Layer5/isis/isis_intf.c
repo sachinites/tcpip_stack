@@ -182,7 +182,6 @@ isis_init_intf_info (Interface *intf) {
     }
     /* Back Linkage */
     intf_info->intf = intf;
-    intf->InterfaceLockDynamic();
 }
 
 void
@@ -200,7 +199,6 @@ isis_enable_protocol_on_interface(Interface *intf) {
 
         intf_info = XCALLOC(0, 1, isis_intf_info_t);
         intf->isis_intf_info = intf_info;
-        intf->InterfaceLockStatic();
         isis_init_intf_info(intf);
     }
     
@@ -218,11 +216,9 @@ isis_free_intf_info(Interface *intf) {
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
     if (!intf_info) return;
 
-    intf->InterfaceUnLockStatic();
     intf->isis_intf_info = NULL;
 
     if (intf_info->intf) {
-        intf_info->intf->InterfaceUnLockDynamic();
         intf_info->intf = NULL;
     }
     XFREE(intf_info);

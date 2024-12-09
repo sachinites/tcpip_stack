@@ -22,11 +22,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "Layer3/gre-tunneling/gre.h"
+#include "Interface/InterfaceFwd.h"
 
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
-class Interface;
 
 struct pkt_block_ {
 
@@ -35,8 +35,8 @@ struct pkt_block_ {
     hdr_type_t hdr_type; /* Starting hdr type */
     uint8_t ref_count;
     bool no_modify;
-    Interface *recommended_oif;
-    Interface *exclude_oif;
+    InterfaceP recommended_oif;
+    InterfaceP exclude_oif;
     uint16_t lineno;
     char *fn_name;
     uint64_t pkt_id;

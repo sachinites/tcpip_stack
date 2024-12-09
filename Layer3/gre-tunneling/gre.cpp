@@ -42,7 +42,6 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
 
     node->intf[empty_intf_slot] = gre_shared_ptr;
     gre_shared_ptr->att_node = node;
-    gre_shared_ptr->InterfaceLockStatic();
     return true;
 }
 
@@ -77,15 +76,13 @@ gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
         return false;
     }
 
+
+    /* Send Delete notification to all Subscribers */
+     SET_BIT(if_change_flags, IF_DELETE_F);
+     nfc_intf_invoke_notification_to_sbscribers(
+	tunnel, &intf_prop_changed, if_change_flags);        
+
     node->intf[i] = nullptr;
-
-    if (!tunnel->InterfaceUnLockStatic()) {
-        /* Send Delete notification to all Subscribers */
-        SET_BIT(if_change_flags, IF_DELETE_F);
-        nfc_intf_invoke_notification_to_sbscribers(
-					tunnel, &intf_prop_changed, if_change_flags);        
-    }
-
     return true;
 }
 

@@ -470,7 +470,7 @@ show_vlan_members (int cmdcode,
     Interface *member_intf;
     c_string node_name = NULL;
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
-    std::unordered_map<uint16_t , VlanInterface *> *vlan_intf_db;
+    std::unordered_map<uint16_t , VlanInterfaceP> *vlan_intf_db;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -493,7 +493,7 @@ show_vlan_members (int cmdcode,
         for (auto it_vlan = vlan_intf_db->begin(); it_vlan != vlan_intf_db->end(); ++it_vlan) {
 
             i = it_vlan->first;
-            VlanInterface *vlan_intf = it_vlan->second;
+            VlanInterface *vlan_intf = it_vlan->second.get();
 
 #if 0
             cprintf (" vlan %d    config_ref_count = %d, dynamic_ref_count = %d\n", 
