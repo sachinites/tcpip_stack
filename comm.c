@@ -204,7 +204,7 @@ dp_pkt_receive (node_t *node,
         tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
             pkt_block_str(pkt_block), gre_intf->if_name.c_str());  
 
-        dp_pkt_receive (node, gre_intf->virtual_port_intf, pkt_block);
+        dp_pkt_receive (node, gre_intf->virtual_port_intf.get(), pkt_block);
     }
 
     else if (interface->IsIpConfigured()){

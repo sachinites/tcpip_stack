@@ -94,8 +94,7 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
         tracer (node->dptr,  DIPC | DFLOW, "Pkt : %s : Recvd by Data path\n", pkt_block_str(pkt_block));
         xmit_intf->SendPacketOut (pkt_block);
         pkt_block_dereference(pkt_block);
-        xmit_intf->InterfaceUnLockDynamic();
-		delete (ev_dis_pkt_data);
+	delete (ev_dis_pkt_data);
 	}
 }
 
@@ -109,7 +108,6 @@ cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface)
         ev_dis_pkt_data->recv_node = node;
         ev_dis_pkt_data->recv_intf = xmit_interface->GetSharedPtr();
         ev_dis_pkt_data->pkt = (byte *)pkt_block;
-        xmit_interface->InterfaceLockDynamic();
         pkt_block_reference(pkt_block);
         tracer (node->cptr,  DIPC | DFLOW, "Pkt : %s : Xmit to Data path\n", pkt_block_str(pkt_block));
         pkt_q_enqueue(EV_DP(node), &node->cp_to_dp_xmit_intf_pkt_q ,

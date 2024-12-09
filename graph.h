@@ -120,7 +120,7 @@ struct node_ {
     /* Transport Svc profiles DB*/
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
     /* Vlan Interface Created*/
-     std::unordered_map<uint16_t , VlanInterface *> *vlan_intf_db;
+     std::unordered_map<uint16_t , VlanInterfaceP> *vlan_intf_db;
     /* List of route-maps created on this node*/
     glthread_t route_map_headtype;
     /* Packet Tracer Object */

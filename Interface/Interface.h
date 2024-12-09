@@ -42,8 +42,6 @@ class TransportService;
 class Interface {
 
     private:
-        uint16_t config_ref_count;
-        uint16_t dynamic_ref_count;
         std::weak_ptr<Interface> intfP;
 
     protected:
@@ -103,14 +101,8 @@ class Interface {
         virtual bool IntfConfigTransportSvc(std::string& trans_svc);
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc);
         virtual bool IsInterfaceUp(vlan_id_t vlan_id);
-        bool IsCrossReferenced(); 
-        void InterfaceLockStatic() ;
-        void InterfaceLockDynamic();
-        bool InterfaceUnLockStatic();
-        bool InterfaceUnLockDynamic() ;
+        virtual bool IsCrossReferenced();
         void InterfaceReleaseAllResources();
-        uint16_t GetConfigRefCount();
-        uint16_t GetDynamicRefCount();
         virtual bool IsSVI ();
 };
 
@@ -135,7 +127,7 @@ class PhysicalInterface : public Interface {
 
         /* Below two are mutually exclusive */
         TransportService *trans_svc;
-        VlanInterface *access_vlan_intf;
+        VlanInterfaceP access_vlan_intf;
 
         PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
         virtual ~PhysicalInterface();
@@ -150,6 +142,7 @@ class PhysicalInterface : public Interface {
         virtual bool IsVlanTrunked (vlan_id_t vlan_id) final;
         virtual bool IntfConfigVlan(vlan_id_t vlan_id, bool add) final;
         virtual void SetSwitchport(bool enable) final;
+        virtual bool IsCrossReferenced();
         virtual bool GetSwitchport() final;
         virtual IntfL2Mode GetL2Mode () final;
         virtual void SetL2Mode (IntfL2Mode l2_mode) final;
@@ -181,6 +174,7 @@ class VirtualInterface : public Interface {
         virtual void PrintInterfaceDetails ();
         virtual bool IsInterfaceUp(vlan_id_t vlan_id);
         virtual void InterfaceReleaseAllResources() ;
+        virtual bool IsCrossReferenced();
 };
 
 
@@ -196,10 +190,11 @@ class VlanInterface : public VirtualInterface {
         uint32_t ip_addr;
         uint8_t mask;
         /* Number of access mode interfaces using this LAN*/
-        std::vector<Interface *> access_member_intf_lst;
+        std::vector<InterfaceP> access_member_intf_lst;
         VlanInterface(vlan_id_t vlan_id);
          virtual ~VlanInterface();
         virtual void PrintInterfaceDetails ();
+        virtual bool IsCrossReferenced() final;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
         virtual bool IsIpConfigured() final;
@@ -230,12 +225,12 @@ protected:
 public:
     
     uint32_t tunnel_id;
-    Interface *tunnel_src_intf;
+    PhysicalInterfaceP tunnel_src_intf;
     uint32_t tunnel_src_ip;
     uint32_t tunnel_dst_ip;
     uint32_t lcl_ip;
     uint8_t mask;
-    VirtualPort *virtual_port_intf;
+    VirtualPortP virtual_port_intf;
 
     uint16_t config_flags;
     GRETunnelInterface(uint32_t tunnel_id);
@@ -247,6 +242,7 @@ public:
     void SetTunnelLclIpMask(uint32_t ip_addr, uint8_t mask);
     virtual void PrintInterfaceDetails ();
     virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+    virtual bool IsCrossReferenced() final;
     void SetTunnelSrcIp(uint32_t src_addr);
     void UnSetTunnelSrcIp();
     virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
@@ -265,18 +261,19 @@ class VirtualPort : public VirtualInterface {
     protected:
     public:
 
-        Interface *olay_tunnel_intf;
+        VirtualInterfaceP olay_tunnel_intf;
         /* Below two are mutually exclusive */
         TransportService *trans_svc;
 
         VirtualPort(std::string ifname);
         virtual ~VirtualPort();
-        bool BindOverlayTunnel(Interface *tunnel);
-        bool UnBindOverlayTunnel(Interface *tunnel);
+        bool BindOverlayTunnel(VirtualInterface *tunnel);
+        bool UnBindOverlayTunnel(VirtualInterface *tunnel);
         virtual void PrintInterfaceDetails ();
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual void InterfaceReleaseAllResources() ;
+        virtual bool IsCrossReferenced() final;
         virtual bool IsVlanTrunked (vlan_id_t vlan_id) final;
         virtual bool IntfConfigTransportSvc(std::string& trans_svc) final;
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;

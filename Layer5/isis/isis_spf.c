@@ -331,7 +331,6 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                                                          oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
-                         nexthop->oif->InterfaceLockDynamic();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          nbr_spf_data->spf_metric = oif->cost;
                          nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf));
@@ -353,7 +352,6 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
 
                             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
-                            nexthop->oif->InterfaceLockDynamic();
                             tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
                                 ISIS_SPF, nbr->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
@@ -420,7 +418,6 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                                                         root_to_pn_oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex)->GetSharedPtr();
-                         nexthop->oif->InterfaceLockDynamic();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
                             ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
@@ -442,7 +439,6 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
 
                             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
-                            nexthop->oif->InterfaceLockDynamic();
                             tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
                                 ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));  

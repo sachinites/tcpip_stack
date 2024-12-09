@@ -21,20 +21,10 @@ int nh_flush_nexthops(nexthop_t **nexthop)
             nexthop[i]->ref_count--;
             if (nexthop[i]->ref_count == 0)
             {
-                switch (nexthop[i]->proto)
-                {
-                case PROTO_STATIC:
-                    nexthop[i]->oif->InterfaceUnLockStatic();
-                    break;
-                case PROTO_ISIS:
-                    nexthop[i]->oif->InterfaceUnLockDynamic();
-                    break;
-                default:
-                    assert(0);
-                }
                 delete (nexthop[i]);
+		nexthop[i] = nullptr;
             }
-            nexthop[i] = NULL;
+            nexthop[i] = nullptr;
             count++;
         }
     }

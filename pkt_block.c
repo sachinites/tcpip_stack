@@ -327,22 +327,11 @@ pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) {
     }
 
     if (!oif) {
-
-        if (pkt_block->recommended_oif ) {
-            pkt_block->recommended_oif->InterfaceUnLockDynamic();
-        }
-        pkt_block->recommended_oif = NULL;
+        pkt_block->recommended_oif = nullptr;
         return;
     }
 
-    if (pkt_block->recommended_oif &&
-         pkt_block->recommended_oif != oif ) {
-
-        pkt_block->recommended_oif->InterfaceUnLockDynamic();
-    }
-
-    pkt_block->recommended_oif = oif;
-    oif->InterfaceLockDynamic();
+    pkt_block->recommended_oif = oif->GetSharedPtr();
 }
 
 void
@@ -353,22 +342,11 @@ pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) {
     }
     
     if (!oif) {
-
-        if (pkt_block->exclude_oif) {
-            pkt_block->exclude_oif->InterfaceUnLockDynamic();
-        }
-        pkt_block->exclude_oif = NULL;
+        pkt_block->exclude_oif = nullptr;
         return;
     }
 
-    if (pkt_block->exclude_oif &&
-                pkt_block->exclude_oif != oif) {
-
-        pkt_block->exclude_oif->InterfaceUnLockDynamic();
-    }
-
-    pkt_block->exclude_oif = oif;
-    pkt_block->exclude_oif->InterfaceLockDynamic();
+    pkt_block->exclude_oif = oif->GetSharedPtr();
 }
 
 char *
