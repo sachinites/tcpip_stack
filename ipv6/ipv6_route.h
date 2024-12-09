@@ -40,7 +40,22 @@ typedef struct ipv6_route_ {
 } ipv6_route_t;
 
 ipv6_route_t* 
-l3rib_v6lookup_lpm(   rt_table_t *v6rt_table, uint8_t (*ipv6_addr)[16]);
+l3rib_v6lookup_lpm ( rt_table_t *v6rt_table, uint8_t (*ipv6_addr)[16]);
+
+ipv6_route_t* 
+l3rib_v6lookup_lpm2 ( rt_table_t *v6rt_table, ipv6_addr_t *ipv6_addr);
 
 void 
  layer3_ipv6_forward_nexthop (node_t *node, ipv6_route_t *route, pkt_block_t *pkt_block);
+
+ipv6_route_t* 
+l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, uint8_t prefix_len);
+
+ bool 
+ ipv6_route_install (node_t *node, 
+                                ipv6_addr_t *prefix,
+                                uint8_t prefix_len,
+                                ipv6_addr_t *gw,
+                                Interface* oif, 
+                                uint32_t spf_metric,
+                                uint16_t proto_id);

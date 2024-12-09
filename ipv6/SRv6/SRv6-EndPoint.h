@@ -1,6 +1,8 @@
 #ifndef __INET_SRv6ENDPOINT_H
 #define __INET_SRv6ENDPOINT_H
 
+#include "../ipv6_hdrs.h"
+
 class Interface;
 
 typedef struct ipv6_hdr_ ipv6_hdr_t;
@@ -19,8 +21,13 @@ typedef enum Srv6_flavor_ {
 
 typedef enum Vrv6_endpcode_ {
     
-    END = 1,
-    END_X = 2
+    END = 0,
+    END_X = 1,
+    END_T = 2,
+    END_DX6 = 3,
+    END_DX4 = 4,
+    END_DT6 = 5,
+    END_DT4 = 6
 
 } Srv6_endpcode_t;
 
@@ -46,10 +53,6 @@ Process_Srv6_Packet (
                         pkt_block_t *orig_pkt,
                         ipv6_hdr_t *ipv6_hdr, 
                         srh_hdr_t *srh);
-
-/* Fn to check if self_sid is penultimate of next_sid*/
-bool 
-Am_I_penultimate (node_t *node, ipv6_addr_t self_sid, ipv6_addr_t next_sid);
 
 ipv6_addr_t 
 Srv6_self_locator (node_t *node);

@@ -87,7 +87,7 @@ typedef uint16_t pkt_size_t;
 /* Protocol IDs*/
 #define PROTO_STATIC 101
 #define PROTO_ISIS       0x83
-#define PROTO_ISIS_SRv6 115
+#define PROTO_SRv6 115
 #define PROTO_ANY       (0xFFFF - 1)
 
 static inline unsigned char *
