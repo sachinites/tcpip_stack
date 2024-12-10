@@ -36,11 +36,13 @@ typedef struct notif_chain_elem_{
 
     char key[MAX_NOTIF_KEY_SIZE];
     size_t key_size;
-    bool is_key_set;
     nfc_app_cb app_cb;
 	nfc_pkt_trap pkt_trap_cb;
     glthread_t glue;
-} notif_chain_elem_t;
+    bool is_key_set;
+    char padding[3];
+
+} __attribute__((aligned(8))) notif_chain_elem_t;
 GLTHREAD_TO_STRUCT(glthread_glue_to_notif_chain_elem,
                    notif_chain_elem_t, glue);
 
@@ -50,7 +52,8 @@ typedef struct notif_chain_ {
     void  (*preprocessing_fn_ptr)(void *);
     void * (*copy_arg_fn_ptr)(void *);
     glthread_t notif_chain_head;
-} notif_chain_t;
+
+} __attribute__((aligned(8))) notif_chain_t;
 
 void
 nfc_register_notif_chain(notif_chain_t *nfc,

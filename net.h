@@ -70,6 +70,7 @@ typedef struct node_nw_prop_{
     arp_table_t *arp_table;
     mac_table_t *mac_table;
     mac_addr_t rmac;
+    char padding[2];
 
     rt_table_t *rt_table;
     rt_table_t *ipv6_rt_table;

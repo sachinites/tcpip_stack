@@ -7,7 +7,6 @@
 
 typedef struct v6nexthop_{
 
-    /* Below 3 fields are the keys of the nexthop */
     uint32_t ifindex;  
     ipv6_addr_t gw;
     uint16_t proto;
@@ -15,7 +14,17 @@ typedef struct v6nexthop_{
     uint32_t ref_count;
     InterfaceP oif;
     long long unsigned int hit_count;
-} v6nexthop_t;
+
+    v6nexthop_() {
+        ifindex = 0;
+        memset(&gw, 0, 16);
+        proto = 0;
+        ref_count = 0;
+        oif = nullptr;
+        hit_count = 0;
+    };
+
+} __attribute__((aligned(8))) v6nexthop_t;
 
 
 int

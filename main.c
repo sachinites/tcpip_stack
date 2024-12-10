@@ -91,10 +91,18 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     tcp_stack_miscellaneous_mem_init();
 }
 
+static void
+alignment_check () {
+
+    //static_assert(_alignof(graph_t) == 8, "graph_t is not properly aligned");
+    //static_assert(_alignof(node_t) == 8, "node_t is not properly aligned");
+}
+
 int 
 main(int argc, char **argv){
     
     (void )argc; (void) argv;
+    alignment_check();
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
     topo = cross_link_topology();

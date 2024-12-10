@@ -9,25 +9,27 @@
 #include "ipv6_hdrs.h"
 #include "v6nexthop.h"
 
+#define V6RT_F_LOCAL  (1 ) 
+#define V6RT_F_REMOTE  (2)
 
 typedef struct ipv6_route_ {
 
     ipv6_addr_t prefix;
-    uint8_t prefix_len;
-    bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
     Srv6_endpcode_t endfn;
-    Srv6_flavor_t flavor;
     v6nexthop_t *nexthops[proto_nxthop_max][MAX_NXT_HOPS];
     uint32_t spf_metric[proto_nxthop_max];
-    uint16_t nh_count;
     int nxthop_idx;
 	time_t install_time;
-    uint8_t rt_flags;
     glthread_t notif_glue;
     glthread_t flash_glue;
     uint32_t rt_ref_count;
-
-} ipv6_route_t;
+    uint16_t nh_count;
+    bool is_direct; 
+    uint8_t prefix_len;
+    uint8_t rt_flags;
+    uint8_t flavor;
+    
+} __attribute__((aligned(8))) ipv6_route_t;
 
 static inline uint32_t
 l3_v6route_dec_ref_count (ipv6_route_t *l3_route) {
@@ -61,9 +63,12 @@ l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, 
  ipv6_route_install (node_t *node, 
                                 ipv6_addr_t *prefix,
                                 uint8_t prefix_len,
+                                uint8_t rt_flags,
                                 ipv6_addr_t *gw,
                                 Interface* oif, 
                                 uint32_t spf_metric,
+                                Srv6_endpcode_t endfn,
+                                uint8_t srv6_flavor,
                                 uint16_t proto_id);
 
  bool 

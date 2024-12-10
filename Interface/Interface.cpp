@@ -466,7 +466,7 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
 
     if (mac_add)
     {
-        memcpy(this->mac_add.mac, mac_add->mac, sizeof(*mac_add));
+        memcpy(this->mac_add.mac, mac_add->mac, sizeof(this->mac_add.mac));
     }
     this->l2_mode = LAN_MODE_NONE;
     this->ip_addr = 0;
@@ -485,7 +485,7 @@ void PhysicalInterface::SetMacAddr(mac_addr_t *mac_add)
 
     if (mac_add)
     {
-        memcpy(this->mac_add.mac, mac_add->mac, sizeof(*mac_add));
+        memcpy(this->mac_add.mac, mac_add->mac, sizeof(this->mac_add.mac));
     }
 }
 
@@ -916,12 +916,12 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
     this->tunnel_id = tunnel_id;
     this->config_flags = (uint16_t)0;
     this->config_flags |= GRE_TUNNEL_TUNNEL_ID_SET;
-    this->tunnel_src_intf = NULL;
     this->tunnel_src_ip = 0;
     this->tunnel_dst_ip = 0;
     this->lcl_ip = 0;
     this->mask = 0;
-    this->virtual_port_intf = NULL;
+    this->virtual_port_intf = nullptr;
+     this->tunnel_src_intf = nullptr;
 }
 
 GRETunnelInterface::~GRETunnelInterface() {
@@ -932,7 +932,6 @@ GRETunnelInterface::~GRETunnelInterface() {
 uint32_t
 GRETunnelInterface::GetTunnelId()
 {
-
     return this->tunnel_id;
 }
 

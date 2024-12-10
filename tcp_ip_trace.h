@@ -54,7 +54,7 @@ typedef struct log_{
     bool l3_fwd;
     FILE *log_file;
     access_list_t *acc_lst_filter;
-} log_t;
+} __attribute__((aligned(8))) log_t;
 
 void 
 tcp_dump_recv_logger(node_t *node, Interface *intf, 

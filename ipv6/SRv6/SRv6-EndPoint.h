@@ -15,11 +15,13 @@ typedef enum Srv6_flavor_ {
 
     PSP = 1,
     PSD = 2,
-    USD = 3
+    USD = 4
 
 } Srv6_flavor_t;
 
-typedef enum Vrv6_endpcode_ {
+#define DEFAULT_FLAVOR (PSP | USD)
+
+typedef enum Srv6_endpcode_ {
     
     END = 0,
     END_X = 1,
@@ -81,5 +83,6 @@ Srv6_apply_endpoint_fn (
         srh_hdr_t *srh, 
         Srv6_endpcode_t endfn,
         ipv6_route_t *route);
+
 
 #endif // __INET_SRv6ENDPOINT_H

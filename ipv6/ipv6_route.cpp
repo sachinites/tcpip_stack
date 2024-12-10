@@ -11,6 +11,7 @@
 #include "../gluethread/glthread.h"
 #include "../Interface/Interface.h"
 #include "v6nexthop.h"
+#include "ipv6_utils.h"
 
 ipv6_route_t* 
 l3rib_v6lookup_lpm ( rt_table_t *v6rt_table, uint8_t (*ipv6_addr)[16]) {
@@ -82,6 +83,10 @@ l3rib_v6route_lookup_exact_match (
     for (int i = 0; i < prefix_len; i++) {
         bitmap_set_bit_at(&mask_bm, i);
     }
+    bitmap_inverse (&mask_bm, 128);
+    
+    //cprintf ("Prefix to be exact-matched\n");
+    //bitmap_prefix_print (&prefix_bm, &mask_bm, 128);
 
     mtrie_node_t *node = mtrie_exact_prefix_match_search(
                             &v6rt_table->route_list,
@@ -103,9 +108,12 @@ l3rib_v6route_lookup_exact_match (
  ipv6_route_install (node_t *node, 
                                 ipv6_addr_t *prefix,
                                 uint8_t prefix_len,
+                                uint8_t rt_flags,
                                 ipv6_addr_t *gw,
-                                Interface* oif, 
+                                Interface* oif,   // can be NULL
                                 uint32_t spf_metric,
+                                Srv6_endpcode_t endfn,
+                                uint8_t srv6_flavor,
                                 uint16_t proto ) {
 
 
@@ -134,10 +142,10 @@ l3rib_v6route_lookup_exact_match (
         route->nh_count = 0;
         route->install_time = time(NULL);
         route->rt_ref_count = 0;
-        route->endfn = END;
-        route->flavor = PSP;
+        route->endfn = endfn;
+        route->flavor = srv6_flavor;
         route->nxthop_idx = 0;
-        route->rt_flags = 0;
+        route->rt_flags = rt_flags;
         init_glthread(&route->notif_glue);
         init_glthread(&route->flash_glue);
         new_route = true;
@@ -145,7 +153,8 @@ l3rib_v6route_lookup_exact_match (
 
     if (!new_route)  {
         
-        nexthop = v6nexthop_find (route->nexthops[proto_id], gw, oif->ifindex, proto, NULL);
+        nexthop = v6nexthop_find (route->nexthops[proto_id], 
+            gw, oif ? oif->ifindex : 0, proto, NULL);
         
         if (nexthop) {
             cprintf ("Route with this Nexthop already exists\n");
@@ -161,10 +170,10 @@ l3rib_v6route_lookup_exact_match (
     if (!nexthop) {
 
         nexthop = new v6nexthop_t;
-        nexthop->ifindex = oif->ifindex;
-        memcpy (nexthop->gw.addr, gw->addr, 16);
+        nexthop->ifindex = oif ? oif->ifindex : 0;
+        if (gw) memcpy (nexthop->gw.addr, gw->addr, 16);
         nexthop->proto = proto;
-        nexthop->oif = oif->GetSharedPtr();
+        nexthop->oif = oif ? oif->GetSharedPtr() : nullptr;
         nexthop->ref_count = 0;
         nexthop->hit_count = 0;
         v6nh_insert_new_nexthop_nh_array (route->nexthops[proto_id], nexthop);
@@ -185,6 +194,10 @@ l3rib_v6route_lookup_exact_match (
     memcpy(prefix_bm.bits, prefix->addr, 16);
     for (int i = 0; i < prefix_len; i++)
         bitmap_set_bit_at(&mask_bm, i);
+    bitmap_inverse (&mask_bm, 128);
+
+   // cprintf ("Prefix to be inserted\n");
+   // bitmap_prefix_print (&prefix_bm, &mask_bm, 128);
 
     rc = mtrie_insert_prefix(&rt_table->route_list,
                              &prefix_bm,
@@ -226,10 +239,12 @@ l3rib_v6route_lookup_exact_match (
         return false;
     }
 
-    v6nexthop_t *nexthop = v6nexthop_find (route->nexthops[proto], gw, oif->ifindex, proto, &index);
+    v6nexthop_t *nexthop = v6nexthop_find (route->nexthops[proto], 
+                                                    gw, oif ? oif->ifindex : 0, proto_id, &index);
 
-    if (!nexthop) {
-        cprintf ("Route not found\n");
+    if (!nexthop)
+    {
+        cprintf("Route's nexthop is not found\n");
         return false;
     }
 
@@ -237,8 +252,9 @@ l3rib_v6route_lookup_exact_match (
     delete (nexthop);
     route->nh_count--;
 
-    if (route->nh_count) {
-        cprintf ("Route deleted successfully\n");
+    if (route->nh_count)
+    {
+        // cprintf ("Route deleted successfully\n");
         return true;
     }
 
@@ -251,13 +267,14 @@ l3rib_v6route_lookup_exact_match (
     memcpy(prefix_bm.bits, prefix->addr, 16);
     for (int i = 0; i < prefix_len; i++)
         bitmap_set_bit_at(&mask_bm, i);
+    bitmap_inverse (&mask_bm, 128);
 
     assert (mtrie_delete_prefix(&rt_table->route_list, 
                                             &prefix_bm,
                                             &mask_bm,
                                             (void **)&route) == MTRIE_DELETE_SUCCESS);
 
-    cprintf ("Route deleted successfully\n");
+    //cprintf ("Route deleted successfully\n");
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
     l3_v6route_dec_ref_count(route);
@@ -268,7 +285,6 @@ void
 v6_rt_table_show (rt_table_t *rt_table) {
 
     char buffer1 [48];
-    char buffer2 [48];
     char *oif_name;
     glthread_t *curr = NULL;
     mtrie_node_t *mnode;
@@ -282,6 +298,8 @@ v6_rt_table_show (rt_table_t *rt_table) {
         mnode = list_glue_to_mtrie_node(curr);
         route = (ipv6_route_t *)mnode->data;
         assert(route);
+        
+        cprintf ("Route : %s/%d\n", inet_ntop6(&route->prefix, buffer1), route->prefix_len);
 
         FOR_ALL_NXTHOP_PROTO(nxthop_proto) {
 
@@ -290,27 +308,28 @@ v6_rt_table_show (rt_table_t *rt_table) {
                 if (!route->nexthops[nxthop_proto][i])
                     continue;
 
-                cprintf ("Route : %s/%d\n", inet_ntop6(&route->prefix, buffer1), route->prefix_len);
-                cprintf (" proto : %s\n",  proto_name_str(route->nexthops[nxthop_proto][i]->proto));
-                cprintf (" Gateway : %s\n", inet_ntop6(&route->nexthops[nxthop_proto][i]->gw, buffer2));
-                //std::cout << " OIF : " << route->nexthops[nxthop_proto][i]->oif->if_name << std::endl;
-                //oif_name = (char *)route->nexthops[nxthop_proto][i]->oif->if_name.c_str();
-                //cprintf (" OIF : %s\n", oif_name);
+                cprintf (" Proto : %s\n",  proto_name_str(route->nexthops[nxthop_proto][i]->proto));
+                switch (nxthop_proto)
+                {
+                    case proto_nxthop_static:
+                    case proto_nxthop_isis:
+                    break;
+                    case proto_nxthop_srv6:
+                        cprintf (" SRv6 End Function : %s (%s)\n", 
+                            end_fn_str(route->endfn), flavor_str(route->flavor));
+                    break;
+                }
+
+                //cprintf (" Gateway : %s\n", inet_ntop6(&route->nexthops[nxthop_proto][i]->gw, buffer1));
+
+                oif_name = route->nexthops[nxthop_proto][i]->oif ? \
+                    (char *)route->nexthops[nxthop_proto][i]->oif->if_name.c_str() : NULL;
+
+                cprintf(" OIF : %s\n", oif_name ? oif_name : "null");
                 cprintf (" Hit Count : %llu\n", route->nexthops[nxthop_proto][i]->hit_count);
-
-               #if 0            
-                printf ("Route : %s/%d, Proto : %s, Nexthop : %s, OIF : %s, Hit Count : %llu\n",
-                        inet_ntop6(&route->prefix, buffer1),
-                        route->prefix_len,
-                        proto_name_str(route->nexthops[nxthop_proto][i]->proto),
-                        inet_ntop6(&route->nexthops[nxthop_proto][i]->gw, buffer2), 
-                        route->nexthops[nxthop_proto][i]->oif->if_name.c_str(), 
-                        route->nexthops[nxthop_proto][i]->hit_count);
-                #endif 
             }
-
-        } 
-
+        }
+        cprintf ("\n");
     } ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr);
-
+    
 } 

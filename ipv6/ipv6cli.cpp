@@ -27,6 +27,7 @@ ipv6_config_handler
     c_string oif_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
+     Interface *intf = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -44,11 +45,15 @@ ipv6_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    Interface *intf = node_get_intf_by_name(node, (const char *)oif_name);
 
-    if (!intf) {
-        cprintf ("Error : Interface not found\n");
-        return -1;
+    if (oif_name) {
+
+        intf = node_get_intf_by_name(node, (const char *)oif_name);
+
+        if (!intf) {
+            cprintf ("Error : Interface %s not found\n", oif_name);
+            return -1;
+        }
     }
 
     switch (cmdcode) {
@@ -60,15 +65,16 @@ ipv6_config_handler
                 case CONFIG_ENABLE:
                 {
                     ipv6_addr_t prefix;
-                    ipv6_addr_t gw;
+                    ipv6_addr_t gw = {0};
                     inet_pton6 ((char *)ipv6_addr, &prefix);
-                    inet_pton6 ((char *)gw_ip, &gw);
+                    if (gw_ip) inet_pton6 ((char *)gw_ip, &gw);
                     ipv6_route_install (node, 
                                                     &prefix,
                                                     prefix_len,
+                                                    V6RT_F_LOCAL,
                                                     &gw,
                                                     intf,
-                                                    0,
+                                                    0, (Srv6_endpcode_t)0, 0,
                                                     PROTO_STATIC);
                 }
                 break;
@@ -76,9 +82,9 @@ ipv6_config_handler
                 case CONFIG_DISABLE:
                 {
                     ipv6_addr_t prefix;
-                    ipv6_addr_t gw;
+                    ipv6_addr_t gw = {0};
                     inet_pton6 ((char *)ipv6_addr, &prefix);
-                    inet_pton6 ((char *)gw_ip, &gw);
+                    if (gw_ip) inet_pton6 ((char *)gw_ip, &gw);
                     ipv6_route_delete (node, 
                                                     &prefix,
                                                     prefix_len,
@@ -128,14 +134,16 @@ ipv6_build_cli_tree (param_t *root)
                 libcli_register_param(&route, &ipv6_addr);
                 {
                     static param_t mask;
-                    init_param(&mask, LEAF, NULL, NULL, NULL, INT, "mask", "IPv6 Mask [0-128]");
+                    init_param(&mask, LEAF, NULL, ipv6_config_handler, NULL, INT, "mask", "IPv6 Mask [0-128]");
                     libcli_register_param(&ipv6_addr, &mask);
-                    
+                    libcli_set_param_cmd_code(&mask,  IPV6_RT_CONFIG);       
+
+                    /* Mount SRV6 CLIs here*/
                     srv6_build_cli_tree (&mask);
 
                     {
                         static param_t nexthop;
-                        init_param(&nexthop, LEAF, NULL, NULL, NULL, STRING, "nexthop", "IPv6 Next Hop");
+                        init_param(&nexthop, CMD, "nexthop", NULL, NULL, INVALID, NULL, "IPv6 Next Hop");
                         libcli_register_param(&mask, &nexthop);
                         {
                             static param_t oif;

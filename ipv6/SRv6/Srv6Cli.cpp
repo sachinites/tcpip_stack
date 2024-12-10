@@ -1,6 +1,9 @@
 #include "../../CLIBuilder/libcli.h"
 #include "../../graph.h"
 #include "../../Interface/InterfaceUApi.h"
+#include "SRv6-EndPoint.h"
+#include "../ipv6_utils.h"
+#include "../ipv6_route.h"
 
 extern graph_t *topo;
 
@@ -10,8 +13,6 @@ extern graph_t *topo;
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> [flavor [psp|usp|usd]]*/
 #define IPV6_SRV6_ADJ_SID_CONFIG  2
 
-#define IPV6_SRV6_PREFIX_SID_FLAVOR_CONFIG  3
-#define IPV6_SRV6_ADJ_SID_FLAVOR_CONFIG  4
 
 
 static int
@@ -20,6 +21,84 @@ srv6_prefix_sid_config_handler
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
+    tlv_struct_t *tlv;
+    uint8_t prefix_len = 0;
+    node_t *node = NULL;
+    c_string ipv6_addr = NULL;
+    c_string node_name = NULL;
+    c_string flavor1 = NULL;
+    c_string flavor2 = NULL;
+    c_string flavor3 = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
+            ipv6_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "mask"))
+            prefix_len = atoi((const char *)tlv->value);
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor1 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor2 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor3 = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    uint8_t flavor = DEFAULT_FLAVOR;
+
+    if (flavor1) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
+    }
+
+    if (flavor2) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    if (flavor3) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+        {
+            ipv6_addr_t prefix;
+            inet_pton6 ((char *)ipv6_addr, &prefix);
+            ipv6_route_install (node, 
+                                &prefix,
+                                prefix_len,
+                                V6RT_F_LOCAL,
+                                NULL,
+                                NULL,
+                                0, END, flavor,
+                                PROTO_SRv6);
+        }
+        break;
+
+        case CONFIG_DISABLE:
+        {
+            ipv6_addr_t prefix;
+            inet_pton6 ((char *)ipv6_addr, &prefix);
+            ipv6_route_delete (node, 
+                                &prefix,
+                                prefix_len,
+                                NULL,
+                                NULL,
+                                PROTO_SRv6);
+        }
+        break;
+    }
     return 0;
 }
 
@@ -29,27 +108,96 @@ srv6_adjacency_sid_config_handler
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
+
+    tlv_struct_t *tlv;
+    uint8_t prefix_len = 0;
+    node_t *node = NULL;
+    c_string ipv6_addr = NULL;
+    c_string node_name = NULL;
+    c_string flavor1 = NULL;
+    c_string flavor2 = NULL;
+    c_string flavor3 = NULL;
+    c_string oif_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
+            ipv6_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "mask"))
+            prefix_len = atoi((const char *)tlv->value);
+        else if  (parser_match_leaf_id (tlv->leaf_id, "oif-name"))
+            oif_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor1 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor2 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor3 = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    Interface *intf = node_get_intf_by_name(node, (const char *)oif_name);
+
+    if (!intf) {
+        cprintf ("Error : Interface %s not found\n", oif_name);
+        return -1;
+    }
+
+    uint8_t flavor = DEFAULT_FLAVOR;
+
+    if (flavor1) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
+    }
+
+    if (flavor2) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    if (flavor3) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+        {
+            ipv6_addr_t prefix;
+            inet_pton6 ((char *)ipv6_addr, &prefix);
+            ipv6_route_install (node, 
+                                &prefix,
+                                prefix_len,
+                                V6RT_F_LOCAL,
+                                NULL,
+                                intf,
+                                0, END_X, flavor,
+                                PROTO_SRv6);
+        }
+        break;
+
+        case CONFIG_DISABLE:
+        {
+            ipv6_addr_t prefix;
+            inet_pton6 ((char *)ipv6_addr, &prefix);
+            ipv6_route_delete (node, 
+                                &prefix,
+                                prefix_len,
+                                NULL,
+                                intf,
+                                PROTO_SRv6);
+        }
+        break;
+    }
     return 0;
 }
-
-static int
-srv6_flavor_prefix_sid_config_handler 
-                    (int cmdcode,
-                    Stack_t *tlv_stack,
-                    op_mode enable_or_disable) {
-
-    return 0;
-}
-
-static int
-srv6_flavor_adjacency_sid_config_handler 
-                    (int cmdcode,
-                    Stack_t *tlv_stack,
-                    op_mode enable_or_disable) {
-
-    return 0;
-}
-
 
 static int 
 srv6_flavor_validation (Stack_t *tlv_stack, unsigned char *leaf_value) {
@@ -74,7 +222,7 @@ srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
         libcli_register_param( flavor , flavors_value);
         libcli_param_recursive(flavors_value);
         libcli_set_param_cmd_code(flavors_value, cmdcode);
-        libcli_set_tail_config_batch_processing (flavors_value);
+        //libcli_set_tail_config_batch_processing (flavors_value);
     }
 }
 
@@ -96,7 +244,7 @@ srv6_build_cli_tree (param_t *root)
                 NULL, INVALID, NULL, "Configure SRv6 Endpoint: END");
             libcli_register_param(&endpoint, &end);
             libcli_set_param_cmd_code(&end, IPV6_SRV6_PREFIX_SID_CONFIG);
-            srv6_flavor_cli_subtree_hookup (&end, IPV6_SRV6_PREFIX_SID_FLAVOR_CONFIG, srv6_flavor_prefix_sid_config_handler);
+            srv6_flavor_cli_subtree_hookup (&end, IPV6_SRV6_PREFIX_SID_CONFIG, srv6_prefix_sid_config_handler);
         }
 
         {
@@ -111,7 +259,7 @@ srv6_build_cli_tree (param_t *root)
                 init_param(&oif_name, LEAF, NULL, srv6_adjacency_sid_config_handler, NULL, STRING, "oif-name", "Outgoing Interface Name");
                 libcli_register_param(&end_x, &oif_name);
                 libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
-                srv6_flavor_cli_subtree_hookup (&oif_name, IPV6_SRV6_ADJ_SID_FLAVOR_CONFIG, srv6_flavor_adjacency_sid_config_handler);
+                srv6_flavor_cli_subtree_hookup (&oif_name, IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
             }
         }
 

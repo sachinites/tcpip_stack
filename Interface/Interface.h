@@ -48,14 +48,13 @@ class Interface {
  
         Interface(std::string if_name, InterfaceType_t iftype);
     public:
-        InterfaceType_t iftype;
         std::string if_name;
         node_t *att_node;
         log_t log_info;
         linkage_t *link;
+        InterfaceType_t iftype;
 
         /* L1 Properties of Interface */
-        bool is_up;
         uint32_t ifindex;
         uint32_t pkt_recv;
         uint32_t pkt_sent;
@@ -73,6 +72,8 @@ class Interface {
 
         /* L5 protocols */
         isis_intf_info_t *isis_intf_info;
+        
+        bool is_up;
 
         uint32_t GetIntfCost();
         node_t *GetNbrNode ();
@@ -104,7 +105,7 @@ class Interface {
         virtual bool IsCrossReferenced();
         void InterfaceReleaseAllResources();
         virtual bool IsSVI ();
-};
+} __attribute__((aligned(8)));
 
 
 /* ************ */
@@ -113,17 +114,20 @@ class PhysicalInterface : public Interface {
     private:
         /* L2 Properties */
         bool switchport;
+        char pad1[3];
         mac_addr_t mac_add;
+        char pad2[2];
         IntfL2Mode l2_mode;
         
        
         /* L3 properties */
         uint32_t ip_addr;
         uint8_t mask;
-        
+        char pad3[1];
     protected:
     public:
          uint16_t used_as_underlying_tunnel_intf;
+         char pad4[2];
 
         /* Below two are mutually exclusive */
         TransportService *trans_svc;
@@ -153,7 +157,7 @@ class PhysicalInterface : public Interface {
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual void InterfaceReleaseAllResources() ;
-};
+} __attribute__((aligned(8)));
 
 typedef struct linkage_ {
 
@@ -186,8 +190,8 @@ class VlanInterface : public VirtualInterface {
     private:
     protected:
     public:
-        vlan_id_t vlan_id;
         uint32_t ip_addr;
+        vlan_id_t vlan_id;
         uint8_t mask;
         /* Number of access mode interfaces using this LAN*/
         std::vector<InterfaceP> access_member_intf_lst;
@@ -224,15 +228,15 @@ private:
 protected:
 public:
     
-    uint32_t tunnel_id;
+    VirtualPortP virtual_port_intf;
     PhysicalInterfaceP tunnel_src_intf;
+    uint32_t tunnel_id;
     uint32_t tunnel_src_ip;
     uint32_t tunnel_dst_ip;
     uint32_t lcl_ip;
-    uint8_t mask;
-    VirtualPortP virtual_port_intf;
-
     uint16_t config_flags;
+    uint8_t mask;
+
     GRETunnelInterface(uint32_t tunnel_id);
     virtual ~GRETunnelInterface();
     uint32_t GetTunnelId();
@@ -252,7 +256,7 @@ public:
     virtual mac_addr_t * GetMacAddr() final;
     virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
     virtual void InterfaceReleaseAllResources() ;
-};
+} __attribute__((aligned(8)));
 
 
 class VirtualPort : public VirtualInterface {

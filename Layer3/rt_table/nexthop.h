@@ -15,7 +15,20 @@ typedef struct nexthop_{
     uint32_t ref_count;
     InterfaceP oif;
     long long unsigned int hit_count;
-} nexthop_t;
+
+    /* Insert a constructor here */
+
+    nexthop_() {
+        ifindex = 0;
+        memset(gw_ip, 0, 16);
+        proto = 0;
+        memset(node_name, 0, NODE_NAME_SIZE);
+        ref_count = 0;
+        oif = nullptr;
+        hit_count = 0;
+    };
+
+} __attribute__((aligned(8))) nexthop_t;
 
 int
 nh_flush_nexthops(nexthop_t **nexthop);

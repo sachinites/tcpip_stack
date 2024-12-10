@@ -45,12 +45,12 @@ typedef struct mtrie_ {
 
     mtrie_node_t *root;
     uint16_t N; // No of nodes;
+	uint16_t prefix_len;
 	Stack_t *stack;
 	/* linear List of all leaf nodes in mtrie*/
 	glthread_t list_head;
-	uint16_t prefix_len;
 	app_data_free_cbk free_cbk;
-}mtrie_t;
+} __attribute__((aligned(8))) mtrie_t;
 
 static inline bool
 mtrie_is_leaf_node (mtrie_node_t *node) {

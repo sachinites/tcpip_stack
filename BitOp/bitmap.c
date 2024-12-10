@@ -5,6 +5,9 @@
 #include "bitmap.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
+extern int cprintf (const char *fmt, ...);
+#define printf cprintf 
+
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));

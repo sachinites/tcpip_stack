@@ -1,6 +1,8 @@
 CC=g++
-CFLAGS=-g -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers
-TARGET:tcpstack.exe pkt_gen.exe
+#SANITIZER_FLAGS=-fsanitize=address,undefined
+SANITIZER_FLAGS=
+CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+TARGET:tcpstack.exe pkt_gen.exe main2.exe
 
 # Install external dependent libs :   sudo apt-get install libpq-dev
 
@@ -120,6 +122,10 @@ tcpstack.exe:main.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a F
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
+main2.exe:main2.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
+	${CC} ${CFLAGS} main2.o ${OBJS}  ${LIBS} -o main2.exe
+	@echo "main2.exe Build Finished"
+
 notif.o:notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . notif.c -o notif.o
 
@@ -128,6 +134,9 @@ tcpip_notif.o:tcpip_notif.c
 
 main.o:main.c
 	${CC} ${CFLAGS} -c main.c -o main.o
+
+main2.o:main2.cpp
+	${CC} ${CFLAGS} -c main2.cpp -o main2.o
 
 gluethread/glthread.o:gluethread/glthread.c
 	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o

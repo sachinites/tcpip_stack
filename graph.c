@@ -88,7 +88,7 @@ create_new_graph (const char *topology_name){
 
     graph_t *graph = (graph_t *)calloc(1, sizeof(graph_t));
     string_copy((char *)graph->topology_name, topology_name, sizeof(graph->topology_name));
-    graph->topology_name[sizeof(graph->topology_name)] = '\0';
+    graph->topology_name[sizeof(graph->topology_name) - 1] = '\0';
     init_glthread(&graph->node_list);
     graph->gstdout = false;
     return graph;
@@ -109,7 +109,7 @@ create_graph_node(graph_t *graph, const c_string node_name){
     char file_name[64];
     char ev_dis_name[EV_DIS_NAME_LEN];
 
-    node_t *node = new node_t;
+    node_t *node = (node_t *)calloc(1, sizeof(node_t));
     string_copy((char *)node->node_name, node_name, NODE_NAME_SIZE);
     node->node_name[NODE_NAME_SIZE -1] = '\0';
 

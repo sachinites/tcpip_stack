@@ -54,7 +54,6 @@ typedef struct prefix_lst_ prefix_list_t;
 typedef struct rt_table_{
 
     mtrie_t route_list;
-	bool is_active;
     notif_chain_t nfc_rt_updates;
     glthread_t rt_notify_list_head;
     glthread_t rt_flash_list_head;
@@ -64,7 +63,8 @@ typedef struct rt_table_{
     prefix_list_t *import_policy;
     prefix_list_t *export_policy;
     glthread_t flash_request_list_head;
-} rt_table_t;
+    bool is_active;
+} __attribute__((aligned(8)))  rt_table_t;
 
 #define RT_ADD_F        (1 << 0)
 #define RT_DEL_F         (1 << 1)
@@ -175,17 +175,19 @@ typedef struct l3_route_{
 
     byte dest[16];        /* key*/
     char mask;            /* key*/
+    uint8_t rt_flags;
     bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
+    char padding1[1];
+    uint16_t nh_count;
+    char padding2[2];
     nexthop_t *nexthops[proto_nxthop_max][MAX_NXT_HOPS];
     uint32_t spf_metric[proto_nxthop_max];
-    uint16_t nh_count;
     int nxthop_idx;
     time_t install_time;
-    uint8_t rt_flags;
     glthread_t notif_glue;
     glthread_t flash_glue;
     uint32_t rt_ref_count;
-} l3_route_t;
+} __attribute__((aligned(8))) l3_route_t;
 
 GLTHREAD_TO_STRUCT(notif_glue_to_l3_route, l3_route_t, notif_glue);
 GLTHREAD_TO_STRUCT(flash_glue_to_l3_route, l3_route_t, flash_glue);

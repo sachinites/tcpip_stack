@@ -54,7 +54,7 @@ graph_t *standalone_node_topology(void) {
     graph_t *topo = create_new_graph("StandAlone Topo");
     node_t *R0 = create_graph_node(topo, (const c_string)"R0");
     node_t *R1 = create_graph_node(topo, (const c_string)"R1");
-    insert_link_between_two_nodes(R0, R1, "eth0", "eth0", 10);
+    insert_link_between_two_nodes(R0, R1, "eth0\0", "eth0\0", 10);
     return topo;
 }
 
