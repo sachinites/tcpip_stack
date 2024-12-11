@@ -33,6 +33,30 @@ v6nh_flush_nexthops(v6nexthop_t **nexthop)
     return count;
 }
 
+/* All fields of the the nexthops are keys 
+    return -1 , if nxthops are completely different
+    return 0, if nxthops are same
+    return 1, if nxthops are to be replaced with one another
+*/
+static int
+v6_nexthop_compare (v6nexthop_t *nh1, v6nexthop_t *nh2) {
+
+    if (nh1->proto != nh2->proto) return -1;
+    if (nh1->ifindex != nh2->ifindex) return -1;
+    if (memcmp(&nh1->gw, &nh2->gw, 16) != 0) return -1;
+    switch (nh1->proto)
+    {
+        case PROTO_SRv6:
+            if (nh1->u.srv6.endfn != nh2->u.srv6.endfn) return 1;
+            if (nh1->u.srv6.srv6_flavors != nh2->u.srv6.srv6_flavors) return 1;
+            if (nh1->u.srv6.metric != nh2->u.srv6.metric) return 1;
+            break;
+        default:
+            break;
+    }
+    return 0;
+}
+
 bool 
 v6nh_insert_new_nexthop_nh_array(
                        v6nexthop_t **nexthop_arry, 
@@ -49,24 +73,24 @@ v6nh_insert_new_nexthop_nh_array(
     return false;
 }
 
-bool
+int
 v6nh_is_nexthop_exist_in_nh_array(
                         v6nexthop_t **nexthop_array, 
-                        v6nexthop_t *nxthop){
+                        v6nexthop_t *nxthop, int *index){
 
-    int i = 0;
+    int i = 0, rc;
+
     for( ; i < MAX_NXT_HOPS; i++){
         
-        if (!nexthop_array[i])
-            continue;
-
-        if (nexthop_array[i]->oif == nxthop->oif && 
-                (memcmp(&nexthop_array[i]->gw, &nxthop->gw, 16) == 0) &&
-                nexthop_array[i]->proto == nxthop->proto )
-            return true;
+        if (!nexthop_array[i]) continue;
+         rc = v6_nexthop_compare(nexthop_array[i], nxthop);
+         if (rc == -1) continue;
+         if (index) *index = i;
+         return rc;
     }
 
-    return false;
+    if (index) *index = -1;
+    return -1;
 }
 
 /*Copy all nexthops of src to dst, do not copy which are already
@@ -86,7 +110,7 @@ v6nh_union_nexthops_arrays(v6nexthop_t **src, v6nexthop_t **dst){
 
     for(; i < MAX_NXT_HOPS && j < MAX_NXT_HOPS; i++, j++){
 
-        if(src[i] && v6nh_is_nexthop_exist_in_nh_array(dst, src[i]) == false){
+        if(src[i] && v6nh_is_nexthop_exist_in_nh_array(dst, src[i], 0) == -1){
             dst[j] = src[i];
             dst[j]->ref_count++;
             copied_count++;

@@ -10,10 +10,8 @@ inet_ntop6 (ipv6_addr_t *addr, char *buffer);
 void 
 inet_pton6 (char *addr_str, ipv6_addr_t *addr);
 
-const char *
-end_fn_str(Srv6_endpcode_t end_fn);
-
-const char *
-flavor_str(uint8_t flavors);
+void 
+ipv6_auto_generate_link_local_address(
+        unsigned char(*mac)[6], uint8_t (*link_local_addr)[16]);
 
 #endif 

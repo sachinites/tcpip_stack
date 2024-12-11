@@ -24,7 +24,14 @@ typedef struct ipv6_hdr_ {
 } ipv6_hdr_t;
 #pragma pack(pop)
 
-
+static inline bool 
+is_ipv6_addr_unspecified (uint8_t (*addr)[16]) {
+    for (int i = 0; i < 16; i++) {
+        if ((*addr)[i] != 0)
+            return false;
+    }
+    return true;
+}
 
 
 #endif // __INET_IPV6_HDRS_H

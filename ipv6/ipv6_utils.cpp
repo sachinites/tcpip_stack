@@ -16,50 +16,25 @@ inet_pton6  (char *addr_str, ipv6_addr_t *addr) {
     inet_pton(AF_INET6, addr_str, &addr->addr);
 }
 
-const char *
-end_fn_str(Srv6_endpcode_t end_fn) {
+/* Given MAC Address as an Input, generate link local address */
+void 
+ipv6_auto_generate_link_local_address(
+        unsigned char (*mac)[6], uint8_t (*link_local_addr)[16]) {
 
-    switch (end_fn) {
-
-        case END:
-            return "END";
-        case END_X:
-            return "END_X";
-        case END_T:
-            return "END_T";
-        case END_DX6:
-            return "END_DX6";
-        case END_DX4:
-            return "END_DX4";
-        case END_DT6:
-            return "END_DT6";
-        case END_DT4:
-            return "END_DT4";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-const char *
-flavor_str(uint8_t flavors) {
-
-    switch (flavors) {
-
-        case PSP:
-            return "PSP";
-        case USD:
-            return "USD";
-        case PSD:
-            return "PSD";
-        case PSP | USD:
-            return "PSP | USD";
-        case PSP | PSD:
-            return "PSP | PSD";
-        case USD | PSD:
-            return "USD | PSD";
-        case PSP | USD | PSD:
-            return "PSP | USD | PSD";
-        default:
-            return "UNKNOWN";
-    }
+    (*link_local_addr)[0] = 0xFE;
+    (*link_local_addr)[1] = 0x80;
+    (*link_local_addr)[2] = 0x00;
+    (*link_local_addr)[3] = 0x00;
+    (*link_local_addr)[4] = 0x00;
+    (*link_local_addr)[5] = 0x00;
+    (*link_local_addr)[6] = 0x00;
+    (*link_local_addr)[7] = 0x00;
+    (*link_local_addr)[8] = (*mac)[0] ^ 0x02;
+    (*link_local_addr)[9] = (*mac)[1];
+    (*link_local_addr)[10] = (*mac)[2];
+    (*link_local_addr)[11] = 0xFF;
+    (*link_local_addr)[12] = 0xFE;
+    (*link_local_addr)[13] = (*mac)[3];
+    (*link_local_addr)[14] = (*mac)[4];
+    (*link_local_addr)[15] = (*mac)[5];
 }

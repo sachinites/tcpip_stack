@@ -15,19 +15,15 @@
 typedef struct ipv6_route_ {
 
     ipv6_addr_t prefix;
-    Srv6_endpcode_t endfn;
     v6nexthop_t *nexthops[proto_nxthop_max][MAX_NXT_HOPS];
-    uint32_t spf_metric[proto_nxthop_max];
-    int nxthop_idx;
-	time_t install_time;
     glthread_t notif_glue;
     glthread_t flash_glue;
+    time_t install_time;
+    int nxthop_idx;
     uint32_t rt_ref_count;
     uint16_t nh_count;
     bool is_direct; 
     uint8_t prefix_len;
-    uint8_t rt_flags;
-    uint8_t flavor;
     
 } __attribute__((aligned(8))) ipv6_route_t;
 
@@ -54,11 +50,16 @@ ipv6_route_t*
 l3rib_v6lookup_lpm2 ( rt_table_t *v6rt_table, ipv6_addr_t *ipv6_addr);
 
 void 
- layer3_ipv6_forward_nexthop (node_t *node, ipv6_route_t *route, pkt_block_t *pkt_block);
+ layer3_ipv6_plain_forward_nexthop (node_t *node, v6nexthop_t *nexthop, pkt_block_t *pkt_block);
 
 ipv6_route_t* 
 l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, uint8_t prefix_len);
 
+ void
+layer3_ipv6_route_pkt(node_t *node,
+							    Interface *interface,
+					            pkt_block_t *pkt_block) ;
+                                
  bool 
  ipv6_route_install (node_t *node, 
                                 ipv6_addr_t *prefix,
@@ -81,3 +82,7 @@ l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, 
 
 void 
 v6_rt_table_show (rt_table_t *rt_table) ;
+
+bool 
+ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
+                                      ipv6_route_t *route);

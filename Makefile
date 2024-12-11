@@ -82,6 +82,8 @@ OBJS=gluethread/glthread.o \
 		  ipv6/ipv6_route.o \
 		  ipv6/ipv6_utils.o \
 		  ipv6/v6nexthop.o \
+		  ipv6/ipv6_fwd.o \
+		  ipv6/SRv6/SRv6-EndPoint.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -279,6 +281,10 @@ ipv6/v6nexthop.o:ipv6/v6nexthop.cpp
 	${CC} ${CFLAGS} -c ipv6/v6nexthop.cpp -o ipv6/v6nexthop.o
 ipv6/ipv6_utils.o:ipv6/ipv6_utils.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6_utils.cpp -o ipv6/ipv6_utils.o
+ipv6/ipv6_fwd.o:ipv6/ipv6_fwd.cpp
+	${CC} ${CFLAGS} -c ipv6/ipv6_fwd.cpp -o ipv6/ipv6_fwd.o
+ipv6/SRv6/SRv6-EndPoint.o:ipv6/SRv6/SRv6-EndPoint.cpp
+	${CC} ${CFLAGS} -c ipv6/SRv6/SRv6-EndPoint.cpp -o ipv6/SRv6/SRv6-EndPoint.o
 
 # Protocols Specific
 # STP

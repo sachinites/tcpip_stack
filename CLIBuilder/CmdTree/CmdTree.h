@@ -24,10 +24,10 @@ typedef struct cmd{
 } cmd_t;
 
 typedef struct leaf {
-    leaf_type_t leaf_type;
     user_validation_callback user_validation_cb_fn;
     char leaf_id[LEAF_ID_SIZE];/*Within a single command, it should be unique*/
     char reg_ex[LEAF_REG_EX_MAX_LEN];
+    leaf_type_t leaf_type;
 } leaf_t;
 
 
@@ -37,17 +37,18 @@ typedef union _param_t{
 } _param_t;
 
 struct _param_t_{
-    param_type_t param_type;
     _param_t cmd_type;
     cmd_callback callback;
     char help[PARAM_HELP_STRING_SIZE];
     struct _param_t_ *options[MAX_OPTION_SIZE];
     struct _param_t_ *parent;
     display_possible_values_callback disp_callback;
+    glthread_t glue;
+    param_type_t param_type;
     int CMDCODE;
     uint8_t flags;
-    glthread_t glue;
-};
+    char padding[3];
+} ;
 GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 
 #define GET_PARAM_CMD(param)    (param->cmd_type.cmd)

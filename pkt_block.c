@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <memory.h>
+#include <arpa/inet.h>
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "graph.h"
 #include "Layer2/layer2.h"
@@ -28,6 +29,8 @@
 #include "tcpconst.h"
 #include "pkt_block.h"
 #include "common/l3_hdrs.h"
+#include "ipv6/ipv6_hdrs.h"
+
 void
 pkt_block_mem_init () {
 
@@ -276,6 +279,39 @@ pkt_block_verify_pkt (pkt_block_t *pkt_block, hdr_type_t hdr_type) {
     return (pkt_block_get_starting_hdr (pkt_block) == hdr_type);
 }
 
+void 
+pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto) {
+
+            switch (proto) {
+                case UDP_PROTO:
+                    /* Push the payload to UDP module */
+                    pkt_block_set_starting_hdr_type(pkt_block, UDP_HDR);
+                    break;
+                case TCP_PROTO:
+                    /* Push the payload to TCP module */
+                    pkt_block_set_starting_hdr_type(pkt_block, TCP_HDR);
+                    break;
+                case ICMP_PROTO:
+                    /* Push the payload to ICMP module */
+                    pkt_block_set_starting_hdr_type(pkt_block, ICMP_HDR);
+                    break;
+                case ETH_IP:
+                    /* Push the payload to ETH module */
+                    pkt_block_set_starting_hdr_type(pkt_block, IP_HDR);
+                    break;
+                case PROTO_SRH:
+                    /* Push the payload to SRH module */
+                    pkt_block_set_starting_hdr_type(pkt_block, SRH_HDR);
+                    break;
+                case ETH_IP6:
+                    /* Push the payload to IPV6 module */
+                    pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
+                    break;
+                default:
+                    assert(0);
+            }
+}
+
 void
 tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
 
@@ -400,6 +436,20 @@ pkt_block_str (pkt_block_t *pkt_block) {
         }
         break;
 
+        case IP6_HDR:
+        {
+            int rc;
+            pkt_size_t old_pkt_size;
+            uint8_t *old_pkt = pkt_block_get_pkt(pkt_block, &old_pkt_size);
+            ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)old_pkt;
+            pkt_block_expand_buffer_left (pkt_block, 48);
+            uint8_t *ipv6_addr_str = pkt_block_get_pkt(pkt_block, NULL);
+            pkt_block_set_new_pkt(pkt_block, old_pkt, old_pkt_size);
+            rc = sprintf (ipv6_addr_str, "Dest:");
+            inet_ntop(AF_INET6, ipv6_hdr->dst_addr, ipv6_addr_str + rc, INET6_ADDRSTRLEN);
+            return (char *)ipv6_addr_str;
+        }
+        break;
         case IP_HDR:
         case IP_IN_IP_HDR:
         {

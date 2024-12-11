@@ -91,6 +91,10 @@ class Interface {
         virtual bool IsIpConfigured() ;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) ;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) ;
+        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) ;
+        virtual void InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) ;
+        virtual void InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) ;
+        virtual void InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) ;
         virtual vlan_id_t GetVlanId();
         virtual bool IsVlanTrunked (vlan_id_t vlan_id);
         virtual bool IntfConfigVlan(vlan_id_t vlan_id, bool add);
@@ -118,9 +122,10 @@ class PhysicalInterface : public Interface {
         mac_addr_t mac_add;
         char pad2[2];
         IntfL2Mode l2_mode;
-        
-       
         /* L3 properties */
+        uint8_t v6addr_link_local[16];
+        uint8_t v6addr[16];
+        uint8_t v6mask;
         uint32_t ip_addr;
         uint8_t mask;
         char pad3[1];
@@ -142,6 +147,10 @@ class PhysicalInterface : public Interface {
         virtual bool IsIpConfigured() final;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
+        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) final;
+        virtual void InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) final;
+        virtual void InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) final;
+        virtual void InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) final;
         virtual vlan_id_t GetVlanId() final;
         virtual bool IsVlanTrunked (vlan_id_t vlan_id) final;
         virtual bool IntfConfigVlan(vlan_id_t vlan_id, bool add) final;

@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
+#include <arpa/inet.h>
 #include "../common/l3_hdrs.h"
 #include "../tcpconst.h"
 #include "../utils.h"
@@ -37,6 +38,7 @@
 #include "../CLIBuilder/libcli.h"
 #include "../Layer2/transport_svc.h"
 #include "../Tracer/tracer.h"
+#include "../ipv6/ipv6_utils.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -335,13 +337,25 @@ bool Interface::IsIpConfigured()
 }
 void Interface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask)
 {
-
     cprintf ("Error : Operation %s not supported\n", __func__);
 }
 
 void Interface::InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask)
 {
     cprintf ("Error : Operation %s not supported\n", __func__);
+}
+
+void 
+Interface::InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) {
+    
+        cprintf ("Error : Operation %s not supported\n", __func__);
+        assert(0);
+}
+void 
+Interface::InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) {
+        
+            cprintf ("Error : Operation %s not supported\n", __func__);
+            assert(0);
 }
 
 vlan_id_t
@@ -455,6 +469,20 @@ Interface::IsSVI () {
     return false;
 }
 
+void 
+Interface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
+
+    cprintf ("Error : Operation %s not supported\n", __func__);
+    assert(0);
+}
+
+void 
+Interface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
+
+    cprintf ("Error : Operation %s not supported\n", __func__);
+    assert(0);
+}
+
 /* ************ PhysicalInterface ************ */
 PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add)
     : Interface(ifname, iftype)
@@ -500,6 +528,7 @@ void PhysicalInterface::PrintInterfaceDetails()
 {
 
     byte ip_addr[16];
+    char v6_addr_str[48];
 
     cprintf("MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
            this->mac_add.mac[0],
@@ -518,6 +547,10 @@ void PhysicalInterface::PrintInterfaceDetails()
     {
         cprintf("IP Addr : Not Configured\n");
     }
+
+    /* print ipv6 link local addresses */
+    inet_ntop(AF_INET6, this->v6addr_link_local, v6_addr_str, INET6_ADDRSTRLEN);
+    cprintf ("link-local : %s\n", v6_addr_str);
 
     cprintf("Vlan L2 Mode : %s\n",
         PhysicalInterface::L2ModeToString(this->l2_mode).c_str());
@@ -544,6 +577,19 @@ void PhysicalInterface::InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *ma
     *ip_addr = this->ip_addr;
     *mask = this->mask;
 }
+
+void 
+PhysicalInterface::InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) {
+        
+        ipv6_auto_generate_link_local_address(mac, &this->v6addr_link_local);
+}
+
+void 
+PhysicalInterface::InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) {
+        
+        memcpy (addr, this->v6addr_link_local, sizeof(this->v6addr_link_local));
+}
+
 
 bool PhysicalInterface::IsIpConfigured()
 {
@@ -861,6 +907,16 @@ PhysicalInterface::IsCrossReferenced() {
     return false;
 }
 
+void 
+PhysicalInterface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
+
+
+}
+
+void 
+PhysicalInterface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
+
+}
 
 /* ************ Virtual Interface ************ */
 VirtualInterface::VirtualInterface(std::string ifname, InterfaceType_t iftype)

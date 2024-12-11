@@ -44,6 +44,8 @@
 #include "c-hashtable/hashtable.h"
 #include "Interface/InterfaceUApi.h"
 #include "Tracer/tracer.h"
+#include "ipv6/ipv6_utils.h"
+#include "ipv6/ipv6_route.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -76,6 +78,25 @@ insert_link_between_two_nodes(node_t *node1,
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(link->Intf1.get());
     interface_assign_mac_address(link->Intf2.get());
+
+    /* Generate ipv6 link local address */
+    mac_addr_t *mac_addr = link->Intf1->GetMacAddr();
+    link->Intf1->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
+    
+    /* Install link local as a direct static route in ipv6 routing table*/
+    ipv6_addr_t v6_addr = {0};
+    link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
+     ipv6_route_install  (node1, 
+                        &v6_addr, 128, 
+                        0, 0, 0, 0, 0, 0, PROTO_STATIC);
+
+    
+    mac_addr = link->Intf2->GetMacAddr();
+    link->Intf2->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
+    link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
+    ipv6_route_install  (node2, 
+                        &v6_addr, 128, 
+                        0, 0, 0, 0, 0, 0, PROTO_STATIC);
 
     //intf_init_bit_rate_sampling_timer(&link->intf1);
 

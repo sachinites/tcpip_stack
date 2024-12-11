@@ -10,6 +10,7 @@ typedef struct srh_hdr_ srh_hdr_t;
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct ipv6_route_ ipv6_route_t;
+typedef struct v6nexthop_ v6nexthop_t;
 
 typedef enum Srv6_flavor_ {
 
@@ -38,7 +39,7 @@ Process_END(node_t *node,
                         pkt_block_t *orig_pkt,
                         ipv6_hdr_t *ipv6_hdr, 
                         srh_hdr_t *srh,
-                        ipv6_route_t *route) ;
+                        v6nexthop_t *nexthop) ;
 
 void
 Process_END_X (node_t *node, 
@@ -46,7 +47,7 @@ Process_END_X (node_t *node,
                         pkt_block_t *orig_pkt,
                         ipv6_hdr_t *ipv6_hdr, 
                         srh_hdr_t *srh,
-                        ipv6_route_t *route) ;
+                        v6nexthop_t *nexthop) ;
 
 void
 Process_Srv6_Packet (
@@ -54,13 +55,13 @@ Process_Srv6_Packet (
                         Interface* recv_intf,
                         pkt_block_t *orig_pkt,
                         ipv6_hdr_t *ipv6_hdr, 
-                        srh_hdr_t *srh);
-
-ipv6_addr_t 
-Srv6_self_locator (node_t *node);
+                        srh_hdr_t *srh,
+                        v6nexthop_t *nexthop) ;
 
 pkt_block_t *
-Srv6_apply_flavor (node_t *node, pkt_block_t *orig_pkt, Srv6_flavor_t flavor, uint8_t segments_left);
+Srv6_apply_flavor (node_t *node, 
+                                pkt_block_t *orig_pkt, 
+                                uint8_t flavor, uint8_t segments_left);
 
 void 
 SRv6_process_payload (node_t *node, pkt_block_t *pkt_block);
@@ -81,8 +82,12 @@ Srv6_apply_endpoint_fn (
         pkt_block_t *pkt_block, 
         ipv6_hdr_t *ipv6_hdr, 
         srh_hdr_t *srh, 
-        Srv6_endpcode_t endfn,
-        ipv6_route_t *route);
+        v6nexthop_t *nexthop);
 
+const char *
+end_fn_str(Srv6_endpcode_t end_fn);
+
+const char *
+flavor_str(uint8_t flavors);
 
 #endif // __INET_SRv6ENDPOINT_H

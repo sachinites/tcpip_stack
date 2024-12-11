@@ -71,7 +71,7 @@ ipv6_config_handler
                     ipv6_route_install (node, 
                                                     &prefix,
                                                     prefix_len,
-                                                    V6RT_F_LOCAL,
+                                                    0,
                                                     &gw,
                                                     intf,
                                                     0, (Srv6_endpcode_t)0, 0,

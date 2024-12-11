@@ -40,12 +40,14 @@ typedef enum{
 
     ETH_HDR,
     IP_HDR,
+    IP6_HDR,
     ARP_HDR,
     ICMP_HDR,
     TCP_HDR,
     UDP_HDR,
     IP_IN_IP_HDR,
     GRE_HDR,
+    SRH_HDR,
     MISC_APP_HDR
 } hdr_type_t;
 
@@ -57,7 +59,9 @@ typedef uint16_t pkt_size_t;
 #define PROTO_ARP         806
 #define BROADCAST_MAC   0xFFFFFFFFFFFF
 #define ETH_IP          0x0800
+#define ETH_IP6         0x29
 #define ICMP_PROTO        1
+#define PROTO_SRH    43
 #define TCP_PROTO 0x6
 #define UDP_PROTO   0x11
 #define GRE_PROTO 47
@@ -68,6 +72,7 @@ typedef uint16_t pkt_size_t;
 #define USERAPP1        21
 #define VLAN_8021Q_PROTO    0x8100
 #define PROTO_IP_IN_IP        4
+#define PROTO_IP6_IN_IP6    41
 #define NMP_HELLO_MSG_CODE	13 /*Randomly chosen*/
 #define INTF_MAX_METRIC     16777215 /*Choosen as per the standard = 2^24 -1*/
 #define INTF_METRIC_DEFAULT 1
@@ -102,6 +107,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"arp";
         case ETH_IP:
             return (unsigned char *)"ip";
+        case ETH_IP6:
+            return (unsigned char *)"ip6";
         case ICMP_PROTO:
             return (unsigned char *)"icmp";
         case TCP_PROTO:
@@ -138,6 +145,7 @@ tcpip_protocol_classification(uint16_t proto) {
     switch(proto) {
 
         case ETH_IP:
+        case ETH_IP6:
             return NETWORK_LAYER;
         case ICMP_PROTO:
             return APPLICATION_LAYER;
@@ -162,6 +170,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
         return PROTO_GRE_ENCAP_ETHERNET;
     case IP_HDR:
         return ETH_IP;
+    case IP6_HDR:
+        return ETH_IP6;
     case ARP_HDR:
         return PROTO_ARP;
     case ICMP_HDR:

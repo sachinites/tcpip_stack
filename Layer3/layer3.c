@@ -69,6 +69,11 @@ rt_table_add_route_to_notify_list (
                 l3_route_t *l3route,
                 uint8_t flag);
 
+extern  void
+layer3_ipv6_route_pkt (node_t *node,
+							          Interface *interface,
+					                  pkt_block_t *pkt_block) ;
+                                      
 /*L3 layer recv pkt from below Layer 2. Layer 2 hdr has been
  * chopped off already.*/
 bool
@@ -978,6 +983,13 @@ _layer3_pkt_recv_from_layer2(node_t *node,
                 pkt_ip(pkt_block, ip_addr_str));
 
             layer3_ip_route_pkt(node, interface, pkt_block);
+            break;
+        case ETH_IP6:
+            pkt_block_set_new_pkt( pkt_block,
+                    (uint8_t *)pkt_block_get_ip_hdr(pkt_block),
+                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD + ETH_FCS_SIZE);
+            pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
+            layer3_ipv6_route_pkt(node, interface, pkt_block);            
             break;
         default:
             ;

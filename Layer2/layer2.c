@@ -58,6 +58,11 @@ extern void
 l2_switch_recv_frame(Interface *interface,
                      char *pkt, uint32_t pkt_size);
 
+extern void 
+l2_forward_ipv6_packet(node_t *node,  
+                                        c_string outgoing_intf,
+                                        pkt_block_t *pkt_block);
+
 extern void
 promote_pkt_to_layer3(node_t *node, Interface *interface,
                          pkt_block_t *pkt_block,
@@ -274,6 +279,13 @@ demote_pkt_to_layer2 (node_t *node, /*Current node*/
                                                     pkt_block); 
             }
         break;
+            case IP6_HDR:
+            {
+                l2_forward_ipv6_packet(node, 
+                                                        outgoing_intf,
+                                                        pkt_block); 
+            }
+            break;
         default:
             ;
     }
@@ -431,6 +443,7 @@ promote_pkt_to_layer2(
 
         case ETH_IP:
         case PROTO_IP_IN_IP:
+        case ETH_IP6:
             promote_pkt_to_layer3(node, iif, 
                     pkt_block,
                     ethernet_hdr->type);

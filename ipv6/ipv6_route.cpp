@@ -59,13 +59,6 @@ l3rib_v6lookup_lpm2 ( rt_table_t *v6rt_table, ipv6_addr_t *ipv6_addr) {
     return (ipv6_route_t *)mnode->data;
 }
 
-
-void 
- layer3_ipv6_forward_nexthop (node_t *node, ipv6_route_t *route, pkt_block_t *pkt_block) {
-
-
- }
-
 ipv6_route_t* 
 l3rib_v6route_lookup_exact_match ( 
                     rt_table_t *v6rt_table, 
@@ -138,85 +131,71 @@ l3rib_v6route_lookup_exact_match (
         memcpy (route->prefix.addr, prefix->addr, 16);
         route->is_direct = true;
         route->prefix_len = prefix_len;
-        route->spf_metric[proto_id] = spf_metric;
         route->nh_count = 0;
         route->install_time = time(NULL);
         route->rt_ref_count = 0;
-        route->endfn = endfn;
-        route->flavor = srv6_flavor;
         route->nxthop_idx = 0;
-        route->rt_flags = rt_flags;
         init_glthread(&route->notif_glue);
         init_glthread(&route->flash_glue);
         new_route = true;
     }
 
-    if (!new_route)  {
-        
-        nexthop = v6nexthop_find (route->nexthops[proto_id], 
-            gw, oif ? oif->ifindex : 0, proto, NULL);
-        
-        if (nexthop) {
-            cprintf ("Route with this Nexthop already exists\n");
-            return false;
-        }
-
-        if (route->nh_count >= MAX_NXT_HOPS) {
-            cprintf ("Max nexthops reached for this route\n");
-            return false;
-        }
+    if (!new_route && route->nh_count ==MAX_NXT_HOPS) {
+        cprintf ("Max nexthops reached for this route\n");
+        return false;
     }
 
-    if (!nexthop) {
+    if (oif || (proto == PROTO_SRv6)) {
 
         nexthop = new v6nexthop_t;
         nexthop->ifindex = oif ? oif->ifindex : 0;
-        if (gw) memcpy (nexthop->gw.addr, gw->addr, 16);
+        if (gw)
+            memcpy(nexthop->gw.addr, gw->addr, 16);
         nexthop->proto = proto;
         nexthop->oif = oif ? oif->GetSharedPtr() : nullptr;
         nexthop->ref_count = 0;
         nexthop->hit_count = 0;
-        v6nh_insert_new_nexthop_nh_array (route->nexthops[proto_id], nexthop);
-        route->nh_count++;
         route->is_direct = false;
+
+        if (proto == PROTO_SRv6)
+        {
+            nexthop->u.srv6.metric = spf_metric;
+            nexthop->u.srv6.endfn = endfn;
+            nexthop->u.srv6.srv6_flavors = srv6_flavor;
+            nexthop->u.srv6.flags = rt_flags;
+        }
     }
 
-    if (!new_route)
-        return true;
+    /* Handle direct routes */
+    if (new_route && !nexthop) {
+        return ipv6_add_route_to_rib  (rt_table, route);
+    }
 
-    mtrie_node_t *mnode;
-    bitmap_t prefix_bm, mask_bm;
-    mtrie_ops_result_code_t rc;
+    int index;
+    int res = v6nh_is_nexthop_exist_in_nh_array (
+            route->nexthops[proto_id], nexthop, &index) ;
 
-    bitmap_init(&prefix_bm, 128);
-    bitmap_init(&mask_bm, 128);
-
-    memcpy(prefix_bm.bits, prefix->addr, 16);
-    for (int i = 0; i < prefix_len; i++)
-        bitmap_set_bit_at(&mask_bm, i);
-    bitmap_inverse (&mask_bm, 128);
-
-   // cprintf ("Prefix to be inserted\n");
-   // bitmap_prefix_print (&prefix_bm, &mask_bm, 128);
-
-    rc = mtrie_insert_prefix(&rt_table->route_list,
-                             &prefix_bm,
-                             &mask_bm,
-                             128,
-                             &mnode);
-
-    bitmap_free_internal(&prefix_bm);
-    bitmap_free_internal(&mask_bm);
-
-    if (rc != MTRIE_INSERT_SUCCESS){
-        cprintf ("Error : Route insertion failed, ret code = %d\n", rc);
+    switch (res)
+    {
+    case 0:
+        cprintf("Error : Nexthop already exists\n");
+        delete nexthop;
         return false;
+    case -1:
+        v6nh_insert_new_nexthop_nh_array(
+            route->nexthops[proto_id], nexthop);
+        route->nh_count++;
+        break;
+    case 1:
+        /* Replace the nexthop*/
+        delete route->nexthops[proto_id][index];
+        route->nexthops[proto_id][index] = nullptr;
+        route->nexthops[proto_id][index] = nexthop;
+        break;
     }
 
-    mnode->data = (void *)route;
-    l3_v6route_inc_ref_count(route);
-    route->install_time = time(NULL);
-    return true;
+    if (!new_route) return true;
+    return ipv6_add_route_to_rib  (rt_table, route);
 }
 
  bool 
@@ -288,6 +267,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
     char *oif_name;
     glthread_t *curr = NULL;
     mtrie_node_t *mnode;
+    v6nexthop_t *nexthop;
     ipv6_route_t *route = NULL;
     nxthop_proto_id_t nxthop_proto;
 
@@ -308,7 +288,10 @@ v6_rt_table_show (rt_table_t *rt_table) {
                 if (!route->nexthops[nxthop_proto][i])
                     continue;
 
-                cprintf (" Proto : %s\n",  proto_name_str(route->nexthops[nxthop_proto][i]->proto));
+                nexthop = route->nexthops[nxthop_proto][i];
+
+                cprintf (" Proto : %s\n",  proto_name_str(nexthop->proto));
+
                 switch (nxthop_proto)
                 {
                     case proto_nxthop_static:
@@ -316,20 +299,59 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     break;
                     case proto_nxthop_srv6:
                         cprintf (" SRv6 End Function : %s (%s)\n", 
-                            end_fn_str(route->endfn), flavor_str(route->flavor));
+                            end_fn_str(nexthop->u.srv6.endfn), 
+                            flavor_str(nexthop->u.srv6.srv6_flavors));
                     break;
                 }
 
-                //cprintf (" Gateway : %s\n", inet_ntop6(&route->nexthops[nxthop_proto][i]->gw, buffer1));
+                if (is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
+                    cprintf (" Gateway : %s\n", inet_ntop6(&nexthop->gw, buffer1));
+                }
 
-                oif_name = route->nexthops[nxthop_proto][i]->oif ? \
-                    (char *)route->nexthops[nxthop_proto][i]->oif->if_name.c_str() : NULL;
+                if (nexthop->oif) {
+                    cprintf (" OIF : %s\n", nexthop->oif->if_name.c_str());
+                }
 
-                cprintf(" OIF : %s\n", oif_name ? oif_name : "null");
-                cprintf (" Hit Count : %llu\n", route->nexthops[nxthop_proto][i]->hit_count);
+                cprintf (" Hit Count : %llu\n\n", route->nexthops[nxthop_proto][i]->hit_count);
             }
         }
-        cprintf ("\n");
+        
     } ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr);
     
 } 
+
+bool 
+ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
+                                      ipv6_route_t *route) {
+
+    mtrie_node_t *mnode;
+    bitmap_t prefix_bm, mask_bm;
+    mtrie_ops_result_code_t rc;
+
+    bitmap_init(&prefix_bm, 128);
+    bitmap_init(&mask_bm, 128);
+
+    memcpy(prefix_bm.bits, &route->prefix.addr, 16);
+    for (int i = 0; i < route->prefix_len; i++)
+        bitmap_set_bit_at(&mask_bm, i);
+    bitmap_inverse (&mask_bm, 128);
+
+    rc = mtrie_insert_prefix(&v6_rt_table->route_list,
+                             &prefix_bm,
+                             &mask_bm,
+                             128,
+                             &mnode);
+
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&mask_bm);
+
+    if (rc != MTRIE_INSERT_SUCCESS){
+        cprintf ("Error : Route insertion failed, ret code = %d\n", rc);
+        return false;
+    }
+
+    mnode->data = (void *)route;
+    l3_v6route_inc_ref_count(route);
+    route->install_time = time(NULL);
+    return true;
+}
