@@ -81,11 +81,9 @@ layer3_ipv6_plain_forward_nexthop(node_t *node, v6nexthop_t *nexthop, pkt_block_
     if (!oif) return;
 
     ipv6_addr_t v6_addr = {0};
-    uint8_t prefix_len;
+    oif->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
 
-    oif->InterfaceGetIpv6AddressMask(&v6_addr.addr, &prefix_len);
-
-    /* If the ipv6 hdr do not have any src address yet, because it is locally generated pkt, use OIF ipv6 address */
+    /* If the ipv6 hdr do not have any src address yet, because it is locally generated pkt, use OIF ipv6 link local address */
     if (is_ipv6_addr_unspecified (&ipv6_hdr->src_addr) && 
         !is_ipv6_addr_unspecified (&v6_addr.addr)) {
 
@@ -150,7 +148,7 @@ layer3_ipv6_route_pkt (node_t *node,
 
         switch (ipv6_hdr->next_header) {
 
-            case ICMP_PROTO:
+            case ICMP6_PROTO:
                 /* ICMP packet */
                  cprintf("IP6 Address : %s, ping success\n", dst_addr_str);
                 return;
@@ -265,3 +263,27 @@ l2_forward_ipv6_packet(node_t *node,
 
     oif->SendPacketOut(pkt_block);
 } 
+
+void
+np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block) {
+
+    pkt_size_t pkt_size;
+    char ip6_addr_str[48];
+
+    assert (pkt_block_verify_pkt (pkt_block, IP6_HDR));
+
+    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block,  &pkt_size);
+
+    /* This API expects that IP-HDR must have following fields set */
+    assert (ipv6_hdr->next_header);
+
+    // Src IP may or may not be set already. If not set, we will determine it
+    //assert (ip_hdr->src_ip);
+
+    assert (!is_ipv6_addr_unspecified (&ipv6_hdr->dst_addr));
+
+    tracer (node->dptr, DL3FWD, "Dest : %s : NP Recvd Routing Request\n", 
+        pkt_block_str(pkt_block));
+
+    layer3_ipv6_route_pkt (node, NULL, pkt_block); 
+}

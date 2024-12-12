@@ -57,6 +57,9 @@
 #include "common/l3_hdrs.h"
 #include "common/l2_hdrs.h"
 #include "common/cp2dp.h"
+#include "ipv6/ipv6_hdrs.h"
+#include "ipv6/SRv6/Srv6.h"
+#include "ipv6/SRv6/SRv6-EndPoint.h"
 
 #include "tcpconst.h"
 #include "graph.h"
@@ -70,6 +73,7 @@
 #include "Layer4/udp.h"
 #include "Layer5/layer5.h"
 #include "utils.h"
+#include "ipv6/ipv6_utils.h"
 #include "comm.h"
 #include "tcp_ip_trace.h"
 #include "cmdcodes.h"

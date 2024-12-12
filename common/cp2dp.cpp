@@ -9,27 +9,48 @@
 #include "../pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
+#include "../ipv6/ipv6_hdrs.h"
+extern void
+np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
 
-static void 
-np_recv_cp_pkt_block (node_t *node, dp_msg_t *dp_msg) {
-
+static void
+np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
+{
     pkt_block_t *pkt_block;
+    hdr_type_t hdr_type;
 
     pkt_block = *(pkt_block_t **)dp_msg->data;
 
-    switch (dp_msg->opr_type) {
+    switch (dp_msg->opr_type)
+    {
 
-        case DP_L3_NORTHBOUND_IN:
-            assert (pkt_block_verify_pkt (pkt_block, IP_HDR));
-            np_tcp_ip_send_ip_data (node, pkt_block);
+    case DP_L3_NORTHBOUND_IN:
+    {
+        hdr_type = pkt_block_get_starting_hdr(pkt_block);
+
+        switch (hdr_type)
+        {
+
+        case IP_HDR:
+            np_tcp_ip_send_ip_data(node, pkt_block);
+            break;
+        case IP6_HDR:
+            np_tcp_ip_send_ip6_data(node, pkt_block);
             break;
         default:
             break;
+        }
+    }
+    break;
+
+    default:
+        break;
     }
 
     pkt_block_dereference(pkt_block);
-    cp2dp_msg_free (dp_msg);
+    cp2dp_msg_free(dp_msg);
 }
+
 
 static void 
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
@@ -141,6 +162,41 @@ cp2dp_send_ip_data ( node_t *node,
     ip_hdr->dst_ip = dest_ip_addr;
     ip_hdr->total_length = 
         IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN((pkt_size - sizeof (ip_hdr_t)));
+    dp_msg_t *dp_msg = cp2dp_msg_alloc ();
+    dp_msg->component_type = PKT_BLOCK;
+    dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(pkt_block_t *);
+    memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
+    pkt_block_reference(pkt_block);
+    cp2dp_submit (node, dp_msg, true);
+    pkt_block_dereference(pkt_block);
+}
+
+/* Write the ipv6 equivalent function of cp2dp_send_ip_data( )*/
+void 
+cp2dp_send_ip6_data ( node_t *node, 
+                                    pkt_block_t *pkt_block,
+                                    ipv6_addr_t dest_ip_addr,
+                                    uint16_t std_ip_protocol) 
+{
+    if (!pkt_block) {
+        pkt_block = pkt_block_get_new_pkt_buffer(sizeof(ipv6_hdr_t));
+    }
+    else {
+        pkt_block_expand_buffer_left (pkt_block, sizeof (ipv6_hdr_t));
+    }
+
+    pkt_block_set_starting_hdr_type (pkt_block, IP6_HDR);
+
+    pkt_size_t pkt_size;
+    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+
+    initialize_ipv6_hdr (ipv6_hdr);
+
+    ipv6_hdr->next_header = std_ip_protocol;
+    memcpy (ipv6_hdr->dst_addr, dest_ip_addr.addr, 16);
+
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = PKT_BLOCK;
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;

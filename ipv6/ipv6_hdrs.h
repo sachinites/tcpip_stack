@@ -2,6 +2,7 @@
 #define __INET_IPV6_HDRS_H
 
 #include <stdint.h>
+#include <memory.h>
 
 typedef struct ipv6_addr_ {
     uint8_t addr[16];
@@ -26,6 +27,7 @@ typedef struct ipv6_hdr_ {
 
 static inline bool 
 is_ipv6_addr_unspecified (uint8_t (*addr)[16]) {
+
     for (int i = 0; i < 16; i++) {
         if ((*addr)[i] != 0)
             return false;
@@ -33,5 +35,17 @@ is_ipv6_addr_unspecified (uint8_t (*addr)[16]) {
     return true;
 }
 
+static inline void 
+ initialize_ipv6_hdr (ipv6_hdr_t *ipv6_hdr) {
+
+    ipv6_hdr->version = 6;
+    ipv6_hdr->traffic_class = 0;
+    ipv6_hdr->flow_label = 0;
+    ipv6_hdr->payload_length = 0;
+    ipv6_hdr->next_header = 0;
+    ipv6_hdr->hop_limit = 64;
+    memset (ipv6_hdr->src_addr, 0, 16);
+    memset (ipv6_hdr->dst_addr, 0, 16);
+ }
 
 #endif // __INET_IPV6_HDRS_H

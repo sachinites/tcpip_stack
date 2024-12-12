@@ -7,6 +7,7 @@ typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t; 
 
 #include "../Interface/InterfaceFwd.h"
+#include "../ipv6/ipv6_hdrs.h"
 
 #define CP2DP_MSG_SIZE_MAX  256
 
@@ -65,6 +66,12 @@ void
 cp2dp_send_ip_data ( node_t *node, 
                                     pkt_block_t *pkt_block,
                                     uint32_t dest_ip_addr,
+                                    uint16_t std_ip_protocol) ;
+
+void 
+cp2dp_send_ip6_data ( node_t *node, 
+                                    pkt_block_t *pkt_block,
+                                    ipv6_addr_t dest_ip_addr,
                                     uint16_t std_ip_protocol) ;
 
 #endif 

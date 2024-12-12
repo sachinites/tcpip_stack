@@ -74,6 +74,8 @@ extern void show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
+extern void 
+ipv6_build_cli_run_tree (param_t *root) ;
 
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
@@ -980,6 +982,9 @@ nw_init_cli(){
 				cli_register_application_cli_trees(&protocol, 
 						cli_register_cb_arr_run_node_node_name_protocol_level);
 			}
+
+            /* Mount ping6 CLI here*/
+            ipv6_build_cli_run_tree (&node_name);
 
             {
                 /*run node <node-name> ping */

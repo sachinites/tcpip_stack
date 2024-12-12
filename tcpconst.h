@@ -61,6 +61,7 @@ typedef uint16_t pkt_size_t;
 #define ETH_IP          0x0800
 #define ETH_IP6         0x29
 #define ICMP_PROTO        1
+#define ICMP6_PROTO    58
 #define PROTO_SRH    43
 #define TCP_PROTO 0x6
 #define UDP_PROTO   0x11
@@ -127,6 +128,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"ip-in-ip";
         case PROTO_SRv6:
             return (unsigned char *)"srv6";
+        case PROTO_SRH:
+            return (unsigned char *)"srh";
         default:
             return NULL;
     }
