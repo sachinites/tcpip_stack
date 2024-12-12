@@ -59,7 +59,7 @@ l2_switch_recv_frame(Interface *interface,
                      char *pkt, uint32_t pkt_size);
 
 extern void 
-l2_forward_ipv6_packet(node_t *node,  
+pkt_xmit_on_interface(node_t *node,  
                                         c_string outgoing_intf,
                                         pkt_block_t *pkt_block);
 
@@ -281,7 +281,7 @@ demote_pkt_to_layer2 (node_t *node, /*Current node*/
         break;
             case IP6_HDR:
             {
-                l2_forward_ipv6_packet(node, 
+                pkt_xmit_on_interface(node, 
                                                         outgoing_intf,
                                                         pkt_block); 
             }

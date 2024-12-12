@@ -298,9 +298,10 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     case proto_nxthop_isis:
                     break;
                     case proto_nxthop_srv6:
-                        cprintf (" SRv6 End Function : %s (%s)\n", 
+                        cprintf (" SRv6 End Function : %s (%s), flags : %d\n", 
                             end_fn_str(nexthop->u.srv6.endfn), 
-                            flavor_str(nexthop->u.srv6.srv6_flavors));
+                            flavor_str(nexthop->u.srv6.srv6_flavors),
+                            nexthop->u.srv6.flags);
                     break;
                 }
 

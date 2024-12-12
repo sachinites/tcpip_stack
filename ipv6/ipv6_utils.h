@@ -14,4 +14,7 @@ void
 ipv6_auto_generate_link_local_address(
         unsigned char(*mac)[6], uint8_t (*link_local_addr)[16]);
 
+bool ipv6_address_is_subnet(uint8_t (*prefix)[16], uint8_t prefix_len, 
+                                                uint8_t (*prefix_to_be_checked)[16]) ;
+                                                
 #endif 

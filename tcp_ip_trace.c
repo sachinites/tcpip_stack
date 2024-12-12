@@ -27,6 +27,9 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
         case ETH_IP:
             string_copy((char *)string_buffer, "ETH_IP", strlen("ETH_IP"));
             break;
+        case ETH_IP6:
+            string_copy((char *)string_buffer, "ETH_IP6", strlen("ETH_IP6"));
+            break;
         case PROTO_ARP:
             string_copy((char *)string_buffer, "ARP_MSG", strlen("ARP_MSG"));
             break;
@@ -39,7 +42,7 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
 				strlen("NMP_HELLO_MSG_CODE"));
 			break;
         default:
-            sprintf((char *)string_buffer, "L2 Proto : %hu", type);
+            sprintf((char *)string_buffer, "L2-Proto : %hu", type);
             break;
     }
     return string_buffer;
@@ -69,6 +72,9 @@ string_ip_hdr_protocol_val(uint16_t type,   c_string string_buffer){
         case ICMP_PROTO:
             string_copy((char *)string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
             break;
+        case ICMP6_PROTO:
+            string_copy((char *)string_buffer, "ICMP6_PROTO", strlen("ICMP6_PROTO"));
+            break;
         case UDP_PROTO:
              string_copy((char *)string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
              break;
@@ -96,27 +102,6 @@ static int
 tcp_dump_appln_hdr_protocol_icmp(c_string buff, c_string appln_data, uint32_t pkt_size){
 
     return 0;
-}
-
-static int 
-tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkst_size) {
-
-    int rc = 0;
-    char ipv6_addr_str[48];
-
-    rc += sprintf((char *)buffer + rc,  "SRH Hdr : Nxt Hdr %s, Hdr_len %d, SL : %d\n", 
-                        proto_name_str(srh_hdr->nexthdr), 
-                        srh_hdr->hdrlen, 
-                        srh_hdr->segments_left);
-
-    /* Encode Segment List */
-    for (int i = 0; i <= srh_hdr->segments_left; i++) {
-
-        inet_ntop(AF_INET6, srh_hdr->segments[i], ipv6_addr_str, INET6_ADDRSTRLEN);
-        rc += sprintf((char *)buffer + rc, "Seg %d : %s\n", i, ipv6_addr_str);
-    }
-
-    return rc;
 }
 
 static int 
@@ -169,14 +154,15 @@ tcp_dump_ip6_hdr(c_string buff, ipv6_hdr_t *ipv6_hdr, pkt_size_t pkt_size){
     inet_ntop(AF_INET6, ipv6_hdr->dst_addr, ipv62, INET6_ADDRSTRLEN);
 
      rc +=  sprintf((char *)(buff + rc), "IP6 Hdr : ");
-     rc +=  sprintf((char *)(buff + rc), "TL: %dB PRO: %s %s -> %s ttl: %d\n", 
+     rc +=  sprintf((char *)(buff + rc), "TL: %dB PRO: %s  %s -> %s ttl: %d\n", 
                       sizeof(ipv6_hdr_t) + ipv6_hdr->payload_length,
                       string_ip_hdr_protocol_val(ipv6_hdr->next_header, string_buffer),
                       ipv61, ipv62, ipv6_hdr->hop_limit);
 
     byte *appln_data = (byte *)(ipv6_hdr + 1);
     pkt_block = pkt_block_get_new(appln_data, pkt_size - sizeof (ipv6_hdr_t));
-    rc += tcp_dump_application_hdr (buff, ipv6_hdr->next_header, pkt_block) ;
+    rc += tcp_dump_application_hdr (buff + rc, ipv6_hdr->next_header, pkt_block) ;
+
     XFREE(pkt_block);
 
     return rc;
@@ -262,8 +248,8 @@ tcp_dump_ethernet_hdr(char *buff,
     unsigned short type = vlan_8021q_hdr ? vlan_eth_hdr->type :\
                             eth_hdr->type;
 
-    rc += sprintf(buff + rc, "Eth hdr : ");
-    rc += sprintf(buff + rc, "%02x:%02x:%02x:%02x:%02x:%02x -> "
+    rc += sprintf (buff + rc, "Eth hdr : ");
+    rc += sprintf (buff + rc, "%02x:%02x:%02x:%02x:%02x:%02x -> "
                         "%02x:%02x:%02x:%02x:%02x:%02x %-4s Vlan: %d PL: %dB\n",
             eth_hdr->src_mac.mac[0],
             eth_hdr->src_mac.mac[1],
@@ -345,6 +331,55 @@ tcp_dump_gre_hdr(char *buff,
     return rc;
 }
 
+static int 
+tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size) {
+
+    int rc = 0;
+    char ipv6_addr_str[48];
+
+    rc += sprintf((char *)buffer + rc,  "SRH Hdr : Nxt Hdr %s, Hdr_len %d, SL : %d\n", 
+                        proto_name_str(srh_hdr->nexthdr), 
+                        srh_hdr->hdrlen, 
+                        srh_hdr->segments_left);
+
+    /* Encode Segment List */
+    for (int i = 0; i <= srh_hdr->segments_left; i++) {
+
+        inet_ntop(AF_INET6, srh_hdr->segments[i], ipv6_addr_str, INET6_ADDRSTRLEN);
+        rc += sprintf((char *)buffer + rc, "Seg %d : %s\n", i, ipv6_addr_str);
+    }
+
+    /* SRH header can encode any header */
+    switch (srh_hdr->nexthdr)
+    {
+        case ETH_HDR:
+            rc += tcp_dump_ethernet_hdr(buffer + rc,
+                                        (ethernet_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
+                                        pkt_size - srh_hdr->hdrlen);
+            break;
+        case IP_HDR:
+            rc += tcp_dump_ip_hdr(buffer + rc,
+                                (ip_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
+                                pkt_size - srh_hdr->hdrlen);
+            break;
+        case IP6_HDR:
+            rc += tcp_dump_ip6_hdr(buffer + rc,
+                                (ipv6_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
+                                pkt_size - srh_hdr->hdrlen);
+            break;
+        case GRE_HDR:
+            rc += tcp_dump_gre_hdr(buffer + rc,
+                                (gre_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
+                                    pkt_size - srh_hdr->hdrlen);
+            break;
+        default:
+            break;
+    }
+
+    return rc;
+}
+
+
 static void 
 tcp_write_data(int sock_fd, 
                FILE *log_file1, FILE *log_file2, 
@@ -414,6 +449,10 @@ tcp_dump(int sock_fd,
             rc = tcp_dump_ip_hdr(out_buff + write_OFFset, 
                 (ip_hdr_t *)pkt, pkt_size);
             break;
+        case IP6_HDR:
+            rc = tcp_dump_ip6_hdr(out_buff + write_OFFset, 
+                (ipv6_hdr_t *)pkt, pkt_size);
+            break;
         case GRE_HDR:
             rc = tcp_dump_gre_hdr (out_buff + write_OFFset, 
                 (gre_hdr_t *)pkt, pkt_size);
@@ -478,11 +517,11 @@ tcp_dump_recv_logger(
                         "\n%s(%s) <-- \n", 
                         node->node_name, intf->if_name.c_str());
 
-        tcp_dump(sock_fd,                  /*Write the log to the FD*/
+        tcp_dump(sock_fd,          /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
-                pkt_block,            /*Pkt and Pkt size to be written in log file*/
-                 hdr_type,                 /*Starting hdr type of the pkt*/
+                pkt_block,               /*Pkt and Pkt size to be written in log file*/
+                 hdr_type,                /*Starting hdr type of the pkt*/
                  TCP_GET_NODE_RECV_LOG_BUFFER(node),    /*Buffer into which the formatted output 
                                               is to be written*/
                  rc,                       /*write OFFset*/

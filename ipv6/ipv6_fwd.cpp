@@ -11,12 +11,6 @@
 #include "../Layer2/layer2.h"
 
 extern void
-promote_pkt_to_layer4(node_t *node,
-                      Interface *recv_intf,
-                      pkt_block_t *pkt_block,
-                      int L4_protocol_number);
-
-extern void
 demote_pkt_to_layer2 (node_t *node, 
                                        uint32_t next_hop_ip,   
                                       c_string outgoing_intf,
@@ -100,7 +94,7 @@ layer3_ipv6_plain_forward_nexthop(node_t *node, v6nexthop_t *nexthop, pkt_block_
     }
 
     tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
-        pkt_block_str(pkt_block), oif->if_name.c_str() );
+        pkt_block_str(pkt_block), oif->if_name.c_str() , "::");
 
     tcp_dump_l3_fwding_logger(node,  (c_string)oif->if_name.c_str(), 0);
 
@@ -146,61 +140,14 @@ layer3_ipv6_route_pkt (node_t *node,
         tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", 
             pkt_block_str(pkt_block));
 
-        switch (ipv6_hdr->next_header) {
+         pkt_block_set_new_pkt(pkt_block, 
+                                                (uint8_t *) (ipv6_hdr + 1),
+                                                pkt_size - sizeof (ipv6_hdr_t));
 
-            case ICMP6_PROTO:
-                /* ICMP packet */
-                 cprintf("IP6 Address : %s, ping success\n", dst_addr_str);
-                return;
-
-            case TCP_PROTO:
-                /* TCP packet */
-                pkt_block_set_new_pkt(pkt_block, 
-                                        (uint8_t *) (ipv6_hdr + 1),
-                                        pkt_size - sizeof (ipv6_hdr_t));
-                pkt_block_set_starting_hdr_type(pkt_block, TCP_HDR);
-                promote_pkt_to_layer4(
-                                node, interface,
-                                pkt_block,
-                                TCP_HDR);
-                return;
-
-            case UDP_PROTO:
-                /* UDP packet */
-                pkt_block_set_new_pkt(pkt_block,
-                                      (uint8_t *)(ipv6_hdr + 1),
-                                      pkt_size - sizeof(ipv6_hdr_t));
-                pkt_block_set_starting_hdr_type(pkt_block, UDP_HDR);
-                promote_pkt_to_layer4(
-                                node, interface,
-                                pkt_block,
-                                UDP_HDR);
-                return;
-
-            case GRE_PROTO:
-                /* GRE packet */
-                break;
-
-            case ETH_IP6:
-                /* IPV6 packet */
-                break;
-
-            case PROTO_SRH:
-                /* SRH packet */
-                Process_Srv6_Packet (node,
-                                interface, 
-                                pkt_block, 
-                                ipv6_hdr, 
-                                (srh_hdr_t *)(ipv6_hdr + 1) , 0);
-                return;
-
-            default:
-                tracer (node->dptr, DL3FWD, "Pkt : %s :  Pkt is being subjected to Layer 5\n", 
-                    pkt_block_str(pkt_block));
-                return;
-        }
+        pkt_block_update_new_hdr_type (pkt_block, ipv6_hdr->next_header);
+        SRv6_process_payload (node, pkt_block) ;
+        return;
     }
-
 
     /* If route has a nexthop */
     v6nexthop_t *nexthop = l3_v6route_get_active_nexthop(route);
@@ -224,7 +171,9 @@ layer3_ipv6_route_pkt (node_t *node,
     if (nexthop->proto == PROTO_SRv6 ) {
 
         /* Do SRv6 forwarding */
-        Process_Srv6_Packet (node, interface, pkt_block, 
+        Process_Srv6_Packet (node, 
+                                            interface, 
+                                            pkt_block, 
                                             ipv6_hdr, 
                                             ipv6_hdr->next_header == PROTO_SRH ? \
                                                  (srh_hdr_t *)(ipv6_hdr + 1) : NULL, 
@@ -234,33 +183,39 @@ layer3_ipv6_route_pkt (node_t *node,
 }
 
 
-/* Attach Eth hdr and forward the pkt out of interface. Skip ARP/ND for ipv6 */
+/* Attach Eth hdr and forward the pkt out of interface. Payload could be anything,
+    not necessarily ip or ip6 */
 void 
-l2_forward_ipv6_packet(node_t *node,  
+pkt_xmit_on_interface(node_t *node,  
                                         c_string outgoing_intf,
                                         pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
+
+    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);    
 
     tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
 
     ethernet_hdr_t *empty_ethernet_hdr =
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     
-    empty_ethernet_hdr->type = ETH_IP6;
+    empty_ethernet_hdr->type = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
+
+    if (empty_ethernet_hdr->type == 0) {
+
+        tracer (node->dptr, DL2FWD | DERR, "Pkt : %s :  Pkt Dropped : Unknown L3 protocol\n", 
+            pkt_block_str(pkt_block));
+        return;
+    }
 
     Interface *oif = node_get_intf_by_name(node, (char *)outgoing_intf);
 
-    if (!oif) return;
-
     /* Src MAC = MAC of OIF*/
     memcpy(empty_ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
-
     /* Dest MAC as MAC broadcast address */
     memset(empty_ethernet_hdr->dst_mac.mac, 0xFF, MAC_ADDR_SIZE);
-
+    
     SET_COMMON_ETH_FCS(empty_ethernet_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, 0);
-
     oif->SendPacketOut(pkt_block);
 } 
 

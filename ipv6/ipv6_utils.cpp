@@ -40,3 +40,27 @@ ipv6_auto_generate_link_local_address(
     (*link_local_addr)[14] = (*mac)[4];
     (*link_local_addr)[15] = (*mac)[5];
 }
+
+/* Returns true if the ipv6 address 'prefix' lies in subnet of 'locator'/prefix_len */
+bool ipv6_address_is_subnet(uint8_t (*prefix)[16], uint8_t prefix_len, 
+                                                uint8_t (*prefix_to_be_checked)[16]) {
+    // The number of full bytes we need to consider based on prefix_len
+    uint8_t full_bytes = prefix_len / 8;
+    uint8_t remaining_bits = prefix_len % 8;
+
+    // Compare the full bytes first
+    if (memcmp(*prefix_to_be_checked, *prefix, full_bytes) != 0) {
+        return false; // The full byte parts do not match
+    }
+
+    // If there are remaining bits, mask them and compare
+    if (remaining_bits > 0) {
+        uint8_t mask = 0xFF << (8 - remaining_bits);
+        if (( (*prefix_to_be_checked)[full_bytes] & mask) != ((*prefix)[full_bytes] & mask)) {
+            return false; // The remaining bits do not match
+        }
+    }
+
+    // If all the checks passed, the locator is within the subnet
+    return true;
+}

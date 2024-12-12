@@ -40,4 +40,7 @@ isis_run_cli_tree(param_t *param) ;
 int
 isis_debug_cli_tree(param_t *param) ;
 
+int
+srv6_build_global_config_cli_tree (param_t *root) ;
+
 #endif /* __APP_HANDLERS__ */

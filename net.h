@@ -82,6 +82,14 @@ typedef struct node_nw_prop_{
     bool is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
 
+    /* Spring*/
+    struct {
+        uint8_t locator[16];
+        uint8_t prefix_len;
+        uint8_t padding[7];
+        char locator_name[64]; 
+    } srv6_locator;
+
     /*Sending Buffer*/
     c_string send_log_buffer; /*Used for logging */
     /* Receiving Buffer */ 
@@ -114,6 +122,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(node, &(node_nw_prop->rt_table));
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
+    node_nw_prop->srv6_locator.locator_name[0] = '\0';
     node_assign_router_mac (node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);

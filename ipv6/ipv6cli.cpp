@@ -138,18 +138,12 @@ ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     node = node_get_node_by_name(topo, node_name);
 
-    if (!node) {
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
-
     ipv6_addr_t dst_addr;
     inet_pton6((char *)ipv6_addr, &dst_addr);
 
     cp2dp_send_ip6_data (node, NULL, dst_addr, ICMP6_PROTO);
     return 0;
 }
-
 
 void 
 ipv6_build_cli_tree (param_t *root)

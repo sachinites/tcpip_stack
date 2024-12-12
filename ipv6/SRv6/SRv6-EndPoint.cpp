@@ -6,12 +6,25 @@
 #include "../ipv6_route.h"
 #include "../../graph.h"
 #include "../../pkt_block.h"
+#include "../../Tracer/tracer.h"
+#include "../../Interface/InterfaceUApi.h"
 
 extern void 
 layer3_ipv6_plain_forward_nexthop(
                 node_t *node, 
                 v6nexthop_t *nexthop, 
                 pkt_block_t *pkt_block);
+
+extern void
+promote_pkt_to_layer4(node_t *node,
+                      Interface *recv_intf,
+                      pkt_block_t *pkt_block,
+                      int L4_protocol_number);
+
+extern void 
+pkt_xmit_on_interface(node_t *node,  
+                                        c_string outgoing_intf,
+                                        pkt_block_t *pkt_block) ;
 
 extern v6nexthop_t *
 l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
@@ -170,8 +183,6 @@ Process_END(node_t *node,
         pkt_block_t *flavored_pkt = Srv6_apply_flavor(
                 node, pkt_block, nexthop->u.srv6.srv6_flavors, srh->segments_left);
 
-        pkt_block_reference(flavored_pkt);
-
         uint8_t flavor = nexthop->u.srv6.srv6_flavors;
 
         switch (flavor) {
@@ -195,7 +206,18 @@ Process_END(node_t *node,
                 }
 
                 nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-                layer3_ipv6_plain_forward_nexthop(node, nexthop2, flavored_pkt);
+
+                if (!nexthop2->oif) {
+
+                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
+                        pkt_block_str(flavored_pkt));
+                    drop_packet;
+                }
+
+                /* We must L2 forward the pkt here since payload could be pkt of any type */
+                pkt_xmit_on_interface(node, 
+                                                        (c_string)nexthop2->oif->if_name.c_str(),
+                                                        flavored_pkt); 
                 break;
 
              /* Only destinations implement USD */
@@ -211,7 +233,6 @@ Process_END(node_t *node,
                 layer3_ipv6_plain_forward_nexthop(node, nexthop2, flavored_pkt);
         }
 
-        pkt_block_dereference(flavored_pkt);
         return;
     }
 
@@ -280,8 +301,19 @@ Process_END_X (node_t *node,
 
             case PSD:
                 /*Router has removed outer ipv6_hdr and SRH header. Payload must be pushed to
-                next router along the adjacency segment */
-                layer3_ipv6_plain_forward_nexthop(node, x_v6nexthop, flavored_pkt);
+                next router along the adjacency segment using L2 forwarding*/
+                if (!x_v6nexthop->oif) {
+
+                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
+                        pkt_block_str(flavored_pkt));
+                    drop_packet;
+                }
+
+                /* We must L2 forward the pkt here since payload could be pkt of any type */
+                pkt_xmit_on_interface(node, 
+                                                        (c_string)x_v6nexthop->oif->if_name.c_str(),
+                                                        flavored_pkt); 
+
                 break;
 
              /* Only destinations implement USD */
@@ -347,7 +379,9 @@ Srv6_apply_flavor (node_t *node,
             memcpy (&ipv6_hdr_copy, ipv6_hdr, sizeof(ipv6_hdr_t));
             srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
             ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
-            memcpy (&ipv6_hdr->dst_addr, &dst_addr.addr, 16);
+            memcpy (&ipv6_hdr_copy.dst_addr, &dst_addr.addr, 16);
+            ipv6_hdr_copy.next_header = srh->nexthdr;
+             ipv6_hdr_copy.payload_length -= srh->hdrlen;
             byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
             pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
             pkt_block_expand_buffer_left (orig_pkt, sizeof(ipv6_hdr_t));
@@ -409,14 +443,27 @@ SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
     /* Inject the pakcet into data path pipelines again as appropriate */
     switch (hdr_type) {
 
-        case ETH_IP:
+        case IP_HDR:
              layer3_ip_route_pkt(node, NULL, pkt_block);
              return;
-        case ETH_IP6:
+        case IP6_HDR:
             layer3_ipv6_route_pkt(node, NULL, pkt_block);
             return;
+        case ICMP6_HDR:
+            cprintf("ipv6 ping success\n");
+        break;
+        case TCP_HDR:
+            promote_pkt_to_layer4(node, NULL, pkt_block, TCP_HDR);
+            return;
+        case UDP_HDR:
+            promote_pkt_to_layer4(node, NULL, pkt_block, UDP_HDR);
+            return;
+        case GRE_HDR:
+            break;
+        case SRH_HDR:
+            break;
         default:
-            cprintf ("%s() : SRv6 payload handler missing \n");
+            cprintf ("%s : SRv6 payload handler missing \n", node->node_name);
             break;
     }
 }

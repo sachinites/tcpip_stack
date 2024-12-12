@@ -179,10 +179,13 @@ cp2dp_send_ip6_data ( node_t *node,
                                     ipv6_addr_t dest_ip_addr,
                                     uint16_t std_ip_protocol) 
 {
+    pkt_size_t ipv6_payload_size = 0;
+
     if (!pkt_block) {
         pkt_block = pkt_block_get_new_pkt_buffer(sizeof(ipv6_hdr_t));
     }
     else {
+        ipv6_payload_size = pkt_block->pkt_size;
         pkt_block_expand_buffer_left (pkt_block, sizeof (ipv6_hdr_t));
     }
 
@@ -194,6 +197,7 @@ cp2dp_send_ip6_data ( node_t *node,
     initialize_ipv6_hdr (ipv6_hdr);
 
     ipv6_hdr->next_header = std_ip_protocol;
+    ipv6_hdr->payload_length =  ipv6_payload_size;
     memcpy (ipv6_hdr->dst_addr, dest_ip_addr.addr, 16);
 
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
