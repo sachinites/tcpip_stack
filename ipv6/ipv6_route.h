@@ -61,7 +61,7 @@ layer3_ipv6_route_pkt(node_t *node,
 					            pkt_block_t *pkt_block) ;
                                 
  bool 
- ipv6_route_install (node_t *node, 
+ dp_ipv6_route_install (node_t *node, 
                                 ipv6_addr_t *prefix,
                                 uint8_t prefix_len,
                                 uint8_t rt_flags,
@@ -73,7 +73,7 @@ layer3_ipv6_route_pkt(node_t *node,
                                 uint16_t proto_id);
 
  bool 
- ipv6_route_delete (node_t *node, 
+ dp_ipv6_route_uninstall (node_t *node, 
                                 ipv6_addr_t *prefix,
                                 uint8_t prefix_len,
                                 ipv6_addr_t *gw,

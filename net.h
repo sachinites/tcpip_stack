@@ -93,9 +93,6 @@ typedef struct node_nw_prop_{
     /*Device level Appln DS*/
     nmp_t *nmp;
     void *isis_node_info;
-
-	/* Traffic generation */
-	glthread_t traffic_gen_db_head;
 } node_nw_prop_t;
 
 extern void init_arp_table(arp_table_t **arp_table);
@@ -122,7 +119,6 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
     init_tcp_logging(node);
-	init_glthread(&(node_nw_prop->traffic_gen_db_head));
 }
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)

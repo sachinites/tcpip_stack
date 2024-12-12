@@ -43,6 +43,7 @@ typedef enum{
     IP6_HDR,
     ARP_HDR,
     ICMP_HDR,
+    ICMP6_HDR,
     TCP_HDR,
     UDP_HDR,
     IP_IN_IP_HDR,

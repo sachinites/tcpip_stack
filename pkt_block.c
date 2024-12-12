@@ -170,6 +170,40 @@ pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
      return NULL;
 }
 
+ipv6_hdr_t *
+pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) {
+
+    ipv6_hdr_t *ipv6_hdr;
+    ethernet_hdr_t *eth_hdr;
+
+     if (pkt_block->hdr_type == ETH_HDR) {
+
+         eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
+
+         if (eth_hdr->type == ETH_IP6 ) {
+
+             return (ipv6_hdr_t *)eth_hdr->payload;
+         }
+         return NULL;
+     }
+
+     else if (pkt_block->hdr_type == IP6_HDR) {
+
+         return (ipv6_hdr_t *) (pkt_block->pkt);
+     }
+
+     else if (pkt_block->hdr_type == GRE_HDR) {
+
+         gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
+
+         if (gre_hdr->protocol_type == ETH_IP6) {
+             return (ipv6_hdr_t *)(gre_hdr + 1);
+         }
+     }
+
+     return NULL;
+}
+
 arp_hdr_t *
 pkt_block_get_arp_hdr (pkt_block_t *pkt_block) {
 
@@ -294,6 +328,9 @@ pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto) {
                 case ICMP_PROTO:
                     /* Push the payload to ICMP module */
                     pkt_block_set_starting_hdr_type(pkt_block, ICMP_HDR);
+                case ICMP6_PROTO:
+                    /* Push the payload to ICMP module */
+                    pkt_block_set_starting_hdr_type(pkt_block, ICMP6_HDR);
                     break;
                 case ETH_IP:
                     /* Push the payload to ETH module */
@@ -317,7 +354,6 @@ tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
     pkt_size_t new_pkt_size;
-
     /* No use case of encapsulating ethernet hdr inside ethernet hdr */
     assert (pkt_block_get_starting_hdr (pkt_block) != ETH_HDR);
     uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);

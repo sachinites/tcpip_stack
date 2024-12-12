@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include "Layer3/gre-tunneling/gre.h"
 #include "Interface/InterfaceFwd.h"
+#include "ipv6/ipv6_hdrs.h"
 
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
@@ -77,6 +78,9 @@ pkt_block_get_arp_hdr(pkt_block_t *pkt_block);
 
 ip_hdr_t *
 pkt_block_get_ip_hdr(pkt_block_t *pkt_block);
+
+ipv6_hdr_t *
+pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) ;
 
 void
 pkt_block_free_internals (pkt_block_t *pkt_block);

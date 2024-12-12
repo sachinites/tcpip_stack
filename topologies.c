@@ -51,10 +51,14 @@ graph_t *vlan_extension_topo(void);
 
 graph_t *standalone_node_topology(void) {
 
-    graph_t *topo = create_new_graph("StandAlone Topo");
+    graph_t *topo = create_new_graph("Stand-Alone Topo");
     node_t *R0 = create_graph_node(topo, (const c_string)"R0");
+    node_set_loopback_address(R0, "122.1.1.1");
     node_t *R1 = create_graph_node(topo, (const c_string)"R1");
-    insert_link_between_two_nodes(R0, R1, "eth0\0", "eth0\0", 10);
+    node_set_loopback_address(R1, "122.1.1.2");
+    insert_link_between_two_nodes(R0, R1, "eth0", "eth0", 10);
+    node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
+    node_set_intf_ip_address(R1, "eth0", "10.1.1.2", 24);
     return topo;
 }
 
@@ -250,6 +254,11 @@ run node R1 ping 122.1.1.3
     return topo;
 }
 
+#if 0
+
+  H1 -eth1--------------eth1- H2 -eth2----------------eth1-H3 -eth2----------------eth1- H4
+ 
+#endif 
 
 graph_t *
 build_linear_topo(void){
@@ -270,10 +279,11 @@ build_linear_topo(void){
     node_set_loopback_address(H3, "122.1.1.4");
 
     node_set_intf_ip_address(H1, "eth1", "10.1.1.1", 24);
-    //node_set_intf_ip_address(H2, "eth2", "10.1.1.2", 24);
-    //node_set_intf_ip_address(H2, "eth3", "20.1.1.2", 24);
-    //node_set_intf_ip_address(H3, "eth4", "20.1.1.1", 24);
-    node_set_intf_ip_address(H4, "eth1", "10.1.1.2", 24);
+    node_set_intf_ip_address(H2, "eth1", "10.1.1.2", 24);
+    node_set_intf_ip_address(H2, "eth2", "20.1.1.2", 24);
+    node_set_intf_ip_address(H3, "eth1", "20.1.1.1", 24);
+    node_set_intf_ip_address(H3, "eth2", "30.1.1.2", 24);
+    node_set_intf_ip_address(H4, "eth1", "30.1.1.1", 24);
 
     return topo;
 }

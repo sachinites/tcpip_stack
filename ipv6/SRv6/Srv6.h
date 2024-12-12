@@ -13,7 +13,7 @@ typedef struct srh_hdr_ {
     uint8_t first_segment;
     uint8_t flags;
     uint16_t tag;
-    uint8_t segments[16][16];
+    uint8_t segments[0][16];
     
 } srh_hdr_t;
 #pragma pack(pop)

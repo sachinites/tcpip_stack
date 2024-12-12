@@ -986,7 +986,7 @@ _layer3_pkt_recv_from_layer2(node_t *node,
             break;
         case ETH_IP6:
             pkt_block_set_new_pkt( pkt_block,
-                    (uint8_t *)pkt_block_get_ip_hdr(pkt_block),
+                    (uint8_t *)pkt_block_get_ip6_hdr(pkt_block),
                     pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD + ETH_FCS_SIZE);
             pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
             layer3_ipv6_route_pkt(node, interface, pkt_block);            

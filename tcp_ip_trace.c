@@ -110,7 +110,7 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkst_size
                         srh_hdr->segments_left);
 
     /* Encode Segment List */
-    for (int i = 0; i < srh_hdr->segments_left; i++) {
+    for (int i = 0; i <= srh_hdr->segments_left; i++) {
 
         inet_ntop(AF_INET6, srh_hdr->segments[i], ipv6_addr_str, INET6_ADDRSTRLEN);
         rc += sprintf((char *)buffer + rc, "Seg %d : %s\n", i, ipv6_addr_str);

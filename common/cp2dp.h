@@ -15,17 +15,34 @@ typedef struct pkt_block_ pkt_block_t;
 typedef struct rt_update_msg_ {
 
     uint32_t prefix;
-    uint8_t   mask;
     uint32_t gateway;
     uint32_t ifindex;
     uint32_t metric;
     uint16_t proto_id;
+    uint8_t   mask;
+    char padding[3];
 
 } rt_update_msg_t;
+
+typedef struct rt6_update_msg_ {
+
+    uint8_t prefix[16];
+    uint8_t gateway[16];
+    uint32_t ifindex;
+    uint32_t metric;
+    uint16_t proto_id;
+    uint16_t srv6_end_fn;
+    uint8_t   prefix_len;
+    uint8_t rt_flags;
+    uint8_t srv6_flavor;
+    char padding[1];
+
+} rt6_update_msg_t;
 
 typedef enum DP_COMPONENT_TYPE_ {
 
     RT_TABLE_IPV4,
+    RT_TABLE_IPV6,
     PKT_BLOCK
 
 } DP_COMPONENT_TYPE_T;

@@ -86,7 +86,7 @@ insert_link_between_two_nodes(node_t *node1,
     /* Install link local as a direct static route in ipv6 routing table*/
     ipv6_addr_t v6_addr = {0};
     link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-     ipv6_route_install  (node1, 
+     dp_ipv6_route_install  (node1, 
                         &v6_addr, 128, 
                         0, 0, 0, 0, 0, 0, PROTO_STATIC);
 
@@ -94,7 +94,7 @@ insert_link_between_two_nodes(node_t *node1,
     mac_addr = link->Intf2->GetMacAddr();
     link->Intf2->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
     link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-    ipv6_route_install  (node2, 
+    dp_ipv6_route_install  (node2, 
                         &v6_addr, 128, 
                         0, 0, 0, 0, 0, 0, PROTO_STATIC);
 

@@ -1,9 +1,14 @@
+#include <arpa/inet.h>
 #include "../../CLIBuilder/libcli.h"
 #include "../../graph.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "SRv6-EndPoint.h"
 #include "../ipv6_utils.h"
 #include "../ipv6_route.h"
+#include "../ipv6_hdrs.h"
+#include "../../pkt_block.h"
+#include "Srv6.h"
+#include "../../common/cp2dp.h"
 
 extern graph_t *topo;
 
@@ -13,7 +18,8 @@ extern graph_t *topo;
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> [flavor [psp|usp|usd]]*/
 #define IPV6_SRV6_ADJ_SID_CONFIG  2
 
-
+/* run node <node-name> ping6 srv6 <seg1> <seg2> <seg3> <seg4> . . .  */
+#define CMDCODE_PING6_SRV6 3
 
 static int
 srv6_prefix_sid_config_handler 
@@ -75,7 +81,7 @@ srv6_prefix_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_install (node, 
+            dp_ipv6_route_install (node, 
                                 &prefix,
                                 prefix_len,
                                 SRV6_LOCAL_RT,
@@ -90,7 +96,7 @@ srv6_prefix_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_delete (node, 
+            dp_ipv6_route_uninstall (node, 
                                 &prefix,
                                 prefix_len,
                                 NULL,
@@ -172,7 +178,7 @@ srv6_adjacency_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_install (node, 
+            dp_ipv6_route_install (node, 
                                 &prefix,
                                 prefix_len,
                                 SRV6_LOCAL_RT,
@@ -187,7 +193,7 @@ srv6_adjacency_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_delete (node, 
+            dp_ipv6_route_uninstall (node, 
                                 &prefix,
                                 prefix_len,
                                 NULL,
@@ -264,4 +270,70 @@ srv6_build_cli_tree (param_t *root)
         }
 
     }
+}
+
+
+static int
+srv6_ping6_handler
+                    (int cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable) {
+
+    int i = 0;
+    node_t *node;
+    c_string node_name;
+    c_string ipv6_addr_str[16];
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "segment"))
+            ipv6_addr_str[i++] = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    pkt_size_t srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
+    pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer (srh_hdr_size);
+    pkt_block_set_starting_hdr_type (pkt_block, SRH_HDR);
+    srh_hdr_t *srh_hdr = (srh_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
+
+    srh_hdr->nexthdr = ICMP6_PROTO;
+    srh_hdr->hdrlen = srh_hdr_size;
+    srh_hdr->type = 4;
+    srh_hdr->segments_left = i -1;
+    srh_hdr->first_segment = 0;
+    srh_hdr->flags = 0;
+    srh_hdr->tag = 0;
+
+    for (int j = 0; j < i; j++)  
+        inet_pton(AF_INET6, (const char *)ipv6_addr_str[j], srh_hdr->segments[i - j - 1]);
+
+    ipv6_addr_t dest_addr;
+    memcpy (dest_addr.addr, srh_hdr->segments[0], 16);
+
+    cp2dp_send_ip6_data (node, pkt_block, dest_addr, ICMP6_PROTO);
+    pkt_block_dereference (pkt_block);
+    return 0;
+}
+
+/* run node <node-name> ping6 srv6 <seg1> <seg2> <seg3> <seg4> . . .  */
+void 
+srv6_build_cli_run_tree (param_t *root)
+{
+        {
+            static param_t srv6;
+            init_param(&srv6, CMD, "srv6", NULL, NULL, INVALID, NULL, "SRv6 Ping");
+            libcli_register_param(root, &srv6);
+            {
+                static param_t seg;
+                init_param(&seg, LEAF, NULL, srv6_ping6_handler, NULL, IPV6, "segment", "SRv6 Segment");
+                libcli_register_param(&srv6, &seg);
+                libcli_set_param_cmd_code(&seg, CMDCODE_PING6_SRV6);
+                libcli_param_recursive (&seg);
+            }
+        }
 }

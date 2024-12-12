@@ -9,7 +9,7 @@
 extern graph_t *topo;
 extern void  srv6_build_cli_tree (param_t *root);
 extern void display_node_interfaces (param_t *param, Stack_t *tlv_stack);
-
+extern void srv6_build_cli_run_tree (param_t *root);
 
 /* config node <node-name> [no] ipv6 route <ipv6-address> <mask> <nexthop ip> <oif-name>*/
 #define IPV6_RT_CONFIG  1
@@ -70,7 +70,7 @@ ipv6_config_handler
                     ipv6_addr_t gw = {0};
                     inet_pton6 ((char *)ipv6_addr, &prefix);
                     if (gw_ip) inet_pton6 ((char *)gw_ip, &gw);
-                    ipv6_route_install (node, 
+                    dp_ipv6_route_install (node, 
                                                     &prefix,
                                                     prefix_len,
                                                     0,
@@ -87,7 +87,7 @@ ipv6_config_handler
                     ipv6_addr_t gw = {0};
                     inet_pton6 ((char *)ipv6_addr, &prefix);
                     if (gw_ip) inet_pton6 ((char *)gw_ip, &gw);
-                    ipv6_route_delete (node, 
+                    dp_ipv6_route_uninstall (node, 
                                                     &prefix,
                                                     prefix_len,
                                                     &gw,
@@ -164,7 +164,7 @@ ipv6_build_cli_tree (param_t *root)
             libcli_register_param(&ipv6, &route);
             {
                 static param_t ipv6_addr;
-                init_param(&ipv6_addr, LEAF, NULL, NULL, NULL, STRING, "ipv6-address", "IPv6 Address");
+                init_param(&ipv6_addr, LEAF, NULL, NULL, NULL, IPV6, "ipv6-address", "IPv6 Address");
                 libcli_register_param(&route, &ipv6_addr);
                 {
                     static param_t mask;
@@ -204,12 +204,16 @@ ipv6_build_cli_run_tree (param_t *root)
         init_param(&ping6, CMD, "ping6", 0, 0, INVALID, 0, "ipv6 Ping utility");
         libcli_register_param(root, &ping6);
         {
-            /*run node <node-name> ping <ipv6-address>*/
+            /*run node <node-name> ping6 <ipv6-address>*/
             static param_t ipv6_addr;
-            init_param(&ipv6_addr, LEAF, 0, ping6_handler, 0, STRING, "ipv6-address", "Ipv6 Address");
+            init_param(&ipv6_addr, LEAF, 0, ping6_handler, 0, IPV6, "ipv6-address", "Ipv6 Address");
             libcli_register_param(&ping6, &ipv6_addr);
             libcli_set_param_cmd_code(&ipv6_addr, CMDCODE_PING6);
         }
+
+        /* Mount SRV6 ping */
+        srv6_build_cli_run_tree (&ping6);
+        
     }
     
 }

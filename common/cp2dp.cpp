@@ -170,7 +170,6 @@ cp2dp_send_ip_data ( node_t *node,
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
     pkt_block_reference(pkt_block);
     cp2dp_submit (node, dp_msg, true);
-    pkt_block_dereference(pkt_block);
 }
 
 /* Write the ipv6 equivalent function of cp2dp_send_ip_data( )*/
@@ -205,7 +204,6 @@ cp2dp_send_ip6_data ( node_t *node,
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
     pkt_block_reference(pkt_block);
     cp2dp_submit (node, dp_msg, true);
-    pkt_block_dereference(pkt_block);
 }
 
 void 

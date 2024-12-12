@@ -309,7 +309,7 @@ ipv6_addr_t
 srv6_srh_get_destination_segment (srh_hdr_t *srh) {
 
     ipv6_addr_t dst_addr;
-    memcpy (&dst_addr.addr, &srh->segments[0], 16);
+    memcpy (&dst_addr.addr, srh->segments[0], 16);
     return dst_addr;
 }
 
