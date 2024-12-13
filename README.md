@@ -25,6 +25,8 @@ Project 9 : Implement a prototype of a routing protocol ( IGP )
 
 Project 10 : GRE Tunnel Support
 
+Project 11 : SRV6 Data Path Implemented. End Fn Supported : END, END-X
+
 After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
