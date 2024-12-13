@@ -58,11 +58,6 @@ extern void
 l2_switch_recv_frame(Interface *interface,
                      char *pkt, uint32_t pkt_size);
 
-extern void 
-pkt_xmit_on_interface(node_t *node,  
-                                        c_string outgoing_intf,
-                                        pkt_block_t *pkt_block);
-
 extern void
 promote_pkt_to_layer3(node_t *node, Interface *interface,
                          pkt_block_t *pkt_block,
@@ -161,6 +156,24 @@ l2_forward_ip_packet(node_t *node,
     pkt_size_t ethernet_payload_size = 
         pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
 
+    /* Handling L2 forwarding for any payload other than ipv4. Sinply,
+        encap the pkt within ethernet hdr with dst mac as broadcast mac */
+    if (ethernet_hdr->type != ETH_IP) {
+
+        oif = node_get_intf_by_name(node, outgoing_intf);
+
+        if (!oif) {
+            cprintf ("Error : Failed to get OIF for ipv6 forwarding\n");
+            return;
+        }
+
+        layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
+        memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
+        SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
+        oif->SendPacketOut(pkt_block);
+        return;
+    }
+
     tcp_ip_covert_ip_n_to_p(next_hop_ip, (c_string)next_hop_ip_str);
 
     if(outgoing_intf) {
@@ -249,46 +262,23 @@ l2_forward_ip_packet(node_t *node,
  * this API. For example, An application can run directly on L2 bypassing
  * L3 altogether.*/
 void
-demote_pkt_to_layer2 (node_t *node, /*Current node*/ 
-                                       uint32_t next_hop_ip,   /*If pkt is forwarded to next router, 
-                                                                                then this is Nexthop IP address (gateway) 
-                                                                                provided by L3 layer. L2 need to resolve ARP for this IP address*/
-                                      c_string outgoing_intf,    /* The oif obtained from L3 lookup if L3 
-                                                                                has decided to forward the pkt. If NULL, 
-                                                                                then L2 will find the appropriate interface*/
-                                      pkt_block_t *pkt_block, /*Higher Layers payload*/
-                                      hdr_type_t hdr_type) {   /*Higher Layer need to tell L2 
-                                                                                what value need to be feed in eth_hdr->type field*/
+demote_pkt_to_layer2 (node_t *node,
+                                       uint32_t next_hop_ip,
+                                      c_string outgoing_intf,
+                                      pkt_block_t *pkt_block,
+                                      hdr_type_t hdr_type) {
 
-     pkt_size_t pkt_size;
-     
-    switch (hdr_type){
+     tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
 
-        case IP_HDR:
-        case IP_IN_IP_HDR:
-            {
-                tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
+     ethernet_hdr_t *empty_ethernet_hdr =
+         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
-                ethernet_hdr_t *empty_ethernet_hdr = 
-                        (ethernet_hdr_t *) pkt_block_get_pkt (pkt_block, &pkt_size);
-                empty_ethernet_hdr->type = ETH_IP;
+     empty_ethernet_hdr->type = tcp_ip_convert_internal_proto_to_std_proto(hdr_type);
 
-                l2_forward_ip_packet(node, 
-                                                    next_hop_ip, 
-                                                    outgoing_intf,
-                                                    pkt_block); 
-            }
-        break;
-            case IP6_HDR:
-            {
-                pkt_xmit_on_interface(node, 
-                                                        outgoing_intf,
-                                                        pkt_block); 
-            }
-            break;
-        default:
-            ;
-    }
+     l2_forward_ip_packet(node,
+                          next_hop_ip,
+                          outgoing_intf,
+                          pkt_block);
 }
 
 /*Vlan Management Routines*/

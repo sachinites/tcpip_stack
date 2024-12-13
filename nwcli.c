@@ -470,15 +470,6 @@ clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 
-extern void
-rt_table_delete_route(rt_table_t *rt_table,
-        c_string ip_addr, char mask, uint16_t proto);
-extern void
-rt_table_add_route(rt_table_t *rt_table,
-        const char *dst, char mask,
-        const char *gw, Interface *oif, uint32_t spf_metric,
-        uint16_t proto);
-
 static int
 l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
@@ -891,11 +882,13 @@ nw_init_cli(){
                      libcli_set_param_cmd_code(&log_status, CMDCODE_DEBUG_SHOW_LOG_STATUS);
                  }
                  {
+                    #if 0
                     /*show node <node-name> spf-result*/
                     static param_t spf_result;
                     init_param(&spf_result, CMD, "spf-result", spf_algo_handler, 0, INVALID, 0, "SPF Results");
                     libcli_register_param(&node_name, &spf_result);
                     libcli_set_param_cmd_code(&spf_result, CMDCODE_SHOW_SPF_RESULTS);
+                    #endif
                  }
                  {
                     /*show node <node-name> arp*/
@@ -953,11 +946,13 @@ nw_init_cli(){
         init_param(&spf, CMD, "spf", 0, 0, INVALID, 0, "Shortest SPF Path");
         libcli_register_param(run, &spf);
         {
+            #if 0
             /*run spf all*/
             static param_t all;
             init_param(&all, CMD, "all" , spf_algo_handler, 0, INVALID, 0, "All nodes");
             libcli_register_param(&spf, &all);
             libcli_set_param_cmd_code(&all, CMDCODE_RUN_SPF_ALL);
+            #endif
         }
     }
 

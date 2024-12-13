@@ -45,7 +45,7 @@ void
 init_tcp_ip_stack(){
 
 	event_dispatcher_run(&gev_dis);   
-    init_spf_algo();
+    //init_spf_algo();
 	isis_one_time_registration();
 	gre_one_time_registration();
 	network_start_pkt_receiver_thread();

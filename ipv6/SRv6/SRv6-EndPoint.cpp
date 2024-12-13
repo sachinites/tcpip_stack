@@ -10,7 +10,7 @@
 #include "../../Interface/InterfaceUApi.h"
 
 extern void 
-layer3_ipv6_plain_forward_nexthop(
+ipv6_layer3_forward_nexthop(
                 node_t *node, 
                 v6nexthop_t *nexthop, 
                 pkt_block_t *pkt_block);
@@ -21,10 +21,12 @@ promote_pkt_to_layer4(node_t *node,
                       pkt_block_t *pkt_block,
                       int L4_protocol_number);
 
-extern void 
-pkt_xmit_on_interface(node_t *node,  
-                                        c_string outgoing_intf,
-                                        pkt_block_t *pkt_block) ;
+extern void
+demote_pkt_to_layer2 (node_t *node,
+                                       uint32_t next_hop_ip,
+                                      c_string outgoing_intf,
+                                      pkt_block_t *pkt_block,
+                                      hdr_type_t hdr_type);
 
 extern v6nexthop_t *
 l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
@@ -65,7 +67,7 @@ Process_Srv6_remote_packet (
         flavor_applied = true;
     }
 
-    layer3_ipv6_plain_forward_nexthop(node, nexthop, pkt_block);
+    ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);
 
     if (flavor_applied )  pkt_block_dereference(pkt_block);
 }
@@ -170,7 +172,7 @@ Process_END(node_t *node,
                                             NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
         
         nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-        layer3_ipv6_plain_forward_nexthop(node, nexthop2, pkt_block);
+        ipv6_layer3_forward_nexthop(node, nexthop2, pkt_block);
         return;
     }
     
@@ -191,7 +193,7 @@ Process_END(node_t *node,
                 nxt_route = l3rib_v6lookup_lpm(
                                             NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
                 nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-                layer3_ipv6_plain_forward_nexthop(node, nexthop2, flavored_pkt);
+                ipv6_layer3_forward_nexthop(node, nexthop2, flavored_pkt);
                 break;
 
             case PSD:
@@ -214,10 +216,9 @@ Process_END(node_t *node,
                     drop_packet;
                 }
 
-                /* We must L2 forward the pkt here since payload could be pkt of any type */
-                pkt_xmit_on_interface(node, 
-                                                        (c_string)nexthop2->oif->if_name.c_str(),
-                                                        flavored_pkt); 
+                demote_pkt_to_layer2 (node, 0,
+                                                    (c_string)nexthop2->oif->if_name.c_str(), flavored_pkt,
+                                                    pkt_block_get_starting_hdr(flavored_pkt));
                 break;
 
              /* Only destinations implement USD */
@@ -230,7 +231,7 @@ Process_END(node_t *node,
                 nxt_route = l3rib_v6lookup_lpm(
                                             NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
                 nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-                layer3_ipv6_plain_forward_nexthop(node, nexthop2, flavored_pkt);
+                ipv6_layer3_forward_nexthop(node, nexthop2, flavored_pkt);
         }
 
         return;
@@ -267,7 +268,7 @@ Process_END_X (node_t *node,
         this case, remove outer ipv6 header and push the packet out of Interface. */
     if (!srh) {
         Srv6_decapsulate (node, orig_pkt);
-        layer3_ipv6_plain_forward_nexthop(node, x_v6nexthop, orig_pkt);
+        ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
         return;
     }
 
@@ -280,7 +281,7 @@ Process_END_X (node_t *node,
 
         srh->segments_left -= 1;
         Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-        layer3_ipv6_plain_forward_nexthop(node, x_v6nexthop, orig_pkt);
+        ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
         return;
 }
 
@@ -296,7 +297,7 @@ Process_END_X (node_t *node,
 
             case PSP:
                 /* Push the packet along the directly attached link*/
-                layer3_ipv6_plain_forward_nexthop(node, x_v6nexthop, flavored_pkt);
+                ipv6_layer3_forward_nexthop(node, x_v6nexthop, flavored_pkt);
                 break;
 
             case PSD:
@@ -309,10 +310,9 @@ Process_END_X (node_t *node,
                     drop_packet;
                 }
 
-                /* We must L2 forward the pkt here since payload could be pkt of any type */
-                pkt_xmit_on_interface(node, 
-                                                        (c_string)x_v6nexthop->oif->if_name.c_str(),
-                                                        flavored_pkt); 
+                demote_pkt_to_layer2 (node, 0,
+                                                    (c_string)x_v6nexthop->oif->if_name.c_str(), flavored_pkt,
+                                                    pkt_block_get_starting_hdr(flavored_pkt));
 
                 break;
 
@@ -323,7 +323,7 @@ Process_END_X (node_t *node,
             default:
                 srh->segments_left--;
                 Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-                layer3_ipv6_plain_forward_nexthop(node, x_v6nexthop, flavored_pkt);
+                ipv6_layer3_forward_nexthop(node, x_v6nexthop, flavored_pkt);
         }
 
         pkt_block_dereference(flavored_pkt);
@@ -334,7 +334,7 @@ Process_END_X (node_t *node,
         emit the payload out of connected interface  */
     assert (srh->segments_left == 0);
     Srv6_decapsulate(node, orig_pkt);
-    layer3_ipv6_plain_forward_nexthop(node, x_v6nexthop, orig_pkt);
+    ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
 }
 
 ipv6_addr_t 

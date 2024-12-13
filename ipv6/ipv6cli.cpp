@@ -70,7 +70,7 @@ ipv6_config_handler
                     ipv6_addr_t gw = {0};
                     inet_pton6 ((char *)ipv6_addr, &prefix);
                     if (gw_ip) inet_pton6 ((char *)gw_ip, &gw);
-                    dp_ipv6_route_install (node, 
+                    ipv6_route_install (node,
                                                     &prefix,
                                                     prefix_len,
                                                     0,
@@ -87,7 +87,7 @@ ipv6_config_handler
                     ipv6_addr_t gw = {0};
                     inet_pton6 ((char *)ipv6_addr, &prefix);
                     if (gw_ip) inet_pton6 ((char *)gw_ip, &gw);
-                    dp_ipv6_route_uninstall (node, 
+                    ipv6_route_uninstall (node,
                                                     &prefix,
                                                     prefix_len,
                                                     &gw,

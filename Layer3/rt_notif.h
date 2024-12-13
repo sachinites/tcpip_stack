@@ -14,7 +14,7 @@ typedef struct rt_route_flash_request_ {
 
      nfc_app_cb cbk;
      glthread_t glue;
-} rt_route_flash_request_t;
+}  __attribute__((aligned(8))) rt_route_flash_request_t;
 GLTHREAD_TO_STRUCT(glue_to_route_flash_request, 
                                                 rt_route_flash_request_t, glue);
 
@@ -25,5 +25,14 @@ void nfc_ipv4_rt_subscribe_per_route (node_t *node, uint32_t ip, uint8_t mask);
 void nfc_ipv4_rt_un_subscribe_per_route (node_t *node, uint32_t ip, uint8_t mask);
 
 void nfc_ipv4_rt_request_flash (node_t *node, nfc_app_cb cbk);
+
+void
+rt_table_add_route_to_notify_list (
+                rt_table_t *rt_table,
+                l3_route_t *l3route,
+                uint8_t flag) ;
+
+void
+rt_table_kick_start_notif_job(rt_table_t *rt_table);
 
 #endif  /* __RT_NOTIF__ */

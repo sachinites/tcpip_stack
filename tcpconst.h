@@ -114,7 +114,7 @@ proto_name_str (uint16_t proto) {
         case ICMP_PROTO:
             return (unsigned char *)"icmp";
         case ICMP6_PROTO:
-            return (unsigned char *)"icmp";
+            return (unsigned char *)"icmp6";
         case TCP_PROTO:
             return (unsigned char *)"tcp";
         case UDP_PROTO:

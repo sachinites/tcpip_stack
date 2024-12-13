@@ -245,6 +245,7 @@ public:
     uint32_t lcl_ip;
     uint16_t config_flags;
     uint8_t mask;
+    char padding[3];
 
     GRETunnelInterface(uint32_t tunnel_id);
     virtual ~GRETunnelInterface();

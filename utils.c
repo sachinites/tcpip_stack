@@ -409,6 +409,15 @@ tcp_ip_generate_random_mac_address (unsigned char (*mac)[6]) {
     }
 }
 
+uint32_t
+apply_mask2(uint32_t prefix, uint8_t mask) {
+
+    uint32_t subnet_mask = ~0;
+    subnet_mask = subnet_mask << (32 - mask);
+    prefix = prefix & subnet_mask;
+    return prefix;
+}
+
 #if 0
 
 int 

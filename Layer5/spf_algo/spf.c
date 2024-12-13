@@ -206,7 +206,7 @@ spf_install_routes(node_t *spf_root){
                 nexthop->oif = node_get_intf_by_ifindex(spf_root, nexthop->ifindex);
             }
             #endif
-            rt_table_add_route(rt_table, (const char *)NODE_LO_ADDR(spf_result->node), 32, 
+            dp_ipv4_rt_table_add_route(rt_table, (const char *)NODE_LO_ADDR(spf_result->node), 32,
                                             (const char *)nexthop->gw_ip, 
                                             nexthop->oif.get(),
                                             spf_result->spf_metric,

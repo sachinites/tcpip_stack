@@ -157,7 +157,7 @@ srv6_prefix_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            dp_ipv6_route_install (node, 
+            ipv6_route_install  (node,
                                 &prefix,
                                 prefix_len,
                                 srv6_route_flag (node, &prefix.addr),
@@ -172,7 +172,7 @@ srv6_prefix_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            dp_ipv6_route_uninstall (node, 
+            ipv6_route_uninstall (node,
                                 &prefix,
                                 prefix_len,
                                 NULL,
@@ -254,7 +254,7 @@ srv6_adjacency_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            dp_ipv6_route_install (node, 
+            ipv6_route_install (node,
                                 &prefix,
                                 prefix_len,
                                 srv6_route_flag (node, &prefix.addr),
@@ -269,7 +269,7 @@ srv6_adjacency_sid_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            dp_ipv6_route_uninstall (node, 
+            ipv6_route_uninstall (node,
                                 &prefix,
                                 prefix_len,
                                 NULL,

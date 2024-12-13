@@ -174,4 +174,6 @@ typedef enum comp_fn_res_ {
 void 
 tcp_ip_generate_random_mac_address (unsigned char (*mac)[6]) ;
 
+uint32_t apply_mask2 (uint32_t prefix, uint8_t mask);
+
 #endif /* __UTILS__ */

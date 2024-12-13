@@ -8,6 +8,7 @@ typedef struct pkt_block_ pkt_block_t;
 
 #include "../Interface/InterfaceFwd.h"
 #include "../ipv6/ipv6_hdrs.h"
+#include "../ipv6/SRv6/SRv6-EndPoint.h"
 
 #define CP2DP_MSG_SIZE_MAX  256
 
@@ -59,11 +60,12 @@ typedef enum DP_OPR_TYPE_ {
 
 typedef struct dp_msg_ {
 
+    uint8_t data[CP2DP_MSG_SIZE_MAX];
     DP_COMPONENT_TYPE_T component_type;
     DP_OPR_TYPE_T opr_type;
-    uint16_t flags;
     uint32_t data_size;
-    uint8_t data[CP2DP_MSG_SIZE_MAX];
+    uint16_t flags;
+    char padding[2];
 
 } dp_msg_t;
 
@@ -90,5 +92,43 @@ cp2dp_send_ip6_data ( node_t *node,
                                     pkt_block_t *pkt_block,
                                     ipv6_addr_t dest_ip_addr,
                                     uint16_t std_ip_protocol) ;
+
+/* Wrapper fn to add route to Routing table Asynchronously*/
+void
+rt_ipv4_route_add (node_t *node,
+                                uint32_t prefix,
+                                uint8_t mask,
+                                uint32_t gw_ip,
+                                Interface *oif,
+                                uint32_t metric,
+                                uint16_t proto_id,
+                                bool async) ;
+
+void
+rt_ipv4_route_del (node_t *node,
+                                uint32_t prefix,
+                                uint8_t mask,
+                                uint16_t proto_id,
+                                bool async) ;
+
+void
+ipv6_route_install (node_t *node,
+                                ipv6_addr_t *prefix,
+                                uint8_t prefix_len,
+                                uint8_t rt_flags,
+                                ipv6_addr_t *gw,
+                                Interface* oif,
+                                uint32_t spf_metric,
+                                Srv6_endpcode_t endfn,
+                                uint8_t srv6_flavor,
+                                uint16_t proto_id);
+
+void
+ipv6_route_uninstall (node_t *node,
+                                    ipv6_addr_t *prefix,
+                                    uint8_t prefix_len,
+                                    ipv6_addr_t *gw,
+                                    Interface* oif,
+                                    uint16_t proto_id);
 
 #endif 

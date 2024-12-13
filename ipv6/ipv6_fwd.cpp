@@ -62,8 +62,9 @@ l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) {
     return NULL;
 }
 
+
 void 
-layer3_ipv6_plain_forward_nexthop(node_t *node, v6nexthop_t *nexthop, pkt_block_t *pkt_block) {
+ipv6_layer3_forward_nexthop (node_t *node, v6nexthop_t *nexthop, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -164,7 +165,7 @@ layer3_ipv6_route_pkt (node_t *node,
         /* Do normal ipv6 forwarding */
         if (!nexthop->oif) return;
 
-        layer3_ipv6_plain_forward_nexthop (node, nexthop, pkt_block);
+        ipv6_layer3_forward_nexthop (node, nexthop, pkt_block);
         return;
     }
 
@@ -181,43 +182,6 @@ layer3_ipv6_route_pkt (node_t *node,
         return;
     }
 }
-
-
-/* Attach Eth hdr and forward the pkt out of interface. Payload could be anything,
-    not necessarily ip or ip6 */
-void 
-pkt_xmit_on_interface(node_t *node,  
-                                        c_string outgoing_intf,
-                                        pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size;
-
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);    
-
-    tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
-
-    ethernet_hdr_t *empty_ethernet_hdr =
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-    
-    empty_ethernet_hdr->type = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
-
-    if (empty_ethernet_hdr->type == 0) {
-
-        tracer (node->dptr, DL2FWD | DERR, "Pkt : %s :  Pkt Dropped : Unknown L3 protocol\n", 
-            pkt_block_str(pkt_block));
-        return;
-    }
-
-    Interface *oif = node_get_intf_by_name(node, (char *)outgoing_intf);
-
-    /* Src MAC = MAC of OIF*/
-    memcpy(empty_ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
-    /* Dest MAC as MAC broadcast address */
-    memset(empty_ethernet_hdr->dst_mac.mac, 0xFF, MAC_ADDR_SIZE);
-    
-    SET_COMMON_ETH_FCS(empty_ethernet_hdr, pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD, 0);
-    oif->SendPacketOut(pkt_block);
-} 
 
 void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block) {

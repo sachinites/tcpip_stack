@@ -6,16 +6,14 @@
 
 typedef struct nexthop_{
 
-    /* Below 3 fields are the keys of the nexthop */
-    uint32_t ifindex;  
-    byte gw_ip[16];
-    uint16_t proto;
-    unsigned char node_name[NODE_NAME_SIZE];
-    /* internal fields */
-    uint32_t ref_count;
     InterfaceP oif;
+    byte gw_ip[16];
+    unsigned char node_name[NODE_NAME_SIZE];
     long long unsigned int hit_count;
-
+    uint32_t ifindex;  
+    uint32_t ref_count;
+    uint16_t proto;
+    
     /* Insert a constructor here */
 
     nexthop_() {

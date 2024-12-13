@@ -1,6 +1,6 @@
 CC=g++
-#SANITIZER_FLAGS=-fsanitize=address,undefined
-SANITIZER_FLAGS=
+SANITIZER_FLAGS=-fsanitize=address,undefined
+#SANITIZER_FLAGS=
 CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 TARGET:tcpstack.exe pkt_gen.exe main2.exe
 
@@ -53,7 +53,6 @@ OBJS=gluethread/glthread.o \
           libtimer/timerlib.o   \
 		  libtimer/timedef.o \
 		  Tracer/tracer.o \
-		  Layer5/spf_algo/spf.o \
 		  tcp_stack_init.o	\
 		  pkt_block.o \
 		  tcp_ip_trace.o	\
@@ -216,9 +215,6 @@ Layer3/rt_notif.o:Layer3/rt_notif.c
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o
 
-Layer5/spf_algo/spf.o:Layer5/spf_algo/spf.c
-	${CC} ${CFLAGS} -c -I . Layer5/spf_algo/spf.c -o Layer5/spf_algo/spf.o
-
 Layer4/layer4.o:Layer4/layer4.c
 	${CC} ${CFLAGS} -c -I . Layer4/layer4.c -o Layer4/layer4.o
 
@@ -322,7 +318,6 @@ clean:
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
 	(cd Layer5/isis; make clean)
-	rm -f Layer5/spf_algo/*.o
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f BitOp/*.o

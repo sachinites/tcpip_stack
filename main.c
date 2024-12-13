@@ -80,7 +80,7 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     layer2_mem_init();
     layer3_mem_init();
     layer4_mem_init();
-    spf_algo_mem_init();
+    //spf_algo_mem_init();
     isis_mem_init();
     ted_mem_init();
     srand((unsigned int) time(NULL));
@@ -91,18 +91,10 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     tcp_stack_miscellaneous_mem_init();
 }
 
-static void
-alignment_check () {
-
-    //static_assert(_alignof(graph_t) == 8, "graph_t is not properly aligned");
-    //static_assert(_alignof(node_t) == 8, "node_t is not properly aligned");
-}
-
 int 
 main(int argc, char **argv){
     
     (void )argc; (void) argv;
-    alignment_check();
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
     topo = build_linear_topo();

@@ -33,14 +33,14 @@ struct pkt_block_ {
 
     uint8_t *pkt;
     pkt_size_t pkt_size;
-    hdr_type_t hdr_type; /* Starting hdr type */
-    uint8_t ref_count;
-    bool no_modify;
+    hdr_type_t hdr_type;
     InterfaceP recommended_oif;
     InterfaceP exclude_oif;
-    uint16_t lineno;
     char *fn_name;
     uint64_t pkt_id;
+    uint16_t lineno;
+    uint8_t ref_count;
+    bool no_modify;
 } ;
 
 void

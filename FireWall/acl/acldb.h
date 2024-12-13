@@ -214,7 +214,7 @@ struct access_list_ {
     /*Stats */
     time_t installation_start_time;
     time_t installation_end_time;
-} ;
+}  __attribute__((aligned(8)));
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;

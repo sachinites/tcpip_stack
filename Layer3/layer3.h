@@ -137,6 +137,7 @@ static inline nxthop_proto_id_t
 l3_rt_map_proto_id_to_nxthop_index(uint16_t proto_id) {
 
     switch(proto_id) {
+
         case PROTO_STATIC:
             return proto_nxthop_static;
         case PROTO_ISIS:
@@ -220,19 +221,6 @@ init_rtv6_table(node_t *node, rt_table_t **rt_table);
 /* MP Safe */
 void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto);
-
-/* MP Safe */
-void
-rt_table_delete_route(rt_table_t *rt_table, c_string ip_addr, char mask, uint16_t proto_id);
-
-/* MP Safe */
-void
-rt_table_add_route(rt_table_t *rt_table, 
-                                const char *dst, char mask,
-                                const char *gw, 
-                                Interface *oif,
-                                uint32_t spf_metric,
-                                uint16_t proto_id);
 
 /* MP Safe */
 void

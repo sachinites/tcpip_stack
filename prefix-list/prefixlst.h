@@ -28,7 +28,7 @@ typedef struct pfx_lst_node_ {
     uint64_t hit_count;
     pfx_lst_result_t res;
     glthread_t glue;
-} pfx_lst_node_t;
+} __attribute__((aligned(8))) pfx_lst_node_t;
 GLTHREAD_TO_STRUCT(glue_to_pfx_lst_node, pfx_lst_node_t, glue);
 
 typedef struct prefix_lst_ {

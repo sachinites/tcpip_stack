@@ -10,6 +10,7 @@
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
 #include "../ipv6/ipv6_hdrs.h"
+
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
 
@@ -66,6 +67,9 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
 
         case RT_TABLE_IPV4:
             np_rt_table_process_msg (node, dp_msg);
+            break;
+        case RT_TABLE_IPV6:
+            np_rt6_table_process_msg (node, dp_msg);
             break;
         case PKT_BLOCK:
             np_recv_cp_pkt_block (node, dp_msg);
@@ -233,4 +237,143 @@ cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async) {
                 TASK_ONE_SHOT, 
                 TASK_PRIORITY_CP_TO_DP);
     }
+}
+
+void
+ipv6_route_install (node_t *node,
+                                ipv6_addr_t *prefix,
+                                uint8_t prefix_len,
+                                uint8_t rt_flags,
+                                ipv6_addr_t *gw,
+                                Interface* oif,
+                                uint32_t spf_metric,
+                                Srv6_endpcode_t endfn,
+                                uint8_t srv6_flavor,
+                                uint16_t proto_id) {
+
+    dp_msg_t *dp_msg = cp2dp_msg_alloc ();
+    rt6_update_msg_t *rt_update_msg = (rt6_update_msg_t *)dp_msg->data;
+
+    dp_msg->component_type = RT_TABLE_IPV6;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(rt6_update_msg_t);
+
+    memcpy (rt_update_msg->prefix, prefix->addr, 16);
+    rt_update_msg->prefix_len = prefix_len;
+    rt_update_msg->rt_flags = rt_flags;
+
+    if (gw) {
+        memcpy (rt_update_msg->gateway, gw->addr, 16);
+    }
+    else {
+        memset (rt_update_msg->gateway, 0, 16);
+    }
+
+    if (oif) {
+        rt_update_msg->ifindex = oif->ifindex;
+    }
+    else {
+        rt_update_msg->ifindex = 0;
+    }
+
+    rt_update_msg->metric = spf_metric;
+    rt_update_msg->srv6_end_fn = endfn;
+    rt_update_msg->srv6_flavor = srv6_flavor;
+    rt_update_msg->proto_id = proto_id;
+
+    cp2dp_submit (node, dp_msg, true);
+}
+
+void
+ipv6_route_uninstall (node_t *node,
+                                    ipv6_addr_t *prefix,
+                                    uint8_t prefix_len,
+                                    ipv6_addr_t *gw,
+                                    Interface* oif,
+                                    uint16_t proto_id) {
+
+
+    dp_msg_t *dp_msg = cp2dp_msg_alloc ();
+
+    rt6_update_msg_t *rt_update_msg = (rt6_update_msg_t *)dp_msg->data;
+
+    dp_msg->component_type = RT_TABLE_IPV6;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(rt6_update_msg_t);
+
+    memcpy (rt_update_msg->prefix, prefix->addr, 16);
+    rt_update_msg->prefix_len = prefix_len;
+
+    if (gw) {
+        memcpy (rt_update_msg->gateway, gw->addr, 16);
+    }
+    else {
+        memset (rt_update_msg->gateway, 0, 16);
+    }
+
+    if (oif) {
+        rt_update_msg->ifindex = oif->ifindex;
+    }
+    else {
+        rt_update_msg->ifindex = 0;
+    }
+
+    rt_update_msg->proto_id = proto_id;
+
+    cp2dp_submit (node, dp_msg, true);
+}
+
+/* Wrapper fn to add route to Routing table Asynchronously*/
+void
+rt_ipv4_route_add (node_t *node,
+                                uint32_t prefix,
+                                uint8_t mask,
+                                uint32_t gw_ip,
+                                Interface *oif,
+                                uint32_t metric,
+                                uint16_t proto_id,
+                                bool async) {
+
+    dp_msg_t *dp_msg;
+    rt_update_msg_t *rt_update_msg;
+    rt_table_t *rt_table = NODE_RT_TABLE(node);
+
+    dp_msg = cp2dp_msg_alloc ();
+    dp_msg->component_type = RT_TABLE_IPV4;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(rt_update_msg_t);
+    rt_update_msg = (rt_update_msg_t *)dp_msg->data;
+    rt_update_msg->prefix = prefix;
+    rt_update_msg->mask = mask;
+    rt_update_msg->gateway = gw_ip;
+    rt_update_msg->ifindex = oif ? oif->ifindex : 0;
+    rt_update_msg->metric = metric;
+    rt_update_msg->proto_id = proto_id;
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+rt_ipv4_route_del (node_t *node,
+                                uint32_t prefix,
+                                uint8_t mask,
+                                uint16_t proto_id,
+                                bool async) {
+
+    dp_msg_t *dp_msg;
+    rt_update_msg_t *rt_update_msg;
+    rt_table_t *rt_table = NODE_RT_TABLE(node);
+
+    dp_msg = cp2dp_msg_alloc ();
+    dp_msg->component_type = RT_TABLE_IPV4;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(rt_update_msg_t);
+    rt_update_msg = (rt_update_msg_t *)dp_msg->data;
+    rt_update_msg->prefix = prefix;
+    rt_update_msg->mask = mask;
+    rt_update_msg->proto_id = proto_id;
+    cp2dp_submit(node, dp_msg, async);
 }
