@@ -20,25 +20,27 @@ typedef enum pfx_lst_result_ {
 
 typedef struct pfx_lst_node_ {
 
-    uint8_t seq_no;
+    glthread_t glue;
+    uint64_t hit_count;
     uint32_t pfx;
+    pfx_lst_result_t res;
+    uint8_t seq_no;
     uint8_t pfx_len;
     int8_t lb;
     int8_t ub;
-    uint64_t hit_count;
-    pfx_lst_result_t res;
-    glthread_t glue;
+    
 } __attribute__((aligned(8))) pfx_lst_node_t;
 GLTHREAD_TO_STRUCT(glue_to_pfx_lst_node, pfx_lst_node_t, glue);
 
 typedef struct prefix_lst_ {
 
-    unsigned char name[PFX_LST_NAME_LEN];
-    uint8_t ref_count;
-    uint32_t seq_no;
     glthread_t pfx_lst_head;
     glthread_t glue;
-} prefix_list_t;
+    unsigned char name[PFX_LST_NAME_LEN];
+    uint32_t seq_no;
+    uint8_t ref_count;
+
+} __attribute__((aligned(8))) prefix_list_t;
 GLTHREAD_TO_STRUCT(glue_to_pfx_lst, prefix_list_t, glue);
 
 prefix_list_t *

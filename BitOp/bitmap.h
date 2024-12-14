@@ -17,6 +17,8 @@ typedef struct bitmap_ {
     uint32_t *bits;
     uint16_t tsize;
     uint16_t next;
+    char prefix[4];
+    
 } bitmap_t;
 
 void bitmap_init(bitmap_t *bitmap, uint16_t size) ;

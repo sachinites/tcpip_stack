@@ -78,7 +78,7 @@ typedef struct acl_tcam_ {
     bitmap_t prefix;
     bitmap_t mask;
     glthread_t glue;
-} acl_tcam_t;
+} __attribute__((aligned(8))) acl_tcam_t;
 GLTHREAD_TO_STRUCT(glue_to_acl_tcam, acl_tcam_t, glue);
 
 typedef enum acl_addr_format_ {
@@ -157,9 +157,10 @@ typedef struct acl_entry_{
     /*Stats */
     time_t installation_start_time;
     time_t installation_end_time;
-    bool installation_in_progress;
     uint32_t expected_tcam_count;
-} acl_entry_t;
+    bool installation_in_progress;
+
+} __attribute__((aligned(8))) acl_entry_t;
 GLTHREAD_TO_STRUCT(glthread_to_acl_entry, acl_entry_t, glue);
 
 typedef enum acl_iterator_type_ {
@@ -175,12 +176,12 @@ typedef struct acl_tcam_iterator_ {
     uint32_t *addr_wcard;
     uint16_t *port_prefix;
     uint16_t *port_wcard;
-    uint8_t index;
     acl_entry_t *acl_entry;
-    acl_iterator_type_t it_type;
     glthread_t og_leaves_lst_head;
     glthread_t og_leaves_lst_head_processed;
-} acl_tcam_iterator_t;
+    acl_iterator_type_t it_type;
+    uint8_t index;
+} __attribute__((aligned(8))) acl_tcam_iterator_t;
 
 typedef struct access_list_processing_info_ {
 
@@ -198,7 +199,7 @@ typedef struct access_list_processing_info_ {
     acl_tcam_iterator_t acl_tcam_dst_port_it;
     acl_tcam_t tcam_entry_template; 
     uint32_t acl_tcams_installed;
-} access_list_processing_info_t;
+} __attribute__((aligned(8))) access_list_processing_info_t;
 
 struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];

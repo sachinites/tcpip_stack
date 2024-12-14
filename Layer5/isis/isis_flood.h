@@ -15,7 +15,7 @@ isis_queue_lsp_pkt_for_transmission(
         isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_intf_purge_lsp_xmit_queue(Interface *intf);˝
+isis_intf_purge_lsp_xmit_queue(Interface *intf);
 
 void
 isis_schedule_lsp_flood(node_t *node, 

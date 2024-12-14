@@ -63,7 +63,6 @@ OBJS=gluethread/glthread.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
 		  LinuxMemoryManager/mm.o \
-		  flow/snp_flow.o \
 		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \
@@ -96,9 +95,6 @@ Tracer/tracer.o:Tracer/tracer.cpp
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
-
-flow/snp_flow.o:flow/snp_flow.c
-	${CC} ${CFLAGS} -c -I . flow/snp_flow.c -o flow/snp_flow.o
 
 prefix-list/prefixlst.o:prefix-list/prefixlst.c
 	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o
@@ -311,7 +307,6 @@ clean:
 	rm -f mtrie/*.o
 	rm -f *exe
 	rm -f ted/*.o
-	rm -f flow/*.o
 	rm -f Layer2/*.o
 	rm -f Layer3/*.o
 	rm -f Layer3/rt_table/*.o

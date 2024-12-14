@@ -186,19 +186,21 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 
 typedef struct mac_table_entry_{
 
-    vlan_id_t vlan_id;
-    mac_addr_t mac;
-    byte oif_name[IF_NAME_SIZE];
     InterfaceP oif;
     glthread_t mac_entry_glue;
-} mac_table_entry_t;
+    byte oif_name[IF_NAME_SIZE];
+    mac_addr_t mac;
+    vlan_id_t vlan_id;
+    
+} __attribute__((aligned(8)))  mac_table_entry_t;
 
 GLTHREAD_TO_STRUCT(mac_entry_glue_to_mac_entry, mac_table_entry_t, mac_entry_glue);
 
 typedef struct mac_table_{
 
     glthread_t mac_entries;
-} mac_table_t;
+    
+}  __attribute__((aligned(8))) mac_table_t;
 
 
 #endif /* __LAYER2__ */

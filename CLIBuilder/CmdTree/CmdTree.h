@@ -47,8 +47,7 @@ struct _param_t_{
     param_type_t param_type;
     int CMDCODE;
     uint8_t flags;
-    char padding[3];
-} ;
+} __attribute__((aligned(8))) ;
 GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 
 #define GET_PARAM_CMD(param)    (param->cmd_type.cmd)
