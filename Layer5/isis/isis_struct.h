@@ -12,12 +12,16 @@ typedef struct isis_system_id_ {
 
     uint32_t rtr_id;
     uint8_t pn_id;
+    char padding[3];
+
 } isis_system_id_t;
 
 typedef struct isis_lan_id_ {
 
     uint32_t rtr_id;
     uint8_t pn_id;
+    char padding[3];
+    
 }isis_lan_id_t;
 
 typedef struct isis_lsp_id_ {

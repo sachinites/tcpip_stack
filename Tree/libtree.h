@@ -158,9 +158,10 @@ typedef int (*avltree_cmp_fn_t)(const struct avltree_node *, const struct avltre
 struct avltree {
 	struct avltree_node *root;
 	avltree_cmp_fn_t cmp_fn;
-	int height;
 	struct avltree_node *first, *last;
 	uint64_t reserved[4];
+	int height;
+	char padding[4];
 };
 typedef struct avltree avltree_t;
 

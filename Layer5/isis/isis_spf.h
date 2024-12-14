@@ -16,11 +16,13 @@ typedef struct isis_spf_data_{
     glthread_t spf_result_head;
 
     /*Temp fields used for calculations*/
-    uint32_t spf_metric;
     glthread_t priority_thread_glue;
-    bool is_spf_processed;
     nexthop_t *nexthops[MAX_NXT_HOPS];
-} isis_spf_data_t;
+    uint32_t spf_metric;
+    bool is_spf_processed;
+    char padding[3];
+
+} __attribute__((aligned(8))) isis_spf_data_t;
 GLTHREAD_TO_STRUCT(isis_priority_thread_glue_to_spf_data, 
     isis_spf_data_t, priority_thread_glue);
 
@@ -30,10 +32,12 @@ GLTHREAD_TO_STRUCT(isis_priority_thread_glue_to_spf_data,
 typedef struct isis_spf_result_{
 
     ted_node_t *node;
-    uint32_t spf_metric;
     nexthop_t *nexthops[MAX_NXT_HOPS];
     glthread_t spf_res_glue;
-} isis_spf_result_t;
+    uint32_t spf_metric;
+    char padding[4];
+    
+} __attribute__((aligned(8))) isis_spf_result_t;
 GLTHREAD_TO_STRUCT(isis_spf_res_glue_to_spf_result, 
     isis_spf_result_t, spf_res_glue);
 
@@ -49,17 +53,21 @@ isis_cancel_spf_job(node_t *node);
 typedef struct isis_spf_log_ {
 
     time_t timestamp;
-    isis_event_type_t event;
     glthread_t glue;
-} isis_spf_log_t;
+    isis_event_type_t event;
+    char padding[4];
+
+} __attribute__((aligned(8))) isis_spf_log_t;
 GLTHREAD_TO_STRUCT(isis_glue_spf_log, 
     isis_spf_log_t, glue);
 
 typedef struct isis_spf_log_container_ {
 
-    uint8_t count;
     glthread_t head;
-} isis_spf_log_container_t;
+    uint8_t count;
+    char padding[7];
+
+} __attribute__((aligned(8))) isis_spf_log_container_t;
 
 void
 isis_add_new_spf_log(node_t *node, isis_event_type_t event);

@@ -5,7 +5,7 @@ typedef struct isis_lsp_xmit_elem_ {
 
     isis_lsp_pkt_t *lsp_pkt;
     glthread_t glue;
-} isis_lsp_xmit_elem_t;
+} __attribute__((aligned(8))) isis_lsp_xmit_elem_t;
 GLTHREAD_TO_STRUCT(glue_to_lsp_xmit_elem, 
     isis_lsp_xmit_elem_t, glue);
 
@@ -15,7 +15,7 @@ isis_queue_lsp_pkt_for_transmission(
         isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_intf_purge_lsp_xmit_queue(Interface *intf);
+isis_intf_purge_lsp_xmit_queue(Interface *intf);˝
 
 void
 isis_schedule_lsp_flood(node_t *node, 

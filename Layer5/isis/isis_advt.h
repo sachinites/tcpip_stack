@@ -29,17 +29,18 @@ isis_get_adv_data_size (isis_adv_data_t *adv_data);
 
 typedef struct isis_fragment_ {
 
-    pkt_size_t bytes_filled;
     glthread_t tlv_list_head;
     glthread_t priority_list_glue;
+    glthread_t frag_regen_glue;
+    isis_lsp_pkt_t *lsp_pkt;
     uint32_t seq_no;
+    uint32_t regen_flags;
+    pkt_size_t bytes_filled;
     uint8_t pn_no;
     uint8_t fr_no;
-    isis_lsp_pkt_t *lsp_pkt;
-    uint32_t regen_flags;
     uint8_t ref_count;
-    glthread_t frag_regen_glue;
-}isis_fragment_t;
+    
+} __attribute__((aligned(8))) isis_fragment_t;
 GLTHREAD_TO_STRUCT(isis_priority_list_glue_to_fragment,
                                                isis_fragment_t,
                                                priority_list_glue);
@@ -52,7 +53,8 @@ typedef struct isis_advt_db_ {
     isis_fragment_t *fragments[ISIS_MAX_FRAGMENT_SUPPORTED];
     glthread_t fragment_priority_list;
     glthread_t advt_data_wait_list_head;
-} isis_advt_db_t;
+
+} __attribute__((aligned(8))) isis_advt_db_t;
 
 /* A Data structure which holds the data to be advertised as TLVs in 
     LSPs */
@@ -88,6 +90,7 @@ typedef struct isis_adv_data_ {
 
     }u;
 
+    pkt_size_t tlv_size;
     glthread_t glue;
     isis_fragment_t *fragment;
 
@@ -95,8 +98,7 @@ typedef struct isis_adv_data_ {
         struct isis_adv_data_ **holder; // for IS REACH
     }src;
 
-    pkt_size_t tlv_size;
-} isis_adv_data_t;
+} __attribute__((aligned(8)))  isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
 
 /* Fragment locking and Unlocking APIs */

@@ -16,31 +16,10 @@ typedef enum isis_intf_type_ {
 typedef struct intf_info_ {
 
     Interface *intf;
-    uint16_t hello_interval;
-    uint16_t priority;
 
     /*  Timer to retransmit hellos out of
         the interface */
     timer_event_handle *hello_xmit_timer;
-
-    /* stats */
-    uint32_t good_hello_pkt_recvd;
-    uint32_t bad_hello_pkt_recvd;
-    uint32_t good_lsps_pkt_recvd;
-    uint32_t bad_lsps_pkt_recvd;
-    uint32_t lsp_pkt_sent;
-    uint32_t hello_pkt_sent;
-    /* intf cost */
-    uint32_t cost;
-
-    isis_intf_type_t intf_type;
-    ISIS_LVL level;
-    
-    /* LAN-ID for this interface if this interface is LAN*/
-    isis_lan_id_t lan_id;
-
-    /* For P2P, it will be null*/
-    isis_lan_id_t elected_dis;
 
     /* Adj list on this interface */
     glthread_t adj_list_head;
@@ -56,7 +35,26 @@ typedef struct intf_info_ {
     /* if this interface is LAN and self is DIS, then advertise PN to self */
     isis_adv_data_t *lan_pn_to_self_adv_data;
 
-} isis_intf_info_t;
+    /* LAN-ID for this interface if this interface is LAN*/
+    isis_lan_id_t lan_id;
+    /* For P2P, it will be null*/
+    isis_lan_id_t elected_dis;
+
+    /* stats */
+    uint32_t good_hello_pkt_recvd;
+    uint32_t bad_hello_pkt_recvd;
+    uint32_t good_lsps_pkt_recvd;
+    uint32_t bad_lsps_pkt_recvd;
+    uint32_t lsp_pkt_sent;
+    uint32_t hello_pkt_sent;
+    uint32_t cost;
+    isis_intf_type_t intf_type;
+    ISIS_LVL level;
+
+    uint16_t hello_interval;
+    uint16_t priority;
+
+} __attribute__((aligned(8))) isis_intf_info_t;
 GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info, 
                                             isis_intf_info_t,  intf_grp_member_glue);
                                             

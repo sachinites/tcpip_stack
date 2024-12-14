@@ -33,36 +33,18 @@ typedef struct isis_adjacency_{
 
     /* back ptr to the the interface */
     Interface *intf; 
-    /* nbr Device Name */
-    unsigned char nbr_name[NODE_NAME_SIZE];
-    /* Nbr intf Ip */
-    uint32_t nbr_intf_ip;
-   /* Mac Address */
-     mac_addr_t nbr_mac;
-    /*Nbr lo 0 address */
-    uint32_t nbr_rtr_id;
-    /* Nbr System ID*/
-    isis_system_id_t nbr_sys_id;
-    /* LAN ID, only for LAN Adj*/
-    isis_lan_id_t lan_id;
-    /* Nbrs Priority */
-    uint16_t priority;
-    /* Nbr if index */
-    uint32_t remote_if_index;
-    /* Adj State */
-    isis_adj_state_t adj_state;
-    /* timestamp when Adj state changed */
-    time_t last_transition_time;
-    /* Hold time in sec reported by nbr*/
-    uint32_t hold_time;
-    /* Nbr link cost Value */
-    uint32_t cost; 
     /* Expiry timer */
     timer_event_handle *expiry_timer;
     /* Delete timer */
     timer_event_handle *delete_timer;
     /* uptime */
-    time_t uptime;
+    time_t uptime;    
+    /* timestamp when Adj state changed */
+    time_t last_transition_time;
+    /*  Glue */
+    glthread_t glue;
+    /* nbr Device Name */
+    unsigned char nbr_name[NODE_NAME_SIZE];
     /* IS Reach Advertisement */
     union {
         /* Advertise P2P adjacency */
@@ -70,9 +52,29 @@ typedef struct isis_adjacency_{
         /*is this is LAN adj and self is dis, then advertise PN to nbr*/
         isis_adv_data_t *lan_pn_to_nbr_adv_data;
     } u;
-
-    glthread_t glue;
-} isis_adjacency_t;
+   /* Mac Address */
+     mac_addr_t nbr_mac;
+     char padding[2];
+    /* Nbr System ID*/
+    isis_system_id_t nbr_sys_id;
+    /* LAN ID, only for LAN Adj*/
+    isis_lan_id_t lan_id;
+    /* Nbr intf Ip */
+    uint32_t nbr_intf_ip;
+    /*Nbr lo 0 address */
+    uint32_t nbr_rtr_id;
+    /* Nbr if index */
+    uint32_t remote_if_index;
+    /* Adj State */
+    isis_adj_state_t adj_state;
+    /* Hold time in sec reported by nbr*/
+    uint32_t hold_time;
+    /* Nbr link cost Value */
+    uint32_t cost; 
+    /* Nbrs Priority */
+    uint16_t priority;
+    
+} __attribute__((aligned(8))) isis_adjacency_t;
 GLTHREAD_TO_STRUCT(glthread_to_isis_adjacency, isis_adjacency_t, glue);
 
 #define isis_adjacency_is_lan(adjacency_ptr) \

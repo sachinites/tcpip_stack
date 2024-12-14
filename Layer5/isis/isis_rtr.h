@@ -28,14 +28,34 @@ typedef struct isis_reconc_data_ {
 
 typedef struct isis_overload_data_ {
 
-    bool ovl_status;
-    uint32_t timeout_val;
     timer_event_handle *ovl_timer;
+    uint32_t timeout_val;
+    bool ovl_status;
+    char padding[3];
+
 } isis_overload_data_t;
 
 typedef struct node_info_ {
-    /* self system id -> <rtrid-0>*/
-    isis_system_id_t sys_id;
+    /* Ted DB */
+    ted_db_t *ted_db;
+    /* import policy */
+    prefix_list_t *import_policy;
+    /* export policy */
+    prefix_list_t *export_policy;
+    /* Dummy LSP PKT for lookup */
+    isis_lsp_pkt_t *lsp_dummy_pkt;     
+    /* Task for generating the LSP fragments*/
+    task_t *lsp_fragment_gen_task;
+    /* Task to regenrate all fragments from scratch*/
+    task_t *regen_all_fragment_task;
+    /*Task to schedule spf job*/
+    task_t *spf_job_task;
+    /* ISIS specific logging */
+    tracer_t *tr;
+    /* Advertisement DB per PN*/
+    isis_advt_db_t* advt_db[ISIS_MAX_PN_SUPPORTED];
+    /* event flags */
+    uint64_t event_control_flags;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
     /* lsp pkt life time interval in lspdb */
@@ -50,47 +70,31 @@ typedef struct node_info_ {
     uint32_t spf_runs;
     /*event counts*/
     uint32_t isis_event_count[isis_event_max];
-    /*Adjacency up count */
-    uint16_t adjacency_up_count;
-    /* event flags */
-    uint64_t event_control_flags;
-    /*flag to control protocol shutdown procedure*/
-    uint16_t shutdown_pending_work_flags;
     /* overload object */
     isis_overload_data_t ovl_data;
     /* Tree of interface Groups configured by User */
     avltree_t intf_grp_avl_root;
+    /* SPF log list */
+    isis_spf_log_container_t spf_logc;
+    /* Exported Route Tree */
+    mtrie_t exported_routes;
+    /* Queue holding fragments to be regenerated*/
+    glthread_t pending_lsp_gen_queue;
+    /* ISIS System ID*/    
+    isis_system_id_t sys_id;         
+    /*flag to control protocol shutdown procedure*/
+    uint16_t shutdown_pending_work_flags;     
+    /*Adjacency up count */
+    uint16_t adjacency_up_count;
     /* Dynamic intf grp */
     bool dyn_intf_grp;
     /* Layer 2 Mapping */
     bool layer2_mapping;
-    /* Ted DB */
-    ted_db_t *ted_db;
-    /* SPF log list */
-    isis_spf_log_container_t spf_logc;
-    /* import policy */
-    prefix_list_t *import_policy;
-    /* export policy */
-    prefix_list_t *export_policy;
-    /* Dummy LSP PKT for lookup */
-    isis_lsp_pkt_t *lsp_dummy_pkt; 
-    /* Exported Route Tree */
-    mtrie_t exported_routes;
-    /* Advertisement DB per PN*/
-    isis_advt_db_t* advt_db[ISIS_MAX_PN_SUPPORTED];
-    /* Queue holding fragments to be regenerated*/
-    glthread_t pending_lsp_gen_queue;
-    /* Task for generating the LSP fragments*/
-    task_t *lsp_fragment_gen_task;
-    /* Task to regenrate all fragments from scratch*/
-    task_t *regen_all_fragment_task;
-    /*Task to schedule spf job*/
-    task_t *spf_job_task;
-    /* ISIS specific logging */
-    tracer_t *tr;
     /* LSDB advt block/unblock, used for debugging*/
     bool lsdb_advt_block;
-} isis_node_info_t;
+    /* Make this structure 8B aligned*/
+    char padding2[5];
+} __attribute__((aligned(8))) isis_node_info_t;
 
 #define ISIS_NODE_INFO(node_ptr)    \
     ((isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info))
