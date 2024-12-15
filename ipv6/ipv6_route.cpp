@@ -141,7 +141,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     break;
                 }
 
-                if (is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
+                if (!is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
                     cprintf (" Gateway : %s\n", inet_ntop6(&nexthop->gw, buffer1));
                 }
 
