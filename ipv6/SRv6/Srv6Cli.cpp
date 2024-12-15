@@ -24,6 +24,16 @@ extern graph_t *topo;
 /* run node <node-name> ping6 srv6 <seg1> <seg2> <seg3> <seg4> . . .  */
  #define CMDCODE_PING6_SRV6 4
 
+/* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> */
+#define IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG 5
+
+/* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> <oif-name> */
+#define IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG 6
+
+/*  config node <node-name> ipv6 route <v6-address> <mask>  binding-sid <v6-address>*/
+#define IPV6_SRV6_BINDING_SID_CONFIG 7
+
+
 static int
 srv6_locator_handler
                     (int cmdcode,

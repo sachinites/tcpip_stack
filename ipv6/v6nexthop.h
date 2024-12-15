@@ -25,7 +25,10 @@ typedef struct v6nexthop_{
             uint32_t metric;
             #define SRV6_REMOTE_RT 1
             #define SRV6_LOCAL_RT 2
+            #define BINDING_SID 4
             uint8_t flags;
+            uint8_t n_segment_list;
+            ipv6_addr_t *segment_lst;
         } srv6;
     } u;
 

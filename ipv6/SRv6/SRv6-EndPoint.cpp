@@ -134,6 +134,198 @@ Srv6_apply_endpoint_fn (
     }
 }
 
+ipv6_addr_t 
+srv6_srh_get_destination_segment (srh_hdr_t *srh) {
+
+    ipv6_addr_t dst_addr;
+    memcpy (&dst_addr.addr, srh->segments[0], 16);
+    return dst_addr;
+}
+
+pkt_block_t *
+Srv6_apply_flavor (node_t *node, 
+                                pkt_block_t *orig_pkt, 
+                                uint8_t flavor, uint8_t segments_left) {
+
+    assert (pkt_block_verify_pkt (orig_pkt, IP6_HDR));
+
+    /* flavors are not applied on the intermediate node*/
+    if (segments_left > 1) return orig_pkt;
+
+    if (segments_left == 1) {
+
+        /* This is penultimate node, apply flavors : PSP or PSD*/
+
+        if (flavor & PSD) {
+
+            pkt_size_t pkt_size = 0;
+            byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+            ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+            srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
+            byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
+            pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+            pkt_block_update_new_hdr_type (orig_pkt, srh->nexthdr);
+            return orig_pkt;
+        }
+
+        if (flavor & PSP) {
+            pkt_size_t pkt_size = 0;
+            byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+            ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+            ipv6_hdr_t ipv6_hdr_copy;
+            memcpy (&ipv6_hdr_copy, ipv6_hdr, sizeof(ipv6_hdr_t));
+            srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
+            ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
+            memcpy (&ipv6_hdr_copy.dst_addr, &dst_addr.addr, 16);
+            ipv6_hdr_copy.next_header = srh->nexthdr;
+             ipv6_hdr_copy.payload_length -= srh->hdrlen;
+            byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
+            pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+            pkt_block_expand_buffer_left (orig_pkt, sizeof(ipv6_hdr_t));
+            pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+            memcpy (pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
+            pkt_block_update_new_hdr_type (orig_pkt, ETH_IP6);
+            return orig_pkt;
+        }
+    }
+
+    if (segments_left == 0) {
+            
+            /* This is destination node, apply flavors : USD*/
+    
+            if (flavor & USD) {
+                pkt_size_t pkt_size = 0;
+                byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+                ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+                srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
+                byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
+                pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+                pkt_block_update_new_hdr_type (orig_pkt, srh->nexthdr);
+                return orig_pkt;
+            }
+    }
+
+    return orig_pkt;
+}
+
+void 
+Srv6_decapsulate (node_t *node, pkt_block_t *pkt_block) {
+
+    pkt_size_t pkt_size = 0;
+    if (pkt_block_get_starting_hdr(pkt_block) != IP6_HDR) return;
+    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+    if (ipv6_hdr->next_header != PROTO_SRH) {
+        pkt_block_set_new_pkt (pkt_block, (uint8_t *)(ipv6_hdr + 1), pkt_size - sizeof(ipv6_hdr_t));
+        pkt_block_update_new_hdr_type (pkt_block, ipv6_hdr->next_header);
+        return;
+    }
+    srh_hdr_t *srh = (srh_hdr_t *)(ipv6_hdr  + 1);
+    byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
+    pkt_block_set_new_pkt (pkt_block, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+    pkt_block_update_new_hdr_type (pkt_block, srh->nexthdr);
+}
+
+void 
+Srv6_copy_current_sid_to_DA (srh_hdr_t *srh, ipv6_hdr_t *ipv6_hdr) {
+
+    memcpy (ipv6_hdr->dst_addr, srh->segments[srh->segments_left], 16);
+}
+
+void 
+SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
+
+    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+
+    /* Inject the pakcet into data path pipelines again as appropriate */
+    switch (hdr_type) {
+
+        case IP_HDR:
+             layer3_ip_route_pkt(node, NULL, pkt_block);
+             return;
+        case IP6_HDR:
+            layer3_ipv6_route_pkt(node, NULL, pkt_block);
+            return;
+        case ICMP6_HDR:
+            cprintf("ipv6 ping success\n");
+        break;
+        case TCP_HDR:
+            promote_pkt_to_layer4(node, NULL, pkt_block, TCP_HDR);
+            return;
+        case UDP_HDR:
+            promote_pkt_to_layer4(node, NULL, pkt_block, UDP_HDR);
+            return;
+        case GRE_HDR:
+            break;
+        case SRH_HDR:
+            break;
+        default:
+            cprintf ("%s : SRv6 payload handler missing \n", node->node_name);
+            break;
+    }
+}
+
+const char *
+end_fn_str(Srv6_endpcode_t end_fn) {
+
+    switch (end_fn) {
+
+        case END:
+            return "END";
+        case END_X:
+            return "END_X";
+        case END_T:
+            return "END_T";
+        case END_DX6:
+            return "END_DX6";
+        case END_DX4:
+            return "END_DX4";
+        case END_DT6:
+            return "END_DT6";
+        case END_DT4:
+            return "END_DT4";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char *
+flavor_str(uint8_t flavors) {
+
+    switch (flavors) {
+
+        case PSP:
+            return "PSP";
+        case USD:
+            return "USD";
+        case PSD:
+            return "PSD";
+        case PSP | USD:
+            return "PSP | USD";
+        case PSP | PSD:
+            return "PSP | PSD";
+        case USD | PSD:
+            return "USD | PSD";
+        case PSP | USD | PSD:
+            return "PSP | USD | PSD";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static srh_hdr_t *
+srh_hdr_prepare (ipv6_addr_t *segment_lst, uint8_t n) {
+
+    return NULL;
+}
+
+static void 
+Srv6_encapsulate (pkt_block_t *pkt_block, srh_hdr_t *srh) {
+
+}
+
+/* End Point Functions Definitions */
+
 void
 Process_END(node_t *node, 
                         pkt_block_t *pkt_block,
@@ -337,181 +529,21 @@ Process_END_X (node_t *node,
     ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
 }
 
-ipv6_addr_t 
-srv6_srh_get_destination_segment (srh_hdr_t *srh) {
+void
+Process_END_B6_ENCAP (node_t *node, 
+                                              pkt_block_t *orig_pkt,
+                                              ipv6_hdr_t *ipv6_hdr, 
+                                              srh_hdr_t *srh,
+                                              v6nexthop_t *nexthop) {
 
-    ipv6_addr_t dst_addr;
-    memcpy (&dst_addr.addr, srh->segments[0], 16);
-    return dst_addr;
 }
 
-pkt_block_t *
-Srv6_apply_flavor (node_t *node, 
-                                pkt_block_t *orig_pkt, 
-                                uint8_t flavor, uint8_t segments_left) {
+void
+Process_END_B6_ENCAP_X (node_t *node, 
+                                                  Interface* recv_intf,
+                                                  pkt_block_t *orig_pkt,
+                                                  ipv6_hdr_t *ipv6_hdr, 
+                                                  srh_hdr_t *srh,
+                                                  v6nexthop_t *nexthop) {
 
-    assert (pkt_block_verify_pkt (orig_pkt, IP6_HDR));
-
-    /* flavors are not applied on the intermediate node*/
-    if (segments_left > 1) return orig_pkt;
-
-    if (segments_left == 1) {
-
-        /* This is penultimate node, apply flavors : PSP or PSD*/
-
-        if (flavor & PSD) {
-
-            pkt_size_t pkt_size = 0;
-            byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
-            ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
-            srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
-            byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-            pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-            pkt_block_update_new_hdr_type (orig_pkt, srh->nexthdr);
-            return orig_pkt;
-        }
-
-        if (flavor & PSP) {
-            pkt_size_t pkt_size = 0;
-            byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
-            ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
-            ipv6_hdr_t ipv6_hdr_copy;
-            memcpy (&ipv6_hdr_copy, ipv6_hdr, sizeof(ipv6_hdr_t));
-            srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
-            ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
-            memcpy (&ipv6_hdr_copy.dst_addr, &dst_addr.addr, 16);
-            ipv6_hdr_copy.next_header = srh->nexthdr;
-             ipv6_hdr_copy.payload_length -= srh->hdrlen;
-            byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-            pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-            pkt_block_expand_buffer_left (orig_pkt, sizeof(ipv6_hdr_t));
-            pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
-            memcpy (pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-            pkt_block_update_new_hdr_type (orig_pkt, ETH_IP6);
-            return orig_pkt;
-        }
-    }
-
-    if (segments_left == 0) {
-            
-            /* This is destination node, apply flavors : USD*/
-    
-            if (flavor & USD) {
-                pkt_size_t pkt_size = 0;
-                byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
-                ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
-                srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
-                byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-                pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-                pkt_block_update_new_hdr_type (orig_pkt, srh->nexthdr);
-                return orig_pkt;
-            }
-    }
-
-    return orig_pkt;
-}
-
-void 
-Srv6_decapsulate (node_t *node, pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size = 0;
-    if (pkt_block_get_starting_hdr(pkt_block) != IP6_HDR) return;
-    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
-    if (ipv6_hdr->next_header != PROTO_SRH) {
-        pkt_block_set_new_pkt (pkt_block, (uint8_t *)(ipv6_hdr + 1), pkt_size - sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type (pkt_block, ipv6_hdr->next_header);
-        return;
-    }
-    srh_hdr_t *srh = (srh_hdr_t *)(ipv6_hdr  + 1);
-    byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-    pkt_block_set_new_pkt (pkt_block, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-    pkt_block_update_new_hdr_type (pkt_block, srh->nexthdr);
-}
-
-void 
-Srv6_copy_current_sid_to_DA (srh_hdr_t *srh, ipv6_hdr_t *ipv6_hdr) {
-
-    memcpy (ipv6_hdr->dst_addr, srh->segments[srh->segments_left], 16);
-}
-
-void 
-SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
-
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
-
-    /* Inject the pakcet into data path pipelines again as appropriate */
-    switch (hdr_type) {
-
-        case IP_HDR:
-             layer3_ip_route_pkt(node, NULL, pkt_block);
-             return;
-        case IP6_HDR:
-            layer3_ipv6_route_pkt(node, NULL, pkt_block);
-            return;
-        case ICMP6_HDR:
-            cprintf("ipv6 ping success\n");
-        break;
-        case TCP_HDR:
-            promote_pkt_to_layer4(node, NULL, pkt_block, TCP_HDR);
-            return;
-        case UDP_HDR:
-            promote_pkt_to_layer4(node, NULL, pkt_block, UDP_HDR);
-            return;
-        case GRE_HDR:
-            break;
-        case SRH_HDR:
-            break;
-        default:
-            cprintf ("%s : SRv6 payload handler missing \n", node->node_name);
-            break;
-    }
-}
-
-const char *
-end_fn_str(Srv6_endpcode_t end_fn) {
-
-    switch (end_fn) {
-
-        case END:
-            return "END";
-        case END_X:
-            return "END_X";
-        case END_T:
-            return "END_T";
-        case END_DX6:
-            return "END_DX6";
-        case END_DX4:
-            return "END_DX4";
-        case END_DT6:
-            return "END_DT6";
-        case END_DT4:
-            return "END_DT4";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-const char *
-flavor_str(uint8_t flavors) {
-
-    switch (flavors) {
-
-        case PSP:
-            return "PSP";
-        case USD:
-            return "USD";
-        case PSD:
-            return "PSD";
-        case PSP | USD:
-            return "PSP | USD";
-        case PSP | PSD:
-            return "PSP | PSD";
-        case USD | PSD:
-            return "USD | PSD";
-        case PSP | USD | PSD:
-            return "PSP | USD | PSD";
-        default:
-            return "UNKNOWN";
-    }
 }

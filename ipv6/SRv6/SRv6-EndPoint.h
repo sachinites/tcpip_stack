@@ -30,7 +30,9 @@ typedef enum Srv6_endpcode_ {
     END_DX6 = 3,
     END_DX4 = 4,
     END_DT6 = 5,
-    END_DT4 = 6
+    END_DT4 = 6,
+    END_B6_ENCAP = 7,
+    END_B6_ENCAP_X = 8
 
 } Srv6_endpcode_t;
 
@@ -43,6 +45,21 @@ Process_END(node_t *node,
 
 void
 Process_END_X (node_t *node, 
+                        Interface* recv_intf,
+                        pkt_block_t *orig_pkt,
+                        ipv6_hdr_t *ipv6_hdr, 
+                        srh_hdr_t *srh,
+                        v6nexthop_t *nexthop) ;
+
+void
+Process_END_B6_ENCAP (node_t *node, 
+                        pkt_block_t *orig_pkt,
+                        ipv6_hdr_t *ipv6_hdr, 
+                        srh_hdr_t *srh,
+                        v6nexthop_t *nexthop) ;
+
+void
+Process_END_B6_ENCAP_X (node_t *node, 
                         Interface* recv_intf,
                         pkt_block_t *orig_pkt,
                         ipv6_hdr_t *ipv6_hdr, 

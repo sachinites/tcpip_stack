@@ -8,7 +8,6 @@ typedef struct ipv6_addr_ {
     uint8_t addr[16];
 } ipv6_addr_t;
 
-
 #pragma pack (push,1)
 typedef struct ipv6_hdr_ {
 
