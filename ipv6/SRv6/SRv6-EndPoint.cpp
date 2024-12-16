@@ -73,6 +73,57 @@ Process_Srv6_remote_packet (
     if (flavor_applied )  pkt_block_dereference(pkt_block);
 }
 
+static void 
+Srv6_apply_penultimate_processing (node_t *node, 
+                                                pkt_block_t *pkt_block, 
+                                                ipv6_hdr_t *ipv6_hdr, 
+                                                srh_hdr_t *srh) {
+
+    ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
+    ipv6_route_t *dst_route = l3rib_v6lookup_lpm(
+                                            NODE_V6RT_TABLE(node), &dst_addr.addr);
+    v6nexthop_t *dst_nexthop = l3_v6route_get_active_nexthop(dst_route);
+
+    pkt_block_t *flavored_pkt = Srv6_apply_flavor(
+                node, pkt_block, dst_nexthop->u.srv6.srv6_flavors, srh->segments_left);    
+
+    switch (dst_nexthop->u.srv6.srv6_flavors) {
+
+        case PSP:
+            ipv6_layer3_forward_nexthop(node, dst_nexthop, flavored_pkt);
+            break;
+
+        case PSD: 
+            /* Payload has been exposed, forward the pkt by handling it to L2 layer. L2 layer will
+                attach ethernet hdr and forward onto the nexthop link*/
+            if (!dst_route) {
+                    pkt_block_dereference(flavored_pkt);
+                    drop_packet;
+                }
+
+                if (!dst_nexthop->oif) {
+
+                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
+                        pkt_block_str(flavored_pkt));
+                    drop_packet;
+                }
+
+                demote_pkt_to_layer2 (node, 0,
+                                                    (c_string)dst_nexthop->oif->if_name.c_str(), flavored_pkt,
+                                                    pkt_block_get_starting_hdr(flavored_pkt));
+        break;
+        
+        case USD:
+            /* Penultimate router do not apply USD*/
+            NOOP; // Fall through
+
+        default: 
+                srh->segments_left--;
+                Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
+                ipv6_layer3_forward_nexthop(node, dst_nexthop, flavored_pkt);
+    }
+}
+
 /*
 In SRv6, flavors are applied before the END function processing. This ordering ensures that any specific handling or adjustments dictated by the flavor are completed before the standard or custom END behavior is executed
 */
@@ -97,7 +148,50 @@ Process_Srv6_Packet (
         Process_Srv6_remote_packet (node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
         return;
     }
+    
+    /* processing when SL > 1, same processing needs to be done irrespective of end-point fn*/
+    if (srh->segments_left > 1) {
 
+        srh->segments_left -= 1;
+        Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
+        ipv6_route_t *nxt_route = l3rib_v6lookup_lpm(
+                                                NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
+        if (!nxt_route) {
+            tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding route\n", 
+            pkt_block_str(pkt_block));            
+            drop_packet;
+        }
+
+        v6nexthop_t *nxt_nexthop = l3_v6route_get_active_nexthop(nxt_route);
+        if (!nxt_nexthop) {
+            tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding nexthop\n", 
+            pkt_block_str(pkt_block));            
+            drop_packet;
+        }
+
+        if (nxt_nexthop->u.srv6.flags & BINDING_SID) {
+
+            /* Mount seg lst here onto the pkt*/
+        }
+
+        ipv6_layer3_forward_nexthop(node, nxt_nexthop, pkt_block);
+        return;
+}    
+
+    /* SL = 1, Apply flavors advertised by the destination node and forward the pkt*/
+    if (srh->segments_left == 1) {
+
+        Srv6_apply_penultimate_processing (node, pkt_block, ipv6_hdr, srh);
+        return;
+    }
+
+    if (!srh) {
+        Srv6_decapsulate (node, pkt_block);
+        SRv6_process_payload (node, pkt_block);
+        return;
+    }
+
+    /* if SL = 0, apply end point function processing */
     Srv6_apply_endpoint_fn (
                 node, 
                 recv_intf, 
@@ -328,107 +422,16 @@ Srv6_encapsulate (pkt_block_t *pkt_block, srh_hdr_t *srh) {
 /* End Point Functions Definitions */
 
 void
-Process_END(node_t *node, 
+Process_END (node_t *node, 
                         pkt_block_t *pkt_block,
                         ipv6_hdr_t *ipv6_hdr, 
                         srh_hdr_t *srh,
                         v6nexthop_t *nexthop) {
 
-    ipv6_route_t *nxt_route;
-    v6nexthop_t *nexthop2;
-
-    /* case 1 : 
-        When Router Recvs Already Decapsulated pkt. This would be destination router.
-        It would happen when Penultimate router has already performed PSD. BAsed on
-        payload type, pkt must go to that particular module for processing, not SRV6*/
-        assert (ipv6_hdr);
-
-
-    /* case 2 : 
-        When the router recvs the pkt with outer ipv6 header but without SRH header. In 
-        this case, remove outer ipv6 header and process the pkt locally. When Router recvs the 
-        pkt without SRH, it would mean it is ultimate destination */
-    if (!srh) {
-        Srv6_decapsulate (node, pkt_block);
-        SRv6_process_payload (node, pkt_block);
-        return;
-    }
-
-    /* case 3: 
-        If the current node is intermediate node ( not event penultimate node )
-     */
-    if (srh->segments_left > 1) {
-
-        srh->segments_left -= 1;
-        Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-        nxt_route = l3rib_v6lookup_lpm(
-                                            NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
-        
-        nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-        ipv6_layer3_forward_nexthop(node, nexthop2, pkt_block);
-        return;
-    }
-    
-    /* case 4 : If the current node is  penultimate node */
-    else if (srh->segments_left == 1) {
-
-        /* Implement flavors : Apply flavors of the destination node */
-        ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
-        nxt_route = l3rib_v6lookup_lpm(
-                                            NODE_V6RT_TABLE(node), &dst_addr.addr);
-        nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-
-        pkt_block_t *flavored_pkt = Srv6_apply_flavor(
-                node, pkt_block, nexthop2->u.srv6.srv6_flavors, srh->segments_left);
-
-        uint8_t flavor = nexthop2->u.srv6.srv6_flavors;
-
-        switch (flavor) {
-
-            case PSP:
-                ipv6_layer3_forward_nexthop(node, nexthop2, flavored_pkt);
-                break;
-
-            case PSD:
-                /*Router has removed outer ipv6_hdr and SRH header. Payload must be pushed to
-                next router in SRH */
-                if (!nxt_route) {
-                    pkt_block_dereference(flavored_pkt);
-                    drop_packet;
-                }
-
-                if (!nexthop2->oif) {
-
-                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
-                        pkt_block_str(flavored_pkt));
-                    drop_packet;
-                }
-
-                demote_pkt_to_layer2 (node, 0,
-                                                    (c_string)nexthop2->oif->if_name.c_str(), flavored_pkt,
-                                                    pkt_block_get_starting_hdr(flavored_pkt));
-                break;
-
-             /* Only destinations implement USD */
-            case USD:
-                    NOOP; // Fall through
-
-            default:
-                srh->segments_left--;
-                Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-                ipv6_layer3_forward_nexthop(node, nexthop2, flavored_pkt);
-        }
-
-        return;
-    }
-
-    /*  case 5 : If the current node is destination node */
     assert (srh->segments_left == 0);   
-    // ToDO : should we check USD flavor here for decapsulation ?
     Srv6_decapsulate(node, pkt_block);
     SRv6_process_payload(node, pkt_block);
 }
-
 
 void
 Process_END_X (node_t *node, 
@@ -442,92 +445,8 @@ Process_END_X (node_t *node,
                                                     NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
     
     v6nexthop_t *x_v6nexthop = l3_v6route_get_active_nexthop(x_route);
-    ipv6_route_t *nxt_route;
-    v6nexthop_t *nexthop2;
 
-    /* case 1 : 
-        When Router Recvs Already Decapsulated pkt. This would be destination router.
-        It would happen when Penultimate router has already performed PSD. BAsed on
-        payload type, pkt must go to that particular module for processing, not SRV6*/
-        assert (ipv6_hdr);
-
-    /* case 2 : 
-        When the router recvs the pkt with outer ipv6 header but without SRH header. In 
-        this case, remove outer ipv6 header and push the packet out of Interface. */
-    if (!srh) {
-        Srv6_decapsulate (node, orig_pkt);
-        ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
-        return;
-    }
-
-    /* case 3: 
-        If the current node is intermediate node ( not event penultimate node ). Forward it to
-        the nexthop. In this case, nexthop would be the directly connected node through this
-        adjaceny sid.
-     */
-    if (srh->segments_left > 1) {
-
-        srh->segments_left -= 1;
-        Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-        ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
-        return;
-}
-
-    /* case 4 : If the current node is  penultimate node */
-    else if (srh->segments_left == 1) {
-
-       /* Implement flavors : Apply flavors of the destination node */
-        ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
-        nxt_route = l3rib_v6lookup_lpm(
-                                            NODE_V6RT_TABLE(node), &dst_addr.addr);
-        nexthop2 = l3_v6route_get_active_nexthop(nxt_route);
-
-        pkt_block_t *flavored_pkt = Srv6_apply_flavor(
-                node, orig_pkt, nexthop2->u.srv6.srv6_flavors, srh->segments_left);
-
-        pkt_block_reference(flavored_pkt);
-
-        switch (nexthop2->u.srv6.srv6_flavors) {
-
-            case PSP:
-                /* Push the packet along the directly attached link*/
-                ipv6_layer3_forward_nexthop(node, x_v6nexthop, flavored_pkt);
-                break;
-
-            case PSD:
-                /*Router has removed outer ipv6_hdr and SRH header. Payload must be pushed to
-                next router along the adjacency segment using L2 forwarding*/
-                if (!x_v6nexthop->oif) {
-
-                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
-                        pkt_block_str(flavored_pkt));
-                    drop_packet;
-                }
-
-                demote_pkt_to_layer2 (node, 0,
-                                                    (c_string)x_v6nexthop->oif->if_name.c_str(), flavored_pkt,
-                                                    pkt_block_get_starting_hdr(flavored_pkt));
-
-                break;
-
-             /* Only destinations implement USD */
-            case USD:
-                    NOOP; // Fall through
-
-            default:
-                srh->segments_left--;
-                Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-                ipv6_layer3_forward_nexthop(node, x_v6nexthop, flavored_pkt);
-        }
-
-        pkt_block_dereference(flavored_pkt);
-        return;
-    }
-
-    /*  case 5 : If the current node is destination node. In this case, decap and
-        emit the payload out of connected interface  */
     assert (srh->segments_left == 0);
-    // ToDO : should we check USD flavor here for decapsulation ?
     Srv6_decapsulate(node, orig_pkt);
     ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
 }
@@ -544,7 +463,7 @@ Process_END_B6_ENCAP (node_t *node,
 void
 Process_END_B6_ENCAP_X (node_t *node, 
                                                   Interface* recv_intf,
-                                                  pkt_block_t *orig_pkt,
+                                                  pkt_block_t *pkt_block,
                                                   ipv6_hdr_t *ipv6_hdr, 
                                                   srh_hdr_t *srh,
                                                   v6nexthop_t *nexthop) {
