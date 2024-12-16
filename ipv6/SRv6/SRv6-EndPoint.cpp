@@ -408,15 +408,51 @@ flavor_str(uint8_t flavors) {
     }
 }
 
+/* Prepare new SRH header from segment list */
 static srh_hdr_t *
 srh_hdr_prepare (ipv6_addr_t *segment_lst, uint8_t n) {
 
-    return NULL;
+    srh_hdr_t *srh = (srh_hdr_t *)calloc(1, sizeof(srh_hdr_t) + n * 16);
+    srh->nexthdr = 0;
+    srh->hdrlen = sizeof(srh_hdr_t) + n * 16;
+    srh->type = 4;
+    srh->segments_left = n;
+    srh->first_segment = 0;
+    srh->flags = 0;
+    srh->tag = 0;
+    for (int i = 0, j = n; i < n; i++) {
+        memcpy (srh->segments[j - i - 1], segment_lst[i].addr, 16);
+    }
+    return srh;
 }
 
 static void 
 Srv6_encapsulate (pkt_block_t *pkt_block, srh_hdr_t *srh) {
 
+    pkt_size_t pkt_size = 0;
+
+    /* Add SRH header first*/
+    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+    pkt_block_expand_buffer_left (pkt_block, srh->hdrlen);
+    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    memcpy (pkt, srh, srh->hdrlen);
+    srh->nexthdr = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
+    pkt_block_update_new_hdr_type (pkt_block, PROTO_SRH);
+
+    /* Add ipv6 header now*/
+    pkt_block_expand_buffer_left (pkt_block, sizeof(ipv6_hdr_t));
+    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+    initialize_ipv6_hdr (ipv6_hdr);
+    ipv6_hdr->next_header = PROTO_SRH;
+    ipv6_hdr->payload_length = pkt_size - sizeof(ipv6_hdr_t);
+    
+    /* src address, not known, fill will 0s*/
+
+    /* dst address, will with the bottom-most segment in SRH*/
+    memcpy (ipv6_hdr->dst_addr, srh->segments[srh->segments_left], 16);
+
+    pkt_block_update_new_hdr_type (pkt_block, ETH_IP6);
 }
 
 /* End Point Functions Definitions */
@@ -458,6 +494,43 @@ Process_END_B6_ENCAP (node_t *node,
                                               srh_hdr_t *srh,
                                               v6nexthop_t *nexthop) {
 
+    pkt_size_t pkt_size;
+    assert (srh->segments_left == 0);
+
+    Srv6_decapsulate(node, orig_pkt);
+
+    srh_hdr_t *new_srh = srh_hdr_prepare (
+                nexthop->u.srv6.segment_lst,
+                nexthop->u.srv6.n_segment_list);
+
+    Srv6_encapsulate (orig_pkt, new_srh);
+    
+    free (new_srh);
+
+    ipv6_hdr_t *outer_ipv6_hdr = 
+        (ipv6_hdr_t *)pkt_block_get_pkt (orig_pkt, &pkt_size);
+
+    ipv6_route_t *nxt_route = l3rib_v6lookup_lpm(
+                                                    NODE_V6RT_TABLE(node), &outer_ipv6_hdr->dst_addr);
+
+    if (!nxt_route) {
+        tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding route\n", pkt_block_str(orig_pkt));            
+            drop_packet;
+    }
+
+    v6nexthop_t *nxt_nxthop = l3_v6route_get_active_nexthop (nxt_route);
+
+    if (!nxt_nxthop) {
+        tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding nexthop\n", 
+        pkt_block_str(orig_pkt));            
+        drop_packet;
+    }
+
+    if (nxt_nxthop->u.srv6.flags & BINDING_SID) {
+
+    }
+
+     ipv6_layer3_forward_nexthop(node, nxt_nxthop, orig_pkt);
 }
 
 void
@@ -467,5 +540,17 @@ Process_END_B6_ENCAP_X (node_t *node,
                                                   ipv6_hdr_t *ipv6_hdr, 
                                                   srh_hdr_t *srh,
                                                   v6nexthop_t *nexthop) {
+    pkt_size_t pkt_size;
+    
+    assert (srh->segments_left == 0);
 
+    Srv6_decapsulate(node, pkt_block);
+
+    srh_hdr_t *new_srh = srh_hdr_prepare (
+                nexthop->u.srv6.segment_lst,
+                nexthop->u.srv6.n_segment_list);
+
+    Srv6_encapsulate (pkt_block, new_srh);    
+    free (new_srh);
+    ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);
 }
