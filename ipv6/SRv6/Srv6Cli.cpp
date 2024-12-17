@@ -15,7 +15,7 @@ extern graph_t *topo;
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end [flavor [psp|usp|usd]]*/
 #define IPV6_SRV6_PREFIX_SID_CONFIG  1
 
-/* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> [flavor [psp|usp|usd]]*/
+/* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> [flavor [psp | usp | usd ]]*/
 #define IPV6_SRV6_ADJ_SID_CONFIG  2
 
 /* config node <node-name> protocol source-packet-routing srv6 locator <loc-name> <ipv6-address> <[prefix-len]>*/
@@ -24,10 +24,10 @@ extern graph_t *topo;
 /* run node <node-name> ping6 srv6 <seg1> <seg2> <seg3> <seg4> . . .  */
  #define CMDCODE_PING6_SRV6 4
 
-/* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> */
+/* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> [flavor [psp | usp | usd ]] */
 #define IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG 5
 
-/* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> <oif-name> */
+/* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop <oif-name> [flavor [psp | usp | usd ]]*/
 #define IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG 6
 
 /*  config node <node-name> ipv6 route <v6-address> <mask>  binding-sid <v6-address>*/
@@ -131,6 +131,12 @@ srv6_prefix_sid_config_handler
 
     node = node_get_node_by_name(topo, node_name);
 
+    if (prefix_len <= node->node_nw_prop.srv6_locator.prefix_len) {
+
+        cprintf ("Error : %s() prefix len too short\n", __FUNCTION__);
+        return -1;
+    }
+
     if (oif_name) {
 
         intf = node_get_intf_by_name(node, (const char *)oif_name);
@@ -173,6 +179,7 @@ srv6_prefix_sid_config_handler
                                 srv6_route_flag (node, &prefix.addr),
                                 NULL,
                                 intf,
+                                0,
                                 0, END, flavor,
                                 PROTO_SRv6);
         }
@@ -231,6 +238,13 @@ srv6_adjacency_sid_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+
+    if (prefix_len <= node->node_nw_prop.srv6_locator.prefix_len) {
+
+        cprintf ("Error : %s() prefix len too short\n", __FUNCTION__);
+        return -1;
+    }
+
     Interface *intf = node_get_intf_by_name(node, (const char *)oif_name);
 
     if (!intf) {
@@ -270,6 +284,7 @@ srv6_adjacency_sid_config_handler
                                 srv6_route_flag (node, &prefix.addr),
                                 NULL,
                                 intf,
+                                0,
                                 0, END_X, flavor,
                                 PROTO_SRv6);
         }
@@ -317,6 +332,109 @@ srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
         //libcli_set_tail_config_batch_processing (flavors_value);
     }
 }
+
+static int
+srv6_end_b6_encaps_config_handler
+                    (int cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable) {
+
+    int i = 0;
+    node_t *node;
+    uint8_t prefix_len;
+    c_string node_name;
+    c_string flavor1 = NULL;
+    c_string flavor2 = NULL;
+    c_string flavor3 = NULL;
+    c_string ipv6_route_str;
+    tlv_struct_t *tlv = NULL;
+    ipv6_addr_t segment_lst[16] = {0};
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "segment")) 
+            inet_pton6 ((char *)tlv->value, &segment_lst[i++]);
+        else if (parser_match_leaf_id(tlv->leaf_id, "ipv6-address"))
+            ipv6_route_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "mask"))
+            prefix_len = atoi((const char *)tlv->value);
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor1 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor2 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
+            flavor3 = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    
+    if (prefix_len <= node->node_nw_prop.srv6_locator.prefix_len) {
+
+        cprintf ("Error : %s() prefix len too short\n", __FUNCTION__);
+        return -1;
+    }
+
+    uint8_t flavor = DEFAULT_FLAVOR;
+
+    if (flavor1) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
+    }
+
+    if (flavor2) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    if (flavor3) {
+        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+        {
+            ipv6_addr_t prefix;
+            inet_pton6 ((char *)ipv6_route_str, &prefix);
+            ipv6_route_install (node,
+                                &prefix,
+                                prefix_len,
+                                srv6_route_flag (node, &prefix.addr),
+                                NULL,
+                                0,
+                                &segment_lst,
+                                0, END_B6_ENCAP, flavor,
+                                PROTO_SRv6);            
+        }
+        break;
+
+        case CONFIG_DISABLE:
+        {
+
+        }
+        break;
+    }
+
+    return 0;        
+}
+
+
+static int
+srv6_end_b6_x_encaps_config_handler
+                    (int cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable) {
+
+    return 0;
+}
+
 
 void srv6_build_cli_tree(param_t *root)
 {
@@ -370,6 +488,66 @@ void srv6_build_cli_tree(param_t *root)
                     srv6_flavor_cli_subtree_hookup(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
                 }
             }
+
+            {
+                /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> [flavor [psp | usp | usd ]] */
+                static param_t end_b6_encaps;
+                init_param(&end_b6_encaps, CMD, "end-b6-encaps", NULL,
+                           NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-B6-ENCAPS");
+                libcli_register_param(&endpoint, &end_b6_encaps);
+                {
+                    static param_t seg_lst;
+                    init_param(&seg_lst, CMD, "segment-list", NULL,
+                            NULL, INVALID, NULL, "Configure SRv6 Segment List");
+                    libcli_register_param(&end_b6_encaps, &seg_lst);
+                    {
+                        static param_t segment;
+                        init_param(&segment, LEAF, NULL, srv6_end_b6_encaps_config_handler, NULL, IPV6, "segment", "ipv6-address segment");                        
+                        libcli_register_param(&seg_lst, &segment);
+                        libcli_set_param_cmd_code(&segment, IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG);
+                        libcli_param_recursive(&segment);
+                        srv6_flavor_cli_subtree_hookup(&segment, 
+                            IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG, srv6_end_b6_encaps_config_handler);
+                    }                    
+                }                
+            }
+
+
+            {
+                /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop <oif-name> [flavor [psp | usp | usd ]]*/
+                static param_t end_b6_x_encaps;
+                init_param(&end_b6_x_encaps, CMD, "end-b6-x-encaps", NULL,
+                           NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-B6-X-ENCAPS");
+                libcli_register_param(&endpoint, &end_b6_x_encaps);
+                {
+                    static param_t seg_lst;
+                    init_param(&seg_lst, CMD, "segment-list", NULL,
+                            NULL, INVALID, NULL, "Configure SRv6 Segment List");
+                    libcli_register_param(&end_b6_x_encaps, &seg_lst);
+                    {
+                        static param_t segment;
+                        init_param(&segment, LEAF, NULL, NULL, NULL, IPV6, "segment", "ipv6-address segment");                        
+                        libcli_register_param(&seg_lst, &segment);
+                        libcli_param_recursive(&segment);
+                        {
+                            /* . .. nexthop <if-name>*/
+                            static param_t nexthop;
+                            init_param(&nexthop, CMD, "nexthop", NULL, NULL, INVALID, NULL, "Next Hop Interface Name");
+                            libcli_register_param(&segment, &nexthop);
+                            {
+                                    static param_t oif_name;
+                                    init_param(&oif_name, LEAF, NULL, srv6_end_b6_x_encaps_config_handler, 
+                                        NULL, STRING, "oif-name", "Outgoing Interface Name");
+                                    libcli_register_param(&nexthop, &oif_name);
+                                    libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG);
+                                    srv6_flavor_cli_subtree_hookup(&oif_name, 
+                                        IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG, srv6_end_b6_x_encaps_config_handler);
+                            }
+                        }
+                    }                    
+                }                
+            }
+
         }
     }
 }

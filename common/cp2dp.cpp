@@ -246,6 +246,7 @@ ipv6_route_install (node_t *node,
                                 uint8_t rt_flags,
                                 ipv6_addr_t *gw,
                                 Interface* oif,
+                                ipv6_addr_t (*segment_lst)[16],
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
                                 uint8_t srv6_flavor,
@@ -281,6 +282,19 @@ ipv6_route_install (node_t *node,
     rt_update_msg->srv6_end_fn = endfn;
     rt_update_msg->srv6_flavor = srv6_flavor;
     rt_update_msg->proto_id = proto_id;
+
+    if (segment_lst) {
+
+        int i = 0;
+
+        while (  !is_ipv6_addr_unspecified ( &((*segment_lst)[i]).addr ) ) {
+            memcpy ( rt_update_msg->seglst[i], &((*segment_lst)[i]).addr , 16 );
+            i++;
+        } 
+
+        rt_update_msg->seg_lst_count = i;
+        dp_msg->data_size += (i*16);
+    }
 
     cp2dp_submit (node, dp_msg, true);
 }

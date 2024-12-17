@@ -54,6 +54,16 @@ v6_nexthop_compare (v6nexthop_t *nh1, v6nexthop_t *nh2) {
             if (nh1->u.srv6.srv6_flavors != nh2->u.srv6.srv6_flavors) return 1;
             if (nh1->u.srv6.metric != nh2->u.srv6.metric) return 1;
             if (nh1->u.srv6.flags != nh2->u.srv6.flags) return 1;
+            if ((!nh1->u.srv6.segment_lst && nh2->u.srv6.segment_lst) || 
+                    (nh1->u.srv6.segment_lst && !nh2->u.srv6.segment_lst)) return 1;
+            if (nh1->u.srv6.n_segment_list != nh2->u.srv6.n_segment_list) return 1;
+            for (int i = 0; i < nh1->u.srv6.n_segment_list; i++) {
+                if (memcmp (nh1->u.srv6.segment_lst[i].addr, 
+                                      nh2->u.srv6.segment_lst[i].addr, 
+                                      sizeof (nh1->u.srv6.segment_lst[i].addr))) {
+                    return 1;
+                }
+            }
             break;
         default:
             break;

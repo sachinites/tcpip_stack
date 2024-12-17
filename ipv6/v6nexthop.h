@@ -14,7 +14,7 @@ typedef struct v6nexthop_{
     uint32_t ifindex;  
     uint32_t ref_count;
     uint16_t proto;
-    
+
     /* Protocol specific data*/
     union
     {
@@ -41,6 +41,10 @@ typedef struct v6nexthop_{
         hit_count = 0;
         memset (&u, 0, sizeof(u));
     };
+
+    ~v6nexthop_() {
+        if (this->u.srv6.segment_lst) free (this->u.srv6.segment_lst); 
+    }
 
 } __attribute__((aligned(8))) v6nexthop_t;
 

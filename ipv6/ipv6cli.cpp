@@ -76,6 +76,7 @@ ipv6_config_handler
                                                     0,
                                                     &gw,
                                                     intf,
+                                                    0,
                                                     0, (Srv6_endpcode_t)0, 0,
                                                     PROTO_STATIC);
                 }

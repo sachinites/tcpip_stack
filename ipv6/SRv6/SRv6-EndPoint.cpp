@@ -184,6 +184,10 @@ end_fn_str(Srv6_endpcode_t end_fn) {
             return "END_DT6";
         case END_DT4:
             return "END_DT4";
+        case END_B6_ENCAP:
+            return "END_B6_ENCAP";
+        case END_B6_ENCAP_X:
+            return "END_B6_ENCAP_X";
         default:
             return "UNKNOWN";
     }
@@ -241,7 +245,8 @@ Srv6_encapsulate (pkt_block_t *pkt_block, srh_hdr_t *srh) {
     pkt_block_expand_buffer_left (pkt_block, srh->hdrlen);
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
     memcpy (pkt, srh, srh->hdrlen);
-    srh->nexthdr = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
+    srh_hdr_t *new_srh = (srh_hdr_t *)pkt;
+    new_srh->nexthdr = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
     pkt_block_update_new_hdr_type (pkt_block, PROTO_SRH);
 
     /* Add ipv6 header now*/
@@ -255,7 +260,8 @@ Srv6_encapsulate (pkt_block_t *pkt_block, srh_hdr_t *srh) {
     /* src address, not known, fill will 0s*/
 
     /* dst address, will with the bottom-most segment in SRH*/
-    memcpy (ipv6_hdr->dst_addr, srh->segments[srh->segments_left], 16);
+    new_srh->segments_left--;
+    memcpy (ipv6_hdr->dst_addr, new_srh->segments[new_srh->segments_left], 16);
 
     pkt_block_update_new_hdr_type (pkt_block, ETH_IP6);
 }
@@ -359,9 +365,17 @@ Process_Srv6_Packet (
         return;
     }
     
+    /* IF the pkt dont have SRH header ( because PSP has been done) , it is as good as
+        recving packet with SL = 0*/
     if (!srh) {
-        Srv6_decapsulate (node, pkt_block);
-        SRv6_process_payload (node, pkt_block);
+
+        Srv6_apply_endpoint_fn (
+                    node, 
+                    recv_intf, 
+                    pkt_block, 
+                    ipv6_hdr, 
+                    NULL,
+                    nexthop); 
         return;
     }
 
@@ -434,6 +448,14 @@ Srv6_apply_endpoint_fn (
             Process_END_X(node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
             break;
 
+        case END_B6_ENCAP:
+            Process_END_B6_ENCAP(node, pkt_block, ipv6_hdr, srh, nexthop);
+        break;
+
+        case END_B6_ENCAP_X:
+            Process_END_B6_ENCAP_X(node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
+        break;
+
         default:
             assert(0);
     }
@@ -446,10 +468,10 @@ void
 Process_END (node_t *node, 
                         pkt_block_t *pkt_block,
                         ipv6_hdr_t *ipv6_hdr, 
-                        srh_hdr_t *srh,
+                        srh_hdr_t *srh, // can be NULL
                         v6nexthop_t *nexthop) {
 
-    assert (srh->segments_left == 0);   
+    assert (!srh || (srh->segments_left == 0));
     Srv6_decapsulate(node, pkt_block);
     SRv6_process_payload(node, pkt_block);
 }
@@ -462,12 +484,11 @@ Process_END_X (node_t *node,
                         srh_hdr_t *srh,
                         v6nexthop_t *nexthop) {
 
+    assert (!srh || (srh->segments_left == 0));
     ipv6_route_t *x_route = l3rib_v6lookup_lpm(
                                                     NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
     
     v6nexthop_t *x_v6nexthop = l3_v6route_get_active_nexthop(x_route);
-
-    assert (srh->segments_left == 0);
     Srv6_decapsulate(node, orig_pkt);
     ipv6_layer3_forward_nexthop(node, x_v6nexthop, orig_pkt);
 }
@@ -480,7 +501,8 @@ Process_END_B6_ENCAP (node_t *node,
                                               v6nexthop_t *nexthop) {
 
     pkt_size_t pkt_size;
-    assert (srh->segments_left == 0);
+
+    assert (!srh || (srh->segments_left == 0));
 
     Srv6_decapsulate(node, orig_pkt);
 
@@ -526,8 +548,8 @@ Process_END_B6_ENCAP_X (node_t *node,
                                                   srh_hdr_t *srh,
                                                   v6nexthop_t *nexthop) {
     pkt_size_t pkt_size;
-    
-    assert (srh->segments_left == 0);
+
+    assert (!srh || (srh->segments_left == 0));
 
     Srv6_decapsulate(node, pkt_block);
 

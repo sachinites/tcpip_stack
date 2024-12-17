@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <assert.h>
+#include <arpa/inet.h>
 #include "dp_rtm.h"
 #include "../../Layer3/layer3.h"
 #include "../../graph.h"
@@ -367,13 +368,15 @@ ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
     return true;
 }
 
- static bool
+bool
  dp_ipv6_route_install (node_t *node,
                                 ipv6_addr_t *prefix,
                                 uint8_t prefix_len,
                                 uint8_t rt_flags,
                                 ipv6_addr_t *gw,
                                 Interface* oif,   // can be NULL
+                                uint8_t seg_lst_count,
+                                uint8_t (*seg_lst)[16],
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
                                 uint8_t srv6_flavor,
@@ -433,6 +436,16 @@ ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
             nexthop->u.srv6.endfn = endfn;
             nexthop->u.srv6.srv6_flavors = srv6_flavor;
             nexthop->u.srv6.flags = rt_flags;
+
+            if (seg_lst_count) {
+
+                nexthop->u.srv6.n_segment_list = seg_lst_count;
+                nexthop->u.srv6.segment_lst = (ipv6_addr_t *)calloc (seg_lst_count, sizeof (ipv6_addr_t));
+
+                for (int i = 0; i < seg_lst_count; i++) {
+                    memcpy (nexthop->u.srv6.segment_lst[i].addr , (*(seg_lst + i)), 16);
+                }
+            }
         }
     }
 
@@ -468,7 +481,7 @@ ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
     return ipv6_add_route_to_rib  (rt_table, route);
 }
 
- static bool
+bool
  dp_ipv6_route_uninstall (node_t *node,
                                 ipv6_addr_t *prefix,
                                 uint8_t prefix_len,
@@ -545,8 +558,7 @@ np_rt6_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
     switch (dp_msg->opr_type) {
 
         case DP_CREATE:
-
-            rt_update_msg = (rt6_update_msg_t *)dp_msg->data;
+            rt_update_msg = (rt6_update_msg_t *)dp_msg->data;      
             memcpy (dest.addr , rt_update_msg->prefix, 16);
             memcpy (gw.addr , rt_update_msg->gateway, 16);
             dp_ipv6_route_install (node,
@@ -555,6 +567,9 @@ np_rt6_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                                                  rt_update_msg->rt_flags,
                                                  &gw,
                                                  node_get_intf_by_ifindex (node, rt_update_msg->ifindex),
+                                                 rt_update_msg->seg_lst_count,
+                                                 (uint8_t (*)[16]) (rt_update_msg->seg_lst_count ? \
+                                                 rt_update_msg->seglst : NULL),
                                                  rt_update_msg->metric,
                                                  (Srv6_endpcode_t )rt_update_msg->srv6_end_fn,
                                                 rt_update_msg->srv6_flavor,

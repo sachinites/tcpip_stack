@@ -10,7 +10,7 @@ typedef struct pkt_block_ pkt_block_t;
 #include "../ipv6/ipv6_hdrs.h"
 #include "../ipv6/SRv6/SRv6-EndPoint.h"
 
-#define CP2DP_MSG_SIZE_MAX  256
+#define CP2DP_MSG_SIZE_MAX  512
 
 /* Route update msg to RTM*/
 typedef struct rt_update_msg_ {
@@ -36,7 +36,8 @@ typedef struct rt6_update_msg_ {
     uint8_t   prefix_len;
     uint8_t rt_flags;
     uint8_t srv6_flavor;
-    char padding[1];
+    uint8_t seg_lst_count;
+    uint8_t seglst[0][16];
 
 } rt6_update_msg_t;
 
@@ -67,6 +68,14 @@ typedef struct dp_msg_ {
     uint16_t flags;
     char padding[2];
 
+    dp_msg_ () {
+        memset (data, 0, CP2DP_MSG_SIZE_MAX);
+        component_type = (DP_COMPONENT_TYPE_T)0;
+        opr_type = (DP_OPR_TYPE_T )0;
+        data_size = 0;
+        flags = 0;
+    }
+    
 } dp_msg_t;
 
 void 
@@ -118,6 +127,7 @@ ipv6_route_install (node_t *node,
                                 uint8_t rt_flags,
                                 ipv6_addr_t *gw,
                                 Interface* oif,
+                                ipv6_addr_t (*segment_lst)[16],
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
                                 uint8_t srv6_flavor,

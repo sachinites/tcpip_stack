@@ -134,10 +134,19 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     case proto_nxthop_isis:
                     break;
                     case proto_nxthop_srv6:
+
                         cprintf (" SRv6 End Function : %s (%s), flags : %d\n", 
                             end_fn_str(nexthop->u.srv6.endfn), 
                             flavor_str(nexthop->u.srv6.srv6_flavors),
                             nexthop->u.srv6.flags);
+                        
+                        if (nexthop->u.srv6.n_segment_list) {
+                            cprintf (" Segment Lst : ");
+                            for (int j = 0; j < nexthop->u.srv6.n_segment_list; j++) {
+                                cprintf ("%s ", inet_ntop6 (&nexthop->u.srv6.segment_lst[j] , buffer1));
+                            }
+                        }
+                        cprintf ("\n");
                     break;
                 }
 

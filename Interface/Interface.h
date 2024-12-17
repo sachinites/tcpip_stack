@@ -188,7 +188,7 @@ class VirtualInterface : public Interface {
         virtual bool IsInterfaceUp(vlan_id_t vlan_id);
         virtual void InterfaceReleaseAllResources() ;
         virtual bool IsCrossReferenced();
-};
+} __attribute__((aligned(8)));;
 
 
 
@@ -219,7 +219,7 @@ class VlanInterface : public VirtualInterface {
         virtual void InterfaceReleaseAllResources() ;
         virtual bool IsSVI ();
         virtual mac_addr_t *GetMacAddr( );
-};
+} __attribute__((aligned(8)));;
 
 enum GreTunnelConfigEnum
 {
@@ -293,7 +293,7 @@ class VirtualPort : public VirtualInterface {
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;
         virtual bool GetSwitchport() final;
         virtual IntfL2Mode GetL2Mode () final;
-};
+} __attribute__((aligned(8)));;
 
 
 typedef union intf_prop_changed_ {

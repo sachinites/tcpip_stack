@@ -182,6 +182,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
         return PROTO_ARP;
     case ICMP_HDR:
         return ICMP_PROTO;
+    case ICMP6_HDR:
+        return ICMP6_PROTO;
     case TCP_HDR:
         return TCP_PROTO;
     case UDP_HDR:
