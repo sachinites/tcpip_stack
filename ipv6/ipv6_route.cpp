@@ -107,7 +107,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
     ipv6_route_t *route = NULL;
     nxthop_proto_id_t nxthop_proto;
 
-    cprintf("L3 v6 Routing Table:\n");
+    cprintf("\nL3 v6 Routing Table\n\n");
 
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr) {
 
@@ -141,12 +141,16 @@ v6_rt_table_show (rt_table_t *rt_table) {
                             nexthop->u.srv6.flags);
                         
                         if (nexthop->u.srv6.n_segment_list) {
+
                             cprintf (" Segment Lst : ");
+                            
                             for (int j = 0; j < nexthop->u.srv6.n_segment_list; j++) {
                                 cprintf ("%s ", inet_ntop6 (&nexthop->u.srv6.segment_lst[j] , buffer1));
                             }
+
+                            cprintf ("\n");
                         }
-                        cprintf ("\n");
+                        
                     break;
                 }
 

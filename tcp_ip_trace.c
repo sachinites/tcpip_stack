@@ -752,7 +752,7 @@ void tcp_ip_show_log_status(node_t *node){
     cprintf("\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
     cprintf("\tl3_fwd  : %s\n", log_info->l3_fwd ? "ON" : "OFF");
     cprintf ("\taccess list filter : %s\n", 
-            log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
+            log_info->acc_lst_filter && log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
 
      ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
         
@@ -763,7 +763,7 @@ void tcp_ip_show_log_status(node_t *node){
         cprintf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
         cprintf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
         cprintf ("\t\taccess list filter : %s\n", 
-            log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
+            log_info->acc_lst_filter && log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
 
     }  ITERATE_NODE_INTERFACES_END(node, intf);
 
