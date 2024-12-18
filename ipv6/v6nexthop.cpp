@@ -4,6 +4,18 @@
 #include "../tcp_public.h"
 #include "v6nexthop.h"
 
+void 
+nexthop_init (v6nexthop_t *nexthop) {
+
+    nexthop->hit_count = 0;
+    nexthop->gw = {0};
+    nexthop->oif = nullptr;
+    nexthop->ifindex = 0;
+    nexthop->ref_count = 0;
+    nexthop->proto = 0;
+    memset (&nexthop->u, 0, sizeof(nexthop->u));
+}
+
 int 
 v6nh_flush_nexthops(v6nexthop_t **nexthop)
 {

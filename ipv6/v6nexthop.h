@@ -48,6 +48,8 @@ typedef struct v6nexthop_{
 
 } __attribute__((aligned(8))) v6nexthop_t;
 
+void 
+nexthop_init (v6nexthop_t *nexthop);
 
 int
 v6nh_flush_nexthops(v6nexthop_t **nexthop);
