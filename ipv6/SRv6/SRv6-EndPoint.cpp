@@ -283,7 +283,7 @@ Process_Srv6_remote_packet (
 
     if (nexthop->u.srv6.flags & BINDING_SID) {
 
-
+        
     }
 
     ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);

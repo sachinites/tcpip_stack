@@ -10,11 +10,13 @@ extern graph_t *topo;
 extern void  srv6_build_cli_tree (param_t *root);
 extern void display_node_interfaces (param_t *param, Stack_t *tlv_stack);
 extern void srv6_build_cli_run_tree (param_t *root);
+extern uint8_t 
+srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) ;
 
 /* config node <node-name> [no] ipv6 route <ipv6-address> <mask> <nexthop ip> <oif-name>*/
 #define IPV6_RT_CONFIG  1
 #define CMDCODE_PING6 2
-
+#define CMDCODE_BINDING_SID_CONFIG 3
 
 static int
 ipv6_config_handler 
@@ -146,6 +148,63 @@ ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
     return 0;
 }
 
+static int
+ipv6_binding_sid_config_handler (int cmdcode, 
+                                                        Stack_t *tlv_stack, 
+                                                        op_mode enable_or_disable) {
+
+    node_t *node;
+    c_string node_name;
+    c_string bsid_addr;
+    c_string ipv6_route_str;
+    tlv_struct_t *tlv = NULL;
+    uint8_t prefix_len = 0;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "ipv6-address"))
+            ipv6_route_str = tlv->value;
+         else if(parser_match_leaf_id(tlv->leaf_id, "bsid-address"))
+            bsid_addr = tlv->value;
+         else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
+            prefix_len = atoi( (const char *) tlv->value);
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    ipv6_addr_t route, gw;
+    inet_pton6((char *)ipv6_route_str, &route);
+    inet_pton6((char *)bsid_addr, &gw);
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+    
+            ipv6_route_install (node,
+                                            &route,
+                                            prefix_len,
+                                            (BINDING_SID |  srv6_route_flag (node, &route.addr)),
+                                            &gw,
+                                            NULL,
+                                            NULL,
+                                            0,
+                                            (Srv6_endpcode_t )0,
+                                            0,
+                                            PROTO_SRv6) ;
+        break;
+
+        case CONFIG_DISABLE:
+
+        break;
+    }
+
+    return 0;
+}
+
+
 void 
 ipv6_build_cli_tree (param_t *root)
 {
@@ -182,6 +241,19 @@ ipv6_build_cli_tree (param_t *root)
                             libcli_set_param_cmd_code(&oif,  IPV6_RT_CONFIG);                            
                             libcli_register_display_callback(&oif, display_node_interfaces);
                         }
+                    }
+
+                    {
+                        /* . . . binding-sid <ipv6-address> */
+                        static param_t bsid;
+                        init_param(&bsid, CMD, "binding-sid", NULL, NULL, INVALID, NULL, "Binding Sid");
+                        libcli_register_param(&mask, &bsid);
+                        {
+                            static param_t ipv6_addr;
+                            init_param(&ipv6_addr, LEAF, NULL, ipv6_binding_sid_config_handler, NULL, IPV6, "bsid-address", "IPv6 Address");
+                            libcli_register_param(&bsid, &ipv6_addr);                            
+                            libcli_set_param_cmd_code(&ipv6_addr,  CMDCODE_BINDING_SID_CONFIG);                  
+                        }                         
                     }
                 }
             }

@@ -30,7 +30,7 @@ extern graph_t *topo;
 /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop <oif-name> [flavor [psp | usp | usd ]]*/
 #define IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG 6
 
-/*  config node <node-name> ipv6 route <v6-address> <mask>  binding-sid <v6-address>*/
+/* config node <node-name> ipv6 route <v6-address> <mask>  binding-sid <v6-address>*/ 
 #define IPV6_SRV6_BINDING_SID_CONFIG 7
 
 
@@ -76,11 +76,14 @@ srv6_locator_handler
     return 0;
 }
 
-static uint8_t 
+uint8_t 
+srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) ;
+
+uint8_t 
 srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) {
 
     if (node->node_nw_prop.srv6_locator.locator_name[0] == '\0') 
-        return SRV6_LOCAL_RT;
+        return SRV6_REMOTE_RT;
 
     if (ipv6_address_is_subnet (
             &node->node_nw_prop.srv6_locator.locator, 
@@ -130,12 +133,6 @@ srv6_prefix_sid_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-
-    if (prefix_len <= node->node_nw_prop.srv6_locator.prefix_len) {
-
-        cprintf ("Error : %s() prefix len too short\n", __FUNCTION__);
-        return -1;
-    }
 
     if (oif_name) {
 
@@ -238,12 +235,6 @@ srv6_adjacency_sid_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-
-    if (prefix_len <= node->node_nw_prop.srv6_locator.prefix_len) {
-
-        cprintf ("Error : %s() prefix len too short\n", __FUNCTION__);
-        return -1;
-    }
 
     Interface *intf = node_get_intf_by_name(node, (const char *)oif_name);
 
@@ -370,12 +361,6 @@ srv6_end_b6_encaps_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    
-    if (prefix_len <= node->node_nw_prop.srv6_locator.prefix_len) {
-
-        cprintf ("Error : %s() prefix len too short\n", __FUNCTION__);
-        return -1;
-    }
 
     uint8_t flavor = DEFAULT_FLAVOR;
 
