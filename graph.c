@@ -124,6 +124,8 @@ extern struct hashtable *object_network_create_new_ht() ;
 extern struct hashtable *object_group_create_new_ht() ;
 extern void init_nfc_layer2_proto_reg_db2(node_t *node);
 extern int debug_dp_bits_to_str (char *buffer, uint64_t bits) ;
+extern void cp_ipc_event (event_dispatcher_t *, void *, uint32_t );
+extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 
 node_t *
 create_graph_node(graph_t *graph, const c_string node_name){
@@ -199,6 +201,11 @@ create_graph_node(graph_t *graph, const c_string node_name){
     node->dp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
     wt_set_user_data(node->dp_wt, EV_DP(node));
     start_wheel_timer(node->dp_wt);
+
+    /* Start IPC Message Queue of Control Plane*/
+    init_pkt_q (&node->ev_dis, &node->cp_ipc_q, cp_ipc_event);
+    /* Start IPC Message Queue of Data  Plane*/
+    init_pkt_q (&node->dp_ev_dis, &node->dp_ipc_q, 0);
 
     pkt_tracer_init (&node->pkt_tracer);
     

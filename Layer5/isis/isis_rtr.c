@@ -21,6 +21,12 @@ extern void isis_mem_init();
 void isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
         void *rt_notif_data, unsigned int arg_size);
+        
+extern void isis_recv_ipc_updates (node_t *node, 
+                                             ips_major_code_t major_code,
+                                             ips_minor_code_t minor_code,
+                                             void *msg,
+                                             uint32_t msg_size) ;
 
 /* Checking if protocol enable at node & intf level */
 bool
@@ -116,6 +122,8 @@ isis_protocol_shutdown_now (node_t *node) {
     isis_cleanup_teddb (node);
     tracer_deinit (ISIS_NODE_INFO(node)->tr);
     ISIS_NODE_INFO(node)->tr = NULL;
+    cp_ipc_unregister (node, IPC_INTERFACE, isis_recv_ipc_updates);
+    cp_ipc_unregister (node, IPC_GRE_TUNNEL, isis_recv_ipc_updates);
     isis_check_delete_node_info(node); 
 }
 
@@ -374,6 +382,15 @@ isis_init (node_t *node ) {
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
     node_info->lsdb_advt_block = false;
+    cp_ipc_register (node, IPC_INTERFACE, 
+            IPC_SUB_ADD |
+            IPC_SUB_DEL |
+            IPC_SUB_ADDRESS_CHANGE |
+            IPC_SUB_ADMIN_STATE_CHANGE |
+            IPC_SUB_MTU_CHANGE, 
+            isis_recv_ipc_updates);
+        cp_ipc_register (node, IPC_GRE_TUNNEL, IPC_ALL_MINOR_UPDATES,
+            isis_recv_ipc_updates);
 }
 
 void

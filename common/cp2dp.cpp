@@ -119,7 +119,7 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
         tracer (node->dptr,  DIPC | DFLOW, "Pkt : %s : Recvd by Data path\n", pkt_block_str(pkt_block));
         xmit_intf->SendPacketOut (pkt_block);
         pkt_block_dereference(pkt_block);
-	delete (ev_dis_pkt_data);
+	    delete (ev_dis_pkt_data);
 	}
 }
 

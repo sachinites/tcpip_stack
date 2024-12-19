@@ -283,7 +283,7 @@ Process_Srv6_remote_packet (
 
     if (nexthop->u.srv6.flags & BINDING_SID) {
 
-        
+
     }
 
     ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);
@@ -386,14 +386,18 @@ Process_Srv6_Packet (
         Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
         ipv6_route_t *nxt_route = l3rib_v6lookup_lpm(
                                                 NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
+
         if (!nxt_route) {
+
             tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding route\n", 
             pkt_block_str(pkt_block));            
             drop_packet;
         }
 
         v6nexthop_t *nxt_nexthop = l3_v6route_get_active_nexthop(nxt_route);
+
         if (!nxt_nexthop) {
+            
             tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding nexthop\n", 
             pkt_block_str(pkt_block));            
             drop_packet;
@@ -406,7 +410,7 @@ Process_Srv6_Packet (
 
         ipv6_layer3_forward_nexthop(node, nxt_nexthop, pkt_block);
         return;
-}    
+}
 
     /* SL = 1, Apply flavors advertised by the destination node and forward the pkt*/
     if (srh->segments_left == 1) {
@@ -450,17 +454,16 @@ Srv6_apply_endpoint_fn (
 
         case END_B6_ENCAP:
             Process_END_B6_ENCAP(node, pkt_block, ipv6_hdr, srh, nexthop);
-        break;
+            break;
 
         case END_B6_ENCAP_X:
             Process_END_B6_ENCAP_X(node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
-        break;
+            break;
 
         default:
             assert(0);
     }
 }
-
 
 /* End Point Functions Definitions */
 
@@ -485,6 +488,7 @@ Process_END_X (node_t *node,
                         v6nexthop_t *nexthop) {
 
     assert (!srh || (srh->segments_left == 0));
+
     ipv6_route_t *x_route = l3rib_v6lookup_lpm(
                                                     NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
     
@@ -521,13 +525,16 @@ Process_END_B6_ENCAP (node_t *node,
                                                     NODE_V6RT_TABLE(node), &outer_ipv6_hdr->dst_addr);
 
     if (!nxt_route) {
-        tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding route\n", pkt_block_str(orig_pkt));            
-            drop_packet;
+
+        tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding route\n", 
+            pkt_block_str(orig_pkt));            
+        drop_packet;
     }
 
     v6nexthop_t *nxt_nxthop = l3_v6route_get_active_nexthop (nxt_route);
 
     if (!nxt_nxthop) {
+
         tracer (node->dptr, DL3FWD | DERR,  "Pkt : %s :  Pkt Dropped : No forwarding nexthop\n", 
         pkt_block_str(orig_pkt));            
         drop_packet;

@@ -95,13 +95,13 @@ GLTHREAD_TO_STRUCT(glue_to_task,
 
 struct pkt_q_{
 
+	pthread_mutex_t q_mutex;
+	event_dispatcher_t *ev_dis;
+	task_t *task;
 	glthread_t q_head;
+	glthread_t glue;
 	uint32_t pkt_count;
 	uint32_t drop_count;
-	pthread_mutex_t q_mutex;
-	task_t *task;
-	glthread_t glue;
-	event_dispatcher_t *ev_dis;
 };
 GLTHREAD_TO_STRUCT(glue_to_pkt_q,
 	pkt_q_t, glue);

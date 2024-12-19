@@ -82,6 +82,8 @@
 #include "Layer3/netfilter.h"
 #include "ted/ted.h"
 #include "pkt_block.h"
+#include "cp_ipc.h"
+#include "cp_ipc_struct.h"
 
 extern void
 display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);

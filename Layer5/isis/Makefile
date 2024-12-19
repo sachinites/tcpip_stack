@@ -20,12 +20,16 @@ ISIS_OBJS=isis_adjacency.o \
 		  isis_advt.o \
 		  isis_dis.o \
 		  isis_utils.o \
+		  isis_ipc.o \
 
 isis_adjacency.o:isis_adjacency.c
 	${CC} ${CFLAGS} -c -fPIC -I . isis_adjacency.c -o isis_adjacency.o
 
 isis_cli.o:isis_cli.c
 	${CC} ${CFLAGS} -c -fPIC -I . isis_cli.c -o isis_cli.o
+
+isis_ipc.o:isis_ipc.cpp
+	${CC} ${CFLAGS} -c -fPIC -I . isis_ipc.cpp -o isis_ipc.o
 
 isis_rtr.o:isis_rtr.c
 	${CC} ${CFLAGS} -c -fPIC -I . isis_rtr.c -o isis_rtr.o

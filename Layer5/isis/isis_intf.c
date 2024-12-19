@@ -669,3 +669,15 @@ isis_interface_reset_stats (Interface *intf) {
     intf_info->lsp_pkt_sent = 0;
     intf_info ->hello_pkt_sent = 0;
 }
+
+void 
+isis_interface_ipc_updates(ips_minor_code_t minor_code, ipc_interface_t *msg) {
+
+    cprintf ("%s() : invoked", __FUNCTION__);
+}
+ 
+void 
+ isis_gre_tunnel_ipc_updates (ips_minor_code_t minor_code, ipc_gre_t *msg) {
+
+    cprintf ("%s() : invoked", __FUNCTION__);
+ }

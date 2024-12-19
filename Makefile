@@ -48,6 +48,7 @@ OBJS=gluethread/glthread.o \
 		  Layer5/layer5.o  \
 		  nwcli.o		   \
 		  utils.o		   \
+		  cp_ipc.o \
 		  Layer2/l2switch.o \
           libtimer/WheelTimer.o   \
           libtimer/timerlib.o   \
@@ -95,6 +96,9 @@ Tracer/tracer.o:Tracer/tracer.cpp
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
+
+cp_ipc.o:cp_ipc.cpp
+	${CC} ${CFLAGS} -c -I . cp_ipc.cpp -o cp_ipc.o
 
 prefix-list/prefixlst.o:prefix-list/prefixlst.c
 	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o

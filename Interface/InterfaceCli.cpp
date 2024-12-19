@@ -213,6 +213,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             if (IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(
 					interface, &intf_prop_changed, if_change_flags);
+                cp_ipc_send(node, IPC_INTERFACE, IPC_SUB_ADMIN_STATE_CHANGE, 0, 0, false);
             }
             break;
         case CMDCODE_INTF_CONFIG_SWITCHPORT:

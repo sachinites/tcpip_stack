@@ -50,6 +50,7 @@
 #include "PostgresLibpq/postgresLib.h"
 #include <unordered_map>
 #include "Interface/InterfaceFwd.h"
+#include "cp_ipc.h"
 
 #define NODE_NAME_SIZE   24
 #define IF_NAME_SIZE     16
@@ -100,13 +101,17 @@ struct node_ {
     pkt_q_t dp_recvr_pkt_q;
     /* CptoDp Interface Xmit Global Queue*/
     pkt_q_t cp_to_dp_xmit_intf_pkt_q;
+    /* IPC in a control plane */
+    pkt_q_t cp_ipc_q;
+    /*IPC in a data plane */
+    pkt_q_t dp_ipc_q;
+    /* IPC Database*/
+    glthread_t cp_ipc_data_base [IPC_MSG_TYPE_MAX];
      /*CP Timer*/
     wheel_timer_t *cp_wt;
     /* Data Path Timer */
     wheel_timer_t *dp_wt;
-    
     unsigned char *print_buff;
-
     glthread_t access_lists_db;
     glthread_t prefix_lst_db;
     /* Control Plane Tracer*/
