@@ -45,13 +45,12 @@ cp_ipc_unregister (node_t *node,
 }
 
 static void 
- cp_notify_ips (node_t *node, ips_t *ips) {
+ ipc_notify_ips (node_t *node, ips_t *ips) {
 
     glthread_t *curr;
     ipc_element_t *ipc_elem;
 
     if (ips->major_code >= IPC_MSG_TYPE_MAX) return;
-    if (ips->minor_code >= IPC_SUB_CODE_MAX) return;
 
     glthread_t *head = &node->cp_ipc_data_base[ips->major_code];
 
@@ -66,7 +65,7 @@ static void
 }
 
 void 
-cp_ipc_event (event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
+ipc_event_signal (event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
 
     node_t *node = (node_t *)(ev_dis->app_data);
 
@@ -75,18 +74,18 @@ cp_ipc_event (event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
 	if(!ips) return;
 	
 	for ( ; ips;  ips = (ips_t *) task_get_next_pkt(ev_dis, &data_size)) {
-        cp_notify_ips (node, ips);
+        ipc_notify_ips (node, ips);
         free(ips);
 	}
 }
 
 static void
-ipc_msg_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)  { free(arg); }
+ipc_msg_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)  { delete (arg); }
 
 static void
-cp_free_ipc_msg_after_use (node_t *node, void *msg) {
+ipc_msg_free_after_use (event_dispatcher_t *ev, void *msg) {
 
-	task_create_new_job (EV(node), 
+	task_create_new_job (ev, 
 									    msg,
 										ipc_msg_destroy,
 										TASK_ONE_SHOT,  
@@ -96,7 +95,7 @@ cp_free_ipc_msg_after_use (node_t *node, void *msg) {
 void 
 cp_ipc_send (node_t *node, 
                         ips_major_code_t major_code,
-                        ips_minor_code_t minor_code,
+                        uint32_t minor_code,
                         void *msg, 
                         uint32_t msg_size,
                         bool free_after_use) {
@@ -107,5 +106,5 @@ cp_ipc_send (node_t *node,
     ips->msg = msg;
     ips->msg_size = msg_size;
     pkt_q_enqueue(EV(node), &node->cp_ipc_q, (char *)ips, sizeof(ips_t));
-    if (free_after_use) cp_free_ipc_msg_after_use (node, msg);
+    if (free_after_use) ipc_msg_free_after_use (EV(node), msg);
 }

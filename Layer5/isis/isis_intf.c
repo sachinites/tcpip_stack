@@ -671,13 +671,28 @@ isis_interface_reset_stats (Interface *intf) {
 }
 
 void 
-isis_interface_ipc_updates(ips_minor_code_t minor_code, ipc_interface_t *msg) {
+isis_interface_ipc_updates(uint32_t minor_code, ipc_interface_t *msg) {
 
-    cprintf ("%s() : invoked", __FUNCTION__);
+    Interface *intf = msg->intf.get();
+
+    switch (minor_code) {
+
+        case IPC_INTERFACE_METRIC_UPDATE:
+            isis_interface_set_metric (intf, intf->GetIntfCost(), true);
+        break;
+        default:
+            ;
+    }
 }
  
 void 
- isis_gre_tunnel_ipc_updates (ips_minor_code_t minor_code, ipc_gre_t *msg) {
+ isis_gre_tunnel_ipc_updates (uint32_t minor_code, ipc_gre_t *msg) {
 
-    cprintf ("%s() : invoked", __FUNCTION__);
+    //cprintf ("%s() : invoked", __FUNCTION__);
+ }
+
+ void 
+ isis_access_lst_ipc_updates (uint32_t minor_code, ipc_access_lst_t *msg) {
+
+    //cprintf ("%s() : invoked", __FUNCTION__);
  }

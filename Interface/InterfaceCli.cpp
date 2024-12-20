@@ -154,6 +154,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
     node = node_get_node_by_name(topo, node_name);
 
     uint32_t if_change_flags = 0;
+    uint32_t minor_code = 0;
+    ipc_interface_t *update_data;
 
     switch(cmdcode){
 
@@ -166,12 +168,17 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 return -1;
             }
             
+            update_data = new ipc_interface_t;
+            update_data->intf = interface->GetSharedPtr();
+
             uint32_t intf_existing_metric = interface->GetIntfCost();
 
-            if(intf_existing_metric != intf_new_matric_val){
-                SET_BIT(if_change_flags, IF_METRIC_CHANGE_F); 
-                intf_prop_changed.intf_metric = intf_existing_metric;
-            }
+            if(intf_existing_metric == intf_new_matric_val) break;
+
+            SET_BIT(minor_code, IPC_INTERFACE_METRIC_UPDATE);
+            update_data = new ipc_interface_t;
+            update_data->intf = interface->GetSharedPtr();
+            update_data->metric = intf_existing_metric;
 
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
@@ -182,10 +189,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 break;
                 default: ;
             }
-            if (IS_BIT_SET(if_change_flags, IF_METRIC_CHANGE_F)){
-				nfc_intf_invoke_notification_to_sbscribers(
-					interface, &intf_prop_changed, if_change_flags);
-            }
+            cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                    update_data, sizeof (*update_data), true);
         }    
         break;
         case CMDCODE_CONF_INTF_UP_DOWN:
@@ -213,7 +218,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             if (IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
 				nfc_intf_invoke_notification_to_sbscribers(
 					interface, &intf_prop_changed, if_change_flags);
-                cp_ipc_send(node, IPC_INTERFACE, IPC_SUB_ADMIN_STATE_CHANGE, 0, 0, false);
             }
             break;
         case CMDCODE_INTF_CONFIG_SWITCHPORT:
