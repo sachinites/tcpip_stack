@@ -193,7 +193,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     update_data, sizeof (*update_data), true);
         }    
         break;
+
         case CMDCODE_CONF_INTF_UP_DOWN:
+        {
             interface = node_lookup_interface (node, intf_name, vlan_id ) ;
             
             if (!interface) {
@@ -203,31 +205,41 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
             if (string_compare(if_up_down, "up", strlen("up")) == 0){
                 if(interface->is_up == false){
-                    SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F); 
-                     intf_prop_changed.up_status = false;
+                    update_data = new ipc_interface_t;
+                    update_data->intf = interface->GetSharedPtr();
+                    SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP); 
+                     update_data->up_status = false;
                 }
                 interface->is_up = true;
             }
             else{
                 if (interface->is_up){
-                    SET_BIT(if_change_flags, IF_UP_DOWN_CHANGE_F);
-                     intf_prop_changed.up_status = true;
+                    update_data = new ipc_interface_t;
+                    SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN); 
+                     update_data->up_status = true;
+                     update_data->intf = interface->GetSharedPtr();
                 }
                 interface->is_up = false;
             }
-            if (IS_BIT_SET(if_change_flags, IF_UP_DOWN_CHANGE_F)){
-				nfc_intf_invoke_notification_to_sbscribers(
-					interface, &intf_prop_changed, if_change_flags);
+
+            if (minor_code) {
+                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                    update_data, sizeof (*update_data), true);
             }
-            break;
+        }
+        break;
+
         case CMDCODE_INTF_CONFIG_SWITCHPORT:
+        {
             interface = node_lookup_interface (node, intf_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
                 return -1;
             }   
-            intf_prop_changed.is_switchport = interface->GetSwitchport();
+
+            bool old_switchport_status = interface->GetSwitchport();
+
             switch (enable_or_disable)
             {
                 case CONFIG_ENABLE:
@@ -238,22 +250,33 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     break;
                 default:;
             }
-            if (intf_prop_changed.is_switchport != interface->GetSwitchport())
+
+            if (old_switchport_status != interface->GetSwitchport())
             {
-                SET_BIT(if_change_flags, IF_OPER_MODE_CHANGE_F);
-                nfc_intf_invoke_notification_to_sbscribers(
-					interface, &intf_prop_changed, if_change_flags);
+                SET_BIT(minor_code, IPC_INTERFACE_SWITCHPORT_UPDATE);
+                update_data = new ipc_interface_t;;
+                update_data->intf = interface->GetSharedPtr();
+                update_data->is_switchport = old_switchport_status;
+                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                    update_data, sizeof (*update_data), true);
             }
-            break;
+        }
+        break;
+
+
         case CMDCODE_INTF_CONFIG_VLAN:
+        {
             interface = node_lookup_interface (node, intf_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
                 return -1;
             }   
-            intf_prop_changed.access_vlan = interface->GetVlanId();
-            switch(enable_or_disable){
+
+            vlan_id_t old_access_vlan = interface->GetVlanId();
+
+            switch(enable_or_disable) {
+
                 case CONFIG_ENABLE:
                     if (!interface->IntfConfigVlan(vlan_id, true) ) return -1;
                     break;
@@ -263,20 +286,35 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 default:
                     ;
             }
+
             if (intf_prop_changed.access_vlan  !=
                      interface->GetVlanId()) {
-                SET_BIT(if_change_flags, IF_VLAN_MEMBERSHIP_CHANGE_F);
-                nfc_intf_invoke_notification_to_sbscribers(
-					interface, &intf_prop_changed, if_change_flags);
+                
+                SET_BIT(minor_code, IPC_INTERFACE_ACCESS_VLAN_UPDATE);
+                update_data = new ipc_interface_t;;
+                update_data->intf = interface->GetSharedPtr();
+                update_data->access_vlan = old_access_vlan;
+                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                    update_data, sizeof (*update_data), true);
             }
-            break;
+        }
+        break;
+
+
         case CMDCODE_INTF_CONFIG_IP_ADDR:
+        {
             interface = node_lookup_interface (node, intf_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
                 return -1;
             }       
+
+            uint32_t old_ip_addr; 
+            uint8_t old_mask;
+
+            interface->InterfaceGetIpAddressMask (&old_ip_addr, &old_mask);
+
              switch(enable_or_disable){
                 case CONFIG_ENABLE:
                     interface_set_ip_addr(node, interface, intf_ip_addr, mask);
@@ -287,7 +325,37 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 default:
                     ;
             }
-            break;
+
+            uint32_t new_ip_addr;
+            uint8_t new_mask;
+            interface->InterfaceGetIpAddressMask (&new_ip_addr, &new_mask);
+
+            if (old_ip_addr == 0 && old_mask == 0 && 
+                    interface->IsIpConfigured()) {
+
+                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_ADD);
+            }
+            else if ((old_ip_addr || mask ) && !interface->IsIpConfigured()) {
+
+                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_DEL);
+            }
+            else {
+
+                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_UPDATE);
+            }
+
+            if (minor_code) {
+                update_data = new ipc_interface_t;
+                update_data->intf = interface->GetSharedPtr();
+                update_data->ipv4_addr.ip_addr = old_ip_addr;
+                update_data->ipv4_addr.mask = old_mask;
+                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                        update_data, sizeof (*update_data), true);            
+            }
+        }
+        break;
+
+
         case CMDCODE_INTF_CONFIG_LOOPBACK_CREATE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:

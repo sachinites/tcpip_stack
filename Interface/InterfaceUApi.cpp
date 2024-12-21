@@ -8,8 +8,6 @@ interface_set_ip_addr(node_t *node, Interface *intf,
                                     c_string intf_ip_addr, uint8_t mask) {
 
     uint32_t ip_addr_int;
-    uint32_t if_change_flags = 0;
-    intf_prop_changed_t intf_prop_changed;
 
     if (intf->GetSwitchport ()) {
         cprintf("Error : Remove L2 config from interface first\n");
@@ -22,9 +20,6 @@ interface_set_ip_addr(node_t *node, Interface *intf,
     if (!intf->IsIpConfigured()) {
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
-        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-        intf_prop_changed.ip_addr.ip_addr = 0;
-        intf_prop_changed.ip_addr.mask = 0;
 
         /* Add eg : 1.1.1.1/32 */
         rt_ipv4_route_add (node, 
@@ -37,8 +32,6 @@ interface_set_ip_addr(node_t *node, Interface *intf,
                                      mask,
                                      0, intf, 0, PROTO_STATIC, true);
 
-        nfc_intf_invoke_notification_to_sbscribers(intf,  
-                &intf_prop_changed, if_change_flags);
         return;
     }
 
@@ -49,10 +42,6 @@ interface_set_ip_addr(node_t *node, Interface *intf,
     intf->InterfaceGetIpAddressMask(&existing_ip_addr, &existing_mask);
 
     if ((existing_ip_addr != ip_addr_int) || (existing_mask != mask)) {
-
-        intf_prop_changed.ip_addr.ip_addr = existing_ip_addr;
-        intf_prop_changed.ip_addr.mask = existing_mask;
-        SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
 
         rt_ipv4_route_add (node,
                                         existing_ip_addr,
@@ -70,8 +59,6 @@ interface_set_ip_addr(node_t *node, Interface *intf,
                                     mask,
                                      0, intf, 0, PROTO_STATIC, true);
 
-         nfc_intf_invoke_notification_to_sbscribers(intf,  
-                &intf_prop_changed, if_change_flags);
     }
 }
 
@@ -100,18 +87,11 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
         return;
     }
 
-    intf_prop_changed.ip_addr.ip_addr = existing_ip_addr;
-    intf_prop_changed.ip_addr.mask = existing_mask;
-    SET_BIT(if_change_flags, IF_IP_ADDR_CHANGE_F);
-
     rt_ipv4_route_del (node, existing_ip_addr,
                                     existing_mask,
                                     PROTO_STATIC, true);
 
     intf->InterfaceSetIpAddressMask(0, 0);
-    
-    nfc_intf_invoke_notification_to_sbscribers(intf,  
-                &intf_prop_changed, if_change_flags);
 }
 
 void

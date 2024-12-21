@@ -390,7 +390,8 @@ isis_init (node_t *node ) {
             IPC_INTERFACE_IPV4_ADDR_DEL |
             IPC_INTERFACE_IPV4_ADDR_UPDATE |
             IPC_INTERFACE_ADMIN_STATE_DOWN |
-            IPC_INTERFACE_ADMIN_STATE_UP, 
+            IPC_INTERFACE_ADMIN_STATE_UP |
+            IPC_INTERFACE_METRIC_UPDATE,
             isis_recv_ipc_updates);
         cp_ipc_register (node, IPC_GRE_TUNNEL, IPC_ALL_MINOR_UPDATES,
             isis_recv_ipc_updates);

@@ -149,6 +149,9 @@ isis_stop_sending_hellos(Interface *intf){
     pkt_block_dereference((pkt_block_t *)isis_timer_data->data);
     free_timer_data(isis_timer_data);
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
+    tracer (ISIS_TR(node),  TR_ISIS_PKT_HELLO,
+            "Interface : %s : Hello Transmission Switched off",
+            intf->if_name.c_str())
 }
 
 void
@@ -675,10 +678,22 @@ isis_interface_ipc_updates(uint32_t minor_code, ipc_interface_t *msg) {
 
     Interface *intf = msg->intf.get();
 
+    if (!isis_node_intf_is_enable(intf)) return;
+
     switch (minor_code) {
 
         case IPC_INTERFACE_METRIC_UPDATE:
             isis_interface_set_metric (intf, intf->GetIntfCost(), true);
+        break;
+        case IPC_INTERFACE_IPV4_ADDR_ADD:
+        case IPC_INTERFACE_IPV4_ADDR_DEL:
+        case IPC_INTERFACE_IPV4_ADDR_UPDATE:
+            isis_handle_interface_ip_addr_changed (intf,
+                    msg->ipv4_addr.ip_addr,
+                    msg->ipv4_addr.mask); 
+        case IPC_INTERFACE_ADMIN_STATE_DOWN:
+        case IPC_INTERFACE_ADMIN_STATE_UP:
+            isis_handle_interface_up_down (intf, msg->up_status);
         break;
         default:
             ;
