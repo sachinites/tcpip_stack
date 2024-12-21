@@ -493,11 +493,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
             if (enable_or_disable == CONFIG_ENABLE)
             {
-                vport_intf->BindOverlayTunnel(tunnel);
+                vport_intf->BindOverlayTunnel(dynamic_cast<VirtualInterface *>(tunnel));
             }
             else
             {
-                vport_intf->UnBindOverlayTunnel(tunnel);
+                vport_intf->UnBindOverlayTunnel(dynamic_cast<VirtualInterface *>(tunnel));
             }
         }
         break;
@@ -506,18 +506,17 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         return 0;
 }
 
-
 static int
 intf_config_virtual_port_create_handler ( int cmdcode, 
                                                                     Stack_t *tlv_stack,
                                                                     op_mode enable_or_disable){
 
     node_t *node;
-    tlv_struct_t *tlv = NULL;
-    uint32_t if_change_flags = 0;
-    c_string intf_name = NULL;
-    c_string node_name = NULL;
     Interface *intf;
+    tlv_struct_t *tlv = NULL;
+    c_string intf_name = NULL;
+    c_string node_name = NULL;    
+    uint32_t if_change_flags = 0;
     intf_prop_changed_t intf_prop_changed;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){

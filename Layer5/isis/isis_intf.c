@@ -456,36 +456,6 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
     }
 }
 
-void
-isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
-
-	intf_notif_data_t *intf_notif_data = 
-		(intf_notif_data_t *)arg;
-
-	uint32_t flags = intf_notif_data->change_flags;
-	Interface *intf = intf_notif_data->interface.get();
-	intf_prop_changed_t *old_intf_prop_changed =
-            intf_notif_data->old_intf_prop_changed;
-
-    if (!isis_node_intf_is_enable(intf)) return;
-
-    switch(flags) {
-        case IF_UP_DOWN_CHANGE_F:
-            isis_handle_interface_up_down (intf, old_intf_prop_changed->up_status);
-            break;
-        case IF_IP_ADDR_CHANGE_F:
-            isis_handle_interface_ip_addr_changed (intf, 
-                    old_intf_prop_changed->ip_addr.ip_addr,
-                    old_intf_prop_changed->ip_addr.mask);
-         break;
-        case IF_OPER_MODE_CHANGE_F:
-        case IF_VLAN_MEMBERSHIP_CHANGE_F:
-        case IF_METRIC_CHANGE_F :
-        break;
-    default: ;
-    }
-}
-
 /* show per intf stats */
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc) {
@@ -691,6 +661,7 @@ isis_interface_ipc_updates(uint32_t minor_code, ipc_interface_t *msg) {
             isis_handle_interface_ip_addr_changed (intf,
                     msg->ipv4_addr.ip_addr,
                     msg->ipv4_addr.mask); 
+        break;
         case IPC_INTERFACE_ADMIN_STATE_DOWN:
         case IPC_INTERFACE_ADMIN_STATE_UP:
             isis_handle_interface_up_down (intf, msg->up_status);

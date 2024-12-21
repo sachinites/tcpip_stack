@@ -99,9 +99,6 @@ isis_refresh_intf_hellos (Interface *intf);
 void
 isis_show_interface_protocol_state (Interface *intf);
 
-void
-isis_interface_updates (event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
-
 bool
 isis_interface_qualify_to_send_hellos (Interface *intf);
 
