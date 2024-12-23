@@ -1,0 +1,45 @@
+#ifndef __SRV6_STRUCT_H__
+#define __SRV6_STRUCT_H__
+
+#include "../../../ipv6/SRv6/SRv6-EndPoint.h"
+
+typedef struct srv6_locator_ {
+
+    ipv6_addr_t sid;
+    Srv6_endpcode_t endP;
+    uint8_t data_block_prefix_len;
+    uint8_t flavor;
+    uint8_t prefix_len;
+    uint8_t n_seg_lst;
+    ipv6_addr_t seglst[0];
+    
+} srv6_locator_t;
+
+typedef struct srv6_pfxsid_ {
+
+    ipv6_addr_t sid;
+    Srv6_endpcode_t endP;
+    uint8_t flavor;
+    uint8_t prefix_len;
+    uint8_t n_seg_lst;
+    char padding[1];
+    ipv6_addr_t seglst[0];
+
+} srv6_pfxsid_t;
+
+typedef struct srv6_adjsid_ {
+
+    ipv6_addr_t sid;
+    ipv6_addr_t gw;
+    Srv6_endpcode_t endP;
+    uint32_t ifindex;
+    uint8_t flavor;
+    uint8_t prefix_len;
+    uint8_t n_seg_lst;
+    char padding[5];
+    ipv6_addr_t seglst[0];
+    
+} srv6_adjsid_t;
+
+
+#endif 

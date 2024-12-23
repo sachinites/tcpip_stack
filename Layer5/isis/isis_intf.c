@@ -149,7 +149,7 @@ isis_stop_sending_hellos(Interface *intf){
     pkt_block_dereference((pkt_block_t *)isis_timer_data->data);
     free_timer_data(isis_timer_data);
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
-    tracer (ISIS_TR(node),  TR_ISIS_PKT_HELLO,
+    tracer (ISIS_TR(intf->att_node),  TR_ISIS_PKT_HELLO,
             "Interface : %s : Hello Transmission Switched off",
             intf->if_name.c_str())
 }

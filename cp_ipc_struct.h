@@ -53,6 +53,27 @@ typedef enum ips_msg_code_ {
     #define IPC_ACCESS_LIST_DEL 2
     #define IPC_ACCESS_LIST_UPDATE 4
 
+    /* Producer is SRV6 Module */
+    IPC_SRV6_INFO,
+    #define IPC_SRV6_LOCATOR_ADD (1 << 0)
+    #define IPC_SRV6_LOCATOR_DEL (1 << 1)
+    #define IPC_SRV6_PREFIX_SID_ADD (1 << 2)
+    #define IPC_SRV6_PREFIX_SID_DEL (1 << 3)
+    #define IPC_SRV6_ADJ_SID_ADD (1 << 4)
+    #define IPC_SRV6_ADJ_SID_DEL (1 << 5)
+    #define IPC_SRV6_ROUTES_ADD (1 << 6)
+    #define IPC_SRV6_ROUTES_DEL (1 << 7)
+
+    /* Producer is ISIS , SRV6 info which it has learnt from
+        LSDB advertisement */
+    IPC_ISIS_SRV6_REMOTE_LSDB_INFO,
+    #define IPC_ISIS_SRV6_LOCATOR_ADD (1 << 0)
+    #define IPC_ISIS_SRV6_LOCATOR_DEL (1 << 1)
+    #define IPC_ISIS_SRV6_PREFIX_SID_ADD (1 << 2)
+    #define IPC_ISIS_SRV6_PREFIX_SID_DEL (1 << 3)
+    #define IPC_ISIS_SRV6_ADJ_SID_ADD (1 << 4)
+    #define IPC_ISIS_SRV6_ADJ_SID_DEL (1 << 5)
+
     IPC_MSG_TYPE_MAX
 
 } ips_major_code_t;
@@ -107,5 +128,28 @@ typedef struct ipc_access_lst_ {
 
 }  ipc_access_lst_t;
 
+
+// IPC_SRV6_DATA
+typedef struct srv6_data_ {
+
+    uint32_t rtr_id;
+
+    union {
+
+            struct  {
+
+            } locator;
+
+            struct {
+
+            } prefix_sid;
+
+            struct {
+                
+            } adj_sid;
+
+    } u;
+
+}  srv6_data_t;
 
 #endif 

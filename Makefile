@@ -10,6 +10,8 @@ TARGET:tcpstack.exe pkt_gen.exe main2.exe
 ISIS_LIB=Layer5/isis/libisis.a
 ISIS_LIB_PATH=-L Layer5/isis -lisis
 # proto Libs
+SRV6_LIB=Layer5/SegmentRouting/SRv6/libsrv6.a
+SRV6_LIB_PATH=-L Layer5/SegmentRouting/SRv6 -lsrv6
 
 LIBS=-lpthread \
 			-lpq \
@@ -22,6 +24,7 @@ LIBS=-lpthread \
 			-L FireWall -lasa \
 			-lrt -lm -lncurses \
 			${ISIS_LIB_PATH} \
+			${SRV6_LIB_PATH} \
 
 OBJS=gluethread/glthread.o \
 		  BitOp/bitmap.o \
@@ -119,11 +122,11 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
+tcpstack.exe:main.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB} ${SRV6_LIB}
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
-main2.exe:main2.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB}
+main2.exe:main2.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB} ${SRV6_LIB}
 	${CC} ${CFLAGS} main2.o ${OBJS}  ${LIBS} -o main2.exe
 	@echo "main2.exe Build Finished"
 
@@ -303,6 +306,8 @@ FireWall/libasa.a:
 	(cd FireWall; make)
 ${ISIS_LIB}:
 	(cd Layer5/isis; make)
+${SRV6_LIB}:
+	(cd Layer5/SegmentRouting/SRv6; make)
 
 clean:
 	rm -f *.o
@@ -317,6 +322,7 @@ clean:
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
 	(cd Layer5/isis; make clean)
+	(cd Layer5/SegmentRouting/SRv6; make clean)
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f BitOp/*.o
