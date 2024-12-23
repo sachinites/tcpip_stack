@@ -2,7 +2,6 @@
 #define IPV6_UTILS_H
 
 #include "ipv6_hdrs.h"
-#include "SRv6/SRv6-EndPoint.h"
 
 char *
 inet_ntop6 (ipv6_addr_t *addr, char *buffer);

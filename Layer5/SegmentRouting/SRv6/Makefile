@@ -6,10 +6,19 @@ TARGET_LIB=libsrv6.a
 
 TARGET:${TARGET_LIB}
 
-OBJS=srv6_rtr.o \
+OBJS=cp/srv6_rtr.o \
+			cp/Srv6Cli.o \
+			dp/SRv6-EndPoint.o \
 
-srv6_rtr.o:srv6_rtr.cpp
-	${CC} ${CFLAGS} -c -fPIC -I . srv6_rtr.cpp -o srv6_rtr.o
+cp/srv6_rtr.o:cp/srv6_rtr.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_rtr.cpp -o cp/srv6_rtr.o
+
+cp/Srv6Cli.o:cp/Srv6Cli.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/Srv6Cli.cpp -o cp/Srv6Cli.o
+
+dp/SRv6-EndPoint.o:dp/SRv6-EndPoint.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ dp/SRv6-EndPoint.cpp -o dp/SRv6-EndPoint.o
+
 
 ${TARGET_LIB}:${OBJS}
 	ar rs ${TARGET_LIB} ${OBJS}
@@ -18,3 +27,6 @@ ${TARGET_LIB}:${OBJS}
 clean:
 	rm -rf *.o 
 	rm -rf *.a
+	rm -rf cp/*.o 
+	rm -rf dp/*.o 
+	

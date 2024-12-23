@@ -8,10 +8,10 @@ TARGET:tcpstack.exe pkt_gen.exe main2.exe
 
 # Proto Libs
 ISIS_LIB=Layer5/isis/libisis.a
-ISIS_LIB_PATH=-L Layer5/isis -lisis
+ISIS_LIB_PATH=-LLayer5/isis -lisis
 # proto Libs
 SRV6_LIB=Layer5/SegmentRouting/SRv6/libsrv6.a
-SRV6_LIB_PATH=-L Layer5/SegmentRouting/SRv6 -lsrv6
+SRV6_LIB_PATH=-LLayer5/SegmentRouting/SRv6 -lsrv6
 
 LIBS=-lpthread \
 			-lpq \
@@ -80,12 +80,10 @@ OBJS=gluethread/glthread.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
 		  ipv6/ipv6cli.o \
-		  ipv6/SRv6/Srv6Cli.o \
 		  ipv6/ipv6_route.o \
 		  ipv6/ipv6_utils.o \
 		  ipv6/v6nexthop.o \
 		  ipv6/ipv6_fwd.o \
-		  ipv6/SRv6/SRv6-EndPoint.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -272,8 +270,6 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 #ipv6 files 
 ipv6/ipv6cli.o:ipv6/ipv6cli.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6cli.cpp -o ipv6/ipv6cli.o
-ipv6/SRv6/Srv6Cli.o:ipv6/SRv6/Srv6Cli.cpp 
-	${CC} ${CFLAGS} -c ipv6/SRv6/Srv6Cli.cpp -o ipv6/SRv6/Srv6Cli.o
 ipv6/ipv6_route.o:ipv6/ipv6_route.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6_route.cpp -o ipv6/ipv6_route.o
 ipv6/v6nexthop.o:ipv6/v6nexthop.cpp
@@ -282,8 +278,6 @@ ipv6/ipv6_utils.o:ipv6/ipv6_utils.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6_utils.cpp -o ipv6/ipv6_utils.o
 ipv6/ipv6_fwd.o:ipv6/ipv6_fwd.cpp
 	${CC} ${CFLAGS} -c ipv6/ipv6_fwd.cpp -o ipv6/ipv6_fwd.o
-ipv6/SRv6/SRv6-EndPoint.o:ipv6/SRv6/SRv6-EndPoint.cpp
-	${CC} ${CFLAGS} -c ipv6/SRv6/SRv6-EndPoint.cpp -o ipv6/SRv6/SRv6-EndPoint.o
 
 # Protocols Specific
 # STP

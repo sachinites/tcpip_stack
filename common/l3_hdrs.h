@@ -63,6 +63,20 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(ip_payload_size)  \
     (5 + (short)(ip_payload_size/4) + (short)((ip_payload_size % 4) ? 1 : 0))
 
+#pragma pack (push,1)
+typedef struct srh_hdr_ {
+
+    uint8_t nexthdr;
+    uint8_t hdrlen;
+    uint8_t type;
+    uint8_t segments_left;
+    uint8_t first_segment;
+    uint8_t flags;
+    uint16_t tag;
+    uint8_t segments[0][16];
+    
+} srh_hdr_t;
+#pragma pack(pop)
 
 
 #endif // __L3_PKT_HDRS__

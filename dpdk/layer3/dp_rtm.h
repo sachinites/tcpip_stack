@@ -5,7 +5,7 @@ typedef struct dp_msg_ dp_msg_t;
 typedef struct node_ node_t;
 class Interface;
 
-#include "../../ipv6/SRv6/SRv6-EndPoint.h"
+#include "../../Layer5/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
 #include "../../ipv6/ipv6_hdrs.h"
 
 #include <stdint.h>

@@ -4,7 +4,7 @@
 #include "../utils.h"
 #include "../Interface/InterfaceFwd.h"
 #include "ipv6_hdrs.h"
-#include "SRv6/SRv6-EndPoint.h"
+#include "../Layer5/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
 
 typedef struct v6nexthop_{
 

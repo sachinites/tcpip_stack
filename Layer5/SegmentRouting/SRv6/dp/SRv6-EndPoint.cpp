@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include <assert.h>
-#include "../ipv6_hdrs.h"
-#include "Srv6.h"
+#include "../../../../common/l3_hdrs.h"
 #include "SRv6-EndPoint.h"
-#include "../ipv6_route.h"
-#include "../../graph.h"
-#include "../../pkt_block.h"
-#include "../../Tracer/tracer.h"
-#include "../../Interface/InterfaceUApi.h"
+#include "../../../../ipv6/ipv6_hdrs.h"
+#include "../../../../ipv6/ipv6_route.h"
+#include "../../../../graph.h"
+#include "../../../../pkt_block.h"
+#include "../../../../Tracer/tracer.h"
+#include "../../../../Interface/InterfaceUApi.h"
 
 extern void 
 ipv6_layer3_forward_nexthop(

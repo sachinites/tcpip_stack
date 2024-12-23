@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include "srv6_struct.h"
-#include "srv6_const.h"
+#include "../common/srv6_const.h"
 
 typedef struct mtrie_ mtrie_t;
 

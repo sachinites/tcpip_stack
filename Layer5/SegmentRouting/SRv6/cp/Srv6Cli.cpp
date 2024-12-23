@@ -1,14 +1,13 @@
 #include <arpa/inet.h>
-#include "../../CLIBuilder/libcli.h"
-#include "../../graph.h"
-#include "../../Interface/InterfaceUApi.h"
-#include "SRv6-EndPoint.h"
-#include "../ipv6_utils.h"
-#include "../ipv6_route.h"
-#include "../ipv6_hdrs.h"
-#include "../../pkt_block.h"
-#include "Srv6.h"
-#include "../../common/cp2dp.h"
+#include "../../../../CLIBuilder/libcli.h"
+#include "../../../../graph.h"
+#include "../../../../Interface/InterfaceUApi.h"
+#include "../../../../common/l3_hdrs.h"
+#include "../../../../ipv6/ipv6_utils.h"
+#include "../../../../ipv6/ipv6_route.h"
+#include "../../../../ipv6/ipv6_hdrs.h"
+#include "../../../../pkt_block.h"
+#include "../../../../common/cp2dp.h"
 
 extern graph_t *topo;
 
