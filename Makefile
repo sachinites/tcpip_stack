@@ -7,11 +7,11 @@ TARGET:tcpstack.exe pkt_gen.exe main2.exe
 # Install external dependent libs :   sudo apt-get install libpq-dev
 
 # Proto Libs
-ISIS_LIB=Layer5/isis/libisis.a
-ISIS_LIB_PATH=-LLayer5/isis -lisis
+ISIS_LIB=Layer3/isis/libisis.a
+ISIS_LIB_PATH=-LLayer3/isis -lisis
 # proto Libs
-SRV6_LIB=Layer5/SegmentRouting/SRv6/libsrv6.a
-SRV6_LIB_PATH=-LLayer5/SegmentRouting/SRv6 -lsrv6
+SRV6_LIB=Layer3/SegmentRouting/SRv6/libsrv6.a
+SRV6_LIB_PATH=-LLayer3/SegmentRouting/SRv6 -lsrv6
 
 LIBS=-lpthread \
 			-lpq \
@@ -299,9 +299,9 @@ FSMImplementation/libfsm.a:
 FireWall/libasa.a:
 	(cd FireWall; make)
 ${ISIS_LIB}:
-	(cd Layer5/isis; make)
+	(cd Layer3/isis; make)
 ${SRV6_LIB}:
-	(cd Layer5/SegmentRouting/SRv6; make)
+	(cd Layer3/SegmentRouting/SRv6; make)
 
 clean:
 	rm -f *.o
@@ -315,8 +315,8 @@ clean:
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
-	(cd Layer5/isis; make clean)
-	(cd Layer5/SegmentRouting/SRv6; make clean)
+	(cd Layer3/isis; make clean)
+	(cd Layer3/SegmentRouting/SRv6; make clean)
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f BitOp/*.o

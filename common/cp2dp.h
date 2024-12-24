@@ -8,7 +8,7 @@ typedef struct pkt_block_ pkt_block_t;
 
 #include "../Interface/InterfaceFwd.h"
 #include "../ipv6/ipv6_hdrs.h"
-#include "../Layer5/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
+#include "../Layer3/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
 
 #define CP2DP_MSG_SIZE_MAX  512
 
