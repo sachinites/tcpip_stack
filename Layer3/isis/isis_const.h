@@ -66,6 +66,7 @@
 #define TR_ISIS_ROUTE            (1 << 7)
 #define TR_ISIS_POLICY           (1 << 8)
 #define TR_ISIS_ERRORS         (1 << 9)
+#define TR_ISIS_IPC                   (1 << 10)
 #define TR_ISIS_ALL                 (TR_ISIS_SPF |  \
                                                        TR_ISIS_EVENTS | \
                                                        TR_ISIS_LSDB | \
@@ -75,7 +76,7 @@
                                                        TR_ISIS_ADJ | \
                                                        TR_ISIS_ROUTE | \
                                                        TR_ISIS_POLICY | \
-                                                       TR_ISIS_ERRORS \
-                                                        )
+                                                       TR_ISIS_ERRORS | \
+                                                       TR_ISIS_IPC )
 
 #endif 

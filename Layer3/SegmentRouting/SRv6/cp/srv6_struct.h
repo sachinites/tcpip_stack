@@ -6,13 +6,12 @@
 
 typedef struct srv6_locator_ {
 
+    char name[32];
     ipv6_addr_t sid;
     Srv6_endpcode_t endP;
     uint8_t data_block_prefix_len;
     uint8_t flavor;
     uint8_t prefix_len;
-    uint8_t n_seg_lst;
-    ipv6_addr_t seglst[0];
     
 } srv6_locator_t;
 

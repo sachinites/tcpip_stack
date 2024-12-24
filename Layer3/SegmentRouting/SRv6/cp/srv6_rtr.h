@@ -6,17 +6,20 @@
 #include "../common/srv6_const.h"
 
 typedef struct mtrie_ mtrie_t;
+typedef struct tracer_ tracer_t;
 
 typedef struct srv6_node_info_ {
 
     /* Configured locator */
     srv6_locator_t loc;   
-    /* Configured Static Routes (prefix sids/Adj Sids/Remote routes )*/
-    mtrie_t *configured_sids;
-    /* Srv6 Condnifured Sid Routes */
-    mtrie_t *configured_sid_routes;
+    /* Configured prefix sids*/
+    mtrie_t *configured_pfx_sids;
+    /* Configured Adjacency Sids */
+    mtrie_t *configured_adj_sids;    
     /* SRv6 IGP routes */
     mtrie_t *igp_routes;
+    /* Tracer*/
+    tracer_t *tr;
 
 } srv6_node_info_t;
 

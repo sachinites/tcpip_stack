@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include "Interface/InterfacEnums.h"
 #include "Interface/InterfaceFwd.h"
+#include "Layer3/ipv6/ipv6_hdrs.h"
+#include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 class TransportService;
 
@@ -66,13 +68,14 @@ typedef enum ips_msg_code_ {
 
     /* Producer is ISIS , SRV6 info which it has learnt from
         LSDB advertisement */
-    IPC_ISIS_SRV6_REMOTE_LSDB_INFO,
+    IPC_ISIS_SRV6_LSDB_INFO,
     #define IPC_ISIS_SRV6_LOCATOR_ADD (1 << 0)
     #define IPC_ISIS_SRV6_LOCATOR_DEL (1 << 1)
     #define IPC_ISIS_SRV6_PREFIX_SID_ADD (1 << 2)
     #define IPC_ISIS_SRV6_PREFIX_SID_DEL (1 << 3)
     #define IPC_ISIS_SRV6_ADJ_SID_ADD (1 << 4)
     #define IPC_ISIS_SRV6_ADJ_SID_DEL (1 << 5)
+    #define IPC_ISIS_SRV6_TLVs (1 << 6)
 
     IPC_MSG_TYPE_MAX
 
@@ -130,7 +133,7 @@ typedef struct ipc_access_lst_ {
 
 
 // IPC_SRV6_DATA
-typedef struct srv6_data_ {
+typedef struct ips_srv6_data_ {
 
     uint32_t rtr_id;
 
@@ -138,10 +141,20 @@ typedef struct srv6_data_ {
 
             struct  {
 
+                ipv6_addr_t prefix;
+                Srv6_endpcode_t endfn;
+                uint8_t prefix_len;
+                uint8_t flavor;
+
             } locator;
 
             struct {
 
+                ipv6_addr_t prefix;
+                Srv6_endpcode_t endfn;
+                uint8_t prefix_len;
+                uint8_t flavor;
+                
             } prefix_sid;
 
             struct {
@@ -150,6 +163,6 @@ typedef struct srv6_data_ {
 
     } u;
 
-}  srv6_data_t;
+}  __attribute__((aligned(8)))  ips_srv6_data_t;
 
 #endif 

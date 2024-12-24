@@ -644,7 +644,7 @@ isis_interface_reset_stats (Interface *intf) {
 }
 
 void 
-isis_interface_ipc_updates(uint32_t minor_code, ipc_interface_t *msg) {
+isis_interface_ipc_updates(node_t *node, uint32_t minor_code, ipc_interface_t *msg) {
 
     Interface *intf = msg->intf.get();
 
@@ -672,13 +672,13 @@ isis_interface_ipc_updates(uint32_t minor_code, ipc_interface_t *msg) {
 }
  
 void 
- isis_gre_tunnel_ipc_updates (uint32_t minor_code, ipc_gre_t *msg) {
+ isis_gre_tunnel_ipc_updates (node_t *node, uint32_t minor_code, ipc_gre_t *msg) {
 
     //cprintf ("%s() : invoked", __FUNCTION__);
  }
 
  void 
- isis_access_lst_ipc_updates (uint32_t minor_code, ipc_access_lst_t *msg) {
+ isis_access_lst_ipc_updates (node_t *node, uint32_t minor_code, ipc_access_lst_t *msg) {
 
     //cprintf ("%s() : invoked", __FUNCTION__);
  }

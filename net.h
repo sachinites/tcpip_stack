@@ -61,7 +61,7 @@ typedef struct rt_table_ rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
 typedef struct nmp_ nmp_t;
 typedef struct stp_node_ stp_node_info_t;
-typedef struct srv6_info_ srv6_info_t ;
+typedef struct srv6_node_info_ srv6_node_info_t ;
 
 typedef struct node_nw_prop_{
 
@@ -104,7 +104,7 @@ typedef struct node_nw_prop_{
     void *isis_node_info;
 
     /* Device level SRV6 info */
-    srv6_info_t *srv6_node_info;
+    srv6_node_info_t *srv6_node_info;
 
 } node_nw_prop_t;
 

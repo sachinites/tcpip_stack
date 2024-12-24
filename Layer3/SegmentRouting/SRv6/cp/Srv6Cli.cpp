@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include "../../../../CLIBuilder/libcli.h"
+#include "../../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../../graph.h"
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../../common/l3_hdrs.h"
@@ -8,30 +9,73 @@
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../pkt_block.h"
 #include "../../../../common/cp2dp.h"
+#include "srv6_api.h" 
+#include "srv6_rtr.h"
 
 extern graph_t *topo;
 
+/* /* config node <node-name> ipv6 srv6 */
+#define IPV6_SRV6_ENABLE_CONFIG  1
+
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end [flavor [psp|usp|usd]]*/
-#define IPV6_SRV6_PREFIX_SID_CONFIG  1
+#define IPV6_SRV6_PREFIX_SID_CONFIG  2
 
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> [flavor [psp | usp | usd ]]*/
-#define IPV6_SRV6_ADJ_SID_CONFIG  2
+#define IPV6_SRV6_ADJ_SID_CONFIG  3
 
 /* config node <node-name> protocol source-packet-routing srv6 locator <loc-name> <ipv6-address> <[prefix-len]>*/
-#define IPV6_SRV6_LOCATOR_CONFIG  3
+#define IPV6_SRV6_LOCATOR_CONFIG  4
 
 /* run node <node-name> ping6 srv6 <seg1> <seg2> <seg3> <seg4> . . .  */
- #define CMDCODE_PING6_SRV6 4
+ #define CMDCODE_PING6_SRV6 5
 
 /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> [flavor [psp | usp | usd ]] */
-#define IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG 5
+#define IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG 6
 
 /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop <oif-name> [flavor [psp | usp | usd ]]*/
-#define IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG 6
+#define IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG 7
 
 /* config node <node-name> ipv6 route <v6-address> <mask>  binding-sid <v6-address>*/ 
-#define IPV6_SRV6_BINDING_SID_CONFIG 7
+#define IPV6_SRV6_BINDING_SID_CONFIG 8
 
+static int
+srv6_config_enable
+                    (int cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable) {
+
+    tlv_struct_t *tlv;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        
+    } TLV_LOOP_END;
+
+    node_t *node = node_get_node_by_name(topo, node_name);
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+        {
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            if (node_info) return 0;
+            SRV6_NODE_INFO(node) = (srv6_node_info_t *) XCALLOC (0, 1 , srv6_node_info_t);
+            srv6_init (node);
+        }
+        break;
+        case CONFIG_DISABLE:
+            {
+                srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+                if (!node_info) return 0;
+                srv6_de_init (node);
+            }
+        break;
+    }
+    return 0;
+}
 
 static int
 srv6_locator_handler
@@ -61,16 +105,78 @@ srv6_locator_handler
 
     node_t *node = node_get_node_by_name(topo, node_name);
 
-    if (node->node_nw_prop.srv6_locator.locator_name[0] != '\0') {
-        cprintf ("Error : Locator already configured\n");
-        return -1;
-    }
+    switch (enable_or_disable) {
 
-    inet_pton(AF_INET6, (char *)ipv6_addr,  node->node_nw_prop.srv6_locator.locator);
-    strncpy(node->node_nw_prop.srv6_locator.locator_name, 
-        (const char *)locator_name, 
-        sizeof (node->node_nw_prop.srv6_locator.locator_name));
-    node->node_nw_prop.srv6_locator.prefix_len = prefix_len;
+        case CONFIG_ENABLE:
+        {
+            if (!srv6_is_enable(node)) {
+                cprintf ("Error : srv6 not enabled\n");
+                return -1;
+            }
+
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_locator_t *loc = &node_info->loc;
+
+            if (!is_ipv6_addr_unspecified(&loc->sid.addr)) {
+                cprintf ("Error : Locator already configured\n");
+                return -1;
+            }
+
+            inet_pton(AF_INET6, (char *)ipv6_addr,  &loc->sid.addr);
+            strncpy(loc->name,  (const char *)locator_name,  sizeof (loc->name));
+            loc->prefix_len = prefix_len;
+            loc->data_block_prefix_len = SRV6_DATA_BLOCK_SIZE;
+            loc->flavor = DEFAULT_FLAVOR;
+
+            /* Locator post config processing */
+            srv6_local_sid_config_post_processing (node,
+                    &loc->sid,
+                    loc->prefix_len,
+                    END,
+                    loc->flavor,
+                    NULL,
+                    NULL);
+        }
+        break;
+        case CONFIG_DISABLE:
+        {
+            if (!srv6_is_enable(node)) {
+                cprintf ("Error : srv6 not enabled\n");
+                return -1;
+            }
+
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_locator_t *loc = &node_info->loc;
+            mtrie_node_t *mnode;
+            srv6_pfxsid_t *pfxsid;
+
+            if (is_ipv6_addr_unspecified(&loc->sid.addr)) {
+                return 0;
+            }
+
+        /* Remove all local prefix sids and Adj sids routes from RIB,
+            also send delete ips */
+            srv6_delete_all_pfx_sids (node) ;
+            srv6_delete_all_adj_sids (node) ;
+
+            /* Dont delete remote routes learnt from IGP. Only local routes
+                calculation is stopped when user disable locator */
+            
+            //srv6_delete_all_igp_routes (node);
+
+            /* now delete the locator route and send IPS to IGP */
+            srv6_local_sid_unconfig_pre_processing(node,
+                                               &loc->sid,
+                                               loc->prefix_len,
+                                               loc->endP,
+                                               loc->flavor,
+                                               0, 0);
+            
+            /* Remove the locator config */
+            memset (loc, 0, sizeof (*loc));
+        }
+        break;
+    }
 
     return 0;
 }
@@ -425,7 +531,7 @@ void srv6_build_cli_tree(param_t *root)
     {
         /*...  srv6 endpoint end-sid ... */
         static param_t srv6;
-        init_param(&srv6, CMD, "srv6", NULL, NULL, INVALID, NULL, "Configure SRv6");
+        init_param(&srv6, CMD, "srv6", 0, NULL, INVALID, NULL, "Configure SRv6");
         libcli_register_param(root, &srv6);
         {
             static param_t endpoint;
@@ -546,8 +652,9 @@ srv6_build_global_config_cli_tree (param_t *root) {
         libcli_register_param(root, &spring);
         {
             static param_t srv6;
-            init_param(&srv6, CMD, "srv6", NULL, NULL, INVALID, NULL, "Configure SRv6");
+            init_param(&srv6, CMD, "srv6", srv6_config_enable, NULL, INVALID, NULL, "Configure SRv6");
             libcli_register_param(&spring, &srv6);
+            libcli_set_param_cmd_code(&srv6, IPV6_SRV6_ENABLE_CONFIG);
             {
                 static param_t locator;
                 init_param(&locator, CMD, "locator", NULL, NULL, INVALID, NULL, "Configure SRv6 Locator");
@@ -565,6 +672,7 @@ srv6_build_global_config_cli_tree (param_t *root) {
                             init_param(&prefix_len, LEAF, NULL, srv6_locator_handler, NULL, INT, "prefix-len", "Prefix Length");
                             libcli_register_param(&ipv6_addr, &prefix_len);
                             libcli_set_param_cmd_code(&prefix_len, IPV6_SRV6_LOCATOR_CONFIG);
+                            libcli_set_tail_config_batch_processing(&prefix_len);
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 CC=g++
-SANITIZER_FLAGS=-fsanitize=address,undefined
+#SANITIZER_FLAGS=-fsanitize=address,undefined
+SANITIZER_FLAGS=
 CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 
 TARGET_LIB=libsrv6.a
@@ -8,14 +9,28 @@ TARGET:${TARGET_LIB}
 
 OBJS=cp/srv6_rtr.o \
 			cp/Srv6Cli.o \
+			cp/srv6_api.o \
+			cp/srv6_show.o \
+			cp/srv6_ipc.o \
 			dp/SRv6-EndPoint.o \
 
+# Control Plane
 cp/srv6_rtr.o:cp/srv6_rtr.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_rtr.cpp -o cp/srv6_rtr.o
 
 cp/Srv6Cli.o:cp/Srv6Cli.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/Srv6Cli.cpp -o cp/Srv6Cli.o
 
+cp/srv6_api.o:cp/srv6_api.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_api.cpp -o cp/srv6_api.o
+
+cp/srv6_show.o:cp/srv6_show.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_show.cpp -o cp/srv6_show.o
+
+cp/srv6_ipc.o:cp/srv6_ipc.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_ipc.cpp -o cp/srv6_ipc.o
+
+# Data plane
 dp/SRv6-EndPoint.o:dp/SRv6-EndPoint.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ dp/SRv6-EndPoint.cpp -o dp/SRv6-EndPoint.o
 
