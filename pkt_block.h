@@ -23,7 +23,7 @@
 #include <stdbool.h>
 #include "Layer3/gre-tunneling/gre.h"
 #include "Interface/InterfaceFwd.h"
-#include "ipv6/ipv6_hdrs.h"
+#include "Layer3/ipv6/ipv6_hdrs.h"
 
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;

@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../utils.h"
-#include "../Interface/InterfaceFwd.h"
-#include "../gluethread/glthread.h"
-#include "../Layer3/layer3.h"
-#include "../Layer3/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
+#include "../../utils.h"
+#include "../../Interface/InterfaceFwd.h"
+#include "../../gluethread/glthread.h"
+#include "../layer3.h"
+#include "../SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
 #include "ipv6_hdrs.h"
 #include "v6nexthop.h"
 

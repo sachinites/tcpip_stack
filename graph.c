@@ -44,8 +44,8 @@
 #include "c-hashtable/hashtable.h"
 #include "Interface/InterfaceUApi.h"
 #include "Tracer/tracer.h"
-#include "ipv6/ipv6_utils.h"
-#include "ipv6/ipv6_route.h"
+#include "Layer3/ipv6/ipv6_utils.h"
+#include "Layer3/ipv6/ipv6_route.h"
 #include "common/cp2dp.h"
 
 void

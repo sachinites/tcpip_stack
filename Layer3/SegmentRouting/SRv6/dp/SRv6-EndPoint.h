@@ -1,7 +1,7 @@
 #ifndef __INET_SRv6ENDPOINT_H
 #define __INET_SRv6ENDPOINT_H
 
-#include "../../../../ipv6/ipv6_hdrs.h"
+#include "../../../ipv6/ipv6_hdrs.h"
 #include "../common/srv6_const.h"
 
 class Interface;

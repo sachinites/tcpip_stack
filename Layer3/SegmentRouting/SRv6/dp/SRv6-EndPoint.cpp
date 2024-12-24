@@ -2,8 +2,8 @@
 #include <assert.h>
 #include "../../../../common/l3_hdrs.h"
 #include "SRv6-EndPoint.h"
-#include "../../../../ipv6/ipv6_hdrs.h"
-#include "../../../../ipv6/ipv6_route.h"
+#include "../../../ipv6/ipv6_hdrs.h"
+#include "../../../ipv6/ipv6_route.h"
 #include "../../../../graph.h"
 #include "../../../../pkt_block.h"
 #include "../../../../Tracer/tracer.h"

@@ -1,10 +1,10 @@
-#include "../CLIBuilder/libcli.h"
-#include "../graph.h"
-#include "../Interface/InterfaceUApi.h"
+#include "../../CLIBuilder/libcli.h"
+#include "../../graph.h"
+#include "../../Interface/InterfaceUApi.h"
 #include "ipv6_hdrs.h"
 #include "ipv6_utils.h"
 #include "ipv6_route.h"
-#include "../common/cp2dp.h"
+#include "../../common/cp2dp.h"
 
 extern graph_t *topo;
 extern void  srv6_build_cli_tree (param_t *root);

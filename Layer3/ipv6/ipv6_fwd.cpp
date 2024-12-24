@@ -1,14 +1,14 @@
 #include <assert.h>
 #include <arpa/inet.h>
-#include "../graph.h"
+#include "../../graph.h"
 #include "ipv6_route.h"
-#include "../pkt_block.h"
-#include "../Interface/InterfaceUApi.h"
+#include "../../pkt_block.h"
+#include "../../Interface/InterfaceUApi.h"
 #include "ipv6_hdrs.h"
-#include "../tcpconst.h"
+#include "../../tcpconst.h"
 #include "ipv6_utils.h"
-#include "../Tracer/tracer.h"
-#include "../Layer2/layer2.h"
+#include "../../Tracer/tracer.h"
+#include "../../Layer2/layer2.h"
 
 extern void
 demote_pkt_to_layer2 (node_t *node, 

@@ -46,6 +46,11 @@ OBJS=gluethread/glthread.o \
 		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
 		  Layer3/rt_notif.o	\
+		  Layer3/ipv6/ipv6cli.o \
+		  Layer3/ipv6/ipv6_route.o \
+		  Layer3/ipv6/ipv6_utils.o \
+		  Layer3/ipv6/v6nexthop.o \
+		  Layer3/ipv6/ipv6_fwd.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
@@ -79,11 +84,6 @@ OBJS=gluethread/glthread.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
-		  ipv6/ipv6cli.o \
-		  ipv6/ipv6_route.o \
-		  ipv6/ipv6_utils.o \
-		  ipv6/v6nexthop.o \
-		  ipv6/ipv6_fwd.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
@@ -268,16 +268,16 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 	${CC} ${CFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
 
 #ipv6 files 
-ipv6/ipv6cli.o:ipv6/ipv6cli.cpp
-	${CC} ${CFLAGS} -c ipv6/ipv6cli.cpp -o ipv6/ipv6cli.o
-ipv6/ipv6_route.o:ipv6/ipv6_route.cpp
-	${CC} ${CFLAGS} -c ipv6/ipv6_route.cpp -o ipv6/ipv6_route.o
-ipv6/v6nexthop.o:ipv6/v6nexthop.cpp
-	${CC} ${CFLAGS} -c ipv6/v6nexthop.cpp -o ipv6/v6nexthop.o
-ipv6/ipv6_utils.o:ipv6/ipv6_utils.cpp
-	${CC} ${CFLAGS} -c ipv6/ipv6_utils.cpp -o ipv6/ipv6_utils.o
-ipv6/ipv6_fwd.o:ipv6/ipv6_fwd.cpp
-	${CC} ${CFLAGS} -c ipv6/ipv6_fwd.cpp -o ipv6/ipv6_fwd.o
+Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
+	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
+Layer3/ipv6/ipv6_route.o:Layer3/ipv6/ipv6_route.cpp
+	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_route.cpp -o Layer3/ipv6/ipv6_route.o
+Layer3/ipv6/v6nexthop.o:Layer3/ipv6/v6nexthop.cpp
+	${CC} ${CFLAGS} -c Layer3/ipv6/v6nexthop.cpp -o Layer3/ipv6/v6nexthop.o
+Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
+	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_utils.cpp -o Layer3/ipv6/ipv6_utils.o
+Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
+	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
 
 # Protocols Specific
 # STP
@@ -332,8 +332,8 @@ clean:
 	rm -f Tracer/*.o
 	rm -f common/*.o
 	rm -f dpdk/layer3/*.o
-	rm -f ipv6/*.o
-	rm -f ipv6/SRv6/*.o
+	rm -f Layer3/ipv6/*.o
+	rm -f Layer3/ipv6/SRv6/*.o
 	
 #STP
 #	rm -f Layer2/stp/*.o

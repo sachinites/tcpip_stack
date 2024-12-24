@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "../utils.h"
-#include "../tcp_public.h"
+#include "../../utils.h"
+#include "../../tcp_public.h"
 #include "v6nexthop.h"
 
 void 

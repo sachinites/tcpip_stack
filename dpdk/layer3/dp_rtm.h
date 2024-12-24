@@ -6,7 +6,7 @@ typedef struct node_ node_t;
 class Interface;
 
 #include "../../Layer3/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
-#include "../../ipv6/ipv6_hdrs.h"
+#include "../../Layer3/ipv6/ipv6_hdrs.h"
 
 #include <stdint.h>
 

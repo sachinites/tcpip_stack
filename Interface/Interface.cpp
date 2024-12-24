@@ -38,7 +38,7 @@
 #include "../CLIBuilder/libcli.h"
 #include "../Layer2/transport_svc.h"
 #include "../Tracer/tracer.h"
-#include "../ipv6/ipv6_utils.h"
+#include "../Layer3/ipv6/ipv6_utils.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);

@@ -9,7 +9,7 @@
 #include "../pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
-#include "../ipv6/ipv6_hdrs.h"
+#include "../Layer3/ipv6/ipv6_hdrs.h"
 
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);

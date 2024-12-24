@@ -2,7 +2,7 @@
 #define __SRV6_STRUCT_H__
 
 #include "../common/srv6_const.h"
-#include "../../../../ipv6/ipv6_hdrs.h"
+#include "../../../ipv6/ipv6_hdrs.h"
 
 typedef struct srv6_locator_ {
 

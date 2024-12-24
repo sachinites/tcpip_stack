@@ -29,7 +29,7 @@
 #include "tcpconst.h"
 #include "pkt_block.h"
 #include "common/l3_hdrs.h"
-#include "ipv6/ipv6_hdrs.h"
+#include "Layer3/ipv6/ipv6_hdrs.h"
 
 void
 pkt_block_mem_init () {

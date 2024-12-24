@@ -1,10 +1,10 @@
 #ifndef __V6NEXTHOP__
 #define __V6NEXTHOP__
 
-#include "../utils.h"
-#include "../Interface/InterfaceFwd.h"
+#include "../../utils.h"
+#include "../../Interface/InterfaceFwd.h"
 #include "ipv6_hdrs.h"
-#include "../Layer3/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
+#include "../SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
 
 typedef struct v6nexthop_{
 
