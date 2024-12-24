@@ -45,8 +45,14 @@ srv6_init (node_t *node) {
 
     /* Enable ips Joins */
     /* srv6 is interetsed in receiving SRv6 Data from ISIS */
-    cp_ipc_register  (node, IPC_ISIS_SRV6_LSDB_INFO, 
-        IPC_ISIS_SRV6_TLVs, srv6_recv_ips_updates);
+    cp_ipc_register  (node, IPC_ISIS_SRV6_LSDB_INFO, IPC_ISIS_SRV6_TLVs ,
+        srv6_recv_ips_updates);
+
+    /* Srv6 can entertain bulk sid publish request from IGPs*/
+    cp_ipc_register (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
+        IPC_REQ_SRV6_PUBLISH_PFX_SIDS | IPC_REQ_SRV6_PUBLISH_ADJ_SIDS, 
+        srv6_recv_ips_updates);
+
 }
 
 static void 
@@ -73,7 +79,7 @@ srv6_de_init (node_t *node) {
     srv6_locator_t *loc = &node_info->loc;
 
     if (!is_ipv6_addr_unspecified (&loc->sid.addr)) {
-        
+
         srv6_local_sid_unconfig_pre_processing(node,
                                                &loc->sid,
                                                loc->prefix_len,
@@ -92,6 +98,7 @@ srv6_de_init (node_t *node) {
 
     /* Delete ips joins */
     cp_ipc_unregister  (node, IPC_ISIS_SRV6_LSDB_INFO,  srv6_recv_ips_updates);
+    cp_ipc_unregister  (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,  srv6_recv_ips_updates);
 
     /* check and delete srv6 node info*/
     check_and_delete_srv6_node_info (node);
@@ -233,10 +240,12 @@ srv6_delete_all_adj_sids (node_t *node) {
 
         ips_srv6_data = new ips_srv6_data_t;
         ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));
-        memcpy(ips_srv6_data->u.prefix_sid.prefix.addr, adjsid->sid.addr, 16);
-        ips_srv6_data->u.prefix_sid.prefix_len = adjsid->prefix_len;
-        ips_srv6_data->u.prefix_sid.flavor = adjsid->flavor;
-
+        memcpy(ips_srv6_data->u.adj_sid.prefix.addr, adjsid->sid.addr, 16);
+        ips_srv6_data->u.adj_sid.prefix_len = adjsid->prefix_len;
+        ips_srv6_data->u.adj_sid.flavor = adjsid->flavor;
+        memcpy(ips_srv6_data->u.adj_sid.gw.addr, adjsid->gw.addr, 16);
+        ips_srv6_data->u.adj_sid.oif = adjsid->ifindex;
+        
         cp_ipc_send (node, IPC_SRV6_INFO, 
                             IPC_SRV6_PREFIX_SID_DEL, 
                             (void *) ips_srv6_data, sizeof (*ips_srv6_data), true);

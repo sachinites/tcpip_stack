@@ -63,8 +63,6 @@ typedef enum ips_msg_code_ {
     #define IPC_SRV6_PREFIX_SID_DEL (1 << 3)
     #define IPC_SRV6_ADJ_SID_ADD (1 << 4)
     #define IPC_SRV6_ADJ_SID_DEL (1 << 5)
-    #define IPC_SRV6_ROUTES_ADD (1 << 6)
-    #define IPC_SRV6_ROUTES_DEL (1 << 7)
 
     /* Producer is ISIS , SRV6 info which it has learnt from
         LSDB advertisement */
@@ -75,7 +73,15 @@ typedef enum ips_msg_code_ {
     #define IPC_ISIS_SRV6_PREFIX_SID_DEL (1 << 3)
     #define IPC_ISIS_SRV6_ADJ_SID_ADD (1 << 4)
     #define IPC_ISIS_SRV6_ADJ_SID_DEL (1 << 5)
-    #define IPC_ISIS_SRV6_TLVs (1 << 6)
+    #define IPC_ISIS_SRV6_TLVs ((IPC_ISIS_SRV6_LOCATOR_ADD | IPC_ISIS_SRV6_LOCATOR_DEL | \
+                                                         IPC_ISIS_SRV6_PREFIX_SID_ADD | IPC_ISIS_SRV6_PREFIX_SID_DEL | \
+                                                         IPC_ISIS_SRV6_ADJ_SID_ADD | IPC_ISIS_SRV6_ADJ_SID_DEL))
+
+    /* Used by any client ( ISIS/OSPF) to request SRV6 to publish its
+        SIDs*/
+    IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
+    #define IPC_REQ_SRV6_PUBLISH_PFX_SIDS   (1)
+    #define IPC_REQ_SRV6_PUBLISH_ADJ_SIDS   (1 << 1)
 
     IPC_MSG_TYPE_MAX
 
@@ -154,11 +160,18 @@ typedef struct ips_srv6_data_ {
                 Srv6_endpcode_t endfn;
                 uint8_t prefix_len;
                 uint8_t flavor;
-                
+
             } prefix_sid;
 
             struct {
                 
+                ipv6_addr_t prefix;
+                ipv6_addr_t gw;
+                uint32_t oif;
+                Srv6_endpcode_t endfn;
+                uint8_t prefix_len;
+                uint8_t flavor;
+
             } adj_sid;
 
     } u;

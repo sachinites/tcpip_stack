@@ -125,6 +125,7 @@ isis_protocol_shutdown_now (node_t *node) {
     cp_ipc_unregister (node, IPC_INTERFACE, isis_recv_ipc_updates);
     cp_ipc_unregister (node, IPC_GRE_TUNNEL, isis_recv_ipc_updates);
     cp_ipc_unregister (node, IPC_ACCESS_LIST, isis_recv_ipc_updates);
+    cp_ipc_unregister (node, IPC_SRV6_INFO, isis_recv_ipc_updates);
     isis_check_delete_node_info(node); 
 }
 
@@ -393,10 +394,17 @@ isis_init (node_t *node ) {
             IPC_INTERFACE_ADMIN_STATE_UP |
             IPC_INTERFACE_METRIC_UPDATE,
             isis_recv_ipc_updates);
-        cp_ipc_register (node, IPC_GRE_TUNNEL, IPC_ALL_MINOR_UPDATES,
+    cp_ipc_register (node, IPC_GRE_TUNNEL, IPC_ALL_MINOR_UPDATES,
             isis_recv_ipc_updates);
-        cp_ipc_register (node, IPC_ACCESS_LIST, IPC_ALL_MINOR_UPDATES,
+    cp_ipc_register (node, IPC_ACCESS_LIST, IPC_ALL_MINOR_UPDATES,
             isis_recv_ipc_updates);
+    cp_ipc_register (node, IPC_SRV6_INFO, 
+        IPC_ALL_MINOR_UPDATES, isis_recv_ipc_updates);
+    
+    /* Request SRv6 to send us all SRv6 SID Data*/
+    cp_ipc_send (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs, 
+        IPC_REQ_SRV6_PUBLISH_PFX_SIDS | IPC_REQ_SRV6_PUBLISH_ADJ_SIDS, 
+        0, 0, false);
 }
 
 void

@@ -810,8 +810,16 @@ isis_config_buid_traceoptions (param_t *param) {
             init_param(&events, CMD, "events", isis_config_traceoption_handler, 0, INVALID, 0, "Enable Events logging");
             libcli_register_param(&traceoptions, &events);
             libcli_set_param_cmd_code(&events, CMDCODE_CONF_ISIS_LOG_EVENTS);
-             libcli_set_tail_config_batch_processing (&events);
+            libcli_set_tail_config_batch_processing (&events);
         }
+        {
+            /* ... traceoptions events */
+            static param_t ipc;
+            init_param(&ipc, CMD, "ipc", isis_config_traceoption_handler, 0, INVALID, 0, "Enable IPC logging");
+            libcli_register_param(&traceoptions, &ipc);
+            libcli_set_param_cmd_code(&ipc, CMDCODE_CONF_ISIS_LOG_IPC);
+            libcli_set_tail_config_batch_processing (&ipc);
+        }        
         {
             /* ... traceoptions errors */
             static param_t errors;

@@ -159,7 +159,7 @@ v6nexthop_find (v6nexthop_t **nexthops,
         if (!nexthops[i])
             continue;
 
-        if (nexthops[i]->oif->ifindex == ifindex && 
+        if (nexthops[i]->ifindex == ifindex && 
                 (memcmp(&nexthops[i]->gw, gw, 16) == 0) &&
                 nexthops[i]->proto == proto )
         {

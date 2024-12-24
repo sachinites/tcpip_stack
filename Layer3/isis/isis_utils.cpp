@@ -88,6 +88,7 @@ isis_show_traceoptions (node_t *node) {
     cprintf ("  Hello logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_HELLO) ? 'Y' : 'N');
     cprintf ("  LSP logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_PKT_LSP) ? 'Y' : 'N');
     cprintf (" Event logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_EVENTS) ? 'Y' : 'N');
+    cprintf (" IPC logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_IPC) ? 'Y' : 'N');
     cprintf (" LSDB logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_LSDB) ? 'Y' : 'N');
     cprintf (" Adjacency logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ADJ) ? 'Y' : 'N');
     cprintf (" Route logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ROUTE) ? 'Y' : 'N');

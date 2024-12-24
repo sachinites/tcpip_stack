@@ -102,19 +102,21 @@
 #define CMDCODE_CONF_ISIS_LOG_POLICY    43
 /* config node <node-name> protocol isis [no] traceoptions events*/
 #define CMDCODE_CONF_ISIS_LOG_EVENTS    44
+/* config node <node-name> protocol isis [no] traceoptions ipc*/
+#define CMDCODE_CONF_ISIS_LOG_IPC    45
 /* config node <node-name> protocol isis [no] traceoptions errors*/
-#define CMDCODE_CONF_ISIS_LOG_ERRORS    45
+#define CMDCODE_CONF_ISIS_LOG_ERRORS    46
 /* config node <node-name> protocol isis [no] traceoptions all*/
-#define CMDCODE_CONF_ISIS_LOG_ALL    46
+#define CMDCODE_CONF_ISIS_LOG_ALL    47
 
 /* show node <node-name> protocol isis traceoptions*/
-#define CMCODE_SHOW_ISIS_TRACEOPTIONS 47
+#define CMCODE_SHOW_ISIS_TRACEOPTIONS 48
 /* clear node <node-name> protocol isis reset-log-file*/
-#define CMDCODE_RESET_NODE_ISIS_LOG_FILE 48
+#define CMDCODE_RESET_NODE_ISIS_LOG_FILE 49
 /* show node <node-name> protocol isis spf-result */
-#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT 49
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT 50
 
  /* debug node <node-name> protocol isis toggle-lsdb-advt */
- #define CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT 50
+ #define CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT 51
  
 #endif /* __ISIS_CMDCODES__ */
