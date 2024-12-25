@@ -4,7 +4,7 @@
 #include "EventDispatcher/event_dispatcher.h"
 
 void 
-cp_ipc_register (node_t *node, 
+cp_ips_join (node_t *node, 
                            ips_major_code_t major_code,
                            uint32_t minor_code,
                            ipc_recvr_fn_cbk fn) {
@@ -23,7 +23,7 @@ cp_ipc_register (node_t *node,
 }
 
 void 
-cp_ipc_unregister (node_t *node, 
+cp_ips_unjoin (node_t *node, 
                            ips_major_code_t major_code,
                            ipc_recvr_fn_cbk fn) {
 

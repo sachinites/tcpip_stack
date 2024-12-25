@@ -17,6 +17,7 @@
 #include "isis_dis.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
+#include "isis_srv6.h"
 
 static int
 isis_config_traceoption_handler (int cmdcode,
@@ -463,6 +464,89 @@ isis_intf_config_handler(int cmdcode,
     }
     return 0;
 }
+
+static int
+isis_srv6_config_handler (int cmdcode, 
+                             Stack_t *tlv_stack,
+                             op_mode enable_or_disable) {
+
+    int8_t rc;
+    node_t *node;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+    c_string loc_name = NULL;
+    isis_srv6_config_t *srv6_config = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "loc-name"))
+            loc_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    switch (cmdcode) {
+
+        case CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR:
+        {
+            switch (enable_or_disable)
+            {
+                case CONFIG_ENABLE:
+
+                    if (!isis_is_protocol_enable_on_node(node))
+                    {
+                        cprintf("\n" ISIS_ERROR_PROTO_NOT_ENABLE);
+                        return -1;
+                    }
+
+                    rc = isis_srv6_is_loc_enabled (node, loc_name);
+
+                    switch (rc)
+                    {
+                    case 0:
+                        return 0;
+
+                    case -1:
+                        isis_srv6_new_locator_set(node, loc_name);
+                        return 0;
+
+                    case 1:
+                        cprintf("Error : Remove existing locator first\n");
+                        return -1;
+                    default:;
+                    }
+                break;
+
+            case CONFIG_DISABLE:
+
+                if (!isis_is_protocol_enable_on_node(node)) return 0;
+
+                rc = isis_srv6_is_loc_enabled (node, loc_name);
+
+                switch (rc)
+                {
+                case -1:
+                    return 0;
+                case 0:
+                    isis_srv6_locator_unset(node);
+                    return 0;
+                case 1:
+                    cprintf("Error : Locator not set\n");
+                    return -1;
+                }
+                break;
+                default:;
+            }
+        }
+        break;
+
+        default:;
+        }
+}
+
 
 int
 isis_run_handler (int cmdcode, 
@@ -932,6 +1016,35 @@ isis_config_cli_tree(param_t *param) {
             libcli_set_param_cmd_code(&dynamic_interface_group,  CMDCODE_CONF_NODE_ISIS_PROTO_DYN_IGRP);
              libcli_set_tail_config_batch_processing (&dynamic_interface_group);
         }
+
+        {
+            /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
+            static param_t spring;
+            init_param(&spring, CMD, "source-packet-routing", 0, 0, INVALID, 0, "source-packet-routing");
+            libcli_register_param(&isis_proto, &spring);
+            {
+                /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
+                static param_t srv6;
+                init_param(&srv6, CMD, "srv6", 0, 0, INVALID, 0, "srv6");
+                libcli_register_param(&spring, &srv6);
+                {
+                    /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
+                    static param_t locator;
+                    init_param(&locator, CMD, "locator", 0, 0, INVALID, 0, "locator");
+                    libcli_register_param(&srv6, &locator);
+                    {
+                        /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
+                        static param_t locator_name;
+                        init_param(&locator_name, LEAF, 0, isis_srv6_config_handler, 0, STRING, "locator-name",
+                                ("SRv6 Locator Name"));
+                        libcli_register_param(&locator, &locator_name);
+                        libcli_set_param_cmd_code(&locator_name, CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR);
+                        libcli_set_tail_config_batch_processing (&locator_name);
+                    }
+                }
+            }
+        }
+
 
         {
             /* conf node <node-name> [no] protocol isis interface ... */

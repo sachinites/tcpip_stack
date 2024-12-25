@@ -12,6 +12,7 @@ typedef struct srv6_locator_ {
     uint8_t data_block_prefix_len;
     uint8_t flavor;
     uint8_t prefix_len;
+    char padding[1];
     
 } srv6_locator_t;
 

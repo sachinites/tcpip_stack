@@ -45,14 +45,13 @@ srv6_init (node_t *node) {
 
     /* Enable ips Joins */
     /* srv6 is interetsed in receiving SRv6 Data from ISIS */
-    cp_ipc_register  (node, IPC_ISIS_SRV6_LSDB_INFO, IPC_ISIS_SRV6_TLVs ,
+    cp_ips_join  (node, IPC_ISIS_SRV6_LSDB_INFO, IPC_ISIS_SRV6_TLVs ,
         srv6_recv_ips_updates);
 
     /* Srv6 can entertain bulk sid publish request from IGPs*/
-    cp_ipc_register (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
+    cp_ips_join (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
         IPC_REQ_SRV6_PUBLISH_PFX_SIDS | IPC_REQ_SRV6_PUBLISH_ADJ_SIDS, 
         srv6_recv_ips_updates);
-
 }
 
 static void 
@@ -97,8 +96,8 @@ srv6_de_init (node_t *node) {
     node_info->tr = NULL;
 
     /* Delete ips joins */
-    cp_ipc_unregister  (node, IPC_ISIS_SRV6_LSDB_INFO,  srv6_recv_ips_updates);
-    cp_ipc_unregister  (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,  srv6_recv_ips_updates);
+    cp_ips_unjoin  (node, IPC_ISIS_SRV6_LSDB_INFO,  srv6_recv_ips_updates);
+    cp_ips_unjoin  (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,  srv6_recv_ips_updates);
 
     /* check and delete srv6 node info*/
     check_and_delete_srv6_node_info (node);

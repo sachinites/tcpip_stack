@@ -37,13 +37,13 @@ GLTHREAD_TO_STRUCT(glue_to_ipc_element, ipc_element_t , glue);
 
 
 void 
-cp_ipc_register (node_t *node, 
+cp_ips_join (node_t *node, 
                            ips_major_code_t major_code,
                            uint32_t minor_code,
                            ipc_recvr_fn_cbk fn) ;
 
 void 
-cp_ipc_unregister (node_t *node, 
+cp_ips_unjoin (node_t *node, 
                            ips_major_code_t major_code,
                            ipc_recvr_fn_cbk fn) ;
 

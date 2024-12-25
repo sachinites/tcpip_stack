@@ -267,30 +267,123 @@ srv6_prefix_sid_config_handler
 
         case CONFIG_ENABLE:
         {
+
+            if (!srv6_is_enable(node)) {
+                cprintf ("Error : srv6 not enabled\n");
+                return -1;
+            }
+            
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_locator_t *loc = &node_info->loc;
+
+            if (is_ipv6_addr_unspecified(&loc->sid.addr)) {
+                cprintf ("Error : Configure Locator first \n");
+                return -1;
+            }
+
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_install  (node,
-                                &prefix,
-                                prefix_len,
-                                srv6_route_flag (node, &prefix.addr),
-                                NULL,
-                                intf,
-                                0,
-                                0, END, flavor,
-                                PROTO_SRv6);
+
+            /* Prefix sid must be subne of locator */
+            if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
+                    &prefix.addr)) {
+                cprintf ("Error : Prefix sid must be subnet of locator\n");
+                return -1;
+            }
+
+            srv6_pfxsid_t *pfxsid = (srv6_pfxsid_t *) XCALLOC (0, 1, srv6_pfxsid_t);
+
+            pfxsid->sid = prefix;
+            pfxsid->endP = END;
+            pfxsid->flavor = flavor;
+            pfxsid->prefix_len = prefix_len;
+            pfxsid->n_seg_lst = 0;
+
+            /* Now add pfxsid to the mtrie */
+            mtrie_node_t *mnode;
+            bitmap_t prefix_bm, mask_bm;
+            mtrie_ops_result_code_t rc;
+            bitmap_init(&prefix_bm, 128);
+            bitmap_init(&mask_bm, 128);
+            memcpy(prefix_bm.bits, prefix.addr, 16);
+            for (int i = 0; i < prefix_len; i++)
+                bitmap_set_bit_at(&mask_bm, i);
+            bitmap_inverse (&mask_bm, 128);
+
+            rc = mtrie_insert_prefix(node_info->configured_pfx_sids,
+                             &prefix_bm,
+                             &mask_bm,
+                             prefix_len,
+                             &mnode);
+            
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);
+
+            if (rc != MTRIE_INSERT_SUCCESS){
+                cprintf ("Error : Prefix sid insertion failed, ret code = %d\n", rc);
+                XFREE (pfxsid);
+                return -1;
+            }
+
+            mnode->data = (void *)pfxsid;
+
+            srv6_local_sid_config_post_processing (node,
+                    &pfxsid->sid,
+                    pfxsid->prefix_len,
+                    END,
+                    pfxsid->flavor,
+                    NULL,
+                    NULL);
         }
         break;
 
         case CONFIG_DISABLE:
         {
+            if (!srv6_is_enable(node)) {
+                return 0;
+            }
+
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_uninstall (node,
-                                &prefix,
-                                prefix_len,
-                                NULL,
-                                NULL,
-                                PROTO_SRv6);
+            
+            /* Lookup prefix sid*/
+            mtrie_node_t *mnode;
+            bitmap_t prefix_bm, mask_bm;
+            srv6_pfxsid_t *pfxsid;
+            mtrie_ops_result_code_t rc;
+
+            bitmap_init(&prefix_bm, 128);
+            bitmap_init(&mask_bm, 128);
+
+            memcpy(prefix_bm.bits, prefix.addr, 16);
+            for (int i = 0; i < prefix_len; i++)
+                bitmap_set_bit_at(&mask_bm, i);
+            bitmap_inverse (&mask_bm, 128);
+
+            rc = mtrie_delete_prefix(node_info->configured_pfx_sids,
+                             &prefix_bm,
+                             &mask_bm,
+                             (void **)&pfxsid);
+
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);
+
+            if (rc != MTRIE_DELETE_SUCCESS){
+                cprintf ("Error : Prefix sid deletion failed, ret code = %d\n", rc);
+                return -1;
+            }
+
+            srv6_local_sid_unconfig_pre_processing (node,
+                    &pfxsid->sid,
+                    pfxsid->prefix_len,
+                    END,
+                    pfxsid->flavor,
+                    NULL,
+                    NULL);
+
+            XFREE (pfxsid);
         }
         break;
     }
@@ -366,30 +459,124 @@ srv6_adjacency_sid_config_handler
 
         case CONFIG_ENABLE:
         {
+            if (!srv6_is_enable(node)) {
+                cprintf ("Error : srv6 not enabled\n");
+                return -1;
+            }
+            
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_locator_t *loc = &node_info->loc;
+
+            if (is_ipv6_addr_unspecified(&loc->sid.addr)) {
+                cprintf ("Error : Configure Locator first \n");
+                return -1;
+            }
+
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_install (node,
-                                &prefix,
-                                prefix_len,
-                                srv6_route_flag (node, &prefix.addr),
-                                NULL,
-                                intf,
-                                0,
-                                0, END_X, flavor,
-                                PROTO_SRv6);
+
+            /* Prefix sid must be subne of locator */
+            if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
+                    &prefix.addr)) {
+                cprintf ("Error : Prefix sid must be subnet of locator\n");
+                return -1;
+            }
+
+            srv6_adjsid_t *adjsid = (srv6_adjsid_t *) XCALLOC (0, 1, srv6_adjsid_t);
+
+            adjsid->sid = prefix;
+            adjsid->endP = END;
+            adjsid->flavor = flavor;
+            adjsid->prefix_len = prefix_len;
+            adjsid->n_seg_lst = 0;
+            adjsid->ifindex = intf->ifindex;
+            memset (adjsid->gw.addr, 0, 16);
+
+            /* Now add pfxsid to the mtrie */
+            mtrie_node_t *mnode;
+            bitmap_t prefix_bm, mask_bm;
+            mtrie_ops_result_code_t rc;
+            bitmap_init(&prefix_bm, 128);
+            bitmap_init(&mask_bm, 128);
+            memcpy(prefix_bm.bits, prefix.addr, 16);
+            for (int i = 0; i < prefix_len; i++)
+                bitmap_set_bit_at(&mask_bm, i);
+            bitmap_inverse (&mask_bm, 128);
+
+            rc = mtrie_insert_prefix(node_info->configured_adj_sids,
+                             &prefix_bm,
+                             &mask_bm,
+                             prefix_len,
+                             &mnode);
+            
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);
+
+            if (rc != MTRIE_INSERT_SUCCESS){
+                cprintf ("Error : Adj sid insertion failed, ret code = %d\n", rc);
+                XFREE (adjsid);
+                return -1;
+            }
+
+            mnode->data = (void *)adjsid;
+
+            srv6_local_sid_config_post_processing (node,
+                    &adjsid->sid,
+                    adjsid->prefix_len,
+                    END_X,
+                    adjsid->flavor,
+                    &adjsid->gw,
+                    intf);
         }
         break;
 
         case CONFIG_DISABLE:
         {
+            if (!srv6_is_enable(node)) {
+                return 0;
+            }
+
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
-            ipv6_route_uninstall (node,
-                                &prefix,
-                                prefix_len,
-                                NULL,
-                                intf,
-                                PROTO_SRv6);
+            
+            /* Lookup prefix sid*/
+            mtrie_node_t *mnode;
+            bitmap_t prefix_bm, mask_bm;
+            srv6_adjsid_t *adjsid;
+            mtrie_ops_result_code_t rc;
+
+            bitmap_init(&prefix_bm, 128);
+            bitmap_init(&mask_bm, 128);
+
+            memcpy(prefix_bm.bits, prefix.addr, 16);
+            for (int i = 0; i < prefix_len; i++)
+                bitmap_set_bit_at(&mask_bm, i);
+            bitmap_inverse (&mask_bm, 128);
+
+            rc = mtrie_delete_prefix(node_info->configured_adj_sids,
+                             &prefix_bm,
+                             &mask_bm,
+                             (void **)&adjsid);
+
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);
+
+            if (rc != MTRIE_DELETE_SUCCESS){
+                cprintf ("Error : Prefix sid deletion failed, ret code = %d\n", rc);
+                return -1;
+            }
+
+            srv6_local_sid_unconfig_pre_processing (node,
+                    &adjsid->sid,
+                    adjsid->prefix_len,
+                    END_X,
+                    adjsid->flavor,
+                    &adjsid->gw,
+                    intf);
+
+            XFREE (adjsid);
         }
         break;
     }
@@ -538,6 +725,7 @@ void srv6_build_cli_tree(param_t *root)
                            NULL, INVALID, NULL, "Configure SRv6 Endpoint: END");
                 libcli_register_param(&endpoint, &end);
                 libcli_set_param_cmd_code(&end, IPV6_SRV6_PREFIX_SID_CONFIG);
+                #if 0
                 {
                     /* . .. nexthop <if-name>*/
                     static param_t nexthop;
@@ -553,6 +741,7 @@ void srv6_build_cli_tree(param_t *root)
                                 IPV6_SRV6_PREFIX_SID_CONFIG, srv6_prefix_sid_config_handler);
                     }
                 }
+                #endif 
                 srv6_flavor_cli_subtree_hookup(&end, 
                     IPV6_SRV6_PREFIX_SID_CONFIG, srv6_prefix_sid_config_handler);
             }

@@ -119,4 +119,6 @@
  /* debug node <node-name> protocol isis toggle-lsdb-advt */
  #define CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT 51
  
+/* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR 52
 #endif /* __ISIS_CMDCODES__ */
