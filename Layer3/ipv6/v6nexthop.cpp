@@ -59,12 +59,13 @@ v6_nexthop_compare (v6nexthop_t *nh1, v6nexthop_t *nh2) {
     if (nh1->ifindex == 0 && nh2->ifindex) return 1;
     if (nh1->ifindex != nh2->ifindex) return -1;
     if (memcmp(&nh1->gw, &nh2->gw, 16) != 0) return -1;
+    if (nh1->metric != nh2->metric) return 1;
+
     switch (nh1->proto)
     {
         case PROTO_SRv6:
             if (nh1->u.srv6.endfn != nh2->u.srv6.endfn) return 1;
             if (nh1->u.srv6.srv6_flavors != nh2->u.srv6.srv6_flavors) return 1;
-            if (nh1->u.srv6.metric != nh2->u.srv6.metric) return 1;
             if (nh1->u.srv6.flags != nh2->u.srv6.flags) return 1;
             if ((!nh1->u.srv6.segment_lst && nh2->u.srv6.segment_lst) || 
                     (nh1->u.srv6.segment_lst && !nh2->u.srv6.segment_lst)) return 1;
@@ -80,6 +81,7 @@ v6_nexthop_compare (v6nexthop_t *nh1, v6nexthop_t *nh2) {
         default:
             break;
     }
+    
     return 0;
 }
 

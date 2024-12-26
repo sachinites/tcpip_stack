@@ -14,6 +14,7 @@ typedef struct v6nexthop_{
     uint32_t ifindex;  
     uint32_t ref_count;
     uint16_t proto;
+    uint32_t metric;
 
     /* Protocol specific data*/
     union
@@ -22,7 +23,6 @@ typedef struct v6nexthop_{
         {
             uint8_t srv6_flavors;
             Srv6_endpcode_t endfn;
-            uint32_t metric;
             #define SRV6_REMOTE_RT 1
             #define SRV6_LOCAL_RT 2
             #define BINDING_SID 4
@@ -37,6 +37,7 @@ typedef struct v6nexthop_{
         memset(&gw, 0, 16);
         proto = 0;
         ref_count = 0;
+        metric = 0;
         oif = nullptr;
         hit_count = 0;
         memset (&u, 0, sizeof(u));

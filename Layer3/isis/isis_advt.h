@@ -13,19 +13,18 @@ typedef struct node_info_ isis_node_info_t;
 #define ISIS_SHOULD_INCL_OL_BIT (1 << 1)
 #define ISIS_SHOULD_INCL_IS_REACH_TLVS (1 << 2)
 #define ISIS_SHOULD_INCL_IP_REACH_TLVS (1 << 3)
+#define ISIS_SHOULD_INCL_IPV6_REACH_TLVS (1 << 4)
 
 #define ISIS_LSP_DEF_REGEN_FLAGS \
     ( ISIS_SHOULD_INCL_IS_REACH_TLVS | \
-      ISIS_SHOULD_INCL_IP_REACH_TLVS )
+      ISIS_SHOULD_INCL_IP_REACH_TLVS  | \
+      ISIS_SHOULD_INCL_IPV6_REACH_TLVS)
 
 typedef struct isis_advt_info_ {
 
     uint8_t pn_no;
     uint8_t fr_no;
 } isis_advt_info_t;
-
-pkt_size_t
-isis_get_adv_data_size (isis_adv_data_t *adv_data);
 
 typedef struct isis_fragment_ {
 
@@ -88,6 +87,13 @@ typedef struct isis_adv_data_ {
             uint8_t flags;
         } pfx;
 
+        struct {
+            uint8_t prefix[16];
+            uint32_t metric;
+            uint8_t mask;
+            uint8_t flags;
+        } v6pfx;
+
     }u;
 
     pkt_size_t tlv_size;
@@ -100,6 +106,7 @@ typedef struct isis_adv_data_ {
 
 } __attribute__((aligned(8)))  isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
+
 
 /* Fragment locking and Unlocking APIs */
 void isis_fragment_lock (isis_fragment_t *fragment);

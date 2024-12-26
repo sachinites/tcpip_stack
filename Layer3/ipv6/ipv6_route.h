@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../../LinuxMemoryManager/uapi_mm.h"
+
 #include "../../utils.h"
 #include "../../Interface/InterfaceFwd.h"
 #include "../../gluethread/glthread.h"
@@ -33,7 +35,7 @@ l3_v6route_dec_ref_count (ipv6_route_t *l3_route) {
     assert (l3_route->rt_ref_count);
     l3_route->rt_ref_count--;
     if ( l3_route->rt_ref_count ) return l3_route->rt_ref_count;
-    free (l3_route);
+    XFREE (l3_route);
     return 0;
 }
 

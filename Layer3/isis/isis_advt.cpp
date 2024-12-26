@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <arpa/inet.h>
 #include "../../tcp_public.h"
 #include "isis_rtr.h"
 #include "isis_intf.h"
@@ -236,6 +237,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
         case ISIS_TLV_HOSTNAME:
             break;
         case ISIS_IS_REACH_TLV:
+        case ISIS_TLV_IPV6_REACH:
             if (adv_data->src.holder && *adv_data->src.holder)
                 *(adv_data->src.holder) = NULL;
                  adv_data->src.holder = NULL;
@@ -263,7 +265,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);            
         }
-            break;
+        break;
         default: ;
     }
 }
@@ -468,6 +470,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
         advt_data = glue_to_isis_advt_data(curr);
         if (advt_data->tlv_no == ISIS_IS_REACH_TLV) continue;
         if (advt_data->tlv_no == ISIS_TLV_IP_REACH) continue;
+        if (advt_data->tlv_no == ISIS_TLV_IPV6_REACH) continue;
         tlv_size = advt_data->tlv_size;
 
         lsp_tlv_buffer = tlv_buffer_insert_tlv(
@@ -525,6 +528,29 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
         } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
     }
+
+    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_IPV6_REACH_TLVS)) {
+
+        ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+
+            advt_data = glue_to_isis_advt_data(curr);
+
+            if (advt_data->tlv_no != ISIS_TLV_IPV6_REACH) continue;
+            
+            tlv_size =  advt_data->tlv_size;
+
+            lsp_tlv_buffer = tlv_buffer_insert_tlv(
+                                        lsp_tlv_buffer,
+                                        (uint8_t)advt_data->tlv_no,
+                                        tlv_size - TLV_OVERHEAD_SIZE,
+                                        isis_get_adv_data_tlv_content(advt_data,  tlv_content));
+
+            bytes_filled += tlv_size;
+            eth_payload_size += tlv_size;
+
+        } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
+    }
+
 
     SET_COMMON_ETH_FCS (eth_hdr, eth_payload_size, 0 );
     bytes_filled +=  ETH_FCS_SIZE;
@@ -889,6 +915,17 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                             tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, system_id_str),
                 advt_data->u.pfx.mask, advt_data->u.pfx.metric);
                 break;
+            case ISIS_TLV_IPV6_REACH:
+            {
+                char buffer[48];
+                inet_ntop(AF_INET6, advt_data->u.v6pfx.prefix, buffer, 16);
+                rc += cprintf ("       Prefix : %s/%d   metric : %u\n",
+                    buffer, advt_data->u.v6pfx.mask, advt_data->u.v6pfx.metric);
+            }
+            break;
+            default: 
+                cprintf ("Unsupported TLV : %d\n", advt_data->tlv_no);
+                break;
         }
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
 
@@ -1068,6 +1105,22 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         }
 
     } ITERATE_NODE_INTERFACES_END (node, intf);
+
+    /* Advertise v6loop back as  IPV6 REACH TLV*/
+    isis_adv_data_t *v6lo_advt = node_info->tlv_global_advt.v6lo_adv_data_tlv236;
+    assert (!v6lo_advt );
+    v6lo_advt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    v6lo_advt->tlv_no = ISIS_TLV_IPV6_REACH;
+    memcpy (v6lo_advt->u.v6pfx.prefix, node->node_nw_prop.ipv6_addr, 16);
+    v6lo_advt->u.v6pfx.metric = 0;
+    v6lo_advt->u.v6pfx.flags = 0;
+    v6lo_advt->u.v6pfx.mask = 128;
+    node_info->tlv_global_advt.v6lo_adv_data_tlv236 = v6lo_advt;
+    v6lo_advt->src.holder = &node_info->tlv_global_advt.v6lo_adv_data_tlv236;
+    init_glthread (&v6lo_advt->glue);
+    v6lo_advt->tlv_size = isis_get_adv_data_size (v6lo_advt);
+    v6lo_advt->fragment = NULL;
+    isis_advertise_tlv (node, 0, v6lo_advt, &advt_info);
 
     /* Advertise IP REACH TLVs : Exported Routes*/
     if (!node_info->export_policy) {

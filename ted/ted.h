@@ -29,6 +29,7 @@ typedef struct ted_link_ {
     ted_intf_t intf2;
     ted_src_fr_no_t src;
     void *proto_data[TED_PROTO_MAX];
+
 } ted_link_t;
 
 typedef struct ted_prefix_ {
@@ -39,28 +40,43 @@ typedef struct ted_prefix_ {
     uint8_t mask;
     uint8_t flags;
     ted_src_fr_no_t src;
+
 } __attribute__((aligned(8))) ted_prefix_t;
+
+typedef struct ted_v6prefix_ {
+
+    uint8_t prefix[16];
+    avltree_node_t avl_glue;
+    uint32_t metric;
+    uint8_t mask;
+    uint8_t flags;
+    ted_src_fr_no_t src;
+
+} __attribute__((aligned(8))) ted_v6prefix_t;
 
 typedef struct ted_node_ {
 
-    uint32_t rtr_id;
     char node_name[NODE_NAME_SIZE];
+    ted_intf_t *intf[TEDN_MAX_INTF_PER_NODE];
+    void *proto_data[TED_PROTO_MAX];    
+    avltree_t *prefix_tree_root;
+    avltree_t *v6prefix_tree_root;
+    avltree_node_t avl_glue;
+    uint32_t rtr_id;
+    uint32_t seq_no;
     uint32_t flags;
+    uint16_t n_intf_count;
     bool is_installed_in_teddb;
     bool is_fake;
-    uint32_t seq_no;
-    ted_intf_t *intf[TEDN_MAX_INTF_PER_NODE];
-    uint16_t n_intf_count;
-    void *proto_data[TED_PROTO_MAX];
-    avltree_t *prefix_tree_root;
-    avltree_node_t avl_glue;
     uint8_t pn_no;
+
 } __attribute__((aligned(8))) ted_node_t;
 
 typedef struct ted_db_ {
 
     avltree_t teddb;
     void (*cleanup_app_data) (ted_node_t *);
+    
 } ted_db_t;
 
 void
@@ -156,20 +172,24 @@ typedef struct ted_template_nbr_data_ {
     uint32_t local_ip;
     uint32_t remote_ip;
     uint32_t nbr_rtr_id;
-    uint8_t nbr_pn_no;
     uint32_t metric;
+    uint8_t nbr_pn_no;
+    char padding[7];
+
 } ted_template_nbr_data_t;
 
 typedef struct  ted_template_node_data_ {
 
-    uint32_t rtr_id;
-    uint8_t pn_no;
-    uint8_t fr_no;
     char node_name[NODE_NAME_SIZE];
     uint32_t seq_no;
-    uint8_t n_nbrs;
+    uint32_t rtr_id;
     uint32_t flags; 
+    uint8_t pn_no;
+    uint8_t fr_no;
+    uint8_t n_nbrs;
+    char padding[1];
     ted_template_nbr_data_t nbr_data[0];
+
 } ted_template_node_data_t;
 
 void
@@ -184,7 +204,8 @@ ted_detach_node (ted_db_t *ted_db, ted_node_t *ted_node) ;
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree);
+            avltree_t *prefix_tree,
+            avltree_t *v6prefix_tree);
 
 uint32_t 
 ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, bool detail) ;
@@ -216,6 +237,12 @@ ted_prefix_tree_cleanup_tree (ted_node_t *node);
 
 void 
 ted_prefix_tree_cleanup_internal (avltree_t *prefix_tree) ;
+
+void
+ted_v6prefix_tree_cleanup_tree (ted_node_t *node);
+
+void 
+ted_v6prefix_tree_cleanup_internal (avltree_t *prefix_tree) ;
 
 void 
 ted_assert_check_protocol_data (ted_node_t *ted_node);

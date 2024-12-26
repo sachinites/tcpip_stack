@@ -7,6 +7,7 @@
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_dis.h"
+#include "isis_tlv_struct.h"
 
 pn_id_t
 isis_reserve_new_pn_id (node_t *node, bool *found) {

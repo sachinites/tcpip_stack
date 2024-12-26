@@ -6,6 +6,8 @@
 
 extern int
 avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
+extern int
+avltree_v6prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
 
 void
 isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
@@ -17,6 +19,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     byte *subtlv_navigator;
     isis_system_id_t system_id;
     avltree_t *prefix_tree_root = NULL;
+    avltree_t *v6prefix_tree_root = NULL;
     byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
    
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
@@ -104,6 +107,23 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             avltree_insert(&ted_prefix->avl_glue, prefix_tree_root);
         }
         break;
+        case ISIS_TLV_IPV6_REACH:
+        {
+            if (!v6prefix_tree_root)
+            {
+                v6prefix_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
+                avltree_init(v6prefix_tree_root, avltree_v6prefix_tree_comp_fn);
+            }
+            isis_tlv_236_t *tlv_236 = (isis_tlv_236_t *)tlv_value;
+            ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+            memcpy (ted_prefix->prefix, tlv_236->prefix, 16);
+            ted_prefix->mask = tlv_236->prefix_len;
+            ted_prefix->metric = htonl(tlv_236->metric);
+            ted_prefix->flags = tlv_236->bits;
+            ted_prefix->src = lsp_pkt_hdr->fr_no;
+            avltree_insert(&ted_prefix->avl_glue, v6prefix_tree_root);
+        }
+        break;        
         default:;
         }
     }
@@ -113,7 +133,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     node_data->n_nbrs = n_tlv22;
     ted_db_t *ted_db = ISIS_TED_DB(node);
     ted_create_or_update_node(ted_db, node_data, 
-                                                 prefix_tree_root);
+                                                 prefix_tree_root, v6prefix_tree_root);
     XFREE(node_data);
 }
 

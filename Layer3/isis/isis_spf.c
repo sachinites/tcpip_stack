@@ -94,6 +94,86 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
     return NULL;
 }
 
+extern void
+dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id);
+
+/* This is a cheat function, which install ipv6 ISIS routes in ipv6 RIB using
+    ipv4 spf calculated nexthops. 
+*/
+static int
+isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
+
+    uint32_t count = 0;
+    ipv6_addr_t v6_prefix;
+    char ipv6_addr_str[48];
+    ted_v6prefix_t *ted_prefix;
+    avltree_node_t *avl_node;
+    isis_node_info_t *node_info;
+
+    node_info = ISIS_NODE_INFO(spf_root);
+
+    rt_table_t *rt_table = 
+        NODE_V6RT_TABLE(spf_root);
+
+    /*Clear all routes except direct routes
+        ToDO : This API to be replaced with CP API
+    */
+    dp_ipv6_clear_table (rt_table, PROTO_ISIS);
+
+    /* Now iterate over result list and install routes for
+     * loopback address of all routers*/
+    int i = 0;
+    glthread_t *curr;
+    isis_spf_result_t *spf_result;
+    nexthop_t *nexthop = NULL;
+
+    isis_spf_data_t *spf_data = (isis_spf_data_t *)(ISIS_NODE_SPF_DATA(ted_spf_root));
+
+    ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr) {    
+
+        spf_result = isis_spf_res_glue_to_spf_result(curr);
+        
+        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Computing ipv6 Routes Begin\n", 
+                        ISIS_ROUTE,
+                        spf_result->node->node_name);
+
+        if (spf_result->node->pn_no) continue;
+
+        for (i = 0; i < MAX_NXT_HOPS; i++){
+
+            nexthop = spf_result->nexthops[i];
+
+            if (!nexthop) break;       
+
+            /* Install all v6 prefixes */
+            ITERATE_AVL_TREE_BEGIN(spf_result->node->v6prefix_tree_root, avl_node) {
+
+                ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
+                memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
+
+                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                        ISIS_ROUTE,
+                        spf_result->node->node_name,
+                        inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+                ipv6_route_install (spf_root, 
+                                                &v6_prefix, 
+                                                ted_prefix->mask, 0, 0, 
+                    node_get_intf_by_ifindex (spf_root, nexthop->ifindex),
+                                                0, spf_result->spf_metric, 
+                                                0, 0, PROTO_ISIS);
+
+                    count++;
+
+            } ITERATE_AVL_TREE_END;
+
+        }
+
+    } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
+
+    return count;
+}
+
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
@@ -840,7 +920,12 @@ isis_compute_spf (node_t *spf_root){
     /*Step 7 : End*/
 
     tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
-        "%s : Route Installation Count = %d\n", ISIS_SPF, count);
+        "%s : ipv4 Route Installation Count = %d\n", ISIS_SPF, count);
+
+     count = isis_spf_install_v6routes(spf_root, ted_spf_root);
+
+    tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
+        "%s : ipv6 Route Installation Count = %d\n", ISIS_SPF, count);
 }
 
 void

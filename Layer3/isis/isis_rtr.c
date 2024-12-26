@@ -82,6 +82,7 @@ isis_check_delete_node_info(node_t *node) {
     assert(!node_info->ted_db);
     assert(!node_info->exported_routes.root);
     assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
+    assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
 
     /* Must not be any pending LSP for regeneration*/
     assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
@@ -380,7 +381,7 @@ isis_init (node_t *node ) {
     init_glthread (&node_info->pending_lsp_gen_queue);
     snprintf (log_file_name, sizeof (log_file_name), "logs/%s-isis-log.txt", node->node_name);
     node_info->tr = tracer_init ("isis", log_file_name, node->node_name, STDOUT_FILENO, 0);
-    isis_regen_zeroth_fragment(node);
+    isis_schedule_all_fragment_regen_job (node);
     ISIS_INCREMENT_NODE_STATS(node,
             isis_event_count[isis_event_admin_config_changed]);
     node_info->lsdb_advt_block = false;

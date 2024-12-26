@@ -275,9 +275,13 @@ build_linear_topo(void){
     insert_link_between_two_nodes(H3, H4, "eth2", "eth1", 1);
 
     node_set_loopback_address(H1, "122.1.1.1");
+    node_set_v6_loopback_address(H1, "2000::1");
     node_set_loopback_address(H2, "122.1.1.2");
+    node_set_v6_loopback_address(H2, "2000::2");
     node_set_loopback_address(H3, "122.1.1.3");
+    node_set_v6_loopback_address(H3, "2000::3");
     node_set_loopback_address(H4, "122.1.1.4");
+    node_set_v6_loopback_address(H4, "2000::4");
 
     node_set_intf_ip_address(H1, "eth1", "10.1.1.1", 24);
     node_set_intf_ip_address(H2, "eth1", "10.1.1.2", 24);

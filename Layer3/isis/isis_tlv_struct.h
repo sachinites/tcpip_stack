@@ -19,6 +19,19 @@ typedef struct isis_tlv_130_ {
     uint8_t flags;
 }isis_tlv_130_t;
 
+/* IPV6 IP REACH TLV*/
+typedef struct isis_tlv_236_ {
+
+    uint32_t metric;
+    #define TLV236_UBIT (1 << 7)
+    #define TLV236_XBIT (1 << 6)
+    #define TLV236_SBIT (1 << 5)
+    uint8_t bits;
+    uint8_t prefix_len;
+    uint8_t prefix[16];
+
+}isis_tlv_236_t;
+
 typedef struct tlv22_hdr_ {
 
     isis_system_id_t system_id;
@@ -30,6 +43,8 @@ typedef struct tlv22_hdr_ {
 
 uint32_t
 isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_len); 
+uint32_t
+isis_print_formatted_tlv236( byte* out_buff, byte* tlv236_start,  uint8_t tlv_len);
 
 pkt_size_t
 isis_format_nbr_tlv22(byte *buff, 

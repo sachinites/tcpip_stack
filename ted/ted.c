@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include "../tcp_public.h"
 #include "ted.h"
 
@@ -15,6 +16,42 @@ avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) 
         if (prefix1->prefix < prefix2->prefix) 
             return -1;
         return 1;
+    }
+
+    if (prefix1->mask != prefix2->mask) {
+
+        if (prefix1->mask < prefix2->mask)
+            return -1;
+        return 1;
+    }
+
+    if (prefix1->metric != prefix2->metric) {
+
+        if (prefix1->metric < prefix2->metric)
+            return -1;
+        return 1;
+    }    
+
+    if (prefix1->flags != prefix2->flags) {
+
+        if (prefix1->flags < prefix2->flags)
+            return -1;
+        return 1;
+    }       
+
+    return 0;
+}
+
+int
+avltree_v6prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) {
+
+    ted_v6prefix_t *prefix1 = avltree_container_of (n1, ted_v6prefix_t, avl_glue);
+    ted_v6prefix_t *prefix2 = avltree_container_of (n2, ted_v6prefix_t, avl_glue);
+
+    int rc = memcmp (prefix1->prefix, prefix2->prefix, 16);
+
+    if (rc) {
+        return rc;
     }
 
     if (prefix1->mask != prefix2->mask) {
@@ -246,6 +283,7 @@ ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no) {
     assert(node->is_installed_in_teddb);
     node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(node);
+    ted_v6prefix_tree_cleanup_tree(node);
     ted_db->cleanup_app_data (node);
     ted_assert_check_protocol_data(node);
     XFREE(node);
@@ -260,6 +298,7 @@ ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     assert(ted_node->is_installed_in_teddb);
     ted_node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(ted_node);
+    ted_v6prefix_tree_cleanup_tree(ted_node);
     ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
@@ -273,6 +312,7 @@ ted_delete_lone_fake_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     if (ted_node->is_fake == false) return;
     avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
     ted_prefix_tree_cleanup_tree(ted_node);
+    ted_v6prefix_tree_cleanup_tree(ted_node);
     ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
@@ -468,7 +508,8 @@ done:
 void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
-            avltree_t *prefix_tree_root) {
+            avltree_t *prefix_tree_root,
+            avltree_t *v6prefix_tree_root) {
 
     uint8_t i = 0;
     ted_link_t * link;
@@ -503,7 +544,9 @@ ted_create_or_update_node (ted_db_t *ted_db,
     ted_node->seq_no = template_node_data->seq_no;
     ted_prefix_tree_cleanup_tree (ted_node);
     ted_node->prefix_tree_root = prefix_tree_root;
-    
+    ted_v6prefix_tree_cleanup_tree (ted_node);
+    ted_node->v6prefix_tree_root = v6prefix_tree_root;
+
     for (; i < template_node_data->n_nbrs; i++) {
 
         nbr_data = &template_node_data->nbr_data[i];
@@ -536,6 +579,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
     char ip_addr[16];
     avltree_node_t *curr;
     ted_prefix_t *ted_prefix;
+    ted_v6prefix_t *ted_v6prefix;
     ted_intf_t *intf, *other_intf;
 
     rc += cprintf("Node : %s[%s-%hu][%u]   flags : 0x%x\n", 
@@ -583,6 +627,21 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
                         ted_prefix->mask,
                         ted_prefix->metric,
                         ted_prefix->flags);
+
+    } ITERATE_AVL_TREE_END;
+
+    char ipv6_addr_str[48];
+
+    ITERATE_AVL_TREE_BEGIN(node->v6prefix_tree_root, curr){
+
+        ted_v6prefix = avltree_container_of(curr, ted_v6prefix_t, avl_glue);
+        inet_ntop (AF_INET6, ted_v6prefix->prefix, ipv6_addr_str, 16);
+
+        rc += cprintf ("  v6Prefix : %s/%d  metric %u  flags 0x%x\n",
+                        ipv6_addr_str,
+                        ted_v6prefix->mask,
+                        ted_v6prefix->metric,
+                        ted_v6prefix->flags);
 
     } ITERATE_AVL_TREE_END;
 
@@ -639,6 +698,34 @@ ted_prefix_tree_cleanup_tree (ted_node_t *ted_node) {
     ted_prefix_tree_cleanup_internal (ted_node->prefix_tree_root);
     ted_node->prefix_tree_root = NULL;
 }
+
+
+void 
+ted_v6prefix_tree_cleanup_internal (avltree_t *prefix_tree) {
+
+    avltree_node_t *curr;
+    ted_v6prefix_t *ted_prefix;
+
+    if (!prefix_tree) return;
+
+     ITERATE_AVL_TREE_BEGIN(prefix_tree, curr){
+
+         ted_prefix = avltree_container_of(curr, ted_v6prefix_t, avl_glue);
+         avltree_remove(curr, prefix_tree);
+         XFREE(ted_prefix);
+
+     }  ITERATE_AVL_TREE_END;
+
+     XFREE(prefix_tree);
+}
+
+void
+ted_v6prefix_tree_cleanup_tree (ted_node_t *ted_node) {
+
+    ted_v6prefix_tree_cleanup_internal (ted_node->v6prefix_tree_root);
+    ted_node->v6prefix_tree_root = NULL;
+}
+
 
 uint32_t 
 ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) {

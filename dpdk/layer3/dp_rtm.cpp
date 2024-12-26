@@ -427,12 +427,12 @@ bool
         nexthop->proto = proto;
         nexthop->oif = oif ? oif->GetSharedPtr() : nullptr;
         nexthop->ref_count = 0;
+        nexthop->metric = spf_metric;
         nexthop->hit_count = 0;
         route->is_direct = false;
 
         if (proto == PROTO_SRv6)
         {
-            nexthop->u.srv6.metric = spf_metric;
             nexthop->u.srv6.endfn = endfn;
             nexthop->u.srv6.srv6_flavors = srv6_flavor;
             nexthop->u.srv6.flags = rt_flags;

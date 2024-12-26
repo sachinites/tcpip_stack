@@ -152,6 +152,8 @@ typedef struct acl_entry_{
     bool is_installed;
     
     access_list_t *access_list; /* Back pointer to owning access list */
+
+    char padding[2];
     glthread_t glue;
 
     /*Stats */
@@ -188,7 +190,6 @@ typedef struct access_list_processing_info_ {
     task_t *task;
     node_t *node;
     mtrie_t *mtrie;
-    bool is_installation;
     acl_entry_t *current_acl;    
     glthread_t pending_acls;
     access_list_t *access_list;
@@ -199,6 +200,8 @@ typedef struct access_list_processing_info_ {
     acl_tcam_iterator_t acl_tcam_dst_port_it;
     acl_tcam_t tcam_entry_template; 
     uint32_t acl_tcams_installed;
+    bool is_installation;
+
 } __attribute__((aligned(8))) access_list_processing_info_t;
 
 struct access_list_ {

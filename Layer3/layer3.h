@@ -99,8 +99,8 @@ typedef enum {
 
     proto_nxthop_first,
     proto_nxthop_static = proto_nxthop_first,
-    proto_nxthop_isis,
-    proto_nxthop_srv6,
+    proto_nxthop_isis, // pref 15
+    proto_nxthop_srv6, // pref 14
     proto_nxthop_max
 
 } nxthop_proto_id_t;

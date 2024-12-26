@@ -158,6 +158,7 @@ SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
         case GRE_HDR:
             break;
         case SRH_HDR:
+            cprintf ("%s : SRv6 incapable node Recvs SRH Header pkt\n", node->node_name);
             break;
         default:
             cprintf ("%s : SRv6 payload handler missing \n", node->node_name);

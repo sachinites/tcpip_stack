@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include "../../tcp_public.h"
 #include "isis_pkt.h"
 #include "isis_lspdb.h"
@@ -18,6 +19,22 @@ isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_le
                 tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask),
                 htonl(tlv_130->metric), 
                 IS_BIT_SET (tlv_130->flags, ISIS_EXTERN_ROUTE_F) ? "External" : "Internal");
+                
+    return rc;
+}
+
+uint32_t
+isis_print_formatted_tlv236( byte* out_buff, byte* tlv236_start,  uint8_t tlv_len) {
+
+    uint32_t rc = 0;
+    char ipv6_addr_str[48];
+
+    isis_tlv_236_t *tlv_236 = (isis_tlv_236_t *)(tlv236_start + TLV_OVERHEAD_SIZE);
+    inet_ntop (AF_INET6, tlv_236->prefix, ipv6_addr_str, 16);
+    rc += cprintf("\tTLV%d IPV6-REACH TLV   len:%dB\n", ISIS_TLV_IPV6_REACH, tlv_len);
+    rc += cprintf("\t\t%s/%d  metric = %u  %s\n",
+                ipv6_addr_str, tlv_236->prefix_len, htonl(tlv_236->metric),
+                IS_BIT_SET (tlv_236->bits, TLV236_XBIT ) ? "External" : "Internal");
                 
     return rc;
 }
@@ -52,6 +69,8 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
     case ISIS_TLV_IP_REACH:
         ptlv_data_len += sizeof (isis_tlv_130_t) + TLV_OVERHEAD_SIZE;
         break;
+    case ISIS_TLV_IPV6_REACH:
+        ptlv_data_len += sizeof (isis_tlv_236_t) + TLV_OVERHEAD_SIZE;
     default: ;
     }
     return ptlv_data_len;
@@ -113,6 +132,15 @@ isis_get_adv_data_tlv_content(
             *(uint32_t *)tlv_content = advt_data->u.pfx.metric;
             tlv_content += sizeof(uint32_t);
             *(uint8_t *)tlv_content = advt_data->u.pfx.flags;
+        break;
+        case ISIS_TLV_IPV6_REACH:
+        {
+            isis_tlv_236_t *tlv_fmt = (isis_tlv_236_t *)tlv_content;
+            tlv_fmt->metric = advt_data->u.v6pfx.metric;
+            tlv_fmt->bits = advt_data->u.v6pfx.flags;
+            tlv_fmt->prefix_len =  advt_data->u.v6pfx.mask;
+            memcpy(tlv_fmt->prefix ,  advt_data->u.v6pfx.prefix, 16);
+        }
         break;
         case ISIS_TLV_HOSTNAME:
                 strncpy (tlv_content, advt_data->u.host_name, advt_data->tlv_size - TLV_OVERHEAD_SIZE);
@@ -242,6 +270,10 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;
+            case ISIS_TLV_IPV6_REACH:
+                rc += isis_print_formatted_tlv236(0, 
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,

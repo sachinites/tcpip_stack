@@ -14,7 +14,7 @@ isis_srv6_config_t *
 isis_srv6_get_config(node_t *node);
 
 void
-isis_srv6_new_locator_set (node_t *node);
+isis_srv6_new_locator_set (node_t *node, char *loc_name);
 
 void
 isis_srv6_locator_unset (node_t *node);

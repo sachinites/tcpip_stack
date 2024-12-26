@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
+#include <arpa/inet.h>
+#include "Layer3/ipv6/ipv6_utils.h"
 #include "net.h"
 #include "utils.h"
 #include "tcpconst.h"
@@ -44,6 +46,7 @@
 #include "Layer2/transport_svc.h"
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
+#include "common/cp2dp.h"
 
 void
 interface_assign_mac_address (Interface *interface){
@@ -78,6 +81,20 @@ bool node_set_loopback_address(node_t *node, const char *ip_addr){
 }
 
 void 
+node_set_v6_loopback_address(node_t *node, const char *ipv6_addr ){
+
+    assert(ipv6_addr);
+
+    inet_pton(AF_INET6, ipv6_addr, node->node_nw_prop.ipv6_addr);
+
+    ipv6_addr_t prefix;
+    memcpy (prefix.addr, node->node_nw_prop.ipv6_addr, 16);
+    ipv6_route_install (node, &prefix, 128, 0, 
+        0, 0, 0, 0, 0, 0, PROTO_STATIC);
+}
+
+
+void 
 node_set_intf_ip_address(node_t *node, const char *local_if, 
                                 const char *ip_addr, char mask) {
 
@@ -91,10 +108,17 @@ void dump_node_nw_props(node_t *node){
     cprintf("\nNode Name = %s(%p) UDP Port # : %u\n",
         node->node_name, node, node->udp_port_number);
 
-    cprintf("\t node flags : %u", node->node_nw_prop.flags);
+    cprintf("  node flags : %u  ", node->node_nw_prop.flags);
 
     if(node->node_nw_prop.is_lb_addr_config){
-        cprintf("\t  lo addr : %s/32", NODE_LO_ADDR(node));
+        cprintf("  lo addr : %s/32", NODE_LO_ADDR(node));
+    }
+
+    if (!is_ipv6_addr_unspecified (&node->node_nw_prop.ipv6_addr)) {
+        char buffer[48];
+        ipv6_addr_t temp_v6_addr;
+        memcpy (&temp_v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
+        cprintf ("  v6lo addr : %s/128", inet_ntop6 (&temp_v6_addr, buffer));
     }
 
     cprintf("\n");

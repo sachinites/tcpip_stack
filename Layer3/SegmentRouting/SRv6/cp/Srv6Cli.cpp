@@ -181,12 +181,15 @@ srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) ;
 uint8_t 
 srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) {
 
-    if (node->node_nw_prop.srv6_locator.locator_name[0] == '\0') 
+    srv6_node_info_t *node_info = SRV6_NODE_INFO (node);
+    srv6_locator_t *srv6_loc = &node_info->loc;
+
+    if (is_ipv6_addr_unspecified (&srv6_loc->sid.addr))
         return SRV6_REMOTE_RT;
 
     if (ipv6_address_is_subnet (
-            &node->node_nw_prop.srv6_locator.locator, 
-            node->node_nw_prop.srv6_locator.prefix_len,
+            &srv6_loc->sid.addr, 
+            srv6_loc->prefix_len,
             prefix)) {
 
         return SRV6_LOCAL_RT;
@@ -890,27 +893,37 @@ srv6_ping6_handler
 
     node = node_get_node_by_name(topo, node_name);
 
-    pkt_size_t srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
-    pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer (srh_hdr_size);
-    pkt_block_set_starting_hdr_type (pkt_block, SRH_HDR);
-    srh_hdr_t *srh_hdr = (srh_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
+    srh_hdr_t *srh_hdr = NULL;
+    pkt_block_t *pkt_block = NULL;
 
-    srh_hdr->nexthdr = ICMP6_PROTO;
-    srh_hdr->hdrlen = srh_hdr_size;
-    srh_hdr->type = 4;
-    srh_hdr->segments_left = i -1;
-    srh_hdr->first_segment = 0;
-    srh_hdr->flags = 0;
-    srh_hdr->tag = 0;
+    /* Encode SRH header only when # of segment is > 1*/
 
-    for (int j = 0; j < i; j++)  
-        inet_pton(AF_INET6, (const char *)ipv6_addr_str[j], srh_hdr->segments[i - j - 1]);
+    if (i > 1) {
+
+        pkt_size_t srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
+        pkt_block = pkt_block_get_new_pkt_buffer (srh_hdr_size);
+        pkt_block_set_starting_hdr_type (pkt_block, SRH_HDR);
+        srh_hdr = (srh_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
+
+        srh_hdr->nexthdr = ICMP6_PROTO;
+        srh_hdr->hdrlen = srh_hdr_size;
+        srh_hdr->type = 4;
+        srh_hdr->segments_left = i -1;
+        srh_hdr->first_segment = 0;
+        srh_hdr->flags = 0;
+        srh_hdr->tag = 0;
+
+        for (int j = 0; j < i; j++)  
+            inet_pton(AF_INET6, (const char *)ipv6_addr_str[j], srh_hdr->segments[i - j - 1]);
+    }
 
     ipv6_addr_t dest_addr;
-    memcpy (dest_addr.addr, srh_hdr->segments[srh_hdr->segments_left], 16);
+    inet_pton6 ((char *)ipv6_addr_str[0], &dest_addr);
 
-    cp2dp_send_ip6_data (node, pkt_block, dest_addr, PROTO_SRH);
-    pkt_block_dereference (pkt_block);
+    cp2dp_send_ip6_data (node, pkt_block, dest_addr, srh_hdr ? PROTO_SRH:ICMP6_PROTO );
+
+    if (pkt_block) pkt_block_dereference (pkt_block);
+
     return 0;
 }
 

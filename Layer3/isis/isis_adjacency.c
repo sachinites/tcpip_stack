@@ -1,4 +1,5 @@
 #include "../../tcp_public.h"
+#include "isis_tlv_struct.h"
 #include "isis_rtr.h"
 #include "isis_const.h"
 #include "isis_enums.h"

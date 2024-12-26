@@ -127,6 +127,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
                 nexthop = route->nexthops[nxthop_proto][i];
 
                 cprintf (" Proto : %s\n",  proto_name_str(nexthop->proto));
+                cprintf (" Metric : %u\n",  nexthop->metric);
 
                 switch (nxthop_proto)
                 {
@@ -151,7 +152,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
                             cprintf ("\n");
                         }
                         
-                    break;
+                        break;
                 }
 
                 if (!is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
@@ -169,3 +170,50 @@ v6_rt_table_show (rt_table_t *rt_table) {
     } ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr);
     
 } 
+
+extern v6nexthop_t *
+l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
+
+void
+dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id){
+
+    int count;
+    glthread_t *curr;
+    ipv6_route_t *l3_route;
+    mtrie_node_t *mnode;
+    v6nexthop_t *nexthop;
+
+    nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
+
+    curr = glthread_get_next(&rt_table->route_list.list_head);
+
+    while(curr) {
+
+        mnode = list_glue_to_mtrie_node(curr);
+
+        l3_route = (ipv6_route_t *)mnode->data;
+       assert(l3_route);
+
+        nexthop = l3_v6route_get_active_nexthop (l3_route);
+
+        if (!nexthop) {
+            curr = glthread_get_next(curr);
+            continue;
+        }
+
+        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+        
+        l3_route->nh_count -= count;
+
+        if (l3_route->nh_count) {
+            curr = glthread_get_next(curr);
+            continue;
+        }
+
+       curr = mtrie_node_delete_while_traversal (&rt_table->route_list, mnode);
+       //rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
+        l3_v6route_dec_ref_count(l3_route);
+    }
+     
+     //rt_table_kick_start_notif_job(rt_table);
+}

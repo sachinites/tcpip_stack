@@ -21,6 +21,7 @@
 #define ISIS_TLV_HOSTNAME   137 // as per standard 
 #define ISIS_TLV_RTR_ID     134 // as per standard 
 #define ISIS_TLV_IF_IP      132 // as per standard 
+#define ISIS_TLV_IPV6_REACH 236
 #define ISIS_TLV_HOLD_TIME  5
 #define ISIS_TLV_METRIC_VAL 6
 

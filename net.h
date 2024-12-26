@@ -78,18 +78,13 @@ typedef struct node_nw_prop_{
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;
+    
+    /* lo ipv6 addr*/
+    uint8_t ipv6_addr[16];
 
     /*L3 properties*/ 
     bool is_lb_addr_config;
     ip_add_t lb_addr; /*loopback address of node*/
-
-    /* Spring*/
-    struct {
-        uint8_t locator[16];
-        uint8_t prefix_len;
-        uint8_t padding[7];
-        char locator_name[64]; 
-    } srv6_locator;
 
     /*Sending Buffer*/
     c_string send_log_buffer; /*Used for logging */
@@ -127,7 +122,6 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_mac_table(&(node_nw_prop->mac_table));
     init_rt_table(node, &(node_nw_prop->rt_table));
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
-    node_nw_prop->srv6_locator.locator_name[0] = '\0';
     node_assign_router_mac (node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
@@ -150,6 +144,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 
 /*APIs to set Network Node properties*/
 bool node_set_loopback_address(node_t *node, const char *ip_addr);
+void node_set_v6_loopback_address(node_t *node, const char *ipv6_addr );
 void node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
 
 /*Dumping Functions to dump network information

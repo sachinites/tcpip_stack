@@ -3,6 +3,8 @@
 
 typedef struct dp_msg_ dp_msg_t;
 typedef struct node_ node_t;
+typedef struct rt_table_ rt_table_t;
+
 class Interface;
 
 #include "../../Layer3/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
@@ -35,5 +37,8 @@ np_rt6_table_process_msg(node_t *node, dp_msg_t *dp_msg) ;
                                 ipv6_addr_t *gw,
                                 Interface* oif,
                                 uint16_t proto_id);
+
+void
+dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id);
 
 #endif 

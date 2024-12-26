@@ -44,7 +44,7 @@ srv6_init (node_t *node) {
     node_info->tr = tracer_init ("srv6", log_file_name, node->node_name, STDOUT_FILENO, 0);
 
     /* Enable ips Joins */
-    /* srv6 is interetsed in receiving SRv6 Data from ISIS */
+    /* srv6 is interested in receiving SRv6 Data from ISIS */
     cp_ips_join  (node, IPC_ISIS_SRV6_LSDB_INFO, IPC_ISIS_SRV6_TLVs ,
         srv6_recv_ips_updates);
 
