@@ -631,6 +631,11 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
                     &NODE_RT_TABLE(node)->route_list,
                     mtrie_print_node, NULL);
             break;
+        case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
+            mtrie_longest_prefix_first_traverse(
+                    &NODE_V6RT_TABLE(node)->route_list,
+                    mtrie_print_node, NULL);
+            break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:
              access_list_print_bitmap(node, access_list_name);
             break;
@@ -745,6 +750,12 @@ nw_init_cli(){
                     libcli_register_param(&mtrie, &rt);
                     libcli_set_param_cmd_code(&rt, CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT);
                 }
+                {
+                    static param_t rt6;
+                    init_param(&rt6, CMD, "rt6", debug_show_node_handler, 0, INVALID, 0, "ipv6 Routing Table");
+                    libcli_register_param(&mtrie, &rt6);
+                    libcli_set_param_cmd_code(&rt6, CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6);
+                }                
             }
             {
                 /*debug node <node-name> timer*/

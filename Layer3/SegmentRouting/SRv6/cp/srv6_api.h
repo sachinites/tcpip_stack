@@ -24,7 +24,8 @@ srv6_local_sid_config_post_processing (
             Srv6_endpcode_t endfn,
             uint8_t flavor,
             ipv6_addr_t *gw,
-            Interface *oif);
+            Interface *oif, 
+            uint32_t minor_code);
 
 void
 srv6_local_sid_unconfig_pre_processing (
@@ -34,7 +35,8 @@ srv6_local_sid_unconfig_pre_processing (
             Srv6_endpcode_t endfn,
             uint8_t flavor,
             ipv6_addr_t *gw,
-            Interface *oif) ;
+            Interface *oif, 
+            uint32_t minor_code) ;
 
 uint32_t 
 srv6_delete_all_pfx_sids (node_t *node) ;

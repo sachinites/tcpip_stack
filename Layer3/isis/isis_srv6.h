@@ -20,9 +20,6 @@ void
 isis_srv6_locator_unset (node_t *node);
 
 void 
-isis_srv6_advt_locator_all_sids (node_t *node, char *locator);
-
-void 
 isis_srv6_withdraw_locator_all_sids (node_t *node,  char *locator);
 
 #endif 

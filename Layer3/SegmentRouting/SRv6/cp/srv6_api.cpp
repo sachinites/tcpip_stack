@@ -84,7 +84,7 @@ srv6_de_init (node_t *node) {
                                                loc->prefix_len,
                                                loc->endP,
                                                loc->flavor,
-                                               0, 0);    
+                                               0, 0, IPC_ISIS_SRV6_LOCATOR_DEL);    
         memset (loc, 0, sizeof (*loc));
     }
 
@@ -112,7 +112,8 @@ srv6_local_sid_config_post_processing (
             Srv6_endpcode_t endfn,
             uint8_t flavor,
             ipv6_addr_t *gw,
-            Interface *oif) {
+            Interface *oif,
+            uint32_t ipc_minor_code_event) {
 
          /* Send the IPS to Subscribers (IGPs)*/
         ips_srv6_data_t *ips_srv6_data = new ips_srv6_data_t;
@@ -122,7 +123,7 @@ srv6_local_sid_config_post_processing (
         ips_srv6_data->u.locator.flavor = flavor;
 
         cp_ipc_send (node, IPC_SRV6_INFO, 
-                            IPC_SRV6_LOCATOR_ADD,
+                            ipc_minor_code_event,
                             (void *)ips_srv6_data, sizeof (ips_srv6_data_t), true);
 
     /* Install the locator route in RIB */
@@ -140,7 +141,8 @@ void srv6_local_sid_unconfig_pre_processing(
             Srv6_endpcode_t endfn,
             uint8_t flavor,
             ipv6_addr_t *gw,
-            Interface *oif)
+            Interface *oif,
+            uint32_t  ipc_minor_code_event)
 {
     ips_srv6_data_t *ips_srv6_data = new ips_srv6_data_t;
     ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
@@ -149,7 +151,7 @@ void srv6_local_sid_unconfig_pre_processing(
     ips_srv6_data->u.locator.flavor = flavor;
 
     cp_ipc_send(node, IPC_SRV6_INFO,
-                IPC_SRV6_LOCATOR_DEL,
+                ipc_minor_code_event,
                 (void *)ips_srv6_data, sizeof(*ips_srv6_data), true);
 
     ipv6_route_uninstall(node, 
@@ -185,7 +187,7 @@ srv6_delete_all_pfx_sids (node_t *node)  {
                                                pfxsid->prefix_len,
                                                pfxsid->endP,
                                                pfxsid->flavor,
-                                               0, 0);
+                                               0, 0, IPC_ISIS_SRV6_PREFIX_SID_DEL);
 
         ips_srv6_data = new ips_srv6_data_t;
         ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));
@@ -235,7 +237,7 @@ srv6_delete_all_adj_sids (node_t *node) {
                                                adjsid->prefix_len,
                                                adjsid->endP,
                                                adjsid->flavor,
-                                               0, 0);
+                                               0, 0, IPC_ISIS_SRV6_ADJ_SID_DEL);
 
         ips_srv6_data = new ips_srv6_data_t;
         ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));

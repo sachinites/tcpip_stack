@@ -29,7 +29,8 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
         memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
         ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
         ips_srv6_data->u.locator.flavor = loc->flavor;
-
+        ips_srv6_data->u.locator.metric = 0;
+        
         cp_ipc_send(node, IPC_SRV6_INFO,
                     IPC_SRV6_LOCATOR_ADD,
                     (void *)ips_srv6_data, sizeof(ips_srv6_data_t), true);

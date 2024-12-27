@@ -129,7 +129,8 @@ srv6_locator_handler
                     END,
                     loc->flavor,
                     NULL,
-                    NULL);
+                    NULL,
+                    IPC_ISIS_SRV6_LOCATOR_ADD);
         }
         break;
         case CONFIG_DISABLE:
@@ -164,7 +165,8 @@ srv6_locator_handler
                                                loc->prefix_len,
                                                loc->endP,
                                                loc->flavor,
-                                               0, 0);
+                                               0, 0,
+                                               IPC_ISIS_SRV6_LOCATOR_DEL);
             
             /* Remove the locator config */
             memset (loc, 0, sizeof (*loc));
@@ -336,7 +338,8 @@ srv6_prefix_sid_config_handler
                     END,
                     pfxsid->flavor,
                     NULL,
-                    NULL);
+                    NULL, 
+                    IPC_ISIS_SRV6_PREFIX_SID_ADD);
         }
         break;
 
@@ -384,7 +387,8 @@ srv6_prefix_sid_config_handler
                     END,
                     pfxsid->flavor,
                     NULL,
-                    NULL);
+                    NULL,
+                    IPC_ISIS_SRV6_PREFIX_SID_DEL);
 
             XFREE (pfxsid);
         }
@@ -529,7 +533,7 @@ srv6_adjacency_sid_config_handler
                     END_X,
                     adjsid->flavor,
                     &adjsid->gw,
-                    intf);
+                    intf, IPC_ISIS_SRV6_ADJ_SID_ADD);
         }
         break;
 
@@ -577,7 +581,7 @@ srv6_adjacency_sid_config_handler
                     END_X,
                     adjsid->flavor,
                     &adjsid->gw,
-                    intf);
+                    intf, IPC_ISIS_SRV6_ADJ_SID_DEL);
 
             XFREE (adjsid);
         }

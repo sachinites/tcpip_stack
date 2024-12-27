@@ -85,8 +85,6 @@ config node H4 debug l3fwd detail
 config node H4 debug error
 config node H4 traceoptions flag all
 
-Test : 
-
 H1:
 run node H1 ping6 srv6 2001:dbe8:1:: 2001:dbe8:2:: 2001:dbe8:3:1::
 
@@ -99,3 +97,27 @@ Seg 0 : abcd::3
 Seg 1 : abcd::2
 Seg 2 : abcd::1
 Seg 3 : 2001:dbe8:4::
+
+
+ISIS with SRv6 TEST 
+====================
+
+config node H1 protocol source-packet-routing srv6 locator H1-LOC 2001:dbe8:1:: 48
+config node H2 protocol source-packet-routing srv6 locator H2-LOC 2001:dbe8:2:: 48
+config node H3 protocol source-packet-routing srv6 locator H3-LOC 2001:dbe8:3:: 48
+config node H4 protocol source-packet-routing srv6 locator H4-LOC 2001:dbe8:4:: 48
+
+config node H1 protocol isis interface all
+config node H2 protocol isis interface all
+config node H3 protocol isis interface all
+config node H4 protocol isis interface all
+
+config node H1 protocol isis source-packet-routing srv6 locator H1-LOC
+config node H2 protocol isis source-packet-routing srv6 locator H2-LOC
+config node H3 protocol isis source-packet-routing srv6 locator H3-LOC
+config node H4 protocol isis source-packet-routing srv6 locator H4-LOC
+
+Soft-Firewall>$ run node H1 ping6 srv6 2001:dbe8:2:: 2001:dbe8:4::
+Soft-Firewall>$      
+ipv6 ping success     
+

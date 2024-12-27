@@ -16,6 +16,7 @@
 #include "isis_ted.h"
 #include "isis_policy.h"
 #include "isis_advt.h"
+#include "isis_srv6.h"
 
 extern void isis_mem_init();
 void isis_ipv4_rt_notif_cbk (
@@ -83,6 +84,10 @@ isis_check_delete_node_info(node_t *node) {
     assert(!node_info->exported_routes.root);
     assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
+    assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv237);
+    assert (!node_info->tlv_global_advt.v6loc_adv_data_tlv236);
+    assert (!node_info->tlv_global_advt.v6loc_adv_data_tlv237);
+    assert (!node_info->srv6_config);
 
     /* Must not be any pending LSP for regeneration*/
     assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
@@ -115,6 +120,10 @@ isis_protocol_shutdown_now (node_t *node) {
         isis_disable_protocol_on_interface(intf);
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
+    /* Remove all static and Dynamic learnt SRv6 data,
+        including disabling SRV6 specific IPS joins*/
+    isis_srv6_locator_unset (node);
+
     /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node, 0);
     /* This should be No-Op, buts lets do*/
@@ -126,7 +135,6 @@ isis_protocol_shutdown_now (node_t *node) {
     cp_ips_unjoin (node, IPC_INTERFACE, isis_recv_ipc_updates);
     cp_ips_unjoin (node, IPC_GRE_TUNNEL, isis_recv_ipc_updates);
     cp_ips_unjoin (node, IPC_ACCESS_LIST, isis_recv_ipc_updates);
-    cp_ips_unjoin (node, IPC_SRV6_INFO, isis_recv_ipc_updates);
     isis_check_delete_node_info(node); 
 }
 
@@ -399,13 +407,6 @@ isis_init (node_t *node ) {
             isis_recv_ipc_updates);
     cp_ips_join (node, IPC_ACCESS_LIST, IPC_ALL_MINOR_UPDATES,
             isis_recv_ipc_updates);
-    cp_ips_join (node, IPC_SRV6_INFO, 
-        IPC_ALL_MINOR_UPDATES, isis_recv_ipc_updates);
-    
-    /* Request SRv6 to send us all SRv6 SID Data*/
-    cp_ipc_send (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs, 
-        IPC_REQ_SRV6_PUBLISH_PFX_SIDS | IPC_REQ_SRV6_PUBLISH_ADJ_SIDS, 
-        0, 0, false);
 }
 
 void

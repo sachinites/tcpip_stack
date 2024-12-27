@@ -75,6 +75,7 @@ isis_srv6_recv_ips_updates (node_t *node, uint32_t minor_code, ips_srv6_data_t *
             isis_free_advt_data(advt_data);
         }
         break;
+
         case IPC_SRV6_PREFIX_SID_ADD:
         {
             tracer (ISIS_TR(node), TR_ISIS_IPC, 
@@ -84,6 +85,7 @@ isis_srv6_recv_ips_updates (node_t *node, uint32_t minor_code, ips_srv6_data_t *
                     tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
         }
         break;
+
         case IPC_SRV6_PREFIX_SID_DEL:
         {
             tracer (ISIS_TR(node), TR_ISIS_IPC, 
@@ -93,11 +95,13 @@ isis_srv6_recv_ips_updates (node_t *node, uint32_t minor_code, ips_srv6_data_t *
                     tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
         }
         break;
+
         case IPC_SRV6_ADJ_SID_ADD:
         {
 
         }
         break;
+        
         case IPC_SRV6_ADJ_SID_DEL:
         {
 
@@ -115,7 +119,11 @@ void isis_recv_ipc_updates (node_t *node,
     switch (major_code) {
 
         case IPC_SRV6_INFO:
-            isis_srv6_recv_ips_updates (node, minor_code, (ips_srv6_data_t *)msg);
+            {   
+                isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
+                if (!srv6_config) break;
+                isis_srv6_recv_ips_updates (node, minor_code, (ips_srv6_data_t *)msg);
+            }
         break;
         case IPC_INTERFACE:
             isis_interface_ipc_updates(node, minor_code, (ipc_interface_t *)msg);

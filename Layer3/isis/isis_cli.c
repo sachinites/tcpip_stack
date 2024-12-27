@@ -481,7 +481,7 @@ isis_srv6_config_handler (int cmdcode,
 
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if (parser_match_leaf_id(tlv->leaf_id, "loc-name"))
+        else if (parser_match_leaf_id(tlv->leaf_id, "locator-name"))
             loc_name = tlv->value;
 
     } TLV_LOOP_END;
