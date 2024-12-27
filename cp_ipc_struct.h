@@ -149,6 +149,7 @@ typedef struct ips_srv6_data_ {
 
                 ipv6_addr_t prefix;
                 Srv6_endpcode_t endfn;
+                uint32_t metric;
                 uint8_t prefix_len;
                 uint8_t flavor;
 
