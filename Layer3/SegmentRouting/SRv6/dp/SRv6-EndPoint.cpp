@@ -54,19 +54,7 @@ Srv6_apply_flavor (node_t *node,
 
     if (segments_left == 1) {
 
-        /* This is penultimate node, apply flavors : PSP or PSD*/
-
-        if (flavor & PSD) {
-
-            pkt_size_t pkt_size = 0;
-            byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
-            ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
-            srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
-            byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-            pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-            pkt_block_update_new_hdr_type (orig_pkt, srh->nexthdr);
-            return orig_pkt;
-        }
+        /* This is penultimate node, apply flavors : PSP*/
 
         if (flavor & PSP) {
             pkt_size_t pkt_size = 0;
@@ -91,7 +79,18 @@ Srv6_apply_flavor (node_t *node,
 
     if (segments_left == 0) {
             
-            /* This is destination node, apply flavors : USD*/
+            /* This is destination node, apply flavors : USD or USP*/
+            if (flavor & USP) {
+
+                pkt_size_t pkt_size = 0;
+                byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+                ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+                srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
+                byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
+                pkt_block_set_new_pkt (orig_pkt, payload, pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+                pkt_block_update_new_hdr_type (orig_pkt, srh->nexthdr);
+                return orig_pkt;
+            }
     
             if (flavor & USD) {
                 pkt_size_t pkt_size = 0;
@@ -166,58 +165,6 @@ SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
     }
 }
 
-const char *
-end_fn_str(Srv6_endpcode_t end_fn) {
-
-    switch (end_fn) {
-
-        case END:
-            return "END";
-        case END_X:
-            return "END_X";
-        case END_T:
-            return "END_T";
-        case END_DX6:
-            return "END_DX6";
-        case END_DX4:
-            return "END_DX4";
-        case END_DT6:
-            return "END_DT6";
-        case END_DT4:
-            return "END_DT4";
-        case END_B6_ENCAP:
-            return "END_B6_ENCAP";
-        case END_B6_ENCAP_X:
-            return "END_B6_ENCAP_X";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-const char *
-flavor_str(uint8_t flavors) {
-
-    switch (flavors) {
-
-        case PSP:
-            return "PSP";
-        case USD:
-            return "USD";
-        case PSD:
-            return "PSD";
-        case PSP | USD:
-            return "PSP | USD";
-        case PSP | PSD:
-            return "PSP | PSD";
-        case USD | PSD:
-            return "USD | PSD";
-        case PSP | USD | PSD:
-            return "PSP | USD | PSD";
-        default:
-            return "";
-    }
-}
-
 /* Prepare new SRH header from segment list */
 static srh_hdr_t *
 srh_hdr_prepare (ipv6_addr_t *segment_lst, uint8_t n) {
@@ -267,6 +214,61 @@ Srv6_encapsulate (pkt_block_t *pkt_block, srh_hdr_t *srh) {
     pkt_block_update_new_hdr_type (pkt_block, ETH_IP6);
 }
 
+static void 
+Srv6_apply_penultimate_processing (node_t *node, 
+                                                pkt_block_t *pkt_block, 
+                                                ipv6_hdr_t *ipv6_hdr, 
+                                                srh_hdr_t *srh) {
+
+    uint8_t flavor = 0;
+
+    assert (srh && srh->segments_left == 1);
+
+    /* First apply shift and forward */
+    srh->segments_left--;
+    Srv6_copy_current_sid_to_DA(srh, ipv6_hdr);
+
+    ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
+
+    /* now apply the flavor of the dest route */
+
+    ipv6_route_t *dst_route = l3rib_v6lookup_lpm(
+                                            NODE_V6RT_TABLE(node), &dst_addr.addr);
+
+    v6nexthop_t *dst_nexthop = l3_v6route_get_active_nexthop(dst_route);
+
+    if (dst_nexthop->proto != PROTO_SRv6) {
+
+        tracer (node->dptr, DL3FWD, 
+            "Pkt : %s :  No SRV6 route found, Pkt is being forwarded using normal ipv6 routing\n",  
+            pkt_block_str(pkt_block));
+
+        ipv6_layer3_forward_nexthop(node, dst_nexthop, pkt_block);
+        return;
+    }
+
+    Srv6_endpcode_t CompositeEndfn = dst_nexthop->u.srv6.endfn;
+
+    Srv6_endpcode_t endfn = srv6_split_endpcode(CompositeEndfn, &flavor);
+
+    pkt_block_t *flavored_pkt = Srv6_apply_flavor(
+                node, pkt_block, flavor, srh->segments_left);    
+
+    switch (flavor) {
+
+        case PSP:
+            ipv6_layer3_forward_nexthop(node, dst_nexthop, flavored_pkt);
+            break;
+        
+        case USD:
+        case USP:
+            /* Penultimate router do not apply these operations */
+            NOOP; // Fall through
+
+        default: ;
+    }
+}
+
 
 /* Fn  for ipv6 pkt processing 
     Used to process the ipv6 pkt whose destination do not belong to any local sid of the
@@ -287,59 +289,20 @@ Process_Srv6_remote_packet (
 
     }
 
+#if 0
+    if (srh && srh->segments_left == 1) {
+    
+         Srv6_apply_penultimate_processing (node, 
+                                                              pkt_block, 
+                                                              ipv6_hdr, 
+                                                              srh) ;
+            return;
+    }
+#endif 
+
     ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);
 }
 
-static void 
-Srv6_apply_penultimate_processing (node_t *node, 
-                                                pkt_block_t *pkt_block, 
-                                                ipv6_hdr_t *ipv6_hdr, 
-                                                srh_hdr_t *srh) {
-
-    ipv6_addr_t dst_addr = srv6_srh_get_destination_segment (srh);
-    ipv6_route_t *dst_route = l3rib_v6lookup_lpm(
-                                            NODE_V6RT_TABLE(node), &dst_addr.addr);
-    v6nexthop_t *dst_nexthop = l3_v6route_get_active_nexthop(dst_route);
-
-    pkt_block_t *flavored_pkt = Srv6_apply_flavor(
-                node, pkt_block, dst_nexthop->u.srv6.srv6_flavors, srh->segments_left);    
-
-    switch (dst_nexthop->u.srv6.srv6_flavors) {
-
-        case PSP:
-            ipv6_layer3_forward_nexthop(node, dst_nexthop, flavored_pkt);
-            break;
-
-        case PSD: 
-            /* Payload has been exposed, forward the pkt by handling it to L2 layer. L2 layer will
-                attach ethernet hdr and forward onto the nexthop link*/
-            if (!dst_route) {
-                    pkt_block_dereference(flavored_pkt);
-                    drop_packet;
-                }
-
-            if (!dst_nexthop->oif) {
-
-                tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
-                    pkt_block_str(flavored_pkt));
-                drop_packet;
-            }
-
-            demote_pkt_to_layer2 (node, 0,
-                                                    (c_string)dst_nexthop->oif->if_name.c_str(), flavored_pkt,
-                                                    pkt_block_get_starting_hdr(flavored_pkt));
-        break;
-        
-        case USD:
-            /* Penultimate router do not apply USD*/
-            NOOP; // Fall through
-
-        default: 
-            srh->segments_left--;
-            Srv6_copy_current_sid_to_DA (srh, ipv6_hdr);
-            ipv6_layer3_forward_nexthop(node, dst_nexthop, flavored_pkt);
-    }
-}
 
 /*
 In SRv6, flavors are applied before the END function processing. This ordering ensures that any specific handling or adjustments dictated by the flavor are completed before the standard or custom END behavior is executed
@@ -457,12 +420,18 @@ Srv6_apply_endpoint_fn (
             Process_END_B6_ENCAP(node, pkt_block, ipv6_hdr, srh, nexthop);
             break;
 
+#if 0
         case END_B6_ENCAP_X:
             Process_END_B6_ENCAP_X(node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
             break;
+#endif 
 
+        /* We have hit a SRV6 local route with no end-function. This would happen with locators.
+            It is for this reason, Cisco install dyanmic prefix sid for every locator to handle this case.
+            In our case, we will process using default END fn*/
         default:
-            assert(0);
+            Process_END(node, pkt_block, ipv6_hdr, srh, nexthop);
+            break;
     }
 }
 

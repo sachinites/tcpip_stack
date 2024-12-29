@@ -136,7 +136,7 @@ srv6_local_sid_config_post_processing (
                 ips_srv6_data->u.locator.mt_id = 0; /* Default */
                 ips_srv6_data->u.locator.metric = metric;
                 ips_srv6_data->u.locator.algorithm = 0; /* Default*/
-                ips_srv6_data->u.locator.flags = 0; /* Locators do not have PSP/USD/PSD*/
+                ips_srv6_data->u.locator.flags = flags;
                 /* Route to be installed */
                 memcpy(rt_addr.addr, loc->sid.addr, 16);
                 rt_prefix_len = loc->prefix_len;
@@ -221,7 +221,7 @@ void srv6_local_sid_unconfig_pre_processing(
             ips_srv6_data->u.locator.mt_id = 0;
             ips_srv6_data->u.locator.metric = 0;
             ips_srv6_data->u.locator.algorithm = 0;
-            ips_srv6_data->u.locator.flags = 0;
+            ips_srv6_data->u.locator.flags = flags;
             /* Route to be uninstalled*/
             memcpy(rt_addr.addr, loc->sid.addr, 16);
             rt_prefix_len = loc->prefix_len;
@@ -236,7 +236,7 @@ void srv6_local_sid_unconfig_pre_processing(
             memcpy (ips_srv6_data->u.prefix_sid.prefix.addr, pfxsid->addr, 16);
              /* Rest of the fields do not matter, for deletion we only need pfxsid key*/
              ips_srv6_data->u.prefix_sid.endfn = (Srv6_endpcode_t)0;
-             ips_srv6_data->u.prefix_sid.flags = 0;
+             ips_srv6_data->u.prefix_sid.flags = flags;
             /* Route to be uninstalled*/
             memcpy(rt_addr.addr, pfxsid->addr, 16);
             rt_prefix_len = pfxsid_len;
@@ -249,7 +249,7 @@ void srv6_local_sid_unconfig_pre_processing(
             /* Now Adj sid*/
             memcpy(ips_srv6_data->u.adj_sid.prefix.addr, pfxsid->addr, 16);
             /* Rest of the fields do not matter, for deletion we only need adjsid key*/
-            ips_srv6_data->u.adj_sid.flags = 0;
+            ips_srv6_data->u.adj_sid.flags = flags;
             ips_srv6_data->u.adj_sid.endfn =  (Srv6_endpcode_t)0;
             /* Route to be uninstalled*/
             memcpy(rt_addr.addr, pfxsid->addr, 16);
@@ -297,7 +297,7 @@ srv6_delete_all_pfx_sids (node_t *node)  {
                                                &pfxsid->sid,
                                                pfxsid->prefix_len,
                                                pfxsid->endP,
-                                               pfxsid->flavor,
+                                               pfxsid->flags,
                                                0, 0, IPC_ISIS_SRV6_PREFIX_SID_DEL);
 
         XFREE(pfxsid);
@@ -337,7 +337,7 @@ srv6_delete_all_adj_sids (node_t *node) {
                                                &adjsid->sid,
                                                adjsid->prefix_len,
                                                adjsid->endP,
-                                               adjsid->flavor,
+                                               adjsid->flags,
                                                0, 0, IPC_ISIS_SRV6_ADJ_SID_DEL);
         
         cp_ipc_send (node, IPC_SRV6_INFO, 

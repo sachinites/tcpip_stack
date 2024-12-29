@@ -124,7 +124,7 @@ srv6_locator_handler
             srv6_local_sid_config_post_processing (node,
                     0,
                     0,
-                    END,
+                    SRV6_END_FN_NONE,
                     0,
                     NULL,
                     NULL,
@@ -162,7 +162,7 @@ srv6_locator_handler
             srv6_local_sid_unconfig_pre_processing(node,
                                                &loc->sid,
                                                loc->prefix_len,
-                                               END,
+                                               SRV6_END_FN_NONE,
                                                0,
                                                0, 0,
                                                IPC_ISIS_SRV6_LOCATOR_DEL);
@@ -251,20 +251,27 @@ srv6_prefix_sid_config_handler
 
     if (flavor1) {
         if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = PSD;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = USP;
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
     }
 
     if (flavor2) {
         if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
     }
 
     if (flavor3) {
         if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    Srv6_endpcode_t endpCode = srv6_get_END_endpcode (flavor);
+    
+    if (endpCode == SRV6_END_FN_NONE) {
+        cprintf ("Error : Invalid flavor\n");
+        return -1;
     }
 
     switch (enable_or_disable) {
@@ -298,8 +305,8 @@ srv6_prefix_sid_config_handler
             srv6_pfxsid_t *pfxsid = (srv6_pfxsid_t *) XCALLOC (0, 1, srv6_pfxsid_t);
 
             pfxsid->sid = prefix;
-            pfxsid->endP = END;
-            pfxsid->flavor = flavor;
+            pfxsid->endP = endpCode;
+            pfxsid->flags = 0;
             pfxsid->prefix_len = prefix_len;
             pfxsid->n_seg_lst = 0;
 
@@ -334,8 +341,8 @@ srv6_prefix_sid_config_handler
             srv6_local_sid_config_post_processing (node,
                     &pfxsid->sid,
                     pfxsid->prefix_len,
-                    END,
-                    pfxsid->flavor,
+                    endpCode,
+                    0,
                     NULL,
                     NULL, 
                     0,
@@ -384,8 +391,8 @@ srv6_prefix_sid_config_handler
             srv6_local_sid_unconfig_pre_processing (node,
                     &pfxsid->sid,
                     pfxsid->prefix_len,
-                    END,
-                    pfxsid->flavor,
+                    endpCode,
+                    0,
                     NULL,
                     NULL,
                     IPC_ISIS_SRV6_PREFIX_SID_DEL);
@@ -446,20 +453,27 @@ srv6_adjacency_sid_config_handler
 
     if (flavor1) {
         if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = PSD;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = USP;
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
     }
 
     if (flavor2) {
         if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
     }
 
     if (flavor3) {
         if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
+        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    }
+
+    Srv6_endpcode_t endpCode = srv6_get_END_X_endpcode (flavor);
+    
+    if (endpCode == SRV6_END_FN_NONE) {
+        cprintf ("Error : Invalid flavor\n");
+        return -1;
     }
 
     switch (enable_or_disable) {
@@ -493,7 +507,7 @@ srv6_adjacency_sid_config_handler
 
             adjsid->sid = prefix;
             adjsid->endP = END;
-            adjsid->flavor = flavor;
+            adjsid->flags = flavor;
             adjsid->prefix_len = prefix_len;
             adjsid->n_seg_lst = 0;
             adjsid->ifindex = intf->ifindex;
@@ -531,7 +545,7 @@ srv6_adjacency_sid_config_handler
                     &adjsid->sid,
                     adjsid->prefix_len,
                     END_X,
-                    adjsid->flavor,
+                    adjsid->flags,
                     &adjsid->gw,
                     intf, 
                     0,
@@ -581,7 +595,7 @@ srv6_adjacency_sid_config_handler
                     &adjsid->sid,
                     adjsid->prefix_len,
                     END_X,
-                    adjsid->flavor,
+                    adjsid->flags,
                     &adjsid->gw,
                     intf, IPC_ISIS_SRV6_ADJ_SID_DEL);
 
@@ -629,9 +643,6 @@ srv6_end_b6_encaps_config_handler
     node_t *node;
     uint8_t prefix_len;
     c_string node_name;
-    c_string flavor1 = NULL;
-    c_string flavor2 = NULL;
-    c_string flavor3 = NULL;
     c_string ipv6_route_str;
     tlv_struct_t *tlv = NULL;
     ipv6_addr_t segment_lst[16] = {0};
@@ -646,36 +657,10 @@ srv6_end_b6_encaps_config_handler
             ipv6_route_str = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "mask"))
             prefix_len = atoi((const char *)tlv->value);
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor1 = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor2 = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor3 = tlv->value;
 
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-
-    uint8_t flavor = DEFAULT_FLAVOR;
-
-    if (flavor1) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = PSD;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
-    }
-
-    if (flavor2) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
-    }
-
-    if (flavor3) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= PSD;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
-    }
 
     switch (enable_or_disable) {
 
@@ -690,7 +675,9 @@ srv6_end_b6_encaps_config_handler
                                 NULL,
                                 0,
                                 &segment_lst,
-                                0, END_B6_ENCAP, flavor,
+                                0, 
+                                END_B6_ENCAP, 
+                                0,
                                 PROTO_SRv6);            
         }
         break;
@@ -788,8 +775,6 @@ void srv6_build_cli_tree(param_t *root)
                         libcli_register_param(&seg_lst, &segment);
                         libcli_set_param_cmd_code(&segment, IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG);
                         libcli_param_recursive(&segment);
-                        srv6_flavor_cli_subtree_hookup(&segment, 
-                            IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG, srv6_end_b6_encaps_config_handler);
                     }                    
                 }                
             }
@@ -822,8 +807,6 @@ void srv6_build_cli_tree(param_t *root)
                                         NULL, STRING, "oif-name", "Outgoing Interface Name");
                                     libcli_register_param(&nexthop, &oif_name);
                                     libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG);
-                                    srv6_flavor_cli_subtree_hookup(&oif_name, 
-                                        IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG, srv6_end_b6_x_encaps_config_handler);
                             }
                         }
                     }                    

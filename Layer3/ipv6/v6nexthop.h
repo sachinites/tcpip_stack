@@ -21,7 +21,6 @@ typedef struct v6nexthop_{
     {
         struct
         {
-            uint8_t srv6_flavors;
             Srv6_endpcode_t endfn;
             #define SRV6_REMOTE_RT 1
             #define SRV6_LOCAL_RT 2

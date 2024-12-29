@@ -78,7 +78,7 @@ isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len)
 
                 rc += cprintf("\t\t\tPrefix-SID : %s  Endfn : %s  Flags : 0x%x\n",
                     ipv6_addr_str,
-                    end_fn_str(pfxsid_subtlv->endfn),
+                    srv6_end_fn_str(pfxsid_subtlv->endfn),
                     pfxsid_subtlv->flags);
             break;
             default: 

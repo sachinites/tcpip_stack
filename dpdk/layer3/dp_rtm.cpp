@@ -434,7 +434,6 @@ bool
         if (proto == PROTO_SRv6)
         {
             nexthop->u.srv6.endfn = endfn;
-            nexthop->u.srv6.srv6_flavors = srv6_flavor;
             nexthop->u.srv6.flags = rt_flags;
 
             if (seg_lst_count) {

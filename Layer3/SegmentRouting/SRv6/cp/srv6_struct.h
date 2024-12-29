@@ -20,7 +20,7 @@ typedef struct srv6_pfxsid_ {
 
     ipv6_addr_t sid;
     Srv6_endpcode_t endP;
-    uint8_t flavor;
+    uint8_t flags;
     uint8_t prefix_len;
     uint8_t n_seg_lst;
     char padding[1];
@@ -34,7 +34,7 @@ typedef struct srv6_adjsid_ {
     ipv6_addr_t gw;
     Srv6_endpcode_t endP;
     uint32_t ifindex;
-    uint8_t flavor;
+    uint8_t flags;
     uint8_t prefix_len;
     uint8_t n_seg_lst;
     char padding[5];

@@ -12,6 +12,7 @@ OBJS=cp/srv6_rtr.o \
 			cp/srv6_api.o \
 			cp/srv6_show.o \
 			cp/srv6_ipc.o \
+			common/srv6_const.o \
 			dp/SRv6-EndPoint.o \
 
 # Control Plane
@@ -30,6 +31,9 @@ cp/srv6_show.o:cp/srv6_show.cpp
 cp/srv6_ipc.o:cp/srv6_ipc.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_ipc.cpp -o cp/srv6_ipc.o
 
+common/srv6_const.o:common/srv6_const.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ common/srv6_const.cpp -o common/srv6_const.o
+
 # Data plane
 dp/SRv6-EndPoint.o:dp/SRv6-EndPoint.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ dp/SRv6-EndPoint.cpp -o dp/SRv6-EndPoint.o
@@ -44,4 +48,5 @@ clean:
 	rm -rf *.a
 	rm -rf cp/*.o 
 	rm -rf dp/*.o 
+	rm -rf common/*.o
 	

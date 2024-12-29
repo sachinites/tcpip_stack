@@ -56,7 +56,7 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
 
             memcpy (ips_srv6_data->u.prefix_sid.prefix.addr, pfxsid->sid.addr, 16);
             ips_srv6_data->u.prefix_sid.endfn = pfxsid->endP;
-            ips_srv6_data->u.prefix_sid.flags = pfxsid->flavor;
+            ips_srv6_data->u.prefix_sid.flags = pfxsid->flags;
 
             cp_ipc_send(node, IPC_SRV6_INFO,
                         IPC_SRV6_PREFIX_SID_ADD,
@@ -86,7 +86,7 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
             ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;            
 
             memcpy(ips_srv6_data->u.adj_sid.prefix.addr, adjsid->sid.addr, 16);
-            ips_srv6_data->u.adj_sid.flags = adjsid->flavor;
+            ips_srv6_data->u.adj_sid.flags = adjsid->flags;
             ips_srv6_data->u.adj_sid.endfn = adjsid
             ->endP;
 

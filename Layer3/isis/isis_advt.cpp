@@ -1004,7 +1004,7 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
 
                     rc += cprintf ("         Prefix-SID : %s  Endfn : %s    Flags : 0x%x\n",
                         ipv6_addr_str, 
-                        end_fn_str( pfxsid_subtlv_advt_data->u.srv6_pfxsid.endfn),
+                        srv6_end_fn_str( pfxsid_subtlv_advt_data->u.srv6_pfxsid.endfn),
                         pfxsid_subtlv_advt_data->u.srv6_pfxsid.flags);
                 }
             }

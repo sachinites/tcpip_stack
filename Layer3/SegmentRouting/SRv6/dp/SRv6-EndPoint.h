@@ -78,10 +78,4 @@ Srv6_apply_endpoint_fn (
         srh_hdr_t *srh, 
         v6nexthop_t *nexthop);
 
-const char *
-end_fn_str(Srv6_endpcode_t end_fn);
-
-const char *
-flavor_str(uint8_t flavors);
-
 #endif // __INET_SRv6ENDPOINT_H

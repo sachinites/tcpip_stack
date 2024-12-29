@@ -11,6 +11,9 @@
 #define ISIS_EXTERN_ROUTE_F   (1<<7)
 #define ISIS_INTERNAL_ROUTE_F   (1<<6)
 
+#define SPF_ALOGORITHM 0
+#define SPF_STRICT_ALOGORITHM 1
+
 typedef struct isis_tlv_130_ {
 
     uint32_t prefix;
@@ -61,7 +64,11 @@ typedef struct isis_tlv_27_ {
     uint16_t RRRR_mt_id;
     uint32_t metric;
     /* MSB is Down bit*/
+    #define LOCATPR_DOWN_BIT (1 << 7) // set by ISIS when locator is leaked from L2 to L1
+    #define LOCATOR_ANYCAST_BIT (1 << 6) // set by SRv6 when locator is anycast
     uint8_t flags;
+    // 0 for spf, 1 for strict
+    // 128 - 255 for flex algo
     uint8_t algorithm;
     char padding[2];
     // 1 to 128
@@ -77,7 +84,8 @@ uint8_t locator_tlv_get_total_size (locator_tlv_t *loc_tlv) ;
 
 typedef struct isis_tlv_27_subtlv_5_ {
 
-    uint8_t flags;
+    // not defined yet. // not defined yet. 7.2
+    uint8_t flags; 
     uint16_t endfn;
     uint8_t prefix[16];
     uint8_t subtlv_len;
