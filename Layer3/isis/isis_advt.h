@@ -14,11 +14,13 @@ typedef struct node_info_ isis_node_info_t;
 #define ISIS_SHOULD_INCL_IS_REACH_TLVS (1 << 2)
 #define ISIS_SHOULD_INCL_IP_REACH_TLVS (1 << 3)
 #define ISIS_SHOULD_INCL_IPV6_REACH_TLVS (1 << 4)
+#define ISIS_SHOULD_INCL_SRV6_TLVS (1 << 5)
 
 #define ISIS_LSP_DEF_REGEN_FLAGS \
     ( ISIS_SHOULD_INCL_IS_REACH_TLVS | \
       ISIS_SHOULD_INCL_IP_REACH_TLVS  | \
-      ISIS_SHOULD_INCL_IPV6_REACH_TLVS)
+      ISIS_SHOULD_INCL_IPV6_REACH_TLVS | \
+      ISIS_SHOULD_INCL_SRV6_TLVS )
 
 typedef struct isis_advt_info_ {
 
@@ -55,6 +57,13 @@ typedef struct isis_advt_db_ {
 
 } __attribute__((aligned(8))) isis_advt_db_t;
 
+/* This TLV is Waitlisted */
+#define ISIS_ADVT_DATA_F_WAIT_LISTED  (1 << 0)
+/* This TLV is being advertised */
+#define ISIS_ADVT_DATA_F_ADVERTISED    (1 << 1) 
+/* This TLV is learnt from external source */
+#define ISIS_ADVT_DATA_F_EXTERNAL_SRC    (1 << 2)  
+
 /* A Data structure which holds the data to be advertised as TLVs in 
     LSPs */
 typedef struct isis_adv_data_ {
@@ -78,15 +87,46 @@ typedef struct isis_adv_data_ {
       
         char host_name[NODE_NAME_SIZE];
 
-        uint32_t flags;
-
+        /* Srv6 Locators - TLV 27*/
         struct {
-            uint32_t prefix;
-            uint8_t mask;
-            uint32_t metric;
-            uint8_t flags;
-        } pfx;
+                
+                ipv6_addr_t prefix;
+                uint32_t metric;
+                uint16_t mt_id;
+                uint8_t prefix_len;
+                uint8_t algorithm;
+                uint8_t flags;
+                uint8_t subtlv_len;
+                    /* SubTLVs*/
+                struct isis_adv_data_ *next;
 
+        } srv6_loc;
+
+
+        /* SRv6 Prefix Sid locator Subtlvs*/
+        struct {
+            
+            ipv6_addr_t prefix;
+            Srv6_endpcode_t endfn;
+            uint8_t flags;
+            uint8_t subtlv_len;
+            /* Sub-Sub TLVs*/
+            struct isis_adv_data_ *next;
+
+        } srv6_pfxsid;
+
+
+        /* SRv6 Adj Sid Subtlv*/
+        struct {
+            
+            ipv6_addr_t prefix;
+            Srv6_endpcode_t endfn;
+            uint8_t flags;
+
+        } srv6_adjsid;
+
+
+        /* IPV6 Reachability TLVs - TLV236, 237*/
         struct {
             uint8_t prefix[16];
             uint32_t metric;
@@ -94,15 +134,26 @@ typedef struct isis_adv_data_ {
             uint8_t flags;
         } v6pfx;
 
+
+        /* IPV4 Reachability TLVs */
+        struct {
+            uint32_t prefix;
+            uint8_t mask;
+            uint32_t metric;
+            uint8_t flags;
+        } pfx;
+
     }u;
 
     pkt_size_t tlv_size;
-    glthread_t glue;
     isis_fragment_t *fragment;
 
     union {
         struct isis_adv_data_ **holder; // for IS REACH
     }src;
+
+    uint16_t flags;
+    glthread_t glue;
 
 } __attribute__((aligned(8)))  isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
@@ -123,6 +174,9 @@ isis_advertise_tlv (node_t *node,
                                     pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
                                     isis_advt_info_t *advt_info_out);
+
+bool 
+isis_externally_learnt_tlv (uint8_t tlv_no);
 
 isis_tlv_wd_return_code_t
 isis_withdraw_tlv_advertisement (node_t *node,

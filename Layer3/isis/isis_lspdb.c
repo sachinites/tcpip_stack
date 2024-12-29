@@ -644,10 +644,15 @@ isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     if (!isis_is_lsp_pkt_installed_in_lspdb(lsp_pkt)) return;
 
     avltree_remove(&lsp_pkt->avl_node_glue, lspdb);
+
     lsp_pkt->installed_in_db = false;
+
     isis_stop_lsp_pkt_installation_timer(lsp_pkt);
+
     isis_print_lsp_id (lsp_pkt,  lsp_id_str);
+
     tracer (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_EVENTS,  
         "%s : LSP %s removed from LSPDB\n", ISIS_LSPDB_MGMT, lsp_id_str);
+        
     isis_deref_isis_pkt(node, lsp_pkt);
 }

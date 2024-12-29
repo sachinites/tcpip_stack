@@ -14,6 +14,12 @@
 #include "isis_dis.h"
 #include "isis_ted.h"
 #include "isis_cmdcodes.h"
+#include "isis_srv6.h"
+
+extern void
+isis_ipv4_rt_notif_cbk (
+        event_dispatcher_t *ev_dis,
+        void *rt_notif_data, unsigned int arg_size) ;
 
 static int 
 isis_get_new_fragment_no (isis_advt_db_t *advt_db) {
@@ -45,9 +51,10 @@ isis_fragment_bind_advt_data (
 
     assert (!advt_data->fragment);
     assert (!IS_QUEUED_UP_IN_THREAD (&advt_data->glue));
+    assert (!IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_ADVERTISED));
     assert ((ISIS_LSP_MAX_PKT_SIZE - fragment->bytes_filled) >= advt_data->tlv_size);
-
     glthread_add_next (&fragment->tlv_list_head, &advt_data->glue);
+    SET_BIT(advt_data->flags, ISIS_ADVT_DATA_F_ADVERTISED);
     advt_data->fragment = fragment;
     isis_fragment_lock (fragment);
     fragment->bytes_filled += advt_data->tlv_size;
@@ -61,7 +68,9 @@ isis_fragment_unbind_advt_data (node_t *node,
 
     assert (advt_data->fragment && advt_data->fragment == fragment );
     assert (IS_QUEUED_UP_IN_THREAD (&advt_data->glue));
+    assert (advt_data->flags & ISIS_ADVT_DATA_F_ADVERTISED);
     remove_glthread (&advt_data->glue);
+    UNSET_BIT16(advt_data->flags, ISIS_ADVT_DATA_F_ADVERTISED);
     fragment->bytes_filled -= advt_data->tlv_size;
     advt_data->fragment = NULL;
     isis_fragment_unlock (node, fragment);
@@ -155,8 +164,10 @@ void
 isis_wait_list_advt_data_add (node_t *node, uint8_t pn_no, isis_adv_data_t *adv_data) {
 
     assert (!adv_data->fragment);
-    isis_advt_db_t *advt_db = ISIS_NODE_INFO (node)->advt_db[pn_no];
+    assert (!(adv_data->flags & ISIS_ADVT_DATA_F_WAIT_LISTED));
+    isis_advt_db_t *advt_db = ISIS_NODE_INFO(node)->advt_db[pn_no];
     glthread_add_next (&advt_db->advt_data_wait_list_head, &adv_data->glue);
+    adv_data->flags |= ISIS_ADVT_DATA_F_WAIT_LISTED;
     ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
     isis_set_overload (node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
     SET_BIT (ISIS_NODE_INFO(node)->event_control_flags, ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT);
@@ -169,7 +180,9 @@ isis_wait_list_advt_data_remove (node_t *node, isis_adv_data_t *adv_data) {
     isis_node_info_t *node_info;
     node_info = ISIS_NODE_INFO(node);
     assert (IS_QUEUED_UP_IN_THREAD (&adv_data->glue));
+    assert (adv_data->flags & ISIS_ADVT_DATA_F_WAIT_LISTED);
     remove_glthread (&adv_data->glue);
+    UNSET_BIT16(adv_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED);
     ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
     if (isis_is_protocol_admin_shutdown (node)) return;
     if (isis_get_waitlisted_advt_data_count (node)) return; 
@@ -225,6 +238,8 @@ void
 isis_free_advt_data (isis_adv_data_t *adv_data) {
 
     assert (!IS_QUEUED_UP_IN_THREAD (&adv_data->glue));
+    assert (!(adv_data->flags & ISIS_ADVT_DATA_F_WAIT_LISTED)) ;
+    assert (!(adv_data->flags & ISIS_ADVT_DATA_F_ADVERTISED)) ;
     assert (!adv_data->fragment);
     assert (!adv_data->src.holder);
     XFREE(adv_data);
@@ -238,6 +253,8 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             break;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IPV6_REACH:
+        case ISIS_TLV_IPV6_MT_REACH:
+        case ISIS_TLV_LOCATOR:
             if (adv_data->src.holder && *adv_data->src.holder)
                 *(adv_data->src.holder) = NULL;
                  adv_data->src.holder = NULL;
@@ -265,6 +282,9 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);            
         }
+        break;
+        case ISIS_LOCATOR_PFX_SID_SUBTLV:
+        /* SubTLVs dont point to src*/
         break;
         default: ;
     }
@@ -471,6 +491,8 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
         if (advt_data->tlv_no == ISIS_IS_REACH_TLV) continue;
         if (advt_data->tlv_no == ISIS_TLV_IP_REACH) continue;
         if (advt_data->tlv_no == ISIS_TLV_IPV6_REACH) continue;
+        if (advt_data->tlv_no == ISIS_TLV_LOCATOR) continue;
+        
         tlv_size = advt_data->tlv_size;
 
         lsp_tlv_buffer = tlv_buffer_insert_tlv(
@@ -551,6 +573,27 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
         } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
     }
 
+    if (IS_BIT_SET(regen_ctrl_flags, ISIS_SHOULD_INCL_SRV6_TLVS)) {
+
+        ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
+
+            advt_data = glue_to_isis_advt_data(curr);
+
+            if (advt_data->tlv_no != ISIS_TLV_LOCATOR) continue;
+            
+            tlv_size =  advt_data->tlv_size;
+
+            lsp_tlv_buffer = tlv_buffer_insert_tlv(
+                                        lsp_tlv_buffer,
+                                        (uint8_t)advt_data->tlv_no,
+                                        tlv_size - TLV_OVERHEAD_SIZE,
+                                        isis_get_adv_data_tlv_content(advt_data,  tlv_content));
+
+            bytes_filled += tlv_size;
+            eth_payload_size += tlv_size;
+
+        } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr) ;
+    }
 
     SET_COMMON_ETH_FCS (eth_hdr, eth_payload_size, 0 );
     bytes_filled +=  ETH_FCS_SIZE;
@@ -611,9 +654,15 @@ isis_destroy_advt_db (node_t *node, uint8_t pn_no) {
 
         adv_data = glue_to_isis_advt_data(curr);
         assert (!adv_data->fragment);
-        isis_advt_data_clear_backlinkage (node_info, adv_data);
-        ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
-        isis_free_advt_data (adv_data);
+        assert (IS_BIT_SET(adv_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED));
+
+        if (isis_is_protocol_shutdown_in_progress (node) ||
+                !IS_BIT_SET(adv_data->flags, ISIS_ADVT_DATA_F_EXTERNAL_SRC)) {
+            isis_advt_data_clear_backlinkage (node_info, adv_data);
+            isis_free_advt_data (adv_data);
+            ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
+        }
+
     }
 
     XFREE(advt_db);
@@ -638,8 +687,12 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
 
         advt_data = glue_to_isis_advt_data(curr);
         isis_fragment_unbind_advt_data  (node, fragment, advt_data);
-        isis_advt_data_clear_backlinkage (node_info, advt_data);
-        isis_free_advt_data (advt_data);
+
+        if (isis_is_protocol_shutdown_in_progress (node) ||
+                !IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_EXTERNAL_SRC)) {
+            isis_advt_data_clear_backlinkage (node_info, advt_data);
+            isis_free_advt_data (advt_data);
+        }
 
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
 
@@ -682,11 +735,13 @@ isis_try_accomodate_wait_list_data (node_t *node, isis_fragment_t *fragment) {
 
         adv_data = glue_to_isis_advt_data (curr);
         assert (!adv_data->fragment);
+        assert (IS_BIT_SET(adv_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED));
 
         if (isis_advertise_advt_data_in_this_fragment (node, adv_data, fragment, false)) {
             N++;
             ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
             ISIS_INCREMENT_NODE_STATS(node, isis_event_count[ isis_event_wait_list_tlv_advertised]);
+            UNSET_BIT16(adv_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED);
             continue;
         }
         /* Add back if we have failed gracefully*/
@@ -881,6 +936,7 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
 
     uint32_t rc = 0;
     glthread_t *curr;
+    char ipv6_addr_str[48];
     byte system_id_str[32];
     isis_adv_data_t *advt_data;
 
@@ -896,7 +952,8 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
     ITERATE_GLTHREAD_BEGIN(&fragment->tlv_list_head, curr) {
 
         advt_data = glue_to_isis_advt_data (curr);
-        rc += cprintf ("     TLV %hu (%huB)\n", advt_data->tlv_no, advt_data->tlv_size);
+        rc += cprintf ("     TLV %hu (%huB)  flags:0x%x\n", 
+            advt_data->tlv_no, advt_data->tlv_size, advt_data->flags);
 
         switch (advt_data->tlv_no) {
             case ISIS_IS_REACH_TLV:
@@ -923,8 +980,37 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                     buffer, advt_data->u.v6pfx.mask, advt_data->u.v6pfx.metric);
             }
             break;
+            case ISIS_TLV_HOSTNAME:
+                rc += cprintf ("       Hostname : %s\n", advt_data->u.host_name);
+            break;
+            case ISIS_TLV_LOCATOR:
+            {
+                inet_ntop(AF_INET6, advt_data->u.srv6_loc.prefix.addr, ipv6_addr_str, 16);
+                rc += cprintf ("       Locator : %s/%d  Metric : %u    Algorithm: %d   Flags : 0x%x  SubTLV len:%d\n",
+                    ipv6_addr_str, advt_data->u.srv6_loc.prefix_len, 
+                    advt_data->u.srv6_loc.metric, 
+                    advt_data->u.srv6_loc.algorithm, 
+                    advt_data->u.srv6_loc.flags,
+                    advt_data->u.srv6_loc.subtlv_len);
+
+                isis_adv_data_t *pfxsid_subtlv_advt_data;
+
+                for ( pfxsid_subtlv_advt_data = advt_data->u.srv6_loc.next;
+                        pfxsid_subtlv_advt_data; 
+                        pfxsid_subtlv_advt_data = pfxsid_subtlv_advt_data->u.srv6_pfxsid.next) {
+
+                    inet_ntop(AF_INET6, pfxsid_subtlv_advt_data->u.srv6_pfxsid.prefix.addr,
+                             ipv6_addr_str, 16);
+
+                    rc += cprintf ("         Prefix-SID : %s  Endfn : %s    Flags : 0x%x\n",
+                        ipv6_addr_str, 
+                        end_fn_str( pfxsid_subtlv_advt_data->u.srv6_pfxsid.endfn),
+                        pfxsid_subtlv_advt_data->u.srv6_pfxsid.flags);
+                }
+            }
+            break;
             default: 
-                cprintf ("Unsupported TLV : %d\n", advt_data->tlv_no);
+                cprintf ("        Error : Unsupported TLV : %d\n", advt_data->tlv_no);
                 break;
         }
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
@@ -1122,48 +1208,16 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     v6lo_advt->fragment = NULL;
     isis_advertise_tlv (node, 0, v6lo_advt, &advt_info);
 
-    /* Advertise IP REACH TLVs : Exported Routes*/
-    if (!node_info->export_policy) {
-        UNSET_BIT64 (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);
-       return;
+    /* Advertise SRv6 Data*/
+    if (isis_srv6_get_config(node)) {
+        isis_srv6_advertise_locator (node, 0);
     }
 
-    rt_table_t *rt_table;
-    l3_route_t *l3_route;
-    mtrie_node_t *mnode;
-
-    nxthop_proto_id_t nxthop_proto = 
-        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
-
-    rt_table = NODE_RT_TABLE (node);
-
-    ITERATE_GLTHREAD_BEGIN (&rt_table->route_list.list_head, curr) {
-
-        mnode = list_glue_to_mtrie_node(curr);
-        l3_route = (l3_route_t *)mnode->data;
-
-        /* Reject routes which ISIS already knows */
-        if (l3_route->nexthops[nxthop_proto][0]) {
-
-            tracer (ISIS_TR(node), TR_ISIS_POLICY,
-                "%s : Route %s/%d already known to ISIS\n",
-                ISIS_EXPOLICY,  l3_route->dest, l3_route->mask);
-            continue;
-        }
-
-        if (isis_evaluate_policy(node,
-                node_info->export_policy,
-                tcp_ip_convert_ip_p_to_n(l3_route->dest), l3_route->mask) != PFX_LST_PERMIT) {
-
-            tracer (ISIS_TR(node), TR_ISIS_POLICY,
-                "%s : Route %s/%d rejected due to export policy.\n",
-                ISIS_EXPOLICY, l3_route->dest, l3_route->mask);
-            continue;
-        }
-
-        isis_export_route (node, l3_route);
-
-    }  ITERATE_GLTHREAD_END (&rt_table->route_list.list_head, curr) ;
+    /* Advertise IP REACH TLVs : Exported Routes*/
+    if (node_info->export_policy) {
+        isis_free_all_exported_rt_advt_data (node);
+        nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+    }
 
     UNSET_BIT64 (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);
    

@@ -21,7 +21,10 @@
 #define ISIS_TLV_HOSTNAME   137 // as per standard 
 #define ISIS_TLV_RTR_ID     134 // as per standard 
 #define ISIS_TLV_IF_IP      132 // as per standard 
-#define ISIS_TLV_IPV6_REACH 236
+#define ISIS_TLV_IPV6_REACH 236 // as per standard 
+#define ISIS_TLV_IPV6_MT_REACH 237 // as per standard 
+#define ISIS_TLV_LOCATOR    27 // as per standard 
+#define ISIS_LOCATOR_PFX_SID_SUBTLV  5 // as per standard 
 #define ISIS_TLV_HOLD_TIME  5
 #define ISIS_TLV_METRIC_VAL 6
 
@@ -55,6 +58,7 @@
 #define ISIS_PKT        " ISIS(PKT)"
 #define ISIS_EXPOLICY " ISIS(EX-POLICY)"
 #define ISIS_ROUTE " ISIS(ROUTE)"
+#define ISIS_SRV6 " ISIS(SRV6)"
 
 /* ISIS Trace Codes*/
 #define TR_ISIS_SPF                   (1 << 0)
@@ -68,6 +72,7 @@
 #define TR_ISIS_POLICY           (1 << 8)
 #define TR_ISIS_ERRORS         (1 << 9)
 #define TR_ISIS_IPC                   (1 << 10)
+#define TR_ISIS_SRV6                (1 << 11)
 #define TR_ISIS_ALL                 (TR_ISIS_SPF |  \
                                                        TR_ISIS_EVENTS | \
                                                        TR_ISIS_LSDB | \
@@ -78,6 +83,7 @@
                                                        TR_ISIS_ROUTE | \
                                                        TR_ISIS_POLICY | \
                                                        TR_ISIS_ERRORS | \
-                                                       TR_ISIS_IPC )
+                                                       TR_ISIS_IPC | \
+                                                       TR_ISIS_SRV6 )
 
 #endif 

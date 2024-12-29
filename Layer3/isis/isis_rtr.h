@@ -67,6 +67,8 @@ typedef struct node_info_ {
         isis_adv_data_t *v6loc_adv_data_tlv236;
         /* SRV6 locator IPV6 MT REACH TLV*/
         isis_adv_data_t *v6loc_adv_data_tlv237;
+        /* Srv6 Locator TLV*/
+        isis_adv_data_t *v6loc_adv_data_tlv27;
         /* Advertise all locator prefix sids */
         avltree_t loc_prefix_sid_avl_root;
         

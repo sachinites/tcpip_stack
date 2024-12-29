@@ -4,15 +4,15 @@
 #include "../common/srv6_const.h"
 #include "../../../ipv6/ipv6_hdrs.h"
 
+/* Locator do not have flavors, end point fn is
+    default to shift and forward in remote nodes and
+    decapsulate on local node*/
 typedef struct srv6_locator_ {
 
     char name[32];
     ipv6_addr_t sid;
-    Srv6_endpcode_t endP;
-    uint8_t data_block_prefix_len;
-    uint8_t flavor;
     uint8_t prefix_len;
-    char padding[1];
+    char padding[7];
     
 } srv6_locator_t;
 

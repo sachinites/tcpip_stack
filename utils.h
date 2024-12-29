@@ -64,7 +64,7 @@ layer2_fill_with_broadcast_mac(c_string mac_array);
  * unsigned char - type, OUT
  * unsigned char - length, OUT
  * unsigned char * - tlv_ptr, OUT
- * unsigned int - total_size(excluding first 8 bytes), IN
+ * unsigned int - total_size(excluding first 2 bytes of Type, Len), IN
  * */
 #define ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, tlv_size)           \
 {                                                                               \

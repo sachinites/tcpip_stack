@@ -99,7 +99,7 @@ Seg 2 : abcd::1
 Seg 3 : 2001:dbe8:4::
 
 
-ISIS with SRv6 TEST 
+ISIS with SRv6 TEST with IPV6 REAC TLVs only
 ====================
 
 config node H1 protocol source-packet-routing srv6 locator H1-LOC 2001:dbe8:1:: 48
@@ -120,4 +120,6 @@ config node H4 protocol isis source-packet-routing srv6 locator H4-LOC
 Soft-Firewall>$ run node H1 ping6 srv6 2001:dbe8:2:: 2001:dbe8:4::
 Soft-Firewall>$      
 ipv6 ping success     
+
+
 

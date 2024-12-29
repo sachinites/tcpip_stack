@@ -108,7 +108,7 @@ tlv_buffer_insert_tlv(byte  *buff,
 
     *buff = tlv_no;
     *(buff+1) = data_len;
-    memcpy(buff + TLV_OVERHEAD_SIZE, data, data_len);
+    if (data && data_len) memcpy(buff + TLV_OVERHEAD_SIZE, data, data_len);
     return buff + TLV_OVERHEAD_SIZE + data_len;
 }
 

@@ -39,6 +39,57 @@ isis_print_formatted_tlv236( byte* out_buff, byte* tlv236_start,  uint8_t tlv_le
     return rc;
 }
 
+uint32_t
+isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len) {
+
+    uint32_t rc = 0;
+    char ipv6_addr_str[48];
+    ipv6_addr_t ipv6_addr;
+    srv6_pfxsid_subtlv_t *pfxsid_subtlv;
+
+    locator_tlv_t *loc_tlv = (locator_tlv_t *)(tlv27_start + TLV_OVERHEAD_SIZE);
+    memset (&ipv6_addr, 0, sizeof(ipv6_addr_t));
+    memcpy (ipv6_addr.addr, loc_tlv->locator, (loc_tlv->loc_size + 7)/8);
+
+    inet_ntop (AF_INET6, ipv6_addr.addr, ipv6_addr_str, 16);
+
+    rc += cprintf("\tTLV%d SRV6-LOCATOR TLV   len:%dB\n", ISIS_TLV_LOCATOR, tlv_len);
+    rc += cprintf("\t\t%s/%d  metric:%u  Flags:0x%x  Algorithm:%d  MT-Id:%d  Subtlv-len:%d\n",
+                ipv6_addr_str, 
+                loc_tlv->loc_size, 
+                htonl(loc_tlv->metric),
+                loc_tlv->flags,
+                loc_tlv->algorithm,
+                loc_tlv->RRRR_mt_id,
+                locator_tlv_get_subtlv_len(loc_tlv));
+
+    byte *subtlv = (byte *)(loc_tlv->locator + 1) + ((loc_tlv->loc_size + 7)/8);
+    uint8_t tlv_type, tlv_len2, *tlv_value;
+    uint8_t subtlv_len = locator_tlv_get_subtlv_len(loc_tlv);
+
+    ITERATE_TLV_BEGIN(subtlv, tlv_type, tlv_len2, tlv_value, subtlv_len) {
+
+        switch (tlv_type) {
+
+            case ISIS_LOCATOR_PFX_SID_SUBTLV:
+
+                pfxsid_subtlv = (srv6_pfxsid_subtlv_t *)tlv_value;
+                inet_ntop (AF_INET6, pfxsid_subtlv->prefix, ipv6_addr_str, 16);
+
+                rc += cprintf("\t\t\tPrefix-SID : %s  Endfn : %s  Flags : 0x%x\n",
+                    ipv6_addr_str,
+                    end_fn_str(pfxsid_subtlv->endfn),
+                    pfxsid_subtlv->flags);
+            break;
+            default: 
+                assert(0);
+        }
+
+    } ITERATE_TLV_END(subtlv, tlv_type, tlv_len2, tlv_value, subtlv_len);
+
+    return rc;
+}
+
 pkt_size_t
 isis_get_adv_data_size(isis_adv_data_t *adv_data)
 {
@@ -71,6 +122,19 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
         break;
     case ISIS_TLV_IPV6_REACH:
         ptlv_data_len += sizeof (isis_tlv_236_t) + TLV_OVERHEAD_SIZE;
+        break;
+    case ISIS_TLV_IPV6_MT_REACH:
+        ptlv_data_len += sizeof (isis_tlv_237_t) + TLV_OVERHEAD_SIZE;        
+        break;
+    case ISIS_TLV_LOCATOR:
+        ptlv_data_len += sizeof (locator_tlv_t) + (adv_data->u.srv6_loc.prefix_len + 7)/8 +
+                                     TLV_OVERHEAD_SIZE;    
+        total_subtlv_len += adv_data->u.srv6_loc.subtlv_len;
+        ptlv_data_len += total_subtlv_len;
+        break;
+    case ISIS_LOCATOR_PFX_SID_SUBTLV:
+        ptlv_data_len += sizeof (srv6_pfxsid_subtlv_t) + adv_data->u.srv6_pfxsid.subtlv_len + TLV_OVERHEAD_SIZE;
+        break;
     default: ;
     }
     return ptlv_data_len;
@@ -143,8 +207,47 @@ isis_get_adv_data_tlv_content(
         }
         break;
         case ISIS_TLV_HOSTNAME:
-                strncpy (tlv_content, advt_data->u.host_name, advt_data->tlv_size - TLV_OVERHEAD_SIZE);
-                break;
+                strncpy ((char *)tlv_content, advt_data->u.host_name, 
+                    advt_data->tlv_size - TLV_OVERHEAD_SIZE);
+        break;
+        case ISIS_TLV_LOCATOR:
+        {
+            locator_tlv_t *tlv_fmt = (locator_tlv_t *)tlv_content;
+            tlv_fmt->RRRR_mt_id = advt_data->u.srv6_loc.mt_id;
+            tlv_fmt->metric = advt_data->u.srv6_loc.metric;
+            tlv_fmt->flags = advt_data->u.srv6_loc.flags;
+            tlv_fmt->algorithm = advt_data->u.srv6_loc.algorithm;
+            tlv_fmt->loc_size = advt_data->u.srv6_loc.prefix_len;
+            memcpy(tlv_fmt->locator, advt_data->u.srv6_loc.prefix.addr, 
+                 (advt_data->u.srv6_loc.prefix_len + 7)/8);
+            locator_tlv_set_subtlv_len(tlv_fmt, advt_data->u.srv6_loc.subtlv_len);
+            tlv_content += sizeof(locator_tlv_t) + ((advt_data->u.srv6_loc.prefix_len + 7)/8);
+            isis_adv_data_t *sub_tlv_advt_data = advt_data->u.srv6_loc.next;
+
+            /* Insert type length for SubTLVs*/
+            while (sub_tlv_advt_data) {
+
+                tlv_buffer_insert_tlv (tlv_content, 
+                                    sub_tlv_advt_data->tlv_no ,
+                                    sub_tlv_advt_data->tlv_size - TLV_OVERHEAD_SIZE, 0 );
+
+                tlv_content += TLV_OVERHEAD_SIZE;
+                isis_get_adv_data_tlv_content(sub_tlv_advt_data, tlv_content);
+                tlv_content += sub_tlv_advt_data->tlv_size - TLV_OVERHEAD_SIZE;
+                sub_tlv_advt_data = sub_tlv_advt_data->u.srv6_pfxsid.next;
+            }
+        }
+        break;
+        case ISIS_LOCATOR_PFX_SID_SUBTLV:
+        {
+            srv6_pfxsid_subtlv_t *tlv_fmt = (srv6_pfxsid_subtlv_t *)tlv_content;
+            tlv_fmt->flags = advt_data->u.srv6_pfxsid.flags;
+            tlv_fmt->endfn = advt_data->u.srv6_pfxsid.endfn;
+            memcpy(tlv_fmt->prefix, advt_data->u.srv6_pfxsid.prefix.addr, 16);
+            tlv_fmt->subtlv_len = 0; /* Not supported */
+        }
+        break;
+        
         default: ;
     }
     return start_ptr;
@@ -274,6 +377,12 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                 rc += isis_print_formatted_tlv236(0, 
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_LOCATOR:
+                rc += isis_print_formatted_tlv27(0, 
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
@@ -291,9 +400,36 @@ isis_is_zero_fragment_tlv (uint16_t tlv_no) {
             return true;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IP_REACH:
+         case ISIS_TLV_IPV6_REACH:
+         case ISIS_TLV_IPV6_MT_REACH:
+         case ISIS_TLV_LOCATOR:
             return false;
         default: 
             return false;
     }
     return false;
+}
+
+/* Helper functions for TLV 27 - Locator TLV. We need these because 
+    TLV27 is complex because of variable locator size field */
+void 
+locator_tlv_set_subtlv_len (locator_tlv_t *loc_tlv, uint8_t subtlv_len) {
+
+    size_t loc_offset =  (size_t)&((locator_tlv_t *) 0 )->locator;
+    uint8_t *ptr = (uint8_t *)((char *)loc_tlv + loc_offset + ((loc_tlv->loc_size + 7)/8));
+    *ptr = subtlv_len;
+}
+
+uint8_t 
+locator_tlv_get_subtlv_len (locator_tlv_t *loc_tlv) {
+
+    size_t loc_offset =  (size_t)&((locator_tlv_t *) 0 )->locator;
+    uint8_t *ptr = (uint8_t *)((char *)loc_tlv + loc_offset + ((loc_tlv->loc_size + 7)/8));
+    return (*ptr);
+}
+
+uint8_t 
+locator_tlv_get_total_size (locator_tlv_t *loc_tlv) {
+    
+    return (sizeof (*loc_tlv) + ((loc_tlv->loc_size + 7)/8) + loc_tlv->subtlv_len);
 }

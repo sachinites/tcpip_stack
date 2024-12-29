@@ -413,7 +413,7 @@ pkt_q_enqueue (event_dispatcher_t *ev_dis,
 	
 	if (debug) printf("%s() ... \n", __FUNCTION__);
 	
-	glthread_add_next(&pkt_q->q_head, &pkt->glue);
+	glthread_add_last(&pkt_q->q_head, &pkt->glue);
 	pkt_q->pkt_count++;
 
 	EV_DIS_LOCK(ev_dis);

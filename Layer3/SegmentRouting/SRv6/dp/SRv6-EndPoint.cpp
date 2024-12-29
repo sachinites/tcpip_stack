@@ -214,7 +214,7 @@ flavor_str(uint8_t flavors) {
         case PSP | USD | PSD:
             return "PSP | USD | PSD";
         default:
-            return "UNKNOWN";
+            return "";
     }
 }
 

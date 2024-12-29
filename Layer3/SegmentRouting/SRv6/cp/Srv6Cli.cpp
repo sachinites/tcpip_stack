@@ -119,17 +119,16 @@ srv6_locator_handler
             inet_pton(AF_INET6, (char *)ipv6_addr,  &loc->sid.addr);
             strncpy(loc->name,  (const char *)locator_name,  sizeof (loc->name));
             loc->prefix_len = prefix_len;
-            loc->data_block_prefix_len = SRV6_DATA_BLOCK_SIZE;
-            loc->flavor = DEFAULT_FLAVOR;
 
             /* Locator post config processing */
             srv6_local_sid_config_post_processing (node,
-                    &loc->sid,
-                    loc->prefix_len,
+                    0,
+                    0,
                     END,
-                    loc->flavor,
+                    0,
                     NULL,
                     NULL,
+                    0,
                     IPC_ISIS_SRV6_LOCATOR_ADD);
         }
         break;
@@ -163,8 +162,8 @@ srv6_locator_handler
             srv6_local_sid_unconfig_pre_processing(node,
                                                &loc->sid,
                                                loc->prefix_len,
-                                               loc->endP,
-                                               loc->flavor,
+                                               END,
+                                               0,
                                                0, 0,
                                                IPC_ISIS_SRV6_LOCATOR_DEL);
             
@@ -339,6 +338,7 @@ srv6_prefix_sid_config_handler
                     pfxsid->flavor,
                     NULL,
                     NULL, 
+                    0,
                     IPC_ISIS_SRV6_PREFIX_SID_ADD);
         }
         break;
@@ -533,7 +533,9 @@ srv6_adjacency_sid_config_handler
                     END_X,
                     adjsid->flavor,
                     &adjsid->gw,
-                    intf, IPC_ISIS_SRV6_ADJ_SID_ADD);
+                    intf, 
+                    0,
+                    IPC_ISIS_SRV6_ADJ_SID_ADD);
         }
         break;
 

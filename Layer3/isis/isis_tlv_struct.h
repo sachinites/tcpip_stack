@@ -32,6 +32,19 @@ typedef struct isis_tlv_236_ {
 
 }isis_tlv_236_t;
 
+/* IPV6 IP MT REACH TLV*/
+typedef struct isis_tlv_237_ {
+
+    uint32_t metric;
+    #define TLV236_UBIT (1 << 7)
+    #define TLV236_XBIT (1 << 6)
+    #define TLV236_SBIT (1 << 5)
+    uint8_t bits;
+    uint8_t prefix_len;
+    uint8_t prefix[16];
+
+}isis_tlv_237_t;
+
 typedef struct tlv22_hdr_ {
 
     isis_system_id_t system_id;
@@ -39,12 +52,47 @@ typedef struct tlv22_hdr_ {
     uint8_t subtlv_len;
 } tlv22_hdr_t;
 
+
+typedef struct isis_tlv_27_ {
+
+    //uint8_t type;
+    //uint8_t length;
+    /* Ist 4 bits are reserved, last 12 bits is MT-ID*/
+    uint16_t RRRR_mt_id;
+    uint32_t metric;
+    /* MSB is Down bit*/
+    uint8_t flags;
+    uint8_t algorithm;
+    char padding[2];
+    // 1 to 128
+    uint8_t loc_size; 
+    uint8_t locator[0];
+    uint8_t subtlv_len;
+
+} locator_tlv_t;
+
+void locator_tlv_set_subtlv_len (locator_tlv_t *loc_tlv, uint8_t subtlv_len) ;
+uint8_t locator_tlv_get_subtlv_len (locator_tlv_t *loc_tlv);
+uint8_t locator_tlv_get_total_size (locator_tlv_t *loc_tlv) ;
+
+typedef struct isis_tlv_27_subtlv_5_ {
+
+    uint8_t flags;
+    uint16_t endfn;
+    uint8_t prefix[16];
+    uint8_t subtlv_len;
+
+} srv6_pfxsid_subtlv_t;
+
 #pragma pack(pop)
 
 uint32_t
 isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_len); 
 uint32_t
 isis_print_formatted_tlv236( byte* out_buff, byte* tlv236_start,  uint8_t tlv_len);
+
+uint32_t
+isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len);
 
 pkt_size_t
 isis_format_nbr_tlv22(byte *buff, 

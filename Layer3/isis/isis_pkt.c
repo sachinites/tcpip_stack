@@ -407,6 +407,17 @@ isis_print_lsp_pkt(byte *buff,
                 rc += isis_print_formatted_tlv130(buff + rc, 
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_IPV6_REACH:
+                rc += isis_print_formatted_tlv236(buff + rc, 
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
+            case ISIS_TLV_LOCATOR:
+                rc += isis_print_formatted_tlv27(buff + rc, 
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,

@@ -148,30 +148,33 @@ typedef struct ips_srv6_data_ {
             struct  {
 
                 ipv6_addr_t prefix;
-                Srv6_endpcode_t endfn;
                 uint32_t metric;
+                uint16_t mt_id;
                 uint8_t prefix_len;
-                uint8_t flavor;
+                uint8_t algorithm;
+                uint8_t flags;
 
             } locator;
 
             struct {
 
+                ipv6_addr_t loc;
+                uint8_t loc_prefix_len;
+
                 ipv6_addr_t prefix;
                 Srv6_endpcode_t endfn;
-                uint8_t prefix_len;
-                uint8_t flavor;
+                uint8_t flags;
 
             } prefix_sid;
 
             struct {
                 
+                ipv6_addr_t loc;
+                uint8_t loc_prefix_len;
+
                 ipv6_addr_t prefix;
-                ipv6_addr_t gw;
-                uint32_t oif;
                 Srv6_endpcode_t endfn;
-                uint8_t prefix_len;
-                uint8_t flavor;
+                uint8_t flags;
 
             } adj_sid;
 

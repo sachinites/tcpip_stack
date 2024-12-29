@@ -144,7 +144,11 @@ isis_free_all_exported_rt_advt_data (node_t *node) {
         fragment = advt_data->fragment;
 
         if (!fragment) {
-             isis_wait_list_advt_data_remove(node, advt_data);
+
+            if (advt_data->flags & ISIS_ADVT_DATA_F_WAIT_LISTED){
+                isis_wait_list_advt_data_remove(node, advt_data);
+            }
+            
              isis_free_advt_data (advt_data);
              mnode->data = NULL;
              curr = mtrie_node_delete_while_traversal (&node_info->exported_routes, mnode);
@@ -330,6 +334,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     exported_rt->u.pfx.mask = l3route->mask;
     exported_rt->u.pfx.metric = ISIS_DEFAULT_INTF_COST;
     exported_rt->tlv_size = isis_get_adv_data_size (exported_rt);
+    SET_BIT(exported_rt->flags, ISIS_ADVT_DATA_F_EXTERNAL_SRC);
 
     node_info = ISIS_NODE_INFO(node);
     bin_ip = tcp_ip_convert_ip_p_to_n(l3route->dest);

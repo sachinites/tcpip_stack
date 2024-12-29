@@ -615,7 +615,7 @@ tcp_dump_send_logger(node_t *node, Interface *intf,
 static FILE *
 initialize_node_log_file(node_t *node){
 
-    char file_name[32];
+    char file_name[64];
 
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s.txt", node->node_name);

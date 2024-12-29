@@ -191,7 +191,7 @@ dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id){
 
         mnode = list_glue_to_mtrie_node(curr);
 
-        l3_route = (ipv6_route_t *)mnode->data;
+        l3_route = (ipv6_route_t *)(mnode->data);
        assert(l3_route);
 
         nexthop = l3_v6route_get_active_nexthop (l3_route);

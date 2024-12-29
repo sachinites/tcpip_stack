@@ -17,18 +17,21 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
     ips_srv6_data_t *ips_srv6_data;
 
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+    srv6_locator_t *loc = &node_info->loc;
 
     do {
 
         if (!(minor_code & IPC_REQ_SRV6_PUBLISH_PFX_SIDS)) break;
 
         /* Ist send the locator */
-        srv6_locator_t *loc = &node_info->loc;
+        
         ips_srv6_data = new ips_srv6_data_t;
         ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
         memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
+        ips_srv6_data->u.locator.mt_id = 0; /* Default */
+        ips_srv6_data->u.locator.algorithm = 0; /* Default*/
+        ips_srv6_data->u.locator.flags = 0;
         ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
-        ips_srv6_data->u.locator.flavor = loc->flavor;
         ips_srv6_data->u.locator.metric = 0;
         
         cp_ipc_send(node, IPC_SRV6_INFO,
@@ -47,9 +50,13 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
 
             ips_srv6_data = new ips_srv6_data_t;
             ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
-            memcpy(ips_srv6_data->u.prefix_sid.prefix.addr, pfxsid->sid.addr, 16);
-            ips_srv6_data->u.prefix_sid.prefix_len = pfxsid->prefix_len;
-            ips_srv6_data->u.prefix_sid.flavor = pfxsid->flavor;
+            /* Locator as a key*/
+            memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
+            ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
+
+            memcpy (ips_srv6_data->u.prefix_sid.prefix.addr, pfxsid->sid.addr, 16);
+            ips_srv6_data->u.prefix_sid.endfn = pfxsid->endP;
+            ips_srv6_data->u.prefix_sid.flags = pfxsid->flavor;
 
             cp_ipc_send(node, IPC_SRV6_INFO,
                         IPC_SRV6_PREFIX_SID_ADD,
@@ -74,11 +81,14 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
 
             ips_srv6_data = new ips_srv6_data_t;
             ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
+            /* Locator as a key*/
+            memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
+            ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;            
+
             memcpy(ips_srv6_data->u.adj_sid.prefix.addr, adjsid->sid.addr, 16);
-            ips_srv6_data->u.adj_sid.prefix_len = adjsid->prefix_len;
-            ips_srv6_data->u.adj_sid.flavor = adjsid->flavor;
-            memcpy(ips_srv6_data->u.adj_sid.gw.addr, adjsid->gw.addr, 16);
-            ips_srv6_data->u.adj_sid.oif = adjsid->ifindex;
+            ips_srv6_data->u.adj_sid.flags = adjsid->flavor;
+            ips_srv6_data->u.adj_sid.endfn = adjsid
+            ->endP;
 
             cp_ipc_send(node, IPC_SRV6_INFO,
                         IPC_SRV6_ADJ_SID_ADD,

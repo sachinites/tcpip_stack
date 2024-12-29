@@ -25,6 +25,7 @@ srv6_local_sid_config_post_processing (
             uint8_t flavor,
             ipv6_addr_t *gw,
             Interface *oif, 
+            uint32_t metric,
             uint32_t minor_code);
 
 void
