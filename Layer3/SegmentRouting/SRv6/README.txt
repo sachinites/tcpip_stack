@@ -6,12 +6,14 @@ PING TEST :
 
 H4 :
 config node H4 protocol source-packet-routing srv6 locator H4-LOC 2001:dbe8:4:: 48
+config node H4 ipv6 route 2001:dbe8:4:1:: 64 srv6 endpoint end-sid 
 
 H3:
 config node H3 protocol source-packet-routing srv6 locator H3-LOC 2001:dbe8:3:: 48
 config node H3 ipv6 route 2001:dbe8:3:1:: 64 srv6 endpoint end-sid 
 config node H3 ipv6 route 2001:dbe8:3:2:: 64 srv6 endpoint end-x-sid eth2
 config node H3 ipv6 route 2001:dbe8:4:: 48 nexthop eth2
+
 
 H2:
 config node H2 protocol source-packet-routing srv6 locator H2-LOC 2001:dbe8:2:: 48
@@ -43,7 +45,7 @@ config node H4 traceoptions flag all
 Test : 
 
 H1:
-run node H1 ping6 srv6 2001:dbe8:1:: 2001:dbe8:2:: 2001:dbe8:3:: 2001:dbe8:4::
+run node H1 ping6 srv6 2001:dbe8:1:1:: 2001:dbe8:2:1:: 2001:dbe8:3:1:: 2001:dbe8:4:1::
 
 Result : ping must succeed.
 

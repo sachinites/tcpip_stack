@@ -97,6 +97,10 @@ typedef struct isis_adv_data_ {
                 uint8_t algorithm;
                 uint8_t flags;
                 uint8_t subtlv_len;
+                /*
+                glthread_t sibling_lkg;
+                glthread_t subtlv_list_head;
+                */
                     /* SubTLVs*/
                 struct isis_adv_data_ *next;
 
@@ -110,6 +114,8 @@ typedef struct isis_adv_data_ {
             Srv6_endpcode_t endfn;
             uint8_t flags;
             uint8_t subtlv_len;
+            // struct isis_adv_data_ *parent_locator
+            // glthread_t sibling_lkg;
             /* Sub-Sub TLVs*/
             struct isis_adv_data_ *next;
 

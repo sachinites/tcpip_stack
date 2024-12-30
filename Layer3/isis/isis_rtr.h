@@ -71,7 +71,6 @@ typedef struct node_info_ {
         isis_adv_data_t *v6loc_adv_data_tlv27;
         /* Advertise all locator prefix sids */
         avltree_t loc_prefix_sid_avl_root;
-        
     } tlv_global_advt;
     /* event flags */
     uint64_t event_control_flags;

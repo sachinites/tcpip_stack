@@ -85,7 +85,7 @@ uint8_t locator_tlv_get_total_size (locator_tlv_t *loc_tlv) ;
 typedef struct isis_tlv_27_subtlv_5_ {
 
     // not defined yet. // not defined yet. 7.2
-    uint8_t flags; 
+    uint8_t flags;
     uint16_t endfn;
     uint8_t prefix[16];
     uint8_t subtlv_len;

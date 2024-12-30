@@ -72,9 +72,9 @@ const char *
 srv6_flavor_str(uint8_t flavors) ;
 
 Srv6_endpcode_t 
-srv6_get_END_X_endpcode (uint8_t flavor) ;
+srv6_get_composite_END_X_endpcode (uint8_t flavor) ;
 
 Srv6_endpcode_t 
-srv6_get_END_endpcode (uint8_t flavor) ;
+srv6_get_composite_END_endpcode (uint8_t flavor) ;
 
 #endif 

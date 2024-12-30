@@ -1,7 +1,7 @@
 #include "srv6_const.h"
 
 Srv6_endpcode_t 
-srv6_get_END_endpcode (uint8_t flavor) {
+srv6_get_composite_END_endpcode (uint8_t flavor) {
 
     switch (flavor) {
 
@@ -27,7 +27,7 @@ srv6_get_END_endpcode (uint8_t flavor) {
 }
 
 Srv6_endpcode_t 
-srv6_get_END_X_endpcode (uint8_t flavor) {
+srv6_get_composite_END_X_endpcode (uint8_t flavor) {
 
     switch (flavor) {
 

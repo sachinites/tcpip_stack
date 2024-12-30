@@ -267,7 +267,7 @@ srv6_prefix_sid_config_handler
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
     }
 
-    Srv6_endpcode_t endpCode = srv6_get_END_endpcode (flavor);
+    Srv6_endpcode_t endpCode = srv6_get_composite_END_endpcode (flavor);
     
     if (endpCode == SRV6_END_FN_NONE) {
         cprintf ("Error : Invalid flavor\n");
@@ -298,7 +298,7 @@ srv6_prefix_sid_config_handler
             /* Prefix sid must be subne of locator */
             if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
                     &prefix.addr)) {
-                cprintf ("Error : Prefix sid must be subnet of locator\n");
+                cprintf ("Error : PRefix sid must be subnet of locator\n");
                 return -1;
             }
 
@@ -306,7 +306,7 @@ srv6_prefix_sid_config_handler
 
             pfxsid->sid = prefix;
             pfxsid->endP = endpCode;
-            pfxsid->flags = 0;
+            pfxsid->flags = srv6_route_flag (node, &prefix.addr);
             pfxsid->prefix_len = prefix_len;
             pfxsid->n_seg_lst = 0;
 
@@ -330,23 +330,30 @@ srv6_prefix_sid_config_handler
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);
 
-            if (rc != MTRIE_INSERT_SUCCESS){
-                cprintf ("Error : Prefix sid insertion failed, ret code = %d\n", rc);
-                XFREE (pfxsid);
-                return -1;
+            switch (rc) {
+                case MTRIE_INSERT_SUCCESS:
+                    break;
+                case MTRIE_INSERT_DUPLICATE:
+                    cprintf ("Error : Prefix sid already configured\n");
+                    XFREE (pfxsid);
+                    return -1;
+                default:
+                    cprintf ("Error : Prefix sid insertion failed, ret code = %d\n", rc);
+                    XFREE (pfxsid);
+                    return -1;
             }
 
             mnode->data = (void *)pfxsid;
 
             srv6_local_sid_config_post_processing (node,
-                    &pfxsid->sid,
-                    pfxsid->prefix_len,
-                    endpCode,
-                    0,
-                    NULL,
-                    NULL, 
-                    0,
-                    IPC_ISIS_SRV6_PREFIX_SID_ADD);
+                                &pfxsid->sid,
+                                pfxsid->prefix_len,
+                                endpCode,
+                                0,
+                                NULL,
+                                NULL, 
+                                0,
+                                IPC_ISIS_SRV6_PREFIX_SID_ADD);
         }
         break;
 
@@ -383,9 +390,15 @@ srv6_prefix_sid_config_handler
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);
 
-            if (rc != MTRIE_DELETE_SUCCESS){
-                cprintf ("Error : Prefix sid deletion failed, ret code = %d\n", rc);
-                return -1;
+            switch (rc) {
+                case MTRIE_DELETE_SUCCESS:
+                    break;
+                case MTRIE_LOOKUP_FAILED:
+                    cprintf ("Error : Prefix sid not found\n");
+                    return -1;
+                default:
+                    cprintf ("Error : Prefix sid deletion failed, ret code = %d\n", rc);
+                    return -1;
             }
 
             srv6_local_sid_unconfig_pre_processing (node,
@@ -469,7 +482,7 @@ srv6_adjacency_sid_config_handler
         if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
     }
 
-    Srv6_endpcode_t endpCode = srv6_get_END_X_endpcode (flavor);
+    Srv6_endpcode_t endpCode = srv6_get_composite_END_X_endpcode (flavor);
     
     if (endpCode == SRV6_END_FN_NONE) {
         cprintf ("Error : Invalid flavor\n");
@@ -499,7 +512,7 @@ srv6_adjacency_sid_config_handler
             /* Prefix sid must be subne of locator */
             if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
                     &prefix.addr)) {
-                cprintf ("Error : Prefix sid must be subnet of locator\n");
+                cprintf ("Error : Adjacency sid must be subnet of locator\n");
                 return -1;
             }
 
@@ -507,7 +520,7 @@ srv6_adjacency_sid_config_handler
 
             adjsid->sid = prefix;
             adjsid->endP = END;
-            adjsid->flags = flavor;
+            adjsid->flags = SRV6_LOCAL_RT;
             adjsid->prefix_len = prefix_len;
             adjsid->n_seg_lst = 0;
             adjsid->ifindex = intf->ifindex;
