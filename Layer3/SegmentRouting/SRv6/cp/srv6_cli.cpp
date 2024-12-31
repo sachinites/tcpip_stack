@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include "../../../../CLIBuilder/libcli.h"
 #include "../../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../../graph.h"

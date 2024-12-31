@@ -550,7 +550,7 @@ isis_print_lsp_pkt_cbk (event_dispatcher_t*ev_dis, void *arg, size_t arg_size) {
 }
 
 void
-isis_print_hello_pkt_cbk (event_dispatcher_t*ev_dis, void *arg, size_t arg_size) {
+isis_print_hello_pkt_cbk (event_dispatcher_t*ev_dis, void *arg, unsigned int arg_size) {
 
     byte *buff;
     pkt_size_t pkt_size;
