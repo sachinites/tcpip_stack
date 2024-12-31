@@ -181,11 +181,10 @@ srv6_local_sid_config_post_processing (
         ipv6_route_install (node, 
                                         &rt_addr,
                                         rt_prefix_len, 
-                                        SRV6_LOCAL_RT,
+                                        IPV6_LOCAL_RT,
                                         gw, oif,
                                         NULL, 0, 
                                         pfxsid_endfn,
-                                        flags, 
                                         PROTO_SRv6);
 }
 

@@ -11,9 +11,6 @@
 #include "ipv6_hdrs.h"
 #include "v6nexthop.h"
 
-#define V6RT_F_LOCAL  (1 ) 
-#define V6RT_F_REMOTE  (2)
-
 typedef struct ipv6_route_ {
 
     ipv6_addr_t prefix;

@@ -23,21 +23,7 @@ avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) 
         if (prefix1->mask < prefix2->mask)
             return -1;
         return 1;
-    }
-
-    if (prefix1->metric != prefix2->metric) {
-
-        if (prefix1->metric < prefix2->metric)
-            return -1;
-        return 1;
-    }    
-
-    if (prefix1->flags != prefix2->flags) {
-
-        if (prefix1->flags < prefix2->flags)
-            return -1;
-        return 1;
-    }       
+    } 
 
     return 0;
 }
@@ -60,20 +46,6 @@ avltree_v6prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2
             return -1;
         return 1;
     }
-
-    if (prefix1->metric != prefix2->metric) {
-
-        if (prefix1->metric < prefix2->metric)
-            return -1;
-        return 1;
-    }    
-
-    if (prefix1->flags != prefix2->flags) {
-
-        if (prefix1->flags < prefix2->flags)
-            return -1;
-        return 1;
-    }       
 
     return 0;
 }
@@ -509,7 +481,8 @@ void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
             avltree_t *prefix_tree_root,
-            avltree_t *v6prefix_tree_root) {
+            avltree_t *v6prefix_tree_root,
+            avltree_t *srv6prefixsid_tree_root) {
 
     uint8_t i = 0;
     ted_link_t * link;
@@ -546,6 +519,8 @@ ted_create_or_update_node (ted_db_t *ted_db,
     ted_node->prefix_tree_root = prefix_tree_root;
     ted_v6prefix_tree_cleanup_tree (ted_node);
     ted_node->v6prefix_tree_root = v6prefix_tree_root;
+    ted_srv6prefixsid_tree_cleanup_tree (ted_node);
+    ted_node->srv6prefixsid_tree_root = srv6prefixsid_tree_root;
 
     for (; i < template_node_data->n_nbrs; i++) {
 
@@ -645,6 +620,20 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
     } ITERATE_AVL_TREE_END;
 
+    ITERATE_AVL_TREE_BEGIN(node->srv6prefixsid_tree_root, curr){
+
+        ted_v6prefix = avltree_container_of(curr, ted_v6prefix_t, avl_glue);
+        inet_ntop (AF_INET6, ted_v6prefix->prefix, ipv6_addr_str, 16);
+
+        rc += cprintf ("  v6Prefix : %s/%d  metric %u  flags 0x%x endfn:0x%x\n",
+                        ipv6_addr_str,
+                        ted_v6prefix->mask,
+                        ted_v6prefix->metric,
+                        ted_v6prefix->flags,
+                        ted_v6prefix->endfn);
+
+    } ITERATE_AVL_TREE_END;
+
     return rc;
 }
 
@@ -726,6 +715,31 @@ ted_v6prefix_tree_cleanup_tree (ted_node_t *ted_node) {
     ted_node->v6prefix_tree_root = NULL;
 }
 
+void 
+ted_srv6prefixsid_tree_cleanup_internal (avltree_t *prefix_tree) {
+
+    avltree_node_t *curr;
+    ted_v6prefix_t *ted_prefix;
+
+    if (!prefix_tree) return;
+
+     ITERATE_AVL_TREE_BEGIN(prefix_tree, curr){
+
+         ted_prefix = avltree_container_of(curr, ted_v6prefix_t, avl_glue);
+         avltree_remove(curr, prefix_tree);
+         XFREE(ted_prefix);
+
+     }  ITERATE_AVL_TREE_END;
+
+     XFREE(prefix_tree);
+}
+
+void
+ted_srv6prefixsid_tree_cleanup_tree (ted_node_t *ted_node) {
+
+    ted_srv6prefixsid_tree_cleanup_internal (ted_node->srv6prefixsid_tree_root);
+    ted_node->srv6prefixsid_tree_root = NULL;
+}
 
 uint32_t 
 ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) {

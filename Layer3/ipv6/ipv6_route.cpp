@@ -20,7 +20,7 @@ l3rib_v6lookup_lpm ( rt_table_t *v6rt_table, uint8_t (*ipv6_addr)[16]) {
     mtrie_node_t *mnode ;
 
     bitmap_init(&prefix_bm, 128);
-    memcpy (prefix_bm.bits, *ipv6_addr, 16);
+    ipv6_copy_bitmap (ipv6_addr, &prefix_bm);
 
     mnode = mtrie_longest_prefix_match_search(
                             &v6rt_table->route_list,
@@ -43,7 +43,7 @@ l3rib_v6lookup_lpm2 ( rt_table_t *v6rt_table, ipv6_addr_t *ipv6_addr) {
     mtrie_node_t *mnode ;
 
     bitmap_init(&prefix_bm, 128);
-    memcpy (prefix_bm.bits, ipv6_addr->addr, 16);
+    ipv6_copy_bitmap (&ipv6_addr->addr, &prefix_bm);
 
     mnode = mtrie_longest_prefix_match_search(
                             &v6rt_table->route_list,
@@ -70,7 +70,7 @@ l3rib_v6route_lookup_exact_match (
     bitmap_init(&prefix_bm, 128);
     bitmap_init(&mask_bm, 128);
 
-    memcpy (prefix_bm.bits, prefix->addr, 16);
+    ipv6_copy_bitmap (&prefix->addr, &prefix_bm);
 
     /* Convert prefix len into ipv6 mask in the form of bitmap */
     for (int i = 0; i < prefix_len; i++) {
@@ -96,11 +96,24 @@ l3rib_v6route_lookup_exact_match (
     return (ipv6_route_t *)node->data;
 }
 
+static inline 
+char (*rt_flags_str(uint8_t rt_flags, char (*str)[8])) [8] {
+
+    int index = 0;
+    (*str)[index] = '\0';
+    if (rt_flags & IPV6_REMOTE_RT) (*str)[index++] = 'R';
+    if (rt_flags & IPV6_LOCAL_RT) (*str)[index++] = 'L';
+    if (rt_flags & BINDING_SID) (*str)[index++] = 'B';
+    (*str)[index] = '\0';
+    return str;
+}
+
 void 
 v6_rt_table_show (rt_table_t *rt_table) {
 
-    char buffer1 [48];
     char *oif_name;
+    char buffer1 [48];
+    char rt_flags_arr[8];
     glthread_t *curr = NULL;
     mtrie_node_t *mnode;
     v6nexthop_t *nexthop;
@@ -121,13 +134,23 @@ v6_rt_table_show (rt_table_t *rt_table) {
 
             for (int i = 0; i < MAX_NXT_HOPS; i++) {
 
-                if (!route->nexthops[nxthop_proto][i])
-                    continue;
+                if (!route->nexthops[nxthop_proto][i]) continue;
 
                 nexthop = route->nexthops[nxthop_proto][i];
 
-                cprintf (" Proto : %s\n",  proto_name_str(nexthop->proto));
-                cprintf (" Metric : %u\n",  nexthop->metric);
+                cprintf (" Proto:%s  F:%s  Metric:%u  ", 
+                    proto_name_str(nexthop->proto), 
+                    rt_flags_str( nexthop->flags , &rt_flags_arr), nexthop->metric);
+
+                if (!is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
+                    cprintf ("Gateway:%s  ", inet_ntop6(&nexthop->gw, buffer1));
+                }
+
+                if (nexthop->oif) {
+                    cprintf ("OIF : %s  ", nexthop->oif->if_name.c_str());
+                }
+
+                cprintf ("Hit Count : %llu\n", route->nexthops[nxthop_proto][i]->hit_count);
 
                 switch (nxthop_proto)
                 {
@@ -136,38 +159,25 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     break;
                     case proto_nxthop_srv6:
 
-                        cprintf (" SRv6 End Function : %s, flags : %d\n", 
-                            srv6_end_fn_str(nexthop->u.srv6.endfn), 
-                            nexthop->u.srv6.flags);
+                        cprintf ("   SRv6 Fn: %s  ",
+                            srv6_end_fn_str(nexthop->u.srv6.endfn));
                         
                         if (nexthop->u.srv6.n_segment_list) {
 
-                            cprintf (" Segment Lst : ");
+                            cprintf ("Segment Lst : ");
                             
                             for (int j = 0; j < nexthop->u.srv6.n_segment_list; j++) {
                                 cprintf ("%s ", inet_ntop6 (&nexthop->u.srv6.segment_lst[j] , buffer1));
                             }
-
-                            cprintf ("\n");
                         }
-                        
-                        break;
+                    cprintf ("\n");
+                    break;
                 }
-
-                if (!is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
-                    cprintf (" Gateway : %s\n", inet_ntop6(&nexthop->gw, buffer1));
-                }
-
-                if (nexthop->oif) {
-                    cprintf (" OIF : %s\n", nexthop->oif->if_name.c_str());
-                }
-
-                cprintf (" Hit Count : %llu\n\n", route->nexthops[nxthop_proto][i]->hit_count);
             }
         }
-        
+        cprintf ("\n");
+
     } ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr);
-    
 } 
 
 extern v6nexthop_t *

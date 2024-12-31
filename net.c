@@ -90,7 +90,7 @@ node_set_v6_loopback_address(node_t *node, const char *ipv6_addr ){
     ipv6_addr_t prefix;
     memcpy (prefix.addr, node->node_nw_prop.ipv6_addr, 16);
     ipv6_route_install (node, &prefix, 128, 0, 
-        0, 0, 0, 0, 0, 0, PROTO_STATIC);
+        0, 0, 0, 0, 0, PROTO_STATIC);
 }
 
 

@@ -115,6 +115,7 @@ layer3_ipv6_route_pkt (node_t *node,
 
     pkt_size_t pkt_size;
     char dst_addr_str[48];
+    char route_addr_str[48];
 
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
@@ -134,6 +135,10 @@ layer3_ipv6_route_pkt (node_t *node,
             dst_addr_str);
         return;
     }
+
+    tracer (node->dptr, DL3FWD, "Dest : %s : L3 route found %s/%d\n", 
+            dst_addr_str, 
+            inet_ntop6(&route->prefix, route_addr_str), route->prefix_len);
 
     /* If the route is local */
     if (!route->nh_count) {
@@ -187,7 +192,6 @@ void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
-    char ip6_addr_str[48];
 
     assert (pkt_block_verify_pkt (pkt_block, IP6_HDR));
 

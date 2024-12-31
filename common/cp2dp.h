@@ -35,7 +35,6 @@ typedef struct rt6_update_msg_ {
     uint16_t srv6_end_fn;
     uint8_t   prefix_len;
     uint8_t rt_flags;
-    uint8_t srv6_flavor;
     uint8_t seg_lst_count;
     uint8_t seglst[0][16];
 
@@ -130,7 +129,6 @@ ipv6_route_install (node_t *node,
                                 ipv6_addr_t (*segment_lst)[16],
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
-                                uint8_t srv6_flavor,
                                 uint16_t proto_id);
 
 void

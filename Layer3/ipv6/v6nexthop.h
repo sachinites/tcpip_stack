@@ -13,8 +13,12 @@ typedef struct v6nexthop_{
     InterfaceP oif;
     uint32_t ifindex;  
     uint32_t ref_count;
-    uint16_t proto;
     uint32_t metric;
+    uint16_t proto;
+    #define IPV6_REMOTE_RT 1
+    #define IPV6_LOCAL_RT 2
+    #define BINDING_SID 4
+    uint8_t flags;
 
     /* Protocol specific data*/
     union
@@ -22,10 +26,6 @@ typedef struct v6nexthop_{
         struct
         {
             Srv6_endpcode_t endfn;
-            #define SRV6_REMOTE_RT 1
-            #define SRV6_LOCAL_RT 2
-            #define BINDING_SID 4
-            uint8_t flags;
             uint8_t n_segment_list;
             ipv6_addr_t *segment_lst;
         } srv6;

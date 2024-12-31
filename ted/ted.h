@@ -50,6 +50,11 @@ typedef struct ted_v6prefix_ {
     uint32_t metric;
     uint8_t mask;
     uint8_t flags;
+    /* SRV6 related params*/
+    uint16_t endfn;
+    uint16_t mt_id;
+    uint8_t algo;
+
     ted_src_fr_no_t src;
 
 } __attribute__((aligned(8))) ted_v6prefix_t;
@@ -61,6 +66,7 @@ typedef struct ted_node_ {
     void *proto_data[TED_PROTO_MAX];    
     avltree_t *prefix_tree_root;
     avltree_t *v6prefix_tree_root;
+    avltree_t *srv6prefixsid_tree_root;
     avltree_node_t avl_glue;
     uint32_t rtr_id;
     uint32_t seq_no;
@@ -205,7 +211,8 @@ void
 ted_create_or_update_node (ted_db_t *ted_db,
             ted_template_node_data_t *template_node_data,
             avltree_t *prefix_tree,
-            avltree_t *v6prefix_tree);
+            avltree_t *v6prefix_tree,
+            avltree_t *srv6prefixsid_tree) ;
 
 uint32_t 
 ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, bool detail) ;
@@ -243,6 +250,12 @@ ted_v6prefix_tree_cleanup_tree (ted_node_t *node);
 
 void 
 ted_v6prefix_tree_cleanup_internal (avltree_t *prefix_tree) ;
+
+void
+ted_srv6prefixsid_tree_cleanup_tree (ted_node_t *node);
+
+void 
+ted_srv6prefixsid_tree_cleanup_internal (avltree_t *prefix_tree) ;
 
 void 
 ted_assert_check_protocol_data (ted_node_t *ted_node);

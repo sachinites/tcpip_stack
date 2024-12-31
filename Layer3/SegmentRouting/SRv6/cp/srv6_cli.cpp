@@ -1,4 +1,3 @@
-#include <arpa/inet.h>
 #include "../../../../CLIBuilder/libcli.h"
 #include "../../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../../graph.h"
@@ -186,17 +185,17 @@ srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) {
     srv6_locator_t *srv6_loc = &node_info->loc;
 
     if (is_ipv6_addr_unspecified (&srv6_loc->sid.addr))
-        return SRV6_REMOTE_RT;
+        return IPV6_REMOTE_RT;
 
     if (ipv6_address_is_subnet (
             &srv6_loc->sid.addr, 
             srv6_loc->prefix_len,
             prefix)) {
 
-        return SRV6_LOCAL_RT;
+        return IPV6_LOCAL_RT;
     }
 
-    return SRV6_REMOTE_RT;
+    return IPV6_REMOTE_RT;
 }
 
 static int
@@ -298,7 +297,7 @@ srv6_prefix_sid_config_handler
             /* Prefix sid must be subne of locator */
             if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
                     &prefix.addr)) {
-                cprintf ("Error : PRefix sid must be subnet of locator\n");
+                cprintf ("Error : Prefix sid must be subnet of locator\n");
                 return -1;
             }
 
@@ -316,7 +315,8 @@ srv6_prefix_sid_config_handler
             mtrie_ops_result_code_t rc;
             bitmap_init(&prefix_bm, 128);
             bitmap_init(&mask_bm, 128);
-            memcpy(prefix_bm.bits, prefix.addr, 16);
+
+            ipv6_copy_bitmap (&prefix.addr, &prefix_bm);
             for (int i = 0; i < prefix_len; i++)
                 bitmap_set_bit_at(&mask_bm, i);
             bitmap_inverse (&mask_bm, 128);
@@ -377,7 +377,7 @@ srv6_prefix_sid_config_handler
             bitmap_init(&prefix_bm, 128);
             bitmap_init(&mask_bm, 128);
 
-            memcpy(prefix_bm.bits, prefix.addr, 16);
+            ipv6_copy_bitmap (&prefix.addr, &prefix_bm);
             for (int i = 0; i < prefix_len; i++)
                 bitmap_set_bit_at(&mask_bm, i);
             bitmap_inverse (&mask_bm, 128);
@@ -520,7 +520,7 @@ srv6_adjacency_sid_config_handler
 
             adjsid->sid = prefix;
             adjsid->endP = END;
-            adjsid->flags = SRV6_LOCAL_RT;
+            adjsid->flags = IPV6_LOCAL_RT;
             adjsid->prefix_len = prefix_len;
             adjsid->n_seg_lst = 0;
             adjsid->ifindex = intf->ifindex;
@@ -532,7 +532,8 @@ srv6_adjacency_sid_config_handler
             mtrie_ops_result_code_t rc;
             bitmap_init(&prefix_bm, 128);
             bitmap_init(&mask_bm, 128);
-            memcpy(prefix_bm.bits, prefix.addr, 16);
+
+            ipv6_copy_bitmap (&prefix.addr, &prefix_bm);
             for (int i = 0; i < prefix_len; i++)
                 bitmap_set_bit_at(&mask_bm, i);
             bitmap_inverse (&mask_bm, 128);
@@ -586,7 +587,7 @@ srv6_adjacency_sid_config_handler
             bitmap_init(&prefix_bm, 128);
             bitmap_init(&mask_bm, 128);
 
-            memcpy(prefix_bm.bits, prefix.addr, 16);
+            ipv6_copy_bitmap (&prefix.addr, &prefix_bm);
             for (int i = 0; i < prefix_len; i++)
                 bitmap_set_bit_at(&mask_bm, i);
             bitmap_inverse (&mask_bm, 128);
@@ -690,7 +691,6 @@ srv6_end_b6_encaps_config_handler
                                 &segment_lst,
                                 0, 
                                 END_B6_ENCAP, 
-                                0,
                                 PROTO_SRv6);            
         }
         break;

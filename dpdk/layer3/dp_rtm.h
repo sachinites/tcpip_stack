@@ -27,7 +27,6 @@ np_rt6_table_process_msg(node_t *node, dp_msg_t *dp_msg) ;
                                 Interface* oif,   // can be NULL
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
-                                uint8_t srv6_flavor,
                                 uint16_t proto ) ;
 
  bool

@@ -10,6 +10,7 @@
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/ipv6/ipv6_route.h"
 #include "../../Layer3/ipv6/ipv6_hdrs.h"
+#include "../../Layer3/ipv6/ipv6_utils.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "../../Tracer/tracer.h"
 #include "../../mtrie/mtrie.h"
@@ -336,6 +337,8 @@ static bool
 ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
                                       ipv6_route_t *route) {
 
+    char ipv6_addr_str[48];
+    node_t *node = v6_rt_table->node;
     mtrie_node_t *mnode;
     bitmap_t prefix_bm, mask_bm;
     mtrie_ops_result_code_t rc;
@@ -343,7 +346,8 @@ ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
     bitmap_init(&prefix_bm, 128);
     bitmap_init(&mask_bm, 128);
 
-    memcpy(prefix_bm.bits, &route->prefix.addr, 16);
+    ipv6_copy_bitmap (&route->prefix.addr, &prefix_bm);
+
     for (int i = 0; i < route->prefix_len; i++)
         bitmap_set_bit_at(&mask_bm, i);
     bitmap_inverse (&mask_bm, 128);
@@ -358,13 +362,28 @@ ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
     bitmap_free_internal(&mask_bm);
 
     if (rc != MTRIE_INSERT_SUCCESS){
-        cprintf ("Error : Route insertion failed, ret code = %d\n", rc);
+
+        tracer (node->dptr, DRTM | DERR, 
+            "%s : Error : Route %s/%d insertion failed, ret code = %d\n", node->node_name, 
+            inet_ntop6 (&route->prefix, ipv6_addr_str), route->prefix_len, rc);
+        cprintf ("%s : Error : Route %s/%d insertion failed, ret code = %d\n", node->node_name, 
+            inet_ntop6 (&route->prefix, ipv6_addr_str), route->prefix_len, rc);
+
         return false;
     }
 
     mnode->data = (void *)route;
     l3_v6route_inc_ref_count(route);
     route->install_time = time(NULL);
+
+    tracer (node->dptr, DRTM, 
+        "%s : Route %s/%d installed successfully\n", node->node_name, 
+        inet_ntop6 (&route->prefix, ipv6_addr_str), route->prefix_len);
+    #if 0
+    cprintf ("%s : Route %s/%d installed successfully\n", node->node_name, 
+        inet_ntop6 (&route->prefix, ipv6_addr_str), route->prefix_len);
+    #endif 
+
     return true;
 }
 
@@ -379,7 +398,6 @@ bool
                                 uint8_t (*seg_lst)[16],
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
-                                uint8_t srv6_flavor,
                                 uint16_t proto ) {
 
 
@@ -391,7 +409,7 @@ bool
     nxthop_proto_id_t proto_id = l3_rt_map_proto_id_to_nxthop_index (proto);
 
     if (proto_id == proto_nxthop_max) {
-        cprintf ("Error : Invalid proto_id\n");
+        tracer (node->dptr, DRTM | DERR, "%s : Error : Invalid proto_id\n", node->node_name);
         return false;
     }
 
@@ -414,7 +432,8 @@ bool
     }
 
     if (!new_route && route->nh_count ==MAX_NXT_HOPS) {
-        cprintf ("Max nexthops reached for this route\n");
+        tracer (node->dptr, DRTM | DERR, 
+            "%s : Error : Max nexthops reached for this route\n", node->node_name);
         return false;
     }
 
@@ -429,12 +448,12 @@ bool
         nexthop->ref_count = 0;
         nexthop->metric = spf_metric;
         nexthop->hit_count = 0;
+        nexthop->flags = rt_flags;
         route->is_direct = false;
 
         if (proto == PROTO_SRv6)
         {
             nexthop->u.srv6.endfn = endfn;
-            nexthop->u.srv6.flags = rt_flags;
 
             if (seg_lst_count) {
 
@@ -453,6 +472,16 @@ bool
         return ipv6_add_route_to_rib  (rt_table, route);
     }
 
+    if (new_route) {
+        v6nh_insert_new_nexthop_nh_array(
+            route->nexthops[proto_id], nexthop);
+        route->nh_count++;
+        return ipv6_add_route_to_rib  (rt_table, route);
+    }
+
+    /* Installing a duplicate route without nexthop again !*/
+    if (!nexthop) return false;
+
     int index;
     int res = v6nh_is_nexthop_exist_in_nh_array (
             route->nexthops[proto_id], nexthop, &index) ;
@@ -460,7 +489,8 @@ bool
     switch (res)
     {
     case 0:
-        cprintf("Error : Nexthop already exists\n");
+        tracer (node->dptr, DRTM | DERR, "%s : Error : Nexthop already exists\n", 
+            node->node_name);
         delete nexthop;
         return false;
     case -1:
@@ -496,7 +526,8 @@ bool
                                 NODE_V6RT_TABLE(node), prefix, prefix_len);
 
     if (!route) {
-        cprintf ("Route not found\n");
+        tracer (node->dptr, DRTM | DERR, "%s : Error : Route not found\n", 
+            node->node_name);
         return false;
     }
 
@@ -505,7 +536,8 @@ bool
 
     if (!nexthop)
     {
-        cprintf("Route's nexthop is not found\n");
+        tracer (node->dptr, DRTM | DERR, "%s : Route's nexthop is not found\n", 
+            node->node_name);
         return false;
     }
 
@@ -515,7 +547,6 @@ bool
 
     if (route->nh_count)
     {
-        // cprintf ("Route deleted successfully\n");
         return true;
     }
 
@@ -535,7 +566,6 @@ bool
                                             &mask_bm,
                                             (void **)&route) == MTRIE_DELETE_SUCCESS);
 
-    //cprintf ("Route deleted successfully\n");
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);
     l3_v6route_dec_ref_count(route);
@@ -571,7 +601,6 @@ np_rt6_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                                                  rt_update_msg->seglst : NULL),
                                                  rt_update_msg->metric,
                                                  (Srv6_endpcode_t )rt_update_msg->srv6_end_fn,
-                                                rt_update_msg->srv6_flavor,
                                                 rt_update_msg->proto_id);
 
             break;

@@ -63,7 +63,7 @@ srv6_ipv6_forward (node_t *node, pkt_block_t *pkt_block, v6nexthop_t *nexthop) {
 
     if (nexthop) {
 
-        if (nexthop->u.srv6.flags & BINDING_SID) {
+        if (nexthop->flags & BINDING_SID) {
             /* Mount seg lst here onto the pkt*/
         }
 
@@ -91,7 +91,7 @@ srv6_ipv6_forward (node_t *node, pkt_block_t *pkt_block, v6nexthop_t *nexthop) {
         return false;
     }
 
-    if (nxt_nexthop->u.srv6.flags & BINDING_SID) {
+    if (nxt_nexthop->flags & BINDING_SID) {
         /* Mount seg lst here onto the pkt*/
     }
 

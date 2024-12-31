@@ -384,17 +384,13 @@ Process_Srv6_remote_packet (
                         srh_hdr_t *srh,
                         v6nexthop_t *nexthop) {
 
-    if (nexthop->u.srv6.flags & BINDING_SID) {
+    if (nexthop->flags & BINDING_SID) {
 
     }
 
     ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);
 }
 
-
-/*
-In SRv6, flavors are applied before the END function processing. This ordering ensures that any specific handling or adjustments dictated by the flavor are completed before the standard or custom END behavior is executed
-*/
 void
 Process_Srv6_Packet (
                         node_t *node, 
@@ -410,7 +406,7 @@ Process_Srv6_Packet (
         It should be processed by non-v6 module*/
     assert (ipv6_hdr);
     
-   if (nexthop->u.srv6.flags & SRV6_REMOTE_RT) {
+   if (nexthop->flags & IPV6_REMOTE_RT) {
         Process_Srv6_remote_packet (node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
         return;
     }
@@ -425,7 +421,7 @@ Process_Srv6_Packet (
       fn. Locator routes are no different from traditional ipv6 routes. Their over all
       purpose is to steer the traffic upto destination, and handover the pkt to L4 for
       further processing. So, strip the outer L3 hdr and handover the payload to ipv6 module.*/
-    if ((nexthop->u.srv6.flags & SRV6_LOCAL_RT) && 
+    if ((nexthop->flags & IPV6_LOCAL_RT) && 
             !nexthop->u.srv6.endfn) {
 
         tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local locator route\n", 

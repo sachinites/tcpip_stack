@@ -8,6 +8,8 @@ extern int
 avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
 extern int
 avltree_v6prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
+extern isis_srv6_config_t *
+isis_srv6_get_config(node_t *node) ;
 
 void
 isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
@@ -20,6 +22,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     isis_system_id_t system_id;
     avltree_t *prefix_tree_root = NULL;
     avltree_t *v6prefix_tree_root = NULL;
+    avltree_t *srv6prefixsid_tree_root = NULL;
     byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
    
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
@@ -124,7 +127,59 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             avltree_insert(&ted_prefix->avl_glue, v6prefix_tree_root);
         }
         break;        
-        default:;
+        case ISIS_TLV_LOCATOR:
+        {
+            if ( (!isis_srv6_get_config(node))) break;
+
+            if (!srv6prefixsid_tree_root)
+            {
+                srv6prefixsid_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
+                avltree_init(srv6prefixsid_tree_root, avltree_v6prefix_tree_comp_fn);
+            }
+            locator_tlv_t *tlv_27 = (locator_tlv_t *)tlv_value;
+            ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+            memcpy (ted_prefix->prefix, tlv_27->locator, (tlv_27->loc_size + 7)/8);
+            ted_prefix->mask = tlv_27->loc_size;
+            ted_prefix->metric = htonl(tlv_27->metric);
+            ted_prefix->flags = tlv_27->flags;
+            ted_prefix->src = lsp_pkt_hdr->fr_no;
+            ted_prefix->endfn = 0; // locators dont have endfn
+            ted_prefix->mt_id = tlv_27->RRRR_mt_id;
+            ted_prefix->algo = tlv_27->algorithm;
+            avltree_insert(&ted_prefix->avl_glue, srv6prefixsid_tree_root);
+            /* Now PRefix Sid Locator SubTLVs*/
+
+            subtlv_navigator = tlv_value + sizeof(locator_tlv_t) + (tlv_27->loc_size + 7)/8;
+            subtlv_len = tlv_27->subtlv_len;
+
+            /* Now Read Prefix Sid SUBTLVs*/
+            ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
+                              tlv_len2, tlv_value2, subtlv_len) {
+
+                switch (tlv_type2)
+                {
+                    case ISIS_LOCATOR_PFX_SID_SUBTLV:
+                    {
+                        srv6_pfxsid_subtlv_t *pfxsid_subtlv = (srv6_pfxsid_subtlv_t *)tlv_value2;
+                        ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+                        memcpy (ted_prefix->prefix, pfxsid_subtlv->prefix, 16);
+                        ted_prefix->mask = 128; // srv6 pfxsid subtlvs do not carry prefix len 
+                        ted_prefix->metric = 0;
+                        ted_prefix->flags = pfxsid_subtlv->flags;
+                        ted_prefix->src = lsp_pkt_hdr->fr_no;
+                        ted_prefix->endfn = pfxsid_subtlv->endfn;
+                        ted_prefix->mt_id = tlv_27->RRRR_mt_id; // inherit from the locator
+                        ted_prefix->algo = tlv_27->algorithm; // inherit from the locator
+                        avltree_insert(&ted_prefix->avl_glue, srv6prefixsid_tree_root);
+                    }
+                    break;
+                }
+            }
+            ITERATE_TLV_END(subtlv_navigator, tlv_type2,
+                            tlv_len2, tlv_value2, subtlv_len);
+        }
+        break;
+                default:;
         }
     }
     ITERATE_TLV_END(tlv_buffer, tlv_type,
@@ -133,7 +188,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
     node_data->n_nbrs = n_tlv22;
     ted_db_t *ted_db = ISIS_TED_DB(node);
     ted_create_or_update_node(ted_db, node_data, 
-                                                 prefix_tree_root, v6prefix_tree_root);
+            prefix_tree_root, v6prefix_tree_root, srv6prefixsid_tree_root);
     XFREE(node_data);
 }
 

@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include "../../CLIBuilder/libcli.h"
 #include "../../graph.h"
 #include "../../Interface/InterfaceUApi.h"
@@ -79,7 +80,7 @@ ipv6_config_handler
                                                     &gw,
                                                     intf,
                                                     0,
-                                                    0, (Srv6_endpcode_t)0, 0,
+                                                    0, (Srv6_endpcode_t)0, 
                                                     PROTO_STATIC);
                 }
                 break;
@@ -192,7 +193,6 @@ ipv6_binding_sid_config_handler (int cmdcode,
                                             NULL,
                                             0,
                                             (Srv6_endpcode_t )0,
-                                            0,
                                             PROTO_SRv6) ;
         break;
 

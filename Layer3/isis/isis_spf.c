@@ -4,6 +4,7 @@
 #include "isis_flood.h"
 #include "isis_policy.h"
 #include "isis_ted.h"
+#include "../ipv6/v6nexthop.h"
 
 void
 isis_cancel_spf_job(node_t *node) {
@@ -158,10 +159,37 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                 ipv6_route_install (spf_root, 
                                                 &v6_prefix, 
-                                                ted_prefix->mask, 0, 0, 
+                                                ted_prefix->mask, 
+                                                IPV6_REMOTE_RT,
+                                                 0, 
                     node_get_intf_by_ifindex (spf_root, nexthop->ifindex),
                                                 0, spf_result->spf_metric, 
-                                                0, 0, PROTO_ISIS);
+                                                0, PROTO_ISIS);
+
+                    count++;
+
+            } ITERATE_AVL_TREE_END;
+
+            /* Install all srv6 prefix sids */
+            ITERATE_AVL_TREE_BEGIN(spf_result->node->srv6prefixsid_tree_root, avl_node) {
+
+                ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
+                memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
+
+                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                        ISIS_ROUTE,
+                        spf_result->node->node_name,
+                        inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+                ipv6_route_install (spf_root, 
+                                                &v6_prefix, 
+                                                ted_prefix->mask, 
+                                                IPV6_REMOTE_RT, 
+                                                0, 
+                    node_get_intf_by_ifindex (spf_root, nexthop->ifindex),
+                                                0, spf_result->spf_metric, 
+                                                ted_prefix->endfn, 
+                                                PROTO_SRv6);
 
                     count++;
 

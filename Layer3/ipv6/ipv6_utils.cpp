@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include "ipv6_utils.h"
 #include "../../tcpconst.h"
+#include "../../BitOp/bitmap.h"
 
 char *
 inet_ntop6 (ipv6_addr_t *addr, char *buffer) {
@@ -62,4 +63,19 @@ bool ipv6_address_is_subnet(uint8_t (*prefix)[16], uint8_t prefix_len,
 
     // If all the checks passed, the locator is within the subnet
     return true;
+}
+
+/* Write endianess independent code */
+void
+ipv6_copy_bitmap (uint8_t (*v6_addr)[16], bitmap_t *bm) {
+
+    int i;
+    
+    uint8_t *bm_array = (uint8_t *) (bm->bits);
+
+    for (i = 0; i < 16; i++) {
+        bm_array[i] = (*v6_addr)[i];
+    }
+
+    bm->next = bm->tsize;
 }

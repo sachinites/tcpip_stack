@@ -249,7 +249,6 @@ ipv6_route_install (node_t *node,
                                 ipv6_addr_t (*segment_lst)[16],
                                 uint32_t spf_metric,
                                 Srv6_endpcode_t endfn,
-                                uint8_t srv6_flavor,
                                 uint16_t proto_id) {
 
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
@@ -280,7 +279,6 @@ ipv6_route_install (node_t *node,
 
     rt_update_msg->metric = spf_metric;
     rt_update_msg->srv6_end_fn = endfn;
-    rt_update_msg->srv6_flavor = srv6_flavor;
     rt_update_msg->proto_id = proto_id;
 
     if (segment_lst) {

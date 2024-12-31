@@ -307,6 +307,10 @@ isis_show_node_protocol_state(node_t *node) {
 
     cprintf("Layer2-Mapping : %sabled\n", isis_is_layer2_mapping_enabled(node) ? "En" : "Dis");
 
+    if (isis_srv6_get_config (node)) {
+        cprintf("Segment Routing : SRv6\n");
+    }
+
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
 
         if (!isis_node_intf_is_enable(intf)) continue;
@@ -412,8 +416,8 @@ isis_init (node_t *node ) {
 void
 isis_one_time_registration() {
 
-    nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
-    nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
+    //nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
+    //nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
 }
 
 void

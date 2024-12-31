@@ -217,7 +217,7 @@ srv6_end_fn_str(Srv6_endpcode_t end_fn) {
         case END_T_w_PSP_USP_USD:
             return "END_T_w_PSP_USP_USD";
         default:
-            return "Endfn not defined";
+            return "ipv6 Fwd";
     }
 }
 
