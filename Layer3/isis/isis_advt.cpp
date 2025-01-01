@@ -254,12 +254,14 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IPV6_REACH:
         case ISIS_TLV_IPV6_MT_REACH:
-        case ISIS_TLV_LOCATOR:
+        case ISIS_LOCATOR_PFX_SID_SUBTLV:
             if (adv_data->src.holder && *adv_data->src.holder)
-                *(adv_data->src.holder) = NULL;
-                 adv_data->src.holder = NULL;
+                    *(adv_data->src.holder) = NULL;
+                    adv_data->src.holder = NULL;
             break;
         case ISIS_TLV_IP_REACH:
+        /* To Do : Make linkage of exported prefixes same as other
+            TLVs*/
         {
             void *app_data;
             mtrie_ops_result_code_t rc;
@@ -283,7 +285,12 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             bitmap_free_internal(&mask_bm);            
         }
         break;
-        case ISIS_LOCATOR_PFX_SID_SUBTLV:
+        
+        case ISIS_TLV_LOCATOR:
+            remove_glthread(&adv_data->u.srv6_loc.sibling_glue);
+        break;
+
+        
         /* SubTLVs dont point to src*/
         break;
         default: ;
@@ -656,13 +663,9 @@ isis_destroy_advt_db (node_t *node, uint8_t pn_no) {
         assert (!adv_data->fragment);
         assert (IS_BIT_SET(adv_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED));
 
-        if (isis_is_protocol_shutdown_in_progress (node) ||
-                !IS_BIT_SET(adv_data->flags, ISIS_ADVT_DATA_F_EXTERNAL_SRC)) {
-            isis_advt_data_clear_backlinkage (node_info, adv_data);
-            isis_free_advt_data (adv_data);
-            ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
-        }
-
+        isis_advt_data_clear_backlinkage(node_info, adv_data);
+        isis_free_advt_data(adv_data);
+        ISIS_DECREMENT_NODE_STATS(node, isis_event_count[isis_event_tlv_wait_listed]);
     }
 
     XFREE(advt_db);
@@ -687,13 +690,9 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
 
         advt_data = glue_to_isis_advt_data(curr);
         isis_fragment_unbind_advt_data  (node, fragment, advt_data);
-
-        if (isis_is_protocol_shutdown_in_progress (node) ||
-                !IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_EXTERNAL_SRC)) {
-            isis_advt_data_clear_backlinkage (node_info, advt_data);
-            isis_free_advt_data (advt_data);
-        }
-
+        isis_advt_data_clear_backlinkage (node_info, advt_data);
+        isis_free_advt_data (advt_data);
+        
     } ITERATE_GLTHREAD_END(&fragment->tlv_list_head, curr);
 
     remove_glthread(&fragment->priority_list_glue);
@@ -993,12 +992,13 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                     advt_data->u.srv6_loc.flags,
                     advt_data->u.srv6_loc.subtlv_len);
 
+                glthread_t *curr2;
                 isis_adv_data_t *pfxsid_subtlv_advt_data;
 
-                for ( pfxsid_subtlv_advt_data = advt_data->u.srv6_loc.next;
-                        pfxsid_subtlv_advt_data; 
-                        pfxsid_subtlv_advt_data = pfxsid_subtlv_advt_data->u.srv6_pfxsid.next) {
+                ITERATE_GLTHREAD_BEGIN(&advt_data->u.srv6_loc.pfxsid_list_head, curr2) {
 
+                    pfxsid_subtlv_advt_data = srv6_pfxsid_sibling_glue_to_pfxsid_adv_data(curr2);
+                    
                     inet_ntop(AF_INET6, pfxsid_subtlv_advt_data->u.srv6_pfxsid.prefix.addr,
                              ipv6_addr_str, 16);
 
@@ -1006,7 +1006,8 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                         ipv6_addr_str, 
                         srv6_end_fn_str( pfxsid_subtlv_advt_data->u.srv6_pfxsid.endfn),
                         pfxsid_subtlv_advt_data->u.srv6_pfxsid.flags);
-                }
+
+                } ITERATE_GLTHREAD_END(&advt_data->u.srv6_loc.pfxsid_list_head, curr2);
             }
             break;
             default: 
@@ -1210,7 +1211,11 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
 
     /* Advertise SRv6 Data*/
     if (isis_srv6_get_config(node)) {
-        isis_srv6_advertise_locator (node, 0);
+        isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+        isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
+        isis_advertise_locator_ipv6_reachability_mt_tlv237(node, loc);
+        isis_advertise_locator_tlv27_instance (node, loc, true);
+       isis_srv6_advertise_all_prefix_sids (node);
     }
 
     /* Advertise IP REACH TLVs : Exported Routes*/

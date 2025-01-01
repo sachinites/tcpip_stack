@@ -36,7 +36,7 @@ isis_srv6_recv_ips_updates (node_t *node, uint32_t minor_code, ips_srv6_data_t *
                      msg->u.locator.prefix_len,
                     tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
  
-            isis_srv6_advertise_locator (node,  msg ) ;
+            isis_srv6_process_locator_ips (node,  msg ) ;
         }
         break;
 
@@ -48,7 +48,7 @@ isis_srv6_recv_ips_updates (node_t *node, uint32_t minor_code, ips_srv6_data_t *
                     msg->u.locator.prefix_len,
                     tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
 
-            isis_srv6_stop_locator_advertisement (node);   
+            isis_srv6_locator_unset (node);
         }
         break;
 

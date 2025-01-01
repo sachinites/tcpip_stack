@@ -60,19 +60,15 @@ typedef struct isis_advt_db_ {
 /* This TLV is Waitlisted */
 #define ISIS_ADVT_DATA_F_WAIT_LISTED  (1 << 0)
 /* This TLV is being advertised */
-#define ISIS_ADVT_DATA_F_ADVERTISED    (1 << 1) 
-/* This TLV is learnt from external source */
-#define ISIS_ADVT_DATA_F_EXTERNAL_SRC    (1 << 2)  
+#define ISIS_ADVT_DATA_F_ADVERTISED    (1 << 1)  
 
 /* A Data structure which holds the data to be advertised as TLVs in 
     LSPs */
 typedef struct isis_adv_data_ {
 
-    uint16_t tlv_no;
-
     union {
-        
-        uint32_t rtr_id;
+
+        char host_name[NODE_NAME_SIZE];
 
         struct {
             isis_system_id_t nbr_sys_id;
@@ -83,44 +79,34 @@ typedef struct isis_adv_data_ {
             uint32_t remote_intf_ip;
         } adj_data;
 
-        bool on_demand_tlv;
-      
-        char host_name[NODE_NAME_SIZE];
-
         /* Srv6 Locators - TLV 27*/
         struct {
-                
+
                 ipv6_addr_t prefix;
+                glthread_t sibling_glue;
+                glthread_t pfxsid_list_head;
                 uint32_t metric;
                 uint16_t mt_id;
                 uint8_t prefix_len;
                 uint8_t algorithm;
                 uint8_t flags;
                 uint8_t subtlv_len;
-                /*
-                glthread_t sibling_lkg;
-                glthread_t subtlv_list_head;
-                */
-                    /* SubTLVs*/
-                struct isis_adv_data_ *next;
 
-        } srv6_loc;
+
+        } __attribute__((aligned(8)))   srv6_loc;
 
 
         /* SRv6 Prefix Sid locator Subtlvs*/
         struct {
             
             ipv6_addr_t prefix;
+            struct isis_adv_data_ *parent;
+            glthread_t sibling_glue;
             Srv6_endpcode_t endfn;
             uint8_t flags;
             uint8_t subtlv_len;
-            // struct isis_adv_data_ *parent_locator
-            // glthread_t sibling_lkg;
-            /* Sub-Sub TLVs*/
-            struct isis_adv_data_ *next;
 
-        } srv6_pfxsid;
-
+        } __attribute__((aligned(8))) srv6_pfxsid;
 
         /* SRv6 Adj Sid Subtlv*/
         struct {
@@ -149,21 +135,28 @@ typedef struct isis_adv_data_ {
             uint8_t flags;
         } pfx;
 
-    }u;
+    } __attribute__((aligned(8))) u;
 
-    pkt_size_t tlv_size;
+ 
     isis_fragment_t *fragment;
-
     union {
         struct isis_adv_data_ **holder; // for IS REACH
     }src;
-
-    uint16_t flags;
     glthread_t glue;
+    pkt_size_t tlv_size;
+    uint16_t tlv_no;
+    uint16_t flags;
 
 } __attribute__((aligned(8)))  isis_adv_data_t;
 GLTHREAD_TO_STRUCT(glue_to_isis_advt_data, isis_adv_data_t, glue);
-
+GLTHREAD_TO_STRUCT(
+    srv6_loc_sibling_glue_to_locator_adv_data, 
+    isis_adv_data_t, 
+    u.srv6_loc.sibling_glue);
+GLTHREAD_TO_STRUCT(
+    srv6_pfxsid_sibling_glue_to_pfxsid_adv_data,
+    isis_adv_data_t, 
+    u.srv6_pfxsid.sibling_glue);
 
 /* Fragment locking and Unlocking APIs */
 void isis_fragment_lock (isis_fragment_t *fragment);

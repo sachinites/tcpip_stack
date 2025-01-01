@@ -135,7 +135,8 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
     case ISIS_LOCATOR_PFX_SID_SUBTLV:
         ptlv_data_len += sizeof (srv6_pfxsid_subtlv_t) + adv_data->u.srv6_pfxsid.subtlv_len + TLV_OVERHEAD_SIZE;
         break;
-    default: ;
+    default:
+        assert (0);
     }
     return ptlv_data_len;
 }
@@ -222,20 +223,25 @@ isis_get_adv_data_tlv_content(
                  (advt_data->u.srv6_loc.prefix_len + 7)/8);
             locator_tlv_set_subtlv_len(tlv_fmt, advt_data->u.srv6_loc.subtlv_len);
             tlv_content += sizeof(locator_tlv_t) + ((advt_data->u.srv6_loc.prefix_len + 7)/8);
-            isis_adv_data_t *sub_tlv_advt_data = advt_data->u.srv6_loc.next;
+
+            glthread_t *curr;
+            isis_adv_data_t *pfxsid_adv_data ;
 
             /* Insert type length for SubTLVs*/
-            while (sub_tlv_advt_data) {
+
+            ITERATE_GLTHREAD_BEGIN(&advt_data->u.srv6_loc.pfxsid_list_head, curr) {
+
+                pfxsid_adv_data = srv6_pfxsid_sibling_glue_to_pfxsid_adv_data (curr);
 
                 tlv_buffer_insert_tlv (tlv_content, 
-                                    sub_tlv_advt_data->tlv_no ,
-                                    sub_tlv_advt_data->tlv_size - TLV_OVERHEAD_SIZE, 0 );
+                                    pfxsid_adv_data->tlv_no ,
+                                    pfxsid_adv_data->tlv_size - TLV_OVERHEAD_SIZE, 0 );
 
                 tlv_content += TLV_OVERHEAD_SIZE;
-                isis_get_adv_data_tlv_content(sub_tlv_advt_data, tlv_content);
-                tlv_content += sub_tlv_advt_data->tlv_size - TLV_OVERHEAD_SIZE;
-                sub_tlv_advt_data = sub_tlv_advt_data->u.srv6_pfxsid.next;
-            }
+                isis_get_adv_data_tlv_content(pfxsid_adv_data, tlv_content);
+                tlv_content += pfxsid_adv_data->tlv_size - TLV_OVERHEAD_SIZE;
+
+            } ITERATE_GLTHREAD_END(&advt_data->u.srv6_loc.pfxsid_list_head, curr)
         }
         break;
         case ISIS_LOCATOR_PFX_SID_SUBTLV:

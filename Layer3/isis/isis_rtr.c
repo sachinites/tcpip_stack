@@ -80,14 +80,12 @@ isis_check_delete_node_info(node_t *node) {
 
     /*Hooked up Data Structures should be empty */
     assert (avltree_is_empty(&node_info->intf_grp_avl_root));
-    assert(!node_info->ted_db);
-    assert(!node_info->exported_routes.root);
+    assert (!node_info->ted_db);
+    assert (!node_info->exported_routes.root);
     assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv237);
-    assert (!node_info->tlv_global_advt.v6loc_adv_data_tlv236);
-    assert (!node_info->tlv_global_advt.v6loc_adv_data_tlv237);
-    assert (!node_info->srv6_config);
+    assert (!node_info->srv6_config ); 
 
     /* Must not be any pending LSP for regeneration*/
     assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
