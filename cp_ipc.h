@@ -51,7 +51,7 @@ void
 ipc_event_signal (event_dispatcher_t *ev_dis, void *data, uint32_t data_size) ;
 
 void 
-cp_ipc_send (node_t *node, 
+cp_ips_send (node_t *node, 
                         ips_major_code_t major_code,
                         uint32_t minor_code,
                         void *msg, 

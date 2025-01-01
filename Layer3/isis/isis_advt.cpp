@@ -257,7 +257,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
         case ISIS_LOCATOR_PFX_SID_SUBTLV:
             if (adv_data->src.holder && *adv_data->src.holder)
                     *(adv_data->src.holder) = NULL;
-                    adv_data->src.holder = NULL;
+            adv_data->src.holder = NULL;
             break;
         case ISIS_TLV_IP_REACH:
         /* To Do : Make linkage of exported prefixes same as other

@@ -93,7 +93,7 @@ ipc_msg_free_after_use (event_dispatcher_t *ev, void *msg) {
 }
 
 void 
-cp_ipc_send (node_t *node, 
+cp_ips_send (node_t *node, 
                         ips_major_code_t major_code,
                         uint32_t minor_code,
                         void *msg, 

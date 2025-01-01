@@ -154,6 +154,7 @@ srv6_local_sid_config_post_processing (
                 memcpy(rt_addr.addr, pfxsid->addr, 16);
                 rt_prefix_len = pfxsid_len;
             }
+            break;
             case IPC_ISIS_SRV6_ADJ_SID_ADD:
             {
                 /* Locator */
@@ -173,7 +174,7 @@ srv6_local_sid_config_post_processing (
         }
 
         /* Send it to IGP */
-      cp_ipc_send (node, IPC_SRV6_INFO, 
+      cp_ips_send (node, IPC_SRV6_INFO, 
                             ipc_minor_code_event,
                             (void *)ips_srv6_data, sizeof (ips_srv6_data_t), true);
 
@@ -260,7 +261,7 @@ void srv6_local_sid_unconfig_pre_processing(
     }
 
         /* Send it to IGP */
-      cp_ipc_send (node, IPC_SRV6_INFO, 
+      cp_ips_send (node, IPC_SRV6_INFO, 
                             ipc_minor_code_event,
                             (void *)ips_srv6_data, sizeof (ips_srv6_data_t), true);
 
@@ -339,7 +340,7 @@ srv6_delete_all_adj_sids (node_t *node) {
                                                adjsid->flags,
                                                0, 0, IPC_ISIS_SRV6_ADJ_SID_DEL);
         
-        cp_ipc_send (node, IPC_SRV6_INFO, 
+        cp_ips_send (node, IPC_SRV6_INFO, 
                             IPC_SRV6_PREFIX_SID_DEL, 
                             (void *) ips_srv6_data, sizeof (*ips_srv6_data), true);
 

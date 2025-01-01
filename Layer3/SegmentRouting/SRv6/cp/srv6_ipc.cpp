@@ -34,7 +34,7 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
         ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
         ips_srv6_data->u.locator.metric = 0;
         
-        cp_ipc_send(node, IPC_SRV6_INFO,
+        cp_ips_send(node, IPC_SRV6_INFO,
                     IPC_SRV6_LOCATOR_ADD,
                     (void *)ips_srv6_data, sizeof(ips_srv6_data_t), true);
         count++;
@@ -58,7 +58,7 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
             ips_srv6_data->u.prefix_sid.endfn = pfxsid->endP;
             ips_srv6_data->u.prefix_sid.flags = pfxsid->flags;
 
-            cp_ipc_send(node, IPC_SRV6_INFO,
+            cp_ips_send(node, IPC_SRV6_INFO,
                         IPC_SRV6_PREFIX_SID_ADD,
                         (void *)ips_srv6_data, sizeof(*ips_srv6_data), true);
 
@@ -90,7 +90,7 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
             ips_srv6_data->u.adj_sid.endfn = adjsid
             ->endP;
 
-            cp_ipc_send(node, IPC_SRV6_INFO,
+            cp_ips_send(node, IPC_SRV6_INFO,
                         IPC_SRV6_ADJ_SID_ADD,
                         (void *)ips_srv6_data, sizeof(*ips_srv6_data), true);
 

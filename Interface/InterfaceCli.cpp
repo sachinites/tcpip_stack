@@ -189,7 +189,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 break;
                 default: ;
             }
-            cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+            cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true);
         }    
         break;
@@ -223,7 +223,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             }
 
             if (minor_code) {
-                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true);
             }
         }
@@ -257,7 +257,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data = new ipc_interface_t;;
                 update_data->intf = interface->GetSharedPtr();
                 update_data->is_switchport = old_switchport_status;
-                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true);
             }
         }
@@ -294,7 +294,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data = new ipc_interface_t;;
                 update_data->intf = interface->GetSharedPtr();
                 update_data->access_vlan = old_access_vlan;
-                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true);
             }
         }
@@ -349,7 +349,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->ipv4_addr.ip_addr = old_ip_addr;
                 update_data->ipv4_addr.mask = old_mask;
-                cp_ipc_send (node, IPC_INTERFACE, minor_code, 
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
                         update_data, sizeof (*update_data), true);            
             }
         }
