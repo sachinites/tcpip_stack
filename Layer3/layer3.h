@@ -95,12 +95,14 @@ RT_FLAGS_STR (uint8_t flags, char *buffer, uint16_t buffer_size) {
     return buffer;
 }
 
+/* If you are changing the order of these enums, pls 
+    change the next fn also ...*/
 typedef enum {
 
     proto_nxthop_first,
     proto_nxthop_static = proto_nxthop_first,
+     proto_nxthop_srv6, // pref 14
     proto_nxthop_isis, // pref 15
-    proto_nxthop_srv6, // pref 14
     proto_nxthop_max
 
 } nxthop_proto_id_t;
@@ -111,10 +113,10 @@ next_next_hop_proto ( nxthop_proto_id_t proto_id ) {
     switch (proto_id) {
 
         case proto_nxthop_static:
-            return proto_nxthop_isis;
-        case proto_nxthop_isis:
             return proto_nxthop_srv6;
         case proto_nxthop_srv6:
+            return proto_nxthop_isis;
+        case proto_nxthop_isis:
             return proto_nxthop_max;
         case proto_nxthop_max:
             assert(0);
