@@ -131,6 +131,7 @@ isis_srv6_locator_unset (node_t *node) {
         
         pfxsid = avltree_container_of(curr, isis_srv6_pfx_sid_t , avl_glue);
         assert (!pfxsid->adv_data);
+        avltree_remove(&pfxsid->avl_glue, &node_info->srv6_config->pfxsid_tree);
         XFREE(pfxsid);
 
     } ITERATE_AVL_TREE_END;
@@ -139,6 +140,7 @@ isis_srv6_locator_unset (node_t *node) {
         
         adjsid = avltree_container_of(curr, isis_srv6_adj_sid_t, avl_glue);
         assert (!adjsid->adv_data);
+        avltree_remove(&adjsid->avl_glue, &node_info->srv6_config->adj_sid_tree);
         XFREE(adjsid);
 
     } ITERATE_AVL_TREE_END;

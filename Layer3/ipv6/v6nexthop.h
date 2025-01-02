@@ -1,6 +1,7 @@
 #ifndef __V6NEXTHOP__
 #define __V6NEXTHOP__
 
+#include <time.h>
 #include "../../utils.h"
 #include "../../Interface/InterfaceFwd.h"
 #include "ipv6_hdrs.h"
@@ -11,6 +12,7 @@ typedef struct v6nexthop_{
     long long unsigned int hit_count;
     ipv6_addr_t gw;
     InterfaceP oif;
+    time_t install_time;
     uint32_t ifindex;  
     uint32_t ref_count;
     uint32_t metric;
@@ -39,6 +41,7 @@ typedef struct v6nexthop_{
         metric = 0;
         oif = nullptr;
         hit_count = 0;
+        install_time = time (NULL);
         memset (&u, 0, sizeof(u));
     };
 

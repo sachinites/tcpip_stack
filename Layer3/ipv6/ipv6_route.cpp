@@ -119,6 +119,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
     v6nexthop_t *nexthop;
     ipv6_route_t *route = NULL;
     nxthop_proto_id_t nxthop_proto;
+    unsigned char uptime_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
     cprintf("\nL3 v6 Routing Table\n\n");
 
@@ -150,7 +151,11 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     cprintf ("OIF : %s  ", nexthop->oif->if_name.c_str());
                 }
 
-                cprintf ("Hit Count : %llu\n", route->nexthops[nxthop_proto][i]->hit_count);
+                cprintf ("Hit Count:%llu  uptime:%s\n", 
+                    route->nexthops[nxthop_proto][i]->hit_count,
+                    hrs_min_sec_format((unsigned int)difftime(time(NULL),
+                                nexthop->install_time), uptime_buff, 
+                                HRS_MIN_SEC_FMT_TIME_LEN) );
 
                 switch (nxthop_proto)
                 {

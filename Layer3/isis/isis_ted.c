@@ -129,6 +129,9 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
         break;        
         case ISIS_TLV_LOCATOR:
         {
+            locator_tlv_t *tlv_27;
+            ted_v6prefix_t *ted_prefix;
+
             if ( (!isis_srv6_get_config(node))) break;
 
             if (!srv6prefixsid_tree_root)
@@ -136,21 +139,33 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                 srv6prefixsid_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
                 avltree_init(srv6prefixsid_tree_root, avltree_v6prefix_tree_comp_fn);
             }
-            locator_tlv_t *tlv_27 = (locator_tlv_t *)tlv_value;
-            ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
-            memcpy (ted_prefix->prefix, tlv_27->locator, (tlv_27->loc_size + 7)/8);
-            ted_prefix->mask = tlv_27->loc_size;
-            ted_prefix->metric = htonl(tlv_27->metric);
-            ted_prefix->flags = tlv_27->flags;
-            ted_prefix->src = lsp_pkt_hdr->fr_no;
-            ted_prefix->endfn = 0; // locators dont have endfn
-            ted_prefix->mt_id = tlv_27->RRRR_mt_id;
-            ted_prefix->algo = tlv_27->algorithm;
-            avltree_insert(&ted_prefix->avl_glue, srv6prefixsid_tree_root);
-            /* Now PRefix Sid Locator SubTLVs*/
+            do
+            {
+                tlv_27 = (locator_tlv_t *)tlv_value;
+                ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+                memcpy(ted_prefix->prefix, tlv_27->locator, (tlv_27->loc_size + 7) / 8);
+                ted_prefix->mask = tlv_27->loc_size;
 
-            subtlv_navigator = tlv_value + sizeof(locator_tlv_t) + (tlv_27->loc_size + 7)/8;
-            subtlv_len = tlv_27->subtlv_len;
+                /* Locator TLV mau appear multiple times, in one or many fragments, avoid
+                    multiple installation in AVL tree.*/
+                if (avltree_lookup (&ted_prefix->avl_glue, srv6prefixsid_tree_root)) {
+                    XFREE(ted_prefix);
+                    break;
+                }
+                ted_prefix->metric = htonl(tlv_27->metric);
+                ted_prefix->flags = tlv_27->flags;
+                ted_prefix->src = lsp_pkt_hdr->fr_no;
+                ted_prefix->endfn = 0; // locators dont have endfn
+                ted_prefix->mt_id = tlv_27->RRRR_mt_id;
+                ted_prefix->algo = tlv_27->algorithm;
+                avltree_insert(&ted_prefix->avl_glue, srv6prefixsid_tree_root);
+
+            } while (0);
+
+            /* Now Prefix Sid Locator SubTLVs*/
+
+            subtlv_navigator = tlv_value + sizeof(locator_tlv_t) + ((tlv_27->loc_size + 7)/8);
+            subtlv_len = locator_tlv_get_subtlv_len(tlv_27);
 
             /* Now Read Prefix Sid SUBTLVs*/
             ITERATE_TLV_BEGIN(subtlv_navigator, tlv_type2,
@@ -163,7 +178,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                         srv6_pfxsid_subtlv_t *pfxsid_subtlv = (srv6_pfxsid_subtlv_t *)tlv_value2;
                         ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
                         memcpy (ted_prefix->prefix, pfxsid_subtlv->prefix, 16);
-                        ted_prefix->mask = 128; // srv6 pfxsid subtlvs do not carry prefix len 
+                        ted_prefix->mask = 128; // srv6 pfxsid subtlvs do not carry prefix len
                         ted_prefix->metric = 0;
                         ted_prefix->flags = pfxsid_subtlv->flags;
                         ted_prefix->src = lsp_pkt_hdr->fr_no;

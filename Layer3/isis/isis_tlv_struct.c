@@ -14,7 +14,7 @@ isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_le
     isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)(tlv130_start + TLV_OVERHEAD_SIZE);
 
     rc += cprintf("\tTLV%d IP-REACH TLV   len:%dB\n", ISIS_TLV_IP_REACH, tlv_len);
-    rc += cprintf("\t\t%s/%d  metric = %u  %s\n",
+    rc += cprintf("\t  %s/%d  metric = %u  %s\n",
                 tcp_ip_covert_ip_n_to_p(htonl(tlv_130->prefix), ip_addr_str),
                 tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask),
                 htonl(tlv_130->metric), 
@@ -32,7 +32,7 @@ isis_print_formatted_tlv236( byte* out_buff, byte* tlv236_start,  uint8_t tlv_le
     isis_tlv_236_t *tlv_236 = (isis_tlv_236_t *)(tlv236_start + TLV_OVERHEAD_SIZE);
     inet_ntop (AF_INET6, tlv_236->prefix, ipv6_addr_str, 16);
     rc += cprintf("\tTLV%d IPV6-REACH TLV   len:%dB\n", ISIS_TLV_IPV6_REACH, tlv_len);
-    rc += cprintf("\t\t%s/%d  metric = %u  %s\n",
+    rc += cprintf("\t  %s/%d  metric = %u  %s\n",
                 ipv6_addr_str, tlv_236->prefix_len, htonl(tlv_236->metric),
                 IS_BIT_SET (tlv_236->bits, TLV236_XBIT ) ? "External" : "Internal");
                 
@@ -54,7 +54,7 @@ isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len)
     inet_ntop (AF_INET6, ipv6_addr.addr, ipv6_addr_str, 16);
 
     rc += cprintf("\tTLV%d SRV6-LOCATOR TLV   len:%dB\n", ISIS_TLV_LOCATOR, tlv_len);
-    rc += cprintf("\t\t%s/%d  metric:%u  Flags:0x%x  Algorithm:%d  MT-Id:%d  Subtlv-len:%d\n",
+    rc += cprintf("\t  %s/%d  metric:%u  Flags:0x%x  Algorithm:%d  MT-Id:%d  Subtlv-len:%d\n",
                 ipv6_addr_str, 
                 loc_tlv->loc_size, 
                 htonl(loc_tlv->metric),
@@ -76,7 +76,7 @@ isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len)
                 pfxsid_subtlv = (srv6_pfxsid_subtlv_t *)tlv_value;
                 inet_ntop (AF_INET6, pfxsid_subtlv->prefix, ipv6_addr_str, 16);
 
-                rc += cprintf("\t\t\tPrefix-SID : %s  Endfn : %s  Flags : 0x%x\n",
+                rc += cprintf("\t    Prefix-SID : %s  Endfn : %s  Flags : 0x%x\n",
                     ipv6_addr_str,
                     srv6_end_fn_str(pfxsid_subtlv->endfn),
                     pfxsid_subtlv->flags);
