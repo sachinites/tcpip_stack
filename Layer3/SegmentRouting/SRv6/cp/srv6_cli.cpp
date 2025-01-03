@@ -19,7 +19,7 @@ extern graph_t *topo;
 /* config node <node-name> protocol source-packet-routing srv6 locator <loc-name> <ipv6-address> <[prefix-len]>*/
 #define IPV6_SRV6_LOCATOR_CONFIG  2
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end [flavor [psp|usp|usd]]*/
-#define IPV6_SRV6_PREFIX_SID_CONFIG  3
+#define IPV6_SRV6_STATIC_ROUTE_SID_CONFIG  3
 /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> [flavor [psp | usp | usd ]]*/
 #define IPV6_SRV6_ADJ_SID_CONFIG  4
 /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> [flavor [psp | usp | usd ]] */
@@ -30,6 +30,9 @@ extern graph_t *topo;
 #define IPV6_SRV6_BINDING_SID_CONFIG 7
 /* run node <node-name> ping6 srv6 <seg1> <seg2> <seg3> <seg4> . . .  */
  #define CMDCODE_PING6_SRV6 8
+/* config node H1 protocol source-packet-routing srv6 endpoint end 
+    <ipv6-addr> [flavor [psp | usp | usd ]] */ 
+ #define CMD_CODE_END_SID_CONFIG 9
 
 
 static int
@@ -206,9 +209,8 @@ srv6_prefix_sid_config_handler
                     op_mode enable_or_disable) {
 
     tlv_struct_t *tlv;
-    uint8_t prefix_len = 0;
+    uint8_t prefix_len = 128;
     node_t *node = NULL;
-    Interface *intf = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
     c_string oif_name = NULL;
@@ -222,30 +224,16 @@ srv6_prefix_sid_config_handler
             node_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
             ipv6_addr = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "mask"))
-            prefix_len = atoi((const char *)tlv->value);
         else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
             flavor1 = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
             flavor2 = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
             flavor3 = tlv->value;
-         else if  (parser_match_leaf_id (tlv->leaf_id, "oif-name"))
-            oif_name = tlv->value;
 
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-
-    if (oif_name) {
-
-        intf = node_get_intf_by_name(node, (const char *)oif_name);
-
-        if (!intf) {
-            cprintf ("Error : Interface %s not found\n", oif_name);
-            return -1;
-        }
-    }
 
     uint8_t flavor = DEFAULT_FLAVOR;
 
@@ -307,7 +295,7 @@ srv6_prefix_sid_config_handler
             pfxsid->sid = prefix;
             pfxsid->endP = endpCode;
             pfxsid->flags = srv6_route_flag (node, &prefix.addr);
-            pfxsid->prefix_len = prefix_len;
+            pfxsid->prefix_len = 128;
             pfxsid->n_seg_lst = 0;
 
             /* Now add pfxsid to the mtrie */
@@ -621,6 +609,19 @@ srv6_adjacency_sid_config_handler
     return 0;
 }
 
+
+static int
+srv6_static_route_config_handler
+                        (int cmdcode,
+                        Stack_t *tlv_stack,
+                        op_mode enable_or_disable) {
+
+    
+    return 0;
+}
+
+
+
 static int 
 srv6_flavor_validation (Stack_t *tlv_stack, unsigned char *leaf_value) {
 
@@ -644,7 +645,6 @@ srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
         libcli_register_param( flavor , flavors_value);
         libcli_param_recursive(flavors_value);
         libcli_set_param_cmd_code(flavors_value, cmdcode);
-        //libcli_set_tail_config_batch_processing (flavors_value);
     }
 }
 
@@ -717,125 +717,9 @@ srv6_end_b6_x_encaps_config_handler
 }
 
 
-void srv6_build_cli_tree(param_t *root)
-{
-    {
-        /*...  srv6 endpoint end-sid ... */
-        static param_t srv6;
-        init_param(&srv6, CMD, "srv6", 0, NULL, INVALID, NULL, "Configure SRv6");
-        libcli_register_param(root, &srv6);
-        {
-            static param_t endpoint;
-            init_param(&endpoint, CMD, "endpoint", NULL, NULL, INVALID, NULL, "Configure SRv6 Endpoint");
-            libcli_register_param(&srv6, &endpoint);
-            {
-                /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end ...*/
-                static param_t end;
-                init_param(&end, CMD, "end-sid", srv6_prefix_sid_config_handler,
-                           NULL, INVALID, NULL, "Configure SRv6 Endpoint: END");
-                libcli_register_param(&endpoint, &end);
-                libcli_set_param_cmd_code(&end, IPV6_SRV6_PREFIX_SID_CONFIG);
-                #if 0
-                {
-                    /* . .. nexthop <if-name>*/
-                    static param_t nexthop;
-                    init_param(&nexthop, LEAF, NULL, NULL, NULL, STRING, "nexthop", "Next Hop Interface Name");
-                    libcli_register_param(&end, &nexthop);
-                    {
-                            static param_t oif_name;
-                            init_param(&oif_name, LEAF, NULL, srv6_prefix_sid_config_handler, 
-                                NULL, STRING, "oif-name", "Outgoing Interface Name");
-                            libcli_register_param(&nexthop, &oif_name);
-                            libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_PREFIX_SID_CONFIG);
-                            srv6_flavor_cli_subtree_hookup(&oif_name, 
-                                IPV6_SRV6_PREFIX_SID_CONFIG, srv6_prefix_sid_config_handler);
-                    }
-                }
-                #endif 
-                srv6_flavor_cli_subtree_hookup(&end, 
-                    IPV6_SRV6_PREFIX_SID_CONFIG, srv6_prefix_sid_config_handler);
-            }
-
-            {
-                /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x-sid  . .. */
-                static param_t end_x;
-                init_param(&end_x, CMD, "end-x-sid", NULL,
-                           NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-X");
-                libcli_register_param(&endpoint, &end_x);
-                {
-                    /* config node <node-name> ipv6 route [no] <ipv6-address> <mask>  srv6 endpoint end-x <oif-name> ... */
-                    static param_t oif_name;
-                    init_param(&oif_name, LEAF, NULL, srv6_adjacency_sid_config_handler, NULL, STRING, "oif-name", "Outgoing Interface Name");
-                    libcli_register_param(&end_x, &oif_name);
-                    libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
-                    srv6_flavor_cli_subtree_hookup(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
-                }
-            }
-
-            {
-                /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> [flavor [psp | usp | usd ]] */
-                static param_t end_b6_encaps;
-                init_param(&end_b6_encaps, CMD, "end-b6-encaps", NULL,
-                           NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-B6-ENCAPS");
-                libcli_register_param(&endpoint, &end_b6_encaps);
-                {
-                    static param_t seg_lst;
-                    init_param(&seg_lst, CMD, "segment-list", NULL,
-                            NULL, INVALID, NULL, "Configure SRv6 Segment List");
-                    libcli_register_param(&end_b6_encaps, &seg_lst);
-                    {
-                        static param_t segment;
-                        init_param(&segment, LEAF, NULL, srv6_end_b6_encaps_config_handler, NULL, IPV6, "segment", "ipv6-address segment");                        
-                        libcli_register_param(&seg_lst, &segment);
-                        libcli_set_param_cmd_code(&segment, IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG);
-                        libcli_param_recursive(&segment);
-                    }                    
-                }                
-            }
-
-
-            {
-                /* config node <node-name> ipv6 route <v6-address> <mask> srv6 endpoint end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop <oif-name> [flavor [psp | usp | usd ]]*/
-                static param_t end_b6_x_encaps;
-                init_param(&end_b6_x_encaps, CMD, "end-b6-x-encaps", NULL,
-                           NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-B6-X-ENCAPS");
-                libcli_register_param(&endpoint, &end_b6_x_encaps);
-                {
-                    static param_t seg_lst;
-                    init_param(&seg_lst, CMD, "segment-list", NULL,
-                            NULL, INVALID, NULL, "Configure SRv6 Segment List");
-                    libcli_register_param(&end_b6_x_encaps, &seg_lst);
-                    {
-                        static param_t segment;
-                        init_param(&segment, LEAF, NULL, NULL, NULL, IPV6, "segment", "ipv6-address segment");                        
-                        libcli_register_param(&seg_lst, &segment);
-                        libcli_param_recursive(&segment);
-                        {
-                            /* . .. nexthop <if-name>*/
-                            static param_t nexthop;
-                            init_param(&nexthop, CMD, "nexthop", NULL, NULL, INVALID, NULL, "Next Hop Interface Name");
-                            libcli_register_param(&segment, &nexthop);
-                            {
-                                    static param_t oif_name;
-                                    init_param(&oif_name, LEAF, NULL, srv6_end_b6_x_encaps_config_handler, 
-                                        NULL, STRING, "oif-name", "Outgoing Interface Name");
-                                    libcli_register_param(&nexthop, &oif_name);
-                                    libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG);
-                            }
-                        }
-                    }                    
-                }                
-            }
-
-        }
-    }
-}
-
 int
 srv6_build_global_config_cli_tree (param_t *root) {
-
     {
-        /* . . . source-packet-routing srv6 locator <loc-name> <ipv6-address> <[prefix-len]> . .*/
         static param_t spring;
         init_param(&spring, CMD, "source-packet-routing", NULL, NULL, INVALID, NULL, "Configure Source Packet Routing");
         libcli_register_param(root, &spring);
@@ -845,6 +729,104 @@ srv6_build_global_config_cli_tree (param_t *root) {
             libcli_register_param(&spring, &srv6);
             libcli_set_param_cmd_code(&srv6, IPV6_SRV6_ENABLE_CONFIG);
             {
+                {
+                    static param_t endpoint;
+                    init_param(&endpoint, CMD, "endpoint", NULL, NULL, INVALID, NULL, "endpoint");
+                    libcli_register_param(&srv6, &endpoint);
+                    {
+                        /* . . . source-packet-routing srv6 endpoint end . . .*/
+                        static param_t end;
+                        init_param(&end, CMD, "end-sid", NULL, NULL,  INVALID, NULL, "end Endpoint");
+                        libcli_register_param(&endpoint, &end);
+                        {
+                             /* . . . source-packet-routing srv6 endpoint end <ipv6-address> [flavor [psp |usp | usd] ]*/
+                            static param_t ipv6_addr;
+                            init_param(&ipv6_addr, LEAF, NULL, srv6_prefix_sid_config_handler , NULL, IPV6, "ipv6-address", "SRv6 prefix sid");
+                            libcli_register_param(&end, &ipv6_addr);
+                            libcli_set_param_cmd_code(&ipv6_addr, CMD_CODE_END_SID_CONFIG);
+                            srv6_flavor_cli_subtree_hookup(&ipv6_addr, CMD_CODE_END_SID_CONFIG, srv6_prefix_sid_config_handler );
+                        }
+                    }
+
+                    {
+                        /* config node <node-name> protocol source-packet-routing srv6 endpoint  
+                            end-x-sid  . .. */
+                        static param_t end_x;
+                        init_param(&end_x, CMD, "end-x-sid", NULL,
+                                NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-X");
+                        libcli_register_param(&endpoint, &end_x);
+                        {
+                            /*config node <node-name> protocol source-packet-routing srv6 endpoint end-x <oif-name> ... */
+                            static param_t oif_name;
+                            init_param(&oif_name, LEAF, NULL, srv6_adjacency_sid_config_handler, NULL, STRING, "oif-name", "Outgoing Interface Name");
+                            libcli_register_param(&end_x, &oif_name);
+                            libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
+                            srv6_flavor_cli_subtree_hookup(&oif_name, 
+                                IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
+                        }
+                    }
+
+
+                    {
+                        /* config node <node-name> protocol source-packet-routing srv6 endpoint 
+                            end-b6-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop 
+                            <oif-name> [flavor [psp | usp | usd ]] */
+                        static param_t end_b6_encaps;
+                        init_param(&end_b6_encaps, CMD, "end-b6-encaps", NULL,
+                                NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-B6-ENCAPS");
+                        libcli_register_param(&endpoint, &end_b6_encaps);
+                        {
+                            static param_t seg_lst;
+                            init_param(&seg_lst, CMD, "segment-list", NULL,
+                                    NULL, INVALID, NULL, "Configure SRv6 Segment List");
+                            libcli_register_param(&end_b6_encaps, &seg_lst);
+                            {
+                                static param_t segment;
+                                init_param(&segment, LEAF, NULL, srv6_end_b6_encaps_config_handler, NULL, IPV6, "segment", "ipv6-address segment");                        
+                                libcli_register_param(&seg_lst, &segment);
+                                libcli_set_param_cmd_code(&segment, IPV6_SRV6_END_B6_ENCAPS_SID_CONFIG);
+                                libcli_param_recursive(&segment);
+                            }                    
+                        }                
+                    }
+
+                    {
+                        /* config node <node-name> protocol source-packet-routing srv6 endpoint 
+                        end-b6-x-encaps segment-list <seg1> <seg2> <seg3> .... <segn> nexthop 
+                        <oif-name> [flavor [psp | usp | usd ]]*/
+                        static param_t end_b6_x_encaps;
+                        init_param(&end_b6_x_encaps, CMD, "end-b6-x-encaps", NULL,
+                                NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-B6-X-ENCAPS");
+                        libcli_register_param(&endpoint, &end_b6_x_encaps);
+                        {
+                            static param_t seg_lst;
+                            init_param(&seg_lst, CMD, "segment-list", NULL,
+                                    NULL, INVALID, NULL, "Configure SRv6 Segment List");
+                            libcli_register_param(&end_b6_x_encaps, &seg_lst);
+                            {
+                                static param_t segment;
+                                init_param(&segment, LEAF, NULL, NULL, NULL, IPV6, "segment", "ipv6-address segment");                        
+                                libcli_register_param(&seg_lst, &segment);
+                                libcli_param_recursive(&segment);
+                                {
+                                    /* . .. nexthop <if-name>*/
+                                    static param_t nexthop;
+                                    init_param(&nexthop, CMD, "nexthop", NULL, NULL, INVALID, NULL, "Next Hop Interface Name");
+                                    libcli_register_param(&segment, &nexthop);
+                                    {
+                                            static param_t oif_name;
+                                            init_param(&oif_name, LEAF, NULL, srv6_end_b6_x_encaps_config_handler, 
+                                                NULL, STRING, "oif-name", "Outgoing Interface Name");
+                                            libcli_register_param(&nexthop, &oif_name);
+                                            libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_END_B6_ENCAPS_X_SID_CONFIG);
+                                    }
+                                }
+                            }                    
+                        }                
+                    }
+
+                }
+                /* . . . source-packet-routing srv6 locator <loc-name> <ipv6-address> <prefix-len> */
                 static param_t locator;
                 init_param(&locator, CMD, "locator", NULL, NULL, INVALID, NULL, "Configure SRv6 Locator");
                 libcli_register_param(&srv6, &locator);

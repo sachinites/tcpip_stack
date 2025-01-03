@@ -94,6 +94,7 @@ typedef uint16_t pkt_size_t;
 /* Protocol IDs*/
 #define PROTO_STATIC 101
 #define PROTO_ISIS       0x83
+#define PROTO_ISIS_SRv6 0x84  // not standard
 #define PROTO_SRv6 115
 #define PROTO_ANY       (0xFFFF - 1)
 
@@ -131,6 +132,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"ip-in-ip";
         case PROTO_SRv6:
             return (unsigned char *)"srv6";
+        case PROTO_ISIS_SRv6:
+            return (unsigned char *)"isis-srv6";
         case PROTO_SRH:
             return (unsigned char *)"srh";
         default:
@@ -156,6 +159,7 @@ tcpip_protocol_classification(uint16_t proto) {
         case ICMP_PROTO:
             return APPLICATION_LAYER;
         case PROTO_ISIS:
+        case PROTO_ISIS_SRv6:
             return LINK_LAYER;
         case TCP_PROTO:
         case UDP_PROTO:

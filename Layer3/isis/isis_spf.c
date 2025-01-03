@@ -119,7 +119,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Clear all routes except direct routes
         ToDO : This API to be replaced with CP API
     */
-    dp_ipv6_clear_table (rt_table, PROTO_ISIS);
+    dp_ipv6_clear_table (rt_table, PROTO_ISIS_SRv6);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -189,7 +189,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     node_get_intf_by_ifindex (spf_root, nexthop->ifindex),
                                                 0, spf_result->spf_metric, 
                                                 ted_prefix->endfn, 
-                                                PROTO_SRv6);
+                                                PROTO_ISIS_SRv6);
 
                     count++;
 

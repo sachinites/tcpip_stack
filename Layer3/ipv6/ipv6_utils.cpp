@@ -41,9 +41,22 @@ ipv6_auto_generate_link_local_address(
     (*link_local_addr)[15] = (*mac)[5];
 }
 
+extern int cprintf (const char* format, ...);
+
 /* Returns true if the ipv6 address 'prefix' lies in subnet of 'locator'/prefix_len */
-bool ipv6_address_is_subnet(uint8_t (*prefix)[16], uint8_t prefix_len, 
+bool ipv6_address_is_subnet (uint8_t (*prefix)[16], uint8_t prefix_len, 
                                                 uint8_t (*prefix_to_be_checked)[16]) {
+
+#if 0
+    char buffer1[48];
+    char buffer2[48];
+
+    inet_ntop (AF_INET6, prefix, buffer1, 16);
+    inet_ntop (AF_INET6, prefix_to_be_checked, buffer2, 16);
+
+    cprintf ("Checking if %s falls in subnet %s/%d\n", buffer2, buffer1, prefix_len);
+#endif 
+
     // The number of full bytes we need to consider based on prefix_len
     uint8_t full_bytes = prefix_len / 8;
     uint8_t remaining_bits = prefix_len % 8;
@@ -54,7 +67,7 @@ bool ipv6_address_is_subnet(uint8_t (*prefix)[16], uint8_t prefix_len,
     }
 
     // If there are remaining bits, mask them and compare
-    if (remaining_bits > 0) {
+    if (remaining_bits > 0){ 
         uint8_t mask = 0xFF << (8 - remaining_bits);
         if (( (*prefix_to_be_checked)[full_bytes] & mask) != ((*prefix)[full_bytes] & mask)) {
             return false; // The remaining bits do not match

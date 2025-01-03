@@ -101,7 +101,8 @@ typedef enum {
 
     proto_nxthop_first,
     proto_nxthop_static = proto_nxthop_first,
-     proto_nxthop_srv6, // pref 14
+    proto_nxthop_srv6, // pref 14
+    proto_nxthop_isis_srv6,
     proto_nxthop_isis, // pref 15
     proto_nxthop_max
 
@@ -115,6 +116,8 @@ next_next_hop_proto ( nxthop_proto_id_t proto_id ) {
         case proto_nxthop_static:
             return proto_nxthop_srv6;
         case proto_nxthop_srv6:
+            return proto_nxthop_isis_srv6;
+        case proto_nxthop_isis_srv6:
             return proto_nxthop_isis;
         case proto_nxthop_isis:
             return proto_nxthop_max;
@@ -146,6 +149,8 @@ l3_rt_map_proto_id_to_nxthop_index(uint16_t proto_id) {
             return proto_nxthop_isis;
         case PROTO_SRv6:
             return proto_nxthop_srv6;
+        case PROTO_ISIS_SRv6:
+            return proto_nxthop_isis_srv6;
         default:
         ;
     }
@@ -162,6 +167,8 @@ l3_rt_map_nxthop_index_proto_std(uint16_t proto_index) {
             return PROTO_ISIS;
         case proto_nxthop_srv6:
             return PROTO_SRv6;
+        case proto_nxthop_isis_srv6:
+            return PROTO_ISIS_SRv6;
         default:
         ;
     }

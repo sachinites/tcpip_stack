@@ -8,7 +8,6 @@
 #include "../../common/cp2dp.h"
 
 extern graph_t *topo;
-extern void  srv6_build_cli_tree (param_t *root);
 extern void display_node_interfaces (param_t *param, Stack_t *tlv_stack);
 extern void srv6_build_cli_run_tree (param_t *root);
 extern uint8_t 
@@ -224,10 +223,9 @@ ipv6_build_cli_tree (param_t *root)
                     static param_t mask;
                     init_param(&mask, LEAF, NULL, ipv6_config_handler, NULL, INT, "mask", "IPv6 Mask [0-128]");
                     libcli_register_param(&ipv6_addr, &mask);
-                    libcli_set_param_cmd_code(&mask,  IPV6_RT_CONFIG);       
+                    libcli_set_param_cmd_code(&mask,  IPV6_RT_CONFIG); 
 
-                    /* Mount SRV6 CLIs here*/
-                    srv6_build_cli_tree (&mask);
+                    /* Mount SRV6 static route CLIs here*/
 
                     {
                         static param_t nexthop;

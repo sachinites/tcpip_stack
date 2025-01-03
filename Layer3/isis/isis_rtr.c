@@ -191,11 +191,16 @@ isis_is_protocol_admin_shutdown(node_t *node) {
     return false;
 }
 
+extern void
+dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id);
+
 static void
 isis_schedule_route_delete_task(node_t *node,
         isis_event_type_t event_type){
 
     clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
+    dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_ISIS);
+    dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_SRv6);
 
     isis_check_and_shutdown_protocol_now(node,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
