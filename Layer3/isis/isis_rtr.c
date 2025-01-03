@@ -199,8 +199,8 @@ isis_schedule_route_delete_task(node_t *node,
         isis_event_type_t event_type){
 
     clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
-    dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_ISIS);
-    dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_ISIS_SRv6);
+    dp_ipv6_clear_table (NODE_V6RT_TABLE(node), PROTO_ISIS);
+    dp_ipv6_clear_table (NODE_V6RT_TABLE(node), PROTO_ISIS_SRv6);
 
     isis_check_and_shutdown_protocol_now(node,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);

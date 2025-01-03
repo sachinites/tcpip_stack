@@ -194,6 +194,7 @@ typedef struct l3_route_{
     uint32_t spf_metric[proto_nxthop_max];
     int nxthop_idx;
     time_t install_time;
+    char padding3[4];
     glthread_t notif_glue;
     glthread_t flash_glue;
     uint32_t rt_ref_count;
