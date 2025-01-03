@@ -84,11 +84,11 @@ ipv6_copy_bitmap (uint8_t (*v6_addr)[16], bitmap_t *bm) {
 
     int i;
     
-    uint8_t *bm_array = (uint8_t *) (bm->bits);
+    uint8_t *bm_array = (uint8_t *) (bm->bits + bm->next);
 
     for (i = 0; i < 16; i++) {
         bm_array[i] = (*v6_addr)[i];
     }
 
-    bm->next = bm->tsize;
+    bm->next += 128;
 }
