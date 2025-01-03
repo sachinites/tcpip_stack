@@ -45,7 +45,8 @@ srv6_get_flavor (node_t *node, uint8_t (*dst_addr)[16], v6nexthop_t **nexthop) {
 
     *nexthop = nxt_nexthop;
 
-    if (nxt_nexthop->proto != PROTO_SRv6) {
+    if (nxt_nexthop->proto != PROTO_SRv6 && 
+            nxt_nexthop->proto != PROTO_ISIS_SRv6) {
         return 0;
     }
 

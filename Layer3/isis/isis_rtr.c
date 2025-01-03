@@ -200,7 +200,7 @@ isis_schedule_route_delete_task(node_t *node,
 
     clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
     dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_ISIS);
-    dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_SRv6);
+    dp_ipv6_clear_table (NODE_RT_TABLE(node), PROTO_ISIS_SRv6);
 
     isis_check_and_shutdown_protocol_now(node,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
@@ -420,8 +420,8 @@ isis_init (node_t *node ) {
 void
 isis_one_time_registration() {
 
-    nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
-    nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
+    //nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
+    //nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
 }
 
 void

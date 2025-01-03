@@ -65,6 +65,7 @@ v6_nexthop_compare (v6nexthop_t *nh1, v6nexthop_t *nh2) {
     switch (nh1->proto)
     {
         case PROTO_SRv6:
+        case PROTO_ISIS_SRv6:
             if (nh1->u.srv6.endfn != nh2->u.srv6.endfn) return 1;
             
             if ((!nh1->u.srv6.segment_lst && nh2->u.srv6.segment_lst) || 

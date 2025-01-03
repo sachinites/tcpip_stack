@@ -437,7 +437,7 @@ bool
         return false;
     }
 
-    if (oif || (proto == PROTO_SRv6)) {
+    if (oif || (proto == PROTO_SRv6 || proto == PROTO_ISIS_SRv6)) {
 
         nexthop = new v6nexthop_t;
         nexthop->ifindex = oif ? oif->ifindex : 0;
@@ -451,7 +451,7 @@ bool
         nexthop->flags = rt_flags;
         route->is_direct = false;
 
-        if (proto == PROTO_SRv6)
+        if (proto == PROTO_SRv6 || proto == PROTO_ISIS_SRv6)
         {
             nexthop->u.srv6.endfn = endfn;
 

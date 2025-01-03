@@ -174,7 +174,8 @@ layer3_ipv6_route_pkt (node_t *node,
         return;
     }
 
-    if (nexthop->proto == PROTO_SRv6 ) {
+    if (nexthop->proto == PROTO_SRv6 || 
+         nexthop->proto == PROTO_ISIS_SRv6) {
 
         /* Do SRv6 forwarding */
         Process_Srv6_Packet (node, 
