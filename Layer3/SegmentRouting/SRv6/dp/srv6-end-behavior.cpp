@@ -291,7 +291,7 @@ fn_template(srv6_END_B6_ENCAP) {
 
     Srv6_encapsulate (pkt_block, new_srh);
     
-    free (new_srh);
+    XFREE (new_srh);
 
     srv6_ipv6_forward(node, pkt_block, 0);
 }

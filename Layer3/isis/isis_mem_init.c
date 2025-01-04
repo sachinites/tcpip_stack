@@ -11,6 +11,7 @@
 #include "isis_policy.h"
 #include "isis_advt.h"
 #include "isis_struct.h"
+#include "isis_srv6.h"
 
 void
  isis_mem_init() {
@@ -41,4 +42,8 @@ void
      MM_REG_STRUCT(0, isis_common_hdr_t);
      MM_REG_STRUCT(0, isis_p2p_hello_pkt_hdr_t);
      MM_REG_STRUCT(0, isis_lan_hello_pkt_hdr_t);
+     MM_REG_STRUCT(0, isis_srv6_locator_t);
+     MM_REG_STRUCT(0, isis_srv6_pfx_sid_t);
+     MM_REG_STRUCT(0, isis_srv6_adj_sid_t);
+     MM_REG_STRUCT(0, isis_srv6_config_t);
  }

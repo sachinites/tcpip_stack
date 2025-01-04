@@ -418,7 +418,7 @@ bool
 
     if (!route) {
 
-        route = (ipv6_route_t *)calloc (1, sizeof (ipv6_route_t));
+        route = (ipv6_route_t *) XCALLOC (0, 1,  ipv6_route_t);
         memcpy (route->prefix.addr, prefix->addr, 16);
         route->is_direct = true;
         route->prefix_len = prefix_len;

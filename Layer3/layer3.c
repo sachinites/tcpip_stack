@@ -56,6 +56,7 @@
 #include "../Interface/InterfaceUApi.h"
 #include "../common/cp2dp.h"
 #include "../Tracer/tracer.h"
+#include "ipv6/ipv6_route.h"
 
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
@@ -947,6 +948,11 @@ layer3_mem_init() {
 
     MM_REG_STRUCT(0, ip_hdr_t);
     MM_REG_STRUCT(0, rt_table_t);
-    //MM_REG_STRUCT(0, nexthop_t);
+    MM_REG_STRUCT(0, nexthop_t);
     MM_REG_STRUCT(0, l3_route_t);
+    //MM_REG_STRUCT(0, v6nexthop_t);
+    MM_REG_STRUCT(0, ipv6_route_t);
+    MM_REG_STRUCT(0, ipv6_addr_t);
+    MM_REG_STRUCT(0, ipv6_hdr_t);
+    MM_REG_STRUCT(0, srh_hdr_t);
 }

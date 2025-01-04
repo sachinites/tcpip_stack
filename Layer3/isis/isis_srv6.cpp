@@ -335,6 +335,8 @@ isis_withdraw_locator_tlv27_instance (node_t *node, isis_adv_data_t *advt_data) 
     while ((curr = dequeue_glthread_first (&advt_data->u.srv6_loc.pfxsid_list_head))) {
         pfxsid_adv_data = srv6_pfxsid_sibling_glue_to_pfxsid_adv_data (curr);
         isis_advt_data_clear_backlinkage(node_info, pfxsid_adv_data);
+        advt_data->tlv_size -= pfxsid_adv_data->tlv_size;
+        advt_data->u.srv6_loc.subtlv_len -= pfxsid_adv_data->tlv_size;
         isis_free_advt_data(pfxsid_adv_data);
     }
 

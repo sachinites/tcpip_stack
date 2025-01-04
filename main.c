@@ -65,6 +65,7 @@ extern void layer4_mem_init();
 extern void spf_algo_mem_init(); 
 extern void isis_mem_init();
 extern void ted_mem_init();
+extern void srv6_mem_init();
 extern void tcp_stack_miscellaneous_mem_init();
 
 graph_t *topo = NULL;
@@ -82,6 +83,7 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     layer4_mem_init();
     //spf_algo_mem_init();
     isis_mem_init();
+    srv6_mem_init();
     ted_mem_init();
     srand((unsigned int) time(NULL));
 

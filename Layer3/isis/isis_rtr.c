@@ -18,7 +18,6 @@
 #include "isis_advt.h"
 #include "isis_srv6.h"
 
-extern void isis_mem_init();
 void isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
         void *rt_notif_data, unsigned int arg_size);

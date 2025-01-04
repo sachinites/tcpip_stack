@@ -172,7 +172,7 @@ SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
 srh_hdr_t *
 srh_hdr_prepare (ipv6_addr_t *segment_lst, uint8_t n) {
 
-    srh_hdr_t *srh = (srh_hdr_t *)calloc(1, sizeof(srh_hdr_t) + n * 16);
+    srh_hdr_t *srh = (srh_hdr_t *)XCALLOC_BUFF(0, sizeof(srh_hdr_t) + n * 16);
     srh->nexthdr = 0;
     srh->hdrlen = sizeof(srh_hdr_t) + n * 16;
     srh->type = 4;

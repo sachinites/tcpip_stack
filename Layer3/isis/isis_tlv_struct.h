@@ -74,6 +74,7 @@ typedef struct isis_tlv_27_ {
     // 1 to 128
     uint8_t loc_size; 
     uint8_t locator[0];
+    /* Never Access this member directly*/
     uint8_t subtlv_len;
 
 } locator_tlv_t;

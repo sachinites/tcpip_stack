@@ -256,6 +256,7 @@ ted_delete_node_by_id (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no) {
     node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(node);
     ted_v6prefix_tree_cleanup_tree(node);
+    ted_srv6prefixsid_tree_cleanup_tree(node);
     ted_db->cleanup_app_data (node);
     ted_assert_check_protocol_data(node);
     XFREE(node);
@@ -271,6 +272,7 @@ ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     ted_node->is_installed_in_teddb = false;
     ted_prefix_tree_cleanup_tree(ted_node);
     ted_v6prefix_tree_cleanup_tree(ted_node);
+    ted_srv6prefixsid_tree_cleanup_tree(ted_node);
     ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
@@ -285,6 +287,7 @@ ted_delete_lone_fake_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     avltree_remove(&ted_node->avl_glue, &ted_db->teddb);
     ted_prefix_tree_cleanup_tree(ted_node);
     ted_v6prefix_tree_cleanup_tree(ted_node);
+    ted_srv6prefixsid_tree_cleanup_tree(ted_node);
     ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
@@ -781,4 +784,5 @@ ted_mem_init() {
     MM_REG_STRUCT(0, ted_template_nbr_data_t);
     MM_REG_STRUCT(0, ted_template_node_data_t);
     MM_REG_STRUCT(0, ted_prefix_t);
+    MM_REG_STRUCT(0, ted_v6prefix_t);
 }
