@@ -447,7 +447,7 @@ Process_Srv6_Packet (
 
     /* If the SRV6 enabled node recv the ipv6 pkt with  SL == 1
         Apply PSP flavors advertised by the destination node and forward the pkt*/
-    if (srh->segments_left == 1) {
+    if (srh && srh->segments_left == 1) {
 
         Srv6_apply_penultimate_processing (node, pkt_block, ipv6_hdr, srh);
         return;
@@ -508,7 +508,10 @@ Process_END_flavors_ultimate (node_t *node,
                 srv6_END_w_PSP_USP_USD (node, pkt_block, ipv6_hdr, srh, nexthop);
                 break;
             default:
-                assert(0);
+                /* Apply default end point behavior when flavor is not applicable for 
+                    ultimate end point node, for ex flavor applied is PSP */
+                srv6_END(node, pkt_block, ipv6_hdr, srh, nexthop);
+                break;
     }
 }
 

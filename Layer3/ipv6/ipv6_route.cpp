@@ -163,6 +163,7 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     case proto_nxthop_isis:
                     break;
                     case proto_nxthop_srv6:
+                    case proto_nxthop_isis_srv6:
 
                         cprintf ("   SRv6 Fn: %s  ",
                             srv6_end_fn_str(nexthop->u.srv6.endfn));
