@@ -448,8 +448,6 @@ srv6_adjacency_sid_config_handler
             node_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
             ipv6_addr = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "mask"))
-            prefix_len = atoi((const char *)tlv->value);
         else if  (parser_match_leaf_id (tlv->leaf_id, "oif-name"))
             oif_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "flavor")) {
@@ -781,23 +779,29 @@ srv6_build_global_config_cli_tree (param_t *root) {
                     }
 
                     {
-                        /* config node <node-name> protocol source-packet-routing srv6 endpoint  
-                            end-x-sid  . .. */
+                        /* config node <node-name> protocol source-packet-routing srv6 endpoint  end-x-sid  . .. */
                         static param_t end_x;
                         init_param(&end_x, CMD, "end-x-sid", NULL,
                                 NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-X");
                         libcli_register_param(&endpoint, &end_x);
                         {
-                            /*config node <node-name> protocol source-packet-routing srv6 endpoint end-x <oif-name> ... */
-                            static param_t oif_name;
-                            init_param(&oif_name, LEAF, NULL, srv6_adjacency_sid_config_handler, NULL, STRING, "oif-name", "Outgoing Interface Name");
-                            libcli_register_param(&end_x, &oif_name);
-                            libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
-                            srv6_flavor_cli_subtree_hookup(&oif_name, 
-                                IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
+                             /* . . . source-packet-routing srv6 endpoint end-x-sid <ipv6-address> ... */
+                            static param_t ipv6_addr;
+                            init_param(&ipv6_addr, LEAF, NULL,  NULL,  NULL, IPV6,  "ipv6-address", "SRv6 end-x-sid");
+                            libcli_register_param(&end_x, &ipv6_addr);
+                            {
+                                /*config node <node-name> protocol source-packet-routing srv6 endpoint end-x-sid 
+                                    <ipv6-address>  <oif-name> [flavor [psp |usp | usd] ]*/
+                                static param_t oif_name;
+                                init_param(&oif_name, LEAF, NULL, srv6_adjacency_sid_config_handler, 
+                                    NULL, STRING, "oif-name", "Outgoing Interface Name");
+                                libcli_register_param(&ipv6_addr, &oif_name);
+                                libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
+                                srv6_flavor_cli_subtree_hookup(&oif_name, 
+                                    IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
+                            }
                         }
                     }
-
 
                     {
                         /* config node <node-name> protocol source-packet-routing srv6 endpoint 
