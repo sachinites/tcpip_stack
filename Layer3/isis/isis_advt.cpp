@@ -242,6 +242,25 @@ isis_free_advt_data (isis_adv_data_t *adv_data) {
     assert (!(adv_data->flags & ISIS_ADVT_DATA_F_ADVERTISED)) ;
     assert (!adv_data->fragment);
     assert (!adv_data->src.holder);
+
+    /* check and delete Subtlvs*/
+    switch (adv_data->tlv_no) {
+
+        case ISIS_TLV_LOCATOR:
+        {
+            glthread_t *curr;
+            isis_adv_data_t *pfxsid_adv_data;
+            while ((curr = dequeue_glthread_first (&adv_data->u.srv6_loc.pfxsid_list_head))) {
+                pfxsid_adv_data = srv6_pfxsid_sibling_glue_to_pfxsid_adv_data(curr);
+                remove_glthread (&pfxsid_adv_data->u.srv6_pfxsid.sibling_glue);
+                adv_data->tlv_size -= pfxsid_adv_data->tlv_size;
+                adv_data->u.srv6_loc.subtlv_len -= pfxsid_adv_data->tlv_size;
+                isis_free_advt_data(pfxsid_adv_data);
+            }
+            assert (!adv_data->u.srv6_loc.subtlv_len);
+        }
+        break;
+    }
     XFREE(adv_data);
 }
 
@@ -285,13 +304,19 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             bitmap_free_internal(&mask_bm);            
         }
         break;
-        
         case ISIS_TLV_LOCATOR:
+        {
             remove_glthread(&adv_data->u.srv6_loc.sibling_glue);
-        break;
+            /* Clear back linkage of SUBTLVs*/
+            glthread_t *curr;
+            isis_adv_data_t *pfxsid_adv_data;
+            ITERATE_GLTHREAD_BEGIN (&adv_data->u.srv6_loc.pfxsid_list_head, curr) {
 
-        
-        /* SubTLVs dont point to src*/
+                pfxsid_adv_data = srv6_pfxsid_sibling_glue_to_pfxsid_adv_data(curr);
+                isis_advt_data_clear_backlinkage(node_info, pfxsid_adv_data);
+
+            } ITERATE_GLTHREAD_END (&adv_data->u.srv6_loc.pfxsid_list_head, curr);
+        }
         break;
         default: ;
     }
