@@ -16,8 +16,6 @@ typedef struct srv6_node_info_ {
     mtrie_t *configured_pfx_sids;
     /* Configured Adjacency Sids */
     mtrie_t *configured_adj_sids;    
-    /* SRv6 IGP routes */
-    mtrie_t *igp_routes;
     /* Tracer*/
     tracer_t *tr;
 

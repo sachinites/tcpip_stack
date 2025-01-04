@@ -96,7 +96,7 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
 }
 
 extern void
-dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id);
+dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id);
 
 /* This is a cheat function, which install ipv6 ISIS routes in ipv6 RIB using
     ipv4 spf calculated nexthops. 
@@ -119,7 +119,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Clear all routes except direct routes
         ToDO : This API to be replaced with CP API
     */
-    dp_ipv6_clear_table (rt_table, PROTO_ISIS_SRv6);
+    dp_ipv6_clear_rt_table_sync (rt_table, PROTO_ISIS_SRv6);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/

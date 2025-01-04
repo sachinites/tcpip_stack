@@ -188,8 +188,9 @@ v6_rt_table_show (rt_table_t *rt_table) {
 extern v6nexthop_t *
 l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
 
+/* Ssync Method of Deleting the IPV6 Routing Table */
 void
-dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id){
+dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
     glthread_t *curr;
@@ -230,4 +231,123 @@ dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id){
     }
      
      //rt_table_kick_start_notif_job(rt_table);
+}
+
+/* Async Method of Deleting the IPV6 Routing Table */
+
+typedef struct rt_table_flush_meta_data_ {
+
+    rt_table_t *v4_rt_table;
+    rt_table_t *v6_rt_table;
+    uint16_t proto_id;
+
+} rt_table_flush_meta_data_t;
+
+static void 
+dp_ipv6_clear_table_with_preemption (
+        node_t *node, 
+        rt_table_t *rt_table, uint16_t proto_id);
+
+static void 
+rt_v6_table_flush_job (event_dispatcher_t *ev, void *arg, uint32_t arg_size ) {
+
+    rt_table_flush_meta_data_t *rt_table_flush_meta_data = 
+        (rt_table_flush_meta_data_t *)arg;
+
+    dp_ipv6_clear_table_with_preemption (
+                                        (node_t *)(ev->app_data),
+                                        rt_table_flush_meta_data->v6_rt_table, 
+                                       rt_table_flush_meta_data->proto_id);
+
+    XFREE (rt_table_flush_meta_data);
+}
+
+#define RT_TABLE_PREEMPT_THRESHOLD_COUNT    10
+
+void 
+dp_ipv6_clear_table_with_preemption (node_t *node, rt_table_t *rt_table, uint16_t proto_id) {
+
+    int count;
+    glthread_t *curr;
+    ipv6_route_t *l3_route;
+    mtrie_node_t *mnode;
+    v6nexthop_t *nexthop;
+    uint32_t it_count = 0;
+
+    nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
+
+    curr = glthread_get_next(&rt_table->route_list.list_head);
+
+    while(curr) {
+
+        mnode = list_glue_to_mtrie_node(curr);
+
+        l3_route = (ipv6_route_t *)(mnode->data);
+       assert(l3_route);
+
+        nexthop = l3_v6route_get_active_nexthop (l3_route);
+
+        if (!nexthop) {
+            curr = glthread_get_next(curr);
+            it_count++;
+            continue;
+        }
+
+        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+        
+        l3_route->nh_count -= count;
+
+        if (l3_route->nh_count) {
+            curr = glthread_get_next(curr);
+            it_count++;
+            continue;
+        }
+
+       curr = mtrie_node_delete_while_traversal (&rt_table->route_list, mnode);
+       it_count++;
+       //rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
+        l3_v6route_dec_ref_count(l3_route);
+
+        if (it_count == RT_TABLE_PREEMPT_THRESHOLD_COUNT) {
+
+            /* Preempt and reschedule again*/
+            rt_table_flush_meta_data_t *rt_table_flush_meta_data = 
+                (rt_table_flush_meta_data_t * ) XCALLOC (0, 1, rt_table_flush_meta_data_t);
+
+            rt_table_flush_meta_data->v6_rt_table = rt_table;
+            rt_table_flush_meta_data->proto_id = proto_id;
+
+            task_create_new_job (EV_PURGER(node), 
+                    (void *)rt_table_flush_meta_data, 
+                    rt_v6_table_flush_job, 
+                    TASK_ONE_SHOT, 
+                    TASK_PRIORITY_GARBAGE_COLLECTOR );
+
+            return;
+        }
+    }
+
+     //rt_table_kick_start_notif_job(rt_table);    
+}
+
+/* Let us trigger the job to flush the routing table at priority lower than
+    pkt processing so that incoming packets dont starve packet procesisng
+    in case we are flushing millions of routes.
+*/
+void
+dp_ipv6_clear_rt_table_async (node_t *node, uint16_t proto_id) {
+
+    rt_table_t *v6_rt_table = NODE_V6RT_TABLE (node);
+
+    rt_table_flush_meta_data_t *rt_table_flush_meta_data = 
+        (rt_table_flush_meta_data_t * ) XCALLOC (0, 1, rt_table_flush_meta_data_t);
+
+    rt_table_flush_meta_data->v6_rt_table = v6_rt_table;
+    rt_table_flush_meta_data->proto_id = proto_id;
+
+    task_create_new_job (EV_DP(node), 
+            (void *)rt_table_flush_meta_data, 
+            rt_v6_table_flush_job, 
+            TASK_ONE_SHOT, 
+            TASK_PRIORITY_COMPUTE );
 }

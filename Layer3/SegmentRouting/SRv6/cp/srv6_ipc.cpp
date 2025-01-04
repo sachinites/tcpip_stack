@@ -102,12 +102,6 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
     return count;
 }
 
-
-static void
-srv6_process_srv6_igp_tlv (node_t *node, uint32_t minor_code) {
-
-}
-
 void 
 srv6_recv_ips_updates(node_t *node, 
                                       ips_major_code_t major_code, 
@@ -119,9 +113,6 @@ srv6_recv_ips_updates(node_t *node,
 
         case IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs:
             srv6_ips_publish_all_local_sids (node, minor_code);
-        break;
-        case IPC_ISIS_SRV6_LSDB_INFO:
-            srv6_process_srv6_igp_tlv(node, minor_code);
         break;
         default: ;
     }

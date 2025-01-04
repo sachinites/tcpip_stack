@@ -38,6 +38,9 @@ np_rt6_table_process_msg(node_t *node, dp_msg_t *dp_msg) ;
                                 uint16_t proto_id);
 
 void
-dp_ipv6_clear_table (rt_table_t *rt_table, uint16_t proto_id);
+dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id);
+
+void
+dp_ipv6_clear_rt_table_async (node_t *node, uint16_t proto_id);
 
 #endif 

@@ -209,14 +209,17 @@ srv6_prefix_sid_config_handler
                     op_mode enable_or_disable) {
 
     tlv_struct_t *tlv;
+    char flavor[3][4];
+    uint8_t flavor_val = 0;
     uint8_t prefix_len = 128;
     node_t *node = NULL;
+    c_string oif_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
-    c_string oif_name = NULL;
-    c_string flavor1 = NULL;
-    c_string flavor2 = NULL;
-    c_string flavor3 = NULL;
+
+    flavor[0][0] = '\0';
+    flavor[1][0] = '\0';
+    flavor[2][0] = '\0';
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -224,41 +227,54 @@ srv6_prefix_sid_config_handler
             node_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
             ipv6_addr = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor1 = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor2 = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor3 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor")) {
+
+            do {
+
+                if (flavor[0][0] == '\0') {
+                    strncpy(flavor[0], (const char *)(tlv->value), 3);
+                    break; 
+                }
+                else if (flavor[1][0] == '\0') {
+                    strncpy(flavor[1], (const char *)(tlv->value), 3);
+                    break; 
+                }
+                else if (flavor[2][0] == '\0') {
+                    strncpy(flavor[2], (const char *)(tlv->value), 3);
+                    break; 
+                }                                
+
+            } while (0);
+        }
 
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
 
-    uint8_t flavor = DEFAULT_FLAVOR;
+    flavor_val = DEFAULT_FLAVOR;
 
-    if (flavor1) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = USP;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
+    if (flavor[0][0] != '\0 ') {
+        if (strncmp((const char *)flavor[0], "psp", 3) == 0) flavor_val = PSP;
+        if (strncmp((const char *)flavor[0], "usp", 3) == 0) flavor_val = USP;
+        if (strncmp((const char *)flavor[0], "usd", 3) == 0) flavor_val = USD;
     }
 
-    if (flavor2) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    if (flavor[1][0] != '\0 ') {
+        if (strncmp((const char *)flavor[1], "psp", 3) == 0) flavor_val |= PSP;
+        if (strncmp((const char *)flavor[1], "usp", 3) == 0) flavor_val |= USP;
+        if (strncmp((const char *)flavor[1], "usd", 3) == 0) flavor_val |= USD;
     }
 
-    if (flavor3) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    if (flavor[2][0] != '\0 ') {
+        if (strncmp((const char *)flavor[2], "psp", 3) == 0) flavor_val |= PSP;
+        if (strncmp((const char *)flavor[2], "usp", 3) == 0) flavor_val |= USP;
+        if (strncmp((const char *)flavor[2], "usd", 3) == 0) flavor_val |= USD;
     }
 
-    Srv6_endpcode_t endpCode = srv6_get_composite_END_endpcode (flavor);
-    
+    Srv6_endpcode_t endpCode = srv6_get_composite_END_endpcode (flavor_val);
+
     if (endpCode == SRV6_END_FN_NONE) {
-        cprintf ("Error : Invalid flavor\n");
+        cprintf ("%s : Error : Invalid flavor\n", node->node_name);
         return -1;
     }
 
@@ -414,14 +430,17 @@ srv6_adjacency_sid_config_handler
 
 
     tlv_struct_t *tlv;
-    uint8_t prefix_len = 0;
+    char flavor[3][4];
+    uint8_t flavor_val = 0;
+    uint8_t prefix_len = 128;
     node_t *node = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
-    c_string flavor1 = NULL;
-    c_string flavor2 = NULL;
-    c_string flavor3 = NULL;
     c_string oif_name = NULL;
+
+    flavor[0][0] = '\0';
+    flavor[1][0] = '\0';
+    flavor[2][0] = '\0';
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -433,12 +452,25 @@ srv6_adjacency_sid_config_handler
             prefix_len = atoi((const char *)tlv->value);
         else if  (parser_match_leaf_id (tlv->leaf_id, "oif-name"))
             oif_name = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor1 = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor2 = tlv->value;
-        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor"))
-            flavor3 = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor")) {
+
+            do {
+
+                if (flavor[0][0] == '\0') {
+                    strncpy(flavor[0], (const char *)(tlv->value), 3);
+                    break; 
+                }
+                else if (flavor[1][0] == '\0') {
+                    strncpy(flavor[1], (const char *)(tlv->value), 3);
+                    break; 
+                }
+                else if (flavor[2][0] == '\0') {
+                    strncpy(flavor[2], (const char *)(tlv->value), 3);
+                    break; 
+                }                                
+
+            } while (0);
+        }
 
     } TLV_LOOP_END;
 
@@ -451,27 +483,27 @@ srv6_adjacency_sid_config_handler
         return -1;
     }
 
-    uint8_t flavor = DEFAULT_FLAVOR;
+    flavor_val = DEFAULT_FLAVOR;
 
-    if (flavor1) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor = PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor = USP;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor = USD;
+    if (flavor[0][0] != '\0 ') {
+        if (strncmp((const char *)flavor[0], "psp", 3) == 0) flavor_val = PSP;
+        if (strncmp((const char *)flavor[0], "usp", 3) == 0) flavor_val = USP;
+        if (strncmp((const char *)flavor[0], "usd", 3) == 0) flavor_val = USD;
     }
 
-    if (flavor2) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    if (flavor[1][0] != '\0 ') {
+        if (strncmp((const char *)flavor[1], "psp", 3) == 0) flavor_val |= PSP;
+        if (strncmp((const char *)flavor[1], "usp", 3) == 0) flavor_val |= USP;
+        if (strncmp((const char *)flavor[1], "usd", 3) == 0) flavor_val |= USD;
     }
 
-    if (flavor3) {
-        if (strncmp((const char *)flavor1, "psp", 3) == 0) flavor |= PSP;
-        if (strncmp((const char *)flavor1, "usp", 3) == 0) flavor |= USP;
-        if (strncmp((const char *)flavor1, "usd", 3) == 0) flavor |= USD;
+    if (flavor[2][0] != '\0 ') {
+        if (strncmp((const char *)flavor[2], "psp", 3) == 0) flavor_val |= PSP;
+        if (strncmp((const char *)flavor[2], "usp", 3) == 0) flavor_val |= USP;
+        if (strncmp((const char *)flavor[2], "usd", 3) == 0) flavor_val |= USD;
     }
 
-    Srv6_endpcode_t endpCode = srv6_get_composite_END_X_endpcode (flavor);
+    Srv6_endpcode_t endpCode = srv6_get_composite_END_X_endpcode (flavor_val);
     
     if (endpCode == SRV6_END_FN_NONE) {
         cprintf ("Error : Invalid flavor\n");
@@ -482,7 +514,7 @@ srv6_adjacency_sid_config_handler
 
         case CONFIG_ENABLE:
         {
-            if (!srv6_is_enable(node)) {
+            if ( !srv6_is_enable(node) ) {
                 cprintf ("Error : srv6 not enabled\n");
                 return -1;
             }
@@ -490,7 +522,7 @@ srv6_adjacency_sid_config_handler
             srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
             srv6_locator_t *loc = &node_info->loc;
 
-            if (is_ipv6_addr_unspecified(&loc->sid.addr)) {
+            if ( is_ipv6_addr_unspecified(&loc->sid.addr) ) {
                 cprintf ("Error : Configure Locator first \n");
                 return -1;
             }

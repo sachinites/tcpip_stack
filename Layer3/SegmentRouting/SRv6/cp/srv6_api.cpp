@@ -36,17 +36,11 @@ srv6_init (node_t *node) {
     node_info->configured_adj_sids = (mtrie_t *)XCALLOC (0, 1, mtrie_t);
     init_mtrie(node_info->configured_adj_sids, 128, 0);    
 
-    node_info->igp_routes = (mtrie_t *)XCALLOC (0, 1, mtrie_t);
-    init_mtrie(node_info->igp_routes, 128, 0);
-
     /* Enable Tracer*/
     snprintf (log_file_name, sizeof (log_file_name), "logs/%s-srv6-log.txt", node->node_name);
     node_info->tr = tracer_init ("srv6", log_file_name, node->node_name, STDOUT_FILENO, 0);
 
     /* Enable ips Joins */
-    /* srv6 is interested in receiving SRv6 Data from ISIS */
-    cp_ips_join  (node, IPC_ISIS_SRV6_LSDB_INFO, IPC_ISIS_SRV6_TLVs ,
-        srv6_recv_ips_updates);
 
     /* Srv6 can entertain bulk sid publish request from IGPs*/
     cp_ips_join (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
@@ -60,7 +54,6 @@ check_and_delete_srv6_node_info (node_t *node) {
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
     assert (!node_info->configured_pfx_sids);
     assert (!node_info->configured_adj_sids);
-    assert (!node_info->igp_routes);
     assert (!node_info->tr);
     XFREE(node_info);
     SRV6_NODE_INFO(node) = NULL;
@@ -88,15 +81,11 @@ srv6_de_init (node_t *node) {
         memset (loc, 0, sizeof (*loc));
     }
 
-    /* Delete IGP routes and delete from RIB*/
-    srv6_delete_all_igp_routes (node);
-
     /* Delete Tracer */
     tracer_deinit (node_info->tr);
     node_info->tr = NULL;
 
     /* Delete ips joins */
-    cp_ips_unjoin  (node, IPC_ISIS_SRV6_LSDB_INFO,  srv6_recv_ips_updates);
     cp_ips_unjoin  (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,  srv6_recv_ips_updates);
 
     /* check and delete srv6 node info*/
@@ -354,18 +343,4 @@ srv6_delete_all_adj_sids (node_t *node) {
     XFREE(node_info->configured_adj_sids);
     node_info->configured_adj_sids = NULL;
     return count;
-}
-
-uint32_t 
-srv6_delete_all_igp_routes (node_t *node) {
-
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
-
-    if (!node_info || !node_info->igp_routes) return 0;
-    
-    mtrie_destroy (node_info->igp_routes);
-    XFREE(node_info->igp_routes);
-    node_info->igp_routes = NULL;
-
-    return 0;
 }

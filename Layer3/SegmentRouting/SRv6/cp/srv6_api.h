@@ -45,7 +45,4 @@ srv6_delete_all_pfx_sids (node_t *node) ;
 uint32_t 
 srv6_delete_all_adj_sids (node_t *node) ;
 
-uint32_t 
-srv6_delete_all_igp_routes (node_t *node);
-
 #endif 
