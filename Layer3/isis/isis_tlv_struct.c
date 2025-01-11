@@ -76,7 +76,8 @@ isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len)
                 pfxsid_subtlv = (srv6_pfxsid_subtlv_t *)tlv_value;
                 inet_ntop (AF_INET6, pfxsid_subtlv->prefix, ipv6_addr_str, 16);
 
-                rc += cprintf("\t    Prefix-SID : %s  Endfn : %s  Flags : 0x%x\n",
+                rc += cprintf("\t    SubTLV:%d  len:%d  Prefix-SID : %s  Endfn : %s  Flags : 0x%x\n",
+                    tlv_type, tlv_len2,
                     ipv6_addr_str,
                     srv6_end_fn_str(pfxsid_subtlv->endfn),
                     pfxsid_subtlv->flags);

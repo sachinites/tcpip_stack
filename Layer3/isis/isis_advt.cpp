@@ -1027,7 +1027,9 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                     inet_ntop(AF_INET6, pfxsid_subtlv_advt_data->u.srv6_pfxsid.prefix.addr,
                              ipv6_addr_str, 16);
 
-                    rc += cprintf ("         Prefix-SID : %s  Endfn : %s    Flags : 0x%x\n",
+                    rc += cprintf ("         SubTLV:%d  len:%d  Prefix-SID : %s  Endfn : %s    Flags : 0x%x\n",
+                        pfxsid_subtlv_advt_data->tlv_no,
+                        pfxsid_subtlv_advt_data->tlv_size,
                         ipv6_addr_str, 
                         srv6_end_fn_str( pfxsid_subtlv_advt_data->u.srv6_pfxsid.endfn),
                         pfxsid_subtlv_advt_data->u.srv6_pfxsid.flags);

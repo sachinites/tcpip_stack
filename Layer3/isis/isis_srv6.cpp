@@ -587,6 +587,37 @@ isis_srv6_process_locator_ips (node_t *node,  ips_srv6_data_t *msg ) {
     isis_advertise_locator_tlv27_instance (node, loc, true);
 }
 
+void 
+isis_srv6_process_locator_update_ips (node_t *node,  ips_srv6_data_t *msg ) {
+
+    isis_advt_info_t advt_info;
+    isis_adv_data_t *advt_data;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node);
+
+    isis_srv6_locator_t *loc = &srv6_config->loc;
+
+    /* Learn the locator config from IPS*/
+    memcpy (loc->prefix.addr , msg->u.locator.prefix.addr, 16);
+    loc->metric = msg->u.locator.metric;
+    loc->mt_id = msg->u.locator.mt_id;
+    loc->flags = msg->u.locator.flags;
+    loc->algorithm = msg->u.locator.algorithm;
+    loc->prefix_len = msg->u.locator.prefix_len;
+
+    /* We need to advertise the locator in 3 TLVs */
+
+    /* Advertise the locator in TLV 236 - IPV6 Reach TLV*/
+    isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
+
+    /* Advertise the Locator in Locator in MT TLV */
+    isis_advertise_locator_ipv6_reachability_mt_tlv237 (node, loc);
+
+    /* Advertise the locator in locator TLV 27 */
+    isis_advertise_locator_tlv27_instance (node, loc, true);
+}
+
 
 void
 isis_add_prefix_sid_to_locator (node_t *node, ips_srv6_data_t *msg) {

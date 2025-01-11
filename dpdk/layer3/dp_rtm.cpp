@@ -445,7 +445,6 @@ bool
             memcpy(nexthop->gw.addr, gw->addr, 16);
         nexthop->proto = proto;
         nexthop->oif = oif ? oif->GetSharedPtr() : nullptr;
-        nexthop->ref_count = 0;
         nexthop->metric = spf_metric;
         nexthop->hit_count = 0;
         nexthop->flags = rt_flags;
@@ -491,7 +490,7 @@ bool
     case 0:
         tracer (node->dptr, DRTM | DERR, "%s : Error : Nexthop already exists\n", 
             node->node_name);
-        delete nexthop;
+        delete nexthop; // dont use unlock, since we never locked it
         return false;
     case -1:
         v6nh_insert_new_nexthop_nh_array(
@@ -500,9 +499,10 @@ bool
         break;
     case 1:
         /* Replace the nexthop*/
-        delete route->nexthops[proto_id][index];
+        v6nexthop_unlock (route->nexthops[proto_id][index]);
         route->nexthops[proto_id][index] = nullptr;
         route->nexthops[proto_id][index] = nexthop;
+        v6nexthop_lock (nexthop);
         break;
     }
 

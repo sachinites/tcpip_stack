@@ -87,8 +87,7 @@ srv6_ips_publish_all_local_sids(node_t *node, uint32_t minor_code) {
 
             memcpy(ips_srv6_data->u.adj_sid.prefix.addr, adjsid->sid.addr, 16);
             ips_srv6_data->u.adj_sid.flags = adjsid->flags;
-            ips_srv6_data->u.adj_sid.endfn = adjsid
-            ->endP;
+            ips_srv6_data->u.adj_sid.endfn = adjsid->endP;
 
             cp_ips_send(node, IPC_SRV6_INFO,
                         IPC_SRV6_ADJ_SID_ADD,

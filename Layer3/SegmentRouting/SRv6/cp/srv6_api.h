@@ -23,6 +23,7 @@ srv6_local_sid_config_post_processing (
             uint8_t prefix_len,
             Srv6_endpcode_t endfn,
             uint8_t flavor,
+            uint8_t algo,
             ipv6_addr_t *gw,
             Interface *oif, 
             uint32_t metric,

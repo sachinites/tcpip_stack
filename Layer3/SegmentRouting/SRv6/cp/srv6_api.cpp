@@ -94,17 +94,22 @@ srv6_de_init (node_t *node) {
 }
 
 void
+
+
+
 srv6_local_sid_config_post_processing (
             node_t *node,
             ipv6_addr_t *pfxsid,
             uint8_t pfxsid_len,
             Srv6_endpcode_t pfxsid_endfn,
             uint8_t flags,
+            uint8_t algo,
             ipv6_addr_t *gw,
             Interface *oif,
             uint32_t metric,
             uint32_t ipc_minor_code_event) {
 
+        bool install_rt = false;
         ipv6_addr_t rt_addr;
         uint8_t rt_prefix_len;
 
@@ -124,13 +129,24 @@ srv6_local_sid_config_post_processing (
                 ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
                 ips_srv6_data->u.locator.mt_id = 0; /* Default */
                 ips_srv6_data->u.locator.metric = metric;
-                ips_srv6_data->u.locator.algorithm = 0; /* Default*/
+                ips_srv6_data->u.locator.algorithm = algo;
                 ips_srv6_data->u.locator.flags = flags;
                 /* Route to be installed */
+                install_rt = true;
                 memcpy(rt_addr.addr, loc->sid.addr, 16);
                 rt_prefix_len = loc->prefix_len;
             }
             break;
+            case IPC_ISIS_SRV6_LOCATOR_UPDATE:
+            {
+                memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
+                ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
+                ips_srv6_data->u.locator.mt_id = 0; /* Default */
+                ips_srv6_data->u.locator.metric = metric;
+                ips_srv6_data->u.locator.algorithm = algo; 
+                ips_srv6_data->u.locator.flags = flags;
+            }
+            break;  
             case IPC_ISIS_SRV6_PREFIX_SID_ADD:
             {
                 memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
@@ -140,6 +156,7 @@ srv6_local_sid_config_post_processing (
                 ips_srv6_data->u.prefix_sid.endfn = pfxsid_endfn;
                 ips_srv6_data->u.prefix_sid.flags = flags;
                 /* Route to be installed */
+                install_rt = true;
                 memcpy(rt_addr.addr, pfxsid->addr, 16);
                 rt_prefix_len = pfxsid_len;
             }
@@ -154,6 +171,7 @@ srv6_local_sid_config_post_processing (
                 ips_srv6_data->u.adj_sid.flags = flags;
                 ips_srv6_data->u.adj_sid.endfn = pfxsid_endfn;
                 /* Route to be installed */
+                install_rt = true;
                 memcpy(rt_addr.addr, pfxsid->addr, 16);
                 rt_prefix_len = pfxsid_len;
             }
@@ -168,6 +186,7 @@ srv6_local_sid_config_post_processing (
                             (void *)ips_srv6_data, sizeof (ips_srv6_data_t), true);
 
     /* Install the locator route in RIB */
+    if (install_rt) {
         ipv6_route_install (node, 
                                         &rt_addr,
                                         rt_prefix_len, 
@@ -176,6 +195,7 @@ srv6_local_sid_config_post_processing (
                                         NULL, 0, 
                                         pfxsid_endfn,
                                         PROTO_SRv6);
+    }
 }
 
 void srv6_local_sid_unconfig_pre_processing(

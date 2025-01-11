@@ -9,10 +9,11 @@
     decapsulate on local node*/
 typedef struct srv6_locator_ {
 
-    char name[32];
+    char name[LOCATOR_NAME_SIZE ];
     ipv6_addr_t sid;
     uint8_t prefix_len;
-    char padding[7];
+    uint8_t algo;
+    char padding[6];
     
 } srv6_locator_t;
 

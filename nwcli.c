@@ -134,7 +134,8 @@ static cli_register_cb
 		//ddcp_show_cli_tree,
 		//nmp_show_cli_tree,
         isis_show_cli_tree,
-		
+        srv6_build_cli_show_tree,
+        
         /* Add more CB here */
 
         0 /*  Last member must be NULL */

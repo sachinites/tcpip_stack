@@ -47,6 +47,7 @@ typedef struct v6nexthop_{
 
     ~v6nexthop_() {
         if (this->u.srv6.segment_lst) free (this->u.srv6.segment_lst); 
+        assert (ref_count == 0);
     }
 
 } __attribute__((aligned(8))) v6nexthop_t;
@@ -72,5 +73,20 @@ v6nh_union_nexthops_arrays(v6nexthop_t **src, v6nexthop_t **dst);
 
 v6nexthop_t *
 v6nexthop_find (v6nexthop_t **nexthops, ipv6_addr_t *gw, uint32_t ifindex, uint16_t proto, int *index);
+
+static inline void 
+v6nexthop_lock (v6nexthop_t  *nexthop) { nexthop->ref_count++; }
+
+static inline uint32_t
+v6nexthop_unlock (v6nexthop_t  *nexthop) { 
+    assert (nexthop->ref_count);
+    nexthop->ref_count--;
+    uint32_t rc = nexthop->ref_count;
+    if (nexthop->ref_count == 0) {
+        delete nexthop; 
+        return 0;
+    }
+    return rc;
+}
 
 #endif 

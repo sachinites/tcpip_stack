@@ -31,13 +31,7 @@ v6nh_flush_nexthops(v6nexthop_t **nexthop)
 
         if (nexthop[i])
         {
-            assert(nexthop[i]->ref_count);
-            nexthop[i]->ref_count--;
-            if (nexthop[i]->ref_count == 0)
-            {
-                delete (nexthop[i]);
-		        nexthop[i] = nullptr;
-            }
+            v6nexthop_unlock(nexthop[i]);
             nexthop[i] = nullptr;
             count++;
         }
@@ -96,7 +90,7 @@ v6nh_insert_new_nexthop_nh_array(
     for( ; i < MAX_NXT_HOPS; i++){
         if(nexthop_arry[i]) continue;
         nexthop_arry[i] = nxthop;
-        nexthop_arry[i]->ref_count++;
+        v6nexthop_lock(nexthop_arry[i]);
         return true;
     }
     return false;
@@ -141,7 +135,7 @@ v6nh_union_nexthops_arrays(v6nexthop_t **src, v6nexthop_t **dst){
 
         if(src[i] && v6nh_is_nexthop_exist_in_nh_array(dst, src[i], 0) == -1){
             dst[j] = src[i];
-            dst[j]->ref_count++;
+            v6nexthop_lock ( dst[j] );
             copied_count++;
         }
     }

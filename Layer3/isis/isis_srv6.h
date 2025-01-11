@@ -110,6 +110,9 @@ isis_srv6_stop_adj_sid_advertisement (node_t *node) ;
 void 
 isis_srv6_process_locator_ips (node_t *node,  ips_srv6_data_t *msg ) ;
 
+void 
+isis_srv6_process_locator_update_ips (node_t *node,  ips_srv6_data_t *msg ) ;
+
 void
 isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid );
 
