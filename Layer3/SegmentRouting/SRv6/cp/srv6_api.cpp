@@ -94,9 +94,6 @@ srv6_de_init (node_t *node) {
 }
 
 void
-
-
-
 srv6_local_sid_config_post_processing (
             node_t *node,
             ipv6_addr_t *pfxsid,

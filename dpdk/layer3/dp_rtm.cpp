@@ -542,7 +542,7 @@ bool
     }
 
     route->nexthops[proto][index] = NULL;
-    delete (nexthop);
+    v6nexthop_unlock(nexthop);
     route->nh_count--;
 
     if (route->nh_count)

@@ -40,10 +40,6 @@ srv6_show_locator (node_t *node) {
         loc->name, loc->algo, inet_ntop6 (&loc->sid, ipv6_addr_str));
 }
 
-
-
-
-
 int
 srv6_show_handler
                     (int cmdcode,

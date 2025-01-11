@@ -119,6 +119,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Clear all routes except direct routes
         ToDO : This API to be replaced with CP API
     */
+    dp_ipv6_clear_rt_table_sync (rt_table, PROTO_ISIS);
     dp_ipv6_clear_rt_table_sync (rt_table, PROTO_ISIS_SRv6);
 
     /* Now iterate over result list and install routes for
