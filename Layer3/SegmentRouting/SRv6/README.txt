@@ -121,6 +121,17 @@ config node H2 protocol isis interface all
 config node H3 protocol isis interface all
 config node H4 protocol isis interface all
 
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:2::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:3::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:4::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:5::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:6::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:7::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:8::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:9::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:a::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:b::
+config node H4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:c::
 
 Soft-Firewall>$ run node H1 ping6 srv6 2001:dbe8:2:1:: 2001:dbe8:4:1::
 Soft-Firewall>$      

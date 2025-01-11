@@ -69,12 +69,12 @@ typedef enum ips_msg_code_ {
         LSDB advertisement */
     IPC_ISIS_SRV6_LSDB_INFO,
     #define IPC_ISIS_SRV6_LOCATOR_ADD (1 << 0)
-    #define IPC_ISIS_SRV6_LOCATOR_DEL (1 << 2)
-    #define IPC_ISIS_SRV6_LOCATOR_UPDATE (1 << 3)
-    #define IPC_ISIS_SRV6_PREFIX_SID_ADD (1 << 4)
-    #define IPC_ISIS_SRV6_PREFIX_SID_DEL (1 << 5)
-    #define IPC_ISIS_SRV6_ADJ_SID_ADD (1 << 6)
-    #define IPC_ISIS_SRV6_ADJ_SID_DEL (1 << 7)
+    #define IPC_ISIS_SRV6_LOCATOR_DEL (1 << 1)
+    #define IPC_ISIS_SRV6_LOCATOR_UPDATE (1 << 2)
+    #define IPC_ISIS_SRV6_PREFIX_SID_ADD (1 << 3)
+    #define IPC_ISIS_SRV6_PREFIX_SID_DEL (1 << 4)
+    #define IPC_ISIS_SRV6_ADJ_SID_ADD (1 << 5)
+    #define IPC_ISIS_SRV6_ADJ_SID_DEL (1 << 6)
     #define IPC_ISIS_SRV6_TLVs ((IPC_ISIS_SRV6_LOCATOR_ADD | \
                                                          IPC_ISIS_SRV6_LOCATOR_UPDATE | \
                                                          IPC_ISIS_SRV6_LOCATOR_DEL | \
