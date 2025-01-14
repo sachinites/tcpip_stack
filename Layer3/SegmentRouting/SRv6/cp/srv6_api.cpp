@@ -77,7 +77,7 @@ srv6_de_init (node_t *node) {
                                                loc->prefix_len,
                                                END,
                                                0,
-                                               0, 0, IPC_ISIS_SRV6_LOCATOR_DEL);    
+                                               0, 0, IPC_SRV6_LOCATOR_DEL);    
         memset (loc, 0, sizeof (*loc));
     }
 
@@ -120,7 +120,7 @@ srv6_local_sid_config_post_processing (
 
         switch (ipc_minor_code_event) {
 
-            case IPC_ISIS_SRV6_LOCATOR_ADD:
+            case IPC_SRV6_LOCATOR_ADD:
             {
                 memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
                 ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
@@ -134,7 +134,7 @@ srv6_local_sid_config_post_processing (
                 rt_prefix_len = loc->prefix_len;
             }
             break;
-            case IPC_ISIS_SRV6_LOCATOR_UPDATE:
+            case IPC_SRV6_LOCATOR_UPDATE:
             {
                 memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
                 ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
@@ -144,7 +144,7 @@ srv6_local_sid_config_post_processing (
                 ips_srv6_data->u.locator.flags = flags;
             }
             break;  
-            case IPC_ISIS_SRV6_PREFIX_SID_ADD:
+            case IPC_SRV6_PREFIX_SID_ADD:
             {
                 memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
                 ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
@@ -158,7 +158,7 @@ srv6_local_sid_config_post_processing (
                 rt_prefix_len = pfxsid_len;
             }
             break;
-            case IPC_ISIS_SRV6_ADJ_SID_ADD:
+            case IPC_SRV6_ADJ_SID_ADD:
             {
                 /* Locator */
                 memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
@@ -219,7 +219,7 @@ void srv6_local_sid_unconfig_pre_processing(
 
     switch (ipc_minor_code_event)
     {
-        case IPC_ISIS_SRV6_LOCATOR_DEL:
+        case  IPC_SRV6_LOCATOR_DEL:
         {
             memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
             ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
@@ -233,7 +233,7 @@ void srv6_local_sid_unconfig_pre_processing(
             rt_prefix_len = loc->prefix_len;
         }
         break;
-        case IPC_ISIS_SRV6_PREFIX_SID_DEL:
+        case IPC_SRV6_PREFIX_SID_DEL:
         {
             /* To delete the prefix sid, IGP should know whose locators prefix sid we are deleting, though we support 1 locator only*/
             memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
@@ -248,7 +248,7 @@ void srv6_local_sid_unconfig_pre_processing(
             rt_prefix_len = pfxsid_len;
         }
         break;
-        case IPC_ISIS_SRV6_ADJ_SID_DEL:
+        case IPC_SRV6_ADJ_SID_DEL:
         {
             memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
             ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
