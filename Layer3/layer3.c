@@ -183,7 +183,7 @@ layer3_ip_route_pkt(node_t *node,
     tracer (node->dptr, DL3FWD_DET, "Dest : %s : Pkt Qualified L3 ACL Test\n", dest_ip_addr);
 
     l3_route_t *l3_route = l3rib_lookup_lpm(
-                                        NODE_RT_TABLE(node), ip_hdr->dst_ip);
+                           NODE_RT_TABLE(node), ip_hdr->dst_ip);
 
     if(!l3_route){
         /*Router do not know what to do with the pkt. drop it*/
@@ -193,8 +193,7 @@ layer3_ip_route_pkt(node_t *node,
         return;
     }
 
-    tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route Found\n", 
-    pkt_block_str(pkt_block));
+    tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route Found\n", dest_ip_addr);
 
     /*L3 route exist, 3 cases now : 
      * case 1 : pkt is destined to self(this router only)
@@ -208,12 +207,12 @@ layer3_ip_route_pkt(node_t *node,
         /* case 1 : local delivery:  dst ip address in pkt must exact match with
          * ip of any local interface of the router, including loopback*/
 
-        tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", pkt_block_str(pkt_block));
+        tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", dest_ip_addr);
 
         if (is_layer3_local_delivery(node, ip_hdr->dst_ip)) {
 
             tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
-                 pkt_block_str(pkt_block), proto_name_str(ip_hdr->protocol));
+                 dest_ip_addr, proto_name_str(ip_hdr->protocol));
 
             l4_hdr = (char *)INCREMENT_IPHDR(ip_hdr);
             l5_hdr = l4_hdr;
@@ -245,7 +244,7 @@ layer3_ip_route_pkt(node_t *node,
 
                     pkt_block_set_starting_hdr_type (pkt_block, IP_IN_IP_HDR);
                      
-                     tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n", pkt_block_str (pkt_block));
+                    tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n", dest_ip_addr);
 
                     layer3_ip_route_pkt(node,
                                                       interface, 
@@ -254,12 +253,18 @@ layer3_ip_route_pkt(node_t *node,
 
                 case GRE_PROTO:
                     pkt_block_set_new_pkt (pkt_block, 
-                                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr),
-                                                            pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
+                                           (uint8_t *)INCREMENT_IPHDR(ip_hdr),
+                                           pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
+
                     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
-                    tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to GRE Decapsulation\n", pkt_block_str (pkt_block));
+
+                    tracer (node->dptr, DL3FWD, 
+                           "Pkt : %s : Pkt is being subjected to GRE Decapsulation\n", 
+		            dest_ip_addr);
+
                     gre_decapsulate (node, pkt_block, 
-                        gre_lookup_tunnel_intf (node, ip_hdr->dst_ip, ip_hdr->src_ip));
+                        gre_lookup_tunnel_intf (node, 
+			                ip_hdr->dst_ip, ip_hdr->src_ip));
                     return;
 
                 default: ;

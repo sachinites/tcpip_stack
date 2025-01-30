@@ -331,16 +331,11 @@ gre_lookup_tunnel_intf (node_t *node, uint32_t src_ip, uint32_t dst_ip) {
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
-        if (intf->iftype == INTF_TYPE_GRE_TUNNEL) {
-
-            gre_intf = dynamic_cast <GRETunnelInterface *> (intf);
-
-            if (gre_intf->tunnel_src_ip == src_ip && 
-                gre_intf->tunnel_dst_ip == dst_ip) {
-
-                return intf;
-            }
-        }
+        if (intf->iftype != INTF_TYPE_GRE_TUNNEL)  continue;
+        gre_intf = dynamic_cast <GRETunnelInterface *> (intf);
+        if (gre_intf->tunnel_src_ip != src_ip) continue;
+        if (gre_intf->tunnel_dst_ip != dst_ip)  continue;
+        return intf;
     }
     ITERATE_NODE_INTERFACES_END(node, intf);
 
