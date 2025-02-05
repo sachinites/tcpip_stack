@@ -120,7 +120,6 @@ isis_protocol_shutdown_now (node_t *node) {
     /* Remove all static and Dynamic learnt SRv6 data,
         including disabling SRV6 specific IPS joins*/
     isis_srv6_locator_unset (node);
-     cp_ips_unjoin (node, IPC_SRV6_INFO, isis_recv_ipc_updates);
      
     /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node, 0);

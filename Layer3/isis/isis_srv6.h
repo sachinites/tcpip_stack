@@ -66,7 +66,7 @@ isis_srv6_is_loc_enabled (node_t *node, char *locator_name) ;
 isis_srv6_config_t *
 isis_srv6_get_config(node_t *node);
 
-void
+int
 isis_srv6_new_locator_set (node_t *node, char *loc_name);
 
 void
@@ -107,12 +107,6 @@ isis_withdraw_locator_tlv27_all_instances (node_t *node) ;
 void
 isis_srv6_stop_adj_sid_advertisement (node_t *node) ;
 
-void 
-isis_srv6_process_locator_ips (node_t *node,  ips_srv6_data_t *msg ) ;
-
-void 
-isis_srv6_process_locator_update_ips (node_t *node,  ips_srv6_data_t *msg ) ;
-
 void
 isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid );
 
@@ -124,9 +118,14 @@ isis_srv6_advertise_all_prefix_sids (node_t *node );
 
 void
 isis_delete_prefix_sid_from_locator (node_t *node, 
-            ips_srv6_data_t *msg) ;
+                                char *loc_name, 
+                                ipv6_addr_t *prefix_sid) ;
 
 void
-isis_add_prefix_sid_to_locator (node_t *node, ips_srv6_data_t *msg);
+isis_add_prefix_sid_to_locator (node_t *node, 
+                                char *loc_name, 
+                                ipv6_addr_t *prefix_sid, 
+                                Srv6_endpcode_t endfn, 
+                                uint8_t flavors);
 
 #endif 

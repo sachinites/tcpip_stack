@@ -1,6 +1,6 @@
 CC=g++
-#SANITIZER_FLAGS=-fsanitize=address,undefined
-SANITIZER_FLAGS=
+SANITIZER_FLAGS=-fsanitize=address,undefined
+#SANITIZER_FLAGS=
 CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 
 TARGET_LIB=libsrv6.a
@@ -9,9 +9,9 @@ TARGET:${TARGET_LIB}
 
 OBJS=cp/srv6_cli.o \
 			cp/srv6_api.o \
-			cp/srv6_ipc.o \
 			cp/srv6_mem_init.o \
 			cp/srv6_show.o \
+			cp/srv6_sid_pool.o \
 			common/srv6_const.o \
 			dp/srv6-endpoint.o \
 			dp/srv6-end-behavior.o \
@@ -24,11 +24,11 @@ cp/srv6_cli.o:cp/srv6_cli.cpp
 cp/srv6_api.o:cp/srv6_api.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_api.cpp -o cp/srv6_api.o
 
-cp/srv6_ipc.o:cp/srv6_ipc.cpp
-	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_ipc.cpp -o cp/srv6_ipc.o
-
 cp/srv6_mem_init.o:cp/srv6_mem_init.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_mem_init.cpp -o cp/srv6_mem_init.o
+
+cp/srv6_sid_pool.o:cp/srv6_sid_pool.cpp
+	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_sid_pool.cpp -o cp/srv6_sid_pool.o
 
 cp/srv6_show.o:cp/srv6_show.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_show.cpp -o cp/srv6_show.o
