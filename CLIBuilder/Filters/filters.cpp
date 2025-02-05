@@ -245,6 +245,11 @@ int cprintf (const char* format, ...) {
 
     if (!count_filter_present ) {
 
+        if (Obuffer[msg_len - 1] != '\n') {
+            Obuffer[msg_len ] = '\n';
+            msg_len++;
+        }
+
         render_line (Obuffer, msg_len);
     }
 
