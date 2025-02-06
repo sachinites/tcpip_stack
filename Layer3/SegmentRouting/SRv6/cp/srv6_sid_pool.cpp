@@ -1,22 +1,24 @@
 /* This file Implementes the SRv6 SID Pooling */
 
-#include "../../../../BitOp/bitmap.h"
-#include "../../../ipv6/ipv6_hdrs.h"
-#include "../../../../Tree/libtree.h"
-#include "../../../../graph.h"
-#include "../../../../mtrie/mtrie.h"
+#include <stdlib.h>
+#include <stdio.h>
 #include <memory.h>
 #include <assert.h>
+#include <arpa/inet.h>
+
+#include "../../../../BitOp/bitmap.h"
+#include "../../../ipv6/ipv6_utils.h"
+#include "../../../../Tree/libtree.h"
+#include "../../../../mtrie/mtrie.h"
 #include "srv6_sid_pool.h"
 
 #define MAX_LOCATOR_NAME_LEN 64
-
-static bitmap_t bm_wcard_1;
 
 typedef struct adj_sid_key_ {
 
     uint32_t ifindex;
     ipv6_addr_t gw_addr;
+    srv6_sid_client_t client;
 
 } adj_sid_key_t ;
 
@@ -109,8 +111,8 @@ avltree_locator_comp_fn  (const avltree_node_t *data1, const avltree_node_t *dat
 static int
 avltree_locator_comp_fn_by_name  (const avltree_node_t *data1, const avltree_node_t *data2) {
 
-    srv6_locator_pool_t *pool1 = (srv6_locator_pool_t *)avltree_container_of(data1, srv6_locator_pool_t, avl_glue_loc);
-    srv6_locator_pool_t *pool2 = (srv6_locator_pool_t *)avltree_container_of(data2, srv6_locator_pool_t, avl_glue_loc);
+    srv6_locator_pool_t *pool1 = (srv6_locator_pool_t *)avltree_container_of(data1, srv6_locator_pool_t, avl_glue_by_name);
+    srv6_locator_pool_t *pool2 = (srv6_locator_pool_t *)avltree_container_of(data2, srv6_locator_pool_t, avl_glue_by_name);
 
     return strcmp(pool1->loc_name, pool2->loc_name);
 }
@@ -135,9 +137,13 @@ avltree_sid_comp_fn_by_asid  (const avltree_node_t *data1, const avltree_node_t 
     } else if (entry1->adj_sid_key.ifindex > entry2->adj_sid_key.ifindex) {
         return 1;
     } else {
-        return ipv6_addr_cmp(&entry1->adj_sid_key.gw_addr, &entry2->adj_sid_key.gw_addr);
+        int rc =  ipv6_addr_cmp(&entry1->adj_sid_key.gw_addr, &entry2->adj_sid_key.gw_addr);
+        if (rc) return rc;
+        return entry1->sid_client - entry2->sid_client;
     }
 
+    assert(0);
+    return 0;
 }
 
 static void 
@@ -185,13 +191,15 @@ srv6_pool_avl_lookup_locator_by_name (
     strncpy (tmplate.loc_name, loc_name, MAX_LOCATOR_NAME_LEN - 1);
     tmplate.loc_name[MAX_LOCATOR_NAME_LEN - 1] = '\0';
 
-    avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_by_name, &srv6_sid_pools->locator_pools);
+    avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_by_name, 
+                                        &srv6_sid_pools->locator_pool_by_name);
+
     if (!res) return NULL;
     return (srv6_locator_pool_t *)avltree_container_of (res, srv6_locator_pool_t, avl_glue_by_name);
 }
 
 static srv6_locator_pool_t *
-srv6_pool_avl_lookup_locator_by_lpm (
+srv6_pool_lookup_locator_by_lpm (
                                                     srv6_sid_pools_t *srv6_sid_pools, 
                                                     ipv6_addr_t *loc_prefix) {
 
@@ -222,9 +230,6 @@ srv6_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) {
     avltree_init (&temp->locator_pools, avltree_locator_comp_fn);
     avltree_init (&temp->locator_pool_by_name, avltree_locator_comp_fn_by_name);
     init_mtrie (&temp->locators_lpm_tree, 128, mtrie_node_delete_fn);
-
-    bitmap_init (&bm_wcard_1, 128);
-    memset (bm_wcard_1.bits, 0xFF, 16);
 }
 
 /* Called when locator is configured for the first time*/
@@ -234,6 +239,16 @@ srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools,
                             uint8_t prefix_len, 
                             char *loc_name,
                             char* err_msg_out) {
+
+    if (prefix_len % 16 ) {
+        snprintf (err_msg_out, 256, "Error : Locator Prefix length must be multiple of 16");
+        return SRv6_POOL_ERR_LOCATOR_INVALID;
+    }
+
+    if (prefix_len <= 32) {
+        snprintf (err_msg_out, 256, "Error : Locator Prefix length too short");
+        return SRv6_POOL_ERR_LOCATOR_INVALID;
+    }
 
     /* Check if this locator doesnt already exist */
     srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator (
@@ -257,7 +272,7 @@ srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools,
         For example : locator 2001:dbe8:1::/48 is already configured, 
         then 2001:dbe8:1:1::/64 cannot be configured
     */
-    loc = srv6_pool_avl_lookup_locator_by_lpm (
+    loc = srv6_pool_lookup_locator_by_lpm (
                                             srv6_sid_pools, loc_prefix);
 
     if (loc) {
@@ -278,7 +293,9 @@ srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools,
     strncpy (new_loc->loc_name, loc_name, MAX_LOCATOR_NAME_LEN - 1);
     new_loc->loc_name[MAX_LOCATOR_NAME_LEN - 1] = '\0';
 
-    /* Each locator has function length of 16 bits for sids allocation. So total sids  allocated is 2 ^ 16  - 1 = 65535. This space [1, 65535] is further divided into static and dynamic sids. Therefore, static sid space =  [1, 32767] which is [0x1, 0x7FFF]
+    /* Each locator has function length of 16 bits for sids allocation. So total sids  
+    allocated is 2 ^ 16  - 1 = 65535. This space [1, 65535] is further divided into static 
+    and dynamic sids. Therefore, static sid space =  [1, 32767] which is [0x1, 0x7FFF]
     and dynamic sid space = [32768, 65535] which is 0x8000 to 0xFFFF
     */
     bitmap_init (&new_loc->static_sid_bm, 32768);
@@ -295,16 +312,24 @@ srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools,
     bitmap_t bm_pfx;
     bitmap_init (&bm_pfx, 128);
     memcpy(bm_pfx.bits, loc_prefix->addr, 16);
+
+    bitmap_t bm_wc;
+    bitmap_init (&bm_wc, 128);
+    for (int i = 0; i < prefix_len; i++)
+        bitmap_set_bit_at(&bm_wc, i);
+    bitmap_inverse (&bm_wc, 128);
    
     mtrie_node_t *mnode = NULL;
     mtrie_ops_result_code_t res = mtrie_insert_prefix (
                                                 &srv6_sid_pools->locators_lpm_tree, 
-                                                &bm_pfx, &bm_wcard_1, 
+                                                &bm_pfx, &bm_wc,
                                                 128,  &mnode);
     
     bitmap_free_internal (&bm_pfx);
+    bitmap_free_internal (&bm_wc);
 
     assert (res == MTRIE_INSERT_SUCCESS);
+    mnode->data = (void *)new_loc;
     return SRv6_POOL_OK;
 }
 
@@ -335,20 +360,30 @@ srv6_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
     bitmap_init (&bm_pfx, 128);
     memcpy(bm_pfx.bits, loc->loc.addr, 16);
 
+    bitmap_t bm_wc;
+    bitmap_init (&bm_wc, 128);
+    for (int i = 0; i < loc->loc_pfx_len; i++)
+        bitmap_set_bit_at(&bm_wc, i);
+    bitmap_inverse (&bm_wc, 128);
+
     srv6_locator_pool_t *loc1 = NULL;
+
+    /* Remove from LPM Tree*/
     mtrie_ops_result_code_t res = mtrie_delete_prefix (
                                                 &srv6_sid_pools->locators_lpm_tree, 
-                                                &bm_pfx, &bm_wcard_1, (void **)&loc1);
+                                                &bm_pfx, &bm_wc, (void **)&loc1);
 
     bitmap_free_internal (&bm_pfx);
+    bitmap_free_internal (&bm_wc);
 
     assert (res == MTRIE_DELETE_SUCCESS);
     assert (loc == loc1);
 
-    /* Remove from AVL tree */
+    /* Remove from AVL trees */
     avltree_remove (&loc->avl_glue_loc, &srv6_sid_pools->locator_pools);
     avltree_remove (&loc->avl_glue_by_name, &srv6_sid_pools->locator_pool_by_name);
 
+    /* Destroy bitmaps */
     bitmap_free_internal (&loc->static_sid_bm);
     bitmap_free_internal (&loc->dynamic_sid_bm);
 
@@ -356,11 +391,14 @@ srv6_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
     return SRv6_POOL_OK;
 }
 
+/* Allocate only Dynamic SIDs*/
 pool_error_codes_t
-srv6_alloc_available_pfx_sid (
+srv6_alloc_dynamic_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     char *loc_name ,
                                     srv6_sid_client_t sid_client,
+                                    uint32_t ifindex,
+                                    ipv6_addr_t *gw_addr,
                                     ipv6_addr_t *sid_out,
                                     char *err_msg_out) {
 
@@ -373,6 +411,201 @@ srv6_alloc_available_pfx_sid (
     }
 
     /* Check if there are any sids available */
-    
+    uint16_t aval_sid = bitmap_get_unset_bit (&loc->dynamic_sid_bm);
 
+    if (aval_sid == UINT16_MAX) {
+        snprintf (err_msg_out, 256, "Error : No Dynamic SIDs available in Locator %s", loc_name);
+        return SRv6_POOL_ERR_LOCATOR_NO_DYN_SID_AVAIL;
+    }
+
+    /* Allocate the SID */
+    bitmap_set_bit_at (&loc->dynamic_sid_bm, aval_sid);
+    aval_sid += 32768;
+
+    uint16_t loc_function_index = (loc->loc_pfx_len / 16) ;
+
+    memcpy (sid_out, &loc->loc, sizeof (ipv6_addr_t));
+    uint16_t (*ptr)[8] = (uint16_t (*)[8])sid_out->addr;
+    (*ptr)[loc_function_index] = htons (aval_sid);
+
+    /* Create a new pool entry */
+    pool_entry_t *new_entry = (pool_entry_t *)calloc (1, sizeof (pool_entry_t));
+    memcpy (&new_entry->sid, sid_out, sizeof (*sid_out));
+    new_entry->sid_client = sid_client;
+    new_entry->adj_sid_key.ifindex = ifindex;
+    if (gw_addr) memcpy (&new_entry->adj_sid_key.gw_addr, gw_addr, sizeof (*gw_addr));
+
+    assert (!avltree_insert (&new_entry->avl_glue_sid, &loc->sid_tree));
+
+    if (ifindex && gw_addr &&
+            is_ipv6_addr_unspecified (&gw_addr->addr)) {
+
+        assert (!avltree_insert (&new_entry->avl_glue_asid, &loc->sid_tree_by_asid));
+    }
+
+    return SRv6_POOL_OK;
+}
+
+pool_error_codes_t
+srv6_alloc_static_sid (
+                                    srv6_sid_pools_t *srv6_sid_pools, 
+                                    ipv6_addr_t *sid,
+                                    srv6_sid_client_t sid_client,
+                                    uint32_t ifindex,
+                                    ipv6_addr_t *gw_addr,
+                                    char *err_msg_out) {
+
+
+    srv6_locator_pool_t *loc = srv6_pool_lookup_locator_by_lpm (
+                                                    srv6_sid_pools, sid);
+
+    if (!loc) {
+        snprintf (err_msg_out, 256, "Error : Locator not found for this SID");
+        return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
+    }
+
+    /* Check if the SID is already allocated */
+    pool_entry_t tmplate;
+    memset (&tmplate, 0, sizeof (tmplate));
+
+    memcpy (&tmplate.sid, sid, sizeof (*sid));
+
+    avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_sid, &loc->sid_tree);
+
+    if (res) {
+        snprintf (err_msg_out, 256, "Error : SID already in use");
+        return SRv6_POOL_ERR_SID_IN_USE;
+    }
+
+    uint16_t (*ptr)[8] = (uint16_t (*)[8])sid->addr;
+    uint16_t sid_index = (*ptr)[(loc->loc_pfx_len / 16)];
+    sid_index = htons (sid_index);
+
+    if (sid_index > 32767) {
+        snprintf (err_msg_out, 256, "Error : Static SIDs must be in range [0x1, 0x7FFF]");
+        return SRv6_POOL_ERR_INVALID_SID_REQUEST;
+    }
+
+    assert (bitmap_at (&loc->static_sid_bm, sid_index) == false);
+    /* Reserve the sid */
+    bitmap_set_bit_at (&loc->static_sid_bm, sid_index);
+
+    /* Create a new pool entry */
+    pool_entry_t *new_entry = (pool_entry_t *)calloc (1, sizeof (pool_entry_t));
+    memcpy (&new_entry->sid, sid, sizeof (*sid));
+    new_entry->sid_client = sid_client;
+    new_entry->adj_sid_key.ifindex = ifindex;
+    if (gw_addr) memcpy (&new_entry->adj_sid_key.gw_addr, gw_addr, sizeof (*gw_addr));
+    
+    assert (!avltree_insert (&new_entry->avl_glue_sid, &loc->sid_tree));
+
+    if (ifindex && gw_addr &&
+            is_ipv6_addr_unspecified (&gw_addr->addr)) {
+
+        assert (!avltree_insert (&new_entry->avl_glue_asid, &loc->sid_tree_by_asid));
+    }
+
+    return SRv6_POOL_OK;
+}
+
+
+/* Works for both : static and dynamic SIDs */
+pool_error_codes_t
+srv6_release_sid (
+                                    srv6_sid_pools_t *srv6_sid_pools, 
+                                    ipv6_addr_t *sid,
+                                    char *err_msg_out) {
+
+    /* Look up the locator using LPM */
+    srv6_locator_pool_t *loc = srv6_pool_lookup_locator_by_lpm (
+                                                    srv6_sid_pools, sid);
+
+    if (!loc) {
+
+        snprintf (err_msg_out, 256, "Error : Locator not found for this SID");
+        return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
+    }
+
+    /* Look up the SID in the locator */
+    pool_entry_t tmplate;
+    memset (&tmplate, 0, sizeof (tmplate));
+
+    memcpy (&tmplate.sid, sid, sizeof (*sid));
+
+    avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_sid, &loc->sid_tree);
+
+    if (!res) {
+        snprintf (err_msg_out, 256, "Error : SID not found");
+        return SRv6_POOL_ERR_SID_NOT_FOUND;
+    }
+
+    pool_entry_t *entry = (pool_entry_t *)avltree_container_of (res, pool_entry_t, avl_glue_sid);
+
+    /* Remove the SID */
+    avltree_remove (&entry->avl_glue_sid, &loc->sid_tree);
+
+    if (entry->adj_sid_key.ifindex && 
+            !is_ipv6_addr_unspecified (&entry->adj_sid_key.gw_addr.addr)) {
+
+        avltree_remove (&entry->avl_glue_asid, &loc->sid_tree_by_asid);
+    }
+
+    /* Update the bitmap*/
+    uint16_t (*ptr)[8] = (uint16_t (*)[8])sid->addr;
+    uint16_t sid_index = (*ptr)[(loc->loc_pfx_len / 16)];
+    sid_index = htons (sid_index);    
+
+    if (sid_index >= 32768) {
+        sid_index -= 32768;
+        bitmap_unset_bit_at (&loc->dynamic_sid_bm, sid_index);
+    } else {
+        bitmap_unset_bit_at (&loc->static_sid_bm, sid_index);
+    }
+
+    free (entry);
+    return SRv6_POOL_OK;
+}
+
+pool_error_codes_t
+srv6_lookup_adj_sid (
+                                    srv6_sid_pools_t *srv6_sid_pools, 
+                                    char *loc_name,
+                                   uint32_t ifindex,
+                                    ipv6_addr_t *gw_addr,
+                                    srv6_sid_client_t sid_client,
+                                    ipv6_addr_t *sid_out,
+                                    char *err_msg_out) {
+
+    char ipv6_addr_str[48];
+
+    srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
+                                            srv6_sid_pools, loc_name);
+
+    if (!loc) {
+        snprintf (err_msg_out, 256, "Error : Locator %s not found", loc_name);
+        return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
+    }
+
+    pool_entry_t tmplate;
+    memset (&tmplate, 0, sizeof (tmplate));
+
+    tmplate.adj_sid_key.ifindex = ifindex;
+    memcpy (&tmplate.adj_sid_key.gw_addr, gw_addr, sizeof (*gw_addr));
+    tmplate.sid_client = sid_client;
+
+    avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_asid, &loc->sid_tree_by_asid);
+
+    if (!res) {
+        snprintf (err_msg_out, 256, 
+            "Error : Could not find Adj SID for ifindex = 0x%x, gw_addr = %s", 
+            ifindex, inet_ntop6 (gw_addr, ipv6_addr_str));
+
+        return SRv6_POOL_ERR_SID_NOT_FOUND;
+    }
+
+    pool_entry_t *entry = (pool_entry_t *)avltree_container_of (res, pool_entry_t, avl_glue_asid);
+
+    memcpy (sid_out, &entry->sid, sizeof (*sid_out));
+
+    return SRv6_POOL_OK;
 }

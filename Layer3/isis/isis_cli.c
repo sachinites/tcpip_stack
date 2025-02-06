@@ -18,6 +18,7 @@
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 #include "isis_srv6.h"
+#include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
 static int
 isis_config_traceoption_handler (int cmdcode,

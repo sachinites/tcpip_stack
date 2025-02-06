@@ -9,9 +9,9 @@
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../pkt_block.h"
 #include "../../../../common/cp2dp.h"
+#include "srv6_sid_pool.h"
 #include "srv6_api.h" 
 #include "srv6_rtr.h"
-
 #include "srv6_cmds.h"
 
 extern graph_t *topo;
@@ -63,11 +63,13 @@ srv6_locator_handler
 
     
     tlv_struct_t *tlv;
+    char err_msg[256];
     c_string locator_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
     uint8_t prefix_len = 0;
     uint8_t algorithm = 0;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -109,11 +111,27 @@ srv6_locator_handler
                     return -1;
                 }
 
+
+
                 inet_pton(AF_INET6, (char *)ipv6_addr, &loc->sid.addr);
                 strncpy(loc->name, (const char *)locator_name, sizeof(loc->name));
                 loc->prefix_len = prefix_len;
 
-             ipv6_route_install (node, 
+                /* Create the locator in SID pool library */
+                prc = srv6_create_locator ( (NODE_SRv6_SID_POOL(node)), 
+                                            &loc->sid,
+                                            prefix_len, 
+                                            loc->name,
+                                            err_msg);
+
+                if (prc != SRv6_POOL_OK) {
+
+                    cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
+                    memset (&loc, 0, sizeof(loc));
+                    return -1;
+                }
+
+                ipv6_route_install (node, 
                                         &loc->sid,
                                         loc->prefix_len,
                                         IPV6_LOCAL_RT,
@@ -146,11 +164,6 @@ srv6_locator_handler
                 srv6_delete_all_pfx_sids(node);
                 srv6_delete_all_adj_sids(node);
 
-                /* Dont delete remote routes learnt from IGP. Only local routes
-                    calculation is stopped when user disable locator */
-
-                // srv6_delete_all_igp_routes (node);
-
                 /* now delete the locator route and send IPS to IGP */
                 ipv6_route_uninstall(node, 
                             &loc->sid,
@@ -159,6 +172,11 @@ srv6_locator_handler
                             PROTO_SRv6);
 
                 /* Remove the locator config */
+                prc = srv6_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+                                            loc->name,
+                                            err_msg);
+
+                assert (prc == SRv6_POOL_OK);                           
                 memset(loc, 0, sizeof(*loc));
             }
             break;
@@ -204,12 +222,14 @@ srv6_prefix_sid_config_handler
 
     tlv_struct_t *tlv;
     char flavor[3][4];
+    char err_msg[256];
     uint8_t flavor_val = 0;
     uint8_t prefix_len = 128;
     node_t *node = NULL;
     c_string oif_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     flavor[0][0] = '\0';
     flavor[1][0] = '\0';
@@ -285,18 +305,21 @@ srv6_prefix_sid_config_handler
             srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
             srv6_locator_t *loc = &node_info->loc;
 
-            if (is_ipv6_addr_unspecified(&loc->sid.addr)) {
-                cprintf ("Error : Configure Locator first \n");
-                return -1;
-            }
-
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
 
-            /* Prefix sid must be subne of locator */
-            if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
-                    &prefix.addr)) {
-                cprintf ("Error : Prefix sid must be subnet of locator\n");
+            /* Pool Reservation */
+            prc = srv6_alloc_static_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &prefix,
+                                     srv6_sid_client_srv6,
+                                     0,
+                                     NULL,
+                                     err_msg);
+
+            if (prc != SRv6_POOL_OK) {
+
+                cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
                 return -1;
             }
 
@@ -390,6 +413,13 @@ srv6_prefix_sid_config_handler
 
             switch (rc) {
                 case MTRIE_DELETE_SUCCESS:
+                    /* Release pfx sid from pool*/
+                    prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &pfxsid->sid,
+                                    err_msg);
+
+                    assert (prc == SRv6_POOL_OK);
                     break;
                 case MTRIE_LOOKUP_FAILED:
                     cprintf ("Error : Prefix sid not found\n");

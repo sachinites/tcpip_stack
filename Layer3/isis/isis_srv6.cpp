@@ -5,6 +5,7 @@
 #include "isis_advt.h"
 #include "isis_tlv_struct.h"
 #include "../../Tracer/tracer.h"
+#include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
 extern void 
 External_srv6_import_locator_config (
@@ -586,8 +587,10 @@ isis_add_prefix_sid_to_locator (node_t *node,
                                 Srv6_endpcode_t endfn, 
                                 uint8_t flavors) {
 
+    char err_msg[256];
     char ipv4_addr_str[16];
     char ipv6_addr_str[48];
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
@@ -616,6 +619,25 @@ isis_add_prefix_sid_to_locator (node_t *node,
         return;
     }
 
+   /* Pool Reservation */
+    prc = srv6_alloc_static_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            prefix_sid,
+                            srv6_sid_client_isis,
+                            0,
+                            NULL,
+                            err_msg);
+
+    if (prc != SRv6_POOL_OK) {
+            
+            tracer (ISIS_TR(node), TR_ISIS_SRV6 | TR_ISIS_ERRORS,
+                "%s : %s, err-code : %d\n",  err_msg, prc);
+
+            cprintf(    
+                "%s : %s, err-code : %d\n",  err_msg, prc);
+            return;
+    }
+
     isis_srv6_pfx_sid_t *pfx_sid = (isis_srv6_pfx_sid_t *)XCALLOC(0, 1, isis_srv6_pfx_sid_t);
     memcpy(pfx_sid->prefix.addr, prefix_sid->addr, 16);
     pfx_sid->flags = flavors;
@@ -637,12 +659,14 @@ isis_delete_prefix_sid_from_locator (node_t *node,
                                 char *loc_name, 
                                 ipv6_addr_t *prefix_sid) {
 
+    char err_msg[256];
     char ipv4_addr_str[16];
     char ipv6_addr_str[48];
     isis_advt_info_t advt_info;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
     isis_srv6_locator_t *loc;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     if (!srv6_config) return;
 
@@ -684,7 +708,14 @@ isis_delete_prefix_sid_from_locator (node_t *node,
             ISIS_SRV6,
             inet_ntop6(prefix_sid, ipv6_addr_str));      
 
-    isis_srv6_withdraw_pfxsid_advertisement (node, pfx_sid);
+    /* Remove from POOL*/
+    prc = srv6_release_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            &pfx_sid->prefix,
+                            err_msg);
 
+    assert (prc == SRv6_POOL_OK);
+
+    isis_srv6_withdraw_pfxsid_advertisement (node, pfx_sid);
     XFREE(pfx_sid);
 }

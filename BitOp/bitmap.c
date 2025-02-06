@@ -3,15 +3,16 @@
 #include <memory.h>
 #include <arpa/inet.h>
 #include "bitmap.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+//#include "../LinuxMemoryManager/uapi_mm.h"
 
-extern int cprintf (const char *fmt, ...);
-#define printf cprintf 
+//extern int cprintf (const char *fmt, ...);
+//#define printf cprintf 
+#define XFREE free
 
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));
-    bitmap->bits = (uint32_t *)XCALLOC_BUFF(0, (size/8) * sizeof(uint8_t));
+    bitmap->bits = (uint32_t *)calloc(1, (size/8) * sizeof(uint8_t));
     bitmap->tsize = size;
     bitmap->next = 0;
 }
@@ -436,12 +437,50 @@ bits_generate_ones(uint8_t start_offset, uint8_t end_offset) {
 	return temp;
 }
 
+
+uint16_t
+bitmap_get_unset_bit(bitmap_t *bitmap) {
+
+    uint16_t i;  
+    uint16_t n_blocks = bitmap->tsize / 32;
+    uint32_t block;
+
+    for (i = 0; i < n_blocks; i++) {
+
+        block = htonl(*(bitmap->bits + i));
+
+        if (block == UINT32_MAX) {
+            continue;
+        }   
+
+        bitmap_t temp;
+        temp.bits = bitmap->bits + i;
+        temp.tsize = 32;
+        temp.next = 0;
+        bool bitv;
+        uint16_t j;
+
+        ITERATE_BITMAP_BEGIN ((&temp), 0, j, bitv ) {
+
+            if (!bitv) {
+                return (i * 32 + j);
+            }
+
+        } ITERATE_BITMAP_END;
+
+        return UINT16_MAX;
+    }
+
+    return UINT16_MAX;
+}
+
+
 #if 0
 int
 main(int argc, char **argv) {
 
     bitmap_t bm;
-     bitmap_init(&bm, 64);
+    bitmap_init(&bm, 64);
     bitmap_set_bit_at(&bm, 0);
     bitmap_set_bit_at(&bm, 1);
     bitmap_set_bit_at(&bm, 2);
@@ -458,12 +497,204 @@ main(int argc, char **argv) {
     bitmap_set_bit_at(&bm, 60);
     bitmap_set_bit_at(&bm, 61);
     bitmap_set_bit_at(&bm, 63);
-    bitmap_t bm1;
-    bitmap_init(&bm1, 64);
-    bitmap_fast_copy(&bm, &bm1, 64);
     bitmap_print(&bm);
-    bitmap_print(&bm1);
-    bitmap_prefix_print(&bm, &bm1, 64);
+    
+    uint16_t index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+    
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);             
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);             
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);             
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);    
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);
+    bitmap_set_bit_at(&bm, index);
+
+    index = bitmap_get_unset_bit(&bm);
+    printf ("Unset bit at %d\n", index);             
+    bitmap_set_bit_at(&bm, index);
+
     return 0;
 }
 #endif
