@@ -6,39 +6,9 @@
 #include "srv6_struct.h"
 #include "srv6_rtr.h"
 #include "../../../ipv6/ipv6_utils.h"
+#include "srv6_sid_pool.h"
 
 extern graph_t *topo;
-
-#if 0
-
-https://www.cisco.com/c/en/us/td/docs/routers/asr9000/software/asr9k-r7-5/segment-routing/configuration/guide/b-segment-routing-cg-asr9000-75x/configure-srv6-full-length-sid.html
-
-#endif 
-
-
-/*
-SRv6-LF1# show segment-routing srv6 locator 
-Mon Aug 12 20:54:15.414 EDT
-Name                  ID       Algo  Prefix                    Status 
---------------------  -------  ----  ------------------------  -------
-Loc1-BE               17       0     2001:db8:0:a2::/64        Up     
-Loc1-LL               18       128   2001:db8:1:a2::/64        Up
-
-*/
-static void 
-srv6_show_locator (node_t *node) {
-
-    char ipv6_addr_str[48];
-
-    if (!srv6_is_enable (node)) return;
-
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
-
-    srv6_locator_t *loc = &node_info->loc;
-
-    cprintf ("%-32s    %-4d   %-40s\n",  
-        loc->name, loc->algo, inet_ntop6 (&loc->sid, ipv6_addr_str));
-}
 
 int
 srv6_show_handler
@@ -63,7 +33,7 @@ srv6_show_handler
 
         case CMD_CODE_SHOW_SRV6_LOCAL_ROUTES:
         {
-            srv6_show_locator (node);
+            srv6_show_locator (NODE_SRv6_SID_POOL(node), NULL);
         }
         break;
         default:

@@ -10,12 +10,7 @@
 #include "../../../../common/cp2dp.h"
 #include "../../../ipv6/v6nexthop.h"
 #include "../../../../Tracer/tracer.h"
-
-extern void 
-srv6_recv_ips_updates(node_t *node, 
-                                      ips_major_code_t major_code, 
-                                      uint32_t minor_code, 
-                                      void *msg, uint32_t msg_size) ;
+#include "srv6_sid_pool.h"
 
 bool 
 srv6_is_enable (node_t *node) {
@@ -39,13 +34,6 @@ srv6_init (node_t *node) {
     /* Enable Tracer*/
     snprintf (log_file_name, sizeof (log_file_name), "logs/%s-srv6-log.txt", node->node_name);
     node_info->tr = tracer_init ("srv6", log_file_name, node->node_name, STDOUT_FILENO, 0);
-
-    /* Enable ips Joins */
-
-    /* Srv6 can entertain bulk sid publish request from IGPs*/
-    cp_ips_join (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
-        IPC_REQ_SRV6_PUBLISH_PFX_SIDS | IPC_REQ_SRV6_PUBLISH_ADJ_SIDS, 
-        srv6_recv_ips_updates);
 }
 
 static void 
@@ -62,220 +50,48 @@ check_and_delete_srv6_node_info (node_t *node) {
 void 
 srv6_de_init (node_t *node) {
 
+    char err_msg[256];
+    pool_error_codes_t prc = SRv6_POOL_OK;
+
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+
+    srv6_locator_t *loc = &node_info->loc;
+
+    if (srv6_pool_is_locator_being_used_by_any_client (
+                    NODE_SRv6_SID_POOL(node), 
+                    loc->name)) {
+
+        cprintf ("Error : Locator is in use by other clients, Command Rejected.\n");
+        return ;
+    }
+
     /* Delete Configure Sids and its routes from RIB */
     srv6_delete_all_pfx_sids (node) ;
     /* Delete Configured Adj Sids and its routes from RIB */
     srv6_delete_all_adj_sids (node) ;
-    /* Delete Locator Config and its route from RIB*/
-    srv6_locator_t *loc = &node_info->loc;
 
-    if (!is_ipv6_addr_unspecified (&loc->sid.addr)) {
+    /* Delete Locator Config and its route from RIB*/   
+    ipv6_route_uninstall(node, 
+                            &loc->sid,
+                            loc->prefix_len,
+                            0, 0,
+                            PROTO_SRv6);
+ 
+    prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+                                            loc->name,
+                                            err_msg);
 
-        srv6_local_sid_unconfig_pre_processing(node,
-                                               &loc->sid,
-                                               loc->prefix_len,
-                                               END,
-                                               0,
-                                               0, 0, IPC_SRV6_LOCATOR_DEL);    
-        memset (loc, 0, sizeof (*loc));
-    }
+    assert (prc == SRv6_POOL_OK);
 
+    memset (loc, 0, sizeof (*loc));
+    
     /* Delete Tracer */
     tracer_deinit (node_info->tr);
     node_info->tr = NULL;
 
-    /* Delete ips joins */
-    cp_ips_unjoin  (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,  srv6_recv_ips_updates);
-
     /* check and delete srv6 node info*/
     check_and_delete_srv6_node_info (node);
     cprintf ("SRv6 shutdown Successfully\n");
-}
-
-void
-srv6_local_sid_config_post_processing (
-            node_t *node,
-            ipv6_addr_t *pfxsid,
-            uint8_t pfxsid_len,
-            Srv6_endpcode_t pfxsid_endfn,
-            uint8_t flags,
-            uint8_t algo,
-            ipv6_addr_t *gw,
-            Interface *oif,
-            uint32_t metric,
-            uint32_t ipc_minor_code_event) {
-
-        bool install_rt = false;
-        ipv6_addr_t rt_addr;
-        uint8_t rt_prefix_len;
-
-        srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
-
-         /* Send the IPS to Subscribers (IGPs)*/
-        ips_srv6_data_t *ips_srv6_data = new ips_srv6_data_t;
-        ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));
-
-        srv6_locator_t *loc = &node_info->loc;
-
-        switch (ipc_minor_code_event) {
-
-            case IPC_SRV6_LOCATOR_ADD:
-            {
-                memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
-                ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
-                ips_srv6_data->u.locator.mt_id = 0; /* Default */
-                ips_srv6_data->u.locator.metric = metric;
-                ips_srv6_data->u.locator.algorithm = algo;
-                ips_srv6_data->u.locator.flags = flags;
-                /* Route to be installed */
-                install_rt = true;
-                memcpy(rt_addr.addr, loc->sid.addr, 16);
-                rt_prefix_len = loc->prefix_len;
-            }
-            break;
-            case IPC_SRV6_LOCATOR_UPDATE:
-            {
-                memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
-                ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
-                ips_srv6_data->u.locator.mt_id = 0; /* Default */
-                ips_srv6_data->u.locator.metric = metric;
-                ips_srv6_data->u.locator.algorithm = algo; 
-                ips_srv6_data->u.locator.flags = flags;
-            }
-            break;  
-            case IPC_SRV6_PREFIX_SID_ADD:
-            {
-                memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
-                ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
-
-                memcpy (ips_srv6_data->u.prefix_sid.prefix.addr, pfxsid->addr, 16);
-                ips_srv6_data->u.prefix_sid.endfn = pfxsid_endfn;
-                ips_srv6_data->u.prefix_sid.flags = flags;
-                /* Route to be installed */
-                install_rt = true;
-                memcpy(rt_addr.addr, pfxsid->addr, 16);
-                rt_prefix_len = pfxsid_len;
-            }
-            break;
-            case IPC_SRV6_ADJ_SID_ADD:
-            {
-                /* Locator */
-                memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
-                ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
-                /* Adj sid*/
-                memcpy(ips_srv6_data->u.adj_sid.prefix.addr, pfxsid->addr, 16);
-                ips_srv6_data->u.adj_sid.flags = flags;
-                ips_srv6_data->u.adj_sid.endfn = pfxsid_endfn;
-                /* Route to be installed */
-                install_rt = true;
-                memcpy(rt_addr.addr, pfxsid->addr, 16);
-                rt_prefix_len = pfxsid_len;
-            }
-            break;
-            default :
-                assert(0);
-        }
-
-        /* Send it to IGP */
-      cp_ips_send (node, IPC_SRV6_INFO, 
-                            ipc_minor_code_event,
-                            (void *)ips_srv6_data, sizeof (ips_srv6_data_t), true);
-
-    /* Install the locator route in RIB */
-    if (install_rt) {
-        ipv6_route_install (node, 
-                                        &rt_addr,
-                                        rt_prefix_len, 
-                                        IPV6_LOCAL_RT,
-                                        gw, oif,
-                                        NULL, 0, 
-                                        pfxsid_endfn,
-                                        PROTO_SRv6);
-    }
-}
-
-void srv6_local_sid_unconfig_pre_processing(
-            node_t *node,
-            ipv6_addr_t *pfxsid,
-            uint8_t pfxsid_len,
-            Srv6_endpcode_t pfxsid_endfn,
-            uint8_t flags,
-            ipv6_addr_t *gw,
-            Interface *oif,
-            uint32_t  ipc_minor_code_event)
-{
-
-    ipv6_addr_t rt_addr;
-    uint8_t rt_prefix_len;
-
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
-
-    /* Send the IPS to Subscribers (IGPs)*/
-    ips_srv6_data_t *ips_srv6_data = new ips_srv6_data_t;
-    ips_srv6_data->rtr_id = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));
-
-    srv6_locator_t *loc = &node_info->loc;
-
-    switch (ipc_minor_code_event)
-    {
-        case  IPC_SRV6_LOCATOR_DEL:
-        {
-            memcpy(ips_srv6_data->u.locator.prefix.addr, loc->sid.addr, 16);
-            ips_srv6_data->u.locator.prefix_len = loc->prefix_len;
-            /* Rest of the fields do not matter, for deletion we only need locator key*/
-            ips_srv6_data->u.locator.mt_id = 0;
-            ips_srv6_data->u.locator.metric = 0;
-            ips_srv6_data->u.locator.algorithm = 0;
-            ips_srv6_data->u.locator.flags = flags;
-            /* Route to be uninstalled*/
-            memcpy(rt_addr.addr, loc->sid.addr, 16);
-            rt_prefix_len = loc->prefix_len;
-        }
-        break;
-        case IPC_SRV6_PREFIX_SID_DEL:
-        {
-            /* To delete the prefix sid, IGP should know whose locators prefix sid we are deleting, though we support 1 locator only*/
-            memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
-            ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
-            /* Now prefix sid*/
-            memcpy (ips_srv6_data->u.prefix_sid.prefix.addr, pfxsid->addr, 16);
-             /* Rest of the fields do not matter, for deletion we only need pfxsid key*/
-             ips_srv6_data->u.prefix_sid.endfn = (Srv6_endpcode_t)0;
-             ips_srv6_data->u.prefix_sid.flags = flags;
-            /* Route to be uninstalled*/
-            memcpy(rt_addr.addr, pfxsid->addr, 16);
-            rt_prefix_len = pfxsid_len;
-        }
-        break;
-        case IPC_SRV6_ADJ_SID_DEL:
-        {
-            memcpy (ips_srv6_data->u.prefix_sid.loc.addr, loc->sid.addr, 16);
-            ips_srv6_data->u.prefix_sid.loc_prefix_len = loc->prefix_len;
-            /* Now Adj sid*/
-            memcpy(ips_srv6_data->u.adj_sid.prefix.addr, pfxsid->addr, 16);
-            /* Rest of the fields do not matter, for deletion we only need adjsid key*/
-            ips_srv6_data->u.adj_sid.flags = flags;
-            ips_srv6_data->u.adj_sid.endfn =  (Srv6_endpcode_t)0;
-            /* Route to be uninstalled*/
-            memcpy(rt_addr.addr, pfxsid->addr, 16);
-            rt_prefix_len = pfxsid_len; 
-        }
-        break;
-        default:
-            assert(0);
-    }
-
-        /* Send it to IGP */
-      cp_ips_send (node, IPC_SRV6_INFO, 
-                            ipc_minor_code_event,
-                            (void *)ips_srv6_data, sizeof (ips_srv6_data_t), true);
-
-        ipv6_route_uninstall(node, 
-                            &rt_addr,
-                            rt_prefix_len, 
-                            gw, oif,
-                            PROTO_SRv6);
 }
 
 uint32_t 
@@ -283,9 +99,11 @@ srv6_delete_all_pfx_sids (node_t *node)  {
 
     glthread_t *curr ;
     uint32_t count = 0;
+    char err_msg[256];
     mtrie_node_t *mnode;
     srv6_pfxsid_t *pfxsid;
     ips_srv6_data_t *ips_srv6_data;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
 
@@ -299,12 +117,18 @@ srv6_delete_all_pfx_sids (node_t *node)  {
         pfxsid = (srv6_pfxsid_t *)mnode->data;
         assert(pfxsid);
 
-        srv6_local_sid_unconfig_pre_processing(node,
-                                               &pfxsid->sid,
-                                               pfxsid->prefix_len,
-                                               pfxsid->endP,
-                                               pfxsid->flags,
-                                               0, 0, IPC_ISIS_SRV6_PREFIX_SID_DEL);
+        ipv6_route_uninstall(node, 
+                            &pfxsid->sid,
+                            pfxsid->prefix_len,
+                            0, 0,
+                            PROTO_SRv6);        
+
+        prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &pfxsid->sid,
+                                    err_msg);
+
+        assert (prc == SRv6_POOL_OK);    
 
         XFREE(pfxsid);
         curr = mtrie_node_delete_while_traversal(node_info->configured_pfx_sids, mnode);
@@ -323,9 +147,11 @@ srv6_delete_all_adj_sids (node_t *node) {
     
     glthread_t *curr ;
     uint32_t count = 0;
+    char err_msg[256];
     mtrie_node_t *mnode;
     srv6_adjsid_t *adjsid;
     ips_srv6_data_t *ips_srv6_data;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
 
@@ -339,16 +165,18 @@ srv6_delete_all_adj_sids (node_t *node) {
         adjsid = (srv6_adjsid_t *)mnode->data;
         assert(adjsid);
 
-        srv6_local_sid_unconfig_pre_processing(node,
-                                               &adjsid->sid,
-                                               adjsid->prefix_len,
-                                               adjsid->endP,
-                                               adjsid->flags,
-                                               0, 0, IPC_ISIS_SRV6_ADJ_SID_DEL);
-        
-        cp_ips_send (node, IPC_SRV6_INFO, 
-                            IPC_SRV6_PREFIX_SID_DEL, 
-                            (void *) ips_srv6_data, sizeof (*ips_srv6_data), true);
+        ipv6_route_uninstall(node, 
+                            &adjsid->sid,
+                            adjsid->prefix_len,
+                            0, 0,
+                            PROTO_SRv6);
+
+        prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &adjsid->sid,
+                                    err_msg);
+
+        assert (prc == SRv6_POOL_OK);    
 
         XFREE(adjsid);
         curr = mtrie_node_delete_while_traversal(node_info->configured_adj_sids, mnode);
@@ -360,4 +188,43 @@ srv6_delete_all_adj_sids (node_t *node) {
     XFREE(node_info->configured_adj_sids);
     node_info->configured_adj_sids = NULL;
     return count;
+}
+
+
+void 
+External_srv6_import_locator_config (
+        node_t *node,
+        const char *loc_name, 
+        ipv6_addr_t *prefix, 
+        uint8_t *prefix_len,
+        uint32_t *metric,
+        uint16_t *mt_id,
+        uint8_t *algorithm,
+        uint8_t *flags) {
+
+    memset (prefix, 0, sizeof (*prefix));
+    *prefix_len = 0;
+
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+
+    if (!node_info) {
+        return;
+    }
+
+    srv6_locator_t *loc = &node_info->loc;
+    
+    if (loc->name[0] == '\0') {
+        return;
+    }
+
+    if (strncmp (loc->name, loc_name, sizeof (loc->name))) {
+        return;
+    }
+
+    memcpy (prefix, &loc->sid, sizeof(*prefix));
+    *prefix_len = loc->prefix_len;
+    *metric = 0;
+    *mt_id = 0;
+    *algorithm = loc->algo;
+    *flags = 0;
 }

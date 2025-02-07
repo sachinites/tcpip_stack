@@ -55,38 +55,6 @@ typedef enum ips_msg_code_ {
     #define IPC_ACCESS_LIST_DEL 2
     #define IPC_ACCESS_LIST_UPDATE 4
 
-    /* Producer is SRV6 Module */
-    IPC_SRV6_INFO,
-    #define IPC_SRV6_LOCATOR_ADD (1 << 0)
-    #define IPC_SRV6_LOCATOR_UPDATE (1 << 1)
-    #define IPC_SRV6_LOCATOR_DEL (1 << 2)
-    #define IPC_SRV6_PREFIX_SID_ADD (1 << 3)
-    #define IPC_SRV6_PREFIX_SID_DEL (1 << 4)
-    #define IPC_SRV6_ADJ_SID_ADD (1 << 5)
-    #define IPC_SRV6_ADJ_SID_DEL (1 << 6)
-
-    /* Producer is ISIS , SRV6 info which it has learnt from
-        LSDB advertisement */
-    IPC_ISIS_SRV6_LSDB_INFO,
-    #define IPC_ISIS_SRV6_LOCATOR_ADD (1 << 0)
-    #define IPC_ISIS_SRV6_LOCATOR_DEL (1 << 1)
-    #define IPC_ISIS_SRV6_LOCATOR_UPDATE (1 << 2)
-    #define IPC_ISIS_SRV6_PREFIX_SID_ADD (1 << 3)
-    #define IPC_ISIS_SRV6_PREFIX_SID_DEL (1 << 4)
-    #define IPC_ISIS_SRV6_ADJ_SID_ADD (1 << 5)
-    #define IPC_ISIS_SRV6_ADJ_SID_DEL (1 << 6)
-    #define IPC_ISIS_SRV6_TLVs ((IPC_ISIS_SRV6_LOCATOR_ADD | \
-                                                         IPC_ISIS_SRV6_LOCATOR_UPDATE | \
-                                                         IPC_ISIS_SRV6_LOCATOR_DEL | \
-                                                         IPC_ISIS_SRV6_PREFIX_SID_ADD | IPC_ISIS_SRV6_PREFIX_SID_DEL | \
-                                                         IPC_ISIS_SRV6_ADJ_SID_ADD | IPC_ISIS_SRV6_ADJ_SID_DEL))
-
-    /* Used by any client ( ISIS/OSPF) to request SRV6 to publish its
-        SIDs*/
-    IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs,
-    #define IPC_REQ_SRV6_PUBLISH_PFX_SIDS   (1)
-    #define IPC_REQ_SRV6_PUBLISH_ADJ_SIDS   (1 << 1)
-
     IPC_MSG_TYPE_MAX
 
 } ips_major_code_t;
@@ -159,28 +127,6 @@ typedef struct ips_srv6_data_ {
                 uint8_t flags;
 
             } locator;
-
-            struct {
-
-                ipv6_addr_t loc;
-                uint8_t loc_prefix_len;
-
-                ipv6_addr_t prefix;
-                Srv6_endpcode_t endfn;
-                uint8_t flags;
-
-            } prefix_sid;
-
-            struct {
-                
-                ipv6_addr_t loc;
-                uint8_t loc_prefix_len;
-
-                ipv6_addr_t prefix;
-                Srv6_endpcode_t endfn;
-                uint8_t flags;
-
-            } adj_sid;
 
     } u;
 

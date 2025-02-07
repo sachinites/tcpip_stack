@@ -18,6 +18,7 @@
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 #include "isis_srv6.h"
+#include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
 static int
 isis_config_traceoption_handler (int cmdcode,
@@ -465,6 +466,33 @@ isis_intf_config_handler(int cmdcode,
     return 0;
 }
 
+
+static int 
+isis_srv6_flavor_validation (Stack_t *tlv_stack, unsigned char *leaf_value) {
+
+    if (strncmp((const char *)leaf_value, "psp", 3) == 0) return LEAF_VALIDATION_SUCCESS;
+    if (strncmp((const char *)leaf_value, "usp", 3) == 0) return LEAF_VALIDATION_SUCCESS;
+    if (strncmp((const char *)leaf_value, "usd", 3) == 0) return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
+}
+
+static void 
+isis_srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
+
+    param_t *flavor = (param_t *)calloc(1, sizeof(param_t));
+    init_param(flavor, CMD, "flavor", NULL, NULL, INVALID, NULL, "Configure SRv6 EndPoint Flavor");
+    libcli_register_param(root, flavor);
+    {
+        param_t *flavors_value = (param_t *)calloc(1, sizeof(param_t));
+        init_param(flavors_value, LEAF, NULL, cbk, 
+            isis_srv6_flavor_validation , 
+            STRING, "flavor", "Flavor Values [ psp | usp | usd ]");
+        libcli_register_param( flavor , flavors_value);
+        libcli_param_recursive(flavors_value);
+        libcli_set_param_cmd_code(flavors_value, cmdcode);
+    }
+}
+
 static int
 isis_srv6_config_handler (int cmdcode, 
                              Stack_t *tlv_stack,
@@ -472,10 +500,19 @@ isis_srv6_config_handler (int cmdcode,
 
     int8_t rc;
     node_t *node;
+    char flavor[3][4];
+    uint8_t flavor_val= 0;
+    ipv6_addr_t prefix_sid;
+    Srv6_endpcode_t end_fn;
     tlv_struct_t *tlv = NULL;
-    c_string node_name = NULL;
     c_string loc_name = NULL;
+    c_string node_name = NULL;
+    c_string pfx_sid_str = NULL;
     isis_srv6_config_t *srv6_config = NULL;
+
+    flavor[0][0] = '\0';
+    flavor[1][0] = '\0';
+    flavor[2][0] = '\0';
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -483,10 +520,53 @@ isis_srv6_config_handler (int cmdcode,
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "locator-name"))
             loc_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "end-sid"))
+            pfx_sid_str = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "flavor")) {
+
+            do {
+
+                if (flavor[0][0] == '\0') {
+                    strncpy(flavor[0], (const char *)(tlv->value), 3);
+                    break; 
+                }
+                else if (flavor[1][0] == '\0') {
+                    strncpy(flavor[1], (const char *)(tlv->value), 3);
+                    break; 
+                }
+                else if (flavor[2][0] == '\0') {
+                    strncpy(flavor[2], (const char *)(tlv->value), 3);
+                    break; 
+                }                                
+
+            } while (0);
+        }
 
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+
+    flavor_val = DEFAULT_FLAVOR;
+
+    if (flavor[0][0] != '\0 ') {
+        if (strncmp((const char *)flavor[0], "psp", 3) == 0) flavor_val = PSP;
+        if (strncmp((const char *)flavor[0], "usp", 3) == 0) flavor_val = USP;
+        if (strncmp((const char *)flavor[0], "usd", 3) == 0) flavor_val = USD;
+    }
+
+    if (flavor[1][0] != '\0 ') {
+        if (strncmp((const char *)flavor[1], "psp", 3) == 0) flavor_val |= PSP;
+        if (strncmp((const char *)flavor[1], "usp", 3) == 0) flavor_val |= USP;
+        if (strncmp((const char *)flavor[1], "usd", 3) == 0) flavor_val |= USD;
+    }
+
+    if (flavor[2][0] != '\0 ') {
+        if (strncmp((const char *)flavor[2], "psp", 3) == 0) flavor_val |= PSP;
+        if (strncmp((const char *)flavor[2], "usp", 3) == 0) flavor_val |= USP;
+        if (strncmp((const char *)flavor[2], "usd", 3) == 0) flavor_val |= USD;
+    }
+
+    Srv6_endpcode_t endpCode = srv6_get_composite_END_endpcode (flavor_val);
 
     switch (cmdcode) {
 
@@ -543,9 +623,35 @@ isis_srv6_config_handler (int cmdcode,
         }
         break;
 
+        case CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR_END_SID:
+        {
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+
+                    if (endpCode == SRV6_END_FN_NONE)
+                    {
+                        cprintf("%s : Error : Invalid flavor\n", node->node_name);
+                        return -1;
+                    }
+                    inet_pton6(pfx_sid_str, &prefix_sid);
+                    isis_add_prefix_sid_to_locator (node, loc_name, 
+                        &prefix_sid, endpCode, flavor_val);
+                break;
+
+                case CONFIG_DISABLE:
+                    inet_pton6(pfx_sid_str, &prefix_sid);
+                    isis_delete_prefix_sid_from_locator (node, loc_name, &prefix_sid) ;
+                break;
+
+            }
+        }
+        break;
+
+
         default:;
         }
-        return 0;
+    return 0;
 }
 
 
@@ -1042,6 +1148,26 @@ isis_config_cli_tree(param_t *param) {
                         libcli_register_param(&locator, &locator_name);
                         libcli_set_param_cmd_code(&locator_name, CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR);
                         libcli_set_tail_config_batch_processing (&locator_name);
+                        {
+                            /* ... end-sid <ipv6-address> */
+                            static param_t end_sid;
+                            init_param(&end_sid, CMD, "end-sid", 0, 0, INVALID, 0, "SRv6 end-sid");
+                            libcli_register_param(&locator_name, &end_sid);
+                            {
+                                static param_t ipv6_sid;
+                                init_param(&ipv6_sid, LEAF, 0, isis_srv6_config_handler, 0, IPV6, "end-sid",
+                                ("SRv6 End Sid"));
+                                libcli_register_param(&end_sid, &ipv6_sid);
+                                libcli_set_param_cmd_code(&ipv6_sid, CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR_END_SID);
+                                libcli_set_tail_config_batch_processing (&ipv6_sid);
+                                {
+                                    /* flavor */
+                                    isis_srv6_flavor_cli_subtree_hookup(&ipv6_sid, 
+                                    CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR_END_SID, 
+                                    isis_srv6_config_handler);
+                                }
+                            }
+                        }
                     }
                 }
             }

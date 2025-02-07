@@ -62,6 +62,7 @@ typedef struct ddcp_db_ ddcp_db_t;
 typedef struct nmp_ nmp_t;
 typedef struct stp_node_ stp_node_info_t;
 typedef struct srv6_node_info_ srv6_node_info_t ;
+typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 
 typedef struct node_nw_prop_{
 
@@ -101,6 +102,9 @@ typedef struct node_nw_prop_{
     /* Device level SRV6 info */
     srv6_node_info_t *srv6_node_info;
 
+    /* Global pools of SRv6 SIDs */
+   srv6_sid_pools_t  *srv6_sid_pools;
+
 } node_nw_prop_t;
 
 extern void init_arp_table(arp_table_t **arp_table);
@@ -110,6 +114,7 @@ extern void init_rtv6_table(node_t *node, rt_table_t **rt_table);
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 extern void init_tcp_logging(node_t *);
+extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 void  node_assign_router_mac (node_t *node) ;
 
 static inline void
@@ -127,6 +132,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
     init_tcp_logging(node);
+    srv6_pool_init_srv6_pools (&node_nw_prop->srv6_sid_pools);
 }
 
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
@@ -138,6 +144,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
 #define NODE_LOG_BUFF(node_ptr) (node_ptr->node_nw_prop.log_buffer)
+#define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)
 
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)

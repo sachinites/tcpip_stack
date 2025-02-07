@@ -5,13 +5,18 @@
 #include "isis_advt.h"
 #include "isis_tlv_struct.h"
 #include "../../Tracer/tracer.h"
+#include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
-extern 
-void isis_recv_ipc_updates (node_t *node, 
-                                             ips_major_code_t major_code,
-                                             uint32_t minor_code,
-                                             void *msg,
-                                             uint32_t msg_size) ;
+extern void 
+External_srv6_import_locator_config (
+        node_t *node,
+        const char *loc_name, 
+        ipv6_addr_t *prefix, 
+        uint8_t *prefix_len,
+        uint32_t *metric,
+        uint16_t *mt_id,
+        uint8_t *algorithm,
+        uint8_t *flags);
 
 /* 0 if locator is enable and matching
     1 if locator is set, but not mathching 
@@ -75,12 +80,53 @@ avltree_adj_sid_cmp (const avltree_node_t *data1, const avltree_node_t *data2) {
     return 0;
 }
 
-void
+int
 isis_srv6_new_locator_set (node_t *node, char *new_locator) {
+
+    uint8_t flags;
+    uint32_t metric;
+    uint16_t mt_id;
+    uint8_t algorithm;
+    uint8_t prefix_len;
+    ipv6_addr_t loc_prefix;
+    char err_msg[256];
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
+
+    External_srv6_import_locator_config (node, new_locator, 
+        &loc_prefix, &prefix_len, &metric, &mt_id, &algorithm, &flags);
+
+    if (is_ipv6_addr_unspecified (&loc_prefix.addr)) {
+
+        cprintf ("Error : Non-existing locator\n");
+        return -1;
+    }
+
+    int8_t rc = isis_srv6_is_loc_enabled  (node, new_locator);
+
+    switch (rc) {
+        case 1:
+            cprintf ("Error : Remove the existing locator first\n");
+            return -1;
+        case 0:
+            return 0;
+        case -1:
+            break;
+    }
+
+    /* Claim that this client is using the locator */
+    prc = srv6_pool_client_borrow_locator (
+             (NODE_SRv6_SID_POOL(node)), 
+             new_locator,  srv6_sid_client_isis, 
+             err_msg);
+
+    if (prc != SRv6_POOL_OK) {
+        cprintf ("%s : %s, err-code : %d\n", node->node_name, err_msg, prc);
+        return -1;
+    }
 
     if (!node_info->srv6_config) {
         node_info->srv6_config = (isis_srv6_config_t *)XCALLOC(0, 1, isis_srv6_config_t);
@@ -88,15 +134,24 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
         avltree_init (&node_info->srv6_config->adj_sid_tree, avltree_adj_sid_cmp);
     }
 
-    strncpy(node_info->srv6_config->loc.locator_name, new_locator, 32);
-    
-    cp_ips_join (node, IPC_SRV6_INFO, 
-        IPC_ALL_MINOR_UPDATES, isis_recv_ipc_updates);
-    
-    /* Request SRv6 to send us all SRv6 SID Data*/
-    cp_ips_send (node, IPC_IGP_REQUEST_SRV6_PUBLISH_SIDs, 
-        IPC_REQ_SRV6_PUBLISH_PFX_SIDS | IPC_REQ_SRV6_PUBLISH_ADJ_SIDS, 
-        0, 0, false);
+    strncpy(node_info->srv6_config->loc.locator_name, new_locator, 
+        sizeof (node_info->srv6_config->loc.locator_name));
+    memcpy(&node_info->srv6_config->loc.prefix, 
+        &loc_prefix, sizeof (loc_prefix));
+
+    node_info->srv6_config->loc.prefix_len = prefix_len;
+    node_info->srv6_config->loc.metric = metric;
+    node_info->srv6_config->loc.mt_id = mt_id;
+    node_info->srv6_config->loc.flags = flags;
+    node_info->srv6_config->loc.algorithm = algorithm;
+
+    isis_srv6_locator_t *loc = &node_info->srv6_config->loc;
+
+    isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
+    isis_advertise_locator_ipv6_reachability_mt_tlv237 (node, loc);
+    isis_advertise_locator_tlv27_instance (node, loc, true);
+
+    return 0;
 }
 
 void
@@ -105,9 +160,11 @@ isis_srv6_stop_adj_sid_advertisement (node_t *node) {}
 void
 isis_srv6_locator_unset (node_t *node) {
 
+    char err_msg[256];
     avltree_node_t *curr = NULL;
     isis_srv6_pfx_sid_t *pfxsid = NULL;
     isis_srv6_adj_sid_t *adjsid = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -132,6 +189,14 @@ isis_srv6_locator_unset (node_t *node) {
         pfxsid = avltree_container_of(curr, isis_srv6_pfx_sid_t , avl_glue);
         assert (!pfxsid->adv_data);
         avltree_remove(&pfxsid->avl_glue, &node_info->srv6_config->pfxsid_tree);
+
+        prc = srv6_release_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            &pfxsid->prefix,
+                            err_msg);
+
+        assert (prc == SRv6_POOL_OK);
+
         XFREE(pfxsid);
 
     } ITERATE_AVL_TREE_END;
@@ -141,9 +206,24 @@ isis_srv6_locator_unset (node_t *node) {
         adjsid = avltree_container_of(curr, isis_srv6_adj_sid_t, avl_glue);
         assert (!adjsid->adv_data);
         avltree_remove(&adjsid->avl_glue, &node_info->srv6_config->adj_sid_tree);
+
+        prc = srv6_release_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            &adjsid->prefix,
+                            err_msg);
+
+        assert (prc == SRv6_POOL_OK);
+
         XFREE(adjsid);
 
     } ITERATE_AVL_TREE_END;
+
+    prc = srv6_pool_client_unborrow_locator (
+             (NODE_SRv6_SID_POOL(node)), 
+             loc->locator_name,  srv6_sid_client_isis, 
+             err_msg);
+
+    assert (prc == SRv6_POOL_OK);
 
     XFREE(node_info->srv6_config);
     node_info->srv6_config = NULL;
@@ -538,92 +618,17 @@ isis_srv6_withdraw_pfxsid_advertisement (node_t *node, isis_srv6_pfx_sid_t *pfx_
 
 }
 
-/* We have recvd an IPS from SRV6 to learn a new locator.  Ist store the locator
-    config from IPS and then advertise it into TLVs
-    0. Reject IPS if SRV6 is not enabled
-    1. Learn the locator data
-    2. Advertise 
-    */
-void 
-isis_srv6_process_locator_ips (node_t *node,  ips_srv6_data_t *msg ) {
-
-    isis_advt_info_t advt_info;
-    isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node);
-
-    if (!srv6_config) {
-        tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-            "%s :  Locator IPS rejected, SRV6 is not enabled\n", ISIS_SRV6);
-        return;
-    }
-
-    isis_srv6_locator_t *loc = &srv6_config->loc;
-
-    if (!is_ipv6_addr_unspecified (&loc->prefix.addr)) {
-         tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-         "%s : Locator IPS rejected, Locator is already learnt\n", ISIS_SRV6);
-         return;
-    }
-
-    /* Learn the locator config from IPS*/
-    memcpy (loc->prefix.addr , msg->u.locator.prefix.addr, 16);
-    loc->metric = msg->u.locator.metric;
-    loc->mt_id = msg->u.locator.mt_id;
-    loc->flags = msg->u.locator.flags;
-    loc->algorithm = msg->u.locator.algorithm;
-    loc->prefix_len = msg->u.locator.prefix_len;
-
-    /* We need to advertise the locator in 3 TLVs */
-
-    /* Advertise the locator in TLV 236 - IPV6 Reach TLV*/
-    isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
-
-    /* Advertise the Locator in Locator in MT TLV */
-    isis_advertise_locator_ipv6_reachability_mt_tlv237 (node, loc);
-
-    /* Advertise the locator in locator TLV 27 */
-    isis_advertise_locator_tlv27_instance (node, loc, true);
-}
-
-void 
-isis_srv6_process_locator_update_ips (node_t *node,  ips_srv6_data_t *msg ) {
-
-    isis_advt_info_t advt_info;
-    isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node);
-
-    isis_srv6_locator_t *loc = &srv6_config->loc;
-
-    /* Learn the locator config from IPS*/
-    memcpy (loc->prefix.addr , msg->u.locator.prefix.addr, 16);
-    loc->metric = msg->u.locator.metric;
-    loc->mt_id = msg->u.locator.mt_id;
-    loc->flags = msg->u.locator.flags;
-    loc->algorithm = msg->u.locator.algorithm;
-    loc->prefix_len = msg->u.locator.prefix_len;
-
-    /* We need to advertise the locator in 3 TLVs */
-
-    /* Advertise the locator in TLV 236 - IPV6 Reach TLV*/
-    isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
-
-    /* Advertise the Locator in Locator in MT TLV */
-    isis_advertise_locator_ipv6_reachability_mt_tlv237 (node, loc);
-
-    /* Advertise the locator in locator TLV 27 */
-    isis_advertise_locator_tlv27_instance (node, loc, true);
-}
-
-
 void
-isis_add_prefix_sid_to_locator (node_t *node, ips_srv6_data_t *msg) {
+isis_add_prefix_sid_to_locator (node_t *node, 
+                                char *loc_name, 
+                                ipv6_addr_t *prefix_sid, 
+                                Srv6_endpcode_t endfn, 
+                                uint8_t flavors) {
 
+    char err_msg[256];
     char ipv4_addr_str[16];
     char ipv6_addr_str[48];
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
@@ -631,67 +636,89 @@ isis_add_prefix_sid_to_locator (node_t *node, ips_srv6_data_t *msg) {
     if (!srv6_config) return;
 
     /* Ignore if locator is not configured first */
-    if (isis_srv6_is_loc_enabled(node, srv6_config->loc.locator_name)) {
+    if (isis_srv6_is_loc_enabled(node, loc_name)) {
+
         tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-            "%s : Ignoring PFX SID ADD : %s/128 from node %s as locator is not set\n", 
+            "%s : Ignoring PFX SID ADD : %s/128  as locator is not set\n", 
                 ISIS_ERROR,
-                inet_ntop6(&msg->u.prefix_sid.prefix, ipv6_addr_str), 
-                tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
+                inet_ntop6(prefix_sid, ipv6_addr_str));
         return;
     }
 
     /* Ignore if prefix sid is already learnt from ISIS*/   
     isis_srv6_pfx_sid_t pfx_sid_template;
     memset(&pfx_sid_template.avl_glue, 0, sizeof (pfx_sid_template.avl_glue));
-    memcpy (pfx_sid_template.prefix.addr, msg->u.prefix_sid.prefix.addr, 16);
+    memcpy (pfx_sid_template.prefix.addr, prefix_sid->addr, 16);
 
     if (avltree_lookup(&pfx_sid_template.avl_glue, &srv6_config->pfxsid_tree)) {
+
         tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-            "%s : Ignoring PFX SID ADD : %s/128 from node %s as it is already learnt\n", 
+            "%s : Ignoring PFX SID ADD : %s/128 as it is already learnt\n", 
                 ISIS_ERROR,
-                inet_ntop6(&msg->u.prefix_sid.prefix, ipv6_addr_str), 
-                tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
+                inet_ntop6(prefix_sid, ipv6_addr_str));
         return;
     }
 
+   /* Pool Reservation */
+    prc = srv6_pool_alloc_static_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            prefix_sid,
+                            srv6_sid_client_isis,
+                            0,
+                            NULL,
+                            err_msg);
+
+    if (prc != SRv6_POOL_OK) {
+            
+            tracer (ISIS_TR(node), TR_ISIS_SRV6 | TR_ISIS_ERRORS,
+                "%s, err-code : %d\n",  err_msg, prc);
+
+            cprintf(    
+                "%s, err-code : %d\n",  err_msg, prc);
+            return;
+    }
+
     isis_srv6_pfx_sid_t *pfx_sid = (isis_srv6_pfx_sid_t *)XCALLOC(0, 1, isis_srv6_pfx_sid_t);
-    memcpy(pfx_sid->prefix.addr, msg->u.prefix_sid.prefix.addr, 16);
-    pfx_sid->flags = msg->u.prefix_sid.flags;
-    pfx_sid->endfn = msg->u.prefix_sid.endfn;
+    memcpy(pfx_sid->prefix.addr, prefix_sid->addr, 16);
+    pfx_sid->flags = flavors;
+    pfx_sid->endfn = endfn;
 
     avltree_insert(&pfx_sid->avl_glue, &srv6_config->pfxsid_tree);
 
     tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-        "%s : AVL TREE PFX SID ADD : %s/128 from node %s Success\n", 
+        "%s : AVL TREE PFX SID ADD : %s/128 Success\n", 
             ISIS_SRV6,
-            inet_ntop6(&msg->u.prefix_sid.prefix, ipv6_addr_str), 
-            tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
+            inet_ntop6(prefix_sid, ipv6_addr_str));
 
     /* Update the locator Advertisement */
     isis_srv6_advertise_prefix_sid (node, pfx_sid );
 }
 
 void
-isis_delete_prefix_sid_from_locator (node_t *node, ips_srv6_data_t *msg) {
+isis_delete_prefix_sid_from_locator (node_t *node, 
+                                char *loc_name, 
+                                ipv6_addr_t *prefix_sid) {
 
+    char err_msg[256];
     char ipv4_addr_str[16];
     char ipv6_addr_str[48];
+    isis_srv6_locator_t *loc;
     isis_advt_info_t advt_info;
+    pool_error_codes_t prc = SRv6_POOL_OK;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
-    isis_srv6_locator_t *loc;
 
     if (!srv6_config) return;
 
     /* Ignore if locator is not configured first */
-    if (isis_srv6_is_loc_enabled(node, srv6_config->loc.locator_name)) return;
+    if (isis_srv6_is_loc_enabled(node, loc_name)) return;
 
     loc = ISIS_SRV6_LOC(node);
 
     /* Ignore if prefix sid is already learnt from ISIS*/   
     isis_srv6_pfx_sid_t pfx_sid_template;
     memset(&pfx_sid_template.avl_glue, 0, sizeof (pfx_sid_template.avl_glue));
-    memcpy (pfx_sid_template.prefix.addr, msg->u.prefix_sid.prefix.addr, 16);
+    memcpy (pfx_sid_template.prefix.addr, prefix_sid->addr, 16);
 
     avltree_node_t *avl_node = avltree_lookup(&pfx_sid_template.avl_glue, 
                                                             &srv6_config->pfxsid_tree);
@@ -699,17 +726,15 @@ isis_delete_prefix_sid_from_locator (node_t *node, ips_srv6_data_t *msg) {
     if (!avl_node) {
 
         tracer (ISIS_TR(node), TR_ISIS_SRV6 | TR_ISIS_ERRORS,
-            "%s : Error : PFX SID DEL : %s/128 from node %s Failed, Avl look-up failed\n", 
+            "%s : Error : PFX SID DEL : %s/128 Failed, Avl look-up failed\n", 
                 ISIS_SRV6,
-                inet_ntop6(&msg->u.prefix_sid.prefix, ipv6_addr_str), 
-                tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));        
+                inet_ntop6(prefix_sid, ipv6_addr_str));      
 
         cprintf(
-            "%s: %s : Error : PFX SID DEL : %s/128 from node %s Failed, Avl look-up failed\n", 
+            "%s: %s : Error : PFX SID DEL : %s/128 Failed, Avl look-up failed\n", 
                 node->node_name,
                 ISIS_SRV6,
-                inet_ntop6(&msg->u.prefix_sid.prefix, ipv6_addr_str), 
-                tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));  
+                inet_ntop6(prefix_sid, ipv6_addr_str)); 
         return;
     }
 
@@ -719,12 +744,18 @@ isis_delete_prefix_sid_from_locator (node_t *node, ips_srv6_data_t *msg) {
     avltree_remove (&pfx_sid->avl_glue, &srv6_config->pfxsid_tree);
 
     tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-        "%s : PFX SID DEL : %s/128 from node %s Success\n", 
+        "%s : PFX SID DEL : %s/128 from Success\n", 
             ISIS_SRV6,
-            inet_ntop6(&msg->u.prefix_sid.prefix, ipv6_addr_str), 
-            tcp_ip_covert_ip_n_to_p (msg->rtr_id, (c_string)ipv4_addr_str));
+            inet_ntop6(prefix_sid, ipv6_addr_str));      
+
+    /* Remove from POOL*/
+    prc = srv6_release_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            &pfx_sid->prefix,
+                            err_msg);
+
+    assert (prc == SRv6_POOL_OK);
 
     isis_srv6_withdraw_pfxsid_advertisement (node, pfx_sid);
-
     XFREE(pfx_sid);
 }

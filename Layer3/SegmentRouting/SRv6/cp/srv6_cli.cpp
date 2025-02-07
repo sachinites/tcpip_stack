@@ -9,9 +9,9 @@
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../pkt_block.h"
 #include "../../../../common/cp2dp.h"
+#include "srv6_sid_pool.h"
 #include "srv6_api.h" 
 #include "srv6_rtr.h"
-
 #include "srv6_cmds.h"
 
 extern graph_t *topo;
@@ -63,11 +63,13 @@ srv6_locator_handler
 
     
     tlv_struct_t *tlv;
+    char err_msg[256];
     c_string locator_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
     uint8_t prefix_len = 0;
     uint8_t algorithm = 0;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -88,10 +90,8 @@ srv6_locator_handler
 
     switch (cmdcode)
     {
-
     case IPV6_SRV6_LOCATOR_CONFIG:
     {
-
         switch (enable_or_disable)
         {
             case CONFIG_ENABLE:
@@ -111,20 +111,34 @@ srv6_locator_handler
                     return -1;
                 }
 
+
+
                 inet_pton(AF_INET6, (char *)ipv6_addr, &loc->sid.addr);
                 strncpy(loc->name, (const char *)locator_name, sizeof(loc->name));
                 loc->prefix_len = prefix_len;
 
-                /* Locator post config processing */
-                srv6_local_sid_config_post_processing(node,
-                                                    0,
-                                                    0,
-                                                    SRV6_END_FN_NONE,
-                                                    0, 0,
-                                                    NULL,
-                                                    NULL,
-                                                    0,
-                                                    IPC_ISIS_SRV6_LOCATOR_ADD);
+                /* Create the locator in SID pool library */
+                prc = srv6_pool_create_locator ( (NODE_SRv6_SID_POOL(node)), 
+                                            &loc->sid,
+                                            prefix_len, 
+                                            loc->name,
+                                            err_msg);
+
+                if (prc != SRv6_POOL_OK) {
+
+                    cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
+                    memset (&loc, 0, sizeof(loc));
+                    return -1;
+                }
+
+                ipv6_route_install (node, 
+                                        &loc->sid,
+                                        loc->prefix_len,
+                                        IPV6_LOCAL_RT,
+                                        0, 0,
+                                        NULL, 0, 
+                                        SRV6_END_FN_NONE,
+                                        PROTO_SRv6);
             }
             break;
             case CONFIG_DISABLE:
@@ -145,26 +159,31 @@ srv6_locator_handler
                     return 0;
                 }
 
+                if (srv6_pool_is_locator_being_used_by_any_client (
+                    NODE_SRv6_SID_POOL(node), loc->name)) {
+
+                        cprintf ("Error : Locator is in use by SRv6 clients\n");
+                        return -1;
+                }
+
                 /* Remove all local prefix sids and Adj sids routes from RIB,
                     also send delete ips */
                 srv6_delete_all_pfx_sids(node);
                 srv6_delete_all_adj_sids(node);
 
-                /* Dont delete remote routes learnt from IGP. Only local routes
-                    calculation is stopped when user disable locator */
-
-                // srv6_delete_all_igp_routes (node);
-
                 /* now delete the locator route and send IPS to IGP */
-                srv6_local_sid_unconfig_pre_processing(node,
-                                                    &loc->sid,
-                                                    loc->prefix_len,
-                                                    SRV6_END_FN_NONE,
-                                                    0,
-                                                    0, 0,
-                                                    IPC_ISIS_SRV6_LOCATOR_DEL);
+                ipv6_route_uninstall(node, 
+                            &loc->sid,
+                            loc->prefix_len, 
+                            0, 0,
+                            PROTO_SRv6);
 
                 /* Remove the locator config */
+                prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+                                            loc->name,
+                                            err_msg);
+
+                assert (prc == SRv6_POOL_OK);                           
                 memset(loc, 0, sizeof(*loc));
             }
             break;
@@ -173,34 +192,8 @@ srv6_locator_handler
     break;
 
     case IPV6_SRV6_LOCATOR_CONFIG_ALGORITHM:
-        {
-            switch (enable_or_disable) {
+    break;
 
-                case CONFIG_ENABLE:
-                {
-                    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
-                    srv6_locator_t *loc = &node_info->loc;
-                    if ( loc->algo != algorithm) {
-                        loc->algo = algorithm;
-                        srv6_local_sid_config_post_processing (node,
-                                            &loc->sid,
-                                            loc->prefix_len,
-                                            SRV6_END_FN_NONE, 
-                                            0, 
-                                            algorithm, 
-                                            0, 0, 0, 
-                                            IPC_SRV6_LOCATOR_UPDATE);
-                    }
-                }
-                break;
-                case CONFIG_DISABLE:
-                {
-
-                }
-                break;
-            }
-        }
-        break;
     }
     return 0;
 }
@@ -236,12 +229,14 @@ srv6_prefix_sid_config_handler
 
     tlv_struct_t *tlv;
     char flavor[3][4];
+    char err_msg[256];
     uint8_t flavor_val = 0;
     uint8_t prefix_len = 128;
     node_t *node = NULL;
     c_string oif_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     flavor[0][0] = '\0';
     flavor[1][0] = '\0';
@@ -317,18 +312,21 @@ srv6_prefix_sid_config_handler
             srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
             srv6_locator_t *loc = &node_info->loc;
 
-            if (is_ipv6_addr_unspecified(&loc->sid.addr)) {
-                cprintf ("Error : Configure Locator first \n");
-                return -1;
-            }
-
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
 
-            /* Prefix sid must be subne of locator */
-            if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
-                    &prefix.addr)) {
-                cprintf ("Error : Prefix sid must be subnet of locator\n");
+            /* Pool Reservation */
+            prc = srv6_pool_alloc_static_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &prefix,
+                                     srv6_sid_client_srv6,
+                                     0,
+                                     NULL,
+                                     err_msg);
+
+            if (prc != SRv6_POOL_OK) {
+
+                cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
                 return -1;
             }
 
@@ -376,15 +374,14 @@ srv6_prefix_sid_config_handler
 
             mnode->data = (void *)pfxsid;
 
-            srv6_local_sid_config_post_processing (node,
-                                &pfxsid->sid,
-                                pfxsid->prefix_len,
-                                endpCode,
-                                0, 0,
-                                NULL,
-                                NULL, 
-                                0,
-                                IPC_ISIS_SRV6_PREFIX_SID_ADD);
+             ipv6_route_install (node, 
+                                        &pfxsid->sid,
+                                        pfxsid->prefix_len,
+                                        IPV6_LOCAL_RT,
+                                        0, 0,
+                                        NULL, 0, 
+                                        pfxsid->endP,
+                                        PROTO_SRv6);
         }
         break;
 
@@ -423,6 +420,13 @@ srv6_prefix_sid_config_handler
 
             switch (rc) {
                 case MTRIE_DELETE_SUCCESS:
+                    /* Release pfx sid from pool*/
+                    prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &pfxsid->sid,
+                                    err_msg);
+
+                    assert (prc == SRv6_POOL_OK);
                     break;
                 case MTRIE_LOOKUP_FAILED:
                     cprintf ("Error : Prefix sid not found\n");
@@ -432,14 +436,11 @@ srv6_prefix_sid_config_handler
                     return -1;
             }
 
-            srv6_local_sid_unconfig_pre_processing (node,
-                    &pfxsid->sid,
-                    pfxsid->prefix_len,
-                    endpCode,
-                    0,
-                    NULL,
-                    NULL,
-                    IPC_ISIS_SRV6_PREFIX_SID_DEL);
+            ipv6_route_uninstall(node, 
+                            &pfxsid->sid,
+                            pfxsid->prefix_len, 
+                            0, 0,
+                            PROTO_SRv6);
 
             XFREE (pfxsid);
         }
@@ -564,7 +565,7 @@ srv6_adjacency_sid_config_handler
             srv6_adjsid_t *adjsid = (srv6_adjsid_t *) XCALLOC (0, 1, srv6_adjsid_t);
 
             adjsid->sid = prefix;
-            adjsid->endP = END;
+            adjsid->endP = endpCode;
             adjsid->flags = IPV6_LOCAL_RT;
             adjsid->prefix_len = prefix_len;
             adjsid->n_seg_lst = 0;
@@ -600,15 +601,15 @@ srv6_adjacency_sid_config_handler
 
             mnode->data = (void *)adjsid;
 
-            srv6_local_sid_config_post_processing (node,
-                    &adjsid->sid,
-                    adjsid->prefix_len,
-                    END_X,
-                    adjsid->flags, 0,
-                    &adjsid->gw,
-                    intf, 
-                    0,
-                    IPC_ISIS_SRV6_ADJ_SID_ADD);
+            ipv6_route_install (node, 
+                                        &adjsid->sid,
+                                        adjsid->prefix_len,
+                                        IPV6_LOCAL_RT,
+                                        &adjsid->gw, intf,
+                                        NULL, 0, 
+                                        endpCode,
+                                        PROTO_SRv6);
+
         }
         break;
 
@@ -650,13 +651,11 @@ srv6_adjacency_sid_config_handler
                 return -1;
             }
 
-            srv6_local_sid_unconfig_pre_processing (node,
-                    &adjsid->sid,
-                    adjsid->prefix_len,
-                    END_X,
-                    adjsid->flags,
-                    &adjsid->gw,
-                    intf, IPC_ISIS_SRV6_ADJ_SID_DEL);
+            ipv6_route_uninstall(node, 
+                            &adjsid->sid,
+                            adjsid->prefix_len,
+                            0, 0,
+                            PROTO_SRv6);
 
             XFREE (adjsid);
         }
