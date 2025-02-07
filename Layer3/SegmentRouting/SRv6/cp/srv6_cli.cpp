@@ -126,7 +126,7 @@ srv6_locator_handler
 
                 if (prc != SRv6_POOL_OK) {
 
-                    cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
+                    cprintf ("%s, err-code : %d\n", err_msg, prc);
                     memset (&loc, 0, sizeof(loc));
                     return -1;
                 }
@@ -326,7 +326,7 @@ srv6_prefix_sid_config_handler
 
             if (prc != SRv6_POOL_OK) {
 
-                cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
+                cprintf ("%s, err-code : %d\n", err_msg, prc);
                 return -1;
             }
 
@@ -569,7 +569,7 @@ srv6_adjacency_sid_config_handler
 
             if (prc != SRv6_POOL_OK) {
 
-                cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
+                cprintf ("%s, err-code : %d\n", err_msg, prc);
                 return -1;
             }
 
