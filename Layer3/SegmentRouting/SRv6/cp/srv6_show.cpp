@@ -31,7 +31,7 @@ srv6_show_handler
 
     switch (cmdcode) {
 
-        case CMD_CODE_SHOW_SRV6_LOCAL_ROUTES:
+        case CMD_CODE_SHOW_SRV6_SIDS:
         {
             srv6_show_locator (NODE_SRv6_SID_POOL(node), NULL);
         }

@@ -24,10 +24,8 @@
 
 #define IPV6_SRV6_LOCATOR_CONFIG_ALGORITHM 10
 
-
-
 /* show node <node-name> protocol srv6 locator */
-#define CMD_CODE_SHOW_SRV6_LOCAL_ROUTES 20
+#define CMD_CODE_SHOW_SRV6_SIDS 20
 
 
 #endif 

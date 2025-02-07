@@ -25,7 +25,7 @@ Project 9 : Implement a prototype of a routing protocol ( IGP )
 
 Project 10 : GRE Tunnel Support
 
-Project 11 : SRV6 Data Path Implemented. End Fn Supported : END, END-X
+Project 11 : SRV6 Control Plane and Data Plane Implemented. End Fn Supported : END, END-X
 
 After Doing These Projects, you shall be able to :
 
@@ -50,5 +50,5 @@ build the project :   make all
 
 Run the project : ./tcpstack.exe   ( it is linux/elf binary , run on linux systems only )
 
-Last updated : 11 July 2024
+Last updated : 7 Feb 2025
 ( Miss you Maa !! )

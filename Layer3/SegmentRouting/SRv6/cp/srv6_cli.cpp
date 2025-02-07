@@ -1035,10 +1035,10 @@ srv6_build_cli_show_tree (param_t *root)
             init_param(&srv6, CMD, "srv6", NULL, NULL, INVALID, NULL, "SRv6 Ping");
             libcli_register_param(root, &srv6);
             {
-                static param_t local_rts;
-                init_param(&local_rts, CMD, "locator", srv6_show_handler, NULL, INVALID, NULL, "SRv6 Locator Routes");
-                libcli_register_param(&srv6, &local_rts);
-                libcli_set_param_cmd_code(&local_rts,  CMD_CODE_SHOW_SRV6_LOCAL_ROUTES );
+                static param_t sid;
+                init_param(&sid, CMD, "sid", srv6_show_handler, NULL, INVALID, NULL, "SRv6 SIDs");
+                libcli_register_param(&srv6, &sid);
+                libcli_set_param_cmd_code(&sid,  CMD_CODE_SHOW_SRV6_SIDS );
             }
         }
 }
