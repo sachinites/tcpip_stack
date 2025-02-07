@@ -14,6 +14,8 @@
 
 #define MAX_LOCATOR_NAME_LEN 64
 
+extern int cprintf (const char* format, ...) ;
+
 typedef struct adj_sid_key_ {
 
     uint32_t ifindex;
@@ -48,7 +50,8 @@ typedef struct srv6_locator_pool_ {
     bitmap_t dynamic_sid_bm;
     avltree_t sid_tree;
     avltree_t sid_tree_by_asid;
-    
+    /* Who are the clients using this locator */
+    uint8_t use_clients;
 } srv6_locator_pool_t;
 
 
@@ -221,7 +224,7 @@ srv6_pool_lookup_locator_by_lpm (
 
 /* ======================  Public APIs  ========================= */
 void 
-srv6_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) {
+srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) {
 
     assert (srv6_sid_pools);
     *srv6_sid_pools = (srv6_sid_pools_t *)calloc (1, sizeof (srv6_sid_pools_t));
@@ -234,7 +237,7 @@ srv6_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) {
 
 /* Called when locator is configured for the first time*/
 pool_error_codes_t
-srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools, 
+srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools, 
                             ipv6_addr_t *loc_prefix, 
                             uint8_t prefix_len, 
                             char *loc_name,
@@ -335,7 +338,7 @@ srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools,
 
 /* Called when locator is Unconfigured */
 pool_error_codes_t
-srv6_delete_locator (srv6_sid_pools_t *srv6_sid_pools, 
+srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools, 
                             char *loc_name,
                             char* err_msg_out) {
 
@@ -391,9 +394,75 @@ srv6_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
     return SRv6_POOL_OK;
 }
 
+pool_error_codes_t
+srv6_pool_client_borrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
+                            char *loc_name,
+                            srv6_sid_client_t client,
+                            char *err_msg_out) {
+
+    srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
+                                            srv6_sid_pools, loc_name);
+
+    if (!loc) {
+        snprintf (err_msg_out, 256, "Error : Locator name %s not found", loc_name);
+        return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
+    }
+
+    if (loc->use_clients & client) {
+
+        snprintf (err_msg_out, 256, "Error : Locator %s already claimed by client 0x%x", loc_name, client);
+        return SRv6_POOL_ERR_INVALID_SID_REQUEST;
+    }
+
+    loc->use_clients |= client;
+
+    return SRv6_POOL_OK;
+}
+
+pool_error_codes_t
+srv6_pool_client_unborrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
+                            char *loc_name,
+                            srv6_sid_client_t client,
+                            char *err_msg_out) {
+
+    srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
+                                            srv6_sid_pools, loc_name);
+
+    if (!loc) {
+        snprintf (err_msg_out, 256, "Error : Locator name %s not found", loc_name);
+        return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
+    }
+
+    if (!(loc->use_clients & client)) {
+
+        snprintf (err_msg_out, 256, "Error : Locator %s already not claimed by client 0x%x", loc_name, client);
+        return SRv6_POOL_ERR_INVALID_SID_REQUEST;
+    }
+
+    loc->use_clients &=  ~client;
+
+    return SRv6_POOL_OK;
+}
+
+
+bool 
+srv6_pool_is_locator_being_used_by_any_client (
+                                    srv6_sid_pools_t *srv6_sid_pools,
+                                    char *loc_name) {
+
+    srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
+                                            srv6_sid_pools, loc_name);
+
+    if (!loc) {
+        return false;
+    }
+
+    return (loc->use_clients != 0);
+}
+
 /* Allocate only Dynamic SIDs*/
 pool_error_codes_t
-srv6_alloc_dynamic_sid (
+srv6_pool_alloc_dynamic_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     char *loc_name ,
                                     srv6_sid_client_t sid_client,
@@ -447,7 +516,7 @@ srv6_alloc_dynamic_sid (
 }
 
 pool_error_codes_t
-srv6_alloc_static_sid (
+srv6_pool_alloc_static_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     ipv6_addr_t *sid,
                                     srv6_sid_client_t sid_client,
@@ -567,7 +636,7 @@ srv6_release_sid (
 }
 
 pool_error_codes_t
-srv6_lookup_adj_sid (
+srv6_pool_lookup_adj_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     char *loc_name,
                                    uint32_t ifindex,
@@ -609,3 +678,104 @@ srv6_lookup_adj_sid (
 
     return SRv6_POOL_OK;
 }
+
+const char * 
+srv6_sid_client_str (srv6_sid_client_t client) {
+
+    switch (client) {
+
+    case srv6_sid_client_isis:
+        return "isis-srv6";
+    case srv6_sid_client_srv6:
+        return "srv6-mgr";
+    case srv6_sid_client_bgp:
+        return "bgp-srv6";
+    case srv6_sid_client_ospfv3:
+        return "ospfv3-srv6";
+    default:
+        return NULL;
+    }
+
+    return NULL;
+}
+
+/*
+router# show segment-routing srv6 sid 
+SID                  Locator      Behavior          Context            		          Owner
+---                  -------      --------          -------            	              -----
+FC01:101:2::          loc1         uN (PSP/USD)                                       SID-MGR 
+FC01:101:2:E000::     loc1         uDT4                                               ospfv3-srv6
+FC01:101:2:E001::     loc1         uDT6                                               bgp-srv6
+FC01:101:2:E002::     loc1         uA (PSP/USD)      Ethernet2/0 2001::99:2:3:3       isis-srv6 
+FC01:101:2:E003::     loc1         uA (PSP/USD)      Ethernet2/1 2001::100:2:3:3      isis-srv6 
+FC01:101:2:E004::     loc1         uA (PSP/USD)      Ethernet3/0 2001::99:2:4:4       isis-srv6 
+FC01:101:2:E005::     loc1         uA (PSP/USD)      Ethernet3/1 2001::100:2:4:4      isis-srv6 
+FC01:101:2:E006::     loc1         uA (PSP/USD)      Ethernet4/0 2001::99:2:5:5       isis-srv6 
+FC01:101:2:E007::     loc1         uA (PSP/USD)      Ethernet4/1 2001::100:2:5:5      isis-srv6 
+*/
+
+static void 
+srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
+
+    avltree_node_t *curr;
+    pool_entry_t *sid_entry;
+    char ipv6_addr_str[48];
+    char ipv6_addr_gw_str[48];
+
+    cprintf ("%s : %s/%d\n", loc->loc_name, 
+        inet_ntop6 (&loc->loc, ipv6_addr_str), loc->loc_pfx_len);
+
+    ITERATE_AVL_TREE_BEGIN ((&loc->sid_tree), curr) {
+
+        sid_entry = (pool_entry_t *)avltree_container_of (curr, pool_entry_t, avl_glue_sid);
+
+        if (sid_entry->adj_sid_key.ifindex) {
+
+            cprintf ("  %s    %s     %u-%s\n", 
+                inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
+                srv6_sid_client_str (sid_entry->sid_client), 
+                sid_entry->adj_sid_key.ifindex,
+                inet_ntop6 (&sid_entry->adj_sid_key.gw_addr, ipv6_addr_gw_str));
+        }
+        else {
+            
+            cprintf ("  %s    %s\n", 
+                inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
+                srv6_sid_client_str (sid_entry->sid_client));
+        }
+
+    } ITERATE_AVL_TREE_END;
+
+}
+ 
+void 
+srv6_show_locator (srv6_sid_pools_t *srv6_sid_pools, char *loc_name)  {
+
+    srv6_locator_pool_t *loc;
+
+    if (loc_name) {
+
+        loc = srv6_pool_avl_lookup_locator_by_name(
+            srv6_sid_pools, loc_name);
+
+        if (loc) {
+            srv6_pool_show_one_locator(loc);
+        }
+
+        return;
+    }
+
+    avltree_node_t *curr;
+
+    ITERATE_AVL_TREE_BEGIN ((&srv6_sid_pools->locator_pools), curr) {
+
+        loc = (srv6_locator_pool_t *) avltree_container_of(
+                curr, srv6_locator_pool_t, avl_glue_loc);
+
+        srv6_pool_show_one_locator(loc);
+
+        cprintf ("\n");
+
+    } ITERATE_AVL_TREE_END;
+}
+

@@ -89,6 +89,8 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
     uint8_t algorithm;
     uint8_t prefix_len;
     ipv6_addr_t loc_prefix;
+    char err_msg[256];
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -113,6 +115,17 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
             return 0;
         case -1:
             break;
+    }
+
+    /* Claim that this client is using the locator */
+    prc = srv6_pool_client_borrow_locator (
+             (NODE_SRv6_SID_POOL(node)), 
+             new_locator,  srv6_sid_client_isis, 
+             err_msg);
+
+    if (prc != SRv6_POOL_OK) {
+        cprintf ("%s : %s, err-code : %d\n", node->node_name, err_msg, prc);
+        return -1;
     }
 
     if (!node_info->srv6_config) {
@@ -147,9 +160,11 @@ isis_srv6_stop_adj_sid_advertisement (node_t *node) {}
 void
 isis_srv6_locator_unset (node_t *node) {
 
+    char err_msg[256];
     avltree_node_t *curr = NULL;
     isis_srv6_pfx_sid_t *pfxsid = NULL;
     isis_srv6_adj_sid_t *adjsid = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
@@ -174,6 +189,14 @@ isis_srv6_locator_unset (node_t *node) {
         pfxsid = avltree_container_of(curr, isis_srv6_pfx_sid_t , avl_glue);
         assert (!pfxsid->adv_data);
         avltree_remove(&pfxsid->avl_glue, &node_info->srv6_config->pfxsid_tree);
+
+        prc = srv6_release_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            &pfxsid->prefix,
+                            err_msg);
+
+        assert (prc == SRv6_POOL_OK);
+
         XFREE(pfxsid);
 
     } ITERATE_AVL_TREE_END;
@@ -183,9 +206,24 @@ isis_srv6_locator_unset (node_t *node) {
         adjsid = avltree_container_of(curr, isis_srv6_adj_sid_t, avl_glue);
         assert (!adjsid->adv_data);
         avltree_remove(&adjsid->avl_glue, &node_info->srv6_config->adj_sid_tree);
+
+        prc = srv6_release_sid (
+                            (NODE_SRv6_SID_POOL(node)), 
+                            &adjsid->prefix,
+                            err_msg);
+
+        assert (prc == SRv6_POOL_OK);
+
         XFREE(adjsid);
 
     } ITERATE_AVL_TREE_END;
+
+    prc = srv6_pool_client_unborrow_locator (
+             (NODE_SRv6_SID_POOL(node)), 
+             loc->locator_name,  srv6_sid_client_isis, 
+             err_msg);
+
+    assert (prc == SRv6_POOL_OK);
 
     XFREE(node_info->srv6_config);
     node_info->srv6_config = NULL;
@@ -599,6 +637,7 @@ isis_add_prefix_sid_to_locator (node_t *node,
 
     /* Ignore if locator is not configured first */
     if (isis_srv6_is_loc_enabled(node, loc_name)) {
+
         tracer (ISIS_TR(node), TR_ISIS_SRV6, 
             "%s : Ignoring PFX SID ADD : %s/128  as locator is not set\n", 
                 ISIS_ERROR,
@@ -612,6 +651,7 @@ isis_add_prefix_sid_to_locator (node_t *node,
     memcpy (pfx_sid_template.prefix.addr, prefix_sid->addr, 16);
 
     if (avltree_lookup(&pfx_sid_template.avl_glue, &srv6_config->pfxsid_tree)) {
+
         tracer (ISIS_TR(node), TR_ISIS_SRV6, 
             "%s : Ignoring PFX SID ADD : %s/128 as it is already learnt\n", 
                 ISIS_ERROR,
@@ -620,7 +660,7 @@ isis_add_prefix_sid_to_locator (node_t *node,
     }
 
    /* Pool Reservation */
-    prc = srv6_alloc_static_sid (
+    prc = srv6_pool_alloc_static_sid (
                             (NODE_SRv6_SID_POOL(node)), 
                             prefix_sid,
                             srv6_sid_client_isis,
@@ -631,10 +671,10 @@ isis_add_prefix_sid_to_locator (node_t *node,
     if (prc != SRv6_POOL_OK) {
             
             tracer (ISIS_TR(node), TR_ISIS_SRV6 | TR_ISIS_ERRORS,
-                "%s : %s, err-code : %d\n",  err_msg, prc);
+                "%s, err-code : %d\n",  err_msg, prc);
 
             cprintf(    
-                "%s : %s, err-code : %d\n",  err_msg, prc);
+                "%s, err-code : %d\n",  err_msg, prc);
             return;
     }
 
@@ -662,11 +702,11 @@ isis_delete_prefix_sid_from_locator (node_t *node,
     char err_msg[256];
     char ipv4_addr_str[16];
     char ipv6_addr_str[48];
+    isis_srv6_locator_t *loc;
     isis_advt_info_t advt_info;
+    pool_error_codes_t prc = SRv6_POOL_OK;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
-    isis_srv6_locator_t *loc;
-    pool_error_codes_t prc = SRv6_POOL_OK;
 
     if (!srv6_config) return;
 

@@ -10,6 +10,7 @@
 #include "../../../../common/cp2dp.h"
 #include "../../../ipv6/v6nexthop.h"
 #include "../../../../Tracer/tracer.h"
+#include "srv6_sid_pool.h"
 
 bool 
 srv6_is_enable (node_t *node) {
@@ -49,25 +50,41 @@ check_and_delete_srv6_node_info (node_t *node) {
 void 
 srv6_de_init (node_t *node) {
 
+    char err_msg[256];
+    pool_error_codes_t prc = SRv6_POOL_OK;
+
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+
+    srv6_locator_t *loc = &node_info->loc;
+
+    if (srv6_pool_is_locator_being_used_by_any_client (
+                    NODE_SRv6_SID_POOL(node), 
+                    loc->name)) {
+
+        cprintf ("Error : Locator is in use by other clients, Command Rejected.\n");
+        return ;
+    }
+
     /* Delete Configure Sids and its routes from RIB */
     srv6_delete_all_pfx_sids (node) ;
     /* Delete Configured Adj Sids and its routes from RIB */
     srv6_delete_all_adj_sids (node) ;
-    /* Delete Locator Config and its route from RIB*/
-    srv6_locator_t *loc = &node_info->loc;
 
-    if (!is_ipv6_addr_unspecified (&loc->sid.addr)) {
-
-            ipv6_route_uninstall(node, 
+    /* Delete Locator Config and its route from RIB*/   
+    ipv6_route_uninstall(node, 
                             &loc->sid,
                             loc->prefix_len,
                             0, 0,
                             PROTO_SRv6);
  
-        memset (loc, 0, sizeof (*loc));
-    }
+    prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+                                            loc->name,
+                                            err_msg);
 
+    assert (prc == SRv6_POOL_OK);
+
+    memset (loc, 0, sizeof (*loc));
+    
     /* Delete Tracer */
     tracer_deinit (node_info->tr);
     node_info->tr = NULL;
@@ -82,9 +99,11 @@ srv6_delete_all_pfx_sids (node_t *node)  {
 
     glthread_t *curr ;
     uint32_t count = 0;
+    char err_msg[256];
     mtrie_node_t *mnode;
     srv6_pfxsid_t *pfxsid;
     ips_srv6_data_t *ips_srv6_data;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
 
@@ -104,6 +123,13 @@ srv6_delete_all_pfx_sids (node_t *node)  {
                             0, 0,
                             PROTO_SRv6);        
 
+        prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &pfxsid->sid,
+                                    err_msg);
+
+        assert (prc == SRv6_POOL_OK);    
+
         XFREE(pfxsid);
         curr = mtrie_node_delete_while_traversal(node_info->configured_pfx_sids, mnode);
         count++;
@@ -121,9 +147,11 @@ srv6_delete_all_adj_sids (node_t *node) {
     
     glthread_t *curr ;
     uint32_t count = 0;
+    char err_msg[256];
     mtrie_node_t *mnode;
     srv6_adjsid_t *adjsid;
     ips_srv6_data_t *ips_srv6_data;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
 
@@ -142,6 +170,13 @@ srv6_delete_all_adj_sids (node_t *node) {
                             adjsid->prefix_len,
                             0, 0,
                             PROTO_SRv6);
+
+        prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &adjsid->sid,
+                                    err_msg);
+
+        assert (prc == SRv6_POOL_OK);    
 
         XFREE(adjsid);
         curr = mtrie_node_delete_while_traversal(node_info->configured_adj_sids, mnode);

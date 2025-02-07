@@ -9,11 +9,11 @@ typedef struct ipv6_addr_ ipv6_addr_t;
 
 typedef enum srv6_sid_client_{
 
-    srv6_sid_client_isis,
-    srv6_sid_client_srv6,
-    srv6_sid_client_bgp,
-    srv6_sid_client_ospfv3,
-    srv6_sid_client_max
+    srv6_sid_client_isis = 1,
+    srv6_sid_client_srv6 = 2,
+    srv6_sid_client_bgp = 4,
+    srv6_sid_client_ospfv3 = 8,
+    srv6_sid_client_max = 16
 
 } srv6_sid_client_t;
 
@@ -35,11 +35,11 @@ typedef enum pool_error_codes_ {
 } pool_error_codes_t;
 
 void 
-srv6_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
+srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 
 /* Used when user configure locator */
 pool_error_codes_t
-srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools, 
+srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools, 
                             ipv6_addr_t *loc_prefix, 
                             uint8_t prefix_len, 
                             char *loc_name,
@@ -48,16 +48,33 @@ srv6_create_locator (srv6_sid_pools_t *srv6_sid_pools,
 /* Used when user unconfigure locator. Should be done when all pfx-sids and adj-sids
     is already related under this locator */
 pool_error_codes_t
-srv6_delete_locator (srv6_sid_pools_t *srv6_sid_pools, 
+srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools, 
                             char *loc_name,
                             char* err_msg_out) ;
 
+pool_error_codes_t
+srv6_pool_client_borrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
+                            char *loc_name,
+                            srv6_sid_client_t client,
+                            char *err_msg_out);
+
+pool_error_codes_t
+srv6_pool_client_unborrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
+                            char *loc_name,
+                            srv6_sid_client_t client,
+                            char *err_msg_out);
+
+bool 
+srv6_pool_is_locator_being_used_by_any_client (
+                                    srv6_sid_pools_t *srv6_sid_pools,
+                                    char *loc_name);
+ 
 /* Used by clients to claim a dynamic sid under locator from the pool. 
     ifindex and gw_addr are required if client request adj sid, 
     else pass 0 and NULL if pfx sid is requested
 */
 pool_error_codes_t
-srv6_alloc_dynamic_sid (
+srv6_pool_alloc_dynamic_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     char *loc_name ,
                                     srv6_sid_client_t sid_client,
@@ -71,7 +88,7 @@ srv6_alloc_dynamic_sid (
     else pass 0 and NULL if pfx sid is requested
 */
 pool_error_codes_t
-srv6_alloc_static_sid (
+srv6_pool_alloc_static_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     ipv6_addr_t *sid,
                                     srv6_sid_client_t sid_client,
@@ -89,7 +106,7 @@ srv6_release_sid (
 /* Used by clients after RED-SWO when adj comes up, claim the same adj sid
     as before red-swo for this adjacency. This fn do not change the  pool state */
 pool_error_codes_t
-srv6_lookup_adj_sid (
+srv6_pool_lookup_adj_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     char *loc_name,
                                    uint32_t ifindex,
@@ -97,6 +114,9 @@ srv6_lookup_adj_sid (
                                     srv6_sid_client_t sid_client,
                                     ipv6_addr_t *sid_out,
                                     char *err_msg_out);
+
+void 
+srv6_show_locator (srv6_sid_pools_t *srv6_sid_pools, char *loc_name) ;
 
 
 #endif // ! __SRV6_SID_POOL__

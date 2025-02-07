@@ -118,7 +118,7 @@ srv6_locator_handler
                 loc->prefix_len = prefix_len;
 
                 /* Create the locator in SID pool library */
-                prc = srv6_create_locator ( (NODE_SRv6_SID_POOL(node)), 
+                prc = srv6_pool_create_locator ( (NODE_SRv6_SID_POOL(node)), 
                                             &loc->sid,
                                             prefix_len, 
                                             loc->name,
@@ -159,6 +159,13 @@ srv6_locator_handler
                     return 0;
                 }
 
+                if (srv6_pool_is_locator_being_used_by_any_client (
+                    NODE_SRv6_SID_POOL(node), loc->name)) {
+
+                        cprintf ("Error : Locator is in use by SRv6 clients\n");
+                        return -1;
+                }
+
                 /* Remove all local prefix sids and Adj sids routes from RIB,
                     also send delete ips */
                 srv6_delete_all_pfx_sids(node);
@@ -172,7 +179,7 @@ srv6_locator_handler
                             PROTO_SRv6);
 
                 /* Remove the locator config */
-                prc = srv6_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+                prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
                                             loc->name,
                                             err_msg);
 
@@ -309,7 +316,7 @@ srv6_prefix_sid_config_handler
             inet_pton6 ((char *)ipv6_addr, &prefix);
 
             /* Pool Reservation */
-            prc = srv6_alloc_static_sid (
+            prc = srv6_pool_alloc_static_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
                                     &prefix,
                                      srv6_sid_client_srv6,

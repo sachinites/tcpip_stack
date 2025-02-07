@@ -628,17 +628,22 @@ isis_srv6_config_handler (int cmdcode,
             switch (enable_or_disable) {
 
                 case CONFIG_ENABLE:
+
                     if (endpCode == SRV6_END_FN_NONE)
                     {
                         cprintf("%s : Error : Invalid flavor\n", node->node_name);
                         return -1;
                     }
+                    inet_pton6(pfx_sid_str, &prefix_sid);
                     isis_add_prefix_sid_to_locator (node, loc_name, 
                         &prefix_sid, endpCode, flavor_val);
                 break;
+
                 case CONFIG_DISABLE:
+                    inet_pton6(pfx_sid_str, &prefix_sid);
                     isis_delete_prefix_sid_from_locator (node, loc_name, &prefix_sid) ;
                 break;
+
             }
         }
         break;
@@ -646,7 +651,7 @@ isis_srv6_config_handler (int cmdcode,
 
         default:;
         }
-        return 0;
+    return 0;
 }
 
 
