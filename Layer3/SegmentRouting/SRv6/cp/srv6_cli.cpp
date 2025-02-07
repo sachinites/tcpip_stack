@@ -458,12 +458,14 @@ srv6_adjacency_sid_config_handler
 
     tlv_struct_t *tlv;
     char flavor[3][4];
+    char err_msg[256];
     uint8_t flavor_val = 0;
     uint8_t prefix_len = 128;
     node_t *node = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
     c_string oif_name = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     flavor[0][0] = '\0';
     flavor[1][0] = '\0';
@@ -552,13 +554,22 @@ srv6_adjacency_sid_config_handler
                 return -1;
             }
 
-            ipv6_addr_t prefix;
+            ipv6_addr_t prefix, gw;
             inet_pton6 ((char *)ipv6_addr, &prefix);
+            memset (&gw, 0, sizeof (gw));
 
-            /* Prefix sid must be subne of locator */
-            if (!ipv6_address_is_subnet (&loc->sid.addr, loc->prefix_len, 
-                    &prefix.addr)) {
-                cprintf ("Error : Adjacency sid must be subnet of locator\n");
+            /* Pool Reservation */
+            prc = srv6_pool_alloc_static_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &prefix,
+                                     srv6_sid_client_srv6,
+                                     intf->ifindex,
+                                     &gw,
+                                     err_msg);
+
+            if (prc != SRv6_POOL_OK) {
+
+                cprintf ("Error : %s, err-code : %d\n", err_msg, prc);
                 return -1;
             }
 
@@ -650,6 +661,12 @@ srv6_adjacency_sid_config_handler
                 cprintf ("Error : Prefix sid deletion failed, ret code = %d\n", rc);
                 return -1;
             }
+
+            prc = srv6_release_sid (
+                        (NODE_SRv6_SID_POOL(node)), 
+                        &adjsid->sid, err_msg);
+
+            assert (prc == SRv6_POOL_OK);
 
             ipv6_route_uninstall(node, 
                             &adjsid->sid,

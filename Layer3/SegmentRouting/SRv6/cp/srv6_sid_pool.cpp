@@ -460,6 +460,36 @@ srv6_pool_is_locator_being_used_by_any_client (
     return (loc->use_clients != 0);
 }
 
+static pool_entry_t *
+srv6_pool_adj_sid_conflict_check (srv6_locator_pool_t *loc,
+                                    srv6_sid_client_t sid_client, 
+                                    uint32_t ifindex,
+                                    ipv6_addr_t *gw_addr) {
+
+    pool_entry_t tmplate;
+    avltree_node_t *res;
+
+    if (ifindex == 0) {
+        return NULL;
+    }
+
+    memset (&tmplate, 0, sizeof (tmplate));
+
+    tmplate.adj_sid_key.client = sid_client;
+    tmplate.adj_sid_key.ifindex = ifindex;
+    if (gw_addr) {
+        memcpy (&tmplate.adj_sid_key.gw_addr, gw_addr, 
+            sizeof (tmplate.adj_sid_key.gw_addr));
+    }
+
+    res = avltree_lookup (&tmplate.avl_glue_asid, &loc->sid_tree_by_asid);
+
+    if (!res) return NULL;
+
+    return (pool_entry_t *)
+                avltree_container_of (res, pool_entry_t, avl_glue_asid);
+}
+
 /* Allocate only Dynamic SIDs*/
 pool_error_codes_t
 srv6_pool_alloc_dynamic_sid (
@@ -471,12 +501,31 @@ srv6_pool_alloc_dynamic_sid (
                                     ipv6_addr_t *sid_out,
                                     char *err_msg_out) {
 
+    char ipv6_addr_str[48];
+    pool_entry_t *pool_entry;
+
     srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
                                             srv6_sid_pools, loc_name);
 
     if (!loc) {
         snprintf (err_msg_out, 256, "Error : Locator %s not found", loc_name);
         return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
+    }
+
+    /* Check for Adj SID conflict. We should not have any sid assigned to
+        this adjacency already !*/
+    pool_entry = srv6_pool_adj_sid_conflict_check (loc, 
+                                sid_client, ifindex,  gw_addr);
+
+    if (pool_entry) {
+
+        snprintf (err_msg_out, 256, "Error : Adjacency SID Conflict, SID is already "
+                "in use for adjacency [%s 0x%x %s]", 
+                srv6_sid_client_str (pool_entry->sid_client), 
+                pool_entry->adj_sid_key.ifindex, 
+                inet_ntop6(&pool_entry->adj_sid_key.gw_addr, ipv6_addr_str));
+            
+        return SRv6_POOL_ERR_INVALID_SID_REQUEST;
     }
 
     /* Check if there are any sids available */
@@ -525,6 +574,9 @@ srv6_pool_alloc_static_sid (
                                     char *err_msg_out) {
 
 
+    char ipv6_addr_str[48];
+    pool_entry_t *pool_entry;
+    
     srv6_locator_pool_t *loc = srv6_pool_lookup_locator_by_lpm (
                                                     srv6_sid_pools, sid);
 
@@ -541,9 +593,26 @@ srv6_pool_alloc_static_sid (
 
     avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_sid, &loc->sid_tree);
 
+    /* Check for SID conflict*/
     if (res) {
         snprintf (err_msg_out, 256, "Error : SID already in use");
         return SRv6_POOL_ERR_SID_IN_USE;
+    }
+
+    /* Check for Adj SID conflict. We should not have any sid assigned to
+        this adjacency already !*/
+    pool_entry = srv6_pool_adj_sid_conflict_check (loc, 
+                                sid_client, ifindex, gw_addr);
+
+    if (pool_entry) {
+
+        snprintf (err_msg_out, 256, "Error : Adjacency SID Conflict, SID is already "
+                "in use for adjacency [%s 0x%x %s]", 
+                srv6_sid_client_str (pool_entry->sid_client), 
+                pool_entry->adj_sid_key.ifindex, 
+                inet_ntop6(&pool_entry->adj_sid_key.gw_addr, ipv6_addr_str));
+            
+        return SRv6_POOL_ERR_INVALID_SID_REQUEST;
     }
 
     uint16_t (*ptr)[8] = (uint16_t (*)[8])sid->addr;
@@ -554,7 +623,7 @@ srv6_pool_alloc_static_sid (
         snprintf (err_msg_out, 256, "Error : Static SIDs must be in range [0x1, 0x7FFF]");
         return SRv6_POOL_ERR_INVALID_SID_REQUEST;
     }
-
+    
     assert (bitmap_at (&loc->static_sid_bm, sid_index) == false);
     /* Reserve the sid */
     bitmap_set_bit_at (&loc->static_sid_bm, sid_index);
@@ -564,13 +633,14 @@ srv6_pool_alloc_static_sid (
     memcpy (&new_entry->sid, sid, sizeof (*sid));
     new_entry->sid_client = sid_client;
     new_entry->adj_sid_key.ifindex = ifindex;
-    if (gw_addr) memcpy (&new_entry->adj_sid_key.gw_addr, gw_addr, sizeof (*gw_addr));
+    if (gw_addr) {
+        memcpy (&new_entry->adj_sid_key.gw_addr, 
+            gw_addr, sizeof (new_entry->adj_sid_key.gw_addr));
+    }
     
     assert (!avltree_insert (&new_entry->avl_glue_sid, &loc->sid_tree));
 
-    if (ifindex && gw_addr &&
-            is_ipv6_addr_unspecified (&gw_addr->addr)) {
-
+    if (ifindex) {
         assert (!avltree_insert (&new_entry->avl_glue_asid, &loc->sid_tree_by_asid));
     }
 
@@ -581,9 +651,9 @@ srv6_pool_alloc_static_sid (
 /* Works for both : static and dynamic SIDs */
 pool_error_codes_t
 srv6_release_sid (
-                                    srv6_sid_pools_t *srv6_sid_pools, 
-                                    ipv6_addr_t *sid,
-                                    char *err_msg_out) {
+                            srv6_sid_pools_t *srv6_sid_pools, 
+                            ipv6_addr_t *sid,
+                            char *err_msg_out) {
 
     /* Look up the locator using LPM */
     srv6_locator_pool_t *loc = srv6_pool_lookup_locator_by_lpm (
@@ -613,9 +683,7 @@ srv6_release_sid (
     /* Remove the SID */
     avltree_remove (&entry->avl_glue_sid, &loc->sid_tree);
 
-    if (entry->adj_sid_key.ifindex && 
-            !is_ipv6_addr_unspecified (&entry->adj_sid_key.gw_addr.addr)) {
-
+    if (entry->adj_sid_key.ifindex) {
         avltree_remove (&entry->avl_glue_asid, &loc->sid_tree_by_asid);
     }
 
@@ -646,6 +714,7 @@ srv6_pool_lookup_adj_sid (
                                     char *err_msg_out) {
 
     char ipv6_addr_str[48];
+    ipv6_addr_t gateway_addr;
 
     srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
                                             srv6_sid_pools, loc_name);
@@ -655,27 +724,32 @@ srv6_pool_lookup_adj_sid (
         return SRv6_POOL_ERR_LOCATOR_NOT_FOUND;
     }
 
+    memset (&gateway_addr, 0, sizeof (gateway_addr));
+    if (gw_addr) memcpy (&gateway_addr, gw_addr, sizeof (gateway_addr));
+
     pool_entry_t tmplate;
     memset (&tmplate, 0, sizeof (tmplate));
 
     tmplate.adj_sid_key.ifindex = ifindex;
-    memcpy (&tmplate.adj_sid_key.gw_addr, gw_addr, sizeof (*gw_addr));
+    memcpy (&tmplate.adj_sid_key.gw_addr, &gateway_addr, sizeof (gateway_addr));
     tmplate.sid_client = sid_client;
 
     avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_asid, &loc->sid_tree_by_asid);
 
     if (!res) {
+
         snprintf (err_msg_out, 256, 
             "Error : Could not find Adj SID for ifindex = 0x%x, gw_addr = %s", 
-            ifindex, inet_ntop6 (gw_addr, ipv6_addr_str));
+            ifindex, 
+            inet_ntop6 (&gateway_addr, ipv6_addr_str));
 
         return SRv6_POOL_ERR_SID_NOT_FOUND;
     }
 
-    pool_entry_t *entry = (pool_entry_t *)avltree_container_of (res, pool_entry_t, avl_glue_asid);
+    pool_entry_t *entry = (pool_entry_t *)avltree_container_of (
+                                            res, pool_entry_t, avl_glue_asid);
 
     memcpy (sid_out, &entry->sid, sizeof (*sid_out));
-
     return SRv6_POOL_OK;
 }
 
@@ -687,7 +761,7 @@ srv6_sid_client_str (srv6_sid_client_t client) {
     case srv6_sid_client_isis:
         return "isis-srv6";
     case srv6_sid_client_srv6:
-        return "srv6-mgr";
+        return "srv6-sid-mgr";
     case srv6_sid_client_bgp:
         return "bgp-srv6";
     case srv6_sid_client_ospfv3:
@@ -731,7 +805,7 @@ srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
 
         if (sid_entry->adj_sid_key.ifindex) {
 
-            cprintf ("  %s    %s     %u-%s\n", 
+            cprintf ("  %s    %s     %u - %s\n", 
                 inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
                 srv6_sid_client_str (sid_entry->sid_client), 
                 sid_entry->adj_sid_key.ifindex,

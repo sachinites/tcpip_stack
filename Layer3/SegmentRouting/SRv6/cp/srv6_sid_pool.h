@@ -118,5 +118,7 @@ srv6_pool_lookup_adj_sid (
 void 
 srv6_show_locator (srv6_sid_pools_t *srv6_sid_pools, char *loc_name) ;
 
+const char * 
+srv6_sid_client_str (srv6_sid_client_t client) ;
 
 #endif // ! __SRV6_SID_POOL__
