@@ -73,6 +73,7 @@
 #include "Layer5/layer5.h"
 #include "utils.h"
 #include "Layer3/ipv6/ipv6_utils.h"
+#include "Layer3/ipv6/v6nexthop.h"
 #include "comm.h"
 #include "tcp_ip_trace.h"
 #include "cmdcodes.h"

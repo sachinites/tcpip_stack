@@ -501,6 +501,7 @@ isis_srv6_config_handler (int cmdcode,
     int8_t rc;
     node_t *node;
     char flavor[3][4];
+    char err_msg[256];
     uint8_t flavor_val= 0;
     ipv6_addr_t prefix_sid;
     Srv6_endpcode_t end_fn;
@@ -509,6 +510,7 @@ isis_srv6_config_handler (int cmdcode,
     c_string node_name = NULL;
     c_string pfx_sid_str = NULL;
     isis_srv6_config_t *srv6_config = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
 
     flavor[0][0] = '\0';
     flavor[1][0] = '\0';
@@ -635,13 +637,52 @@ isis_srv6_config_handler (int cmdcode,
                         return -1;
                     }
                     inet_pton6(pfx_sid_str, &prefix_sid);
+
+                    /* Pool Reservation */
+                    prc = srv6_pool_alloc_static_sid (
+                                            (NODE_SRv6_SID_POOL(node)), 
+                                            &prefix_sid,
+                                            srv6_sid_client_isis,
+                                            0,
+                                            NULL,
+                                            err_msg);
+
+                    if (prc != SRv6_POOL_OK) {
+
+                        cprintf ("%s, err-code : %d\n", err_msg, prc);
+                        return -1;
+                    }    
+
                     isis_add_prefix_sid_to_locator (node, loc_name, 
                         &prefix_sid, endpCode, flavor_val);
+                        
+                    ipv6_route_install (node, 
+                                        &prefix_sid,
+                                        128,
+                                        IPV6_LOCAL_RT,
+                                        0, 0,
+                                        NULL, 0, 
+                                        endpCode,
+                                        PROTO_ISIS_SRv6);
+
                 break;
 
                 case CONFIG_DISABLE:
                     inet_pton6(pfx_sid_str, &prefix_sid);
                     isis_delete_prefix_sid_from_locator (node, loc_name, &prefix_sid) ;
+                    ipv6_route_uninstall(node, 
+                            &prefix_sid,
+                            128,
+                            0, 0,
+                            PROTO_ISIS_SRv6);
+                    /* Release pfx sid from pool*/
+                    prc = srv6_release_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &prefix_sid,
+                                    err_msg);
+
+                    assert (prc == SRv6_POOL_OK);
+
                 break;
 
             }

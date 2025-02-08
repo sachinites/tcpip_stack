@@ -312,7 +312,8 @@ srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools,
 
     /* To Do : Check if suffixed locator is not already configured 
         For example : locator 2001:dbe8:1:1::/64 is already configured, 
-        then 2001:dbe8:1::/48 cannot be configured
+        then 2001:dbe8:1::/48 cannot be configured. This check would be 
+        required when multiple locators would be supported
     */
 
     /* All checks are passed, now we can instantiate a new locator pool  */
