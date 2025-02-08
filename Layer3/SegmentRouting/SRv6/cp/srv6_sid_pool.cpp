@@ -876,16 +876,18 @@ srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
 
         if (sid_entry->adj_sid_key.ifindex) {
 
-            cprintf ("  %s    %s     %u - %s\n", 
-                inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
+            cprintf ("  %s    %s    %s     %u - %s\n", 
+                inet_ntop6 (&sid_entry->sid, ipv6_addr_str),
+                loc->loc_name, 
                 srv6_sid_client_str (sid_entry->sid_client), 
                 sid_entry->adj_sid_key.ifindex,
                 inet_ntop6 (&sid_entry->adj_sid_key.gw_addr, ipv6_addr_gw_str));
         }
         else {
             
-            cprintf ("  %s    %s\n", 
+            cprintf ("  %s    %s    %s\n", 
                 inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
+                loc->loc_name,
                 srv6_sid_client_str (sid_entry->sid_client));
         }
 
