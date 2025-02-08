@@ -246,6 +246,26 @@ srv6_pool_validate_sid_format (srv6_locator_pool_t *loc, ipv6_addr_t *sid) {
     return true;
 }
 
+static void 
+srv6_pool_compute_bitmap_wildcard (bitmap_t *bm, uint8_t prefix_len) {
+
+    assert (prefix_len % 16 == 0);
+    uint16_t n_blocks = bm->tsize/32;
+    uint16_t i ;
+
+    for (i = 0; i < n_blocks; i++) {
+        bm->bits[i] = ~0;
+    }
+
+    n_blocks = prefix_len / 16;
+    uint16_t *ptr = (uint16_t *)(bm->bits);
+    for (i = 0; i < n_blocks; i++) {
+        ptr[i] = 0;
+    }
+}
+
+
+
 /* ====================== Helper APIs Done  ========================= */
 
 
@@ -346,9 +366,7 @@ srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools,
 
     bitmap_t bm_wc;
     bitmap_init (&bm_wc, 128);
-    for (int i = 0; i < prefix_len; i++)
-        bitmap_set_bit_at(&bm_wc, i);
-    bitmap_inverse (&bm_wc, 128);
+    srv6_pool_compute_bitmap_wildcard (&bm_wc, prefix_len);
    
     mtrie_node_t *mnode = NULL;
     mtrie_ops_result_code_t res = mtrie_insert_prefix (
@@ -393,9 +411,7 @@ srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
 
     bitmap_t bm_wc;
     bitmap_init (&bm_wc, 128);
-    for (int i = 0; i < loc->loc_pfx_len; i++)
-        bitmap_set_bit_at(&bm_wc, i);
-    bitmap_inverse (&bm_wc, 128);
+    srv6_pool_compute_bitmap_wildcard (&bm_wc, loc->loc_pfx_len);   
 
     srv6_locator_pool_t *loc1 = NULL;
 
@@ -786,7 +802,7 @@ srv6_pool_lookup_adj_sid (
 
     tmplate.adj_sid_key.ifindex = ifindex;
     memcpy (&tmplate.adj_sid_key.gw_addr, &gateway_addr, sizeof (gateway_addr));
-    tmplate.sid_client = sid_client;
+    tmplate.adj_sid_key.client = sid_client;
 
     avltree_node_t *res = avltree_lookup (&tmplate.avl_glue_asid, &loc->sid_tree_by_asid);
 
