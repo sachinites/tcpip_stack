@@ -12,6 +12,7 @@
 #include "../../Interface/Interface.h"
 #include "v6nexthop.h"
 #include "ipv6_utils.h"
+#include "../../Tracer/tracer.h"
 
 ipv6_route_t* 
 l3rib_v6lookup_lpm ( rt_table_t *v6rt_table, uint8_t (*ipv6_addr)[16]) {
@@ -194,10 +195,14 @@ void
 dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
 
     int count;
+    node_t *node;
     glthread_t *curr;
     ipv6_route_t *l3_route;
     mtrie_node_t *mnode;
     v6nexthop_t *nexthop;
+    char ipv6_addr_str[48];
+
+    node = rt_table->node;
 
     nxthop_proto_id_t nh_proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
 
@@ -217,7 +222,10 @@ dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
             continue;
         }
 
-        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+        tracer (node->dptr, DRTM, "Route %s/%d : Deleting Nexthops type %s\n", 
+            inet_ntop6 (&l3_route->prefix, ipv6_addr_str), l3_route->prefix_len, proto_name_str (proto_id));
+                    
+        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto], true);
         
         l3_route->nh_count -= count;
 
@@ -227,6 +235,10 @@ dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
         }
 
        curr = mtrie_node_delete_while_traversal (&rt_table->route_list, mnode);
+
+        tracer (node->dptr, DRTM, "Route %s/%d Deleted\n", 
+            inet_ntop6 (&l3_route->prefix, ipv6_addr_str), l3_route->prefix_len);
+
        //rt_table_add_route_to_notify_list(rt_table, l3_route, RT_DEL_F);
         l3_v6route_dec_ref_count(l3_route);
     }
@@ -294,7 +306,7 @@ dp_ipv6_clear_table_with_preemption (node_t *node, rt_table_t *rt_table, uint16_
             continue;
         }
 
-        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto]);
+        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto], true);
         
         l3_route->nh_count -= count;
 

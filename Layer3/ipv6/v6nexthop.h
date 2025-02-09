@@ -5,7 +5,7 @@
 #include "../../utils.h"
 #include "../../Interface/InterfaceFwd.h"
 #include "ipv6_hdrs.h"
-#include "../SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
+#include "../SegmentRouting/SRv6/dp/srv6-endpoint.h"
 
 typedef struct v6nexthop_{
 
@@ -56,7 +56,7 @@ void
 nexthop_init (v6nexthop_t *nexthop);
 
 int
-v6nh_flush_nexthops(v6nexthop_t **nexthop);
+v6nh_flush_nexthops(v6nexthop_t **nexthop, bool dont_flush_local);
 
 bool 
 v6nh_insert_new_nexthop_nh_array(

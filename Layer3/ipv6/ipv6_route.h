@@ -7,7 +7,7 @@
 #include "../../Interface/InterfaceFwd.h"
 #include "../../gluethread/glthread.h"
 #include "../layer3.h"
-#include "../SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
+#include "../SegmentRouting/SRv6/dp/srv6-endpoint.h"
 #include "ipv6_hdrs.h"
 #include "v6nexthop.h"
 

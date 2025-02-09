@@ -7,7 +7,7 @@ typedef struct rt_table_ rt_table_t;
 
 class Interface;
 
-#include "../../Layer3/SegmentRouting/SRv6/dp/SRv6-EndPoint.h"
+#include "../../Layer3/SegmentRouting/SRv6/dp/srv6-endpoint.h"
 #include "../../Layer3/ipv6/ipv6_hdrs.h"
 
 #include <stdint.h>

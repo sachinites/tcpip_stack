@@ -40,7 +40,6 @@ OBJS=gluethread/glthread.o \
 		  Layer2/transport_svc.o  \
 		  Layer2/arp.o	   \
 		  Layer3/layer3.o  \
-		  Layer3/afi.o \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
 		  Layer3/rt_table/nexthop.o \
@@ -203,9 +202,6 @@ Layer3/layer3.o:Layer3/layer3.c
 
 Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
-
-Layer3/afi.o:Layer3/afi.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/afi.cpp -o Layer3/afi.o
 
 dpdk/layer3/dp_rtm.o:dpdk/layer3/dp_rtm.cpp
 	${CC} ${CFLAGS} -c -I . dpdk/layer3/dp_rtm.cpp -o dpdk/layer3/dp_rtm.o

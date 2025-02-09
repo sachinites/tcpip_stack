@@ -17,7 +17,7 @@ nexthop_init (v6nexthop_t *nexthop) {
 }
 
 int 
-v6nh_flush_nexthops(v6nexthop_t **nexthop)
+v6nh_flush_nexthops(v6nexthop_t **nexthop, bool dont_flush_local)
 {
 
     int i = 0;
@@ -31,6 +31,7 @@ v6nh_flush_nexthops(v6nexthop_t **nexthop)
 
         if (nexthop[i])
         {
+            if (dont_flush_local && (nexthop[i]->flags & IPV6_LOCAL_RT)) continue; 
             v6nexthop_unlock(nexthop[i]);
             nexthop[i] = nullptr;
             count++;
