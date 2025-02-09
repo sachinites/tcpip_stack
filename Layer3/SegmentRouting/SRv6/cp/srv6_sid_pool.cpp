@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
 
+#include "../../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../../BitOp/bitmap.h"
 #include "../../../ipv6/ipv6_utils.h"
 #include "../../../../Tree/libtree.h"
@@ -155,7 +156,7 @@ mtrie_node_delete_fn (mtrie_node_t *mnode) {
 
     if (!mnode->data) return;
     pool_entry_t *pool_entry = (pool_entry_t *)mnode->data;
-    free (pool_entry);
+    XFREE (pool_entry);
     mnode->data = NULL;
 }
 #endif 
@@ -274,7 +275,7 @@ void
 srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) {
 
     assert (srv6_sid_pools);
-    *srv6_sid_pools = (srv6_sid_pools_t *)calloc (1, sizeof (srv6_sid_pools_t));
+    *srv6_sid_pools = (srv6_sid_pools_t *) XCALLOC (0, 1, srv6_sid_pools_t);
     srv6_sid_pools_t *temp = *srv6_sid_pools;
     
     avltree_init (&temp->locator_pools, avltree_locator_comp_fn);
@@ -337,7 +338,7 @@ srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools,
     */
 
     /* All checks are passed, now we can instantiate a new locator pool  */
-    srv6_locator_pool_t *new_loc = (srv6_locator_pool_t *)calloc (1, sizeof (srv6_locator_pool_t));
+    srv6_locator_pool_t *new_loc = (srv6_locator_pool_t *) XCALLOC (0, 1, srv6_locator_pool_t);
 
     memcpy (&new_loc->loc, loc_prefix, sizeof (*loc_prefix));
     new_loc->loc_pfx_len = prefix_len;
@@ -434,7 +435,7 @@ srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
     bitmap_free_internal (&loc->static_sid_bm);
     bitmap_free_internal (&loc->dynamic_sid_bm);
 
-    free (loc);
+    XFREE (loc);
     return SRv6_POOL_OK;
 }
 
@@ -595,7 +596,7 @@ srv6_pool_alloc_dynamic_sid (
     (*ptr)[loc_function_index] = htons (aval_sid);
 
     /* Create a new pool entry */
-    pool_entry_t *new_entry = (pool_entry_t *)calloc (1, sizeof (pool_entry_t));
+    pool_entry_t *new_entry = (pool_entry_t *) XCALLOC (0, 1, pool_entry_t);
     memcpy (&new_entry->sid, sid_out, sizeof (*sid_out));
     new_entry->sid_client = sid_client;
     new_entry->adj_sid_key.ifindex = ifindex;
@@ -689,7 +690,7 @@ srv6_pool_alloc_static_sid (
     bitmap_set_bit_at (&loc->static_sid_bm, sid_index);
 
     /* Create a new pool entry */
-    pool_entry_t *new_entry = (pool_entry_t *)calloc (1, sizeof (pool_entry_t));
+    pool_entry_t *new_entry = (pool_entry_t *) XCALLOC (0, 1, pool_entry_t);
     memcpy (&new_entry->sid, sid, sizeof (new_entry->sid));
     new_entry->sid_client = sid_client;
     new_entry->adj_sid_key.client = sid_client;
@@ -769,7 +770,7 @@ srv6_release_sid (
         bitmap_unset_bit_at (&loc->static_sid_bm, sid_index);
     }
 
-    free (entry);
+    XFREE (entry);
     return SRv6_POOL_OK;
 }
 
@@ -927,3 +928,13 @@ srv6_show_locator (srv6_sid_pools_t *srv6_sid_pools, char *loc_name)  {
     } ITERATE_AVL_TREE_END;
 }
 
+
+
+void 
+srv6_pool_mem_init () {
+
+    MM_REG_STRUCT(0, srv6_sid_pools_t);
+    MM_REG_STRUCT(0, srv6_locator_pool_t);
+    MM_REG_STRUCT(0, pool_entry_t); 
+    MM_REG_STRUCT(0, adj_sid_key_t);
+}
