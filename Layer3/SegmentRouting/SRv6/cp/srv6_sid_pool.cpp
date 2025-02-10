@@ -913,7 +913,7 @@ srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
 
     size_t max_sid_length = (((loc->loc_pfx_len/16) + 1 ) * 4 ) + 3 + 2;
 
-    cprintf("%s : %s/%d metric:%u mt_id:0x%x  Algorithm:0x%x  flags:0x%x\n", 
+    cprintf("%s : %s/%d  metric:%u  mt_id:0x%x  Algorithm:0x%x  flags:0x%x\n", 
         loc->loc_name, 
         inet_ntop6(&loc->loc, ipv6_addr_str), loc->loc_pfx_len,
         loc->metric, loc->mt_id, loc->algo, loc->loc_flags);

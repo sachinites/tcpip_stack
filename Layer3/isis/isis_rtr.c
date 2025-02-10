@@ -190,15 +190,17 @@ isis_is_protocol_admin_shutdown(node_t *node) {
 }
 
 extern void
-dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id);
+dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id, bool del_static);
 
 static void
 isis_schedule_route_delete_task(node_t *node,
         isis_event_type_t event_type){
 
+    bool del_static = isis_is_protocol_shutdown_in_progress(node);
+
     clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
-    dp_ipv6_clear_rt_table_sync (NODE_V6RT_TABLE(node), PROTO_ISIS);
-    dp_ipv6_clear_rt_table_sync (NODE_V6RT_TABLE(node), PROTO_ISIS_SRv6);
+    dp_ipv6_clear_rt_table_sync (NODE_V6RT_TABLE(node), PROTO_ISIS, del_static);
+    dp_ipv6_clear_rt_table_sync (NODE_V6RT_TABLE(node), PROTO_ISIS_SRv6, del_static);
 
     isis_check_and_shutdown_protocol_now(node,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);

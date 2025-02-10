@@ -1171,7 +1171,7 @@ isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {
 bool 
 isis_alloc_srv6_adj_sid (isis_adjacency_t *adjacency, uint8_t flags) {
 
-    return true;
+    return false;
 }
 
 bool 

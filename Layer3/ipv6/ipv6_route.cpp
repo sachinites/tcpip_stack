@@ -191,7 +191,9 @@ l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
 
 /* Ssync Method of Deleting the IPV6 Routing Table */
 void
-dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
+dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, 
+                        uint16_t proto_id, 
+                        bool del_static){
 
     int count;
     node_t *node;
@@ -221,7 +223,7 @@ dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
             continue;
         }
                     
-        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto], true);
+        count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto], !del_static);
         
         l3_route->nh_count -= count;
 

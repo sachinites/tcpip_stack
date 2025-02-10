@@ -168,7 +168,8 @@ srv6_delete_all_adj_sids (node_t *node) {
         ipv6_route_uninstall(node, 
                             &adjsid->sid,
                             adjsid->prefix_len,
-                            0, 0,
+                            &adjsid->gw,
+                            node_get_intf_by_ifindex (node, adjsid->ifindex),
                             PROTO_SRv6);
 
         prc = srv6_release_sid (
