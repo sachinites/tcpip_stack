@@ -105,6 +105,7 @@ typedef struct vm_page_family_{
     uint32_t struct_size;
     vm_page_t *first_page;
     glthread_t free_block_priority_list_head;
+    uint32_t struct_index;
     /*Statistics*/
     uint32_t total_memory_in_use_by_app;
     uint32_t no_of_system_calls_to_alloc_dealloc_vm_pages;

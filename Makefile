@@ -18,7 +18,7 @@ LIBS=-lpthread \
 		    -lrt \
 			-lncurses \
 			-lpthread \
-		   -L CLIBuilder -lclibuilder \
+		    -L CLIBuilder -lclibuilder \
 		    -L LinuxMemoryManager -lmm \
 			-L FSMImplementation -lfsm \
 			-L FireWall -lasa \
@@ -83,10 +83,14 @@ OBJS=gluethread/glthread.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
+		  lmm_testapp_reg.o \
 		  #Layer2/stp/stp_state_machine.o \
 		  Layer2/stp/stp_bpdu.o \
 		  Layer2/stp/stp_init.o \
 		  Layer2/stp/stp_vlandb.o \
+
+lmm_testapp_reg.o:lmm_testapp_reg.c
+	${CC} ${CFLAGS} -c lmm_testapp_reg.c -o lmm_testapp_reg.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o

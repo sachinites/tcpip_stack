@@ -52,6 +52,8 @@ pthread_spinlock_t spin_lock;
 static vm_page_family_t *last_cached_pg_family = NULL;
 extern int cprintf (const char* format, ...);
 
+extern vm_page_family_t *mm_get_page_family(uint32_t index);
+
 void
 mm_init(){
 
@@ -591,6 +593,46 @@ xcalloc(mm_instance_t *mm_inst, char *struct_name, int units){
     return NULL;
 }
 
+void *
+xcalloc2(mm_instance_t *mm_inst, 
+                uint32_t struct_index, 
+                int units){
+
+    vm_page_family_t *pg_family;
+
+    MM_LOCK(mm_inst);
+    
+    if (last_cached_pg_family &&
+            last_cached_pg_family->struct_index == struct_index) {
+
+        pg_family = last_cached_pg_family;
+    }
+    else {
+    
+        pg_family = mm_get_page_family(struct_index);
+        last_cached_pg_family = pg_family;
+    }
+    
+    assert (!pg_family);
+    
+    /*Find the page which can satisfy the request*/
+    block_meta_data_t *free_block_meta_data = NULL;
+    
+    free_block_meta_data = mm_allocate_free_data_block(
+                            pg_family, units * pg_family->struct_size);
+
+    if(free_block_meta_data){
+        memset ((char *)(free_block_meta_data + 1), 0, free_block_meta_data->block_size);
+        assert (free_block_meta_data->is_free == MM_FALSE);
+        MM_UNLOCK(mm_inst)
+        return (void *)(free_block_meta_data + 1);
+    }
+
+    MM_UNLOCK(mm_inst);
+    return NULL;
+}
+
+
 static int 
 mm_get_hard_internal_memory_frag_size(
             block_meta_data_t *first,
@@ -819,6 +861,48 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  unsigned char *struct_name){
 
     } ITERATE_PAGE_FAMILIES_END(vm_page_for_families_global, vm_page_family_curr);
 
+    /* Iterate over static array of page families */
+
+    uint32_t j = 0;
+    while ((vm_page_family_curr = mm_get_page_family(j++)))
+    {
+
+        if (vm_page_family_curr->struct_size == 0)
+            break;
+
+        if (struct_name)
+        {
+
+            if (strncmp(struct_name, vm_page_family_curr->struct_name,
+                        strlen(vm_page_family_curr->struct_name)))
+            {
+                continue;
+            }
+        }
+
+        number_of_struct_families++;
+
+        cprintf("vm_page_family : %s, struct size = %u  App Used Memory %uB,  #Sys Calls %u\n",
+                vm_page_family_curr->struct_name,
+                vm_page_family_curr->struct_size,
+                vm_page_family_curr->total_memory_in_use_by_app,
+                vm_page_family_curr->no_of_system_calls_to_alloc_dealloc_vm_pages);
+
+        total_memory_in_use_by_application +=
+            vm_page_family_curr->total_memory_in_use_by_app;
+
+        i = 0;
+
+        ITERATE_VM_PAGE_BEGIN(vm_page_family_curr, vm_page)
+        {
+
+            cumulative_vm_pages_claimed_from_kernel++;
+            mm_print_vm_page_details(vm_page, i++);
+        }
+        ITERATE_VM_PAGE_END(vm_page_family_curr, vm_page);
+        cprintf("\n");
+    }
+
     cprintf("\nTotal Applcation Memory Usage : %u Bytes\n", total_memory_in_use_by_application);
 
     cprintf("# Of VM Pages in Use : %u (%lu Bytes)\n", \
@@ -909,6 +993,54 @@ mm_print_block_usage(mm_instance_t *mm_inst){
 
     } ITERATE_PAGE_FAMILIES_END(first_vm_page_for_families_global, vm_page_family_curr); 
 
+
+    /* Iterate over static array of page families */
+
+    uint32_t j = 0;
+    while ((vm_page_family_curr = mm_get_page_family(j++)))
+    {
+
+        if (vm_page_family_curr->struct_size == 0) break;
+
+            total_block_count = 0;
+            free_block_count = 0;
+            application_memory_usage = 0;
+            occupied_block_count = 0;
+
+            ITERATE_VM_PAGE_BEGIN(vm_page_family_curr, vm_page_curr){
+
+                ITERATE_VM_PAGE_ALL_BLOCKS_BEGIN(vm_page_curr, block_meta_data_curr){
+            
+                    total_block_count++;
+                    
+                    /*Sanity Checks*/
+                    if(block_meta_data_curr->is_free == MM_FALSE){
+                        assert(IS_GLTHREAD_LIST_EMPTY(&block_meta_data_curr->\
+                            priority_thread_glue));
+                    }
+                    if(block_meta_data_curr->is_free == MM_TRUE){
+                        assert(!IS_GLTHREAD_LIST_EMPTY(&block_meta_data_curr->\
+                            priority_thread_glue));
+                    }
+
+                    if(block_meta_data_curr->is_free == MM_TRUE){
+                        free_block_count++;
+                    }
+                    else{
+                        application_memory_usage += 
+                            block_meta_data_curr->block_size + \
+                            sizeof(block_meta_data_t);
+                        occupied_block_count++;
+                    }
+                } ITERATE_VM_PAGE_ALL_BLOCKS_END(vm_page_curr, block_meta_data_curr);
+
+            } ITERATE_VM_PAGE_END(vm_page_family_curr, vm_page_curr);
+
+        cprintf("%-20s   TBC : %-4u    FBC : %-4u    OBC : %-4u AppMemUsage : %u\n",
+            vm_page_family_curr->struct_name, total_block_count,
+            free_block_count, occupied_block_count, application_memory_usage);
+    }
+
     MM_UNLOCK(mm_inst);
 }
 
@@ -992,6 +1124,19 @@ mm_print_registered_page_families(mm_instance_t *mm_inst){
         } ITERATE_PAGE_FAMILIES_END(vm_page_for_families_curr,
             vm_page_family_curr);
     }
+
+    /* Iterate overstatic arrays of page family */
+    uint32_t j = 0;
+    while ((vm_page_family_curr = mm_get_page_family( j++ )))
+    {
+
+        if (vm_page_family_curr->struct_size == 0) break;
+        
+        cprintf("Page Family : %s, Size = %u\n", 
+                vm_page_family_curr->struct_name,
+                vm_page_family_curr->struct_size);
+    }
+
     MM_UNLOCK(mm_inst);
 }
 

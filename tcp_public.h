@@ -39,6 +39,7 @@
 #include "Tree/libtree.h"
 #include "EventDispatcher/event_dispatcher.h"
 #include "LinuxMemoryManager/uapi_mm.h"
+#include "lmm_testapp_enums.h"
 #include "CLIBuilder/libcli.h"
 #include "stack/stack.h"
 #include "mtrie/mtrie.h"

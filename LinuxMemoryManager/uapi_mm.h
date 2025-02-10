@@ -37,6 +37,8 @@ typedef struct mm_instance_ mm_instance_t;
 void *
 xcalloc(mm_instance_t *mm_inst, char *struct_name, int units);
 void *
+xcalloc2(mm_instance_t *mm_inst, char *struct_name, int units);
+void *
 xcalloc_buff(mm_instance_t *mm_inst, uint32_t bytes) ;
 void
 xfree(void *app_ptr);
@@ -65,6 +67,9 @@ mm_instantiate_new_page_family(
 
 #define XCALLOC(mm_inst, units, struct_name) \
     (xcalloc(mm_inst, #struct_name, units))
+
+#define XCALLOC2(mm_inst, units, struct_name) \
+    (xcalloc2(mm_inst, (uint32_t)struct_name##_index, units))
 
 #define XCALLOC_BUFF(mm_inst, size_in_bytes) \
     (xcalloc_buff(mm_inst, size_in_bytes) )
