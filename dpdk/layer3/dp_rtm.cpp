@@ -377,7 +377,7 @@ ipv6_add_route_to_rib (rt_table_t *v6_rt_table,
     route->install_time = time(NULL);
 
     tracer (node->dptr, DRTM, 
-        "%s : Route %s/%d installed successfully\n", node->node_name, 
+        "Route %s/%d installed successfully\n",
         inet_ntop6 (&route->prefix, ipv6_addr_str), route->prefix_len);
     #if 0
     cprintf ("%s : Route %s/%d installed successfully\n", node->node_name, 
@@ -519,6 +519,9 @@ bool
                                 uint16_t proto_id) {
 
     int index;
+    char ipv6_addr_str[48];
+    bitmap_t prefix_bm, mask_bm;
+
     rt_table_t *rt_table = NODE_V6RT_TABLE(node);
     nxthop_proto_id_t proto = l3_rt_map_proto_id_to_nxthop_index(proto_id);
 
@@ -526,8 +529,8 @@ bool
                                 NODE_V6RT_TABLE(node), prefix, prefix_len);
 
     if (!route) {
-        tracer (node->dptr, DRTM | DERR, "%s : Error : Route not found\n", 
-            node->node_name);
+        tracer (node->dptr, DRTM | DERR, "Error : Route %s/%d not found\n", 
+            inet_ntop6 (prefix, ipv6_addr_str), prefix_len);
         return false;
     }
 
@@ -536,12 +539,18 @@ bool
 
     if (!nexthop)
     {
-        tracer (node->dptr, DRTM | DERR, "%s : Route's nexthop is not found\n", 
-            node->node_name);
+        tracer (node->dptr, DRTM | DERR, "Route's %s/%d nexthop is not found\n", 
+            inet_ntop6 (prefix, ipv6_addr_str), prefix_len);
         return false;
     }
 
     route->nexthops[proto][index] = NULL;
+    
+    tracer (node->dptr, DRTM, "Route %s/%d : Nexthops [%s %s] deleted\n", 
+            inet_ntop6 (&route->prefix, ipv6_addr_str), 
+            route->prefix_len, 
+            proto_name_str (proto_id), nexthop->oif ? nexthop->oif->if_name.c_str() : "-");
+
     v6nexthop_unlock(nexthop);
     route->nh_count--;
 
@@ -549,9 +558,6 @@ bool
     {
         return true;
     }
-
-    bitmap_t prefix_bm, mask_bm;
-    mtrie_node_t *mnode;
 
     bitmap_init(&prefix_bm, 128);
     bitmap_init(&mask_bm, 128);
@@ -565,6 +571,9 @@ bool
                                             &prefix_bm,
                                             &mask_bm,
                                             (void **)&route) == MTRIE_DELETE_SUCCESS);
+
+    tracer (node->dptr, DRTM, "Route %s/%d deleted successfully\n", 
+        inet_ntop6(&route->prefix, ipv6_addr_str), prefix_len);
 
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&mask_bm);

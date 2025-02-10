@@ -112,7 +112,6 @@ char (*rt_flags_str(uint8_t rt_flags, char (*str)[8])) [8] {
 void 
 v6_rt_table_show (rt_table_t *rt_table) {
 
-    char *oif_name;
     char buffer1 [48];
     char rt_flags_arr[8];
     glthread_t *curr = NULL;
@@ -221,13 +220,17 @@ dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id){
             curr = glthread_get_next(curr);
             continue;
         }
-
-        tracer (node->dptr, DRTM, "Route %s/%d : Deleting Nexthops type %s\n", 
-            inet_ntop6 (&l3_route->prefix, ipv6_addr_str), l3_route->prefix_len, proto_name_str (proto_id));
                     
         count = v6nh_flush_nexthops(l3_route->nexthops[nh_proto], true);
         
         l3_route->nh_count -= count;
+
+        if (count) {
+            tracer (node->dptr, DRTM, "Route %s/%d : Nexthops of type %s deleted : count %d\n", 
+                inet_ntop6 (&l3_route->prefix, ipv6_addr_str), 
+                l3_route->prefix_len, 
+                proto_name_str (proto_id), count);
+        }
 
         if (l3_route->nh_count) {
             curr = glthread_get_next(curr);

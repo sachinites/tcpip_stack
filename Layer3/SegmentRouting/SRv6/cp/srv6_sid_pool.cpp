@@ -911,36 +911,39 @@ srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
     char ipv6_addr_str[48];
     char ipv6_addr_gw_str[48];
 
-    cprintf ("%s : %s/%d   metric:%u   mt_id:0x%x   Algorithm:0x%x   flags:0x%x\n", 
+    size_t max_sid_length = (((loc->loc_pfx_len/16) + 1 ) * 4 ) + 3 + 2;
+
+    cprintf("%s : %s/%d metric:%u mt_id:0x%x  Algorithm:0x%x  flags:0x%x\n", 
         loc->loc_name, 
-        inet_ntop6 (&loc->loc, ipv6_addr_str), loc->loc_pfx_len,
+        inet_ntop6(&loc->loc, ipv6_addr_str), loc->loc_pfx_len,
         loc->metric, loc->mt_id, loc->algo, loc->loc_flags);
 
-    ITERATE_AVL_TREE_BEGIN ((&loc->sid_tree), curr) {
+    cprintf("  %-*s %-20s %-15s %-20s %s\n",
+        (int)max_sid_length, "SID", "Locator", "Owner", "Behavior", "Context");
+    cprintf("  %-*s %-20s %-15s %-20s %s\n",
+        (int)max_sid_length, "---", "-------", "-----", "--------", "-------");
 
-        sid_entry = (pool_entry_t *)avltree_container_of (curr, pool_entry_t, avl_glue_sid);
+    // Print the entries with adjusted width
+    ITERATE_AVL_TREE_BEGIN((&loc->sid_tree), curr) {
+        sid_entry = (pool_entry_t *)avltree_container_of(curr, pool_entry_t, avl_glue_sid);
 
         if (sid_entry->adj_sid_key.ifindex) {
-
-            cprintf ("  %s    %s    %s     %s    Adj-key : [%u - %s] \n", 
-                inet_ntop6 (&sid_entry->sid, ipv6_addr_str),
+            cprintf("  %-*s %-20s %-15s %-20s Adj-key : %-4u - %s\n", 
+                (int)max_sid_length, inet_ntop6(&sid_entry->sid, ipv6_addr_str),
                 loc->loc_name, 
-                srv6_sid_client_str (sid_entry->sid_client), 
-                srv6_end_fn_str (sid_entry->EndpCode),
+                srv6_sid_client_str(sid_entry->sid_client), 
+                srv6_end_fn_str(sid_entry->EndpCode),
                 sid_entry->adj_sid_key.ifindex,
-                inet_ntop6 (&sid_entry->adj_sid_key.gw_addr, ipv6_addr_gw_str));
-        }
-        else {
-            
-            cprintf ("  %s    %s    %s     %s\n",
-                inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
+                inet_ntop6(&sid_entry->adj_sid_key.gw_addr, ipv6_addr_gw_str));
+        } else {
+            cprintf("  %-*s %-20s %-15s %-20s\n",
+                (int)max_sid_length, inet_ntop6(&sid_entry->sid, ipv6_addr_str), 
                 loc->loc_name,
-                srv6_sid_client_str (sid_entry->sid_client),
-                 srv6_end_fn_str (sid_entry->EndpCode));
+                srv6_sid_client_str(sid_entry->sid_client),
+                srv6_end_fn_str(sid_entry->EndpCode));
         }
 
     } ITERATE_AVL_TREE_END;
-
 }
  
 void 

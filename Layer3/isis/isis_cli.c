@@ -669,19 +669,23 @@ isis_srv6_config_handler (int cmdcode,
                 break;
 
                 case CONFIG_DISABLE:
+
                     inet_pton6(pfx_sid_str, &prefix_sid);
                     isis_delete_prefix_sid_from_locator (node, loc_name, &prefix_sid) ;
+                
                     ipv6_route_uninstall(node, 
                             &prefix_sid,
                             128,
                             0, 0,
                             PROTO_ISIS_SRv6);
+                
                     /* Release pfx sid from pool*/
                     prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
                                     &prefix_sid,
                                     err_msg);
 
+                    if (prc == SRv6_POOL_ERR_SID_NOT_FOUND) break;
                     assert (prc == SRv6_POOL_OK);
 
                 break;
