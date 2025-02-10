@@ -131,6 +131,9 @@ srv6_locator_handler
                     return -1;
                 }
 
+                srv6_pool_set_locator_properties ((NODE_SRv6_SID_POOL(node)), 
+                        loc->name, 0, 0, 0, 0);
+
                 ipv6_route_install (node, 
                                         &loc->sid,
                                         loc->prefix_len,
@@ -322,6 +325,7 @@ srv6_prefix_sid_config_handler
                                      srv6_sid_client_srv6,
                                      0,
                                      NULL,
+                                     endpCode,
                                      err_msg);
 
             if (prc != SRv6_POOL_OK) {
@@ -565,6 +569,7 @@ srv6_adjacency_sid_config_handler
                                      srv6_sid_client_srv6,
                                      intf->ifindex,
                                      &gw,
+                                     endpCode,
                                      err_msg);
 
             if (prc != SRv6_POOL_OK) {

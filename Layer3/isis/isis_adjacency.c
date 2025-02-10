@@ -1168,3 +1168,36 @@ isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency) {
     return rc;
 }
  
+bool 
+isis_alloc_srv6_adj_sid (isis_adjacency_t *adjacency, uint8_t flags) {
+
+    return true;
+}
+
+bool 
+isis_dealloc_srv6_adj_sid (isis_adjacency_t *adjacency) {
+
+    return true;
+}
+
+void 
+isis_advertise_srv6_adj_sid_subtlv (isis_adjacency_t *adjacency) {
+
+}
+
+void 
+isis_withdraw_srv6_adj_sid_subtlv (isis_adjacency_t *adjacency) {
+
+}
+
+/*
+ ISIS interface is ipv6 capable if : 
+ 1. isis is enabled on this interface
+ 2. ipv6 enable on this interface
+ 3. address-family ipv6 unicast is enabled under ISIS
+*/
+bool 
+isis_interface_ipv6_capable (Interface *intf) {
+
+    return false;
+}

@@ -22,15 +22,4 @@ srv6_delete_all_pfx_sids (node_t *node) ;
 uint32_t 
 srv6_delete_all_adj_sids (node_t *node) ;
 
-void 
-External_srv6_import_locator_config (
-        node_t *node,
-        const char *loc_name, 
-        ipv6_addr_t *prefix, 
-        uint8_t *prefix_len,
-        uint32_t *metric,
-        uint16_t *mt_id,
-        uint8_t *algorithm,
-        uint8_t *flags);
-
 #endif 

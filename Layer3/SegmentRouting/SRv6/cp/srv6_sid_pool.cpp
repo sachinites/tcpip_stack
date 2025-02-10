@@ -19,8 +19,8 @@ extern int cprintf (const char* format, ...) ;
 
 typedef struct adj_sid_key_ {
 
-    uint32_t ifindex;
     ipv6_addr_t gw_addr;
+    uint32_t ifindex;
     srv6_sid_client_t client;
 
 } adj_sid_key_t ;
@@ -30,29 +30,33 @@ typedef struct pool_entry_ {
     /* Allocated SID*/
     ipv6_addr_t sid;
     avltree_node_t avl_glue_sid;
-
-    /* Client to which this sid is allocated*/
-    srv6_sid_client_t sid_client;
+    avltree_node_t avl_glue_asid;
     /* Adj Sid key*/
     adj_sid_key_t adj_sid_key;
-    avltree_node_t avl_glue_asid;
+    /* Client to which this sid is allocated*/
+    srv6_sid_client_t sid_client;
+    Srv6_endpcode_t EndpCode;
+    char padding[2];
 
 } pool_entry_t;
 
-
 typedef struct srv6_locator_pool_ {
 
-    ipv6_addr_t loc; // key
-    uint8_t loc_pfx_len; //key
-    avltree_node_t avl_glue_loc; // keyed by loc & prefix len
     char loc_name[MAX_LOCATOR_NAME_LEN];  
+    ipv6_addr_t loc; // key
+    avltree_node_t avl_glue_loc; // keyed by loc & prefix len
     avltree_node_t avl_glue_by_name; // keyed by loc name
-    bitmap_t static_sid_bm;
-    bitmap_t dynamic_sid_bm;
     avltree_t sid_tree;
     avltree_t sid_tree_by_asid;
-    /* Who are the clients using this locator */
-    uint8_t use_clients;
+    bitmap_t static_sid_bm;
+    bitmap_t dynamic_sid_bm;
+    uint32_t metric;
+    uint16_t mt_id;
+    uint8_t loc_pfx_len; //key
+    uint8_t algo;
+    uint8_t loc_flags;
+    uint8_t use_clients; /* Who are the clients using this locator */
+
 } srv6_locator_pool_t;
 
 
@@ -383,6 +387,26 @@ srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools,
     return SRv6_POOL_OK;
 }
 
+void 
+srv6_pool_set_locator_properties (srv6_sid_pools_t *srv6_sid_pools, 
+                            char *loc_name,
+                            uint8_t mt_id,
+                            uint32_t metric,
+                            uint8_t algo,
+                            uint8_t flags) {
+
+
+    srv6_locator_pool_t *loc = 
+        srv6_pool_avl_lookup_locator_by_name (srv6_sid_pools, loc_name);
+
+    assert (loc);
+
+    loc->metric = metric;
+    loc->mt_id = mt_id;
+    loc->loc_flags = flags;
+    loc->algo = algo;
+}
+
 /* Called when locator is Unconfigured */
 pool_error_codes_t
 srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools, 
@@ -441,9 +465,15 @@ srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
 
 pool_error_codes_t
 srv6_pool_client_borrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
-                            char *loc_name,
-                            srv6_sid_client_t client,
-                            char *err_msg_out) {
+                                char *loc_name,
+                                srv6_sid_client_t client,
+                                ipv6_addr_t *prefix,
+                                uint8_t *prefix_len,
+                                uint32_t *metric,
+                                uint16_t *mt_id,
+                                uint8_t *algo,
+                                uint8_t *flags,
+                                char *err_msg_out) {
 
     srv6_locator_pool_t *loc = srv6_pool_avl_lookup_locator_by_name (
                                             srv6_sid_pools, loc_name);
@@ -462,11 +492,20 @@ srv6_pool_client_borrow_locator (srv6_sid_pools_t *srv6_sid_pools,
 
     loc->use_clients |= client;
 
+    /* Fill all the output paramaters */
+    memcpy (prefix, &loc->loc, sizeof (ipv6_addr_t));
+    *prefix_len = loc->loc_pfx_len;
+    *metric = loc->metric;
+    *mt_id = loc->mt_id;
+    *algo = loc->algo;
+    *flags = loc->loc_flags;
+
     return SRv6_POOL_OK;
 }
 
 pool_error_codes_t
-srv6_pool_client_unborrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
+srv6_pool_client_unborrow_locator (
+                            srv6_sid_pools_t *srv6_sid_pools, 
                             char *loc_name,
                             srv6_sid_client_t client,
                             char *err_msg_out) {
@@ -545,6 +584,7 @@ srv6_pool_alloc_dynamic_sid (
                                     srv6_sid_client_t sid_client,
                                     uint32_t ifindex,
                                     ipv6_addr_t *gw_addr,
+                                    Srv6_endpcode_t EndpCode,
                                     ipv6_addr_t *sid_out,
                                     char *err_msg_out) {
 
@@ -599,6 +639,7 @@ srv6_pool_alloc_dynamic_sid (
     pool_entry_t *new_entry = (pool_entry_t *) XCALLOC (0, 1, pool_entry_t);
     memcpy (&new_entry->sid, sid_out, sizeof (*sid_out));
     new_entry->sid_client = sid_client;
+    new_entry->EndpCode = EndpCode;
     new_entry->adj_sid_key.ifindex = ifindex;
     new_entry->adj_sid_key.client = sid_client;
     if (gw_addr) memcpy (&new_entry->adj_sid_key.gw_addr, gw_addr, sizeof (*gw_addr));
@@ -619,6 +660,7 @@ srv6_pool_alloc_static_sid (
                                     srv6_sid_client_t sid_client,
                                     uint32_t ifindex,
                                     ipv6_addr_t *gw_addr,
+                                    Srv6_endpcode_t EndpCode,
                                     char *err_msg_out) {
 
 
@@ -693,6 +735,7 @@ srv6_pool_alloc_static_sid (
     pool_entry_t *new_entry = (pool_entry_t *) XCALLOC (0, 1, pool_entry_t);
     memcpy (&new_entry->sid, sid, sizeof (new_entry->sid));
     new_entry->sid_client = sid_client;
+    new_entry->EndpCode = EndpCode;
     new_entry->adj_sid_key.client = sid_client;
     new_entry->adj_sid_key.ifindex = ifindex;
     if (gw_addr) {
@@ -868,8 +911,10 @@ srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
     char ipv6_addr_str[48];
     char ipv6_addr_gw_str[48];
 
-    cprintf ("%s : %s/%d\n", loc->loc_name, 
-        inet_ntop6 (&loc->loc, ipv6_addr_str), loc->loc_pfx_len);
+    cprintf ("%s : %s/%d   metric:%u   mt_id:0x%x   Algorithm:0x%x   flags:0x%x\n", 
+        loc->loc_name, 
+        inet_ntop6 (&loc->loc, ipv6_addr_str), loc->loc_pfx_len,
+        loc->metric, loc->mt_id, loc->algo, loc->loc_flags);
 
     ITERATE_AVL_TREE_BEGIN ((&loc->sid_tree), curr) {
 
@@ -877,19 +922,21 @@ srv6_pool_show_one_locator(srv6_locator_pool_t *loc) {
 
         if (sid_entry->adj_sid_key.ifindex) {
 
-            cprintf ("  %s    %s    %s     %u - %s\n", 
+            cprintf ("  %s    %s    %s     %s    Adj-key : [%u - %s] \n", 
                 inet_ntop6 (&sid_entry->sid, ipv6_addr_str),
                 loc->loc_name, 
                 srv6_sid_client_str (sid_entry->sid_client), 
+                srv6_end_fn_str (sid_entry->EndpCode),
                 sid_entry->adj_sid_key.ifindex,
                 inet_ntop6 (&sid_entry->adj_sid_key.gw_addr, ipv6_addr_gw_str));
         }
         else {
             
-            cprintf ("  %s    %s    %s\n", 
+            cprintf ("  %s    %s    %s     %s\n",
                 inet_ntop6 (&sid_entry->sid, ipv6_addr_str), 
                 loc->loc_name,
-                srv6_sid_client_str (sid_entry->sid_client));
+                srv6_sid_client_str (sid_entry->sid_client),
+                 srv6_end_fn_str (sid_entry->EndpCode));
         }
 
     } ITERATE_AVL_TREE_END;

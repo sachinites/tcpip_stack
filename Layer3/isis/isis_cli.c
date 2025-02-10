@@ -645,6 +645,7 @@ isis_srv6_config_handler (int cmdcode,
                                             srv6_sid_client_isis,
                                             0,
                                             NULL,
+                                            endpCode,
                                             err_msg);
 
                     if (prc != SRv6_POOL_OK) {

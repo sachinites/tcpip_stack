@@ -3,6 +3,7 @@
 #define __SRV6_SID_POOL__
 
 #include <stdint.h>
+#include "../common/srv6_const.h"
 
 typedef struct srv6_sid_pools_  srv6_sid_pools_t;
 typedef struct ipv6_addr_ ipv6_addr_t;
@@ -45,6 +46,14 @@ srv6_pool_create_locator (srv6_sid_pools_t *srv6_sid_pools,
                             char *loc_name,
                             char* err_msg_out) ;
 
+void 
+srv6_pool_set_locator_properties (srv6_sid_pools_t *srv6_sid_pools, 
+                            char *loc_name,
+                            uint8_t mt_id,
+                            uint32_t metric,
+                            uint8_t algo,
+                            uint8_t flags);
+
 /* Used when user unconfigure locator. Should be done when all pfx-sids and adj-sids
     is already related under this locator */
 pool_error_codes_t
@@ -54,9 +63,15 @@ srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
 
 pool_error_codes_t
 srv6_pool_client_borrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
-                            char *loc_name,
-                            srv6_sid_client_t client,
-                            char *err_msg_out);
+                                char *loc_name,
+                                srv6_sid_client_t client,
+                                ipv6_addr_t *prefix,
+                                uint8_t *prefix_len,
+                                uint32_t *metric,
+                                uint16_t *mt_id,
+                                uint8_t *algo,
+                                uint8_t *flags,
+                                char *err_msg_out);
 
 pool_error_codes_t
 srv6_pool_client_unborrow_locator (srv6_sid_pools_t *srv6_sid_pools, 
@@ -80,6 +95,7 @@ srv6_pool_alloc_dynamic_sid (
                                     srv6_sid_client_t sid_client,
                                     uint32_t ifindex,
                                     ipv6_addr_t *gw_addr,
+                                    Srv6_endpcode_t EndpCode,
                                     ipv6_addr_t *sid_out,
                                     char *err_msg_out);
 
@@ -94,6 +110,7 @@ srv6_pool_alloc_static_sid (
                                     srv6_sid_client_t sid_client,
                                     uint32_t ifindex,
                                     ipv6_addr_t *gw_addr,
+                                    Srv6_endpcode_t EndpCode,
                                     char *err_msg_out);
 
 /* Used by the clients to release the given sid. It could be pfxsid or adjsid */

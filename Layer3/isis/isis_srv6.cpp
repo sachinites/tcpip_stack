@@ -7,17 +7,6 @@
 #include "../../Tracer/tracer.h"
 #include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
-extern void 
-External_srv6_import_locator_config (
-        node_t *node,
-        const char *loc_name, 
-        ipv6_addr_t *prefix, 
-        uint8_t *prefix_len,
-        uint32_t *metric,
-        uint16_t *mt_id,
-        uint8_t *algorithm,
-        uint8_t *flags);
-
 /* 0 if locator is enable and matching
     1 if locator is set, but not mathching 
      -1 if locator is not even set
@@ -96,15 +85,6 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
 
     if (!node_info) return;
 
-    External_srv6_import_locator_config (node, new_locator, 
-        &loc_prefix, &prefix_len, &metric, &mt_id, &algorithm, &flags);
-
-    if (is_ipv6_addr_unspecified (&loc_prefix.addr)) {
-
-        cprintf ("Error : Non-existing locator\n");
-        return -1;
-    }
-
     int8_t rc = isis_srv6_is_loc_enabled  (node, new_locator);
 
     switch (rc) {
@@ -119,9 +99,11 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
 
     /* Claim that this client is using the locator */
     prc = srv6_pool_client_borrow_locator (
-             (NODE_SRv6_SID_POOL(node)), 
-             new_locator,  srv6_sid_client_isis, 
-             err_msg);
+                (NODE_SRv6_SID_POOL(node)), 
+                new_locator,  srv6_sid_client_isis,
+                &loc_prefix, &prefix_len,
+                &metric, &mt_id, &algorithm, &flags, 
+                err_msg);
 
     if (prc != SRv6_POOL_OK) {
         cprintf ("%s : %s, err-code : %d\n", node->node_name, err_msg, prc);

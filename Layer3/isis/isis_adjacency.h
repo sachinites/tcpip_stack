@@ -37,6 +37,14 @@ typedef struct isis_adjacency_{
     timer_event_handle *expiry_timer;
     /* Delete timer */
     timer_event_handle *delete_timer;
+    /* SRv6 Adj Sid*/
+    struct {
+        #define ISIS_SRV6_ADJ_SID_F_STATIC 1
+        #define ISIS_SRV6_ADJ_SIF_F_PROTECTED 2
+        uint8_t flags;
+        char padding[7];
+        ipv6_addr_t srv6_adj_sid;
+    } srv6;
     /* uptime */
     time_t uptime;    
     /* timestamp when Adj state changed */
@@ -146,5 +154,20 @@ isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency);
 
 isis_tlv_wd_return_code_t
 isis_adjacency_withdraw_is_reach (isis_adjacency_t *adjacency);
+
+bool 
+isis_alloc_srv6_adj_sid (isis_adjacency_t *adjacency, uint8_t flags);
+
+bool 
+isis_dealloc_srv6_adj_sid (isis_adjacency_t *adjacency);
+
+void 
+isis_advertise_srv6_adj_sid_subtlv (isis_adjacency_t *adjacency);
+
+void 
+isis_withdraw_srv6_adj_sid_subtlv (isis_adjacency_t *adjacency);
+
+bool 
+isis_interface_ipv6_capable (Interface *intf) ;
 
 #endif /* __IGP_NBRSHIP__ */
