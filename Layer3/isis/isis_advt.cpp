@@ -613,8 +613,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
             advt_data = glue_to_isis_advt_data(curr);
 
             if (advt_data->tlv_no != ISIS_TLV_LOCATOR) continue;
-            if (advt_data->tlv_no != ISIS_TLV_RTR_CAP) continue;
-            
+
             tlv_size =  advt_data->tlv_size;
 
             lsp_tlv_buffer = tlv_buffer_insert_tlv(

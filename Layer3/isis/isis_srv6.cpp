@@ -314,9 +314,6 @@ isis_srv6_locator_unset (node_t *node) {
              err_msg);
 
     assert (prc == SRv6_POOL_OK);
-
-    XFREE(node_info->srv6_config);
-    node_info->srv6_config = NULL;
 }
 
 static void 
