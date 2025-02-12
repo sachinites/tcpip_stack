@@ -144,12 +144,12 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
         {
             isis_rtr_cap_srv6_subtlv2_t *srv6_subtlv = (isis_rtr_cap_srv6_subtlv2_t *)subtlv;
             rc += cprintf("\t  SubTLV%d  Algorithm Subtlv  len:%d\n", srv6_subtlv->type, srv6_subtlv->length);
-            rc += cprintf("\t    flags = 0x%x\n", srv6_subtlv->flags);
-            rc += cprintf("\t    Max # SL in SRH supported by platform : %d\n", srv6_subtlv->max_sl_msd);
-            rc += cprintf("\t    Max # of SIDs when applying PSP or USP flavors : %d\n", srv6_subtlv->max_end_pop_srh_msd);
-            rc += cprintf("\t    Max # of T-INSERT SIDs supported by platform : %d\n", srv6_subtlv->max_t_ins_srh_msd);
-            rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform : %d\n", srv6_subtlv->max_t_encap_srh_msd);
-            rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform : %d\n", srv6_subtlv->max_end_D_srh_msd);
+            rc += cprintf("\t    flags : 0x%x\n", srv6_subtlv->flags);
+            rc += cprintf("\t    Max # of SL in SRH supported by platform                : %d\n", srv6_subtlv->max_sl_msd);
+            rc += cprintf("\t    Max # of SIDs when applying PSP or USP flavors          : %d\n", srv6_subtlv->max_end_pop_srh_msd);
+            rc += cprintf("\t    Max # of T-INSERT SIDs supported by platform            : %d\n", srv6_subtlv->max_t_ins_srh_msd);
+            rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform             : %d\n", srv6_subtlv->max_t_encap_srh_msd);
+            rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
 
             if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + TLV_OVERHEAD_SIZE + srv6_subtlv->length))
             {

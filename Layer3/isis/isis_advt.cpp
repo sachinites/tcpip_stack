@@ -1038,6 +1038,39 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                 } ITERATE_GLTHREAD_END(&advt_data->u.srv6_loc.pfxsid_list_head, curr2);
             }
             break;
+	    case ISIS_TLV_RTR_CAP:
+                rc += cprintf("       Rtr ID : %s  Flags : 0x%x\n",
+                    tcp_ip_covert_ip_n_to_p(advt_data->u.rtr_cap.rtr_cap.rtr_id, system_id_str),
+                    advt_data->u.rtr_cap.rtr_cap.flags);
+
+                if (advt_data->u.rtr_cap.is_rtr_cap_algo_subtlv19_present) {
+
+                    rc += cprintf("         SubTLV%d  Algorithm Subtlv  len:%d\n", 
+                                    advt_data->tlv_no,
+                                    advt_data->u.rtr_cap.rtr_cap.rtr_cap_algorithm_subtlv19->length);
+
+                    int n_algo = advt_data->u.rtr_cap.rtr_cap.rtr_cap_algorithm_subtlv19->length / 8;
+
+                    for (int i = 0; i < n_algo; i++) {
+
+                        rc += cprintf("          Algorithm : %d\n", 
+                            advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.algorithms[i]);
+                    }
+                }
+
+                if (advt_data->u.rtr_cap.is_rtr_cap_srv6_subtlv2_present)
+                {
+                    isis_rtr_cap_srv6_subtlv2_t *srv6_subtlv = (isis_rtr_cap_srv6_subtlv2_t *)&advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2;
+                    rc += cprintf("\t  SubTLV%d  Algorithm Subtlv  len:%d\n", srv6_subtlv->type, srv6_subtlv->length);
+                    rc += cprintf("\t    flags : 0x%x\n", srv6_subtlv->flags);
+                    rc += cprintf("\t    Max # of SL in SRH supported by platform                : %d\n", srv6_subtlv->max_sl_msd);
+                    rc += cprintf("\t    Max # of SIDs when applying PSP or USP flavors          : %d\n", srv6_subtlv->max_end_pop_srh_msd);
+                    rc += cprintf("\t    Max # of T-INSERT SIDs supported by platform            : %d\n", srv6_subtlv->max_t_ins_srh_msd);
+                    rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform             : %d\n", srv6_subtlv->max_t_encap_srh_msd);
+                    rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
+                }
+
+            break;
             default: 
                 cprintf ("        Error : Unsupported TLV : %d\n", advt_data->tlv_no);
                 break;
