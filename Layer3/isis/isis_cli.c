@@ -572,6 +572,19 @@ isis_srv6_config_handler (int cmdcode,
 
     switch (cmdcode) {
 
+        case CMDCODE_CONF_NODE_ISIS_PROTO_SRV6:
+
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    isis_enable_srv6(node);
+                    break;
+                case CONFIG_DISABLE:
+                    isis_disable_srv6(node);
+                    break;
+                default:;
+            }   
+            break;
+
         case CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR:
         {
             switch (enable_or_disable)
@@ -1178,8 +1191,9 @@ isis_config_cli_tree(param_t *param) {
             {
                 /* config node <node-name> [no] protocol isis source-packet-routing srv6 */
                 static param_t srv6;
-                init_param(&srv6, CMD, "srv6", 0, 0, INVALID, 0, "srv6");
+                init_param(&srv6, CMD, "srv6", isis_srv6_config_handler, 0, INVALID, 0, "srv6");
                 libcli_register_param(&spring, &srv6);
+                libcli_set_param_cmd_code(&srv6, CMDCODE_CONF_NODE_ISIS_PROTO_SRV6);
                 {
                     /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
                     static param_t locator;

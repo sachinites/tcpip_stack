@@ -7,38 +7,6 @@
 #include "../../Tracer/tracer.h"
 #include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
-/* 0 if locator is enable and matching
-    1 if locator is set, but not mathching 
-     -1 if locator is not even set
-*/
-int8_t 
-isis_srv6_is_loc_enabled (node_t *node, char *locator_name) {
-
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
-    
-    if (!srv6_config) return -1;
-
-    int old_loc_len = strlen(srv6_config->loc.locator_name);
-    int new_loc_len = strlen(locator_name);
-
-    if (old_loc_len != new_loc_len) return 1;
-
-    if (strncmp(srv6_config->loc.locator_name, locator_name, 
-        old_loc_len) == 0) return 0;
-
-    return 1;
-}
-
-isis_srv6_config_t *
-isis_srv6_get_config(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) return NULL;
-
-    return node_info->srv6_config;
-}
-
 int 
  avltree_pfx_sid_cmp (const avltree_node_t *data1, const avltree_node_t *data2) {
 
@@ -68,6 +36,149 @@ avltree_adj_sid_cmp (const avltree_node_t *data1, const avltree_node_t *data2) {
 
     return 0;
 }
+
+
+void
+isis_enable_srv6 (node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    if (node_info->srv6_config) return;
+    
+    node_info->srv6_config = (isis_srv6_config_t *)XCALLOC(0, 1, isis_srv6_config_t);
+    avltree_init (&node_info->srv6_config->pfxsid_tree, avltree_pfx_sid_cmp);
+    avltree_init (&node_info->srv6_config->adj_sid_tree, avltree_adj_sid_cmp);
+
+    /* Advertise the Rtr Capability TLV */
+    isis_advertise_rtr_capability_tlv(node);
+}
+
+void
+isis_disable_srv6 (node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+    if (!node_info->srv6_config) return;
+
+    isis_srv6_locator_unset (node);
+    isis_withdraw_rtr_capability_tlv(node);
+
+    XFREE(node_info->srv6_config);
+    node_info->srv6_config = NULL;
+}
+
+
+/* 0 if locator is enable and matching
+    1 if locator is set, but not mathching 
+     -1 if locator is not even set
+*/
+int8_t 
+isis_srv6_is_loc_enabled (node_t *node, char *locator_name) {
+
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
+    
+    if (!srv6_config) return -1;
+    
+    if (srv6_config->loc.locator_name[0] == '\0') return -1;
+
+    int old_loc_len = strlen(srv6_config->loc.locator_name);
+    int new_loc_len = strlen(locator_name);
+
+    if (old_loc_len != new_loc_len) return 1;
+
+    if (strncmp(srv6_config->loc.locator_name, locator_name, 
+        old_loc_len) == 0) return 0;
+
+    return 1;
+}
+
+isis_srv6_config_t *
+isis_srv6_get_config(node_t *node) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return NULL;
+
+    return node_info->srv6_config;
+}
+
+void 
+ isis_advertise_rtr_capability_tlv(node_t *node) {
+
+    isis_advt_info_t advt_info;
+    isis_adv_data_t *advt_data;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    advt_data = node_info->tlv_global_advt.rtr_cap_adv_data_tlv242;
+    assert (!advt_data);
+
+    advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    node_info->tlv_global_advt.rtr_cap_adv_data_tlv242 = advt_data;
+
+    /* Initialize the advt  data */
+    advt_data->tlv_no = ISIS_TLV_RTR_CAP;
+    advt_data->flags = 0;
+    advt_data->fragment = NULL;
+    advt_data->src.holder = &node_info->tlv_global_advt.rtr_cap_adv_data_tlv242;
+    init_glthread(&advt_data->glue);
+
+    /* Fill it with Rtr Cap data */
+    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_LO_ADDR_INT(node);
+    advt_data->u.rtr_cap.rtr_cap.flags = 0;
+
+    /* Rtr Cap Algorithm SubTLV 19 : Algorithm Subtlv  */
+    advt_data->u.rtr_cap.is_rtr_cap_algo_subtlv19_present = true;
+    advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.type = ISIS_TLV_RTR_CAP_ALGO_SUBTLV;
+    advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.length = 16;
+    advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.algorithms[0] = SPF_ALOGORITHM;
+    advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.algorithms[1] = SPF_STRICT_ALOGORITHM;
+
+    /* Rtr Cap SRv6 SubTLV 2 : SRv6 Capability SubTLV*/
+    advt_data->u.rtr_cap.is_rtr_cap_srv6_subtlv2_present = true;    
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.type = ISIS_TLV_RTR_CAP_SRV6_SUBTLV;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.length = 
+        sizeof (isis_rtr_cap_srv6_subtlv2_t) - TLV_OVERHEAD_SIZE;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.flags = 0;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.max_sl_msd                   = MAX_SL_MSD;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.max_end_pop_srh_msd = MAX_END_POP_SRH_MSD;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.max_t_ins_srh_msd       = MAX_T_INS_SRH_MSD;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.max_t_encap_srh_msd  = MAX_T_ENCAP_SRH_MSD;
+    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.max_end_D_srh_msd    = MAX_END_D_SRH_MSD;
+
+    /* Calculate the size of the TLV */
+    advt_data->tlv_size = isis_get_adv_data_size(advt_data);
+
+    /* Advertise the TLV */
+    isis_advertise_tlv(node, 0, advt_data, &advt_info); 
+ }
+
+void
+ isis_withdraw_rtr_capability_tlv (node_t *node) {
+
+    isis_adv_data_t *advt_data;
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+    
+    advt_data = node_info->tlv_global_advt.rtr_cap_adv_data_tlv242;
+    if (!advt_data) return;
+
+    if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_ADVERTISED)) {
+        isis_withdraw_tlv_advertisement(node, advt_data);
+    }
+    else if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED)) {
+        isis_wait_list_advt_data_remove(node, advt_data);
+    }
+
+    isis_advt_data_clear_backlinkage(node_info, advt_data);
+    isis_free_advt_data(advt_data);
+    assert (!node_info->tlv_global_advt.rtr_cap_adv_data_tlv242);
+ }
 
 int
 isis_srv6_new_locator_set (node_t *node, char *new_locator) {
@@ -110,11 +221,7 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
         return -1;
     }
 
-    if (!node_info->srv6_config) {
-        node_info->srv6_config = (isis_srv6_config_t *)XCALLOC(0, 1, isis_srv6_config_t);
-        avltree_init (&node_info->srv6_config->pfxsid_tree, avltree_pfx_sid_cmp);
-        avltree_init (&node_info->srv6_config->adj_sid_tree, avltree_adj_sid_cmp);
-    }
+     assert (node_info->srv6_config);
 
     strncpy(node_info->srv6_config->loc.locator_name, new_locator, 
         sizeof (node_info->srv6_config->loc.locator_name));
@@ -156,6 +263,7 @@ isis_srv6_locator_unset (node_t *node) {
 
     isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
 
+    if (loc->locator_name[0] == '\0') return;
     isis_withdraw_locator_ipv6_reachability_tlv236 (node, loc); 
     isis_withdraw_locator_ipv6_reachability_mt_tlv237 (node, loc); 
     isis_srv6_stop_adj_sid_advertisement (node);

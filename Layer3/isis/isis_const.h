@@ -35,6 +35,24 @@
 #define ISIS_TLV_IF_MAC      131 // Imaginary
 #define ISIS_TLV_IP_REACH   130
 
+/* Router Capability TLV */
+#define ISIS_TLV_RTR_CAP    242
+#define ISIS_TLV_RTR_CAP_ALGO_SUBTLV 19
+#define ISIS_TLV_RTR_CAP_SRV6_SUBTLV 2
+
+/* SRv6 MSD Defauls Values */
+#define MAX_END_D_SRH_MSD 4
+#define MAX_T_ENCAP_SRH_MSD 4
+#define MAX_T_INS_SRH_MSD 4
+#define MAX_END_POP_SRH_MSD 4
+#define MAX_SL_MSD 4
+
+#define SPF_ALOGORITHM 0
+#define SPF_STRICT_ALOGORITHM 1
+
+
+
+
 #define ISIS_LSP_HDR_SIZE   sizeof(isis_pkt_hdr_t)
 #define ISIS_LSP_MAX_PKT_SIZE   1492
 #define ISIS_MAX_FRAGMENT_SUPPORTED 256

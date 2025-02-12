@@ -17,7 +17,6 @@ typedef enum Srv6_flavor_ {
 #define DEFAULT_FLAVOR (0)
 #define LOCATOR_NAME_SIZE   32
 
-
 /* https://www.rfc-editor.org/rfc/rfc8986.pdf : page 33*/
 typedef enum Srv6_endpcode_ {
     

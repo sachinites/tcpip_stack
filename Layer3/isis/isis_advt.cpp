@@ -271,6 +271,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
         case ISIS_TLV_HOSTNAME:
             break;
         case ISIS_IS_REACH_TLV:
+        case ISIS_TLV_RTR_CAP:
         case ISIS_TLV_IPV6_REACH:
         case ISIS_TLV_IPV6_MT_REACH:
         case ISIS_LOCATOR_PFX_SID_SUBTLV:
@@ -612,6 +613,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
             advt_data = glue_to_isis_advt_data(curr);
 
             if (advt_data->tlv_no != ISIS_TLV_LOCATOR) continue;
+            if (advt_data->tlv_no != ISIS_TLV_RTR_CAP) continue;
             
             tlv_size =  advt_data->tlv_size;
 

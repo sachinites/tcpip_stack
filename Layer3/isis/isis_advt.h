@@ -5,6 +5,7 @@
 #include "isis_enums.h"
 #include "isis_events.h"
 #include "isis_rtr.h"
+#include "isis_tlv_struct.h"
 
 typedef struct node_info_ isis_node_info_t;
 
@@ -92,7 +93,6 @@ typedef struct isis_adv_data_ {
                 uint8_t flags;
                 uint8_t subtlv_len;
 
-
         } __attribute__((aligned(8)))   srv6_loc;
 
 
@@ -135,13 +135,26 @@ typedef struct isis_adv_data_ {
             uint8_t flags;
         } pfx;
 
+
+        /* Router Capability TLV: TLV 242*/
+        struct {
+
+            isis_rtr_cap_tlv242_t rtr_cap;
+            bool is_rtr_cap_algo_subtlv19_present;
+            isis_rtr_cap_algorithm_subtlv19_t rtr_cap_algorithm_subtlv19;
+            bool is_rtr_cap_srv6_subtlv2_present;
+            isis_rtr_cap_srv6_subtlv2_t rtr_cap_srv6_subtlv2;
+
+        } __attribute__((aligned(8))) rtr_cap;
+
     } __attribute__((aligned(8))) u;
 
- 
     isis_fragment_t *fragment;
+
     union {
         struct isis_adv_data_ **holder; // for IS REACH
     }src;
+
     glthread_t glue;
     pkt_size_t tlv_size;
     uint16_t tlv_no;
