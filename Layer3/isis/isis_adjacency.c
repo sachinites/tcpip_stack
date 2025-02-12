@@ -271,7 +271,7 @@ isis_update_interface_adjacency_from_hello(
     adjacency = isis_find_adjacency_on_interface(iif, &sys_id);
 
     if(!adjacency){
-        adjacency = (isis_adjacency_t *)XCALLOC(0, 1, isis_adjacency_t);
+        adjacency = (isis_adjacency_t *)XCALLOC2(0, 1, isis_adjacency_t);
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
         adjacency->nbr_sys_id = sys_id;

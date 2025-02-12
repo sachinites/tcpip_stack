@@ -613,8 +613,6 @@ xcalloc2(mm_instance_t *mm_inst,
         last_cached_pg_family = pg_family;
     }
     
-    assert (!pg_family);
-    
     /*Find the page which can satisfy the request*/
     block_meta_data_t *free_block_meta_data = NULL;
     

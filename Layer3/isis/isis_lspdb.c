@@ -23,7 +23,7 @@ isis_get_dummy_lsp_pkt_with_key(node_t *node, uint32_t rtr_id, pn_id_t pn_id, ui
 
     if (!node_info->lsp_dummy_pkt) {
     
-        node_info->lsp_dummy_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
+        node_info->lsp_dummy_pkt = (isis_lsp_pkt_t *)XCALLOC2(0, 1, isis_lsp_pkt_t);
         pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + ISIS_LSP_HDR_SIZE;
         node_info->lsp_dummy_pkt->pkt = tcp_ip_get_new_pkt_buffer ( pkt_size);
         isis_mark_isis_lsp_pkt_flood_ineligible(0, node_info->lsp_dummy_pkt);
@@ -555,7 +555,7 @@ isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     if (lsp_pkt->expiry_timer) return;
 
-    isis_timer_data_t *timer_data = XCALLOC(0, 1, isis_timer_data_t);
+    isis_timer_data_t *timer_data = XCALLOC2(0, 1, isis_timer_data_t);
     timer_data->node = node;
     timer_data->data = (void *)lsp_pkt;
     timer_data->data_size = sizeof(isis_lsp_pkt_t);
