@@ -117,10 +117,7 @@ isis_protocol_shutdown_now (node_t *node) {
         isis_disable_protocol_on_interface(intf);
     } ITERATE_NODE_INTERFACES_END(node, intf);
     
-    /* Remove all static and Dynamic learnt SRv6 data,
-        including disabling SRV6 specific IPS joins*/
-    isis_srv6_locator_unset (node);
-     
+    isis_disable_srv6(node);
     /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node, 0);
     /* This should be No-Op, buts lets do*/
