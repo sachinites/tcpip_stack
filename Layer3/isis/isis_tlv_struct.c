@@ -526,6 +526,7 @@ isis_is_zero_fragment_tlv (uint16_t tlv_no) {
 
     switch (tlv_no) {
         case  ISIS_TLV_HOSTNAME:
+        case ISIS_TLV_RTR_CAP:
             return true;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IP_REACH:

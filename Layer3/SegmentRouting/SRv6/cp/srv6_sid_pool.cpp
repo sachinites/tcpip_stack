@@ -758,6 +758,7 @@ pool_error_codes_t
 srv6_release_sid (
                             srv6_sid_pools_t *srv6_sid_pools, 
                             ipv6_addr_t *sid,
+                            srv6_sid_client_t sid_client,
                             char *err_msg_out) {
 
     char ipv6_addr_str[48];
@@ -793,6 +794,8 @@ srv6_release_sid (
     }
 
     pool_entry_t *entry = (pool_entry_t *)avltree_container_of (res, pool_entry_t, avl_glue_sid);
+
+    assert (entry->sid_client == sid_client);
 
     /* Remove the SID */
     avltree_remove (&entry->avl_glue_sid, &loc->sid_tree);
