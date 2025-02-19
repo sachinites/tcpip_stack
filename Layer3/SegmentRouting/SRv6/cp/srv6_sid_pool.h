@@ -118,6 +118,7 @@ pool_error_codes_t
 srv6_release_sid (
                                     srv6_sid_pools_t *srv6_sid_pools, 
                                     ipv6_addr_t *sid,
+                                    srv6_sid_client_t sid_client,
                                     char *err_msg_out);
 
 /* Used by clients after RED-SWO when adj comes up, claim the same adj sid

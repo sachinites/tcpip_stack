@@ -146,7 +146,7 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
         case ISIS_TLV_RTR_CAP_SRV6_SUBTLV:
         {
             isis_rtr_cap_srv6_subtlv2_t *srv6_subtlv = (isis_rtr_cap_srv6_subtlv2_t *)subtlv;
-            rc += cprintf("\t  SubTLV%d  Algorithm Subtlv  len:%d\n", srv6_subtlv->type, srv6_subtlv->length);
+            rc += cprintf("\t  SubTLV%d  SRv6 Capability Subtlv  len:%d\n", srv6_subtlv->type, srv6_subtlv->length);
             rc += cprintf("\t    flags : 0x%x\n", srv6_subtlv->flags);
             rc += cprintf("\t    Max # of SL in SRH supported by platform                : %d\n", srv6_subtlv->max_sl_msd);
             rc += cprintf("\t    Max # of SIDs when applying PSP or USP flavors          : %d\n", srv6_subtlv->max_end_pop_srh_msd);
@@ -530,6 +530,7 @@ isis_is_zero_fragment_tlv (uint16_t tlv_no) {
 
     switch (tlv_no) {
         case  ISIS_TLV_HOSTNAME:
+        case ISIS_TLV_RTR_CAP:
             return true;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IP_REACH:

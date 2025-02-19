@@ -696,6 +696,7 @@ isis_srv6_config_handler (int cmdcode,
                     prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
                                     &prefix_sid,
+                                    srv6_sid_client_isis,
                                     err_msg);
 
                     if (prc == SRv6_POOL_ERR_SID_NOT_FOUND) break;

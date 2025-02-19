@@ -283,6 +283,7 @@ isis_srv6_locator_unset (node_t *node) {
         prc = srv6_release_sid (
                             (NODE_SRv6_SID_POOL(node)), 
                             &pfxsid->prefix,
+                            srv6_sid_client_isis,
                             err_msg);
 
         assert (prc == SRv6_POOL_OK);
@@ -300,6 +301,7 @@ isis_srv6_locator_unset (node_t *node) {
         prc = srv6_release_sid (
                             (NODE_SRv6_SID_POOL(node)), 
                             &adjsid->prefix,
+                            srv6_sid_client_isis,
                             err_msg);
 
         assert (prc == SRv6_POOL_OK);
