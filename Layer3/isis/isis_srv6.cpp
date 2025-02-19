@@ -321,28 +321,14 @@ isis_advertise_locator_ipv6_reachability_tlv236 (
                         node_t *node, 
                         isis_srv6_locator_t *loc) {
 
-    isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
 
     assert (!loc->loc_adv_tlv236);
 
-    loc->loc_adv_tlv236 = (isis_adv_data_t *)XCALLOC (0, 1, isis_adv_data_t);
-    advt_data = loc->loc_adv_tlv236 ;
-
-    memcpy (advt_data->u.v6pfx.prefix, loc->prefix.addr, 16);
-    advt_data->u.v6pfx.metric = loc->metric;
-    advt_data->u.v6pfx.mask = loc->prefix_len;
-    advt_data->u.v6pfx.flags = loc->flags;
-
-    advt_data->fragment = NULL;
+    advt_data = isis_advertise_ipv6_reach (node, 
+                            &loc->prefix, loc->prefix_len, loc->metric, loc->flags);
+    loc->loc_adv_tlv236 =  advt_data;
     advt_data->src.holder = &loc->loc_adv_tlv236;
-    init_glthread (&advt_data->glue);
-    advt_data->tlv_no = ISIS_TLV_IPV6_REACH;
-    advt_data->tlv_size = isis_get_adv_data_size (advt_data);
-    advt_data->flags = 0;
-
-    /* Now Advertise the TLV*/
-    isis_advertise_tlv (node, 0, advt_data, &advt_info);
 }
 
 void 

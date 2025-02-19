@@ -124,14 +124,17 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
         case ISIS_TLV_RTR_CAP_ALGO_SUBTLV:
         {
             isis_rtr_cap_algorithm_subtlv19_t *algo_subtlv = (isis_rtr_cap_algorithm_subtlv19_t *)subtlv;
-            rc += cprintf("\t  SubTLV%d  SRv6 Capability Subtlv  len:%d\n", algo_subtlv->type, algo_subtlv->length);
+            rc += cprintf("\t  SubTLV%d  Algorithm Subtlv  len:%d\n", 
+                            algo_subtlv->type, algo_subtlv->length);
+
             int n_algo = algo_subtlv->length / 8;
             for (int i = 0; i < n_algo; i++)
             {
-                rc += cprintf("\t   Algorithm : %d\n", algo_subtlv->algorithms[i]);
+                rc += cprintf("\t   SPRING Algorithm : %d\n", algo_subtlv->algorithms[i]);
             }
 
-            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + TLV_OVERHEAD_SIZE + algo_subtlv->length))
+            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + 
+                                        TLV_OVERHEAD_SIZE + algo_subtlv->length))
             {
                 subtlv = tlv242_start + (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) +
                                          TLV_OVERHEAD_SIZE + algo_subtlv->length);
@@ -151,7 +154,8 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
             rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform             : %d\n", srv6_subtlv->max_t_encap_srh_msd);
             rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
 
-            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + TLV_OVERHEAD_SIZE + srv6_subtlv->length))
+            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + 
+                                        TLV_OVERHEAD_SIZE + srv6_subtlv->length))
             {
                 subtlv = tlv242_start + (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) +
                                          TLV_OVERHEAD_SIZE + srv6_subtlv->length);

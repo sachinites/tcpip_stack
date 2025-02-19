@@ -1202,7 +1202,9 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     int i;
     Interface *intf;
     glthread_t *curr;
+    ipv6_addr_t v6_addr;
     isis_advt_db_t *advt_db;
+    isis_adv_data_t *v6lo_advt;
     isis_advt_info_t advt_info;
     isis_adjacency_t *adjacency;
 
@@ -1255,28 +1257,20 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     } ITERATE_NODE_INTERFACES_END (node, intf);
 
     /* Advertise v6loop back as  IPV6 REACH TLV*/
-    isis_adv_data_t *v6lo_advt = node_info->tlv_global_advt.v6lo_adv_data_tlv236;
-    assert (!v6lo_advt );
-    v6lo_advt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
-    v6lo_advt->tlv_no = ISIS_TLV_IPV6_REACH;
-    memcpy (v6lo_advt->u.v6pfx.prefix, node->node_nw_prop.ipv6_addr, 16);
-    v6lo_advt->u.v6pfx.metric = 0;
-    v6lo_advt->u.v6pfx.flags = 0;
-    v6lo_advt->u.v6pfx.mask = 128;
+    assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
+    memcpy (v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
+    v6lo_advt = isis_advertise_ipv6_reach (node, &v6_addr, 128, 0, 0);
     node_info->tlv_global_advt.v6lo_adv_data_tlv236 = v6lo_advt;
     v6lo_advt->src.holder = &node_info->tlv_global_advt.v6lo_adv_data_tlv236;
-    init_glthread (&v6lo_advt->glue);
-    v6lo_advt->tlv_size = isis_get_adv_data_size (v6lo_advt);
-    v6lo_advt->fragment = NULL;
-    isis_advertise_tlv (node, 0, v6lo_advt, &advt_info);
 
     /* Advertise SRv6 Data*/
     if (isis_srv6_get_config(node)) {
         isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+        isis_advertise_rtr_capability_tlv(node);
         isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
         isis_advertise_locator_ipv6_reachability_mt_tlv237(node, loc);
         isis_advertise_locator_tlv27_instance (node, loc, true);
-       isis_srv6_advertise_all_prefix_sids (node);
+        isis_srv6_advertise_all_prefix_sids (node);
     }
 
     /* Advertise IP REACH TLVs : Exported Routes*/
@@ -1294,4 +1288,25 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     if (!IS_BIT_SET(node_info->event_control_flags, ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT)) {
         isis_unset_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
     }
+}
+
+isis_adv_data_t *
+isis_advertise_ipv6_reach (node_t *node, 
+                                ipv6_addr_t *ipv6_addr, 
+                                uint8_t prefix_len, 
+                                uint32_t metric, 
+                                uint8_t flags) {
+
+    isis_advt_info_t advt_info;
+
+    isis_adv_data_t *adv_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    adv_data->tlv_no = ISIS_TLV_IPV6_REACH;
+    memcpy (adv_data->u.v6pfx.prefix, ipv6_addr, 16);
+    adv_data->u.v6pfx.mask = prefix_len;
+    adv_data->u.v6pfx.metric = metric;
+    adv_data->u.v6pfx.flags = flags;
+    init_glthread (&adv_data->glue);
+    adv_data->tlv_size = isis_get_adv_data_size (adv_data);
+    isis_advertise_tlv (node, 0, adv_data, &advt_info);
+    return adv_data;
 }

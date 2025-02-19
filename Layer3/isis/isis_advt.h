@@ -217,4 +217,12 @@ void isis_wait_list_advt_data_remove (node_t *node, isis_adv_data_t *adv_data);
 void isis_free_advt_data (isis_adv_data_t *adv_data);
 uint32_t isis_get_waitlisted_advt_data_count (node_t *node);
 
+/* Generic APIs to advertise/withdraw TLVs*/
+isis_adv_data_t *
+isis_advertise_ipv6_reach (node_t *node, 
+                                ipv6_addr_t *ipv6_addr, 
+                                uint8_t prefix_len, 
+                                uint32_t metric, 
+                                uint8_t flags);
+
 #endif  
