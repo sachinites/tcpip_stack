@@ -172,6 +172,30 @@ isis_config_traceoption_handler (int cmdcode,
             }
             break;
 
+        case CMDCODE_CONF_ISIS_LOG_IPC:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_IPC);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_IPC);
+                break;
+            }
+            break;
+
+
+        case CMDCODE_CONF_ISIS_LOG_SRv6:
+            switch (enable_or_disable) {
+                case CONFIG_ENABLE:
+                    tracer_log_bit_set (tr, TR_ISIS_SRV6);
+                break;
+                case CONFIG_DISABLE:
+                    tracer_log_bit_unset (tr, TR_ISIS_SRV6);
+                break;
+            }
+            break;
+
+
         case CMDCODE_CONF_ISIS_LOG_ERRORS:
             switch (enable_or_disable) {
                 case CONFIG_ENABLE:
@@ -1064,13 +1088,21 @@ isis_config_buid_traceoptions (param_t *param) {
             libcli_set_tail_config_batch_processing (&events);
         }
         {
-            /* ... traceoptions events */
+            /* ... traceoptions ipc */
             static param_t ipc;
             init_param(&ipc, CMD, "ipc", isis_config_traceoption_handler, 0, INVALID, 0, "Enable IPC logging");
             libcli_register_param(&traceoptions, &ipc);
             libcli_set_param_cmd_code(&ipc, CMDCODE_CONF_ISIS_LOG_IPC);
             libcli_set_tail_config_batch_processing (&ipc);
         }        
+        {
+            /* ... traceoptions srv6 */
+            static param_t srv6;
+            init_param(&srv6, CMD, "srv6", isis_config_traceoption_handler, 0, INVALID, 0, "Enable SRv6 logging");
+            libcli_register_param(&traceoptions, &srv6);
+            libcli_set_param_cmd_code(&srv6, CMDCODE_CONF_ISIS_LOG_SRv6);
+            libcli_set_tail_config_batch_processing (&srv6);
+        }  
         {
             /* ... traceoptions errors */
             static param_t errors;

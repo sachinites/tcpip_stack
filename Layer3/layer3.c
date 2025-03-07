@@ -252,21 +252,28 @@ layer3_ip_route_pkt(node_t *node,
                     return;
 
                 case GRE_PROTO:
+                {
+                    char gre_t_src_addr[16];
+                    char gre_t_dst_addr[16];
+
                     pkt_block_set_new_pkt (pkt_block, 
                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr),
                                            pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
 
+                    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, gre_t_src_addr);
+                    tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, gre_t_dst_addr);
+
                     tracer (node->dptr, DL3FWD, 
-                           "Pkt : %s : Pkt is being subjected to GRE Decapsulation\n", 
-		            dest_ip_addr);
+                           "Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
+                           dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
 
                     gre_decapsulate (node, pkt_block, 
                         gre_lookup_tunnel_intf (node, 
 			                ip_hdr->dst_ip, ip_hdr->src_ip));
                     return;
-
+                }
                 default: ;
             }
 
@@ -290,7 +297,8 @@ layer3_ip_route_pkt(node_t *node,
             
             char ip_addr_str[16];
             ip_hdr->src_ip = IF_IP(nexthop->oif.get());
-            tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
+            tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", 
+                pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
         }
 
         tracer (node->dptr, DL3FWD, "Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", pkt_block_str (pkt_block));
