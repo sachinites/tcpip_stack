@@ -19,6 +19,7 @@ LIBS= ${ISIS_LIB_PATH} \
 		    -LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
+			-L../RDBMSImplementation/SqlParser -lsqlapi \
 			-L../RDBMSImplementation/SqlParser -ldbms \
 			-L../MathExpressionParser -lMexpr \
 			-lpthread \
@@ -86,9 +87,13 @@ OBJS=gluethread/glthread.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
 		  lmm_testapp_reg.o \
+		  sql_cli.o \
 
 lmm_testapp_reg.o:lmm_testapp_reg.c
 	${CC} ${CFLAGS} -c lmm_testapp_reg.c -o lmm_testapp_reg.o
+
+sql_cli.o:sql_cli.cpp
+	${CC} ${CFLAGS} -c sql_cli.cpp -o sql_cli.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
