@@ -93,5 +93,6 @@ isis_show_traceoptions (node_t *node) {
     cprintf (" Adjacency logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ADJ) ? 'Y' : 'N');
     cprintf (" Route logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ROUTE) ? 'Y' : 'N');
     cprintf (" Policy logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_POLICY) ? 'Y' : 'N');
+    cprintf (" SRv6 logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_SRV6) ? 'Y' : 'N');
     cprintf (" Errors logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_ERRORS) ? 'Y' : 'N');
 }
