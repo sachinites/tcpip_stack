@@ -529,10 +529,24 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                             return -1;
                         }
                     }
+
+                    uint32_t gw_ip_int = tcp_ip_convert_ip_p_to_n (gwip);
+
+                    /* If Gw and OIF is specified, then Gw must belong to subnet 
+                        configured on an interface */
+                    if (gw_ip_int && intf) {
+
+                        if (!intf->IsSameSubnet(gw_ip_int)) {
+                            cprintf("Config Error : Gateway IP %s not in subnet of Interface %s\n",
+                                    gwip, intf_name);
+                            return -1;
+                        }
+                    }
+
                     rt_ipv4_route_add (node, 
                         tcp_ip_convert_ip_p_to_n(dest), mask, 
-                        gwip ? tcp_ip_convert_ip_p_to_n (gwip) : 0, 
-                        intf, 0, PROTO_STATIC, true);
+                            gwip ? gw_ip_int : 0, 
+                            intf, 0, PROTO_STATIC, true);
                 }
                 break;
                 case CONFIG_DISABLE:

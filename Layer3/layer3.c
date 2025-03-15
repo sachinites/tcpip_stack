@@ -114,6 +114,22 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
         if  (intf_addr == dst_ip)  return true;
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    /* Checking with vlan interface addresses */
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+
+            intf = it->second.get();
+
+            if (!intf->IsIpConfigured()) continue;
+
+            intf_addr = IF_IP(intf);
+
+            if  (intf_addr == dst_ip)  return true;
+        }
+    }
+
     return false;
 }
 
@@ -592,6 +608,10 @@ dump_rt_table(rt_table_t *rt_table){
     l3_route_t *l3_route = NULL;
     mtrie_node_t *mnode;
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+
+    if (IS_GLTHREAD_LIST_EMPTY (&rt_table->route_list.list_head)) {
+        return;
+    }
 
     cprintf("L3 Routing Table:\n");
 

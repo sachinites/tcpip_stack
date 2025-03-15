@@ -88,6 +88,11 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     }
 
     rt_ipv4_route_del (node, existing_ip_addr,
+                                    32,
+                                    PROTO_STATIC, true);
+    
+    rt_ipv4_route_del (node, 
+                                    apply_mask2 (existing_ip_addr, existing_mask),
                                     existing_mask,
                                     PROTO_STATIC, true);
 
