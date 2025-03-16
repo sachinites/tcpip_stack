@@ -49,16 +49,7 @@ interface_set_ip_addr(node_t *node, Interface *intf,
                                         0, 0, 0, PROTO_STATIC, true);
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
-
-        rt_ipv4_route_add (node,
-                                     ip_addr_int, 32,
-                                     0, intf, 0, PROTO_STATIC, true);
-
-        rt_ipv4_route_add(node,
-                                    apply_mask2 (ip_addr_int, mask),
-                                    mask,
-                                     0, intf, 0, PROTO_STATIC, true);
-
+        interface_install_local_v4_routes  (node, intf);
     }
 }
 
@@ -87,15 +78,7 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
         return;
     }
 
-    rt_ipv4_route_del (node, existing_ip_addr,
-                                    32,
-                                    PROTO_STATIC, true);
-    
-    rt_ipv4_route_del (node, 
-                                    apply_mask2 (existing_ip_addr, existing_mask),
-                                    existing_mask,
-                                    PROTO_STATIC, true);
-
+    interface_uninstall_local_v4_routes  (node, intf);
     intf->InterfaceSetIpAddressMask(0, 0);
 }
 
@@ -125,4 +108,28 @@ interface_unset_lan_mode(node_t *node,
                       Interface *interface, 
                       IntfL2Mode l2_mode) {
 
+}
+
+void 
+interface_install_local_v4_routes (node_t *node, Interface  *intf) {
+
+    uint32_t ip_addr;
+    uint8_t mask;
+
+    intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
+
+    rt_ipv4_route_add (node, ip_addr, 32, 0, intf, 0, PROTO_STATIC, true);
+    rt_ipv4_route_add (node, apply_mask2 (ip_addr, mask), mask, 0, intf, 0, PROTO_STATIC, true);
+}
+
+void 
+interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
+
+    uint32_t ip_addr;
+    uint8_t mask;
+
+    intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
+
+    rt_ipv4_route_del (node, ip_addr, 32, PROTO_STATIC, true);
+    rt_ipv4_route_del (node, apply_mask2 (ip_addr, mask), mask, PROTO_STATIC, true);
 }

@@ -37,8 +37,8 @@ sql_query_handler (int cmdcode,
 
     } TLV_LOOP_END;
 
-    sql_query[rc] = '\n';
-    sql_query[rc + 1] = '\0';
+    sql_query[rc - 1] = '\n';
+    sql_query[rc] = '\0';
 
     if (sql_query_exec (node->sql_db, sql_query, err_msg) < 0 ) {
         cprintf ("Error : %s\n", err_msg);

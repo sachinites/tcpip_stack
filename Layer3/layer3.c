@@ -308,6 +308,34 @@ layer3_ip_route_pkt(node_t *node,
         tracer (node->dptr, DL3FWD, "Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
             pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
+        /* If nexthop do not have any OIF attached to it, it could be loose next hope. Perform 
+        loose nexthop resolution */
+        while (nexthop->ifindex == 0) {
+
+            tracer (node->dptr, DL3FWD, "Pkt : %s :  Loose Nexthop found, Nexthop addr : %s\n", 
+                    pkt_block_str (pkt_block), nexthop->gw_ip);
+
+            nexthop->hit_count++;
+
+            /* Recusrive look up */
+            next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
+
+            l3_route_t *recursive_l3_route = l3rib_lookup_lpm(
+                                NODE_RT_TABLE(node), next_hop_ip);
+
+            if (!recursive_l3_route) {
+
+                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped :  No L3 Route for Loose Nexthop %s\n",
+                        pkt_block_str (pkt_block), nexthop->gw_ip);
+                    return;
+            }
+
+            nexthop = l3_route_get_active_nexthop(recursive_l3_route, pkt_block->exclude_oif.get());
+
+            tracer (node->dptr, DL3FWD, "Pkt : %s :  Recursive Nexthop found OIF %s, Gw : %s\n", 
+                pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+        }
+
         /* If src ip address is not feeded by application, then take the OIF IP address*/
         if (ip_hdr->src_ip == 0) {
             

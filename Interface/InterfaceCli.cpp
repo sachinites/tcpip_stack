@@ -205,6 +205,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             }
 
             if (string_compare(if_up_down, "up", strlen("up")) == 0){
+
+                if (interface->is_up == true) return 0;
+
                 if(interface->is_up == false){
                     update_data = new ipc_interface_t;
                     update_data->intf = interface->GetSharedPtr();
@@ -214,6 +217,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 interface->is_up = true;
             }
             else{
+                
+                if (interface->is_up == false) return 0;
+
                 if (interface->is_up){
                     update_data = new ipc_interface_t;
                     SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN); 
@@ -221,6 +227,19 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                      update_data->intf = interface->GetSharedPtr();
                 }
                 interface->is_up = false;
+            }
+
+            uint32_t intf_ip_addr = 0;
+            uint8_t mask = 0;
+
+            interface->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
+
+            /* Install local routes in RIB if interface goes up */
+            if (interface->is_up && interface->IsIpConfigured()) {
+                interface_install_local_v4_routes  (node, interface);
+            }
+            else if (!interface->is_up && interface->IsIpConfigured()) {
+                interface_uninstall_local_v4_routes  (node, interface);
             }
 
             if (minor_code) {
@@ -379,7 +398,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 if (vlan_intf)
                     return 0;
                 VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
-		vlan_intfP->SetSharedPtr(vlan_intfP);
+		        vlan_intfP->SetSharedPtr(vlan_intfP);
                 vlan_intfP->att_node = node;
                 if (!node->vlan_intf_db) {
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
@@ -488,17 +507,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 vlan_intf->is_up = true;
 
                 if (vlan_intf->IsIpConfigured ()) {
-
-                    /* Install the local route in ipv4 routing table */
-                    rt_ipv4_route_add (node, 
-                        tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask, 
-                        0, vlan_intf, 0, PROTO_STATIC, true);    
-
-                    rt_ipv4_route_add (node, 
-                            apply_mask2 (tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask),
-                             mask,
-                             0, vlan_intf, 0, PROTO_STATIC, true);
+                    interface_install_local_v4_routes  (node, vlan_intf);
                 }
+
                 SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
             }
             break;
@@ -509,14 +520,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 vlan_intf->is_up = false;
 
                 if (vlan_intf->IsIpConfigured ()) {
-
-                    /* Remove the local route in ipv4 routing table */
-                    rt_ipv4_route_del (node, 
-                        tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask, PROTO_STATIC, true);
-
-                    rt_ipv4_route_del (node, 
-                            apply_mask2 (tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask), mask, PROTO_STATIC, true);
+                    interface_uninstall_local_v4_routes (node, vlan_intf);
                 }
+
                 SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
             }
             break;
