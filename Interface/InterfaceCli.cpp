@@ -865,6 +865,7 @@ Interface_config_cli_tree (param_t *root) {
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
                     Interface_config_cli_common_subtree (&if_name, unsupported_configs);
+		    libcli_support_cmd_negation(&if_name);
                 }
             }
             libcli_support_cmd_negation(&interface); 

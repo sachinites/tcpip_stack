@@ -1195,7 +1195,7 @@ nw_init_cli(){
                         static param_t gwip;
                         init_param(&gwip, LEAF, 0, l3_config_handler, 0, IPV4, "gw-ip", "IPv4 Address");
                         libcli_register_param(&mask, &gwip);
-                        libcli_set_param_cmd_code(&oif, CMDCODE_CONF_NODE_L3ROUTE);
+                        libcli_set_param_cmd_code(&gwip, CMDCODE_CONF_NODE_L3ROUTE);
                         {
                             /*config node <node-name> route <ip-address> <mask> <gw-ip> <oif>*/
                             static param_t oif;
