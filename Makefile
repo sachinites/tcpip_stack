@@ -73,7 +73,6 @@ OBJS=gluethread/glthread.o \
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
-		  LinuxMemoryManager/mm.o \
 		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \
@@ -130,10 +129,6 @@ tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} CLIBuilder/clibuilder.a Linu
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
-main2.exe:main2.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB} ${SRV6_LIB}
-	${CC} ${CFLAGS} main2.o ${OBJS}  ${LIBS} -o main2.exe
-	@echo "main2.exe Build Finished"
-
 notif.o:notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . notif.c -o notif.o
 
@@ -142,9 +137,6 @@ tcpip_notif.o:tcpip_notif.c
 
 main.o:main.c
 	${CC} ${CFLAGS} -c main.c -o main.o
-
-main2.o:main2.cpp
-	${CC} ${CFLAGS} -c main2.cpp -o main2.o
 
 gluethread/glthread.o:gluethread/glthread.c
 	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o

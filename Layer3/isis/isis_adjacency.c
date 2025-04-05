@@ -271,7 +271,7 @@ isis_update_interface_adjacency_from_hello(
     adjacency = isis_find_adjacency_on_interface(iif, &sys_id);
 
     if(!adjacency){
-        adjacency = (isis_adjacency_t *)XCALLOC(0, 1, isis_adjacency_t);
+        adjacency = (isis_adjacency_t *)XCALLOC2(0, 1, isis_adjacency_t);
         isis_init_adjacency(adjacency);
         adjacency->intf = iif;
         adjacency->nbr_sys_id = sys_id;
@@ -974,7 +974,7 @@ static isis_advt_tlv_return_code_t
     }
 
     adjacency->u.lan_pn_to_nbr_adv_data =
-        (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+        (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
 
     advt_data = adjacency->u.lan_pn_to_nbr_adv_data;
     advt_data->src.holder = &adjacency->u.lan_pn_to_nbr_adv_data;
@@ -1024,7 +1024,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
             }
         }
 
-        advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
+        advt_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t) ;
 
         advt_data->tlv_no = ISIS_IS_REACH_TLV;
         advt_data->u.adj_data.nbr_sys_id = adjacency->nbr_sys_id;

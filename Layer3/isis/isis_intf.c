@@ -105,7 +105,7 @@ isis_start_sending_hellos (Interface *intf) {
     byte *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 
     isis_timer_data_t *isis_timer_data =
-        XCALLOC(0, 1, isis_timer_data_t);
+        XCALLOC2(0, 1, isis_timer_data_t);
 
     isis_timer_data->node = node;
     isis_timer_data->intf = intf;
@@ -200,7 +200,7 @@ isis_enable_protocol_on_interface(Interface *intf) {
 
     if (! intf_info ) {
 
-        intf_info = XCALLOC(0, 1, isis_intf_info_t);
+        intf_info = XCALLOC2(0, 1, isis_intf_info_t);
         intf->isis_intf_info = intf_info;
         isis_init_intf_info(intf);
     }

@@ -14,6 +14,8 @@ typedef struct srv6_locator_ {
     uint8_t prefix_len;
     uint8_t algo;
     char padding[6];
+    avltree_t cfg_pfxsid_tree;
+    avltree_t cfg_adjsid_tree;
     
 } srv6_locator_t;
 

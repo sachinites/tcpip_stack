@@ -134,7 +134,7 @@ isis_queue_lsp_pkt_for_transmission(
     node_info = ISIS_NODE_INFO(intf->att_node);
 
     isis_lsp_xmit_elem_t *lsp_xmit_elem =
-        XCALLOC(0, 1, isis_lsp_xmit_elem_t);
+        XCALLOC2(0, 1, isis_lsp_xmit_elem_t);
     
     init_glthread(&lsp_xmit_elem->glue);
     lsp_xmit_elem->lsp_pkt = lsp_pkt;

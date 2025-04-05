@@ -111,8 +111,6 @@ srv6_locator_handler
                     return -1;
                 }
 
-
-
                 inet_pton(AF_INET6, (char *)ipv6_addr, &loc->sid.addr);
                 strncpy(loc->name, (const char *)locator_name, sizeof(loc->name));
                 loc->prefix_len = prefix_len;

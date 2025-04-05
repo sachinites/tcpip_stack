@@ -33,7 +33,7 @@ isis_init_node_spf_data(ted_node_t *node, bool delete_spf_result){
     isis_spf_data_t *spf_data = *_spf_data;
 
     if (! spf_data ) {
-        spf_data = XCALLOC(0, 1, isis_spf_data_t);
+        spf_data = XCALLOC2(0, 1, isis_spf_data_t);
         init_glthread(&spf_data->spf_result_head);
         spf_data->node = node;
         *_spf_data = spf_data;
@@ -590,7 +590,7 @@ isis_spf_record_result (tracer_t *tr,
         could happen, hence do not assert, just return*/
     assert (!isis_spf_lookup_spf_result_by_node(spf_root, processed_node) );
 
-    isis_spf_result_t *spf_result = XCALLOC(0, 1, isis_spf_result_t);
+    isis_spf_result_t *spf_result = XCALLOC2(0, 1, isis_spf_result_t);
     /*We record three things as a part of spf result for a node in 
      * topology : 
      * 1. The node itself
@@ -1078,7 +1078,7 @@ isis_add_new_spf_log(node_t *node, isis_event_type_t event) {
     }
 
     node_info = ISIS_NODE_INFO(node);   
-    spf_log = XCALLOC(0, 1, isis_spf_log_t);
+    spf_log = XCALLOC2(0, 1, isis_spf_log_t);
     
     spf_log->timestamp = time(NULL);
     spf_log->event = event;
