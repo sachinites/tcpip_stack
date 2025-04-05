@@ -54,7 +54,7 @@ isis_intf_group_t *
 isis_intf_group_create_new (char *grp_name) {
 
     isis_intf_group_t *intf_grp;
-    intf_grp = XCALLOC(0, 1, isis_intf_group_t);
+    intf_grp = XCALLOC2(0, 1, isis_intf_group_t);
     assert(intf_grp);
     string_copy((char *)intf_grp->name, grp_name, ISIS_INTF_GRP_NAME_LEN);
     init_glthread(&intf_grp->intf_list_head);

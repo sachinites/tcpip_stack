@@ -638,7 +638,7 @@ isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 
     isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
     assert(!advt_db);
-    advt_db = (isis_advt_db_t *)XCALLOC(0, 1, isis_advt_db_t );
+    advt_db = (isis_advt_db_t *)XCALLOC2(0, 1, isis_advt_db_t );
     node_info->advt_db[pn_no] = advt_db;
     init_glthread(&advt_db->fragment_priority_list);
     init_glthread (&advt_db->advt_data_wait_list_head);
@@ -647,7 +647,7 @@ isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 isis_fragment_t *
 isis_alloc_new_fragment () {
 
-    isis_fragment_t *fragment =  (isis_fragment_t  *)XCALLOC(0, 1, isis_fragment_t);
+    isis_fragment_t *fragment =  (isis_fragment_t  *)XCALLOC2(0, 1, isis_fragment_t);
     fragment->seq_no = 0;
     fragment->fr_no = 0;
     fragment->pn_no = 0;
@@ -885,7 +885,7 @@ isis_insert_zero_fragment_tlvs (node_t *node) {
 
     /* Insert zero fragment TLVs here i.e. TLVs which mandatorily goes in
         fragment zero . . . */
-    isis_adv_data_t *advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    isis_adv_data_t *advt_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     advt_data->tlv_no = ISIS_TLV_HOSTNAME;
     strncpy (advt_data->u.host_name, node->node_name, NODE_NAME_SIZE);
     advt_data->tlv_size = isis_get_adv_data_size (advt_data);
@@ -1107,7 +1107,7 @@ void
 isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) {
 
     assert(!fragment->lsp_pkt);
-    fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
+    fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC2(0, 1, isis_lsp_pkt_t);
     isis_ref_isis_pkt(fragment->lsp_pkt);
     fragment->lsp_pkt->fragment = fragment;
     isis_fragment_lock(fragment);
@@ -1223,7 +1223,7 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     /* Advertise v6loop back as  IPV6 REACH TLV*/
     isis_adv_data_t *v6lo_advt = node_info->tlv_global_advt.v6lo_adv_data_tlv236;
     assert (!v6lo_advt );
-    v6lo_advt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    v6lo_advt = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     v6lo_advt->tlv_no = ISIS_TLV_IPV6_REACH;
     memcpy (v6lo_advt->u.v6pfx.prefix, node->node_nw_prop.ipv6_addr, 16);
     v6lo_advt->u.v6pfx.metric = 0;

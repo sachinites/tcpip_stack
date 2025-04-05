@@ -21,13 +21,18 @@
 #include "Layer3/isis/isis_spf.h"
 #include "Layer3/isis/isis_intf_group.h"
 
+/* TED Hdr Files*/
+#include "ted/ted.h"
+
+/* Lib Hdr files */
+#include "mtrie/mtrie.h"
 
 /* Create static array of vm_page_family_t */
 
 #define MM_REG_STRUCT2(structname) \
-    {#structname, sizeof(structname), NULL, {0,0}, structname##_index, 0, 0}
+    {#structname, NULL, {0,0}, structname##_index, sizeof(structname), 0, 0}
 
-const vm_page_family_t vm_page_family_array[] = 
+vm_page_family_t vm_page_family_array[] = 
 {   
     /* ISIS Structures */
      MM_REG_STRUCT2(isis_adj_state_t),
@@ -61,10 +66,24 @@ const vm_page_family_t vm_page_family_array[] =
      MM_REG_STRUCT2(isis_srv6_adj_sid_t),
      MM_REG_STRUCT2(isis_srv6_config_t),   
 
-    {"nil", 0, NULL, {0, 0}, 0, 0, 0}
+    /* TED Structures */
+    MM_REG_STRUCT2(ted_intf_t),
+    MM_REG_STRUCT2(ted_node_t),
+    MM_REG_STRUCT2(ted_db_t),
+    MM_REG_STRUCT2(ted_link_t),
+    MM_REG_STRUCT2(ted_template_nbr_data_t),
+    MM_REG_STRUCT2(ted_template_node_data_t),
+    MM_REG_STRUCT2(ted_prefix_t),
+    MM_REG_STRUCT2(ted_v6prefix_t),
+
+    /* Mtrie */
+    MM_REG_STRUCT2(mtrie_t),
+    MM_REG_STRUCT2(mtrie_node_t),
+
+    {"nil", NULL,  {0, 0}, 0, 0, 0}
 };
 
-const vm_page_family_t *
+vm_page_family_t *
 mm_get_page_family(uint32_t index) {
 
     return &vm_page_family_array[(struct_index_t)index];

@@ -101,7 +101,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                 avltree_init(prefix_tree_root, avltree_prefix_tree_comp_fn);
             }
             isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)tlv_value;
-            ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC(0, 1, ted_prefix_t);
+            ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC2(0, 1, ted_prefix_t);
             ted_prefix->prefix = htonl(tlv_130->prefix);
             ted_prefix->mask = tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask);
             ted_prefix->metric = htonl(tlv_130->metric);
@@ -118,7 +118,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                 avltree_init(v6prefix_tree_root, avltree_v6prefix_tree_comp_fn);
             }
             isis_tlv_236_t *tlv_236 = (isis_tlv_236_t *)tlv_value;
-            ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+            ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC2(0, 1, ted_v6prefix_t);
             memcpy (ted_prefix->prefix, tlv_236->prefix, 16);
             ted_prefix->mask = tlv_236->prefix_len;
             ted_prefix->metric = htonl(tlv_236->metric);
@@ -142,7 +142,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
             do
             {
                 tlv_27 = (locator_tlv_t *)tlv_value;
-                ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+                ted_prefix = (ted_v6prefix_t *)XCALLOC2(0, 1, ted_v6prefix_t);
                 memcpy(ted_prefix->prefix, tlv_27->locator, (tlv_27->loc_size + 7) / 8);
                 ted_prefix->mask = tlv_27->loc_size;
 
@@ -176,7 +176,7 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                     case ISIS_LOCATOR_PFX_SID_SUBTLV:
                     {
                         srv6_pfxsid_subtlv_t *pfxsid_subtlv = (srv6_pfxsid_subtlv_t *)tlv_value2;
-                        ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC(0, 1, ted_v6prefix_t);
+                        ted_v6prefix_t *ted_prefix = (ted_v6prefix_t *)XCALLOC2(0, 1, ted_v6prefix_t);
                         memcpy (ted_prefix->prefix, pfxsid_subtlv->prefix, 16);
                         ted_prefix->mask = 128; // srv6 pfxsid subtlvs do not carry prefix len
                         ted_prefix->metric = 0;

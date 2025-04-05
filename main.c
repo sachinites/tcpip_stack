@@ -82,9 +82,9 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     layer3_mem_init();
     layer4_mem_init();
     //spf_algo_mem_init();
-    isis_mem_init();
+    //isis_mem_init();
     srv6_mem_init();
-    ted_mem_init();
+    //ted_mem_init();
     srand((unsigned int) time(NULL));
 
     /* Initialize the Scheduler before topology creation, as node

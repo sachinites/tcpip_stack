@@ -70,7 +70,6 @@ OBJS=gluethread/glthread.o \
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
-		  LinuxMemoryManager/mm.o \
 		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \

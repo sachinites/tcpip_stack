@@ -388,7 +388,7 @@ isis_init (node_t *node ) {
     isis_init_intf_group_avl_tree(&node_info->intf_grp_avl_root);
     node_info->dyn_intf_grp = true;  /* True By Default */
     node_info->layer2_mapping = true;   /* True By Default */
-    node_info->ted_db = XCALLOC(0, 1, ted_db_t);
+    node_info->ted_db = XCALLOC2(0, 1, ted_db_t);
     ted_init_teddb(node_info->ted_db, NULL, isis_spf_cleanup_spf_data);
     nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);

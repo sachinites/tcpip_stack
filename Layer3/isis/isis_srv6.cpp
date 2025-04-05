@@ -111,7 +111,7 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
     }
 
     if (!node_info->srv6_config) {
-        node_info->srv6_config = (isis_srv6_config_t *)XCALLOC(0, 1, isis_srv6_config_t);
+        node_info->srv6_config = (isis_srv6_config_t *)XCALLOC2(0, 1, isis_srv6_config_t);
         avltree_init (&node_info->srv6_config->pfxsid_tree, avltree_pfx_sid_cmp);
         avltree_init (&node_info->srv6_config->adj_sid_tree, avltree_adj_sid_cmp);
     }
@@ -221,7 +221,7 @@ isis_advertise_locator_ipv6_reachability_tlv236 (
 
     assert (!loc->loc_adv_tlv236);
 
-    loc->loc_adv_tlv236 = (isis_adv_data_t *)XCALLOC (0, 1, isis_adv_data_t);
+    loc->loc_adv_tlv236 = (isis_adv_data_t *)XCALLOC2 (0, 1, isis_adv_data_t);
     advt_data = loc->loc_adv_tlv236 ;
 
     memcpy (advt_data->u.v6pfx.prefix, loc->prefix.addr, 16);
@@ -272,7 +272,7 @@ isis_advertise_locator_ipv6_reachability_mt_tlv237 (
 
     assert (!loc->loc_adv_tlv237);
 
-    loc->loc_adv_tlv237 = (isis_adv_data_t *)XCALLOC (0, 1, isis_adv_data_t);
+    loc->loc_adv_tlv237 = (isis_adv_data_t *)XCALLOC2 (0, 1, isis_adv_data_t);
     advt_data = loc->loc_adv_tlv237 ;
 
     memcpy (advt_data->u.v6pfx.prefix, loc->prefix.addr, 16);
@@ -343,7 +343,7 @@ isis_advertise_locator_tlv27_instance (node_t *node,
     isis_adv_data_t *advt_data;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    advt_data = (isis_adv_data_t *)XCALLOC (0, 1, isis_adv_data_t);
+    advt_data = (isis_adv_data_t *)XCALLOC2 (0, 1, isis_adv_data_t);
 
     memcpy(advt_data->u.srv6_loc.prefix.addr, loc->prefix.addr, 16);
     advt_data->u.srv6_loc.prefix_len = loc->prefix_len;
@@ -450,7 +450,7 @@ isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid ) {
     /* Do not attempt to advertise prefix sids unless locator itself is advertised */
     assert(loc_adv_data);
 
-    pfx_sid_advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    pfx_sid_advt_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     pfx_sid->adv_data = pfx_sid_advt_data;
 
     pfx_sid_advt_data->tlv_no = ISIS_LOCATOR_PFX_SID_SUBTLV;
@@ -639,7 +639,7 @@ isis_add_prefix_sid_to_locator (node_t *node,
         return;
     }
 
-    isis_srv6_pfx_sid_t *pfx_sid = (isis_srv6_pfx_sid_t *)XCALLOC(0, 1, isis_srv6_pfx_sid_t);
+    isis_srv6_pfx_sid_t *pfx_sid = (isis_srv6_pfx_sid_t *)XCALLOC2(0, 1, isis_srv6_pfx_sid_t);
     memcpy(pfx_sid->prefix.addr, prefix_sid->addr, 16);
     pfx_sid->flags = flavors;
     pfx_sid->endfn = endfn;
