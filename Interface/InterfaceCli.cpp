@@ -6,6 +6,7 @@
 #include "../tcpip_notif.h"
 #include "../graph.h"
 #include "InterfaceUApi.h"
+#include "../common/cp2dp.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -204,6 +205,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             }
 
             if (string_compare(if_up_down, "up", strlen("up")) == 0){
+
+                if (interface->is_up == true) return 0;
+
                 if(interface->is_up == false){
                     update_data = new ipc_interface_t;
                     update_data->intf = interface->GetSharedPtr();
@@ -213,6 +217,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 interface->is_up = true;
             }
             else{
+                
+                if (interface->is_up == false) return 0;
+
                 if (interface->is_up){
                     update_data = new ipc_interface_t;
                     SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN); 
@@ -220,6 +227,19 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                      update_data->intf = interface->GetSharedPtr();
                 }
                 interface->is_up = false;
+            }
+
+            uint32_t intf_ip_addr = 0;
+            uint8_t mask = 0;
+
+            interface->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
+
+            /* Install local routes in RIB if interface goes up */
+            if (interface->is_up && interface->IsIpConfigured()) {
+                interface_install_local_v4_routes  (node, interface);
+            }
+            else if (!interface->is_up && interface->IsIpConfigured()) {
+                interface_uninstall_local_v4_routes  (node, interface);
             }
 
             if (minor_code) {
@@ -378,7 +398,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 if (vlan_intf)
                     return 0;
                 VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
-		vlan_intfP->SetSharedPtr(vlan_intfP);
+		        vlan_intfP->SetSharedPtr(vlan_intfP);
                 vlan_intfP->att_node = node;
                 if (!node->vlan_intf_db) {
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
@@ -411,66 +431,114 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
 
         case CMDCODE_CONFIG_INTF_VLAN_IP_ADDR:
-            switch (enable_or_disable)
-            {
-            case CONFIG_ENABLE:
-            {
-                VlanInterface *vlan_intf =
-                    static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
+        {
+            VlanInterface *vlan_intf =
+            static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
 
-                if (!vlan_intf)
-                {
-                    cprintf("Error : Vlan Interface not created\n");
-                    return -1;
-                }
-                vlan_intf->InterfaceSetIpAddressMask(tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask);
-            }
-            break;
-            case CONFIG_DISABLE:
+            if (!vlan_intf)
             {
-                VlanInterface *vlan_intf =
-                    static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
-                if (!vlan_intf)
-                {
-                    cprintf("Error : Vlan Interface not created\n");
-                    return -1;
-                }
-                vlan_intf->InterfaceSetIpAddressMask(0, 0);
+                cprintf("Error : Vlan Interface not created\n");
+                return -1;
             }
-            break;
-            default:;
+
+            uint32_t old_ip_addr; 
+            uint8_t old_mask;
+
+            interface->InterfaceGetIpAddressMask (&old_ip_addr, &old_mask);
+
+            switch (enable_or_disable)
+            {
+                case CONFIG_ENABLE:
+                    interface_set_ip_addr(node, interface, intf_ip_addr, mask);
+                break;
+                case CONFIG_DISABLE:
+                    interface_unset_ip_addr(node, interface, intf_ip_addr, mask);
+                break;
+                default:;
             }
-            break;
+
+            uint32_t new_ip_addr;
+            uint8_t new_mask;
+
+            interface->InterfaceGetIpAddressMask (&new_ip_addr, &new_mask);
+
+            if (old_ip_addr == 0 && old_mask == 0 && 
+                    interface->IsIpConfigured()) {
+
+                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_ADD);
+            }
+            else if ((old_ip_addr || mask ) && !interface->IsIpConfigured()) {
+
+                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_DEL);
+            }
+            else {
+
+                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_UPDATE);
+            }
+
+            if (minor_code) {
+                update_data = new ipc_interface_t;
+                update_data->intf = interface->GetSharedPtr();
+                update_data->ipv4_addr.ip_addr = old_ip_addr;
+                update_data->ipv4_addr.mask = old_mask;
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
+                        update_data, sizeof (*update_data), true);            
+            }
+        }
+        break;
+
         case CMDCODE_CONFIG_INTF_VLAN_UP_DOWN:
+        {
+            VlanInterface *vlan_intf =
+                static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
+
+            if (!vlan_intf)
+            {
+                cprintf("Error : Vlan Interface not created\n");
+                return -1;
+            }
+
             switch (enable_or_disable)
             {
             case CONFIG_ENABLE:
-            {
-                VlanInterface *vlan_intf =
-                    static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
-                if (!vlan_intf)
-                {
-                    cprintf("Error : Vlan Interface not created\n");
-                    return -1;
-                }
+            {                
+                if (vlan_intf->is_up) return 0;
+
                 vlan_intf->is_up = true;
+
+                if (vlan_intf->IsIpConfigured ()) {
+                    interface_install_local_v4_routes  (node, vlan_intf);
+                }
+
+                SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
             }
             break;
             case CONFIG_DISABLE:
             {
-                VlanInterface *vlan_intf =
-                    static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
-                if (!vlan_intf)
-                {
-                    cprintf("Error : Vlan Interface not created\n");
-                    return -1;
-                }
+                if (vlan_intf->is_up == false) return 0;
+
                 vlan_intf->is_up = false;
+
+                if (vlan_intf->IsIpConfigured ()) {
+                    interface_uninstall_local_v4_routes (node, vlan_intf);
+                }
+
+                SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
             }
             break;
             default:;
             }
-            break;
+
+            if (minor_code) {
+                update_data = new ipc_interface_t;
+                update_data->intf = interface->GetSharedPtr();
+                update_data->up_status = !vlan_intf->IsInterfaceUp(0);
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
+                    update_data, sizeof (*update_data), true);
+            }
+
+        }
+        break;
 
         case CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL:
         {
@@ -797,6 +865,7 @@ Interface_config_cli_tree (param_t *root) {
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
                     Interface_config_cli_common_subtree (&if_name, unsupported_configs);
+		    libcli_support_cmd_negation(&if_name);
                 }
             }
             libcli_support_cmd_negation(&interface); 

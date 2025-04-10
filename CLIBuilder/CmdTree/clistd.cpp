@@ -181,6 +181,15 @@ show_help_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
     cprintf( "          Author : Abhishek Sagar\n");
     cprintf( "          Visit : www.csepracticals.com for more courses and projects\n");
     attroff(COLOR_PAIR(PLAYER_PAIR));
+    cprintf(" .-') _              _ (`-.                   _ (`-.         .-')    .-') _      ('-.               .-. .-')   \n");
+    cprintf("(  OO) )            ( (OO  )                 ( (OO  )       ( OO ). (  OO) )    ( OO ).-.           \  ( OO )  \n");
+    cprintf("/     '._  .-----. _.`     \        ,-.-')  _.`     \      (_)---\_)/     '._   / . --. /   .-----. ,--. ,--.  \n");
+    cprintf("|'--...__)'  .--./(__...--''        |  |OO)(__...--''      /    _ | |'--...__)  | \-.  \   '  .--./ |  .'   /  \n");
+    cprintf("'--.  .--'|  |('-. |  /  | |        |  |  \ |  /  | |      \  :` `. '--.  .--'.-'-'  |  |  |  |('-. |      /,  \n");
+    cprintf("   |  |  /_) |OO  )|  |_.' |        |  |(_/ |  |_.' |       '..`''.)   |  |    \| |_.'  | /_) |OO  )|     ' _) \n");
+    cprintf("   |  |  ||  |`-'| |  .___.'       ,|  |_.' |  .___.'      .-._)   \   |  |     |  .-.  | ||  |`-'| |  .   \   \n");
+    cprintf("   |  | (_'  '--'\ |  |           (_|  |    |  |           \       /   |  |     |  | |  |(_'  '--'\ |  |\   \  \n");
+    cprintf("   `--'    `-----' `--'             `--'    `--'            `-----'    `--'     `--' `--'   `-----' `--' '--'  \n");
     return 0;
 }
 

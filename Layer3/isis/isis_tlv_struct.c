@@ -4,6 +4,7 @@
 #include "isis_lspdb.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
+#include "isis_advt.h"
 
 uint32_t
 isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_len) {
@@ -92,6 +93,84 @@ isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len)
 }
 
 pkt_size_t
+isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_t tlv_len) {
+
+    uint32_t rc = 0;
+    char ip_addr_str[16];
+    
+    isis_rtr_cap_tlv242_t *tlv_242 = (isis_rtr_cap_tlv242_t *)(tlv242_start + TLV_OVERHEAD_SIZE);
+
+    rc += cprintf("\tTLV%d RTR-CAP   len:%dB\n",    
+                    ISIS_TLV_RTR_CAP, tlv_len - TLV_OVERHEAD_SIZE); 
+    rc += cprintf("\t  Rtr ID : %s  Flags : 0x%x\n",
+                tcp_ip_covert_ip_n_to_p(tlv_242->rtr_id, ip_addr_str), tlv_242->flags);
+
+    /* Does it have Subtlvs ?*/
+    if (tlv_len == (sizeof(isis_rtr_cap_tlv242_t) + TLV_OVERHEAD_SIZE)) {
+        return rc;
+    }
+
+    /* It may have two SubTLVs : Algorithm Sub TLV and SRv6 Sub TLV*/
+    byte *subtlv = (byte *)(tlv242_start + TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t));
+    bool next_subtlv = false;
+
+    do
+    {
+        next_subtlv = false;
+
+        switch (*subtlv)
+        {
+
+        case ISIS_TLV_RTR_CAP_ALGO_SUBTLV:
+        {
+            isis_rtr_cap_algorithm_subtlv19_t *algo_subtlv = (isis_rtr_cap_algorithm_subtlv19_t *)subtlv;
+            rc += cprintf("\t  SubTLV%d  Algorithm Subtlv  len:%d\n", 
+                            algo_subtlv->type, algo_subtlv->length);
+
+            int n_algo = algo_subtlv->length / 8;
+            for (int i = 0; i < n_algo; i++)
+            {
+                rc += cprintf("\t   SPRING Algorithm : %d\n", algo_subtlv->algorithms[i]);
+            }
+
+            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + 
+                                        TLV_OVERHEAD_SIZE + algo_subtlv->length))
+            {
+                subtlv = tlv242_start + (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) +
+                                         TLV_OVERHEAD_SIZE + algo_subtlv->length);
+                next_subtlv = true;
+            }
+        }
+        break;
+
+        case ISIS_TLV_RTR_CAP_SRV6_SUBTLV:
+        {
+            isis_rtr_cap_srv6_subtlv2_t *srv6_subtlv = (isis_rtr_cap_srv6_subtlv2_t *)subtlv;
+            rc += cprintf("\t  SubTLV%d  SRv6 Capability Subtlv  len:%d\n", srv6_subtlv->type, srv6_subtlv->length);
+            rc += cprintf("\t    flags : 0x%x\n", srv6_subtlv->flags);
+            rc += cprintf("\t    Max # of SL in SRH supported by platform                : %d\n", srv6_subtlv->max_sl_msd);
+            rc += cprintf("\t    Max # of SIDs when applying PSP or USP flavors          : %d\n", srv6_subtlv->max_end_pop_srh_msd);
+            rc += cprintf("\t    Max # of T-INSERT SIDs supported by platform            : %d\n", srv6_subtlv->max_t_ins_srh_msd);
+            rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform             : %d\n", srv6_subtlv->max_t_encap_srh_msd);
+            rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
+
+            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + 
+                                        TLV_OVERHEAD_SIZE + srv6_subtlv->length))
+            {
+                subtlv = tlv242_start + (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) +
+                                         TLV_OVERHEAD_SIZE + srv6_subtlv->length);
+                next_subtlv = true;
+            }
+        }
+        break;
+        }
+
+    } while (next_subtlv);
+
+    return rc;
+}
+
+pkt_size_t
 isis_get_adv_data_size(isis_adv_data_t *adv_data)
 {
     pkt_size_t ptlv_data_len = 0;
@@ -135,6 +214,21 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
         break;
     case ISIS_LOCATOR_PFX_SID_SUBTLV:
         ptlv_data_len += sizeof (srv6_pfxsid_subtlv_t) + adv_data->u.srv6_pfxsid.subtlv_len + TLV_OVERHEAD_SIZE;
+        break;
+    case ISIS_TLV_RTR_CAP:
+        ptlv_data_len += sizeof (isis_rtr_cap_tlv242_t) + TLV_OVERHEAD_SIZE;
+        if (adv_data->u.rtr_cap.is_rtr_cap_algo_subtlv19_present) {
+            ptlv_data_len += TLV_OVERHEAD_SIZE + adv_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.length;
+        }
+        if (adv_data->u.rtr_cap.is_rtr_cap_srv6_subtlv2_present) {
+            ptlv_data_len += sizeof (isis_rtr_cap_srv6_subtlv2_t) ;
+        }
+        break;
+    case ISIS_TLV_RTR_CAP_ALGO_SUBTLV:
+        ptlv_data_len += TLV_OVERHEAD_SIZE + adv_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.length;
+        break;
+    case ISIS_TLV_RTR_CAP_SRV6_SUBTLV:
+        ptlv_data_len += sizeof (isis_rtr_cap_srv6_subtlv2_t) ;
         break;
     default:
         assert (0);
@@ -254,7 +348,34 @@ isis_get_adv_data_tlv_content(
             tlv_fmt->subtlv_len = 0; /* Not supported */
         }
         break;
-        
+
+        case ISIS_TLV_RTR_CAP:
+        {
+            isis_rtr_cap_tlv242_t *tlv_fmt = (isis_rtr_cap_tlv242_t *)tlv_content;
+            tlv_fmt->rtr_id = advt_data->u.rtr_cap.rtr_cap.rtr_id;
+            tlv_fmt->flags = advt_data->u.rtr_cap.rtr_cap.flags;
+            tlv_content = (byte *)(tlv_fmt + 1);
+
+            if (advt_data->u.rtr_cap.is_rtr_cap_algo_subtlv19_present) {
+
+                 tlv_content = tlv_buffer_insert_tlv (tlv_content, 
+                                                    ISIS_TLV_RTR_CAP_ALGO_SUBTLV,
+                                                    advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.length,
+                                                    (byte *)advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.algorithms);
+            }
+
+            if (advt_data->u.rtr_cap.is_rtr_cap_srv6_subtlv2_present) {
+                
+                tlv_content = tlv_buffer_insert_tlv (tlv_content, 
+                                                    ISIS_TLV_RTR_CAP_SRV6_SUBTLV,
+                                                    advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.length,
+                                                    (byte *)&advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.flags);  
+            }
+            
+        }
+        break;
+
+
         default: ;
     }
     return start_ptr;
@@ -390,6 +511,11 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;
+            case ISIS_TLV_RTR_CAP:
+                rc += isis_print_formatted_rtr_cap_tlv242(0,
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;  
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
@@ -404,6 +530,7 @@ isis_is_zero_fragment_tlv (uint16_t tlv_no) {
 
     switch (tlv_no) {
         case  ISIS_TLV_HOSTNAME:
+        case ISIS_TLV_RTR_CAP:
             return true;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IP_REACH:

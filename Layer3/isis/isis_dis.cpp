@@ -254,7 +254,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     assert(!intf_info->lan_self_to_pn_adv_data);
     
     intf_info->lan_self_to_pn_adv_data = 
-        (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
+        (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t) ;
     
     advt_data = intf_info->lan_self_to_pn_adv_data;
     advt_data->src.holder =  &intf_info->lan_self_to_pn_adv_data;
@@ -296,7 +296,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     if (!isis_am_i_dis (intf)) return ;
 
     intf_info->lan_pn_to_self_adv_data = 
-        (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t) ;
+        (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t) ;
     
     advt_data = intf_info->lan_pn_to_self_adv_data;
     advt_data->src.holder = &intf_info->lan_pn_to_self_adv_data;

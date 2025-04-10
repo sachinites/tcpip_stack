@@ -425,7 +425,7 @@ srv6_prefix_sid_config_handler
                     /* Release pfx sid from pool*/
                     prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
-                                    &pfxsid->sid,
+                                    &pfxsid->sid, srv6_sid_client_srv6,
                                     err_msg);
 
                     assert (prc == SRv6_POOL_OK);
@@ -667,7 +667,7 @@ srv6_adjacency_sid_config_handler
 
             prc = srv6_release_sid (
                         (NODE_SRv6_SID_POOL(node)), 
-                        &adjsid->sid, err_msg);
+                        &adjsid->sid, srv6_sid_client_srv6, err_msg);
 
             assert (prc == SRv6_POOL_OK);
 

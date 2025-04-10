@@ -53,6 +53,7 @@
 #include "prefix-list/prefixlst.h"
 #include "PostgresLibpq/postgresLib.h"
 #include "Tracer/tracer.h"
+#include "../RDBMSImplementation/uapi/sql_api.h"
 
 /* stdandard pkt headers hdr files*/
 #include "common/cmn_struct.h"

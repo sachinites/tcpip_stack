@@ -46,4 +46,9 @@ IF_MASK(Interface *intf) {
 void
 display_node_interfaces(param_t *param, Stack_t *tlv_stack);
 
+void 
+interface_install_local_v4_routes (node_t *node, Interface  *intf);
+void 
+interface_uninstall_local_v4_routes (node_t *node, Interface  *intf);
+
 #endif 

@@ -271,6 +271,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
         case ISIS_TLV_HOSTNAME:
             break;
         case ISIS_IS_REACH_TLV:
+        case ISIS_TLV_RTR_CAP:
         case ISIS_TLV_IPV6_REACH:
         case ISIS_TLV_IPV6_MT_REACH:
         case ISIS_LOCATOR_PFX_SID_SUBTLV:
@@ -612,7 +613,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
             advt_data = glue_to_isis_advt_data(curr);
 
             if (advt_data->tlv_no != ISIS_TLV_LOCATOR) continue;
-            
+
             tlv_size =  advt_data->tlv_size;
 
             lsp_tlv_buffer = tlv_buffer_insert_tlv(
@@ -638,7 +639,7 @@ isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 
     isis_advt_db_t *advt_db = node_info->advt_db[pn_no];
     assert(!advt_db);
-    advt_db = (isis_advt_db_t *)XCALLOC(0, 1, isis_advt_db_t );
+    advt_db = (isis_advt_db_t *)XCALLOC2(0, 1, isis_advt_db_t );
     node_info->advt_db[pn_no] = advt_db;
     init_glthread(&advt_db->fragment_priority_list);
     init_glthread (&advt_db->advt_data_wait_list_head);
@@ -647,7 +648,7 @@ isis_create_advt_db(isis_node_info_t *node_info, uint8_t pn_no) {
 isis_fragment_t *
 isis_alloc_new_fragment () {
 
-    isis_fragment_t *fragment =  (isis_fragment_t  *)XCALLOC(0, 1, isis_fragment_t);
+    isis_fragment_t *fragment =  (isis_fragment_t  *)XCALLOC2(0, 1, isis_fragment_t);
     fragment->seq_no = 0;
     fragment->fr_no = 0;
     fragment->pn_no = 0;
@@ -885,7 +886,7 @@ isis_insert_zero_fragment_tlvs (node_t *node) {
 
     /* Insert zero fragment TLVs here i.e. TLVs which mandatorily goes in
         fragment zero . . . */
-    isis_adv_data_t *advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    isis_adv_data_t *advt_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     advt_data->tlv_no = ISIS_TLV_HOSTNAME;
     strncpy (advt_data->u.host_name, node->node_name, NODE_NAME_SIZE);
     advt_data->tlv_size = isis_get_adv_data_size (advt_data);
@@ -1037,6 +1038,39 @@ isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) {
                 } ITERATE_GLTHREAD_END(&advt_data->u.srv6_loc.pfxsid_list_head, curr2);
             }
             break;
+	    case ISIS_TLV_RTR_CAP:
+                rc += cprintf("       Rtr ID : %s  Flags : 0x%x\n",
+                    tcp_ip_covert_ip_n_to_p(advt_data->u.rtr_cap.rtr_cap.rtr_id, system_id_str),
+                    advt_data->u.rtr_cap.rtr_cap.flags);
+
+                if (advt_data->u.rtr_cap.is_rtr_cap_algo_subtlv19_present) {
+
+                    rc += cprintf("         SubTLV%d  Algorithm Subtlv  len:%d\n", 
+                                    advt_data->tlv_no,
+                                    advt_data->u.rtr_cap.rtr_cap.rtr_cap_algorithm_subtlv19->length);
+
+                    int n_algo = advt_data->u.rtr_cap.rtr_cap.rtr_cap_algorithm_subtlv19->length / 8;
+
+                    for (int i = 0; i < n_algo; i++) {
+
+                        rc += cprintf("          Algorithm : %d\n", 
+                            advt_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.algorithms[i]);
+                    }
+                }
+
+                if (advt_data->u.rtr_cap.is_rtr_cap_srv6_subtlv2_present)
+                {
+                    isis_rtr_cap_srv6_subtlv2_t *srv6_subtlv = (isis_rtr_cap_srv6_subtlv2_t *)&advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2;
+                    rc += cprintf("\t  SubTLV%d  Algorithm Subtlv  len:%d\n", srv6_subtlv->type, srv6_subtlv->length);
+                    rc += cprintf("\t    flags : 0x%x\n", srv6_subtlv->flags);
+                    rc += cprintf("\t    Max # of SL in SRH supported by platform                : %d\n", srv6_subtlv->max_sl_msd);
+                    rc += cprintf("\t    Max # of SIDs when applying PSP or USP flavors          : %d\n", srv6_subtlv->max_end_pop_srh_msd);
+                    rc += cprintf("\t    Max # of T-INSERT SIDs supported by platform            : %d\n", srv6_subtlv->max_t_ins_srh_msd);
+                    rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform             : %d\n", srv6_subtlv->max_t_encap_srh_msd);
+                    rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
+                }
+
+            break;
             default: 
                 cprintf ("        Error : Unsupported TLV : %d\n", advt_data->tlv_no);
                 break;
@@ -1107,7 +1141,7 @@ void
 isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) {
 
     assert(!fragment->lsp_pkt);
-    fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC(0, 1, isis_lsp_pkt_t);
+    fragment->lsp_pkt = (isis_lsp_pkt_t *)XCALLOC2(0, 1, isis_lsp_pkt_t);
     isis_ref_isis_pkt(fragment->lsp_pkt);
     fragment->lsp_pkt->fragment = fragment;
     isis_fragment_lock(fragment);
@@ -1168,7 +1202,9 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     int i;
     Interface *intf;
     glthread_t *curr;
+    ipv6_addr_t v6_addr;
     isis_advt_db_t *advt_db;
+    isis_adv_data_t *v6lo_advt;
     isis_advt_info_t advt_info;
     isis_adjacency_t *adjacency;
 
@@ -1221,28 +1257,20 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     } ITERATE_NODE_INTERFACES_END (node, intf);
 
     /* Advertise v6loop back as  IPV6 REACH TLV*/
-    isis_adv_data_t *v6lo_advt = node_info->tlv_global_advt.v6lo_adv_data_tlv236;
-    assert (!v6lo_advt );
-    v6lo_advt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
-    v6lo_advt->tlv_no = ISIS_TLV_IPV6_REACH;
-    memcpy (v6lo_advt->u.v6pfx.prefix, node->node_nw_prop.ipv6_addr, 16);
-    v6lo_advt->u.v6pfx.metric = 0;
-    v6lo_advt->u.v6pfx.flags = 0;
-    v6lo_advt->u.v6pfx.mask = 128;
+    assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
+    memcpy (v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
+    v6lo_advt = isis_advertise_ipv6_reach (node, &v6_addr, 128, 0, 0);
     node_info->tlv_global_advt.v6lo_adv_data_tlv236 = v6lo_advt;
     v6lo_advt->src.holder = &node_info->tlv_global_advt.v6lo_adv_data_tlv236;
-    init_glthread (&v6lo_advt->glue);
-    v6lo_advt->tlv_size = isis_get_adv_data_size (v6lo_advt);
-    v6lo_advt->fragment = NULL;
-    isis_advertise_tlv (node, 0, v6lo_advt, &advt_info);
 
     /* Advertise SRv6 Data*/
     if (isis_srv6_get_config(node)) {
         isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+        isis_advertise_rtr_capability_tlv(node);
         isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
         isis_advertise_locator_ipv6_reachability_mt_tlv237(node, loc);
         isis_advertise_locator_tlv27_instance (node, loc, true);
-       isis_srv6_advertise_all_prefix_sids (node);
+        isis_srv6_advertise_all_prefix_sids (node);
     }
 
     /* Advertise IP REACH TLVs : Exported Routes*/
@@ -1260,4 +1288,25 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     if (!IS_BIT_SET(node_info->event_control_flags, ISIS_EVENT_DEVICE_OVERLOAD_BY_ADMIN_BIT)) {
         isis_unset_overload(node, 0, CMDCODE_CONF_NODE_ISIS_PROTO_OVERLOAD);
     }
+}
+
+isis_adv_data_t *
+isis_advertise_ipv6_reach (node_t *node, 
+                                ipv6_addr_t *ipv6_addr, 
+                                uint8_t prefix_len, 
+                                uint32_t metric, 
+                                uint8_t flags) {
+
+    isis_advt_info_t advt_info;
+
+    isis_adv_data_t *adv_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
+    adv_data->tlv_no = ISIS_TLV_IPV6_REACH;
+    memcpy (adv_data->u.v6pfx.prefix, ipv6_addr, 16);
+    adv_data->u.v6pfx.mask = prefix_len;
+    adv_data->u.v6pfx.metric = metric;
+    adv_data->u.v6pfx.flags = flags;
+    init_glthread (&adv_data->glue);
+    adv_data->tlv_size = isis_get_adv_data_size (adv_data);
+    isis_advertise_tlv (node, 0, adv_data, &advt_info);
+    return adv_data;
 }

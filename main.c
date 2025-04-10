@@ -82,9 +82,9 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     layer3_mem_init();
     layer4_mem_init();
     //spf_algo_mem_init();
-    isis_mem_init();
+    //isis_mem_init();
     srv6_mem_init();
-    ted_mem_init();
+    //ted_mem_init();
     srand((unsigned int) time(NULL));
 
     /* Initialize the Scheduler before topology creation, as node
@@ -92,6 +92,10 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     event_dispatcher_init(&gev_dis, "Global");
     tcp_stack_miscellaneous_mem_init();
 }
+
+#if 0
+#include "../RDBMSImplementation/uapi/sql_api.h"
+#endif 
 
 int 
 main(int argc, char **argv){
@@ -102,6 +106,16 @@ main(int argc, char **argv){
     topo = build_linear_topo();
     init_tcp_ip_stack();
     libcli_init_done ();
+
+    #if 0
+    sql_query_exec ("create table test (a int primary key, b int, c int)\n");
+    sql_query_exec ("insert into test values (1, 2, 3)\n");
+    sql_query_exec ("insert into test values (14 , 2, 3)\n");
+    sql_query_exec ("insert into test values (2, 2, 3)\n");
+    sql_query_exec ("select * from test\n");
+    sql_query_exec ("drop table test\n");
+    #endif 
+
     cli_start_shell(); 
     return 0;
 }

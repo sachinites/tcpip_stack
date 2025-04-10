@@ -328,7 +328,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Exporting Route %s/%d\n",
         ISIS_EXPOLICY, l3route->dest, l3route->mask);
 
-    exported_rt = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    exported_rt = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     exported_rt->tlv_no = ISIS_TLV_IP_REACH;
     exported_rt->u.pfx.prefix = htonl(tcp_ip_convert_ip_p_to_n (l3route->dest));
     exported_rt->u.pfx.mask = l3route->mask;

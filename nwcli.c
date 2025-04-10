@@ -74,6 +74,8 @@ extern void show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
+extern void sql_build_cli_tree (param_t *root) ;
+
 extern void 
 ipv6_build_cli_run_tree (param_t *root) ;
 
@@ -527,10 +529,24 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                             return -1;
                         }
                     }
+
+                    uint32_t gw_ip_int = tcp_ip_convert_ip_p_to_n (gwip);
+
+                    /* If Gw and OIF is specified, then Gw must belong to subnet 
+                        configured on an interface */
+                    if (gw_ip_int && intf) {
+
+                        if (!intf->IsSameSubnet(gw_ip_int)) {
+                            cprintf("Config Error : Gateway IP %s not in subnet of Interface %s\n",
+                                    gwip, intf_name);
+                            return -1;
+                        }
+                    }
+
                     rt_ipv4_route_add (node, 
                         tcp_ip_convert_ip_p_to_n(dest), mask, 
-                        gwip ? tcp_ip_convert_ip_p_to_n (gwip) : 0, 
-                        intf, 0, PROTO_STATIC, true);
+                            gwip ? gw_ip_int : 0, 
+                            intf, 0, PROTO_STATIC, true);
                 }
                 break;
                 case CONFIG_DISABLE:
@@ -993,6 +1009,9 @@ nw_init_cli(){
 
             /* Mount ping6 CLI here*/
             ipv6_build_cli_run_tree (&node_name);
+            
+            /* Mount SQL Query CLI */
+            sql_build_cli_tree (&node_name);
 
             {
                 /*run node <node-name> ping */
@@ -1174,8 +1193,9 @@ nw_init_cli(){
                     {
                         /*config node <node-name> route <ip-address> <mask> <gw-ip>*/
                         static param_t gwip;
-                        init_param(&gwip, LEAF, 0, 0, 0, IPV4, "gw-ip", "IPv4 Address");
+                        init_param(&gwip, LEAF, 0, l3_config_handler, 0, IPV4, "gw-ip", "IPv4 Address");
                         libcli_register_param(&mask, &gwip);
+                        libcli_set_param_cmd_code(&gwip, CMDCODE_CONF_NODE_L3ROUTE);
                         {
                             /*config node <node-name> route <ip-address> <mask> <gw-ip> <oif>*/
                             static param_t oif;

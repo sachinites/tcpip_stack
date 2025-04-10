@@ -57,13 +57,17 @@ typedef struct node_info_ {
     tracer_t *tr;
     /* Advertisement DB per PN*/
     isis_advt_db_t* advt_db[ISIS_MAX_PN_SUPPORTED];
+
     /* TLV Advertisement of global data*/
     struct {
         /* IPV6 Reach TLV*/
         isis_adv_data_t *v6lo_adv_data_tlv236;
         /* IPV6 MT REACH TLV*/
         isis_adv_data_t *v6lo_adv_data_tlv237;
+        /* Router Capability TLV 242*/
+        isis_adv_data_t *rtr_cap_adv_data_tlv242;
     } tlv_global_advt;
+    
     /* event flags */
     uint64_t event_control_flags;
     /* self LSP flood time interval */

@@ -137,7 +137,7 @@ isis_process_lsp_pkt(node_t *node,
 
     ISIS_INTF_INCREMENT_STATS(iif, good_lsps_pkt_recvd);
 
-    new_lsp_pkt = XCALLOC(0, 1, isis_lsp_pkt_t);
+    new_lsp_pkt = XCALLOC2(0, 1, isis_lsp_pkt_t);
     new_lsp_pkt->flood_eligibility = true;
     new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(new_lsp_pkt->pkt, (byte *)lsp_eth_hdr, pkt_size);

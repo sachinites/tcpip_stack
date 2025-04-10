@@ -47,6 +47,7 @@
 #include "Layer3/ipv6/ipv6_utils.h"
 #include "Layer3/ipv6/ipv6_route.h"
 #include "common/cp2dp.h"
+#include "../RDBMSImplementation/uapi/sql_api.h"
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -171,6 +172,9 @@ create_graph_node(graph_t *graph, const c_string node_name){
     node->object_network_ght = object_network_create_new_ht();
     node->object_group_ght = object_group_create_new_ht();
     init_glthread(&node->graph_glue);
+
+    /* initialize SQL Table Catalog*/
+    sql_init_db(&node->sql_db);
     
     /* Start Control plane Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
@@ -273,6 +277,17 @@ node_get_intf_by_name(node_t *node, const char *if_name){
             return intf;
         }
     }  ITERATE_NODE_INTERFACES_END(node, intf);
+
+    /* Get vlan interface by name */
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+            if (string_compare(it->second->if_name.c_str(), if_name, IF_NAME_SIZE) == 0) {
+                return it->second.get();
+            }
+        }
+    }
+
     return NULL;
 }
 
@@ -284,9 +299,18 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         if(!intf) return NULL;
-        if (intf->ifindex == ifindex)return intf;
+        if (intf->ifindex == ifindex) return intf;
 
     }  ITERATE_NODE_INTERFACES_END(node, intf);
+
+    /* Check for vlan interface */
+
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+            if (it->second->ifindex == ifindex) return it->second.get();
+        }
+    }
 
     return NULL;
 }

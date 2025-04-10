@@ -60,6 +60,12 @@ typedef struct isis_srv6_config_ {
 #define ISIS_SRV6_LOC(node_ptr) \   
     (&(ISIS_NODE_INFO(node_ptr)->srv6_config->loc))
 
+void
+isis_enable_srv6(node_t *node);
+
+void
+isis_disable_srv6(node_t *node);
+
 int8_t 
 isis_srv6_is_loc_enabled (node_t *node, char *locator_name) ;
 
@@ -128,4 +134,10 @@ isis_add_prefix_sid_to_locator (node_t *node,
                                 Srv6_endpcode_t endfn, 
                                 uint8_t flavors);
 
+void 
+ isis_advertise_rtr_capability_tlv(node_t *node);
+
+void
+ isis_withdraw_rtr_capability_tlv(node_t *node);
+ 
 #endif 

@@ -13,18 +13,21 @@ ISIS_LIB_PATH=-LLayer3/isis -lisis
 SRV6_LIB=Layer3/SegmentRouting/SRv6/libsrv6.a
 SRV6_LIB_PATH=-LLayer3/SegmentRouting/SRv6 -lsrv6
 
-LIBS=-lpthread \
+LIBS= ${ISIS_LIB_PATH} \
+			${SRV6_LIB_PATH} \
+			-LCLIBuilder -lclibuilder \
+		    -LLinuxMemoryManager -lmm \
+			-LFSMImplementation -lfsm \
+			-LFireWall -lasa \
+			-L../RDBMSImplementation/SqlParser -lsqlapi \
+			-L../RDBMSImplementation/SqlParser -ldbms \
+			-L../MathExpressionParser -lMexpr \
+			-lpthread \
 			-lpq \
 		    -lrt \
+			-lfl \
+			-lm \
 			-lncurses \
-			-lpthread \
-		    -L CLIBuilder -lclibuilder \
-		    -L LinuxMemoryManager -lmm \
-			-L FSMImplementation -lfsm \
-			-L FireWall -lasa \
-			-lrt -lm -lncurses \
-			${ISIS_LIB_PATH} \
-			${SRV6_LIB_PATH} \
 
 OBJS=gluethread/glthread.o \
 		  BitOp/bitmap.o \
@@ -70,7 +73,6 @@ OBJS=gluethread/glthread.o \
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
-		  LinuxMemoryManager/mm.o \
 		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \
@@ -84,13 +86,13 @@ OBJS=gluethread/glthread.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
 		  lmm_testapp_reg.o \
-		  #Layer2/stp/stp_state_machine.o \
-		  Layer2/stp/stp_bpdu.o \
-		  Layer2/stp/stp_init.o \
-		  Layer2/stp/stp_vlandb.o \
+		  sql_cli.o \
 
 lmm_testapp_reg.o:lmm_testapp_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_testapp_reg.c -o lmm_testapp_reg.o
+
+sql_cli.o:sql_cli.cpp
+	${CC} ${CFLAGS} -c sql_cli.cpp -o sql_cli.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
@@ -123,8 +125,8 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a ${ISIS_LIB} ${SRV6_LIB}
-	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a 
+	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
 notif.o:notif.c
@@ -272,16 +274,6 @@ Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
 Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
 
-# Protocols Specific
-# STP
-#Layer2/stp/stp_state_machine.o:Layer2/stp/stp_state_machine.c
-#	${CC} ${CFLAGS} -c Layer2/stp/stp_state_machine.c -o Layer2/stp/stp_state_machine.o
-#Layer2/stp/stp_bpdu.o:Layer2/stp/stp_bpdu.c
-#	${CC} ${CFLAGS} -c Layer2/stp/stp_bpdu.c -o Layer2/stp/stp_bpdu.o
-#Layer2/stp/stp_init.o:Layer2/stp/stp_init.c
-#	${CC} ${CFLAGS} -c Layer2/stp/stp_init.c -o Layer2/stp/stp_init.o
-#Layer2/stp/stp_vlandb.o:Layer2/stp/stp_vlandb.c
-#	${CC} ${CFLAGS} -c Layer2/stp/stp_vlandb.c -o Layer2/stp/stp_vlandb.o
 
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
@@ -328,8 +320,6 @@ clean:
 	rm -f Layer3/ipv6/*.o
 	rm -f Layer3/ipv6/SRv6/*.o
 	
-#STP
-#	rm -f Layer2/stp/*.o
 all:
 	make
 	

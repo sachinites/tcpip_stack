@@ -126,6 +126,7 @@ srv6_delete_all_pfx_sids (node_t *node)  {
         prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
                                     &pfxsid->sid,
+                                    srv6_sid_client_srv6,
                                     err_msg);
 
         assert (prc == SRv6_POOL_OK);    
@@ -175,6 +176,7 @@ srv6_delete_all_adj_sids (node_t *node) {
         prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
                                     &adjsid->sid,
+                                    srv6_sid_client_srv6,
                                     err_msg);
 
         assert (prc == SRv6_POOL_OK);    

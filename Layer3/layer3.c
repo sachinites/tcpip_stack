@@ -114,6 +114,22 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
         if  (intf_addr == dst_ip)  return true;
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    /* Checking with vlan interface addresses */
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+
+            intf = it->second.get();
+
+            if (!intf->IsIpConfigured()) continue;
+
+            intf_addr = IF_IP(intf);
+
+            if  (intf_addr == dst_ip)  return true;
+        }
+    }
+
     return false;
 }
 
@@ -252,21 +268,28 @@ layer3_ip_route_pkt(node_t *node,
                     return;
 
                 case GRE_PROTO:
+                {
+                    char gre_t_src_addr[16];
+                    char gre_t_dst_addr[16];
+
                     pkt_block_set_new_pkt (pkt_block, 
                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr),
                                            pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
 
+                    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, gre_t_src_addr);
+                    tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, gre_t_dst_addr);
+
                     tracer (node->dptr, DL3FWD, 
-                           "Pkt : %s : Pkt is being subjected to GRE Decapsulation\n", 
-		            dest_ip_addr);
+                           "Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
+                           dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
 
                     gre_decapsulate (node, pkt_block, 
                         gre_lookup_tunnel_intf (node, 
 			                ip_hdr->dst_ip, ip_hdr->src_ip));
                     return;
-
+                }
                 default: ;
             }
 
@@ -285,12 +308,41 @@ layer3_ip_route_pkt(node_t *node,
         tracer (node->dptr, DL3FWD, "Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
             pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
+        /* If nexthop do not have any OIF attached to it, it could be loose next hope. Perform 
+        loose nexthop resolution */
+        while (nexthop->ifindex == 0) {
+
+            tracer (node->dptr, DL3FWD, "Pkt : %s :  Loose Nexthop found, Nexthop addr : %s\n", 
+                    pkt_block_str (pkt_block), nexthop->gw_ip);
+
+            nexthop->hit_count++;
+
+            /* Recusrive look up */
+            next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
+
+            l3_route_t *recursive_l3_route = l3rib_lookup_lpm(
+                                NODE_RT_TABLE(node), next_hop_ip);
+
+            if (!recursive_l3_route) {
+
+                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped :  No L3 Route for Loose Nexthop %s\n",
+                        pkt_block_str (pkt_block), nexthop->gw_ip);
+                    return;
+            }
+
+            nexthop = l3_route_get_active_nexthop(recursive_l3_route, pkt_block->exclude_oif.get());
+
+            tracer (node->dptr, DL3FWD, "Pkt : %s :  Recursive Nexthop found OIF %s, Gw : %s\n", 
+                pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+        }
+
         /* If src ip address is not feeded by application, then take the OIF IP address*/
         if (ip_hdr->src_ip == 0) {
             
             char ip_addr_str[16];
             ip_hdr->src_ip = IF_IP(nexthop->oif.get());
-            tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
+            tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", 
+                pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
         }
 
         tracer (node->dptr, DL3FWD, "Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", pkt_block_str (pkt_block));
@@ -584,6 +636,10 @@ dump_rt_table(rt_table_t *rt_table){
     l3_route_t *l3_route = NULL;
     mtrie_node_t *mnode;
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+
+    if (IS_GLTHREAD_LIST_EMPTY (&rt_table->route_list.list_head)) {
+        return;
+    }
 
     cprintf("L3 Routing Table:\n");
 

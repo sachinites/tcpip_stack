@@ -184,7 +184,7 @@ ted_create_link ( ted_link_t *ted_link ,
                             uint8_t to_mask ) {
 
     if ( !ted_link) {
-        ted_link = XCALLOC(0, 1, ted_link_t);
+        ted_link = XCALLOC2(0, 1, ted_link_t);
     }
     else {
         memset(ted_link, 0, sizeof(ted_link_t));
@@ -321,7 +321,7 @@ ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node) {
 ted_node_t *
 ted_create_node (uint32_t rtr_id, uint8_t pn_no, bool is_fake) {
 
-    ted_node_t *node = XCALLOC (0,  1, ted_node_t);
+    ted_node_t *node = XCALLOC2 (0,  1, ted_node_t);
     node->is_fake = is_fake;
     node->rtr_id = rtr_id;
     node->pn_no = pn_no;

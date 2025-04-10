@@ -7,6 +7,7 @@
 #include "mtrie.h"
 #include "../stack/stack.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../lmm_testapp_enums.h"
 
 static uint16_t node_id = 1;
 
@@ -80,7 +81,7 @@ static void
 mtrie_node_t *
 mtrie_create_new_node (uint16_t prefix_len) {
 
-    mtrie_node_t *node = (mtrie_node_t *)XCALLOC(0, 1, mtrie_node_t);
+    mtrie_node_t *node = (mtrie_node_t *)XCALLOC2(0, 1, mtrie_node_t);
     node->node_id = mtrie_get_new_node_id();
     bitmap_init(&node->prefix, prefix_len);
     bitmap_init(&node->wildcard, prefix_len);

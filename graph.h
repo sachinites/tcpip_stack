@@ -67,6 +67,7 @@ typedef struct spf_data_ spf_data_t;
 typedef struct pkt_tracer_ pkt_tracer_t;
 typedef struct hashtable hashtable_t;
 typedef struct tracer_ tracer_t;
+typedef struct BPlusTree BPlusTree_t;
 
 struct node_ {
 
@@ -122,6 +123,8 @@ struct node_ {
     hashtable_t *object_network_ght;
      /* Object Group Hashtable */
     hashtable_t *object_group_ght;
+    /* SQL DB*/
+    BPlusTree_t *sql_db;
     /* Transport Svc profiles DB*/
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
     /* Vlan Interface Created*/

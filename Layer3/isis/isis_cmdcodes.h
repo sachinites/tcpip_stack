@@ -104,26 +104,31 @@
 #define CMDCODE_CONF_ISIS_LOG_EVENTS    44
 /* config node <node-name> protocol isis [no] traceoptions ipc*/
 #define CMDCODE_CONF_ISIS_LOG_IPC    45
+/* config node <node-name> protocol isis [no] traceoptions srv6*/
+#define CMDCODE_CONF_ISIS_LOG_SRv6    46
 /* config node <node-name> protocol isis [no] traceoptions errors*/
-#define CMDCODE_CONF_ISIS_LOG_ERRORS    46
+#define CMDCODE_CONF_ISIS_LOG_ERRORS    47
 /* config node <node-name> protocol isis [no] traceoptions all*/
-#define CMDCODE_CONF_ISIS_LOG_ALL    47
+#define CMDCODE_CONF_ISIS_LOG_ALL    48
 
 /* show node <node-name> protocol isis traceoptions*/
-#define CMCODE_SHOW_ISIS_TRACEOPTIONS 48
+#define CMCODE_SHOW_ISIS_TRACEOPTIONS 49
 /* clear node <node-name> protocol isis reset-log-file*/
-#define CMDCODE_RESET_NODE_ISIS_LOG_FILE 49
+#define CMDCODE_RESET_NODE_ISIS_LOG_FILE 50
 /* show node <node-name> protocol isis spf-result */
-#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT 50
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SPF_RESULT 51
 
  /* debug node <node-name> protocol isis toggle-lsdb-advt */
- #define CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT 51
+ #define CMDCODE_DEBUG_NODE_ISIS_TOGGLE_LSDB_ADVT 52
  
+/* config node <node-name> [no] protocol isis source-packet-routing srv6 */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6 53
+
 /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> */
-#define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR 52
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR 54
 
 /* config node <node-name> [no] protocol isis source-packet-routing srv6 locator <locator-name> 
         end-sid <ipv6-address> flavor [ psp | usp | usd ]*/
-#define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR_END_SID 53
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR_END_SID 55
 
 #endif /* __ISIS_CMDCODES__ */

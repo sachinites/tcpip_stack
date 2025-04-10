@@ -495,20 +495,12 @@ show_vlan_members (int cmdcode,
             i = it_vlan->first;
             VlanInterface *vlan_intf = it_vlan->second.get();
 
-#if 0
-            cprintf (" vlan %d    config_ref_count = %d, dynamic_ref_count = %d\n", 
-                i, vlan_intf->GetConfigRefCount(), vlan_intf->GetDynamicRefCount());
-#endif 
+            cprintf (" vlan %d\n",  i);
 
             ITERATE_VLAN_MEMBER_PORTS_ACCESS_BEGIN(vlan_intf, member_intf) {
 
-            #if 0
-                cprintf("  %s (Access)       config_ref_count = %d, dynamic_ref_count = %d\n", member_intf->if_name.c_str(),
-                member_intf->GetConfigRefCount(), member_intf->GetDynamicRefCount() );
-            #else 
                 cprintf("  %s (Access) \n", member_intf->if_name.c_str());
                 PhysicalInterface *phy_intf = dynamic_cast<PhysicalInterface *>(member_intf);
-            #endif 
 
             } ITERATE_VLAN_MEMBER_PORTS_ACCESS_END;
 
@@ -516,13 +508,7 @@ show_vlan_members (int cmdcode,
 
             ITERATE_VLAN_MEMBER_PORTS_TRUNK_BEGIN(vlan_intf, member_intf) {
 
-                #if 0
-                    cprintf("  %s (Trunk)    config_ref_count = %d, dynamic_ref_count = %d\n", member_intf->if_name.c_str(), 
-                    member_intf->GetConfigRefCount(), 
-                    member_intf->GetDynamicRefCount());
-                #else 
-                    cprintf("  %s (Trunk)\n", member_intf->if_name.c_str());
-                #endif
+                cprintf("  %s (Trunk)\n", member_intf->if_name.c_str());
             
             } ITERATE_VLAN_MEMBER_PORTS_TRUNK_END;
 
