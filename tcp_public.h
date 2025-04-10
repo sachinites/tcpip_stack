@@ -38,6 +38,7 @@
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"
 #include "EventDispatcher/event_dispatcher.h"
+#include "LinuxMemoryManager/mm.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "lmm_testapp_enums.h"
 #include "CLIBuilder/libcli.h"

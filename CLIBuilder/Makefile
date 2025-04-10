@@ -1,5 +1,3 @@
-CC=g++
-CFLAGS=-g -fpermissive -Wall -gdwarf-2 -g3 -Wignored-qualifiers
 INCLUDES=-I .
 CLILIB=libclibuilder.a
 TARGET:${CLILIB}

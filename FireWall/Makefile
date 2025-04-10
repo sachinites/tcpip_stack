@@ -1,7 +1,3 @@
-CC=g++
-#SANITIZER_FLAGS=-fsanitize=address,undefined
-SANITIZER_FLAGS=
-CFLAGS=-g -fpermissive -gdwarf-2 -g3 -Wignored-qualifiers ${SANITIZER_FLAGS}
 TARGET:libasa.a
 LIB=libasa.a
 OBJS=acl/acl_cli.o \

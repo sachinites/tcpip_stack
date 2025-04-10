@@ -1,5 +1,3 @@
-CC=g++
-CFLAGS=-g -gdwarf-2 -g3 -Wignored-qualifiers -fpermissive
 TARGET:libmm.a
 OUTFILES=libmm.a
 EXTERNAL_LIBS=-lpthread

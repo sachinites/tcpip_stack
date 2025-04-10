@@ -1,7 +1,7 @@
-CC=g++
+export CC=g++
 #SANITIZER_FLAGS=-fsanitize=address,undefined
 SANITIZER_FLAGS=
-CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Install external dependent libs :   sudo apt-get install libpq-dev
@@ -90,7 +90,7 @@ OBJS=gluethread/glthread.o \
 		  Layer2/stp/stp_vlandb.o \
 
 lmm_testapp_reg.o:lmm_testapp_reg.c
-	${CC} ${CFLAGS} -c lmm_testapp_reg.c -o lmm_testapp_reg.o
+	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_testapp_reg.c -o lmm_testapp_reg.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
