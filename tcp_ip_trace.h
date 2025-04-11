@@ -52,6 +52,7 @@ typedef struct log_{
     bool send;
     bool is_stdout;
     bool l3_fwd;
+    char padding[3];
     FILE *log_file;
     access_list_t *acc_lst_filter;
 } __attribute__((aligned(8))) log_t;

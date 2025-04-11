@@ -48,7 +48,7 @@ class Interface {
  
         Interface(std::string if_name, InterfaceType_t iftype);
     public:
-        std::string if_name;
+        std::string if_name; // 24 B
         node_t *att_node;
         log_t log_info;
         linkage_t *link;
@@ -61,6 +61,7 @@ class Interface {
         uint32_t xmit_pkt_dropped;
         uint32_t recvd_pkt_dropped;
         uint32_t cost;
+        char padding1[4];
 
         /* L2 Properties : Ingress & egress L2 Access_list */
         access_list_t *l2_ingress_acc_lst;
@@ -74,6 +75,7 @@ class Interface {
         isis_intf_info_t *isis_intf_info;
         
         bool is_up;
+        char padding2[7];
 
         uint32_t GetIntfCost();
         node_t *GetNbrNode ();
@@ -245,7 +247,7 @@ public:
     uint32_t lcl_ip;
     uint16_t config_flags;
     uint8_t mask;
-    char padding[3];
+    char padding[5];
 
     GRETunnelInterface(uint32_t tunnel_id);
     virtual ~GRETunnelInterface();
