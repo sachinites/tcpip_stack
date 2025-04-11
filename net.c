@@ -48,6 +48,16 @@
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
 
+extern void init_arp_table(arp_table_t **arp_table);
+extern void init_mac_table(mac_table_t **mac_table);
+extern void init_rt_table(node_t *node, rt_table_t **rt_table);
+extern void init_rtv6_table(node_t *node, rt_table_t **rt_table);
+extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
+extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
+extern void init_tcp_logging(node_t *);
+extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
+void  node_assign_router_mac (node_t *node) ;
+
 void
 interface_assign_mac_address (Interface *interface){
 
@@ -224,4 +234,22 @@ dump_node_interface_stats(node_t *node){
 
 
     cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
+}
+
+void
+init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
+
+    node_nw_prop->flags = 0;
+    node_nw_prop->is_lb_addr_config = false;
+    memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
+    init_arp_table(&(node_nw_prop->arp_table));
+    init_mac_table(&(node_nw_prop->mac_table));
+    init_rt_table(node, &(node_nw_prop->rt_table));
+    init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
+    node_assign_router_mac (node);
+    node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
+    node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
+    init_tcp_logging(node);
+    srv6_pool_init_srv6_pools (&node_nw_prop->srv6_sid_pools);
 }

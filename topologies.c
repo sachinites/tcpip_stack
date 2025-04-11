@@ -584,6 +584,8 @@ vlan_extension_topo(void) {
     insert_link_between_two_nodes(R1, H1, "eth0",  "eth0",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R2, H2, "eth0",  "eth0",  INTF_METRIC_DEFAULT);
 
+    interface_loopback_create (H1, 0);
+    
     node_set_loopback_address(H1, "122.1.1.1");
     node_set_loopback_address(H2, "122.1.1.2");
     node_set_loopback_address(R1, "100.1.1.1");

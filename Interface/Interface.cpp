@@ -423,14 +423,15 @@ bool Interface::IsSameSubnet(uint32_t ip_addr)
 bool 
 Interface:: IsInterfaceUp(vlan_id_t vlan_id) {
 
-        cprintf ("Error : Operation %s not supported\n", __func__);
-        return false;
+    return this->is_up;
 }
 
+/* Default fn : In Most cases, we store the interface in node->intf[] array. Hence,
+    anything more than 1 (+1) ref count means interface is in use */
 bool 
 Interface::IsCrossReferenced() {
 
-    cprintf ("Error : Operation %s not supported\n", __func__);
+    if (this->GetSharedPtr().use_count() > 2) return true;
     return false;
 }
 
@@ -470,7 +471,7 @@ Interface::IsSVI () {
 }
 
 void 
-Interface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
+Interface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) {
 
     cprintf ("Error : Operation %s not supported\n", __func__);
     assert(0);
@@ -908,7 +909,7 @@ PhysicalInterface::IsCrossReferenced() {
 }
 
 void 
-PhysicalInterface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
+PhysicalInterface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) {
 
 
 }
@@ -939,28 +940,14 @@ void VirtualInterface::PrintInterfaceDetails()
     this->Interface::PrintInterfaceDetails();
 }
 
-bool 
-VirtualInterface::IsInterfaceUp(vlan_id_t vlan_id) {
-    cprintf ("Error : Operation %s not supported\n", __func__);
-    return false;
-}
-
-
 void 
 VirtualInterface::InterfaceReleaseAllResources() {
 
     /* Nothing to release */
+
+    /* Release Base class Resources */
     this->Interface::InterfaceReleaseAllResources();
 }
-
-
-bool
-VirtualInterface::IsCrossReferenced() {
-
-    cprintf ("Error : Operation %s not supported\n", __func__);
-    return false;
-}
-
 
 
 
@@ -1220,12 +1207,6 @@ GRETunnelInterface::SendPacketOut(pkt_block_t *pkt_block)
     return pkt_size;
 }
 
-bool 
-GRETunnelInterface::IsInterfaceUp(vlan_id_t vlan_id) {
-
-    return this->is_up;
-}
-
 void 
 GRETunnelInterface::InterfaceReleaseAllResources() {
 
@@ -1236,15 +1217,13 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
     this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
-/* GRETunnelInterface when created are queued up node->intf array only,
-     therefore taking refcount
-    of 1. Anything more than that, GRETunnelInterface is suppose to be in use*/
-bool
-GRETunnelInterface::IsCrossReferenced() {
-
-    if (this->GetSharedPtr().use_count() > 2) return true;
-    return false;
+/* Stored in default way*/
+bool 
+GRETunnelInterface::IsCrossReferenced()
+{
+    return this->Interface::IsCrossReferenced();
 }
+
 
 /* ******** VirtualPort **************** */
 
@@ -1359,17 +1338,6 @@ VirtualPort::GetL2Mode ( ) {
         return LAN_TRUNK_MODE;
 }
 
-/* VirtualPort when created are hooked up in l2 Switch,
-     therefore taking refcount
-    of 1. Anything more than that, VirtualPort is suppose to be in use*/
-bool
-VirtualPort::IsCrossReferenced() {
-
-    if (this->GetSharedPtr().use_count() > 2) return true;
-    return false;
-}
-
-
 bool 
 VirtualPort::IntfConfigTransportSvc(std::string& trans_svc_name) 
 {
@@ -1456,7 +1424,11 @@ VirtualPort::UnBindOverlayTunnel(VirtualInterface *tunnel) {
     return true;
 }
 
+bool 
+VirtualPort::IsCrossReferenced() {
 
+    this->Interface::IsCrossReferenced();
+}
 
 
 
@@ -1480,7 +1452,9 @@ VlanInterface::~VlanInterface() {
 }
 
 /* Vlan interfaces when are queued up in vlanDB, therefore taking refcount
-    of 1. Anything more than that, vlaninterface is suppose to be in use*/
+    of 1. Anything more than that, vlaninterface is suppose to be in use.
+    Can use default Implementation of Base Class
+    */
 bool
 VlanInterface::IsCrossReferenced() {
 
@@ -1643,6 +1617,110 @@ VlanInterface::IsSVI () {
 
     return ( this->ip_addr && this->mask ) ;
 }
+
+/* Implement Loopback Interface Methods*/
+
+LoopbackInterface::LoopbackInterface(std::string ifname)
+    : VirtualInterface(ifname, INTF_TYPE_LOOPBACK)
+{
+    this->ip_addr = 0;
+    this->mask = 0;
+    memset(this->v6addr, 0, sizeof(this->v6addr));
+    this->v6mask = 0;
+}
+
+LoopbackInterface::~LoopbackInterface()
+{
+}
+
+void LoopbackInterface::PrintInterfaceDetails()
+{
+
+    unsigned char ip_addr[16];
+    unsigned char v6_addr_str[INET6_ADDRSTRLEN];
+
+    cprintf("IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_addr), this->mask);
+    inet_ntop(AF_INET6, this->v6addr, (char *)v6_addr_str, INET6_ADDRSTRLEN);
+    cprintf ("IPv6 Addr : %s/%d\n", v6_addr_str, this->v6mask);
+    this->VirtualInterface::PrintInterfaceDetails();
+}
+
+void LoopbackInterface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask)
+{
+    this->ip_addr = ip_addr;
+    this->mask = mask;
+}
+
+void LoopbackInterface::InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask)
+{
+    *ip_addr = this->ip_addr;
+    *mask = this->mask;
+}
+
+void LoopbackInterface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len)
+{
+    if (addr && prefix_len) {
+        memcpy (this->v6addr, addr, sizeof(this->v6addr));
+        this->v6mask = prefix_len;
+    }
+    else {
+        memset (this->v6addr, 0, sizeof(this->v6addr));
+        this->v6mask = 0;
+    }
+}
+
+void LoopbackInterface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len)
+{
+    memcpy (addr, this->v6addr, sizeof(this->v6addr));
+    *prefix_len = this->v6mask;
+}
+
+bool LoopbackInterface::IsIpConfigured()
+{
+    if (this->ip_addr && this->mask)
+        return true;
+    return false;
+}
+
+bool LoopbackInterface::IsSameSubnet(uint32_t ip_addr)
+{
+
+    uint32_t subnet_mask = ~0;
+
+    if (!this->IsIpConfigured())
+        return false;
+
+    if (this->mask != 32)
+    {
+        subnet_mask = subnet_mask << (32 - this->mask);
+    }
+
+    return ((this->ip_addr & subnet_mask) == (ip_addr & subnet_mask));
+}
+
+void 
+LoopbackInterface::InterfaceReleaseAllResources() {
+
+    /* Nothing to release */
+
+    /* Release Base class Resources */
+    this->VirtualInterface::InterfaceReleaseAllResources();
+}
+
+bool 
+LoopbackInterface::IsCrossReferenced() {
+
+    this->Interface::IsCrossReferenced();
+}
+
+/* ------------------------------------------------------------------- */
+/* ------------------------------------------------------------------- */
+
+
+
+
+
+
 
 void 
 dump_intf_props (Interface *interface){

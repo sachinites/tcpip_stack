@@ -127,6 +127,7 @@ extern void init_nfc_layer2_proto_reg_db2(node_t *node);
 extern int debug_dp_bits_to_str (char *buffer, uint64_t bits) ;
 extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
+extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
 
 node_t *
 create_graph_node(graph_t *graph, const c_string node_name){

@@ -93,7 +93,7 @@ class Interface {
         virtual bool IsIpConfigured() ;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) ;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) ;
-        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) ;
+        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) ;
         virtual void InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) ;
         virtual void InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) ;
         virtual void InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) ;
@@ -149,7 +149,7 @@ class PhysicalInterface : public Interface {
         virtual bool IsIpConfigured() final;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
-        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) final;
+        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) final;
         virtual void InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) final;
         virtual void InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) final;
         virtual void InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) final;
@@ -157,7 +157,7 @@ class PhysicalInterface : public Interface {
         virtual bool IsVlanTrunked (vlan_id_t vlan_id) final;
         virtual bool IntfConfigVlan(vlan_id_t vlan_id, bool add) final;
         virtual void SetSwitchport(bool enable) final;
-        virtual bool IsCrossReferenced();
+        virtual bool IsCrossReferenced() final;
         virtual bool GetSwitchport() final;
         virtual IntfL2Mode GetL2Mode () final;
         virtual void SetL2Mode (IntfL2Mode l2_mode) final;
@@ -187,9 +187,7 @@ class VirtualInterface : public Interface {
     public:
         virtual ~VirtualInterface();
         virtual void PrintInterfaceDetails ();
-        virtual bool IsInterfaceUp(vlan_id_t vlan_id);
         virtual void InterfaceReleaseAllResources() ;
-        virtual bool IsCrossReferenced();
 } __attribute__((aligned(8)));;
 
 
@@ -209,7 +207,6 @@ class VlanInterface : public VirtualInterface {
         VlanInterface(vlan_id_t vlan_id);
          virtual ~VlanInterface();
         virtual void PrintInterfaceDetails ();
-        virtual bool IsCrossReferenced() final;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
         virtual bool IsIpConfigured() final;
@@ -218,6 +215,7 @@ class VlanInterface : public VirtualInterface {
         static VlanInterface *VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id);
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
+        virtual bool IsCrossReferenced() final;
         virtual void InterfaceReleaseAllResources() ;
         virtual bool IsSVI ();
         virtual mac_addr_t *GetMacAddr( );
@@ -258,7 +256,6 @@ public:
     void SetTunnelLclIpMask(uint32_t ip_addr, uint8_t mask);
     virtual void PrintInterfaceDetails ();
     virtual int SendPacketOut(pkt_block_t *pkt_block) final;
-    virtual bool IsCrossReferenced() final;
     void SetTunnelSrcIp(uint32_t src_addr);
     void UnSetTunnelSrcIp();
     virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
@@ -266,8 +263,8 @@ public:
     virtual bool IsIpConfigured() final;
     virtual bool IsSameSubnet(uint32_t ip_addr);
     virtual mac_addr_t * GetMacAddr() final;
-    virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
     virtual void InterfaceReleaseAllResources() ;
+    virtual bool IsCrossReferenced() final;
 } __attribute__((aligned(8)));
 
 
@@ -289,13 +286,39 @@ class VirtualPort : public VirtualInterface {
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual void InterfaceReleaseAllResources() ;
-        virtual bool IsCrossReferenced() final;
         virtual bool IsVlanTrunked (vlan_id_t vlan_id) final;
         virtual bool IntfConfigTransportSvc(std::string& trans_svc) final;
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;
         virtual bool GetSwitchport() final;
         virtual IntfL2Mode GetL2Mode () final;
+        virtual bool IsCrossReferenced() final;
 } __attribute__((aligned(8)));;
+
+class LoopbackInterface : public VirtualInterface {
+
+    private:
+    protected:
+    public:
+        uint8_t v6addr[16];
+        uint32_t ip_addr;
+        uint8_t mask;
+        uint8_t v6mask;
+        char padding[2];
+
+        LoopbackInterface(std::string ifname);
+        virtual ~LoopbackInterface();
+        virtual void PrintInterfaceDetails ();
+        virtual bool IsIpConfigured() final;
+        virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
+        virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
+        virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) final;
+        virtual void InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) final;
+        virtual bool IsSameSubnet (uint32_t ip_addr) final;
+        virtual void InterfaceReleaseAllResources() final;
+        virtual bool IsCrossReferenced() final;
+
+} __attribute__((aligned(8)));;
+
 
 
 typedef union intf_prop_changed_ {

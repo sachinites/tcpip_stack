@@ -85,15 +85,63 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 void
 interface_loopback_create (node_t *node, uint8_t lono) {
 
-    (unused) node;
-    (unused) lono;
+    int empty_intf_slot;
+
+    /*Plugin interface ends into Node*/
+    empty_intf_slot = node_get_intf_available_slot (node);
+
+    if (empty_intf_slot == -1) {
+        cprintf("Error : No empty slot available for loopback interface %d\n", lono);
+        return;
+    }
+
+    /* Create loopback interface */
+    char loopback_name[IF_NAME_SIZE];
+    snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
+    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(loopback_name));
+    intfP->SetSharedPtr(intfP);
+    intfP->att_node = node;
+    node->intf[empty_intf_slot] = intfP;
+    intfP->ifindex = empty_intf_slot;
 }
 
 void
 interface_loopback_delete (node_t *node, uint8_t lono) {
 
-    (unused) node;
-    (unused) lono;
+    int i = 0;
+    Interface *intf;
+    uint32_t if_change_flags = 0;
+    char loopback_name[IF_NAME_SIZE];
+    intf_prop_changed_t intf_prop_changed;
+    
+    snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
+    memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        i++;
+        if (!intf) continue;
+        if (string_compare (intf->if_name.c_str(), loopback_name, IF_NAME_SIZE)) continue;
+        break;
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    if (i == MAX_INTF_PER_NODE) {
+        cprintf ("Error : Loopback %s Do Not  Exist\n", loopback_name);
+        return;
+    }
+
+    if (intf->IsCrossReferenced () ) {
+        cprintf("Error : Loopback interface %s is in use, cannot delete \n", loopback_name);
+        return;
+    }
+
+    /* Send Delete notification to all Subscribers */
+    SET_BIT(if_change_flags, IF_DELETE_F);
+        nfc_intf_invoke_notification_to_sbscribers(
+       intf, &intf_prop_changed, if_change_flags);    
+
+    node->intf[i] = nullptr;
 }
 
 void

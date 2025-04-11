@@ -8,6 +8,7 @@ class PhysicalInterface;
 class VirtualInterface;
 class VirtualPort;
 class GRETunnelInterface ;
+class LoopbackInterface;
 
 using InterfaceP = std::shared_ptr<Interface>;
 using VlanInterfaceP = std::shared_ptr<VlanInterface>;
@@ -15,5 +16,6 @@ using PhysicalInterfaceP = std::shared_ptr<PhysicalInterface>;
 using VirtualInterfaceP = std::shared_ptr<VirtualInterface>;
 using VirtualPortP = std::shared_ptr<VirtualPort>;
 using GRETunnelInterfaceP = std::shared_ptr<GRETunnelInterface>;
+using InterfaceLoP = std::shared_ptr<LoopbackInterface>;
 
 #endif 

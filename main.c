@@ -103,7 +103,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = build_linear_topo();
+    topo = vlan_extension_topo();
     init_tcp_ip_stack();
     libcli_init_done ();
 
