@@ -187,11 +187,19 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 typedef struct mac_table_entry_{
 
     InterfaceP oif;
+    wheel_timer_elem_t *exp_timer_wt_elem;
     glthread_t mac_entry_glue;
     byte oif_name[IF_NAME_SIZE];
     mac_addr_t mac;
+    char padding1[2];
     vlan_id_t vlan_id;
+    char padding2[6];
     
+    /* Add destructor */
+    ~mac_table_entry_() {
+        assert (!exp_timer_wt_elem);
+    }
+
 } __attribute__((aligned(8)))  mac_table_entry_t;
 
 GLTHREAD_TO_STRUCT(mac_entry_glue_to_mac_entry, mac_table_entry_t, mac_entry_glue);

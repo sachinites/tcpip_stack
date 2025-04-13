@@ -213,10 +213,11 @@ is_same_subnet(c_string ip_addr,
 void
 dump_interface_stats(Interface *interface){
 
-    cprintf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u",
+    cprintf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u, ref_count = %u",
         interface->if_name.c_str(), interface->pkt_sent,
         interface->pkt_recv,
-		interface->xmit_pkt_dropped);
+	    interface->xmit_pkt_dropped, 
+        interface->GetSharedPtr().use_count() - 1);
 }
 
 void

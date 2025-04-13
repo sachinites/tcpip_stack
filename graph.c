@@ -293,6 +293,42 @@ node_get_intf_by_name(node_t *node, const char *if_name){
 }
 
 Interface *
+node_get_intf_by_name_with_idx_pos (node_t *node, const char *if_name, int *if_pos) {
+
+    int i = 0;
+    Interface *intf;
+
+    for(; i < MAX_INTF_PER_NODE; i++) {
+
+        intf = node->intf[i].get();                  
+
+        if(!intf) { 
+            if (*if_pos) *if_pos = 0;
+            return NULL;
+        }
+
+        if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
+            if (*if_pos) *if_pos = i;
+            return intf;
+        }
+    } 
+
+    /* Get vlan interface by name */
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+            if (string_compare(it->second->if_name.c_str(), if_name, IF_NAME_SIZE) == 0) {
+                if (*if_pos) *if_pos = 0;
+                return it->second.get();
+            }
+        }
+    }
+
+    if (*if_pos) *if_pos = -1;
+    return NULL;    
+}
+
+Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
     Interface *intf;

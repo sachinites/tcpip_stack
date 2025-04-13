@@ -244,7 +244,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 Interface::~Interface()
 {
     InterfaceReleaseAllResources();
-    cprintf ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
+    printw ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
 }
 
 InterfaceP 
@@ -1221,7 +1221,15 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
 bool 
 GRETunnelInterface::IsCrossReferenced()
 {
-    return this->Interface::IsCrossReferenced();
+   /* Tunnels install local route with /mask and /32 in RT. They are
+   referenced by those routes*/
+   if (this->lcl_ip && this->is_up) {
+         if (this->GetSharedPtr().use_count() > 4) return true;
+         return false;
+   }
+    
+   /* Default */
+   return this->Interface::IsCrossReferenced();
 }
 
 
@@ -1427,7 +1435,7 @@ VirtualPort::UnBindOverlayTunnel(VirtualInterface *tunnel) {
 bool 
 VirtualPort::IsCrossReferenced() {
 
-    this->Interface::IsCrossReferenced();
+    return this->Interface::IsCrossReferenced();
 }
 
 

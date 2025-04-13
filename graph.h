@@ -177,6 +177,9 @@ Interface *
 node_get_intf_by_name(node_t *node, const char *if_name);
 
 Interface *
+node_get_intf_by_name_with_idx_pos (node_t *node, const char *if_name, int *if_pos) ;
+
+Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);
 
 static inline node_t *

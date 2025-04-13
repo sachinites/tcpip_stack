@@ -4,6 +4,7 @@
 #include "../../graph.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "greuapi.h"
+#include "../../common/cp2dp.h"
 
 extern graph_t *topo;
 
@@ -16,7 +17,8 @@ gre_tunnel_config_handler (int cmdcode,
                     op_mode enable_or_disable){
 
     node_t *node = NULL;
-    uint32_t gre_tun_id;
+    uint32_t gre_tun_id = 0;
+    uint32_t ip_addr_lcl;
     c_string node_name = NULL;
     Interface *gre_tunnel = NULL;
     tlv_struct_t *tlv;
@@ -25,6 +27,8 @@ gre_tunnel_config_handler (int cmdcode,
     c_string intf_ip_addr = NULL;
     uint8_t mask = 0;
     c_string if_name = NULL;
+    Interface *tunnel;
+    char intf_name[IF_NAME_SIZE];
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -45,6 +49,15 @@ gre_tunnel_config_handler (int cmdcode,
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+    
+    if (if_name) {
+        tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+    }
+    else {
+        snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
+        tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+    }
+    
 
     switch (cmdcode) {
 
@@ -67,9 +80,11 @@ gre_tunnel_config_handler (int cmdcode,
 
                 case CONFIG_ENABLE:
                     gre_tunnel_set_src_addr (node, gre_tun_id, src_addr);
+                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     gre_tunnel_set_src_addr (node, gre_tun_id, NULL);
+                    interface_uninstall_local_v4_routes (node, tunnel);
                     break;
                 default: ;
             }
@@ -81,9 +96,13 @@ gre_tunnel_config_handler (int cmdcode,
 
                 case CONFIG_ENABLE:
                     if (!gre_tunnel_set_src_interface (node, gre_tun_id, if_name)) return -1;
+                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
-                    if (!gre_tunnel_set_src_interface (node, gre_tun_id, NULL)) return -1;
+                    if (!gre_tunnel_set_src_interface (node, gre_tun_id, NULL)) {
+                        interface_uninstall_local_v4_routes (node, tunnel);
+                        return -1;
+                    }
                     break;
                 default: ;
             }
@@ -93,9 +112,11 @@ gre_tunnel_config_handler (int cmdcode,
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
                     gre_tunnel_set_dst_addr (node, gre_tun_id, dst_addr);
+                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     gre_tunnel_set_dst_addr (node, gre_tun_id, NULL);
+                    interface_uninstall_local_v4_routes (node, tunnel);
                     break;
                 default:
                     ;
@@ -106,9 +127,11 @@ gre_tunnel_config_handler (int cmdcode,
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
                     gre_tunnel_set_lcl_ip_addr(node, gre_tun_id, intf_ip_addr, mask);
+                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     gre_tunnel_set_lcl_ip_addr(node, gre_tun_id, NULL, 0);
+                    interface_uninstall_local_v4_routes (node, tunnel);
                     break;
                 default:
                     ;

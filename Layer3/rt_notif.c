@@ -8,6 +8,7 @@
 #include "layer3.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Tracer/tracer.h"
+#include "../lmm_testapp_enums.h"
 
 void
 rt_table_add_route_to_notify_list (
@@ -259,7 +260,7 @@ void
 nfc_ipv4_rt_request_flash (node_t *node, nfc_app_cb cbk) {
 
     rt_route_flash_request_t *flash_req =
-        (rt_route_flash_request_t *)XCALLOC(0, 1, rt_route_flash_request_t);
+        (rt_route_flash_request_t *)XCALLOC2(0, 1, rt_route_flash_request_t);
 
     flash_req->cbk = cbk;
     init_glthread(&flash_req->glue);

@@ -58,6 +58,8 @@
 #include "../Tracer/tracer.h"
 #include "ipv6/ipv6_route.h"
 
+extern graph_t *topo;
+
 extern int
 nh_flush_nexthops(nexthop_t **nexthop);
 
@@ -1003,6 +1005,48 @@ np_tcp_ip_send_ip_data (node_t *node, pkt_block_t *pkt_block) {
 
     layer3_ip_route_pkt (node, NULL, pkt_block); 
 }
+
+extern int 
+ip_traffic_generate_handler(int cmdcode,
+    Stack_t *tlv_stack,
+    op_mode enable_or_disable) {
+
+    int i;
+    uint32_t count = 1;
+    uint8_t protocol;
+    uint32_t addr_int;
+    node_t *node = NULL;
+    tlv_struct_t *tlv = NULL;
+    char *src_addr_str = NULL;
+    char *dst_addr_str = NULL;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "src-addr"))
+            src_addr_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "dst-addr"))
+            dst_addr_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "count"))
+            count = atoi(tlv->value);
+        else if (parser_match_leaf_id(tlv->leaf_id, "protocol"))
+            protocol = atoi(tlv->value);
+
+   } TLV_LOOP_END;
+   
+   node = node_get_node_by_name(topo, node_name);
+
+   addr_int = tcp_ip_convert_ip_p_to_n(dst_addr_str );
+
+   for (i = 0; i < count ; i ++) {
+        cp2dp_send_ip_data (node, NULL, addr_int, protocol);
+    }
+    
+    return 0;
+}
+
 
 void
 layer3_mem_init() {

@@ -27,6 +27,9 @@
 /* Lib Hdr files */
 #include "mtrie/mtrie.h"
 
+/* Notification files */
+#include "Layer3/rt_notif.h"
+
 /* Create static array of vm_page_family_t */
 
 #define MM_REG_STRUCT2(structname) \
@@ -79,6 +82,9 @@ vm_page_family_t vm_page_family_array[] =
     /* Mtrie */
     MM_REG_STRUCT2(mtrie_t),
     MM_REG_STRUCT2(mtrie_node_t),
+
+    /* RT Table Structures */
+    MM_REG_STRUCT2(rt_route_flash_request_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

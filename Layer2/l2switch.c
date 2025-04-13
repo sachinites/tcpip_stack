@@ -67,6 +67,51 @@ mac_table_lookup(mac_table_t *mac_table, vlan_id_t vlan, c_string mac){
     return NULL;
 }
 
+static void
+mac_table_entry_timer_expiry_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
+
+    mac_table_entry_t *mac_table_entry = (mac_table_entry_t *)arg;
+    node_t *node = mac_table_entry->oif->att_node;
+
+    tracer (node->dptr, DL2SW, 
+            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Expired\n", 
+            mac_table_entry->vlan_id, 
+            mac_table_entry->mac.mac[0],
+            mac_table_entry->mac.mac[1],
+            mac_table_entry->mac.mac[2],
+            mac_table_entry->mac.mac[3],
+            mac_table_entry->mac.mac[4],
+            mac_table_entry->mac.mac[5],
+            mac_table_entry->oif_name     );
+
+    remove_glthread(&mac_table_entry->mac_entry_glue);
+    mac_table_entry->exp_timer_wt_elem = NULL;
+    delete (mac_table_entry);
+}
+
+static void 
+mac_table_entry_init_timer (node_t *node, mac_table_entry_t *mac_table_entry) {
+
+    assert (!mac_table_entry->exp_timer_wt_elem);
+    mac_table_entry->exp_timer_wt_elem = timer_register_app_event(
+        DP_TIMER(node),
+        mac_table_entry_timer_expiry_cbk,
+        (void *)mac_table_entry,
+        sizeof(mac_table_entry_t),
+        20 * 1000, 0);
+}
+
+static void 
+mac_table_entry_cancel_expiry_timer (mac_table_entry_t *mac_table_entry) {
+
+    if (mac_table_entry->exp_timer_wt_elem) {
+        timer_de_register_app_event(mac_table_entry->exp_timer_wt_elem);
+        mac_table_entry->exp_timer_wt_elem = NULL;
+    }
+
+}
+
+
 void
 clear_mac_table(mac_table_t *mac_table){
 
@@ -77,6 +122,7 @@ clear_mac_table(mac_table_t *mac_table){
         
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
         remove_glthread(curr);
+        mac_table_entry_cancel_expiry_timer(mac_table_entry);
         delete (mac_table_entry);
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
 }
@@ -89,6 +135,8 @@ delete_mac_table_entry(mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
     if(!mac_table_entry)
         return;
     remove_glthread(&mac_table_entry->mac_entry_glue);
+    mac_table_entry_cancel_expiry_timer(mac_table_entry);
+
     tracer (mac_table_entry->oif->att_node->dptr, DL2SW, 
             "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Deleted\n", 
             mac_table_entry->vlan_id, 
@@ -145,6 +193,16 @@ mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
     return true;
 }
 
+static uint16_t
+mac_table_entry_get_exp_time_left(
+	mac_table_entry_t *mac_table_entry){
+
+	if (mac_table_entry->exp_timer_wt_elem) {
+	    return wt_get_remaining_time(mac_table_entry->exp_timer_wt_elem);
+    }
+    return 0;
+}
+
 void
 dump_mac_table(mac_table_t *mac_table){
 
@@ -157,12 +215,12 @@ dump_mac_table(mac_table_t *mac_table){
         count++;
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
         if(count == 1){
-            cprintf("\t|==Vlan====|========= MAC =========|==== Ports ===|\n");
+            cprintf("\t|==Vlan====|========= MAC =========|==== Ports ===|==Exp-Time(msec)==|\n");
         }
         else {
-            cprintf("\t|==========|=======================|==============|\n");
+            cprintf("\t|==========|=======================|==============|==================|\n");
         }
-        cprintf("\t|  %-6d  | %02x:%02x:%02x:%02x:%02x:%02x     | %-12s |\n", 
+        cprintf("\t|  %-6d  | %02x:%02x:%02x:%02x:%02x:%02x     | %-12s |     %-5d        |\n", 
             mac_table_entry->vlan_id,
             mac_table_entry->mac.mac[0], 
             mac_table_entry->mac.mac[1],
@@ -170,11 +228,12 @@ dump_mac_table(mac_table_t *mac_table){
             mac_table_entry->mac.mac[3], 
             mac_table_entry->mac.mac[4],
             mac_table_entry->mac.mac[5],
-            mac_table_entry->oif_name);
+            mac_table_entry->oif_name,
+            mac_table_entry_get_exp_time_left (mac_table_entry));
 
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
     if(count){
-        cprintf("\t|==========|=======================|==============|\n");
+        cprintf("\t|==========|=======================|==============|==================|\n");
     }
 }
 
@@ -197,8 +256,10 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_ma
     string_copy((char *)mac_table_entry->oif_name, oif->if_name.c_str(), IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
     mac_table_entry->oif = oif->GetSharedPtr();
+    mac_table_entry_init_timer (node, mac_table_entry);
     rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
     if(rc == false){
+        mac_table_entry_cancel_expiry_timer  (mac_table_entry);
         delete (mac_table_entry);
     }
 }
@@ -274,6 +335,8 @@ l2_switch_forward_frame(
     }
 
     mac_table_entry->oif->SendPacketOut(pkt_block);
+    mac_table_entry_cancel_expiry_timer (mac_table_entry);
+    mac_table_entry_init_timer (node, mac_table_entry);
 }
 
 void

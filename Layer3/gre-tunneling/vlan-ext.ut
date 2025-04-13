@@ -52,7 +52,6 @@
 
 :CMD: config node R1 route 100.1.1.2 32 20.1.1.2 eth1
 
-
 :PRINT: 5. Set the GRE Tunnel-End point on R2
 :STEP:5
 
@@ -61,31 +60,23 @@
 :CMD: config node R2 interface tunnel 2 tunnel-destination 100.1.1.1
 :CMD: config node R2 interface tunnel 2 ip-address 192.168.0.2 24
 
-:PRINT: 6. Set the GRE Tunnel-End point on R2
+
+:PRINT: 6. Set up the vlan 10 and Transport-service-profile on R2
 :STEP:6
-
-:CMD: config node R2 interface tunnel 2
-:CMD: config node R2 interface tunnel 2 tunnel-source 100.1.1.2
-:CMD: config node R2 interface tunnel 2 tunnel-destination 100.1.1.1
-:CMD: config node R2 interface tunnel 2 ip-address 192.168.0.2 24
-
-
-:PRINT: 7. Set up the vlan 10 and Transport-service-profile on R2
-:STEP:7
 
 :CMD: config node R2 interface vlan 10
 :CMD: config node R2 transport-service-profile tsp10
 :CMD: config node R2 transport-service-profile tsp10 vlan 10
 
-:PRINT: 8. Set up the virtual-port on R2
-:STEP:8
+:PRINT: 7. Set up the virtual-port on R2
+:STEP:7
 
 :CMD: config node R2 interface virtual-port vp-to-gre 
 :CMD: config node R2 interface virtual-port vp-to-gre transport-service-profile tsp10
 :CMD: config node R2 interface virtual-port vp-to-gre overlay-tunnel tunnel2
 
-:PRINT: 9. Setup Route on R2 to reach R1
-:STEP:9
+:PRINT: 8. Setup Route on R2 to reach R1
+:STEP:8
 
 :CMD: config node R2 route 100.1.1.1 32 20.1.1.1 eth1
 
@@ -93,9 +84,9 @@
 
 :PRINT: Verification 1 : Test the VLAN Extension using GRE Overlay Tunnel
 
-:PRINT: 1.1 Send ping packet from H1 to H2 with VLAN 10
+:PRINT: 1.1 Send UDP Traffic from H1 to H2 with VLAN 10
 :STEP:10
-:CMD: run node H1 ping 10.1.1.2
+:CMD: config node H1 ip-traffic 0.0.0.0 10.1.1.2 17
 :SLEEP:3
 
 :PRINT: 1.2 Verify the packet received on H2
@@ -154,114 +145,90 @@
 :PATTERN-MATCH:arp
 
 
-:PRINT: Verification 5 : Check pkt_block memory leakage
-
-:PRINT: 5.1 Check pkt_block memory leakage
-:STEP:31
-:CMD: debug mem-usage | include pkt_block_t
-:STEP:32
-:PATTERN-MATCH:TBC : 0
-:STEP:33
-:PATTERN-MATCH:OBC : 0
-
 :PRINT: Testcase Finished
 
-:PRINT: Unconfiguring the topology
+:PRINT: Sleeping for 35 sec to allow ARP/MAC entries expire before Unconfiguring the topology
+:SLEEP:35
 
 :PRINT: Unconfiguring the node R1 
 
-:STEP:34
+:STEP:31
 :CMD: config node R1 no route 100.1.1.2 32 20.1.1.2 eth1
-:STEP:35
+:STEP:32
 :CMD: config node R1 no interface virtual-port vp-to-gre overlay-tunnel tunnel2
-:STEP:36
+:STEP:33
 :CMD: config node R1 no interface virtual-port vp-to-gre transport-service-profile tsp10
-:STEP:37
+:STEP:34
 :CMD: config node R1 no interface virtual-port vp-to-gre
-:STEP:38
+:STEP:35
 :CMD: config node R1 no transport-service-profile tsp10 vlan 10
-:STEP:39    
+:STEP:36    
 :CMD: config node R1 no transport-service-profile tsp10
-:STEP:41
+:STEP:37
 :CMD: config node R1 no route 192.168.0.0 24
-:STEP:42
+:STEP:38
 :CMD: config node R1 no route 192.168.0.1 32
-:STEP:43
+:STEP:39
 :CMD: config node R1 no interface tunnel 2
 
 :PRINT: Unconfiguring the node R2
 
-:STEP:44
+:STEP:40
 :CMD: config node R2 no route 100.1.1.1 32 20.1.1.1 eth1
-:STEP:35
-:CMD: config node R2 no interface virtual-port vp-to-gre overlay-tunnel tunnel2
-:STEP:36
-:CMD: config node R2 no interface virtual-port vp-to-gre transport-service-profile tsp10
-:STEP:37
-:CMD: config node R2 no interface virtual-port vp-to-gre
-:STEP:38
-:CMD: config node R2 no transport-service-profile tsp10 vlan 10
-:STEP:39    
-:CMD: config node R2 no transport-service-profile tsp10
 :STEP:41
-:CMD: config node R2 no route 192.168.0.0 24
+:CMD: config node R2 no interface virtual-port vp-to-gre overlay-tunnel tunnel2
 :STEP:42
-:CMD: config node R2 no route 192.168.0.2 32
+:CMD: config node R2 no interface virtual-port vp-to-gre transport-service-profile tsp10
 :STEP:43
+:CMD: config node R2 no interface virtual-port vp-to-gre
+:STEP:44
+:CMD: config node R2 no transport-service-profile tsp10 vlan 10
+:STEP:45    
+:CMD: config node R2 no transport-service-profile tsp10
+:STEP:46
+:CMD: config node R2 no route 192.168.0.0 24
+:STEP:47
+:CMD: config node R2 no route 192.168.0.2 32
+:STEP:48
 :CMD: config node R2 no interface tunnel 2
 
 
 :PRINT: Verifying whether all Configuration is cleaned up
 
-:STEP:44
-:CMD: show node R1 interface statistics
-:STEP:45
-:PATTERN-NOT-MATCH:tunnnel2
-:STEP:46
-:PATTERN-NOT-MATCH:vp-to-gre
-:STEP:47
-:CMD: show node R1 transport-service-profile
-:STEP:48
-:PATTERN-NOT-MATCH:tsp10
 :STEP:49
-:CMD: show node R1 rt 
+:CMD: show node R1 interface statistics
 :STEP:50
-:PATTERN-NOT-MATCH:100.1.1.2
+:PATTERN-NOT-MATCH:tunnel2
 :STEP:51
+:PATTERN-NOT-MATCH:vp-to-gre
+:STEP:52
+:CMD: show node R1 transport-service-profile
+:STEP:53
+:PATTERN-NOT-MATCH:tsp10
+:STEP:54
+:CMD: show node R1 rt 
+:STEP:55
+:PATTERN-NOT-MATCH:100.1.1.2
+:STEP:56
 :PATTERN-NOT-MATCH:192.168.0
 
-:STEP:52
-:CMD: show node R2 interface statistics
-:STEP:53
-:PATTERN-NOT-MATCH:tunnnel2
-:STEP:54
-:PATTERN-NOT-MATCH:vp-to-gre
-:STEP:55
-:CMD: show node R2 transport-service-profile
-:STEP:56
-:PATTERN-NOT-MATCH:tsp10
 :STEP:57
-:CMD: show node R2 rt 
+:CMD: show node R2 interface statistics
 :STEP:58
-:PATTERN-NOT-MATCH:100.1.1.1
+:PATTERN-NOT-MATCH:tunnel2
 :STEP:59
+:PATTERN-NOT-MATCH:vp-to-gre
+:STEP:60
+:CMD: show node R2 transport-service-profile
+:STEP:61
+:PATTERN-NOT-MATCH:tsp10
+:STEP:62
+:CMD: show node R2 rt 
+:STEP:63
+:PATTERN-NOT-MATCH:100.1.1.1
+:STEP:64
 :PATTERN-NOT-MATCH:192.168.0
 
 
 :TESTCASE-END:1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

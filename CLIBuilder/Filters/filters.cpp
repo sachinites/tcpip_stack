@@ -70,6 +70,9 @@ SetFilterContext (tlv_struct_t **lfilter_array, int lsize) {
 
     filter_array = lfilter_array;
     filter_array_size = lsize;
+    /* Reset the Cum buffer for the next show command */
+    memset (Cumbuffer, 0, cum_buffer_byte_cnt);
+    cum_buffer_byte_cnt = 0;
 }
 
 void 

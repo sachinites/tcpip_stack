@@ -1,0 +1,13 @@
+# Run the topology 
+rm -f CLIBuilder/utinfra/ut_log_file.txt
+
+# Set the topology
+Topology : vlan_extension_topo()
+run ut Layer3/gre-tunneling/vlan-ext.ut 0
+
+# Set the topology
+Topology : cross_link_topology()
+run ut Layer3/isis/ut/isis_tc.ut 0
+run ut Layer3/isis/ut/isis_lan_dis_test.ut 0
+run ut Layer3/isis/ut/isis_export_rt_test.ut 0
+

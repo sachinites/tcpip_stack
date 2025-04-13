@@ -79,6 +79,10 @@ extern void sql_build_cli_tree (param_t *root) ;
 extern void 
 ipv6_build_cli_run_tree (param_t *root) ;
 
+extern int ip_traffic_generate_handler(int cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable);
+
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
@@ -530,7 +534,11 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                         }
                     }
 
-                    uint32_t gw_ip_int = tcp_ip_convert_ip_p_to_n (gwip);
+                    uint32_t gw_ip_int = 0;
+
+                    if (gwip) {
+                        gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
+                    }
 
                     /* If Gw and OIF is specified, then Gw must belong to subnet 
                         configured on an interface */
@@ -1050,6 +1058,7 @@ nw_init_cli(){
                     }
                 }
             }
+
             {
                 /*run node <node-name> resolve-arp*/    
                 static param_t resolve_arp;
@@ -1133,6 +1142,42 @@ nw_init_cli(){
             /* Mount ipv6 CLIs*/
             ipv6_build_cli_tree (&node_name);
         }
+
+        {
+            /* config node <node-name> ip-traffic <src-addr> <dst-addr> <protocol>*/
+            static param_t traffic;
+            init_param(&traffic, CMD, "ip-traffic", 0, 0, INVALID, 0, "IP Traffic Generator");
+            libcli_register_param(&node_name, &traffic);
+            {
+                static param_t src_addr;
+                init_param(&src_addr, LEAF, 0, 0, 0, IPV4, "src-addr", "Source Address");
+                libcli_register_param(&traffic, &src_addr);
+                {
+                    static param_t dst_addr;
+                    init_param(&dst_addr, LEAF, 0, 0, 0, IPV4, "dst-addr", "Destination Address");
+                    libcli_register_param(&src_addr, &dst_addr);
+                    {
+                        static param_t protocol;
+                        init_param(&protocol, LEAF, 0, ip_traffic_generate_handler, 0, INT, "protocol", "Protocol");
+                        libcli_register_param(&dst_addr, &protocol);
+                        libcli_set_param_cmd_code(&protocol, CMDCODE_RUN_TRAFFIC);
+                        {
+                                /* run node <node-name> ip-traffic <src-addr> <dst-addr> <protocol> count <count>*/
+                                static param_t count;
+                                init_param(&count, CMD, "count", 0, 0, INVALID, 0, "Count");
+                                libcli_register_param(&protocol, &count);
+                                {
+                                    static param_t count_value;
+                                    init_param(&count_value, LEAF, 0, ip_traffic_generate_handler, 0, INT, "count", "No of packets to send");
+                                    libcli_register_param(&count, &count_value);
+                                    libcli_set_param_cmd_code(&count_value, CMDCODE_RUN_TRAFFIC);
+                                }
+                        }
+                    }
+                }
+            }
+        }
+
 
         {
             /* conf node <node-name> rib <rib-name> import-policy <prefix-lst-name> */

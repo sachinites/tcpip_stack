@@ -50,7 +50,10 @@ typedef enum struct_index_
 
     /* Mtrie */
     MM_INDEX(mtrie_t),
-    MM_INDEX(mtrie_node_t)
+    MM_INDEX(mtrie_node_t),
+
+    /* RT Table Structures */
+    MM_INDEX(rt_route_flash_request_t)
 
 
     /* Add more Application structure Index here */

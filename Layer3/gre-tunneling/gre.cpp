@@ -48,7 +48,7 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
 bool
 gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
     
-    int i = 0;
+    int i = -1;
     Interface *tunnel;
     uint32_t if_change_flags = 0;
     byte intf_name[IF_NAME_SIZE];
@@ -57,16 +57,9 @@ gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-   ITERATE_NODE_INTERFACES_BEGIN(node, tunnel) {
+    tunnel = node_get_intf_by_name_with_idx_pos (node, (const char *)intf_name, &i);
 
-        i++;
-        if (!tunnel) continue;
-        if (string_compare (tunnel->if_name.c_str(), intf_name, IF_NAME_SIZE)) continue;
-        break;
-
-    } ITERATE_NODE_INTERFACES_END(node, intf);
-
-    if (i == MAX_INTF_PER_NODE) {
+    if (!tunnel) {
         cprintf ("Error : Tunnel %s Do Not  Exist\n", intf_name);
         return false;
     }
@@ -76,11 +69,12 @@ gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
         return false;
     }
 
+    interface_uninstall_local_v4_routes  (node, tunnel);
 
     /* Send Delete notification to all Subscribers */
      SET_BIT(if_change_flags, IF_DELETE_F);
      nfc_intf_invoke_notification_to_sbscribers(
-	tunnel, &intf_prop_changed, if_change_flags);        
+	    tunnel, &intf_prop_changed, if_change_flags);        
 
     node->intf[i] = nullptr;
     return true;

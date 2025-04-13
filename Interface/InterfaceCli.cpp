@@ -503,26 +503,16 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             case CONFIG_ENABLE:
             {                
                 if (vlan_intf->is_up) return 0;
-
                 vlan_intf->is_up = true;
-
-                if (vlan_intf->IsIpConfigured ()) {
-                    interface_install_local_v4_routes  (node, vlan_intf);
-                }
-
+                interface_install_local_v4_routes  (node, vlan_intf);
                 SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
             }
             break;
             case CONFIG_DISABLE:
             {
                 if (vlan_intf->is_up == false) return 0;
-
                 vlan_intf->is_up = false;
-
-                if (vlan_intf->IsIpConfigured ()) {
-                    interface_uninstall_local_v4_routes (node, vlan_intf);
-                }
-
+                interface_uninstall_local_v4_routes (node, vlan_intf);
                 SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
             }
             break;
@@ -627,9 +617,8 @@ intf_config_virtual_port_create_handler ( int cmdcode,
         break;
         case CONFIG_DISABLE:
         { 
-            int i = 0;
-            Interface *intf2;
-            intf = node_get_intf_by_name(node, (const char *)intf_name);
+            int i = -1;
+            intf = node_get_intf_by_name_with_idx_pos (node, (const char *)intf_name, &i);
 
             if (!intf)
             {
@@ -642,13 +631,6 @@ intf_config_virtual_port_create_handler ( int cmdcode,
                 cprintf("Error : Virtual Port is in use\n");
                 return -1;
             }
-
-             ITERATE_NODE_INTERFACES_BEGIN(node, intf2) 
-            {
-                i++;
-                if (intf != intf2) continue;
-                break;
-            } ITERATE_NODE_INTERFACES_END(node, intf2);
 
             /* Interface us being dynamically used by some entities, send Delete notification */
             SET_BIT(if_change_flags, IF_DELETE_F);

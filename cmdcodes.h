@@ -136,4 +136,8 @@
  /* debug show node <node-name> mtrie rt6 */
 #define CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6 55
 
+ /* run node <node-name> ip-traffic <src-addr> <dst-addr> <protocol> count <count> */
+#define CMDCODE_RUN_TRAFFIC 56
+
+
 #endif /* __CMDCODES__ */

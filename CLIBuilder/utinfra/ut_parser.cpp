@@ -55,7 +55,7 @@ ut_parser_init ( ) {
     attr.mq_curmsgs = 0;
 
     if ((UT_PARSER_MSG_Q_FD = mq_open("/ut_parser_msg_q",
-                                      O_RDWR | O_CREAT,
+                                      O_RDWR | O_CREAT | O_NONBLOCK,
                                       QUEUE_PERMISSIONS, &attr)) == -1) {
 
         printw("UT Parser mq_open failed, errno = %d\n", errno);
@@ -276,8 +276,10 @@ run_test_case(char *file_name, uint16_t tc_no) {
                 fflush(ut_log_file);
                 cmdtc_parse_raw_command ((unsigned char *)token, strlen (token));
 
-                /* block if it is show command */
-                if (pattern_match(token, strlen(token), "show") && 
+                /* Block if it is show command. 
+                    All commands are operational except config command */
+                if ( ( pattern_match(token, strlen(token), "show") )
+                        && 
                         TC_RUNNING) {   /* You can load the cmds without testcase script */
 
                     if (ut_parser_debug) {
