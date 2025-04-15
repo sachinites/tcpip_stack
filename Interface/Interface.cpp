@@ -244,7 +244,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 Interface::~Interface()
 {
     InterfaceReleaseAllResources();
-    printw ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
+    ConsOut ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
 }
 
 InterfaceP 

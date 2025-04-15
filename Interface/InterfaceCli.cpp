@@ -168,15 +168,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 cprintf ("Error : Interface do not exist\n");
                 return -1;
             }
-            
-            update_data = new ipc_interface_t;
-            update_data->intf = interface->GetSharedPtr();
 
             uint32_t intf_existing_metric = interface->GetIntfCost();
-
-            if(intf_existing_metric == intf_new_matric_val) break;
-
+            if (intf_existing_metric == intf_new_matric_val) break;
             SET_BIT(minor_code, IPC_INTERFACE_METRIC_UPDATE);
+            
             update_data = new ipc_interface_t;
             update_data->intf = interface->GetSharedPtr();
             update_data->metric = intf_existing_metric;
@@ -847,7 +843,7 @@ Interface_config_cli_tree (param_t *root) {
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
                     Interface_config_cli_common_subtree (&if_name, unsupported_configs);
-		    libcli_support_cmd_negation(&if_name);
+		            libcli_support_cmd_negation(&if_name);                               
                 }
             }
             libcli_support_cmd_negation(&interface); 

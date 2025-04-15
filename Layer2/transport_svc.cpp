@@ -263,7 +263,7 @@ transport_svc_config_handler (int cmdcode,
                 case CONFIG_ENABLE:
                     rc = tsp->AddVlan(vlan_id);
                     if (!rc) {
-                        printf ("\nError : Failed to Add Vlan %d to Transport Service Profile %s",
+                        cprintf ("\nError : Failed to Add Vlan %d to Transport Service Profile %s",
 				vlan_id, tsp_name);
                         return -1;
                     }

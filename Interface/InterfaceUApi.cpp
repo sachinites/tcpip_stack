@@ -103,16 +103,9 @@ interface_loopback_delete (node_t *node, uint8_t lono) {
     snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+    intf = node_get_intf_by_name_with_idx_pos (node, (const char *)loopback_name, &i);
 
-        i++;
-        if (!intf) continue;
-        if (string_compare (intf->if_name.c_str(), loopback_name, IF_NAME_SIZE)) continue;
-        break;
-
-    } ITERATE_NODE_INTERFACES_END(node, intf);
-
-    if (i == MAX_INTF_PER_NODE) {
+    if (!intf) {
         cprintf ("Error : Loopback %s Do Not  Exist\n", loopback_name);
         return;
     }

@@ -224,6 +224,7 @@ gre_cli_config_tree (param_t *interface) {
              unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS;
              unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
              Interface_config_cli_common_subtree(&tunnel_id, unsupported_configs);
+             libcli_support_cmd_negation(&tunnel_id);
         }
     }
 

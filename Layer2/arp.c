@@ -569,10 +569,9 @@ static void
 arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
                            void *arg,
 						   uint32_t arg_size){
-
             
     UNUSED(arg_size);
-    
+
     if(!arg) return;
 	arp_entry_t *arp_entry = (arp_entry_t *)arg;
     node_t *node = (node_t *)ev_dis->app_data;
