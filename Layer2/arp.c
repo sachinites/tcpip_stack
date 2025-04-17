@@ -15,6 +15,7 @@
 #include "../utils.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
+#include "../lmm_testapp_enums.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -188,7 +189,7 @@ process_arp_broadcast_request(node_t *node, Interface *iif,
 void
 init_arp_table(arp_table_t **arp_table){
 
-    *arp_table = (arp_table_t *)XCALLOC(0, 1, arp_table_t);
+    *arp_table = (arp_table_t *)XCALLOC2(0, 1, arp_table_t);
     init_glthread(&((*arp_table)->arp_entries));
 }
 
@@ -395,7 +396,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
     node_t *node = iif->att_node;
     glthread_t *arp_pending_list = NULL;
 
-    arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC(0, 1, arp_entry_t);
+    arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC2(0, 1, arp_entry_t);
 
     tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, arp_entry->ip_addr.ip_addr);
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_ADDR_SIZE);
@@ -512,7 +513,7 @@ add_arp_pending_entry (node_t *node,
         pkt_block_t *pkt_block){
 
     arp_pending_entry_t *arp_pending_entry = 
-        (arp_pending_entry_t *)XCALLOC(0, 1, arp_pending_entry_t);
+        (arp_pending_entry_t *)XCALLOC2(0, 1, arp_pending_entry_t);
 
     init_glthread(&arp_pending_entry->arp_pending_entry_glue);
     arp_pending_entry->cb = cb;
@@ -553,7 +554,7 @@ create_arp_sane_entry(node_t *node,
     tracer(node->dptr, DARP, "ARP-entry %s : Creating ARP Sane Entry\n", ip_addr);
 
     /*if ARP entry do not exist, create a new sane entry*/
-    arp_entry = (arp_entry_t *)XCALLOC(0, 1,arp_entry_t);
+    arp_entry = (arp_entry_t *)XCALLOC2(0, 1,arp_entry_t);
     string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     arp_entry->ip_addr.ip_addr[15] = '\0';
     init_glthread(&arp_entry->arp_pending_list);
@@ -639,7 +640,7 @@ arp_entry_get_exp_time_left(
 bool
 arp_entry_add(node_t *node, unsigned char *ip_addr, mac_addr_t mac, Interface *oif, uint16_t proto) {
 
-    arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC (0 , 1, arp_entry_t );
+    arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC2 (0 , 1, arp_entry_t );
     string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     memcpy(arp_entry->mac_addr.mac, mac.mac, MAC_ADDR_SIZE);
     arp_entry->proto = proto;

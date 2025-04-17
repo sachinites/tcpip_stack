@@ -30,6 +30,7 @@
 #include "pkt_block.h"
 #include "common/l3_hdrs.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
+#include "lmm_testapp_enums.h"
 
 void
 pkt_block_mem_init () {
@@ -46,7 +47,7 @@ pkt_block_get_starting_hdr(pkt_block_t *pkt_block) {
 pkt_block_t *
 pkt_block_get_new2(uint8_t *pkt, pkt_size_t pkt_size, const char *fn_name, uint16_t lineno) {
 
-    pkt_block_t *pkt_block = (pkt_block_t *)XCALLOC(0, 1, pkt_block_t);
+    pkt_block_t *pkt_block = (pkt_block_t *)XCALLOC2(0, 1, pkt_block_t);
     pkt_block->pkt_id = 0;
     pkt_block->pkt = pkt;
     pkt_block->pkt_size = pkt_size;
@@ -59,7 +60,7 @@ pkt_block_get_new2(uint8_t *pkt, pkt_size_t pkt_size, const char *fn_name, uint1
 pkt_block_t *
 pkt_block_get_new_pkt_buffer2(pkt_size_t pkt_size, const char *fn_name, uint16_t lineno) {
 
-    pkt_block_t *pkt_block = (pkt_block_t *)XCALLOC(0, 1, pkt_block_t);
+    pkt_block_t *pkt_block = (pkt_block_t *)XCALLOC2(0, 1, pkt_block_t);
     pkt_block->pkt_id = 0;
     pkt_block->pkt = (uint8_t *)tcp_ip_get_new_pkt_buffer(pkt_size);
     pkt_block->pkt_size = pkt_size;
@@ -269,7 +270,7 @@ pkt_block_set_new_pkt(pkt_block_t *pkt_block, uint8_t *pkt, pkt_size_t pkt_size)
 pkt_block_t *
 pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
 
-    pkt_block_t *pkt_block2 = (pkt_block_t *)XCALLOC(0, 1, pkt_block_t );
+    pkt_block_t *pkt_block2 = (pkt_block_t *)XCALLOC2(0, 1, pkt_block_t );
     pkt_block2->pkt_id = 0;
     pkt_block2->pkt = (uint8_t *) tcp_ip_get_new_pkt_buffer(pkt_block->pkt_size);
     memcpy(pkt_block2->pkt , pkt_block->pkt, pkt_block->pkt_size);

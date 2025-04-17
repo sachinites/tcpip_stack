@@ -37,7 +37,7 @@ tcp_stack_miscellaneous_mem_init() ;
 void
 tcp_stack_miscellaneous_mem_init() {
 
-    pkt_block_mem_init();
+    //pkt_block_mem_init();
     pkt_notif_data_mem_init();
     pkt_tracer_mem_init ();
     acl_mem_init();

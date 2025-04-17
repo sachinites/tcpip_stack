@@ -12,11 +12,14 @@ typedef struct event_dispatcher_ event_dispatcher_t;
 
 typedef struct ips_ {
 
+    void *msg;
+    void (*free_fn) (node_t *, void *);
     ips_major_code_t major_code;
     uint32_t minor_code;
-    void *msg;
     uint32_t msg_size;
-
+    bool free_after_use;
+    char padding[3];
+    
 }  ips_t;
 
 typedef void (*ipc_recvr_fn_cbk) (node_t *node, 
@@ -56,6 +59,7 @@ cp_ips_send (node_t *node,
                         uint32_t minor_code,
                         void *msg, 
                         uint32_t msg_size,
-                        bool free_after_use);
+                        bool free_after_use,
+                        void (*free_fn)(node_t*, void *) ) ;
 
 #endif 

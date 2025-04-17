@@ -53,8 +53,21 @@ typedef enum struct_index_
     MM_INDEX(mtrie_node_t),
 
     /* RT Table Structures */
-    MM_INDEX(rt_route_flash_request_t)
+    MM_INDEX(rt_route_flash_request_t),
 
+    /* Pkt Block */
+    MM_INDEX(pkt_block_t),
+
+    /* Layer2 Structures */
+    MM_INDEX(arp_hdr_t),
+    MM_INDEX(ethernet_hdr_t),
+    MM_INDEX(arp_table_t),
+    MM_INDEX(arp_pending_entry_t),
+    MM_INDEX(arp_entry_t),
+    MM_INDEX(vlan_8021q_hdr_t),
+    MM_INDEX(vlan_ethernet_hdr_t),
+    MM_INDEX(mac_table_t)
+    //MM_INDEX(mac_table_entry_t),
 
     /* Add more Application structure Index here */
 

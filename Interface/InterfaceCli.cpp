@@ -187,7 +187,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 default: ;
             }
             cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true);
+                    update_data, sizeof (*update_data), true,  NULL);
         }    
         break;
 
@@ -240,7 +240,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
             if (minor_code) {
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true);
+                    update_data, sizeof (*update_data), true, 0);
             }
         }
         break;
@@ -274,7 +274,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->is_switchport = old_switchport_status;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true);
+                    update_data, sizeof (*update_data), true, 0);
             }
         }
         break;
@@ -311,7 +311,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->access_vlan = old_access_vlan;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true);
+                    update_data, sizeof (*update_data), true, 0);
             }
         }
         break;
@@ -366,7 +366,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->ipv4_addr.ip_addr = old_ip_addr;
                 update_data->ipv4_addr.mask = old_mask;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                        update_data, sizeof (*update_data), true);            
+                        update_data, sizeof (*update_data), true, 0);            
             }
         }
         break;
@@ -478,7 +478,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->ipv4_addr.ip_addr = old_ip_addr;
                 update_data->ipv4_addr.mask = old_mask;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                        update_data, sizeof (*update_data), true);            
+                        update_data, sizeof (*update_data), true, 0);            
             }
         }
         break;
@@ -520,7 +520,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->up_status = !vlan_intf->IsInterfaceUp(0);
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true);
+                    update_data, sizeof (*update_data), true, 0);
             }
 
         }

@@ -75,19 +75,39 @@ ipc_event_signal (event_dispatcher_t *ev_dis, void *data, uint32_t data_size) {
 	
 	for ( ; ips;  ips = (ips_t *) task_get_next_pkt(ev_dis, &data_size)) {
         ipc_notify_ips (node, ips);
-        free(ips);
 	}
 }
 
 static void
-ipc_msg_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)  { delete (arg); }
+ips_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)  { 
+
+    ips_t *ips = (ips_t *)arg;
+    node_t *node = (node_t *) (ev->app_data );
+
+    if (!ips->free_after_use) {
+        free (ips);
+        return;
+    }
+
+    if (ips->free_fn) {
+
+        ips->free_fn (node, ips->msg);
+    }
+    else {
+        
+        delete ips->msg;
+    }
+
+    ips->msg = NULL;
+    free (ips);
+}
 
 static void
-ipc_msg_free_after_use (event_dispatcher_t *ev, void *msg) {
+ipc_msg_free_after_use (event_dispatcher_t *ev,  ips_t *ips) {
 
 	task_create_new_job (ev, 
-									    msg,
-										ipc_msg_destroy,
+									    (void *)ips,
+										ips_destroy,
 										TASK_ONE_SHOT,  
 										TASK_PRIORITY_GARBAGE_COLLECTOR);
 }
@@ -98,13 +118,16 @@ cp_ips_send (node_t *node,
                         uint32_t minor_code,
                         void *msg, 
                         uint32_t msg_size,
-                        bool free_after_use) {
+                        bool free_after_use,
+                        void (*free_fn)(node_t*, void *) ) {
 
     ips_t *ips = (ips_t *)calloc(1, sizeof(ips_t));
     ips->major_code = major_code;
     ips->minor_code = minor_code;
     ips->msg = msg;
     ips->msg_size = msg_size;
+    ips->free_fn = free_fn;
+    ips->free_after_use = free_after_use;
     pkt_q_enqueue(EV(node), &node->cp_ipc_q, (char *)ips, sizeof(ips_t));
-    if (free_after_use) ipc_msg_free_after_use (EV(node), msg);
+    ipc_msg_free_after_use (EV(node), ips);
 }

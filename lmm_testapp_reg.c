@@ -26,6 +26,7 @@
 
 /* Lib Hdr files */
 #include "mtrie/mtrie.h"
+#include "pkt_block.h"
 
 /* Notification files */
 #include "Layer3/rt_notif.h"
@@ -85,6 +86,20 @@ vm_page_family_t vm_page_family_array[] =
 
     /* RT Table Structures */
     MM_REG_STRUCT2(rt_route_flash_request_t),
+
+    /* Pkt block */
+    MM_REG_STRUCT2(pkt_block_t),
+
+    /* Layer2 Structures*/
+    MM_REG_STRUCT2(arp_hdr_t),
+    MM_REG_STRUCT2(ethernet_hdr_t),
+    MM_REG_STRUCT2(arp_table_t),
+    MM_REG_STRUCT2(arp_pending_entry_t),
+    MM_REG_STRUCT2(arp_entry_t),
+    MM_REG_STRUCT2(vlan_8021q_hdr_t),
+    MM_REG_STRUCT2(vlan_ethernet_hdr_t),
+    MM_REG_STRUCT2(mac_table_t),
+    //MM_REG_STRUCT2(mac_table_entry_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

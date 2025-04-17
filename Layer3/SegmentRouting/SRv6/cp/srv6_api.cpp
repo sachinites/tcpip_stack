@@ -11,6 +11,7 @@
 #include "../../../ipv6/v6nexthop.h"
 #include "../../../../Tracer/tracer.h"
 #include "srv6_sid_pool.h"
+#include "../../../../lmm_testapp_enums.h"
 
 bool 
 srv6_is_enable (node_t *node) {
@@ -25,10 +26,10 @@ srv6_init (node_t *node) {
 
     srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
 
-    node_info->configured_pfx_sids = (mtrie_t *)XCALLOC (0, 1, mtrie_t);
+    node_info->configured_pfx_sids = (mtrie_t *)XCALLOC2 (0, 1, mtrie_t);
     init_mtrie(node_info->configured_pfx_sids, 128, 0);
 
-    node_info->configured_adj_sids = (mtrie_t *)XCALLOC (0, 1, mtrie_t);
+    node_info->configured_adj_sids = (mtrie_t *)XCALLOC2 (0, 1, mtrie_t);
     init_mtrie(node_info->configured_adj_sids, 128, 0);    
 
     /* Enable Tracer*/

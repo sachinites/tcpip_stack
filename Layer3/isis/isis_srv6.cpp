@@ -47,7 +47,7 @@ isis_enable_srv6 (node_t *node) {
 
     if (node_info->srv6_config) return;
     
-    node_info->srv6_config = (isis_srv6_config_t *)XCALLOC(0, 1, isis_srv6_config_t);
+    node_info->srv6_config = (isis_srv6_config_t *)XCALLOC2(0, 1, isis_srv6_config_t);
     avltree_init (&node_info->srv6_config->pfxsid_tree, avltree_pfx_sid_cmp);
     avltree_init (&node_info->srv6_config->adj_sid_tree, avltree_adj_sid_cmp);
 
@@ -117,7 +117,7 @@ void
     advt_data = node_info->tlv_global_advt.rtr_cap_adv_data_tlv242;
     assert (!advt_data);
 
-    advt_data = (isis_adv_data_t *)XCALLOC(0, 1, isis_adv_data_t);
+    advt_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     node_info->tlv_global_advt.rtr_cap_adv_data_tlv242 = advt_data;
 
     /* Initialize the advt  data */
