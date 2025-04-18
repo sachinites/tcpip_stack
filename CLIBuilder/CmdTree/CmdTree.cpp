@@ -180,6 +180,11 @@ libcli_set_tail_config_batch_processing (param_t *param) {
     }
 }
 
+void 
+libcli_set_inbuilt_param (param_t *param) {
+    param->flags |= PARAM_F_INBUILD_CMD;
+}
+
 static void 
  libcli_build_default_cmdtree() {
 
@@ -231,6 +236,7 @@ static void
         init_param (&help, CMD, "help", show_help_handler, NULL, INVALID, NULL, "KYC (Know Your CLI)");
         libcli_register_param(hook, &help);
         libcli_set_param_cmd_code(&help, SHOW_CLI_HELP);
+        libcli_set_inbuilt_param  (&help);
     }
     {
         /*show history*/
@@ -238,6 +244,7 @@ static void
         init_param (&history, CMD, "history", show_history_handler, NULL, INVALID, NULL, "CLI history");
         libcli_register_param(hook, &history);
         libcli_set_param_cmd_code(&history, SHOW_CLI_HISTORY);        
+        libcli_set_inbuilt_param  (&history);
     }
 
     hook = libcli_get_run_hook();
@@ -256,6 +263,7 @@ static void
                 init_param(&tc_no, LEAF, 0, ut_test_handler, 0, INT, "tc-no", "Test Case Number");
                 libcli_register_param(&ut_file_path, &tc_no);
                 libcli_set_param_cmd_code(&tc_no, CMDCODE_RUN_UT_TC);
+                libcli_set_inbuilt_param(&tc_no);
             }   
         }   
     }
@@ -265,6 +273,7 @@ static void
         static param_t terminate;
         init_param(&terminate, CMD, "term", cli_terminate_handler, 0, INVALID, 0, "Terminate appln");
         libcli_register_param(&run, &terminate);
+        libcli_set_inbuilt_param(&terminate);
     }
 
     hook = libcli_get_debug_hook();
@@ -278,6 +287,7 @@ static void
             init_param(&enable, LEAF, 0, ut_test_handler, NULL,  STRING, "ut-enable", "enable | disable");
             libcli_register_param(&ut, &enable);
             libcli_set_param_cmd_code(&enable, CMDCODE_DEBUG_UT);
+            libcli_set_inbuilt_param(&enable);
         }
     }
  }

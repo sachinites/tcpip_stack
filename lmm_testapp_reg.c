@@ -31,6 +31,11 @@
 /* Notification files */
 #include "Layer3/rt_notif.h"
 
+/* LFA files */
+#include "Layer3/LFA/cp/lfa.h"
+#include "Layer3/LFA/cp/lfa_isis.h"
+
+
 /* Create static array of vm_page_family_t */
 
 #define MM_REG_STRUCT2(structname) \
@@ -100,6 +105,9 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(vlan_ethernet_hdr_t),
     MM_REG_STRUCT2(mac_table_t),
     //MM_REG_STRUCT2(mac_table_entry_t),
+
+    /* LFA Structures*/
+    MM_REG_STRUCT2(lfa_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

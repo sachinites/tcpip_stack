@@ -64,4 +64,7 @@ isis_show_lspdb(node_t *node) ;
 void
 isis_free_dummy_lsp_pkt(node_t *node);
 
+void 
+isis_ips_send_lsp_update (node_t *node, isis_lsp_pkt_t *lsp_pkt, bool add);
+
 #endif /* */

@@ -269,6 +269,7 @@ isis_protocol_shut_down(node_t *node) {
     SET_BIT( node_info->event_control_flags, 
         ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
 
+    isis_ips_send_lsp_update (node, 0, false);
     isis_launch_prior_shutdown_tasks(node);
 }
 

@@ -55,6 +55,11 @@ typedef enum ips_msg_code_ {
     #define IPC_ACCESS_LIST_DEL 2
     #define IPC_ACCESS_LIST_UPDATE 4
 
+    IPC_LFA_ISIS,
+    #define IPC_LFA_ISIS_LSP_ADD 1
+    #define IPC_LFA_ISIS_LSP_DEL 2
+    #define IPC_LFA_ISIS_LSP_DEL_ALL 4
+
     IPC_MSG_TYPE_MAX
 
 } ips_major_code_t;

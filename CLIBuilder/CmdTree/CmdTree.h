@@ -37,6 +37,7 @@ typedef union _param_t{
 } _param_t;
 
 struct _param_t_{
+    
     _param_t cmd_type;
     cmd_callback callback;
     char help[PARAM_HELP_STRING_SIZE];
@@ -46,7 +47,9 @@ struct _param_t_{
     glthread_t glue;
     param_type_t param_type;
     int CMDCODE;
-    uint8_t flags;
+    uint32_t flags;
+    char padding[4];
+
 } __attribute__((aligned(8))) ;
 GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 
@@ -68,6 +71,8 @@ GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 #define PARAM_F_RECURSIVE   16
 #define PARAM_F_REG_EX_MATCH    32
 #define PARAM_F_INVOKE_DIRECT   64
+#define PARAM_F_INBUILD_CMD 128
+
 
 void 
 cmd_tree_init ();

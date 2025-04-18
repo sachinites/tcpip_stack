@@ -71,7 +71,7 @@ class Interface {
         std::atomic<access_list_t *> l3_ingress_acc_lst2;
         std::atomic<access_list_t *> l3_egress_acc_lst2;
 
-        /* L5 protocols */
+        /* L3 protocols */
         isis_intf_info_t *isis_intf_info;
         
         bool is_up;

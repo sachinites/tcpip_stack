@@ -89,15 +89,9 @@ ips_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)  {
         return;
     }
 
-    if (ips->free_fn) {
-
-        ips->free_fn (node, ips->msg);
-    }
-    else {
-        
-        delete ips->msg;
-    }
-
+    if (ips->free_fn)  ips->free_fn (node, ips->msg);
+    else if (ips->msg ) delete ips->msg;
+    
     ips->msg = NULL;
     free (ips);
 }

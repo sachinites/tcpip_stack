@@ -12,9 +12,13 @@ ISIS_LIB_PATH=-LLayer3/isis -lisis
 # proto Libs
 SRV6_LIB=Layer3/SegmentRouting/SRv6/libsrv6.a
 SRV6_LIB_PATH=-LLayer3/SegmentRouting/SRv6 -lsrv6
+# proto Libs
+LFA_LIB=Layer3/LFA/liblfa.a
+LFA_LIB_PATH=-LLayer3/LFA -llfa
 
 LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
+			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
 		    -LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
@@ -125,7 +129,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a 
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a 
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -287,6 +291,8 @@ ${ISIS_LIB}:
 	(cd Layer3/isis; make)
 ${SRV6_LIB}:
 	(cd Layer3/SegmentRouting/SRv6; make)
+${LFA_LIB}:
+	(cd Layer3/LFA; make)
 
 clean:
 	rm -f *.o
@@ -302,6 +308,7 @@ clean:
 	rm -f Layer5/*.o
 	(cd Layer3/isis; make clean)
 	(cd Layer3/SegmentRouting/SRv6; make clean)
+	(cd Layer3/LFA; make clean)
 	rm -f libtimer/*.o
 	rm -f EventDispatcher/*.o
 	rm -f BitOp/*.o

@@ -1690,13 +1690,21 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                         cmdtc->tlv_stack->top = i;
 
                         #ifndef SCHED_SUBMISSION
-                        if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                            cli_cmdtc->success = false;
-                            break;
-                        }
+                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                                cli_cmdtc->success = false;
+                                break;
+                            }
                         #else
-                        task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                            if (param->flags & PARAM_F_INBUILD_CMD) {
+                                if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                                    cli_cmdtc->success = false;
+                                }
+                            }
+                            else {
+                                task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                            }
                         #endif
+
                     }
                     cmdtc->tlv_stack->top = cmdtc->params_stack->top;
                     if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
@@ -1705,11 +1713,21 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                 else {
                     
                     #ifndef SCHED_SUBMISSION
-                    if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                        cli_cmdtc->success = false;
-                    }
-                    #else 
-                        task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_disable);
+                        if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                            cli_cmdtc->success = false;
+                        }
+                    #else
+                        if (param->flags & PARAM_F_INBUILD_CMD)
+                        {
+                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                            {
+                                cli_cmdtc->success = false;
+                            }
+                        }
+                        else
+                        {
+                            task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                        }
                     #endif
                     if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
                 }
@@ -1723,7 +1741,17 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                         cli_cmdtc->success = false;
                     }
                     #else 
-                    task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_disable);
+                        if (param->flags & PARAM_F_INBUILD_CMD)
+                        {
+                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                            {
+                                cli_cmdtc->success = false;
+                            }
+                        }
+                        else
+                        {
+                            task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                        }
                     #endif
                     if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
                     break;
@@ -1738,7 +1766,17 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                         cli_cmdtc->success = false;
                     }
                     #else 
-                    task_invoke_appln_cbk_handler (param, cmdtc->tlv_stack, enable_or_disable);
+                        if (param->flags & PARAM_F_INBUILD_CMD)
+                        {
+                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                            {
+                                cli_cmdtc->success = false;
+                            }
+                        }
+                        else
+                        {
+                            task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                        }
                     #endif
                     UnsetFilterContext ();
                     if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }

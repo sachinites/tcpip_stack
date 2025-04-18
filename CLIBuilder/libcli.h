@@ -53,6 +53,8 @@ void
 libcli_set_tail_config_batch_processing (param_t *param);
 
 void 
+libcli_set_inbuilt_param (param_t *param) ;
+void 
 libcli_init_done ();
 
 void

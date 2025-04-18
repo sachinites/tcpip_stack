@@ -59,10 +59,10 @@ typedef struct arp_table_ arp_table_t;
 typedef struct mac_table_ mac_table_t;
 typedef struct rt_table_ rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
-typedef struct nmp_ nmp_t;
 typedef struct stp_node_ stp_node_info_t;
 typedef struct srv6_node_info_ srv6_node_info_t ;
 typedef struct srv6_sid_pools_ srv6_sid_pools_t;
+typedef struct lfa_ lfa_t;
 
 typedef struct node_nw_prop_{
 
@@ -96,9 +96,9 @@ typedef struct node_nw_prop_{
     /* FILE Ptr to main logigng file File*/
     FILE *log_file;
     /*Device level Appln DS*/
-    nmp_t *nmp;
     void *isis_node_info;
-
+    /* LFA module*/
+    lfa_t *lfa;
     /* Device level SRV6 info */
     srv6_node_info_t *srv6_node_info;
 

@@ -66,8 +66,11 @@ typedef enum struct_index_
     MM_INDEX(arp_entry_t),
     MM_INDEX(vlan_8021q_hdr_t),
     MM_INDEX(vlan_ethernet_hdr_t),
-    MM_INDEX(mac_table_t)
+    MM_INDEX(mac_table_t),
     //MM_INDEX(mac_table_entry_t),
+
+    /* LFA Structures*/
+    MM_INDEX(lfa_t)
 
     /* Add more Application structure Index here */
 

@@ -154,6 +154,7 @@ isis_install_lsp(node_t *node,
                 ISIS_LSPDB_MGMT);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
             isis_ted_update_or_install_lsp(node, new_lsp_pkt);
+            isis_ips_send_lsp_update (node, new_lsp_pkt, true);
             isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
         }
     }
@@ -178,10 +179,12 @@ isis_install_lsp(node_t *node,
                 "with new LSP %s and flood\n",
                 ISIS_LSPDB_MGMT,
                 lsp_id_str_old, lsp_id_str_new);
+            isis_ips_send_lsp_update (node, old_lsp_pkt, false);
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
             isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
             isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
             isis_ted_update_or_install_lsp (node, new_lsp_pkt);
+            isis_ips_send_lsp_update (node, new_lsp_pkt, true);
             isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
         }
     }
@@ -235,6 +238,7 @@ isis_install_lsp(node_t *node,
             if (!purge_lsp) {
                 isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
                 isis_ted_update_or_install_lsp (node, new_lsp_pkt);
+                isis_ips_send_lsp_update (node, new_lsp_pkt, true);
                 /* Do not flood purge LSP if it do not removes LSP from our DB*/
                 isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
             }
@@ -268,12 +272,15 @@ isis_install_lsp(node_t *node,
             }
 
             isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
+            isis_ips_send_lsp_update (node, old_lsp_pkt, false);
             isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
             if (!purge_lsp) {
                 isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
                 isis_ted_update_or_install_lsp (node, new_lsp_pkt);
+                isis_ips_send_lsp_update (node, new_lsp_pkt, true);
             }
             else {
+                isis_ips_send_lsp_update (node, old_lsp_pkt, false);
                 isis_ted_uninstall_lsp (node, old_lsp_pkt);
             }
             isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
@@ -421,6 +428,7 @@ isis_cleanup_lsdb (node_t *node, bool ted_remove) {
         if (ted_remove) {
             isis_lsp_pkt_prevent_premature_deletion(lsp_pkt);
             isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+            isis_ips_send_lsp_update (node, lsp_pkt, false);
             isis_ted_uninstall_lsp (node, lsp_pkt);
             isis_lsp_pkt_relieve_premature_deletion(node, lsp_pkt);
         }
@@ -545,6 +553,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
 
     avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node));
     lsp_pkt->installed_in_db = false;
+    isis_ips_send_lsp_update (node, lsp_pkt, false);
     isis_ted_uninstall_lsp(node, lsp_pkt);
     isis_deref_isis_pkt(node, lsp_pkt);
     isis_schedule_spf_job (node, isis_event_lsp_time_out);
