@@ -586,6 +586,15 @@ isis_get_lsp_pkt_pn_id (isis_lsp_pkt_t *lsp_pkt) {
    return lsp_hdr->pn_no;
 }
 
+isis_pkt_type_t
+isis_get_pdu_type (isis_lsp_pkt_t *lsp_pkt) {
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
+    isis_pkt_hdr_t *lsp_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
+
+   return lsp_hdr->isis_pkt_type;
+}
+
 uint8_t
 isis_get_lsp_pkt_fr_no (isis_lsp_pkt_t *lsp_pkt) {
 
@@ -618,7 +627,8 @@ lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_siz
     seq_no = isis_get_lsp_pkt_seq_no (lsp_pkt);
     (*seq_no)++;
     lsp_pkt->fragment->seq_no = *seq_no;
-    isis_ted_update_or_install_lsp (node, lsp_pkt);
+    isis_ted_update_or_install_lsp (node, ISIS_TED_DB(node), lsp_pkt);
+    isis_ips_send_lsp_seqno_update (node, lsp_pkt);
     isis_schedule_lsp_flood (node, lsp_pkt, NULL);
 }
 

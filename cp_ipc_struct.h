@@ -58,7 +58,9 @@ typedef enum ips_msg_code_ {
     IPC_LFA_ISIS,
     #define IPC_LFA_ISIS_LSP_ADD 1
     #define IPC_LFA_ISIS_LSP_DEL 2
-    #define IPC_LFA_ISIS_LSP_DEL_ALL 4
+    #define IPC_LFA_ISIS_LSP_L1_DEL_ALL 4
+    #define IPC_LFA_ISIS_LSP_L2_DEL_ALL 8
+    #define IPC_LFA_ISIS_LSP_SEQNO_UPDATE 16
 
     IPC_MSG_TYPE_MAX
 

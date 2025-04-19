@@ -43,7 +43,13 @@ isis_debug_cli_tree(param_t *param) ;
 int
 srv6_build_global_config_cli_tree (param_t *root) ;
 
-void 
+int
 srv6_build_cli_show_tree (param_t *root);
+
+int
+lfa_show_cli_tree(param_t *param);
+
+int
+lfa_config_cli_tree(param_t *param) ;
 
 #endif /* __APP_HANDLERS__ */

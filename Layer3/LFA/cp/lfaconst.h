@@ -9,6 +9,8 @@
 #define RSVP_LFA_INDEX  4
 #define MAX_LFA_INDEX  5
 
+#define FOR_ALL_LFA_INDEXES(i)  \
+    for (i = 0; i < MAX_LFA_INDEX; i++)
 
 #define TR_LFA_ISIS (1 << 0)
 #define TR_LFA_DB_UPDATE (1 << 1)
@@ -18,6 +20,7 @@
 #define TR_LFA_LFA (1 << 5)
 #define TR_LFA_TILFA (1 << 6)
 #define TR_LFA_EVENTS ( 1<< 7)
+#define TR_LFA_ERROR (1 << 8)
 #define TR_LFA_ALL  (0xFFFFFFFF)
 
 #define LFA_NODE_INFO(node_ptr) \

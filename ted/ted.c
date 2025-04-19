@@ -273,7 +273,7 @@ ted_delete_node (ted_db_t *ted_db, ted_node_t *ted_node) {
     ted_prefix_tree_cleanup_tree(ted_node);
     ted_v6prefix_tree_cleanup_tree(ted_node);
     ted_srv6prefixsid_tree_cleanup_tree(ted_node);
-    ted_db->cleanup_app_data (ted_node);
+    if (ted_db->cleanup_app_data) ted_db->cleanup_app_data (ted_node);
     ted_assert_check_protocol_data(ted_node);
     XFREE(ted_node);
 }
@@ -646,6 +646,8 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
     uint32_t rc;
     avltree_node_t *avl_node;
     ted_node_t *node = NULL;
+    
+    if (!ted_db) return 0;
 
     if (rtr_id) {
         node = ted_lookup_node(ted_db, rtr_id, pn_no);

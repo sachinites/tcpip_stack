@@ -5,6 +5,8 @@
 
 typedef struct node_ node_t;
 typedef struct lfa_  lfa_t;
+typedef struct ted_db_ ted_db_t ;
+typedef struct lfa_config_ lfa_config_t;
 
 void 
 lfa_isis_init (node_t *node, lfa_t *lfa, uint8_t level) ;
@@ -14,5 +16,8 @@ lfa_isis_deinit (node_t *node, lfa_t *lfa, uint8_t level) ;
 
 void 
  lfa_isis_cleanup(node_t *node, lfa_config_t *lfa_config);
+
+ted_db_t *
+lfa_get_isis_teddb (node_t *node, uint8_t level);
 
 #endif 

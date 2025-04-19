@@ -786,7 +786,7 @@ isis_run_handler (int cmdcode,
                     cprintf ("Error : TED-DB not initialized\n");
                     return 0;
                 }
-                isis_ted_update_or_install_lsp (node, lsp_pkt);
+                isis_ted_update_or_install_lsp (node, ISIS_TED_DB(node), lsp_pkt);  
             }
             break;
         case CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL:
@@ -809,7 +809,7 @@ isis_run_handler (int cmdcode,
                 }
                 isis_lsp_pkt_prevent_premature_deletion (lsp_pkt);
                 isis_remove_lsp_pkt_from_lspdb (node, lsp_pkt);
-                isis_ted_uninstall_lsp (node, lsp_pkt);
+                isis_ted_uninstall_lsp (node, ISIS_TED_DB(node), lsp_pkt);
                 if (isis_our_lsp (node, lsp_pkt)) {
                     isis_schedule_lsp_flood (node, lsp_pkt, NULL);
                 }

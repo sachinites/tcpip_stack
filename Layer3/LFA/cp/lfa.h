@@ -18,9 +18,10 @@ typedef struct lfa_config_ {
 
         struct {
 
-            bool enable;
             ted_db_t topo;
-            char padding[7];
+            void (*lfa_data_cleanup_fn)(ted_node_t *);
+            uint32_t lsp_add_update_recvd;
+            uint32_t lsp_del_recvd;
 
         } isis;
 
@@ -53,6 +54,13 @@ typedef struct lfa_ {
 
 void lfa_init (node_t *node, lfa_t **lfa);
 
-void lfa_cleanup (node_t *node, lfa_config_t *lfa_config, uint8_t index);
+void lfa_deinit (node_t *node, lfa_t **lfa) ;
+
+void lfa_cleanup (node_t *node, uint8_t index);
+
+bool lfa_is_enabled (node_t *node);
+
+lfa_config_t *
+lfa_get_config (node_t *node, uint8_t prot_index);
 
 #endif 

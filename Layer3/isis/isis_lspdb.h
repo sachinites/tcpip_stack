@@ -49,12 +49,6 @@ isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt);
 bool
 isis_is_lsp_pkt_installed_in_lspdb(isis_lsp_pkt_t *lsp_pkt);
 
-void
-isis_parse_lsp_tlvs(node_t *node,
-                    isis_lsp_pkt_t *new_lsp_pkt,
-                    isis_lsp_pkt_t *old_lsp_pkt,
-                    isis_event_type_t event_type);
-
 int
 isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff);
                     
@@ -66,5 +60,7 @@ isis_free_dummy_lsp_pkt(node_t *node);
 
 void 
 isis_ips_send_lsp_update (node_t *node, isis_lsp_pkt_t *lsp_pkt, bool add);
+void 
+isis_ips_send_lsp_seqno_update (node_t *node, isis_lsp_pkt_t *lsp_pkt ) ;
 
 #endif /* */

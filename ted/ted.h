@@ -268,4 +268,8 @@ ted_relocate_link_src (ted_db_t *ted_db,
                                      ted_src_fr_no_t src_fr_no,
                                      ted_src_fr_no_t dst_fr_no);
 
+void
+ted_process_ted_db_nodes (ted_db_t *ted_db, 
+                                            void (*processing_fn)(ted_node_t *)) ;
+                                     
 #endif /* __TED__ */

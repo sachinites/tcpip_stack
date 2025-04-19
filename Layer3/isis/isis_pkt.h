@@ -108,6 +108,9 @@ isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt);
 pn_id_t
 isis_get_lsp_pkt_pn_id(isis_lsp_pkt_t *lsp_pkt) ;
 
+isis_pkt_type_t
+isis_get_pdu_type (isis_lsp_pkt_t *lsp_pkt) ;
+
 uint8_t
 isis_get_lsp_pkt_fr_no (isis_lsp_pkt_t *lsp_pkt) ;
 

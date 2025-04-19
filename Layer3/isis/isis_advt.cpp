@@ -730,7 +730,7 @@ isis_discard_fragment (node_t *node, isis_fragment_t *fragment) {
     isis_fragment_unlock(node, fragment);
 
     isis_remove_lsp_pkt_from_lspdb(node, fragment->lsp_pkt);
-    isis_ted_uninstall_lsp(node, fragment->lsp_pkt);
+    isis_ted_uninstall_lsp(node, ISIS_TED_DB(node), fragment->lsp_pkt);
 
     /* Cancel fragment regeneration if scheduled*/
     if (IS_QUEUED_UP_IN_THREAD(&fragment->frag_regen_glue)) {
@@ -1126,7 +1126,7 @@ isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) {
     isis_deref_isis_pkt(node, lsp_pkt);
     isis_lsp_pkt_flood_timer_stop (lsp_pkt);
     isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
-    isis_ted_uninstall_lsp (node, lsp_pkt);
+    isis_ted_uninstall_lsp (node, ISIS_TED_DB(node), lsp_pkt);
 
     if (lsp_pkt->fragment == fragment) {
         lsp_pkt->fragment = NULL;

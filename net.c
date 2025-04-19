@@ -254,5 +254,5 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
     init_tcp_logging(node);
     srv6_pool_init_srv6_pools (&node_nw_prop->srv6_sid_pools);
-    lfa_init (node, &node_nw_prop->lfa);
+    lfa_init(node, &node_nw_prop->lfa);
 }

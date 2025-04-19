@@ -1030,7 +1030,7 @@ srv6_show_handler
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) ;
 
-void 
+int
 srv6_build_cli_show_tree (param_t *root)
 {
         {
@@ -1044,5 +1044,6 @@ srv6_build_cli_show_tree (param_t *root)
                 libcli_set_param_cmd_code(&sid,  CMD_CODE_SHOW_SRV6_SIDS );
             }
         }
+    return 0;
 }
 

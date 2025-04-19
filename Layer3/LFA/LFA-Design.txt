@@ -1,0 +1,38 @@
+
+LFA Design in TCP IP Stack Project.
+
+LFA is a spearate module which recvs topological information from Protocols (ISIs) through IPS ( Inter process Signals ).
+LFA maintains a separate TED DB to run and compute all LFA algorithms.
+
+      ISIS
+      +------------------------------------+
+      |                                    |                   Gen TED Lib
+      |                     Wrappers       |                  ++---------+
+      |                   +----------+     |                  +  ted.h   |
+      |                   |          |     |     <--Uses      |  ted.c   |
+      |                   |isis_ted.h+-----+------------------+ ted_spf.h|-------------+
+      |                   +isis_ted.c|     |                  | ted_spf.c|             |
+      |                   |          |     |                  +----------+             |
+      |                   +-----+----+     |                                           |
+      |                         |          |                                           |
+      |                         |          |                                           |
+      +--------------------+----+----------+                                           |
+                           |    |                                                      V     
+                           |    |                                               ++-----V-------+
+                  LSP(ISIS)|    |Uses                                           |   Primary    |
+                     IPS   |    |                                               |    TED DB    |
+                           |    V                                               +--------------+
+                   LFA     |    V           
+                  +--------V----V-----+     
+                  |      +------V-----+     
+                  |      | lfa_isis.h |     
+                  |      | lfa_isis.c +--------------+
+                  |      +------------+              |
+                  |                   |              |
+                  +-------------------+              |
+                                                     V
+                                                     V
+                                          +-------------------+
+                                          |   LFA TED DB      |
+                                          |                   |
+                                          +-------------------+

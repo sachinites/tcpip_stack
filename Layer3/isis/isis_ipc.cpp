@@ -62,6 +62,21 @@ isis_ips_send_lsp_update (node_t *node, isis_lsp_pkt_t *lsp_pkt, bool add) {
     }
 
     cp_ips_send (node, IPC_LFA_ISIS, 
-           IPC_LFA_ISIS_LSP_DEL_ALL, 
+           IPC_LFA_ISIS_LSP_L1_DEL_ALL, 
             0, 0, false, 0);
+}
+
+void 
+isis_ips_send_lsp_seqno_update (node_t *node, isis_lsp_pkt_t *lsp_pkt ) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return;
+
+    if (isis_is_protocol_shutdown_in_progress (node)) return;
+    
+    isis_ref_isis_pkt(lsp_pkt);
+    cp_ips_send (node, IPC_LFA_ISIS, 
+        IPC_LFA_ISIS_LSP_SEQNO_UPDATE,
+        (void *)lsp_pkt, sizeof (*lsp_pkt), 
+        true, isis_lsp_ips_free_fn);
 }

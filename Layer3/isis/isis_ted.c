@@ -12,7 +12,7 @@ extern isis_srv6_config_t *
 isis_srv6_get_config(node_t *node) ;
 
 void
-isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_ted_update_or_install_lsp (node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) {
 
     uint16_t n_tlv22;
     uint32_t metric;
@@ -201,42 +201,19 @@ isis_ted_update_or_install_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
                     tlv_len, tlv_value, tlv_buff_size);
 
     node_data->n_nbrs = n_tlv22;
-    ted_db_t *ted_db = ISIS_TED_DB(node);
     ted_create_or_update_node(ted_db, node_data, 
             prefix_tree_root, v6prefix_tree_root, srv6prefixsid_tree_root);
     XFREE(node_data);
 }
 
 void
-isis_ted_uninstall_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_ted_uninstall_lsp(node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) {
 
-    ted_db_t *ted_db = ISIS_TED_DB(node);
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
     uint8_t pn_no = isis_get_lsp_pkt_pn_id (lsp_pkt);
     ted_node_t *ted_node = ted_lookup_node(ted_db, *rtr_id, pn_no);
     if (!ted_node) return;
     ted_delete_node (ted_db, ted_node);
-}
-
-void
-isis_ted_detach_lsp (node_t *node, isis_lsp_pkt_t *lsp_pkt) {
-
-    ted_db_t *ted_db = ISIS_TED_DB(node);
-    uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
-    uint8_t pn_no = isis_get_lsp_pkt_pn_id (lsp_pkt);
-    ted_node_t *ted_node = ted_lookup_node(ted_db, *rtr_id, pn_no);
-    if (!ted_node) return;
-    isis_spf_cleanup_spf_data(ted_node);
-    ted_unplug_all_remote_interfaces (ted_node);
-}
-
-void
-isis_ted_increase_seq_no (node_t *node, uint32_t rtr_id, uint8_t pn_no) {
-
-    ted_db_t *ted_db = ISIS_TED_DB(node);
-    if (!ted_db) return;
-    ted_node_t *ted_node = ted_lookup_node(ted_db, rtr_id, pn_no);
-    ted_node->seq_no++;
 }
 
 void
