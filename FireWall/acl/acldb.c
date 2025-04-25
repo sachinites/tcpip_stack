@@ -22,6 +22,7 @@
 #include "../object_network/objects_common.h"
 #include "../object_network/object_grp_update.h"
 #include "../../CLIBuilder/libcli.h"
+#include "../../lmm_testapp_enums.h"
 
 static void
 acl_get_member_tcam_entry (
@@ -567,7 +568,7 @@ access_list_lookup_by_name (node_t *node, char *access_list_name) {
 mtrie_t *
 access_list_get_new_tcam_mtrie () {
 
-    mtrie_t *mtrie = (mtrie_t *)XCALLOC(0, 1, mtrie_t);
+    mtrie_t *mtrie = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
     init_mtrie(mtrie, ACL_PREFIX_LEN, access_list_mtrie_app_data_free_cbk);
     return mtrie;
 }
