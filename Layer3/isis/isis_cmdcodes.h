@@ -131,4 +131,14 @@
         end-sid <ipv6-address> flavor [ psp | usp | usd ]*/
 #define CMDCODE_CONF_NODE_ISIS_PROTO_SRV6_LOCATOR_END_SID 55
 
+/* FRR */
+/* config node <node-name> [no] protocol isis fast-reroute */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_FRR 56
+/* config node <node-name> [no] protocol isis fast-reroute remote-backup-calculation */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_FRR_RBC 57
+/* config node <node-name> [no] protocol isis frr node-link-degradation */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_FRR_NLD 58
+/* config node <node-name> [no] protocol isis fast-reroute use-source-packet-routing */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_FRR_USE_SPR 59
+
 #endif /* __ISIS_CMDCODES__ */

@@ -31,4 +31,6 @@
 
 #define LFA_ISIS_LSP_LOG "ISIS LSP"
 
+#define LFA_MAX_PROTECTION 8
+
 #endif 

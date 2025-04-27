@@ -15,7 +15,7 @@
 #include "../utils.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
-#include "../lmm_testapp_enums.h"
+#include "../lmm_enums.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 

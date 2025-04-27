@@ -89,11 +89,11 @@ OBJS=gluethread/glthread.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
-		  lmm_testapp_reg.o \
+		  lmm_reg.o \
 		  sql_cli.o \
 
-lmm_testapp_reg.o:lmm_testapp_reg.c
-	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_testapp_reg.c -o lmm_testapp_reg.o
+lmm_reg.o:lmm_reg.c
+	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
 
 sql_cli.o:sql_cli.cpp
 	${CC} ${CFLAGS} -c sql_cli.cpp -o sql_cli.o

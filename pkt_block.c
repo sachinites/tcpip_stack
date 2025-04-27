@@ -30,7 +30,7 @@
 #include "pkt_block.h"
 #include "common/l3_hdrs.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
-#include "lmm_testapp_enums.h"
+#include "lmm_enums.h"
 
 void
 pkt_block_mem_init () {

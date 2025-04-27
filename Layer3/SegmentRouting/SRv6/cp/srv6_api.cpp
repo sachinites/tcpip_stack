@@ -11,7 +11,7 @@
 #include "../../../ipv6/v6nexthop.h"
 #include "../../../../Tracer/tracer.h"
 #include "srv6_sid_pool.h"
-#include "../../../../lmm_testapp_enums.h"
+#include "../../../../lmm_enums.h"
 
 bool 
 srv6_is_enable (node_t *node) {

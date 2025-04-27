@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "../../../LinuxMemoryManager/uapi_mm.h"
-#include "../../../lmm_testapp_enums.h"
+#include "../../../lmm_enums.h"
 #include "../../../graph.h"
 #include "../../../Tracer/tracer.h"
 
@@ -102,4 +102,104 @@ lfa_get_config (node_t *node, uint8_t prot_index) {
 
     lfa_config_t *lfa_config = &lfa->lfa_config[prot_index];
     return lfa_config;
+}
+
+lfa_protected_resource_t *
+lfa_get_available_protected_resource_slot (
+        lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION]) {
+
+    int i;
+    lfa_protected_resource_t  *pr_res;
+
+    for (i = 0; i < LFA_MAX_PROTECTION; i++) {
+            
+        pr_res = &(*arr)[i];
+        if (!pr_res->link_protection && 
+            !pr_res->node_protection && 
+            !pr_res->srlg_protection) return pr_res;
+    }
+
+    return NULL;
+}
+
+lfa_protected_resource_t *
+lfa_get_link_protection_resource (
+        lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION], 
+        uint32_t ifindex) {
+
+    int i;
+    lfa_protected_resource_t  *pr_res;
+
+    for (i = 0; i < LFA_MAX_PROTECTION; i++) {
+            
+        pr_res = &(*arr)[i];
+        if (!pr_res->link_protection) continue;
+        if (pr_res->u.ifindex == ifindex) return pr_res;
+    }
+
+    return NULL;
+}
+
+lfa_protected_resource_t *
+lfa_enable_link_protection (lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION], uint32_t ifindex) {
+
+    lfa_protected_resource_t *pr_res;
+    pr_res = lfa_get_available_protected_resource_slot (arr);
+    if (!pr_res) return NULL;
+    pr_res->link_protection = true;
+    pr_res->u.ifindex = ifindex;
+    return pr_res;
+}
+
+void
+lfa_disable_link_protection (lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION], uint32_t ifindex) {
+
+    lfa_protected_resource_t *pr_res;
+    pr_res = lfa_get_link_protection_resource (arr, ifindex);
+    if (!pr_res) return;
+    pr_res->link_protection = false;
+    pr_res->u.ifindex = 0;
+}
+
+lfa_protected_resource_t *
+lfa_get_node_protection_resource (
+        lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION], 
+        uint32_t rtr_id, uint8_t pn_no) {
+
+    int i;
+    lfa_protected_resource_t  *pr_res;
+
+    for (i = 0; i < LFA_MAX_PROTECTION; i++) {
+            
+        pr_res = &(*arr)[i];
+        if (!pr_res->node_protection) continue;
+        if (pr_res->u.node.rtr_id != rtr_id) continue;
+        if (pr_res->u.node.pn_no != pn_no) continue;
+        return pr_res;
+    }
+
+    return NULL;
+}
+
+lfa_protected_resource_t *
+lfa_enable_node_protection (lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION], uint32_t rtr_id, uint8_t pn_no) {
+
+    lfa_protected_resource_t *pr_res;
+    pr_res = lfa_get_available_protected_resource_slot (arr);
+    if (!pr_res) return NULL;
+    pr_res->node_protection = true;
+    pr_res->u.node.rtr_id = rtr_id;
+    pr_res->u.node.pn_no = pn_no;
+    return pr_res;
+}
+
+void
+lfa_disable_node_protection (lfa_protected_resource_t (*arr)[LFA_MAX_PROTECTION], uint32_t rtr_id, uint8_t pn_no) {
+
+    lfa_protected_resource_t *pr_res;
+    pr_res = lfa_get_node_protection_resource (arr, rtr_id, pn_no);
+    if (!pr_res) return;
+    pr_res->node_protection = false;
+    pr_res->u.node.rtr_id = 0;
+    pr_res->u.node.pn_no = 0;
 }

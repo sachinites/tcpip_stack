@@ -738,6 +738,13 @@ isis_srv6_config_handler (int cmdcode,
     return 0;
 }
 
+int
+isis_frr_config_handler  (int cmdcode, 
+                                        Stack_t *tlv_stack,
+                                        op_mode enable_or_disable) {
+
+    return 0;
+}
 
 int
 isis_run_handler (int cmdcode, 
@@ -1115,6 +1122,40 @@ isis_config_buid_traceoptions (param_t *param) {
     }
 }
 
+static void 
+isis_config_build_frr_clis (param_t *root) {
+
+    static param_t frr;
+    init_param(&frr, CMD, "fast-reroute", isis_frr_config_handler, 0, INVALID, 0, "isis fast reroute");
+    libcli_register_param(root, &frr);
+    libcli_set_param_cmd_code(&frr, CMDCODE_CONF_NODE_ISIS_PROTO_FRR);
+    {
+        static param_t remote_backup_calculation;
+        init_param(&remote_backup_calculation, CMD, "remote-backup-calculation", isis_frr_config_handler, 0, INVALID, 0,
+                    "isis remote backup calculation");
+        libcli_register_param(&frr, &remote_backup_calculation);
+        libcli_set_param_cmd_code(&remote_backup_calculation, CMDCODE_CONF_NODE_ISIS_PROTO_FRR_RBC);
+        libcli_set_tail_config_batch_processing (&remote_backup_calculation);
+    }
+    {
+        static param_t node_link_degradation;
+        init_param(&node_link_degradation, CMD, "node-link-degradation", isis_frr_config_handler, 0, INVALID, 0,
+                    "isis node link degradation");
+        libcli_register_param(&frr, &node_link_degradation);
+        libcli_set_param_cmd_code(&node_link_degradation, CMDCODE_CONF_NODE_ISIS_PROTO_FRR_NLD);
+        libcli_set_tail_config_batch_processing (&node_link_degradation);
+    }
+    {
+        static param_t use_source_packet_routing;
+        init_param(&use_source_packet_routing, CMD, "use-source-packet-routing", isis_frr_config_handler, 0, INVALID, 0,
+                    "isis use source packet routing");
+        libcli_register_param(&frr, &use_source_packet_routing);
+        libcli_set_param_cmd_code(&use_source_packet_routing,
+                                  CMDCODE_CONF_NODE_ISIS_PROTO_FRR_USE_SPR);
+        libcli_set_tail_config_batch_processing (&use_source_packet_routing);
+    }
+    libcli_support_cmd_negation (&frr);
+}
 
 /* conf node <node-name> protocol ... */
 int
@@ -1127,6 +1168,7 @@ isis_config_cli_tree(param_t *param) {
 	    libcli_set_param_cmd_code(&isis_proto, ISIS_CONFIG_NODE_ENABLE);
         {
             isis_config_buid_traceoptions (&isis_proto);
+            isis_config_build_frr_clis (&isis_proto);
         }
         {
              static param_t import_policy;

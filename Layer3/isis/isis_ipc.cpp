@@ -1,6 +1,7 @@
 #include "../../tcp_public.h"
 #include "isis_pkt.h"
 #include "isis_rtr.h"
+#include "isis_ips_struct.h"
 
 extern  void 
  isis_interface_ipc_updates(node_t *node, uint32_t minor_code, ipc_interface_t *msg);
@@ -79,4 +80,59 @@ isis_ips_send_lsp_seqno_update (node_t *node, isis_lsp_pkt_t *lsp_pkt ) {
         IPC_LFA_ISIS_LSP_SEQNO_UPDATE,
         (void *)lsp_pkt, sizeof (*lsp_pkt), 
         true, isis_lsp_ips_free_fn);
+}
+
+void 
+isis_ips_send_frr_config (node_t *node, uint8_t pvt_code, 
+                                            bool frr_enable,
+                                            uint32_t ifindex,
+                                            isis_system_id_t system_id,
+                                            bool node_link_degradation,
+                                            bool rlfa, 
+                                            bool use_spring, bool tilfa) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    if (isis_is_protocol_shutdown_in_progress (node)) return;
+
+    isis_ips_frr_config_t *frr_config = new isis_ips_frr_config_t;
+
+    frr_config->code = pvt_code;
+    frr_config->system_id.rtr_id = NODE_LO_ADDR_INT(node);
+    frr_config->system_id.pn_id = 0;
+
+    switch (pvt_code) {
+
+        case ISIS_PVT_IPS_CODE_FRR_ENABLE :
+            frr_config->u.frr_enable = frr_enable;
+            break;
+        case ISIS_PVT_IPS_CODE_FRR_LINK_PROTECTION:
+            frr_config->u.ifindex = ifindex;
+            break;
+        case ISIS_PVT_IPS_CODE_FRR_NODE_PROTECTION:
+            memcpy(&frr_config->u.system_id, &system_id, sizeof(system_id));
+            break; 
+        case ISIS_PVT_IPS_CODE_FRR_NODE_LINK_DEGRADATION:
+            frr_config->u.node_link_degradation = node_link_degradation;
+            break;
+        case ISIS_PVT_IPS_CODE_FRR_ENABLE_RLFA:
+            frr_config->u.rlfa = rlfa;
+            break;
+        case ISIS_PVT_IPS_CODE_FRR_USE_SPRING:
+            frr_config->u.use_spring = use_spring;
+            break;
+        case ISIS_PVT_IPS_CODE_FRR_TILFA:
+            frr_config->u.tilfa = tilfa;
+            break;
+        default:
+            assert(0);
+    }
+
+    cp_ips_send (node, IPC_LFA_ISIS, 
+        IPC_LFA_ISIS_FRR_CONFIG_UPDATE,
+        (void *)frr_config, sizeof (*frr_config), 
+        true, 0);
+
 }
