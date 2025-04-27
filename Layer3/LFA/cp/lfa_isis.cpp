@@ -91,7 +91,6 @@ lfa_isis_deinit (node_t *node, lfa_t *lfa, uint8_t level) {
 
     assert (level == 1 || level == 2);
     uint8_t prot_index = (level == 1) ? ISIS_L1_LFA_INFEX : ISIS_L2_LFA_INFEX;
-    lfa_config_t *isis_lfa_config = &lfa->lfa_config[prot_index];
     lfa_cleanup(node, prot_index);
     isis_lfa_config->u.isis.enable = false;
     cp_ips_unjoin(node, IPC_LFA_ISIS, lfa_isis_lsp_updates);
