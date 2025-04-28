@@ -714,7 +714,7 @@ cmdtc_cursor_display_options (cmd_tree_cursor_t *cmdtc) {
 
     attron (COLOR_PAIR(GREEN_ON_BLACK));
 
-    if (cmdtc->curr_param->callback) {
+    if (cmdtc->curr_param->callback[0]) {
         printw ("\n<cr>");
     }
 
@@ -1365,7 +1365,7 @@ cmd_tree_enter_mode (cmd_tree_cursor_t *cmdtc) {
 
     cmd_tree_install_universal_params (cmdtc->root, cmdtc_get_branch_hook(cmdtc));
 
-    if (cmdtc->root->callback) {
+    if (cmdtc->root->callback[0]) {
         cmd_tree_trigger_cli (cmdtc);
         cmd_tree_post_cli_trigger (cmdtc);
         cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
@@ -1528,7 +1528,8 @@ cmdtc_set_filter_context (cmd_tree_cursor_t *cmdtc) {
 
 #ifdef SCHED_SUBMISSION
 extern void
-task_invoke_appln_cbk_handler (param_t *param,
+task_invoke_appln_cbk_handler (int cmdcode, 
+                                                     cmd_callback cbk, 
                                                      Stack_t  *tlv_stack,
                                                      op_mode enable_or_disable);
 #endif 
@@ -1565,7 +1566,7 @@ cmd_trigger_cli_repeat (void *arg) {
 void 
 cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
-    int i, index;
+    int i, j, index;
     param_t *param;
     cmd_tree_cursor_t *cmdtc;
     op_mode enable_or_disable;
@@ -1642,7 +1643,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     /* Do not trigger the CLI if the user has not typed CLI to the completion*/
     param = cmdtc_get_last_cbk_param (cmdtc, &index);
 
-    if (!param->callback) {
+    if (!param->callback[0]) {
         attron(COLOR_PAIR(RED_ON_BLACK));
         printw("\nError : Incomplete CLI...");
         attroff(COLOR_PAIR(RED_ON_BLACK));
@@ -1663,6 +1664,8 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
         enable_or_disable = OPERATIONAL;
     }
 
+    j = 0;
+
     switch (enable_or_disable) {
 
         case CONFIG_ENABLE:
@@ -1674,7 +1677,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
                         param = (param_t *)cmdtc->params_stack->slot[i];
 
-                        if (!param->callback) {
+                        if (!param->callback[0]) {
                             continue;
                         }
 
@@ -1690,18 +1693,19 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                         cmdtc->tlv_stack->top = i;
 
                         #ifndef SCHED_SUBMISSION
-                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
                                 cli_cmdtc->success = false;
                                 break;
                             }
                         #else
                             if (param->flags & PARAM_F_INBUILD_CMD) {
-                                if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                                if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
                                     cli_cmdtc->success = false;
                                 }
                             }
                             else {
-                                task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                                while (j < CALLBACKS_N && param->callback[j] )
+                                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
                             }
                         #endif
 
@@ -1713,20 +1717,21 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                 else {
                     
                     #ifndef SCHED_SUBMISSION
-                        if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                        if (param->callback[0] (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
                             cli_cmdtc->success = false;
                         }
                     #else
                         if (param->flags & PARAM_F_INBUILD_CMD)
                         {
-                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
                             {
                                 cli_cmdtc->success = false;
                             }
                         }
                         else
                         {
-                            task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                            while (j < CALLBACKS_N && param->callback[j] )
+                                task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
                         }
                     #endif
                     if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
@@ -1737,20 +1742,21 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
             case CONFIG_DISABLE:
 
                     #ifndef SCHED_SUBMISSION
-                    if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                    if (param->callback[0] (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
                         cli_cmdtc->success = false;
                     }
                     #else 
                         if (param->flags & PARAM_F_INBUILD_CMD)
                         {
-                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
                             {
                                 cli_cmdtc->success = false;
                             }
                         }
                         else
                         {
-                            task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                            while (j < CALLBACKS_N && param->callback[j] )
+                                task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
                         }
                     #endif
                     if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
@@ -1762,20 +1768,21 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                     cmdtc_set_filter_context (cmdtc); 
 
                     #ifndef SCHED_SUBMISSION
-                    if (param->callback (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
+                    if (param->callback[0] (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
                         cli_cmdtc->success = false;
                     }
                     #else 
                         if (param->flags & PARAM_F_INBUILD_CMD)
                         {
-                            if (param->callback(param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
                             {
                                 cli_cmdtc->success = false;
                             }
                         }
                         else
                         {
-                            task_invoke_appln_cbk_handler(param, cmdtc->tlv_stack, enable_or_disable);
+                            while (j < CALLBACKS_N && param->callback[j] )
+                                task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
                         }
                     #endif
                     UnsetFilterContext ();

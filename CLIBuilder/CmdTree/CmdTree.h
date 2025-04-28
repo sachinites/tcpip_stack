@@ -39,7 +39,7 @@ typedef union _param_t{
 struct _param_t_{
     
     _param_t cmd_type;
-    cmd_callback callback;
+    cmd_callback callback[CALLBACKS_N];
     char help[PARAM_HELP_STRING_SIZE];
     struct _param_t_ *options[MAX_OPTION_SIZE];
     struct _param_t_ *parent;

@@ -1,7 +1,0 @@
-CMD :  conf node R0 pro isis interface all
-CMD :  conf node R1 pro isis interface all
-CMD :  conf node R2 pro isis interface all
-CMD :  conf node R3 pro isis interface all
-CMD :  conf node R4 pro isis interface all
-CMD :  conf node R5 pro isis interface all
-

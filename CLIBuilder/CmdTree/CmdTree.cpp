@@ -58,6 +58,9 @@ libcli_register_param(param_t *parent, param_t *child);
 void 
 libcli_set_param_cmd_code(param_t *param, int cmd_code) ;
 
+void 
+libcli_register_cmd_handler(param_t *param,  cmd_callback callback) ;
+
 void
 libcli_support_cmd_negation (param_t *param);
 
@@ -101,13 +104,14 @@ init_param(param_t *param,
         GET_PARAM_CMD(param)->len = strlen (GET_CMD_NAME(param));
     }
 
-    param->callback = callback;
-
+    param->callback[0] = callback;
+    for (i = 1; i < CALLBACKS_N; i++)  param->callback[i] = NULL;
+    
     strncpy(GET_PARAM_HELP_STRING(param), help, MIN(PARAM_HELP_STRING_SIZE, strlen(help)));
     GET_PARAM_HELP_STRING(param)[PARAM_HELP_STRING_SIZE - 1] = '\0';
     param->disp_callback = NULL;
 
-    for (; i < MAX_OPTION_SIZE; i++) {   
+    for (i = 0; i < MAX_OPTION_SIZE; i++) {   
         param->options[i] = NULL;
     }
 
@@ -145,6 +149,20 @@ libcli_set_param_cmd_code(param_t *param, int cmd_code) {
     if (param->callback == NULL)
         assert(0);
     param->CMDCODE = cmd_code;
+}
+
+void 
+libcli_register_cmd_handler(param_t *param,  cmd_callback callback) {
+
+    int i;
+
+    for (i = 0; i < CALLBACKS_N; i++) {
+            if (param->callback[i]) continue;
+            param->callback[i] = callback;
+            return;
+    }
+    /* Cant register more backend handlers. If required, pls increase CALLBACKS_N limit */
+    assert(0);
 }
 
 void 

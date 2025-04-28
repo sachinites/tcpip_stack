@@ -742,12 +742,12 @@ nw_init_cli(){
         static param_t node;
         init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
         libcli_register_param(debug, &node);
-        libcli_register_display_callback(&node, display_graph_nodes);
         {
             /* debug node <node-name> . . .*/
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
+            libcli_register_display_callback(&node_name, display_graph_nodes);
             {
                 /*debug node <node-name> access-list...*/
                 static param_t access_lst;
@@ -825,12 +825,12 @@ nw_init_cli(){
         static param_t node;
         init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
         libcli_register_param(clear, &node);
-        libcli_register_display_callback(&node, display_graph_nodes);
         {
             /*clear node <node-name>*/ 
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);	
+            libcli_register_display_callback(&node_name, display_graph_nodes);
 		    {
 			    /* clear node <node-name> protocol */
 				static param_t protocol;
@@ -867,11 +867,11 @@ nw_init_cli(){
              static param_t node;
              init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
              libcli_register_param(&topology, &node);
-             libcli_register_display_callback(&node, display_graph_nodes);
              {
                 /*show topology node <node-name>*/ 
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, show_nw_topology_handler, validate_node_extistence, STRING, "node-name", "Node Name");
+                libcli_register_display_callback(&node_name, display_graph_nodes);
                  libcli_register_param(&node, &node_name);
                  libcli_set_param_cmd_code(&node_name, CMDCODE_SHOW_NW_TOPOLOGY);
              }
@@ -882,13 +882,12 @@ nw_init_cli(){
              static param_t node;
              init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
              libcli_register_param(show, &node);
-             libcli_register_display_callback(&node, display_graph_nodes);
              {
                 /*show node <node-name>*/ 
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
-				
+				libcli_register_display_callback(&node_name, display_graph_nodes);
                  {
                      /* show CLIs for Access list mounted here */
                      acl_build_show_cli(&node_name);
@@ -999,13 +998,12 @@ nw_init_cli(){
         static param_t node;
         init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
         libcli_register_param(run, &node);
-        libcli_register_display_callback(&node, display_graph_nodes);
         {
             /*run node <node-name>*/
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
-
+            libcli_register_display_callback(&node_name, display_graph_nodes);
 			{
 				/* run node <node-name> protocol */	
 				static param_t protocol;
@@ -1109,13 +1107,12 @@ nw_init_cli(){
       static param_t node;
       init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
       libcli_register_param(config, &node);  
-      libcli_register_display_callback(&node, display_graph_nodes);
       {
         /*config node <node-name>*/
         static param_t node_name;
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
-
+        libcli_register_display_callback(&node_name, display_graph_nodes);
         {
             /* ACL CLIs are loaded */
             acl_build_config_cli (&node_name);
