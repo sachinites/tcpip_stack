@@ -22,7 +22,7 @@
 #include "../object_network/objects_common.h"
 #include "../object_network/object_grp_update.h"
 #include "../../CLIBuilder/libcli.h"
-#include "../../lmm_testapp_enums.h"
+#include "../../lmm_enums.h"
 
 static void
 acl_get_member_tcam_entry (

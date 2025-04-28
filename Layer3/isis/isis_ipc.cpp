@@ -112,7 +112,8 @@ isis_ips_send_frr_config (node_t *node, uint8_t pvt_code,
             frr_config->u.ifindex = ifindex;
             break;
         case ISIS_PVT_IPS_CODE_FRR_NODE_PROTECTION:
-            memcpy(&frr_config->u.system_id, &system_id, sizeof(system_id));
+            frr_config->u.rtr_id = system_id.rtr_id;
+            frr_config->u.pn_no = system_id.pn_id;
             break; 
         case ISIS_PVT_IPS_CODE_FRR_NODE_LINK_DEGRADATION:
             frr_config->u.node_link_degradation = node_link_degradation;
