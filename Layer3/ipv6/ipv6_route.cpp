@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <iostream>
+#include <ncurses.h>
 #include "ipv6_route.h"
 #include "ipv6_hdrs.h"
 #include "ipv6_utils.h"
@@ -121,7 +122,9 @@ v6_rt_table_show (rt_table_t *rt_table) {
     nxthop_proto_id_t nxthop_proto;
     unsigned char uptime_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
-    cprintf("\nL3 v6 Routing Table\n\n");
+    printw ("\n\r");
+
+    cprintf("L3 v6 Routing Table\n\n");
 
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr) {
 

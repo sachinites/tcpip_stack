@@ -460,6 +460,8 @@ show_arp_table(arp_table_t *arp_table){
     arp_entry_t *arp_entry;
     int count = 0 ;
 
+    printw ("\n\r");
+    
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
         count++;
         arp_entry = arp_glue_to_arp_entry(curr);

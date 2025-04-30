@@ -27,6 +27,7 @@
 #include <regex.h>
 #include <pthread.h>
 #include "../libcli.h"
+#include "A_B.h"
 
 #define OBUFFER_SIZE  256
 #define CUM_BUFFER_MAX_SIZE 4096 /* must match with MAX_MSG_SIZE*/
@@ -39,12 +40,10 @@ static uint16_t cum_buffer_byte_cnt = 0;
 static int count_lines = 0;
 static bool count_filter_present = false;
 FILE *fileptr = NULL;
-static bool first_line = false;
 
 extern bool TC_RUNNING ;
 extern int UT_PARSER_MSG_Q_FD; 
-
-
+static ABmgr_t *abmgr = NULL;
 static pthread_spinlock_t cprintf_spinlock;
 
 void 
@@ -75,10 +74,30 @@ SetFilterContext (tlv_struct_t **lfilter_array, int lsize) {
     cum_buffer_byte_cnt = 0;
 }
 
+static void 
+render_line (unsigned char *Obuffer, int msg_len) {
+
+    if (TC_RUNNING) {
+    /* If the Test case is running, then collect individual printf statements in a Cumbuffer
+        until all the show o/p of the command is collected. */
+        memcpy(Cumbuffer + cum_buffer_byte_cnt, Obuffer, msg_len);
+        cum_buffer_byte_cnt += msg_len;
+        return;
+    }
+
+    if (fileptr) {
+        fwrite (Obuffer, 1, msg_len, fileptr);
+        return;
+    }
+
+     printw("%s", Obuffer);
+}
+
 void 
 UnsetFilterContext () {
 
     if (count_filter_present) {
+        
         if (!TC_RUNNING) {
             printw ("\nlines : %d", count_lines);
         }
@@ -97,9 +116,7 @@ UnsetFilterContext () {
         fileptr = NULL;
     }
 
-    first_line = false;
-
-    if (TC_RUNNING) {
+    if (TC_RUNNING && !abmgr) {
 
         /* The show output of the command has come to an end , push all the show output data to
             the TC infra for further parsing and analysis*/
@@ -112,31 +129,34 @@ UnsetFilterContext () {
         cum_buffer_byte_cnt = 0;
     }
 
-}
+    else  if (TC_RUNNING && abmgr) {
 
-static void 
-render_line (unsigned char *Obuffer, int msg_len) {
+        cum_buffer_byte_cnt = ABmgr_data_copy (abmgr, (char *)Cumbuffer, CUM_BUFFER_MAX_SIZE);
 
-    if (TC_RUNNING) {
-    /* If the Test case is running, then collect individual printf statements in a Cumbuffer
-        until all the show o/p of the command is collected. */
-        memcpy(Cumbuffer + cum_buffer_byte_cnt, Obuffer, msg_len);
-        cum_buffer_byte_cnt += msg_len;
-        return;
+        if (mq_send (UT_PARSER_MSG_Q_FD, (char *)Cumbuffer, cum_buffer_byte_cnt + 1, 0) == -1 ) {
+            printw ("mq_send failed on FD %d, errno = %d\n", UT_PARSER_MSG_Q_FD, errno);
+        }
+
+        /* Reset the Cum buffer for the next show command */
+        memset (Cumbuffer, 0, cum_buffer_byte_cnt);
+        cum_buffer_byte_cnt = 0;
     }
 
-    if (fileptr) {
-        fwrite (Obuffer, 1, msg_len, fileptr);
-        return;
+
+    else if (!TC_RUNNING && abmgr) {
+
+        if (ABmgr_is_printable (abmgr)) { 
+            ABmgr_print(abmgr, render_line);
+        }
+        ABmgr_destroy(abmgr);
+        abmgr = NULL;
     }
 
-    if (!first_line) {
+    /* No Testcase and no abmgr */
+    else {
 
-        printw("\n");
-        first_line = true;
+        /* Nothing to do */
     }
-
-     printw("%s", Obuffer);
 }
 
 /* override glibc printf */
@@ -165,13 +185,73 @@ int cprintf (const char* format, ...) {
          return 0;
     }
 
+    uint16_t u_val = 0, d_val = 0;
+
     for (i = 0; i < filter_array_size; i++) {
-        
+            
         tlv = filter_array[i];
 
-        if (parser_match_leaf_id (tlv->leaf_id, "incl-pattern")) {
+        if (parser_match_leaf_id (tlv->leaf_id, "u-val")) {
+            u_val = atoi((const char *)tlv->value);
+            continue;
+        }
 
-             inc_exc_pattern_present = true;
+        if (parser_match_leaf_id (tlv->leaf_id, "d-val")) {
+            d_val = atoi((const char *)tlv->value);
+            continue;
+        }
+
+        if (parser_match_leaf_id (tlv->leaf_id, "xincl-pattern")) {
+
+            inc_exc_pattern_present = true;
+            uint16_t incl_u_val = u_val;
+            uint16_t incl_d_val = d_val;
+            u_val = d_val = 0;
+
+            patt_rc = filter_inclusion (Obuffer, msg_len, 
+                                                (unsigned char *)tlv->value, 
+                                                strlen ((const char *)tlv->value));
+
+            if (!abmgr) {
+                abmgr = ABmgr_get_instance (incl_u_val, incl_d_val);
+            }
+
+            if (!patt_rc) {
+
+                char *string = (char *)calloc (1, msg_len + 1);
+                strcpy (string, (const char *)Obuffer);
+                
+                if (ABmgr_insert_string (abmgr, string, patt_rc)) {
+                    ABmgr_print (abmgr, render_line);
+                    ABmgr_reset(abmgr);
+                }
+                pthread_spin_unlock (&cprintf_spinlock);
+                return 0;
+            }
+
+            if (abmgr) {
+
+                char *string = (char *)calloc (1, msg_len + 1);
+                strcpy (string, (const char *)Obuffer);
+
+                if (ABmgr_insert_string (abmgr, string, patt_rc)) {
+                    
+                    ABmgr_print (abmgr, render_line);
+                    ABmgr_reset(abmgr);
+                    pthread_spin_unlock (&cprintf_spinlock);
+                    return 0;
+                }
+            }
+            pthread_spin_unlock (&cprintf_spinlock);
+            return 0;
+        }
+
+        else if (parser_match_leaf_id (tlv->leaf_id, "incl-pattern")) {
+
+            inc_exc_pattern_present = true;
+            uint16_t incl_u_val = u_val;
+            uint16_t incl_d_val = d_val;
+            u_val = d_val = 0;
 
             patt_rc = filter_inclusion (Obuffer, msg_len, 
                                                 (unsigned char *)tlv->value, 
@@ -184,6 +264,9 @@ int cprintf (const char* format, ...) {
         else if (parser_match_leaf_id (tlv->leaf_id, "excl-pattern")) {
 
             inc_exc_pattern_present = true;
+            uint16_t excl_u_val = u_val;
+            uint16_t excl_d_val = d_val;
+            u_val = d_val = 0;
 
             patt_rc = filter_exclusion (Obuffer, msg_len, 
                                                 (unsigned char *)tlv->value, 
@@ -198,6 +281,10 @@ int cprintf (const char* format, ...) {
         else if (parser_match_leaf_id (tlv->leaf_id, "grep-pattern")) {
             
             inc_exc_pattern_present = true;
+            uint16_t grep_u_val = u_val;
+            uint16_t grep_d_val = d_val;
+            u_val = d_val = 0;
+
             regex_t regex;
             char error_buffer[128];
 

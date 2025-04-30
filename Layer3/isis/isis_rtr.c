@@ -298,13 +298,14 @@ isis_show_node_protocol_state(node_t *node) {
         cprintf("Export Policy : %s\n", node_info->export_policy->name);
     }
 
-    cprintf("Overload Status : %s   ", node_info->ovl_data.ovl_status ? "On" : "Off");
+    cprintf("Overload Status : %s\n", node_info->ovl_data.ovl_status ? "On" : "Off");
+
     if (node_info->ovl_data.ovl_status &&
             node_info->ovl_data.ovl_timer) {
-        cprintf("Timer : %usec left\n", wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
+        cprintf("Overload Timer : %usec left\n", wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
     }
     else {
-        cprintf("Timer : Not Running\n");
+        cprintf("Overload Timer : Not Running\n");
     }
 
     cprintf("Layer2-Mapping : %sabled\n", isis_is_layer2_mapping_enabled(node) ? "En" : "Dis");
@@ -460,7 +461,7 @@ isis_show_event_counters(node_t *node) {
 
     if (!isis_is_protocol_enable_on_node(node)) return;
 
-    cprintf ("\nEvent Counters :\n");
+    cprintf ("Event Counters :\n");
 
     for(enum_int = (int)(isis_event_none + 1); 
         enum_int < (int)isis_event_max;

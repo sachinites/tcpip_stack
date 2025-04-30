@@ -220,47 +220,6 @@ create_graph_node(graph_t *graph, const c_string node_name){
     return node;
 }
 
-void dump_graph(graph_t *graph){
-
-    node_t *node;
-    glthread_t *curr;
-    
-    cprintf("Topology Name = %s\n", graph->topology_name);
-
-    ITERATE_GLTHREAD_BEGIN(&graph->node_list, curr){
-
-        node = graph_glue_to_node(curr);
-        dump_node(node);    
-    } ITERATE_GLTHREAD_END(&graph->node_list, curr);
-}
-
-void dump_node(node_t *node){
-
-    Interface *intf;
-    std::unordered_map<uint16_t , VlanInterfaceP> *vlan_intf_db;
-
-    cprintf("Node Name = %s(%p) UDP Port # : %u\n",
-        node->node_name, node, node->udp_port_number);
-
-     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-        
-        if(!intf) break;
-        dump_interface(intf);
-        cprintf ("\n");
-
-    }  ITERATE_NODE_INTERFACES_END(node, intf);
-
-    vlan_intf_db = node->vlan_intf_db;
-
-    if(vlan_intf_db){
-        
-        for(auto it = vlan_intf_db->begin(); it != vlan_intf_db->end(); it++){
-            dump_interface(it->second.get());
-            cprintf ("\n");
-        }
-    }
-}
-
 void dump_interface(Interface *interface){
 
     interface->PrintInterfaceDetails();

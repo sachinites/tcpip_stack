@@ -482,6 +482,8 @@ object_group_show_handler (int cmdcode,
 
     node = node_get_node_by_name(topo, node_name);
 
+    printw("\n\r");
+    
     switch (cmdcode) {
 
         case OBJ_GRP_SHOW_ALL:

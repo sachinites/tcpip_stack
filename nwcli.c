@@ -96,6 +96,8 @@ display_mem_usage(int cmdcode, Stack_t *tlv_stack,
             struct_name =  tlv->value;
     } TLV_LOOP_END;
 
+    printw("\n\r");
+
     switch(cmdcode){
         case CMDCODE_DEBUG_SHOW_MEMORY_USAGE:
             mm_print_block_usage(0);
@@ -265,6 +267,8 @@ show_nw_topology_handler(int cmdcode,
     if(node_name)
         node = node_get_node_by_name(topo, node_name);
 
+    printw ("\n\r");
+    
     switch(cmdcode){
 
         case CMDCODE_SHOW_NW_TOPOLOGY:
@@ -441,6 +445,8 @@ show_rt_handler(int cmdcode, Stack_t *tlv_stack,
     node_t *node;
     c_string node_name;
     tlv_struct_t *tlv = NULL;
+    
+    printw ("\n\r");
     
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -646,6 +652,8 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
 
    node = node_get_node_by_name(topo, node_name);
 
+   printw ("\n\r");
+
    switch(cmdcode){
         case CMDCODE_DEBUG_SHOW_NODE_TIMER:
             print_wheel_timer(CP_TIMER(node));         
@@ -691,6 +699,8 @@ show_interface_handler(int cmdcode, Stack_t *tlv_stack,
     } TLV_LOOP_END;
    
     node = node_get_node_by_name(topo, node_name);
+
+    printw ("\n\r");
 
     switch(cmdcode){
 

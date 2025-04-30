@@ -233,8 +233,7 @@ dump_node_interface_stats(node_t *node){
         cprintf("\n");
 
     }  ITERATE_NODE_INTERFACES_END(node, interface);
-
-
+    
     cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }
 

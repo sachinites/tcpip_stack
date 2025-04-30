@@ -440,6 +440,8 @@ prefix_lst_show_handler (int cmdcode,
 
     node = node_get_node_by_name(topo, node_name);
 
+    printw("\n\r");
+    
     switch (cmdcode) {
         case CMDCODE_SHOW_PREFIX_LST_ALL:
             {

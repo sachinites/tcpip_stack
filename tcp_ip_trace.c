@@ -743,6 +743,8 @@ void tcp_ip_show_log_status(node_t *node){
     Interface *intf;
     log_t *log_info = &node->log_info;
     
+    printw ("\n\r");
+
     cprintf("Log Status : Device : %s\n", node->node_name);
 
     cprintf("\tall     : %s\n", log_info->all ? "ON" : "OFF");
@@ -923,7 +925,7 @@ int traceoptions_handler(int cmdcode,
                     return -1;
                 }
                 if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list)) {
-                    cprintf("Error : access-list is not configured\n");
+                    printw ("Error : access-list is not configured\n");
                     return -1;
                 }
                 access_list_dereference (node, log_info->acc_lst_filter);
@@ -940,13 +942,13 @@ int traceoptions_handler(int cmdcode,
         intf = node_get_intf_by_name(node, (const char *)if_name);
         if (!intf)
         {
-                cprintf("Error : No interface %s on Node %s\n", if_name, node_name);
+            printw ("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
         }
         access_list = access_list_lookup_by_name(node, access_list_name);
         if (!access_list)
         {
-                cprintf("Error : Access-list do not exist\n");
+                printw ("Error : Access-list do not exist\n");
                 return -1;
         }
         log_info = &intf->log_info;
@@ -976,7 +978,7 @@ int traceoptions_handler(int cmdcode,
                 }
                 if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
                 {
-                    cprintf("Error : access-list is not configured\n");
+                    printw ("Error : access-list is not configured\n");
                     return -1;
                 }
                 access_list_dereference(node, log_info->acc_lst_filter);

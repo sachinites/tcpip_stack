@@ -210,6 +210,8 @@ dump_mac_table(mac_table_t *mac_table){
     mac_table_entry_t *mac_table_entry;
     int count = 0;
 
+    printw ("\n\r");
+    
     ITERATE_GLTHREAD_BEGIN(&mac_table->mac_entries, curr){
 
         count++;

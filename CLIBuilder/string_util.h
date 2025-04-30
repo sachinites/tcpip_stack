@@ -68,7 +68,7 @@ string_fetch_string(char *string, int string_size, int index, char *buff_out);
 do{                       \
    unsigned short _i = 0; \
    for(; _i < n; _i++)    \
-       cprintf ("  ");      \
+       printw ("  ");      \
 } while(0);
 
 #endif

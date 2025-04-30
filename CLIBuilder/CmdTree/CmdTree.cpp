@@ -31,6 +31,8 @@ static param_t save;
 static param_t save_file;
 static param_t include;
 static param_t include_leaf;
+static param_t xinclude;
+static param_t xinclude_leaf;
 static param_t exclude;
 static param_t exclude_leaf;
 static param_t grepx;
@@ -630,6 +632,49 @@ libcli_cleanup_parent_pointers () {
     libcli_cleanup_parent_pointers_internal (libcli_get_root_hook());
 }
 
+/* subtree to implement [-u <int> -d <int> ] options. Use calloc since subtree 
+    is shared among include, exclude, grep */
+static void 
+cmd_tree_u_d_options_subtree (param_t *include, param_t *include_leaf) {
+
+    {
+        param_t *_u = (param_t *)calloc (1, sizeof (param_t));
+        init_param (_u , CMD, "-A", NULL, NULL, INVALID, NULL, "Display lines above the mathcing pattern");
+        libcli_register_param (include, _u);
+        {
+            param_t *_u_val = (param_t *)calloc (1, sizeof (param_t));
+            init_param (_u_val , LEAF, NULL, NULL, NULL, INT, "u-val", "Number of lines below the mathcing pattern");
+            libcli_register_param (_u, _u_val);
+            libcli_register_param (_u_val, include_leaf);
+            {
+                param_t *_d =  (param_t *)calloc (1, sizeof (param_t));
+                init_param (_d , CMD, "-B", NULL, NULL, INVALID, NULL, "Display lines below the mathcing pattern");
+                libcli_register_param (_u_val, _d);
+                {
+                    param_t *_d_val =  (param_t *)calloc (1, sizeof (param_t));
+                    init_param (_d_val , LEAF, NULL, NULL, NULL, INT, "d-val", "Number of lines below the mathcing pattern");
+                    libcli_register_param (_d, _d_val);
+                    libcli_register_param (_d_val, include_leaf);
+                }
+            }
+        }
+    }
+
+    {
+        param_t *_d = (param_t *)calloc (1, sizeof (param_t));
+        init_param (_d , CMD, "-B", NULL, NULL, INVALID, NULL, "Display lines below the mathcing pattern");
+        libcli_register_param (include, _d);
+        {
+            param_t *_d_val = (param_t *)calloc (1, sizeof (param_t));
+            init_param (_d_val , LEAF, NULL, NULL, NULL, INT, "d-val", "Number of lines below the mathcing pattern");
+            libcli_register_param (_d, _d_val);
+            libcli_register_param (_d_val, include_leaf);
+        }
+    }
+
+}
+
+
 static void
 cmd_tree_construct_filter_subtree () {
 
@@ -655,6 +700,7 @@ cmd_tree_construct_filter_subtree () {
             init_param (&include_leaf,  LEAF, NULL, NULL, NULL, STRING, "incl-pattern", "Include Pattern");
             libcli_register_param (&include, &include_leaf);
             libcli_register_param (&include_leaf, &pipe);
+            //cmd_tree_u_d_options_subtree (&include, &include_leaf);
         }
     }
     {
@@ -664,6 +710,7 @@ cmd_tree_construct_filter_subtree () {
             init_param (&exclude_leaf,  LEAF, NULL, NULL, NULL, STRING, "excl-pattern", "Exclude Pattern");
             libcli_register_param (&exclude, &exclude_leaf);
             libcli_register_param (&exclude_leaf, &pipe);
+            //cmd_tree_u_d_options_subtree (&exclude, &exclude_leaf);
         }
     }
     {
@@ -673,6 +720,17 @@ cmd_tree_construct_filter_subtree () {
             init_param(&grepx_leaf, LEAF, NULL, NULL, NULL, STRING, "grep-pattern", "Grep Pattern");
             libcli_register_param(&grepx, &grepx_leaf);
             libcli_register_param(&grepx_leaf, &pipe);
+            //cmd_tree_u_d_options_subtree (&grepx, &grepx_leaf);
+        }
+    }
+    {
+        init_param (&xinclude,  CMD, "xinclude", NULL, NULL, INVALID, NULL, "xInclude Pattern");
+        libcli_register_param (&pipe, &xinclude);
+        {
+            init_param (&xinclude_leaf,  LEAF, NULL, NULL, NULL, STRING, "xincl-pattern", "xInclude Pattern");
+            libcli_register_param (&xinclude, &xinclude_leaf);
+            //libcli_register_param (&xinclude_leaf, &pipe);
+            cmd_tree_u_d_options_subtree (&xinclude, &xinclude_leaf);
         }
     }
     {

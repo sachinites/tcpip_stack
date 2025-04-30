@@ -1423,6 +1423,8 @@ acl_show_handler(int cmdcode,
     TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+
+    printw("\n\r");
     access_list_show_all(node);
     return 0;
 }
