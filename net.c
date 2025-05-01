@@ -214,7 +214,7 @@ is_same_subnet(c_string ip_addr,
 void
 dump_interface_stats(Interface *interface){
 
-    cprintf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u, ref_count = %u",
+    cprintf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u, ref_count = %u\n",
         interface->if_name.c_str(), interface->pkt_sent,
         interface->pkt_recv,
 	    interface->xmit_pkt_dropped, 
@@ -230,7 +230,6 @@ dump_node_interface_stats(node_t *node){
 
         if(!interface) continue;
         dump_interface_stats(interface);
-        cprintf("\n");
 
     }  ITERATE_NODE_INTERFACES_END(node, interface);
     

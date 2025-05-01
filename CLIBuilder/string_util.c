@@ -370,6 +370,16 @@ regex_match (const char *input_string, const char *reg_exp) {
     return reti;
 }
 
+char *
+stringdup (const char *src_string, uint16_t string_len) {
+
+        uint16_t new_string_len = ((string_len + 7) & ~7); //8B align
+        char *dup_string = (char *)calloc (1, new_string_len);
+        memcpy (dup_string, src_string, string_len);
+        return dup_string;
+}
+
+
 #if 0
 int 
 main(int argc, char **argv) {

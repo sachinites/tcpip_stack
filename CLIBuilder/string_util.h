@@ -70,4 +70,7 @@ ignore_sole_new_line (unsigned char *Obuffer, int msg_len) ;
 int 
 regex_match (const char *input_string, const char *reg_exp) ;
 
+char *
+stringdup (const char *src_string, uint16_t string_len);
+
 #endif

@@ -315,8 +315,6 @@ isis_show_interface_protocol_state(Interface *intf) {
         cprintf ("\n\r");
 
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr)
-
-    cprintf ("\n\r");
 }
 
 static void

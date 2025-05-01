@@ -6,9 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <ncurses.h>
+#include "../string_util.h"
 #include "../cli_const.h"
 
-#define CIRCULAR_BUFFER_MAX_SIZE  64
+#define BYTE8ALIGN(n)   ((n + 7) & ~7)
 
 typedef struct circular_buffer_ {
 
@@ -145,11 +146,8 @@ ABmgr_print (ABmgr_t *abmgr, void (*printfn)(unsigned char*, int)) {
             attroff(COLOR_PAIR(PLAYER_PAIR));
 
         i++;
-
-        if (i == abmgr->cbuffer->max_size) {
-            i = 0;
-        }
-
+        if (i == abmgr->cbuffer->max_size) i = 0;
+        
     } while (i != abmgr->cbuffer->head);
 
 }
@@ -157,33 +155,40 @@ ABmgr_print (ABmgr_t *abmgr, void (*printfn)(unsigned char*, int)) {
 uint32_t 
 ABmgr_data_copy (ABmgr_t *abmgr,  char *buffer,  uint32_t bsize) {
 
-    uint32_t i = 0;
-    uint32_t k = 0;
+    uint32_t offset = 0;
+    int i = abmgr->cbuffer->tail;
 
-    for (i = abmgr->cbuffer->tail; i != abmgr->cbuffer->head; i++) {
+    if (abmgr->cbuffer->n_count == 0) return 0;
 
-        if (i == abmgr->cbuffer->max_size) i = 0;
-        if (!abmgr->cbuffer->sth_buff[i].str) continue;
-        if ( (k + abmgr->cbuffer->sth_buff[i].str_len) >= bsize ) break;
-        strncpy (&buffer[k], abmgr->cbuffer->sth_buff[i].str, 
+    do {
+
+        if ((offset + abmgr->cbuffer->sth_buff[i].str_len) > bsize) {
+            assert(0);
+        }
+
+        memcpy (buffer + offset, abmgr->cbuffer->sth_buff[i].str,
             abmgr->cbuffer->sth_buff[i].str_len);
-        k += abmgr->cbuffer->sth_buff[i].str_len;
-    }
-    
-    return k;
+        offset += abmgr->cbuffer->sth_buff[i].str_len;
+
+        i++;
+        if (i == abmgr->cbuffer->max_size)  i = 0;
+        
+    } while (i != abmgr->cbuffer->head);
+
+    return (uint32_t)offset;
 }
 
 
 /* If return true, then Cbuffer could be dumped */
 bool
-ABmgr_insert_string (ABmgr_t *abmgr, char *string, uint16_t msg_len, bool match) {
+ABmgr_insert_string (ABmgr_t *abmgr, char *string, uint16_t msg_len, bool match, bool calloc_str) {
 
     assert (string && msg_len);
 
     /* Inserting a matching string for the first time */
     if (abmgr->match_string_index == -1 && match) {
-
         uint16_t curr_head = abmgr->cbuffer->head;
+        if (calloc_str) string = stringdup (string, msg_len);
         circular_buffer_insert (abmgr->cbuffer, (void *)string, msg_len);
         abmgr->match_string_index = curr_head;
         if  (abmgr->A == 0 && abmgr->B == 0) return true;
@@ -202,6 +207,7 @@ ABmgr_insert_string (ABmgr_t *abmgr, char *string, uint16_t msg_len, bool match)
         if (abmgr->A == 0) return false;
        
         /* We have not yet inserted the matching string */
+        if (calloc_str) string = stringdup (string, msg_len);
         circular_buffer_insert (abmgr->cbuffer, (void *)string, msg_len);
         abmgr->a++;
         
@@ -216,6 +222,7 @@ ABmgr_insert_string (ABmgr_t *abmgr, char *string, uint16_t msg_len, bool match)
     // Case B: 
     if (!match && abmgr->match_string_index != -1) {
 
+        if (calloc_str) string = stringdup (string, msg_len);
         circular_buffer_insert (abmgr->cbuffer, (void *)string, msg_len);
         abmgr->b++;
         if (abmgr->b == abmgr->B) {
@@ -226,8 +233,7 @@ ABmgr_insert_string (ABmgr_t *abmgr, char *string, uint16_t msg_len, bool match)
 
     // Inserting a matchig string again, treat it like non-matching string 
     if (match && abmgr->match_string_index != -1) {
-
-        return ABmgr_insert_string (abmgr, string, msg_len, false);
+        return ABmgr_insert_string (abmgr, string, msg_len, false, calloc_str);
     }
 
     assert (0);

@@ -236,11 +236,8 @@ int cprintf (const char* format, ...) {
                     pthread_spin_unlock (&cprintf_spinlock);
                     return 0;
                 }
-
-                char *string = (char *)calloc (1, BYTE8ALIGN(msg_len + 1));
-                strncpy (string, (const char *)Obuffer, msg_len);
                 
-                if (ABmgr_insert_string (abmgr, string, msg_len, patt_rc)) {
+                if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
                     ABmgr_print (abmgr, render_line);
                     ABmgr_reset(abmgr);
                 }
@@ -255,10 +252,7 @@ int cprintf (const char* format, ...) {
                     return 0;
                 }
 
-                char *string = (char *)calloc (1, BYTE8ALIGN(msg_len + 1));
-                strcpy (string, (const char *)Obuffer);
-
-                if (ABmgr_insert_string (abmgr, string, msg_len, patt_rc)) {
+                if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
 
                     ABmgr_print (abmgr, render_line);
                     ABmgr_reset(abmgr);
