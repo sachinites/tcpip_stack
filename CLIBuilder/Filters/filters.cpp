@@ -144,6 +144,8 @@ UnsetFilterContext () {
         /* Reset the Cum buffer for the next show command */
         memset (Cumbuffer, 0, cum_buffer_byte_cnt);
         cum_buffer_byte_cnt = 0;
+        ABmgr_destroy(abmgr);
+        abmgr = NULL;
     }
 
 
@@ -219,9 +221,10 @@ int cprintf (const char* format, ...) {
             uint16_t incl_d_val = d_val;
             u_val = d_val = 0;
 
-            patt_rc = filter_inclusion (Obuffer, msg_len, 
-                                                (unsigned char *)tlv->value, 
-                                                strlen ((const char *)tlv->value));
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
+            
+            patt_rc = (match == 0) ? true : false;
 
             if (!abmgr) {
                 abmgr = ABmgr_get_instance (incl_u_val, incl_d_val);
@@ -274,14 +277,17 @@ int cprintf (const char* format, ...) {
             uint16_t incl_d_val = d_val;
             u_val = d_val = 0;
 
-            patt_rc = filter_inclusion (Obuffer, msg_len, 
-                                                (unsigned char *)tlv->value, 
-                                                strlen ((const char *)tlv->value));
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
+
+            patt_rc = (match == 0) ? true : false;
+
             if (!patt_rc) {
                 pthread_spin_unlock (&cprintf_spinlock);
                 return 0;
             }
         }
+        
         else if (parser_match_leaf_id (tlv->leaf_id, "excl-pattern")) {
 
             inc_exc_pattern_present = true;
@@ -289,9 +295,10 @@ int cprintf (const char* format, ...) {
             uint16_t excl_d_val = d_val;
             u_val = d_val = 0;
 
-            patt_rc = filter_exclusion (Obuffer, msg_len, 
-                                                (unsigned char *)tlv->value, 
-                                                strlen ((const char *)tlv->value));
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
+            
+            patt_rc = (match != 0) ? true : false;
 
             if (!patt_rc) {
                 pthread_spin_unlock (&cprintf_spinlock);
@@ -306,32 +313,15 @@ int cprintf (const char* format, ...) {
             uint16_t grep_d_val = d_val;
             u_val = d_val = 0;
 
-            regex_t regex;
-            char error_buffer[128];
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
 
-            int match = regcomp(&regex, (const char *)tlv->value, REG_EXTENDED);
+            patt_rc = (match == 0) ? true : false;
 
-            if (match) {
-
-                memset (error_buffer, 0, sizeof (error_buffer));
-                regerror(match, &regex, error_buffer, sizeof(error_buffer));
-                printw ("\nFailed to compile regex pattern %s, error : %s",
-                    tlv->value, error_buffer);
-                regfree(&regex);
-                pthread_spin_unlock (&cprintf_spinlock);
-                return 0;
-            }
-
-            match = regexec(&regex, (const char *)Obuffer, 0, NULL, 0);
-
-            if (match) {
-                 regfree(&regex);
+            if (!patt_rc) {
                  pthread_spin_unlock (&cprintf_spinlock);
-                return 0;
+                 return 0;
             }
-
-            patt_rc = true;
-            regfree(&regex);
         }
 
         else if (parser_match_leaf_id (tlv->value, "count")) {

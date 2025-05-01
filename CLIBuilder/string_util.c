@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <regex.h>
 #include "string_util.h"
 #include "cli_const.h"
 
@@ -353,6 +354,21 @@ string_fetch_string(char *string, int string_size, int index, char *buff_out) {
      return false;
  }
  
+int 
+regex_match (const char *input_string, const char *reg_exp) {
+
+    regex_t regex;
+    int reti;
+
+    /* Compile regular expression */
+    reti = regcomp(&regex, reg_exp, REG_EXTENDED);
+    if (reti) return -1;
+
+    /* Execute regular expression */
+    reti = regexec(&regex, input_string, 0, NULL, 0);
+    regfree(&regex);
+    return reti;
+}
 
 #if 0
 int 
