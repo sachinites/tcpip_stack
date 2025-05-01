@@ -26,11 +26,15 @@
 #include <mqueue.h>
 #include <regex.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <memory.h>
+#include "../string_util.h"
 #include "../libcli.h"
 #include "A_B.h"
 
 #define OBUFFER_SIZE  256
 #define CUM_BUFFER_MAX_SIZE 4096 /* must match with MAX_MSG_SIZE*/
+#define BYTE8ALIGN(n)   ((n + 7) & ~7)
 
 static tlv_struct_t **filter_array = NULL;
 static int filter_array_size = 0;
@@ -159,6 +163,7 @@ UnsetFilterContext () {
     }
 }
 
+
 /* override glibc printf */
 int cprintf (const char* format, ...) {
 
@@ -178,13 +183,19 @@ int cprintf (const char* format, ...) {
 
     va_end(args);
 
+    /* Append \n if not appended by user. All cprintf must end with \n*/
+    if (Obuffer[msg_len - 1] != '\n') {
+        Obuffer[msg_len ] = '\n';
+        msg_len++;
+    }
+
     if (filter_array_size == 0) {
 
          render_line (Obuffer, msg_len);
          pthread_spin_unlock (&cprintf_spinlock);
          return 0;
     }
-
+    
     uint16_t u_val = 0, d_val = 0;
 
     for (i = 0; i < filter_array_size; i++) {
@@ -218,10 +229,15 @@ int cprintf (const char* format, ...) {
 
             if (!patt_rc) {
 
-                char *string = (char *)calloc (1, msg_len + 1);
-                strcpy (string, (const char *)Obuffer);
+                if (ignore_sole_new_line (Obuffer, msg_len)) {
+                    pthread_spin_unlock (&cprintf_spinlock);
+                    return 0;
+                }
+
+                char *string = (char *)calloc (1, BYTE8ALIGN(msg_len + 1));
+                strncpy (string, (const char *)Obuffer, msg_len);
                 
-                if (ABmgr_insert_string (abmgr, string, patt_rc)) {
+                if (ABmgr_insert_string (abmgr, string, msg_len, patt_rc)) {
                     ABmgr_print (abmgr, render_line);
                     ABmgr_reset(abmgr);
                 }
@@ -231,11 +247,16 @@ int cprintf (const char* format, ...) {
 
             if (abmgr) {
 
-                char *string = (char *)calloc (1, msg_len + 1);
+                if (ignore_sole_new_line (Obuffer, msg_len)) {
+                    pthread_spin_unlock (&cprintf_spinlock);
+                    return 0;
+                }
+
+                char *string = (char *)calloc (1, BYTE8ALIGN(msg_len + 1));
                 strcpy (string, (const char *)Obuffer);
 
-                if (ABmgr_insert_string (abmgr, string, patt_rc)) {
-                    
+                if (ABmgr_insert_string (abmgr, string, msg_len, patt_rc)) {
+
                     ABmgr_print (abmgr, render_line);
                     ABmgr_reset(abmgr);
                     pthread_spin_unlock (&cprintf_spinlock);
@@ -333,14 +354,22 @@ int cprintf (const char* format, ...) {
         }
     }
 
-    if (!count_filter_present ) {
+    while (!count_filter_present ) {
 
-        if (Obuffer[msg_len - 1] != '\n') {
+        if (inc_exc_pattern_present ) {
+
+            /* Ignore '\n' , '\r' , '\n\r' */
+            if (ignore_sole_new_line  (Obuffer, msg_len)) break;
+
+        }
+
+        if (0 && Obuffer[msg_len - 1] != '\n') {
             Obuffer[msg_len ] = '\n';
             msg_len++;
         }
 
         render_line (Obuffer, msg_len);
+        break;
     }
 
     pthread_spin_unlock (&cprintf_spinlock);

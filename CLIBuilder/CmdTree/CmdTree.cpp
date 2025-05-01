@@ -639,20 +639,20 @@ cmd_tree_u_d_options_subtree (param_t *include, param_t *include_leaf) {
 
     {
         param_t *_u = (param_t *)calloc (1, sizeof (param_t));
-        init_param (_u , CMD, "-A", NULL, NULL, INVALID, NULL, "Display lines above the mathcing pattern");
+        init_param (_u , CMD, "-A", NULL, NULL, INVALID, NULL, "Display lines above the matching pattern");
         libcli_register_param (include, _u);
         {
             param_t *_u_val = (param_t *)calloc (1, sizeof (param_t));
-            init_param (_u_val , LEAF, NULL, NULL, NULL, INT, "u-val", "Number of lines below the mathcing pattern");
+            init_param (_u_val , LEAF, NULL, NULL, NULL, INT, "u-val", "Number of lines below the matching pattern");
             libcli_register_param (_u, _u_val);
             libcli_register_param (_u_val, include_leaf);
             {
                 param_t *_d =  (param_t *)calloc (1, sizeof (param_t));
-                init_param (_d , CMD, "-B", NULL, NULL, INVALID, NULL, "Display lines below the mathcing pattern");
+                init_param (_d , CMD, "-B", NULL, NULL, INVALID, NULL, "Display lines below the matching pattern");
                 libcli_register_param (_u_val, _d);
                 {
                     param_t *_d_val =  (param_t *)calloc (1, sizeof (param_t));
-                    init_param (_d_val , LEAF, NULL, NULL, NULL, INT, "d-val", "Number of lines below the mathcing pattern");
+                    init_param (_d_val , LEAF, NULL, NULL, NULL, INT, "d-val", "Number of lines below the matching pattern");
                     libcli_register_param (_d, _d_val);
                     libcli_register_param (_d_val, include_leaf);
                 }
@@ -662,11 +662,11 @@ cmd_tree_u_d_options_subtree (param_t *include, param_t *include_leaf) {
 
     {
         param_t *_d = (param_t *)calloc (1, sizeof (param_t));
-        init_param (_d , CMD, "-B", NULL, NULL, INVALID, NULL, "Display lines below the mathcing pattern");
+        init_param (_d , CMD, "-B", NULL, NULL, INVALID, NULL, "Display lines below the matching pattern");
         libcli_register_param (include, _d);
         {
             param_t *_d_val = (param_t *)calloc (1, sizeof (param_t));
-            init_param (_d_val , LEAF, NULL, NULL, NULL, INT, "d-val", "Number of lines below the mathcing pattern");
+            init_param (_d_val , LEAF, NULL, NULL, NULL, INT, "d-val", "Number of lines below the matching pattern");
             libcli_register_param (_d, _d_val);
             libcli_register_param (_d_val, include_leaf);
         }

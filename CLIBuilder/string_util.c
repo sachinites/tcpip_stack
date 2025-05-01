@@ -327,6 +327,33 @@ string_fetch_string(char *string, int string_size, int index, char *buff_out) {
     return;
 } 
 
+ /* Ignore \n \r \n\r*/
+ bool 
+ ignore_sole_new_line (unsigned char *Obuffer, int msg_len) {
+ 
+     if (msg_len > 2) return false;
+ 
+     if (msg_len == 1) {
+         if (Obuffer[msg_len - 1] == '\n' || 
+             Obuffer[msg_len - 1] == '\r') {
+             return true;
+         }
+     }
+     else if (msg_len == 2) {
+         if (Obuffer[msg_len - 1] == '\n' && 
+             Obuffer[msg_len - 2] == '\r') {
+             return true;
+         }
+         else if (Obuffer[msg_len - 1] == '\r' && 
+             Obuffer[msg_len - 2] == '\n') {
+             return true;
+         }
+     }
+ 
+     return false;
+ }
+ 
+
 #if 0
 int 
 main(int argc, char **argv) {
