@@ -174,6 +174,12 @@ create_graph_node(graph_t *graph, const c_string node_name){
     node->object_group_ght = object_group_create_new_ht();
     init_glthread(&node->graph_glue);
 
+    /* initialize ACL/NAT/OBJECT-G Tracer*/
+    memset(file_name, 0, sizeof(file_name));
+    sprintf(file_name, "logs/%s-cp-acl.txt", node->node_name);
+    node->acl_cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  0 );
+    tracer_enable_file_logging (node->acl_cptr, true);
+
     /* initialize SQL Table Catalog*/
     sql_init_db(&node->sql_db);
     

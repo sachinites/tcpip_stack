@@ -96,8 +96,12 @@ tcp_ip_toggle_global_console_logging(void);
 void
 variadic_sprintf (node_t *node, Interface *intf, const char *format, ...);
 
+/* Control Plane Debug Logging */
 
-/* Debug Logging */
+
+
+
+/* Data Path Debug Logging */
 #define DARP (1 << 0)
 #define DARP_DET (1 << 1)
 #define DL3FWD (1 << 2)

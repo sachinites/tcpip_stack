@@ -123,6 +123,8 @@ struct node_ {
     hashtable_t *object_network_ght;
      /* Object Group Hashtable */
     hashtable_t *object_group_ght;
+    /* ACL/NAT/OBJECT-G Tracer */
+    tracer_t *acl_cptr;
     /* SQL DB*/
     BPlusTree_t *sql_db;
     /* Transport Svc profiles DB*/

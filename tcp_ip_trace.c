@@ -897,7 +897,7 @@ int traceoptions_handler(int cmdcode,
         access_list = access_list_lookup_by_name(node, access_list_name);
                 if (!access_list)
                 {
-                    cprintf("Error : Access-list do not exist\n");
+                    cprintf("\nError : Access-list do not exist");
                     return -1;
                 }
                 log_info = &node->log_info;
@@ -942,13 +942,13 @@ int traceoptions_handler(int cmdcode,
         intf = node_get_intf_by_name(node, (const char *)if_name);
         if (!intf)
         {
-            printw ("Error : No interface %s on Node %s\n", if_name, node_name);
+            printw ("\nError : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
         }
         access_list = access_list_lookup_by_name(node, access_list_name);
         if (!access_list)
         {
-                printw ("Error : Access-list do not exist\n");
+                printw ("\nError : Access-list do not exist\n");
                 return -1;
         }
         log_info = &intf->log_info;

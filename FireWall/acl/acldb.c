@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../Tracer/tracer.h"
 #include "../../Threads/refcount.h"
 #include "../../graph.h"
 #include "../../Interface/Interface.h"
@@ -61,7 +62,7 @@ acl_string_to_proto(unsigned char *proto_name) {
 }
 
 void 
-acl_entry_free (acl_entry_t *acl_entry) {
+acl_entry_free (node_t *node, acl_entry_t *acl_entry) {
 
     acl_decompile(acl_entry);
     acl_entry_delink_src_object_networks(acl_entry);
@@ -69,6 +70,8 @@ acl_entry_free (acl_entry_t *acl_entry) {
     acl_entry_delink_src_object_group(acl_entry);
     acl_entry_delink_dst_object_group(acl_entry);
     assert(IS_GLTHREAD_LIST_EMPTY(&acl_entry->glue));
+    tracer (ACL_TR(node), TR_ACL_DEL, "%s : Acl %s-%u is deleted\n", 
+            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
     XFREE(acl_entry);
 }
 
@@ -76,6 +79,7 @@ void
 acl_decompile (acl_entry_t *acl_entry) {
 
     if (!acl_entry->is_compiled) {
+
         sprintf (tlb, "%s : Acl %s-%u is already decompiled\n", 
             FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
         tcp_trace(0, 0, tlb);        
@@ -701,7 +705,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
 
         acl_entry = glthread_to_acl_entry(curr);
         remove_glthread(&acl_entry->glue);
-        acl_entry_free(acl_entry);
+        acl_entry_free(node, acl_entry);
 
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
@@ -1738,7 +1742,7 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
     access_list_reenumerate_seq_no (access_list, curr);
 
     if (!access_list_is_compiled(access_list)) {
-         acl_entry_free(acl_entry);
+         acl_entry_free(node, acl_entry);
          return true;
     }
 
@@ -1749,12 +1753,12 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
         pthread_rwlock_wrlock(&access_list->mtrie_update_lock);
         acl_entry_uninstall(access_list, acl_entry);
         pthread_rwlock_unlock(&access_list->mtrie_update_lock);
-        acl_entry_free(acl_entry);
+        acl_entry_free(node, acl_entry);
         return true;
     }
 
     /* Async method */
-    acl_entry_free(acl_entry);
+    acl_entry_free(node, acl_entry);
     access_list_trigger_install_job(node, access_list, NULL);
     return true;
 }

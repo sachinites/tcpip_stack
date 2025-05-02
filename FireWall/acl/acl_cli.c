@@ -189,7 +189,7 @@ access_list_config (node_t *node,
                     dst_port_no1,
                     dst_port_no2)) {
 
-        acl_entry_free(acl_entry);
+        acl_entry_free(node, acl_entry);
         return -1;
     }
 
@@ -198,7 +198,7 @@ access_list_config (node_t *node,
         return 0;
     }
 
-    acl_entry_free(acl_entry);
+    acl_entry_free(node, acl_entry);
     return -1;
 }
 
