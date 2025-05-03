@@ -120,7 +120,7 @@ UnsetFilterContext () {
         fileptr = NULL;
     }
 
-    if (TC_RUNNING && !abmgr) {
+    if (TC_RUNNING) {
 
         /* The show output of the command has come to an end , push all the show output data to
             the TC infra for further parsing and analysis*/
@@ -133,35 +133,13 @@ UnsetFilterContext () {
         cum_buffer_byte_cnt = 0;
     }
 
-    else  if (TC_RUNNING && abmgr) {
-
-        cum_buffer_byte_cnt = ABmgr_data_copy (abmgr, (char *)Cumbuffer, CUM_BUFFER_MAX_SIZE);
-
-        if (mq_send (UT_PARSER_MSG_Q_FD, (char *)Cumbuffer, cum_buffer_byte_cnt + 1, 0) == -1 ) {
-            printw ("mq_send failed on FD %d, errno = %d\n", UT_PARSER_MSG_Q_FD, errno);
-        }
-
-        /* Reset the Cum buffer for the next show command */
-        memset (Cumbuffer, 0, cum_buffer_byte_cnt);
-        cum_buffer_byte_cnt = 0;
-        ABmgr_destroy(abmgr);
-        abmgr = NULL;
-    }
-
-
-    else if (!TC_RUNNING && abmgr) {
+     if (abmgr) {
 
         if (ABmgr_is_printable (abmgr)) { 
             ABmgr_print(abmgr, render_line);
         }
         ABmgr_destroy(abmgr);
         abmgr = NULL;
-    }
-
-    /* No Testcase and no abmgr */
-    else {
-
-        /* Nothing to do */
     }
 }
 
@@ -326,7 +304,7 @@ int cprintf (const char* format, ...) {
                 if (patt_rc) count_lines++;
             }
             else {
-                count_lines++;
+                if (!ignore_sole_new_line  (Obuffer, msg_len)) count_lines++;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "sfile-name")) {
