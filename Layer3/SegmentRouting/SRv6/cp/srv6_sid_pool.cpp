@@ -955,7 +955,8 @@ srv6_show_locator (srv6_sid_pools_t *srv6_sid_pools, char *loc_name)  {
     avltree_node_t *curr;
     srv6_locator_pool_t *loc;
 
-    cprintf ("\nSRv6 sid pool \n--------------\n");
+    cprintf ("\nSRv6 sid pool");
+    cprintf ("--------------");
 
     if (loc_name) {
 

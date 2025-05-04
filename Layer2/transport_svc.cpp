@@ -435,6 +435,8 @@ transport_svc_show_handler (int cmdcode,
     TransPortSvcDB = node->TransPortSvcDB;
     if (!TransPortSvcDB) return 0;
 
+    printw ("\n\r");
+
     /* Iterate over  TransPortSvcDB*/
     for (auto it = TransPortSvcDB->begin(); it != TransPortSvcDB->end(); ++it) {
 
@@ -487,6 +489,8 @@ show_vlan_members (int cmdcode,
 
     TransPortSvcDB = node->TransPortSvcDB;
 
+    printw ("\n\r");
+    
     do {
                
         /* Iterate over vlan interface DB*/

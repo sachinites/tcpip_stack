@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ncurses.h>
 #include "../../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../../mtrie/mtrie.h"
 #include "../../../../graph.h"
@@ -92,7 +93,7 @@ srv6_de_init (node_t *node) {
 
     /* check and delete srv6 node info*/
     check_and_delete_srv6_node_info (node);
-    cprintf ("SRv6 shutdown Successfully\n");
+    cprintf ("\nSRv6 shutdown Successfully");
 }
 
 uint32_t 

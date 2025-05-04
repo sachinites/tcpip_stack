@@ -189,7 +189,7 @@ access_list_config (node_t *node,
                     dst_port_no1,
                     dst_port_no2)) {
 
-        acl_entry_free(acl_entry);
+        acl_entry_free(node, acl_entry);
         return -1;
     }
 
@@ -198,7 +198,7 @@ access_list_config (node_t *node,
         return 0;
     }
 
-    acl_entry_free(acl_entry);
+    acl_entry_free(node, acl_entry);
     return -1;
 }
 
@@ -1423,6 +1423,8 @@ acl_show_handler(int cmdcode,
     TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+
+    printw("\n\r");
     access_list_show_all(node);
     return 0;
 }

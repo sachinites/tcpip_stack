@@ -193,6 +193,7 @@ isis_enable_protocol_on_interface(Interface *intf) {
     isis_intf_info_t *intf_info = NULL;
 
     if (!isis_is_protocol_enable_on_node(intf->att_node)) {
+        cprintf ("Error : %s : ISIS is not enabled", intf->att_node->node_name);
         return;
     }
 
@@ -283,52 +284,37 @@ isis_show_interface_protocol_state(Interface *intf) {
 
     intf_info = (isis_intf_info_t *)intf->isis_intf_info;
    
-   PRINT_TABS(2);
-   cprintf ("link-type: %s", intf_info->intf_type == isis_intf_type_p2p ? "p2p" : "lan");
+   cprintf ("  link-type: %s\n", intf_info->intf_type == isis_intf_type_p2p ? "p2p" : "lan");
    if (intf_info->intf_type == isis_intf_type_lan) {
         cprintf ("    lan-id : %s\n", isis_lan_id_tostring(&intf_info->lan_id, buffer));
         cprintf ("    elected dis-id : %s\n", isis_lan_id_tostring(&intf_info->elected_dis, buffer));
    }
-   else {
-        cprintf ("\n");
-   }
+
     if (intf_info->intf_grp) {
-         PRINT_TABS(2);
-        cprintf("Intf Group : %s \n", intf_info->intf_grp->name);
+        cprintf("  Intf Group : %s \n", intf_info->intf_grp->name);
     }
-    PRINT_TABS(2);
-    cprintf("hello interval : %u sec, Intf Cost : %u, Priority : %hu\n",
+    cprintf("  hello interval : %u sec, Intf Cost : %u, Priority : %hu\n",
         intf_info->hello_interval, intf_info->cost, intf_info->priority);
 
-    PRINT_TABS(2);
-    cprintf("hello Transmission : %s\n",
+    cprintf("  hello Transmission : %s\n",
         ISIS_INTF_HELLO_XMIT_TIMER(intf) ? "On" : "Off");  
 
-    PRINT_TABS(2);
-    cprintf("Stats :\n");
-    PRINT_TABS(3);
-    cprintf("> good_hello_pkt_recvd : %u\n", intf_info->good_hello_pkt_recvd);
-    PRINT_TABS(3);
-    cprintf("> bad_hello_pkt_recvd : %u\n", intf_info->bad_hello_pkt_recvd);
-    PRINT_TABS(3);
-    cprintf("> good_lsps_pkt_recvd : %u\n", intf_info->good_lsps_pkt_recvd);
-    PRINT_TABS(3);
-    cprintf("> bad_lsps_pkt_recvd : %u\n", intf_info->bad_lsps_pkt_recvd);
-    PRINT_TABS(3);
-    cprintf("> lsp_pkt_sent : %u\n", intf_info->lsp_pkt_sent);
-    PRINT_TABS(3);
-    cprintf("> hello_pkt_sent : %u\n", intf_info->hello_pkt_sent);
-
-    PRINT_TABS(2);
-    cprintf("Adjacencies :\n");
+    cprintf("  Stats :\n");
+    cprintf("   > good_hello_pkt_recvd : %u\n", intf_info->good_hello_pkt_recvd);
+    cprintf("   > bad_hello_pkt_recvd : %u\n", intf_info->bad_hello_pkt_recvd);
+    cprintf("   > good_lsps_pkt_recvd : %u\n", intf_info->good_lsps_pkt_recvd);
+    cprintf("   > bad_lsps_pkt_recvd : %u\n", intf_info->bad_lsps_pkt_recvd);
+    cprintf("   > lsp_pkt_sent : %u\n", intf_info->lsp_pkt_sent);
+    cprintf("   > hello_pkt_sent : %u\n", intf_info->hello_pkt_sent);
+    cprintf("  Adjacencies :\n");
 
     ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
         adjacency = glthread_to_isis_adjacency(curr);
         isis_show_adjacency(adjacency, 4);
-        cprintf("\n");
+        cprintf ("\n\r");
+
     } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr)
-    cprintf("\n");
 }
 
 static void

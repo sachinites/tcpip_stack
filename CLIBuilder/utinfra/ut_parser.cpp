@@ -183,8 +183,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             if (strncmp (line, ":TESTCASE-BEGIN:", strlen(":TESTCASE-BEGIN:")) == 0) {
 
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;
+                token = &line[0] + strlen(":TESTCASE-BEGIN:");
                 current_tc_no = atoi(token);
 
                 /* If the user specified particular testcase no in CLI, then find that TC only*/
@@ -221,9 +220,6 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             else if (strncmp (line, ":TESTCASE-END:", strlen(":TESTCASE-END:")) == 0) {
 
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;
-
                /* Test case found */
                 rc = sprintf(buff, "\n ***** Test case : %s - %d Finished ***** \n",
                                     file_name,  current_tc_no);
@@ -243,8 +239,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             else if (strncmp (line, ":DESC:", strlen(":DESC:")) == 0) {
                 
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;
+                token = &line[0] + strlen(":DESC:");
                 rc = sprintf(buff, "Description : %s\n", token);
                  //printw("%s", buff);
                  fwrite(buff, 1, rc, ut_log_file);
@@ -255,8 +250,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             else if (strncmp (line, ":STEP:", strlen(":STEP:")) == 0) {
 
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;
+                token = &line[0] + strlen(":STEP:");
                 rc = sprintf(buff, "STEP : %s\n", token);
                 //printw("%s", buff);
                 fwrite(buff, 1, rc, ut_log_file);
@@ -268,8 +262,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             else if (strncmp (line, ":CMD:", strlen(":CMD:")) == 0) {
 
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;
+                token = &line[0] + strlen(":CMD:");
                 rc = sprintf(buff, "CMD : %s\n", token);
                 //printw("%s", buff);
                 fwrite(buff, 1, rc, ut_log_file);
@@ -318,15 +311,8 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
                 int rc1 = 0;
                 char pattern [256];
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;  // this is the pattern to be matched
+                token = &line[0] + strlen(":PATTERN-MATCH:");
                 rc1 = sprintf(pattern + rc1, "%s", token);
-
-                while(1) {
-                    token = strtok(NULL, ":") ;
-                    if (!token) break;
-                    rc1 += sprintf(pattern + rc1, ":%s", token);
-                }
               
                 //printw("pattern to be matched : |%s|\n", pattern);
                 rc = sprintf(buff, "pattern to be matched : |");
@@ -350,21 +336,12 @@ run_test_case(char *file_name, uint16_t tc_no) {
                 fflush(ut_log_file);
             }
 
-
-
             else if (strncmp (line, ":PATTERN-NOT-MATCH:", strlen(":PATTERN-NOT-MATCH:")) == 0) {
 
                 int rc1 = 0;
                 char pattern [256];
-                token = strtok(line, ":") ;
-                token = strtok(NULL, ":") ;  // this is the pattern to be not matched
+                token = &line[0] + strlen(":PATTERN-NOT-MATCH:");
                 rc1 += sprintf(pattern + rc1, "%s", token);
-
-                while(1) {
-                    token = strtok(NULL, ":") ;
-                    if (!token) break;
-                    rc1 += sprintf(pattern + rc1,  ":%s", token);
-                }
 
                 //printw("pattern to be not matched : |%s|\n", pattern);
                 rc = sprintf(buff, "pattern to be not matched : |");
@@ -392,8 +369,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             else if (strncmp (line, ":SLEEP:", strlen(":SLEEP:")) == 0) {
 
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":SLEEP:");
                     rc = sprintf(buff, "Sleeping for %s sec\n", token);
                     //printw("%s", buff);
                     fwrite(buff, 1, rc, ut_log_file);
@@ -423,8 +399,8 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
 
              else if (strncmp (line, ":GREP:", strlen(":GREP:")) == 0) {
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+
+                    token = &line[0] + strlen(":GREP:");
                     //printw ("Grep Pattern : %s\n", token);
                     rc = sprintf (buff, "Grep Pattern : %s\n", token);
                     fwrite(buff, 1, rc, ut_log_file);
@@ -441,8 +417,8 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
 
              else if (strncmp (line, ":PRINT:", strlen(":PRINT:")) == 0) {
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+
+                    token = &line[0] + strlen(":PRINT:");
                     //printw ("INFO : %s\n", token);
                     rc = sprintf (buff, "INFO : %s\n", token);
                     fwrite(buff, 1, rc, ut_log_file);
@@ -454,8 +430,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
             else if (strncmp (line, ":INT_STORE1:", strlen(":INT_STORE1:")) == 0) {
 
                     int index = 0;
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":INT_STORE1:");
                     index = atoi(token);
                     assert(index);
                     int_store1 = string_fetch_integer(ut_parser_recv_buff, 
@@ -469,8 +444,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
             else if (strncmp (line, ":INT_STORE2:", strlen(":INT_STORE2:")) == 0) {
 
                     int index = 0;
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":INT_STORE2:");
                     index = atoi(token);
                     assert(index);
                     int_store2 = string_fetch_integer(ut_parser_recv_buff, 
@@ -484,8 +458,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
             else if (strncmp (line, ":INT_STORE3:", strlen(":INT_STORE3:")) == 0) {
 
                     int index = 0;
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":INT_STORE3:");
                     index = atoi(token);
                     assert(index);
                     int_store3 = string_fetch_integer(ut_parser_recv_buff, 
@@ -500,8 +473,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
             else if (strncmp (line, ":STRING_STORE1:", strlen(":STRING_STORE1:")) == 0) {
 
                     int index = 0;
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":STRING_STORE1:");
                     index = atoi(token);
                     assert(index);
                     string_fetch_string(ut_parser_recv_buff, 
@@ -515,8 +487,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
             else if (strncmp (line, ":STRING_STORE2:", strlen(":STRING_STORE2:")) == 0) {
 
                     int index = 0;
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":STRING_STORE2:");
                     index = atoi(token);
                     assert(index);
                     string_fetch_string(ut_parser_recv_buff, 
@@ -530,8 +501,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
             else if (strncmp (line, ":STRING_STORE3:", strlen(":STRING_STORE3:")) == 0) {
 
                     int index = 0;
-                    token = strtok(line, ":") ;
-                    token = strtok(NULL, ":") ;
+                    token = &line[0] + strlen(":STRING_STORE3:");
                     index = atoi(token);
                     assert(index);
                     string_fetch_string(ut_parser_recv_buff, 

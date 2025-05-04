@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <iostream>
+#include <ncurses.h>
 #include "ipv6_route.h"
 #include "ipv6_hdrs.h"
 #include "ipv6_utils.h"
@@ -121,7 +122,9 @@ v6_rt_table_show (rt_table_t *rt_table) {
     nxthop_proto_id_t nxthop_proto;
     unsigned char uptime_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
-    cprintf("\nL3 v6 Routing Table\n\n");
+    printw ("\n\r");
+
+    cprintf("L3 v6 Routing Table\n\n");
 
     ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr) {
 
@@ -139,19 +142,19 @@ v6_rt_table_show (rt_table_t *rt_table) {
 
                 nexthop = route->nexthops[nxthop_proto][i];
 
-                cprintf (" Proto:%s  F:%s  Metric:%u  ", 
+                cprintf (" Proto:%s  F:%s  Metric:%u", 
                     proto_name_str(nexthop->proto), 
                     rt_flags_str( nexthop->flags , &rt_flags_arr), nexthop->metric);
 
                 if (!is_ipv6_addr_unspecified (&nexthop->gw.addr)) {
-                    cprintf ("Gateway:%s  ", inet_ntop6(&nexthop->gw, buffer1));
+                    cprintf (" Gateway:%s", inet_ntop6(&nexthop->gw, buffer1));
                 }
 
                 if (nexthop->oif) {
-                    cprintf ("OIF : %s  ", nexthop->oif->if_name.c_str());
+                    cprintf (" OIF : %s  ", nexthop->oif->if_name.c_str());
                 }
 
-                cprintf ("Hit Count:%llu  uptime:%s\n", 
+                cprintf (" Hit Count:%llu  uptime:%s\n", 
                     route->nexthops[nxthop_proto][i]->hit_count,
                     hrs_min_sec_format((unsigned int)difftime(time(NULL),
                                 nexthop->install_time), uptime_buff, 
@@ -165,18 +168,17 @@ v6_rt_table_show (rt_table_t *rt_table) {
                     case proto_nxthop_srv6:
                     case proto_nxthop_isis_srv6:
 
-                        cprintf ("   SRv6 Fn: %s  ",
+                        cprintf (" SRv6 Fn: %s  ",
                             srv6_end_fn_str(nexthop->u.srv6.endfn));
                         
                         if (nexthop->u.srv6.n_segment_list) {
 
-                            cprintf ("Segment Lst : ");
+                            cprintf (" Segment Lst : ");
                             
                             for (int j = 0; j < nexthop->u.srv6.n_segment_list; j++) {
-                                cprintf ("%s ", inet_ntop6 (&nexthop->u.srv6.segment_lst[j] , buffer1));
+                                cprintf ("  %s ", inet_ntop6 (&nexthop->u.srv6.segment_lst[j] , buffer1));
                             }
                         }
-                    cprintf ("\n");
                     break;
                 }
             }

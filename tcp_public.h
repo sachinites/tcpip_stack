@@ -33,7 +33,7 @@
 
 #include <ncurses.h>
 #include <pthread.h>
-#include <memory>
+#include <memory.h>
 #include "gluethread/glthread.h"
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"
@@ -93,9 +93,6 @@ display_node_interfaces(param_t *param, ser_buff_t *tlv_buf);
 
 extern void
 display_graph_nodes(param_t *param, ser_buff_t *tlv_buf);
-
-extern void
-cli_out(unsigned char *buff, size_t buff_size);
 
 extern graph_t * topo;
 extern char tlb[TCP_LOG_BUFFER_LEN];

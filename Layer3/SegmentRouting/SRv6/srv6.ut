@@ -1,0 +1,257 @@
+:TESTCASE-BEGIN:1
+:DESC: Test case to Srv6 Feature
+
+:PRINT: Topology to be loaded in testapp.c : cross_link_topology(); 
+
+
+:PRINT:                                                  +--------+-+
+:PRINT:                   +---------+                    | R2       |
+:PRINT:               eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+:PRINT:       +-----------+122.1.1.1+--------------------+          +------------------+
+:PRINT:       |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+:PRINT:       |           +---------+                    +-----+--+-+                  +
+:PRINT:       +                                         eth4/  |eth7                   |
+:PRINT:       |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+:PRINT:       |eth0                                       /    |                  eth9 |50.1.1.2/24
+:PRINT:   +---+---+--+                                   /     |                  +----+-----+
+:PRINT:   |          |                                  /      |                  |    R3    |
+:PRINT:   | R0       |                                 /       |                  | 122.1.1.3|
+:PRINT:   |122.1.1.0 |                                /        |                  |          |
+:PRINT:   |          |                               /         |                  +----+-----+
+:PRINT:   +---+---+--|               ---------------/          |                       |eth10
+:PRINT:       |eth14                /                          |                       |60.1.1.1/24
+:PRINT:       |80.1.1.1/24         /                           |                       |
+:PRINT:       |                   /                            |                       |
+:PRINT:       |                  /                        eth6 |40.1.1.1/24            |
+:PRINT:       |             eth5/30.1.1.2/24             +-----+----+                  |
+:PRINT:       |           +----/----+                    |   R4     |                  |
+:PRINT:       |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |
+:PRINT:       +-----------+122.1.1.5|+-------------------+          +------------------+
+:PRINT:        80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24
+:PRINT:                  -+---------+                    +----------+
+
+
+:PRINT: Config the Protocol 
+
+:STEP:1
+:CMD: config node R0 protocol source-packet-routing srv6 locator R0-LOC 2001:dbe8:1:: 48
+:CMD: config node R0 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:1:1:: flavor psp
+:CMD: config node R0 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:1:2:: flavor usd
+:CMD: config node R0 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:1:3:: flavor usp
+:CMD: config node R0 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:1:4:: flavor usd
+:CMD: config node R0 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:1:5:: flavor usp usd psp
+:CMD: config node R0 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:1:6::
+
+:STEP:2
+:CMD: config node R1 protocol source-packet-routing srv6 locator R1-LOC 2001:dbe8:2:: 48
+:CMD: config node R1 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:2:1::
+:CMD: config node R1 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:2:2::
+:CMD: config node R1 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:2:3::
+:CMD: config node R1 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:2:4::
+:CMD: config node R1 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:2:5::
+:CMD: config node R1 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:2:6::
+:STEP:3
+:CMD: config node R2 protocol source-packet-routing srv6 locator R2-LOC 2001:dbe8:3:: 48
+:CMD: config node R2 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:3:1::
+:CMD: config node R2 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:3:2::
+:CMD: config node R2 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:3:3::
+:CMD: config node R2 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:3:4::
+:CMD: config node R2 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:3:5::
+:CMD: config node R2 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:3:6::
+:STEP:4
+:CMD: config node R3 protocol source-packet-routing srv6 locator R3-LOC 2001:dbe8:4:: 48
+:CMD: config node R3 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:1::
+:CMD: config node R3 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:2::
+:CMD: config node R3 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:3::
+:CMD: config node R3 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:4::
+:CMD: config node R3 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:5::
+:CMD: config node R3 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:4:6::
+:STEP:5
+:CMD: config node R4 protocol source-packet-routing srv6 locator R4-LOC 2001:dbe8:5:: 48
+:CMD: config node R4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:5:1::
+:CMD: config node R4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:5:2::
+:CMD: config node R4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:5:3::
+:CMD: config node R4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:5:4::
+:CMD: config node R4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:5:5::
+:CMD: config node R4 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:5:6::
+:STEP:6
+:CMD: config node R5 protocol source-packet-routing srv6 locator R5-LOC 2001:dbe8:6:: 48
+:CMD: config node R5 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:6:1::
+:CMD: config node R5 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:6:2::
+:CMD: config node R5 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:6:3::
+:CMD: config node R5 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:6:4::
+:CMD: config node R5 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:6:5::
+:CMD: config node R5 protocol source-packet-routing srv6 endpoint end-sid 2001:dbe8:6:6::
+
+:STEP:7
+:PRINT: Checking local SRv6 Routes on R0 
+:CMD: show node R0 rt6 | xinclude -B 3 2001:dbe8:1:1::
+:STEP:8
+:PATTERN-MATCH:2001:dbe8:1:1::/128
+:STEP:9
+:PATTERN-MATCH:Proto:srv6  F:L  Metric:0
+:STEP:10
+:PATTERN-MATCH:SRv6 Fn: END_w_PSP
+:STEP:11
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USP
+:STEP:12
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USD
+:STEP:13
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP_USD
+
+:STEP:14
+:PRINT: Checking locator SRv6 Route on R0
+:CMD: show node R0 rt6 | xinclude -B 3 2001:dbe8:1::
+:STEP:15
+:PATTERN-MATCH:2001:dbe8:1::/48
+:STEP:16
+:PATTERN-MATCH:Proto:srv6  F:L  Metric:0
+:STEP:17
+:PATTERN-MATCH:SRv6 Fn: ipv6 Fwd
+
+:STEP:18
+:PRINT: Checking local SRv6 Routes on R0 
+:CMD: show node R0 rt6 | xinclude -B 3 2001:dbe8:1:2::
+:STEP:19
+:PATTERN-MATCH:2001:dbe8:1:2::/128
+:STEP:20
+:PATTERN-MATCH:Proto:srv6  F:L  Metric:0
+:STEP:21
+:PATTERN-MATCH:SRv6 Fn: END_w_USD
+:STEP:22
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USP
+:STEP:23
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP
+:STEP:24
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP_USD
+
+:STEP:25
+:PRINT: Checking local SRv6 Routes on R0 
+:CMD: show node R0 rt6 | xinclude -B 3 2001:dbe8:1:3::
+:STEP:26
+:PATTERN-MATCH:2001:dbe8:1:3::/128
+:STEP:27
+:PATTERN-MATCH:Proto:srv6  F:L  Metric:0
+:STEP:28
+:PATTERN-MATCH:SRv6 Fn: END_w_USP
+:STEP:29
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USD
+:STEP:30
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP
+:STEP:31
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP_USD
+
+:STEP:32
+:PRINT: Checking local SRv6 Routes on R0 
+:CMD: show node R0 rt6 | xinclude -B 3 2001:dbe8:1:4::
+:STEP:33
+:PATTERN-MATCH:2001:dbe8:1:4::/128
+:STEP:34
+:PATTERN-MATCH:Proto:srv6  F:L  Metric:0
+:STEP:35
+:PATTERN-MATCH:SRv6 Fn: END_w_USD
+:STEP:36
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USP
+:STEP:37
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP
+:STEP:38
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP_USD
+
+:STEP:39
+:PRINT: Checking local SRv6 Routes on R0 
+:CMD: show node R0 rt6 | xinclude -B 3 2001:dbe8:1:5::
+:STEP:40
+:PATTERN-MATCH:2001:dbe8:1:5::/128
+:STEP:41
+:PATTERN-MATCH:Proto:srv6  F:L  Metric:0
+:STEP:42
+:PATTERN-MATCH:SRv6 Fn: END_w_PSP_USP_USD
+:STEP:43
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USP
+:STEP:44
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_USD
+:STEP:45
+:PATTERN-NOT-MATCH:SRv6 Fn: END_w_PSP_USD
+
+:STEP:46
+:PRINT: Verifying Total no of SRv6 Routes 
+:CMD: show node R0 rt6 | include srv6 | count
+:STEP:47
+:PATTERN-MATCH:lines : 7
+
+
+:STEP:48
+:PRINT: Checking SRv6 Sid Pool on R0 
+:CMD: show node R0 protocol srv6 sid
+:STEP:49
+:PATTERN-MATCH:2001:dbe8:1:1::       R0-LOC               srv6-sid-mgr    END_w_PSP
+:STEP:50                                                                                                                                                       
+:PATTERN-MATCH:2001:dbe8:1:2::       R0-LOC               srv6-sid-mgr    END_w_USD
+:STEP:51
+:PATTERN-MATCH:2001:dbe8:1:3::       R0-LOC               srv6-sid-mgr    END_w_USP
+:STEP:52
+:PATTERN-MATCH:2001:dbe8:1:4::       R0-LOC               srv6-sid-mgr    END_w_USD
+:STEP:53
+:PATTERN-MATCH:2001:dbe8:1:5::       R0-LOC               srv6-sid-mgr    END_w_PSP_USP_USD
+:STEP:54
+:PATTERN-MATCH:2001:dbe8:1:6::       R0-LOC               srv6-sid-mgr    END
+
+:STEP:55
+:PRINT: Checking Count of entries in SRv6 Sid Pool on R0 
+:CMD: show node R0 protocol srv6 sid | count 
+:STEP:56
+:PATTERN-MATCH:lines : 11
+
+:PRINT: Unconfiguring the Srv6 on the topology 
+:CMD:config node R0 no protocol source-packet-routing srv6
+:CMD:config node R1 no protocol source-packet-routing srv6
+:CMD:config node R2 no protocol source-packet-routing srv6
+:CMD:config node R3 no protocol source-packet-routing srv6
+:CMD:config node R4 no protocol source-packet-routing srv6
+:CMD:config node R5 no protocol source-packet-routing srv6
+
+:STEP:57
+:PRINT: Clean up check on R0
+:CMD:show node R0 protocol srv6 sid | count
+:STEP:58
+:PATTERN-MATCH:lines : 2
+
+:STEP:59
+:PRINT: Clean up check on R1
+:CMD:show node R1 protocol srv6 sid | count
+:STEP:60
+:PATTERN-MATCH:lines : 2
+
+:STEP:61
+:PRINT: Clean up check on R2
+:CMD:show node R2 protocol srv6 sid | count
+:STEP:62
+:PATTERN-MATCH:lines : 2
+
+:STEP:63
+:PRINT: Clean up check on R3
+:CMD:show node R3 protocol srv6 sid | count
+:STEP:64
+:PATTERN-MATCH:lines : 2
+
+:STEP:65
+:PRINT: Clean up check on R4
+:CMD:show node R4 protocol srv6 sid | count
+:STEP:66
+:PATTERN-MATCH:lines : 2
+
+:STEP:67
+:PRINT: Clean up check on R5
+:CMD:show node R5 protocol srv6 sid | count
+:STEP:68
+:PATTERN-MATCH:lines : 2
+
+
+:TESTCASE-END:1
+
+
+
+
+
+
+

@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <regex.h>
 #include "string_util.h"
 #include "cli_const.h"
 
@@ -326,6 +327,58 @@ string_fetch_string(char *string, int string_size, int index, char *buff_out) {
     free(temp_buff);
     return;
 } 
+
+ /* Ignore \n \r \n\r*/
+ bool 
+ ignore_sole_new_line (unsigned char *Obuffer, int msg_len) {
+ 
+     if (msg_len > 2) return false;
+ 
+     if (msg_len == 1) {
+         if (Obuffer[msg_len - 1] == '\n' || 
+             Obuffer[msg_len - 1] == '\r') {
+             return true;
+         }
+     }
+     else if (msg_len == 2) {
+         if (Obuffer[msg_len - 1] == '\n' && 
+             Obuffer[msg_len - 2] == '\r') {
+             return true;
+         }
+         else if (Obuffer[msg_len - 1] == '\r' && 
+             Obuffer[msg_len - 2] == '\n') {
+             return true;
+         }
+     }
+ 
+     return false;
+ }
+ 
+int 
+regex_match (const char *input_string, const char *reg_exp) {
+
+    regex_t regex;
+    int reti;
+
+    /* Compile regular expression */
+    reti = regcomp(&regex, reg_exp, REG_EXTENDED);
+    if (reti) return -1;
+
+    /* Execute regular expression */
+    reti = regexec(&regex, input_string, 0, NULL, 0);
+    regfree(&regex);
+    return reti;
+}
+
+char *
+stringdup (const char *src_string, uint16_t string_len) {
+
+        uint16_t new_string_len = ((string_len + 7) & ~7); //8B align
+        char *dup_string = (char *)calloc (1, new_string_len);
+        memcpy (dup_string, src_string, string_len);
+        return dup_string;
+}
+
 
 #if 0
 int 

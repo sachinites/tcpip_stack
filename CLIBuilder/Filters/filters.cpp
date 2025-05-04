@@ -26,10 +26,15 @@
 #include <mqueue.h>
 #include <regex.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <memory.h>
+#include "../string_util.h"
 #include "../libcli.h"
+#include "A_B.h"
 
 #define OBUFFER_SIZE  256
 #define CUM_BUFFER_MAX_SIZE 4096 /* must match with MAX_MSG_SIZE*/
+#define BYTE8ALIGN(n)   ((n + 7) & ~7)
 
 static tlv_struct_t **filter_array = NULL;
 static int filter_array_size = 0;
@@ -39,12 +44,10 @@ static uint16_t cum_buffer_byte_cnt = 0;
 static int count_lines = 0;
 static bool count_filter_present = false;
 FILE *fileptr = NULL;
-static bool first_line = false;
 
 extern bool TC_RUNNING ;
 extern int UT_PARSER_MSG_Q_FD; 
-
-
+static ABmgr_t *abmgr = NULL;
 static pthread_spinlock_t cprintf_spinlock;
 
 void 
@@ -75,10 +78,30 @@ SetFilterContext (tlv_struct_t **lfilter_array, int lsize) {
     cum_buffer_byte_cnt = 0;
 }
 
+static void 
+render_line (unsigned char *Obuffer, int msg_len) {
+
+    if (TC_RUNNING) {
+    /* If the Test case is running, then collect individual printf statements in a Cumbuffer
+        until all the show o/p of the command is collected. */
+        memcpy(Cumbuffer + cum_buffer_byte_cnt, Obuffer, msg_len);
+        cum_buffer_byte_cnt += msg_len;
+        return;
+    }
+
+    if (fileptr) {
+        fwrite (Obuffer, 1, msg_len, fileptr);
+        return;
+    }
+
+     printw("%s", Obuffer);
+}
+
 void 
 UnsetFilterContext () {
 
     if (count_filter_present) {
+        
         if (!TC_RUNNING) {
             printw ("\nlines : %d", count_lines);
         }
@@ -97,8 +120,6 @@ UnsetFilterContext () {
         fileptr = NULL;
     }
 
-    first_line = false;
-
     if (TC_RUNNING) {
 
         /* The show output of the command has come to an end , push all the show output data to
@@ -112,32 +133,16 @@ UnsetFilterContext () {
         cum_buffer_byte_cnt = 0;
     }
 
+     if (abmgr) {
+
+        if (ABmgr_is_printable (abmgr)) { 
+            ABmgr_print(abmgr, render_line);
+        }
+        ABmgr_destroy(abmgr);
+        abmgr = NULL;
+    }
 }
 
-static void 
-render_line (unsigned char *Obuffer, int msg_len) {
-
-    if (TC_RUNNING) {
-    /* If the Test case is running, then collect individual printf statements in a Cumbuffer
-        until all the show o/p of the command is collected. */
-        memcpy(Cumbuffer + cum_buffer_byte_cnt, Obuffer, msg_len);
-        cum_buffer_byte_cnt += msg_len;
-        return;
-    }
-
-    if (fileptr) {
-        fwrite (Obuffer, 1, msg_len, fileptr);
-        return;
-    }
-
-    if (!first_line) {
-
-        printw("\n");
-        first_line = true;
-    }
-
-     printw("%s", Obuffer);
-}
 
 /* override glibc printf */
 int cprintf (const char* format, ...) {
@@ -158,36 +163,114 @@ int cprintf (const char* format, ...) {
 
     va_end(args);
 
+    /* Append \n if not appended by user. All cprintf must end with \n*/
+    if (Obuffer[msg_len - 1] != '\n') {
+        Obuffer[msg_len ] = '\n';
+        msg_len++;
+    }
+
     if (filter_array_size == 0) {
 
          render_line (Obuffer, msg_len);
          pthread_spin_unlock (&cprintf_spinlock);
          return 0;
     }
+    
+    uint16_t u_val = 0, d_val = 0;
 
     for (i = 0; i < filter_array_size; i++) {
-        
+            
         tlv = filter_array[i];
 
-        if (parser_match_leaf_id (tlv->leaf_id, "incl-pattern")) {
+        if (parser_match_leaf_id (tlv->leaf_id, "u-val")) {
+            u_val = atoi((const char *)tlv->value);
+            continue;
+        }
 
-             inc_exc_pattern_present = true;
+        if (parser_match_leaf_id (tlv->leaf_id, "d-val")) {
+            d_val = atoi((const char *)tlv->value);
+            continue;
+        }
 
-            patt_rc = filter_inclusion (Obuffer, msg_len, 
-                                                (unsigned char *)tlv->value, 
-                                                strlen ((const char *)tlv->value));
+        if (parser_match_leaf_id (tlv->leaf_id, "xincl-pattern")) {
+
+            inc_exc_pattern_present = true;
+            uint16_t incl_u_val = u_val;
+            uint16_t incl_d_val = d_val;
+            u_val = d_val = 0;
+
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
+            
+            patt_rc = (match == 0) ? true : false;
+
+            if (!abmgr) {
+                abmgr = ABmgr_get_instance (incl_u_val, incl_d_val);
+            }
+
+            if (!patt_rc) {
+
+                if (ignore_sole_new_line (Obuffer, msg_len)) {
+                    pthread_spin_unlock (&cprintf_spinlock);
+                    return 0;
+                }
+                
+                if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
+                    ABmgr_print (abmgr, render_line);
+                    ABmgr_reset(abmgr);
+                }
+                pthread_spin_unlock (&cprintf_spinlock);
+                return 0;
+            }
+
+            if (abmgr) {
+
+                if (ignore_sole_new_line (Obuffer, msg_len)) {
+                    pthread_spin_unlock (&cprintf_spinlock);
+                    return 0;
+                }
+
+                if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
+
+                    ABmgr_print (abmgr, render_line);
+                    ABmgr_reset(abmgr);
+                    pthread_spin_unlock (&cprintf_spinlock);
+                    return 0;
+                }
+            }
+            pthread_spin_unlock (&cprintf_spinlock);
+            return 0;
+        }
+
+        else if (parser_match_leaf_id (tlv->leaf_id, "incl-pattern")) {
+
+            inc_exc_pattern_present = true;
+            uint16_t incl_u_val = u_val;
+            uint16_t incl_d_val = d_val;
+            u_val = d_val = 0;
+
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
+
+            patt_rc = (match == 0) ? true : false;
+
             if (!patt_rc) {
                 pthread_spin_unlock (&cprintf_spinlock);
                 return 0;
             }
         }
+        
         else if (parser_match_leaf_id (tlv->leaf_id, "excl-pattern")) {
 
             inc_exc_pattern_present = true;
+            uint16_t excl_u_val = u_val;
+            uint16_t excl_d_val = d_val;
+            u_val = d_val = 0;
 
-            patt_rc = filter_exclusion (Obuffer, msg_len, 
-                                                (unsigned char *)tlv->value, 
-                                                strlen ((const char *)tlv->value));
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
+            
+            patt_rc = (match != 0) ? true : false;
 
             if (!patt_rc) {
                 pthread_spin_unlock (&cprintf_spinlock);
@@ -198,32 +281,19 @@ int cprintf (const char* format, ...) {
         else if (parser_match_leaf_id (tlv->leaf_id, "grep-pattern")) {
             
             inc_exc_pattern_present = true;
-            regex_t regex;
-            char error_buffer[128];
+            uint16_t grep_u_val = u_val;
+            uint16_t grep_d_val = d_val;
+            u_val = d_val = 0;
 
-            int match = regcomp(&regex, (const char *)tlv->value, REG_EXTENDED);
+            int match = regex_match ((const char *)Obuffer, 
+                                        (const char *)tlv->value);
 
-            if (match) {
+            patt_rc = (match == 0) ? true : false;
 
-                memset (error_buffer, 0, sizeof (error_buffer));
-                regerror(match, &regex, error_buffer, sizeof(error_buffer));
-                printw ("\nFailed to compile regex pattern %s, error : %s",
-                    tlv->value, error_buffer);
-                regfree(&regex);
-                pthread_spin_unlock (&cprintf_spinlock);
-                return 0;
-            }
-
-            match = regexec(&regex, (const char *)Obuffer, 0, NULL, 0);
-
-            if (match) {
-                 regfree(&regex);
+            if (!patt_rc) {
                  pthread_spin_unlock (&cprintf_spinlock);
-                return 0;
+                 return 0;
             }
-
-            patt_rc = true;
-            regfree(&regex);
         }
 
         else if (parser_match_leaf_id (tlv->value, "count")) {
@@ -234,7 +304,7 @@ int cprintf (const char* format, ...) {
                 if (patt_rc) count_lines++;
             }
             else {
-                count_lines++;
+                if (!ignore_sole_new_line  (Obuffer, msg_len)) count_lines++;
             }
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "sfile-name")) {
@@ -246,14 +316,22 @@ int cprintf (const char* format, ...) {
         }
     }
 
-    if (!count_filter_present ) {
+    while (!count_filter_present ) {
 
-        if (Obuffer[msg_len - 1] != '\n') {
+        if (inc_exc_pattern_present ) {
+
+            /* Ignore '\n' , '\r' , '\n\r' */
+            if (ignore_sole_new_line  (Obuffer, msg_len)) break;
+
+        }
+
+        if (0 && Obuffer[msg_len - 1] != '\n') {
             Obuffer[msg_len ] = '\n';
             msg_len++;
         }
 
         render_line (Obuffer, msg_len);
+        break;
     }
 
     pthread_spin_unlock (&cprintf_spinlock);

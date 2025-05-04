@@ -1706,6 +1706,7 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                             else {
                                 while (j < CALLBACKS_N && param->callback[j] )
                                     task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                                j = 0;
                             }
                         #endif
 

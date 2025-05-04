@@ -19,7 +19,7 @@ srv6_show_handler
     node_t *node;
     tlv_struct_t *tlv;
     c_string node_name = NULL;
-
+    
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
         if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))

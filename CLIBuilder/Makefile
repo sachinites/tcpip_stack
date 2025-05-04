@@ -9,7 +9,9 @@ OBJ=KeyProcessor/KeyProcessor.o \
 		 CmdTree/CmdTreeCursor.o \
 		 ../gluethread/glthread.o \
 		 Filters/filters.o \
+		 Filters/A_B.o \
 		 utinfra/ut_parser.o \
+
 		 
 KeyProcessor/KeyProcessor.o:KeyProcessor/KeyProcessor.cpp
 	@echo "Building KeyProcessor/KeyProcessor.o"
@@ -42,6 +44,10 @@ CmdTree/CmdTree.o:CmdTree/CmdTree.cpp
 Filters/filters.o:Filters/filters.cpp
 	@echo "Building Filters/filters.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} Filters/filters.cpp -o Filters/filters.o
+
+Filters/A_B.o:Filters/A_B.cpp
+	@echo "Building Filters/A_B.o"
+	@ ${CC} ${CFLAGS} -c ${INCLUDES} Filters/A_B.cpp -o Filters/A_B.o
 
 utinfra/ut_parser.o:utinfra/ut_parser.cpp
 	@echo "Building utinfra/ut_parser.o"
