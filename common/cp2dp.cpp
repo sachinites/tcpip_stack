@@ -172,7 +172,6 @@ cp2dp_send_ip_data ( node_t *node,
     dp_msg->flags = 0;
     dp_msg->data_size = sizeof(pkt_block_t *);
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
-    pkt_block_reference(pkt_block);
     cp2dp_submit (node, dp_msg, true);
 }
 
