@@ -199,6 +199,11 @@ int cprintf (const char* format, ...) {
             uint16_t incl_d_val = d_val;
             u_val = d_val = 0;
 
+            if (ignore_sole_new_line(Obuffer, msg_len)) {
+                pthread_spin_unlock(&cprintf_spinlock);
+                return 0;
+            }
+
             int match = regex_match ((const char *)Obuffer, 
                                         (const char *)tlv->value);
             
@@ -209,11 +214,6 @@ int cprintf (const char* format, ...) {
             }
 
             if (!patt_rc) {
-
-                if (ignore_sole_new_line (Obuffer, msg_len)) {
-                    pthread_spin_unlock (&cprintf_spinlock);
-                    return 0;
-                }
                 
                 if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
                     ABmgr_print (abmgr, render_line);
@@ -225,13 +225,7 @@ int cprintf (const char* format, ...) {
 
             if (abmgr) {
 
-                if (ignore_sole_new_line (Obuffer, msg_len)) {
-                    pthread_spin_unlock (&cprintf_spinlock);
-                    return 0;
-                }
-
                 if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
-
                     ABmgr_print (abmgr, render_line);
                     ABmgr_reset(abmgr);
                     pthread_spin_unlock (&cprintf_spinlock);

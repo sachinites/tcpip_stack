@@ -433,7 +433,7 @@ cmd_tree_display_all_complete_commands(
                     root->options[i], index+1);
         }
     
-        if (root->callback){
+        if (root->callback[0]){
             print_tokens(index + 1); 
             printw("\n");
         }   
@@ -700,7 +700,6 @@ cmd_tree_construct_filter_subtree () {
             init_param (&include_leaf,  LEAF, NULL, NULL, NULL, STRING, "incl-pattern", "Include Pattern");
             libcli_register_param (&include, &include_leaf);
             libcli_register_param (&include_leaf, &pipe);
-            //cmd_tree_u_d_options_subtree (&include, &include_leaf);
         }
     }
     {
@@ -710,7 +709,6 @@ cmd_tree_construct_filter_subtree () {
             init_param (&exclude_leaf,  LEAF, NULL, NULL, NULL, STRING, "excl-pattern", "Exclude Pattern");
             libcli_register_param (&exclude, &exclude_leaf);
             libcli_register_param (&exclude_leaf, &pipe);
-            //cmd_tree_u_d_options_subtree (&exclude, &exclude_leaf);
         }
     }
     {
@@ -720,7 +718,6 @@ cmd_tree_construct_filter_subtree () {
             init_param(&grepx_leaf, LEAF, NULL, NULL, NULL, STRING, "grep-pattern", "Grep Pattern");
             libcli_register_param(&grepx, &grepx_leaf);
             libcli_register_param(&grepx_leaf, &pipe);
-            //cmd_tree_u_d_options_subtree (&grepx, &grepx_leaf);
         }
     }
     {
@@ -729,7 +726,6 @@ cmd_tree_construct_filter_subtree () {
         {
             init_param (&xinclude_leaf,  LEAF, NULL, NULL, NULL, STRING, "xincl-pattern", "xInclude Pattern");
             libcli_register_param (&xinclude, &xinclude_leaf);
-            //libcli_register_param (&xinclude_leaf, &pipe);
             cmd_tree_u_d_options_subtree (&xinclude, &xinclude_leaf);
         }
     }

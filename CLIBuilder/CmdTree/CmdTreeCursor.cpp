@@ -879,7 +879,11 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
 
         case cmdt_cur_state_matching_leaf:
 
-            /* Standard Validation Checks on Leaf */
+            /* Standard Validation Checks on Leaf. There are three levels of validation here :
+                1. First check whether the value specified is as per the data type
+                2. Then check the leaf value against the regular expression if specified
+                3. Finally check the value aginst the user validation callback function
+            */
             tlv_struct_t *tlv;
             tlv = cmd_tree_convert_param_to_tlv (cmdtc->curr_param, cmdtc->curr_leaf_value);
             
@@ -894,6 +898,19 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
             }
             free(tlv);
 
+            /* Check Regular expression here */
+            if ((cmdtc->curr_param->flags & PARAM_F_REG_EX_MATCH) && 
+                    regex_match ((const char *)cmdtc->curr_leaf_value, 
+                        cmdtc->curr_param->cmd_type.leaf->reg_ex)) {
+
+                    cli_screen_cursor_move_cursor_left (cmdtc->icursor, true);
+                    attron (COLOR_PAIR(RED_ON_BLACK));
+                    printw ("%s", cmdtc->curr_leaf_value);
+                    attroff (COLOR_PAIR(RED_ON_BLACK));
+                    return cmdt_cursor_no_match_further;
+            }
+
+            /* User validation Callback function */
             if (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn &&
                 (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn(
                     cmdtc->tlv_stack,  cmdtc->curr_leaf_value) == LEAF_VALIDATION_FAILED)) {
@@ -902,7 +919,6 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
                 attron(COLOR_PAIR(RED_ON_BLACK));
                 printw ("%s",  cmdtc->curr_leaf_value);
                 attroff(COLOR_PAIR(RED_ON_BLACK));
-
                 return cmdt_cursor_no_match_further;
             }
 
@@ -1848,6 +1864,12 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             cmd_tree_post_cli_trigger (cmdtc);   
             cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
             return true;
+
+            /* Standard Validation Checks on Leaf. There are three levels of validation here :
+                1. First check whether the value specified is as per the data type
+                2. Then check the leaf value against the regular expression if specified
+                3. Finally check the value aginst the user validation callback function
+            */        
         case cmdt_cur_state_matching_leaf:
             /* Standard Validation Checks on Leaf */
             tlv_struct_t *tlv;
@@ -1856,7 +1878,7 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             if (clistd_validate_leaf (tlv) != LEAF_VALIDATION_SUCCESS) {
 
                 attron(COLOR_PAIR(RED_ON_BLACK));
-                printw ("\nError : value %s do not comply with expected data type : %s", 
+                printw ("\nError : value %s do not comply with expected data type : %s\n", 
                     tlv->value,
                     GET_LEAF_TYPE_STR(cmdtc->curr_param));
                 attroff(COLOR_PAIR(RED_ON_BLACK));
@@ -1866,12 +1888,25 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
             }
             free(tlv);
 
+            /* Check Regular expression here */
+            if ((cmdtc->curr_param->flags & PARAM_F_REG_EX_MATCH) && 
+                    regex_match ((const char *)cmdtc->curr_leaf_value, 
+                        cmdtc->curr_param->cmd_type.leaf->reg_ex)) {
+
+                attron(COLOR_PAIR(RED_ON_BLACK));
+                printw ("\nCLI Error : Regex [%s] Failed for value : %s\n", 
+                    cmdtc->curr_param->cmd_type.leaf->reg_ex, cmdtc->curr_leaf_value);
+                attroff(COLOR_PAIR(RED_ON_BLACK));
+                cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
+                return false;
+            }
+
             if (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn &&
                 (cmdtc->curr_param->cmd_type.leaf->user_validation_cb_fn(
                     cmdtc->tlv_stack,  cmdtc->curr_leaf_value) != LEAF_VALIDATION_SUCCESS)) {
                 
                 attron(COLOR_PAIR(RED_ON_BLACK));
-                printw ("\nCLI Error : User Validation Failed for value : %s", cmdtc->curr_leaf_value);
+                printw ("\nCLI Error : User Validation Failed for value : %s\n", cmdtc->curr_leaf_value);
                 attroff(COLOR_PAIR(RED_ON_BLACK));
                 cmd_tree_cursor_reset_for_nxt_cmd (cmdtc);
                 return false;
@@ -2005,6 +2040,28 @@ cmdtc_parse_full_command (cli_t *cli) {
                 return true;
             }
             free(tlvptr);
+
+            /* Check Regular expression here */
+            if ((param->flags & PARAM_F_REG_EX_MATCH) && 
+                    regex_match ((const char *)*(tokens + i), 
+                        param->cmd_type.leaf->reg_ex)) {
+
+                attron(COLOR_PAIR(RED_ON_BLACK));
+
+                printw ("\nCLI Error : Regex [%s] Failed for value : %s\n", 
+                    param->cmd_type.leaf->reg_ex, *(tokens + i));
+
+                attroff(COLOR_PAIR(RED_ON_BLACK));
+                
+                if (is_new_cmdtc) {
+                    cmd_tree_cursor_destroy_internals (cmdtc, true);
+                    free(cmdtc);
+                }
+                else {
+                    cmd_tree_cursor_reset_for_nxt_cmd(cmdtc);
+                }
+                return true;
+            }
 
             if (param->cmd_type.leaf->user_validation_cb_fn &&
                 (param->cmd_type.leaf->user_validation_cb_fn(
