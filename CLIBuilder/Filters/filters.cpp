@@ -213,26 +213,11 @@ int cprintf (const char* format, ...) {
                 abmgr = ABmgr_get_instance (incl_u_val, incl_d_val);
             }
 
-            if (!patt_rc) {
-                
-                if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
-                    ABmgr_print (abmgr, render_line);
-                    ABmgr_reset(abmgr);
-                }
-                pthread_spin_unlock (&cprintf_spinlock);
-                return 0;
+            if (ABmgr_insert_string(abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
+                ABmgr_print(abmgr, render_line);
+                ABmgr_reset(abmgr);
             }
-
-            if (abmgr) {
-
-                if (ABmgr_insert_string (abmgr, (char *)Obuffer, msg_len, patt_rc, true)) {
-                    ABmgr_print (abmgr, render_line);
-                    ABmgr_reset(abmgr);
-                    pthread_spin_unlock (&cprintf_spinlock);
-                    return 0;
-                }
-            }
-            pthread_spin_unlock (&cprintf_spinlock);
+            pthread_spin_unlock(&cprintf_spinlock);
             return 0;
         }
 

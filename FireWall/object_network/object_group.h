@@ -22,7 +22,7 @@ typedef enum og_type_ {
     OBJECT_GRP_NESTED
 } og_type_t;
 
-static inline c_string 
+static inline const char *
 object_group_type_str(og_type_t type) {
 
     switch(type) {

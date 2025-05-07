@@ -397,6 +397,7 @@ object_group_find_child_object_group (object_group_t *og, c_string obj_grp_name)
 void
 object_group_display_detail (node_t *node, object_group_t *og) {
 
+    (unused) node;
     glthread_t *curr;
     obj_grp_list_node_t *obj_grp_list_node;
 
@@ -517,7 +518,6 @@ object_group_hashtable_print(node_t *node, hashtable_t *ht) {
 
     do
     {
-        char *key = (char *)hashtable_iterator_key(itr);
         object_group_t *og = (object_group_t *)hashtable_iterator_value(itr);
         object_group_display_detail (node, og);
         cprintf ("\n");
@@ -644,7 +644,6 @@ object_group_search_by_ptr (glthread_t *head, object_group_t *og) {
 void
 object_group_unbind_parent (object_group_t *p_og, object_group_t *c_og) {
 
-    glthread_t *curr;
     obj_grp_list_node_t *obj_grp_list_node;
 
     assert(p_og->og_type == OBJECT_GRP_NESTED);
@@ -660,7 +659,6 @@ object_group_unbind_parent (object_group_t *p_og, object_group_t *c_og) {
 void
 object_group_unbind_child (object_group_t *p_og, object_group_t *c_og) {
 
-    glthread_t *curr;
     obj_grp_list_node_t *obj_grp_list_node;
 
     assert(p_og->og_type == OBJECT_GRP_NESTED);

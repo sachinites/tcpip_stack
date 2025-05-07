@@ -9,8 +9,6 @@
 #include "../cmdtlv.h"
 #include "../string_util.h"
 
-extern int cprintf (const char* format, ...) ;
-
 /* Standard Validations Begin*/
 
 typedef leaf_validation_rc_t (*leaf_type_handler)(char *value_passed);
@@ -165,31 +163,31 @@ int
 show_help_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     attron(COLOR_PAIR(GREEN_ON_BLACK));
-    cprintf("\nWelcome to Help Wizard\n");
-    cprintf("========================\n");
-    cprintf("1. Use %c Character after the command to enter command mode\n", MODE_CHARACTER);
-    cprintf("2. Use %c Character after the command to see possible follow up suboptions\n", SUBOPTIONS_CHARACTER);
-    cprintf("3. Use %c Character after the command to see possible complete command completions\n", CMD_EXPANSION_CHARACTER);
-    cprintf("4. [ ctrl + l ] - clear screen\n");
-    cprintf("5. [ ctrl + t ] - jump to top of cmd tree\n");
-    cprintf("6. [ BackSpace ] - Erase the last word\n");
-    cprintf("7. [ Page Up  Or  ctrl + ']' ] - Move one Level Up in the cmd tree\n");
-    cprintf("8. config [ %s ] console name <console name> - set/unset new console name\n", NEGATE_CHARACTER);
-    cprintf("9. [UP DOWN Arrow] - show the command history\n");
+    printw("\nWelcome to Help Wizard\n");
+    printw("========================\n");
+    printw("1. Use %c Character after the command to enter command mode\n", MODE_CHARACTER);
+    printw("2. Use %c Character after the command to see possible follow up suboptions\n", SUBOPTIONS_CHARACTER);
+    printw("3. Use %c Character after the command to see possible complete command completions\n", CMD_EXPANSION_CHARACTER);
+    printw("4. [ ctrl + l ] - clear screen\n");
+    printw("5. [ ctrl + t ] - jump to top of cmd tree\n");
+    printw("6. [ BackSpace ] - Erase the last word\n");
+    printw("7. [ Page Up  Or  ctrl + ']' ] - Move one Level Up in the cmd tree\n");
+    printw("8. config [ %s ] console name <console name> - set/unset new console name\n", NEGATE_CHARACTER);
+    printw("9. [UP DOWN Arrow] - show the command history\n");
     attroff(COLOR_PAIR(GREEN_ON_BLACK));
     attron(COLOR_PAIR(PLAYER_PAIR));
-    cprintf( "          Author : Abhishek Sagar\n");
-    cprintf( "          Visit : www.csepracticals.com for more courses and projects\n");
+    printw( "          Author : Abhishek Sagar\n");
+    printw( "          Visit : www.csepracticals.com for more courses and projects\n");
     attroff(COLOR_PAIR(PLAYER_PAIR));
-    cprintf(" .-') _              _ (`-.                   _ (`-.         .-')    .-') _      ('-.               .-. .-')   \n");
-    cprintf("(  OO) )            ( (OO  )                 ( (OO  )       ( OO ). (  OO) )    ( OO ).-.           \  ( OO )  \n");
-    cprintf("/     '._  .-----. _.`     \        ,-.-')  _.`     \      (_)---\_)/     '._   / . --. /   .-----. ,--. ,--.  \n");
-    cprintf("|'--...__)'  .--./(__...--''        |  |OO)(__...--''      /    _ | |'--...__)  | \-.  \   '  .--./ |  .'   /  \n");
-    cprintf("'--.  .--'|  |('-. |  /  | |        |  |  \ |  /  | |      \  :` `. '--.  .--'.-'-'  |  |  |  |('-. |      /,  \n");
-    cprintf("   |  |  /_) |OO  )|  |_.' |        |  |(_/ |  |_.' |       '..`''.)   |  |    \| |_.'  | /_) |OO  )|     ' _) \n");
-    cprintf("   |  |  ||  |`-'| |  .___.'       ,|  |_.' |  .___.'      .-._)   \   |  |     |  .-.  | ||  |`-'| |  .   \   \n");
-    cprintf("   |  | (_'  '--'\ |  |           (_|  |    |  |           \       /   |  |     |  | |  |(_'  '--'\ |  |\   \  \n");
-    cprintf("   `--'    `-----' `--'             `--'    `--'            `-----'    `--'     `--' `--'   `-----' `--' '--'  \n");
+    printw(" .-') _              _ (`-.                   _ (`-.         .-')    .-') _      ('-.               .-. .-')   \n");
+    printw("(  OO) )            ( (OO  )                 ( (OO  )       ( OO ). (  OO) )    ( OO ).-.           \  ( OO )  \n");
+    printw("/     '._  .-----. _.`     \        ,-.-')  _.`     \      (_)---\_)/     '._   / . --. /   .-----. ,--. ,--.  \n");
+    printw("|'--...__)'  .--./(__...--''        |  |OO)(__...--''      /    _ | |'--...__)  | \-.  \   '  .--./ |  .'   /  \n");
+    printw("'--.  .--'|  |('-. |  /  | |        |  |  \ |  /  | |      \  :` `. '--.  .--'.-'-'  |  |  |  |('-. |      /,  \n");
+    printw("   |  |  /_) |OO  )|  |_.' |        |  |(_/ |  |_.' |       '..`''.)   |  |    \| |_.'  | /_) |OO  )|     ' _) \n");
+    printw("   |  |  ||  |`-'| |  .___.'       ,|  |_.' |  .___.'      .-._)   \   |  |     |  .-.  | ||  |`-'| |  .   \   \n");
+    printw("   |  | (_'  '--'\ |  |           (_|  |    |  |           \       /   |  |     |  | |  |(_'  '--'\ |  |\   \  \n");
+    printw("   `--'    `-----' `--'             `--'    `--'            `-----'    `--'     `--' `--'   `-----' `--' '--'  \n");
     return 0;
 }
 
@@ -204,6 +202,6 @@ int
 cli_terminate_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     endwin();
-    cprintf("Bye Bye\n");
+    printw("Bye Bye\n");
     exit(0);
 }

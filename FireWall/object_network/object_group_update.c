@@ -20,7 +20,7 @@ hashfromkey_acl(void *key)
     unsigned int hash = HASH_PRIME_CONST;
     int c;
 
-    while (c = *str++)
+    while ((c = *str++))
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
     return hash;
@@ -76,7 +76,6 @@ object_group_traverse_bottom_up(
     void *arg)
 {
     glthread_t *curr;
-    object_group_t *p_og;
     obj_grp_list_node_t *obj_grp_list_node;
 
     // process root
@@ -125,11 +124,13 @@ object_group_update_reschedule_task(object_group_update_info_t *og_update_info)
 static void
 og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
 {
+    (unused) arg_size;
+    (unused) (ev);
+
     glthread_t *curr;
     acl_entry_t *acl_entry;
     struct hashtable_itr *itr;
     access_list_t *access_list;
-    mtrie_t *mtrie1, *mtrie2;
 
     object_group_update_info_t *og_update_info =
         (object_group_update_info_t *)arg;
