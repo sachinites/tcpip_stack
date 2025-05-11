@@ -45,7 +45,7 @@ circular_buffer_reset (circular_buffer_t *cbuffer) {
     cbuffer->tail = 0;
 }
 
-static void 
+void 
 circular_buffer_insert (circular_buffer_t *cbuffer, void *data, uint16_t data_len) {
 
     assert (cbuffer->n_count < cbuffer->max_size);
@@ -58,7 +58,7 @@ circular_buffer_insert (circular_buffer_t *cbuffer, void *data, uint16_t data_le
     }
 }
 
-static void *
+void *
 circular_buffer_tail_remove (circular_buffer_t *cbuffer, uint16_t *data_len) {
 
     if (cbuffer->n_count == 0) return NULL;
@@ -77,6 +77,17 @@ circular_buffer_tail_remove (circular_buffer_t *cbuffer, uint16_t *data_len) {
     
     return data;
 }
+
+void 
+circular_buffer_destroy (circular_buffer_t *cbuffer) {
+
+    circular_buffer_reset (cbuffer);
+    free (cbuffer->sth_buff);
+    cbuffer->sth_buff = NULL;
+    free(cbuffer);
+}
+
+
 
 typedef struct ABmgr_ {
 

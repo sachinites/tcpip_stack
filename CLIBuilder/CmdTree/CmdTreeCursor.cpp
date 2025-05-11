@@ -1682,6 +1682,8 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
     j = 0;
 
+    printw ("\n");
+    
     switch (enable_or_disable) {
 
         case CONFIG_ENABLE:

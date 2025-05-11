@@ -163,11 +163,13 @@ int cprintf (const char* format, ...) {
 
     va_end(args);
 
+#if 0
     /* Append \n if not appended by user. All cprintf must end with \n*/
     if (Obuffer[msg_len - 1] != '\n') {
         Obuffer[msg_len ] = '\n';
         msg_len++;
     }
+#endif 
 
     if (filter_array_size == 0) {
 
