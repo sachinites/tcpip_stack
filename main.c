@@ -79,7 +79,7 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     nfc_mem_init();
     event_dispatcher_mem_init();
     //layer2_mem_init();
-    layer3_mem_init();
+    //layer3_mem_init();
     layer4_mem_init();
     //spf_algo_mem_init();
     //isis_mem_init();

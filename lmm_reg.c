@@ -35,6 +35,10 @@
 #include "Layer3/LFA/cp/lfa.h"
 #include "Layer3/LFA/cp/lfa_isis.h"
 
+/* Layer 3 files */
+#include "Layer3/layer3.h"
+#include "Layer3/ipv6/ipv6_route.h"
+
 
 /* Create static array of vm_page_family_t */
 
@@ -105,6 +109,17 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(vlan_ethernet_hdr_t),
     MM_REG_STRUCT2(mac_table_t),
     //MM_REG_STRUCT2(mac_table_entry_t),
+
+    /* Layer3 Structures */
+    MM_REG_STRUCT2(ip_hdr_t),
+    MM_REG_STRUCT2(rt_table_t),
+    //MM_REG_STRUCT2(nexthop_t),
+    MM_REG_STRUCT2(l3_route_t),
+    //MM_REG_STRUCT2(v6nexthop_t),
+    MM_REG_STRUCT2(ipv6_route_t),
+    MM_REG_STRUCT2(ipv6_addr_t),
+    MM_REG_STRUCT2(ipv6_hdr_t),
+    MM_REG_STRUCT2(srh_hdr_t),
 
     /* LFA Structures*/
     MM_REG_STRUCT2(lfa_t),

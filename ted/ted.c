@@ -649,6 +649,8 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
     
     if (!ted_db) return 0;
 
+    cprintf("\n");
+    
     if (rtr_id) {
         node = ted_lookup_node(ted_db, rtr_id, pn_no);
         if (!node) return 0;

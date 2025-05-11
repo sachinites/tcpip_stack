@@ -54,15 +54,16 @@ lfa_cleanup (node_t *node, uint8_t prot_index) {
     avltree_node_t *curr;
     ted_node_t *ted_node;
 
-
     lfa_t *lfa = LFA_NODE_INFO(node);
 
     lfa_config_t *lfa_config = &lfa->lfa_config[prot_index];
-    ted_db = &lfa_config->u.isis.topo;
 
     switch (prot_index) {
 
         case ISIS_L1_LFA_INFEX:
+            if (!lfa_config->u.isis.enable) return;
+            ted_db = &lfa_config->u.isis.topo;
+            break;
         case ISIS_L2_LFA_INFEX:
         case OSPF_LFA_INDEX:
         case LDP_LFA_INDEX:

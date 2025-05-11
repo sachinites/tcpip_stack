@@ -17,6 +17,7 @@
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/rt_notif.h"
 #include "../../prefix-list/prefixlst.h"
+#include "../../lmm_enums.h"
 
 /* IPV4 RTM */
 
@@ -418,7 +419,7 @@ bool
 
     if (!route) {
 
-        route = (ipv6_route_t *) XCALLOC (0, 1,  ipv6_route_t);
+        route = (ipv6_route_t *) XCALLOC2 (0, 1,  ipv6_route_t);
         memcpy (route->prefix.addr, prefix->addr, 16);
         route->is_direct = true;
         route->prefix_len = prefix_len;

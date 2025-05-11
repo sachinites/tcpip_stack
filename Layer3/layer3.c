@@ -48,6 +48,7 @@
 #include "../notif.h"
 #include "rt_notif.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../lmm_enums.h"
 #include "../FireWall/acl/acldb.h"
 #include "../mtrie/mtrie.h"
 #include "../pkt_block.h"
@@ -431,7 +432,7 @@ layer3_ip_route_pkt(node_t *node,
 void
 init_rt_table(node_t *node, rt_table_t **rt_table){
 
-    *rt_table = (rt_table_t *)XCALLOC(0, 1, rt_table_t);
+    *rt_table = (rt_table_t *)XCALLOC2(0, 1, rt_table_t);
     
     init_mtrie (&(*rt_table)->route_list, 32, NULL);
 
@@ -447,7 +448,7 @@ init_rt_table(node_t *node, rt_table_t **rt_table){
 void
 init_rtv6_table(node_t *node, rt_table_t **rt_table){
 
-    *rt_table = (rt_table_t *)XCALLOC(0, 1, rt_table_t);
+    *rt_table = (rt_table_t *)XCALLOC2(0, 1, rt_table_t);
     
     init_mtrie (&(*rt_table)->route_list, 128, NULL);
 
@@ -947,7 +948,7 @@ layer3_ero_ping_fn(node_t *node,
 l3_route_t *
 l3_route_get_new_route () {
 
-    l3_route_t *l3route = (l3_route_t *)XCALLOC(0, 1, l3_route_t);
+    l3_route_t *l3route = (l3_route_t *)XCALLOC2(0, 1, l3_route_t);
     init_glthread(&l3route->notif_glue);
     init_glthread(&l3route->flash_glue);
     return l3route;
