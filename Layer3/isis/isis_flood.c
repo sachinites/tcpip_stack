@@ -122,6 +122,7 @@ isis_queue_lsp_pkt_for_transmission(
         Interface *intf,
         isis_lsp_pkt_t *lsp_pkt) {
 
+    node_t *node;
     isis_node_info_t *node_info;
     isis_intf_info_t *intf_info;
     byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
@@ -130,6 +131,7 @@ isis_queue_lsp_pkt_for_transmission(
 
     if (!lsp_pkt->flood_eligibility) return;
 
+    node = intf->att_node;
     intf_info = ISIS_INTF_INFO(intf);
     node_info = ISIS_NODE_INFO(intf->att_node);
 
@@ -150,6 +152,9 @@ isis_queue_lsp_pkt_for_transmission(
     lsp_pkt->flood_queue_count++;
     node_info->pending_lsp_flood_count++;
 
+    if (!isis_validate_job_schedule  (node, ISIS_LSP_XMIT_INTF_JOB)) return;
+    isis_cancel_redundant_jobs (node, ISIS_LSP_XMIT_INTF_JOB);
+
     if (!intf_info->lsp_xmit_job) {
 
        intf_info->lsp_xmit_job =
@@ -157,6 +162,19 @@ isis_queue_lsp_pkt_for_transmission(
                     intf, isis_lsp_xmit_job, TASK_ONE_SHOT,
                     TASK_PRIORITY_COMPUTE);
     }
+}
+
+void 
+isis_cancel_lsp_xmit_job (Interface *intf) {
+
+    if (!isis_node_intf_is_enable(intf)) return;
+
+    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
+
+    if (!intf_info->lsp_xmit_job) return;
+
+    task_cancel_job (EV(intf->att_node), intf_info->lsp_xmit_job);
+    intf_info->lsp_xmit_job = NULL;
 }
 
 void

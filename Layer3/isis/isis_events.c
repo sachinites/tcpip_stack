@@ -65,7 +65,11 @@ static char isis_event_str_arr[isis_event_max][128] =
     //isis_event_tlv_removed
     "ISIS EVENT TLV REMOVED",
     //isis_event_full_lsp_regen
-    "ISIS EVENT FULL LSP REGEN BIT"
+    "ISIS EVENT FULL LSP REGEN BIT",
+    //isis_event_redundant_job_cancelled
+    "ISIS EVENT REDUNDANT JOB CANCELLED BIT",
+    //isis_event_job_schedule_invalidated
+    "ISIS EVENT JOB SCHEDULE INVALIDATED BIT"
 }; 
 
 const char *

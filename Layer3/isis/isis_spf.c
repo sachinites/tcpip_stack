@@ -1051,6 +1051,9 @@ isis_schedule_spf_job (node_t *node, isis_event_type_t event) {
         return;
     }
     
+    if (!isis_validate_job_schedule  (node, ISIS_SPF_JOB )) return;
+    isis_cancel_redundant_jobs (node, ISIS_SPF_JOB);
+
     isis_add_new_spf_log(node, event);
     
     node_info->spf_job_task =

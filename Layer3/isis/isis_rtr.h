@@ -4,6 +4,7 @@
 #include "isis_events.h"
 #include "isis_pkt.h"
 #include "isis_spf.h"
+#include "isis_enums.h"
 
 typedef struct isis_adv_data_ isis_adv_data_t;
 typedef struct ted_db_ ted_db_t;
@@ -142,8 +143,9 @@ isis_schedule_job(node_t *node,
                   task_t **task,
                   event_cbk cbk,
                   void *data,
-                  const char *job_name,
-                  isis_event_type_t event_type);
+                  isis_job_type_t job_type,
+                  isis_event_type_t event_type,
+                  int job_priority);
 
 void
 isis_show_event_counters(node_t *node);
@@ -164,6 +166,12 @@ isis_is_protocol_admin_shutdown(node_t *node);
 
 void
 isis_protocol_shut_down(node_t *node);
+
+void 
+isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) ;
+
+bool 
+isis_validate_job_schedule (node_t *node, isis_job_type_t job_type);
 
 bool
 isis_is_protocol_shutdown_pending_work_completed (node_t *node);

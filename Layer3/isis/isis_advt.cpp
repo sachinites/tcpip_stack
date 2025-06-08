@@ -128,6 +128,9 @@ isis_schedule_all_fragment_regen_job (node_t *node) {
 
     if (node_info->regen_all_fragment_task) return;
 
+    if (!isis_validate_job_schedule  (node, ISIS_ALL_FRAG_REGEN_JOB)) return;
+    isis_cancel_redundant_jobs (node, ISIS_ALL_FRAG_REGEN_JOB);
+
     node_info->regen_all_fragment_task =
         task_create_new_job(
             EV(node),
@@ -226,6 +229,9 @@ isis_schedule_regen_fragment (node_t *node,
     if (node_info->lsp_fragment_gen_task) {
         return;
     }
+
+    if (!isis_validate_job_schedule  (node, ISIS_FRAG_REGEN_JOB)) return;
+    isis_cancel_redundant_jobs (node, ISIS_FRAG_REGEN_JOB);
 
     node_info->lsp_fragment_gen_task = task_create_new_job (EV(node),
                                                         (void *)node,

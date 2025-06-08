@@ -35,4 +35,7 @@ isis_mark_isis_lsp_pkt_flood_ineligible(
 void
 isis_walk_all_self_zero_lsps (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *));
 
+void 
+isis_cancel_lsp_xmit_job (Interface *intf) ;
+
 #endif /* __ISIS_FLOOD__ */

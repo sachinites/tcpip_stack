@@ -428,26 +428,45 @@ isis_schedule_job(node_t *node,
                   task_t **task,
                   event_cbk cbk,
                   void *data,
-                  const char *job_name,
-                  isis_event_type_t event_type) {
+                  isis_job_type_t job_type,
+                  isis_event_type_t event_type,
+                  int job_priority) {
 
     if (*task) {
         tracer (ISIS_TR(node), TR_ISIS_SPF, "%s Already Scheduled. Reason : %s\n",
-            job_name, isis_event_str(event_type));
+            isis_job_type_str (job_type), isis_event_str(event_type));
         return;
     }
     
     if (!isis_is_protocol_enable_on_node(node)) {
         tracer (ISIS_TR(node), TR_ISIS_SPF, "Protocol not Enable. %s Will not be Scheduled."
-                " Reason : %s\n", job_name, isis_event_str(event_type));
+                " Reason : %s\n", isis_job_type_str (job_type), isis_event_str(event_type));
         return;
     }
 
-    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE);
+    switch (job_type) {
+
+        case ISIS_JOB_NONE:
+            assert(0);
+        case ISIS_FRAG_REGEN_JOB:
+            break;
+        case ISIS_ALL_FRAG_REGEN_JOB:
+            break;
+        case ISIS_SPF_JOB:
+            break;
+        case ISIS_LSP_XMIT_INTF_JOB:
+            break;
+        case ISIS_ROUTE_CAL_JOB:
+            break;
+        case ISIS_JOB_MAX:
+            assert(0);
+    }
+
+    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT, job_priority);
 
     if(*task) {
         tracer (ISIS_TR(node), TR_ISIS_SPF, "%s Scheduled. Reason : %s\n",
-            job_name, isis_event_str(event_type));        
+            isis_job_type_str (job_type), isis_event_str(event_type));        
     }
 }
 
@@ -722,4 +741,78 @@ isis_ipv4_rt_notif_cbk (
 
     l3route = route_notif_data->l3route;
     isis_process_ipv4_route_notif(node, l3route);
+}
+
+void 
+isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) {
+
+    Interface *intf;
+    isis_intf_info_t *intf_info;
+
+    switch (job_type) {
+
+    case ISIS_JOB_NONE:
+    break;
+    case ISIS_FRAG_REGEN_JOB:
+        /* No Redundant job */
+    break;
+    case ISIS_ALL_FRAG_REGEN_JOB:
+
+        isis_cancel_lsp_fragment_regen_job(node);
+        isis_cancel_spf_job(node);
+
+        ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+             if (!isis_node_intf_is_enable(intf)) continue;
+             isis_cancel_lsp_xmit_job (intf);
+        }ITERATE_NODE_INTERFACES_END(node, intf);
+
+    break;
+
+    case ISIS_SPF_JOB:
+         /* Should cancel Route calculation job. But at this point of time, Route cal is not a different job. 
+         No Redundant job */
+    break;
+    case ISIS_LSP_XMIT_INTF_JOB:
+        /* No Redundant job */
+    break;
+    case ISIS_ROUTE_CAL_JOB:
+        /* No Redundant job */
+    break;
+    case ISIS_JOB_MAX:
+    break;
+    }
+}
+
+bool 
+isis_validate_job_schedule (node_t *node, isis_job_type_t job_type) {
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return false;
+    
+    if (isis_is_protocol_shutdown_pending_work_completed (node)) {
+        return false;
+    }
+
+ switch (job_type) {
+
+    case ISIS_JOB_NONE:
+    break;
+    case ISIS_FRAG_REGEN_JOB:
+        if (node_info->regen_all_fragment_task) return false;
+    break;
+    case ISIS_ALL_FRAG_REGEN_JOB:
+    break;
+    case ISIS_SPF_JOB:
+        if (node_info->regen_all_fragment_task) return false;
+    break;
+    case ISIS_LSP_XMIT_INTF_JOB:
+    break;
+    case ISIS_ROUTE_CAL_JOB:
+        if (node_info->regen_all_fragment_task) return false;
+        if (node_info->spf_job_task) return false;
+    break;
+    case ISIS_JOB_MAX:
+    break;
+    }    
+    return true;
 }
