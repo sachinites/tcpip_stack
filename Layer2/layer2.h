@@ -152,6 +152,18 @@ SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr,
     }
 }
 
+static inline void 
+SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_t *ethernet_hdr, uint16_t proto)
+{
+    if(is_pkt_vlan_tagged(ethernet_hdr)){
+        vlan_ethernet_hdr_t *vlan_eth_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
+        vlan_eth_hdr->type = proto;
+    }
+    else {
+        ethernet_hdr->type = proto;
+    }
+}
+
 bool 
 l2_frame_recv_qualify_on_interface(
                                     node_t *node,
@@ -210,5 +222,14 @@ typedef struct mac_table_{
     
 }  __attribute__((aligned(8))) mac_table_t;
 
+/* Return TRUE if the pkt is subjected to inter-vlan routing*/
+bool
+l2_check_and_process_inter_vlan_routing (node_t *node, 
+                        Interface* interface, 
+                        pkt_block_t *pkt_block);
+
+bool 
+is_arp_pkt_for_svi_interface (node_t *node,
+                                      pkt_block_t *pkt_block, VlanInterface *svi);
 
 #endif /* __LAYER2__ */

@@ -50,6 +50,11 @@ access_group_unconfig (node_t *node,
                        char *dirn, 
                        access_list_t *acc_lst) ;
 
+extern void l2_switch_forward_frame(
+                        node_t *node,
+                        Interface *recv_intf, 
+                        pkt_block_t *pkt_block);
+
 /* A fn to send the pkt as it is (unchanged) out on the interface */
 static int
 send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
@@ -484,6 +489,13 @@ Interface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len)
     assert(0);
 }
 
+VlanInterfaceP 
+Interface::GetAccessVlanIntf() {
+
+    return nullptr;
+}
+
+
 /* ************ PhysicalInterface ************ */
 PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add)
     : Interface(ifname, iftype)
@@ -917,6 +929,12 @@ PhysicalInterface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t pref
 void 
 PhysicalInterface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
 
+}
+
+VlanInterfaceP 
+PhysicalInterface::GetAccessVlanIntf() {
+
+    return this->access_vlan_intf;
 }
 
 /* ************ Virtual Interface ************ */
@@ -1574,36 +1592,8 @@ VlanInterface::VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id) {
 int 
 VlanInterface::SendPacketOut(pkt_block_t *pkt_block) {
 
-    pkt_size_t pkt_size;
-    Interface *member_intf;
-    pkt_block_t *dup_pkt_block;
-
-    ethernet_hdr_t *ethernet_hdr =
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(ethernet_hdr);
-
-   if (!vlan_8021q_hdr ||
-                (GET_802_1Q_VLAN_ID(vlan_8021q_hdr) !=  this->GetVlanId())) return 0;
-
-   dup_pkt_block = pkt_block_dup(pkt_block);
-
-   untag_pkt_with_vlan_id(dup_pkt_block);
-
-   ITERATE_VLAN_MEMBER_PORTS_ACCESS_BEGIN(this, member_intf)
-   {
-       send_xmit_out(member_intf, dup_pkt_block);
-   }
-   ITERATE_VLAN_MEMBER_PORTS_ACCESS_END;
-
-   pkt_block_free(dup_pkt_block);
-
-   ITERATE_VLAN_MEMBER_PORTS_TRUNK_BEGIN(this, member_intf)
-   {
-       send_xmit_out(member_intf, pkt_block);
-    } 
-    ITERATE_VLAN_MEMBER_PORTS_TRUNK_END;
-
+    tag_pkt_with_vlan_id(pkt_block, this->GetVlanId());
+    l2_switch_forward_frame (this->att_node, 0, pkt_block);
     return 0;
 }
 
@@ -1624,6 +1614,34 @@ bool
 VlanInterface::IsSVI () {
 
     return ( this->ip_addr && this->mask ) ;
+}
+
+void 
+VlanInterface::VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf) 
+{
+    Interface *member_intf;
+    pkt_block_t *dup_pkt_block;
+
+    dup_pkt_block = pkt_block_dup(pkt_block);
+
+    untag_pkt_with_vlan_id(dup_pkt_block);
+
+   ITERATE_VLAN_MEMBER_PORTS_ACCESS_BEGIN(this, member_intf)
+   {
+      if (member_intf == exempt_intf) continue;
+       send_xmit_out(member_intf, dup_pkt_block);
+   }
+   ITERATE_VLAN_MEMBER_PORTS_ACCESS_END;
+
+   pkt_block_free(dup_pkt_block);
+
+   ITERATE_VLAN_MEMBER_PORTS_TRUNK_BEGIN(this, member_intf)
+   {
+        if (member_intf == exempt_intf) continue;
+       send_xmit_out(member_intf, pkt_block);
+    } 
+    ITERATE_VLAN_MEMBER_PORTS_TRUNK_END;       
+
 }
 
 /* Implement Loopback Interface Methods*/

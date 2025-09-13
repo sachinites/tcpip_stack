@@ -36,6 +36,7 @@
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
 #include <string>
 #include "../common/l2_hdrs.h"
+#include "../common/l3_hdrs.h"
 #include "../graph.h"
 #include "layer2.h"
 #include "arp.h"
@@ -56,7 +57,15 @@ extern void layer2_mem_init();
 
 extern void
 l2_switch_recv_frame(Interface *interface,
-                     char *pkt, uint32_t pkt_size);
+                                     char *pkt, uint32_t pkt_size);
+extern void
+l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_mac, Interface *oif) ;
+
+extern void
+l2_switch_forward_frame(
+                        node_t *node,
+                        Interface *recv_intf, 
+                        pkt_block_t *pkt_block) ;
 
 extern void
 promote_pkt_to_layer3(node_t *node, Interface *interface,
@@ -163,7 +172,7 @@ l2_forward_ip_packet(node_t *node,
         oif = node_get_intf_by_name(node, outgoing_intf);
 
         if (!oif) {
-            cprintf ("Error : Failed to get OIF for ipv6 forwarding\n");
+            cprintf ("Error : Failed to get OIF for ipv4 forwarding\n");
             return;
         }
 
@@ -606,6 +615,213 @@ l2_frame_recv_qualify_on_interface(
 
     interface->recvd_pkt_dropped++;
     return false;
+}
+
+bool 
+is_arp_pkt_for_svi_interface (node_t *node,
+                                      pkt_block_t *pkt_block, VlanInterface *svi)
+{
+    uint16_t proto;
+    uint8_t svi_mask;
+    pkt_size_t pkt_size;
+    arp_hdr_t *arp_hdr;
+    uint32_t svi_ip_addr;
+    char ip_addr_str[16];
+    ethernet_hdr_t *ethernet_hdr = NULL;
+    vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
+
+    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    if (is_pkt_vlan_tagged(ethernet_hdr)) {
+        vlan_eth_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
+        proto = vlan_eth_hdr->type;
+    }   
+    else {
+        proto = ethernet_hdr->type;
+    }
+
+    if (proto != PROTO_ARP) return false;
+
+    arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
+    
+    if (arp_hdr->op_code != ARP_BROAD_REQ && arp_hdr->op_code != ARP_REPLY) return false;
+
+    svi->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
+    return (svi_ip_addr == arp_hdr->dst_ip) ;
+}
+
+/* Algorithm 
+
+Case 1: Host sends Ethernet frame destined for another host in same VLAN
+    Frame arrives on the access port.
+    Switch does L2 lookup:
+        Source MAC → learned into MAC table (with incoming port).
+        Destination MAC → checked in MAC table.
+
+    If destination MAC is found → forward to the correct port.
+    If not found → flood within VLAN.
+
+This is pure L2 switching, the L3 forwarding logic is never invoked.
+
+Case 2: Host sends Ethernet frame destined for a host in a different VLAN
+    Host uses default gateway MAC (the L3 switch’s SVI for that VLAN) as destination MAC.
+    When the switch sees the frame:
+        The destination MAC matches the switch’s own SVI MAC address.
+        In this case, the switch does not flood/forward it at L2.
+        Instead, it punts the frame up to the L3 forwarding engine (routing pipeline).
+
+    L3 switch then:
+        Strips L2 header, looks at IP packet.
+        Makes routing decision.
+        Builds new Ethernet header (with next-hop MAC), sends out via egress VLAN interface.
+
+Here, the L3 logic is involved, because the switch itself is the destination at L2.
+*/
+
+bool
+l2_check_and_process_inter_vlan_routing (node_t *node, 
+                        Interface *interface, 
+                        pkt_block_t *pkt_block) {
+
+    uint16_t l3_proto;
+    pkt_size_t pkt_size;
+    vlan_ethernet_hdr_t *vlan_eth_hdr;
+
+    assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
+
+    vlan_eth_hdr = ( vlan_ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    vlan_id_t pkt_vlan_id = GET_802_1Q_VLAN_ID(&vlan_eth_hdr->vlan_8021q_hdr);
+    l3_proto =vlan_eth_hdr->type;
+
+    /* Step 1*/
+    if (!interface->GetSwitchport()) return false;
+
+    /* Step 2 */
+    VlanInterfaceP vlan_intf = nullptr;
+    
+    if (interface->GetL2Mode() == LAN_ACCESS_MODE) {
+        vlan_intf = interface->GetAccessVlanIntf();
+    }
+
+    else if (interface->GetL2Mode() == LAN_TRUNK_MODE) {
+        VlanInterface *vlan =
+                    static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, pkt_vlan_id));
+        if (!vlan) {
+            tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+                "Pkt : %s recvd on interface %s tagged with vlan-id %d which is not configured on the switch, Pkt Dropped\n",
+                pkt_block_str(pkt_block), interface->if_name.c_str(), pkt_vlan_id);
+            return true;
+        }
+        vlan_intf = std::dynamic_pointer_cast<VlanInterface>(vlan->GetSharedPtr());
+    }
+
+    else {
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s recvd on interface %s which is neither in Access nor in Trunk mode, Pkt Dropped\n",
+            pkt_block_str(pkt_block), interface->if_name.c_str());
+        return true;
+    }
+
+    if (!vlan_intf) {
+        /* It means, the pkt is recvd on switchport interface but
+         * the interface is not operating in any vlan*/
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s recvd on switchport interface %s which is not bound to any vlan, pkt Dropped\n",
+            pkt_block_str(pkt_block), interface->if_name.c_str());
+        return true;
+    }
+
+    uint8_t svi_mask;
+    uint32_t svi_ip_addr;
+    char ip_addr_str[16];
+
+    /* The packet qualifies to be processed by SVI interface of L3 switch :
+        1. Dst mac in ethernet hdr = RTR MAC Or
+        2. It is ARP Broadcast/Reply pkt is for SVI interface ip address */
+    if ( (!mac_address_compare (vlan_intf->GetMacAddr()->mac, vlan_eth_hdr->dst_mac.mac)) &&
+            !is_arp_pkt_for_svi_interface(node, pkt_block, vlan_intf.get()) ) {
+            return false;
+    }
+
+    /* Step 5 : Perform L2 mac learning*/
+    l2_switch_perform_mac_learning (node, pkt_vlan_id, vlan_eth_hdr->src_mac.mac, interface);
+
+    /*Intercept ARP packets if they are meant for SVI interface  */
+
+    if (vlan_eth_hdr->type == PROTO_ARP)
+    {
+        arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
+
+        if (arp_hdr->op_code == ARP_REPLY) {
+
+            arp_table_update_from_arp_reply(NODE_ARP_TABLE(node), arp_hdr,
+                                            dynamic_cast<Interface *>(vlan_intf.get()));
+
+            return true;
+        }
+
+        if (arp_hdr->op_code != ARP_BROAD_REQ)
+            return true;
+        
+        vlan_intf->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
+
+        tracer(node->dptr, DL2FWD | DFLOW,
+               "Pkt : %s recvd on SVI interface %s is ARP Broadcast request for SVI IP, Sending ARP reply\n",
+               pkt_block_str(pkt_block), vlan_intf->if_name.c_str());
+
+        arp_table_update_from_arp_reply(NODE_ARP_TABLE(node),
+                                        (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr),
+                                        dynamic_cast<Interface *>(vlan_intf.get()));
+
+        arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
+
+        pkt_size_t arp_reply_pkt_size = VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD +
+                                        (pkt_size_t)sizeof(arp_hdr_t);
+
+        vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
+            (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
+
+        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid = (short)pkt_vlan_id;
+        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_dei = 0;
+        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_pcp = 0;
+        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
+
+        l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
+                                 &arp_hdr_in->src_mac, arp_hdr_in->src_ip,
+                                 vlan_intf->GetMacAddr(), svi_ip_addr);
+
+        pkt_block_t *pkt_block = pkt_block_get_new((uint8_t *)vlan_ethernet_hdr_reply, arp_reply_pkt_size);
+        pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+
+        arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
+            (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
+
+        tracer(node->dptr, DARP, "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
+               tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, ip_addr_str),
+               arp_hdr_reply->dst_mac.mac[0],
+               arp_hdr_reply->dst_mac.mac[1],
+               arp_hdr_reply->dst_mac.mac[2],
+               arp_hdr_reply->dst_mac.mac[3],
+               arp_hdr_reply->dst_mac.mac[4],
+               arp_hdr_reply->dst_mac.mac[5],
+               interface->if_name.c_str());
+
+        interface->SendPacketOut(pkt_block);
+        pkt_block_dereference(pkt_block);
+        return true;
+    }
+
+    /* Step 6 : Promote pkt to L2*/
+    tracer (node->dptr, DL2FWD | DFLOW, 
+        "Pkt : %s recvd on SVI interface %s, Promoting to L3\n",
+        pkt_block_str(pkt_block), vlan_intf->if_name.c_str());
+
+    /* Remove vlan hdr */
+    untag_pkt_with_vlan_id(pkt_block);
+    promote_pkt_to_layer3 (node, dynamic_cast<Interface*>(vlan_intf.get()), pkt_block, l3_proto);
+
+    /* Step 7*/
+    return true;
 }
 
 void

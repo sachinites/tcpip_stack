@@ -110,6 +110,8 @@ class Interface {
         virtual bool IsInterfaceUp(vlan_id_t vlan_id);
         virtual bool IsCrossReferenced();
         void InterfaceReleaseAllResources();
+        virtual VlanInterfaceP GetAccessVlanIntf(); 
+        /* Return TRUE if the interface is SVI*/
         virtual bool IsSVI ();
 } __attribute__((aligned(8)));
 
@@ -168,6 +170,8 @@ class PhysicalInterface : public Interface {
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual void InterfaceReleaseAllResources() ;
+        virtual VlanInterfaceP GetAccessVlanIntf() final;
+        
 } __attribute__((aligned(8)));
 
 typedef struct linkage_ {
@@ -214,6 +218,7 @@ class VlanInterface : public VirtualInterface {
         virtual bool IsSameSubnet(uint32_t ip_addr) final;
         static VlanInterface *VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id);
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        void VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf); 
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual bool IsCrossReferenced() final;
         virtual void InterfaceReleaseAllResources() ;

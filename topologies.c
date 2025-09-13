@@ -114,6 +114,78 @@ build_first_topo(void){
     return topo;
 }
 
+graph_t *
+build_inter_vlan_routing_topo(void){
+
+#if 0             
+                                       +-----------+
+                                       |  H4       |
+                                       | 122.1.1.4 |
+                                       +----+------+
+                                            |eth0/7 - 13.1.1.2/24       
+                                            |
+				            |
+				            |v13	    
+                                            |eth0/1
+                                       +----+----+                        +--------+
+       +---------+                     |         |                        |        |
+       |         |10.1.1.2/24          |   L3SW  |eth0/2       12.1.1.2/24|  H3    |
+       |  H1     +---------------------+         +------------------------+122.1.1.3|
+       |122.1.1.1|eth0/5         eth0/4|         | v12             eth0/6 |        |
+       + --------+                v10  |         |                        |        |
+                                       +----+----+                        +--------+
+                                            |eth0/3     
+                                            | v11
+                                            |
+                                            |
+                                            |11.1.1.2/24
+                                            |eth0/8
+                                      +----++------+
+                                      |            |
+                                      |   H2       |
+                                      |122.1.1.2   |
+                                      |            |
+                                      +------------+
+
+#endif
+
+
+    graph_t *topo = create_new_graph("Inter Vlan Routing Topology");
+    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
+    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
+    node_t *H4 = create_graph_node(topo, (const c_string)"H4");
+    node_t *L3SW = create_graph_node(topo, (const c_string)"L3SW");
+
+    insert_link_between_two_nodes(H1, L3SW, "eth5", "eth4", 1);
+    insert_link_between_two_nodes(H2, L3SW, "eth8", "eth3", 1);
+    insert_link_between_two_nodes(H3, L3SW, "eth6", "eth2", 1);
+    insert_link_between_two_nodes(H4, L3SW, "eth7", "eth1", 1);
+
+    node_set_loopback_address(H1, "122.1.1.1");
+    node_set_intf_ip_address(H1, "eth5", "10.1.1.2", 24);
+    
+    node_set_loopback_address(H2, "122.1.1.2");
+    node_set_intf_ip_address(H2, "eth8", "11.1.1.2", 24);
+
+    node_set_loopback_address(H3, "122.1.1.3");
+    node_set_intf_ip_address(H3, "eth6", "12.1.1.2", 24);
+    
+    node_set_loopback_address(H4, "122.1.1.4");
+    node_set_intf_ip_address(H4, "eth7", "13.1.1.2", 24);
+    
+    node_set_intf_switchport(L3SW, "eth1");
+    node_set_intf_switchport(L3SW, "eth2");
+    node_set_intf_switchport(L3SW, "eth3");
+    node_set_intf_switchport(L3SW, "eth4");
+
+    node_set_intf_vlan_membership(L3SW, "eth1", 13, false);
+    node_set_intf_vlan_membership(L3SW, "eth2", 12, false);
+    node_set_intf_vlan_membership(L3SW, "eth3", 11, false);
+    node_set_intf_vlan_membership(L3SW, "eth4", 10, false);
+    return topo;
+}
+
 
 graph_t *
 build_simple_l2_switch_topo(void){

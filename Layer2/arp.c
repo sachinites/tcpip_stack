@@ -19,18 +19,37 @@
 
 #define ARP_ENTRY_EXP_TIME	30
 
+extern void
+l2_switch_forward_frame(
+                        node_t *node,
+                        Interface *recv_intf, 
+                        pkt_block_t *pkt_block);
+
 /*A Routine to resolve ARP out of oif*/
 void
 send_arp_broadcast_request(node_t *node,
                            Interface *oif,
                            c_string ip_addr){
 
+    pkt_size_t pkt_size;
     /*Take memory which can accomodate Ethernet hdr + ARP hdr*/
     uint32_t payload_size = sizeof (arp_hdr_t);
+    vlan_id_t vlan_id = 0;
+
+    if (oif->iftype == INTF_TYPE_VLAN) {
+        vlan_id = oif->GetVlanId();
+    }
 
     pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer(
-                                                    ETH_HDR_SIZE_EXCL_PAYLOAD + payload_size);
-    ethernet_hdr_t *ethernet_hdr =  (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, NULL);
+                                                (vlan_id ? VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD : ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size);
+
+    ethernet_hdr_t *ethernet_hdr =  (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    /* Tag the pkt with Vlan id if not already tagged */
+    if (vlan_id) {
+        tag_pkt_with_vlan_id (pkt_block, vlan_id);
+        ethernet_hdr = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+    }
     
     if (!oif) {
 
@@ -56,7 +75,7 @@ send_arp_broadcast_request(node_t *node,
     /*STEP 1 : Prepare ethernet hdr*/
     layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
     memcpy(ethernet_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
-    ethernet_hdr->type = PROTO_ARP;
+    SET_COMMON_ETH_HDR_TYPE(ethernet_hdr, PROTO_ARP);
 
     /*Step 2 : Prepare ARP Broadcast Request Msg out of oif*/
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
@@ -81,6 +100,28 @@ send_arp_broadcast_request(node_t *node,
     pkt_block_dereference(pkt_block);
 }
 
+void 
+l2_prepare_arp_reply_msg(
+                    ethernet_hdr_t *ethernet_hdr_reply, 
+                    mac_addr_t *dst_mac, uint32_t dst_ip,
+                    mac_addr_t *src_mac, uint32_t src_ip ) {
+
+    memcpy(ethernet_hdr_reply->dst_mac.mac, dst_mac->mac, sizeof(mac_addr_t));
+    memcpy(ethernet_hdr_reply->src_mac.mac, src_mac->mac, sizeof(mac_addr_t));
+    SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_reply, PROTO_ARP);
+    arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
+    arp_hdr_reply->hw_type = 1;
+    arp_hdr_reply->proto_type = 0x0800;
+    arp_hdr_reply->hw_addr_len = sizeof(mac_addr_t);
+    arp_hdr_reply->proto_addr_len = 4;
+    arp_hdr_reply->op_code = ARP_REPLY;
+    memcpy(arp_hdr_reply->src_mac.mac, src_mac->mac, MAC_ADDR_SIZE);
+    arp_hdr_reply->src_ip = src_ip;
+    memcpy(arp_hdr_reply->dst_mac.mac, dst_mac->mac, MAC_ADDR_SIZE);
+    arp_hdr_reply->dst_ip = dst_ip;
+    SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
+}
+
 /* Fn is not suppose to modify the input pkt */
 static void
 send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
@@ -92,21 +133,14 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
     pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
     ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(total_pkt_size);
-    memcpy(ethernet_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, sizeof(mac_addr_t));
-    memcpy(ethernet_hdr_reply->src_mac.mac, IF_MAC(oif), sizeof(mac_addr_t));
-    ethernet_hdr_reply->type = PROTO_ARP;
-    arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
-    arp_hdr_reply->hw_type = 1;
-    arp_hdr_reply->proto_type = 0x0800;
-    arp_hdr_reply->hw_addr_len = sizeof(mac_addr_t);
-    arp_hdr_reply->proto_addr_len = 4;
-    arp_hdr_reply->op_code = ARP_REPLY;
-    memcpy(arp_hdr_reply->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
-    arp_hdr_reply->src_ip = IF_IP(oif);
-    memcpy(arp_hdr_reply->dst_mac.mac, arp_hdr_in->src_mac.mac, MAC_ADDR_SIZE);
-    arp_hdr_reply->dst_ip = arp_hdr_in->src_ip;
-    SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
+
+    l2_prepare_arp_reply_msg(ethernet_hdr_reply, 
+            &arp_hdr_in->src_mac, arp_hdr_in->src_ip,
+           oif->GetMacAddr(), IF_IP(oif));
+
     pkt_block = pkt_block_get_new((uint8_t *)ethernet_hdr_reply, total_pkt_size);
+
+    arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
 
     tracer(node->dptr, DARP, "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
             tcp_ip_covert_ip_n_to_p (arp_hdr_reply->dst_ip, ip_addr_str), 
@@ -369,7 +403,6 @@ pending_arp_processing_callback_function(node_t *node,
     oif->SendPacketOut(pkt_block);
     arp_entry->hit_count++;
 }
-
 
 static void
 process_arp_pending_entry(node_t *node, Interface *oif, 

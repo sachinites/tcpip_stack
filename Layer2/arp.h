@@ -139,4 +139,10 @@ process_arp_reply_msg(node_t *node, Interface *iif,
 bool
 arp_entry_add(node_t *node, unsigned char *ip_addr, mac_addr_t mac, Interface *oif, uint16_t proto);
 
+void 
+l2_prepare_arp_reply_msg(
+                    ethernet_hdr_t *ethernet_hdr_reply, 
+                    mac_addr_t *dst_mac, uint32_t dst_ip,
+                    mac_addr_t *src_mac, uint32_t src_ip );
+                    
 #endif

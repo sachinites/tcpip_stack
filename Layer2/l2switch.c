@@ -39,8 +39,15 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
 #include "../tcpconst.h"
+#include "transport_svc.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
+
+extern void
+promote_pkt_to_layer3(node_t *node,           
+                      Interface *interface,  
+                      pkt_block_t *pkt_block, 
+                      int L3_protocol_number) ; 
 
 void
 init_mac_table(mac_table_t **mac_table){
@@ -239,8 +246,8 @@ dump_mac_table(mac_table_t *mac_table){
     }
 }
 
-static void
-l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_mac, Interface *oif){
+void
+l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_mac, Interface *oif) {
 
     bool rc;
 
@@ -273,24 +280,23 @@ l2_switch_flood_pkt_out (node_t *node,
 
 
     Interface *oif;
-    pkt_block_t *pkt_block2;
-   
-    tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding\n",  pkt_block_str (pkt_block));
+    pkt_block_t *dup_pkt_block;
+    vlan_8021q_hdr_t *vlan_8021q_hdr;
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, oif){
-        
-        if(oif == exempted_intf) continue;
+    assert ((vlan_8021q_hdr = 
+            is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL))));
 
-        if (!oif->GetSwitchport()) continue;
+    tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
+            pkt_block_str (pkt_block), vlan_8021q_hdr->tci_vid);
 
-        pkt_block2 = pkt_block_dup(pkt_block);
-        oif->SendPacketOut(pkt_block2);
-        pkt_block_dereference(pkt_block2);
+    /* Flood the pkt out of all interfaces of the vlan*/
+    VlanInterface *vlan =
+        static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_8021q_hdr->tci_vid));
 
-    } ITERATE_NODE_INTERFACES_END(node, oif);
+    vlan->VlanPacketFlood (pkt_block, exempted_intf);      
 }
 
-static void
+void
 l2_switch_forward_frame(
                         node_t *node,
                         Interface *recv_intf, 
