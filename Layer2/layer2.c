@@ -677,9 +677,8 @@ Case 2: Host sends Ethernet frame destined for a host in a different VLAN
 
 Here, the L3 logic is involved, because the switch itself is the destination at L2.
 */
-
 bool
-l2_check_and_process_inter_vlan_routing (node_t *node, 
+l2_intercept_svi_interface_packet (node_t *node, 
                         Interface *interface, 
                         pkt_block_t *pkt_block) {
 
@@ -735,92 +734,91 @@ l2_check_and_process_inter_vlan_routing (node_t *node,
     uint32_t svi_ip_addr;
     char ip_addr_str[16];
 
-    /* The packet qualifies to be processed by SVI interface of L3 switch :
-        1. Dst mac in ethernet hdr = RTR MAC Or
+    /* The packet qualifies to be processed by SVI interface of L3 switch if :
+        1. Dst mac in ethernet hdr = RTR MAC 
+        Or
         2. It is ARP Broadcast/Reply pkt is for SVI interface ip address */
     if ( (!mac_address_compare (vlan_intf->GetMacAddr()->mac, vlan_eth_hdr->dst_mac.mac)) &&
             !is_arp_pkt_for_svi_interface(node, pkt_block, vlan_intf.get()) ) {
             return false;
     }
 
-    /* Step 5 : Perform L2 mac learning*/
     l2_switch_perform_mac_learning (node, pkt_vlan_id, vlan_eth_hdr->src_mac.mac, interface);
 
-    /*Intercept ARP packets if they are meant for SVI interface  */
+    if (vlan_eth_hdr->type != PROTO_ARP) {
 
-    if (vlan_eth_hdr->type == PROTO_ARP)
-    {
-        arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
+        tracer (node->dptr, DL2FWD | DFLOW, 
+            "Pkt : %s recvd on SVI interface %s, Promoting to L3\n",
+            pkt_block_str(pkt_block), vlan_intf->if_name.c_str());
 
-        if (arp_hdr->op_code == ARP_REPLY) {
-
-            arp_table_update_from_arp_reply(NODE_ARP_TABLE(node), arp_hdr,
-                                            dynamic_cast<Interface *>(vlan_intf.get()));
-
-            return true;
-        }
-
-        if (arp_hdr->op_code != ARP_BROAD_REQ)
-            return true;
-        
-        vlan_intf->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
-
-        tracer(node->dptr, DL2FWD | DFLOW,
-               "Pkt : %s recvd on SVI interface %s is ARP Broadcast request for SVI IP, Sending ARP reply\n",
-               pkt_block_str(pkt_block), vlan_intf->if_name.c_str());
-
-        arp_table_update_from_arp_reply(NODE_ARP_TABLE(node),
-                                        (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr),
-                                        dynamic_cast<Interface *>(vlan_intf.get()));
-
-        arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
-
-        pkt_size_t arp_reply_pkt_size = VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD +
-                                        (pkt_size_t)sizeof(arp_hdr_t);
-
-        vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
-            (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
-
-        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid = (short)pkt_vlan_id;
-        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_dei = 0;
-        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_pcp = 0;
-        vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
-
-        l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
-                                 &arp_hdr_in->src_mac, arp_hdr_in->src_ip,
-                                 vlan_intf->GetMacAddr(), svi_ip_addr);
-
-        pkt_block_t *pkt_block = pkt_block_get_new((uint8_t *)vlan_ethernet_hdr_reply, arp_reply_pkt_size);
-        pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
-
-        arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
-            (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
-
-        tracer(node->dptr, DARP, "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
-               tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, ip_addr_str),
-               arp_hdr_reply->dst_mac.mac[0],
-               arp_hdr_reply->dst_mac.mac[1],
-               arp_hdr_reply->dst_mac.mac[2],
-               arp_hdr_reply->dst_mac.mac[3],
-               arp_hdr_reply->dst_mac.mac[4],
-               arp_hdr_reply->dst_mac.mac[5],
-               interface->if_name.c_str());
-
-        interface->SendPacketOut(pkt_block);
-        pkt_block_dereference(pkt_block);
+        /* Remove vlan hdr */
+        untag_pkt_with_vlan_id(pkt_block);
+        promote_pkt_to_layer3 (node, 
+                dynamic_cast<Interface*>(vlan_intf.get()), pkt_block, l3_proto);
         return true;
     }
 
-    /* Step 6 : Promote pkt to L2*/
-    tracer (node->dptr, DL2FWD | DFLOW, 
-        "Pkt : %s recvd on SVI interface %s, Promoting to L3\n",
-        pkt_block_str(pkt_block), vlan_intf->if_name.c_str());
+    /*Process ARP packets destined for SVI interface */
+    arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
 
-    /* Remove vlan hdr */
-    untag_pkt_with_vlan_id(pkt_block);
-    promote_pkt_to_layer3 (node, dynamic_cast<Interface*>(vlan_intf.get()), pkt_block, l3_proto);
+    if (arp_hdr->op_code == ARP_REPLY) {
 
-    /* Step 7*/
+        arp_table_update_from_arp_reply(NODE_ARP_TABLE(node), arp_hdr,
+                                        dynamic_cast<Interface *>(vlan_intf.get()));
+
+        return true;
+    }
+
+    if (arp_hdr->op_code != ARP_BROAD_REQ) return true;
+
+    vlan_intf->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
+
+    tracer(node->dptr, DL2FWD | DFLOW,
+           "Pkt : %s recvd on SVI interface %s is ARP Broadcast request for SVI IP, Sending ARP reply\n",
+           pkt_block_str(pkt_block), vlan_intf->if_name.c_str());
+
+    /* Overhead ARP Boradcast pkt and update ARP cache */
+    arp_table_update_from_arp_reply(NODE_ARP_TABLE(node),
+                                    (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr),
+                                    dynamic_cast<Interface *>(vlan_intf.get()));
+
+    arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
+
+    pkt_size_t arp_reply_pkt_size = VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD +
+                                    (pkt_size_t)sizeof(arp_hdr_t);
+
+    vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
+        (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
+
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid = (short)pkt_vlan_id;
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_dei = 0;
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_pcp = 0;
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
+
+    l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
+                             &arp_hdr_in->src_mac, arp_hdr_in->src_ip,
+                             vlan_intf->GetMacAddr(), svi_ip_addr);
+
+    pkt_block_t *pkt_block = pkt_block_get_new(
+            (uint8_t *)vlan_ethernet_hdr_reply, arp_reply_pkt_size);
+    pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+
+    arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
+        (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
+
+    tracer(node->dptr, DARP, 
+        "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
+           tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, ip_addr_str),
+           arp_hdr_reply->dst_mac.mac[0],
+           arp_hdr_reply->dst_mac.mac[1],
+           arp_hdr_reply->dst_mac.mac[2],
+           arp_hdr_reply->dst_mac.mac[3],
+           arp_hdr_reply->dst_mac.mac[4],
+           arp_hdr_reply->dst_mac.mac[5],
+           interface->if_name.c_str());
+
+    interface->SendPacketOut(pkt_block);
+    pkt_block_dereference(pkt_block);
     return true;
 }
 

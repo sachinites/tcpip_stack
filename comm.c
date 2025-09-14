@@ -184,7 +184,7 @@ dp_pkt_receive (node_t *node,
                 pkt_block_str(pkt_block), vlan_id_to_tag);
         }
 
-        if ( l2_check_and_process_inter_vlan_routing (node, interface, pkt_block)) {
+        if ( l2_intercept_svi_interface_packet (node, interface, pkt_block)) {
             return;
         }
 

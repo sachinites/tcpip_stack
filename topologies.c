@@ -147,6 +147,28 @@ build_inter_vlan_routing_topo(void){
                                       |            |
                                       +------------+
 
+
+Configs :
+==========
+config node H1 route 0.0.0.0 0 10.1.1.1 eth5
+config node H2 route 0.0.0.0 0 11.1.1.1 eth8
+config node H3 route 0.0.0.0 0 12.1.1.1 eth6
+config node H4 route 0.0.0.0 0 13.1.1.1 eth7
+config node L3SW interface vlan 10 ip-address 10.1.1.1 24
+config node L3SW interface vlan 11 ip-address 11.1.1.1 24
+config node L3SW interface vlan 12 ip-address 12.1.1.1 24
+config node L3SW interface vlan 13 ip-address 13.1.1.1 24
+
+Test
+====
+run node H1 ping 10.1.1.1
+run node H1 ping 11.1.1.1
+run node H1 ping 12.1.1.1
+run node H1 ping 13.1.1.1
+run node H1 ping 11.1.1.2
+run node H1 ping 12.1.1.2
+run node H1 ping 13.1.1.2
+
 #endif
 
 

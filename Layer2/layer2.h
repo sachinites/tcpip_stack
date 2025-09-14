@@ -224,7 +224,7 @@ typedef struct mac_table_{
 
 /* Return TRUE if the pkt is subjected to inter-vlan routing*/
 bool
-l2_check_and_process_inter_vlan_routing (node_t *node, 
+l2_intercept_svi_interface_packet (node_t *node, 
                         Interface* interface, 
                         pkt_block_t *pkt_block);
 
