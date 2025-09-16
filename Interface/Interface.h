@@ -226,6 +226,22 @@ class VlanInterface : public VirtualInterface {
         virtual mac_addr_t *GetMacAddr( );
 } __attribute__((aligned(8)));;
 
+
+class RmacInterface : public VirtualInterface {
+
+    private:
+    protected:
+    public:
+
+        RmacInterface();
+        virtual ~RmacInterface();
+        virtual void PrintInterfaceDetails ();
+        virtual void InterfaceReleaseAllResources() ;
+        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+
+} __attribute__((aligned(8)));;
+
+
 enum GreTunnelConfigEnum
 {
     GRE_TUNNEL_TUNNEL_ID_SET = 1,

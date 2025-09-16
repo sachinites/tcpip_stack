@@ -224,12 +224,11 @@ typedef struct mac_table_{
 
 /* Return TRUE if the pkt is subjected to inter-vlan routing*/
 bool
-l2_intercept_svi_interface_packet (node_t *node, 
-                        Interface* interface, 
+svi_interface_intercept_arp_pkt (node_t *node ,
                         pkt_block_t *pkt_block);
 
 bool 
 is_arp_pkt_for_svi_interface (node_t *node,
-                                      pkt_block_t *pkt_block, VlanInterface *svi);
+                                      pkt_block_t *pkt_block);
 
 #endif /* __LAYER2__ */

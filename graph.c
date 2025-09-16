@@ -141,8 +141,6 @@ create_graph_node(graph_t *graph, const c_string node_name){
 
     node_init_udp_socket(node);
 
-    init_node_nw_prop(node, &node->node_nw_prop);
-
     node->spf_data = NULL;
 
     tcp_ip_init_node_log_info(node);
@@ -158,6 +156,8 @@ create_graph_node(graph_t *graph, const c_string node_name){
     sprintf(file_name, "logs/%s-dp.txt", node->node_name);
     node->dptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_dp_bits_to_str );
     tracer_enable_file_logging (node->dptr, true);
+
+    init_node_nw_prop(node, &node->node_nw_prop);
 
     /* L3 pkt trapping to application is implemented using Netfilter hooks built over NFC*/
 	nf_init_netfilters(&node->nf_hook_db);
@@ -231,6 +231,7 @@ void dump_interface(Interface *interface){
     interface->PrintInterfaceDetails();
 }
 
+
 Interface *
 node_get_intf_by_name(node_t *node, const char *if_name){
 
@@ -239,9 +240,11 @@ node_get_intf_by_name(node_t *node, const char *if_name){
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         if(!intf) return NULL;
+
         if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
             return intf;
         }
+
     }  ITERATE_NODE_INTERFACES_END(node, intf);
 
     /* Get vlan interface by name */

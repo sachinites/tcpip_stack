@@ -36,6 +36,7 @@ struct pkt_block_ {
     hdr_type_t hdr_type;
     InterfaceP recommended_oif;
     InterfaceP exclude_oif;
+    InterfaceP switchport_ingress_intf;
     char *fn_name;
     uint64_t pkt_id;
     uint16_t lineno;

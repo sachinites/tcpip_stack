@@ -120,17 +120,24 @@ mac_table_entry_cancel_expiry_timer (mac_table_entry_t *mac_table_entry) {
 
 
 void
-clear_mac_table(mac_table_t *mac_table){
+clear_mac_table(node_t *node, mac_table_t *mac_table){
 
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
 
+    mac_table_entry_t *rmac_entry = mac_table_lookup(
+                                        mac_table, 
+                                        1, 
+                                        (c_string)(NODE_RMAC(node))->mac);
+
     ITERATE_GLTHREAD_BEGIN(&mac_table->mac_entries, curr){
         
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
+        if (mac_table_entry == rmac_entry) continue;
         remove_glthread(curr);
         mac_table_entry_cancel_expiry_timer(mac_table_entry);
         delete (mac_table_entry);
+
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
 }
 
@@ -293,7 +300,8 @@ l2_switch_flood_pkt_out (node_t *node,
     VlanInterface *vlan =
         static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_8021q_hdr->tci_vid));
 
-    vlan->VlanPacketFlood (pkt_block, exempted_intf);      
+    vlan->VlanPacketFlood (pkt_block, exempted_intf);
+    NODE_RMAC_INTF(node)->SendPacketOut(pkt_block);
 }
 
 void
@@ -304,6 +312,7 @@ l2_switch_forward_frame(
 
     pkt_size_t pkt_size;
     ethernet_hdr_t *ethernet_hdr;
+    mac_table_entry_t *mac_table_entry = NULL;
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
 
     ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -313,14 +322,29 @@ l2_switch_forward_frame(
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
         pkt_block_str (pkt_block), GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-    /*If dst mac is broadcast mac, then flood the frame*/
-    if (IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)){
+    /*If dst mac is broadcast mac, then flood the frame. It can be ARP packet also */
+
+    if (IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)) {
         l2_switch_flood_pkt_out(node, recv_intf, pkt_block);
         return;
     }
 
+    /* Check if the pkt matches the router mac , vlan id dont matter here */
+    mac_table_entry = 
+        mac_table_lookup(NODE_MAC_TABLE(node), 
+                                      1,
+                                      ethernet_hdr->dst_mac.mac);    
+
+    if (mac_table_entry && 
+            mac_table_entry->oif == NODE_RMAC_INTF(node)) {
+        
+        assert (pkt_block->switchport_ingress_intf  == recv_intf->GetSharedPtr());
+        NODE_RMAC_INTF(node)->SendPacketOut(pkt_block);
+        return;
+    }
+
     /*Check the mac table to forward the frame*/
-    mac_table_entry_t *mac_table_entry = 
+    mac_table_entry = 
         mac_table_lookup(NODE_MAC_TABLE(node), 
                                       GET_802_1Q_VLAN_ID(vlan_8021q_hdr),
                                       ethernet_hdr->dst_mac.mac);
@@ -370,4 +394,3 @@ l2_switch_recv_frame(node_t *node,
     l2_switch_perform_mac_learning(node, vlan_id, src_mac, interface);
     l2_switch_forward_frame(node, interface, pkt_block);
 }
-

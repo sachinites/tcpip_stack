@@ -54,6 +54,11 @@ extern void l2_switch_forward_frame(
                         node_t *node,
                         Interface *recv_intf, 
                         pkt_block_t *pkt_block);
+extern void
+promote_pkt_to_layer3(node_t *node,         
+                      Interface *interface, 
+                      pkt_block_t *pkt_block, 
+                      int L3_protocol_number) ;
 
 /* A fn to send the pkt as it is (unchanged) out on the interface */
 static int
@@ -967,7 +972,53 @@ VirtualInterface::InterfaceReleaseAllResources() {
     this->Interface::InterfaceReleaseAllResources();
 }
 
+/**      Rmac Interface  */
 
+RmacInterface::RmacInterface() 
+    :VirtualInterface(std::string(RMAC_INTF_NAME), INTF_TYPE_RMAC) {}
+
+RmacInterface::~RmacInterface() {}
+void RmacInterface::PrintInterfaceDetails () {}
+void RmacInterface::InterfaceReleaseAllResources() {}
+
+/* For Rmac Interface, pks send out means, handover the pkt to
+    Layer 3 for routing */
+int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
+
+    pkt_size_t pkt_size;
+
+    assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
+
+    ethernet_hdr_t *eth_hdr = 
+        ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    /* Rmac interface never recvs untagged pkt */
+    assert (is_pkt_vlan_tagged (eth_hdr));
+
+    /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
+    /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
+    if ( is_arp_pkt_for_svi_interface (this->att_node, pkt_block) ) {
+            svi_interface_intercept_arp_pkt (this->att_node, pkt_block);
+            return;
+    }
+
+    /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
+
+    if (!mac_address_compare ((char *)NODE_RMAC(this->att_node)->mac, 
+          (char *)eth_hdr->dst_mac.mac) != 0) {
+
+        this->recvd_pkt_dropped++;
+        return 0;
+    }
+
+    untag_pkt_with_vlan_id(pkt_block);
+    eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    promote_pkt_to_layer3 (this->att_node, 
+            dynamic_cast<Interface*>(this),  pkt_block, eth_hdr->type);
+    
+    return 0;
+}
 
 /* ************ GRETunnelInterface ************ */
 GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
@@ -1641,7 +1692,6 @@ VlanInterface::VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf)
        send_xmit_out(member_intf, pkt_block);
     } 
     ITERATE_VLAN_MEMBER_PORTS_TRUNK_END;       
-
 }
 
 /* Implement Loopback Interface Methods*/

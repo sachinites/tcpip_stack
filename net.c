@@ -43,6 +43,7 @@
 #include "graph.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
+#include "Layer2/layer2.h"
 #include "Layer2/transport_svc.h"
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
@@ -58,6 +59,7 @@ extern void init_tcp_logging(node_t *);
 extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 extern void lfa_init (node_t *node, lfa_t **lfa) ;
 void  node_assign_router_mac (node_t *node) ;
+extern bool mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry);
 
 void
 interface_assign_mac_address (Interface *interface){
@@ -70,8 +72,24 @@ interface_assign_mac_address (Interface *interface){
 void 
 node_assign_router_mac (node_t *node) {
 
+    mac_table_entry_t *mac_table_entry = NULL;
+
     tcp_ip_generate_random_mac_address (
             &node->node_nw_prop.rmac.mac);
+
+    node->node_nw_prop.rmac_interface = 
+        std::make_shared<RmacInterface>();
+    node->node_nw_prop.rmac_interface->SetSharedPtr(
+                node->node_nw_prop.rmac_interface);
+    node->node_nw_prop.rmac_interface->att_node = node;
+
+    mac_table_entry = new mac_table_entry_t;
+    mac_table_entry->vlan_id = 1; 
+    memcpy(mac_table_entry->mac.mac, (NODE_RMAC(node))->mac, sizeof(mac_addr_t));
+    string_copy((char *)mac_table_entry->oif_name, RMAC_INTF_NAME, IF_NAME_SIZE);
+    mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
+    mac_table_entry->oif = NODE_RMAC_INTF(node);
+    mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);    
 }
 
 typedef struct l3_route_ l3_route_t;

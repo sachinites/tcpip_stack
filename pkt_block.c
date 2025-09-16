@@ -280,6 +280,7 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->lineno = lineno;
     pkt_block2->fn_name = fn_name;    
     pkt_block2->no_modify = pkt_block->no_modify;
+    pkt_block2->switchport_ingress_intf = pkt_block->switchport_ingress_intf;
     return pkt_block2;
 }
 

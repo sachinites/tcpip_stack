@@ -178,21 +178,16 @@ dp_pkt_receive (node_t *node,
 
     if ((interface->GetL2Mode() != LAN_MODE_NONE)) {
 
+        pkt_block->switchport_ingress_intf = interface->GetSharedPtr();
+
         if (vlan_id_to_tag) {
             tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
             tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Tagged with VLAN ID %d\n", 
                 pkt_block_str(pkt_block), vlan_id_to_tag);
         }
 
-        if ( l2_intercept_svi_interface_packet (node, interface, pkt_block)) {
-            return;
-        }
-
-        vlan_8021q_hdr_t *vlan_8021q_hdr = 
-            is_pkt_vlan_tagged (pkt_block_get_ethernet_hdr(pkt_block));
-
         l2_switch_recv_frame(node, 
-                    GET_802_1Q_VLAN_ID(vlan_8021q_hdr),
+                    vlan_id_to_tag,
                     interface, pkt_block);
     }
 

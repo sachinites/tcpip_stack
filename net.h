@@ -79,7 +79,10 @@ typedef struct node_nw_prop_{
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;
-    
+
+    /* Shared Rmac Interface shared across all SVIs in the system*/
+    InterfaceP rmac_interface;
+
     /* lo ipv6 addr*/
     uint8_t ipv6_addr[16];
 
@@ -117,6 +120,8 @@ typedef struct node_nw_prop_{
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
 #define NODE_LOG_BUFF(node_ptr) (node_ptr->node_nw_prop.log_buffer)
 #define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)
+#define NODE_RMAC(node_ptr)      (&node_ptr->node_nw_prop.rmac) 
+#define NODE_RMAC_INTF(node_ptr)    (node_ptr->node_nw_prop.rmac_interface)
 
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
