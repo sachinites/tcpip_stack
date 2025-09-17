@@ -201,10 +201,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
     return 0;
 }
 
-#define MAC_ADDR_SIZE   6
-#define IPV4_ADDR_LEN_STR   16
-
-#define RMAC_INTF_NAME  "super-eth0"
+#define RMAC_INTF_NAME  "sup-eth1(R)"
+#define MAC_ENTRY_EXP_TIME   300 /*Seconds*/
 
 #endif /* __TCPCONST__ */
 

@@ -704,7 +704,7 @@ isis_add_prefix_sid_to_locator (node_t *node,
                                 Srv6_endpcode_t endfn, 
                                 uint8_t flavors) {
 
-    char ipv4_addr_str[16];
+    char ipv4_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[48];
 
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
@@ -757,7 +757,7 @@ isis_delete_prefix_sid_from_locator (node_t *node,
                                 char *loc_name, 
                                 ipv6_addr_t *prefix_sid) {
 
-    char ipv4_addr_str[16];
+    char ipv4_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[48];
     isis_srv6_locator_t *loc;
     isis_advt_info_t advt_info;

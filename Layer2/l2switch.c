@@ -105,7 +105,7 @@ mac_table_entry_init_timer (node_t *node, mac_table_entry_t *mac_table_entry) {
         mac_table_entry_timer_expiry_cbk,
         (void *)mac_table_entry,
         sizeof(mac_table_entry_t),
-        20 * 1000, 0);
+        MAC_ENTRY_EXP_TIME * 1000, 0);
 }
 
 static void 
@@ -231,12 +231,12 @@ dump_mac_table(mac_table_t *mac_table){
         count++;
         mac_table_entry = mac_entry_glue_to_mac_entry(curr);
         if(count == 1){
-            cprintf("\t|==Vlan====|========= MAC =========|==== Ports ===|==Exp-Time(msec)==|\n");
+            cprintf(" |==Vlan====|========= MAC =========|==== type ===|==== Ports ===|==Exp-Time(msec)==|\n");
         }
         else {
-            cprintf("\t|==========|=======================|==============|==================|\n");
+            cprintf(" |==========|=======================|=============|==============|==================|\n");
         }
-        cprintf("\t|  %-6d  | %02x:%02x:%02x:%02x:%02x:%02x     | %-12s |     %-5d        |\n", 
+        cprintf(" |  %-6d  | %02x:%02x:%02x:%02x:%02x:%02x     | %-11s |  %-11s |     %-5d        |\n", 
             mac_table_entry->vlan_id,
             mac_table_entry->mac.mac[0], 
             mac_table_entry->mac.mac[1],
@@ -244,12 +244,13 @@ dump_mac_table(mac_table_t *mac_table){
             mac_table_entry->mac.mac[3], 
             mac_table_entry->mac.mac[4],
             mac_table_entry->mac.mac[5],
+            mac_entry_flag(mac_table_entry->flags),
             mac_table_entry->oif_name,
             mac_table_entry_get_exp_time_left (mac_table_entry));
 
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
     if(count){
-        cprintf("\t|==========|=======================|==============|==================|\n");
+        cprintf(" |==========|=======================|=============|==============|==================|\n");
     }
 }
 
@@ -272,8 +273,16 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_ma
     string_copy((char *)mac_table_entry->oif_name, oif->if_name.c_str(), IF_NAME_SIZE);
     mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
     mac_table_entry->oif = oif->GetSharedPtr();
-    mac_table_entry_init_timer (node, mac_table_entry);
+
+    if (oif == NODE_RMAC_INTF(node).get()) {
+        mac_table_entry->flags = MAC_STATIC;
+    } else {
+        mac_table_entry->flags = MAC_DYNAMIC;
+        mac_table_entry_init_timer (node, mac_table_entry);
+    }
+    
     rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
+
     if(rc == false){
         mac_table_entry_cancel_expiry_timer  (mac_table_entry);
         delete (mac_table_entry);

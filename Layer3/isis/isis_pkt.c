@@ -373,7 +373,7 @@ isis_print_lsp_pkt(byte *buff,
                               uint32_t pkt_size ) {
 
     uint32_t rc = 0;
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
 
@@ -449,7 +449,7 @@ isis_print_hello_pkt(byte *buff,
                                   pkt_size_t pkt_size ) {
 
     uint32_t rc = 0;
-    byte ip_addr_str[16];
+    byte ip_addr_str[IPV4_ADDR_LEN_STR];
     byte system_lan_id_str[2][32];
     isis_lan_hello_pkt_hdr_t *lan_hdr;
     isis_p2p_hello_pkt_hdr_t *p2p_hdr;

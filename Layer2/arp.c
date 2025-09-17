@@ -126,7 +126,7 @@ l2_prepare_arp_reply_msg(
 static void
 send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
 
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
     pkt_block_t *pkt_block;
     node_t *node = oif->att_node;
 
@@ -185,7 +185,7 @@ void
 process_arp_broadcast_request(node_t *node, Interface *iif, 
                                                     ethernet_hdr_t *ethernet_hdr){
 
-    byte ip_addr_str[16];
+    byte ip_addr_str[IPV4_ADDR_LEN_STR];
 
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
 

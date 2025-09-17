@@ -7,7 +7,7 @@
 typedef struct nexthop_{
 
     InterfaceP oif;
-    byte gw_ip[16];
+    byte gw_ip[IPV4_ADDR_LEN_STR];
     unsigned char node_name[NODE_NAME_SIZE];
     long long unsigned int hit_count;
     uint32_t ifindex;  

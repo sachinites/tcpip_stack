@@ -156,7 +156,7 @@ l2_forward_ip_packet(node_t *node,
 
     pkt_size_t pkt_size;
     Interface *oif = NULL;
-    byte next_hop_ip_str[16];
+    byte next_hop_ip_str[IPV4_ADDR_LEN_STR];
     ethernet_hdr_t *ethernet_hdr;
     arp_entry_t * arp_entry = NULL;
 
@@ -627,7 +627,7 @@ is_arp_pkt_for_svi_interface (node_t *node,
     arp_hdr_t *arp_hdr;
     uint32_t svi_ip_addr;
     vlan_id_t vlan_id = 0;
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
     ethernet_hdr_t *ethernet_hdr = NULL;
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
 
@@ -715,7 +715,7 @@ svi_interface_intercept_arp_pkt (node_t *node,
 
     uint8_t svi_mask;
     uint32_t svi_ip_addr;
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     /*Process ARP packets destined for SVI interface */
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));

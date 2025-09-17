@@ -233,7 +233,7 @@ isis_update_interface_adjacency_from_hello(
         size_t hello_pkt_size) {
 
     node_t *node;
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
     byte lan_id_str[32];
     byte sys_id_str[32];
     uint16_t tlv_buff_size;
@@ -439,7 +439,7 @@ void
 isis_show_adjacency( isis_adjacency_t *adjacency,
                                     uint8_t tab_spaces) {
 
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
     byte lan_id_str[32];
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 

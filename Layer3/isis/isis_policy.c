@@ -125,7 +125,7 @@ isis_free_all_exported_rt_advt_data (node_t *node) {
 
     glthread_t *curr;
     uint8_t mask;
-    byte ip_addr_str[16];
+    byte ip_addr_str[IPV4_ADDR_LEN_STR];
     mtrie_node_t *mnode;
     isis_fragment_t *fragment;
     isis_adv_data_t *advt_data;

@@ -410,7 +410,7 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
 
     node_t *node;
     Interface *intf;
-    char nbr_rtr_id_str[16];
+    char nbr_rtr_id_str[IPV4_ADDR_LEN_STR];
     isis_intf_info_t *intf_info;
     isis_intf_group_t *intf_grp;
     
@@ -441,7 +441,7 @@ isis_dynamic_intf_grp_update_on_adjacency_delete (
 
     node_t *node;
     Interface *intf;
-    char nbr_rtr_id_str[16];
+    char nbr_rtr_id_str[IPV4_ADDR_LEN_STR];
     isis_intf_group_t *intf_grp;
     isis_intf_info_t *intf_info;
     

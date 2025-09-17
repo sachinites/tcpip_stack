@@ -60,7 +60,8 @@ extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 extern void lfa_init (node_t *node, lfa_t **lfa) ;
 void  node_assign_router_mac (node_t *node) ;
 extern bool mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry);
-
+extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
+        c_string src_mac, Interface *oif) ;
 void
 interface_assign_mac_address (Interface *interface){
 
@@ -83,13 +84,8 @@ node_assign_router_mac (node_t *node) {
                 node->node_nw_prop.rmac_interface);
     node->node_nw_prop.rmac_interface->att_node = node;
 
-    mac_table_entry = new mac_table_entry_t;
-    mac_table_entry->vlan_id = 1; 
-    memcpy(mac_table_entry->mac.mac, (NODE_RMAC(node))->mac, sizeof(mac_addr_t));
-    string_copy((char *)mac_table_entry->oif_name, RMAC_INTF_NAME, IF_NAME_SIZE);
-    mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
-    mac_table_entry->oif = NODE_RMAC_INTF(node);
-    mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);    
+    l2_switch_perform_mac_learning (node, 1, 
+            (NODE_RMAC(node))->mac, NODE_RMAC_INTF(node).get());
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -213,8 +209,8 @@ is_same_subnet(c_string ip_addr,
                char mask, 
                c_string other_ip_addr){
 
-    byte intf_subnet[16];
-    byte subnet2[16];
+    byte intf_subnet[IPV4_ADDR_LEN_STR];
+    byte subnet2[IPV4_ADDR_LEN_STR];
 
     memset(intf_subnet, 0 , 16);
     memset(subnet2, 0 , 16);

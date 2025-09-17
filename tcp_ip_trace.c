@@ -172,8 +172,8 @@ static int
 tcp_dump_ip_hdr(c_string buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
 
      int rc = 0;
-     byte ip1[16];
-     byte ip2[16];
+     byte ip1[IPV4_ADDR_LEN_STR];
+     byte ip2[IPV4_ADDR_LEN_STR];
      byte string_buffer[32];
      pkt_block_t *pkt_block;
 
@@ -199,8 +199,8 @@ tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr,
                   uint32_t pkt_size){
 
     int rc = 0;
-    byte ip1[16];
-    byte ip2[16];
+    byte ip1[IPV4_ADDR_LEN_STR];
+    byte ip2[IPV4_ADDR_LEN_STR];
     byte string_buffer[48];
 
     rc +=  sprintf((char *)buff, "ARP Hdr : ");

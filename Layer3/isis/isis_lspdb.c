@@ -498,7 +498,7 @@ isis_print_lsp_id (isis_lsp_pkt_t *lsp_pkt, byte *lsp_id_str) {
 
     pn_id_t pn_id;
     uint8_t fr_no;
-    unsigned char ip_addr[16];
+    unsigned char ip_addr[IPV4_ADDR_LEN_STR];
     
     memset(lsp_id_str, 0, ISIS_LSP_ID_STR_SIZE);
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);

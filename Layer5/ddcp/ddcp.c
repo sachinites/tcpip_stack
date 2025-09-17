@@ -152,7 +152,7 @@ ddcp_get_ip_reach_data(node_t *node, ser_buff_t *data_out){
      char mask;
      int chekpoint;
      interface_t *intf;
-     char intf_subnet[16];
+     char intf_subnet[IPV4_ADDR_LEN_STR];
      uint32_t ip_addr;
      char tlv_size = 0;
      

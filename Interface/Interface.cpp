@@ -545,7 +545,7 @@ PhysicalInterface::GetMacAddr()
 void PhysicalInterface::PrintInterfaceDetails()
 {
 
-    byte ip_addr[16];
+    byte ip_addr[IPV4_ADDR_LEN_STR];
     char v6_addr_str[48];
 
     cprintf("MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -1210,7 +1210,7 @@ GRETunnelInterface::GetMacAddr() {
 void GRETunnelInterface::PrintInterfaceDetails()
 {
 
-    byte ip_str[16];
+    byte ip_str[IPV4_ADDR_LEN_STR];
 
     cprintf("Tunnel Id : %u\n", this->tunnel_id);
     cprintf("Tunnel Src Intf  : %s\n",
@@ -1545,7 +1545,7 @@ VlanInterface::PrintInterfaceDetails() {
 
     int i;
     int vec_size;
-    byte ip_str[16];
+    byte ip_str[IPV4_ADDR_LEN_STR];
     TransportService *tsp;
     Interface *member_ports;
 
@@ -1712,7 +1712,7 @@ LoopbackInterface::~LoopbackInterface()
 void LoopbackInterface::PrintInterfaceDetails()
 {
 
-    unsigned char ip_addr[16];
+    unsigned char ip_addr[IPV4_ADDR_LEN_STR];
     unsigned char v6_addr_str[INET6_ADDRSTRLEN];
 
     cprintf("IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_addr), this->mask);
@@ -1803,7 +1803,7 @@ dump_intf_props (Interface *interface){
 
     uint8_t intf_mask;
     uint32_t intf_ip_addr;
-    byte intf_ip_addr_str[16];
+    byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
     mac_addr_t *mac_addr;
     PhysicalInterface *phyIntf;
 

@@ -99,7 +99,7 @@ isis_is_layer2_mapping_enabled (node_t *node) {
 bool
 isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
 
     if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
         return true;
@@ -114,7 +114,7 @@ isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 bool
 isis_update_layer2_mapping_on_adjacency_down (isis_adjacency_t *adjacency) {
 
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
 
     if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
         return true;

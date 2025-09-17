@@ -206,7 +206,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
     l3_route_t *l3route;
     ted_prefix_t *ted_prefix;
     avltree_node_t *avl_node;
@@ -401,7 +401,7 @@ static void
 isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
     /*Initialize direct nbrs*/
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
     ted_intf_t *oif, *oif2;
     ted_node_t *nbr = NULL;
     nexthop_t *nexthop = NULL;

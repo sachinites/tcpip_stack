@@ -195,6 +195,20 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 
 
 /*L2 Switch Owns Mac Table*/
+#define MAC_STATIC  0x1
+#define MAC_DYNAMIC 0x2
+#define MAC_CONTROL_PLANE   0x4
+
+static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
+
+    switch(mac_entry_flag) {
+        case MAC_STATIC : return "static";
+        case MAC_DYNAMIC : return "dynamic";
+        case MAC_CONTROL_PLANE : return "control-plane";
+        default: return "UNKNOWN";
+    }
+    return "nil";
+}
 
 typedef struct mac_table_entry_{
 
@@ -203,7 +217,7 @@ typedef struct mac_table_entry_{
     glthread_t mac_entry_glue;
     byte oif_name[IF_NAME_SIZE];
     mac_addr_t mac;
-    char padding1[2];
+    uint16_t flags;
     vlan_id_t vlan_id;
     char padding2[6];
     

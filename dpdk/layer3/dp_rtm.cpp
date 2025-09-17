@@ -286,8 +286,8 @@ dp_ipv4_rt_table_delete_route (
 void 
 np_rt_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
-    unsigned char gw_str[16];
-    unsigned char dest_str[16];
+    unsigned char gw_str[IPV4_ADDR_LEN_STR];
+    unsigned char dest_str[IPV4_ADDR_LEN_STR];
     rt_update_msg_t *rt_update_msg;
 
     rt_table_t *rt_table = NODE_RT_TABLE(node);

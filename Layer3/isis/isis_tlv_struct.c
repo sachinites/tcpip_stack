@@ -10,7 +10,7 @@ uint32_t
 isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_len) {
 
     uint32_t rc = 0;
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)(tlv130_start + TLV_OVERHEAD_SIZE);
 
@@ -96,7 +96,7 @@ pkt_size_t
 isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_t tlv_len) {
 
     uint32_t rc = 0;
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
     
     isis_rtr_cap_tlv242_t *tlv_242 = (isis_rtr_cap_tlv242_t *)(tlv242_start + TLV_OVERHEAD_SIZE);
 
@@ -392,7 +392,7 @@ isis_format_nbr_tlv22(byte *out_buff,
     byte system_id_str[32];
     uint32_t ip_addr_int;
     byte *subtlv_navigator;
-    unsigned char ip_addr[16];
+    unsigned char ip_addr[IPV4_ADDR_LEN_STR];
     isis_system_id_t system_id;
 
     byte tlv_type, tlv_len, *tlv_value = NULL;
@@ -462,7 +462,7 @@ uint32_t
 isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t rc = 0;
-    byte ip_addr[16];
+    byte ip_addr[IPV4_ADDR_LEN_STR];
     byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     byte tlv_type, tlv_len, *tlv_value = NULL;
 

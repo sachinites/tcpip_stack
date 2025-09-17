@@ -490,7 +490,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
     uint8_t i = 0;
     ted_link_t * link;
     ted_node_t *ted_node;
-    unsigned char ip_addr_str[16];
+    unsigned char ip_addr_str[IPV4_ADDR_LEN_STR];
     ted_intf_t *from_intf, *to_intf;
     uint32_t from_ifindex, to_ifindex;
     ted_template_nbr_data_t *nbr_data;
@@ -554,7 +554,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
     uint32_t rc = 0;
     ted_node_t *nbr;
-    char ip_addr[16];
+    char ip_addr[IPV4_ADDR_LEN_STR];
     avltree_node_t *curr;
     ted_prefix_t *ted_prefix;
     ted_v6prefix_t *ted_v6prefix;

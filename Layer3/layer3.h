@@ -183,7 +183,7 @@ l3_rt_map_nxthop_index_proto_std(uint16_t proto_index) {
 
 typedef struct l3_route_{
 
-    byte dest[16];        /* key*/
+    byte dest[IPV4_ADDR_LEN_STR];        /* key*/
     char mask;            /* key*/
     uint8_t rt_flags;
     bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/

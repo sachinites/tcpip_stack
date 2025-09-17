@@ -93,7 +93,7 @@ l3_is_direct_route(l3_route_t *l3_route){
 static bool
 is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
-    char dest_ip_str[16];
+    char dest_ip_str[IPV4_ADDR_LEN_STR];
     dest_ip_str[15] = '\0';
     uint32_t intf_addr ;
 
@@ -156,7 +156,7 @@ layer3_ip_route_pkt(node_t *node,
 
     int8_t nf_result;
     char *l4_hdr, *l5_hdr;
-    char dest_ip_addr[16];
+    char dest_ip_addr[IPV4_ADDR_LEN_STR];
     ip_hdr_t *ip_hdr = NULL;
     uint32_t next_hop_ip= 0;
     nexthop_t *nexthop = NULL;
@@ -272,8 +272,8 @@ layer3_ip_route_pkt(node_t *node,
 
                 case GRE_PROTO:
                 {
-                    char gre_t_src_addr[16];
-                    char gre_t_dst_addr[16];
+                    char gre_t_src_addr[IPV4_ADDR_LEN_STR];
+                    char gre_t_dst_addr[IPV4_ADDR_LEN_STR];
 
                     pkt_block_set_new_pkt (pkt_block, 
                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr),
@@ -342,7 +342,7 @@ layer3_ip_route_pkt(node_t *node,
         /* If src ip address is not feeded by application, then take the OIF IP address*/
         if (ip_hdr->src_ip == 0) {
             
-            char ip_addr_str[16];
+            char ip_addr_str[IPV4_ADDR_LEN_STR];
             ip_hdr->src_ip = IF_IP(nexthop->oif.get());
             tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", 
                 pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
@@ -715,7 +715,7 @@ _layer3_pkt_recv_from_layer2(node_t *node,
                             int L3_protocol_type) {
 
     pkt_size_t pkt_size;
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     assert(pkt_block_verify_pkt (pkt_block, ETH_HDR));
 
@@ -775,7 +775,7 @@ demote_packet_to_layer3 (node_t *node,
 
     byte *pkt;
     ip_hdr_t iphdr;
-    byte dst_ip_addr_str[16];
+    byte dst_ip_addr_str[IPV4_ADDR_LEN_STR];
     pkt_size_t pkt_size;
 
     tracer (node->dptr, DL3FWD, "Dest : %s :  Pkt Arrived in L3-land from Top\n", 
@@ -987,7 +987,7 @@ l3_route_inc_ref_count (l3_route_t *l3_route) {
 void
 np_tcp_ip_send_ip_data (node_t *node, pkt_block_t *pkt_block) {
 
-    char ip_addr_str[16];
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     assert (pkt_block_verify_pkt (pkt_block, IP_HDR));
 

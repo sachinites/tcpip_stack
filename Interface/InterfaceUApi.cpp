@@ -43,11 +43,11 @@ void
 interface_unset_ip_addr(node_t *node, Interface *intf, 
                                         c_string intf_ip_addr, uint8_t mask) {
 
-    byte ip_addr_str[16];
+    byte ip_addr_str[IPV4_ADDR_LEN_STR];
     uint32_t ip_addr_int;
     uint8_t existing_mask;
     uint32_t existing_ip_addr;
-    byte ip_addr_str_applied_mask[16];
+    byte ip_addr_str_applied_mask[IPV4_ADDR_LEN_STR];
     uint32_t if_change_flags = 0;
     intf_prop_changed_t intf_prop_changed;
 
