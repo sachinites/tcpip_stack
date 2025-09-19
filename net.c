@@ -59,7 +59,8 @@ extern void init_tcp_logging(node_t *);
 extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 extern void lfa_init (node_t *node, lfa_t **lfa) ;
 void  node_assign_router_mac (node_t *node) ;
-extern bool mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry);
+extern bool mac_table_entry_add(node_t *node, mac_table_t *mac_table, 
+        mac_table_entry_t *mac_table_entry);
 extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
         c_string src_mac, Interface *oif) ;
 void
@@ -84,8 +85,27 @@ node_assign_router_mac (node_t *node) {
                 node->node_nw_prop.rmac_interface);
     node->node_nw_prop.rmac_interface->att_node = node;
 
-    l2_switch_perform_mac_learning (node, 1, 
+    l2_switch_perform_mac_learning (node, DEFAULT_VLAN_ID, 
             (NODE_RMAC(node))->mac, NODE_RMAC_INTF(node).get());
+}
+
+void 
+node_create_vlan_flood_interface(node_t *node) {
+
+    mac_addr_t broadcast_mac;
+
+    node->node_nw_prop.vlan_flood_interface = 
+        std::make_shared<VlanFloodInterface>();
+    node->node_nw_prop.vlan_flood_interface->SetSharedPtr(
+                node->node_nw_prop.vlan_flood_interface);
+    node->node_nw_prop.vlan_flood_interface->att_node = node;
+
+    layer2_fill_with_broadcast_mac (broadcast_mac.mac);
+
+    l2_switch_perform_mac_learning (node, DEFAULT_VLAN_ID, 
+            broadcast_mac.mac, node->node_nw_prop.vlan_flood_interface.get());
+    l2_switch_perform_mac_learning (node, DEFAULT_VLAN_ID, 
+            broadcast_mac.mac, NODE_RMAC_INTF(node).get());
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -261,6 +281,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_rt_table(node, &(node_nw_prop->rt_table));
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
     node_assign_router_mac (node);
+    node_create_vlan_flood_interface(node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);

@@ -997,6 +997,7 @@ int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
 
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
+    
     if ( is_arp_pkt_for_svi_interface (this->att_node, pkt_block) ) {
             svi_interface_intercept_arp_pkt (this->att_node, pkt_block);
             return;
@@ -1019,6 +1020,43 @@ int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
     
     return 0;
 }
+
+
+
+/* VlanFloodInterface */
+VlanFloodInterface::VlanFloodInterface()
+    : VirtualInterface(std::string(VLAN_FLOOD_INTF_NAME) , INTF_TYPE_VLAN_FLOOD) { }
+
+VlanFloodInterface::~VlanFloodInterface() {}
+
+/* Any packet sent out of this interface should be flooded in the vlan.
+    Extract vlan id from the pkt */
+int 
+VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
+
+    pkt_size_t pkt_size;
+    ethernet_hdr_t *ethernet_hdr = 
+        ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(ethernet_hdr);
+
+    if (!vlan_8021q_hdr) {
+        this->recvd_pkt_dropped++;
+        return 0;
+    }
+
+    vlan_id_t vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+
+    VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp (this->att_node, vlan_id);
+
+    vlan_intf->VlanPacketFlood (pkt_block, 
+            dynamic_cast<Interface *>(pkt_block->switchport_ingress_intf.get()));
+
+    return 0;
+}
+
+
+
 
 /* ************ GRETunnelInterface ************ */
 GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
@@ -1518,6 +1556,7 @@ VlanInterface::VlanInterface(vlan_id_t vlan_id)
     this->vlan_id = vlan_id;
     this->ip_addr = 0;
     this->mask = 0;
+    this->vni_id = 0;  /* Initialize VNI to 0 (not configured) */
     
     std::string if_name = "vlan" + std::to_string(vlan_id);
     this->if_name = if_name;
@@ -1553,6 +1592,10 @@ VlanInterface::PrintInterfaceDetails() {
 
     if (this->IsIpConfigured()) {
         cprintf("  IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_str), this->mask);
+    }
+
+    if (this->IsVniConfigured()) {
+        cprintf("  VNI : %u\n", this->vni_id);
     }
 
     cprintf ("Trunk Member Ports: \n");
@@ -1629,22 +1672,12 @@ VlanInterface::VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id) {
     return NULL;
 }
 
-/* Vlan interface can have member ports which are : 
-    1. Physical ports 
-        1.a access mode
-          If Pkt is untagged, drop it
-          If pkt is tagged but with different vlan id, drop it
-          If pkt is tagged with same vlan id, untag it and send it out
-        1.b Trunk mode    
-           If pkt is tagged with vlan id, and vlan id is part of trunk, send it out
-           Else drop the pkt
-*/
 
 int 
 VlanInterface::SendPacketOut(pkt_block_t *pkt_block) {
 
     tag_pkt_with_vlan_id(pkt_block, this->GetVlanId());
-    l2_switch_forward_frame (this->att_node, 0, pkt_block);
+    VlanPacketFlood (pkt_block, NULL);
     return 0;
 }
 
@@ -1692,6 +1725,22 @@ VlanInterface::VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf)
        send_xmit_out(member_intf, pkt_block);
     } 
     ITERATE_VLAN_MEMBER_PORTS_TRUNK_END;       
+}
+
+/* VNI Management Methods */
+void
+VlanInterface::SetVniId(uint32_t vni_id) {
+    this->vni_id = vni_id;
+}
+
+uint32_t
+VlanInterface::GetVniId() const {
+    return this->vni_id;
+}
+
+bool
+VlanInterface::IsVniConfigured() const {
+    return (this->vni_id != 0);
 }
 
 /* Implement Loopback Interface Methods*/
@@ -1790,13 +1839,6 @@ LoopbackInterface::IsCrossReferenced() {
 }
 
 /* ------------------------------------------------------------------- */
-/* ------------------------------------------------------------------- */
-
-
-
-
-
-
 
 void 
 dump_intf_props (Interface *interface){

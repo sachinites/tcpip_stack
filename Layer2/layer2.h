@@ -210,12 +210,13 @@ static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
     return "nil";
 }
 
+#define MAC_MAC_OIF_CNT 4
+
 typedef struct mac_table_entry_{
 
-    InterfaceP oif;
+    InterfaceP oif[MAC_MAC_OIF_CNT];
     wheel_timer_elem_t *exp_timer_wt_elem;
     glthread_t mac_entry_glue;
-    byte oif_name[IF_NAME_SIZE];
     mac_addr_t mac;
     uint16_t flags;
     vlan_id_t vlan_id;
@@ -244,5 +245,12 @@ svi_interface_intercept_arp_pkt (node_t *node ,
 bool 
 is_arp_pkt_for_svi_interface (node_t *node,
                                       pkt_block_t *pkt_block);
+
+/* MAC Table Management Functions */
+void init_mac_table(mac_table_t **mac_table);
+mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table, vlan_id_t vlan, c_string mac);
+void clear_mac_table(node_t *node, mac_table_t *mac_table);
+void delete_mac_table_entry(node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac);
+bool mac_table_entry_add(node_t *node, mac_table_t *mac_table, mac_table_entry_t *mac_table_entry);
 
 #endif /* __LAYER2__ */

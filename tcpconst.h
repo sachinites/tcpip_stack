@@ -58,7 +58,6 @@ typedef uint16_t pkt_size_t;
 #define ARP_BROAD_REQ   1
 #define ARP_REPLY       2
 #define PROTO_ARP         806
-#define BROADCAST_MAC   0xFFFFFFFFFFFF
 #define ETH_IP          0x0800
 #define ETH_IP6         0x29
 #define ICMP_PROTO        1
@@ -97,6 +96,8 @@ typedef uint16_t pkt_size_t;
 #define PROTO_ISIS_SRv6 0x84  // not standard
 #define PROTO_SRv6 115
 #define PROTO_ANY       (0xFFFF - 1)
+
+static const unsigned char *BROADCAST_MAC = "\xff\xff\xff\xff\xff\xff";
 
 static inline unsigned char *
 proto_name_str (uint16_t proto) {
@@ -201,8 +202,10 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
     return 0;
 }
 
-#define RMAC_INTF_NAME  "sup-eth1(R)"
-#define MAC_ENTRY_EXP_TIME   300 /*Seconds*/
+#define RMAC_INTF_NAME  "rmacif"
+#define VLAN_FLOOD_INTF_NAME "vfif"
+#define DEFAULT_VLAN_ID 0
+#define MAC_ENTRY_EXP_TIME   1800 /*Seconds*/
 
 #endif /* __TCPCONST__ */
 

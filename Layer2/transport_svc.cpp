@@ -6,6 +6,7 @@
 #include "../Interface/Interface.h"
 #include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
+#include "../net.h"
 
 extern graph_t *topo;
 
@@ -523,6 +524,83 @@ show_vlan_members (int cmdcode,
     return 0;
 }
 
+static int
+show_vlan_db_handler(int cmdcode, 
+                     Stack_t *tlv_stack,
+                     op_mode enable_or_disable) {
+
+    uint16_t i;
+    node_t *node;
+    tlv_struct_t *tlv;
+    c_string node_name = NULL;
+    std::unordered_map<uint16_t , VlanInterfaceP> *vlan_intf_db;
+    byte ip_str[IPV4_ADDR_LEN_STR];
+    mac_addr_t *rmac;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+   
+    vlan_intf_db = node->vlan_intf_db;
+
+    if (!vlan_intf_db) {
+        cprintf("No VLAN interfaces configured\n");
+        return 0;
+    }
+
+    printw ("\n\r");
+    
+    /* Print header */
+    cprintf("VLAN ID  IP Address      Status    MAC Address         VNI\n");
+    cprintf("-------- --------------- -------- ------------------- --------\n");
+    
+    /* Iterate over vlan interface DB*/
+    for (auto it_vlan = vlan_intf_db->begin(); it_vlan != vlan_intf_db->end(); ++it_vlan) {
+
+        i = it_vlan->first;
+        VlanInterface *vlan_intf = it_vlan->second.get();
+
+        /* Print VLAN ID */
+        cprintf("%-8u ", i);
+
+        /* Print IP Address */
+        if (vlan_intf->IsIpConfigured()) {
+            cprintf("%-15s ", tcp_ip_covert_ip_n_to_p(vlan_intf->ip_addr, ip_str));
+        } else {
+            cprintf("%-15s ", "Not configured");
+        }
+
+        /* Print Status */
+        cprintf("%-8s ", vlan_intf->is_up ? "UP" : "DOWN");
+
+        /* Print MAC Address */
+        rmac = vlan_intf->GetMacAddr();
+        if (rmac) {
+            cprintf("%02x:%02x:%02x:%02x:%02x:%02x ", 
+                   rmac->mac[0], rmac->mac[1], rmac->mac[2],
+                   rmac->mac[3], rmac->mac[4], rmac->mac[5]);
+        } else {
+            cprintf("%-17s ", "Not available");
+        }
+
+        /* Print VNI */
+        if (vlan_intf->IsVniConfigured()) {
+            cprintf("  %-8u", vlan_intf->GetVniId());
+        } else {
+            cprintf("%-8s", "  Not set");
+        }
+
+        cprintf("\n");
+    }
+
+    return 0;
+}
+
 void
 show_node_transport_svc_cli_tree (param_t *param) {
 
@@ -540,6 +618,14 @@ show_node_transport_svc_cli_tree (param_t *param) {
         init_param(&vlan_members, CMD, "vlan-members", show_vlan_members, 0, INVALID, 0, "show vlan members");
         libcli_register_param(param, &vlan_members);
         libcli_set_param_cmd_code(&vlan_members, CMDCODE_SHOW_VLAN_MEMBERS);
+    }
+
+    {
+        /* vlan-db */
+        static param_t vlan_db;
+        init_param(&vlan_db, CMD, "vlan-db", show_vlan_db_handler, 0, INVALID, 0, "show vlan database");
+        libcli_register_param(param, &vlan_db);
+        libcli_set_param_cmd_code(&vlan_db, CMDCODE_SHOW_VLAN_DB);
     }
 
 }

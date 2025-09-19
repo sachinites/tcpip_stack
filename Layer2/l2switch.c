@@ -78,18 +78,17 @@ static void
 mac_table_entry_timer_expiry_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     mac_table_entry_t *mac_table_entry = (mac_table_entry_t *)arg;
-    node_t *node = mac_table_entry->oif->att_node;
+    node_t *node = (node_t *)(ev_dis->app_data);
 
     tracer (node->dptr, DL2SW, 
-            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Expired\n", 
+            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Expired\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
             mac_table_entry->mac.mac[1],
             mac_table_entry->mac.mac[2],
             mac_table_entry->mac.mac[3],
             mac_table_entry->mac.mac[4],
-            mac_table_entry->mac.mac[5],
-            mac_table_entry->oif_name     );
+            mac_table_entry->mac.mac[5] );
 
     remove_glthread(&mac_table_entry->mac_entry_glue);
     mac_table_entry->exp_timer_wt_elem = NULL;
@@ -142,7 +141,7 @@ clear_mac_table(node_t *node, mac_table_t *mac_table){
 }
 
 void
-delete_mac_table_entry(mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
+delete_mac_table_entry(node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
 
     mac_table_entry_t *mac_table_entry;
     mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac);
@@ -151,31 +150,26 @@ delete_mac_table_entry(mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
     remove_glthread(&mac_table_entry->mac_entry_glue);
     mac_table_entry_cancel_expiry_timer(mac_table_entry);
 
-    tracer (mac_table_entry->oif->att_node->dptr, DL2SW, 
-            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Deleted\n", 
+    tracer (node->dptr, DL2SW, 
+            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Deleted\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
             mac_table_entry->mac.mac[1],
             mac_table_entry->mac.mac[2],
             mac_table_entry->mac.mac[3],
             mac_table_entry->mac.mac[4],
-            mac_table_entry->mac.mac[5],
-            mac_table_entry->oif_name     );
+            mac_table_entry->mac.mac[5] );
+
     delete (mac_table_entry);
 }
 
 #define IS_MAC_TABLE_ENTRY_EQUAL(mac_entry_1, mac_entry_2)   \
     (mac_address_compare  (mac_entry_1->mac.mac, mac_entry_2->mac.mac) && \
     (string_compare(mac_entry_1->mac.mac, mac_entry_2->mac.mac, sizeof(mac_addr_t)) == 0 && \
-            string_compare(mac_entry_1->oif_name, mac_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
-            mac_entry_1->oif == mac_entry_2->oif && \
             mac_entry_1->vlan_id == mac_entry_2->vlan_id))
 
-
 bool
-mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
-
-    assert (mac_table_entry->vlan_id >= 1 && mac_table_entry->vlan_id <= 4095);
+mac_table_entry_add(node_t *node, mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
     
     mac_table_entry_t *mac_table_entry_old = mac_table_lookup(
                                                 mac_table,
@@ -189,21 +183,22 @@ mac_table_entry_add(mac_table_t *mac_table, mac_table_entry_t *mac_table_entry){
     }
 
     if(mac_table_entry_old){
-        delete_mac_table_entry(mac_table, mac_table_entry_old->vlan_id, mac_table_entry_old->mac.mac);
+        delete_mac_table_entry(node, mac_table, mac_table_entry_old->vlan_id, mac_table_entry_old->mac.mac);
     }
 
     init_glthread(&mac_table_entry->mac_entry_glue);
     glthread_add_next(&mac_table->mac_entries, &mac_table_entry->mac_entry_glue);
-    tracer (mac_table_entry->oif->att_node->dptr, DL2SW, 
-        "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Added\n", 
-            mac_table_entry->vlan_id, 
-            mac_table_entry->mac.mac[0],
-            mac_table_entry->mac.mac[1],
-            mac_table_entry->mac.mac[2],
-            mac_table_entry->mac.mac[3],
-            mac_table_entry->mac.mac[4],
-            mac_table_entry->mac.mac[5],
-            mac_table_entry->oif_name     );
+
+    tracer (node->dptr, DL2SW, 
+            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s ] Added\n", 
+            mac_table_entry ->vlan_id,
+            mac_table_entry ->mac.mac[0],
+            mac_table_entry ->mac.mac[1],
+            mac_table_entry ->mac.mac[2],
+            mac_table_entry ->mac.mac[3],
+            mac_table_entry ->mac.mac[4],
+            mac_table_entry ->mac.mac[5] );
+        
     return true;
 }
 
@@ -217,71 +212,133 @@ mac_table_entry_get_exp_time_left(
     return 0;
 }
 
+static char *
+mac_table_entry_append_oifs (mac_table_entry_t *mac_table_entry,
+                                                 char *buffer, uint16_t buff_size) 
+{
+    int i = 0;
+    uint16_t len = 0;
+
+    InterfaceP oif;
+
+    while ((oif = mac_table_entry->oif[i])) {
+        len += snprintf(buffer + len, buff_size - len, "%s ", oif->if_name.c_str());
+        i++;
+        if (i >= MAC_MAC_OIF_CNT) break;
+    }
+    assert (len <= buff_size); 
+    return buffer;
+}
+
 void
-dump_mac_table(mac_table_t *mac_table){
+dump_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id) {
 
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
+    char buffer[IF_NAME_SIZE * (MAC_MAC_OIF_CNT + 1)];
     int count = 0;
 
-    printw ("\n\r");
-    
-    ITERATE_GLTHREAD_BEGIN(&mac_table->mac_entries, curr){
+    printw("\n\r");
+
+    cprintf("VLAN   MAC Address         Type         Exp-Time(ms)\n\n");
+
+    ITERATE_GLTHREAD_BEGIN(&mac_table->mac_entries, curr) {
+
+        mac_table_entry = mac_entry_glue_to_mac_entry(curr);
+
+        if (vlan_id && vlan_id != mac_table_entry->vlan_id) {
+            continue;
+        }
 
         count++;
-        mac_table_entry = mac_entry_glue_to_mac_entry(curr);
-        if(count == 1){
-            cprintf(" |==Vlan====|========= MAC =========|==== type ===|==== Ports ===|==Exp-Time(msec)==|\n");
-        }
-        else {
-            cprintf(" |==========|=======================|=============|==============|==================|\n");
-        }
-        cprintf(" |  %-6d  | %02x:%02x:%02x:%02x:%02x:%02x     | %-11s |  %-11s |     %-5d        |\n", 
-            mac_table_entry->vlan_id,
-            mac_table_entry->mac.mac[0], 
+
+        if (mac_table_entry->vlan_id == DEFAULT_VLAN_ID ) {
+
+            cprintf("%-6s %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-6d\n",
+            "--",
+            mac_table_entry->mac.mac[0],
             mac_table_entry->mac.mac[1],
             mac_table_entry->mac.mac[2],
-            mac_table_entry->mac.mac[3], 
+            mac_table_entry->mac.mac[3],
             mac_table_entry->mac.mac[4],
             mac_table_entry->mac.mac[5],
             mac_entry_flag(mac_table_entry->flags),
-            mac_table_entry->oif_name,
-            mac_table_entry_get_exp_time_left (mac_table_entry));
+            mac_table_entry_get_exp_time_left(mac_table_entry));
+        }
+
+        else {
+
+            cprintf("%-6d %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-6d\n",
+                mac_table_entry->vlan_id,
+                mac_table_entry->mac.mac[0],
+                mac_table_entry->mac.mac[1],
+                mac_table_entry->mac.mac[2],
+                mac_table_entry->mac.mac[3],
+                mac_table_entry->mac.mac[4],
+                mac_table_entry->mac.mac[5],
+                mac_entry_flag(mac_table_entry->flags),
+                mac_table_entry_get_exp_time_left(mac_table_entry));
+        }
+
+        mac_table_entry_append_oifs(mac_table_entry, buffer, sizeof(buffer));
+        cprintf("       Ports: %s\n\n", buffer);
 
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
-    if(count){
-        cprintf(" |==========|=======================|=============|==============|==================|\n");
+
+    if (!count) {
+        cprintf("MAC table is empty.\n");
     }
 }
 
 void
 l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_mac, Interface *oif) {
 
+    int i;
     bool rc;
-
-    if (vlan_id == 0 || vlan_id > 4095){
-        return;
-    }
+    mac_table_entry_t *mac_table_entry;
 
     if (memcmp (src_mac, "\x00\x00\x00\x00\x00\x00", sizeof(mac_addr_t)) == 0){
         return;
     }
 
-    mac_table_entry_t *mac_table_entry = new mac_table_entry_t;
+    /* If existing mac table entry */
+    mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), vlan_id, src_mac);
+
+    if (mac_table_entry) {
+
+        /* If existing entry is dynamic and OIF is same, then refresh the timer */
+        for (i = 0; i < MAC_MAC_OIF_CNT; i++) {
+
+            if (mac_table_entry->oif[i]) {
+
+                if (mac_table_entry->oif[i] == oif->GetSharedPtr()) {
+                    return;
+                }
+                continue;
+            }
+
+            /* Add new OIF in the existing entry */
+            mac_table_entry->oif[i] = oif->GetSharedPtr();
+            return;
+        }
+
+        assert(0);
+    }
+
+    mac_table_entry = new mac_table_entry_t;
     mac_table_entry->vlan_id = vlan_id;
     memcpy(mac_table_entry->mac.mac, src_mac, sizeof(mac_addr_t));
-    string_copy((char *)mac_table_entry->oif_name, oif->if_name.c_str(), IF_NAME_SIZE);
-    mac_table_entry->oif_name[IF_NAME_SIZE - 1] = '\0';
-    mac_table_entry->oif = oif->GetSharedPtr();
+    mac_table_entry->oif[0] = oif->GetSharedPtr();
 
-    if (oif == NODE_RMAC_INTF(node).get()) {
+    if (oif == NODE_RMAC_INTF(node).get() || 
+            oif == NODE_VLAN_FLOOD_INTF(node).get()) {
         mac_table_entry->flags = MAC_STATIC;
     } else {
         mac_table_entry->flags = MAC_DYNAMIC;
         mac_table_entry_init_timer (node, mac_table_entry);
     }
     
-    rc = mac_table_entry_add(NODE_MAC_TABLE(node), mac_table_entry);
+    rc = mac_table_entry_add(node, NODE_MAC_TABLE(node), mac_table_entry);
 
     if(rc == false){
         mac_table_entry_cancel_expiry_timer  (mac_table_entry);
@@ -289,8 +346,23 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_ma
     }
 }
 
+static void 
+mac_table_entry_xmit_frame (mac_table_entry_t *mac_entry, pkt_block_t *pkt_block) 
+{
+    int i = 0;
+
+    InterfaceP oif; 
+
+    while ((oif = mac_entry->oif[i])) {
+        oif->SendPacketOut(pkt_block);
+        i++;
+        if (i >= MAC_MAC_OIF_CNT) break;
+    }
+
+}
+
 static void
-l2_switch_flood_pkt_out (node_t *node, 
+l2_switch_flood_unknown_unicast (node_t *node, 
                                           Interface *exempted_intf,
                                           pkt_block_t *pkt_block) {
 
@@ -298,6 +370,17 @@ l2_switch_flood_pkt_out (node_t *node,
     Interface *oif;
     pkt_block_t *dup_pkt_block;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
+    mac_table_entry_t *mac_flood_entry = NULL;
+
+    mac_flood_entry = 
+                        mac_table_lookup(NODE_MAC_TABLE(node), 
+                        1,
+                        BROADCAST_MAC);    
+
+    if (!mac_flood_entry) {
+         tracer (node->dptr, DL2SW, "Mac Table : Flooding Disabled ");
+        return;
+    }
 
     assert ((vlan_8021q_hdr = 
             is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL))));
@@ -305,12 +388,7 @@ l2_switch_flood_pkt_out (node_t *node,
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
             pkt_block_str (pkt_block), vlan_8021q_hdr->tci_vid);
 
-    /* Flood the pkt out of all interfaces of the vlan*/
-    VlanInterface *vlan =
-        static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_8021q_hdr->tci_vid));
-
-    vlan->VlanPacketFlood (pkt_block, exempted_intf);
-    NODE_RMAC_INTF(node)->SendPacketOut(pkt_block);
+    mac_table_entry_xmit_frame (mac_flood_entry, pkt_block);
 }
 
 void
@@ -319,6 +397,7 @@ l2_switch_forward_frame(
                         Interface *recv_intf, 
                         pkt_block_t *pkt_block) {
 
+    vlan_id_t vlan_id;
     pkt_size_t pkt_size;
     ethernet_hdr_t *ethernet_hdr;
     mac_table_entry_t *mac_table_entry = NULL;
@@ -331,36 +410,64 @@ l2_switch_forward_frame(
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
         pkt_block_str (pkt_block), GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-    /*If dst mac is broadcast mac, then flood the frame. It can be ARP packet also */
+     pkt_block->switchport_ingress_intf = recv_intf->GetSharedPtr();
+     vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+
+    mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
+                                      vlan_id,
+                                      ethernet_hdr->dst_mac.mac);
+
+    if (mac_table_entry) {
+        mac_table_entry_xmit_frame (mac_table_entry, pkt_block);
+        mac_table_entry_cancel_expiry_timer(mac_table_entry);
+        mac_table_entry_init_timer(node, mac_table_entry);
+        return;
+    }
 
     if (IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)) {
-        l2_switch_flood_pkt_out(node, recv_intf, pkt_block);
-        return;
+
+            /* Handle BUM traffic for EVPN case */
+            mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
+                                        vlan_id,
+                                        BROADCAST_MAC);
+
+            if (mac_table_entry) {
+                mac_table_entry_xmit_frame (mac_table_entry, pkt_block);
+                return;
+            }        
+
+            mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
+                                        DEFAULT_VLAN_ID,
+                                        BROADCAST_MAC);
+
+            if (!mac_table_entry) {
+                tracer (node->dptr, DL2SW, "Mac Table : Flooding Disabled for Broadcast MAC");
+                return;
+            }
+       
+            mac_table_entry_xmit_frame (mac_table_entry, pkt_block);
+            return;
     }
 
     /* Check if the pkt matches the router mac , vlan id dont matter here */
-    mac_table_entry = 
-        mac_table_lookup(NODE_MAC_TABLE(node), 
-                                      1,
+    if (mac_address_compare (NODE_RMAC(node)->mac, ethernet_hdr->dst_mac.mac)) {
+
+        mac_table_entry = 
+            mac_table_lookup(NODE_MAC_TABLE(node), 
+                                      DEFAULT_VLAN_ID,
                                       ethernet_hdr->dst_mac.mac);    
 
-    if (mac_table_entry && 
-            mac_table_entry->oif == NODE_RMAC_INTF(node)) {
-        
-        assert (pkt_block->switchport_ingress_intf  == recv_intf->GetSharedPtr());
-        NODE_RMAC_INTF(node)->SendPacketOut(pkt_block);
+        if (!mac_table_entry) {
+                tracer (node->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame");
+                return;
+        }
+
+        mac_table_entry_xmit_frame (mac_table_entry, pkt_block);
         return;
     }
 
-    /*Check the mac table to forward the frame*/
-    mac_table_entry = 
-        mac_table_lookup(NODE_MAC_TABLE(node), 
-                                      GET_802_1Q_VLAN_ID(vlan_8021q_hdr),
-                                      ethernet_hdr->dst_mac.mac);
-
-    if(!mac_table_entry){
-
-        tracer (node->dptr, DL2SW, 
+    /* Handle Unknown Unicast */
+    tracer (node->dptr, DL2SW, 
             "Mac Table Lookup Failed for vlan = %d, "
             "Mac = %02x:%02x:%02x:%02x:%02x:%02x\n",
             GET_802_1Q_VLAN_ID(vlan_8021q_hdr),
@@ -371,13 +478,7 @@ l2_switch_forward_frame(
             ethernet_hdr->dst_mac.mac[4],
             ethernet_hdr->dst_mac.mac[5]);
 
-        l2_switch_flood_pkt_out(node, recv_intf, pkt_block);
-        return;
-    }
-
-    mac_table_entry->oif->SendPacketOut(pkt_block);
-    mac_table_entry_cancel_expiry_timer (mac_table_entry);
-    mac_table_entry_init_timer (node, mac_table_entry);
+        l2_switch_flood_unknown_unicast(node, recv_intf, pkt_block);
 }
 
 void

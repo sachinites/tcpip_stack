@@ -2,6 +2,11 @@
 #include "../graph.h"
 #include "../Layer3/layer3.h"
 #include "../tcpip_notif.h"
+#include "../Layer2/layer2.h"
+
+/* Forward declarations for helper functions */
+void vlan_interface_add_mac_table_entry(node_t *node, VlanInterface *vlan_intf);
+void vlan_interface_remove_mac_table_entry(node_t *node, VlanInterface *vlan_intf);
 
 void
 interface_set_ip_addr(node_t *node, Interface *intf, 
@@ -21,6 +26,12 @@ interface_set_ip_addr(node_t *node, Interface *intf,
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         interface_install_local_v4_routes  (node, intf);
+        
+        /* Add MAC table entry for VLAN interface */
+        if (intf->iftype == INTF_TYPE_VLAN) {
+            VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
+            vlan_interface_add_mac_table_entry(node, vlan_intf);
+        }
         return;
     }
 
@@ -65,6 +76,13 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     }
 
     interface_uninstall_local_v4_routes  (node, intf);
+    
+    /* Remove MAC table entry for VLAN interface before clearing IP */
+    if (intf->iftype == INTF_TYPE_VLAN) {
+        VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
+        vlan_interface_remove_mac_table_entry(node, vlan_intf);
+    }
+    
     intf->InterfaceSetIpAddressMask(0, 0);
 }
 
@@ -168,4 +186,42 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
     rt_ipv4_route_del (node, ip_addr, 32, PROTO_STATIC, true);
     rt_ipv4_route_del (node, apply_mask2 (ip_addr, mask), mask, PROTO_STATIC, true);
+}
+
+/* Helper function to add MAC table entry for VLAN interface */
+void
+vlan_interface_add_mac_table_entry(node_t *node, VlanInterface *vlan_intf) {
+    
+    if (!vlan_intf || !vlan_intf->IsIpConfigured()) {
+        return;
+    }
+    
+    mac_table_entry_t *mac_table_entry = new mac_table_entry_t;
+    mac_table_entry->vlan_id = vlan_intf->GetVlanId();
+    
+    /* Get router MAC address */
+    mac_addr_t *rmac = vlan_intf->GetMacAddr();
+    memcpy(mac_table_entry->mac.mac, rmac->mac, sizeof(mac_addr_t));
+    
+    /* Set RmacInterface as the output interface */
+    mac_table_entry->oif[0] = NODE_RMAC_INTF(node);
+    mac_table_entry->flags = MAC_STATIC; /* Static entry for router MAC */
+    
+    /* Add to MAC table */
+    mac_table_entry_add(node, NODE_MAC_TABLE(node), mac_table_entry);
+}
+
+/* Helper function to remove MAC table entry for VLAN interface */
+void
+vlan_interface_remove_mac_table_entry(node_t *node, VlanInterface *vlan_intf) {
+    
+    if (!vlan_intf) {
+        return;
+    }
+    
+    /* Get router MAC address */
+    mac_addr_t *rmac = vlan_intf->GetMacAddr();
+    
+    /* Remove from MAC table */
+    delete_mac_table_entry(node, NODE_MAC_TABLE(node), vlan_intf->GetVlanId(), rmac->mac);
 }

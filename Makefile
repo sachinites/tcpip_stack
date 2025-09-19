@@ -86,6 +86,7 @@ OBJS=gluethread/glthread.o \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
+		  Layer2/vxlan/cp/vlan_vni_mapping.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  dpdk/layer3/dp_rtm.o \
@@ -97,6 +98,9 @@ lmm_reg.o:lmm_reg.c
 
 sql_cli.o:sql_cli.cpp
 	${CC} ${CFLAGS} -c sql_cli.cpp -o sql_cli.o
+
+Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
+	${CC} ${CFLAGS} -c -I Layer2/vxlan Layer2/vxlan/cp/vlan_vni_mapping.c -o Layer2/vxlan/cp/vlan_vni_mapping.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
@@ -302,6 +306,8 @@ clean:
 	rm -f *exe
 	rm -f ted/*.o
 	rm -f Layer2/*.o
+	rm -f Layer2/vxlan/cp/*.o
+	rm -f Layer2/vxlan/dp/*.o
 	rm -f Layer3/*.o
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o

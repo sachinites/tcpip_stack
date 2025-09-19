@@ -206,6 +206,7 @@ class VlanInterface : public VirtualInterface {
         uint32_t ip_addr;
         vlan_id_t vlan_id;
         uint8_t mask;
+        uint32_t vni_id;  /* Virtual Network Identifier */
         /* Number of access mode interfaces using this LAN*/
         std::vector<InterfaceP> access_member_intf_lst;
         VlanInterface(vlan_id_t vlan_id);
@@ -224,6 +225,11 @@ class VlanInterface : public VirtualInterface {
         virtual void InterfaceReleaseAllResources() ;
         virtual bool IsSVI ();
         virtual mac_addr_t *GetMacAddr( );
+        
+        /* VNI Management Methods */
+        void SetVniId(uint32_t vni_id);
+        uint32_t GetVniId() const;
+        bool IsVniConfigured() const;
 } __attribute__((aligned(8)));;
 
 
@@ -240,6 +246,21 @@ class RmacInterface : public VirtualInterface {
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
 
 } __attribute__((aligned(8)));;
+
+
+
+class VlanFloodInterface : public VirtualInterface {
+
+    private:
+    protected:
+    public:
+
+        VlanFloodInterface();
+        virtual ~VlanFloodInterface();
+        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+
+} __attribute__((aligned(8)));;
+
 
 
 enum GreTunnelConfigEnum

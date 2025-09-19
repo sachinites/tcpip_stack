@@ -64,6 +64,10 @@ typedef struct srv6_node_info_ srv6_node_info_t ;
 typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 typedef struct lfa_ lfa_t;
 
+/* VLAN-VNI Mapping Structure */
+/* Forward declaration for VLAN-VNI mapping structures */
+typedef struct vxlan_vni_db_ vxlan_vni_db_t;
+
 typedef struct node_nw_prop_{
 
     uint32_t flags;
@@ -71,6 +75,7 @@ typedef struct node_nw_prop_{
     /*L2 Properties*/
     arp_table_t *arp_table;
     mac_table_t *mac_table;
+    vxlan_vni_db_t *vlan_vni_db;  /* VLAN-VNI mapping database */
     mac_addr_t rmac;
     char padding[2];
 
@@ -82,6 +87,8 @@ typedef struct node_nw_prop_{
 
     /* Shared Rmac Interface shared across all SVIs in the system*/
     InterfaceP rmac_interface;
+    /* Virtual port which represents flood in a vlan */
+    InterfaceP vlan_flood_interface;
 
     /* lo ipv6 addr*/
     uint8_t ipv6_addr[16];
@@ -113,6 +120,7 @@ typedef struct node_nw_prop_{
 #define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
+#define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
@@ -122,7 +130,7 @@ typedef struct node_nw_prop_{
 #define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)
 #define NODE_RMAC(node_ptr)      (&node_ptr->node_nw_prop.rmac) 
 #define NODE_RMAC_INTF(node_ptr)    (node_ptr->node_nw_prop.rmac_interface)
-
+#define NODE_VLAN_FLOOD_INTF(node_ptr) (node_ptr->node_nw_prop.vlan_flood_interface)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
 

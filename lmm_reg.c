@@ -39,6 +39,9 @@
 #include "Layer3/layer3.h"
 #include "Layer3/ipv6/ipv6_route.h"
 
+/* VXLAN files */
+#include "Layer2/vxlan/cp/vxlan.h"
+
 
 /* Create static array of vm_page_family_t */
 
@@ -109,6 +112,10 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(vlan_ethernet_hdr_t),
     MM_REG_STRUCT2(mac_table_t),
     //MM_REG_STRUCT2(mac_table_entry_t),
+
+    /* VXLAN Structures */
+    MM_REG_STRUCT2(vxlan_vni_mapping_t),
+    MM_REG_STRUCT2(vxlan_vni_db_t),
 
     /* Layer3 Structures */
     MM_REG_STRUCT2(ip_hdr_t),

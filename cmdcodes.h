@@ -139,5 +139,13 @@
  /* run node <node-name> ip-traffic <src-addr> <dst-addr> <protocol> count <count> */
 #define CMDCODE_RUN_TRAFFIC 56
 
+/* config node <node-name> interface vlan <vlan-id> vni <vni-id> */
+#define CMDCODE_CONFIG_INTF_VLAN_VNI 57
+
+/* show node <node-name> vlan-db */
+#define CMDCODE_SHOW_VLAN_DB 58
+
+/* show node <node-name> vlan vni <vni-id> */
+#define CMDCODE_SHOW_NODE_MAC_VNI_TABLE 59
 
 #endif /* __CMDCODES__ */

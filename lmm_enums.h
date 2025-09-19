@@ -69,6 +69,10 @@ typedef enum struct_index_
     MM_INDEX(mac_table_t),
     //MM_INDEX(mac_table_entry_t),
 
+    /* VXLAN Structures */
+    MM_INDEX(vxlan_vni_mapping_t),
+    MM_INDEX(vxlan_vni_db_t),
+
     /* Layer3 Structures */
     MM_INDEX(ip_hdr_t),
     MM_INDEX(rt_table_t),

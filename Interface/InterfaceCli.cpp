@@ -7,6 +7,7 @@
 #include "../graph.h"
 #include "InterfaceUApi.h"
 #include "../common/cp2dp.h"
+#include "../Layer2/vxlan/cp/vxlan.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -64,6 +65,20 @@ validate_if_up_down_status(Stack_t *tlv_stack, c_string value){
     else if(string_compare(value, "down", strlen("down")) == 0) {
         return LEAF_VALIDATION_SUCCESS;
     }
+    return LEAF_VALIDATION_FAILED;
+}
+
+static int
+validate_vni_id(Stack_t *tlv_stack, c_string vni_value){
+
+    uint32_t vni = atoi((const char *)vni_value);
+    if(!vni){
+        cprintf("Error : Invalid VNI Value\n");
+        return LEAF_VALIDATION_FAILED;
+    }
+    if(vni >= 1 && vni <= 16777215)  /* VNI range: 1 to 2^24-1 */
+        return LEAF_VALIDATION_SUCCESS;
+
     return LEAF_VALIDATION_FAILED;
 }
 
@@ -125,6 +140,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
    Interface *interface = NULL;
    uint32_t intf_new_matric_val;
    c_string overlay_tunnel_name = NULL;
+   c_string vni_value = NULL;
    intf_prop_changed_t intf_prop_changed;
    
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
@@ -149,6 +165,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
              lono = atoi((const char *)tlv->value);  
         else if(parser_match_leaf_id(tlv->leaf_id, "tunnel-name"))
              overlay_tunnel_name = tlv->value;     
+        else if(parser_match_leaf_id(tlv->leaf_id, "vni-id"))
+             vni_value = tlv->value;     
 
     } TLV_LOOP_END;
 
@@ -555,6 +573,47 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             }
         }
         break;
+
+        case CMDCODE_CONFIG_INTF_VLAN_VNI:
+        {
+            VlanInterface *vlan_intf =
+                static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
+
+            if (!vlan_intf)
+            {
+                cprintf("Error : Vlan Interface not created\n");
+                return -1;
+            }
+
+            switch (enable_or_disable)
+            {
+            case CONFIG_ENABLE:
+            {
+                /* Extract VNI value from TLV stack */
+                uint32_t vni_id = atoi((const char *)vni_value);
+                
+                /* Add to VLAN-VNI database with 1:1 mapping check */
+                if (!vlan_vni_add_mapping(node, vlan_id, vni_id)) {
+                    cprintf("Error: Failed to configure VNI %u for VLAN %u\n", vni_id, vlan_id);
+                    return -1;
+                }
+                
+                vlan_intf->SetVniId(vni_id);
+            }
+            break;
+            case CONFIG_DISABLE:
+            {
+                vlan_intf->SetVniId(0);  /* Clear VNI configuration */
+                
+                /* Remove from VLAN-VNI database */
+                vlan_vni_remove_mapping(node, vlan_id);
+            }
+            break;
+            default:;
+            }
+        }
+        break;
+
         default:;
         }
         return 0;
@@ -776,6 +835,17 @@ vlan_cli_config_tree(param_t *root)
             init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
             libcli_register_param(&vlan, &vlan_id);
             libcli_set_param_cmd_code(&vlan_id, CMDCODE_CONFIG_INTF_VLAN_CREATE);
+
+            /*config node <node-name> interface vlan <vlan-id> vni <vni-id>*/
+            static param_t vni;
+            init_param(&vni, CMD, "vni", 0, 0, INVALID, 0, "\"vni\" keyword");
+            libcli_register_param(&vlan_id, &vni);
+            {
+                static param_t vni_id;
+                init_param(&vni_id, LEAF, 0, intf_config_handler, validate_vni_id, INT, "vni-id", "vni id(1-16777215)");
+                libcli_register_param(&vni, &vni_id);
+                libcli_set_param_cmd_code(&vni_id, CMDCODE_CONFIG_INTF_VLAN_VNI);
+            }
 
              uint64_t unsupported_configs = ~0;
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS;
