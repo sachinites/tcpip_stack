@@ -191,52 +191,6 @@ GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
 void untag_pkt_with_vlan_id(pkt_block_t *pkt_block);
 void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 
-/* L2 Switching */
-
-
-/*L2 Switch Owns Mac Table*/
-#define MAC_STATIC  0x1
-#define MAC_DYNAMIC 0x2
-#define MAC_CONTROL_PLANE   0x4
-
-static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
-
-    switch(mac_entry_flag) {
-        case MAC_STATIC : return "static";
-        case MAC_DYNAMIC : return "dynamic";
-        case MAC_CONTROL_PLANE : return "control-plane";
-        default: return "UNKNOWN";
-    }
-    return "nil";
-}
-
-#define MAC_MAC_OIF_CNT 4
-
-typedef struct mac_table_entry_{
-
-    InterfaceP oif[MAC_MAC_OIF_CNT];
-    wheel_timer_elem_t *exp_timer_wt_elem;
-    glthread_t mac_entry_glue;
-    mac_addr_t mac;
-    uint16_t flags;
-    vlan_id_t vlan_id;
-    char padding2[6];
-    
-    /* Add destructor */
-    ~mac_table_entry_() {
-        assert (!exp_timer_wt_elem);
-    }
-
-} __attribute__((aligned(8)))  mac_table_entry_t;
-
-GLTHREAD_TO_STRUCT(mac_entry_glue_to_mac_entry, mac_table_entry_t, mac_entry_glue);
-
-typedef struct mac_table_{
-
-    glthread_t mac_entries;
-    
-}  __attribute__((aligned(8))) mac_table_t;
-
 /* Return TRUE if the pkt is subjected to inter-vlan routing*/
 bool
 svi_interface_intercept_arp_pkt (node_t *node ,
@@ -245,12 +199,5 @@ svi_interface_intercept_arp_pkt (node_t *node ,
 bool 
 is_arp_pkt_for_svi_interface (node_t *node,
                                       pkt_block_t *pkt_block);
-
-/* MAC Table Management Functions */
-void init_mac_table(mac_table_t **mac_table);
-mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table, vlan_id_t vlan, c_string mac);
-void clear_mac_table(node_t *node, mac_table_t *mac_table);
-void delete_mac_table_entry(node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac);
-bool mac_table_entry_add(node_t *node, mac_table_t *mac_table, mac_table_entry_t *mac_table_entry);
 
 #endif /* __LAYER2__ */

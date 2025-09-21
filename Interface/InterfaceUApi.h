@@ -51,8 +51,4 @@ interface_install_local_v4_routes (node_t *node, Interface  *intf);
 void 
 interface_uninstall_local_v4_routes (node_t *node, Interface  *intf);
 
-/* Helper functions for VLAN MAC table management */
-void vlan_interface_add_mac_table_entry(node_t *node, VlanInterface *vlan_intf);
-void vlan_interface_remove_mac_table_entry(node_t *node, VlanInterface *vlan_intf);
-
 #endif 

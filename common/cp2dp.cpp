@@ -4,6 +4,7 @@
 #include "cp2dp.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../dpdk/layer3/dp_rtm.h"
+#include "../Layer2/mac_table.h"
 #include "../Layer3/layer3.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
@@ -13,6 +14,51 @@
 
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
+
+static void 
+dp_mac_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+    
+    mac_update_msg_t *mac_update_msg;
+    mac_table_t *mac_table = NODE_MAC_TABLE(node);
+    
+    assert(dp_msg->component_type == MAC_TABLE);
+    
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+            mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+            mac_table_entry_add (node, NODE_MAC_TABLE(node), 
+                                                    mac_update_msg->mac_addr,   
+                                                    mac_update_msg->vlan_id,
+                                                    mac_update_msg->ifindex,
+                                                    mac_update_msg->flags,
+                                                    mac_update_msg->remote_dst_ip);
+            break;
+            
+        case DP_DEL:
+            mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+            mac_table_entry_delete (node, NODE_MAC_TABLE(node), 
+                                                    mac_update_msg->mac_addr,   
+                                                    mac_update_msg->vlan_id,
+                                                    mac_update_msg->ifindex,
+                                                    mac_update_msg->remote_dst_ip);
+            break;
+            
+        case DP_UPDATE:
+            // Handle MAC entry updates if needed
+            break;
+            
+        case DP_READ:
+            // Handle MAC table reads if needed
+            break;
+            
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
 
 static void
 np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
@@ -70,6 +116,9 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
             break;
         case RT_TABLE_IPV6:
             np_rt6_table_process_msg (node, dp_msg);
+            break;
+        case MAC_TABLE:
+            dp_mac_table_process_msg (node, dp_msg);
             break;
         case PKT_BLOCK:
             np_recv_cp_pkt_block (node, dp_msg);
@@ -386,5 +435,61 @@ rt_ipv4_route_del (node_t *node,
     rt_update_msg->prefix = prefix;
     rt_update_msg->mask = mask;
     rt_update_msg->proto_id = proto_id;
+    cp2dp_submit(node, dp_msg, async);
+}
+
+/* Wrapper fn to add MAC entry to MAC table Asynchronously*/
+void
+cp2dp_mac_table_entry_add (node_t *node,
+                      uint8_t *mac_addr,
+                      uint16_t vlan_id,
+                      uint32_t ifindex,
+                      uint16_t flags,
+                      bool async,
+                      uint32_t remote_dst_ip) {
+
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc ();
+    dp_msg->component_type = MAC_TABLE;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+    
+    memcpy(mac_update_msg->mac_addr, mac_addr, 6);
+    mac_update_msg->vlan_id = vlan_id;
+    mac_update_msg->ifindex = ifindex;
+    mac_update_msg->flags = flags;
+    mac_update_msg->remote_dst_ip = remote_dst_ip;
+    
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+cp2dp_mac_table_entry_del (node_t *node,
+                      uint8_t *mac_addr,
+                      uint16_t vlan_id,
+                      uint32_t ifindex,
+                      bool async,
+                      uint32_t remote_dst_ip) {
+
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc ();
+    dp_msg->component_type = MAC_TABLE;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+    
+    memcpy(mac_update_msg->mac_addr, mac_addr, 6);
+    mac_update_msg->vlan_id = vlan_id;
+    mac_update_msg->ifindex = ifindex;
+    mac_update_msg->remote_dst_ip = remote_dst_ip;
+    mac_update_msg->flags = 0; // Not needed for delete
+    
     cp2dp_submit(node, dp_msg, async);
 }

@@ -5,6 +5,7 @@
 
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t; 
+typedef struct mac_table_entry_ mac_table_entry_t; 
 
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
@@ -40,10 +41,21 @@ typedef struct rt6_update_msg_ {
 
 } rt6_update_msg_t;
 
+/* MAC table update msg to MAC_TABLE*/
+typedef struct mac_update_msg_ {
+    uint8_t mac_addr[6];
+    uint16_t vlan_id;
+    uint32_t ifindex;
+    uint16_t flags;
+    uint32_t remote_dst_ip;
+    char padding[2];
+} mac_update_msg_t;
+
 typedef enum DP_COMPONENT_TYPE_ {
 
     RT_TABLE_IPV4,
     RT_TABLE_IPV6,
+    MAC_TABLE,
     PKT_BLOCK
 
 } DP_COMPONENT_TYPE_T;
@@ -138,5 +150,22 @@ ipv6_route_uninstall (node_t *node,
                                     ipv6_addr_t *gw,
                                     Interface* oif,
                                     uint16_t proto_id);
+
+/* Wrapper fn to add MAC entry to MAC table Asynchronously*/
+void
+cp2dp_mac_table_entry_add (node_t *node,
+                      uint8_t *mac_addr,
+                      uint16_t vlan_id,
+                      uint32_t ifindex,
+                      uint16_t flags,
+                      bool async,
+                      uint32_t remote_dst_ip = 0);
+
+void
+cp2dp_mac_table_entry_del (node_t *node,
+                      uint8_t *mac_addr,
+                      uint16_t vlan_id,
+                      uint32_t ifindex,
+                      bool async, uint32_t remote_dst_ip);
 
 #endif 

@@ -41,6 +41,7 @@
 
 /* VXLAN files */
 #include "Layer2/vxlan/cp/vxlan.h"
+#include "Layer2/vxlan/dp/vlan_vni_ht.h"
 
 
 /* Create static array of vm_page_family_t */
@@ -101,6 +102,7 @@ vm_page_family_t vm_page_family_array[] =
 
     /* Pkt block */
     MM_REG_STRUCT2(pkt_block_t),
+    MM_REG_STRUCT2(encap_meta_data_t),
 
     /* Layer2 Structures*/
     MM_REG_STRUCT2(arp_hdr_t),
@@ -116,6 +118,9 @@ vm_page_family_t vm_page_family_array[] =
     /* VXLAN Structures */
     MM_REG_STRUCT2(vxlan_vni_mapping_t),
     MM_REG_STRUCT2(vxlan_vni_db_t),
+    MM_REG_STRUCT2(vlan_vni_ht_entry_t),
+    MM_REG_STRUCT2(vni_vlan_ht_entry_t),
+    MM_REG_STRUCT2(vlan_vni_ht_db_t),
 
     /* Layer3 Structures */
     MM_REG_STRUCT2(ip_hdr_t),

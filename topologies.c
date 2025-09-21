@@ -697,3 +697,78 @@ vlan_extension_topo(void) {
 
     return topo;
 }
+
+
+graph_t *
+build_vxlan_topo(void){
+
+#if 0
+
+                          +----------+
+                      0/4 |          |0/0
+         +----------------+   R0_re  +---------------------------+
+         |     40.1.1.1/24| 122.1.1.0|20.1.1.1/24                |
+         |                +----------+                           |
+         |                                                       |
+         |                                                       |
+         |                                                       |
+         |40.1.1.2/24                                            |20.1.1.2/24
+         |0/5                                                    |0/1
+     +---+---+                                              +----+-----+
+     |       |0/3                                        0/2|          |
+     | R1_re +----------------------------------------------+    R2_re |
+     |       |30.1.1.2/24                        30.1.1.1/24|          |
+     +--|----+                                              +----|-----+
+        |eth1                                                    |eth3
+        |v10                                                     |v10
+	|                                                        |
+	|                                                        |
+	|                                                        |
+	|192.168.0.10                                            |192.168.0.20
+   |--------|                                                |---------|
+   |        |                                                |         |
+   |  H1    |                                                |   H2    |
+   |        |                                                |         |
+   |--------|                                                |---------|
+
+#endif
+
+
+    graph_t *topo = create_new_graph("Hello World Generic Graph");
+    node_t *R0_re = create_graph_node(topo, (const c_string)"R0_re");
+    node_t *R1_re = create_graph_node(topo, (const c_string)"R1_re");
+    node_t *R2_re = create_graph_node(topo, (const c_string)"R2_re");
+    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
+
+    insert_link_between_two_nodes(R0_re, R2_re, "eth0", "eth1", 5);
+    insert_link_between_two_nodes(R2_re, R1_re, "eth2", "eth3", 4);
+    insert_link_between_two_nodes(R0_re, R1_re, "eth4", "eth5", 9);
+    insert_link_between_two_nodes(H1, R1_re, "eth1", "eth1", 1);
+    insert_link_between_two_nodes(H2, R2_re, "eth1", "eth3", 1);
+    
+    node_set_loopback_address(R0_re, "122.1.1.0");
+
+    node_set_intf_ip_address(R0_re, "eth4", "40.1.1.1", 24);
+    node_set_intf_ip_address(R0_re, "eth0", "20.1.1.1", 24);
+    
+    node_set_loopback_address(R2_re, "122.1.1.2");
+
+    node_set_intf_ip_address(R2_re, "eth1", "20.1.1.2", 24);
+    node_set_intf_ip_address(R2_re, "eth2", "30.1.1.1", 24);
+
+    node_set_loopback_address(R1_re, "122.1.1.1");
+
+    node_set_intf_ip_address(R1_re, "eth3", "30.1.1.2", 24);
+    node_set_intf_ip_address(R1_re, "eth5", "40.1.1.2", 24);
+
+    node_set_intf_ip_address(H1, "eth1", "192.168.0.10", 24);
+    node_set_intf_ip_address(H2, "eth1", "192.168.0.20", 24);
+
+    node_set_intf_switchport(R1_re, "eth1");
+    node_set_intf_vlan_membership(R1_re, "eth1", 10, false);
+    node_set_intf_switchport(R2_re, "eth3");
+    node_set_intf_vlan_membership(R2_re, "eth3", 10, false);
+
+    return topo;
+}

@@ -29,8 +29,6 @@
 
 #define NEGATE_CHARACTER "no"
 
-
-
 typedef enum{
     CONFIG_DISABLE,
     CONFIG_ENABLE,
@@ -44,6 +42,7 @@ typedef enum leaf_type_{
     INT,
     STRING,
     IPV4,
+    MAC,
     FLOAT,
     IPV6,
     BOOLEAN,
@@ -63,6 +62,8 @@ get_str_leaf_type(leaf_type_t leaf_type)
         return "STRING";
     case IPV4:
         return "IPV4";
+    case MAC:
+        return "MAC";
     case FLOAT:
         return "FLOAT";
     case IPV6:

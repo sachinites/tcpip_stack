@@ -8,6 +8,7 @@
 #include "InterfaceUApi.h"
 #include "../common/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"
+#include "../Layer2/mac_table.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -418,6 +419,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
                 }
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
+                cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
+                        vlan_id, 
+                       NODE_VLAN_FLOOD_INTF(node)->ifindex, MAC_STATIC, true, 0);
             }
             break;
             case CONFIG_DISABLE:
@@ -437,69 +441,13 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 nfc_intf_invoke_notification_to_sbscribers(
 					vlan_intf, &intf_prop_changed, if_change_flags);
                 node->vlan_intf_db->erase(vlan_id);
+                cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, 
+                vlan_id, NODE_VLAN_FLOOD_INTF(node)->ifindex, true, 0);
             }
             break;
             default:;
             }
             break;
-
-
-        case CMDCODE_CONFIG_INTF_VLAN_IP_ADDR:
-        {
-            VlanInterface *vlan_intf =
-            static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
-
-            if (!vlan_intf)
-            {
-                cprintf("Error : Vlan Interface not created\n");
-                return -1;
-            }
-
-            uint32_t old_ip_addr; 
-            uint8_t old_mask;
-
-            interface->InterfaceGetIpAddressMask (&old_ip_addr, &old_mask);
-
-            switch (enable_or_disable)
-            {
-                case CONFIG_ENABLE:
-                    interface_set_ip_addr(node, interface, intf_ip_addr, mask);
-                break;
-                case CONFIG_DISABLE:
-                    interface_unset_ip_addr(node, interface, intf_ip_addr, mask);
-                break;
-                default:;
-            }
-
-            uint32_t new_ip_addr;
-            uint8_t new_mask;
-
-            interface->InterfaceGetIpAddressMask (&new_ip_addr, &new_mask);
-
-            if (old_ip_addr == 0 && old_mask == 0 && 
-                    interface->IsIpConfigured()) {
-
-                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_ADD);
-            }
-            else if ((old_ip_addr || mask ) && !interface->IsIpConfigured()) {
-
-                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_DEL);
-            }
-            else {
-
-                SET_BIT (minor_code, IPC_INTERFACE_IPV4_ADDR_UPDATE);
-            }
-
-            if (minor_code) {
-                update_data = new ipc_interface_t;
-                update_data->intf = interface->GetSharedPtr();
-                update_data->ipv4_addr.ip_addr = old_ip_addr;
-                update_data->ipv4_addr.mask = old_mask;
-                cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                        update_data, sizeof (*update_data), true, 0);            
-            }
-        }
-        break;
 
         case CMDCODE_CONFIG_INTF_VLAN_UP_DOWN:
         {
@@ -607,6 +555,99 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 
                 /* Remove from VLAN-VNI database */
                 vlan_vni_remove_mapping(node, vlan_id);
+            }
+            break;
+            default:;
+            }
+        }
+        break;
+
+        case CMDCODE_INTF_CONFIG_NVE_CREATE:
+        {
+            switch (enable_or_disable)
+            {
+            case CONFIG_ENABLE:
+            {
+                // Check if NVE interface already exists
+                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
+                if (nve_intf) {
+                    cprintf("Error : NVE interface %s already exists\n", intf_name);
+                    return 0;
+                }
+
+                // Create new NVE interface
+                NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((const char *)intf_name));
+                nve_intfP->SetSharedPtr(nve_intfP);
+                nve_intfP->att_node = node;
+                nve_intfP->is_up = true;  // NVE interfaces are up by default
+                node->node_nw_prop.nve = nve_intfP;
+            }
+            break;
+            case CONFIG_DISABLE:
+            {
+                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
+                if (!nve_intf) {
+                    return 0;
+                }
+
+                // Check if interface is in use (has member VNIs)
+                std::vector<uint32_t> vni_list;
+                nve_intf->GetMemberVnis(vni_list);
+                if (!vni_list.empty()) {
+                    cprintf("Error: NVE interface %s has member VNIs, remove them first\n", intf_name);
+                    return -1;
+                }
+
+                if (nve_intf->IsCrossReferenced()) {
+                    cprintf("Error: NVE interface %s is in use\n", intf_name);
+                    return -1;
+                }
+                // Release resources and delete interface
+                nve_intf->InterfaceReleaseAllResources();
+
+                if (node->node_nw_prop.nve) {
+                    node->node_nw_prop.nve = nullptr;
+                }
+            }
+            break;
+            default:;
+            }
+        }
+        break;
+
+        case CMDCODE_INTF_CONFIG_NVE_MEMBER_VNI:
+        {
+            NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
+            if (!nve_intf) {
+                cprintf("Error: NVE interface %s does not exist\n", intf_name);
+                return -1;
+            }
+
+            uint32_t vni_id = atoi((const char *)vni_value);
+            if (vni_id == 0) {
+                cprintf("Error: Invalid VNI value %s\n", vni_value);
+                return -1;
+            }
+
+            switch (enable_or_disable)
+            {
+            case CONFIG_ENABLE:
+            {
+                if (nve_intf->AddMemberVni(vni_id)) {
+                } else {
+                    cprintf("Failed to add VNI %u to NVE interface %s\n", vni_id, intf_name);
+                    return -1;
+                }
+            }
+            break;
+            case CONFIG_DISABLE:
+            {
+                if (nve_intf->RemoveMemberVni(vni_id)) {
+                
+		} else {
+                    cprintf("Failed to remove VNI %u from NVE interface %s\n", vni_id, intf_name);
+                    return -1;
+                }
             }
             break;
             default:;
@@ -897,6 +938,43 @@ Interface_config_cli_tree (param_t *root) {
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_METRIC;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS;
                     Interface_config_cli_common_subtree (&vp_name, unsupported_configs);
+                }
+            }
+
+            {
+                /*config node <node-name> interface nve <nve-name> */
+                static param_t nve;
+                init_param(&nve, CMD, "network-virtualization-edge", 0, 0, INVALID, 0, "nve keyword");
+                libcli_register_param(&interface, &nve);
+                {
+                    /*config node <node-name> interface nve <nve-name> */
+                    static param_t nve_name;
+                    init_param(&nve_name, LEAF, 0, intf_config_handler, 0, STRING, "if-name", "NVE Interface Name");
+                    libcli_register_param(&nve, &nve_name);
+                    libcli_set_param_cmd_code(&nve_name, CMDCODE_INTF_CONFIG_NVE_CREATE);
+                    
+                    {
+                        /*config node <node-name> interface nve <nve-name> member*/
+                        static param_t member;
+                        init_param(&member, CMD, "member", 0, 0, INVALID, 0, "member keyword");
+                        libcli_register_param(&nve_name, &member);
+                        {
+                            /*config node <node-name> interface nve <nve-name> member l2vni*/
+                            static param_t l2vni;
+                            init_param(&l2vni, CMD, "l2vni", 0, 0, INVALID, 0, "l2vni keyword");
+                            libcli_register_param(&member, &l2vni);
+                            {
+                                /*config node <node-name> interface nve <nve-name> member l2vni <vni-id>*/
+                                static param_t vni_id;
+                                init_param(&vni_id, LEAF, 0, intf_config_handler, 0, INT, "vni-id", "VNI ID");
+                                libcli_register_param(&l2vni, &vni_id);
+                                libcli_set_param_cmd_code(&vni_id, CMDCODE_INTF_CONFIG_NVE_MEMBER_VNI);
+                                libcli_set_tail_config_batch_processing(&vni_id);
+                            }
+                        }
+                    }
+                    
+                    libcli_support_cmd_negation(&nve_name);
                 }
             }
 

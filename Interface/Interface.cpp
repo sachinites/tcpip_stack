@@ -34,6 +34,7 @@
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../Layer2/layer2.h"
 #include "../Layer3/layer3.h"
+#include "../Layer2/vxlan/dp/vxlan_dp.h"
 #include "../Layer3/gre-tunneling/gre.h"
 #include "../CLIBuilder/libcli.h"
 #include "../Layer2/transport_svc.h"
@@ -323,15 +324,12 @@ Interface::GetOtherInterface()
 
 int Interface::SendPacketOut(pkt_block_t *pkt_block)
 {
-
-    cprintf ("Error : Operation %s not supported\n", __func__);
     return -1;
 }
 
 void Interface::SetMacAddr(mac_addr_t *mac_add)
 {
 
-    cprintf ("Error : Operation %s not supported\n", __func__);
 }
 
 mac_addr_t *
@@ -342,59 +340,52 @@ Interface::GetMacAddr()
 
 bool Interface::IsIpConfigured()
 {
-
     return false;
 }
+
 void Interface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask)
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
+    
 }
 
 void Interface::InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask)
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
+    
 }
 
 void 
 Interface::InterfaceSetIpv6LinkLocalAddress(unsigned char (*mac)[6]) {
     
-        cprintf ("Error : Operation %s not supported\n", __func__);
-        assert(0);
 }
+
 void 
 Interface::InterfaceGetIpv6LinkLocalAddress(uint8_t (*addr)[16]) {
         
-            cprintf ("Error : Operation %s not supported\n", __func__);
-            assert(0);
 }
 
 vlan_id_t
 Interface::GetVlanId()
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
     return 0;
 }
 
 bool Interface::IsVlanTrunked(vlan_id_t vlan_id)
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
     return false;
 }
 
 void Interface::SetSwitchport(bool enable)
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
+
 }
 
 bool Interface::IntfConfigTransportSvc(std::string& trans_svc) 
 {
-   cprintf ("Error : Operation %s not supported\n", __func__);
    return false;
 }
 
 bool Interface::IntfUnConfigTransportSvc(std::string& trans_svc) 
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
     return false;
 }
 
@@ -412,21 +403,19 @@ Interface::GetL2Mode()
 
 void Interface::SetL2Mode(IntfL2Mode l2_mode)
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
+
 }
 
 bool Interface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
 {
-    cprintf ("Error : Operation %s not supported\n", __func__);
+    
     return false;
 }
 
 bool Interface::IsSameSubnet(uint32_t ip_addr)
 {
 
-    if (!this->IsIpConfigured())
-        return false;
-     cprintf ("Error : Operation %s not supported\n", __func__);
+    if (!this->IsIpConfigured()) return false;
      return false;
 }
 
@@ -483,15 +472,11 @@ Interface::IsSVI () {
 void 
 Interface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) {
 
-    cprintf ("Error : Operation %s not supported\n", __func__);
-    assert(0);
 }
 
 void 
 Interface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
 
-    cprintf ("Error : Operation %s not supported\n", __func__);
-    assert(0);
 }
 
 VlanInterfaceP 
@@ -1000,7 +985,7 @@ int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
     
     if ( is_arp_pkt_for_svi_interface (this->att_node, pkt_block) ) {
             svi_interface_intercept_arp_pkt (this->att_node, pkt_block);
-            return;
+            return 0;
     }
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
@@ -1054,6 +1039,8 @@ VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
 
     return 0;
 }
+
+/*************************** NVE Interface  *************************/
 
 
 
@@ -1582,8 +1569,6 @@ VlanInterface::IsCrossReferenced() {
 void 
 VlanInterface::PrintInterfaceDetails() {
 
-    int i;
-    int vec_size;
     byte ip_str[IPV4_ADDR_LEN_STR];
     TransportService *tsp;
     Interface *member_ports;
@@ -1835,7 +1820,7 @@ LoopbackInterface::InterfaceReleaseAllResources() {
 bool 
 LoopbackInterface::IsCrossReferenced() {
 
-    this->Interface::IsCrossReferenced();
+    return this->Interface::IsCrossReferenced();
 }
 
 /* ------------------------------------------------------------------- */
@@ -1843,48 +1828,258 @@ LoopbackInterface::IsCrossReferenced() {
 void 
 dump_intf_props (Interface *interface){
 
-    uint8_t intf_mask;
-    uint32_t intf_ip_addr;
+    uint32_t intf_ip_addr = 0;
+    uint8_t ipv6_addr[16] = {0};
+    mac_addr_t *mac_addr = NULL;
+    PhysicalInterface *phyIntf = NULL;
+    uint8_t intf_mask, ipv6_prefix_len;
     byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
-    mac_addr_t *mac_addr;
-    PhysicalInterface *phyIntf;
+    char ipv6_addr_str[INET6_ADDRSTRLEN];
+    static bool header_printed = false;
 
-    dump_interface(interface);
+    // Print header only once
+    if (!header_printed) {
 
-    cprintf("\t If Status : %s\n", interface->is_up ? "UP" : "DOWN");
+        cprintf("%-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
+                "ifname", "ip-address/mask", "ipv6-address/prefix", "MAC", "Oper-Status", "Mode", "Vlan-memberships");
+        cprintf("%-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
+                "------", "---------------", "------------------", "---", "-----------", "----", "----------------");
+        header_printed = true;
+    }
 
-    if (interface->IsIpConfigured()) {
+    cprintf("%-12s ", interface->if_name.c_str());
 
-        interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
+    interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
+
+    if (intf_ip_addr) {
         tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
-        cprintf("\t IP Addr = %s/%u", intf_ip_addr_str, intf_mask);
+        char ip_with_mask[24];
+        snprintf(ip_with_mask, sizeof(ip_with_mask), "%s/%u", (char*)intf_ip_addr_str, intf_mask);
+        cprintf("%-18s ", ip_with_mask);
+    } else {
+        cprintf("%-18s ", "Not configured");
+    }
 
-        mac_addr = interface->GetMacAddr();
-        if (!mac_addr) {
-            cprintf("\t MAC : Nil\n");
+    // IPv6 address/prefix
+    interface->InterfaceGetIpv6AddressMask(&ipv6_addr, &ipv6_prefix_len);
+    bool ipv6_configured = false;
+
+    for (int i = 0; i < 16; i++) {
+        if (ipv6_addr[i] != 0) {
+            ipv6_configured = true;
+            break;
+        }
+    }
+    
+    if (ipv6_configured) {
+        if (inet_ntop(AF_INET6, ipv6_addr, ipv6_addr_str, INET6_ADDRSTRLEN)) {
+            char ipv6_with_prefix[48];
+            snprintf(ipv6_with_prefix, sizeof(ipv6_with_prefix), "%s/%u", ipv6_addr_str, ipv6_prefix_len);
+            cprintf("%-39s ", ipv6_with_prefix);
+        } else {
+            cprintf("%-39s ", "Invalid IPv6");
+        }
+    } else {
+        cprintf("%-39s ", "Not configured");
+    }
+
+    mac_addr = interface->GetMacAddr();
+    if (mac_addr) {
+        cprintf("%02x:%02x:%02x:%02x:%02x:%02x ", 
+                mac_addr->mac[0], mac_addr->mac[1], mac_addr->mac[2], 
+                mac_addr->mac[3], mac_addr->mac[4], mac_addr->mac[5]);
+    } else {
+        cprintf("%-17s ", "Not available");
+    }
+
+    cprintf("%-12s ", interface->is_up ? "UP" : "DOWN");
+
+    phyIntf = dynamic_cast<PhysicalInterface *>(interface);
+    if (phyIntf && phyIntf->GetSwitchport()) {
+        cprintf("%-6s ", "L2");
+    } else {
+        cprintf("%-6s ", "L3");
+    }
+
+    // VLAN memberships
+    if (phyIntf && phyIntf->GetSwitchport()) {
+        IntfL2Mode l2_mode = phyIntf->GetL2Mode();
+        
+        if (l2_mode == LAN_ACCESS_MODE && phyIntf->access_vlan_intf) {
+            cprintf("Access(%u)", phyIntf->access_vlan_intf->GetVlanId());
+        }
+        else if (l2_mode == LAN_TRUNK_MODE && phyIntf->trans_svc) {
+            cprintf("Trunk(");
+            bool first = true;
+            for (auto vlan : phyIntf->trans_svc->vlanSet) {
+                if (!first) cprintf(",");
+                cprintf("%d", vlan);
+                first = false;
+            }
+            cprintf(")");
         }
         else {
-            cprintf("\t MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",
-                   mac_addr->mac[0], mac_addr->mac[1],
-                   mac_addr->mac[2], mac_addr->mac[3],
-                   mac_addr->mac[4], mac_addr->mac[5]);
+            cprintf("None");
+        }
+    } else {
+        cprintf("N/A");
+    }
+
+    cprintf("\n");
+}
+
+/* ************ NVEInterface ************ */
+
+NVEInterface::NVEInterface(std::string if_name)
+    : VirtualInterface(if_name, INTF_TYPE_NVE)
+{
+    // Initialize all member VNIs to 0 (not configured)
+    memset(member_vnis, 0, sizeof(member_vnis));
+}
+
+NVEInterface::~NVEInterface() {
+    // No special cleanup needed for member_vnis array
+}
+
+void 
+NVEInterface::PrintInterfaceDetails() {
+    
+    cprintf("NVE Interface : %s\n", this->if_name.c_str());
+    cprintf("  Interface Type : NVE (Network Virtualization Edge)\n");
+    cprintf("  Status : %s\n", this->is_up ? "UP" : "DOWN");
+    
+    cprintf("  Member VNIs : ");
+    bool first = true;
+    for (int i = 0; i < 16; i++) {
+        if (member_vnis[i] != 0) {
+            if (!first) cprintf(", ");
+            cprintf("%u", member_vnis[i]);
+            first = false;
         }
     }
-    else
-    {
-        cprintf("\t l2 mode = %s", PhysicalInterface::L2ModeToString(interface->GetL2Mode()).c_str());
-
-        phyIntf = dynamic_cast<PhysicalInterface *>(interface);
-
-        if (phyIntf) {
-
-            if (interface->GetL2Mode() == LAN_ACCESS_MODE) {
-                cprintf("\t vlan membership : %u", phyIntf->access_vlan_intf->GetVlanId());
-            }
-            else if (interface->GetL2Mode() == LAN_TRUNK_MODE) {
-                cprintf ("\t transport svc profile : %s", phyIntf->trans_svc->trans_svc.c_str());
-            }
-        }
-        cprintf("\n");
+    if (first) {
+        cprintf("None");
     }
+    cprintf("\n");
+    
+    this->VirtualInterface::PrintInterfaceDetails();
+}
+
+void 
+NVEInterface::InterfaceReleaseAllResources() {
+    
+    // Clear all member VNIs
+    memset(member_vnis, 0, sizeof(member_vnis));
+    this->VirtualInterface::InterfaceReleaseAllResources();
+}
+
+int 
+NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
+    
+    pkt_size_t pkt_size;
+    
+    if (!this->is_up) {
+        tracer (this->att_node->dptr, DTUNNEL | DFLOW, "NVE Interface %s is down\n", this->if_name.c_str());
+        this->xmit_pkt_dropped++;
+        return -1;
+    }
+
+    if (!pkt_block->encap_data) {
+        tracer (this->att_node->dptr, DTUNNEL | DFLOW, "Pkt Block has no encap data\n");
+        this->xmit_pkt_dropped++;
+        return -1;
+    }
+
+    vxlan_encapsulate (this->att_node, pkt_block);
+
+ /* Now attach outer IP Hdr and send the pkt*/
+    assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
+    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
+    ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+    initialize_ip_hdr (ip_hdr);
+    ip_hdr->src_ip = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(this->att_node));
+    ip_hdr->dst_ip = pkt_block->encap_data->u.vxlan.remote_vtep_ip;
+    ip_hdr->protocol = UDP_PROTO;
+    ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(pkt_size);
+    np_tcp_ip_send_ip_data (this->att_node, pkt_block);
+    this->pkt_sent++;
+    return 0;
+}
+
+bool 
+NVEInterface::AddMemberVni(uint32_t vni) {
+    
+    if (vni == 0) {
+        cprintf("Error: Invalid VNI 0\n");
+        return false;
+    }
+    
+    // Check if VNI already exists
+    if (CheckMemberVniMembership(vni)) {
+        return false;
+    }
+    
+    // Find empty slot
+    for (int i = 0; i < 16; i++) {
+        if (member_vnis[i] == 0) {
+            member_vnis[i] = vni;
+            return true;
+        }
+    }
+    
+    cprintf("Error: NVE interface %s is full (max 16 VNIs)\n", this->if_name.c_str());
+    return false;
+}
+
+bool 
+NVEInterface::RemoveMemberVni(uint32_t vni) {
+    
+    if (vni == 0) {
+        cprintf("Error: Invalid VNI 0\n");
+        return false;
+    }
+    
+    // Find and remove VNI
+    for (int i = 0; i < 16; i++) {
+        if (member_vnis[i] == vni) {
+            member_vnis[i] = 0;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+bool 
+NVEInterface::CheckMemberVniMembership(uint32_t vni) {
+    
+    if (vni == 0) return false;
+    
+    for (int i = 0; i < 16; i++) {
+        if (member_vnis[i] == vni) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void 
+NVEInterface::GetMemberVnis(std::vector<uint32_t>& vni_list) {
+    
+    vni_list.clear();
+    for (int i = 0; i < 16; i++) {
+        if (member_vnis[i] != 0) {
+            vni_list.push_back(member_vnis[i]);
+        }
+    }
+}
+
+NVEInterface *
+NVEInterface::NVEInterfaceLookUp(node_t *node, std::string if_name) {
+    
+    if (!node || !node->node_nw_prop.nve) {
+        return nullptr;
+    }
+    
+    return node->node_nw_prop.nve.get();
 }

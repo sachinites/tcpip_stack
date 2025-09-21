@@ -40,6 +40,7 @@
 #include "../graph.h"
 #include "layer2.h"
 #include "arp.h"
+#include "mac_table.h"
 #include "../comm.h"
 #include "../Layer5/layer5.h"
 #include "../tcp_ip_trace.h"
@@ -49,6 +50,7 @@
 #include "../Interface/InterfaceUApi.h"
 #include "transport_svc.h"
 #include "../Tracer/tracer.h"
+#include "../common/cp2dp.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -134,6 +136,9 @@ node_set_intf_vlan_membership(node_t *node,
             node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
         }
         node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
+        cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
+                        vlan_id, 
+                       NODE_VLAN_FLOOD_INTF(node)->ifindex, MAC_STATIC, true, 0);        
     }
 
     if (Trunk) {

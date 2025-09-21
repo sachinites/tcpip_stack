@@ -262,6 +262,27 @@ class VlanFloodInterface : public VirtualInterface {
 } __attribute__((aligned(8)));;
 
 
+/* VxLAN interface*/
+class NVEInterface : public VirtualInterface {
+
+    private:
+        uint32_t member_vnis[16];
+    protected:
+    public:
+
+        NVEInterface(std::string if_name);
+        virtual ~NVEInterface();
+        virtual void InterfaceReleaseAllResources() ;
+        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        bool AddMemberVni(uint32_t vni);
+        bool RemoveMemberVni(uint32_t vni);
+        bool CheckMemberVniMembership(uint32_t vni);
+        virtual void PrintInterfaceDetails ();
+        void GetMemberVnis(std::vector<uint32_t>& vni_list);
+        static NVEInterface *NVEInterfaceLookUp(node_t *node, std::string if_name);
+};
+
+
 
 enum GreTunnelConfigEnum
 {

@@ -49,6 +49,7 @@ typedef enum{
     IP_IN_IP_HDR,
     GRE_HDR,
     SRH_HDR,
+    VXLAN_HDR,
     MISC_APP_HDR
 } hdr_type_t;
 
@@ -72,6 +73,7 @@ typedef uint16_t pkt_size_t;
 #define MTCP            20
 #define USERAPP1        21
 #define VLAN_8021Q_PROTO    0x8100
+#define VXLAN_PROTO     4789
 #define PROTO_IP_IN_IP        4
 #define PROTO_IP6_IN_IP6    41
 #define NMP_HELLO_MSG_CODE	13 /*Randomly chosen*/
@@ -97,7 +99,7 @@ typedef uint16_t pkt_size_t;
 #define PROTO_SRv6 115
 #define PROTO_ANY       (0xFFFF - 1)
 
-static const unsigned char *BROADCAST_MAC = "\xff\xff\xff\xff\xff\xff";
+static const char *BROADCAST_MAC = "\xff\xff\xff\xff\xff\xff";
 
 static inline unsigned char *
 proto_name_str (uint16_t proto) {
@@ -137,6 +139,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"isis-srv6";
         case PROTO_SRH:
             return (unsigned char *)"srh";
+        case VXLAN_PROTO:
+            return (unsigned char *)"vxlan";
         default:
             return NULL;
     }
@@ -197,6 +201,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
         return PROTO_IP_IN_IP;
     case GRE_HDR:
         return GRE_PROTO;
+    case VXLAN_HDR:
+        return VXLAN_PROTO;
     default:;
     }
     return 0;
@@ -204,6 +210,7 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
 
 #define RMAC_INTF_NAME  "rmacif"
 #define VLAN_FLOOD_INTF_NAME "vfif"
+#define NVE_INTF_NAME "nve"
 #define DEFAULT_VLAN_ID 0
 #define MAC_ENTRY_EXP_TIME   1800 /*Seconds*/
 

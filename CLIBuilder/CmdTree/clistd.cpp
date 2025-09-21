@@ -41,6 +41,30 @@ ipv6_validation_handler(char *value_passed){
 }
 
 static leaf_validation_rc_t
+mac_validation_handler (char * mac_addr) {
+
+    int i = 0;
+    int s = 0;
+
+    while (*mac_addr) {
+        if (isxdigit(*mac_addr)) {
+            i++;
+        }
+        else if (*mac_addr == ':') {
+            if (i == 0 || i / 2 - 1 != s)
+                break;
+            ++s;
+        }
+        else {
+            s = -1;
+            break;
+        }
+        ++mac_addr;
+    }
+    return (i == 12 && s == 5) ? LEAF_VALIDATION_SUCCESS : LEAF_VALIDATION_FAILED;
+}
+
+static leaf_validation_rc_t
 int_validation_handler(char *value_passed){
 
     if (value_passed == NULL || *value_passed == '\0')
@@ -122,6 +146,7 @@ static leaf_type_handler leaf_handler_array[LEAF_TYPE_MAX] = {
     int_validation_handler,
     string_validation_handler,
     ipv4_validation_handler,
+    mac_validation_handler,
     float_validation_handler,
     ipv6_validation_handler,
     boolean_validation_handler,

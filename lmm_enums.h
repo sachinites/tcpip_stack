@@ -57,6 +57,7 @@ typedef enum struct_index_
 
     /* Pkt Block */
     MM_INDEX(pkt_block_t),
+    MM_INDEX(encap_meta_data_t),
 
     /* Layer2 Structures */
     MM_INDEX(arp_hdr_t),
@@ -72,6 +73,10 @@ typedef enum struct_index_
     /* VXLAN Structures */
     MM_INDEX(vxlan_vni_mapping_t),
     MM_INDEX(vxlan_vni_db_t),
+    MM_INDEX(vlan_vni_ht_entry_t),
+    MM_INDEX(vni_vlan_ht_entry_t),
+    MM_INDEX(vlan_vni_ht_db_t),
+    
 
     /* Layer3 Structures */
     MM_INDEX(ip_hdr_t),

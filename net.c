@@ -45,6 +45,7 @@
 #include "Layer3/layer3.h"
 #include "Layer2/layer2.h"
 #include "Layer2/transport_svc.h"
+#include "Layer2/mac_table.h"
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
@@ -84,28 +85,16 @@ node_assign_router_mac (node_t *node) {
     node->node_nw_prop.rmac_interface->SetSharedPtr(
                 node->node_nw_prop.rmac_interface);
     node->node_nw_prop.rmac_interface->att_node = node;
-
-    l2_switch_perform_mac_learning (node, DEFAULT_VLAN_ID, 
-            (NODE_RMAC(node))->mac, NODE_RMAC_INTF(node).get());
 }
 
 void 
 node_create_vlan_flood_interface(node_t *node) {
-
-    mac_addr_t broadcast_mac;
 
     node->node_nw_prop.vlan_flood_interface = 
         std::make_shared<VlanFloodInterface>();
     node->node_nw_prop.vlan_flood_interface->SetSharedPtr(
                 node->node_nw_prop.vlan_flood_interface);
     node->node_nw_prop.vlan_flood_interface->att_node = node;
-
-    layer2_fill_with_broadcast_mac (broadcast_mac.mac);
-
-    l2_switch_perform_mac_learning (node, DEFAULT_VLAN_ID, 
-            broadcast_mac.mac, node->node_nw_prop.vlan_flood_interface.get());
-    l2_switch_perform_mac_learning (node, DEFAULT_VLAN_ID, 
-            broadcast_mac.mac, NODE_RMAC_INTF(node).get());
 }
 
 typedef struct l3_route_ l3_route_t;
@@ -150,17 +139,17 @@ node_set_intf_ip_address(node_t *node, const char *local_if,
 
 void dump_node_nw_props(node_t *node){
 
-    cprintf("\nNode Name = %s(%p) UDP Port # : %u\n",
-        node->node_name, node, node->udp_port_number);
+    unsigned char buffer[48];
 
-    cprintf("  node flags : %u  ", node->node_nw_prop.flags);
+    memset (buffer, 0, sizeof(buffer));
 
-    if(node->node_nw_prop.is_lb_addr_config){
-        cprintf("  lo addr : %s/32", NODE_LO_ADDR(node));
-    }
+    cprintf("\nNode Name = %s(%s) UDP Port # : %u  ",
+        node->node_name, 
+        tcp_ip_covert_ip_n_to_p(NODE_LO_ADDR(node),  buffer),
+        node->udp_port_number);
 
     if (!is_ipv6_addr_unspecified (&node->node_nw_prop.ipv6_addr)) {
-        char buffer[48];
+        
         ipv6_addr_t temp_v6_addr;
         memcpy (&temp_v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
         cprintf ("  v6lo addr : %s/128", inet_ntop6 (&temp_v6_addr, buffer));
@@ -185,18 +174,33 @@ dump_nw_graph(graph_t *graph, node_t *node1){
             dump_node_nw_props(node);
             
             ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
+
                 if(!interface) break;
                 dump_intf_props(interface);
+
             } ITERATE_NODE_INTERFACES_END(node, interface);
+
+            dump_intf_props (NODE_RMAC_INTF(node).get());
+            dump_intf_props (NODE_VLAN_FLOOD_INTF(node).get());
+            if (NODE_NVE_INTF(node)) dump_intf_props (NODE_NVE_INTF(node).get());
 
         } ITERATE_GLTHREAD_END(&graph->node_list, curr);
     }
     else{
+
         dump_node_nw_props(node1);
+
         ITERATE_NODE_INTERFACES_BEGIN(node1, interface) {
+
             if(!interface) break;
             dump_intf_props(interface);
+
         } ITERATE_NODE_INTERFACES_END(node1, interface);
+
+        dump_intf_props (NODE_RMAC_INTF(node1).get());
+        dump_intf_props (NODE_VLAN_FLOOD_INTF(node1).get());
+        if (NODE_NVE_INTF(node1)) dump_intf_props (NODE_NVE_INTF(node1).get());
+
     }
 }
 
@@ -278,6 +282,8 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
+    node_nw_prop->vlan_vni_ht.store(nullptr);  /* Initialize atomic hashtable pointer */
+    node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
     init_rt_table(node, &(node_nw_prop->rt_table));
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
     node_assign_router_mac (node);

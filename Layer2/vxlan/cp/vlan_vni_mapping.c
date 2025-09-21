@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "vxlan.h"
+#include "../dp/vlan_vni_ht.h"
 #include "../../../graph.h"
 #include "../../../gluethread/glthread.h"
 #include "../../../utils.h"
@@ -92,6 +93,8 @@ vlan_vni_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
         }
         /* Update existing mapping */
         existing_vlan->vni_id = vni_id;
+        /* Update hashtable atomically */
+        vlan_vni_ht_add_mapping(node, vlan_id, vni_id);
         return true;
     }
     
@@ -109,6 +112,9 @@ vlan_vni_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
     
     init_glthread(&mapping->glue);
     glthread_add_next(&vlan_vni_db->mappings, &mapping->glue);
+
+    /* Add to hashtable atomically */
+    vlan_vni_ht_add_mapping(node, vlan_id, vni_id);
     
     return true;
 }
@@ -124,6 +130,9 @@ vlan_vni_remove_mapping(node_t *node, vlan_id_t vlan_id) {
     
     remove_glthread(&mapping->glue);
     XFREE(mapping);
+    
+    /* Remove from hashtable atomically */
+    vlan_vni_ht_remove_mapping(node, vlan_id);
     
     return true;
 }

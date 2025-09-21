@@ -17,6 +17,7 @@ enum InterfaceType_t {
     INTF_TYPE_VIRTUAL_PORT,
     INTF_TYPE_RMAC,
     INTF_TYPE_VLAN_FLOOD,
+    INTF_TYPE_NVE,
     INTF_TYPE_UNKNOWN
 };
 

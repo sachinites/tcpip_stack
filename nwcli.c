@@ -45,6 +45,7 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "prefix-list/prefixlst.h"
 #include "tcpconst.h"
+#include "Layer2/mac_table.h"
 
 extern graph_t *topo;
 class Interface;
@@ -82,6 +83,8 @@ ipv6_build_cli_run_tree (param_t *root) ;
 extern int ip_traffic_generate_handler(int cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable);
+extern int mac_table_config_handler(
+    int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
@@ -217,7 +220,7 @@ validate_node_extistence(Stack_t *tlv_stack, c_string node_name){
 }
 
 static int
-validate_vlan_id(c_string vlan_value){
+validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
 
     uint32_t vlan = atoi((const char *)vlan_value);
     if(!vlan){
@@ -230,7 +233,7 @@ validate_vlan_id(c_string vlan_value){
 }
 
 static int
-validate_l2_mode_value(c_string l2_mode_value){
+validate_l2_mode_value(Stack_t *tlv_stack, c_string l2_mode_value){
         return LEAF_VALIDATION_SUCCESS;
     return LEAF_VALIDATION_FAILED;
 }
@@ -340,7 +343,7 @@ extern
 void dump_node_interface_stats(node_t *node);
 
 typedef struct mac_table_ mac_table_t;
-extern void dump_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
+extern void show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
 extern vlan_id_t vni_to_vlan_lookup(node_t *node, uint32_t vni_id);
 
 static int
@@ -377,7 +380,7 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
         return -1;
     }
 
-    dump_mac_table(NODE_MAC_TABLE (node), vlan_id);
+    show_mac_table(NODE_MAC_TABLE (node), vlan_id);
     return 0;
 }
 
@@ -900,7 +903,7 @@ nw_init_cli(){
                 /*show topology node <node-name>*/ 
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, show_nw_topology_handler, validate_node_extistence, STRING, "node-name", "Node Name");
-                libcli_register_display_callback(&node_name, display_graph_nodes);
+                 libcli_register_display_callback(&node_name, display_graph_nodes);
                  libcli_register_param(&node, &node_name);
                  libcli_set_param_cmd_code(&node_name, CMDCODE_SHOW_NW_TOPOLOGY);
              }
@@ -1219,6 +1222,39 @@ nw_init_cli(){
             }
         }
 
+        {
+            /* config node <node-name> mac-table install <vlan-id> <mac-addr> <OIF> [<remote-vtep>] */
+            static param_t mac_table;
+            init_param(&mac_table, CMD, "mac-table", 0, 0, INVALID, 0, "Mac Table Entry");
+            libcli_register_param(&node_name, &mac_table);
+            {
+                static param_t install;
+                init_param(&install, CMD, "install", 0, 0, INVALID, 0, "Install Mac Table Entry");
+                libcli_register_param(&mac_table, &install);
+                {
+                    static param_t vlan_id;
+                    init_param(&vlan_id, LEAF, 0, 0, validate_vlan_id, INT, "vlan-id", "VLAN ID (1-4096)");
+                    libcli_register_param(&install, &vlan_id);
+                    {
+                        static param_t mac_addr;
+                        init_param(&mac_addr, LEAF, 0, 0, 0, MAC, "mac-addr", "MAC Address");
+                        libcli_register_param(&vlan_id, &mac_addr);
+                        {
+                            static param_t oif;
+                            init_param(&oif, LEAF, 0, mac_table_config_handler, 0, STRING, "oif", "Out-going Interface Name");
+                            libcli_register_param(&mac_addr, &oif);
+                            libcli_set_param_cmd_code(&oif, CMDCODE_CONFIG_MAC_INSTALL);
+                            {
+                                static param_t remote_vtep;
+                                init_param(&remote_vtep, LEAF, 0, mac_table_config_handler, 0, IPV4, "remote-vtep", "Remote VTEP IP Address");
+                                libcli_register_param(&oif, &remote_vtep);
+                                libcli_set_param_cmd_code(&remote_vtep, CMDCODE_CONFIG_MAC_INSTALL);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         {
             /* conf node <node-name> rib <rib-name> import-policy <prefix-lst-name> */
@@ -1292,7 +1328,9 @@ nw_init_cli(){
                     }
                 }
             }    
-        }    
+        }
+
+
         libcli_support_cmd_negation(&node_name);
       }
     }

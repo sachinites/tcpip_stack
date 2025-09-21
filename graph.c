@@ -237,6 +237,19 @@ node_get_intf_by_name(node_t *node, const char *if_name){
 
     Interface *intf;
 
+    if (string_compare(if_name, NODE_RMAC_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_RMAC_INTF(node).get();
+    }
+
+    else if (string_compare(if_name, NODE_VLAN_FLOOD_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_VLAN_FLOOD_INTF(node).get();
+    }
+
+    else if (NODE_NVE_INTF(node) && 
+             string_compare(if_name, NODE_NVE_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_NVE_INTF(node).get();
+    }
+
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         if(!intf) return NULL;
@@ -301,6 +314,18 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
     Interface *intf;
 
+    if (ifindex ==NODE_RMAC_INTF(node)->ifindex) {
+        return NODE_RMAC_INTF(node).get();
+    }
+    else if (ifindex == NODE_VLAN_FLOOD_INTF(node)->ifindex) {
+        return NODE_VLAN_FLOOD_INTF(node).get();
+    }
+
+    else if (NODE_NVE_INTF(node) && 
+             ifindex == NODE_NVE_INTF(node)->ifindex) {
+        return NODE_NVE_INTF(node).get();
+    }
+    
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         if(!intf) return NULL;

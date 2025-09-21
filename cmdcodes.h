@@ -115,9 +115,6 @@
 /* config node <node-name> interface vlan <vlan-id> */
 #define CMDCODE_CONFIG_INTF_VLAN_CREATE  48
 
-/* config node <node-name> interface vlan <vlan-id> ip address <ip-address> <mask>*/
-#define CMDCODE_CONFIG_INTF_VLAN_IP_ADDR  49
-
 /* config node <node-name> interface vlan <vlan-id> <up|down> */
 #define CMDCODE_CONFIG_INTF_VLAN_UP_DOWN  50
 
@@ -147,5 +144,14 @@
 
 /* show node <node-name> vlan vni <vni-id> */
 #define CMDCODE_SHOW_NODE_MAC_VNI_TABLE 59
+
+/* config node <node-name> interface nve <if-name> */
+#define CMDCODE_INTF_CONFIG_NVE_CREATE 60
+
+/* config node <node-name> interface nve <if-name> member l2vni <vni-id> */
+#define CMDCODE_INTF_CONFIG_NVE_MEMBER_VNI 61
+
+/* config node <node-name> mac install vlan <vlan-id> <mac-address> remote-vtep <ip-address> */
+#define CMDCODE_CONFIG_MAC_INSTALL 62
 
 #endif /* __CMDCODES__ */

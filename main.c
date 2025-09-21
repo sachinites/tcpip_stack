@@ -52,6 +52,7 @@ extern graph_t *cross_link_topology(void);
 extern graph_t *standalone_node_topology(void);
 extern graph_t *vlan_extension_topo(void);
 extern graph_t *build_inter_vlan_routing_topo(void);
+extern graph_t *build_vxlan_topo(void);
 
 extern void nw_init_cli();
 
@@ -104,7 +105,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = build_inter_vlan_routing_topo();
+    topo = build_vxlan_topo();
     init_tcp_ip_stack();
     libcli_init_done ();
 

@@ -21,6 +21,18 @@ typedef struct vni_mac_table_db_ {
     glthread_t vni_mac_tables;
 } vni_mac_table_db_t;
 
+#pragma pack (push,1)
+
+typedef struct vxlan_hdr_ {
+    uint8_t flags;
+    uint8_t reserved[3];
+    uint8_t vni[3];
+    uint8_t reserved2;
+} vxlan_hdr_t;
+
+#pragma pack(pop)
+
+
 /* VNI MAC Table Management APIs */
 void init_vni_mac_table_db(vni_mac_table_db_t **vni_mac_table_db);
 vni_mac_table_entry_t *vni_mac_table_lookup(vni_mac_table_db_t *vni_mac_table_db, uint32_t vni_id);
@@ -29,5 +41,6 @@ bool create_vni_mac_table(node_t *node, uint32_t vni_id);
 bool delete_vni_mac_table(node_t *node, uint32_t vni_id);
 void clear_vni_mac_table_db(vni_mac_table_db_t *vni_mac_table_db);
 void dump_vni_mac_table(node_t *node, uint32_t vni_id);
+void vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block);
 
 #endif /* __VXLAN_DP_H__ */

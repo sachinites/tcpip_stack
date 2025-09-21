@@ -36,7 +36,7 @@ send_arp_broadcast_request(node_t *node,
     uint32_t payload_size = sizeof (arp_hdr_t);
     vlan_id_t vlan_id = 0;
 
-    if (oif->iftype == INTF_TYPE_VLAN) {
+    if (oif && oif->iftype == INTF_TYPE_VLAN) {
         vlan_id = oif->GetVlanId();
     }
 

@@ -11,6 +11,7 @@ class VlanFloodInterface;
 class VirtualPort;
 class GRETunnelInterface ;
 class LoopbackInterface;
+class NVEInterface;
 
 using InterfaceP = std::shared_ptr<Interface>;
 using VlanInterfaceP = std::shared_ptr<VlanInterface>;
@@ -21,5 +22,6 @@ using VlanFloodInterfaceP = std::shared_ptr<VlanFloodInterface>;
 using VirtualPortP = std::shared_ptr<VirtualPort>;
 using GRETunnelInterfaceP = std::shared_ptr<GRETunnelInterface>;
 using InterfaceLoP = std::shared_ptr<LoopbackInterface>;
+using NVEInterfaceP = std::shared_ptr<NVEInterface>;
 
 #endif 

@@ -29,6 +29,25 @@ typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 
+typedef struct encap_meta_data_ {
+
+        union {
+
+                struct {
+
+                    uint32_t vni;
+                    uint32_t remote_vtep_ip;
+                    
+                } vxlan;
+
+                struct {
+
+
+                } gre;
+
+        } u;
+} encap_meta_data_t;
+
 struct pkt_block_ {
 
     uint8_t *pkt;
@@ -37,6 +56,7 @@ struct pkt_block_ {
     InterfaceP recommended_oif;
     InterfaceP exclude_oif;
     InterfaceP switchport_ingress_intf;
+    encap_meta_data_t *encap_data;
     char *fn_name;
     uint64_t pkt_id;
     uint16_t lineno;

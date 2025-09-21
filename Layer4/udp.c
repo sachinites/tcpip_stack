@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "udp.h"
+#include "../tcpconst.h"
 
 uint16_t 
 tcp_dump_transport_udp_protocol (
@@ -10,5 +11,15 @@ tcp_dump_transport_udp_protocol (
     uint16_t rc = 0;
     rc += sprintf (out_buff + rc, "UDP Hdr : Sport : %d   Dort : %d\n", 
                             udp_hdr->src_port_no, udp_hdr->dst_port_no);
+
+    switch (udp_hdr->dst_port_no) {
+
+        case VXLAN_PROTO:
+            rc += sprintf (out_buff + rc, "VXLAN Encap : vni %u\n", udp_hdr->dst_port_no );
+            break;
+
+        default:
+            ;
+    }
     return rc;
 }

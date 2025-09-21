@@ -39,6 +39,8 @@
 #include <netinet/in.h>
 #include <assert.h>
 #include <pthread.h>
+#include <stdatomic.h>
+#include <atomic>
 #include "common/cmn_struct.h"
 #include "utils.h"
 #include "LinuxMemoryManager/uapi_mm.h"
@@ -67,6 +69,7 @@ typedef struct lfa_ lfa_t;
 /* VLAN-VNI Mapping Structure */
 /* Forward declaration for VLAN-VNI mapping structures */
 typedef struct vxlan_vni_db_ vxlan_vni_db_t;
+typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 
 typedef struct node_nw_prop_{
 
@@ -75,7 +78,9 @@ typedef struct node_nw_prop_{
     /*L2 Properties*/
     arp_table_t *arp_table;
     mac_table_t *mac_table;
-    vxlan_vni_db_t *vlan_vni_db;  /* VLAN-VNI mapping database */
+    vxlan_vni_db_t *vlan_vni_db;                            /* VLAN-VNI mapping database */
+    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;   /* VLAN-VNI hashtable for O(1) lookup - atomic pointer */
+    NVEInterfaceP nve;
     mac_addr_t rmac;
     char padding[2];
 
@@ -131,6 +136,7 @@ typedef struct node_nw_prop_{
 #define NODE_RMAC(node_ptr)      (&node_ptr->node_nw_prop.rmac) 
 #define NODE_RMAC_INTF(node_ptr)    (node_ptr->node_nw_prop.rmac_interface)
 #define NODE_VLAN_FLOOD_INTF(node_ptr) (node_ptr->node_nw_prop.vlan_flood_interface)
+#define NODE_NVE_INTF(node_ptr) (node_ptr->node_nw_prop.nve)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
 

@@ -69,6 +69,7 @@
 #include "net.h"
 #include "Layer2/layer2.h"
 #include "Layer2/arp.h"
+#include "Layer2/mac_table.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer3/rt_notif.h"

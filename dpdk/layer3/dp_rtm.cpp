@@ -7,6 +7,7 @@
 #include "../../common/cp2dp.h"
 #include "../../net.h"
 #include "../../utils.h"
+#include "../../Layer2/mac_table.h"
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/ipv6/ipv6_route.h"
 #include "../../Layer3/ipv6/ipv6_hdrs.h"
