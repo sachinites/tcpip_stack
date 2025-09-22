@@ -4,6 +4,19 @@
 #include "../../../common/l4_hdrs.h"
 #include "../../../Tracer/tracer.h"
 #include <netinet/in.h>  // for htonl
+#include "../../../Interface/InterfaceUApi.h"
+#include "../../layer2.h"
+#include "../../vxlan/dp/vlan_vni_ht.h"
+
+
+extern void
+l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
+                                                    c_string src_mac, Interface *oif, uint32_t src_ip) ;
+extern void
+l2_switch_forward_frame(
+                        node_t *node,
+                        Interface *recv_intf, 
+                        pkt_block_t *pkt_block);
 
 void
 vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block) {
@@ -41,4 +54,64 @@ vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block) {
 
     tracer (node->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : VNI %u \n", pkt_block->encap_data->u.vxlan.vni);    
+}
+
+void vxlan_decapsulate_pkt (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
+{
+    pkt_size_t pkt_size;
+
+    if (NODE_NVE_INTF(node) == NULL) {
+
+        tracer (node->dptr, DTUNNEL | DFLOW | DERR,
+              "VxLAN Decapsulation : Error : NVE Interface not found, Vxlan pkt dropped\n");
+        return;
+    }
+
+     assert ( pkt_block_get_starting_hdr(pkt_block) == UDP_HDR );
+
+     udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+     assert (udp_hdr->dst_port_no == VXLAN_PROTO);
+
+     vxlan_hdr_t *vxlan_hdr = (vxlan_hdr_t *)(udp_hdr + 1);
+
+     uint32_t vni = 0;
+     uint8_t *vni_ptr = (uint8_t *)&vni;
+     vni_ptr[3] = vxlan_hdr->vni[0];
+     vni_ptr[2] = vxlan_hdr->vni[1];
+     vni_ptr[1] = vxlan_hdr->vni[2];
+
+     vni = htonl (vni);
+
+     tracer (node->dptr, DTUNNEL | DFLOW, 
+        "VxLAN Decapsulation : VNI %u \n", vni);
+
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(vxlan_hdr + 1); 
+    pkt_size -= (pkt_size_t)((char *)eth_hdr - (char *)udp_hdr);
+
+    pkt_block_set_new_pkt (pkt_block, (uint8_t *) eth_hdr, pkt_size);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+
+    vlan_id_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (node, vni);
+
+    if (!vlan_id) {
+
+        tracer (node->dptr, DTUNNEL | DFLOW | DERR,
+              "VxLAN Decapsulation : Error : VNI %u not found in vlan_vni_ht, Vxlan pkt dropped\n", vni);
+              NODE_NVE_INTF(node)->recvd_pkt_dropped++;
+
+        return;
+    }
+
+    tag_pkt_with_vlan_id  (pkt_block, vlan_id);
+
+    l2_switch_perform_mac_learning (node,  vlan_id,
+                            eth_hdr->src_mac.mac,
+                            NODE_NVE_INTF(node).get(), src_vtep_ip) ;
+
+    tracer (node->dptr, DTUNNEL | DFLOW, 
+        "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
+        
+    l2_switch_forward_frame (node, NODE_NVE_INTF(node).get(),  pkt_block);
+    NODE_NVE_INTF(node)->pkt_recv++;
 }

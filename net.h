@@ -150,6 +150,7 @@ void node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip
 void dump_nw_graph(graph_t *graph, node_t *node);
 void dump_node_nw_props(node_t *node);
 void dump_node_interface_stats(node_t *node);
+void dump_interface_stats_header();
 void dump_interface_stats(Interface *interface);
 
 

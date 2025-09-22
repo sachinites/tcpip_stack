@@ -36,6 +36,8 @@ void
 libcli_param_recursive (param_t *param);
 
 void 
+libcli_param_list(param_t *param);
+void 
 libcli_param_match_regex(param_t *param, char *reg_ex);
 
 static inline bool

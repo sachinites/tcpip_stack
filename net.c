@@ -63,7 +63,7 @@ void  node_assign_router_mac (node_t *node) ;
 extern bool mac_table_entry_add(node_t *node, mac_table_t *mac_table, 
         mac_table_entry_t *mac_table_entry);
 extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-        c_string src_mac, Interface *oif) ;
+        c_string src_mac, Interface *oif, uint32_t src_ip) ;
 void
 interface_assign_mac_address (Interface *interface){
 
@@ -250,12 +250,21 @@ is_same_subnet(c_string ip_addr,
 }
 
 void
+dump_interface_stats_header(){
+    cprintf("\n%-20s | %10s | %10s | %15s | %9s\n", 
+            "Interface Name", "PktTx", "PktRx", "Egress Dropped", "Ref Count");
+    cprintf("%-20s-+-%10s-+-%10s-+-%15s-+-%9s\n", 
+            "--------------------", "----------", "----------", "---------------", "---------");
+}
+
+void
 dump_interface_stats(Interface *interface){
 
-    cprintf("%s   ::  PktTx : %u, PktRx : %u, Pkt Egress Dropped : %u, ref_count = %u\n",
-        interface->if_name.c_str(), interface->pkt_sent,
+    cprintf("%-20s | %10u | %10u | %15u | %9u\n",
+        interface->if_name.c_str(), 
+        interface->pkt_sent,
         interface->pkt_recv,
-	    interface->xmit_pkt_dropped, 
+        interface->xmit_pkt_dropped, 
         interface->GetSharedPtr().use_count() - 1);
 }
 
@@ -264,6 +273,9 @@ dump_node_interface_stats(node_t *node){
 
     Interface *interface;
 
+    // Print table header
+    dump_interface_stats_header();
+
     ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
 
         if(!interface) continue;
@@ -271,6 +283,10 @@ dump_node_interface_stats(node_t *node){
 
     }  ITERATE_NODE_INTERFACES_END(node, interface);
     
+    dump_interface_stats(NODE_RMAC_INTF(node).get());
+    dump_interface_stats(NODE_VLAN_FLOOD_INTF(node).get());
+    if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node).get());
+
     cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }
 

@@ -251,7 +251,7 @@ layer3_ip_route_pkt(node_t *node,
                         promote_pkt_to_layer4 (
                                               node, interface,
 											  pkt_block,
-                                              UDP_HDR);
+                                              UDP_PROTO);
                     return;
 
                 case PROTO_IP_IN_IP:

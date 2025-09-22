@@ -176,7 +176,8 @@ dp_pkt_receive (node_t *node,
         return;
     }
 
-    if ((interface->GetL2Mode() != LAN_MODE_NONE)) {
+    if ((interface->GetSwitchport() &&
+             interface->GetL2Mode() != LAN_MODE_NONE)) {
 
         pkt_block->switchport_ingress_intf = interface->GetSharedPtr();
 

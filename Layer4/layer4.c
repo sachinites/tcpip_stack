@@ -35,20 +35,43 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
 #include "../tcpconst.h"
+#include "../common/l4_hdrs.h"
+#include "../common/l3_hdrs.h"
 
 extern void layer4_mem_init() ;
+extern void vxlan_decapsulate_pkt (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
+
 class Interface;
 
 /*Public APIs to be used by Lower layers of TCP/IP Stack to promote
- * the pkt to Layer 4*/
+ * the pkt to Layer 4. Starting hdr is ip hdr*/
 void
 promote_pkt_to_layer4(node_t *node,
                       Interface *recv_intf,
                       pkt_block_t *pkt_block,
                       int L4_protocol_number){ /*= TCP/UDP or what */
-
-        //cprintf ("%s() : Protocol %d. Pkt Consumed\n", __FUNCTION__, L4_protocol_number);
         
+    switch (L4_protocol_number) {
+
+        case UDP_PROTO:
+        {
+           pkt_size_t pkt_size;
+           ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+           udp_hdr_t *udp_hdr =  (udp_hdr_t *)INCREMENT_IPHDR(ip_hdr);
+
+           if (udp_hdr->dst_port_no == VXLAN_PROTO) {
+
+                pkt_size -= (pkt_size_t )((char *)udp_hdr  - (char *)ip_hdr);
+                pkt_block_set_new_pkt (pkt_block, (uint8_t *)udp_hdr, pkt_size);
+                pkt_block_set_starting_hdr_type (pkt_block , UDP_HDR);
+                vxlan_decapsulate_pkt (node, pkt_block, ip_hdr->src_ip);
+           }
+        }
+        break;
+
+        default:
+            break;
+    }
 }
 
 /* Public APIs to be used by Higher/Application layers of TCP/IP Stack to demote

@@ -1040,10 +1040,6 @@ VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
     return 0;
 }
 
-/*************************** NVE Interface  *************************/
-
-
-
 
 /* ************ GRETunnelInterface ************ */
 GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)

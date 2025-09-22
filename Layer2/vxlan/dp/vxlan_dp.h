@@ -42,5 +42,6 @@ bool delete_vni_mac_table(node_t *node, uint32_t vni_id);
 void clear_vni_mac_table_db(vni_mac_table_db_t *vni_mac_table_db);
 void dump_vni_mac_table(node_t *node, uint32_t vni_id);
 void vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block);
+void vxlan_decapsulate_pkt (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
 
 #endif /* __VXLAN_DP_H__ */

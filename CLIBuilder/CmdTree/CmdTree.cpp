@@ -814,6 +814,12 @@ cmd_tree_param_invoke_direct (param_t *param) {
 }
 
 void 
+libcli_param_list(param_t *param) {
+
+    param->flags |= PARAM_F_LIST;
+}
+
+void 
 libcli_register_display_callback (param_t *param, display_possible_values_callback cbk) {
 
     param->disp_callback = cbk;

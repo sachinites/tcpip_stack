@@ -977,6 +977,7 @@ nw_init_cli(){
                         static param_t vni;
                         init_param(&vni, CMD, "vni", 0, 0, INVALID, 0, "Show Mac Table for VNI");
                         libcli_register_param(&mac, &vni);
+                        libcli_param_list(&vni);
                         {
                             /* Value of vni */
                             static param_t vni_id;

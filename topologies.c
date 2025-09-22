@@ -731,6 +731,40 @@ build_vxlan_topo(void){
    |        |                                                |         |
    |--------|                                                |---------|
 
+
+
+
+config node R1_re route 122.1.1.2 32 30.1.1.1 eth3
+config node R2_re route 122.1.1.1 32 30.1.1.2 eth2
+
+config node R1_re interface vlan 10 ip-address 192.168.0.1 24
+config node R1_re interface vlan 10 vni 5010
+config node R1_re interface nve nve1 member l2vni 5010
+config node R1_re mac-table install 10 0c:d3:62:a1:be:1b nve1 122.1.1.2
+config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
+
+config node R2_re interface vlan 10 ip-address 192.168.0.1 24
+config node R2_re interface vlan 10 vni 5010
+config node R2_re interface nve nve1 member l2vni 5010
+config node R2_re mac-table install 10 fa:9b:e6:09:c7:c4 nve1 122.1.1.1
+config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
+
+config node R2_re debug error
+config node R2_re debug always-flush
+config node R2_re debug all
+
+config node R1_re debug error
+config node R1_re debug always-flush
+config node R1_re debug all
+
+config node H2 debug error
+config node H2 debug always-flush
+config node H2 debug all
+
+config node H1 debug error
+config node H1 debug always-flush
+config node H1 debug all
+
 #endif
 
 

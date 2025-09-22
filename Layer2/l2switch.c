@@ -54,11 +54,12 @@ promote_pkt_to_layer3(node_t *node,
                       int L3_protocol_number) ; 
 
 void
-l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_mac, Interface *oif) {
+l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
+                                                    c_string src_mac, Interface *oif, uint32_t src_ip) {
 
     int i;
-    mac_table_entry_t *mac_table_entry;
     uint16_t flags;
+    mac_table_entry_t *mac_table_entry;
 
     if (memcmp (src_mac, "\x00\x00\x00\x00\x00\x00", sizeof(mac_addr_t)) == 0){
         return;
@@ -74,14 +75,17 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_ma
 
             if (mac_table_entry->oif[i]) {
 
-                if (mac_table_entry->oif[i] == oif->GetSharedPtr()) {
+                if (mac_table_entry->oif[i] == oif->GetSharedPtr() && 
+                    mac_table_entry->remote_dst_ip[i] == src_ip ) {
                     return;
                 }
                 continue;
+                
             }
 
             /* Add new OIF in the existing entry */
             mac_table_entry->oif[i] = oif->GetSharedPtr();
+            mac_table_entry->remote_dst_ip[i] = src_ip;
             return;
         }
 
@@ -101,29 +105,40 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, c_string src_ma
     
     /* Use sync API to add MAC entry since called is in DP itself */
     mac_table_entry_add (node, NODE_MAC_TABLE(node), 
-        (uint8_t*)src_mac, vlan_id, oif->ifindex, flags, 0);
+        (uint8_t*)src_mac, vlan_id, oif->ifindex, flags, src_ip);
 }
 
 static void 
 mac_table_entry_xmit_frame (node_t *node, 
                             mac_table_entry_t *mac_entry, 
-                            pkt_block_t *pkt_block) 
+                            pkt_block_t *pkt_block, 
+                            Interface *recv_intf) 
 {
     int i = 0;
+    Interface *oif; 
+    uint32_t vni_id = 0;
+    vlan_id_t vlan_id = 0;
+    encap_meta_data_t *encap_data = NULL;
 
-    InterfaceP oif; 
+    oif = mac_entry->oif[i].get();
 
-    while ((oif = mac_entry->oif[i])) {
+    while (oif) {
         
+        if (oif == recv_intf) {
+
+            i++;
+            oif = mac_entry->oif[i].get();
+            continue;
+        }
+
         if (oif->iftype== INTF_TYPE_NVE) {
             
-            encap_meta_data_t *encap_data = 
-                (encap_meta_data_t *)XCALLOC2(0, 1, encap_meta_data_t);
-            
-            vlan_id_t vlan_id = mac_entry->vlan_id;
+            encap_data = (encap_meta_data_t *) XCALLOC2 (0, 1, encap_meta_data_t);
+
+            vlan_id = mac_entry->vlan_id;
 
             /* Get VNI id using DP hashtable*/
-            uint32_t vni_id = vlan_vni_ht_vlan_to_vni_lookup (node, vlan_id);
+            vni_id = vlan_vni_ht_vlan_to_vni_lookup (node, vlan_id);
 
             if (vni_id == 0) {
 
@@ -138,6 +153,7 @@ mac_table_entry_xmit_frame (node_t *node,
             encap_data->u.vxlan.remote_vtep_ip = mac_entry->remote_dst_ip[i];
 
             if (pkt_block->encap_data) {
+
                 XFREE(pkt_block->encap_data);
             }
 
@@ -145,10 +161,14 @@ mac_table_entry_xmit_frame (node_t *node,
         }
 
         oif->SendPacketOut(pkt_block);
+        
         i++;
-        if (i >= MAC_MAC_OIF_CNT) break;
-    }
 
+        if (i >= MAC_MAC_OIF_CNT) break;
+
+        oif = mac_entry->oif[i].get();
+
+    }
 }
 
 static void
@@ -178,7 +198,7 @@ l2_switch_flood_unknown_unicast (node_t *node,
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
             pkt_block_str (pkt_block), vlan_8021q_hdr->tci_vid);
 
-    mac_table_entry_xmit_frame (node, mac_flood_entry, pkt_block);
+    mac_table_entry_xmit_frame (node, mac_flood_entry, pkt_block, exempted_intf);
 }
 
 void
@@ -208,7 +228,7 @@ l2_switch_forward_frame(
                                       ethernet_hdr->dst_mac.mac);
 
     if (mac_table_entry) {
-        mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block);
+        mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
         mac_table_entry_cancel_expiry_timer(mac_table_entry);
         mac_table_entry_init_timer(node, mac_table_entry);
         return;
@@ -222,7 +242,7 @@ l2_switch_forward_frame(
                                         BROADCAST_MAC);
 
             if (mac_table_entry) {
-                mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block);
+                mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
                 return;
             }        
 
@@ -235,7 +255,7 @@ l2_switch_forward_frame(
                 return;
             }
        
-            mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block);
+            mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
             return;
     }
 
@@ -252,7 +272,7 @@ l2_switch_forward_frame(
                 return;
         }
 
-        mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block);
+        mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
         return;
     }
 
@@ -291,6 +311,6 @@ l2_switch_recv_frame(node_t *node,
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
         pkt_block_str (pkt_block), interface->if_name.c_str(), vlan_id);
 
-    l2_switch_perform_mac_learning(node, vlan_id, src_mac, interface);
+    l2_switch_perform_mac_learning(node, vlan_id, src_mac, interface, 0);
     l2_switch_forward_frame(node, interface, pkt_block);
 }

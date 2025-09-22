@@ -52,13 +52,14 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 static void
 event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
+	void *ptr = (void *) (ev_dis->app_data );
 	assert(IS_GLTHREAD_LIST_EMPTY(&task->glue));
 
 	EV_DIS_LOCK(ev_dis);
 
 	glthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
 		
-	if(debug) printf("Task Added to Dispatcher's Queue of priority %u\n", task->priority);
+	if(debug) printf("%p : Task Added to Dispatcher's Queue of priority %u\n", ptr, task->priority);
 	
 	ev_dis->pending_task_count++;
 
@@ -67,17 +68,17 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
 		pthread_cond_signal(&ev_dis->ev_dis_cond_wait);
 		ev_dis->signal_sent = true;
-		if(debug) printf("signal sent to dispatcher\n");
+		if(debug) printf("%p : signal sent to dispatcher\n", ptr);
 		ev_dis->signal_sent_cnt++;
 	}
 
 	if (task->app_cond_var) {
 
-		if(debug) printf("Syn Task Waiting to return\n");
+		if(debug) printf("%p : Syn Task Waiting to return\n", ptr);
 		pthread_cond_wait(task->app_cond_var,
 						  &ev_dis->ev_dis_mutex);
 		EV_DIS_UNLOCK(ev_dis);
-		if(debug) printf("Syn Task Returned\n");
+		if(debug) printf("%p : Syn Task Returned\n", ptr);
 		/* Task finished, free now */
 		free(task->app_cond_var);
 		XFREE(task);
@@ -91,7 +92,9 @@ static void
 eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 
 	pkt_q_t *pkt_q;
-
+	
+	void *ptr = (void *) (ev_dis->app_data );
+	
 	switch(task->task_type) {
 
 		case TASK_ONE_SHOT:
@@ -99,7 +102,7 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 				if(task->app_cond_var) {
 					/* We will free the task when it will be
  					 * unlocked, dont free here */
-					if(debug) printf("Dispatcher sent Signal Syn Task\n");
+					if(debug) printf("%p : Dispatcher sent Signal Syn Task\n", ptr);
 					pthread_cond_signal(task->app_cond_var);
 				}
 				else {
@@ -122,12 +125,12 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 			pthread_mutex_lock(&pkt_q->q_mutex);
 			
 			if (IS_GLTHREAD_LIST_EMPTY(&pkt_q->q_head)) {
-				if(debug) printf("Queue Exhausted, will stop until pkt enqueue..\n");
+				if(debug) printf("%p : Queue Exhausted, will stop until pkt enqueue..\n", ptr);
 				pthread_mutex_unlock(&pkt_q->q_mutex);
 				return;
 			}
 
-			if(debug) printf("more pkts in Queue, will continue..\n");
+			if(debug) printf("%p : more pkts in Queue, will continue..\n", ptr);
 
 			EV_DIS_LOCK(ev_dis);
 
@@ -166,9 +169,10 @@ event_dispatcher_thread(void *arg) {
 
 	task_t *task;
 	event_dispatcher_t *ev_dis = (event_dispatcher_t *)arg;
+	void *ptr = (void *)(ev_dis->app_data);
 
 	if (debug) {
-		printf("Dispatcher Thread started\n");
+		printf("%p : Dispatcher Thread started\n", ptr);
 	}
 
 	initscr();
@@ -182,7 +186,7 @@ event_dispatcher_thread(void *arg) {
 			ev_dis->ev_dis_state = EV_DIS_IDLE;
 			
 			if (debug) {
-				printf("No Task to run, EVE DIS %p moved to IDLE STATE\n", ev_dis);
+				printf("%p : No Task to run, EVE DIS %p moved to IDLE STATE\n", ptr, ev_dis);
 			}
 			
 			ev_dis->signal_sent = false;
@@ -193,8 +197,8 @@ event_dispatcher_thread(void *arg) {
 			ev_dis->signal_recv_cnt++;
 
 			if (debug) {
-				printf("Eve Dis recvd Signal # %u, woken up\n",
-					   ev_dis->signal_recv_cnt);
+				printf("%p : Eve Dis recvd Signal # %u, woken up\n",
+					   ptr, ev_dis->signal_recv_cnt);
 			}
 
 		} // inner while loop
@@ -207,15 +211,15 @@ event_dispatcher_thread(void *arg) {
 			ev_dis->ev_dis_state = EV_DIS_TASK_FIN_WAIT;
 
 			if (debug)
-				printf("EVE DIS moved to EV_DIS_TASK_FIN_WAIT, "
-					   "dispatching the task\n");
+				printf("%p : EVE DIS moved to EV_DIS_TASK_FIN_WAIT, "
+					   "dispatching the task\n", ptr);
 		}
 
 		EV_DIS_UNLOCK(ev_dis);
 
 		if (debug) {
 
-			printf("invoking the task\n");
+			printf("%p : invoking the task\n", ptr);
 		}
 
 		gettimeofday(&ev_dis->current_task_start_time, NULL);
@@ -224,7 +228,7 @@ event_dispatcher_thread(void *arg) {
 		ev_dis->n_task_exec++;
 
 		if (debug) {
-			printf("Job execution finished\n");
+			printf("%p : Job execution finished\n", ptr);
 		}
 
 		eve_dis_process_task_post_call(ev_dis, task);
@@ -401,6 +405,8 @@ pkt_q_enqueue (event_dispatcher_t *ev_dis,
 			  pkt_q_t *pkt_q,
 			  char *_pkt, uint32_t pkt_size){
 	
+	void *ptr = (void *)(ev_dis->app_data);
+
 	pthread_mutex_lock(&pkt_q->q_mutex);
 
 	if (pkt_q->pkt_count > PKT_Q_MAX_QUEUE_SIZE) {
@@ -425,7 +431,7 @@ pkt_q_enqueue (event_dispatcher_t *ev_dis,
 	}
 
 	EV_DIS_UNLOCK(ev_dis);
-	if (debug) printf("%s() calling event_dispatcher_schedule_task()\n",
+	if (debug) printf("%p : %s() calling event_dispatcher_schedule_task()\n", ptr, 
 			__FUNCTION__);
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);
 	pthread_mutex_unlock(&pkt_q->q_mutex);
