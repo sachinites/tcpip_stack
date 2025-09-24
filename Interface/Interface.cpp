@@ -1973,15 +1973,17 @@ int
 NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
     
     pkt_size_t pkt_size;
+    char ipv4_addr_str1[IPV4_ADDR_LEN_STR];
+    char ipv4_addr_str2[IPV4_ADDR_LEN_STR];
     
     if (!this->is_up) {
-        tracer (this->att_node->dptr, DTUNNEL | DFLOW, "NVE Interface %s is down\n", this->if_name.c_str());
+        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, "VxLAN Encapsulation : Error : NVE Interface %s is down\n", this->if_name.c_str());
         this->xmit_pkt_dropped++;
         return -1;
     }
 
     if (!pkt_block->encap_data) {
-        tracer (this->att_node->dptr, DTUNNEL | DFLOW, "Pkt Block has no encap data\n");
+        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         this->xmit_pkt_dropped++;
         return -1;
     }
@@ -1997,6 +1999,13 @@ NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
     ip_hdr->dst_ip = pkt_block->encap_data->u.vxlan.remote_vtep_ip;
     ip_hdr->protocol = UDP_PROTO;
     ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(pkt_size);
+
+    tracer (this->att_node->dptr, DTUNNEL | DFLOW, 
+        "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
+        tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, ipv4_addr_str1),
+        tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, ipv4_addr_str2),
+        ip_hdr->protocol );
+
     np_tcp_ip_send_ip_data (this->att_node, pkt_block);
     this->pkt_sent++;
     return 0;

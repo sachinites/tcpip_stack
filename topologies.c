@@ -703,14 +703,25 @@ graph_t *
 build_vxlan_topo(void){
 
 #if 0
-
-                          +----------+
-                      0/4 |          |0/0
+                          +------------+
+                          +    H3      |
+                          |            |
+                          +----+-------+
+                               |192.168.0.30
+			       |
+			       |
+			       |
+			       |eth1
+                               |v20
+                          +----+-----+
+                      eth4|          |eth0
          +----------------+   R0_re  +---------------------------+
          |     40.1.1.1/24| 122.1.1.0|20.1.1.1/24                |
          |                +----------+                           |
          |                                                       |
          |                                                       |
+	 |                                                       |
+	 |                                                       |
          |                                                       |
          |40.1.1.2/24                                            |20.1.1.2/24
          |0/5                                                    |0/1
@@ -731,39 +742,30 @@ build_vxlan_topo(void){
    |        |                                                |         |
    |--------|                                                |---------|
 
+config node R0_re route 122.1.1.1 32 40.1.1.2 eth4 
+config node R0_re route 122.1.1.2 32 20.1.1.2 eth0 
+config node R1_re route 122.1.1.0 32 40.1.1.1 eth5 
+config node R1_re route 122.1.1.2 32 30.1.1.1 eth3 
+config node R2_re route 122.1.1.0 32 20.1.1.1 eth1 
+config node R2_re route 122.1.1.1 32 30.1.1.2 eth2 
 
-
-
-config node R1_re route 122.1.1.2 32 30.1.1.1 eth3
-config node R2_re route 122.1.1.1 32 30.1.1.2 eth2
+config node R0_re interface vlan 20 ip-address 192.168.0.30 24
+config node R0_re interface vlan 20 vni 5010
+config node R0_re interface nve nve1 member l2vni 5010
+config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
+config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
 
 config node R1_re interface vlan 10 ip-address 192.168.0.1 24
 config node R1_re interface vlan 10 vni 5010
 config node R1_re interface nve nve1 member l2vni 5010
-config node R1_re mac-table install 10 0c:d3:62:a1:be:1b nve1 122.1.1.2
+config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
 config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
 
 config node R2_re interface vlan 10 ip-address 192.168.0.1 24
 config node R2_re interface vlan 10 vni 5010
 config node R2_re interface nve nve1 member l2vni 5010
-config node R2_re mac-table install 10 fa:9b:e6:09:c7:c4 nve1 122.1.1.1
+config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
 config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
-
-config node R2_re debug error
-config node R2_re debug always-flush
-config node R2_re debug all
-
-config node R1_re debug error
-config node R1_re debug always-flush
-config node R1_re debug all
-
-config node H2 debug error
-config node H2 debug always-flush
-config node H2 debug all
-
-config node H1 debug error
-config node H1 debug always-flush
-config node H1 debug all
 
 #endif
 
@@ -774,12 +776,14 @@ config node H1 debug all
     node_t *R2_re = create_graph_node(topo, (const c_string)"R2_re");
     node_t *H1 = create_graph_node(topo, (const c_string)"H1");
     node_t *H2 = create_graph_node(topo, (const c_string)"H2");
+    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
 
     insert_link_between_two_nodes(R0_re, R2_re, "eth0", "eth1", 5);
     insert_link_between_two_nodes(R2_re, R1_re, "eth2", "eth3", 4);
     insert_link_between_two_nodes(R0_re, R1_re, "eth4", "eth5", 9);
     insert_link_between_two_nodes(H1, R1_re, "eth1", "eth1", 1);
     insert_link_between_two_nodes(H2, R2_re, "eth1", "eth3", 1);
+    insert_link_between_two_nodes(H3, R0_re, "eth1", "eth1", 1);
     
     node_set_loopback_address(R0_re, "122.1.1.0");
 
@@ -798,11 +802,15 @@ config node H1 debug all
 
     node_set_intf_ip_address(H1, "eth1", "192.168.0.10", 24);
     node_set_intf_ip_address(H2, "eth1", "192.168.0.20", 24);
+    node_set_intf_ip_address(H3, "eth1", "192.168.0.30", 24);
 
     node_set_intf_switchport(R1_re, "eth1");
     node_set_intf_vlan_membership(R1_re, "eth1", 10, false);
     node_set_intf_switchport(R2_re, "eth3");
     node_set_intf_vlan_membership(R2_re, "eth3", 10, false);
+
+    node_set_intf_switchport(R0_re, "eth1");
+    node_set_intf_vlan_membership(R0_re, "eth1", 20, false);
 
     return topo;
 }

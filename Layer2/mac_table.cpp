@@ -54,6 +54,7 @@ clear_mac_table(node_t *node, mac_table_t *mac_table){
         if (mac_table_entry->flags & MAC_STATIC) continue;
         remove_glthread(curr);
         mac_table_entry_cancel_expiry_timer(mac_table_entry);
+        mac_table_entry_clear_oifs(mac_table_entry);  // Clean up dynamic OIF list
         delete (mac_table_entry);
 
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
@@ -129,29 +130,11 @@ mac_table_entry_delete (node_t *node,
         return;
     }
 
-    /* Check if the entry has the specific interface */
-    bool found_if = false;
-    for (int i = 0; i < MAC_MAC_OIF_CNT; i++) {
-        if (mac_table_entry->oif[i] && 
-            mac_table_entry->oif[i]->ifindex == ifindex && 
-                mac_table_entry->remote_dst_ip[i] == remote_dst_ip) {
-            mac_table_entry->oif[i] = nullptr;
-            mac_table_entry->remote_dst_ip[i] = 0;
-            found_if = true;
-            break;
-        }
-    }
+    /* Remove the specific interface from the entry */
+    mac_table_entry_remove_oif(mac_table_entry, ifindex, remote_dst_ip);
 
-    /* If no interfaces left or this was the only interface, remove the entry */
-    bool has_remaining_oifs = false;
-    for (int i = 0; i < MAC_MAC_OIF_CNT; i++) {
-        if (mac_table_entry->oif[i]) {
-            has_remaining_oifs = true;
-            break;
-        }
-    }
-
-    if (!has_remaining_oifs) {
+    /* If no interfaces left, remove the entire entry */
+    if (!mac_table_entry_has_oifs(mac_table_entry)) {
         remove_glthread(&mac_table_entry->mac_entry_glue);
         if (mac_table_entry->exp_timer_wt_elem) {
             mac_table_entry_cancel_expiry_timer(mac_table_entry);
@@ -167,6 +150,7 @@ mac_table_entry_delete (node_t *node,
             mac_table_entry->mac.mac[4],
             mac_table_entry->mac.mac[5] );
 
+        mac_table_entry_clear_oifs(mac_table_entry);  // Clean up dynamic OIF list
         delete mac_table_entry;
     }
 }
@@ -192,31 +176,14 @@ mac_table_entry_add (node_t *node,
     mac_table_entry_t *mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac_addr);
     
     if (mac_table_entry) {
-        /* Entry exists, check if interface is already in the entry */
-        bool found_if = false;
-        for (int i = 0; i < MAC_MAC_OIF_CNT; i++) {
-            if (mac_table_entry->oif[i] && 
-                mac_table_entry->oif[i]->ifindex == ifindex) {
-                found_if = true;
-                break;
-            }
-        }
-        
-        if (!found_if) {
-            /* Add interface to existing entry */
-            for (int i = 0; i < MAC_MAC_OIF_CNT; i++) {
-                if (!mac_table_entry->oif[i]) {
-                    mac_table_entry->oif[i] = oif->GetSharedPtr();
-                    mac_table_entry->remote_dst_ip[i] = remote_dst_ip;
-                    tracer(node->dptr, DL2SW, 
-                           "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Interface %s added to existing entry\n", 
-                           vlan_id,
-                           mac_addr[0], mac_addr[1], mac_addr[2], 
-                           mac_addr[3], mac_addr[4], mac_addr[5],
-                           oif->if_name.c_str());
-                    break;
-                }
-            }
+        /* Entry exists, try to add interface to existing entry */
+        if (mac_table_entry_add_oif(mac_table_entry, oif->GetSharedPtr(), remote_dst_ip)) {
+            tracer(node->dptr, DL2SW, 
+                   "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Interface %s added to existing entry\n", 
+                   vlan_id,
+                   mac_addr[0], mac_addr[1], mac_addr[2], 
+                   mac_addr[3], mac_addr[4], mac_addr[5],
+                   oif->if_name.c_str());
         }
         return;
     }
@@ -227,15 +194,11 @@ mac_table_entry_add (node_t *node,
     memcpy(mac_table_entry->mac.mac, mac_addr, sizeof(mac_addr_t));
     mac_table_entry->flags = flags;
     
-    /* Initialize all OIFs to nullptr and remote_dst_ip to 0 */
-    for (int i = 0; i < MAC_MAC_OIF_CNT; i++) {
-        mac_table_entry->oif[i] = nullptr;
-        mac_table_entry->remote_dst_ip[i] = 0;
-    }
+    /* Initialize dynamic OIF list */
+    init_glthread(&mac_table_entry->oif_list);
     
-    /* Set the first OIF and remote_dst_ip */
-    mac_table_entry->oif[0] = oif->GetSharedPtr();
-    mac_table_entry->remote_dst_ip[0] = remote_dst_ip;
+    /* Add the first OIF and remote_dst_ip */
+    mac_table_entry_add_oif(mac_table_entry, oif->GetSharedPtr(), remote_dst_ip);
     
     /* Initialize timer for dynamic entries */
     if (!(flags & MAC_STATIC)) {
@@ -269,23 +232,30 @@ static char *
 mac_table_entry_append_oifs (mac_table_entry_t *mac_table_entry,
                                                  char *buffer, uint16_t buff_size) 
 {
-    int i = 0;
     uint16_t len = 0;
+    glthread_t *curr;
+    mac_oif_entry_t *oif_entry;
 
-    InterfaceP oif;
+    memset (buffer, 0, buff_size);
 
-    while ((oif = mac_table_entry->oif[i])) {
-        len += snprintf(buffer + len, buff_size - len, "%s ", oif->if_name.c_str());
-        if (mac_table_entry->remote_dst_ip[i]) {
-            len += snprintf(buffer + len - 1, buff_size - len + 1, "(%d.%d.%d.%d) ",
-                            (mac_table_entry->remote_dst_ip[i] >> 24) & 0xFF,
-                            (mac_table_entry->remote_dst_ip[i] >> 16) & 0xFF,
-                            (mac_table_entry->remote_dst_ip[i] >> 8) & 0xFF,
-                            (mac_table_entry->remote_dst_ip[i]) & 0xFF);
+    ITERATE_GLTHREAD_BEGIN(&mac_table_entry->oif_list, curr) {
+        oif_entry = mac_oif_glue_to_entry(curr);
+        
+        if (!oif_entry->oif) continue;  // Skip invalid entries
+        
+        len += snprintf(buffer + len, buff_size - len, "%s", oif_entry->oif->if_name.c_str());
+        
+        if (oif_entry->remote_dst_ip) {
+            len += snprintf(buffer + len, buff_size - len, "(%d.%d.%d.%d)",
+                            (oif_entry->remote_dst_ip >> 24) & 0xFF,
+                            (oif_entry->remote_dst_ip >> 16) & 0xFF,
+                            (oif_entry->remote_dst_ip >> 8) & 0xFF,
+                            (oif_entry->remote_dst_ip) & 0xFF);
         }
-        i++;
-        if (i >= MAC_MAC_OIF_CNT) break;
-    }
+        
+        len += snprintf(buffer + len, buff_size - len, " ");  // Add space after each interface
+    } ITERATE_GLTHREAD_END(&mac_table_entry->oif_list, curr);
+    
     assert (len <= buff_size); 
     return buffer;
 }
@@ -297,7 +267,7 @@ show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id) {
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
 
-    char buffer[ (IF_NAME_SIZE + IPV4_ADDR_LEN_STR) * (MAC_MAC_OIF_CNT + 1)];
+    char buffer[1024];  // Generous buffer for dynamic interface list
 
     printw("\n\r");
 
@@ -346,4 +316,89 @@ show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id) {
         cprintf("       Ports: %s\n\n", buffer);
 
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
+}
+
+/* Dynamic OIF list management functions */
+
+mac_oif_entry_t *
+mac_oif_entry_create(InterfaceP oif, uint32_t remote_dst_ip) {
+    mac_oif_entry_t *oif_entry = new mac_oif_entry_t;
+    oif_entry->oif = oif;
+    oif_entry->remote_dst_ip = remote_dst_ip;
+    init_glthread(&oif_entry->glue);
+    return oif_entry;
+}
+
+void 
+mac_oif_entry_destroy(mac_oif_entry_t *oif_entry) {
+    if (oif_entry) {
+        remove_glthread(&oif_entry->glue);
+        delete oif_entry;
+    }
+}
+
+bool 
+mac_table_entry_add_oif(mac_table_entry_t *mac_entry, InterfaceP oif, uint32_t remote_dst_ip) {
+    if (!mac_entry || !oif) return false;
+    
+    /* Check if this interface with this remote IP already exists */
+    mac_oif_entry_t *existing = mac_table_entry_find_oif(mac_entry, oif->ifindex, remote_dst_ip);
+    if (existing) {
+        return false; /* Already exists */
+    }
+    
+    /* Create and add new OIF entry */
+    mac_oif_entry_t *oif_entry = mac_oif_entry_create(oif, remote_dst_ip);
+    glthread_add_next(&mac_entry->oif_list, &oif_entry->glue);
+    return true;
+}
+
+bool 
+mac_table_entry_remove_oif(mac_table_entry_t *mac_entry, uint32_t ifindex, uint32_t remote_dst_ip) {
+    if (!mac_entry) return false;
+    
+    mac_oif_entry_t *oif_entry = mac_table_entry_find_oif(mac_entry, ifindex, remote_dst_ip);
+    if (oif_entry) {
+        mac_oif_entry_destroy(oif_entry);
+        return true;
+    }
+    return false;
+}
+
+mac_oif_entry_t *
+mac_table_entry_find_oif(mac_table_entry_t *mac_entry, uint32_t ifindex, uint32_t remote_dst_ip) {
+    if (!mac_entry) return NULL;
+    
+    glthread_t *curr;
+    mac_oif_entry_t *oif_entry;
+    
+    ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
+        oif_entry = mac_oif_glue_to_entry(curr);
+        if (oif_entry->oif && 
+            oif_entry->oif->ifindex == ifindex && 
+            oif_entry->remote_dst_ip == remote_dst_ip) {
+            return oif_entry;
+        }
+    } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
+    
+    return NULL;
+}
+
+bool 
+mac_table_entry_has_oifs(mac_table_entry_t *mac_entry) {
+    if (!mac_entry) return false;
+    return !IS_GLTHREAD_LIST_EMPTY(&mac_entry->oif_list);
+}
+
+void 
+mac_table_entry_clear_oifs(mac_table_entry_t *mac_entry) {
+    if (!mac_entry) return;
+    
+    glthread_t *curr;
+    mac_oif_entry_t *oif_entry;
+    
+    ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
+        oif_entry = mac_oif_glue_to_entry(curr);
+        mac_oif_entry_destroy(oif_entry);
+    } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 }

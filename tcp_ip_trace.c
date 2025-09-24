@@ -188,7 +188,7 @@ tcp_dump_ip_hdr(c_string buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
 
     byte *appln_data = (byte *)INCREMENT_IPHDR(ip_hdr);
     pkt_block = pkt_block_get_new(appln_data, pkt_size - sizeof (ip_hdr_t));
-    rc += tcp_dump_application_hdr (buff, ip_hdr->protocol, pkt_block) ;
+    rc += tcp_dump_application_hdr (buff + rc, ip_hdr->protocol, pkt_block) ;
     XFREE(pkt_block);
 
     return rc;
@@ -226,7 +226,7 @@ tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr,
     return rc;
 }
 
-static int
+int
 tcp_dump_ethernet_hdr(char *buff, 
                         ethernet_hdr_t *eth_hdr, 
                         pkt_size_t pkt_size){

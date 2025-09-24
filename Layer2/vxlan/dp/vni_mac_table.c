@@ -85,23 +85,12 @@ create_vni_mac_table(node_t *node, uint32_t vni_id) {
     /* Initialize MAC table for this VNI */
     init_mac_table(&entry->mac_table);
     
-    /* Add default MAC table entry: <vlan> <Router-MAC> <rmacif> */
-    mac_table_entry_t *default_mac_entry = new mac_table_entry_t;
-    default_mac_entry->vlan_id = vni_id; /* Use VNI as VLAN ID for VXLAN */
-    
-    /* Get router MAC address */
+    /* Add default MAC table entry: <vlan> <Router-MAC> <rmacif> using proper API */
     mac_addr_t *rmac = NODE_RMAC(node);
-    memcpy(default_mac_entry->mac.mac, rmac->mac, sizeof(mac_addr_t));
-    
-    /* Set RmacInterface as the output interface */
-    default_mac_entry->oif[0] = NODE_RMAC_INTF(node);
-    default_mac_entry->flags = MAC_STATIC; /* Static entry for router MAC */
-    
-    /* Initialize the glthread for this MAC entry */
-    init_glthread(&default_mac_entry->mac_entry_glue);
-    
-    /* Add to MAC table */
-    mac_table_entry_add(node, entry->mac_table, default_mac_entry);
+    mac_table_entry_add(node, entry->mac_table, 
+                        rmac->mac, vni_id, 
+                        NODE_RMAC_INTF(node)->ifindex, 
+                        MAC_STATIC, 0);
     
     init_glthread(&entry->glue);
     glthread_add_next(&vni_mac_table_db->vni_mac_tables, &entry->glue);

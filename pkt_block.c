@@ -95,6 +95,7 @@ pkt_block_free(pkt_block_t *pkt_block) {
     tcp_ip_free_pkt_buffer(pkt_block->pkt, pkt_block->pkt_size);
     assert (!pkt_block->recommended_oif);
     assert (!pkt_block->exclude_oif);
+    assert (!pkt_block->encap_data);
     XFREE(pkt_block);
 }
 
@@ -106,6 +107,8 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
     if (pkt_block->ref_count == 0) {
         pkt_block_set_recommended_oif (pkt_block, NULL);
         pkt_block_set_exclude_oif (pkt_block, NULL);
+        if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
+        pkt_block->encap_data = NULL;
         pkt_block_free(pkt_block);
         return 0;
     }
@@ -115,6 +118,8 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
     if (pkt_block->ref_count == 0) {
         pkt_block_set_recommended_oif (pkt_block, NULL);
         pkt_block_set_exclude_oif (pkt_block, NULL);
+        if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
+        pkt_block->encap_data = NULL;        
         pkt_block_free(pkt_block);
         return 0;
     }
@@ -281,6 +286,7 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->fn_name = fn_name;    
     pkt_block2->no_modify = pkt_block->no_modify;
     pkt_block2->switchport_ingress_intf = pkt_block->switchport_ingress_intf;
+    pkt_block2->encap_data = pkt_block->encap_data;
     return pkt_block2;
 }
 

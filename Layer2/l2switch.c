@@ -71,25 +71,14 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id,
     if (mac_table_entry) {
 
         /* If existing entry is dynamic and OIF is same, then refresh the timer */
-        for (i = 0; i < MAC_MAC_OIF_CNT; i++) {
-
-            if (mac_table_entry->oif[i]) {
-
-                if (mac_table_entry->oif[i] == oif->GetSharedPtr() && 
-                    mac_table_entry->remote_dst_ip[i] == src_ip ) {
-                    return;
-                }
-                continue;
-                
-            }
-
-            /* Add new OIF in the existing entry */
-            mac_table_entry->oif[i] = oif->GetSharedPtr();
-            mac_table_entry->remote_dst_ip[i] = src_ip;
-            return;
+        mac_oif_entry_t *existing = mac_table_entry_find_oif(mac_table_entry, oif->ifindex, src_ip);
+        if (existing) {
+            return;  /* Interface already exists, nothing to do */
         }
 
-        assert(0);
+        /* Add new OIF to the existing entry */
+        mac_table_entry_add_oif(mac_table_entry, oif->GetSharedPtr(), src_ip);
+        return;
     }
 
     /* Determine MAC entry flags */
@@ -114,20 +103,21 @@ mac_table_entry_xmit_frame (node_t *node,
                             pkt_block_t *pkt_block, 
                             Interface *recv_intf) 
 {
-    int i = 0;
+    glthread_t *curr;
+    mac_oif_entry_t *oif_entry;
     Interface *oif; 
     uint32_t vni_id = 0;
     vlan_id_t vlan_id = 0;
+    pkt_block_t *pkt_block2;
     encap_meta_data_t *encap_data = NULL;
 
-    oif = mac_entry->oif[i].get();
-
-    while (oif) {
+    ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
+        oif_entry = mac_oif_glue_to_entry(curr);
+        oif = oif_entry->oif.get();
+        
+        if (!oif) continue;
         
         if (oif == recv_intf) {
-
-            i++;
-            oif = mac_entry->oif[i].get();
             continue;
         }
 
@@ -150,7 +140,7 @@ mac_table_entry_xmit_frame (node_t *node,
             }
 
             encap_data->u.vxlan.vni = vni_id;
-            encap_data->u.vxlan.remote_vtep_ip = mac_entry->remote_dst_ip[i];
+            encap_data->u.vxlan.remote_vtep_ip = oif_entry->remote_dst_ip;
 
             if (pkt_block->encap_data) {
 
@@ -160,15 +150,12 @@ mac_table_entry_xmit_frame (node_t *node,
             pkt_block->encap_data = encap_data;
         }
 
-        oif->SendPacketOut(pkt_block);
+        pkt_block2 = pkt_block_dup(pkt_block);
+        pkt_block->encap_data = NULL;
+        oif->SendPacketOut(pkt_block2);
+        pkt_block_dereference(pkt_block2);
         
-        i++;
-
-        if (i >= MAC_MAC_OIF_CNT) break;
-
-        oif = mac_entry->oif[i].get();
-
-    }
+    } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 }
 
 static void

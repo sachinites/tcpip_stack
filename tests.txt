@@ -12,3 +12,8 @@ run ut Layer3/isis/ut/isis_lan_dis_test.ut 0
 run ut Layer3/isis/ut/isis_export_rt_test.ut 0
 run ut Layer3/SegmentRouting/SRv6/srv6.ut 0
 
+#Set the topology
+Topology : build_vxlan_topo()
+run ut Layer2/vxlan/cp/vxlan.ut 0
+
+

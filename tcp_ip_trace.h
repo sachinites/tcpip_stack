@@ -44,6 +44,7 @@ typedef struct pkt_block_ pkt_block_t;
 
 typedef struct access_list_  access_list_t;
 typedef struct prefix_lst_ prefix_list_t;
+typedef struct ethernet_hdr_ ethernet_hdr_t;
 
 typedef struct log_{
 
@@ -74,6 +75,9 @@ void tcp_ip_set_all_log_info_params(log_t *log_info, bool status);
 void tcp_ip_show_log_status(node_t *node);
 void tcp_dump_l3_fwding_logger(node_t *node, c_string oif_name, c_string gw_ip);
 void tcp_init_send_logging_buffer(node_t *node);
+
+/* Packet header dump functions */
+int tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr, pkt_size_t pkt_size);
 
 #define TCP_GET_NODE_SEND_LOG_BUFFER(node)  \
     (node->node_nw_prop.send_log_buffer)

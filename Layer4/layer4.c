@@ -79,7 +79,7 @@ promote_pkt_to_layer4(node_t *node,
 void
 demote_pkt_to_layer4(node_t *node,
         char *pkt, uint32_t pkt_size,
-        int L4_protocol_number){  /*L5 (The application) need to tell L4-layer which transport layer protcol to be used - UDP or TCP or other*/
+        int L4_protocol_number) {  /*L5 (The application) need to tell L4-layer which transport layer protcol to be used - UDP or TCP or other*/
 
 }
 
