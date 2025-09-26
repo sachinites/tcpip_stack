@@ -799,6 +799,10 @@ config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
 
     node_set_intf_ip_address(R1_re, "eth3", "30.1.1.2", 24);
     node_set_intf_ip_address(R1_re, "eth5", "40.1.1.2", 24);
+    
+    node_set_loopback_address(H1, "100.0.0.1");
+    node_set_loopback_address(H2, "100.0.0.2");
+    node_set_loopback_address(H3, "100.0.0.3");
 
     node_set_intf_ip_address(H1, "eth1", "192.168.0.10", 24);
     node_set_intf_ip_address(H2, "eth1", "192.168.0.20", 24);

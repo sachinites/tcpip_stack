@@ -1698,7 +1698,7 @@ VlanInterface::VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf)
    }
    ITERATE_VLAN_MEMBER_PORTS_ACCESS_END;
 
-   pkt_block_free(dup_pkt_block);
+   pkt_block_dereference(dup_pkt_block);
 
    ITERATE_VLAN_MEMBER_PORTS_TRUNK_BEGIN(this, member_intf)
    {

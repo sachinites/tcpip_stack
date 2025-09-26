@@ -73,9 +73,6 @@ pkt_block_get_starting_hdr(pkt_block_t *pkt_block);
 void
 pkt_block_reference(pkt_block_t *pkt_block);
 
-void
-pkt_block_free(pkt_block_t *pkt_block);
-
 uint8_t *
 pkt_block_get_pkt(pkt_block_t *pkt_block, pkt_size_t *pkt_size) ;
 

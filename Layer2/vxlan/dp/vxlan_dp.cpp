@@ -56,7 +56,7 @@ vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block) {
         "VxLAN Encapsulation : VNI %u \n", pkt_block->encap_data->u.vxlan.vni);    
 }
 
-void vxlan_decapsulate_pkt (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
+void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
 {
     pkt_size_t pkt_size;
 
