@@ -818,3 +818,194 @@ config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
 
     return topo;
 }
+
+/**
+ * @brief Creates an EVPN Spine-Leaf Data Center Topology
+ * 
+ * Topology:
+ *                    Spine1 (10.0.1.1)         Spine2 (10.0.2.1)
+ *                      /  |  \                   /  |  \
+ *                     /   |   \                 /   |   \
+ *                    /    |    \               /    |    \
+ *                   /     |     \             /     |     \
+ *           Leaf1      Leaf2    Leaf3      Leaf4
+ *         (10.0.1.11) (10.0.1.12) (10.0.1.13) (10.0.1.14)
+ *            |           |          |           |
+ *          Host1       Host2      Host3       Host4
+ *         (VLAN 10)   (VLAN 10)  (VLAN 10)   (VLAN 10)
+ *                       
+ | IP Addressing Scheme:
+ | - Spine1-Leaf connections: 10.1.x.0/30 networks
+ | - Spine2-Leaf connections: 10.2.x.0/30 networks
+ * - Loopbacks: 10.0.0.x
+ * - Workload nodes: 192.168.10.x/24 in VLAN 10
+ * 
+ * @return graph_t* Pointer to the created topology
+
+ configs : 
+
+config node Spine1 protocol isis interface eth0
+config node Spine1 protocol isis interface eth1
+config node Spine1 protocol isis interface eth2
+config node Spine1 protocol isis interface eth3
+
+config node Spine2 protocol isis interface eth0
+config node Spine2 protocol isis interface eth1
+config node Spine2 protocol isis interface eth2
+config node Spine2 protocol isis interface eth3
+
+config node Leaf1 protocol isis interface eth0
+config node Leaf2 protocol isis interface eth0
+config node Leaf3 protocol isis interface eth0
+config node Leaf4 protocol isis interface eth0
+
+config node Leaf1 protocol isis interface eth1
+config node Leaf2 protocol isis interface eth1
+config node Leaf3 protocol isis interface eth1
+config node Leaf4 protocol isis interface eth1
+
+config node Leaf1 interface vlan 10 vni 5010
+config node Leaf2 interface vlan 10 vni 5010
+config node Leaf3 interface vlan 10 vni 5010
+config node Leaf4 interface vlan 10 vni 5010
+
+config node Leaf1 interface nve nve1 member l2vni 5010
+config node Leaf2 interface nve nve1 member l2vni 5010
+config node Leaf3 interface nve nve1 member l2vni 5010
+config node Leaf4 interface nve nve1 member l2vni 5010
+
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+
+ */
+graph_t *
+evpn_spine_leaf(void) {
+
+    graph_t *topo = create_new_graph("EVPN Spine-Leaf Topology");
+    
+    /* Create Spine nodes */
+    node_t *Spine1 = create_graph_node(topo, (const c_string)"Spine1");
+    node_t *Spine2 = create_graph_node(topo, (const c_string)"Spine2");
+    
+    /* Create Leaf nodes */
+    node_t *Leaf1 = create_graph_node(topo, (const c_string)"Leaf1");
+    node_t *Leaf2 = create_graph_node(topo, (const c_string)"Leaf2");
+    node_t *Leaf3 = create_graph_node(topo, (const c_string)"Leaf3");
+    node_t *Leaf4 = create_graph_node(topo, (const c_string)"Leaf4");
+    
+    /* Create Workload (Host) nodes */
+    node_t *Host1 = create_graph_node(topo, (const c_string)"Host1");
+    node_t *Host2 = create_graph_node(topo, (const c_string)"Host2");
+    node_t *Host3 = create_graph_node(topo, (const c_string)"Host3");
+    node_t *Host4 = create_graph_node(topo, (const c_string)"Host4");
+    
+    /* Set Loopback addresses */
+    node_set_loopback_address(Spine1, "10.0.0.1");
+    node_set_loopback_address(Spine2, "10.0.0.2");
+    node_set_loopback_address(Leaf1, "10.0.0.11");
+    node_set_loopback_address(Leaf2, "10.0.0.12");
+    node_set_loopback_address(Leaf3, "10.0.0.13");
+    node_set_loopback_address(Leaf4, "10.0.0.14");
+    node_set_loopback_address(Host1, "192.168.10.1");
+    node_set_loopback_address(Host2, "192.168.10.2");
+    node_set_loopback_address(Host3, "192.168.10.3");
+    node_set_loopback_address(Host4, "192.168.10.4");
+    
+    /* ========== Spine1 to Leaf Connections ========== */
+    
+    /* Spine1 <--> Leaf1 */
+    insert_link_between_two_nodes(Spine1, Leaf1, "eth0", "eth0", 1);
+    node_set_intf_ip_address(Spine1, "eth0", "10.1.1.1", 30);
+    node_set_intf_ip_address(Leaf1, "eth0", "10.1.1.2", 30);
+    
+    /* Spine1 <--> Leaf2 */
+    insert_link_between_two_nodes(Spine1, Leaf2, "eth1", "eth0", 1);
+    node_set_intf_ip_address(Spine1, "eth1", "10.1.2.1", 30);
+    node_set_intf_ip_address(Leaf2, "eth0", "10.1.2.2", 30);
+    
+    /* Spine1 <--> Leaf3 */
+    insert_link_between_two_nodes(Spine1, Leaf3, "eth2", "eth0", 1);
+    node_set_intf_ip_address(Spine1, "eth2", "10.1.3.1", 30);
+    node_set_intf_ip_address(Leaf3, "eth0", "10.1.3.2", 30);
+    
+    /* Spine1 <--> Leaf4 */
+    insert_link_between_two_nodes(Spine1, Leaf4, "eth3", "eth0", 1);
+    node_set_intf_ip_address(Spine1, "eth3", "10.1.4.1", 30);
+    node_set_intf_ip_address(Leaf4, "eth0", "10.1.4.2", 30);
+    
+    /* ========== Spine2 to Leaf Connections ========== */
+    
+    /* Spine2 <--> Leaf1 */
+    insert_link_between_two_nodes(Spine2, Leaf1, "eth0", "eth1", 1);
+    node_set_intf_ip_address(Spine2, "eth0", "10.2.1.1", 30);
+    node_set_intf_ip_address(Leaf1, "eth1", "10.2.1.2", 30);
+    
+    /* Spine2 <--> Leaf2 */
+    insert_link_between_two_nodes(Spine2, Leaf2, "eth1", "eth1", 1);
+    node_set_intf_ip_address(Spine2, "eth1", "10.2.2.1", 30);
+    node_set_intf_ip_address(Leaf2, "eth1", "10.2.2.2", 30);
+    
+    /* Spine2 <--> Leaf3 */
+    insert_link_between_two_nodes(Spine2, Leaf3, "eth2", "eth1", 1);
+    node_set_intf_ip_address(Spine2, "eth2", "10.2.3.1", 30);
+    node_set_intf_ip_address(Leaf3, "eth1", "10.2.3.2", 30);
+               
+    /* Spine2 <--> Leaf4 */
+    insert_link_between_two_nodes(Spine2, Leaf4, "eth3", "eth1", 1);
+    node_set_intf_ip_address(Spine2, "eth3", "10.2.4.1", 30);
+    node_set_intf_ip_address(Leaf4, "eth1", "10.2.4.2", 30);
+               
+    /* ========== Leaf to Workload Node Connections (VLAN 10) ========== */
+               
+    /* Leaf1 <--> Host1 */
+    insert_link_between_two_nodes(Leaf1, Host1, "eth2", "eth0", 1);
+    node_set_intf_switchport(Leaf1, "eth2");
+    node_set_intf_vlan_membership(Leaf1, "eth2", 10, false);  /* Access mode, VLAN 10 */
+    node_set_intf_ip_address(Host1, "eth0", "192.168.10.10", 24);
+               
+    /* Leaf2 <--> Host2 */
+    insert_link_between_two_nodes(Leaf2, Host2, "eth2", "eth0", 1);
+    node_set_intf_switchport(Leaf2, "eth2");
+    node_set_intf_vlan_membership(Leaf2, "eth2", 10, false);  /* Access mode, VLAN 10 */
+    node_set_intf_ip_address(Host2, "eth0", "192.168.10.20", 24);
+    
+    /* Leaf3 <--> Host3 */
+    insert_link_between_two_nodes(Leaf3, Host3, "eth2", "eth0", 1);
+    node_set_intf_switchport(Leaf3, "eth2");
+    node_set_intf_vlan_membership(Leaf3, "eth2", 10, false);  /* Access mode, VLAN 10 */
+    node_set_intf_ip_address(Host3, "eth0", "192.168.10.30", 24);
+    
+    /* Leaf4 <--> Host4 */
+    insert_link_between_two_nodes(Leaf4, Host4, "eth2", "eth0", 1);
+    node_set_intf_switchport(Leaf4, "eth2");
+    node_set_intf_vlan_membership(Leaf4, "eth2", 10, false);  /* Access mode, VLAN 10 */
+    node_set_intf_ip_address(Host4, "eth0", "192.168.10.40", 24);
+    
+    /* Configure VLAN 10 interfaces on Leafs */
+    node_set_intf_ip_address(Leaf1, "vlan10", "192.168.10.1", 24);
+    node_set_intf_ip_address(Leaf2, "vlan10", "192.168.10.1", 24);
+    node_set_intf_ip_address(Leaf3, "vlan10", "192.168.10.1", 24);
+    node_set_intf_ip_address(Leaf4, "vlan10", "192.168.10.1", 24);
+
+    /* These will be the gateway IPs for the workload nodes */
+    /* Note: In production EVPN, these would have anycast IPs, but keeping unique for now */
+    
+    return topo;
+}
