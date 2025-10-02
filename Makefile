@@ -62,6 +62,8 @@ OBJS=gluethread/glthread.o \
 		  Layer3/ipv6/ipv6_utils.o \
 		  Layer3/ipv6/v6nexthop.o \
 		  Layer3/ipv6/ipv6_fwd.o \
+		  Layer3/mpls_fwd.o \
+		  Layer3/mpls_cli.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
@@ -228,6 +230,12 @@ dpdk/layer3/dp_rtm.o:dpdk/layer3/dp_rtm.cpp
 
 Layer3/rt_notif.o:Layer3/rt_notif.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o
+
+Layer3/mpls_fwd.o:Layer3/mpls_fwd.cpp
+	${CC} ${CFLAGS} -c -I . Layer3/mpls_fwd.cpp -o Layer3/mpls_fwd.o
+
+Layer3/mpls_cli.o:Layer3/mpls_cli.cpp
+	${CC} ${CFLAGS} -c -I . Layer3/mpls_cli.cpp -o Layer3/mpls_cli.o
 
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o

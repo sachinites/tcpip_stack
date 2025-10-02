@@ -52,4 +52,10 @@ lfa_show_cli_tree(param_t *param);
 int
 lfa_config_cli_tree(param_t *param) ;
 
+int
+mpls_build_config_cli_tree(param_t *param);
+
+int
+mpls_build_show_cli_tree(param_t *param);
+
 #endif /* __APP_HANDLERS__ */

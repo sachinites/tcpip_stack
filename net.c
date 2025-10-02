@@ -54,6 +54,7 @@ extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(node_t *node, rt_table_t **rt_table);
 extern void init_rtv6_table(node_t *node, rt_table_t **rt_table);
+extern void mpls_rt_table_init (node_t *node, mpls_rt_table_t **mpls_rt_table) ;
 extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
 extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 extern void init_tcp_logging(node_t *);
@@ -302,6 +303,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
     init_rt_table(node, &(node_nw_prop->rt_table));
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
+    mpls_rt_table_init (node, &(node_nw_prop->mpls_rt_table));
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);

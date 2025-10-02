@@ -994,6 +994,10 @@ nw_init_cli(){
                     libcli_register_param(&node_name, &rt);
                     libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
+                 {
+                    /* Mount MPLS show CLI here */
+                    mpls_build_show_cli_tree(&node_name);
+                 }
 
                  {
                     /*show node <node-name> rt6*/
@@ -1186,6 +1190,9 @@ nw_init_cli(){
 
             /* Mount ipv6 CLIs*/
             ipv6_build_cli_tree (&node_name);
+            
+            /* Mount MPLS Config CLIs*/
+            mpls_build_config_cli_tree (&node_name);
         }
 
         {

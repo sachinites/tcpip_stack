@@ -641,7 +641,8 @@ cmdtc_collect_all_matching_params (cmd_tree_cursor_t *cmdtc, unsigned char c, bo
 
     if (IS_GLTHREAD_LIST_EMPTY (&cmdtc->matching_params_list)) {
 
-        /* Iterarate over all firect children of cmdtc->curr_param, and append them tp list which matches c at cmdtc->icursor*/
+        /* Iterarate over all direct children of cmdtc->curr_param, and append them to 
+            list which matches c at cmdtc->icursor*/
         for (i = CHILDREN_START_INDEX; i <= CHILDREN_END_INDEX; i++) {
 
             child_param = cmdtc->curr_param->options[i];

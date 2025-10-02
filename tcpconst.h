@@ -50,6 +50,7 @@ typedef enum{
     GRE_HDR,
     SRH_HDR,
     VXLAN_HDR,
+    MPLS_HDR,
     MISC_APP_HDR
 } hdr_type_t;
 
@@ -74,6 +75,7 @@ typedef uint16_t pkt_size_t;
 #define USERAPP1        21
 #define VLAN_8021Q_PROTO    0x8100
 #define VXLAN_PROTO     4789
+#define MPLS_PROTO 0x8847
 #define PROTO_IP_IN_IP        4
 #define PROTO_IP6_IN_IP6    41
 #define NMP_HELLO_MSG_CODE	13 /*Randomly chosen*/
@@ -95,7 +97,8 @@ typedef uint16_t pkt_size_t;
 /* Protocol IDs*/
 #define PROTO_STATIC 101
 #define PROTO_ISIS       0x83
-#define PROTO_ISIS_SRv6 0x84  // not standard
+#define PROTO_LDP        0xFF
+#define PROTO_ISIS_SRv6  0x84  // not standard
 #define PROTO_SRv6 115
 #define PROTO_ANY       (0xFFFF - 1)
 
@@ -141,6 +144,8 @@ proto_name_str (uint16_t proto) {
             return (unsigned char *)"srh";
         case VXLAN_PROTO:
             return (unsigned char *)"vxlan";
+        case MPLS_PROTO:
+            return (unsigned char *)"mpls";
         default:
             return NULL;
     }
@@ -203,6 +208,8 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
         return GRE_PROTO;
     case VXLAN_HDR:
         return VXLAN_PROTO;
+    case MPLS_HDR:
+        return MPLS_PROTO;
     default:;
     }
     return 0;

@@ -60,6 +60,7 @@ typedef struct node_ node_t;
 typedef struct arp_table_ arp_table_t;
 typedef struct mac_table_ mac_table_t;
 typedef struct rt_table_ rt_table_t;
+typedef struct mpls_rt_table_ mpls_rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
 typedef struct stp_node_ stp_node_info_t;
 typedef struct srv6_node_info_ srv6_node_info_t ;
@@ -86,6 +87,7 @@ typedef struct node_nw_prop_{
 
     rt_table_t *rt_table;
     rt_table_t *ipv6_rt_table;
+    mpls_rt_table_t *mpls_rt_table;
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;
@@ -112,6 +114,7 @@ typedef struct node_nw_prop_{
     FILE *log_file;
     /*Device level Appln DS*/
     void *isis_node_info;
+    void *ldp_node_info;
     /* LFA module*/
     lfa_t *lfa;
     /* Device level SRV6 info */
@@ -128,6 +131,7 @@ typedef struct node_nw_prop_{
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
 #define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
+#define NODE_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.mpls_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)

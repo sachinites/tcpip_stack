@@ -154,4 +154,10 @@
 /* config node <node-name> mac install vlan <vlan-id> <mac-address> remote-vtep <ip-address> */
 #define CMDCODE_CONFIG_MAC_INSTALL 62
 
+/* config node <node-name> route <in-label> gateway <gateway-ip> interface <if-name> label-stack <list of labels> */
+#define CMDCODE_CONFIG_MPLS_ROUTE 63
+
+/* show node <node-name> mpls-table */
+#define CMDCODE_SHOW_MPLS_TABLE 64
+
 #endif /* __CMDCODES__ */

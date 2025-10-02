@@ -10,6 +10,8 @@ typedef struct mac_table_entry_ mac_table_entry_t;
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../Layer3/SegmentRouting/SRv6/dp/srv6-endpoint.h"
+#include "../Layer3/mpls_enums.h"
+#include "../Layer3/mpls_fwd.h"
 
 #define CP2DP_MSG_SIZE_MAX  512
 
@@ -51,12 +53,23 @@ typedef struct mac_update_msg_ {
     char padding[2];
 } mac_update_msg_t;
 
+/* MPLS route update msg to MPLS_TABLE*/
+typedef struct mpls_route_update_msg_ {
+    label_val_t in_label;     /* Encoded label value */
+    uint32_t ifindex;
+    uint32_t gw_ip;
+    uint8_t label_stack_count;
+    char padding[3];
+    label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
+} mpls_route_update_msg_t;
+
 typedef enum DP_COMPONENT_TYPE_ {
 
     RT_TABLE_IPV4,
     RT_TABLE_IPV6,
     MAC_TABLE,
-    PKT_BLOCK
+    PKT_BLOCK,
+    MPLS_TABLE
 
 } DP_COMPONENT_TYPE_T;
 

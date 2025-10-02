@@ -11,6 +11,8 @@
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
+#include "../Layer3/mpls_fwd.h"
+#include "../Layer3/rt_table/nexthop.h"
 
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
@@ -98,6 +100,103 @@ np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
     cp2dp_msg_free(dp_msg);
 }
 
+static void
+dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+    
+    mpls_route_update_msg_t *mpls_update_msg;
+    nexthop_t *nexthop;
+    lstack_t *lstack;
+    Interface *oif;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+
+    assert(dp_msg->component_type == MPLS_TABLE);
+    
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+            mpls_update_msg = (mpls_route_update_msg_t *)dp_msg->data;
+            
+            /* Get the interface */
+            oif = node_get_intf_by_ifindex(node, mpls_update_msg->ifindex);
+            if (!oif) {
+                tracer (node->dptr, DMPLS | DERR, 
+                       "MPLS RIB : Interface with index %d not found\n", 
+                       mpls_update_msg->ifindex);
+                cp2dp_msg_free(dp_msg);
+                return;
+            }
+            
+            /* Create nexthop */
+            nexthop = nh_create_new_nexthop(
+                (c_string)node->node_name,
+                mpls_update_msg->ifindex,
+                tcp_ip_covert_ip_n_to_p (mpls_update_msg->gw_ip, (c_string)ip_addr_str),
+                PROTO_STATIC);
+            
+            if (!nexthop) {
+                tracer (node->dptr, DMPLS | DERR, 
+                       "MPLS RIB : Failed to create nexthop\n");
+                cp2dp_msg_free(dp_msg);
+                return;
+            }
+            
+            nexthop->oif = oif->GetSharedPtr();
+            
+            /* Create and populate label stack if labels are provided */
+            if (mpls_update_msg->label_stack_count > 0) {
+                lstack = (lstack_t *)XCALLOC2(0, 1, lstack_t);
+                lstack->curr_index = 0;
+                
+                for (int i = 0; i < mpls_update_msg->label_stack_count && i < MAX_LBL_DEPTH; i++) {
+                    /* Copy the encoded label value directly */
+                    lstack->labels[i].label_val = mpls_update_msg->label_stack[i].label_val;
+                    lstack->labels[i].op = mpls_update_msg->label_stack[i].op;
+                }
+                
+                nexthop->lbls = lstack;
+            }
+            
+            /* Install the MPLS route */
+             if (!mpls_install_route(node, mpls_update_msg->in_label, nexthop)){
+                 nexthop_dereference(nexthop);
+                 tracer (node->dptr, DMPLS | DERR, 
+                    "MPLS RIB : Route installation Failed - in_label=%d, gw=%s, oif=%s\n",
+                    get_label_value(mpls_update_msg->in_label), 
+                    ip_addr_str,
+                    oif->if_name.c_str());
+                 cp2dp_msg_free(dp_msg);
+                 return;
+             }
+            
+            tracer (node->dptr, DMPLS, 
+                   "MPLS RIB : Route installed Successfully - in_label=%d, gw=%s, oif=%s\n",
+                   get_label_value(mpls_update_msg->in_label), 
+                   ip_addr_str,
+                   oif->if_name.c_str());
+            
+            break;
+            
+        case DP_DEL:
+            /* TODO: Implement MPLS route deletion */
+            tracer (node->dptr, DMPLS | DERR, 
+                   "MPLS RIB : Route deletion not yet implemented\n");
+            break;
+            
+        case DP_UPDATE:
+            /* TODO: Implement MPLS route update if needed */
+            break;
+            
+        case DP_READ:
+            /* TODO: Implement MPLS table reads if needed */
+            break;
+            
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
 
 static void 
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
@@ -122,6 +221,9 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
             break;
         case PKT_BLOCK:
             np_recv_cp_pkt_block (node, dp_msg);
+            break;
+        case MPLS_TABLE:
+            dp_mpls_table_process_msg (node, dp_msg);
             break;
         default:
             break;
@@ -492,4 +594,39 @@ cp2dp_mac_table_entry_del (node_t *node,
     mac_update_msg->flags = 0; // Not needed for delete
     
     cp2dp_submit(node, dp_msg, async);
+}
+
+/* Wrapper fn to install MPLS route Asynchronously */
+void
+cp2dp_mpls_route_install (node_t *node,
+                         label_val_t in_label,
+                         c_string gw_ip,
+                         uint32_t ifindex,
+                         label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                         uint8_t label_stack_count) {
+    
+    dp_msg_t *dp_msg;
+    mpls_route_update_msg_t *mpls_update_msg;
+    
+    dp_msg = cp2dp_msg_alloc ();
+    dp_msg->component_type = MPLS_TABLE;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mpls_route_update_msg_t);
+    mpls_update_msg = (mpls_route_update_msg_t *)dp_msg->data;
+    
+    mpls_update_msg->in_label = in_label;
+    mpls_update_msg->ifindex = ifindex;
+    mpls_update_msg->gw_ip = tcp_ip_convert_ip_p_to_n (gw_ip);
+    mpls_update_msg->label_stack_count = label_stack_count;
+    
+    /* Copy label stack - labels are already encoded using set_label_value() */
+    if (label_stack && label_stack_count > 0) {
+        for (int i = 0; i < label_stack_count && i < MAX_LBL_DEPTH; i++) {
+            mpls_update_msg->label_stack[i].label_val = (*label_stack)[i];
+            mpls_update_msg->label_stack[i].op = LBL_PUSH;
+        }
+    }
+    
+    cp2dp_submit(node, dp_msg, true);
 }
