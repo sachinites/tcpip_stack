@@ -589,8 +589,8 @@ access_group_config_handler(int cmdcode,
 static int
 acl_direction_validation(Stack_t *, unsigned char *leaf_value) {
 
-    if ((string_compare(leaf_value, "in" , 2) == 0 && strlen(leaf_value) == 2) || 
-         (string_compare(leaf_value, "out" , 3) == 0 && strlen(leaf_value) == 3))
+    if ((string_compare(leaf_value, "in" , 2) == 0 && strlen((const char *)leaf_value) == 2) || 
+         (string_compare(leaf_value, "out" , 3) == 0 && strlen((const char *)leaf_value) == 3))
         return LEAF_VALIDATION_SUCCESS;
     return LEAF_VALIDATION_FAILED;
 }

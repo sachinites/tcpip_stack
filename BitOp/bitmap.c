@@ -60,8 +60,8 @@ bitmap_unset_bit_at(bitmap_t *bitmap, uint16_t index) {
 }
 
 void 
-bitmap_set(bitmap_t *bitmap, uint16_t start_offset, 
-                            uint16_t end_offset, bool set) {
+bitmap_set(bitmap_t *bitmap __attribute__((unused)), uint16_t start_offset __attribute__((unused)), 
+                            uint16_t end_offset __attribute__((unused)), bool set __attribute__((unused))) {
     
 }
 
@@ -124,7 +124,7 @@ bitmap_slow_copy(bitmap_t *src,
                       uint16_t count) {
 
     bool bit;
-    uint16_t index;
+    uint16_t index __attribute__((unused));
     ITERATE_BITMAP_BEGIN(src,  src_start_offset, index, bit) {
 
         if (bit) {
@@ -243,7 +243,7 @@ bitmap_slow_compare(bitmap_t *src,
                       uint16_t dst_start_offset,
                       uint16_t count) {
 
-    uint16_t index;
+    uint16_t index __attribute__((unused));
     bool bit;
 
     ITERATE_BITMAP_BEGIN(src, src_start_offset, index, bit) {
@@ -332,7 +332,7 @@ bitmap_effective_bit_at(bitmap_t *prefix, bitmap_t *mask, uint16_t pos) {
 void
 bitmap_print(bitmap_t *bitmap) {
 
-    uint16_t index;
+    uint16_t index __attribute__((unused));
     bool bit;
 
     ITERATE_BITMAP_BEGIN(bitmap, 0, index, bit) {
@@ -352,7 +352,7 @@ void
 bitmap_prefix_print(bitmap_t *prefix, bitmap_t *mask, uint16_t count) {
 
     bit_type_t bit;
-    uint16_t index;
+    uint16_t index __attribute__((unused));
 
     ITERATE_MASKED_BITMAP_BEGIN(prefix, mask, count, index, bit) {
 

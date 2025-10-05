@@ -5,7 +5,7 @@
 #include "isis_const.h"
 
 /* Buffer passed shuld be minimum 32B*/
-const c_string
+c_string
 isis_lan_id_tostring (isis_lan_id_t *lan_id, const c_string buffer) {
 
     unsigned char ip_addr_str[IPV4_ADDR_LEN_STR];
@@ -27,7 +27,7 @@ isis_lan_id_compare (isis_lan_id_t *lan_id1,
      return CMP_PREF_EQUAL;
 }
 
-const c_string
+c_string
 isis_lsp_id_tostring (isis_lsp_id_t *lsp_id, const c_string buffer) {
 
     unsigned char ip_addr_str[IPV4_ADDR_LEN_STR];
@@ -48,7 +48,7 @@ isis_lsp_id_compare (isis_lsp_id_t *lsp_id1,
     return CMP_PREF_EQUAL;
 }
 
-const c_string
+c_string
 isis_system_id_tostring (isis_system_id_t *sys_id, const c_string buffer) {
 
     unsigned char ip_addr_str[IPV4_ADDR_LEN_STR];

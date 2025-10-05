@@ -39,7 +39,7 @@ typedef enum ISIS_LVL_ {
 } ISIS_LVL;
 #pragma pack(pop)
 
-static bool
+static bool __attribute__((unused))
 isis_is_lan_id_null (isis_lan_id_t lan_id) {
 
     return (!lan_id.pn_id && !lan_id.rtr_id);

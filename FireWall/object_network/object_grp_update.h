@@ -41,7 +41,7 @@ typedef enum og_update_acl_stage_
     og_update_fsm_access_list_stage_cleanup,
 } og_update_acl_stage_t;
 
-static const char *
+static const char * __attribute__((unused))
 og_update_acl_stage_to_string(og_update_acl_stage_t stage) {
 
     switch(stage) {

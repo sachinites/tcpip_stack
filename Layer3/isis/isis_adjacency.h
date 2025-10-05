@@ -14,7 +14,7 @@ typedef enum isis_adj_state_ {
     ISIS_ADJ_STATE_UP
 } isis_adj_state_t;
 
-static inline char *
+static inline const char *
 isis_adj_state_str(isis_adj_state_t adj_state) {
 
     switch(adj_state){

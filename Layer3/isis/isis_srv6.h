@@ -57,7 +57,7 @@ typedef struct isis_srv6_config_ {
 
 } __attribute__((aligned(8))) isis_srv6_config_t;
 
-#define ISIS_SRV6_LOC(node_ptr) \   
+#define ISIS_SRV6_LOC(node_ptr) \
     (&(ISIS_NODE_INFO(node_ptr)->srv6_config->loc))
 
 void

@@ -36,7 +36,7 @@ get_label_value(label_val_t label) {
     return (label >> 12) & 0xFFFFF;
 }
 
-static void 
+static void __attribute__((unused))
 set_label_value (label_val_t *label, uint32_t value) {
 
     *label = 0;
@@ -62,7 +62,7 @@ clear_stack_bottom(label_val_t *label) {
     *label &= ~(1 << 8);
 }
 
-static bool 
+static bool __attribute__((unused))
 label_stack_compare (lstack_t *label_stk1, lstack_t *label_stk2) {
 
     if (!label_stk1 && !label_stk2) return true;

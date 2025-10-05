@@ -97,10 +97,10 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
     dest_ip_str[15] = '\0';
     uint32_t intf_addr ;
 
-    tcp_ip_covert_ip_n_to_p(dst_ip, dest_ip_str);
+    tcp_ip_covert_ip_n_to_p(dst_ip, (char *)dest_ip_str);
 
     /*checking with node's loopback address*/
-    if(string_compare(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
+    if(string_compare((const char *)NODE_LO_ADDR(node), (const char *)dest_ip_str, 16) == 0)
         return true;
 
     /*checking with interface IP Addresses*/
@@ -155,7 +155,7 @@ layer3_ip_route_pkt(node_t *node,
 					           pkt_block_t *pkt_block) {
 
     int8_t nf_result;
-    char *l4_hdr, *l5_hdr;
+    char *l4_hdr, * __attribute__((unused)) l5_hdr;
     char dest_ip_addr[IPV4_ADDR_LEN_STR];
     ip_hdr_t *ip_hdr = NULL;
     uint32_t next_hop_ip= 0;
@@ -281,12 +281,12 @@ layer3_ip_route_pkt(node_t *node,
 
                     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
 
-                    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, gre_t_src_addr);
-                    tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, gre_t_dst_addr);
+                    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, (char *)gre_t_src_addr);
+                    tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, (char *)gre_t_dst_addr);
 
                     tracer (node->dptr, DL3FWD, 
                            "Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
-                           dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
+                           (const char *)dest_ip_addr, (const char *)gre_t_src_addr, (const char *)gre_t_dst_addr);
 
                     gre_decapsulate (node, pkt_block, 
                         gre_lookup_tunnel_intf (node, 
@@ -345,15 +345,15 @@ layer3_ip_route_pkt(node_t *node,
             char ip_addr_str[IPV4_ADDR_LEN_STR];
             ip_hdr->src_ip = IF_IP(nexthop->oif.get());
             tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", 
-                pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
+                (const char *)pkt_block_str (pkt_block), (const char *)tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
         }
 
-        tracer (node->dptr, DL3FWD, "Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", pkt_block_str (pkt_block));
+        tracer (node->dptr, DL3FWD, "Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", (const char *)pkt_block_str (pkt_block));
 
         demote_pkt_to_layer2 (
                 node,           /*Current processing node*/
                 ip_hdr->dst_ip,     /*next hop IP is dest itself as dest is present in local subnet*/
-                nexthop->oif->if_name.c_str(),           /*No oif as dest is present in local subnet*/
+                (const char *)nexthop->oif->if_name.c_str(),           /*No oif as dest is present in local subnet*/
                 pkt_block,  /*Network Layer payload and size*/
                 IP_HDR);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 
@@ -399,7 +399,7 @@ layer3_ip_route_pkt(node_t *node,
     next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
    
     tcp_dump_l3_fwding_logger(node, 
-        nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+        (const char *)nexthop->oif->if_name.c_str(), nexthop->gw_ip);
 
     nf_result = nf_invoke_netfilter_hook(
                     NF_IP_POST_ROUTING,
@@ -420,7 +420,7 @@ layer3_ip_route_pkt(node_t *node,
 
     demote_pkt_to_layer2(node, 
             next_hop_ip,
-            nexthop->oif->if_name.c_str(),
+            (const char *)nexthop->oif->if_name.c_str(),
             pkt_block,
             IP_HDR); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
@@ -773,7 +773,7 @@ demote_packet_to_layer3 (node_t *node,
                                            hdr_type_t protocol_number, /*L4 or L5 protocol type*/
                                            uint32_t dest_ip_address){
 
-    byte *pkt;
+    byte * __attribute__((unused)) pkt;
     ip_hdr_t iphdr;
     byte dst_ip_addr_str[IPV4_ADDR_LEN_STR];
     pkt_size_t pkt_size;
@@ -879,7 +879,7 @@ demote_packet_to_layer3 (node_t *node,
     next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
 
     tcp_dump_l3_fwding_logger(node,
-                                                    nexthop->oif->if_name.c_str(), 
+                                                    (const char *)nexthop->oif->if_name.c_str(), 
                                                     nexthop->gw_ip);
 
     int8_t nf_result = nf_invoke_netfilter_hook(
@@ -900,7 +900,7 @@ demote_packet_to_layer3 (node_t *node,
     tracer (node->dptr, DL3FWD, "Dest : %s :  Pkt is being demoted to L2 Layer\n", dst_ip_addr_str);
     demote_pkt_to_layer2(node,
             next_hop_ip,
-            nexthop->oif->if_name.c_str(),
+            (const char *)nexthop->oif->if_name.c_str(),
             pkt_block,
             IP_HDR);
 
@@ -954,7 +954,7 @@ l3_route_get_new_route () {
     return l3route;
 }
 
-static void
+void
 l3_route_free (l3_route_t *l3_route){
 
     /* Assume the route has already been removed from main routing table */
@@ -1008,9 +1008,9 @@ np_tcp_ip_send_ip_data (node_t *node, pkt_block_t *pkt_block) {
 }
 
 extern int 
-ip_traffic_generate_handler(int cmdcode,
+ip_traffic_generate_handler(int __attribute__((unused)) cmdcode,
     Stack_t *tlv_stack,
-    op_mode enable_or_disable) {
+    op_mode __attribute__((unused)) enable_or_disable) {
 
     int i;
     uint32_t count = 1;
@@ -1018,7 +1018,7 @@ ip_traffic_generate_handler(int cmdcode,
     uint32_t addr_int;
     node_t *node = NULL;
     tlv_struct_t *tlv = NULL;
-    char *src_addr_str = NULL;
+    char * __attribute__((unused)) src_addr_str = NULL;
     char *dst_addr_str = NULL;
     c_string node_name = NULL;
 
@@ -1027,21 +1027,21 @@ ip_traffic_generate_handler(int cmdcode,
         if  (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "src-addr"))
-            src_addr_str = tlv->value;
+            src_addr_str = (char *)tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "dst-addr"))
-            dst_addr_str = tlv->value;
+            dst_addr_str = (char *)tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "count"))
-            count = atoi(tlv->value);
+            count = atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "protocol"))
-            protocol = atoi(tlv->value);
+            protocol = atoi((const char *)tlv->value);
 
    } TLV_LOOP_END;
    
    node = node_get_node_by_name(topo, node_name);
 
-   addr_int = tcp_ip_convert_ip_p_to_n(dst_addr_str );
+   addr_int = tcp_ip_convert_ip_p_to_n((const char *)dst_addr_str );
 
-   for (i = 0; i < count ; i ++) {
+   for (i = 0; i < (int)count ; i ++) {
         cp2dp_send_ip_data (node, NULL, addr_int, protocol);
     }
     

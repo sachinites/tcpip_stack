@@ -72,7 +72,7 @@ typedef enum pkt_tracer_subtype_ {
 }pkt_tracer_subtype_t;
 
 static inline const unsigned char *
-pkt_tracer_subtype_to_str(pkt_tracer_subtype_t subtype) {
+pkt_tracer_subtype_to_str(pkt_tracer_subtype_t subtype __attribute__((unused))) {
 
     return NULL;
 }

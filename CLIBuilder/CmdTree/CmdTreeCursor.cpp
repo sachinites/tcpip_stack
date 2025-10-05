@@ -938,7 +938,7 @@ cmdt_cursor_process_space (cmd_tree_cursor_t *cmdtc) {
     return cmdt_cursor_no_match_further;
 }
 
-static bool 
+static bool __attribute__((unused))
 cmdtc_cursor_is_double_qoute_open (cmd_tree_cursor_t *cmdtc) {
 
     return (cmdtc->dqoute_open_cnt > cmdtc->dqoute_closed_cnt);
@@ -1552,7 +1552,7 @@ task_invoke_appln_cbk_handler (int cmdcode,
 #endif 
 
 
-static void *
+static void * __attribute__((unused))
 cmd_trigger_cli_repeat (void *arg) {
 
     cmd_tree_cursor_t *cmdtc;

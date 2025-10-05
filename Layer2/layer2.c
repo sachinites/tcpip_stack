@@ -175,7 +175,7 @@ l2_forward_ip_packet(node_t *node,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
     if (ethernet_hdr->type != ETH_IP) {
 
-        oif = node_get_intf_by_name(node, outgoing_intf);
+        oif = node_get_intf_by_name(node, (const char *)outgoing_intf);
 
         if (!oif) {
             cprintf ("Error : Failed to get OIF for ipv4 forwarding\n");
@@ -195,7 +195,7 @@ l2_forward_ip_packet(node_t *node,
 
         /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
          * out of this interface*/
-        oif = node_get_intf_by_name(node, outgoing_intf);
+        oif = node_get_intf_by_name(node, (const char *)outgoing_intf);
         assert(oif);
 
         arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
@@ -633,7 +633,7 @@ is_arp_pkt_for_svi_interface (node_t *node,
     arp_hdr_t *arp_hdr;
     uint32_t svi_ip_addr;
     vlan_id_t vlan_id = 0;
-    char ip_addr_str[IPV4_ADDR_LEN_STR];
+    char ip_addr_str[IPV4_ADDR_LEN_STR] __attribute__((unused));
     ethernet_hdr_t *ethernet_hdr = NULL;
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
 
@@ -669,7 +669,7 @@ bool
 svi_interface_intercept_arp_pkt (node_t *node, 
                                 pkt_block_t *pkt_block) {
 
-    uint16_t l3_proto;
+    uint16_t __attribute__((unused)) l3_proto;
     pkt_size_t pkt_size;
     
     vlan_ethernet_hdr_t *vlan_eth_hdr;
@@ -773,14 +773,14 @@ svi_interface_intercept_arp_pkt (node_t *node,
 
     tracer(node->dptr, DARP, 
         "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
-           tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, ip_addr_str),
+           (const char *)tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, ip_addr_str),
            arp_hdr_reply->dst_mac.mac[0],
            arp_hdr_reply->dst_mac.mac[1],
            arp_hdr_reply->dst_mac.mac[2],
            arp_hdr_reply->dst_mac.mac[3],
            arp_hdr_reply->dst_mac.mac[4],
            arp_hdr_reply->dst_mac.mac[5],
-           interface->if_name.c_str());
+           (const char *)interface->if_name.c_str());
 
     interface->SendPacketOut(pkt_block2);
     pkt_block_dereference(pkt_block2);

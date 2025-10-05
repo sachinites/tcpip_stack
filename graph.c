@@ -47,6 +47,7 @@
 #include "Layer3/ipv6/ipv6_utils.h"
 #include "Layer3/ipv6/ipv6_route.h"
 #include "common/cp2dp.h"
+#include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
 void
@@ -54,7 +55,7 @@ insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
         const char *from_if_name,
         const char *to_if_name,
-        unsigned int cost){
+        unsigned int __attribute__((unused)) cost){
 
     linkage_t *link = new linkage_t;
     link->Intf1 = std::make_shared<PhysicalInterface>(from_if_name, INTF_TYPE_PHY, nullptr);
@@ -90,7 +91,7 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
      ipv6_route_install  (node1,
                         &v6_addr, 128, 
-                        0, 0, 0, 0, 0, 0, PROTO_STATIC);
+                        0, 0, 0, 0, 0, 0, SRV6_END_FN_NONE);
 
     
     mac_addr = link->Intf2->GetMacAddr();
@@ -98,7 +99,7 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
     ipv6_route_install  (node2,
                         &v6_addr, 128, 
-                        0, 0, 0, 0, 0, 0,PROTO_STATIC);
+                        0, 0, 0, 0, 0, 0, SRV6_END_FN_NONE);
 
     //intf_init_bit_rate_sampling_timer(&link->intf1);
 
@@ -148,13 +149,13 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp.txt", node->node_name);
-    node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  0 );
+    node->cptr = tracer_init ((const char *)node_name, file_name, (const char *)node->node_name, STDOUT_FILENO,  0 );
     tracer_enable_file_logging (node->cptr, true);
 
     /* Initialize Data Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-dp.txt", node->node_name);
-    node->dptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_dp_bits_to_str );
+    node->dptr = tracer_init ((const char *)node_name, file_name, (const char *)node->node_name, STDOUT_FILENO, debug_dp_bits_to_str );
     tracer_enable_file_logging (node->dptr, true);
 
     init_node_nw_prop(node, &node->node_nw_prop);
@@ -177,7 +178,7 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* initialize ACL/NAT/OBJECT-G Tracer*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp-acl.txt", node->node_name);
-    node->acl_cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  0 );
+    node->acl_cptr = tracer_init ((const char *)node_name, file_name, (const char *)node->node_name, STDOUT_FILENO,  0 );
     tracer_enable_file_logging (node->acl_cptr, true);
 
     /* initialize SQL Table Catalog*/

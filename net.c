@@ -49,6 +49,7 @@
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
+#include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
@@ -77,7 +78,7 @@ interface_assign_mac_address (Interface *interface){
 void 
 node_assign_router_mac (node_t *node) {
 
-    mac_table_entry_t *mac_table_entry = NULL;
+    mac_table_entry_t *mac_table_entry __attribute__((unused)) = NULL;
 
     tcp_ip_generate_random_mac_address (
             &node->node_nw_prop.rmac.mac);
@@ -111,7 +112,7 @@ bool node_set_loopback_address(node_t *node, const char *ip_addr){
 
     /*Add it as direct route in routing table*/
     rt_ipv4_route_add (node, 
-                                    tcp_ip_convert_ip_p_to_n(ip_addr), 32, 
+                                    tcp_ip_convert_ip_p_to_n((c_string)ip_addr), 32, 
                                     0, 0, 0, PROTO_STATIC, true);        
     return true;
 }
@@ -126,7 +127,7 @@ node_set_v6_loopback_address(node_t *node, const char *ipv6_addr ){
     ipv6_addr_t prefix;
     memcpy (prefix.addr, node->node_nw_prop.ipv6_addr, 16);
     ipv6_route_install (node, &prefix, 128, 0, 
-        0, 0, 0, 0, 0, PROTO_STATIC);
+        0, 0, 0, 0, 0, SRV6_END_FN_NONE);
 }
 
 
@@ -136,7 +137,7 @@ node_set_intf_ip_address(node_t *node, const char *local_if,
 
     Interface *intf = node_get_intf_by_name(node, local_if);
     interface_set_ip_addr(node, intf, 
-                                    ip_addr, mask);
+                                    (c_string)ip_addr, mask);
 }
 
 void dump_node_nw_props(node_t *node){
@@ -147,14 +148,14 @@ void dump_node_nw_props(node_t *node){
 
     cprintf("\nNode Name = %s(%s) UDP Port # : %u  ",
         node->node_name, 
-        tcp_ip_covert_ip_n_to_p(NODE_LO_ADDR(node),  buffer),
+        tcp_ip_covert_ip_n_to_p(NODE_LO_ADDR_INT(node),  buffer),
         node->udp_port_number);
 
     if (!is_ipv6_addr_unspecified (&node->node_nw_prop.ipv6_addr)) {
         
         ipv6_addr_t temp_v6_addr;
         memcpy (&temp_v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
-        cprintf ("  v6lo addr : %s/128", inet_ntop6 (&temp_v6_addr, buffer));
+        cprintf ("  v6lo addr : %s/128", (const char *)inet_ntop6 (&temp_v6_addr, (char *)buffer));
     }
 
     cprintf("\n");
@@ -214,7 +215,7 @@ node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
 
     Interface *intf;
     uint32_t ip_addr_int;
-    uint8_t mask;
+    uint8_t mask __attribute__((unused));
 
     ip_addr_int =  tcp_ip_convert_ip_p_to_n (ip_addr);
 

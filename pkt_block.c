@@ -53,7 +53,7 @@ pkt_block_get_new2(uint8_t *pkt, pkt_size_t pkt_size, const char *fn_name, uint1
     pkt_block->pkt_size = pkt_size;
     pkt_block->ref_count = 1;
     pkt_block->lineno = lineno;
-    pkt_block->fn_name = fn_name;
+    pkt_block->fn_name = (char *)fn_name;
     return pkt_block;
 }
 
@@ -66,7 +66,7 @@ pkt_block_get_new_pkt_buffer2(pkt_size_t pkt_size, const char *fn_name, uint16_t
     pkt_block->pkt_size = pkt_size;
     pkt_block->ref_count = 1;
     pkt_block->lineno = lineno;
-    pkt_block->fn_name = fn_name;
+    pkt_block->fn_name = (char *)fn_name;
     return pkt_block;
 }
 
@@ -147,7 +147,7 @@ pkt_block_get_ethernet_hdr(pkt_block_t *pkt_block) {
 ip_hdr_t *
 pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
 
-    ip_hdr_t *ip_hdr;
+    ip_hdr_t * __attribute__((unused)) ip_hdr;
     ethernet_hdr_t *eth_hdr;
 
      if (pkt_block->hdr_type == ETH_HDR) {
@@ -182,7 +182,7 @@ pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
 ipv6_hdr_t *
 pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) {
 
-    ipv6_hdr_t *ipv6_hdr;
+    ipv6_hdr_t * __attribute__((unused)) ipv6_hdr;
     ethernet_hdr_t *eth_hdr;
 
      if (pkt_block->hdr_type == ETH_HDR) {
@@ -286,7 +286,7 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->hdr_type = pkt_block->hdr_type;
     pkt_block2->ref_count = 1;
     pkt_block2->lineno = lineno;
-    pkt_block2->fn_name = fn_name;    
+    pkt_block2->fn_name = (char *)fn_name;    
     pkt_block2->no_modify = pkt_block->no_modify;
     pkt_block2->switchport_ingress_intf = pkt_block->switchport_ingress_intf;
     pkt_block2->encap_data = pkt_block->encap_data;
@@ -325,9 +325,9 @@ pkt_block_verify_pkt (pkt_block_t *pkt_block, hdr_type_t hdr_type) {
 }
 
 void 
-pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto) {
+pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, unsigned char proto) {
 
-            switch (proto) {
+            switch ((uint16_t)proto) {
                 case UDP_PROTO:
                     /* Push the payload to UDP module */
                     pkt_block_set_starting_hdr_type(pkt_block, UDP_HDR);
@@ -398,7 +398,7 @@ print_pkt_block(pkt_block_t *pkt_block) {
 }
 
 void 
-pkt_block_debug(pkt_block_t *pkt_block) {
+pkt_block_debug(pkt_block_t * __attribute__((unused)) pkt_block) {
     
 }
 
@@ -436,7 +436,7 @@ char *
 pkt_ip (pkt_block_t *pkt_block, char *buffer) {
 
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
-    memset (buffer, 0, sizeof (buffer));
+    memset (buffer, 0, IPV4_ADDR_LEN_STR);
     tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, buffer);
     return buffer;
 } 
@@ -521,7 +521,7 @@ pkt_block_str (pkt_block_t *pkt_block) {
                 {
                     pkt_block_expand_buffer_left (pkt_block, 7 + 4 + 17 + 1);
                     uint8_t *buffer = pkt_block_get_pkt(pkt_block, NULL);
-                    strncpy (buffer, "GRE-EN:", 7);
+                    strncpy ((char *)buffer, "GRE-EN:", 7);
                     pkt_block_set_new_pkt(pkt_block, (uint8_t *)(gre_hdr + 1), old_pkt_size - sizeof(gre_hdr_t));
                     pkt_block_set_new_pkt(pkt_block, old_pkt, old_pkt_size);
                     pkt_mac_str (pkt_block, (char *)buffer + 7);
@@ -531,7 +531,7 @@ pkt_block_str (pkt_block_t *pkt_block) {
                 {
                     pkt_block_expand_buffer_left (pkt_block, 7 + 3 + 16 + 1);
                     uint8_t *buffer = pkt_block_get_pkt(pkt_block, NULL);
-                    strncpy (buffer, "GRE-EN:", 7);
+                    strncpy ((char *)buffer, "GRE-EN:", 7);
                     pkt_block_set_new_pkt(pkt_block, (uint8_t *)(gre_hdr + 1), old_pkt_size - sizeof(gre_hdr_t));                    
                     pkt_block_set_new_pkt(pkt_block, old_pkt, old_pkt_size);
                     pkt_ip_str (pkt_block, (char *)buffer + 7);

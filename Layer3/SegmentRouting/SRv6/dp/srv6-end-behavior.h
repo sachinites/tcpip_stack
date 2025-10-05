@@ -11,7 +11,7 @@ srv6_shift_and_forward(node_t *node,
                                     pkt_block_t *pkt_block);
 
 #define fn_template(fn_name)    \
-    void fn_name (node_t *node, pkt_block_t *pkt_block, ipv6_hdr_t *ipv6_hdr, srh_hdr_t *srh, v6nexthop_t *nexthop)
+    void fn_name (node_t *node __attribute__((unused)), pkt_block_t *pkt_block __attribute__((unused)), ipv6_hdr_t *ipv6_hdr __attribute__((unused)), srh_hdr_t *srh __attribute__((unused)), v6nexthop_t *nexthop __attribute__((unused)))
 
 fn_template(srv6_END);
 

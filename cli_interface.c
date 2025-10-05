@@ -37,9 +37,9 @@ parser_config_commit(void *node, Stack_t  *tlv_stack, op_mode enable_or_disable)
 }
 
 static void
-task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
+task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size __attribute__((unused))){
 
-    tlv_struct_t *tlv;
+    tlv_struct_t *tlv __attribute__((unused));
 
     unified_cli_data_t *unified_cli_data =
         (unified_cli_data_t *)arg;

@@ -426,7 +426,7 @@ isis_print_lsp_pkt(byte *buff,
     return rc;
 }
 
-const c_string 
+c_string 
 isis_pkt_type_str (isis_pkt_type_t pkt_type) {
 
     switch (pkt_type) {

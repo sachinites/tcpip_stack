@@ -19,7 +19,7 @@ typedef enum {
     OBJ_NW_TYPE_NONE
 } obj_nw_type_t;
 
-static char*
+static char* __attribute__((unused))
 obj_nw_type_str (obj_nw_type_t type) {
 
     switch (type) {

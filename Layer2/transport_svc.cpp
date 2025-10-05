@@ -61,7 +61,7 @@ bool
 TransportService::AttachInterface(Interface *intf) {
 
     PhysicalInterface *phy_intf = dynamic_cast<PhysicalInterface *> (intf);
-    VirtualPort *vport = dynamic_cast<VirtualPort *> (intf);
+    VirtualPort * __attribute__((unused)) vport = dynamic_cast<VirtualPort *> (intf);
 
     if  (!intf->GetSwitchport() ) {
         cprintf ("\nError : Interface %s is not L2 interface", intf->if_name.c_str());
@@ -396,7 +396,7 @@ transport_svc_intf_config_handler (int cmdcode,
 
 
 void
-config_interface_build_transport_svc_cli_tree (param_t *node_name_param, param_t *param) {
+config_interface_build_transport_svc_cli_tree (param_t *node_name_param __attribute__((unused)), param_t *param) {
 
     {
         /* transport-service-profile <ransport-service-profile-name>*/
@@ -415,9 +415,9 @@ config_interface_build_transport_svc_cli_tree (param_t *node_name_param, param_t
 }
 
 static int
-transport_svc_show_handler (int cmdcode, 
+transport_svc_show_handler (int cmdcode __attribute__((unused)), 
                                                   Stack_t *tlv_stack,
-                                                  op_mode enable_or_disable) {
+                                                  op_mode __attribute__((unused)) enable_or_disable) {
 
     node_t *node;
     tlv_struct_t *tlv;
@@ -463,9 +463,9 @@ transport_svc_show_handler (int cmdcode,
 
 
 static int
-show_vlan_members (int cmdcode, 
+show_vlan_members (int __attribute__((unused)) cmdcode, 
                                     Stack_t *tlv_stack,
-                                    op_mode enable_or_disable) {
+                                    op_mode __attribute__((unused)) enable_or_disable) {
 
     uint16_t i;
     node_t *node;
@@ -505,7 +505,7 @@ show_vlan_members (int cmdcode,
             ITERATE_VLAN_MEMBER_PORTS_ACCESS_BEGIN(vlan_intf, member_intf) {
 
                 cprintf("  %s (Access) \n", member_intf->if_name.c_str());
-                PhysicalInterface *phy_intf = dynamic_cast<PhysicalInterface *>(member_intf);
+                PhysicalInterface * __attribute__((unused)) phy_intf = dynamic_cast<PhysicalInterface *>(member_intf);
 
             } ITERATE_VLAN_MEMBER_PORTS_ACCESS_END;
 
@@ -525,9 +525,9 @@ show_vlan_members (int cmdcode,
 }
 
 static int
-show_vlan_db_handler(int cmdcode, 
+show_vlan_db_handler(int __attribute__((unused)) cmdcode, 
                      Stack_t *tlv_stack,
-                     op_mode enable_or_disable) {
+                     op_mode __attribute__((unused)) enable_or_disable) {
 
     uint16_t i;
     node_t *node;

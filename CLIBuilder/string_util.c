@@ -75,8 +75,8 @@ char** tokenizer(unsigned char* _a_str, const char a_delim, int *token_cnt){
     int i = 0;
     char delim[2];
     memset(a_str, 0, MAX_COMMAND_LENGTH);
-    strncpy((char *)a_str, _a_str, strlen(_a_str));
-    a_str[strlen(_a_str)] = '\0';
+    strncpy((char *)a_str, (const char *)_a_str, strlen((const char *)_a_str));
+    a_str[strlen((const char *)_a_str)] = '\0';
 
     string_space_trim(a_str);
 

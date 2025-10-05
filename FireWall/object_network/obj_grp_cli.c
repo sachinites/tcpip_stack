@@ -87,7 +87,7 @@ object_group_config_handler (int cmdcode,
                 case CONFIG_DISABLE:
                     /* CLI : [no] object-group network <og-name> */ 
                     {
-                        if (network_object_lookup_by_name(node->object_network_ght, objgrp_name))
+                        if (network_object_lookup_by_name(node->object_network_ght, (const char *)objgrp_name))
                         {
                             cprintf("Error : Attempt to perform operation on Network Object\n");
                             return -1;

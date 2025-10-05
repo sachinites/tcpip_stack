@@ -102,7 +102,7 @@ typedef uint16_t pkt_size_t;
 #define PROTO_SRv6 115
 #define PROTO_ANY       (0xFFFF - 1)
 
-static const char *BROADCAST_MAC = "\xff\xff\xff\xff\xff\xff";
+static const char *BROADCAST_MAC __attribute__((unused)) = "\xff\xff\xff\xff\xff\xff";
 
 static inline unsigned char *
 proto_name_str (uint16_t proto) {

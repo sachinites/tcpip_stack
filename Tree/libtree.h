@@ -162,7 +162,7 @@ struct avltree {
 	uint64_t reserved[4];
 	int height;
 	char padding[4];
-};
+} __attribute__((aligned(8))) ;
 typedef struct avltree avltree_t;
 
 struct avltree_node *avltree_first(const struct avltree *tree);

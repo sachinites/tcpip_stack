@@ -18,9 +18,9 @@ gre_tunnel_config_handler (int cmdcode,
 
     node_t *node = NULL;
     uint32_t gre_tun_id = 0;
-    uint32_t ip_addr_lcl;
+    uint32_t __attribute__((unused)) ip_addr_lcl;
     c_string node_name = NULL;
-    Interface *gre_tunnel = NULL;
+    Interface * __attribute__((unused)) gre_tunnel = NULL;
     tlv_struct_t *tlv;
     c_string src_addr = NULL;
     c_string dst_addr = NULL;

@@ -232,7 +232,7 @@ validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
     return LEAF_VALIDATION_FAILED;
 }
 
-static int
+static int __attribute__((unused))
 validate_l2_mode_value(Stack_t *tlv_stack, c_string l2_mode_value){
         return LEAF_VALIDATION_SUCCESS;
     return LEAF_VALIDATION_FAILED;

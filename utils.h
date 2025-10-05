@@ -146,7 +146,7 @@ range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
                                                                 int *n);
 
 #define string_compare(a, b, len) (strncmp((const char *)a, (const char *)b, len))
-#define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len))
+#define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len), (char *)dst)
 bool  mac_address_compare ( char *mac1, char *mac2);
 
 #define HRS_MIN_SEC_FMT_TIME_LEN    16

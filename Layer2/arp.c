@@ -143,14 +143,14 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
 
     tracer(node->dptr, DARP, "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
-            tcp_ip_covert_ip_n_to_p (arp_hdr_reply->dst_ip, ip_addr_str), 
+            (const char *)tcp_ip_covert_ip_n_to_p (arp_hdr_reply->dst_ip, ip_addr_str), 
             arp_hdr_reply->dst_mac.mac[0],
             arp_hdr_reply->dst_mac.mac[1],
             arp_hdr_reply->dst_mac.mac[2],
             arp_hdr_reply->dst_mac.mac[3],
             arp_hdr_reply->dst_mac.mac[4],
             arp_hdr_reply->dst_mac.mac[5],
-            oif->if_name.c_str());
+            (const char *)oif->if_name.c_str());
 
     oif->SendPacketOut(pkt_block);
     pkt_block_dereference(pkt_block);
@@ -387,7 +387,7 @@ arp_table_entry_add(node_t *node,
 }
 
 static void 
-pending_arp_processing_callback_function(node_t *node,
+pending_arp_processing_callback_function(node_t * __attribute__((unused)) node,
                                          Interface *oif,
                                          arp_entry_t *arp_entry,
                                          arp_pending_entry_t *arp_pending_entry){
@@ -425,7 +425,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
                                                         arp_hdr_t *arp_hdr, 
                                                         Interface *iif) {
 
-    uint32_t src_ip = 0;
+    uint32_t __attribute__((unused)) src_ip = 0;
     node_t *node = iif->att_node;
     glthread_t *arp_pending_list = NULL;
 

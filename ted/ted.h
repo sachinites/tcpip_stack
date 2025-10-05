@@ -97,7 +97,7 @@ ted_link_get_other_interface (ted_intf_t *intf) {
     return &link->intf1;
 }
 
-static ted_node_t *
+static ted_node_t * __attribute__((unused))
 ted_get_nbr_node(ted_intf_t *intf) {
 
     ted_intf_t *other_intf = ted_link_get_other_interface(intf);

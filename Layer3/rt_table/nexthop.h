@@ -58,10 +58,10 @@ nh_union_nexthops_arrays(nexthop_t **src, nexthop_t **dst);
 c_string
 nh_nexthops_str(nexthop_t **nexthops,  c_string buffer,  uint16_t buffer_size);
 
-static void
+static void __attribute__((unused))
 nexthop_reference (nexthop_t *nexthop) {nexthop->ref_count++;}
 
-static void
+static void __attribute__((unused))
 nexthop_dereference (nexthop_t *nexthop) {
     
     if (nexthop->ref_count == 0) {
@@ -83,7 +83,7 @@ nexthop_dereference (nexthop_t *nexthop) {
 /* Implement Label stack operations on nexthop */
 
 /* Add a label to nexthop's label stack */
-void static
+static void __attribute__((unused))
 nh_push_label(nexthop_t *nh, label_t label) {
 
     if (!nh->lbls) {
@@ -102,7 +102,7 @@ nh_push_label(nexthop_t *nh, label_t label) {
 }
 
 /* Remove and return top label from nexthop's label stack */
-static label_t
+static label_t __attribute__((unused))
 nh_pop_label(nexthop_t *nh) {
 
     label_t ret = {0 , LBL_STACK_OPS_UNKNOWN};
@@ -122,7 +122,7 @@ nh_pop_label(nexthop_t *nh) {
     return label;
 }
 
-static void
+static void __attribute__((unused))
 nh_swap_label(nexthop_t *nh, label_t label) {
 
     if (!nh->lbls) {
@@ -137,7 +137,7 @@ nh_swap_label(nexthop_t *nh, label_t label) {
 }
 
 /* Get top label without removing it */
-static label_t
+static label_t __attribute__((unused))
 nh_peek_label(nexthop_t *nh) {
 
     label_t ret = {0 , LBL_STACK_OPS_UNKNOWN};
@@ -150,7 +150,7 @@ nh_peek_label(nexthop_t *nh) {
 }
 
 /* Remove all labels from nexthop's label stack */
-static void
+static void __attribute__((unused))
 nh_clear_labels(nexthop_t *nh) {
 
     if (nh->lbls) {
@@ -160,7 +160,7 @@ nh_clear_labels(nexthop_t *nh) {
 }
 
 /* Get number of labels in nexthop's label stack */
-static uint8_t
+static uint8_t __attribute__((unused))
 nh_label_count(nexthop_t *nh) {
 
     if (!nh->lbls) {

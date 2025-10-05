@@ -58,6 +58,8 @@ lbl_next_next_hop_proto ( labelled_nxthop_proto_id_t proto_id ) {
             return lbl_proto_nxthop_ldp;
         case lbl_proto_nxthop_ldp:
             return lbl_proto_nxthop_max;
+        case lbl_proto_nxthop_max:
+            return lbl_proto_nxthop_max;
     }
 
     return lbl_proto_nxthop_max;
@@ -85,7 +87,7 @@ labelled_rt_map_proto_id_to_nxthop_index(uint16_t proto_id) {
          nh_proto = lbl_next_next_hop_proto(nh_proto))
 
 
-static const char * 
+static const char * __attribute__((unused))
 labelled_nxthop_proto_id_tostring (labelled_nxthop_proto_id_t proto_id) {
 
     switch (proto_id) {

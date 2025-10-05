@@ -100,7 +100,7 @@ mm_get_available_page_index(vm_page_family_t *vm_page_family){
     return prev;
 }
 
-static vm_page_t *
+static vm_page_t * __attribute__((unused))
 mm_sbrk_get_available_page_from_heap_segment(int units){
 
     vm_page_t *vm_page_curr = NULL;
@@ -195,7 +195,7 @@ mm_init_new_instance() {
     return next_mm_instance;
 }
 
-static void
+static void __attribute__((unused))
 mm_sbrk_free_vm_page(vm_page_t *vm_page, int units){
 
     /* If this VM page is the top-most page of Heap Memory
@@ -830,8 +830,8 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  unsigned char *struct_name){
     ITERATE_PAGE_FAMILIES_BEGIN(vm_page_for_families_global, vm_page_family_curr){
 
         if(struct_name){
-            if(strncmp(struct_name, vm_page_family_curr->struct_name, 
-                strlen(vm_page_family_curr->struct_name))){
+            if(strncmp((const char *)struct_name, (const char *)vm_page_family_curr->struct_name, 
+                strlen((const char *)vm_page_family_curr->struct_name))){
                 continue;
             }
         }
@@ -871,8 +871,8 @@ mm_print_memory_usage(mm_instance_t *mm_inst,  unsigned char *struct_name){
         if (struct_name)
         {
 
-            if (strncmp(struct_name, vm_page_family_curr->struct_name,
-                        strlen(vm_page_family_curr->struct_name)))
+            if (strncmp((const char *)struct_name, (const char *)vm_page_family_curr->struct_name,
+                        strlen((const char *)vm_page_family_curr->struct_name)))
             {
                 continue;
             }

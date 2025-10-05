@@ -50,7 +50,7 @@ typedef enum leaf_type_{
     LEAF_TYPE_MAX
 } leaf_type_t;
 
-static const char *
+static const char * __attribute__((unused))
 get_str_leaf_type(leaf_type_t leaf_type)
 {
 

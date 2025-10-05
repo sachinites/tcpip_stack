@@ -52,10 +52,10 @@ graph_t *vlan_extension_topo(void);
 graph_t *standalone_node_topology(void) {
 
     graph_t *topo = create_new_graph("Stand-Alone Topo");
-    node_t *R0 = create_graph_node(topo, (const c_string)"R0");
+    node_t *R0 = create_graph_node(topo, (c_string)"R0");
     node_set_loopback_address(R0, "122.1.1.1");
     return topo;
-    node_t *R1 = create_graph_node(topo, (const c_string)"R1");
+    node_t *R1 = create_graph_node(topo, (c_string)"R1");
     node_set_loopback_address(R1, "122.1.1.2");
     insert_link_between_two_nodes(R0, R1, "eth0", "eth0", 10);
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
@@ -88,9 +88,9 @@ build_first_topo(void){
 
 
     graph_t *topo = create_new_graph("Hello World Generic Graph");
-    node_t *R0_re = create_graph_node(topo, (const c_string)"R0_re");
-    node_t *R1_re = create_graph_node(topo, (const c_string)"R1_re");
-    node_t *R2_re = create_graph_node(topo, (const c_string)"R2_re");
+    node_t *R0_re = create_graph_node(topo, (c_string)"R0_re");
+    node_t *R1_re = create_graph_node(topo, (c_string)"R1_re");
+    node_t *R2_re = create_graph_node(topo, (c_string)"R2_re");
 
     insert_link_between_two_nodes(R0_re, R1_re, "eth0", "eth1", 5);
     insert_link_between_two_nodes(R1_re, R2_re, "eth2", "eth3", 4);
@@ -173,11 +173,11 @@ run node H1 ping 13.1.1.2
 
 
     graph_t *topo = create_new_graph("Inter Vlan Routing Topology");
-    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
-    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
-    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
-    node_t *H4 = create_graph_node(topo, (const c_string)"H4");
-    node_t *L3SW = create_graph_node(topo, (const c_string)"L3SW");
+    node_t *H1 = create_graph_node(topo, (c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (c_string)"H2");
+    node_t *H3 = create_graph_node(topo, (c_string)"H3");
+    node_t *H4 = create_graph_node(topo, (c_string)"H4");
+    node_t *L3SW = create_graph_node(topo, (c_string)"L3SW");
 
     insert_link_between_two_nodes(H1, L3SW, "eth5", "eth4", 1);
     insert_link_between_two_nodes(H2, L3SW, "eth8", "eth3", 1);
@@ -244,11 +244,11 @@ build_simple_l2_switch_topo(void){
 
 
     graph_t *topo = create_new_graph("Simple L2 Switch Demo graph");
-    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
-    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
-    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
-    node_t *H4 = create_graph_node(topo, (const c_string)"H4");
-    node_t *L2SW = create_graph_node(topo, (const c_string)"L2SW");
+    node_t *H1 = create_graph_node(topo, (c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (c_string)"H2");
+    node_t *H3 = create_graph_node(topo, (c_string)"H3");
+    node_t *H4 = create_graph_node(topo, (c_string)"H4");
+    node_t *L2SW = create_graph_node(topo, (c_string)"L2SW");
 
     insert_link_between_two_nodes(H1, L2SW, "eth5", "eth4", 1);
     insert_link_between_two_nodes(H2, L2SW, "eth8", "eth3", 1);
@@ -320,10 +320,10 @@ run node R1 ping 122.1.1.3
 #endif
 
     graph_t *topo = create_new_graph("square Topo");
-    node_t *R1 = create_graph_node(topo, (const c_string)"R1");
-    node_t *R2 = create_graph_node(topo, (const c_string)"R2");
-    node_t *R3 = create_graph_node(topo, (const c_string)"R3");
-    node_t *R4 = create_graph_node(topo, (const c_string)"R4");
+    node_t *R1 = create_graph_node(topo, (c_string)"R1");
+    node_t *R2 = create_graph_node(topo, (c_string)"R2");
+    node_t *R3 = create_graph_node(topo, (c_string)"R3");
+    node_t *R4 = create_graph_node(topo, (c_string)"R4");
 
     insert_link_between_two_nodes(R1, R2, "eth0", "eth1", 1);
     insert_link_between_two_nodes(R2, R3, "eth2", "eth3", 1);
@@ -359,10 +359,10 @@ graph_t *
 build_linear_topo(void){
 
     graph_t *topo = create_new_graph("Linear Topo");
-    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
-    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
-    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
-    node_t *H4 = create_graph_node(topo, (const c_string)"H4");
+    node_t *H1 = create_graph_node(topo, (c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (c_string)"H2");
+    node_t *H3 = create_graph_node(topo, (c_string)"H3");
+    node_t *H4 = create_graph_node(topo, (c_string)"H4");
     
     insert_link_between_two_nodes(H1, H2, "eth1", "eth1", 1);
     insert_link_between_two_nodes(H2, H3, "eth2", "eth1", 1);
@@ -423,21 +423,21 @@ build_dualswitch_topo(void){
 #endif
 
     graph_t *topo = create_new_graph("Dual Switch Topo");
-    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
+    node_t *H1 = create_graph_node(topo, (c_string)"H1");
     node_set_loopback_address(H1, "122.1.1.1");
-    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
+    node_t *H2 = create_graph_node(topo, (c_string)"H2");
     node_set_loopback_address(H2, "122.1.1.2");
-    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
+    node_t *H3 = create_graph_node(topo, (c_string)"H3");
     node_set_loopback_address(H3, "122.1.1.3");
-    node_t *H4 = create_graph_node(topo, (const c_string)"H4");
+    node_t *H4 = create_graph_node(topo, (c_string)"H4");
     node_set_loopback_address(H4, "122.1.1.4");
-    node_t *H5 = create_graph_node(topo, (const c_string)"H5");
+    node_t *H5 = create_graph_node(topo, (c_string)"H5");
     node_set_loopback_address(H5, "122.1.1.5");
-    node_t *H6 = create_graph_node(topo, (const c_string)"H6");
+    node_t *H6 = create_graph_node(topo, (c_string)"H6");
     node_set_loopback_address(H6, "122.1.1.6");
 
-    node_t *L2SW1 = create_graph_node(topo, (const c_string)"L2SW1");
-    node_t *L2SW2 = create_graph_node(topo, (const c_string)"L2SW2");
+    node_t *L2SW1 = create_graph_node(topo, (c_string)"L2SW1");
+    node_t *L2SW2 = create_graph_node(topo, (c_string)"L2SW2");
     
     insert_link_between_two_nodes(H1, L2SW1, "eth1", "eth2", 1);
     insert_link_between_two_nodes(H2, L2SW1, "eth3", "eth7", 1);
@@ -500,8 +500,8 @@ parallel_links_topology(void){
 */
     graph_t *topo = create_new_graph("Parallel Links Topology"); 
 
-    node_t *R0 = create_graph_node(topo, (const c_string)"R0");
-    node_t *R1 = create_graph_node(topo, (const c_string)"R1");
+    node_t *R0 = create_graph_node(topo, (c_string)"R0");
+    node_t *R1 = create_graph_node(topo, (c_string)"R1");
 
     insert_link_between_two_nodes(R0, R1, "eth0", "eth5", INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R0, R1, "eth1", "eth6", INTF_METRIC_DEFAULT);
@@ -560,12 +560,12 @@ cross_link_topology(void){
 */
     graph_t *topo = create_new_graph("Cross Links Topology"); 
 
-    node_t *R0 = create_graph_node(topo, (const c_string)"R0");
-    node_t *R1 = create_graph_node(topo, (const c_string)"R1");
-    node_t *R2 = create_graph_node(topo, (const c_string)"R2");
-    node_t *R3 = create_graph_node(topo, (const c_string)"R3");
-    node_t *R4 = create_graph_node(topo, (const c_string)"R4");
-    node_t *R5 = create_graph_node(topo, (const c_string)"R5");
+    node_t *R0 = create_graph_node(topo, (c_string)"R0");
+    node_t *R1 = create_graph_node(topo, (c_string)"R1");
+    node_t *R2 = create_graph_node(topo, (c_string)"R2");
+    node_t *R3 = create_graph_node(topo, (c_string)"R3");
+    node_t *R4 = create_graph_node(topo, (c_string)"R4");
+    node_t *R5 = create_graph_node(topo, (c_string)"R5");
 
     insert_link_between_two_nodes(R0, R1, "eth0",  "eth1",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R0, R5, "eth14", "eth15", INTF_METRIC_DEFAULT);
@@ -669,10 +669,10 @@ vlan_extension_topo(void) {
 
     graph_t *topo = create_new_graph("Vlan Extension Over GRE Topo"); 
 
-    node_t *R1 = create_graph_node(topo, (const c_string)"R1");
-    node_t *R2 = create_graph_node(topo, (const c_string)"R2");
-    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
-    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
+    node_t *R1 = create_graph_node(topo, (c_string)"R1");
+    node_t *R2 = create_graph_node(topo, (c_string)"R2");
+    node_t *H1 = create_graph_node(topo, (c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (c_string)"H2");
 
     insert_link_between_two_nodes(R1, R2, "eth1",  "eth1",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R1, H1, "eth0",  "eth0",  INTF_METRIC_DEFAULT);
@@ -771,12 +771,12 @@ config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
 
 
     graph_t *topo = create_new_graph("Hello World Generic Graph");
-    node_t *R0_re = create_graph_node(topo, (const c_string)"R0_re");
-    node_t *R1_re = create_graph_node(topo, (const c_string)"R1_re");
-    node_t *R2_re = create_graph_node(topo, (const c_string)"R2_re");
-    node_t *H1 = create_graph_node(topo, (const c_string)"H1");
-    node_t *H2 = create_graph_node(topo, (const c_string)"H2");
-    node_t *H3 = create_graph_node(topo, (const c_string)"H3");
+    node_t *R0_re = create_graph_node(topo, (c_string)"R0_re");
+    node_t *R1_re = create_graph_node(topo, (c_string)"R1_re");
+    node_t *R2_re = create_graph_node(topo, (c_string)"R2_re");
+    node_t *H1 = create_graph_node(topo, (c_string)"H1");
+    node_t *H2 = create_graph_node(topo, (c_string)"H2");
+    node_t *H3 = create_graph_node(topo, (c_string)"H3");
 
     insert_link_between_two_nodes(R0_re, R2_re, "eth0", "eth1", 5);
     insert_link_between_two_nodes(R2_re, R1_re, "eth2", "eth3", 4);
@@ -901,20 +901,20 @@ evpn_spine_leaf(void) {
     graph_t *topo = create_new_graph("EVPN Spine-Leaf Topology");
     
     /* Create Spine nodes */
-    node_t *Spine1 = create_graph_node(topo, (const c_string)"Spine1");
-    node_t *Spine2 = create_graph_node(topo, (const c_string)"Spine2");
+    node_t *Spine1 = create_graph_node(topo, (c_string)"Spine1");
+    node_t *Spine2 = create_graph_node(topo, (c_string)"Spine2");
     
     /* Create Leaf nodes */
-    node_t *Leaf1 = create_graph_node(topo, (const c_string)"Leaf1");
-    node_t *Leaf2 = create_graph_node(topo, (const c_string)"Leaf2");
-    node_t *Leaf3 = create_graph_node(topo, (const c_string)"Leaf3");
-    node_t *Leaf4 = create_graph_node(topo, (const c_string)"Leaf4");
+    node_t *Leaf1 = create_graph_node(topo, (c_string)"Leaf1");
+    node_t *Leaf2 = create_graph_node(topo, (c_string)"Leaf2");
+    node_t *Leaf3 = create_graph_node(topo, (c_string)"Leaf3");
+    node_t *Leaf4 = create_graph_node(topo, (c_string)"Leaf4");
     
     /* Create Workload (Host) nodes */
-    node_t *Host1 = create_graph_node(topo, (const c_string)"Host1");
-    node_t *Host2 = create_graph_node(topo, (const c_string)"Host2");
-    node_t *Host3 = create_graph_node(topo, (const c_string)"Host3");
-    node_t *Host4 = create_graph_node(topo, (const c_string)"Host4");
+    node_t *Host1 = create_graph_node(topo, (c_string)"Host1");
+    node_t *Host2 = create_graph_node(topo, (c_string)"Host2");
+    node_t *Host3 = create_graph_node(topo, (c_string)"Host3");
+    node_t *Host4 = create_graph_node(topo, (c_string)"Host4");
     
     /* Set Loopback addresses */
     node_set_loopback_address(Spine1, "10.0.0.1");

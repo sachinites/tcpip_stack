@@ -322,12 +322,12 @@ Interface::GetOtherInterface()
     return this->link->Intf1.get() == this ? this->link->Intf2.get() : this->link->Intf1.get();
 }
 
-int Interface::SendPacketOut(pkt_block_t *pkt_block)
+int Interface::SendPacketOut(pkt_block_t * __attribute__((unused)) pkt_block)
 {
     return -1;
 }
 
-void Interface::SetMacAddr(mac_addr_t *mac_add)
+void Interface::SetMacAddr(mac_addr_t * __attribute__((unused)) mac_add)
 {
 
 }

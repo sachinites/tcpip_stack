@@ -29,7 +29,7 @@ isis_free_spf_result(isis_spf_result_t *spf_result){
 static void
 isis_init_node_spf_data(ted_node_t *node, bool delete_spf_result){
 
-    isis_spf_data_t **_spf_data = (isis_spf_data_t **)&ISIS_NODE_SPF_DATA(node);
+    isis_spf_data_t **_spf_data = (isis_spf_data_t **)&node->proto_data[TED_ISIS_PROTO];
     isis_spf_data_t *spf_data = *_spf_data;
 
     if (! spf_data ) {
@@ -1163,5 +1163,5 @@ isis_spf_cleanup_spf_data (ted_node_t *ted_node) {
     remove_glthread(&spf_data->priority_thread_glue);
     nh_flush_nexthops(spf_data->nexthops);
     XFREE(spf_data);
-    ISIS_NODE_SPF_DATA(ted_node) = NULL;
+    ted_node->proto_data[TED_ISIS_PROTO] = NULL;
 }

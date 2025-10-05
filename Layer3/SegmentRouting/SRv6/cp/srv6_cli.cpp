@@ -685,7 +685,7 @@ srv6_adjacency_sid_config_handler
 }
 
 
-static int
+static int __attribute__((unused))
 srv6_static_route_config_handler
                         (int cmdcode,
                         Stack_t *tlv_stack,

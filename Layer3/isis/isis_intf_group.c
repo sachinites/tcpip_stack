@@ -309,7 +309,7 @@ isis_un_config_intf_grp (node_t *node, char *if_grp_name) {
     return 0;
 }
 
-static bool
+static bool __attribute__((unused))
 isis_intf_grp_test_membership ( isis_intf_group_t *intf_grp, 
                                                      Interface *intf) {
 

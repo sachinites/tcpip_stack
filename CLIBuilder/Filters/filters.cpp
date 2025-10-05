@@ -56,13 +56,13 @@ init_filters () {
     pthread_spin_init (&cprintf_spinlock, 0);
 }
 
-static bool
+static bool __attribute__((unused))
 filter_inclusion (unsigned char *buffer, int size, unsigned char *pattern, int pattern_size) {
 
     return pattern_match ((char *)buffer, size, (char *)pattern);
 }
 
-static bool
+static bool __attribute__((unused))
 filter_exclusion (unsigned char *buffer, int size, unsigned char *pattern, int pattern_size) {
 
     return !pattern_match ((char *)buffer, size, (char *)pattern);

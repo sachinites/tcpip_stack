@@ -39,7 +39,7 @@ GLTHREAD_TO_STRUCT(mac_oif_glue_to_entry, mac_oif_entry_t, glue);
 
 typedef struct mac_table_entry_{
 
-    glthread_t oif_list;  // Dynamic list of mac_oif_entry_t
+    glthread_t oif_list;  
     wheel_timer_elem_t *exp_timer_wt_elem;
     glthread_t mac_entry_glue;
     mac_addr_t mac;
@@ -50,7 +50,8 @@ typedef struct mac_table_entry_{
     /* Add destructor */
     ~mac_table_entry_() {
         assert (!exp_timer_wt_elem);
-        // Clean up dynamic OIF list - this will be handled by clear functions
+        assert (IS_QUEUED_UP_IN_THREAD (&mac_entry_glue));
+        assert (IS_GLTHREAD_LIST_EMPTY (&oif_list));
     }
 
 } __attribute__((aligned(8)))  mac_table_entry_t;

@@ -59,7 +59,7 @@ GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list)
 #define IS_ARP_ENTRIES_EQUAL(arp_entry_1, arp_entry_2)  \
     (string_compare(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, 16) == 0 && \
         mac_address_compare(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac) && \
-        string_compare(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
+        string_compare((const char *)arp_entry_1->oif_name, (const char *)arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
         arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
         arp_entry_1->is_sane == false && \
         arp_entry_1->proto == arp_entry_2->proto)
@@ -125,8 +125,8 @@ create_arp_sane_entry(node_t *node,
                       c_string ip_addr, 
 					  pkt_block_t *pkt_block);
 
-static bool 
-arp_entry_sane(arp_entry_t *arp_entry){
+static bool __attribute__((unused))
+arp_entry_sane(arp_entry_t *arp_entry) {
 
     return arp_entry->is_sane;
 }

@@ -3,11 +3,11 @@
 
 /* SPF run */
 #define ISIS_INFINITE_METRIC     0xFFFFFFFF
-#define ISIS_NODE_SPF_DATA(tednodeptr)  (tednodeptr->proto_data[TED_ISIS_PROTO])
-#define ISIS_NODE_SPF_METRIC ((tednodeptr)  \
-     (((isis_spf_data_t *)(ISIS_NODE_SPF_DATA(tednodeptr)))->spf_metric)
-#define ISIS_NODE_SPF_NXTHOPS ((tednodeptr)  \
-     (((isis_spf_data_t *)(ISIS_NODE_SPF_DATA(tednodeptr)))->nexthops)
+#define ISIS_NODE_SPF_DATA(tednodeptr)  ((isis_spf_data_t *)(tednodeptr->proto_data[TED_ISIS_PROTO]))
+#define ISIS_NODE_SPF_METRIC(tednodeptr)  \
+     (ISIS_NODE_SPF_DATA(tednodeptr)->spf_metric)
+#define ISIS_NODE_SPF_NXTHOPS(tednodeptr)  \
+     (ISIS_NODE_SPF_DATA(tednodeptr)->nexthops)
 
 typedef struct isis_spf_data_{
 

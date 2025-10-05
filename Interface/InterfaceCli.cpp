@@ -39,7 +39,7 @@ validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
     return LEAF_VALIDATION_FAILED;
 };
 
-static int
+static int __attribute__((unused))
 validate_l2_mode_value(Stack_t *tlv_stack, c_string l2_mode_value){
 
     if((string_compare(l2_mode_value, "access", strlen("access")) == 0) || 

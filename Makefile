@@ -1,7 +1,8 @@
 export CC=g++
-SANITIZER_FLAGS=-fsanitize=address,undefined
-#SANITIZER_FLAGS=
+#SANITIZER_FLAGS=-fsanitize=address,undefined
+SANITIZER_FLAGS=
 export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CXXFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Install external dependent libs :   sudo apt-get install libpq-dev
@@ -103,7 +104,7 @@ lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
 
 sql_cli.o:sql_cli.cpp
-	${CC} ${CFLAGS} -c sql_cli.cpp -o sql_cli.o
+	${CC} ${CXXFLAGS} -c sql_cli.cpp -o sql_cli.o
 
 Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
 	${CC} ${CFLAGS} -c -I Layer2/vxlan Layer2/vxlan/cp/vlan_vni_mapping.c -o Layer2/vxlan/cp/vlan_vni_mapping.o
@@ -118,13 +119,13 @@ Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
 
 Tracer/tracer.o:Tracer/tracer.cpp
-	${CC} ${CFLAGS} -I Tracer -c Tracer/tracer.cpp -o Tracer/tracer.o
+	${CC} ${CXXFLAGS} -I Tracer -c Tracer/tracer.cpp -o Tracer/tracer.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
 
 cp_ipc.o:cp_ipc.cpp
-	${CC} ${CFLAGS} -c -I . cp_ipc.cpp -o cp_ipc.o
+	${CC} ${CXXFLAGS} -c -I . cp_ipc.cpp -o cp_ipc.o
 
 prefix-list/prefixlst.o:prefix-list/prefixlst.c
 	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o
@@ -181,7 +182,7 @@ graph.o:graph.c
 	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
 
 common/cp2dp.o:common/cp2dp.cpp
-	${CC} ${CFLAGS} -c -I . common/cp2dp.cpp -o common/cp2dp.o
+	${CC} ${CXXFLAGS} -c -I . common/cp2dp.cpp -o common/cp2dp.o
 
 cli_interface.o:cli_interface.c
 	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
@@ -193,7 +194,7 @@ net.o:net.c
 	${CC} ${CFLAGS} -c -I . net.c -o net.o
 
 configdb.o:configdb.cpp
-	${CC} ${CFLAGS} -c -I . configdb.cpp -o configdb.o
+	${CC} ${CXXFLAGS} -c -I . configdb.cpp -o configdb.o
 
 pkt_block.o:pkt_block.c
 	${CC} ${CFLAGS} -c -I . pkt_block.c -o pkt_block.o
@@ -214,10 +215,10 @@ Layer2/l2switch.o:Layer2/l2switch.c
 	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o
 
 Layer2/transport_svc.o:Layer2/transport_svc.cpp 
-	${CC} ${CFLAGS} -c -I . Layer2/transport_svc.cpp -o Layer2/transport_svc.o
+	${CC} ${CXXFLAGS} -c -I . Layer2/transport_svc.cpp -o Layer2/transport_svc.o
 
 Layer2/mac_table.o:Layer2/mac_table.cpp
-	${CC} ${CFLAGS} -c -I . Layer2/mac_table.cpp -o Layer2/mac_table.o
+	${CC} ${CXXFLAGS} -c -I . Layer2/mac_table.cpp -o Layer2/mac_table.o
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
@@ -226,16 +227,16 @@ Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
 
 dpdk/layer3/dp_rtm.o:dpdk/layer3/dp_rtm.cpp
-	${CC} ${CFLAGS} -c -I . dpdk/layer3/dp_rtm.cpp -o dpdk/layer3/dp_rtm.o
+	${CC} ${CXXFLAGS} -c -I . dpdk/layer3/dp_rtm.cpp -o dpdk/layer3/dp_rtm.o
 
 Layer3/rt_notif.o:Layer3/rt_notif.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o
 
 Layer3/mpls_fwd.o:Layer3/mpls_fwd.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/mpls_fwd.cpp -o Layer3/mpls_fwd.o
+	${CC} ${CXXFLAGS} -c -I . Layer3/mpls_fwd.cpp -o Layer3/mpls_fwd.o
 
 Layer3/mpls_cli.o:Layer3/mpls_cli.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/mpls_cli.cpp -o Layer3/mpls_cli.o
+	${CC} ${CXXFLAGS} -c -I . Layer3/mpls_cli.cpp -o Layer3/mpls_cli.o
 
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o
@@ -273,35 +274,35 @@ c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
 
 #GRE files
 Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.cpp
-	${CC} ${CFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
+	${CC} ${CXXFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
 Layer3/gre-tunneling/gre.o:Layer3/gre-tunneling/gre.cpp
-	${CC} ${CFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
+	${CC} ${CXXFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/gre.cpp -o Layer3/gre-tunneling/gre.o
 
 #OOPs Interface Files 
 Interface/Interface.o:Interface/Interface.cpp
-	${CC} ${CFLAGS} -c Interface/Interface.cpp -o Interface/Interface.o
+	${CC} ${CXXFLAGS} -c Interface/Interface.cpp -o Interface/Interface.o
 
 Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
-	${CC} ${CFLAGS} -c Interface/InterfaceUApi.cpp -o Interface/InterfaceUApi.o
+	${CC} ${CXXFLAGS} -c Interface/InterfaceUApi.cpp -o Interface/InterfaceUApi.o
 
 Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
-	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
+	${CC} ${CXXFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
 
 #postgresLib files
 PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
-	${CC} ${CFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
+	${CC} ${CXXFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
 
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
+	${CC} ${CXXFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
 Layer3/ipv6/ipv6_route.o:Layer3/ipv6/ipv6_route.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_route.cpp -o Layer3/ipv6/ipv6_route.o
+	${CC} ${CXXFLAGS} -c Layer3/ipv6/ipv6_route.cpp -o Layer3/ipv6/ipv6_route.o
 Layer3/ipv6/v6nexthop.o:Layer3/ipv6/v6nexthop.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/v6nexthop.cpp -o Layer3/ipv6/v6nexthop.o
+	${CC} ${CXXFLAGS} -c Layer3/ipv6/v6nexthop.cpp -o Layer3/ipv6/v6nexthop.o
 Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_utils.cpp -o Layer3/ipv6/ipv6_utils.o
+	${CC} ${CXXFLAGS} -c Layer3/ipv6/ipv6_utils.cpp -o Layer3/ipv6/ipv6_utils.o
 Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
+	${CC} ${CXXFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
 
 
 CLIBuilder/clibuilder.a:
