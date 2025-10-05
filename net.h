@@ -88,6 +88,7 @@ typedef struct node_nw_prop_{
     rt_table_t *rt_table;
     rt_table_t *ipv6_rt_table;
     mpls_rt_table_t *mpls_rt_table;
+    rt_table_t *ipv4_mpls_rt_table;
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;
@@ -130,6 +131,7 @@ typedef struct node_nw_prop_{
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
 #define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
+#define NODE_IPV4_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv4_mpls_rt_table)
 #define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
 #define NODE_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.mpls_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)

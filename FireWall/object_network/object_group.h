@@ -57,6 +57,8 @@ typedef struct object_group_ {
     uint32_t ref_count;
     c_string og_desc;
     og_type_t og_type;
+    uint8_t padding1[4];  // Padding to align union to 8-byte boundary
+    
     union {
         uint32_t host;
         struct {
@@ -68,25 +70,26 @@ typedef struct object_group_ {
             uint32_t ub;
         } range;
         glthread_t nested_og_list_head;
-    }u;
-    glthread_t parent_og_list_head;
+    } __attribute__((aligned(8))) u;
 
+    glthread_t parent_og_list_head;
     objects_linkage_db_t *db;
 
     /* The below five members are valid only for LEAF OGs*/
     /*Tcam Data */
     uint16_t count;
+    uint8_t padding3[6];
     uint32_t (*prefix)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
     uint32_t (*wcard)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
     uint16_t tcam_entry_users_ref_count;
     og_tcam_compilation_state_t tcam_state;
 
-} object_group_t;
+} __attribute__((aligned(8))) object_group_t;
 
 typedef struct obj_grp_list_node_ {
     object_group_t *og;
     glthread_t glue;    
-}obj_grp_list_node_t;
+} __attribute__((aligned(8))) obj_grp_list_node_t;
 GLTHREAD_TO_STRUCT(glue_to_obj_grp_list_node, obj_grp_list_node_t, glue);
 
 bool

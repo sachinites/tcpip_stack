@@ -103,4 +103,7 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, lstack_t *lstack );
 void
 mpls_display_routing_table (node_t *node);
 
+void
+ipv4_mpls_display_routing_table (node_t *node);
+
 #endif 

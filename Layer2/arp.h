@@ -16,7 +16,8 @@ send_arp_broadcast_request(node_t *node,
 typedef struct arp_table_{
 
     glthread_t arp_entries;
-} arp_table_t;
+
+} __attribute__((aligned(8))) arp_table_t;
 
 typedef struct arp_pending_entry_ arp_pending_entry_t;
 typedef struct arp_entry_ arp_entry_t;
@@ -29,25 +30,29 @@ struct arp_pending_entry_{
     glthread_t arp_pending_entry_glue;
     arp_processing_fn cb;
     pkt_block_t *pkt_block;
-};
+} __attribute__((aligned(8)));
+
 GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
     arp_pending_entry_t, arp_pending_entry_glue);
 
 
 struct arp_entry_{
 
-    ip_add_t ip_addr;   /*key*/
-    mac_addr_t mac_addr;
-    unsigned char oif_name[IF_NAME_SIZE];
     glthread_t arp_glue;
+    glthread_t arp_pending_list;
+    wheel_timer_elem_t *exp_timer_wt_elem;
+    mac_addr_t mac_addr;
+    uint8_t padding1[2];
+    uint16_t proto;
+    ip_add_t ip_addr;   /*key*/
+    unsigned char oif_name[IF_NAME_SIZE];
     bool is_sane;
+    uint8_t padding2[3];
     /* List of packets which are pending for
      * this ARP resolution*/
-    glthread_t arp_pending_list;
-    uint16_t proto;
     long long unsigned int hit_count;
-	wheel_timer_elem_t *exp_timer_wt_elem;
-};
+	
+} __attribute__((aligned(8)));
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
 GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
 

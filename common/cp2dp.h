@@ -63,13 +63,25 @@ typedef struct mpls_route_update_msg_ {
     label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
 } mpls_route_update_msg_t;
 
+/* IPv4 MPLS route update msg to IPV4_MPLS_TABLE*/
+typedef struct ipv4_mpls_route_update_msg_ {
+    uint32_t prefix;          /* IPv4 prefix */
+    uint32_t gw_ip;           /* Gateway IP */
+    uint32_t ifindex;         /* Interface index */
+    uint8_t mask;             /* Prefix mask */
+    uint8_t label_stack_count;
+    char padding[2];
+    label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
+} ipv4_mpls_route_update_msg_t;
+
 typedef enum DP_COMPONENT_TYPE_ {
 
     RT_TABLE_IPV4,
     RT_TABLE_IPV6,
     MAC_TABLE,
     PKT_BLOCK,
-    MPLS_TABLE
+    MPLS_TABLE,
+    IPV4_MPLS_TABLE
 
 } DP_COMPONENT_TYPE_T;
 
@@ -180,5 +192,49 @@ cp2dp_mac_table_entry_del (node_t *node,
                       uint16_t vlan_id,
                       uint32_t ifindex,
                       bool async, uint32_t remote_dst_ip);
+
+/* MPLS Route APIs */
+void
+cp2dp_mpls_route_install (node_t *node,
+                         label_val_t in_label,
+                         c_string gw_ip,
+                         uint32_t ifindex,
+                         label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                         uint8_t label_stack_count);
+
+void
+cp2dp_mpls_route_delete (node_t *node, label_val_t in_label);
+
+void
+cp2dp_mpls_nexthop_delete (node_t *node,
+                           label_val_t in_label,
+                           c_string gw_ip,
+                           uint32_t ifindex,
+                           label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                           uint8_t label_stack_count);
+
+/* IPv4 MPLS Route APIs */
+void
+cp2dp_ipv4_mpls_route_install (node_t *node,
+                               c_string prefix,
+                               uint8_t mask,
+                               c_string gw_ip,
+                               uint32_t ifindex,
+                               label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                               uint8_t label_stack_count);
+
+void
+cp2dp_ipv4_mpls_route_delete (node_t *node,
+                              c_string prefix,
+                              uint8_t mask);
+
+void
+cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
+                                c_string prefix,
+                                uint8_t mask,
+                                c_string gw_ip,
+                                uint32_t ifindex,
+                                label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                                uint8_t label_stack_count);
 
 #endif 

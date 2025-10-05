@@ -178,9 +178,9 @@ acl_decompile (acl_entry_t *acl_entry) {
 typedef struct mnode_acl_list_node_ {
 
     acl_entry_t *acl_entry;
-    uint32_t ref_count;
     glthread_t glue;
-} mnode_acl_list_node_t;
+    uint32_t ref_count;
+} __attribute__((aligned(8))) mnode_acl_list_node_t;
 GLTHREAD_TO_STRUCT(glthread_to_mnode_acl_list_node, mnode_acl_list_node_t, glue);
 
 /* called when a a new ACL Tcam entry is inserted into mtrie

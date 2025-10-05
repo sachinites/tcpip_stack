@@ -90,7 +90,7 @@ rt_table_evaluate_import_policy(rt_table_t *rt_table, l3_route_t *l3_route) {
 }
 
 
-static bool
+bool
 _rt_table_entry_add(rt_table_t *rt_table, l3_route_t *l3_route){
 
     mtrie_node_t *mnode;

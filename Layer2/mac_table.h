@@ -31,9 +31,9 @@ static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
 /* Structure to hold interface and remote IP pair */
 typedef struct mac_oif_entry_ {
     InterfaceP oif;
-    uint32_t remote_dst_ip;
     glthread_t glue;
-} mac_oif_entry_t;
+    uint32_t remote_dst_ip;
+} __attribute__((aligned(8))) mac_oif_entry_t;
 
 GLTHREAD_TO_STRUCT(mac_oif_glue_to_entry, mac_oif_entry_t, glue);
 

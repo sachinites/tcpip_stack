@@ -160,4 +160,10 @@
 /* show node <node-name> mpls-table */
 #define CMDCODE_SHOW_MPLS_TABLE 64
 
+/* show node <node-name> ipv4-mpls-table */
+#define CMDCODE_SHOW_IPV4_MPLS_TABLE 65
+
+/* config node <node-name> route <prefix/mask> gateway <gateway-ip> interface <if-name> label-stack <list of labels> */
+#define CMDCODE_CONFIG_IPV4_MPLS_ROUTE 66
+
 #endif /* __CMDCODES__ */

@@ -6,10 +6,11 @@
 
 typedef struct stack{
     int top;
+    int padding_;  // Padding to align slot[] to 8-byte boundary
     void* slot[MAX_STACK_SIZE];
     int count_of_push;
     int count_of_pop;
-}Stack_t;
+} __attribute__((aligned(8))) Stack_t;
 
 Stack_t*
 get_new_stack(void);

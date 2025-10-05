@@ -280,7 +280,7 @@ class NVEInterface : public VirtualInterface {
         virtual void PrintInterfaceDetails ();
         void GetMemberVnis(std::vector<uint32_t>& vni_list);
         static NVEInterface *NVEInterfaceLookUp(node_t *node, std::string if_name);
-};
+} __attribute__((aligned(8)));
 
 
 

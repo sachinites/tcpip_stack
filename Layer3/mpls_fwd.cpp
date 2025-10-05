@@ -8,11 +8,11 @@
 #include "../Interface/InterfaceUApi.h"
 
 extern void
-demote_pkt_to_layer2 (node_t *node,
-                                       uint32_t next_hop_ip,
-                                      c_string outgoing_intf,
-                                      pkt_block_t *pkt_block,
-                                      hdr_type_t hdr_type) ;
+demote_pkt_to_layer2(node_t *node,
+                     uint32_t next_hop_ip,
+                     c_string outgoing_intf,
+                     pkt_block_t *pkt_block,
+                     hdr_type_t hdr_type);
 
 static int
 mpls_rt_table_equalkeys(void *k1, void *k2)
@@ -32,6 +32,22 @@ hashfromkey_label (void *key)
 {
     label_val_t *key1 = (label_val_t *)key;
     return (unsigned int) (*key1);
+}
+
+void 
+ipv4_mpls_rt_table_init (node_t *node, rt_table_t **ipv4_mpls_rt_table) {
+
+    *ipv4_mpls_rt_table = (rt_table_t *)XCALLOC2(0, 1, rt_table_t);
+    
+    init_mtrie (&(*ipv4_mpls_rt_table)->route_list, 32, NULL);
+
+    string_copy((char *) (*ipv4_mpls_rt_table)->nfc_rt_updates.nfc_name, 
+                 "NFC for IPV4 MPLS RT UPDATES",
+                 sizeof((*ipv4_mpls_rt_table)->nfc_rt_updates.nfc_name));
+
+    init_glthread(&((*ipv4_mpls_rt_table)->nfc_rt_updates.notif_chain_head));
+    
+    (*ipv4_mpls_rt_table)->node = node;    
 }
 
 void 
@@ -151,7 +167,7 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, lstack_t *lstack) {
             case LBL_PUSH:
                 pkt_block_expand_buffer_left (pkt_block, sizeof (label_val_t));
                 pkt_label = (label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
-                *pkt_label = get_label_value (lstack->labels[i].label_val );
+                set_label_value (pkt_label, get_label_value (lstack->labels[i].label_val ));
                 if (pkt_block_get_starting_hdr (pkt_block) != MPLS_HDR) {
                     pkt_block_set_starting_hdr_type (pkt_block, MPLS_HDR);
                     set_stack_bottom (pkt_label);
@@ -164,7 +180,7 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, lstack_t *lstack) {
                 if (pkt_block_get_starting_hdr (pkt_block) == MPLS_HDR) {
                     pkt_label = (label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                     if (is_stack_bottom (*pkt_label)) s_bit = true;
-                    *pkt_label = get_label_value (lstack->labels[i].label_val );
+                    set_label_value (pkt_label, get_label_value (lstack->labels[i].label_val ));
                     if (s_bit) set_stack_bottom (pkt_label);
                 }
             break;
@@ -286,6 +302,8 @@ mpls_display_routing_table (node_t *node) {
     labelled_nxthop_proto_id_t nh_proto;
     hashtable_t *ht = NODE_MPLS_RT_TABLE(node)->ht;
 
+    if (hashtable_count (ht) == 0) return;
+
     struct hashtable_itr *itr = hashtable_iterator(ht);
     unsigned char uptime_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
@@ -320,12 +338,69 @@ mpls_display_routing_table (node_t *node) {
                             get_label_value( nexthop->lbls->labels[j].label_val), 
                             mpls_op_tostring(nexthop->lbls->labels[j].op));
                 }
-                printw ("\n");
+                cprintf ("\n");
             }
         }
         if (!hashtable_iterator_advance(itr)) break;
-        printw ("\n");
+        cprintf ("\n");
     }
 
     free(itr);
+}
+
+void
+ipv4_mpls_display_routing_table (node_t *node) {
+
+    nexthop_t *nexthop;
+    mtrie_node_t *mnode;
+    glthread_t *curr = NULL;
+    l3_route_t *ipv4_mpls_route;
+    labelled_nxthop_proto_id_t nh_proto;
+    rt_table_t *rt_table = NODE_IPV4_MPLS_RT_TABLE(node);
+    unsigned char uptime_buff[HRS_MIN_SEC_FMT_TIME_LEN];
+
+    if (IS_GLTHREAD_LIST_EMPTY (&rt_table->route_list.list_head)) {
+        return;
+    }
+
+    ITERATE_GLTHREAD_BEGIN(&rt_table->route_list.list_head, curr){
+
+        mnode = list_glue_to_mtrie_node(curr);
+        ipv4_mpls_route = (l3_route_t *)mnode->data;
+
+        cprintf ("Prefix : %s/%d\n", ipv4_mpls_route->dest, ipv4_mpls_route->mask);
+
+        FOR_ALL_LABELLED_NXTHOP_PROTO(nh_proto) {
+
+            for (int i = 0; i < MAX_NXT_HOPS; i++) {
+
+                if (!ipv4_mpls_route->nexthops[nh_proto][i]) continue;
+
+                nexthop = ipv4_mpls_route->nexthops[nh_proto][i];
+
+                /* Print the label and its nexthop in Cisco like format */        
+                cprintf ("-> Nexthop : %s  OIF : %s\n", nexthop->gw_ip, nexthop->oif->if_name.c_str());
+                cprintf (".  Proto : %s\n", labelled_nxthop_proto_id_tostring(nh_proto));
+                cprintf (".  Hit Count : %llu\n", nexthop->hit_count);
+                cprintf (".  Uptime : %s\n", 
+                    hrs_min_sec_format((unsigned int)difftime(time(NULL),
+                    ipv4_mpls_route->install_time), uptime_buff, 
+                    HRS_MIN_SEC_FMT_TIME_LEN));
+
+                cprintf (".  Label Stack : ");
+                
+                for (int j = 0; j < MAX_LBL_DEPTH; j++) {
+
+                    if (nexthop->lbls->labels[j].op == LBL_STACK_OPS_UNKNOWN) continue;
+
+                    cprintf ("%d(%s) ", 
+                            get_label_value( nexthop->lbls->labels[j].label_val), 
+                            mpls_op_tostring(nexthop->lbls->labels[j].op));
+                }
+                cprintf ("\n");
+            }
+        }
+        cprintf ("\n");
+
+    }ITERATE_GLTHREAD_END(&rt_table->route_list.list_head, curr)
 }

@@ -11,16 +11,16 @@ typedef uint16_t vlan_id_t;
 
 /* VLAN-VNI Mapping Data Structures */
 typedef struct vxlan_vni_mapping_ {
-    vlan_id_t vlan_id;
-    uint32_t vni_id;
     glthread_t glue;
-} vxlan_vni_mapping_t;
+    uint32_t vni_id;
+    vlan_id_t vlan_id;
+} __attribute__((aligned(8))) vxlan_vni_mapping_t;
 
 GLTHREAD_TO_STRUCT(vxlan_vni_glue_to_mapping, vxlan_vni_mapping_t, glue);
 
 typedef struct vxlan_vni_db_ {
     glthread_t mappings;
-} vxlan_vni_db_t;
+} __attribute__((aligned(8))) vxlan_vni_db_t;
 
 /* VLAN-VNI Management APIs */
 void init_vlan_vni_db(vxlan_vni_db_t **vlan_vni_db);
