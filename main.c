@@ -54,6 +54,7 @@ extern graph_t *vlan_extension_topo(void);
 extern graph_t *build_inter_vlan_routing_topo(void);
 extern graph_t *build_vxlan_topo(void);
 extern graph_t *evpn_spine_leaf(void) ;
+extern graph_t *Linux_Router_topology(void) ;
 
 extern void nw_init_cli();
 
@@ -70,6 +71,7 @@ extern void isis_mem_init();
 extern void ted_mem_init();
 extern void srv6_mem_init();
 extern void tcp_stack_miscellaneous_mem_init();
+
 
 graph_t *topo = NULL;
 extern event_dispatcher_t gev_dis;
@@ -106,7 +108,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = evpn_spine_leaf();
+    topo = Linux_Router_topology();
     init_tcp_ip_stack();
     libcli_init_done ();
 

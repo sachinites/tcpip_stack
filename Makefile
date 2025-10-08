@@ -1,6 +1,6 @@
 export CC=g++
-SANITIZER_FLAGS=-fsanitize=address,undefined
-#SANITIZER_FLAGS=
+#SANITIZER_FLAGS=-fsanitize=address,undefined
+SANITIZER_FLAGS=
 export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 TARGET:tcpstack.exe pkt_gen.exe
 
@@ -98,6 +98,7 @@ OBJS=gluethread/glthread.o \
 		  dpdk/layer3/dp_rtm.o \
 		  lmm_reg.o \
 		  sql_cli.o \
+		  Linux/LinuxInterface.o \
 
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -303,6 +304,8 @@ Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
 Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
 
+Linux/LinuxInterface.o:Linux/LinuxInterface.cpp
+	${CC} ${CFLAGS} -c Linux/LinuxInterface.cpp -o Linux/LinuxInterface.o
 
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
@@ -354,6 +357,7 @@ clean:
 	rm -f dpdk/layer2/*.o
 	rm -f Layer3/ipv6/*.o
 	rm -f Layer3/ipv6/SRv6/*.o
+	rm -f Linux/*.o
 	
 all:
 	make

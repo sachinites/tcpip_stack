@@ -57,9 +57,9 @@ typedef enum{
 typedef uint16_t pkt_size_t;
 
 /*Specified in ethernet_hdr->type*/
-#define ARP_BROAD_REQ   1
-#define ARP_REPLY       2
-#define PROTO_ARP         806
+#define ARP_BROAD_REQ   0x1
+#define ARP_REPLY       0x2
+#define PROTO_ARP       0x806
 #define ETH_IP          0x0800
 #define ETH_IP6         0x29
 #define ICMP_PROTO        1

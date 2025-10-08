@@ -84,7 +84,7 @@ send_arp_broadcast_request(node_t *node,
     arp_hdr->hw_addr_len = MAC_ADDR_SIZE;
     arp_hdr->proto_addr_len = 4;
 
-    arp_hdr->op_code = ARP_BROAD_REQ;
+    arp_hdr->op_code = htons(ARP_BROAD_REQ);
 
     memcpy(arp_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
     arp_hdr->src_ip = IF_IP(oif);
@@ -111,10 +111,10 @@ l2_prepare_arp_reply_msg(
     SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_reply, PROTO_ARP);
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
     arp_hdr_reply->hw_type = 1;
-    arp_hdr_reply->proto_type = 0x0800;
+    arp_hdr_reply->proto_type = htons(ETH_IP);
     arp_hdr_reply->hw_addr_len = sizeof(mac_addr_t);
     arp_hdr_reply->proto_addr_len = 4;
-    arp_hdr_reply->op_code = ARP_REPLY;
+    arp_hdr_reply->op_code = htons(ARP_REPLY);
     memcpy(arp_hdr_reply->src_mac.mac, src_mac->mac, MAC_ADDR_SIZE);
     arp_hdr_reply->src_ip = src_ip;
     memcpy(arp_hdr_reply->dst_mac.mac, dst_mac->mac, MAC_ADDR_SIZE);

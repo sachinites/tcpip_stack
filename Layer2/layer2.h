@@ -157,10 +157,10 @@ SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_t *ethernet_hdr, uint16_t proto)
 {
     if(is_pkt_vlan_tagged(ethernet_hdr)){
         vlan_ethernet_hdr_t *vlan_eth_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
-        vlan_eth_hdr->type = proto;
+        vlan_eth_hdr->type = htons(proto);
     }
     else {
-        ethernet_hdr->type = proto;
+        ethernet_hdr->type = htons(proto);
     }
 }
 

@@ -77,6 +77,7 @@ struct node_ {
     /* For Network Sockets */
     unsigned int udp_port_number;
     int udp_sock_fd;
+    int af_packet_sock_fd;
 
     node_nw_prop_t node_nw_prop;
 

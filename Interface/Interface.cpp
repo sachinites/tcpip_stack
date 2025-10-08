@@ -61,15 +61,18 @@ promote_pkt_to_layer3(node_t *node,
                       pkt_block_t *pkt_block, 
                       int L3_protocol_number) ;
 
+extern int
+linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block);
+
+extern bool LinuxRtr;
+
 /* A fn to send the pkt as it is (unchanged) out on the interface */
 static int
 send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
 {
-
     pkt_size_t pkt_size;
     ev_dis_pkt_data_t *ev_dis_pkt_data;
     node_t *sending_node = interface->att_node;
-    node_t *nbr_node = interface->GetNbrNode();
 
     uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
@@ -79,22 +82,37 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
         return 0;
     }
 
-    if (!nbr_node)
-        return -1;
-
     if (pkt_size > MAX_PACKET_BUFFER_SIZE)
     {
         cprintf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
         return -1;
     }
 
-    /* Access List Evaluation at Layer 2 Exit point*/
+        /* Access List Evaluation at Layer 2 Exit point*/
     if (access_list_evaluate_ethernet_packet(
             interface->att_node, interface,
             pkt_block, false) == ACL_DENY)
     {
         return -1;
     }
+
+    if (LinuxRtr) {
+
+        tracer (sending_node->dptr, DFLOW_DET, 
+                "Pkt : %s Wired out of interface %s\n", 
+                pkt_block_str (pkt_block),
+                interface->if_name.c_str());        
+        
+        tcp_dump_send_logger(sending_node, interface,
+                         pkt_block,
+                         pkt_block_get_starting_hdr(pkt_block));
+
+        return linux_send_xmit_out (interface, pkt_block);
+    }
+
+    node_t *nbr_node = interface->GetNbrNode();
+
+    if (!nbr_node) return -1;
 
     tracer (sending_node->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
         pkt_block_str (pkt_block), interface->if_name.c_str());
@@ -905,6 +923,11 @@ PhysicalInterface::InterfaceReleaseAllResources() {
     in use*/
 bool
 PhysicalInterface::IsCrossReferenced() {
+
+    if (LinuxRtr) {
+        /* We are also listening on this interface */
+        if (this->GetSharedPtr().use_count() > 4) return true;
+    }
 
     if (this->GetSharedPtr().use_count() > 3) return true;
     return false;
