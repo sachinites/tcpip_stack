@@ -108,7 +108,8 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = Linux_Router_topology();
+    //topo = Linux_Router_topology();
+    topo = build_vxlan_topo();
     init_tcp_ip_stack();
     libcli_init_done ();
 

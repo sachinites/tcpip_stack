@@ -1305,10 +1305,10 @@ GRETunnelInterface::SendPacketOut(pkt_block_t *pkt_block)
     pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));
-    ip_hdr->dst_ip = this->tunnel_dst_ip;
+    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node)));
+    ip_hdr->dst_ip = htonl(this->tunnel_dst_ip);
     ip_hdr->protocol = GRE_PROTO;
-    ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(pkt_size);
+    ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
     np_tcp_ip_send_ip_data (node, pkt_block);
     this->pkt_sent++;
     pkt_block_get_pkt (pkt_block, &pkt_size);
@@ -2018,15 +2018,15 @@ NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
     pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
     ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
     initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(this->att_node));
-    ip_hdr->dst_ip = pkt_block->encap_data->u.vxlan.remote_vtep_ip;
+    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(this->att_node)));
+    ip_hdr->dst_ip = htonl(pkt_block->encap_data->u.vxlan.remote_vtep_ip);
     ip_hdr->protocol = UDP_PROTO;
-    ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(pkt_size);
+    ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
     tracer (this->att_node->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
-        tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, ipv4_addr_str1),
-        tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, ipv4_addr_str2),
+        tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->src_ip), ipv4_addr_str1),
+        tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
     np_tcp_ip_send_ip_data (this->att_node, pkt_block);

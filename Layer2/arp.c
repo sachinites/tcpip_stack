@@ -79,17 +79,17 @@ send_arp_broadcast_request(node_t *node,
 
     /*Step 2 : Prepare ARP Broadcast Request Msg out of oif*/
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
-    arp_hdr->hw_type = 1;
-    arp_hdr->proto_type = 0x0800;
+    arp_hdr->hw_type = htons(0x1);
+    arp_hdr->proto_type = htons(ETH_IP);
     arp_hdr->hw_addr_len = MAC_ADDR_SIZE;
     arp_hdr->proto_addr_len = 4;
 
     arp_hdr->op_code = htons(ARP_BROAD_REQ);
 
     memcpy(arp_hdr->src_mac.mac, IF_MAC(oif), MAC_ADDR_SIZE);
-    arp_hdr->src_ip = IF_IP(oif);
+    arp_hdr->src_ip = htonl(IF_IP(oif));
     memset(arp_hdr->dst_mac.mac, 0,  MAC_ADDR_SIZE);
-    arp_hdr->dst_ip = tcp_ip_convert_ip_p_to_n(ip_addr);
+    arp_hdr->dst_ip = htonl(tcp_ip_convert_ip_p_to_n(ip_addr));
     SET_COMMON_ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t), 0); /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
@@ -110,33 +110,35 @@ l2_prepare_arp_reply_msg(
     memcpy(ethernet_hdr_reply->src_mac.mac, src_mac->mac, sizeof(mac_addr_t));
     SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_reply, PROTO_ARP);
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
-    arp_hdr_reply->hw_type = 1;
+    arp_hdr_reply->hw_type = htons(0x1);
     arp_hdr_reply->proto_type = htons(ETH_IP);
     arp_hdr_reply->hw_addr_len = sizeof(mac_addr_t);
     arp_hdr_reply->proto_addr_len = 4;
     arp_hdr_reply->op_code = htons(ARP_REPLY);
     memcpy(arp_hdr_reply->src_mac.mac, src_mac->mac, MAC_ADDR_SIZE);
-    arp_hdr_reply->src_ip = src_ip;
+    arp_hdr_reply->src_ip = htonl(src_ip);
     memcpy(arp_hdr_reply->dst_mac.mac, dst_mac->mac, MAC_ADDR_SIZE);
-    arp_hdr_reply->dst_ip = dst_ip;
-    SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0); /*Not used*/
+    arp_hdr_reply->dst_ip = htonl(dst_ip);
+    SET_COMMON_ETH_FCS(ethernet_hdr_reply, sizeof(arp_hdr_t), 0);
 }
 
 /* Fn is not suppose to modify the input pkt */
 static void
 send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
 
-    char ip_addr_str[IPV4_ADDR_LEN_STR];
     pkt_block_t *pkt_block;
     node_t *node = oif->att_node;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
     pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
     ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(total_pkt_size);
 
     l2_prepare_arp_reply_msg(ethernet_hdr_reply, 
-            &arp_hdr_in->src_mac, arp_hdr_in->src_ip,
-           oif->GetMacAddr(), IF_IP(oif));
+            &arp_hdr_in->src_mac, 
+            htonl(arp_hdr_in->src_ip),
+            oif->GetMacAddr(), 
+            IF_IP(oif));
 
     pkt_block = pkt_block_get_new((uint8_t *)ethernet_hdr_reply, total_pkt_size);
 
@@ -197,7 +199,7 @@ process_arp_broadcast_request(node_t *node, Interface *iif,
             ethernet_hdr->src_mac.mac[3],
             ethernet_hdr->src_mac.mac[4],
             ethernet_hdr->src_mac.mac[5],
-            tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip_addr_str),
+            tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->dst_ip), ip_addr_str),
             iif->if_name.c_str());  
 
    /* ARP broadcast request msg has passed MAC Address check*/
@@ -210,10 +212,11 @@ process_arp_broadcast_request(node_t *node, Interface *iif,
    /* Now, this node need to reply to this ARP Broadcast req
     * msg if Dst ip address in ARP req msg matches iif's ip address*/
 
-     if (arp_hdr->dst_ip != IF_IP(iif)) {
+     if (htonl(arp_hdr->dst_ip) != IF_IP(iif)) {
          tracer(node->dptr, DARP | DERR, "Error : Mismatched ARP Broadcast Req "
             "Recvd for IP %s on interface %s\n",
-            tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip_addr_str), iif->if_name.c_str());
+            tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->dst_ip), ip_addr_str), 
+            iif->if_name.c_str());
         return;
      }
 
@@ -431,7 +434,7 @@ arp_table_update_from_arp_reply(arp_table_t *arp_table,
 
     arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC2(0, 1, arp_entry_t);
 
-    tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, arp_entry->ip_addr.ip_addr);
+    tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->src_ip), arp_entry->ip_addr.ip_addr);
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_ADDR_SIZE);
     string_copy(arp_entry->oif_name, iif->if_name.c_str(), IF_NAME_SIZE);
     arp_entry->is_sane = false;

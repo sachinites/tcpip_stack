@@ -154,8 +154,8 @@ pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
 
          eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
 
-         if (eth_hdr->type == ETH_IP || 
-                eth_hdr->type == PROTO_IP_IN_IP ) {
+         if (htons(eth_hdr->type) == ETH_IP || 
+                htons(eth_hdr->type) == PROTO_IP_IN_IP ) {
 
              return (ip_hdr_t *)eth_hdr->payload;
          }
@@ -171,7 +171,7 @@ pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
 
          gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
 
-         if (gre_hdr->protocol_type == ETH_IP) {
+         if (htons(gre_hdr->protocol_type) == ETH_IP) {
              return (ip_hdr_t *)(gre_hdr + 1);
          }
      }
@@ -189,7 +189,7 @@ pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) {
 
          eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
 
-         if (eth_hdr->type == ETH_IP6 ) {
+         if (htons(eth_hdr->type) == ETH_IP6 ) {
 
              return (ipv6_hdr_t *)eth_hdr->payload;
          }
@@ -205,7 +205,7 @@ pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) {
 
          gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
 
-         if (gre_hdr->protocol_type == ETH_IP6) {
+         if (htons(gre_hdr->protocol_type) == ETH_IP6) {
              return (ipv6_hdr_t *)(gre_hdr + 1);
          }
      }
@@ -230,7 +230,7 @@ pkt_block_get_arp_hdr (pkt_block_t *pkt_block) {
 
                 vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
 
-                if (vlan_eth_hdr->type == PROTO_ARP) {
+                if (htons(vlan_eth_hdr->type) == PROTO_ARP) {
                     return (arp_hdr_t *)vlan_eth_hdr->payload;
                 }
                 else
@@ -241,7 +241,7 @@ pkt_block_get_arp_hdr (pkt_block_t *pkt_block) {
 
             else
             {
-                if (eth_hdr->type == PROTO_ARP)
+                if (htons(eth_hdr->type) == PROTO_ARP)
                 {
                     return (arp_hdr_t *)eth_hdr->payload;
                 }
@@ -437,7 +437,7 @@ pkt_ip (pkt_block_t *pkt_block, char *buffer) {
 
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
     memset (buffer, 0, sizeof (buffer));
-    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, buffer);
+    tcp_ip_covert_ip_n_to_p (htonl(ip_hdr->dst_ip), buffer);
     return buffer;
 } 
 
@@ -447,7 +447,7 @@ pkt_ip_str (pkt_block_t *pkt_block, char *buffer) {
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
     memset (buffer, 0, sizeof (buffer));
     strcpy(buffer, "IP:");
-    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, buffer + 3);
+    tcp_ip_covert_ip_n_to_p (htonl(ip_hdr->dst_ip), buffer + 3);
     return buffer;
 } 
 
@@ -516,7 +516,7 @@ pkt_block_str (pkt_block_t *pkt_block) {
             pkt_size_t old_pkt_size;
             uint8_t *old_pkt = pkt_block_get_pkt(pkt_block, &old_pkt_size);
             gre_hdr_t *gre_hdr = (gre_hdr_t *)old_pkt;
-            switch (gre_hdr->protocol_type) {
+            switch (htons(gre_hdr->protocol_type)) {
                 case PROTO_GRE_ENCAP_ETHERNET:
                 {
                     pkt_block_expand_buffer_left (pkt_block, 7 + 4 + 17 + 1);

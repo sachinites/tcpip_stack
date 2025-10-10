@@ -84,6 +84,8 @@ typedef uint16_t pkt_size_t;
 #define TCP_LOG_BUFFER_LEN	512
 #define PROTO_GRE_ENCAP_ETHERNET  0x6558
 
+#define MAX_MTU 1500
+
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
 #define NODE_PRINT_BUFF_LEN (1024 * 1024)
 

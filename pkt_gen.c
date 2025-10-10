@@ -113,26 +113,26 @@ main(int argc, char **argv){
     initialize_ip_hdr(ip_hdr);
 #ifdef INCLUDE_UDP_HDR
      ip_hdr->protocol = UDP_PROTO;
-     ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(sizeof(udp_hdr_t));
+     ip_hdr->total_length = htons(sizeof (ip_hdr_t) + sizeof(udp_hdr_t));
 #else
     ip_hdr->protocol = ICMP_PROTO;
-    ip_hdr->total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(0);
+    ip_hdr->total_length = htons(sizeof (ip_hdr_t));
 #endif
 
-    ip_hdr->src_ip = tcp_ip_convert_ip_p_to_n(SRC_IP_ADDR);
-    ip_hdr->dst_ip = tcp_ip_convert_ip_p_to_n(DEST_IP_ADDR);
+    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n(SRC_IP_ADDR));
+    ip_hdr->dst_ip = htonl(tcp_ip_convert_ip_p_to_n(DEST_IP_ADDR));
     
 
 #ifdef INCLUDE_UDP_HDR
     udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
-    udp_hdr->src_port_no = udp_src_port_no;
-    udp_hdr->dst_port_no = udp_dst_port_no;
-    udp_hdr->udp_length = sizeof(udp_hdr_t) + 0 /* Appln Payload */; 
+    udp_hdr->src_port_no = htons(udp_src_port_no);
+    udp_hdr->dst_port_no = htons(udp_dst_port_no);
+    udp_hdr->udp_length = htons(sizeof(udp_hdr_t) + 0) /* Appln Payload */; 
     udp_hdr->udp_checksum = 0;
 #endif
 
     uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
-                                               (ip_hdr->total_length * 4) +
+                                               (htons(ip_hdr->total_length) * 4) +
                                                IF_NAME_SIZE;
 
     int rc = 0 ;

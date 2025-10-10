@@ -75,24 +75,22 @@ np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
 
     switch (dp_msg->opr_type)
     {
-
-    case DP_L3_NORTHBOUND_IN:
-    {
-        hdr_type = pkt_block_get_starting_hdr(pkt_block);
-
-        switch (hdr_type)
+        case DP_L3_NORTHBOUND_IN:
         {
+            hdr_type = pkt_block_get_starting_hdr(pkt_block);
 
-        case IP_HDR:
-            np_tcp_ip_send_ip_data(node, pkt_block);
-            break;
-        case IP6_HDR:
-            np_tcp_ip_send_ip6_data(node, pkt_block);
-            break;
-        default:
-            break;
+            switch (hdr_type)
+            {
+            case IP_HDR:
+                np_tcp_ip_send_ip_data(node, pkt_block);
+                break;
+            case IP6_HDR:
+                np_tcp_ip_send_ip6_data(node, pkt_block);
+                break;
+            default:
+                break;
+            }
         }
-    }
     break;
 
     default:
@@ -392,12 +390,15 @@ cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface)
     pkt_block must contain IP payload . If there is no ip payload, then send NULL*/
 void 
 cp2dp_send_ip_data ( node_t *node, 
-                                    pkt_block_t *pkt_block,
-                                    uint32_t dest_ip_addr,
-                                    uint16_t std_ip_protocol) {
+                     pkt_block_t *pkt_block,
+                     uint32_t dest_ip_addr,
+                     uint16_t std_ip_protocol) {
+
+    bool new_pkt_block = false;
 
     if (!pkt_block) {
         pkt_block = pkt_block_get_new_pkt_buffer(sizeof(ip_hdr_t));
+        new_pkt_block = true;
     }
     else {
         pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t));
@@ -410,18 +411,19 @@ cp2dp_send_ip_data ( node_t *node,
 
     initialize_ip_hdr (ip_hdr);
 
-    ip_hdr->protocol = std_ip_protocol;
-    ip_hdr->src_ip = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
-    ip_hdr->dst_ip = dest_ip_addr;
-    ip_hdr->total_length = 
-        IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN((pkt_size - sizeof (ip_hdr_t)));
+    ip_hdr->protocol = (uint8_t)std_ip_protocol;
+    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node)));
+    ip_hdr->dst_ip = htonl(dest_ip_addr);
+    ip_hdr->total_length = htons(pkt_size);
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = PKT_BLOCK;
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
     dp_msg->flags = 0;
     dp_msg->data_size = sizeof(pkt_block_t *);
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
+    pkt_block_reference(pkt_block);
     cp2dp_submit (node, dp_msg, true);
+    if (new_pkt_block)pkt_block_dereference(pkt_block);
 }
 
 /* Write the ipv6 equivalent function of cp2dp_send_ip_data( )*/
@@ -431,10 +433,12 @@ cp2dp_send_ip6_data ( node_t *node,
                                     ipv6_addr_t dest_ip_addr,
                                     uint16_t std_ip_protocol) 
 {
+    bool new_pkt_block = false;
     pkt_size_t ipv6_payload_size = 0;
 
     if (!pkt_block) {
         pkt_block = pkt_block_get_new_pkt_buffer(sizeof(ipv6_hdr_t));
+        new_pkt_block = true;
     }
     else {
         ipv6_payload_size = pkt_block->pkt_size;
@@ -448,8 +452,8 @@ cp2dp_send_ip6_data ( node_t *node,
 
     initialize_ipv6_hdr (ipv6_hdr);
 
-    ipv6_hdr->next_header = std_ip_protocol;
-    ipv6_hdr->payload_length =  ipv6_payload_size;
+    ipv6_hdr->next_header = (uint8_t)(std_ip_protocol);
+    ipv6_hdr->payload_length =  htons(ipv6_payload_size);
     memcpy (ipv6_hdr->dst_addr, dest_ip_addr.addr, 16);
 
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
@@ -460,6 +464,7 @@ cp2dp_send_ip6_data ( node_t *node,
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
     pkt_block_reference(pkt_block);
     cp2dp_submit (node, dp_msg, true);
+    if (new_pkt_block) pkt_block_dereference (pkt_block);
 }
 
 void 

@@ -200,7 +200,8 @@ LinuxLoadInterfaces (node_t *node) {
 
     DIR *dir;
     struct dirent *entry;
-    
+     ipv6_addr_t v6_addr = {0};
+
     dir = opendir("/sys/class/net");
     if (!dir) {
         std::cerr << "Failed to open /sys/class/net" << std::endl;
@@ -259,9 +260,6 @@ LinuxLoadInterfaces (node_t *node) {
             intf->SetMacAddr(&mac_addr_struct);
         }
         
-        // Set operational state (no direct method available, 
-        // interface state is managed internally)
-        
         /* Get ifindex and store it */
         struct ifreq ifr;
         memset(&ifr, 0, sizeof(ifr));
@@ -275,36 +273,23 @@ LinuxLoadInterfaces (node_t *node) {
         if (has_ip) {
             intf->InterfaceSetIpAddressMask(ip_addr, prefix_len);
             interface_install_local_v4_routes  (node, intf);
-            
-            std::cout << "Interface " << if_name << " has IP: " 
-                      << std::hex << ip_addr << std::dec 
-                      << "/" << (int)prefix_len << std::endl;
         }
         
-        // Generate IPv6 link local address
         mac_addr_t *mac_addr_ptr = intf->GetMacAddr();
+
         if (mac_addr_ptr) {
+
             intf->InterfaceSetIpv6LinkLocalAddress(&mac_addr_ptr->mac);
+            intf->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
+            ipv6_route_install  (node,
+                        &v6_addr, 128, 
+                        0, 0, 0, 0, 0,  (Srv6_endpcode_t)0,PROTO_STATIC);
         }
         
-        // Add interface to node
         int empty_intf_slot = node_get_intf_available_slot(node);
-        
-        if (empty_intf_slot >= 0) {
-            node->intf[empty_intf_slot] = intf_shared;
-            std::cout << "Added interface " << if_name 
-                      << " (MAC: " << std::hex;
-            for (int i = 0; i < 6; i++) {
-                std::cout << std::setfill('0') << std::setw(2) << (int)mac_addr[i];
-                if (i < 5) std::cout << ":";
-            }
-            std::cout << std::dec
-                      << ", State: " << (is_up ? "UP" : "DOWN") 
-                      << ", IP: " << (has_ip ? "YES" : "NO")
-                      << ") to slot " << empty_intf_slot << std::endl;
-        } else {
-            std::cerr << "No available interface slots for " << if_name << std::endl;
-        }
+        assert (empty_intf_slot >= 0);
+        node->intf[empty_intf_slot] = intf_shared;
+         tcp_ip_init_intf_log_info(intf);
     }
     
     closedir(dir);
@@ -317,7 +302,6 @@ linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block) {
 
     assert (LinuxRtr);
         
-    // Get interface index
     int sockfd = intf->att_node->af_packet_sock_fd;
 
     if (sockfd < 0) {
@@ -330,14 +314,10 @@ linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block) {
     }
     
     int ifindex = intf->ifindex;
-    
-    // Get packet data and length
     char *pkt_data = (char*)pkt_block->pkt;
     int pkt_len = pkt_block->pkt_size;
-    
-    // Basic sanity check
 
-    if (pkt_len <= 0 || pkt_len > 1500) { 
+    if (pkt_len <= 0 || pkt_len > MAX_MTU) { 
 
         cprintf ("%s : %s : linux_send_xmit_out() : Invalid packet length: %dB\n",
             intf->att_node->node_name, 
@@ -346,7 +326,6 @@ linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block) {
         return -1;
     }
     
-    // Prepare sockaddr_ll for sendto
     struct sockaddr_ll sll;
     memset(&sll, 0, sizeof(sll));
     sll.sll_family = AF_PACKET;
@@ -354,31 +333,14 @@ linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block) {
     sll.sll_ifindex = ifindex;
     sll.sll_halen = 6; // MAC address length
     
-    // Get interface MAC address for source
     mac_addr_t *src_mac = intf->GetMacAddr();
     memcpy(sll.sll_addr, src_mac->mac, 6);
     
     ssize_t bytes_sent = sendto(sockfd, pkt_data, pkt_len, 0, 
                                (struct sockaddr*)&sll, sizeof(sll));
     
-    if (bytes_sent < 0) {
-        
-        cprintf ("%s : %s : linux_send_xmit_out() : Failed to send packet\n",
-            intf->att_node->node_name, 
-            intf->if_name.c_str(), strerror(errno));
-
-    } else if (bytes_sent != pkt_len) {
-
-        cprintf ("%s : %s : linux_send_xmit_out() : Partial sent : "
-            "pkt_len : %d, Bytes Sent : %d\n",
-            intf->att_node->node_name, 
-            intf->if_name.c_str(), pkt_len, bytes_sent); 
-
-    } else {
-
-        intf->pkt_sent++;
-    }
-    
+    assert (bytes_sent > 0);
+    intf->pkt_sent++;
     return (int)bytes_sent;
 }
 

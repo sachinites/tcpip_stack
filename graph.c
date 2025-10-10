@@ -90,7 +90,7 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
      ipv6_route_install  (node1,
                         &v6_addr, 128, 
-                        0, 0, 0, 0, 0, 0, PROTO_STATIC);
+                        0, 0, 0, 0, 0, (Srv6_endpcode_t)0, PROTO_STATIC);
 
     
     mac_addr = link->Intf2->GetMacAddr();

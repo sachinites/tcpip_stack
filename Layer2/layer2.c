@@ -173,7 +173,7 @@ l2_forward_ip_packet(node_t *node,
 
     /* Handling L2 forwarding for any payload other than ipv4. Sinply,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
-    if (ethernet_hdr->type != ETH_IP) {
+    if (ethernet_hdr->type != htons(ETH_IP)) {
 
         oif = node_get_intf_by_name(node, outgoing_intf);
 
@@ -288,7 +288,7 @@ demote_pkt_to_layer2 (node_t *node,
      ethernet_hdr_t *empty_ethernet_hdr =
          (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
-     empty_ethernet_hdr->type = tcp_ip_convert_internal_proto_to_std_proto(hdr_type);
+     empty_ethernet_hdr->type = htons(tcp_ip_convert_internal_proto_to_std_proto(hdr_type));
 
      l2_forward_ip_packet(node,
                           next_hop_ip,
@@ -415,6 +415,7 @@ promote_pkt_to_layer2(
                     Interface *iif, 
                     pkt_block_t *pkt_block) {
 
+    uint16_t eth_type;
     pkt_size_t pkt_size;
 
     assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
@@ -428,12 +429,17 @@ promote_pkt_to_layer2(
     ethernet_hdr_t *ethernet_hdr = 
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    switch(ethernet_hdr->type){
+    eth_type = htons(ethernet_hdr->type);
+
+    switch(eth_type){
+
         case PROTO_ARP:
             {
                 /*Can be ARP Broadcast or ARP reply*/
                 arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
-                switch(arp_hdr->op_code){
+
+                switch(htons(arp_hdr->op_code)){
+
                     case ARP_BROAD_REQ:
                         process_arp_broadcast_request(node, iif, ethernet_hdr);
                         return;
@@ -449,9 +455,10 @@ promote_pkt_to_layer2(
         case ETH_IP:
         case PROTO_IP_IN_IP:
         case ETH_IP6:
-            promote_pkt_to_layer3(node, iif, 
+            promote_pkt_to_layer3(
+                    node, iif, 
                     pkt_block,
-                    ethernet_hdr->type);
+                    eth_type);
             break;
         default: ;
     }

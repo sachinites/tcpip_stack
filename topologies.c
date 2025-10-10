@@ -1017,8 +1017,8 @@ graph_t *
 Linux_Router_topology(void) {
 
     graph_t *topo = create_new_graph("Linux-Router-Topology");
-    node_t *linux_rtr = create_graph_node(topo, (const c_string)"Linux-Router");
-    node_set_loopback_address(linux_rtr, "10.0.0.1");
+    node_t *linux_rtr = create_graph_node(topo, (const c_string)"LR");
+    node_set_loopback_address(linux_rtr, "100.0.0.1");
     LinuxLoadInterfaces (linux_rtr);
     Linux_listen_interfaces (linux_rtr);
     return topo;

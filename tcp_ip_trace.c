@@ -177,12 +177,15 @@ tcp_dump_ip_hdr(c_string buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
      byte string_buffer[32];
      pkt_block_t *pkt_block;
 
-     tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip1);
-     tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, ip2);
+     tcp_ip_covert_ip_n_to_p( htonl(ip_hdr->src_ip), ip1);
+     tcp_ip_covert_ip_n_to_p( htonl(ip_hdr->dst_ip), ip2);
 
      rc +=  sprintf((char *)(buff + rc), "IP Hdr : ");
-     rc +=  sprintf((char *)(buff + rc), "TL: %dB PRO: %s %s -> %s ttl: %d\n", 
-                        IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr),
+     rc +=  sprintf((char *)(buff + rc), 
+                    "v:%d ihl:%d TL: %dB PRO: %s %s -> %s ttl: %d\n", 
+                      IP_HDR_VERSION(ip_hdr),
+                      IP_HDR_IHL(ip_hdr),
+                      IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr),
                       string_ip_hdr_protocol_val(ip_hdr->protocol, string_buffer),
                       ip1, ip2, ip_hdr->ttl);
 
@@ -199,14 +202,14 @@ tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr,
                   uint32_t pkt_size){
 
     int rc = 0;
+    byte string_buffer[48] = {0};
     byte ip1[IPV4_ADDR_LEN_STR];
     byte ip2[IPV4_ADDR_LEN_STR];
-    byte string_buffer[48];
 
     rc +=  sprintf((char *)buff, "ARP Hdr : ");
     rc += sprintf((char *)buff + rc, "Arp Type: %s %02x:%02x:%02x:%02x:%02x:%02x -> "
             "%02x:%02x:%02x:%02x:%02x:%02x %s -> %s\n",
-            string_arp_hdr_type(arp_hdr->op_code, (char *)string_buffer),
+            string_arp_hdr_type(htons(arp_hdr->op_code), (char *)string_buffer),
             arp_hdr->src_mac.mac[0],
             arp_hdr->src_mac.mac[1],
             arp_hdr->src_mac.mac[2],
@@ -221,8 +224,9 @@ tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr,
             arp_hdr->dst_mac.mac[4],
             arp_hdr->dst_mac.mac[5],
 
-            tcp_ip_covert_ip_n_to_p(arp_hdr->src_ip, ip1),
-            tcp_ip_covert_ip_n_to_p(arp_hdr->dst_ip, ip2));
+            tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->src_ip), ip1),
+            tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->dst_ip), ip2));
+            
     return rc;
 }
 
@@ -245,8 +249,8 @@ tcp_dump_ethernet_hdr(char *buff,
         vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
     }
 
-    unsigned short type = vlan_8021q_hdr ? vlan_eth_hdr->type :\
-                            eth_hdr->type;
+    unsigned short type = vlan_8021q_hdr ? htons(vlan_eth_hdr->type) :\
+                            htons(eth_hdr->type);
 
     rc += sprintf (buff + rc, "Eth hdr : ");
     rc += sprintf (buff + rc, "%02x:%02x:%02x:%02x:%02x:%02x -> "

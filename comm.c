@@ -170,9 +170,11 @@ dp_pkt_receive (node_t *node,
         
         cprintf("Error : L2 Frame Rejected on node %s(%s)\n", 
             node->node_name, interface->if_name.c_str());
+            
         tracer (node->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s : L2 Frame Rejected in Interface %s, qualification Test Failed\n", 
             pkt_block_str(pkt_block), interface->if_name.c_str());
+
         return;
     }
 

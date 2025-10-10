@@ -93,15 +93,16 @@ l3_is_direct_route(l3_route_t *l3_route){
 static bool
 is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
-    char dest_ip_str[IPV4_ADDR_LEN_STR];
-    dest_ip_str[15] = '\0';
     uint32_t intf_addr ;
+    char dest_ip_str[IPV4_ADDR_LEN_STR];
 
     tcp_ip_covert_ip_n_to_p(dst_ip, dest_ip_str);
 
     /*checking with node's loopback address*/
-    if(string_compare(NODE_LO_ADDR(node), dest_ip_str, 16) == 0)
+    if(string_compare(NODE_LO_ADDR(node), dest_ip_str, 16) == 0) {
+        tracer (node->dptr, DL3FWD, "Pkt : %s : Local interface IP Address match : Lo\n", dest_ip_str);
         return true;
+    }
 
     /*checking with interface IP Addresses*/
     Interface *intf;
@@ -114,7 +115,10 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
         intf_addr = IF_IP(intf);
 
-        if  (intf_addr == dst_ip)  return true;
+        if  (intf_addr == dst_ip)  {
+             tracer (node->dptr, DL3FWD, "Pkt : %s : Local interface IP Address match : %s\n", dest_ip_str, intf->if_name.c_str());
+            return true;
+        }
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
@@ -129,10 +133,14 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
 
             intf_addr = IF_IP(intf);
 
-            if  (intf_addr == dst_ip)  return true;
+            if  (intf_addr == dst_ip)  {
+                tracer (node->dptr, DL3FWD, "Pkt : %s : Local interface IP Address match : %s\n", dest_ip_str, intf->if_name.c_str());
+                return true;
+            }
         }
     }
 
+    tracer (node->dptr, DL3FWD, "Pkt : %s : No Matching Local interface\n", dest_ip_str);
     return false;
 }
 
@@ -156,10 +164,10 @@ layer3_ip_route_pkt(node_t *node,
 
     int8_t nf_result;
     char *l4_hdr, *l5_hdr;
-    char dest_ip_addr[IPV4_ADDR_LEN_STR];
     ip_hdr_t *ip_hdr = NULL;
     uint32_t next_hop_ip= 0;
     nexthop_t *nexthop = NULL;
+    char dest_ip_addr[IPV4_ADDR_LEN_STR];
 
     /* We are in L3 IP land, so starting hdr type must be IP_HDR */
     assert (pkt_block_get_starting_hdr(pkt_block) == IP_HDR ||
@@ -167,7 +175,7 @@ layer3_ip_route_pkt(node_t *node,
 
     ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
 
-    tcp_ip_covert_ip_n_to_p(ip_hdr->dst_ip, (c_string)dest_ip_addr);
+    tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
 
     tracer (node->dptr, DL3FWD, "Dest : %s : Trying to route ... \n", dest_ip_addr);
 
@@ -202,12 +210,9 @@ layer3_ip_route_pkt(node_t *node,
     tracer (node->dptr, DL3FWD_DET, "Dest : %s : Pkt Qualified L3 ACL Test\n", dest_ip_addr);
 
     l3_route_t *l3_route = l3rib_lookup_lpm(
-                           NODE_RT_TABLE(node), ip_hdr->dst_ip);
+                           NODE_RT_TABLE(node), htonl(ip_hdr->dst_ip));
 
     if(!l3_route){
-        /*Router do not know what to do with the pkt. drop it*/
-        //cprintf("Router %s : Cannot Route IP : %s\n", 
-        //         node->node_name, dest_ip_addr);
         tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
         return;
     }
@@ -228,7 +233,7 @@ layer3_ip_route_pkt(node_t *node,
 
         tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", dest_ip_addr);
 
-        if (is_layer3_local_delivery(node, ip_hdr->dst_ip)) {
+        if (is_layer3_local_delivery(node, htonl(ip_hdr->dst_ip))) {
 
             tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
                  dest_ip_addr, proto_name_str(ip_hdr->protocol));
@@ -343,16 +348,17 @@ layer3_ip_route_pkt(node_t *node,
         if (ip_hdr->src_ip == 0) {
             
             char ip_addr_str[IPV4_ADDR_LEN_STR];
-            ip_hdr->src_ip = IF_IP(nexthop->oif.get());
+            ip_hdr->src_ip = htonl(IF_IP(nexthop->oif.get()));
             tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", 
-                pkt_block_str (pkt_block), tcp_ip_covert_ip_n_to_p(ip_hdr->src_ip, ip_addr_str)); 
+                pkt_block_str (pkt_block), 
+                tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->src_ip), ip_addr_str)); 
         }
 
         tracer (node->dptr, DL3FWD, "Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", pkt_block_str (pkt_block));
 
         demote_pkt_to_layer2 (
                 node,           /*Current processing node*/
-                ip_hdr->dst_ip,     /*next hop IP is dest itself as dest is present in local subnet*/
+                htonl(ip_hdr->dst_ip),     /*next hop IP is dest itself as dest is present in local subnet*/
                 nexthop->oif->if_name.c_str(),           /*No oif as dest is present in local subnet*/
                 pkt_block,  /*Network Layer payload and size*/
                 IP_HDR);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
@@ -377,8 +383,10 @@ layer3_ip_route_pkt(node_t *node,
      * out of all ecmp nexthops of the route*/
     nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
 
-    tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", dest_ip_addr, 
-            nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+    tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
+            dest_ip_addr, 
+            nexthop->oif->if_name.c_str(), 
+            nexthop->gw_ip);
 
     nf_result = nf_invoke_netfilter_hook(
                         NF_IP_FORWARD,
@@ -711,7 +719,7 @@ dump_rt_table(rt_table_t *rt_table){
 static void
 _layer3_pkt_recv_from_layer2(node_t *node, 
                             Interface *interface,
-                           pkt_block_t *pkt_block,
+                            pkt_block_t *pkt_block,
                             int L3_protocol_type) {
 
     pkt_size_t pkt_size;
@@ -789,10 +797,10 @@ demote_packet_to_layer3 (node_t *node,
     iphdr.protocol = tcp_ip_convert_internal_proto_to_std_proto(protocol_number);
 
     uint32_t addr_int =  tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
-    iphdr.src_ip = addr_int;
-    iphdr.dst_ip = dest_ip_address;
+    iphdr.src_ip = htonl(addr_int);
+    iphdr.dst_ip = htonl(dest_ip_address);
 
-    iphdr.total_length = IP_HDR_COMPUTE_DEFAULT_TOTAL_LEN(pkt_size);
+    iphdr.total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
     uint8_t *new_pkt = NULL;
     pkt_size_t new_pkt_size = 0 ;
@@ -808,9 +816,10 @@ demote_packet_to_layer3 (node_t *node,
     memcpy((char *)new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
 
-    l3_route_t *l3_route = l3rib_lookup_lpm(NODE_RT_TABLE(node), 
-                                          iphdr.dst_ip);
-    
+    l3_route_t *l3_route = l3rib_lookup_lpm(
+                                          NODE_RT_TABLE(node), 
+                                          htonl(iphdr.dst_ip));
+
     if(!l3_route){
         tracer (node->dptr, DL3FWD | DERR, "Dest : %s :  Pkt Dropped : No L3 route\n", dst_ip_addr_str);   
         return;
@@ -934,12 +943,12 @@ layer3_ero_ping_fn(node_t *node,
     pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
     ip_hdr_t *inner_ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr(inner_ip_hdr);
-    inner_ip_hdr->total_length = sizeof(ip_hdr_t)/4;
+    inner_ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE);
     inner_ip_hdr->protocol = ICMP_PROTO;
     uint32_t addr_int = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
-    inner_ip_hdr->src_ip = addr_int;
+    inner_ip_hdr->src_ip = htonl(addr_int);
     addr_int =  tcp_ip_convert_ip_p_to_n(dst_ip_addr);
-    inner_ip_hdr->dst_ip = addr_int;
+    inner_ip_hdr->dst_ip = htonl(addr_int);
     addr_int = tcp_ip_convert_ip_p_to_n(ero_ip_address);
     cp2dp_send_ip_data (node, pkt_block, addr_int, PROTO_IP_IN_IP);
     pkt_block_dereference(pkt_block);
