@@ -43,6 +43,8 @@ class Interface {
 
     private:
         std::weak_ptr<Interface> intfP;
+        uint32_t sock_fd;
+        char padding1[4];
 
     protected:
  
@@ -50,9 +52,7 @@ class Interface {
     public:
         std::string if_name; // 24 B
         node_t *att_node;
-        log_t log_info;
         linkage_t *link;
-        InterfaceType_t iftype;
 
         /* L1 Properties of Interface */
         uint32_t ifindex;
@@ -61,7 +61,7 @@ class Interface {
         uint32_t xmit_pkt_dropped;
         uint32_t recvd_pkt_dropped;
         uint32_t cost;
-        char padding1[4];
+        log_t log_info;
 
         /* L2 Properties : Ingress & egress L2 Access_list */
         access_list_t *l2_ingress_acc_lst;
@@ -75,9 +75,12 @@ class Interface {
         isis_intf_info_t *isis_intf_info;
         
         bool is_up;
-        char padding2[7];
+        InterfaceType_t iftype;
+        char padding2[6];
 
         uint32_t GetIntfCost();
+        uint32_t GetSockfd();
+        void SetSockfd(uint32_t sockfd);
         node_t *GetNbrNode ();
         Interface *GetOtherInterface();
 

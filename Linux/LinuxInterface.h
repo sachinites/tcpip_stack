@@ -8,7 +8,7 @@ typedef struct pkt_block_ pkt_block_t;
 
 
 #define LINUX_PKT_SKT_BUFFER_SIZE 2048
-#define MAX_LINUX_INTERFACES 32
+#define LINUX_MGMT_INTERFACE "ens3"
 
 void 
 LinuxLoadInterfaces (node_t *node);

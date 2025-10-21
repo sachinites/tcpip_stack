@@ -252,7 +252,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     memset(&this->log_info, 0, sizeof(this->log_info));
     this->link = NULL;
     this->is_up = true;
-    this->ifindex = get_new_ifindex();
+    if (!LinuxRtr) this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
     
     this->pkt_recv = 0;
@@ -273,7 +273,8 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 Interface::~Interface()
 {
     InterfaceReleaseAllResources();
-    ConsOut ("%s : Interface %s deleted\n", this->att_node->node_name, this->if_name.c_str());
+    cprintf ("%s : Interface %s deleted\n", 
+        this->att_node->node_name, this->if_name.c_str());
 }
 
 InterfaceP 
@@ -503,6 +504,17 @@ Interface::GetAccessVlanIntf() {
     return nullptr;
 }
 
+uint32_t 
+Interface::GetSockfd() {
+
+    return sock_fd;
+}
+
+void 
+Interface::SetSockfd(uint32_t sock_fd) {
+
+    this->sock_fd = sock_fd;
+}
 
 /* ************ PhysicalInterface ************ */
 PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add)
