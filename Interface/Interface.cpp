@@ -2008,17 +2008,19 @@ int
 NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
     
     pkt_size_t pkt_size;
-    char ipv4_addr_str1[IPV4_ADDR_LEN_STR];
-    char ipv4_addr_str2[IPV4_ADDR_LEN_STR];
+    char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
+    char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
     if (!this->is_up) {
-        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, "VxLAN Encapsulation : Error : NVE Interface %s is down\n", this->if_name.c_str());
+        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, 
+            "VxLAN Encapsulation : Error : NVE Interface %s is down\n", this->if_name.c_str());
         this->xmit_pkt_dropped++;
         return -1;
     }
 
     if (!pkt_block->encap_data) {
-        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
+        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, 
+            "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         this->xmit_pkt_dropped++;
         return -1;
     }

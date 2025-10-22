@@ -112,6 +112,7 @@ mac_table_entry_xmit_frame (node_t *node,
     encap_meta_data_t *encap_data = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
+        
         oif_entry = mac_oif_glue_to_entry(curr);
         oif = oif_entry->oif.get();
         

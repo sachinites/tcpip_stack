@@ -63,6 +63,7 @@ mac_table_config_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_dis
                        intf->ifindex,  MAC_STATIC, true, vtep_ip);
             break;
         }
+        
         case CONFIG_DISABLE:
         {
             mac_addr_t mac_addr;

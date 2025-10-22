@@ -145,7 +145,7 @@ send_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_in, Interface *oif){
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
 
     tracer(node->dptr, DARP, "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
-            tcp_ip_covert_ip_n_to_p (arp_hdr_reply->dst_ip, ip_addr_str), 
+            tcp_ip_covert_ip_n_to_p (htonl(arp_hdr_reply->dst_ip), ip_addr_str), 
             arp_hdr_reply->dst_mac.mac[0],
             arp_hdr_reply->dst_mac.mac[1],
             arp_hdr_reply->dst_mac.mac[2],
