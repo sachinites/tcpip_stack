@@ -849,11 +849,11 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
     {
         eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-        if (eth_hdr->type == ETH_IP)
+        if (htons(eth_hdr->type) == ETH_IP)
         {
             ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
-            src_ip = ip_hdr->src_ip;
-            dst_ip = ip_hdr->dst_ip;
+            src_ip = htonl(ip_hdr->src_ip);
+            dst_ip = htonl(ip_hdr->dst_ip);
             l4proto = ip_hdr->protocol;
 
             switch (l4proto)
@@ -861,8 +861,8 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
             case UDP_PROTO:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
-                src_port = udp_hdr->src_port_no;
-                dst_port = udp_hdr->dst_port_no;
+                src_port = htons(udp_hdr->src_port_no);
+                dst_port = htons(udp_hdr->dst_port_no);
             }
             break;
             case TCP_PROTO:
@@ -882,8 +882,8 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
     case IP_HDR:
         {
             ip_hdr =  (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-            src_ip = ip_hdr->src_ip;
-            dst_ip = ip_hdr->dst_ip;
+            src_ip = htonl(ip_hdr->src_ip);
+            dst_ip = htonl(ip_hdr->dst_ip);
             l4proto = ip_hdr->protocol;
 
             switch (l4proto)
@@ -891,8 +891,8 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
             case UDP_PROTO:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
-                src_port = udp_hdr->src_port_no;
-                dst_port = udp_hdr->dst_port_no;
+                src_port = htons(udp_hdr->src_port_no);
+                dst_port = htons(udp_hdr->dst_port_no);
             }
             break;
             case TCP_PROTO:
@@ -933,16 +933,16 @@ access_list_evaluate_ip_packet (node_t *node,
 
     if (!access_list) return ACL_PERMIT;
 
-    src_ip = ip_hdr->src_ip;
-    dst_ip = ip_hdr->dst_ip;
-    l4proto = ip_hdr->protocol;
+    src_ip = htonl(ip_hdr->src_ip);
+    dst_ip = htonl(ip_hdr->dst_ip);
+    l4proto = htons(ip_hdr->protocol);
 
     switch (l4proto) {
         case UDP_PROTO:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
-                src_port = udp_hdr->src_port_no;
-                dst_port = udp_hdr->dst_port_no;
+                src_port = htons(udp_hdr->src_port_no);
+                dst_port = htons(udp_hdr->dst_port_no);
             }
             break;
         case TCP_PROTO:

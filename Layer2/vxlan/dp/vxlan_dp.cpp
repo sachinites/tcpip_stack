@@ -32,8 +32,8 @@ vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block) {
 
     udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     udp_hdr->src_port_no = 0;
-    udp_hdr->dst_port_no = VXLAN_PROTO;
-    udp_hdr->udp_length = sizeof (udp_hdr_t);
+    udp_hdr->dst_port_no = htons(VXLAN_PROTO);
+    udp_hdr->udp_length = htons(sizeof (udp_hdr_t));
     udp_hdr->udp_checksum = 0;
 
     vxlan_hdr_t *vxlan_hdr = (vxlan_hdr_t *)(udp_hdr + 1);
@@ -71,7 +71,7 @@ void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_
 
      udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-     assert (udp_hdr->dst_port_no == VXLAN_PROTO);
+     assert (htons(udp_hdr->dst_port_no) == VXLAN_PROTO);
 
      vxlan_hdr_t *vxlan_hdr = (vxlan_hdr_t *)(udp_hdr + 1);
 

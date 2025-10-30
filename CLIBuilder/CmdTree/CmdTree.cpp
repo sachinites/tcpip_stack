@@ -205,6 +205,12 @@ libcli_set_inbuilt_param (param_t *param) {
     param->flags |= PARAM_F_INBUILD_CMD;
 }
 
+void 
+libcli_param_synchronous (param_t *param) {
+
+    param->flags |= PARAM_F_SYNCHRONOUS;
+}
+
 static void 
  libcli_build_default_cmdtree() {
 
@@ -805,12 +811,6 @@ cmd_tree_is_filter_param (param_t *param) {
                 param == &include_leaf || param == &exclude ||
                 param == &exclude_leaf ||
                 param == &grepx || param == &grepx_leaf);
-}
-
-void 
-cmd_tree_param_invoke_direct (param_t *param) {
-
-    param->flags |= PARAM_F_INVOKE_DIRECT;
 }
 
 void 

@@ -336,30 +336,33 @@ isis_update_interface_adjacency_from_hello(
                 }
             break;
             case ISIS_TLV_RTR_ID:
-                if (adjacency->nbr_rtr_id != *(uint32_t *)(tlv_value)) {
-                    adjacency->nbr_rtr_id = *(uint32_t *)(tlv_value);
+                if (adjacency->nbr_rtr_id != htonl(*(uint32_t *)(tlv_value))) {
+                    adjacency->nbr_rtr_id = htonl(*(uint32_t *)(tlv_value));
                     force_bring_down_adjacency = true;
                 }
             break;    
             case ISIS_TLV_IF_IP:
                 memcpy((byte *)&four_byte_data, tlv_value, sizeof(four_byte_data));
-                if (adjacency->nbr_intf_ip != four_byte_data ) {
-                    adjacency->nbr_intf_ip = four_byte_data;
+                if (adjacency->nbr_intf_ip != htonl(four_byte_data) ) {
+                    adjacency->nbr_intf_ip = htonl(four_byte_data);
                      force_bring_down_adjacency = true;
                 }
             break;
             case ISIS_TLV_IF_INDEX:
-                if (adjacency->remote_if_index != *(uint32_t *)tlv_value) {
-                    memcpy((byte *)&adjacency->remote_if_index, tlv_value, tlv_len);
-                    regen_lsp = true;
+                {
+                    uint32_t remote_ifindex = htonl(*(uint32_t *)tlv_value);
+                    if (adjacency->remote_if_index != remote_ifindex) {
+                        adjacency->remote_if_index = remote_ifindex;
+                        regen_lsp = true;
+                    }
                 }
             break;
             case ISIS_TLV_HOLD_TIME:
-                adjacency->hold_time = *((uint32_t *)tlv_value);
+                adjacency->hold_time = htonl(*((uint32_t *)tlv_value));
             break;
             case ISIS_TLV_METRIC_VAL:
-                if (adjacency->cost != *((uint32_t *)tlv_value)) {
-                    adjacency->cost = *((uint32_t *)tlv_value);
+                if (adjacency->cost != htonl(*((uint32_t *)tlv_value))) {
+                    adjacency->cost = htonl(*((uint32_t *)tlv_value));
                     regen_lsp= true;
                 }
             break;
@@ -734,11 +737,12 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
     start_buff += 1;
 
     /* loopback Address */
-    memcpy(start_buff, (byte *)&adjacency->nbr_rtr_id, sizeof(adjacency->nbr_rtr_id));
+    four_byte_data = htonl(adjacency->nbr_rtr_id);
+    memcpy(start_buff, (byte *)&four_byte_data, sizeof(four_byte_data));
     start_buff += sizeof(adjacency->nbr_rtr_id);
     
     /* Metric / Cost */
-    four_byte_data = ISIS_INTF_COST(adjacency->intf);
+    four_byte_data = htonl(ISIS_INTF_COST(adjacency->intf));
     memcpy(start_buff, (byte *)&four_byte_data, sizeof(uint32_t));
     start_buff += sizeof(uint32_t);
 
@@ -761,7 +765,7 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
 
     /* Encode local ip Address 
        Encoding SubTLV 6 */
-    four_byte_data = IF_IP(adjacency->intf);
+    four_byte_data = htonl(IF_IP(adjacency->intf));
 
     start_buff = tlv_buffer_insert_tlv(start_buff,
                         ISIS_TLV_LOCAL_IP, 4,
@@ -769,9 +773,10 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
 
     /* Encode remote ip Address 
        Encoding SubTLV 8 */
+    four_byte_data = htonl(adjacency->nbr_intf_ip);
     start_buff = tlv_buffer_insert_tlv(start_buff,
                         ISIS_TLV_REMOTE_IP, 4,
-                        (byte *)&adjacency->nbr_intf_ip);
+                        (byte *)&four_byte_data);
 
     return start_buff;
 }

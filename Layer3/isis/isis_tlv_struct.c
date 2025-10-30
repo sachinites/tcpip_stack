@@ -252,7 +252,7 @@ isis_get_adv_data_tlv_content(
         case ISIS_IS_REACH_TLV:
             memcpy(tlv_content, (byte *)&advt_data->u.adj_data.nbr_sys_id, sizeof(isis_system_id_t));
             tlv_content += sizeof(isis_system_id_t);
-            *(uint32_t *)tlv_content = advt_data->u.adj_data.metric;
+            *(uint32_t *)tlv_content = htonl(advt_data->u.adj_data.metric);
             tlv_content += sizeof(uint32_t);
 
             /* encode subtlv 4 */
@@ -267,36 +267,40 @@ isis_get_adv_data_tlv_content(
 
             /* Now We are at the start of Ist SubTLV,
                 encode local and remote if index Encoding SubTLV 4 */
-            if_indexes[0]  = advt_data->u.adj_data.local_ifindex;
-            if_indexes[1]  = advt_data->u.adj_data.remote_ifindex;
+            if_indexes[0]  = htonl(advt_data->u.adj_data.local_ifindex);
+            if_indexes[1]  = htonl(advt_data->u.adj_data.remote_ifindex);
             tlv_content= tlv_buffer_insert_tlv(tlv_content,
                         ISIS_TLV_IF_INDEX, 8,
                         (byte *)if_indexes);
 
             /* Encode local ip Address Encoding SubTLV 6 */
-            tlv_content = tlv_buffer_insert_tlv(tlv_content,
-                        ISIS_TLV_LOCAL_IP, 4,
-                        (byte *)&advt_data->u.adj_data.local_intf_ip);
+            {
+                uint32_t local_ip = htonl(advt_data->u.adj_data.local_intf_ip);
+                tlv_content = tlv_buffer_insert_tlv(tlv_content,
+                            ISIS_TLV_LOCAL_IP, 4,
+                            (byte *)&local_ip);
 
-            /* Encode remote ip Address  Encoding SubTLV 8 */
-            tlv_content = tlv_buffer_insert_tlv(tlv_content,
-                        ISIS_TLV_REMOTE_IP, 4,
-                        (byte *)&advt_data->u.adj_data.remote_intf_ip);
+                /* Encode remote ip Address  Encoding SubTLV 8 */
+                uint32_t remote_ip = htonl(advt_data->u.adj_data.remote_intf_ip);
+                tlv_content = tlv_buffer_insert_tlv(tlv_content,
+                            ISIS_TLV_REMOTE_IP, 4,
+                            (byte *)&remote_ip);
+            }
         break;
 
         case ISIS_TLV_IP_REACH:
-             *(uint32_t *)tlv_content = advt_data->u.pfx.prefix;
+             *(uint32_t *)tlv_content = htonl(advt_data->u.pfx.prefix);
             tlv_content += sizeof(uint32_t);
-             *(uint32_t *)tlv_content = tcp_ip_convert_dmask_to_bin_mask(advt_data->u.pfx.mask);
+             *(uint32_t *)tlv_content = htonl(tcp_ip_convert_dmask_to_bin_mask(advt_data->u.pfx.mask));
             tlv_content += sizeof(uint32_t);
-            *(uint32_t *)tlv_content = advt_data->u.pfx.metric;
+            *(uint32_t *)tlv_content = htonl(advt_data->u.pfx.metric);
             tlv_content += sizeof(uint32_t);
             *(uint8_t *)tlv_content = advt_data->u.pfx.flags;
         break;
         case ISIS_TLV_IPV6_REACH:
         {
             isis_tlv_236_t *tlv_fmt = (isis_tlv_236_t *)tlv_content;
-            tlv_fmt->metric = advt_data->u.v6pfx.metric;
+            tlv_fmt->metric = htonl(advt_data->u.v6pfx.metric);
             tlv_fmt->bits = advt_data->u.v6pfx.flags;
             tlv_fmt->prefix_len =  advt_data->u.v6pfx.mask;
             memcpy(tlv_fmt->prefix ,  advt_data->u.v6pfx.prefix, 16);

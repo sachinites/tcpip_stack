@@ -39,6 +39,7 @@
 #include <unistd.h> // for close
 #include <netdb.h>  /*for struct hostent*/
 #include <sys/socket.h>
+#include <errno.h>
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "EventDispatcher/event_dispatcher.h"
 #include "comm.h"
@@ -279,7 +280,7 @@ node_init_udp_socket(node_t *node){
     node_addr.sin_port        = node->udp_port_number;
     node_addr.sin_addr.s_addr = INADDR_ANY;
     if (bind(udp_sock_fd, (struct sockaddr *)&node_addr, sizeof(struct sockaddr)) == -1) {
-        cprintf("Error : socket bind failed for Node %s\n", node->node_name);
+        cprintf("Error : socket bind failed for Node %s, errno = %d\n", node->node_name, errno);
         return;
     }
 

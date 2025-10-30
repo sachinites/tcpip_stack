@@ -132,8 +132,8 @@ main(int argc, char **argv){
 #endif
 
     uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
-                                               (htons(ip_hdr->total_length) * 4) +
-                                               IF_NAME_SIZE;
+                                IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr) +
+                                IF_NAME_SIZE;
 
     int rc = 0 ;
     while(1){

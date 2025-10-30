@@ -359,6 +359,8 @@ linux_listener_thread(void* arg) {
 
         for (int i = 0; i < MAX_INTF_PER_NODE; i++) {
 
+            if (!node->intf[i]) continue;
+            
             sock_fd = node->intf[i]->GetSockfd() ;
 
             if (sock_fd > 0) {

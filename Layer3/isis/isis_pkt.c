@@ -97,6 +97,7 @@ isis_process_hello_pkt(node_t *node,
 
     /*If no Intf IP, then it is a bad hello*/
     if (!if_ip_addr_int) goto bad_hello;
+    *if_ip_addr_int = htonl(*if_ip_addr_int);
 
     if (!iif->IsSameSubnet(*if_ip_addr_int)) {
 
@@ -315,13 +316,13 @@ isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
         case ISIS_PTP_HELLO_PKT_TYPE:
             p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
             isis_init_p2p_hello_pkt_hdr (p2p_hdr, intf);
-            p2p_hdr->pdu_len = eth_hdr_playload_size;
+            p2p_hdr->pdu_len = htons(eth_hdr_playload_size);
         break;
         case ISIS_LAN_L1_HELLO_PKT_TYPE:
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             lan_hdr = (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
             isis_init_lan_hello_pkt_hdr (lan_hdr, intf);
-            lan_hdr->pdu_len = eth_hdr_playload_size;
+            lan_hdr->pdu_len = htons(eth_hdr_playload_size);
         break;
         default: ;
     }
@@ -332,28 +333,29 @@ isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
                                                   NODE_NAME_SIZE,
                                                   node->node_name);
 
-    rtr_id = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(intf->att_node));
+    rtr_id = htonl(tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(intf->att_node)));
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_RTR_ID,
                                                    4, 
                                                    (byte *)(&rtr_id));
 
-    int_ip_addr = IF_IP(intf);
+    int_ip_addr = htonl(IF_IP(intf));
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_IP, 
                                                   4, 
                                                   (byte *)&int_ip_addr);
 
+    uint32_t ifindex = htonl(intf->ifindex);
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_IF_INDEX,
                                                     4, 
-                                                    (byte *)&intf->ifindex);
+                                                    (byte *)&ifindex);
 
     uint32_t hold_time =
-        ISIS_INTF_HELLO_INTERVAL(intf) * ISIS_HOLD_TIME_FACTOR;
+        htonl(ISIS_INTF_HELLO_INTERVAL(intf) * ISIS_HOLD_TIME_FACTOR);
 
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_HOLD_TIME,
                                                     4,
                                                     (byte *)&hold_time);
 
-    uint32_t cost = ISIS_INTF_COST(intf);
+    uint32_t cost = htonl(ISIS_INTF_COST(intf));
 
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_METRIC_VAL,
                                                  4,
@@ -759,7 +761,7 @@ isis_init_p2p_hello_pkt_hdr (isis_p2p_hello_pkt_hdr_t *hdr, Interface *intf) {
     isis_intf_info_t *intf_info = ISIS_INTF_INFO (intf);
     hdr->circuit_type = intf_info->level; 
     hdr->source_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
-    hdr->hold_time = intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR;
+    hdr->hold_time = htons(intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR);
     hdr->pdu_len = 0; /* Total len of pdu in bytes*/
     hdr->local_circuit_id = intf->ifindex;
     return hdr;
@@ -773,7 +775,7 @@ isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf) {
     hdr->circuit_type =  intf_info->level;  
     hdr->source_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
     hdr->source_id.rtr_id = tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node));
-    hdr->hold_time = intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR;
+    hdr->hold_time = htons(intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR);
     hdr->pdu_len = 0; /* Total len of pdu in bytes*/
     hdr->priority = intf_info->priority;
     memcpy (&hdr->lan_id, &intf_info->lan_id, sizeof(isis_lan_id_t));

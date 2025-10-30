@@ -137,7 +137,7 @@ pkt_block_get_ethernet_hdr(pkt_block_t *pkt_block) {
         return (ethernet_hdr_t *) (pkt_block->pkt);
     else if (pkt_block->hdr_type == GRE_HDR) {
         gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
-        if (gre_hdr->protocol_type == PROTO_GRE_ENCAP_ETHERNET) {
+        if (htons(gre_hdr->protocol_type) == PROTO_GRE_ENCAP_ETHERNET) {
             return (ethernet_hdr_t *)(gre_hdr + 1);
         }
     }

@@ -62,7 +62,7 @@ isis_ted_update_or_install_lsp (node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *
             nbr_index++;
             tlv22_hdr = (tlv22_hdr_t *)tlv_value;
             system_id = tlv22_hdr->system_id;
-            metric = tlv22_hdr->metric;
+            metric = htonl(tlv22_hdr->metric);
             subtlv_len = tlv22_hdr->subtlv_len;
 
             nbr_data->nbr_rtr_id = system_id.rtr_id;
@@ -78,14 +78,14 @@ isis_ted_update_or_install_lsp (node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *
                 switch (tlv_type2)
                 {
                 case ISIS_TLV_IF_INDEX:
-                    nbr_data->local_if_index = *(uint32_t *)tlv_value2;
-                    nbr_data->remote_if_index = *(uint32_t *)((uint32_t *)tlv_value2 + 1);
+                    nbr_data->local_if_index = htonl(*(uint32_t *)tlv_value2);
+                    nbr_data->remote_if_index = htonl(*(uint32_t *)((uint32_t *)tlv_value2 + 1));
                     break;
                 case ISIS_TLV_LOCAL_IP:
-                    nbr_data->local_ip = *(uint32_t *)tlv_value2;
+                    nbr_data->local_ip = htonl(*(uint32_t *)tlv_value2);
                     break;
                 case ISIS_TLV_REMOTE_IP:
-                    nbr_data->remote_ip = *(uint32_t *)tlv_value2;
+                    nbr_data->remote_ip = htonl(*(uint32_t *)tlv_value2);
                     break;
                 default:;
                 }

@@ -275,7 +275,7 @@ libcli_init () {
     noecho();        // Disable character echoing
     refresh();        // Update the screen
 
-    assert (has_colors() );
+    //assert (has_colors() );
     start_color();
     init_pair(GRASS_PAIR, COLOR_YELLOW, COLOR_GREEN);
     init_pair(WATER_PAIR, COLOR_CYAN, COLOR_BLUE);
@@ -904,8 +904,6 @@ cli_start_shell () {
         if (default_cli->cnt == MAX_COMMAND_LENGTH) continue;
 
         if (cli_is_char_mode_on()) {
-
-
 
             if ( key_processor_should_enter_line_mode (ch)) {
                 keyp_char_mode = false;

@@ -257,7 +257,7 @@ gre_encasulate (node_t *node, pkt_block_t *pkt_block) {
 
     /* Fill GRE packet Hdr contents*/
     memset (gre_hdr, 0, sizeof (gre_hdr_t));
-    gre_hdr->protocol_type = gre_inner_hdr_type;
+    gre_hdr->protocol_type = htons(gre_inner_hdr_type);
     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);        
     tracer (node->dptr, DTUNNEL | DFLOW, 
         "GRE Encapsulation %s\n", pkt_block_str (pkt_block));    
@@ -295,7 +295,7 @@ gre_decapsulate (node_t *node, pkt_block_t *pkt_block, Interface *gre_interface)
     pkt_block_set_new_pkt (pkt_block, 
         (uint8_t *)(gre_hdr + 1), pkt_size - sizeof (gre_hdr_t));
 
-    switch (gre_hdr->protocol_type) {
+    switch (htons(gre_hdr->protocol_type)) {
 
         case ETH_IP:
         {

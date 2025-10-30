@@ -285,17 +285,16 @@ layer3_ip_route_pkt(node_t *node,
                                            pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
-
-                    tcp_ip_covert_ip_n_to_p (ip_hdr->dst_ip, gre_t_src_addr);
-                    tcp_ip_covert_ip_n_to_p (ip_hdr->src_ip, gre_t_dst_addr);
+                    tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->dst_ip), gre_t_src_addr);
+                    tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->src_ip), gre_t_dst_addr);
 
                     tracer (node->dptr, DL3FWD, 
                            "Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
                            dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
 
                     gre_decapsulate (node, pkt_block, 
-                        gre_lookup_tunnel_intf (node, 
-			                ip_hdr->dst_ip, ip_hdr->src_ip));
+                            gre_lookup_tunnel_intf (node, 
+			                htonl(ip_hdr->dst_ip), htonl(ip_hdr->src_ip)));
                     return;
                 }
                 default: ;

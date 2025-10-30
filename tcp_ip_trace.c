@@ -312,9 +312,9 @@ tcp_dump_gre_hdr(char *buff,
                         pkt_size_t pkt_size){
 
     int rc = 0;
-     rc += sprintf(buff + rc, "GRE Encap: %s\n", proto_name_str(gre_hdr->protocol_type));
+     rc += sprintf(buff + rc, "GRE Encap: %s\n", proto_name_str(htons(gre_hdr->protocol_type)));
 
-    switch (gre_hdr->protocol_type) {
+    switch (htons(gre_hdr->protocol_type)) {
 
         case ETH_IP:
             rc += tcp_dump_ip_hdr(buff + rc, 

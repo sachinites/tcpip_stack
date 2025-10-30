@@ -98,7 +98,7 @@ typedef struct vlan_ethernet_hdr_{
 static inline uint32_t
 GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 
-    return (uint32_t)vlan_8021q_hdr->tci_vid;
+    return (uint32_t)htons(vlan_8021q_hdr->tci_vid);
 }
 
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \

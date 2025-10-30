@@ -632,7 +632,7 @@ l2_frame_recv_qualify_on_interface(
 
 bool 
 is_arp_pkt_for_svi_interface (node_t *node,
-                                      pkt_block_t *pkt_block)
+                              pkt_block_t *pkt_block)
 {
     uint16_t proto;
     uint8_t svi_mask;
@@ -648,28 +648,28 @@ is_arp_pkt_for_svi_interface (node_t *node,
 
     if (is_pkt_vlan_tagged(ethernet_hdr)) {
         vlan_eth_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
-        proto = vlan_eth_hdr->type;
+        proto = htons(vlan_eth_hdr->type);
         vlan_id = GET_802_1Q_VLAN_ID(&vlan_eth_hdr->vlan_8021q_hdr);
     }   
     else {
-        proto = ethernet_hdr->type;
+        proto = htons(ethernet_hdr->type);
     }
 
     if (proto != PROTO_ARP) return false;
 
     arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
     
-    if (arp_hdr->op_code != ARP_BROAD_REQ && arp_hdr->op_code != ARP_REPLY) return false;
+    if (htons(arp_hdr->op_code) != ARP_BROAD_REQ && 
+         htons(arp_hdr->op_code) != ARP_REPLY) return false;
 
     /* Lookup Vlan Inteface */
     VlanInterface *svi =
-                    static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
+        static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
 
     if (!svi) return false;
 
     svi->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
-
-    return (svi_ip_addr == arp_hdr->dst_ip) ;
+    return (svi_ip_addr == htonl(arp_hdr->dst_ip)) ;
 }
 
 bool
@@ -733,7 +733,7 @@ svi_interface_intercept_arp_pkt (node_t *node,
     /*Process ARP packets destined for SVI interface */
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
 
-    if (arp_hdr->op_code == ARP_REPLY) {
+    if (htons(arp_hdr->op_code) == ARP_REPLY) {
 
         arp_table_update_from_arp_reply(NODE_ARP_TABLE(node), arp_hdr,
                                         dynamic_cast<Interface *>(vlan_intf.get()));
@@ -741,7 +741,7 @@ svi_interface_intercept_arp_pkt (node_t *node,
         return true;
     }
 
-    if (arp_hdr->op_code != ARP_BROAD_REQ) return true;
+    if (htons(arp_hdr->op_code) != ARP_BROAD_REQ) return true;
 
     vlan_intf->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
 

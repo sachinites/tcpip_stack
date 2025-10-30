@@ -35,6 +35,10 @@ libcli_support_cmd_negation (param_t *param);
 void 
 libcli_param_recursive (param_t *param);
 
+/* Force invoke the CLI synchronously*/
+void 
+libcli_param_synchronous (param_t *param);
+
 void 
 libcli_param_list(param_t *param);
 void 
