@@ -8,8 +8,8 @@ typedef enum RTM_AFI_ {
     
 } RTM_AFI_T;
 
-typedef enum protocols_
-{
+typedef enum protocols_ {
+
     RTM_PROTO_STATIC    = 0x00010000,
     RTM_PROTO_CONNECTED = 0x00020000,
     RTM_PROTO_LOCAL     = 0x00030000,
@@ -44,7 +44,7 @@ typedef enum rt_action_type_ {
     RTM_RT_FORWARD,
     RTM_RT_TUNNEL
 
-} RT_ACTION_TYPE_T;
+} RTM_RT_ACTION_TYPE_T;
 
 typedef enum nh_action_type_ {
 
@@ -54,6 +54,34 @@ typedef enum nh_action_type_ {
     RTM_NH_FORWARD,
     RTM_NH_TUNNEL
 
-} RT_ACTION_TYPE_T;
+} RTM_NH_ACTION_TYPE_T;
+
+typedef enum rtm_source_type_ {
+
+    RTM_SOURCE_TYPE_STATIC,     
+    RTM_SOURCE_TYPE_I3,             
+    RTM_SOURCE_RPM_ISIS,
+    RTM_SOURCE_RPM_BGP,
+    RTM_SOURCE_RPM_OSPF,
+    RTM_SOURCE_TYPE_SUMM_ADDR,      
+    RTM_SOURCE_TYPE_DEF_INFO_ORIG,
+    RTM_CUST_MAX_NUM_RPMS
+
+} RTM_SOURCE_TYPE_T;
+
+typedef enum rtm_admin_dist_ {
+
+    RTM_ADMIN_DIST_CONNECTED    = 0,
+    RTM_ADMIN_DIST_STATIC       = 1,
+    RTM_ADMIN_DIST_OSPF_INTER   = 110,
+    RTM_ADMIN_DIST_OSPF_INTRA   = 110,
+    RTM_ADMIN_DIST_OSPF_EXT     = 110,
+    RTM_ADMIN_DIST_BGP_INT      = 200,
+    RTM_ADMIN_DIST_BGP_EXT      = 20,
+    RTM_ADMIN_DIST_ISIS         = 115,
+    RTM_ADMIN_DIST_TNL_ENDP     = 2,
+    RTM_ADMIN_DIST_UNKNOWN      = 255
+    
+} RTM_AD_T;
 
 #endif 
