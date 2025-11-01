@@ -27,6 +27,10 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 11 : SRV6 Control Plane and Data Plane Implemented. End Fn Supported : END, END-X
 
+## Project 12 : VxLAN Support ( Static ) , Vlan-Extension using L2VNI
+
+## Project 13 : GNS3 Virtualization : Run the project on GNS3/EVE-NG topology.
+
 #### After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
