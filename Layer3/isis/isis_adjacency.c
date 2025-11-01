@@ -345,7 +345,7 @@ isis_update_interface_adjacency_from_hello(
                 memcpy((byte *)&four_byte_data, tlv_value, sizeof(four_byte_data));
                 if (adjacency->nbr_intf_ip != htonl(four_byte_data) ) {
                     adjacency->nbr_intf_ip = htonl(four_byte_data);
-                     force_bring_down_adjacency = true;
+                    force_bring_down_adjacency = true;
                 }
             break;
             case ISIS_TLV_IF_INDEX:

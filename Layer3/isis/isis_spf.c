@@ -246,8 +246,8 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         /* Router ID */
         if (isis_evaluate_policy(spf_root,
-                                              node_info->import_policy,
-                                              spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
+                                 node_info->import_policy,
+                                 spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
 
             goto Exported_Prefixes;
         }
@@ -263,7 +263,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                         spf_result->node->node_name,
                         tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32);            
 
-                rt_ipv4_route_add (spf_root, 
+            rt_ipv4_route_add (spf_root, 
                         spf_result->node->rtr_id, 32,
                         tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
                         nexthop->oif.get(),

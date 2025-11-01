@@ -318,11 +318,9 @@ tag_pkt_with_vlan_id (
     
     if(vlan_8021q_hdr){
         payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
-        vlan_8021q_hdr->tci_vid = (short)vlan_id;
-        
-        /*Update checksum, however not used*/
+        vlan_8021q_hdr->tci_vid = 0;
+        vlan_8021q_hdr->tci_vid |= htons((uint16_t)vlan_id);
         SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
-
         return;
     }
 
@@ -347,10 +345,11 @@ tag_pkt_with_vlan_id (
         ethernet_hdr_old.src_mac.mac, MAC_ADDR_SIZE);
 
     /*Come to 802.1Q vlan hdr*/
-    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = htons(VLAN_8021Q_PROTO);
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_pcp = 0;
     vlan_ethernet_hdr->vlan_8021q_hdr.tci_dei = 0;
-    vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid = (short)vlan_id;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid = 0;
+    vlan_ethernet_hdr->vlan_8021q_hdr.tci_vid |= htons((uint16_t)vlan_id);
 
     /*Type field*/
     vlan_ethernet_hdr->type = ethernet_hdr_old.type;
@@ -541,7 +540,7 @@ l2_frame_recv_qualify_on_interface(
             return true;
         }
 
-        pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+        pkt_vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
         if(pkt_vlan_id == intf_vlan_id){
             return true;    /*case 5*/
         }
@@ -573,7 +572,7 @@ l2_frame_recv_qualify_on_interface(
     if((interface->GetL2Mode() == LAN_TRUNK_MODE) && 
             vlan_8021q_hdr){
         
-        pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+        pkt_vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
         if (interface->IsVlanTrunked(pkt_vlan_id)) {
             return true;    /*case 9*/
         }
@@ -590,7 +589,7 @@ l2_frame_recv_qualify_on_interface(
     if (interface->iftype == INTF_TYPE_GRE_TUNNEL &&
             vlan_8021q_hdr) {
                 
-        *output_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+        *output_vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
         return true;
     }
 
@@ -762,10 +761,11 @@ svi_interface_intercept_arp_pkt (node_t *node,
     vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
         (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
 
-    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid = (short)pkt_vlan_id;
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid = 0;
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid |= htons((uint16_t)pkt_vlan_id);
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_dei = 0;
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_pcp = 0;
-    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = VLAN_8021Q_PROTO;
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(VLAN_8021Q_PROTO);
 
     l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
                              &arp_hdr_in->src_mac, arp_hdr_in->src_ip,

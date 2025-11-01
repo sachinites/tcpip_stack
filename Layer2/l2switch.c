@@ -55,7 +55,7 @@ promote_pkt_to_layer3(node_t *node,
 
 void
 l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-                                                    c_string src_mac, Interface *oif, uint32_t src_ip) {
+                                c_string src_mac, Interface *oif, uint32_t src_ip) {
 
     int i;
     uint16_t flags;
@@ -184,7 +184,8 @@ l2_switch_flood_unknown_unicast (node_t *node,
             is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL))));
 
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
-            pkt_block_str (pkt_block), vlan_8021q_hdr->tci_vid);
+            pkt_block_str (pkt_block), 
+            htons(vlan_8021q_hdr->tci_vid));
 
     mac_table_entry_xmit_frame (node, mac_flood_entry, pkt_block, exempted_intf);
 }
@@ -209,7 +210,7 @@ l2_switch_forward_frame(
         pkt_block_str (pkt_block), GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
      pkt_block->switchport_ingress_intf = recv_intf->GetSharedPtr();
-     vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+     vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
                                       vlan_id,

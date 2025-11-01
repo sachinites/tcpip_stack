@@ -79,9 +79,10 @@ node_set_intf_vlan_membership(node_t *node, const char *intf_name, vlan_id_t vla
 typedef struct vlan_8021q_hdr_{
 
     unsigned short tpid; /* = 0x8100*/
-    short tci_pcp : 3 ;  /* inital 4 bits not used in this course*/
-    short tci_dei : 1;   /*Not used*/
-    short tci_vid : 12 ; /*Tagged vlan id*/
+    unsigned short tci_pcp : 3 ;  /* inital 4 bits not used in this course*/
+    unsigned short tci_dei : 1;   /*Not used*/
+    unsigned short tci_vid : 12 ; /*Tagged vlan id*/
+
 } vlan_8021q_hdr_t;
 
 typedef struct vlan_ethernet_hdr_{
@@ -118,7 +119,7 @@ is_pkt_vlan_tagged(ethernet_hdr_t *ethernet_hdr){
     vlan_8021q_hdr_t *vlan_8021q_hdr =
         (vlan_8021q_hdr_t *)((char *)ethernet_hdr + (sizeof(mac_addr_t) * 2));
 
-    if(vlan_8021q_hdr->tpid == VLAN_8021Q_PROTO)
+    if(vlan_8021q_hdr->tpid == htons(VLAN_8021Q_PROTO))
         return vlan_8021q_hdr;
 
     return NULL;

@@ -1065,7 +1065,7 @@ VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
         return 0;
     }
 
-    vlan_id_t vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+    vlan_id_t vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp (this->att_node, vlan_id);
 

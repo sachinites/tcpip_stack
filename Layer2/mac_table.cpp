@@ -157,12 +157,12 @@ mac_table_entry_delete (node_t *node,
 
 void
 mac_table_entry_add (node_t *node,
-                          mac_table_t *mac_table, 
-                          uint8_t *mac_addr, 
-                          uint16_t vlan_id,
-                          uint32_t ifindex,
-                         uint16_t flags,
-                         uint32_t remote_dst_ip) {
+                        mac_table_t *mac_table, 
+                        uint8_t *mac_addr, 
+                        uint16_t vlan_id,
+                        uint32_t ifindex,
+                        uint16_t flags,
+                        uint32_t remote_dst_ip) {
 
     /* Get the interface by ifindex */
     Interface *oif = node_get_intf_by_ifindex(node, ifindex);

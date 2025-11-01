@@ -185,12 +185,24 @@ dp_pkt_receive (node_t *node,
         pkt_block->switchport_ingress_intf = interface->GetSharedPtr();
 
         if (vlan_id_to_tag) {
+           
             tag_pkt_with_vlan_id (pkt_block, vlan_id_to_tag);
             tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Tagged with VLAN ID %d\n", 
                 pkt_block_str(pkt_block), vlan_id_to_tag);
         }
 
-        l2_switch_recv_frame(node, 
+        if (vlan_id_to_tag == 0) {
+
+            /* We did not tag the pkt because pkt was already tagged.*/
+            vlan_8021q_hdr_t *vlan_8021q_hdr;
+
+            assert ((vlan_8021q_hdr = 
+                is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL))));
+
+            vlan_id_to_tag = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+        }
+
+        l2_switch_recv_frame(node,
                     vlan_id_to_tag,
                     interface, pkt_block);
     }

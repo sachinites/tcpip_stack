@@ -18,7 +18,7 @@ isis_hello_pkt_trap_rule(char *pkt, size_t pkt_size) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
 
-	if (eth_hdr->type == ISIS_HELLO_ETH_PKT_TYPE) {
+	if (eth_hdr->type == htons(ISIS_HELLO_ETH_PKT_TYPE)) {
 		return true;
 	}
 
@@ -30,7 +30,7 @@ isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
 
-	if (eth_hdr->type == ISIS_LSP_ETH_PKT_TYPE) {
+	if (eth_hdr->type == htons(ISIS_LSP_ETH_PKT_TYPE)) {
 		return true;
 	}
 
@@ -305,7 +305,7 @@ isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
 
     memset(hello_eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
     layer2_fill_with_broadcast_mac(hello_eth_hdr->dst_mac.mac);
-    hello_eth_hdr->type = ISIS_HELLO_ETH_PKT_TYPE;
+    hello_eth_hdr->type = htons(ISIS_HELLO_ETH_PKT_TYPE);
 
     node = intf->att_node;
     cmn_hdr = (isis_common_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
@@ -509,7 +509,7 @@ isis_print_hello_pkt(byte *buff,
                 break;
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
-                tcp_ip_covert_ip_n_to_p(*(uint32_t *)tlv_value, ip_addr_str);
+                tcp_ip_covert_ip_n_to_p(htonl(*(uint32_t *)tlv_value), ip_addr_str);
                 rc += cprintf("%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
                 break;
             case ISIS_TLV_HOLD_TIME:
