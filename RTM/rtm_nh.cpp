@@ -90,7 +90,7 @@ rtm_nh_compare(rtm_nh* nh1, rtm_nh* nh2) {
 
 /* Initialize a nexthop structure */
 void 
-initialize(rtm_nh* nh) {
+rtm_nh_initialize(rtm_nh* nh) {
     
     if (!nh) return;
     
@@ -101,7 +101,7 @@ initialize(rtm_nh* nh) {
     init_glthread(&nh->route_glue);
     init_glthread(&nh->resolution_list_glue);
     
-    nh->proto_info = NULL;
+    nh->rtm_nh_proto = NULL;
     nh->ad = RTM_ADMIN_DIST_UNKNOWN;
     nh->metric = 0;
     nh->action = RTM_NH_ACTION_FORWARD;

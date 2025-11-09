@@ -74,12 +74,16 @@ typedef struct nh_proto_
 
 } rtm_nh_proto_t;
 
+void 
+rtm_nh_proto_initialize(rtm_nh_proto_t *nh_proto);
+
 rtm_error_t
 rtm_nh_proto_info_create(rtm_t *rtm,
                          const RTM_PROTO_T proto,
                          const RTM_SUB_PROTO_T sub_proto,
                          const uint32_t inst_no,
-                         const uint8_t vrf_id);
+                         const uint8_t vrf_id,
+                         rtm_nh_proto_t **out);
 
 int8_t
 rtm_nh_proto_compare(rtm_nh_proto_t *nh_proto1, rtm_nh_proto_t *nh_proto2);
@@ -87,18 +91,20 @@ rtm_nh_proto_compare(rtm_nh_proto_t *nh_proto1, rtm_nh_proto_t *nh_proto2);
 rtm_error_t
 rtm_nh_proto_add(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
 
-rtm_error_t
-rtm_nh_proto_del(rtm_t *rtm,
-                 const RTM_PROTO_T proto,
-                 const RTM_SUB_PROTO_T sub_proto,
-                 const uint32_t inst_no,
-                 const uint8_t vrf_id);
-
 rtm_nh_proto_t *
 rtm_nh_proto_lookup(const rtm_t *rtm, const RTM_PROTO_T proto,
                     const RTM_SUB_PROTO_T sub_proto,
                     const uint32_t inst_no,
                     const uint8_t vrf_id);
+
+void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
+
+void rtm_nh_proto_dereference(rtm_nh_proto_t *nh_proto);
+
+void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
+
+/* Decrement NH protocol info reference count and free if necessary */
+void rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
 
 /* ----------------------------------------------------------------  */
 
@@ -115,7 +121,7 @@ typedef struct rtm_proto_info_ {
     
 } rtm_proto_info_t;
 
-rtm_error_t
+rtm_proto_info_t *
 rtm_proto_info_create (rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no);
 
 int8_t

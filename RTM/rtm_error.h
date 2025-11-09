@@ -19,8 +19,55 @@ typedef enum rtm_error_ {
     RTM_ERROR_NEXTHOP_NOT_FOUND,
     RTM_ERROR_NEXTHOP_ALREADY_EXISTS,
     RTM_ERROR_PROTO_INFO_ALREADY_EXISTS,
+    RTM_ERROR_INVALID_GATEWAY,
+    RTM_ERROR_INVALID_OIF_INDEX,
     RTM_ERROR_MAX
 
 } rtm_error_t;
+
+static const char *
+rtm_error_to_string (rtm_error_t err) {
+
+    switch (err) {
+        case RTM_SUCCESS:
+            return "Success";
+        case RTM_ERROR_INVALID_PREFIX:
+            return "Invalid prefix";
+        case RTM_ERROR_INVALID_NH:
+            return "Invalid nexthop";
+        case RTM_ERROR_INVALID_ROUTE:
+            return "Invalid route";
+        case RTM_ERROR_INVALID_API:
+            return "Invalid API";
+        case RTM_ERROR_INVALID_ARGUMENT:
+            return "Invalid argument";
+        case RTM_ERROR_CONTAINER_INSERTION_FAILED:
+            return "Container insertion failed";
+        case RTM_ERROR_CONTAINER_LOOKUP_FAILED:
+            return "Container lookup failed";
+        case RTM_ERROR_CONTAINER_REMOVAL_FAILED:
+            return "Container removal failed";
+        case RTM_ERROR_UPDATE_FAILED:
+            return "Update failed";
+        case RTM_ERROR_LINK_FAILED:
+            return "Link failed";
+        case RTM_ERROR_UNLINK_FAILED:
+            return "Unlink failed";
+        case RTM_ERROR_NEXTHOP_NOT_FOUND:
+            return "Nexthop not found";
+        case RTM_ERROR_NEXTHOP_ALREADY_EXISTS:
+            return "Nexthop already exists";
+        case RTM_ERROR_PROTO_INFO_ALREADY_EXISTS:
+            return "Protocol info already exists";
+        case RTM_ERROR_INVALID_GATEWAY:
+            return "Invalid gateway";
+        case RTM_ERROR_INVALID_OIF_INDEX:
+            return "Invalid OIF index";
+        case RTM_ERROR_MAX:
+            return "Max error";
+    }
+
+    return "Unknown error";
+}
 
 #endif 

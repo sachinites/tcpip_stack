@@ -45,7 +45,9 @@ typedef struct rtm_route_ {
 #pragma pack(pop)
 
         /* Methods */
-        void rtm_initialize();
+        void rtm_route_initialize(rtm_route *route);
+
+        bool rtm_validate_with_route (rtm_t *rtm, rtm_prefix_t *prefix);
 
         /* Route Mgmt Functions */
         rtm_route *rtm_route_lookup (const rtm_t* rtm, rtm_prefix_t* prefix_key);

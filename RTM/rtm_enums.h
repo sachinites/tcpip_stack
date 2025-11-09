@@ -28,6 +28,7 @@ typedef enum protocols_ {
 
 typedef enum sub_protocols_ {
 
+    RTM_SUB_PROTO_STATIC,
     RTM_PROTO_L1_ISIS_INT,
     RTM_PROTO_L2_ISIS_INT, 
     RTM_PROTO_L1_ISIS_EXT, 
@@ -79,6 +80,6 @@ typedef enum mpls_op_ {
 
 } mpls_op_t;
 
-#define DEFAULT_VRF 0
+#define RTM_DEFAULT_VRF 0
 
 #endif 

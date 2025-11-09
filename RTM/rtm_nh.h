@@ -11,6 +11,7 @@
 
 typedef struct rtm_route_ rtm_route;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
+typedef struct nh_proto_ rtm_nh_proto_t;
 
 typedef struct rtm_nh_ {
 
@@ -31,7 +32,7 @@ typedef struct rtm_nh_ {
         glthread_t resolution_list_glue;
 
         /* Shared pointer to the protocol info */
-        rtm_proto_info_t* proto_info;
+        rtm_nh_proto_t *rtm_nh_proto;
 
         /* Admin distance */
         RTM_AD_T ad;
@@ -64,7 +65,7 @@ GLTHREAD_TO_STRUCT(route_glue_to_rtm_nh, rtm_nh, route_glue);
 
         /* Methods */
         int8_t rtm_nh_compare (rtm_nh* nh1, rtm_nh* nh2);
-        void rtm_initialize();
+        void rtm_nh_initialize(rtm_nh *nh);
         void rtm_nh_reference(rtm_nh *nh);
         void rtm_nh_dereference(rtm_nh *nh);
 

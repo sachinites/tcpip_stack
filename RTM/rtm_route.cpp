@@ -49,7 +49,7 @@ rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
 
 /* Initialize a route structure */
 void 
-initialize(rtm_route* route) {
+rtm_route_initialize(rtm_route* route) {
     
     if (!route) return;
     
@@ -63,6 +63,15 @@ initialize(rtm_route* route) {
     route->flags = 0;
     route->nh_count = 0;
     route->ref_count = 0;
+}
+
+bool 
+rtm_validate_with_route (rtm_t *rtm,  rtm_prefix_t *prefix) {
+
+    if (!rtm || !prefix) return false;
+    if (prefix->afi >= RTM_AFI_MAX) return false;
+    if (rtm->afi != prefix->afi ) return false;
+    return true;
 }
 
 /* Lookup a route in RTM by prefix */
@@ -109,14 +118,11 @@ rtm_route_add(const rtm_t* rtm, rtm_route* route) {
     }
     
     // Insert into route tree
-    avltree_node_t *inserted = avltree_insert(&route->route_glue, 
-                                              (avltree_t*)&rtm->route_tree);
-    
-    if (!inserted) {
-        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+    if (avltree_insert(&route->route_glue, 
+                       (avltree_t*)&rtm->route_tree)) {
+	return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
     
-    // Increment reference count
     rtm_route_reference(route);
     
     return RTM_SUCCESS;

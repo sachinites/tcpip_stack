@@ -15,7 +15,8 @@ rtm_nh_proto_info_create(rtm_t *rtm,
                          const RTM_PROTO_T proto,
                          const RTM_SUB_PROTO_T sub_proto,
                          const uint32_t inst_no,
-                         const uint8_t vrf_id) {
+                         const uint8_t vrf_id,
+                         rtm_nh_proto_t **out) {
     
     if (!rtm || proto >= RTM_PROTO_MAX) {
         return RTM_ERROR_INVALID_ARGUMENT;
@@ -25,14 +26,12 @@ rtm_nh_proto_info_create(rtm_t *rtm,
     rtm_nh_proto_t *existing = rtm_nh_proto_lookup(rtm, proto, sub_proto, inst_no, vrf_id);
     
     if (existing) {
+        *out = existing;
         return RTM_ERROR_PROTO_INFO_ALREADY_EXISTS;
     }
     
     // Allocate new NH proto info structure
     rtm_nh_proto_t *nh_proto = (rtm_nh_proto_t *)calloc(1, sizeof(rtm_nh_proto_t));
-    if (!nh_proto) {
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
     
     // Initialize keys
     nh_proto->proto = proto;
@@ -46,14 +45,7 @@ rtm_nh_proto_info_create(rtm_t *rtm,
     // Initialize reference count
     nh_proto->ref_count = 0;
     
-    // Add to the RTM's NH proto info tree
-    rtm_error_t rc = rtm_nh_proto_add(rtm, nh_proto);
-    
-    if (rc != RTM_SUCCESS) {
-        free(nh_proto);
-        return rc;
-    }
-    
+    *out = nh_proto;
     return RTM_SUCCESS;
 }
 
@@ -86,18 +78,16 @@ rtm_nh_proto_compare(rtm_nh_proto_t *nh_proto1, rtm_nh_proto_t *nh_proto2) {
 
 /* Add NH protocol info to RTM */
 rtm_error_t
-rtm_nh_proto_add(rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
+rtm_nh_proto_add (rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
     
     if (!rtm || !nh_proto) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
     
-    // Validate protocol type
     if (nh_proto->proto >= RTM_PROTO_MAX) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
     
-    // Check if NH proto info already exists
     rtm_nh_proto_t *existing = rtm_nh_proto_lookup(rtm, 
                                                     nh_proto->proto, 
                                                     nh_proto->sub_proto,
@@ -108,58 +98,25 @@ rtm_nh_proto_add(rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
         return RTM_ERROR_PROTO_INFO_ALREADY_EXISTS;
     }
     
-    // Insert into NH proto info tree
-    avltree_node_t *inserted = avltree_insert(&nh_proto->proto_glue, 
-                                              &rtm->nh_proto_info_tree);
-    
-    if (!inserted) {
-        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+    if (avltree_insert(&nh_proto->proto_glue, 
+                       &rtm->nh_proto_info_tree)) {
+	return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
     
-    // Increment reference count
-    nh_proto->ref_count++;
+    rtm_nh_proto_reference(nh_proto);
     
     return RTM_SUCCESS;
 }
 
-/* Delete NH protocol info from RTM */
-rtm_error_t
-rtm_nh_proto_del(rtm_t *rtm,
-                 const RTM_PROTO_T proto,
-                 const RTM_SUB_PROTO_T sub_proto,
-                 const uint32_t inst_no,
-                 const uint8_t vrf_id) {
-    
-    if (!rtm) {
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-    
-    // Validate protocol type
-    if (proto >= RTM_PROTO_MAX) {
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-    
-    // Find the NH proto info
-    rtm_nh_proto_t *nh_proto = rtm_nh_proto_lookup(rtm, proto, sub_proto, inst_no, vrf_id);
-    if (!nh_proto) {
-        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
-    }
-    
-    // Remove from NH proto info tree
+static void
+rtm_nh_proto_del(rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
+
+    assert(nh_proto->ref_count == 1);
     avltree_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
-    
-    // Decrement reference count and free if necessary
-    assert(nh_proto->ref_count > 0);
     nh_proto->ref_count--;
-    
-    if (nh_proto->ref_count == 0) {
-        free(nh_proto);
-    }
-    
-    return RTM_SUCCESS;
+    free (nh_proto);
 }
 
-/* Lookup NH protocol info in RTM */
 rtm_nh_proto_t *
 rtm_nh_proto_lookup(const rtm_t *rtm, 
                     const RTM_PROTO_T proto,
@@ -171,12 +128,10 @@ rtm_nh_proto_lookup(const rtm_t *rtm,
         return NULL;
     }
     
-    // Check if tree is empty
     if (avltree_is_empty((avltree_t*)&rtm->nh_proto_info_tree)) {
         return NULL;
     }
     
-    // Create a temporary NH proto info for lookup
     rtm_nh_proto_t temp_nh_proto;
     memset(&temp_nh_proto, 0, sizeof(rtm_nh_proto_t));
     temp_nh_proto.proto = proto;
@@ -184,9 +139,8 @@ rtm_nh_proto_lookup(const rtm_t *rtm,
     temp_nh_proto.instance_no = inst_no;
     temp_nh_proto.vrf_id = vrf_id;
     
-    // Look up in the NH proto info tree
     avltree_node_t *node = avltree_lookup(&temp_nh_proto.proto_glue, 
-                                          (avltree_t*)&rtm->nh_proto_info_tree);
+                                         (avltree_t*)&rtm->nh_proto_info_tree);
     
     if (!node) {
         return NULL;
@@ -195,23 +149,42 @@ rtm_nh_proto_lookup(const rtm_t *rtm,
     return avltree_container_of(node, rtm_nh_proto_t, proto_glue);
 }
 
+/* Increment NH protocol info reference count */
+void
+rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto) {
+    
+    nh_proto->ref_count++;
+}
+
+/* Decrement NH protocol info reference count and free if necessary */
+void
+rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
+    
+    assert(nh_proto->ref_count > 0);
+    nh_proto->ref_count--;
+    if (nh_proto->ref_count > 1) return;
+    rtm_nh_proto_del(rtm, nh_proto);
+}
+
+
+
 /* ========================================================================
  * PROTO INFO (rtm_proto_info_t) Management Functions
  * ======================================================================== */
 
 /* Create and initialize a new protocol info structure */
-rtm_error_t
+rtm_proto_info_t *
 rtm_proto_info_create(rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     
     if (!rtm || proto >= RTM_PROTO_MAX) {
-        return RTM_ERROR_INVALID_ARGUMENT;
+        return NULL;
     }
     
     // Check if protocol info already exists
     rtm_proto_info_t *existing = rtm_proto_lookup(rtm, proto, inst_no);
     
     if (existing) {
-        return RTM_ERROR_PROTO_INFO_ALREADY_EXISTS;
+        return existing;
     }
     
     // Allocate new protocol info structure
@@ -225,15 +198,7 @@ rtm_proto_info_create(rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     // Initialize the glue node
     memset(&proto_info->proto_glue, 0, sizeof(avltree_node_t));
     
-    // Add to the RTM's protocol info tree
-    rtm_error_t rc = rtm_proto_info_add(rtm, proto_info);
-
-    if (rc != RTM_SUCCESS) {
-        free(proto_info);
-        return rc;
-    }
-    
-    return RTM_SUCCESS;
+    return proto_info;
 }
 
 /* Compare two protocol info structures */
@@ -283,9 +248,7 @@ rtm_proto_info_add(const rtm_t* rtm, rtm_proto_info_t* proto_info) {
     avltree_t *proto_tree = (avltree_t*)&rtm->proto_info_tree[proto_info->proto];
     
     // Insert into protocol info tree
-    avltree_node_t *inserted = avltree_insert(&proto_info->proto_glue, proto_tree);
-    
-    if (!inserted) {
+    if (avltree_insert(&proto_info->proto_glue, proto_tree)) {
         return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
     

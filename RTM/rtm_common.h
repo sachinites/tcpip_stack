@@ -10,7 +10,7 @@ typedef struct rtm_prefix_ {
 
     union {
         uint32_t v4_addr;
-        uint8_t v6_addr[16];
+        uint16_t v6_addr[8];
         uint32_t mpls_label;
         uint8_t mac_addr[6];
     } u;
