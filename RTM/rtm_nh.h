@@ -1,0 +1,71 @@
+#ifndef __RTM_NH__
+#define __RTM_NH__
+#pragma pack(push, 8)
+
+#include <stdint.h>
+#include <time.h>
+#include "../gluethread/glthread.h"
+#include "../Tree/libtree.h"
+#include "rtm_enums.h"
+#include "rtm_common.h"
+
+typedef struct rtm_route_ rtm_route;
+typedef struct rtm_proto_info_ rtm_proto_info_t;
+
+typedef struct rtm_nh_ {
+
+
+        uint32_t flags;
+        time_t pth_last_update_time;
+
+        /* Owning protocol*/
+        const RTM_PROTO_T proto;
+        /* Owning Sub-protocol */
+        const RTM_SUB_PROTO_T sub_proto;
+
+        /* Backpointer to the owning route (shared Pointer)*/
+        rtm_route* owner_route;
+
+        /* Glues*/
+        glthread_t route_glue;
+        glthread_t resolution_list_glue;
+
+        /* Shared pointer to the protocol info */
+        rtm_proto_info_t* proto_info;
+
+        /* Admin distance */
+        RTM_AD_T ad;
+
+        /* Metric */
+        uint32_t metric;
+
+        /* Action */
+        RTM_NH_ACTION_TYPE_T action;
+
+        /* Nexthop prefix */
+        rtm_prefix_t prefix;
+
+        /* Outgoing Interface*/
+       uint32_t outgoing_if;
+
+        bool is_resolved;
+        bool is_indirect;
+
+        /*MPLS  Label Stack*/
+        lstack_t *label_stack;
+
+        uint32_t ref_count;
+} rtm_nh; 
+
+#pragma pack(pop)
+
+GLTHREAD_TO_STRUCT(resolution_list_glue_to_rtm_nh, rtm_nh, resolution_list_glue);
+GLTHREAD_TO_STRUCT(route_glue_to_rtm_nh, rtm_nh, route_glue);
+
+        /* Methods */
+        int8_t rtm_nh_compare (rtm_nh* nh1, rtm_nh* nh2);
+        void rtm_initialize();
+        void rtm_nh_reference(rtm_nh *nh);
+        void rtm_nh_dereference(rtm_nh *nh);
+
+#endif 

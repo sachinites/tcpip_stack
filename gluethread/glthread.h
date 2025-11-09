@@ -32,6 +32,7 @@
 
 #ifndef __GLUETHREAD__
 #define __GLUETHREAD__
+#include <cstddef>
 
 typedef struct _glthread{
 
@@ -64,6 +65,13 @@ glthread_add_last(glthread_t *base_glthread, glthread_t *new_glthread);
     static inline structure_name * fn_name(glthread_t *glthreadptr){                   \
         return (structure_name *)((char *)(glthreadptr) - (char *)&(((structure_name *)0)->field_name)); \
     }
+
+/* For C++ objects*/
+#define GLTHREAD_TO_STRUCT2(fn_name, structure_name, field_name)                        \
+    static inline structure_name * fn_name(glthread_t *glthreadptr){                   \
+        return (structure_name *)((char *)(glthreadptr) - offsetof(structure_name, field_name)); \
+    }
+
 
 typedef struct _glthread_data_node_ {
 

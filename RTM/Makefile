@@ -1,13 +1,14 @@
 GCC=g++
 TARGET=rtm.exe
 
-OBJS=rtm_driver.o rtm_api.o rtm_global.o rtm_show.o
+CFLAGS=-g
+OBJS=rtm_driver.o rtm.o rtm_route.o rtm_nh.o rtm_show.o rtm_proto.o rtm_api.o
 
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(GCC) -o $(TARGET) $(OBJS) ../Tree/avl.o
+	$(GCC) $(CFLAGS) -o $(TARGET) $(OBJS) ../Tree/avl.o ../gluethread/glthread.o
 
 clean:
 	rm -f $(OBJS) $(TARGET)
