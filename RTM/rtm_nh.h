@@ -9,6 +9,7 @@
 #include "rtm_enums.h"
 #include "rtm_common.h"
 
+typedef struct rtm_ rtm_t;
 typedef struct rtm_route_ rtm_route;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
 typedef struct nh_proto_ rtm_nh_proto_t;
@@ -51,6 +52,7 @@ typedef struct rtm_nh_ {
 
         bool is_resolved;
         bool is_indirect;
+        bool is_active;
 
         /*MPLS  Label Stack*/
         lstack_t *label_stack;
@@ -63,10 +65,13 @@ typedef struct rtm_nh_ {
 GLTHREAD_TO_STRUCT(resolution_list_glue_to_rtm_nh, rtm_nh, resolution_list_glue);
 GLTHREAD_TO_STRUCT(route_glue_to_rtm_nh, rtm_nh, route_glue);
 
-        /* Methods */
-        int8_t rtm_nh_compare (rtm_nh* nh1, rtm_nh* nh2);
-        void rtm_nh_initialize(rtm_nh *nh);
-        void rtm_nh_reference(rtm_nh *nh);
-        void rtm_nh_dereference(rtm_nh *nh);
+/* Methods */
+int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
+int8_t rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2);
+void rtm_nh_initialize(rtm_nh *nh);
+void rtm_nh_reference(rtm_nh *nh);
+void rtm_nh_dereference(rtm_nh *nh);
+void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh);
+void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
 
 #endif 

@@ -61,6 +61,7 @@ static const char* rtm_nh_action_to_string(RTM_NH_ACTION_TYPE_T action) {
         case RTM_NH_ACTION_REJECT: return "Reject";
         case RTM_NH_ACTION_DISCARD: return "Discard";
         case RTM_NH_ACTION_LOCAL: return "Local";
+        case RTM_NH_ACTION_CONNECTED: return "Connected";
         case RTM_NH_ACTION_FORWARD: return "Forward";
         case RTM_NH_ACTION_TUNNEL: return "Tunnel";
         default: return "Unknown";
@@ -267,6 +268,7 @@ void rtm_show_rib_detail(rtm_t *rtm) {
             printf("    Metric         : %u\n", nh->metric);
             printf("    Resolved       : %s\n", nh->is_resolved ? "Yes" : "No");
             printf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
+            printf ("    Active       : %s\n", nh->is_active ? "Y" : "N");
             printf("    Ref Count      : %u\n", nh->ref_count);
             
             /* Display label stack if present */
@@ -302,15 +304,8 @@ void rtm_show_rib_detail(rtm_t *rtm) {
 
 /* Display FIB (Forwarding Information Base) */
 void rtm_show_fib(rtm_t *rtm) {
-    if (!rtm) {
-        printf("Error: NULL RTM pointer\n");
-        return;
-    }
 
-    printf("\n========================================\n");
-    printf("RTM FIB (Forwarding Information Base)\n");
-    printf("========================================\n");
-    printf("VRF: %u, AFI: %s, RTM ID: %u\n", 
+    printf("FIB :: VRF:%u AFI:%s RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
     printf("========================================\n\n");
 
@@ -319,10 +314,10 @@ void rtm_show_fib(rtm_t *rtm) {
         return;
     }
 
-    printf("%-40s %-15s %-10s %-8s\n",
-           "Prefix", "Next-Hop", "OIF", "Resolved");
-    printf("%-40s %-15s %-10s %-8s\n",
-           "------", "--------", "---", "--------");
+    printf("%-25s %-15s %-10s\n",
+           "Prefix", "Next-Hop", "OIF");
+    printf("%-25s %-15s %-10s\n",
+           "------", "--------", "---");
 
     /* Iterate through all FIB routes */
     avltree_node_t *curr_node = NULL;
@@ -334,21 +329,21 @@ void rtm_show_fib(rtm_t *rtm) {
 
         /* Iterate through resolved paths */
         glthread_t *curr_glthread = NULL;
-        ITERATE_GLTHREAD_BEGIN(&route->resolved_paths, curr_glthread) {
+        ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
             
-            rtm_nh *nh = resolution_list_glue_to_rtm_nh(curr_glthread);
+            rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
+            if (!nh->is_active) continue;
             char nh_prefix_str[128];
             rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
 
-            printf("%-40s %-15s %-10u %-8s\n",
+            printf("%-25s %-15s %-10u\n",
                    prefix_str,
                    nh_prefix_str,
-                   nh->outgoing_if,
-                   nh->is_resolved ? "Yes" : "No");
+                   nh->outgoing_if);
 
             prefix_str[0] = '\0';
             
-        } ITERATE_GLTHREAD_END(&route->resolved_paths, curr_glthread);
+        } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
 
     } ITERATE_AVL_TREE_END(&rtm->fib_tree, curr_node);
 

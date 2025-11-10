@@ -43,13 +43,15 @@ typedef enum sub_protocols_ {
 
 } RTM_SUB_PROTO_T;
 
+/* Order Matter : Most preferred action first */
 typedef enum nh_action_type_ {
 
-    RTM_NH_ACTION_REJECT,
-    RTM_NH_ACTION_DISCARD,
     RTM_NH_ACTION_LOCAL,
+    RTM_NH_ACTION_CONNECTED,
     RTM_NH_ACTION_FORWARD,
     RTM_NH_ACTION_TUNNEL,
+    RTM_NH_ACTION_DISCARD,
+    RTM_NH_ACTION_REJECT,
     RTM_NH_ACTION_MAX
 
 } RTM_NH_ACTION_TYPE_T;

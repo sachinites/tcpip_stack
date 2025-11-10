@@ -41,4 +41,15 @@ rtm_install_protocol_route_nh (rtm_t *rtm,
                                             rtm_nh *nh, 
                                             rtm_nh_proto_t *nh_proto);
 
+               
+rtm_error_t 
+rtm_fib_install_protocol_route_nh (rtm_t *rtm,
+                                           rtm_route *route);
+                                         
+
+rtm_error_t 
+rtm_fib_uninstall_protocol_route_nh (rtm_t *rtm,
+                                                         rtm_route *route);
+                                                        
+
 #endif 

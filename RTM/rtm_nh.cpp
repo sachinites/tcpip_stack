@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "rtm_nh.h"
 #include "rtm_route.h"
+#include "rtm_api.h"
 
 /* Helper function to compare two rtm_prefix_t structures */
 static int
@@ -43,7 +44,7 @@ rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) {
 
 /* Wrapper for compare function with exact signature from header */
 int8_t 
-rtm_nh_compare(rtm_nh* nh1, rtm_nh* nh2) {
+rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     
     if (!nh1 || !nh2) {
         return -1;
@@ -88,6 +89,62 @@ rtm_nh_compare(rtm_nh* nh1, rtm_nh* nh2) {
     return 0;
 }
 
+/* Insert nexthop in route path list as per below rules : 
+    1. lowest admin distance wins
+    2. if admin distance is same, lowest Action wins
+    3. if action is same lowest cost wins
+    4. If both paths are BGP, then compare BGP attributes ( ToDO )
+    5. if cost is same, then tie
+*/
+int8_t 
+rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2) {
+
+    // NULL checks
+    if (!nh1 && !nh2) return 0;
+    if (!nh1) return 1;  // nh2 wins
+    if (!nh2) return -1; // nh1 wins
+    
+    // Rule 1: Lowest admin distance wins
+    if (nh1->ad != nh2->ad) {
+        return (nh1->ad < nh2->ad) ? -1 : 1;
+    }
+    
+    // Rule 2: If admin distance is same, lowest Action wins
+    // (Note: enum order matters - most preferred action first)
+    if (nh1->action != nh2->action) {
+        return (nh1->action < nh2->action) ? -1 : 1;
+    }
+    
+    // Rule 3: If action is same, lowest cost (metric) wins
+    if (nh1->metric != nh2->metric) {
+        return (nh1->metric < nh2->metric) ? -1 : 1;
+    }
+    
+    // Rule 4: If both paths are BGP, then compare BGP attributes (TODO)
+    // TODO: Implement BGP attribute comparison
+    
+    // Rule 5: If cost is same, then tie
+    return 0;
+}
+
+void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
+
+    assert (!nh->is_active);
+    nh->is_active = true;
+    /* Insert the route and this nh in FIB tree */
+    rtm_fib_install_protocol_route_nh(rtm, nh->owner_route);
+}
+
+void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
+
+        assert (nh->is_active);
+        nh->is_active = false;
+        /* Uninstall the route only if it do not have atleast one active nexthop*/
+        rtm_route *route = nh->owner_route;
+        rtm_nh *first_nh = route_glue_to_rtm_nh(BASE(&route->path_list));
+        if (!first_nh->is_active) rtm_fib_uninstall_protocol_route_nh(rtm, nh->owner_route);
+}
+
 /* Initialize a nexthop structure */
 void 
 rtm_nh_initialize(rtm_nh* nh) {
@@ -111,6 +168,7 @@ rtm_nh_initialize(rtm_nh* nh) {
     
     nh->is_resolved = false;
     nh->is_indirect = false;
+    nh->is_active = false;
     
     nh->label_stack = NULL;
     nh->ref_count = 0;

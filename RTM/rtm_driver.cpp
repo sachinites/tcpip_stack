@@ -33,6 +33,23 @@ main (int argc, char **argv) {
         return -1;
     }
 
+    rtm_show_rib_detail(rtm);
+    rtm_show_nh_proto_info(rtm);
+    rtm_show_fib(rtm);
+
+    rc = rtm_install_static_local_route(rtm, &prefix, oif_index, cost);
+
+    if (rc != RTM_SUCCESS) {
+        printf("Error installing static local route: %s\n", rtm_error_to_string(rc));
+        return -1;
+    }
+
+    rtm_show_rib_detail(rtm);
+    rtm_show_nh_proto_info(rtm);
+    rtm_show_fib(rtm);
+    
+    return 0;
+
     /* Install one more static route*/
     prefix.u.v4_addr = 167837953;
     gateway.u.v4_addr = 3232235776;

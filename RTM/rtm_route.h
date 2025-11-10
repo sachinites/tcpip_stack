@@ -44,22 +44,22 @@ typedef struct rtm_route_ {
 
 #pragma pack(pop)
 
-        /* Methods */
-        void rtm_route_initialize(rtm_route *route);
+/* Methods */
+void rtm_route_initialize(rtm_route *route);
 
-        bool rtm_validate_with_route (rtm_t *rtm, rtm_prefix_t *prefix);
+bool rtm_validate_with_route(rtm_t *rtm, rtm_prefix_t *prefix);
 
-        /* Route Mgmt Functions */
-        rtm_route *rtm_route_lookup (const rtm_t* rtm, rtm_prefix_t* prefix_key);
-        rtm_error_t rtm_route_add (const rtm_t* rtm, rtm_route* route);
-        rtm_error_t rtm_route_remove (const rtm_t* rtm, rtm_prefix_t* prefix_key);
+/* Route Mgmt Functions */
+rtm_route *rtm_route_lookup(const rtm_t *rtm, rtm_prefix_t *prefix_key);
+rtm_error_t rtm_route_add(const rtm_t *rtm, rtm_route *route);
+rtm_error_t rtm_route_remove(const rtm_t *rtm, rtm_prefix_t *prefix_key);
 
-        /* Nexthop Mgmt*/
-        rtm_nh* rtm_route_lookup_nh (rtm_route* route, rtm_nh* nh_template);
-        rtm_error_t rtm_route_add_nh (rtm_route* route, rtm_nh* nh);
-        rtm_error_t remove_nh (rtm_route* route, rtm_nh* nh);
+/* Nexthop Mgmt*/
+rtm_nh *rtm_route_lookup_nh(rtm_route *route, rtm_nh *nh_template);
+rtm_error_t rtm_route_add_nh(rtm_t *rtm, rtm_route *route, rtm_nh *nh);
+rtm_error_t remove_nh(rtm_route *route, rtm_nh *nh);
 
-        void rtm_route_reference (rtm_route* route) ;
-        void rtm_route_dereference (rtm_route* route) ;
+void rtm_route_reference(rtm_route *route);
+void rtm_route_dereference(rtm_route *route);
 
 #endif

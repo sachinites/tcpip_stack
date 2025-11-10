@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "rtm_route.h"
 #include "rtm_nh.h"
+#include "rtm_priv_api.h"
 
 /* Comparator function for route AVL tree */
 int
@@ -172,7 +173,7 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
         
         nh = resolution_list_glue_to_rtm_nh(curr);
         
-        if (rtm_nh_compare (nh, nh_template) == 0) {
+        if (rtm_nh_is_equal (nh, nh_template) == 0) {
             return nh;
         }
         
@@ -183,7 +184,7 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
 
 /* Add a nexthop to a route */
 rtm_error_t 
-rtm_route_add_nh(rtm_route* route, rtm_nh* nh) {
+rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     
     if (!route || !nh) {
         return RTM_ERROR_INVALID_ARGUMENT;
@@ -202,11 +203,7 @@ rtm_route_add_nh(rtm_route* route, rtm_nh* nh) {
     nh->owner_route = route;
     rtm_route_reference(route);
     
-    // Add to path list
-    glthread_add_next(&route->path_list, &nh->route_glue);
-    rtm_nh_reference(nh);
-    
-    // Increment nexthop count
+    rtm_route_add_nh_to_route_path_list (rtm, route, nh);
     route->nh_count++;
 
     return RTM_SUCCESS;

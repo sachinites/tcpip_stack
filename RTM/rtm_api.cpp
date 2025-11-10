@@ -118,7 +118,7 @@ rtm_install_static_route (
 
     rtm_nh_proto_reference(rtm_nh_proto); // nh references to it
     
-    assert (rtm_route_add_nh(route, nh) == RTM_SUCCESS);
+    assert (rtm_route_add_nh(rtm, route, nh) == RTM_SUCCESS);
     
     if (new_route_created) {
         rtm_route_add(rtm, route);
@@ -212,7 +212,7 @@ rtm_install_static_local_route (
 
     rtm_nh_proto_reference(rtm_nh_proto); // nh references to it
     
-    assert (rtm_route_add_nh(route, nh) == RTM_SUCCESS);
+    assert (rtm_route_add_nh(rtm, route, nh) == RTM_SUCCESS);
     
     if (new_route_created) {
         rtm_route_add(rtm, route);
@@ -314,7 +314,7 @@ rtm_install_protocol_route (
 
     rtm_nh_proto_reference(rtm_nh_proto); // nh references to it
     
-    assert (rtm_route_add_nh(route, nh) == RTM_SUCCESS);
+    assert (rtm_route_add_nh(rtm, route, nh) == RTM_SUCCESS);
     
     if (new_route_created) {
         rtm_route_add(rtm, route);
@@ -435,7 +435,7 @@ rtm_install_protocol_route_nh (rtm_t *rtm,
 
     rtm_nh_proto_reference(rtm_nh_proto); // nh references to it
     
-    assert (rtm_route_add_nh(route, heap_nh) == RTM_SUCCESS);
+    assert (rtm_route_add_nh(rtm, route, heap_nh) == RTM_SUCCESS);
     
     if (new_route_created) {
         rtm_route_add(rtm, route);
@@ -454,4 +454,64 @@ rtm_install_protocol_route_nh (rtm_t *rtm,
         }
         if (new_route_created) free (route);
         return rc;
+}
+
+/* Install a route into the FIB tree */
+rtm_error_t 
+rtm_fib_install_protocol_route_nh (rtm_t *rtm,
+                                            rtm_route *route) {
+    
+    if (!rtm || !route) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+    
+    // Check if route has any active nexthops
+    bool has_active_nh = false;
+    glthread_t *curr;
+    rtm_nh *nh;
+    
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
+        
+        nh = route_glue_to_rtm_nh(curr);
+        
+        if (nh->is_active) {
+            has_active_nh = true;
+            break;
+        }
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr);
+    
+    // Only install in FIB if there are active nexthops
+    if (!has_active_nh) {
+        return RTM_ERROR_INVALID_ROUTE;
+    }
+    
+    // Try to insert into FIB tree
+    // If avltree_insert returns non-NULL, the route is already in FIB (which is fine)
+    avltree_insert(&route->fib_glue, (avltree_t*)&rtm->fib_tree);
+    rtm_route_reference(route);
+    return RTM_SUCCESS;
+}
+
+/* Uninstall a route from the FIB tree */
+rtm_error_t 
+rtm_fib_uninstall_protocol_route_nh (rtm_t *rtm,
+                                                         rtm_route *route) {
+    
+    if (!rtm || !route) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+    
+    // Check if route is in FIB tree by looking up
+    avltree_node_t *node = avltree_lookup(&route->fib_glue, 
+                                          (avltree_t*)&rtm->fib_tree);
+    
+    if (node) {
+        // Route is in FIB, remove it
+        avltree_remove(&route->fib_glue, (avltree_t*)&rtm->fib_tree);
+        rtm_route_dereference(route);
+    }
+    // If not in FIB, that's OK - just return success
+    
+    return RTM_SUCCESS;
 }
