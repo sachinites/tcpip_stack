@@ -1,9 +1,20 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <atomic>
 #include "rtm_nh.h"
 #include "rtm_route.h"
 #include "rtm_api.h"
+#include "rtm_resolution.h"
+#include "rtm_fib_interface.h"
+
+/* Thread-safe atomic counter for nexthop ID generation */
+static std::atomic<uint32_t> rtm_nh_id_counter(1);
+
+/* Generate a unique nexthop ID atomically */
+static uint32_t rtm_nh_generate_id(void) {
+    return rtm_nh_id_counter.fetch_add(1, std::memory_order_relaxed);
+}
 
 /* Helper function to compare two rtm_prefix_t structures */
 static int
@@ -131,28 +142,30 @@ void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     assert (!nh->is_active);
     nh->is_active = true;
-    /* Insert the route and this nh in FIB tree */
-    rtm_fib_install_protocol_route_nh(rtm, nh->owner_route);
+    if (nh->is_indirect) rtm_track_for_resolution (rtm, nh);
+    if (nh->is_resolved) rtm_fib_install(nh->owner_route, nh);
 }
 
 void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
+    assert(nh->is_active);
+    nh->is_active = false;
+    rtm_untrack_for_resolution(rtm, nh);
+    rtm_route *route = nh->owner_route;
+    rtm_nh *first_nh = route_glue_to_rtm_nh(BASE(&route->path_list));
 
-        assert (nh->is_active);
-        nh->is_active = false;
-        /* Uninstall the route only if it do not have atleast one active nexthop*/
-        rtm_route *route = nh->owner_route;
-        rtm_nh *first_nh = route_glue_to_rtm_nh(BASE(&route->path_list));
-        if (!first_nh->is_active) rtm_fib_uninstall_protocol_route_nh(rtm, nh->owner_route);
+    if (!first_nh->is_active || !first_nh->is_resolved) {
+        rtm_fib_uninstall(nh->owner_route, nh);
+    }
 }
 
 /* Initialize a nexthop structure */
 void 
 rtm_nh_initialize(rtm_nh* nh) {
     
-    if (!nh) return;
     
+    nh->idx = rtm_nh_generate_id();
     nh->flags = 0;
-    nh->pth_last_update_time = 0;
+    nh->pth_last_update_time = time(NULL);
     nh->owner_route = NULL;
     
     init_glthread(&nh->route_glue);

@@ -59,7 +59,6 @@ rtm_route_initialize(rtm_route* route) {
     init_glthread(&route->resolved_paths);
     
     memset(&route->route_glue, 0, sizeof(avltree_node_t));
-    memset(&route->fib_glue, 0, sizeof(avltree_node_t));
     
     route->flags = 0;
     route->nh_count = 0;
@@ -211,7 +210,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
 /* Remove a nexthop from a route */
 rtm_error_t 
-remove_nh(rtm_route* route, rtm_nh* nh) {
+rtm_route_remove_nh(rtm_route* route, rtm_nh* nh) {
     
     if (!route || !nh) {
         return RTM_ERROR_INVALID_ARGUMENT;
@@ -223,15 +222,13 @@ remove_nh(rtm_route* route, rtm_nh* nh) {
     }
     
     // Remove from path list
-    remove_glthread(&nh->resolution_list_glue);
+    remove_glthread(&nh->route_glue);
     
     // Clear owner route
-    nh->owner_route = nullptr;
+    nh->owner_route = NULL;
     
     // Decrement nexthop count
-    if (route->nh_count > 0) {
-        route->nh_count--;
-    }
+    route->nh_count--;
     
     // Decrement nexthop reference count
     rtm_nh_dereference(nh);

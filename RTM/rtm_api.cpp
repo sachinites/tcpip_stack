@@ -8,6 +8,8 @@
 #include "rtm_proto.h"
 #include "rtm_error.h"
 #include "rtm_priv_api.h"
+#include "rtm_resolution.h"
+#include "rtm_fib_interface.h"
 
 extern avltree_t rtm_tree;
 
@@ -34,6 +36,14 @@ void
 rtm_module_init () {
 
     avltree_init(&rtm_tree, rtm_compare);
+
+    /* Intiailze default RIBs*/
+
+    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 0); // inet.0
+    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 3); // inet.3
+    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_LABEL, 0); // mpls.0
+    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 0); // inet6.0
+    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 3); // inet6.3
 }
 
 rtm_error_t 
@@ -79,8 +89,8 @@ rtm_install_static_route (
     rtm_nh_initialize(nh);
     
     // Set nexthop attributes (const members must be cast to modify)
-    *(RTM_PROTO_T*)&nh->proto = RTM_PROTO_STATIC;
-    *(RTM_SUB_PROTO_T*)&nh->sub_proto = RTM_SUB_PROTO_STATIC;
+    nh->proto = RTM_PROTO_STATIC;
+    nh->sub_proto = RTM_SUB_PROTO_STATIC;
     nh->ad = RTM_ADMIN_DIST_STATIC;
     nh->metric = cost;
     nh->action = RTM_NH_ACTION_FORWARD;
@@ -352,10 +362,9 @@ rtm_install_protocol_route_nh (rtm_t *rtm,
     if (!prefix) return  RTM_ERROR_INVALID_ARGUMENT;
     if (!nh) return RTM_ERROR_INVALID_ARGUMENT;
     
-    
     if (!rtm_validate_with_route  (rtm, prefix)) return RTM_ERROR_INVALID_PREFIX;
 
-    if (nh->outgoing_if == 0) return RTM_ERROR_INVALID_GATEWAY;
+    if (!nh->is_indirect && nh->outgoing_if == 0) return RTM_ERROR_INVALID_GATEWAY;
 
     existing_route = rtm_route_lookup(rtm, prefix);
     
@@ -373,8 +382,8 @@ rtm_install_protocol_route_nh (rtm_t *rtm,
     rtm_nh_initialize(heap_nh);
     
     /* Copy all fields from provided nexthop */
-    *(RTM_PROTO_T*)&heap_nh->proto = nh->proto;
-    *(RTM_SUB_PROTO_T*)&heap_nh->sub_proto = nh->sub_proto;
+    heap_nh->proto = nh->proto;
+    heap_nh->sub_proto = nh->sub_proto;
     heap_nh->flags = nh->flags;
     heap_nh->pth_last_update_time = nh->pth_last_update_time;
     heap_nh->ad = nh->ad;
@@ -456,7 +465,78 @@ rtm_install_protocol_route_nh (rtm_t *rtm,
         return rc;
 }
 
-/* Install a route into the FIB tree */
+
+rtm_error_t 
+rtm_uninstall_protocol_route_nh (rtm_t *rtm,
+                                  rtm_prefix_t *prefix, 
+                                  rtm_nh *nh, 
+                                  rtm_nh_proto_t *nh_proto) {
+
+    rtm_route *route = NULL;
+    rtm_nh *existing_nh = NULL;
+    rtm_nh_proto_t *rtm_nh_proto = NULL;
+    
+    /* Validate Arguments */
+    if (!prefix) return  RTM_ERROR_INVALID_ARGUMENT;
+    if (!nh) return RTM_ERROR_INVALID_ARGUMENT;
+    if (!nh_proto) return RTM_ERROR_INVALID_ARGUMENT;
+    
+    if (!rtm_validate_with_route  (rtm, prefix)) return RTM_ERROR_INVALID_PREFIX;
+
+    /* Lookup the route */
+    route = rtm_route_lookup(rtm, prefix);
+    
+    if (!route) {
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+
+    /* Find the nexthop to remove */
+    existing_nh = rtm_route_lookup_nh(route, nh);
+
+    if (!existing_nh) {
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+
+    /* Get the nh_proto info to dereference later */
+    rtm_nh_proto = existing_nh->rtm_nh_proto;
+
+    /* Remove the nexthop from the route */
+    RTM_NH_LOCK(existing_nh);
+
+    rtm_error_t rc = rtm_route_remove_nh(route, existing_nh);
+    
+    if (rc != RTM_SUCCESS) {
+        RTM_NH_UNLOCK(existing_nh);
+        return rc;
+    }
+
+    if (existing_nh->is_active) {
+        rtm_fib_uninstall (route, existing_nh);
+    }
+
+    if (existing_nh->is_indirect) {
+        rtm_untrack_for_resolution(rtm, existing_nh);
+    }
+
+    /* Remove all references to the nexthop */
+    
+
+    RTM_NH_UNLOCK(existing_nh);
+
+    /* Dereference the nh_proto */
+    if (rtm_nh_proto) {
+        rtm_nh_proto_dereference(rtm, rtm_nh_proto);
+    }
+
+    /* If route has no more nexthops, remove it from RTM */
+    if (route->nh_count == 0) {
+        rtm_route_remove(rtm, prefix);
+    }
+
+    return RTM_SUCCESS;
+}
+
+/* Install a route into the FIB */
 rtm_error_t 
 rtm_fib_install_protocol_route_nh (rtm_t *rtm,
                                             rtm_route *route) {
@@ -486,14 +566,10 @@ rtm_fib_install_protocol_route_nh (rtm_t *rtm,
         return RTM_ERROR_INVALID_ROUTE;
     }
     
-    // Try to insert into FIB tree
-    // If avltree_insert returns non-NULL, the route is already in FIB (which is fine)
-    avltree_insert(&route->fib_glue, (avltree_t*)&rtm->fib_tree);
-    rtm_route_reference(route);
     return RTM_SUCCESS;
 }
 
-/* Uninstall a route from the FIB tree */
+/* Uninstall a route from the FIB */
 rtm_error_t 
 rtm_fib_uninstall_protocol_route_nh (rtm_t *rtm,
                                                          rtm_route *route) {
@@ -501,17 +577,6 @@ rtm_fib_uninstall_protocol_route_nh (rtm_t *rtm,
     if (!rtm || !route) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
-    
-    // Check if route is in FIB tree by looking up
-    avltree_node_t *node = avltree_lookup(&route->fib_glue, 
-                                          (avltree_t*)&rtm->fib_tree);
-    
-    if (node) {
-        // Route is in FIB, remove it
-        avltree_remove(&route->fib_glue, (avltree_t*)&rtm->fib_tree);
-        rtm_route_dereference(route);
-    }
-    // If not in FIB, that's OK - just return success
     
     return RTM_SUCCESS;
 }

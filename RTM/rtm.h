@@ -16,7 +16,6 @@ typedef struct rtm_ {
     uint32_t rtm_id;
 
     avltree_t route_tree;
-    avltree_t fib_tree;
     avltree_t nh_proto_info_tree;
     avltree_t proto_info_tree[RTM_PROTO_MAX];
 

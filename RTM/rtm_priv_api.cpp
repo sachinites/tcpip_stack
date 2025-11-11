@@ -1,6 +1,11 @@
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
 #include "rtm_priv_api.h"
 #include "rtm_route.h"
 #include "rtm_nh.h"
+#include "rtm_enums.h"
+#include "rtm_common.h"
 
 /* Helper function to get admin distance based on protocol and sub-protocol */
 RTM_AD_T
@@ -97,3 +102,63 @@ void
         
     } ITERATE_GLTHREAD_END(&route->path_list, curr);
  }
+
+
+void rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+    
+    uint32_t temp;
+    char addr_buf[INET6_ADDRSTRLEN];
+    
+    switch(prefix->afi) {
+        case RTM_AF_IPV4:
+            temp = htonl(prefix->u.v4_addr);
+            inet_ntop(AF_INET, &temp, addr_buf, sizeof(addr_buf));
+            snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
+            break;
+        case RTM_AF_IPV6:
+            inet_ntop(AF_INET6, prefix->u.v6_addr, addr_buf, sizeof(addr_buf));
+            snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
+            break;
+        case RTM_AF_LABEL:
+            snprintf(buffer, buflen, "Label:%u", prefix->u.mpls_label);
+            break;
+        case RTM_AFI_MAC:
+            snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
+                    prefix->u.mac_addr[0], prefix->u.mac_addr[1], 
+                    prefix->u.mac_addr[2], prefix->u.mac_addr[3],
+                    prefix->u.mac_addr[4], prefix->u.mac_addr[5]);
+            break;
+        default:
+            snprintf(buffer, buflen, "Unknown");
+    }
+}
+
+/* Helper function to format nexthop (without prefix length) */
+void rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+    
+    uint32_t temp;
+    char addr_buf[INET6_ADDRSTRLEN];
+    
+    switch(prefix->afi) {
+        case RTM_AF_IPV4:
+            temp = htonl(prefix->u.v4_addr);
+            inet_ntop(AF_INET, &temp, addr_buf, sizeof(addr_buf));
+            snprintf(buffer, buflen, "%s", addr_buf);
+            break;
+        case RTM_AF_IPV6:
+            inet_ntop(AF_INET6, prefix->u.v6_addr, addr_buf, sizeof(addr_buf));
+            snprintf(buffer, buflen, "%s", addr_buf);
+            break;
+        case RTM_AF_LABEL:
+            snprintf(buffer, buflen, "Label:%u", prefix->u.mpls_label);
+            break;
+        case RTM_AFI_MAC:
+            snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
+                    prefix->u.mac_addr[0], prefix->u.mac_addr[1], 
+                    prefix->u.mac_addr[2], prefix->u.mac_addr[3],
+                    prefix->u.mac_addr[4], prefix->u.mac_addr[5]);
+            break;
+        default:
+            snprintf(buffer, buflen, "Unknown");
+    }
+}

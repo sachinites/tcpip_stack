@@ -5,7 +5,6 @@
 #include "rtm_enums.h"
 #pragma pack(push, 8)
 
-
 typedef struct rtm_prefix_ {
 
     union {

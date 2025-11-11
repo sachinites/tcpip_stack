@@ -8,7 +8,7 @@ int
 main (int argc, char **argv) {
 
     rtm_module_init (); 
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 0);
+    
     rtm_t *rtm = rtm_get(RTM_DEFAULT_VRF, RTM_AF_IPV4, 0);
     assert (rtm);
 
@@ -32,23 +32,6 @@ main (int argc, char **argv) {
         printf("Error installing static route: %s\n", rtm_error_to_string(rc));
         return -1;
     }
-
-    rtm_show_rib_detail(rtm);
-    rtm_show_nh_proto_info(rtm);
-    rtm_show_fib(rtm);
-
-    rc = rtm_install_static_local_route(rtm, &prefix, oif_index, cost);
-
-    if (rc != RTM_SUCCESS) {
-        printf("Error installing static local route: %s\n", rtm_error_to_string(rc));
-        return -1;
-    }
-
-    rtm_show_rib_detail(rtm);
-    rtm_show_nh_proto_info(rtm);
-    rtm_show_fib(rtm);
-    
-    return 0;
 
     /* Install one more static route*/
     prefix.u.v4_addr = 167837953;
@@ -135,7 +118,6 @@ main (int argc, char **argv) {
     rtm_show_rib_detail(rtm);
 
     printf("\n===== Testing MPLS/LDP Routes =====\n");
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_LABEL, 0);
     rtm_t *rtm_mpls = rtm_get(RTM_DEFAULT_VRF, RTM_AF_LABEL, 0);
     assert (rtm_mpls);
 
@@ -214,7 +196,6 @@ main (int argc, char **argv) {
     rtm_show_rib_detail(rtm_mpls);
 
     printf("\n===== Testing IPv6 Routes =====\n");
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 0);
     rtm_t *rtmv6 = rtm_get(RTM_DEFAULT_VRF, RTM_AF_IPV6, 0);
     assert (rtmv6);
 

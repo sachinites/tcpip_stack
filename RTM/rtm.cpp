@@ -56,7 +56,6 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     rtm->rtm_id = rtm_id;
     
     avltree_init(&rtm->route_tree, rtm_route_compare);
-    avltree_init(&rtm->fib_tree, rtm_route_compare);
     avltree_init (&rtm->nh_proto_info_tree, rtm_nh_proto_avl_tree_comp_fn);
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
@@ -84,7 +83,6 @@ void rtm_destroy (uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     
     /* Before we delete RTM, check all resources have been freed already*/
     assert (avltree_is_empty (&rtm_to_destroy->route_tree) );
-    assert (avltree_is_empty (&rtm_to_destroy->fib_tree) );
     assert (avltree_is_empty (&rtm_to_destroy->nh_proto_info_tree) );
     
     // Clean up protocol info trees

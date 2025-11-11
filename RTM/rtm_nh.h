@@ -16,14 +16,15 @@ typedef struct nh_proto_ rtm_nh_proto_t;
 
 typedef struct rtm_nh_ {
 
-
+        /* Unique nexthop index - constant throughout lifetime */
+        uint32_t idx;
         uint32_t flags;
         time_t pth_last_update_time;
 
         /* Owning protocol*/
-        const RTM_PROTO_T proto;
+        RTM_PROTO_T proto;
         /* Owning Sub-protocol */
-        const RTM_SUB_PROTO_T sub_proto;
+        RTM_SUB_PROTO_T sub_proto;
 
         /* Backpointer to the owning route (shared Pointer)*/
         rtm_route* owner_route;
@@ -73,5 +74,8 @@ void rtm_nh_reference(rtm_nh *nh);
 void rtm_nh_dereference(rtm_nh *nh);
 void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
+
+#define RTM_NH_LOCK(nh_ptr)  rtm_nh_reference(nh_ptr)
+#define RTM_NH_UNLOCK(nh_ptr) rtm_nh_dereference(nh_ptr)
 
 #endif 

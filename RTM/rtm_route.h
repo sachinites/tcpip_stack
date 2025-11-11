@@ -27,8 +27,6 @@ typedef struct rtm_route_ {
         /* Glues */
         /* Glue in RTM main tree */
         avltree_node_t route_glue;
-        /* Glue in FIB Tree */
-        avltree_node_t fib_glue;
 
         /* Prefix for this route */
         rtm_prefix_t prefix;
@@ -57,7 +55,7 @@ rtm_error_t rtm_route_remove(const rtm_t *rtm, rtm_prefix_t *prefix_key);
 /* Nexthop Mgmt*/
 rtm_nh *rtm_route_lookup_nh(rtm_route *route, rtm_nh *nh_template);
 rtm_error_t rtm_route_add_nh(rtm_t *rtm, rtm_route *route, rtm_nh *nh);
-rtm_error_t remove_nh(rtm_route *route, rtm_nh *nh);
+rtm_error_t rtm_route_remove_nh(rtm_route *route, rtm_nh *nh);
 
 void rtm_route_reference(rtm_route *route);
 void rtm_route_dereference(rtm_route *route);
