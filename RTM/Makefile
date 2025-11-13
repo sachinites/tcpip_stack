@@ -1,7 +1,7 @@
 GCC=g++
-TARGET=rtm.exe
+TARGET=librtm.a
 
-CFLAGS=-g
+CFLAGS=-g -Wall -Wextra -fpermissive -I..
 OBJS=rtm_driver.o \
 		   rtm.o \
 		   rtm_route.o \
@@ -13,13 +13,10 @@ OBJS=rtm_driver.o \
 		   rtm_resolution.o \
 		   rtm_fib_interface.o \
 
-EXT_FILES=../Tree/avl.o \
-                      ../gluethread/glthread.o \
-
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(GCC) $(CFLAGS) -o $(TARGET) $(OBJS) $(EXT_FILES)
+	$(AR) rcs $(TARGET) $(OBJS)
 
 %.o: %.cpp
 	$(GCC) $(CFLAGS) -c -o $@ $<

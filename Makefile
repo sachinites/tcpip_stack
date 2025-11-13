@@ -26,6 +26,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			-L../RDBMSImplementation/SqlParser -lsqlapi \
 			-L../RDBMSImplementation/SqlParser -ldbms \
 			-L../MathExpressionParser -lMexpr \
+			-LRTM -lrtm \
 			-lpthread \
 			-lpq \
 		    -lrt \
@@ -99,6 +100,7 @@ OBJS=gluethread/glthread.o \
 		  lmm_reg.o \
 		  sql_cli.o \
 		  Linux/LinuxInterface.o \
+		  RTM/rtm_nb_integ.o \
 
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -307,6 +309,10 @@ Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
 Linux/LinuxInterface.o:Linux/LinuxInterface.cpp
 	${CC} ${CFLAGS} -c Linux/LinuxInterface.cpp -o Linux/LinuxInterface.o
 
+#RTM files
+ RTM/rtm_nb_integ.o: RTM/rtm_nb_integ.cpp 
+	${CC} ${CFLAGS} -c RTM/rtm_nb_integ.cpp -o RTM/rtm_nb_integ.o
+
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
 LinuxMemoryManager/libmm.a:
@@ -321,6 +327,8 @@ ${SRV6_LIB}:
 	(cd Layer3/SegmentRouting/SRv6; make)
 ${LFA_LIB}:
 	(cd Layer3/LFA; make)
+RTM/librtm.a:
+	(cd RTM; make)
 
 clean:
 	rm -f *.o
@@ -368,3 +376,4 @@ cleanall:
 	(cd LinuxMemoryManager; make clean)
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
+	(cd RTM/make clean)

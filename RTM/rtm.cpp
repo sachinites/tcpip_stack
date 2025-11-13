@@ -41,15 +41,10 @@ rtm_proto_info_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node
 }
 
 /* Initialize a new RTM instance */
-void 
+rtm_t *
 rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     
-    rtm_t *existing_rtm = rtm_get(vrf, afi, rtm_id);
-    
-    if (existing_rtm) return;
-    
     rtm_t *rtm = (rtm_t *)calloc (1, sizeof(rtm_t));
-    if (!rtm) return;
 
     rtm->vrf = vrf;
     rtm->afi = afi;
@@ -63,52 +58,23 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     }
     
     init_glthread(&rtm->unresolvable_lnhs);
-    memset(&rtm->rtm_glue, 0, sizeof(avltree_node_t));
-
-    avltree_insert(&rtm->rtm_glue, &rtm_tree);
+    return rtm;
 }
 
 
 /* Destroy an RTM instance */
-void rtm_destroy (uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
-    
-    rtm_t *rtm_to_destroy = rtm_get(vrf, afi, rtm_id);
-    
-    if (!rtm_to_destroy) {
-        return;
-    }
-    
-    // Remove from global RTM tree
-    avltree_remove(&rtm_to_destroy->rtm_glue, &rtm_tree);
+void rtm_destroy (rtm_t *rtm) {
     
     /* Before we delete RTM, check all resources have been freed already*/
-    assert (avltree_is_empty (&rtm_to_destroy->route_tree) );
-    assert (avltree_is_empty (&rtm_to_destroy->nh_proto_info_tree) );
+    assert (avltree_is_empty (&rtm->route_tree) );
+    assert (avltree_is_empty (&rtm->nh_proto_info_tree) );
     
     // Clean up protocol info trees
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
-        assert (avltree_is_empty (&rtm_to_destroy->proto_info_tree[i]) );
+        assert (avltree_is_empty (&rtm->proto_info_tree[i]) );
     }
     
-    assert (IS_GLTHREAD_LIST_EMPTY (&rtm_to_destroy->unresolvable_lnhs) );
+    assert (IS_GLTHREAD_LIST_EMPTY (&rtm->unresolvable_lnhs) );
 
-    free (rtm_to_destroy);
-}
-
-/* Get an RTM instance by VRF, AFI, and RTM ID */
-rtm_t* 
-rtm_get(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
-    
-    rtm_t temp_rtm;
-    temp_rtm.vrf = vrf;
-    temp_rtm.afi = afi;
-    temp_rtm.rtm_id = rtm_id;
-    
-    avltree_node_t *node = avltree_lookup(&temp_rtm.rtm_glue, &rtm_tree);
-    
-    if (!node) {
-        return nullptr;
-    }
-    
-    return avltree_container_of(node, rtm_t, rtm_glue);
+    free (rtm);
 }

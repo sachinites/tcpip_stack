@@ -9,8 +9,6 @@
 #include "rtm_route.h"
 #include "rtm_nh.h"
 
-void rtm_module_init ();
-
 rtm_error_t 
 rtm_install_static_route (
         rtm_t *rtm,
@@ -46,7 +44,13 @@ rtm_uninstall_protocol_route_nh (rtm_t *rtm,
                                   rtm_prefix_t *prefix, 
                                   rtm_nh *nh, 
                                   rtm_nh_proto_t *nh_proto);
-               
+
+rtm_error_t 
+rtm_uninstall_protocol_all_route (
+                                   rtm_t *rtm,
+                                    RTM_PROTO_T proto,
+                                    RTM_SUB_PROTO_T sub_proto);
+
 rtm_error_t 
 rtm_fib_install_protocol_route_nh (rtm_t *rtm,
                                            rtm_route *route);

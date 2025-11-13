@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <vector>
 
 #include "rtm.h"
 #include "rtm_common.h"
@@ -13,12 +14,48 @@
 
 extern avltree_t rtm_tree;
 
+static rtm_error_t
+rtm_uninstall_nh_internal(rtm_t *rtm, rtm_route *route, rtm_nh *nh) {
+
+    if (!rtm || !route || !nh) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    rtm_nh_proto_t *rtm_nh_proto = nh->rtm_nh_proto;
+
+    RTM_NH_LOCK(nh);
+
+    /* Remove nexthop from route */
+    rtm_error_t rc = rtm_route_remove_nh(route, nh);
+    if (rc != RTM_SUCCESS) {
+        RTM_NH_UNLOCK(nh);
+        return rc;
+    }
+
+    /* Uninstall from FIB if active */
+    if (nh->is_active) {
+        rtm_fib_uninstall(route, nh);
+    }
+
+    /* Stop resolution tracking if indirect */
+    if (nh->is_indirect) {
+        rtm_untrack_for_resolution(rtm, nh);
+    }
+
+    RTM_NH_UNLOCK(nh);
+
+    /* Dereference protocol info */
+    if (rtm_nh_proto) {
+        rtm_nh_proto_dereference(rtm, rtm_nh_proto);
+    }
+
+    return RTM_SUCCESS;
+}
+
+#if 0
 /* Comparator function for RTM AVL tree */
 static int
 rtm_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
-    
-    rtm_t *rtm1 = avltree_container_of(node1, rtm_t, rtm_glue);
-    rtm_t *rtm2 = avltree_container_of(node2, rtm_t, rtm_glue);
     
     if (rtm1->vrf < rtm2->vrf) return -1;
     if (rtm1->vrf > rtm2->vrf) return 1;
@@ -31,20 +68,7 @@ rtm_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
     
     return 0;
 }
-
-void 
-rtm_module_init () {
-
-    avltree_init(&rtm_tree, rtm_compare);
-
-    /* Intiailze default RIBs*/
-
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 0); // inet.0
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 3); // inet.3
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_LABEL, 0); // mpls.0
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 0); // inet6.0
-    rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 3); // inet6.3
-}
+#endif 
 
 rtm_error_t 
 rtm_install_static_route (
@@ -285,8 +309,8 @@ rtm_install_protocol_route (
     rtm_nh_initialize(nh);
     
     // Set nexthop attributes (const members must be cast to modify)
-    *(RTM_PROTO_T*)&nh->proto = proto;
-    *(RTM_SUB_PROTO_T*)&nh->sub_proto = sub_proto;
+    nh->proto = proto;
+    nh->sub_proto = sub_proto;
     nh->ad = rtm_get_admin_distance(proto, sub_proto);
     nh->metric = cost;
     nh->action = RTM_NH_ACTION_FORWARD;
@@ -519,8 +543,6 @@ rtm_uninstall_protocol_route_nh (rtm_t *rtm,
     }
 
     /* Remove all references to the nexthop */
-    
-
     RTM_NH_UNLOCK(existing_nh);
 
     /* Dereference the nh_proto */
@@ -531,6 +553,54 @@ rtm_uninstall_protocol_route_nh (rtm_t *rtm,
     /* If route has no more nexthops, remove it from RTM */
     if (route->nh_count == 0) {
         rtm_route_remove(rtm, prefix);
+    }
+
+    return RTM_SUCCESS;
+}
+
+/* Uninstall all routes which belong to a protocol / sub-protocol */
+rtm_error_t 
+rtm_uninstall_protocol_all_route (
+                                    rtm_t *rtm,
+                                    RTM_PROTO_T proto,
+                                    RTM_SUB_PROTO_T sub_proto) {
+
+    if (proto >= RTM_PROTO_MAX || sub_proto >= RTM_SUB_PROTO_MAX) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (avltree_is_empty(&rtm->route_tree)) {
+        return RTM_SUCCESS;
+    }
+
+    rtm_error_t final_rc = RTM_SUCCESS;
+    std::vector<rtm_route *> routes_to_delete;
+
+    avltree_node_t *curr_node = NULL;
+
+    ITERATE_AVL_TREE_BEGIN(&rtm->route_tree, curr_node) {
+
+        rtm_route *route = avltree_container_of(curr_node, rtm_route, route_glue);
+        std::vector<rtm_nh *> nhs_to_remove;
+
+        /* Collect matching nexthops first */
+        glthread_t *curr_glthread = NULL;
+        ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
+
+            rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
+            rtm_uninstall_nh_internal(rtm, route, nh);
+
+        } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
+
+        if (route->nh_count == 0) {
+            routes_to_delete.push_back(route);
+        }
+
+    } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
+
+    /* Delete empty routes after traversal */
+    for (rtm_route *route : routes_to_delete) {
+        rtm_route_remove(rtm, &route->prefix);
     }
 
     return RTM_SUCCESS;
