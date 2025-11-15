@@ -31,6 +31,7 @@ typedef struct rtm_nh_ {
 
         /* Glues*/
         glthread_t route_glue;
+        glthread_t src_glue;
         glthread_t resolution_list_glue;
 
         /* Shared pointer to the protocol info */

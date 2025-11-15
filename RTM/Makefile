@@ -12,6 +12,8 @@ OBJS=rtm_driver.o \
 		   rtm_priv_api.o \
 		   rtm_resolution.o \
 		   rtm_fib_interface.o \
+		   rtm_common.o \
+		   rtm_sb_integ.o \
 
 all: $(TARGET)
 

@@ -55,6 +55,7 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         avltree_init(&rtm->proto_info_tree[i], rtm_proto_info_avl_tree_comp_fn);
+        init_glthread(&rtm->nhs_by_src[i]);
     }
     
     init_glthread(&rtm->unresolvable_lnhs);
@@ -72,6 +73,7 @@ void rtm_destroy (rtm_t *rtm) {
     // Clean up protocol info trees
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         assert (avltree_is_empty (&rtm->proto_info_tree[i]) );
+        assert (IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[i]) );
     }
     
     assert (IS_GLTHREAD_LIST_EMPTY (&rtm->unresolvable_lnhs) );

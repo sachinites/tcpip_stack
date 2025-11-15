@@ -37,9 +37,11 @@ typedef struct cp_nexthop_template_ {
         } l_stack;
 
         struct {
+            
             Srv6_endpcode_t endfn;
             uint8_t n_segment_list;
             rtm_prefix_t *v6segment_lst;
+
         } srv6_stack;
 
     }u;
@@ -50,5 +52,6 @@ typedef struct cp_nexthop_template_ {
 
 void node_init_default_rtm(node_t *node);
 rtm_t *rtm_get(node_t *node, uint8_t vrf, RTM_AFI_T afi, uint8_t rtm_id);
+rtm_error_t  cp_rtm_install_route ( rtm_t *rtm, rtm_prefix_t *route, cp_nexthop_template_t *nh_template);
 
 #endif 

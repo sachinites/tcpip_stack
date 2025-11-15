@@ -169,6 +169,7 @@ rtm_nh_initialize(rtm_nh* nh) {
     nh->owner_route = NULL;
     
     init_glthread(&nh->route_glue);
+    init_glthread(&nh->src_glue);
     init_glthread(&nh->resolution_list_glue);
     
     nh->rtm_nh_proto = NULL;

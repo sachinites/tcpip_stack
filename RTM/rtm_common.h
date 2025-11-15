@@ -38,4 +38,6 @@ typedef struct lstack_ {
 
 #pragma pack(pop)
 
+bool rtm_prefix_is_null (rtm_prefix_t *prefix);
+
 #endif 

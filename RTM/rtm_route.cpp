@@ -205,6 +205,9 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rtm_route_add_nh_to_route_path_list (rtm, route, nh);
     route->nh_count++;
 
+    glthread_add_next (&rtm->nhs_by_src[nh->proto], &nh->src_glue);
+    rtm_nh_reference(nh);
+
     return RTM_SUCCESS;
 }
 
@@ -233,9 +236,11 @@ rtm_route_remove_nh(rtm_route* route, rtm_nh* nh) {
     // Decrement nexthop reference count
     rtm_nh_dereference(nh);
     
+    remove_glthread (&nh->src_glue);
+    rtm_nh_dereference(nh);
+
     // Decrement route reference count
-    rtm_route_dereference(route);
-    
+    rtm_route_dereference(route);    
     return RTM_SUCCESS;
 }
 
