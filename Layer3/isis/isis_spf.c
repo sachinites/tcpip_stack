@@ -5,6 +5,9 @@
 #include "isis_policy.h"
 #include "isis_ted.h"
 #include "../ipv6/v6nexthop.h"
+#include "../../RTM/rtm_common.h"
+#include "../../RTM/rtm_enums.h"
+#include "../../RTM/rtm_nb_integ.h"
 
 void
 isis_cancel_spf_job(node_t *node) {
@@ -203,6 +206,68 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
     return count;
 }
 
+
+
+
+
+/* Install Route in RTM */
+static void
+isis_rt_ipv4_route_add (
+                                node_t *node,
+                                uint32_t prefix,
+                                uint8_t mask,
+                                uint32_t gw_ip,
+                                Interface *oif,
+                                uint32_t metric) {
+ 
+    rtm_t *rtm = rtm_get (node, oif->GetVRF(), RTM_AF_IPV4, 0);
+    rtm_prefix_t rtm_prefix, rtm_gateway;
+
+    rtm_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
+    rtm_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+
+    cp_rtm_install_route_advanced (
+        rtm,
+        &rtm_prefix,
+        RTM_PROTO_ISIS,
+        RTM_PROTO_L1_ISIS_INT,
+        0,
+        RTM_NH_ACTION_FORWARD,
+        metric,
+        &rtm_gateway,
+        oif->GetSharedPtr(), 
+        NULL, 0);
+}
+
+static void
+isis_rt_ipv4_route_del (
+                                node_t *node,
+                                uint32_t prefix,
+                                uint8_t mask,
+                                uint32_t gw_ip,
+                                Interface *oif,
+                                uint32_t metric) {
+ 
+    rtm_t *rtm = rtm_get (node, oif->GetVRF(), RTM_AF_IPV4, 0);
+    rtm_prefix_t rtm_prefix, rtm_gateway;
+
+    rtm_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
+    rtm_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+
+    cp_rtm_uninstall_route_advanced (
+        rtm,
+        &rtm_prefix,
+        RTM_PROTO_ISIS,
+        RTM_PROTO_L1_ISIS_INT,
+        0,
+        RTM_NH_ACTION_FORWARD,
+        metric,
+        &rtm_gateway,
+        oif->GetSharedPtr(), 
+        NULL, 0);
+}
+
+
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
@@ -220,6 +285,8 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
     /*Clear all routes except direct routes*/
     clear_rt_table(rt_table, PROTO_ISIS);
+    cp_rtm_uninstall_routes_by_proto  (
+            rtm_get ( spf_root, RTM_DEFAULT_VRF, RTM_AF_IPV4, 0), RTM_PROTO_ISIS);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -269,6 +336,12 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                         nexthop->oif.get(),
                         spf_result->spf_metric,
                         PROTO_ISIS, true);       
+
+            /* New RTM Route Install */
+            isis_rt_ipv4_route_add (spf_root,  spf_result->node->rtr_id, 32,
+                        tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                        nexthop->oif.get(),
+                        spf_result->spf_metric);   
 
             count++;
         }
@@ -326,6 +399,13 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                                     spf_result->spf_metric + ted_prefix->metric,
                                     PROTO_ISIS, true);       
 
+                            /* New RTM Route Install */
+                            isis_rt_ipv4_route_add (spf_root,  
+                                prefix32bit, ted_prefix->mask,
+                                tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                                nexthop->oif.get(),
+                                spf_result->spf_metric + ted_prefix->metric);  
+
                              count++;
                         }
 
@@ -367,6 +447,13 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                                     spf_result->spf_metric + ted_prefix->metric,
                                     PROTO_ISIS, true);       
 
+                            /* New RTM Route Install */
+                            isis_rt_ipv4_route_add (spf_root,  
+                                prefix32bit, ted_prefix->mask, 
+                                tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                                nexthop->oif.get(),
+                                spf_result->spf_metric + ted_prefix->metric);  
+
                              count++;
                         }
                         continue;
@@ -389,11 +476,19 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                                     spf_result->spf_metric + ted_prefix->metric,
                                     PROTO_ISIS, true);       
 
+                            /* New RTM Route Install */
+                            isis_rt_ipv4_route_add (spf_root,  
+                                prefix32bit, ted_prefix->mask,
+                                tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                                nexthop->oif.get(),
+                                spf_result->spf_metric + ted_prefix->metric);  
+
                          count++;
                     }
              } ITERATE_AVL_TREE_END;
 
     } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
+
     return count;
 }
 
