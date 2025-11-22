@@ -8,11 +8,13 @@
 #include "../Tree/libtree.h"
 #include "rtm_enums.h"
 #include "rtm_common.h"
+#include "../Interface/InterfaceFwd.h"
+#include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 typedef struct rtm_ rtm_t;
 typedef struct rtm_route_ rtm_route;
+typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
-typedef struct nh_proto_ rtm_nh_proto_t;
 
 typedef struct rtm_nh_ {
 
@@ -33,7 +35,8 @@ typedef struct rtm_nh_ {
         glthread_t route_glue;
         glthread_t src_glue;
         glthread_t resolution_list_glue;
-
+        avltree_node_t idx_glue;
+        
         /* Shared pointer to the protocol info */
         rtm_nh_proto_t *rtm_nh_proto;
 
@@ -50,6 +53,7 @@ typedef struct rtm_nh_ {
         rtm_prefix_t prefix;
 
         /* Outgoing Interface*/
+        InterfaceP Oif;
        uint32_t outgoing_if;
 
         bool is_resolved;
@@ -57,7 +61,12 @@ typedef struct rtm_nh_ {
         bool is_active;
 
         /*MPLS  Label Stack*/
-        lstack_t *label_stack;
+        rtm_lstack_t *label_stack;
+
+        /*SRv6 Stack*/
+        Srv6_endpcode_t endfn;
+        uint8_t n_segment_list;
+        rtm_prefix_t *v6segment_lst;
 
         uint32_t ref_count;
 } rtm_nh; 
@@ -70,13 +79,15 @@ GLTHREAD_TO_STRUCT(route_glue_to_rtm_nh, rtm_nh, route_glue);
 /* Methods */
 int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2);
+int8_t rtm_nh_compare_by_idx (rtm_nh *nh1, rtm_nh *nh2);
+int8_t rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2);
 void rtm_nh_initialize(rtm_nh *nh);
 void rtm_nh_reference(rtm_nh *nh);
-void rtm_nh_dereference(rtm_nh *nh);
+void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
 
 #define RTM_NH_LOCK(nh_ptr)  rtm_nh_reference(nh_ptr)
-#define RTM_NH_UNLOCK(nh_ptr) rtm_nh_dereference(nh_ptr)
+#define RTM_NH_UNLOCK(rtm, nh_ptr) rtm_nh_dereference(rtm, nh_ptr)
 
 #endif 

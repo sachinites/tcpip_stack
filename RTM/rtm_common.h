@@ -20,24 +20,29 @@ typedef struct rtm_prefix_ {
 } rtm_prefix_t;
 
 
-typedef struct label_ {
+typedef struct rtm_label_ {
 
     uint32_t label_val;
-    mpls_op_t op;
+    rtm_mpls_op_t op;
 
-} label_t; 
+} rtm_label_t; 
 
 #define MAX_LBL_DEPTH 8
 
-typedef struct lstack_ {
+typedef struct rtm_lstack_ {
 
     uint8_t curr_index;
-    label_t labels[MAX_LBL_DEPTH];
+    rtm_label_t labels[MAX_LBL_DEPTH];
 
-} lstack_t;
+} rtm_lstack_t;
 
 #pragma pack(pop)
 
 bool rtm_prefix_is_null (rtm_prefix_t *prefix);
+void rtm_prefix_initialize_v4 (rtm_prefix_t *prefix, uint32_t ip_addr, uint8_t mask);
+void rtm_prefix_initialize_v6 (rtm_prefix_t *prefix, uint8_t addr[16], uint8_t mask);
+
+int8_t
+rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) ;
 
 #endif 

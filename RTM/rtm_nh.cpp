@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <atomic>
+#include "../Tree/libtree.h"
 #include "rtm_nh.h"
 #include "rtm_route.h"
-#include "rtm_api.h"
+#include "rtm_proto.h"
 #include "rtm_resolution.h"
 #include "rtm_fib_interface.h"
 
@@ -16,42 +17,23 @@ static uint32_t rtm_nh_generate_id(void) {
     return rtm_nh_id_counter.fetch_add(1, std::memory_order_relaxed);
 }
 
-/* Helper function to compare two rtm_prefix_t structures */
-static int
-rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) {
-    
-    // First compare AFI
-    if (p1->afi != p2->afi) {
-        return (p1->afi < p2->afi) ? -1 : 1;
-    }
-    
-    // Then compare prefix length
-    if (p1->prefix_len != p2->prefix_len) {
-        return (p1->prefix_len < p2->prefix_len) ? -1 : 1;
-    }
-    
-    // Finally compare the address based on AFI
-    switch (p1->afi) {
-        case RTM_AF_IPV4:
-            if (p1->u.v4_addr < p2->u.v4_addr) return -1;
-            if (p1->u.v4_addr > p2->u.v4_addr) return 1;
-            return 0;
-            
-        case RTM_AF_IPV6:
-            return memcmp(p1->u.v6_addr, p2->u.v6_addr, 16);
-            
-        case RTM_AF_LABEL:
-            if (p1->u.mpls_label < p2->u.mpls_label) return -1;
-            if (p1->u.mpls_label > p2->u.mpls_label) return 1;
-            return 0;
-            
-        case RTM_AFI_MAC:
-            return memcmp(p1->u.mac_addr, p2->u.mac_addr, 6);
-            
-        default:
-            return 0;
-    }
+
+static void 
+rtm_nh_check_destroy (rtm_nh *nh) {
+
+    assert(nh->owner_route == NULL);
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->route_glue));
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->resolution_list_glue));
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->src_glue));
+    assert(!avltree_node_is_inuse(&nh->idx_glue));
+    assert (nh->rtm_nh_proto == NULL);
+    assert (nh->Oif == nullptr);
+    assert (nh->label_stack == NULL);
+    assert (nh->ref_count == 0);
+    assert (nh->v6segment_lst == NULL);
+    free (nh);
 }
+
 
 /* Wrapper for compare function with exact signature from header */
 int8_t 
@@ -70,12 +52,22 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     if (nh1->sub_proto != nh2->sub_proto) {
         return (nh1->sub_proto < nh2->sub_proto) ? -1 : 1;
     }
-    
+        // Compare admin distance
+    if (nh1->ad != nh2->ad) {
+        return (nh1->ad < nh2->ad) ? -1 : 1;
+    }
+
+    // Compare metric
+    if (nh1->metric != nh2->metric) {
+        return (nh1->metric < nh2->metric) ? -1 : 1;
+    }
+
     // Compare action
     if (nh1->action != nh2->action) {
         return (nh1->action < nh2->action) ? -1 : 1;
     }
     
+
     // Compare outgoing interface
     if (nh1->outgoing_if != nh2->outgoing_if) {
         return (nh1->outgoing_if < nh2->outgoing_if) ? -1 : 1;
@@ -86,18 +78,22 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     if (prefix_cmp != 0) {
         return prefix_cmp;
     }
-    
-    // Compare admin distance
-    if (nh1->ad != nh2->ad) {
-        return (nh1->ad < nh2->ad) ? -1 : 1;
+
+    int8_t rc = rtm_nh_proto_is_equal (nh1->rtm_nh_proto, nh2->rtm_nh_proto);
+    if (rc != 0) return rc;
+
+    if (!nh1->label_stack && nh2->label_stack) {
+        return 1;
     }
-    
-    // Compare metric
-    if (nh1->metric != nh2->metric) {
-        return (nh1->metric < nh2->metric) ? -1 : 1;
+    if (nh1->label_stack && !nh2->label_stack) {
+        return -1;
     }
-    
-    return 0;
+
+    if (!nh1->label_stack && !nh2->label_stack) {
+        return 0;
+    }
+
+    return memcmp (nh1->label_stack, nh2->label_stack, sizeof(*nh1->label_stack));
 }
 
 /* Insert nexthop in route path list as per below rules : 
@@ -138,30 +134,38 @@ rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2) {
     return 0;
 }
 
-void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
+int
+rtm_nh_compare_by_idx (const avltree_node_t *node1, const avltree_node_t *node2) {
 
-    assert (!nh->is_active);
-    nh->is_active = true;
-    if (nh->is_indirect) rtm_track_for_resolution (rtm, nh);
-    if (nh->is_resolved) rtm_fib_install(nh->owner_route, nh);
+    rtm_nh *nh1 = avltree_container_of(node1, rtm_nh, idx_glue);
+    rtm_nh *nh2 = avltree_container_of(node2, rtm_nh, idx_glue);
+
+    if (nh1->idx < nh2->idx) return -1;
+    if (nh1->idx > nh2->idx) return 1;
+    return 0;
 }
 
-void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
-    assert(nh->is_active);
-    nh->is_active = false;
-    rtm_untrack_for_resolution(rtm, nh);
-    rtm_route *route = nh->owner_route;
-    rtm_nh *first_nh = route_glue_to_rtm_nh(BASE(&route->path_list));
+/* Cpmpare only forwarding behavior of the nexthop*/
+int8_t 
+rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2) {
 
-    if (!first_nh->is_active || !first_nh->is_resolved) {
-        rtm_fib_uninstall(nh->owner_route, nh);
-    }
+    int8_t rc = rtm_prefix_compare (&nh1->prefix, &nh2->prefix);
+    if (!rc) return rc;
+    if (nh1->outgoing_if  < nh2->outgoing_if) return -1;
+    if (nh1->outgoing_if > nh2->outgoing_if) return 1; 
+    if (!nh1->label_stack && !nh2->label_stack) return 0;
+    if (nh1->label_stack && !nh2->label_stack) return -1;
+    if (!nh1->label_stack && nh2->label_stack) return 1;
+    rc = memcmp (nh1->label_stack, nh2->label_stack, sizeof(nh1->label_stack));
+    if (!rc) return rc;
+     // Add more attributes here ...
+    return rc;
+   
 }
 
 /* Initialize a nexthop structure */
 void 
 rtm_nh_initialize(rtm_nh* nh) {
-    
     
     nh->idx = rtm_nh_generate_id();
     nh->flags = 0;
@@ -171,6 +175,7 @@ rtm_nh_initialize(rtm_nh* nh) {
     init_glthread(&nh->route_glue);
     init_glthread(&nh->src_glue);
     init_glthread(&nh->resolution_list_glue);
+    avltree_node_init(&nh->idx_glue);
     
     nh->rtm_nh_proto = NULL;
     nh->ad = RTM_ADMIN_DIST_UNKNOWN;
@@ -188,7 +193,27 @@ rtm_nh_initialize(rtm_nh* nh) {
     nh->ref_count = 0;
 }
 
-/* Increment nexthop reference count */
+
+void 
+rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
+
+    assert (!nh->is_active);
+    nh->is_active = true;
+    if (nh->is_indirect) rtm_track_for_resolution (rtm, nh);
+    if (nh->is_resolved) rtm_fib_install(nh->owner_route, nh);
+}
+
+void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
+    assert(nh->is_active);
+    nh->is_active = false;
+    rtm_untrack_for_resolution(rtm, nh);
+    rtm_route *route = nh->owner_route;
+    rtm_nh *first_nh = route_glue_to_rtm_nh(BASE(&route->path_list));
+    if (!first_nh->is_active || !first_nh->is_resolved) {
+        rtm_fib_uninstall(nh->owner_route, nh);
+    }
+}
+
 void 
 rtm_nh_reference(rtm_nh *nh) {
     
@@ -197,26 +222,24 @@ rtm_nh_reference(rtm_nh *nh) {
 
 /* Decrement nexthop reference count and free if necessary */
 void 
-rtm_nh_dereference(rtm_nh *nh) {
+rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
     
-    assert(nh->ref_count > 0);
-    
-    nh->ref_count--;
-    
-    if (nh->ref_count == 0) {
-        // Ensure nexthop has been removed from owner route
-        assert(nh->owner_route == NULL);
-        assert(!IS_QUEUED_UP_IN_THREAD(&nh->route_glue));
-        assert(!IS_QUEUED_UP_IN_THREAD(&nh->resolution_list_glue));
-        
-        // Free label stack if allocated
+    if (nh->ref_count <= 1) {
+
         if (nh->label_stack) {
             free(nh->label_stack);
             nh->label_stack = NULL;
         }
-        
-        // Free the nexthop structure
-        free(nh);
-    }
-}
 
+        if (nh->rtm_nh_proto) {
+            rtm_nh_proto_dereference (rtm, nh->rtm_nh_proto);
+            nh->rtm_nh_proto = NULL;
+        }
+        
+        nh->Oif = nullptr;
+        rtm_nh_check_destroy (nh);
+        return;
+    }
+
+    nh->ref_count--;
+}

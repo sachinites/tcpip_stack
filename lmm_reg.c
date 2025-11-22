@@ -21,6 +21,13 @@
 #include "Layer3/isis/isis_spf.h"
 #include "Layer3/isis/isis_intf_group.h"
 
+/* RTM files*/
+#include "RTM/rtm_nb_integ.h"
+#include "RTM/rtm_proto.h"
+#include "RTM/rtm_nh.h"
+#include "RTM/rtm_route.h"
+#include "RTM/rtm_resolution.h"
+
 /* TED Hdr Files*/
 #include "ted/ted.h"
 
@@ -135,6 +142,19 @@ vm_page_family_t vm_page_family_array[] =
 
     /* LFA Structures*/
     MM_REG_STRUCT2(lfa_t),
+
+    /* RTM Structures*/
+    MM_REG_STRUCT2(rtm_t),
+    MM_REG_STRUCT2(cp_nexthop_template_t),
+    MM_REG_STRUCT2(rtm_nh_proto_t),
+    MM_REG_STRUCT2(rtm_proto_info_t),
+    MM_REG_STRUCT2(rtm_nh),
+    MM_REG_STRUCT2(rtm_route),
+    MM_REG_STRUCT2(rtm_prefix_t),
+    MM_REG_STRUCT2(rtm_lstack_t),
+    MM_REG_STRUCT2(rtm_resolution_nh_tracker_t),
+    MM_REG_STRUCT2(rtm_resolution_data_t),
+    MM_REG_STRUCT2(lnh_list_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

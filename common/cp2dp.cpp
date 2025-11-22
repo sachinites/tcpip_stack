@@ -13,6 +13,12 @@
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../Layer3/mpls_fwd.h"
 #include "../Layer3/rt_table/nexthop.h"
+#include "../lmm_enums.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../RTM/rtm_nb_integ.h"
+
+
+
 
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);

@@ -8,9 +8,11 @@
 
 typedef struct rtm_ rtm_t;
 
-typedef struct nh_proto_
-{
 
+#pragma pack(push, 8)
+
+typedef struct rtm_nh_proto_
+{
     /* Keys */
     RTM_PROTO_T proto;
     RTM_SUB_PROTO_T sub_proto;
@@ -74,28 +76,35 @@ typedef struct nh_proto_
 
 } rtm_nh_proto_t;
 
+#pragma pack(pop)
+
 void 
 rtm_nh_proto_initialize(rtm_nh_proto_t *nh_proto);
 
 rtm_error_t
-rtm_nh_proto_info_create(rtm_t *rtm,
+rtm_nh_proto_info_create(
                          const RTM_PROTO_T proto,
                          const RTM_SUB_PROTO_T sub_proto,
                          const uint32_t inst_no,
                          const uint8_t vrf_id,
                          rtm_nh_proto_t **out);
 
+/* Compare only keys*/
 int8_t
 rtm_nh_proto_compare(rtm_nh_proto_t *nh_proto1, rtm_nh_proto_t *nh_proto2);
 
+/* Compare all fields */
+int8_t 
+rtm_nh_proto_is_equal ( rtm_nh_proto_t *nh_proto1, rtm_nh_proto_t *nh_proto2);
+
 rtm_error_t
-rtm_nh_proto_add(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
+rtm_nh_proto_add(rtm_t *rtm, rtm_nh_proto_t *nh_proto, rtm_nh_proto_t **existing_nh_proto_out);
+
+void 
+rtm_nh_proto_copy(rtm_nh_proto_t *src_nh_proto, rtm_nh_proto_t *dst_nh_proto);
 
 rtm_nh_proto_t *
-rtm_nh_proto_lookup(const rtm_t *rtm, const RTM_PROTO_T proto,
-                    const RTM_SUB_PROTO_T sub_proto,
-                    const uint32_t inst_no,
-                    const uint8_t vrf_id);
+rtm_nh_proto_lookup(const rtm_t *rtm, rtm_nh_proto_t *nh_proto_template);
 
 void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
 
@@ -109,7 +118,7 @@ void rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
 /* ----------------------------------------------------------------  */
 
 
-
+#pragma pack(push, 8)
 
 typedef struct rtm_proto_info_ {
 
@@ -120,6 +129,8 @@ typedef struct rtm_proto_info_ {
     avltree_node_t proto_glue;
     
 } rtm_proto_info_t;
+
+#pragma pack(pop)
 
 rtm_proto_info_t *
 rtm_proto_info_create (rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no);

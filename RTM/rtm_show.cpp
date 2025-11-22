@@ -2,8 +2,7 @@
 #include <string.h>
 #include "../Tree/libtree.h"
 #include "../gluethread/glthread.h"
-
-#include "rtm_api.h"
+#include "../Interface/InterfaceUApi.h"
 #include "rtm_show.h"
 #include "rtm.h"
 #include "rtm_route.h"
@@ -13,21 +12,23 @@
 #include "rtm_common.h"
 #include "rtm_priv_api.h"
 
+extern int cprintf (const char * format, ...);
+
 /* Display RIB (Routing Information Base) */
 void rtm_show_rib(rtm_t *rtm) {
 
-    printf("RIB :: VRF: %u, AFI: %s, RTM ID: %u\n", 
+    cprintf("RIB :: VRF: %u, AFI: %s, RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    printf("========================================\n\n");
+    cprintf("========================================\n\n");
 
     if (avltree_is_empty(&rtm->route_tree)) {
-        printf("  No routes in RIB\n\n");
+        cprintf("  No routes in RIB\n\n");
         return;
     }
 
-    printf("%-40s %-10s %-8s %-15s %-10s %-8s %-8s %-20s\n",
+    cprintf("%-40s %-10s %-8s %-15s %-10s %-8s %-8s %-20s\n",
            "Prefix", "Protocol", "Action", "Next-Hop", "OIF", "AD", "Metric", "Label Stack");
-    printf("%-40s %-10s %-8s %-15s %-10s %-8s %-8s %-20s\n",
+    cprintf("%-40s %-10s %-8s %-15s %-10s %-8s %-8s %-20s\n",
            "------", "--------", "------", "--------", "---", "--", "------", "-----------");
 
     /* Iterate through all routes in the tree */
@@ -54,9 +55,9 @@ void rtm_show_rib(rtm_t *rtm) {
                 for (int i = 0; i < nh->label_stack->curr_index; i++) {
                     const char *op_str = "";
                     switch (nh->label_stack->labels[i].op) {
-                        case LBL_SWAP: op_str = "SWAP"; break;
-                        case LBL_PUSH: op_str = "PUSH"; break;
-                        case LBL_POP: op_str = "POP"; break;
+                        case RTM_LBL_SWAP: op_str = "SWAP"; break;
+                        case RTM_LBL_PUSH: op_str = "PUSH"; break;
+                        case RTM_LBL_POP: op_str = "POP"; break;
                         default: op_str = "UNK"; break;
                     }
                     snprintf(temp, sizeof(temp), "%s%s:%u", 
@@ -67,7 +68,7 @@ void rtm_show_rib(rtm_t *rtm) {
                 }
             }
 
-            printf("%-40s %-10s %-8s %-15s %-10u %-8u %-8u %-20s\n",
+            cprintf("%-40s %-10s %-8s %-15s %-10u %-8u %-8u %-20s\n",
                    prefix_str,
                    rtm_proto_to_string(nh->proto),
                    rtm_nh_action_to_string(nh->action),
@@ -84,22 +85,22 @@ void rtm_show_rib(rtm_t *rtm) {
 
     } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
 
-    printf("\n");
+    cprintf("\n");
 }
 
 /* Display RIB in detailed format (line by line, not tabular) */
 void rtm_show_rib_detail(rtm_t *rtm) {
     if (!rtm) {
-        printf("Error: NULL RTM pointer\n");
+        cprintf("Error: NULL RTM pointer\n");
         return;
     }
 
-    printf("RIB :: VRF:%u AFI:%s RTM ID: %u\n", 
+    cprintf("RIB :: VRF:%u AFI:%s RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    printf("========================================\n\n");
+    cprintf("========================================\n\n");
 
     if (avltree_is_empty(&rtm->route_tree)) {
-        printf("  No routes in RIB\n\n");
+        cprintf("  No routes in RIB\n\n");
         return;
     }
 
@@ -116,11 +117,11 @@ void rtm_show_rib_detail(rtm_t *rtm) {
         route_count++;
         
         /* Display route prefix and attributes */
-        printf("Route %d:\n", route_count);
-        printf("  Prefix         : %s\n", prefix_str);
-        printf("  Nexthop Count  : %u\n", route->nh_count);
-        printf("  Flags          : 0x%04x\n", route->flags);
-        printf("  Ref Count      : %u\n", route->ref_count);
+        cprintf("Route %d:\n", route_count);
+        cprintf("  Prefix         : %s\n", prefix_str);
+        cprintf("  Nexthop Count  : %u\n", route->nh_count);
+        cprintf("  Flags          : 0x%04x\n", route->flags);
+        cprintf("  Ref Count      : %u\n", route->ref_count);
 
         /* Iterate through all nexthops in the route */
         glthread_t *curr_glthread = NULL;
@@ -133,66 +134,66 @@ void rtm_show_rib_detail(rtm_t *rtm) {
             rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
 
             nh_index++;
-            printf("\n  Nexthop %d:\n", nh_index);
-            printf("    Idx            : %u\n", nh->idx);
-            printf("    Protocol       : %s\n", rtm_proto_to_string(nh->proto));
-            printf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
-            printf("    Next-Hop       : %s\n", nh_prefix_str);
-            printf("    Action         : %s\n", rtm_nh_action_to_string(nh->action));
-            printf("    OIF            : %u\n", nh->outgoing_if);
-            printf("    Admin Distance : %u\n", nh->ad);
-            printf("    Metric         : %u\n", nh->metric);
-            printf("    Resolved       : %s\n", nh->is_resolved ? "Yes" : "No");
-            printf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
-            printf ("    Active         : %s\n", nh->is_active ? "Yes" : "No");
-            printf("    Ref Count      : %u\n", nh->ref_count);
+            cprintf("\n  Nexthop %d:\n", nh_index);
+            cprintf("    Idx            : %u\n", nh->idx);
+            cprintf("    Protocol       : %s\n", rtm_proto_to_string(nh->proto));
+            cprintf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
+            cprintf("    Next-Hop       : %s\n", nh_prefix_str);
+            cprintf("    Action         : %s\n", rtm_nh_action_to_string(nh->action));
+            cprintf("    OIF            : %s\n", nh->Oif->if_name.c_str());
+            cprintf("    Admin Distance : %u\n", nh->ad);
+            cprintf("    Metric         : %u\n", nh->metric);
+            cprintf("    Resolved       : %s\n", nh->is_resolved ? "Yes" : "No");
+            cprintf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
+            cprintf ("    Active         : %s\n", nh->is_active ? "Yes" : "No");
+            cprintf("    Ref Count      : %u\n", nh->ref_count);
             
             /* Display label stack if present */
             if (nh->label_stack && nh->label_stack->curr_index > 0) {
-                printf("    Label Stack    : ");
+                cprintf("    Label Stack    : ");
                 for (int i = 0; i < nh->label_stack->curr_index; i++) {
                     const char *op_str = "";
                     switch (nh->label_stack->labels[i].op) {
-                        case LBL_SWAP: op_str = "SWAP"; break;
-                        case LBL_PUSH: op_str = "PUSH"; break;
-                        case LBL_POP: op_str = "POP"; break;
+                        case RTM_LBL_SWAP: op_str = "SWAP"; break;
+                        case RTM_LBL_PUSH: op_str = "PUSH"; break;
+                        case RTM_LBL_POP: op_str = "POP"; break;
                         default: op_str = "UNK"; break;
                     }
-                    printf("%s%s:%u", 
+                    cprintf("%s%s:%u", 
                            i > 0 ? ", " : "",
                            op_str, 
                            nh->label_stack->labels[i].label_val);
                 }
-                printf("\n");
+                cprintf("\n");
             } else {
-                printf("    Label Stack    : None\n");
+                cprintf("    Label Stack    : None\n");
             }
             
         } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
 
         /* Blank line before next route */
-        printf("\n");
+        cprintf("\n");
 
     } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
 
-    printf("Total Routes: %d\n\n", route_count);
+    cprintf("Total Routes: %d\n\n", route_count);
 }
 
 /* Display FIB (Forwarding Information Base) */
 void rtm_show_fib(rtm_t *rtm) {
 
-    printf("FIB :: VRF:%u AFI:%s RTM ID: %u\n", 
+    cprintf("FIB :: VRF:%u AFI:%s RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    printf("========================================\n\n");
+    cprintf("========================================\n\n");
 
     if (avltree_is_empty(&rtm->route_tree)) {
-        printf("  No routes in FIB\n\n");
+        cprintf("  No routes in FIB\n\n");
         return;
     }
 
-    printf("%-25s %-15s %-10s\n",
+    cprintf("%-25s %-15s %-10s\n",
            "Prefix", "Next-Hop", "OIF");
-    printf("%-25s %-15s %-10s\n",
+    cprintf("%-25s %-15s %-10s\n",
            "------", "--------", "---");
 
     bool has_active_routes = false;
@@ -220,7 +221,7 @@ void rtm_show_fib(rtm_t *rtm) {
             char nh_prefix_str[128];
             rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
 
-            printf("%-25s %-15s %-10u\n",
+            cprintf("%-25s %-15s %-10u\n",
                    prefix_str,
                    nh_prefix_str,
                    nh->outgoing_if);
@@ -232,34 +233,34 @@ void rtm_show_fib(rtm_t *rtm) {
     } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
 
     if (!has_active_routes) {
-        printf("  No active routes in FIB\n");
+        cprintf("  No active routes in FIB\n");
     }
 
-    printf("\n");
+    cprintf("\n");
 }
 
 /* Display nexthop protocol information */
 void rtm_show_nh_proto_info(rtm_t *rtm) {
     if (!rtm) {
-        printf("Error: NULL RTM pointer\n");
+        cprintf("Error: NULL RTM pointer\n");
         return;
     }
 
-    printf("\n========================================\n");
-    printf("RTM Nexthop Protocol Information\n");
-    printf("========================================\n");
-    printf("VRF: %u, AFI: %s, RTM ID: %u\n", 
+    cprintf("\n========================================\n");
+    cprintf("RTM Nexthop Protocol Information\n");
+    cprintf("========================================\n");
+    cprintf("VRF: %u, AFI: %s, RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    printf("========================================\n\n");
+    cprintf("========================================\n\n");
 
     if (avltree_is_empty(&rtm->nh_proto_info_tree)) {
-        printf("  No nexthop protocol info registered\n\n");
+        cprintf("  No nexthop protocol info registered\n\n");
         return;
     }
 
-    printf("%-15s %-20s %-12s %-8s %-10s\n",
+    cprintf("%-15s %-20s %-12s %-8s %-10s\n",
            "Protocol", "Sub-Protocol", "Instance", "VRF", "Ref Count");
-    printf("%-15s %-20s %-12s %-8s %-10s\n",
+    cprintf("%-15s %-20s %-12s %-8s %-10s\n",
            "--------", "------------", "--------", "---", "---------");
 
     /* Iterate through all NH protocol info */
@@ -268,7 +269,7 @@ void rtm_show_nh_proto_info(rtm_t *rtm) {
         
         rtm_nh_proto_t *nh_proto = avltree_container_of(curr_node, rtm_nh_proto_t, proto_glue);
 
-        printf("%-15s %-20s %-12u %-8u %-10u\n",
+        cprintf("%-15s %-20s %-12u %-8u %-10u\n",
                rtm_proto_to_string(nh_proto->proto),
                rtm_sub_proto_to_string(nh_proto->sub_proto),
                nh_proto->instance_no,
@@ -277,22 +278,22 @@ void rtm_show_nh_proto_info(rtm_t *rtm) {
 
     } ITERATE_AVL_TREE_END(&rtm->nh_proto_info_tree, curr_node);
 
-    printf("\n");
+    cprintf("\n");
 }
 
 /* Display general protocol information */
 void rtm_show_proto_info(rtm_t *rtm) {
     if (!rtm) {
-        printf("Error: NULL RTM pointer\n");
+        cprintf("Error: NULL RTM pointer\n");
         return;
     }
 
-    printf("\n========================================\n");
-    printf("RTM Protocol Information\n");
-    printf("========================================\n");
-    printf("VRF: %u, AFI: %s, RTM ID: %u\n", 
+    cprintf("\n========================================\n");
+    cprintf("RTM Protocol Information\n");
+    cprintf("========================================\n");
+    cprintf("VRF: %u, AFI: %s, RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    printf("========================================\n\n");
+    cprintf("========================================\n\n");
 
     bool found_any = false;
 
@@ -304,9 +305,9 @@ void rtm_show_proto_info(rtm_t *rtm) {
         }
 
         if (!found_any) {
-            printf("%-15s %-12s %-8s\n",
+            cprintf("%-15s %-12s %-8s\n",
                    "Protocol", "Instance", "VRF");
-            printf("%-15s %-12s %-8s\n",
+            cprintf("%-15s %-12s %-8s\n",
                    "--------", "--------", "---");
             found_any = true;
         }
@@ -317,7 +318,7 @@ void rtm_show_proto_info(rtm_t *rtm) {
             
             rtm_proto_info_t *proto_info = avltree_container_of(curr_node, rtm_proto_info_t, proto_glue);
 
-            printf("%-15s %-12u %-8u\n",
+            cprintf("%-15s %-12u %-8u\n",
                    rtm_proto_to_string(proto_info->proto),
                    proto_info->instance_no,
                    proto_info->vrf_id);
@@ -326,34 +327,34 @@ void rtm_show_proto_info(rtm_t *rtm) {
     }
 
     if (!found_any) {
-        printf("  No protocol info registered\n");
+        cprintf("  No protocol info registered\n");
     }
 
-    printf("\n");
+    cprintf("\n");
 }
 
 /* Display unresolvable nexthops */
 void rtm_show_unresolvable_lnhs(rtm_t *rtm) {
     if (!rtm) {
-        printf("Error: NULL RTM pointer\n");
+        cprintf("Error: NULL RTM pointer\n");
         return;
     }
 
-    printf("\n========================================\n");
-    printf("RTM Unresolvable Nexthops\n");
-    printf("========================================\n");
-    printf("VRF: %u, AFI: %s, RTM ID: %u\n", 
+    cprintf("\n========================================\n");
+    cprintf("RTM Unresolvable Nexthops\n");
+    cprintf("========================================\n");
+    cprintf("VRF: %u, AFI: %s, RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    printf("========================================\n\n");
+    cprintf("========================================\n\n");
 
     if (IS_GLTHREAD_LIST_EMPTY(&rtm->unresolvable_lnhs)) {
-        printf("  No unresolvable nexthops\n\n");
+        cprintf("  No unresolvable nexthops\n\n");
         return;
     }
 
-    printf("%-15s %-20s %-40s %-10s\n",
+    cprintf("%-15s %-20s %-40s %-10s\n",
            "Protocol", "Sub-Protocol", "Nexthop Prefix", "OIF");
-    printf("%-15s %-20s %-40s %-10s\n",
+    cprintf("%-15s %-20s %-40s %-10s\n",
            "--------", "------------", "--------------", "---");
 
     /* Iterate through unresolvable nexthops */
@@ -364,7 +365,7 @@ void rtm_show_unresolvable_lnhs(rtm_t *rtm) {
         char nh_prefix_str[128];
         rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
 
-        printf("%-15s %-20s %-40s %-10u\n",
+        cprintf("%-15s %-20s %-40s %-10u\n",
                rtm_proto_to_string(nh->proto),
                rtm_sub_proto_to_string(nh->sub_proto),
                nh_prefix_str,
@@ -372,5 +373,5 @@ void rtm_show_unresolvable_lnhs(rtm_t *rtm) {
 
     } ITERATE_GLTHREAD_END(&rtm->unresolvable_lnhs, curr_glthread);
 
-    printf("\n");
+    cprintf("\n");
 }

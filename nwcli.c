@@ -46,6 +46,8 @@
 #include "prefix-list/prefixlst.h"
 #include "tcpconst.h"
 #include "Layer2/mac_table.h"
+#include "RTM/rtm_nb_integ.h"
+#include "RTM/rtm_show.h"
 
 extern graph_t *topo;
 class Interface;
@@ -234,6 +236,24 @@ validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
 
 static int
 validate_l2_mode_value(Stack_t *tlv_stack, c_string l2_mode_value){
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
+}
+
+static int
+validate_vrf_id(Stack_t *tlv_stack, c_string vrf_value){
+
+    int vrf = atoi((const char *)vrf_value);
+    if(vrf >= 0 && vrf <= 255)
+        return LEAF_VALIDATION_SUCCESS;
+    return LEAF_VALIDATION_FAILED;
+}
+
+static int
+validate_rtm_table_id(Stack_t *tlv_stack, c_string table_value){
+
+    int table_id = atoi((const char *)table_value);
+    if(table_id >= 0 && table_id <= 255)
         return LEAF_VALIDATION_SUCCESS;
     return LEAF_VALIDATION_FAILED;
 }
@@ -483,6 +503,53 @@ show_rt_handler(int cmdcode, Stack_t *tlv_stack,
     return 0;
 }
 
+static int
+show_rtm_route_cli_handler(int cmdcode,
+                           Stack_t *tlv_stack,
+                           op_mode enable_or_disable){
+
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    uint32_t vrf_id = RTM_DEFAULT_VRF;
+    uint32_t table_id = 0;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-id"))
+            vrf_id = atoi(tlv->value);
+        else if(parser_match_leaf_id(tlv->leaf_id, "table-id"))
+            table_id = atoi(tlv->value);
+
+    }TLV_LOOP_END;
+
+    if(!node_name){
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if(!node){
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    RTM_AFI_T afi = (cmdcode == CMDCODE_SHOW_NODE_RTM_IPV6_ROUTE) ?
+                     RTM_AF_IPV6 : RTM_AF_IPV4;
+
+    rtm_t *rtm = rtm_get(node, vrf_id, afi, table_id);
+    if(!rtm){
+        cprintf("Error : RTM not found for node %s VRF %u AFI %s table %u\n",
+                node_name, vrf_id, rtm_afi_to_string(afi), table_id);
+        return -1;
+    }
+
+    rtm_show_rib_detail(rtm);
+    return 0;
+}
+
 extern void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
@@ -547,6 +614,8 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
         mask = atoi((const char *)(const char *)mask_str);
     }
 
+    uint32_t gw_ip_int = 0;
+
     switch(cmdcode){
         case CMDCODE_CONF_NODE_L3ROUTE:
             switch(enable_or_disable){
@@ -564,8 +633,6 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                             return -1;
                         }
                     }
-
-                    uint32_t gw_ip_int = 0;
 
                     if (gwip) {
                         gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
@@ -586,17 +653,73 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                         tcp_ip_convert_ip_p_to_n(dest), mask, 
                             gwip ? gw_ip_int : 0, 
                             intf, 0, PROTO_STATIC, true);
+
+                    /* New RTM*/
+                    rtm_prefix_t  prefix, gateway;
+                    rtm_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
+                    rtm_prefix_initialize_v4 (&gateway, 0, 32);
+
+                    if (gwip) {
+                        gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
+                        rtm_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
+                    }
+                    
+                    uint32_t rc = cp_rtm_install_static_route (
+                        rtm_get(node,  intf->GetVRF(), RTM_AF_IPV4, 0), 
+                        &prefix,  &gateway, intf->GetSharedPtr(), 0);
+
+                    if (!rc) {
+                        cprintf("Error : Failed to install static route\n");
+                        return -1;
+                    }
+
                 }
                 break;
                 case CONFIG_DISABLE:
+                {      
+                    Interface *intf = NULL;
+                    if(intf_name){
+                        intf = node_get_intf_by_name(node, (const char *)intf_name);
+                        if(!intf){
+                            cprintf("Config Error : Non-Existing Interface : %s\n", intf_name);
+                            return -1;
+                        }
+                        if (!intf->IsIpConfigured()) {
+                            cprintf("Config Error : Not L3 Mode Interface : %s\n", intf_name);
+                            return -1;
+                        }
+                    }
+
                     rt_ipv4_route_del (node, 
                             tcp_ip_convert_ip_p_to_n(dest), 
                             mask, PROTO_STATIC, true);
-                    break;
-                default:
-                    ;
+
+                    /* New RTM*/
+                    rtm_prefix_t  prefix, gateway;
+                    rtm_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
+                    rtm_prefix_initialize_v4 (&gateway, 0, 32);
+
+                    if (!gwip) return -1;
+
+                    if (gwip) {
+                        gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
+                        rtm_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
+                    }
+                    
+                    rtm_error_t rc = cp_rtm_uninstall_static_route (
+                        rtm_get(node,  intf->GetVRF(), RTM_AF_IPV4, 0), 
+                        &prefix,  &gateway, intf->GetSharedPtr(), 0);
+
+                    if (rc != RTM_SUCCESS) {
+                        cprintf("Error : Failed to uninstall static route\n");
+                        return -1;
+                    }
+                }
+                break;
+                default: ;
             }
             break;
+
         case CMDCODE_CONF_RIB_IMPORT_POLICY:
         {
             if (string_compare(rib_name, "inet.0", 6) == 0) {
@@ -996,6 +1119,34 @@ nw_init_cli(){
                     libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
                  {
+                    /*show node <node-name> ip vrf <vrf-id> route <table-id>*/
+                    static param_t ip;
+                    init_param(&ip, CMD, "ip", 0, 0, INVALID, 0, "RTM IPv4 routing tables");
+                    libcli_register_param(&node_name, &ip);
+                    {
+                        static param_t vrf;
+                        init_param(&vrf, CMD, "vrf", 0, 0, INVALID, 0, "Specify VRF Id");
+                        libcli_register_param(&ip, &vrf);
+                        {
+                            static param_t vrf_id;
+                            init_param(&vrf_id, LEAF, 0, 0, validate_vrf_id, INT, "vrf-id", "VRF identifier");
+                            libcli_register_param(&vrf, &vrf_id);
+                            {
+                                static param_t route;
+                                init_param(&route, CMD, "route", 0, 0, INVALID, 0, "Routing table selector");
+                                libcli_register_param(&vrf_id, &route);
+                                {
+                                    static param_t table_id;
+                                    init_param(&table_id, LEAF, 0, show_rtm_route_cli_handler,
+                                        validate_rtm_table_id, INT, "table-id", "Routing table id");
+                                    libcli_register_param(&route, &table_id);
+                                    libcli_set_param_cmd_code(&table_id, CMDCODE_SHOW_NODE_RTM_IPV4_ROUTE);
+                                }
+                            }
+                        }
+                    }
+                 }
+                 {
                     /* Mount MPLS show CLI here */
                     mpls_build_show_cli_tree(&node_name);
                  }
@@ -1006,6 +1157,34 @@ nw_init_cli(){
                     init_param(&rt6, CMD, "rt6", show_rt6_handler, 0, INVALID, 0, "Dump L3 V6 Routing table");
                     libcli_register_param(&node_name, &rt6);
                     libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_RT6_TABLE);
+                 }
+                 {
+                    /*show node <node-name> ipv6 vrf <vrf-id> route <table-id>*/
+                    static param_t ipv6;
+                    init_param(&ipv6, CMD, "ipv6", 0, 0, INVALID, 0, "RTM IPv6 routing tables");
+                    libcli_register_param(&node_name, &ipv6);
+                    {
+                        static param_t vrf;
+                        init_param(&vrf, CMD, "vrf", 0, 0, INVALID, 0, "Specify VRF Id");
+                        libcli_register_param(&ipv6, &vrf);
+                        {
+                            static param_t vrf_id;
+                            init_param(&vrf_id, LEAF, 0, 0, validate_vrf_id, INT, "vrf-id", "VRF identifier");
+                            libcli_register_param(&vrf, &vrf_id);
+                            {
+                                static param_t route;
+                                init_param(&route, CMD, "route", 0, 0, INVALID, 0, "Routing table selector");
+                                libcli_register_param(&vrf_id, &route);
+                                {
+                                    static param_t table_id;
+                                    init_param(&table_id, LEAF, 0, show_rtm_route_cli_handler,
+                                        validate_rtm_table_id, INT, "table-id", "Routing table id");
+                                    libcli_register_param(&route, &table_id);
+                                    libcli_set_param_cmd_code(&table_id, CMDCODE_SHOW_NODE_RTM_IPV6_ROUTE);
+                                }
+                            }
+                        }
+                    }
                  }
 
                  {

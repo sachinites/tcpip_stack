@@ -166,4 +166,7 @@
 /* config node <node-name> route <prefix/mask> gateway <gateway-ip> interface <if-name> label-stack <list of labels> */
 #define CMDCODE_CONFIG_IPV4_MPLS_ROUTE 66
 
+#define CMDCODE_SHOW_NODE_RTM_IPV4_ROUTE 67
+#define CMDCODE_SHOW_NODE_RTM_IPV6_ROUTE 68
+
 #endif /* __CMDCODES__ */

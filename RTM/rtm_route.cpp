@@ -4,6 +4,9 @@
 #include "rtm_route.h"
 #include "rtm_nh.h"
 #include "rtm_priv_api.h"
+#include "rtm_proto.h"
+#include "rtm_fib_interface.h"
+#include "rtm_resolution.h"
 
 /* Comparator function for route AVL tree */
 int
@@ -57,9 +60,7 @@ rtm_route_initialize(rtm_route* route) {
     init_glthread(&route->path_list);
     init_glthread(&route->unresolved_paths);
     init_glthread(&route->resolved_paths);
-    
-    memset(&route->route_glue, 0, sizeof(avltree_node_t));
-    
+    avltree_node_init(&route->route_glue);
     route->flags = 0;
     route->nh_count = 0;
     route->ref_count = 0;
@@ -74,20 +75,18 @@ rtm_validate_with_route (rtm_t *rtm,  rtm_prefix_t *prefix) {
     return true;
 }
 
-/* Lookup a route in RTM by prefix */
+
 rtm_route *
-rtm_route_lookup(const rtm_t* rtm, rtm_prefix_t* prefix_key) {
+rtm_route_lookup( rtm_t* rtm, rtm_prefix_t* prefix_key) {
     
     if (!rtm || !prefix_key) {
         return nullptr;
     }
     
-    // Create a temporary route for lookup
     rtm_route temp_route;
     memset(&temp_route, 0, sizeof(rtm_route));
     temp_route.prefix = *prefix_key;
     
-    // Look up in the route tree
     avltree_node_t *node = avltree_lookup(&temp_route.route_glue, 
                                           (avltree_t*)&rtm->route_tree);
     
@@ -100,7 +99,7 @@ rtm_route_lookup(const rtm_t* rtm, rtm_prefix_t* prefix_key) {
 
 /* Add a route to RTM */
 rtm_error_t 
-rtm_route_add(const rtm_t* rtm, rtm_route* route) {
+rtm_route_add(rtm_t* rtm, rtm_route* route) {
     
     if (!rtm || !route) {
         return RTM_ERROR_INVALID_ARGUMENT;
@@ -113,6 +112,7 @@ rtm_route_add(const rtm_t* rtm, rtm_route* route) {
     
     // Check if route already exists
     rtm_route *existing = rtm_route_lookup(rtm, &route->prefix);
+
     if (existing) {
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
@@ -120,7 +120,7 @@ rtm_route_add(const rtm_t* rtm, rtm_route* route) {
     // Insert into route tree
     if (avltree_insert(&route->route_glue, 
                        (avltree_t*)&rtm->route_tree)) {
-	return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+	    return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
     
     rtm_route_reference(route);
@@ -130,8 +130,10 @@ rtm_route_add(const rtm_t* rtm, rtm_route* route) {
 
 /* Remove a route from RTM */
 rtm_error_t 
-rtm_route_remove(const rtm_t* rtm, rtm_prefix_t* prefix_key) {
+rtm_route_remove(rtm_t* rtm, rtm_prefix_t* prefix_key) {
     
+    glthread_t *curr;
+
     if (!rtm || !prefix_key) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
@@ -146,11 +148,25 @@ rtm_route_remove(const rtm_t* rtm, rtm_prefix_t* prefix_key) {
     if (route->nh_count > 0) {
         return RTM_ERROR_INVALID_ROUTE;
     }
-    
-    // Remove from route tree
+
+    ITERATE_GLTHREAD_BEGIN(&route->unresolved_paths, curr) {
+
+        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
+        remove_glthread (&lnh_list->route_glue);
+        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
+
+    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
+
+    ITERATE_GLTHREAD_BEGIN(&route->resolved_paths, curr) {
+
+        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
+        remove_glthread (&lnh_list->route_glue);
+        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
+
+    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);    
+
     avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
-    
-    // Decrement reference count (will free if ref_count reaches 0)
+    avltree_node_init (&route->route_glue);
     rtm_route_dereference(route);
     
     return RTM_SUCCESS;
@@ -170,7 +186,7 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
     // Iterate through the path list to find matching nexthop
     ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
         
-        nh = resolution_list_glue_to_rtm_nh(curr);
+        nh = route_glue_to_rtm_nh(curr);
         
         if (rtm_nh_is_equal (nh, nh_template) == 0) {
             return nh;
@@ -184,7 +200,10 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
 /* Add a nexthop to a route */
 rtm_error_t 
 rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
-    
+
+    rtm_error_t rc = RTM_SUCCESS;
+    rtm_nh_proto_t *existing_nh_proto = NULL;
+
     if (!route || !nh) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
@@ -208,41 +227,97 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     glthread_add_next (&rtm->nhs_by_src[nh->proto], &nh->src_glue);
     rtm_nh_reference(nh);
 
+    rc = rtm_nh_proto_add(rtm, nh->rtm_nh_proto, &existing_nh_proto) ;
+
+    if (rc == RTM_ERROR_NEXTHOP_PROTO_ALREADY_EXISTS) {
+        rtm_nh_proto_dereference(rtm, nh->rtm_nh_proto);
+        nh->rtm_nh_proto = existing_nh_proto;
+        rtm_nh_proto_reference(existing_nh_proto);
+    }
+
+    if (nh->is_active) {
+        rtm_route_refresh_fib_nexthops(rtm, route);
+    }
+
     return RTM_SUCCESS;
 }
 
-/* Remove a nexthop from a route */
+/* Delete the nexthop from the route, the nexthop is actual nexthop object
+    of the route, not a template copy. Delete the route if its all nexthops are gone */
 rtm_error_t 
-rtm_route_remove_nh(rtm_route* route, rtm_nh* nh) {
-    
+rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
+
     if (!route || !nh) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
-    
-    // Verify nexthop belongs to this route
-    if (nh->owner_route != route) {
-        return RTM_ERROR_INVALID_NH;
-    }
-    
+
+    RTM_NH_LOCK(nh);
+
     // Remove from path list
     remove_glthread(&nh->route_glue);
-    
+    rtm_nh_dereference(rtm, nh);
+
+    // Remove nh from Src list
+    remove_glthread (&nh->src_glue);
+    rtm_nh_dereference(rtm, nh);
+
+    /* Remove nh from idx tree*/
+    rtm_nh_remove_from_idx_tree(rtm, nh);
+
     // Clear owner route
     nh->owner_route = NULL;
-    
-    // Decrement nexthop count
     route->nh_count--;
-    
-    // Decrement nexthop reference count
-    rtm_nh_dereference(nh);
-    
-    remove_glthread (&nh->src_glue);
-    rtm_nh_dereference(nh);
-
-    // Decrement route reference count
     rtm_route_dereference(route);    
+    
+    if (nh->is_active) {
+        rtm_route_refresh_fib_nexthops(rtm, route);
+    }
+
+    /* Stop resolution tracking if indirect */
+    if (nh->is_indirect) {
+        rtm_untrack_for_resolution(rtm, nh);
+    }
+
+    RTM_NH_UNLOCK(rtm, nh);
+
     return RTM_SUCCESS;
 }
+
+rtm_error_t 
+rtm_route_delete (rtm_t *rtm, rtm_route* route) {
+
+    if (!rtm || !route) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    assert (route->nh_count == 0);
+    assert (IS_GLTHREAD_LIST_EMPTY(&route->path_list));
+
+    /* Move unresolved paths back to rtm->unresolved list */
+    glthread_t *curr;
+    ITERATE_GLTHREAD_BEGIN(&route->unresolved_paths, curr) {
+
+        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
+        remove_glthread (&lnh_list->route_glue);
+        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
+
+    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
+
+    ITERATE_GLTHREAD_BEGIN(&route->resolved_paths, curr) {
+
+        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
+        remove_glthread (&lnh_list->route_glue);
+        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
+
+    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
+
+    avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
+    avltree_node_init (&route->route_glue);
+    rtm_route_dereference(route);
+
+    return RTM_SUCCESS;
+}
+
 
 /* Increment route reference count */
 void 
@@ -271,4 +346,9 @@ rtm_route_dereference(rtm_route* route) {
         // Free the route structure
         free(route);
     }
+}
+
+void 
+rtm_route_refresh_fib_nexthops(rtm_t *rtm, rtm_route* route) {
+
 }

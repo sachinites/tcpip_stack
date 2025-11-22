@@ -34,7 +34,7 @@ typedef struct rtm_resolution_data_ {
     uint32_t resolved_if_ifindex;
     RTM_PROTO_T resolved_proto;
     RTM_NH_ACTION_TYPE_T resolved_action;
-    lstack_t *resolved_label_stack;
+    rtm_lstack_t *resolved_label_stack;
 
 } rtm_resolution_data_t;
 

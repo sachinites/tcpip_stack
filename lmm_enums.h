@@ -90,7 +90,20 @@ typedef enum struct_index_
     MM_INDEX(srh_hdr_t),
 
     /* LFA Structures*/
-    MM_INDEX(lfa_t)
+    MM_INDEX(lfa_t),
+
+    /* RTM Structures*/
+    MM_INDEX(rtm_t),
+    MM_INDEX(cp_nexthop_template_t),
+    MM_INDEX(rtm_nh_proto_t),
+    MM_INDEX(rtm_proto_info_t),
+    MM_INDEX(rtm_nh),
+    MM_INDEX(rtm_route),
+    MM_INDEX(rtm_prefix_t),
+    MM_INDEX(rtm_lstack_t),
+    MM_INDEX(rtm_resolution_nh_tracker_t),
+    MM_INDEX(rtm_resolution_data_t),
+    MM_INDEX(lnh_list_t)
 
     /* Add more Application structure Index here */
 

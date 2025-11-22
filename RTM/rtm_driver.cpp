@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
+#include "rtm_proto.h"
 #include "rtm_api.h"
 #include "rtm_show.h"
 
@@ -124,13 +126,23 @@ main (int argc, char **argv) {
     printf("\n===== Testing rtm_install_protocol_route_nh API with LDP =====\n");
     
     // First, create or lookup the NH protocol info for LDP
-    rtm_nh_proto_t *ldp_nh_proto = rtm_nh_proto_lookup(rtm_mpls, RTM_PROTO_LDP, 
-                                                         RTM_SUB_PROTO_STATIC, 
-                                                         0, rtm_mpls->vrf);
+    rtm_nh_proto_t nh_proto_template;
+    memset (&nh_proto_template, 0, sizeof(rtm_nh_proto_t));
+    nh_proto_template.proto = RTM_PROTO_LDP;
+    nh_proto_template.sub_proto = RTM_SUB_PROTO_NA;
+    nh_proto_template.instance_no = 0;
+    nh_proto_template.vrf_id = rtm_mpls->vrf;
+
+    rtm_nh_proto_t *ldp_nh_proto = rtm_nh_proto_lookup(rtm_mpls, &nh_proto_template);
     
     if (!ldp_nh_proto) {
-        rc = rtm_nh_proto_info_create(rtm_mpls, RTM_PROTO_LDP, RTM_SUB_PROTO_STATIC, 
-                                       0, rtm_mpls->vrf, &ldp_nh_proto);
+        rc = rtm_nh_proto_info_create(
+                                    RTM_PROTO_LDP, 
+                                    RTM_SUB_PROTO_NA, 
+                                    0, 
+                                    rtm_mpls->vrf, 
+                                    &ldp_nh_proto);
+
         if (rc != RTM_SUCCESS) {
             printf("Error creating LDP NH proto info: %s\n", rtm_error_to_string(rc));
             return -1;
@@ -161,10 +173,10 @@ main (int argc, char **argv) {
     temp_nh->is_resolved = true;
     
     // Create MPLS label stack with SWAP operation
-    temp_nh->label_stack = (lstack_t *)calloc(1, sizeof(lstack_t));
+    temp_nh->label_stack = (rtm_lstack_t *)calloc(1, sizeof(rtm_lstack_t));
     temp_nh->label_stack->curr_index = 1;
     temp_nh->label_stack->labels[0].label_val = 2000;  // Outgoing label
-    temp_nh->label_stack->labels[0].op = LBL_SWAP;     // SWAP operation
+    temp_nh->label_stack->labels[0].op = RTM_LBL_SWAP;     // SWAP operation
     
     // Route prefix is MPLS label (incoming label)
     rtm_prefix_t ldp_prefix;

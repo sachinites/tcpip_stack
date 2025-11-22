@@ -376,4 +376,4 @@ cleanall:
 	(cd LinuxMemoryManager; make clean)
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
-	(cd RTM/make clean)
+	(cd RTM; make clean)

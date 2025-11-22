@@ -18,6 +18,7 @@ typedef enum protocols_ {
     RTM_PROTO_LOCAL,
     RTM_PROTO_BGP,  
     RTM_PROTO_ISIS, 
+    RTM_PROTO_OSPF,
     RTM_PROTO_SR,
     RTM_PROTO_LFA,
     RTM_PROTO_LDP,
@@ -28,6 +29,7 @@ typedef enum protocols_ {
 
 typedef enum sub_protocols_ {
 
+    RTM_SUB_PROTO_NA,
     RTM_SUB_PROTO_STATIC,
     RTM_PROTO_L1_ISIS_INT,
     RTM_PROTO_L2_ISIS_INT, 
@@ -71,16 +73,16 @@ typedef enum rtm_admin_dist_ {
     
 } RTM_AD_T;
 
-typedef enum mpls_op_ {
+typedef enum rtm_mpls_op_ {
 
-    LBL_STACK_OPS_UNKNOWN,
-    LBL_SWAP,
-    LBL_CONTINUE = LBL_SWAP,
-    LBL_NEXT,
-    LBL_PUSH = LBL_NEXT,
-    LBL_POP
+    RTM_LBL_STACK_OPS_UNKNOWN,
+    RTM_LBL_SWAP,
+    RTM_LBL_CONTINUE = RTM_LBL_SWAP,
+    RTM_LBL_NEXT,
+    RTM_LBL_PUSH = RTM_LBL_NEXT,
+    RTM_LBL_POP
 
-} mpls_op_t;
+} rtm_mpls_op_t;
 
 #define RTM_DEFAULT_VRF 0
 
@@ -115,6 +117,7 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
 /* Helper function to convert sub-protocol to string */
 static const char* rtm_sub_proto_to_string(RTM_SUB_PROTO_T sub_proto) {
     switch(sub_proto) {
+        case RTM_SUB_PROTO_NA: return "NA";
         case RTM_SUB_PROTO_STATIC: return "Static";
         case RTM_PROTO_L1_ISIS_INT: return "L1-ISIS-INT";
         case RTM_PROTO_L2_ISIS_INT: return "L2-ISIS-INT";

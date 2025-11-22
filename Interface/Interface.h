@@ -61,6 +61,8 @@ class Interface {
         uint32_t xmit_pkt_dropped;
         uint32_t recvd_pkt_dropped;
         uint32_t cost;
+        uint32_t rtm_local_rt_idx;
+        uint32_t rtm_connected_rt_idx;
         log_t log_info;
 
         /* L2 Properties : Ingress & egress L2 Access_list */
@@ -76,10 +78,12 @@ class Interface {
         
         bool is_up;
         InterfaceType_t iftype;
-        char padding2[6];
+        uint8_t vrf;
+        char padding2[5];
 
         uint32_t GetIntfCost();
         uint32_t GetSockfd();
+        uint8_t GetVRF();
         void SetSockfd(uint32_t sockfd);
         node_t *GetNbrNode ();
         Interface *GetOtherInterface();

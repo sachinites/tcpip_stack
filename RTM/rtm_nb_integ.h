@@ -4,35 +4,41 @@
 #include <stdint.h>
 #include "rtm_enums.h"
 #include "rtm_common.h"
-#include "rtm_proto.h"
-#include "../Interface/InterfaceFwd.h"
+#include "rtm_error.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 typedef struct node_ node_t;
 typedef struct rtm_ rtm_t;
+class Interface;
+typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 
 #pragma pack(push, 8)
 
 typedef struct cp_nexthop_template_ {
 
+    uint32_t idx;
+    
     RTM_PROTO_T proto;
     RTM_SUB_PROTO_T sub_proto;
 
     rtm_nh_proto_t *rtm_nh_proto;
+    
+    uint32_t flags;
 
     uint32_t metric;
 
     RTM_NH_ACTION_TYPE_T action;
 
     rtm_prefix_t gateway;
-    InterfaceP Oif;
+    Interface *Oif;
     bool is_indirect;
+    bool is_resolved;
 
     union {
 
         struct {
 
-            lstack_t *label_stack;
+            rtm_lstack_t *label_stack;
 
         } l_stack;
 
@@ -52,6 +58,34 @@ typedef struct cp_nexthop_template_ {
 
 void node_init_default_rtm(node_t *node);
 rtm_t *rtm_get(node_t *node, uint8_t vrf, RTM_AFI_T afi, uint8_t rtm_id);
-rtm_error_t  cp_rtm_install_route ( rtm_t *rtm, rtm_prefix_t *route, cp_nexthop_template_t *nh_template);
+
+/* APIs to install/uninstall local/connected routes */
+uint32_t cp_rtm_install_local_or_connected_v4_routes ( 
+        rtm_t *rtm, uint32_t ip_addr, uint8_t mask, InterfaceP Oif);
+
+/* APIs to install/uninstall static routes */
+uint32_t
+cp_rtm_install_static_route (
+        rtm_t *rtm,
+        rtm_prefix_t *prefix, 
+        rtm_prefix_t *gateway,
+        InterfaceP oif, uint32_t cost);
+
+rtm_error_t
+cp_rtm_uninstall_static_route (
+                rtm_t *rtm,
+                rtm_prefix_t *prefix, 
+                rtm_prefix_t *gateway,
+                InterfaceP oif, uint32_t cost);
+
+/* Generic API to install/uninstall routes */
+rtm_error_t 
+cp_rtm_install_route ( rtm_t *rtm, rtm_prefix_t *route, cp_nexthop_template_t *nh_template);
+
+rtm_error_t 
+cp_rtm_uninstall_route_by_idx ( rtm_t *rtm,  uint32_t idx) ;
+
+rtm_error_t 
+cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *route, cp_nexthop_template_t *nh_template);
 
 #endif 

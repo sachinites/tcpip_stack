@@ -222,6 +222,7 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
 #define NVE_INTF_NAME "nve"
 #define DEFAULT_VLAN_ID 0
 #define MAC_ENTRY_EXP_TIME   1800 /*Seconds*/
+#define DEFAULT_VRF 0
 
 #endif /* __TCPCONST__ */
 

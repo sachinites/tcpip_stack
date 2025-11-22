@@ -254,7 +254,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->is_up = true;
     if (!LinuxRtr) this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
-    
+    this->vrf =  DEFAULT_VRF;
     this->pkt_recv = 0;
     this->pkt_sent = 0;
     this->xmit_pkt_dropped = 0;
@@ -292,6 +292,11 @@ uint32_t
 Interface::GetIntfCost()
 {
     return this->cost;
+}
+
+uint8_t 
+Interface::GetVRF() {
+    return this->vrf;
 }
 
 void Interface::PrintInterfaceDetails()

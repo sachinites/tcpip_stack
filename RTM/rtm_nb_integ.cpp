@@ -1,9 +1,68 @@
 #include "../graph.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "rtm_api.h"
 #include "rtm_route.h"
 #include "rtm_nb_integ.h"
+#include "rtm_priv_api.h"
+#include "rtm_proto.h"
+#include "rtm_nh.h"
+#include "rtm_fib_interface.h"
+#include "../Interface/InterfaceUApi.h"
+#include "../lmm_enums.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
+
+/* static functions */
+static rtm_error_t 
+rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
+
+    if (!nh_template) return RTM_ERROR_INVALID_ARGUMENT;
+
+    if (nh_template->proto >= RTM_PROTO_MAX) return RTM_ERROR_INVALID_PROTO;
+    if (nh_template->sub_proto >= RTM_SUB_PROTO_MAX) return RTM_ERROR_INVALID_SUB_PROTO;
+    if (nh_template->action >= RTM_NH_ACTION_MAX) return RTM_ERROR_NEXTHOP_INVALID_ACTION;
+    if (nh_template->is_indirect && nh_template->Oif) return RTM_ERROR_INVALID_OIF_INDEX;
+    if (!nh_template->is_indirect && !nh_template->Oif) return RTM_ERROR_INVALID_OIF_INDEX;
+    if (nh_template->proto != RTM_PROTO_LOCAL &&
+        nh_template->proto != RTM_PROTO_CONNECTED &&
+        rtm_prefix_is_null (&nh_template->gateway)) return RTM_ERROR_INVALID_GATEWAY;
+    if (!nh_template->rtm_nh_proto) return RTM_ERROR_INVALID_NEXTHOP_PROTO;
+    return RTM_SUCCESS;
+}
+
+static rtm_nh *
+rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
+
+    rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
+
+    rtm_nh_initialize(nh);
+    nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
+    rtm_nh_proto_reference (nh->rtm_nh_proto);
+    rtm_nh_proto_initialize (nh->rtm_nh_proto);
+
+    rtm_nh_proto_copy (nh_template->rtm_nh_proto, nh->rtm_nh_proto);
+
+    nh->flags = nh_template->flags;
+    nh->proto = nh_template->proto;
+    nh->sub_proto = nh_template->sub_proto;
+    nh->ad = rtm_get_admin_distance (nh->proto , nh->sub_proto);
+    nh->metric = nh_template->metric;
+    nh->action = nh_template->action;
+    nh->prefix = nh_template->gateway;
+    nh->Oif = nh_template->Oif->GetSharedPtr();
+    nh->is_indirect = nh_template->is_indirect;
+    nh->is_resolved = nh_template->is_resolved;
+    nh->is_active = false;
+    nh->ref_count = 0;
+
+    nh->label_stack = nh_template->u.l_stack.label_stack;
+    nh->endfn = nh_template->u.srv6_stack.endfn;
+    nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
+    nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
+
+    return nh;
+}
+
+/* Static functions End*/
 
 void 
 node_init_default_rtm(node_t *node) {
@@ -47,31 +106,108 @@ rtm_get(node_t *node, uint8_t vrf, RTM_AFI_T afi, uint8_t rtm_id) {
     return NULL;
 }
 
-static rtm_error_t 
-rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
+uint32_t
+cp_rtm_install_local_or_connected_v4_routes ( 
+    rtm_t *rtm, uint32_t prefix, uint8_t mask, InterfaceP Oif) {
 
-    if (!nh_template) return RTM_ERROR_INVALID_ARGUMENT;
+    rtm_prefix_t route;
+    route.afi = RTM_AF_IPV4;
+    route.prefix_len = mask;
+    route.u.v4_addr = prefix;
+    rtm_nh_proto_t *nh_proto = NULL;
 
-    if (nh_template->proto >= RTM_PROTO_MAX) return RTM_ERROR_INVALID_PROTO;
-    if (nh_template->sub_proto >= RTM_SUB_PROTO_MAX) return RTM_ERROR_INVALID_SUB_PROTO;
-    if (nh_template->action >= RTM_NH_ACTION_MAX) return RTM_ERROR_NEXTHOP_INVALID_ACTION;
-    if (nh_template->is_indirect && nh_template->Oif) return RTM_ERROR_INVALID_OIF_INDEX;
-    if (!nh_template->is_indirect && !nh_template->Oif) return RTM_ERROR_INVALID_OIF_INDEX;
-    if (rtm_prefix_is_null (&nh_template->gateway)) return RTM_ERROR_INVALID_GATEWAY;
-    if (!nh_template->rtm_nh_proto) return RTM_ERROR_INVALID_NEXTHOP_PROTO;
-    return RTM_SUCCESS;
+    cp_nexthop_template_t nh_template;
+    memset (&nh_template, 0, sizeof(nh_template));
+
+    nh_template.proto == (mask == 32) ? \
+        nh_template.proto = RTM_PROTO_LOCAL : nh_template.proto = RTM_PROTO_CONNECTED;
+    
+    nh_template.sub_proto = RTM_SUB_PROTO_NA;
+    nh_template.action =  (nh_template.proto ==RTM_PROTO_LOCAL) ? \
+                                        RTM_NH_ACTION_LOCAL : \
+                                        RTM_NH_ACTION_CONNECTED;
+
+    nh_template.Oif = Oif.get();
+    nh_template.is_resolved = true;
+    nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
+    
+    rtm_error_t rc = rtm_nh_proto_info_create(
+            RTM_PROTO_LOCAL, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
+    assert (rc == RTM_SUCCESS);
+
+    nh_template.rtm_nh_proto = nh_proto;
+    rc = cp_rtm_install_route(rtm, &route, &nh_template);
+    free (nh_proto);
+    return nh_template.idx;
 }
 
-static rtm_nh *
-rtm_nh_create (cp_nexthop_template_t *nh_template) {
 
-    rtm_nh *nh = (rtm_nh *)calloc(1, sizeof(rtm_nh));
-    rtm_nh_initialize(nh);
-    nh->rtm_nh_proto = (rtm_nh_proto_t *)calloc (1, sizeof (rtm_nh_proto_t));
-    rtm_nh_proto_initialize (nh->rtm_nh_proto);
-    memcpy (nh->rtm_nh_proto, nh_template->rtm_nh_proto, sizeof (rtm_nh_proto_t));
-    return nh;
+uint32_t
+cp_rtm_install_static_route (
+        rtm_t *rtm,
+        rtm_prefix_t *prefix, 
+        rtm_prefix_t *gateway,
+        InterfaceP oif, uint32_t cost) {
+
+    rtm_nh_proto_t *nh_proto = NULL;
+
+    cp_nexthop_template_t nh_template;
+    memset(&nh_template, 0, sizeof(nh_template));
+
+    if (!gateway || !oif) return 0;
+
+    nh_template.proto = RTM_PROTO_STATIC;
+    nh_template.sub_proto = RTM_SUB_PROTO_NA;
+    nh_template.action = RTM_NH_ACTION_FORWARD;
+    nh_template.Oif = oif.get();
+    nh_template.is_resolved = true;
+    nh_template.metric = cost;
+    nh_template.gateway = *gateway;
+
+    rtm_error_t rc = rtm_nh_proto_info_create(
+        RTM_PROTO_STATIC, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
+    assert (rc == RTM_SUCCESS);
+
+    nh_template.rtm_nh_proto =  nh_proto;
+
+    rc = cp_rtm_install_route(rtm, prefix, &nh_template);
+    free (nh_proto);
+    return nh_template.idx;   
 }
+
+rtm_error_t
+cp_rtm_uninstall_static_route (
+        rtm_t *rtm,
+        rtm_prefix_t *prefix, 
+        rtm_prefix_t *gateway,
+        InterfaceP oif, uint32_t cost) {
+
+    rtm_error_t rc = RTM_SUCCESS;
+    cp_nexthop_template_t nh_template;
+            
+    memset(&nh_template, 0, sizeof(nh_template));
+
+    nh_template.proto = RTM_PROTO_STATIC;
+    nh_template.sub_proto = RTM_SUB_PROTO_NA;
+
+    rc = rtm_nh_proto_info_create (
+                    RTM_PROTO_STATIC, 
+                    RTM_SUB_PROTO_NA, 
+                    0, oif->GetVRF(), 
+                    &nh_template.rtm_nh_proto);
+
+    nh_template.metric = cost;
+    nh_template.action = RTM_NH_ACTION_FORWARD;
+    nh_template.gateway = *gateway;
+    nh_template.Oif = oif.get();
+    nh_template.is_indirect = false;
+    nh_template.is_resolved = true;
+
+    rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
+    free (nh_template.rtm_nh_proto);
+    return rc;
+}
+
 
 /* Install the route in RTM , Check for duplicate nexthop for the route.
     Return appropriate error code */
@@ -79,8 +215,96 @@ rtm_error_t
 cp_rtm_install_route ( 
                             rtm_t *rtm, 
                             rtm_prefix_t *prefix,
-                            cp_nexthop_template_t *nh_template) {
+                            cp_nexthop_template_t *cp_nh_template) {
 
+    bool new_rt = false;
+    rtm_error_t rc = RTM_SUCCESS;
+
+    if (!rtm || !prefix || !cp_nh_template) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    rc = rtm_validate_cp_nexthop_template(cp_nh_template);
+    if (rc != RTM_SUCCESS) return rc;
+
+    /* look up the route*/
+    rtm_route *route = rtm_route_lookup(rtm, prefix);
+
+    if (!route) {
+        
+        route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
+        rtm_route_initialize(route);
+        route->prefix = *prefix;
+        new_rt = true;
+        rtm_route_add(rtm, route);
+    }
+
+    rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);
+    rtm_nh_proto_t *nh_proto = nh->rtm_nh_proto;
+    rc = rtm_route_add_nh(rtm, route, nh);
+
+    if (rc != RTM_SUCCESS) {
+
+        if (nh_proto == nh->rtm_nh_proto) {
+            nh->rtm_nh_proto = NULL;
+            rtm_nh_proto_dereference (rtm, nh_proto);
+        }
+
+        rtm_nh_dereference (rtm, nh);
+        if (new_rt) rtm_route_delete (rtm, route);
+        cp_nh_template->idx = 0;
+        return rc;
+    }
+
+    rtm_nh_add_to_idx_tree(rtm, nh);
+    glthread_add_next(&rtm->nhs_by_src[nh->proto], &nh->src_glue);
+    rtm_nh_reference(nh);
+
+    cp_nh_template->idx = nh->idx;
+    rtm_route_refresh_fib_nexthops (rtm, route);
+    return rc;
+}
+
+rtm_error_t 
+cp_rtm_uninstall_route_by_idx ( 
+                            rtm_t *rtm, 
+                            uint32_t idx) {
+
+    rtm_error_t rc = RTM_SUCCESS;
+
+    if (!rtm || !idx) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* Look up the idx in global NH tree */
+    rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, idx);
+
+    if (!nh) {
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+
+    /* look up the route*/
+    rtm_route *route = nh->owner_route;
+    assert (route);
+
+    /* Install the nexthop in the route, it is application responsibility to not
+    to install duplicate nexthops for the route  */
+    rc = rtm_route_delete_nh (rtm, route, nh);
+    
+    if (rc != RTM_SUCCESS) return rc;
+
+    /* Now check if route has 0 Nexthops, then delete the route as well*/
+    if (route->nh_count == 0) {
+        rtm_route_delete(rtm, route);
+    }
+
+    return RTM_SUCCESS;
+}
+
+rtm_error_t 
+cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t *nh_template) {
+
+    rtm_nh_proto_t *nh_proto;
     rtm_error_t rc = RTM_SUCCESS;
 
     if (!rtm || !prefix || !nh_template) {
@@ -88,26 +312,32 @@ cp_rtm_install_route (
     }
 
     if ((rc = rtm_validate_cp_nexthop_template(nh_template))) {
-
-        if (rc != RTM_SUCCESS) return rc;
-    } 
-
-    /* look up the route*/
-
-    rtm_route *route = rtm_route_lookup(rtm, prefix);
-
-    if (!route) {
-        
-        route = (rtm_route *)calloc(1, sizeof(rtm_route));
-        rtm_route_initialize(route);
-        route->prefix = *prefix;
-        rtm_route_add(rtm, route);
+        return rc;
     }
 
-    /* Install the nexthop in the route, it is application responsibility to not
-    to install duplicate nexthops for the route  */
-    rtm_nh *nh = rtm_nh_create(nh_template);
-    assert (rtm_nh_proto_add(rtm, nh->rtm_nh_proto) == RTM_SUCCESS);
-    rtm_route_add_nh(rtm, route, nh);
-    return rc;
+    /* look up the route*/
+    rtm_route *route = rtm_route_lookup(rtm, prefix);
+    if (!route) {
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+
+    rtm_nh *nh = rtm_nh_create_from_nh_template(nh_template);
+
+    /* look up the actual nexthop*/
+    rtm_nh *actual_nh = rtm_route_lookup_nh (route, nh);
+
+    if (!actual_nh) {
+        return RTM_ERROR_NEXTHOP_NOT_FOUND;
+    }
+
+    rc = rtm_route_delete_nh (rtm, route, actual_nh);
+
+    if (rc != RTM_SUCCESS) return rc;
+
+    /* Now check if route has 0 Nexthops, then delete the route as well*/
+    if (route->nh_count == 0) {
+        rtm_route_delete(rtm, route);
+    }
+
+    return RTM_SUCCESS;
 }

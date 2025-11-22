@@ -1,5 +1,5 @@
 #ifndef __RTM_SHOW__
-#define __RTM_SHOW
+#define __RTM_SHOW__
 
 typedef struct rtm_  rtm_t;
 

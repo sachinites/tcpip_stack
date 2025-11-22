@@ -37,7 +37,7 @@ hashfromkey_label (void *key)
 void 
 ipv4_mpls_rt_table_init (node_t *node, rt_table_t **ipv4_mpls_rt_table) {
 
-    *ipv4_mpls_rt_table = (rt_table_t *)XCALLOC2(0, 1, rt_table_t);
+    *ipv4_mpls_rt_table = (rt_table_t *) calloc (1, sizeof (rt_table_t));
     
     init_mtrie (&(*ipv4_mpls_rt_table)->route_list, 32, NULL);
 
@@ -53,7 +53,7 @@ ipv4_mpls_rt_table_init (node_t *node, rt_table_t **ipv4_mpls_rt_table) {
 void 
 mpls_rt_table_init (node_t *node, mpls_rt_table_t **mpls_rt_table) {
 
-    *mpls_rt_table = (mpls_rt_table_t *)XCALLOC2(0, 1, mpls_rt_table_t);
+    *mpls_rt_table = (mpls_rt_table_t *)calloc(1, sizeof (mpls_rt_table_t));
     (*mpls_rt_table)->ht = create_hashtable(20, hashfromkey_label, mpls_rt_table_equalkeys);
     (*mpls_rt_table)->node = node;
 }
@@ -73,7 +73,7 @@ mpls_install_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
 
     if (!mpls_route) {
 
-        mpls_route = (mpls_route_t *)XCALLOC2(0, 1, mpls_route_t);
+        mpls_route = (mpls_route_t *)calloc(1, sizeof (mpls_route_t));
         mpls_route->in_label = in_label;
         mpls_route->nxthop_idx = 0;
         mpls_route->install_time = time(NULL);
@@ -135,7 +135,7 @@ mpls_uninstall_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
     if (mpls_route->nh_count == 0) {
         mpls_route = (mpls_route_t *)hashtable_remove (ht, (void *)&label_val);
         assert (mpls_route);
-        XFREE (mpls_route);
+        free (mpls_route);
     }
     
 }
