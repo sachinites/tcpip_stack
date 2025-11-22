@@ -88,4 +88,57 @@ cp_rtm_uninstall_route_by_idx ( rtm_t *rtm,  uint32_t idx) ;
 rtm_error_t 
 cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *route, cp_nexthop_template_t *nh_template);
 
+uint32_t
+cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, rtm_prefix_t *route,  RTM_PROTO_T proto);
+
+uint32_t
+cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto);
+
+/* Advanced API for complete route configuration */
+#if 0
+# Basic route
+config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1
+
+# Route with MPLS labels
+config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1 label-stack 100 200 300
+
+RTM_PROTO_ISIS
+RTM_PROTO_L1_ISIS_INT
+instance 0
+action : forward 
+cost : 10 
+config node H1 rtm-route prefix 11.0.0.0/24 4 2 0 2 10 gateway 192.168.0.12 interface eth1 label-stack 100 200 300
+OSPF:
+config node H1 rtm-route prefix 11.0.0.0/24 5 10 0 2 10 gateway 192.168.0.12 interface eth1
+
+#endif
+
+rtm_error_t
+cp_rtm_install_route_advanced (
+    rtm_t *rtm,
+    rtm_prefix_t *prefix,
+    RTM_PROTO_T proto,
+    RTM_SUB_PROTO_T sub_proto,
+    uint32_t instance_no,
+    RTM_NH_ACTION_TYPE_T action,
+    uint32_t metric,
+    rtm_prefix_t *gateway,
+    InterfaceP oif,
+    uint32_t *label_stack,
+    uint8_t label_stack_count);
+
+rtm_error_t
+cp_rtm_uninstall_route_advanced (
+    rtm_t *rtm,
+    rtm_prefix_t *prefix,
+    RTM_PROTO_T proto,
+    RTM_SUB_PROTO_T sub_proto,
+    uint32_t instance_no,
+    RTM_NH_ACTION_TYPE_T action,
+    uint32_t metric,
+    rtm_prefix_t *gateway,
+    InterfaceP oif,
+    uint32_t *label_stack,
+    uint8_t label_stack_count);
+
 #endif 

@@ -42,6 +42,10 @@ rtm_error_to_string (rtm_error_t err) {
             return "Invalid nexthop";
         case RTM_ERROR_INVALID_ROUTE:
             return "Invalid route";
+        case RTM_ERROR_INVALID_PROTO:
+            return "Invalid protocol";
+        case RTM_ERROR_INVALID_SUB_PROTO:
+            return "Invalid sub-protocol";
         case RTM_ERROR_INVALID_API:
             return "Invalid API";
         case RTM_ERROR_INVALID_ARGUMENT:
@@ -62,12 +66,18 @@ rtm_error_to_string (rtm_error_t err) {
             return "Nexthop not found";
         case RTM_ERROR_NEXTHOP_ALREADY_EXISTS:
             return "Nexthop already exists";
+        case RTM_ERROR_NEXTHOP_PROTO_ALREADY_EXISTS:
+            return "Nexthop protocol already exists";
+        case RTM_ERROR_NEXTHOP_INVALID_ACTION:
+            return "Nexthop invalid action";
         case RTM_ERROR_PROTO_INFO_ALREADY_EXISTS:
             return "Protocol info already exists";
         case RTM_ERROR_INVALID_GATEWAY:
             return "Invalid gateway";
         case RTM_ERROR_INVALID_OIF_INDEX:
             return "Invalid OIF index";
+        case RTM_ERROR_INVALID_NEXTHOP_PROTO:
+            return "Invalid nexthop protocol";
         case RTM_ERROR_MAX:
             return "Max error";
     }

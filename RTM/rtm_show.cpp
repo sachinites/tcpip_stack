@@ -150,19 +150,26 @@ void rtm_show_rib_detail(rtm_t *rtm) {
             
             /* Display label stack if present */
             if (nh->label_stack && nh->label_stack->curr_index > 0) {
+
                 cprintf("    Label Stack    : ");
+
                 for (int i = 0; i < nh->label_stack->curr_index; i++) {
+
                     const char *op_str = "";
+
                     switch (nh->label_stack->labels[i].op) {
                         case RTM_LBL_SWAP: op_str = "SWAP"; break;
                         case RTM_LBL_PUSH: op_str = "PUSH"; break;
                         case RTM_LBL_POP: op_str = "POP"; break;
                         default: op_str = "UNK"; break;
                     }
-                    cprintf("%s%s:%u", 
-                           i > 0 ? ", " : "",
-                           op_str, 
-                           nh->label_stack->labels[i].label_val);
+                    
+                    if (nh->label_stack->labels[i].op != RTM_LBL_STACK_OPS_UNKNOWN) {
+                        cprintf("%s%s:%u", 
+                            i > 0 ? ", " : "",
+                            op_str, 
+                            nh->label_stack->labels[i].label_val);
+                    }
                 }
                 cprintf("\n");
             } else {

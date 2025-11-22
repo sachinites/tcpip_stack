@@ -54,13 +54,30 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->is_active = false;
     nh->ref_count = 0;
 
-    nh->label_stack = nh_template->u.l_stack.label_stack;
+    if (nh_template->u.l_stack.label_stack) {
+        nh->label_stack = (rtm_lstack_t *)XCALLOC2(0, 1, rtm_lstack_t);
+        nh->label_stack->curr_index = nh_template->u.l_stack.label_stack->curr_index;
+        for (int i = 0; i < nh->label_stack->curr_index; i++) {
+            nh->label_stack->labels[i].label_val = nh_template->u.l_stack.label_stack->labels[i].label_val;
+            nh->label_stack->labels[i].op = nh_template->u.l_stack.label_stack->labels[i].op;
+        }
+    }
     nh->endfn = nh_template->u.srv6_stack.endfn;
     nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
     nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
 
     return nh;
 }
+
+static void 
+rtm_nh_template_internals (cp_nexthop_template_t *nh_template) {
+
+    if (nh_template->rtm_nh_proto) free (nh_template->rtm_nh_proto);
+    if (nh_template->u.l_stack.label_stack) free (nh_template->u.l_stack.label_stack);
+    if (nh_template->u.srv6_stack.v6segment_lst) free (nh_template->u.srv6_stack.v6segment_lst);
+}
+
+
 
 /* Static functions End*/
 
@@ -137,7 +154,7 @@ cp_rtm_install_local_or_connected_v4_routes (
 
     nh_template.rtm_nh_proto = nh_proto;
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
-    free (nh_proto);
+    rtm_nh_template_internals (&nh_template);
     return nh_template.idx;
 }
 
@@ -171,7 +188,7 @@ cp_rtm_install_static_route (
     nh_template.rtm_nh_proto =  nh_proto;
 
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
-    free (nh_proto);
+    rtm_nh_template_internals (&nh_template);
     return nh_template.idx;   
 }
 
@@ -261,7 +278,7 @@ cp_rtm_install_route (
     rtm_nh_reference(nh);
 
     cp_nh_template->idx = nh->idx;
-    rtm_route_refresh_fib_nexthops (rtm, route);
+    rtm_route_refresh_nexthops (rtm, route);
     return rc;
 }
 
@@ -340,4 +357,279 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t
     }
 
     return RTM_SUCCESS;
+}
+
+/* Delete all nexthops whether Active or Inactive for a given protocol */
+uint32_t
+cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, rtm_prefix_t *route,  RTM_PROTO_T proto) {
+
+    uint32_t deleted_count = 0;
+    glthread_t *curr;
+    rtm_nh *nh;
+
+    if (!rtm || !route) {
+        return 0;
+    }
+
+    if (proto >= RTM_PROTO_MAX) {
+        return 0;
+    }
+
+    /* Look up the route */
+    rtm_route *rt = rtm_route_lookup(rtm, route);
+    if (!rt) {
+        return 0;
+    }
+
+    /* Iterate through all nexthops of the route */
+    ITERATE_GLTHREAD_BEGIN(&rt->path_list, curr) {
+
+        nh = route_glue_to_rtm_nh(curr);
+
+        /* Check if this nexthop belongs to the specified protocol */
+        if (nh->proto == proto) {
+            /* Delete the nexthop */
+            rtm_route_delete_nh(rtm, rt, nh);
+            deleted_count++;
+        }
+
+    } ITERATE_GLTHREAD_END(&rt->path_list, curr);
+
+    /* If route has no more nexthops, delete the route */
+    if (rt->nh_count == 0) {
+        rtm_route_delete(rtm, rt);
+    }
+
+    return deleted_count;
+}
+
+uint32_t
+cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto) {
+
+    uint32_t deleted_count = 0;
+    avltree_node_t *curr_node;
+    glthread_t *curr_nh;
+    rtm_nh *nh;
+
+    if (!rtm) {
+        return 0;
+    }
+
+    if (proto >= RTM_PROTO_MAX) {
+        return 0;
+    }
+
+    /* Iterate through all routes in the RTM */
+    ITERATE_AVL_TREE_BEGIN(&rtm->route_tree, curr_node) {
+
+        rtm_route *route = avltree_container_of(curr_node, rtm_route, route_glue);
+
+        /* Iterate through all nexthops of this route */
+        ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_nh) {
+
+            nh = route_glue_to_rtm_nh(curr_nh);
+
+            /* Check if this nexthop belongs to the specified protocol */
+            if (nh->proto == proto) {
+                /* Delete the nexthop */
+                rtm_route_delete_nh(rtm, route, nh);
+                deleted_count++;
+            }
+
+        } ITERATE_GLTHREAD_END(&route->path_list, curr_nh);
+
+        /* If route has no more nexthops, delete the route */
+        if (route->nh_count == 0) {
+            rtm_route_delete(rtm, route);
+        }
+
+    } ITERATE_AVL_TREE_END
+
+    return deleted_count;
+}
+
+/* Advanced API for complete route configuration */
+rtm_error_t
+cp_rtm_install_route_advanced (
+    rtm_t *rtm,
+    rtm_prefix_t *prefix,
+    RTM_PROTO_T proto,
+    RTM_SUB_PROTO_T sub_proto,
+    uint32_t instance_no,
+    RTM_NH_ACTION_TYPE_T action,
+    uint32_t metric,
+    rtm_prefix_t *gateway,
+    InterfaceP oif,
+    uint32_t *label_stack,
+    uint8_t label_stack_count) {
+
+    rtm_error_t rc = RTM_SUCCESS;
+    cp_nexthop_template_t nh_template;
+    rtm_nh_proto_t *nh_proto = NULL;
+
+    if (!rtm || !prefix) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* Validate protocol and sub-protocol */
+    if (proto >= RTM_PROTO_MAX) {
+        return RTM_ERROR_INVALID_PROTO;
+    }
+
+    if (sub_proto >= RTM_SUB_PROTO_MAX) {
+        return RTM_ERROR_INVALID_SUB_PROTO;
+    }
+
+    /* Validate action */
+    if (action >= RTM_NH_ACTION_MAX) {
+        return RTM_ERROR_NEXTHOP_INVALID_ACTION;
+    }
+
+    /* Initialize nexthop template */
+    memset(&nh_template, 0, sizeof(nh_template));
+
+    nh_template.proto = proto;
+    nh_template.sub_proto = sub_proto;
+    nh_template.action = action;
+    nh_template.metric = metric;
+    nh_template.is_resolved = true;
+
+    /* Set gateway if provided */
+    if (gateway && !rtm_prefix_is_null(gateway)) {
+        nh_template.gateway = *gateway;
+    }
+
+    /* Set outgoing interface if provided */
+    if (oif) {
+        nh_template.Oif = oif.get();
+        nh_template.is_indirect = false;
+    } else {
+        nh_template.is_indirect = true;
+    }
+
+    /* Create protocol info */
+    rc = rtm_nh_proto_info_create(proto, sub_proto, instance_no, rtm->vrf, &nh_proto);
+    if (rc != RTM_SUCCESS) {
+        return rc;
+    }
+
+    nh_template.rtm_nh_proto = nh_proto;
+
+    /* Handle label stack if provided */
+    if (label_stack && label_stack_count > 0) {
+        if (label_stack_count > MAX_LBL_DEPTH) {
+            free(nh_proto);
+            return RTM_ERROR_INVALID_ARGUMENT;
+        }
+
+        /* Allocate label stack */
+        rtm_lstack_t *lstack = (rtm_lstack_t *)XCALLOC2(0, 1, rtm_lstack_t);
+        lstack->curr_index = 0;
+
+        for (uint8_t i = 0; i < label_stack_count; i++) {
+            lstack->labels[i].label_val = label_stack[i];
+            lstack->labels[i].op = RTM_LBL_PUSH;
+            lstack->curr_index++;
+        }
+
+        nh_template.u.l_stack.label_stack = lstack;
+    }
+
+    /* Install the route */
+    rc = cp_rtm_install_route(rtm, prefix, &nh_template);
+    rtm_nh_template_internals (&nh_template);
+    return rc;
+}
+
+/* Advanced API for route uninstallation */
+rtm_error_t
+cp_rtm_uninstall_route_advanced (
+    rtm_t *rtm,
+    rtm_prefix_t *prefix,
+    RTM_PROTO_T proto,
+    RTM_SUB_PROTO_T sub_proto,
+    uint32_t instance_no,
+    RTM_NH_ACTION_TYPE_T action,
+    uint32_t metric,
+    rtm_prefix_t *gateway,
+    InterfaceP oif,
+    uint32_t *label_stack,
+    uint8_t label_stack_count) {
+
+    rtm_error_t rc = RTM_SUCCESS;
+    cp_nexthop_template_t nh_template;
+    rtm_nh_proto_t *nh_proto = NULL;
+
+    if (!rtm || !prefix) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* Validate protocol and sub-protocol */
+    if (proto >= RTM_PROTO_MAX) {
+        return RTM_ERROR_INVALID_PROTO;
+    }
+
+    if (sub_proto >= RTM_SUB_PROTO_MAX) {
+        return RTM_ERROR_INVALID_SUB_PROTO;
+    }
+
+    /* Validate action */
+    if (action >= RTM_NH_ACTION_MAX) {
+        return RTM_ERROR_NEXTHOP_INVALID_ACTION;
+    }
+
+    /* Initialize nexthop template */
+    memset(&nh_template, 0, sizeof(nh_template));
+
+    nh_template.proto = proto;
+    nh_template.sub_proto = sub_proto;
+    nh_template.action = action;
+    nh_template.metric = metric;
+    nh_template.is_resolved = true;
+
+    /* Set gateway if provided */
+    if (gateway && !rtm_prefix_is_null(gateway)) {
+        nh_template.gateway = *gateway;
+    }
+
+    /* Set outgoing interface if provided */
+    if (oif) {
+        nh_template.Oif = oif.get();
+        nh_template.is_indirect = false;
+    } else {
+        nh_template.is_indirect = true;
+    }
+
+    /* Create protocol info */
+    rc = rtm_nh_proto_info_create(proto, sub_proto, instance_no, rtm->vrf, &nh_proto);
+    if (rc != RTM_SUCCESS) {
+        return rc;
+    }
+
+    nh_template.rtm_nh_proto = nh_proto;
+
+    /* Handle label stack if provided */
+    if (label_stack && label_stack_count > 0) {
+        if (label_stack_count > MAX_LBL_DEPTH) {
+            free(nh_proto);
+            return RTM_ERROR_INVALID_ARGUMENT;
+        }
+
+        /* Allocate label stack */
+        rtm_lstack_t *lstack = (rtm_lstack_t *)XCALLOC2(0, 1, rtm_lstack_t);
+        lstack->curr_index = 0;
+
+        for (uint8_t i = 0; i < label_stack_count; i++) {
+            lstack->labels[i].label_val = label_stack[i];
+            lstack->labels[i].op = RTM_LBL_PUSH;
+            lstack->curr_index++;
+        }
+
+        nh_template.u.l_stack.label_stack = lstack;
+    }
+
+    /* Uninstall the route */
+    rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
+    rtm_nh_template_internals (&nh_template);
+    return rc;
 }

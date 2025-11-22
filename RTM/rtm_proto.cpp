@@ -129,10 +129,18 @@ rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto) {
 
 /* Decrement NH protocol info reference count and free if necessary */
 void
-rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
+rtm_nh_proto_dereference (rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
 
     if (nh_proto->ref_count <= 1) {
-        avltree_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
+
+        /* Handle hosting Data structure */
+        if (avltree_node_is_inuse (&nh_proto->proto_glue)) {
+            avltree_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
+            avltree_node_init (&nh_proto->proto_glue);
+            assert (nh_proto->ref_count == 1);
+            nh_proto->ref_count--;
+        }
+
         free (nh_proto);
         return;
     }

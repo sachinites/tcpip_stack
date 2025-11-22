@@ -183,7 +183,7 @@ static inline void avltree_node_init(struct avltree_node *node) {
 }
 
 static inline int avltree_node_is_inuse (struct avltree_node *node) {
-	return (!node->left && !node->right); 
+	return (node->left || node->right); 
 }
 
 static inline int avltree_is_empty(struct avltree *tree) {

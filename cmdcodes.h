@@ -169,4 +169,8 @@
 #define CMDCODE_SHOW_NODE_RTM_IPV4_ROUTE 67
 #define CMDCODE_SHOW_NODE_RTM_IPV6_ROUTE 68
 
+/* config node <node-name> rtm-route prefix <prefix/mask> <proto-id> <sub-proto-id> <instance-no> <action-id> <metric> gateway <gateway-ip> interface <if-name> label-stack <list of labels> */
+#define CMDCODE_CONFIG_RTM_ROUTE_IP 69
+
+
 #endif /* __CMDCODES__ */

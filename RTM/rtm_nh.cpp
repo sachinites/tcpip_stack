@@ -198,20 +198,22 @@ void
 rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     assert (!nh->is_active);
-    nh->is_active = true;
+
     if (nh->is_indirect) rtm_track_for_resolution (rtm, nh);
-    if (nh->is_resolved) rtm_fib_install(nh->owner_route, nh);
+
+    if (nh->is_resolved) {
+        nh->is_active = true;
+        rtm_fib_install(nh->owner_route, nh);
+    }
 }
 
-void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
+void 
+rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
+
     assert(nh->is_active);
-    nh->is_active = false;
     rtm_untrack_for_resolution(rtm, nh);
-    rtm_route *route = nh->owner_route;
-    rtm_nh *first_nh = route_glue_to_rtm_nh(BASE(&route->path_list));
-    if (!first_nh->is_active || !first_nh->is_resolved) {
-        rtm_fib_uninstall(nh->owner_route, nh);
-    }
+    rtm_fib_uninstall(nh->owner_route, nh);
+    nh->is_active = false;
 }
 
 void 
@@ -237,6 +239,15 @@ rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
         }
         
         nh->Oif = nullptr;
+
+        /* Handle hosting Data structure */
+        if (avltree_node_is_inuse (&nh->idx_glue)) {
+            avltree_remove (&nh->idx_glue, &rtm->nhs_by_idx);
+            avltree_node_init (&nh->idx_glue);
+            assert (nh->ref_count == 1);
+            nh->ref_count--;
+        }
+
         rtm_nh_check_destroy (nh);
         return;
     }

@@ -167,7 +167,7 @@ rtm_route_remove(rtm_t* rtm, rtm_prefix_t* prefix_key) {
 
     avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
     avltree_node_init (&route->route_glue);
-    rtm_route_dereference(route);
+    rtm_route_dereference(rtm, route);
     
     return RTM_SUCCESS;
 }
@@ -235,10 +235,6 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         rtm_nh_proto_reference(existing_nh_proto);
     }
 
-    if (nh->is_active) {
-        rtm_route_refresh_fib_nexthops(rtm, route);
-    }
-
     return RTM_SUCCESS;
 }
 
@@ -267,10 +263,10 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     // Clear owner route
     nh->owner_route = NULL;
     route->nh_count--;
-    rtm_route_dereference(route);    
+    rtm_route_dereference(rtm, route);    
     
     if (nh->is_active) {
-        rtm_route_refresh_fib_nexthops(rtm, route);
+        rtm_route_refresh_nexthops(rtm, route);
     }
 
     /* Stop resolution tracking if indirect */
@@ -280,6 +276,8 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
     RTM_NH_UNLOCK(rtm, nh);
 
+    rtm_route_refresh_nexthops (rtm, route);
+    
     return RTM_SUCCESS;
 }
 
@@ -313,7 +311,7 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
 
     avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
     avltree_node_init (&route->route_glue);
-    rtm_route_dereference(route);
+    rtm_route_dereference(rtm, route);
 
     return RTM_SUCCESS;
 }
@@ -328,27 +326,61 @@ rtm_route_reference(rtm_route* route) {
 
 /* Decrement route reference count and free if necessary */
 void 
-rtm_route_dereference(rtm_route* route) {
+rtm_route_dereference(rtm_t *rtm, rtm_route* route) {
     
-    if (!route) return;
-    
-    assert(route->ref_count > 0);
-    
-    route->ref_count--;
-    
-    if (route->ref_count == 0) {
-        // Ensure all nexthops have been removed
-        assert(route->nh_count == 0);
+    if (route->ref_count <= 1) {
+
         assert(IS_GLTHREAD_LIST_EMPTY(&route->path_list));
         assert(IS_GLTHREAD_LIST_EMPTY(&route->unresolved_paths));
         assert(IS_GLTHREAD_LIST_EMPTY(&route->resolved_paths));
-        
-        // Free the route structure
+
+        /* Handle hosting Data structure */
+        if (avltree_node_is_inuse (&route->route_glue)) {
+            avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
+            avltree_node_init (&route->route_glue);
+            assert (route->ref_count == 1);
+            route->ref_count--;
+        }
+
         free(route);
+        return;
     }
+
+    route->ref_count--;
 }
 
 void 
-rtm_route_refresh_fib_nexthops(rtm_t *rtm, rtm_route* route) {
+rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
+
+    glthread_t *curr;
+    rtm_nh *curr_nh;
+    glthread_t *best_glue = BASE(&route->path_list);
+
+    if (!best_glue) return; 
+    
+    rtm_nh *best_nh = route_glue_to_rtm_nh(best_glue);
+    
+    if (!best_nh->is_active) {
+        if (best_nh->is_resolved) rtm_nh_set_active(rtm, best_nh);    
+    }
+
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
+        
+        curr_nh = route_glue_to_rtm_nh(curr);
+        
+        // Check if current nexthop is equal to the best one (ECMP)
+        int cmp_result = rtm_nh_compare(curr_nh, best_nh);
+        
+        if (cmp_result == 0) {
+            if (!curr_nh->is_active) {
+                rtm_nh_set_active(rtm, curr_nh);
+            }
+        } else {
+            if (curr_nh->is_active) {
+                rtm_nh_set_inactive(rtm, curr_nh);
+            }
+        }
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr);
 
 }

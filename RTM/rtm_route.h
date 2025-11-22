@@ -58,7 +58,7 @@ rtm_error_t rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh);
 rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;
 
 void rtm_route_reference(rtm_route *route);
-void rtm_route_dereference(rtm_route *route);
-void rtm_route_refresh_fib_nexthops(rtm_t *rtm, rtm_route* route) ;
+void rtm_route_dereference(rtm_t *rtm, rtm_route *route);
+void rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) ;
 
 #endif

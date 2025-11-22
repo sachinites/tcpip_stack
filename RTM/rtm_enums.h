@@ -41,6 +41,10 @@ typedef enum sub_protocols_ {
     RTM_PROTO_BGP_VPN,
     RTM_PROTO_BGP_EVPN,
 
+    RTM_SUB_PROTO_OSPF_EXT,
+    RTM_SUB_PROTO_OSPF_INTER,
+    RTM_SUB_PROTO_OSPF_INTRA,
+
     RTM_SUB_PROTO_MAX
 
 } RTM_SUB_PROTO_T;
@@ -104,6 +108,7 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
         case RTM_PROTO_STATIC: return "Static";
         case RTM_PROTO_CONNECTED: return "Connected";
         case RTM_PROTO_LOCAL: return "Local";
+        case RTM_PROTO_OSPF: return "OSPF";
         case RTM_PROTO_BGP: return "BGP";
         case RTM_PROTO_ISIS: return "ISIS";
         case RTM_PROTO_SR: return "SR";
@@ -127,6 +132,9 @@ static const char* rtm_sub_proto_to_string(RTM_SUB_PROTO_T sub_proto) {
         case RTM_PROTO_BGP_EXT: return "BGP-EXT";
         case RTM_PROTO_BGP_VPN: return "BGP-VPN";
         case RTM_PROTO_BGP_EVPN: return "BGP-EVPN";
+        case RTM_SUB_PROTO_OSPF_EXT: return "OSPF-EXT";
+        case RTM_SUB_PROTO_OSPF_INTER: return "OSPF-INTER";
+        case RTM_SUB_PROTO_OSPF_INTRA: return "OSPF-INTRA";
         default: return "Unknown";
     }
 }

@@ -77,6 +77,11 @@ extern void show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
+extern int
+config_rtm_route_cli_handler(int cmdcode,
+                              Stack_t *tlv_stack,
+                              op_mode enable_or_disable) ;
+
 extern void sql_build_cli_tree (param_t *root) ;
 
 extern void 
@@ -1374,6 +1379,94 @@ nw_init_cli(){
             
             /* Mount MPLS Config CLIs*/
             mpls_build_config_cli_tree (&node_name);
+        }
+
+        {
+            /* config node <node-name> rtm-route */
+            static param_t rtm_route;
+            init_param(&rtm_route, CMD, "rtm-route", 0, 0, INVALID, 0, "RTM Route Configuration");
+            libcli_register_param(&node_name, &rtm_route);
+            {
+                /* config node <node-name> rtm-route prefix */
+                static param_t prefix;
+                init_param(&prefix, CMD, "prefix", 0, 0, INVALID, 0, "Route prefix");
+                libcli_register_param(&rtm_route, &prefix);
+                {
+                    /* config node <node-name> rtm-route prefix <prefix/mask> */
+                    static param_t prefix_mask;
+                    init_param(&prefix_mask, LEAF, 0, 0, 0, STRING, "prefix-mask", "IP prefix/mask (e.g., 10.0.0.0/24)");
+                    libcli_register_param(&prefix, &prefix_mask);
+                    {
+                        /* config node <node-name> rtm-route prefix <prefix/mask> <proto-id> */
+                        static param_t proto_id;
+                        init_param(&proto_id, LEAF, 0, 0, 0, INT, "proto-id", "Protocol ID (0-9)");
+                        libcli_register_param(&prefix_mask, &proto_id);
+                        {
+                            /* <sub-proto-id> */
+                            static param_t sub_proto_id;
+                            init_param(&sub_proto_id, LEAF, 0, 0, 0, INT, "sub-proto-id", "Sub-protocol ID");
+                            libcli_register_param(&proto_id, &sub_proto_id);
+                            {
+                                /* <instance-no> */
+                                static param_t instance_no;
+                                init_param(&instance_no, LEAF, 0, 0, 0, INT, "instance-no", "Instance number");
+                                libcli_register_param(&sub_proto_id, &instance_no);
+                                {
+                                    /* <action-id> */
+                                    static param_t action_id;
+                                    init_param(&action_id, LEAF, 0, 0, 0, INT, "action-id", "Action ID (0-5)");
+                                    libcli_register_param(&instance_no, &action_id);
+                                    {
+                                        /* <metric> */
+                                        static param_t metric;
+                                        init_param(&metric, LEAF, 0, 0, 0, INT, "metric", "Route metric");
+                                        libcli_register_param(&action_id, &metric);
+                                        {
+                                            /* gateway */
+                                            static param_t gateway;
+                                            init_param(&gateway, CMD, "gateway", 0, 0, INVALID, 0, "Gateway IP");
+                                            libcli_register_param(&metric, &gateway);
+                                            {
+                                                /* gateway <gw-ip> */
+                                                static param_t gw_ip;
+                                                init_param(&gw_ip, LEAF, 0, 0, 0, IPV4, "gw-ip", "Gateway IP address");
+                                                libcli_register_param(&gateway, &gw_ip);
+                                                {
+                                                    /* interface */
+                                                    static param_t interface;
+                                                    init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "Outgoing interface");
+                                                    libcli_register_param(&gw_ip, &interface);
+                                                    {
+                                                        /* interface <if-name> */
+                                                        static param_t if_name;
+                                                        init_param(&if_name, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "if-name", "Interface name");
+                                                        libcli_register_param(&interface, &if_name);
+                                                        libcli_set_param_cmd_code(&if_name, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        {
+                                                            /* label-stack */
+                                                            static param_t label_stack;
+                                                            init_param(&label_stack, CMD, "label-stack", 0, 0, INVALID, 0, "MPLS label stack");
+                                                            libcli_register_param(&if_name, &label_stack);
+                                                            {
+                                                                /* label-stack <label-list> */
+                                                                static param_t label_list;
+                                                                init_param(&label_list, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "label-list", "Space-separated label values");
+                                                                libcli_register_param(&label_stack, &label_list);
+                                                                libcli_param_recursive(&label_list);
+                                                                libcli_set_param_cmd_code(&label_list, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         {
