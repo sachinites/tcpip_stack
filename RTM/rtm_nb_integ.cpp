@@ -10,6 +10,7 @@
 #include "../Interface/InterfaceUApi.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../Tracer/tracer.h"
 
 /* static functions */
 static rtm_error_t 
@@ -17,15 +18,29 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
 
     if (!nh_template) return RTM_ERROR_INVALID_ARGUMENT;
 
-    if (nh_template->proto >= RTM_PROTO_MAX) return RTM_ERROR_INVALID_PROTO;
-    if (nh_template->sub_proto >= RTM_SUB_PROTO_MAX) return RTM_ERROR_INVALID_SUB_PROTO;
-    if (nh_template->action >= RTM_NH_ACTION_MAX) return RTM_ERROR_NEXTHOP_INVALID_ACTION;
-    if (nh_template->is_indirect && nh_template->Oif) return RTM_ERROR_INVALID_OIF_INDEX;
-    if (!nh_template->is_indirect && !nh_template->Oif) return RTM_ERROR_INVALID_OIF_INDEX;
+    if (nh_template->proto >= RTM_PROTO_MAX) {
+        return RTM_ERROR_INVALID_PROTO;
+    }
+    if (nh_template->sub_proto >= RTM_SUB_PROTO_MAX) {
+        return RTM_ERROR_INVALID_SUB_PROTO;
+    }
+    if (nh_template->action >= RTM_NH_ACTION_MAX) {
+        return RTM_ERROR_NEXTHOP_INVALID_ACTION;
+    }
+    if (nh_template->is_indirect && nh_template->Oif) {
+        return RTM_ERROR_INVALID_OIF_INDEX;
+    }
+    if (!nh_template->is_indirect && !nh_template->Oif) {
+        return RTM_ERROR_INVALID_OIF_INDEX;
+    }
     if (nh_template->proto != RTM_PROTO_LOCAL &&
         nh_template->proto != RTM_PROTO_CONNECTED &&
-        rtm_prefix_is_null (&nh_template->gateway)) return RTM_ERROR_INVALID_GATEWAY;
-    if (!nh_template->rtm_nh_proto) return RTM_ERROR_INVALID_NEXTHOP_PROTO;
+        rtm_prefix_is_null (&nh_template->gateway)) {
+        return RTM_ERROR_INVALID_GATEWAY;
+    }
+    if (!nh_template->rtm_nh_proto) {
+        return RTM_ERROR_INVALID_NEXTHOP_PROTO;
+    }
     return RTM_SUCCESS;
 }
 
@@ -127,6 +142,7 @@ uint32_t
 cp_rtm_install_local_or_connected_v4_routes ( 
     rtm_t *rtm, uint32_t prefix, uint8_t mask, InterfaceP Oif) {
 
+    char addr_str[32];
     rtm_prefix_t route;
     route.afi = RTM_AF_IPV4;
     route.prefix_len = mask;
@@ -153,8 +169,21 @@ cp_rtm_install_local_or_connected_v4_routes (
     assert (rc == RTM_SUCCESS);
 
     nh_template.rtm_nh_proto = nh_proto;
+
+    tracer(rtm->node->cptr, DRTM ,
+        "RTM[%s] : Route %s/%d  Gw:null recvd route installation request",  
+        rtm->name, 
+        rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask);
+
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
     rtm_nh_template_internals (&nh_template);
+
+    tracer(rtm->node->cptr, DRTM ,
+        "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s",  
+        rtm->name, 
+        rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask,
+        rtm_error_to_string (rc));
+
     return nh_template.idx;
 }
 
@@ -166,6 +195,8 @@ cp_rtm_install_static_route (
         rtm_prefix_t *gateway,
         InterfaceP oif, uint32_t cost) {
 
+    char addr_str[32];
+    char gw_str[32];
     rtm_nh_proto_t *nh_proto = NULL;
 
     cp_nexthop_template_t nh_template;
@@ -187,8 +218,22 @@ cp_rtm_install_static_route (
 
     nh_template.rtm_nh_proto =  nh_proto;
 
+    tracer(rtm->node->cptr, DRTM ,
+        "RTM[%s] : Route %s/%d  Gw:%s recvd route installation request",  
+        rtm->name, 
+        rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
+        rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)));
+
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
+
+    tracer(rtm->node->cptr, DRTM ,
+        "RTM[%s] : Route %s/%d  Gw:%s installation Result Code: %s",  
+        rtm->name, 
+        rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
+        rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)),
+        rtm_error_to_string (rc));
+
     return nh_template.idx;   
 }
 
@@ -236,13 +281,27 @@ cp_rtm_install_route (
 
     bool new_rt = false;
     rtm_error_t rc = RTM_SUCCESS;
+    char prefix_str[48];
+    char gw_str[48];
 
     if (!rtm || !prefix || !cp_nh_template) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Install route failed - Invalid argument (rtm=%p, prefix=%p, nh=%p)",
+                rtm ? rtm->name : "null", rtm, prefix, cp_nh_template);
+        }
         return RTM_ERROR_INVALID_ARGUMENT;
     }
 
     rc = rtm_validate_cp_nexthop_template(cp_nh_template);
-    if (rc != RTM_SUCCESS) return rc;
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH template validation failed for route %s - %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+            rtm_error_to_string(rc));
+        return rc;
+    }
 
     /* look up the route*/
     rtm_route *route = rtm_route_lookup(rtm, prefix);
@@ -262,6 +321,12 @@ cp_rtm_install_route (
 
     if (rc != RTM_SUCCESS) {
 
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to add NH to route %s - %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+            rtm_error_to_string(rc));
+
         if (nh_proto == nh->rtm_nh_proto) {
             nh->rtm_nh_proto = NULL;
             rtm_nh_proto_dereference (rtm, nh_proto);
@@ -279,6 +344,13 @@ cp_rtm_install_route (
 
     cp_nh_template->idx = nh->idx;
     rtm_route_refresh_nexthops (rtm, route);
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Route %s installed successfully, NH idx=%u Proto=%s",
+        rtm->name,
+        rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+        nh->idx, rtm_proto_to_string(nh->proto));
+    
     return rc;
 }
 
@@ -323,18 +395,37 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t
 
     rtm_nh_proto_t *nh_proto;
     rtm_error_t rc = RTM_SUCCESS;
+    char prefix_str[48];
+    char gw_str[48];
 
     if (!rtm || !prefix || !nh_template) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Uninstall route failed - Invalid argument (rtm=%p, prefix=%p, nh=%p)",
+                rtm ? rtm->name : "null", rtm, prefix, nh_template);
+        }
         return RTM_ERROR_INVALID_ARGUMENT;
     }
 
     if ((rc = rtm_validate_cp_nexthop_template(nh_template))) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH template validation failed - %s",
+            rtm->name, rtm_error_to_string(rc));
         return rc;
     }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Uninstalling route %s",
+        rtm->name,
+        rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
 
     /* look up the route*/
     rtm_route *route = rtm_route_lookup(rtm, prefix);
     if (!route) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Route %s not found",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
 
@@ -344,12 +435,23 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t
     rtm_nh *actual_nh = rtm_route_lookup_nh (route, nh);
 
     if (!actual_nh) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH not found for route %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_NEXTHOP_NOT_FOUND;
     }
 
     rc = rtm_route_delete_nh (rtm, route, actual_nh);
 
-    if (rc != RTM_SUCCESS) return rc;
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to delete NH from route %s - %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+            rtm_error_to_string(rc));
+        return rc;
+    }
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {

@@ -7,6 +7,9 @@
 #include "rtm_proto.h"
 #include "rtm_fib_interface.h"
 #include "rtm_resolution.h"
+#include "../graph.h"
+#include "../tcp_ip_trace.h"
+#include "../Tracer/tracer.h"
 
 /* Comparator function for route AVL tree */
 int
@@ -101,12 +104,23 @@ rtm_route_lookup( rtm_t* rtm, rtm_prefix_t* prefix_key) {
 rtm_error_t 
 rtm_route_add(rtm_t* rtm, rtm_route* route) {
     
+    char prefix_str[48];
+    
     if (!rtm || !route) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Route add failed - Invalid argument (rtm=%p, route=%p)",
+                rtm ? rtm->name : "null", rtm, route);
+        }
         return RTM_ERROR_INVALID_ARGUMENT;
     }
     
     // Validate AFI
     if (route->prefix.afi >= RTM_AFI_MAX) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Route add failed - Invalid AFI %u for route %s",
+            rtm->name, route->prefix.afi,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_INVALID_PREFIX;
     }
     
@@ -114,16 +128,34 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     rtm_route *existing = rtm_route_lookup(rtm, &route->prefix);
 
     if (existing) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Route %s already exists in routing table",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Adding route %s to routing table",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
     
     // Insert into route tree
     if (avltree_insert(&route->route_glue, 
                        (avltree_t*)&rtm->route_tree)) {
-	    return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Route %s AVL tree insertion failed",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
     
     rtm_route_reference(route);
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route %s added successfully to routing table",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
     
     return RTM_SUCCESS;
 }
@@ -133,19 +165,39 @@ rtm_error_t
 rtm_route_remove(rtm_t* rtm, rtm_prefix_t* prefix_key) {
     
     glthread_t *curr;
+    char prefix_str[48];
 
     if (!rtm || !prefix_key) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Route remove failed - Invalid argument (rtm=%p, prefix=%p)",
+                rtm ? rtm->name : "null", rtm, prefix_key);
+        }
         return RTM_ERROR_INVALID_ARGUMENT;
     }
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Removing route %s from routing table",
+        rtm->name,
+        rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)));
     
     // Find the route
     rtm_route *route = rtm_route_lookup(rtm, prefix_key);
     if (!route) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Route %s not found in routing table",
+            rtm->name,
+            rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
     
     // Ensure all nexthops have been removed
     if (route->nh_count > 0) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Cannot remove route %s - %u nexthops still attached",
+            rtm->name,
+            rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)),
+            route->nh_count);
         return RTM_ERROR_INVALID_ROUTE;
     }
 
@@ -168,6 +220,11 @@ rtm_route_remove(rtm_t* rtm, rtm_prefix_t* prefix_key) {
     avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
     avltree_node_init (&route->route_glue);
     rtm_route_dereference(rtm, route);
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route %s removed successfully from routing table",
+        rtm->name,
+        rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)));
     
     return RTM_SUCCESS;
 }
@@ -203,15 +260,35 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
     rtm_error_t rc = RTM_SUCCESS;
     rtm_nh_proto_t *existing_nh_proto = NULL;
+    char prefix_str[48];
+    char gw_str[48];
 
     if (!route || !nh) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Add NH to route failed - Invalid argument (route=%p, nh=%p)",
+                rtm ? rtm->name : "null", route, nh);
+        }
         return RTM_ERROR_INVALID_ARGUMENT;
     }
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Adding NH to route %s, Proto=%s Gw=%s AD=%u Metric=%u",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        rtm_proto_to_string(nh->proto),
+        rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+        nh->ad, nh->metric);
     
     // Check if nexthop already exists
     rtm_nh *existing = rtm_route_lookup_nh(route, nh);
 
     if (existing) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH %s already exists for route %s",
+            rtm->name,
+            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }
     
@@ -235,6 +312,12 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         rtm_nh_proto_reference(existing_nh_proto);
     }
 
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : NH added successfully to route %s, Total NHs=%u Active=%s",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        route->nh_count, nh->is_active ? "Yes" : "No");
+
     return RTM_SUCCESS;
 }
 
@@ -243,9 +326,24 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 rtm_error_t 
 rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
+    char prefix_str[48];
+    char gw_str[48];
+
     if (!route || !nh) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Delete NH from route failed - Invalid argument (route=%p, nh=%p)",
+                rtm ? rtm->name : "null", route, nh);
+        }
         return RTM_ERROR_INVALID_ARGUMENT;
     }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Deleting NH %s from route %s, Proto=%s AD=%u",
+        rtm->name,
+        rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        rtm_proto_to_string(nh->proto), nh->ad);
 
     RTM_NH_LOCK(nh);
 
@@ -277,6 +375,13 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     RTM_NH_UNLOCK(rtm, nh);
 
     rtm_route_refresh_nexthops (rtm, route);
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : NH %s deleted successfully from route %s, Remaining NHs=%u",
+        rtm->name,
+        rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        route->nh_count);
     
     return RTM_SUCCESS;
 }
@@ -355,13 +460,32 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
     glthread_t *curr;
     rtm_nh *curr_nh;
     glthread_t *best_glue = BASE(&route->path_list);
+    char prefix_str[48];
+    uint32_t active_count = 0;
 
-    if (!best_glue) return; 
+    if (!best_glue) {
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Route %s has no nexthops to refresh",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        return;
+    }
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Refreshing nexthops for route %s (Total NHs=%u)",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        route->nh_count);
     
     rtm_nh *best_nh = route_glue_to_rtm_nh(best_glue);
     
     if (!best_nh->is_active) {
-        if (best_nh->is_resolved) rtm_nh_set_active(rtm, best_nh);    
+        if (best_nh->is_resolved) {
+            rtm_nh_set_active(rtm, best_nh);
+            active_count++;
+        }
+    } else {
+        active_count++;
     }
 
     ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
@@ -374,6 +498,9 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
         if (cmp_result == 0) {
             if (!curr_nh->is_active) {
                 rtm_nh_set_active(rtm, curr_nh);
+                active_count++;
+            } else {
+                active_count++;
             }
         } else {
             if (curr_nh->is_active) {
@@ -382,5 +509,11 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
         }
         
     } ITERATE_GLTHREAD_END(&route->path_list, curr);
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Route %s nexthop refresh complete, Active NHs=%u",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        active_count);
 
 }

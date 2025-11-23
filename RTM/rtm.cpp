@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <memory.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "../gluethread/glthread.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "rtm.h"
@@ -54,6 +55,8 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     rtm->afi = afi;
     rtm->rtm_id = rtm_id;
     
+    snprintf (rtm->name, sizeof(rtm->name), "%d-%d-%d", vrf, afi, rtm_id);
+
     avltree_init(&rtm->route_tree, rtm_route_compare);
     avltree_init (&rtm->nh_proto_info_tree, rtm_nh_proto_avl_tree_comp_fn);
     avltree_init (&rtm->nhs_by_idx, rtm_nh_compare_by_idx);

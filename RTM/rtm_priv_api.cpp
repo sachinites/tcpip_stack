@@ -12,6 +12,8 @@
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
 #include "../utils.h"
+#include "../tcp_ip_trace.h"
+#include "../Tracer/tracer.h"
 
 extern graph_t * topo;
 
@@ -61,7 +63,23 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
 void
  rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh) {
 
-    if (!rtm || !route || !nh) return;
+    char prefix_str[48];
+    char gw_str[48];
+
+    if (!rtm || !route || !nh) {
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Add NH to route path list failed - Invalid argument (rtm=%p, route=%p, nh=%p)",
+                rtm ? rtm->name : "null", rtm, route, nh);
+        }
+        return;
+    }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Adding NH to route %s path list, Proto=%s AD=%u Metric=%u",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        rtm_proto_to_string(nh->proto), nh->ad, nh->metric);
     
     glthread_t *curr;
     rtm_nh *curr_nh;
@@ -87,10 +105,16 @@ void
     rtm_nh_reference(nh);
     
     rtm_route_refresh_nexthops (rtm, route);
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : NH added successfully to route %s, Total NHs in route=%u",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        route->nh_count);
  }
 
 
-void rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+char *rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
     
     uint32_t temp;
     char addr_buf[INET6_ADDRSTRLEN];
@@ -117,10 +141,11 @@ void rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
         default:
             snprintf(buffer, buflen, "Unknown");
     }
+    return buffer;
 }
 
 /* Helper function to format nexthop (without prefix length) */
-void rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+char *rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
     
     uint32_t temp;
     char addr_buf[INET6_ADDRSTRLEN];
@@ -147,6 +172,7 @@ void rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
         default:
             snprintf(buffer, buflen, "Unknown");
     }
+    return buffer;
 }
 
 int

@@ -8,6 +8,10 @@
 #include "rtm_proto.h"
 #include "rtm_resolution.h"
 #include "rtm_fib_interface.h"
+#include "rtm_priv_api.h"
+#include "../graph.h"
+#include "../tcp_ip_trace.h"
+#include "../Tracer/tracer.h"
 
 /* Thread-safe atomic counter for nexthop ID generation */
 static std::atomic<uint32_t> rtm_nh_id_counter(1);
@@ -197,23 +201,72 @@ rtm_nh_initialize(rtm_nh* nh) {
 void 
 rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
+    char prefix_str[48];
+    char gw_str[48];
+
     assert (!nh->is_active);
+
+    if (rtm && rtm->node && nh->owner_route) {
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Setting NH active for route %s, NH=%s Proto=%s Indirect=%s Resolved=%s",
+            rtm->name,
+            rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
+            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+            rtm_proto_to_string(nh->proto),
+            nh->is_indirect ? "Yes" : "No",
+            nh->is_resolved ? "Yes" : "No");
+    }
 
     if (nh->is_indirect) rtm_track_for_resolution (rtm, nh);
 
     if (nh->is_resolved) {
         nh->is_active = true;
         rtm_fib_install(nh->owner_route, nh);
+        
+        if (rtm && rtm->node && nh->owner_route) {
+            tracer(rtm->node->cptr, DRTM,
+                "RTM[%s] : NH activated and installed in FIB for route %s, NH=%s",
+                rtm->name,
+                rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
+                rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)));
+        }
+    } else {
+        if (rtm && rtm->node && nh->owner_route) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : WARNING: NH for route %s not resolved, cannot activate",
+                rtm->name,
+                rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
+        }
     }
 }
 
 void 
 rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
 
+    char prefix_str[48];
+    char gw_str[48];
+
     assert(nh->is_active);
+    
+    if (rtm && rtm->node && nh->owner_route) {
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Setting NH inactive for route %s, NH=%s Proto=%s",
+            rtm->name,
+            rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
+            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+            rtm_proto_to_string(nh->proto));
+    }
+    
     rtm_untrack_for_resolution(rtm, nh);
     rtm_fib_uninstall(nh->owner_route, nh);
     nh->is_active = false;
+    
+    if (rtm && rtm->node && nh->owner_route) {
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : NH deactivated and removed from FIB for route %s",
+            rtm->name,
+            rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
+    }
 }
 
 void 
@@ -226,7 +279,17 @@ rtm_nh_reference(rtm_nh *nh) {
 void 
 rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
     
+    char gw_str[48];
+    
     if (nh->ref_count <= 1) {
+
+        if (rtm && rtm->node) {
+            tracer(rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : NH %s ref_count reaching 0, destroying NH (idx=%u)",
+                rtm->name,
+                rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+                nh->idx);
+        }
 
         if (nh->label_stack) {
             free(nh->label_stack);

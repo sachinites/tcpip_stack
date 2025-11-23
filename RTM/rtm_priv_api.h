@@ -14,9 +14,9 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto) ;
 void
  rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh);
 
-void rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) ;
+char *rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) ;
 
-void rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) ;
+char* rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) ;
 
 
 #endif 

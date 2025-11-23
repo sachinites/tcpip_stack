@@ -18,7 +18,7 @@ typedef struct rtm_ {
     uint8_t vrf;
     RTM_AFI_T afi;
     uint32_t rtm_id;
-
+    char name[32];
     avltree_t route_tree;
     avltree_t nh_proto_info_tree;
     avltree_t nhs_by_idx;
