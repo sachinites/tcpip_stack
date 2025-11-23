@@ -148,7 +148,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a 
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 

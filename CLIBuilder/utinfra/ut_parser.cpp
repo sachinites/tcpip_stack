@@ -41,6 +41,41 @@ static struct timespec mq_wait_time;
 extern bool
 cmdtc_parse_raw_command (unsigned char *command, int cmd_size) ;
 
+/* Helper function to write buffer to file, filtering out null bytes and control characters */
+static void
+write_buffer_filtered(FILE *fp, const char *buffer, int size) {
+    int i;
+    int last_was_printable = 0;
+    
+    for (i = 0; i < size; i++) {
+        unsigned char c = (unsigned char)buffer[i];
+        
+        /* Skip null bytes and other control characters except standard whitespace */
+        if (c == '\0') {
+            /* If we had printable text before this null, and we'll have printable text after,
+               treat the null as a separator by adding a space */
+            if (last_was_printable && i + 1 < size && buffer[i + 1] != '\0' && buffer[i + 1] >= 32) {
+                fputc(' ', fp);
+            }
+            continue;
+        }
+        
+        /* Allow standard whitespace */
+        if (c == '\n' || c == '\r' || c == '\t') {
+            fputc(c, fp);
+            last_was_printable = 0;
+            continue;
+        }
+        
+        /* Allow printable ASCII characters (space through ~) */
+        if (c >= 32 && c <= 126) {
+            fputc(c, fp);
+            last_was_printable = 1;
+        }
+        /* Skip other control characters */
+    }
+}
+
 void
 ut_parser_init ( ) {
 
@@ -48,6 +83,14 @@ ut_parser_init ( ) {
 
     ut_log_file = fopen("CLIBuilder/utinfra/ut_log_file.txt", "w");
     assert(ut_log_file);
+
+    /* Initialize buffers to prevent binary data */
+    memset(ut_parser_recv_buff, 0, sizeof(ut_parser_recv_buff));
+    ut_parser_recv_buff_data_size = 0;
+    memset(string_store1, 0, sizeof(string_store1));
+    memset(string_store2, 0, sizeof(string_store2));
+    memset(string_store3, 0, sizeof(string_store3));
+    int_store1 = int_store2 = int_store3 = 0;
 
     attr.mq_flags = 0;
     attr.mq_maxmsg = MAX_MESSAGES;
@@ -87,7 +130,7 @@ tc_append_result(glthread_t *head, uint16_t step_no, bool pass, bool match) {
 }
 
 static void
-tc_print_result (glthread_t *head) {
+tc_print_result (uint16_t tc_no, glthread_t *head) {
 
     int rc = 0;
     glthread_t *curr;
@@ -111,9 +154,9 @@ tc_print_result (glthread_t *head) {
         total_cnt++;
     } ITERATE_GLTHREAD_END(head, curr);
 
-    //printw ("Total TC : %d   Pass : %d   Fail %d\n", total_cnt, pass_cnt, fail_cnt);
-    rc = sprintf(buff, "Total TC : %d   Pass : %d   Fail %d\n", 
-                total_cnt, pass_cnt, fail_cnt);
+    printw ("TC# : %-4d  Total TC : %-4d   Pass : %-4d   Fail %d\n", tc_no, total_cnt, pass_cnt, fail_cnt);
+    rc = sprintf(buff, "TC# : %-4d  Total TC : %-4d   Pass : %-4d   Fail %d\n", 
+        tc_no, total_cnt, pass_cnt, fail_cnt);
     fwrite(buff, 1, rc, ut_log_file);
     fflush(ut_log_file);
 }
@@ -146,7 +189,10 @@ run_test_case(char *file_name, uint16_t tc_no) {
     char line[512];
     uint16_t current_step_no;
 
-     fget_ptr = NULL;
+    /* Initialize buffers to prevent any garbage data */
+    memset(buff, 0, sizeof(buff));
+    memset(line, 0, sizeof(line));
+    fget_ptr = NULL;
     init_glthread(&result_head);
 
     FILE *fp = fopen (file_name, "r");
@@ -226,7 +272,7 @@ run_test_case(char *file_name, uint16_t tc_no) {
                 //printw("%s", buff);
                 fwrite(buff, 1, rc, ut_log_file);
 
-                tc_print_result(&result_head);
+                tc_print_result(current_tc_no, &result_head);
                 tc_cleanup_result_list(&result_head);
                 fflush(ut_log_file);
 
@@ -292,14 +338,21 @@ run_test_case(char *file_name, uint16_t tc_no) {
                             ut_parser_recv_buff_data_size = 0;
                             memset(ut_parser_recv_buff, 0, sizeof(ut_parser_recv_buff));
                     }
+                    else {
+                        /* Ensure buffer is null-terminated to prevent writing binary data */
+                        if (ut_parser_recv_buff_data_size > 0 && 
+                            ut_parser_recv_buff_data_size < UT_PARSER_BUFF_MAX_SIZE) {
+                            ut_parser_recv_buff[ut_parser_recv_buff_data_size] = '\0';
+                        }
 
-                    else if (ut_parser_debug) {
-
-                        //printw("Mq Data Recvd by UT Parser : \n");
-                        //printw("%s", ut_parser_recv_buff);
-                        rc += sprintf(buff, "Mq Data Recvd by UT Parser : \n");
-                        fwrite(buff, 1, rc, ut_log_file);
-                        fwrite(ut_parser_recv_buff, 1, ut_parser_recv_buff_data_size, ut_log_file);
+                        if (ut_parser_debug) {
+                            //printw("Mq Data Recvd by UT Parser : \n");
+                            //printw("%s", ut_parser_recv_buff);
+                            rc += sprintf(buff, "Mq Data Recvd by UT Parser : \n");
+                            fwrite(buff, 1, rc, ut_log_file);
+                            /* Write buffer while filtering out null bytes */
+                            write_buffer_filtered(ut_log_file, ut_parser_recv_buff, ut_parser_recv_buff_data_size);
+                        }
                     }
                 }
                 fflush(ut_log_file);
@@ -311,15 +364,12 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
                 int rc1 = 0;
                 char pattern [256];
+                memset(pattern, 0, sizeof(pattern));
                 token = &line[0] + strlen(":PATTERN-MATCH:");
                 rc1 = sprintf(pattern + rc1, "%s", token);
               
                 //printw("pattern to be matched : |%s|\n", pattern);
-                rc = sprintf(buff, "pattern to be matched : |");
-                fwrite(buff, 1, rc, ut_log_file);
-                fwrite(pattern, 1, rc1, ut_log_file);
-                rc = sprintf(buff, "|\n");
-                fwrite(buff, 1, rc, ut_log_file);
+                fprintf(ut_log_file, "pattern to be matched : |%s|\n", pattern);
 
                 if (pattern_match(ut_parser_recv_buff,  ut_parser_recv_buff_data_size, pattern)) {
                     //printw("PASS\n");
@@ -340,15 +390,12 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
                 int rc1 = 0;
                 char pattern [256];
+                memset(pattern, 0, sizeof(pattern));
                 token = &line[0] + strlen(":PATTERN-NOT-MATCH:");
                 rc1 += sprintf(pattern + rc1, "%s", token);
 
                 //printw("pattern to be not matched : |%s|\n", pattern);
-                rc = sprintf(buff, "pattern to be not matched : |");
-                fwrite(buff, 1, rc, ut_log_file);
-                fwrite(pattern, 1, rc1, ut_log_file);
-                rc = sprintf(buff, "|\n");
-                fwrite(buff, 1, rc, ut_log_file);
+                fprintf(ut_log_file, "pattern to be not matched : |%s|\n", pattern);
 
                 if (!pattern_match(ut_parser_recv_buff, ut_parser_recv_buff_data_size, pattern)) {
                     //printw("PASS\n");
@@ -410,7 +457,8 @@ run_test_case(char *file_name, uint16_t tc_no) {
                     //printw("%s", ut_parser_recv_buff);
                     rc = sprintf (buff, "Output After Grep : \n");
                     fwrite(buff, 1, rc, ut_log_file);
-                    fwrite(ut_parser_recv_buff, 1, ut_parser_recv_buff_data_size, ut_log_file);
+                    /* Write buffer while filtering out null bytes */
+                    write_buffer_filtered(ut_log_file, ut_parser_recv_buff, ut_parser_recv_buff_data_size);
                     fflush(ut_log_file);
              }
 

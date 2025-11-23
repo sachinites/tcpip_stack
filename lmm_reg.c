@@ -45,6 +45,7 @@
 /* Layer 3 files */
 #include "Layer3/layer3.h"
 #include "Layer3/ipv6/ipv6_route.h"
+#include "Layer3/mpls_fwd.h"
 
 /* VXLAN files */
 #include "Layer2/vxlan/cp/vxlan.h"
@@ -155,6 +156,8 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_resolution_nh_tracker_t),
     MM_REG_STRUCT2(rtm_resolution_data_t),
     MM_REG_STRUCT2(lnh_list_t),
+
+    MM_REG_STRUCT2(lstack_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

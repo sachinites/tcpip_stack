@@ -316,6 +316,14 @@ cp_rtm_install_route (
     }
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);
+
+    if (!nh) {
+        if (new_rt) {
+            rtm_route_delete(rtm, route);
+        }
+        return RTM_ERROR_NEXTHOP_CREATION_FAILED;
+    }
+
     rtm_nh_proto_t *nh_proto = nh->rtm_nh_proto;
     rc = rtm_route_add_nh(rtm, route, nh);
 
@@ -430,6 +438,10 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t
     }
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(nh_template);
+
+    if (!nh) {
+        return RTM_ERROR_NEXTHOP_CREATION_FAILED;
+    }
 
     /* look up the actual nexthop*/
     rtm_nh *actual_nh = rtm_route_lookup_nh (route, nh);

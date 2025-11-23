@@ -4,7 +4,7 @@ TARGET=librtm.a
 CFLAGS=-g -Wall -Wextra -fpermissive -I..
 OBJS= rtm.o \
        		rtm_route.o \
-	  	   rtm_nh.o \
+		   rtm_nh.o \
 		   rtm_show.o \
 		   rtm_priv_api.o \
 		   rtm_proto.o \
@@ -12,7 +12,6 @@ OBJS= rtm.o \
 		   rtm_fib_interface.o \
 		   rtm_common.o \
 		   rtm_nb_integ.o \
-		   rtm_sb_integ.o \
 
 all: $(TARGET)
 

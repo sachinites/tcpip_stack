@@ -17,7 +17,7 @@ extern int cprintf (const char * format, ...);
 /* Display RIB (Routing Information Base) */
 void rtm_show_rib(rtm_t *rtm) {
 
-    cprintf("RIB :: VRF: %u, AFI: %s, RTM ID: %u\n", 
+    cprintf("\nRIB :: VRF: %u, AFI: %s, RTM ID: %u\n", 
            rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
     cprintf("========================================\n\n");
 
@@ -26,9 +26,9 @@ void rtm_show_rib(rtm_t *rtm) {
         return;
     }
 
-    cprintf("%-40s %-10s %-8s %-15s %-10s %-8s %-8s %-20s\n",
-           "Prefix", "Protocol", "Action", "Next-Hop", "OIF", "AD", "Metric", "Label Stack");
-    cprintf("%-40s %-10s %-8s %-15s %-10s %-8s %-8s %-20s\n",
+    cprintf("%-25s %-10s %-11s %-18s %-10s %-8s %-8s %-20s\n",
+           "Route", "Protocol", "Action", "Next-Hop", "OIF", "AD", "Metric", "Label Stack");
+    cprintf("%-25s %-10s %-11s %-18s %-10s %-8s %-8s %-20s\n",
            "------", "--------", "------", "--------", "---", "--", "------", "-----------");
 
     /* Iterate through all routes in the tree */
@@ -60,20 +60,22 @@ void rtm_show_rib(rtm_t *rtm) {
                         case RTM_LBL_POP: op_str = "POP"; break;
                         default: op_str = "UNK"; break;
                     }
-                    snprintf(temp, sizeof(temp), "%s%s:%u", 
-                            i > 0 ? "," : "",
-                            op_str, 
-                            nh->label_stack->labels[i].label_val);
-                    strncat(label_stack_str, temp, sizeof(label_stack_str) - strlen(label_stack_str) - 1);
+                    if (nh->label_stack->labels[i].op != RTM_LBL_STACK_OPS_UNKNOWN) {
+                        snprintf(temp, sizeof(temp), "%s%s:%u", 
+                                i > 0 ? "," : "",
+                                op_str, 
+                                nh->label_stack->labels[i].label_val);
+                        strncat(label_stack_str, temp, sizeof(label_stack_str) - strlen(label_stack_str) - 1);
+                    }
                 }
             }
 
-            cprintf("%-40s %-10s %-8s %-15s %-10u %-8u %-8u %-20s\n",
+            cprintf("%-25s %-10s %-11s %-18s %-10s %-8u %-8u %-20s\n",
                    prefix_str,
                    rtm_proto_to_string(nh->proto),
                    rtm_nh_action_to_string(nh->action),
                    nh_prefix_str,
-                   nh->outgoing_if,
+                   nh->Oif->if_name.c_str(),
                    nh->ad,
                    nh->metric,
                    label_stack_str);

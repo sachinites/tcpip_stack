@@ -206,7 +206,6 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     assert (!nh->is_active);
 
-    if (rtm && rtm->node && nh->owner_route) {
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Setting NH active for route %s, NH=%s Proto=%s Indirect=%s Resolved=%s",
             rtm->name,
@@ -215,7 +214,6 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
             rtm_proto_to_string(nh->proto),
             nh->is_indirect ? "Yes" : "No",
             nh->is_resolved ? "Yes" : "No");
-    }
 
     if (nh->is_indirect) rtm_track_for_resolution (rtm, nh);
 
@@ -248,25 +246,21 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
 
     assert(nh->is_active);
     
-    if (rtm && rtm->node && nh->owner_route) {
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Setting NH inactive for route %s, NH=%s Proto=%s",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
             rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
             rtm_proto_to_string(nh->proto));
-    }
     
     rtm_untrack_for_resolution(rtm, nh);
     rtm_fib_uninstall(nh->owner_route, nh);
     nh->is_active = false;
     
-    if (rtm && rtm->node && nh->owner_route) {
         tracer(rtm->node->cptr, DRTM,
             "RTM[%s] : NH deactivated and removed from FIB for route %s",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
-    }
 }
 
 void 

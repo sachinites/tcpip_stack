@@ -103,7 +103,9 @@ typedef enum struct_index_
     MM_INDEX(rtm_lstack_t),
     MM_INDEX(rtm_resolution_nh_tracker_t),
     MM_INDEX(rtm_resolution_data_t),
-    MM_INDEX(lnh_list_t)
+    MM_INDEX(lnh_list_t),
+
+    MM_INDEX(lstack_t)
 
     /* Add more Application structure Index here */
 

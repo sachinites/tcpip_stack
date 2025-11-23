@@ -77,6 +77,7 @@ extern void show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
+
 extern int
 config_rtm_route_cli_handler(int cmdcode,
                               Stack_t *tlv_stack,
@@ -551,7 +552,7 @@ show_rtm_route_cli_handler(int cmdcode,
         return -1;
     }
 
-    rtm_show_rib_detail(rtm);
+    rtm_show_rib(rtm);
     return 0;
 }
 

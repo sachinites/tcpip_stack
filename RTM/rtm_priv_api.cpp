@@ -52,6 +52,7 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
         default:
             return RTM_ADMIN_DIST_UNKNOWN;
     }
+    return RTM_ADMIN_DIST_UNKNOWN;
 }
 
 /* Insert the nh at appripriate position in route path list using fn rtm_nh_compare () 
@@ -339,7 +340,7 @@ config_rtm_route_cli_handler(int cmdcode,
                 return -1;
             }
 
-            cprintf("Route installed successfully\n");
+            printw("Route installed successfully\n");
         }
         break;
 
@@ -432,7 +433,7 @@ config_rtm_route_cli_handler(int cmdcode,
                 return -1;
             }
 
-            cprintf("Route uninstalled successfully\n");
+            printw("Route uninstalled successfully\n");
         }
         break;
 

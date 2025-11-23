@@ -22,6 +22,7 @@ typedef enum rtm_error_ {
     RTM_ERROR_NEXTHOP_ALREADY_EXISTS,
     RTM_ERROR_NEXTHOP_PROTO_ALREADY_EXISTS,
     RTM_ERROR_NEXTHOP_INVALID_ACTION,
+    RTM_ERROR_NEXTHOP_CREATION_FAILED,
     RTM_ERROR_PROTO_INFO_ALREADY_EXISTS,
     RTM_ERROR_INVALID_GATEWAY,
     RTM_ERROR_INVALID_OIF_INDEX,
@@ -78,6 +79,8 @@ rtm_error_to_string (rtm_error_t err) {
             return "Invalid OIF index";
         case RTM_ERROR_INVALID_NEXTHOP_PROTO:
             return "Invalid nexthop protocol";
+        case RTM_ERROR_NEXTHOP_CREATION_FAILED:
+            return "Nexthop creation failed";
         case RTM_ERROR_MAX:
             return "Max error";
     }
