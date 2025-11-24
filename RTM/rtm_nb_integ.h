@@ -11,6 +11,7 @@ typedef struct node_ node_t;
 typedef struct rtm_ rtm_t;
 class Interface;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
+typedef struct rtm_rt_subscription_ rtm_rt_subscription_t;
 
 #pragma pack(push, 8)
 
@@ -140,5 +141,21 @@ cp_rtm_uninstall_route_advanced (
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count);
+
+
+/* Protocol Subscribing to RTM */
+bool
+cp_rtm_protocol_register (rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id);
+
+bool
+cp_rtm_protocol_unregister (rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id);
+
+rtm_error_t
+cp_rtm_subscribe(rtm_t *rtm, 
+                            uint8_t src_vrf, uint8_t src_instance_no, RTM_PROTO_T src_proto, 
+                            rtm_rt_subscription_t *sub_template) ;
+
+rtm_error_t 
+cp_rtm_unsubscribe (rtm_t *rtm, rtm_rt_subscription_t *sub_template);
 
 #endif 

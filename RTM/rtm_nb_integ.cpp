@@ -7,12 +7,41 @@
 #include "rtm_proto.h"
 #include "rtm_nh.h"
 #include "rtm_fib_interface.h"
+#include "rtm_presentation.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Tracer/tracer.h"
+#include "../prefix-list/prefixlst.h"
 
 /* static functions */
+
+/* Comparison function for subscription AVL tree */
+static int
+rtm_rt_subscription_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
+    
+    rtm_rt_subscription_t *sub1 = avltree_container_of(node1, rtm_rt_subscription_t, avl_glue);
+    rtm_rt_subscription_t *sub2 = avltree_container_of(node2, rtm_rt_subscription_t, avl_glue);
+    
+    /* Compare by target protocol first */
+    if (sub1->target_proto < sub2->target_proto) return -1;
+    if (sub1->target_proto > sub2->target_proto) return 1;
+    
+    /* Then by target sub-protocol */
+    if (sub1->target_sub_proto < sub2->target_sub_proto) return -1;
+    if (sub1->target_sub_proto > sub2->target_sub_proto) return 1;
+    
+    /* Then by target instance number */
+    if (sub1->target_instance_no < sub2->target_instance_no) return -1;
+    if (sub1->target_instance_no > sub2->target_instance_no) return 1;
+    
+    /* Finally by callback pointer for unique identification */
+    if ((uintptr_t)sub1->cbk < (uintptr_t)sub2->cbk) return -1;
+    if ((uintptr_t)sub1->cbk > (uintptr_t)sub2->cbk) return 1;
+    
+    return 0;
+}
+
 static rtm_error_t 
 rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
 
@@ -746,4 +775,246 @@ cp_rtm_uninstall_route_advanced (
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
     return rc;
+}
+
+/* ========================================================================
+ * Protocol Registration and Subscription APIs
+ * ======================================================================== */
+
+/* Register a routing protocol with RTM */
+bool
+cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id) {
+    
+    /* Validate protocol type */
+    if (proto >= RTM_PROTO_MAX) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Protocol registration failed - Invalid protocol %d",
+            rtm->name, proto);
+        return false;
+    }
+
+    /* Check if protocol is already registered */
+    rtm_proto_info_t *existing = rtm_proto_lookup(rtm, proto, instance_no);
+    if (existing) {
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : WARNING: Protocol %s instance %u already registered",
+            rtm->name, rtm_proto_to_string(proto), instance_no);
+        return false;
+    }
+
+    /* Create new protocol info */
+    rtm_proto_info_t *proto_info = rtm_proto_info_create(rtm, proto, instance_no);
+    if (!proto_info) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to create protocol info for %s instance %u",
+            rtm->name, rtm_proto_to_string(proto), instance_no);
+        return false;
+    }
+
+    /* Initialize subscription database */
+    avltree_init(&proto_info->sub_db, rtm_rt_subscription_compare);
+
+    /* Add protocol info to RTM */
+    rtm_error_t rc = rtm_proto_info_add(rtm, proto_info);
+
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to add protocol info for %s instance %u - %s",
+            rtm->name, rtm_proto_to_string(proto), instance_no, rtm_error_to_string(rc));
+        free(proto_info);
+        return false;
+    }
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Protocol %s instance %u registered successfully",
+        rtm->name, rtm_proto_to_string(proto), instance_no);
+
+    return true;
+}
+
+/* Unregister a routing protocol from RTM */
+bool
+cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id) {
+
+    /* Validate protocol type */
+    if (proto >= RTM_PROTO_MAX) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Protocol unregistration failed - Invalid protocol %d",
+            rtm->name, proto);
+        return false;
+    }
+
+    /* Validate VRF */
+    if (vrf_id != rtm->vrf) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Protocol unregistration failed - VRF mismatch (expected %d, got %d)",
+            rtm->name, rtm->vrf, vrf_id);
+        return false;
+    }
+
+    /* Check if protocol is registered */
+    rtm_proto_info_t *proto_info = rtm_proto_lookup(rtm, proto, instance_no);
+    if (!proto_info) {
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : WARNING: Protocol %s instance %u not registered",
+            rtm->name, rtm_proto_to_string(proto), instance_no);
+        return false;
+    }
+
+    /* Check if there are active subscriptions */
+    if (!avltree_is_empty(&proto_info->sub_db)) {
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : WARNING: Protocol %s instance %u has active subscriptions, clearing them",
+            rtm->name, rtm_proto_to_string(proto), instance_no);
+        
+        /* Clear all subscriptions */
+        while (!avltree_is_empty(&proto_info->sub_db)) {
+            avltree_node_t *node = avltree_first(&proto_info->sub_db);
+            rtm_rt_subscription_t *sub = avltree_container_of(node, rtm_rt_subscription_t, avl_glue);
+            avltree_remove(&sub->avl_glue, &proto_info->sub_db);
+            free(sub);
+        }
+    }
+
+    /* Delete protocol info from RTM */
+    rtm_error_t rc = rtm_proto_info_del(rtm, proto, instance_no);
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to delete protocol info for %s instance %u - %s",
+            rtm->name, rtm_proto_to_string(proto), instance_no, rtm_error_to_string(rc));
+        return false;
+    }
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Protocol %s instance %u unregistered successfully",
+        rtm->name, rtm_proto_to_string(proto), instance_no);
+
+    return true;
+}
+
+/* Subscribe to route notifications */
+rtm_error_t
+cp_rtm_subscribe(rtm_t *rtm, 
+                            uint8_t src_vrf, uint8_t src_instance_no, RTM_PROTO_T src_proto, 
+                            rtm_rt_subscription_t *sub_template) {
+
+    /* Validate target protocol */
+    if (sub_template->target_proto >= RTM_PROTO_MAX) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Subscription failed - Invalid target protocol %d",
+            rtm->name, sub_template->target_proto);
+        return RTM_ERROR_INVALID_PROTO;
+    }
+
+    /* Validate target sub-protocol */
+    if (sub_template->target_sub_proto >= RTM_SUB_PROTO_MAX) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Subscription failed - Invalid target sub-protocol %d",
+            rtm->name, sub_template->target_sub_proto);
+        return RTM_ERROR_INVALID_SUB_PROTO;
+    }
+
+    /* Check if target protocol is registered */
+    rtm_proto_info_t *proto_info = rtm_proto_lookup(rtm, 
+                                                     src_proto, src_instance_no);
+
+    if (!proto_info) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Subscription failed - Target protocol %s instance %u not registered",
+            rtm->name, rtm_proto_to_string(sub_template->target_proto), 
+            sub_template->target_instance_no);
+        return RTM_ERROR_PROTO_NOT_REGISTERED;
+    }
+
+    /* Allocate new subscription */
+    rtm_rt_subscription_t *sub = (rtm_rt_subscription_t *)XCALLOC2(0, 1, rtm_rt_subscription_t);
+    if (!sub) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Subscription failed - Memory allocation error",
+            rtm->name);
+        return RTM_ERROR_MEMORY_ALLOC_FAILED;
+    }
+
+    /* Copy subscription template */
+    sub->target_proto = sub_template->target_proto;
+    sub->target_sub_proto = sub_template->target_sub_proto;
+    sub->target_instance_no = sub_template->target_instance_no;
+    sub->prefix_list = sub_template->prefix_list;
+    sub->cbk = sub_template->cbk;
+
+    /* Initialize AVL glue */
+    avltree_node_init(&sub->avl_glue);
+
+    /* Add subscription to protocol's subscription database */
+    if (avltree_insert(&sub->avl_glue, &proto_info->sub_db)) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Subscription failed - Failed to insert into subscription database",
+            rtm->name);
+        free(sub);
+        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+    }
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Subscription added for protocol %s instance %u",
+        rtm->name, rtm_proto_to_string(sub_template->target_proto), 
+        sub_template->target_instance_no);
+
+    return RTM_SUCCESS;
+}
+
+/* Unsubscribe from route notifications */
+rtm_error_t
+cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
+    
+    if (!rtm || !sub_template) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* Validate target protocol */
+    if (sub_template->target_proto >= RTM_PROTO_MAX) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Unsubscription failed - Invalid target protocol %d",
+            rtm->name, sub_template->target_proto);
+        return RTM_ERROR_INVALID_PROTO;
+    }
+
+    /* Check if target protocol is registered */
+    rtm_proto_info_t *proto_info = rtm_proto_lookup(rtm, 
+                                                     sub_template->target_proto, 
+                                                     sub_template->target_instance_no);
+    if (!proto_info) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Unsubscription failed - Target protocol %s instance %u not registered",
+            rtm->name, rtm_proto_to_string(sub_template->target_proto), 
+            sub_template->target_instance_no);
+        return RTM_ERROR_PROTO_NOT_REGISTERED;
+    }
+
+    /* Search for the subscription in the database using lookup */
+    
+    avltree_node_t *node = avltree_lookup(&sub_template->avl_glue, &proto_info->sub_db);
+    
+    if (!node) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Unsubscription failed - Subscription not found for protocol %s instance %u",
+            rtm->name, rtm_proto_to_string(sub_template->target_proto), 
+            sub_template->target_instance_no);
+        return RTM_ERROR_SUBSCRIPTION_NOT_FOUND;
+    }
+    
+    rtm_rt_subscription_t *sub = avltree_container_of(node, rtm_rt_subscription_t, avl_glue);
+
+    /* Remove subscription from database */
+    avltree_remove(&sub->avl_glue, &proto_info->sub_db);
+    
+    /* Free subscription */
+    if (sub->prefix_list) prefix_list_dereference (sub->prefix_list);
+    free(sub);
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Subscription removed for protocol %s instance %u",
+        rtm->name, rtm_proto_to_string(sub_template->target_proto), 
+        sub_template->target_instance_no);
+
+    return RTM_SUCCESS;
 }

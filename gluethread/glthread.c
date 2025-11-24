@@ -42,6 +42,13 @@ init_glthread(glthread_t *glthread){
 }
 
 void
+init_Fglthread(Fglthread_t *glthread){
+
+    init_glthread (&glthread->head);
+    glthread->last = NULL;
+}
+
+void
 glthread_add_next(glthread_t *curr_glthread, glthread_t *new_glthread){
 
     if (!new_glthread) {
@@ -60,6 +67,13 @@ glthread_add_next(glthread_t *curr_glthread, glthread_t *new_glthread){
     new_glthread->left = curr_glthread;
     new_glthread->right = temp;
     temp->left = new_glthread;
+}
+
+void
+Fglthread_add_next(Fglthread_t *head, glthread_t *base_glthread, glthread_t *new_glthread) {
+
+    glthread_add_next (base_glthread, new_glthread);
+    if (new_glthread->right == NULL) head->last = new_glthread;
 }
 
 void
@@ -85,6 +99,13 @@ glthread_add_before(glthread_t *curr_glthread, glthread_t *new_glthread){
 }
 
 void
+Fglthread_add_before(Fglthread_t *head, glthread_t *base_glthread, glthread_t *new_glthread) {
+
+    if (IS_GLTHREAD_LIST_EMPTY (&head->head)) head->last = new_glthread;
+    glthread_add_before (base_glthread, new_glthread);
+}
+
+void
 remove_glthread(glthread_t *curr_glthread){
     
     if(!curr_glthread->left){
@@ -106,6 +127,28 @@ remove_glthread(glthread_t *curr_glthread){
     curr_glthread->left = 0;
     curr_glthread->right = 0;
 }
+
+void
+remove_Fglthread(Fglthread_t *head, glthread_t *glthread) {
+
+    if (!IS_QUEUED_UP_IN_THREAD (glthread)) return;
+    if (head->last == glthread) head->last = glthread->left;
+    remove_glthread (glthread);
+}
+
+void
+Fglthread_add_last(Fglthread_t *head, glthread_t *new_glthread) {
+
+    if (!head->head.right) {
+        glthread_add_next (&head->head, new_glthread);
+        head->last = new_glthread;
+        return;
+    }
+
+    glthread_add_next (head->last, new_glthread);
+    head->last = new_glthread;
+}
+
 
 void
 delete_glthread_list(glthread_t *glthread_head){
@@ -196,6 +239,16 @@ glthread_priority_insert(glthread_t *glthread_head,
     glthread_add_next(prev, glthread);
 } 
 
+void
+Fglthread_priority_insert(Fglthread_t *head,
+                         glthread_t *glthread,
+                         int (*comp_fn)(void *, void *),
+                         int offset){
+
+    glthread_priority_insert (&head->head, glthread, comp_fn, offset);
+    if (glthread->right == NULL) head->last = glthread;
+}
+
 glthread_t *
 dequeue_glthread_first(glthread_t *base_glthread){
 
@@ -219,7 +272,6 @@ glthread_get_last(glthread_t *curr_glthread_node) {
 
     return prev;
 }
-
 
 glthread_t *
 glthread_get_next (glthread_t *curr) {

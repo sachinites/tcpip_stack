@@ -556,6 +556,43 @@ show_rtm_route_cli_handler(int cmdcode,
     return 0;
 }
 
+static int
+show_rtm_protocol_subscriptions_handler(int cmdcode, Stack_t *tlv_stack,
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    c_string node_name = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    if(!node_name){
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if(!node){
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    /* Get default RTM: VRF=0, AFI=IPv4, RTM ID=0 */
+    rtm_t *rtm = rtm_get(node, 0, RTM_AF_IPV4, 0);
+    if(!rtm){
+        cprintf("Error : Default RTM not found for node %s\n", node_name);
+        return -1;
+    }
+
+    rtm_show_protocol_subscriptions(rtm);
+    return 0;
+}
+
 extern void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
@@ -1190,6 +1227,21 @@ nw_init_cli(){
                                 }
                             }
                         }
+                    }
+                 }
+
+                 {
+                    /*show node <node-name> rtm protocol-subscriptions*/
+                    static param_t rtm;
+                    init_param(&rtm, CMD, "rtm", 0, 0, INVALID, 0, "RTM information");
+                    libcli_register_param(&node_name, &rtm);
+                    {
+                        static param_t protocol_subscriptions;
+                        init_param(&protocol_subscriptions, CMD, "protocol-subscriptions", 
+                                   show_rtm_protocol_subscriptions_handler, 0, INVALID, 0, 
+                                   "Display protocol subscription database");
+                        libcli_register_param(&rtm, &protocol_subscriptions);
+                        libcli_set_param_cmd_code(&protocol_subscriptions, CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS);
                     }
                  }
 

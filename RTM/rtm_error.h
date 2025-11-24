@@ -27,6 +27,9 @@ typedef enum rtm_error_ {
     RTM_ERROR_INVALID_GATEWAY,
     RTM_ERROR_INVALID_OIF_INDEX,
     RTM_ERROR_INVALID_NEXTHOP_PROTO,
+    RTM_ERROR_PROTO_NOT_REGISTERED,
+    RTM_ERROR_MEMORY_ALLOC_FAILED,
+    RTM_ERROR_SUBSCRIPTION_NOT_FOUND,
     RTM_ERROR_MAX
 
 } rtm_error_t;
@@ -81,6 +84,12 @@ rtm_error_to_string (rtm_error_t err) {
             return "Invalid nexthop protocol";
         case RTM_ERROR_NEXTHOP_CREATION_FAILED:
             return "Nexthop creation failed";
+        case RTM_ERROR_PROTO_NOT_REGISTERED:
+            return "Protocol not registered";
+        case RTM_ERROR_MEMORY_ALLOC_FAILED:
+            return "Memory allocation failed";
+        case RTM_ERROR_SUBSCRIPTION_NOT_FOUND:
+            return "Subscription not found";
         case RTM_ERROR_MAX:
             return "Max error";
     }

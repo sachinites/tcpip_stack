@@ -36,6 +36,7 @@ typedef struct rtm_nh_ {
         glthread_t src_glue;
         glthread_t resolution_list_glue;
         avltree_node_t idx_glue;
+        glthread_t advt_glue; // keyed by idx
         
         /* Shared pointer to the protocol info */
         rtm_nh_proto_t *rtm_nh_proto;

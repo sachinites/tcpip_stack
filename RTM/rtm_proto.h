@@ -126,7 +126,9 @@ typedef struct rtm_proto_info_ {
     RTM_PROTO_T proto;
     uint32_t instance_no;
     uint8_t vrf_id;
+    
     avltree_node_t proto_glue;
+    avltree_t sub_db;
     
 } rtm_proto_info_t;
 

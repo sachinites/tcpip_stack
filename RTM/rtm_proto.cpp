@@ -6,10 +6,29 @@
 #include "rtm_error.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
-
+#include "rtm_presentation.h"
 /* ========================================================================
  * NH PROTO (rtm_nh_proto_t) Management Functions
  * ======================================================================== */
+
+static int 
+rtm_subscription_db_compare_fn(
+        const avltree_node_t *node1, const avltree_node_t *node2) {
+    
+    rtm_rt_subscription_t *sub1 = avltree_container_of(node1, rtm_rt_subscription_t, avl_glue);
+    rtm_rt_subscription_t *sub2 = avltree_container_of(node2, rtm_rt_subscription_t, avl_glue);
+    
+    if (sub1->target_proto < sub2->target_proto) return -1;
+    if (sub1->target_proto > sub2->target_proto) return 1;
+    
+    if (sub1->target_sub_proto < sub2->target_sub_proto) return -1;
+    if (sub1->target_sub_proto > sub2->target_sub_proto) return 1;
+
+    if (sub1->target_instance_no < sub2->target_instance_no) return -1;
+    if (sub1->target_instance_no > sub2->target_instance_no) return 1;
+
+    return 0;
+}
 
 /* Create and initialize a new NH protocol info structure */
 rtm_error_t
@@ -230,7 +249,8 @@ rtm_proto_info_create(rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     proto_info->vrf_id = rtm->vrf;
     
     // Initialize the glue node
-    memset(&proto_info->proto_glue, 0, sizeof(avltree_node_t));
+    avltree_node_init (&proto_info->proto_glue);
+    avltree_init (&proto_info->sub_db, rtm_subscription_db_compare_fn);
     
     return proto_info;
 }

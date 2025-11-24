@@ -172,5 +172,8 @@
 /* config node <node-name> rtm-route prefix <prefix/mask> <proto-id> <sub-proto-id> <instance-no> <action-id> <metric> gateway <gateway-ip> interface <if-name> label-stack <list of labels> */
 #define CMDCODE_CONFIG_RTM_ROUTE_IP 69
 
+/* show node <node-name> rtm protocol-subscriptions */
+#define CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS 70
+
 
 #endif /* __CMDCODES__ */

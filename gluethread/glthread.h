@@ -38,6 +38,7 @@ typedef struct _glthread{
 
     struct _glthread *left;
     struct _glthread *right;
+
 } __attribute__((aligned(8))) glthread_t;
 
 void
@@ -71,7 +72,6 @@ glthread_add_last(glthread_t *base_glthread, glthread_t *new_glthread);
     static inline structure_name * fn_name(glthread_t *glthreadptr){                   \
         return (structure_name *)((char *)(glthreadptr) - offsetof(structure_name, field_name)); \
     }
-
 
 typedef struct _glthread_data_node_ {
 
@@ -134,12 +134,41 @@ glthread_get_next (glthread_t *curr);
 glthread_t *
 glthread_get_prev (glthread_t *curr);
 
-#if 0
-void *
-gl_thread_search(glthread_t *base_glthread,
-        void *(*thread_to_struct_fn)(glthread_t *),
-        void *key,
-        int (*comparison_fn)(void *, void *));
+// ------------------------------------ Fast glthread Implementation ------------------------------
 
-#endif
+typedef struct _Fglthread{
+
+    glthread_t head;
+    glthread_t *last;
+
+} __attribute__((aligned(8))) Fglthread_t;
+
+void
+init_Fglthread(Fglthread_t *glthread);
+
+void
+Fglthread_add_next(Fglthread_t *head, glthread_t *base_glthread, glthread_t *new_glthread);
+
+void
+Fglthread_priority_insert(Fglthread_t *head,
+                         glthread_t *glthread,
+                         int (*comp_fn)(void *, void *),
+                         int offset);
+
+void
+Fglthread_add_before(Fglthread_t *head, glthread_t *base_glthread, glthread_t *new_glthread);
+
+void
+remove_Fglthread(Fglthread_t *head, glthread_t *glthread) ;
+
+void
+Fglthread_add_last(Fglthread_t *head, glthread_t *new_glthread) ;
+
+static inline bool 
+Fglthread_list_is_empty (Fglthread_t *head) {
+
+    return (IS_GLTHREAD_LIST_EMPTY (&head->head));
+}
+
+// ------------------------------------
 #endif /* __GLUETHREAD__ */

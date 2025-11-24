@@ -12,6 +12,7 @@ OBJS= rtm.o \
 		   rtm_fib_interface.o \
 		   rtm_common.o \
 		   rtm_nb_integ.o \
+		   rtm_presentation.o \
 
 all: $(TARGET)
 

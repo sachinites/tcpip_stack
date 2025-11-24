@@ -11,6 +11,7 @@
 
 typedef struct node_ node_t;
 typedef struct rtm_nh_ rtm_nh;
+typedef struct task_ task_t;
 
 typedef struct rtm_ {
 
@@ -24,10 +25,13 @@ typedef struct rtm_ {
     avltree_t nhs_by_idx;
     glthread_t nhs_by_src[RTM_PROTO_MAX];
     avltree_t proto_info_tree[RTM_PROTO_MAX];
+    Fglthread_t advt_nhs[RTM_PROTO_MAX];
 
     node_t *node; 
     /* List of lnh_list_t */
     glthread_t unresolvable_lnhs;
+
+    task_t *advt_job;
     
 } rtm_t;
 

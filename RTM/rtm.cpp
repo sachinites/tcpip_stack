@@ -55,7 +55,9 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     rtm->afi = afi;
     rtm->rtm_id = rtm_id;
     
-    snprintf (rtm->name, sizeof(rtm->name), "%d-%d-%d", vrf, afi, rtm_id);
+    snprintf (rtm->name, sizeof(rtm->name), "%d.%s.%d", vrf, 
+        afi == RTM_AF_IPV4 ? "inet" : afi == RTM_AF_IPV6 ? "inet6" :  afi == RTM_AF_LABEL ? "mpls" : "mac",
+        rtm_id);
 
     avltree_init(&rtm->route_tree, rtm_route_compare);
     avltree_init (&rtm->nh_proto_info_tree, rtm_nh_proto_avl_tree_comp_fn);
@@ -64,6 +66,7 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         avltree_init(&rtm->proto_info_tree[i], rtm_proto_info_avl_tree_comp_fn);
         init_glthread(&rtm->nhs_by_src[i]);
+        init_Fglthread (&rtm->advt_nhs[i]);
     }
     
     init_glthread(&rtm->unresolvable_lnhs);
@@ -79,10 +82,12 @@ void rtm_destroy (rtm_t *rtm) {
     assert (avltree_is_empty (&rtm->nh_proto_info_tree) );
     assert (avltree_is_empty (&rtm->nhs_by_idx));
 
+
     // Clean up protocol info trees
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         assert (avltree_is_empty (&rtm->proto_info_tree[i]) );
         assert (IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[i]) );
+        assert (Fglthread_list_is_empty (&rtm->advt_nhs[i]) );
     }
     
     assert (IS_GLTHREAD_LIST_EMPTY (&rtm->unresolvable_lnhs) );

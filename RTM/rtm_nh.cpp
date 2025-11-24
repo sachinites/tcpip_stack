@@ -21,6 +21,10 @@ static uint32_t rtm_nh_generate_id(void) {
     return rtm_nh_id_counter.fetch_add(1, std::memory_order_relaxed);
 }
 
+static void rtm_nh_goes_active (rtm_t *rtm, rtm_nh *nh);
+static void rtm_nh_goes_inactive (rtm_t *rtm, rtm_nh *nh);
+
+extern void rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
 
 static void 
 rtm_nh_check_destroy (rtm_nh *nh) {
@@ -30,6 +34,7 @@ rtm_nh_check_destroy (rtm_nh *nh) {
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->resolution_list_glue));
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->src_glue));
     assert(!avltree_node_is_inuse(&nh->idx_glue));
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->advt_glue));
     assert (nh->rtm_nh_proto == NULL);
     assert (nh->Oif == nullptr);
     assert (nh->label_stack == NULL);
@@ -37,6 +42,7 @@ rtm_nh_check_destroy (rtm_nh *nh) {
     assert (nh->v6segment_lst == NULL);
     free (nh);
 }
+
 
 
 /* Wrapper for compare function with exact signature from header */
@@ -180,6 +186,8 @@ rtm_nh_initialize(rtm_nh* nh) {
     init_glthread(&nh->src_glue);
     init_glthread(&nh->resolution_list_glue);
     avltree_node_init(&nh->idx_glue);
+    init_glthread(&nh->advt_glue);
+
     
     nh->rtm_nh_proto = NULL;
     nh->ad = RTM_ADMIN_DIST_UNKNOWN;
@@ -219,7 +227,7 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     if (nh->is_resolved) {
         nh->is_active = true;
-        rtm_fib_install(nh->owner_route, nh);
+        rtm_nh_goes_inactive (rtm, nh);
         
         if (rtm && rtm->node && nh->owner_route) {
             tracer(rtm->node->cptr, DRTM,
@@ -229,12 +237,10 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
                 rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)));
         }
     } else {
-        if (rtm && rtm->node && nh->owner_route) {
             tracer(rtm->node->cptr, DRTM | DERR,
                 "RTM[%s] : WARNING: NH for route %s not resolved, cannot activate",
                 rtm->name,
                 rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
-        }
     }
 }
 
@@ -254,14 +260,30 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
             rtm_proto_to_string(nh->proto));
     
     rtm_untrack_for_resolution(rtm, nh);
-    rtm_fib_uninstall(nh->owner_route, nh);
     nh->is_active = false;
+    rtm_nh_goes_inactive (rtm, nh);
     
         tracer(rtm->node->cptr, DRTM,
             "RTM[%s] : NH deactivated and removed from FIB for route %s",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
 }
+
+
+void 
+rtm_nh_goes_active (rtm_t *rtm, rtm_nh *nh) {
+
+    rtm_fib_install(nh->owner_route, nh);
+    rtm_presentation_layer_route_add (rtm, nh);
+}
+
+void 
+rtm_nh_goes_inactive (rtm_t *rtm, rtm_nh *nh) {
+
+    rtm_fib_uninstall(nh->owner_route, nh);
+     rtm_presentation_layer_route_add (rtm, nh);
+}
+
 
 void 
 rtm_nh_reference(rtm_nh *nh) {

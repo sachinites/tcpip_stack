@@ -11,18 +11,19 @@
 #include "rtm_enums.h"
 #include "rtm_common.h"
 #include "rtm_priv_api.h"
+#include "rtm_presentation.h"
+#include "../prefix-list/prefixlst.h"
 
 extern int cprintf (const char * format, ...);
 
 /* Display RIB (Routing Information Base) */
 void rtm_show_rib(rtm_t *rtm) {
 
-    cprintf("\nRIB :: VRF: %u, AFI: %s, RTM ID: %u\n", 
-           rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
+    cprintf("\nRTM :: %s\n", rtm->name); 
+
     cprintf("========================================\n\n");
 
     if (avltree_is_empty(&rtm->route_tree)) {
-        cprintf("  No routes in RIB\n\n");
         return;
     }
 
@@ -188,66 +189,6 @@ void rtm_show_rib_detail(rtm_t *rtm) {
     cprintf("Total Routes: %d\n\n", route_count);
 }
 
-/* Display FIB (Forwarding Information Base) */
-void rtm_show_fib(rtm_t *rtm) {
-
-    cprintf("FIB :: VRF:%u AFI:%s RTM ID: %u\n", 
-           rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    cprintf("========================================\n\n");
-
-    if (avltree_is_empty(&rtm->route_tree)) {
-        cprintf("  No routes in FIB\n\n");
-        return;
-    }
-
-    cprintf("%-25s %-15s %-10s\n",
-           "Prefix", "Next-Hop", "OIF");
-    cprintf("%-25s %-15s %-10s\n",
-           "------", "--------", "---");
-
-    bool has_active_routes = false;
-
-    /* Iterate through all routes and show only those with active nexthops */
-    avltree_node_t *curr_node = NULL;
-    ITERATE_AVL_TREE_BEGIN(&rtm->route_tree, curr_node) {
-        
-        rtm_route *route = avltree_container_of(curr_node, rtm_route, route_glue);
-        char prefix_str[128];
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
-
-        bool route_has_active_nh = false;
-
-        /* Iterate through paths and show only active nexthops */
-        glthread_t *curr_glthread = NULL;
-        ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
-            
-            rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
-            if (!nh->is_active) continue;
-            
-            route_has_active_nh = true;
-            has_active_routes = true;
-            
-            char nh_prefix_str[128];
-            rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
-
-            cprintf("%-25s %-15s %-10u\n",
-                   prefix_str,
-                   nh_prefix_str,
-                   nh->outgoing_if);
-
-            prefix_str[0] = '\0';
-            
-        } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
-
-    } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
-
-    if (!has_active_routes) {
-        cprintf("  No active routes in FIB\n");
-    }
-
-    cprintf("\n");
-}
-
 /* Display nexthop protocol information */
 void rtm_show_nh_proto_info(rtm_t *rtm) {
     if (!rtm) {
@@ -255,12 +196,7 @@ void rtm_show_nh_proto_info(rtm_t *rtm) {
         return;
     }
 
-    cprintf("\n========================================\n");
-    cprintf("RTM Nexthop Protocol Information\n");
-    cprintf("========================================\n");
-    cprintf("VRF: %u, AFI: %s, RTM ID: %u\n", 
-           rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    cprintf("========================================\n\n");
+    cprintf("\nRTM :: %s\n", rtm->name); 
 
     if (avltree_is_empty(&rtm->nh_proto_info_tree)) {
         cprintf("  No nexthop protocol info registered\n\n");
@@ -292,17 +228,8 @@ void rtm_show_nh_proto_info(rtm_t *rtm) {
 
 /* Display general protocol information */
 void rtm_show_proto_info(rtm_t *rtm) {
-    if (!rtm) {
-        cprintf("Error: NULL RTM pointer\n");
-        return;
-    }
-
-    cprintf("\n========================================\n");
-    cprintf("RTM Protocol Information\n");
-    cprintf("========================================\n");
-    cprintf("VRF: %u, AFI: %s, RTM ID: %u\n", 
-           rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    cprintf("========================================\n\n");
+    
+    cprintf("\nRTM :: %s\n", rtm->name); 
 
     bool found_any = false;
 
@@ -381,6 +308,76 @@ void rtm_show_unresolvable_lnhs(rtm_t *rtm) {
                nh->outgoing_if);
 
     } ITERATE_GLTHREAD_END(&rtm->unresolvable_lnhs, curr_glthread);
+
+    cprintf("\n");
+}
+
+/* Display protocol subscriptions */
+void rtm_show_protocol_subscriptions(rtm_t *rtm) {
+
+    bool found_any = false;
+    int total_subscriptions = 0;
+
+    cprintf("RTM : %s\n",  rtm->name);
+
+    /* Iterate through all protocol types */
+    for (int proto = 0; proto < RTM_PROTO_MAX; proto++) {
+        
+        if (avltree_is_empty(&rtm->proto_info_tree[proto])) {
+            continue;
+        }
+
+        /* Iterate through all instances of this protocol */
+        avltree_node_t *proto_node = NULL;
+        ITERATE_AVL_TREE_BEGIN(&rtm->proto_info_tree[proto], proto_node) {
+            
+            rtm_proto_info_t *proto_info = avltree_container_of(proto_node, rtm_proto_info_t, proto_glue);
+
+            /* Check if this protocol has any subscriptions */
+            if (avltree_is_empty(&proto_info->sub_db)) {
+                continue;
+            }
+
+            found_any = true;
+
+            /* Print protocol key header (protocol, instance, VRF) */
+            cprintf("Protocol: %-10s  Instance: %-5u  VRF: %-5u\n",
+                   rtm_proto_to_string(proto_info->proto),
+                   proto_info->instance_no,
+                   proto_info->vrf_id);
+            cprintf("  %-15s %-20s %-12s %-15s\n",
+                   "Target Proto", "Target Sub-Proto", "Target Inst", "Prefix List");
+            cprintf("  %-15s %-20s %-12s %-15s\n",
+                   "------------", "----------------", "-----------", "-----------");
+
+            /* Iterate through subscriptions for this protocol */
+            avltree_node_t *sub_node = NULL;
+            ITERATE_AVL_TREE_BEGIN(&proto_info->sub_db, sub_node) {
+                
+                rtm_rt_subscription_t *sub = avltree_container_of(sub_node, rtm_rt_subscription_t, avl_glue);
+                total_subscriptions++;
+
+                const char *prefix_list_str = sub->prefix_list ? 
+                    (const char *)sub->prefix_list->name : "None";
+
+                cprintf("  %-15s %-20s %-12u %-15s\n",
+                       rtm_proto_to_string(sub->target_proto),
+                       rtm_sub_proto_to_string(sub->target_sub_proto),
+                       sub->target_instance_no,
+                       prefix_list_str);
+
+            } ITERATE_AVL_TREE_END(&proto_info->sub_db, sub_node);
+
+            cprintf("\n");
+
+        } ITERATE_AVL_TREE_END(&rtm->proto_info_tree[proto], proto_node);
+    }
+
+    if (!found_any) {
+        cprintf("  No protocol subscriptions registered\n");
+    } else {
+        cprintf("Total Subscriptions: %d\n", total_subscriptions);
+    }
 
     cprintf("\n");
 }
