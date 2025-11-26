@@ -48,6 +48,7 @@
 #include "Layer2/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
+#include "RTM/rtm_priv_api.h"
 
 extern graph_t *topo;
 class Interface;
@@ -514,20 +515,19 @@ show_rtm_route_cli_handler(int cmdcode,
                            Stack_t *tlv_stack,
                            op_mode enable_or_disable){
 
+    uint32_t table_id = 0;
     node_t *node = NULL;
     c_string node_name = NULL;
-    uint32_t vrf_id = RTM_DEFAULT_VRF;
-    uint32_t table_id = 0;
+    c_string rib_name = NULL;
     tlv_struct_t *tlv = NULL;
+    uint8_t vrf_id = RTM_DEFAULT_VRF;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-id"))
-            vrf_id = atoi(tlv->value);
-        else if(parser_match_leaf_id(tlv->leaf_id, "table-id"))
-            table_id = atoi(tlv->value);
+        else if(parser_match_leaf_id(tlv->leaf_id, "rib-name"))
+            rib_name = tlv->value;
 
     }TLV_LOOP_END;
 
@@ -537,18 +537,11 @@ show_rtm_route_cli_handler(int cmdcode,
     }
 
     node = node_get_node_by_name(topo, node_name);
-    if(!node){
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
 
-    RTM_AFI_T afi = (cmdcode == CMDCODE_SHOW_NODE_RTM_IPV6_ROUTE) ?
-                     RTM_AF_IPV6 : RTM_AF_IPV4;
+    rtm_t *rtm = rtm_get_by_name (node, rib_name);
 
-    rtm_t *rtm = rtm_get(node, vrf_id, afi, table_id);
     if(!rtm){
-        cprintf("Error : RTM not found for node %s VRF %u AFI %s table %u\n",
-                node_name, vrf_id, rtm_afi_to_string(afi), table_id);
+        cprintf("Error : RTM %s not found\n", rib_name); 
         return -1;
     }
 
@@ -1160,35 +1153,15 @@ nw_init_cli(){
                     init_param(&rt, CMD, "rt", show_rt_handler, 0, INVALID, 0, "Dump L3 Routing table");
                     libcli_register_param(&node_name, &rt);
                     libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
-                 }
-                 {
-                    /*show node <node-name> ip vrf <vrf-id> route <table-id>*/
-                    static param_t ip;
-                    init_param(&ip, CMD, "ip", 0, 0, INVALID, 0, "RTM IPv4 routing tables");
-                    libcli_register_param(&node_name, &ip);
                     {
-                        static param_t vrf;
-                        init_param(&vrf, CMD, "vrf", 0, 0, INVALID, 0, "Specify VRF Id");
-                        libcli_register_param(&ip, &vrf);
-                        {
-                            static param_t vrf_id;
-                            init_param(&vrf_id, LEAF, 0, 0, validate_vrf_id, INT, "vrf-id", "VRF identifier");
-                            libcli_register_param(&vrf, &vrf_id);
-                            {
-                                static param_t route;
-                                init_param(&route, CMD, "route", 0, 0, INVALID, 0, "Routing table selector");
-                                libcli_register_param(&vrf_id, &route);
-                                {
-                                    static param_t table_id;
-                                    init_param(&table_id, LEAF, 0, show_rtm_route_cli_handler,
-                                        validate_rtm_table_id, INT, "table-id", "Routing table id");
-                                    libcli_register_param(&route, &table_id);
-                                    libcli_set_param_cmd_code(&table_id, CMDCODE_SHOW_NODE_RTM_IPV4_ROUTE);
-                                }
-                            }
-                        }
+                         /*show node <node-name> rt <Rib name> */
+                        static param_t rib_name;
+                        init_param(&rib_name, LEAF, 0, show_rtm_route_cli_handler, 0, INVALID, "rib-name", "Show RTM table");
+                        libcli_register_param(&rt, &rib_name);
+                        libcli_set_param_cmd_code(&rib_name, CMDCODE_SHOW_NODE_RTM_IPV4_ROUTE);
                     }
                  }
+
                  {
                     /* Mount MPLS show CLI here */
                     mpls_build_show_cli_tree(&node_name);

@@ -32,16 +32,16 @@ typedef struct rtm_rt_subscription_ {
     //rtm_nh_proto_t *nh_proto;
 
     /* Callback fn used for notif */
-    void (*cbk)(void *);
+    void (*cbk)(rtm_t *, rtm_nh *);
 
     /* Hook up in rtm_proto_info_t sub_db Tree*/
     avltree_node_t avl_glue;
 
 } rtm_rt_subscription_t;
 
-#pragma pack(pop)
-
 void 
 rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
+
+void rtm_on_demand_route_request (rtm_t *rtm, uint8_t vrf_id, uint8_t instance_no, RTM_PROTO_T proto);
 
 #endif 

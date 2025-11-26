@@ -26,7 +26,7 @@ typedef struct rtm_ {
     glthread_t nhs_by_src[RTM_PROTO_MAX];
     avltree_t proto_info_tree[RTM_PROTO_MAX];
     Fglthread_t advt_nhs[RTM_PROTO_MAX];
-
+    Fglthread_t advt_queue;
     node_t *node; 
     /* List of lnh_list_t */
     glthread_t unresolvable_lnhs;

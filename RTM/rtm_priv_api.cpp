@@ -443,3 +443,41 @@ config_rtm_route_cli_handler(int cmdcode,
 
     return 0;
 }
+
+/* Split Rib name to get VRF id and table id . Rib name is expeccted in 
+    x.inet.y or x.inet6.y or x.mpls.y format where x is vrf id and y is table id*/
+
+rtm_t *
+rtm_get_by_name (node_t *node, char *rtm_name) {
+
+    if (!rtm_name) {
+        return NULL;
+    }
+
+    /* Parse rtm_name in format: x.inet.y or x.inet6.y or x.mpls.y or x.mac.y 
+       where x is vrf id and y is table id */
+    uint32_t vrf_id = 0;
+    uint32_t table_id = 0;
+    char afi_str[16] = {0};
+    
+    /* Parse the name format vrf.afi.table_id */
+    if (sscanf(rtm_name, "%u.%[^.].%u", &vrf_id, afi_str, &table_id) != 3) {
+        return NULL;
+    }
+    
+    /* Convert afi string to RTM_AFI_T */
+    RTM_AFI_T afi;
+    if (strcmp(afi_str, "inet") == 0) {
+        afi = RTM_AF_IPV4;
+    } else if (strcmp(afi_str, "inet6") == 0) {
+        afi = RTM_AF_IPV6;
+    } else if (strcmp(afi_str, "mpls") == 0) {
+        afi = RTM_AF_LABEL;
+    } else if (strcmp(afi_str, "mac") == 0) {
+        afi = RTM_AFI_MAC;
+    } else {
+        return NULL;
+    }
+    
+    return rtm_get(node, vrf_id, afi, table_id);
+}

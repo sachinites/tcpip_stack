@@ -318,7 +318,7 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
     bool found_any = false;
     int total_subscriptions = 0;
 
-    cprintf("RTM : %s\n",  rtm->name);
+    cprintf("\nRTM : %s\n",  rtm->name);
 
     /* Iterate through all protocol types */
     for (int proto = 0; proto < RTM_PROTO_MAX; proto++) {
@@ -341,10 +341,10 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
             found_any = true;
 
             /* Print protocol key header (protocol, instance, VRF) */
-            cprintf("Protocol: %-10s  Instance: %-5u  VRF: %-5u\n",
-                   rtm_proto_to_string(proto_info->proto),
-                   proto_info->instance_no,
-                   proto_info->vrf_id);
+            cprintf(" CLient : %u.%s.%u\n", proto_info->vrf_id, 
+                            rtm_proto_to_string(proto_info->proto),
+                            proto_info->instance_no);
+
             cprintf("  %-15s %-20s %-12s %-15s\n",
                    "Target Proto", "Target Sub-Proto", "Target Inst", "Prefix List");
             cprintf("  %-15s %-20s %-12s %-15s\n",

@@ -76,6 +76,8 @@ typedef struct rtm_nh_ {
 
 GLTHREAD_TO_STRUCT(resolution_list_glue_to_rtm_nh, rtm_nh, resolution_list_glue);
 GLTHREAD_TO_STRUCT(route_glue_to_rtm_nh, rtm_nh, route_glue);
+GLTHREAD_TO_STRUCT(advt_glue_to_rtm_nh, rtm_nh, advt_glue);
+GLTHREAD_TO_STRUCT(src_glue_to_rtm_nh, rtm_nh, src_glue);
 
 /* Methods */
 int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
