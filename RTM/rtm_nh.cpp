@@ -202,6 +202,7 @@ rtm_nh_initialize(rtm_nh* nh) {
     nh->is_active = false;
     
     nh->label_stack = NULL;
+    nh->install_time = time(NULL);
     nh->ref_count = 0;
 }
 

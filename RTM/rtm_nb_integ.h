@@ -99,9 +99,10 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto);
 #if 0
 # Basic route
 config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1
+config node H1 rtm-route prefix 2001::/120 0 0 0 2 10 gateway 2002::1 interface eth1
 
 # Route with MPLS labels
-config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1 label-stack 100 200 300
+config node H1 rtm-route prefix 100100 0 0 0 2 10 gateway 192.168.0.12 interface eth1 label-stack 100 200 300
 
 RTM_PROTO_ISIS
 RTM_PROTO_L1_ISIS_INT

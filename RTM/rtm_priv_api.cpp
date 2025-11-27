@@ -14,6 +14,7 @@
 #include "../utils.h"
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
+#include "../Layer3/ipv6/ipv6_utils.h"
 
 extern graph_t * topo;
 
@@ -131,7 +132,7 @@ char *rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
             snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
             break;
         case RTM_AF_LABEL:
-            snprintf(buffer, buflen, "Label:%u", prefix->u.mpls_label);
+            snprintf(buffer, buflen, "%u", prefix->u.mpls_label);
             break;
         case RTM_AFI_MAC:
             snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -162,7 +163,7 @@ char *rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
             snprintf(buffer, buflen, "%s", addr_buf);
             break;
         case RTM_AF_LABEL:
-            snprintf(buffer, buflen, "Label:%u", prefix->u.mpls_label);
+            snprintf(buffer, buflen, "%u", prefix->u.mpls_label);
             break;
         case RTM_AFI_MAC:
             snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -253,23 +254,120 @@ config_rtm_route_cli_handler(int cmdcode,
 
         case CONFIG_ENABLE:
         {
-            /* Parse prefix/mask */
+            /* Parse prefix/mask - could be IP/mask or Label:value */
             char prefix_str[48];
             uint8_t mask;
+            uint32_t mpls_label;
+            RTM_AFI_T afi;
+            bool is_mpls = false;
+            bool is_ipv6_prefix = false;
 
-            /* Parse prefix/mask format (e.g., "192.168.1.0/24") */
-            if (sscanf((const char *)prefix_mask, "%[^/]/%hhu", prefix_str, &mask) != 2) {
-                cprintf("Error: Invalid prefix/mask format. Use: <ip>/<mask>\n");
-                return -1;
-            }
+            /* Check if this is an MPLS label */
+            /* Try multiple formats: "Label:xxx", "label:xxx", or just plain number "xxx" */
+            if (sscanf((const char *)prefix_mask, "Label:%u", &mpls_label) == 1 ||
+                sscanf((const char *)prefix_mask, "label:%u", &mpls_label) == 1 ||
+                sscanf((const char *)prefix_mask, "Label: %u", &mpls_label) == 1 ||
+                sscanf((const char *)prefix_mask, "label: %u", &mpls_label) == 1) {
+                /* Explicit Label: format */
+                is_mpls = true;
+                afi = RTM_AF_LABEL;
+                
+                /* MPLS labels are 20-bit values (0 to 1048575) */
+                if (mpls_label > 1048575) {
+                    cprintf("Error: Invalid MPLS label %u. Must be 0-1048575\n", mpls_label);
+                    return -1;
+                }
+                
+            } else if (strchr((const char *)prefix_mask, '/') != NULL) {
+                /* Parse IP prefix/mask format (e.g., "192.168.1.0/24" or "2001:db8::/32") */
+                if (sscanf((const char *)prefix_mask, "%[^/]/%hhu", prefix_str, &mask) != 2) {
+                    cprintf("Error: Invalid prefix/mask format.\n");
+                    cprintf("       Use: <ip>/<mask> for IP routes or Label:<value> for MPLS\n");
+                    return -1;
+                }
 
-            if (mask > 32) {
-                cprintf("Error: Invalid mask value. Must be 0-32\n");
-                return -1;
+                /* Detect address family from prefix */
+                is_ipv6_prefix = (strchr(prefix_str, ':') != NULL);
+                afi = is_ipv6_prefix ? RTM_AF_IPV6 : RTM_AF_IPV4;
+
+                /* Validate the IP address format */
+                if (is_ipv6_prefix) {
+                    /* Validate IPv6 address */
+                    struct in6_addr test_addr;
+                    if (inet_pton(AF_INET6, prefix_str, &test_addr) != 1) {
+                        cprintf("Error: Invalid IPv6 address '%s'\n", prefix_str);
+                        return -1;
+                    }
+                } else {
+                    /* Validate IPv4 address */
+                    struct in_addr test_addr;
+                    if (inet_pton(AF_INET, prefix_str, &test_addr) != 1) {
+                        cprintf("Error: Invalid IPv4 address '%s'\n", prefix_str);
+                        return -1;
+                    }
+                }
+
+                /* Validate mask based on address family */
+                uint8_t max_mask = is_ipv6_prefix ? 128 : 32;
+                if (mask > max_mask) {
+                    cprintf("Error: Invalid mask value. Must be 0-%u for %s\n",
+                            max_mask, is_ipv6_prefix ? "IPv6" : "IPv4");
+                    return -1;
+                }
+
+                /* If gateway is provided, validate it matches prefix address family */
+                if (gw_ip) {
+                    bool is_ipv6_gateway = (strchr((const char *)gw_ip, ':') != NULL);
+                    if (is_ipv6_prefix != is_ipv6_gateway) {
+                        cprintf("Error: Gateway address family must match prefix address family.\n");
+                        cprintf("       Prefix is %s but gateway is %s\n",
+                                is_ipv6_prefix ? "IPv6" : "IPv4",
+                                is_ipv6_gateway ? "IPv6" : "IPv4");
+                        return -1;
+                    }
+
+                    /* Validate gateway IP address format */
+                    if (is_ipv6_gateway) {
+                        struct in6_addr test_addr;
+                        if (inet_pton(AF_INET6, (const char *)gw_ip, &test_addr) != 1) {
+                            cprintf("Error: Invalid IPv6 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                    } else {
+                        struct in_addr test_addr;
+                        if (inet_pton(AF_INET, (const char *)gw_ip, &test_addr) != 1) {
+                            cprintf("Error: Invalid IPv4 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                    }
+                }
+            } else {
+                /* Try to parse as plain numeric MPLS label */
+                char *endptr;
+                long label_val = strtol((const char *)prefix_mask, &endptr, 10);
+                
+                /* Check if entire string was consumed and it's a valid number */
+                if (*endptr == '\0' && endptr != (const char *)prefix_mask && label_val >= 0) {
+                    /* It's a plain number - treat as MPLS label */
+                    mpls_label = (uint32_t)label_val;
+                    is_mpls = true;
+                    afi = RTM_AF_LABEL;
+                    
+                    /* MPLS labels are 20-bit values (0 to 1048575) */
+                    if (mpls_label > 1048575) {
+                        cprintf("Error: Invalid MPLS label %u. Must be 0-1048575\n", mpls_label);
+                        return -1;
+                    }
+                } else {
+                    /* Neither MPLS label nor IP prefix format */
+                    cprintf("Error: Invalid prefix format '%s'\n", prefix_mask);
+                    cprintf("       Use: <ip>/<mask> for IP routes or plain number/Label:<value> for MPLS\n");
+                    return -1;
+                }
             }
 
             /* Get RTM */
-            rtm_t *rtm = rtm_get(node, vrf_id, RTM_AF_IPV4, table_id);
+            rtm_t *rtm = rtm_get(node, vrf_id, afi, table_id);
             if (!rtm) {
                 cprintf("Error: RTM not found for node %s VRF %u table %u\n",
                         node_name, vrf_id, table_id);
@@ -279,17 +377,51 @@ config_rtm_route_cli_handler(int cmdcode,
             /* Prepare prefix */
             rtm_prefix_t prefix;
             memset(&prefix, 0, sizeof(prefix));
-            prefix.afi = RTM_AF_IPV4;
-            prefix.prefix_len = mask;
-            prefix.u.v4_addr = tcp_ip_convert_ip_p_to_n((c_string)prefix_str);
+            prefix.afi = afi;
+
+            if (is_mpls) {
+                /* MPLS label */
+                prefix.u.mpls_label = mpls_label;
+                prefix.prefix_len = 0; /* Not applicable for MPLS */
+            } else {
+                prefix.prefix_len = mask;
+                
+                if (is_ipv6_prefix) {
+                    /* Parse IPv6 prefix */
+                    ipv6_addr_t v6_addr;
+                    inet_pton6(prefix_str, &v6_addr);
+                    memcpy(prefix.u.v6_addr, v6_addr.addr, 16);
+                } else {
+                    /* Parse IPv4 prefix */
+                    prefix.u.v4_addr = tcp_ip_convert_ip_p_to_n((c_string)prefix_str);
+                }
+            }
 
             /* Prepare gateway */
             rtm_prefix_t gateway;
             memset(&gateway, 0, sizeof(gateway));
             if (gw_ip) {
-                gateway.afi = RTM_AF_IPV4;
-                gateway.prefix_len = 32;
-                gateway.u.v4_addr = tcp_ip_convert_ip_p_to_n(gw_ip);
+                /* For MPLS, gateway must be IP (can't be MPLS label) */
+                bool is_ipv6_gateway = (strchr((const char *)gw_ip, ':') != NULL);
+                
+                if (is_mpls) {
+                    /* MPLS prefix with IP gateway - valid for label swap */
+                    afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                }
+                
+                gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                
+                if (is_ipv6_gateway) {
+                    /* Parse IPv6 gateway */
+                    gateway.prefix_len = 128;
+                    ipv6_addr_t v6_gw;
+                    inet_pton6((char *)gw_ip, &v6_gw);
+                    memcpy(gateway.u.v6_addr, v6_gw.addr, 16);
+                } else {
+                    /* Parse IPv4 gateway */
+                    gateway.prefix_len = 32;
+                    gateway.u.v4_addr = tcp_ip_convert_ip_p_to_n(gw_ip);
+                }
             }
 
             /* Get interface */
@@ -346,23 +478,118 @@ config_rtm_route_cli_handler(int cmdcode,
 
         case CONFIG_DISABLE:
         {
-            /* Parse prefix/mask */
+            /* Parse prefix/mask - could be IP/mask or Label:value */
             char prefix_str[48];
             uint8_t mask;
+            uint32_t mpls_label;
+            RTM_AFI_T afi;
+            bool is_mpls = false;
+            bool is_ipv6_prefix = false;
 
-            /* Parse prefix/mask format (e.g., "192.168.1.0/24") */
-            if (sscanf((const char *)prefix_mask, "%[^/]/%hhu", prefix_str, &mask) != 2) {
-                cprintf("Error: Invalid prefix/mask format. Use: <ip>/<mask>\n");
-                return -1;
-            }
+            /* Check if this is an MPLS label (format: "Label:xxx" or "label:xxx") */
+            /* Try multiple formats to handle whitespace variations */
+            if (sscanf((const char *)prefix_mask, "Label:%u", &mpls_label) == 1 ||
+                sscanf((const char *)prefix_mask, "label:%u", &mpls_label) == 1 ||
+                sscanf((const char *)prefix_mask, "Label: %u", &mpls_label) == 1 ||
+                sscanf((const char *)prefix_mask, "label: %u", &mpls_label) == 1) {
+                is_mpls = true;
+                afi = RTM_AF_LABEL;
+                
+                /* MPLS labels are 20-bit values (0 to 1048575) */
+                if (mpls_label > 1048575) {
+                    cprintf("Error: Invalid MPLS label %u. Must be 0-1048575\n", mpls_label);
+                    return -1;
+                }
+            } else if (strchr((const char *)prefix_mask, '/') != NULL) {
+                /* Parse IP prefix/mask format (e.g., "192.168.1.0/24" or "2001:db8::/32") */
+                if (sscanf((const char *)prefix_mask, "%[^/]/%hhu", prefix_str, &mask) != 2) {
+                    cprintf("Error: Invalid prefix/mask format.\n");
+                    cprintf("       Use: <ip>/<mask> for IP routes or Label:<value> for MPLS\n");
+                    return -1;
+                }
 
-            if (mask > 32) {
-                cprintf("Error: Invalid mask value. Must be 0-32\n");
-                return -1;
+                /* Detect address family from prefix */
+                is_ipv6_prefix = (strchr(prefix_str, ':') != NULL);
+                afi = is_ipv6_prefix ? RTM_AF_IPV6 : RTM_AF_IPV4;
+
+                /* Validate the IP address format */
+                if (is_ipv6_prefix) {
+                    /* Validate IPv6 address */
+                    struct in6_addr test_addr;
+                    if (inet_pton(AF_INET6, prefix_str, &test_addr) != 1) {
+                        cprintf("Error: Invalid IPv6 address '%s'\n", prefix_str);
+                        return -1;
+                    }
+                } else {
+                    /* Validate IPv4 address */
+                    struct in_addr test_addr;
+                    if (inet_pton(AF_INET, prefix_str, &test_addr) != 1) {
+                        cprintf("Error: Invalid IPv4 address '%s'\n", prefix_str);
+                        return -1;
+                    }
+                }
+
+                /* Validate mask based on address family */
+                uint8_t max_mask = is_ipv6_prefix ? 128 : 32;
+                if (mask > max_mask) {
+                    cprintf("Error: Invalid mask value. Must be 0-%u for %s\n",
+                            max_mask, is_ipv6_prefix ? "IPv6" : "IPv4");
+                    return -1;
+                }
+
+                /* If gateway is provided, validate it matches prefix address family */
+                if (gw_ip) {
+                    bool is_ipv6_gateway = (strchr((const char *)gw_ip, ':') != NULL);
+                    if (is_ipv6_prefix != is_ipv6_gateway) {
+                        cprintf("Error: Gateway address family must match prefix address family.\n");
+                        cprintf("       Prefix is %s but gateway is %s\n",
+                                is_ipv6_prefix ? "IPv6" : "IPv4",
+                                is_ipv6_gateway ? "IPv6" : "IPv4");
+                        return -1;
+                    }
+
+                    /* Validate gateway IP address format */
+                    if (is_ipv6_gateway) {
+                        struct in6_addr test_addr;
+                        if (inet_pton(AF_INET6, (const char *)gw_ip, &test_addr) != 1) {
+                            cprintf("Error: Invalid IPv6 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                    } else {
+                        struct in_addr test_addr;
+                        if (inet_pton(AF_INET, (const char *)gw_ip, &test_addr) != 1) {
+                            cprintf("Error: Invalid IPv4 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                    }
+                }
+            } else {
+                /* Try to parse as plain numeric MPLS label */
+                char *endptr;
+                long label_val = strtol((const char *)prefix_mask, &endptr, 10);
+                
+                /* Check if entire string was consumed and it's a valid number */
+                if (*endptr == '\0' && endptr != (const char *)prefix_mask && label_val >= 0) {
+                    /* It's a plain number - treat as MPLS label */
+                    mpls_label = (uint32_t)label_val;
+                    is_mpls = true;
+                    afi = RTM_AF_LABEL;
+                    
+                    /* MPLS labels are 20-bit values (0 to 1048575) */
+                    if (mpls_label > 1048575) {
+                        cprintf("Error: Invalid MPLS label %u. Must be 0-1048575\n", mpls_label);
+                        return -1;
+                    }
+                } else {
+                    /* Neither MPLS label nor IP prefix format */
+                    cprintf("Error: Invalid prefix format '%s'\n", prefix_mask);
+                    cprintf("       Use: <ip>/<mask> for IP routes or plain number/Label:<value> for MPLS\n");
+                    return -1;
+                }
             }
 
             /* Get RTM */
-            rtm_t *rtm = rtm_get(node, vrf_id, RTM_AF_IPV4, table_id);
+            rtm_t *rtm = rtm_get(node, vrf_id, afi, table_id);
             if (!rtm) {
                 cprintf("Error: RTM not found for node %s VRF %u table %u\n",
                         node_name, vrf_id, table_id);
@@ -372,17 +599,51 @@ config_rtm_route_cli_handler(int cmdcode,
             /* Prepare prefix */
             rtm_prefix_t prefix;
             memset(&prefix, 0, sizeof(prefix));
-            prefix.afi = RTM_AF_IPV4;
-            prefix.prefix_len = mask;
-            prefix.u.v4_addr = tcp_ip_convert_ip_p_to_n((c_string)prefix_str);
+            prefix.afi = afi;
+
+            if (is_mpls) {
+                /* MPLS label */
+                prefix.u.mpls_label = mpls_label;
+                prefix.prefix_len = 0; /* Not applicable for MPLS */
+            } else {
+                prefix.prefix_len = mask;
+                
+                if (is_ipv6_prefix) {
+                    /* Parse IPv6 prefix */
+                    ipv6_addr_t v6_addr;
+                    inet_pton6(prefix_str, &v6_addr);
+                    memcpy(prefix.u.v6_addr, v6_addr.addr, 16);
+                } else {
+                    /* Parse IPv4 prefix */
+                    prefix.u.v4_addr = tcp_ip_convert_ip_p_to_n((c_string)prefix_str);
+                }
+            }
 
             /* Prepare gateway */
             rtm_prefix_t gateway;
             memset(&gateway, 0, sizeof(gateway));
             if (gw_ip) {
-                gateway.afi = RTM_AF_IPV4;
-                gateway.prefix_len = 32;
-                gateway.u.v4_addr = tcp_ip_convert_ip_p_to_n(gw_ip);
+                /* For MPLS, gateway must be IP (can't be MPLS label) */
+                bool is_ipv6_gateway = (strchr((const char *)gw_ip, ':') != NULL);
+                
+                if (is_mpls) {
+                    /* MPLS prefix with IP gateway - valid for label swap */
+                    afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                }
+                
+                gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                
+                if (is_ipv6_gateway) {
+                    /* Parse IPv6 gateway */
+                    gateway.prefix_len = 128;
+                    ipv6_addr_t v6_gw;
+                    inet_pton6((char *)gw_ip, &v6_gw);
+                    memcpy(gateway.u.v6_addr, v6_gw.addr, 16);
+                } else {
+                    /* Parse IPv4 gateway */
+                    gateway.prefix_len = 32;
+                    gateway.u.v4_addr = tcp_ip_convert_ip_p_to_n(gw_ip);
+                }
             }
 
             /* Get interface */

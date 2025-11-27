@@ -69,6 +69,7 @@ typedef struct rtm_nh_ {
         uint8_t n_segment_list;
         rtm_prefix_t *v6segment_lst;
 
+        time_t install_time;
         uint32_t ref_count;
 } rtm_nh; 
 

@@ -181,8 +181,8 @@ cp_rtm_install_local_or_connected_v4_routes (
     cp_nexthop_template_t nh_template;
     memset (&nh_template, 0, sizeof(nh_template));
 
-    nh_template.proto == (mask == 32) ? \
-        nh_template.proto = RTM_PROTO_LOCAL : nh_template.proto = RTM_PROTO_CONNECTED;
+    nh_template.proto = (mask == 32) ? \
+        RTM_PROTO_LOCAL : RTM_PROTO_CONNECTED;
     
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
     nh_template.action =  (nh_template.proto ==RTM_PROTO_LOCAL) ? \

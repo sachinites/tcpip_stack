@@ -56,9 +56,9 @@ void rtm_show_rib(rtm_t *rtm) {
                 for (int i = 0; i < nh->label_stack->curr_index; i++) {
                     const char *op_str = "";
                     switch (nh->label_stack->labels[i].op) {
-                        case RTM_LBL_SWAP: op_str = "SWAP"; break;
-                        case RTM_LBL_PUSH: op_str = "PUSH"; break;
-                        case RTM_LBL_POP: op_str = "POP"; break;
+                        case RTM_LBL_SWAP: op_str = "Swap"; break;
+                        case RTM_LBL_PUSH: op_str = "Push"; break;
+                        case RTM_LBL_POP: op_str = "Pop"; break;
                         default: op_str = "UNK"; break;
                     }
                     if (nh->label_stack->labels[i].op != RTM_LBL_STACK_OPS_UNKNOWN) {
@@ -93,13 +93,11 @@ void rtm_show_rib(rtm_t *rtm) {
 
 /* Display RIB in detailed format (line by line, not tabular) */
 void rtm_show_rib_detail(rtm_t *rtm) {
-    if (!rtm) {
-        cprintf("Error: NULL RTM pointer\n");
-        return;
-    }
 
-    cprintf("RIB :: VRF:%u AFI:%s RTM ID: %u\n", 
-           rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
+    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+
+    cprintf("RIB :: %s\n", rtm->name); 
+
     cprintf("========================================\n\n");
 
     if (avltree_is_empty(&rtm->route_tree)) {
@@ -149,6 +147,7 @@ void rtm_show_rib_detail(rtm_t *rtm) {
             cprintf("    Resolved       : %s\n", nh->is_resolved ? "Yes" : "No");
             cprintf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
             cprintf ("    Active         : %s\n", nh->is_active ? "Yes" : "No");
+            cprintf ("    Uptime         : %s\n",  RTM_UP_TIME (nh->install_time, time_str, sizeof(time_str)));
             cprintf("    Ref Count      : %u\n", nh->ref_count);
             
             /* Display label stack if present */
@@ -161,9 +160,9 @@ void rtm_show_rib_detail(rtm_t *rtm) {
                     const char *op_str = "";
 
                     switch (nh->label_stack->labels[i].op) {
-                        case RTM_LBL_SWAP: op_str = "SWAP"; break;
-                        case RTM_LBL_PUSH: op_str = "PUSH"; break;
-                        case RTM_LBL_POP: op_str = "POP"; break;
+                        case RTM_LBL_SWAP: op_str = "Swap"; break;
+                        case RTM_LBL_PUSH: op_str = "Push"; break;
+                        case RTM_LBL_POP: op_str = "Pop"; break;
                         default: op_str = "UNK"; break;
                     }
                     
@@ -191,10 +190,6 @@ void rtm_show_rib_detail(rtm_t *rtm) {
 
 /* Display nexthop protocol information */
 void rtm_show_nh_proto_info(rtm_t *rtm) {
-    if (!rtm) {
-        cprintf("Error: NULL RTM pointer\n");
-        return;
-    }
 
     cprintf("\nRTM :: %s\n", rtm->name); 
 
@@ -271,17 +266,8 @@ void rtm_show_proto_info(rtm_t *rtm) {
 
 /* Display unresolvable nexthops */
 void rtm_show_unresolvable_lnhs(rtm_t *rtm) {
-    if (!rtm) {
-        cprintf("Error: NULL RTM pointer\n");
-        return;
-    }
 
-    cprintf("\n========================================\n");
-    cprintf("RTM Unresolvable Nexthops\n");
-    cprintf("========================================\n");
-    cprintf("VRF: %u, AFI: %s, RTM ID: %u\n", 
-           rtm->vrf, rtm_afi_to_string(rtm->afi), rtm->rtm_id);
-    cprintf("========================================\n\n");
+    cprintf("RIB :: %s\n", rtm->name);
 
     if (IS_GLTHREAD_LIST_EMPTY(&rtm->unresolvable_lnhs)) {
         cprintf("  No unresolvable nexthops\n\n");
@@ -341,7 +327,7 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
             found_any = true;
 
             /* Print protocol key header (protocol, instance, VRF) */
-            cprintf(" CLient : %u.%s.%u\n", proto_info->vrf_id, 
+            cprintf(" Client : %u.%s.%u\n", proto_info->vrf_id, 
                             rtm_proto_to_string(proto_info->proto),
                             proto_info->instance_no);
 

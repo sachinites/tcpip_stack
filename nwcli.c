@@ -517,10 +517,9 @@ show_rtm_route_cli_handler(int cmdcode,
 
     uint32_t table_id = 0;
     node_t *node = NULL;
-    c_string node_name = NULL;
-    c_string rib_name = NULL;
     tlv_struct_t *tlv = NULL;
-    uint8_t vrf_id = RTM_DEFAULT_VRF;
+    c_string rib_name = NULL;
+    c_string node_name = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -545,7 +544,16 @@ show_rtm_route_cli_handler(int cmdcode,
         return -1;
     }
 
-    rtm_show_rib(rtm);
+    switch (cmdcode) {
+        case CMDCODE_SHOW_NODE_RTM_ROUTE:
+            rtm_show_rib(rtm);
+            break;
+        case CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL:
+            rtm_show_rib_detail(rtm);
+            break;
+        default:
+            ;
+    }
     return 0;
 }
 
@@ -1158,7 +1166,14 @@ nw_init_cli(){
                         static param_t rib_name;
                         init_param(&rib_name, LEAF, 0, show_rtm_route_cli_handler, 0, INVALID, "rib-name", "Show RTM table");
                         libcli_register_param(&rt, &rib_name);
-                        libcli_set_param_cmd_code(&rib_name, CMDCODE_SHOW_NODE_RTM_IPV4_ROUTE);
+                        libcli_set_param_cmd_code(&rib_name, CMDCODE_SHOW_NODE_RTM_ROUTE);
+                        {
+                             /*show node <node-name> rt <Rib name> detail*/
+                             static param_t detail;
+                             init_param(&detail, CMD, "detail", show_rtm_route_cli_handler, 0, INVALID, 0, "Show RTM table detail");
+                             libcli_register_param(&rib_name, &detail);
+                             libcli_set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL);    
+                        }
                     }
                  }
 
@@ -1173,34 +1188,6 @@ nw_init_cli(){
                     init_param(&rt6, CMD, "rt6", show_rt6_handler, 0, INVALID, 0, "Dump L3 V6 Routing table");
                     libcli_register_param(&node_name, &rt6);
                     libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_RT6_TABLE);
-                 }
-                 {
-                    /*show node <node-name> ipv6 vrf <vrf-id> route <table-id>*/
-                    static param_t ipv6;
-                    init_param(&ipv6, CMD, "ipv6", 0, 0, INVALID, 0, "RTM IPv6 routing tables");
-                    libcli_register_param(&node_name, &ipv6);
-                    {
-                        static param_t vrf;
-                        init_param(&vrf, CMD, "vrf", 0, 0, INVALID, 0, "Specify VRF Id");
-                        libcli_register_param(&ipv6, &vrf);
-                        {
-                            static param_t vrf_id;
-                            init_param(&vrf_id, LEAF, 0, 0, validate_vrf_id, INT, "vrf-id", "VRF identifier");
-                            libcli_register_param(&vrf, &vrf_id);
-                            {
-                                static param_t route;
-                                init_param(&route, CMD, "route", 0, 0, INVALID, 0, "Routing table selector");
-                                libcli_register_param(&vrf_id, &route);
-                                {
-                                    static param_t table_id;
-                                    init_param(&table_id, LEAF, 0, show_rtm_route_cli_handler,
-                                        validate_rtm_table_id, INT, "table-id", "Routing table id");
-                                    libcli_register_param(&route, &table_id);
-                                    libcli_set_param_cmd_code(&table_id, CMDCODE_SHOW_NODE_RTM_IPV6_ROUTE);
-                                }
-                            }
-                        }
-                    }
                  }
 
                  {
@@ -1420,7 +1407,7 @@ nw_init_cli(){
                 {
                     /* config node <node-name> rtm-route prefix <prefix/mask> */
                     static param_t prefix_mask;
-                    init_param(&prefix_mask, LEAF, 0, 0, 0, STRING, "prefix-mask", "IP prefix/mask (e.g., 10.0.0.0/24)");
+                    init_param(&prefix_mask, LEAF, 0, 0, 0, STRING, "prefix-mask", "IP prefix/mask (10.0.0.0/24) or MPLS label (100 or Label:100)");
                     libcli_register_param(&prefix, &prefix_mask);
                     {
                         /* config node <node-name> rtm-route prefix <prefix/mask> <proto-id> */
@@ -1455,7 +1442,7 @@ nw_init_cli(){
                                             {
                                                 /* gateway <gw-ip> */
                                                 static param_t gw_ip;
-                                                init_param(&gw_ip, LEAF, 0, 0, 0, IPV4, "gw-ip", "Gateway IP address");
+                                                init_param(&gw_ip, LEAF, 0, 0, 0, STRING, "gw-ip", "Gateway IP address (IPv4 or IPv6)");
                                                 libcli_register_param(&gateway, &gw_ip);
                                                 {
                                                     /* interface */
