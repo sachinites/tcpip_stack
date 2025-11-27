@@ -1,6 +1,7 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <arpa/inet.h>
 #include "rtm_route.h"
 #include "rtm_nh.h"
 #include "rtm_priv_api.h"
@@ -10,6 +11,9 @@
 #include "../graph.h"
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
+#include "../mtrie/mtrie.h"
+#include "../BitOp/bitmap.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 /* Comparator function for route AVL tree */
 int
@@ -152,79 +156,30 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     
     rtm_route_reference(route);
     
+    /* Insert into LPM tree for fast longest prefix match lookups */
+    if (route->prefix.afi == RTM_AF_IPV4 ||
+        route->prefix.afi == RTM_AF_IPV6)
+    {
+        rtm_error_t lpm_result = rtm_lpm_tree_insert(rtm, route);
+
+        if (lpm_result != RTM_SUCCESS)
+        {
+            /* LPM insertion failed, rollback AVL tree insertion */
+            tracer(rtm->node->cptr, DRTM | DERR,
+                   "RTM[%s] : ERROR: Route %s LPM tree insertion failed, rolling back",
+                   rtm->name,
+                   rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+            avltree_remove(&route->route_glue, (avltree_t *)&rtm->route_tree);
+            avltree_node_init(&route->route_glue);
+            rtm_route_dereference(rtm, route);
+            return lpm_result;
+        }
+    }
+
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s added successfully to routing table",
+        "RTM[%s] : Route %s added successfully to routing table and LPM tree",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
-    
-    return RTM_SUCCESS;
-}
-
-/* Remove a route from RTM */
-rtm_error_t 
-rtm_route_remove(rtm_t* rtm, rtm_prefix_t* prefix_key) {
-    
-    glthread_t *curr;
-    char prefix_str[48];
-
-    if (!rtm || !prefix_key) {
-        if (rtm && rtm->node) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Route remove failed - Invalid argument (rtm=%p, prefix=%p)",
-                rtm ? rtm->name : "null", rtm, prefix_key);
-        }
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-    
-    tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Removing route %s from routing table",
-        rtm->name,
-        rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)));
-    
-    // Find the route
-    rtm_route *route = rtm_route_lookup(rtm, prefix_key);
-    if (!route) {
-        tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Route %s not found in routing table",
-            rtm->name,
-            rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)));
-        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
-    }
-    
-    // Ensure all nexthops have been removed
-    if (route->nh_count > 0) {
-        tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Cannot remove route %s - %u nexthops still attached",
-            rtm->name,
-            rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)),
-            route->nh_count);
-        return RTM_ERROR_INVALID_ROUTE;
-    }
-
-    ITERATE_GLTHREAD_BEGIN(&route->unresolved_paths, curr) {
-
-        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
-        remove_glthread (&lnh_list->route_glue);
-        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
-
-    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
-
-    ITERATE_GLTHREAD_BEGIN(&route->resolved_paths, curr) {
-
-        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
-        remove_glthread (&lnh_list->route_glue);
-        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
-
-    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);    
-
-    avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
-    avltree_node_init (&route->route_glue);
-    rtm_route_dereference(rtm, route);
-    
-    tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s removed successfully from routing table",
-        rtm->name,
-        rtm_format_prefix(prefix_key, prefix_str, sizeof(prefix_str)));
     
     return RTM_SUCCESS;
 }
@@ -414,6 +369,9 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
 
     } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
 
+    /* Remove from LPM tree */
+    rtm_lpm_tree_delete(rtm, &route->prefix);
+
     avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
     avltree_node_init (&route->route_glue);
     rtm_route_dereference(rtm, route);
@@ -516,4 +474,253 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
         active_count);
 
+}
+
+/* ============================================================================
+ * LPM Tree Operations using mtrie library
+ * ============================================================================ */
+
+/* Callback function to free route data when mtrie node is deleted */
+static void
+rtm_lpm_tree_free_callback(mtrie_node_t *node) {
+
+    assert (node->data);
+    node->data = NULL;
+}
+
+/* Initialize LPM tree for RTM based on AFI */
+void 
+rtm_lpm_tree_init(rtm_t *rtm) {
+
+    /* Allocate mtrie structure */
+    rtm->lpm_rt_tree = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
+    
+    /* Initialize mtrie based on AFI
+     * IPv4: 32 bits
+     * IPv6: 128 bits
+     * MPLS: Skip (as per user requirement - no MPLS)
+     */
+    uint16_t prefix_len = 0;
+    
+    switch (rtm->afi) {
+        case RTM_AF_IPV4:
+            prefix_len = 32;
+            break;
+        case RTM_AF_IPV6:
+            prefix_len = 128;
+            break;
+        case RTM_AF_LABEL:
+            /* MPLS not supported for LPM tree as per requirements */
+            XFREE(rtm->lpm_rt_tree);
+            rtm->lpm_rt_tree = NULL;
+            return;
+        case RTM_AFI_MAC:
+            /* MAC not typically used for LPM routing */
+            XFREE(rtm->lpm_rt_tree);
+            rtm->lpm_rt_tree = NULL;
+            return;
+        default:
+            XFREE(rtm->lpm_rt_tree);
+            rtm->lpm_rt_tree = NULL;
+            return;
+    }
+    
+    init_mtrie(rtm->lpm_rt_tree, prefix_len, rtm_lpm_tree_free_callback);
+}
+
+/* Destroy LPM tree */
+void 
+rtm_lpm_tree_destroy(rtm_t *rtm) {
+    
+    if (!rtm || !rtm->lpm_rt_tree) return;
+    
+    mtrie_destroy(rtm->lpm_rt_tree);
+    XFREE(rtm->lpm_rt_tree);
+    rtm->lpm_rt_tree = NULL;
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : LPM tree destroyed",
+        rtm->name);
+}
+
+/* Insert route into LPM tree */
+rtm_error_t 
+rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
+    
+    bitmap_t prefix_bm, wildcard_bm;
+    mtrie_node_t *mnode = NULL;
+    mtrie_ops_result_code_t result;
+    char prefix_str[48];
+    
+    if (!rtm || !route) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+    
+    /* Skip if LPM tree not initialized (e.g., MPLS, MAC) */
+    if (!rtm->lpm_rt_tree) {
+        return RTM_SUCCESS;
+    }
+
+    if (route->prefix.afi != RTM_AF_IPV4 &&
+            route->prefix.afi !=  RTM_AF_IPV6) return RTM_ERROR_INVALID_ARGUMENT;
+    
+    bitmap_init(&prefix_bm, route->prefix.afi == RTM_AF_IPV4 ? 32 : 128);
+    bitmap_init(&wildcard_bm, route->prefix.afi == RTM_AF_IPV4 ? 32 : 128);
+    
+    /* Convert prefix to bitmap */
+    rtm_prefix_to_bitmap(&route->prefix, &prefix_bm);
+    rtm_prefix_to_wildcard_bitmap(&route->prefix, &wildcard_bm);
+    
+    /* Insert into mtrie */
+    result = mtrie_insert_prefix(rtm->lpm_rt_tree, 
+                                  &prefix_bm, 
+                                  &wildcard_bm,
+                                  route->prefix.afi == RTM_AF_IPV4 ? 32 : 128,
+                                  &mnode);
+    
+    if (result == MTRIE_INSERT_SUCCESS) {
+        /* Set the route pointer in the mtrie node */
+        mnode->data = route;
+        //rtm_route_reference (route);
+
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Route %s inserted into LPM tree",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        
+        bitmap_free_internal(&prefix_bm);
+        bitmap_free_internal(&wildcard_bm);
+        return RTM_SUCCESS;
+    }
+    else if (result == MTRIE_INSERT_DUPLICATE) {
+        /* Route already exists in LPM tree */
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : Route %s already exists in LPM tree",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        
+        bitmap_free_internal(&prefix_bm);
+        bitmap_free_internal(&wildcard_bm);
+        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+    }
+    else {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : Failed to insert route %s into LPM tree",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        
+        bitmap_free_internal(&prefix_bm);
+        bitmap_free_internal(&wildcard_bm);
+        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
+    }
+}
+
+/* Delete route from LPM tree */
+rtm_error_t 
+rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix) {
+    
+    bitmap_t prefix_bm, wildcard_bm;
+    void *app_data = NULL;
+    mtrie_ops_result_code_t result;
+    char prefix_str[48];
+    
+    if (!rtm || !prefix) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
+    
+    /* Skip if LPM tree not initialized */
+    if (!rtm->lpm_rt_tree) {
+        return RTM_SUCCESS;
+    }
+    
+    /* Initialize bitmaps based on AFI */
+    uint16_t prefix_len = 0;
+    switch (prefix->afi) {
+        case RTM_AF_IPV4:
+            prefix_len = 32;
+            break;
+        case RTM_AF_IPV6:
+            prefix_len = 128;
+            break;
+        default:
+            return RTM_ERROR_INVALID_PREFIX;
+    }
+    
+    bitmap_init(&prefix_bm, prefix_len);
+    bitmap_init(&wildcard_bm, prefix_len);
+    
+    /* Convert prefix to bitmap */
+    rtm_prefix_to_bitmap(prefix, &prefix_bm);
+    rtm_prefix_to_wildcard_bitmap(prefix, &wildcard_bm);
+    
+    /* Delete from mtrie */
+    result = mtrie_delete_prefix(rtm->lpm_rt_tree, 
+                                  &prefix_bm, 
+                                  &wildcard_bm,
+                                  &app_data);
+    
+    bitmap_free_internal(&prefix_bm);
+    bitmap_free_internal(&wildcard_bm);
+    
+    if (result == MTRIE_DELETE_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Route %s deleted from LPM tree",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+        return RTM_SUCCESS;
+    }
+    else {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : Failed to delete route %s from LPM tree",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+}
+
+/* Longest Prefix Match lookup in LPM tree */
+rtm_route *
+rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix) {
+    
+    bitmap_t prefix_bm;
+    mtrie_node_t *mnode = NULL;
+    
+    if (!rtm || !prefix) {
+        return NULL;
+    }
+    
+    /* Skip if LPM tree not initialized */
+    if (!rtm->lpm_rt_tree) {
+        return NULL;
+    }
+    
+    /* Initialize bitmap based on AFI */
+    uint16_t prefix_len = 0;
+    switch (prefix->afi) {
+        case RTM_AF_IPV4:
+            prefix_len = 32;
+            break;
+        case RTM_AF_IPV6:
+            prefix_len = 128;
+            break;
+        default:
+            return NULL;
+    }
+    
+    bitmap_init(&prefix_bm, prefix_len);
+    
+    /* Convert prefix to bitmap */
+    rtm_prefix_to_bitmap(prefix, &prefix_bm);
+    
+    /* Perform LPM search */
+    mnode = mtrie_longest_prefix_match_search(rtm->lpm_rt_tree, &prefix_bm);
+    
+    bitmap_free_internal(&prefix_bm);
+    
+    if (!mnode || !mnode->data) {
+        return NULL;
+    }
+    
+    /* Return the route stored in the mtrie node */
+    return (rtm_route *)mnode->data;
 }

@@ -12,6 +12,9 @@
 #include "rtm_error.h"
 #include "rtm_nh.h"
 
+/* Forward declaration */
+typedef struct bitmap_ bitmap_t;
+
 typedef struct rtm_route_ {
 
         /* List of Nexthops of this route*/
@@ -49,7 +52,6 @@ bool rtm_validate_with_route(rtm_t *rtm, rtm_prefix_t *prefix);
 /* Route Mgmt Functions */
 rtm_route *rtm_route_lookup(rtm_t *rtm, rtm_prefix_t *prefix_key);
 rtm_error_t rtm_route_add(rtm_t *rtm, rtm_route *route);
-rtm_error_t rtm_route_remove(rtm_t *rtm, rtm_prefix_t *prefix_key);
 
 /* Nexthop Mgmt*/
 rtm_nh *rtm_route_lookup_nh(rtm_route *route, rtm_nh *nh_template);
@@ -60,5 +62,12 @@ rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;
 void rtm_route_reference(rtm_route *route);
 void rtm_route_dereference(rtm_t *rtm, rtm_route *route);
 void rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) ;
+
+/* LPM Tree Operations */
+void rtm_lpm_tree_init(rtm_t *rtm);
+void rtm_lpm_tree_destroy(rtm_t *rtm);
+rtm_error_t rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route);
+rtm_error_t rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix);
+rtm_route *rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix);
 
 #endif

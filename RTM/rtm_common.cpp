@@ -2,7 +2,9 @@
 #define __RTM_COMMON__
 
 #include <memory.h>
+#include <arpa/inet.h>
 #include "rtm_common.h"
+#include "../BitOp/bitmap.h"
 
 bool rtm_prefix_is_null (rtm_prefix_t *prefix) {
 
@@ -64,6 +66,51 @@ rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) {
         default:
             return 0;
     }
+}
+
+/* Helper function: Convert rtm_prefix_t to bitmap for mtrie operations */
+void 
+rtm_prefix_to_bitmap(rtm_prefix_t *prefix, bitmap_t *bm) {
+    
+    if (!prefix || !bm) return;
+    
+    switch (prefix->afi) {
+        
+        case RTM_AF_IPV4: {
+            /* For IPv4, convert to network byte order and store in bitmap */
+            uint32_t bin_ip = htonl(prefix->u.v4_addr);
+            bm->bits[0] = bin_ip;
+            bm->next += 32;
+            break;
+        }
+        case RTM_AF_IPV6: {
+            /* For IPv6, copy 16 bytes directly to bitmap */
+            uint8_t *bm_array = (uint8_t *)(bm->bits + bm->next);
+            for (int i = 0; i < 16; i++) {
+                bm_array[i] = ((uint8_t *)prefix->u.v6_addr)[i];
+            }
+            bm->next += 128;
+            break;
+        }
+        default:
+            /* MPLS and MAC not supported for LPM */
+            break;
+    }
+}
+
+/* Helper function: Convert prefix length to wildcard bitmap (inverted mask) */
+void 
+rtm_prefix_to_wildcard_bitmap(rtm_prefix_t *prefix, bitmap_t *wildcard) {
+    
+    /* Set bits that are part of the prefix to 0 (care about these bits) */
+    /* Set bits beyond the prefix length to 1 (don't care) */
+    /* Create normal mask first, then invert it for wildcard */
+    for (uint16_t i = 0; i < prefix->prefix_len; i++) {
+        bitmap_set_bit_at(wildcard, i);
+    }
+    
+    /* Invert to get wildcard (1 = don't care, 0 = care) */
+    bitmap_inverse(wildcard, prefix->afi == RTM_AF_IPV4 ? 32 : 128);
 }
 
 #endif 

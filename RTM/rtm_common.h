@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include "rtm_enums.h"
+
+typedef struct bitmap_ bitmap_t;
+
 #pragma pack(push, 8)
 
 typedef struct rtm_prefix_ {
@@ -41,6 +44,10 @@ typedef struct rtm_lstack_ {
 bool rtm_prefix_is_null (rtm_prefix_t *prefix);
 void rtm_prefix_initialize_v4 (rtm_prefix_t *prefix, uint32_t ip_addr, uint8_t mask);
 void rtm_prefix_initialize_v6 (rtm_prefix_t *prefix, uint8_t addr[16], uint8_t mask);
+
+/* Helper Functions for Prefix to Bitmap Conversion */
+void rtm_prefix_to_bitmap(rtm_prefix_t *prefix, bitmap_t *bm);
+void rtm_prefix_to_wildcard_bitmap(rtm_prefix_t *prefix, bitmap_t *wildcard);
 
 int8_t
 rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) ;

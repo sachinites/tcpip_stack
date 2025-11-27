@@ -12,6 +12,7 @@
 typedef struct node_ node_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct task_ task_t;
+typedef struct mtrie_ mtrie_t;
 
 typedef struct rtm_ {
 
@@ -20,6 +21,7 @@ typedef struct rtm_ {
     RTM_AFI_T afi;
     uint32_t rtm_id;
     char name[32];
+    mtrie_t *lpm_rt_tree;
     avltree_t route_tree;
     avltree_t nh_proto_info_tree;
     avltree_t nhs_by_idx;
@@ -28,9 +30,7 @@ typedef struct rtm_ {
     Fglthread_t advt_nhs[RTM_PROTO_MAX];
     Fglthread_t advt_queue;
     node_t *node; 
-    /* List of lnh_list_t */
     glthread_t unresolvable_lnhs;
-
     task_t *advt_job;
     
 } rtm_t;

@@ -341,7 +341,14 @@ cp_rtm_install_route (
         rtm_route_initialize(route);
         route->prefix = *prefix;
         new_rt = true;
-        rtm_route_add(rtm, route);
+        rc = rtm_route_add(rtm, route);
+        if (rc != RTM_SUCCESS) {
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Route %s addition failed", 
+                rtm->name, 
+                rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+            return rc;
+        }
     }
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);

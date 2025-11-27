@@ -10,10 +10,12 @@
 #include "rtm_common.h"
 #include "rtm_route.h"
 #include "rtm_proto.h"
+#include "rtm_nh.h"
 #include "../lmm_enums.h"
 
-/* Tree contains RTMs, a Global Tree */
-avltree_t rtm_tree;
+/* Forward declaration of LPM tree functions */
+extern void rtm_lpm_tree_init(rtm_t *rtm);
+extern void rtm_lpm_tree_destroy(rtm_t *rtm);
 
 /* AVL Tree comparison function */
 extern int8_t
@@ -70,6 +72,10 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     }
     
     init_glthread(&rtm->unresolvable_lnhs);
+    
+    /* Initialize LPM tree for fast longest prefix match lookups */
+    rtm_lpm_tree_init(rtm);
+    
     return rtm;
 }
 
@@ -91,6 +97,10 @@ void rtm_destroy (rtm_t *rtm) {
     }
     
     assert (IS_GLTHREAD_LIST_EMPTY (&rtm->unresolvable_lnhs) );
+    
+    /* Destroy LPM tree */
+    rtm_lpm_tree_destroy(rtm);
+    
     free (rtm);
 }
 
