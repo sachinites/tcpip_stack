@@ -520,6 +520,7 @@ show_rtm_route_cli_handler(int cmdcode,
     tlv_struct_t *tlv = NULL;
     c_string rib_name = NULL;
     c_string node_name = NULL;
+    c_string prefix_filter = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -527,6 +528,8 @@ show_rtm_route_cli_handler(int cmdcode,
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "rib-name"))
             rib_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "prefix-mask"))
+            prefix_filter = tlv->value;
 
     }TLV_LOOP_END;
 
@@ -549,7 +552,10 @@ show_rtm_route_cli_handler(int cmdcode,
             rtm_show_rib(rtm);
             break;
         case CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL:
-            rtm_show_rib_detail(rtm);
+            rtm_show_rib_detail(rtm, (const char *)prefix_filter);
+            break;
+        case CMDCODE_SHOW_NODE_RTM_UNRESOLVABLE_ROUTES:
+            rtm_show_unresolvable_routes(rtm);
             break;
         default:
             ;
@@ -1161,20 +1167,6 @@ nw_init_cli(){
                     init_param(&rt, CMD, "rt", show_rt_handler, 0, INVALID, 0, "Dump L3 Routing table");
                     libcli_register_param(&node_name, &rt);
                     libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
-                    {
-                         /*show node <node-name> rt <Rib name> */
-                        static param_t rib_name;
-                        init_param(&rib_name, LEAF, 0, show_rtm_route_cli_handler, 0, INVALID, "rib-name", "Show RTM table");
-                        libcli_register_param(&rt, &rib_name);
-                        libcli_set_param_cmd_code(&rib_name, CMDCODE_SHOW_NODE_RTM_ROUTE);
-                        {
-                             /*show node <node-name> rt <Rib name> detail*/
-                             static param_t detail;
-                             init_param(&detail, CMD, "detail", show_rtm_route_cli_handler, 0, INVALID, 0, "Show RTM table detail");
-                             libcli_register_param(&rib_name, &detail);
-                             libcli_set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL);    
-                        }
-                    }
                  }
 
                  {
@@ -1191,19 +1183,51 @@ nw_init_cli(){
                  }
 
                  {
-                    /*show node <node-name> rtm protocol-subscriptions*/
+                    /*show node <node-name> rtm ...*/
                     static param_t rtm;
                     init_param(&rtm, CMD, "rtm", 0, 0, INVALID, 0, "RTM information");
                     libcli_register_param(&node_name, &rtm);
                     {
-                        static param_t protocol_subscriptions;
-                        init_param(&protocol_subscriptions, CMD, "protocol-subscriptions", 
-                                   show_rtm_protocol_subscriptions_handler, 0, INVALID, 0, 
-                                   "Display protocol subscription database");
-                        libcli_register_param(&rtm, &protocol_subscriptions);
-                        libcli_set_param_cmd_code(&protocol_subscriptions, CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS);
+                         /*show node <node-name> rtm <Rib name> */
+                        static param_t rib_name;
+                        init_param(&rib_name, LEAF, 0, show_rtm_route_cli_handler, 0, STRING, "rib-name", "Show RTM table");
+                        libcli_register_param(&rtm, &rib_name);
+                        libcli_set_param_cmd_code(&rib_name, CMDCODE_SHOW_NODE_RTM_ROUTE);
+                        {
+                             /*show node <node-name> rtm <Rib name> detail*/
+                             static param_t detail;
+                             init_param(&detail, CMD, "detail", show_rtm_route_cli_handler, 0, INVALID, 0, "Show RTM table detail");
+                             libcli_register_param(&rib_name, &detail);
+                             libcli_set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL);
+                             {
+                                 /*show node <node-name> rt <Rib name> detail <prefix/mask>*/
+                                 static param_t prefix_mask;
+                                 init_param(&prefix_mask, LEAF, 0, show_rtm_route_cli_handler, 0, STRING, 
+                                    "prefix-mask", "Prefix/mask filter (e.g., 192.168.1.0/24 or 2001:db8::/64)");
+                                 libcli_register_param(&detail, &prefix_mask);
+                                 libcli_set_param_cmd_code(&prefix_mask, CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL);
+                             }
+                        }
+                        {
+                            /*show node <node-name> rtm <Rib name> unresolvable-routes*/
+                            static param_t unresolvable_routes;
+                            init_param(&unresolvable_routes, CMD, "unresolvable-routes", 
+                                       show_rtm_route_cli_handler, 0, INVALID, 0, 
+                                       "Display unresolvable routes");
+                            libcli_register_param(&rib_name, &unresolvable_routes);
+                            libcli_set_param_cmd_code(&unresolvable_routes, CMDCODE_SHOW_NODE_RTM_UNRESOLVABLE_ROUTES);
+                        }
+                        {
+                            /*show node <node-name> rtm <Rib name> protocol-subscriptions */
+                            static param_t protocol_subscriptions;
+                            init_param(&protocol_subscriptions, CMD, "protocol-subscriptions", 
+                                       show_rtm_protocol_subscriptions_handler, 0, INVALID, 0, 
+                                       "Display protocol subscription database");
+                            libcli_register_param(&rib_name, &protocol_subscriptions);
+                            libcli_set_param_cmd_code(&protocol_subscriptions, CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS);
+                        }
                     }
-                 }
+                }
 
                  {
                     /*show node <node-name> interface*/
@@ -1442,8 +1466,9 @@ nw_init_cli(){
                                             {
                                                 /* gateway <gw-ip> */
                                                 static param_t gw_ip;
-                                                init_param(&gw_ip, LEAF, 0, 0, 0, STRING, "gw-ip", "Gateway IP address (IPv4 or IPv6)");
+                                                init_param(&gw_ip, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "gw-ip", "Gateway IP address (IPv4 or IPv6)");
                                                 libcli_register_param(&gateway, &gw_ip);
+                                                libcli_set_param_cmd_code(&gw_ip, CMDCODE_CONFIG_RTM_ROUTE_IP);
                                                 {
                                                     /* interface */
                                                     static param_t interface;

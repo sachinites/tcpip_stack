@@ -61,20 +61,21 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
         afi == RTM_AF_IPV4 ? "inet" : afi == RTM_AF_IPV6 ? "inet6" :  afi == RTM_AF_LABEL ? "mpls" : "mac",
         rtm_id);
 
+    rtm_lpm_tree_init(rtm);
     avltree_init(&rtm->route_tree, rtm_route_compare);
     avltree_init (&rtm->nh_proto_info_tree, rtm_nh_proto_avl_tree_comp_fn);
     avltree_init (&rtm->nhs_by_idx, rtm_nh_compare_by_idx);
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
-        avltree_init(&rtm->proto_info_tree[i], rtm_proto_info_avl_tree_comp_fn);
         init_glthread(&rtm->nhs_by_src[i]);
+        avltree_init(&rtm->proto_info_tree[i], rtm_proto_info_avl_tree_comp_fn);
         init_Fglthread (&rtm->advt_nhs[i]);
     }
     
-    init_glthread(&rtm->unresolvable_lnhs);
-    
-    /* Initialize LPM tree for fast longest prefix match lookups */
-    rtm_lpm_tree_init(rtm);
+    init_Fglthread (&rtm->advt_queue);
+    rtm->node = NULL;
+    init_Fglthread(&rtm->unresolvable_paths);
+    rtm->advt_job = NULL;
     
     return rtm;
 }
@@ -96,12 +97,13 @@ void rtm_destroy (rtm_t *rtm) {
         assert (Fglthread_list_is_empty (&rtm->advt_nhs[i]) );
     }
     
-    assert (IS_GLTHREAD_LIST_EMPTY (&rtm->unresolvable_lnhs) );
-    
+    assert (Fglthread_list_is_empty(&rtm->unresolvable_paths) );
+    assert (Fglthread_list_is_empty(&rtm->advt_queue) );
+    assert (rtm->advt_job == NULL);
+
     /* Destroy LPM tree */
     rtm_lpm_tree_destroy(rtm);
-    
-    free (rtm);
+    XFREE(rtm);
 }
 
 rtm_nh *

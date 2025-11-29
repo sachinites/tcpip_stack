@@ -153,9 +153,6 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_route),
     MM_REG_STRUCT2(rtm_prefix_t),
     MM_REG_STRUCT2(rtm_lstack_t),
-    MM_REG_STRUCT2(rtm_resolution_nh_tracker_t),
-    MM_REG_STRUCT2(rtm_resolution_data_t),
-    MM_REG_STRUCT2(lnh_list_t),
 
     MM_REG_STRUCT2(lstack_t),
 

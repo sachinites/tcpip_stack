@@ -52,6 +52,9 @@ void rtm_prefix_to_wildcard_bitmap(rtm_prefix_t *prefix, bitmap_t *wildcard);
 int8_t
 rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) ;
 
+bool 
+rtm_parse_prefix_string(const char *prefix_str, rtm_prefix_t *prefix);
+
 #define RTM_UP_TIME(time_t_obj, buff, size)	\
 	hrs_min_sec_format((unsigned int)difftime(time(NULL), \
                                         time_t_obj), buff, size)

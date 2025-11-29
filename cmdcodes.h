@@ -175,4 +175,7 @@
 /* show node <node-name> rtm protocol-subscriptions */
 #define CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS 70
 
+/* show node <node-name> rtm <rib-name> unresolvable-routes */
+#define CMDCODE_SHOW_NODE_RTM_UNRESOLVABLE_ROUTES 71
+
 #endif /* __CMDCODES__ */

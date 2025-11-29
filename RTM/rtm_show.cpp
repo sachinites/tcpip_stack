@@ -16,12 +16,133 @@
 
 extern int cprintf (const char * format, ...);
 
+/* Forward declaration */
+static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
+
+/* Helper function to display a single route in detail */
+static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
+
+    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+    char prefix_str[128];
+    
+    rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
+    
+    /* Display route prefix and attributes */
+    cprintf("\nRoute: %s\n", prefix_str);
+    cprintf("========================================\n");
+    cprintf("  Nexthop Count  : %u\n", route->nh_count);
+    cprintf("  Flags          : 0x%04x\n", route->flags);
+    cprintf("  Ref Count      : %u\n", route->ref_count);
+
+    /* Iterate through all nexthops in the route */
+    glthread_t *curr_glthread = NULL;
+    int nh_index = 0;
+    
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
+        
+        rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
+        char nh_prefix_str[128];
+        rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
+
+        nh_index++;
+        cprintf("\n  Nexthop %d:\n", nh_index);
+        cprintf("    Idx            : %u\n", nh->idx);
+        cprintf("    Protocol       : %s\n", rtm_proto_to_string(nh->proto));
+        cprintf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
+        cprintf("    Next-Hop       : %s\n", nh_prefix_str);
+        cprintf("    Action         : %s\n", rtm_nh_action_to_string(nh->action));
+        cprintf("    OIF            : %s\n", (nh->Oif) ? nh->Oif->if_name.c_str() : "-");
+        cprintf("    Admin Distance : %u\n", nh->ad);
+        cprintf("    Metric         : %u\n", nh->metric);
+        cprintf("    Resolved       : %s\n", rtm_nh_is_resolved(nh) ? "Yes" : "No");
+        cprintf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
+        
+        /* Display resolution information for indirect nexthops */
+        if (nh->is_indirect) {
+            cprintf("    Resolution Info:\n");
+            
+            /* Show the resolver route */
+            if (nh->resolved_via_route) {
+                char resolver_prefix_str[128];
+                rtm_format_prefix(&nh->resolved_via_route->prefix, 
+                                  resolver_prefix_str, 
+                                  sizeof(resolver_prefix_str));
+                cprintf("      Resolved By Route : %s\n", resolver_prefix_str);
+            } else {
+                cprintf("      Resolved By Route : Unresolved\n");
+            }
+            
+            /* Count and display direct nexthops */
+            int direct_nh_count = 0;
+            glthread_t *dnh_glthread = NULL;
+            ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, dnh_glthread) {
+                direct_nh_count++;
+            } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, dnh_glthread);
+            
+            cprintf("      Direct Nexthops   : %d\n", direct_nh_count);
+            
+            /* Display each direct nexthop */
+            if (direct_nh_count > 0) {
+                int dnh_index = 0;
+                dnh_glthread = NULL;
+                
+                ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, dnh_glthread) {
+                    
+                    glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
+                    rtm_nh *direct_nh = (rtm_nh *)data_node->data;
+                    
+                    char direct_nh_prefix_str[128];
+                    rtm_format_nexthop(&direct_nh->prefix, 
+                                      direct_nh_prefix_str, 
+                                      sizeof(direct_nh_prefix_str));
+                    
+                    dnh_index++;
+                    cprintf("        [%d] Gateway: %-18s OIF: %-15s Protocol: %-10s\n",
+                           dnh_index,
+                           direct_nh_prefix_str,
+                           direct_nh->Oif->if_name.c_str(),
+                           rtm_proto_to_string(direct_nh->proto));
+                           
+                } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, dnh_glthread);
+            }
+        }
+        
+        cprintf ("    Active         : %s\n", nh->is_active ? "Yes" : "No");
+        cprintf ("    Uptime         : %s\n",  RTM_UP_TIME (nh->install_time, time_str, sizeof(time_str)));
+        cprintf("    Ref Count      : %u\n", nh->ref_count);
+        
+        /* Display label stack if present */
+        if (nh->label_stack && nh->label_stack->curr_index > 0) {
+            cprintf("    Label Stack    : ");
+            for (int i = 0; i < nh->label_stack->curr_index; i++) {
+                rtm_label_t *label = &nh->label_stack->labels[i];
+                const char *op_str = "UNK";
+                switch (label->op) {
+                    case RTM_LBL_SWAP: op_str = "Swap"; break;
+                    case RTM_LBL_PUSH: op_str = "Push"; break;
+                    case RTM_LBL_POP: op_str = "Pop"; break;
+                    default: break;
+                }
+                cprintf("[%u:%s]", label->label_val, op_str);
+                if (i < nh->label_stack->curr_index - 1) {
+                    cprintf(" -> ");
+                }
+            }
+            cprintf("\n");
+        }
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
+
+    /* Blank line after route display */
+    cprintf("\n");
+}
+
+extern "C" {
+
 /* Display RIB (Routing Information Base) */
 void rtm_show_rib(rtm_t *rtm) {
 
-    cprintf("\nRTM :: %s\n", rtm->name); 
-
-    cprintf("========================================\n\n");
+    cprintf("\nRTM : %s\n", rtm->name); 
 
     if (avltree_is_empty(&rtm->route_tree)) {
         return;
@@ -76,7 +197,7 @@ void rtm_show_rib(rtm_t *rtm) {
                    rtm_proto_to_string(nh->proto),
                    rtm_nh_action_to_string(nh->action),
                    nh_prefix_str,
-                   nh->Oif->if_name.c_str(),
+                   (nh->Oif) ? nh->Oif->if_name.c_str() : "",
                    nh->ad,
                    nh->metric,
                    label_stack_str);
@@ -92,101 +213,80 @@ void rtm_show_rib(rtm_t *rtm) {
 }
 
 /* Display RIB in detailed format (line by line, not tabular) */
-void rtm_show_rib_detail(rtm_t *rtm) {
-
-    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
-
-    cprintf("RIB :: %s\n", rtm->name); 
-
-    cprintf("========================================\n\n");
-
-    if (avltree_is_empty(&rtm->route_tree)) {
-        cprintf("  No routes in RIB\n\n");
+void rtm_show_rib_detail(rtm_t *rtm, const char *prefix_filter) {
+    
+    /* Parse the prefix filter if provided */
+    rtm_prefix_t prefix_key;
+    memset (&prefix_key, 0 , sizeof (prefix_key));
+    
+    bool has_filter = false;
+    
+    if (prefix_filter && strlen(prefix_filter) > 0) {
+        if (!rtm_parse_prefix_string(prefix_filter, &prefix_key)) {
+            cprintf("Error: Invalid prefix format '%s'\n", prefix_filter);
+            cprintf("Expected formats: x.x.x.x/mask (IPv4), x:x::x/mask (IPv6), or label (MPLS)\n");
+            return;
+        }
+        has_filter = true;
+        
+        /* Validate AFI matches RTM */
+        if (prefix_key.afi != rtm->afi) {
+            cprintf("Error: Prefix AFI mismatch. RTM is %s but prefix is %s\n",
+                   (rtm->afi == RTM_AF_IPV4) ? "IPv4" :
+                   (rtm->afi == RTM_AF_IPV6) ? "IPv6" :
+                   (rtm->afi == RTM_AF_LABEL) ? "MPLS" : "Unknown",
+                   (prefix_key.afi == RTM_AF_IPV4) ? "IPv4" :
+                   (prefix_key.afi == RTM_AF_IPV6) ? "IPv6" :
+                   (prefix_key.afi == RTM_AF_LABEL) ? "MPLS" : "Unknown");
+            return;
+        }
+    }
+    
+    /* If filter is specified, lookup and display only that route */
+    if (has_filter) {
+        rtm_route *route = rtm_route_lookup(rtm, &prefix_key);
+        
+        if (!route) {
+            char prefix_str[128];
+            rtm_format_prefix(&prefix_key, prefix_str, sizeof(prefix_str));
+            cprintf("Route %s not found in RTM[%s]\n", prefix_str, rtm->name);
+            return;
+        }
+        
+        /* Display the single route */
+        rtm_show_single_route_detail(rtm, route);
         return;
     }
-
-    /* Iterate through all routes in the tree */
-    avltree_node_t *curr_node = NULL;
+    
+    /* No filter - display all routes */
+    cprintf("\n========== RTM[%s] Detailed Route Information ==========\n", rtm->name);
+    cprintf("VRF: %u, AFI: %s, Table ID: %u\n\n",
+           rtm->vrf,
+           (rtm->afi == RTM_AF_IPV4) ? "IPv4" :
+           (rtm->afi == RTM_AF_IPV6) ? "IPv6" :
+           (rtm->afi == RTM_AF_LABEL) ? "MPLS" : "Unknown",
+           rtm->rtm_id);
+    
+    /* Iterate through all routes */
+    avltree_node_t *node = avltree_first((avltree_t*)&rtm->route_tree);
     int route_count = 0;
     
-    ITERATE_AVL_TREE_BEGIN(&rtm->route_tree, curr_node) {
-        
-        rtm_route *route = avltree_container_of(curr_node, rtm_route, route_glue);
-        char prefix_str[128];
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
-
+    while (node) {
+        rtm_route *route = avltree_container_of(node, rtm_route, route_glue);
         route_count++;
         
-        /* Display route prefix and attributes */
-        cprintf("Route %d:\n", route_count);
-        cprintf("  Prefix         : %s\n", prefix_str);
-        cprintf("  Nexthop Count  : %u\n", route->nh_count);
-        cprintf("  Flags          : 0x%04x\n", route->flags);
-        cprintf("  Ref Count      : %u\n", route->ref_count);
-
-        /* Iterate through all nexthops in the route */
-        glthread_t *curr_glthread = NULL;
-        int nh_index = 0;
+        rtm_show_single_route_detail(rtm, route);
         
-        ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
-            
-            rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
-            char nh_prefix_str[128];
-            rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
-
-            nh_index++;
-            cprintf("\n  Nexthop %d:\n", nh_index);
-            cprintf("    Idx            : %u\n", nh->idx);
-            cprintf("    Protocol       : %s\n", rtm_proto_to_string(nh->proto));
-            cprintf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
-            cprintf("    Next-Hop       : %s\n", nh_prefix_str);
-            cprintf("    Action         : %s\n", rtm_nh_action_to_string(nh->action));
-            cprintf("    OIF            : %s\n", nh->Oif->if_name.c_str());
-            cprintf("    Admin Distance : %u\n", nh->ad);
-            cprintf("    Metric         : %u\n", nh->metric);
-            cprintf("    Resolved       : %s\n", nh->is_resolved ? "Yes" : "No");
-            cprintf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
-            cprintf ("    Active         : %s\n", nh->is_active ? "Yes" : "No");
-            cprintf ("    Uptime         : %s\n",  RTM_UP_TIME (nh->install_time, time_str, sizeof(time_str)));
-            cprintf("    Ref Count      : %u\n", nh->ref_count);
-            
-            /* Display label stack if present */
-            if (nh->label_stack && nh->label_stack->curr_index > 0) {
-
-                cprintf("    Label Stack    : ");
-
-                for (int i = 0; i < nh->label_stack->curr_index; i++) {
-
-                    const char *op_str = "";
-
-                    switch (nh->label_stack->labels[i].op) {
-                        case RTM_LBL_SWAP: op_str = "Swap"; break;
-                        case RTM_LBL_PUSH: op_str = "Push"; break;
-                        case RTM_LBL_POP: op_str = "Pop"; break;
-                        default: op_str = "UNK"; break;
-                    }
-                    
-                    if (nh->label_stack->labels[i].op != RTM_LBL_STACK_OPS_UNKNOWN) {
-                        cprintf("%s%s:%u", 
-                            i > 0 ? ", " : "",
-                            op_str, 
-                            nh->label_stack->labels[i].label_val);
-                    }
-                }
-                cprintf("\n");
-            } else {
-                cprintf("    Label Stack    : None\n");
-            }
-            
-        } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
-
-        /* Blank line before next route */
-        cprintf("\n");
-
-    } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
-
-    cprintf("Total Routes: %d\n\n", route_count);
+        node = avltree_next(node);
+    }
+    
+    if (route_count == 0) {
+        cprintf("No routes in RTM[%s]\n", rtm->name);
+    } else {
+        cprintf("\n========== Total Routes: %d ==========\n\n", route_count);
+    }
 }
+
 
 /* Display nexthop protocol information */
 void rtm_show_nh_proto_info(rtm_t *rtm) {
@@ -265,38 +365,6 @@ void rtm_show_proto_info(rtm_t *rtm) {
 }
 
 /* Display unresolvable nexthops */
-void rtm_show_unresolvable_lnhs(rtm_t *rtm) {
-
-    cprintf("RIB :: %s\n", rtm->name);
-
-    if (IS_GLTHREAD_LIST_EMPTY(&rtm->unresolvable_lnhs)) {
-        cprintf("  No unresolvable nexthops\n\n");
-        return;
-    }
-
-    cprintf("%-15s %-20s %-40s %-10s\n",
-           "Protocol", "Sub-Protocol", "Nexthop Prefix", "OIF");
-    cprintf("%-15s %-20s %-40s %-10s\n",
-           "--------", "------------", "--------------", "---");
-
-    /* Iterate through unresolvable nexthops */
-    glthread_t *curr_glthread = NULL;
-    ITERATE_GLTHREAD_BEGIN(&rtm->unresolvable_lnhs, curr_glthread) {
-        
-        rtm_nh *nh = resolution_list_glue_to_rtm_nh(curr_glthread);
-        char nh_prefix_str[128];
-        rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
-
-        cprintf("%-15s %-20s %-40s %-10u\n",
-               rtm_proto_to_string(nh->proto),
-               rtm_sub_proto_to_string(nh->sub_proto),
-               nh_prefix_str,
-               nh->outgoing_if);
-
-    } ITERATE_GLTHREAD_END(&rtm->unresolvable_lnhs, curr_glthread);
-
-    cprintf("\n");
-}
 
 /* Display protocol subscriptions */
 void rtm_show_protocol_subscriptions(rtm_t *rtm) {
@@ -367,3 +435,67 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
 
     cprintf("\n");
 }
+
+/* Display unresolvable routes (indirect nexthops that cannot be resolved) */
+
+void rtm_show_unresolvable_routes(rtm_t *rtm) {
+    
+
+    cprintf("\nRTM : %s\n",  rtm->name);
+
+    /* Check if there are any unresolvable paths */
+    if (Fglthread_list_is_empty(&rtm->unresolvable_paths)) {
+        cprintf("  No unresolvable routes\n\n");
+        return;
+    }
+
+    /* Display header */
+    cprintf("%-20s %-12s %-15s %-10s %-10s %-15s %-8s\n",
+           "Route Prefix", "Protocol", "Gateway", "Action", "Metric", "OIF", "Active");
+    cprintf("%-20s %-12s %-15s %-10s %-10s %-15s %-8s\n",
+           "------------", "--------", "-------", "------", "------", "---", "------");
+
+    /* Iterate through unresolvable paths */
+    glthread_t *curr_glue = NULL;
+    int count = 0;
+    
+    ITERATE_GLTHREAD_BEGIN(&rtm->unresolvable_paths.head, curr_glue) {
+        
+        rtm_nh *indirect_nh = resolution_list_glue_to_rtm_nh(curr_glue);
+        count++;
+
+        /* Get the route prefix from the owner route */
+        char route_prefix_str[128] = "N/A";
+        if (indirect_nh->owner_route) {
+            rtm_format_prefix(&indirect_nh->owner_route->prefix, route_prefix_str, sizeof(route_prefix_str));
+        }
+
+        /* Format gateway/nexthop */
+        char gateway_str[128];
+        rtm_format_nexthop(&indirect_nh->prefix, gateway_str, sizeof(gateway_str));
+
+        /* Get action string */
+        const char *action_str = rtm_nh_action_to_string(indirect_nh->action);
+
+        /* Get OIF name */
+        const char *oif_str = "-";
+        if (indirect_nh->Oif) {
+            oif_str = indirect_nh->Oif->if_name.c_str();
+        }
+
+        /* Display the unresolvable route information */
+        cprintf("%-20s %-12s %-15s %-10s %-10u %-15s %-8s\n",
+               route_prefix_str,
+               rtm_proto_to_string(indirect_nh->proto),
+               gateway_str,
+               action_str,
+               indirect_nh->metric,
+               oif_str,
+               indirect_nh->is_active ? "Yes" : "No");
+
+    } ITERATE_GLTHREAD_END(&rtm->unresolvable_paths.head, curr_glue);
+
+    cprintf("\nTotal Unresolvable Routes: %d\n\n", count);
+}
+
+} // extern "C"

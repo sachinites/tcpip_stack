@@ -65,8 +65,7 @@ rtm_route_initialize(rtm_route* route) {
     if (!route) return;
     
     init_glthread(&route->path_list);
-    init_glthread(&route->unresolved_paths);
-    init_glthread(&route->resolved_paths);
+    init_Fglthread(&route->resolved_lnhs);
     avltree_node_init(&route->route_glue);
     route->flags = 0;
     route->nh_count = 0;
@@ -85,10 +84,6 @@ rtm_validate_with_route (rtm_t *rtm,  rtm_prefix_t *prefix) {
 
 rtm_route *
 rtm_route_lookup( rtm_t* rtm, rtm_prefix_t* prefix_key) {
-    
-    if (!rtm || !prefix_key) {
-        return nullptr;
-    }
     
     rtm_route temp_route;
     memset(&temp_route, 0, sizeof(rtm_route));
@@ -174,6 +169,8 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
             rtm_route_dereference(rtm, route);
             return lpm_result;
         }
+
+        rtm_route_reference(route);
     }
 
     tracer(rtm->node->cptr, DRTM,
@@ -284,15 +281,6 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     char prefix_str[48];
     char gw_str[48];
 
-    if (!route || !nh) {
-        if (rtm && rtm->node) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Delete NH from route failed - Invalid argument (route=%p, nh=%p)",
-                rtm ? rtm->name : "null", route, nh);
-        }
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-
     tracer(rtm->node->cptr, DRTM_DET,
         "RTM[%s] : Deleting NH %s from route %s, Proto=%s AD=%u",
         rtm->name,
@@ -300,36 +288,15 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
         rtm_proto_to_string(nh->proto), nh->ad);
 
-    RTM_NH_LOCK(nh);
 
     // Remove from path list
     remove_glthread(&nh->route_glue);
     rtm_nh_dereference(rtm, nh);
 
-    // Remove nh from Src list
-    remove_glthread (&nh->src_glue);
-    rtm_nh_dereference(rtm, nh);
-
-    /* Remove nh from idx tree*/
-    rtm_nh_remove_from_idx_tree(rtm, nh);
-
     // Clear owner route
     nh->owner_route = NULL;
     route->nh_count--;
     rtm_route_dereference(rtm, route);    
-    
-    if (nh->is_active) {
-        rtm_route_refresh_nexthops(rtm, route);
-    }
-
-    /* Stop resolution tracking if indirect */
-    if (nh->is_indirect) {
-        rtm_untrack_for_resolution(rtm, nh);
-    }
-
-    RTM_NH_UNLOCK(rtm, nh);
-
-    rtm_route_refresh_nexthops (rtm, route);
     
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : NH %s deleted successfully from route %s, Remaining NHs=%u",
@@ -344,72 +311,110 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 rtm_error_t 
 rtm_route_delete (rtm_t *rtm, rtm_route* route) {
 
-    if (!rtm || !route) {
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-
+    rtm_nh *indirect_nh;
+    glthread_t *curr_lnh_glue;    
+    
     assert (route->nh_count == 0);
     assert (IS_GLTHREAD_LIST_EMPTY(&route->path_list));
-
-    /* Move unresolved paths back to rtm->unresolved list */
-    glthread_t *curr;
-    ITERATE_GLTHREAD_BEGIN(&route->unresolved_paths, curr) {
-
-        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
-        remove_glthread (&lnh_list->route_glue);
-        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
-
-    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
-
-    ITERATE_GLTHREAD_BEGIN(&route->resolved_paths, curr) {
-
-        lnh_list_t *lnh_list = route_glue_to_lnh_list(curr);
-        remove_glthread (&lnh_list->route_glue);
-        glthread_add_next(&rtm->unresolvable_lnhs, &lnh_list->route_glue);
-
-    } ITERATE_GLTHREAD_END(&route->unresolved_paths, curr);
-
+    
     /* Remove from LPM tree */
-    rtm_lpm_tree_delete(rtm, &route->prefix);
+    assert (rtm_lpm_tree_delete(rtm, &route->prefix) == RTM_SUCCESS);
+    rtm_route_dereference(rtm, route);
 
-    avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
+    /* Handle INHs resolved over by this route */
+    ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
+
+        indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
+        rtm_untrack_inh_for_resolution (rtm, indirect_nh);
+
+    } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
+
+    avltree_remove(&route->route_glue, &rtm->route_tree);
     avltree_node_init (&route->route_glue);
     rtm_route_dereference(rtm, route);
 
     return RTM_SUCCESS;
 }
 
+bool 
+rtm_route_is_resolved (rtm_route* route) {
 
-/* Increment route reference count */
-void 
-rtm_route_reference(rtm_route* route) {
+    glthread_t *curr;
+    rtm_nh *curr_nh;
 
-    route->ref_count++;
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
+        
+        curr_nh = route_glue_to_rtm_nh(curr);
+        
+        if (rtm_nh_is_resolved (curr_nh)) {
+            return true;
+        }
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr);
+
+    return false;
+}
+
+/* Unreference all resources held by this route. No need to
+     Unreference resources which hold a ref count back to
+     the route, for example, path list as it is taken by ref_count
+*/
+static void 
+rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
+
+    glthread_t *curr_lnh_glue;    
+    rtm_nh *indirect_nh;
+
+    /* Though we have done it in rtm_route_delete( ) already ...*/
+    ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
+
+        indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
+        rtm_untrack_inh_for_resolution (rtm, indirect_nh);
+
+    } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);    
+
+}
+
+static void 
+rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
+
+    rtm_route_release_all_resources(rtm, route);
+    assert (IS_GLTHREAD_LIST_EMPTY(&route->path_list));
+    assert (Fglthread_list_is_empty(&route->resolved_lnhs));
+    assert (route->nh_count == 0);
+    assert (route->ref_count == 0);
+    assert (!avltree_node_is_inuse (&route->route_glue));
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route %s deleted successfully",
+        rtm->name, rtm_format_prefix(&route->prefix, NULL, 0));
+    XFREE(route);
 }
 
 /* Decrement route reference count and free if necessary */
 void 
 rtm_route_dereference(rtm_t *rtm, rtm_route* route) {
-    
-    if (route->ref_count <= 1) {
 
-        assert(IS_GLTHREAD_LIST_EMPTY(&route->path_list));
-        assert(IS_GLTHREAD_LIST_EMPTY(&route->unresolved_paths));
-        assert(IS_GLTHREAD_LIST_EMPTY(&route->resolved_paths));
+    route->ref_count--;
 
-        /* Handle hosting Data structure */
-        if (avltree_node_is_inuse (&route->route_glue)) {
-            avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
-            avltree_node_init (&route->route_glue);
-            assert (route->ref_count == 1);
-            route->ref_count--;
-        }
-
-        free(route);
+    if (avltree_node_is_inuse (&route->route_glue) &&
+            route->ref_count == 1) {
+        avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
+        avltree_node_init (&route->route_glue);
+        route->ref_count--;
+        rtm_route_check_and_delete(rtm, route);
         return;
     }
 
-    route->ref_count--;
+    if (route->ref_count == 0) {
+        rtm_route_check_and_delete(rtm, route);
+    }
+}
+
+void 
+rtm_route_reference(rtm_route* route) {
+
+    route->ref_count++;
 }
 
 void 
@@ -438,12 +443,8 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
     rtm_nh *best_nh = route_glue_to_rtm_nh(best_glue);
     
     if (!best_nh->is_active) {
-        if (best_nh->is_resolved) {
-            rtm_nh_set_active(rtm, best_nh);
-            active_count++;
-        }
-    } else {
-        active_count++;
+        rtm_nh_set_active(rtm, best_nh);      
+        active_count++;  
     }
 
     ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {

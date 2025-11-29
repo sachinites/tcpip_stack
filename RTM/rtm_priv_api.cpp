@@ -1,6 +1,6 @@
-#include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
+#include <arpa/inet.h>
 #include "../graph.h"
 #include "../Interface/InterfaceUApi.h"
 #include "rtm_priv_api.h"
@@ -105,8 +105,6 @@ void
     }
     
     rtm_nh_reference(nh);
-    
-    rtm_route_refresh_nexthops (rtm, route);
 
     tracer(rtm->node->cptr, DRTM_DET,
         "RTM[%s] : NH added successfully to route %s, Total NHs in route=%u",

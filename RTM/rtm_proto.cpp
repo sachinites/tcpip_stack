@@ -1,12 +1,15 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "../graph.h"
 #include "rtm_proto.h"
 #include "rtm.h"
 #include "rtm_error.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "rtm_presentation.h"
+#include "../Tracer/tracer.h"
+
 /* ========================================================================
  * NH PROTO (rtm_nh_proto_t) Management Functions
  * ======================================================================== */
@@ -146,25 +149,52 @@ rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto) {
     nh_proto->ref_count++;
 }
 
-/* Decrement NH protocol info reference count and free if necessary */
+static void 
+rtm_nh_proto_release_all_resources(rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
+
+    /* Nothing to release */
+}
+
+static void 
+rtm_nh_proto_check_and_delete (rtm_t *rtm, 
+        rtm_nh_proto_t *nh_proto) {
+
+    char proto_str[32];
+
+    rtm_nh_proto_release_all_resources(rtm, nh_proto);
+    
+    assert (!avltree_node_is_inuse(&nh_proto->proto_glue));
+    assert (nh_proto->ref_count == 0);
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Deleting NH Proto Info Proto=%s SubProto=%s Inst=%u VRF=%u",
+        rtm->name,
+        rtm_proto_to_string(nh_proto->proto),
+        rtm_sub_proto_to_string(nh_proto->sub_proto),
+        nh_proto->instance_no,
+        nh_proto->vrf_id);
+    
+    XFREE (nh_proto);
+}
+
 void
 rtm_nh_proto_dereference (rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
 
-    if (nh_proto->ref_count <= 1) {
+    nh_proto->ref_count--;
 
-        /* Handle hosting Data structure */
-        if (avltree_node_is_inuse (&nh_proto->proto_glue)) {
-            avltree_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
-            avltree_node_init (&nh_proto->proto_glue);
-            assert (nh_proto->ref_count == 1);
-            nh_proto->ref_count--;
-        }
-
-        free (nh_proto);
+    if (avltree_node_is_inuse(&nh_proto->proto_glue) &&
+        nh_proto->ref_count == 1)
+    {
+        avltree_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
+        avltree_node_init(&nh_proto->proto_glue);
+        nh_proto->ref_count--;
+        rtm_nh_proto_check_and_delete (rtm, nh_proto);
         return;
     }
 
-    nh_proto->ref_count--;
+    if (nh_proto->ref_count == 0){
+        rtm_nh_proto_check_and_delete (rtm, nh_proto);
+    }
 }
 
 int8_t 

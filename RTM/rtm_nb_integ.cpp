@@ -8,6 +8,7 @@
 #include "rtm_nh.h"
 #include "rtm_fib_interface.h"
 #include "rtm_presentation.h"
+#include "rtm_resolution.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
@@ -92,9 +93,8 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->metric = nh_template->metric;
     nh->action = nh_template->action;
     nh->prefix = nh_template->gateway;
-    nh->Oif = nh_template->Oif->GetSharedPtr();
+    nh->Oif = nh_template->Oif ? nh_template->Oif->GetSharedPtr() : nullptr;
     nh->is_indirect = nh_template->is_indirect;
-    nh->is_resolved = nh_template->is_resolved;
     nh->is_active = false;
     nh->ref_count = 0;
 
@@ -387,6 +387,7 @@ cp_rtm_install_route (
     rtm_nh_reference(nh);
 
     cp_nh_template->idx = nh->idx;
+
     rtm_route_refresh_nexthops (rtm, route);
     
     tracer(rtm->node->cptr, DRTM_DET,
@@ -435,23 +436,17 @@ cp_rtm_uninstall_route_by_idx (
 }
 
 rtm_error_t 
-cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t *nh_template) {
+cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, 
+                         cp_nexthop_template_t *nh_template) {
 
     rtm_nh_proto_t *nh_proto;
     rtm_error_t rc = RTM_SUCCESS;
     char prefix_str[48];
     char gw_str[48];
 
-    if (!rtm || !prefix || !nh_template) {
-        if (rtm && rtm->node) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Uninstall route failed - Invalid argument (rtm=%p, prefix=%p, nh=%p)",
-                rtm ? rtm->name : "null", rtm, prefix, nh_template);
-        }
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
+    rc = rtm_validate_cp_nexthop_template(nh_template);
 
-    if ((rc = rtm_validate_cp_nexthop_template(nh_template))) {
+    if (rc != RTM_SUCCESS) {
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR: NH template validation failed - %s",
             rtm->name, rtm_error_to_string(rc));
@@ -490,6 +485,12 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t
         return RTM_ERROR_NEXTHOP_NOT_FOUND;
     }
 
+    if (actual_nh->is_active && 
+        actual_nh->is_indirect &&
+        actual_nh->resolved_via_route){
+        rtm_untrack_inh_for_resolution(rtm, actual_nh);
+    }
+
     rc = rtm_route_delete_nh (rtm, route, actual_nh);
 
     if (rc != RTM_SUCCESS) {
@@ -500,6 +501,15 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, cp_nexthop_template_t
             rtm_error_to_string(rc));
         return rc;
     }
+
+    if (actual_nh->is_active){
+        rtm_route_refresh_nexthops (rtm, route);
+    }
+    
+    /* Remove nh from idx tree*/
+    rtm_nh_remove_from_idx_tree(rtm, actual_nh);    
+    remove_glthread(&actual_nh->src_glue);
+    rtm_nh_dereference(rtm, actual_nh);
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {

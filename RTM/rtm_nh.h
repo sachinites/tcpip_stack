@@ -30,11 +30,10 @@ typedef struct rtm_nh_ {
 
         /* Backpointer to the owning route (shared Pointer)*/
         rtm_route* owner_route;
-
+        
         /* Glues*/
         glthread_t route_glue;
         glthread_t src_glue;
-        glthread_t resolution_list_glue;
         avltree_node_t idx_glue;
         glthread_t advt_glue; // keyed by idx
         
@@ -55,10 +54,16 @@ typedef struct rtm_nh_ {
 
         /* Outgoing Interface*/
         InterfaceP Oif;
-       uint32_t outgoing_if;
+        uint32_t outgoing_if;
 
-        bool is_resolved;
         bool is_indirect;
+        /* Data node List of direct nexthops which resolves this INH*/
+        Fglthread_t direct_nh_list;
+        /* This INH is resolved by this route*/
+        rtm_route *resolved_via_route; 
+        /* Glue to rtm_route->resolved_lnhs */
+        glthread_t resolution_list_glue;
+
         bool is_active;
 
         /*MPLS  Label Stack*/
@@ -90,6 +95,7 @@ void rtm_nh_reference(rtm_nh *nh);
 void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
+bool rtm_nh_is_resolved (rtm_nh *nh);
 
 #define RTM_NH_LOCK(nh_ptr)  rtm_nh_reference(nh_ptr)
 #define RTM_NH_UNLOCK(rtm, nh_ptr) rtm_nh_dereference(rtm, nh_ptr)

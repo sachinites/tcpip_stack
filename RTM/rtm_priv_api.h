@@ -2,6 +2,7 @@
 #define __RTM_PRIV_API__
 
 #include "rtm_enums.h"
+#include <stdbool.h>
 
 typedef struct rtm_ rtm_t;
 typedef struct rtm_route_ rtm_route;

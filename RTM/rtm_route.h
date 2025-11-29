@@ -20,12 +20,8 @@ typedef struct rtm_route_ {
         /* List of Nexthops of this route*/
         glthread_t path_list;
 
-        /* List of loost of nexthops pending to be resolved by this route,
-        list of lnh_list_t objects */
-        glthread_t unresolved_paths;
-
-        /* List of nexthops resolved by this route, list of lnh_list_t */
-        glthread_t resolved_paths;
+        /* List of LNHs resolved by this route */
+        Fglthread_t resolved_lnhs;
 
         /* Glues */
         /* Glue in RTM main tree */
@@ -62,6 +58,7 @@ rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;
 void rtm_route_reference(rtm_route *route);
 void rtm_route_dereference(rtm_t *rtm, rtm_route *route);
 void rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) ;
+bool rtm_route_is_resolved (rtm_route* route);
 
 /* LPM Tree Operations */
 void rtm_lpm_tree_init(rtm_t *rtm);
