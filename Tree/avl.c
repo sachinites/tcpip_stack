@@ -373,14 +373,28 @@ struct avltree_node *avltree_insert(struct avltree_node *node, struct avltree *t
 	return NULL;
 }
 
-/* Deletion might require up to log(n) rotations */
-void avltree_remove(struct avltree_node *node, struct avltree *tree)
+/* Deletion might require up to log(n) rotations 
+ * Returns 1 if node was successfully removed, 0 if node was not in the tree
+ */
+int avltree_remove(struct avltree_node *node, struct avltree *tree)
 {
 	struct avltree_node *parent = get_parent(node);
 	struct avltree_node *left = node->left;
 	struct avltree_node *right = node->right;
 	struct avltree_node *next;
+	struct avltree_node *found_node;
 	int is_left = 0;
+
+	/* Check if node is actually in the tree */
+	if (!node || !tree) {
+		return 0;  /* Invalid arguments */
+	}
+
+	/* Verify the node is actually in this tree by doing a lookup */
+	found_node = avltree_lookup(node, tree);
+	if (found_node != node) {
+		return 0;  /* Node not found in tree */
+	}
 
 	if (node == tree->first)
 		tree->first = avltree_next(node);
@@ -464,14 +478,14 @@ void avltree_remove(struct avltree_node *node, struct avltree *tree)
 			if (balance == 0)		/* case 1 */
 				continue;
 			if (balance == 1)		/* case 2 */
-				return;
+				return 1;
 			right = node->right;		/* case 3 */
 			switch (get_balance(right)) {
 			case 0:				/* case 3.1 */
 				set_balance( 1, node);
 				set_balance(-1, right);
 				rotate_left(node, tree);
-				return;
+				return 1;
 			case 1:				/* case 3.2 */
 				set_balance(0, node);
 				set_balance(0, right);
@@ -503,14 +517,14 @@ void avltree_remove(struct avltree_node *node, struct avltree *tree)
 			if (balance == 0)
 				continue;
 			if (balance == -1)
-				return;
+				return 1;
 			left = node->left;
 			switch (get_balance(left)) {
 			case 0:
 				set_balance(-1, node);
 				set_balance(1, left);
 				rotate_right(node, tree);
-				return;
+				return 1;
 			case -1:
 				set_balance(0, node);
 				set_balance(0, left);
@@ -538,6 +552,14 @@ void avltree_remove(struct avltree_node *node, struct avltree *tree)
 		}
 	}
 	tree->height--;
+	return 1;  /* Successfully removed */
+}
+
+void 
+avltree_strict_remove(struct avltree_node *node, struct avltree *tree){
+
+	assert (avltree_remove(node, tree));
+	avltree_node_init(node);
 }
 
 void avltree_replace(struct avltree_node *old, struct avltree_node *_new,

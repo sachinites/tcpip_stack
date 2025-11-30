@@ -55,8 +55,6 @@ rtm_error_t rtm_route_add_nh(rtm_t *rtm, rtm_route *route, rtm_nh *nh);
 rtm_error_t rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh);
 rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;
 
-void rtm_route_reference(rtm_route *route);
-void rtm_route_dereference(rtm_t *rtm, rtm_route *route);
 void rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) ;
 bool rtm_route_is_resolved (rtm_route* route);
 
@@ -66,5 +64,40 @@ void rtm_lpm_tree_destroy(rtm_t *rtm);
 rtm_error_t rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route);
 rtm_error_t rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix);
 rtm_route *rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix);
+
+void rtm_route_reference(rtm_route* route);
+void rtm_route_dereference(rtm_t *rtm, rtm_route* route);
+
+/* Wrapper to glthread_add_next ()*/
+void rtm_route_glthread_add_next (rtm_route *route, 
+        glthread_t *curr_glthread, glthread_t *new_glthread);
+
+/* Wrapper over remove_glthread( ) */
+void rtm_route_remove_glthread (rtm_t *rtm, rtm_route *route, glthread_t *curr_glthread);
+
+/* Wrapper over Fglthread_add_next()*/
+void rtm_route_fglthread_add_next (rtm_route *route, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread);
+
+/* Wrapper over Fglthread_add_before()*/
+void rtm_route_fglthread_add_before (rtm_route *route, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread);
+
+void
+rtm_route_remove_Fglthread(rtm_t *rtm, rtm_route *route, 
+                Fglthread_t *head, glthread_t *glthread);
+
+void
+rtm_route_Fglthread_add_last(rtm_route *route, 
+        Fglthread_t *head, glthread_t *new_glthread);
+
+void 
+rtm_route_avl_insert (rtm_route *route, avltree_t *tree, avltree_node_t *avlnode);
+
+void 
+rtm_route_avl_remove (rtm_t *rtm, rtm_route *route, 
+        avltree_t *tree, avltree_node_t *avlnode);
 
 #endif

@@ -19,10 +19,21 @@ typedef struct rtm_route_ rtm_route;
 
 #pragma pack(pop)
 
+/* Cases to cover : 
+1. When new INH is added - Done 
+2. When INH is removed - Done
+3. When new DNH is added
+4. When DNH is removed 
+5. When new Route is added with DNH
+6. When Route is deleted with DNH 
+*/
 void 
 rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh);
 
 void 
 rtm_untrack_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh);
+
+void
+rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) ;
 
 #endif

@@ -185,8 +185,7 @@ rtm_nh_proto_dereference (rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
     if (avltree_node_is_inuse(&nh_proto->proto_glue) &&
         nh_proto->ref_count == 1)
     {
-        avltree_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
-        avltree_node_init(&nh_proto->proto_glue);
+        avltree_strict_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
         nh_proto->ref_count--;
         rtm_nh_proto_check_and_delete (rtm, nh_proto);
         return;
@@ -248,6 +247,7 @@ void
 rtm_nh_proto_initialize(rtm_nh_proto_t *nh_proto) {
 
     memset (nh_proto, 0, sizeof (*nh_proto));
+    avltree_node_init(&nh_proto->proto_glue);
 }
 
 
@@ -312,13 +312,11 @@ void
 rtm_nh_proto_copy(rtm_nh_proto_t *src_nh_proto, rtm_nh_proto_t *dst_nh_proto) {
 
     avltree_node_t avl_node;
-
-    memcpy(&avl_node, &dst_nh_proto->proto_glue, sizeof(avltree_node_t));
     uint32_t ref_count = dst_nh_proto->ref_count;
-
+    memcpy(&avl_node, &dst_nh_proto->proto_glue, sizeof(avltree_node_t));
     memcpy(dst_nh_proto, src_nh_proto, sizeof(rtm_nh_proto_t));
-    dst_nh_proto->ref_count = ref_count;
     memcpy (&dst_nh_proto->proto_glue, &avl_node, sizeof(avltree_node_t));
+    dst_nh_proto->ref_count = ref_count;
 }
 
 /* Add protocol info to RTM */
@@ -375,7 +373,7 @@ rtm_proto_info_del(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     avltree_t *proto_tree = (avltree_t*)&rtm->proto_info_tree[proto];
     avltree_node_init (&proto_info->proto_glue); 
     // Remove from protocol info tree
-    avltree_remove(&proto_info->proto_glue, proto_tree);
+    avltree_strict_remove(&proto_info->proto_glue, proto_tree);
     
     // Free the protocol info
     free(proto_info);

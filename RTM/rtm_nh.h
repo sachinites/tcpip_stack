@@ -91,13 +91,49 @@ int8_t rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_compare_by_idx (rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2);
 void rtm_nh_initialize(rtm_nh *nh);
-void rtm_nh_reference(rtm_nh *nh);
-void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
 bool rtm_nh_is_resolved (rtm_nh *nh);
+void rtm_nh_reference(rtm_nh *nh);
+void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
+
 
 #define RTM_NH_LOCK(nh_ptr)  rtm_nh_reference(nh_ptr)
 #define RTM_NH_UNLOCK(rtm, nh_ptr) rtm_nh_dereference(rtm, nh_ptr)
+
+/* Wrapper to glthread_add_next ()*/
+void rtm_nh_glthread_add_next (rtm_nh *nh, 
+        glthread_t *curr_glthread, glthread_t *new_glthread);
+
+void rtm_nh_glthread_add_before (rtm_nh *nh, 
+        glthread_t *curr_glthread, glthread_t *new_glthread);
+        
+/* Wrapper over remove_glthread( ) */
+void rtm_nh_remove_glthread (rtm_t *rtm, rtm_nh *nh, glthread_t *curr_glthread);
+
+/* Wrapper over Fglthread_add_next()*/
+void rtm_nh_fglthread_add_next (rtm_nh *nh, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread);
+
+/* Wrapper over Fglthread_add_before()*/
+void rtm_nh_fglthread_add_before (rtm_nh *nh, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread);
+
+void
+rtm_nh_remove_Fglthread(rtm_t *rtm, rtm_nh *nh, 
+                Fglthread_t *head, glthread_t *glthread);
+
+void
+rtm_nh_Fglthread_add_last(rtm_nh *nh, 
+        Fglthread_t *head, glthread_t *new_glthread);
+
+void 
+rtm_nh_avl_insert (rtm_nh *nh, avltree_t *tree, avltree_node_t *avlnode);
+
+void 
+rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh, 
+        avltree_t *tree, avltree_node_t *avlnode);
 
 #endif 

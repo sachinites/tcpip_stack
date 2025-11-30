@@ -68,6 +68,22 @@ rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) {
     XFREE (nh);
 }
 
+void 
+rtm_nh_reference(rtm_nh *nh) {
+    
+    nh->ref_count++;
+}
+
+void 
+rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
+        
+    nh->ref_count--;
+
+    if (nh->ref_count == 0) {
+        rtm_nh_check_and_delete(rtm, nh);
+    }
+}
+
 /* Wrapper for compare function with exact signature from header */
 int8_t 
 rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
@@ -248,7 +264,12 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     nh->is_active = true;
 
-    if (nh->is_indirect) rtm_track_inh_for_resolution (rtm, nh);
+    if (nh->is_indirect) {
+        rtm_track_inh_for_resolution (rtm, nh);
+    }
+    else {
+        rtm_resolve_routes_recursively (rtm, nh->owner_route);
+    }
     rtm_fib_install(nh->owner_route, nh);
     rtm_presentation_layer_route_add (rtm, nh);
 }
@@ -269,7 +290,13 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
             rtm_proto_to_string(nh->proto));
     
     nh->is_active = false;
-    if (nh->is_indirect) rtm_untrack_inh_for_resolution(rtm, nh);
+
+    if (nh->is_indirect) {
+        rtm_untrack_inh_for_resolution(rtm, nh);
+    }
+    else {
+        rtm_resolve_routes_recursively (rtm, nh->owner_route);
+    }
     rtm_fib_uninstall(nh->owner_route, nh);
     rtm_presentation_layer_route_add (rtm, nh);
     
@@ -279,34 +306,85 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
 }
 
-void 
-rtm_nh_reference(rtm_nh *nh) {
-    
-    nh->ref_count++;
-}
-
-void 
-rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
-    
-    nh->ref_count--;
-
-    if (avltree_node_is_inuse(&nh->idx_glue) &&
-        nh->ref_count == 1)
-    {
-        avltree_remove(&nh->idx_glue, &rtm->nhs_by_idx);
-        avltree_node_init(&nh->idx_glue);
-        nh->ref_count--;
-        rtm_nh_check_and_delete(rtm, nh);
-        return;
-    }
-
-    if (nh->ref_count == 0) {
-        rtm_nh_check_and_delete(rtm, nh);
-    }
-}
-
 bool rtm_nh_is_resolved (rtm_nh *nh) {
 
     if (!nh->is_indirect) return true;
     return !(Fglthread_list_is_empty(&nh->direct_nh_list));
+}
+
+void rtm_nh_glthread_add_next (
+    rtm_nh *nh, glthread_t *curr_glthread, glthread_t *new_glthread){
+    
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    glthread_add_next (curr_glthread, new_glthread);
+    rtm_nh_reference (nh);
+}
+
+void rtm_nh_glthread_add_before (
+    rtm_nh *nh, glthread_t *curr_glthread, glthread_t *new_glthread){
+    
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    glthread_add_before (curr_glthread, new_glthread);
+    rtm_nh_reference (nh);
+}
+
+void rtm_nh_remove_glthread (rtm_t *rtm, rtm_nh *nh, glthread_t *curr_glthread){
+
+    assert (IS_QUEUED_UP_IN_THREAD(curr_glthread));
+    remove_glthread (curr_glthread);
+    rtm_nh_dereference (rtm, nh);
+}
+
+void rtm_nh_fglthread_add_next (rtm_nh *nh, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread) {
+
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    Fglthread_add_next (head, base_glthread, new_glthread);
+    rtm_nh_reference (nh);
+}
+
+void rtm_nh_fglthread_add_before (rtm_nh *nh, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread) {
+
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    Fglthread_add_before (head, base_glthread, new_glthread);
+    rtm_nh_reference (nh);
+}
+
+void
+rtm_nh_remove_Fglthread(rtm_t *rtm, rtm_nh *nh, 
+                Fglthread_t *head, glthread_t *glthread){
+
+    assert (IS_QUEUED_UP_IN_THREAD(glthread));
+    remove_Fglthread (head, glthread);
+    rtm_nh_dereference (rtm, nh);
+}
+
+void
+rtm_nh_Fglthread_add_last(rtm_nh *nh, 
+        Fglthread_t *head, glthread_t *new_glthread) {
+
+
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    Fglthread_add_last (head, new_glthread);
+    rtm_nh_reference (nh);
+}
+
+void 
+rtm_nh_avl_insert (rtm_nh *nh, avltree_t *tree, avltree_node_t *avlnode){
+
+    assert (!avltree_node_is_inuse(avlnode));
+    assert (!avltree_insert(avlnode, tree));
+    rtm_nh_reference (nh);
+}
+
+void 
+rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh, 
+    avltree_t *tree, avltree_node_t *avlnode){
+
+    assert (avltree_node_is_inuse(avlnode));
+    avltree_strict_remove(avlnode, tree); 
+    rtm_nh_dereference (rtm, nh);
 }

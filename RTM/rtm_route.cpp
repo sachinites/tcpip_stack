@@ -15,6 +15,60 @@
 #include "../BitOp/bitmap.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
+/* Unreference all resources held by this route. No need to
+     Unreference resources which hold a ref count back to
+     the route, for example, path list as it is taken by ref_count
+*/
+static void 
+rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
+
+    glthread_t *curr_lnh_glue;    
+    rtm_nh *indirect_nh;
+
+    /* Though we have done it in rtm_route_delete( ) already ...*/
+    ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
+
+        indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
+        rtm_untrack_inh_for_resolution (rtm, indirect_nh);
+
+    } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);    
+
+}
+
+static void 
+rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
+
+    char prefix_str[48];
+    rtm_route_release_all_resources(rtm, route);
+    assert (IS_GLTHREAD_LIST_EMPTY(&route->path_list));
+    assert (Fglthread_list_is_empty(&route->resolved_lnhs));
+    assert (route->nh_count == 0);
+    assert (route->ref_count == 0);
+    assert (!avltree_node_is_inuse (&route->route_glue));
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route %s deleted successfully\n",
+        rtm->name, rtm_format_prefix(&route->prefix, prefix_str, sizeof (prefix_str)));
+
+    XFREE(route);
+}
+
+void 
+rtm_route_dereference(rtm_t *rtm, rtm_route* route) {
+
+    route->ref_count--;
+
+    if (route->ref_count == 0) {
+        rtm_route_check_and_delete(rtm, route);
+    }
+}
+
+void 
+rtm_route_reference(rtm_route* route) {
+
+    route->ref_count++;
+}
+
 /* Comparator function for route AVL tree */
 int
 rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
@@ -139,17 +193,10 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
     
-    // Insert into route tree
-    if (avltree_insert(&route->route_glue, 
-                       (avltree_t*)&rtm->route_tree)) {
-        tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Route %s AVL tree insertion failed",
-            rtm->name,
-            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
-        return RTM_ERROR_CONTAINER_INSERTION_FAILED;
-    }
+    // Insert into route tree using wrapper
+    rtm_route_avl_insert(route, (avltree_t*)&rtm->route_tree, &route->route_glue);
     
-    rtm_route_reference(route);
+    /* Note: rtm_route_avl_insert already calls rtm_route_reference */
     
     /* Insert into LPM tree for fast longest prefix match lookups */
     if (route->prefix.afi == RTM_AF_IPV4 ||
@@ -164,9 +211,8 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
                    "RTM[%s] : ERROR: Route %s LPM tree insertion failed, rolling back",
                    rtm->name,
                    rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
-            avltree_remove(&route->route_glue, (avltree_t *)&rtm->route_tree);
-            avltree_node_init(&route->route_glue);
-            rtm_route_dereference(rtm, route);
+            rtm_route_avl_remove(rtm, route, (avltree_t *)&rtm->route_tree, &route->route_glue);
+            /* Note: rtm_route_avl_remove already calls rtm_route_dereference */
             return lpm_result;
         }
 
@@ -253,9 +299,6 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rtm_route_add_nh_to_route_path_list (rtm, route, nh);
     route->nh_count++;
 
-    glthread_add_next (&rtm->nhs_by_src[nh->proto], &nh->src_glue);
-    rtm_nh_reference(nh);
-
     rc = rtm_nh_proto_add(rtm, nh->rtm_nh_proto, &existing_nh_proto) ;
 
     if (rc == RTM_ERROR_NEXTHOP_PROTO_ALREADY_EXISTS) {
@@ -289,9 +332,8 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         rtm_proto_to_string(nh->proto), nh->ad);
 
 
-    // Remove from path list
-    remove_glthread(&nh->route_glue);
-    rtm_nh_dereference(rtm, nh);
+    // Remove from path list using wrapper
+    rtm_nh_remove_glthread(rtm, nh, &nh->route_glue);
 
     // Clear owner route
     nh->owner_route = NULL;
@@ -329,9 +371,7 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
 
     } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
 
-    avltree_remove(&route->route_glue, &rtm->route_tree);
-    avltree_node_init (&route->route_glue);
-    rtm_route_dereference(rtm, route);
+    rtm_route_avl_remove(rtm, route, &rtm->route_tree, &route->route_glue);
 
     return RTM_SUCCESS;
 }
@@ -353,68 +393,6 @@ rtm_route_is_resolved (rtm_route* route) {
     } ITERATE_GLTHREAD_END(&route->path_list, curr);
 
     return false;
-}
-
-/* Unreference all resources held by this route. No need to
-     Unreference resources which hold a ref count back to
-     the route, for example, path list as it is taken by ref_count
-*/
-static void 
-rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
-
-    glthread_t *curr_lnh_glue;    
-    rtm_nh *indirect_nh;
-
-    /* Though we have done it in rtm_route_delete( ) already ...*/
-    ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
-
-        indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
-        rtm_untrack_inh_for_resolution (rtm, indirect_nh);
-
-    } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);    
-
-}
-
-static void 
-rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
-
-    rtm_route_release_all_resources(rtm, route);
-    assert (IS_GLTHREAD_LIST_EMPTY(&route->path_list));
-    assert (Fglthread_list_is_empty(&route->resolved_lnhs));
-    assert (route->nh_count == 0);
-    assert (route->ref_count == 0);
-    assert (!avltree_node_is_inuse (&route->route_glue));
-
-    tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s deleted successfully",
-        rtm->name, rtm_format_prefix(&route->prefix, NULL, 0));
-    XFREE(route);
-}
-
-/* Decrement route reference count and free if necessary */
-void 
-rtm_route_dereference(rtm_t *rtm, rtm_route* route) {
-
-    route->ref_count--;
-
-    if (avltree_node_is_inuse (&route->route_glue) &&
-            route->ref_count == 1) {
-        avltree_remove(&route->route_glue, (avltree_t*)&rtm->route_tree);
-        avltree_node_init (&route->route_glue);
-        route->ref_count--;
-        rtm_route_check_and_delete(rtm, route);
-        return;
-    }
-
-    if (route->ref_count == 0) {
-        rtm_route_check_and_delete(rtm, route);
-    }
-}
-
-void 
-rtm_route_reference(rtm_route* route) {
-
-    route->ref_count++;
 }
 
 void 
@@ -724,4 +702,82 @@ rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix) {
     
     /* Return the route stored in the mtrie node */
     return (rtm_route *)mnode->data;
+}
+
+/* ========================================================================
+ * Wrapper Functions for rtm_route - Following the exact pattern from rtm_nh.cpp
+ * These wrappers enforce reference counting for glthread and AVL operations
+ * ======================================================================== */
+
+void 
+rtm_route_glthread_add_next (
+    rtm_route *route, glthread_t *curr_glthread, glthread_t *new_glthread){
+    
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    glthread_add_next (curr_glthread, new_glthread);
+    rtm_route_reference (route);
+}
+
+void 
+rtm_route_remove_glthread (rtm_t *rtm, rtm_route *route, glthread_t *curr_glthread){
+
+    assert (IS_QUEUED_UP_IN_THREAD(curr_glthread));
+    remove_glthread (curr_glthread);
+    rtm_route_dereference (rtm, route);
+}
+
+void 
+rtm_route_fglthread_add_next (rtm_route *route, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread) {
+
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    Fglthread_add_next (head, base_glthread, new_glthread);
+    rtm_route_reference (route);
+}
+
+void 
+rtm_route_fglthread_add_before (rtm_route *route, 
+        Fglthread_t *head, 
+        glthread_t *base_glthread, glthread_t *new_glthread) {
+
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    Fglthread_add_before (head, base_glthread, new_glthread);
+    rtm_route_reference (route);
+}
+
+void
+rtm_route_remove_Fglthread(rtm_t *rtm, rtm_route *route, 
+                Fglthread_t *head, glthread_t *glthread){
+
+    assert (IS_QUEUED_UP_IN_THREAD(glthread));
+    remove_Fglthread (head, glthread);
+    rtm_route_dereference (rtm, route);
+}
+
+void
+rtm_route_Fglthread_add_last(rtm_route *route, 
+        Fglthread_t *head, glthread_t *new_glthread) {
+
+
+    assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
+    Fglthread_add_last (head, new_glthread);
+    rtm_route_reference (route);
+}
+
+void 
+rtm_route_avl_insert (rtm_route *route, avltree_t *tree, avltree_node_t *avlnode){
+
+    assert (!avltree_node_is_inuse(avlnode));
+    assert (!avltree_insert(avlnode, tree));
+    rtm_route_reference (route);
+}
+
+void 
+rtm_route_avl_remove (rtm_t *rtm, rtm_route *route, 
+    avltree_t *tree, avltree_node_t *avlnode){
+
+    assert (avltree_node_is_inuse(avlnode));
+    avltree_strict_remove(avlnode, tree); 
+    rtm_route_dereference (rtm, route);
 }

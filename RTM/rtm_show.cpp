@@ -22,8 +22,8 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
 /* Helper function to display a single route in detail */
 static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
 
-    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
     char prefix_str[128];
+    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
     
     rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
     
@@ -33,6 +33,33 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
     cprintf("  Nexthop Count  : %u\n", route->nh_count);
     cprintf("  Flags          : 0x%04x\n", route->flags);
     cprintf("  Ref Count      : %u\n", route->ref_count);
+
+    /* Print the paths this route resolved */
+    cprintf("  Dependent Paths:");
+
+    if (Fglthread_list_is_empty(&route->resolved_lnhs)) {
+
+        cprintf(" None\n");
+
+    } else {
+
+        glthread_t *curr_lnh_glue = NULL;
+        int resolved_count = 0;
+        printw("\n");
+
+        ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
+
+            rtm_nh *indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
+            char inh_prefix_str[128];
+            rtm_format_nexthop(&indirect_nh->prefix, inh_prefix_str, sizeof(inh_prefix_str));
+            resolved_count++;
+            cprintf("    [%d] %s, %s\n", 
+                resolved_count, inh_prefix_str, 
+                rtm_proto_to_string (indirect_nh->proto));
+
+        } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
+
+    }
 
     /* Iterate through all nexthops in the route */
     glthread_t *curr_glthread = NULL;
@@ -97,7 +124,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                                       sizeof(direct_nh_prefix_str));
                     
                     dnh_index++;
-                    cprintf("        [%d] Gateway: %-18s OIF: %-15s Protocol: %-10s\n",
+                    cprintf("        [%d] Gateway: %-12s OIF: %-15s Protocol: %-10s\n",
                            dnh_index,
                            direct_nh_prefix_str,
                            direct_nh->Oif->if_name.c_str(),
@@ -128,13 +155,13 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                     cprintf(" -> ");
                 }
             }
-            cprintf("\n");
+            printw("\n");
         }
         
     } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
 
     /* Blank line after route display */
-    cprintf("\n");
+    printw("\n");
 }
 
 extern "C" {
@@ -209,7 +236,7 @@ void rtm_show_rib(rtm_t *rtm) {
 
     } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
 
-    cprintf("\n");
+    printw("\n");
 }
 
 /* Display RIB in detailed format (line by line, not tabular) */
@@ -318,7 +345,7 @@ void rtm_show_nh_proto_info(rtm_t *rtm) {
 
     } ITERATE_AVL_TREE_END(&rtm->nh_proto_info_tree, curr_node);
 
-    cprintf("\n");
+    printw("\n");
 }
 
 /* Display general protocol information */
@@ -361,7 +388,7 @@ void rtm_show_proto_info(rtm_t *rtm) {
         cprintf("  No protocol info registered\n");
     }
 
-    cprintf("\n");
+    printw("\n");
 }
 
 /* Display unresolvable nexthops */
@@ -422,7 +449,7 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
 
             } ITERATE_AVL_TREE_END(&proto_info->sub_db, sub_node);
 
-            cprintf("\n");
+            printw("\n");
 
         } ITERATE_AVL_TREE_END(&rtm->proto_info_tree[proto], proto_node);
     }
@@ -433,7 +460,7 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
         cprintf("Total Subscriptions: %d\n", total_subscriptions);
     }
 
-    cprintf("\n");
+    printw("\n");
 }
 
 /* Display unresolvable routes (indirect nexthops that cannot be resolved) */

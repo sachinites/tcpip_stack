@@ -172,23 +172,27 @@ struct avltree_node *avltree_prev(const struct avltree_node *node);
 
 struct avltree_node *avltree_lookup(const struct avltree_node *key, const struct avltree *tree);
 struct avltree_node *avltree_insert(struct avltree_node *node, struct avltree *tree);
-void avltree_remove(struct avltree_node *node, struct avltree *tree);
+int avltree_remove(struct avltree_node *node, struct avltree *tree);
+void avltree_strict_remove(struct avltree_node *node, struct avltree *tree);
 void avltree_replace(struct avltree_node *old, struct avltree_node *node, struct avltree *tree);
 int avltree_init(struct avltree *tree, avltree_cmp_fn_t cmp);
 
 static inline void avltree_node_init(struct avltree_node *node) {
 	node->left = 0;
 	node->right = 0;
-	node->parent = 0;
-}
-
-static inline int avltree_node_is_inuse (struct avltree_node *node) {
-	return (node->left || node->right); 
+	node->parent = 2;
 }
 
 static inline int avltree_is_empty(struct avltree *tree) {
 	int rc = !avltree_first(tree) ? 1 : 0;
 	return rc;
+}
+
+static inline int 
+avltree_node_is_inuse (struct avltree_node *node) {
+
+	if (node->left == 0 && node->right == 0 && node->parent == 2) return 0;
+	return 1;
 }
 
 /* Iterator over the AVL tree (delete safe loop)*/

@@ -118,7 +118,6 @@ config node H1 rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
 config node H1 rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 122.1.1.2
 
 
-
 #endif
 
 rtm_error_t

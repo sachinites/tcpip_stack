@@ -98,6 +98,9 @@ void
         
     } ITERATE_GLTHREAD_END(&route->path_list, curr);
     
+    assert (!IS_QUEUED_UP_IN_THREAD(&nh->route_glue));
+    
+    /* Use wrapper functions for glthread operations */
     if (insert_before) {
         glthread_add_before(insert_before, &nh->route_glue);
     } else {

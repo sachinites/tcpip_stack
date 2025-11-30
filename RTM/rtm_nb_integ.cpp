@@ -78,12 +78,11 @@ static rtm_nh *
 rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 
     rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
-
     rtm_nh_initialize(nh);
-    nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
-    rtm_nh_proto_reference (nh->rtm_nh_proto);
-    rtm_nh_proto_initialize (nh->rtm_nh_proto);
 
+    nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
+    rtm_nh_proto_initialize (nh->rtm_nh_proto);
+    rtm_nh_proto_reference (nh->rtm_nh_proto);
     rtm_nh_proto_copy (nh_template->rtm_nh_proto, nh->rtm_nh_proto);
 
     nh->flags = nh_template->flags;
@@ -116,15 +115,13 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 static void 
 rtm_nh_template_internals (cp_nexthop_template_t *nh_template) {
 
-    if (nh_template->rtm_nh_proto) free (nh_template->rtm_nh_proto);
-    if (nh_template->u.l_stack.label_stack) free (nh_template->u.l_stack.label_stack);
-    if (nh_template->u.srv6_stack.v6segment_lst) free (nh_template->u.srv6_stack.v6segment_lst);
+    if (nh_template->rtm_nh_proto) XFREE (nh_template->rtm_nh_proto);
+    if (nh_template->u.l_stack.label_stack) XFREE (nh_template->u.l_stack.label_stack);
+    if (nh_template->u.srv6_stack.v6segment_lst) XFREE (nh_template->u.srv6_stack.v6segment_lst);
 }
 
 
-
 /* Static functions End*/
-
 void 
 node_init_default_rtm(node_t *node) {
 
@@ -383,8 +380,7 @@ cp_rtm_install_route (
     }
 
     rtm_nh_add_to_idx_tree(rtm, nh);
-    glthread_add_next(&rtm->nhs_by_src[nh->proto], &nh->src_glue);
-    rtm_nh_reference(nh);
+    rtm_nh_glthread_add_next(nh, &rtm->nhs_by_src[nh->proto], &nh->src_glue);
 
     cp_nh_template->idx = nh->idx;
 
@@ -502,14 +498,15 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
         return rc;
     }
 
-    if (actual_nh->is_active){
+    if (actual_nh->is_active && route->nh_count){
         rtm_route_refresh_nexthops (rtm, route);
     }
     
     /* Remove nh from idx tree*/
     rtm_nh_remove_from_idx_tree(rtm, actual_nh);    
-    remove_glthread(&actual_nh->src_glue);
-    rtm_nh_dereference(rtm, actual_nh);
+    /* Use wrapper function for glthread removal */
+    rtm_nh_remove_glthread(rtm, actual_nh, &actual_nh->src_glue);
+    /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {
@@ -888,7 +885,7 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
         while (!avltree_is_empty(&proto_info->sub_db)) {
             avltree_node_t *node = avltree_first(&proto_info->sub_db);
             rtm_rt_subscription_t *sub = avltree_container_of(node, rtm_rt_subscription_t, avl_glue);
-            avltree_remove(&sub->avl_glue, &proto_info->sub_db);
+            avltree_strict_remove(&sub->avl_glue, &proto_info->sub_db);
             free(sub);
         }
     }
@@ -1022,7 +1019,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     rtm_rt_subscription_t *sub = avltree_container_of(node, rtm_rt_subscription_t, avl_glue);
 
     /* Remove subscription from database */
-    avltree_remove(&sub->avl_glue, &proto_info->sub_db);
+    avltree_strict_remove(&sub->avl_glue, &proto_info->sub_db);
     
     /* Free subscription */
     if (sub->prefix_list) prefix_list_dereference (sub->prefix_list);
