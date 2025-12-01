@@ -122,7 +122,7 @@ rtm_nh_proto_add (rtm_t *rtm,
 	    return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
     
-    rtm_nh_proto_reference(nh_proto);
+    //rtm_nh_proto_reference(nh_proto);
     return RTM_SUCCESS;
 }
 
@@ -163,8 +163,7 @@ rtm_nh_proto_check_and_delete (rtm_t *rtm,
 
     rtm_nh_proto_release_all_resources(rtm, nh_proto);
     
-    assert (!avltree_node_is_inuse(&nh_proto->proto_glue));
-    assert (nh_proto->ref_count == 0);
+    avltree_strict_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
 
     tracer(rtm->node->cptr, DRTM_DET,
         "RTM[%s] : Deleting NH Proto Info Proto=%s SubProto=%s Inst=%u VRF=%u",
@@ -181,15 +180,6 @@ void
 rtm_nh_proto_dereference (rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
 
     nh_proto->ref_count--;
-
-    if (avltree_node_is_inuse(&nh_proto->proto_glue) &&
-        nh_proto->ref_count == 1)
-    {
-        avltree_strict_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
-        nh_proto->ref_count--;
-        rtm_nh_proto_check_and_delete (rtm, nh_proto);
-        return;
-    }
 
     if (nh_proto->ref_count == 0){
         rtm_nh_proto_check_and_delete (rtm, nh_proto);

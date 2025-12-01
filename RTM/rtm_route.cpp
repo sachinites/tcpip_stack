@@ -256,19 +256,11 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
 rtm_error_t 
 rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
+    char gw_str[48];
+    char prefix_str[48];
+
     rtm_error_t rc = RTM_SUCCESS;
     rtm_nh_proto_t *existing_nh_proto = NULL;
-    char prefix_str[48];
-    char gw_str[48];
-
-    if (!route || !nh) {
-        if (rtm && rtm->node) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Add NH to route failed - Invalid argument (route=%p, nh=%p)",
-                rtm ? rtm->name : "null", route, nh);
-        }
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
     
     tracer(rtm->node->cptr, DRTM_DET,
         "RTM[%s] : Adding NH to route %s, Proto=%s Gw=%s AD=%u Metric=%u",
@@ -278,7 +270,10 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
         nh->ad, nh->metric);
     
-    // Check if nexthop already exists
+    /* Nexthop protocol is freah mallocd object whose ref-count 
+        expected to be zero*/
+    assert (nh->rtm_nh_proto->ref_count == 0);
+
     rtm_nh *existing = rtm_route_lookup_nh(route, nh);
 
     if (existing) {
@@ -302,7 +297,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rc = rtm_nh_proto_add(rtm, nh->rtm_nh_proto, &existing_nh_proto) ;
 
     if (rc == RTM_ERROR_NEXTHOP_PROTO_ALREADY_EXISTS) {
-        rtm_nh_proto_dereference(rtm, nh->rtm_nh_proto);
+        XFREE(nh->rtm_nh_proto);
         nh->rtm_nh_proto = existing_nh_proto;
         rtm_nh_proto_reference(existing_nh_proto);
     }

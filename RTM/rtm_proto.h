@@ -108,11 +108,6 @@ rtm_nh_proto_lookup(const rtm_t *rtm, rtm_nh_proto_t *nh_proto_template);
 
 void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
 
-void rtm_nh_proto_dereference(rtm_nh_proto_t *nh_proto);
-
-void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
-
-/* Decrement NH protocol info reference count and free if necessary */
 void rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
 
 /* ----------------------------------------------------------------  */

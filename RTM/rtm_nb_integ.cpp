@@ -79,12 +79,6 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 
     rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
     rtm_nh_initialize(nh);
-
-    nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
-    rtm_nh_proto_initialize (nh->rtm_nh_proto);
-    rtm_nh_proto_reference (nh->rtm_nh_proto);
-    rtm_nh_proto_copy (nh_template->rtm_nh_proto, nh->rtm_nh_proto);
-
     nh->flags = nh_template->flags;
     nh->proto = nh_template->proto;
     nh->sub_proto = nh_template->sub_proto;
@@ -105,6 +99,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
             nh->label_stack->labels[i].op = nh_template->u.l_stack.label_stack->labels[i].op;
         }
     }
+
     nh->endfn = nh_template->u.srv6_stack.endfn;
     nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
     nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
@@ -357,7 +352,12 @@ cp_rtm_install_route (
         return RTM_ERROR_NEXTHOP_CREATION_FAILED;
     }
 
+    nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
+    rtm_nh_proto_initialize (nh->rtm_nh_proto);
+    rtm_nh_proto_copy (cp_nh_template->rtm_nh_proto, nh->rtm_nh_proto);
+
     rtm_nh_proto_t *nh_proto = nh->rtm_nh_proto;
+
     rc = rtm_route_add_nh(rtm, route, nh);
 
     if (rc != RTM_SUCCESS) {
@@ -435,7 +435,7 @@ rtm_error_t
 cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, 
                          cp_nexthop_template_t *nh_template) {
 
-    rtm_nh_proto_t *nh_proto;
+    rtm_nh_proto_t nh_proto_obj;
     rtm_error_t rc = RTM_SUCCESS;
     char prefix_str[48];
     char gw_str[48];
@@ -470,8 +470,14 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
         return RTM_ERROR_NEXTHOP_CREATION_FAILED;
     }
 
+    rtm_nh_proto_initialize (&nh_proto_obj);
+    rtm_nh_proto_copy (nh_template->rtm_nh_proto, &nh_proto_obj);
+    nh->rtm_nh_proto = &nh_proto_obj;
+
     /* look up the actual nexthop*/
     rtm_nh *actual_nh = rtm_route_lookup_nh (route, nh);
+    
+    XFREE(nh);
 
     if (!actual_nh) {
         tracer(rtm->node->cptr, DRTM | DERR,
