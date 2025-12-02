@@ -160,7 +160,7 @@ rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
     /* Check if there exist a route to resolve this INH*/
     rtm_route *route = rtm_lpm_tree_lookup(rtm, &indirect_nh->prefix);
 
-    if (!route || !rtm_route_is_resolved(route)) {
+    if (!route) {
 
         /* No route to resolve this INH*/
        if (!IS_QUEUED_UP_IN_THREAD(&indirect_nh->resolution_list_glue)) {  
@@ -176,10 +176,11 @@ rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
 
         rtm_nh_remove_Fglthread (rtm, indirect_nh, 
             &rtm->unresolvable_paths, &indirect_nh->resolution_list_glue);
-        rtm_nh_Fglthread_add_last(indirect_nh, &route->resolved_lnhs, 
-        &indirect_nh->resolution_list_glue);
     }
-
+    
+    rtm_nh_Fglthread_add_last(indirect_nh, &route->resolved_lnhs, 
+        &indirect_nh->resolution_list_glue);
+    
     /* There exist a route to resolve this INH - use wrapper */
 
     indirect_nh->resolved_via_route = route;
@@ -189,9 +190,9 @@ rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
     rtm_copy_route_active_nhs_to_inh_direct_nh_set(rtm, route, indirect_nh);
     
     /* Now Recursively update the routes INH upstream in Graph*/
-    rtm_resolve_routes_recursively (rtm, indirect_nh->owner_route);
-
-    assert (rtm_nh_is_resolved (indirect_nh));
+    if (rtm_nh_is_resolved (indirect_nh)) {
+        rtm_resolve_routes_recursively (rtm, indirect_nh->owner_route);
+    }
 }
 
 /* Algorithm : 

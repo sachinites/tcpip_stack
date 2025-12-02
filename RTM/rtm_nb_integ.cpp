@@ -392,6 +392,14 @@ cp_rtm_install_route (
         rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
         nh->idx, rtm_proto_to_string(nh->proto));
     
+    if (nh->is_indirect &&  nh->is_active && !rtm_nh_is_resolved (nh)) {
+        rtm_track_inh_for_resolution (rtm, nh);
+    }
+
+    if (new_rt && rtm_route_is_resolved (route)) {
+         rtm_schedule_resolution_worker (rtm);
+    }
+
     return rc;
 }
 

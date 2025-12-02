@@ -36,4 +36,7 @@ rtm_untrack_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh);
 void
 rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) ;
 
+void 
+rtm_schedule_resolution_worker (rtm_t *rtm) ;
+
 #endif
