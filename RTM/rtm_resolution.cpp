@@ -10,7 +10,7 @@
 #include "rtm_nh.h"
 #include "rtm_route.h"
 
-static void  
+void  
 rtm_schedule_resolution_worker (rtm_t *rtm);
 
 static bool 
@@ -92,8 +92,8 @@ rtm_flush_inh_direct_nh_set(
 
         data_node = glue_to_glthread_data_node(curr_glue);
         nh = (rtm_nh *)data_node->data;
-        remove_Fglthread (&indirect_nh->direct_nh_list, curr_glue);
-        rtm_nh_dereference (rtm, nh);
+        rtm_nh_remove_Fglthread (rtm, indirect_nh, 
+            &indirect_nh->direct_nh_list, curr_glue);
         XFREE (data_node);
 
     } ITERATE_GLTHREAD_END(&indirect_nh->direct_nh_list.head, curr_glue);
@@ -150,7 +150,10 @@ rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
     assert (!rtm_nh_is_resolved (indirect_nh));
     assert (indirect_nh->is_indirect);
     assert (indirect_nh->resolved_via_route == NULL);
-    assert (!IS_QUEUED_UP_IN_THREAD(&indirect_nh->resolution_list_glue));
+
+    /* Indirect_nh may or may not be on RTM resolver Queue */
+    //assert (!IS_QUEUED_UP_IN_THREAD(&indirect_nh->resolution_list_glue));
+
     assert (Fglthread_list_is_empty(&indirect_nh->direct_nh_list));
     assert (indirect_nh->is_active);
 
@@ -158,16 +161,26 @@ rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
     rtm_route *route = rtm_lpm_tree_lookup(rtm, &indirect_nh->prefix);
 
     if (!route || !rtm_route_is_resolved(route)) {
+
         /* No route to resolve this INH*/
-        rtm_nh_Fglthread_add_last (indirect_nh, 
-            &rtm->unresolvable_paths, 
-            &indirect_nh->resolution_list_glue);
+       if (!IS_QUEUED_UP_IN_THREAD(&indirect_nh->resolution_list_glue)) {  
+
+            rtm_nh_Fglthread_add_last (indirect_nh, 
+                &rtm->unresolvable_paths, 
+                &indirect_nh->resolution_list_glue);
+       }
         return;
     }
 
-    /* There exist a route to resolve this INH - use wrapper */
-    rtm_nh_Fglthread_add_last(indirect_nh, &route->resolved_lnhs, 
+    if (IS_QUEUED_UP_IN_THREAD(&indirect_nh->resolution_list_glue)) {
+
+        rtm_nh_remove_Fglthread (rtm, indirect_nh, 
+            &rtm->unresolvable_paths, &indirect_nh->resolution_list_glue);
+        rtm_nh_Fglthread_add_last(indirect_nh, &route->resolved_lnhs, 
         &indirect_nh->resolution_list_glue);
+    }
+
+    /* There exist a route to resolve this INH - use wrapper */
 
     indirect_nh->resolved_via_route = route;
     rtm_route_reference (route);
@@ -188,6 +201,10 @@ rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
 void 
 rtm_untrack_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
 
+    rtm_nh *nh;
+    glthread_t *curr_glue;
+    glthread_data_node_t *data_node;
+
     /* Sanity Checks */
     assert (indirect_nh->is_indirect);
     assert (indirect_nh->resolved_via_route);
@@ -196,11 +213,6 @@ rtm_untrack_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh) {
     assert (indirect_nh->is_active);
 
     /* Step 1: Drain its direct NH set - remove all direct nexthops */
-    glthread_t *curr_glue;
-    glthread_data_node_t *data_node;
-    rtm_nh *nh;
-
-    /* Iterate through all direct nexthops and clean them up */
     rtm_flush_inh_direct_nh_set(rtm, indirect_nh);
 
     /* Step 2: Clean up resolution linkages */
@@ -245,9 +257,7 @@ rtm_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
              !indirect_nh->owner_route) {
             continue;
         } 
-        
-        remove_Fglthread (&rtm->unresolvable_paths, curr_glue);
-        rtm_nh_dereference (rtm, indirect_nh);
+
         rtm_track_inh_for_resolution (rtm, indirect_nh);
 
     } ITERATE_GLTHREAD_END(&rtm->unresolvable_paths.head, curr_glue);

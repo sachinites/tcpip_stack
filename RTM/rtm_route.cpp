@@ -49,7 +49,6 @@ rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s deleted successfully\n",
         rtm->name, rtm_format_prefix(&route->prefix, prefix_str, sizeof (prefix_str)));
-
     XFREE(route);
 }
 
@@ -300,6 +299,9 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         XFREE(nh->rtm_nh_proto);
         nh->rtm_nh_proto = existing_nh_proto;
         rtm_nh_proto_reference(existing_nh_proto);
+    }
+    else {
+         rtm_nh_proto_reference(nh->rtm_nh_proto);
     }
 
     tracer(rtm->node->cptr, DRTM,
