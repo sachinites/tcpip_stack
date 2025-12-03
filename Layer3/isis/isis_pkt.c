@@ -72,6 +72,11 @@ isis_process_hello_pkt(node_t *node,
         GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
     
     hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, &tlv_buff_size);
+    
+    /* Check for corrupted packet */
+    if (!hello_tlv_buffer) {
+        goto bad_hello;
+    }
 
     /* Reject the hello pkt if it is not compatibe with reciepient interface type*/
     if (intf_info->intf_type == isis_intf_type_p2p) {
@@ -787,6 +792,8 @@ isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size) {
 
     isis_p2p_hello_pkt_hdr_t *p2p_hdr;
     isis_lan_hello_pkt_hdr_t *lan_hdr;
+    uint16_t calculated_tlv_size;
+    uint16_t pdu_len;
 
     *tlv_size = 0;
 
@@ -794,13 +801,45 @@ isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size) {
 
         case ISIS_PTP_HELLO_PKT_TYPE:
             p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
-            *tlv_size = p2p_hdr->pdu_len - sizeof(isis_common_hdr_t ) - sizeof(isis_p2p_hello_pkt_hdr_t);
+            pdu_len = p2p_hdr->pdu_len;
+            
+            /* Validate pdu_len to prevent buffer overrun */
+            if (pdu_len < (sizeof(isis_common_hdr_t) + sizeof(isis_p2p_hello_pkt_hdr_t))) {
+                /* Invalid pdu_len, too small */
+                return NULL;
+            }
+            
+            calculated_tlv_size = pdu_len - sizeof(isis_common_hdr_t ) - sizeof(isis_p2p_hello_pkt_hdr_t);
+            
+            /* Sanity check: TLV size should not exceed reasonable limits */
+            if (calculated_tlv_size > MAX_PACKET_BUFFER_SIZE - sizeof(isis_common_hdr_t) - sizeof(isis_p2p_hello_pkt_hdr_t)) {
+                /* Corrupted pdu_len */
+                return NULL;
+            }
+            
+            *tlv_size = calculated_tlv_size;
             return (byte *)(cmn_hdr) + sizeof(isis_common_hdr_t ) + sizeof(isis_p2p_hello_pkt_hdr_t);
 
         case ISIS_LAN_L1_HELLO_PKT_TYPE:
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             lan_hdr =  (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
-            *tlv_size = lan_hdr->pdu_len - sizeof(isis_common_hdr_t ) - sizeof(isis_lan_hello_pkt_hdr_t);            
+            pdu_len = lan_hdr->pdu_len;
+            
+            /* Validate pdu_len to prevent buffer overrun */
+            if (pdu_len < (sizeof(isis_common_hdr_t) + sizeof(isis_lan_hello_pkt_hdr_t))) {
+                /* Invalid pdu_len, too small */
+                return NULL;
+            }
+            
+            calculated_tlv_size = pdu_len - sizeof(isis_common_hdr_t ) - sizeof(isis_lan_hello_pkt_hdr_t);
+            
+            /* Sanity check: TLV size should not exceed reasonable limits */
+            if (calculated_tlv_size > MAX_PACKET_BUFFER_SIZE - sizeof(isis_common_hdr_t) - sizeof(isis_lan_hello_pkt_hdr_t)) {
+                /* Corrupted pdu_len */
+                return NULL;
+            }
+            
+            *tlv_size = calculated_tlv_size;
             return (byte *)(cmn_hdr) + sizeof(isis_common_hdr_t ) + sizeof(isis_lan_hello_pkt_hdr_t);
 
         case ISIS_L1_LSP_PKT_TYPE:

@@ -27,6 +27,8 @@ typedef struct rtm_route_ {
         /* Glue in RTM main tree */
         avltree_node_t route_glue;
 
+        glthread_t resolved_route_glue;
+
         /* Prefix for this route */
         rtm_prefix_t prefix;
 
@@ -40,6 +42,7 @@ typedef struct rtm_route_ {
 } rtm_route;
 
 #pragma pack(pop)
+GLTHREAD_TO_STRUCT(resolved_route_glue_to_route, rtm_route, resolved_route_glue);
 
 /* Methods */
 void rtm_route_initialize(rtm_route *route);

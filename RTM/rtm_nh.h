@@ -62,7 +62,9 @@ typedef struct rtm_nh_ {
         /* This INH is resolved by this route*/
         rtm_route *resolved_via_route; 
         /* Glue to rtm_route->resolved_lnhs */
-        glthread_t resolution_list_glue;
+        glthread_t route_resolved_list_glue;
+        /* Glue to rtm->unresolvable_paths*/
+        glthread_t unresolvable_list_glue;
 
         bool is_active;
 
@@ -80,10 +82,11 @@ typedef struct rtm_nh_ {
 
 #pragma pack(pop)
 
-GLTHREAD_TO_STRUCT(resolution_list_glue_to_rtm_nh, rtm_nh, resolution_list_glue);
-GLTHREAD_TO_STRUCT(route_glue_to_rtm_nh, rtm_nh, route_glue);
-GLTHREAD_TO_STRUCT(advt_glue_to_rtm_nh, rtm_nh, advt_glue);
-GLTHREAD_TO_STRUCT(src_glue_to_rtm_nh, rtm_nh, src_glue);
+GLTHREAD_TO_STRUCT( resolution_list_glue_to_rtm_nh, rtm_nh, route_resolved_list_glue);
+GLTHREAD_TO_STRUCT( route_glue_to_rtm_nh, rtm_nh, route_glue);
+GLTHREAD_TO_STRUCT( advt_glue_to_rtm_nh, rtm_nh, advt_glue);
+GLTHREAD_TO_STRUCT( src_glue_to_rtm_nh, rtm_nh, src_glue);
+GLTHREAD_TO_STRUCT( unresolvable_list_glue_to_rtm_nh, rtm_nh, unresolvable_list_glue);
 
 /* Methods */
 int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
@@ -96,10 +99,8 @@ void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
 bool rtm_nh_is_resolved (rtm_nh *nh);
 void rtm_nh_reference(rtm_nh *nh);
 void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
-
-
-#define RTM_NH_LOCK(nh_ptr)  rtm_nh_reference(nh_ptr)
-#define RTM_NH_UNLOCK(rtm, nh_ptr) rtm_nh_dereference(rtm, nh_ptr)
+void rtm_flush_inh_direct_nh_set(rtm_t *rtm, rtm_nh *indirect_nh) ;
+char* rtm_nh_one_liner_trace (rtm_nh *nh, char *buffer_str, int buff_size);
 
 /* Wrapper to glthread_add_next ()*/
 void rtm_nh_glthread_add_next (rtm_nh *nh, 

@@ -74,9 +74,13 @@ layer2_fill_with_broadcast_mac(c_string mac_array);
              TLV_OVERHEAD_SIZE; _len < tlv_size;                                \
             _len += _tlv_value_size + TLV_OVERHEAD_SIZE,                        \
              tlv_ptr = (tlv_ptr + TLV_OVERHEAD_SIZE + length)){                 \
+        /* Safety check: ensure we have space for TLV header */                \
+        if (_len + TLV_OVERHEAD_SIZE > tlv_size) break;                        \
         type = *(tlv_ptr - TLV_OVERHEAD_SIZE);                                  \
         _tlv_value_size = (byte)(*(tlv_ptr -                           \
             TLV_OVERHEAD_SIZE + sizeof(byte)));                        \
+        /* Safety check: ensure TLV data doesn't exceed buffer */              \
+        if (_len + TLV_OVERHEAD_SIZE + _tlv_value_size > tlv_size) break;      \
         length = _tlv_value_size;
 
 #define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, tlv_size)             \

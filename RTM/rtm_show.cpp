@@ -488,7 +488,7 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
     
     ITERATE_GLTHREAD_BEGIN(&rtm->unresolvable_paths.head, curr_glue) {
         
-        rtm_nh *indirect_nh = resolution_list_glue_to_rtm_nh(curr_glue);
+        rtm_nh *indirect_nh = unresolvable_list_glue_to_rtm_nh(curr_glue);
         count++;
 
         /* Get the route prefix from the owner route */

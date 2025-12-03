@@ -22,17 +22,6 @@
 static void 
 rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
 
-    glthread_t *curr_lnh_glue;    
-    rtm_nh *indirect_nh;
-
-    /* Though we have done it in rtm_route_delete( ) already ...*/
-    ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
-
-        indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
-        rtm_untrack_inh_for_resolution (rtm, indirect_nh);
-
-    } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);    
-
 }
 
 static void 
@@ -45,6 +34,7 @@ rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
     assert (route->nh_count == 0);
     assert (route->ref_count == 0);
     assert (!avltree_node_is_inuse (&route->route_glue));
+    assert (!IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue));
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s deleted successfully\n",
@@ -364,7 +354,12 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
     ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
 
         indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
-        rtm_untrack_inh_for_resolution (rtm, indirect_nh);
+        rtm_resolution_nh_withdraw(rtm, indirect_nh);
+        rtm_nh_Fglthread_add_last (indirect_nh, 
+                &rtm->unresolvable_paths, 
+                &indirect_nh->unresolvable_list_glue);
+        
+        rtm_schedule_nh_resolution_worker(rtm);
 
     } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
 
@@ -397,9 +392,11 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
 
     glthread_t *curr;
     rtm_nh *curr_nh;
-    glthread_t *best_glue = BASE(&route->path_list);
     char prefix_str[48];
     uint32_t active_count = 0;
+    bool nh_active_set_changed = false;
+    bool rt_has_dnhs = false;
+    glthread_t *best_glue = BASE(&route->path_list);
 
     if (!best_glue) {
         tracer(rtm->node->cptr, DRTM_DET,
@@ -419,6 +416,7 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
     
     if (!best_nh->is_active) {
         rtm_nh_set_active(rtm, best_nh);      
+        nh_active_set_changed = true;
         active_count++;  
     }
 
@@ -432,6 +430,7 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
         if (cmp_result == 0) {
             if (!curr_nh->is_active) {
                 rtm_nh_set_active(rtm, curr_nh);
+                nh_active_set_changed = true;
                 active_count++;
             } else {
                 active_count++;
@@ -439,17 +438,23 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
         } else {
             if (curr_nh->is_active) {
                 rtm_nh_set_inactive(rtm, curr_nh);
+                nh_active_set_changed = true;
             }
         }
         
     } ITERATE_GLTHREAD_END(&route->path_list, curr);
 
-    tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Route %s nexthop refresh complete, Active NHs=%u",
-        rtm->name,
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
-        active_count);
+    if (!nh_active_set_changed) {
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Route %s nexthop refresh complete, No Change in Active NH set",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+            active_count);
+        return;
+    }
 
+    /* Routes Active Set has changed, update upstream routes recursively */
+     rtm_resolve_routes_recursively (rtm, route);
 }
 
 /* ============================================================================

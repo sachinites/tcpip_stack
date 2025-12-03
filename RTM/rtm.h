@@ -53,14 +53,21 @@ typedef struct rtm_ {
 
     /* BAckpointer to owning node*/
     node_t *node; 
+    
     /* List of Orphan Indirect NHs which have no route to resolve over */
     Fglthread_t unresolvable_paths;
+    
+    /* List of routes whose resolved INHs are to be propogated upstream in Resolution Graph*/
+    Fglthread_t resolved_unpropogated_routes;
+
+    /* Job to resolve INHs */
+    task_t *nh_resolution_job;
+
+    /* Job to propogate resolved route Active NH upstream in Resolution Graph */
+    task_t *rt_resolution_job;
 
     /* Job to advertise the routes to protocols, preemptive */
     task_t *advt_job;
-
-    /* Job to resolve INHs recursively*/
-    task_t *resolution_job;
     
 } rtm_t;
 

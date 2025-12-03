@@ -8,6 +8,8 @@
 #include "rtm_nh.h"
 #include "rtm_enums.h"
 #include "rtm_common.h"
+#include "rtm_proto.h"
+#include "rtm_resolution.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
@@ -742,4 +744,270 @@ rtm_get_by_name (node_t *node, char *rtm_name) {
     }
     
     return rtm_get(node, vrf_id, afi, table_id);
+}
+
+static rtm_error_t 
+rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
+
+    if (!nh_template) return RTM_ERROR_INVALID_ARGUMENT;
+
+    if (nh_template->proto >= RTM_PROTO_MAX) {
+        return RTM_ERROR_INVALID_PROTO;
+    }
+    if (nh_template->sub_proto >= RTM_SUB_PROTO_MAX) {
+        return RTM_ERROR_INVALID_SUB_PROTO;
+    }
+    if (nh_template->action >= RTM_NH_ACTION_MAX) {
+        return RTM_ERROR_NEXTHOP_INVALID_ACTION;
+    }
+    if (nh_template->is_indirect && nh_template->Oif) {
+        return RTM_ERROR_INVALID_OIF_INDEX;
+    }
+    if (!nh_template->is_indirect && !nh_template->Oif) {
+        return RTM_ERROR_INVALID_OIF_INDEX;
+    }
+    if (nh_template->proto != RTM_PROTO_LOCAL &&
+        nh_template->proto != RTM_PROTO_CONNECTED &&
+        rtm_prefix_is_null (&nh_template->gateway)) {
+        return RTM_ERROR_INVALID_GATEWAY;
+    }
+    if (!nh_template->rtm_nh_proto) {
+        return RTM_ERROR_INVALID_NEXTHOP_PROTO;
+    }
+    return RTM_SUCCESS;
+}
+
+static rtm_nh *
+rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
+
+    rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
+    rtm_nh_initialize(nh);
+    nh->flags = nh_template->flags;
+    nh->proto = nh_template->proto;
+    nh->sub_proto = nh_template->sub_proto;
+    nh->ad = rtm_get_admin_distance (nh->proto , nh->sub_proto);
+    nh->metric = nh_template->metric;
+    nh->action = nh_template->action;
+    nh->prefix = nh_template->gateway;
+    nh->Oif = nh_template->Oif ? nh_template->Oif->GetSharedPtr() : nullptr;
+    nh->is_indirect = nh_template->is_indirect;
+    nh->is_active = false;
+    nh->ref_count = 0;
+
+    if (nh_template->u.l_stack.label_stack) {
+        nh->label_stack = (rtm_lstack_t *)XCALLOC2(0, 1, rtm_lstack_t);
+        nh->label_stack->curr_index = nh_template->u.l_stack.label_stack->curr_index;
+        for (int i = 0; i < nh->label_stack->curr_index; i++) {
+            nh->label_stack->labels[i].label_val = nh_template->u.l_stack.label_stack->labels[i].label_val;
+            nh->label_stack->labels[i].op = nh_template->u.l_stack.label_stack->labels[i].op;
+        }
+    }
+
+    nh->endfn = nh_template->u.srv6_stack.endfn;
+    nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
+    nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
+
+    return nh;
+}
+
+
+/* Install the route in RTM , Check for duplicate nexthop for the route.
+    Return appropriate error code */
+rtm_error_t 
+rtm_install_route ( 
+                            rtm_t *rtm, 
+                            rtm_prefix_t *prefix,
+                            cp_nexthop_template_t *cp_nh_template) {
+
+    char gw_str[48];
+    char prefix_str[48];
+    bool new_rt = false;
+    rtm_nh_proto_t *nh_proto;
+    rtm_error_t rc = RTM_SUCCESS;
+
+    rc = rtm_validate_cp_nexthop_template(cp_nh_template);
+
+    if (rc != RTM_SUCCESS) {
+
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH template validation failed for route %s - %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+            rtm_error_to_string(rc));
+        return rc;
+    }
+
+    /* look up the route*/
+    rtm_route *route = rtm_route_lookup(rtm, prefix);
+
+    if (!route) {
+        
+        route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
+        rtm_route_initialize(route);
+        route->prefix = *prefix;
+        new_rt = true;
+        rc = rtm_route_add(rtm, route);
+        
+        if (rc != RTM_SUCCESS) {
+
+            tracer(rtm->node->cptr, DRTM | DERR,
+                "RTM[%s] : ERROR: Route %s addition failed", 
+                rtm->name, 
+                rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+            XFREE(route);
+            return rc;
+        }
+    }
+
+    rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);
+
+    if (!nh) {
+        if (new_rt) {
+            rtm_route_delete(rtm, route);
+        }
+        return RTM_ERROR_NEXTHOP_CREATION_FAILED;
+    }
+
+    nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
+    rtm_nh_proto_initialize (nh->rtm_nh_proto);
+    rtm_nh_proto_copy (cp_nh_template->rtm_nh_proto, nh->rtm_nh_proto);
+
+    nh_proto = nh->rtm_nh_proto;
+
+    rc = rtm_route_add_nh(rtm, route, nh);
+
+    if (rc != RTM_SUCCESS) {
+
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to add NH to route %s - %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+            rtm_error_to_string(rc));
+
+        if (nh_proto == nh->rtm_nh_proto) {
+            nh->rtm_nh_proto = NULL;
+            rtm_nh_proto_dereference (rtm, nh_proto);
+        }
+
+        rtm_nh_dereference (rtm, nh);
+        if (new_rt) rtm_route_delete (rtm, route);
+        cp_nh_template->idx = 0;
+        return rc;
+    }
+
+    rtm_nh_add_to_idx_tree(rtm, nh);
+    rtm_nh_glthread_add_next(nh, &rtm->nhs_by_src[nh->proto], &nh->src_glue);
+
+    cp_nh_template->idx = nh->idx;
+
+    rtm_route_refresh_nexthops (rtm, route);
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Route %s installed successfully, NH idx=%u Proto=%s",
+        rtm->name,
+        rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+        nh->idx, rtm_proto_to_string(nh->proto));
+
+
+    if (new_rt && rtm_route_is_resolved (route)) {
+
+        /* If the new route is added, then check any unresolvable paths could
+            be resolved on this route */        
+            rtm_schedule_nh_resolution_worker (rtm);
+
+        /* Also this could be the next route which other already resolved INHs could be
+            resolved better now (as per LPM), so re-resolved such INHs */
+            rtm_re_resolve_inhs (rtm, &route->prefix);
+    }
+
+    return rc;
+}
+
+
+rtm_error_t 
+rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, 
+                         cp_nexthop_template_t *nh_template) {
+
+    rtm_nh_proto_t nh_proto_obj;
+    rtm_error_t rc = RTM_SUCCESS;
+    char prefix_str[48];
+    char gw_str[48];
+
+    rc = rtm_validate_cp_nexthop_template(nh_template);
+
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH template validation failed - %s",
+            rtm->name, rtm_error_to_string(rc));
+        return rc;
+    }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Uninstalling route %s",
+        rtm->name,
+        rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+
+    /* look up the route*/
+    rtm_route *route = rtm_route_lookup(rtm, prefix);
+    if (!route) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Route %s not found",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+
+    rtm_nh *nh = rtm_nh_create_from_nh_template(nh_template);
+
+    if (!nh) {
+        return RTM_ERROR_NEXTHOP_CREATION_FAILED;
+    }
+
+    rtm_nh_proto_initialize (&nh_proto_obj);
+    rtm_nh_proto_copy (nh_template->rtm_nh_proto, &nh_proto_obj);
+    nh->rtm_nh_proto = &nh_proto_obj;
+
+    /* look up the actual nexthop*/
+    rtm_nh *actual_nh = rtm_route_lookup_nh (route, nh);
+    
+    XFREE(nh);
+
+    if (!actual_nh) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: NH not found for route %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+        return RTM_ERROR_NEXTHOP_NOT_FOUND;
+    }
+
+    /* Handle resolution by this NH */
+    rtm_resolution_nh_withdraw (rtm, actual_nh);
+
+    rc = rtm_route_delete_nh (rtm, route, actual_nh);
+
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to delete NH from route %s - %s",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+            rtm_error_to_string(rc));
+        return rc;
+    }
+
+    if (actual_nh->is_active && route->nh_count){
+        rtm_route_refresh_nexthops (rtm, route);
+    }
+    
+    /* Remove nh from idx tree*/
+    rtm_nh_remove_from_idx_tree(rtm, actual_nh);    
+    /* Use wrapper function for glthread removal */
+    rtm_nh_remove_glthread(rtm, actual_nh, &actual_nh->src_glue);
+    /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
+
+    /* Now check if route has 0 Nexthops, then delete the route as well*/
+    if (route->nh_count == 0) {
+        rtm_route_delete(rtm, route);
+    }
+
+    return RTM_SUCCESS;
 }

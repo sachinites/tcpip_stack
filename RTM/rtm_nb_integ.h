@@ -113,9 +113,9 @@ config node H1 rtm-route prefix 11.0.0.0/24 4 2 0 2 10 gateway 192.168.0.12 inte
 OSPF:
 config node H1 rtm-route prefix 11.0.0.0/24 5 10 0 2 10 gateway 192.168.0.12 interface eth1
 BGP :
-config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1
-config node H1 rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
-config node H1 rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 122.1.1.2
+config node R1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1
+config node R1 rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
+config node R1 rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 122.1.1.2
 
 
 #endif

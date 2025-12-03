@@ -27,16 +27,24 @@ typedef struct rtm_route_ rtm_route;
 5. When new Route is added with DNH
 6. When Route is deleted with DNH 
 */
-void 
-rtm_track_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh);
-
-void 
-rtm_untrack_inh_for_resolution (rtm_t *rtm, rtm_nh *indirect_nh);
 
 void
 rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) ;
 
 void 
-rtm_schedule_resolution_worker (rtm_t *rtm) ;
+rtm_schedule_nh_resolution_worker (rtm_t *rtm) ;
+
+void 
+rtm_schedule_route_propogation_worker (rtm_t *rtm) ;
+
+void 
+rtm_copy_route_active_nhs_to_inh_direct_nh_set(
+        rtm_t *rtm, rtm_route *route, rtm_nh *indirect_nh);
+
+void 
+rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh);
+
+void 
+rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t  *route);
 
 #endif

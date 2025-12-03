@@ -28,6 +28,8 @@ extern void isis_recv_ipc_updates (node_t *node,
                                              void *msg,
                                              uint32_t msg_size) ;
 
+extern void isis_rtm_test(node_t *node) ;
+
 /* Checking if protocol enable at node & intf level */
 bool
 isis_is_protocol_enable_on_node(node_t *node) {
@@ -414,6 +416,7 @@ isis_init (node_t *node ) {
             isis_recv_ipc_updates);
     cp_ips_join (node, IPC_ACCESS_LIST, IPC_ALL_MINOR_UPDATES,
             isis_recv_ipc_updates);
+    isis_rtm_test(node) ;
 }
 
 void

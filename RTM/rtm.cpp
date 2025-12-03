@@ -98,8 +98,11 @@ void rtm_destroy (rtm_t *rtm) {
     }
     
     assert (Fglthread_list_is_empty(&rtm->unresolvable_paths) );
+    assert (Fglthread_list_is_empty(&rtm->resolved_unpropogated_routes) );
     assert (Fglthread_list_is_empty(&rtm->advt_queue) );
     assert (rtm->advt_job == NULL);
+    assert (rtm->nh_resolution_job == NULL);
+    assert (rtm->rt_resolution_job == NULL);
 
     /* Destroy LPM tree */
     rtm_lpm_tree_destroy(rtm);

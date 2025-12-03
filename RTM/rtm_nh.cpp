@@ -51,7 +51,8 @@ rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) {
     rtm_nh_release_all_resources(rtm, nh);
     assert(nh->owner_route == NULL);
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->route_glue));
-    assert(!IS_QUEUED_UP_IN_THREAD(&nh->resolution_list_glue));
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->route_resolved_list_glue));
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->unresolvable_list_glue));
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->src_glue));
     assert(!avltree_node_is_inuse(&nh->idx_glue));
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->advt_glue));
@@ -223,10 +224,10 @@ rtm_nh_initialize(rtm_nh* nh) {
     
     init_glthread(&nh->route_glue);
     init_glthread(&nh->src_glue);
-    init_glthread(&nh->resolution_list_glue);
+    init_glthread(&nh->route_resolved_list_glue);
+    init_glthread(&nh->unresolvable_list_glue);
     avltree_node_init(&nh->idx_glue);
     init_glthread(&nh->advt_glue);
-
     
     nh->rtm_nh_proto = NULL;
     nh->ad = RTM_ADMIN_DIST_UNKNOWN;
@@ -264,12 +265,48 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     nh->is_active = true;
 
+    /* If this is indirect NH, then submit it for resolution again, There can be more INHs 
+        being set to active at this point, so defer the work of updating Routes upstream in 
+        resolution graph */
     if (nh->is_indirect) {
-        rtm_track_inh_for_resolution (rtm, nh);
+        
+        assert (!rtm_nh_is_resolved (nh));
+        assert (nh->resolved_via_route == NULL);
+        assert (!IS_QUEUED_UP_IN_THREAD(&nh->route_resolved_list_glue));
+        assert (!nh->resolved_via_route);
+        assert (!IS_QUEUED_UP_IN_THREAD(&nh->unresolvable_list_glue));
+        assert (Fglthread_list_is_empty (&nh->direct_nh_list));
+
+        /* Check if this nexthop can be resolved */
+        rtm_route *route = rtm_lpm_tree_lookup(rtm, &nh->prefix);
+        
+        if (!route || !rtm_route_is_resolved(route)) {
+
+            /* INH is not resolvable */
+            rtm_nh_Fglthread_add_last (nh, 
+                                &rtm->unresolvable_paths, 
+                                &nh->unresolvable_list_glue); 
+
+            rtm_schedule_nh_resolution_worker(rtm);
+            return;
+        }
+
+        /* The INH is resolvale , borrow its DNHs from the route's active set */
+        rtm_copy_route_active_nhs_to_inh_direct_nh_set(rtm, route, nh);
+
+        /* Establish the linkage with downstream router in resolution graph*/
+        nh->resolved_via_route = route;
+        rtm_route_reference (route);
+        rtm_nh_Fglthread_add_last (nh, &route->resolved_lnhs, 
+            &nh->route_resolved_list_glue);
+
+        /* The caller must call rtm_resolve_routes_recursively ( ) to propogate resolution
+            effect upstream in resolution graph*/
     }
     else {
-        rtm_resolve_routes_recursively (rtm, nh->owner_route);
+        /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
+
     rtm_fib_install(nh->owner_route, nh);
     rtm_presentation_layer_route_add (rtm, nh);
 }
@@ -282,7 +319,7 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
 
     assert(nh->is_active);
     
-        tracer(rtm->node->cptr, DRTM_DET,
+    tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Setting NH inactive for route %s, NH=%s Proto=%s",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
@@ -291,19 +328,45 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
     
     nh->is_active = false;
 
+    /* The INH is switched from Active to Inactive state , Possible Cases : 
+        1. It is already awaiting resolution , Action : Dont bother to resolve it anymore
+        2. It is resolved, Action : Make it unresolved and update upstream Routes in resolution graph
+    */
     if (nh->is_indirect) {
-        rtm_untrack_inh_for_resolution(rtm, nh);
+
+        rtm_resolution_nh_withdraw(rtm, nh);
     }
     else {
-        rtm_resolve_routes_recursively (rtm, nh->owner_route);
+        /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
+            rtm_fib_uninstall(nh->owner_route, nh);
+            rtm_presentation_layer_route_add (rtm, nh);
     }
-    rtm_fib_uninstall(nh->owner_route, nh);
-    rtm_presentation_layer_route_add (rtm, nh);
-    
+
     tracer(rtm->node->cptr, DRTM,
             "RTM[%s] : NH deactivated and removed from FIB for route %s",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
+}
+
+void
+rtm_flush_inh_direct_nh_set(
+    rtm_t *rtm, rtm_nh *indirect_nh) {
+    
+    glthread_t *curr_glue;
+    glthread_t *next_glue;
+    glthread_data_node_t *data_node;
+    rtm_nh *nh;
+
+    ITERATE_GLTHREAD_BEGIN(&indirect_nh->direct_nh_list.head, curr_glue) {
+
+        data_node = glue_to_glthread_data_node(curr_glue);
+        nh = (rtm_nh *)data_node->data;
+        rtm_nh_remove_Fglthread (rtm, indirect_nh, 
+            &indirect_nh->direct_nh_list, curr_glue);
+        XFREE (data_node);
+
+    } ITERATE_GLTHREAD_END(&indirect_nh->direct_nh_list.head, curr_glue);
+
 }
 
 bool rtm_nh_is_resolved (rtm_nh *nh) {
@@ -387,4 +450,10 @@ rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh,
     assert (avltree_node_is_inuse(avlnode));
     avltree_strict_remove(avlnode, tree); 
     rtm_nh_dereference (rtm, nh);
+}
+
+char *
+rtm_nh_one_liner_trace (rtm_nh *nh, char *buffer_str, int buff_size) {
+
+    
 }
