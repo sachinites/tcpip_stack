@@ -12,6 +12,7 @@
 #include "rtm_route.h"
 #include "rtm_fib_interface.h"
 #include "rtm_presentation.h"
+#include "rtm_priv_api.h"
 
 void  
 rtm_schedule_nh_resolution_worker (rtm_t *rtm);
@@ -41,6 +42,16 @@ void
 rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm_t *rtm, rtm_route *route, rtm_nh *indirect_nh) {
     
+    char inh_str[128];
+    char route_str[48];
+    int dnh_count = 0;
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Copying active NHs from route %s to INH %s\n",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)),
+        rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
+    
     rtm_nh *nh;
     glthread_t *nh_glue;
     glthread_data_node_t *data_node;
@@ -59,6 +70,12 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
             data_node->data = nh;
             Fglthread_add_last (&indirect_nh->direct_nh_list, &data_node->glue);
             rtm_nh_reference (nh);
+            tracer(rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : Copied direct NH %s to INH %s\n",
+                rtm->name,
+                rtm_nh_one_liner_trace(nh, route_str, sizeof(route_str)),
+                rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
+            dnh_count++;
         }
         else {
 
@@ -75,11 +92,26 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
                 data_node->data = nh;
                 Fglthread_add_last (&indirect_nh->direct_nh_list, &data_node->glue);
                 rtm_nh_reference (nh);
+                tracer(rtm->node->cptr, DRTM_DET,
+                    "RTM[%s] : Copied direct NH %s to INH %s\n",
+                    rtm->name,
+                    rtm_nh_one_liner_trace(nh, route_str, sizeof(route_str)),
+                    rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
+                dnh_count++;
 
             } ITERATE_GLTHREAD_END(&nh->direct_nh_list, direct_nh_glue);
         }
 
     } ITERATE_GLTHREAD_END(&route->path_list, nh_glue);
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Copied %d direct NHs from Route %s to INH %s\n",
+        rtm->name, dnh_count, 
+        rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)),
+        rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
+
+    //rtm_fib_install(rtm, indirect_nh->owner_route, indirect_nh);
+    //rtm_presentation_layer_route_add (rtm, indirect_nh);
 }
 
 /* Route has been resolved i.e. its INH has been resolbed by DNHs
@@ -89,12 +121,26 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
 void
 rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
 
-    glthread_t *curr_lnh_glue;
+    char route_str[48];
+    char inh_str[128];
     rtm_nh *indirect_nh;
+    int resolved_count = 0;
+    int unresolved_count = 0;
+    glthread_t *curr_lnh_glue;
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Route : %s : Route propogation starts\n",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)));
 
     ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
 
         indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
+
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Route : %s : Propogating resolution to INH %s\n",
+            rtm->name, route_str,
+            rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
 
         /* Withdraw first*/
         rtm_flush_inh_direct_nh_set(rtm, indirect_nh);
@@ -106,22 +152,39 @@ rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
 
         if (Fglthread_list_is_empty(&indirect_nh->direct_nh_list)) {
             
-            /* INH is no longer resolvable, de-couple it from resolver route*/
-            rtm_route_dereference (rtm, indirect_nh->resolved_via_route);
-            indirect_nh->resolved_via_route = NULL;
-            rtm_nh_remove_Fglthread(rtm, indirect_nh, 
-                &route->resolved_lnhs, &indirect_nh->route_resolved_list_glue);
-                
+            tracer(rtm->node->cptr, DRTM,
+                "RTM[%s] : INH %s became unresolvable, withdrawing from Resolution\n",
+                rtm->name, inh_str);
+            
+            rtm_resolution_nh_withdraw(rtm, indirect_nh);
+
+            tracer(rtm->node->cptr, DRTM,
+                "RTM[%s] : INH %s became unresolvable, moving to unresolvable queue\n",
+                rtm->name, inh_str);
+
             /* And Queue it again for re-resolution*/
             rtm_nh_Fglthread_add_last (indirect_nh, &rtm->unresolvable_paths, 
                 &indirect_nh->unresolvable_list_glue);
+
             rtm_schedule_nh_resolution_worker (rtm);
+
+            unresolved_count++;
+        }
+        else {
+            resolved_count++;
+            tracer (rtm->node->cptr, DRTM,
+                "RTM[%s] : Route %s resolved INH %s successfully\n",
+                rtm->name, route_str, inh_str);
         }
 
         /* Now Recursively update the routes INH upstream in Graph*/
         rtm_resolve_routes_recursively (rtm, indirect_nh->owner_route);
 
     } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
+    
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Route : %s : Route propogation ends. INH Resolved=%d, INH Unresolved=%d\n",
+        rtm->name, route_str, resolved_count, unresolved_count);
 }
 
 static void
@@ -130,14 +193,26 @@ rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
     rtm_route *route;
     rtm_nh *indirect_nh;
     glthread_t *curr_glue;
-
+    int resolved_count = 0;
+    int unresolved_count = 0;
+    char inh_str[128];
+    char route_str[48];
     rtm_t *rtm = (rtm_t *)arg;
 
     rtm->nh_resolution_job = NULL;
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : NH resolution worker started\n",
+        rtm->name);
 
     ITERATE_GLTHREAD_BEGIN(&rtm->unresolvable_paths.head, curr_glue) {
 
         indirect_nh = unresolvable_list_glue_to_rtm_nh(curr_glue);
+
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Trying to resolve INH %s\n",
+            rtm->name,
+            rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
 
         /* Sanity Checks */
         assert ( indirect_nh->is_active && 
@@ -151,8 +226,18 @@ rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
         route = rtm_lpm_tree_lookup(rtm, &indirect_nh->prefix);
 
         if (!route || !rtm_route_is_resolved(route)) {
+            unresolved_count++;
+            tracer(rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : INH %s is still unresolvable, keeping it on unresolvable Queue\n",
+                rtm->name,inh_str );
             continue;
         }
+
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : INH %s will be resolved via route %s\n",
+            rtm->name,
+            rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)),
+            rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)));
 
         rtm_nh_remove_Fglthread (rtm, indirect_nh,
             &rtm->unresolvable_paths, &indirect_nh->unresolvable_list_glue);
@@ -165,29 +250,48 @@ rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
                 &route->resolved_lnhs, 
                 &indirect_nh->route_resolved_list_glue);        
 
-        rtm_fib_install(indirect_nh->owner_route, indirect_nh);
-        rtm_presentation_layer_route_add (rtm, indirect_nh);
-
         if ( !IS_QUEUED_UP_IN_THREAD (&indirect_nh->owner_route->resolved_route_glue) ) {
 
             /* Queue the route to recursively update resolution graph upstream. We cant do
                 it synchronously here because we want to do it only when all INHs of the route
                 are resolved from downstream routes in RES Graph*/
+                tracer(rtm->node->cptr, DRTM,
+                    "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
+                    rtm->name,
+                    rtm_format_prefix(&indirect_nh->owner_route->prefix, route_str, sizeof(route_str)));
+
                 rtm_route_Fglthread_add_last (
                     indirect_nh->owner_route, 
                     &rtm->resolved_unpropogated_routes, 
                     &indirect_nh->owner_route->resolved_route_glue);
         }
         
+        resolved_count++;
+        
     } ITERATE_GLTHREAD_END(&rtm->unresolvable_paths.head, curr_glue);
 
-    rtm_schedule_route_propogation_worker (rtm);
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : NH resolution worker completed: resolved=%d, still_unresolved=%d\n",
+        rtm->name, resolved_count, unresolved_count);
+
+    if (resolved_count) {
+        rtm_schedule_route_propogation_worker (rtm);
+    }
 }
 
 void 
 rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
 
-    if (rtm->nh_resolution_job) return;
+    if (rtm->nh_resolution_job) {
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : NH resolution worker already scheduled\n",
+            rtm->name);
+        return;
+    }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Scheduling NH resolution worker\n",
+        rtm->name);
 
     rtm->nh_resolution_job =  task_create_new_job ( EV(rtm->node),
              (void *)rtm,
@@ -204,6 +308,10 @@ rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
     rtm_t *rtm = (rtm_t *)arg;
 
     rtm->nh_resolution_job = NULL;
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route Propogation Worker Started\n",
+        rtm->name);
 
     ITERATE_GLTHREAD_BEGIN(&rtm->resolved_unpropogated_routes.head, curr) {
 
@@ -222,6 +330,10 @@ void
 rtm_schedule_route_propogation_worker (rtm_t *rtm) {
 
     if (rtm->rt_resolution_job) return;
+   
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route Propogation Worker Scheduled\n",
+        rtm->name);
 
     rtm->rt_resolution_job =  task_create_new_job ( EV(rtm->node),
              (void *)rtm,
@@ -239,9 +351,12 @@ void
 rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
 
     /* Nexthop must stay intact with its owner route for calling this API */
+    char inh_str[128];
 
-    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Nexthop Complete withdrawn from Resolution begins\n", 
-        rtm->name);
+    tracer (rtm->node->cptr, DRTM, 
+        "RTM[%s] : Nexthop %s Complete withdrawn from Resolution Graph\n", 
+        rtm->name,
+        rtm_nh_one_liner_trace(nh, inh_str, sizeof(inh_str)));
         
     assert (nh->owner_route);
     assert (IS_QUEUED_UP_IN_THREAD (&nh->route_glue));
@@ -409,6 +524,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
     glthread_t *curr;
     uint32_t count = 0;
     rtm_route *lpm_route;
+    char nh_str[128], from_rt_str[128], to_rt_str[128];
 
     ITERATE_GLTHREAD_BEGIN (&rtm->nhs_by_src[proto], curr) {
 
@@ -422,13 +538,32 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
         /* Sanity Check : It has to be acitve INH if it is allotted resolver router */
         assert (nh->is_active);
 
-        lpm_route = rtm_lpm_tree_lookup (rtm , route);
+        lpm_route = rtm_lpm_tree_lookup (rtm, &nh->prefix);
         assert (lpm_route);
 
-        if (lpm_route == nh->resolved_via_route) continue;
+        tracer(rtm->node->cptr, DRTM_DET, 
+            "RTM[%s] : LPM lookup result for Look up : %s is Route %s\n",
+            rtm->name, 
+            rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
+            rtm_format_prefix(&lpm_route->prefix, to_rt_str, sizeof(to_rt_str)));
+
+        if (lpm_route == nh->resolved_via_route) {
+            tracer(rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : INH %s remains resolved via same route %s\n", 
+                rtm->name, 
+                rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
+                rtm_format_prefix(&lpm_route->prefix, to_rt_str, sizeof(to_rt_str)));
+            continue;
+        }
+
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Re-resolving INH %s from route %s to route %s\n", 
+            rtm->name, 
+            rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
+            rtm_format_prefix(&nh->resolved_via_route->prefix, from_rt_str, sizeof(from_rt_str)),
+            rtm_format_prefix(&lpm_route->prefix, to_rt_str, sizeof(to_rt_str)));
 
         rtm_resolution_nh_withdraw(rtm, nh);
-
         rtm_nh_Fglthread_add_last (nh, &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
 
         count++;

@@ -565,7 +565,7 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
     /* Validate protocol type */
     if (proto >= RTM_PROTO_MAX) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Protocol registration failed - Invalid protocol %d",
+            "RTM[%s] : ERROR: Protocol registration failed - Invalid protocol %d\n",
             rtm->name, proto);
         return false;
     }
@@ -574,7 +574,7 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
     rtm_proto_info_t *existing = rtm_proto_lookup(rtm, proto, instance_no);
     if (existing) {
         tracer(rtm->node->cptr, DRTM,
-            "RTM[%s] : WARNING: Protocol %s instance %u already registered",
+            "RTM[%s] : WARNING: Protocol %s instance %u already registered\n",
             rtm->name, rtm_proto_to_string(proto), instance_no);
         return false;
     }
@@ -583,7 +583,7 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
     rtm_proto_info_t *proto_info = rtm_proto_info_create(rtm, proto, instance_no);
     if (!proto_info) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Failed to create protocol info for %s instance %u",
+            "RTM[%s] : ERROR: Failed to create protocol info for %s instance %u\n",
             rtm->name, rtm_proto_to_string(proto), instance_no);
         return false;
     }
@@ -596,14 +596,14 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
 
     if (rc != RTM_SUCCESS) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Failed to add protocol info for %s instance %u - %s",
+            "RTM[%s] : ERROR: Failed to add protocol info for %s instance %u - %s\n",
             rtm->name, rtm_proto_to_string(proto), instance_no, rtm_error_to_string(rc));
         free(proto_info);
         return false;
     }
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Protocol %s instance %u registered successfully",
+        "RTM[%s] : Protocol %s instance %u registered successfully\n",
         rtm->name, rtm_proto_to_string(proto), instance_no);
 
     return true;
@@ -616,7 +616,7 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
     /* Validate protocol type */
     if (proto >= RTM_PROTO_MAX) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Protocol unregistration failed - Invalid protocol %d",
+            "RTM[%s] : ERROR: Protocol unregistration failed - Invalid protocol %d\n",
             rtm->name, proto);
         return false;
     }
@@ -624,7 +624,7 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
     /* Validate VRF */
     if (vrf_id != rtm->vrf) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Protocol unregistration failed - VRF mismatch (expected %d, got %d)",
+            "RTM[%s] : ERROR: Protocol unregistration failed - VRF mismatch (expected %d, got %d)\n",
             rtm->name, rtm->vrf, vrf_id);
         return false;
     }
@@ -633,7 +633,7 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
     rtm_proto_info_t *proto_info = rtm_proto_lookup(rtm, proto, instance_no);
     if (!proto_info) {
         tracer(rtm->node->cptr, DRTM,
-            "RTM[%s] : WARNING: Protocol %s instance %u not registered",
+            "RTM[%s] : WARNING: Protocol %s instance %u not registered\n",
             rtm->name, rtm_proto_to_string(proto), instance_no);
         return false;
     }
@@ -641,7 +641,7 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
     /* Check if there are active subscriptions */
     if (!avltree_is_empty(&proto_info->sub_db)) {
         tracer(rtm->node->cptr, DRTM,
-            "RTM[%s] : WARNING: Protocol %s instance %u has active subscriptions, clearing them",
+            "RTM[%s] : WARNING: Protocol %s instance %u has active subscriptions, clearing them\n",
             rtm->name, rtm_proto_to_string(proto), instance_no);
         
         /* Clear all subscriptions */
@@ -657,13 +657,13 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
     rtm_error_t rc = rtm_proto_info_del(rtm, proto, instance_no);
     if (rc != RTM_SUCCESS) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Failed to delete protocol info for %s instance %u - %s",
+            "RTM[%s] : ERROR: Failed to delete protocol info for %s instance %u - %s\n",
             rtm->name, rtm_proto_to_string(proto), instance_no, rtm_error_to_string(rc));
         return false;
     }
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Protocol %s instance %u unregistered successfully",
+        "RTM[%s] : Protocol %s instance %u unregistered successfully\n",
         rtm->name, rtm_proto_to_string(proto), instance_no);
 
     return true;
@@ -678,7 +678,7 @@ cp_rtm_subscribe(rtm_t *rtm,
     /* Validate target protocol */
     if (sub_template->target_proto >= RTM_PROTO_MAX) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Subscription failed - Invalid target protocol %d",
+            "RTM[%s] : ERROR: Subscription failed - Invalid target protocol %d\n",
             rtm->name, sub_template->target_proto);
         return RTM_ERROR_INVALID_PROTO;
     }
@@ -686,7 +686,7 @@ cp_rtm_subscribe(rtm_t *rtm,
     /* Validate target sub-protocol */
     if (sub_template->target_sub_proto >= RTM_SUB_PROTO_MAX) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Subscription failed - Invalid target sub-protocol %d",
+            "RTM[%s] : ERROR: Subscription failed - Invalid target sub-protocol %d\n",
             rtm->name, sub_template->target_sub_proto);
         return RTM_ERROR_INVALID_SUB_PROTO;
     }
@@ -697,7 +697,7 @@ cp_rtm_subscribe(rtm_t *rtm,
 
     if (!proto_info) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Subscription failed - Target protocol %s instance %u not registered",
+            "RTM[%s] : ERROR: Subscription failed - Target protocol %s instance %u not registered\n",
             rtm->name, rtm_proto_to_string(sub_template->target_proto), 
             sub_template->target_instance_no);
         return RTM_ERROR_PROTO_NOT_REGISTERED;
@@ -707,7 +707,7 @@ cp_rtm_subscribe(rtm_t *rtm,
     rtm_rt_subscription_t *sub = (rtm_rt_subscription_t *)XCALLOC2(0, 1, rtm_rt_subscription_t);
     if (!sub) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Subscription failed - Memory allocation error",
+            "RTM[%s] : ERROR: Subscription failed - Memory allocation error\n",
             rtm->name);
         return RTM_ERROR_MEMORY_ALLOC_FAILED;
     }
@@ -725,14 +725,14 @@ cp_rtm_subscribe(rtm_t *rtm,
     /* Add subscription to protocol's subscription database */
     if (avltree_insert(&sub->avl_glue, &proto_info->sub_db)) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Subscription failed - Failed to insert into subscription database",
+            "RTM[%s] : ERROR: Subscription failed - Failed to insert into subscription database\n",
             rtm->name);
         free(sub);
         return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Subscription added for protocol %s instance %u",
+        "RTM[%s] : Subscription added for protocol %s instance %u\n",
         rtm->name, rtm_proto_to_string(sub_template->target_proto), 
         sub_template->target_instance_no);
 
@@ -750,7 +750,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     /* Validate target protocol */
     if (sub_template->target_proto >= RTM_PROTO_MAX) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Unsubscription failed - Invalid target protocol %d",
+            "RTM[%s] : ERROR: Unsubscription failed - Invalid target protocol %d\n",
             rtm->name, sub_template->target_proto);
         return RTM_ERROR_INVALID_PROTO;
     }
@@ -761,7 +761,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
                                                      sub_template->target_instance_no);
     if (!proto_info) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Unsubscription failed - Target protocol %s instance %u not registered",
+            "RTM[%s] : ERROR: Unsubscription failed - Target protocol %s instance %u not registered\n",
             rtm->name, rtm_proto_to_string(sub_template->target_proto), 
             sub_template->target_instance_no);
         return RTM_ERROR_PROTO_NOT_REGISTERED;
@@ -773,7 +773,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     
     if (!node) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Unsubscription failed - Subscription not found for protocol %s instance %u",
+            "RTM[%s] : ERROR: Unsubscription failed - Subscription not found for protocol %s instance %u\n",
             rtm->name, rtm_proto_to_string(sub_template->target_proto), 
             sub_template->target_instance_no);
         return RTM_ERROR_SUBSCRIPTION_NOT_FOUND;
@@ -789,7 +789,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     free(sub);
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Subscription removed for protocol %s instance %u",
+        "RTM[%s] : Subscription removed for protocol %s instance %u\n",
         rtm->name, rtm_proto_to_string(sub_template->target_proto), 
         sub_template->target_instance_no);
 

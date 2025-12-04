@@ -1231,9 +1231,11 @@ tcp_ip_debug_handler (  int cmdcode,
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
                 tracer_enable_always_flush(node->dptr, true);
+                tracer_enable_always_flush(node->cptr, true);
             break;
             case CONFIG_DISABLE:
                 tracer_enable_always_flush(node->dptr, false);   
+                tracer_enable_always_flush(node->cptr, false);
             break;
         }
         break;
@@ -1242,11 +1244,25 @@ tcp_ip_debug_handler (  int cmdcode,
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
                 tracer_enable_all_logging(node->dptr, true);
+		        tracer_enable_all_logging(node->cptr, true);
             break;
             case CONFIG_DISABLE:
-                tracer_enable_all_logging(node->dptr, true);  
+                tracer_enable_all_logging(node->dptr, false);  
+		        tracer_enable_all_logging(node->cptr, false);
             break;
         }
+
+        case DRTM:
+        case DRTM_DET:
+        switch (enable_or_disable) {
+            case CONFIG_ENABLE:
+		        tracer_log_bit_set(node->cptr, cmdcode);
+            break;
+            case CONFIG_DISABLE:
+	    	    tracer_log_bit_unset(node->cptr, cmdcode);
+            break;
+        }
+        break;
 
     }
     /* Handle rest of the cmd codes */

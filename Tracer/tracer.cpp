@@ -135,7 +135,7 @@ trace_internal (tracer_t *tracer,
         tracer->log_msg_len += tracer->bit_to_str((char *)tracer->Logbuffer + tracer->log_msg_len, bit);
     }
     tracer->log_msg_len += vsnprintf((char *)tracer->Logbuffer + tracer->log_msg_len, LOG_BUFFER_SIZE - tracer->log_msg_len, format, args);
-    tracer->log_msg_len++;   // count \0 character
+    // Don't include the null terminator in the log output
     va_end(args);
 
     if (tracer->log_file && (tracer->op_flags & ENABLE_FILE_LOG)) {

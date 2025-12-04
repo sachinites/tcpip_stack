@@ -67,28 +67,13 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
 void
  rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh) {
 
-    char prefix_str[48];
+    
     char gw_str[48];
-
-    if (!rtm || !route || !nh) {
-        if (rtm && rtm->node) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Add NH to route path list failed - Invalid argument (rtm=%p, route=%p, nh=%p)",
-                rtm ? rtm->name : "null", rtm, route, nh);
-        }
-        return;
-    }
-
-    tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Adding NH to route %s path list, Proto=%s AD=%u Metric=%u",
-        rtm->name,
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
-        rtm_proto_to_string(nh->proto), nh->ad, nh->metric);
-    
-    glthread_t *curr;
     rtm_nh *curr_nh;
+    glthread_t *curr;
+    char prefix_str[48];
     glthread_t *insert_before = NULL;
-    
+
     ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
         
         curr_nh = route_glue_to_rtm_nh(curr);
@@ -111,15 +96,19 @@ void
     
     rtm_nh_reference(nh);
 
+    route->nh_count++;
+
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : NH added successfully to route %s, Total NHs in route=%u",
+        "RTM[%s] : Route %s : Adding NH %s to route path list, NH-Attr : AD=%u Metric=%u\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
-        route->nh_count);
+        rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+        nh->ad, nh->metric);
  }
 
 
-char *rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+char *
+rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
     
     uint32_t temp;
     char addr_buf[INET6_ADDRSTRLEN];
@@ -749,7 +738,9 @@ rtm_get_by_name (node_t *node, char *rtm_name) {
 static rtm_error_t 
 rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
 
-    if (!nh_template) return RTM_ERROR_INVALID_ARGUMENT;
+    if (!nh_template) {
+        return RTM_ERROR_INVALID_ARGUMENT;
+    }
 
     if (nh_template->proto >= RTM_PROTO_MAX) {
         return RTM_ERROR_INVALID_PROTO;
@@ -774,6 +765,8 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
     if (!nh_template->rtm_nh_proto) {
         return RTM_ERROR_INVALID_NEXTHOP_PROTO;
     }
+    
+    /* Validation successful - template is valid */
     return RTM_SUCCESS;
 }
 
@@ -807,6 +800,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
     nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
 
+    /* NH created successfully - note: cannot trace here as we don't have RTM context */
     return nh;
 }
 
@@ -819,7 +813,7 @@ rtm_install_route (
                             rtm_prefix_t *prefix,
                             cp_nexthop_template_t *cp_nh_template) {
 
-    char gw_str[48];
+    char gw_str[128];
     char prefix_str[48];
     bool new_rt = false;
     rtm_nh_proto_t *nh_proto;
@@ -830,10 +824,11 @@ rtm_install_route (
     if (rc != RTM_SUCCESS) {
 
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: NH template validation failed for route %s - %s",
+            "RTM[%s] : ERROR(%s): NH template validation failed for route %s\n",
             rtm->name,
-            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
-            rtm_error_to_string(rc));
+            rtm_error_to_string(rc),
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+
         return rc;
     }
 
@@ -842,6 +837,11 @@ rtm_install_route (
 
     if (!route) {
         
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Creating New Route %s\n",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+
         route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
         rtm_route_initialize(route);
         route->prefix = *prefix;
@@ -851,20 +851,38 @@ rtm_install_route (
         if (rc != RTM_SUCCESS) {
 
             tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Route %s addition failed", 
-                rtm->name, 
+                "RTM[%s] : ERROR(%s): Route %s addition failed\n", 
+                rtm->name, rtm_error_to_string(rc),
                 rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
             XFREE(route);
             return rc;
         }
+
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : Success : New Route %s Added to RTM DB\n",
+            rtm->name,
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));        
     }
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);
 
     if (!nh) {
+
+        tracer(rtm->node->cptr, DRTM|DERR,
+            "RTM[%s] : ERROR(%s): Failed to create NH from template for route %s\n",
+            rtm->name,
+            rtm_error_to_string(RTM_ERROR_NEXTHOP_CREATION_FAILED),
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+
         if (new_rt) {
+
             rtm_route_delete(rtm, route);
+            tracer(rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : New Route %s deleted from RTM DB due to NH creation failure\n",
+                rtm->name,
+                rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         }
+
         return RTM_ERROR_NEXTHOP_CREATION_FAILED;
     }
 
@@ -879,10 +897,10 @@ rtm_install_route (
     if (rc != RTM_SUCCESS) {
 
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Failed to add NH to route %s - %s",
-            rtm->name,
-            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
-            rtm_error_to_string(rc));
+            "RTM[%s] : ERROR(%s): Route %s : Failed to add NH\n",
+            rtm->name, 
+            rtm_error_to_string(rc),
+            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
 
         if (nh_proto == nh->rtm_nh_proto) {
             nh->rtm_nh_proto = NULL;
@@ -890,7 +908,16 @@ rtm_install_route (
         }
 
         rtm_nh_dereference (rtm, nh);
-        if (new_rt) rtm_route_delete (rtm, route);
+        
+        if (new_rt) {
+
+            rtm_route_delete(rtm, route);
+            tracer(rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : New Route %s deleted from RTM DB due to NH Addition failure\n",
+                rtm->name,
+                rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+        
+        }
         cp_nh_template->idx = 0;
         return rc;
     }
@@ -902,23 +929,45 @@ rtm_install_route (
 
     rtm_route_refresh_nexthops (rtm, route);
     
-    tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Route %s installed successfully, NH idx=%u Proto=%s",
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Success : Route %s installed, NH %s\n",
         rtm->name,
         rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
-        nh->idx, rtm_proto_to_string(nh->proto));
-
-
+        rtm_nh_one_liner_trace(nh, gw_str, sizeof(gw_str)));
+        
     if (new_rt && rtm_route_is_resolved (route)) {
 
+        if (!Fglthread_list_is_empty(&rtm->unresolvable_paths)) {
+
         /* If the new route is added, then check any unresolvable paths could
-            be resolved on this route */        
+            be resolved on this route */      
+            tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Scheduling NH resolution worker, Reason : New Resolved Route %s Added\n",
+            rtm->name, prefix_str);
+
             rtm_schedule_nh_resolution_worker (rtm);
+        }
+        else {
+            tracer (rtm->node->cptr, DRTM_DET,
+                "RTM[%s] : Skipping Scheduling NH resolution worker, "
+                "Reason : No unresolvable paths to resolve on newly added route %s\n",
+                rtm->name, prefix_str);
+        }
 
         /* Also this could be the next route which other already resolved INHs could be
             resolved better now (as per LPM), so re-resolved such INHs */
-            rtm_re_resolve_inhs (rtm, &route->prefix);
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Re-resolving INHs, Reason : New Resolved Route Added\n",
+            rtm->name);
+
+        rtm_re_resolve_inhs (rtm, &route->prefix);
     }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Success: Route %s installation completed, nexthop : %s\n",
+        rtm->name,
+        rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
+        rtm_nh_one_liner_trace(nh, gw_str, sizeof(gw_str)));
 
     return rc;
 }
@@ -937,13 +986,13 @@ rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
 
     if (rc != RTM_SUCCESS) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: NH template validation failed - %s",
+            "RTM[%s] : ERROR: NH template validation failed - %s\n",
             rtm->name, rtm_error_to_string(rc));
         return rc;
     }
 
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Uninstalling route %s",
+        "RTM[%s] : Uninstalling route %s\n",
         rtm->name,
         rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
 
@@ -951,7 +1000,7 @@ rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
     rtm_route *route = rtm_route_lookup(rtm, prefix);
     if (!route) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Route %s not found",
+            "RTM[%s] : ERROR: Route %s not found\n",
             rtm->name,
             rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
@@ -974,7 +1023,7 @@ rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
 
     if (!actual_nh) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: NH not found for route %s",
+            "RTM[%s] : ERROR: NH not found for route %s\n",
             rtm->name,
             rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_NEXTHOP_NOT_FOUND;
@@ -987,7 +1036,7 @@ rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
 
     if (rc != RTM_SUCCESS) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Failed to delete NH from route %s - %s",
+            "RTM[%s] : ERROR: Failed to delete NH from route %s - %s\n",
             rtm->name,
             rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)),
             rtm_error_to_string(rc));

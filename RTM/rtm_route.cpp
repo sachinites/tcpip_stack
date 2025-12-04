@@ -148,21 +148,15 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     
     char prefix_str[48];
     
-    if (!rtm || !route) {
-        if (rtm && rtm->node) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                "RTM[%s] : ERROR: Route add failed - Invalid argument (rtm=%p, route=%p)",
-                rtm ? rtm->name : "null", rtm, route);
-        }
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-    
     // Validate AFI
     if (route->prefix.afi >= RTM_AFI_MAX) {
+
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Route add failed - Invalid AFI %u for route %s",
-            rtm->name, route->prefix.afi,
+            "RTM[%s] : ERROR(%s) : Route %s : Add failed\n",
+            rtm->name, 
+            rtm_error_to_string(RTM_ERROR_INVALID_PREFIX),
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
         return RTM_ERROR_INVALID_PREFIX;
     }
     
@@ -170,15 +164,17 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     rtm_route *existing = rtm_route_lookup(rtm, &route->prefix);
 
     if (existing) {
+
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Route %s already exists in routing table",
+            "RTM[%s] : Route %s already exists in routing table\n",
             rtm->name,
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
     
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Adding route %s to routing table",
+        "RTM[%s] : Route %s : Adding route to routing table\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
     
@@ -197,11 +193,11 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
         {
             /* LPM insertion failed, rollback AVL tree insertion */
             tracer(rtm->node->cptr, DRTM | DERR,
-                   "RTM[%s] : ERROR: Route %s LPM tree insertion failed, rolling back",
-                   rtm->name,
+                   "RTM[%s] : ERROR(%s): Route %s LPM tree insertion failed, rolling back\n",
+                   rtm->name, rtm_error_to_string(lpm_result),
                    rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
             rtm_route_avl_remove(rtm, route, (avltree_t *)&rtm->route_tree, &route->route_glue);
-            /* Note: rtm_route_avl_remove already calls rtm_route_dereference */
             return lpm_result;
         }
 
@@ -209,7 +205,7 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     }
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s added successfully to routing table and LPM tree",
+        "RTM[%s] : Route %s added successfully to LPM tree\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
     
@@ -252,7 +248,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rtm_nh_proto_t *existing_nh_proto = NULL;
     
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Adding NH to route %s, Proto=%s Gw=%s AD=%u Metric=%u",
+        "RTM[%s] : Adding NH to route %s, Proto=%s Gw=%s AD=%u Metric=%u\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
         rtm_proto_to_string(nh->proto),
@@ -267,7 +263,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
     if (existing) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: NH %s already exists for route %s",
+            "RTM[%s] : ERROR: NH %s already exists for route %s\n",
             rtm->name,
             rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
@@ -281,7 +277,6 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rtm_route_reference(route);
     
     rtm_route_add_nh_to_route_path_list (rtm, route, nh);
-    route->nh_count++;
 
     rc = rtm_nh_proto_add(rtm, nh->rtm_nh_proto, &existing_nh_proto) ;
 
@@ -295,9 +290,10 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     }
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : NH added successfully to route %s, Total NHs=%u Active=%s",
+        "RTM[%s] : Route : %s , NH %s added successfully, Total NHs=%u Active=%s\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
         route->nh_count, nh->is_active ? "Yes" : "No");
 
     return RTM_SUCCESS;
@@ -312,7 +308,7 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     char gw_str[48];
 
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Deleting NH %s from route %s, Proto=%s AD=%u",
+        "RTM[%s] : Deleting NH %s from route %s, Proto=%s AD=%u\n",
         rtm->name,
         rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
@@ -328,7 +324,7 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rtm_route_dereference(rtm, route);    
     
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : NH %s deleted successfully from route %s, Remaining NHs=%u",
+        "RTM[%s] : NH %s deleted successfully from route %s, Remaining NHs=%u\n",
         rtm->name,
         rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
@@ -400,14 +396,14 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
 
     if (!best_glue) {
         tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : Route %s has no nexthops to refresh",
+            "RTM[%s] : Route %s : Has no nexthops to refresh\n",
             rtm->name,
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         return;
     }
     
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Refreshing nexthops for route %s (Total NHs=%u)",
+        "RTM[%s] : Route %s : Refreshing nexthops (Total NHs=%u)\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
         route->nh_count);
@@ -445,16 +441,23 @@ rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) {
     } ITERATE_GLTHREAD_END(&route->path_list, curr);
 
     if (!nh_active_set_changed) {
-        tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : Route %s nexthop refresh complete, No Change in Active NH set",
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Route %s :  Nexthop refresh complete, No Change in Active NH set\n",
             rtm->name,
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
             active_count);
         return;
     }
 
-    /* Routes Active Set has changed, update upstream routes recursively */
-     rtm_resolve_routes_recursively (rtm, route);
+    if (nh_active_set_changed) {
+
+        /* Routes Active Set has changed, update upstream routes recursively */
+        tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Route %s :  Nexthop refresh complete, Propagating changes upstream\n",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        rtm_resolve_routes_recursively (rtm, route);
+    }
 }
 
 /* ============================================================================
@@ -520,7 +523,7 @@ rtm_lpm_tree_destroy(rtm_t *rtm) {
     rtm->lpm_rt_tree = NULL;
     
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : LPM tree destroyed",
+        "RTM[%s] : LPM tree destroyed\n",
         rtm->name);
 }
 
@@ -565,7 +568,7 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
         //rtm_route_reference (route);
 
         tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : Route %s inserted into LPM tree",
+            "RTM[%s] : Route %s inserted into LPM tree\n",
             rtm->name,
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         
@@ -576,7 +579,7 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
     else if (result == MTRIE_INSERT_DUPLICATE) {
         /* Route already exists in LPM tree */
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : Route %s already exists in LPM tree",
+            "RTM[%s] : Route %s already exists in LPM tree\n",
             rtm->name,
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         
@@ -586,7 +589,7 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
     }
     else {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : Failed to insert route %s into LPM tree",
+            "RTM[%s] : Failed to insert route %s into LPM tree\n",
             rtm->name,
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         
@@ -645,14 +648,14 @@ rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix) {
     
     if (result == MTRIE_DELETE_SUCCESS) {
         tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : Route %s deleted from LPM tree",
+            "RTM[%s] : Route %s deleted from LPM tree\n",
             rtm->name,
             rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         return RTM_SUCCESS;
     }
     else {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : Failed to delete route %s from LPM tree",
+            "RTM[%s] : Failed to delete route %s from LPM tree\n",
             rtm->name,
             rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;

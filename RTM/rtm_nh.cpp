@@ -62,7 +62,7 @@ rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) {
     assert (nh->ref_count == 0);
     assert (nh->v6segment_lst == NULL);
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : NH %s(idx=%u) destroyed NH",
+        "RTM[%s] : NH %s(idx=%u) destroyed NH\n",
         rtm->name,
         rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
         nh->idx);    
@@ -73,11 +73,15 @@ void
 rtm_nh_reference(rtm_nh *nh) {
     
     nh->ref_count++;
+    
+    /* Note: Cannot trace here as we don't have RTM context */
 }
 
 void 
 rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
-        
+    
+    char nh_str[128];
+    
     nh->ref_count--;
 
     if (nh->ref_count == 0) {
@@ -250,16 +254,15 @@ void
 rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     char prefix_str[48];
-    char gw_str[48];
+    char gw_str[128];
 
     assert (!nh->is_active);
 
-        tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : Setting NH active for route %s, NH=%s Proto=%s Indirect=%s Resolved=%s",
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Route : %s : Setting NH Active, NH=%s Is_indirect=%s Resolved=%s\n",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
-            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
-            rtm_proto_to_string(nh->proto),
+            rtm_nh_one_liner_trace(nh, gw_str, sizeof(gw_str)),
             nh->is_indirect ? "Yes" : "No",
             rtm_nh_is_resolved(nh) ? "Yes" : "No");
 
@@ -283,6 +286,12 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
         if (!route || !rtm_route_is_resolved(route)) {
 
             /* INH is not resolvable */
+            tracer(rtm->node->cptr, DRTM,
+                "RTM[%s] : Route : %s : INH %s is still unresolvable, queuing for resolution\n",
+                rtm->name,
+                rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
+                rtm_nh_one_liner_trace(nh, gw_str, sizeof(gw_str)));
+
             rtm_nh_Fglthread_add_last (nh, 
                                 &rtm->unresolvable_paths, 
                                 &nh->unresolvable_list_glue); 
@@ -300,15 +309,19 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
         rtm_nh_Fglthread_add_last (nh, &route->resolved_lnhs, 
             &nh->route_resolved_list_glue);
 
+        tracer(rtm->node->cptr, DRTM,
+                "RTM[%s] : Route : %s : INH %s resolved via route %s\n",
+                rtm->name,
+                rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
+                rtm_nh_one_liner_trace(nh, gw_str, sizeof(gw_str)),
+                rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
         /* The caller must call rtm_resolve_routes_recursively ( ) to propogate resolution
             effect upstream in resolution graph*/
     }
     else {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
-
-    rtm_fib_install(nh->owner_route, nh);
-    rtm_presentation_layer_route_add (rtm, nh);
 }
 
 void 
@@ -320,7 +333,7 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
     assert(nh->is_active);
     
     tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : Setting NH inactive for route %s, NH=%s Proto=%s",
+            "RTM[%s] : Setting NH inactive for route %s, NH=%s Proto=%s\n",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
             rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
@@ -338,12 +351,10 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
     }
     else {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
-            rtm_fib_uninstall(nh->owner_route, nh);
-            rtm_presentation_layer_route_add (rtm, nh);
     }
 
     tracer(rtm->node->cptr, DRTM,
-            "RTM[%s] : NH deactivated and removed from FIB for route %s",
+            "RTM[%s] : NH deactivated and removed from FIB for route %s\n",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)));
 }
@@ -356,6 +367,13 @@ rtm_flush_inh_direct_nh_set(
     glthread_t *next_glue;
     glthread_data_node_t *data_node;
     rtm_nh *nh;
+    char gw_str[128];
+    char nh_str[128];
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Flushing direct NH set of INH %s\n",
+        rtm->name,
+        rtm_nh_one_liner_trace(indirect_nh, gw_str, sizeof(gw_str)));
 
     ITERATE_GLTHREAD_BEGIN(&indirect_nh->direct_nh_list.head, curr_glue) {
 
@@ -363,6 +381,13 @@ rtm_flush_inh_direct_nh_set(
         nh = (rtm_nh *)data_node->data;
         rtm_nh_remove_Fglthread (rtm, indirect_nh, 
             &indirect_nh->direct_nh_list, curr_glue);
+
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : INH %s removing direct NH %s from its direct NH set\n",
+            rtm->name,
+            rtm_nh_one_liner_trace(indirect_nh, gw_str, sizeof(gw_str)),
+            rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)));
+
         XFREE (data_node);
 
     } ITERATE_GLTHREAD_END(&indirect_nh->direct_nh_list.head, curr_glue);
@@ -381,6 +406,8 @@ void rtm_nh_glthread_add_next (
     assert (!IS_QUEUED_UP_IN_THREAD(new_glthread));
     glthread_add_next (curr_glthread, new_glthread);
     rtm_nh_reference (nh);
+    
+    /* Note: Cannot trace here as we don't have RTM context */
 }
 
 void rtm_nh_glthread_add_before (
@@ -394,6 +421,13 @@ void rtm_nh_glthread_add_before (
 void rtm_nh_remove_glthread (rtm_t *rtm, rtm_nh *nh, glthread_t *curr_glthread){
 
     assert (IS_QUEUED_UP_IN_THREAD(curr_glthread));
+    
+    char nh_str[128];
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : NH %s removing from glthread\n",
+        rtm->name,
+        rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)));
+    
     remove_glthread (curr_glthread);
     rtm_nh_dereference (rtm, nh);
 }
@@ -441,6 +475,8 @@ rtm_nh_avl_insert (rtm_nh *nh, avltree_t *tree, avltree_node_t *avlnode){
     assert (!avltree_node_is_inuse(avlnode));
     assert (!avltree_insert(avlnode, tree));
     rtm_nh_reference (nh);
+    
+    /* Note: Cannot trace here as we don't have RTM context */
 }
 
 void 
@@ -448,6 +484,13 @@ rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh,
     avltree_t *tree, avltree_node_t *avlnode){
 
     assert (avltree_node_is_inuse(avlnode));
+    
+    char nh_str[128];
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : NH %s removing from AVL tree\n",
+        rtm->name,
+        rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)));
+    
     avltree_strict_remove(avlnode, tree); 
     rtm_nh_dereference (rtm, nh);
 }
@@ -455,5 +498,14 @@ rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh,
 char *
 rtm_nh_one_liner_trace (rtm_nh *nh, char *buffer_str, int buff_size) {
 
-    
+    char nh_addr_str[48];
+    rtm_format_nexthop(&nh->prefix, nh_addr_str, sizeof(nh_addr_str));
+
+    snprintf(buffer_str, buff_size, 
+             "NH[idx=%u, %s, %s]",
+             nh->idx,
+             nh_addr_str,
+             rtm_proto_to_string(nh->proto));
+
+    return buffer_str;
 }

@@ -113,6 +113,13 @@ rtm_nh_proto_add (rtm_t *rtm,
 
     if (existing) {
         *existing_nh_proto_out = existing;
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : NH Proto Info already exists Proto=%s SubProto=%s Inst=%u ref_count=%u\n",
+            rtm->name,
+            rtm_proto_to_string(nh_proto->proto),
+            rtm_sub_proto_to_string(nh_proto->sub_proto),
+            nh_proto->instance_no,
+            existing->ref_count);
         return  RTM_ERROR_NEXTHOP_PROTO_ALREADY_EXISTS;
     }
     
@@ -121,6 +128,14 @@ rtm_nh_proto_add (rtm_t *rtm,
                         
 	    return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
+    
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : NH Proto Info added Proto=%s SubProto=%s Inst=%u VRF=%u\n",
+        rtm->name,
+        rtm_proto_to_string(nh_proto->proto),
+        rtm_sub_proto_to_string(nh_proto->sub_proto),
+        nh_proto->instance_no,
+        nh_proto->vrf_id);
     
     //rtm_nh_proto_reference(nh_proto);
     return RTM_SUCCESS;
@@ -147,6 +162,8 @@ void
 rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto) {
     
     nh_proto->ref_count++;
+    
+    /* Note: We don't have rtm context here, so we can't trace with RTM name */
 }
 
 static void 
@@ -166,7 +183,7 @@ rtm_nh_proto_check_and_delete (rtm_t *rtm,
     avltree_strict_remove(&nh_proto->proto_glue, &rtm->nh_proto_info_tree);
 
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Deleting NH Proto Info Proto=%s SubProto=%s Inst=%u VRF=%u",
+        "RTM[%s] : Deleting NH Proto Info Proto=%s SubProto=%s Inst=%u VRF=%u\n",
         rtm->name,
         rtm_proto_to_string(nh_proto->proto),
         rtm_sub_proto_to_string(nh_proto->sub_proto),
@@ -181,7 +198,20 @@ rtm_nh_proto_dereference (rtm_t *rtm, rtm_nh_proto_t *nh_proto) {
 
     nh_proto->ref_count--;
 
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : NH Proto Info dereferenced Proto=%s SubProto=%s Inst=%u new ref_count=%u\n",
+        rtm->name,
+        rtm_proto_to_string(nh_proto->proto),
+        rtm_sub_proto_to_string(nh_proto->sub_proto),
+        nh_proto->instance_no,
+        nh_proto->ref_count);
+
     if (nh_proto->ref_count == 0){
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : NH Proto Info ref_count=0, initiating deletion Proto=%s SubProto=%s\n",
+            rtm->name,
+            rtm_proto_to_string(nh_proto->proto),
+            rtm_sub_proto_to_string(nh_proto->sub_proto));
         rtm_nh_proto_check_and_delete (rtm, nh_proto);
     }
 }
