@@ -73,8 +73,6 @@ void
 rtm_nh_reference(rtm_nh *nh) {
     
     nh->ref_count++;
-    
-    /* Note: Cannot trace here as we don't have RTM context */
 }
 
 void 
@@ -379,7 +377,7 @@ rtm_flush_inh_direct_nh_set(
 
         data_node = glue_to_glthread_data_node(curr_glue);
         nh = (rtm_nh *)data_node->data;
-        rtm_nh_remove_Fglthread (rtm, indirect_nh, 
+        rtm_nh_remove_Fglthread (rtm, nh, 
             &indirect_nh->direct_nh_list, curr_glue);
 
         tracer(rtm->node->cptr, DRTM_DET,

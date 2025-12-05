@@ -69,8 +69,9 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
             data_node = (glthread_data_node_t *)XCALLOC (0, 1, glthread_data_node_t);
             init_glthread(&data_node->glue);
             data_node->data = nh;
-            Fglthread_add_last (&indirect_nh->direct_nh_list, &data_node->glue);
-            rtm_nh_reference (nh);
+            rtm_nh_Fglthread_add_last (nh, &indirect_nh->direct_nh_list,
+                &data_node->glue);
+                
             tracer(rtm->node->cptr, DRTM_DET,
                 "RTM[%s] : Copied direct NH %s to INH %s\n",
                 rtm->name,
@@ -86,13 +87,15 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
                 data_node = glue_to_glthread_data_node(nh_glue);
                 nh = (rtm_nh *)data_node->data;
                 assert (!nh->is_indirect);
+
                 if (!nh->is_active) continue;
                 if (rtm_inh_has_direct_nh(indirect_nh, nh)) continue;
+
                 data_node = (glthread_data_node_t *)XCALLOC (0, 1, glthread_data_node_t);
                 init_glthread(&data_node->glue);
                 data_node->data = nh;
-                Fglthread_add_last (&indirect_nh->direct_nh_list, &data_node->glue);
-                rtm_nh_reference (nh);
+                rtm_nh_Fglthread_add_last (nh, &indirect_nh->direct_nh_list,
+                    &data_node->glue);
                 tracer(rtm->node->cptr, DRTM_DET,
                     "RTM[%s] : Copied direct NH %s to INH %s\n",
                     rtm->name,
@@ -508,7 +511,7 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
         // Action 
         // 2 Withdraw its contribution to resolution graph upstream 
         rtm_resolve_routes_recursively (rtm, nh->owner_route);
-        
+
         /* We dont put INHs wbeing withdrawl on Unresolvable path*/
         return;
     }
