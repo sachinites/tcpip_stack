@@ -16,6 +16,8 @@ typedef struct rtm_route_ rtm_route;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
 
+#define RTM_DNH_F_NO_PROPOGATE_UPSTREAM 1
+
 typedef struct rtm_nh_ {
 
         /* Unique nexthop index - constant throughout lifetime */

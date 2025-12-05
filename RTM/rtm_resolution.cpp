@@ -42,24 +42,25 @@ void
 rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm_t *rtm, rtm_route *route, rtm_nh *indirect_nh) {
     
+    rtm_nh *nh;
     char inh_str[128];
     char route_str[48];
     int dnh_count = 0;
+    glthread_t *nh_glue;
+    glthread_data_node_t *data_node;
     
     tracer(rtm->node->cptr, DRTM_DET,
         "RTM[%s] : Copying active NHs from route %s to INH %s\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)),
         rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
-    
-    rtm_nh *nh;
-    glthread_t *nh_glue;
-    glthread_data_node_t *data_node;
 
     ITERATE_GLTHREAD_BEGIN(&route->path_list, nh_glue) {
 
         nh = route_glue_to_rtm_nh(nh_glue);
+
         if (!nh->is_active) continue;
+        if (nh->flags & RTM_DNH_F_NO_PROPOGATE_UPSTREAM) continue;
 
         if (!nh->is_indirect) {
 
@@ -109,9 +110,6 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm->name, dnh_count, 
         rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)),
         rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
-
-    //rtm_fib_install(rtm, indirect_nh->owner_route, indirect_nh);
-    //rtm_presentation_layer_route_add (rtm, indirect_nh);
 }
 
 /* Route has been resolved i.e. its INH has been resolbed by DNHs
@@ -404,7 +402,7 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
         // Since this is inactive, it must not be on unresolvable thread/list
         assert (!IS_QUEUED_UP_IN_THREAD (&nh->unresolvable_list_glue));
         // Since it is unresolved, it cannot be on route->resolved_lnhs list
-         assert (!IS_QUEUED_UP_IN_THREAD (&nh->route_resolved_list_glue));
+        assert (!IS_QUEUED_UP_IN_THREAD (&nh->route_resolved_list_glue));
         assert (!nh->resolved_via_route);
         // Since it is unresolved, its borrowed DNH list must be empty
         assert (Fglthread_list_is_empty (&nh->direct_nh_list));
@@ -444,39 +442,46 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
         // if Upstream there is no route resolved by this DNH, no action
         if (Fglthread_list_is_empty (&nh->owner_route->resolved_lnhs)) return;
 
-        /* Remove the current NH from Active Set of the route */
-        rtm_route *route = nh->owner_route;
-        nh->owner_route = NULL;
-        remove_glthread (&nh->route_glue);
+        /* We need to withdraw this NH from Resolution Graph upstream, 
+            set the no propogation flag */
+        nh->flags |= RTM_DNH_F_NO_PROPOGATE_UPSTREAM;
 
-        rtm_resolve_routes_recursively (rtm, route);
+        rtm_resolve_routes_recursively (rtm, nh->owner_route);
 
-        // Put the current NH to Active Set of the route
-        nh->owner_route = route;
-        glthread_add_next (&route->path_list, &nh->route_glue);
+        nh->flags &= ~RTM_DNH_F_NO_PROPOGATE_UPSTREAM;
+
         return;
     }
 
-   /* Case 7 :  */
-    if (nh->is_active && nh->is_indirect && !rtm_nh_is_resolved (nh)) {
+    /* Case 7 :  */
+    /* We cannot take any decision based on rtm_nh_is_resolved( ) API
+        because, in NH delete case recursively upstream, INH could still
+        be resolved by some route while at the same time has direct_nh_list
+        empty. So, will process it based on status of nh->direct_nh_list( )
+    */
+    if (nh->is_active && nh->is_indirect && 
+        Fglthread_list_is_empty(&nh->direct_nh_list))
+    {
+        /* IF this INH DNH list is empty*/
+        if (IS_QUEUED_UP_IN_THREAD(&nh->unresolvable_list_glue))
+        {
+            assert(nh->resolved_via_route == NULL);
+            return;
+        }
 
-        /* Such a INH just RIP in unresolvable list */
+        rtm_nh_remove_Fglthread(rtm, nh,
+                                &nh->resolved_via_route->resolved_lnhs,
+                                &nh->route_resolved_list_glue);
+        rtm_route_dereference(rtm, nh->resolved_via_route);
+        nh->resolved_via_route = NULL;
 
-        //sanity checks
-        // such an INH is not resolved by any route
-        assert (!IS_QUEUED_UP_IN_THREAD (&nh->route_resolved_list_glue));
-        assert (!nh->resolved_via_route);
-        // Such an INH has borrowed DNH list empty
-        assert (Fglthread_list_is_empty (&nh->direct_nh_list) );
-
-        // Action 
-        rtm_nh_remove_Fglthread (rtm, nh, 
-            &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
+        /* We dont put INHs wbeing withdrawl on Unresolvable path*/
         return;
     }
 
     /* Case 8 : */
-    if (nh->is_active && nh->is_indirect && rtm_nh_is_resolved (nh)) {
+    if (nh->is_active && nh->is_indirect && 
+            !Fglthread_list_is_empty(&nh->direct_nh_list)) {
 
         // Such an INH contribute to reslution graph upstream and downstream,
         // we must withdraw its contribution in both directions
@@ -502,17 +507,9 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
 
         // Action 
         // 2 Withdraw its contribution to resolution graph upstream 
-
-        /* Remove the current NH from Active Set of the route */
-        rtm_route *route = nh->owner_route;
-        nh->owner_route = NULL;
-        remove_glthread (&nh->route_glue);
-
-        rtm_resolve_routes_recursively (rtm, route);
-
-        // Put the current NH to Active Set of the route
-        nh->owner_route = route;
-        glthread_add_next (&route->path_list, &nh->route_glue);
+        rtm_resolve_routes_recursively (rtm, nh->owner_route);
+        
+        /* We dont put INHs wbeing withdrawl on Unresolvable path*/
         return;
     }
 }

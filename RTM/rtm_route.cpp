@@ -350,7 +350,9 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
     ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {
 
         indirect_nh = resolution_list_glue_to_rtm_nh(curr_lnh_glue);
+
         rtm_resolution_nh_withdraw(rtm, indirect_nh);
+        
         rtm_nh_Fglthread_add_last (indirect_nh, 
                 &rtm->unresolvable_paths, 
                 &indirect_nh->unresolvable_list_glue);
