@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
+#include "../lmm_enums.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 #include "../graph.h"
 #include "../Interface/InterfaceUApi.h"
 #include "rtm_priv_api.h"

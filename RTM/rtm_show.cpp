@@ -124,7 +124,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                                       sizeof(direct_nh_prefix_str));
                     
                     dnh_index++;
-                    cprintf("        [%d] Gateway: %-12s OIF: %-15s Protocol: %-10s\n",
+                    cprintf("        [%d] %s, %s, %s\n",
                            dnh_index,
                            direct_nh_prefix_str,
                            direct_nh->Oif->if_name.c_str(),

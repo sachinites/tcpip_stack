@@ -104,6 +104,11 @@ void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
 void rtm_flush_inh_direct_nh_set(rtm_t *rtm, rtm_nh *indirect_nh) ;
 char* rtm_nh_one_liner_trace (rtm_nh *nh, char *buffer_str, int buff_size);
 
+rtm_nh *rtm_nh_lookup_by_idx(rtm_t *rtm, uint32_t idx);
+rtm_error_t rtm_nh_add_to_idx_tree(rtm_t *rtm, rtm_nh *nh);
+rtm_error_t rtm_nh_remove_from_idx_tree(rtm_t *rtm, rtm_nh *nh);
+
+
 /* Wrapper to glthread_add_next ()*/
 void rtm_nh_glthread_add_next (rtm_nh *nh, 
         glthread_t *curr_glthread, glthread_t *new_glthread);

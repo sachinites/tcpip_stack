@@ -101,6 +101,7 @@ typedef enum struct_index_
     MM_INDEX(rtm_route),
     MM_INDEX(rtm_prefix_t),
     MM_INDEX(rtm_lstack_t),
+    MM_INDEX(rtm_rt_subscription_t),
 
     MM_INDEX(lstack_t)
 

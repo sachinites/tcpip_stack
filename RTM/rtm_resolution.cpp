@@ -300,6 +300,27 @@ rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
              TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE );
 }
 
+void 
+rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) {
+
+    char route_str[48];
+
+    if (IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue)) return;
+    
+    tracer(rtm->node->cptr, DRTM,
+                    "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
+                    rtm->name,
+                    rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)));
+
+                rtm_route_Fglthread_add_last (
+                    route, 
+                    &rtm->resolved_unpropogated_routes, 
+                    &route->resolved_route_glue);
+
+    rtm_schedule_route_propogation_worker (rtm);
+}
+
+
 static void 
 rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 
@@ -478,7 +499,10 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
         rtm_route_dereference(rtm, nh->resolved_via_route);
         nh->resolved_via_route = NULL;
 
-        /* We dont put INHs wbeing withdrawl on Unresolvable path*/
+        // if Upstream there is no route resolved by this DNH, no action
+        if (Fglthread_list_is_empty (&nh->owner_route->resolved_lnhs)) return;
+
+        rtm_resolve_routes_recursively (rtm, nh->owner_route);
         return;
     }
 
@@ -510,6 +534,8 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
 
         // Action 
         // 2 Withdraw its contribution to resolution graph upstream 
+        
+         if (Fglthread_list_is_empty (&nh->owner_route->resolved_lnhs)) return;
         rtm_resolve_routes_recursively (rtm, nh->owner_route);
 
         /* We dont put INHs wbeing withdrawl on Unresolvable path*/

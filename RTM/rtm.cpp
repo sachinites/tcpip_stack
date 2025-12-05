@@ -80,7 +80,6 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     return rtm;
 }
 
-
 /* Destroy an RTM instance */
 void rtm_destroy (rtm_t *rtm) {
     
@@ -107,45 +106,4 @@ void rtm_destroy (rtm_t *rtm) {
     /* Destroy LPM tree */
     rtm_lpm_tree_destroy(rtm);
     XFREE(rtm);
-}
-
-rtm_nh *
-rtm_nh_lookup_by_idx(rtm_t *rtm, uint32_t idx) {
-
-    rtm_nh nh_template;
-
-    rtm_nh_initialize (&nh_template);
-    nh_template.idx = idx;
-
-    avltree_node_t *node = avltree_lookup(&nh_template.idx_glue, &rtm->nhs_by_idx);
-    if (!node) return NULL;
-
-    return avltree_container_of(node, rtm_nh, idx_glue);
-}
-
-rtm_error_t 
-rtm_nh_add_to_idx_tree(rtm_t *rtm, rtm_nh *nh) {
-
-    if (!rtm || !nh || !nh->idx) {
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-
-    /* Use wrapper function for AVL insertion */
-    rtm_nh_avl_insert(nh, &rtm->nhs_by_idx, &nh->idx_glue);
-    /* Note: rtm_nh_avl_insert already calls rtm_nh_reference */
-    return RTM_SUCCESS;
-}
-
-rtm_error_t 
-rtm_nh_remove_from_idx_tree(rtm_t *rtm, rtm_nh *nh) {
-
-    if (!rtm || !nh || !nh->idx) {
-        return RTM_ERROR_INVALID_ARGUMENT;
-    }
-
-    /* Use wrapper function for AVL removal */
-    rtm_nh_avl_remove(rtm, nh, &rtm->nhs_by_idx, &nh->idx_glue);
-    /* Note: rtm_nh_avl_remove already calls rtm_nh_dereference */
-
-    return RTM_SUCCESS;
 }

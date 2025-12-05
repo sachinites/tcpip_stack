@@ -37,7 +37,7 @@ typedef struct mm_instance_ mm_instance_t;
 void *
 xcalloc(mm_instance_t *mm_inst, char *struct_name, int units);
 void *
-xcalloc2(mm_instance_t *mm_inst, char *struct_name, int units);
+xcalloc2(mm_instance_t *mm_inst, uint32_t index, int units);
 void *
 xcalloc_buff(mm_instance_t *mm_inst, uint32_t bytes) ;
 void

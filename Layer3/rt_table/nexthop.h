@@ -4,6 +4,7 @@
 #include "../../utils.h"
 #include "../../Interface/InterfaceFwd.h"
 #include "../mpls_fwd.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
 
 typedef struct nexthop_{
 

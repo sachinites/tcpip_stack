@@ -27,6 +27,7 @@
 #include "RTM/rtm_nh.h"
 #include "RTM/rtm_route.h"
 #include "RTM/rtm_resolution.h"
+#include "RTM/rtm_presentation.h"
 
 /* TED Hdr Files*/
 #include "ted/ted.h"
@@ -153,6 +154,7 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_route),
     MM_REG_STRUCT2(rtm_prefix_t),
     MM_REG_STRUCT2(rtm_lstack_t),
+    MM_REG_STRUCT2(rtm_rt_subscription_t),
 
     MM_REG_STRUCT2(lstack_t),
 

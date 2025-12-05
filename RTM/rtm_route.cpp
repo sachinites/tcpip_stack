@@ -13,6 +13,7 @@
 #include "../Tracer/tracer.h"
 #include "../mtrie/mtrie.h"
 #include "../BitOp/bitmap.h"
+#include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 /* Unreference all resources held by this route. No need to
