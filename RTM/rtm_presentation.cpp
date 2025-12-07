@@ -11,6 +11,8 @@
 #include "../prefix-list/prefixlst.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../Tracer/tracer.h"
+#include "../lmm_enums.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
 
 #define RTM_ADVT_COUNT_PREEMPTION_LIMIT 100
 
@@ -55,7 +57,7 @@ rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh) {
                          sub_info->target_sub_proto != nh->sub_proto ) continue;
                 if (sub_info->target_instance_no != nh->rtm_nh_proto->instance_no) continue;
 
-                presentation_data = (rtm_presentation_data_t *)calloc(1, sizeof(rtm_presentation_data_t));
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                 presentation_data->nh = nh;
                 presentation_data->nh_idx = nh->idx;
                 rtm_nh_reference (nh);
@@ -129,7 +131,7 @@ rtm_on_demand_route_request (rtm_t *rtm, uint8_t vrf_id, uint8_t instance_no, RT
                          sub_info->target_sub_proto != nh->sub_proto ) continue;
                 if (sub_info->target_instance_no != nh->rtm_nh_proto->instance_no) continue;                
                 
-                presentation_data = (rtm_presentation_data_t *)calloc(1, sizeof(rtm_presentation_data_t));
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                 presentation_data->nh = nh;
                 presentation_data->nh_idx = nh->idx;
                 rtm_nh_reference (nh);
@@ -234,7 +236,7 @@ rtm_ppt_db_get_route (
     }
 
     /* Create new EMPTY route entry - will be populated by rtm_ppt_route_update */
-    ppt_route = (rtm_ppt_route_t *)calloc(1, sizeof(rtm_ppt_route_t));
+    ppt_route = (rtm_ppt_route_t *)XCALLOC2(0, 1, rtm_ppt_route_t);
 
     ppt_route->prefix = route->prefix;
     avltree_node_init(&ppt_route->route_glue);
@@ -286,7 +288,7 @@ rtm_ppt_route_diff (
     } ITERATE_GLTHREAD_END(&route->path_list, nh_glue);
     
     /* Allocate memory for current state */
-    rtm_ppt_nhidx_t *current_list = (rtm_ppt_nhidx_t *)malloc(
+    rtm_ppt_nhidx_t *current_list = (rtm_ppt_nhidx_t *)XCALLOC_BUFF(0,
         (active_nh_count * sizeof(rtm_ppt_nhidx_t)) +
         (total_dnh_count * sizeof(uint32_t)));
     
@@ -423,15 +425,15 @@ rtm_ppt_route_diff (
     }
     
     
-    /* Free any existing allocations in out_add and out_del */
-    /* Note: With flexible arrays, we need to free the entire structure, not just nhidx_list */
-    /* But since out_add/out_del are stack variables, we can't free them here */
-    /* The caller will handle freeing */
+    /* XFREE any existing allocations in out_add and out_del */
+    /* Note: With flexible arrays, we need to XFREE the entire structure, not just nhidx_list */
+    /* But since out_add/out_del are stack variables, we can't XFREE them here */
+    /* The caller will handle XFREEing */
     
     /* Allocate memory for additions - use flexible array */
     rtm_ppt_route_t *add_route_alloc = NULL;
     if (add_count > 0) {
-        add_route_alloc = (rtm_ppt_route_t *)calloc(1,
+        add_route_alloc = (rtm_ppt_route_t *)XCALLOC_BUFF(0,
             sizeof(rtm_ppt_route_t) +
             add_count * sizeof(rtm_ppt_nhidx_t) +
             add_dnh_count * sizeof(uint32_t));
@@ -454,7 +456,7 @@ rtm_ppt_route_diff (
     /* Allocate memory for deletions - use flexible array */
     rtm_ppt_route_t *del_route_alloc = NULL;
     if (del_count > 0) {
-        del_route_alloc = (rtm_ppt_route_t *)calloc(1,
+        del_route_alloc = (rtm_ppt_route_t *)XCALLOC_BUFF(0,
             sizeof(rtm_ppt_route_t) +
             del_count * sizeof(rtm_ppt_nhidx_t) +
             del_dnh_count * sizeof(uint32_t));
@@ -663,7 +665,7 @@ rtm_ppt_route_diff (
     }
     
     /* Clean up */
-    free(current_list);
+    XFREE(current_list);
 }
 
 
@@ -706,8 +708,8 @@ rtm_ppt_route_update (rtm_t *rtm, rtm_ppt_route_t **ppt_route_ptr,
         uint32_t dnh_list[256]; /* Max DNHs per INH */
     } temp_nh_t;
     
-    temp_nh_t *temp_list = (temp_nh_t *)calloc(current_count + add_count, sizeof(temp_nh_t));
-    if (!temp_list) return;
+    temp_nh_t *temp_list = (temp_nh_t *)XCALLOC_BUFF(0, 
+            (current_count + add_count) * sizeof(temp_nh_t));
     
     int temp_count = 0;
     
@@ -833,28 +835,43 @@ rtm_ppt_route_update (rtm_t *rtm, rtm_ppt_route_t **ppt_route_ptr,
     
     if (!needs_realloc) {
         /* Sanity check - should not happen */
-        free(temp_list);
+        XFREE(temp_list);
         return;
     }
     
     /* Step 8: Allocate new structure */
     rtm_ppt_route_t *new_route = NULL;
-    new_route = (rtm_ppt_route_t *)calloc(1,
+    new_route = (rtm_ppt_route_t *)XCALLOC_BUFF(0,
         sizeof(rtm_ppt_route_t) +
         temp_count * sizeof(rtm_ppt_nhidx_t) +
         new_total_dnh_count * sizeof(uint32_t));
     
     if (!new_route) {
-        free(temp_list);
+        XFREE(temp_list);
         return;
     }
     
-    /* Copy prefix and initialize */
+    /* Copy prefix and initialize critical fields */
     new_route->prefix = ppt_route->prefix;
-    new_route->route_glue = ppt_route->route_glue;
     new_route->nhidx_list_count = temp_count;
+    /* Initialize route_glue early to ensure it's in a valid state */
+    memset(&new_route->route_glue, 0, sizeof(avltree_node_t));
     
-    /* Step 9: Copy from temp list to new structure */
+    /* Step 9: Sort temp list FIRST before copying (avoids issues with flexible arrays) */
+    if (temp_count > 1) {
+        /* Simple bubble sort for temp_list by nh_pidx */
+        for (int i = 0; i < temp_count - 1; i++) {
+            for (int j = 0; j < temp_count - i - 1; j++) {
+                if (temp_list[j].nh_pidx > temp_list[j + 1].nh_pidx) {
+                    temp_nh_t tmp = temp_list[j];
+                    temp_list[j] = temp_list[j + 1];
+                    temp_list[j + 1] = tmp;
+                }
+            }
+        }
+    }
+    
+    /* Step 10: Copy from SORTED temp list to new structure */
     uint32_t *dnh_write_ptr = get_dnh_ptr_for_nhidx(new_route->nhidx_list, 0, temp_count);
     
     for (int t = 0; t < temp_count; t++) {
@@ -866,36 +883,30 @@ rtm_ppt_route_update (rtm_t *rtm, rtm_ppt_route_t **ppt_route_ptr,
         dnh_write_ptr += temp_list[t].dnh_count;
     }
     
-    /* Step 10: Sort by nh_pidx */
-    if (temp_count > 1) {
-        qsort(new_route->nhidx_list, temp_count, sizeof(rtm_ppt_nhidx_t), rtm_ppt_nhidx_compare);
-    }
-    
     /* Step 11: Replace old structure with new one */
-    /* Remove old route from tree */
+    /* Remove old route from tree BEFORE freeing it */
     avltree_remove(&ppt_route->route_glue, &rtm->ppt_db_route_tree);
-    avltree_node_init(&ppt_route->route_glue);
     
-    /* Free old structure */
-    free(ppt_route);
+    /* XFREE old structure */
+    XFREE(ppt_route);
     
     /* Update caller's pointer to point to new structure */
     *ppt_route_ptr = new_route;
-    avltree_node_init(&new_route->route_glue);
     
-    /* Insert new route into tree */
+    /* Initialize and insert new route into tree */
+    avltree_node_init(&new_route->route_glue);
     avltree_insert(&new_route->route_glue, &rtm->ppt_db_route_tree);
     
     /* Clean up */
-    free(temp_list);
+    XFREE(temp_list);
 }
 
 static void
 rtm_ppt_route_release_resources(rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
 
     /* With flexible arrays, the entire structure is allocated as one block */
-    /* So we don't need to free nhidx_list separately - it's part of the structure */
-    /* This function is called before freeing the structure, so we don't need to do anything here */
+    /* So we don't need to XFREE nhidx_list separately - it's part of the structure */
+    /* This function is called before XFREEing the structure, so we don't need to do anything here */
     (void)rtm;
     (void)ppt_route;
 }
@@ -905,7 +916,7 @@ rtm_ppt_route_check_and_delete (rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
 
     rtm_ppt_route_release_resources (rtm, ppt_route);
     assert (!avltree_node_is_inuse (&ppt_route->route_glue));
-    free (ppt_route);
+    XFREE (ppt_route);
 }
 
 void 
@@ -1016,7 +1027,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                                 for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++) {
                                     rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
                                     
-                                    presentation_data = (rtm_presentation_data_t *)calloc(1, sizeof(rtm_presentation_data_t));
+                                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                                     
                                     presentation_data->nh = dnh;  /* May be NULL for DELETE operations */
                                     presentation_data->nh_idx = dnh_list[dnh_idx];  /* Always valid */
@@ -1036,7 +1047,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                                 }
                             } else {
                                 /* Direct nexthop or unresolved indirect - advertise deletion of the nexthop itself */
-                                presentation_data = (rtm_presentation_data_t *)calloc(1, sizeof(rtm_presentation_data_t));
+                                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                                 if (!presentation_data) continue;
                                 
                                 presentation_data->nh = nh;  /* May be NULL for DELETE operations */
@@ -1076,7 +1087,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                                     rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
                                     if (!dnh) continue;
                                     
-                                    presentation_data = (rtm_presentation_data_t *)calloc(1, sizeof(rtm_presentation_data_t));
+                                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                                     if (!presentation_data) continue;
                                     
                                     presentation_data->nh = dnh;  /* Wrap direct nexthop */
@@ -1092,7 +1103,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                                 }
                             } else {
                                 /* Direct nexthop or unresolved indirect - advertise the nexthop itself */
-                                presentation_data = (rtm_presentation_data_t *)calloc(1, sizeof(rtm_presentation_data_t));
+                                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                                 if (!presentation_data) continue;
                                 
                                 presentation_data->nh = nh;
@@ -1117,18 +1128,18 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     rtm_ppt_route_update(rtm, &cached_route, &out_add, &out_del);
     assert (rtm_ppt_route_is_equal (route, cached_route));
 
-    /* Clean up diff results - with flexible arrays, we need to free the entire structures */
+    /* Clean up diff results - with flexible arrays, we need to XFREE the entire structures */
     /* The allocated pointers are stored in route_glue field (temporary storage) */
     if (out_add.nhidx_list_count > 0) {
         rtm_ppt_route_t *allocated = *(rtm_ppt_route_t **)((char *)&out_add + offsetof(rtm_ppt_route_t, route_glue));
         if (allocated) {
-            free(allocated);
+            XFREE(allocated);
         }
     }
     if (out_del.nhidx_list_count > 0) {
         rtm_ppt_route_t *allocated = *(rtm_ppt_route_t **)((char *)&out_del + offsetof(rtm_ppt_route_t, route_glue));
         if (allocated) {
-            free(allocated);
+            XFREE(allocated);
         }
     }
 
@@ -1194,7 +1205,7 @@ rtm_ppt_route_is_equal (rtm_route *route, rtm_ppt_route_t *ppt_route) {
     }
     
     /* Step 2: Build sorted list from current route state */
-    rtm_ppt_nhidx_t *current_list = (rtm_ppt_nhidx_t *)malloc(
+    rtm_ppt_nhidx_t *current_list = (rtm_ppt_nhidx_t *)XCALLOC_BUFF(0,
         (active_nh_count * sizeof(rtm_ppt_nhidx_t)) +
         (total_dnh_count * sizeof(uint32_t)));
     
@@ -1272,7 +1283,7 @@ rtm_ppt_route_is_equal (rtm_route *route, rtm_ppt_route_t *ppt_route) {
     }
     
     /* Clean up */
-    free(current_list);
+    XFREE(current_list);
     
     return is_equal;
 }
@@ -1339,7 +1350,7 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
                 prefix_list_dereference(presentation_data->prefix_list);
             }
 
-            free(presentation_data);
+            XFREE(presentation_data);
             
             count++;
 
