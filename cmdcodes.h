@@ -178,4 +178,10 @@
 /* show node <node-name> rtm <rib-name> unresolvable-routes */
 #define CMDCODE_SHOW_NODE_RTM_UNRESOLVABLE_ROUTES 71
 
+/* show node <node-name> rtm <rib-name> ppt-db */
+#define CMDCODE_SHOW_NODE_RTM_PPT_DB 72
+
+/* show node <node-name> rtm <rib-name> ppt-db <prefix-filter> */
+#define CMDCODE_SHOW_NODE_RTM_PPT_DB_FILTER 73
+
 #endif /* __CMDCODES__ */

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include "../Tree/libtree.h"
 #include "../gluethread/glthread.h"
 #include "../Interface/InterfaceUApi.h"
@@ -224,7 +225,8 @@ void rtm_show_rib(rtm_t *rtm) {
                    rtm_proto_to_string(nh->proto),
                    rtm_nh_action_to_string(nh->action),
                    nh_prefix_str,
-                   (nh->Oif) ? nh->Oif->if_name.c_str() : "",
+                   (nh->Oif) ? nh->Oif->if_name.c_str() : \
+                        (nh->is_indirect && !Fglthread_list_is_empty(&nh->direct_nh_list)) ? "Res" : "-",
                    nh->ad,
                    nh->metric,
                    label_stack_str);
@@ -523,6 +525,110 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
     } ITERATE_GLTHREAD_END(&rtm->unresolvable_paths.head, curr_glue);
 
     cprintf("\nTotal Unresolvable Routes: %d\n\n", count);
+}
+
+void 
+rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
+    
+    if (!rtm) {
+        cprintf("RTM is NULL\n");
+        return;
+    }
+    
+    avltree_t *ppt_db_tree = &rtm->ppt_db_route_tree;
+    
+    if (avltree_is_empty(ppt_db_tree)) {
+        cprintf("Presentation database is empty\n");
+        return;
+    }
+    
+    /* Parse filter if provided */
+    rtm_prefix_t filter_prefix;
+    bool has_filter = false;
+    
+    if (prefix_filter && strlen(prefix_filter) > 0) {
+        char prefix_copy[64];
+        strncpy(prefix_copy, prefix_filter, sizeof(prefix_copy) - 1);
+        prefix_copy[sizeof(prefix_copy) - 1] = '\0';
+        
+        char *slash = strchr(prefix_copy, '/');
+        if (slash) {
+            *slash = '\0';
+            filter_prefix.prefix_len = atoi(slash + 1);
+        } else {
+            filter_prefix.prefix_len = 32;  // Default to /32
+        }
+        
+        filter_prefix.afi = RTM_AF_IPV4;
+        if (inet_pton(AF_INET, prefix_copy, &filter_prefix.u.v4_addr) == 1) {
+            filter_prefix.u.v4_addr = ntohl(filter_prefix.u.v4_addr);
+            has_filter = true;
+        }
+    }
+    
+    cprintf("\n");
+    cprintf("RTM Presentation Database :: %s\n", rtm->name);
+    if (has_filter) {
+        char filter_str[48];
+        rtm_format_prefix(&filter_prefix, filter_str, sizeof(filter_str));
+        cprintf("Filter: %s\n", filter_str);
+    }
+    
+    int total_routes = 0;
+    avltree_node_t *route_node;
+    rtm_ppt_route_t *ppt_route;
+    
+    /* Iterate through all routes in the presentation database */
+    ITERATE_AVL_TREE_BEGIN(ppt_db_tree, route_node) {
+        
+        ppt_route = avltree_container_of(route_node, rtm_ppt_route_t, route_glue);
+        
+        /* Apply filter if specified */
+        if (has_filter) {
+            if (ppt_route->prefix.afi != filter_prefix.afi ||
+                ppt_route->prefix.prefix_len != filter_prefix.prefix_len ||
+                ppt_route->prefix.u.v4_addr != filter_prefix.u.v4_addr) {
+                continue;
+            }
+        }
+        
+        total_routes++;
+        
+        /* Format route prefix */
+        char prefix_str[48];
+        rtm_format_prefix(&ppt_route->prefix, prefix_str, sizeof(prefix_str));
+        
+        cprintf("Route: %-20s  NHs: %u\n", 
+               prefix_str, 
+               ppt_route->nhidx_list_count);
+        
+        /* Display each nexthop */
+        for (int i = 0; i < ppt_route->nhidx_list_count; i++) {
+            rtm_ppt_nhidx_t *nh_entry = &ppt_route->nhidx_list[i];
+            
+            cprintf("  [%d] NH idx: %-5u", i, nh_entry->nh_pidx);
+            
+            if (nh_entry->dnh_list_count > 0) {
+                cprintf("  DNHs(%u): [", nh_entry->dnh_list_count);
+                for (int j = 0; j < nh_entry->dnh_list_count; j++) {
+                    cprintf("%u", nh_entry->dnh_list[j]);
+                    if (j < nh_entry->dnh_list_count - 1) {
+                        cprintf(", ");
+                    }
+                }
+                cprintf("]");
+            }
+            cprintf("\n");
+        }
+        cprintf("\n");
+        
+    } ITERATE_AVL_TREE_END;
+    
+    if (total_routes == 0 && has_filter) {
+        cprintf("No routes matching filter\n\n");
+    }
+    
+    cprintf("Total Routes in Presentation DB: %d\n", total_routes);
 }
 
 } // extern "C"

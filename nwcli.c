@@ -600,6 +600,59 @@ show_rtm_protocol_subscriptions_handler(int cmdcode, Stack_t *tlv_stack,
     return 0;
 }
 
+static int
+show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    c_string node_name = NULL;
+    c_string rib_name = NULL;
+    c_string prefix_filter = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "rib-name"))
+            rib_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "prefix-filter"))
+            prefix_filter = tlv->value;
+
+    }TLV_LOOP_END;
+
+    if(!node_name){
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if(!node){
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    /* Get RTM based on rib_name if provided, otherwise default */
+    rtm_t *rtm = NULL;
+    if (rib_name) {
+        rtm = rtm_get_by_name(node, rib_name);
+        if (!rtm) {
+            cprintf("Error : RTM %s not found for node %s\n", rib_name, node_name);
+            return -1;
+        }
+    } else {
+        /* Get default RTM: VRF=0, AFI=IPv4, RTM ID=0 */
+        rtm = rtm_get(node, 0, RTM_AF_IPV4, 0);
+        if (!rtm) {
+            cprintf("Error : Default RTM not found for node %s\n", node_name);
+            return -1;
+        }
+    }
+
+    rtm_show_presentation_db(rtm, (char *)prefix_filter);
+    return 0;
+}
+
 extern void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
@@ -1225,6 +1278,24 @@ nw_init_cli(){
                                        "Display protocol subscription database");
                             libcli_register_param(&rib_name, &protocol_subscriptions);
                             libcli_set_param_cmd_code(&protocol_subscriptions, CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS);
+                        }
+                        {
+                            /*show node <node-name> rtm <Rib name> ppt-db */
+                            static param_t ppt_db;
+                            init_param(&ppt_db, CMD, "ppt-db", 
+                                       show_rtm_presentation_db_handler, 0, INVALID, 0, 
+                                       "Display presentation database");
+                            libcli_register_param(&rib_name, &ppt_db);
+                            libcli_set_param_cmd_code(&ppt_db, CMDCODE_SHOW_NODE_RTM_PPT_DB);
+                            {
+                                /*show node <node-name> rtm <Rib name> ppt-db <prefix filter> */
+                                static param_t prefix_filter;
+                                init_param(&prefix_filter, LEAF, 0, 
+                                           show_rtm_presentation_db_handler, 0, STRING, "prefix-filter", 
+                                           "Prefix filter (e.g. 10.0.0.0/24)");
+                                libcli_register_param(&ppt_db, &prefix_filter);
+                                libcli_set_param_cmd_code(&prefix_filter, CMDCODE_SHOW_NODE_RTM_PPT_DB_FILTER);
+                            }
                         }
                     }
                 }

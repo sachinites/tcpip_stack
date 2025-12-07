@@ -12,6 +12,8 @@
 #include "../graph.h"
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
+#include "rtm_presentation.h"
+#include "rtm_gc.h"
 
 /* Thread-safe atomic counter for nexthop ID generation */
 static std::atomic<uint32_t> rtm_nh_id_counter(1);
@@ -42,9 +44,12 @@ rtm_nh_release_all_resources(rtm_t *rtm, rtm_nh *nh)
     }
 
     nh->Oif = nullptr;
+
+    rtm_route_dereference (rtm, nh->owner_route);
+    nh->owner_route = NULL;
 }
 
-static void 
+void 
 rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) {
 
     char gw_str[48];
@@ -83,7 +88,7 @@ rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
     nh->ref_count--;
 
     if (nh->ref_count == 0) {
-        rtm_nh_check_and_delete(rtm, nh);
+        rtm_gc_nh (rtm, nh);
     }
 }
 
@@ -256,7 +261,7 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     assert (!nh->is_active);
 
-        tracer(rtm->node->cptr, DRTM,
+    tracer(rtm->node->cptr, DRTM,
             "RTM[%s] : Route : %s : Setting NH Active, NH=%s Is_indirect=%s Resolved=%s\n",
             rtm->name,
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
@@ -320,6 +325,8 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
     else {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
+
+    rtm_schedule_route_advertisement (rtm, nh->owner_route);
 }
 
 void 
@@ -351,6 +358,8 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
 
+    rtm_schedule_route_advertisement (rtm, nh->owner_route);
+    
     tracer(rtm->node->cptr, DRTM,
             "RTM[%s] : NH deactivated and removed from FIB for route %s\n",
             rtm->name,

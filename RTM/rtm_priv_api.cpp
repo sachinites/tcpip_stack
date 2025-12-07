@@ -5,13 +5,6 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../graph.h"
 #include "../Interface/InterfaceUApi.h"
-#include "rtm_priv_api.h"
-#include "rtm_route.h"
-#include "rtm_nh.h"
-#include "rtm_enums.h"
-#include "rtm_common.h"
-#include "rtm_proto.h"
-#include "rtm_resolution.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
@@ -19,6 +12,14 @@
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
+#include "rtm_priv_api.h"
+#include "rtm_route.h"
+#include "rtm_nh.h"
+#include "rtm_enums.h"
+#include "rtm_common.h"
+#include "rtm_proto.h"
+#include "rtm_resolution.h"
+#include "rtm_presentation.h"
 
 extern graph_t * topo;
 
@@ -1057,6 +1058,7 @@ rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {
+        rtm_schedule_route_advertisement (rtm, route);
         rtm_route_delete(rtm, route);
     }
 

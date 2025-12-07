@@ -12,6 +12,7 @@ typedef struct node_ node_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct task_ task_t;
 typedef struct mtrie_ mtrie_t;
+typedef struct rtm_ppt_db_ rtm_ppt_db_t;
 
 #pragma pack(push, 8)
 
@@ -45,12 +46,6 @@ typedef struct rtm_ {
         store protocol subscription and filters */
     avltree_t proto_info_tree[RTM_PROTO_MAX];
 
-    /* List of NHs queued for advertisement to protocols */
-    Fglthread_t advt_nhs[RTM_PROTO_MAX];
-
-    /* Advertisement temporary task queue */
-    Fglthread_t advt_queue;
-
     /* BAckpointer to owning node*/
     node_t *node; 
     
@@ -59,23 +54,41 @@ typedef struct rtm_ {
     
     /* List of routes whose resolved INHs are to be propogated upstream in Resolution Graph*/
     Fglthread_t resolved_unpropogated_routes;
-
+    
     /* Job to resolve INHs */
     task_t *nh_resolution_job;
 
     /* Job to propogate resolved route Active NH upstream in Resolution Graph */
     task_t *rt_resolution_job;
 
+    /* Advertisement Related Fields */
+    /* Route trees for presentation. It contains Routes from all Srcs */
+    avltree_t ppt_db_route_tree;
+
+    /* List of rtm_presentation_data_t objects, to be advertised to 
+        protocols */
+    Fglthread_t advt_nhs[RTM_PROTO_MAX];
+
+    /* Queue up rtm_route objects to be Advertised */
+    Fglthread_t route_advt_queue;
+
+    /* Job which takes the updated route, compute diff and schedule the 
+        actual advertisement throuh advt_job */
+    task_t *route_advt_prep_job;
+    
     /* Job to advertise the routes to protocols, preemptive */
     task_t *advt_job;
+
+    /* Garbage Collector Job*/
+    task_t *gc_job;
+    Fglthread_t gc_queue;
     
 } rtm_t;
 
 #pragma pack(pop)
 
 rtm_t* rtm_initialize (uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id);
-void rtm_destroy (uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id);
-
-
+void rtm_stop (rtm_t *rtm);
+void rtm_check_and_delete (rtm_t *rtm);
 
 #endif

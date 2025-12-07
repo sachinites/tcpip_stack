@@ -13,6 +13,7 @@ OBJS= rtm.o \
 		   rtm_common.o \
 		   rtm_nb_integ.o \
 		   rtm_presentation.o \
+		   rtm_gc.o \
 
 all: $(TARGET)
 

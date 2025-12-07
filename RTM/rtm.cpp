@@ -11,7 +11,9 @@
 #include "rtm_route.h"
 #include "rtm_proto.h"
 #include "rtm_nh.h"
+#include "rtm_presentation.h"
 #include "../lmm_enums.h"
+#include "../mtrie/mtrie.h"
 
 /* Forward declaration of LPM tree functions */
 extern void rtm_lpm_tree_init(rtm_t *rtm);
@@ -58,7 +60,8 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     rtm->rtm_id = rtm_id;
     
     snprintf (rtm->name, sizeof(rtm->name), "%d.%s.%d", vrf, 
-        afi == RTM_AF_IPV4 ? "inet" : afi == RTM_AF_IPV6 ? "inet6" :  afi == RTM_AF_LABEL ? "mpls" : "mac",
+        afi == RTM_AF_IPV4 ? "inet" : afi == RTM_AF_IPV6 ? \
+        "inet6" :  afi == RTM_AF_LABEL ? "mpls" : "mac",
         rtm_id);
 
     rtm_lpm_tree_init(rtm);
@@ -72,24 +75,29 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
         init_Fglthread (&rtm->advt_nhs[i]);
     }
     
-    init_Fglthread (&rtm->advt_queue);
+    init_Fglthread (&rtm->route_advt_queue);
     rtm->node = NULL;
     init_Fglthread(&rtm->unresolvable_paths);
     rtm->advt_job = NULL;
+
+    rtm_ppt_db_initialize(rtm);
     
     return rtm;
 }
 
+void 
+rtm_stop (rtm_t *rtm) {
+
+}
+
 /* Destroy an RTM instance */
-void rtm_destroy (rtm_t *rtm) {
+void rtm_check_and_delete (rtm_t *rtm) {
     
     /* Before we delete RTM, check all resources have been freed already*/
     assert (avltree_is_empty (&rtm->route_tree) );
     assert (avltree_is_empty (&rtm->nh_proto_info_tree) );
     assert (avltree_is_empty (&rtm->nhs_by_idx));
 
-
-    // Clean up protocol info trees
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         assert (avltree_is_empty (&rtm->proto_info_tree[i]) );
         assert (IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[i]) );
@@ -98,12 +106,16 @@ void rtm_destroy (rtm_t *rtm) {
     
     assert (Fglthread_list_is_empty(&rtm->unresolvable_paths) );
     assert (Fglthread_list_is_empty(&rtm->resolved_unpropogated_routes) );
-    assert (Fglthread_list_is_empty(&rtm->advt_queue) );
-    assert (rtm->advt_job == NULL);
+    assert (Fglthread_list_is_empty(&rtm->route_advt_queue) );
+    
     assert (rtm->nh_resolution_job == NULL);
     assert (rtm->rt_resolution_job == NULL);
+    assert (rtm->route_advt_prep_job == NULL);
+    assert (rtm->advt_job == NULL);
 
     /* Destroy LPM tree */
-    rtm_lpm_tree_destroy(rtm);
+    assert (mtrie_is_leaf_node(rtm->lpm_rt_tree->root));
+    assert (avltree_is_empty (&rtm->ppt_db_route_tree));
+
     XFREE(rtm);
 }

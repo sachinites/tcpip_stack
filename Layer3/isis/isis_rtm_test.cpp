@@ -13,7 +13,10 @@
 typedef struct node_ node_t;
 extern int cprintf(const char *format, ...);
 
-void isis_rtm_test_cbk (rtm_t *rtm, rtm_nh *nh) {
+static void isis_rtm_test_cbk (
+                rtm_t *rtm, uint32_t nh_idx, 
+                rtm_nh *nh, 
+                rtm_ppt_operation_t ops) {
 
     cprintf("isis_rtm_test_cbk\n");
 }
@@ -49,5 +52,5 @@ void isis_rtm_test(node_t *node)
     sub.target_sub_proto = RTM_SUB_PROTO_NA;
     cp_rtm_subscribe(rtm, 0, 0, RTM_PROTO_ISIS, &sub);
 
-    rtm_on_demand_route_request(rtm, RTM_DEFAULT_VRF, 0, RTM_PROTO_ISIS);
+    //rtm_on_demand_route_request(rtm, RTM_DEFAULT_VRF, 0, RTM_PROTO_ISIS);
 }

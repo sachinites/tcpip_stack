@@ -4,11 +4,21 @@
 #include "rtm_enums.h"
 #include "rtm_common.h"
 #include "../Tree/libtree.h"
+#include "../gluethread/glthread.h"
 
 typedef struct rtm_ rtm_t;
 typedef struct rtm_nh_ rtm_nh;
+typedef struct rtm_route_ rtm_route;
 typedef struct prefix_lst_ prefix_list_t;
-//typedef struct rtm_nh_proto_ rtm_nh_proto_t;
+typedef struct rtm_nh_proto_ rtm_nh_proto_t;
+
+
+/* Operation type for route advertisements */
+typedef enum rtm_ppt_operation_ {
+    RTM_PPT_OP_ADD = 1,      /* Route/NH is being added */
+    RTM_PPT_OP_DELETE = 2,   /* Route/NH is being deleted */
+    RTM_PPT_OP_UPDATE = 3    /* Route/NH is being updated */
+} rtm_ppt_operation_t;
 
 
 #pragma pack(push, 8)
@@ -29,19 +39,105 @@ typedef struct rtm_rt_subscription_ {
     /* Second layer comparison function, for the matching route, compare the 
         nexthop protocol properties. For example, Subscriber protocol need BGP 
         routes with MED value > 100 only */
-    //rtm_nh_proto_t *nh_proto;
+    // To be Supported Later
+    rtm_nh_proto_t *nh_proto;
 
-    /* Callback fn used for notif */
-    void (*cbk)(rtm_t *, rtm_nh *);
+    /* Callback fn used for notif - receives operation type and nh_idx */
+    void (*cbk)(rtm_t *, uint32_t nh_idx, rtm_nh *, rtm_ppt_operation_t);
 
     /* Hook up in rtm_proto_info_t sub_db Tree*/
     avltree_node_t avl_glue;
 
 } rtm_rt_subscription_t;
 
+/* The data structire to present the route info to clients */
+typedef struct rtm_presentation_data_ {
+
+    /* Route prefix being advertised */
+    rtm_prefix_t route;
+    /* Pointer to nexthop being added, if deleted it would be NULL*/
+    rtm_nh *nh;             
+    /* nh_idx being added or deleted. Clients must use this if nh ptr is NULL*/
+    uint32_t nh_idx;    
+    /* PRefix List to match*/
+    prefix_list_t *prefix_list;
+    /* Add or Delete operation , Update not supported*/
+    rtm_ppt_operation_t operation;  /* ADD, DELETE, or UPDATE */
+    /* Callback function to notify the client */
+    void (*cbk)(rtm_t *, uint32_t , rtm_nh *, rtm_ppt_operation_t);
+    /* Glue to link in rtm->advt_nhs[] lists */
+    glthread_t glue;
+
+} rtm_presentation_data_t;
+
+/* This structure represents the blue print of the routes and its NHs.
+    This structure is maintained per route. This structure is intentionally
+    kept linkage free from RTM module
+*/
+typedef struct rtm_ppt_nhidx_ {
+    
+    uint32_t nh_pidx;
+
+    /* If Nexthop is indirect, then sorted list of 
+        nhidx values of direct nexthops */
+    uint16_t dnh_list_count;
+    uint32_t dnh_list[0];
+
+}rtm_ppt_nhidx_t;
+
+typedef struct rtm_ppt_route_ {
+
+    rtm_prefix_t prefix; // key
+
+    /* AVL tree glue for route_tree in rtm_ppt_db_entry_t */
+    avltree_node_t route_glue;
+
+    /* NHs idx values, sorted in increasing order */
+    uint16_t nhidx_list_count;
+    rtm_ppt_nhidx_t nhidx_list[0];
+
+} rtm_ppt_route_t;
+
+#pragma pack(pop)
+
+GLTHREAD_TO_STRUCT(rtm_presentation_data_to_glue, rtm_presentation_data_t, glue);
+
 void 
 rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
 
-void rtm_on_demand_route_request (rtm_t *rtm, uint8_t vrf_id, uint8_t instance_no, RTM_PROTO_T proto);
+void rtm_on_demand_route_request (
+        rtm_t *rtm, 
+        uint8_t vrf_id, 
+        uint8_t instance_no, 
+        RTM_PROTO_T proto);
+
+
+/* APIs over RTM PPT DB */
+void rtm_ppt_db_initialize (rtm_t *rtm);
+void rtm_ppt_db_destroy (rtm_t *rtm);
+rtm_ppt_route_t* rtm_ppt_db_get_route (rtm_t *rtm, rtm_route *route);
+void rtm_ppt_route_db_delete (rtm_t *rtm, rtm_prefix_t *prefix);
+
+void
+rtm_ppt_route_diff (
+    rtm_route *route, rtm_ppt_route_t *ppt_route,
+    rtm_ppt_route_t *out_add,
+    rtm_ppt_route_t *out_del);
+
+void 
+rtm_ppt_route_update (rtm_t *rtm, rtm_ppt_route_t **ppt_route,
+    rtm_ppt_route_t *out_add,
+    rtm_ppt_route_t *out_del);
+
+
+
+bool 
+rtm_ppt_route_is_equal (rtm_route *route, rtm_ppt_route_t *ppt_route);
+
+void 
+rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route);
+
+void 
+rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route);
 
 #endif 

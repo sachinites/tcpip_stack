@@ -1,6 +1,5 @@
 #ifndef __RTM_ROUTE__
 #define __RTM_ROUTE__
-#pragma pack(push, 8)
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -14,6 +13,8 @@
 
 /* Forward declaration */
 typedef struct bitmap_ bitmap_t;
+
+#pragma pack(push, 8)
 
 typedef struct rtm_route_ {
 
@@ -39,10 +40,13 @@ typedef struct rtm_route_ {
 
         uint32_t ref_count;
 
+        glthread_t advt_glue;
+
 } rtm_route;
 
 #pragma pack(pop)
 GLTHREAD_TO_STRUCT(resolved_route_glue_to_route, rtm_route, resolved_route_glue);
+GLTHREAD_TO_STRUCT(advt_glue_to_route, rtm_route, advt_glue);
 
 /* Methods */
 void rtm_route_initialize(rtm_route *route);
@@ -61,6 +65,9 @@ rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;
 void rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) ;
 bool rtm_route_is_resolved (rtm_route* route);
 
+void 
+rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route);
+
 /* LPM Tree Operations */
 void rtm_lpm_tree_init(rtm_t *rtm);
 void rtm_lpm_tree_destroy(rtm_t *rtm);
@@ -69,7 +76,7 @@ rtm_error_t rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix);
 rtm_route *rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix);
 
 void rtm_route_reference(rtm_route* route);
-void rtm_route_dereference(rtm_t *rtm, rtm_route* route);
+uint32_t rtm_route_dereference(rtm_t *rtm, rtm_route* route);
 
 /* Wrapper to glthread_add_next ()*/
 void rtm_route_glthread_add_next (rtm_route *route, 

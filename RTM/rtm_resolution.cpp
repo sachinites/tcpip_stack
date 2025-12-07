@@ -108,6 +108,8 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
 
     } ITERATE_GLTHREAD_END(&route->path_list, nh_glue);
     
+    rtm_schedule_route_advertisement (rtm, indirect_nh->owner_route);
+    
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Copied %d direct NHs from Route %s to INH %s\n",
         rtm->name, dnh_count, 
@@ -474,6 +476,7 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
 
         nh->flags &= ~RTM_DNH_F_NO_PROPOGATE_UPSTREAM;
 
+        rtm_schedule_route_advertisement (rtm, nh->owner_route);
         return;
     }
 

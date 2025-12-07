@@ -2,12 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <arpa/inet.h>
-#include "rtm_route.h"
-#include "rtm_nh.h"
-#include "rtm_priv_api.h"
-#include "rtm_proto.h"
-#include "rtm_fib_interface.h"
-#include "rtm_resolution.h"
+
 #include "../graph.h"
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
@@ -16,6 +11,18 @@
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
+#include "rtm_route.h"
+#include "rtm_nh.h"
+#include "rtm_priv_api.h"
+#include "rtm_proto.h"
+#include "rtm_fib_interface.h"
+#include "rtm_resolution.h"
+#include "rtm_presentation.h"
+#include "rtm_gc.h"
+
+extern void 
+rtm_ppt_route_db_delete (rtm_t *rtm, rtm_prefix_t *prefix);
+
 /* Unreference all resources held by this route. No need to
      Unreference resources which hold a ref count back to
      the route, for example, path list as it is taken by ref_count
@@ -23,9 +30,10 @@
 static void 
 rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
 
+    rtm_ppt_route_db_delete (rtm, &route->prefix);
 }
 
-static void 
+void 
 rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
 
     char prefix_str[48];
@@ -36,6 +44,7 @@ rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
     assert (route->ref_count == 0);
     assert (!avltree_node_is_inuse (&route->route_glue));
     assert (!IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue));
+    assert (!IS_QUEUED_UP_IN_THREAD (&route->advt_glue));
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s deleted successfully\n",
@@ -43,14 +52,17 @@ rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
     XFREE(route);
 }
 
-void 
+uint32_t
 rtm_route_dereference(rtm_t *rtm, rtm_route* route) {
 
     route->ref_count--;
 
     if (route->ref_count == 0) {
-        rtm_route_check_and_delete(rtm, route);
+        rtm_gc_route(rtm, route);
+        return 0;
     }
+
+    return route->ref_count;
 }
 
 void 
@@ -111,6 +123,7 @@ rtm_route_initialize(rtm_route* route) {
     init_glthread(&route->path_list);
     init_Fglthread(&route->resolved_lnhs);
     avltree_node_init(&route->route_glue);
+    init_glthread(&route->advt_glue);
     route->flags = 0;
     route->nh_count = 0;
     route->ref_count = 0;
@@ -316,13 +329,19 @@ rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         rtm_proto_to_string(nh->proto), nh->ad);
 
 
+    if (nh->is_active) {
+        rtm_schedule_route_advertisement(rtm, route);
+    }
+
     // Remove from path list using wrapper
     rtm_nh_remove_glthread(rtm, nh, &nh->route_glue);
-
-    // Clear owner route
-    nh->owner_route = NULL;
     route->nh_count--;
-    rtm_route_dereference(rtm, route);    
+
+    // Do not Clear owner route, it will be cleared in rtm_nh_release_all_resources( )
+    // function, because we want to preserve the route
+    // to be accessed by nh->owner_route until last breathe of nh.
+    //nh->owner_route = NULL;
+    //rtm_route_dereference(rtm, route);    
     
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : NH %s deleted successfully from route %s, Remaining NHs=%u\n",

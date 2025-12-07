@@ -7,6 +7,7 @@
 #include "../gluethread/glthread.h"
 #include "../Tree/libtree.h"
 #include "rtm_enums.h"
+#include "rtm_error.h"
 #include "rtm_common.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
@@ -103,6 +104,7 @@ void rtm_nh_reference(rtm_nh *nh);
 void rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh);
 void rtm_flush_inh_direct_nh_set(rtm_t *rtm, rtm_nh *indirect_nh) ;
 char* rtm_nh_one_liner_trace (rtm_nh *nh, char *buffer_str, int buff_size);
+void rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) ;
 
 rtm_nh *rtm_nh_lookup_by_idx(rtm_t *rtm, uint32_t idx);
 rtm_error_t rtm_nh_add_to_idx_tree(rtm_t *rtm, rtm_nh *nh);

@@ -14,6 +14,7 @@ void rtm_show_nh_proto_info (rtm_t *rtm);
 void rtm_show_proto_info(rtm_t *rtm);
 void rtm_show_protocol_subscriptions(rtm_t *rtm);
 void rtm_show_unresolvable_routes(rtm_t *rtm);
+void rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter);
 
 #ifdef __cplusplus
 }
