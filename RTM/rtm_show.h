@@ -9,6 +9,7 @@ typedef struct rtm_  rtm_t;
 typedef struct rtm_prefix_ rtm_prefix_t;
 
 void rtm_show_rib (rtm_t *rtm);
+void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter);
 void rtm_show_rib_detail (rtm_t *rtm, const char *prefix_filter);
 void rtm_show_nh_proto_info (rtm_t *rtm);
 void rtm_show_proto_info(rtm_t *rtm);

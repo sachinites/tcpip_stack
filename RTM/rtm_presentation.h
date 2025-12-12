@@ -43,7 +43,7 @@ typedef struct rtm_rt_subscription_ {
     rtm_nh_proto_t *nh_proto;
 
     /* Callback fn used for notif - receives operation type and nh_idx */
-    void (*cbk)(rtm_t *, uint32_t nh_idx, rtm_nh *, rtm_ppt_operation_t);
+    void (*cbk)(rtm_t *, uint32_t nh_idx, rtm_nh *, rtm_nh_proto_t *, rtm_ppt_operation_t);
 
     /* Hook up in rtm_proto_info_t sub_db Tree*/
     avltree_node_t avl_glue;
@@ -59,12 +59,16 @@ typedef struct rtm_presentation_data_ {
     rtm_nh *nh;             
     /* nh_idx being added or deleted. Clients must use this if nh ptr is NULL*/
     uint32_t nh_idx;    
-    /* PRefix List to match*/
+    /* Nexthop Entire Src Proto info */
+    rtm_nh_proto_t *rtm_nh_proto;
+    /* Nh Addr*/
+    rtm_prefix_t nh_addr;
+    /* Prefix List to match*/
     prefix_list_t *prefix_list;
     /* Add or Delete operation , Update not supported*/
     rtm_ppt_operation_t operation;  /* ADD, DELETE, or UPDATE */
     /* Callback function to notify the client */
-    void (*cbk)(rtm_t *, uint32_t , rtm_nh *, rtm_ppt_operation_t);
+    void (*cbk)(rtm_t *, uint32_t , rtm_nh *, rtm_nh_proto_t *, rtm_ppt_operation_t);
     /* Glue to link in rtm->advt_nhs[] lists */
     glthread_t glue;
 
@@ -73,15 +77,22 @@ typedef struct rtm_presentation_data_ {
 /* This structure represents the blue print of the routes and its NHs.
     This structure is maintained per route. This structure is intentionally
     kept linkage free from RTM module
+    
+    IMPORTANT INVARIANT: Both the outer nhidx_list and inner dnh_list arrays
+    are maintained in sorted order (by nh_pidx and DNH index respectively).
+    This allows efficient O(n+m) diffing algorithms instead of O(n*m) nested loops.
 */
 typedef struct rtm_ppt_nhidx_ {
     
     uint32_t nh_pidx;
 
-    /* If Nexthop is indirect, then sorted list of 
+    /* If Nexthop is indirect, then sorted list (in increasing order) of 
         nhidx values of direct nexthops */
     uint16_t dnh_list_count;
-    uint32_t dnh_list[0];
+
+    /* Pointer to separately allocated array of DNHs 
+        Idx values*/
+    uint32_t *dnh_list;  
 
 }rtm_ppt_nhidx_t;
 
@@ -92,7 +103,8 @@ typedef struct rtm_ppt_route_ {
     /* AVL tree glue for route_tree in rtm_ppt_db_entry_t */
     avltree_node_t route_glue;
 
-    /* NHs idx values, sorted in increasing order */
+    /* NHs idx values, sorted in increasing order by nh_pidx */
+    /* Each entry's dnh_list is also sorted in increasing order */
     uint16_t nhidx_list_count;
     rtm_ppt_nhidx_t nhidx_list[0];
 
@@ -102,8 +114,7 @@ typedef struct rtm_ppt_route_ {
 
 GLTHREAD_TO_STRUCT(rtm_presentation_data_to_glue, rtm_presentation_data_t, glue);
 
-void 
-rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
+void rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
 
 void rtm_on_demand_route_request (
         rtm_t *rtm, 
@@ -111,33 +122,11 @@ void rtm_on_demand_route_request (
         uint8_t instance_no, 
         RTM_PROTO_T proto);
 
-
 /* APIs over RTM PPT DB */
 void rtm_ppt_db_initialize (rtm_t *rtm);
 void rtm_ppt_db_destroy (rtm_t *rtm);
-rtm_ppt_route_t* rtm_ppt_db_get_route (rtm_t *rtm, rtm_route *route);
-void rtm_ppt_route_db_delete (rtm_t *rtm, rtm_prefix_t *prefix);
-
-void
-rtm_ppt_route_diff (
-    rtm_route *route, rtm_ppt_route_t *ppt_route,
-    rtm_ppt_route_t *out_add,
-    rtm_ppt_route_t *out_del);
-
-void 
-rtm_ppt_route_update (rtm_t *rtm, rtm_ppt_route_t **ppt_route,
-    rtm_ppt_route_t *out_add,
-    rtm_ppt_route_t *out_del);
-
-
-
-bool 
-rtm_ppt_route_is_equal (rtm_route *route, rtm_ppt_route_t *ppt_route);
-
-void 
-rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route);
-
-void 
-rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route);
+void rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix);
+void rtm_ppt_unregister_route (rtm_t *rtm, rtm_prefix_t *prefix);
+void rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route);
 
 #endif 

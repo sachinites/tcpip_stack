@@ -109,7 +109,8 @@ void rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) ;
 rtm_nh *rtm_nh_lookup_by_idx(rtm_t *rtm, uint32_t idx);
 rtm_error_t rtm_nh_add_to_idx_tree(rtm_t *rtm, rtm_nh *nh);
 rtm_error_t rtm_nh_remove_from_idx_tree(rtm_t *rtm, rtm_nh *nh);
-
+void rtm_inh_moved_to_resolved_state (rtm_t *rtm, rtm_nh *inh);
+void rtm_inh_moved_to_unsolved_state (rtm_t *rtm, rtm_nh *inh);
 
 /* Wrapper to glthread_add_next ()*/
 void rtm_nh_glthread_add_next (rtm_nh *nh, 

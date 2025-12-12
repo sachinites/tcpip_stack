@@ -111,7 +111,6 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
             
             /* Display each direct nexthop */
             if (direct_nh_count > 0) {
-                int dnh_index = 0;
                 dnh_glthread = NULL;
                 
                 ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, dnh_glthread) {
@@ -124,9 +123,8 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                                       direct_nh_prefix_str, 
                                       sizeof(direct_nh_prefix_str));
                     
-                    dnh_index++;
                     cprintf("        [%d] %s, %s, %s\n",
-                           dnh_index,
+                           direct_nh->idx,
                            direct_nh_prefix_str,
                            direct_nh->Oif->if_name.c_str(),
                            rtm_proto_to_string(direct_nh->proto));
@@ -165,80 +163,214 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
     printw("\n");
 }
 
+/* Helper function to get protocol code for Cisco-style display */
+static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto) {
+    switch(proto) {
+        case RTM_PROTO_CONNECTED:
+            return "C";
+        case RTM_PROTO_STATIC:
+            return "S";
+        case RTM_PROTO_LOCAL:
+            return "L";
+        case RTM_PROTO_OSPF:
+            switch(sub_proto) {
+                case RTM_SUB_PROTO_OSPF_INTRA:
+                    return "O";
+                case RTM_SUB_PROTO_OSPF_INTER:
+                    return "O IA";
+                case RTM_SUB_PROTO_OSPF_EXT:
+                    return "O E2";
+                default:
+                    return "O";
+            }
+        case RTM_PROTO_BGP:
+            return "B";
+        case RTM_PROTO_ISIS:
+            switch(sub_proto) {
+                case RTM_PROTO_L1_ISIS_INT:
+                    return "I L1";
+                case RTM_PROTO_L2_ISIS_INT:
+                    return "I L2";
+                case RTM_PROTO_L1_ISIS_EXT:
+                    return "I L1";
+                case RTM_PROTO_L2_ISIS_EXT:
+                    return "I L2";
+                default:
+                    return "I";
+            }
+        case RTM_PROTO_LDP:
+            return "L";
+        case RTM_PROTO_SR:
+            return "SR";
+        default:
+            return "?";
+    }
+}
+
 extern "C" {
 
-/* Display RIB (Routing Information Base) */
-void rtm_show_rib(rtm_t *rtm) {
+/* Display RIB (Routing Information Base) in Cisco style */
+void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
 
-    cprintf("\nRTM : %s\n", rtm->name); 
+    cprintf("\n");
+    
+    /* Display legend/codes - Cisco style */
+    cprintf("Codes: I - IGRP derived, R - RIP derived, O - OSPF derived\n");
+    cprintf("       C - connected, S - static, E - EGP derived, B - BGP derived\n");
+    cprintf("       * - candidate default route, IA - OSPF inter area route\n");
+    cprintf("       E1 - OSPF external type 1 route, E2 - OSPF external type 2 route\n");
+    cprintf("       L1 - ISIS level-1, L2 - ISIS level-2\n");
+    
+    /* Find default route gateway if exists */
+    char default_gw[48] = "not set";
+    char default_net[48] = "0.0.0.0";
+    rtm_prefix_t default_prefix;
+    memset(&default_prefix, 0, sizeof(default_prefix));
+    default_prefix.afi = RTM_AF_IPV4;
+    default_prefix.prefix_len = 0;
+    
+    rtm_route *default_route = rtm_route_lookup(rtm, &default_prefix);
+    if (default_route) {
+        glthread_t *curr_glthread = NULL;
+        ITERATE_GLTHREAD_BEGIN(&default_route->path_list, curr_glthread) {
+            rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
+            if (nh->is_active && !rtm_prefix_is_null(&nh->prefix)) {
+                rtm_format_nexthop(&nh->prefix, default_gw, sizeof(default_gw));
+                break;
+            }
+        } ITERATE_GLTHREAD_END(&default_route->path_list, curr_glthread);
+    }
+    
+    cprintf("Gateway of last resort is %s to network %s\n\n", default_gw, default_net);
 
     if (avltree_is_empty(&rtm->route_tree)) {
+        cprintf("No routes in routing table\n\n");
         return;
     }
 
-    cprintf("%-25s %-10s %-11s %-18s %-10s %-8s %-8s %-20s\n",
-           "Route", "Protocol", "Action", "Next-Hop", "OIF", "AD", "Metric", "Label Stack");
-    cprintf("%-25s %-10s %-11s %-18s %-10s %-8s %-8s %-20s\n",
-           "------", "--------", "------", "--------", "---", "--", "------", "-----------");
+    /* Parse prefix filter if provided */
+    rtm_prefix_t filter_prefix;
+    bool has_filter = false;
+    
+    if (prefix_filter && strlen(prefix_filter) > 0) {
+        memset(&filter_prefix, 0, sizeof(filter_prefix));
+        if (rtm_parse_prefix_string(prefix_filter, &filter_prefix) == 0) {
+            has_filter = true;
+        }
+    }
 
     /* Iterate through all routes in the tree */
     avltree_node_t *curr_node = NULL;
+    int displayed_routes = 0;
+    
     ITERATE_AVL_TREE_BEGIN(&rtm->route_tree, curr_node) {
         
         rtm_route *route = avltree_container_of(curr_node, rtm_route, route_glue);
-        char prefix_str[128];
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
-
-        /* Iterate through all nexthops in the route */
+        
+        /* Apply filter if specified */
+        if (has_filter) {
+            if (filter_prefix.afi != route->prefix.afi ||
+                filter_prefix.prefix_len != route->prefix.prefix_len ||
+                memcmp(&filter_prefix.u, &route->prefix.u, 
+                       (filter_prefix.afi == RTM_AF_IPV4 ? 4 : 16)) != 0) {
+                continue;
+            }
+        }
+        
+        /* Get the best/first active nexthop for this route */
         glthread_t *curr_glthread = NULL;
+        rtm_nh *best_nh = NULL;
+        
+        /* Find the first active nexthop */
         ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
-            
             rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
-            char nh_prefix_str[128];
-            rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
-
-            /* Format label stack if present */
-            char label_stack_str[128] = "-";
-            if (nh->label_stack && nh->label_stack->curr_index > 0) {
-                char temp[64];
-                label_stack_str[0] = '\0';
-                for (int i = 0; i < nh->label_stack->curr_index; i++) {
-                    const char *op_str = "";
-                    switch (nh->label_stack->labels[i].op) {
-                        case RTM_LBL_SWAP: op_str = "Swap"; break;
-                        case RTM_LBL_PUSH: op_str = "Push"; break;
-                        case RTM_LBL_POP: op_str = "Pop"; break;
-                        default: op_str = "UNK"; break;
-                    }
-                    if (nh->label_stack->labels[i].op != RTM_LBL_STACK_OPS_UNKNOWN) {
-                        snprintf(temp, sizeof(temp), "%s%s:%u", 
-                                i > 0 ? "," : "",
-                                op_str, 
-                                nh->label_stack->labels[i].label_val);
-                        strncat(label_stack_str, temp, sizeof(label_stack_str) - strlen(label_stack_str) - 1);
-                    }
+            if (nh->is_active) {
+                best_nh = nh;
+                break;
+            }
+        } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
+        
+        /* If no active nexthop found, use the first one */
+        if (!best_nh && !IS_GLTHREAD_LIST_EMPTY(&route->path_list)) {
+            best_nh = route_glue_to_rtm_nh(route->path_list.right);
+        }
+        
+        if (!best_nh) {
+            continue; /* Skip routes with no nexthops */
+        }
+        
+        /* Format the destination prefix */
+        char prefix_str[64];
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
+        
+        /* Get protocol code */
+        const char *proto_code = rtm_get_proto_code(best_nh->proto, best_nh->sub_proto);
+        
+        /* Format nexthop address */
+        char nh_addr_str[48];
+        rtm_format_nexthop(&best_nh->prefix, nh_addr_str, sizeof(nh_addr_str));
+        
+        /* Format uptime - Cisco uses h:mm:ss format */
+        byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+        RTM_UP_TIME(best_nh->install_time, time_str, sizeof(time_str));
+        
+        /* Get interface name */
+        const char *if_name = "-";
+        if (best_nh->Oif) {
+            if_name = best_nh->Oif->if_name.c_str();
+        } else if (best_nh->is_indirect && !Fglthread_list_is_empty(&best_nh->direct_nh_list)) {
+            /* For indirect nexthops, try to get interface from first direct nexthop */
+            glthread_t *dnh_glthread = best_nh->direct_nh_list.head.right;
+            if (dnh_glthread && dnh_glthread != &best_nh->direct_nh_list.head) {
+                glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
+                rtm_nh *direct_nh = (rtm_nh *)data_node->data;
+                if (direct_nh && direct_nh->Oif) {
+                    if_name = direct_nh->Oif->if_name.c_str();
                 }
             }
-
-            cprintf("%-25s %-10s %-11s %-18s %-10s %-8u %-8u %-20s\n",
+        }
+        
+        /* Determine the display format based on action type - Cisco style */
+        if (best_nh->action == RTM_NH_ACTION_CONNECTED || 
+            best_nh->action == RTM_NH_ACTION_LOCAL) {
+            /* Connected/Local routes: show as directly connected */
+            cprintf("%-4s %-18s is directly connected, %s\n",
+                   proto_code,
                    prefix_str,
-                   rtm_proto_to_string(nh->proto),
-                   rtm_nh_action_to_string(nh->action),
-                   nh_prefix_str,
-                   (nh->Oif) ? nh->Oif->if_name.c_str() : \
-                        (nh->is_indirect && !Fglthread_list_is_empty(&nh->direct_nh_list)) ? "Res" : "-",
-                   nh->ad,
-                   nh->metric,
-                   label_stack_str);
-
-            /* Print only prefix on first line, empty for subsequent nexthops of same route */
-            prefix_str[0] = '\0';
-            
-        } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
+                   if_name);
+        } else {
+            /* Other routes: show with nexthop - format: code prefix [ad/metric] via gateway, time, interface */
+            if (rtm_prefix_is_null(&best_nh->prefix)) {
+                /* No explicit nexthop (e.g., blackhole, reject) */
+                cprintf("%-4s %-18s [%u/%u], %s, %s\n",
+                       proto_code,
+                       prefix_str,
+                       best_nh->ad,
+                       best_nh->metric,
+                       (char *)time_str,
+                       if_name);
+            } else {
+                /* Normal route with nexthop - Cisco format */
+                cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
+                       proto_code,
+                       prefix_str,
+                       best_nh->ad,
+                       best_nh->metric,
+                       nh_addr_str,
+                       (char *)time_str,
+                       if_name);
+            }
+        }
+        
+        displayed_routes++;
 
     } ITERATE_AVL_TREE_END(&rtm->route_tree, curr_node);
 
-    printw("\n");
+    if (displayed_routes == 0 && has_filter) {
+        cprintf("No routes matching filter\n");
+    }
+    
+    cprintf("\n");
 }
 
 /* Display RIB in detailed format (line by line, not tabular) */

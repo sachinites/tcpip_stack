@@ -549,7 +549,7 @@ show_rtm_route_cli_handler(int cmdcode,
 
     switch (cmdcode) {
         case CMDCODE_SHOW_NODE_RTM_ROUTE:
-            rtm_show_rib(rtm);
+            rtm_show_rib_standard(rtm, NULL);
             break;
         case CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL:
             rtm_show_rib_detail(rtm, (const char *)prefix_filter);

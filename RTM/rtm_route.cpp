@@ -21,7 +21,7 @@
 #include "rtm_gc.h"
 
 extern void 
-rtm_ppt_route_db_delete (rtm_t *rtm, rtm_prefix_t *prefix);
+rtm_ppt_unregister_route (rtm_t *rtm, rtm_prefix_t *prefix);
 
 /* Unreference all resources held by this route. No need to
      Unreference resources which hold a ref count back to
@@ -30,7 +30,7 @@ rtm_ppt_route_db_delete (rtm_t *rtm, rtm_prefix_t *prefix);
 static void 
 rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
 
-    rtm_ppt_route_db_delete (rtm, &route->prefix);
+    rtm_ppt_unregister_route (rtm, &route->prefix);
 }
 
 void 
@@ -729,6 +729,28 @@ rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix) {
     
     /* Return the route stored in the mtrie node */
     return (rtm_route *)mnode->data;
+}
+
+void 
+rtm_route_moved_to_resolved_state (rtm_t *rtm, rtm_route *route) {
+    
+    char prefix_str[48];
+
+    tracer(rtm->node->cptr, DRTM,
+           "RTM[%s] : Route : %s : Moved to Resolved State\n",
+           rtm->name,
+           rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+}
+
+void 
+rtm_route_moved_to_unresolved_state (rtm_t *rtm, rtm_route *route) {
+
+    char prefix_str[48];
+
+    tracer(rtm->node->cptr, DRTM,
+           "RTM[%s] : Route : %s : Moved to UnResolved State\n",
+           rtm->name,
+           rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));    
 }
 
 /* ========================================================================

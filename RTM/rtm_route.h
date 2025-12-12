@@ -78,6 +78,12 @@ rtm_route *rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix);
 void rtm_route_reference(rtm_route* route);
 uint32_t rtm_route_dereference(rtm_t *rtm, rtm_route* route);
 
+void rtm_route_moved_to_resolved_state (rtm_t *rtm, rtm_route *route) ;
+void rtm_route_moved_to_unresolved_state (rtm_t *rtm, rtm_route *route) ;
+
+
+
+
 /* Wrapper to glthread_add_next ()*/
 void rtm_route_glthread_add_next (rtm_route *route, 
         glthread_t *curr_glthread, glthread_t *new_glthread);

@@ -16,10 +16,8 @@ rtm_gc_job_cbk(
         void *arg, 
         uint32_t arg_size) {
 
-    rtm_nh *nh;
-    glthread_t *curr;
-    rtm_route *route;
     rtm_gc_t *gc ;
+    glthread_t *curr;
 
     rtm_t *rtm = (rtm_t *)arg;
 
@@ -36,12 +34,12 @@ rtm_gc_job_cbk(
                 break;
             case RTM_GC_NH:
                 rtm_nh_check_and_delete(rtm, gc->u.nh);
+                break;
             default: ;
         }
 
         XFREE (gc);
     }
-
 }
 
 void 
