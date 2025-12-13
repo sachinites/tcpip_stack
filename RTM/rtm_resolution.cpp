@@ -606,7 +606,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
     glthread_t *curr;
     uint32_t count = 0;
     rtm_route *lpm_route;
-    char nh_str[128], from_rt_str[128], to_rt_str[128];
+    char nh_str[128], from_rt_str[48], to_rt_str[48];
 
     ITERATE_GLTHREAD_BEGIN (&rtm->nhs_by_src[proto], curr) {
 

@@ -114,8 +114,6 @@ typedef struct rtm_ppt_route_ {
 
 GLTHREAD_TO_STRUCT(rtm_presentation_data_to_glue, rtm_presentation_data_t, glue);
 
-void rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
-
 void rtm_on_demand_route_request (
         rtm_t *rtm, 
         uint8_t vrf_id, 

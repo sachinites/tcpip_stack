@@ -20,62 +20,6 @@
 static void 
 rtm_schedule_presentation_job (rtm_t *rtm) ;
 
-/* This fn to be enhanced to be asynchronous */
-void 
-rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh) {
-
-    /* Iteratve over Advt DB of each protocol */
-    avltree_t *proto_info_tree;
-    rtm_proto_info_t *proto_info;
-    rtm_rt_subscription_t *sub_info;
-    avltree_node_t *proto_info_node;
-    avltree_node_t *sub_proto_advt_db_node;
-    rtm_presentation_data_t *presentation_data;
-
-    for (int proto = 0; proto < RTM_PROTO_MAX; proto++) {
-
-        proto_info_tree = &rtm->proto_info_tree[proto];
-
-        if (avltree_is_empty(proto_info_tree)) continue;
-        
-        ITERATE_AVL_TREE_BEGIN(proto_info_tree, proto_info_node) {
-            
-            proto_info = avltree_container_of(proto_info_node, rtm_proto_info_t, proto_glue);
-
-            if (proto_info->proto != proto) continue;
-
-            if (avltree_is_empty(&proto_info->sub_db)) continue;
-
-            /* Iterate over Advt DB of each instance*/
-            ITERATE_AVL_TREE_BEGIN(&proto_info->sub_db, sub_proto_advt_db_node) {
-                
-                sub_info = avltree_container_of(sub_proto_advt_db_node, rtm_rt_subscription_t, avl_glue);
-                
-                if ( !sub_info->cbk ) continue;
-
-                if (sub_info->target_proto != nh->proto) continue;
-                if (sub_info->target_sub_proto != RTM_SUB_PROTO_NA &&
-                         sub_info->target_sub_proto != nh->sub_proto ) continue;
-                if (sub_info->target_instance_no != nh->rtm_nh_proto->instance_no) continue;
-
-                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
-                presentation_data->nh = nh;
-                presentation_data->nh_idx = nh->idx;
-                rtm_nh_reference (nh);
-                presentation_data->prefix_list = sub_info->prefix_list;
-                if (presentation_data->prefix_list) prefix_list_reference (presentation_data->prefix_list);
-                presentation_data->operation = RTM_PPT_OP_ADD;  /* This is an ADD operation */
-                presentation_data->cbk = sub_info->cbk;
-                Fglthread_add_last(&rtm->advt_nhs[nh->proto], &presentation_data->glue);
-
-            } ITERATE_AVL_TREE_END;
-
-        } ITERATE_AVL_TREE_END;
-
-        rtm_schedule_presentation_job (rtm);
-    }
-}
-
 void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                                  uint8_t instance_no,
                                  RTM_PROTO_T proto)
@@ -255,6 +199,7 @@ rtm_ppt_db_clone_route (
     if (nh_count == 0) {
         rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)XCALLOC2(0, 1, rtm_ppt_route_t);
         avltree_node_init (&ppt_route->route_glue);
+        ppt_route->prefix = route->prefix;
         ppt_route->nhidx_list_count = 0;
         return ppt_route;
     }
@@ -827,24 +772,20 @@ rtm_ppt_route_diff (
 static void
 rtm_ppt_route_release_resources(rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
 
-    /* With flexible arrays, the entire structure is allocated as one block */
-    /* So we don't need to XFREE nhidx_list separately - it's part of the structure */
-    /* This function is called before XFREEing the structure, so we don't need to do anything here */
-    (void)rtm;
-    (void)ppt_route;
-}
-
-static void 
-rtm_ppt_route_check_and_delete (rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
-
-    /* Free DNH arrays first */
     if (ppt_route && ppt_route->nhidx_list_count > 0) {
+
         for (int i = 0; i < ppt_route->nhidx_list_count; i++) {
+
             if (ppt_route->nhidx_list[i].dnh_list) {
+
                 XFREE(ppt_route->nhidx_list[i].dnh_list);
             }
         }
     }
+}
+
+static void 
+rtm_ppt_route_check_and_delete (rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
     
     rtm_ppt_route_release_resources (rtm, ppt_route);
     assert (!avltree_node_is_inuse (&ppt_route->route_glue));
@@ -1049,12 +990,6 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
         }
     }
     
-    rtm_ppt_route_t *updated_ppt_rt = rtm_ppt_db_clone_route(rtm, route);
-    avltree_remove (&cached_route->route_glue, &rtm->ppt_db_route_tree);
-    avltree_node_init(&cached_route->route_glue);
-    rtm_ppt_route_check_and_delete (rtm, cached_route);
-    avltree_insert(&updated_ppt_rt->route_glue, &rtm->ppt_db_route_tree);
-    
     /* Clean up diff results - with flexible arrays, we need to XFREE the entire structures */
     /* The allocated pointers are stored in route_glue field (temporary storage) */
     if (out_add.nhidx_list_count > 0) {
@@ -1068,6 +1003,25 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
         if (allocated) {
             XFREE(allocated);
         }
+    }
+
+    /* Updated the PPT DB after diff */
+    if (route->nh_count == 0) {
+        // This route will going to be deleted and hence the ppt route also from
+        // rtm_route_check_and_delete( ) . No need to do anything here.
+    }
+    else if ( !rtm_route_is_resolved (route)) {
+        // If the route has INH and is unresolved, then we can delete  the route from
+        // PPT-DB
+        rtm_ppt_unregister_route(rtm, &route->prefix);
+    }
+    else {
+        /* Update the cached route in PPT DB with the latest snapshot */
+        rtm_ppt_route_t *updated_ppt_rt = rtm_ppt_db_clone_route(rtm, route);
+        avltree_remove (&cached_route->route_glue, &rtm->ppt_db_route_tree);
+        avltree_node_init(&cached_route->route_glue);
+        rtm_ppt_route_check_and_delete (rtm, cached_route);
+        avltree_insert(&updated_ppt_rt->route_glue, &rtm->ppt_db_route_tree);
     }
 
     /* Schedule the presentation job to process the advertisement queue */
@@ -1222,8 +1176,19 @@ rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
 void 
 rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix) {
 
+    char prefix_str[48];
     rtm_ppt_route_t *ppt_route;
-    rtm_ppt_route_t ppt_route_template = {0};
+    rtm_ppt_route_t ppt_route_template;
+
+    /* Properly initialize the template structure to avoid uninitialized memory */
+    memset(&ppt_route_template, 0, sizeof(rtm_ppt_route_t));
+    
+    /* Validate prefix before proceeding */
+    if (!prefix) {
+        tracer (rtm->node->cptr, DRTM|DERR, "RTM[%s] : PPT-DB Registration failed : NULL prefix\n",
+            rtm->name);
+        return;
+    }
 
     ppt_route_template.prefix = *prefix;
     avltree_node_init (&ppt_route_template.route_glue);
@@ -1237,8 +1202,11 @@ rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix) {
 
     ppt_route->prefix = *prefix;
     avltree_node_init(&ppt_route->route_glue);
-        ppt_route->nhidx_list_count = 0;
+    ppt_route->nhidx_list_count = 0;
     avltree_insert(&ppt_route->route_glue, &rtm->ppt_db_route_tree);
+
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Route %s : Successfully Registered with PPT-DB\n",
+            rtm->name, rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
 }
 
 /* Should be called by RTM core when route is permanently deleted. 
@@ -1246,20 +1214,32 @@ rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix) {
 void 
 rtm_ppt_unregister_route (rtm_t *rtm, rtm_prefix_t *prefix) {
 
+    char prefix_str[48];
     rtm_ppt_route_t *ppt_route;
-    rtm_ppt_route_t ppt_route_template = {0};
+    rtm_ppt_route_t ppt_route_template;
 
+    /* Properly initialize the template structure to avoid uninitialized memory */
+    memset(&ppt_route_template, 0, sizeof(rtm_ppt_route_t));
     ppt_route_template.prefix = *prefix;
     avltree_node_init (&ppt_route_template.route_glue);
 
     avltree_node_t *node = avltree_lookup(
             &ppt_route_template.route_glue, &rtm->ppt_db_route_tree);
 
-    if (!node) return;
+    if (!node) {
+        tracer (rtm->node->cptr, DRTM, 
+            "RTM[%s] : Route %s : PPT-DB Unregistration failed : Route not found in PPT-DB. "
+            "This is Expected for Unresolved routes\n",
+            rtm->name, rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
+        return;
+    }
 
     ppt_route = avltree_container_of(node, rtm_ppt_route_t, route_glue);
 
     avltree_remove (&ppt_route->route_glue, &rtm->ppt_db_route_tree);
     avltree_node_init(&ppt_route->route_glue);
     rtm_ppt_route_check_and_delete (rtm, ppt_route);
+
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Route %s : Successfully UnRegistered with PPT-DB\n",
+            rtm->name, rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
 }

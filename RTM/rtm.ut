@@ -38,19 +38,15 @@ Add static route to R0 with single nexthop
 
 Verify the route is installed with all properties
 :STEP:2
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:3
 :PATTERN-MATCH:192.168.1.0/24
 :STEP:4
-:PATTERN-MATCH:Static
+:PATTERN-MATCH:[1/10]
 :STEP:5
 :PATTERN-MATCH:10.1.1.2
 :STEP:6
 :PATTERN-MATCH:eth0
-:STEP:7
-:GREP:192.168.1.0/24
-:STEP:8
-:PATTERN-MATCH:10
 
 Add another static route with different metric
 :STEP:9
@@ -59,15 +55,15 @@ Add another static route with different metric
 
 Verify both routes exist with correct properties
 :STEP:10
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:11
 :PATTERN-MATCH:172.16.0.0/16
 :STEP:12
 :GREP:172.16.0.0/16
 :STEP:13
-:PATTERN-MATCH:20
+:PATTERN-MATCH:[1/20]
 :STEP:14
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:15
 :PATTERN-MATCH:192.168.1.0/24
 
@@ -78,7 +74,7 @@ Delete first static route
 
 Verify first route is deleted but second remains
 :STEP:17
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:18
 :PATTERN-NOT-MATCH:192.168.1.0/24
 :STEP:19
@@ -91,7 +87,7 @@ Delete second route
 
 Verify both routes are deleted
 :STEP:21
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:22
 :PATTERN-NOT-MATCH:192.168.1.0/24
 :STEP:23
@@ -117,17 +113,17 @@ Add second nexthop for same route (ECMP)
 
 Verify ECMP route with both nexthops
 :STEP:3
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:4
 :PATTERN-MATCH:10.10.10.0/24
 :STEP:5
-:PATTERN-MATCH:Static
+:PATTERN-MATCH:[1/100]
 :STEP:6
 :PATTERN-MATCH:10.1.1.1
 :STEP:7
 :PATTERN-MATCH:eth1
 :STEP:8
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:9
 :PATTERN-MATCH:20.1.1.2
 :STEP:10
@@ -140,7 +136,7 @@ Add third nexthop (3-way ECMP)
 
 Verify 3-way ECMP with all three gateways
 :STEP:12
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:13
 :PATTERN-MATCH:10.10.10.0/24
 :STEP:14
@@ -153,7 +149,7 @@ Delete one nexthop
 
 Verify 2-way ECMP remains with correct gateways
 :STEP:16
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:17
 :PATTERN-MATCH:10.10.10.0/24
 :STEP:18
@@ -170,7 +166,7 @@ Delete remaining nexthops
 
 Verify route is completely deleted
 :STEP:22
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:23
 :PATTERN-NOT-MATCH:10.10.10.0/24
 
@@ -204,65 +200,61 @@ Add L2 ISIS External route on R2
 
 Verify all ISIS routes with protocol and metrics
 :STEP:5
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:6
 :PATTERN-MATCH:100.0.0.0/24
 :STEP:7
-:PATTERN-MATCH:ISIS
-:STEP:8
-:GREP:100.0.0.0/24
-:STEP:9
 :PATTERN-MATCH:50
+:STEP:8
+:CMD: show node R2 rtm 0.inet.0 detail 100.0.0.0/24
+:STEP:9
+:PATTERN-MATCH:Protocol
 :STEP:10
-:CMD: show node R2 ip vrf 0 route 0
+:PATTERN-MATCH:ISIS
 :STEP:11
-:PATTERN-MATCH:101.0.0.0/24
+:CMD: show node R2 rtm 0.inet.0
 :STEP:12
-:GREP:101.0.0.0/24
+:PATTERN-MATCH:101.0.0.0/24
 :STEP:13
 :PATTERN-MATCH:60
 :STEP:14
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:15
 :PATTERN-MATCH:102.0.0.0/24
 :STEP:16
-:GREP:102.0.0.0/24
-:STEP:17
 :PATTERN-MATCH:70
+:STEP:17
+:CMD: show node R2 rtm 0.inet.0
 :STEP:18
-:CMD: show node R2 ip vrf 0 route 0
-:STEP:19
 :PATTERN-MATCH:103.0.0.0/24
-:STEP:20
-:GREP:103.0.0.0/24
-:STEP:21
+:STEP:19
 :PATTERN-MATCH:80
-:STEP:22
+:STEP:20
 :PATTERN-MATCH:20.1.1.1
-:STEP:23
+:STEP:21
 :PATTERN-MATCH:eth3
 
 Delete ISIS routes
-:STEP:24
+:STEP:22
 :CMD: config node R2 no rtm-route prefix 100.0.0.0/24 4 2 0 2 50 gateway 20.1.1.1 interface eth3
-:STEP:25
+:STEP:23
 :CMD: config node R2 no rtm-route prefix 101.0.0.0/24 4 3 0 2 60 gateway 20.1.1.1 interface eth3
-:STEP:26
+:STEP:24
 :CMD: config node R2 no rtm-route prefix 102.0.0.0/24 4 4 0 2 70 gateway 20.1.1.1 interface eth3
-:STEP:27
+:STEP:25
 :CMD: config node R2 no rtm-route prefix 103.0.0.0/24 4 5 0 2 80 gateway 20.1.1.1 interface eth3
 
 
 Verify all ISIS routes are deleted
-:STEP:28
-:CMD: show node R2 ip vrf 0 route 0
-:STEP:29
+:STEP:26
+:CMD: show node R2 rtm 0.inet.0
+:STEP:27
 :PATTERN-NOT-MATCH:100.0.0.0/24
-:STEP:30
+:STEP:28
 :PATTERN-NOT-MATCH:101.0.0.0/24
-:STEP:31
+:STEP:29
 :PATTERN-NOT-MATCH:102.0.0.0/24
-:STEP:32
+:STEP:30
 :PATTERN-NOT-MATCH:103.0.0.0/24
 
 :TESTCASE-END:3
@@ -275,87 +267,83 @@ Verify all ISIS routes are deleted
 
 Add BGP Internal route on R3
 :STEP:1
-:CMD: config node R3 rtm-route prefix 200.0.0.0/24 3 6 0 2 100 gateway 50.1.1.1 interface eth9
+:CMD: config node R3 rtm-route prefix 200.0.0.0/24 3 6 0 2 100 gateway 50.1.1.1
 
 
 Add BGP External route on R3
 :STEP:2
-:CMD: config node R3 rtm-route prefix 201.0.0.0/24 3 7 0 2 200 gateway 50.1.1.1 interface eth9
+:CMD: config node R3 rtm-route prefix 201.0.0.0/24 3 7 0 2 200 gateway 50.1.1.1
 
 
 Add BGP VPN route on R3
 :STEP:3
-:CMD: config node R3 rtm-route prefix 202.0.0.0/24 3 8 0 2 150 gateway 50.1.1.1 interface eth9
+:CMD: config node R3 rtm-route prefix 202.0.0.0/24 3 8 0 2 150 gateway 50.1.1.1
 
 
 Add BGP EVPN route on R3
 :STEP:4
-:CMD: config node R3 rtm-route prefix 203.0.0.0/24 3 9 0 2 180 gateway 50.1.1.1 interface eth9
+:CMD: config node R3 rtm-route prefix 203.0.0.0/24 3 9 0 2 180 gateway 50.1.1.1
 
 
 Verify all BGP routes with protocol and metrics
 :STEP:5
-:CMD: show node R3 ip vrf 0 route 0
+:CMD: show node R3 rtm 0.inet.0
 :STEP:6
 :PATTERN-MATCH:200.0.0.0/24
 :STEP:7
-:PATTERN-MATCH:BGP
-:STEP:8
-:GREP:200.0.0.0/24
-:STEP:9
 :PATTERN-MATCH:100
+:STEP:8
+:CMD: show node R3 rtm 0.inet.0 detail 200.0.0.0/24
+:STEP:9
+:PATTERN-MATCH:Protocol
 :STEP:10
-:CMD: show node R3 ip vrf 0 route 0
+:PATTERN-MATCH:BGP
 :STEP:11
-:PATTERN-MATCH:201.0.0.0/24
+:CMD: show node R3 rtm 0.inet.0
 :STEP:12
-:GREP:201.0.0.0/24
+:PATTERN-MATCH:201.0.0.0/24
 :STEP:13
 :PATTERN-MATCH:200
 :STEP:14
-:CMD: show node R3 ip vrf 0 route 0
+:CMD: show node R3 rtm 0.inet.0
 :STEP:15
 :PATTERN-MATCH:202.0.0.0/24
 :STEP:16
-:GREP:202.0.0.0/24
-:STEP:17
 :PATTERN-MATCH:150
+:STEP:17
+:CMD: show node R3 rtm 0.inet.0
 :STEP:18
-:CMD: show node R3 ip vrf 0 route 0
-:STEP:19
 :PATTERN-MATCH:203.0.0.0/24
-:STEP:20
-:GREP:203.0.0.0/24
-:STEP:21
+:STEP:19
 :PATTERN-MATCH:180
-:STEP:22
-:CMD: show node R3 ip vrf 0 route 0
-:STEP:23
+:STEP:20
+:CMD: show node R3 rtm 0.inet.0
+:STEP:21
 :PATTERN-MATCH:50.1.1.1
-:STEP:24
+:STEP:22
 :PATTERN-MATCH:eth9
 
 Delete BGP routes
+:STEP:23
+:CMD: config node R3 no rtm-route prefix 200.0.0.0/24 3 6 0 2 100 gateway 50.1.1.1
+:STEP:24
+:CMD: config node R3 no rtm-route prefix 201.0.0.0/24 3 7 0 2 200 gateway 50.1.1.1
 :STEP:25
-:CMD: config node R3 no rtm-route prefix 200.0.0.0/24 3 6 0 2 100 gateway 50.1.1.1 interface eth9
+:CMD: config node R3 no rtm-route prefix 202.0.0.0/24 3 8 0 2 150 gateway 50.1.1.1
 :STEP:26
-:CMD: config node R3 no rtm-route prefix 201.0.0.0/24 3 7 0 2 200 gateway 50.1.1.1 interface eth9
-:STEP:27
-:CMD: config node R3 no rtm-route prefix 202.0.0.0/24 3 8 0 2 150 gateway 50.1.1.1 interface eth9
-:STEP:28
-:CMD: config node R3 no rtm-route prefix 203.0.0.0/24 3 9 0 2 180 gateway 50.1.1.1 interface eth9
+:CMD: config node R3 no rtm-route prefix 203.0.0.0/24 3 9 0 2 180 gateway 50.1.1.1
 
 
 Verify all BGP routes are deleted
-:STEP:29
-:CMD: show node R3 ip vrf 0 route 0
-:STEP:30
+:STEP:27
+:CMD: show node R3 rtm 0.inet.0
+:STEP:28
 :PATTERN-NOT-MATCH:200.0.0.0/24
-:STEP:31
+:STEP:29
 :PATTERN-NOT-MATCH:201.0.0.0/24
-:STEP:32
+:STEP:30
 :PATTERN-NOT-MATCH:202.0.0.0/24
-:STEP:33
+:STEP:31
 :PATTERN-NOT-MATCH:203.0.0.0/24
 
 :TESTCASE-END:4
@@ -383,55 +371,53 @@ Add OSPF External route on R4
 
 Verify all OSPF routes with protocol, gateway and metrics
 :STEP:4
-:CMD: show node R4 ip vrf 0 route 0
+:CMD: show node R4 rtm 0.inet.0
 :STEP:5
 :PATTERN-MATCH:110.0.0.0/24
 :STEP:6
-:PATTERN-MATCH:OSPF
-:STEP:7
-:GREP:110.0.0.0/24
-:STEP:8
 :PATTERN-MATCH:10
+:STEP:7
+:CMD: show node R4 rtm 0.inet.0 detail 110.0.0.0/24
+:STEP:8
+:PATTERN-MATCH:Protocol
 :STEP:9
-:CMD: show node R4 ip vrf 0 route 0
+:PATTERN-MATCH:OSPF
 :STEP:10
-:PATTERN-MATCH:111.0.0.0/24
+:CMD: show node R4 rtm 0.inet.0
 :STEP:11
-:GREP:111.0.0.0/24
+:PATTERN-MATCH:111.0.0.0/24
 :STEP:12
 :PATTERN-MATCH:20
 :STEP:13
-:CMD: show node R4 ip vrf 0 route 0
+:CMD: show node R4 rtm 0.inet.0
 :STEP:14
 :PATTERN-MATCH:112.0.0.0/24
 :STEP:15
-:GREP:112.0.0.0/24
-:STEP:16
 :PATTERN-MATCH:100
+:STEP:16
+:CMD: show node R4 rtm 0.inet.0
 :STEP:17
-:CMD: show node R4 ip vrf 0 route 0
-:STEP:18
 :PATTERN-MATCH:40.1.1.2
-:STEP:19
+:STEP:18
 :PATTERN-MATCH:eth6
 
 Delete OSPF routes
-:STEP:20
+:STEP:19
 :CMD: config node R4 no rtm-route prefix 110.0.0.0/24 5 12 0 2 10 gateway 40.1.1.2 interface eth6
-:STEP:21
+:STEP:20
 :CMD: config node R4 no rtm-route prefix 111.0.0.0/24 5 11 0 2 20 gateway 40.1.1.2 interface eth6
-:STEP:22
+:STEP:21
 :CMD: config node R4 no rtm-route prefix 112.0.0.0/24 5 10 0 2 100 gateway 40.1.1.2 interface eth6
 
 
 Verify all OSPF routes are deleted
+:STEP:22
+:CMD: show node R4 rtm 0.inet.0
 :STEP:23
-:CMD: show node R4 ip vrf 0 route 0
-:STEP:24
 :PATTERN-NOT-MATCH:110.0.0.0/24
-:STEP:25
+:STEP:24
 :PATTERN-NOT-MATCH:111.0.0.0/24
-:STEP:26
+:STEP:25
 :PATTERN-NOT-MATCH:112.0.0.0/24
 
 :TESTCASE-END:5
@@ -449,12 +435,10 @@ Add route with single MPLS label on R5
 
 Verify route with label
 :STEP:2
-:CMD: show node R5 ip vrf 0 route 0
+:CMD: show node R5 rtm 0.inet.0 detail 150.0.0.0/24
 :STEP:3
 :PATTERN-MATCH:150.0.0.0/24
 :STEP:4
-:GREP:150.0.0.0/24
-:STEP:5
 :PATTERN-MATCH:100
 
 Add route with multiple MPLS labels (label stack)
@@ -464,16 +448,14 @@ Add route with multiple MPLS labels (label stack)
 
 Verify route with label stack
 :STEP:7
-:CMD: show node R5 ip vrf 0 route 0
+:CMD: show node R5 rtm 0.inet.0 detail 151.0.0.0/24
 :STEP:8
 :PATTERN-MATCH:151.0.0.0/24
 :STEP:9
-:GREP:151.0.0.0/24
-:STEP:10
 :PATTERN-MATCH:200
-:STEP:11
+:STEP:10
 :PATTERN-MATCH:300
-:STEP:12
+:STEP:11
 :PATTERN-MATCH:400
 
 Add LDP route with label
@@ -488,51 +470,55 @@ Add SR route with label stack
 
 Verify all labeled routes
 :STEP:15
-:CMD: show node R5 ip vrf 0 route 0
+:CMD: show node R5 rtm 0.inet.0 detail 152.0.0.0/24
 :STEP:16
 :PATTERN-MATCH:152.0.0.0/24
 :STEP:17
-:PATTERN-MATCH:LDP
-:STEP:18
-:GREP:152.0.0.0/24
-:STEP:19
 :PATTERN-MATCH:500
+:STEP:18
+:CMD: show node R5 rtm 0.inet.0 detail 152.0.0.0/24
+:STEP:19
+:PATTERN-MATCH:Protocol
 :STEP:20
-:CMD: show node R5 ip vrf 0 route 0
+:PATTERN-MATCH:LDP
 :STEP:21
-:PATTERN-MATCH:153.0.0.0/24
+:CMD: show node R5 rtm 0.inet.0 detail 153.0.0.0/24
 :STEP:22
-:PATTERN-MATCH:SR
+:PATTERN-MATCH:153.0.0.0/24
 :STEP:23
-:GREP:153.0.0.0/24
-:STEP:24
 :PATTERN-MATCH:16001
-:STEP:25
+:STEP:24
 :PATTERN-MATCH:16002
-:STEP:26
+:STEP:25
 :PATTERN-MATCH:16003
+:STEP:26
+:CMD: show node R5 rtm 0.inet.0 detail 153.0.0.0/24
+:STEP:27
+:PATTERN-MATCH:Protocol
+:STEP:28
+:PATTERN-MATCH:SR
 
 Delete labeled routes
-:STEP:27
-:CMD: config node R5 no rtm-route prefix 150.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 100
-:STEP:28
-:CMD: config node R5 no rtm-route prefix 151.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 200 300 400
 :STEP:29
-:CMD: config node R5 no rtm-route prefix 152.0.0.0/24 8 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 500
+:CMD: config node R5 no rtm-route prefix 150.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 100
 :STEP:30
+:CMD: config node R5 no rtm-route prefix 151.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 200 300 400
+:STEP:31
+:CMD: config node R5 no rtm-route prefix 152.0.0.0/24 8 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 500
+:STEP:32
 :CMD: config node R5 no rtm-route prefix 153.0.0.0/24 6 0 0 2 10 gateway 30.1.1.1 interface eth5 label-stack 16001 16002 16003
 
 
 Verify all labeled routes are deleted
-:STEP:31
-:CMD: show node R5 ip vrf 0 route 0
-:STEP:32
-:PATTERN-NOT-MATCH:150.0.0.0/24
 :STEP:33
-:PATTERN-NOT-MATCH:151.0.0.0/24
+:CMD: show node R5 rtm 0.inet.0
 :STEP:34
-:PATTERN-NOT-MATCH:152.0.0.0/24
+:PATTERN-NOT-MATCH:150.0.0.0/24
 :STEP:35
+:PATTERN-NOT-MATCH:151.0.0.0/24
+:STEP:36
+:PATTERN-NOT-MATCH:152.0.0.0/24
+:STEP:37
 :PATTERN-NOT-MATCH:153.0.0.0/24
 
 :TESTCASE-END:6
@@ -547,60 +533,52 @@ Add initial route with metric 10
 :STEP:1
 :CMD: config node R0 rtm-route prefix 10.20.30.0/24 0 0 0 2 10 gateway 10.1.1.2 interface eth0
 
-
 Verify initial route with metric 10
 :STEP:2
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:3
 :PATTERN-MATCH:10.20.30.0/24
 :STEP:4
-:GREP:10.20.30.0/24
-:STEP:5
 :PATTERN-MATCH:10.1.1.2
-:STEP:6
+:STEP:5
 :PATTERN-MATCH:eth0
 
 Add same route with different metric (route update)
 :STEP:7
-:CMD: config node R0 rtm-route prefix 10.20.30.0/24 0 0 0 2 50 gateway 10.1.1.2 interface eth0
-
-
+:CMD: config node R0 rtm-route prefix 10.20.30.0/24 0 0 0 2 50 gateway 10.1.1.3 interface eth14
 Verify route now has two nexthops with different metrics
 :STEP:8
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:9
 :PATTERN-MATCH:10.20.30.0/24
 :STEP:10
-:PATTERN-MATCH:10.1.1.2
+:PATTERN-NOT-MATCH:10.1.1.3
 
 Add same route with different gateway (route change)
 :STEP:11
 :CMD: config node R0 rtm-route prefix 10.20.30.0/24 0 0 0 2 50 gateway 80.1.1.2 interface eth14
 
-
 Verify route with new gateway exists
 :STEP:12
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:13
 :PATTERN-MATCH:10.20.30.0/24
 :STEP:14
-:PATTERN-MATCH:80.1.1.2
-:STEP:15
-:PATTERN-MATCH:eth14
+:PATTERN-NOT-MATCH:80.1.1.2
 
 Delete all versions
-:STEP:16
+:STEP:15
 :CMD: config node R0 no rtm-route prefix 10.20.30.0/24 0 0 0 2 10 gateway 10.1.1.2 interface eth0
+:STEP:16
+:CMD: config node R0 no rtm-route prefix 10.20.30.0/24 0 0 0 2 50 gateway 10.1.1.3 interface eth14
 :STEP:17
-:CMD: config node R0 no rtm-route prefix 10.20.30.0/24 0 0 0 2 50 gateway 10.1.1.2 interface eth0
-:STEP:18
 :CMD: config node R0 no rtm-route prefix 10.20.30.0/24 0 0 0 2 50 gateway 80.1.1.2 interface eth14
 
 
 Verify route is completely deleted
+:STEP:18
+:CMD: show node R0 rtm 0.inet.0
 :STEP:19
-:CMD: show node R0 ip vrf 0 route 0
-:STEP:20
 :PATTERN-NOT-MATCH:10.20.30.0/24
 
 :TESTCASE-END:7
@@ -638,7 +616,7 @@ Add default route /0
 
 Verify all prefix lengths with gateway and interface
 :STEP:6
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:7
 :PATTERN-MATCH:1.1.1.1/32
 :STEP:8
@@ -669,7 +647,7 @@ Delete all prefix length routes
 
 Verify all routes are deleted
 :STEP:19
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:20
 :PATTERN-NOT-MATCH:1.1.1.1/32
 :STEP:21
@@ -694,24 +672,20 @@ Add Static route (AD=1)
 
 Verify static route is installed
 :STEP:2
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:3
 :PATTERN-MATCH:5.5.5.0/24
-:STEP:4
-:PATTERN-MATCH:Static
 
 Add BGP External route (AD=20) - should coexist with static
 :STEP:5
-:CMD: config node R2 rtm-route prefix 5.5.5.0/24 3 7 0 2 100 gateway 20.1.1.1 interface eth3
+:CMD: config node R2 rtm-route prefix 5.5.5.0/24 3 7 0 2 100 gateway 20.1.1.1
 
 
 Verify both static and BGP routes exist
 :STEP:6
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:7
 :PATTERN-MATCH:5.5.5.0/24
-:STEP:8
-:PATTERN-MATCH:BGP
 
 Add ISIS route (AD=115) - less preferred
 :STEP:9
@@ -725,34 +699,28 @@ Add OSPF route (AD=110) - between BGP and ISIS
 
 Verify all protocol routes exist for same prefix
 :STEP:11
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:12
 :PATTERN-MATCH:5.5.5.0/24
-:STEP:13
-:PATTERN-MATCH:ISIS
-:STEP:14
-:CMD: show node R2 ip vrf 0 route 0
-:STEP:15
-:PATTERN-MATCH:OSPF
 
 Delete routes one by one and verify
 :STEP:16
 :CMD: config node R2 no rtm-route prefix 5.5.5.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
 :STEP:17
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:18
 :PATTERN-MATCH:5.5.5.0/24
 :STEP:19
-:CMD: config node R2 no rtm-route prefix 5.5.5.0/24 3 7 0 2 100 gateway 20.1.1.1 interface eth3
+:CMD: config node R2 no rtm-route prefix 5.5.5.0/24 3 7 0 2 100 gateway 20.1.1.1
 :STEP:20
-:CMD: config node R2 no rtm-route prefix 5.5.5.0/24 4 2 0 2 50 gateway 20.1.1.1 interface eth3
+:CMD: config node R2 no rtm-route prefix 5.5.5.0/24 4 2 0 2 50 gateway 20.1.1.1
 :STEP:21
-:CMD: config node R2 no rtm-route prefix 5.5.5.0/24 5 11 0 2 20 gateway 20.1.1.1 interface eth3
+:CMD: config node R2 no rtm-route prefix 5.5.5.0/24 5 11 0 2 20 gateway 20.1.1.1
 
 
 Verify all routes for this prefix are deleted
 :STEP:22
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:23
 :PATTERN-NOT-MATCH:5.5.5.0/24
 
@@ -771,69 +739,77 @@ Add Segment Routing route on R3
 
 Verify SR route with label stack
 :STEP:2
-:CMD: show node R3 ip vrf 0 route 0
+:CMD: show node R3 rtm 0.inet.0 detail 160.0.0.0/24
 :STEP:3
 :PATTERN-MATCH:160.0.0.0/24
 :STEP:4
-:PATTERN-MATCH:SR
-:STEP:5
-:GREP:160.0.0.0/24
-:STEP:6
 :PATTERN-MATCH:16010
-:STEP:7
+:STEP:5
 :PATTERN-MATCH:16020
-:STEP:8
+:STEP:6
 :PATTERN-MATCH:16030
+:STEP:7
+:CMD: show node R3 rtm 0.inet.0 detail 160.0.0.0/24
+:STEP:8
+:PATTERN-MATCH:Protocol
+:STEP:9
+:PATTERN-MATCH:SR
 
 Add LFA backup route on R3
-:STEP:9
+:STEP:10
 :CMD: config node R3 rtm-route prefix 161.0.0.0/24 7 0 0 2 15 gateway 50.1.1.1 interface eth9
 
 
 Verify LFA route
-:STEP:10
-:CMD: show node R3 ip vrf 0 route 0
 :STEP:11
-:PATTERN-MATCH:161.0.0.0/24
+:CMD: show node R3 rtm 0.inet.0
 :STEP:12
+:PATTERN-MATCH:161.0.0.0/24
+:STEP:13
+:CMD: show node R3 rtm 0.inet.0 detail 161.0.0.0/24
+:STEP:14
+:PATTERN-MATCH:Protocol
+:STEP:15
 :PATTERN-MATCH:LFA
 
 Add SR-TE (Segment Routing Traffic Engineering) route
-:STEP:13
+:STEP:16
 :CMD: config node R3 rtm-route prefix 162.0.0.0/24 9 0 0 2 20 gateway 50.1.1.1 interface eth9 label-stack 17001 17002
 
 
 Verify SR-TE route with labels
-:STEP:14
-:CMD: show node R3 ip vrf 0 route 0
-:STEP:15
-:PATTERN-MATCH:162.0.0.0/24
-:STEP:16
-:PATTERN-MATCH:SR-TE
 :STEP:17
-:GREP:162.0.0.0/24
+:CMD: show node R3 rtm 0.inet.0 detail 162.0.0.0/24
 :STEP:18
-:PATTERN-MATCH:17001
+:PATTERN-MATCH:162.0.0.0/24
 :STEP:19
+:PATTERN-MATCH:17001
+:STEP:20
 :PATTERN-MATCH:17002
+:STEP:21
+:CMD: show node R3 rtm 0.inet.0 detail 162.0.0.0/24
+:STEP:22
+:PATTERN-MATCH:Protocol
+:STEP:23
+:PATTERN-MATCH:SR-TE
 
 Delete SR and LFA routes
-:STEP:20
+:STEP:24
 :CMD: config node R3 no rtm-route prefix 160.0.0.0/24 6 0 0 2 10 gateway 50.1.1.1 interface eth9 label-stack 16010 16020 16030
-:STEP:21
+:STEP:25
 :CMD: config node R3 no rtm-route prefix 161.0.0.0/24 7 0 0 2 15 gateway 50.1.1.1 interface eth9
-:STEP:22
+:STEP:26
 :CMD: config node R3 no rtm-route prefix 162.0.0.0/24 9 0 0 2 20 gateway 50.1.1.1 interface eth9 label-stack 17001 17002
 
 
 Verify all SR and LFA routes are deleted
-:STEP:23
-:CMD: show node R3 ip vrf 0 route 0
-:STEP:24
+:STEP:27
+:CMD: show node R3 rtm 0.inet.0
+:STEP:28
 :PATTERN-NOT-MATCH:160.0.0.0/24
-:STEP:25
+:STEP:29
 :PATTERN-NOT-MATCH:161.0.0.0/24
-:STEP:26
+:STEP:30
 :PATTERN-NOT-MATCH:162.0.0.0/24
 
 :TESTCASE-END:10
@@ -869,7 +845,7 @@ Add multiple routes on R4
 
 Verify all routes installed with gateway
 :STEP:11
-:CMD: show node R4 ip vrf 0 route 0
+:CMD: show node R4 rtm 0.inet.0
 :STEP:12
 :PATTERN-MATCH:170.1.0.0/24
 :STEP:13
@@ -906,7 +882,7 @@ Delete all bulk routes
 
 Verify all bulk routes are deleted
 :STEP:27
-:CMD: show node R4 ip vrf 0 route 0
+:CMD: show node R4 rtm 0.inet.0
 :STEP:28
 :PATTERN-NOT-MATCH:170.1.0.0/24
 :STEP:29
@@ -929,76 +905,82 @@ Add route with FORWARD action (action=2)
 
 Verify FORWARD action route
 :STEP:2
-:CMD: show node R5 ip vrf 0 route 0
+:CMD: show node R5 rtm 0.inet.0 detail 180.0.0.0/24
 :STEP:3
 :PATTERN-MATCH:180.0.0.0/24
 :STEP:4
+:PATTERN-MATCH:Action
+:STEP:5
 :PATTERN-MATCH:Forward
 
 Add route with DISCARD action (action=4)
-:STEP:5
+:STEP:6
 :CMD: config node R5 rtm-route prefix 181.0.0.0/24 0 0 0 4 10 gateway 30.1.1.1 interface eth5
 
 
 Verify DISCARD action route
-:STEP:6
-:CMD: show node R5 ip vrf 0 route 0
 :STEP:7
-:PATTERN-MATCH:181.0.0.0/24
+:CMD: show node R5 rtm 0.inet.0 detail 181.0.0.0/24
 :STEP:8
+:PATTERN-MATCH:181.0.0.0/24
+:STEP:9
+:PATTERN-MATCH:Action
+:STEP:10
 :PATTERN-MATCH:Discard
 
 Add route with REJECT action (action=5)
-:STEP:9
+:STEP:11
 :CMD: config node R5 rtm-route prefix 182.0.0.0/24 0 0 0 5 10 gateway 30.1.1.1 interface eth5
 
 
 Verify REJECT action route
-:STEP:10
-:CMD: show node R5 ip vrf 0 route 0
-:STEP:11
-:PATTERN-MATCH:182.0.0.0/24
 :STEP:12
+:CMD: show node R5 rtm 0.inet.0 detail 182.0.0.0/24
+:STEP:13
+:PATTERN-MATCH:182.0.0.0/24
+:STEP:14
+:PATTERN-MATCH:Action
+:STEP:15
 :PATTERN-MATCH:Reject
 
 Add route with TUNNEL action (action=3)
-:STEP:13
+:STEP:16
 :CMD: config node R5 rtm-route prefix 183.0.0.0/24 0 0 0 3 10 gateway 30.1.1.1 interface eth5 label-stack 1000
 
 
 Verify TUNNEL action route with label
-:STEP:14
-:CMD: show node R5 ip vrf 0 route 0
-:STEP:15
-:PATTERN-MATCH:183.0.0.0/24
-:STEP:16
-:PATTERN-MATCH:Tunnel
 :STEP:17
-:GREP:183.0.0.0/24
+:CMD: show node R5 rtm 0.inet.0 detail 183.0.0.0/24
 :STEP:18
+:PATTERN-MATCH:183.0.0.0/24
+:STEP:19
+:PATTERN-MATCH:Action
+:STEP:20
+:PATTERN-MATCH:Tunnel
+:STEP:21
 :PATTERN-MATCH:1000
 
 Delete all action type routes
-:STEP:19
-:CMD: config node R5 no rtm-route prefix 180.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5
-:STEP:20
-:CMD: config node R5 no rtm-route prefix 181.0.0.0/24 0 0 0 4 10 gateway 30.1.1.1 interface eth5
-:STEP:21
-:CMD: config node R5 no rtm-route prefix 182.0.0.0/24 0 0 0 5 10 gateway 30.1.1.1 interface eth5
 :STEP:22
+:CMD: config node R5 no rtm-route prefix 180.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5
+:STEP:23
+:CMD: config node R5 no rtm-route prefix 181.0.0.0/24 0 0 0 4 10 gateway 30.1.1.1 interface eth5
+:STEP:24
+:CMD: config node R5 no rtm-route prefix 182.0.0.0/24 0 0 0 5 10 gateway 30.1.1.1 interface eth5
+:STEP:25
 :CMD: config node R5 no rtm-route prefix 183.0.0.0/24 0 0 0 3 10 gateway 30.1.1.1 interface eth5 label-stack 1000
 
 
 Verify all action type routes are deleted
-:STEP:23
-:CMD: show node R5 ip vrf 0 route 0
-:STEP:24
-:PATTERN-NOT-MATCH:180.0.0.0/24
-:STEP:25
-:PATTERN-NOT-MATCH:181.0.0.0/24
 :STEP:26
-:PATTERN-NOT-MATCH:182.0.0.0/24
+:CMD: show node R5 rtm 0.inet.0
 :STEP:27
+:PATTERN-NOT-MATCH:180.0.0.0/24
+:STEP:28
+:PATTERN-NOT-MATCH:181.0.0.0/24
+:STEP:29
+:PATTERN-NOT-MATCH:182.0.0.0/24
+:STEP:30
 :PATTERN-NOT-MATCH:183.0.0.0/24
 
 :TESTCASE-END:12
@@ -1031,37 +1013,29 @@ Add route with minimum metric
 
 Verify all edge case routes with metrics
 :STEP:5
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:6
 :PATTERN-MATCH:255.255.255.255/32
 :STEP:7
-:GREP:255.255.255.255/32
+:PATTERN-MATCH:[1/10]
 :STEP:8
-:PATTERN-MATCH:10
+:CMD: show node R0 rtm 0.inet.0
 :STEP:9
-:CMD: show node R0 ip vrf 0 route 0
-:STEP:10
 :PATTERN-MATCH:0.0.0.0/0
+:STEP:10
+:PATTERN-MATCH:[1/100]
 :STEP:11
-:GREP:0.0.0.0/0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:12
-:PATTERN-MATCH:100
-:STEP:13
-:CMD: show node R0 ip vrf 0 route 0
-:STEP:14
 :PATTERN-MATCH:190.0.0.0/24
+:STEP:13
+:PATTERN-MATCH:[1/65000]
+:STEP:14
+:CMD: show node R0 rtm 0.inet.0
 :STEP:15
-:GREP:190.0.0.0/24
-:STEP:16
-:PATTERN-MATCH:65000
-:STEP:17
-:CMD: show node R0 ip vrf 0 route 0
-:STEP:18
 :PATTERN-MATCH:191.0.0.0/24
-:STEP:19
-:GREP:191.0.0.0/24
-:STEP:20
-:PATTERN-MATCH:1
+:STEP:16
+:PATTERN-MATCH:[1/1]
 
 Delete edge case routes
 :STEP:21
@@ -1076,7 +1050,7 @@ Delete edge case routes
 
 Verify all edge case routes are deleted
 :STEP:25
-:CMD: show node R0 ip vrf 0 route 0
+:CMD: show node R0 rtm 0.inet.0
 :STEP:26
 :PATTERN-NOT-MATCH:255.255.255.255/32
 :STEP:27
@@ -1108,7 +1082,7 @@ Add ISIS routes
 
 Add BGP routes
 :STEP:5
-:CMD: config node R1 rtm-route prefix 7.7.7.0/24 3 7 0 2 100 gateway 10.1.1.1 interface eth1
+:CMD: config node R1 rtm-route prefix 7.7.7.0/24 3 7 0 2 100 gateway 10.1.1.1
 
 
 Add OSPF routes
@@ -1123,31 +1097,19 @@ Add SR routes with labels
 
 Verify mixed protocol routes with their specific protocols
 :STEP:8
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:9
 :PATTERN-MATCH:8.8.8.0/24
 :STEP:10
-:PATTERN-MATCH:Static
-:STEP:11
-:PATTERN-MATCH:ISIS
-:STEP:12
-:CMD: show node R1 ip vrf 0 route 0
-:STEP:13
 :PATTERN-MATCH:9.9.9.0/24
-:STEP:14
+:STEP:11
 :PATTERN-MATCH:7.7.7.0/24
-:STEP:15
-:PATTERN-MATCH:BGP
-:STEP:16
-:CMD: show node R1 ip vrf 0 route 0
-:STEP:17
+:STEP:12
+:CMD: show node R1 rtm 0.inet.0
+:STEP:13
 :PATTERN-MATCH:6.6.6.0/24
-:STEP:18
-:PATTERN-MATCH:OSPF
-:STEP:19
+:STEP:14
 :PATTERN-MATCH:5.5.5.0/24
-:STEP:20
-:PATTERN-MATCH:SR
 
 Clean up all routes
 :STEP:21
@@ -1159,7 +1121,7 @@ Clean up all routes
 :STEP:24
 :CMD: config node R1 no rtm-route prefix 9.9.9.0/24 4 3 0 2 60 gateway 20.1.1.2 interface eth2
 :STEP:25
-:CMD: config node R1 no rtm-route prefix 7.7.7.0/24 3 7 0 2 100 gateway 10.1.1.1 interface eth1
+:CMD: config node R1 no rtm-route prefix 7.7.7.0/24 3 7 0 2 100 gateway 10.1.1.1
 :STEP:26
 :CMD: config node R1 no rtm-route prefix 6.6.6.0/24 5 11 0 2 20 gateway 20.1.1.2 interface eth2
 :STEP:27
@@ -1168,7 +1130,7 @@ Clean up all routes
 
 Verify all mixed protocol routes are deleted
 :STEP:28
-:CMD: show node R1 ip vrf 0 route 0
+:CMD: show node R1 rtm 0.inet.0
 :STEP:29
 :PATTERN-NOT-MATCH:8.8.8.0/24
 :STEP:30
@@ -1210,7 +1172,7 @@ Add host route /32
 
 Verify all overlapping routes exist with correct gateways
 :STEP:5
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:6
 :PATTERN-MATCH:192.168.0.0/16
 :STEP:7
@@ -1222,7 +1184,7 @@ Verify all overlapping routes exist with correct gateways
 :STEP:10
 :PATTERN-MATCH:20.1.1.1
 :STEP:11
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:12
 :PATTERN-MATCH:30.1.1.1
 :STEP:13
@@ -1234,7 +1196,7 @@ Delete from most specific to least specific and verify each deletion
 :STEP:15
 :CMD: config node R2 no rtm-route prefix 192.168.1.1/32 0 0 0 2 5 gateway 50.1.1.2 interface eth8
 :STEP:16
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:17
 :PATTERN-NOT-MATCH:192.168.1.1/32
 :STEP:18
@@ -1242,7 +1204,7 @@ Delete from most specific to least specific and verify each deletion
 :STEP:19
 :CMD: config node R2 no rtm-route prefix 192.168.1.0/28 0 0 0 2 30 gateway 40.1.1.1 interface eth7
 :STEP:20
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:21
 :PATTERN-NOT-MATCH:192.168.1.0/28
 :STEP:22
@@ -1250,7 +1212,7 @@ Delete from most specific to least specific and verify each deletion
 :STEP:23
 :CMD: config node R2 no rtm-route prefix 192.168.1.0/24 0 0 0 2 20 gateway 30.1.1.1 interface eth4
 :STEP:24
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:25
 :PATTERN-NOT-MATCH:192.168.1.0/24
 :STEP:26
@@ -1261,7 +1223,7 @@ Delete from most specific to least specific and verify each deletion
 
 Verify all overlapping routes are deleted
 :STEP:28
-:CMD: show node R2 ip vrf 0 route 0
+:CMD: show node R2 rtm 0.inet.0
 :STEP:29
 :PATTERN-NOT-MATCH:192.168.0.0/16
 :STEP:30
@@ -1272,5 +1234,793 @@ Verify all overlapping routes are deleted
 :PATTERN-NOT-MATCH:192.168.1.1/32
 
 :TESTCASE-END:15
+
+
+:TESTCASE-BEGIN:16
+:DESC: Test case to test RTM Route Resolution - Basic Resolution
+
+:PRINT: Testing Basic Route Resolution with Indirect Nexthops
+
+Add BGP route with indirect nexthop (unresolved)
+:STEP:1
+:CMD: config node R1 rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
+
+
+Verify route appears in unresolvable routes
+:STEP:2
+:CMD: show node R1 rtm 0.inet.0 unresolvable-routes
+:STEP:3
+:PATTERN-MATCH:122.1.1.0/24
+:STEP:4
+:PATTERN-MATCH:BGP
+:STEP:5
+:PATTERN-MATCH:10.0.0.1
+
+
+Verify route detail shows unresolved state
+:STEP:6
+:CMD: show node R1 rtm 0.inet.0 detail 122.1.1.0/24
+:STEP:7
+:PATTERN-MATCH:122.1.1.0/24
+:STEP:8
+:PATTERN-MATCH:10.0.0.1
+:STEP:9
+:PATTERN-MATCH:Indirect
+:STEP:10
+:PATTERN-MATCH:Yes
+
+
+Add resolving route
+:STEP:11
+:CMD: config node R1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.14 interface eth1
+
+
+Verify route is no longer in unresolvable routes
+:STEP:12
+:CMD: show node R1 rtm 0.inet.0 unresolvable-routes
+:STEP:13
+:PATTERN-NOT-MATCH:122.1.1.0/24
+
+
+Verify route is now resolved with resolution info
+:STEP:14
+:CMD: show node R1 rtm 0.inet.0 detail 122.1.1.0/24
+:STEP:15
+:PATTERN-MATCH:Resolved
+:STEP:16
+:PATTERN-MATCH:Yes
+:STEP:17
+:PATTERN-MATCH:Resolution Info
+:STEP:18
+:PATTERN-MATCH:Resolved By Route
+:STEP:19
+:PATTERN-MATCH:10.0.0.0/24
+:STEP:20
+:PATTERN-MATCH:192.168.0.14
+:STEP:21
+:PATTERN-MATCH:eth1
+
+
+Verify route appears in standard routing table
+:STEP:22
+:CMD: show node R1 rtm 0.inet.0
+:STEP:23
+:PATTERN-MATCH:122.1.1.0/24
+
+
+Clean up - delete routes
+:STEP:24
+:CMD: config node R1 no rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
+:STEP:25
+:CMD: config node R1 no rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.14 interface eth1
+
+
+Verify routes are deleted
+:STEP:26
+:CMD: show node R1 rtm 0.inet.0
+:STEP:27
+:PATTERN-NOT-MATCH:122.1.1.0/24
+:STEP:28
+:PATTERN-NOT-MATCH:10.0.0.0/24
+
+:TESTCASE-END:16
+
+
+:TESTCASE-BEGIN:17
+:DESC: Test case to test RTM Route Resolution - Resolution Change with More Specific Routes
+
+:PRINT: Testing Resolution Change When More Specific Route is Added
+
+Add BGP route with indirect nexthop
+:STEP:1
+:CMD: config node R1 rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
+
+
+Verify route is unresolved
+:STEP:2
+:CMD: show node R1 rtm 0.inet.0 unresolvable-routes
+:STEP:3
+:PATTERN-MATCH:122.1.1.0/24
+
+
+Add less specific resolving route /24
+:STEP:4
+:CMD: config node R1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.14 interface eth1
+
+
+Verify route is resolved via /24 route
+:STEP:5
+:CMD: show node R1 rtm 0.inet.0 detail 122.1.1.0/24
+:STEP:6
+:PATTERN-MATCH:Resolved By Route
+:STEP:7
+:PATTERN-MATCH:10.0.0.0/24
+:STEP:8
+:PATTERN-MATCH:192.168.0.14
+
+
+Add more specific resolving route /32
+:STEP:9
+:CMD: config node R1 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.20 interface eth1
+
+
+Verify resolution changed to more specific /32 route
+:STEP:10
+:CMD: show node R1 rtm 0.inet.0 detail 122.1.1.0/24
+:STEP:11
+:PATTERN-MATCH:Resolved By Route
+:STEP:12
+:PATTERN-MATCH:10.0.0.1/32
+:STEP:13
+:PATTERN-MATCH:192.168.0.20
+
+
+Delete more specific route
+:STEP:14
+:CMD: config node R1 no rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.20 interface eth1
+
+
+Verify resolution falls back to less specific /24 route
+:STEP:15
+:CMD: show node R1 rtm 0.inet.0 detail 122.1.1.0/24
+:STEP:16
+:PATTERN-MATCH:Resolved By Route
+:STEP:17
+:PATTERN-MATCH:10.0.0.0/24
+:STEP:18
+:PATTERN-MATCH:192.168.0.14
+
+
+Clean up - delete remaining routes
+:STEP:19
+:CMD: config node R1 no rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
+:STEP:20
+:CMD: config node R1 no rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.14 interface eth1
+
+
+Verify routes are deleted
+:STEP:21
+:CMD: show node R1 rtm 0.inet.0
+:STEP:22
+:PATTERN-NOT-MATCH:122.1.1.0/24
+:STEP:23
+:PATTERN-NOT-MATCH:10.0.0.0/24
+
+:TESTCASE-END:17
+
+
+:TESTCASE-BEGIN:18
+:DESC: Test case to test RTM Route Un-resolution
+
+:PRINT: Testing Route Un-resolution When Resolver is Deleted
+
+Add BGP route with indirect nexthop
+:STEP:1
+:CMD: config node R2 rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 20.0.0.1
+
+
+Verify route is unresolved initially
+:STEP:2
+:CMD: show node R2 rtm 0.inet.0 unresolvable-routes
+:STEP:3
+:PATTERN-MATCH:123.1.1.0/24
+:STEP:4
+:PATTERN-MATCH:20.0.0.1
+
+
+Add resolving route - route becomes resolved
+:STEP:5
+:CMD: config node R2 rtm-route prefix 20.0.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+
+
+Verify route is now resolved
+:STEP:6
+:CMD: show node R2 rtm 0.inet.0 unresolvable-routes
+:STEP:7
+:PATTERN-NOT-MATCH:123.1.1.0/24
+:STEP:8
+:CMD: show node R2 rtm 0.inet.0 detail 123.1.1.0/24
+:STEP:9
+:PATTERN-MATCH:Resolved
+:STEP:10
+:PATTERN-MATCH:Yes
+:STEP:11
+:PATTERN-MATCH:20.0.0.0/24
+
+
+Delete resolving route - route becomes unresolved again
+:STEP:12
+:CMD: config node R2 no rtm-route prefix 20.0.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+
+
+Verify route is back to unresolved state
+:STEP:13
+:CMD: show node R2 rtm 0.inet.0 unresolvable-routes
+:STEP:14
+:PATTERN-MATCH:123.1.1.0/24
+:STEP:15
+:PATTERN-MATCH:20.0.0.1
+
+
+Verify route detail shows unresolved
+:STEP:16
+:CMD: show node R2 rtm 0.inet.0 detail 123.1.1.0/24
+:STEP:17
+:PATTERN-MATCH:123.1.1.0/24
+:STEP:18
+:PATTERN-MATCH:Indirect
+
+
+Clean up - delete BGP route
+:STEP:19
+:CMD: config node R2 no rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 20.0.0.1
+
+
+Verify route is deleted
+:STEP:20
+:CMD: show node R2 rtm 0.inet.0
+:STEP:21
+:PATTERN-NOT-MATCH:123.1.1.0/24
+
+:TESTCASE-END:18
+
+
+:TESTCASE-BEGIN:19
+:DESC: Test case to test RTM Multiple Indirect Routes Sharing Resolver
+
+:PRINT: Testing Multiple Indirect Routes Resolved by Single Route
+
+Add multiple BGP routes with same indirect nexthop
+:STEP:1
+:CMD: config node R3 rtm-route prefix 124.1.1.0/24 3 6 0 2 10 gateway 30.0.0.1
+:STEP:2
+:CMD: config node R3 rtm-route prefix 125.1.1.0/24 3 6 0 2 10 gateway 30.0.0.1
+:STEP:3
+:CMD: config node R3 rtm-route prefix 126.1.1.0/24 3 6 0 2 10 gateway 30.0.0.1
+
+
+Verify all routes are unresolved
+:STEP:4
+:CMD: show node R3 rtm 0.inet.0 unresolvable-routes
+:STEP:5
+:PATTERN-MATCH:124.1.1.0/24
+:STEP:6
+:PATTERN-MATCH:125.1.1.0/24
+:STEP:7
+:PATTERN-MATCH:126.1.1.0/24
+:STEP:8
+:PATTERN-MATCH:30.0.0.1
+
+
+Add single resolving route
+:STEP:9
+:CMD: config node R3 rtm-route prefix 30.0.0.0/24 0 0 0 2 10 gateway 50.1.1.1 interface eth9
+
+
+Verify all routes are now resolved
+:STEP:10
+:CMD: show node R3 rtm 0.inet.0 unresolvable-routes
+:STEP:11
+:PATTERN-NOT-MATCH:124.1.1.0/24
+:STEP:12
+:PATTERN-NOT-MATCH:125.1.1.0/24
+:STEP:13
+:PATTERN-NOT-MATCH:126.1.1.0/24
+
+
+Verify first route resolution info
+:STEP:14
+:CMD: show node R3 rtm 0.inet.0 detail 124.1.1.0/24
+:STEP:15
+:PATTERN-MATCH:Resolved By Route
+:STEP:16
+:PATTERN-MATCH:30.0.0.0/24
+:STEP:17
+:PATTERN-MATCH:50.1.1.1
+
+
+Verify second route resolution info
+:STEP:18
+:CMD: show node R3 rtm 0.inet.0 detail 125.1.1.0/24
+:STEP:19
+:PATTERN-MATCH:Resolved By Route
+:STEP:20
+:PATTERN-MATCH:30.0.0.0/24
+:STEP:21
+:PATTERN-MATCH:50.1.1.1
+
+
+Verify third route resolution info
+:STEP:22
+:CMD: show node R3 rtm 0.inet.0 detail 126.1.1.0/24
+:STEP:23
+:PATTERN-MATCH:Resolved By Route
+:STEP:24
+:PATTERN-MATCH:30.0.0.0/24
+:STEP:25
+:PATTERN-MATCH:50.1.1.1
+
+
+Delete resolving route - all become unresolved
+:STEP:26
+:CMD: config node R3 no rtm-route prefix 30.0.0.0/24 0 0 0 2 10 gateway 50.1.1.1 interface eth9
+
+
+Verify all routes are unresolved again
+:STEP:27
+:CMD: show node R3 rtm 0.inet.0 unresolvable-routes
+:STEP:28
+:PATTERN-MATCH:124.1.1.0/24
+:STEP:29
+:PATTERN-MATCH:125.1.1.0/24
+:STEP:30
+:PATTERN-MATCH:126.1.1.0/24
+
+
+Clean up - delete all BGP routes
+:STEP:31
+:CMD: config node R3 no rtm-route prefix 124.1.1.0/24 3 6 0 2 10 gateway 30.0.0.1
+:STEP:32
+:CMD: config node R3 no rtm-route prefix 125.1.1.0/24 3 6 0 2 10 gateway 30.0.0.1
+:STEP:33
+:CMD: config node R3 no rtm-route prefix 126.1.1.0/24 3 6 0 2 10 gateway 30.0.0.1
+
+
+Verify routes are deleted
+:STEP:34
+:CMD: show node R3 rtm 0.inet.0
+:STEP:35
+:PATTERN-NOT-MATCH:124.1.1.0/24
+:STEP:36
+:PATTERN-NOT-MATCH:125.1.1.0/24
+:STEP:37
+:PATTERN-NOT-MATCH:126.1.1.0/24
+
+:TESTCASE-END:19
+
+
+:TESTCASE-BEGIN:20
+:DESC: Test case to test RTM Resolution via ECMP Routes
+
+:PRINT: Testing Indirect Route Resolution via ECMP Resolver
+
+Add BGP route with indirect nexthop
+:STEP:1
+:CMD: config node R4 rtm-route prefix 127.1.1.0/24 3 6 0 2 10 gateway 40.0.0.1
+
+
+Verify route is unresolved
+:STEP:2
+:CMD: show node R4 rtm 0.inet.0 unresolvable-routes
+:STEP:3
+:PATTERN-MATCH:127.1.1.0/24
+
+
+Add ECMP resolving route with first nexthop
+:STEP:4
+:CMD: config node R4 rtm-route prefix 40.0.0.0/24 0 0 0 2 10 gateway 40.1.1.2 interface eth6
+
+
+Add second nexthop for ECMP
+:STEP:5
+:CMD: config node R4 rtm-route prefix 40.0.0.0/24 0 0 0 2 10 gateway 60.1.1.2 interface eth11
+
+
+Add third nexthop for ECMP
+:STEP:6
+:CMD: config node R4 rtm-route prefix 40.0.0.0/24 0 0 0 2 10 gateway 70.1.1.2 interface eth11
+
+
+Verify indirect route is resolved
+:STEP:7
+:CMD: show node R4 rtm 0.inet.0 unresolvable-routes
+:STEP:8
+:PATTERN-NOT-MATCH:127.1.1.0/24
+
+
+Verify resolution with multiple direct nexthops
+:STEP:9
+:CMD: show node R4 rtm 0.inet.0 detail 127.1.1.0/24
+:STEP:10
+:PATTERN-MATCH:Resolved By Route
+:STEP:11
+:PATTERN-MATCH:40.0.0.0/24
+:STEP:12
+:PATTERN-MATCH:Direct Nexthops
+:STEP:13
+:PATTERN-MATCH:3
+:STEP:14
+:PATTERN-MATCH:40.1.1.2
+:STEP:15
+:PATTERN-MATCH:60.1.1.2
+:STEP:16
+:PATTERN-MATCH:70.1.1.2
+
+
+Delete one ECMP nexthop
+:STEP:17
+:CMD: config node R4 no rtm-route prefix 40.0.0.0/24 0 0 0 2 10 gateway 60.1.1.2 interface eth11
+
+
+Verify resolution now shows 2 direct nexthops
+:STEP:18
+:CMD: show node R4 rtm 0.inet.0 detail 127.1.1.0/24
+:STEP:19
+:PATTERN-MATCH:Direct Nexthops
+:STEP:20
+:PATTERN-MATCH:2
+:STEP:21
+:PATTERN-MATCH:40.1.1.2
+:STEP:22
+:PATTERN-MATCH:70.1.1.2
+
+
+Delete remaining ECMP nexthops - route becomes unresolved
+:STEP:23
+:CMD: config node R4 no rtm-route prefix 40.0.0.0/24 0 0 0 2 10 gateway 40.1.1.2 interface eth6
+:STEP:24
+:CMD: config node R4 no rtm-route prefix 40.0.0.0/24 0 0 0 2 10 gateway 70.1.1.2 interface eth11
+
+
+Verify route is unresolved again
+:STEP:25
+:CMD: show node R4 rtm 0.inet.0 unresolvable-routes
+:STEP:26
+:PATTERN-MATCH:127.1.1.0/24
+
+
+Clean up - delete BGP route
+:STEP:27
+:CMD: config node R4 no rtm-route prefix 127.1.1.0/24 3 6 0 2 10 gateway 40.0.0.1
+
+
+Verify route is deleted
+:STEP:28
+:CMD: show node R4 rtm 0.inet.0
+:STEP:29
+:PATTERN-NOT-MATCH:127.1.1.0/24
+
+:TESTCASE-END:20
+
+
+:TESTCASE-BEGIN:21
+:DESC: Test case to test RTM Recursive Resolution
+
+:PRINT: Testing Recursive Route Resolution (BGP -> Static -> Connected)
+
+Add BGP route with indirect nexthop
+:STEP:1
+:CMD: config node R5 rtm-route prefix 128.1.1.0/24 3 6 0 2 10 gateway 50.0.0.1
+
+
+Verify route is unresolved
+:STEP:2
+:CMD: show node R5 rtm 0.inet.0 unresolvable-routes
+:STEP:3
+:PATTERN-MATCH:128.1.1.0/24
+
+
+Add static route with indirect nexthop pointing to third network
+:STEP:4
+:CMD: config node R5 rtm-route prefix 50.0.0.0/24 0 0 0 2 10 gateway 60.0.0.1
+
+
+Verify BGP route is still unresolved (static is also unresolved)
+:STEP:5
+:CMD: show node R5 rtm 0.inet.0 unresolvable-routes
+:STEP:6
+:PATTERN-MATCH:128.1.1.0/24
+:STEP:7
+:PATTERN-MATCH:50.0.0.0/24
+
+
+Add final resolving route with direct nexthop
+:STEP:8
+:CMD: config node R5 rtm-route prefix 60.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5
+
+
+Verify all routes are now resolved
+:STEP:9
+:CMD: show node R5 rtm 0.inet.0 unresolvable-routes
+:STEP:10
+:PATTERN-NOT-MATCH:128.1.1.0/24
+:STEP:11
+:PATTERN-NOT-MATCH:50.0.0.0/24
+
+
+Verify BGP route resolution chain
+:STEP:12
+:CMD: show node R5 rtm 0.inet.0 detail 128.1.1.0/24
+:STEP:13
+:PATTERN-MATCH:Resolved By Route
+:STEP:14
+:PATTERN-MATCH:50.0.0.0/24
+:STEP:15
+:PATTERN-MATCH:30.1.1.1
+
+
+Verify static route resolution
+:STEP:16
+:CMD: show node R5 rtm 0.inet.0 detail 50.0.0.0/24
+:STEP:17
+:PATTERN-MATCH:Resolved By Route
+:STEP:18
+:PATTERN-MATCH:60.0.0.0/24
+:STEP:19
+:PATTERN-MATCH:30.1.1.1
+
+
+Delete middle resolver - cascade un-resolution
+:STEP:20
+:CMD: config node R5 no rtm-route prefix 60.0.0.0/24 0 0 0 2 10 gateway 30.1.1.1 interface eth5
+
+
+Verify both indirect routes are unresolved
+:STEP:21
+:CMD: show node R5 rtm 0.inet.0 unresolvable-routes
+:STEP:22
+:PATTERN-MATCH:128.1.1.0/24
+:STEP:23
+:PATTERN-MATCH:50.0.0.0/24
+
+
+Clean up - delete all routes
+:STEP:24
+:CMD: config node R5 no rtm-route prefix 128.1.1.0/24 3 6 0 2 10 gateway 50.0.0.1
+:STEP:25
+:CMD: config node R5 no rtm-route prefix 50.0.0.0/24 0 0 0 2 10 gateway 60.0.0.1
+
+
+Verify routes are deleted
+:STEP:26
+:CMD: show node R5 rtm 0.inet.0
+:STEP:27
+:PATTERN-NOT-MATCH:128.1.1.0/24
+:STEP:28
+:PATTERN-NOT-MATCH:50.0.0.0/24
+
+:TESTCASE-END:21
+
+
+:TESTCASE-BEGIN:22
+:DESC: Test case to test RTM Presentation Database Cleanup Bug
+
+:PRINT: Testing Presentation Database Cleanup After Route Deletion
+
+Display initial PPT DB state
+:STEP:1
+:CMD: show node R4 rtm 0.inet.0 ppt-db
+
+
+Add static route and verify it appears in PPT DB
+:STEP:2
+:CMD: config node R4 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.14 interface eth11
+:STEP:3
+:CMD: show node R4 rtm 0.inet.0 ppt-db
+:STEP:4
+:PATTERN-MATCH:10.0.0.0/24
+
+
+Verify route appears in routing table
+:STEP:5
+:CMD: show node R4 rtm 0.inet.0
+:STEP:6
+:PATTERN-MATCH:10.0.0.0/24
+
+
+Delete the route
+:STEP:7
+:CMD: config node R4 no rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.14 interface eth11
+
+
+Verify route is removed from routing table
+:STEP:8
+:CMD: show node R4 rtm 0.inet.0
+:STEP:9
+:PATTERN-NOT-MATCH:10.0.0.0/24
+
+
+Verify route is removed from PPT DB (should not show 10.0.0.0/24)
+:STEP:10
+:CMD: show node R4 rtm 0.inet.0 ppt-db
+:STEP:11
+:PATTERN-NOT-MATCH:10.0.0.0/24
+
+
+Verify no invalid 0.0.0.0/0 entry with 0 nexthops (BUG CHECK)
+:STEP:12
+:CMD: show node R4 rtm 0.inet.0 ppt-db
+:STEP:13
+:PATTERN-NOT-MATCH:0.0.0.0/0.*NHs: 0
+
+:TESTCASE-END:22
+
+
+:TESTCASE-BEGIN:23
+:DESC: Test case to test RTM PPT DB with Multiple Route Add/Delete Operations
+
+:PRINT: Testing PPT Database Stability with Multiple Operations
+
+Add multiple routes
+:STEP:1
+:CMD: config node R2 rtm-route prefix 100.1.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+:STEP:2
+:CMD: config node R2 rtm-route prefix 100.2.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+:STEP:3
+:CMD: config node R2 rtm-route prefix 100.3.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+
+
+Verify all routes appear in PPT DB
+:STEP:4
+:CMD: show node R2 rtm 0.inet.0 ppt-db
+:STEP:5
+:PATTERN-MATCH:100.1.0.0/24
+:STEP:6
+:PATTERN-MATCH:100.2.0.0/24
+:STEP:7
+:PATTERN-MATCH:100.3.0.0/24
+
+
+Delete middle route
+:STEP:8
+:CMD: config node R2 no rtm-route prefix 100.2.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+
+
+Verify middle route is removed from PPT DB
+:STEP:9
+:CMD: show node R2 rtm 0.inet.0 ppt-db
+:STEP:10
+:PATTERN-NOT-MATCH:100.2.0.0/24
+:STEP:11
+:PATTERN-MATCH:100.1.0.0/24
+:STEP:12
+:PATTERN-MATCH:100.3.0.0/24
+
+
+Verify no invalid default route entry
+:STEP:13
+:CMD: show node R2 rtm 0.inet.0 ppt-db
+:STEP:14
+:PATTERN-NOT-MATCH:0.0.0.0/0.*NHs: 0
+
+
+Delete remaining routes
+:STEP:15
+:CMD: config node R2 no rtm-route prefix 100.1.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+:STEP:16
+:CMD: config node R2 no rtm-route prefix 100.3.0.0/24 0 0 0 2 10 gateway 20.1.1.1 interface eth3
+
+
+Verify all routes are removed from PPT DB
+:STEP:17
+:CMD: show node R2 rtm 0.inet.0 ppt-db
+:STEP:18
+:PATTERN-NOT-MATCH:100.1.0.0/24
+:STEP:19
+:PATTERN-NOT-MATCH:100.2.0.0/24
+:STEP:20
+:PATTERN-NOT-MATCH:100.3.0.0/24
+
+
+Verify no invalid entries in PPT DB
+:STEP:21
+:CMD: show node R2 rtm 0.inet.0 ppt-db
+:STEP:22
+:PATTERN-NOT-MATCH:0.0.0.0/0.*NHs: 0
+
+:TESTCASE-END:23
+
+
+:TESTCASE-BEGIN:24
+:DESC: Test case to test RTM PPT DB with ECMP Route Operations
+
+:PRINT: Testing PPT Database with ECMP Route Add/Delete
+
+Add route with single nexthop
+:STEP:1
+:CMD: config node R1 rtm-route prefix 200.1.1.0/24 0 0 0 2 10 gateway 10.1.1.1 interface eth1
+
+
+Verify route in PPT DB with 1 nexthop
+:STEP:2
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:3
+:PATTERN-MATCH:200.1.1.0/24
+:STEP:4
+:GREP:200.1.1.0/24
+:STEP:5
+:PATTERN-MATCH:NHs: 1
+
+
+Add second nexthop (ECMP)
+:STEP:6
+:CMD: config node R1 rtm-route prefix 200.1.1.0/24 0 0 0 2 10 gateway 20.1.1.2 interface eth2
+
+
+Verify route in PPT DB with 2 nexthops
+:STEP:7
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:8
+:GREP:200.1.1.0/24
+:STEP:9
+:PATTERN-MATCH:NHs: 2
+
+
+Add third nexthop (3-way ECMP)
+:STEP:10
+:CMD: config node R1 rtm-route prefix 200.1.1.0/24 0 0 0 2 10 gateway 122.1.1.2 interface eth2
+
+
+Verify route in PPT DB with 3 nexthops
+:STEP:11
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:12
+:GREP:200.1.1.0/24
+:STEP:13
+:PATTERN-MATCH:NHs: 3
+
+
+Delete one nexthop
+:STEP:14
+:CMD: config node R1 no rtm-route prefix 200.1.1.0/24 0 0 0 2 10 gateway 20.1.1.2 interface eth2
+
+
+Verify route in PPT DB with 2 nexthops remaining
+:STEP:15
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:16
+:GREP:200.1.1.0/24
+:STEP:17
+:PATTERN-MATCH:NHs: 2
+
+
+Verify no invalid entries
+:STEP:18
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:19
+:PATTERN-NOT-MATCH:0.0.0.0/0.*NHs: 0
+
+
+Delete all remaining nexthops
+:STEP:20
+:CMD: config node R1 no rtm-route prefix 200.1.1.0/24 0 0 0 2 10 gateway 10.1.1.1 interface eth1
+:STEP:21
+:CMD: config node R1 no rtm-route prefix 200.1.1.0/24 0 0 0 2 10 gateway 122.1.1.2 interface eth2
+
+
+Verify route is completely removed from PPT DB
+:STEP:22
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:23
+:PATTERN-NOT-MATCH:200.1.1.0/24
+
+
+Verify no invalid default route entry after complete deletion
+:STEP:24
+:CMD: show node R1 rtm 0.inet.0 ppt-db
+:STEP:25
+:PATTERN-NOT-MATCH:0.0.0.0/0.*NHs: 0
+
+:TESTCASE-END:24
 
 

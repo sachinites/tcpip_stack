@@ -412,7 +412,6 @@ cp_rtm_install_route_advanced (
     nh_template.sub_proto = sub_proto;
     nh_template.action = action;
     nh_template.metric = metric;
-    nh_template.is_resolved = true;
 
     /* Set gateway if provided */
     if (gateway && !rtm_prefix_is_null(gateway)) {
@@ -423,16 +422,16 @@ cp_rtm_install_route_advanced (
     if (oif) {
         nh_template.Oif = oif.get();
         nh_template.is_indirect = false;
+         nh_template.is_resolved = true;
     } else {
         nh_template.is_indirect = true;
+         nh_template.is_resolved = false;
     }
 
     /* Create protocol info */
     rc = rtm_nh_proto_info_create(proto, sub_proto, instance_no, rtm->vrf, &nh_proto);
-    if (rc != RTM_SUCCESS) {
-        return rc;
-    }
-
+    if (rc != RTM_SUCCESS) return rc;
+    
     nh_template.rtm_nh_proto = nh_proto;
 
     /* Handle label stack if provided */

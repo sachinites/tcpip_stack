@@ -277,22 +277,26 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
             }
         }
         
-        /* Get the best/first active nexthop for this route */
+        /* Collect all active nexthops for this route */
         glthread_t *curr_glthread = NULL;
         rtm_nh *best_nh = NULL;
+        int active_nh_count = 0;
         
-        /* Find the first active nexthop */
+        /* Count active nexthops and get the first one */
         ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
             rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
             if (nh->is_active) {
-                best_nh = nh;
-                break;
+                if (!best_nh) {
+                    best_nh = nh;
+                }
+                active_nh_count++;
             }
         } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
         
         /* If no active nexthop found, use the first one */
         if (!best_nh && !IS_GLTHREAD_LIST_EMPTY(&route->path_list)) {
             best_nh = route_glue_to_rtm_nh(route->path_list.right);
+            active_nh_count = 1;
         }
         
         if (!best_nh) {
@@ -306,60 +310,118 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
         /* Get protocol code */
         const char *proto_code = rtm_get_proto_code(best_nh->proto, best_nh->sub_proto);
         
-        /* Format nexthop address */
-        char nh_addr_str[48];
-        rtm_format_nexthop(&best_nh->prefix, nh_addr_str, sizeof(nh_addr_str));
-        
-        /* Format uptime - Cisco uses h:mm:ss format */
-        byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
-        RTM_UP_TIME(best_nh->install_time, time_str, sizeof(time_str));
-        
-        /* Get interface name */
-        const char *if_name = "-";
-        if (best_nh->Oif) {
-            if_name = best_nh->Oif->if_name.c_str();
-        } else if (best_nh->is_indirect && !Fglthread_list_is_empty(&best_nh->direct_nh_list)) {
-            /* For indirect nexthops, try to get interface from first direct nexthop */
-            glthread_t *dnh_glthread = best_nh->direct_nh_list.head.right;
-            if (dnh_glthread && dnh_glthread != &best_nh->direct_nh_list.head) {
-                glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
-                rtm_nh *direct_nh = (rtm_nh *)data_node->data;
-                if (direct_nh && direct_nh->Oif) {
-                    if_name = direct_nh->Oif->if_name.c_str();
+        /* Display first nexthop */
+        {
+            /* Format nexthop address */
+            char nh_addr_str[48];
+            rtm_format_nexthop(&best_nh->prefix, nh_addr_str, sizeof(nh_addr_str));
+            
+            /* Format uptime - Cisco uses h:mm:ss format */
+            byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+            RTM_UP_TIME(best_nh->install_time, time_str, sizeof(time_str));
+            
+            /* Get interface name */
+            const char *if_name = "-";
+            if (best_nh->Oif) {
+                if_name = best_nh->Oif->if_name.c_str();
+            } else if (best_nh->is_indirect && !Fglthread_list_is_empty(&best_nh->direct_nh_list)) {
+                /* For indirect nexthops, try to get interface from first direct nexthop */
+                glthread_t *dnh_glthread = best_nh->direct_nh_list.head.right;
+                if (dnh_glthread && dnh_glthread != &best_nh->direct_nh_list.head) {
+                    glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
+                    rtm_nh *direct_nh = (rtm_nh *)data_node->data;
+                    if (direct_nh && direct_nh->Oif) {
+                        if_name = direct_nh->Oif->if_name.c_str();
+                    }
+                }
+            }
+            
+            /* Determine the display format based on action type - Cisco style */
+            if (best_nh->action == RTM_NH_ACTION_CONNECTED || 
+                best_nh->action == RTM_NH_ACTION_LOCAL) {
+                /* Connected/Local routes: show as directly connected */
+                cprintf("%-4s %-18s is directly connected, %s\n",
+                       proto_code,
+                       prefix_str,
+                       if_name);
+            } else {
+                /* Other routes: show with nexthop - format: code prefix [ad/metric] via gateway, time, interface */
+                if (rtm_prefix_is_null(&best_nh->prefix)) {
+                    /* No explicit nexthop (e.g., blackhole, reject) */
+                    cprintf("%-4s %-18s [%u/%u], %s, %s\n",
+                           proto_code,
+                           prefix_str,
+                           best_nh->ad,
+                           best_nh->metric,
+                           (char *)time_str,
+                           if_name);
+                } else {
+                    /* Normal route with nexthop - Cisco format */
+                    cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
+                           proto_code,
+                           prefix_str,
+                           best_nh->ad,
+                           best_nh->metric,
+                           nh_addr_str,
+                           (char *)time_str,
+                           if_name);
                 }
             }
         }
         
-        /* Determine the display format based on action type - Cisco style */
-        if (best_nh->action == RTM_NH_ACTION_CONNECTED || 
-            best_nh->action == RTM_NH_ACTION_LOCAL) {
-            /* Connected/Local routes: show as directly connected */
-            cprintf("%-4s %-18s is directly connected, %s\n",
-                   proto_code,
-                   prefix_str,
-                   if_name);
-        } else {
-            /* Other routes: show with nexthop - format: code prefix [ad/metric] via gateway, time, interface */
-            if (rtm_prefix_is_null(&best_nh->prefix)) {
-                /* No explicit nexthop (e.g., blackhole, reject) */
-                cprintf("%-4s %-18s [%u/%u], %s, %s\n",
-                       proto_code,
-                       prefix_str,
-                       best_nh->ad,
-                       best_nh->metric,
-                       (char *)time_str,
-                       if_name);
-            } else {
-                /* Normal route with nexthop - Cisco format */
-                cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
-                       proto_code,
-                       prefix_str,
-                       best_nh->ad,
-                       best_nh->metric,
-                       nh_addr_str,
-                       (char *)time_str,
-                       if_name);
-            }
+        /* Display additional nexthops for ECMP routes */
+        if (active_nh_count > 1) {
+            bool first_nh_displayed = false;
+            
+            ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_glthread) {
+                rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
+                
+                if (!nh->is_active) {
+                    continue;
+                }
+                
+                /* Skip the first nexthop as it's already displayed */
+                if (!first_nh_displayed) {
+                    first_nh_displayed = true;
+                    continue;
+                }
+                
+                /* Format nexthop address */
+                char nh_addr_str[48];
+                rtm_format_nexthop(&nh->prefix, nh_addr_str, sizeof(nh_addr_str));
+                
+                /* Format uptime */
+                byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+                RTM_UP_TIME(nh->install_time, time_str, sizeof(time_str));
+                
+                /* Get interface name */
+                const char *if_name = "-";
+                if (nh->Oif) {
+                    if_name = nh->Oif->if_name.c_str();
+                } else if (nh->is_indirect && !Fglthread_list_is_empty(&nh->direct_nh_list)) {
+                    glthread_t *dnh_glthread = nh->direct_nh_list.head.right;
+                    if (dnh_glthread && dnh_glthread != &nh->direct_nh_list.head) {
+                        glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
+                        rtm_nh *direct_nh = (rtm_nh *)data_node->data;
+                        if (direct_nh && direct_nh->Oif) {
+                            if_name = direct_nh->Oif->if_name.c_str();
+                        }
+                    }
+                }
+                
+                /* Display continuation line for additional nexthops */
+                if (!rtm_prefix_is_null(&nh->prefix)) {
+                    cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
+                           "",  /* Empty protocol code for continuation lines */
+                           "",  /* Empty prefix for continuation lines */
+                           nh->ad,
+                           nh->metric,
+                           nh_addr_str,
+                           (char *)time_str,
+                           if_name);
+                }
+                
+            } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
         }
         
         displayed_routes++;
@@ -730,8 +792,9 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
         char prefix_str[48];
         rtm_format_prefix(&ppt_route->prefix, prefix_str, sizeof(prefix_str));
         
-        cprintf("Route: %-20s  NHs: %u\n", 
+        cprintf("Route: %-20s(%p)  NHs: %u\n", 
                prefix_str, 
+               ppt_route,
                ppt_route->nhidx_list_count);
         
         /* Display each nexthop */
