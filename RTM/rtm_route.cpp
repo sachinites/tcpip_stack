@@ -252,6 +252,27 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
     return NULL;
 }
 
+rtm_nh *
+rtm_route_lookup_nh_with_same_fwding_behavior(
+    rtm_route *route, rtm_nh *nh_template)
+{
+
+    rtm_nh *nh;
+    glthread_t *curr;
+    
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
+        
+        nh = route_glue_to_rtm_nh(curr);
+        
+        if (rtm_nh_is_equal_in_data_plane (nh, nh_template) == 0) {
+            return nh;
+        }
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr);
+    
+    return NULL;
+}
+
 /* Add a nexthop to a route */
 rtm_error_t 
 rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
@@ -284,6 +305,17 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }
+
+    existing = rtm_route_lookup_nh_with_same_fwding_behavior(route, nh);
+
+    if (existing) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Data Plane NH %s already exists for route %s\n",
+            rtm->name,
+            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
+    }    
     
     assert (!nh->owner_route);
 

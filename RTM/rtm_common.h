@@ -22,23 +22,6 @@ typedef struct rtm_prefix_ {
 
 } rtm_prefix_t;
 
-
-typedef struct rtm_label_ {
-
-    uint32_t label_val;
-    rtm_mpls_op_t op;
-
-} rtm_label_t; 
-
-#define MAX_LBL_DEPTH 8
-
-typedef struct rtm_lstack_ {
-
-    uint8_t curr_index;
-    rtm_label_t labels[MAX_LBL_DEPTH];
-
-} rtm_lstack_t;
-
 #pragma pack(pop)
 
 bool rtm_prefix_is_null (rtm_prefix_t *prefix);

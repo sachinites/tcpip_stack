@@ -22,6 +22,10 @@ typedef enum fib_mpls_op_ {
 
 } fib_mpls_op_t;
 
+#define FIB_NH_FWD_F_IPV4 1
+#define FIB_NH_FWD_F_IPV6 2
+#define FIB_NH_FWD_F_MPLS_LBL_STCK 4
+#define FIB_NH_FWD_F_IPV6_STCK 8
 
 #define FIB_MAX_ECMP_NH 8
 

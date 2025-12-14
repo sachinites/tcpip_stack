@@ -868,7 +868,6 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
 
                 for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++)
                 {
-
                     rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
                     rtm_nh *dnh_gc = NULL;
 
@@ -880,6 +879,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     else
                         dnh_gc = rtm_gc_lookup_nh(rtm, dnh_list[dnh_idx]);
 
+                    presentation_data->inh = NULL;
                     presentation_data->nh_idx = dnh_list[dnh_idx]; /* Always valid */
                     presentation_data->route = route->prefix;
                     presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
@@ -894,18 +894,25 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
             else
             {
                 /* Direct nexthop or unresolved indirect - advertise deletion of the nexthop itself */
-                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(
+                        0, 1, rtm_presentation_data_t);
+                rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
+                 rtm_nh *dnh_gc = NULL;
+                presentation_data->nh = dnh; /* Must have deleted */
+                if (dnh)
+                    rtm_nh_reference(dnh);
+                else
+                    dnh_gc = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
 
-                presentation_data->nh = NULL; /* Must have deleted */
-                rtm_nh *dnh_gc = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
+                presentation_data->inh = NULL;
                 presentation_data->nh_idx = nh_entry->nh_pidx; /* Always valid */
                 presentation_data->route = route->prefix;
-                presentation_data->nh_addr = dnh_gc->prefix;
-                presentation_data->rtm_nh_proto = dnh_gc->rtm_nh_proto;
+                presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
+                presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                 rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
                 presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
                 /* Determine protocol: use nh->proto if available, else use src_proto as fallback */
-                RTM_PROTO_T nh_proto = dnh_gc->proto;
+                RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;
                 Fglthread_add_last(&rtm->advt_nhs[nh_proto], &presentation_data->glue);
             }
         }
@@ -938,6 +945,8 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                         0, 1, rtm_presentation_data_t);
                     presentation_data->nh = dnh; /* Wrap direct nexthop */
                     rtm_nh_reference(dnh);
+                    presentation_data->inh = nh;
+                    rtm_nh_reference(nh);
                     presentation_data->nh_idx = dnh->idx;
                     presentation_data->route = route->prefix;
                     presentation_data->nh_addr = dnh->prefix;
@@ -949,11 +958,12 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
             }
             else
             {
-
                 /* Direct nexthop or unresolved indirect - advertise the nexthop itself */
-                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(
+                        0, 1, rtm_presentation_data_t);
                 presentation_data->nh = nh;
                 rtm_nh_reference(nh);
+                presentation_data->inh = NULL;
                 presentation_data->nh_idx = nh_entry->nh_pidx;
                 presentation_data->route = route->prefix;
                 presentation_data->nh_addr = nh->prefix;
@@ -1064,6 +1074,9 @@ rtm_check_and_delete_presentation_data (rtm_t *rtm,
 
     if (presentation_data->nh) 
         rtm_nh_dereference(rtm, presentation_data->nh);
+
+    if (presentation_data->inh) 
+        rtm_nh_dereference(rtm, presentation_data->inh);
 
     rtm_nh_proto_dereference(rtm, presentation_data->rtm_nh_proto);
     presentation_data->rtm_nh_proto = NULL;

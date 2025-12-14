@@ -14,6 +14,7 @@
 #include "../Tracer/tracer.h"
 #include "rtm_presentation.h"
 #include "rtm_gc.h"
+#include "../common/mpls_lstack.h"
 
 /* Thread-safe atomic counter for nexthop ID generation */
 static std::atomic<uint32_t> rtm_nh_id_counter(1);
@@ -153,6 +154,41 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     return memcmp (nh1->label_stack, nh2->label_stack, sizeof(*nh1->label_stack));
 }
 
+int8_t 
+rtm_nh_is_equal_in_data_plane(rtm_nh *nh1, rtm_nh *nh2) {
+
+    if (nh1->action != nh2->action) {
+        return (nh1->action < nh2->action) ? -1 : 1;
+    }
+
+    // Compare outgoing interface
+    if (nh1->outgoing_if != nh2->outgoing_if) {
+        return (nh1->outgoing_if < nh2->outgoing_if) ? -1 : 1;
+    }
+    
+    // Compare prefix
+    int prefix_cmp = rtm_prefix_compare(&nh1->prefix, &nh2->prefix);
+    if (prefix_cmp != 0) {
+        return prefix_cmp;
+    }
+
+    if (!nh1->label_stack && nh2->label_stack) {
+        return 1;
+    }
+    if (nh1->label_stack && !nh2->label_stack) {
+        return -1;
+    }
+
+    if (!nh1->label_stack && !nh2->label_stack) {
+        return 0;
+    }
+
+    if (!mpls_lstack_compare (nh1->label_stack, nh2->label_stack)) return -1;
+
+    return 0;
+    // Copare SRv6 .. Later ...
+}
+
 /* Insert nexthop in route path list as per below rules : 
     1. lowest admin distance wins
     2. if admin distance is same, lowest Action wins
@@ -210,14 +246,11 @@ rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2) {
     if (!rc) return rc;
     if (nh1->outgoing_if  < nh2->outgoing_if) return -1;
     if (nh1->outgoing_if > nh2->outgoing_if) return 1; 
-    if (!nh1->label_stack && !nh2->label_stack) return 0;
-    if (nh1->label_stack && !nh2->label_stack) return -1;
-    if (!nh1->label_stack && nh2->label_stack) return 1;
-    rc = memcmp (nh1->label_stack, nh2->label_stack, sizeof(nh1->label_stack));
-    if (!rc) return rc;
+
+    if (!mpls_lstack_compare (nh1->label_stack, nh2->label_stack)) return -1;
+
      // Add more attributes here ...
     return rc;
-   
 }
 
 /* Initialize a nexthop structure */

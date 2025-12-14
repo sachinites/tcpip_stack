@@ -100,14 +100,13 @@ typedef enum struct_index_
     MM_INDEX(rtm_nh),
     MM_INDEX(rtm_route),
     MM_INDEX(rtm_prefix_t),
-    MM_INDEX(rtm_lstack_t),
     MM_INDEX(rtm_rt_subscription_t),
     MM_INDEX(rtm_gc_t),
     MM_INDEX(rtm_presentation_data_t),
     MM_INDEX(rtm_ppt_route_t),
-
-
-
+    
+    /* MPLS */
+    MM_INDEX(mpls_lstack_t),
     MM_INDEX(lstack_t)
 
     /* Add more Application structure Index here */

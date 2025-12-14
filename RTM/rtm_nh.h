@@ -16,6 +16,7 @@ typedef struct rtm_ rtm_t;
 typedef struct rtm_route_ rtm_route;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
+typedef struct mpls_lstack_ mpls_lstack_t;
 
 #define RTM_DNH_F_NO_PROPOGATE_UPSTREAM 1
 
@@ -23,7 +24,7 @@ typedef struct rtm_nh_ {
 
         /* Unique nexthop index - constant throughout lifetime */
         uint32_t idx;
-        uint32_t flags;
+        uint16_t flags;
         time_t pth_last_update_time;
 
         /* Owning protocol*/
@@ -72,7 +73,7 @@ typedef struct rtm_nh_ {
         bool is_active;
 
         /*MPLS  Label Stack*/
-        rtm_lstack_t *label_stack;
+        mpls_lstack_t *label_stack;
 
         /*SRv6 Stack*/
         Srv6_endpcode_t endfn;
@@ -93,6 +94,7 @@ GLTHREAD_TO_STRUCT( unresolvable_list_glue_to_rtm_nh, rtm_nh, unresolvable_list_
 
 /* Methods */
 int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
+int8_t rtm_nh_is_equal_in_data_plane(rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_compare_by_idx (rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2);

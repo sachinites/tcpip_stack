@@ -54,6 +54,8 @@
 #include "Layer2/vxlan/cp/vxlan.h"
 #include "Layer2/vxlan/dp/vlan_vni_ht.h"
 
+/* MPLS files */
+#include "common/mpls_lstack.h"
 
 /* Create static array of vm_page_family_t */
 
@@ -155,13 +157,13 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_nh),
     MM_REG_STRUCT2(rtm_route),
     MM_REG_STRUCT2(rtm_prefix_t),
-    MM_REG_STRUCT2(rtm_lstack_t),
     MM_REG_STRUCT2(rtm_rt_subscription_t),
     MM_REG_STRUCT2(rtm_gc_t),
     MM_REG_STRUCT2(rtm_presentation_data_t),
     MM_REG_STRUCT2(rtm_ppt_route_t),
 
-
+    /* MPLS files */
+    MM_REG_STRUCT2(mpls_lstack_t),
     MM_REG_STRUCT2(lstack_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}

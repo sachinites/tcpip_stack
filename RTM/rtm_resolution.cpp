@@ -670,3 +670,48 @@ rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t *route) {
     RTM_PROTO_T proto = RTM_PROTO_BGP;
     rtm_re_resolve_inhs_per_protocol (rtm, route, proto);
 }
+
+/* Function which created a data plane forwarding info from a nexthop 
+    for Indirect nexthop : 
+        pnh - Indirect Nexthop
+        cnh - Direct Nexthop which resolved pnh
+
+    For Direct Nexthops:
+        pnh - Direct Nexthop
+        cnh = NULL
+*/
+
+static rtm_error_t
+rtm_resolution_create_dnh_fwd_info (rtm_t *, rtm_nh *pnh, 
+                                    fib_nh_fwd_info_t *fwd_info_out) 
+{
+    rtm_error_t rc = RTM_SUCCESS;
+
+    
+
+
+    return rc;
+}
+
+static rtm_error_t
+rtm_resolution_create_inh_fwd_info (rtm_t *, rtm_nh *pnh, rtm_nh *cnh, 
+                                    fib_nh_fwd_info_t *fwd_info_out) 
+{
+    rtm_error_t rc = RTM_SUCCESS;
+    return rc;
+}
+
+static rtm_error_t
+rtm_resolution_create_nh_fwd_info(rtm_t *rtm, 
+        rtm_nh *pnh, 
+        rtm_nh *cnh, fib_nh_fwd_info_t *fwd_info_out) {
+
+    memset (fwd_info_out, 0, sizeof (*fwd_info_out));
+
+    if (cnh == NULL) {
+
+        return rtm_resolution_create_dnh_fwd_info (rtm, pnh, fwd_info_out);
+    }
+
+    return rtm_resolution_create_inh_fwd_info (rtm, pnh, cnh, fwd_info_out);
+}

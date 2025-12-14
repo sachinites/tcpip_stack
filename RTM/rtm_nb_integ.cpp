@@ -1,4 +1,11 @@
 #include "../graph.h"
+#include "../Interface/InterfaceUApi.h"
+#include "../lmm_enums.h"
+#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../Tracer/tracer.h"
+#include "../prefix-list/prefixlst.h"
+#include "../common/mpls_lstack.h"
+
 #include "rtm_enums.h"
 #include "rtm_error.h"
 #include "rtm_route.h"
@@ -9,11 +16,7 @@
 #include "rtm_fib_interface.h"
 #include "rtm_presentation.h"
 #include "rtm_resolution.h"
-#include "../Interface/InterfaceUApi.h"
-#include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../Tracer/tracer.h"
-#include "../prefix-list/prefixlst.h"
+
 
 /* static functions */
 
@@ -442,12 +445,12 @@ cp_rtm_install_route_advanced (
         }
 
         /* Allocate label stack */
-        rtm_lstack_t *lstack = (rtm_lstack_t *)XCALLOC2(0, 1, rtm_lstack_t);
+        mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
         lstack->curr_index = 0;
 
         for (uint8_t i = 0; i < label_stack_count; i++) {
             lstack->labels[i].label_val = label_stack[i];
-            lstack->labels[i].op = RTM_LBL_PUSH;
+            lstack->labels[i].op = MPLS_OP_PUSH;
             lstack->curr_index++;
         }
 
@@ -520,7 +523,9 @@ cp_rtm_uninstall_route_advanced (
     }
 
     /* Create protocol info */
-    rc = rtm_nh_proto_info_create(proto, sub_proto, instance_no, rtm->vrf, &nh_proto);
+    rc = rtm_nh_proto_info_create(proto, sub_proto, 
+            instance_no, rtm->vrf, &nh_proto);
+
     if (rc != RTM_SUCCESS) {
         return rc;
     }
@@ -535,12 +540,12 @@ cp_rtm_uninstall_route_advanced (
         }
 
         /* Allocate label stack */
-        rtm_lstack_t *lstack = (rtm_lstack_t *)XCALLOC2(0, 1, rtm_lstack_t);
+        mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
         lstack->curr_index = 0;
 
         for (uint8_t i = 0; i < label_stack_count; i++) {
             lstack->labels[i].label_val = label_stack[i];
-            lstack->labels[i].op = RTM_LBL_PUSH;
+            lstack->labels[i].op = MPLS_OP_PUSH;
             lstack->curr_index++;
         }
 

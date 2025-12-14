@@ -12,6 +12,7 @@ typedef struct rtm_ rtm_t;
 class Interface;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_rt_subscription_ rtm_rt_subscription_t;
+typedef struct mpls_lstack_ mpls_lstack_t;
 
 #pragma pack(push, 8)
 
@@ -24,7 +25,7 @@ typedef struct cp_nexthop_template_ {
 
     rtm_nh_proto_t *rtm_nh_proto;
     
-    uint32_t flags;
+    uint16_t flags;
 
     uint32_t metric;
 
@@ -39,7 +40,7 @@ typedef struct cp_nexthop_template_ {
 
         struct {
 
-            rtm_lstack_t *label_stack;
+            mpls_lstack_t *label_stack;
 
         } l_stack;
 

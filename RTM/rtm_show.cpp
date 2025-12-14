@@ -14,6 +14,7 @@
 #include "rtm_priv_api.h"
 #include "rtm_presentation.h"
 #include "../prefix-list/prefixlst.h"
+#include "../common/mpls_lstack.h"
 
 extern int cprintf (const char * format, ...);
 
@@ -141,7 +142,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         if (nh->label_stack && nh->label_stack->curr_index > 0) {
             cprintf("    Label Stack    : ");
             for (int i = 0; i < nh->label_stack->curr_index; i++) {
-                rtm_label_t *label = &nh->label_stack->labels[i];
+                mpls_label_t *label = &nh->label_stack->labels[i];
                 const char *op_str = "UNK";
                 switch (label->op) {
                     case RTM_LBL_SWAP: op_str = "Swap"; break;
