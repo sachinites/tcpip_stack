@@ -33,7 +33,7 @@ rtm_nh_release_all_resources(rtm_t *rtm, rtm_nh *nh)
 {
     if (nh->label_stack)
     {
-        free(nh->label_stack);
+        XFREE(nh->label_stack);
         nh->label_stack = NULL;
     }
 

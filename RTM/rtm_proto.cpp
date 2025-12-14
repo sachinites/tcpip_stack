@@ -396,7 +396,7 @@ rtm_proto_info_del(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     avltree_strict_remove(&proto_info->proto_glue, proto_tree);
     
     // Free the protocol info
-    free(proto_info);
+    XFREE(proto_info);
     
     return RTM_SUCCESS;
 }

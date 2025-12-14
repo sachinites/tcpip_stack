@@ -223,7 +223,7 @@ cp_rtm_uninstall_static_route (
     nh_template.is_resolved = true;
 
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
-    free (nh_template.rtm_nh_proto);
+    XFREE (nh_template.rtm_nh_proto);
     return rc;
 }
 
@@ -437,7 +437,7 @@ cp_rtm_install_route_advanced (
     /* Handle label stack if provided */
     if (label_stack && label_stack_count > 0) {
         if (label_stack_count > MAX_LBL_DEPTH) {
-            free(nh_proto);
+            XFREE(nh_proto);
             return RTM_ERROR_INVALID_ARGUMENT;
         }
 
@@ -530,7 +530,7 @@ cp_rtm_uninstall_route_advanced (
     /* Handle label stack if provided */
     if (label_stack && label_stack_count > 0) {
         if (label_stack_count > MAX_LBL_DEPTH) {
-            free(nh_proto);
+            XFREE(nh_proto);
             return RTM_ERROR_INVALID_ARGUMENT;
         }
 
@@ -597,7 +597,7 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR: Failed to add protocol info for %s instance %u - %s\n",
             rtm->name, rtm_proto_to_string(proto), instance_no, rtm_error_to_string(rc));
-        free(proto_info);
+        XFREE(proto_info);
         return false;
     }
 
@@ -648,7 +648,7 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
             avltree_node_t *node = avltree_first(&proto_info->sub_db);
             rtm_rt_subscription_t *sub = avltree_container_of(node, rtm_rt_subscription_t, avl_glue);
             avltree_strict_remove(&sub->avl_glue, &proto_info->sub_db);
-            free(sub);
+            XFREE(sub);
         }
     }
 
@@ -726,7 +726,7 @@ cp_rtm_subscribe(rtm_t *rtm,
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR: Subscription failed - Failed to insert into subscription database\n",
             rtm->name);
-        free(sub);
+        XFREE(sub);
         return RTM_ERROR_CONTAINER_INSERTION_FAILED;
     }
 
@@ -785,7 +785,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     
     /* Free subscription */
     if (sub->prefix_list) prefix_list_dereference (sub->prefix_list);
-    free(sub);
+    XFREE(sub);
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Subscription removed for protocol %s instance %u\n",

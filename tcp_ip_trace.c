@@ -1263,8 +1263,8 @@ tcp_ip_debug_handler (  int cmdcode,
             break;
         }
         break;
-
     }
+    
     /* Handle rest of the cmd codes */
     enable_or_disable == CONFIG_ENABLE ? \
         tracer_log_bit_set(node->dptr, cmdcode) : tracer_log_bit_unset(node->dptr, cmdcode);

@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stddef.h>
+#include <assert.h>
 #include "../graph.h"
 #include "rtm.h"
 #include "rtm_route.h"
@@ -174,7 +175,6 @@ static void sort_uint32(uint32_t *arr, size_t n) {
     qsort(arr, n, sizeof(uint32_t), compare_uint32);
 }
 
-
 static rtm_ppt_route_t *
 rtm_ppt_db_clone_route (
         rtm_t *rtm, 
@@ -224,8 +224,7 @@ rtm_ppt_db_clone_route (
     /* Allocate main structure (only nhidx_list, no DNH arrays) */
     rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)XCALLOC_BUFF (0, 
         sizeof (rtm_ppt_route_t) + 
-        (sizeof (rtm_ppt_nhidx_t) * nh_count)
-        );
+        (sizeof (rtm_ppt_nhidx_t) * nh_count) );
 
     /* Now copy data*/
     ppt_route->prefix = route->prefix;
@@ -267,7 +266,17 @@ rtm_ppt_db_clone_route (
     
     /* Sort outer list by nh_pidx for efficient diffing */
     if (nh_count > 1) {
-        /* Comparator for sorting nhidx_list by nh_pidx */
+        /* IMPORTANT: Don't sort the flexible array in-place as it can corrupt adjacent memory.
+           Instead, create a temporary array, sort it, then copy back. */
+        
+        /* Allocate temporary array for sorting */
+        rtm_ppt_nhidx_t *temp_list = (rtm_ppt_nhidx_t *)XCALLOC_BUFF(0, 
+            nh_count * sizeof(rtm_ppt_nhidx_t));
+        
+        /* Copy to temp array */
+        memcpy(temp_list, ppt_route->nhidx_list, nh_count * sizeof(rtm_ppt_nhidx_t));
+        
+        /* Comparator for sorting by nh_pidx */
         auto compare_nhidx = [](const void *a, const void *b) -> int {
             const rtm_ppt_nhidx_t *na = (const rtm_ppt_nhidx_t *)a;
             const rtm_ppt_nhidx_t *nb = (const rtm_ppt_nhidx_t *)b;
@@ -276,15 +285,19 @@ rtm_ppt_db_clone_route (
             return 0;
         };
         
-        /* Sort the nhidx_list array by nh_pidx */
-        qsort(ppt_route->nhidx_list, nh_count, sizeof(rtm_ppt_nhidx_t), compare_nhidx);
+        /* Sort the temporary array (safe - no risk of corrupting ppt_route) */
+        qsort(temp_list, nh_count, sizeof(rtm_ppt_nhidx_t), compare_nhidx);
+        
+        /* Copy sorted result back to the flexible array */
+        memcpy(ppt_route->nhidx_list, temp_list, nh_count * sizeof(rtm_ppt_nhidx_t));
+        
+        /* Free temporary array */
+        XFREE(temp_list);
     }
     
     XFREE(dnh_counts);
-
     return ppt_route;
 }
-
 
 /* Implement this function, This function Implements the diff logic.
     Compare the rtm_route *route with rtm_ppt_route_t *ppt_route and
@@ -820,132 +833,145 @@ rtm_ppt_db_destroy(rtm_t *rtm) {
 static void 
 rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     
+     char prefix_str[48];
     rtm_nh_proto_t *nh_proto;
     rtm_ppt_route_t out_add, out_del;
     avltree_node_t *sub_proto_advt_db_node;
     rtm_presentation_data_t *presentation_data;
 
+    rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
+
     /* Step 1: Get or create cached route for this subscribing protocol */
     rtm_ppt_route_t *cached_route = rtm_ppt_db_lookup_route(rtm, route);
-    
     rtm_ppt_route_diff(route, cached_route, &out_add, &out_del);
 
-                /* Step 4a: Advertise deletions first */
-                rtm_ppt_route_t *del_alloc = get_allocated_route(&out_del);
-                    if (del_alloc) {
-                        for (int i = 0; i < out_del.nhidx_list_count; i++) {
-                            rtm_ppt_nhidx_t *nh_entry = &del_alloc->nhidx_list[i];
-                        
-                            /* Delete case, NH is deleted and breathing its last moments in
-                                Garbage collecter DB*/
-                            rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
-                            if (!nh) nh = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
+    /* Step 4a: Advertise deletions first */
+    rtm_ppt_route_t *del_alloc = get_allocated_route(&out_del);
+    if (del_alloc)
+    {
+        for (int i = 0; i < out_del.nhidx_list_count; i++)
+        {
+            rtm_ppt_nhidx_t *nh_entry = &del_alloc->nhidx_list[i];
 
-                            nh_proto = nh->rtm_nh_proto;
-                            
-                            /* If indirect and has direct nexthops, advertise deletion for each direct nexthop */
-                            if (nh_entry->dnh_list_count > 0) {
-                                uint32_t *dnh_list = del_alloc->nhidx_list[i].dnh_list;
-                                
-                                for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++) {
+            /* Delete case, NH is deleted and breathing its last moments in
+                Garbage collecter DB*/
+            rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
+            if (!nh)
+                nh = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
 
-                                    rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
-                                    rtm_nh *dnh_gc = NULL;
-                                    
-                                    presentation_data = (rtm_presentation_data_t *)XCALLOC2
-                                        (0, 1, rtm_presentation_data_t);
+            nh_proto = nh->rtm_nh_proto;
 
-                                    presentation_data->nh = dnh;  /* May be NULL for DELETE operations */
-                                    if (dnh) rtm_nh_reference(dnh);
-                                    else dnh_gc = rtm_gc_lookup_nh(rtm, dnh_list[dnh_idx]);
+            /* If indirect and has direct nexthops, advertise deletion for each direct nexthop */
+            if (nh_entry->dnh_list_count > 0)
+            {
+                uint32_t *dnh_list = del_alloc->nhidx_list[i].dnh_list;
 
-                                    presentation_data->nh_idx = dnh_list[dnh_idx];  /* Always valid */
-                                    presentation_data->route = route->prefix;
-                                    presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix; 
-                                    presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
-                                    rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
-                                    presentation_data->operation = RTM_PPT_OP_DELETE;  /* This is a DELETE */
-                                    /* Determine protocol: use dnh->proto if available, else use src_proto as fallback */
-                                    RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;
-                                    Fglthread_add_last(&rtm->advt_nhs[nh_proto], &presentation_data->glue);
-                                }
-                            } else {
-                                /* Direct nexthop or unresolved indirect - advertise deletion of the nexthop itself */
-                                presentation_data = (rtm_presentation_data_t *)XCALLOC2
-                                    (0, 1, rtm_presentation_data_t);
+                for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++)
+                {
 
-                                presentation_data->nh = NULL;  /* Must have deleted */
-                                rtm_nh *dnh_gc = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
-                                presentation_data->nh_idx = nh_entry->nh_pidx;  /* Always valid */
-                                presentation_data->route = route->prefix;
-                                presentation_data->nh_addr = dnh_gc->prefix; 
-                                presentation_data->rtm_nh_proto = dnh_gc->rtm_nh_proto;
-                                rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
-                                presentation_data->operation = RTM_PPT_OP_DELETE;  /* This is a DELETE */
-                                /* Determine protocol: use nh->proto if available, else use src_proto as fallback */
-                                RTM_PROTO_T nh_proto = dnh_gc->proto;
-                                Fglthread_add_last(&rtm->advt_nhs[nh_proto], &presentation_data->glue);
-                            }
-                        }
-                    }
-                    
-                    /* Step 4b: Advertise additions */
-                    rtm_ppt_route_t *add_alloc = get_allocated_route(&out_add);
+                    rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
+                    rtm_nh *dnh_gc = NULL;
 
-                    if (add_alloc) {
-                        
-                        for (int i = 0; i < out_add.nhidx_list_count; i++) {
-                            
-                            rtm_ppt_nhidx_t *nh_entry = &add_alloc->nhidx_list[i];
-                            
-                            /* Find the actual rtm_nh by index */
-                            rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
-                            
-                            /* If indirect and resolved, advertise each direct nexthop */
-                            if (nh->is_indirect && rtm_nh_is_resolved(nh) && nh_entry->dnh_list_count > 0) {
-                                uint32_t *dnh_list = add_alloc->nhidx_list[i].dnh_list;
-                                
-                                for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++) {
-                                    rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
-                                    
-                                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(
-                                        0, 1, rtm_presentation_data_t);
-                                    presentation_data->nh = dnh;  /* Wrap direct nexthop */
-                                    rtm_nh_reference(dnh);
-                                    presentation_data->nh_idx = dnh->idx;
-                                    presentation_data->route = route->prefix;
-                                    presentation_data->nh_addr = dnh->prefix;
-                                    presentation_data->rtm_nh_proto = dnh->rtm_nh_proto;
-                                    rtm_nh_proto_reference(dnh->rtm_nh_proto);
-                                    presentation_data->operation = RTM_PPT_OP_ADD;  /* This is an ADD */
-                                    Fglthread_add_last(&rtm->advt_nhs[dnh->proto], &presentation_data->glue);
-                                }
-                            } else {
+                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
 
-                                /* Direct nexthop or unresolved indirect - advertise the nexthop itself */
-                                presentation_data = (rtm_presentation_data_t *)XCALLOC2
-                                    (0, 1, rtm_presentation_data_t);
-                                presentation_data->nh = nh;
-                                rtm_nh_reference(nh);
-                                presentation_data->nh_idx = nh_entry->nh_pidx;
-                                presentation_data->route = route->prefix;
-                                presentation_data->nh_addr = nh->prefix;
-                                presentation_data->rtm_nh_proto = nh->rtm_nh_proto;
-                                rtm_nh_proto_reference(nh->rtm_nh_proto);
-                                presentation_data->operation = RTM_PPT_OP_ADD;  /* This is an ADD */
-                                Fglthread_add_last(&rtm->advt_nhs[nh->proto], &presentation_data->glue);
-                            }
-                        }
-                    }
+                    presentation_data->nh = dnh; /* May be NULL for DELETE operations */
+                    if (dnh)
+                        rtm_nh_reference(dnh);
+                    else
+                        dnh_gc = rtm_gc_lookup_nh(rtm, dnh_list[dnh_idx]);
+
+                    presentation_data->nh_idx = dnh_list[dnh_idx]; /* Always valid */
+                    presentation_data->route = route->prefix;
+                    presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
+                    presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
+                    rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
+                    presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
+                    /* Determine protocol: use dnh->proto if available, else use src_proto as fallback */
+                    RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;
+                    Fglthread_add_last(&rtm->advt_nhs[nh_proto], &presentation_data->glue);
+                }
+            }
+            else
+            {
+                /* Direct nexthop or unresolved indirect - advertise deletion of the nexthop itself */
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
+
+                presentation_data->nh = NULL; /* Must have deleted */
+                rtm_nh *dnh_gc = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
+                presentation_data->nh_idx = nh_entry->nh_pidx; /* Always valid */
+                presentation_data->route = route->prefix;
+                presentation_data->nh_addr = dnh_gc->prefix;
+                presentation_data->rtm_nh_proto = dnh_gc->rtm_nh_proto;
+                rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
+                presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
+                /* Determine protocol: use nh->proto if available, else use src_proto as fallback */
+                RTM_PROTO_T nh_proto = dnh_gc->proto;
+                Fglthread_add_last(&rtm->advt_nhs[nh_proto], &presentation_data->glue);
+            }
+        }
+    }
+
+    /* Step 4b: Advertise additions */
+    rtm_ppt_route_t *add_alloc = get_allocated_route(&out_add);
+
+    if (add_alloc)
+    {
+
+        for (int i = 0; i < out_add.nhidx_list_count; i++)
+        {
+
+            rtm_ppt_nhidx_t *nh_entry = &add_alloc->nhidx_list[i];
+
+            /* Find the actual rtm_nh by index */
+            rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
+
+            /* If indirect and resolved, advertise each direct nexthop */
+            if (nh->is_indirect && rtm_nh_is_resolved(nh) && nh_entry->dnh_list_count > 0)
+            {
+                uint32_t *dnh_list = add_alloc->nhidx_list[i].dnh_list;
+
+                for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++)
+                {
+                    rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
+
+                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(
+                        0, 1, rtm_presentation_data_t);
+                    presentation_data->nh = dnh; /* Wrap direct nexthop */
+                    rtm_nh_reference(dnh);
+                    presentation_data->nh_idx = dnh->idx;
+                    presentation_data->route = route->prefix;
+                    presentation_data->nh_addr = dnh->prefix;
+                    presentation_data->rtm_nh_proto = dnh->rtm_nh_proto;
+                    rtm_nh_proto_reference(dnh->rtm_nh_proto);
+                    presentation_data->operation = RTM_PPT_OP_ADD; /* This is an ADD */
+                    Fglthread_add_last(&rtm->advt_nhs[dnh->proto], &presentation_data->glue);
+                }
+            }
+            else
+            {
+
+                /* Direct nexthop or unresolved indirect - advertise the nexthop itself */
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
+                presentation_data->nh = nh;
+                rtm_nh_reference(nh);
+                presentation_data->nh_idx = nh_entry->nh_pidx;
+                presentation_data->route = route->prefix;
+                presentation_data->nh_addr = nh->prefix;
+                presentation_data->rtm_nh_proto = nh->rtm_nh_proto;
+                rtm_nh_proto_reference(nh->rtm_nh_proto);
+                presentation_data->operation = RTM_PPT_OP_ADD; /* This is an ADD */
+                Fglthread_add_last(&rtm->advt_nhs[nh->proto], &presentation_data->glue);
+            }
+        }
+    }
     /* Step 3: Update the cached route */
     
     /* Debug: Print what we're adding and deleting */
     if (out_add.nhidx_list_count > 0 || out_del.nhidx_list_count > 0) {
-        char prefix_str[48];
+       
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Route %s: Updating PPT DB: add_count=%u, del_count=%u\n",
-            rtm->name,
-            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+            rtm->name, prefix_str,
             out_add.nhidx_list_count,
             out_del.nhidx_list_count);
         
@@ -1011,17 +1037,21 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
         // rtm_route_check_and_delete( ) . No need to do anything here.
     }
     else if ( !rtm_route_is_resolved (route)) {
-        // If the route has INH and is unresolved, then we can delete  the route from
-        // PPT-DB
+        // If the route has INH and the route is unresolved, then we can delete  the route from
+        // PPT-DB. The route will be added back to PPT-DB when the route is resolved.
         rtm_ppt_unregister_route(rtm, &route->prefix);
     }
     else {
         /* Update the cached route in PPT DB with the latest snapshot */
-        rtm_ppt_route_t *updated_ppt_rt = rtm_ppt_db_clone_route(rtm, route);
         avltree_remove (&cached_route->route_glue, &rtm->ppt_db_route_tree);
         avltree_node_init(&cached_route->route_glue);
         rtm_ppt_route_check_and_delete (rtm, cached_route);
+        rtm_ppt_route_t *updated_ppt_rt = rtm_ppt_db_clone_route(rtm, route);
+        assert (!avltree_node_is_inuse (&updated_ppt_rt->route_glue));
         avltree_insert(&updated_ppt_rt->route_glue, &rtm->ppt_db_route_tree);
+        tracer (rtm->node->cptr, DRTM, 
+            "RTM[%s] : Route %s : Synchronized with PPT-DB\n",
+            rtm->name, prefix_str);
     }
 
     /* Schedule the presentation job to process the advertisement queue */
