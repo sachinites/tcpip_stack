@@ -24,14 +24,14 @@ mpls_op_tostring(mpls_opr_t op)
 {
     switch (op)
     {
-    case MPLS_OP_SWAP:
-        return "swap";
-    case MPLS_OP_PUSH:
-        return "push";
-    case MPLS_OP_POP:
-        return "pop";
-    default:
-        return "unknown";
+        case MPLS_OP_SWAP:
+            return "swap";
+        case MPLS_OP_PUSH:
+            return "push";
+        case MPLS_OP_POP:
+            return "pop";
+        default:
+            return "unknown";
     }
 }
 
@@ -42,19 +42,27 @@ typedef struct mpls_label_ {
 
 } mpls_label_t; 
 
+#define MPLS_NULL_LABEL {0, MPLS_OP_STACK_OPS_UNKNOWN}
+
 typedef struct mpls_lstack_ {
 
-    uint8_t curr_index;
+    int8_t curr_index;
     mpls_label_t labels[MAX_LBL_DEPTH];
 
 } mpls_lstack_t;
 
 /* Label format : 
-    - ISt 20 bits label value 
+    - Ist 20 bits label value 
     - TTL (3 bits)
     - Bottom of Stack (1 bit)
-    - (Rest of 3 bits are reserved)
-*/
+    - Rest of 3 bits are reserved */
+
+static void 
+mpls_lstack_init (mpls_lstack_t *lstack) {
+
+    lstack->curr_index = -1;
+    memset (lstack->labels, 0, sizeof (lstack->labels));
+}
 
 /* Extract 20-bit label value from mpls_label_t */
 static inline uint32_t
@@ -95,6 +103,36 @@ mpls_lstack_compare (mpls_lstack_t *label_stk1, mpls_lstack_t *label_stk2) {
     if (!label_stk1 && label_stk2) return false;
     if (label_stk1 && !label_stk2) return false;
     return ( memcmp (label_stk1, label_stk2, sizeof ( mpls_lstack_t )) == 0 );
+}
+
+static bool 
+mpls_lstack_is_empty (mpls_lstack_t *label_stk) {
+
+    return label_stk->curr_index == 0;
+}
+
+static mpls_label_t
+mpls_lstack_pop (mpls_lstack_t *label_stk) {
+
+    assert (!mpls_lstack_is_empty (label_stk));
+
+    mpls_label_t label = label_stk->labels[label_stk->curr_index];
+
+    label_stk->curr_index--;
+
+    if (label_stk->curr_index == 0) {
+        mpls_label_set_stack_bottom (
+            &(label_stk->labels[label_stk->curr_index].label_val));
+    }
+    
+    return label;
+}
+
+static mpls_label_t
+mpls_lstack_get_top (mpls_lstack_t *label_stk) {
+
+    assert (!mpls_lstack_is_empty (label_stk));
+    return label_stk->labels[label_stk->curr_index];
 }
 
 #endif 

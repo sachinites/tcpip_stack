@@ -60,7 +60,7 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         nh = route_glue_to_rtm_nh(nh_glue);
 
         if (!nh->is_active) continue;
-        if (nh->flags & RTM_DNH_F_NO_PROPOGATE_UPSTREAM) continue;
+        if (nh->rtm_flags & RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM) continue;
 
         if (!nh->is_indirect) {
 
@@ -230,9 +230,9 @@ rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
         assert (!IS_QUEUED_UP_IN_THREAD(&indirect_nh->route_resolved_list_glue));
         assert (Fglthread_list_is_empty (&indirect_nh->direct_nh_list));
 
-        route = rtm_lpm_tree_lookup(rtm, &indirect_nh->prefix);
+        route = rtm_get_resolver_route(rtm, indirect_nh);
 
-        if (!route || !rtm_route_is_resolved(route)) {
+        if (!route) {
 
             tracer(rtm->node->cptr, DRTM_DET,
                 "RTM[%s] : INH %s is still unresolvable, keeping it on unresolvable Queue\n",
@@ -495,11 +495,11 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
 
         /* We need to withdraw this NH from Resolution Graph upstream, 
             set the no propogation flag */
-        nh->flags |= RTM_DNH_F_NO_PROPOGATE_UPSTREAM;
+        nh->rtm_flags |= RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM;
 
         rtm_resolve_routes_recursively (rtm, nh->owner_route);
 
-        nh->flags &= ~RTM_DNH_F_NO_PROPOGATE_UPSTREAM;
+        nh->rtm_flags &= ~RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM;
 
         rtm_schedule_route_advertisement (rtm, nh->owner_route);
         return;
@@ -605,7 +605,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
     rtm_nh *nh;
     glthread_t *curr;
     uint32_t count = 0;
-    rtm_route *lpm_route;
+    rtm_route *resolver_route;
     char nh_str[128], from_rt_str[48], to_rt_str[48];
 
     ITERATE_GLTHREAD_BEGIN (&rtm->nhs_by_src[proto], curr) {
@@ -620,21 +620,21 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
         /* Sanity Check : It has to be acitve INH if it is allotted resolver router */
         assert (nh->is_active);
 
-        lpm_route = rtm_lpm_tree_lookup (rtm, &nh->prefix);
-        assert (lpm_route);
+        resolver_route = rtm_get_resolver_route (rtm, nh);
+        assert (resolver_route);
 
         tracer(rtm->node->cptr, DRTM_DET, 
             "RTM[%s] : LPM lookup result for Look up : %s is Route %s\n",
             rtm->name, 
             rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
-            rtm_format_prefix(&lpm_route->prefix, to_rt_str, sizeof(to_rt_str)));
+            rtm_format_prefix(&resolver_route->prefix, to_rt_str, sizeof(to_rt_str)));
 
-        if (lpm_route == nh->resolved_via_route) {
+        if (resolver_route == nh->resolved_via_route) {
             tracer(rtm->node->cptr, DRTM_DET,
                 "RTM[%s] : INH %s remains resolved via same route %s\n", 
                 rtm->name, 
                 rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
-                rtm_format_prefix(&lpm_route->prefix, to_rt_str, sizeof(to_rt_str)));
+                rtm_format_prefix(&resolver_route->prefix, to_rt_str, sizeof(to_rt_str)));
             continue;
         }
 
@@ -643,7 +643,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
             rtm->name, 
             rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
             rtm_format_prefix(&nh->resolved_via_route->prefix, from_rt_str, sizeof(from_rt_str)),
-            rtm_format_prefix(&lpm_route->prefix, to_rt_str, sizeof(to_rt_str)));
+            rtm_format_prefix(&resolver_route->prefix, to_rt_str, sizeof(to_rt_str)));
 
         rtm_resolution_nh_withdraw(rtm, nh);
         rtm_nh_Fglthread_add_last (nh, &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
@@ -669,6 +669,104 @@ rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t *route) {
     /* BGP protocol */
     RTM_PROTO_T proto = RTM_PROTO_BGP;
     rtm_re_resolve_inhs_per_protocol (rtm, route, proto);
+}
+
+rtm_route *
+rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
+
+    rtm_prefix_t *prefix;
+    rtm_route *resolver_route;
+    rtm_t *lookup_rtm = rtm_get_resolver_rtm (rtm->node, inh);
+
+    if (!lookup_rtm) return NULL;
+    
+    prefix = &inh->prefix;
+
+    switch (prefix->afi) {
+
+        case RTM_AF_IPV4:
+        {
+            switch (lookup_rtm->afi) {
+
+                case RTM_AF_IPV4:
+                {
+                    resolver_route = rtm_lpm_tree_lookup(lookup_rtm, prefix);
+                    if (!resolver_route) return NULL;
+                    if (!rtm_route_is_resolved(resolver_route)) return NULL;
+                    return resolver_route;
+                }
+                break;
+            }
+        }
+        break;
+
+
+        case RTM_AF_IPV6:
+        {
+            switch (lookup_rtm->afi) {
+
+                case RTM_AF_IPV6:
+                {
+                    resolver_route = rtm_lpm_tree_lookup(lookup_rtm, prefix);
+                    if (!resolver_route) return NULL;
+                    if (!rtm_route_is_resolved(resolver_route)) return NULL;
+                    return resolver_route;
+                }
+                break;
+            }
+        }
+        break;        
+
+
+        case RTM_AF_LABEL:
+        {
+            switch (lookup_rtm->afi) {
+
+                case RTM_AF_LABEL:
+                {
+                    resolver_route = rtm_route_lookup(lookup_rtm, prefix);
+                    if (!resolver_route) return NULL;
+                    if (!rtm_route_is_resolved(resolver_route)) return NULL;
+                    return resolver_route;
+                }
+                break;
+            }
+        }
+        break;
+
+    }
+
+    return NULL;
+}
+
+/* feed the set of rules for route resolution */
+rtm_t *
+rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
+
+    /* Rule 1 : If the route is BGP VPNv4 route, 
+        resolve it in default inet.3 table*/
+
+    if (indirect_nh->proto == RTM_PROTO_BGP &&
+            indirect_nh->sub_proto == RTM_PROTO_BGP_VPN) {
+
+        if (indirect_nh->prefix.afi == RTM_AF_IPV4) 
+            return node->node_nw_prop.inet3;
+
+        else if (indirect_nh->prefix.afi == RTM_AF_IPV6) 
+            return node->node_nw_prop.inet63;
+
+        else return NULL;
+    }
+
+    /* Add more Rules here */
+
+
+    /* Default Rules */
+    if (indirect_nh->prefix.afi == RTM_AF_IPV4) return  node->node_nw_prop.inet0;
+    if (indirect_nh->prefix.afi == RTM_AF_IPV6) return  node->node_nw_prop.inet6;
+    if (indirect_nh->prefix.afi == RTM_AF_LABEL) return  node->node_nw_prop.mpls0;
+
+    return NULL;   
 }
 
 /* Function which created a data plane forwarding info from a nexthop 

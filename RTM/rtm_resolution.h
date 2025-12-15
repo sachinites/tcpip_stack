@@ -59,4 +59,10 @@ rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t  *route);
 void 
 rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) ;
 
+rtm_route *
+rtm_get_resolver_route (rtm_t *rtm, rtm_nh *indirect_nh);
+
+rtm_t *
+rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh);
+
 #endif

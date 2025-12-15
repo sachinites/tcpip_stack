@@ -25,7 +25,7 @@ typedef struct cp_nexthop_template_ {
 
     rtm_nh_proto_t *rtm_nh_proto;
     
-    uint16_t flags;
+    uint16_t fwd_flags;
 
     uint32_t metric;
 

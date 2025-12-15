@@ -1,8 +1,8 @@
 #ifndef __RTM_FIB_COMMON__
 #define __RTM_FIB_COMMON__
 
-#include "../Interface/InterfaceFwd.h"
 #include "rtm_common.h"
+#include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 typedef struct mpls_lstack_ mpls_lstack_t;
@@ -34,5 +34,14 @@ typedef struct fib_nh_fwd_info_ {
 } fib_nh_fwd_info_t;
 
 #pragma pack(pop)
+
+
+#define FIB_NH_FWD_F_IPV4 1
+#define FIB_NH_FWD_F_IPV6 2
+#define FIB_NH_FWD_F_MPLS_LBL_STCK 4
+#define FIB_NH_FWD_F_IPV6_STCK 8
+
+#define FIB_MAX_ECMP_NH 8
+
 
 #endif 

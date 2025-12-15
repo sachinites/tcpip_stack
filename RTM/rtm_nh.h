@@ -18,13 +18,14 @@ typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 
-#define RTM_DNH_F_NO_PROPOGATE_UPSTREAM 1
+#define RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM 1
 
 typedef struct rtm_nh_ {
 
         /* Unique nexthop index - constant throughout lifetime */
         uint32_t idx;
-        uint16_t flags;
+        uint16_t rtm_flags;
+        uint16_t fwd_flags;
         time_t pth_last_update_time;
 
         /* Owning protocol*/

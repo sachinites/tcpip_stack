@@ -18,29 +18,29 @@ typedef struct bitmap_ bitmap_t;
 
 typedef struct rtm_route_ {
 
-        /* List of Nexthops of this route*/
-        glthread_t path_list;
+    /* List of Nexthops of this route*/
+    glthread_t path_list;
+    
+    /* List of LNHs resolved by this route */
+    Fglthread_t resolved_lnhs;
 
-        /* List of LNHs resolved by this route */
-        Fglthread_t resolved_lnhs;
+    /* Glues */
+    /* Glue in RTM main tree */
+    avltree_node_t route_glue;
 
-        /* Glues */
-        /* Glue in RTM main tree */
-        avltree_node_t route_glue;
+    glthread_t resolved_route_glue;
 
-        glthread_t resolved_route_glue;
+    /* Prefix for this route */
+    rtm_prefix_t prefix;
 
-        /* Prefix for this route */
-        rtm_prefix_t prefix;
+    uint16_t flags;
 
-        uint16_t flags;
+    /* Number of nexthops */
+    uint16_t nh_count;
 
-        /* Number of nexthops */
-        uint16_t nh_count;
+    uint32_t ref_count;
 
-        uint32_t ref_count;
-
-        glthread_t advt_glue;
+    glthread_t advt_glue;
 
 } rtm_route;
 

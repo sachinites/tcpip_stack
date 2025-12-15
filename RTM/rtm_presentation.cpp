@@ -58,6 +58,8 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                     presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
                     presentation_data->nh = dnh;
                     rtm_nh_reference(dnh);
+                    presentation_data->inh = nh;
+                    rtm_nh_reference(nh);
                     presentation_data->nh_idx = dnh->idx;
                     presentation_data->route = route->prefix;
                     presentation_data->nh_addr = dnh->prefix;
@@ -75,6 +77,7 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                 dnh = nh;
                 presentation_data->nh = dnh;
                 rtm_nh_reference(dnh);
+                presentation_data->inh = NULL;
                 presentation_data->nh_idx = dnh->idx;
                 presentation_data->route = route->prefix;
                 presentation_data->nh_addr = dnh->prefix;
@@ -786,11 +789,9 @@ static void
 rtm_ppt_route_release_resources(rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
 
     if (ppt_route && ppt_route->nhidx_list_count > 0) {
-
+        
         for (int i = 0; i < ppt_route->nhidx_list_count; i++) {
-
             if (ppt_route->nhidx_list[i].dnh_list) {
-
                 XFREE(ppt_route->nhidx_list[i].dnh_list);
             }
         }

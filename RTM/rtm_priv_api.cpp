@@ -779,7 +779,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 
     rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
     rtm_nh_initialize(nh);
-    nh->flags = nh_template->flags;
+    nh->fwd_flags = nh_template->fwd_flags;
     nh->proto = nh_template->proto;
     nh->sub_proto = nh_template->sub_proto;
     nh->ad = rtm_get_admin_distance (nh->proto , nh->sub_proto);

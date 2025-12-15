@@ -258,7 +258,8 @@ void
 rtm_nh_initialize(rtm_nh* nh) {
     
     nh->idx = rtm_nh_generate_id();
-    nh->flags = 0;
+    nh->rtm_flags = 0;
+    nh->fwd_flags = 0;
     nh->pth_last_update_time = time(NULL);
     nh->owner_route = NULL;
     
@@ -318,9 +319,9 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
         assert (Fglthread_list_is_empty (&nh->direct_nh_list));
 
         /* Check if this nexthop can be resolved */
-        rtm_route *route = rtm_lpm_tree_lookup(rtm, &nh->prefix);
+        rtm_route *route = rtm_get_resolver_route(rtm, nh);
         
-        if (!route || !rtm_route_is_resolved(route)) {
+        if (!route) {
 
             /* INH is not resolvable */
             tracer(rtm->node->cptr, DRTM,

@@ -100,10 +100,14 @@ rtm_get(node_t *node, uint8_t vrf, RTM_AFI_T afi, uint8_t rtm_id) {
 
 uint32_t
 cp_rtm_install_local_or_connected_v4_routes ( 
-    rtm_t *rtm, uint32_t prefix, uint8_t mask, InterfaceP Oif) {
+            rtm_t *rtm, 
+            uint32_t prefix, 
+            uint8_t mask, 
+            InterfaceP Oif) {
 
     char addr_str[32];
     rtm_prefix_t route;
+    uint16_t fwd_flags = 0;
     route.afi = RTM_AF_IPV4;
     route.prefix_len = mask;
     route.u.v4_addr = prefix;
@@ -114,6 +118,8 @@ cp_rtm_install_local_or_connected_v4_routes (
 
     nh_template.proto = (mask == 32) ? \
         RTM_PROTO_LOCAL : RTM_PROTO_CONNECTED;
+
+    fwd_flags |= FIB_NH_FWD_F_IPV4;
     
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
     nh_template.action =  (nh_template.proto ==RTM_PROTO_LOCAL) ? \
@@ -135,14 +141,13 @@ cp_rtm_install_local_or_connected_v4_routes (
         rtm->name, 
         rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask);
 
+    nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
     rtm_nh_template_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM ,
         "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s",  
-        rtm->name, 
-        rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask,
-        rtm_error_to_string (rc));
+        rtm->name, addr_str, mask, rtm_error_to_string (rc));
 
     return nh_template.idx;
 }
@@ -155,8 +160,9 @@ cp_rtm_install_static_route (
         rtm_prefix_t *gateway,
         InterfaceP oif, uint32_t cost) {
 
-    char addr_str[32];
     char gw_str[32];
+    char addr_str[32];
+    uint16_t fwd_flags = 0;
     rtm_nh_proto_t *nh_proto = NULL;
 
     cp_nexthop_template_t nh_template;
@@ -172,6 +178,17 @@ cp_rtm_install_static_route (
     nh_template.metric = cost;
     nh_template.gateway = *gateway;
 
+    switch (gateway->afi) {
+
+        case RTM_AF_IPV4:
+        fwd_flags |= FIB_NH_FWD_F_IPV4;
+        break;
+
+        case RTM_AF_IPV6:
+        fwd_flags |= FIB_NH_FWD_F_IPV6;
+        break;
+    }
+
     rtm_error_t rc = rtm_nh_proto_info_create(
         RTM_PROTO_STATIC, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
     assert (rc == RTM_SUCCESS);
@@ -184,6 +201,7 @@ cp_rtm_install_static_route (
         rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)));
 
+    nh_template.fwd_flags = fwd_flags;;
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
 
@@ -204,6 +222,7 @@ cp_rtm_uninstall_static_route (
         rtm_prefix_t *gateway,
         InterfaceP oif, uint32_t cost) {
 
+    uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
     cp_nexthop_template_t nh_template;
             
@@ -225,6 +244,18 @@ cp_rtm_uninstall_static_route (
     nh_template.is_indirect = false;
     nh_template.is_resolved = true;
 
+    switch (gateway->afi) {
+
+        case RTM_AF_IPV4:
+        fwd_flags |= FIB_NH_FWD_F_IPV4;
+        break;
+
+        case RTM_AF_IPV6:
+        fwd_flags |= FIB_NH_FWD_F_IPV6;
+        break;
+    }
+
+    nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
     XFREE (nh_template.rtm_nh_proto);
     return rc;
@@ -232,9 +263,9 @@ cp_rtm_uninstall_static_route (
 
 rtm_error_t 
 cp_rtm_install_route ( 
-                            rtm_t *rtm, 
-                            rtm_prefix_t *prefix,
-                            cp_nexthop_template_t *cp_nh_template) {
+        rtm_t *rtm, 
+        rtm_prefix_t *prefix,
+        cp_nexthop_template_t *cp_nh_template) {
 
     return rtm_install_route ( rtm,  prefix, cp_nh_template) ;
 }
@@ -386,6 +417,7 @@ cp_rtm_install_route_advanced (
     uint32_t *label_stack,
     uint8_t label_stack_count) {
 
+    uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
     cp_nexthop_template_t nh_template;
     rtm_nh_proto_t *nh_proto = NULL;
@@ -419,13 +451,24 @@ cp_rtm_install_route_advanced (
     /* Set gateway if provided */
     if (gateway && !rtm_prefix_is_null(gateway)) {
         nh_template.gateway = *gateway;
+
+        switch (gateway->afi) {
+
+            case RTM_AF_IPV4:
+            fwd_flags |= FIB_NH_FWD_F_IPV4;
+            break;
+
+            case RTM_AF_IPV6:
+            fwd_flags |= FIB_NH_FWD_F_IPV6;
+            break;
+        }
     }
 
     /* Set outgoing interface if provided */
     if (oif) {
         nh_template.Oif = oif.get();
         nh_template.is_indirect = false;
-         nh_template.is_resolved = true;
+        nh_template.is_resolved = true;
     } else {
         nh_template.is_indirect = true;
          nh_template.is_resolved = false;
@@ -455,8 +498,11 @@ cp_rtm_install_route_advanced (
         }
 
         nh_template.u.l_stack.label_stack = lstack;
+        fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
     }
 
+    nh_template.fwd_flags = fwd_flags;
+    
     /* Install the route */
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
@@ -478,6 +524,7 @@ cp_rtm_uninstall_route_advanced (
     uint32_t *label_stack,
     uint8_t label_stack_count) {
 
+    uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
     cp_nexthop_template_t nh_template;
     rtm_nh_proto_t *nh_proto = NULL;
@@ -512,6 +559,18 @@ cp_rtm_uninstall_route_advanced (
     /* Set gateway if provided */
     if (gateway && !rtm_prefix_is_null(gateway)) {
         nh_template.gateway = *gateway;
+
+        switch (gateway->afi) {
+
+            case RTM_AF_IPV4:
+            fwd_flags |= FIB_NH_FWD_F_IPV4;
+            break;
+
+            case RTM_AF_IPV6:
+            fwd_flags |= FIB_NH_FWD_F_IPV6;
+            break;
+        }
+
     }
 
     /* Set outgoing interface if provided */
@@ -550,8 +609,10 @@ cp_rtm_uninstall_route_advanced (
         }
 
         nh_template.u.l_stack.label_stack = lstack;
+        fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
     }
 
+    nh_template.fwd_flags = fwd_flags;
     /* Uninstall the route */
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
