@@ -743,11 +743,13 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 rtm_t *
 rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
-    /* Rule 1 : If the route is BGP VPNv4 route, 
-        resolve it in default inet.3 table*/
+    /* Rule 1 : If the route is BGP VPNv4 route installed in Customer, 
+        VRF resolve it in default inet.3 table*/
 
     if (indirect_nh->proto == RTM_PROTO_BGP &&
-            indirect_nh->sub_proto == RTM_PROTO_BGP_VPN) {
+            indirect_nh->sub_proto == RTM_PROTO_BGP_VPN &&
+            indirect_nh->rtm->vrf != RTM_DEFAULT_VRF &&
+            indirect_nh->rtm->afi == RTM_AF_IPV4) {
 
         if (indirect_nh->prefix.afi == RTM_AF_IPV4) 
             return node->node_nw_prop.inet3;
@@ -762,11 +764,11 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
 
     /* Default Rules */
-    if (indirect_nh->prefix.afi == RTM_AF_IPV4) return  node->node_nw_prop.inet0;
-    if (indirect_nh->prefix.afi == RTM_AF_IPV6) return  node->node_nw_prop.inet6;
-    if (indirect_nh->prefix.afi == RTM_AF_LABEL) return  node->node_nw_prop.mpls0;
+    if (indirect_nh->prefix.afi == RTM_AF_IPV4) return node->node_nw_prop.inet0;
+    if (indirect_nh->prefix.afi == RTM_AF_IPV6) return node->node_nw_prop.inet6;
+    if (indirect_nh->prefix.afi == RTM_AF_LABEL) return node->node_nw_prop.mpls0;
 
-    return NULL;   
+    return NULL;
 }
 
 /* Function which created a data plane forwarding info from a nexthop 

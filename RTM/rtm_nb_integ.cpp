@@ -267,6 +267,12 @@ cp_rtm_install_route (
         rtm_prefix_t *prefix,
         cp_nexthop_template_t *cp_nh_template) {
 
+    if (cp_nh_template->proto == RTM_PROTO_LDP) 
+        return rtm_install_route ( rtm->node->node_nw_prop.inet3,  prefix, cp_nh_template) ;
+    else if (cp_nh_template->proto == RTM_PROTO_SR || 
+             cp_nh_template->proto == RTM_PROTO_SRTE)
+        return rtm_install_route ( rtm->node->node_nw_prop.mpls0,  prefix, cp_nh_template) ;
+
     return rtm_install_route ( rtm,  prefix, cp_nh_template) ;
 }
 
@@ -460,6 +466,11 @@ cp_rtm_install_route_advanced (
 
             case RTM_AF_IPV6:
             fwd_flags |= FIB_NH_FWD_F_IPV6;
+            break;
+            
+            case RTM_AF_LABEL:
+            /* MPLS label as gateway - for label swap operations */
+            fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
             break;
         }
     }

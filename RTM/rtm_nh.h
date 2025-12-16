@@ -19,6 +19,7 @@ typedef struct rtm_proto_info_ rtm_proto_info_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 
 #define RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM 1
+#define RTM_INH_F_RESOLVED_IN_FOREIGN_RTM 2
 
 typedef struct rtm_nh_ {
 
@@ -60,7 +61,10 @@ typedef struct rtm_nh_ {
         /* Outgoing Interface*/
         InterfaceP Oif;
         uint32_t outgoing_if;
-
+        
+        /* Backpointer to the owning RTM, used in cross RTM route resolution*/
+        rtm_t *rtm;
+        
         bool is_indirect;
         /* Data node List of direct nexthops which resolves this INH*/
         Fglthread_t direct_nh_list;

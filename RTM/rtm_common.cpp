@@ -13,6 +13,12 @@
 
 bool rtm_prefix_is_null (rtm_prefix_t *prefix) {
 
+    /* For MPLS labels, check if label value is zero */
+    if (prefix->afi == RTM_AF_LABEL) {
+        return (prefix->u.mpls_label == 0);
+    }
+    
+    /* For IP addresses, check if prefix_len is zero */
     if  (prefix->prefix_len == 0) return true;
     return false;
 }

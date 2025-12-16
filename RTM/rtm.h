@@ -46,8 +46,11 @@ typedef struct rtm_ {
         store protocol subscription and filters */
     avltree_t proto_info_tree[RTM_PROTO_MAX];
 
-    /* BAckpointer to owning node*/
+    /* Backpointer to owning node*/
     node_t *node; 
+
+    /* Backpointer to the owning RTM, used in cross RTM route resolution*/
+    struct rtm_ *rtm;
     
     /* List of Orphan Indirect NHs which have no route to resolve over */
     Fglthread_t unresolvable_paths;
@@ -81,6 +84,8 @@ typedef struct rtm_ {
 
     /* Garbage Collector Job*/
     task_t *gc_job;
+
+    /* Garbage Collector Queue */
     Fglthread_t gc_queue;
     
 } rtm_t;

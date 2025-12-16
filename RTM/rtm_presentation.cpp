@@ -242,22 +242,32 @@ rtm_ppt_db_clone_route (
         if (!rtm_nh_is_resolved(nh)) continue;
         
         ppt_route->nhidx_list[i].nh_pidx = nh->idx;
+        ppt_route->nhidx_list[i].nh_pidx_rtm = nh->rtm;
         ppt_route->nhidx_list[i].dnh_list_count = dnh_counts[i];
         
         /* Allocate DNH array if needed */
         if (dnh_counts[i] > 0) {
-            ppt_route->nhidx_list[i].dnh_list = (uint32_t *)XCALLOC_BUFF(0, 
-                dnh_counts[i] * sizeof(uint32_t));
+            ppt_route->nhidx_list[i].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0, 
+                dnh_counts[i] * sizeof(rtm_ppt_nhidx_t::dnh));
             
             int j = 0;
             ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, curr2) {
                 data_node = glue_to_glthread_data_node(curr2);
                 dnh = (rtm_nh *)(data_node->data);
-                ppt_route->nhidx_list[i].dnh_list[j++] = dnh->idx;
+                ppt_route->nhidx_list[i].dnh_list[j].dnh_idx = dnh->idx;
+                ppt_route->nhidx_list[i].dnh_list[j].dnh_idx_rtm = dnh->rtm;
+                j++;
             } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, curr2);
             
-            /* Sort DNH list (inner list) */
-            sort_uint32(ppt_route->nhidx_list[i].dnh_list, dnh_counts[i]);
+            /* Sort DNH list (inner list) - comparator for struct dnh */
+            auto compare_dnh = [](const void *a, const void *b) -> int {
+                const rtm_ppt_nhidx_t::dnh *da = (const rtm_ppt_nhidx_t::dnh *)a;
+                const rtm_ppt_nhidx_t::dnh *db = (const rtm_ppt_nhidx_t::dnh *)b;
+                if (da->dnh_idx < db->dnh_idx) return -1;
+                if (da->dnh_idx > db->dnh_idx) return 1;
+                return 0;
+            };
+            qsort(ppt_route->nhidx_list[i].dnh_list, dnh_counts[i], sizeof(rtm_ppt_nhidx_t::dnh), compare_dnh);
         } else {
             ppt_route->nhidx_list[i].dnh_list = NULL;
         }
@@ -354,8 +364,9 @@ rtm_ppt_route_diff (
     /* Build current nexthop list - use temp structure to avoid qsort issues with flexible arrays */
     typedef struct {
         uint32_t nh_pidx;
+        rtm_t *nh_pidx_rtm;
         uint16_t dnh_count;
-        uint32_t dnh_list[256]; /* Max DNHs per INH */
+        rtm_ppt_nhidx_t::dnh dnh_list[16]; /* Max DNHs per INH */
     } temp_nh_build_t;
     
     temp_nh_build_t *temp_build = (temp_nh_build_t *)XCALLOC_BUFF(0, active_nh_count * sizeof(temp_nh_build_t));
@@ -371,20 +382,30 @@ rtm_ppt_route_diff (
         if (!nh->is_active) break;
         
         temp_build[current_count].nh_pidx = nh->idx;
+        temp_build[current_count].nh_pidx_rtm = nh->rtm;
         temp_build[current_count].dnh_count = 0;
         
         if (nh->is_indirect && rtm_nh_is_resolved(nh)) {
             ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, dnh_glue) {
                 data_node = glue_to_glthread_data_node(dnh_glue);
                 dnh = (rtm_nh *)data_node->data;
-                temp_build[current_count].dnh_list[temp_build[current_count].dnh_count++] = dnh->idx;
+                temp_build[current_count].dnh_list[temp_build[current_count].dnh_count].dnh_idx = dnh->idx;
+                temp_build[current_count].dnh_list[temp_build[current_count].dnh_count].dnh_idx_rtm = dnh->rtm;
+                temp_build[current_count].dnh_count++;
             } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, dnh_glue);
             
             /* Sort direct nexthops */
             if (temp_build[current_count].dnh_count > 1) {
+                auto compare_dnh = [](const void *a, const void *b) -> int {
+                    const rtm_ppt_nhidx_t::dnh *da = (const rtm_ppt_nhidx_t::dnh *)a;
+                    const rtm_ppt_nhidx_t::dnh *db = (const rtm_ppt_nhidx_t::dnh *)b;
+                    if (da->dnh_idx < db->dnh_idx) return -1;
+                    if (da->dnh_idx > db->dnh_idx) return 1;
+                    return 0;
+                };
                 qsort(temp_build[current_count].dnh_list, 
                       temp_build[current_count].dnh_count,
-                      sizeof(uint32_t), rtm_uint32_compare);
+                      sizeof(rtm_ppt_nhidx_t::dnh), compare_dnh);
             }
         }
         
@@ -407,13 +428,14 @@ rtm_ppt_route_diff (
     /* Now copy sorted temp_build to current_list, allocating DNH arrays separately */
     for (int i = 0; i < current_count; i++) {
         current_list[i].nh_pidx = temp_build[i].nh_pidx;
+        current_list[i].nh_pidx_rtm = temp_build[i].nh_pidx_rtm;
         current_list[i].dnh_list_count = temp_build[i].dnh_count;
         
         if (temp_build[i].dnh_count > 0) {
-            current_list[i].dnh_list = (uint32_t *)XCALLOC_BUFF(0, 
-                temp_build[i].dnh_count * sizeof(uint32_t));
+            current_list[i].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0, 
+                temp_build[i].dnh_count * sizeof(rtm_ppt_nhidx_t::dnh));
             memcpy(current_list[i].dnh_list, temp_build[i].dnh_list, 
-                   temp_build[i].dnh_count * sizeof(uint32_t));
+                   temp_build[i].dnh_count * sizeof(rtm_ppt_nhidx_t::dnh));
         } else {
             current_list[i].dnh_list = NULL;
         }
@@ -456,18 +478,18 @@ rtm_ppt_route_diff (
             
             /* Granular DNH diff: count only new and removed DNHs */
             if (curr_nh->dnh_list_count > 0 || old_nh->dnh_list_count > 0) {
-                uint32_t *curr_dnh_list = curr_nh->dnh_list;
-                uint32_t *old_dnh_list = old_nh->dnh_list;
+                rtm_ppt_nhidx_t::dnh *curr_dnh_list = curr_nh->dnh_list;
+                rtm_ppt_nhidx_t::dnh *old_dnh_list = old_nh->dnh_list;
                 
                 int curr_dnh = 0, old_dnh = 0;
                 
                 /* Count new DNHs (in current but not in old) */
                 while (curr_dnh < curr_nh->dnh_list_count && old_dnh < old_nh->dnh_list_count) {
-                    if (curr_dnh_list[curr_dnh] < old_dnh_list[old_dnh]) {
+                    if (curr_dnh_list[curr_dnh].dnh_idx < old_dnh_list[old_dnh].dnh_idx) {
                         /* New DNH found */
                         nh_add_dnh_count++;
                         curr_dnh++;
-                    } else if (curr_dnh_list[curr_dnh] > old_dnh_list[old_dnh]) {
+                    } else if (curr_dnh_list[curr_dnh].dnh_idx > old_dnh_list[old_dnh].dnh_idx) {
                         /* Old DNH removed */
                         nh_del_dnh_count++;
                         old_dnh++;
@@ -583,14 +605,15 @@ rtm_ppt_route_diff (
             /* Addition */
             if (add_route_alloc) {
                 add_route_alloc->nhidx_list[add_idx].nh_pidx = current_list[curr_idx].nh_pidx;
+                add_route_alloc->nhidx_list[add_idx].nh_pidx_rtm = current_list[curr_idx].nh_pidx_rtm;
                 add_route_alloc->nhidx_list[add_idx].dnh_list_count = current_list[curr_idx].dnh_list_count;
                 
                 if (current_list[curr_idx].dnh_list_count > 0) {
-                    add_route_alloc->nhidx_list[add_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                        current_list[curr_idx].dnh_list_count * sizeof(uint32_t));
+                    add_route_alloc->nhidx_list[add_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                        current_list[curr_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                     memcpy(add_route_alloc->nhidx_list[add_idx].dnh_list, 
                            current_list[curr_idx].dnh_list,
-                           current_list[curr_idx].dnh_list_count * sizeof(uint32_t));
+                           current_list[curr_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                 } else {
                     add_route_alloc->nhidx_list[add_idx].dnh_list = NULL;
                 }
@@ -601,14 +624,15 @@ rtm_ppt_route_diff (
             /* Deletion */
             if (del_route_alloc) {
                 del_route_alloc->nhidx_list[del_idx].nh_pidx = ppt_route->nhidx_list[old_idx].nh_pidx;
+                del_route_alloc->nhidx_list[del_idx].nh_pidx_rtm = ppt_route->nhidx_list[old_idx].nh_pidx_rtm;
                 del_route_alloc->nhidx_list[del_idx].dnh_list_count = ppt_route->nhidx_list[old_idx].dnh_list_count;
                 
                 if (ppt_route->nhidx_list[old_idx].dnh_list_count > 0) {
-                    del_route_alloc->nhidx_list[del_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                        ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(uint32_t));
+                    del_route_alloc->nhidx_list[del_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                        ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                     memcpy(del_route_alloc->nhidx_list[del_idx].dnh_list,
                            ppt_route->nhidx_list[old_idx].dnh_list,
-                           ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(uint32_t));
+                           ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                 } else {
                     del_route_alloc->nhidx_list[del_idx].dnh_list = NULL;
                 }
@@ -625,44 +649,48 @@ rtm_ppt_route_diff (
             uint16_t del_dnh_idx = 0;
             
             if (curr_nh->dnh_list_count > 0 || old_nh->dnh_list_count > 0) {
-                uint32_t *curr_dnh_list = curr_nh->dnh_list;
-                uint32_t *old_dnh_list = old_nh->dnh_list;
+                rtm_ppt_nhidx_t::dnh *curr_dnh_list = curr_nh->dnh_list;
+                rtm_ppt_nhidx_t::dnh *old_dnh_list = old_nh->dnh_list;
                 
                 int curr_dnh = 0, old_dnh = 0;
                 
                 /* Find new and removed DNHs - same logic as counting phase */
                 while (curr_dnh < curr_nh->dnh_list_count && old_dnh < old_nh->dnh_list_count) {
-                    if (curr_dnh_list[curr_dnh] < old_dnh_list[old_dnh]) {
+                    if (curr_dnh_list[curr_dnh].dnh_idx < old_dnh_list[old_dnh].dnh_idx) {
                         /* New DNH - add to additions */
                         if (add_route_alloc) {
                             if (add_dnh_idx == 0) {
                                 /* First new DNH for this indirect NH - create entry */
                                 add_route_alloc->nhidx_list[add_idx].nh_pidx = curr_nh->nh_pidx;
+                                add_route_alloc->nhidx_list[add_idx].nh_pidx_rtm = curr_nh->nh_pidx_rtm;
                                 add_route_alloc->nhidx_list[add_idx].dnh_list_count = 0;
                             }
                             if (add_dnh_idx == 0) {
                                 /* Allocate DNH array for this NH */
-                                add_route_alloc->nhidx_list[add_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                                    curr_nh->dnh_list_count * sizeof(uint32_t));
+                                add_route_alloc->nhidx_list[add_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                                    curr_nh->dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                             }
-                            add_route_alloc->nhidx_list[add_idx].dnh_list[add_dnh_idx++] = curr_dnh_list[curr_dnh];
+                            add_route_alloc->nhidx_list[add_idx].dnh_list[add_dnh_idx] = curr_dnh_list[curr_dnh];
+                            add_dnh_idx++;
                             add_route_alloc->nhidx_list[add_idx].dnh_list_count++;
                         }
                         curr_dnh++;
-                    } else if (curr_dnh_list[curr_dnh] > old_dnh_list[old_dnh]) {
+                    } else if (curr_dnh_list[curr_dnh].dnh_idx > old_dnh_list[old_dnh].dnh_idx) {
                         /* Old DNH removed - add to deletions */
                         if (del_route_alloc) {
                             if (del_dnh_idx == 0) {
                                 /* First removed DNH for this indirect NH - create entry */
                                 del_route_alloc->nhidx_list[del_idx].nh_pidx = old_nh->nh_pidx;
+                                del_route_alloc->nhidx_list[del_idx].nh_pidx_rtm = old_nh->nh_pidx_rtm;
                                 del_route_alloc->nhidx_list[del_idx].dnh_list_count = 0;
                             }
                             if (del_dnh_idx == 0) {
                                 /* Allocate DNH array for this NH */
-                                del_route_alloc->nhidx_list[del_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                                    old_nh->dnh_list_count * sizeof(uint32_t));
+                                del_route_alloc->nhidx_list[del_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                                    old_nh->dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                             }
-                            del_route_alloc->nhidx_list[del_idx].dnh_list[del_dnh_idx++] = old_dnh_list[old_dnh];
+                            del_route_alloc->nhidx_list[del_idx].dnh_list[del_dnh_idx] = old_dnh_list[old_dnh];
+                            del_dnh_idx++;
                             del_route_alloc->nhidx_list[del_idx].dnh_list_count++;
                         }
                         old_dnh++;
@@ -678,14 +706,16 @@ rtm_ppt_route_diff (
                     if (add_route_alloc) {
                         if (add_dnh_idx == 0) {
                             add_route_alloc->nhidx_list[add_idx].nh_pidx = curr_nh->nh_pidx;
+                            add_route_alloc->nhidx_list[add_idx].nh_pidx_rtm = curr_nh->nh_pidx_rtm;
                             add_route_alloc->nhidx_list[add_idx].dnh_list_count = 0;
                         }
                         if (add_dnh_idx == 0) {
                             /* Allocate DNH array for this NH */
-                            add_route_alloc->nhidx_list[add_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                                curr_nh->dnh_list_count * sizeof(uint32_t));
+                            add_route_alloc->nhidx_list[add_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                                curr_nh->dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                         }
-                        add_route_alloc->nhidx_list[add_idx].dnh_list[add_dnh_idx++] = curr_dnh_list[curr_dnh];
+                        add_route_alloc->nhidx_list[add_idx].dnh_list[add_dnh_idx] = curr_dnh_list[curr_dnh];
+                        add_dnh_idx++;
                         add_route_alloc->nhidx_list[add_idx].dnh_list_count++;
                     }
                     curr_dnh++;
@@ -696,14 +726,16 @@ rtm_ppt_route_diff (
                     if (del_route_alloc) {
                         if (del_dnh_idx == 0) {
                             del_route_alloc->nhidx_list[del_idx].nh_pidx = old_nh->nh_pidx;
+                            del_route_alloc->nhidx_list[del_idx].nh_pidx_rtm = old_nh->nh_pidx_rtm;
                             del_route_alloc->nhidx_list[del_idx].dnh_list_count = 0;
                         }
                         if (del_dnh_idx == 0) {
                             /* Allocate DNH array for this NH */
-                            del_route_alloc->nhidx_list[del_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                                old_nh->dnh_list_count * sizeof(uint32_t));
+                            del_route_alloc->nhidx_list[del_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                                old_nh->dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                         }
-                        del_route_alloc->nhidx_list[del_idx].dnh_list[del_dnh_idx++] = old_dnh_list[old_dnh];
+                        del_route_alloc->nhidx_list[del_idx].dnh_list[del_dnh_idx] = old_dnh_list[old_dnh];
+                        del_dnh_idx++;
                         del_route_alloc->nhidx_list[del_idx].dnh_list_count++;
                     }
                     old_dnh++;
@@ -727,14 +759,15 @@ rtm_ppt_route_diff (
     while (curr_idx < current_count) {
         if (add_route_alloc) {
             add_route_alloc->nhidx_list[add_idx].nh_pidx = current_list[curr_idx].nh_pidx;
+            add_route_alloc->nhidx_list[add_idx].nh_pidx_rtm = current_list[curr_idx].nh_pidx_rtm;
             add_route_alloc->nhidx_list[add_idx].dnh_list_count = current_list[curr_idx].dnh_list_count;
             
             if (current_list[curr_idx].dnh_list_count > 0) {
-                add_route_alloc->nhidx_list[add_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                    current_list[curr_idx].dnh_list_count * sizeof(uint32_t));
+                add_route_alloc->nhidx_list[add_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                    current_list[curr_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                 memcpy(add_route_alloc->nhidx_list[add_idx].dnh_list,
                        current_list[curr_idx].dnh_list,
-                       current_list[curr_idx].dnh_list_count * sizeof(uint32_t));
+                       current_list[curr_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
             } else {
                 add_route_alloc->nhidx_list[add_idx].dnh_list = NULL;
             }
@@ -747,14 +780,15 @@ rtm_ppt_route_diff (
     while (old_idx < ppt_route->nhidx_list_count) {
         if (del_route_alloc) {
             del_route_alloc->nhidx_list[del_idx].nh_pidx = ppt_route->nhidx_list[old_idx].nh_pidx;
+            del_route_alloc->nhidx_list[del_idx].nh_pidx_rtm = ppt_route->nhidx_list[old_idx].nh_pidx_rtm;
             del_route_alloc->nhidx_list[del_idx].dnh_list_count = ppt_route->nhidx_list[old_idx].dnh_list_count;
             
             if (ppt_route->nhidx_list[old_idx].dnh_list_count > 0) {
-                del_route_alloc->nhidx_list[del_idx].dnh_list = (uint32_t *)XCALLOC_BUFF(0,
-                    ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(uint32_t));
+                del_route_alloc->nhidx_list[del_idx].dnh_list = (rtm_ppt_nhidx_t::dnh *)XCALLOC_BUFF(0,
+                    ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
                 memcpy(del_route_alloc->nhidx_list[del_idx].dnh_list,
                        ppt_route->nhidx_list[old_idx].dnh_list,
-                       ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(uint32_t));
+                       ppt_route->nhidx_list[old_idx].dnh_list_count * sizeof(rtm_ppt_nhidx_t::dnh));
             } else {
                 del_route_alloc->nhidx_list[del_idx].dnh_list = NULL;
             }
@@ -856,20 +890,20 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
 
             /* Delete case, NH is deleted and breathing its last moments in
                 Garbage collecter DB*/
-            rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
+            rtm_nh *nh = rtm_nh_lookup_by_idx(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
             if (!nh)
-                nh = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
+                nh = rtm_gc_lookup_nh(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
 
             nh_proto = nh->rtm_nh_proto;
 
             /* If indirect and has direct nexthops, advertise deletion for each direct nexthop */
             if (nh_entry->dnh_list_count > 0)
             {
-                uint32_t *dnh_list = del_alloc->nhidx_list[i].dnh_list;
+                rtm_ppt_nhidx_t::dnh *dnh_list = del_alloc->nhidx_list[i].dnh_list;
 
                 for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++)
                 {
-                    rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
+                    rtm_nh *dnh = rtm_nh_lookup_by_idx(dnh_list[dnh_idx].dnh_idx_rtm, dnh_list[dnh_idx].dnh_idx);
                     rtm_nh *dnh_gc = NULL;
 
                     presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
@@ -878,10 +912,10 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     if (dnh)
                         rtm_nh_reference(dnh);
                     else
-                        dnh_gc = rtm_gc_lookup_nh(rtm, dnh_list[dnh_idx]);
+                        dnh_gc = rtm_gc_lookup_nh(dnh_list[dnh_idx].dnh_idx_rtm, dnh_list[dnh_idx].dnh_idx);
 
                     presentation_data->inh = NULL;
-                    presentation_data->nh_idx = dnh_list[dnh_idx]; /* Always valid */
+                    presentation_data->nh_idx = dnh_list[dnh_idx].dnh_idx; /* Always valid */
                     presentation_data->route = route->prefix;
                     presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                     presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
@@ -897,13 +931,13 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                 /* Direct nexthop or unresolved indirect - advertise deletion of the nexthop itself */
                 presentation_data = (rtm_presentation_data_t *)XCALLOC2(
                         0, 1, rtm_presentation_data_t);
-                rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
-                 rtm_nh *dnh_gc = NULL;
+                rtm_nh *dnh = rtm_nh_lookup_by_idx(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
+                rtm_nh *dnh_gc = NULL;
                 presentation_data->nh = dnh; /* Must have deleted */
                 if (dnh)
                     rtm_nh_reference(dnh);
                 else
-                    dnh_gc = rtm_gc_lookup_nh(rtm, nh_entry->nh_pidx);
+                    dnh_gc = rtm_gc_lookup_nh(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
 
                 presentation_data->inh = NULL;
                 presentation_data->nh_idx = nh_entry->nh_pidx; /* Always valid */
@@ -931,16 +965,16 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
             rtm_ppt_nhidx_t *nh_entry = &add_alloc->nhidx_list[i];
 
             /* Find the actual rtm_nh by index */
-            rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, nh_entry->nh_pidx);
+            rtm_nh *nh = rtm_nh_lookup_by_idx(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
 
             /* If indirect and resolved, advertise each direct nexthop */
             if (nh->is_indirect && rtm_nh_is_resolved(nh) && nh_entry->dnh_list_count > 0)
             {
-                uint32_t *dnh_list = add_alloc->nhidx_list[i].dnh_list;
+                rtm_ppt_nhidx_t::dnh *dnh_list = add_alloc->nhidx_list[i].dnh_list;
 
                 for (uint16_t dnh_idx = 0; dnh_idx < nh_entry->dnh_list_count; dnh_idx++)
                 {
-                    rtm_nh *dnh = rtm_nh_lookup_by_idx(rtm, dnh_list[dnh_idx]);
+                    rtm_nh *dnh = rtm_nh_lookup_by_idx(dnh_list[dnh_idx].dnh_idx_rtm, dnh_list[dnh_idx].dnh_idx);
 
                     presentation_data = (rtm_presentation_data_t *)XCALLOC2(
                         0, 1, rtm_presentation_data_t);
@@ -996,11 +1030,11 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     add_alloc->nhidx_list[i].dnh_list_count);
                 
                 if (add_alloc->nhidx_list[i].dnh_list_count > 0) {
-                    uint32_t *dnh_list = add_alloc->nhidx_list[i].dnh_list;
+                    rtm_ppt_nhidx_t::dnh *dnh_list = add_alloc->nhidx_list[i].dnh_list;
                     for (int j = 0; j < add_alloc->nhidx_list[i].dnh_list_count; j++) {
                         tracer(rtm->node->cptr, DRTM_DET,
                             "RTM[%s] :     DNH[%d]: idx=%u\n",
-                            rtm->name, j, dnh_list[j]);
+                            rtm->name, j, dnh_list[j].dnh_idx);
                     }
                 }
             }
@@ -1016,11 +1050,11 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     del_alloc->nhidx_list[i].dnh_list_count);
                 
                 if (del_alloc->nhidx_list[i].dnh_list_count > 0) {
-                    uint32_t *dnh_list = del_alloc->nhidx_list[i].dnh_list;
+                    rtm_ppt_nhidx_t::dnh *dnh_list = del_alloc->nhidx_list[i].dnh_list;
                     for (int j = 0; j < del_alloc->nhidx_list[i].dnh_list_count; j++) {
                         tracer(rtm->node->cptr, DRTM_DET,
                             "RTM[%s] :     DNH[%d]: idx=%u\n",
-                            rtm->name, j, dnh_list[j]);
+                            rtm->name, j, dnh_list[j].dnh_idx);
                     }
                 }
             }

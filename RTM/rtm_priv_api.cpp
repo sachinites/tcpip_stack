@@ -397,26 +397,85 @@ config_rtm_route_cli_handler(int cmdcode,
             rtm_prefix_t gateway;
             memset(&gateway, 0, sizeof(gateway));
             if (gw_ip) {
-                /* For MPLS, gateway must be IP (can't be MPLS label) */
-                bool is_ipv6_gateway = (strchr((const char *)gw_ip, ':') != NULL);
+                /* Check if gateway is an MPLS label or IP address */
+                /* MPLS labels are pure numeric (no dots or colons) */
+                bool is_mpls_gateway = true;
+                bool has_colon = false;
+                bool has_dot = false;
                 
-                if (is_mpls) {
-                    /* MPLS prefix with IP gateway - valid for label swap */
-                    afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                /* Scan the gateway string to determine its type */
+                for (const char *p = (const char *)gw_ip; *p; p++) {
+                    if (*p == ':') {
+                        has_colon = true;
+                        is_mpls_gateway = false;
+                        break;
+                    } else if (*p == '.') {
+                        has_dot = true;
+                        is_mpls_gateway = false;
+                        break;
+                    } else if (!isdigit(*p)) {
+                        /* Non-digit, non-dot, non-colon character */
+                        is_mpls_gateway = false;
+                        break;
+                    }
                 }
                 
-                gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
-                
-                if (is_ipv6_gateway) {
-                    /* Parse IPv6 gateway */
-                    gateway.prefix_len = 128;
-                    ipv6_addr_t v6_gw;
-                    inet_pton6((char *)gw_ip, &v6_gw);
-                    memcpy(gateway.u.v6_addr, v6_gw.addr, 16);
+                if (is_mpls_gateway && strlen((const char *)gw_ip) > 0) {
+                    /* Gateway is an MPLS label */
+                    char *endptr;
+                    long label_val = strtol((const char *)gw_ip, &endptr, 10);
+                    
+                    /* Validate it's a complete numeric value */
+                    if (*endptr == '\0' && endptr != (const char *)gw_ip && label_val >= 0) {
+                        uint32_t gw_label = (uint32_t)label_val;
+                        
+                        /* MPLS labels are 20-bit values (0 to 1048575) */
+                        if (gw_label > 1048575) {
+                            cprintf("Error: Invalid MPLS gateway label %u. Must be 0-1048575\n", gw_label);
+                            return -1;
+                        }
+                        
+                        /* Set gateway as MPLS label */
+                        gateway.afi = RTM_AF_LABEL;
+                        gateway.u.mpls_label = gw_label;
+                        gateway.prefix_len = 0; /* Not applicable for MPLS */
+                        
+                        cprintf("Debug: Parsed gateway as MPLS label: %u\n", gw_label);
+                    } else {
+                        cprintf("Error: Invalid gateway value '%s'\n", gw_ip);
+                        return -1;
+                    }
                 } else {
-                    /* Parse IPv4 gateway */
-                    gateway.prefix_len = 32;
-                    gateway.u.v4_addr = tcp_ip_convert_ip_p_to_n(gw_ip);
+                    /* Gateway is an IP address */
+                    bool is_ipv6_gateway = has_colon;
+                    
+                    gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                    
+                    if (is_ipv6_gateway) {
+                        /* Parse IPv6 gateway */
+                        gateway.prefix_len = 128;
+                        
+                        /* Validate IPv6 address format */
+                        struct in6_addr test_addr;
+                        if (inet_pton(AF_INET6, (const char *)gw_ip, &test_addr) != 1) {
+                            cprintf("Error: Invalid IPv6 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                        
+                        /* Parse and store IPv6 gateway */
+                        ipv6_addr_t v6_gw;
+                        inet_pton6((char *)gw_ip, &v6_gw);
+                        memcpy(gateway.u.v6_addr, v6_gw.addr, 16);
+                    } else {
+                        /* Parse IPv4 gateway */
+                        gateway.prefix_len = 32;
+                        uint32_t v4_gw = tcp_ip_convert_ip_p_to_n(gw_ip);
+                        if (v4_gw == 0 && strcmp((const char *)gw_ip, "0.0.0.0") != 0) {
+                            cprintf("Error: Invalid IPv4 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                        gateway.u.v4_addr = v4_gw;
+                    }
                 }
             }
 
@@ -619,26 +678,85 @@ config_rtm_route_cli_handler(int cmdcode,
             rtm_prefix_t gateway;
             memset(&gateway, 0, sizeof(gateway));
             if (gw_ip) {
-                /* For MPLS, gateway must be IP (can't be MPLS label) */
-                bool is_ipv6_gateway = (strchr((const char *)gw_ip, ':') != NULL);
+                /* Check if gateway is an MPLS label or IP address */
+                /* MPLS labels are pure numeric (no dots or colons) */
+                bool is_mpls_gateway = true;
+                bool has_colon = false;
+                bool has_dot = false;
                 
-                if (is_mpls) {
-                    /* MPLS prefix with IP gateway - valid for label swap */
-                    afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                /* Scan the gateway string to determine its type */
+                for (const char *p = (const char *)gw_ip; *p; p++) {
+                    if (*p == ':') {
+                        has_colon = true;
+                        is_mpls_gateway = false;
+                        break;
+                    } else if (*p == '.') {
+                        has_dot = true;
+                        is_mpls_gateway = false;
+                        break;
+                    } else if (!isdigit(*p)) {
+                        /* Non-digit, non-dot, non-colon character */
+                        is_mpls_gateway = false;
+                        break;
+                    }
                 }
                 
-                gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
-                
-                if (is_ipv6_gateway) {
-                    /* Parse IPv6 gateway */
-                    gateway.prefix_len = 128;
-                    ipv6_addr_t v6_gw;
-                    inet_pton6((char *)gw_ip, &v6_gw);
-                    memcpy(gateway.u.v6_addr, v6_gw.addr, 16);
+                if (is_mpls_gateway && strlen((const char *)gw_ip) > 0) {
+                    /* Gateway is an MPLS label */
+                    char *endptr;
+                    long label_val = strtol((const char *)gw_ip, &endptr, 10);
+                    
+                    /* Validate it's a complete numeric value */
+                    if (*endptr == '\0' && endptr != (const char *)gw_ip && label_val >= 0) {
+                        uint32_t gw_label = (uint32_t)label_val;
+                        
+                        /* MPLS labels are 20-bit values (0 to 1048575) */
+                        if (gw_label > 1048575) {
+                            cprintf("Error: Invalid MPLS gateway label %u. Must be 0-1048575\n", gw_label);
+                            return -1;
+                        }
+                        
+                        /* Set gateway as MPLS label */
+                        gateway.afi = RTM_AF_LABEL;
+                        gateway.u.mpls_label = gw_label;
+                        gateway.prefix_len = 0; /* Not applicable for MPLS */
+                        
+                        cprintf("Debug: Parsed gateway as MPLS label: %u\n", gw_label);
+                    } else {
+                        cprintf("Error: Invalid gateway value '%s'\n", gw_ip);
+                        return -1;
+                    }
                 } else {
-                    /* Parse IPv4 gateway */
-                    gateway.prefix_len = 32;
-                    gateway.u.v4_addr = tcp_ip_convert_ip_p_to_n(gw_ip);
+                    /* Gateway is an IP address */
+                    bool is_ipv6_gateway = has_colon;
+                    
+                    gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                    
+                    if (is_ipv6_gateway) {
+                        /* Parse IPv6 gateway */
+                        gateway.prefix_len = 128;
+                        
+                        /* Validate IPv6 address format */
+                        struct in6_addr test_addr;
+                        if (inet_pton(AF_INET6, (const char *)gw_ip, &test_addr) != 1) {
+                            cprintf("Error: Invalid IPv6 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                        
+                        /* Parse and store IPv6 gateway */
+                        ipv6_addr_t v6_gw;
+                        inet_pton6((char *)gw_ip, &v6_gw);
+                        memcpy(gateway.u.v6_addr, v6_gw.addr, 16);
+                    } else {
+                        /* Parse IPv4 gateway */
+                        gateway.prefix_len = 32;
+                        uint32_t v4_gw = tcp_ip_convert_ip_p_to_n(gw_ip);
+                        if (v4_gw == 0 && strcmp((const char *)gw_ip, "0.0.0.0") != 0) {
+                            cprintf("Error: Invalid IPv4 gateway address '%s'\n", gw_ip);
+                            return -1;
+                        }
+                        gateway.u.v4_addr = v4_gw;
+                    }
                 }
             }
 
@@ -888,6 +1006,7 @@ rtm_install_route (
         return RTM_ERROR_NEXTHOP_CREATION_FAILED;
     }
 
+    nh->rtm = rtm;
     nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
     rtm_nh_proto_initialize (nh->rtm_nh_proto);
     rtm_nh_proto_copy (cp_nh_template->rtm_nh_proto, nh->rtm_nh_proto);
@@ -1008,7 +1127,8 @@ rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
     if (!nh) {
         return RTM_ERROR_NEXTHOP_CREATION_FAILED;
     }
-
+    
+    nh->rtm = rtm;
     rtm_nh_proto_initialize (&nh_proto_obj);
     rtm_nh_proto_copy (nh_template->rtm_nh_proto, &nh_proto_obj);
     nh->rtm_nh_proto = &nh_proto_obj;

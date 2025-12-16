@@ -209,20 +209,17 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
             /* LPM insertion failed, rollback AVL tree insertion */
             tracer(rtm->node->cptr, DRTM | DERR,
                    "RTM[%s] : ERROR(%s): Route %s LPM tree insertion failed, rolling back\n",
-                   rtm->name, rtm_error_to_string(lpm_result),
-                   rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+                   rtm->name, rtm_error_to_string(lpm_result), prefix_str);
 
             rtm_route_avl_remove(rtm, route, (avltree_t *)&rtm->route_tree, &route->route_glue);
             return lpm_result;
         }
 
         rtm_route_reference(route);
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Route %s added successfully to LPM tree\n",
+            rtm->name, prefix_str);
     }
-
-    tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s added successfully to LPM tree\n",
-        rtm->name,
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
     
     return RTM_SUCCESS;
 }
@@ -300,9 +297,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     if (existing) {
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR: NH %s already exists for route %s\n",
-            rtm->name,
-            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
-            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+            rtm->name, gw_str, prefix_str);
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }
 
@@ -311,9 +306,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     if (existing) {
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR: Data Plane NH %s already exists for route %s\n",
-            rtm->name,
-            rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
-            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+            rtm->name,gw_str, prefix_str );
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }    
     
@@ -338,9 +331,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route : %s , NH %s added successfully, Total NHs=%u Active=%s\n",
-        rtm->name,
-        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
-        rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
+        rtm->name, gw_str, prefix_str, 
         route->nh_count, nh->is_active ? "Yes" : "No");
 
     return RTM_SUCCESS;

@@ -87,6 +87,8 @@ typedef struct rtm_presentation_data_ {
 typedef struct rtm_ppt_nhidx_ {
     
     uint32_t nh_pidx;
+    /* backpointer to owning RTM*/
+    rtm_t *nh_pidx_rtm;
 
     /* If Nexthop is indirect, then sorted list (in increasing order) of 
         nhidx values of direct nexthops */
@@ -94,7 +96,13 @@ typedef struct rtm_ppt_nhidx_ {
 
     /* Pointer to separately allocated array of DNHs 
         Idx values*/
-    uint32_t *dnh_list;  
+    struct dnh{
+
+        uint32_t dnh_idx;
+        rtm_t *dnh_idx_rtm;
+    };
+
+    struct dnh *dnh_list;  
 
 }rtm_ppt_nhidx_t;
 
