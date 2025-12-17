@@ -1,38 +1,41 @@
 #ifndef __FIB_API__
 #define __FIB_API__
 
-#include "fib.h"
-#include "fib_common.h"
-#include "fib_nh.h"
 #include "../BitOp/bitmap.h"
+#include "fib_error.h"
 #include "../mtrie/mtrie.h"
+#include "../common/cmn_prefix.h"
 
-/* Convert FIB prefix to bitmap format for mtrie operations */
-void fib_prefix_to_bitmap(fib_prefix_t *prefix, bitmap_t *bm_prefix, bitmap_t *bm_mask);
+typedef struct node_ node_t;
+typedef struct pkt_block_ pkt_block_t;
+typedef struct fib_nh_ fib_nh_t;
+typedef struct fib_route_ fib_route_t;
 
-/* Convert bitmap back to FIB prefix format */
-void bitmap_to_fib_prefix(bitmap_t *bm_prefix, bitmap_t *bm_mask, uint16_t prefix_len, fib_prefix_t *prefix);
+/**
+ * =====================================================================================
+ * 
+ * FIB API Functions
+ * 
+ * This module provides key FIB (Forwarding Information Base) API functions including:
+ * - Stride length retrieval based on AFI
+ * - Packet destination extraction
+ * - Nexthop forwarding operations
+ * - Active nexthop selection for ECMP routes
+ * =====================================================================================
+ */
+
 
 /* Get stride length based on AFI */
-uint16_t fib_get_stride_len_from_afi(FIB_AFI_T afi);
+uint16_t fib_get_stride_len_from_afi(AFI_T afi);
 
 /* Extract destination address from packet based on header type */
-bool fib_extract_dest_from_pkt(pkt_block_t *pkt, fib_prefix_t *dest);
+bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest);
 
 /* Perform actual forwarding based on next hop */
-fib_error_t fib_forward_pkt_to_nh(fib_t *fib, pkt_block_t *pkt, fib_nh_t *nh);
+fib_error_t
+fib_forward_pkt_to_nh(node_t *node, pkt_block_t *pkt_block, fib_nh_t *nh);
 
-/* Free route data callback for mtrie */
-void fib_route_free_callback(mtrie_node_t *node);
-
-/* Convert prefix to string for display */
-void fib_prefix_to_str(fib_prefix_t *prefix, char *buffer, int buf_size);
-
-/* Get AFI name as string */
-const char *fib_afi_to_str(FIB_AFI_T afi);
-
-/* Get MPLS operation name as string */
-const char *fib_mpls_op_to_str(fib_mpls_op_t op);
+fib_nh_t* fib_get_active_nexthop(fib_route_t *route);
 
 #endif
 

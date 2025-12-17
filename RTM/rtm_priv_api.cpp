@@ -16,7 +16,6 @@
 #include "rtm_route.h"
 #include "rtm_nh.h"
 #include "rtm_enums.h"
-#include "rtm_common.h"
 #include "rtm_proto.h"
 #include "rtm_resolution.h"
 #include "rtm_presentation.h"
@@ -112,25 +111,25 @@ void
 
 
 char *
-rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+rtm_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
     
     uint32_t temp;
     char addr_buf[INET6_ADDRSTRLEN];
     
     switch(prefix->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             temp = htonl(prefix->u.v4_addr);
             inet_ntop(AF_INET, &temp, addr_buf, sizeof(addr_buf));
             snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
             break;
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             inet_ntop(AF_INET6, prefix->u.v6_addr, addr_buf, sizeof(addr_buf));
             snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
             break;
-        case RTM_AF_LABEL:
+        case AF_LABEL:
             snprintf(buffer, buflen, "%u", prefix->u.mpls_label);
             break;
-        case RTM_AFI_MAC:
+        case AF_MAC:
             snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
                     prefix->u.mac_addr[0], prefix->u.mac_addr[1], 
                     prefix->u.mac_addr[2], prefix->u.mac_addr[3],
@@ -143,25 +142,25 @@ rtm_format_prefix(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
 }
 
 /* Helper function to format nexthop (without prefix length) */
-char *rtm_format_nexthop(rtm_prefix_t *prefix, char *buffer, size_t buflen) {
+char *rtm_format_nexthop(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
     
     uint32_t temp;
     char addr_buf[INET6_ADDRSTRLEN];
     
     switch(prefix->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             temp = htonl(prefix->u.v4_addr);
             inet_ntop(AF_INET, &temp, addr_buf, sizeof(addr_buf));
             snprintf(buffer, buflen, "%s", addr_buf);
             break;
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             inet_ntop(AF_INET6, prefix->u.v6_addr, addr_buf, sizeof(addr_buf));
             snprintf(buffer, buflen, "%s", addr_buf);
             break;
-        case RTM_AF_LABEL:
+        case AF_LABEL:
             snprintf(buffer, buflen, "%u", prefix->u.mpls_label);
             break;
-        case RTM_AFI_MAC:
+        case AF_MAC:
             snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
                     prefix->u.mac_addr[0], prefix->u.mac_addr[1], 
                     prefix->u.mac_addr[2], prefix->u.mac_addr[3],
@@ -254,7 +253,7 @@ config_rtm_route_cli_handler(int cmdcode,
             char prefix_str[48];
             uint8_t mask;
             uint32_t mpls_label;
-            RTM_AFI_T afi;
+            AFI_T afi;
             bool is_mpls = false;
             bool is_ipv6_prefix = false;
 
@@ -266,7 +265,7 @@ config_rtm_route_cli_handler(int cmdcode,
                 sscanf((const char *)prefix_mask, "label: %u", &mpls_label) == 1) {
                 /* Explicit Label: format */
                 is_mpls = true;
-                afi = RTM_AF_LABEL;
+                afi = AF_LABEL;
                 
                 /* MPLS labels are 20-bit values (0 to 1048575) */
                 if (mpls_label > 1048575) {
@@ -284,7 +283,7 @@ config_rtm_route_cli_handler(int cmdcode,
 
                 /* Detect address family from prefix */
                 is_ipv6_prefix = (strchr(prefix_str, ':') != NULL);
-                afi = is_ipv6_prefix ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                afi = is_ipv6_prefix ? AF_IPV6 : AF_IPV4;
 
                 /* Validate the IP address format */
                 if (is_ipv6_prefix) {
@@ -347,7 +346,7 @@ config_rtm_route_cli_handler(int cmdcode,
                     /* It's a plain number - treat as MPLS label */
                     mpls_label = (uint32_t)label_val;
                     is_mpls = true;
-                    afi = RTM_AF_LABEL;
+                    afi = AF_LABEL;
                     
                     /* MPLS labels are 20-bit values (0 to 1048575) */
                     if (mpls_label > 1048575) {
@@ -371,7 +370,7 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             /* Prepare prefix */
-            rtm_prefix_t prefix;
+            cmn_prefix_t prefix;
             memset(&prefix, 0, sizeof(prefix));
             prefix.afi = afi;
 
@@ -394,7 +393,7 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             /* Prepare gateway */
-            rtm_prefix_t gateway;
+            cmn_prefix_t gateway;
             memset(&gateway, 0, sizeof(gateway));
             if (gw_ip) {
                 /* Check if gateway is an MPLS label or IP address */
@@ -436,7 +435,7 @@ config_rtm_route_cli_handler(int cmdcode,
                         }
                         
                         /* Set gateway as MPLS label */
-                        gateway.afi = RTM_AF_LABEL;
+                        gateway.afi = AF_LABEL;
                         gateway.u.mpls_label = gw_label;
                         gateway.prefix_len = 0; /* Not applicable for MPLS */
                         
@@ -449,7 +448,7 @@ config_rtm_route_cli_handler(int cmdcode,
                     /* Gateway is an IP address */
                     bool is_ipv6_gateway = has_colon;
                     
-                    gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                    gateway.afi = is_ipv6_gateway ? AF_IPV6 : AF_IPV4;
                     
                     if (is_ipv6_gateway) {
                         /* Parse IPv6 gateway */
@@ -537,7 +536,7 @@ config_rtm_route_cli_handler(int cmdcode,
             char prefix_str[48];
             uint8_t mask;
             uint32_t mpls_label;
-            RTM_AFI_T afi;
+            AFI_T afi;
             bool is_mpls = false;
             bool is_ipv6_prefix = false;
 
@@ -548,7 +547,7 @@ config_rtm_route_cli_handler(int cmdcode,
                 sscanf((const char *)prefix_mask, "Label: %u", &mpls_label) == 1 ||
                 sscanf((const char *)prefix_mask, "label: %u", &mpls_label) == 1) {
                 is_mpls = true;
-                afi = RTM_AF_LABEL;
+                afi = AF_LABEL;
                 
                 /* MPLS labels are 20-bit values (0 to 1048575) */
                 if (mpls_label > 1048575) {
@@ -565,7 +564,7 @@ config_rtm_route_cli_handler(int cmdcode,
 
                 /* Detect address family from prefix */
                 is_ipv6_prefix = (strchr(prefix_str, ':') != NULL);
-                afi = is_ipv6_prefix ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                afi = is_ipv6_prefix ? AF_IPV6 : AF_IPV4;
 
                 /* Validate the IP address format */
                 if (is_ipv6_prefix) {
@@ -628,7 +627,7 @@ config_rtm_route_cli_handler(int cmdcode,
                     /* It's a plain number - treat as MPLS label */
                     mpls_label = (uint32_t)label_val;
                     is_mpls = true;
-                    afi = RTM_AF_LABEL;
+                    afi = AF_LABEL;
                     
                     /* MPLS labels are 20-bit values (0 to 1048575) */
                     if (mpls_label > 1048575) {
@@ -652,7 +651,7 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             /* Prepare prefix */
-            rtm_prefix_t prefix;
+            cmn_prefix_t prefix;
             memset(&prefix, 0, sizeof(prefix));
             prefix.afi = afi;
 
@@ -675,7 +674,7 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             /* Prepare gateway */
-            rtm_prefix_t gateway;
+            cmn_prefix_t gateway;
             memset(&gateway, 0, sizeof(gateway));
             if (gw_ip) {
                 /* Check if gateway is an MPLS label or IP address */
@@ -717,7 +716,7 @@ config_rtm_route_cli_handler(int cmdcode,
                         }
                         
                         /* Set gateway as MPLS label */
-                        gateway.afi = RTM_AF_LABEL;
+                        gateway.afi = AF_LABEL;
                         gateway.u.mpls_label = gw_label;
                         gateway.prefix_len = 0; /* Not applicable for MPLS */
                         
@@ -730,7 +729,7 @@ config_rtm_route_cli_handler(int cmdcode,
                     /* Gateway is an IP address */
                     bool is_ipv6_gateway = has_colon;
                     
-                    gateway.afi = is_ipv6_gateway ? RTM_AF_IPV6 : RTM_AF_IPV4;
+                    gateway.afi = is_ipv6_gateway ? AF_IPV6 : AF_IPV4;
                     
                     if (is_ipv6_gateway) {
                         /* Parse IPv6 gateway */
@@ -840,16 +839,16 @@ rtm_get_by_name (node_t *node, char *rtm_name) {
         return NULL;
     }
     
-    /* Convert afi string to RTM_AFI_T */
-    RTM_AFI_T afi;
+    /* Convert afi string to AFI_T */
+    AFI_T afi;
     if (strcmp(afi_str, "inet") == 0) {
-        afi = RTM_AF_IPV4;
+        afi = AF_IPV4;
     } else if (strcmp(afi_str, "inet6") == 0) {
-        afi = RTM_AF_IPV6;
+        afi = AF_IPV6;
     } else if (strcmp(afi_str, "mpls") == 0) {
-        afi = RTM_AF_LABEL;
+        afi = AF_LABEL;
     } else if (strcmp(afi_str, "mac") == 0) {
-        afi = RTM_AFI_MAC;
+        afi = AF_MAC;
     } else {
         return NULL;
     }
@@ -881,7 +880,7 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
     }
     if (nh_template->proto != RTM_PROTO_LOCAL &&
         nh_template->proto != RTM_PROTO_CONNECTED &&
-        rtm_prefix_is_null (&nh_template->gateway)) {
+        cmn_prefix_is_null (&nh_template->gateway)) {
         return RTM_ERROR_INVALID_GATEWAY;
     }
     if (!nh_template->rtm_nh_proto) {
@@ -932,7 +931,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 rtm_error_t 
 rtm_install_route ( 
                 rtm_t *rtm, 
-                rtm_prefix_t *prefix,
+                cmn_prefix_t *prefix,
                 cp_nexthop_template_t *cp_nh_template) {
 
     char gw_str[128];
@@ -1091,7 +1090,7 @@ rtm_install_route (
 
 
 rtm_error_t 
-rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, 
+rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix, 
                          cp_nexthop_template_t *nh_template) {
 
     rtm_nh_proto_t nh_proto_obj;

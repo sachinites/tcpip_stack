@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 typedef struct rtm_  rtm_t;
-typedef struct rtm_prefix_ rtm_prefix_t;
+typedef struct cmn_prefix_ cmn_prefix_t;
 
 void rtm_show_rib (rtm_t *rtm);
 void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter);

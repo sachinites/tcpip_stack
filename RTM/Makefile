@@ -10,10 +10,10 @@ OBJS= rtm.o \
 		   rtm_proto.o \
 		   rtm_resolution.o \
 		   rtm_fib_interface.o \
-		   rtm_common.o \
 		   rtm_nb_integ.o \
 		   rtm_presentation.o \
 		   rtm_gc.o \
+		   rtm_fib_common.o \
 
 all: $(TARGET)
 

@@ -72,6 +72,7 @@ typedef struct lfa_ lfa_t;
 typedef struct vxlan_vni_db_ vxlan_vni_db_t;
 typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct rtm_ rtm_t;
+typedef struct fib_ fib_t;
 
 typedef struct node_nw_prop_{
 
@@ -97,6 +98,11 @@ typedef struct node_nw_prop_{
     rtm_t *inet6;
     rtm_t *mpls0;
     rtm_t *inet63;
+
+    /* FIBs */
+    fib_t *ipv4_fib;
+    fib_t *ipv6_fib;
+    fib_t *mpls_fib;
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;

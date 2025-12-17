@@ -7,6 +7,7 @@
 #include "../gluethread/glthread.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
+#include "../common/cmn_prefix.h"
 
 typedef struct node_ node_t;
 typedef struct rtm_nh_ rtm_nh;
@@ -20,7 +21,7 @@ typedef struct rtm_ {
 
     /* Keys */
     uint8_t vrf;
-    RTM_AFI_T afi;
+    AFI_T afi;
     uint32_t rtm_id;
 
     /* RTM name : vrf.inet[6]|mpls.table_id */
@@ -92,7 +93,7 @@ typedef struct rtm_ {
 
 #pragma pack(pop)
 
-rtm_t* rtm_initialize (uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id);
+rtm_t* rtm_initialize (uint8_t vrf, AFI_T afi, uint32_t rtm_id);
 void rtm_stop (rtm_t *rtm);
 void rtm_check_and_delete (rtm_t *rtm);
 

@@ -600,7 +600,7 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
 }
 
 static uint32_t 
-rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T proto) {
+rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, cmn_prefix_t *route, RTM_PROTO_T proto) {
 
     rtm_nh *nh;
     glthread_t *curr;
@@ -664,7 +664,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, rtm_prefix_t *route, RTM_PROTO_T p
 }
 
 void 
-rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t *route) {
+rtm_re_resolve_inhs (rtm_t *rtm, cmn_prefix_t *route) {
 
     /* BGP protocol */
     RTM_PROTO_T proto = RTM_PROTO_BGP;
@@ -674,7 +674,7 @@ rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t *route) {
 rtm_route *
 rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 
-    rtm_prefix_t *prefix;
+    cmn_prefix_t *prefix;
     rtm_route *resolver_route;
     rtm_t *lookup_rtm = rtm_get_resolver_rtm (rtm->node, inh);
 
@@ -684,11 +684,11 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 
     switch (prefix->afi) {
 
-        case RTM_AF_IPV4:
+        case AF_IPV4:
         {
             switch (lookup_rtm->afi) {
 
-                case RTM_AF_IPV4:
+                case AF_IPV4:
                 {
                     resolver_route = rtm_lpm_tree_lookup(lookup_rtm, prefix);
                     if (!resolver_route) return NULL;
@@ -701,11 +701,11 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
         break;
 
 
-        case RTM_AF_IPV6:
+        case AF_IPV6:
         {
             switch (lookup_rtm->afi) {
 
-                case RTM_AF_IPV6:
+                case AF_IPV6:
                 {
                     resolver_route = rtm_lpm_tree_lookup(lookup_rtm, prefix);
                     if (!resolver_route) return NULL;
@@ -718,11 +718,11 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
         break;        
 
 
-        case RTM_AF_LABEL:
+        case AF_LABEL:
         {
             switch (lookup_rtm->afi) {
 
-                case RTM_AF_LABEL:
+                case AF_LABEL:
                 {
                     resolver_route = rtm_route_lookup(lookup_rtm, prefix);
                     if (!resolver_route) return NULL;
@@ -743,18 +743,21 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 rtm_t *
 rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
-    /* Rule 1 : If the route is BGP VPNv4 route installed in Customer, 
-        VRF resolve it in default inet.3 table*/
+    /* Rule 1 : If the route is BGP VPNv4 route installed in Customer
+        VRF inet.0 table <x.inet.0> , resolve it in default inet.3 table*/
 
     if (indirect_nh->proto == RTM_PROTO_BGP &&
             indirect_nh->sub_proto == RTM_PROTO_BGP_VPN &&
-            indirect_nh->rtm->vrf != RTM_DEFAULT_VRF &&
-            indirect_nh->rtm->afi == RTM_AF_IPV4) {
+            indirect_nh->rtm->vrf != RTM_DEFAULT_VRF) {
 
-        if (indirect_nh->prefix.afi == RTM_AF_IPV4) 
+        //x.inet.0
+        if (indirect_nh->prefix.afi == AF_IPV4 &&
+                indirect_nh->rtm->afi == AF_IPV4) 
             return node->node_nw_prop.inet3;
 
-        else if (indirect_nh->prefix.afi == RTM_AF_IPV6) 
+        //x.inet63.0
+        if (indirect_nh->prefix.afi == AF_IPV6 &&
+                indirect_nh->rtm->afi == AF_IPV6) 
             return node->node_nw_prop.inet63;
 
         else return NULL;
@@ -764,9 +767,9 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
 
     /* Default Rules */
-    if (indirect_nh->prefix.afi == RTM_AF_IPV4) return node->node_nw_prop.inet0;
-    if (indirect_nh->prefix.afi == RTM_AF_IPV6) return node->node_nw_prop.inet6;
-    if (indirect_nh->prefix.afi == RTM_AF_LABEL) return node->node_nw_prop.mpls0;
+    if (indirect_nh->prefix.afi == AF_IPV4) return node->node_nw_prop.inet0;
+    if (indirect_nh->prefix.afi == AF_IPV6) return node->node_nw_prop.inet6;
+    if (indirect_nh->prefix.afi == AF_LABEL) return node->node_nw_prop.mpls0;
 
     return NULL;
 }
@@ -786,10 +789,6 @@ rtm_resolution_create_dnh_fwd_info (rtm_t *, rtm_nh *pnh,
                                     fib_nh_fwd_info_t *fwd_info_out) 
 {
     rtm_error_t rc = RTM_SUCCESS;
-
-    
-
-
     return rc;
 }
 
@@ -809,7 +808,6 @@ rtm_resolution_create_nh_fwd_info(rtm_t *rtm,
     memset (fwd_info_out, 0, sizeof (*fwd_info_out));
 
     if (cnh == NULL) {
-
         return rtm_resolution_create_dnh_fwd_info (rtm, pnh, fwd_info_out);
     }
 

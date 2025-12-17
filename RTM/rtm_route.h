@@ -7,7 +7,6 @@
 #include "../Tree/libtree.h"
 #include "rtm.h"
 #include "rtm_enums.h"
-#include "rtm_common.h"
 #include "rtm_error.h"
 #include "rtm_nh.h"
 
@@ -31,7 +30,7 @@ typedef struct rtm_route_ {
     glthread_t resolved_route_glue;
 
     /* Prefix for this route */
-    rtm_prefix_t prefix;
+    cmn_prefix_t prefix;
 
     uint16_t flags;
 
@@ -50,10 +49,10 @@ GLTHREAD_TO_STRUCT(advt_glue_to_route, rtm_route, advt_glue);
 
 /* Methods */
 void rtm_route_initialize(rtm_route *route);
-bool rtm_validate_with_route(rtm_t *rtm, rtm_prefix_t *prefix);
+bool rtm_validate_with_route(rtm_t *rtm, cmn_prefix_t *prefix);
 
 /* Route Mgmt Functions */
-rtm_route *rtm_route_lookup(rtm_t *rtm, rtm_prefix_t *prefix_key);
+rtm_route *rtm_route_lookup(rtm_t *rtm, cmn_prefix_t *prefix_key);
 rtm_error_t rtm_route_add(rtm_t *rtm, rtm_route *route);
 
 /* Nexthop Mgmt*/
@@ -73,8 +72,8 @@ rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route);
 void rtm_lpm_tree_init(rtm_t *rtm);
 void rtm_lpm_tree_destroy(rtm_t *rtm);
 rtm_error_t rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route);
-rtm_error_t rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix);
-rtm_route *rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix);
+rtm_error_t rtm_lpm_tree_delete(rtm_t *rtm, cmn_prefix_t *prefix);
+rtm_route *rtm_lpm_tree_lookup(rtm_t *rtm, cmn_prefix_t *prefix);
 
 void rtm_route_reference(rtm_route* route);
 uint32_t rtm_route_dereference(rtm_t *rtm, rtm_route* route);

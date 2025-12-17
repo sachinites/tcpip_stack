@@ -10,7 +10,6 @@
 #include "rtm_nh.h"
 #include "rtm_proto.h"
 #include "rtm_enums.h"
-#include "rtm_common.h"
 #include "rtm_priv_api.h"
 #include "rtm_presentation.h"
 #include "../prefix-list/prefixlst.h"
@@ -145,9 +144,9 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                 mpls_label_t *label = &nh->label_stack->labels[i];
                 const char *op_str = "UNK";
                 switch (label->op) {
-                    case RTM_LBL_SWAP: op_str = "Swap"; break;
-                    case RTM_LBL_PUSH: op_str = "Push"; break;
-                    case RTM_LBL_POP: op_str = "Pop"; break;
+                    case MPLS_OP_SWAP: op_str = "Swap"; break;
+                    case MPLS_OP_PUSH: op_str = "Push"; break;
+                    case MPLS_OP_POP: op_str = "Pop"; break;
                     default: break;
                 }
                 cprintf("[%u:%s]", label->label_val, op_str);
@@ -227,9 +226,9 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
     /* Find default route gateway if exists */
     char default_gw[48] = "not set";
     char default_net[48] = "0.0.0.0";
-    rtm_prefix_t default_prefix;
+    cmn_prefix_t default_prefix;
     memset(&default_prefix, 0, sizeof(default_prefix));
-    default_prefix.afi = RTM_AF_IPV4;
+    default_prefix.afi = AF_IPV4;
     default_prefix.prefix_len = 0;
     
     rtm_route *default_route = rtm_route_lookup(rtm, &default_prefix);
@@ -237,7 +236,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
         glthread_t *curr_glthread = NULL;
         ITERATE_GLTHREAD_BEGIN(&default_route->path_list, curr_glthread) {
             rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
-            if (nh->is_active && !rtm_prefix_is_null(&nh->prefix)) {
+            if (nh->is_active && !cmn_prefix_is_null(&nh->prefix)) {
                 rtm_format_nexthop(&nh->prefix, default_gw, sizeof(default_gw));
                 break;
             }
@@ -252,12 +251,12 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
     }
 
     /* Parse prefix filter if provided */
-    rtm_prefix_t filter_prefix;
+    cmn_prefix_t filter_prefix;
     bool has_filter = false;
     
     if (prefix_filter && strlen(prefix_filter) > 0) {
         memset(&filter_prefix, 0, sizeof(filter_prefix));
-        if (rtm_parse_prefix_string(prefix_filter, &filter_prefix) == 0) {
+        if (cmn_parse_prefix_string(prefix_filter, &filter_prefix) == 0) {
             has_filter = true;
         }
     }
@@ -275,7 +274,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
             if (filter_prefix.afi != route->prefix.afi ||
                 filter_prefix.prefix_len != route->prefix.prefix_len ||
                 memcmp(&filter_prefix.u, &route->prefix.u, 
-                       (filter_prefix.afi == RTM_AF_IPV4 ? 4 : 16)) != 0) {
+                       (filter_prefix.afi == AF_IPV4 ? 4 : 16)) != 0) {
                 continue;
             }
         }
@@ -349,7 +348,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                        if_name);
             } else {
                 /* Other routes: show with nexthop - format: code prefix [ad/metric] via gateway, time, interface */
-                if (rtm_prefix_is_null(&best_nh->prefix)) {
+                if (cmn_prefix_is_null(&best_nh->prefix)) {
                     /* No explicit nexthop (e.g., blackhole, reject) */
                     cprintf("%-4s %-18s [%u/%u], %s, %s\n",
                            proto_code,
@@ -413,7 +412,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                 }
                 
                 /* Display continuation line for additional nexthops */
-                if (!rtm_prefix_is_null(&nh->prefix)) {
+                if (!cmn_prefix_is_null(&nh->prefix)) {
                     cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
                            "",  /* Empty protocol code for continuation lines */
                            "",  /* Empty prefix for continuation lines */
@@ -442,13 +441,13 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
 void rtm_show_rib_detail(rtm_t *rtm, const char *prefix_filter) {
     
     /* Parse the prefix filter if provided */
-    rtm_prefix_t prefix_key;
+    cmn_prefix_t prefix_key;
     memset (&prefix_key, 0 , sizeof (prefix_key));
     
     bool has_filter = false;
     
     if (prefix_filter && strlen(prefix_filter) > 0) {
-        if (!rtm_parse_prefix_string(prefix_filter, &prefix_key)) {
+        if (!cmn_parse_prefix_string(prefix_filter, &prefix_key)) {
             cprintf("Error: Invalid prefix format '%s'\n", prefix_filter);
             cprintf("Expected formats: x.x.x.x/mask (IPv4), x:x::x/mask (IPv6), or label (MPLS)\n");
             return;
@@ -458,12 +457,12 @@ void rtm_show_rib_detail(rtm_t *rtm, const char *prefix_filter) {
         /* Validate AFI matches RTM */
         if (prefix_key.afi != rtm->afi) {
             cprintf("Error: Prefix AFI mismatch. RTM is %s but prefix is %s\n",
-                   (rtm->afi == RTM_AF_IPV4) ? "IPv4" :
-                   (rtm->afi == RTM_AF_IPV6) ? "IPv6" :
-                   (rtm->afi == RTM_AF_LABEL) ? "MPLS" : "Unknown",
-                   (prefix_key.afi == RTM_AF_IPV4) ? "IPv4" :
-                   (prefix_key.afi == RTM_AF_IPV6) ? "IPv6" :
-                   (prefix_key.afi == RTM_AF_LABEL) ? "MPLS" : "Unknown");
+                   (rtm->afi == AF_IPV4) ? "IPv4" :
+                   (rtm->afi == AF_IPV6) ? "IPv6" :
+                   (rtm->afi == AF_LABEL) ? "MPLS" : "Unknown",
+                   (prefix_key.afi == AF_IPV4) ? "IPv4" :
+                   (prefix_key.afi == AF_IPV6) ? "IPv6" :
+                   (prefix_key.afi == AF_LABEL) ? "MPLS" : "Unknown");
             return;
         }
     }
@@ -488,9 +487,9 @@ void rtm_show_rib_detail(rtm_t *rtm, const char *prefix_filter) {
     cprintf("\n========== RTM[%s] Detailed Route Information ==========\n", rtm->name);
     cprintf("VRF: %u, AFI: %s, Table ID: %u\n\n",
            rtm->vrf,
-           (rtm->afi == RTM_AF_IPV4) ? "IPv4" :
-           (rtm->afi == RTM_AF_IPV6) ? "IPv6" :
-           (rtm->afi == RTM_AF_LABEL) ? "MPLS" : "Unknown",
+           (rtm->afi == AF_IPV4) ? "IPv4" :
+           (rtm->afi == AF_IPV6) ? "IPv6" :
+           (rtm->afi == AF_LABEL) ? "MPLS" : "Unknown",
            rtm->rtm_id);
     
     /* Iterate through all routes */
@@ -740,7 +739,7 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
     }
     
     /* Parse filter if provided */
-    rtm_prefix_t filter_prefix;
+    cmn_prefix_t filter_prefix;
     bool has_filter = false;
     
     if (prefix_filter && strlen(prefix_filter) > 0) {
@@ -756,7 +755,7 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
             filter_prefix.prefix_len = 32;  // Default to /32
         }
         
-        filter_prefix.afi = RTM_AF_IPV4;
+        filter_prefix.afi = AF_IPV4;
         if (inet_pton(AF_INET, prefix_copy, &filter_prefix.u.v4_addr) == 1) {
             filter_prefix.u.v4_addr = ntohl(filter_prefix.u.v4_addr);
             has_filter = true;

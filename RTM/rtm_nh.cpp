@@ -132,7 +132,7 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     }
     
     // Compare prefix
-    int prefix_cmp = rtm_prefix_compare(&nh1->prefix, &nh2->prefix);
+    int prefix_cmp = cmn_prefix_compare(&nh1->prefix, &nh2->prefix);
     if (prefix_cmp != 0) {
         return prefix_cmp;
     }
@@ -167,7 +167,7 @@ rtm_nh_is_equal_in_data_plane(rtm_nh *nh1, rtm_nh *nh2) {
     }
     
     // Compare prefix
-    int prefix_cmp = rtm_prefix_compare(&nh1->prefix, &nh2->prefix);
+    int prefix_cmp = cmn_prefix_compare(&nh1->prefix, &nh2->prefix);
     if (prefix_cmp != 0) {
         return prefix_cmp;
     }
@@ -242,7 +242,7 @@ rtm_nh_compare_by_idx (const avltree_node_t *node1, const avltree_node_t *node2)
 int8_t 
 rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2) {
 
-    int8_t rc = rtm_prefix_compare (&nh1->prefix, &nh2->prefix);
+    int8_t rc = cmn_prefix_compare (&nh1->prefix, &nh2->prefix);
     if (!rc) return rc;
     if (nh1->outgoing_if  < nh2->outgoing_if) return -1;
     if (nh1->outgoing_if > nh2->outgoing_if) return 1; 
@@ -275,7 +275,7 @@ rtm_nh_initialize(rtm_nh* nh) {
     nh->metric = 0;
     nh->action = RTM_NH_ACTION_FORWARD;
     
-    memset(&nh->prefix, 0, sizeof(rtm_prefix_t));
+    memset(&nh->prefix, 0, sizeof(cmn_prefix_t));
     nh->outgoing_if = 0;
     
     nh->is_indirect = false;

@@ -23,14 +23,21 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include "../common/mpls_lstack.h"
 #include "fib.h"
 #include "../pkt_block.h"
 #include "../mtrie/mtrie.h"
 #include "fib_api.h"
 #include "fib_route.h"
 #include "fib_nh.h"
+#include "../RTM/rtm_fib_common.h"
+#include "../RTM/rtm_priv_api.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Interface/InterfaceUApi.h"
+
+extern int
+fib_nh_comp_fn(const avltree_node_t *node1, 
+                const avltree_node_t *node2);
 
 /**
  * Initialize FIB with appropriate stride length based on AFI
@@ -44,302 +51,59 @@
  *   - MPLS: 20 bits
  *   - MAC:  48 bits
  */
-fib_t *fib_init(FIB_AFI_T afi) {
+
+#define HASH_PRIME_CONST 5381
+
+static unsigned int
+hashfromkey(void *key)
+{
+    unsigned int hash = HASH_PRIME_CONST;
+    return hash;
+}
+
+static int
+equalkeys(void *k1, void *k2)
+{
+    return 0;
+}
+
+
+fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
     
     /* Allocate FIB structure */
     fib_t *fib = (fib_t *)XCALLOC2(0, 1, fib_t);
-    if (!fib) {
-        return NULL;
-    }
     
     /* Set AFI */
     fib->afi = afi;
+    fib->vrf_id = vrf_id;
     
-    /* Allocate mtrie */
-    fib->mtrie = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
-    if (!fib->mtrie) {
-        XFREE(fib);
-        return NULL;
+    switch (afi) {
+
+        case AF_IPV4:
+            fib->u.lpm = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
+            init_mtrie (fib->u.lpm, 32, 0);
+            break;
+        case AF_IPV6:
+            fib->u.lpm = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
+            init_mtrie (fib->u.lpm, 128, 0);
+            break;
+        case AF_LABEL:
+            fib->u.label_ht = create_hashtable(32, hashfromkey, equalkeys);
+            break;
+        default: ;
     }
-    
-    /* Get stride length based on AFI and initialize mtrie */
-    uint16_t stride_len = fib_get_stride_len_from_afi(afi);
-    if (stride_len == 0) {
-        XFREE(fib->mtrie);
-        XFREE(fib);
-        return NULL;
-    }
-    
-    /* Initialize mtrie with stride length and free callback */
-    init_mtrie(fib->mtrie, stride_len, fib_route_free_callback);
-    
+
+    avltree_init (&fib->nhs, fib_nh_comp_fn);
     return fib;
 }
 
-/**
- * Add a route to the FIB
- * 
- * @param fib     Pointer to FIB structure
- * @param prefix  Destination prefix to add
- * @param nh      Next hop information
- * @return        0 on success, error code on failure
- *
- * If the route already exists, the nexthop is added to the ECMP group.
- * Supports up to FIB_MAX_ECMP_NH (8) nexthops per route.
- */
-fib_error_t fib_add_route(fib_t *fib, fib_prefix_t *prefix, fib_nh_t *nh) {
+void 
+node_init_default_fib(node_t *node) {
     
-    if (!fib || !fib->mtrie || !prefix || !nh) {
-        return FIB_ERROR_INVALID_PARAM;
-    }
-    
-    /* Verify AFI matches */
-    if (prefix->afi != fib->afi) {
-        return FIB_ERROR_AFI_MISMATCH;
-    }
-    
-    /* Convert FIB prefix to bitmap format */
-    bitmap_t bm_prefix, bm_mask;
-    fib_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
-    
-    /* Try to insert or lookup existing route in mtrie */
-    mtrie_node_t *mnode = NULL;
-    mtrie_ops_result_code_t result = mtrie_insert_prefix(
-        fib->mtrie,
-        &bm_prefix,
-        &bm_mask,
-        prefix->prefix_len,
-        &mnode
-    );
-    
-    /* Check result */
-    if (result == MTRIE_INSERT_FAILED) {
-        bitmap_free_internal(&bm_prefix);
-        bitmap_free_internal(&bm_mask);
-        return FIB_ERROR_INSERT_FAILED;
-    }
-    
-    /* If this is a new route, allocate and initialize route structure */
-    if (result == MTRIE_INSERT_SUCCESS) {
-        
-        /* Allocate new route */
-        fib_route_t *route = (fib_route_t *)XCALLOC2(0, 1, fib_route_t);
-        if (!route) {
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_ALLOC_FAILED;
-        }
-        
-        /* Allocate and copy prefix */
-        route->prefix = (fib_prefix_t *)XCALLOC2(0, 1, fib_prefix_t);
-        if (!route->prefix) {
-            XFREE(route);
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_ALLOC_FAILED;
-        }
-        memcpy(route->prefix, prefix, sizeof(fib_prefix_t));
-        
-        /* Initialize nexthop array */
-        for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-            route->nh[i] = NULL;
-        }
-        
-        /* Initialize ECMP round-robin index */
-        route->nh_index = 0;
-        
-        /* Add first nexthop */
-        route->nh[0] = (fib_nh_t *)XCALLOC2(0, 1, fib_nh_t);
-        if (!route->nh[0]) {
-            XFREE(route->prefix);
-            XFREE(route);
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_ALLOC_FAILED;
-        }
-        
-        /* Copy nexthop data field by field */
-        route->nh[0]->idx = nh->idx;
-        route->nh[0]->gateway = nh->gateway;
-        route->nh[0]->oif = nh->oif;
-        route->nh[0]->lstack = NULL;
-        
-        /* Copy label stack if present */
-        if (nh->lstack) {
-            route->nh[0]->lstack = (fib_lstack_t *)XCALLOC2(0, 1, fib_lstack_t);
-            if (route->nh[0]->lstack) {
-                memcpy(route->nh[0]->lstack, nh->lstack, sizeof(fib_lstack_t));
-            }
-        }
-        
-        /* Store route in mtrie node */
-        mnode->data = (void *)route;
-        
-    } else if (result == MTRIE_INSERT_DUPLICATE) {
-        
-        /* Route already exists, add nexthop to ECMP group */
-        fib_route_t *route = (fib_route_t *)mnode->data;
-        
-        if (!route) {
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_NO_ROUTE_DATA;
-        }
-        
-        /* Find empty slot for new nexthop */
-        int empty_slot = -1;
-        for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-            if (route->nh[i] == NULL) {
-                empty_slot = i;
-                break;
-            }
-        }
-        
-        if (empty_slot == -1) {
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_ECMP_LIMIT;
-        }
-        
-        /* Add nexthop */
-        route->nh[empty_slot] = (fib_nh_t *)XCALLOC2(0, 1, fib_nh_t);
-        if (!route->nh[empty_slot]) {
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_ALLOC_FAILED;
-        }
-        
-        /* Copy nexthop data field by field */
-        route->nh[empty_slot]->idx = nh->idx;
-        route->nh[empty_slot]->gateway = nh->gateway;
-        route->nh[empty_slot]->oif = nh->oif;
-        route->nh[empty_slot]->lstack = NULL;
-        
-        /* Copy label stack if present */
-        if (nh->lstack) {
-            route->nh[empty_slot]->lstack = (fib_lstack_t *)XCALLOC2(0, 1, fib_lstack_t);
-            if (route->nh[empty_slot]->lstack) {
-                memcpy(route->nh[empty_slot]->lstack, nh->lstack, sizeof(fib_lstack_t));
-            }
-        }
-    }
-    
-    /* Clean up bitmaps */
-    bitmap_free_internal(&bm_prefix);
-    bitmap_free_internal(&bm_mask);
-    
-    return FIB_ERROR_SUCCESS;
+    node->node_nw_prop.ipv4_fib = fib_init(AF_IPV4, RTM_DEFAULT_VRF);
+    node->node_nw_prop.ipv6_fib = fib_init(AF_IPV6, RTM_DEFAULT_VRF);
+    node->node_nw_prop.mpls_fib = fib_init(AF_LABEL, RTM_DEFAULT_VRF);
 }
-
-/**
- * Delete a route from the FIB
- * 
- * @param fib     Pointer to FIB structure
- * @param prefix  Destination prefix to delete
- * @param nh      Specific nexthop to delete (NULL to delete entire route)
- * @return        0 on success, error code on failure
- *
- * If nh is NULL, the entire route is removed.
- * If nh is provided, only that specific nexthop is removed from the ECMP group.
- * If the last nexthop is removed, the entire route is deleted.
- */
-fib_error_t fib_del_route(fib_t *fib, fib_prefix_t *prefix, fib_nh_t *nh) {
-    
-    if (!fib || !fib->mtrie || !prefix) {
-        return FIB_ERROR_INVALID_PARAM;
-    }
-    
-    /* Verify AFI matches */
-    if (prefix->afi != fib->afi) {
-        return FIB_ERROR_AFI_MISMATCH;
-    }
-    
-    /* Convert FIB prefix to bitmap format */
-    bitmap_t bm_prefix, bm_mask;
-    fib_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
-    
-    /* If no specific nexthop provided, delete entire route */
-    if (!nh) {
-        
-        void *app_data = NULL;
-        mtrie_ops_result_code_t result = mtrie_delete_prefix(
-            fib->mtrie,
-            &bm_prefix,
-            &bm_mask,
-            &app_data
-        );
-        
-        bitmap_free_internal(&bm_prefix);
-        bitmap_free_internal(&bm_mask);
-        
-        if (result == MTRIE_DELETE_SUCCESS) {
-            return FIB_ERROR_SUCCESS;
-        } else {
-            return FIB_ERROR_ROUTE_NOT_FOUND;
-        }
-        
-    } else {
-        
-        /* Find the route and remove specific nexthop */
-        mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
-            fib->mtrie,
-            &bm_prefix,
-            &bm_mask
-        );
-        
-        if (!mnode || !mnode->data) {
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_ROUTE_NOT_FOUND;
-        }
-        
-        fib_route_t *route = (fib_route_t *)mnode->data;
-        
-        /* Find and remove the specific nexthop */
-        bool found = false;
-        int nh_count = 0;
-        
-        for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-            if (route->nh[i]) {
-                nh_count++;
-                
-                /* Match nexthop by index or gateway */
-                if (route->nh[i]->idx == nh->idx ||
-                    (route->nh[i]->gateway.afi == nh->gateway.afi &&
-                     route->nh[i]->gateway.u.v4_addr == nh->gateway.u.v4_addr)) {
-                    
-                    /* Free nexthop */
-                    if (route->nh[i]->lstack) {
-                        XFREE(route->nh[i]->lstack);
-                    }
-                    XFREE(route->nh[i]);
-                    route->nh[i] = NULL;
-                    found = true;
-                    nh_count--;
-                    break;
-                }
-            }
-        }
-        
-        if (!found) {
-            bitmap_free_internal(&bm_prefix);
-            bitmap_free_internal(&bm_mask);
-            return FIB_ERROR_NEXTHOP_NOT_FOUND;
-        }
-        
-        /* If no more nexthops, delete entire route */
-        if (nh_count == 0) {
-            void *app_data = NULL;
-            mtrie_delete_prefix(fib->mtrie, &bm_prefix, &bm_mask, &app_data);
-        }
-        
-        bitmap_free_internal(&bm_prefix);
-        bitmap_free_internal(&bm_mask);
-        
-        return FIB_ERROR_SUCCESS;
-    }
-}
-
 /**
  * Forward a packet using the FIB
  * 
@@ -357,95 +121,62 @@ fib_error_t fib_del_route(fib_t *fib, fib_prefix_t *prefix, fib_nh_t *nh) {
  * 5. Decrements TTL for IP packets
  * 6. Marks packet for forwarding (simulates hardware forwarding)
  */
-fib_error_t fib_forward(fib_t *fib, pkt_block_t *pkt) {
-    
-    if (!fib || !fib->mtrie || !pkt) {
-        return FIB_ERROR_INVALID_PARAM;
-    }
+fib_error_t 
+fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
     
     /* Extract destination address from packet */
-    fib_prefix_t dest;
+    fib_t *fib;
+    fib_route_t *route;
+    cmn_prefix_t dest;
+    
     if (!fib_extract_dest_from_pkt(pkt, &dest)) {
         return FIB_ERROR_EXTRACT_DEST_FAILED;
     }
     
-    /* Verify AFI matches */
-    if (dest.afi != fib->afi) {
-        return FIB_ERROR_AFI_MISMATCH;
+    /* VRF to be supported later ...*/
+    switch (dest.afi) {
+        case AF_IPV4:
+            fib = node->node_nw_prop.ipv4_fib;
+            break;
+        case AF_IPV6:
+            fib = node->node_nw_prop.ipv6_fib;
+            break;
+        case AF_LABEL:
+            fib = node->node_nw_prop.mpls_fib;
+            break;
+        default:
+            return FIB_ERROR_AFI_MISMATCH;
     }
-    
-    /* Convert destination to bitmap format */
-    bitmap_t bm_dest, bm_mask;
-    fib_prefix_to_bitmap(&dest, &bm_dest, &bm_mask);
-    
-    /* Perform lookup based on AFI type:
-     * - IPv4/IPv6: Use Longest Prefix Match (LPM)
-     * - MPLS/MAC: Use Exact Match
-     */
-    mtrie_node_t *mnode = NULL;
-    
-    if (fib->afi == FIB_AF_LABEL || fib->afi == FIB_AFI_MAC) {
-        /* MPLS and MAC require exact match lookup */
-        mnode = mtrie_exact_prefix_match_search(
-            fib->mtrie,
-            &bm_dest,
-            &bm_mask
-        );
-    } else {
-        /* IPv4 and IPv6 use longest prefix match */
-        mnode = mtrie_longest_prefix_match_search(
-            fib->mtrie,
-            &bm_dest
-        );
+   
+    if (fib->afi == AF_LABEL) {
+
+        mpls_label_val_t label_val = mpls_label_get_value (dest.u.mpls_label);
+        route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label_val);
+        if (!route) return FIB_ERROR_ROUTE_NOT_FOUND;
     }
-    
-    /* Clean up bitmaps */
-    bitmap_free_internal(&bm_dest);
-    bitmap_free_internal(&bm_mask);
-    
-    /* Check if route found */
-    if (!mnode || !mnode->data) {
-        return FIB_ERROR_NO_ROUTE;
+    else {
+
+        bitmap_t bm_dest, bm_mask;
+        cmn_prefix_to_bitmap(&dest, &bm_dest, &bm_mask);
+
+        mtrie_node_t *mnode = mtrie_longest_prefix_match_search(
+                                fib->u.lpm, &bm_dest);
+
+        bitmap_free_internal(&bm_dest);
+        bitmap_free_internal(&bm_mask);
+
+        if (!mnode) return FIB_ERROR_ROUTE_NOT_FOUND;
+        route = (fib_route_t *)mnode->data;
+        assert (route);
     }
-    
-    fib_route_t *route = (fib_route_t *)mnode->data;
     
     /* Get active nexthop (thread-safe round-robin for ECMP) */
     fib_nh_t *active_nh = NULL;
-    
-    /* Count valid nexthops and select one */
-    int valid_nh_count = 0;
-    for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-        if (route->nh[i]) {
-            valid_nh_count++;
-        }
-    }
-    
-    if (valid_nh_count == 0) {
-        return FIB_ERROR_NO_VALID_NEXTHOP;
-    }
-    
-    /* Select nexthop using round-robin (per-route index) */
-    int selected = route->nh_index % valid_nh_count;
-    route->nh_index++;
-    
-    int count = 0;
-    for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-        if (route->nh[i]) {
-            if (count == selected) {
-                active_nh = route->nh[i];
-                break;
-            }
-            count++;
-        }
-    }
-    
-    if (!active_nh) {
-        return FIB_ERROR_NO_VALID_NEXTHOP;
-    }
+
+    active_nh = fib_get_active_nexthop(route);
     
     /* Forward packet to selected nexthop */
-    return fib_forward_pkt_to_nh(fib, pkt, active_nh);
+    return fib_forward_pkt_to_nh(node, pkt, active_nh);
 }
 
 /**
@@ -460,116 +191,247 @@ void fib_show(fib_t *fib) {
     
     extern int cprintf(const char *fmt, ...);
     
-    if (!fib || !fib->mtrie) {
+    if (!fib) {
         cprintf("Error: Invalid FIB\n");
-        return;
-    }
-    
-    /* Check if FIB is empty */
-    if (IS_GLTHREAD_LIST_EMPTY(&fib->mtrie->list_head)) {
-        cprintf("FIB is empty (AFI: %s)\n", fib_afi_to_str(fib->afi));
         return;
     }
     
     /* Print header */
     cprintf("\n");
     cprintf("===============================================================================\n");
-    cprintf("FIB Table (AFI: %s)\n", fib_afi_to_str(fib->afi));
+    cprintf("FIB Table (AFI: %s)\n", 
+            fib->afi == AF_IPV4 ? "IPv4" :
+            fib->afi == AF_IPV6 ? "IPv6" :
+            fib->afi == AF_LABEL ? "MPLS" : "Unknown");
     cprintf("===============================================================================\n");
     
-    /* Determine lookup type */
-    const char *lookup_type = (fib->afi == FIB_AF_LABEL || fib->afi == FIB_AFI_MAC) 
-                              ? "Exact Match" : "Longest Prefix Match";
-    cprintf("Lookup Method: %s\n", lookup_type);
-    cprintf("Total Routes: %d\n", fib->mtrie->N);
-    cprintf("===============================================================================\n\n");
-    
-    /* Iterate through all routes in the FIB */
-    glthread_t *curr = NULL;
-    mtrie_node_t *mnode;
-    fib_route_t *route;
     int route_count = 0;
     char prefix_str[128];
-    char gateway_str[128];
+    char nh_addr_str[128];
     
-    ITERATE_GLTHREAD_BEGIN(&fib->mtrie->list_head, curr) {
+    /* Handle based on FIB type */
+    if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
         
-        mnode = list_glue_to_mtrie_node(curr);
-        route = (fib_route_t *)mnode->data;
-        
-        if (!route || !route->prefix) {
-            continue;
+        /* IP routes - use mtrie */
+        if (!fib->u.lpm) {
+            cprintf("Error: FIB LPM tree not initialized\n");
+            return;
         }
         
-        route_count++;
-        
-        /* Print route prefix */
-        fib_prefix_to_str(route->prefix, prefix_str, sizeof(prefix_str));
-        cprintf("Route %d: %s\n", route_count, prefix_str);
-        
-        /* Count and display nexthops */
-        int nh_count = 0;
-        for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-            if (route->nh[i]) {
-                nh_count++;
-            }
+        /* Check if FIB is empty */
+        if (IS_GLTHREAD_LIST_EMPTY(&fib->u.lpm->list_head)) {
+            cprintf("FIB is empty\n");
+            cprintf("===============================================================================\n\n");
+            return;
         }
         
-        if (nh_count == 0) {
-            cprintf("  -> No nexthops\n");
-        } else {
-            if (nh_count > 1) {
-                cprintf("  -> ECMP Group (%d nexthops):\n", nh_count);
+        cprintf("Lookup Method: Longest Prefix Match\n");
+        cprintf("Total Routes: %d\n", fib->u.lpm->N);
+        cprintf("===============================================================================\n\n");
+        
+        /* Iterate through all routes in the mtrie */
+        glthread_t *curr = NULL;
+        mtrie_node_t *mnode;
+        fib_route_t *route;
+        
+        ITERATE_GLTHREAD_BEGIN(&fib->u.lpm->list_head, curr) {
+            
+            mnode = list_glue_to_mtrie_node(curr);
+            route = (fib_route_t *)mnode->data;
+            
+            route_count++;
+            
+            /* Print route prefix */
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
+            cprintf("Route %d: %s\n", route_count, prefix_str);
+            
+            /* Count and display nexthops */
+            int nh_count = 0;
+            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                if (route->nhs[i]) {
+                    nh_count++;
+                }
             }
             
-            /* Display each nexthop */
-            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-                fib_nh_t *nh = route->nh[i];
-                if (!nh) continue;
-                
-                const char *prefix_str = (nh_count > 1) ? "     " : "  -> ";
-                
-                /* Gateway address */
-                if (nh->gateway.afi != FIB_AFI_MAX) {
-                    fib_prefix_to_str(&nh->gateway, gateway_str, sizeof(gateway_str));
-                    cprintf("%sNexthop: %s", prefix_str, gateway_str);
-                } else {
-                    cprintf("%sNexthop: -", prefix_str);
+            if (nh_count == 0) {
+                cprintf("  -> No nexthops\n");
+            } else {
+                if (nh_count > 1) {
+                    cprintf("  -> ECMP Group (%d nexthops, RR index: %u):\n", 
+                            nh_count, route->nh_index);
                 }
                 
-                /* Output interface */
-                if (nh->oif) {
-                    cprintf("  OIF: %s", nh->oif->if_name.c_str());
-                } else {
-                    cprintf("  OIF: none");
-                }
-                
-                /* Index */
-                cprintf("  (idx: %u)", nh->idx);
-                cprintf("  (hit_count: %u)", nh->hit_count);
-                cprintf("\n");
-                
-                /* Label stack if present */
-                if (nh->lstack && nh->lstack->curr_index > 0) {
-                    cprintf("%s   Label Stack: ", prefix_str);
+                /* Display each nexthop */
+                for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                    fib_nh_t *nh = route->nhs[i];
+                    if (!nh) continue;
                     
-                    for (int j = 0; j < FIB_MAX_LBL_DEPTH; j++) {
-                        if (nh->lstack->labels[j].op == FIB_LBL_STACK_OPS_UNKNOWN) {
-                            continue;
-                        }
-                        
-                        cprintf("[%u:%s] ", 
-                                nh->lstack->labels[j].label_val,
-                                fib_mpls_op_to_str(nh->lstack->labels[j].op));
+                    const char *indent = (nh_count > 1) ? "     " : "  -> ";
+                    
+                    /* Nexthop address */
+                    rtm_format_nexthop(&nh->fwd_info.nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                    cprintf("%sNexthop: %s", indent, nh_addr_str);
+                    
+                    /* Output interface */
+                    if (nh->fwd_info.oif) {
+                        cprintf("  OIF: %s", nh->fwd_info.oif->if_name.c_str());
+                    } else {
+                        cprintf("  OIF: none");
                     }
+                    
+                    /* Nexthop index and stats */
+                    cprintf("  (idx: %u)", route->nh_idx[i]);
+                    cprintf("  (hit: %u)", nh->hit_count);
+                    cprintf("  (ref: %u)", nh->ref_count);
                     cprintf("\n");
+                    
+                    /* MPLS label stack if present */
+                    if ((nh->fwd_info.fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) &&
+                        nh->fwd_info.u.mpls_fwd.label_stack) {
+                        
+                        mpls_lstack_t *lstack = nh->fwd_info.u.mpls_fwd.label_stack;
+                        if (lstack->curr_index > 0) {
+                            cprintf("%s   MPLS Stack: ", indent);
+                            
+                            for (int j = 0; j < lstack->curr_index; j++) {
+                                cprintf("[%u:%s] ", 
+                                        lstack->labels[j].label_val,
+                                        lstack->labels[j].op == MPLS_OP_PUSH ? "PUSH" :
+                                        lstack->labels[j].op == MPLS_OP_POP ? "POP" :
+                                        lstack->labels[j].op == MPLS_OP_SWAP ? "SWAP" : "UNK");
+                            }
+                            cprintf("\n");
+                        }
+                    }
+                    
+                    /* SRv6 segment list if present */
+                    if ((nh->fwd_info.fwd_flags & FIB_NH_FWD_F_IPV6_STCK) &&
+                        nh->fwd_info.u.v6_fwd.v6segment_lst &&
+                        nh->fwd_info.u.v6_fwd.n_segment_list > 0) {
+                        
+                        cprintf("%s   SRv6 Segments (%u): ", indent, 
+                                nh->fwd_info.u.v6_fwd.n_segment_list);
+                        
+                        for (int j = 0; j < nh->fwd_info.u.v6_fwd.n_segment_list; j++) {
+                            char seg_str[64];
+                            rtm_format_prefix(&nh->fwd_info.u.v6_fwd.v6segment_lst[j], 
+                                            seg_str, sizeof(seg_str));
+                            cprintf("[%s] ", seg_str);
+                        }
+                        cprintf("\n");
+                    }
                 }
             }
+            
+            cprintf("\n");
+            
+        } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
+        
+    } else if (fib->afi == AF_LABEL) {
+        
+        /* MPLS routes - use hash table */
+        if (!fib->u.label_ht) {
+            cprintf("Error: FIB hash table not initialized\n");
+            return;
         }
         
-        cprintf("\n");
+        unsigned int count = hashtable_count(fib->u.label_ht);
         
-    } ITERATE_GLTHREAD_END(&fib->mtrie->list_head, curr);
+        if (count == 0) {
+            cprintf("FIB is empty\n");
+            cprintf("===============================================================================\n\n");
+            return;
+        }
+        
+        cprintf("Lookup Method: Exact Match (MPLS Label)\n");
+        cprintf("Total Routes: %u\n", count);
+        cprintf("===============================================================================\n\n");
+        
+        /* Iterate through hash table */
+        hashtable_itr *itr = hashtable_iterator(fib->u.label_ht);
+        
+        if (itr) {
+            do {
+                uint32_t *label_key = (uint32_t *)hashtable_iterator_key(itr);
+                fib_route_t *route = (fib_route_t *)hashtable_iterator_value(itr);
+                
+                route_count++;
+                
+                /* Print route prefix (MPLS label) */
+                cprintf("Route %d: Label %u\n", route_count, *label_key);
+                
+                /* Count and display nexthops */
+                int nh_count = 0;
+                for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                    if (route->nhs[i]) {
+                        nh_count++;
+                    }
+                }
+                
+                if (nh_count == 0) {
+                    cprintf("  -> No nexthops\n");
+                } else {
+                    if (nh_count > 1) {
+                        cprintf("  -> ECMP Group (%d nexthops, RR index: %u):\n", 
+                                nh_count, route->nh_index);
+                    }
+                    
+                    /* Display each nexthop */
+                    for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                        fib_nh_t *nh = route->nhs[i];
+                        if (!nh) continue;
+                        
+                        const char *indent = (nh_count > 1) ? "     " : "  -> ";
+                        
+                        /* Nexthop address */
+                        rtm_format_nexthop(&nh->fwd_info.nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                        cprintf("%sNexthop: %s", indent, nh_addr_str);
+                        
+                        /* Output interface */
+                        if (nh->fwd_info.oif) {
+                            cprintf("  OIF: %s", nh->fwd_info.oif->if_name.c_str());
+                        } else {
+                            cprintf("  OIF: none");
+                        }
+                        
+                        /* Nexthop index and stats */
+                        cprintf("  (idx: %u)", route->nh_idx[i]);
+                        cprintf("  (hit: %u)", nh->hit_count);
+                        cprintf("  (ref: %u)", nh->ref_count);
+                        cprintf("\n");
+                        
+                        /* MPLS label stack if present */
+                        if ((nh->fwd_info.fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) &&
+                            nh->fwd_info.u.mpls_fwd.label_stack) {
+                            
+                            mpls_lstack_t *lstack = nh->fwd_info.u.mpls_fwd.label_stack;
+                            if (lstack->curr_index > 0) {
+                                cprintf("%s   MPLS Stack: ", indent);
+                                
+                                for (int j = 0; j < lstack->curr_index; j++) {
+                                    cprintf("[%u:%s] ", 
+                                            lstack->labels[j].label_val,
+                                            lstack->labels[j].op == MPLS_OP_PUSH ? "PUSH" :
+                                            lstack->labels[j].op == MPLS_OP_POP ? "POP" :
+                                            lstack->labels[j].op == MPLS_OP_SWAP ? "SWAP" : "UNK");
+                                }
+                                cprintf("\n");
+                            }
+                        }
+                    }
+                }
+                
+                cprintf("\n");
+                
+            } while (hashtable_iterator_advance(itr));
+            
+            XFREE(itr);
+        }
+        
+    } else {
+        cprintf("Error: Unsupported AFI\n");
+        return;
+    }
     
     cprintf("===============================================================================\n");
     cprintf("Total Routes Displayed: %d\n", route_count);

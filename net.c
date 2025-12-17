@@ -67,6 +67,7 @@ extern bool mac_table_entry_add(node_t *node, mac_table_t *mac_table,
 extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
         c_string src_mac, Interface *oif, uint32_t src_ip) ;
 extern void node_init_default_rtm(node_t *node) ;
+extern void node_init_default_fib(node_t *node);
 
 void
 interface_assign_mac_address (Interface *interface){
@@ -309,6 +310,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     mpls_rt_table_init (node, &(node_nw_prop->mpls_rt_table));
     ipv4_mpls_rt_table_init (node, &(node_nw_prop->ipv4_mpls_rt_table));
     node_init_default_rtm(node);
+    node_init_default_fib(node);
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);

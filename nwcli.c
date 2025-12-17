@@ -590,7 +590,7 @@ show_rtm_protocol_subscriptions_handler(int cmdcode, Stack_t *tlv_stack,
     }
 
     /* Get default RTM: VRF=0, AFI=IPv4, RTM ID=0 */
-    rtm_t *rtm = rtm_get(node, 0, RTM_AF_IPV4, 0);
+    rtm_t *rtm = rtm_get(node, 0, AF_IPV4, 0);
     if(!rtm){
         cprintf("Error : Default RTM not found for node %s\n", node_name);
         return -1;
@@ -642,7 +642,7 @@ show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
         }
     } else {
         /* Get default RTM: VRF=0, AFI=IPv4, RTM ID=0 */
-        rtm = rtm_get(node, 0, RTM_AF_IPV4, 0);
+        rtm = rtm_get(node, 0, AF_IPV4, 0);
         if (!rtm) {
             cprintf("Error : Default RTM not found for node %s\n", node_name);
             return -1;
@@ -758,17 +758,17 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                             intf, 0, PROTO_STATIC, true);
 
                     /* New RTM*/
-                    rtm_prefix_t  prefix, gateway;
-                    rtm_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
-                    rtm_prefix_initialize_v4 (&gateway, 0, 32);
+                    cmn_prefix_t  prefix, gateway;
+                    cmn_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
+                    cmn_prefix_initialize_v4 (&gateway, 0, 32);
 
                     if (gwip) {
                         gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
-                        rtm_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
+                        cmn_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
                     }
                     
                     uint32_t rc = cp_rtm_install_static_route (
-                        rtm_get(node,  intf->GetVRF(), RTM_AF_IPV4, 0), 
+                        rtm_get(node,  intf->GetVRF(), AF_IPV4, 0), 
                         &prefix,  &gateway, intf->GetSharedPtr(), 0);
 
                     if (!rc) {
@@ -798,19 +798,19 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                             mask, PROTO_STATIC, true);
 
                     /* New RTM*/
-                    rtm_prefix_t  prefix, gateway;
-                    rtm_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
-                    rtm_prefix_initialize_v4 (&gateway, 0, 32);
+                    cmn_prefix_t  prefix, gateway;
+                    cmn_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
+                    cmn_prefix_initialize_v4 (&gateway, 0, 32);
 
                     if (!gwip) return -1;
 
                     if (gwip) {
                         gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
-                        rtm_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
+                        cmn_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
                     }
                     
                     rtm_error_t rc = cp_rtm_uninstall_static_route (
-                        rtm_get(node,  intf->GetVRF(), RTM_AF_IPV4, 0), 
+                        rtm_get(node,  intf->GetVRF(), AF_IPV4, 0), 
                         &prefix,  &gateway, intf->GetSharedPtr(), 0);
 
                     if (rc != RTM_SUCCESS) {

@@ -7,7 +7,6 @@
 #include "rtm_nh.h"
 #include "rtm_presentation.h"
 #include "rtm_proto.h"
-#include "rtm_common.h"
 #include "rtm_gc.h"
 #include "rtm_priv_api.h"
 #include "../prefix-list/prefixlst.h"
@@ -103,10 +102,10 @@ rtm_ppt_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) 
     rtm_ppt_route_t *route1 = avltree_container_of(node1, rtm_ppt_route_t, route_glue);
     rtm_ppt_route_t *route2 = avltree_container_of(node2, rtm_ppt_route_t, route_glue);
     
-    rtm_prefix_t *p1 = &route1->prefix;
-    rtm_prefix_t *p2 = &route2->prefix;
+    cmn_prefix_t *p1 = &route1->prefix;
+    cmn_prefix_t *p2 = &route2->prefix;
     
-    return rtm_prefix_compare(p1, p2);
+    return cmn_prefix_compare(p1, p2);
 }
 
 void 
@@ -1252,7 +1251,7 @@ rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
     on this route 
 */
 void 
-rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix) {
+rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix) {
 
     char prefix_str[48];
     rtm_ppt_route_t *ppt_route;
@@ -1290,7 +1289,7 @@ rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix) {
 /* Should be called by RTM core when route is permanently deleted. 
     Should be called in the context of GC job only as per RTM design */
 void 
-rtm_ppt_unregister_route (rtm_t *rtm, rtm_prefix_t *prefix) {
+rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix) {
 
     char prefix_str[48];
     rtm_ppt_route_t *ppt_route;

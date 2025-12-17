@@ -22,7 +22,7 @@
 #include "rtm_gc.h"
 
 extern void 
-rtm_ppt_unregister_route (rtm_t *rtm, rtm_prefix_t *prefix);
+rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix);
 
 /* Unreference all resources held by this route. No need to
      Unreference resources which hold a ref count back to
@@ -79,8 +79,8 @@ rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
     rtm_route *route1 = avltree_container_of(node1, rtm_route, route_glue);
     rtm_route *route2 = avltree_container_of(node2, rtm_route, route_glue);
     
-    rtm_prefix_t *p1 = &route1->prefix;
-    rtm_prefix_t *p2 = &route2->prefix;
+    cmn_prefix_t *p1 = &route1->prefix;
+    cmn_prefix_t *p2 = &route2->prefix;
     
     // First compare AFI
     if (p1->afi != p2->afi) {
@@ -94,20 +94,20 @@ rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
     
     // Finally compare the address based on AFI
     switch (p1->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             if (p1->u.v4_addr < p2->u.v4_addr) return -1;
             if (p1->u.v4_addr > p2->u.v4_addr) return 1;
             return 0;
             
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             return memcmp(p1->u.v6_addr, p2->u.v6_addr, 16);
             
-        case RTM_AF_LABEL:
+        case AF_LABEL:
             if (p1->u.mpls_label < p2->u.mpls_label) return -1;
             if (p1->u.mpls_label > p2->u.mpls_label) return 1;
             return 0;
             
-        case RTM_AFI_MAC:
+        case AF_MAC:
             return memcmp(p1->u.mac_addr, p2->u.mac_addr, 6);
             
         default:
@@ -131,17 +131,17 @@ rtm_route_initialize(rtm_route* route) {
 }
 
 bool 
-rtm_validate_with_route (rtm_t *rtm,  rtm_prefix_t *prefix) {
+rtm_validate_with_route (rtm_t *rtm,  cmn_prefix_t *prefix) {
 
     if (!rtm || !prefix) return false;
-    if (prefix->afi >= RTM_AFI_MAX) return false;
+    if (prefix->afi >= AFI_MAX) return false;
     if (rtm->afi != prefix->afi ) return false;
     return true;
 }
 
 
 rtm_route *
-rtm_route_lookup( rtm_t* rtm, rtm_prefix_t* prefix_key) {
+rtm_route_lookup( rtm_t* rtm, cmn_prefix_t* prefix_key) {
     
     rtm_route temp_route;
     memset(&temp_route, 0, sizeof(rtm_route));
@@ -164,7 +164,7 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     char prefix_str[48];
     
     // Validate AFI
-    if (route->prefix.afi >= RTM_AFI_MAX) {
+    if (route->prefix.afi >= AFI_MAX) {
 
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR(%s) : Route %s : Add failed\n",
@@ -199,8 +199,8 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     /* Note: rtm_route_avl_insert already calls rtm_route_reference */
     
     /* Insert into LPM tree for fast longest prefix match lookups */
-    if (route->prefix.afi == RTM_AF_IPV4 ||
-        route->prefix.afi == RTM_AF_IPV6)
+    if (route->prefix.afi == AF_IPV4 ||
+        route->prefix.afi == AF_IPV6)
     {
         rtm_error_t lpm_result = rtm_lpm_tree_insert(rtm, route);
 
@@ -533,18 +533,18 @@ rtm_lpm_tree_init(rtm_t *rtm) {
     uint16_t prefix_len = 0;
     
     switch (rtm->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             prefix_len = 32;
             break;
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             prefix_len = 128;
             break;
-        case RTM_AF_LABEL:
+        case AF_LABEL:
             /* MPLS not supported for LPM tree as per requirements */
             XFREE(rtm->lpm_rt_tree);
             rtm->lpm_rt_tree = NULL;
             return;
-        case RTM_AFI_MAC:
+        case AF_MAC:
             /* MAC not typically used for LPM routing */
             XFREE(rtm->lpm_rt_tree);
             rtm->lpm_rt_tree = NULL;
@@ -591,21 +591,21 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
         return RTM_SUCCESS;
     }
 
-    if (route->prefix.afi != RTM_AF_IPV4 &&
-            route->prefix.afi !=  RTM_AF_IPV6) return RTM_ERROR_INVALID_ARGUMENT;
+    if (route->prefix.afi != AF_IPV4 &&
+            route->prefix.afi !=  AF_IPV6) return RTM_ERROR_INVALID_ARGUMENT;
     
-    bitmap_init(&prefix_bm, route->prefix.afi == RTM_AF_IPV4 ? 32 : 128);
-    bitmap_init(&wildcard_bm, route->prefix.afi == RTM_AF_IPV4 ? 32 : 128);
+    bitmap_init(&prefix_bm, route->prefix.afi == AF_IPV4 ? 32 : 128);
+    bitmap_init(&wildcard_bm, route->prefix.afi == AF_IPV4 ? 32 : 128);
     
     /* Convert prefix to bitmap */
-    rtm_prefix_to_bitmap(&route->prefix, &prefix_bm);
-    rtm_prefix_to_wildcard_bitmap(&route->prefix, &wildcard_bm);
+    cmn_prefix_to_bitmap(&route->prefix, &prefix_bm);
+    cmn_prefix_to_wildcard_bitmap(&route->prefix, &wildcard_bm);
     
     /* Insert into mtrie */
     result = mtrie_insert_prefix(rtm->lpm_rt_tree, 
                                   &prefix_bm, 
                                   &wildcard_bm,
-                                  route->prefix.afi == RTM_AF_IPV4 ? 32 : 128,
+                                  route->prefix.afi == AF_IPV4 ? 32 : 128,
                                   &mnode);
     
     if (result == MTRIE_INSERT_SUCCESS) {
@@ -647,7 +647,7 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
 
 /* Delete route from LPM tree */
 rtm_error_t 
-rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix) {
+rtm_lpm_tree_delete(rtm_t *rtm, cmn_prefix_t *prefix) {
     
     bitmap_t prefix_bm, wildcard_bm;
     void *app_data = NULL;
@@ -666,10 +666,10 @@ rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix) {
     /* Initialize bitmaps based on AFI */
     uint16_t prefix_len = 0;
     switch (prefix->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             prefix_len = 32;
             break;
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             prefix_len = 128;
             break;
         default:
@@ -680,8 +680,8 @@ rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix) {
     bitmap_init(&wildcard_bm, prefix_len);
     
     /* Convert prefix to bitmap */
-    rtm_prefix_to_bitmap(prefix, &prefix_bm);
-    rtm_prefix_to_wildcard_bitmap(prefix, &wildcard_bm);
+    cmn_prefix_to_bitmap(prefix, &prefix_bm);
+    cmn_prefix_to_wildcard_bitmap(prefix, &wildcard_bm);
     
     /* Delete from mtrie */
     result = mtrie_delete_prefix(rtm->lpm_rt_tree, 
@@ -710,7 +710,7 @@ rtm_lpm_tree_delete(rtm_t *rtm, rtm_prefix_t *prefix) {
 
 /* Longest Prefix Match lookup in LPM tree */
 rtm_route *
-rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix) {
+rtm_lpm_tree_lookup(rtm_t *rtm, cmn_prefix_t *prefix) {
     
     bitmap_t prefix_bm;
     mtrie_node_t *mnode = NULL;
@@ -727,10 +727,10 @@ rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix) {
     /* Initialize bitmap based on AFI */
     uint16_t prefix_len = 0;
     switch (prefix->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             prefix_len = 32;
             break;
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             prefix_len = 128;
             break;
         default:
@@ -740,7 +740,7 @@ rtm_lpm_tree_lookup(rtm_t *rtm, rtm_prefix_t *prefix) {
     bitmap_init(&prefix_bm, prefix_len);
     
     /* Convert prefix to bitmap */
-    rtm_prefix_to_bitmap(prefix, &prefix_bm);
+    cmn_prefix_to_bitmap(prefix, &prefix_bm);
     
     /* Perform LPM search */
     mnode = mtrie_longest_prefix_match_search(rtm->lpm_rt_tree, &prefix_bm);

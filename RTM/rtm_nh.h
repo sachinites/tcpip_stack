@@ -4,11 +4,11 @@
 
 #include <stdint.h>
 #include <time.h>
+#include "../common/cmn_prefix.h"
 #include "../gluethread/glthread.h"
 #include "../Tree/libtree.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "rtm_common.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
@@ -56,7 +56,7 @@ typedef struct rtm_nh_ {
         RTM_NH_ACTION_TYPE_T action;
 
         /* Nexthop prefix */
-        rtm_prefix_t prefix;
+        cmn_prefix_t prefix;
 
         /* Outgoing Interface*/
         InterfaceP Oif;
@@ -83,7 +83,7 @@ typedef struct rtm_nh_ {
         /*SRv6 Stack*/
         Srv6_endpcode_t endfn;
         uint8_t n_segment_list;
-        rtm_prefix_t *v6segment_lst;
+        cmn_prefix_t *v6segment_lst;
 
         time_t install_time;
         uint32_t ref_count;

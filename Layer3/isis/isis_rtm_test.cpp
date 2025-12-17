@@ -6,7 +6,6 @@
 #include "../../RTM/rtm_error.h"
 #include "../../RTM/rtm_nh.h"
 #include "../../RTM/rtm_priv_api.h"
-#include "../../RTM/rtm_common.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 
@@ -23,7 +22,7 @@ static void isis_rtm_test_cbk (
 
 void isis_rtm_test(node_t *node)
 {
-    rtm_t *rtm = rtm_get(node, RTM_DEFAULT_VRF, RTM_AF_IPV4, 0);
+    rtm_t *rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV4, 0);
 
     cp_rtm_protocol_register(rtm, RTM_PROTO_ISIS, 0, RTM_DEFAULT_VRF);
 

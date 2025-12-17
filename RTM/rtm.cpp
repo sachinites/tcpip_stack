@@ -7,7 +7,6 @@
 #include "../gluethread/glthread.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "rtm.h"
-#include "rtm_common.h"
 #include "rtm_route.h"
 #include "rtm_proto.h"
 #include "rtm_nh.h"
@@ -51,7 +50,7 @@ rtm_proto_info_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node
 
 /* Initialize a new RTM instance */
 rtm_t *
-rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
+rtm_initialize(uint8_t vrf, AFI_T afi, uint32_t rtm_id) {
     
     rtm_t *rtm = (rtm_t *)XCALLOC2 (0, 1, rtm_t);
 
@@ -60,8 +59,8 @@ rtm_initialize(uint8_t vrf, RTM_AFI_T afi, uint32_t rtm_id) {
     rtm->rtm_id = rtm_id;
     
     snprintf (rtm->name, sizeof(rtm->name), "%d.%s.%d", vrf, 
-        afi == RTM_AF_IPV4 ? "inet" : afi == RTM_AF_IPV6 ? \
-        "inet6" :  afi == RTM_AF_LABEL ? "mpls" : "mac",
+        afi == AF_IPV4 ? "inet" : afi == AF_IPV6 ? \
+        "inet6" :  afi == AF_LABEL ? "mpls" : "mac",
         rtm_id);
 
     rtm_lpm_tree_init(rtm);
@@ -112,10 +111,13 @@ void rtm_check_and_delete (rtm_t *rtm) {
     assert (rtm->rt_resolution_job == NULL);
     assert (rtm->route_advt_prep_job == NULL);
     assert (rtm->advt_job == NULL);
+    assert (rtm->gc_job == NULL);
 
     /* Destroy LPM tree */
     assert (mtrie_is_leaf_node(rtm->lpm_rt_tree->root));
     assert (avltree_is_empty (&rtm->ppt_db_route_tree));
+
+    assert (Fglthread_list_is_empty(&rtm->gc_queue) );
 
     XFREE(rtm);
 }

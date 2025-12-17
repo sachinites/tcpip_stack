@@ -182,4 +182,8 @@ tcp_ip_generate_random_mac_address (unsigned char (*mac)[6]) ;
 
 uint32_t apply_mask2 (uint32_t prefix, uint8_t mask);
 
+#define RTM_UP_TIME(time_t_obj, buff, size)	\
+	hrs_min_sec_format((unsigned int)difftime(time(NULL), \
+                                        time_t_obj), buff, size)
+
 #endif /* __UTILS__ */

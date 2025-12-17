@@ -1,16 +1,6 @@
 #ifndef __RTM_ENUMS__
 #define __RTM_ENUMS__
 
-typedef enum RTM_AFI_ {
-
-    RTM_AF_IPV4,
-    RTM_AF_IPV6,
-    RTM_AF_LABEL,
-    RTM_AFI_MAC,
-    RTM_AFI_MAX
-
-} RTM_AFI_T;
-
 typedef enum protocols_ {
 
     RTM_PROTO_STATIC, 
@@ -77,30 +67,7 @@ typedef enum rtm_admin_dist_ {
     
 } RTM_AD_T;
 
-typedef enum rtm_mpls_op_ {
-
-    RTM_LBL_STACK_OPS_UNKNOWN,
-    RTM_LBL_SWAP,
-    RTM_LBL_CONTINUE = RTM_LBL_SWAP,
-    RTM_LBL_NEXT,
-    RTM_LBL_PUSH = RTM_LBL_NEXT,
-    RTM_LBL_POP
-
-} rtm_mpls_op_t;
-
 #define RTM_DEFAULT_VRF 0
-
-
-/* Helper function to convert AFI to string */
-static const char* rtm_afi_to_string(RTM_AFI_T afi) {
-    switch(afi) {
-        case RTM_AF_IPV4: return "IPv4";
-        case RTM_AF_IPV6: return "IPv6";
-        case RTM_AF_LABEL: return "MPLS";
-        case RTM_AFI_MAC: return "MAC";
-        default: return "Unknown";
-    }
-}
 
 /* Helper function to convert protocol to string */
 static const char* rtm_proto_to_string(RTM_PROTO_T proto) {

@@ -60,11 +60,11 @@ void
 node_init_default_rtm(node_t *node) {
 
     node_nw_prop_t *node_nw_prop = &node->node_nw_prop;
-    node_nw_prop->inet0    =  rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 0); // inet.0
-    node_nw_prop->inet3    = rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV4, 3); // inet.3
-    node_nw_prop->mpls0  =  rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_LABEL, 0); // mpls.0
-    node_nw_prop->inet6    = rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 0); // inet6.0
-    node_nw_prop->inet63  = rtm_initialize (RTM_DEFAULT_VRF, RTM_AF_IPV6, 3); // inet6.3
+    node_nw_prop->inet0    =  rtm_initialize (RTM_DEFAULT_VRF, AF_IPV4, 0); // inet.0
+    node_nw_prop->inet3    = rtm_initialize (RTM_DEFAULT_VRF, AF_IPV4, 3); // inet.3
+    node_nw_prop->mpls0  =  rtm_initialize (RTM_DEFAULT_VRF, AF_LABEL, 0); // mpls.0
+    node_nw_prop->inet6    = rtm_initialize (RTM_DEFAULT_VRF, AF_IPV6, 0); // inet6.0
+    node_nw_prop->inet63  = rtm_initialize (RTM_DEFAULT_VRF, AF_IPV6, 3); // inet6.3
     node_nw_prop->inet0->node   = node;
     node_nw_prop->inet3->node   = node;
     node_nw_prop->mpls0->node = node;
@@ -73,23 +73,23 @@ node_init_default_rtm(node_t *node) {
 }
 
 rtm_t *
-rtm_get(node_t *node, uint8_t vrf, RTM_AFI_T afi, uint8_t rtm_id) {
+rtm_get(node_t *node, uint8_t vrf, AFI_T afi, uint8_t rtm_id) {
 
     if (vrf == RTM_DEFAULT_VRF) {
 
-        if (afi == RTM_AF_IPV4) {
+        if (afi == AF_IPV4) {
 
             if (rtm_id == 0) return node->node_nw_prop.inet0;
             if (rtm_id == 3) return node->node_nw_prop.inet3;
         }
 
-        else if (afi == RTM_AF_IPV6) {
+        else if (afi == AF_IPV6) {
 
             if (rtm_id == 0) return node->node_nw_prop.inet6;
             if (rtm_id == 3) return node->node_nw_prop.inet63;
         }
 
-        else if (afi == RTM_AF_LABEL) {
+        else if (afi == AF_LABEL) {
 
             if (rtm_id == 0) return node->node_nw_prop.mpls0;
         }
@@ -106,9 +106,9 @@ cp_rtm_install_local_or_connected_v4_routes (
             InterfaceP Oif) {
 
     char addr_str[32];
-    rtm_prefix_t route;
+    cmn_prefix_t route;
     uint16_t fwd_flags = 0;
-    route.afi = RTM_AF_IPV4;
+    route.afi = AF_IPV4;
     route.prefix_len = mask;
     route.u.v4_addr = prefix;
     rtm_nh_proto_t *nh_proto = NULL;
@@ -156,8 +156,8 @@ cp_rtm_install_local_or_connected_v4_routes (
 uint32_t
 cp_rtm_install_static_route (
         rtm_t *rtm,
-        rtm_prefix_t *prefix, 
-        rtm_prefix_t *gateway,
+        cmn_prefix_t *prefix, 
+        cmn_prefix_t *gateway,
         InterfaceP oif, uint32_t cost) {
 
     char gw_str[32];
@@ -180,11 +180,11 @@ cp_rtm_install_static_route (
 
     switch (gateway->afi) {
 
-        case RTM_AF_IPV4:
+        case AF_IPV4:
         fwd_flags |= FIB_NH_FWD_F_IPV4;
         break;
 
-        case RTM_AF_IPV6:
+        case AF_IPV6:
         fwd_flags |= FIB_NH_FWD_F_IPV6;
         break;
     }
@@ -218,8 +218,8 @@ cp_rtm_install_static_route (
 rtm_error_t
 cp_rtm_uninstall_static_route (
         rtm_t *rtm,
-        rtm_prefix_t *prefix, 
-        rtm_prefix_t *gateway,
+        cmn_prefix_t *prefix, 
+        cmn_prefix_t *gateway,
         InterfaceP oif, uint32_t cost) {
 
     uint16_t fwd_flags = 0;
@@ -246,11 +246,11 @@ cp_rtm_uninstall_static_route (
 
     switch (gateway->afi) {
 
-        case RTM_AF_IPV4:
+        case AF_IPV4:
         fwd_flags |= FIB_NH_FWD_F_IPV4;
         break;
 
-        case RTM_AF_IPV6:
+        case AF_IPV6:
         fwd_flags |= FIB_NH_FWD_F_IPV6;
         break;
     }
@@ -264,7 +264,7 @@ cp_rtm_uninstall_static_route (
 rtm_error_t 
 cp_rtm_install_route ( 
         rtm_t *rtm, 
-        rtm_prefix_t *prefix,
+        cmn_prefix_t *prefix,
         cp_nexthop_template_t *cp_nh_template) {
 
     if (cp_nh_template->proto == RTM_PROTO_LDP) 
@@ -313,7 +313,7 @@ cp_rtm_uninstall_route_by_idx (
 }
 
 rtm_error_t 
-cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix, 
+cp_rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix, 
                          cp_nexthop_template_t *nh_template) {
 
     return rtm_uninstall_route ( rtm, prefix, nh_template) ;
@@ -321,7 +321,7 @@ cp_rtm_uninstall_route ( rtm_t *rtm, rtm_prefix_t *prefix,
 
 /* Delete all nexthops whether Active or Inactive for a given protocol */
 uint32_t
-cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, rtm_prefix_t *route,  RTM_PROTO_T proto) {
+cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T proto) {
 
     uint32_t deleted_count = 0;
     glthread_t *curr;
@@ -412,13 +412,13 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto) {
 rtm_error_t
 cp_rtm_install_route_advanced (
     rtm_t *rtm,
-    rtm_prefix_t *prefix,
+    cmn_prefix_t *prefix,
     RTM_PROTO_T proto,
     RTM_SUB_PROTO_T sub_proto,
     uint32_t instance_no,
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
-    rtm_prefix_t *gateway,
+    cmn_prefix_t *gateway,
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count) {
@@ -455,20 +455,20 @@ cp_rtm_install_route_advanced (
     nh_template.metric = metric;
 
     /* Set gateway if provided */
-    if (gateway && !rtm_prefix_is_null(gateway)) {
+    if (gateway && !cmn_prefix_is_null(gateway)) {
         nh_template.gateway = *gateway;
 
         switch (gateway->afi) {
 
-            case RTM_AF_IPV4:
+            case AF_IPV4:
             fwd_flags |= FIB_NH_FWD_F_IPV4;
             break;
 
-            case RTM_AF_IPV6:
+            case AF_IPV6:
             fwd_flags |= FIB_NH_FWD_F_IPV6;
             break;
             
-            case RTM_AF_LABEL:
+            case AF_LABEL:
             /* MPLS label as gateway - for label swap operations */
             fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
             break;
@@ -524,13 +524,13 @@ cp_rtm_install_route_advanced (
 rtm_error_t
 cp_rtm_uninstall_route_advanced (
     rtm_t *rtm,
-    rtm_prefix_t *prefix,
+    cmn_prefix_t *prefix,
     RTM_PROTO_T proto,
     RTM_SUB_PROTO_T sub_proto,
     uint32_t instance_no,
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
-    rtm_prefix_t *gateway,
+    cmn_prefix_t *gateway,
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count) {
@@ -568,16 +568,16 @@ cp_rtm_uninstall_route_advanced (
     nh_template.is_resolved = true;
 
     /* Set gateway if provided */
-    if (gateway && !rtm_prefix_is_null(gateway)) {
+    if (gateway && !cmn_prefix_is_null(gateway)) {
         nh_template.gateway = *gateway;
 
         switch (gateway->afi) {
 
-            case RTM_AF_IPV4:
+            case AF_IPV4:
             fwd_flags |= FIB_NH_FWD_F_IPV4;
             break;
 
-            case RTM_AF_IPV6:
+            case AF_IPV6:
             fwd_flags |= FIB_NH_FWD_F_IPV6;
             break;
         }

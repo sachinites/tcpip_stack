@@ -6,15 +6,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "rtm_common.h"
+#include "cmn_prefix.h"
+#include "../FIB/fib_api.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "../BitOp/bitmap.h"
 #include "../utils.h"
 
-bool rtm_prefix_is_null (rtm_prefix_t *prefix) {
+bool cmn_prefix_is_null (cmn_prefix_t *prefix) {
 
     /* For MPLS labels, check if label value is zero */
-    if (prefix->afi == RTM_AF_LABEL) {
+    if (prefix->afi == AF_LABEL) {
         return (prefix->u.mpls_label == 0);
     }
     
@@ -24,23 +25,23 @@ bool rtm_prefix_is_null (rtm_prefix_t *prefix) {
 }
 
 void 
-rtm_prefix_initialize_v4(rtm_prefix_t *prefix, uint32_t ip_addr, uint8_t mask) {
+cmn_prefix_initialize_v4(cmn_prefix_t *prefix, uint32_t ip_addr, uint8_t mask) {
 
     prefix->u.v4_addr = ip_addr;
     prefix->prefix_len = mask;
-    prefix->afi = RTM_AF_IPV4;
+    prefix->afi = AF_IPV4;
 }
 
 void 
-rtm_prefix_initialize_v6(rtm_prefix_t *prefix, uint8_t addr[16], uint8_t mask) {
+cmn_prefix_initialize_v6(cmn_prefix_t *prefix, uint8_t addr[16], uint8_t mask) {
 
     memcpy(prefix->u.v6_addr, addr, 16);
     prefix->prefix_len = mask;
-    prefix->afi = RTM_AF_IPV6;
+    prefix->afi = AF_IPV6;
 }
 
 int8_t
-rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) {
+cmn_prefix_compare(const cmn_prefix_t *p1, const cmn_prefix_t *p2) {
     
     if (!p1 && p2) return 1;
     if (p1 && !p2) return -1;
@@ -58,20 +59,20 @@ rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) {
     
     // Finally compare the address based on AFI
     switch (p1->afi) {
-        case RTM_AF_IPV4:
+        case AF_IPV4:
             if (p1->u.v4_addr < p2->u.v4_addr) return -1;
             if (p1->u.v4_addr > p2->u.v4_addr) return 1;
             return 0;
             
-        case RTM_AF_IPV6:
+        case AF_IPV6:
             return memcmp(p1->u.v6_addr, p2->u.v6_addr, 16);
             
-        case RTM_AF_LABEL:
+        case AF_LABEL:
             if (p1->u.mpls_label < p2->u.mpls_label) return -1;
             if (p1->u.mpls_label > p2->u.mpls_label) return 1;
             return 0;
             
-        case RTM_AFI_MAC:
+        case AF_MAC:
             return memcmp(p1->u.mac_addr, p2->u.mac_addr, 6);
             
         default:
@@ -79,22 +80,22 @@ rtm_prefix_compare(const rtm_prefix_t *p1, const rtm_prefix_t *p2) {
     }
 }
 
-/* Helper function: Convert rtm_prefix_t to bitmap for mtrie operations */
+/* Helper function: Convert cmn_prefix_t to bitmap for mtrie operations */
 void 
-rtm_prefix_to_bitmap(rtm_prefix_t *prefix, bitmap_t *bm) {
+cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm) {
     
     if (!prefix || !bm) return;
     
     switch (prefix->afi) {
         
-        case RTM_AF_IPV4: {
+        case AF_IPV4: {
             /* For IPv4, convert to network byte order and store in bitmap */
             uint32_t bin_ip = htonl(prefix->u.v4_addr);
             bm->bits[0] = bin_ip;
             bm->next += 32;
             break;
         }
-        case RTM_AF_IPV6: {
+        case AF_IPV6: {
             /* For IPv6, copy 16 bytes directly to bitmap */
             uint8_t *bm_array = (uint8_t *)(bm->bits + bm->next);
             for (int i = 0; i < 16; i++) {
@@ -111,7 +112,7 @@ rtm_prefix_to_bitmap(rtm_prefix_t *prefix, bitmap_t *bm) {
 
 /* Helper function: Convert prefix length to wildcard bitmap (inverted mask) */
 void 
-rtm_prefix_to_wildcard_bitmap(rtm_prefix_t *prefix, bitmap_t *wildcard) {
+cmn_prefix_to_wildcard_bitmap(cmn_prefix_t *prefix, bitmap_t *wildcard) {
     
     /* Set bits that are part of the prefix to 0 (care about these bits) */
     /* Set bits beyond the prefix length to 1 (don't care) */
@@ -121,24 +122,24 @@ rtm_prefix_to_wildcard_bitmap(rtm_prefix_t *prefix, bitmap_t *wildcard) {
     }
     
     /* Invert to get wildcard (1 = don't care, 0 = care) */
-    bitmap_inverse(wildcard, prefix->afi == RTM_AF_IPV4 ? 32 : 128);
+    bitmap_inverse(wildcard, prefix->afi == AF_IPV4 ? 32 : 128);
 }
 
-/* Helper function to parse prefix string into rtm_prefix_t structure
+/* Helper function to parse prefix string into cmn_prefix_t structure
  * Supports IPv4 (x.x.x.x/mask), IPv6 (x:x::x/mask), and MPLS labels
  * Returns true on success, false on failure
  */
-bool rtm_parse_prefix_string(const char *prefix_str, rtm_prefix_t *prefix) {
+bool cmn_parse_prefix_string(const char *prefix_str, cmn_prefix_t *prefix) {
     
     if (!prefix_str || !prefix) {
         return false;
     }
     
-    memset(prefix, 0, sizeof(rtm_prefix_t));
+    memset(prefix, 0, sizeof(cmn_prefix_t));
     
     /* Check if this is an MPLS label (just a number) */
-    char *slash_pos = strchr(prefix_str, '/');
-    char *colon_pos = strchr(prefix_str, ':');
+    char *slash_pos = strchr((char *)prefix_str, '/');
+    char *colon_pos = strchr((char *)prefix_str, ':');
     
     /* If no slash and no colon in initial part, treat as MPLS label */
     if (!slash_pos && !colon_pos) {
@@ -149,7 +150,7 @@ bool rtm_parse_prefix_string(const char *prefix_str, rtm_prefix_t *prefix) {
             }
             prefix->u.mpls_label = label;
             prefix->prefix_len = 0;
-            prefix->afi = RTM_AF_LABEL;
+            prefix->afi = AF_LABEL;
             return true;
         }
         return false;
@@ -185,7 +186,7 @@ bool rtm_parse_prefix_string(const char *prefix_str, rtm_prefix_t *prefix) {
         
         memcpy(prefix->u.v6_addr, v6_addr.addr, 16);
         prefix->prefix_len = mask;
-        prefix->afi = RTM_AF_IPV6;
+        prefix->afi = AF_IPV6;
         return true;
     }
     
@@ -212,13 +213,118 @@ bool rtm_parse_prefix_string(const char *prefix_str, rtm_prefix_t *prefix) {
     }
     
     /* Parse IPv4 address */
-    uint32_t ip_addr = tcp_ip_convert_ip_p_to_n(addr_str);
+    uint32_t ip_addr = tcp_ip_convert_ip_p_to_n((c_string)addr_str);
     if (ip_addr == 0 && strcmp(addr_str, "0.0.0.0") != 0) {
         return false;
     }
     
     prefix->u.v4_addr = ip_addr;
     prefix->prefix_len = mask;
-    prefix->afi = RTM_AF_IPV4;
+    prefix->afi = AF_IPV4;
     return true;
+}
+
+/* Convert FIB prefix to bitmap format for mtrie operations */
+void 
+cmn_prefix_to_bitmap(cmn_prefix_t *prefix, 
+                     bitmap_t *bm_prefix, 
+                     bitmap_t *bm_mask) {
+    
+    uint16_t stride_len = fib_get_stride_len_from_afi(prefix->afi);
+    uint32_t mask_bits;
+    
+    bitmap_init(bm_prefix, stride_len);
+    bitmap_init(bm_mask, stride_len);
+    
+    switch (prefix->afi) {
+        case AF_IPV4:
+            /* For IPv4, convert to network byte order */
+            bm_prefix->bits[0] = htonl(prefix->u.v4_addr);
+            
+            /* Create mask: all 1s for prefix_len bits, then 0s */
+            if (prefix->prefix_len == 0) {
+                mask_bits = 0;
+            } else if (prefix->prefix_len >= 32) {
+                mask_bits = 0xFFFFFFFF;
+            } else {
+                mask_bits = 0xFFFFFFFF << (32 - prefix->prefix_len);
+            }
+            /* Wildcard mask: 1 means don't care, 0 means care */
+            bm_mask->bits[0] = htonl(~mask_bits);
+            break;
+            
+        case AF_IPV6:
+            /* For IPv6, convert 8 uint16_t to bitmap */
+            for (int i = 0; i < 8; i++) {
+                uint16_t val = htons(prefix->u.v6_addr[i]);
+                if (i % 2 == 0) {
+                    bm_prefix->bits[i / 2] = (uint32_t)val << 16;
+                } else {
+                    bm_prefix->bits[i / 2] |= val;
+                }
+            }
+            
+            /* Create wildcard mask for IPv6 */
+            for (int i = 0; i < 4; i++) {
+                if (prefix->prefix_len <= i * 32) {
+                    bm_mask->bits[i] = 0xFFFFFFFF;
+                } else if (prefix->prefix_len >= (i + 1) * 32) {
+                    bm_mask->bits[i] = 0;
+                } else {
+                    uint8_t bits_in_word = prefix->prefix_len - (i * 32);
+                    mask_bits = 0xFFFFFFFF << (32 - bits_in_word);
+                    bm_mask->bits[i] = htonl(~mask_bits);
+                }
+            }
+            break;
+            
+        case AF_LABEL:
+            /* For MPLS label, only use 20 bits */
+            bm_prefix->bits[0] = (prefix->u.mpls_label & 0xFFFFF) << 12;
+            
+            if (prefix->prefix_len == 0) {
+                mask_bits = 0;
+            } else if (prefix->prefix_len >= 20) {
+                mask_bits = 0xFFFFF << 12;
+            } else {
+                mask_bits = (0xFFFFF << (20 - prefix->prefix_len)) << 12;
+            }
+            bm_mask->bits[0] = ~mask_bits;
+            break;
+            
+        case AF_MAC:
+            /* For MAC address, convert 6 bytes to bitmap */
+            bm_prefix->bits[0] = ((uint32_t)prefix->u.mac_addr[0] << 24) |
+                                 ((uint32_t)prefix->u.mac_addr[1] << 16) |
+                                 ((uint32_t)prefix->u.mac_addr[2] << 8) |
+                                 ((uint32_t)prefix->u.mac_addr[3]);
+            bm_prefix->bits[1] = ((uint32_t)prefix->u.mac_addr[4] << 24) |
+                                 ((uint32_t)prefix->u.mac_addr[5] << 16);
+            
+            /* Create wildcard mask for MAC */
+            if (prefix->prefix_len >= 32) {
+                bm_mask->bits[0] = 0;
+                uint8_t remaining = prefix->prefix_len - 32;
+                if (remaining >= 16) {
+                    bm_mask->bits[1] = 0;
+                } else if (remaining > 0) {
+                    mask_bits = 0xFFFF << (16 - remaining);
+                    bm_mask->bits[1] = ~(mask_bits << 16);
+                } else {
+                    bm_mask->bits[1] = 0xFFFFFFFF;
+                }
+            } else {
+                if (prefix->prefix_len > 0) {
+                    mask_bits = 0xFFFFFFFF << (32 - prefix->prefix_len);
+                    bm_mask->bits[0] = ~mask_bits;
+                } else {
+                    bm_mask->bits[0] = 0xFFFFFFFF;
+                }
+                bm_mask->bits[1] = 0xFFFFFFFF;
+            }
+            break;
+            
+        default:
+            break;
+    }
 }

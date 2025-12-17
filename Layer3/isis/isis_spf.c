@@ -5,7 +5,6 @@
 #include "isis_policy.h"
 #include "isis_ted.h"
 #include "../ipv6/v6nexthop.h"
-#include "../../RTM/rtm_common.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 
@@ -220,11 +219,11 @@ isis_rt_ipv4_route_add (
                                 Interface *oif,
                                 uint32_t metric) {
  
-    rtm_t *rtm = rtm_get (node, oif->GetVRF(), RTM_AF_IPV4, 0);
-    rtm_prefix_t rtm_prefix, rtm_gateway;
+    rtm_t *rtm = rtm_get (node, oif->GetVRF(), AF_IPV4, 0);
+    cmn_prefix_t rtm_prefix, rtm_gateway;
 
-    rtm_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
-    rtm_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+    cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
+    cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
 
     cp_rtm_install_route_advanced (
         rtm,
@@ -248,11 +247,11 @@ isis_rt_ipv4_route_del (
                                 Interface *oif,
                                 uint32_t metric) {
  
-    rtm_t *rtm = rtm_get (node, oif->GetVRF(), RTM_AF_IPV4, 0);
-    rtm_prefix_t rtm_prefix, rtm_gateway;
+    rtm_t *rtm = rtm_get (node, oif->GetVRF(), AF_IPV4, 0);
+    cmn_prefix_t rtm_prefix, rtm_gateway;
 
-    rtm_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
-    rtm_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+    cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
+    cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
 
     cp_rtm_uninstall_route_advanced (
         rtm,
@@ -286,7 +285,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Clear all routes except direct routes*/
     clear_rt_table(rt_table, PROTO_ISIS);
     cp_rtm_uninstall_routes_by_proto  (
-            rtm_get ( spf_root, RTM_DEFAULT_VRF, RTM_AF_IPV4, 0), RTM_PROTO_ISIS);
+            rtm_get ( spf_root, RTM_DEFAULT_VRF, AF_IPV4, 0), RTM_PROTO_ISIS);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/

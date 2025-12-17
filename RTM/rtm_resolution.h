@@ -9,7 +9,6 @@
 #include "../Tree/libtree.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "rtm_common.h"
 #include "rtm_fib_common.h"
 
 typedef struct rtm_ rtm_t;
@@ -54,7 +53,7 @@ void
 rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh);
 
 void 
-rtm_re_resolve_inhs (rtm_t *rtm, rtm_prefix_t  *route);
+rtm_re_resolve_inhs (rtm_t *rtm, cmn_prefix_t  *route);
 
 void 
 rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) ;

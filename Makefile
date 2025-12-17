@@ -27,6 +27,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			-L../RDBMSImplementation/SqlParser -ldbms \
 			-L../MathExpressionParser -lMexpr \
 			-LRTM -lrtm \
+			-LFIB -lfib \
 			-lpthread \
 			-lpq \
 		    -lrt \
@@ -96,6 +97,7 @@ OBJS=gluethread/glthread.o \
 		  Interface/InterfaceCli.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
+		  common/cmn_prefix.o \
 		  dpdk/layer3/dp_rtm.o \
 		  lmm_reg.o \
 		  sql_cli.o \
@@ -148,7 +150,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a FIB/libfib.a
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -185,6 +187,9 @@ graph.o:graph.c
 
 common/cp2dp.o:common/cp2dp.cpp
 	${CC} ${CFLAGS} -c -I . common/cp2dp.cpp -o common/cp2dp.o
+
+common/cmn_prefix.o:common/cmn_prefix.cpp
+	${CC} ${CFLAGS} -c -I . common/cmn_prefix.cpp -o common/cmn_prefix.o
 
 cli_interface.o:cli_interface.c
 	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
@@ -329,6 +334,8 @@ ${LFA_LIB}:
 	(cd Layer3/LFA; make)
 RTM/librtm.a:
 	(cd RTM; make)
+FIB/libfib.a:
+	(cd FIB; make)
 
 clean:
 	rm -f *.o
@@ -377,3 +384,4 @@ cleanall:
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
 	(cd RTM; make clean)
+	(cd FIB; make clean)

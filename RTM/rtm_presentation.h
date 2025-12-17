@@ -2,7 +2,7 @@
 #define __RTM_PRESENTATION__
 
 #include "rtm_enums.h"
-#include "rtm_common.h"
+#include "../common/cmn_prefix.h"
 #include "../Tree/libtree.h"
 #include "../gluethread/glthread.h"
 
@@ -54,7 +54,7 @@ typedef struct rtm_rt_subscription_ {
 typedef struct rtm_presentation_data_ {
 
     /* Route prefix being advertised */
-    rtm_prefix_t route;
+    cmn_prefix_t route;
     /* Pointer to nexthop being added, if deleted it would be NULL*/
     rtm_nh *nh; 
     /*Indirect Nexthop being resolved by nh, May be NULL for delete operation*/            
@@ -64,7 +64,7 @@ typedef struct rtm_presentation_data_ {
     /* Nexthop Entire Src Proto info */
     rtm_nh_proto_t *rtm_nh_proto;
     /* Nh Addr*/
-    rtm_prefix_t nh_addr;
+    cmn_prefix_t nh_addr;
     /* Prefix List to match*/
     prefix_list_t *prefix_list;
     /* Add or Delete operation , Update not supported*/
@@ -108,7 +108,7 @@ typedef struct rtm_ppt_nhidx_ {
 
 typedef struct rtm_ppt_route_ {
 
-    rtm_prefix_t prefix; // key
+    cmn_prefix_t prefix; // key
 
     /* AVL tree glue for route_tree in rtm_ppt_db_entry_t */
     avltree_node_t route_glue;
@@ -133,8 +133,8 @@ void rtm_on_demand_route_request (
 /* APIs over RTM PPT DB */
 void rtm_ppt_db_initialize (rtm_t *rtm);
 void rtm_ppt_db_destroy (rtm_t *rtm);
-void rtm_ppt_register_route (rtm_t *rtm, rtm_prefix_t *prefix);
-void rtm_ppt_unregister_route (rtm_t *rtm, rtm_prefix_t *prefix);
+void rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix);
+void rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix);
 void rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route);
 
 #endif 
