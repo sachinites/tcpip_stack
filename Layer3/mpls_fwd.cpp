@@ -17,8 +17,8 @@ demote_pkt_to_layer2(node_t *node,
 static int
 mpls_rt_table_equalkeys(void *k1, void *k2)
 {
-    label_val_t *ky1 = (label_val_t *)k1;
-    label_val_t *ky2 = (label_val_t *)k2;
+    mpls_label_val_t *ky1 = (mpls_label_val_t *)k1;
+    mpls_label_val_t *ky2 = (mpls_label_val_t *)k2;
 
     /* Keys are already decoded values, compare directly */
 
@@ -30,7 +30,7 @@ mpls_rt_table_equalkeys(void *k1, void *k2)
 static unsigned int
 hashfromkey_label (void *key)
 {
-    label_val_t *key1 = (label_val_t *)key;
+    mpls_label_val_t *key1 = (mpls_label_val_t *)key;
     return (unsigned int) (*key1);
 }
 
@@ -61,11 +61,11 @@ mpls_rt_table_init (node_t *node, mpls_rt_table_t **mpls_rt_table) {
 /* Algorithm : 
     Lookup if the hashtable if the route already exist , if already exist, add a nexthop to it */
 bool
-mpls_install_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
+mpls_install_route (node_t *node, mpls_label_val_t in_label, nexthop_t *nxthop) {
 
     hashtable_t *ht; 
     /* Look up the mpls rt table using in_label as key*/
-    label_val_t label_val = get_label_value (in_label);
+    mpls_label_val_t label_val = mpls_label_get_value (in_label);
 
     ht = NODE_MPLS_RT_TABLE (node)->ht;
 
@@ -82,7 +82,7 @@ mpls_install_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
         nexthop_reference(nxthop);
         mpls_route->nh_count = 1;
         /* Allocate key and store decoded label value for consistency with search */
-        label_val_t *key = (label_val_t *)calloc(1, sizeof(label_val_t));
+        mpls_label_val_t *key = (mpls_label_val_t *)calloc(1, sizeof(mpls_label_val_t));
         *key = label_val;  // Use decoded value, same as search
         hashtable_insert(ht, (void *)key, (void *)mpls_route);
         tracer (node->dptr, DMPLS, "MPLS RIB : New Mpls Route %d added successfully", label_val);
@@ -102,14 +102,14 @@ mpls_install_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
 }
 
 void
-mpls_uninstall_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
+mpls_uninstall_route (node_t *node, mpls_label_val_t in_label, nexthop_t *nxthop) {
 
     bool rc;
     hashtable_t *ht; 
     nexthop_t * removed_nh;
 
     /* Look up the mpls rt table using in_label as key*/
-    label_val_t label_val = get_label_value (in_label);
+    mpls_label_val_t label_val = mpls_label_get_value (in_label);
 
     ht = NODE_MPLS_RT_TABLE (node)->ht;
 
@@ -141,47 +141,47 @@ mpls_uninstall_route (node_t *node, label_val_t in_label, nexthop_t *nxthop) {
 }
 
 void 
-mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, lstack_t *lstack) {
+mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
 
     int i = 0;
     bool s_bit = false;
     pkt_size_t pkt_size;
-    label_val_t *pkt_label;
+    mpls_label_val_t *pkt_label;
 
     for (i = 0; i < MAX_LBL_DEPTH; i++) {
 
-        if (lstack->labels[i].op == LBL_STACK_OPS_UNKNOWN) continue;
+        if (lstack->labels[i].op == MPLS_OP_STACK_OPS_UNKNOWN) continue;
 
         switch (lstack->labels[i].op ) {
 
-            case LBL_POP:
+            case MPLS_OP_POP:
                 if (pkt_block_get_starting_hdr (pkt_block) == MPLS_HDR) {
-                    pkt_label = (label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
-                    if (is_stack_bottom (*pkt_label)) s_bit = true;
-                    pkt_block_set_new_pkt (pkt_block, (uint8_t *)(pkt_label + 1), pkt_size - sizeof (label_val_t));
+                    pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+                    if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
+                    pkt_block_set_new_pkt (pkt_block, (uint8_t *)(pkt_label + 1), pkt_size - sizeof (mpls_label_val_t));
                     if (s_bit) pkt_block_set_starting_hdr_type (pkt_block,  MISC_APP_HDR);
                 }
             break;
 
 
-            case LBL_PUSH:
-                pkt_block_expand_buffer_left (pkt_block, sizeof (label_val_t));
-                pkt_label = (label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
-                set_label_value (pkt_label, get_label_value (lstack->labels[i].label_val ));
+            case MPLS_OP_PUSH:
+                pkt_block_expand_buffer_left (pkt_block, sizeof (mpls_label_val_t));
+                pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+                mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
                 if (pkt_block_get_starting_hdr (pkt_block) != MPLS_HDR) {
                     pkt_block_set_starting_hdr_type (pkt_block, MPLS_HDR);
-                    set_stack_bottom (pkt_label);
+                    mpls_label_set_stack_bottom (pkt_label);
                 }
             break;
 
 
-            case LBL_SWAP:
+            case MPLS_OP_SWAP:
                 s_bit = false;
                 if (pkt_block_get_starting_hdr (pkt_block) == MPLS_HDR) {
-                    pkt_label = (label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
-                    if (is_stack_bottom (*pkt_label)) s_bit = true;
-                    set_label_value (pkt_label, get_label_value (lstack->labels[i].label_val ));
-                    if (s_bit) set_stack_bottom (pkt_label);
+                    pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+                    if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
+                    mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
+                    if (s_bit) mpls_label_set_stack_bottom (pkt_label);
                 }
             break;
 
@@ -257,8 +257,8 @@ mpls_route_pkt (node_t *node, Interface *recv_intf, pkt_block_t *pkt_block) {
     hashtable_t *ht; 
     pkt_size_t pkt_size;
 
-    label_val_t *pkt_label = (label_val_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-    label_val_t label_val = get_label_value(*pkt_label);
+    mpls_label_val_t *pkt_label = (mpls_label_val_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    mpls_label_val_t label_val = mpls_label_get_value(*pkt_label);
 
     ht = NODE_MPLS_RT_TABLE (node)->ht;
 
@@ -309,7 +309,7 @@ mpls_display_routing_table (node_t *node) {
 
     while ((mpls_route = (mpls_route_t *)hashtable_iterator_value(itr))) {
 
-        cprintf ("In-label : %d\n", get_label_value(mpls_route->in_label));
+        cprintf ("In-label : %d\n", mpls_label_get_value(mpls_route->in_label));
 
         FOR_ALL_LABELLED_NXTHOP_PROTO(nh_proto) {
 
@@ -332,10 +332,10 @@ mpls_display_routing_table (node_t *node) {
                 
                 for (int j = 0; j < MAX_LBL_DEPTH; j++) {
 
-                    if (nexthop->lbls->labels[j].op == LBL_STACK_OPS_UNKNOWN) continue;
+                    if (nexthop->lbls->labels[j].op == MPLS_OP_STACK_OPS_UNKNOWN) continue;
 
                     cprintf ("%d(%s) ", 
-                            get_label_value( nexthop->lbls->labels[j].label_val), 
+                            mpls_label_get_value( nexthop->lbls->labels[j].label_val), 
                             mpls_op_tostring(nexthop->lbls->labels[j].op));
                 }
                 cprintf ("\n");
@@ -391,10 +391,10 @@ ipv4_mpls_display_routing_table (node_t *node) {
                 
                 for (int j = 0; j < MAX_LBL_DEPTH; j++) {
 
-                    if (nexthop->lbls->labels[j].op == LBL_STACK_OPS_UNKNOWN) continue;
+                    if (nexthop->lbls->labels[j].op == MPLS_OP_STACK_OPS_UNKNOWN) continue;
 
                     cprintf ("%d(%s) ", 
-                            get_label_value( nexthop->lbls->labels[j].label_val), 
+                            mpls_label_get_value( nexthop->lbls->labels[j].label_val), 
                             mpls_op_tostring(nexthop->lbls->labels[j].op));
                 }
                 cprintf ("\n");

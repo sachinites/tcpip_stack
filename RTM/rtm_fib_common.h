@@ -4,37 +4,11 @@
 #include "../common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
+#include "rtm_presentation.h"   
 
-typedef struct mpls_lstack_ mpls_lstack_t;
-
-#pragma pack(push, 8)
-
-typedef struct fib_nh_fwd_info_ {
-
-    InterfaceP oif;
-    cmn_prefix_t nh_addr;
-    uint16_t fwd_flags;
-
-    union {
-        
-        /*MPLS  Label Stack*/
-        struct {
-            mpls_lstack_t *label_stack;
-        } mpls_fwd;
-
-        /*SRv6 Stack*/
-        struct {    
-            Srv6_endpcode_t endfn;
-            uint8_t n_segment_list;
-            cmn_prefix_t *v6segment_lst;
-        } v6_fwd;
-
-    }u;
-
-} fib_nh_fwd_info_t;
-
-#pragma pack(pop)
-
+typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
+typedef struct fib_nh_fwd_info_ fib_nh_fwd_info_t;
+typedef struct node_ node_t;
 
 #define FIB_NH_FWD_F_IPV4 1
 #define FIB_NH_FWD_F_IPV6 2
@@ -42,5 +16,23 @@ typedef struct fib_nh_fwd_info_ {
 #define FIB_NH_FWD_F_IPV6_STCK 8
 
 #define FIB_MAX_ECMP_NH 8
+
+
+typedef enum FIB_OPN_ {
+
+    FIB_ADD = 1,      /* Route/NH is being added */
+    FIB_DELETE = 2,   /* Route/NH is being deleted */
+
+} FIB_OPN_T;
+
+FIB_OPN_T
+rtm_to_fib_map_opn(rtm_ppt_operation_t rtm_opn);
+
+void
+rtm_fib_copy_fwd_info (node_t *node, 
+                       rtm_nh_fwd_info_t *src, 
+                       fib_nh_fwd_info_t *dst);
+
+
 
 #endif 

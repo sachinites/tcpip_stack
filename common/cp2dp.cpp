@@ -16,6 +16,10 @@
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../RTM/rtm_nb_integ.h"
+#include "../RTM/rtm_nh.h"
+#include "../FIB/fib.h"
+#include "../FIB/fib_route.h"
+#include "../FIB/fib_nh.h"
 
 
 
@@ -115,7 +119,7 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
     
     mpls_route_update_msg_t *mpls_update_msg;
     nexthop_t *nexthop;
-    lstack_t *lstack;
+    mpls_lstack_t *lstack;
     Interface *oif;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     struct hashtable *ht;
@@ -155,7 +159,7 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             
             /* Create and populate label stack if labels are provided */
             if (mpls_update_msg->label_stack_count > 0) {
-                lstack = (lstack_t *)XCALLOC2(0, 1, lstack_t);
+                lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
                 lstack->curr_index = 0;
                 
                 for (int i = 0; i < mpls_update_msg->label_stack_count && i < MAX_LBL_DEPTH; i++) {
@@ -172,7 +176,7 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                  nexthop_dereference(nexthop);
                  tracer (node->dptr, DMPLS | DERR, 
                     "MPLS RIB : Route installation Failed - in_label=%d, gw=%s, oif=%s\n",
-                    get_label_value(mpls_update_msg->in_label), 
+                    mpls_label_get_value(mpls_update_msg->in_label), 
                     ip_addr_str,
                     oif->if_name.c_str());
                  cp2dp_msg_free(dp_msg);
@@ -181,7 +185,7 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             
             tracer (node->dptr, DMPLS, 
                    "MPLS RIB : Route installed Successfully - in_label=%d, gw=%s, oif=%s\n",
-                   get_label_value(mpls_update_msg->in_label), 
+                   mpls_label_get_value(mpls_update_msg->in_label), 
                    ip_addr_str,
                    oif->if_name.c_str());
             
@@ -192,7 +196,7 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             mpls_update_msg = (mpls_route_update_msg_t *)dp_msg->data;
             
             /* Decode the label value for deletion */
-            label_val_t label_val = get_label_value(mpls_update_msg->in_label);
+            mpls_label_val_t label_val = mpls_label_get_value(mpls_update_msg->in_label);
             
             /* Get the MPLS routing table */
             ht = NODE_MPLS_RT_TABLE(node)->ht;
@@ -232,7 +236,7 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 
                 /* Create label stack if provided */
                 if (mpls_update_msg->label_stack_count > 0) {
-                    lstack = (lstack_t *)XCALLOC2(0, 1, lstack_t);
+                    lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
                     lstack->curr_index = 0;
                     
                     for (int i = 0; i < mpls_update_msg->label_stack_count && i < MAX_LBL_DEPTH; i++) {
@@ -297,6 +301,108 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 }
 
 
+static void
+dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+    
+    fib_update_msg_t *fib_update_msg;
+    fib_t *fib = NULL;
+    fib_nh_t *nh = NULL;
+    fib_error_t rc;
+
+    assert(dp_msg->component_type == FIB_TABLE);
+    
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+        {
+            fib_update_msg = (fib_update_msg_t *)dp_msg->data;
+            
+            /* Select FIB based on nexthop address AFI */
+            fib = fib_lookup (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+        
+            if (!fib) {
+                tracer (node->dptr, DFIB | DERR, 
+                       "FIB : FIB not initialized for AFI %d\n",
+                       fib_update_msg->fwd_info.nh_addr.afi);
+                cp2dp_msg_free(dp_msg);
+                return;
+            }
+            
+            /* Create nexthop from forwarding info */
+            fib_nh_t nh_template;
+            nh_template.fwd_info = new fib_nh_fwd_info_t;
+            rtm_fib_copy_fwd_info (node, &fib_update_msg->fwd_info, nh_template.fwd_info);
+            
+            nh = fib_nh_lookup(fib, &nh_template);
+
+            if (!nh) {
+
+                nh = fib_nh_create(fib, &nh_template);
+           
+                if (!nh) {
+                    tracer (node->dptr, DFIB | DERR, 
+                        "FIB : Failed to create nexthop\n");
+                    delete nh_template.fwd_info;
+                    cp2dp_msg_free(dp_msg);
+                    return;
+                }
+                fib_register_nh(fib, nh);
+            }
+
+            delete nh_template.fwd_info;
+
+            rc = fib_add_route(fib, &fib_update_msg->prefix, fib_update_msg->nhidx, nh);
+            
+            if (rc != FIB_ERROR_SUCCESS) {
+                tracer (node->dptr, DFIB | DERR, 
+                       "FIB : Failed to add route, error: %s\n",
+                       fib_error_str(rc));
+                delete nh->fwd_info;
+                XFREE(nh);
+            }
+            break;
+        }
+            
+        case DP_DEL:
+        {
+            fib_update_msg = (fib_update_msg_t *)dp_msg->data;
+            
+            /* Select FIB based on nexthop address AFI */
+            fib = fib_lookup (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+        
+            if (!fib) {
+                tracer (node->dptr, DFIB | DERR, 
+                       "FIB : FIB not initialized for AFI %d\n",
+                       fib_update_msg->fwd_info.nh_addr.afi);
+                cp2dp_msg_free(dp_msg);
+                return;
+            }
+            
+            rc = fib_del_route(fib, &fib_update_msg->prefix, fib_update_msg->nhidx);
+            
+            if (rc != FIB_ERROR_SUCCESS) {
+                tracer (node->dptr, DFIB | DERR, 
+                       "FIB : Failed to delete route, error: %s\n",
+                       fib_error_str(rc));
+            }
+            break;
+        }
+            
+        case DP_UPDATE:
+            // Handle FIB entry updates if needed
+            break;
+            
+        case DP_READ:
+            // Handle FIB reads if needed
+            break;
+            
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
 static void 
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
@@ -326,6 +432,9 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
             break;
         case IPV4_MPLS_TABLE:
             dp_ipv4_mpls_table_process_msg (node, dp_msg);
+            break;
+        case FIB_TABLE:
+            dp_fib_table_process_msg (node, dp_msg);
             break;
         default:
             break;
@@ -708,10 +817,10 @@ cp2dp_mac_table_entry_del (node_t *node,
 /* Wrapper fn to install MPLS route Asynchronously */
 void
 cp2dp_mpls_route_install (node_t *node,
-                         label_val_t in_label,
+                         mpls_label_val_t in_label,
                          c_string gw_ip,
                          uint32_t ifindex,
-                         label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                         mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                          uint8_t label_stack_count) {
     
     dp_msg_t *dp_msg;
@@ -733,7 +842,7 @@ cp2dp_mpls_route_install (node_t *node,
     if (label_stack && label_stack_count > 0) {
         for (int i = 0; i < label_stack_count && i < MAX_LBL_DEPTH; i++) {
             mpls_update_msg->label_stack[i].label_val = (*label_stack)[i];
-            mpls_update_msg->label_stack[i].op = LBL_PUSH;
+            mpls_update_msg->label_stack[i].op = MPLS_OP_PUSH;
         }
     }
     
@@ -742,7 +851,7 @@ cp2dp_mpls_route_install (node_t *node,
 
 /* Wrapper fn to delete MPLS route Asynchronously (removes all nexthops) */
 void
-cp2dp_mpls_route_delete (node_t *node, label_val_t in_label) {
+cp2dp_mpls_route_delete (node_t *node, mpls_label_val_t in_label) {
     
     dp_msg_t *dp_msg;
     mpls_route_update_msg_t *mpls_update_msg;
@@ -766,10 +875,10 @@ cp2dp_mpls_route_delete (node_t *node, label_val_t in_label) {
 /* Wrapper fn to delete specific MPLS nexthop Asynchronously */
 void
 cp2dp_mpls_nexthop_delete (node_t *node,
-                           label_val_t in_label,
+                           mpls_label_val_t in_label,
                            c_string gw_ip,
                            uint32_t ifindex,
-                           label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                           mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                            uint8_t label_stack_count) {
     
     dp_msg_t *dp_msg;
@@ -792,7 +901,7 @@ cp2dp_mpls_nexthop_delete (node_t *node,
     if (label_stack && label_stack_count > 0) {
         for (int i = 0; i < label_stack_count && i < MAX_LBL_DEPTH; i++) {
             mpls_update_msg->label_stack[i].label_val = (*label_stack)[i];
-            mpls_update_msg->label_stack[i].op = LBL_PUSH;
+            mpls_update_msg->label_stack[i].op = MPLS_OP_PUSH;
         }
     }
     
@@ -805,7 +914,7 @@ dp_ipv4_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
     
     ipv4_mpls_route_update_msg_t *ipv4_mpls_update_msg;
     nexthop_t *nexthop;
-    lstack_t *lstack;
+    mpls_lstack_t *lstack;
     Interface *oif;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     char prefix_str[IPV4_ADDR_LEN_STR];
@@ -869,7 +978,7 @@ dp_ipv4_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             
             /* Create and populate label stack if labels are provided */
             if (ipv4_mpls_update_msg->label_stack_count > 0) {
-                lstack = (lstack_t *)XCALLOC2(0, 1, lstack_t);
+                lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
                 lstack->curr_index = 0;
                 
                 for (int i = 0; i < ipv4_mpls_update_msg->label_stack_count && i < MAX_LBL_DEPTH; i++) {
@@ -970,7 +1079,7 @@ dp_ipv4_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 
                 /* Create label stack if provided */
                 if (ipv4_mpls_update_msg->label_stack_count > 0) {
-                    lstack = (lstack_t *)XCALLOC2(0, 1, lstack_t);
+                    lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
                     lstack->curr_index = 0;
                     
                     for (int i = 0; i < ipv4_mpls_update_msg->label_stack_count && i < MAX_LBL_DEPTH; i++) {
@@ -1063,7 +1172,7 @@ cp2dp_ipv4_mpls_route_install (node_t *node,
                                uint8_t mask,
                                c_string gw_ip,
                                uint32_t ifindex,
-                               label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                               mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                                uint8_t label_stack_count) {
     
     dp_msg_t *dp_msg;
@@ -1086,7 +1195,7 @@ cp2dp_ipv4_mpls_route_install (node_t *node,
     if (label_stack && label_stack_count > 0) {
         for (int i = 0; i < label_stack_count && i < MAX_LBL_DEPTH; i++) {
             ipv4_mpls_update_msg->label_stack[i].label_val = (*label_stack)[i];
-            ipv4_mpls_update_msg->label_stack[i].op = LBL_PUSH;
+            ipv4_mpls_update_msg->label_stack[i].op = MPLS_OP_PUSH;
         }
     }
     
@@ -1126,7 +1235,7 @@ cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
                                 uint8_t mask,
                                 c_string gw_ip,
                                 uint32_t ifindex,
-                                label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                                mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                                 uint8_t label_stack_count) {
     
     dp_msg_t *dp_msg;
@@ -1150,9 +1259,40 @@ cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
     if (label_stack && label_stack_count > 0) {
         for (int i = 0; i < label_stack_count && i < MAX_LBL_DEPTH; i++) {
             ipv4_mpls_update_msg->label_stack[i].label_val = (*label_stack)[i];
-            ipv4_mpls_update_msg->label_stack[i].op = LBL_PUSH;
+            ipv4_mpls_update_msg->label_stack[i].op = MPLS_OP_PUSH;
         }
     }
     
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void
+cp2dp_fib_update (
+        node_t *node,
+        AFI_T afi,
+        uint8_t vrf_id,
+        cmn_prefix_t *prefix,
+        uint32_t nh_idx,
+        rtm_nh_fwd_info_t *fwd_info,
+        FIB_OPN_T operation) {
+
+    dp_msg_t *dp_msg = cp2dp_msg_alloc ();
+    fib_update_msg_t *msg = (fib_update_msg_t *)dp_msg->data;
+
+    /* Set message metadata */
+    dp_msg->component_type = FIB_TABLE;
+    dp_msg->opr_type = (operation == FIB_ADD) ? DP_CREATE : DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(fib_update_msg_t);
+
+    /* Populate FIB update message */
+    msg->vrf_id = vrf_id;
+    msg->fwd_flags = fwd_info->fwd_flags;
+    msg->nhidx = nh_idx;
+    msg->prefix = *prefix;
+
+    memcpy(&msg->fwd_info, fwd_info, sizeof(fib_nh_fwd_info_t));    
+
+    /* Submit to data plane */
     cp2dp_submit(node, dp_msg, true);
 }

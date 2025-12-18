@@ -164,7 +164,6 @@ vm_page_family_t vm_page_family_array[] =
 
     /* MPLS files */
     MM_REG_STRUCT2(mpls_lstack_t),
-    MM_REG_STRUCT2(lstack_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

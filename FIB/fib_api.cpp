@@ -176,10 +176,9 @@ fib_error_t
 fib_forward_pkt_to_nh(node_t *node, pkt_block_t *pkt_block, fib_nh_t *nh) {
     
     /* Apply MPLS label stack operations if present */
-    if (nh->fwd_info.fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
-        if (nh->fwd_info.u.mpls_fwd.label_stack) {
-            mpls_apply_label_stack_on_pkt  (pkt_block, nh->fwd_info.u.mpls_fwd.label_stack);
-        }
+    if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
+        mpls_apply_label_stack_on_pkt  (pkt_block, 
+            &nh->fwd_info->u.mpls_fwd.label_stack);
     }
     
     /* Decrement TTL if IP packet */
@@ -207,10 +206,9 @@ fib_forward_pkt_to_nh(node_t *node, pkt_block_t *pkt_block, fib_nh_t *nh) {
 
     demote_pkt_to_layer2(
         node,
-        hdr_type == IP6_HDR ? 0 : nh->fwd_info.nh_addr.u.v4_addr,
-        (c_string)nh->fwd_info.oif->if_name.c_str(),
+        hdr_type == IP6_HDR ? 0 : nh->fwd_info->nh_addr.u.v4_addr,
+        (c_string)nh->fwd_info->oif->if_name.c_str(),
         pkt_block, hdr_type);
-
 
     /* Packet successfully processed - would be sent out OIF in real hardware */
     return FIB_ERROR_SUCCESS;

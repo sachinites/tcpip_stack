@@ -14,21 +14,21 @@ extern int cprintf (const char* format, ...) ;
 /* Forward declarations of cp2dp APIs */
 extern void
 cp2dp_mpls_route_install (node_t *node, 
-                         label_val_t in_label,
+                         mpls_label_val_t in_label,
                          c_string gw_ip,
                          uint32_t ifindex,
-                         label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                         mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                          uint8_t label_stack_count);
 
 extern void
-cp2dp_mpls_route_delete (node_t *node, label_val_t in_label);
+cp2dp_mpls_route_delete (node_t *node, mpls_label_val_t in_label);
 
 extern void
 cp2dp_mpls_nexthop_delete (node_t *node,
-                          label_val_t in_label,
+                          mpls_label_val_t in_label,
                           c_string gw_ip,
                           uint32_t ifindex,
-                          label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                          mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                           uint8_t label_stack_count);
 
 extern void
@@ -37,7 +37,7 @@ cp2dp_ipv4_mpls_route_install (node_t *node,
                                uint8_t mask,
                                c_string gw_ip,
                                uint32_t ifindex,
-                               label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                               mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                                uint8_t label_stack_count);
 
 extern void
@@ -51,7 +51,7 @@ cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
                                 uint8_t mask,
                                 c_string gw_ip,
                                 uint32_t ifindex,
-                                label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                                mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                                 uint8_t label_stack_count);
 
 /* MPLS Route Configuration Handler */
@@ -67,8 +67,8 @@ mpls_route_config_handler(int cmdcode,
     c_string gw_ip = NULL;
     c_string if_name = NULL;
     c_string prefix_mask = NULL;
-    label_val_t in_label = 0;
-    label_val_t label_stack[MAX_LBL_DEPTH] = {0};
+    mpls_label_val_t in_label = 0;
+    mpls_label_val_t label_stack[MAX_LBL_DEPTH] = {0};
     uint8_t label_stack_count = 0;
     Interface *oif = NULL;
     
@@ -79,7 +79,7 @@ mpls_route_config_handler(int cmdcode,
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "in-label")) {
             uint32_t label_value = atoi((const char *)tlv->value);
-            set_label_value(&in_label, label_value);
+            mpls_label_set_value(&in_label, label_value);
         }
         else if (parser_match_leaf_id(tlv->leaf_id, "prefix-mask"))
             prefix_mask = tlv->value;
@@ -89,7 +89,7 @@ mpls_route_config_handler(int cmdcode,
             if_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "label-list")) {
             uint32_t label_value = atoi((const char *)tlv->value);
-            set_label_value(&label_stack[label_stack_count], label_value);
+            mpls_label_set_value(&label_stack[label_stack_count], label_value);
             label_stack_count++;
         }
             
@@ -107,7 +107,7 @@ mpls_route_config_handler(int cmdcode,
                 case CONFIG_ENABLE:
                 {
                     /* Validate inputs */
-                    if (get_label_value(in_label) == 0) {
+                    if (mpls_label_get_value(in_label) == 0) {
                         cprintf("Error: Invalid incoming label\n");
                         return -1;
                     }
@@ -150,7 +150,7 @@ mpls_route_config_handler(int cmdcode,
                 case CONFIG_DISABLE:
                 {
                     /* Validate in-label */
-                    if (get_label_value(in_label) == 0) {
+                    if (mpls_label_get_value(in_label) == 0) {
                         cprintf("Error: Invalid incoming label\n");
                         return -1;
                     }

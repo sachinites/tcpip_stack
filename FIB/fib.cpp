@@ -97,6 +97,31 @@ fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
     return fib;
 }
 
+fib_t *
+fib_lookup (node_t *node, AFI_T afi, uint8_t vrf_id) {
+
+    fib_t *fib;
+
+    assert (vrf_id == DEFAULT_VRF);
+
+    switch (afi)
+    {
+    case AF_IPV4:
+        fib = node->node_nw_prop.ipv4_fib;
+        break;
+    case AF_IPV6:
+        fib = node->node_nw_prop.ipv6_fib;
+        break;
+    case AF_LABEL:
+        fib = node->node_nw_prop.mpls_fib;
+        break;
+    default:
+        return NULL;
+    }
+
+    return NULL;
+}
+
 void 
 node_init_default_fib(node_t *node) {
     
@@ -188,8 +213,8 @@ fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
  * Format is similar to standard routing table display.
  */
 void fib_show(fib_t *fib) {
-    
-    extern int cprintf(const char *fmt, ...);
+
+    cmn_prefix_t temp;
     
     if (!fib) {
         cprintf("Error: Invalid FIB\n");
@@ -269,12 +294,12 @@ void fib_show(fib_t *fib) {
                     const char *indent = (nh_count > 1) ? "     " : "  -> ";
                     
                     /* Nexthop address */
-                    rtm_format_nexthop(&nh->fwd_info.nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                    rtm_format_nexthop(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
                     cprintf("%sNexthop: %s", indent, nh_addr_str);
                     
                     /* Output interface */
-                    if (nh->fwd_info.oif) {
-                        cprintf("  OIF: %s", nh->fwd_info.oif->if_name.c_str());
+                    if (nh->fwd_info->oif) {
+                        cprintf("  OIF: %s", nh->fwd_info->oif->if_name.c_str());
                     } else {
                         cprintf("  OIF: none");
                     }
@@ -286,10 +311,9 @@ void fib_show(fib_t *fib) {
                     cprintf("\n");
                     
                     /* MPLS label stack if present */
-                    if ((nh->fwd_info.fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) &&
-                        nh->fwd_info.u.mpls_fwd.label_stack) {
+                    if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)) {
                         
-                        mpls_lstack_t *lstack = nh->fwd_info.u.mpls_fwd.label_stack;
+                        mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
                         if (lstack->curr_index > 0) {
                             cprintf("%s   MPLS Stack: ", indent);
                             
@@ -305,17 +329,16 @@ void fib_show(fib_t *fib) {
                     }
                     
                     /* SRv6 segment list if present */
-                    if ((nh->fwd_info.fwd_flags & FIB_NH_FWD_F_IPV6_STCK) &&
-                        nh->fwd_info.u.v6_fwd.v6segment_lst &&
-                        nh->fwd_info.u.v6_fwd.n_segment_list > 0) {
+                    if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK)) {
                         
                         cprintf("%s   SRv6 Segments (%u): ", indent, 
-                                nh->fwd_info.u.v6_fwd.n_segment_list);
+                                nh->fwd_info->u.v6_fwd.n_segment_list);
                         
-                        for (int j = 0; j < nh->fwd_info.u.v6_fwd.n_segment_list; j++) {
+                        for (int j = 0; j < nh->fwd_info->u.v6_fwd.n_segment_list; j++) {
                             char seg_str[64];
-                            rtm_format_prefix(&nh->fwd_info.u.v6_fwd.v6segment_lst[j], 
-                                            seg_str, sizeof(seg_str));
+                            cmn_prefix_t v6_addr_temp;
+                            cmn_prefix_initialize_v6 (&v6_addr_temp, nh->fwd_info->u.v6_fwd.v6segment_lst[j], 128);
+                            rtm_format_prefix(&v6_addr_temp, seg_str, sizeof(seg_str));
                             cprintf("[%s] ", seg_str);
                         }
                         cprintf("\n");
@@ -384,12 +407,12 @@ void fib_show(fib_t *fib) {
                         const char *indent = (nh_count > 1) ? "     " : "  -> ";
                         
                         /* Nexthop address */
-                        rtm_format_nexthop(&nh->fwd_info.nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                        rtm_format_nexthop(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
                         cprintf("%sNexthop: %s", indent, nh_addr_str);
                         
                         /* Output interface */
-                        if (nh->fwd_info.oif) {
-                            cprintf("  OIF: %s", nh->fwd_info.oif->if_name.c_str());
+                        if (nh->fwd_info->oif) {
+                            cprintf("  OIF: %s", nh->fwd_info->oif->if_name.c_str());
                         } else {
                             cprintf("  OIF: none");
                         }
@@ -401,10 +424,9 @@ void fib_show(fib_t *fib) {
                         cprintf("\n");
                         
                         /* MPLS label stack if present */
-                        if ((nh->fwd_info.fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) &&
-                            nh->fwd_info.u.mpls_fwd.label_stack) {
+                        if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)) {
                             
-                            mpls_lstack_t *lstack = nh->fwd_info.u.mpls_fwd.label_stack;
+                            mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
                             if (lstack->curr_index > 0) {
                                 cprintf("%s   MPLS Stack: ", indent);
                                 
@@ -433,7 +455,5 @@ void fib_show(fib_t *fib) {
         return;
     }
     
-    cprintf("===============================================================================\n");
     cprintf("Total Routes Displayed: %d\n", route_count);
-    cprintf("===============================================================================\n\n");
 }

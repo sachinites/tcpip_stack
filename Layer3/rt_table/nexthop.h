@@ -11,7 +11,7 @@ typedef struct nexthop_{
     InterfaceP oif;
     byte gw_ip[IPV4_ADDR_LEN_STR];
     unsigned char node_name[NODE_NAME_SIZE];
-    lstack_t *lbls;
+    mpls_lstack_t *lbls;
     long long unsigned int hit_count;
     uint32_t ifindex;  
     uint32_t ref_count;
@@ -85,34 +85,34 @@ nexthop_dereference (nexthop_t *nexthop) {
 
 /* Add a label to nexthop's label stack */
 void static
-nh_push_label(nexthop_t *nh, label_t label) {
+nh_push_label(nexthop_t *nh, mpls_label_t label) {
 
     if (!nh->lbls) {
-        nh->lbls = (lstack_t *)XCALLOC (0, 1, lstack_t);
+        nh->lbls = (mpls_lstack_t *)XCALLOC (0, 1, mpls_lstack_t);
         nh->lbls->curr_index = 0;
     }
 
     nh->lbls->labels[nh->lbls->curr_index] = label;
 
     if (nh->lbls->curr_index == 0 ) 
-        set_stack_bottom (&label.label_val);
+        mpls_label_set_stack_bottom (&label.label_val);
     else 
-        clear_stack_bottom (&label.label_val);
+        mpls_label_clear_stack_bottom (&label.label_val);
 
     nh->lbls->curr_index++;
 }
 
 /* Remove and return top label from nexthop's label stack */
-static label_t
+static mpls_label_t
 nh_pop_label(nexthop_t *nh) {
 
-    label_t ret = {0 , LBL_STACK_OPS_UNKNOWN};
+    mpls_label_t ret = {0 , MPLS_OP_STACK_OPS_UNKNOWN};
 
     if (!nh->lbls) {
         return ret;
     }
     
-    label_t label = nh->lbls->labels[nh->lbls->curr_index - 1];
+    mpls_label_t label = nh->lbls->labels[nh->lbls->curr_index - 1];
     nh->lbls->curr_index--;
 
     if (nh->lbls->curr_index == 0) {
@@ -124,7 +124,7 @@ nh_pop_label(nexthop_t *nh) {
 }
 
 static void
-nh_swap_label(nexthop_t *nh, label_t label) {
+nh_swap_label(nexthop_t *nh, mpls_label_t label) {
 
     if (!nh->lbls) {
         return;
@@ -132,16 +132,16 @@ nh_swap_label(nexthop_t *nh, label_t label) {
     nh->lbls->labels[nh->lbls->curr_index - 1] = label;
 
     if (nh->lbls->curr_index == 0 ) 
-        set_stack_bottom (&label.label_val);
+        mpls_label_set_stack_bottom (&label.label_val);
     else 
-        clear_stack_bottom (&label.label_val);    
+        mpls_label_clear_stack_bottom (&label.label_val);    
 }
 
 /* Get top label without removing it */
-static label_t
+static mpls_label_t
 nh_peek_label(nexthop_t *nh) {
 
-    label_t ret = {0 , LBL_STACK_OPS_UNKNOWN};
+    mpls_label_t ret = {0 , MPLS_OP_STACK_OPS_UNKNOWN};
 
     if (!nh->lbls) {
         return ret;

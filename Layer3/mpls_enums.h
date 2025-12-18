@@ -4,39 +4,6 @@
 #include <stdint.h>
 #include "../tcpconst.h"
 
-#define MAX_LBL_DEPTH 8
-
-typedef uint32_t label_val_t;
-
-typedef enum mpls_op_ {
-
-    LBL_STACK_OPS_UNKNOWN,
-    LBL_SWAP,
-    LBL_CONTINUE = LBL_SWAP,
-    LBL_NEXT,
-    LBL_PUSH = LBL_NEXT,
-    LBL_POP
-
-} mpls_op_t;
-
-static inline const char *
-mpls_op_tostring(mpls_op_t op)
-{
-
-    switch (op)
-    {
-
-    case LBL_SWAP:
-        return "swap";
-    case LBL_PUSH:
-        return "push";
-    case LBL_POP:
-        return "pop";
-    default:
-        return "unknown";
-    }
-}
-
 typedef enum {
 
     lbl_proto_nxthop_first,

@@ -40,5 +40,6 @@ typedef struct fib_ {
 fib_t* fib_init (AFI_T afi, uint8_t vrf_id);
 fib_error_t fib_forward (node_t *node, pkt_block_t *pkt, uint8_t vrf_id);
 void fib_show(fib_t *fib);
+fib_t *fib_lookup (node_t *node, AFI_T afi, uint8_t vrf_id);
 
 #endif 

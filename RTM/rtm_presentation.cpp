@@ -9,6 +9,7 @@
 #include "rtm_proto.h"
 #include "rtm_gc.h"
 #include "rtm_priv_api.h"
+#include "rtm_fib_interface.h"
 #include "../prefix-list/prefixlst.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../Tracer/tracer.h"
@@ -1141,10 +1142,12 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
     
     for (proto = RTM_PROTO_STATIC; proto < RTM_PROTO_MAX; proto++)
     {
-        while ((curr = dequeue_glthread_first(&rtm->advt_nhs[proto].head)))
+        ITERATE_GLTHREAD_BEGIN(&rtm->advt_nhs[proto].head, curr)
         {
             presentation_data =
                 (rtm_presentation_data_t *)rtm_presentation_data_to_glue(curr);
+
+            remove_Fglthread (&rtm->advt_nhs[proto], curr);
 
             tracer (rtm->node->cptr, DRTM, 
                 "RTM[%s] : PPT-DB : Route %s : Presentation data for NH %s(%u), operation %s\n",
@@ -1154,6 +1157,11 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
                     presentation_data->nh_idx, 
                     presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : \
                     (presentation_data->operation == RTM_PPT_OP_UPDATE) ? "Update" : "Delete");
+
+            /* Update FIB */
+            rtm_fib_update(rtm, presentation_data);
+
+            /* Now Advertise it to Routing Protocols */
 
             if (!presentation_data->cbk) {
                 rtm_check_and_delete_presentation_data (rtm, presentation_data);
@@ -1190,7 +1198,7 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
                 rtm_schedule_presentation_job(rtm);
                 return;
             }
-        }
+        }ITERATE_GLTHREAD_END(&rtm->advt_nhs[proto].head, curr);
     }
 }
 

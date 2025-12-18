@@ -1,9 +1,6 @@
-typedef struct rtm_route_ rtm_route;
-typedef struct rtm_nh_ rtm_nh;
+
 typedef struct rtm_ rtm_t;
+typedef struct rtm_presentation_data_ rtm_presentation_data_t;
 
 void 
-rtm_fib_install (rtm_t *rtm, rtm_route *route, rtm_nh *nh) ;
-
-void 
-rtm_fib_uninstall (rtm_t *rtm, rtm_route *route, rtm_nh *nh) ;
+rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data);

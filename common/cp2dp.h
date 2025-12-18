@@ -6,12 +6,17 @@
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t; 
 typedef struct mac_table_entry_ mac_table_entry_t; 
+typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 
+#include "cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../Layer3/SegmentRouting/SRv6/dp/srv6-endpoint.h"
 #include "../Layer3/mpls_enums.h"
 #include "../Layer3/mpls_fwd.h"
+#include "../RTM/rtm_fib_common.h"
+#include "../RTM/rtm_nh.h"
+#include "../FIB/fib_nh.h"
 
 #define CP2DP_MSG_SIZE_MAX  512
 
@@ -23,10 +28,26 @@ typedef struct rt_update_msg_ {
     uint32_t ifindex;
     uint32_t metric;
     uint16_t proto_id;
-    uint8_t   mask;
+    uint8_t  mask;
     char padding[3];
 
 } rt_update_msg_t;
+
+#pragma pack(push, 1)
+typedef struct fib_update_msg_ {
+
+    uint8_t vrf_id;
+    /* Route : ipv4/ipv6/mpls */
+    cmn_prefix_t prefix;
+    /* Forwarding flags for the nexthop*/
+    uint16_t fwd_flags;
+    /* Nexthop ID*/
+    uint32_t nhidx;
+    /* Forwarding info */
+    rtm_nh_fwd_info_t fwd_info;
+
+} fib_update_msg_t;
+#pragma pack(pop)
 
 typedef struct rt6_update_msg_ {
 
@@ -36,7 +57,7 @@ typedef struct rt6_update_msg_ {
     uint32_t metric;
     uint16_t proto_id;
     uint16_t srv6_end_fn;
-    uint8_t   prefix_len;
+    uint8_t  prefix_len;
     uint8_t rt_flags;
     uint8_t seg_lst_count;
     uint8_t seglst[0][16];
@@ -45,33 +66,39 @@ typedef struct rt6_update_msg_ {
 
 /* MAC table update msg to MAC_TABLE*/
 typedef struct mac_update_msg_ {
+
     uint8_t mac_addr[6];
     uint16_t vlan_id;
     uint32_t ifindex;
     uint16_t flags;
     uint32_t remote_dst_ip;
     char padding[2];
+
 } mac_update_msg_t;
 
 /* MPLS route update msg to MPLS_TABLE*/
 typedef struct mpls_route_update_msg_ {
-    label_val_t in_label;     /* Encoded label value */
+
+    mpls_label_val_t in_label;     /* Encoded label value */
     uint32_t ifindex;
     uint32_t gw_ip;
     uint8_t label_stack_count;
     char padding[3];
-    label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
+    mpls_label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
+
 } mpls_route_update_msg_t;
 
 /* IPv4 MPLS route update msg to IPV4_MPLS_TABLE*/
 typedef struct ipv4_mpls_route_update_msg_ {
+
     uint32_t prefix;          /* IPv4 prefix */
     uint32_t gw_ip;           /* Gateway IP */
     uint32_t ifindex;         /* Interface index */
     uint8_t mask;             /* Prefix mask */
     uint8_t label_stack_count;
     char padding[2];
-    label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
+    mpls_label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
+
 } ipv4_mpls_route_update_msg_t;
 
 typedef enum DP_COMPONENT_TYPE_ {
@@ -81,7 +108,8 @@ typedef enum DP_COMPONENT_TYPE_ {
     MAC_TABLE,
     PKT_BLOCK,
     MPLS_TABLE,
-    IPV4_MPLS_TABLE
+    IPV4_MPLS_TABLE,
+    FIB_TABLE
 
 } DP_COMPONENT_TYPE_T;
 
@@ -196,21 +224,21 @@ cp2dp_mac_table_entry_del (node_t *node,
 /* MPLS Route APIs */
 void
 cp2dp_mpls_route_install (node_t *node,
-                         label_val_t in_label,
+                         mpls_label_val_t in_label,
                          c_string gw_ip,
                          uint32_t ifindex,
-                         label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                         mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                          uint8_t label_stack_count);
 
 void
-cp2dp_mpls_route_delete (node_t *node, label_val_t in_label);
+cp2dp_mpls_route_delete (node_t *node, mpls_label_val_t in_label);
 
 void
 cp2dp_mpls_nexthop_delete (node_t *node,
-                           label_val_t in_label,
+                           mpls_label_val_t in_label,
                            c_string gw_ip,
                            uint32_t ifindex,
-                           label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                           mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                            uint8_t label_stack_count);
 
 /* IPv4 MPLS Route APIs */
@@ -220,7 +248,7 @@ cp2dp_ipv4_mpls_route_install (node_t *node,
                                uint8_t mask,
                                c_string gw_ip,
                                uint32_t ifindex,
-                               label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                               mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                                uint8_t label_stack_count);
 
 void
@@ -234,7 +262,17 @@ cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
                                 uint8_t mask,
                                 c_string gw_ip,
                                 uint32_t ifindex,
-                                label_val_t (*label_stack)[MAX_LBL_DEPTH],
+                                mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
                                 uint8_t label_stack_count);
+
+void
+cp2dp_fib_update (
+                node_t *node,
+                AFI_T afi,
+                uint8_t vrf_id,
+                cmn_prefix_t *prefix,
+                uint32_t nh_idx,
+                rtm_nh_fwd_info_t *fwd_info,
+                FIB_OPN_T operation) ;
 
 #endif 

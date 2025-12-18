@@ -872,10 +872,10 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
     if (nh_template->action >= RTM_NH_ACTION_MAX) {
         return RTM_ERROR_NEXTHOP_INVALID_ACTION;
     }
-    if (nh_template->is_indirect && nh_template->Oif) {
+    if (nh_template->is_indirect && nh_template->oif) {
         return RTM_ERROR_INVALID_OIF_INDEX;
     }
-    if (!nh_template->is_indirect && !nh_template->Oif) {
+    if (!nh_template->is_indirect && !nh_template->oif) {
         return RTM_ERROR_INVALID_OIF_INDEX;
     }
     if (nh_template->proto != RTM_PROTO_LOCAL &&
@@ -903,7 +903,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->metric = nh_template->metric;
     nh->action = nh_template->action;
     nh->prefix = nh_template->gateway;
-    nh->Oif = nh_template->Oif ? nh_template->Oif->GetSharedPtr() : nullptr;
+    nh->oif = nh_template->oif;
     nh->is_indirect = nh_template->is_indirect;
     nh->is_active = false;
     nh->ref_count = 0;

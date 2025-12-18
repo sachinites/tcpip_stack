@@ -32,7 +32,7 @@ typedef struct cp_nexthop_template_ {
     RTM_NH_ACTION_TYPE_T action;
 
     cmn_prefix_t gateway;
-    Interface *Oif;
+    uint32_t oif;
     bool is_indirect;
     bool is_resolved;
 

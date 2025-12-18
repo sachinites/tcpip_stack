@@ -15,18 +15,6 @@ typedef struct rtm_ rtm_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct rtm_route_ rtm_route;
 
-#pragma pack(push, 8)
-
-typedef struct rtm_inh_resolved_data_ {
-
-    /* Direct Nexthop which whch resolves this INH */
-    rtm_nh *nh;
-    fib_nh_fwd_info_t fwd_info;
-
-} rtm_inh_resolved_data_t;
-
-#pragma pack(pop)
-
 /* Cases to cover : 
 1. When new INH is added - Done 
 2. When INH is removed - Done

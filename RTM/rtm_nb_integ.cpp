@@ -126,7 +126,7 @@ cp_rtm_install_local_or_connected_v4_routes (
                                         RTM_NH_ACTION_LOCAL : \
                                         RTM_NH_ACTION_CONNECTED;
 
-    nh_template.Oif = Oif.get();
+    nh_template.oif = Oif->ifindex;
     nh_template.is_resolved = true;
     nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
     
@@ -173,7 +173,7 @@ cp_rtm_install_static_route (
     nh_template.proto = RTM_PROTO_STATIC;
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
     nh_template.action = RTM_NH_ACTION_FORWARD;
-    nh_template.Oif = oif.get();
+    nh_template.oif = oif->ifindex;
     nh_template.is_resolved = true;
     nh_template.metric = cost;
     nh_template.gateway = *gateway;
@@ -240,7 +240,7 @@ cp_rtm_uninstall_static_route (
     nh_template.metric = cost;
     nh_template.action = RTM_NH_ACTION_FORWARD;
     nh_template.gateway = *gateway;
-    nh_template.Oif = oif.get();
+    nh_template.oif = oif->ifindex;
     nh_template.is_indirect = false;
     nh_template.is_resolved = true;
 
@@ -477,7 +477,7 @@ cp_rtm_install_route_advanced (
 
     /* Set outgoing interface if provided */
     if (oif) {
-        nh_template.Oif = oif.get();
+        nh_template.oif = oif->ifindex;
         nh_template.is_indirect = false;
         nh_template.is_resolved = true;
     } else {
@@ -586,7 +586,7 @@ cp_rtm_uninstall_route_advanced (
 
     /* Set outgoing interface if provided */
     if (oif) {
-        nh_template.Oif = oif.get();
+        nh_template.oif = oif->ifindex;
         nh_template.is_indirect = false;
     } else {
         nh_template.is_indirect = true;

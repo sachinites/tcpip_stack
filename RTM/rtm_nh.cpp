@@ -44,7 +44,7 @@ rtm_nh_release_all_resources(rtm_t *rtm, rtm_nh *nh)
         nh->rtm_nh_proto = NULL;
     }
 
-    nh->Oif = nullptr;
+    nh->oif = 0;
 
     rtm_route_dereference (rtm, nh->owner_route);
     nh->owner_route = NULL;
@@ -63,7 +63,7 @@ rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) {
     assert(!avltree_node_is_inuse(&nh->idx_glue));
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->advt_glue));
     assert (nh->rtm_nh_proto == NULL);
-    assert (nh->Oif == nullptr);
+    assert (nh->oif == 0);
     assert (nh->label_stack == NULL);
     assert (nh->ref_count == 0);
     assert (nh->v6segment_lst == NULL);
@@ -83,9 +83,7 @@ rtm_nh_reference(rtm_nh *nh) {
 
 void 
 rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
-    
-    char nh_str[128];
-    
+        
     nh->ref_count--;
 
     if (nh->ref_count == 0) {
@@ -127,8 +125,8 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     
 
     // Compare outgoing interface
-    if (nh1->outgoing_if != nh2->outgoing_if) {
-        return (nh1->outgoing_if < nh2->outgoing_if) ? -1 : 1;
+    if (nh1->oif != nh2->oif) {
+        return (nh1->oif < nh2->oif) ? -1 : 1;
     }
     
     // Compare prefix
@@ -162,8 +160,8 @@ rtm_nh_is_equal_in_data_plane(rtm_nh *nh1, rtm_nh *nh2) {
     }
 
     // Compare outgoing interface
-    if (nh1->outgoing_if != nh2->outgoing_if) {
-        return (nh1->outgoing_if < nh2->outgoing_if) ? -1 : 1;
+    if (nh1->oif != nh2->oif) {
+        return (nh1->oif < nh2->oif) ? -1 : 1;
     }
     
     // Compare prefix
@@ -244,8 +242,8 @@ rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2) {
 
     int8_t rc = cmn_prefix_compare (&nh1->prefix, &nh2->prefix);
     if (!rc) return rc;
-    if (nh1->outgoing_if  < nh2->outgoing_if) return -1;
-    if (nh1->outgoing_if > nh2->outgoing_if) return 1; 
+    if (nh1->oif  < nh2->oif) return -1;
+    if (nh1->oif > nh2->oif) return 1; 
 
     if (!mpls_lstack_compare (nh1->label_stack, nh2->label_stack)) return -1;
 
@@ -276,7 +274,7 @@ rtm_nh_initialize(rtm_nh* nh) {
     nh->action = RTM_NH_ACTION_FORWARD;
     
     memset(&nh->prefix, 0, sizeof(cmn_prefix_t));
-    nh->outgoing_if = 0;
+    nh->oif = 0;
     
     nh->is_indirect = false;
     nh->is_active = false;

@@ -9,6 +9,7 @@
 #include "../Tree/libtree.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
+#include "../common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
@@ -58,9 +59,9 @@ typedef struct rtm_nh_ {
         /* Nexthop prefix */
         cmn_prefix_t prefix;
 
-        /* Outgoing Interface*/
-        InterfaceP Oif;
-        uint32_t outgoing_if;
+        /* ifindex if OIF, dont use InterfaceP to make
+        it stay a pure C structure */
+        uint32_t oif;
         
         /* Backpointer to the owning RTM, used in cross RTM route resolution*/
         rtm_t *rtm;
@@ -88,6 +89,32 @@ typedef struct rtm_nh_ {
         time_t install_time;
         uint32_t ref_count;
 } rtm_nh; 
+
+
+typedef struct rtm_nh_fwd_info_ {
+
+    uint32_t oif;
+    cmn_prefix_t nh_addr;
+    uint16_t fwd_flags;
+
+    union {
+        
+        /*MPLS  Label Stack*/
+        struct {
+            mpls_lstack_t label_stack;
+        } mpls_fwd;
+
+        /*SRv6 Stack*/
+        struct {    
+            Srv6_endpcode_t endfn;
+            uint8_t n_segment_list;
+            uint8_t v6segment_lst[MAX_LBL_DEPTH][16];
+        } v6_fwd;
+
+    }u;
+
+} rtm_nh_fwd_info_t;
+
 
 #pragma pack(pop)
 

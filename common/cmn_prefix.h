@@ -64,5 +64,4 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
                      bitmap_t *bm_mask);
 
 
-
 #endif /* __CMN_PREFIX__ */
