@@ -219,16 +219,18 @@ create_graph_node(graph_t *graph, const c_string node_name){
     init_pkt_q (&node->dp_ev_dis, &node->dp_ipc_q, 0);
 
     pkt_tracer_init (&node->pkt_tracer);
-    node_config_db_init (node);
+    //node_config_db_init (node);
 
     /* Turn on Default Logging */
-     tracer_log_bit_set(node->cptr,  DRTM);
-     tracer_log_bit_set(node->cptr,  DRTM_DET);
-     tracer_log_bit_set(node->cptr,  DERR);
-     tracer_log_bit_set(node->cptr,  DALWAYS_FLUSH);     
+    tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
+    tracer_log_bit_set(node->dptr,  DFIB | DFIB_DET);
+    tracer_log_bit_set(node->cptr,  DERR);
+    tracer_log_bit_set(node->dptr,  DERR);
+    tracer_log_bit_set(node->cptr,  DALWAYS_FLUSH);     
+    tracer_log_bit_set(node->dptr,  DALWAYS_FLUSH);     
 
-     glthread_add_next(&graph->node_list, &node->graph_glue);
-     return node;
+    glthread_add_next(&graph->node_list, &node->graph_glue);
+    return node;
 }
 
 void dump_interface(Interface *interface){

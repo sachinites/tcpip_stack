@@ -104,9 +104,16 @@ typedef enum struct_index_
     MM_INDEX(rtm_gc_t),
     MM_INDEX(rtm_presentation_data_t),
     MM_INDEX(rtm_ppt_route_t),
+    MM_INDEX(rtm_nh_fwd_info_t),
     
     /* MPLS */
-    MM_INDEX(mpls_lstack_t)
+    MM_INDEX(mpls_lstack_t),
+
+    /* FIB Structures*/
+    MM_INDEX(fib_t),
+    MM_INDEX(fib_nh_t),
+    MM_INDEX(fib_route_t)
+    //MM_INDEX(fib_nh_fwd_info_t), // C++ Structure
 
     /* Add more Application structure Index here */
 

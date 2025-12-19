@@ -31,6 +31,12 @@
 #include "RTM/rtm.h"
 #include "RTM/rtm_gc.h"
 
+/* FIB Files*/
+#include "FIB/fib.h"
+#include "FIB/fib_nh.h"
+#include "FIB/fib_route.h"
+
+
 /* TED Hdr Files*/
 #include "ted/ted.h"
 
@@ -161,9 +167,17 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_gc_t),
     MM_REG_STRUCT2(rtm_presentation_data_t),
     MM_REG_STRUCT2(rtm_ppt_route_t),
+    MM_REG_STRUCT2(rtm_nh_fwd_info_t),
 
     /* MPLS files */
     MM_REG_STRUCT2(mpls_lstack_t),
+
+    /* FIB Structures*/
+    MM_REG_STRUCT2(fib_t),
+    MM_REG_STRUCT2(fib_nh_t),
+    MM_REG_STRUCT2(fib_route_t),
+    //MM_REG_STRUCT2(fib_nh_fwd_info_t), // C++ Structure
+
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

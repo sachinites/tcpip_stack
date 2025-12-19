@@ -8,6 +8,7 @@ OBJS=fib.o \
 	 fib_api.o \
 	 fib_route.o \
 	 fib_nh.o \
+	 fib_show.o \
 
 all: $(TARGET)
 

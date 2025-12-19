@@ -54,17 +54,22 @@ fib_nh_comp_fn(const avltree_node_t *node1,
 
 #define HASH_PRIME_CONST 5381
 
-static unsigned int
-hashfromkey(void *key)
+static int
+mpls_rt_table_equalkeys(void *k1, void *k2)
 {
-    unsigned int hash = HASH_PRIME_CONST;
-    return hash;
+    mpls_label_val_t *ky1 = (mpls_label_val_t *)k1;
+    mpls_label_val_t *ky2 = (mpls_label_val_t *)k2;
+
+    if (mpls_label_get_value(*ky1) != mpls_label_get_value(*ky2)) return 0;
+
+    return 1;
 }
 
-static int
-equalkeys(void *k1, void *k2)
+static unsigned int
+hashfromkey_label (void *key)
 {
-    return 0;
+    mpls_label_val_t *key1 = (mpls_label_val_t *)key;
+    return (uint32_t) (mpls_label_get_value(*key1));
 }
 
 
@@ -77,6 +82,14 @@ fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
     fib->afi = afi;
     fib->vrf_id = vrf_id;
     
+    snprintf (fib->name, sizeof(fib->name), "%d.%s",
+              vrf_id,
+              (afi == AF_IPV4) ? "inet" :
+              (afi == AF_IPV6) ? "inet6" :
+              (afi == AF_LABEL) ? "mpls" :
+              (afi == AF_MAC) ? "mac" : "Unknown",
+              vrf_id);
+
     switch (afi) {
 
         case AF_IPV4:
@@ -88,7 +101,8 @@ fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
             init_mtrie (fib->u.lpm, 128, 0);
             break;
         case AF_LABEL:
-            fib->u.label_ht = create_hashtable(32, hashfromkey, equalkeys);
+            fib->u.label_ht = create_hashtable(32, 
+                hashfromkey_label, mpls_rt_table_equalkeys);
             break;
         default: ;
     }
@@ -119,7 +133,7 @@ fib_lookup (node_t *node, AFI_T afi, uint8_t vrf_id) {
         return NULL;
     }
 
-    return NULL;
+    return fib;
 }
 
 void 
@@ -159,19 +173,7 @@ fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
     }
     
     /* VRF to be supported later ...*/
-    switch (dest.afi) {
-        case AF_IPV4:
-            fib = node->node_nw_prop.ipv4_fib;
-            break;
-        case AF_IPV6:
-            fib = node->node_nw_prop.ipv6_fib;
-            break;
-        case AF_LABEL:
-            fib = node->node_nw_prop.mpls_fib;
-            break;
-        default:
-            return FIB_ERROR_AFI_MISMATCH;
-    }
+    fib = fib_lookup (node, dest.afi, vrf_id);
    
     if (fib->afi == AF_LABEL) {
 
@@ -222,7 +224,7 @@ void fib_show(fib_t *fib) {
     }
     
     /* Print header */
-    cprintf("\n");
+    printw("\n");
     cprintf("===============================================================================\n");
     cprintf("FIB Table (AFI: %s)\n", 
             fib->afi == AF_IPV4 ? "IPv4" :
@@ -308,7 +310,7 @@ void fib_show(fib_t *fib) {
                     cprintf("  (idx: %u)", route->nh_idx[i]);
                     cprintf("  (hit: %u)", nh->hit_count);
                     cprintf("  (ref: %u)", nh->ref_count);
-                    cprintf("\n");
+                    printw("\n");
                     
                     /* MPLS label stack if present */
                     if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)) {
@@ -324,7 +326,7 @@ void fib_show(fib_t *fib) {
                                         lstack->labels[j].op == MPLS_OP_POP ? "POP" :
                                         lstack->labels[j].op == MPLS_OP_SWAP ? "SWAP" : "UNK");
                             }
-                            cprintf("\n");
+                            printw("\n");
                         }
                     }
                     
@@ -341,12 +343,12 @@ void fib_show(fib_t *fib) {
                             rtm_format_prefix(&v6_addr_temp, seg_str, sizeof(seg_str));
                             cprintf("[%s] ", seg_str);
                         }
-                        cprintf("\n");
+                        printw("\n");
                     }
                 }
             }
             
-            cprintf("\n");
+            printw("\n");
             
         } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
         
@@ -361,14 +363,12 @@ void fib_show(fib_t *fib) {
         unsigned int count = hashtable_count(fib->u.label_ht);
         
         if (count == 0) {
-            cprintf("FIB is empty\n");
-            cprintf("===============================================================================\n\n");
             return;
         }
         
         cprintf("Lookup Method: Exact Match (MPLS Label)\n");
         cprintf("Total Routes: %u\n", count);
-        cprintf("===============================================================================\n\n");
+        cprintf("================================\n\n");
         
         /* Iterate through hash table */
         hashtable_itr *itr = hashtable_iterator(fib->u.label_ht);
@@ -421,7 +421,7 @@ void fib_show(fib_t *fib) {
                         cprintf("  (idx: %u)", route->nh_idx[i]);
                         cprintf("  (hit: %u)", nh->hit_count);
                         cprintf("  (ref: %u)", nh->ref_count);
-                        cprintf("\n");
+                        printw("\n");
                         
                         /* MPLS label stack if present */
                         if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)) {
@@ -437,17 +437,17 @@ void fib_show(fib_t *fib) {
                                             lstack->labels[j].op == MPLS_OP_POP ? "POP" :
                                             lstack->labels[j].op == MPLS_OP_SWAP ? "SWAP" : "UNK");
                                 }
-                                cprintf("\n");
+                                printw("\n");
                             }
                         }
                     }
                 }
                 
-                cprintf("\n");
+                printw("\n");
                 
             } while (hashtable_iterator_advance(itr));
             
-            XFREE(itr);
+            free(itr);
         }
         
     } else {

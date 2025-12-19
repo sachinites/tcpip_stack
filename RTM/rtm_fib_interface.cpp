@@ -23,11 +23,16 @@
 */
 
 static rtm_error_t
+rtm_resolution_create_inh_fwd_info (rtm_t *rtm, rtm_nh *pnh, rtm_nh *cnh, 
+                                    rtm_nh_fwd_info_t *fwd_info_out) {
+
+    return RTM_SUCCESS;
+}
+
+static rtm_error_t
 rtm_resolution_create_dnh_fwd_info (rtm_t *rtm, rtm_nh *pnh, 
                                     rtm_nh_fwd_info_t *fwd_info_out) 
-{
-    rtm_error_t rc = RTM_SUCCESS;
-    
+{   
     /* Populate outgoing interface */
     fwd_info_out->oif = pnh->oif;
     
@@ -59,21 +64,26 @@ rtm_resolution_create_dnh_fwd_info (rtm_t *rtm, rtm_nh *pnh,
                seg_list_size);
     }
     
-    return rc;
+    return RTM_SUCCESS;
 }
 
 static rtm_error_t
 rtm_resolution_create_nh_fwd_info(rtm_t *rtm, 
-        rtm_nh *pnh, 
-        rtm_nh *cnh, rtm_nh_fwd_info_t *fwd_info_out) {
+        rtm_nh *inh, 
+        rtm_nh *dnh, rtm_nh_fwd_info_t *fwd_info_out) {
 
-    memset (fwd_info_out, 0, sizeof (*fwd_info_out));
-
-    if (cnh == NULL) {
-        return rtm_resolution_create_dnh_fwd_info (rtm, pnh, fwd_info_out);
+    /* DNH is deleted , just delete the NH from FIB based on idx*/
+    if (!dnh) {
+        return RTM_SUCCESS;
     }
 
-    return rtm_resolution_create_dnh_fwd_info (rtm, cnh, fwd_info_out);
+    /* if DNH is added */
+    if (!inh && dnh) {
+        return rtm_resolution_create_dnh_fwd_info (rtm, dnh, fwd_info_out);
+    }
+
+    /* If INH is added which is resolved by DNH */
+    return rtm_resolution_create_inh_fwd_info (rtm, inh, dnh, fwd_info_out);
 }
 
 void 
@@ -81,7 +91,8 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
 
     char rt_str[48];
     char nh_str[128];
-    
+    rtm_nh_fwd_info_t fwd_info; 
+
     tracer (rtm->node->cptr, DRTM,
         "RTM[%s] : Updating FIB : Route %s, NH %s(%u), Operation %s\n",
         rtm->name,
@@ -93,25 +104,29 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
         presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 
     /* Create Fib route entry */
-    rtm_nh_fwd_info_t fwd_info; 
-    rtm_error_t rc = rtm_resolution_create_nh_fwd_info (
-            rtm, 
-            presentation_data->inh, 
-            presentation_data->nh,
-            &fwd_info);
+    if (presentation_data->operation != RTM_PPT_OP_DELETE) {
 
-    if (rc != RTM_SUCCESS) {
+        memset (&fwd_info, 0, sizeof (fwd_info));
 
-        tracer (rtm->node->cptr, DERR,
-            "RTM[%s] : FIB Update Failed : Could not create FWD info for Route %s, NH %s(%u), Operation %s\n",
-            rtm->name,
-            rt_str,
-            presentation_data->operation == RTM_PPT_OP_ADD ? \
-            rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-            presentation_data->nh_idx,
-            presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
-            presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
-        return;
+        rtm_error_t rc = rtm_resolution_create_nh_fwd_info (
+                rtm, 
+                presentation_data->inh, 
+                presentation_data->nh,
+                &fwd_info);
+
+        if (rc != RTM_SUCCESS) {
+
+            tracer (rtm->node->cptr, DERR,
+                "RTM[%s] : FIB Update Failed : Could not create FWD info for Route %s, NH %s(%u), Operation %s\n",
+                rtm->name,
+                rt_str,
+                presentation_data->operation == RTM_PPT_OP_ADD ? \
+                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
+                presentation_data->nh_idx,
+                presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
+                presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
+            return;
+        }
     }
 
     /* Update FIB based on operation */
@@ -121,19 +136,7 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             rtm->vrf, 
             &presentation_data->route, 
             presentation_data->nh_idx,
-            &fwd_info,
+            presentation_data->operation != RTM_PPT_OP_DELETE ? &fwd_info : NULL,
             rtm_to_fib_map_opn(presentation_data->operation));
-
-
-    tracer (rtm->node->cptr, DERR,
-            "RTM[%s] : FIB Update Failed : Could not update FIB for Route %s, "
-            "NH %s(%u), Operation %s\n",
-            rtm->name,
-            rt_str,
-            presentation_data->operation == RTM_PPT_OP_ADD ? \
-            rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-            presentation_data->nh_idx,
-            presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
-            presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 }
 

@@ -75,7 +75,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
 
         nh_index++;
         cprintf("\n  Nexthop %d:\n", nh_index);
-        cprintf("    Idx            : %u\n", nh->idx);
+        cprintf("    Idx            : %u(%p)\n", nh->idx, nh);
         cprintf("    Protocol       : %s\n", rtm_proto_to_string(nh->proto));
         cprintf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
         cprintf("    Next-Hop       : %s\n", nh_prefix_str);
@@ -216,7 +216,7 @@ extern "C" {
 /* Display RIB (Routing Information Base) in Cisco style */
 void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
 
-    cprintf("\n");
+    printw("\n");
     
     /* Display legend/codes - Cisco style */
     cprintf("Codes: I - IGRP derived, R - RIP derived, O - OSPF derived\n");
@@ -436,7 +436,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
         cprintf("No routes matching filter\n");
     }
     
-    cprintf("\n");
+    printw("\n");
 }
 
 /* Display RIB in detailed format (line by line, not tabular) */
@@ -765,7 +765,7 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
         }
     }
     
-    cprintf("\n");
+    printw("\n");
     cprintf("RTM Presentation Database :: %s\n", rtm->name);
     if (has_filter) {
         char filter_str[48];
@@ -818,9 +818,9 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
                 }
                 cprintf("]");
             }
-            cprintf("\n");
+            printw("\n");
         }
-        cprintf("\n");
+        printw("\n");
         
     } ITERATE_AVL_TREE_END;
     

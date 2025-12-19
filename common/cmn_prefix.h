@@ -51,7 +51,7 @@ void cmn_prefix_initialize_v6 (cmn_prefix_t *prefix, uint8_t addr[16], uint8_t m
 /* Helper Functions for Prefix to Bitmap Conversion */
 void cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm);
 void cmn_prefix_to_wildcard_bitmap(cmn_prefix_t *prefix, bitmap_t *wildcard);
-
+char *cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]);
 int8_t
 cmn_prefix_compare(const cmn_prefix_t *p1, const cmn_prefix_t *p2) ;
 

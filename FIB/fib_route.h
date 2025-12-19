@@ -21,14 +21,15 @@ typedef struct fib_route_ {
 
 
 fib_error_t 
-fib_add_route (
+fib_add_route (node_t *node,
         fib_t *fib, 
         cmn_prefix_t *prefix, 
         uint32_t nh_idx, 
         fib_nh_t *nh);
 
 fib_error_t 
-fib_del_route (fib_t *fib, 
+fib_del_route (node_t *node,
+               fib_t *fib, 
                cmn_prefix_t *prefix, 
                uint32_t nh_idx);
 

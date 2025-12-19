@@ -184,4 +184,13 @@
 /* show node <node-name> rtm <rib-name> ppt-db <prefix-filter> */
 #define CMDCODE_SHOW_NODE_RTM_PPT_DB_FILTER 73
 
+/* show node <node-name> vrf <vrf-id> fib rt */
+#define CMDCODE_SHOW_NODE_VRF_FIB_RT 74
+
+/* show node <node-name> vrf <vrf-id> fib rt6 */
+#define CMDCODE_SHOW_NODE_VRF_FIB_RT6 75
+
+/* show node <node-name> fib mpls */
+#define CMDCODE_SHOW_NODE_FIB_MPLS 76
+
 #endif /* __CMDCODES__ */

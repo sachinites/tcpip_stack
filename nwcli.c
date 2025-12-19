@@ -48,6 +48,8 @@
 #include "Layer2/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
+#include "FIB/fib.h"
+#include "FIB/fib_show.h"
 #include "RTM/rtm_priv_api.h"
 
 extern graph_t *topo;
@@ -653,6 +655,83 @@ show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
     return 0;
 }
 
+static int
+show_fib_handler(int cmdcode, Stack_t *tlv_stack,
+                 op_mode enable_or_disable){
+
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    c_string vrf_id_str = NULL;
+    uint8_t vrf_id = 0;
+    fib_t *fib = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-id"))
+            vrf_id_str = tlv->value;
+
+    }TLV_LOOP_END;
+
+    if(!node_name){
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if(!node){
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    /* Parse VRF ID if provided */
+    if (vrf_id_str) {
+        vrf_id = atoi((const char *)vrf_id_str);
+    }
+
+    printw ("\n\r");
+
+    switch (cmdcode) {
+        case CMDCODE_SHOW_NODE_VRF_FIB_RT:
+            /* Show IPv4 FIB */
+            fib = fib_lookup(node, AF_IPV4, vrf_id);
+            if (!fib) {
+                cprintf("Error : IPv4 FIB not found for VRF %u\n", vrf_id);
+                return -1;
+            }
+            fib_show_routes(fib);
+            break;
+
+        case CMDCODE_SHOW_NODE_VRF_FIB_RT6:
+            /* Show IPv6 FIB */
+            fib = fib_lookup(node, AF_IPV6, vrf_id);
+            if (!fib) {
+                cprintf("Error : IPv6 FIB not found for VRF %u\n", vrf_id);
+                return -1;
+            }
+            fib_show_routes(fib);
+            break;
+
+        case CMDCODE_SHOW_NODE_FIB_MPLS:
+            /* Show MPLS FIB - not VRF specific */
+            fib = fib_lookup(node, AF_LABEL, RTM_DEFAULT_VRF);
+            if (!fib) {
+                cprintf("Error : MPLS FIB not found\n");
+                return -1;
+            }
+            fib_show_routes(fib);
+            break;
+
+        default:
+            cprintf("Error : Unknown command code %d\n", cmdcode);
+            return -1;
+    }
+
+    return 0;
+}
+
 extern void
 clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
@@ -1233,6 +1312,53 @@ nw_init_cli(){
                     init_param(&rt6, CMD, "rt6", show_rt6_handler, 0, INVALID, 0, "Dump L3 V6 Routing table");
                     libcli_register_param(&node_name, &rt6);
                     libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_RT6_TABLE);
+                 }
+
+                 {
+                    /*show node <node-name> vrf*/
+                    static param_t vrf;
+                    init_param(&vrf, CMD, "vrf", 0, 0, INVALID, 0, "VRF commands");
+                    libcli_register_param(&node_name, &vrf);
+                    {
+                        /*show node <node-name> vrf <vrf-id>*/
+                        static param_t vrf_id;
+                        init_param(&vrf_id, LEAF, 0, 0, validate_vrf_id, INT, "vrf-id", "VRF ID (0-255)");
+                        libcli_register_param(&vrf, &vrf_id);
+                        {
+                            /*show node <node-name> vrf <vrf-id> fib*/
+                            static param_t fib;
+                            init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
+                            libcli_register_param(&vrf_id, &fib);
+                            {
+                                /*show node <node-name> vrf <vrf-id> fib rt*/
+                                static param_t rt;
+                                init_param(&rt, CMD, "rt", show_fib_handler, 0, INVALID, 0, "Show IPv4 FIB");
+                                libcli_register_param(&fib, &rt);
+                                libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_VRF_FIB_RT);
+                            }
+                            {
+                                /*show node <node-name> vrf <vrf-id> fib rt6*/
+                                static param_t rt6;
+                                init_param(&rt6, CMD, "rt6", show_fib_handler, 0, INVALID, 0, "Show IPv6 FIB");
+                                libcli_register_param(&fib, &rt6);
+                                libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_VRF_FIB_RT6);
+                            }
+                        }
+                    }
+                 }
+
+                 {
+                    /*show node <node-name> fib*/
+                    static param_t fib;
+                    init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
+                    libcli_register_param(&node_name, &fib);
+                    {
+                        /*show node <node-name> fib mpls*/
+                        static param_t mpls;
+                        init_param(&mpls, CMD, "mpls", show_fib_handler, 0, INVALID, 0, "Show MPLS FIB");
+                        libcli_register_param(&fib, &mpls);
+                        libcli_set_param_cmd_code(&mpls, CMDCODE_SHOW_NODE_FIB_MPLS);
+                    }
                  }
 
                  {

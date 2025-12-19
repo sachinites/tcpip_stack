@@ -55,12 +55,12 @@ typedef struct rtm_presentation_data_ {
 
     /* Route prefix being advertised */
     cmn_prefix_t route;
-    /* Pointer to nexthop being added, if deleted it would be NULL*/
+    /* Pointer to Direct nexthop being added, if deleted it would be NULL*/
     rtm_nh *nh; 
-    /*Indirect Nexthop being resolved by nh, May be NULL for delete operation*/            
+    /*Indirect Nexthop being resolved by nh, if deleted it would be NULL*/            
     rtm_nh *inh;
-    /* nh_idx being added or deleted. Clients must use this if nh ptr is NULL*/
-    uint32_t nh_idx;    
+    /* nh_idx of DNH being added or deleted. Clients must use this if nh ptr is NULL*/
+    uint32_t nh_idx;      
     /* Nexthop Entire Src Proto info */
     rtm_nh_proto_t *rtm_nh_proto;
     /* Nh Addr*/

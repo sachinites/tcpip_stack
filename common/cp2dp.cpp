@@ -1,4 +1,5 @@
 #include <assert.h>
+#include "cmn_prefix.h"
 #include "../graph.h"
 #include "l3_hdrs.h"
 #include "cp2dp.h"
@@ -20,9 +21,6 @@
 #include "../FIB/fib.h"
 #include "../FIB/fib_route.h"
 #include "../FIB/fib_nh.h"
-
-
-
 
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
@@ -304,10 +302,12 @@ dp_mpls_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 static void
 dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
     
-    fib_update_msg_t *fib_update_msg;
+    char nh_str[48];
+    char route_str[48];
+    fib_error_t rc;
     fib_t *fib = NULL;
     fib_nh_t *nh = NULL;
-    fib_error_t rc;
+    fib_update_msg_t *fib_update_msg;
 
     assert(dp_msg->component_type == FIB_TABLE);
     
@@ -322,16 +322,20 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         
             if (!fib) {
                 tracer (node->dptr, DFIB | DERR, 
-                       "FIB : FIB not initialized for AFI %d\n",
-                       fib_update_msg->fwd_info.nh_addr.afi);
+                       "FIB : FIB not initialized for AFI:%d VRF:%d\n",
+                       fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
                 cp2dp_msg_free(dp_msg);
                 return;
             }
             
             /* Create nexthop from forwarding info */
             fib_nh_t nh_template;
+            memset (&nh_template, 0, sizeof(fib_nh_t));
+            avltree_node_init (&nh_template.idx_glue);
+
             nh_template.fwd_info = new fib_nh_fwd_info_t;
-            rtm_fib_copy_fwd_info (node, &fib_update_msg->fwd_info, nh_template.fwd_info);
+            rtm_fib_copy_fwd_info (node, 
+                &fib_update_msg->fwd_info, nh_template.fwd_info);
             
             nh = fib_nh_lookup(fib, &nh_template);
 
@@ -341,22 +345,39 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
            
                 if (!nh) {
                     tracer (node->dptr, DFIB | DERR, 
-                        "FIB : Failed to create nexthop\n");
+                        "FIB[%s] : Route %s : Failed to create nexthop %s\n", 
+                        fib->name,
+                        cmn_prefix_to_string(&fib_update_msg->prefix, &route_str),
+                        cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
                     delete nh_template.fwd_info;
                     cp2dp_msg_free(dp_msg);
                     return;
                 }
+                tracer (node->dptr, DFIB_DET, 
+                    "FIB[%s] : Route %s : New nexthop %s Created and Registered\n", 
+                    fib->name,
+                    cmn_prefix_to_string(&fib_update_msg->prefix, &route_str),
+                    cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
                 fib_register_nh(fib, nh);
+            }
+            else {
+                tracer (node->dptr, DFIB_DET, 
+                    "FIB[%s] : Route %s : Existing nexthop %s Reused\n", 
+                    fib->name,
+                    cmn_prefix_to_string(&fib_update_msg->prefix, &route_str),
+                    cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
             }
 
             delete nh_template.fwd_info;
 
-            rc = fib_add_route(fib, &fib_update_msg->prefix, fib_update_msg->nhidx, nh);
+            rc = fib_add_route(node,
+                    fib, 
+                    &fib_update_msg->prefix, fib_update_msg->nhidx, nh);
             
             if (rc != FIB_ERROR_SUCCESS) {
                 tracer (node->dptr, DFIB | DERR, 
-                       "FIB : Failed to add route, error: %s\n",
-                       fib_error_str(rc));
+                       "FIB[%s] : Failed to add route %s, error: %s\n",
+                       fib->name, route_str, fib_error_str(rc));
                 delete nh->fwd_info;
                 XFREE(nh);
             }
@@ -366,24 +387,24 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         case DP_DEL:
         {
             fib_update_msg = (fib_update_msg_t *)dp_msg->data;
-            
-            /* Select FIB based on nexthop address AFI */
+
             fib = fib_lookup (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
         
             if (!fib) {
                 tracer (node->dptr, DFIB | DERR, 
-                       "FIB : FIB not initialized for AFI %d\n",
-                       fib_update_msg->fwd_info.nh_addr.afi);
+                       "FIB : FIB not initialized for AFI:%d VRF:%d\n",
+                       fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
                 cp2dp_msg_free(dp_msg);
                 return;
             }
             
-            rc = fib_del_route(fib, &fib_update_msg->prefix, fib_update_msg->nhidx);
+            rc = fib_del_route(node, fib, 
+                    &fib_update_msg->prefix, fib_update_msg->nhidx);
             
             if (rc != FIB_ERROR_SUCCESS) {
                 tracer (node->dptr, DFIB | DERR, 
-                       "FIB : Failed to delete route, error: %s\n",
-                       fib_error_str(rc));
+                       "FIB[%s] : Failed to delete route, error: %s\n",
+                       fib->name, fib_error_str(rc));
             }
             break;
         }
@@ -1287,11 +1308,11 @@ cp2dp_fib_update (
 
     /* Populate FIB update message */
     msg->vrf_id = vrf_id;
-    msg->fwd_flags = fwd_info->fwd_flags;
+    msg->fwd_flags = fwd_info ? fwd_info->fwd_flags : 0;
     msg->nhidx = nh_idx;
     msg->prefix = *prefix;
 
-    memcpy(&msg->fwd_info, fwd_info, sizeof(fib_nh_fwd_info_t));    
+    if (fwd_info) memcpy(&msg->fwd_info, fwd_info, sizeof(fib_nh_fwd_info_t));    
 
     /* Submit to data plane */
     cp2dp_submit(node, dp_msg, true);

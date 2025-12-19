@@ -189,9 +189,12 @@ static inline int avltree_is_empty(struct avltree *tree) {
 }
 
 static inline int 
-avltree_node_is_inuse (struct avltree_node *node) {
+avltree_node_is_inuse (struct avltree *tree, struct avltree_node *node) {
 
-	if (node->left == 0 && node->right == 0 && node->parent == 2) return 0;
+	if (node->left == 0 && 
+		node->right == 0 && 
+		node->parent == 2 && 
+		tree->root != node) return 0;
 	return 1;
 }
 

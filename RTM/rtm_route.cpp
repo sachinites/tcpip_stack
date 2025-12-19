@@ -43,7 +43,7 @@ rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route) {
     assert (Fglthread_list_is_empty(&route->resolved_lnhs));
     assert (route->nh_count == 0);
     assert (route->ref_count == 0);
-    assert (!avltree_node_is_inuse (&route->route_glue));
+    assert (!avltree_node_is_inuse (&rtm->route_tree, &route->route_glue));
     assert (!IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue));
     assert (!IS_QUEUED_UP_IN_THREAD (&route->advt_glue));
 
@@ -594,12 +594,8 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
     if (route->prefix.afi != AF_IPV4 &&
             route->prefix.afi !=  AF_IPV6) return RTM_ERROR_INVALID_ARGUMENT;
     
-    bitmap_init(&prefix_bm, route->prefix.afi == AF_IPV4 ? 32 : 128);
-    bitmap_init(&wildcard_bm, route->prefix.afi == AF_IPV4 ? 32 : 128);
-    
     /* Convert prefix to bitmap */
-    cmn_prefix_to_bitmap(&route->prefix, &prefix_bm);
-    cmn_prefix_to_wildcard_bitmap(&route->prefix, &wildcard_bm);
+    cmn_prefix_to_bitmap(&route->prefix, &prefix_bm, &wildcard_bm);
     
     /* Insert into mtrie */
     result = mtrie_insert_prefix(rtm->lpm_rt_tree, 
@@ -676,12 +672,8 @@ rtm_lpm_tree_delete(rtm_t *rtm, cmn_prefix_t *prefix) {
             return RTM_ERROR_INVALID_PREFIX;
     }
     
-    bitmap_init(&prefix_bm, prefix_len);
-    bitmap_init(&wildcard_bm, prefix_len);
-    
     /* Convert prefix to bitmap */
-    cmn_prefix_to_bitmap(prefix, &prefix_bm);
-    cmn_prefix_to_wildcard_bitmap(prefix, &wildcard_bm);
+    cmn_prefix_to_bitmap(prefix, &prefix_bm, &wildcard_bm);
     
     /* Delete from mtrie */
     result = mtrie_delete_prefix(rtm->lpm_rt_tree, 
@@ -841,7 +833,7 @@ rtm_route_Fglthread_add_last(rtm_route *route,
 void 
 rtm_route_avl_insert (rtm_route *route, avltree_t *tree, avltree_node_t *avlnode){
 
-    assert (!avltree_node_is_inuse(avlnode));
+    assert (!avltree_node_is_inuse(tree, avlnode));
     assert (!avltree_insert(avlnode, tree));
     rtm_route_reference (route);
 }
@@ -850,7 +842,7 @@ void
 rtm_route_avl_remove (rtm_t *rtm, rtm_route *route, 
     avltree_t *tree, avltree_node_t *avlnode){
 
-    assert (avltree_node_is_inuse(avlnode));
+    assert (avltree_node_is_inuse(tree, avlnode));
     avltree_strict_remove(avlnode, tree); 
     rtm_route_dereference (rtm, route);
 }

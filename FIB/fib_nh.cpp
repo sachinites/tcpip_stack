@@ -8,14 +8,6 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Tree/libtree.h"
 
-static int8_t 
-fib_nh_fwd_info_compare (
-        fib_nh_fwd_info_t *p1, 
-        fib_nh_fwd_info_t *p2) {
-
-    return 0;
-}
-
 int
 fib_nh_comp_fn(const avltree_node_t *node1, 
                     const avltree_node_t *node2){
@@ -91,7 +83,7 @@ fib_nh_create(fib_t *fib, fib_nh_t *nh_template) {
     
     /* Allocate memory for new FIB nexthop */
     fib_nh_t *new_nh = (fib_nh_t *)XCALLOC2(0, 1, fib_nh_t);
-    nh_template->fwd_info = new fib_nh_fwd_info_t;
+    new_nh->fwd_info = new fib_nh_fwd_info_t;
 
     /* Copy forwarding flags */
     new_nh->fwd_info->fwd_flags = nh_template->fwd_info->fwd_flags;
@@ -142,7 +134,7 @@ fib_nh_dereference(fib_t *fib, fib_nh_t *nh) {
     
     /* If reference count reaches zero, free the nexthop */
     if (nh->ref_count == 0) {
-        assert (avltree_node_is_inuse(&nh->idx_glue));
+        assert (avltree_node_is_inuse(&fib->nhs, &nh->idx_glue));
         avltree_remove(&nh->idx_glue, &fib->nhs);
         delete nh->fwd_info;
         XFREE(nh);
@@ -152,7 +144,7 @@ fib_nh_dereference(fib_t *fib, fib_nh_t *nh) {
 void 
 fib_register_nh(fib_t *fib, fib_nh_t *nh) {
     
-    assert (!avltree_node_is_inuse(&nh->idx_glue));
+    assert (!avltree_node_is_inuse(&fib->nhs, &nh->idx_glue));
     avltree_insert(&nh->idx_glue, &fib->nhs);
     // Dont increment ref count
 }

@@ -1,37 +1,39 @@
 #include <string.h>
 #include <cstdlib>
+#include "../graph.h"
 #include "fib.h"
 #include "fib_route.h"
 #include "fib_error.h"
 #include "fib_nh.h"
 #include "../mtrie/mtrie.h"
 #include "../BitOp/bitmap.h"
+#include "../Tracer/tracer.h"
+#include "../common/cmn_prefix.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 fib_error_t 
-fib_add_route (
+fib_add_route (node_t *node,
         fib_t *fib, 
         cmn_prefix_t *prefix, 
         uint32_t nh_idx, 
         fib_nh_t *nh) {
     
-    /* Validate AFI matches between FIB and prefix */
-    if (prefix->afi != fib->afi) {
-        return FIB_ERROR_AFI_MISMATCH;
-    }
-    
+    char route_str[48];
+    char nh_str[48];
+
+    tracer (node->dptr, DFIB_DET, 
+        "FIB[%s] : Adding Route %s with NH Index (%s)%u\n", 
+        fib->name,
+        cmn_prefix_to_string(prefix, &route_str),
+        cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str), nh_idx);
+
     /* Handle based on FIB type (IP vs MPLS) */
-    if (prefix->afi == AF_IPV4 || prefix->afi == AF_IPV6) {
-        
-        /* IP prefix - use LPM (mtrie) */
-        if (!fib->u.lpm) {
-            return FIB_ERROR_INVALID_PARAM;
-        }
+    if (prefix->afi == AF_IPV4 || 
+            prefix->afi == AF_IPV6) {
         
         /* Convert prefix to bitmap format for mtrie */
         bitmap_t bm_prefix, bm_mask;
-        cmn_prefix_to_bitmap(prefix, &bm_prefix);
-        cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
+        cmn_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
         
         /* Try to insert or lookup existing route in mtrie */
         mtrie_node_t *mnode = NULL;
@@ -49,6 +51,10 @@ fib_add_route (
         
         /* Check result */
         if (result == MTRIE_INSERT_FAILED) {
+
+            tracer (node->dptr, DFIB | DERR, 
+                "FIB[%s] : Route %s : FIB installation failed\n", 
+                fib->name, route_str);
             return FIB_ERROR_INSERT_FAILED;
         }
         
@@ -84,6 +90,10 @@ fib_add_route (
             
             /* Store route in mtrie node */
             mnode->data = (void *)route;
+
+            tracer (node->dptr, DFIB_DET, 
+                "FIB[%s] : Route %s : New route created and installed, Nexthop : %s(%u)\n", 
+                fib->name, route_str, nh_str, nh_idx);
             
         } else if (result == MTRIE_INSERT_DUPLICATE) {
             
@@ -122,14 +132,13 @@ fib_add_route (
             
             /* Reference the nexthop */
             fib_nh_reference(nh);
+
+            tracer (node->dptr, DFIB_DET, 
+                "FIB[%s] : Route %s : Existing route, added new Nexthop : %s(%u)\n", 
+                fib->name, route_str, nh_str, nh_idx);
         }
         
     } else if (prefix->afi == AF_LABEL) {
-        
-        /* MPLS label - use hash table */
-        if (!fib->u.label_ht) {
-            return FIB_ERROR_INVALID_PARAM;
-        }
         
         /* Look up existing route by label */
         uint32_t label = prefix->u.mpls_label;
@@ -170,6 +179,10 @@ fib_add_route (
                 XFREE(route);
                 return FIB_ERROR_INSERT_FAILED;
             }
+
+            tracer (node->dptr, DFIB_DET, 
+                "FIB[%s] : Route %s : New route created and installed, Nexthop : %s(%u)\n", 
+                fib->name, route_str, nh_str, nh_idx);
             
         } else {
             /* Route exists, add nexthop to ECMP group */
@@ -202,10 +215,15 @@ fib_add_route (
             
             /* Reference the nexthop */
             fib_nh_reference(nh);
+
+            tracer (node->dptr, DFIB_DET, 
+                "FIB[%s] : Route %s : Existing route, added new Nexthop : %s(%u)\n", 
+                fib->name, route_str, nh_str, nh_idx);
         }
         
     } else {
         /* Unsupported AFI */
+        assert(0);
         return FIB_ERROR_INVALID_PARAM;
     }
     
@@ -213,27 +231,25 @@ fib_add_route (
 }
 
 fib_error_t 
-fib_del_route (fib_t *fib, 
+fib_del_route (node_t *node,
+               fib_t *fib, 
                cmn_prefix_t *prefix, 
                uint32_t nh_idx) {
     
-    /* Validate AFI matches between FIB and prefix */
-    if (prefix->afi != fib->afi) {
-        return FIB_ERROR_AFI_MISMATCH;
-    }
-    
+    char route_str[48];
+
+    tracer (node->dptr, DFIB_DET, 
+        "FIB[%s] : Deleting NH Index (%u) from Route %s\n", 
+        fib->name,
+        nh_idx,
+        cmn_prefix_to_string(prefix, &route_str));
+
     /* Handle based on FIB type (IP vs MPLS) */
     if (prefix->afi == AF_IPV4 || prefix->afi == AF_IPV6) {
         
-        /* IP prefix - use LPM (mtrie) */
-        if (!fib->u.lpm) {
-            return FIB_ERROR_INVALID_PARAM;
-        }
-        
         /* Convert prefix to bitmap format for mtrie lookup */
         bitmap_t bm_prefix, bm_mask;
-        cmn_prefix_to_bitmap(prefix, &bm_prefix);
-        cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
+        cmn_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
         
         /* Look up route in mtrie */
         mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
@@ -248,6 +264,10 @@ fib_del_route (fib_t *fib,
         
         /* Check if route exists */
         if (!mnode || !mnode->data) {
+
+            tracer (node->dptr, DERR, 
+                "FIB[%s] : Route %s : Not found for deletion\n", 
+                fib->name, route_str);
             return FIB_ERROR_ROUTE_NOT_FOUND;
         }
         
@@ -284,12 +304,17 @@ fib_del_route (fib_t *fib,
             }
         }
         
+        tracer (node->dptr, DFIB_DET, 
+            "FIB[%s] : Route %s : Deleted Nexthop (%u), Remaining NHs: %d\n", 
+            fib->name, route_str, nh_idx, remaining_nhs);
+
         /* If no nexthops remain, delete the route */
         if (remaining_nhs == 0) {
             
-            /* Remove from mtrie */
-            cmn_prefix_to_bitmap(prefix, &bm_prefix);
-            cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
+            /* Remove from mtrie - reinitialize bitmaps for delete operation */
+            bitmap_init(&bm_prefix, prefix->afi == AF_IPV4 ? 32 : 128);
+            bitmap_init(&bm_mask, prefix->afi == AF_IPV4 ? 32 : 128);
+            cmn_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
             
             void *app_data = NULL;
             mtrie_ops_result_code_t result = mtrie_delete_prefix(
@@ -308,21 +333,23 @@ fib_del_route (fib_t *fib,
             }
             
             /* Free route structure */
+            tracer (node->dptr, DFIB_DET, 
+                "FIB[%s] : Route %s Deleted. No remaining nexthops\n", 
+                fib->name, route_str);
             XFREE(route);
         }
         
     } else if (prefix->afi == AF_LABEL) {
-        
-        /* MPLS label - use hash table */
-        if (!fib->u.label_ht) {
-            return FIB_ERROR_INVALID_PARAM;
-        }
         
         /* Look up existing route by label */
         uint32_t label = prefix->u.mpls_label;
         fib_route_t *route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label);
         
         if (!route) {
+
+            tracer (node->dptr, DERR, 
+                "FIB[%s] : Route %s : Not found for deletion\n", 
+                fib->name, route_str);
             return FIB_ERROR_ROUTE_NOT_FOUND;
         }
         
@@ -339,6 +366,9 @@ fib_del_route (fib_t *fib,
         }
         
         if (!found) {
+            tracer (node->dptr, DERR, 
+                "FIB[%s] : Route %s : Nexthop (%u) not found for deletion\n", 
+                fib->name, route_str, nh_idx);
             return FIB_ERROR_NEXTHOP_NOT_FOUND;
         }
         
@@ -357,24 +387,29 @@ fib_del_route (fib_t *fib,
             }
         }
         
+        tracer (node->dptr, DFIB_DET, 
+            "FIB[%s] : Route %s : Deleted Nexthop (%u), Remaining NHs: %d\n", 
+            fib->name, route_str, nh_idx, remaining_nhs);
+
         /* If no nexthops remain, delete the route */
         if (remaining_nhs == 0) {
             
             /* Remove from hash table */
             void *removed_route = hashtable_remove(fib->u.label_ht, &label);
             
-            if (!removed_route) {
-                /* Route removal from hash table failed */
-                /* But we already cleared the nexthop, so continue cleanup */
-            }
+            assert (removed_route == route);
             
             /* Free route structure */
+            tracer (node->dptr, DFIB_DET, 
+                "FIB[%s] : Route %s Deleted. No remaining nexthops\n", 
+                fib->name, route_str);
             XFREE(route);
             
             /* Note: The hash table key is owned by the hash table and will be freed when it's destroyed */
         }
         
     } else {
+        assert(0);
         /* Unsupported AFI */
         return FIB_ERROR_INVALID_PARAM;
     }

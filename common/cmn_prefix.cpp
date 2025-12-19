@@ -40,6 +40,34 @@ cmn_prefix_initialize_v6(cmn_prefix_t *prefix, uint8_t addr[16], uint8_t mask) {
     prefix->afi = AF_IPV6;
 }
 
+char *
+cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]) {
+
+    char addr_str[128] = {0};
+    
+    switch (prefix->afi) {
+        case AF_IPV4:
+            tcp_ip_covert_ip_n_to_p(prefix->u.v4_addr, (c_string)addr_str);
+            snprintf(*buffer, 48, "%s/%d", addr_str, prefix->prefix_len);
+            break;
+            
+        case AF_IPV6:
+            inet_ntop(AF_INET6, prefix->u.v6_addr, addr_str, sizeof(addr_str));
+            snprintf(*buffer, 48, "%s/%d", addr_str, prefix->prefix_len);
+            break;
+            
+        case AF_LABEL:
+            snprintf(*buffer, 48, "Label %u", prefix->u.mpls_label);
+            break;
+            
+        default:
+            snprintf(*buffer, 48, "Unknown");
+            break;
+    }
+    
+    return *buffer;
+}
+
 int8_t
 cmn_prefix_compare(const cmn_prefix_t *p1, const cmn_prefix_t *p2) {
     

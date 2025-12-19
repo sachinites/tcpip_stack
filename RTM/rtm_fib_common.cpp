@@ -6,7 +6,8 @@
 #include "../Interface/InterfaceUApi.h"
 
 void
-rtm_fib_copy_fwd_info (node_t *node, rtm_nh_fwd_info_t *src, 
+rtm_fib_copy_fwd_info (node_t *node, 
+                       rtm_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst) {
 
     dst->oif = node_get_intf_by_ifindex(node, src->oif)->GetSharedPtr();

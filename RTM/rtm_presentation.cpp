@@ -55,7 +55,8 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                 {
                     data_node = glue_to_glthread_data_node(data_node_thread);
                     dnh = (rtm_nh *)(data_node->data);
-                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
+                    presentation_data = (rtm_presentation_data_t *)XCALLOC2(
+                            0, 1, rtm_presentation_data_t);
                     presentation_data->nh = dnh;
                     rtm_nh_reference(dnh);
                     presentation_data->inh = nh;
@@ -73,7 +74,8 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
             }
             else
             {
-                presentation_data = (rtm_presentation_data_t *)XCALLOC2(0, 1, rtm_presentation_data_t);
+                presentation_data = (rtm_presentation_data_t *)XCALLOC2(
+                        0, 1, rtm_presentation_data_t);
                 dnh = nh;
                 presentation_data->nh = dnh;
                 rtm_nh_reference(dnh);
@@ -836,7 +838,8 @@ static void
 rtm_ppt_route_check_and_delete (rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
     
     rtm_ppt_route_release_resources (rtm, ppt_route);
-    assert (!avltree_node_is_inuse (&ppt_route->route_glue));
+    assert (!avltree_node_is_inuse (&rtm->ppt_db_route_tree, 
+        &ppt_route->route_glue));
     XFREE (ppt_route);
 }
 
@@ -868,7 +871,7 @@ rtm_ppt_db_destroy(rtm_t *rtm) {
 static void 
 rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     
-     char prefix_str[48];
+    char prefix_str[48];
     rtm_nh_proto_t *nh_proto;
     rtm_ppt_route_t out_add, out_del;
     avltree_node_t *sub_proto_advt_db_node;
@@ -882,6 +885,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
 
     /* Step 4a: Advertise deletions first */
     rtm_ppt_route_t *del_alloc = get_allocated_route(&out_del);
+
     if (del_alloc)
     {
         for (int i = 0; i < out_del.nhidx_list_count; i++)
@@ -891,8 +895,10 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
             /* Delete case, NH is deleted and breathing its last moments in
                 Garbage collecter DB*/
             rtm_nh *nh = rtm_nh_lookup_by_idx(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
-            if (!nh)
+
+            if (!nh) {
                 nh = rtm_gc_lookup_nh(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
+            }
 
             nh_proto = nh->rtm_nh_proto;
 
@@ -1092,7 +1098,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
         avltree_node_init(&cached_route->route_glue);
         rtm_ppt_route_check_and_delete (rtm, cached_route);
         rtm_ppt_route_t *updated_ppt_rt = rtm_ppt_db_clone_route(rtm, route);
-        assert (!avltree_node_is_inuse (&updated_ppt_rt->route_glue));
+        assert (!avltree_node_is_inuse (&rtm->ppt_db_route_tree, &updated_ppt_rt->route_glue));
         avltree_insert(&updated_ppt_rt->route_glue, &rtm->ppt_db_route_tree);
         tracer (rtm->node->cptr, DRTM, 
             "RTM[%s] : Route %s : Synchronized with PPT-DB\n",

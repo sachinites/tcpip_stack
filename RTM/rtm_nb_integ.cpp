@@ -113,6 +113,8 @@ cp_rtm_install_local_or_connected_v4_routes (
     route.u.v4_addr = prefix;
     rtm_nh_proto_t *nh_proto = NULL;
 
+    return 0;
+
     cp_nexthop_template_t nh_template;
     memset (&nh_template, 0, sizeof(nh_template));
 

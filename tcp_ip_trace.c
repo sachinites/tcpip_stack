@@ -774,74 +774,87 @@ void tcp_ip_show_log_status(node_t *node){
 
     cprintf ("\tDebug Logging Status:\n");
 
-    tracer_t *tr = node->dptr;
+    tracer_t *cptr = node->cptr;
+    tracer_t *dptr = node->dptr;
     
-    if (tracer_is_bit_set (tr, DARP | DARP_DET)) 
+    if (tracer_is_bit_set (dptr, DARP | DARP_DET)) 
         cprintf ("\t  DARP     :     ON\n" );
     else 
         cprintf ("\t  DARP     :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DL3FWD | DL3FWD_DET)) 
+    if (tracer_is_bit_set (dptr, DL3FWD | DL3FWD_DET)) 
         cprintf ("\t  DL3FWD   :     ON\n" );
     else 
         cprintf ("\t  DL3FWD   :     OFF\n" );    
 
-    if (tracer_is_bit_set (tr, DL2FWD | DL2FWD_DET)) 
+    if (tracer_is_bit_set (dptr, DL2FWD | DL2FWD_DET)) 
         cprintf ("\t  DL2FWD   :     ON\n" );
     else 
         cprintf ("\t  DL2FWD   :     OFF\n" );        
     
-    if (tracer_is_bit_set (tr, DRTM | DRTM_DET)) 
+    if (tracer_is_bit_set (cptr, DRTM | DRTM_DET)) 
         cprintf ("\t  DRTM     :     ON\n" );
     else 
         cprintf ("\t  DRTM     :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DACL | DACL_DET)) 
+    if (tracer_is_bit_set (dptr, DACL | DACL_DET) ||
+            tracer_is_bit_set (cptr, DACL | DACL_DET)) 
         cprintf ("\t  DACL     :     ON\n" );
     else 
         cprintf ("\t  DACL     :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DIPC | DIPC_DET)) 
+    if (tracer_is_bit_set (dptr, DIPC | DIPC_DET) ||
+            tracer_is_bit_set (cptr, DIPC | DIPC_DET)) 
         cprintf ("\t  DIPC     :     ON\n" );
     else 
         cprintf ("\t  DIPC     :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DINTF | DINTF_DET)) 
+    if (tracer_is_bit_set (dptr, DINTF | DINTF_DET) ||
+            tracer_is_bit_set (cptr, DINTF | DINTF_DET)) 
         cprintf ("\t  DINTF    :     ON\n" );
     else 
         cprintf ("\t  DINTF    :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DFLOW | DFLOW_DET)) 
+    if (tracer_is_bit_set (dptr, DFLOW | DFLOW_DET)) 
         cprintf ("\t  DFLOW    :     ON\n" );
     else 
         cprintf ("\t  DFLOW    :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DTUNNEL | DTUNNEL_DET)) 
+    if (tracer_is_bit_set (dptr, DTUNNEL | DTUNNEL_DET)) 
         cprintf ("\t  DTUN     :     ON\n" );
     else 
         cprintf ("\t  DTUN     :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DL2SW | DL2SW_DET)) 
+    if (tracer_is_bit_set (dptr, DL2SW | DL2SW_DET)) 
         cprintf ("\t  DL2SW    :     ON\n" );
     else 
         cprintf ("\t  DL2SW    :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DTIMER | DTIMER_DET)) 
+    if (tracer_is_bit_set (dptr, DFIB | DFIB_DET)) 
+        cprintf ("\t  DFIB     :     ON\n" );
+    else 
+        cprintf ("\t  DFIB    :     OFF\n" );
+
+    if (tracer_is_bit_set (dptr, DTIMER | DTIMER_DET) ||
+            tracer_is_bit_set (cptr, DTIMER | DTIMER_DET)) 
         cprintf ("\t  DTIMER   :     ON\n" );
     else 
         cprintf ("\t  DTIMER   :     OFF\n" );
 
-    if (tracer_is_bit_set (tr, DALWAYS_FLUSH)) 
+    if (tracer_is_bit_set (dptr, DALWAYS_FLUSH) || 
+            tracer_is_bit_set (cptr, DALWAYS_FLUSH)) 
         cprintf ("\t  DALWAYS_FLUSH: ON\n" );
     else 
         cprintf ("\t  DALWAYS_FLUSH: OFF\n" );
 
-    if (tracer_is_bit_set (tr, DERR)) 
+    if (tracer_is_bit_set (dptr, DERR) || 
+            tracer_is_bit_set (cptr, DERR)) 
         cprintf ("\t  DERR     :     ON\n" );
     else 
         cprintf ("\t  DERR     :     OFF\n" );    
 
-    if (tracer_is_bit_set (tr, DALL_LOGGING))
+    if (tracer_is_bit_set (dptr, DALL_LOGGING) ||
+            tracer_is_bit_set (cptr, DALL_LOGGING))
         cprintf ("\t  DALL     :     ON\n" );
     else 
         cprintf ("\t  DALL     :     OFF\n" );
@@ -1227,6 +1240,7 @@ tcp_ip_debug_handler (  int cmdcode,
 
     switch (cmdcode) {
 
+        /* Both : CP and DP */
         case DALWAYS_FLUSH:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
@@ -1252,6 +1266,29 @@ tcp_ip_debug_handler (  int cmdcode,
             break;
         }
 
+        /* Both : CP and DP */
+        case DERR:
+        case DACL:
+        case DACL_DET:
+        case DIPC:
+        case DIPC_DET:
+        case DINTF:
+        case DINTF_DET:
+        case DTIMER:
+        case DTIMER_DET:
+        switch (enable_or_disable) {
+            case CONFIG_ENABLE:
+                tracer_log_bit_set(node->dptr, cmdcode);
+		        tracer_log_bit_set(node->cptr, cmdcode);
+            break;
+            case CONFIG_DISABLE:
+                tracer_log_bit_unset(node->dptr, cmdcode);
+		        tracer_log_bit_unset(node->cptr, cmdcode);
+            break;
+        }        
+        break;
+
+        /* Only : CP */
         case DRTM:
         case DRTM_DET:
         switch (enable_or_disable) {
@@ -1263,11 +1300,35 @@ tcp_ip_debug_handler (  int cmdcode,
             break;
         }
         break;
+
+
+        /* Only : DP */
+        case DARP:
+        case DARP_DET:
+        case DL3FWD:
+        case DL3FWD_DET:
+        case DL2FWD:
+        case DL2FWD_DET:
+        case DFLOW:
+        case DFLOW_DET:
+        case DTUNNEL:
+        case DTUNNEL_DET:
+        case DL2SW:
+        case DL2SW_DET:
+        case DFIB:
+        case DFIB_DET:
+        case DMPLS:
+        case DMPLS_DET:
+        switch (enable_or_disable) {
+            case CONFIG_ENABLE:
+		        tracer_log_bit_set(node->dptr, cmdcode);
+            break;
+            case CONFIG_DISABLE:
+	    	    tracer_log_bit_unset(node->dptr, cmdcode);
+            break;
+        }
+        break;        
     }
-    
-    /* Handle rest of the cmd codes */
-    enable_or_disable == CONFIG_ENABLE ? \
-        tracer_log_bit_set(node->dptr, cmdcode) : tracer_log_bit_unset(node->dptr, cmdcode);
 
     return 0;
 }
@@ -1389,6 +1450,15 @@ tcp_ip_build_debug_cli_tree (param_t *root) {
             libcli_set_param_cmd_code(&switching, DL2SW);
             libcli_register_param_detail (&switching, tcp_ip_debug_handler, DL2SW_DET);
         }
+        
+        {
+            /* config node <node-name> [no] debug fib [detail]*/
+            static param_t fib;
+            init_param(&fib, CMD, "fib", tcp_ip_debug_handler, 0, INVALID, 0, "Forwarding Information Base");
+            libcli_register_param(&debug, &fib);
+            libcli_set_param_cmd_code(&fib, DFIB);
+            libcli_register_param_detail (&fib, tcp_ip_debug_handler, DFIB_DET);
+        }
 
         {
             /* config node <node-name> [no] debug timer [detail]*/
@@ -1503,6 +1573,14 @@ debug_dp_bits_to_str (char *buffer, uint64_t bits) {
     if (bits & DL2SW_DET) {
         strcat (buffer, "DL2SW_DET ");
         rc += 10;
+    }
+    if (bits & DFIB) {
+        strcat (buffer, "DFIB ");
+        rc += 5;
+    }
+    if (bits & DL2SW_DET) {
+        strcat (buffer, "DFIB_DET ");
+        rc += 9;
     }
     if (bits & DTIMER) {
         strcat (buffer, "DTIMER ");

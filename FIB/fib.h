@@ -21,6 +21,7 @@ typedef struct fib_ {
     /* Key type of this FIB*/
     AFI_T afi;
     uint8_t vrf_id;
+    char name[16];
 
     union {
         /* IF the key of the FIB is v4 or V6*/
