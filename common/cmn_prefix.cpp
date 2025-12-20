@@ -120,16 +120,14 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm) {
             /* For IPv4, convert to network byte order and store in bitmap */
             uint32_t bin_ip = htonl(prefix->u.v4_addr);
             bm->bits[0] = bin_ip;
-            bm->next += 32;
             break;
         }
         case AF_IPV6: {
             /* For IPv6, copy 16 bytes directly to bitmap */
-            uint8_t *bm_array = (uint8_t *)(bm->bits + bm->next);
+            uint8_t *bm_array = (uint8_t *)(bm->bits);
             for (int i = 0; i < 16; i++) {
                 bm_array[i] = ((uint8_t *)prefix->u.v6_addr)[i];
             }
-            bm->next += 128;
             break;
         }
         default:
@@ -258,7 +256,7 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
                      bitmap_t *bm_prefix, 
                      bitmap_t *bm_mask) {
     
-    uint16_t stride_len = fib_get_stride_len_from_afi(prefix->afi);
+    uint16_t stride_len = afi_stride_len(prefix->afi);
     uint32_t mask_bits;
     
     bitmap_init(bm_prefix, stride_len);

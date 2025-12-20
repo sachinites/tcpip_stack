@@ -34,15 +34,6 @@ typedef struct cmn_prefix_ {
 #pragma pack(pop)
 
 /* Helper function to convert AFI to string */
-static const char* cmn_afi_to_string(AFI_T afi) {
-    switch(afi) {
-        case AF_IPV4: return "IPv4";
-        case AF_IPV6: return "IPv6";
-        case AF_LABEL: return "MPLS";
-        case AF_MAC: return "MAC";
-        default: return "Unknown";
-    }
-}
 
 bool cmn_prefix_is_null (cmn_prefix_t *prefix);
 void cmn_prefix_initialize_v4 (cmn_prefix_t *prefix, uint32_t ip_addr, uint8_t mask);
@@ -51,10 +42,10 @@ void cmn_prefix_initialize_v6 (cmn_prefix_t *prefix, uint8_t addr[16], uint8_t m
 /* Helper Functions for Prefix to Bitmap Conversion */
 void cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm);
 void cmn_prefix_to_wildcard_bitmap(cmn_prefix_t *prefix, bitmap_t *wildcard);
-char *cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]);
 int8_t
 cmn_prefix_compare(const cmn_prefix_t *p1, const cmn_prefix_t *p2) ;
-
+char *
+cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]);
 bool 
 cmn_parse_prefix_string(const char *prefix_str, cmn_prefix_t *prefix);
 

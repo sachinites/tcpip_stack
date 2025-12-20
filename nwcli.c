@@ -991,12 +991,12 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
             mtrie_longest_prefix_first_traverse(
-                    &NODE_RT_TABLE(node)->route_list,
+                    node->node_nw_prop.ipv4_fib->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
             mtrie_longest_prefix_first_traverse(
-                    &NODE_V6RT_TABLE(node)->route_list,
+                    node->node_nw_prop.ipv6_fib->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:

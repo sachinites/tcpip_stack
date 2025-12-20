@@ -594,18 +594,22 @@ rtm_lpm_tree_insert(rtm_t *rtm, rtm_route *route) {
     if (route->prefix.afi != AF_IPV4 &&
             route->prefix.afi !=  AF_IPV6) return RTM_ERROR_INVALID_ARGUMENT;
     
+    bitmap_init(&prefix_bm, route->prefix.afi == AF_IPV4 ? 32 : 128);
+    bitmap_init(&wildcard_bm, route->prefix.afi == AF_IPV4 ? 32 : 128);
+    
     /* Convert prefix to bitmap */
-    cmn_prefix_to_bitmap(&route->prefix, &prefix_bm, &wildcard_bm);
+    cmn_prefix_to_bitmap(&route->prefix, &prefix_bm);
+    cmn_prefix_to_wildcard_bitmap(&route->prefix, &wildcard_bm);
     
     /* Insert into mtrie */
     result = mtrie_insert_prefix(rtm->lpm_rt_tree, 
                                   &prefix_bm, 
                                   &wildcard_bm,
-                                  route->prefix.afi == AF_IPV4 ? 32 : 128,
+                                  afi_stride_len(route->prefix.afi),
                                   &mnode);
     
     if (result == MTRIE_INSERT_SUCCESS) {
-        /* Set the route pointer in the mtrie node */
+
         mnode->data = route;
         //rtm_route_reference (route);
 
@@ -660,20 +664,14 @@ rtm_lpm_tree_delete(rtm_t *rtm, cmn_prefix_t *prefix) {
     }
     
     /* Initialize bitmaps based on AFI */
-    uint16_t prefix_len = 0;
-    switch (prefix->afi) {
-        case AF_IPV4:
-            prefix_len = 32;
-            break;
-        case AF_IPV6:
-            prefix_len = 128;
-            break;
-        default:
-            return RTM_ERROR_INVALID_PREFIX;
-    }
+    uint16_t prefix_len = afi_stride_len(prefix->afi);
+    
+    bitmap_init(&prefix_bm, prefix_len);
+    bitmap_init(&wildcard_bm, prefix_len);
     
     /* Convert prefix to bitmap */
-    cmn_prefix_to_bitmap(prefix, &prefix_bm, &wildcard_bm);
+    cmn_prefix_to_bitmap(prefix, &prefix_bm);
+    cmn_prefix_to_wildcard_bitmap(prefix, &wildcard_bm);
     
     /* Delete from mtrie */
     result = mtrie_delete_prefix(rtm->lpm_rt_tree, 

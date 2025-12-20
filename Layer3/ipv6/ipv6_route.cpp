@@ -79,9 +79,6 @@ l3rib_v6route_lookup_exact_match (
         bitmap_set_bit_at(&mask_bm, i);
     }
     bitmap_inverse (&mask_bm, 128);
-    
-    //cprintf ("Prefix to be exact-matched\n");
-    //bitmap_prefix_print (&prefix_bm, &mask_bm, 128);
 
     mtrie_node_t *node = mtrie_exact_prefix_match_search(
                             &v6rt_table->route_list,

@@ -33,29 +33,6 @@ demote_pkt_to_layer2 (node_t *node,
                       pkt_block_t *pkt_block,
                       hdr_type_t hdr_type);
 
-/**
- * Get stride length based on AFI
- * 
- * @param afi  Address Family Identifier
- * @return     Stride length in bits, 0 on error
- */
-uint16_t fib_get_stride_len_from_afi(AFI_T afi) {
-    switch (afi) {
-        case AF_IPV4:
-            return 32;  /* IPv4 address is 32 bits */
-        case AF_IPV6:
-            return 128; /* IPv6 address is 128 bits */
-        case AF_LABEL:
-            return 20;  /* MPLS label is 20 bits */
-        case AF_MAC:
-            return 48;  /* MAC address is 48 bits */
-        default:
-            return 0;
-    }
-}
-
-
-
 /* Extract destination address from packet based on header type */
 bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
     

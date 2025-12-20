@@ -38,6 +38,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "common/cmn_prefix.h"
 
 typedef unsigned char byte;
 typedef unsigned char* c_string; 
@@ -181,6 +182,18 @@ void
 tcp_ip_generate_random_mac_address (unsigned char (*mac)[6]) ;
 
 uint32_t apply_mask2 (uint32_t prefix, uint8_t mask);
+uint16_t afi_stride_len (AFI_T afi) ;
+
+
+static const char* afi_to_string(AFI_T afi) {
+    switch(afi) {
+        case AF_IPV4: return "IPv4";
+        case AF_IPV6: return "IPv6";
+        case AF_LABEL: return "MPLS";
+        case AF_MAC: return "MAC";
+        default: return "Unknown";
+    }
+}
 
 #define RTM_UP_TIME(time_t_obj, buff, size)	\
 	hrs_min_sec_format((unsigned int)difftime(time(NULL), \

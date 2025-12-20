@@ -33,7 +33,12 @@ fib_add_route (node_t *node,
         
         /* Convert prefix to bitmap format for mtrie */
         bitmap_t bm_prefix, bm_mask;
-        cmn_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
+        bitmap_init(&bm_prefix, afi_stride_len(prefix->afi));
+        bitmap_init(&bm_mask, afi_stride_len(prefix->afi));
+
+        /* Convert prefix to bitmap */
+        cmn_prefix_to_bitmap(prefix, &bm_prefix);
+        cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
         
         /* Try to insert or lookup existing route in mtrie */
         mtrie_node_t *mnode = NULL;
@@ -41,10 +46,10 @@ fib_add_route (node_t *node,
             fib->u.lpm,
             &bm_prefix,
             &bm_mask,
-            prefix->prefix_len,
+            afi_stride_len(prefix->afi),
             &mnode
         );
-        
+
         /* Free bitmaps */
         bitmap_free_internal(&bm_prefix);
         bitmap_free_internal(&bm_mask);
@@ -249,8 +254,13 @@ fib_del_route (node_t *node,
         
         /* Convert prefix to bitmap format for mtrie lookup */
         bitmap_t bm_prefix, bm_mask;
-        cmn_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
+        bitmap_init(&bm_prefix, prefix->afi == AF_IPV4 ? 32 : 128);
+        bitmap_init(&bm_mask, prefix->afi == AF_IPV4 ? 32 : 128);
+        cmn_prefix_to_bitmap(prefix, &bm_prefix);
+        cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
         
+        bitmap_prefix_print (&bm_prefix, &bm_mask, 32);
+
         /* Look up route in mtrie */
         mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
             fib->u.lpm,
@@ -314,7 +324,8 @@ fib_del_route (node_t *node,
             /* Remove from mtrie - reinitialize bitmaps for delete operation */
             bitmap_init(&bm_prefix, prefix->afi == AF_IPV4 ? 32 : 128);
             bitmap_init(&bm_mask, prefix->afi == AF_IPV4 ? 32 : 128);
-            cmn_prefix_to_bitmap(prefix, &bm_prefix, &bm_mask);
+            cmn_prefix_to_bitmap(prefix, &bm_prefix);
+            cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
             
             void *app_data = NULL;
             mtrie_ops_result_code_t result = mtrie_delete_prefix(

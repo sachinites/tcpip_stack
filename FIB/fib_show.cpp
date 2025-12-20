@@ -135,7 +135,7 @@ void
 fib_show_routes(fib_t *fib) {
     
     /* Print AFI and VRF information */
-    const char *afi_str = cmn_afi_to_string(fib->afi);
+    const char *afi_str = afi_to_string(fib->afi);
     cprintf("Address Family: %s, VRF: %u\n\n", afi_str, fib->vrf_id);
     
     uint32_t route_count = 0;
@@ -186,7 +186,7 @@ fib_show_routes(fib_t *fib) {
                 fib_nh_t *nh = route->nhs[i];
                 if (!nh) continue;
                 
-                cprintf("    [%u] NH Index: %u\n", i + 1, route->nh_idx[i]);
+                cprintf("    [%u] NH Index: %u(%p)\n", i + 1, route->nh_idx[i], nh->fwd_info);
                 
                 /* Nexthop address */
                 char nh_addr_str[128];
@@ -201,12 +201,14 @@ fib_show_routes(fib_t *fib) {
                 }
                 
                 /* Forwarding flags */
+                #if 0
                 cprintf("      Flags: 0x%04x ", nh->fwd_info->fwd_flags);
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV4) cprintf("[IPv4] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6) cprintf("[IPv6] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) cprintf("[MPLS] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) cprintf("[SRv6] ");
                 printw("\n");
+                #endif 
                 
                 /* Reference count and hit count */
                 cprintf("      Ref Count: %u, Hit Count: %u\n", 
@@ -322,8 +324,6 @@ fib_show_routes(fib_t *fib) {
     }
     
     /* Print summary */
-    cprintf("=============================================================================\n");
     cprintf("Total Routes: %u\n", route_count);
-    cprintf("=============================================================================\n\n");
 }
 

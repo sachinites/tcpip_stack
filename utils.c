@@ -418,6 +418,29 @@ apply_mask2(uint32_t prefix, uint8_t mask) {
     return prefix;
 }
 
+
+/**
+ * Get stride length based on AFI
+ * 
+ * @param afi  Address Family Identifier
+ * @return     Stride length in bits, 0 on error
+ */
+uint16_t 
+afi_stride_len (AFI_T afi) {
+    switch (afi) {
+        case AF_IPV4:
+            return 32;  /* IPv4 address is 32 bits */
+        case AF_IPV6:
+            return 128; /* IPv6 address is 128 bits */
+        case AF_LABEL:
+            return 20;  /* MPLS label is 20 bits */
+        case AF_MAC:
+            return 48;  /* MAC address is 48 bits */
+        default:
+            return 0;
+    }
+}
+
 #if 0
 
 int 

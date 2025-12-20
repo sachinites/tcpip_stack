@@ -26,7 +26,7 @@ typedef struct fib_route_ fib_route_t;
 
 
 /* Get stride length based on AFI */
-uint16_t fib_get_stride_len_from_afi(AFI_T afi);
+uint16_t afi_stride_len(AFI_T afi);
 
 /* Extract destination address from packet based on header type */
 bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest);
