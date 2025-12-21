@@ -81,7 +81,8 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         /* Copy labels from DNH (outer labels) */
         int i = 0;
 
-        while (i < MAX_LBL_DEPTH && !mpls_label_is_null(dnh->label_stack->labels[i])) {
+        while (i < (MAX_LBL_DEPTH - 1) &&  // because one label is already copied above
+                !mpls_label_is_null(dnh->label_stack->labels[i])) {
             label_val = mpls_label_get_value (dnh->label_stack->labels[i].label_val);
             mpls_label_init(&label);
             mpls_label_set_value  (&label.label_val, label_val);

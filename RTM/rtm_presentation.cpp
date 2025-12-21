@@ -1094,7 +1094,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     }
     else {
         /* Update the cached route in PPT DB with the latest snapshot */
-        avltree_remove (&cached_route->route_glue, &rtm->ppt_db_route_tree);
+        assert(avltree_remove (&cached_route->route_glue, &rtm->ppt_db_route_tree));
         avltree_node_init(&cached_route->route_glue);
         rtm_ppt_route_check_and_delete (rtm, cached_route);
         rtm_ppt_route_t *updated_ppt_rt = rtm_ppt_db_clone_route(rtm, route);

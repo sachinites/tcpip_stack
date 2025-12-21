@@ -352,7 +352,7 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
 
-    rtm_schedule_route_advertisement (rtm, nh->owner_route);
+    rtm_schedule_route_advertisement (nh->rtm, nh->owner_route);
 }
 
 void 
@@ -384,7 +384,7 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
 
-    rtm_schedule_route_advertisement (rtm, nh->owner_route);
+    rtm_schedule_route_advertisement (nh->rtm, nh->owner_route);
     
     tracer(rtm->node->cptr, DRTM,
             "RTM[%s] : NH deactivated and removed from FIB for route %s\n",

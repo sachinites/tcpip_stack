@@ -107,7 +107,7 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
 
     } ITERATE_GLTHREAD_END(&route->path_list, nh_glue);
     
-    rtm_schedule_route_advertisement (rtm, indirect_nh->owner_route);
+    rtm_schedule_route_advertisement (indirect_nh->rtm, indirect_nh->owner_route);
     
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Copied %d direct NHs from Route %s to INH %s\n",
@@ -720,12 +720,24 @@ rtm_all_inh_unresolve(rtm_t *rtm,  cmn_prefix_t *route) {
 rtm_route *
 rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 
+    char route_str[48];
+    char inh_str[128];
     cmn_prefix_t *prefix;
     rtm_route *resolver_route;
     rtm_t *lookup_rtm = rtm_get_resolver_rtm (rtm->node, inh);
 
-    if (!lookup_rtm) return NULL;
+    if (!lookup_rtm) {
+        tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Could not get Resolver RTM for INH: %s\n", 
+            rtm->name, rtm_nh_one_liner_trace(inh, inh_str, sizeof(inh_str)));
+        return NULL;
+    }
     
+    tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Resolver RTM %s located to resolve INH: %s\n", 
+            rtm->name, lookup_rtm->name, 
+            rtm_nh_one_liner_trace(inh, inh_str, sizeof(inh_str)));
+
     prefix = &inh->prefix;
 
     switch (prefix->afi) {
@@ -737,8 +749,20 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
                 case AF_IPV4:
                 {
                     resolver_route = rtm_lpm_tree_lookup(lookup_rtm, prefix);
-                    if (!resolver_route) return NULL;
-                    if (!rtm_route_is_resolved(resolver_route)) return NULL;
+                    if (!resolver_route) {
+                        tracer(rtm->node->cptr, DRTM,
+                               "RTM[%s] : Resolver Route not found to resolve INH: %s\n",
+                               rtm->name, inh_str);
+                        return NULL;
+                    }
+                    if (!rtm_route_is_resolved(resolver_route)) {
+                        tracer(rtm->node->cptr, DRTM,
+                               "RTM[%s] : Resolver Route %s is not resolved to resolve INH: %s\n",
+                               rtm->name, 
+                               rtm_format_prefix(&resolver_route->prefix, route_str, sizeof(route_str)),
+                               inh_str);                      
+                        return NULL;
+                    }
                     return resolver_route;
                 }
                 break;
@@ -754,8 +778,20 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
                 case AF_IPV6:
                 {
                     resolver_route = rtm_lpm_tree_lookup(lookup_rtm, prefix);
-                    if (!resolver_route) return NULL;
-                    if (!rtm_route_is_resolved(resolver_route)) return NULL;
+                    if (!resolver_route) {
+                        tracer(rtm->node->cptr, DRTM,
+                               "RTM[%s] : Resolver Route not found to resolve INH: %s\n",
+                               rtm->name, inh_str);
+                        return NULL;
+                    }
+                    if (!rtm_route_is_resolved(resolver_route)) {
+                        tracer(rtm->node->cptr, DRTM,
+                               "RTM[%s] : Resolver Route %s is not resolved to resolve INH: %s\n",
+                               rtm->name, 
+                               rtm_format_prefix(&resolver_route->prefix, route_str, sizeof(route_str)),
+                               inh_str);                    
+                        return NULL;
+                    }
                     return resolver_route;
                 }
                 break;
@@ -771,8 +807,20 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
                 case AF_LABEL:
                 {
                     resolver_route = rtm_route_lookup(lookup_rtm, prefix);
-                    if (!resolver_route) return NULL;
-                    if (!rtm_route_is_resolved(resolver_route)) return NULL;
+                    if (!resolver_route) {
+                        tracer(rtm->node->cptr, DRTM,
+                               "RTM[%s] : Resolver Route not found to resolve INH: %s\n",
+                               rtm->name, inh_str);
+                        return NULL;
+                    }
+                    if (!rtm_route_is_resolved(resolver_route)) {
+                        tracer(rtm->node->cptr, DRTM,
+                               "RTM[%s] : Resolver Route %s is not resolved to resolve INH: %s\n",
+                               rtm->name, 
+                               rtm_format_prefix(&resolver_route->prefix, route_str, sizeof(route_str)),
+                               inh_str);                     
+                        return NULL;
+                    }
                     return resolver_route;
                 }
                 break;

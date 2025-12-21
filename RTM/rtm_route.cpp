@@ -714,22 +714,7 @@ rtm_lpm_tree_lookup(rtm_t *rtm, cmn_prefix_t *prefix) {
         return NULL;
     }
     
-    /* Initialize bitmap based on AFI */
-    uint16_t prefix_len = 0;
-    switch (prefix->afi) {
-        case AF_IPV4:
-            prefix_len = 32;
-            break;
-        case AF_IPV6:
-            prefix_len = 128;
-            break;
-        default:
-            return NULL;
-    }
-    
-    bitmap_init(&prefix_bm, prefix_len);
-    
-    /* Convert prefix to bitmap */
+    bitmap_init(&prefix_bm, afi_stride_len(prefix->afi));
     cmn_prefix_to_bitmap(prefix, &prefix_bm);
     
     /* Perform LPM search */
@@ -762,7 +747,8 @@ rtm_route_moved_to_resolved_state (rtm_t *rtm, rtm_route *route) {
 
     glthread_add_next(&rtm->stats.new_resolved_routes, &route->stats_resolved_glue);
     rtm_route_reference(route);
-
+    
+    // 4. An Existing Route moved from unresolved to resolved state
     rtm_schedule_nh_resolution_worker_of_dependent_rtms(rtm);
 }
 

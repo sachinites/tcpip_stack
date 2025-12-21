@@ -85,7 +85,7 @@ fib_display_label_stack(mpls_lstack_t *label_stack) {
     
     cprintf("      Label Stack: ");
 
-    for (int i = 0; i < label_stack->curr_index; i++) {
+    for (int i = 0; i <= label_stack->curr_index; i++) {
 
         mpls_label_val_t label_val = mpls_label_get_value(label_stack->labels[i].label_val);
         
@@ -110,7 +110,7 @@ fib_display_label_stack(mpls_lstack_t *label_stack) {
                 break;
         }
         
-        if (i < label_stack->curr_index - 1) {
+        if (i < label_stack->curr_index) {
             cprintf(" -> ");
         }
     }
