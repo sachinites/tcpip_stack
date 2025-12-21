@@ -84,18 +84,26 @@ fib_display_label_stack(mpls_lstack_t *label_stack) {
     }
     
     cprintf("      Label Stack: ");
+
     for (int i = 0; i < label_stack->curr_index; i++) {
-        uint32_t label_val = mpls_label_get_value(label_stack->labels[i].label_val);
+
+        mpls_label_val_t label_val = mpls_label_get_value(label_stack->labels[i].label_val);
         
         switch (label_stack->labels[i].op) {
             case MPLS_OP_PUSH:
-                cprintf("[PUSH %u]", label_val);
+                cprintf("[PUSH %u]%s", label_val, 
+                        mpls_label_is_stack_bottom(
+                            label_stack->labels[i].label_val) ? "(S)":"");
                 break;
             case MPLS_OP_POP:
-                cprintf("[POP %u]", label_val);
+                cprintf("[POP %u]%s", label_val,
+                        mpls_label_is_stack_bottom(
+                            label_stack->labels[i].label_val) ? "(S)":"");
                 break;
             case MPLS_OP_SWAP:
-                cprintf("[SWAP %u]", label_val);
+                cprintf("[SWAP %u]%s", label_val,
+                        mpls_label_is_stack_bottom(
+                            label_stack->labels[i].label_val) ? "(S)":"");
                 break;
             default:
                 cprintf("[%u]", label_val);
@@ -293,12 +301,14 @@ fib_show_routes(fib_t *fib) {
                 }
                 
                 /* Forwarding flags */
+                #if 0
                 cprintf("      Flags: 0x%04x ", nh->fwd_info->fwd_flags);
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV4) cprintf("[IPv4] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6) cprintf("[IPv6] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) cprintf("[MPLS] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) cprintf("[SRv6] ");
                 printw("\n");
+                #endif 
                 
                 /* Reference count and hit count */
                 cprintf("      Ref Count: %u, Hit Count: %u\n", 

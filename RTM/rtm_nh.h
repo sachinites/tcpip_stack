@@ -75,6 +75,7 @@ typedef struct rtm_nh_ {
         glthread_t route_resolved_list_glue;
         /* Glue to rtm->unresolvable_paths*/
         glthread_t unresolvable_list_glue;
+        glthread_t stats_resolved_glue;
 
         bool is_active;
 
@@ -123,6 +124,7 @@ GLTHREAD_TO_STRUCT( route_glue_to_rtm_nh, rtm_nh, route_glue);
 GLTHREAD_TO_STRUCT( advt_glue_to_rtm_nh, rtm_nh, advt_glue);
 GLTHREAD_TO_STRUCT( src_glue_to_rtm_nh, rtm_nh, src_glue);
 GLTHREAD_TO_STRUCT( unresolvable_list_glue_to_rtm_nh, rtm_nh, unresolvable_list_glue);
+GLTHREAD_TO_STRUCT( stats_resolved_glue_to_rtm_nh, rtm_nh, stats_resolved_glue);
 
 /* Methods */
 int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
@@ -144,7 +146,7 @@ rtm_nh *rtm_nh_lookup_by_idx(rtm_t *rtm, uint32_t idx);
 rtm_error_t rtm_nh_add_to_idx_tree(rtm_t *rtm, rtm_nh *nh);
 rtm_error_t rtm_nh_remove_from_idx_tree(rtm_t *rtm, rtm_nh *nh);
 void rtm_inh_moved_to_resolved_state (rtm_t *rtm, rtm_nh *inh);
-void rtm_inh_moved_to_unsolved_state (rtm_t *rtm, rtm_nh *inh);
+void rtm_inh_moved_to_unresolved_state (rtm_t *rtm, rtm_nh *inh);
 
 /* Wrapper to glthread_add_next ()*/
 void rtm_nh_glthread_add_next (rtm_nh *nh, 

@@ -34,18 +34,23 @@ typedef struct rtm_route_ {
 
     uint16_t flags;
 
+    /* How manu INHs are in resolved state.*/
+    uint16_t resolved_inh_count;
+
     /* Number of nexthops */
     uint16_t nh_count;
 
     uint32_t ref_count;
 
     glthread_t advt_glue;
+    glthread_t stats_resolved_glue;
 
 } rtm_route;
 
 #pragma pack(pop)
 GLTHREAD_TO_STRUCT(resolved_route_glue_to_route, rtm_route, resolved_route_glue);
 GLTHREAD_TO_STRUCT(advt_glue_to_route, rtm_route, advt_glue);
+GLTHREAD_TO_STRUCT(stats_resolved_glue_to_route, rtm_route, stats_resolved_glue);
 
 /* Methods */
 void rtm_route_initialize(rtm_route *route);

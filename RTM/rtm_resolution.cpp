@@ -243,18 +243,13 @@ rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
             &rtm->unresolvable_paths, &indirect_nh->unresolvable_list_glue);
 
         rtm_copy_route_active_nhs_to_inh_direct_nh_set(rtm, route, indirect_nh);
-        
-        bool was_resolved = rtm_route_is_resolved(indirect_nh->owner_route);
+
         indirect_nh->resolved_via_route = route;
         rtm_route_reference (route);
         rtm_nh_Fglthread_add_last (indirect_nh, 
                 &route->resolved_lnhs, 
                 &indirect_nh->route_resolved_list_glue);     
         rtm_inh_moved_to_resolved_state(rtm, indirect_nh);
-
-        if (!was_resolved) {
-            rtm_route_moved_to_resolved_state (rtm, indirect_nh->owner_route);
-        }
 
         if ( !IS_QUEUED_UP_IN_THREAD (&indirect_nh->owner_route->resolved_route_glue) ) {
 
@@ -285,7 +280,6 @@ static void
 rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 
     int resolved_count = 0;
-
     rtm_t *rtm = (rtm_t *)arg;
 
     rtm->nh_resolution_job = NULL;
@@ -293,6 +287,13 @@ rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : NH resolution worker started\n",
         rtm->name);
+
+    if (IS_BIT_SET (rtm->flags, RTM_F_INHS_RE_RESOLVE)) {
+
+         UNSET_BIT16(rtm->flags, RTM_F_INHS_RE_RESOLVE);
+
+        rtm_all_inh_unresolve(rtm, NULL);
+    }
     
     rtm_try_unresolvable_paths_resolution (rtm, &resolved_count);
 
@@ -310,20 +311,59 @@ rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
 
     if (rtm->nh_resolution_job) {
         tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : NH resolution worker already scheduled\n",
-            rtm->name);
+            "RTM[%s] : NH resolution worker already scheduled\n", rtm->name);
         return;
     }
 
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Scheduling NH resolution worker\n",
-        rtm->name);
+        "RTM[%s] : Scheduling NH resolution worker\n", rtm->name);
 
     rtm->nh_resolution_job =  task_create_new_job ( EV(rtm->node),
              (void *)rtm,
              rtm_nh_resolver_job_cbk,
              TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE );
 }
+
+/* This API is used to resolve unresolve routes Or re-resolve already resolved routes 
+    of other dependent RTMs. For example, 
+    if LDP installs the route in x.inet.3 then , an attempt should be made to resolve BGP 
+    routes in x.inet.0 RTM for all VRFs  
+    This API should be invoked when : 
+    1. A new Route is added 
+    2. A Route is Deleted
+    3. An Existing Route moved from resolved to unresolved state
+    4. An Existing Route moved from unresolved to resolved state
+*/
+void 
+rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
+
+    /* If this is 0.inet.3 RTM, Schedule the NH resolution worker of x.inet.0 RTM*/
+
+    // Since VRFs are not supported, we will handle Default VRF RTMs only for now
+
+    if (rtm == rtm->node->node_nw_prop.inet3) {
+
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : NH resolution worker already scheduled in RTM inet.0\n", rtm->name);        
+
+        SET_BIT(rtm->node->node_nw_prop.inet0->flags, RTM_F_INHS_RE_RESOLVE);
+
+        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet0);
+    }
+
+    /* If this is 0.inet.63 RTM, Schedule the NH resolution worked of 0.inet.6 RTM*/
+     else if (rtm == rtm->node->node_nw_prop.inet63) {
+
+        tracer(rtm->node->cptr, DRTM_DET,
+            "RTM[%s] : NH resolution worker already scheduled in RTM inet.6\n", rtm->name);        
+
+        SET_BIT(rtm->node->node_nw_prop.inet6->flags, RTM_F_INHS_RE_RESOLVE);
+
+        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet6);
+    }
+
+}
+
 
 void 
 rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) {
@@ -526,19 +566,12 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
            rtm_format_prefix(&nh->resolved_via_route->prefix, 
             route_str, sizeof(route_str)), inh_str);
 
-        bool was_resolved = rtm_route_is_resolved(nh->owner_route);
-
         rtm_nh_remove_Fglthread(rtm, nh,
                                 &nh->resolved_via_route->resolved_lnhs,
                                 &nh->route_resolved_list_glue);
         rtm_route_dereference(rtm, nh->resolved_via_route);
         nh->resolved_via_route = NULL;
-        rtm_inh_moved_to_unsolved_state(rtm, nh);
-
-        if (was_resolved && !rtm_route_is_resolved(nh->owner_route)) {
-            /* This route gets resolved for the first time*/
-            rtm_route_moved_to_unresolved_state (rtm, nh->owner_route);
-        }
+        rtm_inh_moved_to_unresolved_state(rtm, nh);
 
         // if Upstream there is no route resolved by this DNH, no action
         if (Fglthread_list_is_empty (&nh->owner_route->resolved_lnhs)) return;
@@ -574,18 +607,12 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
            inh_str);
 
         // Break linkage from route which resolves this INH
-        bool was_resolved = rtm_route_is_resolved(nh->owner_route);
         rtm_nh_remove_Fglthread(rtm, nh, 
                 &nh->resolved_via_route->resolved_lnhs, 
                 &nh->route_resolved_list_glue);
         rtm_route_dereference(rtm,  nh->resolved_via_route);
         nh->resolved_via_route = NULL;
-        rtm_inh_moved_to_unsolved_state(rtm, nh);
-
-        if (was_resolved && !rtm_route_is_resolved(nh->owner_route)) {
-            /* This route gets resolved for the first time*/
-            rtm_route_moved_to_unresolved_state (rtm, nh->owner_route);
-        }
+        rtm_inh_moved_to_unresolved_state(rtm, nh);
 
         // Action 
         // 2 Withdraw its contribution to resolution graph upstream 
@@ -670,6 +697,26 @@ rtm_re_resolve_inhs (rtm_t *rtm, cmn_prefix_t *route) {
     rtm_re_resolve_inhs_per_protocol (rtm, route, proto);
 }
 
+void 
+rtm_all_inh_unresolve(rtm_t *rtm,  cmn_prefix_t *route) {
+
+    rtm_nh *nh;
+    avltree_node_t *avl_node;
+
+    ITERATE_AVL_TREE_BEGIN(&rtm->nhs_by_idx, avl_node) {
+
+       nh = (rtm_nh *)avltree_container_of(avl_node, rtm_nh, idx_glue);
+       if (!nh->is_indirect)  continue;
+       if (!rtm_nh_is_resolved(nh)) continue;
+      if (route && cmn_prefix_compare(&nh->resolved_via_route->prefix, route) != 0) continue;
+        rtm_resolution_nh_withdraw(rtm, nh);
+        rtm_nh_Fglthread_add_last (nh, 
+            &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
+
+    } ITERATE_AVL_TREE_END(&rtm->nhs_by_idx, avl_node);
+
+}
+
 rtm_route *
 rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 
@@ -746,10 +793,10 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
         VRF inet.0 table <x.inet.0> , resolve it in default inet.3 table*/
 
     if (indirect_nh->proto == RTM_PROTO_BGP &&
-            indirect_nh->sub_proto == RTM_PROTO_BGP_VPN &&
-            indirect_nh->rtm->vrf != RTM_DEFAULT_VRF) {
+            indirect_nh->sub_proto == RTM_PROTO_BGP_VPN) {
+          //  indirect_nh->rtm->vrf != RTM_DEFAULT_VRF) {
 
-        //x.inet.0
+        //A route installed in x.inet.0 should be resolved over 0.inet.3
         if (indirect_nh->prefix.afi == AF_IPV4 &&
                 indirect_nh->rtm->afi == AF_IPV4) 
             return node->node_nw_prop.inet3;

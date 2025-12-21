@@ -8,12 +8,15 @@
 #include "rtm_enums.h"
 #include "rtm_error.h"
 #include "../common/cmn_prefix.h"
+#include "rtm_priv_api.h"
 
 typedef struct node_ node_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct task_ task_t;
 typedef struct mtrie_ mtrie_t;
 typedef struct rtm_ppt_db_ rtm_ppt_db_t;
+
+#define RTM_F_INHS_RE_RESOLVE   1
 
 #pragma pack(push, 8)
 
@@ -23,6 +26,8 @@ typedef struct rtm_ {
     uint8_t vrf;
     AFI_T afi;
     uint32_t rtm_id;
+
+    uint16_t flags;
 
     /* RTM name : vrf.inet[6]|mpls.table_id */
     char name[32];
@@ -88,6 +93,16 @@ typedef struct rtm_ {
 
     /* Garbage Collector Queue */
     Fglthread_t gc_queue;
+
+    /* For stats */
+    struct {
+
+        glthread_t new_resolved_routes;
+        glthread_t new_resolved_nhs;
+        glthread_t new_unresolved_routes;
+        glthread_t new_unresolved_nhs;
+
+    } stats;
     
 } rtm_t;
 
@@ -96,5 +111,7 @@ typedef struct rtm_ {
 rtm_t* rtm_initialize (uint8_t vrf, AFI_T afi, uint32_t rtm_id);
 void rtm_stop (rtm_t *rtm);
 void rtm_check_and_delete (rtm_t *rtm);
+void rtm_log_stats (rtm_t *rtm);
+void rtm_clear_stats(rtm_t *rtm);
 
 #endif

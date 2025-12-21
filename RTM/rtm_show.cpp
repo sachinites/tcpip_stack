@@ -33,6 +33,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
     cprintf("\nRoute: %s\n", prefix_str);
     cprintf("========================================\n");
     cprintf("  Nexthop Count  : %u\n", route->nh_count);
+    cprintf("  Resolved Nexthop Count : %u\n", route->resolved_inh_count);
     cprintf("  Flags          : 0x%04x\n", route->flags);
     cprintf("  Ref Count      : %u\n", route->ref_count);
 
@@ -151,7 +152,9 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                     case MPLS_OP_POP: op_str = "Pop"; break;
                     default: break;
                 }
-                cprintf("[%u:%s]", label->label_val, op_str);
+                /* Extract the actual 20-bit label value */
+                uint32_t label_value = mpls_label_get_value(label->label_val);
+                cprintf("[%u:%s]", label_value, op_str);
                 if (i < nh->label_stack->curr_index - 1) {
                     cprintf(" -> ");
                 }

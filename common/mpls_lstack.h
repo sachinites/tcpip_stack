@@ -71,12 +71,18 @@ mpls_label_get_value(mpls_label_val_t label) {
     return (label >> 12) & 0xFFFFF;
 }
 
+static inline void 
+mpls_label_init (mpls_label_t *label) {
+
+    label->label_val = 0;
+    label->op = MPLS_OP_STACK_OPS_UNKNOWN;
+}
+
 static void 
 mpls_label_set_value (mpls_label_val_t *label, uint32_t value) {
 
-    *label = 0;
-    value &= 0xFFFFF;
-    *label |= (value << 12);
+    value = value << 12;
+    *label |= value;
 }
 
 /* Check if S (Bottom of Stack) bit is set */
@@ -129,11 +135,25 @@ mpls_lstack_pop (mpls_lstack_t *label_stk) {
     return label;
 }
 
+static void 
+mpls_lstack_push(mpls_lstack_t *label_stk, mpls_label_t label ) {
+
+    assert (label_stk->curr_index < MAX_LBL_DEPTH);
+    label_stk->curr_index++;
+    label_stk->labels[label_stk->curr_index] = label;
+}
+
 static mpls_label_t
 mpls_lstack_get_top (mpls_lstack_t *label_stk) {
 
     assert (!mpls_lstack_is_empty (label_stk));
     return label_stk->labels[label_stk->curr_index];
+}
+
+static inline bool 
+mpls_label_is_null(mpls_label_t label) {
+
+    return label.label_val == 0 && label.op == MPLS_OP_STACK_OPS_UNKNOWN;
 }
 
 #endif 

@@ -1693,6 +1693,20 @@ nw_init_cli(){
                                                         }
                                                     }
                                                 }
+                                                {
+                                                    /* label-stack */
+                                                    static param_t label_stack;
+                                                    init_param(&label_stack, CMD, "label-stack", 0, 0, INVALID, 0, "MPLS label stack");
+                                                    libcli_register_param(&gw_ip, &label_stack);
+                                                    {
+                                                        /* label-stack <label-list> */
+                                                        static param_t label_list;
+                                                        init_param(&label_list, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "label-list", "Space-separated label values");
+                                                        libcli_register_param(&label_stack, &label_list);
+                                                        libcli_param_recursive(&label_list);
+                                                        libcli_set_param_cmd_code(&label_list, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                    }
+                                                }
                                             }
                                         }
                                     }

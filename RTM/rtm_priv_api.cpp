@@ -220,7 +220,9 @@ config_rtm_route_cli_handler(int cmdcode,
             if_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "label-list")) {
             if (label_stack_count < MAX_LBL_DEPTH) {
-                label_stack[label_stack_count] = atoi((const char *)tlv->value);
+                uint32_t plain_label = atoi((const char *)tlv->value);
+                /* Encode label value in upper 20 bits */
+                mpls_label_set_value(&label_stack[label_stack_count], plain_label);
                 label_stack_count++;
             }
         }
@@ -377,7 +379,8 @@ config_rtm_route_cli_handler(int cmdcode,
             if (is_mpls) {
                 /* MPLS label */
                 prefix.u.mpls_label = mpls_label;
-                prefix.prefix_len = 0; /* Not applicable for MPLS */
+                prefix.u.mpls_label = prefix.u.mpls_label << 12;
+                prefix.prefix_len = 20; 
             } else {
                 prefix.prefix_len = mask;
                 
@@ -1078,6 +1081,9 @@ rtm_install_route (
             rtm->name);
 
         rtm_re_resolve_inhs (rtm, &route->prefix);
+
+        //    1. A new Route is added 
+        rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm);
     }
 
     tracer(rtm->node->cptr, DRTM_DET,
@@ -1120,6 +1126,8 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
             rtm->name, prefix_str);
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
+
+    bool was_resolved = rtm_route_is_resolved (route);
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(nh_template);
 
@@ -1171,6 +1179,10 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
     if (route->nh_count == 0) {
         rtm_schedule_route_advertisement (rtm, route);
         rtm_route_delete(rtm, route);
+
+        //     2. A Route is Deleted
+        // Delete cases Automatically handled
+        //if (was_resolved) rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm, &route->prefix);
     }
 
     return RTM_SUCCESS;

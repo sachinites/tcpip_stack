@@ -1231,6 +1231,10 @@ rtm_advt_route_advt_prep_job_cbk(
 
     rtm->route_advt_prep_job = NULL;
 
+    /* Log the stats */
+    rtm_log_stats(rtm);
+    rtm_clear_stats(rtm);
+
     while ((curr = dequeue_glthread_first(&rtm->route_advt_queue.head))) {
 
         route = advt_glue_to_route(curr);

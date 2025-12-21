@@ -13,6 +13,8 @@
 #include "rtm_presentation.h"
 #include "../lmm_enums.h"
 #include "../mtrie/mtrie.h"
+#include "../Tracer/tracer.h"
+#include "../graph.h"
 
 /* Forward declaration of LPM tree functions */
 extern void rtm_lpm_tree_init(rtm_t *rtm);
@@ -79,6 +81,11 @@ rtm_initialize(uint8_t vrf, AFI_T afi, uint32_t rtm_id) {
     init_Fglthread(&rtm->unresolvable_paths);
     rtm->advt_job = NULL;
 
+    init_glthread (&rtm->stats.new_resolved_routes);
+    init_glthread (&rtm->stats.new_resolved_nhs);
+    init_glthread (&rtm->stats.new_unresolved_routes);
+    init_glthread (&rtm->stats.new_unresolved_nhs);
+
     rtm_ppt_db_initialize(rtm);
     
     return rtm;
@@ -120,4 +127,108 @@ void rtm_check_and_delete (rtm_t *rtm) {
     assert (Fglthread_list_is_empty(&rtm->gc_queue) );
 
     XFREE(rtm);
+}
+
+
+void 
+rtm_log_stats (rtm_t *rtm) {
+
+    glthread_t *curr;
+    rtm_nh *inh;
+    rtm_route *route;
+    char prefix_str[48];
+    uint32_t count = 1;
+
+    if (!IS_GLTHREAD_LIST_EMPTY(&rtm->stats.new_resolved_routes))
+    {
+
+    tracer(rtm->node->cptr, DRTM_DET, "RTM[%s] : Stats : Resolved Routes:\n", rtm->name);
+    count = 1;
+    ITERATE_GLTHREAD_BEGIN(&rtm->stats.new_resolved_routes, curr) {
+
+        route = stats_resolved_glue_to_route(curr);
+
+        tracer(rtm->node->cptr, DRTM_DET, "    RTM[%s] : Stats : %u. Resolved Route : %s\n",
+                rtm->name, count++, 
+                rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
+    } ITERATE_GLTHREAD_END(&rtm->stats.new_resolved_routes, curr);
+
+    }
+
+    if (!IS_GLTHREAD_LIST_EMPTY(&rtm->stats.new_resolved_nhs))
+    {
+
+    tracer(rtm->node->cptr, DRTM_DET, "RTM[%s] : Stats : Resolved INHs:\n", rtm->name);
+    count = 1;
+    ITERATE_GLTHREAD_BEGIN(&rtm->stats.new_resolved_nhs, curr) {
+
+        inh = stats_resolved_glue_to_rtm_nh(curr);
+
+        tracer(rtm->node->cptr, DRTM_DET, "    RTM[%s] : Stats : %u. Resolved INH : %s, idx=%u\n",
+               rtm->name, count++,
+               rtm_format_prefix(&inh->prefix, prefix_str, sizeof(prefix_str)), inh->idx);
+
+    } ITERATE_GLTHREAD_END(&rtm->stats.new_resolved_nhs, curr);
+
+    }
+
+
+    if (!IS_GLTHREAD_LIST_EMPTY(&rtm->stats.new_unresolved_routes))
+    {
+
+    tracer(rtm->node->cptr, DRTM_DET, "RTM[%s] : Stats : UnResolved Routes:\n", rtm->name);
+    count = 1;
+    ITERATE_GLTHREAD_BEGIN(&rtm->stats.new_unresolved_routes, curr) {
+
+        route = stats_resolved_glue_to_route(curr);
+
+        tracer(rtm->node->cptr, DRTM_DET, "    RTM[%s] : Stats : %u. UnResolved Route : %s\n",
+                rtm->name, count++, 
+                rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
+    } ITERATE_GLTHREAD_END(&rtm->stats.new_unresolved_routes, curr);
+
+    }
+
+
+    if (!IS_GLTHREAD_LIST_EMPTY(&rtm->stats.new_unresolved_nhs))
+    {
+
+    tracer(rtm->node->cptr, DRTM_DET, "RTM[%s] : Stats : UnResolved INHs:\n", rtm->name);
+    count = 1;
+    ITERATE_GLTHREAD_BEGIN(&rtm->stats.new_unresolved_nhs, curr) {
+
+        inh = stats_resolved_glue_to_rtm_nh(curr);
+
+        tracer(rtm->node->cptr, DRTM_DET, "    RTM[%s] : Stats : %u. UnResolved INH : %s, idx=%u\n",
+               rtm->name, count++,
+               rtm_format_prefix(&inh->prefix, prefix_str, sizeof(prefix_str)), inh->idx);
+
+    } ITERATE_GLTHREAD_END(&rtm->stats.new_unresolved_nhs, curr);
+
+    }
+
+}
+
+void 
+rtm_clear_stats(rtm_t *rtm) {
+
+        glthread_t *curr;
+
+        while ((curr = dequeue_glthread_first(&rtm->stats.new_resolved_routes))) {
+            rtm_route_dereference(rtm, stats_resolved_glue_to_route(curr));
+        }
+
+        while ((curr = dequeue_glthread_first(&rtm->stats.new_unresolved_routes))) {
+            rtm_route_dereference(rtm, stats_resolved_glue_to_route(curr));
+        }        
+
+        while ((curr = dequeue_glthread_first(&rtm->stats.new_resolved_nhs))) {
+            rtm_nh_dereference(rtm, stats_resolved_glue_to_rtm_nh(curr));
+        }        
+
+        while ((curr = dequeue_glthread_first(&rtm->stats.new_unresolved_nhs))) {
+            rtm_nh_dereference(rtm, stats_resolved_glue_to_rtm_nh(curr));
+        }        
 }

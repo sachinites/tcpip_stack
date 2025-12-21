@@ -31,6 +31,9 @@ void
 rtm_schedule_nh_resolution_worker (rtm_t *rtm) ;
 
 void 
+rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) ;
+
+void 
 rtm_schedule_route_propogation_worker (rtm_t *rtm) ;
 
 void 
@@ -39,6 +42,9 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
 
 void 
 rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh);
+
+void 
+rtm_all_inh_unresolve(rtm_t *rtm, cmn_prefix_t *route) ;
 
 void 
 rtm_re_resolve_inhs (rtm_t *rtm, cmn_prefix_t  *route);

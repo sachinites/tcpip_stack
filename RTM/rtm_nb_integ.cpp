@@ -137,7 +137,7 @@ cp_rtm_install_local_or_connected_v4_routes (
     nh_template.rtm_nh_proto = nh_proto;
 
     tracer(rtm->node->cptr, DRTM ,
-        "RTM[%s] : Route %s/%d  Gw:null recvd route installation request",  
+        "RTM[%s] : Route %s/%d  Gw:null recvd route installation request\n",  
         rtm->name, 
         rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask);
 
@@ -146,7 +146,7 @@ cp_rtm_install_local_or_connected_v4_routes (
     rtm_nh_template_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM ,
-        "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s",  
+        "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s\n",  
         rtm->name, addr_str, mask, rtm_error_to_string (rc));
 
     return nh_template.idx;
@@ -196,7 +196,7 @@ cp_rtm_install_static_route (
     nh_template.rtm_nh_proto =  nh_proto;
 
     tracer(rtm->node->cptr, DRTM ,
-        "RTM[%s] : Route %s/%d  Gw:%s recvd route installation request",  
+        "RTM[%s] : Route %s/%d  Gw:%s recvd route installation request\n",  
         rtm->name, 
         rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)));
@@ -206,7 +206,7 @@ cp_rtm_install_static_route (
     rtm_nh_template_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM ,
-        "RTM[%s] : Route %s/%d  Gw:%s installation Result Code: %s",  
+        "RTM[%s] : Route %s/%d  Gw:%s installation Result Code: %s\n",  
         rtm->name, 
         rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)),
@@ -313,10 +313,18 @@ cp_rtm_uninstall_route_by_idx (
 }
 
 rtm_error_t 
-cp_rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix, 
-                         cp_nexthop_template_t *nh_template) {
+cp_rtm_uninstall_route ( 
+        rtm_t *rtm, 
+        cmn_prefix_t *prefix, 
+        cp_nexthop_template_t *cp_nh_template) {
 
-    return rtm_uninstall_route ( rtm, prefix, nh_template) ;
+    if (cp_nh_template->proto == RTM_PROTO_LDP)
+        return rtm_uninstall_route(rtm->node->node_nw_prop.inet3, prefix, cp_nh_template);
+    else if (cp_nh_template->proto == RTM_PROTO_SR ||
+             cp_nh_template->proto == RTM_PROTO_SRTE)
+        return rtm_uninstall_route(rtm->node->node_nw_prop.mpls0, prefix, cp_nh_template);
+
+    return rtm_uninstall_route ( rtm, prefix, cp_nh_template) ;
 }
 
 /* Delete all nexthops whether Active or Inactive for a given protocol */

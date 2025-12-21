@@ -290,7 +290,6 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
 
     char gw_str[128];
     char prefix_str[48];
-    bool was_resolved = false;
 
     assert (!nh->is_active);
 
@@ -340,16 +339,11 @@ rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh) {
         rtm_copy_route_active_nhs_to_inh_direct_nh_set(rtm, route, nh);
 
         /* Establish the linkage with downstream router in resolution graph*/
-        was_resolved = rtm_route_is_resolved(nh->owner_route);
         nh->resolved_via_route = route;
         rtm_route_reference (route);
         rtm_nh_Fglthread_add_last (nh, &route->resolved_lnhs, 
             &nh->route_resolved_list_glue);
         rtm_inh_moved_to_resolved_state(rtm, nh);
-
-        if (!was_resolved) {
-            rtm_route_moved_to_resolved_state (rtm, nh->owner_route);
-        }
 
         /* The caller must call rtm_resolve_routes_recursively ( ) to propogate resolution
             effect upstream in resolution graph*/
@@ -453,10 +447,24 @@ rtm_inh_moved_to_resolved_state (rtm_t *rtm, rtm_nh *inh) {
         rtm_nh_one_liner_trace(inh, inh_str, sizeof(inh_str)),
         rtm_format_prefix(&inh->resolved_via_route->prefix, 
             route_resolver_str, sizeof(route_resolver_str)));
+
+    inh->owner_route->resolved_inh_count++;
+
+    if (inh->owner_route->resolved_inh_count == 1) {
+        rtm_route_moved_to_resolved_state (rtm, inh->owner_route);
+    }
+
+    if (IS_QUEUED_UP_IN_THREAD(&inh->stats_resolved_glue)) {
+        remove_glthread(&inh->stats_resolved_glue);
+        rtm_nh_dereference(rtm, inh);
+    }
+
+    glthread_add_next(&rtm->stats.new_resolved_nhs, &inh->stats_resolved_glue);
+    rtm_nh_reference(inh);
 }
 
 void 
-rtm_inh_moved_to_unsolved_state (rtm_t *rtm, rtm_nh *inh) {
+rtm_inh_moved_to_unresolved_state (rtm_t *rtm, rtm_nh *inh) {
 
     char route_str[48];
     char inh_str[128];
@@ -466,6 +474,21 @@ rtm_inh_moved_to_unsolved_state (rtm_t *rtm, rtm_nh *inh) {
         rtm->name,
         rtm_format_prefix(&inh->owner_route->prefix, route_str, sizeof(route_str)),
         rtm_nh_one_liner_trace(inh, inh_str, sizeof(inh_str)));
+
+        assert (inh->owner_route->resolved_inh_count > 0);
+        inh->owner_route->resolved_inh_count--;
+
+        if (inh->owner_route->resolved_inh_count == 0) {
+            rtm_route_moved_to_unresolved_state (rtm, inh->owner_route);
+        }
+
+    if (IS_QUEUED_UP_IN_THREAD(&inh->stats_resolved_glue)) {
+        remove_glthread(&inh->stats_resolved_glue);
+        rtm_nh_dereference(rtm, inh);
+    }
+
+    glthread_add_next(&rtm->stats.new_unresolved_nhs, &inh->stats_resolved_glue);
+    rtm_nh_reference(inh);
 }
 
 void rtm_nh_glthread_add_next (

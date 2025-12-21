@@ -754,6 +754,16 @@ rtm_route_moved_to_resolved_state (rtm_t *rtm, rtm_route *route) {
            "RTM[%s] : Route : %s : Moved to Resolved State\n",
            rtm->name,
            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+
+    if (IS_QUEUED_UP_IN_THREAD(&route->stats_resolved_glue)) {
+        remove_glthread(&route->stats_resolved_glue);
+        rtm_route_dereference(rtm, route);
+    }
+
+    glthread_add_next(&rtm->stats.new_resolved_routes, &route->stats_resolved_glue);
+    rtm_route_reference(route);
+
+    rtm_schedule_nh_resolution_worker_of_dependent_rtms(rtm);
 }
 
 void 
@@ -765,6 +775,17 @@ rtm_route_moved_to_unresolved_state (rtm_t *rtm, rtm_route *route) {
            "RTM[%s] : Route : %s : Moved to UnResolved State\n",
            rtm->name,
            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));    
+
+    if (IS_QUEUED_UP_IN_THREAD(&route->stats_resolved_glue)) {
+        remove_glthread(&route->stats_resolved_glue);
+        rtm_route_dereference(rtm, route);
+    }
+
+    glthread_add_next(&rtm->stats.new_unresolved_routes, &route->stats_resolved_glue);
+    rtm_route_reference(route);
+    
+    // Delete cases are Automatically handled
+    //rtm_schedule_nh_resolution_worker_of_dependent_rtms(rtm, &route->prefix);
 }
 
 /* ========================================================================
