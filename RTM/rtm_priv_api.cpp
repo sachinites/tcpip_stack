@@ -20,6 +20,7 @@
 #include "rtm_resolution.h"
 #include "rtm_presentation.h"
 #include "../common/mpls_lstack.h"
+#include "../vrf/vrf.h"
 
 extern graph_t * topo;
 
@@ -191,6 +192,8 @@ config_rtm_route_cli_handler(int cmdcode,
     uint32_t metric = 0;
     uint32_t label_stack[MAX_LBL_DEPTH] = {0};
     uint8_t label_stack_count = 0;
+    mpls_label_val_t l3_vpn_label = 0;
+    c_string vpn_label_str = NULL;
     tlv_struct_t *tlv = NULL;
 
     /* Parse TLVs from CLI input */
@@ -218,6 +221,8 @@ config_rtm_route_cli_handler(int cmdcode,
             gw_ip = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "if-name"))
             if_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "vpn-label"))
+            vpn_label_str = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "label-list")) {
             if (label_stack_count < MAX_LBL_DEPTH) {
                 uint32_t plain_label = atoi((const char *)tlv->value);
@@ -509,6 +514,28 @@ config_rtm_route_cli_handler(int cmdcode,
                 return -1;
             }
 
+            /* Validate and parse VPN label if provided */
+            if (vpn_label_str) {
+                /* VPN label is only valid for BGP-VPN routes */
+                if (proto_id != RTM_PROTO_BGP || sub_proto_id != RTM_PROTO_BGP_VPN) {
+                    cprintf("Error: l3vpn label is only valid for proto-id=%d (RTM_PROTO_BGP) and sub-proto-id=%d (RTM_PROTO_BGP_VPN)\n",
+                            RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                    cprintf("       Current proto-id=%u, sub-proto-id=%u\n", proto_id, sub_proto_id);
+                    return -1;
+                }
+
+                uint32_t plain_vpn_label = atoi((const char *)vpn_label_str);
+                
+                /* MPLS labels are 20-bit values (0 to 1048575) */
+                if (plain_vpn_label > 1048575) {
+                    cprintf("Error: Invalid VPN label %u. Must be 0-1048575\n", plain_vpn_label);
+                    return -1;
+                }
+
+                /* Encode label value in upper 20 bits */
+                mpls_label_set_value(&l3_vpn_label, plain_vpn_label);
+            }
+
             /* Install route */
             rtm_error_t rc = cp_rtm_install_route_advanced(
                 rtm,
@@ -521,7 +548,8 @@ config_rtm_route_cli_handler(int cmdcode,
                 gw_ip ? &gateway : NULL,
                 oif,
                 label_stack_count > 0 ? label_stack : NULL,
-                label_stack_count
+                label_stack_count,
+                l3_vpn_label
             );
 
             if (rc != RTM_SUCCESS) {
@@ -790,6 +818,28 @@ config_rtm_route_cli_handler(int cmdcode,
                 return -1;
             }
 
+            /* Validate and parse VPN label if provided */
+            if (vpn_label_str) {
+                /* VPN label is only valid for BGP-VPN routes */
+                if (proto_id != RTM_PROTO_BGP || sub_proto_id != RTM_PROTO_BGP_VPN) {
+                    cprintf("Error: l3vpn label is only valid for proto-id=%d (RTM_PROTO_BGP) and sub-proto-id=%d (RTM_PROTO_BGP_VPN)\n",
+                            RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                    cprintf("       Current proto-id=%u, sub-proto-id=%u\n", proto_id, sub_proto_id);
+                    return -1;
+                }
+
+                uint32_t plain_vpn_label = atoi((const char *)vpn_label_str);
+                
+                /* MPLS labels are 20-bit values (0 to 1048575) */
+                if (plain_vpn_label > 1048575) {
+                    cprintf("Error: Invalid VPN label %u. Must be 0-1048575\n", plain_vpn_label);
+                    return -1;
+                }
+
+                /* Encode label value in upper 20 bits */
+                mpls_label_set_value(&l3_vpn_label, plain_vpn_label);
+            }
+
             /* Uninstall route */
             rtm_error_t rc = cp_rtm_uninstall_route_advanced(
                 rtm,
@@ -802,7 +852,8 @@ config_rtm_route_cli_handler(int cmdcode,
                 gw_ip ? &gateway : NULL,
                 oif,
                 label_stack_count > 0 ? label_stack : NULL,
-                label_stack_count
+                label_stack_count,
+                l3_vpn_label
             );
 
             if (rc != RTM_SUCCESS) {
@@ -833,15 +884,15 @@ rtm_get_by_name (node_t *node, char *rtm_name) {
 
     /* Parse rtm_name in format: x.inet.y or x.inet6.y or x.mpls.y or x.mac.y 
        where x is vrf id and y is table id */
-    uint32_t vrf_id = 0;
+    char vrf_name[32] = {0};
     uint32_t table_id = 0;
     char afi_str[16] = {0};
     
     /* Parse the name format vrf.afi.table_id */
-    if (sscanf(rtm_name, "%u.%[^.].%u", &vrf_id, afi_str, &table_id) != 3) {
+    if (sscanf(rtm_name, "%[^.].%[^.].%u", vrf_name, afi_str, &table_id) != 3) {
         return NULL;
     }
-    
+
     /* Convert afi string to AFI_T */
     AFI_T afi;
     if (strcmp(afi_str, "inet") == 0) {
@@ -856,7 +907,8 @@ rtm_get_by_name (node_t *node, char *rtm_name) {
         return NULL;
     }
     
-    return rtm_get(node, vrf_id, afi, table_id);
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
+    return rtm_get(node, vrf ? vrf->vrf_id : 0, afi, table_id);
 }
 
 static rtm_error_t 
@@ -910,6 +962,9 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->is_indirect = nh_template->is_indirect;
     nh->is_active = false;
     nh->ref_count = 0;
+
+    /* Copy L3 VPN label if present */
+    nh->l3_vpn_label = nh_template->l3_vpn_label;
 
     if (nh_template->u.l_stack.label_stack) {
         nh->label_stack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);

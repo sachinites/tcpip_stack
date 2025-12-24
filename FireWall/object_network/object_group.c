@@ -520,7 +520,7 @@ object_group_hashtable_print(node_t *node, hashtable_t *ht) {
     {
         object_group_t *og = (object_group_t *)hashtable_iterator_value(itr);
         object_group_display_detail (node, og);
-        cprintf ("\n");
+        printw ("\n");
     } while (hashtable_iterator_advance(itr));
 
     free(itr);

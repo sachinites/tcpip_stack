@@ -318,7 +318,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             fib_update_msg = (fib_update_msg_t *)dp_msg->data;
             
             /* Select FIB based on nexthop address AFI */
-            fib = fib_lookup (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+            fib = fib_get (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
         
             if (!fib) {
                 tracer (node->dptr, DFIB | DERR, 
@@ -388,7 +388,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         {
             fib_update_msg = (fib_update_msg_t *)dp_msg->data;
 
-            fib = fib_lookup (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+            fib = fib_get (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
         
             if (!fib) {
                 tracer (node->dptr, DFIB | DERR, 

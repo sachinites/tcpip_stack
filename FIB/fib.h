@@ -21,7 +21,7 @@ typedef struct fib_ {
     /* Key type of this FIB*/
     AFI_T afi;
     uint8_t vrf_id;
-    char name[16];
+    char name[96];
 
     union {
         /* IF the key of the FIB is v4 or V6*/
@@ -38,9 +38,11 @@ typedef struct fib_ {
 } fib_t;
 #pragma pack(pop)
 
-fib_t* fib_init (AFI_T afi, uint8_t vrf_id);
+fib_t* fib_init (node_t *node, AFI_T afi, uint8_t vrf_id);
 fib_error_t fib_forward (node_t *node, pkt_block_t *pkt, uint8_t vrf_id);
 void fib_show(fib_t *fib);
-fib_t *fib_lookup (node_t *node, AFI_T afi, uint8_t vrf_id);
+fib_t *fib_get (node_t *node, AFI_T afi, uint8_t vrf_id);
+void fib_destroy (fib_t*fib);
+fib_t* fib_get_by_name (node_t *node, char *fib_name);
 
 #endif 

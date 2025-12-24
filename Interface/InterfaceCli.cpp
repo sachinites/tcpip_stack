@@ -137,6 +137,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
    tlv_struct_t *tlv = NULL;
    c_string intf_name = NULL;
    c_string node_name = NULL;
+   c_string vrf_name = NULL;
    c_string intf_ip_addr = NULL;
    Interface *interface = NULL;
    uint32_t intf_new_matric_val;
@@ -168,7 +169,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
              overlay_tunnel_name = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "vni-id"))
              vni_value = tlv->value;     
-
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+             vrf_name = tlv->value;  
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -179,6 +181,51 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
     switch(cmdcode){
 
+        case CMDCODE_CONF_INTF_VRF:
+        {
+            vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
+            if (!vrf) {
+                cprintf ("Error : VRF do not exist\n");
+                return -1;
+            }
+
+            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            if (!interface) {
+                cprintf ("Error : Interface do not exist\n");
+                return -1;
+            }
+
+            switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                {
+                    if (interface->vrf == vrf) return 0;
+                    if (interface->vrf) {
+                        cprintf ("Error : Interface already configured with VRF %s\n", 
+                            interface->vrf->vrf_name);
+                        return -1;
+                    }
+                    if (!vrf_add_interface(vrf, interface->GetSharedPtr())) {
+                        cprintf ("Error : Configuration Checkout failed\n");
+                        return -1;
+                    }
+                }
+                break;
+                case CONFIG_DISABLE:
+                {
+                    if (interface->vrf == NULL) return 0;
+                    if (interface->vrf != vrf) {
+                        cprintf ("Error : Interface is not operating in VRF %s\n", vrf->vrf_name);
+                        return -1;
+                    }
+                    if (!vrf_del_interface(vrf, interface->GetSharedPtr())) {
+                        cprintf ("Error : Configuration Checkout failed\n");
+                        return -1;
+                    }
+                }
+                break;
+            }
+        }
+        break;
         case CMDCODE_INTF_CONFIG_METRIC:
         {
             interface = node_lookup_interface (node, intf_name, vlan_id ) ;
@@ -859,6 +906,20 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             }
         }
 
+         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_VRF))
+        {
+            /* config node <node-name> interface . . . <if-name> vrf*/
+            static param_t vrf;
+            init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "Enable VRF on this interface");
+            libcli_register_param(if_name, &vrf);
+            {
+                /* config node <node-name> interface . . . <if-name> vrf <vrf-name> */
+                static param_t vrf_name;
+                init_param(&vrf_name, LEAF, 0, intf_config_handler, 0, STRING, "vrf-name", "VRF Name");
+                libcli_register_param(&vrf, &vrf_name);
+                libcli_set_param_cmd_code(&vrf_name, CMDCODE_CONF_INTF_VRF);
+            }
+        }
 
     }
 }
@@ -892,6 +953,7 @@ vlan_cli_config_tree(param_t *root)
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS;
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_UP_DOWN;
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_TRACEOPTIONS;
+             unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_VRF;
              Interface_config_cli_common_subtree(&vlan_id, unsupported_configs);
         }
 }

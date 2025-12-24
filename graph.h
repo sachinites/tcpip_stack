@@ -51,6 +51,7 @@
 #include <unordered_map>
 #include "Interface/InterfaceFwd.h"
 #include "cp_ipc.h"
+#include "vrf/vrf.h"
 
 #define NODE_NAME_SIZE   24
 #define IF_NAME_SIZE     16
@@ -125,6 +126,8 @@ struct node_ {
     hashtable_t *object_group_ght;
     /* ACL/NAT/OBJECT-G Tracer */
     tracer_t *acl_cptr;
+    /* VRFs*/
+    vrf_t* vrf[MAX_VRF_PER_NODE];
     /* SQL DB*/
     BPlusTree_t *sql_db;
     /* Transport Svc profiles DB*/
@@ -140,6 +143,8 @@ struct node_ {
     glthread_t graph_glue;
     /* System Telemetry */
     uint32_t cp2dp_msg_count;
+    /* Random Number Generator*/
+    uint32_t sequence_gen;
 };
 GLTHREAD_TO_STRUCT(graph_glue_to_node, node_t, graph_glue);
 
@@ -174,6 +179,11 @@ node_get_intf_available_slot(node_t *node){
     }
     return -1;
 }
+
+static inline uint32_t 
+node_get_sequence_no(node_t *node) {
+    return node->sequence_gen++;
+} 
 
 Interface *
 node_get_intf_by_name(node_t *node, const char *if_name);

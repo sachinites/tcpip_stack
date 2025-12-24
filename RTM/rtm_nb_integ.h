@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "rtm_enums.h"
 #include "rtm_error.h"
+#include "../common/mpls_lstack.h"
 #include "../common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
@@ -35,6 +36,9 @@ typedef struct cp_nexthop_template_ {
     uint32_t oif;
     bool is_indirect;
     bool is_resolved;
+
+    /* If this is L3 VPN BGP INH, then it should have vpn service label also */
+    mpls_label_val_t l3_vpn_label;
 
     union {
 
@@ -135,7 +139,8 @@ cp_rtm_install_route_advanced (
     cmn_prefix_t *gateway,
     InterfaceP oif,
     uint32_t *label_stack,
-    uint8_t label_stack_count);
+    uint8_t label_stack_count,
+    mpls_label_val_t l3_vpn_label);
 
 rtm_error_t
 cp_rtm_uninstall_route_advanced (
@@ -149,7 +154,8 @@ cp_rtm_uninstall_route_advanced (
     cmn_prefix_t *gateway,
     InterfaceP oif,
     uint32_t *label_stack,
-    uint8_t label_stack_count);
+    uint8_t label_stack_count,
+    mpls_label_val_t l3_vpn_label);
 
 
 /* Protocol Subscribing to RTM */

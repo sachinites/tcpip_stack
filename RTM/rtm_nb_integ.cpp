@@ -1,4 +1,5 @@
 #include "../graph.h"
+#include "../net.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
@@ -16,7 +17,7 @@
 #include "rtm_fib_interface.h"
 #include "rtm_presentation.h"
 #include "rtm_resolution.h"
-
+#include "../vrf/vrf.h"
 
 /* static functions */
 
@@ -60,27 +61,26 @@ void
 node_init_default_rtm(node_t *node) {
 
     node_nw_prop_t *node_nw_prop = &node->node_nw_prop;
-    node_nw_prop->inet0    =  rtm_initialize (RTM_DEFAULT_VRF, AF_IPV4, 0); // inet.0
-    node_nw_prop->inet3    = rtm_initialize (RTM_DEFAULT_VRF, AF_IPV4, 3); // inet.3
-    node_nw_prop->mpls0  =  rtm_initialize (RTM_DEFAULT_VRF, AF_LABEL, 0); // mpls.0
-    node_nw_prop->inet6    = rtm_initialize (RTM_DEFAULT_VRF, AF_IPV6, 0); // inet6.0
-    node_nw_prop->inet63  = rtm_initialize (RTM_DEFAULT_VRF, AF_IPV6, 3); // inet6.3
-    node_nw_prop->inet0->node   = node;
-    node_nw_prop->inet3->node   = node;
-    node_nw_prop->mpls0->node = node;
-    node_nw_prop->inet6->node   = node;
-    node_nw_prop->inet63->node = node;
+    node_nw_prop->inet0    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 0); // inet.0
+    node_nw_prop->inet3    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 3); // inet.3
+    node_nw_prop->mpls0    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_LABEL, 0); // mpls.0
+    node_nw_prop->inet6    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 0); // inet6.0
+    node_nw_prop->inet63   = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 3); // inet6.3
+    node_nw_prop->l3vpnv4  = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 128); // bgp.l3vpn.0 
 }
 
 rtm_t *
-rtm_get(node_t *node, uint8_t vrf, AFI_T afi, uint8_t rtm_id) {
+rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
 
-    if (vrf == RTM_DEFAULT_VRF) {
+    int i;
+
+    if (vrf_id == RTM_DEFAULT_VRF) {
 
         if (afi == AF_IPV4) {
 
             if (rtm_id == 0) return node->node_nw_prop.inet0;
             if (rtm_id == 3) return node->node_nw_prop.inet3;
+            if (rtm_id == 128) return node->node_nw_prop.l3vpnv4;
         }
 
         else if (afi == AF_IPV6) {
@@ -95,6 +95,16 @@ rtm_get(node_t *node, uint8_t vrf, AFI_T afi, uint8_t rtm_id) {
         }
     }
 
+    vrf_t *vrf = vrf_get_by_id (node, vrf_id);
+    if (!vrf) return NULL;
+
+    switch (afi) {
+
+        case AF_IPV4: return vrf->inet0;
+        case AF_IPV6: return vrf->inet6;
+        break;
+    }
+    
     return NULL;
 }
 
@@ -234,7 +244,7 @@ cp_rtm_uninstall_static_route (
     rc = rtm_nh_proto_info_create (
                     RTM_PROTO_STATIC, 
                     RTM_SUB_PROTO_NA, 
-                    0, oif->GetVRF(), 
+                    0, INTF_VRF_ID(oif.get()),
                     &nh_template.rtm_nh_proto);
 
     nh_template.metric = cost;
@@ -429,7 +439,8 @@ cp_rtm_install_route_advanced (
     cmn_prefix_t *gateway,
     InterfaceP oif,
     uint32_t *label_stack,
-    uint8_t label_stack_count) {
+    uint8_t label_stack_count,
+    mpls_label_val_t l3_vpn_label) {
 
     uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
@@ -461,6 +472,7 @@ cp_rtm_install_route_advanced (
     nh_template.sub_proto = sub_proto;
     nh_template.action = action;
     nh_template.metric = metric;
+    nh_template.l3_vpn_label = l3_vpn_label;
 
     /* Set gateway if provided */
     if (gateway && !cmn_prefix_is_null(gateway)) {
@@ -541,7 +553,8 @@ cp_rtm_uninstall_route_advanced (
     cmn_prefix_t *gateway,
     InterfaceP oif,
     uint32_t *label_stack,
-    uint8_t label_stack_count) {
+    uint8_t label_stack_count,
+    mpls_label_val_t l3_vpn_label) {
 
     uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
@@ -573,6 +586,7 @@ cp_rtm_uninstall_route_advanced (
     nh_template.sub_proto = sub_proto;
     nh_template.action = action;
     nh_template.metric = metric;
+    nh_template.l3_vpn_label = l3_vpn_label;
     nh_template.is_resolved = true;
 
     /* Set gateway if provided */

@@ -98,6 +98,7 @@ typedef struct node_nw_prop_{
     rtm_t *inet6;
     rtm_t *mpls0;
     rtm_t *inet63;
+    rtm_t *l3vpnv4;
 
     /* FIBs */
     fib_t *ipv4_fib;
@@ -159,6 +160,7 @@ typedef struct node_nw_prop_{
 #define NODE_NVE_INTF(node_ptr) (node_ptr->node_nw_prop.nve)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
+#define INTF_VRF_ID(intf_ptr) (intf_ptr->vrf ? intf_ptr->vrf->vrf_id : 0)
 
 /*APIs to set Network Node properties*/
 bool node_set_loopback_address(node_t *node, const char *ip_addr);

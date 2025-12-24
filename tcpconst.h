@@ -86,6 +86,7 @@ typedef uint16_t pkt_size_t;
 
 #define MAX_MTU 1500
 
+
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
 #define NODE_PRINT_BUFF_LEN (1024 * 1024)
 
@@ -94,7 +95,7 @@ typedef uint16_t pkt_size_t;
 #define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
 #define PKT_BUFFER_RIGHT_ROOM        128   
 #define MAX_NXT_HOPS        4
-
+#define VRF_NAME_LEN 32
 
 /* Protocol IDs*/
 #define PROTO_STATIC 101
@@ -223,6 +224,7 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
 #define DEFAULT_VLAN_ID 0
 #define MAC_ENTRY_EXP_TIME   1800 /*Seconds*/
 #define DEFAULT_VRF 0
+#define DEF_VRF_NAME "Default-vrf"
 
 #endif /* __TCPCONST__ */
 

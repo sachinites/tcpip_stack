@@ -259,8 +259,6 @@ fib_del_route (node_t *node,
         cmn_prefix_to_bitmap(prefix, &bm_prefix);
         cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
         
-        bitmap_prefix_print (&bm_prefix, &bm_mask, 32);
-
         /* Look up route in mtrie */
         mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
             fib->u.lpm,

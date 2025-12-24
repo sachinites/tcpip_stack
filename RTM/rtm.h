@@ -30,7 +30,7 @@ typedef struct rtm_ {
     uint16_t flags;
 
     /* RTM name : vrf.inet[6]|mpls.table_id */
-    char name[32];
+    char name[96];
 
     /* LPM tree of routes in this RTM*/
     mtrie_t *lpm_rt_tree;
@@ -108,7 +108,7 @@ typedef struct rtm_ {
 
 #pragma pack(pop)
 
-rtm_t* rtm_initialize (uint8_t vrf, AFI_T afi, uint32_t rtm_id);
+rtm_t* rtm_initialize (node_t *node, uint8_t vrf, AFI_T afi, uint32_t rtm_id);
 void rtm_stop (rtm_t *rtm);
 void rtm_check_and_delete (rtm_t *rtm);
 void rtm_log_stats (rtm_t *rtm);

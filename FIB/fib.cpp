@@ -73,7 +73,7 @@ hashfromkey_label (void *key)
 }
 
 
-fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
+fib_t *fib_init(node_t *node, AFI_T afi, uint8_t vrf_id) {
     
     /* Allocate FIB structure */
     fib_t *fib = (fib_t *)XCALLOC2(0, 1, fib_t);
@@ -82,8 +82,9 @@ fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
     fib->afi = afi;
     fib->vrf_id = vrf_id;
     
-    snprintf (fib->name, sizeof(fib->name), "%d.%s",
-              vrf_id,
+    vrf_t *vrf = vrf_get_by_id(node, vrf_id);
+    snprintf (fib->name, sizeof(fib->name), "%s.%s",
+              vrf ? vrf->vrf_name : "0",
               (afi == AF_IPV4) ? "inet" :
               (afi == AF_IPV6) ? "inet6" :
               (afi == AF_LABEL) ? "mpls" :
@@ -112,36 +113,87 @@ fib_t *fib_init(AFI_T afi, uint8_t vrf_id) {
 }
 
 fib_t *
-fib_lookup (node_t *node, AFI_T afi, uint8_t vrf_id) {
+fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
 
     fib_t *fib;
 
-    assert (vrf_id == DEFAULT_VRF);
+    if (vrf_id == DEFAULT_VRF)
+    {
+        switch (afi)
+        {
+        case AF_IPV4:
+            fib = node->node_nw_prop.ipv4_fib;
+            break;
+        case AF_IPV6:
+            fib = node->node_nw_prop.ipv6_fib;
+            break;
+        case AF_LABEL:
+            fib = node->node_nw_prop.mpls_fib;
+            break;
+        default:
+            return NULL;
+        }
+        return;
+    }
+
+    vrf_t *vrf = vrf_get_by_id (node, vrf_id);
 
     switch (afi)
     {
     case AF_IPV4:
-        fib = node->node_nw_prop.ipv4_fib;
+        fib = vrf->fib_inet0;
         break;
     case AF_IPV6:
-        fib = node->node_nw_prop.ipv6_fib;
-        break;
-    case AF_LABEL:
-        fib = node->node_nw_prop.mpls_fib;
+        fib = vrf->fib_inet6;
         break;
     default:
         return NULL;
     }
-
     return fib;
 }
+
+fib_t *
+fib_get_by_name (node_t *node, char *fib_name) {
+
+    if (!fib_name) {
+        return NULL;
+    }
+
+    /* Parse rtm_name in format: x.inet.y or x.inet6.y or x.mpls.y or x.mac.y 
+       where x is vrf id and y is table id */
+    char vrf_name[VRF_NAME_LEN] = {0};
+    char afi_str[16] = {0};
+    
+    /* Parse the name format vrf.afi.table_id */
+    if (sscanf(fib_name, "%[^.].%[^.]", vrf_name, afi_str) != 2) {
+        return NULL;
+    }
+
+    /* Convert afi string to AFI_T */
+    AFI_T afi;
+    if (strcmp(afi_str, "inet") == 0) {
+        afi = AF_IPV4;
+    } else if (strcmp(afi_str, "inet6") == 0) {
+        afi = AF_IPV6;
+    } else if (strcmp(afi_str, "mpls") == 0) {
+        afi = AF_LABEL;
+    } else if (strcmp(afi_str, "mac") == 0) {
+        afi = AF_MAC;
+    } else {
+        return NULL;
+    }
+    
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
+    return fib_get(node, afi, vrf ? vrf->vrf_id : 0);
+}
+
 
 void 
 node_init_default_fib(node_t *node) {
     
-    node->node_nw_prop.ipv4_fib = fib_init(AF_IPV4, RTM_DEFAULT_VRF);
-    node->node_nw_prop.ipv6_fib = fib_init(AF_IPV6, RTM_DEFAULT_VRF);
-    node->node_nw_prop.mpls_fib = fib_init(AF_LABEL, RTM_DEFAULT_VRF);
+    node->node_nw_prop.ipv4_fib = fib_init(node, AF_IPV4, RTM_DEFAULT_VRF);
+    node->node_nw_prop.ipv6_fib = fib_init(node, AF_IPV6, RTM_DEFAULT_VRF);
+    node->node_nw_prop.mpls_fib = fib_init(node, AF_LABEL, RTM_DEFAULT_VRF);
 }
 /**
  * Forward a packet using the FIB
@@ -173,7 +225,7 @@ fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
     }
     
     /* VRF to be supported later ...*/
-    fib = fib_lookup (node, dest.afi, vrf_id);
+    fib = fib_get (node, dest.afi, vrf_id);
    
     if (fib->afi == AF_LABEL) {
 
@@ -456,4 +508,9 @@ void fib_show(fib_t *fib) {
     }
     
     cprintf("Total Routes Displayed: %d\n", route_count);
+}
+
+void 
+fib_destroy (fib_t*fib) {
+
 }

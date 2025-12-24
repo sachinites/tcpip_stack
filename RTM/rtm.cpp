@@ -52,18 +52,21 @@ rtm_proto_info_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node
 
 /* Initialize a new RTM instance */
 rtm_t *
-rtm_initialize(uint8_t vrf, AFI_T afi, uint32_t rtm_id) {
+rtm_initialize(node_t *node, uint8_t vrf_id, AFI_T afi, uint32_t rtm_id) {
     
     rtm_t *rtm = (rtm_t *)XCALLOC2 (0, 1, rtm_t);
 
-    rtm->vrf = vrf;
+    rtm->vrf = vrf_id;
     rtm->afi = afi;
     rtm->rtm_id = rtm_id;
+    rtm->node = node;
     
-    snprintf (rtm->name, sizeof(rtm->name), "%d.%s.%d", vrf, 
+    vrf_t *vrf = vrf_get_by_id(node, vrf_id);
+
+    snprintf (rtm->name, sizeof(rtm->name), "%s.%s.%d", 
+        vrf ? vrf->vrf_name : "0", 
         afi == AF_IPV4 ? "inet" : afi == AF_IPV6 ? \
-        "inet6" :  afi == AF_LABEL ? "mpls" : "mac",
-        rtm_id);
+        "inet6" :  afi == AF_LABEL ? "mpls" : "mac", rtm_id);
 
     rtm_lpm_tree_init(rtm);
     avltree_init(&rtm->route_tree, rtm_route_compare);
@@ -77,7 +80,6 @@ rtm_initialize(uint8_t vrf, AFI_T afi, uint32_t rtm_id) {
     }
     
     init_Fglthread (&rtm->route_advt_queue);
-    rtm->node = NULL;
     init_Fglthread(&rtm->unresolvable_paths);
     rtm->advt_job = NULL;
 
@@ -97,7 +99,8 @@ rtm_stop (rtm_t *rtm) {
 }
 
 /* Destroy an RTM instance */
-void rtm_check_and_delete (rtm_t *rtm) {
+void 
+rtm_check_and_delete (rtm_t *rtm) {
     
     /* Before we delete RTM, check all resources have been freed already*/
     assert (avltree_is_empty (&rtm->route_tree) );
@@ -125,6 +128,11 @@ void rtm_check_and_delete (rtm_t *rtm) {
     assert (avltree_is_empty (&rtm->ppt_db_route_tree));
 
     assert (Fglthread_list_is_empty(&rtm->gc_queue) );
+
+    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_routes));
+    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_routes));
+    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_nhs));
+    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_nhs));
 
     XFREE(rtm);
 }

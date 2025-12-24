@@ -36,6 +36,7 @@ typedef struct access_list_ access_list_t;
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct intf_info_  isis_intf_info_t;
+typedef struct vrf_ vrf_t;
 
 class TransportService;
 
@@ -75,15 +76,15 @@ class Interface {
 
         /* L3 protocols */
         isis_intf_info_t *isis_intf_info;
+        vrf_t *vrf;
         
         bool is_up;
         InterfaceType_t iftype;
-        uint8_t vrf;
-        char padding2[5];
+        char padding2[6];
 
         uint32_t GetIntfCost();
         uint32_t GetSockfd();
-        uint8_t GetVRF();
+        vrf_t* GetVRF();
         void SetSockfd(uint32_t sockfd);
         node_t *GetNbrNode ();
         Interface *GetOtherInterface();
@@ -109,6 +110,7 @@ class Interface {
         virtual bool IntfConfigVlan(vlan_id_t vlan_id, bool add);
         virtual void SetSwitchport(bool enable);      
         virtual bool GetSwitchport(); 
+        virtual bool HasL3Config(); 
         virtual IntfL2Mode GetL2Mode ();
         virtual void SetL2Mode (IntfL2Mode l2_mode);
         virtual bool IsSameSubnet (uint32_t ip_addr);
@@ -168,6 +170,7 @@ class PhysicalInterface : public Interface {
         virtual void SetSwitchport(bool enable) final;
         virtual bool IsCrossReferenced() final;
         virtual bool GetSwitchport() final;
+        virtual bool HasL3Config() final; 
         virtual IntfL2Mode GetL2Mode () final;
         virtual void SetL2Mode (IntfL2Mode l2_mode) final;
         virtual void PrintInterfaceDetails ();

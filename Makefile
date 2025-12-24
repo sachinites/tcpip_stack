@@ -103,6 +103,8 @@ OBJS=gluethread/glthread.o \
 		  sql_cli.o \
 		  Linux/LinuxInterface.o \
 		  RTM/rtm_nb_integ.o \
+		  vrf/vrf_cli.cpp \
+		  vrf/vrf.cpp \
 
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -295,6 +297,11 @@ Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
 Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
 	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
 
+vrf/vrf_cli.o:vrf/vrf_cli.cpp
+	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 
+vrf/vrf.o:vrf/vrf.cpp
+	${CC} ${CFLAGS} -c vrf/vrf.cpp -o vrf/vrf.o 
+
 #postgresLib files
 PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 	${CC} ${CFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
@@ -373,6 +380,7 @@ clean:
 	rm -f Layer3/ipv6/*.o
 	rm -f Layer3/ipv6/SRv6/*.o
 	rm -f Linux/*.o
+	rm -f vrf/*.o
 	
 all:
 	make

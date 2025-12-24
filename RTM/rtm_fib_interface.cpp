@@ -61,7 +61,7 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
     DNH is ipv4 nexthop with label stack  */
 
     if (afi == AF_IPV4 &&
-        IS_BIT_SET(inh->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK) &&
+        (inh->l3_vpn_label != 0) &&
         IS_BIT_SET(inh->fwd_flags, FIB_NH_FWD_F_IPV4) &&
         IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK) &&
         IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_IPV4)) 
@@ -71,9 +71,8 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         fwd_info_out->fwd_flags = dnh->fwd_flags;
 
         /* Copy VPN label from INH (innermost label) */
-        label_val = mpls_label_get_value (inh->label_stack->labels[0].label_val);
         mpls_label_init(&label);
-        mpls_label_set_value  (&label.label_val, label_val);
+        mpls_label_set_value  (&label.label_val, inh->l3_vpn_label);
         mpls_label_set_stack_bottom(&label.label_val);
         label.op = MPLS_OP_PUSH;
         mpls_lstack_push(&fwd_info_out->u.mpls_fwd.label_stack, label);
@@ -81,7 +80,7 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         /* Copy labels from DNH (outer labels) */
         int i = 0;
 
-        while (i < (MAX_LBL_DEPTH - 1) &&  // because one label is already copied above
+        while (i < MAX_LBL_DEPTH &&
                 !mpls_label_is_null(dnh->label_stack->labels[i])) {
             label_val = mpls_label_get_value (dnh->label_stack->labels[i].label_val);
             mpls_label_init(&label);
@@ -158,11 +157,10 @@ rtm_resolution_create_nh_fwd_info(rtm_t *rtm,  AFI_T afi,
 static bool 
 rtm_download_route_to_fib (rtm_t *rtm) {
 
-    // x.inet.3 and x.inet.6 routes are not allowed to download in FIB directly. They are 
+    // x.inet.3 and x.inet6.3 routes are not allowed to download in FIB directly. They are 
     // service routes.
-    if ((rtm->afi == AF_IPV4 || rtm->afi == AF_IPV6) &&
-            (rtm->rtm_id == 3 || rtm->rtm_id == 6 )) {
-                return false;
+    if ((rtm->afi == AF_IPV4 || rtm->afi == AF_IPV6) && (rtm->rtm_id == 3 )) {
+        return false;
     }
 
     return true;

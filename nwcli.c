@@ -656,13 +656,13 @@ show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-show_fib_handler(int cmdcode, Stack_t *tlv_stack,
+show_fib_handler(int cmdcode, 
+                 Stack_t *tlv_stack,
                  op_mode enable_or_disable){
 
     node_t *node = NULL;
     c_string node_name = NULL;
-    c_string vrf_id_str = NULL;
-    uint8_t vrf_id = 0;
+    c_string fib_name = NULL;
     fib_t *fib = NULL;
     tlv_struct_t *tlv = NULL;
 
@@ -670,63 +670,28 @@ show_fib_handler(int cmdcode, Stack_t *tlv_stack,
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-id"))
-            vrf_id_str = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "fib-name"))
+            fib_name = tlv->value;
 
     }TLV_LOOP_END;
 
-    if(!node_name){
-        cprintf("Error : node-name missing\n");
-        return -1;
-    }
-
     node = node_get_node_by_name(topo, node_name);
-    if(!node){
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
-
-    /* Parse VRF ID if provided */
-    if (vrf_id_str) {
-        vrf_id = atoi((const char *)vrf_id_str);
-    }
 
     printw ("\n\r");
 
     switch (cmdcode) {
-        case CMDCODE_SHOW_NODE_VRF_FIB_RT:
-            /* Show IPv4 FIB */
-            fib = fib_lookup(node, AF_IPV4, vrf_id);
-            if (!fib) {
-                cprintf("Error : IPv4 FIB not found for VRF %u\n", vrf_id);
-                return -1;
-            }
-            fib_show_routes(fib);
-            break;
+        case CMDCODE_SHOW_NODE_VRF_FIB:
 
-        case CMDCODE_SHOW_NODE_VRF_FIB_RT6:
-            /* Show IPv6 FIB */
-            fib = fib_lookup(node, AF_IPV6, vrf_id);
+            fib = fib_get_by_name(node, fib_name);
             if (!fib) {
-                cprintf("Error : IPv6 FIB not found for VRF %u\n", vrf_id);
-                return -1;
-            }
-            fib_show_routes(fib);
-            break;
-
-        case CMDCODE_SHOW_NODE_FIB_MPLS:
-            /* Show MPLS FIB - not VRF specific */
-            fib = fib_lookup(node, AF_LABEL, RTM_DEFAULT_VRF);
-            if (!fib) {
-                cprintf("Error : MPLS FIB not found\n");
+                cprintf("Error : FIB %s not found\n", fib_name);
                 return -1;
             }
             fib_show_routes(fib);
             break;
 
         default:
-            cprintf("Error : Unknown command code %d\n", cmdcode);
-            return -1;
+            break;
     }
 
     return 0;
@@ -1315,50 +1280,17 @@ nw_init_cli(){
                  }
 
                  {
-                    /*show node <node-name> vrf*/
-                    static param_t vrf;
-                    init_param(&vrf, CMD, "vrf", 0, 0, INVALID, 0, "VRF commands");
-                    libcli_register_param(&node_name, &vrf);
-                    {
-                        /*show node <node-name> vrf <vrf-id>*/
-                        static param_t vrf_id;
-                        init_param(&vrf_id, LEAF, 0, 0, validate_vrf_id, INT, "vrf-id", "VRF ID (0-255)");
-                        libcli_register_param(&vrf, &vrf_id);
-                        {
-                            /*show node <node-name> vrf <vrf-id> fib*/
-                            static param_t fib;
-                            init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
-                            libcli_register_param(&vrf_id, &fib);
-                            {
-                                /*show node <node-name> vrf <vrf-id> fib rt*/
-                                static param_t rt;
-                                init_param(&rt, CMD, "rt", show_fib_handler, 0, INVALID, 0, "Show IPv4 FIB");
-                                libcli_register_param(&fib, &rt);
-                                libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_VRF_FIB_RT);
-                            }
-                            {
-                                /*show node <node-name> vrf <vrf-id> fib rt6*/
-                                static param_t rt6;
-                                init_param(&rt6, CMD, "rt6", show_fib_handler, 0, INVALID, 0, "Show IPv6 FIB");
-                                libcli_register_param(&fib, &rt6);
-                                libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_VRF_FIB_RT6);
-                            }
-                        }
-                    }
-                 }
-
-                 {
-                    /*show node <node-name> fib*/
-                    static param_t fib;
-                    init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
-                    libcli_register_param(&node_name, &fib);
-                    {
-                        /*show node <node-name> fib mpls*/
-                        static param_t mpls;
-                        init_param(&mpls, CMD, "mpls", show_fib_handler, 0, INVALID, 0, "Show MPLS FIB");
-                        libcli_register_param(&fib, &mpls);
-                        libcli_set_param_cmd_code(&mpls, CMDCODE_SHOW_NODE_FIB_MPLS);
-                    }
+                     /*show node <node-name> fib*/
+                     static param_t fib;
+                     init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
+                     libcli_register_param(&node_name, &fib);
+                     {
+                         /*show node <node-name> fib <fib-name>*/
+                         static param_t fib_name;
+                         init_param(&fib_name, LEAF, NULL, show_fib_handler, 0, STRING, "fib-name", "Show FIB");
+                         libcli_register_param(&fib, &fib_name);
+                         libcli_set_param_cmd_code(&fib_name, CMDCODE_SHOW_NODE_VRF_FIB);
+                     }
                  }
 
                  {
@@ -1616,6 +1548,11 @@ nw_init_cli(){
         }
 
         {
+            /* VRF CLI tree is mounted here*/
+            vrf_build_config_tree(&node_name);
+        }
+
+        {
             /* config node <node-name> rtm-route */
             static param_t rtm_route;
             init_param(&rtm_route, CMD, "rtm-route", 0, 0, INVALID, 0, "RTM Route Configuration");
@@ -1666,6 +1603,19 @@ nw_init_cli(){
                                                 init_param(&gw_ip, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "gw-ip", "Gateway IP address (IPv4 or IPv6)");
                                                 libcli_register_param(&gateway, &gw_ip);
                                                 libcli_set_param_cmd_code(&gw_ip, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                {
+                                                    /* l3vpn */
+                                                    static param_t l3vpn;
+                                                    init_param(&l3vpn, CMD, "l3vpn", 0, 0, INVALID, 0, "L3 VPN label (BGP-VPN only)");
+                                                    libcli_register_param(&gw_ip, &l3vpn);
+                                                    {
+                                                        /* l3vpn <vpn-label> */
+                                                        static param_t vpn_label;
+                                                        init_param(&vpn_label, LEAF, 0, config_rtm_route_cli_handler, 0, INT, "vpn-label", "L3 VPN service label value (0-1048575)");
+                                                        libcli_register_param(&l3vpn, &vpn_label);
+                                                        libcli_set_param_cmd_code(&vpn_label, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                    }
+                                                }
                                                 {
                                                     /* interface */
                                                     static param_t interface;

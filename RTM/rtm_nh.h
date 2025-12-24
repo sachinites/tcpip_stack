@@ -79,6 +79,10 @@ typedef struct rtm_nh_ {
 
         bool is_active;
 
+        /* If this is L3 VPN BGP INH, then it should have
+           vpn service label also */
+        mpls_label_val_t l3_vpn_label;
+        
         /*MPLS  Label Stack*/
         mpls_lstack_t *label_stack;
 

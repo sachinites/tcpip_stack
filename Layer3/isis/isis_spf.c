@@ -235,7 +235,7 @@ isis_rt_ipv4_route_add (
         metric,
         &rtm_gateway,
         oif->GetSharedPtr(), 
-        NULL, 0);
+        NULL, 0, 0);
 }
 
 static void
@@ -263,7 +263,7 @@ isis_rt_ipv4_route_del (
         metric,
         &rtm_gateway,
         oif->GetSharedPtr(), 
-        NULL, 0);
+        NULL, 0, 0);
 }
 
 

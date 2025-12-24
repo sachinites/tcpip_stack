@@ -141,11 +141,7 @@ fib_display_segment_list(uint8_t seg_list[][16], uint8_t count) {
 /* Display FIB contents with all routes and nexthops */
 void
 fib_show_routes(fib_t *fib) {
-    
-    /* Print AFI and VRF information */
-    const char *afi_str = afi_to_string(fib->afi);
-    cprintf("Address Family: %s, VRF: %u\n\n", afi_str, fib->vrf_id);
-    
+        
     uint32_t route_count = 0;
     
     /* Iterate based on AFI type */
@@ -242,21 +238,16 @@ fib_show_routes(fib_t *fib) {
         
     } else if (fib->afi == AF_LABEL) {
         
-        /* Hash-based FIB - iterate through hash table */
-        if (!fib->u.label_ht) {
-            cprintf("No routes in FIB\n\n");
+        if (!hashtable_count(fib->u.label_ht)) {
+            cprintf("Total Routes: 0\n");
             return;
         }
-        
+
         hashtable_itr *itr = hashtable_iterator(fib->u.label_ht);
-        if (!itr) {
-            cprintf("Error: Could not create hash table iterator\n\n");
-            return;
-        }
-        
+
         do {
             fib_route_t *route = (fib_route_t *)hashtable_iterator_value(itr);
-            if (!route) continue;
+            if (!route) break;
             
             route_count++;
             
@@ -275,6 +266,7 @@ fib_show_routes(fib_t *fib) {
             
             if (active_nh_count == 0) {
                 cprintf("  No nexthops\n\n");
+                hashtable_iterator_advance(itr);
                 continue;
             }
             
@@ -331,6 +323,8 @@ fib_show_routes(fib_t *fib) {
             }
             
         } while (hashtable_iterator_advance(itr));
+
+        free(itr);
     }
     
     /* Print summary */

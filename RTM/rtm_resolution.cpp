@@ -116,7 +116,7 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
 }
 
-/* Route has been resolved i.e. its INH has been resolbed by DNHs
+/* Route has been resolved i.e. its INH has been resolved by DNHs
     Now check what all INHs this route resolves recursively and update them 
     This fn works for Unresolution also.    
 */
@@ -256,14 +256,11 @@ rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
             /* Queue the route to recursively update resolution graph upstream. We cant do
                 it synchronously here because we want to do it only when all INHs of the route
                 are resolved from downstream routes in RES Graph*/
-                tracer(rtm->node->cptr, DRTM,
-                    "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
-                    rtm->name, route_str);
+               // tracer(rtm->node->cptr, DRTM,
+               //     "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
+               //     rtm->name, rtm_format_prefix(&indirect_nh->owner_route->prefix, route_str, sizeof(route_str)));
 
-                rtm_route_Fglthread_add_last (
-                    indirect_nh->owner_route, 
-                    &rtm->resolved_unpropogated_routes, 
-                    &indirect_nh->owner_route->resolved_route_glue);
+               // rtm_schedule_route_propogation(rtm, indirect_nh->owner_route);
         }
         
         initial_resolved_count++;
@@ -364,28 +361,6 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
 
 }
 
-
-void 
-rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) {
-
-    char route_str[48];
-
-    if (IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue)) return;
-    
-    tracer(rtm->node->cptr, DRTM,
-                    "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
-                    rtm->name,
-                    rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)));
-
-                rtm_route_Fglthread_add_last (
-                    route, 
-                    &rtm->resolved_unpropogated_routes, 
-                    &route->resolved_route_glue);
-
-    rtm_schedule_route_propogation_worker (rtm);
-}
-
-
 static void 
 rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 
@@ -416,6 +391,8 @@ rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 void 
 rtm_schedule_route_propogation_worker (rtm_t *rtm) {
 
+    return; 
+
     if (rtm->rt_resolution_job) return;
    
     tracer(rtm->node->cptr, DRTM,
@@ -426,6 +403,28 @@ rtm_schedule_route_propogation_worker (rtm_t *rtm) {
              (void *)rtm,
              rtm_rt_resolver_job_cbk,
              TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE );
+}
+
+void 
+rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) {
+
+     return;
+     
+    char route_str[48];
+
+    if (IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue)) return;
+    
+    tracer(rtm->node->cptr, DRTM,
+                    "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
+                    rtm->name,
+                    rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)));
+
+    rtm_route_Fglthread_add_last (
+                    route, 
+                    &rtm->resolved_unpropogated_routes, 
+                    &route->resolved_route_glue);
+
+    rtm_schedule_route_propogation_worker (rtm);
 }
 
 /* Withdraw this NH from contribution to Resolution Graph. After this API

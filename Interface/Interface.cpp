@@ -294,7 +294,7 @@ Interface::GetIntfCost()
     return this->cost;
 }
 
-uint8_t 
+vrf_t *
 Interface::GetVRF() {
     return this->vrf;
 }
@@ -307,11 +307,11 @@ void Interface::PrintInterfaceDetails()
 
     cprintf("State : Administratively %s\n", this->is_up ? "Up" : "Down");
 
-#if 0
     cprintf("L2 access Lists : Ingress - %s, Egress - %s\n",
            this->l2_ingress_acc_lst ? (const char *)this->l2_ingress_acc_lst->name : "None",
            this->l2_egress_acc_lst ? (const char *)this->l2_egress_acc_lst->name : "None");
 
+#if 0
     cprintf("L3 access Lists : Ingress - %s, Egress - %s\n",
            this->l3_ingress_acc_lst2 ? (const char *)this->l3_ingress_acc_lst2->name : "None",
            this->l3_egress_acc_lst2 ? (const char *)this->l3_egress_acc_lst2->name : "None");
@@ -323,6 +323,7 @@ void Interface::PrintInterfaceDetails()
     }
 
     cprintf("Metric = %u\n", this->GetIntfCost());
+    cprintf ("vrf = %s\n", this->vrf ? this->vrf->vrf_name : DEF_VRF_NAME);
     cprintf ("shared_ptr count = %u\n", this->GetSharedPtr().use_count());
 }
 
@@ -520,6 +521,8 @@ Interface::SetSockfd(uint32_t sock_fd) {
 
     this->sock_fd = sock_fd;
 }
+
+bool Interface::HasL3Config() {return false;}
 
 /* ************ PhysicalInterface ************ */
 PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add)
@@ -965,6 +968,30 @@ VlanInterfaceP
 PhysicalInterface::GetAccessVlanIntf() {
 
     return this->access_vlan_intf;
+}
+
+bool PhysicalInterface::HasL3Config() {
+
+    /* Already a VRF member */
+    if (this->vrf ) return false;
+
+    /* If in L2 mode, not eligible */
+    if (this->GetSwitchport() ) return false;
+
+    /* IF IP address is already configured, not eligible */
+    if (this->IsIpConfigured()) return false;
+
+    /* If any Routing protocol configured , not eligible */
+    if (this->isis_intf_info) return false;
+
+    /* If ACLs configured, not eligible */
+    if (this->l3_egress_acc_lst2 ||
+        this->l3_ingress_acc_lst2) return false;
+    
+    /* If used by any other config , not eligible */
+    if (this->IsCrossReferenced()) return false;
+
+    return true;
 }
 
 /* ************ Virtual Interface ************ */
@@ -1876,14 +1903,15 @@ dump_intf_props (Interface *interface){
     // Print header only once
     if (!header_printed) {
 
-        cprintf("%-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
-                "ifname", "ip-address/mask", "ipv6-address/prefix", "MAC", "Oper-Status", "Mode", "Vlan-memberships");
-        cprintf("%-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
-                "------", "---------------", "------------------", "---", "-----------", "----", "----------------");
+        cprintf("%-12s %-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
+                "ifname", "vrf", "ip-address/mask", "ipv6-address/prefix", "MAC", "Oper-Status", "Mode", "Vlan-memberships");
+        cprintf("%-12s %-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
+                "------", "--------", "---------------", "------------------", "---", "-----------", "----", "----------------");
         header_printed = true;
     }
 
-    cprintf("%-12s ", interface->if_name.c_str());
+    cprintf("%-12s %-14s", interface->if_name.c_str(), 
+        interface->vrf ? interface->vrf->vrf_name : DEF_VRF_NAME);
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 

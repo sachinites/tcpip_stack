@@ -185,12 +185,8 @@
 #define CMDCODE_SHOW_NODE_RTM_PPT_DB_FILTER 73
 
 /* show node <node-name> vrf <vrf-id> fib rt */
-#define CMDCODE_SHOW_NODE_VRF_FIB_RT 74
+#define CMDCODE_SHOW_NODE_VRF_FIB 74
 
-/* show node <node-name> vrf <vrf-id> fib rt6 */
-#define CMDCODE_SHOW_NODE_VRF_FIB_RT6 75
-
-/* show node <node-name> fib mpls */
-#define CMDCODE_SHOW_NODE_FIB_MPLS 76
+#define CMDCODE_CONF_INTF_VRF 75
 
 #endif /* __CMDCODES__ */

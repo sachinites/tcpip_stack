@@ -228,7 +228,8 @@ create_graph_node(graph_t *graph, const c_string node_name){
     tracer_log_bit_set(node->dptr,  DERR);
     tracer_log_bit_set(node->cptr,  DALWAYS_FLUSH);     
     tracer_log_bit_set(node->dptr,  DALWAYS_FLUSH);     
-
+    
+    node->sequence_gen = 1;
     glthread_add_next(&graph->node_list, &node->graph_glue);
     return node;
 }

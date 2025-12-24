@@ -7,8 +7,9 @@
 #include "../RTM/rtm_nb_integ.h"
 
 void
-interface_set_ip_addr(node_t *node, Interface *intf, 
-                                    c_string intf_ip_addr, uint8_t mask) {
+interface_set_ip_addr(node_t *node, 
+                    Interface *intf, 
+                    c_string intf_ip_addr, uint8_t mask) {
 
     uint32_t ip_addr_int;
 
@@ -177,7 +178,7 @@ interface_install_local_v4_routes (node_t *node, Interface  *intf) {
     rt_ipv4_route_add (node, apply_mask2 (ip_addr, mask), mask, 0, intf, 0, PROTO_STATIC, true);
 
     /* New RTM Route Installation */
-    rtm_t *rtm = rtm_get(node, intf->GetVRF(), AF_IPV4, 0);
+    rtm_t *rtm = rtm_get(node, INTF_VRF_ID(intf), AF_IPV4, 0);
     if ((nh_idx = cp_rtm_install_local_or_connected_v4_routes (rtm, ip_addr, 32, intf->GetSharedPtr()))) {
         intf->rtm_local_rt_idx = nh_idx;
     }
@@ -198,7 +199,7 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
     rt_ipv4_route_del (node, ip_addr, 32, PROTO_STATIC, true);
     rt_ipv4_route_del (node, apply_mask2 (ip_addr, mask), mask, PROTO_STATIC, true);
-    rtm_t *rtm = rtm_get(node, intf->GetVRF(), AF_IPV4, 0);
+    rtm_t *rtm = rtm_get(node, INTF_VRF_ID(intf), AF_IPV4, 0);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
 }
