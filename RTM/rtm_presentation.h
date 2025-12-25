@@ -71,6 +71,12 @@ typedef struct rtm_presentation_data_ {
     rtm_ppt_operation_t operation;  /* ADD, DELETE, or UPDATE */
     /* Callback function to notify the client */
     void (*cbk)(rtm_t *, uint32_t , rtm_nh *, rtm_nh_proto_t *, rtm_ppt_operation_t);
+    /* Used to delete route from FIB in delete case*/
+    struct
+    {
+        uint8_t vrf;
+        AFI_T afi;
+    } target_fib;
     /* Glue to link in rtm->advt_nhs[] lists */
     glthread_t glue;
 

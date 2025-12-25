@@ -318,12 +318,15 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             fib_update_msg = (fib_update_msg_t *)dp_msg->data;
             
             /* Select FIB based on nexthop address AFI */
-            fib = fib_get (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+            fib = fib_get (node, 
+                    (AFI_T)fib_update_msg->target_fib_afi,
+                     fib_update_msg->target_fib_vrf_id);
         
             if (!fib) {
                 tracer (node->dptr, DFIB | DERR, 
                        "FIB : FIB not initialized for AFI:%d VRF:%d\n",
-                       fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+                       fib_update_msg->target_fib_afi, 
+                       fib_update_msg->target_fib_vrf_id);
                 cp2dp_msg_free(dp_msg);
                 return;
             }
@@ -387,13 +390,16 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         case DP_DEL:
         {
             fib_update_msg = (fib_update_msg_t *)dp_msg->data;
+            
+            fib = fib_get (node, 
+                    (AFI_T)fib_update_msg->target_fib_afi,
+                     fib_update_msg->target_fib_vrf_id);
 
-            fib = fib_get (node, fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
-        
             if (!fib) {
                 tracer (node->dptr, DFIB | DERR, 
                        "FIB : FIB not initialized for AFI:%d VRF:%d\n",
-                       fib_update_msg->prefix.afi, fib_update_msg->vrf_id);
+                       fib_update_msg->target_fib_afi, 
+                       fib_update_msg->target_fib_vrf_id);
                 cp2dp_msg_free(dp_msg);
                 return;
             }
@@ -1290,8 +1296,8 @@ cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
 void
 cp2dp_fib_update (
         node_t *node,
-        AFI_T afi,
-        uint8_t vrf_id,
+        uint8_t target_fib_vrf_id,
+        AFI_T target_fib_afi,
         cmn_prefix_t *prefix,
         uint32_t nh_idx,
         rtm_nh_fwd_info_t *fwd_info,
@@ -1307,7 +1313,8 @@ cp2dp_fib_update (
     dp_msg->data_size = sizeof(fib_update_msg_t);
 
     /* Populate FIB update message */
-    msg->vrf_id = vrf_id;
+    msg->target_fib_vrf_id = target_fib_vrf_id;
+    msg->target_fib_afi = target_fib_afi;
     msg->fwd_flags = fwd_info ? fwd_info->fwd_flags : 0;
     msg->nhidx = nh_idx;
     msg->prefix = *prefix;

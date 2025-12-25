@@ -115,7 +115,7 @@ mpls_lstack_compare (mpls_lstack_t *label_stk1, mpls_lstack_t *label_stk2) {
 static bool 
 mpls_lstack_is_empty (mpls_lstack_t *label_stk) {
 
-    return label_stk->curr_index == 0;
+    return label_stk->curr_index == -1;
 }
 
 static mpls_label_t
@@ -143,11 +143,11 @@ mpls_lstack_push(mpls_lstack_t *label_stk, mpls_label_t label ) {
     label_stk->labels[label_stk->curr_index] = label;
 }
 
-static mpls_label_t
+static mpls_label_t *
 mpls_lstack_get_top (mpls_lstack_t *label_stk) {
 
     assert (!mpls_lstack_is_empty (label_stk));
-    return label_stk->labels[label_stk->curr_index];
+    return &label_stk->labels[label_stk->curr_index];
 }
 
 static inline bool 

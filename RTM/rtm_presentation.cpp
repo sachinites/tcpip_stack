@@ -926,6 +926,8 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                     presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                     rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
+                    presentation_data->target_fib.vrf = dnh ? dnh->target_fib.vrf : dnh_gc->target_fib.vrf;
+                    presentation_data->target_fib.afi = dnh ? dnh->target_fib.afi : dnh_gc->target_fib.afi;
                     presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
                     /* Determine protocol: use dnh->proto if available, else use src_proto as fallback */
                     RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;
@@ -951,6 +953,8 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                 presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                 presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                 rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
+                presentation_data->target_fib.vrf = dnh ? dnh->target_fib.vrf : dnh_gc->target_fib.vrf;
+                presentation_data->target_fib.afi = dnh ? dnh->target_fib.afi : dnh_gc->target_fib.afi;
                 presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
                 /* Determine protocol: use nh->proto if available, else use src_proto as fallback */
                 RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;

@@ -99,6 +99,7 @@ typedef struct node_nw_prop_{
     rtm_t *mpls0;
     rtm_t *inet63;
     rtm_t *l3vpnv4;
+    rtm_t *l3vpnv6;
 
     /* FIBs */
     fib_t *ipv4_fib;

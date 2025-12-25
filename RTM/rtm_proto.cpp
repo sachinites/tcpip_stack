@@ -9,6 +9,7 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "rtm_presentation.h"
 #include "../Tracer/tracer.h"
+#include "../vrf/vrf.h"
 
 /* ========================================================================
  * NH PROTO (rtm_nh_proto_t) Management Functions
@@ -432,4 +433,79 @@ rtm_proto_lookup(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     }
     
     return avltree_container_of(node, rtm_proto_info_t, proto_glue);
+}
+
+
+rtm_t *
+rtm_get_route_target_rtm( node_t *node, 
+                          vrf_t *vrf, AFI_T afi,  // NULL if default VRF
+                          RTM_PROTO_T proto, 
+                          RTM_SUB_PROTO_T sub_proto) {
+
+    /* Default VRF , AF = ipv4 , PROTO = LDP.  Sub-proto = NA 
+    then target RTM = 0.inet.3 */
+    if (!vrf && afi == AF_IPV4 && proto == RTM_PROTO_LDP)
+        return node->node_nw_prop.inet3;
+
+    /* Default VRF , AF = ipv6 , PROTO = LDP.  Sub-proto = NA 
+    then target RTM = 0.inet6.3 */
+    if (!vrf && afi == AF_IPV6 && proto == RTM_PROTO_LDP)
+        return node->node_nw_prop.inet63;        
+
+    /* VRF = *, AF = * , PROTO = LDP.  Sub-proto = NA 
+    then target RTM = None, LDP supported only under default VRF */
+    if (vrf && proto == RTM_PROTO_LDP) return NULL;
+
+    /* Default VRF , AF = ipv4 , PROTO = Static.  Sub-proto = NA 
+    then target RTM = 0.inet.0 */
+    if (!vrf && afi == AF_IPV4 && proto == RTM_PROTO_STATIC)
+        return node->node_nw_prop.inet0;
+
+    /* Default VRF , AF = ipv6 , PROTO = Static.  Sub-proto = NA 
+    then target RTM = 0.inet6.0 */
+    if (!vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
+        return node->node_nw_prop.inet6;
+
+    /* VRF = *, AF = ipv4 , PROTO = Static.  Sub-proto = NA 
+    then target RTM = vrf.inet.0 */
+    if (vrf && afi == AF_IPV4 && proto == RTM_PROTO_STATIC)
+        return vrf->inet0;
+
+    /* VRF = *, AF = ipv6 , PROTO = Static.  Sub-proto = NA 
+    then target RTM = 0.inet6.0 */
+    if (vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
+        return vrf->inet6;
+
+    /* VPNv4|v6 Routes */
+    
+    /* Default VRF , AF = ipv4 , PROTO = RTM_PROTO_BGP  Sub-proto = RTM_PROTO_BGP_VPN
+        then target RTM = 0.inet.128 */
+    if (!vrf && afi == AF_IPV4 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
+        return node->node_nw_prop.l3vpnv4;
+
+    /* Default VRF , AF = ipv6 , PROTO = RTM_PROTO_BGP  Sub-proto = RTM_PROTO_BGP_VPN
+        then target RTM = 0.inet6.128 */    
+    if (!vrf && afi == AF_IPV6 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
+        return node->node_nw_prop.l3vpnv6;     
+
+    /* Default VRF , AF = ipv4 , PROTO = RTM_PROTO_SR Or RTM_PROTO_SRTE  Sub-proto = NA
+        then target RTM = 0.inet.3 */  
+    if (!vrf && afi == AF_IPV4 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
+        return node->node_nw_prop.inet3;
+
+    /* Default VRF , AF = ipv6 , PROTO = RTM_PROTO_SR  Sub-proto = NA
+        then target RTM = 0.inet.3 */  
+    if (!vrf && afi == AF_IPV6 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
+        return node->node_nw_prop.inet6;
+
+    /* Default */
+    if (!vrf && afi == AF_IPV4) return node->node_nw_prop.inet0;
+    if (vrf && afi == AF_IPV4) return vrf->inet0;
+
+    if (!vrf && afi == AF_IPV6) return node->node_nw_prop.inet6;
+    if (vrf && afi == AF_IPV6) return vrf->inet6;
+
+    if (afi == AF_MPLS) return node->node_nw_prop.mpls0;
+
+    return NULL;
 }

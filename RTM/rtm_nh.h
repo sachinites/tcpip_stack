@@ -79,6 +79,12 @@ typedef struct rtm_nh_ {
 
         bool is_active;
 
+        /* Target fib this route is installed */
+        struct {
+            uint8_t vrf;
+            AFI_T afi;
+        } target_fib;
+
         /* If this is L3 VPN BGP INH, then it should have
            vpn service label also */
         mpls_label_val_t l3_vpn_label;

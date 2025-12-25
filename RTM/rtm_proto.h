@@ -5,9 +5,11 @@
 #include "rtm_enums.h"
 #include "rtm_error.h"
 #include "../Tree/libtree.h"
+#include "../common/cmn_prefix.h"
 
 typedef struct rtm_ rtm_t;
-
+typedef struct vrf_ vrf_t;
+typedef struct node_ node_t;
 
 #pragma pack(push, 8)
 
@@ -109,6 +111,11 @@ rtm_nh_proto_lookup(const rtm_t *rtm, rtm_nh_proto_t *nh_proto_template);
 void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
 
 void rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
+
+rtm_t *rtm_get_route_target_rtm(node_t *node,
+                          vrf_t *vrf, AFI_T afi, 
+                          RTM_PROTO_T proto, 
+                          RTM_SUB_PROTO_T sub_proto);
 
 /* ----------------------------------------------------------------  */
 

@@ -79,7 +79,8 @@ fib_format_nh_addr(cmn_prefix_t *nh_addr, char *buffer, size_t buf_size) {
 static void
 fib_display_label_stack(mpls_lstack_t *label_stack) {
     
-    if (!label_stack || label_stack->curr_index == 0) {
+    if (!label_stack || 
+        mpls_lstack_is_empty(label_stack)) {
         return;
     }
     

@@ -89,9 +89,11 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         cprintf("    Indirect       : %s\n", nh->is_indirect ? "Yes" : "No");
         
         /* Display L3 VPN label if present (for BGP-VPN routes) */
-        if (nh->proto == RTM_PROTO_BGP && nh->sub_proto == RTM_PROTO_BGP_VPN && nh->l3_vpn_label != 0) {
-            uint32_t vpn_label_value = mpls_label_get_value(nh->l3_vpn_label);
-            cprintf("    L3 VPN Label   : %u\n", vpn_label_value);
+        if (nh->proto == RTM_PROTO_BGP && 
+            nh->sub_proto == RTM_PROTO_BGP_VPN && 
+            nh->l3_vpn_label != 0) {
+
+            cprintf("    L3 VPN Label   : %u\n", nh->l3_vpn_label);
         }
         
         /* Display resolution information for indirect nexthops */

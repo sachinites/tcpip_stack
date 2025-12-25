@@ -184,7 +184,6 @@ config_rtm_route_cli_handler(int cmdcode,
     c_string gw_ip = NULL;
     c_string if_name = NULL;
     uint32_t vrf_id = RTM_DEFAULT_VRF;
-    uint32_t table_id = 0;
     uint32_t proto_id = 0;
     uint32_t sub_proto_id = 0;
     uint32_t instance_no = 0;
@@ -203,8 +202,6 @@ config_rtm_route_cli_handler(int cmdcode,
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "vrf-id"))
             vrf_id = atoi((const char *)tlv->value);
-        else if (parser_match_leaf_id(tlv->leaf_id, "table-id"))
-            table_id = atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "prefix-mask"))
             prefix_mask = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "proto-id"))
@@ -235,10 +232,6 @@ config_rtm_route_cli_handler(int cmdcode,
     } TLV_LOOP_END;
 
     /* Validate inputs */
-    if (!node_name) {
-        cprintf("Error: node-name missing\n");
-        return -1;
-    }
 
     if (!prefix_mask) {
         cprintf("Error: prefix/mask is required\n");
@@ -247,10 +240,6 @@ config_rtm_route_cli_handler(int cmdcode,
 
     /* Get the node */
     node = node_get_node_by_name(topo, node_name);
-    if (!node) {
-        cprintf("Error: Node %s not found\n", node_name);
-        return -1;
-    }
 
     switch (enable_or_disable) {
 
@@ -368,14 +357,6 @@ config_rtm_route_cli_handler(int cmdcode,
                 }
             }
 
-            /* Get RTM */
-            rtm_t *rtm = rtm_get(node, vrf_id, afi, table_id);
-            if (!rtm) {
-                cprintf("Error: RTM not found for node %s VRF %u table %u\n",
-                        node_name, vrf_id, table_id);
-                return -1;
-            }
-
             /* Prepare prefix */
             cmn_prefix_t prefix;
             memset(&prefix, 0, sizeof(prefix));
@@ -486,7 +467,8 @@ config_rtm_route_cli_handler(int cmdcode,
                 }
             }
 
-            /* Get interface */
+            /* Get interface and VRF*/
+            vrf_t *vrf = NULL;
             InterfaceP oif = nullptr;
             if (if_name) {
                 Interface *intf = node_get_intf_by_name(node, (const char *)if_name);
@@ -496,6 +478,7 @@ config_rtm_route_cli_handler(int cmdcode,
                     return -1;
                 }
                 oif = intf->GetSharedPtr();
+                vrf = oif->vrf;
             }
 
             /* Validate protocol and action IDs */
@@ -532,8 +515,19 @@ config_rtm_route_cli_handler(int cmdcode,
                     return -1;
                 }
 
-                /* Encode label value in upper 20 bits */
-                mpls_label_set_value(&l3_vpn_label, plain_vpn_label);
+                l3_vpn_label = plain_vpn_label;
+            }
+
+            rtm_t *rtm = cp_rtm_get_route_target_rtm (
+                            node, 
+                            vrf, 
+                            prefix.afi, 
+                            (RTM_PROTO_T)proto_id, 
+                            (RTM_SUB_PROTO_T)sub_proto_id);
+
+            if (!rtm) {
+                cprintf ("Error : Compatible RIB not found\n");
+                return RTM_ERROR_INVALID_ROUTE;
             }
 
             /* Install route */
@@ -549,15 +543,14 @@ config_rtm_route_cli_handler(int cmdcode,
                 oif,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
-                l3_vpn_label
-            );
+                l3_vpn_label);
 
             if (rc != RTM_SUCCESS) {
                 cprintf("Error: Failed to install route: %s\n", rtm_error_to_string(rc));
                 return -1;
             }
 
-            printw("Route installed successfully\n");
+            cprintf ("Route installed successfully\n");
         }
         break;
 
@@ -673,14 +666,6 @@ config_rtm_route_cli_handler(int cmdcode,
                 }
             }
 
-            /* Get RTM */
-            rtm_t *rtm = rtm_get(node, vrf_id, afi, table_id);
-            if (!rtm) {
-                cprintf("Error: RTM not found for node %s VRF %u table %u\n",
-                        node_name, vrf_id, table_id);
-                return -1;
-            }
-
             /* Prepare prefix */
             cmn_prefix_t prefix;
             memset(&prefix, 0, sizeof(prefix));
@@ -790,8 +775,9 @@ config_rtm_route_cli_handler(int cmdcode,
                 }
             }
 
-            /* Get interface */
+            /* Get interface and vrf */
             InterfaceP oif = nullptr;
+            vrf_t *vrf = NULL;
             if (if_name) {
                 Interface *intf = node_get_intf_by_name(node, (const char *)if_name);
                 if (!intf) {
@@ -800,6 +786,7 @@ config_rtm_route_cli_handler(int cmdcode,
                     return -1;
                 }
                 oif = intf->GetSharedPtr();
+                vrf = oif->vrf;
             }
 
             /* Validate protocol and action IDs */
@@ -836,8 +823,19 @@ config_rtm_route_cli_handler(int cmdcode,
                     return -1;
                 }
 
-                /* Encode label value in upper 20 bits */
-                mpls_label_set_value(&l3_vpn_label, plain_vpn_label);
+                l3_vpn_label = plain_vpn_label;
+            }
+
+            rtm_t *rtm = cp_rtm_get_route_target_rtm (
+                            node, 
+                            vrf, 
+                            prefix.afi, 
+                            (RTM_PROTO_T)proto_id, 
+                            (RTM_SUB_PROTO_T)sub_proto_id);
+
+            if (!rtm) {
+                cprintf ("Error : Compatible RIB not found\n");
+                return RTM_ERROR_INVALID_ROUTE;
             }
 
             /* Uninstall route */
@@ -861,7 +859,7 @@ config_rtm_route_cli_handler(int cmdcode,
                 return -1;
             }
 
-            printw("Route uninstalled successfully\n");
+            cprintf ("Route uninstalled successfully\n");
         }
         break;
 
@@ -962,22 +960,22 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->is_indirect = nh_template->is_indirect;
     nh->is_active = false;
     nh->ref_count = 0;
-
-    /* Copy L3 VPN label if present */
     nh->l3_vpn_label = nh_template->l3_vpn_label;
 
-    if (nh_template->u.l_stack.label_stack) {
+    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
         nh->label_stack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
         nh->label_stack->curr_index = nh_template->u.l_stack.label_stack->curr_index;
-        for (int i = 0; i < nh->label_stack->curr_index; i++) {
+        for (int i = 0; i <= nh->label_stack->curr_index; i++) {
             nh->label_stack->labels[i].label_val = nh_template->u.l_stack.label_stack->labels[i].label_val;
             nh->label_stack->labels[i].op = nh_template->u.l_stack.label_stack->labels[i].op;
         }
     }
 
-    nh->endfn = nh_template->u.srv6_stack.endfn;
-    nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
-    nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
+    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_IPV6_STCK)) {
+        nh->endfn = nh_template->u.srv6_stack.endfn;
+        nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
+        nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
+    }
 
     /* NH created successfully - note: cannot trace here as we don't have RTM context */
     return nh;

@@ -10,6 +10,7 @@
 #include "rtm_fib_common.h"
 #include "../common/mpls_lstack.h"
 #include "../FIB/fib_error.h"
+#include "../FIB/fib.h"
 #include "../common/cp2dp.h"
 
 /* Function which created a data plane forwarding info from a nexthop 
@@ -28,59 +29,42 @@
     and INH may or may not have label stack / segment list
     fwd_info_out - mist copy labels / segment list from INH first ( inner labels / seg lst )
     then copy labels/seg list from INH ( outer labels / seg list )
+*/
 
-    We will implement this function case by case */
 static rtm_error_t
 rtm_resolution_create_inh_fwd_info (rtm_t *rtm, 
                                     AFI_T afi,
                                     rtm_nh *inh, rtm_nh *dnh, 
                                     rtm_nh_fwd_info_t *fwd_info_out) {
-
-    mpls_label_val_t label_val;
+    int i;
+    bool l3_vpn = false;
     mpls_label_t label;
+    mpls_label_val_t label_val;
+    bool is_mpls_label_stck = false;
 
-    /* Default Case : When ipv4/6 INH next hop is resolved to ipv4/6 DNH - 
-        Normal case when BGP NHs resolves over IGP nexthops */
+    fwd_info_out->oif = dnh->oif;
+    fwd_info_out->nh_addr = dnh->prefix;
+    fwd_info_out->fwd_flags = dnh->fwd_flags;
 
-    // Route is IPv4/IPv6 and NHs do not have segments/labels
-    if ((afi == AF_IPV4 || afi == AF_IPV6) && 
-        !IS_BIT_SET(inh->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK) &&
-        !IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK) &&
-        !IS_BIT_SET(inh->fwd_flags, FIB_NH_FWD_F_IPV6_STCK) &&
-        !IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_IPV6_STCK))
-    {
-        fwd_info_out->oif = dnh->oif;
-        fwd_info_out->nh_addr = dnh->prefix;
-        fwd_info_out->fwd_flags = dnh->fwd_flags;
-        return RTM_SUCCESS;
-    }
+    mpls_lstack_init (&fwd_info_out->u.mpls_fwd.label_stack);
 
-    /* L3 VPNv4 case 
-    Route is IPv4 and 
-    INH is ipv4 with VPN label  and 
-    DNH is ipv4 nexthop with label stack  */
-
-    if (afi == AF_IPV4 &&
-        (inh->l3_vpn_label != 0) &&
-        IS_BIT_SET(inh->fwd_flags, FIB_NH_FWD_F_IPV4) &&
-        IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK) &&
-        IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_IPV4)) 
-    {
-        fwd_info_out->oif = dnh->oif;
-        fwd_info_out->nh_addr = dnh->prefix;
-        fwd_info_out->fwd_flags = dnh->fwd_flags;
-
+    if (inh->l3_vpn_label) {
+    
         /* Copy VPN label from INH (innermost label) */
         mpls_label_init(&label);
         mpls_label_set_value  (&label.label_val, inh->l3_vpn_label);
-        mpls_label_set_stack_bottom(&label.label_val);
         label.op = MPLS_OP_PUSH;
-        mpls_lstack_push(&fwd_info_out->u.mpls_fwd.label_stack, label);
+        mpls_lstack_push(&fwd_info_out->u.mpls_fwd.label_stack, label);  
+        l3_vpn = true;      
+        is_mpls_label_stck = true;
+    }
 
-        /* Copy labels from DNH (outer labels) */
-        int i = 0;
+    if (IS_BIT_SET(dnh->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
 
-        while (i < MAX_LBL_DEPTH &&
+        i = 0;
+        uint8_t max_label_stk_depth = l3_vpn ? MAX_LBL_DEPTH -1 : MAX_LBL_DEPTH;
+
+        while (i < max_label_stk_depth &&
                 !mpls_label_is_null(dnh->label_stack->labels[i])) {
             label_val = mpls_label_get_value (dnh->label_stack->labels[i].label_val);
             mpls_label_init(&label);
@@ -88,11 +72,22 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
             label.op = MPLS_OP_PUSH;
             mpls_lstack_push(&fwd_info_out->u.mpls_fwd.label_stack, label);
             i++;
+            is_mpls_label_stck = true;
         }
-
-        return RTM_SUCCESS;
     }
-    
+
+    /* Set stack bottom*/
+    if (is_mpls_label_stck) {
+
+        mpls_label_t *bottom_label = &fwd_info_out->u.mpls_fwd.label_stack.labels[0];
+        mpls_label_set_stack_bottom (&bottom_label->label_val);
+        mpls_label_t *top_label = mpls_lstack_get_top (&fwd_info_out->u.mpls_fwd.label_stack);
+        top_label->op = (afi == AF_MPLS) ? MPLS_OP_SWAP : MPLS_OP_PUSH;
+        SET_BIT (fwd_info_out->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK);
+    }
+
+    /* Handling SRv6 Segment List -- Later ... */
+
     return RTM_SUCCESS;
 }
 
@@ -157,11 +152,51 @@ rtm_resolution_create_nh_fwd_info(rtm_t *rtm,  AFI_T afi,
 static bool 
 rtm_download_route_to_fib (rtm_t *rtm) {
 
-    // x.inet.3 and x.inet6.3 routes are not allowed to download in FIB directly. They are 
-    // service routes.
-    if ((rtm->afi == AF_IPV4 || rtm->afi == AF_IPV6) && (rtm->rtm_id == 3 )) {
+    // 0.inet.3 and 0.inet6.3 routes are not allowed to download in FIB directly. 
+    // They are service routes.
+    if ((rtm->afi == AF_IPV4 || rtm->afi == AF_IPV6) && 
+            (rtm->rtm_id == 3 ) && 
+            rtm->vrf == RTM_DEFAULT_VRF) {
         return false;
     }
+
+    return true;
+}
+
+/* Get the target fib where the route is being downloaded*/
+bool
+rtm_get_target_fib (rtm_t *rtm,
+                    cmn_prefix_t *route,
+                    rtm_nh*inh,
+                    rtm_nh*nh,
+                    uint8_t *vrf_out, 
+                    AFI_T *afi_out) {
+
+    /* L3VPN v4/v6 route, then download it to x.inet.0 FIB*/
+
+    // until we support route-target based imports, lets hard-code
+    // customer VRF as vrf "CUST"
+
+    if (inh &&
+        inh->proto == RTM_PROTO_BGP && 
+        inh->sub_proto == RTM_PROTO_BGP_VPN) {
+
+        vrf_t *vrf = vrf_get_by_name(rtm->node, "CUST");
+        if (!vrf) return false;
+
+        fib_t *fib = fib_get(rtm->node, route->afi, vrf->vrf_id);
+        if (!fib) return false;
+
+        *vrf_out = fib->vrf_id;
+        *afi_out = fib->afi;
+
+        return true;
+    }
+
+
+    /* Defaults*/
+    *vrf_out = inh ? inh->rtm->vrf : nh->rtm->vrf;
+    *afi_out = route->afi;
 
     return true;
 }
@@ -172,6 +207,10 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
     char rt_str[48];
     char nh_str[128];
     rtm_nh_fwd_info_t fwd_info; 
+
+    AFI_T target_fib_afi;
+    uint8_t target_fib_vrf_out;
+
 
     if (!rtm_download_route_to_fib(rtm)) return;
 
@@ -211,11 +250,45 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
         }
     }
 
+    bool fib_found = false;
+    if (presentation_data->operation != RTM_PPT_OP_DELETE) {
+
+        fib_found = rtm_get_target_fib(rtm,
+                           &presentation_data->route,
+                           presentation_data->inh,
+                           presentation_data->nh,
+                           &target_fib_vrf_out,
+                           &target_fib_afi);
+
+        presentation_data->nh->target_fib.vrf = target_fib_vrf_out;
+        presentation_data->nh->target_fib.afi = target_fib_afi;
+    }
+    else {
+        target_fib_vrf_out = presentation_data->target_fib.vrf;
+        target_fib_afi = presentation_data->target_fib.afi;
+        fib_found = true;
+    }
+    
+    if (!fib_found) {
+
+        tracer (rtm->node->cptr, DRTM | DERR, 
+            "RTM[%s] : FIB location failed for Route %s, NH %s(%u), Operation %s\n",
+                rtm->name,
+                rt_str,
+                presentation_data->operation == RTM_PPT_OP_ADD ? \
+                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
+                presentation_data->nh_idx,
+                presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
+                presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
+
+        return;
+    }
+
     /* Update FIB based on operation */
     cp2dp_fib_update (
             rtm->node, 
-            rtm->afi, 
-            rtm->vrf, 
+            target_fib_vrf_out,
+            target_fib_afi,
             &presentation_data->route, 
             presentation_data->nh_idx,
             presentation_data->operation != RTM_PPT_OP_DELETE ? &fwd_info : NULL,

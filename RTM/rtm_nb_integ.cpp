@@ -67,6 +67,7 @@ node_init_default_rtm(node_t *node) {
     node_nw_prop->inet6    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 0); // inet6.0
     node_nw_prop->inet63   = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 3); // inet6.3
     node_nw_prop->l3vpnv4  = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 128); // bgp.l3vpn.0 
+    node_nw_prop->l3vpnv6  = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 128); // bgp.l3vpn.0 
 }
 
 rtm_t *
@@ -87,6 +88,7 @@ rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
 
             if (rtm_id == 0) return node->node_nw_prop.inet6;
             if (rtm_id == 3) return node->node_nw_prop.inet63;
+            if (rtm_id == 128) return node->node_nw_prop.l3vpnv6;
         }
 
         else if (afi == AF_LABEL) {
@@ -277,12 +279,6 @@ cp_rtm_install_route (
         cmn_prefix_t *prefix,
         cp_nexthop_template_t *cp_nh_template) {
 
-    if (cp_nh_template->proto == RTM_PROTO_LDP) 
-        return rtm_install_route ( rtm->node->node_nw_prop.inet3,  prefix, cp_nh_template) ;
-    else if (cp_nh_template->proto == RTM_PROTO_SR || 
-             cp_nh_template->proto == RTM_PROTO_SRTE)
-        return rtm_install_route ( rtm->node->node_nw_prop.mpls0,  prefix, cp_nh_template) ;
-
     return rtm_install_route ( rtm,  prefix, cp_nh_template) ;
 }
 
@@ -327,12 +323,6 @@ cp_rtm_uninstall_route (
         rtm_t *rtm, 
         cmn_prefix_t *prefix, 
         cp_nexthop_template_t *cp_nh_template) {
-
-    if (cp_nh_template->proto == RTM_PROTO_LDP)
-        return rtm_uninstall_route(rtm->node->node_nw_prop.inet3, prefix, cp_nh_template);
-    else if (cp_nh_template->proto == RTM_PROTO_SR ||
-             cp_nh_template->proto == RTM_PROTO_SRTE)
-        return rtm_uninstall_route(rtm->node->node_nw_prop.mpls0, prefix, cp_nh_template);
 
     return rtm_uninstall_route ( rtm, prefix, cp_nh_template) ;
 }
@@ -489,8 +479,6 @@ cp_rtm_install_route_advanced (
             break;
             
             case AF_LABEL:
-            /* MPLS label as gateway - for label swap operations */
-            fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
             break;
         }
     }
@@ -520,7 +508,7 @@ cp_rtm_install_route_advanced (
 
         /* Allocate label stack */
         mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
-        lstack->curr_index = 0;
+        mpls_lstack_init (lstack);
 
         for (uint8_t i = 0; i < label_stack_count; i++) {
             lstack->labels[i].label_val = label_stack[i];
@@ -602,6 +590,9 @@ cp_rtm_uninstall_route_advanced (
             case AF_IPV6:
             fwd_flags |= FIB_NH_FWD_F_IPV6;
             break;
+
+            case AF_LABEL:
+            break;
         }
 
     }
@@ -633,7 +624,7 @@ cp_rtm_uninstall_route_advanced (
 
         /* Allocate label stack */
         mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
-        lstack->curr_index = 0;
+        mpls_lstack_init(lstack);
 
         for (uint8_t i = 0; i < label_stack_count; i++) {
             lstack->labels[i].label_val = label_stack[i];
@@ -892,4 +883,14 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
         sub_template->target_instance_no);
 
     return RTM_SUCCESS;
+}
+
+rtm_t *
+cp_rtm_get_route_target_rtm( node_t *node, 
+                          vrf_t *vrf, AFI_T afi,  // NULL if default VRF
+                          RTM_PROTO_T proto, 
+                          RTM_SUB_PROTO_T sub_proto){
+
+
+    return rtm_get_route_target_rtm( node, vrf, afi, proto, sub_proto);
 }

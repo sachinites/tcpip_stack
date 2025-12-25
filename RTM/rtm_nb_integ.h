@@ -173,4 +173,10 @@ cp_rtm_subscribe(rtm_t *rtm,
 rtm_error_t 
 cp_rtm_unsubscribe (rtm_t *rtm, rtm_rt_subscription_t *sub_template);
 
+rtm_t *
+cp_rtm_get_route_target_rtm( node_t *node, 
+                          vrf_t *vrf, AFI_T afi,  // NULL if default VRF
+                          RTM_PROTO_T proto, 
+                          RTM_SUB_PROTO_T sub_proto);
+
 #endif 

@@ -365,23 +365,23 @@ void fib_show(fib_t *fib) {
                     printw("\n");
                     
                     /* MPLS label stack if present */
-                    if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)) {
-                        
+                    if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK))
+                    {
                         mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
-                        if (lstack->curr_index > 0) {
-                            cprintf("%s   MPLS Stack: ", indent);
-                            
-                            for (int j = 0; j < lstack->curr_index; j++) {
-                                cprintf("[%u:%s] ", 
-                                        lstack->labels[j].label_val,
-                                        lstack->labels[j].op == MPLS_OP_PUSH ? "PUSH" :
-                                        lstack->labels[j].op == MPLS_OP_POP ? "POP" :
-                                        lstack->labels[j].op == MPLS_OP_SWAP ? "SWAP" : "UNK");
-                            }
-                            printw("\n");
+
+                        cprintf("%s   MPLS Stack: ", indent);
+
+                        for (int j = 0; j <= lstack->curr_index; j++)
+                        {
+                            cprintf("[%u:%s] ",
+                                    lstack->labels[j].label_val,
+                                    lstack->labels[j].op == MPLS_OP_PUSH ? "PUSH" : lstack->labels[j].op == MPLS_OP_POP ? "POP"
+                                                                                : lstack->labels[j].op == MPLS_OP_SWAP  ? "SWAP"
+                                                                                                                        : "UNK");
                         }
+                        printw("\n");
                     }
-                    
+
                     /* SRv6 segment list if present */
                     if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK)) {
                         

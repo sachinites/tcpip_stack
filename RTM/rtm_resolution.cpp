@@ -334,31 +334,28 @@ rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
 void 
 rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
 
-    /* If this is 0.inet.3 RTM, Schedule the NH resolution worker of x.inet.0 RTM*/
+    /* If this is 0.inet.3 RTM, Schedule the NH resolution worker of :
+        x.inet.0 RTM
+        0.inet.128 ( BGP L3 VPN ) */
 
-    // Since VRFs are not supported, we will handle Default VRF RTMs only for now
-
-    if (rtm == rtm->node->node_nw_prop.inet3) {
-
-        tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : NH resolution worker already scheduled in RTM inet.0\n", rtm->name);        
+    if (rtm == rtm->node->node_nw_prop.inet3) {     
 
         SET_BIT(rtm->node->node_nw_prop.inet0->flags, RTM_F_INHS_RE_RESOLVE);
-
         rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet0);
+
+        SET_BIT(rtm->node->node_nw_prop.l3vpnv4->flags, RTM_F_INHS_RE_RESOLVE);
+        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv4);
     }
 
     /* If this is 0.inet.63 RTM, Schedule the NH resolution worked of 0.inet.6 RTM*/
-     else if (rtm == rtm->node->node_nw_prop.inet63) {
-
-        tracer(rtm->node->cptr, DRTM_DET,
-            "RTM[%s] : NH resolution worker already scheduled in RTM inet.6\n", rtm->name);        
+     else if (rtm == rtm->node->node_nw_prop.inet63) {     
 
         SET_BIT(rtm->node->node_nw_prop.inet6->flags, RTM_F_INHS_RE_RESOLVE);
-
         rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet6);
+        
+        SET_BIT(rtm->node->node_nw_prop.l3vpnv6->flags, RTM_F_INHS_RE_RESOLVE);
+        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv6);
     }
-
 }
 
 static void 
@@ -836,24 +833,27 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 rtm_t *
 rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
-    /* Rule 1 : If the route is BGP VPNv4 route installed in Customer
-        VRF inet.0 table <x.inet.0> , resolve it in default inet.3 table*/
+    /* Rule 1 : If the route is BGP VPNv4 route installed in l3vpn rib,
+        resolve it in default 0.inet.3 table*/
 
     if (indirect_nh->proto == RTM_PROTO_BGP &&
-            indirect_nh->sub_proto == RTM_PROTO_BGP_VPN) {
-          //  indirect_nh->rtm->vrf != RTM_DEFAULT_VRF) {
+        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN) {
 
-        //A route installed in x.inet.0 should be resolved over 0.inet.3
-        if (indirect_nh->prefix.afi == AF_IPV4 &&
-                indirect_nh->rtm->afi == AF_IPV4) 
-            return node->node_nw_prop.inet3;
+        /* Ensure it is L3VPNv4 RIB*/
+        assert (indirect_nh->rtm->vrf == DEFAULT_VRF);
+        assert (indirect_nh->rtm->rtm_id == 128 );
+        assert (indirect_nh->rtm->afi == AF_IPV4);
 
-        //x.inet63.0
-        if (indirect_nh->prefix.afi == AF_IPV6 &&
-                indirect_nh->rtm->afi == AF_IPV6) 
-            return node->node_nw_prop.inet63;
+        //to be resolved over 0.inet.3
+        return node->node_nw_prop.inet3;
 
-        else return NULL;
+        /* Ensure it is L3VPNv6 RIB*/
+        assert (indirect_nh->rtm->vrf == DEFAULT_VRF);
+        assert (indirect_nh->rtm->rtm_id == 128 );
+        assert (indirect_nh->rtm->afi == AF_IPV6);
+        
+        // to be resolved over 0.inet6.3
+        return node->node_nw_prop.inet63;
     }
 
     /* Add more Rules here */

@@ -10,7 +10,6 @@ typedef enum protocols_ {
     RTM_PROTO_ISIS, 
     RTM_PROTO_OSPF,
     RTM_PROTO_SR,
-    RTM_PROTO_LFA,
     RTM_PROTO_LDP,
     RTM_PROTO_SRTE,
     RTM_PROTO_MAX
@@ -20,7 +19,6 @@ typedef enum protocols_ {
 typedef enum sub_protocols_ {
 
     RTM_SUB_PROTO_NA,
-    RTM_SUB_PROTO_STATIC,
     RTM_PROTO_L1_ISIS_INT,
     RTM_PROTO_L2_ISIS_INT, 
     RTM_PROTO_L1_ISIS_EXT, 
@@ -79,7 +77,6 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
         case RTM_PROTO_BGP: return "BGP";
         case RTM_PROTO_ISIS: return "ISIS";
         case RTM_PROTO_SR: return "SR";
-        case RTM_PROTO_LFA: return "LFA";
         case RTM_PROTO_LDP: return "LDP";
         case RTM_PROTO_SRTE: return "SR-TE";
         default: return "Unknown";
@@ -90,7 +87,6 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
 static const char* rtm_sub_proto_to_string(RTM_SUB_PROTO_T sub_proto) {
     switch(sub_proto) {
         case RTM_SUB_PROTO_NA: return "NA";
-        case RTM_SUB_PROTO_STATIC: return "Static";
         case RTM_PROTO_L1_ISIS_INT: return "L1-ISIS-INT";
         case RTM_PROTO_L2_ISIS_INT: return "L2-ISIS-INT";
         case RTM_PROTO_L1_ISIS_EXT: return "L1-ISIS-EXT";
