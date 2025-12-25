@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../../graph.h"
+#include "../../router_init.h"
 typedef struct pkt_block_ pkt_block_t;
 class Interface;
 

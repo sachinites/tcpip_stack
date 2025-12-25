@@ -4,7 +4,7 @@
 #include "../Tree/libtree.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../EventDispatcher/event_dispatcher.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Tracer/tracer.h"
 #include "rtm_resolution.h"
 #include "rtm.h"

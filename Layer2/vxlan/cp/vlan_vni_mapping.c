@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include "vxlan.h"
 #include "../dp/vlan_vni_ht.h"
-#include "../../../graph.h"
+#include "../../../router_init.h"
 #include "../../../gluethread/glthread.h"
 #include "../../../utils.h"
 #include "../../../LinuxMemoryManager/uapi_mm.h"

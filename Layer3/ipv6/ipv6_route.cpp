@@ -5,7 +5,7 @@
 #include "ipv6_hdrs.h"
 #include "ipv6_utils.h"
 #include "../../BitOp/bitmap.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../Interface/InterfaceFwd.h"
 #include "../layer3.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"

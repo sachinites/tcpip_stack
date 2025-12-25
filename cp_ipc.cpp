@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "graph.h"
+#include "router_init.h"
 #include "cp_ipc.h"
 #include "EventDispatcher/event_dispatcher.h"
 

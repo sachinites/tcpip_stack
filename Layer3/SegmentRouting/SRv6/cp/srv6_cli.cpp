@@ -1,7 +1,7 @@
 #include <arpa/inet.h>
 #include "../../../../CLIBuilder/libcli.h"
 #include "../../../../LinuxMemoryManager/uapi_mm.h"
-#include "../../../../graph.h"
+#include "../../../../router_init.h"
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../../common/l3_hdrs.h"
 #include "../../../ipv6/ipv6_utils.h"

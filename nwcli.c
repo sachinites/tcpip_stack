@@ -32,7 +32,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "graph.h"
+#include "router_init.h"
 #include "CLIBuilder/libcli.h"
 #include "CLIBuilder/cmdtlv.h"
 #include "cmdcodes.h"

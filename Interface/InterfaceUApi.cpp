@@ -1,5 +1,5 @@
 #include "InterfaceUApi.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Layer3/layer3.h"
 #include "../tcpip_notif.h"
 #include "../common/cp2dp.h"

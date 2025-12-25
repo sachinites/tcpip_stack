@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "objnw.h"
 #include "../../CLIBuilder/libcli.h"
 

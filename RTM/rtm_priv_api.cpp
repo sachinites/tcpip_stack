@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../CLIBuilder/libcli.h"
@@ -53,9 +53,10 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
         case RTM_PROTO_ISIS:
             return RTM_ADMIN_DIST_ISIS;
         case RTM_PROTO_LDP:
+            return RTM_ADMIN_DIST_LDP;
         case RTM_PROTO_SR:
         case RTM_PROTO_SRTE:
-            return RTM_ADMIN_DIST_TNL_ENDP;
+            return RTM_ADMIN_DIST_SRTE;
         default:
             return RTM_ADMIN_DIST_UNKNOWN;
     }

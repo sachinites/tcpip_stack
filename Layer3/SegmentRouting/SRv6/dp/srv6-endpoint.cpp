@@ -4,7 +4,7 @@
 #include "srv6-endpoint.h"
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../ipv6/ipv6_route.h"
-#include "../../../../graph.h"
+#include "../../../../router_init.h"
 #include "../../../../pkt_block.h"
 #include "../../../../Tracer/tracer.h"
 #include "../../../../Interface/InterfaceUApi.h"

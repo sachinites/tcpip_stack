@@ -1,6 +1,6 @@
 #include <string.h>
 #include <cstdlib>
-#include "../graph.h"
+#include "../router_init.h"
 #include "fib.h"
 #include "fib_route.h"
 #include "fib_error.h"

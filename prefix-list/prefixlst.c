@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../graph.h"
+#include "../router_init.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "prefixlst.h"
 #include "../utils.h"

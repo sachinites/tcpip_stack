@@ -2,7 +2,7 @@
 #define __VXLAN_H__
 
 #include "../../layer2.h"
-#include "../../../graph.h"
+#include "../../../router_init.h"
 #include "../../../gluethread/glthread.h"
 
 /* Forward declarations */

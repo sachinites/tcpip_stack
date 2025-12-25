@@ -37,7 +37,7 @@
 #include <string>
 #include "../common/l2_hdrs.h"
 #include "../common/l3_hdrs.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "layer2.h"
 #include "arp.h"
 #include "mac_table.h"

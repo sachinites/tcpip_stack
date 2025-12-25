@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "../../../../CLIBuilder/libcli.h"
-#include "../../../../graph.h"
+#include "../../../../router_init.h"
 #include "srv6_cmds.h"
 #include "srv6_api.h"
 #include "srv6_struct.h"

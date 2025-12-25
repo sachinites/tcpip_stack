@@ -37,7 +37,7 @@
 #include <memory>
 #include <ctype.h>
 #include "configdb.h"
-#include "graph.h"
+#include "router_init.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
 #include "packet-tracer/packet_tracer.h"

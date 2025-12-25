@@ -1,7 +1,7 @@
 #include "../gluethread/glthread.h"
 #include "../BitOp/bitsop.h"
 #include "../Threads/refcount.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../notif.h"
 #include "rt_notif.h"
 #include "rt_table/nexthop.h"

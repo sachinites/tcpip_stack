@@ -31,7 +31,7 @@
  */
 
 #include <stdint.h>
-#include "../graph.h"
+#include "../router_init.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
 #include "../tcpconst.h"

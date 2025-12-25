@@ -1,7 +1,7 @@
 #include "CLIBuilder/libcli.h"
 #include "CLIBuilder/cmdtlv.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
-#include "graph.h"
+#include "router_init.h"
 
 #define CMDCODE_SQL_QUERY 1
 #define SQL_QUERY_MAX_SIZE 256

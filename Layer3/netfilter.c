@@ -17,7 +17,7 @@
  */
 
 #include <string.h>
-#include "../graph.h"
+#include "../router_init.h"
 #include "netfilter.h"
 #include "../Layer5/layer5.h"
 #include "../pkt_block.h"

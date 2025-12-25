@@ -36,7 +36,7 @@
 
 #include <stdio.h>
 #include <stdlib.h> 
-#include "graph.h"
+#include "router_init.h"
 #include "CLIBuilder/libcli.h"
 #include "EventDispatcher/event_dispatcher.h"
 

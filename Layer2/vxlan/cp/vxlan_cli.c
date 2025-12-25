@@ -1,4 +1,4 @@
-#include "../../../graph.h"
+#include "../../../router_init.h"
 #include "../../mac_table.h"
 #include "../../../tcpconst.h"
 #include "../../../cmdcodes.h"

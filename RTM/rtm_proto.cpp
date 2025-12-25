@@ -1,7 +1,7 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "../graph.h"
+#include "../router_init.h"
 #include "rtm_proto.h"
 #include "rtm.h"
 #include "rtm_error.h"

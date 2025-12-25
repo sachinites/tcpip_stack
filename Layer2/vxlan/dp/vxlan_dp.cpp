@@ -1,6 +1,6 @@
 #include "vxlan_dp.h"
 #include "../../../pkt_block.h"
-#include "../../../graph.h"
+#include "../../../router_init.h"
 #include "../../../common/l4_hdrs.h"
 #include "../../../Tracer/tracer.h"
 #include <netinet/in.h>  // for htonl

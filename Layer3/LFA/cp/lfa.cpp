@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
-#include "../../../graph.h"
+#include "../../../router_init.h"
 #include "../../../Tracer/tracer.h"
 
 #include "lfa.h"

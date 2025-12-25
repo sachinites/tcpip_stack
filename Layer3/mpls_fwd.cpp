@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "../graph.h"
+#include "../router_init.h"
 #include "mpls_fwd.h"
 #include "rt_table/nexthop.h"
 #include "../Tracer/tracer.h"

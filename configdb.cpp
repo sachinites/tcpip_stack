@@ -20,7 +20,7 @@
 #include <assert.h>
 #include "PostgresLibpq/postgresLib.h"
 #include "CLIBuilder/libcli.h"
-#include "graph.h"
+#include "router_init.h"
 
 #define DISABLE_CONFIGDB    return
 

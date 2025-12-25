@@ -43,7 +43,7 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "EventDispatcher/event_dispatcher.h"
 #include "comm.h"
-#include "graph.h"
+#include "router_init.h"
 #include "net.h"
 #include "Layer2/layer2.h"
 #include "FireWall/acl/acldb.h"

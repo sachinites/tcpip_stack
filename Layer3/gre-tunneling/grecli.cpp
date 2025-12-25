@@ -1,7 +1,7 @@
 #include "../../utils.h"
 #include "../../CLIBuilder/libcli.h"
 #include "grecmdcodes.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "greuapi.h"
 #include "../../common/cp2dp.h"

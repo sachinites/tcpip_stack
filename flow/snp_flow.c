@@ -2,7 +2,7 @@
 #include "../Tree/libtree.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "Threads/refcount.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Layer3/rt_table/nexthop.h"
 #include "../Layer3/layer3.h"
 #include "snp_flow.h"

@@ -6,7 +6,7 @@
 #include "object_group.h"
 #include "object_grp_update.h"
 #include "../acl/acldb.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../fwall_trace_const.h"
 
 #define HASH_PRIME_CONST 5381

@@ -1,6 +1,6 @@
 #include "../../CLIBuilder/libcli.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../Interface/Interface.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"

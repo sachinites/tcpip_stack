@@ -6,7 +6,7 @@
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../Tracer/tracer.h"
 #include "../../Threads/refcount.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../Interface/Interface.h"
 #include "../../common/l3_hdrs.h"
 #include "acldb.h"

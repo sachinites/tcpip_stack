@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../gluethread/glthread.h"
 #include "../../c-hashtable/hashtable.h"
 #include "objects_common.h"

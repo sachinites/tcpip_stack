@@ -20,7 +20,7 @@
 #include <memory.h>
 #include <arpa/inet.h>
 #include "LinuxMemoryManager/uapi_mm.h"
-#include "graph.h"
+#include "router_init.h"
 #include "Layer2/layer2.h"
 #include "Layer2/arp.h"
 #include "Layer3/rt_table/nexthop.h"

@@ -1,5 +1,5 @@
 #include <ctype.h>
-#include "graph.h"
+#include "router_init.h"
 #include "CLIBuilder/libcli.h"
 
 extern graph_t *topo;

@@ -40,7 +40,7 @@
 #include "tcpconst.h"
 #include "notif.h"
 #include "LinuxMemoryManager/uapi_mm.h"
-#include "graph.h"
+#include "router_init.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer2/layer2.h"

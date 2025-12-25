@@ -32,7 +32,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "../graph.h"
+#include "../router_init.h"
 #include "../tcpconst.h"
 #include "../gluethread/glthread.h"
 #include "layer5.h"

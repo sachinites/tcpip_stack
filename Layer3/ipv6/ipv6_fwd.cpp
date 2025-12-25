@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <arpa/inet.h>
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "ipv6_route.h"
 #include "../../pkt_block.h"
 #include "../../Interface/InterfaceUApi.h"

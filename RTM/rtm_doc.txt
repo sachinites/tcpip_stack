@@ -1,0 +1,14 @@
+The below APIs defines the set of rules for RTM and 
+are expandable to accomodate more RTM related rules like
+which protocol routes should be resolved into which table,
+Which routes must download to which FIB, which RTM update 
+must cascadically update which set of RTMs , etc ..
+
+==================================================
+
+rtm_get_target_fib - rtm_fib_interface.cpp
+rtm_get_resolver_rtm -- rtm_resolution.cpp
+rtm_get_route_target_rtm - rtm_proto.cpp
+rtm_download_route_to_fib - rtm_fib_interface.cpp
+rtm_schedule_nh_resolution_worker_of_dependent_rtms - rtm_resolution.cpp
+rtm_resolution_create_inh_fwd_info -- rtm_fib_interface.cpp

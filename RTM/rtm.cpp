@@ -14,7 +14,7 @@
 #include "../lmm_enums.h"
 #include "../mtrie/mtrie.h"
 #include "../Tracer/tracer.h"
-#include "../graph.h"
+#include "../router_init.h"
 
 /* Forward declaration of LPM tree functions */
 extern void rtm_lpm_tree_init(rtm_t *rtm);

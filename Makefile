@@ -20,7 +20,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
-		    -LLinuxMemoryManager -lmm \
+		        -LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
 			-L../RDBMSImplementation/SqlParser -lsqlapi \
@@ -30,7 +30,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			-LFIB -lfib \
 			-lpthread \
 			-lpq \
-		    -lrt \
+   		        -lrt \
 			-lfl \
 			-lm \
 			-lncurses \
@@ -40,7 +40,7 @@ OBJS=gluethread/glthread.o \
 		  stack/stack.o \
 		  Tree/avl.o	   \
 		  mtrie/mtrie.o	   \
-		  graph.o 		   \
+		  router_init.o 		   \
 		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \
@@ -184,8 +184,8 @@ libtimer/timedef.o:libtimer/timedef.c
 tcp_stack_init.o:tcp_stack_init.c
 	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
 
-graph.o:graph.c
-	${CC} ${CFLAGS} -c -I . graph.c -o graph.o
+router_init.o:router_init.c
+	${CC} ${CFLAGS} -c -I . router_init.c -o router_init.o
 
 common/cp2dp.o:common/cp2dp.cpp
 	${CC} ${CFLAGS} -c -I . common/cp2dp.cpp -o common/cp2dp.o

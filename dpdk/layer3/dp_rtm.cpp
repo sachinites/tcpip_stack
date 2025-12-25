@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 #include "dp_rtm.h"
 #include "../../Layer3/layer3.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../common/cp2dp.h"
 #include "../../net.h"
 #include "../../utils.h"

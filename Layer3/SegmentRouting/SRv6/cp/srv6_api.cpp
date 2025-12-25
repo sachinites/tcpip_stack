@@ -2,7 +2,7 @@
 #include <ncurses.h>
 #include "../../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../../mtrie/mtrie.h"
-#include "../../../../graph.h"
+#include "../../../../router_init.h"
 #include "../../../../net.h"
 #include "../../../../utils.h"
 #include "../../../../cp_ipc_struct.h"

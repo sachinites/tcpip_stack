@@ -2,7 +2,7 @@
 #include "rtm_fib_common.h"
 #include "rtm_nh.h"
 #include "../FIB/fib_nh.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
 
 void

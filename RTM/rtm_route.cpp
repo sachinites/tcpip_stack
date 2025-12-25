@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
 
-#include "../graph.h"
+#include "../router_init.h"
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
 #include "../mtrie/mtrie.h"

@@ -64,7 +64,7 @@
 #include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 #include "tcpconst.h"
-#include "graph.h"
+#include "router_init.h"
 #include "Interface/InterfaceUApi.h"
 #include "net.h"
 #include "Layer2/layer2.h"

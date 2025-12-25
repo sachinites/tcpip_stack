@@ -46,7 +46,7 @@ Algorithms : Pre/Post Order traversal over N-Trees.
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "object_group.h"
 #include "objects_common.h"
 #include "../acl/acldb.h"

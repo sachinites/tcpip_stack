@@ -4,7 +4,7 @@
 
 #include "../CLIBuilder/cmdtlv.h"
 #include "../CLIBuilder/libcli.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include <errno.h>
 #include "vrf.h"
 

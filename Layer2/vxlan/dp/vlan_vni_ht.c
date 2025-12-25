@@ -25,7 +25,7 @@
 #include <string.h>
 #include <assert.h>
 #include "vlan_vni_ht.h"
-#include "../../../graph.h"
+#include "../../../router_init.h"
 #include "../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
 #include "../../../Tracer/tracer.h"

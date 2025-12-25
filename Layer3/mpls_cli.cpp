@@ -1,7 +1,7 @@
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
 #include "../cmdcodes.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "mpls_fwd.h"
 #include "rt_table/nexthop.h"
 #include "../utils.h"

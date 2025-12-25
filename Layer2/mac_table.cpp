@@ -2,7 +2,7 @@
 #include "mac_table.h"
 #include "../Interface/Interface.h"
 #include "../EventDispatcher/event_dispatcher.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Tracer/tracer.h"
 #include "../gluethread/glthread.h"
 

@@ -60,6 +60,8 @@ typedef enum rtm_admin_dist_ {
     RTM_ADMIN_DIST_BGP_INT      = 200,
     RTM_ADMIN_DIST_BGP_EXT      = 20,
     RTM_ADMIN_DIST_ISIS         = 115,
+    RTM_ADMIN_DIST_LDP          = 7,
+    RTM_ADMIN_DIST_SRTE         = 8,
     RTM_ADMIN_DIST_TNL_ENDP     = 2,
     RTM_ADMIN_DIST_UNKNOWN      = 255
     

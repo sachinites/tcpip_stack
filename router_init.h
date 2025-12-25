@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  graph.h
+ *       Filename:  router_init.h
  *
  *    Description:  This file contains the definition of all structures required to create a NetworkGraph
  *

@@ -4,7 +4,7 @@
 #include "../Tree/libtree.h"
 #include "../gluethread/glthread.h"
 #include "../Interface/InterfaceUApi.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "rtm_show.h"
 #include "rtm.h"
 #include "rtm_route.h"
@@ -151,7 +151,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         /* Display label stack if present */
         if (nh->label_stack && nh->label_stack->curr_index > 0) {
             cprintf("    Label Stack    : ");
-            for (int i = 0; i < nh->label_stack->curr_index; i++) {
+            for (int i = 0; i <= nh->label_stack->curr_index; i++) {
                 mpls_label_t *label = &nh->label_stack->labels[i];
                 const char *op_str = "UNK";
                 switch (label->op) {
@@ -163,7 +163,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                 /* Extract the actual 20-bit label value */
                 uint32_t label_value = mpls_label_get_value(label->label_val);
                 cprintf("[%u:%s]", label_value, op_str);
-                if (i < nh->label_stack->curr_index - 1) {
+                if (i < nh->label_stack->curr_index) {
                     cprintf(" -> ");
                 }
             }

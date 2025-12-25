@@ -4,7 +4,7 @@
 #include "../cmdcodes.h"
 #include "../utils.h"
 #include "../tcpip_notif.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "InterfaceUApi.h"
 #include "../common/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"

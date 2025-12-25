@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../CLIBuilder/libcli.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "object_group.h"
 #include "object_grp_update.h"
 

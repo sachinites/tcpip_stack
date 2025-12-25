@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "../common/l3_hdrs.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../Layer2/layer2.h"
 #include "../Layer5/layer5.h"
 #include "rt_table/nexthop.h"

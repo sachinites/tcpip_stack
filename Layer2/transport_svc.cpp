@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <unordered_map>
-#include "../graph.h"
+#include "../router_init.h"
 #include "transport_svc.h"
 #include "../Interface/Interface.h"
 #include "../CLIBuilder/libcli.h"

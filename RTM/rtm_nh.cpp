@@ -9,7 +9,7 @@
 #include "rtm_resolution.h"
 #include "rtm_fib_interface.h"
 #include "rtm_priv_api.h"
-#include "../graph.h"
+#include "../router_init.h"
 #include "../tcp_ip_trace.h"
 #include "../Tracer/tracer.h"
 #include "rtm_presentation.h"

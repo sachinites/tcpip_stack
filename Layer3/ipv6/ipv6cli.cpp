@@ -1,6 +1,6 @@
 #include <arpa/inet.h>
 #include "../../CLIBuilder/libcli.h"
-#include "../../graph.h"
+#include "../../router_init.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "ipv6_hdrs.h"
 #include "ipv6_utils.h"

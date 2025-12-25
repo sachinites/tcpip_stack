@@ -22,7 +22,7 @@
 #include <pthread.h>
 #include <sys/select.h>
 
-#include "../graph.h"
+#include "../router_init.h"
 #include "../net.h"
 #include "../tcpconst.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
