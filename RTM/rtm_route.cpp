@@ -163,18 +163,6 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     
     char prefix_str[48];
     
-    // Validate AFI
-    if (route->prefix.afi >= AFI_MAX) {
-
-        tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR(%s) : Route %s : Add failed\n",
-            rtm->name, 
-            rtm_error_to_string(RTM_ERROR_INVALID_PREFIX),
-            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
-
-        return RTM_ERROR_INVALID_PREFIX;
-    }
-    
     // Check if route already exists
     rtm_route *existing = rtm_route_lookup(rtm, &route->prefix);
 

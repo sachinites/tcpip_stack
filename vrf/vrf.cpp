@@ -19,20 +19,13 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name) {
     strncpy(vrf->vrf_name, vrf_name, sizeof(vrf->vrf_name) - 1);
     vrf->vrf_name[sizeof(vrf->vrf_name) - 1] = '\0';
 
-    /* Initialize pointers to NULL */
-    vrf->node       = node;
-    vrf->inet0      = rtm_initialize (node, vrf_id, AF_IPV4, 0);
-    vrf->fib_inet0  = fib_init(node, AF_IPV4, vrf_id);
-    vrf->inet6      = rtm_initialize (node, vrf_id, AF_IPV6, 0);
-    vrf->fib_inet6  = fib_init(node, AF_IPV6, vrf_id);
-
     /* Initialize interface array */
     for (int i = 0; i < VRF_MAX_INTF; i++) {
         vrf->intf[i] = nullptr;
     }
 
     /* Initialize L3 VPN label to 0 */
-    vrf->l3_vpn_label = 0;
+    vrf->l3_vpn_label = node_get_sequence_no(node);
 
     /* Initialize Route Distinguisher */
     vrf->rd.asn = 0;
@@ -148,12 +141,27 @@ vrf_t* vrf_get_by_id (node_t *node, uint8_t vrf_id) {
 bool
 node_register_vrf(node_t *node, vrf_t *vrf) {
 
-    for (int i = 0; i < MAX_VRF_PER_NODE; i++) {
+    int i;
+    
+    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
         if (node->vrf[i]) continue;
         node->vrf[i] = vrf;
         vrf->node = node;
+        break;
+    }
+
+    /* initialize all RTMs and FIBs now*/
+    if (i != MAX_VRF_PER_NODE) {
+
+        /* Initialize pointers to NULL */
+        vrf->node       = node;
+        vrf->inet0      = rtm_initialize (node, vrf->vrf_id, AF_IPV4, 0);
+        vrf->fib_inet0  = fib_init(node, AF_IPV4, vrf->vrf_id);
+        vrf->inet6      = rtm_initialize (node, vrf->vrf_id, AF_IPV6, 0);
+        vrf->fib_inet6  = fib_init(node, AF_IPV6, vrf->vrf_id);
         return true;
     }
+
     return false;
 }
 

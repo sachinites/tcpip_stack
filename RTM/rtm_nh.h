@@ -12,6 +12,7 @@
 #include "../common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
+#include "../vrf/vrf.h"
 
 typedef struct rtm_ rtm_t;
 typedef struct rtm_route_ rtm_route;
@@ -85,9 +86,10 @@ typedef struct rtm_nh_ {
             AFI_T afi;
         } target_fib;
 
-        /* If this is L3 VPN BGP INH, then it should have
-           vpn service label also */
+        /* L3 VPN properties */
         mpls_label_val_t l3_vpn_label;
+        rt_t import_rt;
+        rt_t export_rt;
         
         /*MPLS  Label Stack*/
         mpls_lstack_t *label_stack;
@@ -157,6 +159,7 @@ rtm_error_t rtm_nh_add_to_idx_tree(rtm_t *rtm, rtm_nh *nh);
 rtm_error_t rtm_nh_remove_from_idx_tree(rtm_t *rtm, rtm_nh *nh);
 void rtm_inh_moved_to_resolved_state (rtm_t *rtm, rtm_nh *inh);
 void rtm_inh_moved_to_unresolved_state (rtm_t *rtm, rtm_nh *inh);
+rtm_nh *rtm_nh_duplicate (rtm_nh *nh);
 
 /* Wrapper to glthread_add_next ()*/
 void rtm_nh_glthread_add_next (rtm_nh *nh, 

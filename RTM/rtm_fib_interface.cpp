@@ -167,21 +167,19 @@ rtm_download_route_to_fib (rtm_t *rtm) {
 bool
 rtm_get_target_fib (rtm_t *rtm,
                     cmn_prefix_t *route,
-                    rtm_nh*inh,
-                    rtm_nh*nh,
+                    rtm_nh* inh,
+                    rtm_nh* nh,
                     uint8_t *vrf_out, 
                     AFI_T *afi_out) {
 
-    /* L3VPN v4/v6 route, then download it to x.inet.0 FIB*/
-
-    // until we support route-target based imports, lets hard-code
-    // customer VRF as vrf "CUST"
-
+    /* BGP VPN Route in Customer VRF Rib, eg : red.inet.0*/
     if (inh &&
         inh->proto == RTM_PROTO_BGP && 
-        inh->sub_proto == RTM_PROTO_BGP_VPN) {
+        inh->sub_proto == RTM_PROTO_BGP_VPN &&
+        inh->rtm->vrf != RTM_DEFAULT_VRF && 
+        inh->rtm->rtm_id == 0) {
 
-        vrf_t *vrf = vrf_get_by_name(rtm->node, "CUST");
+        vrf_t *vrf = vrf_get_by_id(rtm->node, inh->rtm->vrf);
         if (!vrf) return false;
 
         fib_t *fib = fib_get(rtm->node, route->afi, vrf->vrf_id);
@@ -193,10 +191,12 @@ rtm_get_target_fib (rtm_t *rtm,
         return true;
     }
 
-
+    /* Customer VRF routes --> download to corresponding FIB
+        - already covered by Defaults case */
+        
     /* Defaults*/
-    *vrf_out = inh ? inh->rtm->vrf : nh->rtm->vrf;
-    *afi_out = route->afi;
+    *vrf_out = rtm->vrf;
+    *afi_out = rtm->afi;
 
     return true;
 }
@@ -260,10 +260,13 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
                            &target_fib_vrf_out,
                            &target_fib_afi);
 
-        presentation_data->nh->target_fib.vrf = target_fib_vrf_out;
-        presentation_data->nh->target_fib.afi = target_fib_afi;
+        if (fib_found) {
+            presentation_data->nh->target_fib.vrf = target_fib_vrf_out;
+            presentation_data->nh->target_fib.afi = target_fib_afi;
+        }
     }
     else {
+
         target_fib_vrf_out = presentation_data->target_fib.vrf;
         target_fib_afi = presentation_data->target_fib.afi;
         fib_found = true;

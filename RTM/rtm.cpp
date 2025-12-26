@@ -19,6 +19,7 @@
 /* Forward declaration of LPM tree functions */
 extern void rtm_lpm_tree_init(rtm_t *rtm);
 extern void rtm_lpm_tree_destroy(rtm_t *rtm);
+extern rtm_t *rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id);
 
 /* AVL Tree comparison function */
 extern int8_t
@@ -146,6 +147,8 @@ rtm_log_stats (rtm_t *rtm) {
     rtm_route *route;
     char prefix_str[48];
     uint32_t count = 1;
+
+    return;
 
     if (!IS_GLTHREAD_LIST_EMPTY(&rtm->stats.new_resolved_routes))
     {

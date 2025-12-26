@@ -7,6 +7,8 @@
 #include "../router_init.h"
 #include <errno.h>
 #include "vrf.h"
+#include "../RTM/rtm_priv_api.h"
+#include "../RTM/rtm_nb_integ.h"
 
 #define CMD_CODE_CONFIG_VRF_RD          1
 #define CMD_CODE_CONFIG_VRF_IMPORT_RT   2
@@ -109,7 +111,6 @@ vrf_config_handler (int cmdcode,
             }
 
             vrf = vrf_init (node, node_get_sequence_no(node), (char *)vrf_name);
-
             strncpy (temp_str, (const char *)rte_dist, sizeof (temp_str) - 1);
             colon = (char *)strchr(temp_str, ':');
             unsigned long v1 = strtoul(temp_str, &endptr, 10);
@@ -123,9 +124,88 @@ vrf_config_handler (int cmdcode,
                 vrf_delete(vrf);
                 return -1;
             }
+
+            rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
+            rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
         }
         break;
         case CMD_CODE_CONFIG_VRF_IMPORT_RT:
+        {
+            vrf_t *vrf = vrf_get_by_name (node, (char *)vrf_name);
+            
+            if (!vrf) {
+                cprintf("Error : VRF %s not found\n", vrf_name);
+                return -1;
+            }
+
+            switch (enable_or_disable) {
+                
+                case CONFIG_ENABLE:
+                {
+                    /* Parse the import RT value */
+                    rt_t new_import_rt;
+                    char *endptr;
+                    char *colon;
+                    
+                    strncpy(temp_str, (const char *)import_rt, sizeof(temp_str) - 1);
+                    temp_str[sizeof(temp_str) - 1] = '\0';
+                    
+                    colon = strchr(temp_str, ':');
+                    if (!colon) {
+                        cprintf("Error : Invalid import RT format\n");
+                        return -1;
+                    }
+                    
+                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
+                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
+                    new_import_rt.asn = (uint16_t)v1;
+                    new_import_rt.number = (uint32_t)v2;
+                    
+                    /* Check if import RT has changed */
+                    if (vrf->import_rt.asn == new_import_rt.asn && 
+                        vrf->import_rt.number == new_import_rt.number) {
+
+                        return 0;
+                    }
+                    
+                    /* Import RT has changed - update it */
+                    vrf->import_rt = new_import_rt;
+                    
+                    /* Flush existing BGP VPN routes from VRF RIBs */
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                    
+                    /* Re-import routes with new import RT */
+                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
+                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                }
+                break;
+                
+                case CONFIG_DISABLE:
+                {
+                    /* Check if import RT was configured */
+                    if (vrf->import_rt.asn == 0 && vrf->import_rt.number == 0) {
+                        return 0;
+                    }
+                    
+                    /* Clear the import RT */
+                    vrf->import_rt.asn = 0;
+                    vrf->import_rt.number = 0;
+                    
+                    /* Flush existing BGP VPN routes from VRF RIBs */
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                    
+                    /* Re-import routes (will import nothing since RT is 0:0) */
+                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
+                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                }
+                break;
+                
+                default:
+                    ;
+            }
+        }
         break;
         case CMD_CODE_CONFIG_VRF_EXPORT_RT:
         break;

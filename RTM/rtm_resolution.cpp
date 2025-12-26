@@ -200,7 +200,7 @@ rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
     } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
 }
 
-static void 
+void 
 rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
 
     rtm_route *route;
@@ -251,17 +251,7 @@ rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
                 &indirect_nh->route_resolved_list_glue);     
         rtm_inh_moved_to_resolved_state(rtm, indirect_nh);
 
-        if ( !IS_QUEUED_UP_IN_THREAD (&indirect_nh->owner_route->resolved_route_glue) ) {
-
-            /* Queue the route to recursively update resolution graph upstream. We cant do
-                it synchronously here because we want to do it only when all INHs of the route
-                are resolved from downstream routes in RES Graph*/
-               // tracer(rtm->node->cptr, DRTM,
-               //     "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
-               //     rtm->name, rtm_format_prefix(&indirect_nh->owner_route->prefix, route_str, sizeof(route_str)));
-
-               // rtm_schedule_route_propogation(rtm, indirect_nh->owner_route);
-        }
+        rtm_resolve_routes_recursively (rtm, indirect_nh->owner_route);
         
         initial_resolved_count++;
         
@@ -334,27 +324,54 @@ rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
 void 
 rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
 
+    int i;
     /* If this is 0.inet.3 RTM, Schedule the NH resolution worker of :
         x.inet.0 RTM
         0.inet.128 ( BGP L3 VPN ) */
 
     if (rtm == rtm->node->node_nw_prop.inet3) {     
 
-        SET_BIT(rtm->node->node_nw_prop.inet0->flags, RTM_F_INHS_RE_RESOLVE);
-        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet0);
+        //SET_BIT(rtm->node->node_nw_prop.inet0->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet0);
 
-        SET_BIT(rtm->node->node_nw_prop.l3vpnv4->flags, RTM_F_INHS_RE_RESOLVE);
-        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv4);
+        /* The below code to be removed when BGP VPN Ribs are synchronized with
+            with Customer VRF ribs based on RT.*/
+        //SET_BIT(rtm->node->node_nw_prop.l3vpnv4->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv4);
+
+        for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+
+            vrf_t *vrf = rtm->node->vrf[i];
+            if (!vrf) continue;
+
+            /* Customer VRF RIB*/
+            rtm_t *vpn_cust_vrf_rib_inet = vrf->inet0;
+            SET_BIT(vpn_cust_vrf_rib_inet->flags, RTM_F_INHS_RE_RESOLVE);
+            rtm_schedule_nh_resolution_worker (vpn_cust_vrf_rib_inet);
+        }
     }
 
     /* If this is 0.inet.63 RTM, Schedule the NH resolution worked of 0.inet.6 RTM*/
      else if (rtm == rtm->node->node_nw_prop.inet63) {     
 
-        SET_BIT(rtm->node->node_nw_prop.inet6->flags, RTM_F_INHS_RE_RESOLVE);
-        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet6);
+        //SET_BIT(rtm->node->node_nw_prop.inet6->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet6);
         
-        SET_BIT(rtm->node->node_nw_prop.l3vpnv6->flags, RTM_F_INHS_RE_RESOLVE);
-        rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv6);
+        /* The below code to be removed when BGP VPN Ribs are synchronized with
+            with Customer VRF ribs based on RT.*/
+        //SET_BIT(rtm->node->node_nw_prop.l3vpnv6->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv6);
+
+        for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+
+            vrf_t *vrf = rtm->node->vrf[i];
+            if (!vrf) continue;
+
+            /* Customer VRF RIB*/
+            rtm_t *vpn_cust_vrf_rib_inet6 = vrf->inet6;
+            SET_BIT(vpn_cust_vrf_rib_inet6->flags, RTM_F_INHS_RE_RESOLVE);
+            rtm_schedule_nh_resolution_worker (vpn_cust_vrf_rib_inet6);
+        }
     }
 }
 
@@ -556,18 +573,21 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
             return;
         }
 
-        tracer(rtm->node->cptr, DRTM,
-           "RTM[%s] : Route %s do not resolve INH %s anymore\n",
-           rtm->name,
-           rtm_format_prefix(&nh->resolved_via_route->prefix, 
-            route_str, sizeof(route_str)), inh_str);
+        if (IS_QUEUED_UP_IN_THREAD(&nh->route_resolved_list_glue)) {
 
-        rtm_nh_remove_Fglthread(rtm, nh,
-                                &nh->resolved_via_route->resolved_lnhs,
-                                &nh->route_resolved_list_glue);
-        rtm_route_dereference(rtm, nh->resolved_via_route);
-        nh->resolved_via_route = NULL;
-        rtm_inh_moved_to_unresolved_state(rtm, nh);
+            tracer(rtm->node->cptr, DRTM,
+            "RTM[%s] : Route %s do not resolve INH %s anymore\n",
+            rtm->name,
+            rtm_format_prefix(&nh->resolved_via_route->prefix, 
+                route_str, sizeof(route_str)), inh_str);
+
+            rtm_nh_remove_Fglthread(rtm, nh,
+                                    &nh->resolved_via_route->resolved_lnhs,
+                                    &nh->route_resolved_list_glue);
+            rtm_route_dereference(rtm, nh->resolved_via_route);
+            nh->resolved_via_route = NULL;
+            rtm_inh_moved_to_unresolved_state(rtm, nh);
+        }
 
         // if Upstream there is no route resolved by this DNH, no action
         if (Fglthread_list_is_empty (&nh->owner_route->resolved_lnhs)) return;
@@ -621,7 +641,9 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
     }
 }
 
-static uint32_t 
+/* This API attempt to resolve again already resolved INHs. A flag can be passed to
+    resolve unresolved INHs also */
+uint32_t 
 rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, cmn_prefix_t *route, RTM_PROTO_T proto) {
 
     rtm_nh *nh;
@@ -636,7 +658,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, cmn_prefix_t *route, RTM_PROTO_T p
 
         assert (nh->is_indirect);
 
-        /* Skip those who are aready allotted resolver route */
+        /* Skip those which are not even resolved*/
         if (!nh->resolved_via_route) continue;
 
         /* Sanity Check : It has to be acitve INH if it is allotted resolver router */
@@ -702,15 +724,31 @@ rtm_all_inh_unresolve(rtm_t *rtm,  cmn_prefix_t *route) {
     ITERATE_AVL_TREE_BEGIN(&rtm->nhs_by_idx, avl_node) {
 
        nh = (rtm_nh *)avltree_container_of(avl_node, rtm_nh, idx_glue);
-       if (!nh->is_indirect)  continue;
-       if (!rtm_nh_is_resolved(nh)) continue;
-      if (route && cmn_prefix_compare(&nh->resolved_via_route->prefix, route) != 0) continue;
+
+      if (route && 
+          cmn_prefix_compare(&nh->resolved_via_route->prefix, route) != 0) continue;
+
+        /* No op if this inh do not contribute to resolution graph*/
         rtm_resolution_nh_withdraw(rtm, nh);
+
+        if (!nh->is_active) continue;
+
+        /* I find the case where , NHs could already be on unresolvable list
+            1. Create BGP L3 VPNv4 route
+            2. Create VRF ( route will be copied to VRF RIB) and put on
+                unresolvable_list because rtm_copy_ribs( ) is called with
+                'perform_resolution' set to true.
+            3. Add LDP route ( resolver route )
+
+            As we progress, we need to relax strict list/tree insertion/deletion
+            as we come across a sequence/flow justifying it.
+        */
+        if (IS_QUEUED_UP_IN_THREAD (&nh->unresolvable_list_glue)) continue;
+
         rtm_nh_Fglthread_add_last (nh, 
             &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
 
     } ITERATE_AVL_TREE_END(&rtm->nhs_by_idx, avl_node);
-
 }
 
 rtm_route *
@@ -833,27 +871,21 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 rtm_t *
 rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
-    /* Rule 1 : If the route is BGP VPNv4 route installed in l3vpn rib,
-        resolve it in default 0.inet.3 table*/
+    /* Rule 1 : If the route is BGP VPN route installed in 
+        Customer VPN RIBs, resolve it in default 0.inet.3 table*/
 
     if (indirect_nh->proto == RTM_PROTO_BGP &&
-        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN) {
+        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN &&
+        indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
-        /* Ensure it is L3VPNv4 RIB*/
-        assert (indirect_nh->rtm->vrf == DEFAULT_VRF);
-        assert (indirect_nh->rtm->rtm_id == 128 );
-        assert (indirect_nh->rtm->afi == AF_IPV4);
+        if (indirect_nh->rtm->afi == AF_IPV4) {
+            return node->node_nw_prop.inet3;
+        }
+        else if (indirect_nh->rtm->afi == AF_IPV6) {
+            return node->node_nw_prop.inet63;
+        }
 
-        //to be resolved over 0.inet.3
-        return node->node_nw_prop.inet3;
-
-        /* Ensure it is L3VPNv6 RIB*/
-        assert (indirect_nh->rtm->vrf == DEFAULT_VRF);
-        assert (indirect_nh->rtm->rtm_id == 128 );
-        assert (indirect_nh->rtm->afi == AF_IPV6);
-        
-        // to be resolved over 0.inet6.3
-        return node->node_nw_prop.inet63;
+        assert(0);
     }
 
     /* Add more Rules here */

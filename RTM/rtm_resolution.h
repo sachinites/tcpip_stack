@@ -1,8 +1,6 @@
 #ifndef __RTM_RESOLUTION__
 #define __RTM_RESOLUTION__
 
-
-
 #include <stdint.h>
 #include <stdbool.h>
 #include "../gluethread/glthread.h"
@@ -44,12 +42,6 @@ void
 rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh);
 
 void 
-rtm_all_inh_unresolve(rtm_t *rtm, cmn_prefix_t *route) ;
-
-void 
-rtm_re_resolve_inhs (rtm_t *rtm, cmn_prefix_t  *route);
-
-void 
 rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) ;
 
 rtm_route *
@@ -57,5 +49,17 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *indirect_nh);
 
 rtm_t *
 rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh);
+
+void 
+rtm_all_inh_unresolve(rtm_t *rtm,  cmn_prefix_t *route);
+
+void 
+rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count);
+
+void 
+rtm_re_resolve_inhs (rtm_t *rtm, cmn_prefix_t  *route);
+
+uint32_t 
+rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, cmn_prefix_t *route, RTM_PROTO_T proto);
 
 #endif

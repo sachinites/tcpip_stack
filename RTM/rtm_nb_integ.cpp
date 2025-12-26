@@ -279,7 +279,19 @@ cp_rtm_install_route (
         cmn_prefix_t *prefix,
         cp_nexthop_template_t *cp_nh_template) {
 
-    return rtm_install_route ( rtm,  prefix, cp_nh_template) ;
+    rtm_error_t rc;
+
+    rc = rtm_install_route ( rtm,  prefix, cp_nh_template) ;
+
+    /* Copy the same route to all client RIBs*/
+    if (rtm == rtm->node->node_nw_prop.l3vpnv4 ||
+        rtm == rtm->node->node_nw_prop.l3vpnv6)
+    {
+        rtm_install_l3vpn_routes_to_all_client_ribs(rtm, 
+            prefix, cp_nh_template, true);
+    }
+
+    return rc;
 }
 
 rtm_error_t 
@@ -288,6 +300,8 @@ cp_rtm_uninstall_route_by_idx (
                             uint32_t idx) {
 
     rtm_error_t rc = RTM_SUCCESS;
+    char prefix_str[48];
+    char gw_str[48];
 
     if (!rtm || !idx) {
         return RTM_ERROR_INVALID_ARGUMENT;
@@ -304,15 +318,52 @@ cp_rtm_uninstall_route_by_idx (
     rtm_route *route = nh->owner_route;
     assert (route);
 
+    tracer(rtm->node->cptr, DRTM_DET,
+        "RTM[%s] : Uninstalling route %s, Nexthop %s[%u]\n",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
+        rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
+
+    //bool was_resolved = rtm_route_is_resolved (route);
+
+    rtm_resolution_nh_withdraw (rtm, nh);
     /* Install the nexthop in the route, it is application responsibility to not
     to install duplicate nexthops for the route  */
     rc = rtm_route_delete_nh (rtm, route, nh);
     
-    if (rc != RTM_SUCCESS) return rc;
+    if (rc != RTM_SUCCESS) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+            "RTM[%s] : ERROR: Failed to delete NH %s[%u] from route %s - %s\n",
+            rtm->name, gw_str, idx, prefix_str,
+            rtm_error_to_string(rc));
+        return rc;
+    }
+
+    if (nh->is_active && route->nh_count){
+        rtm_route_refresh_nexthops (rtm, route);
+    }
+
+    /* Remove nh from idx tree*/
+    rtm_nh_remove_from_idx_tree(rtm, nh);    
+    /* Use wrapper function for glthread removal */
+    rtm_nh_remove_glthread(rtm, nh, &nh->src_glue);
+    /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
+    /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {
+        rtm_schedule_route_advertisement (rtm, route);
         rtm_route_delete(rtm, route);
+
+        // 2. A Route is Deleted
+        // Delete cases Automatically handled
+        // if (was_resolved) rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm, &route->prefix);
+    }
+
+    if (rtm == rtm->node->node_nw_prop.l3vpnv4 ||
+        rtm == rtm->node->node_nw_prop.l3vpnv6)
+    {
+        rtm_uninstall_l3vpn_routes_to_all_client_ribs(rtm, idx);
     }
 
     return RTM_SUCCESS;
@@ -324,12 +375,26 @@ cp_rtm_uninstall_route (
         cmn_prefix_t *prefix, 
         cp_nexthop_template_t *cp_nh_template) {
 
-    return rtm_uninstall_route ( rtm, prefix, cp_nh_template) ;
+    rtm_error_t rc;
+
+    rc = rtm_uninstall_route ( rtm,  prefix, cp_nh_template) ;
+
+    /* Copy the same route to all client RIBs*/
+    if (rtm == rtm->node->node_nw_prop.l3vpnv4 ||
+        rtm == rtm->node->node_nw_prop.l3vpnv6)
+    {
+        rtm_install_l3vpn_routes_to_all_client_ribs(rtm, prefix, cp_nh_template, false);
+    }
+
+    return rc;
 }
 
 /* Delete all nexthops whether Active or Inactive for a given protocol */
 uint32_t
-cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T proto) {
+cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, 
+        cmn_prefix_t *route, 
+        RTM_PROTO_T proto, 
+        RTM_SUB_PROTO_T sub_proto) {
 
     uint32_t deleted_count = 0;
     glthread_t *curr;
@@ -355,7 +420,7 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T
         nh = route_glue_to_rtm_nh(curr);
 
         /* Check if this nexthop belongs to the specified protocol */
-        if (nh->proto == proto) {
+        if (nh->proto == proto && nh->sub_proto == sub_proto) {
             /* Delete the nexthop */
             rtm_route_delete_nh(rtm, rt, nh);
             deleted_count++;
@@ -372,46 +437,23 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T
 }
 
 uint32_t
-cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto) {
+cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, 
+                RTM_PROTO_T proto, 
+                RTM_SUB_PROTO_T sub_proto) {
 
-    uint32_t deleted_count = 0;
-    avltree_node_t *curr_node;
-    glthread_t *curr_nh;
     rtm_nh *nh;
+    glthread_t *curr;
+    uint32_t deleted_count = 0;
 
-    if (!rtm) {
-        return 0;
-    }
 
-    if (proto >= RTM_PROTO_MAX) {
-        return 0;
-    }
+    ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[proto], curr) {
 
-    /* Iterate through all routes in the RTM */
-    ITERATE_AVL_TREE_BEGIN(&rtm->route_tree, curr_node) {
+        nh = src_glue_to_rtm_nh(curr);
+        if (nh->sub_proto != sub_proto) continue;
+        cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
+        deleted_count++;
 
-        rtm_route *route = avltree_container_of(curr_node, rtm_route, route_glue);
-
-        /* Iterate through all nexthops of this route */
-        ITERATE_GLTHREAD_BEGIN(&route->path_list, curr_nh) {
-
-            nh = route_glue_to_rtm_nh(curr_nh);
-
-            /* Check if this nexthop belongs to the specified protocol */
-            if (nh->proto == proto) {
-                /* Delete the nexthop */
-                rtm_route_delete_nh(rtm, route, nh);
-                deleted_count++;
-            }
-
-        } ITERATE_GLTHREAD_END(&route->path_list, curr_nh);
-
-        /* If route has no more nexthops, delete the route */
-        if (route->nh_count == 0) {
-            rtm_route_delete(rtm, route);
-        }
-
-    } ITERATE_AVL_TREE_END
+    } ITERATE_GLTHREAD_END(&rtm->nhs_by_src[proto], curr);
 
     return deleted_count;
 }

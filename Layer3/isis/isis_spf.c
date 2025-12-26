@@ -285,7 +285,8 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     /*Clear all routes except direct routes*/
     clear_rt_table(rt_table, PROTO_ISIS);
     cp_rtm_uninstall_routes_by_proto  (
-            rtm_get ( spf_root, RTM_DEFAULT_VRF, AF_IPV4, 0), RTM_PROTO_ISIS);
+            rtm_get ( spf_root, RTM_DEFAULT_VRF, AF_IPV4, 0), 
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/

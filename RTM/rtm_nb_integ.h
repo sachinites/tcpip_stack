@@ -7,6 +7,7 @@
 #include "../common/mpls_lstack.h"
 #include "../common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
+#include "../vrf/vrf.h"
 
 typedef struct node_ node_t;
 typedef struct rtm_ rtm_t;
@@ -39,6 +40,7 @@ typedef struct cp_nexthop_template_ {
 
     /* If this is L3 VPN BGP INH, then it should have vpn service label also */
     mpls_label_val_t l3_vpn_label;
+    rt_t import_rt;
 
     union {
 
@@ -95,10 +97,10 @@ rtm_error_t
 cp_rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *route, cp_nexthop_template_t *nh_template);
 
 uint32_t
-cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T proto);
+cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto);
 
 uint32_t
-cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto);
+cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto);
 
 /* Advanced API for complete route configuration */
 #if 0

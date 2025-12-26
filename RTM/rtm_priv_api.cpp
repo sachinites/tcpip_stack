@@ -950,6 +950,9 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 
     rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
     rtm_nh_initialize(nh);
+    /* If idx value is provided, then create NH with this same value. This
+    is useful in scenarios when Same route need to be created in client VPN RIBs.*/
+    if (nh_template->idx) nh->idx = nh_template->idx;
     nh->fwd_flags = nh_template->fwd_flags;
     nh->proto = nh_template->proto;
     nh->sub_proto = nh_template->sub_proto;
@@ -1181,7 +1184,7 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
 
-    bool was_resolved = rtm_route_is_resolved (route);
+    //bool was_resolved = rtm_route_is_resolved (route);
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(nh_template);
 
@@ -1219,6 +1222,8 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
         return rc;
     }
 
+    nh_template->idx = actual_nh->idx;
+
     if (actual_nh->is_active && route->nh_count){
         rtm_route_refresh_nexthops (rtm, route);
     }
@@ -1240,4 +1245,242 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
     }
 
     return RTM_SUCCESS;
+}
+
+/* Generic function to copy the RIBs */
+static void 
+rtm_copy_ribs (node_t *node, 
+        rtm_t *src_rib, 
+        rtm_t *dst_rib, rt_t import_rt) {
+
+    rtm_error_t rc;
+    glthread_t *curr;
+    uint32_t nh_copied;
+    rtm_nh *nh, *new_nh;
+    char prefix_str[48];
+    rtm_route *src_route;
+    rtm_route *dst_route;
+    avltree_node_t *src_rt_node;
+
+    bool pass_through = (import_rt.asn == 0 && import_rt.number == 0);
+
+    ITERATE_AVL_TREE_BEGIN(&src_rib->route_tree, src_rt_node) {
+
+        src_route = avltree_container_of(src_rt_node, rtm_route, route_glue);
+        dst_route = rtm_route_lookup(dst_rib, &src_route->prefix);
+
+        if (!dst_route) {
+
+            dst_route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
+            rtm_route_initialize(dst_route);
+            dst_route->prefix = src_route->prefix;
+            rc = rtm_route_add(dst_rib, dst_route);
+
+            if (rc != RTM_SUCCESS) {
+
+                tracer(node->cptr, DRTM_DET,
+                    "RTM[%s] : ERROR(%s): Route %s addition failed\n", 
+                    dst_rib->name, rtm_error_to_string(rc),
+                    rtm_format_prefix(&dst_route->prefix, prefix_str, sizeof(prefix_str)));
+                XFREE(dst_route);
+                continue;
+            }
+
+            tracer(node->cptr, DRTM_DET,
+                "RTM[%s] : Success : New Route %s Added to RTM DB\n",
+                dst_rib->name,
+                rtm_format_prefix(&dst_route->prefix, prefix_str, sizeof(prefix_str)));   
+        }
+
+        nh_copied = 0;
+
+        ITERATE_GLTHREAD_BEGIN(&src_route->path_list, curr) {
+
+            nh = route_glue_to_rtm_nh(curr);
+
+            if (!pass_through &&
+                (nh->import_rt.asn != import_rt.asn || 
+                nh->import_rt.number != import_rt.number)) continue;
+            
+            new_nh = rtm_nh_duplicate (nh);
+            rc = rtm_route_add_nh(dst_rib, dst_route, new_nh);
+            assert (rc == RTM_SUCCESS);
+            nh_copied++;
+
+            /* Glue the nexthop to global RTM hooks */
+            new_nh->rtm = dst_rib;
+            rtm_nh_add_to_idx_tree(dst_rib, new_nh);
+            rtm_nh_glthread_add_next(new_nh, 
+                &dst_rib->nhs_by_src[new_nh->proto], 
+                &new_nh->src_glue);
+
+        } ITERATE_GLTHREAD_END(&src_route->path_list, curr);
+
+        if (nh_copied == 0) {
+            /* Back out the route */
+            rtm_route_delete(dst_rib, dst_route);
+        }
+        else {
+            // No need to refresh nexthops, they are already arranged in
+            // src rib.
+            //rtm_route_refresh_nexthops (dst_rib, dst_route);
+        }
+
+    } ITERATE_AVL_TREE_END(&src_rib->route_tree, src_rt_node);
+
+}
+
+void 
+rtm_copy_l3vpn_to_vrf_client_ribs (
+        node_t *node,
+        AFI_T afi,
+        uint8_t target_vrf_id, 
+        bool perform_resolution) {
+
+    int i;
+    vrf_t *vrf = NULL;
+    int resolved_count = 0;
+
+    assert (afi == AF_IPV4 || afi == AF_IPV6);
+
+    rtm_t *src_rib = (afi == AF_IPV4 ) ? \
+                node->node_nw_prop.l3vpnv4 : \
+                node->node_nw_prop.l3vpnv6;
+
+    if (target_vrf_id) {
+
+        vrf = vrf_get_by_id (node, target_vrf_id);
+        if (!vrf) return;
+        rtm_t *dst_rib = (afi == AF_IPV4 ) ? vrf->inet0 : vrf->inet6;
+        rtm_copy_ribs (node, src_rib, dst_rib, vrf->import_rt);
+        if (perform_resolution) {
+            rtm_all_inh_unresolve(dst_rib, NULL);
+            rtm_try_unresolvable_paths_resolution (dst_rib, &resolved_count);
+        }
+        return;
+    }
+
+    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+
+        vrf = node->vrf[i];
+        if (!vrf) continue;
+        rtm_t *dst_rib = (afi == AF_IPV4 ) ? vrf->inet0 : vrf->inet6;
+        rtm_copy_ribs (node, src_rib, dst_rib, vrf->import_rt);
+        if (perform_resolution) {
+            rtm_all_inh_unresolve(dst_rib, NULL);
+            rtm_try_unresolvable_paths_resolution (dst_rib, &resolved_count);
+        }
+    }
+}
+
+/* Given a RIB, this function returns the list of Client RIBs which
+    should be clone to parent RIB i.e. routes installed/deleted in
+    parent rib must also happen in client's RIB. Example is, All
+    Customer VRF RIBs are client Ribs of BGP VPN Global RIB. The
+    function returns address of the first node in the list */
+
+static void
+rtm_get_client_rtm_set (rtm_t *rtm, glthread_t *lst_head_out) {
+
+    int i;
+    vrf_t *vrf;
+    node_t *node = rtm->node;
+    glthread_data_node_t *data_node;
+
+    init_glthread(lst_head_out);
+
+    /* L3 VPN case */
+    if (rtm == node->node_nw_prop.l3vpnv4 ||
+        rtm == node->node_nw_prop.l3vpnv6)
+    {
+        for (i = 0; i < MAX_VRF_PER_NODE; i++)
+        {
+            if (!node->vrf[i]) continue;
+            vrf = node->vrf[i];
+            data_node = (glthread_data_node_t *)XCALLOC2(0, 1, glthread_data_node_t);
+            rtm_t *client_rtm = rtm_get(node, vrf->vrf_id, rtm->afi, 0);
+            data_node->data = (void *)client_rtm;
+            init_glthread(&data_node->glue);
+            glthread_add_next(lst_head_out, &data_node->glue);
+        }
+    }
+}
+
+void 
+rtm_install_l3vpn_routes_to_all_client_ribs(
+        rtm_t *rtm, 
+        cmn_prefix_t *prefix, 
+        cp_nexthop_template_t *cp_nh_template,
+        bool install){
+
+    vrf_t *vrf;
+    rtm_error_t rc;
+    glthread_t *curr;
+    char route_str[48];
+    char nh_str[48];
+    rtm_t *client_rtm;
+    glthread_t client_rtm_list;
+    glthread_data_node_t *data_node;
+
+    rtm_get_client_rtm_set(rtm, &client_rtm_list);
+
+    rtm_format_prefix(prefix, route_str, sizeof (route_str));
+    rtm_format_nexthop(&cp_nh_template->gateway, nh_str, sizeof (nh_str));
+
+    ITERATE_GLTHREAD_BEGIN (&client_rtm_list, curr) {
+
+        data_node = glue_to_glthread_data_node(curr);
+        client_rtm = (rtm_t *)data_node->data;
+
+        vrf = vrf_get_by_id(rtm->node, client_rtm->vrf);
+
+        if (vrf->import_rt.asn == cp_nh_template->import_rt.asn &&
+            vrf->import_rt.number == cp_nh_template->import_rt.number) {
+
+            if (install) {
+                rc = rtm_install_route ( client_rtm,  prefix, cp_nh_template);
+            }
+            else {
+                rc = rtm_uninstall_route ( client_rtm,  prefix, cp_nh_template);
+            }
+            tracer (rtm->node->cptr, DRTM_DET, 
+                "RTM[%s] : L3 VPN Route %s, %s %sInstalled in Client RTM[%s] Result : %s\n",
+                rtm->name, route_str, nh_str, 
+                install ? "" : "Un",
+                client_rtm->name, rtm_error_to_string(rc));
+        }
+        
+    } ITERATE_GLTHREAD_END (&client_rtm_list, curr);
+
+    while((curr = dequeue_glthread_first(&client_rtm_list))) {
+        data_node = glue_to_glthread_data_node(curr);
+        XFREE(data_node);
+    }
+}
+
+
+void 
+rtm_uninstall_l3vpn_routes_to_all_client_ribs(
+        rtm_t *rtm, 
+        uint32_t idx) {
+
+    glthread_t *curr;
+    rtm_t *client_rtm;
+    glthread_t client_rtm_list;
+    glthread_data_node_t *data_node;
+
+    rtm_get_client_rtm_set(rtm, &client_rtm_list);
+
+    ITERATE_GLTHREAD_BEGIN (&client_rtm_list, curr) {
+
+        data_node = glue_to_glthread_data_node(curr);
+        client_rtm = (rtm_t *)data_node->data;
+        cp_rtm_uninstall_route_by_idx(client_rtm, idx);
+        
+    } ITERATE_GLTHREAD_END (&client_rtm_list, curr);
+
+    while((curr = dequeue_glthread_first(&client_rtm_list))) {
+        data_node = glue_to_glthread_data_node(curr);
+        XFREE(data_node);
+    }
 }

@@ -20,7 +20,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
-		        -LLinuxMemoryManager -lmm \
+		    -LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
 			-L../RDBMSImplementation/SqlParser -lsqlapi \
@@ -30,7 +30,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			-LFIB -lfib \
 			-lpthread \
 			-lpq \
-   		        -lrt \
+   		    -lrt \
 			-lfl \
 			-lm \
 			-lncurses \

@@ -31,10 +31,10 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
     
     /* Display route prefix and attributes */
     cprintf("\nRoute: %s\n", prefix_str);
-    cprintf("========================================\n");
+    cprintf("====================\n");
     cprintf("  Nexthop Count  : %u\n", route->nh_count);
     cprintf("  Resolved Nexthop Count : %u\n", route->resolved_inh_count);
-    cprintf("  Flags          : 0x%04x\n", route->flags);
+    cprintf("  Flags          : 0x%x\n", route->flags);
     cprintf("  Ref Count      : %u\n", route->ref_count);
 
     /* Print the paths this route resolved */
@@ -497,9 +497,8 @@ void rtm_show_rib_detail(rtm_t *rtm, const char *prefix_filter) {
     }
     
     /* No filter - display all routes */
-    cprintf("\n========== RTM[%s] Detailed Route Information ==========\n", rtm->name);
-    cprintf("VRF: %u, AFI: %s, Table ID: %u\n\n",
-           rtm->vrf,
+    cprintf("VRF: %s, AFI: %s, Table ID: %u\n\n",
+           vrf_name(rtm->node, rtm->vrf),
            (rtm->afi == AF_IPV4) ? "IPv4" :
            (rtm->afi == AF_IPV6) ? "IPv6" :
            (rtm->afi == AF_LABEL) ? "MPLS" : "Unknown",

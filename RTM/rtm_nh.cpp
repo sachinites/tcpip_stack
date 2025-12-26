@@ -621,3 +621,58 @@ rtm_nh_remove_from_idx_tree(rtm_t *rtm, rtm_nh *nh) {
     rtm_nh_avl_remove(rtm, nh, &rtm->nhs_by_idx, &nh->idx_glue);
     return RTM_SUCCESS;
 }
+
+rtm_nh *
+rtm_nh_duplicate (rtm_nh *nh) {
+
+    if (!nh) return NULL;
+    
+    /* Allocate new nexthop */
+    rtm_nh *nh_dup = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
+    rtm_nh_initialize(nh_dup);
+    
+    nh_dup->idx = nh->idx;
+    /* Copy simple scalar fields */
+    nh_dup->rtm_flags = 0;
+    nh_dup->fwd_flags = nh->fwd_flags;
+    nh_dup->pth_last_update_time = nh->pth_last_update_time;
+    nh_dup->proto = nh->proto;
+    nh_dup->sub_proto = nh->sub_proto;
+    nh_dup->ad = nh->ad;
+    nh_dup->metric = nh->metric;
+    nh_dup->action = nh->action;
+    nh_dup->prefix = nh->prefix;
+    nh_dup->oif = nh->oif;
+    nh_dup->is_indirect = nh->is_indirect;
+    nh_dup->is_active = nh->is_active;
+    nh_dup->l3_vpn_label = nh->l3_vpn_label;
+    nh_dup->install_time = time(NULL);
+
+    /* Deep copy rtm_nh_proto if present */
+    if (nh->rtm_nh_proto) {
+        nh_dup->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
+        rtm_nh_proto_copy(nh->rtm_nh_proto, nh_dup->rtm_nh_proto);
+    }
+
+    /* Deep copy label stack if present */
+    if (nh->label_stack && nh->label_stack->curr_index > -1) {
+        nh_dup->label_stack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
+        memcpy (nh_dup->label_stack, nh->label_stack, sizeof (mpls_lstack_t));
+    }
+
+    /* Deep copy SRv6 segment list if present */
+    nh_dup->endfn = nh->endfn;
+    nh_dup->n_segment_list = nh->n_segment_list;
+    if (nh->v6segment_lst && nh->n_segment_list > 0) {
+        nh_dup->v6segment_lst = (cmn_prefix_t *)XCALLOC2(0, nh->n_segment_list, cmn_prefix_t);
+        if (nh_dup->v6segment_lst) {
+            memcpy(nh_dup->v6segment_lst, nh->v6segment_lst, 
+                   nh->n_segment_list * sizeof(cmn_prefix_t));
+        }
+    }
+
+    /* Initialize direct_nh_list as empty (DO NOT COPY direct nexthops for indirect nexthops) */
+    init_Fglthread(&nh_dup->direct_nh_list);
+    nh_dup->ref_count = 0;
+    return nh_dup;
+}
