@@ -310,13 +310,21 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
     fib_update_msg_t *fib_update_msg;
 
     assert(dp_msg->component_type == FIB_TABLE);
-    
+
+    fib_update_msg = (fib_update_msg_t *)dp_msg->data;
+
+    tracer (node->dptr, DFIB, 
+        "FIB : Recvd fib update message : Route:%s vrf:%s idx[%u %u] ops:%d\n", 
+            cmn_prefix_to_string(&fib_update_msg->prefix, &route_str), 
+            vrf_name(node, fib_update_msg->target_fib_vrf_id), 
+            fib_update_msg->inhidx >> 32, 
+            fib_update_msg->nhidx & 0x00000000FFFFFFFF, 
+            dp_msg->opr_type);
+
     switch (dp_msg->opr_type) {
         
         case DP_CREATE:
         {
-            fib_update_msg = (fib_update_msg_t *)dp_msg->data;
-            
             /* Select FIB based on nexthop address AFI */
             fib = fib_get (node, 
                     (AFI_T)fib_update_msg->target_fib_afi,
@@ -348,9 +356,9 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
            
                 if (!nh) {
                     tracer (node->dptr, DFIB | DERR, 
-                        "FIB[%s] : Route %s : Failed to create nexthop %s\n", 
+                        "FIB[%s] : Error : Route %s : Failed to create nexthop %s\n", 
                         fib->name,
-                        cmn_prefix_to_string(&fib_update_msg->prefix, &route_str),
+                        route_str,
                         cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
                     delete nh_template.fwd_info;
                     cp2dp_msg_free(dp_msg);
@@ -359,15 +367,14 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 tracer (node->dptr, DFIB_DET, 
                     "FIB[%s] : Route %s : New nexthop %s Created and Registered\n", 
                     fib->name,
-                    cmn_prefix_to_string(&fib_update_msg->prefix, &route_str),
+                    route_str,
                     cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
                 fib_register_nh(fib, nh);
             }
             else {
                 tracer (node->dptr, DFIB_DET, 
                     "FIB[%s] : Route %s : Existing nexthop %s Reused\n", 
-                    fib->name,
-                    cmn_prefix_to_string(&fib_update_msg->prefix, &route_str),
+                    fib->name, route_str,
                     cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
             }
 
@@ -375,7 +382,9 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
             rc = fib_add_route(node,
                     fib, 
-                    &fib_update_msg->prefix, fib_update_msg->nhidx, nh);
+                    &fib_update_msg->prefix, 
+                    fib_update_msg->inhidx,
+                    fib_update_msg->nhidx, nh);
             
             if (rc != FIB_ERROR_SUCCESS) {
                 tracer (node->dptr, DFIB | DERR, 
@@ -388,9 +397,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         }
             
         case DP_DEL:
-        {
-            fib_update_msg = (fib_update_msg_t *)dp_msg->data;
-            
+        {   
             fib = fib_get (node, 
                     (AFI_T)fib_update_msg->target_fib_afi,
                      fib_update_msg->target_fib_vrf_id);
@@ -405,7 +412,9 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             }
             
             rc = fib_del_route(node, fib, 
-                    &fib_update_msg->prefix, fib_update_msg->nhidx);
+                    &fib_update_msg->prefix, 
+                    fib_update_msg->inhidx,
+                    fib_update_msg->nhidx);
             
             if (rc != FIB_ERROR_SUCCESS) {
                 tracer (node->dptr, DFIB | DERR, 
@@ -1300,6 +1309,7 @@ cp2dp_fib_update (
         AFI_T target_fib_afi,
         cmn_prefix_t *prefix,
         uint32_t nh_idx,
+         uint32_t inh_idx,
         rtm_nh_fwd_info_t *fwd_info,
         FIB_OPN_T operation) {
 
@@ -1317,6 +1327,7 @@ cp2dp_fib_update (
     msg->target_fib_afi = target_fib_afi;
     msg->fwd_flags = fwd_info ? fwd_info->fwd_flags : 0;
     msg->nhidx = nh_idx;
+    msg->inhidx = inh_idx;
     msg->prefix = *prefix;
 
     if (fwd_info) memcpy(&msg->fwd_info, fwd_info, sizeof(fib_nh_fwd_info_t));    

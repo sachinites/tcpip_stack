@@ -46,6 +46,8 @@ typedef struct fib_update_msg_ {
     uint16_t fwd_flags;
     /* Nexthop ID*/
     uint32_t nhidx;
+    /* INH ID*/
+    uint32_t inhidx;
     /* Forwarding info */
     rtm_nh_fwd_info_t fwd_info;
 
@@ -275,6 +277,7 @@ cp2dp_fib_update (
                 AFI_T target_fib_afi,
                 cmn_prefix_t *prefix,
                 uint32_t nh_idx,
+                uint32_t inh_idx,
                 rtm_nh_fwd_info_t *fwd_info,
                 FIB_OPN_T operation) ;
 

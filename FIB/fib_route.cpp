@@ -11,10 +11,33 @@
 #include "../common/cmn_prefix.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
+static inline void 
+fib_set_nh_idx(
+    uint64_t *p, 
+    uint32_t inhidx, 
+    uint32_t nhidx) {
+
+    *p = inhidx;
+    *p = *p << 32;
+    *p |= nhidx;
+}
+
+static inline bool 
+fib_nh_idx_compare(
+    uint64_t p, 
+    uint32_t inhidx,
+    uint32_t nhidx) {
+
+    uint64_t temp;
+    fib_set_nh_idx (&temp, inhidx, nhidx);
+    return temp == p;
+}
+
 fib_error_t 
 fib_add_route (node_t *node,
         fib_t *fib, 
         cmn_prefix_t *prefix, 
+        uint32_t inh_idx,
         uint32_t nh_idx, 
         fib_nh_t *nh) {
     
@@ -87,7 +110,7 @@ fib_add_route (node_t *node,
             route->nh_index = 0;
             
             /* Add first nexthop */
-            route->nh_idx[0] = nh_idx;
+            fib_set_nh_idx (&route->nh_idx[0], inh_idx, nh_idx);
             route->nhs[0] = nh;
             
             /* Reference the nexthop */
@@ -105,36 +128,36 @@ fib_add_route (node_t *node,
             /* Route already exists, add nexthop to ECMP group */
             route = (fib_route_t *)mnode->data;
             
-            if (!route) {
-                return FIB_ERROR_NO_ROUTE_DATA;
-            }
-            
+            int empty_slot = -1;
+
             /* Check if this nexthop already exists */
             for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-                if (route->nhs[i] && route->nh_idx[i] == nh_idx) {
-                    /* Nexthop already exists - this is not an error */
-                    return FIB_ERROR_SUCCESS;
-                }
-            }
-            
-            /* Find empty slot for new nexthop */
-            int empty_slot = -1;
-            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-                if (route->nhs[i] == NULL) {
-                    empty_slot = i;
-                    break;
+
+                if (!route->nhs[i]) empty_slot = i;
+
+                if (route->nhs[i] && 
+                    fib_nh_idx_compare(route->nh_idx[i], inh_idx, nh_idx)) {
+
+                    tracer (node->dptr, DFIB_DET | DERR, 
+                        "FIB[%s] : Error : Route %s : Attempt to add Duplicate Nexthop : %s(%u)\n", 
+                        fib->name, route_str, nh_str, nh_idx);
+                    return FIB_ERROR_NEXTHOP_DUP_NEXTHOP;
                 }
             }
             
             /* Check if ECMP limit reached */
             if (empty_slot == -1) {
+
+                tracer (node->dptr, DFIB_DET | DERR, 
+                    "FIB[%s] : Error : Route %s : Nexthop %s(%u) rejected, ECMP limit reached\n", 
+                    fib->name, route_str, nh_str, nh_idx);                
                 return FIB_ERROR_ECMP_LIMIT;
             }
             
             /* Add nexthop to ECMP group */
-            route->nh_idx[empty_slot] = nh_idx;
+            fib_set_nh_idx (&route->nh_idx[empty_slot], inh_idx, nh_idx);
             route->nhs[empty_slot] = nh;
-            
+
             /* Reference the nexthop */
             fib_nh_reference(nh);
 
@@ -168,13 +191,6 @@ fib_add_route (node_t *node,
             /* Initialize ECMP round-robin index */
             route->nh_index = 0;
             
-            /* Add first nexthop */
-            route->nh_idx[0] = nh_idx;
-            route->nhs[0] = nh;
-            
-            /* Reference the nexthop */
-            fib_nh_reference(nh);
-            
             /* Insert into hash table */
             uint32_t *label_key = (uint32_t *)calloc(1, sizeof(uint32_t));
             *label_key = label;
@@ -184,6 +200,13 @@ fib_add_route (node_t *node,
                 XFREE(route);
                 return FIB_ERROR_INSERT_FAILED;
             }
+            
+            /* Add first nexthop */
+            fib_set_nh_idx (&route->nh_idx[0], inh_idx, nh_idx);
+            route->nhs[0] = nh;
+            
+            /* Reference the nexthop */
+            fib_nh_reference(nh);
 
             tracer (node->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s : New route created and installed, Nexthop : %s(%u)\n", 
@@ -194,9 +217,14 @@ fib_add_route (node_t *node,
             
             /* Check if this nexthop already exists */
             for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-                if (route->nhs[i] && route->nh_idx[i] == nh_idx) {
-                    /* Nexthop already exists - this is not an error */
-                    return FIB_ERROR_SUCCESS;
+
+                if (route->nhs[i] && 
+                    fib_nh_idx_compare(route->nh_idx[i], inh_idx, nh_idx)) {
+
+                    tracer (node->dptr, DFIB_DET | DERR, 
+                        "FIB[%s] : Error : Route %s : Attempt to add Duplicate Nexthop : %s(%u)\n", 
+                        fib->name, route_str, nh_str, nh_idx);
+                    return FIB_ERROR_NEXTHOP_DUP_NEXTHOP;
                 }
             }
             
@@ -215,7 +243,7 @@ fib_add_route (node_t *node,
             }
             
             /* Add nexthop to ECMP group */
-            route->nh_idx[empty_slot] = nh_idx;
+            fib_set_nh_idx (&route->nh_idx[empty_slot], inh_idx, nh_idx);
             route->nhs[empty_slot] = nh;
             
             /* Reference the nexthop */
@@ -239,6 +267,7 @@ fib_error_t
 fib_del_route (node_t *node,
                fib_t *fib, 
                cmn_prefix_t *prefix, 
+               uint32_t inh_idx,
                uint32_t nh_idx) {
     
     char route_str[48];
@@ -286,7 +315,8 @@ fib_del_route (node_t *node,
         int nh_slot = -1;
         
         for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-            if (route->nhs[i] && route->nh_idx[i] == nh_idx) {
+            if (route->nhs[i] && 
+                fib_nh_idx_compare(route->nh_idx[i], inh_idx, nh_idx)) {
                 found = true;
                 nh_slot = i;
                 break;
@@ -367,7 +397,8 @@ fib_del_route (node_t *node,
         int nh_slot = -1;
         
         for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
-            if (route->nhs[i] && route->nh_idx[i] == nh_idx) {
+            if (route->nhs[i] && 
+                fib_nh_idx_compare(route->nh_idx[i], inh_idx, nh_idx)) {
                 found = true;
                 nh_slot = i;
                 break;

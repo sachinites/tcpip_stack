@@ -350,7 +350,6 @@ cp_rtm_uninstall_route_by_idx (
     /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
-    /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {
         rtm_schedule_route_advertisement (rtm, route);
         rtm_route_delete(rtm, route);

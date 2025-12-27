@@ -211,7 +211,6 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
     AFI_T target_fib_afi;
     uint8_t target_fib_vrf_out;
 
-
     if (!rtm_download_route_to_fib(rtm)) return;
 
     tracer (rtm->node->cptr, DRTM,
@@ -229,7 +228,7 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
 
         memset (&fwd_info, 0, sizeof (fwd_info));
 
-        rtm_error_t rc = rtm_resolution_create_nh_fwd_info (
+        rtm_error_t rc =  rtm_resolution_create_nh_fwd_info (
                 rtm,  presentation_data->route.afi,
                 presentation_data->inh, 
                 presentation_data->nh,
@@ -294,6 +293,7 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             target_fib_afi,
             &presentation_data->route, 
             presentation_data->nh_idx,
+            presentation_data->inh_idx,
             presentation_data->operation != RTM_PPT_OP_DELETE ? &fwd_info : NULL,
             rtm_to_fib_map_opn(presentation_data->operation));
 }

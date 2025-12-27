@@ -191,7 +191,9 @@ fib_show_routes(fib_t *fib) {
                 fib_nh_t *nh = route->nhs[i];
                 if (!nh) continue;
                 
-                cprintf("    [%u] NH Index: %u(%p)\n", i + 1, route->nh_idx[i], nh->fwd_info);
+                cprintf("    [%u] NH Idx: [%u|%u] (%p)\n", i + 1, 
+                    route->nh_idx[i] >> 32, 
+                    route->nh_idx[i] & 0x00000000FFFFFFFF, nh->fwd_info);
                 
                 /* Nexthop address */
                 char nh_addr_str[128];

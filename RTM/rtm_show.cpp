@@ -56,9 +56,10 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
             char inh_prefix_str[128];
             rtm_format_nexthop(&indirect_nh->prefix, inh_prefix_str, sizeof(inh_prefix_str));
             resolved_count++;
-            cprintf("    [%d] %s, %s\n", 
+            cprintf("    [%d] %s, %s from RIB %s\n", 
                 resolved_count, inh_prefix_str, 
-                rtm_proto_to_string (indirect_nh->proto));
+                rtm_proto_to_string (indirect_nh->proto),
+                indirect_nh->rtm->name);
 
         } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
 

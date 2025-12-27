@@ -188,6 +188,32 @@ vrf_config_handler (int cmdcode,
                         return 0;
                     }
                     
+                    /* Parse the import RT value */
+                    rt_t new_import_rt;
+                    char *endptr;
+                    char *colon;
+                    
+                    strncpy(temp_str, (const char *)import_rt, sizeof(temp_str) - 1);
+                    temp_str[sizeof(temp_str) - 1] = '\0';
+                    
+                    colon = strchr(temp_str, ':');
+                    if (!colon) {
+                        cprintf("Error : Invalid import RT format\n");
+                        return -1;
+                    }
+                    
+                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
+                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
+                    new_import_rt.asn = (uint16_t)v1;
+                    new_import_rt.number = (uint32_t)v2;
+
+                    if (new_import_rt.asn != vrf->import_rt.asn || 
+                            new_import_rt.number != vrf->import_rt.number) {
+
+                        cprintf ("Error : Mis-matched Route Import value specified\n");
+                        return -1;
+                    }
+                    
                     /* Clear the import RT */
                     vrf->import_rt.asn = 0;
                     vrf->import_rt.number = 0;

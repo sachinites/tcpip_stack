@@ -894,13 +894,13 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
 
             /* Delete case, NH is deleted and breathing its last moments in
                 Garbage collecter DB*/
-            rtm_nh *nh = rtm_nh_lookup_by_idx(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
+            rtm_nh *inh = rtm_nh_lookup_by_idx(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
 
-            if (!nh) {
-                nh = rtm_gc_lookup_nh(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
+            if (!inh) {
+                inh = rtm_gc_lookup_nh(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
             }
 
-            nh_proto = nh->rtm_nh_proto;
+            nh_proto = inh->rtm_nh_proto;
 
             /* If indirect and has direct nexthops, advertise deletion for each direct nexthop */
             if (nh_entry->dnh_list_count > 0)
@@ -921,6 +921,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                         dnh_gc = rtm_gc_lookup_nh(dnh_list[dnh_idx].dnh_idx_rtm, dnh_list[dnh_idx].dnh_idx);
 
                     presentation_data->inh = NULL;
+                    presentation_data->inh_idx = inh->idx;
                     presentation_data->nh_idx = dnh_list[dnh_idx].dnh_idx; /* Always valid */
                     presentation_data->route = route->prefix;
                     presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
@@ -948,6 +949,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     dnh_gc = rtm_gc_lookup_nh(nh_entry->nh_pidx_rtm, nh_entry->nh_pidx);
 
                 presentation_data->inh = NULL;
+                presentation_data->inh_idx = 0;
                 presentation_data->nh_idx = nh_entry->nh_pidx; /* Always valid */
                 presentation_data->route = route->prefix;
                 presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
@@ -992,6 +994,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     rtm_nh_reference(dnh);
                     presentation_data->inh = nh;
                     rtm_nh_reference(nh);
+                    presentation_data->inh_idx = nh->idx;
                     presentation_data->nh_idx = dnh->idx;
                     presentation_data->route = route->prefix;
                     presentation_data->nh_addr = dnh->prefix;
@@ -1009,6 +1012,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                 presentation_data->nh = nh;
                 rtm_nh_reference(nh);
                 presentation_data->inh = NULL;
+                presentation_data->inh_idx = 0;
                 presentation_data->nh_idx = nh_entry->nh_pidx;
                 presentation_data->route = route->prefix;
                 presentation_data->nh_addr = nh->prefix;
@@ -1160,14 +1164,15 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
             remove_Fglthread (&rtm->advt_nhs[proto], curr);
 
             tracer (rtm->node->cptr, DRTM, 
-                "RTM[%s] : PPT-DB : Route %s : Presentation data for NH %s(%u), operation %s\n",
+                "RTM[%s] : PPT-DB : Route %s : Presentation data for NH %s[%u|%u], operation %s\n",
                     rtm->name, 
                     rtm_format_prefix(&presentation_data->route, route_str, sizeof(route_str)),
                     rtm_format_nexthop(&presentation_data->nh_addr, nh_str, sizeof(nh_str)),
+                    presentation_data->inh_idx, 
                     presentation_data->nh_idx, 
                     presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : \
                     (presentation_data->operation == RTM_PPT_OP_UPDATE) ? "Update" : "Delete");
-
+                    
             /* Update FIB */
             rtm_fib_update(rtm, presentation_data);
 

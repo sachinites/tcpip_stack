@@ -12,6 +12,7 @@ typedef enum fib_error_ {
     FIB_ERROR_ECMP_LIMIT,               /* ECMP nexthop limit reached */
     FIB_ERROR_ROUTE_NOT_FOUND,          /* Route not found in FIB */
     FIB_ERROR_NEXTHOP_NOT_FOUND,        /* Nexthop not found in route */
+    FIB_ERROR_NEXTHOP_DUP_NEXTHOP,      /* Nexthop is Duplicate */
     FIB_ERROR_EXTRACT_DEST_FAILED,      /* Cannot extract destination from packet */
     FIB_ERROR_NO_ROUTE,                 /* No matching route found (lookup) */
     FIB_ERROR_NO_VALID_NEXTHOP,         /* No valid nexthop available */
@@ -41,6 +42,8 @@ static inline const char *fib_error_str(fib_error_t error) {
             return "Route not found";
         case FIB_ERROR_NEXTHOP_NOT_FOUND:
             return "Nexthop not found";
+        case FIB_ERROR_NEXTHOP_DUP_NEXTHOP:
+            return "Attempt to add Duplicate Nexthop";
         case FIB_ERROR_EXTRACT_DEST_FAILED:
             return "Cannot extract destination";
         case FIB_ERROR_NO_ROUTE:
