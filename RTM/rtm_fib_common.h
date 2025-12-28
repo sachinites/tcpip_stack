@@ -14,6 +14,12 @@ typedef struct node_ node_t;
 #define FIB_NH_FWD_F_IPV6 2
 #define FIB_NH_FWD_F_MPLS_LBL_STCK 4
 #define FIB_NH_FWD_F_IPV6_STCK 8
+#define FIB_NH_FWD_F_LOCAL 16
+#define FIB_NH_FWD_F_CONNECTED 32
+#define FIB_NH_FWD_F_FORWARD 64
+#define FIB_NH_FWD_F_TUNNEL 128
+#define FIB_NH_FWD_F_DISCARD 256
+#define FIB_NH_FWD_F_REJECT 512
 
 #define FIB_MAX_ECMP_NH 8
 
@@ -33,6 +39,7 @@ rtm_fib_copy_fwd_info (node_t *node,
                        rtm_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst);
 
-
+uint16_t 
+rtm_set_fib_forwarding_action_flag (RTM_NH_ACTION_TYPE_T action);
 
 #endif 

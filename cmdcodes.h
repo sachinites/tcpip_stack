@@ -189,4 +189,7 @@
 
 #define CMDCODE_CONF_INTF_VRF 75
 
+/* show node <node-name> vrf */
+#define CMDCODE_SHOW_NODE_VRF 76
+
 #endif /* __CMDCODES__ */

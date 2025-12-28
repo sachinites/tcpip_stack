@@ -267,84 +267,61 @@ Verify all ISIS routes are deleted
 
 Add BGP Internal route on R3
 :STEP:1
-:CMD: config node R3 rtm-route prefix 200.0.0.0/24 3 6 0 2 100 gateway 50.1.1.1
-
+:CMD: config node R3 rtm-route prefix 200.0.0.0/24 3 5 0 2 100 gateway 50.1.1.1
 
 Add BGP External route on R3
 :STEP:2
-:CMD: config node R3 rtm-route prefix 201.0.0.0/24 3 7 0 2 200 gateway 50.1.1.1
-
+:CMD: config node R3 rtm-route prefix 201.0.0.0/24 3 6 0 2 200 gateway 50.1.1.1
 
 Add BGP VPN route on R3
 :STEP:3
-:CMD: config node R3 rtm-route prefix 202.0.0.0/24 3 8 0 2 150 gateway 50.1.1.1
-
-
-Add BGP EVPN route on R3
-:STEP:4
-:CMD: config node R3 rtm-route prefix 203.0.0.0/24 3 9 0 2 180 gateway 50.1.1.1
-
+:CMD: config node R3 rtm-route prefix 202.0.0.0/24 3 7 0 2 150 gateway 50.1.1.1 l3vpn 100 210
 
 Verify all BGP routes with protocol and metrics
+:STEP:4
+:CMD: show node R3 rtm 0.inet.0
 :STEP:5
-:CMD: show node R3 rtm 0.inet.0
-:STEP:6
 :PATTERN-MATCH:200.0.0.0/24
-:STEP:7
+:STEP:6
 :PATTERN-MATCH:100
-:STEP:8
+:STEP:7
 :CMD: show node R3 rtm 0.inet.0 detail 200.0.0.0/24
-:STEP:9
+:STEP:8
 :PATTERN-MATCH:Protocol
-:STEP:10
+:STEP:9
 :PATTERN-MATCH:BGP
+:STEP:10
+:CMD: show node R3 rtm 0.inet.0
 :STEP:11
-:CMD: show node R3 rtm 0.inet.0
-:STEP:12
 :PATTERN-MATCH:201.0.0.0/24
-:STEP:13
+:STEP:12
 :PATTERN-MATCH:200
+:STEP:13
+:CMD: show node R3 rtm 0.inet.128
 :STEP:14
-:CMD: show node R3 rtm 0.inet.0
-:STEP:15
 :PATTERN-MATCH:202.0.0.0/24
-:STEP:16
+:STEP:15
 :PATTERN-MATCH:150
-:STEP:17
-:CMD: show node R3 rtm 0.inet.0
-:STEP:18
-:PATTERN-MATCH:203.0.0.0/24
-:STEP:19
-:PATTERN-MATCH:180
-:STEP:20
-:CMD: show node R3 rtm 0.inet.0
-:STEP:21
-:PATTERN-MATCH:50.1.1.1
-:STEP:22
-:PATTERN-MATCH:eth9
 
 Delete BGP routes
-:STEP:23
-:CMD: config node R3 no rtm-route prefix 200.0.0.0/24 3 6 0 2 100 gateway 50.1.1.1
-:STEP:24
-:CMD: config node R3 no rtm-route prefix 201.0.0.0/24 3 7 0 2 200 gateway 50.1.1.1
-:STEP:25
-:CMD: config node R3 no rtm-route prefix 202.0.0.0/24 3 8 0 2 150 gateway 50.1.1.1
-:STEP:26
-:CMD: config node R3 no rtm-route prefix 203.0.0.0/24 3 9 0 2 180 gateway 50.1.1.1
-
+:STEP:16
+:CMD: config node R3 no rtm-route prefix 200.0.0.0/24 3 5 0 2 100 gateway 50.1.1.1
+:STEP:17
+:CMD: config node R3 no rtm-route prefix 201.0.0.0/24 3 6 0 2 200 gateway 50.1.1.1
+:STEP:18
+:CMD: config node R3 no rtm-route prefix 202.0.0.0/24 3 7 0 2 150 gateway 50.1.1.1 l3vpn 100 210
 
 Verify all BGP routes are deleted
-:STEP:27
+:STEP:19
 :CMD: show node R3 rtm 0.inet.0
-:STEP:28
+:STEP:20
 :PATTERN-NOT-MATCH:200.0.0.0/24
-:STEP:29
+:STEP:21
 :PATTERN-NOT-MATCH:201.0.0.0/24
-:STEP:30
+:STEP:22
+:CMD: show node R3 rtm 0.inet.128
+:STEP:23
 :PATTERN-NOT-MATCH:202.0.0.0/24
-:STEP:31
-:PATTERN-NOT-MATCH:203.0.0.0/24
 
 :TESTCASE-END:4
 

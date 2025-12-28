@@ -2,11 +2,14 @@
 #include "fib.h"
 #include "fib_route.h"
 #include "fib_error.h"
+#include "fib_api.h"
 #include <string.h>
 #include "../Interface/Interface.h"
 #include "../common/mpls_lstack.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Tree/libtree.h"
+#include "../mtrie/mtrie.h"
+#include "../c-hashtable/hashtable.h"
 
 int
 fib_nh_comp_fn(const avltree_node_t *node1, 
@@ -155,4 +158,66 @@ fib_nh_t* fib_nh_lookup (fib_t *fib, fib_nh_t *nh_template) {
     avltree_node_t *node = avltree_lookup (&nh_template->idx_glue, &fib->nhs);
     if (!node) return NULL;
     return avltree_container_of (node, fib_nh_t, idx_glue);
+}
+
+fib_nh_t *fib_get_forwarding_nh(fib_t *fib, cmn_prefix_t *prefix) {
+    
+    fib_route_t *route = NULL;
+    
+    /* Perform lookup based on AFI type */
+    if (fib->afi == AF_LABEL) {
+        /* MPLS label lookup - exact match using hashtable */
+        mpls_label_val_t label_val = mpls_label_get_value(prefix->u.mpls_label);
+        route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label_val);
+        if (!route) return NULL;
+    }
+    else if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
+        /* IP lookup - longest prefix match using mtrie */
+        bitmap_t bm_dest, bm_mask;
+        cmn_prefix_to_bitmap(prefix, &bm_dest, &bm_mask);
+        
+        mtrie_node_t *mnode = mtrie_longest_prefix_match_search(
+                                fib->u.lpm, &bm_dest);
+        
+        bitmap_free_internal(&bm_dest);
+        bitmap_free_internal(&bm_mask);
+        
+        if (!mnode) return NULL;
+        route = (fib_route_t *)mnode->data;
+        if (!route) return NULL;
+    }
+    else {
+        /* Unsupported AFI */
+        return NULL;
+    }
+    
+    /* ECMP load balancing: round-robin selection with index update */
+    fib_nh_t *selected_nh = NULL;
+    
+    /* Find the next valid nexthop starting from current index + 1 */
+    int start_idx = (route->nh_index + 1) % FIB_MAX_ECMP_NH;
+    int idx = start_idx;
+    
+    /* Search from start_idx to end of array */
+    for (int i = start_idx; i < FIB_MAX_ECMP_NH; i++) {
+        if (route->nhs[i]) {
+            selected_nh = route->nhs[i];
+            route->nh_index = i;  /* Update for next call */
+            selected_nh->hit_count++;  /* Increment hit counter */
+            return selected_nh;
+        }
+    }
+    
+    /* Wrap around: search from beginning to start_idx */
+    for (int i = 0; i < start_idx; i++) {
+        if (route->nhs[i]) {
+            selected_nh = route->nhs[i];
+            route->nh_index = i;  /* Update for next call */
+            selected_nh->hit_count++;  /* Increment hit counter */
+            return selected_nh;
+        }
+    }
+    
+    /* No valid nexthop found */
+    return NULL;
 }

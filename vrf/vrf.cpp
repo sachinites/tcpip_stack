@@ -61,13 +61,13 @@ void vrf_delete(vrf_t* vrf) {
     }
 
     rtm_stop(vrf->inet0);
-    rtm_check_and_delete (vrf->inet0);
+    rtm_check_and_delete (vrf->inet0, true);
     vrf->inet0 = NULL;
     fib_destroy(vrf->fib_inet0);
     vrf->fib_inet0 = NULL;
 
     rtm_stop(vrf->inet6);
-    rtm_check_and_delete (vrf->inet6);
+    rtm_check_and_delete (vrf->inet6, true);
     vrf->inet6 = NULL;
     fib_destroy(vrf->fib_inet6);
     vrf->fib_inet6 = NULL;
@@ -190,4 +190,62 @@ vrf_get_by_name (node_t *node, char *name) {
 void 
 show_vrfs(node_t *node) {
 
+    int i;
+    bool has_vrf = false;
+
+    cprintf("%-10s %-20s %-15s %-15s %-15s %-20s %-20s\n", 
+            "VRF ID", "VRF Name", "RD", "Import RT", "Export RT", "IPv4 RIB", "IPv6 RIB");
+    cprintf("%-10s %-20s %-15s %-15s %-15s %-20s %-20s\n",
+            "------", "--------", "--", "---------", "---------", "---------", "---------");
+
+    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+        
+        if (!node->vrf[i]) continue;
+        
+        vrf_t *vrf = node->vrf[i];
+        has_vrf = true;
+
+        char rd_str[32];
+        char import_rt_str[32];
+        char export_rt_str[32];
+
+        /* Format Route Distinguisher */
+        if (vrf->rd.asn == 0 && vrf->rd.number == 0) {
+            snprintf(rd_str, sizeof(rd_str), "Not Set");
+        } else {
+            snprintf(rd_str, sizeof(rd_str), "%u:%u", vrf->rd.asn, vrf->rd.number);
+        }
+
+        /* Format Import RT */
+        if (vrf->import_rt.asn == 0 && vrf->import_rt.number == 0) {
+            snprintf(import_rt_str, sizeof(import_rt_str), "Not Set");
+        } else {
+            snprintf(import_rt_str, sizeof(import_rt_str), "%u:%u", 
+                    vrf->import_rt.asn, vrf->import_rt.number);
+        }
+
+        /* Format Export RT */
+        if (vrf->export_rt.asn == 0 && vrf->export_rt.number == 0) {
+            snprintf(export_rt_str, sizeof(export_rt_str), "Not Set");
+        } else {
+            snprintf(export_rt_str, sizeof(export_rt_str), "%u:%u", 
+                    vrf->export_rt.asn, vrf->export_rt.number);
+        }
+
+        /* Display VRF information */
+        cprintf("%-10u %-20s %-15s %-15s %-15s %-20s %-20s\n",
+                vrf->vrf_id,
+                vrf->vrf_name,
+                rd_str,
+                import_rt_str,
+                export_rt_str,
+                vrf->inet0 ? vrf->inet0->name : "N/A",
+                vrf->inet6 ? vrf->inet6->name : "N/A");
+    }
+
+    if (!has_vrf) {
+        cprintf("No VRFs configured.\n");
+    }
+
+    printw("\n");
 }

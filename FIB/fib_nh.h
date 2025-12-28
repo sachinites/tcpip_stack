@@ -56,5 +56,6 @@ void fib_nh_dereference (fib_t *fib, fib_nh_t *nh);
 fib_nh_t* fib_nh_create (fib_t *fib, fib_nh_t *nh_template);
 void fib_register_nh(fib_t *fib, fib_nh_t *nh);
 fib_nh_t* fib_nh_lookup (fib_t *fib, fib_nh_t *nh_template);
+fib_nh_t *fib_get_forwarding_nh(fib_t *fib, cmn_prefix_t *route);
 
 #endif 

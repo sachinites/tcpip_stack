@@ -5,6 +5,7 @@
 #include "../CLIBuilder/cmdtlv.h"
 #include "../CLIBuilder/libcli.h"
 #include "../router_init.h"
+#include "../cmdcodes.h"
 #include <errno.h>
 #include "vrf.h"
 #include "../RTM/rtm_priv_api.h"
@@ -13,8 +14,28 @@
 #define CMD_CODE_CONFIG_VRF_RD          1
 #define CMD_CODE_CONFIG_VRF_IMPORT_RT   2
 #define CMD_CODE_CONFIG_VRF_EXPORT_RT   3
+#define CMD_CODE_SHOW_VRF               4
 
 extern graph_t *topo;
+
+static int
+show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+
+    node_t *node = NULL;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    show_vrfs(node);
+    return 0;
+}
 
 static int
 validate_2B_4B_format(const char *str) {
@@ -103,30 +124,43 @@ vrf_config_handler (int cmdcode,
             char *endptr;
             char *colon;
 
-            vrf_t *vrf = vrf_get_by_name (node, (char *)vrf_name);
+            vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
             if (vrf) {
-                cprintf ("Error : VRF already exists\n");
+                cprintf("Error : VRF already exists\n");
                 return -1;
             }
 
-            vrf = vrf_init (node, node_get_sequence_no(node), (char *)vrf_name);
-            strncpy (temp_str, (const char *)rte_dist, sizeof (temp_str) - 1);
-            colon = (char *)strchr(temp_str, ':');
-            unsigned long v1 = strtoul(temp_str, &endptr, 10);
-            unsigned long v2 = strtoul(colon + 1, &endptr, 10);
-            rd.asn = (uint16_t)v1;
-            rd.number = (uint32_t)v2;
-            vrf->rd = rd;
+            switch (enable_or_disable)
+            {
+                case CONFIG_ENABLE:
+                {
+                    vrf = vrf_init(node, node_get_sequence_no(node), (char *)vrf_name);
+                    strncpy(temp_str, (const char *)rte_dist, sizeof(temp_str) - 1);
+                    colon = (char *)strchr(temp_str, ':');
+                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
+                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
+                    rd.asn = (uint16_t)v1;
+                    rd.number = (uint32_t)v2;
+                    vrf->rd = rd;
 
-            if (!node_register_vrf (node, vrf)) {
-                cprintf ("Error : VRF Creation Failed, Max VRF limit reached\n");
-                vrf_delete(vrf);
-                return -1;
+                    if (!node_register_vrf(node, vrf))
+                    {
+                        cprintf("Error : VRF Creation Failed, Max VRF limit reached\n");
+                        vrf_delete(vrf);
+                        return -1;
+                    }
+
+                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
+                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                }
+                break;
+                case CONFIG_DISABLE:
+                {
+
+                }
+                break;
             }
-
-            rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
-            rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
         }
         break;
         case CMD_CODE_CONFIG_VRF_IMPORT_RT:
@@ -292,6 +326,19 @@ vrf_build_config_tree (param_t *node_name)
                 }  
             }
         }
+    }
+    return 0;
+}
+
+int
+vrf_build_show_tree (param_t *node_name) 
+{
+    {
+        /* show node <node-name> vrf */
+        static param_t vrf;
+        init_param(&vrf, CMD, "vrf", show_vrf_handler, NULL, INVALID, NULL, "Show VRF information");
+        libcli_register_param(node_name, &vrf);
+        libcli_set_param_cmd_code(&vrf, CMDCODE_SHOW_NODE_VRF);
     }
     return 0;
 }

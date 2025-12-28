@@ -60,7 +60,7 @@ rtm_initialize(node_t *node, uint8_t vrf_id, AFI_T afi, uint32_t rtm_id) {
     rtm->vrf = vrf_id;
     rtm->afi = afi;
     rtm->rtm_id = rtm_id;
-    rtm->node = node;
+    rtm->flags = 0;
     
     vrf_t *vrf = vrf_get_by_id(node, vrf_id);
 
@@ -80,28 +80,40 @@ rtm_initialize(node_t *node, uint8_t vrf_id, AFI_T afi, uint32_t rtm_id) {
         init_Fglthread (&rtm->advt_nhs[i]);
     }
     
-    init_Fglthread (&rtm->route_advt_queue);
+    rtm->node = node;
+
     init_Fglthread(&rtm->unresolvable_paths);
+    init_Fglthread(&rtm->resolved_unpropogated_routes);
+
+    rtm->nh_resolution_job = NULL;
+    rtm->rt_resolution_job = NULL;
+
+    rtm_ppt_db_initialize(rtm);
+
+    init_Fglthread(&rtm->route_advt_queue);
+
+    rtm->route_advt_prep_job = NULL;
     rtm->advt_job = NULL;
+    rtm->gc_job = NULL;
+
+    init_Fglthread(&rtm->gc_queue);
 
     init_glthread (&rtm->stats.new_resolved_routes);
     init_glthread (&rtm->stats.new_resolved_nhs);
     init_glthread (&rtm->stats.new_unresolved_routes);
     init_glthread (&rtm->stats.new_unresolved_nhs);
-
-    rtm_ppt_db_initialize(rtm);
     
     return rtm;
 }
 
-void 
-rtm_stop (rtm_t *rtm) {
+extern rtm_error_t 
+cp_rtm_uninstall_route_by_idx ( 
+                rtm_t *rtm, 
+                uint32_t idx);
 
-}
 
-/* Destroy an RTM instance */
-void 
-rtm_check_and_delete (rtm_t *rtm) {
+void
+rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     
     /* Before we delete RTM, check all resources have been freed already*/
     assert (avltree_is_empty (&rtm->route_tree) );
@@ -135,9 +147,58 @@ rtm_check_and_delete (rtm_t *rtm) {
     assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_nhs));
     assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_nhs));
 
-    XFREE(rtm);
+    if (free_rtm) XFREE(rtm);
 }
 
+/* Destroy an RTM instance */
+void 
+rtm_stop (rtm_t *rtm) {
+
+    int i; 
+    rtm_nh *nh;
+    glthread_t *curr;
+    node_t *node = rtm->node;
+
+    for (i = RTM_PROTO_STATIC; i < RTM_PROTO_MAX; i++) {
+
+        ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[i], curr) {
+
+            nh = src_glue_to_rtm_nh(curr);
+            cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
+
+        } ITERATE_GLTHREAD_END(&rtm->nhs_by_src[i], curr);
+    }
+
+    /* Kill all the jobs */
+    if (rtm->nh_resolution_job) {
+        task_cancel_job(EV(node), rtm->nh_resolution_job);
+        rtm->nh_resolution_job = NULL;
+    }
+
+    if (rtm->rt_resolution_job) {
+        task_cancel_job(EV(node), rtm->rt_resolution_job);
+        rtm->rt_resolution_job = NULL;
+    }    
+
+    if (rtm->route_advt_prep_job) {
+        task_cancel_job(EV(node), rtm->route_advt_prep_job);
+        rtm->route_advt_prep_job = NULL;
+    }    
+
+    if (rtm->advt_job) {
+        task_cancel_job(EV(node), rtm->advt_job);
+        rtm->advt_job = NULL;
+    }    
+
+    if (rtm->gc_job) {
+        task_cancel_job(EV(node), rtm->gc_job);
+        rtm->gc_job = NULL;
+    }        
+
+    rtm_ppt_db_destroy(rtm);
+    rtm_clear_stats (rtm);
+    rtm_check_and_delete(rtm, false);
+}
 
 void 
 rtm_log_stats (rtm_t *rtm) {

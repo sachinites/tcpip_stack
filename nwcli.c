@@ -718,9 +718,14 @@ clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
 
     node = node_get_node_by_name(topo, node_name);
     clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
+    cp_rtm_uninstall_routes_by_proto  (
+            rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV4, 0), 
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
+    cp_rtm_uninstall_routes_by_proto  (
+            rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV6, 0), 
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
     return 0;
 }
-
 
 static int
 l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
@@ -1202,6 +1207,8 @@ nw_init_cli(){
                      object_group_build_show_cli (&node_name);
                      /* show CLIs for TSPs*/
                      show_node_transport_svc_cli_tree(&node_name);
+                     /* VRF Show CLI */
+                     vrf_build_show_tree(&node_name);
                  }
 
 				 {

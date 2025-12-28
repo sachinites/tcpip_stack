@@ -52,11 +52,12 @@ typedef struct rtm_ {
         store protocol subscription and filters */
     avltree_t proto_info_tree[RTM_PROTO_MAX];
 
+    /* List of rtm_presentation_data_t objects, to be advertised to 
+        protocols */
+    Fglthread_t advt_nhs[RTM_PROTO_MAX];
+
     /* Backpointer to owning node*/
     node_t *node; 
-
-    /* Backpointer to the owning RTM, used in cross RTM route resolution*/
-    struct rtm_ *rtm;
     
     /* List of Orphan Indirect NHs which have no route to resolve over */
     Fglthread_t unresolvable_paths;
@@ -73,10 +74,6 @@ typedef struct rtm_ {
     /* Advertisement Related Fields */
     /* Route trees for presentation. It contains Routes from all Srcs */
     avltree_t ppt_db_route_tree;
-
-    /* List of rtm_presentation_data_t objects, to be advertised to 
-        protocols */
-    Fglthread_t advt_nhs[RTM_PROTO_MAX];
 
     /* Queue up rtm_route objects to be Advertised */
     Fglthread_t route_advt_queue;
@@ -110,8 +107,8 @@ typedef struct rtm_ {
 
 rtm_t* rtm_initialize (node_t *node, uint8_t vrf, AFI_T afi, uint32_t rtm_id);
 void rtm_stop (rtm_t *rtm);
-void rtm_check_and_delete (rtm_t *rtm);
 void rtm_log_stats (rtm_t *rtm);
 void rtm_clear_stats(rtm_t *rtm);
+void rtm_check_and_delete (rtm_t *rtm, bool free_rtm) ;
 
 #endif

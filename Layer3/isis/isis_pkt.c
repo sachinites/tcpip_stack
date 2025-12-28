@@ -801,7 +801,7 @@ isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size) {
 
         case ISIS_PTP_HELLO_PKT_TYPE:
             p2p_hdr = (isis_p2p_hello_pkt_hdr_t *)(cmn_hdr + 1);
-            pdu_len = p2p_hdr->pdu_len;
+            pdu_len = htons(p2p_hdr->pdu_len);
             
             /* Validate pdu_len to prevent buffer overrun */
             if (pdu_len < (sizeof(isis_common_hdr_t) + sizeof(isis_p2p_hello_pkt_hdr_t))) {
@@ -823,7 +823,7 @@ isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size) {
         case ISIS_LAN_L1_HELLO_PKT_TYPE:
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             lan_hdr =  (isis_lan_hello_pkt_hdr_t *)(cmn_hdr + 1);
-            pdu_len = lan_hdr->pdu_len;
+            pdu_len = htons(lan_hdr->pdu_len);
             
             /* Validate pdu_len to prevent buffer overrun */
             if (pdu_len < (sizeof(isis_common_hdr_t) + sizeof(isis_lan_hello_pkt_hdr_t))) {

@@ -244,7 +244,6 @@ isis_update_interface_adjacency_from_hello(
     byte *hello_tlv_buffer;
     isis_system_id_t sys_id;
     c_string intf_ip_addr_str;
-    uint32_t four_byte_data;
     uint32_t intf_ip_addr_int;
     isis_adjacency_t *adjacency = NULL;
     isis_adjacency_t adjacency_backup;
@@ -362,9 +361,8 @@ isis_update_interface_adjacency_from_hello(
             case ISIS_TLV_IF_IP:
                 /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    memcpy((byte *)&four_byte_data, tlv_value, sizeof(four_byte_data));
-                    if (adjacency->nbr_intf_ip != htonl(four_byte_data) ) {
-                        adjacency->nbr_intf_ip = htonl(four_byte_data);
+                    if (adjacency->nbr_intf_ip != *(uint32_t *)(tlv_value) ) {
+                        adjacency->nbr_intf_ip = *(uint32_t *)(tlv_value);
                         force_bring_down_adjacency = true;
                     }
                 }

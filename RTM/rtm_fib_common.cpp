@@ -44,3 +44,26 @@ rtm_to_fib_map_opn(rtm_ppt_operation_t rtm_opn) {
             return FIB_DELETE; // Default to delete for unknown ops
     }
 }
+
+uint16_t 
+rtm_set_fib_forwarding_action_flag (RTM_NH_ACTION_TYPE_T action) {
+
+    switch(action) {
+
+        case RTM_NH_ACTION_LOCAL:
+            return FIB_NH_FWD_F_LOCAL;
+        case RTM_NH_ACTION_CONNECTED:
+            return FIB_NH_FWD_F_CONNECTED;
+        case RTM_NH_ACTION_FORWARD:
+            return FIB_NH_FWD_F_FORWARD;
+        case RTM_NH_ACTION_TUNNEL:
+            return FIB_NH_FWD_F_TUNNEL;
+        case RTM_NH_ACTION_DISCARD:
+            return FIB_NH_FWD_F_DISCARD;
+        case RTM_NH_ACTION_REJECT:
+            return FIB_NH_FWD_F_REJECT;
+        default : 
+            return 0;
+    }
+    return 0;
+}

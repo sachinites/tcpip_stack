@@ -23,8 +23,8 @@ void lfa_init (node_t *node, lfa_t **lfa) {
                             STDOUT_FILENO, 0);
 
     /* Enable Protocol Specific LFAs now */
-    lfa_isis_init (node, *lfa, 1);
-    lfa_isis_init (node, *lfa, 2);
+    //lfa_isis_init (node, *lfa, 1);
+    //lfa_isis_init (node, *lfa, 2);
 }
 
 void 

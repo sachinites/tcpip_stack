@@ -138,6 +138,7 @@ cp_rtm_install_local_or_connected_v4_routes (
                                         RTM_NH_ACTION_LOCAL : \
                                         RTM_NH_ACTION_CONNECTED;
 
+    fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.oif = Oif->ifindex;
     nh_template.is_resolved = true;
     nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
@@ -213,6 +214,7 @@ cp_rtm_install_static_route (
         rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)));
 
+    fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.fwd_flags = fwd_flags;;
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
@@ -268,6 +270,7 @@ cp_rtm_uninstall_static_route (
     }
 
     nh_template.fwd_flags = fwd_flags;
+    fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
     XFREE (nh_template.rtm_nh_proto);
     return rc;
@@ -309,16 +312,20 @@ cp_rtm_uninstall_route_by_idx (
 
     /* Look up the idx in global NH tree */
     rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, idx);
-
-    if (!nh) {
-        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
-    }
-
+    
     /* look up the route*/
     rtm_route *route = nh->owner_route;
     assert (route);
 
-    tracer(rtm->node->cptr, DRTM_DET,
+    if (!nh) {
+        tracer(rtm->node->cptr, DRTM | DERR,
+	    "RTM[%s] : Route %s, Nexthop %s[%u] not found\n", rtm->name, 
+	    rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)), 
+	    rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
+        return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
+    }
+
+    tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Uninstalling route %s, Nexthop %s[%u]\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
@@ -561,6 +568,7 @@ cp_rtm_install_route_advanced (
         fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
     }
 
+    fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.fwd_flags = fwd_flags;
     
     /* Install the route */
@@ -677,6 +685,7 @@ cp_rtm_uninstall_route_advanced (
         fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
     }
 
+    fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.fwd_flags = fwd_flags;
     /* Uninstall the route */
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
