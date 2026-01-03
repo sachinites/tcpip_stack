@@ -687,7 +687,7 @@ show_fib_handler(int cmdcode,
                 cprintf("Error : FIB %s not found\n", fib_name);
                 return -1;
             }
-            fib_show_routes(fib);
+            fib_show_routes_brief(fib);
             break;
 
         default:

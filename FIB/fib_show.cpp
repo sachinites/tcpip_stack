@@ -335,3 +335,199 @@ fib_show_routes(fib_t *fib) {
     cprintf("Total Routes: %u\n", route_count);
 }
 
+/* Brief/Compact route display - maximizes routes per screen */
+void
+fib_show_routes_brief(fib_t *fib) {
+    
+    uint32_t route_count = 0;
+    
+    /* Print header */
+    cprintf("\n");
+    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+            "Prefix", "NH", "Gateway", "OIF", "Hits");
+    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+            "----------------------------------------", 
+            "---", "------------------", "---------------", "--------");
+    
+    /* Iterate based on AFI type */
+    if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
+        
+        /* LPM-based FIB - iterate through mtrie */
+        if (!fib->u.lpm) {
+            cprintf("No routes in FIB\n\n");
+            return;
+        }
+        
+        glthread_t *curr;
+        ITERATE_GLTHREAD_BEGIN(&fib->u.lpm->list_head, curr) {
+            
+            mtrie_node_t *mnode = list_glue_to_mtrie_node(curr);
+            if (!mnode || !mnode->data) {
+                continue;
+            }
+            
+            fib_route_t *route = (fib_route_t *)mnode->data;
+            route_count++;
+            
+            /* Format route prefix */
+            char prefix_str[48];
+            fib_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
+            
+            /* Count active nexthops */
+            uint8_t active_nh_count = 0;
+            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                if (route->nhs[i]) {
+                    active_nh_count++;
+                }
+            }
+            
+            if (active_nh_count == 0) {
+                cprintf("%-40s %-3u %-18s %-15s %-8s\n", 
+                       prefix_str, 0, "-", "-", "-");
+                continue;
+            }
+            
+            /* Display first nexthop on main line */
+            bool first = true;
+            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                fib_nh_t *nh = route->nhs[i];
+                if (!nh) continue;
+                
+                /* Format nexthop address */
+                char nh_addr_str[20];
+                fib_format_nh_addr(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                
+                /* Get OIF name */
+                const char *oif_name = nh->fwd_info->oif ? 
+                                      nh->fwd_info->oif->if_name.c_str() : "-";
+                
+                /* Format hit count */
+                char hit_str[10];
+                snprintf(hit_str, sizeof(hit_str), "%u", nh->hit_count);
+                
+                if (first) {
+                    /* First NH: include prefix and NH count */
+                    const char *ecmp_marker = active_nh_count > 1 ? "*" : "";
+                    cprintf("%-40s %-3u %-18s %-15s %-8s %s\n", 
+                           prefix_str, active_nh_count, nh_addr_str, oif_name, 
+                           hit_str, ecmp_marker);
+                    first = false;
+                } else {
+                    /* Continuation lines for ECMP NHs */
+                    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+                           "", "", nh_addr_str, oif_name, hit_str);
+                }
+                
+                /* Show label stack on separate line if present */
+                if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
+                    mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
+                    if (lstack->curr_index >= 0) {
+                        char label_str[128] = {0};
+                        int offset = 0;
+                        for (int j = 0; j <= lstack->curr_index; j++) {
+                            uint32_t label_val = mpls_label_get_value(lstack->labels[j].label_val);
+                            const char *op = mpls_op_tostring(lstack->labels[j].op);
+                            offset += snprintf(label_str + offset, sizeof(label_str) - offset,
+                                             "%s%u:%s", j > 0 ? "," : "", label_val, op);
+                        }
+                        cprintf("%-40s     MPLS: %s\n", "", label_str);
+                    }
+                }
+            }
+            
+        } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
+        
+    } else if (fib->afi == AF_LABEL) {
+        
+        if (!hashtable_count(fib->u.label_ht)) {
+            cprintf("Total Routes: 0\n");
+            return;
+        }
+
+        hashtable_itr *itr = hashtable_iterator(fib->u.label_ht);
+
+        do {
+            fib_route_t *route = (fib_route_t *)hashtable_iterator_value(itr);
+            if (!route) break;
+            
+            route_count++;
+            
+            /* Format route prefix (label) */
+            char prefix_str[48];
+            fib_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
+            
+            /* Count active nexthops */
+            uint8_t active_nh_count = 0;
+            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                if (route->nhs[i]) {
+                    active_nh_count++;
+                }
+            }
+            
+            if (active_nh_count == 0) {
+                cprintf("%-40s %-3u %-18s %-15s %-8s\n", 
+                       prefix_str, 0, "-", "-", "-");
+                hashtable_iterator_advance(itr);
+                continue;
+            }
+            
+            /* Display all nexthops */
+            bool first = true;
+            for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
+                fib_nh_t *nh = route->nhs[i];
+                if (!nh) continue;
+                
+                /* Format nexthop address */
+                char nh_addr_str[20];
+                fib_format_nh_addr(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                
+                /* Get OIF name */
+                const char *oif_name = nh->fwd_info->oif ? 
+                                      nh->fwd_info->oif->if_name.c_str() : "-";
+                
+                /* Format hit count */
+                char hit_str[10];
+                snprintf(hit_str, sizeof(hit_str), "%u", nh->hit_count);
+                
+                if (first) {
+                    /* First NH: include prefix and NH count */
+                    const char *ecmp_marker = active_nh_count > 1 ? "*" : "";
+                    cprintf("%-40s %-3u %-18s %-15s %-8s %s\n", 
+                           prefix_str, active_nh_count, nh_addr_str, oif_name, 
+                           hit_str, ecmp_marker);
+                    first = false;
+                } else {
+                    /* Continuation lines for ECMP NHs */
+                    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+                           "", "", nh_addr_str, oif_name, hit_str);
+                }
+                
+                /* Show label stack on separate line if present */
+                if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
+                    mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
+                    if (lstack->curr_index >= 0) {
+                        char label_str[128] = {0};
+                        int offset = 0;
+                        for (int j = 0; j <= lstack->curr_index; j++) {
+                            uint32_t label_val = mpls_label_get_value(lstack->labels[j].label_val);
+                            const char *op = mpls_op_tostring(lstack->labels[j].op);
+                            offset += snprintf(label_str + offset, sizeof(label_str) - offset,
+                                             "%s%u:%s", j > 0 ? "," : "", label_val, op);
+                        }
+                        cprintf("%-40s     MPLS: %s\n", "", label_str);
+                    }
+                }
+            }
+            
+        } while (hashtable_iterator_advance(itr));
+
+        free(itr);
+    }
+    
+    /* Print summary */
+    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+            "----------------------------------------", 
+            "---", "------------------", "---------------", "--------");
+    cprintf("Total Routes: %u (* = ECMP)\n", route_count);
+}
+
