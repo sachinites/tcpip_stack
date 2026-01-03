@@ -1,3 +1,60 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_presentation.cpp
+ *
+ *    Description:  RTM Presentation Layer - FIB Updates and Route Advertisement
+ *
+ *        This file implements the presentation layer that sits between RTM and FIB.
+ *        It handles route advertisement, diff computation, and FIB updates when
+ *        routes change.
+ *
+ *        Presentation Layer Architecture:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ RTM (Routing Table Manager)                                 │
+ *        │   └─> Route Changes Detected                                │
+ *        │       └─> Presentation Layer                                  │
+ *        │           ├─> Compute Diff (old vs new)                    │
+ *        │           ├─> Queue for Advertisement                        │
+ *        │           └─> FIB Interface                                 │
+ *        │               └─> Update FIB (Forwarding Information Base)  │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Diff Computation:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Old State (PPT DB)        New State (RTM)                   │
+ *        │   Route: 10.0.0.0/8        Route: 10.0.0.0/8              │
+ *        │     NH: 1.1.1.1              NH: 1.1.1.1 (unchanged)       │
+ *        │     NH: 2.2.2.2              NH: 3.3.3.3 (changed)         │
+ *        │                              NH: 4.4.4.4 (new)              │
+ *        │                                                              │
+ *        │ Diff Result:                                               │
+ *        │   ADD:  NH: 4.4.4.4                                        │
+ *        │   DEL:  NH: 2.2.2.2                                        │
+ *        │   MOD:  NH: 3.3.3.3 (replaces 2.2.2.2)                     │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Advertisement Flow:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ 1. Route changes in RTM                                     │
+ *        │ 2. Route added to advertisement queue                       │
+ *        │ 3. Advertisement prep job runs                               │
+ *        │    - Compute diff between old and new state                 │
+ *        │    - Create ADD/DEL operations                               │
+ *        │ 4. Advertisement job runs                                   │
+ *        │    - Process ADD/DEL operations                              │
+ *        │    - Update FIB                                              │
+ *        │    - Update PPT DB (Presentation DB)                         │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <string.h>
 #include <stddef.h>
 #include <assert.h>
@@ -18,9 +75,34 @@
 
 #define RTM_ADVT_COUNT_PREEMPTION_LIMIT 100
 
+/* ========================================================================
+ * Forward Declarations
+ * ======================================================================== */
+
 static void 
 rtm_schedule_presentation_job (rtm_t *rtm) ;
 
+/* ========================================================================
+ * On-Demand Route Advertisement
+ * ======================================================================== */
+
+/**
+ * @brief Handle on-demand route request from protocol
+ * 
+ * When a protocol requests routes (e.g., during protocol startup),
+ * this function iterates through all routes in the RTM and creates
+ * advertisement entries for all active, resolved nexthops.
+ * 
+ * This is used for:
+ * - Protocol initialization (sending all existing routes)
+ * - Route refresh requests
+ * - Protocol reconnection scenarios
+ * 
+ * @param rtm Pointer to routing table
+ * @param vrf_id VRF identifier
+ * @param instance_no Protocol instance number
+ * @param proto Protocol type requesting routes
+ */
 void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                                  uint8_t instance_no,
                                  RTM_PROTO_T proto)
@@ -96,9 +178,21 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
     rtm_schedule_presentation_job(rtm);
 }
 
-/* APIs over RTM PPT DB */
+/* ========================================================================
+ * Presentation Database (PPT DB) Management
+ * ======================================================================== */
 
-/* Comparison function for rtm_ppt_route_t AVL tree */
+/**
+ * @brief Comparison function for PPT route AVL tree
+ * 
+ * Compares two routes in the presentation database by prefix.
+ * Used for maintaining sorted route tree for efficient diff computation.
+ * 
+ * @param node1 First AVL tree node
+ * @param node2 Second AVL tree node
+ * 
+ * @return -1 if route1 < route2, 0 if equal, 1 if route1 > route2
+ */
 static int
 rtm_ppt_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
     
@@ -314,14 +408,37 @@ rtm_ppt_db_clone_route (
     return ppt_route;
 }
 
-/* Implement this function, This function Implements the diff logic.
-    Compare the rtm_route *route with rtm_ppt_route_t *ppt_route and
-    find which Nexthops are added new in rtm_route and which are deleted
-    from rtm_route ( i.e present in ppt_route but not in rtm_route). Emit out
-    Results : 
-    rtm_ppt_route_t *out_add -- Contains all NHs and DNHs which are added
-    rtm_ppt_route_t *out_del -- Contains all NHs and DNHs which are deleted
-*/
+/* ========================================================================
+ * Diff Computation
+ * ======================================================================== */
+
+/**
+ * @brief Compute diff between current route state and PPT DB state
+ * 
+ * This function implements the core diff algorithm that compares the
+ * current route state in RTM with the previously advertised state
+ * stored in the Presentation Database (PPT DB).
+ * 
+ * Diff Algorithm:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Sort both lists by nexthop ID                        │
+ * │ 2. Use two-pointer technique to find differences        │
+ * │ 3. Identify:                                            │
+ * │    - Added nexthops (in route, not in ppt_route)         │
+ * │    - Deleted nexthops (in ppt_route, not in route)      │
+ * │    - Modified nexthops (same ID, different DNHs)        │
+ * │ 4. For indirect nexthops, also diff direct NH lists     │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * Output:
+ * - out_add: Contains all nexthops and direct NHs that were added
+ * - out_del: Contains all nexthops and direct NHs that were deleted
+ * 
+ * @param route Current route state from RTM
+ * @param ppt_route Previous route state from PPT DB
+ * @param out_add Output structure for added nexthops
+ * @param out_del Output structure for deleted nexthops
+ */
 static void
 rtm_ppt_route_diff (
     rtm_route *route, rtm_ppt_route_t *ppt_route,

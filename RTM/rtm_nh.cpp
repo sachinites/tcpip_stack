@@ -1,3 +1,73 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_nh.cpp
+ *
+ *    Description:  RTM Nexthop Management - Nexthop Lifecycle and Operations
+ *
+ *        This file manages nexthops in the RTM system, including creation, deletion,
+ *        comparison, and state management (active/inactive).
+ *
+ *        Nexthop Types:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Direct Nexthop (DNH)                                       │
+ *        │   - Gateway is directly reachable                          │
+ *        │   - Has outgoing interface                                 │
+ *        │   - Can be used immediately for forwarding                  │
+ *        │                                                              │
+ *        │ Indirect Nexthop (INH)                                      │
+ *        │   - Gateway requires recursive resolution                   │
+ *        │   - Resolves over another route                            │
+ *        │   - Has list of direct nexthops (from resolved route)      │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Nexthop Structure:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ rtm_nh                                                       │
+ *        │  - prefix: Gateway/nexthop address                        │
+ *        │  - oif: Outgoing interface index                          │
+ *        │  - proto: Protocol (BGP, OSPF, etc.)                        │
+ *        │  - ad: Admin distance                                       │
+ *        │  - metric: Route metric                                     │
+ *        │  - is_active: Whether this is the best path                 │
+ *        │  - is_indirect: Whether this is an indirect nexthop         │
+ *        │  - direct_nh_list: List of direct NHs (for INH)            │
+ *        │  - idx: Unique nexthop ID                                   │
+ *        │  - ref_count: Reference count                               │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Nexthop Comparison (for Path Selection):
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Comparison Order:                                          │
+ *        │ 1. Admin Distance (lower is better)                         │
+ *        │ 2. Metric (lower is better)                                 │
+ *        │ 3. Protocol-specific attributes                              │
+ *        │ 4. Gateway address                                          │
+ *        │ 5. Outgoing interface                                       │
+ *        │ 6. MPLS label stack                                         │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Nexthop Storage:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ RTM                                                          │
+ *        │  ┌──────────────────────────────────────────────────────┐   │
+ *        │  │ nhs_by_idx (AVL Tree)                                │   │
+ *        │  │  └─> Nexthops indexed by unique ID                    │   │
+ *        │  └──────────────────────────────────────────────────────┘   │
+ *        │  ┌──────────────────────────────────────────────────────┐   │
+ *        │  │ nhs_by_src[proto] (Linked Lists)                    │   │
+ *        │  │  └─> Nexthops grouped by protocol                    │   │
+ *        │  └──────────────────────────────────────────────────────┘   │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -16,10 +86,23 @@
 #include "rtm_gc.h"
 #include "../common/mpls_lstack.h"
 
-/* Thread-safe atomic counter for nexthop ID generation */
+/* ========================================================================
+ * Nexthop ID Generation
+ * ======================================================================== */
+
+/**
+ * @brief Thread-safe atomic counter for nexthop ID generation
+ * 
+ * Each nexthop gets a unique ID for tracking and debugging purposes.
+ * The ID is generated atomically to ensure thread safety.
+ */
 static std::atomic<uint32_t> rtm_nh_id_counter(1);
 
-/* Generate a unique nexthop ID atomically */
+/**
+ * @brief Generate a unique nexthop ID atomically
+ * 
+ * @return Unique nexthop ID
+ */
 static uint32_t rtm_nh_generate_id(void) {
     return rtm_nh_id_counter.fetch_add(1, std::memory_order_relaxed);
 }
@@ -29,6 +112,22 @@ static void rtm_nh_goes_inactive (rtm_t *rtm, rtm_nh *nh);
 
 extern void rtm_presentation_layer_route_add (rtm_t *rtm, rtm_nh *nh);
 
+/* ========================================================================
+ * Nexthop Resource Management
+ * ======================================================================== */
+
+/**
+ * @brief Release all resources held by a nexthop
+ * 
+ * Cleans up all resources associated with a nexthop before deletion:
+ * - MPLS label stack
+ * - Protocol information
+ * - Outgoing interface
+ * - Owner route reference
+ * 
+ * @param rtm Pointer to routing table
+ * @param nh Nexthop to clean up
+ */
 static void
 rtm_nh_release_all_resources(rtm_t *rtm, rtm_nh *nh)
 {
@@ -91,7 +190,31 @@ rtm_nh_dereference(rtm_t *rtm, rtm_nh *nh) {
     }
 }
 
-/* Wrapper for compare function with exact signature from header */
+/* ========================================================================
+ * Nexthop Comparison Functions
+ * ======================================================================== */
+
+/**
+ * @brief Check if two nexthops are exactly equal
+ * 
+ * Compares all attributes of two nexthops to determine if they are
+ * identical. Used for duplicate detection.
+ * 
+ * Comparison includes:
+ * - Protocol and sub-protocol
+ * - Admin distance
+ * - Metric
+ * - Action
+ * - Outgoing interface
+ * - Gateway prefix
+ * - Protocol-specific information
+ * - MPLS label stack
+ * 
+ * @param nh1 First nexthop
+ * @param nh2 Second nexthop
+ * 
+ * @return 0 if equal, non-zero if different
+ */
 int8_t 
 rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     

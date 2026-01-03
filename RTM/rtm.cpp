@@ -1,3 +1,64 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm.cpp
+ *
+ *    Description:  RTM Core - Routing Table Manager Initialization and Lifecycle
+ *
+ *        This file implements the core RTM initialization, lifecycle management,
+ *        and data structure setup. It provides the foundation for all RTM
+ *        operations.
+ *
+ *        RTM Structure:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ rtm_t (Routing Table Manager)                                │
+ *        │  ├─> route_tree: AVL tree of all routes                     │
+ *        │  ├─> lpm_rt_tree: MTrie for LPM lookups                     │
+ *        │  ├─> nhs_by_idx: AVL tree of nexthops by ID                 │
+ *        │  ├─> nhs_by_src[proto]: Lists of nexthops by protocol      │
+ *        │  ├─> proto_info_tree[proto]: Protocol information trees    │
+ *        │  ├─> ppt_db_route_tree: Presentation DB route tree          │
+ *        │  ├─> unresolvable_paths: Queue of unresolvable INHs         │
+ *        │  ├─> route_advt_queue: Queue of routes to advertise        │
+ *        │  └─> gc_queue: Garbage collection queue                    │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        RTM Initialization Flow:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ 1. Allocate RTM structure                                    │
+ *        │ 2. Initialize keys (VRF, AFI, RTM ID)                        │
+ *        │ 3. Generate RTM name (vrf.inet[6].table_id)                 │
+ *        │ 4. Initialize LPM tree (MTrie)                                │
+ *        │ 5. Initialize route tree (AVL)                                │
+ *        │ 6. Initialize nexthop index tree (AVL)                         │
+ *        │ 7. Initialize protocol-specific structures                     │
+ *        │ 8. Initialize presentation layer (PPT DB)                     │
+ *        │ 9. Initialize queues and job handlers                        │
+ *        │ 10. Initialize statistics                                    │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        RTM Naming Convention:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Format: <vrf_name>.<afi>.<rtm_id>                           │
+ *        │                                                              │
+ *        │ Examples:                                                   │
+ *        │   - Default VRF IPv4: "0.inet.0"                            │
+ *        │   - Default VRF IPv6: "0.inet6.0"                          │
+ *        │   - Default VRF MPLS: "0.mpls.0"                           │
+ *        │   - VRF 1 IPv4: "vrf1.inet.0"                               │
+ *        │   - VRF 1 IPv6: "vrf1.inet6.0"                             │
+ *        │   - L3VPN IPv4: "0.inet3.0"                                 │
+ *        │   - L3VPN IPv6: "0.inet63.0"                                │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <stdint.h>
 #include <cstring>
 #include <assert.h>
@@ -16,7 +77,10 @@
 #include "../Tracer/tracer.h"
 #include "../router_init.h"
 
-/* Forward declaration of LPM tree functions */
+/* ========================================================================
+ * Forward Declarations
+ * ======================================================================== */
+
 extern void rtm_lpm_tree_init(rtm_t *rtm);
 extern void rtm_lpm_tree_destroy(rtm_t *rtm);
 extern rtm_t *rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id);
@@ -51,7 +115,33 @@ rtm_proto_info_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node
     return rtm_proto_compare(proto_info1, proto_info2);
 }
 
-/* Initialize a new RTM instance */
+/* ========================================================================
+ * RTM Initialization and Lifecycle
+ * ======================================================================== */
+
+/**
+ * @brief Initialize a new RTM instance
+ * 
+ * Creates and initializes a new Routing Table Manager instance.
+ * Sets up all data structures, trees, queues, and job handlers.
+ * 
+ * Initialization includes:
+ * - Route storage (AVL tree and MTrie)
+ * - Nexthop indexing (AVL tree)
+ * - Protocol-specific structures
+ * - Presentation layer (PPT DB)
+ * - Resolution queues
+ * - Advertisement queues
+ * - Garbage collection queues
+ * - Statistics tracking
+ * 
+ * @param node Pointer to network node
+ * @param vrf_id VRF identifier
+ * @param afi Address family (AF_IPV4, AF_IPV6, AF_LABEL, etc.)
+ * @param rtm_id Routing table ID
+ * 
+ * @return Pointer to initialized RTM structure
+ */
 rtm_t *
 rtm_initialize(node_t *node, uint8_t vrf_id, AFI_T afi, uint32_t rtm_id) {
     
@@ -112,6 +202,24 @@ cp_rtm_uninstall_route_by_idx (
                 uint32_t idx);
 
 
+/**
+ * @brief Check RTM state and delete if requested
+ * 
+ * Validates that all RTM resources have been properly cleaned up before
+ * deletion. Performs assertions to ensure:
+ * - All routes have been removed
+ * - All nexthops have been removed
+ * - All protocol information has been cleaned up
+ * - All queues are empty
+ * - All jobs have been cancelled
+ * - LPM tree is empty
+ * - Presentation DB is empty
+ * 
+ * This function is used during RTM shutdown to ensure proper cleanup.
+ * 
+ * @param rtm Pointer to RTM to check/delete
+ * @param free_rtm If true, free the RTM structure after validation
+ */
 void
 rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     

@@ -57,7 +57,7 @@ def_vrf_t* vrf_def_init(node_t *node) {
 vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name) {
 
     /* Dont use this API to initialize default VRF */
-    assert (vrf_id == 0);
+    assert (vrf_id);
 
     /* Allocate memory for new VRF */
     vrf_t *vrf = (vrf_t *)XCALLOC2(0, 1, vrf_t);

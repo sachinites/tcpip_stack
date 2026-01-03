@@ -1,3 +1,63 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_show.cpp
+ *
+ *    Description:  RTM Show Commands - CLI Display and Debugging
+ *
+ *        This file implements CLI show commands for displaying RTM information.
+ *        It provides various display formats including detailed route information,
+ *        Cisco-style RIB display, and protocol-specific views.
+ *
+ *        Show Command Features:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ 1. Detailed Route Display                                    │
+ *        │    - Route prefix and attributes                             │
+ *        │    - All nexthops with full details                          │
+ *        │    - Resolution information for indirect nexthops             │
+ *        │    - Dependent paths resolved by this route                  │
+ *        │                                                              │
+ *        │ 2. Cisco-Style RIB Display                                   │
+ *        │    - Compact table format                                    │
+ *        │    - Protocol codes (C, S, O, B, etc.)                       │
+ *        │    - Admin distance and metric                                │
+ *        │    - Next-hop and outgoing interface                         │
+ *        │                                                              │
+ *        │ 3. Protocol-Specific Views                                   │
+ *        │    - Filter routes by protocol                                │
+ *        │    - Show protocol statistics                                │
+ *        │                                                              │
+ *        │ 4. Route Filtering                                           │
+ *        │    - Prefix-list based filtering                             │
+ *        │    - VRF-based filtering                                     │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Display Format Example:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Route: 192.168.1.0/24                                       │
+ *        │ ====================                                        │
+ *        │   Nexthop Count  : 2                                        │
+ *        │   Resolved Nexthop Count : 1                                │
+ *        │   Flags          : 0x0                                     │
+ *        │   Ref Count      : 3                                       │
+ *        │                                                              │
+ *        │   Nexthop 1:                                                │
+ *        │     Idx            : 1                                      │
+ *        │     Protocol       : BGP                                    │
+ *        │     Next-Hop       : 10.1.1.1                               │
+ *        │     Admin Distance : 20                                      │
+ *        │     Metric         : 0                                      │
+ *        │     Active         : Yes                                     │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -18,10 +78,29 @@
 
 extern int cprintf (const char * format, ...);
 
-/* Forward declaration */
+/* ========================================================================
+ * Forward Declarations
+ * ======================================================================== */
+
 static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
 
-/* Helper function to display a single route in detail */
+/* ========================================================================
+ * Detailed Route Display Functions
+ * ======================================================================== */
+
+/**
+ * @brief Display detailed information about a single route
+ * 
+ * Shows comprehensive information about a route including:
+ * - Route prefix and basic attributes
+ * - All nexthops with full details
+ * - Resolution information for indirect nexthops
+ * - Dependent paths that resolve over this route
+ * - MPLS label stacks (if present)
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route to display
+ */
 static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
 
     char prefix_str[128];
@@ -177,7 +256,35 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
     printw("\n");
 }
 
-/* Helper function to get protocol code for Cisco-style display */
+/**
+ * @brief Get protocol code for Cisco-style display
+ * 
+ * Returns single-letter or short protocol codes used in Cisco-style
+ * routing table displays.
+ * 
+ * Protocol Codes:
+ * ┌─────────────────────┬──────────────────────────┬──────────┐
+ * │ Protocol            │ Sub-Protocol             │ Code     │
+ * ├─────────────────────┼──────────────────────────┼──────────┤
+ * │ CONNECTED           │ N/A                      │ C        │
+ * │ STATIC              │ N/A                      │ S        │
+ * │ LOCAL               │ N/A                      │ L        │
+ * │ OSPF                │ INTRA                    │ O        │
+ * │ OSPF                │ INTER                    │ O IA     │
+ * │ OSPF                │ EXT                      │ O E2     │
+ * │ BGP                 │ N/A                      │ B        │
+ * │ ISIS                │ L1                       │ I L1     │
+ * │ ISIS                │ L2                       │ I L2     │
+ * │ LDP                 │ N/A                      │ D        │
+ * │ SR                  │ N/A                      │ SR       │
+ * │ SRTE                │ N/A                      │ SR-TE    │
+ * └─────────────────────┴──────────────────────────┴──────────┘
+ * 
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * 
+ * @return Protocol code string
+ */
 static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto) {
     switch(proto) {
         case RTM_PROTO_CONNECTED:
@@ -223,9 +330,35 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
     }
 }
 
+/* ========================================================================
+ * Cisco-Style RIB Display
+ * ======================================================================== */
+
 extern "C" {
 
-/* Display RIB (Routing Information Base) in Cisco style */
+/**
+ * @brief Display RIB in Cisco-style format
+ * 
+ * Displays the routing table in a compact, Cisco IOS-like format.
+ * Shows routes with protocol codes, admin distance, metric, next-hop,
+ * and outgoing interface.
+ * 
+ * Display Format:
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │ Codes: C - connected, S - static, O - OSPF, B - BGP      │
+ * │        * - candidate default route                         │
+ * │                                                              │
+ * │ Gateway of last resort is 10.1.1.1 to network 0.0.0.0     │
+ * │                                                              │
+ * │      10.0.0.0/8 is variably subnetted, 2 subnets, 1 mask   │
+ * │ C       10.1.1.0/24 is directly connected, eth0            │
+ * │ O       10.2.2.0/24 [110/10] via 10.1.1.1, eth1           │
+ * │ B       192.168.1.0/24 [20/0] via 10.1.1.2, eth1           │
+ * └─────────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix_filter Optional prefix filter (NULL for all routes)
+ */
 void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
 
     printw("\n");

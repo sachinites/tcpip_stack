@@ -1,3 +1,38 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_presentation.h
+ *
+ *    Description:  RTM Presentation Layer Header - FIB Updates and Route Advertisement
+ *
+ *        This header defines the presentation layer structures and APIs that handle
+ *        route advertisement to protocols and FIB updates.
+ *
+ *        Presentation Layer Purpose:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ RTM → Presentation Layer → FIB/Protocols                    │
+ *        │                                                              │
+ *        │ 1. Route changes detected in RTM                           │
+ *        │ 2. Diff computed (old vs new state)                        │
+ *        │ 3. ADD/DELETE operations created                            │
+ *        │ 4. Operations queued for advertisement                      │
+ *        │ 5. FIB updated with new forwarding information              │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Key Structures:
+ *        - rtm_presentation_data_t: Data for route advertisement
+ *        - rtm_ppt_route_t: Route blueprint in presentation DB
+ *        - rtm_ppt_nhidx_t: Nexthop index information
+ *        - rtm_rt_subscription_t: Protocol subscription information
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #ifndef __RTM_PRESENTATION__
 #define __RTM_PRESENTATION__
 
@@ -6,14 +41,26 @@
 #include "../Tree/libtree.h"
 #include "../gluethread/glthread.h"
 
+/* ========================================================================
+ * Forward Declarations
+ * ======================================================================== */
+
 typedef struct rtm_ rtm_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct rtm_route_ rtm_route;
 typedef struct prefix_lst_ prefix_list_t;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 
+/* ========================================================================
+ * Presentation Layer Enumerations
+ * ======================================================================== */
 
-/* Operation type for route advertisements */
+/**
+ * @brief Operation type for route advertisements
+ * 
+ * Defines the type of operation being performed on a route/nexthop
+ * during advertisement to protocols or FIB updates.
+ */
 typedef enum rtm_ppt_operation_ {
     RTM_PPT_OP_ADD = 1,      /* Route/NH is being added */
     RTM_PPT_OP_DELETE = 2,   /* Route/NH is being deleted */

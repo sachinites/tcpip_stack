@@ -1,3 +1,92 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_nb_integ.cpp
+ *
+ *    Description:  RTM (Routing Table Manager) Network-Boundary Integration Layer
+ *
+ *        This file provides the high-level API for route installation, uninstallation,
+ *        and protocol management. It acts as a bridge between the control plane
+ *        applications and the core RTM infrastructure.
+ *
+ *        Architecture Overview:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │                    Control Plane Applications                │
+ *        │  (BGP, OSPF, ISIS, Static Routes, Interface Routes, etc.)   │
+ *        └────────────────────────┬────────────────────────────────────┘
+ *                                 │
+ *                                 │ cp_rtm_* APIs
+ *                                 ▼
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │              RTM Network-Boundary Integration Layer            │
+ *        │  (This File: rtm_nb_integ.cpp)                               │
+ *        │  - Route Installation/Uninstallation                         │
+ *        │  - Protocol Registration/Subscription                       │
+ *        │  - VRF-aware Route Management                                │
+ *        └────────────────────────┬────────────────────────────────────┘
+ *                                 │
+ *                                 │ rtm_* APIs
+ *                                 ▼
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │                    RTM Core Layer                            │
+ *        │  - Route Storage (AVL Trees, MTrie)                          │
+ *        │  - Nexthop Management                                        │
+ *        │  - Route Resolution                                         │
+ *        │  - Route Advertisement                                      │
+ *        └────────────────────────┬────────────────────────────────────┘
+ *                                 │
+ *                                 │ FIB APIs
+ *                                 ▼
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │                    Forwarding Information Base               │
+ *        │  - FIB Installation                                          │
+ *        │  - Data Plane Integration                                    │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        VRF and RTM Structure:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │                        Node                                  │
+ *        │  ┌──────────────────────────────────────────────────────┐   │
+ *        │  │              node_nw_prop_t                          │   │
+ *        │  │  ┌──────────────────────────────────────────────┐   │   │
+ *        │  │  │         def_vrf_t *def_vrf                    │   │   │
+ *        │  │  │  ┌──────────────────────────────────────┐   │   │   │
+ *        │  │  │  │         vrf_t vrf                      │   │   │   │
+ *        │  │  │  │         - inet0 (IPv4 unicast)        │   │   │   │
+ *        │  │  │  │         - inet6 (IPv6 unicast)         │   │   │   │
+ *        │  │  │  │         - fib_inet0, fib_inet6         │   │   │   │
+ *        │  │  │  └──────────────────────────────────────┘   │   │   │
+ *        │  │  │  - inet3 (IPv4 LDP/SR)                      │   │   │
+ *        │  │  │  - inet63 (IPv6 LDP/SR)                     │   │   │
+ *        │  │  │  - mpls0 (MPLS forwarding)                  │   │   │
+ *        │  │  │  - l3vpnv4 (BGP L3VPN IPv4)                │   │   │
+ *        │  │  │  - l3vpnv6 (BGP L3VPN IPv6)                │   │   │
+ *        │  │  │  - mpls_fib                                │   │   │
+ *        │  │  └──────────────────────────────────────────────┘   │   │
+ *        │  └──────────────────────────────────────────────────────┘   │
+ *        │  ┌──────────────────────────────────────────────────────┐   │
+ *        │  │         vrf_t *vrf[MAX_VRF_PER_NODE]                  │   │
+ *        │  │         (Customer VRFs with RD/RT)                    │   │
+ *        │  └──────────────────────────────────────────────────────┘   │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Route Installation Flow:
+ *        1. Application calls cp_rtm_install_route()
+ *        2. Create nexthop template with protocol info
+ *        3. Call rtm_install_route() (core layer)
+ *        4. If L3VPN route, propagate to all client VRFs
+ *        5. Trigger route resolution if needed
+ *        6. Schedule route advertisement
+ *        7. Install in FIB
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include "../router_init.h"
 #include "../net.h"
 #include "../Interface/InterfaceUApi.h"
@@ -19,9 +108,24 @@
 #include "rtm_resolution.h"
 #include "../vrf/vrf.h"
 
-/* static functions */
+/* ========================================================================
+ * Static Helper Functions
+ * ======================================================================== */
 
-/* Comparison function for subscription AVL tree */
+/**
+ * @brief Comparison function for route subscription AVL tree
+ * 
+ * This function is used to maintain subscriptions in sorted order
+ * for efficient lookup. The comparison order is:
+ * 1. Target protocol (RTM_PROTO_T)
+ * 2. Target sub-protocol (RTM_SUB_PROTO_T)
+ * 3. Target instance number
+ * 4. Callback pointer (for unique identification)
+ * 
+ * @param node1 First AVL tree node
+ * @param node2 Second AVL tree node
+ * @return -1 if node1 < node2, 0 if equal, 1 if node1 > node2
+ */
 static int
 rtm_rt_subscription_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
     
@@ -47,6 +151,17 @@ rtm_rt_subscription_compare(const avltree_node_t *node1, const avltree_node_t *n
     return 0;
 }
 
+/**
+ * @brief Free internal resources of nexthop template
+ * 
+ * This function cleans up dynamically allocated resources within
+ * a nexthop template structure, including:
+ * - Protocol information structure
+ * - MPLS label stack
+ * - SRv6 segment list
+ * 
+ * @param nh_template Pointer to nexthop template to clean up
+ */
 static void 
 rtm_nh_template_internals (cp_nexthop_template_t *nh_template) {
 
@@ -55,41 +170,66 @@ rtm_nh_template_internals (cp_nexthop_template_t *nh_template) {
     if (nh_template->u.srv6_stack.v6segment_lst) XFREE (nh_template->u.srv6_stack.v6segment_lst);
 }
 
+/* ========================================================================
+ * RTM Lookup and Access Functions
+ * ======================================================================== */
+
+/**
+ * @brief Get RTM (Routing Table) by VRF ID, Address Family, and Table ID
+ * 
+ * This function provides a unified interface to access routing tables
+ * across different VRFs. It handles both the default VRF and customer VRFs.
+ * 
+ * RTM Table ID Mapping:
+ * ┌─────────┬──────────────┬─────────────────────────────────┐
+ * │ Table   │ Description  │ Usage                          │
+ * ├─────────┼──────────────┼─────────────────────────────────┤
+ * │ 0       │ Unicast      │ Main routing table (inet.0)    │
+ * │ 3       │ LDP/SR       │ Label distribution (inet.3)     │
+ * │ 128     │ L3VPN        │ BGP VPN routes (bgp.l3vpn.0)   │
+ * └─────────┴──────────────┴─────────────────────────────────┘
+ * 
+ * @param node Pointer to network node
+ * @param vrf_id VRF identifier (0 for default VRF)
+ * @param afi Address Family (AF_IPV4, AF_IPV6, AF_LABEL)
+ * @param rtm_id Routing table identifier (0, 3, or 128)
+ * 
+ * @return Pointer to RTM structure, or NULL if not found
+ */
 rtm_t *
 rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
 
-    int i;
     def_vrf_t *def_vrf = node->node_nw_prop.def_vrf;
 
+    /* Handle default VRF (VRF ID = 0) */
     if (vrf_id == RTM_DEFAULT_VRF) {
 
         if (!def_vrf) return NULL;
 
+        /* IPv4 routing tables */
         if (afi == AF_IPV4) {
-
-            if (rtm_id == 0) return def_vrf->vrf.inet0;
-            if (rtm_id == 3) return def_vrf->inet3;
-            if (rtm_id == 128) return def_vrf->l3vpnv4;
+            if (rtm_id == 0) return def_vrf->vrf.inet0;      /* inet.0 - Unicast */
+            if (rtm_id == 3) return def_vrf->inet3;         /* inet.3 - LDP/SR */
+            if (rtm_id == 128) return def_vrf->l3vpnv4;     /* bgp.l3vpn.0 (IPv4) */
         }
-
+        /* IPv6 routing tables */
         else if (afi == AF_IPV6) {
-
-            if (rtm_id == 0) return def_vrf->vrf.inet6;
-            if (rtm_id == 3) return def_vrf->inet63;
-            if (rtm_id == 128) return def_vrf->l3vpnv6;
+            if (rtm_id == 0) return def_vrf->vrf.inet6;     /* inet6.0 - Unicast */
+            if (rtm_id == 3) return def_vrf->inet63;        /* inet6.3 - LDP/SR */
+            if (rtm_id == 128) return def_vrf->l3vpnv6;     /* bgp.l3vpn.0 (IPv6) */
         }
-
+        /* MPLS/Label routing tables */
         else if (afi == AF_LABEL) {
-
-            if (rtm_id == 0) return def_vrf->mpls0;
+            if (rtm_id == 0) return def_vrf->mpls0;         /* mpls.0 - MPLS forwarding */
         }
     }
 
+    /* Handle customer VRFs (VRF ID > 0) */
     vrf_t *vrf = vrf_get_by_id (node, vrf_id);
     if (!vrf) return NULL;
 
+    /* Customer VRFs only support unicast tables (table ID 0) */
     switch (afi) {
-
         case AF_IPV4: return vrf->inet0;
         case AF_IPV6: return vrf->inet6;
         break;
@@ -98,6 +238,37 @@ rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
     return NULL;
 }
 
+/* ========================================================================
+ * Route Installation APIs
+ * ======================================================================== */
+
+/**
+ * @brief Install local or connected IPv4 route
+ * 
+ * This function is used to install routes that are directly connected
+ * to interfaces or local to the router (loopback addresses).
+ * 
+ * Route Type Determination:
+ * - Mask == 32: LOCAL route (host route, typically loopback)
+ * - Mask < 32:  CONNECTED route (subnet route)
+ * 
+ * Flow:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Determine route type (LOCAL vs CONNECTED)           │
+ * │ 2. Create nexthop template with interface info          │
+ * │ 3. Set forwarding flags (IPv4)                          │
+ * │ 4. Create protocol info (RTM_PROTO_LOCAL)              │
+ * │ 5. Install route in RTM                                │
+ * │ 6. Trigger FIB installation                            │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix IPv4 address (network byte order)
+ * @param mask Subnet mask length (0-32)
+ * @param Oif Outgoing interface shared pointer
+ * 
+ * @return Nexthop index if successful, 0 on failure
+ */
 uint32_t
 cp_rtm_install_local_or_connected_v4_routes ( 
             rtm_t *rtm, 
@@ -108,36 +279,47 @@ cp_rtm_install_local_or_connected_v4_routes (
     char addr_str[32];
     cmn_prefix_t route;
     uint16_t fwd_flags = 0;
+    
+    /* Initialize route prefix structure */
     route.afi = AF_IPV4;
     route.prefix_len = mask;
     route.u.v4_addr = prefix;
     rtm_nh_proto_t *nh_proto = NULL;
 
+    /* Initialize nexthop template */
     cp_nexthop_template_t nh_template;
     memset (&nh_template, 0, sizeof(nh_template));
 
+    /* Determine route type based on mask length */
+    /* /32 = host route (LOCAL), otherwise subnet route (CONNECTED) */
     nh_template.proto = (mask == 32) ? \
         RTM_PROTO_LOCAL : RTM_PROTO_CONNECTED;
 
+    /* Set forwarding flags for IPv4 */
     fwd_flags |= FIB_NH_FWD_F_IPV4;
     
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
-    nh_template.action =  (nh_template.proto ==RTM_PROTO_LOCAL) ? \
+    
+    /* Set forwarding action based on route type */
+    nh_template.action = (nh_template.proto == RTM_PROTO_LOCAL) ? \
                                         RTM_NH_ACTION_LOCAL : \
                                         RTM_NH_ACTION_CONNECTED;
 
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.oif = Oif->ifindex;
     nh_template.is_resolved = true;
+    
+    /* Local routes have metric 0, connected routes have metric 1 */
     nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
     
+    /* Create protocol information structure */
     rtm_error_t rc = rtm_nh_proto_info_create(
             RTM_PROTO_LOCAL, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
     assert (rc == RTM_SUCCESS);
 
     nh_template.rtm_nh_proto = nh_proto;
 
-    tracer(rtm->node->cptr, DRTM ,
+    tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s/%d  Gw:null recvd route installation request\n",  
         rtm->name, 
         rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask);
@@ -146,68 +328,95 @@ cp_rtm_install_local_or_connected_v4_routes (
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
     rtm_nh_template_internals (&nh_template);
 
-    tracer(rtm->node->cptr, DRTM ,
+    tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s\n",  
         rtm->name, addr_str, mask, rtm_error_to_string (rc));
 
     return nh_template.idx;
 }
 
-
+/**
+ * @brief Install static route
+ * 
+ * Installs a static route with a gateway (next-hop) address.
+ * Static routes are manually configured and have a configurable metric.
+ * 
+ * Route Structure:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Route Prefix: 192.168.1.0/24                            │
+ * │   └─> Nexthop: 10.1.1.1 (gateway)                       │
+ * │       └─> Outgoing Interface: eth0                       │
+ * │       └─> Metric: 10                                     │
+ * │       └─> Protocol: STATIC                               │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix (destination network)
+ * @param gateway Gateway/next-hop address
+ * @param oif Outgoing interface
+ * @param cost Route metric/cost
+ * 
+ * @return Nexthop index if successful, 0 on failure
+ */
 uint32_t
 cp_rtm_install_static_route (
         rtm_t *rtm,
         cmn_prefix_t *prefix, 
         cmn_prefix_t *gateway,
-        InterfaceP oif, uint32_t cost) {
+        InterfaceP oif, 
+        uint32_t cost) {
 
     char gw_str[32];
     char addr_str[32];
     uint16_t fwd_flags = 0;
     rtm_nh_proto_t *nh_proto = NULL;
 
+    /* Validate inputs */
+    if (!gateway || !oif) return 0;
+
+    /* Initialize nexthop template */
     cp_nexthop_template_t nh_template;
     memset(&nh_template, 0, sizeof(nh_template));
 
-    if (!gateway || !oif) return 0;
-
+    /* Configure static route parameters */
     nh_template.proto = RTM_PROTO_STATIC;
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
     nh_template.action = RTM_NH_ACTION_FORWARD;
     nh_template.oif = oif->ifindex;
-    nh_template.is_resolved = true;
+    nh_template.is_resolved = true;  /* Static routes are always resolved */
     nh_template.metric = cost;
     nh_template.gateway = *gateway;
 
+    /* Set forwarding flags based on gateway address family */
     switch (gateway->afi) {
-
         case AF_IPV4:
-        fwd_flags |= FIB_NH_FWD_F_IPV4;
-        break;
+            fwd_flags |= FIB_NH_FWD_F_IPV4;
+            break;
 
         case AF_IPV6:
-        fwd_flags |= FIB_NH_FWD_F_IPV6;
-        break;
+            fwd_flags |= FIB_NH_FWD_F_IPV6;
+            break;
     }
 
+    /* Create protocol information structure */
     rtm_error_t rc = rtm_nh_proto_info_create(
         RTM_PROTO_STATIC, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
     assert (rc == RTM_SUCCESS);
 
-    nh_template.rtm_nh_proto =  nh_proto;
+    nh_template.rtm_nh_proto = nh_proto;
 
-    tracer(rtm->node->cptr, DRTM ,
+    tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s/%d  Gw:%s recvd route installation request\n",  
         rtm->name, 
         rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)));
 
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
-    nh_template.fwd_flags = fwd_flags;;
+    nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
 
-    tracer(rtm->node->cptr, DRTM ,
+    tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s/%d  Gw:%s installation Result Code: %s\n",  
         rtm->name, 
         rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
@@ -217,12 +426,27 @@ cp_rtm_install_static_route (
     return nh_template.idx;   
 }
 
+/**
+ * @brief Uninstall static route
+ * 
+ * Removes a static route that matches the given prefix, gateway,
+ * interface, and cost.
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix to remove
+ * @param gateway Gateway address
+ * @param oif Outgoing interface
+ * @param cost Route metric (must match for removal)
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t
 cp_rtm_uninstall_static_route (
         rtm_t *rtm,
         cmn_prefix_t *prefix, 
         cmn_prefix_t *gateway,
-        InterfaceP oif, uint32_t cost) {
+        InterfaceP oif, 
+        uint32_t cost) {
 
     uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
@@ -230,9 +454,11 @@ cp_rtm_uninstall_static_route (
             
     memset(&nh_template, 0, sizeof(nh_template));
 
+    /* Configure template to match the route to be removed */
     nh_template.proto = RTM_PROTO_STATIC;
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
 
+    /* Create protocol info to match the route */
     rc = rtm_nh_proto_info_create (
                     RTM_PROTO_STATIC, 
                     RTM_SUB_PROTO_NA, 
@@ -246,15 +472,15 @@ cp_rtm_uninstall_static_route (
     nh_template.is_indirect = false;
     nh_template.is_resolved = true;
 
+    /* Set forwarding flags based on gateway address family */
     switch (gateway->afi) {
-
         case AF_IPV4:
-        fwd_flags |= FIB_NH_FWD_F_IPV4;
-        break;
+            fwd_flags |= FIB_NH_FWD_F_IPV4;
+            break;
 
         case AF_IPV6:
-        fwd_flags |= FIB_NH_FWD_F_IPV6;
-        break;
+            fwd_flags |= FIB_NH_FWD_F_IPV6;
+            break;
     }
 
     nh_template.fwd_flags = fwd_flags;
@@ -264,6 +490,33 @@ cp_rtm_uninstall_static_route (
     return rc;
 }
 
+/* ========================================================================
+ * Core Route Installation/Uninstallation Functions
+ * ======================================================================== */
+
+/**
+ * @brief Install route in RTM (with L3VPN propagation)
+ * 
+ * This is the main route installation function. It installs a route
+ * in the specified RTM and handles L3VPN route propagation if needed.
+ * 
+ * L3VPN Route Propagation:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ When route is installed in bgp.l3vpn.0:                  │
+ * │                                                          │
+ * │  1. Install in default VRF's bgp.l3vpn.0                │
+ * │  2. For each customer VRF with matching Import RT:      │
+ * │     - Copy route to customer VRF's inet.0/inet6.0       │
+ * │     - Apply VRF-specific label                           │
+ * │     - Update nexthop information                         │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix
+ * @param cp_nh_template Nexthop template with all route information
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t 
 cp_rtm_install_route ( 
         rtm_t *rtm, 
@@ -272,12 +525,14 @@ cp_rtm_install_route (
 
     rtm_error_t rc;
 
-    rc = rtm_install_route ( rtm,  prefix, cp_nh_template) ;
+    /* Install route in the target RTM */
+    rc = rtm_install_route(rtm, prefix, cp_nh_template);
 
-    /* Copy the same route to all client RIBs*/
+    /* Handle L3VPN route propagation to customer VRFs */
+    /* If this route is being installed in bgp.l3vpn.0, we need to */
+    /* propagate it to all customer VRFs that have matching Import RT */
     def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
-    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6))
-    {
+    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
         rtm_install_l3vpn_routes_to_all_client_ribs(rtm, 
             prefix, cp_nh_template, true);
     }
@@ -285,6 +540,29 @@ cp_rtm_install_route (
     return rc;
 }
 
+/**
+ * @brief Uninstall route by nexthop index
+ * 
+ * This function removes a specific nexthop from a route by its index.
+ * If this is the last nexthop, the route itself is also removed.
+ * 
+ * Uninstallation Flow:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Lookup nexthop by index                             │
+ * │ 2. Get owning route                                    │
+ * │ 3. Withdraw from resolution system                     │
+ * │ 4. Delete nexthop from route                           │
+ * │ 5. If route has active nexthops, refresh them          │
+ * │ 6. Remove nexthop from index tree                      │
+ * │ 7. If route has 0 nexthops, delete route               │
+ * │ 8. If L3VPN route, uninstall from customer VRFs        │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param idx Nexthop index to remove
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t 
 cp_rtm_uninstall_route_by_idx ( 
                             rtm_t *rtm, 
@@ -298,10 +576,10 @@ cp_rtm_uninstall_route_by_idx (
         return RTM_ERROR_INVALID_ARGUMENT;
     }
 
-    /* Look up the idx in global NH tree */
+    /* Look up the nexthop by its unique index */
     rtm_nh *nh = rtm_nh_lookup_by_idx(rtm, idx);
     
-    /* look up the route*/
+    /* Get the route that owns this nexthop */
     rtm_route *route = nh->owner_route;
     assert (route);
 
@@ -319,11 +597,12 @@ cp_rtm_uninstall_route_by_idx (
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
         rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
 
-    //bool was_resolved = rtm_route_is_resolved (route);
-
+    /* Withdraw nexthop from resolution system */
+    /* This ensures any dependent routes are notified */
     rtm_resolution_nh_withdraw (rtm, nh);
-    /* Install the nexthop in the route, it is application responsibility to not
-    to install duplicate nexthops for the route  */
+    
+    /* Delete the nexthop from the route */
+    /* Note: Application must ensure no duplicate nexthops are installed */
     rc = rtm_route_delete_nh (rtm, route, nh);
     
     if (rc != RTM_SUCCESS) {
@@ -334,35 +613,50 @@ cp_rtm_uninstall_route_by_idx (
         return rc;
     }
 
-    if (nh->is_active && route->nh_count){
+    /* If the deleted nexthop was active and route still has nexthops, */
+    /* we need to refresh the route to select a new active nexthop */
+    if (nh->is_active && route->nh_count) {
         rtm_route_refresh_nexthops (rtm, route);
     }
 
-    /* Remove nh from idx tree*/
-    rtm_nh_remove_from_idx_tree(rtm, nh);    
-    /* Use wrapper function for glthread removal */
-    rtm_nh_remove_glthread(rtm, nh, &nh->src_glue);
+    /* Remove nexthop from index tree for O(1) lookup */
+    rtm_nh_remove_from_idx_tree(rtm, nh);
+    
+    /* Remove nexthop from source protocol list */
     /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
+    rtm_nh_remove_glthread(rtm, nh, &nh->src_glue);
 
-    /* Now check if route has 0 Nexthops, then delete the route as well*/
+    /* If route has no more nexthops, delete the route as well */
     if (route->nh_count == 0) {
+        /* Schedule route deletion advertisement */
         rtm_schedule_route_advertisement (rtm, route);
         rtm_route_delete(rtm, route);
 
-        // 2. A Route is Deleted
-        // Delete cases Automatically handled
-        // if (was_resolved) rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm, &route->prefix);
+        /* Note: Route deletion cases are automatically handled */
+        /* If route was resolved, dependent routes would be notified */
     }
 
+    /* Handle L3VPN route uninstallation from customer VRFs */
     def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
-    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6))
-    {
+    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
         rtm_uninstall_l3vpn_routes_to_all_client_ribs(rtm, idx);
     }
 
     return RTM_SUCCESS;
 }
 
+/**
+ * @brief Uninstall route by prefix and nexthop template
+ * 
+ * Removes a route that matches the given prefix and nexthop template.
+ * This is used when the exact route characteristics are known.
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix to remove
+ * @param cp_nh_template Nexthop template to match
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t 
 cp_rtm_uninstall_route ( 
         rtm_t *rtm, 
@@ -371,19 +665,33 @@ cp_rtm_uninstall_route (
 
     rtm_error_t rc;
 
-    rc = rtm_uninstall_route ( rtm,  prefix, cp_nh_template) ;
+    /* Uninstall route from the target RTM */
+    rc = rtm_uninstall_route(rtm, prefix, cp_nh_template);
 
-    /* Copy the same route to all client RIBs*/
+    /* Handle L3VPN route uninstallation from customer VRFs */
     def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
-    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6))
-    {
+    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
         rtm_install_l3vpn_routes_to_all_client_ribs(rtm, prefix, cp_nh_template, false);
     }
 
     return rc;
 }
 
-/* Delete all nexthops whether Active or Inactive for a given protocol */
+/**
+ * @brief Uninstall all nexthops for a route matching a specific protocol
+ * 
+ * This function removes all nexthops from a route that match the given
+ * protocol and sub-protocol. Useful for protocol shutdown scenarios.
+ * 
+ * Example: Remove all OSPF nexthops from a route
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route prefix
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * 
+ * @return Number of nexthops deleted
+ */
 uint32_t
 cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, 
         cmn_prefix_t *route, 
@@ -402,7 +710,7 @@ cp_rtm_uninstall_route_by_proto ( rtm_t *rtm,
         return 0;
     }
 
-    /* Look up the route */
+    /* Look up the route in the RTM */
     rtm_route *rt = rtm_route_lookup(rtm, route);
     if (!rt) {
         return 0;
@@ -422,7 +730,7 @@ cp_rtm_uninstall_route_by_proto ( rtm_t *rtm,
 
     } ITERATE_GLTHREAD_END(&rt->path_list, curr);
 
-    /* If route has no more nexthops, delete the route */
+    /* If route has no more nexthops, delete the route as well */
     if (rt->nh_count == 0) {
         rtm_route_delete(rtm, rt);
     }
@@ -430,6 +738,18 @@ cp_rtm_uninstall_route_by_proto ( rtm_t *rtm,
     return deleted_count;
 }
 
+/**
+ * @brief Uninstall all routes for a specific protocol
+ * 
+ * Removes all routes (across all prefixes) that belong to a specific
+ * protocol. This is typically used during protocol shutdown.
+ * 
+ * @param rtm Pointer to routing table
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * 
+ * @return Number of routes/nexthops deleted
+ */
 uint32_t
 cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, 
                 RTM_PROTO_T proto, 
@@ -439,11 +759,15 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm,
     glthread_t *curr;
     uint32_t deleted_count = 0;
 
-
+    /* Iterate through all nexthops from this protocol */
     ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[proto], curr) {
 
         nh = src_glue_to_rtm_nh(curr);
+        
+        /* Filter by sub-protocol if specified */
         if (nh->sub_proto != sub_proto) continue;
+        
+        /* Uninstall route by nexthop index */
         cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
         deleted_count++;
 
@@ -452,7 +776,50 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm,
     return deleted_count;
 }
 
-/* Advanced API for complete route configuration */
+/* ========================================================================
+ * Advanced Route Installation APIs
+ * ======================================================================== */
+
+/**
+ * @brief Advanced route installation API with full control
+ * 
+ * This function provides a comprehensive API for installing routes
+ * with all possible options including:
+ * - Protocol and sub-protocol specification
+ * - MPLS label stacks
+ * - L3VPN labels
+ * - Custom metrics
+ * - Gateway and interface specification
+ * 
+ * Route Template Structure:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Prefix: 192.168.1.0/24                                   │
+ * │ Protocol: BGP                                            │
+ * │ Sub-Protocol: BGP_VPN                                    │
+ * │ Instance: 1                                              │
+ * │ Action: FORWARD                                           │
+ * │ Metric: 100                                              │
+ * │ Gateway: 10.1.1.1                                        │
+ * │ Interface: eth0                                          │
+ * │ Label Stack: [100, 200, 300]                            │
+ * │ L3VPN Label: 5000                                        │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * @param instance_no Protocol instance number
+ * @param action Nexthop action (FORWARD, LOCAL, DROP, etc.)
+ * @param metric Route metric
+ * @param gateway Gateway address (optional)
+ * @param oif Outgoing interface (optional)
+ * @param label_stack MPLS label stack (optional)
+ * @param label_stack_count Number of labels in stack
+ * @param l3_vpn_label L3VPN service label
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t
 cp_rtm_install_route_advanced (
     rtm_t *rtm,
@@ -473,6 +840,7 @@ cp_rtm_install_route_advanced (
     cp_nexthop_template_t nh_template;
     rtm_nh_proto_t *nh_proto = NULL;
 
+    /* Validate inputs */
     if (!rtm || !prefix) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
@@ -504,18 +872,18 @@ cp_rtm_install_route_advanced (
     if (gateway && !cmn_prefix_is_null(gateway)) {
         nh_template.gateway = *gateway;
 
+        /* Set forwarding flags based on gateway address family */
         switch (gateway->afi) {
-
             case AF_IPV4:
-            fwd_flags |= FIB_NH_FWD_F_IPV4;
-            break;
+                fwd_flags |= FIB_NH_FWD_F_IPV4;
+                break;
 
             case AF_IPV6:
-            fwd_flags |= FIB_NH_FWD_F_IPV6;
-            break;
+                fwd_flags |= FIB_NH_FWD_F_IPV6;
+                break;
             
             case AF_LABEL:
-            break;
+                break;
         }
     }
 
@@ -525,27 +893,29 @@ cp_rtm_install_route_advanced (
         nh_template.is_indirect = false;
         nh_template.is_resolved = true;
     } else {
+        /* No interface means indirect route (requires resolution) */
         nh_template.is_indirect = true;
-         nh_template.is_resolved = false;
+        nh_template.is_resolved = false;
     }
 
-    /* Create protocol info */
+    /* Create protocol information structure */
     rc = rtm_nh_proto_info_create(proto, sub_proto, instance_no, rtm->vrf, &nh_proto);
     if (rc != RTM_SUCCESS) return rc;
     
     nh_template.rtm_nh_proto = nh_proto;
 
-    /* Handle label stack if provided */
+    /* Handle MPLS label stack if provided */
     if (label_stack && label_stack_count > 0) {
         if (label_stack_count > MAX_LBL_DEPTH) {
             XFREE(nh_proto);
             return RTM_ERROR_INVALID_ARGUMENT;
         }
 
-        /* Allocate label stack */
+        /* Allocate and initialize label stack */
         mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
         mpls_lstack_init (lstack);
 
+        /* Populate label stack */
         for (uint8_t i = 0; i < label_stack_count; i++) {
             lstack->labels[i].label_val = label_stack[i];
             lstack->labels[i].op = MPLS_OP_PUSH;
@@ -565,7 +935,27 @@ cp_rtm_install_route_advanced (
     return rc;
 }
 
-/* Advanced API for route uninstallation */
+/**
+ * @brief Advanced route uninstallation API
+ * 
+ * Removes a route matching all the specified parameters.
+ * This is the counterpart to cp_rtm_install_route_advanced().
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * @param instance_no Protocol instance number
+ * @param action Nexthop action
+ * @param metric Route metric
+ * @param gateway Gateway address
+ * @param oif Outgoing interface
+ * @param label_stack MPLS label stack
+ * @param label_stack_count Number of labels
+ * @param l3_vpn_label L3VPN service label
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t
 cp_rtm_uninstall_route_advanced (
     rtm_t *rtm,
@@ -586,6 +976,7 @@ cp_rtm_uninstall_route_advanced (
     cp_nexthop_template_t nh_template;
     rtm_nh_proto_t *nh_proto = NULL;
 
+    /* Validate inputs */
     if (!rtm || !prefix) {
         return RTM_ERROR_INVALID_ARGUMENT;
     }
@@ -619,19 +1010,17 @@ cp_rtm_uninstall_route_advanced (
         nh_template.gateway = *gateway;
 
         switch (gateway->afi) {
-
             case AF_IPV4:
-            fwd_flags |= FIB_NH_FWD_F_IPV4;
-            break;
+                fwd_flags |= FIB_NH_FWD_F_IPV4;
+                break;
 
             case AF_IPV6:
-            fwd_flags |= FIB_NH_FWD_F_IPV6;
-            break;
+                fwd_flags |= FIB_NH_FWD_F_IPV6;
+                break;
 
             case AF_LABEL:
-            break;
+                break;
         }
-
     }
 
     /* Set outgoing interface if provided */
@@ -675,6 +1064,7 @@ cp_rtm_uninstall_route_advanced (
 
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.fwd_flags = fwd_flags;
+    
     /* Uninstall the route */
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
     rtm_nh_template_internals (&nh_template);
@@ -685,7 +1075,29 @@ cp_rtm_uninstall_route_advanced (
  * Protocol Registration and Subscription APIs
  * ======================================================================== */
 
-/* Register a routing protocol with RTM */
+/**
+ * @brief Register a routing protocol with RTM
+ * 
+ * Protocols must be registered before they can install routes or
+ * subscribe to route updates. Registration creates protocol-specific
+ * data structures and subscription databases.
+ * 
+ * Protocol Registration Flow:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Validate protocol type                                │
+ * │ 2. Check if already registered                          │
+ * │ 3. Create protocol info structure                       │
+ * │ 4. Initialize subscription database (AVL tree)          │
+ * │ 5. Add protocol info to RTM's protocol tree             │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param proto Protocol type (BGP, OSPF, ISIS, etc.)
+ * @param instance_no Protocol instance number
+ * @param vrf_id VRF identifier
+ * 
+ * @return true on success, false on failure
+ */
 bool
 cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id) {
     
@@ -706,7 +1118,7 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
         return false;
     }
 
-    /* Create new protocol info */
+    /* Create new protocol info structure */
     rtm_proto_info_t *proto_info = rtm_proto_info_create(rtm, proto, instance_no);
     if (!proto_info) {
         tracer(rtm->node->cptr, DRTM | DERR,
@@ -715,10 +1127,10 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
         return false;
     }
 
-    /* Initialize subscription database */
+    /* Initialize subscription database (AVL tree for efficient lookup) */
     avltree_init(&proto_info->sub_db, rtm_rt_subscription_compare);
 
-    /* Add protocol info to RTM */
+    /* Add protocol info to RTM's protocol tree */
     rtm_error_t rc = rtm_proto_info_add(rtm, proto_info);
 
     if (rc != RTM_SUCCESS) {
@@ -736,7 +1148,19 @@ cp_rtm_protocol_register(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, ui
     return true;
 }
 
-/* Unregister a routing protocol from RTM */
+/**
+ * @brief Unregister a routing protocol from RTM
+ * 
+ * Removes protocol registration and cleans up all associated
+ * subscriptions. This is typically called during protocol shutdown.
+ * 
+ * @param rtm Pointer to routing table
+ * @param proto Protocol type
+ * @param instance_no Protocol instance number
+ * @param vrf_id VRF identifier
+ * 
+ * @return true on success, false on failure
+ */
 bool
 cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id) {
 
@@ -796,7 +1220,29 @@ cp_rtm_protocol_unregister(rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, 
     return true;
 }
 
-/* Subscribe to route notifications */
+/**
+ * @brief Subscribe to route notifications
+ * 
+ * Allows a protocol to subscribe to route updates from another protocol.
+ * This enables route redistribution and protocol interaction.
+ * 
+ * Subscription Model:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Source Protocol (e.g., OSPF)                            │
+ * │   └─> Installs route in RTM                             │
+ * │       └─> RTM notifies all subscribers                  │
+ * │           └─> Target Protocol (e.g., BGP)               │
+ * │               └─> Receives route update via callback    │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param src_vrf Source VRF ID
+ * @param src_instance_no Source protocol instance
+ * @param src_proto Source protocol type
+ * @param sub_template Subscription template with target protocol info
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t
 cp_rtm_subscribe(rtm_t *rtm, 
                             uint8_t src_vrf, uint8_t src_instance_no, RTM_PROTO_T src_proto, 
@@ -830,7 +1276,7 @@ cp_rtm_subscribe(rtm_t *rtm,
         return RTM_ERROR_PROTO_NOT_REGISTERED;
     }
 
-    /* Allocate new subscription */
+    /* Allocate new subscription structure */
     rtm_rt_subscription_t *sub = (rtm_rt_subscription_t *)XCALLOC2(0, 1, rtm_rt_subscription_t);
     if (!sub) {
         tracer(rtm->node->cptr, DRTM | DERR,
@@ -846,7 +1292,7 @@ cp_rtm_subscribe(rtm_t *rtm,
     sub->prefix_list = sub_template->prefix_list;
     sub->cbk = sub_template->cbk;
 
-    /* Initialize AVL glue */
+    /* Initialize AVL glue for tree insertion */
     avltree_node_init(&sub->avl_glue);
 
     /* Add subscription to protocol's subscription database */
@@ -866,7 +1312,16 @@ cp_rtm_subscribe(rtm_t *rtm,
     return RTM_SUCCESS;
 }
 
-/* Unsubscribe from route notifications */
+/**
+ * @brief Unsubscribe from route notifications
+ * 
+ * Removes a previously created subscription.
+ * 
+ * @param rtm Pointer to routing table
+ * @param sub_template Subscription template to match for removal
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t
 cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     
@@ -894,8 +1349,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
         return RTM_ERROR_PROTO_NOT_REGISTERED;
     }
 
-    /* Search for the subscription in the database using lookup */
-    
+    /* Search for the subscription in the database */
     avltree_node_t *node = avltree_lookup(&sub_template->avl_glue, &proto_info->sub_db);
     
     if (!node) {
@@ -911,7 +1365,7 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     /* Remove subscription from database */
     avltree_strict_remove(&sub->avl_glue, &proto_info->sub_db);
     
-    /* Free subscription */
+    /* Free subscription resources */
     if (sub->prefix_list) prefix_list_dereference (sub->prefix_list);
     XFREE(sub);
 
@@ -923,12 +1377,25 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
     return RTM_SUCCESS;
 }
 
+/**
+ * @brief Get route target RTM (wrapper function)
+ * 
+ * This is a convenience wrapper that calls the core rtm_get_route_target_rtm()
+ * function. It provides a consistent API for control plane applications.
+ * 
+ * @param node Pointer to network node
+ * @param vrf VRF pointer (NULL for default VRF)
+ * @param afi Address family
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * 
+ * @return Pointer to target RTM, or NULL if not found
+ */
 rtm_t *
 cp_rtm_get_route_target_rtm( node_t *node, 
-                          vrf_t *vrf, AFI_T afi,  // NULL if default VRF
+                          vrf_t *vrf, AFI_T afi,
                           RTM_PROTO_T proto, 
-                          RTM_SUB_PROTO_T sub_proto){
+                          RTM_SUB_PROTO_T sub_proto) {
 
-
-    return rtm_get_route_target_rtm( node, vrf, afi, proto, sub_proto);
+    return rtm_get_route_target_rtm(node, vrf, afi, proto, sub_proto);
 }

@@ -1,3 +1,58 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_resolution.cpp
+ *
+ *    Description:  RTM Route Resolution - Indirect Nexthop Resolution Engine
+ *
+ *        This file implements the route resolution system for indirect nexthops (INHs).
+ *        Indirect nexthops require recursive resolution - they need to be resolved
+ *        over other routes in the routing table.
+ *
+ *        Resolution Architecture:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Route A: 192.168.1.0/24                                     │
+ *        │   Direct NH: 10.1.1.1 (resolved, active)                   │
+ *        │                                                              │
+ *        │ Route B: 10.0.0.0/8                                         │
+ *        │   Indirect NH: 10.1.1.1 (unresolved)                       │
+ *        │     └─> Resolves over Route A                               │
+ *        │     └─> Direct NH: 10.1.1.1 (copied from Route A)          │
+ *        │     └─> Now resolved!                                       │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Resolution Graph:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Route 1 (Resolved)                                          │
+ *        │   └─> Direct NH: 1.1.1.1                                    │
+ *        │       └─> Resolves Route 2's INH                            │
+ *        │                                                              │
+ *        │ Route 2 (Resolved)                                          │
+ *        │   └─> Indirect NH: 1.1.1.1                                  │
+ *        │       └─> Direct NH: 1.1.1.1 (from Route 1)                │
+ *        │       └─> Resolves Route 3's INH                            │
+ *        │                                                              │
+ *        │ Route 3 (Resolved)                                          │
+ *        │   └─> Indirect NH: 2.2.2.2                                  │
+ *        │       └─> Direct NH: 1.1.1.1 (from Route 2)                 │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Resolution States:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ UNRESOLVABLE → RESOLVING → RESOLVED                        │
+ *        │     ↑              │            │                         │
+ *        │     └───────────────┴────────────┘                         │
+ *        │              (Route Deleted)                                │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <assert.h>
 #include <memory.h>
 #include <stdlib.h>
@@ -16,6 +71,20 @@
 void  
 rtm_schedule_nh_resolution_worker (rtm_t *rtm);
 
+/* ========================================================================
+ * Indirect Nexthop Resolution Helper Functions
+ * ======================================================================== */
+
+/**
+ * @brief Check if indirect nexthop already has a direct nexthop
+ * 
+ * Used to prevent duplicate direct nexthops in the resolution list.
+ * 
+ * @param indirect_nh Indirect nexthop to check
+ * @param nh Direct nexthop to search for
+ * 
+ * @return true if direct nexthop exists, false otherwise
+ */
 static bool 
 rtm_inh_has_direct_nh (rtm_nh *indirect_nh, rtm_nh *nh) {
 
@@ -35,8 +104,30 @@ rtm_inh_has_direct_nh (rtm_nh *indirect_nh, rtm_nh *nh) {
     return false;
 }
 
-/* Route can have either all actie nexthops as Direct NHs Or
-    INHs which are resolved */
+/**
+ * @brief Copy active nexthops from route to indirect nexthop's direct NH set
+ * 
+ * When an indirect nexthop is resolved over a route, this function copies
+ * all active direct nexthops from that route to the indirect nexthop's
+ * direct nexthop list. This creates the resolution chain.
+ * 
+ * Resolution Chain Creation:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Route: 10.0.0.0/8 (Resolved)                            │
+ * │   Direct NH: 1.1.1.1 (active)                          │
+ * │   Direct NH: 2.2.2.2 (active)                            │
+ * │                                                          │
+ * │ Indirect NH: 10.1.1.1 (resolving over Route)            │
+ * │   Direct NH List:                                        │
+ * │     - 1.1.1.1 (copied from Route)                        │
+ * │     - 2.2.2.2 (copied from Route)                        │
+ * │   → Indirect NH is now resolved!                        │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route with active nexthops to copy
+ * @param indirect_nh Indirect nexthop to copy nexthops to
+ */
 void 
 rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm_t *rtm, rtm_route *route, rtm_nh *indirect_nh) {
@@ -116,10 +207,31 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
 }
 
-/* Route has been resolved i.e. its INH has been resolved by DNHs
-    Now check what all INHs this route resolves recursively and update them 
-    This fn works for Unresolution also.    
-*/
+/**
+ * @brief Recursively resolve routes that depend on this route
+ * 
+ * When a route is resolved (its indirect nexthops get direct nexthops),
+ * this function propagates the resolution upstream in the resolution graph.
+ * All routes that have indirect nexthops resolving over this route are
+ * updated.
+ * 
+ * Recursive Resolution Flow:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Route A resolved                                        │
+ * │   └─> Update Route B (INH resolves over Route A)        │
+ * │       └─> Route B resolved                              │
+ * │           └─> Update Route C (INH resolves over Route B)│
+ * │               └─> Route C resolved                      │
+ * │                   └─> ... (continues recursively)       │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * This function handles both resolution and un-resolution:
+ * - Resolution: When route gets resolved, propagate to dependent routes
+ * - Un-resolution: When route becomes unresolved, mark dependent routes
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route that was just resolved/unresolved
+ */
 void
 rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
 
@@ -200,6 +312,31 @@ rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
     } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
 }
 
+/**
+ * @brief Try to resolve all unresolvable indirect nexthops
+ * 
+ * This function attempts to resolve all indirect nexthops in the
+ * unresolvable queue. It uses LPM (Longest Prefix Match) to find
+ * routes that can resolve each indirect nexthop.
+ * 
+ * Resolution Process:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ For each unresolvable INH:                              │
+ * │   1. Perform LPM lookup for INH's gateway              │
+ * │   2. If route found:                                    │
+ * │      - Copy route's active NHs to INH                   │
+ * │      - Mark INH as resolved                            │
+ * │      - Remove from unresolvable queue                   │
+ * │      - Recursively resolve dependent routes             │
+ * │   3. If route not found:                                │
+ * │      - Keep INH in unresolvable queue                   │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * The function is called recursively until no more routes can be resolved.
+ * 
+ * @param rtm Pointer to routing table
+ * @param resolved_count Output parameter for number of routes resolved
+ */
 void 
 rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
 
@@ -263,6 +400,26 @@ rtm_try_unresolvable_paths_resolution (rtm_t *rtm, int *resolved_count) {
     }
 } 
 
+/**
+ * @brief Nexthop resolution worker callback
+ * 
+ * This is the main resolution worker that runs asynchronously.
+ * It processes all unresolvable indirect nexthops and attempts
+ * to resolve them.
+ * 
+ * Resolution Worker Flow:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Check if re-resolution flag is set                  │
+ * │    - If yes, unresolve all INHs first                    │
+ * │ 2. Try to resolve all unresolvable paths                │
+ * │ 3. If any routes were resolved:                         │
+ * │    - Schedule route propagation worker                  │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param ev Event dispatcher
+ * @param arg RTM pointer (cast from void*)
+ * @param arg_size Argument size (unused)
+ */
 static void
 rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 

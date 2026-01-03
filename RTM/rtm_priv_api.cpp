@@ -1,3 +1,93 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_priv_api.cpp
+ *
+ *    Description:  RTM Private API - Core Route Installation and Management
+ *
+ *        This file contains the private/internal APIs for the RTM system.
+ *        These functions handle the core logic of route installation, uninstallation,
+ *        nexthop management, and L3VPN route propagation.
+ *
+ *        Key Responsibilities:
+ *        1. Route Installation/Uninstallation (core logic)
+ *        2. Nexthop Management and Path Selection
+ *        3. Admin Distance Calculation
+ *        4. L3VPN Route Propagation to Customer VRFs
+ *        5. CLI Handler for Route Configuration
+ *        6. Route Formatting and Display
+ *
+ *        Route Installation Flow:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ 1. Validate Nexthop Template                                │
+ *        │    - Check protocol, sub-protocol, action                   │
+ *        │    - Validate gateway and interface                         │
+ *        │    - Verify MPLS label stack (if present)                    │
+ *        ├─────────────────────────────────────────────────────────────┤
+ *        │ 2. Lookup or Create Route                                   │
+ *        │    - Search route tree by prefix                             │
+ *        │    - If not found, create new route structure                │
+ *        │    - Add route to RTM's route tree                           │
+ *        ├─────────────────────────────────────────────────────────────┤
+ *        │ 3. Create Nexthop from Template                              │
+ *        │    - Allocate nexthop structure                             │
+ *        │    - Copy protocol information                              │
+ *        │    - Set admin distance and metric                          │
+ *        │    - Configure forwarding flags                             │
+ *        ├─────────────────────────────────────────────────────────────┤
+ *        │ 4. Add Nexthop to Route                                     │
+ *        │    - Insert in sorted order (by AD, metric, etc.)           │
+ *        │    - Update route's nexthop count                           │
+ *        │    - Add to RTM's nexthop index tree                        │
+ *        │    - Add to protocol-specific nexthop list                  │
+ *        ├─────────────────────────────────────────────────────────────┤
+ *        │ 5. Refresh Route Nexthops                                    │
+ *        │    - Determine active nexthop(s)                            │
+ *        │    - Update is_active flags                                 │
+ *        │    - Trigger FIB updates if needed                           │
+ *        ├─────────────────────────────────────────────────────────────┤
+ *        │ 6. Handle Route Resolution                                   │
+ *        │    - If route is resolved, check unresolvable paths         │
+ *        │    - Schedule resolution worker if needed                    │
+ *        │    - Re-resolve dependent indirect nexthops                  │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Nexthop Path Selection (Best Path Algorithm):
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Route: 192.168.1.0/24                                       │
+ *        │ ┌─────────────────────────────────────────────────────────┐ │
+ *        │ │ Nexthop 1: AD=110, Metric=10, Proto=OSPF               │ │
+ *        │ │ Nexthop 2: AD=20,  Metric=5,  Proto=BGP               │ │ ← Best (Lower AD)
+ *        │ │ Nexthop 3: AD=20,  Metric=10, Proto=BGP               │ │
+ *        │ │ Nexthop 4: AD=1,   Metric=0,  Proto=STATIC            │ │ ← Best (Lower AD)
+ *        │ └─────────────────────────────────────────────────────────┘ │
+ *        │                                                              │
+ *        │ Selection Order:                                            │
+ *        │ 1. Admin Distance (lower is better)                         │
+ *        │ 2. Metric (lower is better)                                 │
+ *        │ 3. Protocol-specific tie-breakers                            │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        L3VPN Route Propagation:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Default VRF: bgp.l3vpn.0                                    │
+ *        │   Route: 10.1.1.0/24 (RD: 100:1, RT: 200:1)                │
+ *        │   └─> Customer VRF 1 (Import RT: 200:1)                     │
+ *        │       └─> vrf1.inet.0: 10.1.1.0/24                         │
+ *        │   └─> Customer VRF 2 (Import RT: 200:2)                    │
+ *        │       └─> (Not imported - RT mismatch)                      │
+ *        │   └─> Customer VRF 3 (Import RT: 200:1)                      │
+ *        │       └─> vrf3.inet.0: 10.1.1.0/24                         │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
@@ -24,7 +114,43 @@
 
 extern graph_t * topo;
 
-/* Helper function to get admin distance based on protocol and sub-protocol */
+/* ========================================================================
+ * Admin Distance Management
+ * ======================================================================== */
+
+/**
+ * @brief Get admin distance based on protocol and sub-protocol
+ * 
+ * Admin Distance (AD) determines route preference when multiple protocols
+ * advertise the same route. Lower AD values are preferred.
+ * 
+ * Admin Distance Table:
+ * ┌─────────────────────┬──────────────────────────┬──────────────┐
+ * │ Protocol            │ Sub-Protocol             │ Admin Dist   │
+ * ├─────────────────────┼──────────────────────────┼──────────────┤
+ * │ CONNECTED           │ N/A                      │ 0            │
+ * │ STATIC              │ N/A                      │ 1            │
+ * │ LOCAL               │ N/A                      │ 1            │
+ * │ OSPF                │ INTER                    │ 10           │
+ * │ OSPF                │ INTRA                    │ 10           │
+ * │ OSPF                │ EXT                     │ 150          │
+ * │ ISIS                │ N/A                      │ 115          │
+ * │ BGP                 │ INTERNAL                │ 200          │
+ * │ BGP                 │ EXTERNAL                │ 20           │
+ * │ LDP                 │ N/A                      │ 5            │
+ * │ SR/SRTE             │ N/A                      │ 5            │
+ * └─────────────────────┴──────────────────────────┴──────────────┘
+ * 
+ * Route Selection Priority:
+ * 1. Lower Admin Distance = Higher Priority
+ * 2. If AD is equal, lower metric wins
+ * 3. Protocol-specific tie-breakers
+ * 
+ * @param proto Protocol type
+ * @param sub_proto Sub-protocol type
+ * 
+ * @return Admin distance value
+ */
 RTM_AD_T
 rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto) 
 {
@@ -63,14 +189,41 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
     return RTM_ADMIN_DIST_UNKNOWN;
 }
 
-/* Insert the nh at appripriate position in route path list using fn rtm_nh_compare () 
-    Set is_active to true/false depending if this is the best path in route list
-    invoke fn : rtm_nh_set_active ( ) / rtm_nh_set_inactive ( ) if the state of the nexthop
-    switches from inactive to active or active to inactive. Use rtm_nh_compare( ) to compare two
-    nexthops
-*/
+/* ========================================================================
+ * Nexthop Path List Management
+ * ======================================================================== */
+
+/**
+ * @brief Add nexthop to route's path list in sorted order
+ * 
+ * This function inserts a nexthop into a route's path list, maintaining
+ * sorted order based on the nexthop comparison function (rtm_nh_compare).
+ * The path list is sorted by:
+ * 1. Admin Distance (lower is better)
+ * 2. Metric (lower is better)
+ * 3. Protocol-specific tie-breakers
+ * 
+ * Path List Structure:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Route: 192.168.1.0/24                                   │
+ * │ path_list (sorted by preference):                       │
+ * │   [NH1: AD=1, Metric=0]  ← Best (Active)               │
+ * │   [NH2: AD=20, Metric=5]                                │
+ * │   [NH3: AD=20, Metric=10]                               │
+ * │   [NH4: AD=110, Metric=10]                              │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * After insertion, the function:
+ * - Updates route's nexthop count
+ * - References the nexthop (increments ref_count)
+ * - Triggers route refresh to determine active nexthop(s)
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route to add nexthop to
+ * @param nh Nexthop to add
+ */
 void
- rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh) {
+rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh) {
 
     
     char gw_str[48];
@@ -112,6 +265,28 @@ void
  }
 
 
+/* ========================================================================
+ * Formatting and Display Functions
+ * ======================================================================== */
+
+/**
+ * @brief Format prefix for display
+ * 
+ * Converts a prefix structure to a human-readable string format.
+ * Supports IPv4, IPv6, MPLS labels, and MAC addresses.
+ * 
+ * Format Examples:
+ * - IPv4: "192.168.1.0/24"
+ * - IPv6: "2001:db8::1/64"
+ * - MPLS: "100" (label value)
+ * - MAC:  "aa:bb:cc:dd:ee:ff"
+ * 
+ * @param prefix Prefix structure to format
+ * @param buffer Output buffer
+ * @param buflen Buffer length
+ * 
+ * @return Pointer to formatted string (same as buffer)
+ */
 char *
 rtm_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
     
@@ -143,7 +318,18 @@ rtm_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
     return buffer;
 }
 
-/* Helper function to format nexthop (without prefix length) */
+/**
+ * @brief Format nexthop address for display (without prefix length)
+ * 
+ * Similar to rtm_format_prefix() but omits the prefix length.
+ * Used for displaying gateway/nexthop addresses.
+ * 
+ * @param prefix Prefix structure to format
+ * @param buffer Output buffer
+ * @param buflen Buffer length
+ * 
+ * @return Pointer to formatted string (same as buffer)
+ */
 char *rtm_format_nexthop(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
     
     uint32_t temp;
@@ -174,6 +360,46 @@ char *rtm_format_nexthop(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
     return buffer;
 }
 
+/* ========================================================================
+ * CLI Handler for Route Configuration
+ * ======================================================================== */
+
+/**
+ * @brief CLI handler for route configuration
+ * 
+ * This function handles CLI commands for installing/uninstalling routes.
+ * It parses TLV (Type-Length-Value) parameters from the CLI and converts
+ * them into route installation/uninstallation calls.
+ * 
+ * Supported CLI Parameters:
+ * ┌─────────────────────┬─────────────────────────────────────────────┐
+ * │ Parameter           │ Description                                 │
+ * ├─────────────────────┼─────────────────────────────────────────────┤
+ * │ node-name           │ Target node name                            │
+ * │ vrf-id              │ VRF identifier (0 for default)              │
+ * │ prefix-mask         │ Route prefix (IP/mask or Label:value)        │
+ * │ proto-id            │ Protocol type                                │
+ * │ sub-proto-id        │ Sub-protocol type                            │
+ * │ instance-no         │ Protocol instance number                     │
+ * │ action-id           │ Nexthop action (FORWARD, LOCAL, etc.)         │
+ * │ metric              │ Route metric                                 │
+ * │ gw-ip               │ Gateway/next-hop address                     │
+ * │ if-name             │ Outgoing interface name                       │
+ * │ vpn-label           │ L3VPN service label                          │
+ * │ label-list          │ MPLS label stack (multiple values)           │
+ * └─────────────────────┴─────────────────────────────────────────────┘
+ * 
+ * Prefix Format Support:
+ * - IPv4: "192.168.1.0/24"
+ * - IPv6: "2001:db8::1/64"
+ * - MPLS: "Label:100" or plain "100"
+ * 
+ * @param cmdcode Command code
+ * @param tlv_stack Stack of TLVs from CLI parser
+ * @param enable_or_disable CONFIG_ENABLE or CONFIG_DISABLE
+ * 
+ * @return 0 on success, -1 on error
+ */
 int
 config_rtm_route_cli_handler(int cmdcode,
                               Stack_t *tlv_stack,
@@ -987,7 +1213,44 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 
 
 /* Install the route in RTM , Check for duplicate nexthop for the route.
-    Return appropriate error code */
+/* ========================================================================
+ * Core Route Installation/Uninstallation Functions
+ * ======================================================================== */
+
+/**
+ * @brief Install route in RTM (core function)
+ * 
+ * This is the core route installation function. It handles:
+ * - Route creation if it doesn't exist
+ * - Nexthop creation from template
+ * - Nexthop insertion into route's path list
+ * - Route resolution triggering
+ * - FIB updates
+ * 
+ * Installation Process:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Validate nexthop template                           │
+ * │ 2. Lookup route (create if new)                         │
+ * │ 3. Create nexthop from template                         │
+ * │ 4. Add nexthop to route (sorted insertion)              │
+ * │ 5. Add nexthop to RTM index tree                        │
+ * │ 6. Add nexthop to protocol list                         │
+ * │ 7. Refresh route to determine active nexthop            │
+ * │ 8. If route is resolved, trigger resolution worker     │
+ * │ 9. Re-resolve dependent indirect nexthops               │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * Error Handling:
+ * - If route creation fails, return error
+ * - If nexthop creation fails, clean up route (if new)
+ * - If nexthop addition fails, clean up nexthop and route
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix
+ * @param cp_nh_template Nexthop template with all route information
+ * 
+ * @return RTM_SUCCESS on success, appropriate error code on failure
+ */
 rtm_error_t 
 rtm_install_route ( 
                 rtm_t *rtm, 
@@ -1152,6 +1415,31 @@ rtm_install_route (
 }
 
 
+/**
+ * @brief Uninstall route from RTM (core function)
+ * 
+ * Removes a nexthop from a route. If this is the last nexthop,
+ * the route itself is also removed.
+ * 
+ * Uninstallation Process:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Validate nexthop template                           │
+ * │ 2. Lookup route                                        │
+ * │ 3. Create nexthop from template (for matching)         │
+ * │ 4. Find matching nexthop in route                       │
+ * │ 5. Withdraw from resolution system                     │
+ * │ 6. Delete nexthop from route                           │
+ * │ 7. If route has active nexthops, refresh them          │
+ * │ 8. Remove nexthop from index tree                      │
+ * │ 9. If route has 0 nexthops, delete route                │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param prefix Route prefix
+ * @param nh_template Nexthop template to match for removal
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t 
 rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix, 
                          cp_nexthop_template_t *nh_template) {
@@ -1247,7 +1535,37 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
     return RTM_SUCCESS;
 }
 
-/* Generic function to copy the RIBs */
+/* ========================================================================
+ * L3VPN Route Propagation Functions
+ * ======================================================================== */
+
+/**
+ * @brief Copy routes from source RIB to destination RIB
+ * 
+ * This function copies routes from a source RIB (typically bgp.l3vpn.0)
+ * to a destination RIB (typically a customer VRF's inet.0/inet6.0).
+ * Routes are filtered based on Import Route Target (RT).
+ * 
+ * L3VPN Route Copy Flow:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Source RIB: bgp.l3vpn.0                                 │
+ * │   Route: 10.1.1.0/24 (RT: 200:1)                       │
+ * │   └─> Filter by Import RT: 200:1                       │
+ * │       └─> Match! Copy to destination RIB                │
+ * │                                                          │
+ * │ Destination RIB: vrf1.inet.0                            │
+ * │   Route: 10.1.1.0/24 (copied with VRF label)            │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * Route Target Filtering:
+ * - If import_rt is (0:0), all routes are copied (pass-through)
+ * - Otherwise, only routes with matching RT are copied
+ * 
+ * @param node Pointer to network node
+ * @param src_rib Source routing table
+ * @param dst_rib Destination routing table
+ * @param import_rt Import Route Target for filtering
+ */
 static void 
 rtm_copy_ribs (node_t *node, 
         rtm_t *src_rib, 
@@ -1330,6 +1648,29 @@ rtm_copy_ribs (node_t *node,
 
 }
 
+/**
+ * @brief Copy L3VPN routes to customer VRF RIBs
+ * 
+ * Propagates routes from bgp.l3vpn.0 to customer VRF RIBs based on
+ * Import Route Targets. This implements the L3VPN route distribution
+ * mechanism.
+ * 
+ * L3VPN Distribution:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Default VRF: bgp.l3vpn.0 (IPv4)                        │
+ * │   Route: 10.1.1.0/24 (RD: 100:1, RT: 200:1)            │
+ * │                                                          │
+ * │ Customer VRFs:                                          │
+ * │   VRF1 (Import RT: 200:1) → Match! Copy to vrf1.inet.0 │
+ * │   VRF2 (Import RT: 200:2) → No match, skip              │
+ * │   VRF3 (Import RT: 200:1) → Match! Copy to vrf3.inet.0  │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param node Pointer to network node
+ * @param afi Address family (AF_IPV4 or AF_IPV6)
+ * @param target_vrf_id Specific VRF ID (0 for all VRFs)
+ * @param perform_resolution Whether to perform route resolution after copy
+ */
 void 
 rtm_copy_l3vpn_to_vrf_client_ribs (
         node_t *node,
@@ -1373,12 +1714,27 @@ rtm_copy_l3vpn_to_vrf_client_ribs (
     }
 }
 
-/* Given a RIB, this function returns the list of Client RIBs which
-    should be clone to parent RIB i.e. routes installed/deleted in
-    parent rib must also happen in client's RIB. Example is, All
-    Customer VRF RIBs are client Ribs of BGP VPN Global RIB. The
-    function returns address of the first node in the list */
-
+/**
+ * @brief Get list of client RIBs for a given parent RIB
+ * 
+ * Returns a list of client RIBs that should receive route updates
+ * from the parent RIB. This is used for L3VPN route propagation.
+ * 
+ * Client RIB Relationship:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ Parent RIB: bgp.l3vpn.0                                │
+ * │   └─> Client RIBs:                                      │
+ * │       - vrf1.inet.0                                     │
+ * │       - vrf2.inet.0                                     │
+ * │       - vrf3.inet.0                                     │
+ * │                                                          │
+ * │ When route is installed/deleted in parent:              │
+ * │   → Automatically propagated to all client RIBs          │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Parent routing table
+ * @param lst_head_out Output list head for client RIBs
+ */
 static void
 rtm_get_client_rtm_set (rtm_t *rtm, glthread_t *lst_head_out) {
 

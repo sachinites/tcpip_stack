@@ -1,3 +1,48 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_nh.h
+ *
+ *    Description:  RTM Nexthop Header - Nexthop Structure and Operations
+ *
+ *        This header defines the nexthop structure and all nexthop-related operations.
+ *        Nexthops represent the forwarding information for routes.
+ *
+ *        Nexthop Types:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ Direct Nexthop (DNH)                                       │
+ *        │   - Gateway is directly reachable                          │
+ *        │   - Has outgoing interface                                 │
+ *        │   - Can be used immediately for forwarding                  │
+ *        │                                                              │
+ *        │ Indirect Nexthop (INH)                                      │
+ *        │   - Gateway requires recursive resolution                   │
+ *        │   - Resolves over another route                            │
+ *        │   - Has list of direct nexthops (from resolved route)      │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Nexthop Structure:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ rtm_nh                                                       │
+ *        │  - idx: Unique nexthop ID                                   │
+ *        │  - prefix: Gateway/nexthop address                          │
+ *        │  - oif: Outgoing interface index                           │
+ *        │  - proto: Protocol (BGP, OSPF, etc.)                        │
+ *        │  - ad: Admin distance                                       │
+ *        │  - metric: Route metric                                     │
+ *        │  - is_active: Whether this is the best path                │
+ *        │  - is_indirect: Whether this is an indirect nexthop        │
+ *        │  - direct_nh_list: List of direct NHs (for INH)            │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #ifndef __RTM_NH__
 #define __RTM_NH__
 #pragma pack(push, 8)
@@ -14,15 +59,29 @@
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../vrf/vrf.h"
 
+/* ========================================================================
+ * Forward Declarations
+ * ======================================================================== */
+
 typedef struct rtm_ rtm_t;
 typedef struct rtm_route_ rtm_route;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 
-#define RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM 1
-#define RTM_INH_F_RESOLVED_IN_FOREIGN_RTM 2
+/* ========================================================================
+ * Nexthop Flags
+ * ======================================================================== */
 
+#define RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM 1  /* Don't propagate DNH upstream */
+#define RTM_INH_F_RESOLVED_IN_FOREIGN_RTM 2    /* INH resolved in different RTM */
+
+/**
+ * @brief Nexthop structure
+ * 
+ * Represents a nexthop (next-hop) for a route. Can be either direct
+ * (immediately usable) or indirect (requires recursive resolution).
+ */
 typedef struct rtm_nh_ {
 
         /* Unique nexthop index - constant throughout lifetime */

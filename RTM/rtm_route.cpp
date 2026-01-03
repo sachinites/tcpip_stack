@@ -1,3 +1,56 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_route.cpp
+ *
+ *    Description:  RTM Route Management - Route Lifecycle and Operations
+ *
+ *        This file manages the lifecycle of routes in the RTM system, including
+ *        route creation, deletion, lookup, and nexthop management.
+ *
+ *        Route Structure:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ rtm_route                                                    │
+ *        │  - prefix: Route prefix (destination network)               │
+ *        │  - path_list: Sorted list of nexthops (by preference)       │
+ *        │  - nh_count: Number of nexthops                             │
+ *        │  - ref_count: Reference count                               │
+ *        │  - resolved_lnhs: List of INHs resolved over this route     │
+ *        │  - route_glue: AVL tree node (for route_tree)               │
+ *        │  - advt_glue: Advertisement queue node                      │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Route Storage:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ RTM                                                          │
+ *        │  ┌──────────────────────────────────────────────────────┐   │
+ *        │  │ route_tree (AVL Tree)                               │   │
+ *        │  │  └─> Routes sorted by prefix                         │   │
+ *        │  └──────────────────────────────────────────────────────┘   │
+ *        │  ┌──────────────────────────────────────────────────────┐   │
+ *        │  │ lpm_rt_tree (MTrie)                                 │   │
+ *        │  │  └─> Routes for LPM lookup                           │   │
+ *        │  └──────────────────────────────────────────────────────┘   │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Route Lifecycle:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ CREATE → ADD_NH → RESOLVED → DELETE                        │
+ *        │   │        │         │          │                           │
+ *        │   │        │         │          └─> Remove from trees       │
+ *        │   │        │         └─> Install in FIB                     │
+ *        │   │        └─> Sort by preference                            │
+ *        │   └─> Add to route_tree & lpm_rt_tree                       │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -24,10 +77,20 @@
 extern void 
 rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix);
 
-/* Unreference all resources held by this route. No need to
-     Unreference resources which hold a ref count back to
-     the route, for example, path list as it is taken by ref_count
-*/
+/* ========================================================================
+ * Route Resource Management
+ * ======================================================================== */
+
+/**
+ * @brief Release all resources held by a route
+ * 
+ * Cleans up all resources associated with a route before deletion.
+ * Note: Resources that hold reference counts back to the route
+ * (like path_list) are handled by ref_count mechanism.
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route to clean up
+ */
 static void 
 rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
 
@@ -72,7 +135,25 @@ rtm_route_reference(rtm_route* route) {
     route->ref_count++;
 }
 
-/* Comparator function for route AVL tree */
+/* ========================================================================
+ * Route Tree Operations
+ * ======================================================================== */
+
+/**
+ * @brief Compare two routes for AVL tree ordering
+ * 
+ * Routes are compared in the following order:
+ * 1. Address Family (AFI)
+ * 2. Prefix Length
+ * 3. Address value (based on AFI)
+ * 
+ * This ensures routes are stored in a consistent order for efficient lookup.
+ * 
+ * @param node1 First AVL tree node
+ * @param node2 Second AVL tree node
+ * 
+ * @return -1 if route1 < route2, 0 if equal, 1 if route1 > route2
+ */
 int
 rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
     
@@ -212,7 +293,17 @@ rtm_route_add(rtm_t* rtm, rtm_route* route) {
     return RTM_SUCCESS;
 }
 
-/* Lookup a nexthop in a route */
+/**
+ * @brief Lookup a nexthop in a route by exact match
+ * 
+ * Searches for a nexthop in the route's path list that exactly
+ * matches the template nexthop (all attributes must match).
+ * 
+ * @param route Route to search in
+ * @param nh_template Nexthop template to match
+ * 
+ * @return Pointer to matching nexthop, or NULL if not found
+ */
 rtm_nh* 
 rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
     
@@ -258,7 +349,29 @@ rtm_route_lookup_nh_with_same_fwding_behavior(
     return NULL;
 }
 
-/* Add a nexthop to a route */
+/**
+ * @brief Add a nexthop to a route
+ * 
+ * Adds a nexthop to a route's path list. The nexthop is inserted
+ * in sorted order based on preference (admin distance, metric, etc.).
+ * 
+ * Process:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Check for duplicate nexthop (exact match)          │
+ * │ 2. Check for duplicate data-plane nexthop              │
+ * │ 3. Set nexthop's owner route                           │
+ * │ 4. Reference the route                                 │
+ * │ 5. Add nexthop to path list (sorted)                   │
+ * │ 6. Add/update protocol info                             │
+ * │ 7. Refresh route to determine active nexthop            │
+ * └─────────────────────────────────────────────────────────┘
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route to add nexthop to
+ * @param nh Nexthop to add
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t 
 rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
@@ -325,8 +438,18 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     return RTM_SUCCESS;
 }
 
-/* Delete the nexthop from the route, the nexthop is actual nexthop object
-    of the route, not a template copy. Delete the route if its all nexthops are gone */
+/**
+ * @brief Delete a nexthop from a route
+ * 
+ * Removes a nexthop from a route's path list. If this is the last
+ * nexthop, the route itself should be deleted (handled by caller).
+ * 
+ * @param rtm Pointer to routing table
+ * @param route Route to remove nexthop from
+ * @param nh Nexthop to remove (must be actual nexthop object, not template)
+ * 
+ * @return RTM_SUCCESS on success, error code on failure
+ */
 rtm_error_t 
 rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 

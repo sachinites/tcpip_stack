@@ -1,3 +1,40 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  rtm_route.h
+ *
+ *    Description:  RTM Route Header - Route Structure and Operations
+ *
+ *        This header defines the route structure and all route-related operations
+ *        in the RTM system. Routes represent destination networks with associated
+ *        nexthops.
+ *
+ *        Route Structure:
+ *        ┌─────────────────────────────────────────────────────────────┐
+ *        │ rtm_route                                                     │
+ *        │  - prefix: Destination network                              │
+ *        │  - path_list: Sorted list of nexthops                        │
+ *        │  - resolved_lnhs: List of INHs resolved over this route       │
+ *        │  - nh_count: Number of nexthops                              │
+ *        │  - ref_count: Reference count                                │
+ *        │  - route_glue: AVL tree node                                │
+ *        └─────────────────────────────────────────────────────────────┘
+ *
+ *        Route Operations:
+ *        - Lookup: Find route by prefix
+ *        - Add: Add route to RTM
+ *        - Delete: Remove route from RTM
+ *        - Nexthop Management: Add/remove nexthops
+ *        - Resolution: Track which INHs resolve over this route
+ *
+ *        Version:  1.0
+ *        Created:  [Original Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc/g++
+ *
+ * =====================================================================================
+ */
+
 #ifndef __RTM_ROUTE__
 #define __RTM_ROUTE__
 
@@ -10,11 +47,21 @@
 #include "rtm_error.h"
 #include "rtm_nh.h"
 
-/* Forward declaration */
+/* ========================================================================
+ * Forward Declarations
+ * ======================================================================== */
+
 typedef struct bitmap_ bitmap_t;
 
 #pragma pack(push, 8)
 
+/**
+ * @brief Route structure
+ * 
+ * Represents a destination network with associated nexthops.
+ * Routes are stored in AVL trees for efficient lookup and in
+ * MTrie structures for longest prefix match operations.
+ */
 typedef struct rtm_route_ {
 
     /* List of Nexthops of this route*/
@@ -48,9 +95,18 @@ typedef struct rtm_route_ {
 } rtm_route;
 
 #pragma pack(pop)
+
+/* ========================================================================
+ * Glue Macros
+ * ======================================================================== */
+
 GLTHREAD_TO_STRUCT(resolved_route_glue_to_route, rtm_route, resolved_route_glue);
 GLTHREAD_TO_STRUCT(advt_glue_to_route, rtm_route, advt_glue);
 GLTHREAD_TO_STRUCT(stats_resolved_glue_to_route, rtm_route, stats_resolved_glue);
+
+/* ========================================================================
+ * Route Management API
+ * ======================================================================== */
 
 /* Methods */
 void rtm_route_initialize(rtm_route *route);
