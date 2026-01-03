@@ -109,34 +109,22 @@ node_create_vlan_flood_interface(node_t *node) {
 
 typedef struct l3_route_ l3_route_t;
 
-bool node_set_loopback_address(node_t *node, const char *ip_addr){
+bool node_set_rtr_id(node_t *node, const char *ip_addr){
 
     uint32_t nh_idx = 0;
     assert(ip_addr);
-
-    node->node_nw_prop.is_lb_addr_config = true;
-    string_copy((char *)NODE_LO_ADDR(node), ip_addr, 16);
-    NODE_LO_ADDR(node)[15] = '\0';
-
-    /*Add it as direct route in routing table*/
-    rt_ipv4_route_add (node, 
-                        tcp_ip_convert_ip_p_to_n(ip_addr), 32, 
-                        0, 0, 0, PROTO_STATIC, true);
-    
+    string_copy((char *)NODE_RTRID_ADDR(node), ip_addr, 16);
+    NODE_RTRID_ADDR(node)[15] = '\0';
     return true;
 }
 
 void 
-node_set_v6_loopback_address(node_t *node, const char *ipv6_addr ){
+node_set_v6_rtr_id(node_t *node, const char *ipv6_addr ){
 
     assert(ipv6_addr);
-
-    inet_pton(AF_INET6, ipv6_addr, node->node_nw_prop.ipv6_addr);
-
+    inet_pton(AF_INET6, ipv6_addr, node->node_nw_prop.ipv6_rtr_id);
     ipv6_addr_t prefix;
-    memcpy (prefix.addr, node->node_nw_prop.ipv6_addr, 16);
-    ipv6_route_install (node, &prefix, 128, 0, 
-        0, 0, 0, 0, 0, PROTO_STATIC);
+    memcpy (prefix.addr, node->node_nw_prop.ipv6_rtr_id, 16);
 }
 
 
@@ -150,21 +138,9 @@ node_set_intf_ip_address(node_t *node, const char *local_if,
 
 void dump_node_nw_props(node_t *node){
 
-    unsigned char buffer[48];
-
-    memset (buffer, 0, sizeof(buffer));
-
-    cprintf("\nNode Name = %s(%s) UDP Port # : %u  ",
+    cprintf("\nNode Name = %s UDP Port # : %u  ",
         node->node_name, 
-        tcp_ip_covert_ip_n_to_p(NODE_LO_ADDR(node),  buffer),
         node->udp_port_number);
-
-    if (!is_ipv6_addr_unspecified (&node->node_nw_prop.ipv6_addr)) {
-        
-        ipv6_addr_t temp_v6_addr;
-        memcpy (&temp_v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
-        cprintf ("  v6lo addr : %s/128", inet_ntop6 (&temp_v6_addr, buffer));
-    }
 
     cprintf("\n");
 }
@@ -305,8 +281,7 @@ void
 init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
-    node_nw_prop->is_lb_addr_config = false;
-    memset(node_nw_prop->lb_addr.ip_addr, 0, 16);
+    memset(node_nw_prop->rtr_id.ip_addr, 0, 16);
     init_arp_table(&(node_nw_prop->arp_table));
     init_mac_table(&(node_nw_prop->mac_table));
     node_nw_prop->vlan_vni_ht.store(nullptr);  /* Initialize atomic hashtable pointer */

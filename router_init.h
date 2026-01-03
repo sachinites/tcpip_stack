@@ -53,7 +53,7 @@
 #include "cp_ipc.h"
 #include "vrf/vrf.h"
 
-#define NODE_NAME_SIZE   24
+#define NODE_NAME_SIZE   32
 #define IF_NAME_SIZE     16
 #define MAX_INTF_PER_NODE   10
 

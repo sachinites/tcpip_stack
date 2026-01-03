@@ -504,7 +504,7 @@ isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t 
 
     lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
     lsp_pkt_hdr->seq_no = (++fragment->seq_no);
-    lsp_pkt_hdr->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
+    lsp_pkt_hdr->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node));
     lsp_pkt_hdr->pn_no = fragment->pn_no;
     lsp_pkt_hdr->fr_no = fragment->fr_no;
 
@@ -1264,7 +1264,7 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
 
     /* Advertise v6loop back as  IPV6 REACH TLV*/
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
-    memcpy (v6_addr.addr, node->node_nw_prop.ipv6_addr, 16);
+    memcpy (v6_addr.addr, node->node_nw_prop.ipv6_rtr_id, 16);
     v6lo_advt = isis_advertise_ipv6_reach (node, &v6_addr, 128, 0, 0);
     node_info->tlv_global_advt.v6lo_adv_data_tlv236 = v6lo_advt;
     v6lo_advt->src.holder = &node_info->tlv_global_advt.v6lo_adv_data_tlv236;

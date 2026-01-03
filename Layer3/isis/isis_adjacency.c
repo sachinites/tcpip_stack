@@ -341,7 +341,7 @@ isis_update_interface_adjacency_from_hello(
         switch(tlv_type){
             case ISIS_TLV_HOSTNAME:
                 /* Bounds check to prevent buffer overflow */
-                if (tlv_len > 0 && tlv_len < sizeof(adjacency->nbr_name)) {
+                if (tlv_len > 0 && tlv_len <= sizeof(adjacency->nbr_name)) {
                     if (memcmp(adjacency->nbr_name, tlv_value, tlv_len)) {
                         regen_lsp = true;
                         memcpy(adjacency->nbr_name, tlv_value, tlv_len);

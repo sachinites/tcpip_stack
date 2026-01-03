@@ -924,7 +924,6 @@ srv6_build_global_config_cli_tree (param_t *root) {
                             init_param(&prefix_len, LEAF, NULL, srv6_locator_handler, NULL, INT, "prefix-len", "Prefix Length");
                             libcli_register_param(&ipv6_addr, &prefix_len);
                             libcli_set_param_cmd_code(&prefix_len, IPV6_SRV6_LOCATOR_CONFIG);
-                            libcli_set_tail_config_batch_processing(&prefix_len);
                             {
                                 static param_t algo;
                                 init_param(&algo, CMD, "algorithm", NULL, NULL, INVALID, NULL, "Configure Flexible Algorithm");
@@ -934,7 +933,6 @@ srv6_build_global_config_cli_tree (param_t *root) {
                                     init_param(&value, LEAF, NULL, srv6_locator_handler, NULL, INT, "algorithm", "Flex Algo [0-128]");
                                     libcli_register_param(&algo, &value);
                                     libcli_set_param_cmd_code(&value, IPV6_SRV6_LOCATOR_CONFIG_ALGORITHM);
-                                    libcli_set_tail_config_batch_processing(&value);
                                 }
                             }
                         }

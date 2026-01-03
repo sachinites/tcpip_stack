@@ -80,10 +80,13 @@ init_param(param_t *param,
            const char *help) {
 
     int i = 0;
+
+    /* Already initialized*/
+    if (param->param_type != CMD_UNINITIALISED) return;
+
     if (param_type == CMD)
     {   
         GET_PARAM_CMD(param) = (cmd_t *)calloc(1, sizeof(cmd_t));
-        param->param_type = CMD;
         strncpy((char *)GET_CMD_NAME(param), cmd_name, MIN(CMD_NAME_SIZE, strlen(cmd_name)));
         GET_CMD_NAME(param)[CMD_NAME_SIZE - 1] = '\0';
         GET_PARAM_CMD(param)->len = strlen (GET_CMD_NAME(param));
@@ -91,7 +94,6 @@ init_param(param_t *param,
     else if (param_type == LEAF)
     {
         GET_PARAM_LEAF(param) = (leaf_t *)calloc(1, sizeof(leaf_t));
-        param->param_type = LEAF;
         GET_PARAM_LEAF(param)->leaf_type = leaf_type;
         param->cmd_type.leaf->user_validation_cb_fn = user_validation_cb_fn;
         strncpy((char *)GET_LEAF_ID(param), leaf_id, MIN(LEAF_ID_SIZE, strlen(leaf_id)));
@@ -100,12 +102,12 @@ init_param(param_t *param,
     else if (param_type == NO_CMD)
     {   
         GET_PARAM_CMD(param) = (cmd_t *)calloc(1, sizeof(cmd_t));
-        param->param_type = NO_CMD;
         strncpy((char *)GET_CMD_NAME(param), NEGATE_CHARACTER, strlen(NEGATE_CHARACTER));
         GET_CMD_NAME(param)[CMD_NAME_SIZE - 1] = '\0';
         GET_PARAM_CMD(param)->len = strlen (GET_CMD_NAME(param));
     }
 
+    param->param_type = param_type;
     param->callback[0] = callback;
     for (i = 1; i < CALLBACKS_N; i++)  param->callback[i] = NULL;
     
@@ -121,6 +123,8 @@ init_param(param_t *param,
     init_glthread (&param->glue);
 }
 
+/* This fn need to be idempotent in order to support multi-mounting 
+    of CLI subtrees*/
 void 
 libcli_register_param(param_t *parent, param_t *child) {
 
@@ -136,8 +140,8 @@ libcli_register_param(param_t *parent, param_t *child) {
     }
 
     for (i = CHILDREN_START_INDEX; i <= CHILDREN_END_INDEX; i++) {
-        if (parent->options[i])
-            continue;
+        if (parent->options[i] == child) return;
+        if (parent->options[i]) continue;
         parent->options[i] = child;
         child->parent = parent;
         return;
@@ -148,8 +152,7 @@ libcli_register_param(param_t *parent, param_t *child) {
 void 
 libcli_set_param_cmd_code(param_t *param, int cmd_code) {
 
-    if (param->callback == NULL)
-        assert(0);
+    if (param->callback == NULL) assert(0);
     param->CMDCODE = cmd_code;
 }
 
@@ -170,34 +173,12 @@ libcli_register_cmd_handler(param_t *param,  cmd_callback callback) {
 void 
 libcli_param_recursive (param_t *param) {
 
+    if (param->flags & PARAM_F_RECURSIVE) return;
     assert (IS_PARAM_LEAF (param));
     param_t *parent = param->parent;
     libcli_register_param (param, param);
     param->parent = parent;
     param->flags |= PARAM_F_RECURSIVE;
-}
-
-void 
-libcli_set_tail_config_batch_processing (param_t *param) {
-
-    param_t *origp = param;
-
-    while ( param != libcli_get_config_hook () ) {
-
-            if (param->flags & PARAM_F_CONFIG_BATCH_CMD) break;
-            
-            if (param->callback ) {
-                param->flags |= PARAM_F_CONFIG_BATCH_CMD;
-            }
-            
-            param = param->parent;
-    }
-
-    /* This is required while copy-pasting the param sub-trees across branches in
-        config tree*/
-    if (!origp->callback) {
-        param->flags &= ~PARAM_F_CONFIG_BATCH_CMD;
-    }
 }
 
 void 

@@ -1341,7 +1341,6 @@ libcli_register_param_detail (param_t *root, cmd_callback callback, int cmdcode)
     init_param(detail, CMD, "detail", callback, 0, INVALID, 0, "detail");
     libcli_register_param(root, detail);
     libcli_set_param_cmd_code(detail, cmdcode);
-    libcli_set_tail_config_batch_processing (detail);
 }
 
 void 

@@ -53,10 +53,9 @@ graph_t *standalone_node_topology(void) {
 
     graph_t *topo = create_new_graph("Stand-Alone Topo");
     node_t *R0 = create_graph_node(topo, (const c_string)"R0");
-    node_set_loopback_address(R0, "122.1.1.1");
-    return topo;
+    node_set_rtr_id(R0, "122.1.1.1");
     node_t *R1 = create_graph_node(topo, (const c_string)"R1");
-    node_set_loopback_address(R1, "122.1.1.2");
+    node_set_rtr_id(R1, "122.1.1.2");
     insert_link_between_two_nodes(R0, R1, "eth0", "eth0", 10);
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R1, "eth0", "10.1.1.2", 24);
@@ -96,17 +95,17 @@ build_first_topo(void){
     insert_link_between_two_nodes(R1_re, R2_re, "eth2", "eth3", 4);
     insert_link_between_two_nodes(R0_re, R2_re, "eth4", "eth5", 9);
 
-    node_set_loopback_address(R0_re, "122.1.1.0");
+    node_set_rtr_id(R0_re, "122.1.1.0");
 
     node_set_intf_ip_address(R0_re, "eth4", "40.1.1.1", 24);
     node_set_intf_ip_address(R0_re, "eth0", "20.1.1.1", 24);
     
-    node_set_loopback_address(R1_re, "122.1.1.1");
+    node_set_rtr_id(R1_re, "122.1.1.1");
 
     node_set_intf_ip_address(R1_re, "eth1", "20.1.1.2", 24);
     node_set_intf_ip_address(R1_re, "eth2", "30.1.1.1", 24);
 
-    node_set_loopback_address(R2_re, "122.1.1.2");
+    node_set_rtr_id(R2_re, "122.1.1.2");
 
     node_set_intf_ip_address(R2_re, "eth3", "30.1.1.2", 24);
     node_set_intf_ip_address(R2_re, "eth5", "40.1.1.2", 24);
@@ -184,16 +183,16 @@ run node H1 ping 13.1.1.2
     insert_link_between_two_nodes(H3, L3SW, "eth6", "eth2", 1);
     insert_link_between_two_nodes(H4, L3SW, "eth7", "eth1", 1);
 
-    node_set_loopback_address(H1, "122.1.1.1");
+    node_set_rtr_id(H1, "122.1.1.1");
     node_set_intf_ip_address(H1, "eth5", "10.1.1.2", 24);
     
-    node_set_loopback_address(H2, "122.1.1.2");
+    node_set_rtr_id(H2, "122.1.1.2");
     node_set_intf_ip_address(H2, "eth8", "11.1.1.2", 24);
 
-    node_set_loopback_address(H3, "122.1.1.3");
+    node_set_rtr_id(H3, "122.1.1.3");
     node_set_intf_ip_address(H3, "eth6", "12.1.1.2", 24);
     
-    node_set_loopback_address(H4, "122.1.1.4");
+    node_set_rtr_id(H4, "122.1.1.4");
     node_set_intf_ip_address(H4, "eth7", "13.1.1.2", 24);
     
     node_set_intf_switchport(L3SW, "eth1");
@@ -255,16 +254,16 @@ build_simple_l2_switch_topo(void){
     insert_link_between_two_nodes(H3, L2SW, "eth6", "eth2", 1);
     insert_link_between_two_nodes(H4, L2SW, "eth7", "eth1", 1);
 
-    node_set_loopback_address(H1, "122.1.1.1");
+    node_set_rtr_id(H1, "122.1.1.1");
     node_set_intf_ip_address(H1, "eth5", "10.1.1.2", 24);
     
-    node_set_loopback_address(H2, "122.1.1.2");
+    node_set_rtr_id(H2, "122.1.1.2");
     node_set_intf_ip_address(H2, "eth8", "10.1.1.4", 24);
 
-    node_set_loopback_address(H3, "122.1.1.3");
+    node_set_rtr_id(H3, "122.1.1.3");
     node_set_intf_ip_address(H3, "eth6", "10.1.1.1", 24);
     
-    node_set_loopback_address(H4, "122.1.1.4");
+    node_set_rtr_id(H4, "122.1.1.4");
     node_set_intf_ip_address(H4, "eth7", "10.1.1.3", 24);
     
     node_set_intf_switchport(L2SW, "eth1");
@@ -330,19 +329,19 @@ run node R1 ping 122.1.1.3
     insert_link_between_two_nodes(R3, R4, "eth4", "eth5", 1);
     insert_link_between_two_nodes(R4, R1, "eth6", "eth7", 1);
 
-    node_set_loopback_address(R1, "122.1.1.1");
+    node_set_rtr_id(R1, "122.1.1.1");
     node_set_intf_ip_address(R1, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R1, "eth7", "40.1.1.2", 24);
     
-    node_set_loopback_address(R2, "122.1.1.2");
+    node_set_rtr_id(R2, "122.1.1.2");
     node_set_intf_ip_address(R2, "eth1", "10.1.1.2", 24);
     node_set_intf_ip_address(R2, "eth2", "20.1.1.1", 24);
 
-    node_set_loopback_address(R3, "122.1.1.3");
+    node_set_rtr_id(R3, "122.1.1.3");
     node_set_intf_ip_address(R3, "eth3", "20.1.1.2", 24);
     node_set_intf_ip_address(R3, "eth4", "30.1.1.1", 24);
     
-    node_set_loopback_address(R4, "122.1.1.4");
+    node_set_rtr_id(R4, "122.1.1.4");
     node_set_intf_ip_address(R4, "eth5", "30.1.1.2", 24);
     node_set_intf_ip_address(R4, "eth6", "40.1.1.1", 24);
     
@@ -368,14 +367,14 @@ build_linear_topo(void){
     insert_link_between_two_nodes(H2, H3, "eth2", "eth1", 1);
     insert_link_between_two_nodes(H3, H4, "eth2", "eth1", 1);
 
-    node_set_loopback_address(H1, "122.1.1.1");
-    node_set_v6_loopback_address(H1, "2000::1");
-    node_set_loopback_address(H2, "122.1.1.2");
-    node_set_v6_loopback_address(H2, "2000::2");
-    node_set_loopback_address(H3, "122.1.1.3");
-    node_set_v6_loopback_address(H3, "2000::3");
-    node_set_loopback_address(H4, "122.1.1.4");
-    node_set_v6_loopback_address(H4, "2000::4");
+    node_set_rtr_id(H1, "122.1.1.1");
+    node_set_v6_rtr_id(H1, "2000::1");
+    node_set_rtr_id(H2, "122.1.1.2");
+    node_set_v6_rtr_id(H2, "2000::2");
+    node_set_rtr_id(H3, "122.1.1.3");
+    node_set_v6_rtr_id(H3, "2000::3");
+    node_set_rtr_id(H4, "122.1.1.4");
+    node_set_v6_rtr_id(H4, "2000::4");
 
     node_set_intf_ip_address(H1, "eth1", "10.1.1.1", 24);
     node_set_intf_ip_address(H2, "eth1", "10.1.1.2", 24);
@@ -424,17 +423,17 @@ build_dualswitch_topo(void){
 
     graph_t *topo = create_new_graph("Dual Switch Topo");
     node_t *H1 = create_graph_node(topo, (const c_string)"H1");
-    node_set_loopback_address(H1, "122.1.1.1");
+    node_set_rtr_id(H1, "122.1.1.1");
     node_t *H2 = create_graph_node(topo, (const c_string)"H2");
-    node_set_loopback_address(H2, "122.1.1.2");
+    node_set_rtr_id(H2, "122.1.1.2");
     node_t *H3 = create_graph_node(topo, (const c_string)"H3");
-    node_set_loopback_address(H3, "122.1.1.3");
+    node_set_rtr_id(H3, "122.1.1.3");
     node_t *H4 = create_graph_node(topo, (const c_string)"H4");
-    node_set_loopback_address(H4, "122.1.1.4");
+    node_set_rtr_id(H4, "122.1.1.4");
     node_t *H5 = create_graph_node(topo, (const c_string)"H5");
-    node_set_loopback_address(H5, "122.1.1.5");
+    node_set_rtr_id(H5, "122.1.1.5");
     node_t *H6 = create_graph_node(topo, (const c_string)"H6");
-    node_set_loopback_address(H6, "122.1.1.6");
+    node_set_rtr_id(H6, "122.1.1.6");
 
     node_t *L2SW1 = create_graph_node(topo, (const c_string)"L2SW1");
     node_t *L2SW2 = create_graph_node(topo, (const c_string)"L2SW2");
@@ -509,8 +508,8 @@ parallel_links_topology(void){
     insert_link_between_two_nodes(R0, R1, "eth3", "eth8", INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R0, R1, "eth4", "eth9", INTF_METRIC_DEFAULT);
 
-    node_set_loopback_address(R0, "122.1.1.1");
-    node_set_loopback_address(R1, "122.1.1.2");
+    node_set_rtr_id(R0, "122.1.1.1");
+    node_set_rtr_id(R1, "122.1.1.2");
 
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R0, "eth1", "20.1.1.1", 24);
@@ -576,12 +575,12 @@ cross_link_topology(void){
     insert_link_between_two_nodes(R3, R4, "eth10", "eth11", INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R4, R5, "eth13", "eth12", INTF_METRIC_DEFAULT);    
 
-    node_set_loopback_address(R0, "122.1.1.0");
-    node_set_loopback_address(R1, "122.1.1.1");
-    node_set_loopback_address(R2, "122.1.1.2");
-    node_set_loopback_address(R3, "122.1.1.3");
-    node_set_loopback_address(R4, "122.1.1.4");
-    node_set_loopback_address(R5, "122.1.1.5");
+    node_set_rtr_id(R0, "122.1.1.0");
+    node_set_rtr_id(R1, "122.1.1.1");
+    node_set_rtr_id(R2, "122.1.1.2");
+    node_set_rtr_id(R3, "122.1.1.3");
+    node_set_rtr_id(R4, "122.1.1.4");
+    node_set_rtr_id(R5, "122.1.1.5");
 
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R0, "eth14","80.1.1.1", 24);
@@ -680,10 +679,10 @@ vlan_extension_topo(void) {
 
     interface_loopback_create (H1, 0);
     
-    node_set_loopback_address(H1, "122.1.1.1");
-    node_set_loopback_address(H2, "122.1.1.2");
-    node_set_loopback_address(R1, "100.1.1.1");
-    node_set_loopback_address(R2, "100.1.1.2");
+    node_set_rtr_id(H1, "122.1.1.1");
+    node_set_rtr_id(H2, "122.1.1.2");
+    node_set_rtr_id(R1, "100.1.1.1");
+    node_set_rtr_id(R2, "100.1.1.2");
 
     node_set_intf_ip_address(H1, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(H2, "eth0", "10.1.1.2", 24);
@@ -785,24 +784,24 @@ config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
     insert_link_between_two_nodes(H2, R2_re, "eth1", "eth3", 1);
     insert_link_between_two_nodes(H3, R0_re, "eth1", "eth1", 1);
     
-    node_set_loopback_address(R0_re, "122.1.1.0");
+    node_set_rtr_id(R0_re, "122.1.1.0");
 
     node_set_intf_ip_address(R0_re, "eth4", "40.1.1.1", 24);
     node_set_intf_ip_address(R0_re, "eth0", "20.1.1.1", 24);
     
-    node_set_loopback_address(R2_re, "122.1.1.2");
+    node_set_rtr_id(R2_re, "122.1.1.2");
 
     node_set_intf_ip_address(R2_re, "eth1", "20.1.1.2", 24);
     node_set_intf_ip_address(R2_re, "eth2", "30.1.1.1", 24);
 
-    node_set_loopback_address(R1_re, "122.1.1.1");
+    node_set_rtr_id(R1_re, "122.1.1.1");
 
     node_set_intf_ip_address(R1_re, "eth3", "30.1.1.2", 24);
     node_set_intf_ip_address(R1_re, "eth5", "40.1.1.2", 24);
     
-    node_set_loopback_address(H1, "100.0.0.1");
-    node_set_loopback_address(H2, "100.0.0.2");
-    node_set_loopback_address(H3, "100.0.0.3");
+    node_set_rtr_id(H1, "100.0.0.1");
+    node_set_rtr_id(H2, "100.0.0.2");
+    node_set_rtr_id(H3, "100.0.0.3");
 
     node_set_intf_ip_address(H1, "eth1", "192.168.0.10", 24);
     node_set_intf_ip_address(H2, "eth1", "192.168.0.20", 24);
@@ -917,16 +916,16 @@ evpn_spine_leaf(void) {
     node_t *Host4 = create_graph_node(topo, (const c_string)"Host4");
     
     /* Set Loopback addresses */
-    node_set_loopback_address(Spine1, "10.0.0.1");
-    node_set_loopback_address(Spine2, "10.0.0.2");
-    node_set_loopback_address(Leaf1, "10.0.0.11");
-    node_set_loopback_address(Leaf2, "10.0.0.12");
-    node_set_loopback_address(Leaf3, "10.0.0.13");
-    node_set_loopback_address(Leaf4, "10.0.0.14");
-    node_set_loopback_address(Host1, "192.168.10.1");
-    node_set_loopback_address(Host2, "192.168.10.2");
-    node_set_loopback_address(Host3, "192.168.10.3");
-    node_set_loopback_address(Host4, "192.168.10.4");
+    node_set_rtr_id(Spine1, "10.0.0.1");
+    node_set_rtr_id(Spine2, "10.0.0.2");
+    node_set_rtr_id(Leaf1, "10.0.0.11");
+    node_set_rtr_id(Leaf2, "10.0.0.12");
+    node_set_rtr_id(Leaf3, "10.0.0.13");
+    node_set_rtr_id(Leaf4, "10.0.0.14");
+    node_set_rtr_id(Host1, "192.168.10.1");
+    node_set_rtr_id(Host2, "192.168.10.2");
+    node_set_rtr_id(Host3, "192.168.10.3");
+    node_set_rtr_id(Host4, "192.168.10.4");
     
     /* ========== Spine1 to Leaf Connections ========== */
     
@@ -1018,7 +1017,7 @@ Linux_Router_topology(void) {
 
     graph_t *topo = create_new_graph("Linux-Router-Topology");
     node_t *linux_rtr = create_graph_node(topo, (const c_string)"LR");
-    node_set_loopback_address(linux_rtr, "100.0.0.1");
+    node_set_rtr_id(linux_rtr, "100.0.0.1");
     LinuxLoadInterfaces (linux_rtr);
     Linux_listen_interfaces (linux_rtr);
     return topo;

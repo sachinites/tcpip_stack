@@ -67,7 +67,6 @@ GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 #define PARAM_F_NO_EXPAND   1
 #define PARAM_F_NO_DISPLAY_QUESMARK 2
 #define PARAM_F_DISABLE_PARAM   4
-#define PARAM_F_CONFIG_BATCH_CMD   8
 #define PARAM_F_RECURSIVE   16
 #define PARAM_F_REG_EX_MATCH    32
 #define PARAM_F_SYNCHRONOUS   64

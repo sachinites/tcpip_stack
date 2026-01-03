@@ -308,7 +308,7 @@ class VlanFloodInterface : public VirtualInterface {
         VlanFloodInterface();
         virtual ~VlanFloodInterface();
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
-        bool VlanFloodInterface::IsCrossReferenced() final;
+        bool IsCrossReferenced() final;
 
 } __attribute__((aligned(8)));;
 

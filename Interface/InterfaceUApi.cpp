@@ -89,58 +89,52 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 }
 
 void
-interface_loopback_create (node_t *node, uint8_t lono) {
+interface_loopback_create (node_t *node, char *ifname) {
 
-    /* Create loopback interface */
-    char loopback_name[IF_NAME_SIZE];
-    snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
-    
-    // Check if loopback interface already exists
-    if (node_interface_lookup_by_name(node, loopback_name)) {
-        cprintf("Error : Loopback interface %s already exists\n", loopback_name);
+    if (node_interface_lookup_by_name(node, ifname)) {
+        cprintf("Error : Loopback interface %s already exists\n", ifname);
         return;
     }
     
-    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(loopback_name));
+    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(ifname));
     intfP->SetSharedPtr(intfP);
     intfP->att_node = node;
     intfP->ifindex = node_get_sequence_no(node);
     
     if (!node_interface_insert(node, intfP)) {
-        cprintf("Error : Failed to insert loopback interface %d\n", lono);
+        cprintf("Error : Failed to insert loopback interface %s\n", ifname);
         return;
     }
 }
 
 void
-interface_loopback_delete (node_t *node, uint8_t lono) {
+interface_loopback_delete (node_t *node, char *ifname) {
 
     Interface *intf;
     uint32_t if_change_flags = 0;
     char loopback_name[IF_NAME_SIZE];
     intf_prop_changed_t intf_prop_changed;
     
-    snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-    intf = node_interface_lookup_by_name(node, (const char *)loopback_name);
+    intf = node_interface_lookup_by_name(node, (const char *)ifname);
 
     if (!intf) {
-        cprintf ("Error : Loopback %s Do Not  Exist\n", loopback_name);
+        cprintf ("Error : Loopback %s Do Not  Exist\n", ifname);
         return;
     }
 
     if (intf->IsCrossReferenced () ) {
-        cprintf("Error : Loopback interface %s is in use, cannot delete \n", loopback_name);
+        cprintf("Error : Loopback interface %s is in use, cannot delete \n", ifname);
         return;
     }
 
     /* Send Delete notification to all Subscribers */
     SET_BIT(if_change_flags, IF_DELETE_F);
-        nfc_intf_invoke_notification_to_sbscribers(
+    nfc_intf_invoke_notification_to_sbscribers(
        intf, &intf_prop_changed, if_change_flags);    
 
-    node_interface_delete_by_name(node, loopback_name);
+    node_interface_delete_by_name(node, ifname);
 }
 
 void
@@ -176,7 +170,9 @@ interface_install_local_v4_routes (node_t *node, Interface  *intf) {
 
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
     rt_ipv4_route_add (node, ip_addr, 32, 0, intf, 0, PROTO_STATIC, true);
-    rt_ipv4_route_add (node, apply_mask2 (ip_addr, mask), mask, 0, intf, 0, PROTO_STATIC, true);
+    if (mask != 32) {
+        rt_ipv4_route_add (node, apply_mask2 (ip_addr, mask), mask, 0, intf, 0, PROTO_STATIC, true);
+    }
 
     /* New RTM Route Installation */
     rtm_t *rtm = cp_rtm_get_route_target_rtm (node, intf->vrf, AF_IPV4, RTM_PROTO_STATIC, RTM_SUB_PROTO_NA);
@@ -199,7 +195,9 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     if (!intf) return;
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
     rt_ipv4_route_del (node, ip_addr, 32, PROTO_STATIC, true);
-    rt_ipv4_route_del (node, apply_mask2 (ip_addr, mask), mask, PROTO_STATIC, true);
+    if (mask != 32) {
+        rt_ipv4_route_del (node, apply_mask2 (ip_addr, mask), mask, PROTO_STATIC, true);
+    }
     rtm_t *rtm = cp_rtm_get_route_target_rtm (node, intf->vrf, AF_IPV4, RTM_PROTO_STATIC, RTM_SUB_PROTO_NA);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);

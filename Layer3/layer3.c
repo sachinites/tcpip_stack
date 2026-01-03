@@ -100,7 +100,7 @@ is_layer3_local_delivery(node_t *node, uint32_t dst_ip){
     tcp_ip_covert_ip_n_to_p(dst_ip, dest_ip_str);
 
     /*checking with node's loopback address*/
-    if(string_compare(NODE_LO_ADDR(node), dest_ip_str, 16) == 0) {
+    if(string_compare(NODE_RTRID_ADDR(node), dest_ip_str, 16) == 0) {
         tracer (node->dptr, DL3FWD, "Pkt : %s : Local interface IP Address match : Lo\n", dest_ip_str);
         return true;
     }
@@ -774,7 +774,7 @@ void demote_packet_to_layer3(node_t *node,
     /*Now fill the non-default fields*/
     iphdr.protocol = tcp_ip_convert_internal_proto_to_std_proto(protocol_number);
 
-    uint32_t addr_int =  tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
+    uint32_t addr_int =  tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node));
     iphdr.src_ip = htonl(addr_int);
     iphdr.dst_ip = htonl(dest_ip_address);
 
@@ -925,7 +925,7 @@ layer3_ero_ping_fn(node_t *node,
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE);
     inner_ip_hdr->protocol = ICMP_PROTO;
-    uint32_t addr_int = tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node));
+    uint32_t addr_int = tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node));
     inner_ip_hdr->src_ip = htonl(addr_int);
     addr_int =  tcp_ip_convert_ip_p_to_n(dst_ip_addr);
     inner_ip_hdr->dst_ip = htonl(addr_int);

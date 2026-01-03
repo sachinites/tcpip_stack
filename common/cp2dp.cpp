@@ -563,7 +563,7 @@ cp2dp_send_ip_data ( node_t *node,
     initialize_ip_hdr (ip_hdr);
 
     ip_hdr->protocol = (uint8_t)std_ip_protocol;
-    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node)));
+    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node)));
     ip_hdr->dst_ip = htonl(dest_ip_addr);
     ip_hdr->total_length = htons(pkt_size);
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();

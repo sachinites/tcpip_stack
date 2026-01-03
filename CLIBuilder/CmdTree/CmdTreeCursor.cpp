@@ -688,14 +688,9 @@ cmdtc_collect_all_matching_params (cmd_tree_cursor_t *cmdtc, unsigned char c, bo
     } ITERATE_GLTHREAD_END (&cmdtc->matching_params_list, curr) 
 
     if (!count) {
-        /* None of the optiona matched, restore the list*/
-        #if 0
-        cmdtc->matching_params_list = temp_list;
-        #else
         while ((curr = dequeue_glthread_first (&temp_list))) {
             glthread_add_next (&cmdtc->matching_params_list, curr);
         }
-        #endif
     }
     else {
         while (dequeue_glthread_first (&temp_list));
@@ -1688,127 +1683,119 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     switch (enable_or_disable) {
 
         case CONFIG_ENABLE:
-                /* Handle Trigger of Config Command. Config Commands are triggered in
-                    batches if PARAM_F_CONFIG_BATCH_CMD flag is set !*/
-                if (param->flags & PARAM_F_CONFIG_BATCH_CMD) {
 
-                    for (i = cmdtc->stack_checkpoint + 1; i <= cmdtc->params_stack->top; i++) {
+            for (i = cmdtc->stack_checkpoint + 1; i <= cmdtc->params_stack->top; i++)
+            {
+                param = (param_t *)cmdtc->params_stack->slot[i];
 
-                        param = (param_t *)cmdtc->params_stack->slot[i];
-
-                        if (!param->callback[0]) {
-                            continue;
-                        }
-
-                        if (param->flags & PARAM_F_RECURSIVE) {
-
-                            if ( (i < cmdtc->params_stack->top) &&
-                                    (param == (param_t *)cmdtc->params_stack->slot[i+1])) {
-                                continue;
-                            }
-                        }
-
-                        /* Temporarily over-write the size of TLV buffer */
-                        cmdtc->tlv_stack->top = i;
-
-                        #ifndef SCHED_SUBMISSION
-                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                                cli_cmdtc->success = false;
-                                break;
-                            }
-                        #else
-                            if (param->flags & PARAM_F_INBUILD_CMD) {
-                                if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                                    cli_cmdtc->success = false;
-                                }
-                            }
-                            else {
-                                while (j < CALLBACKS_N && param->callback[j] )
-                                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
-                                j = 0;
-                            }
-                        #endif
-
-                    }
-                    cmdtc->tlv_stack->top = cmdtc->params_stack->top;
-                    if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
+                if (!param->callback[0])
+                {
+                    continue;
                 }
-                    /* Handle CONFIG NON Batch Command*/
-                else {
-                    
-                    #ifndef SCHED_SUBMISSION
-                        if (param->callback[0] (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                            cli_cmdtc->success = false;
-                        }
-                    #else
-                        if (param->flags & PARAM_F_INBUILD_CMD)
-                        {
-                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
-                            {
-                                cli_cmdtc->success = false;
-                            }
-                        }
-                        else
-                        {
-                            while (j < CALLBACKS_N && param->callback[j] )
-                                task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
-                        }
-                    #endif
-                    if (temp_cmdtc) { cmd_tree_cursor_destroy_internals(cmdtc, false); free(cmdtc); }
+
+                if (param->flags & PARAM_F_RECURSIVE)
+                {
+
+                    if ((i < cmdtc->params_stack->top) &&
+                        (param == (param_t *)cmdtc->params_stack->slot[i + 1]))
+                    {
+                        continue;
+                    }
+                }
+
+                /* Temporarily over-write the size of TLV buffer */
+                cmdtc->tlv_stack->top = i;
+
+#ifndef SCHED_SUBMISSION
+                if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                {
+                    cli_cmdtc->success = false;
+                    break;
+                }
+#else
+                if (param->flags & PARAM_F_INBUILD_CMD)
+                {
+                    if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                    {
+                        cli_cmdtc->success = false;
+                    }
+                }
+                else
+                {
+                    while (j < CALLBACKS_N && param->callback[j])
+                        task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                    j = 0;
+                }
+#endif
+            }
+            cmdtc->tlv_stack->top = cmdtc->params_stack->top;
+            if (temp_cmdtc)
+            {
+                cmd_tree_cursor_destroy_internals(cmdtc, false);
+                free(cmdtc);
+            }
+
+            break;
+
+        case CONFIG_DISABLE:
+
+#ifndef SCHED_SUBMISSION
+            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+            {
+                cli_cmdtc->success = false;
+            }
+#else
+            if (param->flags & PARAM_F_INBUILD_CMD)
+            {
+                if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                {
+                    cli_cmdtc->success = false;
+                }
+            }
+            else
+            {
+                while (j < CALLBACKS_N && param->callback[j])
+                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+            }
+#endif
+            if (temp_cmdtc)
+            {
+                cmd_tree_cursor_destroy_internals(cmdtc, false);
+                free(cmdtc);
+            }
+            break;
+
+        case OPERATIONAL:
+
+            cmdtc_set_filter_context(cmdtc);
+
+#ifndef SCHED_SUBMISSION
+                if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                {
+                    cli_cmdtc->success = false;
+                }
+#else
+                if (param->flags & PARAM_F_INBUILD_CMD)
+                {
+                    if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
+                    {
+                        cli_cmdtc->success = false;
+                    }
+                }
+                else
+                {
+                    while (j < CALLBACKS_N && param->callback[j])
+                        task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                }
+#endif
+                UnsetFilterContext();
+                if (temp_cmdtc)
+                {
+                    cmd_tree_cursor_destroy_internals(cmdtc, false);
+                    free(cmdtc);
                 }
                 break;
-
-
-            case CONFIG_DISABLE:
-
-                    #ifndef SCHED_SUBMISSION
-                    if (param->callback[0] (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                        cli_cmdtc->success = false;
-                    }
-                    #else 
-                        if (param->flags & PARAM_F_INBUILD_CMD)
-                        {
-                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
-                            {
-                                cli_cmdtc->success = false;
-                            }
-                        }
-                        else
-                        {
-                            while (j < CALLBACKS_N && param->callback[j] )
-                                task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
-                        }
-                    #endif
-                    if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
-                    break;
-
-
-            case OPERATIONAL:
-                
-                    cmdtc_set_filter_context (cmdtc); 
-
-                    #ifndef SCHED_SUBMISSION
-                    if (param->callback[0] (param->CMDCODE, cmdtc->tlv_stack, enable_or_disable)) {
-                        cli_cmdtc->success = false;
-                    }
-                    #else 
-                        if (param->flags & PARAM_F_INBUILD_CMD)
-                        {
-                            if (param->callback[0](param->CMDCODE, cmdtc->tlv_stack, enable_or_disable))
-                            {
-                                cli_cmdtc->success = false;
-                            }
-                        }
-                        else
-                        {
-                            while (j < CALLBACKS_N && param->callback[j] )
-                                task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
-                        }
-                    #endif
-                    UnsetFilterContext ();
-                    if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
-                    break;
-    }
+            }
 }
 
 /* Fn to process user CLI when he press ENTER key while working in 
@@ -1860,7 +1847,8 @@ cmd_tree_process_carriage_return_key (cmd_tree_cursor_t *cmdtc) {
                 cli_process_key_interrupt (
                         (int)GET_CMD_NAME(cmdtc->curr_param)[cmdtc->icursor]);
             }
-            /* Process space after word completion so that cmd tree cursor is updated and move to next param */
+            /* Process space after word completion so that cmd tree cursor 
+                is updated and move to next param */
             cli_process_key_interrupt (' ');
             cmdtc_param_exit_forward (cmdtc, cmdtc->curr_param);
             cmd_tree_trigger_cli (cmdtc);

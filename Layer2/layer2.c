@@ -224,7 +224,7 @@ l2_forward_ip_packet(node_t *node,
    
     /*If the destination IP address do not match any local subnet Nor
      * is it a self loopback address*/
-    if(!oif && string_compare((const char *)next_hop_ip_str, (const char *)NODE_LO_ADDR(node), 16)){
+    if(!oif && string_compare((const char *)next_hop_ip_str, (const char *)NODE_RTRID_ADDR(node), 16)){
         cprintf("%s : Error : Local matching subnet for IP : %s could not be found\n",
                     node->node_name, next_hop_ip_str);
         return;
@@ -244,7 +244,7 @@ l2_forward_ip_packet(node_t *node,
 
     /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
-    if(string_compare((const char *)next_hop_ip_str, (const char *)NODE_LO_ADDR(node), 16) == 0){
+    if(string_compare((const char *)next_hop_ip_str, (const char *)NODE_RTRID_ADDR(node), 16) == 0){
          promote_pkt_to_layer3(node, 0, pkt_block, ethernet_hdr->type);
          return;
     }

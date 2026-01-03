@@ -314,7 +314,6 @@ config_node_build_transport_svc_cli_tree (param_t *param) {
                         init_param(&vlan_id, LEAF, 0, transport_svc_config_handler, 0, INT, "vlan-id", "vlan id");
                         libcli_register_param(&vlan, &vlan_id);
                         libcli_set_param_cmd_code(&vlan_id, CMDCODE_CONFIG_NODE_TRANSPORT_SVC_VLAN_ADD);
-                        libcli_set_tail_config_batch_processing(&vlan_id);
                 }
             }
         }

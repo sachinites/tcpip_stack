@@ -219,7 +219,12 @@ isis_rt_ipv4_route_add (
                                 Interface *oif,
                                 uint32_t metric) {
  
-    rtm_t *rtm = rtm_get (node, oif->GetVRF(), AF_IPV4, 0);
+    rtm_t *rtm = cp_rtm_get_route_target_rtm(node, 
+                    NODE_DEF_VRF(node),
+                    AF_IPV4,
+                    RTM_PROTO_ISIS, 
+                    RTM_PROTO_L1_ISIS_INT);
+
     cmn_prefix_t rtm_prefix, rtm_gateway;
 
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
@@ -950,7 +955,7 @@ isis_compute_spf (node_t *spf_root){
 
     ted_spf_root = ted_lookup_node(
                                 node_info->ted_db,
-                                tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(spf_root)), 0);
+                                tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(spf_root)), 0);
 
     if (!ted_spf_root) return;
 
@@ -1068,7 +1073,7 @@ isis_show_spf_results (node_t *node){
     if (!ted_db) return;
 
     ted_node = ted_lookup_node(ted_db, 
-                        tcp_ip_convert_ip_p_to_n (NODE_LO_ADDR(node)), 0);
+                        tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(node)), 0);
 
     if (!ted_node) return;
 

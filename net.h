@@ -105,11 +105,10 @@ typedef struct node_nw_prop_{
     InterfaceP vlan_flood_interface;
 
     /* lo ipv6 addr*/
-    uint8_t ipv6_addr[16];
+    uint8_t ipv6_rtr_id[16];
 
     /*L3 properties*/ 
-    bool is_lb_addr_config;
-    ip_add_t lb_addr; /*loopback address of node*/
+    ip_add_t rtr_id; /*loopback address of node*/
 
     /*Sending Buffer*/
     c_string send_log_buffer; /*Used for logging */
@@ -132,7 +131,7 @@ typedef struct node_nw_prop_{
 
 } node_nw_prop_t;
 
-#define NODE_LO_ADDR(node_ptr) (node_ptr->node_nw_prop.lb_addr.ip_addr)
+#define NODE_RTRID_ADDR(node_ptr) (node_ptr->node_nw_prop.rtr_id.ip_addr)
 #define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
@@ -141,7 +140,7 @@ typedef struct node_nw_prop_{
 #define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
 #define NODE_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.mpls_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
-#define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_LO_ADDR(node_ptr)))
+#define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
 #define NODE_LOG_BUFF(node_ptr) (node_ptr->node_nw_prop.log_buffer)
 #define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)
@@ -154,8 +153,8 @@ typedef struct node_nw_prop_{
 #define INTF_VRF_ID(intf_ptr) (intf_ptr->vrf ? intf_ptr->vrf->vrf_id : 0)
 
 /*APIs to set Network Node properties*/
-bool node_set_loopback_address(node_t *node, const char *ip_addr);
-void node_set_v6_loopback_address(node_t *node, const char *ipv6_addr );
+bool node_set_rtr_id(node_t *node, const char *ip_addr);
+void node_set_v6_rtr_id(node_t *node, const char *ipv6_addr );
 void node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
 
 /*Dumping Functions to dump network information

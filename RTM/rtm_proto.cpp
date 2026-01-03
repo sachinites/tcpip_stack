@@ -442,73 +442,96 @@ rtm_get_route_target_rtm( node_t *node,
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto) {
 
-    def_vrf_t *def_vrf = node->node_nw_prop.def_vrf;
-    if (!def_vrf && !vrf) return NULL;
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+    bool is_def_vrf = (vrf == def_vrf);
 
     /* Default VRF , AF = ipv4 , PROTO = LDP.  Sub-proto = NA 
     then target RTM = 0.inet.3 */
-    if (!vrf && afi == AF_IPV4 && proto == RTM_PROTO_LDP)
-        return def_vrf->inet3;
+    if (is_def_vrf && afi == AF_IPV4 && proto == RTM_PROTO_LDP)
+        return NODE_DEF_VRF_MEMBER(node, inet3);
 
     /* Default VRF , AF = ipv6 , PROTO = LDP.  Sub-proto = NA 
     then target RTM = 0.inet6.3 */
-    if (!vrf && afi == AF_IPV6 && proto == RTM_PROTO_LDP)
-        return def_vrf->inet63;        
+    if (is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_LDP)
+        return NODE_DEF_VRF_MEMBER(node, inet63);   
 
     /* VRF = *, AF = * , PROTO = LDP.  Sub-proto = NA 
     then target RTM = None, LDP supported only under default VRF */
-    if (vrf && proto == RTM_PROTO_LDP) return NULL;
+    if (!is_def_vrf && proto == RTM_PROTO_LDP) return NULL;
 
     /* Default VRF , AF = ipv4 , PROTO = Static.  Sub-proto = NA 
     then target RTM = 0.inet.0 */
-    if (!vrf && afi == AF_IPV4 && proto == RTM_PROTO_STATIC)
-        return def_vrf->vrf.inet0;
+    if (is_def_vrf && afi == AF_IPV4 && proto == RTM_PROTO_STATIC)
+        return NODE_DEF_VRF_VRF_MEMBER(node, inet0);
 
     /* Default VRF , AF = ipv6 , PROTO = Static.  Sub-proto = NA 
     then target RTM = 0.inet6.0 */
-    if (!vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
-        return def_vrf->vrf.inet6;
+    if (is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
+        return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
 
     /* VRF = *, AF = ipv4 , PROTO = Static.  Sub-proto = NA 
     then target RTM = vrf.inet.0 */
-    if (vrf && afi == AF_IPV4 && proto == RTM_PROTO_STATIC)
+    if (!is_def_vrf && afi == AF_IPV4 && proto == RTM_PROTO_STATIC)
         return vrf->inet0;
 
     /* VRF = *, AF = ipv6 , PROTO = Static.  Sub-proto = NA 
     then target RTM = 0.inet6.0 */
-    if (vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
+    if (!is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
         return vrf->inet6;
 
     /* VPNv4|v6 Routes */
     
     /* Default VRF , AF = ipv4 , PROTO = RTM_PROTO_BGP  Sub-proto = RTM_PROTO_BGP_VPN
         then target RTM = 0.inet.128 */
-    if (!vrf && afi == AF_IPV4 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
-        return def_vrf->l3vpnv4;
+    if (is_def_vrf && afi == AF_IPV4 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
+        return NODE_DEF_VRF_MEMBER(node, l3vpnv4);
 
     /* Default VRF , AF = ipv6 , PROTO = RTM_PROTO_BGP  Sub-proto = RTM_PROTO_BGP_VPN
         then target RTM = 0.inet6.128 */    
-    if (!vrf && afi == AF_IPV6 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
-        return def_vrf->l3vpnv6;     
+    if (is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
+        return NODE_DEF_VRF_MEMBER(node, l3vpnv6);
 
     /* Default VRF , AF = ipv4 , PROTO = RTM_PROTO_SR Or RTM_PROTO_SRTE  Sub-proto = NA
         then target RTM = 0.inet.3 */  
-    if (!vrf && afi == AF_IPV4 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
-        return def_vrf->inet3;
+    if (is_def_vrf && afi == AF_IPV4 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
+        return NODE_DEF_VRF_MEMBER(node, inet3);
 
     /* Default VRF , AF = ipv6 , PROTO = RTM_PROTO_SR  Sub-proto = NA
         then target RTM = 0.inet.3 */  
-    if (!vrf && afi == AF_IPV6 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
-        return def_vrf->vrf.inet6;
+    if (is_def_vrf && afi == AF_IPV6 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
+        return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+
+    /* Default VRF , AF = ipv4 , PROTO = RTM_PROTO_SR Or RTM_PROTO_SRTE  Sub-proto = NA
+        then target RTM = 0.inet.3 */  
+    if (    proto == RTM_PROTO_ISIS && 
+            (proto == RTM_PROTO_L1_ISIS_INT || 
+             proto == RTM_PROTO_L2_ISIS_INT || 
+             proto == RTM_PROTO_L1_ISIS_EXT || 
+             proto == RTM_PROTO_L2_ISIS_EXT)) {
+
+        if (afi == AF_IPV4 ) {
+            if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet0);
+            else return vrf->inet0;
+        }
+        else if (afi == AF_IPV6 ){
+            if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+            else return vrf->inet6;
+        }
+    }
 
     /* Default */
-    if (!vrf && afi == AF_IPV4) return node->node_nw_prop.def_vrf ? node->node_nw_prop.def_vrf->vrf.inet0 : NULL;
-    if (vrf && afi == AF_IPV4) return vrf->inet0;
+    if (is_def_vrf && afi == AF_IPV4) 
+        return NODE_DEF_VRF_VRF_MEMBER(node, inet0);
 
-    if (!vrf && afi == AF_IPV6) return node->node_nw_prop.def_vrf ? node->node_nw_prop.def_vrf->vrf.inet6 : NULL;
-    if (vrf && afi == AF_IPV6) return vrf->inet6;
+    if (!is_def_vrf && afi == AF_IPV4) return vrf->inet0;
 
-    if (afi == AF_MPLS) return node->node_nw_prop.def_vrf ? node->node_nw_prop.def_vrf->mpls0 : NULL;
+    if (is_def_vrf && afi == AF_IPV6) 
+        return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+
+    if (!is_def_vrf && afi == AF_IPV6) return vrf->inet6;
+
+    if (afi == AF_MPLS) 
+        return NODE_DEF_VRF_MEMBER(node, mpls0);
 
     return NULL;
 }

@@ -131,7 +131,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
    node_t *node;
    vlan_id_t vlan_id;
    uint8_t mask;
-   uint8_t lono;
    c_string l2_mode_option;
    c_string if_up_down;
    tlv_struct_t *tlv = NULL;
@@ -162,9 +161,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         else if(parser_match_leaf_id(tlv->leaf_id, "intf-ip-address"))
              intf_ip_addr = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
-             mask = atoi((const char *)tlv->value);  
-        else if(parser_match_leaf_id(tlv->leaf_id, "lono"))
-             lono = atoi((const char *)tlv->value);  
+             mask = atoi((const char *)tlv->value);   
         else if(parser_match_leaf_id(tlv->leaf_id, "tunnel-name"))
              overlay_tunnel_name = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "vni-id"))
@@ -446,8 +443,10 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_INTF_CONFIG_LOOPBACK_CREATE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
+                    interface_loopback_create(node, intf_name);
                     break;
                 case CONFIG_DISABLE:
+                    interface_loopback_delete(node, intf_name);
                     break;
                 default:
                     ;
@@ -835,7 +834,6 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
                         init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4095)");
                         libcli_register_param(&vlan, &vlan_id);
                         libcli_set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
-                        libcli_set_tail_config_batch_processing(&vlan_id);
                     }
                 }
             }
@@ -939,7 +937,7 @@ vlan_cli_config_tree(param_t *root)
         init_param(&vlan, CMD, "vlan", 0, 0, INVALID, 0, "\"vlan\" keyword");
         libcli_register_param(root, &vlan);
         {
-            /*config node <node-name> interface <if-name> vlan <vlan-id>*/
+            /*config node <node-name> interface vlan <vlan-id>*/
             static param_t vlan_id;
             init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
             libcli_register_param(&vlan, &vlan_id);
@@ -985,10 +983,16 @@ Interface_config_cli_tree (param_t *root) {
                 init_param(&loopback, CMD, "loopback", 0, 0, INVALID, 0, "loopback");
                 libcli_register_param(&interface, &loopback);
                 {
-                    static param_t lono;
-                    init_param(&lono, LEAF, 0, intf_config_handler, NULL, INT, "lono", "Loopback ID");
-                    libcli_register_param(&loopback, &lono);
-                    libcli_set_param_cmd_code(&lono, CMDCODE_INTF_CONFIG_LOOPBACK_CREATE);
+                    static param_t loname;
+                    init_param(&loname, LEAF, 0, intf_config_handler, NULL, STRING, "if-name", "Loopback ifname");
+                    libcli_register_param(&loopback, &loname);
+                    libcli_set_param_cmd_code(&loname, CMDCODE_INTF_CONFIG_LOOPBACK_CREATE);
+                    uint64_t unsupported_configs = 0;
+                    unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_TSP;
+                    unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_SWITCHPORT;
+                    unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_VLAN;
+                    unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
+                    Interface_config_cli_common_subtree (&loname, unsupported_configs);
                 }
             }
 
@@ -1038,7 +1042,6 @@ Interface_config_cli_tree (param_t *root) {
                                 init_param(&vni_id, LEAF, 0, intf_config_handler, 0, INT, "vni-id", "VNI ID");
                                 libcli_register_param(&l2vni, &vni_id);
                                 libcli_set_param_cmd_code(&vni_id, CMDCODE_INTF_CONFIG_NVE_MEMBER_VNI);
-                                libcli_set_tail_config_batch_processing(&vni_id);
                             }
                         }
                     }

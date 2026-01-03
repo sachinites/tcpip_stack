@@ -106,7 +106,7 @@ ddcp_get_lo_addr(node_t *node, ser_buff_t *data_out){
 
     serialize_uint8(data_out, DDCP_TLV_RTR_LO_ADDR);
     serialize_uint8(data_out, sizeof(ip_add_t));
-    serialize_string(data_out, NODE_LO_ADDR(node), sizeof(ip_add_t));
+    serialize_string(data_out, NODE_RTRID_ADDR(node), sizeof(ip_add_t));
     return  sizeof(ip_add_t) + TLV_OVERHEAD_SIZE;
 }
 
@@ -540,7 +540,7 @@ seq_t
 ddcp_update_ddcp_db_self_query_info(node_t *node){
 
     uint32_t addr_int = 0;
-    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    inet_pton(AF_INET, NODE_RTRID_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
 
     ddcp_db_query_node_t *ddcp_db_query_node =
@@ -567,7 +567,7 @@ ddcp_db_should_process_ddcp_query(node_t *node,
                                   seq_t seq_no){
 
     uint32_t addr_int = 0;
-    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    inet_pton(AF_INET, NODE_RTRID_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
    
     if(ddcp_is_enabled_on_interface(GET_DDCP_INTF_PROP(iif)) == false){
@@ -671,7 +671,7 @@ ddcp_trigger_default_ddcp_query(node_t *node, int ddcp_q_interval){
 
     ddcp_query_hdr = (ddcp_query_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
-    inet_pton(AF_INET, NODE_LO_ADDR(node), &addr_int);
+    inet_pton(AF_INET, NODE_RTRID_ADDR(node), &addr_int);
     addr_int = htonl(addr_int);
 
     ddcp_query_hdr->originator_ip = addr_int;

@@ -9,9 +9,11 @@ typedef enum cmdt_cursor_op_res_ {
 } cmdt_cursor_op_res_t;
 
 typedef enum{
+    CMD_UNINITIALISED,
     CMD,
     LEAF,
     NO_CMD
+    
 } param_type_t;
 
 #endif

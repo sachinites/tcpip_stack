@@ -879,10 +879,10 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
         indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
         if (indirect_nh->rtm->afi == AF_IPV4) {
-            return node->node_nw_prop.def_vrf->inet3;
+            return NODE_DEF_VRF_MEMBER(node, inet3);
         }
         else if (indirect_nh->rtm->afi == AF_IPV6) {
-            return node->node_nw_prop.def_vrf->inet63;
+            return NODE_DEF_VRF_MEMBER(node, inet63);
         }
 
         assert(0);
