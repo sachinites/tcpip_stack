@@ -5,6 +5,7 @@
 #include "../common/cp2dp.h"
 #include "../Layer2/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
+#include "../vrf/vrf.h"
 
 void
 interface_set_ip_addr(node_t *node, 
@@ -90,30 +91,30 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 void
 interface_loopback_create (node_t *node, uint8_t lono) {
 
-    int empty_intf_slot;
-
-    /*Plugin interface ends into Node*/
-    empty_intf_slot = node_get_intf_available_slot (node);
-
-    if (empty_intf_slot == -1) {
-        cprintf("Error : No empty slot available for loopback interface %d\n", lono);
-        return;
-    }
-
     /* Create loopback interface */
     char loopback_name[IF_NAME_SIZE];
     snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
+    
+    // Check if loopback interface already exists
+    if (node_interface_lookup_by_name(node, loopback_name)) {
+        cprintf("Error : Loopback interface %s already exists\n", loopback_name);
+        return;
+    }
+    
     InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(loopback_name));
     intfP->SetSharedPtr(intfP);
     intfP->att_node = node;
-    node->intf[empty_intf_slot] = intfP;
-    intfP->ifindex = empty_intf_slot;
+    intfP->ifindex = node_get_sequence_no(node);
+    
+    if (!node_interface_insert(node, intfP)) {
+        cprintf("Error : Failed to insert loopback interface %d\n", lono);
+        return;
+    }
 }
 
 void
 interface_loopback_delete (node_t *node, uint8_t lono) {
 
-    int i = 0;
     Interface *intf;
     uint32_t if_change_flags = 0;
     char loopback_name[IF_NAME_SIZE];
@@ -122,7 +123,7 @@ interface_loopback_delete (node_t *node, uint8_t lono) {
     snprintf(loopback_name, sizeof(loopback_name), "lo.%d", lono);
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-    intf = node_get_intf_by_name_with_idx_pos (node, (const char *)loopback_name, &i);
+    intf = node_interface_lookup_by_name(node, (const char *)loopback_name);
 
     if (!intf) {
         cprintf ("Error : Loopback %s Do Not  Exist\n", loopback_name);
@@ -139,7 +140,7 @@ interface_loopback_delete (node_t *node, uint8_t lono) {
         nfc_intf_invoke_notification_to_sbscribers(
        intf, &intf_prop_changed, if_change_flags);    
 
-    node->intf[i] = nullptr;
+    node_interface_delete_by_name(node, loopback_name);
 }
 
 void
@@ -202,4 +203,226 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     rtm_t *rtm = cp_rtm_get_route_target_rtm (node, intf->vrf, AF_IPV4, RTM_PROTO_STATIC, RTM_SUB_PROTO_NA);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
+}
+
+/* Interface Management Implementation */
+bool 
+node_interface_insert(node_t *node, InterfaceP intf) {
+
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+    return vrf_add_interface (def_vrf, intf);
+}
+
+bool 
+node_interface_delete_by_name(node_t *node, const char *ifname) {
+    
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+    return vrf_interface_delete_by_name(def_vrf, ifname);
+}
+
+bool 
+node_interface_delete_by_ifindex(node_t *node, uint32_t ifindex) {
+    
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+    return vrf_interface_delete_by_ifindex(def_vrf, ifindex);
+}
+
+static Interface* 
+node_interface_lookup_by_name_internal(node_t *node, const char *ifname) {
+    
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+    return vrf_interface_lookup_by_name(def_vrf, ifname);
+}
+
+Interface *
+node_interface_lookup_by_name(node_t *node, const char *if_name){
+
+    Interface *intf;
+
+    if (string_compare(if_name, NODE_RMAC_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_RMAC_INTF(node).get();
+    }
+
+    else if (string_compare(if_name, NODE_VLAN_FLOOD_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_VLAN_FLOOD_INTF(node).get();
+    }
+
+    else if (NODE_NVE_INTF(node) && 
+             string_compare(if_name, NODE_NVE_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_NVE_INTF(node).get();
+    }
+
+    // Look up in physical/loopback interface hashmap
+    intf = node_interface_lookup_by_name_internal(node, if_name);
+    if (intf) return intf;
+
+    /* Get vlan interface by name */
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+            if (string_compare(it->second->if_name.c_str(), if_name, IF_NAME_SIZE) == 0) {
+                return it->second.get();
+            }
+        }
+    }
+
+    return NULL;
+}
+
+Interface* 
+node_interface_lookup_by_ifindex_internal(node_t *node, uint32_t ifindex) {
+    
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+    return vrf_interface_lookup_by_ifindex(def_vrf, ifindex);
+}
+
+Interface *
+node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
+
+    Interface *intf;
+
+    if (ifindex == NODE_RMAC_INTF(node)->ifindex) {
+        return NODE_RMAC_INTF(node).get();
+    }
+    else if (ifindex == NODE_VLAN_FLOOD_INTF(node)->ifindex) {
+        return NODE_VLAN_FLOOD_INTF(node).get();
+    }
+
+    else if (NODE_NVE_INTF(node) && 
+             ifindex == NODE_NVE_INTF(node)->ifindex) {
+        return NODE_NVE_INTF(node).get();
+    }
+    
+    // Look up in physical/loopback interface hashmap
+    intf = node_interface_lookup_by_ifindex_internal(node, ifindex);
+    if (intf) return intf;
+
+    /* Check for vlan interface */
+
+    if (node->vlan_intf_db) {
+
+        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+            if (it->second->ifindex == ifindex) return it->second.get();
+        }
+    }
+
+    return NULL;
+}
+
+
+/* VRF Interface Management Implementation */
+bool 
+vrf_interface_insert(vrf_t *vrf, InterfaceP intf) {
+    
+    if (!vrf || !intf) return false;
+    
+    const char *ifname = intf->if_name.c_str();
+    uint32_t ifindex = intf->ifindex;
+    
+    // Check if interface with same name or ifindex already exists
+    if (vrf->intf_by_name && vrf->intf_by_name->find(ifname) != vrf->intf_by_name->end()) {
+        return false; // Interface name already exists
+    }
+    
+    if (vrf->intf_by_ifindex && vrf->intf_by_ifindex->find(ifindex) != vrf->intf_by_ifindex->end()) {
+        return false; // Interface index already exists
+    }
+    
+    // Initialize hashmaps if not already done
+    if (!vrf->intf_by_name) {
+        vrf->intf_by_name = new std::unordered_map<std::string, InterfaceP>();
+    }
+    
+    if (!vrf->intf_by_ifindex) {
+        vrf->intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
+    }
+    
+    // Insert into both hashmaps
+    (*vrf->intf_by_name)[ifname] = intf;
+    (*vrf->intf_by_ifindex)[ifindex] = intf;
+    
+    return true;
+}
+
+bool 
+vrf_interface_delete_by_name(vrf_t *vrf, const char *ifname) {
+    
+    if (!vrf || !ifname) return false;
+    if (!vrf->intf_by_name) return false;
+    
+    auto it = vrf->intf_by_name->find(ifname);
+    if (it == vrf->intf_by_name->end()) {
+        return false; // Interface not found
+    }
+    
+    InterfaceP intf = it->second;
+    uint32_t ifindex = intf->ifindex;
+    
+    // Remove from both hashmaps
+    vrf->intf_by_name->erase(it);
+    
+    if (vrf->intf_by_ifindex) {
+        vrf->intf_by_ifindex->erase(ifindex);
+    }
+    
+    return true;
+}
+
+bool 
+vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
+    
+    if (!vrf) return false;
+    if (!vrf->intf_by_ifindex) return false;
+    
+    auto it = vrf->intf_by_ifindex->find(ifindex);
+    if (it == vrf->intf_by_ifindex->end()) {
+        return false; // Interface not found
+    }
+    
+    InterfaceP intf = it->second;
+    const char *ifname = intf->if_name.c_str();
+    
+    // Remove from both hashmaps
+    vrf->intf_by_ifindex->erase(it);
+    
+    if (vrf->intf_by_name) {
+        vrf->intf_by_name->erase(ifname);
+    }
+    
+    return true;
+}
+
+Interface* 
+vrf_interface_lookup_by_name(vrf_t *vrf, const char *ifname) {
+    
+    if (!vrf || !ifname) return nullptr;
+    if (!vrf->intf_by_name) return nullptr;
+    
+    auto it = vrf->intf_by_name->find(ifname);
+    if (it == vrf->intf_by_name->end()) {
+        return nullptr;
+    }
+    
+    return it->second.get();
+}
+
+Interface* 
+vrf_interface_lookup_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
+    
+    if (!vrf) return nullptr;
+    if (!vrf->intf_by_ifindex) return nullptr;
+    
+    auto it = vrf->intf_by_ifindex->find(ifindex);
+    if (it == vrf->intf_by_ifindex->end()) {
+        return nullptr;
+    }
+    
+    return it->second.get();
+}
+
+uint32_t 
+vrf_interface_count(vrf_t *vrf) {
+    
+    if (!vrf || !vrf->intf_by_name) return 0;
+    return vrf->intf_by_name->size();
 }

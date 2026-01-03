@@ -51,11 +51,11 @@ gre_tunnel_config_handler (int cmdcode,
     node = node_get_node_by_name(topo, node_name);
     
     if (if_name) {
-        tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+        tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
     }
     else {
         snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
-        tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+        tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
     }
     
 

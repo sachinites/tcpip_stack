@@ -52,7 +52,7 @@ ipv6_config_handler
 
     if (oif_name) {
 
-        intf = node_get_intf_by_name(node, (const char *)oif_name);
+        intf = node_interface_lookup_by_name(node, (const char *)oif_name);
 
         if (!intf) {
             cprintf ("Error : Interface %s not found\n", oif_name);

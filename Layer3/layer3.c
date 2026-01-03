@@ -58,6 +58,7 @@
 #include "../common/cp2dp.h"
 #include "../Tracer/tracer.h"
 #include "ipv6/ipv6_route.h"
+#include "../FIB/fib_nh.h"
 
 extern graph_t *topo;
 
@@ -159,14 +160,14 @@ demote_pkt_to_layer2(node_t *node,
 
 void
 layer3_ip_route_pkt(node_t *node,
-							   Interface *interface,
-					           pkt_block_t *pkt_block) {
+					Interface *interface,
+					pkt_block_t *pkt_block) {
 
+    char nh_str[48];
     int8_t nf_result;
     char *l4_hdr, *l5_hdr;
     ip_hdr_t *ip_hdr = NULL;
     uint32_t next_hop_ip= 0;
-    nexthop_t *nexthop = NULL;
     char dest_ip_addr[IPV4_ADDR_LEN_STR];
 
     /* We are in L3 IP land, so starting hdr type must be IP_HDR */
@@ -201,19 +202,23 @@ layer3_ip_route_pkt(node_t *node,
             access_list_evaluate_ip_packet(node, interface,
                                            ip_hdr, true) == ACL_DENY) {
 
-            tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt Dropped :  L3 ACL Denied on ingress interface %s\n",
-            pkt_block_str(pkt_block), interface->if_name.c_str());
+            tracer (node->dptr, DL3FWD, 
+                "Pkt : %s : Pkt Dropped :  L3 ACL Denied on ingress interface %s\n",
+                pkt_block_str(pkt_block), 
+                interface->if_name.c_str());
             return;
         }
     }
 
     tracer (node->dptr, DL3FWD_DET, "Dest : %s : Pkt Qualified L3 ACL Test\n", dest_ip_addr);
 
-    l3_route_t *l3_route = l3rib_lookup_lpm(
-                           NODE_RT_TABLE(node), htonl(ip_hdr->dst_ip));
-
-    if(!l3_route){
-        tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
+    cmn_prefix_t prefix;
+    cmn_prefix_initialize_v4(&prefix, htonl(ip_hdr->dst_ip), 32);
+    fib_nh_t *nh = fib_get_forwarding_nh(
+        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0), &prefix);
+    if(!nh){
+        tracer (node->dptr, DL3FWD | DERR, 
+            "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
         return;
     }
 
@@ -224,8 +229,9 @@ layer3_ip_route_pkt(node_t *node,
      * case 2 : pkt is destined for host machine connected to directly attached subnet
      * case 3 : pkt is to be forwarded to next router*/
 
-    if (l3_is_direct_route(l3_route)){
-
+    if ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_CONNECTED) || 
+        (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL))
+    {
         /* case 1 and case 2 are possible here*/
 
         /* case 1 : local delivery:  dst ip address in pkt must exact match with
@@ -233,9 +239,10 @@ layer3_ip_route_pkt(node_t *node,
 
         tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", dest_ip_addr);
 
-        if (is_layer3_local_delivery(node, htonl(ip_hdr->dst_ip))) {
+        if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL) {
 
-            tracer (node->dptr, DL3FWD, "Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
+            tracer (node->dptr, DL3FWD, 
+                "Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
                  dest_ip_addr, proto_name_str(ip_hdr->protocol));
 
             l4_hdr = (char *)INCREMENT_IPHDR(ip_hdr);
@@ -306,48 +313,22 @@ layer3_ip_route_pkt(node_t *node,
                                                 node, interface,
                                                 pkt_block,
                                                 IP_HDR);
+            return;
         }
          
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
-        nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
 
         tracer (node->dptr, DL3FWD, "Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
-            pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
-
-        /* If nexthop do not have any OIF attached to it, it could be loose next hope. Perform 
-        loose nexthop resolution */
-        while (nexthop->ifindex == 0) {
-
-            tracer (node->dptr, DL3FWD, "Pkt : %s :  Loose Nexthop found, Nexthop addr : %s\n", 
-                    pkt_block_str (pkt_block), nexthop->gw_ip);
-
-            nexthop->hit_count++;
-
-            /* Recusrive look up */
-            next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
-
-            l3_route_t *recursive_l3_route = l3rib_lookup_lpm(
-                                NODE_RT_TABLE(node), next_hop_ip);
-
-            if (!recursive_l3_route) {
-
-                    tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped :  No L3 Route for Loose Nexthop %s\n",
-                        pkt_block_str (pkt_block), nexthop->gw_ip);
-                    return;
-            }
-
-            nexthop = l3_route_get_active_nexthop(recursive_l3_route, pkt_block->exclude_oif.get());
-
-            tracer (node->dptr, DL3FWD, "Pkt : %s :  Recursive Nexthop found OIF %s, Gw : %s\n", 
-                pkt_block_str (pkt_block), nexthop->oif->if_name.c_str(), nexthop->gw_ip);
-        }
+            pkt_block_str (pkt_block), 
+            nh->fwd_info->oif->if_name.c_str(), 
+            cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
 
         /* If src ip address is not feeded by application, then take the OIF IP address*/
         if (ip_hdr->src_ip == 0) {
             
             char ip_addr_str[IPV4_ADDR_LEN_STR];
-            ip_hdr->src_ip = htonl(IF_IP(nexthop->oif.get()));
+            ip_hdr->src_ip = htonl(IF_IP(nh->fwd_info->oif.get()));
             tracer (node->dptr, DL3FWD, "Pkt: %s : Using OIF IP as Src IP : %s\n", 
                 pkt_block_str (pkt_block), 
                 tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->src_ip), ip_addr_str)); 
@@ -358,11 +339,10 @@ layer3_ip_route_pkt(node_t *node,
         demote_pkt_to_layer2 (
                 node,           /*Current processing node*/
                 htonl(ip_hdr->dst_ip),     /*next hop IP is dest itself as dest is present in local subnet*/
-                nexthop->oif->if_name.c_str(),           /*No oif as dest is present in local subnet*/
+                nh->fwd_info->oif->if_name.c_str(),           /*No oif as dest is present in local subnet*/
                 pkt_block,  /*Network Layer payload and size*/
                 IP_HDR);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 
-        nexthop->hit_count++;
         return;
     }
 
@@ -380,18 +360,16 @@ layer3_ip_route_pkt(node_t *node,
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
-    nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
-
     tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
             dest_ip_addr, 
-            nexthop->oif->if_name.c_str(), 
-            nexthop->gw_ip);
+            nh->fwd_info->oif->if_name.c_str(), 
+            cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
 
     nf_result = nf_invoke_netfilter_hook(
                         NF_IP_FORWARD,
                         pkt_block,
                         node, 
-                        nexthop->oif.get(),
+                        nh->fwd_info->oif.get(),
                         IP_HDR);
 
     switch (nf_result) {
@@ -403,15 +381,15 @@ layer3_ip_route_pkt(node_t *node,
         default: ;
     }
 
-    next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
+    next_hop_ip = nh->fwd_info->nh_addr.u.v4_addr;
    
     tcp_dump_l3_fwding_logger(node, 
-        nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+        nh->fwd_info->oif->if_name.c_str(), nh_str);
 
     nf_result = nf_invoke_netfilter_hook(
                     NF_IP_POST_ROUTING,
 		            pkt_block,
-		            node, nexthop->oif.get(),
+		            node, nh->fwd_info->oif.get(),
                     IP_HDR);
 
     switch (nf_result) {
@@ -423,15 +401,15 @@ layer3_ip_route_pkt(node_t *node,
         break;
     }
 
-    tracer (node->dptr, DL3FWD, "Dest : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", dest_ip_addr);
+    tracer (node->dptr, DL3FWD, 
+        "Dest : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", dest_ip_addr);
 
     demote_pkt_to_layer2(node, 
             next_hop_ip,
-            nexthop->oif->if_name.c_str(),
+            nh->fwd_info->oif->if_name.c_str(),
             pkt_block,
             IP_HDR); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
-    nexthop->hit_count++;
 }
 
 
@@ -774,14 +752,15 @@ promote_pkt_to_layer3(node_t *node,            /*Current node on which the pkt i
 
 /* An API to be used by L4 or L5 to push the pkt down the TCP/IP
  * stack to layer 3*/
-void
-demote_packet_to_layer3 (node_t *node, 
-                                           pkt_block_t *pkt_block,
-                                           hdr_type_t protocol_number, /*L4 or L5 protocol type*/
-                                           uint32_t dest_ip_address){
+void demote_packet_to_layer3(node_t *node,
+                             pkt_block_t *pkt_block,
+                             hdr_type_t protocol_number, /*L4 or L5 protocol type*/
+                             uint32_t dest_ip_address)
+{
 
     byte *pkt;
     ip_hdr_t iphdr;
+    char nh_str[48];
     byte dst_ip_addr_str[IPV4_ADDR_LEN_STR];
     pkt_size_t pkt_size;
 
@@ -814,17 +793,18 @@ demote_packet_to_layer3 (node_t *node,
 
     memcpy((char *)new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
-
-    l3_route_t *l3_route = l3rib_lookup_lpm(
-                                          NODE_RT_TABLE(node), 
-                                          htonl(iphdr.dst_ip));
-
-    if(!l3_route){
-        tracer (node->dptr, DL3FWD | DERR, "Dest : %s :  Pkt Dropped : No L3 route\n", dst_ip_addr_str);   
+    cmn_prefix_t prefix;
+    cmn_prefix_initialize_v4(&prefix, htonl(iphdr.dst_ip), 32);
+    fib_nh_t *nh = fib_get_forwarding_nh(
+            NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0), &prefix);
+    if(!nh){
+        tracer (node->dptr, DL3FWD | DERR, 
+            "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
         return;
     }
 
-    bool is_direct_route = l3_is_direct_route(l3_route);
+    bool is_direct_route = (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_CONNECTED) || 
+                           (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL);
     
     if(is_direct_route){
 
@@ -844,7 +824,8 @@ demote_packet_to_layer3 (node_t *node,
                 return;
         }
 
-        tracer (node->dptr, DL3FWD, "Dest : %s :  Direct Route found, Pkt is being demoted to L2 Layer\n", dst_ip_addr_str);
+        tracer (node->dptr, DL3FWD, "Dest : %s :  Direct Route found, Pkt is being demoted to L2 Layer\n", 
+            dst_ip_addr_str);
 
         demote_pkt_to_layer2(node,
                          dest_ip_address,
@@ -857,20 +838,20 @@ demote_packet_to_layer3 (node_t *node,
     /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
     uint32_t next_hop_ip;
-    nexthop_t *nexthop = NULL;
-
-    nexthop = l3_route_get_active_nexthop(l3_route, pkt_block->exclude_oif.get());
     
-    if(!nexthop){
-        tracer (node->dptr, DL3FWD | DERR, "Dest : %s :  Pkt Dropped : No nexthop found\n", dst_ip_addr_str);
+    if(!nh){
+        tracer (node->dptr, DL3FWD | DERR, "Dest : %s :  Pkt Dropped : No nexthop found\n", 
+            dst_ip_addr_str);
         return;
     }
 
-    tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", dst_ip_addr_str, 
-            nexthop->oif->if_name.c_str(), nexthop->gw_ip);
+    tracer (node->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
+            dst_ip_addr_str, 
+            nh->fwd_info->oif->if_name.c_str(), 
+            cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
 
     if (pkt_block->exclude_oif &&
-            pkt_block->exclude_oif == nexthop->oif) assert(0);
+            pkt_block->exclude_oif == nh->fwd_info->oif) assert(0);
 
 #if 0
     if (access_list_evaluate_ip_packet(node, 
@@ -884,19 +865,19 @@ demote_packet_to_layer3 (node_t *node,
         return;
     }
 #endif 
-    next_hop_ip = tcp_ip_convert_ip_p_to_n(nexthop->gw_ip);
+    next_hop_ip = nh->fwd_info->nh_addr.u.v4_addr;
 
-    tcp_dump_l3_fwding_logger(node,
-                                                    nexthop->oif->if_name.c_str(), 
-                                                    nexthop->gw_ip);
+    tcp_dump_l3_fwding_logger(node, 
+        nh->fwd_info->oif->if_name.c_str(), nh_str);
 
     int8_t nf_result = nf_invoke_netfilter_hook(
             NF_IP_LOCAL_OUT,
 			pkt_block,
-			node, nexthop->oif.get(),
+			node, nh->fwd_info->oif.get(),
             IP_HDR);
 
-    switch (nf_result) {
+    switch (nf_result) 
+    {
         case NF_ACCEPT:
             break;
         case NF_DROP:
@@ -908,11 +889,11 @@ demote_packet_to_layer3 (node_t *node,
     tracer (node->dptr, DL3FWD, "Dest : %s :  Pkt is being demoted to L2 Layer\n", dst_ip_addr_str);
     demote_pkt_to_layer2(node,
             next_hop_ip,
-            nexthop->oif->if_name.c_str(),
+            nh->fwd_info->oif->if_name.c_str(),
             pkt_block,
             IP_HDR);
 
-    nexthop->hit_count++;
+    nh->hit_count++;
 }
 
 /* This fn sends a dummy packet to test L3 and L2 routing

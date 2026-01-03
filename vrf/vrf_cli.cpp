@@ -147,7 +147,7 @@ vrf_config_handler (int cmdcode,
                     if (!node_register_vrf(node, vrf))
                     {
                         cprintf("Error : VRF Creation Failed, Max VRF limit reached\n");
-                        vrf_delete(vrf);
+                        vrf_delete(vrf, true);
                         return -1;
                     }
 

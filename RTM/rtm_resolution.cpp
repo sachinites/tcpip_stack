@@ -329,15 +329,15 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
         x.inet.0 RTM
         0.inet.128 ( BGP L3 VPN ) */
 
-    if (rtm == rtm->node->node_nw_prop.inet3) {     
+    if (rtm == rtm->node->node_nw_prop.def_vrf->inet3) {     
 
-        //SET_BIT(rtm->node->node_nw_prop.inet0->flags, RTM_F_INHS_RE_RESOLVE);
-        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet0);
+        //SET_BIT(rtm->node->node_nw_prop.def_vrf->inet0->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.def_vrf->inet0);
 
         /* The below code to be removed when BGP VPN Ribs are synchronized with
             with Customer VRF ribs based on RT.*/
-        //SET_BIT(rtm->node->node_nw_prop.l3vpnv4->flags, RTM_F_INHS_RE_RESOLVE);
-        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv4);
+        //SET_BIT(rtm->node->node_nw_prop.def_vrf->l3vpnv4->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.def_vrf->l3vpnv4);
 
         for (i = 0; i < MAX_VRF_PER_NODE; i++) {
 
@@ -352,15 +352,15 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
     }
 
     /* If this is 0.inet.63 RTM, Schedule the NH resolution worked of 0.inet.6 RTM*/
-     else if (rtm == rtm->node->node_nw_prop.inet63) {     
+     else if (rtm == rtm->node->node_nw_prop.def_vrf->inet63) {     
 
-        //SET_BIT(rtm->node->node_nw_prop.inet6->flags, RTM_F_INHS_RE_RESOLVE);
-        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.inet6);
+        //SET_BIT(rtm->node->node_nw_prop.def_vrf->inet6->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.def_vrf->inet6);
         
         /* The below code to be removed when BGP VPN Ribs are synchronized with
             with Customer VRF ribs based on RT.*/
-        //SET_BIT(rtm->node->node_nw_prop.l3vpnv6->flags, RTM_F_INHS_RE_RESOLVE);
-        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.l3vpnv6);
+        //SET_BIT(rtm->node->node_nw_prop.def_vrf->l3vpnv6->flags, RTM_F_INHS_RE_RESOLVE);
+        //rtm_schedule_nh_resolution_worker (rtm->node->node_nw_prop.def_vrf->l3vpnv6);
 
         for (i = 0; i < MAX_VRF_PER_NODE; i++) {
 
@@ -879,10 +879,10 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
         indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
         if (indirect_nh->rtm->afi == AF_IPV4) {
-            return node->node_nw_prop.inet3;
+            return node->node_nw_prop.def_vrf->inet3;
         }
         else if (indirect_nh->rtm->afi == AF_IPV6) {
-            return node->node_nw_prop.inet63;
+            return node->node_nw_prop.def_vrf->inet63;
         }
 
         assert(0);
@@ -892,9 +892,9 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
 
     /* Default Rules */
-    if (indirect_nh->prefix.afi == AF_IPV4) return node->node_nw_prop.inet0;
-    if (indirect_nh->prefix.afi == AF_IPV6) return node->node_nw_prop.inet6;
-    if (indirect_nh->prefix.afi == AF_LABEL) return node->node_nw_prop.mpls0;
+    if (indirect_nh->prefix.afi == AF_IPV4) return NODE_DEF_VRF_VRF_MEMBER(node, inet0);
+    if (indirect_nh->prefix.afi == AF_IPV6) return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+    if (indirect_nh->prefix.afi == AF_LABEL) return NODE_DEF_VRF_MEMBER(node, mpls0);
 
     return NULL;
 }

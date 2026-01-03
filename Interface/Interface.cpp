@@ -27,7 +27,6 @@
 #include "../tcpconst.h"
 #include "../utils.h"
 #include "../BitOp/bitsop.h"
-#include "Interface.h"
 #include "../FireWall/acl/acldb.h"
 #include "../router_init.h"
 #include "../pkt_block.h"
@@ -37,6 +36,8 @@
 #include "../Layer2/vxlan/dp/vxlan_dp.h"
 #include "../Layer3/gre-tunneling/gre.h"
 #include "../CLIBuilder/libcli.h"
+#include "Interface.h"
+#include "InterfaceUApi.h"
 #include "../Layer2/transport_svc.h"
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
@@ -254,7 +255,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->is_up = true;
     if (!LinuxRtr) this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
-    this->vrf =  DEFAULT_VRF;
+    this->vrf =  NULL;
     this->pkt_recv = 0;
     this->pkt_sent = 0;
     this->xmit_pkt_dropped = 0;
@@ -448,15 +449,6 @@ bool
 Interface:: IsInterfaceUp(vlan_id_t vlan_id) {
 
     return this->is_up;
-}
-
-/* Default fn : In Most cases, we store the interface in node->intf[] array. Hence,
-    anything more than 1 (+1) ref count means interface is in use */
-bool 
-Interface::IsCrossReferenced() {
-
-    if (this->GetSharedPtr().use_count() > 2) return true;
-    return false;
 }
 
 void 
@@ -938,19 +930,17 @@ PhysicalInterface::InterfaceReleaseAllResources() {
     this->Interface::InterfaceReleaseAllResources();
 }
 
-/* Physical interface, by defauls are qued into nodes and linkage_t
-    which take away '2' ref count. Anything more than that, interface is suppose to be
-    in use*/
+
 bool
 PhysicalInterface::IsCrossReferenced() {
 
     if (LinuxRtr) {
         /* We are also listening on this interface */
-        if (this->GetSharedPtr().use_count() > 4) return true;
+        return (this->GetSharedPtr().use_count() > (PHY_ETH_IF_DEF_REFCOUNT + 1 + 1)) ;
+
     }
 
-    if (this->GetSharedPtr().use_count() > 3) return true;
-    return false;
+    return this->GetSharedPtr().use_count() > (PHY_ETH_IF_DEF_REFCOUNT + 1);
 }
 
 void 
@@ -973,25 +963,25 @@ PhysicalInterface::GetAccessVlanIntf() {
 bool PhysicalInterface::HasL3Config() {
 
     /* Already a VRF member */
-    if (this->vrf ) return false;
+    if (this->vrf ) return true;
 
     /* If in L2 mode, not eligible */
-    if (this->GetSwitchport() ) return false;
+    if (this->GetSwitchport() ) return true;
 
     /* IF IP address is already configured, not eligible */
-    if (this->IsIpConfigured()) return false;
+    if (this->IsIpConfigured()) return true;
 
     /* If any Routing protocol configured , not eligible */
-    if (this->isis_intf_info) return false;
+    if (this->isis_intf_info) return true;
 
     /* If ACLs configured, not eligible */
     if (this->l3_egress_acc_lst2 ||
-        this->l3_ingress_acc_lst2) return false;
+        this->l3_ingress_acc_lst2) return true;
     
     /* If used by any other config , not eligible */
-    if (this->IsCrossReferenced()) return false;
+    if (this->IsCrossReferenced()) return true;
 
-    return true;
+    return false;
 }
 
 /* ************ Virtual Interface ************ */
@@ -1073,6 +1063,10 @@ int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
     return 0;
 }
 
+bool RmacInterface::IsCrossReferenced() {
+
+    return this->GetSharedPtr().use_count() > (RMAC_DEF_REFCOUNT + 1);
+}
 
 
 /* VlanFloodInterface */
@@ -1107,6 +1101,10 @@ VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
     return 0;
 }
 
+bool VlanFloodInterface::IsCrossReferenced() {
+
+    return this->GetSharedPtr().use_count() > (VLAN_FLOOD_IF_DEF_REFCOUNT + 1);
+}
 
 /* ************ GRETunnelInterface ************ */
 GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
@@ -1378,15 +1376,7 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
 bool 
 GRETunnelInterface::IsCrossReferenced()
 {
-   /* Tunnels install local route with /mask and /32 in RT. They are
-   referenced by those routes*/
-   if (this->lcl_ip && this->is_up) {
-         if (this->GetSharedPtr().use_count() > 4) return true;
-         return false;
-   }
-    
-   /* Default */
-   return this->Interface::IsCrossReferenced();
+    return this->GetSharedPtr().use_count() > (GRE_IF_REFCOUNT + 1);
 }
 
 
@@ -1592,7 +1582,7 @@ VirtualPort::UnBindOverlayTunnel(VirtualInterface *tunnel) {
 bool 
 VirtualPort::IsCrossReferenced() {
 
-    return this->Interface::IsCrossReferenced();
+    return this->GetSharedPtr().use_count() > (VPORT_IF_REFCOUNT + 1);
 }
 
 
@@ -1624,8 +1614,7 @@ VlanInterface::~VlanInterface() {
 bool
 VlanInterface::IsCrossReferenced() {
 
-    if (this->GetSharedPtr().use_count() > 2) return true;
-    return false;
+    return this->GetSharedPtr().use_count() > (VLAN_IF_DEF_REFCOUNT + 1);
 }
 
 
@@ -1883,7 +1872,7 @@ LoopbackInterface::InterfaceReleaseAllResources() {
 bool 
 LoopbackInterface::IsCrossReferenced() {
 
-    return this->Interface::IsCrossReferenced();
+    return this->GetSharedPtr().use_count() > (LOOPBACK_IF_REFCOUNT + 1);
 }
 
 /* ------------------------------------------------------------------- */
@@ -1910,8 +1899,7 @@ dump_intf_props (Interface *interface){
         header_printed = true;
     }
 
-    cprintf("%-12s %-14s", interface->if_name.c_str(), 
-        interface->vrf ? interface->vrf->vrf_name : DEF_VRF_NAME);
+    cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 
@@ -2157,4 +2145,10 @@ NVEInterface::NVEInterfaceLookUp(node_t *node, std::string if_name) {
     }
     
     return node->node_nw_prop.nve.get();
+}
+
+bool
+NVEInterface::IsCrossReferenced() {
+
+    return this->GetSharedPtr().use_count() > (NVE_IF_DEF_REFCOUNT + 1);
 }

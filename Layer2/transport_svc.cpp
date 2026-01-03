@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include "../router_init.h"
 #include "transport_svc.h"
-#include "../Interface/Interface.h"
+#include "../Interface/InterfaceUApi.h"
 #include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
 #include "../net.h"
@@ -350,7 +350,7 @@ transport_svc_intf_config_handler (int cmdcode,
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    Interface *intf = node_get_intf_by_name(node, (const char *)intf_name);
+    Interface *intf = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (!intf) {
         cprintf("\n" "Error : Non Existing Interface Specified");

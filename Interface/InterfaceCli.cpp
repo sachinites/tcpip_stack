@@ -113,7 +113,7 @@ static Interface *
 node_lookup_interface(node_t *node, c_string intf_name, vlan_id_t vlan_id){
 
     if (intf_name) {
-        return node_get_intf_by_name (node, (const char *)intf_name);
+        return node_interface_lookup_by_name (node, (const char *)intf_name);
     }
 
     if (vlan_id) {
@@ -221,6 +221,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                         cprintf ("Error : Configuration Checkout failed\n");
                         return -1;
                     }
+                    if (!vrf_add_interface(NODE_DEF_VRF(node), interface->GetSharedPtr())) {
+                        cprintf ("Error : Configuration Checkout failed\n");
+                        return -1;
+                    }
+
                 }
                 break;
             }
@@ -542,7 +547,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL:
         {
             VirtualPort *vport_intf = reinterpret_cast<VirtualPort *>(
-                node_get_intf_by_name(node, (const char *)intf_name));
+                node_interface_lookup_by_name(node, (const char *)intf_name));
 
             if (!vport_intf)
             {
@@ -550,7 +555,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 return -1;
             }
 
-            Interface *tunnel = node_get_intf_by_name(node, (const char *)overlay_tunnel_name);
+            Interface *tunnel = node_interface_lookup_by_name(node, (const char *)overlay_tunnel_name);
 
             if (!tunnel)
             {
@@ -689,9 +694,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             break;
             case CONFIG_DISABLE:
             {
-                if (nve_intf->RemoveMemberVni(vni_id)) {
-                
-		} else {
+                if (nve_intf->RemoveMemberVni(vni_id))
+                {
+                }
+                else
+                {
                     cprintf("Failed to remove VNI %u from NVE interface %s\n", vni_id, intf_name);
                     return -1;
                 }
@@ -708,9 +715,10 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-intf_config_virtual_port_create_handler ( int cmdcode, 
-                                                                    Stack_t *tlv_stack,
-                                                                    op_mode enable_or_disable){
+intf_config_virtual_port_create_handler(int cmdcode,
+                                        Stack_t *tlv_stack,
+                                        op_mode enable_or_disable)
+{
 
     node_t *node;
     Interface *intf;
@@ -735,7 +743,7 @@ intf_config_virtual_port_create_handler ( int cmdcode,
 
         case CONFIG_ENABLE:
         {
-            intf = node_get_intf_by_name(node, (const char *)intf_name);
+            intf = node_interface_lookup_by_name(node, (const char *)intf_name);
             
             if (intf) return 0;
 
@@ -744,15 +752,15 @@ intf_config_virtual_port_create_handler ( int cmdcode,
             intf = vportP.get();
             intf->att_node = node;
 
-            int ifslot = node_get_intf_available_slot(node);
-            if (ifslot < 0)
+            vportP->ifindex = node_get_sequence_no(node);
+            
+            if (!node_interface_insert(node, vportP))
             {
-                cprintf ("Error : Interface slot not available\n");
+                cprintf ("Error : Failed to insert interface\n");
                 intf->InterfaceReleaseAllResources();
                 return -1;
             }
 
-            node->intf[ifslot] = vportP;
             SET_BIT(if_change_flags, IF_CREATE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
@@ -760,8 +768,7 @@ intf_config_virtual_port_create_handler ( int cmdcode,
         break;
         case CONFIG_DISABLE:
         { 
-            int i = -1;
-            intf = node_get_intf_by_name_with_idx_pos (node, (const char *)intf_name, &i);
+            intf = node_interface_lookup_by_name(node, (const char *)intf_name);
 
             if (!intf)
             {
@@ -779,7 +786,7 @@ intf_config_virtual_port_create_handler ( int cmdcode,
             SET_BIT(if_change_flags, IF_DELETE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
-            node->intf[i] = nullptr;
+            node_interface_delete_by_name(node, (const char *)intf_name);
         }
         break;
     }

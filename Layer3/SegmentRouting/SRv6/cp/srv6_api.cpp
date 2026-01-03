@@ -13,6 +13,7 @@
 #include "../../../../Tracer/tracer.h"
 #include "srv6_sid_pool.h"
 #include "../../../../lmm_enums.h"
+#include "../../../../Interface/InterfaceUApi.h"
 
 bool 
 srv6_is_enable (node_t *node) {

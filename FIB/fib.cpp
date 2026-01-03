@@ -122,13 +122,13 @@ fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
         switch (afi)
         {
         case AF_IPV4:
-            fib = node->node_nw_prop.ipv4_fib;
+            fib = NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0);
             break;
         case AF_IPV6:
-            fib = node->node_nw_prop.ipv6_fib;
+            fib = NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6);
             break;
         case AF_LABEL:
-            fib = node->node_nw_prop.mpls_fib;
+            fib = NODE_DEF_VRF_MEMBER(node, mpls_fib);
             break;
         default:
             return NULL;
@@ -187,14 +187,6 @@ fib_get_by_name (node_t *node, char *fib_name) {
     return fib_get(node, afi, vrf ? vrf->vrf_id : 0);
 }
 
-
-void 
-node_init_default_fib(node_t *node) {
-    
-    node->node_nw_prop.ipv4_fib = fib_init(node, AF_IPV4, RTM_DEFAULT_VRF);
-    node->node_nw_prop.ipv6_fib = fib_init(node, AF_IPV6, RTM_DEFAULT_VRF);
-    node->node_nw_prop.mpls_fib = fib_init(node, AF_LABEL, RTM_DEFAULT_VRF);
-}
 /**
  * Forward a packet using the FIB
  * 

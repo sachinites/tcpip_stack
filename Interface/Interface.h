@@ -40,6 +40,45 @@ typedef struct vrf_ vrf_t;
 
 class TransportService;
 
+/* Default Reference Count of the interfaces of various types*/
+
+/* node->node_nw_prop.rmac_interface */
+#define RMAC_DEF_REFCOUNT  1
+
+/* node->node_nw_prop.vlan_flood_interface */
+#define VLAN_FLOOD_IF_DEF_REFCOUNT   1
+
+/* Physical Ethernet interface
+  link->Intf1
+  vrf->intf_by_name
+  vrf->intf_by_ifindex
+*/
+#define PHY_ETH_IF_DEF_REFCOUNT   3
+
+/* node->vlan_intf_db */
+#define VLAN_IF_DEF_REFCOUNT 1
+
+/* node->node_nw_prop.nve */
+#define NVE_IF_DEF_REFCOUNT 1
+
+/*
+  vrf->intf_by_name
+  vrf->intf_by_ifindex
+*/
+#define GRE_IF_REFCOUNT 2
+
+/*
+  vrf->intf_by_name
+  vrf->intf_by_ifindex
+*/
+#define VPORT_IF_REFCOUNT 2
+
+/*
+  vrf->intf_by_name
+  vrf->intf_by_ifindex
+*/
+#define LOOPBACK_IF_REFCOUNT  2
+
 class Interface {
 
     private:
@@ -117,7 +156,7 @@ class Interface {
         virtual bool IntfConfigTransportSvc(std::string& trans_svc);
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc);
         virtual bool IsInterfaceUp(vlan_id_t vlan_id);
-        virtual bool IsCrossReferenced();
+        virtual bool IsCrossReferenced() = 0;
         void InterfaceReleaseAllResources();
         virtual VlanInterfaceP GetAccessVlanIntf(); 
         /* Return TRUE if the interface is SVI*/
@@ -254,6 +293,7 @@ class RmacInterface : public VirtualInterface {
         virtual void PrintInterfaceDetails ();
         virtual void InterfaceReleaseAllResources() ;
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        virtual bool IsCrossReferenced() final;
 
 } __attribute__((aligned(8)));;
 
@@ -268,6 +308,7 @@ class VlanFloodInterface : public VirtualInterface {
         VlanFloodInterface();
         virtual ~VlanFloodInterface();
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        bool VlanFloodInterface::IsCrossReferenced() final;
 
 } __attribute__((aligned(8)));;
 
@@ -290,6 +331,8 @@ class NVEInterface : public VirtualInterface {
         virtual void PrintInterfaceDetails ();
         void GetMemberVnis(std::vector<uint32_t>& vni_list);
         static NVEInterface *NVEInterfaceLookUp(node_t *node, std::string if_name);
+        virtual bool IsCrossReferenced() final;
+        
 } __attribute__((aligned(8)));
 
 

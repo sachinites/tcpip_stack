@@ -22,33 +22,29 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     GRETunnelInterfaceP gre_shared_ptr ;
 
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
-    intf = node_get_intf_by_name(node, (const char *)intf_name);
+    intf = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (intf) {
-        return false;
-    }
-
-    int empty_intf_slot = node_get_intf_available_slot(node);
-
-    if (empty_intf_slot < 0) {
-
-        cprintf ("Error : No NIC slot available in a device\n");
         return false;
     }
 
     /* Creating a new interface is a 2 step process as below.*/
     gre_shared_ptr = std::make_shared<GRETunnelInterface>(tunnel_id);
     gre_shared_ptr->SetSharedPtr(gre_shared_ptr);
-
-    node->intf[empty_intf_slot] = gre_shared_ptr;
     gre_shared_ptr->att_node = node;
+    gre_shared_ptr->ifindex = node_get_sequence_no(node);
+
+    if (!node_interface_insert(node, gre_shared_ptr)) {
+        cprintf ("Error : Failed to insert GRE tunnel interface\n");
+        return false;
+    }
+
     return true;
 }
 
 bool
 gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
     
-    int i = -1;
     Interface *tunnel;
     uint32_t if_change_flags = 0;
     byte intf_name[IF_NAME_SIZE];
@@ -57,7 +53,7 @@ gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-    tunnel = node_get_intf_by_name_with_idx_pos (node, (const char *)intf_name, &i);
+    tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
         cprintf ("Error : Tunnel %s Do Not  Exist\n", intf_name);
@@ -76,7 +72,7 @@ gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
      nfc_intf_invoke_notification_to_sbscribers(
 	    tunnel, &intf_prop_changed, if_change_flags);        
 
-    node->intf[i] = nullptr;
+    node_interface_delete_by_name(node, (const char *)intf_name);
     return true;
 }
 
@@ -88,7 +84,7 @@ gre_tunnel_set_src_addr (node_t *node, uint32_t tunnel_id, c_string src_addr) {
 
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
 
-    tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+    tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
         cprintf ("Error : Tunnel Do Not  Exist\n");
@@ -113,7 +109,7 @@ gre_tunnel_set_dst_addr (node_t *node, uint32_t tunnel_id, c_string dst_addr) {
 
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
 
-    tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+    tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
         cprintf ("Error : Tunnel Do Not  Exist\n");
@@ -140,7 +136,7 @@ bool
 
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", tunnel_id);
 
-    tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+    tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
         cprintf ("Error : Tunnel Do Not  Exist\n");
@@ -152,7 +148,7 @@ bool
         return false;
     }
 
-    phyIntf = node_get_intf_by_name(node, (const char *)if_name);
+    phyIntf = node_interface_lookup_by_name(node, (const char *)if_name);
 
     if (!phyIntf) {
         cprintf ("Error : Source Interface do not exist\n");
@@ -184,7 +180,7 @@ gre_tunnel_set_lcl_ip_addr(node_t *node,
 
     snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
 
-    tunnel = node_get_intf_by_name(node, (const char *)intf_name);
+    tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
 
     if (!tunnel) {
         cprintf ("Error : Tunnel Do Not  Exist\n");

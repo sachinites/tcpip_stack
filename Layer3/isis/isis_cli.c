@@ -377,7 +377,7 @@ isis_intf_config_handler(int cmdcode,
     
     switch(cmdcode) {
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_ENABLE:
-           intf = node_get_intf_by_name(node, intf_name);
+           intf = node_interface_lookup_by_name(node, intf_name);
 
             if(!intf) {
                 cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF);
@@ -410,7 +410,7 @@ isis_intf_config_handler(int cmdcode,
             }
             break;
             case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_GROUP_MEMBERSHIP:
-                intf = node_get_intf_by_name(node, intf_name);
+                intf = node_interface_lookup_by_name(node, intf_name);
                 if (!intf) {
                     cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF);
                     return -1;
@@ -437,7 +437,7 @@ isis_intf_config_handler(int cmdcode,
                 }
         break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_P2P:
-            intf = node_get_intf_by_name(node, intf_name);
+            intf = node_interface_lookup_by_name(node, intf_name);
             if (!intf) {
                     cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF);
                     return -1;
@@ -449,7 +449,7 @@ isis_intf_config_handler(int cmdcode,
             return isis_config_interface_link_type(intf, isis_intf_type_p2p);
             break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_LAN:
-            intf = node_get_intf_by_name(node, intf_name);
+            intf = node_interface_lookup_by_name(node, intf_name);
             if (!intf) {
                     cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF);
                     return -1;
@@ -461,7 +461,7 @@ isis_intf_config_handler(int cmdcode,
             return isis_config_interface_link_type(intf, isis_intf_type_lan);
             break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_PRIORITY:
-            intf = node_get_intf_by_name(node, intf_name);
+            intf = node_interface_lookup_by_name(node, intf_name);
             if (!intf) {
                     cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF);
                     return -1;
@@ -474,7 +474,7 @@ isis_intf_config_handler(int cmdcode,
                         enable_or_disable == CONFIG_ENABLE ? true : false);
             break;
         case CMDCODE_CONF_NODE_ISIS_PROTO_INTF_METRIC:
-            intf = node_get_intf_by_name(node, intf_name);
+            intf = node_interface_lookup_by_name(node, intf_name);
             if (!intf) {
                     cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF);
                     return -1;
@@ -920,7 +920,7 @@ isis_show_handler (int cmdcode,
            isis_show_node_protocol_state (node);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_INTF:
-            intf = node_get_intf_by_name (node, intf_name);
+            intf = node_interface_lookup_by_name (node, intf_name);
             if (!intf) {
                 cprintf("\n"ISIS_ERROR_NON_EXISTING_INTF "\n");
                 return -1;

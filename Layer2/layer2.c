@@ -83,7 +83,7 @@ node_set_intf_l2_mode(node_t *node,
                                       const char *intf_name, 
                                       IntfL2Mode intf_l2_mode){
 
-    Interface *interface = node_get_intf_by_name(node, intf_name);
+    Interface *interface = node_interface_lookup_by_name(node, intf_name);
     assert(interface);
     interface->SetL2Mode(intf_l2_mode);
 }
@@ -92,7 +92,7 @@ void
 node_set_intf_switchport(node_t *node,
                                          const char *intf_name) {
 
-    Interface *interface = node_get_intf_by_name(node, intf_name);
+    Interface *interface = node_interface_lookup_by_name(node, intf_name);
     assert(interface);
     interface->SetSwitchport(true);
 }
@@ -103,7 +103,7 @@ node_set_intf_vlan_membership(node_t *node,
                                                      vlan_id_t vlan_id,
                                                      bool Trunk){
 
-    Interface *interface = node_get_intf_by_name(node, intf_name);
+    Interface *interface = node_interface_lookup_by_name(node, intf_name);
     assert(interface);
 
     if (interface->GetL2Mode() == LAN_ACCESS_MODE &&
@@ -175,7 +175,7 @@ l2_forward_ip_packet(node_t *node,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
     if (ethernet_hdr->type != htons(ETH_IP)) {
 
-        oif = node_get_intf_by_name(node, outgoing_intf);
+        oif = node_interface_lookup_by_name(node, outgoing_intf);
 
         if (!oif) {
             cprintf ("Error : Failed to get OIF for ipv4 forwarding\n");
@@ -195,7 +195,7 @@ l2_forward_ip_packet(node_t *node,
 
         /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
          * out of this interface*/
-        oif = node_get_intf_by_name(node, outgoing_intf);
+        oif = node_interface_lookup_by_name(node, outgoing_intf);
         assert(oif);
 
         arp_entry = arp_table_lookup(NODE_ARP_TABLE(node), next_hop_ip_str);
@@ -276,30 +276,29 @@ l2_forward_ip_packet(node_t *node,
  * this API shall be used by L3, but any Higher Layer API can use
  * this API. For example, An application can run directly on L2 bypassing
  * L3 altogether.*/
-void
-demote_pkt_to_layer2 (node_t *node,
-                                       uint32_t next_hop_ip,
-                                      c_string outgoing_intf,
-                                      pkt_block_t *pkt_block,
-                                      hdr_type_t hdr_type) {
+void demote_pkt_to_layer2(node_t * node,
+                          uint32_t next_hop_ip,
+                          c_string outgoing_intf,
+                          pkt_block_t *pkt_block,
+                          hdr_type_t hdr_type)
+{
 
-     tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
+    tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
 
-     ethernet_hdr_t *empty_ethernet_hdr =
-         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
+    ethernet_hdr_t *empty_ethernet_hdr =
+        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
-     empty_ethernet_hdr->type = htons(tcp_ip_convert_internal_proto_to_std_proto(hdr_type));
+    empty_ethernet_hdr->type = htons(tcp_ip_convert_internal_proto_to_std_proto(hdr_type));
 
-     l2_forward_ip_packet(node,
-                          next_hop_ip,
-                          outgoing_intf,
-                          pkt_block);
+    l2_forward_ip_packet(node,
+                         next_hop_ip,
+                         outgoing_intf,
+                         pkt_block);
 }
 
 /*Vlan Management Routines*/
 
 /* Return new packet size if pkt is tagged with new vlan id*/
-
 void
 tag_pkt_with_vlan_id (
                      pkt_block_t *pkt_block,

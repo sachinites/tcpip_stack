@@ -73,6 +73,7 @@ typedef struct vxlan_vni_db_ vxlan_vni_db_t;
 typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
+typedef struct def_vrf_ def_vrf_t;
 
 typedef struct node_nw_prop_{
 
@@ -92,19 +93,8 @@ typedef struct node_nw_prop_{
     mpls_rt_table_t *mpls_rt_table;
     rt_table_t *ipv4_mpls_rt_table;
 
-    /* New RTM RIBs*/
-    rtm_t *inet0;
-    rtm_t *inet3;
-    rtm_t *inet6;
-    rtm_t *mpls0;
-    rtm_t *inet63;
-    rtm_t *l3vpnv4;
-    rtm_t *l3vpnv6;
-
-    /* FIBs */
-    fib_t *ipv4_fib;
-    fib_t *ipv6_fib;
-    fib_t *mpls_fib;
+    /* Default VRF containing all RIBs and FIBs */
+    def_vrf_t *def_vrf;
 
     ddcp_db_t *ddcp_db;
 	stp_node_info_t *stp_node_info;
@@ -207,19 +197,23 @@ tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
 void interface_assign_mac_address (Interface *interface);
 
 /*Macros to Iterate over Nbrs of a node*/
-#define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr) \
-    do{                                                                  \
-        int i = 0 ;                                                      \
-        Interface *other_intf;                                         \
-        for( i = 0 ; i < MAX_INTF_PER_NODE; i++){                        \
-            oif_ptr = node_ptr->intf[i].get();                                 \
-            if(!oif_ptr) continue;                                       \
-            other_intf = oif_ptr->GetOtherInterface();      \
-            if(!other_intf) continue;                                    \
-            nbr_ptr = oif_ptr->GetNbrNode ();                 \
-            ip_addr = IF_IP(other_intf);                      \
+#define ITERATE_NODE_NBRS_BEGIN(node_ptr, nbr_ptr, oif_ptr, ip_addr)        \
+    do{                                                                      \
+        Interface *other_intf;                                               \
+        if (node_ptr->intf_by_name) {                                        \
+            for (auto _it = node_ptr->intf_by_name->begin();                \
+                 _it != node_ptr->intf_by_name->end(); _it++) {              \
+                oif_ptr = _it->second.get();                                 \
+                if(!oif_ptr) continue;                                       \
+                other_intf = oif_ptr->GetOtherInterface();                   \
+                if(!other_intf) continue;                                    \
+                nbr_ptr = oif_ptr->GetNbrNode ();                            \
+                ip_addr = IF_IP(other_intf);
 
-#define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)  }}while(0);
+#define ITERATE_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)          \
+            }                                                                \
+        }                                                                    \
+    }while(0);
 
 #define EV(node_ptr)    (&node_ptr->ev_dis)
 #define EV_DP(node_ptr) (&node_ptr->dp_ev_dis)

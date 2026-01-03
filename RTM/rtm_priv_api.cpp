@@ -472,7 +472,7 @@ config_rtm_route_cli_handler(int cmdcode,
             vrf_t *vrf = NULL;
             InterfaceP oif = nullptr;
             if (if_name) {
-                Interface *intf = node_get_intf_by_name(node, (const char *)if_name);
+                Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {
                     cprintf("Error: Interface %s not found on node %s\n",
                             if_name, node_name);
@@ -780,7 +780,7 @@ config_rtm_route_cli_handler(int cmdcode,
             InterfaceP oif = nullptr;
             vrf_t *vrf = NULL;
             if (if_name) {
-                Interface *intf = node_get_intf_by_name(node, (const char *)if_name);
+                Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {
                     cprintf("Error: Interface %s not found on node %s\n",
                             if_name, node_name);
@@ -1344,8 +1344,8 @@ rtm_copy_l3vpn_to_vrf_client_ribs (
     assert (afi == AF_IPV4 || afi == AF_IPV6);
 
     rtm_t *src_rib = (afi == AF_IPV4 ) ? \
-                node->node_nw_prop.l3vpnv4 : \
-                node->node_nw_prop.l3vpnv6;
+                node->node_nw_prop.def_vrf->l3vpnv4 : \
+                node->node_nw_prop.def_vrf->l3vpnv6;
 
     if (target_vrf_id) {
 
@@ -1390,8 +1390,8 @@ rtm_get_client_rtm_set (rtm_t *rtm, glthread_t *lst_head_out) {
     init_glthread(lst_head_out);
 
     /* L3 VPN case */
-    if (rtm == node->node_nw_prop.l3vpnv4 ||
-        rtm == node->node_nw_prop.l3vpnv6)
+    if (rtm == node->node_nw_prop.def_vrf->l3vpnv4 ||
+        rtm == node->node_nw_prop.def_vrf->l3vpnv6)
     {
         for (i = 0; i < MAX_VRF_PER_NODE; i++)
         {

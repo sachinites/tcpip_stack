@@ -306,7 +306,7 @@ _pkt_receive(node_t *receving_node,
 
     pkt_block_t *pkt_block;
     c_string recv_intf_name = pkt_with_aux_data;
-    Interface *recv_intf = node_get_intf_by_name(receving_node, recv_intf_name);
+    Interface *recv_intf = node_interface_lookup_by_name(receving_node, recv_intf_name);
 
     if(!recv_intf){
         cprintf("Error : Pkt recvd on unknown interface %s on node %s\n", 

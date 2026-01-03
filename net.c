@@ -50,6 +50,8 @@
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
 
+typedef struct def_vrf_ def_vrf_t;
+
 extern void init_arp_table(arp_table_t **arp_table);
 extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(node_t *node, rt_table_t **rt_table);
@@ -68,6 +70,7 @@ extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id,
         c_string src_mac, Interface *oif, uint32_t src_ip) ;
 extern void node_init_default_rtm(node_t *node) ;
 extern void node_init_default_fib(node_t *node);
+extern def_vrf_t* vrf_def_init (node_t *node);
 
 void
 interface_assign_mac_address (Interface *interface){
@@ -90,6 +93,7 @@ node_assign_router_mac (node_t *node) {
     node->node_nw_prop.rmac_interface->SetSharedPtr(
                 node->node_nw_prop.rmac_interface);
     node->node_nw_prop.rmac_interface->att_node = node;
+    node->node_nw_prop.rmac_interface->vrf = NODE_DEF_VRF(node);
 }
 
 void 
@@ -100,12 +104,14 @@ node_create_vlan_flood_interface(node_t *node) {
     node->node_nw_prop.vlan_flood_interface->SetSharedPtr(
                 node->node_nw_prop.vlan_flood_interface);
     node->node_nw_prop.vlan_flood_interface->att_node = node;
+    node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
 }
 
 typedef struct l3_route_ l3_route_t;
 
 bool node_set_loopback_address(node_t *node, const char *ip_addr){
 
+    uint32_t nh_idx = 0;
     assert(ip_addr);
 
     node->node_nw_prop.is_lb_addr_config = true;
@@ -114,8 +120,9 @@ bool node_set_loopback_address(node_t *node, const char *ip_addr){
 
     /*Add it as direct route in routing table*/
     rt_ipv4_route_add (node, 
-                                    tcp_ip_convert_ip_p_to_n(ip_addr), 32, 
-                                    0, 0, 0, PROTO_STATIC, true);        
+                        tcp_ip_convert_ip_p_to_n(ip_addr), 32, 
+                        0, 0, 0, PROTO_STATIC, true);
+    
     return true;
 }
 
@@ -137,9 +144,8 @@ void
 node_set_intf_ip_address(node_t *node, const char *local_if, 
                                 const char *ip_addr, char mask) {
 
-    Interface *intf = node_get_intf_by_name(node, local_if);
-    interface_set_ip_addr(node, intf, 
-                                    ip_addr, mask);
+    Interface *intf = node_interface_lookup_by_name(node, local_if);
+    interface_set_ip_addr(node, intf, ip_addr, mask);
 }
 
 void dump_node_nw_props(node_t *node){
@@ -309,8 +315,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
     mpls_rt_table_init (node, &(node_nw_prop->mpls_rt_table));
     ipv4_mpls_rt_table_init (node, &(node_nw_prop->ipv4_mpls_rt_table));
-    node_init_default_rtm(node);
-    node_init_default_fib(node);
+    node_nw_prop->def_vrf = vrf_def_init(node);
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);

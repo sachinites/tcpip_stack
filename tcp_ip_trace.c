@@ -901,7 +901,7 @@ int traceoptions_handler(int cmdcode,
         break;
         case CMDCODE_DEBUG_LOGGING_PER_INTF:
             node =  node_get_node_by_name(topo, node_name);
-            intf = node_get_intf_by_name(node,(const char *) if_name);
+            intf = node_interface_lookup_by_name(node,(const char *) if_name);
             if(!intf){
                 cprintf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
@@ -956,7 +956,7 @@ int traceoptions_handler(int cmdcode,
         break;
         case CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF:
         node = node_get_node_by_name(topo, node_name);
-        intf = node_get_intf_by_name(node, (const char *)if_name);
+        intf = node_interface_lookup_by_name(node, (const char *)if_name);
         if (!intf)
         {
             printw ("\nError : No interface %s on Node %s\n", if_name, node_name);
@@ -1490,7 +1490,7 @@ tcp_ip_build_debug_cli_tree (param_t *root) {
 }
 
 int
-debug_dp_bits_to_str (char *buffer, uint64_t bits) {
+debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) {
 
     int rc = 0;
 

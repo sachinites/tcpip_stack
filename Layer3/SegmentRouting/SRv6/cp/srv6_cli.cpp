@@ -505,7 +505,7 @@ srv6_adjacency_sid_config_handler
 
     node = node_get_node_by_name(topo, node_name);
 
-    Interface *intf = node_get_intf_by_name(node, (const char *)oif_name);
+    Interface *intf = node_interface_lookup_by_name(node, (const char *)oif_name);
 
     if (!intf) {
         cprintf ("Error : Interface %s not found\n", oif_name);

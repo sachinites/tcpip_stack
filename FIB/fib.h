@@ -26,7 +26,6 @@ typedef struct fib_ {
     union {
         /* IF the key of the FIB is v4 or V6*/
         mtrie_t *lpm;
-
         /* IF the key of the Fib is MPLS Label*/
         hashtable_t *label_ht;
     }u;
@@ -36,6 +35,7 @@ typedef struct fib_ {
     avltree_t nhs;
 
 } fib_t;
+
 #pragma pack(pop)
 
 fib_t* fib_init (node_t *node, AFI_T afi, uint8_t vrf_id);
@@ -45,4 +45,4 @@ fib_t *fib_get (node_t *node, AFI_T afi, uint8_t vrf_id);
 void fib_destroy (fib_t*fib);
 fib_t* fib_get_by_name (node_t *node, char *fib_name);
 
-#endif 
+#endif

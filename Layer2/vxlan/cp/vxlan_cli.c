@@ -6,7 +6,7 @@
 #include "../../../common/cp2dp.h"
 #include "../../../CLIBuilder/libcli.h"
 #include "../../../CLIBuilder/cmdtlv.h"
-#include "../../../Interface/Interface.h"
+#include "../../../Interface/InterfaceUApi.h"
 
 extern graph_t *topo;
 
@@ -52,7 +52,7 @@ mac_table_config_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_dis
                 return -1;
             }
 
-            Interface *intf = node_get_intf_by_name (node, if_name);
+            Interface *intf = node_interface_lookup_by_name (node, if_name);
 
             if (!intf) {
                 cprintf ("Error : Interface %s not found\n", if_name);
@@ -74,7 +74,7 @@ mac_table_config_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_dis
                 return -1;
             }
             
-            Interface *intf = node_get_intf_by_name (node, if_name);
+            Interface *intf = node_interface_lookup_by_name(node, if_name);
 
             if (!intf) {
                 cprintf ("Error : Interface %s not found\n", if_name);

@@ -85,13 +85,11 @@ ddcp_flood_ddcp_query_out(node_t *node, char *pkt,
     if(!node){
         return;
     }
-    uint32_t i = 0 ;
-    for(; i < MAX_INTF_PER_NODE; i++){
-        intf = node->intf[i];
-        if(!intf) return;
+    
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
         if(intf == exempted_intf) continue;
         ddcp_send_ddcp_query_out(pkt, pkt_size, intf);
-    }
+    } ITERATE_NODE_INTERFACES_END(node, intf);
 }
 
 static uint32_t
@@ -148,7 +146,6 @@ ddcp_get_ip_reach_data(node_t *node, ser_buff_t *data_out){
      * place Network ID of each interface in TLV Buffer. Size
      * of 1 unit of TLV shall be 5B (= 4B (address) + 1B mask)*/
 
-     int i = 0;
      char mask;
      int chekpoint;
      interface_t *intf;
@@ -164,10 +161,8 @@ ddcp_get_ip_reach_data(node_t *node, ser_buff_t *data_out){
      
      serialize_buffer_skip(data_out, sizeof(char));
 
-     for( ; i < MAX_INTF_PER_NODE; i++){
+     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
         
-        intf = node->intf[i];
-        if(!intf) break;
         if(!IS_INTF_L3_MODE(intf)) continue;
         memset(intf_subnet, 0, sizeof(intf_subnet));
         mask = intf->intf_nw_props.mask;
@@ -177,7 +172,7 @@ ddcp_get_ip_reach_data(node_t *node, ser_buff_t *data_out){
         serialize_uint32(data_out, ip_addr);
         serialize_uint8(data_out, mask);
         tlv_size += sizeof(uint32_t) + sizeof(char);
-     }
+    } ITERATE_NODE_INTERFACES_END(node, intf);
 
      copy_in_serialized_buffer_by_offset(data_out, 
                                         sizeof(char), 
@@ -881,7 +876,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
                             node->node_name);
                     break;
                 }
-                intf = node_get_intf_by_name(node, intf_name);
+                intf = node_interface_lookup_by_name(node, intf_name);
                 if(!intf) {
                     printf("Error : Non Existing interface\n");
                     return -1;
@@ -894,7 +889,7 @@ ddcp_handler(param_t *param, ser_buff_t *tlv_buf,
                 }
 				break;
 			case CONFIG_DISABLE:
-                intf = node_get_intf_by_name(node, intf_name);
+                intf = node_interface_lookup_by_name(node, intf_name);
                 if(!intf) {
                     printf("Error : Non Existing interface\n");
                     return -1;

@@ -775,7 +775,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                 {
                     Interface *intf = NULL;
                     if(intf_name){
-                        intf = node_get_intf_by_name(node, (const char *)intf_name);
+                        intf = node_interface_lookup_by_name(node, (const char *)intf_name);
                         if(!intf){
                             cprintf("Config Error : Non-Existing Interface : %s\n", intf_name);
                             return -1;
@@ -831,7 +831,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                 {      
                     Interface *intf = NULL;
                     if(intf_name){
-                        intf = node_get_intf_by_name(node, (const char *)intf_name);
+                        intf = node_interface_lookup_by_name(node, (const char *)intf_name);
                         if(!intf){
                             cprintf("Config Error : Non-Existing Interface : %s\n", intf_name);
                             return -1;
@@ -961,12 +961,12 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
             mtrie_longest_prefix_first_traverse(
-                    node->node_nw_prop.ipv4_fib->u.lpm,
+                    NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0->u.lpm),
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
             mtrie_longest_prefix_first_traverse(
-                    node->node_nw_prop.ipv6_fib->u.lpm,
+                    NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6->u.lpm),
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:

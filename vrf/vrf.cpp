@@ -7,9 +7,57 @@
 #include "../RTM/rtm.h"
 #include "../FIB/fib.h"
 #include "../Interface/InterfaceUApi.h"
+#include "../net.h"
+
+/* Initialize Default VRF */
+def_vrf_t* vrf_def_init(node_t *node) {
+    
+    /* Allocate memory for default VRF */
+    def_vrf_t *def_vrf = (def_vrf_t *)XCALLOC2(0, 1, def_vrf_t);
+    
+    /* Initialize base VRF fields */
+    def_vrf->vrf.vrf_id = DEFAULT_VRF;
+    strncpy(def_vrf->vrf.vrf_name, DEF_VRF_NAME, sizeof(def_vrf->vrf.vrf_name) - 1);
+    def_vrf->vrf.vrf_name[sizeof(def_vrf->vrf.vrf_name) - 1] = '\0';
+    def_vrf->vrf.node = node;
+    
+    /* Initialize interface hashmaps */
+    def_vrf->vrf.intf_by_name = new std::unordered_map<std::string, InterfaceP>();
+    def_vrf->vrf.intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
+    
+    /* Initialize L3 VPN label to 0 */
+    def_vrf->vrf.l3_vpn_label = 0;
+    
+    /* RD and RT are not set for default VRF */
+    def_vrf->vrf.rd.asn = 0;
+    def_vrf->vrf.rd.number = 0;
+    def_vrf->vrf.import_rt.asn = 0;
+    def_vrf->vrf.import_rt.number = 0;
+    def_vrf->vrf.export_rt.asn = 0;
+    def_vrf->vrf.export_rt.number = 0;
+    
+    /* Initialize all RIBs */
+    def_vrf->vrf.inet0   = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV4, 0);    // inet.0
+    def_vrf->inet3       = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV4, 3);    // inet.3
+    def_vrf->vrf.inet6   = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV6, 0);    // inet6.0
+    def_vrf->inet63      = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV6, 3);    // inet6.3
+    def_vrf->mpls0       = rtm_initialize(node, RTM_DEFAULT_VRF, AF_LABEL, 0);   // mpls.0
+    def_vrf->l3vpnv4     = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV4, 128);  // bgp.l3vpn.0 (v4)
+    def_vrf->l3vpnv6     = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV6, 128);  // bgp.l3vpn.0 (v6)
+    
+    /* Initialize all FIBs */
+    def_vrf->vrf.fib_inet0 = fib_init(node, AF_IPV4, RTM_DEFAULT_VRF);
+    def_vrf->vrf.fib_inet6 = fib_init(node, AF_IPV6, RTM_DEFAULT_VRF);
+    def_vrf->mpls_fib      = fib_init(node, AF_LABEL, RTM_DEFAULT_VRF);
+    
+    return def_vrf;
+}
 
 /* Initialize a VRF instance */
 vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name) {
+
+    /* Dont use this API to initialize default VRF */
+    assert (vrf_id == 0);
 
     /* Allocate memory for new VRF */
     vrf_t *vrf = (vrf_t *)XCALLOC2(0, 1, vrf_t);
@@ -19,10 +67,9 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name) {
     strncpy(vrf->vrf_name, vrf_name, sizeof(vrf->vrf_name) - 1);
     vrf->vrf_name[sizeof(vrf->vrf_name) - 1] = '\0';
 
-    /* Initialize interface array */
-    for (int i = 0; i < VRF_MAX_INTF; i++) {
-        vrf->intf[i] = nullptr;
-    }
+    /* Initialize interface hashmaps */
+    vrf->intf_by_name = new std::unordered_map<std::string, InterfaceP>();
+    vrf->intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
 
     /* Initialize L3 VPN label to 0 */
     vrf->l3_vpn_label = node_get_sequence_no(node);
@@ -45,19 +92,23 @@ void vrf_delete_by_id(node_t *node, uint8_t vrf_id) {
     
     /* Look up VRF */
     vrf_t *vrf = vrf_get_by_id(node, vrf_id);
-    vrf_delete(vrf);
+    vrf_delete(vrf, true);
 }
 
 /* Delete VRF instance */
-void vrf_delete(vrf_t* vrf) {
+void vrf_delete(vrf_t* vrf, bool _free) {
+
+    assert (vrf != (vrf_t *)vrf->node->node_nw_prop.def_vrf);
 
     /* Remove interfaces from VRF */
-    for (int i = 0; i < VRF_MAX_INTF; i++) {
-
-        if (vrf->intf[i]) {
-            vrf->intf[i]->vrf = NULL;
-            vrf->intf[i] = nullptr;
-        }
+    if (vrf->intf_by_name) {
+        delete vrf->intf_by_name;
+        vrf->intf_by_name = nullptr;
+    }
+    
+    if (vrf->intf_by_ifindex) {
+        delete vrf->intf_by_ifindex;
+        vrf->intf_by_ifindex = nullptr;
     }
 
     rtm_stop(vrf->inet0);
@@ -76,7 +127,7 @@ void vrf_delete(vrf_t* vrf) {
     vrf->l3_vpn_label = 0;
     vrf->node = NULL;
 
-    XFREE(vrf);
+    if (_free) XFREE(vrf);
 }
 
 /* Add interface to VRF */
@@ -89,15 +140,11 @@ bool vrf_add_interface(vrf_t *vrf, InterfaceP intf) {
         return false;
     }
 
-    for (int i = 0; i < VRF_MAX_INTF; i++) {
-        if (vrf->intf[i] == nullptr) {
-            vrf->intf[i] = intf;
-            intf->vrf = vrf;
-            return true;
-        }
+    if (vrf_interface_insert(vrf, intf)) {
+        intf->vrf = vrf;
+        return true;
     }
 
-    /* No available slot */
     return false;
 }
 
@@ -111,13 +158,10 @@ bool vrf_del_interface(vrf_t *vrf, InterfaceP intf) {
         return false;
     }
 
-    /* Find and remove the interface */
-    for (int i = 0; i < VRF_MAX_INTF; i++) {
-        if (vrf->intf[i] == intf) {
-            vrf->intf[i] = nullptr;
-            intf->vrf = NULL;
-            return true;
-        }
+    const char *ifname = intf->if_name.c_str();
+    if (vrf_interface_delete_by_name(vrf, ifname)) {
+        intf->vrf = NULL;
+        return true;
     }
 
     /* Interface not found */
@@ -128,6 +172,8 @@ bool vrf_del_interface(vrf_t *vrf, InterfaceP intf) {
 vrf_t* vrf_get_by_id (node_t *node, uint8_t vrf_id) {
     
     int i;
+
+    if (vrf_id == 0) return (vrf_t *)node->node_nw_prop.def_vrf;
 
     for (i = 0; i < MAX_VRF_PER_NODE; i++) {
         if (node->vrf[i] && node->vrf[i]->vrf_id == vrf_id) {
@@ -177,6 +223,9 @@ vrf_get_by_name (node_t *node, char *name) {
 
     int i;
     
+    if (strcmp (name, DEF_VRF_NAME) == 0) 
+        return (vrf_t *)node->node_nw_prop.def_vrf;
+
     for (i = 0; i < MAX_VRF_PER_NODE; i++) {
         if (node->vrf[i] && 
             0 == strncmp(node->vrf[i]->vrf_name, name, sizeof (node->vrf[i]->vrf_name))) {
@@ -248,4 +297,9 @@ show_vrfs(node_t *node) {
     }
 
     printw("\n");
+}
+
+vrf_t * 
+NODE_DEF_VRF(node_t *node) {
+    return (vrf_t *)node->node_nw_prop.def_vrf;
 }

@@ -68,14 +68,12 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf1->att_node = node1;
     link->Intf2->att_node = node2;
 
-    int empty_intf_slot;
-
     /*Plugin interface ends into Node*/
-    empty_intf_slot = node_get_intf_available_slot(node1);
-    node1->intf[empty_intf_slot] = link->Intf1;
+    link->Intf1->ifindex = node_get_sequence_no(node1);
+    vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1);
 
-    empty_intf_slot = node_get_intf_available_slot(node2);
-    node2->intf[empty_intf_slot] = link->Intf2;
+    link->Intf2->ifindex = node_get_sequence_no(node2);
+    vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2);
 
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(link->Intf1.get());
@@ -124,7 +122,7 @@ extern void  dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, ui
 extern struct hashtable *object_network_create_new_ht() ;
 extern struct hashtable *object_group_create_new_ht() ;
 extern void init_nfc_layer2_proto_reg_db2(node_t *node);
-extern int debug_dp_bits_to_str (char *buffer, uint64_t bits) ;
+extern int debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) ;
 extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
@@ -148,13 +146,13 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp.txt", node->node_name);
-    node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  0 );
+    node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->cptr, true);
 
     /* Initialize Data Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-dp.txt", node->node_name);
-    node->dptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_dp_bits_to_str );
+    node->dptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->dptr, true);
 
     init_node_nw_prop(node, &node->node_nw_prop);
@@ -177,7 +175,7 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* initialize ACL/NAT/OBJECT-G Tracer*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp-acl.txt", node->node_name);
-    node->acl_cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  0 );
+    node->acl_cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->acl_cptr, true);
 
     /* initialize SQL Table Catalog*/
@@ -237,118 +235,4 @@ create_graph_node(graph_t *graph, const c_string node_name){
 void dump_interface(Interface *interface){
 
     interface->PrintInterfaceDetails();
-}
-
-
-Interface *
-node_get_intf_by_name(node_t *node, const char *if_name){
-
-    Interface *intf;
-
-    if (string_compare(if_name, NODE_RMAC_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
-        return NODE_RMAC_INTF(node).get();
-    }
-
-    else if (string_compare(if_name, NODE_VLAN_FLOOD_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
-        return NODE_VLAN_FLOOD_INTF(node).get();
-    }
-
-    else if (NODE_NVE_INTF(node) && 
-             string_compare(if_name, NODE_NVE_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
-        return NODE_NVE_INTF(node).get();
-    }
-
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-        if(!intf) return NULL;
-
-        if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
-            return intf;
-        }
-
-    }  ITERATE_NODE_INTERFACES_END(node, intf);
-
-    /* Get vlan interface by name */
-    if (node->vlan_intf_db) {
-
-        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
-            if (string_compare(it->second->if_name.c_str(), if_name, IF_NAME_SIZE) == 0) {
-                return it->second.get();
-            }
-        }
-    }
-
-    return NULL;
-}
-
-Interface *
-node_get_intf_by_name_with_idx_pos (node_t *node, const char *if_name, int *if_pos) {
-
-    int i = 0;
-    Interface *intf;
-
-    for(; i < MAX_INTF_PER_NODE; i++) {
-
-        intf = node->intf[i].get();                  
-
-        if(!intf) { 
-            if (*if_pos) *if_pos = 0;
-            return NULL;
-        }
-
-        if(string_compare(intf->if_name.c_str(), if_name, IF_NAME_SIZE) == 0){
-            if (*if_pos) *if_pos = i;
-            return intf;
-        }
-    } 
-
-    /* Get vlan interface by name */
-    if (node->vlan_intf_db) {
-
-        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
-            if (string_compare(it->second->if_name.c_str(), if_name, IF_NAME_SIZE) == 0) {
-                if (*if_pos) *if_pos = 0;
-                return it->second.get();
-            }
-        }
-    }
-
-    if (*if_pos) *if_pos = -1;
-    return NULL;    
-}
-
-Interface *
-node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
-
-    Interface *intf;
-
-    if (ifindex ==NODE_RMAC_INTF(node)->ifindex) {
-        return NODE_RMAC_INTF(node).get();
-    }
-    else if (ifindex == NODE_VLAN_FLOOD_INTF(node)->ifindex) {
-        return NODE_VLAN_FLOOD_INTF(node).get();
-    }
-
-    else if (NODE_NVE_INTF(node) && 
-             ifindex == NODE_NVE_INTF(node)->ifindex) {
-        return NODE_NVE_INTF(node).get();
-    }
-    
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-        if(!intf) return NULL;
-        if (intf->ifindex == ifindex) return intf;
-
-    }  ITERATE_NODE_INTERFACES_END(node, intf);
-
-    /* Check for vlan interface */
-
-    if (node->vlan_intf_db) {
-
-        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
-            if (it->second->ifindex == ifindex) return it->second.get();
-        }
-    }
-
-    return NULL;
 }

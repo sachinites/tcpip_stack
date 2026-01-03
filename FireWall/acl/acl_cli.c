@@ -1,7 +1,7 @@
 #include "../../CLIBuilder/libcli.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"
 #include "../../router_init.h"
-#include "../../Interface/Interface.h"
+#include "../../Interface/InterfaceUApi.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
 #include "../../utils.h"
@@ -564,7 +564,7 @@ access_group_config_handler(int cmdcode,
    } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
-    Interface *intf = node_get_intf_by_name(node, if_name);
+    Interface *intf = node_interface_lookup_by_name(node, if_name);
     
     if (!intf) {
         cprintf ("Error : Interface do not exist\n");

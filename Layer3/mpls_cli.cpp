@@ -123,7 +123,7 @@ mpls_route_config_handler(int cmdcode,
                     }
                     
                     /* Get the interface */
-                    oif = node_get_intf_by_name(node, (const char *)if_name);
+                    oif = node_interface_lookup_by_name(node, (const char *)if_name);
                     if (!oif) {
                         cprintf("Error: Interface %s not found on node %s\n", 
                                if_name, node_name);
@@ -158,7 +158,7 @@ mpls_route_config_handler(int cmdcode,
                     /* Check if specific nexthop deletion or entire route deletion */
                     if (gw_ip && if_name) {
                         /* Specific nexthop deletion */
-                        oif = node_get_intf_by_name(node, (const char *)if_name);
+                        oif = node_interface_lookup_by_name(node, (const char *)if_name);
                         if (!oif) {
                             cprintf("Error: Interface %s not found on node %s\n", 
                                    if_name, node_name);
@@ -222,7 +222,7 @@ mpls_route_config_handler(int cmdcode,
                     }
                     
                     /* Get the interface */
-                    oif = node_get_intf_by_name(node, (const char *)if_name);
+                    oif = node_interface_lookup_by_name(node, (const char *)if_name);
                     if (!oif) {
                         cprintf("Error: Interface %s not found on node %s\n", 
                                if_name, node_name);
@@ -272,7 +272,7 @@ mpls_route_config_handler(int cmdcode,
                     /* Check if specific nexthop deletion or entire route deletion */
                     if (gw_ip && if_name) {
                         /* Specific nexthop deletion */
-                        oif = node_get_intf_by_name(node, (const char *)if_name);
+                        oif = node_interface_lookup_by_name(node, (const char *)if_name);
                         if (!oif) {
                             cprintf("Error: Interface %s not found on node %s\n", 
                                    if_name, node_name);

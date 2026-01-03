@@ -208,14 +208,15 @@ fib_show_routes(fib_t *fib) {
                 }
                 
                 /* Forwarding flags */
+                
+                cprintf("      Flags: 0x%x\n", nh->fwd_info->fwd_flags);
                 #if 0
-                cprintf("      Flags: 0x%04x ", nh->fwd_info->fwd_flags);
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV4) cprintf("[IPv4] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6) cprintf("[IPv6] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) cprintf("[MPLS] ");
                 if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) cprintf("[SRv6] ");
-                printw("\n");
                 #endif 
+                
                 
                 /* Reference count and hit count */
                 cprintf("      Ref Count: %u, Hit Count: %u\n", 

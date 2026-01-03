@@ -72,7 +72,6 @@ typedef struct BPlusTree BPlusTree_t;
 
 struct node_ {
 
-    InterfaceP intf[MAX_INTF_PER_NODE];
     char node_name[NODE_NAME_SIZE];
 
     /* For Network Sockets */
@@ -168,31 +167,10 @@ insert_link_between_two_nodes(node_t *node1,
         const char *to_if_name,
         unsigned int cost);
 
-static inline int
-node_get_intf_available_slot(node_t *node){
-
-    int i ;
-    for( i = 0 ; i < MAX_INTF_PER_NODE; i++){
-        if(node->intf[i])
-            continue;
-        return i;
-    }
-    return -1;
-}
-
 static inline uint32_t 
 node_get_sequence_no(node_t *node) {
     return node->sequence_gen++;
 } 
-
-Interface *
-node_get_intf_by_name(node_t *node, const char *if_name);
-
-Interface *
-node_get_intf_by_name_with_idx_pos (node_t *node, const char *if_name, int *if_pos) ;
-
-Interface *
-node_get_intf_by_ifindex(node_t *node, uint32_t ifindex);
 
 static inline node_t *
 node_get_node_by_name(graph_t *topo, c_string node_name){
@@ -214,13 +192,31 @@ void dump_graph(graph_t *graph);
 void dump_node(node_t *node);
 void dump_interface(Interface *interface);
 
-#define ITERATE_NODE_INTERFACES_BEGIN(node_ptr, intf_ptr) \
-{                                                         \
-    int _i = 0;                                           \
-    for(; _i < MAX_INTF_PER_NODE; _i++){                  \
-        intf_ptr = node_ptr->intf[_i].get();                     \
-        if(!intf_ptr) continue;
+#define ITERATE_NODE_INTERFACES_BEGIN(node_ptr, intf_ptr)            \
+{                                                                    \
+    vrf_t *__vrf = NODE_DEF_VRF(node_ptr);                   \
+    if (__vrf->intf_by_name) {                                       \
+        for (auto _it = __vrf->intf_by_name->begin();                \
+             _it != __vrf->intf_by_name->end(); _it++) {             \
+            intf_ptr = _it->second.get();                            \
+            if(!intf_ptr) continue;
 
-#define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr) }}
-    
+#define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr)              \
+        }                                                            \
+    }                                                                \
+}
+
+#define ITERATE_NODE_VRF_INTERFACES_BEGIN(vrf_ptr, intf_ptr)         \
+{                                                                    \
+    if (vrf_ptr->intf_by_name) {                                     \
+        for (auto _it = vrf_ptr->intf_by_name->begin();              \
+             _it != vrf_ptr->intf_by_name->end(); _it++) {           \
+            intf_ptr = _it->second.get();                            \
+            if(!intf_ptr) continue;
+
+#define ITERATE_NODE_VRF_INTERFACES_END(vrf_ptr, intf_ptr)           \
+        }                                                            \
+    }                                                                \
+}
+
 #endif /* __NW_GRAPH_ */

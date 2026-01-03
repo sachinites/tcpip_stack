@@ -1,6 +1,6 @@
 #include <ncurses.h>
 #include "mac_table.h"
-#include "../Interface/Interface.h"
+#include "../Interface/InterfaceUApi.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../router_init.h"
 #include "../Tracer/tracer.h"

@@ -55,45 +55,33 @@ rtm_nh_template_internals (cp_nexthop_template_t *nh_template) {
     if (nh_template->u.srv6_stack.v6segment_lst) XFREE (nh_template->u.srv6_stack.v6segment_lst);
 }
 
-
-/* Static functions End*/
-void 
-node_init_default_rtm(node_t *node) {
-
-    node_nw_prop_t *node_nw_prop = &node->node_nw_prop;
-    node_nw_prop->inet0    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 0); // inet.0
-    node_nw_prop->inet3    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 3); // inet.3
-    node_nw_prop->mpls0    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_LABEL, 0); // mpls.0
-    node_nw_prop->inet6    = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 0); // inet6.0
-    node_nw_prop->inet63   = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 3); // inet6.3
-    node_nw_prop->l3vpnv4  = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV4, 128); // bgp.l3vpn.0 
-    node_nw_prop->l3vpnv6  = rtm_initialize (node, RTM_DEFAULT_VRF, AF_IPV6, 128); // bgp.l3vpn.0 
-}
-
 rtm_t *
 rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
 
     int i;
+    def_vrf_t *def_vrf = node->node_nw_prop.def_vrf;
 
     if (vrf_id == RTM_DEFAULT_VRF) {
 
+        if (!def_vrf) return NULL;
+
         if (afi == AF_IPV4) {
 
-            if (rtm_id == 0) return node->node_nw_prop.inet0;
-            if (rtm_id == 3) return node->node_nw_prop.inet3;
-            if (rtm_id == 128) return node->node_nw_prop.l3vpnv4;
+            if (rtm_id == 0) return def_vrf->vrf.inet0;
+            if (rtm_id == 3) return def_vrf->inet3;
+            if (rtm_id == 128) return def_vrf->l3vpnv4;
         }
 
         else if (afi == AF_IPV6) {
 
-            if (rtm_id == 0) return node->node_nw_prop.inet6;
-            if (rtm_id == 3) return node->node_nw_prop.inet63;
-            if (rtm_id == 128) return node->node_nw_prop.l3vpnv6;
+            if (rtm_id == 0) return def_vrf->vrf.inet6;
+            if (rtm_id == 3) return def_vrf->inet63;
+            if (rtm_id == 128) return def_vrf->l3vpnv6;
         }
 
         else if (afi == AF_LABEL) {
 
-            if (rtm_id == 0) return node->node_nw_prop.mpls0;
+            if (rtm_id == 0) return def_vrf->mpls0;
         }
     }
 
@@ -287,8 +275,8 @@ cp_rtm_install_route (
     rc = rtm_install_route ( rtm,  prefix, cp_nh_template) ;
 
     /* Copy the same route to all client RIBs*/
-    if (rtm == rtm->node->node_nw_prop.l3vpnv4 ||
-        rtm == rtm->node->node_nw_prop.l3vpnv6)
+    def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
+    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6))
     {
         rtm_install_l3vpn_routes_to_all_client_ribs(rtm, 
             prefix, cp_nh_template, true);
@@ -366,8 +354,8 @@ cp_rtm_uninstall_route_by_idx (
         // if (was_resolved) rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm, &route->prefix);
     }
 
-    if (rtm == rtm->node->node_nw_prop.l3vpnv4 ||
-        rtm == rtm->node->node_nw_prop.l3vpnv6)
+    def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
+    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6))
     {
         rtm_uninstall_l3vpn_routes_to_all_client_ribs(rtm, idx);
     }
@@ -386,8 +374,8 @@ cp_rtm_uninstall_route (
     rc = rtm_uninstall_route ( rtm,  prefix, cp_nh_template) ;
 
     /* Copy the same route to all client RIBs*/
-    if (rtm == rtm->node->node_nw_prop.l3vpnv4 ||
-        rtm == rtm->node->node_nw_prop.l3vpnv6)
+    def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
+    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6))
     {
         rtm_install_l3vpn_routes_to_all_client_ribs(rtm, prefix, cp_nh_template, false);
     }

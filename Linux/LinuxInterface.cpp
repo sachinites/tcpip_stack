@@ -279,10 +279,10 @@ LinuxLoadInterfaces (node_t *node) {
                         0, 0, 0, 0, 0,  (Srv6_endpcode_t)0,PROTO_STATIC);
         }
         
-        int empty_intf_slot = node_get_intf_available_slot(node);
-        assert (empty_intf_slot >= 0);
-        node->intf[empty_intf_slot] = intf_shared;
-         tcp_ip_init_intf_log_info(intf);
+        intf->ifindex = node_get_sequence_no(node);
+        bool inserted = node_interface_insert(node, intf_shared);
+        assert (inserted);
+        tcp_ip_init_intf_log_info(intf);
     }
     
     closedir(dir);
@@ -357,11 +357,10 @@ linux_listener_thread(void* arg) {
 
         max_fd = 0;
 
-        for (int i = 0; i < MAX_INTF_PER_NODE; i++) {
-
-            if (!node->intf[i]) continue;
+        Interface *intf;
+        ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
             
-            sock_fd = node->intf[i]->GetSockfd() ;
+            sock_fd = intf->GetSockfd() ;
 
             if (sock_fd > 0) {
 
@@ -371,15 +370,13 @@ linux_listener_thread(void* arg) {
                     max_fd = sock_fd;
                 }
             }
-        }
+        } ITERATE_NODE_INTERFACES_END(node, intf);
         
         select(max_fd + 1, &read_fds, NULL, NULL, NULL);
         
-        for (int i = 0; i < MAX_INTF_PER_NODE; i++) {
+        ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
-            if (!node->intf[i]) continue; 
-
-            sock_fd = node->intf[i]->GetSockfd() ;
+            sock_fd = intf->GetSockfd() ;
 
             if (sock_fd > 0 &&  FD_ISSET(sock_fd, &read_fds)) {
                 
@@ -399,13 +396,13 @@ linux_listener_thread(void* arg) {
                 ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(bytes_received);
                 memcpy(ev_dis_pkt_data->pkt, buffer, bytes_received);
 	            ev_dis_pkt_data->recv_node = node;
-	            ev_dis_pkt_data->recv_intf = node->intf[i];
+	            ev_dis_pkt_data->recv_intf = intf->GetSharedPtr();
 	            ev_dis_pkt_data->pkt_size = bytes_received;
 
 	            pkt_q_enqueue(EV_DP(node), DP_PKT_Q(node) ,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
             }
-        }
+        } ITERATE_NODE_INTERFACES_END(node, intf);
     }
 
     return NULL;
@@ -423,33 +420,30 @@ Linux_listen_interfaces (node_t *node) {
     }
     
     // Create sockets for all interfaces
-    for (int i = 0; i < MAX_INTF_PER_NODE; i++) {
-
-        if (node->intf[i] ) {
-
-            Interface *intf = node->intf[i].get();
+    Interface *intf;
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
             
-            // Create raw socket for packet capture
-            int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-            int ifindex = intf->ifindex;
-            intf->SetSockfd (sockfd);
-            
-            // Bind socket to specific interface
-            struct sockaddr_ll sll;
-            memset(&sll, 0, sizeof(sll));
-            sll.sll_family = AF_PACKET;
-            sll.sll_protocol = htons(ETH_P_ALL);
-            sll.sll_ifindex = ifindex;
-            
-            if (bind(sockfd, (struct sockaddr*)&sll, sizeof(sll)) < 0) {
-                cprintf ("Error : Linux_listen_interfaces: Failed to bind socket : if-name : %s , errno : %s\n", 
-                          intf->if_name.c_str(), strerror(errno));
-                close(sockfd);
-                continue;
-            }
+        // Create raw socket for packet capture
+        int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+        int ifindex = intf->ifindex;
+        intf->SetSockfd (sockfd);
+        
+        // Bind socket to specific interface
+        struct sockaddr_ll sll;
+        memset(&sll, 0, sizeof(sll));
+        sll.sll_family = AF_PACKET;
+        sll.sll_protocol = htons(ETH_P_ALL);
+        sll.sll_ifindex = ifindex;
+        
+        if (bind(sockfd, (struct sockaddr*)&sll, sizeof(sll)) < 0) {
+            cprintf ("Error : Linux_listen_interfaces: Failed to bind socket : if-name : %s , errno : %s\n", 
+                      intf->if_name.c_str(), strerror(errno));
+            close(sockfd);
+            continue;
         }
-        listener_running = true;
-    }
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+    
+    listener_running = true;
     
     if (listener_running) pthread_create(&listener_thread, NULL, linux_listener_thread, node);
 }

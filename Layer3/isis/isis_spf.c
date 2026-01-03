@@ -1018,7 +1018,7 @@ isis_compute_spf (node_t *spf_root){
                     tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
                         "%s : Direct Nbr %s added to priority Queue\n", ISIS_SPF, nbr->node_name);
                 }
-            } ITERATE_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
+            } ITERATE_TED_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
 
             tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
                 "%s : Root %s Processing Finished\n", 
