@@ -342,7 +342,6 @@ fib_show_routes_brief(fib_t *fib) {
     uint32_t route_count = 0;
     
     /* Print header */
-    cprintf("\n");
     cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
             "Prefix", "NH", "Gateway", "OIF", "Hits");
     cprintf("%-40s %-3s %-18s %-15s %-8s\n", 

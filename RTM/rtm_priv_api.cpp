@@ -166,7 +166,11 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
                 return RTM_ADMIN_DIST_OSPF_INTRA;
             } else if (sub_proto == RTM_SUB_PROTO_OSPF_EXT) {
                 return RTM_ADMIN_DIST_OSPF_EXT;
-            }
+            } else if (sub_proto == RTM_SUB_PROTO_SR || sub_proto == RTM_SUB_PROTO_SRv6) {
+                return RTM_ADMIN_DIST_SRTE;
+            } else if (sub_proto == RTM_SUB_PROTO_SRTE || sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
+                return RTM_ADMIN_DIST_SRTE;
+            } 
             break;
         case RTM_PROTO_LOCAL:
             return RTM_ADMIN_DIST_STATIC;
@@ -177,12 +181,21 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
                 return RTM_ADMIN_DIST_BGP_EXT;
             }
         case RTM_PROTO_ISIS:
+            switch (sub_proto) {
+                case  RTM_PROTO_L1_ISIS_INT:
+                case RTM_PROTO_L2_ISIS_INT: 
+                case RTM_PROTO_L1_ISIS_EXT:
+                case RTM_PROTO_L2_ISIS_EXT:
+                return RTM_ADMIN_DIST_ISIS;
+                case  RTM_SUB_PROTO_SR:
+                case RTM_SUB_PROTO_SRTE:
+                case  RTM_SUB_PROTO_SRv6:
+                case RTM_SUB_PROTO_SRv6_SRTE:
+                return RTM_ADMIN_DIST_SRTE;
+            }
             return RTM_ADMIN_DIST_ISIS;
         case RTM_PROTO_LDP:
             return RTM_ADMIN_DIST_LDP;
-        case RTM_PROTO_SR:
-        case RTM_PROTO_SRTE:
-            return RTM_ADMIN_DIST_SRTE;
         default:
             return RTM_ADMIN_DIST_UNKNOWN;
     }
@@ -695,7 +708,7 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             /* Get interface and VRF*/
-            vrf_t *vrf = NULL;
+            vrf_t *vrf = NODE_DEF_VRF(node);
             InterfaceP oif = nullptr;
             if (if_name) {
                 Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
@@ -1004,7 +1017,7 @@ config_rtm_route_cli_handler(int cmdcode,
 
             /* Get interface and vrf */
             InterfaceP oif = nullptr;
-            vrf_t *vrf = NULL;
+           vrf_t *vrf = NODE_DEF_VRF(node);
             if (if_name) {
                 Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {

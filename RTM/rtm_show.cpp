@@ -321,10 +321,6 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
             }
         case RTM_PROTO_LDP:
             return "D";
-        case RTM_PROTO_SR:
-            return "SR";
-        case RTM_PROTO_SRTE:
-            return "SR-TE";
         default:
             return "?";
     }

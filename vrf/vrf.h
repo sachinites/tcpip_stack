@@ -36,12 +36,15 @@ typedef struct vrf_ {
     char vrf_name[32];
     /* Owning Router*/
     node_t *node;
-    /* inet0 RIB */
-    rtm_t *inet0;
+    
+    /* RIBs */
+    rtm_t *inet0;   // ipv4 RIB
+    rtm_t *inet3;   // ipv4-> MPLS Service RIB
+    rtm_t *inet63; // ipv6 -> MPLS service RIB
+    rtm_t *inet6;   // ipv6 Rib
+
     /* inet6.0 FIB*/
     fib_t *fib_inet0;
-    /* inet.6 RIB*/
-    rtm_t *inet6;
     /* inet6.0 FIB*/
     fib_t *fib_inet6;    
     /* Interfaces in this VRF - hashmap keyed by interface name*/
@@ -61,8 +64,6 @@ typedef struct vrf_ {
 typedef struct def_vrf_ {
 
     vrf_t vrf;
-    rtm_t *inet3;
-    rtm_t *inet63;
     rtm_t *mpls0;
     fib_t *mpls_fib;
     rtm_t *l3vpnv4;
@@ -76,7 +77,7 @@ typedef struct def_vrf_ {
 def_vrf_t* vrf_def_init (node_t *node);
 
 /* VRF functions */
-vrf_t* vrf_init (node_t *node, uint8_t vrf_id, char *vrf_name);
+vrf_t* vrf_init (node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf_out);
 void vrf_delete_by_id (node_t *node, uint8_t vrf_id );
 void vrf_delete (vrf_t* vrf_id , bool _free);
 bool vrf_add_interface (vrf_t *vrf, InterfaceP intf);
@@ -95,4 +96,4 @@ vrf_t *NODE_DEF_VRF(node_t *node);
 #define NODE_DEF_VRF_MEMBER(node_ptr, member)  \
     (((def_vrf_t *)(NODE_DEF_VRF(node_ptr)))->member)
 
-#endif 
+#endif

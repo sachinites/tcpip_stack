@@ -209,13 +209,13 @@ rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
         /* IPv4 routing tables */
         if (afi == AF_IPV4) {
             if (rtm_id == 0) return def_vrf->vrf.inet0;      /* inet.0 - Unicast */
-            if (rtm_id == 3) return def_vrf->inet3;         /* inet.3 - LDP/SR */
+            if (rtm_id == 3) return def_vrf->vrf.inet3;         /* inet.3 - LDP/SR */
             if (rtm_id == 128) return def_vrf->l3vpnv4;     /* bgp.l3vpn.0 (IPv4) */
         }
         /* IPv6 routing tables */
         else if (afi == AF_IPV6) {
             if (rtm_id == 0) return def_vrf->vrf.inet6;     /* inet6.0 - Unicast */
-            if (rtm_id == 3) return def_vrf->inet63;        /* inet6.3 - LDP/SR */
+            if (rtm_id == 3) return def_vrf->vrf.inet63;        /* inet6.3 - LDP/SR */
             if (rtm_id == 128) return def_vrf->l3vpnv6;     /* bgp.l3vpn.0 (IPv6) */
         }
         /* MPLS/Label routing tables */

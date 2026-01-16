@@ -135,7 +135,8 @@ vrf_config_handler (int cmdcode,
             {
                 case CONFIG_ENABLE:
                 {
-                    vrf = vrf_init(node, node_get_sequence_no(node), (char *)vrf_name);
+                    vrf_t *vrf = (vrf_t *)XCALLOC2(0, 1, vrf_t);
+                    vrf = vrf_init(node, node_get_sequence_no(node), (char *)vrf_name, vrf);
                     strncpy(temp_str, (const char *)rte_dist, sizeof(temp_str) - 1);
                     colon = (char *)strchr(temp_str, ':');
                     unsigned long v1 = strtoul(temp_str, &endptr, 10);

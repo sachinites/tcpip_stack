@@ -9,9 +9,7 @@ typedef enum protocols_ {
     RTM_PROTO_BGP,  
     RTM_PROTO_ISIS, 
     RTM_PROTO_OSPF,
-    RTM_PROTO_SR,
     RTM_PROTO_LDP,
-    RTM_PROTO_SRTE,
     RTM_PROTO_MAX
 
 } RTM_PROTO_T;
@@ -32,6 +30,11 @@ typedef enum sub_protocols_ {
     RTM_SUB_PROTO_OSPF_EXT,
     RTM_SUB_PROTO_OSPF_INTER,
     RTM_SUB_PROTO_OSPF_INTRA,
+
+    RTM_SUB_PROTO_SR,
+    RTM_SUB_PROTO_SRTE,
+    RTM_SUB_PROTO_SRv6,
+    RTM_SUB_PROTO_SRv6_SRTE,
 
     RTM_SUB_PROTO_MAX
 
@@ -78,9 +81,7 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
         case RTM_PROTO_OSPF: return "OSPF";
         case RTM_PROTO_BGP: return "BGP";
         case RTM_PROTO_ISIS: return "ISIS";
-        case RTM_PROTO_SR: return "SR";
         case RTM_PROTO_LDP: return "LDP";
-        case RTM_PROTO_SRTE: return "SR-TE";
         default: return "Unknown";
     }
 }
@@ -100,6 +101,10 @@ static const char* rtm_sub_proto_to_string(RTM_SUB_PROTO_T sub_proto) {
         case RTM_SUB_PROTO_OSPF_EXT: return "OSPF-EXT";
         case RTM_SUB_PROTO_OSPF_INTER: return "OSPF-INTER";
         case RTM_SUB_PROTO_OSPF_INTRA: return "OSPF-INTRA";
+        case RTM_SUB_PROTO_SR: return "SR-MPLS";
+        case RTM_SUB_PROTO_SRTE: return "SR-TE";
+        case RTM_SUB_PROTO_SRv6: return "SRv6";
+        case RTM_SUB_PROTO_SRv6_SRTE: return "SRv6-SRTE";
         default: return "Unknown";
     }
 }

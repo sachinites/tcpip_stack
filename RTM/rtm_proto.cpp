@@ -444,10 +444,6 @@ rtm_nh_proto_is_equal (
             return memcmp (&nh_proto1->u.bgp, &nh_proto2->u.bgp, sizeof (nh_proto1->u.bgp));
         case RTM_PROTO_LDP:
             return memcmp (&nh_proto1->u.ldp, &nh_proto2->u.ldp, sizeof (nh_proto1->u.ldp));
-        case RTM_PROTO_SR:
-            return memcmp (&nh_proto1->u.sr, &nh_proto2->u.sr, sizeof (nh_proto1->u.sr));
-        case RTM_PROTO_SRTE:
-            return memcmp (&nh_proto1->u.srte, &nh_proto2->u.srte, sizeof (nh_proto1->u.srte));
         default:
             return 0;
     }
@@ -798,12 +794,17 @@ rtm_get_route_target_rtm( node_t *node,
      * ==================================================================== */
     /* LDP is only supported in default VRF */
     /* IPv4 LDP routes go to inet.3 */
-    if (is_def_vrf && afi == AF_IPV4 && proto == RTM_PROTO_LDP)
-        return NODE_DEF_VRF_MEMBER(node, inet3);
+    if ( afi == AF_IPV4 && proto == RTM_PROTO_LDP) {
+        if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet3);
+        return vrf->inet3;
+    }
 
     /* IPv6 LDP routes go to inet6.3 */
-    if (is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_LDP)
-        return NODE_DEF_VRF_MEMBER(node, inet63);   
+    if (afi == AF_IPV6 && proto == RTM_PROTO_LDP) {
+        if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
+        return vrf->inet63;
+    }
+
 
     /* LDP is not supported in customer VRFs */
     if (!is_def_vrf && proto == RTM_PROTO_LDP) return NULL;
@@ -842,12 +843,25 @@ rtm_get_route_target_rtm( node_t *node,
      * ==================================================================== */
     /* SR routes use the same tables as LDP (inet.3/inet6.3) */
     /* IPv4 SR/SRTE routes go to inet.3 */
-    if (is_def_vrf && afi == AF_IPV4 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
-        return NODE_DEF_VRF_MEMBER(node, inet3);
+    if (afi == AF_IPV4 && (sub_proto == RTM_SUB_PROTO_SR || sub_proto == RTM_SUB_PROTO_SRTE)) {
+
+        if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet3);
+        return vrf->inet3;
+    }
 
     /* IPv6 SR/SRTE routes go to inet6.3 */
-    if (is_def_vrf && afi == AF_IPV6 && (proto == RTM_PROTO_SR || proto == RTM_PROTO_SRTE))
-        return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+    if (afi == AF_IPV6 && (sub_proto == RTM_SUB_PROTO_SR || sub_proto == RTM_SUB_PROTO_SRTE)) {
+
+        if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
+        return vrf->inet63;
+    }
+
+    if  (sub_proto == RTM_SUB_PROTO_SRv6 || 
+          sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
+
+        if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+        return vrf->inet6;
+    }
 
     /* ====================================================================
      * ISIS Routes

@@ -469,6 +469,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 if (!node->vlan_intf_db) {
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
                 }
+                vlan_intfP->vrf = NODE_DEF_VRF(node);
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
