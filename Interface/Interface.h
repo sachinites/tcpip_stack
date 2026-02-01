@@ -79,6 +79,11 @@ class TransportService;
 */
 #define LOOPBACK_IF_REFCOUNT  2
 
+/*
+    fib_nh_fwd_info_->oif
+*/
+#define SRv6_IF_COUNT   0
+
 class Interface {
 
     private:
@@ -103,6 +108,10 @@ class Interface {
         uint32_t cost;
         uint32_t rtm_local_rt_idx;
         uint32_t rtm_connected_rt_idx;
+        uint32_t rtm_local_rt6_idx;
+        uint32_t rtm_connected_rt6_idx;
+        uint32_t rtm_link_local_rt6_idx;
+        char padding2[4];
         log_t log_info;
 
         /* L2 Properties : Ingress & egress L2 Access_list */
@@ -119,7 +128,7 @@ class Interface {
         
         bool is_up;
         InterfaceType_t iftype;
-        char padding2[6];
+        char padding3[6];
 
         uint32_t GetIntfCost();
         uint32_t GetSockfd();
@@ -433,8 +442,106 @@ class LoopbackInterface : public VirtualInterface {
         virtual void InterfaceReleaseAllResources() final;
         virtual bool IsCrossReferenced() final;
 
-} __attribute__((aligned(8)));;
+} __attribute__((aligned(8)));
 
+
+/* ------SRv6 Virtual Interfaces ----------- */
+class SRv6VirtualInterface : public VirtualInterface {
+
+    private:
+    protected:
+    public:
+
+        SRv6VirtualInterface(std::string ifname);
+        virtual ~SRv6VirtualInterface();
+        virtual bool IsCrossReferenced() final;
+        virtual void InterfaceReleaseAllResources() ;
+
+}__attribute__((aligned(8)));
+
+/* This interface do not have any state, so we can use same
+    instance for all END points 
+    1. Verify SRH exists
+    2. Decrement SRH.SegmentsLeft
+    3. Set IPv6 DST = SRH.SegmentList[SegmentsLeft]
+    4. Continue IPv6 forwarding    
+*/
+class SRv6EndPointENDInterface : public SRv6VirtualInterface {
+
+    private:
+        SRv6EndPointENDInterface *self;
+        SRv6EndPointENDInterface();
+    protected:
+    public:
+        virtual ~SRv6EndPointENDInterface();
+        SRv6EndPointENDInterface* SRv6EndPointENDInterface_get ();
+
+} __attribute__((aligned(8)));
+
+/*
+    1. Verify SRH exists
+    2. Decrement SegmentsLeft
+    3. Set IPv6 DST = next SID
+    4. Forward packet using:
+        - configured next-hop
+        - configured output interface
+*/
+
+class SRv6EndPointEND_XInterface : public SRv6VirtualInterface {
+
+    private:
+        PhysicalInterfaceP intfP;
+    protected:
+    public:
+        SRv6EndPointEND_XInterface(PhysicalInterface *phy_intf);
+        virtual ~SRv6EndPointEND_XInterface();
+        virtual void InterfaceReleaseAllResources() final;
+
+}__attribute__((aligned(8)));
+
+
+/*
+    1. Verify SRH exists
+    2. Remove SRH
+    3. Remove outer IPv6 header
+    4. Expose inner IPv4 packet
+    5. Select configured IPv4 VRF
+    6. Perform IPv4 FIB lookup
+    7. Forward IPv4 packet
+*/
+class SRv6EndPointEND_DX4Interface : public SRv6VirtualInterface {
+
+    private:
+        vrf_t *vrf;
+    protected:
+    public:
+        SRv6EndPointEND_DX4Interface(vrf_t *vrf);
+        virtual ~SRv6EndPointEND_DX4Interface();
+        virtual void InterfaceReleaseAllResources() final;
+        
+}__attribute__((aligned(8)));
+
+/*
+    1. Verify SRH exists
+    2. Remove SRH
+    3. Remove outer IPv6 header
+    4. Expose IPv4 packet
+    5. Select routing table (table-id)
+    6. Perform IPv4 FIB lookup
+    7. Forward packet
+*/
+class SRv6EndPointEND_DT4Interface : public SRv6VirtualInterface {
+
+    private:
+        int table_id;
+    protected:
+    public:
+        SRv6EndPointEND_DT4Interface(int table_id);
+        virtual ~SRv6EndPointEND_DT4Interface();
+} __attribute__((aligned(8)));
+
+
+/* ------SRv6 Virtual Interfaces ----------- */
 
 
 typedef union intf_prop_changed_ {
@@ -453,6 +560,7 @@ typedef union intf_prop_changed_ {
         TransportService *trans_svc;
 
 } intf_prop_changed_t;
+
 
 void 
 dump_intf_props (Interface *interface);

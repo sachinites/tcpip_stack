@@ -69,8 +69,8 @@ fib_nh_comp_fn(const avltree_node_t *node1,
             
             if (nh1->fwd_info->u.v6_fwd.v6segment_lst && nh2->fwd_info->u.v6_fwd.v6segment_lst) {
                 cmn_prefix_t p1, p2;
-                cmn_prefix_initialize_v6(&p1, nh1->fwd_info->u.v6_fwd.v6segment_lst[i], 128);
-                cmn_prefix_initialize_v6(&p2, nh2->fwd_info->u.v6_fwd.v6segment_lst[i], 128);
+                cmn_prefix_initialize_v6(&p1, &nh1->fwd_info->u.v6_fwd.v6segment_lst[i], 128);
+                cmn_prefix_initialize_v6(&p2, &nh2->fwd_info->u.v6_fwd.v6segment_lst[i], 128);
                 int8_t seg_cmp = cmn_prefix_compare(&p1, &p2);
                 if (seg_cmp != 0) return seg_cmp;
             }

@@ -107,6 +107,7 @@
 #include "rtm_presentation.h"
 #include "rtm_resolution.h"
 #include "../vrf/vrf.h"
+#include "../Layer3/ipv6/ipv6_hdrs.h"
 
 /* ========================================================================
  * Static Helper Functions
@@ -162,12 +163,23 @@ rtm_rt_subscription_compare(const avltree_node_t *node1, const avltree_node_t *n
  * 
  * @param nh_template Pointer to nexthop template to clean up
  */
-static void 
-rtm_nh_template_internals (cp_nexthop_template_t *nh_template) {
+void 
+rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template) {
 
-    if (nh_template->rtm_nh_proto) XFREE (nh_template->rtm_nh_proto);
-    if (nh_template->u.l_stack.label_stack) XFREE (nh_template->u.l_stack.label_stack);
-    if (nh_template->u.srv6_stack.v6segment_lst) XFREE (nh_template->u.srv6_stack.v6segment_lst);
+    if (nh_template->rtm_nh_proto) {
+        XFREE (nh_template->rtm_nh_proto);
+        nh_template->rtm_nh_proto = NULL;
+    }
+    
+    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
+        XFREE (nh_template->u.l_stack.label_stack);
+        nh_template->u.l_stack.label_stack = NULL;
+    }
+
+    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_IPV6_STCK)) {
+        XFREE (nh_template->u.srv6_stack.v6segment_lst);
+        nh_template->u.srv6_stack.v6segment_lst = NULL;
+    }
 }
 
 /* ========================================================================
@@ -326,7 +338,7 @@ cp_rtm_install_local_or_connected_v4_routes (
 
     nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
-    rtm_nh_template_internals (&nh_template);
+    rtm_nh_template_free_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s\n",  
@@ -334,6 +346,85 @@ cp_rtm_install_local_or_connected_v4_routes (
 
     return nh_template.idx;
 }
+
+/**
+ * @brief Install local or connected IPv6 route
+ *
+ * Installs an IPv6 route for an interface address. /128 is treated as LOCAL
+ * (host route), any other prefix length as CONNECTED (subnet route).
+ *
+ * @param rtm Pointer to routing table (IPv6 RTM)
+ * @param ipv6_addr IPv6 address (interface address)
+ * @param prefix_len Prefix length (128 = LOCAL, else CONNECTED)
+ * @param Oif Outgoing interface
+ * @return Nexthop index if successful, 0 on failure
+ */
+uint32_t
+cp_rtm_install_local_or_connected_v6_routes (
+        rtm_t *rtm,
+        ipv6_addr_t *ipv6_addr,
+        uint8_t prefix_len,
+        InterfaceP Oif) {
+
+    char addr_str[48];
+    cmn_prefix_t route;
+    uint16_t fwd_flags = 0;
+
+    /* Initialize route prefix structure for IPv6 */
+    cmn_prefix_initialize_v6(&route, &ipv6_addr->addr, prefix_len);
+
+    rtm_nh_proto_t *nh_proto = NULL;
+
+    /* Initialize nexthop template */
+    cp_nexthop_template_t nh_template;
+    memset(&nh_template, 0, sizeof(nh_template));
+
+    /* Determine route type: /128 = host route (LOCAL), otherwise subnet (CONNECTED) */
+    nh_template.proto = (prefix_len == 128) ? \
+        RTM_PROTO_LOCAL : RTM_PROTO_CONNECTED;
+
+    /* Set forwarding flags for IPv6 */
+    fwd_flags |= FIB_NH_FWD_F_IPV6;
+
+    nh_template.sub_proto = RTM_SUB_PROTO_NA;
+
+    /* Set forwarding action based on route type */
+    nh_template.action = (nh_template.proto == RTM_PROTO_LOCAL) ? \
+        RTM_NH_ACTION_LOCAL : RTM_NH_ACTION_CONNECTED;
+
+    fwd_flags |= rtm_set_fib_forwarding_action_flag(nh_template.action);
+    nh_template.oif = Oif->ifindex;
+    nh_template.is_resolved = true;
+
+    /* Local routes metric 0, connected routes metric 1 */
+    nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
+
+    /* Create protocol information structure */
+    rtm_error_t rc = rtm_nh_proto_info_create(
+            RTM_PROTO_LOCAL, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
+    assert(rc == RTM_SUCCESS);
+
+    nh_template.rtm_nh_proto = nh_proto;
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route %s/%d  Gw:null recvd IPv6 route installation request\n",
+        rtm->name,
+        rtm_format_prefix(&route, addr_str, sizeof(addr_str)), prefix_len);
+
+    nh_template.fwd_flags = fwd_flags;
+    rc = cp_rtm_install_route(rtm, &route, &nh_template);
+    rtm_nh_template_free_internals(&nh_template);
+
+    tracer(rtm->node->cptr, DRTM,
+        "RTM[%s] : Route %s/%d  Gw:null IPv6 installation Result Code: %s\n",
+        rtm->name, addr_str, prefix_len, rtm_error_to_string(rc));
+
+    return nh_template.idx;
+}
+
+/* ========================================================================
+ * Static Route APIs
+ * ======================================================================== */
 
 /**
  * @brief Install static route
@@ -414,7 +505,7 @@ cp_rtm_install_static_route (
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
-    rtm_nh_template_internals (&nh_template);
+    rtm_nh_template_free_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s/%d  Gw:%s installation Result Code: %s\n",  
@@ -528,12 +619,17 @@ cp_rtm_install_route (
     /* Install route in the target RTM */
     rc = rtm_install_route(rtm, prefix, cp_nh_template);
 
+    if (rc != RTM_SUCCESS) return rc;
+
     /* Handle L3VPN route propagation to customer VRFs */
     /* If this route is being installed in bgp.l3vpn.0, we need to */
     /* propagate it to all customer VRFs that have matching Import RT */
     def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
-    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
-        rtm_install_l3vpn_routes_to_all_client_ribs(rtm, 
+
+    if ((rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
+
+        rtm_install_l3vpn_routes_to_all_client_ribs(
+            rtm, 
             prefix, cp_nh_template, true);
     }
 
@@ -931,7 +1027,7 @@ cp_rtm_install_route_advanced (
     
     /* Install the route */
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
-    rtm_nh_template_internals (&nh_template);
+    rtm_nh_template_free_internals (&nh_template);
     return rc;
 }
 
@@ -1067,7 +1163,7 @@ cp_rtm_uninstall_route_advanced (
     
     /* Uninstall the route */
     rc = cp_rtm_uninstall_route(rtm, prefix, &nh_template);
-    rtm_nh_template_internals (&nh_template);
+    rtm_nh_template_free_internals (&nh_template);
     return rc;
 }
 

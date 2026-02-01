@@ -70,5 +70,8 @@ void
 interface_install_local_v4_routes (node_t *node, Interface  *intf);
 void 
 interface_uninstall_local_v4_routes (node_t *node, Interface  *intf);
-
+void 
+interface_install_local_v6_routes (node_t *node, Interface  *intf);
+void 
+interface_uninstall_local_v6_routes (node_t *node, Interface  *intf);
 #endif 

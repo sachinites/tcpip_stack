@@ -33,7 +33,7 @@ cmn_prefix_initialize_v4(cmn_prefix_t *prefix, uint32_t ip_addr, uint8_t mask) {
 }
 
 void 
-cmn_prefix_initialize_v6(cmn_prefix_t *prefix, uint8_t addr[16], uint8_t mask) {
+cmn_prefix_initialize_v6(cmn_prefix_t *prefix, uint8_t (*addr)[16], uint8_t mask) {
 
     memcpy(prefix->u.v6_addr, addr, 16);
     prefix->prefix_len = mask;

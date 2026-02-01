@@ -14,6 +14,7 @@
 #include "srv6_sid_pool.h"
 #include "../../../../lmm_enums.h"
 #include "../../../../Interface/InterfaceUApi.h"
+#include "srv6_rtm.h"
 
 bool 
 srv6_is_enable (node_t *node) {
@@ -74,12 +75,15 @@ srv6_de_init (node_t *node) {
     srv6_delete_all_adj_sids (node) ;
 
     /* Delete Locator Config and its route from RIB*/   
-    ipv6_route_uninstall(node, 
-                            &loc->sid,
-                            loc->prefix_len,
-                            0, 0,
-                            PROTO_SRv6);
- 
+    srv6_rtm_route_install(node,
+                           &loc->sid,
+                           loc->prefix_len,
+                           IPV6_LOCAL_RT,
+                           0, 0,
+                           NULL, 0,
+                           SRV6_END_FN_NONE,
+                           RTM_PROTO_STATIC, false);
+
     prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
                                             loc->name,
                                             err_msg);
@@ -120,11 +124,13 @@ srv6_delete_all_pfx_sids (node_t *node)  {
         pfxsid = (srv6_pfxsid_t *)mnode->data;
         assert(pfxsid);
 
-        ipv6_route_uninstall(node, 
+        srv6_rtm_route_install(node, 
                             &pfxsid->sid,
                             pfxsid->prefix_len,
-                            0, 0,
-                            PROTO_SRv6);        
+                            IPV6_LOCAL_RT,
+                            0, 0, NULL, 0,
+                            pfxsid->endP,
+                            RTM_PROTO_STATIC, false);    
 
         prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
@@ -169,13 +175,16 @@ srv6_delete_all_adj_sids (node_t *node) {
         adjsid = (srv6_adjsid_t *)mnode->data;
         assert(adjsid);
 
-        ipv6_route_uninstall(node, 
+        srv6_rtm_route_install(node, 
                             &adjsid->sid,
                             adjsid->prefix_len,
+                            adjsid->flags,
                             &adjsid->gw,
                             node_get_intf_by_ifindex (node, adjsid->ifindex),
-                            PROTO_SRv6);
-
+                            NULL, 0,
+                            adjsid->endP,
+                            RTM_PROTO_STATIC, false); 
+        
         prc = srv6_release_sid (
                                     (NODE_SRv6_SID_POOL(node)), 
                                     &adjsid->sid,

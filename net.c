@@ -127,7 +127,6 @@ node_set_v6_rtr_id(node_t *node, const char *ipv6_addr ){
     memcpy (prefix.addr, node->node_nw_prop.ipv6_rtr_id, 16);
 }
 
-
 void 
 node_set_intf_ip_address(node_t *node, const char *local_if, 
                                 const char *ip_addr, char mask) {

@@ -29,6 +29,10 @@
 #include "../common/cp2dp.h"
 #include "../Interface/InterfaceUApi.h"
 #include "LinuxInterface.h"
+#include "../RTM/rtm.h"
+#include "../RTM/rtm_nb_integ.h"
+#include "../common/cmn_prefix.h"
+#include "../Layer3/ipv6/ipv6_utils.h"
 
 
 bool LinuxRtr = false;
@@ -200,7 +204,7 @@ LinuxLoadInterfaces (node_t *node) {
 
     DIR *dir;
     struct dirent *entry;
-     ipv6_addr_t v6_addr = {0};
+    ipv6_addr_t v6_addr = {0};
 
     dir = opendir("/sys/class/net");
 
@@ -271,14 +275,36 @@ LinuxLoadInterfaces (node_t *node) {
         mac_addr_t *mac_addr_ptr = intf->GetMacAddr();
 
         if (mac_addr_ptr) {
-
+            
             intf->InterfaceSetIpv6LinkLocalAddress(&mac_addr_ptr->mac);
             intf->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-            ipv6_route_install  (node,
-                        &v6_addr, 128, 
-                        0, 0, 0, 0, 0,  (Srv6_endpcode_t)0,PROTO_STATIC);
+
+            /* Install IPv6 link-local address route using new RTM API */
+            rtm_t *rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV6, 0);
+
+            cmn_prefix_t prefix_key;
+
+            /* Initialize prefix for link-local address (host route /128) */
+            cmn_prefix_initialize_v6(&prefix_key, &v6_addr.addr, 128);
+
+            /* Install static route using simplified API */
+            uint32_t nhidx = cp_rtm_install_static_route(
+                rtm,
+                &prefix_key,
+                NULL,        /* No gateway for local route */
+                intf_shared, /* Output interface */
+                0            /* Default cost */
+            );
+
+            if (nhidx == 0)
+            {
+                char ipv6_str[48];
+                inet_ntop(AF_INET6, &v6_addr.addr, ipv6_str, sizeof(ipv6_str));
+                cprintf("Warning: Failed to install IPv6 link-local route %s/128 on interface %s\n",
+                        ipv6_str, intf->if_name.c_str());
+            }
         }
-        
+
         intf->ifindex = node_get_sequence_no(node);
         bool inserted = node_interface_insert(node, intf_shared);
         assert (inserted);

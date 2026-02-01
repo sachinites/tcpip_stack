@@ -692,7 +692,7 @@ ipv6_route_install (node_t *node,
         while (  !is_ipv6_addr_unspecified ( &((*segment_lst)[i]).addr ) ) {
             memcpy ( rt_update_msg->seglst[i], &((*segment_lst)[i]).addr , 16 );
             i++;
-        } 
+        }
 
         rt_update_msg->seg_lst_count = i;
         dp_msg->data_size += (i*16);

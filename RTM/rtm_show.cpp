@@ -75,6 +75,7 @@
 #include "rtm_presentation.h"
 #include "../prefix-list/prefixlst.h"
 #include "../common/mpls_lstack.h"
+#include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 extern int cprintf (const char * format, ...);
 
@@ -250,6 +251,28 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
             printw("\n");
         }
         
+        /* Display SRv6 information if present */
+        if (nh->sub_proto == RTM_SUB_PROTO_SRv6 || nh->sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
+            /* Display SRv6 Endpoint Function */
+            if (nh->endfn != SRV6_END_FN_NONE) {
+                cprintf("    SRv6 Endpoint Fn: %s\n", srv6_end_fn_str(nh->endfn));
+            }
+            
+            /* Display SRv6 Segment List if present */
+            if (nh->n_segment_list > 0 && nh->v6segment_lst) {
+                cprintf("    SRv6 Segment List: ");
+                for (int i = 0; i < nh->n_segment_list; i++) {
+                    char seg_str[48];
+                    rtm_format_prefix(&nh->v6segment_lst[i], seg_str, sizeof(seg_str));
+                    cprintf("%s", seg_str);
+                    if (i < nh->n_segment_list - 1) {
+                        cprintf(" -> ");
+                    }
+                }
+                printw("\n");
+            }
+        }
+        
     } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
 
     /* Blank line after route display */
@@ -290,6 +313,10 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
         case RTM_PROTO_CONNECTED:
             return "C";
         case RTM_PROTO_STATIC:
+            /* Check if this is an SRv6 route */
+            if (sub_proto == RTM_SUB_PROTO_SRv6 || sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
+                return "SRv6";
+            }
             return "S";
         case RTM_PROTO_LOCAL:
             return "L";
@@ -364,7 +391,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
     cprintf("       C - connected, S - static, E - EGP derived, B - BGP derived\n");
     cprintf("       * - candidate default route, IA - OSPF inter area route\n");
     cprintf("       E1 - OSPF external type 1 route, E2 - OSPF external type 2 route\n");
-    cprintf("       L1 - ISIS level-1, L2 - ISIS level-2\n");
+    cprintf("       L1 - ISIS level-1, L2 - ISIS level-2, SRv6 - Segment Routing v6\n");
     
     /* Find default route gateway if exists */
     char default_gw[48] = "not set";

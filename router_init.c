@@ -45,8 +45,10 @@
 #include "Interface/InterfaceUApi.h"
 #include "Tracer/tracer.h"
 #include "Layer3/ipv6/ipv6_utils.h"
-#include "Layer3/ipv6/ipv6_route.h"
 #include "common/cp2dp.h"
+#include "RTM/rtm.h"
+#include "RTM/rtm_nb_integ.h"
+#include "common/cmn_prefix.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
 void
@@ -83,22 +85,22 @@ insert_link_between_two_nodes(node_t *node1,
     mac_addr_t *mac_addr = link->Intf1->GetMacAddr();
     link->Intf1->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
     
-    /* Install link local as a direct static route in ipv6 routing table*/
+    /* Install link local as local/connected route using RTM API */
     ipv6_addr_t v6_addr = {0};
     link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-     ipv6_route_install  (node1,
-                        &v6_addr, 128, 
-                        0, 0, 0, 0, 0, (Srv6_endpcode_t)0, PROTO_STATIC);
-
     
+    rtm_t *rtm = rtm_get(node1, RTM_DEFAULT_VRF, AF_IPV6, 0);
+    
+    link->Intf1->rtm_link_local_rt6_idx = 
+        cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf1);
+
     mac_addr = link->Intf2->GetMacAddr();
     link->Intf2->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
     link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-    ipv6_route_install  (node2,
-                        &v6_addr, 128, 
-                        0, 0, 0, 0, 0, 0,PROTO_STATIC);
-
-    //intf_init_bit_rate_sampling_timer(&link->intf1);
+    
+    rtm = rtm_get(node2, RTM_DEFAULT_VRF, AF_IPV6, 0);
+    link->Intf2->rtm_link_local_rt6_idx = 
+        cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf2);
 
     tcp_ip_init_intf_log_info(link->Intf1.get());
     tcp_ip_init_intf_log_info(link->Intf2.get());

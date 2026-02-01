@@ -7,16 +7,18 @@
 /* Locator do not have flavors, end point fn is
     default to shift and forward in remote nodes and
     decapsulate on local node*/
+
+#pragma pack(push, 8)
 typedef struct srv6_locator_ {
 
     char name[LOCATOR_NAME_SIZE ];
     ipv6_addr_t sid;
     uint8_t prefix_len;
     uint8_t algo;
-    char padding[6];
     avltree_t cfg_pfxsid_tree;
     avltree_t cfg_adjsid_tree;
-    
+    uint32_t nhidx;
+
 } srv6_locator_t;
 
 typedef struct srv6_pfxsid_ {
@@ -25,9 +27,10 @@ typedef struct srv6_pfxsid_ {
     Srv6_endpcode_t endP;
     uint8_t flags;
     uint8_t prefix_len;
+    uint32_t nhidx;
     uint8_t n_seg_lst;
-    char padding[1];
     ipv6_addr_t seglst[0];
+    
 
 } srv6_pfxsid_t;
 
@@ -39,11 +42,11 @@ typedef struct srv6_adjsid_ {
     uint32_t ifindex;
     uint8_t flags;
     uint8_t prefix_len;
+    uint32_t nhidx;
     uint8_t n_seg_lst;
-    char padding[5];
     ipv6_addr_t seglst[0];
     
 } srv6_adjsid_t;
 
-
+#pragma pack(pop)
 #endif 

@@ -41,6 +41,7 @@
 #include "../Layer2/transport_svc.h"
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
+#include "../RTM/rtm_nb_integ.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -255,6 +256,13 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->is_up = true;
     if (!LinuxRtr) this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
+
+    this->rtm_local_rt_idx = 0;
+    this->rtm_connected_rt_idx = 0;
+    this->rtm_local_rt6_idx = 0;
+    this->rtm_connected_rt6_idx = 0;
+    this->rtm_link_local_rt6_idx = 0;
+
     this->vrf =  NULL;
     this->pkt_recv = 0;
     this->pkt_sent = 0;
@@ -474,6 +482,33 @@ Interface::InterfaceReleaseAllResources() {
 
     if (this->l3_egress_acc_lst2) {
         access_group_unconfig (this->att_node, this, "out", this->l3_egress_acc_lst2);
+    }
+
+    rtm_t *rtm = rtm_get (this->att_node, DEFAULT_VRF, AF_IPV6, 0);
+    
+    if (rtm_local_rt_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, rtm_local_rt_idx);
+        rtm_local_rt_idx = 0;
+    }
+
+    if (rtm_connected_rt_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, rtm_connected_rt_idx);
+        rtm_connected_rt_idx = 0;
+    }
+
+    if (rtm_local_rt6_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, rtm_local_rt6_idx);
+        rtm_local_rt6_idx = 0;
+    }
+
+    if (rtm_connected_rt6_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, rtm_connected_rt6_idx);
+        rtm_connected_rt6_idx = 0;
+    }
+
+    if (rtm_link_local_rt6_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, rtm_link_local_rt6_idx);
+        rtm_link_local_rt6_idx = 0;        
     }
 
     /* This is configuration, this fn call must not see it set*/
@@ -2152,3 +2187,101 @@ NVEInterface::IsCrossReferenced() {
 
     return this->GetSharedPtr().use_count() > (NVE_IF_DEF_REFCOUNT + 1);
 }
+
+
+/* SRv6 Interface Implementation */
+
+SRv6VirtualInterface::SRv6VirtualInterface(std::string ifname):
+    VirtualInterface(ifname, INTF_TYPE_SRv6)
+{
+
+}
+
+SRv6VirtualInterface::~SRv6VirtualInterface() {}
+
+bool 
+SRv6VirtualInterface::IsCrossReferenced() {
+
+    return SRv6_IF_COUNT > 0;
+}
+
+void 
+SRv6VirtualInterface::InterfaceReleaseAllResources() {
+
+    this->VirtualInterface::InterfaceReleaseAllResources();
+}
+
+SRv6EndPointENDInterface::SRv6EndPointENDInterface() : 
+    SRv6VirtualInterface(std::string("srv6EndIntf"))
+{
+    self = this;
+}
+
+SRv6EndPointENDInterface::~SRv6EndPointENDInterface() {
+
+    InterfaceReleaseAllResources();
+}
+
+SRv6EndPointENDInterface* 
+SRv6EndPointENDInterface::SRv6EndPointENDInterface_get() {
+    return self;
+}
+
+/* SRv6 END.X Interface Implementation */
+
+SRv6EndPointEND_XInterface::SRv6EndPointEND_XInterface(PhysicalInterface *phy_intf):
+    SRv6VirtualInterface(std::string("srv6End_XIntf")),
+    intfP(std::static_pointer_cast<PhysicalInterface>(phy_intf->GetSharedPtr()))
+{
+}
+
+SRv6EndPointEND_XInterface::~SRv6EndPointEND_XInterface() {
+
+    InterfaceReleaseAllResources();
+    assert (intfP == nullptr);
+}
+
+void 
+SRv6EndPointEND_XInterface::InterfaceReleaseAllResources() {
+
+    intfP = nullptr;
+    this->SRv6VirtualInterface::InterfaceReleaseAllResources();
+}
+
+
+/* SRv6 END.DX4 Interface Implementation */
+
+SRv6EndPointEND_DX4Interface::SRv6EndPointEND_DX4Interface(vrf_t *vrf_ptr):
+    SRv6VirtualInterface(std::string("srv6End_DX4Intf")),
+    vrf(vrf_ptr)
+{
+}
+
+SRv6EndPointEND_DX4Interface::~SRv6EndPointEND_DX4Interface() {
+    
+    InterfaceReleaseAllResources();
+    assert (vrf == NULL);
+}
+
+void 
+SRv6EndPointEND_DX4Interface::InterfaceReleaseAllResources() {
+    vrf = NULL;
+    this->SRv6VirtualInterface::InterfaceReleaseAllResources();
+}
+
+
+/* SRv6 END.DT4 Interface Implementation */
+
+SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(int table_id):
+    SRv6VirtualInterface(std::string("srv6End_DT4Intf")),
+    table_id(table_id)
+{
+    
+}
+
+SRv6EndPointEND_DT4Interface::~SRv6EndPointEND_DT4Interface() {
+
+    InterfaceReleaseAllResources();
+}
+
+

@@ -172,6 +172,10 @@ rtm_get_target_fib (rtm_t *rtm,
                     uint8_t *vrf_out, 
                     AFI_T *afi_out) {
 
+    /* Temporay : */
+    // Dont install SRv6 routes in FIB 
+    if (nh->sub_proto == RTM_SUB_PROTO_SRv6) return false;
+
     /* BGP VPN Route in Customer VRF Rib, eg : red.inet.0*/
     if (inh &&
         inh->proto == RTM_PROTO_BGP && 
@@ -223,32 +227,6 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
         presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
         presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 
-    /* Create Fib route entry */
-    if (presentation_data->operation != RTM_PPT_OP_DELETE) {
-
-        memset (&fwd_info, 0, sizeof (fwd_info));
-
-        rtm_error_t rc =  rtm_resolution_create_nh_fwd_info (
-                rtm,  presentation_data->route.afi,
-                presentation_data->inh, 
-                presentation_data->nh,
-                &fwd_info);
-
-        if (rc != RTM_SUCCESS) {
-
-            tracer (rtm->node->cptr, DERR,
-                "RTM[%s] : FIB Update Failed : Could not create FWD info for Route %s, NH %s(%u), Operation %s\n",
-                rtm->name,
-                rt_str,
-                presentation_data->operation == RTM_PPT_OP_ADD ? \
-                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-                presentation_data->nh_idx,
-                presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
-                presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
-            return;
-        }
-    }
-
     bool fib_found = false;
     if (presentation_data->operation != RTM_PPT_OP_DELETE) {
 
@@ -284,6 +262,32 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
                 presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 
         return;
+    }
+
+    /* Create Fib route entry */
+    if (presentation_data->operation != RTM_PPT_OP_DELETE) {
+
+        memset (&fwd_info, 0, sizeof (fwd_info));
+
+        rtm_error_t rc =  rtm_resolution_create_nh_fwd_info (
+                rtm,  presentation_data->route.afi,
+                presentation_data->inh, 
+                presentation_data->nh,
+                &fwd_info);
+
+        if (rc != RTM_SUCCESS) {
+
+            tracer (rtm->node->cptr, DERR,
+                "RTM[%s] : FIB Update Failed : Could not create FWD info for Route %s, NH %s(%u), Operation %s\n",
+                rtm->name,
+                rt_str,
+                presentation_data->operation == RTM_PPT_OP_ADD ? \
+                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
+                presentation_data->nh_idx,
+                presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
+                presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
+            return;
+        }
     }
 
     /* Update FIB based on operation */

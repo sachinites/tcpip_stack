@@ -383,7 +383,8 @@ void fib_show(fib_t *fib) {
                         for (int j = 0; j < nh->fwd_info->u.v6_fwd.n_segment_list; j++) {
                             char seg_str[64];
                             cmn_prefix_t v6_addr_temp;
-                            cmn_prefix_initialize_v6 (&v6_addr_temp, nh->fwd_info->u.v6_fwd.v6segment_lst[j], 128);
+                            cmn_prefix_initialize_v6 (&v6_addr_temp, 
+                                &nh->fwd_info->u.v6_fwd.v6segment_lst[j], 128);
                             rtm_format_prefix(&v6_addr_temp, seg_str, sizeof(seg_str));
                             cprintf("[%s] ", seg_str);
                         }

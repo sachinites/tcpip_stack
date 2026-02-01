@@ -8,6 +8,7 @@
 #include "../common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../vrf/vrf.h"
+#include "../Layer3/ipv6/ipv6_hdrs.h"
 
 typedef struct node_ node_t;
 typedef struct rtm_ rtm_t;
@@ -70,6 +71,9 @@ rtm_t *rtm_get(node_t *node, uint8_t vrf, AFI_T afi, uint8_t rtm_id);
 /* APIs to install/uninstall local/connected routes */
 uint32_t cp_rtm_install_local_or_connected_v4_routes ( 
         rtm_t *rtm, uint32_t ip_addr, uint8_t mask, InterfaceP Oif);
+
+uint32_t cp_rtm_install_local_or_connected_v6_routes ( 
+        rtm_t *rtm, ipv6_addr_t *ipv6_addr, uint8_t prefix_len, InterfaceP Oif);
 
 /* APIs to install/uninstall static routes */
 uint32_t
@@ -181,5 +185,7 @@ cp_rtm_get_route_target_rtm( node_t *node,
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto);
 
+                          void 
+rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template);
 
 #endif 

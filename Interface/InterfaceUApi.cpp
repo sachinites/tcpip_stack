@@ -203,6 +203,17 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
 }
 
+
+void 
+interface_install_local_v6_routes (node_t *node, Interface  *intf) {
+
+}
+
+void 
+interface_uninstall_local_v6_routes (node_t *node, Interface  *intf) {
+
+}
+
 /* Interface Management Implementation */
 bool 
 node_interface_insert(node_t *node, InterfaceP intf) {

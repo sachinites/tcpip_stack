@@ -301,9 +301,12 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             /* Install local routes in RIB if interface goes up */
             if (interface->is_up && interface->IsIpConfigured()) {
                 interface_install_local_v4_routes  (node, interface);
+                interface_install_local_v6_routes  (node, interface);
+
             }
             else if (!interface->is_up && interface->IsIpConfigured()) {
                 interface_uninstall_local_v4_routes  (node, interface);
+                interface_uninstall_local_v6_routes  (node, interface);
             }
 
             if (minor_code) {

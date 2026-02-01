@@ -18,6 +18,7 @@ enum InterfaceType_t {
     INTF_TYPE_RMAC,
     INTF_TYPE_VLAN_FLOOD,
     INTF_TYPE_NVE,
+    INTF_TYPE_SRv6,
     INTF_TYPE_UNKNOWN
 };
 

@@ -871,10 +871,10 @@ rtm_get_route_target_rtm( node_t *node,
      * but then checks sub_proto against ISIS-specific values. This should be
      * checking sub_proto directly. However, keeping original logic. */
     if (proto == RTM_PROTO_ISIS && 
-            (proto == RTM_PROTO_L1_ISIS_INT || 
-             proto == RTM_PROTO_L2_ISIS_INT || 
-             proto == RTM_PROTO_L1_ISIS_EXT || 
-             proto == RTM_PROTO_L2_ISIS_EXT)) {
+            (sub_proto == RTM_PROTO_L1_ISIS_INT || 
+             sub_proto == RTM_PROTO_L2_ISIS_INT || 
+             sub_proto == RTM_PROTO_L1_ISIS_EXT || 
+             sub_proto == RTM_PROTO_L2_ISIS_EXT)) {
 
         if (afi == AF_IPV4) {
             if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet0);
@@ -884,6 +884,31 @@ rtm_get_route_target_rtm( node_t *node,
             if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
             else return vrf->inet6;
         }
+    }
+
+    /* SRv6 Routes :
+        SRv6 routes can be installed statically, by ISIS, or by OSPF
+    */
+    switch (proto) {
+
+        case RTM_PROTO_ISIS:
+        case RTM_PROTO_OSPF:
+        case RTM_PROTO_STATIC:
+            switch (sub_proto) {
+
+                case RTM_SUB_PROTO_SRv6:
+                case RTM_SUB_PROTO_SRv6_SRTE:
+
+                if (afi == AF_IPV4) return NULL;
+
+                if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
+                return vrf->inet63;
+
+                default : 
+                    break;
+            }
+        default:
+            break;
     }
 
     /* ====================================================================

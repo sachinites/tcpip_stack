@@ -13,6 +13,7 @@
 #include "srv6_api.h" 
 #include "srv6_rtr.h"
 #include "srv6_cmds.h"
+#include "srv6_rtm.h"
 
 extern graph_t *topo;
 
@@ -132,14 +133,14 @@ srv6_locator_handler
                 srv6_pool_set_locator_properties ((NODE_SRv6_SID_POOL(node)), 
                         loc->name, 0, 0, 0, 0);
 
-                ipv6_route_install (node, 
+                srv6_rtm_route_install (node, 
                                         &loc->sid,
                                         loc->prefix_len,
                                         IPV6_LOCAL_RT,
                                         0, 0,
                                         NULL, 0, 
                                         SRV6_END_FN_NONE,
-                                        PROTO_SRv6);
+                                        RTM_PROTO_STATIC, true);
             }
             break;
             case CONFIG_DISABLE:
@@ -173,11 +174,14 @@ srv6_locator_handler
                 srv6_delete_all_adj_sids(node);
 
                 /* now delete the locator route and send IPS to IGP */
-                ipv6_route_uninstall(node, 
-                            &loc->sid,
-                            loc->prefix_len, 
-                            0, 0,
-                            PROTO_SRv6);
+                srv6_rtm_route_install (node, 
+                                        &loc->sid,
+                                        loc->prefix_len,
+                                        IPV6_LOCAL_RT,
+                                        0, 0,
+                                        NULL, 0, 
+                                        SRV6_END_FN_NONE,
+                                        RTM_PROTO_STATIC, false);
 
                 /* Remove the locator config */
                 prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
@@ -376,14 +380,14 @@ srv6_prefix_sid_config_handler
 
             mnode->data = (void *)pfxsid;
 
-             ipv6_route_install (node, 
+             srv6_rtm_route_install (node, 
                                         &pfxsid->sid,
                                         pfxsid->prefix_len,
                                         IPV6_LOCAL_RT,
                                         0, 0,
                                         NULL, 0, 
                                         pfxsid->endP,
-                                        PROTO_SRv6);
+                                        RTM_PROTO_STATIC, true);
         }
         break;
 
@@ -438,11 +442,14 @@ srv6_prefix_sid_config_handler
                     return -1;
             }
 
-            ipv6_route_uninstall(node, 
-                            &pfxsid->sid,
-                            pfxsid->prefix_len, 
-                            0, 0,
-                            PROTO_SRv6);
+            srv6_rtm_route_install(node,
+                                   &pfxsid->sid,
+                                   pfxsid->prefix_len,
+                                   IPV6_LOCAL_RT,
+                                   0, 0,
+                                   NULL, 0,
+                                   pfxsid->endP,
+                                   RTM_PROTO_STATIC, false);
 
             XFREE (pfxsid);
         }
@@ -615,14 +622,14 @@ srv6_adjacency_sid_config_handler
 
             mnode->data = (void *)adjsid;
 
-            ipv6_route_install (node, 
+            srv6_rtm_route_install (node, 
                                         &adjsid->sid,
                                         adjsid->prefix_len,
                                         IPV6_LOCAL_RT,
                                         &adjsid->gw, intf,
                                         NULL, 0, 
                                         endpCode,
-                                        PROTO_SRv6);
+                                        RTM_PROTO_STATIC, true);
 
         }
         break;
@@ -671,11 +678,14 @@ srv6_adjacency_sid_config_handler
 
             assert (prc == SRv6_POOL_OK);
 
-            ipv6_route_uninstall(node, 
-                            &adjsid->sid,
-                            adjsid->prefix_len,
-                            0, 0,
-                            PROTO_SRv6);
+            srv6_rtm_route_install (node, 
+                                        &adjsid->sid,
+                                        adjsid->prefix_len,
+                                        IPV6_LOCAL_RT,
+                                        &adjsid->gw, intf,
+                                        NULL, 0, 
+                                        endpCode,
+                                        RTM_PROTO_STATIC, false);
 
             XFREE (adjsid);
         }
@@ -758,7 +768,7 @@ srv6_end_b6_encaps_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_route_str, &prefix);
-            ipv6_route_install (node,
+            srv6_rtm_route_install (node,
                                 &prefix,
                                 prefix_len,
                                 srv6_route_flag (node, &prefix.addr),
@@ -767,7 +777,7 @@ srv6_end_b6_encaps_config_handler
                                 &segment_lst,
                                 0, 
                                 END_B6_ENCAP, 
-                                PROTO_SRv6);            
+                                RTM_PROTO_STATIC, true);            
         }
         break;
 
@@ -816,9 +826,9 @@ srv6_build_global_config_cli_tree (param_t *root) {
                         {
                              /* . . . source-packet-routing srv6 endpoint end <ipv6-address> [flavor [psp |usp | usd] ]*/
                             static param_t ipv6_addr;
-                            init_param(&ipv6_addr, LEAF, NULL, srv6_prefix_sid_config_handler , NULL, IPV6, "ipv6-address", "SRv6 prefix sid");
+                            init_param(&ipv6_addr, LEAF, NULL, NULL , NULL, IPV6, "ipv6-address", "SRv6 prefix sid");
                             libcli_register_param(&end, &ipv6_addr);
-                            libcli_set_param_cmd_code(&ipv6_addr, CMD_CODE_END_SID_CONFIG);
+                            //libcli_set_param_cmd_code(&ipv6_addr, CMD_CODE_END_SID_CONFIG);
                             srv6_flavor_cli_subtree_hookup(&ipv6_addr, CMD_CODE_END_SID_CONFIG, srv6_prefix_sid_config_handler );
                         }
                     }
@@ -838,10 +848,10 @@ srv6_build_global_config_cli_tree (param_t *root) {
                                 /*config node <node-name> protocol source-packet-routing srv6 endpoint end-x-sid 
                                     <ipv6-address>  <oif-name> [flavor [psp |usp | usd] ]*/
                                 static param_t oif_name;
-                                init_param(&oif_name, LEAF, NULL, srv6_adjacency_sid_config_handler, 
+                                init_param(&oif_name, LEAF, NULL, NULL, 
                                     NULL, STRING, "oif-name", "Outgoing Interface Name");
                                 libcli_register_param(&ipv6_addr, &oif_name);
-                                libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
+                                //libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
                                 srv6_flavor_cli_subtree_hookup(&oif_name, 
                                     IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
                             }
