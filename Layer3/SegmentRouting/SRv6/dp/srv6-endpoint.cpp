@@ -9,11 +9,12 @@
 #include "../../../../Tracer/tracer.h"
 #include "../../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
+#include "../../../../FIB/fib_nh.h"
 
 extern void 
 ipv6_layer3_forward_nexthop(
                 node_t *node, 
-                v6nexthop_t *nexthop, 
+                fib_nh_t *nexthop, 
                 pkt_block_t *pkt_block);
 
 extern void
@@ -29,7 +30,7 @@ demote_pkt_to_layer2 (node_t *node,
                                       pkt_block_t *pkt_block,
                                       hdr_type_t hdr_type);
 
-extern v6nexthop_t *
+extern fib_nh_t *
 l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
 
 #define drop_packet return;
@@ -134,7 +135,7 @@ Srv6_copy_current_sid_to_DA (srh_hdr_t *srh, ipv6_hdr_t *ipv6_hdr) {
 }
 
 void 
-SRv6_process_payload (node_t *node, pkt_block_t *pkt_block) {
+ipv6_process_v6_payload (node_t *node, pkt_block_t *pkt_block) {
 
     hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
 
@@ -225,7 +226,7 @@ Process_END_flavors_penultimate (node_t *node,
                                                 pkt_block_t *pkt_block, 
                                                 ipv6_hdr_t *ipv6_hdr, 
                                                 srh_hdr_t *srh,  
-                                                v6nexthop_t *nexthop, 
+                                                fib_nh_t *nexthop, 
                                                 uint8_t flavor) {
 
     assert (srh && srh->segments_left == 1);
@@ -259,7 +260,7 @@ Process_END_X_flavors_penultimate (node_t *node,
                                                 pkt_block_t *pkt_block, 
                                                 ipv6_hdr_t *ipv6_hdr, 
                                                 srh_hdr_t *srh,  
-                                                v6nexthop_t *nexthop, 
+                                                fib_nh_t *nexthop, 
                                                 uint8_t flavor) {
 
     assert (srh && srh->segments_left == 1);
@@ -293,7 +294,7 @@ Process_END_T_flavors_penultimate (node_t *node,
                                                 pkt_block_t *pkt_block, 
                                                 ipv6_hdr_t *ipv6_hdr, 
                                                 srh_hdr_t *srh,  
-                                                v6nexthop_t *nexthop, 
+                                                fib_nh_t *nexthop, 
                                                 uint8_t flavor) {
 
     assert (srh && srh->segments_left == 1);
@@ -349,9 +350,9 @@ Srv6_apply_penultimate_processing (node_t *node,
             return;
     }
 
-    v6nexthop_t *nexthop = l3_v6route_get_active_nexthop(current_node_route);
+    fib_nh_t *nexthop = l3_v6route_get_active_nexthop(current_node_route);
 
-    Srv6_endpcode_t CompositeEndfn = nexthop->u.srv6.endfn;
+    Srv6_endpcode_t CompositeEndfn = nexthop->fwd_info->u.v6_fwd.endfn;
 
     Srv6_endpcode_t endfn = srv6_split_endpcode(CompositeEndfn, &flavor);
 
@@ -382,11 +383,11 @@ Process_Srv6_remote_packet (
                         pkt_block_t *pkt_block, 
                         ipv6_hdr_t *ipv6_hdr, 
                         srh_hdr_t *srh,
-                        v6nexthop_t *nexthop) {
+                        fib_nh_t *nexthop) {
 
-    if (nexthop->flags & BINDING_SID) {
+    //if (nexthop->flags & BINDING_SID) {
 
-    }
+    //}
 
     ipv6_layer3_forward_nexthop(node, nexthop, pkt_block);
 }
@@ -398,49 +399,13 @@ Process_Srv6_Packet (
                         pkt_block_t *pkt_block, 
                         ipv6_hdr_t *ipv6_hdr, 
                         srh_hdr_t *srh,
-                        v6nexthop_t *nexthop) {
+                        fib_nh_t *nexthop) {
 
     if (!nexthop) return;
 
     /* Dont feed any non ipv6 pkt into SRv6 Data path pipeline. If the router recvs non-ipv6 pkt,
         It should be processed by non-v6 module*/
     assert (ipv6_hdr);
-    
-   if (nexthop->flags & IPV6_REMOTE_RT) {
-        Process_Srv6_remote_packet (node, recv_intf, pkt_block, ipv6_hdr, srh, nexthop);
-        return;
-    }
-
-    /* Hitting the local route. Three cases :  
-        1. Hitting the SRV6 locator route --> Consume pkt irrespective of SL value
-        2. Hitting the SRV6 prefix sid --> process as per SL value
-        3. Hitting the SRV6 adjacency sid --> process as per SL value
-    */
-
-   /* If hitting the locator route. Locator route are local route with no end point fn
-      fn. Locator routes are no different from traditional ipv6 routes. Their over all
-      purpose is to steer the traffic upto destination, and handover the pkt to L4 for
-      further processing. So, strip the outer L3 hdr and handover the payload to ipv6 module.*/
-    if ((nexthop->flags & IPV6_LOCAL_RT) && 
-            !nexthop->u.srv6.endfn) {
-
-        tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local locator route\n", 
-            pkt_block_str(pkt_block));
-
-        uint8_t *pkt;
-        pkt_size_t pkt_size;
-
-        pkt = pkt_block_get_pkt(pkt_block, &pkt_size) ;
-        ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
-
-        pkt_block_set_new_pkt(pkt_block, 
-                             (uint8_t *)(ipv6_hdr + 1), 
-                            pkt_size - sizeof (ipv6_hdr_t));
-        
-        pkt_block_update_new_hdr_type (pkt_block, ipv6_hdr->next_header);
-        SRv6_process_payload (node, pkt_block) ;
-        return;
-    }
 
     /* now we hit the SRV6 route with end point function attached to it. Now, how to
         process the route depends on SL value in the SRH hdr. */
@@ -475,14 +440,15 @@ Process_Srv6_Packet (
     
 }
 
-static void 
-Process_END_flavors_ultimate (node_t *node, 
-                                                pkt_block_t *pkt_block, 
-                                                ipv6_hdr_t *ipv6_hdr, 
-                                                srh_hdr_t *srh,  
-                                                v6nexthop_t *nexthop, 
-                                                uint8_t flavor) {
-    
+static void
+Process_END_flavors_ultimate(node_t *node,
+                             pkt_block_t *pkt_block,
+                             ipv6_hdr_t *ipv6_hdr,
+                             srh_hdr_t *srh,
+                             fib_nh_t *nexthop,
+                             uint8_t flavor)
+{
+
     assert (!srh || srh->segments_left == 0);
     assert (ipv6_hdr);
     assert (nexthop);
@@ -515,13 +481,14 @@ Process_END_flavors_ultimate (node_t *node,
     }
 }
 
-static void 
-Process_END_X_flavors_ultimate (node_t *node, 
-                                                pkt_block_t *pkt_block, 
-                                                ipv6_hdr_t *ipv6_hdr, 
-                                                srh_hdr_t *srh,  
-                                                v6nexthop_t *nexthop, 
-                                                uint8_t flavor) {
+static void
+Process_END_X_flavors_ultimate(node_t *node,
+                               pkt_block_t *pkt_block,
+                               ipv6_hdr_t *ipv6_hdr,
+                               srh_hdr_t *srh,
+                               fib_nh_t *nexthop,
+                               uint8_t flavor)
+{
 
     assert (srh && srh->segments_left == 1);
     assert (ipv6_hdr);
@@ -560,7 +527,7 @@ Process_END_T_flavors_ultimate (node_t *node,
                                                 pkt_block_t *pkt_block, 
                                                 ipv6_hdr_t *ipv6_hdr, 
                                                 srh_hdr_t *srh,  
-                                                v6nexthop_t *nexthop, 
+                                                fib_nh_t *nexthop, 
                                                 uint8_t flavor) {
 
     assert (srh && srh->segments_left == 1);
@@ -604,9 +571,9 @@ Srv6_apply_endpoint_fn (
             pkt_block_t *pkt_block, 
             ipv6_hdr_t *ipv6_hdr, 
             srh_hdr_t *srh, 
-            v6nexthop_t *nexthop) { 
+            fib_nh_t *nexthop) { 
 
-    Srv6_endpcode_t CompositeEndfn = nexthop->u.srv6.endfn;
+    Srv6_endpcode_t CompositeEndfn = nexthop->fwd_info->u.v6_fwd.endfn;
     uint8_t flavor = 0;
     Srv6_endpcode_t endfn = srv6_split_endpcode(CompositeEndfn, &flavor);
 

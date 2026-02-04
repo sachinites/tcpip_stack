@@ -20,6 +20,7 @@ typedef struct node_ node_t;
 #define FIB_NH_FWD_F_TUNNEL 128
 #define FIB_NH_FWD_F_DISCARD 256
 #define FIB_NH_FWD_F_REJECT 512
+#define FIB_NH_FWD_F_SRv6_FORWARD 1024
 
 #define FIB_MAX_ECMP_NH 8
 

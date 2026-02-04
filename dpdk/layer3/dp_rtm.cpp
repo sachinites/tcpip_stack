@@ -19,6 +19,7 @@
 #include "../../Layer3/rt_notif.h"
 #include "../../prefix-list/prefixlst.h"
 #include "../../lmm_enums.h"
+#include "../../Layer3/ipv6/v6nexthop.h"
 
 /* IPV4 RTM */
 

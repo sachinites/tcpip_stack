@@ -9,7 +9,8 @@
 #include "../layer3.h"
 #include "../SegmentRouting/SRv6/dp/srv6-endpoint.h"
 #include "ipv6_hdrs.h"
-#include "v6nexthop.h"
+
+typedef struct fib_nh_ fib_nh_t;
 
 typedef struct ipv6_route_ {
 
@@ -49,15 +50,14 @@ ipv6_route_t*
 l3rib_v6lookup_lpm2 ( rt_table_t *v6rt_table, ipv6_addr_t *ipv6_addr);
 
 void 
- ipv6_layer3_forward_nexthop (node_t *node, v6nexthop_t *nexthop, pkt_block_t *pkt_block);
+ ipv6_layer3_forward_nexthop (node_t *node, fib_nh_t *nexthop, pkt_block_t *pkt_block);
 
 ipv6_route_t* 
 l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, uint8_t prefix_len);
 
- void
-layer3_ipv6_route_pkt(node_t *node,
-							    Interface *interface,
-					            pkt_block_t *pkt_block) ;
+void layer3_ipv6_route_pkt(node_t *node,
+                           Interface *interface,
+                           pkt_block_t *pkt_block);
 
 void 
 v6_rt_table_show (rt_table_t *rt_table) ;

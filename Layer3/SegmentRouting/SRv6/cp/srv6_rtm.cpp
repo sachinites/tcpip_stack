@@ -26,7 +26,10 @@ srv6_return_virtual_interface (node_t *node,
         case END_w_PSP:
         case END_w_USP:
         case END_w_PSP_USP:
-            return node->node_nw_prop.srv6_end_interface;;
+        case END_w_USD:
+        case END_w_PSP_USD:
+        case END_w_PSP_USP_USD:
+            return node->node_nw_prop.srv6_end_interface;
         default:
             return nullptr;
     }
@@ -38,7 +41,7 @@ void
 srv6_rtm_route_install (node_t *node,
                         ipv6_addr_t *prefix,
                         uint8_t prefix_len,
-                        uint8_t rt_flags,
+                        uint32_t rt_flags,
                         ipv6_addr_t *gw,
                         Interface* oif,
                         ipv6_addr_t (*segment_lst)[16],
@@ -75,24 +78,37 @@ srv6_rtm_route_install (node_t *node,
 
     nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6;
 
-    if (oif) {
+
+    /* SRv6 prefix sids do not have OIF, but shift and forward still
+        let them forward on oif obtained by lpm of next sid in SRH hdr*/
+    if  (rt_flags & FIB_NH_FWD_F_SRv6_FORWARD) {
+
         nh_template.action = RTM_NH_ACTION_FORWARD;
         nh_template.is_indirect = false;
-        nh_template.oif = oif->ifindex;
         nh_template.is_resolved = true;
-        nh_template.fwd_flags |= FIB_NH_FWD_F_FORWARD;
+        nh_template.oif = oif ? oif->ifindex : 0;
+        nh_template.fwd_flags |= FIB_NH_FWD_F_SRv6_FORWARD;
     }
 
-    if (rt_flags & IPV6_LOCAL_RT) {
+    else if (rt_flags & FIB_NH_FWD_F_LOCAL) {
+
         nh_template.action = RTM_NH_ACTION_LOCAL;
         nh_template.is_indirect = false;
         nh_template.oif = 0;
         nh_template.is_resolved = true;
         nh_template.fwd_flags |= FIB_NH_FWD_F_LOCAL;
     }
+    
+    else if (rt_flags & FIB_NH_FWD_F_REJECT) {
+
+        nh_template.action = RTM_NH_ACTION_REJECT;
+        nh_template.is_indirect = false;
+        nh_template.oif = 0;
+        nh_template.is_resolved = true;
+        nh_template.fwd_flags |= FIB_NH_FWD_F_REJECT;
+    }
 
     nh_template.metric = cost;
-
     nh_template.rtm_nh_proto = NULL;
 
     /* Set metric */

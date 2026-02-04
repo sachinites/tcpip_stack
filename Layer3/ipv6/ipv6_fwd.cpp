@@ -9,6 +9,7 @@
 #include "ipv6_utils.h"
 #include "../../Tracer/tracer.h"
 #include "../../Layer2/layer2.h"
+#include "../../FIB/fib_nh.h"
 
 extern void
 demote_pkt_to_layer2 (node_t *node, 
@@ -64,14 +65,14 @@ l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) {
 
 
 void 
-ipv6_layer3_forward_nexthop (node_t *node, v6nexthop_t *nexthop, pkt_block_t *pkt_block) {
+ipv6_layer3_forward_nexthop (node_t *node, fib_nh_t *nexthop, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
 
-    Interface *oif = nexthop->oif.get();
+    Interface *oif = nexthop->fwd_info->oif.get();
 
     if (!oif) return;
 
@@ -126,64 +127,57 @@ void layer3_ipv6_route_pkt(node_t *node,
     /* Get v6 address in string form for logging*/
     inet_ntop (AF_INET6, &ipv6_hdr->dst_addr, dst_addr_str, INET6_ADDRSTRLEN);
 
-    /* Look up the route from RIB */
-    ipv6_route_t *route = l3rib_v6lookup_lpm(NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr);
-
-    if (!route) {
-        tracer (node->dptr, DL3FWD | DERR, "Dest : %s :  Pkt Dropped : No L3 route\n", 
-            dst_addr_str);
+    cmn_prefix_t prefix;
+    cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
+    fib_nh_t *nh = fib_get_forwarding_nh(
+        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6), &prefix);
+    if(!nh){
+        tracer (node->dptr, DL3FWD | DERR, 
+            "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
         return;
     }
 
-    tracer (node->dptr, DL3FWD, "Dest : %s : L3 route found %s/%d\n", 
-            dst_addr_str, 
-            inet_ntop6(&route->prefix, route_addr_str), route->prefix_len);
+    tracer (node->dptr, DL3FWD, "Dest : %s : L3 route found\n", dst_addr_str);
 
-    /* If the route is local */
-    if (!route->nh_count) {
+    /* Reject if the nexthop action is Reject */
+    if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_REJECT) {
+
+        tracer (node->dptr, DL3FWD, 
+            "Dest : %s : Pkt rejected by REJECT route\n", dst_addr_str);
+        return;
+    }
+
+    /* For local routes , Trap the packet for local processing*/
+    if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL) {
 
         tracer (node->dptr, DL3FWD, "Pkt : %s : L3 Route found is local route\n", 
             pkt_block_str(pkt_block));
 
-         pkt_block_set_new_pkt(pkt_block, 
-                                                (uint8_t *) (ipv6_hdr + 1),
-                                                pkt_size - sizeof (ipv6_hdr_t));
+        pkt_block_set_new_pkt(pkt_block,
+                              (uint8_t *)(ipv6_hdr + 1),
+                              pkt_size - sizeof(ipv6_hdr_t));
 
         pkt_block_update_new_hdr_type (pkt_block, ipv6_hdr->next_header);
-        SRv6_process_payload (node, pkt_block) ;
+        ipv6_process_v6_payload (node, pkt_block) ;
         return;
     }
 
-    /* If route has a nexthop */
-    v6nexthop_t *nexthop = l3_v6route_get_active_nexthop(route);
+    /* For Connnected route, forward it to in local v6 connected subnet*/
+    if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_CONNECTED | FIB_NH_FWD_F_FORWARD)) {    
 
-    if (!nexthop) {
-        tracer (node->dptr, DL3FWD | DERR, "Pkt : %s :  Pkt Dropped : No active nexthop\n", 
-            pkt_block_str(pkt_block));
+        ipv6_layer3_forward_nexthop (node, nh, pkt_block);
         return;
     }
 
-    if (((nexthop->proto == PROTO_STATIC || 
-                nexthop->proto == PROTO_ISIS))) {
-
-        /* Do normal ipv6 forwarding */
-        if (!nexthop->oif) return;
-
-        ipv6_layer3_forward_nexthop (node, nexthop, pkt_block);
-        return;
-    }
-
-    if (nexthop->proto == PROTO_SRv6 || 
-         nexthop->proto == PROTO_ISIS_SRv6) {
+    if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) {
 
         /* Do SRv6 forwarding */
-        Process_Srv6_Packet (node, 
-                                            interface, 
-                                            pkt_block, 
-                                            ipv6_hdr, 
-                                            ipv6_hdr->next_header == PROTO_SRH ? \
-                                                 (srh_hdr_t *)(ipv6_hdr + 1) : NULL, 
-                                            nexthop);
+        Process_Srv6_Packet(node,
+                            interface,
+                            pkt_block,
+                            ipv6_hdr,
+                            ipv6_hdr->next_header == PROTO_SRH ? (srh_hdr_t *)(ipv6_hdr + 1) : NULL,
+                            nh);
         return;
     }
 }

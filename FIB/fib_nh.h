@@ -16,7 +16,7 @@ typedef struct fib_nh_fwd_info_ {
 
     InterfaceP oif;
     cmn_prefix_t nh_addr;
-    uint16_t fwd_flags;
+    uint32_t fwd_flags;
 
     union {
         

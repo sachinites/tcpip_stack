@@ -1175,7 +1175,8 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
     }
 
     if (nh_template->action == RTM_NH_ACTION_FORWARD &&
-        !nh_template->is_indirect && !nh_template->oif) {
+        nh_template->sub_proto != RTM_SUB_PROTO_SRv6 &&
+        (!nh_template->is_indirect && !nh_template->oif)) {
         return RTM_ERROR_INVALID_OIF_INDEX;
     }
 

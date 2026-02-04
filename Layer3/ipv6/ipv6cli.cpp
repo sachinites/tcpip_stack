@@ -80,7 +80,7 @@ ipv6_config_handler
         case IPV6_RT_CONFIG:
         {
             rtm_t *rtm;
-            rtm_error_t rc;
+            uint32_t rc;
             cmn_prefix_t prefix_key, gateway;
             ipv6_addr_t ipv6_prefix, ipv6_gw;
             
@@ -235,7 +235,7 @@ ipv6_binding_sid_config_handler (int cmdcode,
             ipv6_route_install (node,
                                             &route,
                                             prefix_len,
-                                            (BINDING_SID |  srv6_route_flag (node, &route.addr)),
+                                            FIB_NH_FWD_F_TUNNEL,
                                             &gw,
                                             NULL,
                                             NULL,

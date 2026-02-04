@@ -86,8 +86,8 @@ typedef struct rtm_nh_ {
 
         /* Unique nexthop index - constant throughout lifetime */
         uint32_t idx;
-        uint16_t rtm_flags;
-        uint16_t fwd_flags;
+        uint32_t rtm_flags;
+        uint32_t fwd_flags;
         time_t pth_last_update_time;
 
         /* Owning protocol*/

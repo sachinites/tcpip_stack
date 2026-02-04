@@ -313,10 +313,6 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
         case RTM_PROTO_CONNECTED:
             return "C";
         case RTM_PROTO_STATIC:
-            /* Check if this is an SRv6 route */
-            if (sub_proto == RTM_SUB_PROTO_SRv6 || sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
-                return "SRv6";
-            }
             return "S";
         case RTM_PROTO_LOCAL:
             return "L";

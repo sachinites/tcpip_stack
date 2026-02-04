@@ -136,7 +136,7 @@ srv6_locator_handler
                 srv6_rtm_route_install (node, 
                                         &loc->sid,
                                         loc->prefix_len,
-                                        IPV6_LOCAL_RT,
+                                        FIB_NH_FWD_F_REJECT,
                                         0, 0,
                                         NULL, 0, 
                                         SRV6_END_FN_NONE,
@@ -177,7 +177,7 @@ srv6_locator_handler
                 srv6_rtm_route_install (node, 
                                         &loc->sid,
                                         loc->prefix_len,
-                                        IPV6_LOCAL_RT,
+                                        FIB_NH_FWD_F_REJECT,
                                         0, 0,
                                         NULL, 0, 
                                         SRV6_END_FN_NONE,
@@ -201,29 +201,6 @@ srv6_locator_handler
 
     }
     return 0;
-}
-
-uint8_t 
-srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) ;
-
-uint8_t 
-srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) {
-
-    srv6_node_info_t *node_info = SRV6_NODE_INFO (node);
-    srv6_locator_t *srv6_loc = &node_info->loc;
-
-    if (is_ipv6_addr_unspecified (&srv6_loc->sid.addr))
-        return IPV6_REMOTE_RT;
-
-    if (ipv6_address_is_subnet (
-            &srv6_loc->sid.addr, 
-            srv6_loc->prefix_len,
-            prefix)) {
-
-        return IPV6_LOCAL_RT;
-    }
-
-    return IPV6_REMOTE_RT;
 }
 
 static int
@@ -340,7 +317,7 @@ srv6_prefix_sid_config_handler
 
             pfxsid->sid = prefix;
             pfxsid->endP = endpCode;
-            pfxsid->flags = srv6_route_flag (node, &prefix.addr);
+            pfxsid->flags = 0;
             pfxsid->prefix_len = 128;
             pfxsid->n_seg_lst = 0;
 
@@ -383,7 +360,7 @@ srv6_prefix_sid_config_handler
              srv6_rtm_route_install (node, 
                                         &pfxsid->sid,
                                         pfxsid->prefix_len,
-                                        IPV6_LOCAL_RT,
+                                        FIB_NH_FWD_F_SRv6_FORWARD,
                                         0, 0,
                                         NULL, 0, 
                                         pfxsid->endP,
@@ -445,7 +422,7 @@ srv6_prefix_sid_config_handler
             srv6_rtm_route_install(node,
                                    &pfxsid->sid,
                                    pfxsid->prefix_len,
-                                   IPV6_LOCAL_RT,
+                                   FIB_NH_FWD_F_SRv6_FORWARD,
                                    0, 0,
                                    NULL, 0,
                                    pfxsid->endP,
@@ -587,7 +564,7 @@ srv6_adjacency_sid_config_handler
 
             adjsid->sid = prefix;
             adjsid->endP = endpCode;
-            adjsid->flags = IPV6_LOCAL_RT;
+            adjsid->flags = FIB_NH_FWD_F_SRv6_FORWARD;
             adjsid->prefix_len = prefix_len;
             adjsid->n_seg_lst = 0;
             adjsid->ifindex = intf->ifindex;
@@ -625,7 +602,7 @@ srv6_adjacency_sid_config_handler
             srv6_rtm_route_install (node, 
                                         &adjsid->sid,
                                         adjsid->prefix_len,
-                                        IPV6_LOCAL_RT,
+                                        FIB_NH_FWD_F_SRv6_FORWARD,
                                         &adjsid->gw, intf,
                                         NULL, 0, 
                                         endpCode,
@@ -681,7 +658,7 @@ srv6_adjacency_sid_config_handler
             srv6_rtm_route_install (node, 
                                         &adjsid->sid,
                                         adjsid->prefix_len,
-                                        IPV6_LOCAL_RT,
+                                        FIB_NH_FWD_F_SRv6_FORWARD,
                                         &adjsid->gw, intf,
                                         NULL, 0, 
                                         endpCode,
@@ -771,7 +748,7 @@ srv6_end_b6_encaps_config_handler
             srv6_rtm_route_install (node,
                                 &prefix,
                                 prefix_len,
-                                srv6_route_flag (node, &prefix.addr),
+                                FIB_NH_FWD_F_SRv6_FORWARD,
                                 NULL,
                                 0,
                                 &segment_lst,

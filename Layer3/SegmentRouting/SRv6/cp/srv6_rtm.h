@@ -35,7 +35,7 @@ void
 srv6_rtm_route_install (node_t *node,
                         ipv6_addr_t *prefix,
                         uint8_t prefix_len,
-                        uint8_t rt_flags,
+                        uint32_t rt_flags,
                         ipv6_addr_t *gw,
                         Interface* oif,
                         ipv6_addr_t (*segment_lst)[16],
