@@ -678,7 +678,7 @@ svi_interface_intercept_arp_pkt (node_t *node,
     pkt_size_t pkt_size;
     
     vlan_ethernet_hdr_t *vlan_eth_hdr;
-    Interface *interface = pkt_block->switchport_ingress_intf.get();
+    Interface *interface = pkt_block->ingress_intf.get();
     
     assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
 

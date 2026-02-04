@@ -64,6 +64,9 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     vrf->export_rt.asn = 0;
     vrf->export_rt.number = 0;    
 
+    /* Initialize dx4_sid db*/
+    init_glthread(&vrf->dx4_sid_lst);
+
     return vrf;
 }
 
@@ -77,6 +80,8 @@ void vrf_delete_by_id(node_t *node, uint8_t vrf_id) {
 
 /* Delete VRF instance */
 void vrf_delete(vrf_t* vrf, bool _free) {
+
+    glthread_t *curr;
 
     assert (vrf->vrf_id != RTM_DEFAULT_VRF);
 
@@ -116,6 +121,19 @@ void vrf_delete(vrf_t* vrf, bool _free) {
     //mpls_label_release (vrf->l3_vpn_label);
     vrf->l3_vpn_label = 0;
     vrf->node = NULL;
+
+    while ((curr = dequeue_glthread_first(&vrf->dx4_sid_lst))) {
+
+        glthread_data_node_t *data_node = glue_to_glthread_data_node(curr);
+        ipv6_addr_t *dx4_sid = (ipv6_addr_t *)data_node->data;
+        vrf_rtm_unprogram_dx4_sid (vrf, dx4_sid);
+        XFREE(data_node);
+    } 
+
+    if (vrf->DX4_vrf_steering_intfp) {
+        delete vrf->DX4_vrf_steering_intfp;
+        vrf->DX4_vrf_steering_intfp = NULL;
+    }
 
     if (_free) XFREE(vrf);
 }
@@ -296,4 +314,14 @@ show_vrfs(node_t *node) {
 vrf_t * 
 NODE_DEF_VRF(node_t *node) {
     return (vrf_t *)node->node_nw_prop.def_vrf;
+}
+
+void 
+vrf_rtm_program_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid) {
+
+}
+
+void 
+vrf_rtm_unprogram_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid) {
+
 }

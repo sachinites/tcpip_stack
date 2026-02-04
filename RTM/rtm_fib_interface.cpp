@@ -171,11 +171,7 @@ rtm_get_target_fib (rtm_t *rtm,
                     rtm_nh* nh,
                     uint8_t *vrf_out, 
                     AFI_T *afi_out) {
-
-    /* Temporay : */
-    // Dont install SRv6 routes in FIB 
-    if (nh->sub_proto == RTM_SUB_PROTO_SRv6) return false;
-
+    
     /* BGP VPN Route in Customer VRF Rib, eg : red.inet.0*/
     if (inh &&
         inh->proto == RTM_PROTO_BGP && 

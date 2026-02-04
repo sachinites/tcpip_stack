@@ -10,7 +10,11 @@ rtm_fib_copy_fwd_info (node_t *node,
                        rtm_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst) {
 
-    dst->oif = node_get_intf_by_ifindex(node, src->oif)->GetSharedPtr();
+    /* SRv6 Local SIDs with END function may not have any interface*/
+    if (src->oif) {
+        dst->oif = node_get_intf_by_ifindex(node, src->oif)->GetSharedPtr();
+    }
+
     dst->nh_addr = src->nh_addr;
     dst->fwd_flags = src->fwd_flags;
 

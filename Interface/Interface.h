@@ -469,12 +469,10 @@ class SRv6VirtualInterface : public VirtualInterface {
 class SRv6EndPointENDInterface : public SRv6VirtualInterface {
 
     private:
-        SRv6EndPointENDInterface *self;
-        SRv6EndPointENDInterface();
     protected:
     public:
+        SRv6EndPointENDInterface();
         virtual ~SRv6EndPointENDInterface();
-        SRv6EndPointENDInterface* SRv6EndPointENDInterface_get ();
 
 } __attribute__((aligned(8)));
 
@@ -539,6 +537,19 @@ class SRv6EndPointEND_DT4Interface : public SRv6VirtualInterface {
         SRv6EndPointEND_DT4Interface(int table_id);
         virtual ~SRv6EndPointEND_DT4Interface();
 } __attribute__((aligned(8)));
+
+
+class HostPathInterface : public VirtualInterface {
+
+    private:
+    protected:
+    public:
+        HostPathInterface();
+        virtual ~HostPathInterface();
+        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        virtual bool IsCrossReferenced() final;      
+};
+
 
 
 /* ------SRv6 Virtual Interfaces ----------- */

@@ -103,6 +103,10 @@ typedef struct node_nw_prop_{
     InterfaceP rmac_interface;
     /* Virtual port which represents flood in a vlan */
     InterfaceP vlan_flood_interface;
+    /* Host Path Interface */
+    InterfaceP host_path_interface;
+    /* SRv6 Virtual Interfaces*/
+    InterfaceP srv6_end_interface;
 
     /* lo ipv6 addr*/
     uint8_t ipv6_rtr_id[16];

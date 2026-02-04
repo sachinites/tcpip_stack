@@ -17,7 +17,6 @@ typedef struct srv6_locator_ {
     uint8_t algo;
     avltree_t cfg_pfxsid_tree;
     avltree_t cfg_adjsid_tree;
-    uint32_t nhidx;
 
 } srv6_locator_t;
 
@@ -27,11 +26,9 @@ typedef struct srv6_pfxsid_ {
     Srv6_endpcode_t endP;
     uint8_t flags;
     uint8_t prefix_len;
-    uint32_t nhidx;
     uint8_t n_seg_lst;
     ipv6_addr_t seglst[0];
     
-
 } srv6_pfxsid_t;
 
 typedef struct srv6_adjsid_ {
@@ -42,7 +39,6 @@ typedef struct srv6_adjsid_ {
     uint32_t ifindex;
     uint8_t flags;
     uint8_t prefix_len;
-    uint32_t nhidx;
     uint8_t n_seg_lst;
     ipv6_addr_t seglst[0];
     

@@ -15,6 +15,25 @@
 #include "../../../ipv6/v6nexthop.h"
 #include "../../../ipv6/ipv6_utils.h"
 
+
+static InterfaceP 
+srv6_return_virtual_interface (node_t *node, 
+            Srv6_endpcode_t composite_endfn) {
+
+    switch (composite_endfn) {
+
+        case END:
+        case END_w_PSP:
+        case END_w_USP:
+        case END_w_PSP_USP:
+            return node->node_nw_prop.srv6_end_interface;;
+        default:
+            return nullptr;
+    }
+
+    return nullptr;
+}
+
 void
 srv6_rtm_route_install (node_t *node,
                         ipv6_addr_t *prefix,
@@ -89,6 +108,9 @@ srv6_rtm_route_install (node_t *node,
     nh_template.u.srv6_stack.n_segment_list = 0;
     nh_template.u.srv6_stack.v6segment_lst = NULL;
 
+    /* Always set, because endfn resides in nh_template.u.srv6_stack.endfn */
+    nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6_STCK;
+
     /* If segment list is provided, allocate and copy it */
     i = 0;
     if (segment_lst) {
@@ -107,8 +129,6 @@ srv6_rtm_route_install (node_t *node,
                     nh_template.u.srv6_stack.v6segment_lst + i,
                     &((*segment_lst)[i]).addr, 128 );
         }
-
-        nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6_STCK;
     }
 
     /* Now fill nexthop proto information */

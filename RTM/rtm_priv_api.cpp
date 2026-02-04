@@ -1225,9 +1225,22 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     }
 
     if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_IPV6_STCK)) {
+
         nh->endfn = nh_template->u.srv6_stack.endfn;
-        nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
-        nh->v6segment_lst = nh_template->u.srv6_stack.v6segment_lst;
+
+        if (nh_template->u.srv6_stack.n_segment_list) {
+
+            nh->n_segment_list = nh_template->u.srv6_stack.n_segment_list;
+
+            nh->v6segment_lst = (cmn_prefix_t *)XCALLOC2(0, 
+                nh_template->u.srv6_stack.n_segment_list, cmn_prefix_t);
+
+            for (int i = 0; i < nh->n_segment_list; i++) {
+                memcpy (&nh->v6segment_lst[i], 
+                    &nh_template->u.srv6_stack.v6segment_lst[i],
+                    sizeof(nh->v6segment_lst[i]));
+            }
+        }
     }
 
     /* NH created successfully - note: cannot trace here as we don't have RTM context */

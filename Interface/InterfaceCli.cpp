@@ -9,6 +9,7 @@
 #include "../common/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"
 #include "../Layer2/mac_table.h"
+#include "../RTM/rtm_nb_integ.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -325,15 +326,33 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 return -1;
             }   
 
+            rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV6, 0);
             bool old_switchport_status = interface->GetSwitchport();
 
             switch (enable_or_disable)
             {
                 case CONFIG_ENABLE:
+                    /* Remove link local address */
+                    if (interface->rtm_link_local_rt6_idx)
+                    {
+                        cp_rtm_uninstall_route_by_idx(rtm, interface->rtm_link_local_rt6_idx);
+                        interface->rtm_link_local_rt6_idx = 0;
+                    }
                     interface->SetSwitchport(true);
                     break;
                 case CONFIG_DISABLE:
+
                     interface->SetSwitchport(false);
+
+                    /* Add link local address*/
+                    if (!interface->rtm_link_local_rt6_idx)
+                    {
+                        ipv6_addr_t ipv6_addr;
+                        interface->InterfaceGetIpv6LinkLocalAddress(&ipv6_addr.addr);
+                        interface->rtm_link_local_rt6_idx =
+                            cp_rtm_install_local_or_connected_v6_routes(
+                                rtm, &ipv6_addr, 128, interface->GetSharedPtr());
+                    }
                     break;
                 default:;
             }
@@ -446,10 +465,10 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_INTF_CONFIG_LOOPBACK_CREATE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    interface_loopback_create(node, intf_name);
+                    interface_loopback_create(node, (char *)intf_name);
                     break;
                 case CONFIG_DISABLE:
-                    interface_loopback_delete(node, intf_name);
+                    interface_loopback_delete(node, (char *)intf_name);
                     break;
                 default:
                     ;
@@ -464,14 +483,17 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             {
                 VlanInterface *vlan_intf =
                     static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
-                if (vlan_intf)
-                    return 0;
+                
+                if (vlan_intf) return 0;
+
                 VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
 		        vlan_intfP->SetSharedPtr(vlan_intfP);
                 vlan_intfP->att_node = node;
+
                 if (!node->vlan_intf_db) {
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
                 }
+                
                 vlan_intfP->vrf = NODE_DEF_VRF(node);
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 

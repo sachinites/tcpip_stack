@@ -182,7 +182,7 @@ dp_pkt_receive (node_t *node,
     if ((interface->GetSwitchport() &&
              interface->GetL2Mode() != LAN_MODE_NONE)) {
 
-        pkt_block->switchport_ingress_intf = interface->GetSharedPtr();
+        pkt_block->ingress_intf = interface->GetSharedPtr();
 
         if (vlan_id_to_tag) {
            
@@ -225,6 +225,8 @@ dp_pkt_receive (node_t *node,
     else if (interface->IsIpConfigured()){
         tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L2Fwding\n", 
             pkt_block_str(pkt_block), interface->if_name.c_str());
+            
+        pkt_block->ingress_intf = interface->GetSharedPtr();
         promote_pkt_to_layer2(node, interface, pkt_block);
     }
 

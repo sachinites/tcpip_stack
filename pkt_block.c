@@ -96,7 +96,7 @@ pkt_block_free(pkt_block_t *pkt_block) {
     assert (!pkt_block->recommended_oif);
     assert (!pkt_block->exclude_oif);
     assert (!pkt_block->encap_data);
-    assert (!pkt_block->switchport_ingress_intf);
+    assert (!pkt_block->ingress_intf);
     XFREE(pkt_block);
 }
 
@@ -110,7 +110,7 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
         pkt_block_set_exclude_oif (pkt_block, NULL);
         if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
         pkt_block->encap_data = NULL;
-        if (pkt_block->switchport_ingress_intf) pkt_block->switchport_ingress_intf = nullptr;
+        if (pkt_block->ingress_intf) pkt_block->ingress_intf = nullptr;
         pkt_block_free(pkt_block);
         return 0;
     }
@@ -122,7 +122,7 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
         pkt_block_set_exclude_oif (pkt_block, NULL);
         if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
         pkt_block->encap_data = NULL;        
-        if (pkt_block->switchport_ingress_intf) pkt_block->switchport_ingress_intf = nullptr;
+        if (pkt_block->ingress_intf) pkt_block->ingress_intf = nullptr;
         pkt_block_free(pkt_block);
         return 0;
     }
@@ -288,7 +288,7 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->lineno = lineno;
     pkt_block2->fn_name = fn_name;    
     pkt_block2->no_modify = pkt_block->no_modify;
-    pkt_block2->switchport_ingress_intf = pkt_block->switchport_ingress_intf;
+    pkt_block2->ingress_intf = pkt_block->ingress_intf;
     pkt_block2->encap_data = pkt_block->encap_data;
     return pkt_block2;
 }

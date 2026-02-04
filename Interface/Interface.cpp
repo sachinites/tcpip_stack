@@ -23,6 +23,7 @@
 #include <vector>
 #include <algorithm>
 #include <arpa/inet.h>
+#include <vector>
 #include "../common/l3_hdrs.h"
 #include "../tcpconst.h"
 #include "../utils.h"
@@ -1131,7 +1132,7 @@ VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
     VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp (this->att_node, vlan_id);
 
     vlan_intf->VlanPacketFlood (pkt_block, 
-            dynamic_cast<Interface *>(pkt_block->switchport_ingress_intf.get()));
+            dynamic_cast<Interface *>(pkt_block->ingress_intf.get()));
 
     return 0;
 }
@@ -2214,17 +2215,12 @@ SRv6VirtualInterface::InterfaceReleaseAllResources() {
 SRv6EndPointENDInterface::SRv6EndPointENDInterface() : 
     SRv6VirtualInterface(std::string("srv6EndIntf"))
 {
-    self = this;
+
 }
 
 SRv6EndPointENDInterface::~SRv6EndPointENDInterface() {
 
     InterfaceReleaseAllResources();
-}
-
-SRv6EndPointENDInterface* 
-SRv6EndPointENDInterface::SRv6EndPointENDInterface_get() {
-    return self;
 }
 
 /* SRv6 END.X Interface Implementation */
@@ -2255,12 +2251,13 @@ SRv6EndPointEND_DX4Interface::SRv6EndPointEND_DX4Interface(vrf_t *vrf_ptr):
     SRv6VirtualInterface(std::string("srv6End_DX4Intf")),
     vrf(vrf_ptr)
 {
+
 }
 
 SRv6EndPointEND_DX4Interface::~SRv6EndPointEND_DX4Interface() {
-    
+
     InterfaceReleaseAllResources();
-    assert (vrf == NULL);
+    assert(vrf == nullptr);
 }
 
 void 
@@ -2282,6 +2279,28 @@ SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(int table_id):
 SRv6EndPointEND_DT4Interface::~SRv6EndPointEND_DT4Interface() {
 
     InterfaceReleaseAllResources();
+}
+
+
+HostPathInterface::HostPathInterface() : 
+    VirtualInterface (std::string("hostpIntf"), INTF_TYPE_HOST_PATH)
+{
+
+}
+
+HostPathInterface::~HostPathInterface() {}
+
+/* Trap the pkt to tcp stack upper layers */
+int
+HostPathInterface::SendPacketOut(pkt_block_t *pkt_block) {
+
+    return 0;
+}
+
+bool
+HostPathInterface::IsCrossReferenced() {
+
+    return 0;
 }
 
 

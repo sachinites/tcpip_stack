@@ -209,7 +209,7 @@ l2_switch_forward_frame(
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
         pkt_block_str (pkt_block), GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-     pkt_block->switchport_ingress_intf = recv_intf->GetSharedPtr();
+     pkt_block->ingress_intf = recv_intf->GetSharedPtr();
      vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 

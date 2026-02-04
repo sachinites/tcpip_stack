@@ -55,7 +55,7 @@ struct pkt_block_ {
     hdr_type_t hdr_type;
     InterfaceP recommended_oif;
     InterfaceP exclude_oif;
-    InterfaceP switchport_ingress_intf;
+    InterfaceP ingress_intf;
     encap_meta_data_t *encap_data;
     char *fn_name;
     uint64_t pkt_id;

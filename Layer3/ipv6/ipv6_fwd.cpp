@@ -108,11 +108,10 @@ ipv6_layer3_forward_nexthop (node_t *node, v6nexthop_t *nexthop, pkt_block_t *pk
     nexthop->hit_count++;
 }
 
- void
-layer3_ipv6_route_pkt (node_t *node,
-							          Interface *interface,
-					                  pkt_block_t *pkt_block)  {
-
+void layer3_ipv6_route_pkt(node_t *node,
+                           Interface *interface,
+                           pkt_block_t *pkt_block)
+{
     pkt_size_t pkt_size;
     char dst_addr_str[48];
     char route_addr_str[48];

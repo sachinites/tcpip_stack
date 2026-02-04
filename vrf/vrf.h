@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <unordered_map>
 #include <string>
+#include <vector>
+
+#include "../gluethread/glthread.h"
+#include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 
@@ -40,7 +44,7 @@ typedef struct vrf_ {
     /* RIBs */
     rtm_t *inet0;   // ipv4 RIB
     rtm_t *inet3;   // ipv4-> MPLS Service RIB
-    rtm_t *inet63; // ipv6 -> MPLS service RIB
+    rtm_t *inet63;  // ipv6 -> MPLS service RIB
     rtm_t *inet6;   // ipv6 Rib
 
     /* inet6.0 FIB*/
@@ -58,6 +62,9 @@ typedef struct vrf_ {
     /* Route target */
     rt_t import_rt;
     rt_t export_rt;
+
+    SRv6EndPointEND_DX4Interface *DX4_vrf_steering_intfp;
+    glthread_t dx4_sid_lst;
 
 } vrf_t;
 
@@ -87,6 +94,9 @@ vrf_t* vrf_get_by_name (node_t *node, char *name);
 char* vrf_name (node_t *node, uint8_t vrf_id);
 bool node_register_vrf(node_t *node, vrf_t *vrf);
 void show_vrfs(node_t *node);
+
+void vrf_rtm_program_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid);
+void vrf_rtm_unprogram_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid);
 
 vrf_t *NODE_DEF_VRF(node_t *node);
 

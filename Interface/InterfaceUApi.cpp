@@ -53,15 +53,17 @@ interface_set_ip_addr(node_t *node,
 
 void
 interface_unset_ip_addr(node_t *node, Interface *intf, 
-                                        c_string intf_ip_addr, uint8_t mask) {
+                        c_string intf_ip_addr, uint8_t mask) {
 
-    byte ip_addr_str[IPV4_ADDR_LEN_STR];
     uint32_t ip_addr_int;
     uint8_t existing_mask;
     uint32_t existing_ip_addr;
-    byte ip_addr_str_applied_mask[IPV4_ADDR_LEN_STR];
     uint32_t if_change_flags = 0;
     intf_prop_changed_t intf_prop_changed;
+    byte ip_addr_str[IPV4_ADDR_LEN_STR];
+    byte ip_addr_str_applied_mask[IPV4_ADDR_LEN_STR];
+
+
 
     if ( !intf->IsIpConfigured()) {
         return;
@@ -71,7 +73,7 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 
     ip_addr_int = tcp_ip_convert_ip_p_to_n(intf_ip_addr);
 
-    if (ip_addr_int != existing_ip_addr || mask != existing_mask) {
+    if ((ip_addr_int != existing_ip_addr) || mask != existing_mask) {
         cprintf ("Error : IP address and mask do not match\n");
         return;
     }
@@ -203,15 +205,75 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
 }
 
-
+/* Install ipv6 address with actual mask as Connected Route
+   Install ipv6 address with mask = 128 as local route
+   Install Link local address 
+*/
 void 
 interface_install_local_v6_routes (node_t *node, Interface  *intf) {
 
+    uint8_t mask;
+    uint32_t nh_idx = 0;
+    ipv6_addr_t ipv6_addr;
+
+    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV6, 0);
+
+    if (!intf) return;
+    if (!intf->IsInterfaceUp(0)) return;
+
+    if (intf->iftype == INTF_TYPE_GRE_TUNNEL) {
+
+        GRETunnelInterface *gre_intf = dynamic_cast <GRETunnelInterface *> (intf);
+        if (!gre_intf->IsGRETunnelActive()) return;
+    }
+
+    intf->InterfaceGetIpv6AddressMask(&ipv6_addr.addr, &mask);
+
+    if (!is_ipv6_addr_unspecified (&ipv6_addr.addr) && 
+            !intf->rtm_local_rt6_idx) {
+
+        /* Local Route*/
+        intf->rtm_local_rt6_idx = 
+            cp_rtm_install_local_or_connected_v6_routes(
+                rtm, &ipv6_addr, 128, intf->GetSharedPtr());
+
+        /* Connected Route*/
+        intf->rtm_local_rt6_idx = 
+            cp_rtm_install_local_or_connected_v6_routes(
+                rtm, &ipv6_addr, mask, intf->GetSharedPtr());
+        
+    }
+
+    /* Link local Address */
+    if (!intf->rtm_link_local_rt6_idx) {
+
+        intf->InterfaceGetIpv6LinkLocalAddress(&ipv6_addr.addr);
+
+        intf->rtm_link_local_rt6_idx = 
+            cp_rtm_install_local_or_connected_v6_routes(
+                rtm, &ipv6_addr, 128, intf->GetSharedPtr()); 
+    }
 }
 
 void 
 interface_uninstall_local_v6_routes (node_t *node, Interface  *intf) {
 
+    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV6, 0);
+
+    if (intf->rtm_local_rt6_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, intf->rtm_local_rt6_idx);
+        intf->rtm_local_rt6_idx = 0;
+    }
+
+    if (intf->rtm_connected_rt6_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, intf->rtm_connected_rt6_idx);
+        intf->rtm_connected_rt6_idx = 0;
+    }
+
+    if (intf->rtm_link_local_rt6_idx) {
+        cp_rtm_uninstall_route_by_idx (rtm, intf->rtm_link_local_rt6_idx);
+        intf->rtm_link_local_rt6_idx = 0;        
+    }
 }
 
 /* Interface Management Implementation */
