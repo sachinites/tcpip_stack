@@ -12,11 +12,11 @@
 #include "../../FIB/fib_nh.h"
 
 extern void
-demote_pkt_to_layer2 (node_t *node, 
-                                       uint32_t next_hop_ip,   
-                                      c_string outgoing_intf,
-                                      pkt_block_t *pkt_block, 
-                                      hdr_type_t hdr_type) ;
+demote_pkt_to_layer2(node_t *node,
+                     uint32_t next_hop_ip,
+                     c_string outgoing_intf,
+                     pkt_block_t *pkt_block,
+                     hdr_type_t hdr_type);
 
 v6nexthop_t *
 l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) {

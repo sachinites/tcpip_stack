@@ -64,29 +64,23 @@ srv6_ipv6_forward (node_t *node, pkt_block_t *pkt_block, fib_nh_t *nexthop) {
 
     ipv6_hdr_t *ipv6_hdr = pkt_block_get_ip6_hdr(pkt_block);
 
-    ipv6_route_t *nxt_route = l3rib_v6lookup_lpm(
-        NODE_V6RT_TABLE(node), &ipv6_hdr->dst_addr); 
+    cmn_prefix_t prefix;
+    cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
 
-    if (!nxt_route) {
-        tracer(node->dptr, DL3FWD | DERR, 
-            "Pkt : %s :  Pkt Dropped : No forwarding route\n",pkt_block_str(pkt_block));
-        return false;
-    }
+    fib_nh_t *nh = fib_get_forwarding_nh(
+        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6), &prefix);
 
-    fib_nh_t *nxt_nexthop = l3_v6route_get_active_nexthop(nxt_route);
-
-    if (!nxt_nexthop) {
-
+    if(!nh){
         tracer(node->dptr, DL3FWD | DERR, 
             "Pkt : %s :  Pkt Dropped : No forwarding nexthop\n", pkt_block_str(pkt_block));
-        return false;
+        return;
     }
 
     //if (nxt_nexthop->flags & BINDING_SID) {
         /* Mount seg lst here onto the pkt*/
     //}
 
-    ipv6_layer3_forward_nexthop(node, nxt_nexthop, pkt_block);
+    ipv6_layer3_forward_nexthop(node, nh, pkt_block);
     return true;
 }
 

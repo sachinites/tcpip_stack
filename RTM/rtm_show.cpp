@@ -158,6 +158,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         nh_index++;
         cprintf("\n  Nexthop %d:\n", nh_index);
         cprintf("    Idx            : %u(%p)\n", nh->idx, nh);
+        cprintf("    flags          : %u\n", nh->fwd_flags);
         cprintf("    Protocol       : %s\n", rtm_proto_to_string(nh->proto));
         cprintf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
         cprintf("    Next-Hop       : %s\n", nh_prefix_str);

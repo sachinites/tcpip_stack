@@ -408,7 +408,8 @@ isis_format_nbr_tlv22(byte *out_buff,
 
         tlv22_hdr_t *tlv22_hdr = (tlv22_hdr_t *)tlv_value;
         system_id = tlv22_hdr->system_id;
-        metric = tlv22_hdr->metric;
+        /* Convert metric from network byte order to host byte order */
+        metric = ntohl(tlv22_hdr->metric);
         subtlv_len = tlv22_hdr->subtlv_len;
 
         rc += cprintf("\tNbr System ID : %s   Metric : %u   SubTLV Len : %d\n",
@@ -425,16 +426,18 @@ isis_format_nbr_tlv22(byte *out_buff,
 
             switch(tlv_type2) {
                 case ISIS_TLV_IF_INDEX:
-
+                    /* Convert interface indexes from network byte order to host byte order */
                     rc += cprintf(
                                   "\t SubTLV%d  Len : %d   if-indexes [local : %u, remote : %u]\n",
                                   tlv_type2, tlv_len2,
-                                  *(uint32_t *)tlv_value2,
-                                  *(uint32_t *)((uint32_t *)tlv_value2 + 1));
+                                  ntohl(*(uint32_t *)tlv_value2),
+                                  ntohl(*(uint32_t *)((uint32_t *)tlv_value2 + 1)));
 
                     break;
                 case ISIS_TLV_LOCAL_IP:
-                    ip_addr_int = *(uint32_t *)tlv_value2;
+                    /* Convert IP from network byte order to host byte order */
+                    /* tcp_ip_covert_ip_n_to_p expects host byte order input */
+                    ip_addr_int = ntohl(*(uint32_t *)tlv_value2);
 
                     rc += cprintf("\t SubTLV%d  Len : %d   Local IP : %s\n",
                                   tlv_type2, tlv_len2,
@@ -442,7 +445,9 @@ isis_format_nbr_tlv22(byte *out_buff,
 
                     break;
                 case ISIS_TLV_REMOTE_IP:
-                    ip_addr_int = *(uint32_t *)tlv_value2;
+                    /* Convert IP from network byte order to host byte order */
+                    /* tcp_ip_covert_ip_n_to_p expects host byte order input */
+                    ip_addr_int = ntohl(*(uint32_t *)tlv_value2);
 
                     rc += cprintf(
                                   "\t SubTLV%d  Len : %d   Remote IP : %s\n",

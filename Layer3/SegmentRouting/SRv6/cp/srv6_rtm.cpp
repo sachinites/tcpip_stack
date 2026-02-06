@@ -90,6 +90,17 @@ srv6_rtm_route_install (node_t *node,
         nh_template.fwd_flags |= FIB_NH_FWD_F_SRv6_FORWARD;
     }
 
+    /* For Locators, the behavior is normal ipv6 forwarding
+        instead of SRv6 forwarding */
+    else if  (rt_flags & FIB_NH_FWD_F_FORWARD) {
+
+        nh_template.action = RTM_NH_ACTION_FORWARD;
+        nh_template.is_indirect = false;
+        nh_template.is_resolved = true;
+        nh_template.oif = oif ? oif->ifindex : 0;
+        nh_template.fwd_flags |= FIB_NH_FWD_F_FORWARD;
+    }
+
     else if (rt_flags & FIB_NH_FWD_F_LOCAL) {
 
         nh_template.action = RTM_NH_ACTION_LOCAL;
@@ -124,7 +135,6 @@ srv6_rtm_route_install (node_t *node,
     nh_template.u.srv6_stack.n_segment_list = 0;
     nh_template.u.srv6_stack.v6segment_lst = NULL;
 
-    /* Always set, because endfn resides in nh_template.u.srv6_stack.endfn */
     nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6_STCK;
 
     /* If segment list is provided, allocate and copy it */
@@ -154,7 +164,7 @@ srv6_rtm_route_install (node_t *node,
     nh_template.rtm_nh_proto->sub_proto = RTM_SUB_PROTO_SRv6;
     nh_template.rtm_nh_proto->instance_no = 0;
     nh_template.rtm_nh_proto->vrf_id = oif ? oif->vrf->vrf_id : NODE_DEF_VRF(node)->vrf_id;
-    
+
     /* (Un)Install route using new RTM API */
     rc = install ? cp_rtm_install_route(rtm, &prefix_key, &nh_template) : \
                    cp_rtm_uninstall_route(rtm, &prefix_key, &nh_template);

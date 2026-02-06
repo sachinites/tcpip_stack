@@ -27,6 +27,7 @@ rtm_fib_copy_fwd_info (node_t *node,
 
     if (src->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
 
+        dst->u.v6_fwd.endfn = src->u.v6_fwd.endfn;
         dst->u.v6_fwd.n_segment_list = src->u.v6_fwd.n_segment_list;
         
         for (int i = 0; i < dst->u.v6_fwd.n_segment_list; i++) {

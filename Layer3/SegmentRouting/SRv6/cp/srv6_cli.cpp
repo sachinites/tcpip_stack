@@ -942,7 +942,7 @@ srv6_ping6_handler
     int i = 0;
     node_t *node;
     c_string node_name;
-    c_string ipv6_addr_str[16];
+    c_string ipv6_addr_str[48];
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){

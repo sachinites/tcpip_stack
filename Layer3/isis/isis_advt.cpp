@@ -1264,10 +1264,12 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
 
     /* Advertise v6loop back as  IPV6 REACH TLV*/
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
-    memcpy (v6_addr.addr, node->node_nw_prop.ipv6_rtr_id, 16);
-    v6lo_advt = isis_advertise_ipv6_reach (node, &v6_addr, 128, 0, 0);
-    node_info->tlv_global_advt.v6lo_adv_data_tlv236 = v6lo_advt;
-    v6lo_advt->src.holder = &node_info->tlv_global_advt.v6lo_adv_data_tlv236;
+    if (!is_ipv6_addr_unspecified (&node->node_nw_prop.ipv6_rtr_id)) {
+        memcpy (v6_addr.addr, node->node_nw_prop.ipv6_rtr_id, 16);
+        v6lo_advt = isis_advertise_ipv6_reach (node, &v6_addr, 128, 0, 0);
+        node_info->tlv_global_advt.v6lo_adv_data_tlv236 = v6lo_advt;
+        v6lo_advt->src.holder = &node_info->tlv_global_advt.v6lo_adv_data_tlv236;
+    }
 
     /* Advertise SRv6 Data*/
     if (isis_srv6_get_config(node)) {
@@ -1307,7 +1309,8 @@ isis_advertise_ipv6_reach (node_t *node,
 
     isis_adv_data_t *adv_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
     adv_data->tlv_no = ISIS_TLV_IPV6_REACH;
-    memcpy (adv_data->u.v6pfx.prefix, ipv6_addr, 16);
+    /* Fix: Copy from ipv6_addr->addr (the actual address data), not the pointer itself */
+    memcpy (adv_data->u.v6pfx.prefix, ipv6_addr->addr, 16);
     adv_data->u.v6pfx.mask = prefix_len;
     adv_data->u.v6pfx.metric = metric;
     adv_data->u.v6pfx.flags = flags;

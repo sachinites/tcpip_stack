@@ -856,13 +856,6 @@ rtm_get_route_target_rtm( node_t *node,
         return vrf->inet63;
     }
 
-    if  (sub_proto == RTM_SUB_PROTO_SRv6 || 
-          sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
-
-        if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
-        return vrf->inet6;
-    }
-
     /* ====================================================================
      * ISIS Routes
      * ==================================================================== */
@@ -901,8 +894,8 @@ rtm_get_route_target_rtm( node_t *node,
 
                 if (afi == AF_IPV4) return NULL;
 
-                if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
-                return vrf->inet63;
+                if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+                return vrf->inet6;
 
                 default : 
                     break;

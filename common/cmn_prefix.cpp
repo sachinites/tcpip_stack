@@ -280,26 +280,40 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
             break;
             
         case AF_IPV6:
-            /* For IPv6, convert 8 uint16_t to bitmap */
-            for (int i = 0; i < 8; i++) {
-                uint16_t val = htons(prefix->u.v6_addr[i]);
-                if (i % 2 == 0) {
-                    bm_prefix->bits[i / 2] = (uint32_t)val << 16;
-                } else {
-                    bm_prefix->bits[i / 2] |= val;
+            /* For IPv6, directly copy bytes to bitmap without byte swapping
+             * The bytes are already in network byte order from memcpy in cmn_prefix_initialize_v6
+             * We need to preserve this byte order in the bitmap for correct mtrie matching */
+            {
+                uint8_t *src_bytes = (uint8_t *)prefix->u.v6_addr;
+                uint8_t *dst_bytes = (uint8_t *)bm_prefix->bits;
+                
+                /* Copy 16 bytes (128 bits) directly */
+                for (int i = 0; i < 16; i++) {
+                    dst_bytes[i] = src_bytes[i];
                 }
             }
             
             /* Create wildcard mask for IPv6 */
-            for (int i = 0; i < 4; i++) {
-                if (prefix->prefix_len <= i * 32) {
-                    bm_mask->bits[i] = 0xFFFFFFFF;
-                } else if (prefix->prefix_len >= (i + 1) * 32) {
-                    bm_mask->bits[i] = 0;
-                } else {
-                    uint8_t bits_in_word = prefix->prefix_len - (i * 32);
-                    mask_bits = 0xFFFFFFFF << (32 - bits_in_word);
-                    bm_mask->bits[i] = htonl(~mask_bits);
+            {
+                uint8_t *mask_bytes = (uint8_t *)bm_mask->bits;
+                int byte_idx = 0;
+                int remaining_bits = prefix->prefix_len;
+                
+                /* Set mask bytes based on prefix length */
+                for (byte_idx = 0; byte_idx < 16; byte_idx++) {
+                    if (remaining_bits >= 8) {
+                        /* Full byte is part of prefix - mask is 0x00 (care about all bits) */
+                        mask_bytes[byte_idx] = 0x00;
+                        remaining_bits -= 8;
+                    } else if (remaining_bits > 0) {
+                        /* Partial byte - create mask for remaining bits */
+                        uint8_t byte_mask = 0xFF << (8 - remaining_bits);
+                        mask_bytes[byte_idx] = ~byte_mask;  /* Wildcard: 1=don't care */
+                        remaining_bits = 0;
+                    } else {
+                        /* Beyond prefix length - mask is 0xFF (don't care) */
+                        mask_bytes[byte_idx] = 0xFF;
+                    }
                 }
             }
             break;

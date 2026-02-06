@@ -578,11 +578,10 @@ cp2dp_send_ip_data ( node_t *node,
 }
 
 /* Write the ipv6 equivalent function of cp2dp_send_ip_data( )*/
-void 
-cp2dp_send_ip6_data ( node_t *node, 
-                                    pkt_block_t *pkt_block,
-                                    ipv6_addr_t dest_ip_addr,
-                                    uint16_t std_ip_protocol) 
+void cp2dp_send_ip6_data(node_t *node,
+                         pkt_block_t *pkt_block,
+                         ipv6_addr_t dest_ip_addr,
+                         uint16_t std_ip_protocol)
 {
     bool new_pkt_block = false;
     pkt_size_t ipv6_payload_size = 0;
@@ -1309,7 +1308,7 @@ cp2dp_fib_update (
         AFI_T target_fib_afi,
         cmn_prefix_t *prefix,
         uint32_t nh_idx,
-         uint32_t inh_idx,
+        uint32_t inh_idx,
         rtm_nh_fwd_info_t *fwd_info,
         FIB_OPN_T operation) {
 
