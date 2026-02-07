@@ -819,8 +819,9 @@ cp_rtm_uninstall_route_by_proto ( rtm_t *rtm,
 
         /* Check if this nexthop belongs to the specified protocol */
         if (nh->proto == proto && nh->sub_proto == sub_proto) {
+            
             /* Delete the nexthop */
-            rtm_route_delete_nh(rtm, rt, nh);
+            cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
             deleted_count++;
         }
 
@@ -849,7 +850,8 @@ cp_rtm_uninstall_route_by_proto ( rtm_t *rtm,
 uint32_t
 cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, 
                 RTM_PROTO_T proto, 
-                RTM_SUB_PROTO_T sub_proto) {
+                RTM_SUB_PROTO_T sub_proto,
+                bool (*qualifier)(rtm_nh *)) {
 
     rtm_nh *nh;
     glthread_t *curr;
@@ -863,7 +865,12 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm,
         /* Filter by sub-protocol if specified */
         if (nh->sub_proto != sub_proto) continue;
         
-        /* Uninstall route by nexthop index */
+        if (qualifier && qualifier(nh)) {
+            cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
+            deleted_count++;
+            continue;
+        }
+
         cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
         deleted_count++;
 

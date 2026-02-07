@@ -7,6 +7,7 @@
 #include "../ipv6/v6nexthop.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
+#include "../../RTM/rtm_route.h"
 #include "../../Layer3/SegmentRouting/SRv6/cp/srv6_rtm.h"
 
 void
@@ -101,10 +102,6 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
 extern void
 dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id, bool del_static);
 
-/* This is a cheat function, which install ipv6 ISIS routes in ipv6 RIB using
-    ipv4 spf calculated nexthops. 
-*/
-
 /* Install Route in RTM */
 static void
 isis_rt_ipv6_route_add(
@@ -122,6 +119,7 @@ isis_rt_ipv6_route_add(
                     RTM_PROTO_L1_ISIS_INT);
 
     cmn_prefix_t rtm_prefix, rtm_gateway;
+    memset (&rtm_gateway, 0 , sizeof (rtm_gateway));
 
     cmn_prefix_initialize_v6 (&rtm_prefix, &prefix->addr, mask);
     if (gw_ip) {
@@ -157,6 +155,7 @@ isis_rt_ipv6_route_del(
                     RTM_PROTO_L1_ISIS_INT);
 
     cmn_prefix_t rtm_prefix, rtm_gateway;
+    memset (&rtm_gateway, 0 , sizeof (rtm_gateway));
 
     cmn_prefix_initialize_v6 (&rtm_prefix, &prefix->addr, mask);
 
@@ -164,42 +163,56 @@ isis_rt_ipv6_route_del(
         cmn_prefix_initialize_v6(&rtm_gateway, &gw_ip->addr, 128);
     }
 
-    cp_rtm_uninstall_route_advanced (
-        rtm,
-        &rtm_prefix,
-        RTM_PROTO_ISIS,
-        RTM_PROTO_L1_ISIS_INT,
-        0,
-        RTM_NH_ACTION_FORWARD,
-        metric,
-        &rtm_gateway,
-        oif->GetSharedPtr(), 
-        NULL, 0, 0);
+    if (gw_ip || oif) {
+
+        cp_rtm_uninstall_route_advanced (
+            rtm,
+            &rtm_prefix,
+            RTM_PROTO_ISIS,
+            RTM_PROTO_L1_ISIS_INT,
+            0,
+            RTM_NH_ACTION_FORWARD,
+            metric,
+            &rtm_gateway,
+            oif->GetSharedPtr(), 
+            NULL, 0, 0);
+        
+            return;
+    }
+
+    cp_rtm_uninstall_route_by_proto(rtm, 
+            &rtm_prefix, 
+            RTM_PROTO_ISIS,
+            RTM_PROTO_L1_ISIS_INT);    
 }
 
 static int
 isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
+    rtm_t *rtm_v6;
+    rtm_t *rtm_srv6;
     uint32_t count = 0;
     ipv6_addr_t v6_prefix;
+    cmn_prefix_t prefix;
+    rtm_route *rtm_route;
     char ipv6_addr_str[48];
     ted_v6prefix_t *ted_prefix;
     avltree_node_t *avl_node;
     isis_node_info_t *node_info;
+    uint32_t route_isis_metric;
 
     node_info = ISIS_NODE_INFO(spf_root);
 
-    cp_rtm_uninstall_routes_by_proto  (
-        cp_rtm_get_route_target_rtm (
-            spf_root, NODE_DEF_VRF(spf_root),
-            AF_IPV6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT),
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
+    rtm_v6 = cp_rtm_get_route_target_rtm (
+                spf_root, NODE_DEF_VRF(spf_root),
+                AF_IPV6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
 
-    cp_rtm_uninstall_routes_by_proto  (
-        cp_rtm_get_route_target_rtm (
-            spf_root, NODE_DEF_VRF(spf_root),
-            AF_IPV6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6),
-            RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6);
+    rtm_srv6 = cp_rtm_get_route_target_rtm (
+                spf_root, NODE_DEF_VRF(spf_root),
+                AF_IPV6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6);
+
+    cp_rtm_uninstall_routes_by_proto (rtm_v6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+    cp_rtm_uninstall_routes_by_proto (rtm_srv6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -214,50 +227,143 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
         
-        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Computing ipv6 Routes Begin\n", 
-                        ISIS_ROUTE,
-                        spf_result->node->node_name);
+        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, 
+            "%s : Dest %s  : Computing ipv6 Routes Begin\n", ISIS_ROUTE,
+                spf_result->node->node_name);
 
         if (spf_result->node->pn_no) continue;
 
-        for (i = 0; i < MAX_NXT_HOPS; i++){
+        /* Install all v6 prefixes */
+        ITERATE_AVL_TREE_BEGIN(spf_result->node->v6prefix_tree_root, avl_node) {
 
-            nexthop = spf_result->nexthops[i];
+            ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
+            memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
 
-            if (!nexthop) break;       
+            cmn_prefix_initialize_v6(&prefix, &v6_prefix.addr, ted_prefix->mask);
 
-            /* Install all v6 prefixes */
-            ITERATE_AVL_TREE_BEGIN(spf_result->node->v6prefix_tree_root, avl_node) {
+            rtm_route = rtm_route_lookup(rtm_v6, &prefix);
 
-                ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
-                memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
+            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
+                    ISIS_ROUTE,
+                    spf_result->node->node_name,
+                    inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
 
-                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
-                        ISIS_ROUTE,
-                        spf_result->node->node_name,
-                        inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+            /* Case 0 : If directly connected route, skip */
+            if (rtm_route && 
+                rtm_route_is_resolved(rtm_route) &&
+                rtm_route_is_local (rtm_route)) {
+
+                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, 
+                    "%s : Dest %s  : Route %s/%d is Local, skipped\n",
+                    ISIS_ROUTE, spf_result->node->node_name, 
+                    inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+                continue;
+            }
+
+            /* Case 1 : No L3 route present in RIB by ISIS */
+            if (!rtm_route || !rtm_route_is_path_present (
+                    rtm_route, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, &route_isis_metric)) {
+
+                for (i = 0; i < MAX_NXT_HOPS; i++){
+                    
+                    nexthop = spf_result->nexthops[i];
+                    if (!nexthop) break;
+
+                    tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                            ISIS_ROUTE,
+                            spf_result->node->node_name,
+                            inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+                    isis_rt_ipv6_route_add(spf_root,
+                                           &v6_prefix,
+                                           ted_prefix->mask,
+                                           0,
+                                           node_get_intf_by_ifindex(spf_root, nexthop->ifindex),
+                                           spf_result->spf_metric + ted_prefix->metric);
+
+                    count++;
+                }
+
+                continue;
+            }
+
+            /* Case 2 : Better route already present in RIB */
+            if (route_isis_metric < 
+                    (spf_result->spf_metric + ted_prefix->metric)) {
+
+                continue;
+            }
+
+            /* Case 3 : IF new route is a better route, then replace the route in routing table*/
+            if (route_isis_metric > 
+                    (spf_result->spf_metric + ted_prefix->metric)) {
+
+                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
+                            ISIS_ROUTE, spf_result->node->node_name,
+                            inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+                isis_rt_ipv6_route_del (spf_root,
+                         &v6_prefix, ted_prefix->mask,  0, 0, 0);
+
+                for (i = 0; i < MAX_NXT_HOPS; i++){
+
+                    nexthop = spf_result->nexthops[i];
+                    if (!nexthop) break;
+
+                    tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
+                            ISIS_ROUTE, spf_result->node->node_name,
+                            inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+                    isis_rt_ipv6_route_add(spf_root,
+                                           &v6_prefix,
+                                           ted_prefix->mask,
+                                           0,
+                                           node_get_intf_by_ifindex(spf_root, nexthop->ifindex),
+                                           spf_result->spf_metric + ted_prefix->metric);
+
+                    count++;
+                }
+                continue;
+            }
+
+            /* Case 4: ECMP case, merge the nexthops */
+            for (i = 0; i < MAX_NXT_HOPS; i++) {
+
+                nexthop = spf_result->nexthops[i];
+                if (!nexthop) break;
+
+                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
+                            ISIS_ROUTE, spf_result->node->node_name,
+                            inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
 
                 isis_rt_ipv6_route_add(spf_root,
                                        &v6_prefix,
                                        ted_prefix->mask,
                                        0,
                                        node_get_intf_by_ifindex(spf_root, nexthop->ifindex),
-                                       spf_result->spf_metric);
+                                       spf_result->spf_metric + ted_prefix->metric);
 
                 count++;
+            }
 
-            } ITERATE_AVL_TREE_END;
+        } ITERATE_AVL_TREE_END;
 
-            /* Install all srv6 prefix sids */
-            ITERATE_AVL_TREE_BEGIN(spf_result->node->srv6prefixsid_tree_root, avl_node) {
+        /* Install all srv6 prefix sids */
+        ITERATE_AVL_TREE_BEGIN(spf_result->node->srv6prefixsid_tree_root, avl_node) {
 
-                ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
-                memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
+            ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
+            memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
 
-                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : SRv6 Prefix sid Route Add %s/%d\n", 
-                        ISIS_ROUTE,
-                        spf_result->node->node_name,
-                        inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : SRv6 Prefix sid Route Add %s/%d\n", 
+                    ISIS_ROUTE,
+                    spf_result->node->node_name,
+                    inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
+
+            for (i = 0; i < MAX_NXT_HOPS; i++){
+
+                nexthop = spf_result->nexthops[i];
+                if (!nexthop) break;
 
                 srv6_rtm_route_install (spf_root, 
                                         &v6_prefix, 
@@ -265,15 +371,14 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                                         FIB_NH_FWD_F_FORWARD,
                                         0, 
                                         node_get_intf_by_ifindex (spf_root, nexthop->ifindex),
-                                        NULL, spf_result->spf_metric, 
+                                        NULL, spf_result->spf_metric + ted_prefix->metric, 
                                         ted_prefix->endfn, 
                                         RTM_PROTO_ISIS, true);
 
                 count++;
+            }
 
-            } ITERATE_AVL_TREE_END;
-
-        }
+        } ITERATE_AVL_TREE_END;
 
     } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
 
@@ -331,39 +436,46 @@ isis_rt_ipv4_route_del(
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
     cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
 
-    cp_rtm_uninstall_route_advanced (
-        rtm,
-        &rtm_prefix,
-        RTM_PROTO_ISIS,
-        RTM_PROTO_L1_ISIS_INT,
-        0,
-        RTM_NH_ACTION_FORWARD,
-        metric,
-        &rtm_gateway,
-        oif->GetSharedPtr(), 
-        NULL, 0, 0);
+    if (gw_ip || oif) {
+
+        cp_rtm_uninstall_route_advanced (
+            rtm,
+            &rtm_prefix,
+            RTM_PROTO_ISIS,
+            RTM_PROTO_L1_ISIS_INT,
+            0,
+            RTM_NH_ACTION_FORWARD,
+            metric,
+            &rtm_gateway,
+            oif->GetSharedPtr(), 
+            NULL, 0, 0);
+        return;
+    }
+
+    cp_rtm_uninstall_route_by_proto(rtm, 
+            &rtm_prefix, 
+            RTM_PROTO_ISIS,
+            RTM_PROTO_L1_ISIS_INT);
 }
 
 static int
 isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
+    rtm_t *rtm;
+    rtm_nh *nh;
+    cmn_prefix_t prefix;
+    rtm_route *rtm_route;
     char ip_addr[IPV4_ADDR_LEN_STR];
-    l3_route_t *l3route;
     ted_prefix_t *ted_prefix;
     avltree_node_t *avl_node;
     isis_node_info_t *node_info;
     uint32_t prefix32bit, mask32bit;
 
-    rt_table_t *rt_table = 
-        NODE_RT_TABLE(spf_root);
-
     node_info = ISIS_NODE_INFO(spf_root);
 
-    /*Clear all routes except direct routes*/
-    clear_rt_table(rt_table, PROTO_ISIS);
-    cp_rtm_uninstall_routes_by_proto  (
-            rtm_get ( spf_root, RTM_DEFAULT_VRF, AF_IPV4, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
+    rtm = rtm_get ( spf_root, RTM_DEFAULT_VRF, AF_IPV4, 0);
+
+    cp_rtm_uninstall_routes_by_proto (rtm, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -371,8 +483,10 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     int i = 0;
     int count = 0; /*no of routes installed*/
     glthread_t *curr;
-    isis_spf_result_t *spf_result;
+    uint32_t route_isis_metric;
     nexthop_t *nexthop = NULL;
+    isis_spf_result_t *spf_result;
+    
     isis_spf_data_t *spf_data = (isis_spf_data_t *)(ISIS_NODE_SPF_DATA(ted_spf_root));
 
     nxthop_proto_id_t nxthop_proto = 
@@ -405,14 +519,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
             tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                         ISIS_ROUTE,
                         spf_result->node->node_name,
-                        tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32);            
-
-            rt_ipv4_route_add (spf_root, 
-                        spf_result->node->rtr_id, 32,
-                        tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                        nexthop->oif.get(),
-                        spf_result->spf_metric,
-                        PROTO_ISIS, true);       
+                        tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32);          
 
             /* New RTM Route Install */
             isis_rt_ipv4_route_add (spf_root,  spf_result->node->rtr_id, 32,
@@ -439,42 +546,40 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                     mask32bit = tcp_ip_convert_dmask_to_bin_mask (ted_prefix->mask);
                     prefix32bit = ted_prefix->prefix & mask32bit;
+                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr);
 
-                    l3route = rt_table_lookup_exact_match(rt_table, 
-                                        tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr),
-                                        ted_prefix->mask);
+                    cmn_prefix_initialize_v4(&prefix, prefix32bit, ted_prefix->mask);
+
+                    rtm_route = rtm_route_lookup(rtm, &prefix);
                     
                     tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
+                                    ip_addr, ted_prefix->mask); 
 
                     /*Case 0 : If directly connected route, skip */
-                    if (l3route && l3_is_direct_route(l3route)) {
-                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route %s/%d is Local, skipped",
-                                    ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
+                    if (rtm_route && 
+                        rtm_route_is_resolved(rtm_route) &&
+                        rtm_route_is_local (rtm_route)) {
+
+                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, 
+                            "%s : Dest %s  : Route %s/%d is Local, skipped",
+                            ISIS_ROUTE, spf_result->node->node_name, ip_addr, ted_prefix->mask);
 
                         continue;
                     }
 
                     /* Case 1 : No L3 route present in RIB by ISIS */
-                    if (!l3route ||  !l3route->nexthops[nxthop_proto][0] ) {
+                    if (!rtm_route || !rtm_route_is_path_present (
+                            rtm_route, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, &route_isis_metric)) {
 
                         for (i = 0; i < MAX_NXT_HOPS; i++){
                             
                             nexthop = spf_result->nexthops[i];
                             if (!nexthop) break;
 
-                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
-
-                            rt_ipv4_route_add (spf_root, 
-                                    prefix32bit, ted_prefix->mask, 
-                                    tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                                    nexthop->oif.get(),
-                                    spf_result->spf_metric + ted_prefix->metric,
-                                    PROTO_ISIS, true);       
+                                    ip_addr, ted_prefix->mask);     
 
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (spf_root,  
@@ -488,41 +593,33 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                         continue;
                     }
-
-                        
+                    
                     /* Case 2 : Better route already present in RIB */
-                    if (l3route->spf_metric[nxthop_proto] < 
+                    if (route_isis_metric < 
                             (spf_result->spf_metric + ted_prefix->metric)) {
 
                         continue;
                     }
 
                     /* Case 3 : IF new route is a better route, then replace the route in routing table*/
-                    if (l3route->spf_metric[nxthop_proto] > 
+                    if (route_isis_metric > 
                             (spf_result->spf_metric + ted_prefix->metric)) {
 
                         tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
                                     tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
 
-                        rt_ipv4_route_del (spf_root,
-                                 prefix32bit, ted_prefix->mask,  PROTO_ISIS, true);
+                        isis_rt_ipv4_route_del (spf_root,
+                                 prefix32bit, ted_prefix->mask,  0, 0, 0);
 
                         for (i = 0; i < MAX_NXT_HOPS; i++){
 
                             nexthop = spf_result->nexthops[i];
                             if (!nexthop) break;
 
-                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
+                            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
-
-                            rt_ipv4_route_add (spf_root, 
-                                    prefix32bit, ted_prefix->mask, 
-                                    tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                                    nexthop->oif.get(),
-                                    spf_result->spf_metric + ted_prefix->metric,
-                                    PROTO_ISIS, true);       
+                                    ip_addr, ted_prefix->mask);         
 
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (spf_root,  
@@ -544,14 +641,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                         tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);  
-
-                        rt_ipv4_route_add (spf_root, 
-                                    prefix32bit, ted_prefix->mask, 
-                                    tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                                    nexthop->oif.get(),
-                                    spf_result->spf_metric + ted_prefix->metric,
-                                    PROTO_ISIS, true);       
+                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
 
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (spf_root,  

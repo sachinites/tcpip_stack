@@ -1180,12 +1180,15 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
         return RTM_ERROR_INVALID_OIF_INDEX;
     }
 
+    #if 0
+    /* We dont support gateway for ipv6 paths yet !!*/
     if (nh_template->proto != RTM_PROTO_LOCAL &&
         nh_template->proto != RTM_PROTO_CONNECTED &&
-        nh_template->sub_proto != RTM_SUB_PROTO_SRv6 &&
+        !(nh_template->fwd_flags & FIB_NH_FWD_F_IPV6) &&
         cmn_prefix_is_null (&nh_template->gateway)) {
         return RTM_ERROR_INVALID_GATEWAY;
     }
+    #endif
     
     if (!nh_template->rtm_nh_proto) {
         return RTM_ERROR_INVALID_NEXTHOP_PROTO;

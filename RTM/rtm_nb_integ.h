@@ -14,6 +14,7 @@ typedef struct node_ node_t;
 typedef struct rtm_ rtm_t;
 class Interface;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
+typedef struct rtm_nh_ rtm_nh;
 typedef struct rtm_rt_subscription_ rtm_rt_subscription_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 
@@ -101,10 +102,16 @@ rtm_error_t
 cp_rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *route, cp_nexthop_template_t *nh_template);
 
 uint32_t
-cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, cmn_prefix_t *route,  RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto);
+cp_rtm_uninstall_route_by_proto ( rtm_t *rtm, 
+        cmn_prefix_t *route, 
+        RTM_PROTO_T proto, 
+        RTM_SUB_PROTO_T sub_proto);
 
 uint32_t
-cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm, RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto);
+cp_rtm_uninstall_routes_by_proto (rtm_t *rtm, 
+        RTM_PROTO_T proto, 
+        RTM_SUB_PROTO_T sub_proto, 
+        bool (*qualifier)(rtm_nh *));
 
 /* Advanced API for complete route configuration */
 #if 0

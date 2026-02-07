@@ -18,10 +18,10 @@
 extern graph_t *topo;
 
 static int
-srv6_config_enable
-                    (int cmdcode,
-                    Stack_t *tlv_stack,
-                    op_mode enable_or_disable) {
+srv6_config_enable(int cmdcode,
+                   Stack_t *tlv_stack,
+                   op_mode enable_or_disable)
+{
 
     tlv_struct_t *tlv;
     c_string node_name = NULL;
@@ -932,12 +932,11 @@ srv6_build_global_config_cli_tree (param_t *root) {
     return 0;
 }
 
-
 static int
-srv6_ping6_handler
-                    (int cmdcode,
-                    Stack_t *tlv_stack,
-                    op_mode enable_or_disable) {
+srv6_ping6_handler(int cmdcode,
+                   Stack_t *tlv_stack,
+                   op_mode enable_or_disable)
+{
 
     int i = 0;
     node_t *node;
@@ -1008,12 +1007,10 @@ srv6_build_cli_run_tree (param_t *root)
         }
 }
 
-
 extern int
-srv6_show_handler
-                    (int cmdcode,
-                    Stack_t *tlv_stack,
-                    op_mode enable_or_disable) ;
+srv6_show_handler(int cmdcode,
+                  Stack_t *tlv_stack,
+                  op_mode enable_or_disable);
 
 int
 srv6_build_cli_show_tree (param_t *root)

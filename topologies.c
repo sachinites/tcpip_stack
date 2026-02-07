@@ -582,6 +582,13 @@ cross_link_topology(void){
     node_set_rtr_id(R4, "122.1.1.4");
     node_set_rtr_id(R5, "122.1.1.5");
 
+    node_set_v6_rtr_id(R0, "2001::122:1:1:0");
+    node_set_v6_rtr_id(R1, "2001::122:1:1:1");
+    node_set_v6_rtr_id(R2, "2001::122:1:1:2");
+    node_set_v6_rtr_id(R3, "2001::122:1:1:3");
+    node_set_v6_rtr_id(R4, "2001::122:1:1:4");
+    node_set_v6_rtr_id(R5, "2001::122:1:1:5");   
+
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R0, "eth14","80.1.1.1", 24);
 

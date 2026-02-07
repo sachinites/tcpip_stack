@@ -349,6 +349,47 @@ rtm_route_lookup_nh_with_same_fwding_behavior(
     return NULL;
 }
 
+bool 
+rtm_route_is_local (rtm_route* route) {
+
+    rtm_nh *nh;
+    glthread_t *curr;
+    
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
+        
+        nh = route_glue_to_rtm_nh(curr);
+        return (nh->is_active && (nh->fwd_flags & FIB_NH_FWD_F_LOCAL));
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr);
+    
+    return NULL;    
+}
+
+bool
+rtm_route_is_path_present (
+        rtm_route *route, 
+        RTM_PROTO_T proto, 
+        RTM_SUB_PROTO_T sub_proto, uint32_t *cost) {
+
+    rtm_nh *nh;
+    glthread_t *curr;
+    
+    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
+        
+        nh = route_glue_to_rtm_nh(curr);
+        if (nh->proto != proto) continue;
+        if (sub_proto != RTM_SUB_PROTO_NA && 
+            nh->sub_proto != sub_proto) continue;
+
+        *cost = nh->metric;
+        return true;
+        
+    } ITERATE_GLTHREAD_END(&route->path_list, curr);
+    
+    return false;    
+}
+
+
 /**
  * @brief Add a nexthop to a route
  * 

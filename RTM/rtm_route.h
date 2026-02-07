@@ -123,8 +123,16 @@ rtm_error_t rtm_route_add_nh(rtm_t *rtm, rtm_route *route, rtm_nh *nh);
 rtm_error_t rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh);
 rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;
 
+
 void rtm_route_refresh_nexthops(rtm_t *rtm, rtm_route* route) ;
 bool rtm_route_is_resolved (rtm_route* route);
+bool rtm_route_is_local (rtm_route* route);
+
+bool
+rtm_route_is_path_present (
+        rtm_route *rtm_route, 
+        RTM_PROTO_T proto, 
+        RTM_SUB_PROTO_T sub_proto, uint32_t *cost);
 
 void 
 rtm_route_check_and_delete(rtm_t *rtm, rtm_route* route);

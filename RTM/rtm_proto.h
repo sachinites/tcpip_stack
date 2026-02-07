@@ -41,7 +41,7 @@ typedef struct rtm_nh_proto_
 
         struct
         {
-
+            uint32_t spf_id;
         } isis;
 
         struct

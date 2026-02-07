@@ -198,15 +198,12 @@ isis_schedule_route_delete_task(node_t *node,
 
     bool del_static = isis_is_protocol_shutdown_in_progress(node);
 
-    clear_rt_table(NODE_RT_TABLE(node), PROTO_ISIS);
-    dp_ipv6_clear_rt_table_sync (NODE_V6RT_TABLE(node), PROTO_ISIS, del_static);
-    dp_ipv6_clear_rt_table_sync (NODE_V6RT_TABLE(node), PROTO_ISIS_SRv6, del_static);
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV4, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV6, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     isis_check_and_shutdown_protocol_now(node,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
 }
@@ -422,7 +419,6 @@ isis_init (node_t *node ) {
             isis_recv_ipc_updates);
     cp_ips_join (node, IPC_ACCESS_LIST, IPC_ALL_MINOR_UPDATES,
             isis_recv_ipc_updates);
-    //isis_rtm_test(node) ;
 }
 
 void
