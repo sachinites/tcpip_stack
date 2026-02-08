@@ -10,13 +10,16 @@ typedef struct fib_ fib_t;
 typedef struct fib_nh_ fib_nh_t;
 
 
-#pragma pack(push, 8)
-
+/* Note: fib_nh_fwd_info_t is NOT packed because it contains std::shared_ptr
+ * which requires proper alignment. Packing it causes memory corruption. 
+ * We use __attribute__((aligned(8))) to ensure 8-byte alignment of the structure.
+ * Each member is manually padded to maintain 8-byte alignment. */
 typedef struct fib_nh_fwd_info_ {
 
-    InterfaceP oif;
-    cmn_prefix_t nh_addr;
-    uint32_t fwd_flags;
+    InterfaceP oif;                 /* offset 0, size 16, naturally 8-byte aligned */
+    cmn_prefix_t nh_addr;           /* offset 16, size 24 */
+    uint32_t fwd_flags;             /* offset 40, size 4 */
+    uint32_t _pad1;                 /* padding to align union to 8 bytes */
 
     union {
         
@@ -32,13 +35,15 @@ typedef struct fib_nh_fwd_info_ {
             uint8_t v6segment_lst[MAX_LBL_DEPTH][16];
         } v6_fwd;
 
-    }u;
+    }u;                             /* offset 48, now 8-byte aligned */
 
     ~fib_nh_fwd_info_() {
         oif = nullptr;
     }
 
-} fib_nh_fwd_info_t;
+} __attribute__((aligned(8))) fib_nh_fwd_info_t;
+
+#pragma pack(push, 8)
 
 typedef struct fib_nh_ {
 

@@ -296,7 +296,7 @@ rtm_ppt_db_clone_route (
     }ITERATE_GLTHREAD_END(&route->path_list, curr);
 
     if (nh_count == 0) {
-        rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)XCALLOC2(0, 1, rtm_ppt_route_t);
+        rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)calloc(1, sizeof(rtm_ppt_route_t));
         avltree_node_init (&ppt_route->route_glue);
         ppt_route->prefix = route->prefix;
         ppt_route->nhidx_list_count = 0;
@@ -321,7 +321,7 @@ rtm_ppt_db_clone_route (
     }ITERATE_GLTHREAD_END(&route->path_list, curr);
 
     /* Allocate main structure (only nhidx_list, no DNH arrays) */
-    rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)XCALLOC_BUFF (0, 
+    rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)calloc (1, 
         sizeof (rtm_ppt_route_t) + 
         (sizeof (rtm_ppt_nhidx_t) * nh_count) );
 
@@ -957,7 +957,7 @@ rtm_ppt_route_check_and_delete (rtm_t *rtm, rtm_ppt_route_t *ppt_route) {
     rtm_ppt_route_release_resources (rtm, ppt_route);
     assert (!avltree_node_is_inuse (&rtm->ppt_db_route_tree, 
         &ppt_route->route_glue));
-    XFREE (ppt_route);
+    free (ppt_route);
 }
 
 void 
@@ -1419,7 +1419,7 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix) {
 
     if (node) return;
 
-    ppt_route = (rtm_ppt_route_t *)XCALLOC2(0, 1, rtm_ppt_route_t);
+    ppt_route = (rtm_ppt_route_t *)calloc(1, sizeof(rtm_ppt_route_t));
 
     ppt_route->prefix = *prefix;
     avltree_node_init(&ppt_route->route_glue);

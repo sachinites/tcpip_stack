@@ -681,9 +681,9 @@ cp_rtm_uninstall_route_by_idx (
 
     if (!nh) {
         tracer(rtm->node->cptr, DRTM | DERR,
-	    "RTM[%s] : Route %s, Nexthop %s[%u] not found\n", rtm->name, 
-	    rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)), 
-	    rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
+            "RTM[%s] : Route %s, Nexthop %s[%u] not found\n", rtm->name, 
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)), 
+            rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
 

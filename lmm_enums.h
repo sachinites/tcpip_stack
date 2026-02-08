@@ -48,9 +48,11 @@ typedef enum struct_index_
     MM_INDEX(ted_prefix_t),
     MM_INDEX(ted_v6prefix_t),
 
-    /* Mtrie */
+    /* Common Library Structures */
     MM_INDEX(mtrie_t),
     MM_INDEX(mtrie_node_t),
+    MM_INDEX(glthread_t),
+    MM_INDEX(glthread_data_node_t),
 
     /* RT Table Structures */
     MM_INDEX(rt_route_flash_request_t),
@@ -103,7 +105,7 @@ typedef enum struct_index_
     MM_INDEX(rtm_rt_subscription_t),
     MM_INDEX(rtm_gc_t),
     MM_INDEX(rtm_presentation_data_t),
-    MM_INDEX(rtm_ppt_route_t),
+    //MM_INDEX(rtm_ppt_route_t),  /* Stretchable Structure */
     MM_INDEX(rtm_nh_fwd_info_t),
     
     /* MPLS */
@@ -112,8 +114,12 @@ typedef enum struct_index_
     /* FIB Structures*/
     MM_INDEX(fib_t),
     MM_INDEX(fib_nh_t),
-    MM_INDEX(fib_route_t)
+    MM_INDEX(fib_route_t),
     //MM_INDEX(fib_nh_fwd_info_t), // C++ Structure
+
+    /* VRF Structures */
+    MM_INDEX(vrf_t),
+    MM_INDEX(def_vrf_t)
 
     /* Add more Application structure Index here */
 

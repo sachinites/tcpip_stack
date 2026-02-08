@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include "../lmm_enums.h"
 #include "../common/mpls_lstack.h"
 #include "fib.h"
 #include "../pkt_block.h"

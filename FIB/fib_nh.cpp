@@ -4,6 +4,7 @@
 #include "fib_error.h"
 #include "fib_api.h"
 #include <string.h>
+#include "../lmm_enums.h"
 #include "../Interface/Interface.h"
 #include "../common/mpls_lstack.h"
 #include "../LinuxMemoryManager/uapi_mm.h"

@@ -22,11 +22,51 @@
 #include <assert.h>
 #include <unistd.h>
 #include <ncurses.h>
+#include <sched.h>
 #include "event_dispatcher.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 static bool debug = false;
 void event_dispatcher_mem_init(); 
+
+/*
+ * Get the highest numbered CPU core (typically high-performance cores)
+ * Returns the CPU core number to pin to, or -1 if unable to determine
+ */
+static int
+event_dispatcher_get_high_perf_core(void) {
+	int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+	
+	if (num_cpus <= 0) {
+		fprintf(stderr, "Warning: Unable to determine number of CPUs\n");
+		return -1;
+	}
+	
+	/* Return the highest numbered CPU (typically high-performance core) */
+	return num_cpus - 1;
+}
+
+/*
+ * Pin the current thread to a specific CPU core
+ * Returns 0 on success, -1 on failure
+ */
+static int
+event_dispatcher_pin_thread_to_core(pthread_t thread, int core_id) {
+	cpu_set_t cpuset;
+	
+	CPU_ZERO(&cpuset);
+	CPU_SET(core_id, &cpuset);
+	
+	int rc = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+	if (rc != 0) {
+		fprintf(stderr, "Error: Failed to pin thread to core %d (errno=%d)\n", 
+				core_id, rc);
+		return -1;
+	}
+	
+	fprintf(stdout, "Event Dispatcher: Thread pinned to CPU core %d\n", core_id);
+	return 0;
+} 
 
 #define EVENT_DIS_PREEMPT_INTERVAL_IN_MSEC	500
 
@@ -267,7 +307,7 @@ task_schedule_again(event_dispatcher_t *ev_dis, task_t *task){
 }
 
 void
-event_dispatcher_run(event_dispatcher_t *ev_dis){
+event_dispatcher_run(event_dispatcher_t *ev_dis, bool pin_to_core){
 
 	pthread_attr_t attr;
 	pthread_t *event_dis_thread;
@@ -280,6 +320,29 @@ event_dispatcher_run(event_dispatcher_t *ev_dis){
 	pthread_create(event_dis_thread, &attr,
 					event_dispatcher_thread,
 					ev_dis);
+	
+	/* Pin thread to high-performance core if requested */
+	if (pin_to_core) {
+		int core_id = event_dispatcher_get_high_perf_core();
+		
+		if (core_id >= 0) {
+			/* Small delay to ensure thread is running before pinning */
+			usleep(1000);
+			
+			if (event_dispatcher_pin_thread_to_core(*event_dis_thread, core_id) == 0) {
+				fprintf(stdout, "Event Dispatcher: Successfully pinned to core %d\n", 
+						core_id);
+			} else {
+				fprintf(stderr, "Event Dispatcher: Warning - Failed to pin to core %d, "
+						"running on default core\n", core_id);
+			}
+		} else {
+			fprintf(stderr, "Event Dispatcher: Warning - Unable to determine high-perf core, "
+					"running on default core\n");
+		}
+	}
+	
+	pthread_attr_destroy(&attr);
 }
 
 task_t *

@@ -14,7 +14,16 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <netdb.h> /*for struct hostent*/
-#include "tcp_public.h"
+
+#include "common/l2_hdrs.h"
+#include "common/l3_hdrs.h"
+#include "common/l4_hdrs.h"
+#include "tcpconst.h"
+#include "utils.h"
+#include "Layer2/layer2.h"
+
+#define MAX_PACKET_BUFFER_SIZE  2048
+#define IF_NAME_SIZE     16
 
 
 /* Set below three params as per the topology you are running. You

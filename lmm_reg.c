@@ -43,6 +43,7 @@
 /* Lib Hdr files */
 #include "mtrie/mtrie.h"
 #include "pkt_block.h"
+#include "gluethread/glthread.h"
 
 /* Notification files */
 #include "Layer3/rt_notif.h"
@@ -62,6 +63,10 @@
 
 /* MPLS files */
 #include "common/mpls_lstack.h"
+
+/* VRF files */
+#include "vrf/vrf.h"
+
 
 /* Create static array of vm_page_family_t */
 
@@ -112,9 +117,12 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(ted_prefix_t),
     MM_REG_STRUCT2(ted_v6prefix_t),
 
-    /* Mtrie */
+    /* Common Library Structures */
     MM_REG_STRUCT2(mtrie_t),
     MM_REG_STRUCT2(mtrie_node_t),
+    MM_REG_STRUCT2(glthread_t),
+    MM_REG_STRUCT2(glthread_data_node_t),
+
 
     /* RT Table Structures */
     MM_REG_STRUCT2(rt_route_flash_request_t),
@@ -166,7 +174,7 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_rt_subscription_t),
     MM_REG_STRUCT2(rtm_gc_t),
     MM_REG_STRUCT2(rtm_presentation_data_t),
-    MM_REG_STRUCT2(rtm_ppt_route_t),
+    //MM_REG_STRUCT2(rtm_ppt_route_t),
     MM_REG_STRUCT2(rtm_nh_fwd_info_t),
 
     /* MPLS files */
@@ -178,6 +186,9 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(fib_route_t),
     //MM_REG_STRUCT2(fib_nh_fwd_info_t), // C++ Structure
 
+    /* VRF Structures */
+    MM_REG_STRUCT2(vrf_t),
+    MM_REG_STRUCT2(def_vrf_t),
 
     {"nil", NULL,  {0, 0}, 0, 0, 0}
 };

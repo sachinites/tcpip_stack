@@ -4,12 +4,14 @@
 
 #include "../CLIBuilder/cmdtlv.h"
 #include "../CLIBuilder/libcli.h"
+#include "../lmm_enums.h"
 #include "../router_init.h"
 #include "../cmdcodes.h"
 #include <errno.h>
 #include "vrf.h"
 #include "../RTM/rtm_priv_api.h"
 #include "../RTM/rtm_nb_integ.h"
+
 
 #define CMD_CODE_CONFIG_VRF_RD          1
 #define CMD_CODE_CONFIG_VRF_IMPORT_RT   2

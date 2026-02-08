@@ -186,13 +186,13 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* Start Control plane Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
     event_dispatcher_init(&node->ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->ev_dis);
+    event_dispatcher_run(&node->ev_dis, true);  /* Pin CP thread to high-perf core */
     node->ev_dis.app_data = (void *)node;
 
     /* Start Data Path Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", node_name);
     event_dispatcher_init(&node->dp_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->dp_ev_dis);
+    event_dispatcher_run(&node->dp_ev_dis, true);  /* Pin DP thread to high-perf core */
     node->dp_ev_dis.app_data = (void *)node;
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
     init_pkt_q(&node->dp_ev_dis, &node->cp_to_dp_xmit_intf_pkt_q, dp_pkt_xmit_intf_job_cbk);
@@ -200,7 +200,7 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* Start Object purger Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "Purger-%s", node_name);
     event_dispatcher_init(&node->purger_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->purger_ev_dis);
+    event_dispatcher_run(&node->purger_ev_dis, false);  /* Purger doesn't need high-perf core */
     node->purger_ev_dis.app_data = (void *)node;
 
     /* Start Control Plane Timer */

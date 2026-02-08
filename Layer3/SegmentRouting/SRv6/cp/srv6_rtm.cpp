@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include "../../../../lmm_enums.h"
 #include "srv6_rtm.h"
 #include "../../../../router_init.h"
 #include "../../../../net.h"

@@ -5,6 +5,7 @@
 #include "fib_route.h"
 #include "fib_error.h"
 #include "fib_nh.h"
+#include "../lmm_enums.h"
 #include "../mtrie/mtrie.h"
 #include "../BitOp/bitmap.h"
 #include "../Tracer/tracer.h"

@@ -72,6 +72,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <atomic>
+#include "../lmm_enums.h"
 #include "../Tree/libtree.h"
 #include "rtm_nh.h"
 #include "rtm_route.h"
