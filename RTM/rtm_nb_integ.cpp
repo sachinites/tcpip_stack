@@ -176,7 +176,8 @@ rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template) {
         nh_template->u.l_stack.label_stack = NULL;
     }
 
-    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_IPV6_STCK)) {
+    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_IPV6_STCK) &&
+            nh_template->u.srv6_stack.v6segment_lst) {
         XFREE (nh_template->u.srv6_stack.v6segment_lst);
         nh_template->u.srv6_stack.v6segment_lst = NULL;
     }

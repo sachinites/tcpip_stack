@@ -51,6 +51,8 @@
 #include "common/cmn_prefix.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
+extern bool LinuxRtr;
+
 void
 insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
@@ -186,13 +188,13 @@ create_graph_node(graph_t *graph, const c_string node_name){
     /* Start Control plane Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
     event_dispatcher_init(&node->ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->ev_dis, true);  /* Pin CP thread to high-perf core */
+    event_dispatcher_run(&node->ev_dis, false);
     node->ev_dis.app_data = (void *)node;
 
     /* Start Data Path Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", node_name);
     event_dispatcher_init(&node->dp_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->dp_ev_dis, true);  /* Pin DP thread to high-perf core */
+    event_dispatcher_run(&node->dp_ev_dis, LinuxRtr ? true : false);  /* Pin DP thread to high-perf core */
     node->dp_ev_dis.app_data = (void *)node;
     init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
     init_pkt_q(&node->dp_ev_dis, &node->cp_to_dp_xmit_intf_pkt_q, dp_pkt_xmit_intf_job_cbk);
@@ -237,4 +239,9 @@ create_graph_node(graph_t *graph, const c_string node_name){
 void dump_interface(Interface *interface){
 
     interface->PrintInterfaceDetails();
+}
+
+inline uint32_t 
+node_get_sequence_no(node_t *node) {
+    return node->sequence_gen++;
 }

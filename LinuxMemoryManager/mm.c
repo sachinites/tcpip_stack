@@ -752,6 +752,8 @@ mm_free_blocks(block_meta_data_t *to_be_free_block){
 void
 xfree(void *app_data){
 
+    if (!app_data) return;
+    
     pthread_spin_lock(&spin_lock);
 
     block_meta_data_t *block_meta_data = 

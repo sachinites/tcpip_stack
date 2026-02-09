@@ -91,23 +91,6 @@
  * Nexthop ID Generation
  * ======================================================================== */
 
-/**
- * @brief Thread-safe atomic counter for nexthop ID generation
- * 
- * Each nexthop gets a unique ID for tracking and debugging purposes.
- * The ID is generated atomically to ensure thread safety.
- */
-static std::atomic<uint32_t> rtm_nh_id_counter(1);
-
-/**
- * @brief Generate a unique nexthop ID atomically
- * 
- * @return Unique nexthop ID
- */
-static uint32_t rtm_nh_generate_id(void) {
-    return rtm_nh_id_counter.fetch_add(1, std::memory_order_relaxed);
-}
-
 static void rtm_nh_goes_active (rtm_t *rtm, rtm_nh *nh);
 static void rtm_nh_goes_inactive (rtm_t *rtm, rtm_nh *nh);
 
@@ -377,9 +360,9 @@ rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2) {
 
 /* Initialize a nexthop structure */
 void 
-rtm_nh_initialize(rtm_nh* nh) {
+rtm_nh_initialize(rtm_nh* nh, uint32_t idx) {
     
-    nh->idx = rtm_nh_generate_id();
+    nh->idx = idx;
     nh->rtm_flags = 0;
     nh->fwd_flags = 0;
     nh->pth_last_update_time = time(NULL);
@@ -723,7 +706,7 @@ rtm_nh_lookup_by_idx(rtm_t *rtm, uint32_t idx) {
 
     rtm_nh nh_template;
 
-    rtm_nh_initialize (&nh_template);
+    rtm_nh_initialize (&nh_template, node_get_sequence_no(rtm->node));
     nh_template.idx = idx;
 
     avltree_node_t *node = avltree_lookup(&nh_template.idx_glue, &rtm->nhs_by_idx);
@@ -753,9 +736,8 @@ rtm_nh_duplicate (rtm_nh *nh) {
     
     /* Allocate new nexthop */
     rtm_nh *nh_dup = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
-    rtm_nh_initialize(nh_dup);
-    
-    nh_dup->idx = nh->idx;
+    rtm_nh_initialize(nh_dup, nh->idx);
+
     /* Copy simple scalar fields */
     nh_dup->rtm_flags = 0;
     nh_dup->fwd_flags = nh->fwd_flags;

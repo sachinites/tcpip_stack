@@ -9,6 +9,7 @@
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../Tracer/tracer.h"
 
 static void
 rtm_gc_job_cbk(
@@ -45,6 +46,8 @@ rtm_gc_job_cbk(
 void 
 rtm_gc_route (rtm_t *rtm, rtm_route *route) {
 
+    char prefix_str[48];
+
     assert (!route->ref_count);
 
     rtm_gc_t *gc = (rtm_gc_t *) XCALLOC2 (0, 1, rtm_gc_t);
@@ -54,6 +57,11 @@ rtm_gc_route (rtm_t *rtm, rtm_route *route) {
     init_glthread (&gc->glue);
 
     Fglthread_add_last (&rtm->gc_queue, &gc->glue);
+
+    tracer(rtm->node->cptr, DRTM, 
+        "RTM[%s] : Route Queued for Garbage Collection\n",
+        rtm->name,
+        rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
 
     if (rtm->gc_job) return;
 
@@ -67,6 +75,7 @@ rtm_gc_route (rtm_t *rtm, rtm_route *route) {
 void 
 rtm_gc_nh (rtm_t *rtm, rtm_nh *nh) {
 
+    char nh_str[48];
     assert (!nh->ref_count);
 
     rtm_gc_t *gc = (rtm_gc_t *) XCALLOC2 (0, 1, rtm_gc_t);
@@ -76,6 +85,11 @@ rtm_gc_nh (rtm_t *rtm, rtm_nh *nh) {
     init_glthread (&gc->glue);
 
     Fglthread_add_last (&rtm->gc_queue, &gc->glue);
+   
+    tracer(rtm->node->cptr, DRTM, 
+        "RTM[%s] : NH:%s(%u) Queued for Garbage Collection\n",
+        rtm->name,
+        rtm_format_nexthop(&nh->prefix, nh_str, sizeof(nh_str)), nh->idx);
 
     if (rtm->gc_job) return;
 

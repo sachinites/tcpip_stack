@@ -64,7 +64,7 @@ event_dispatcher_pin_thread_to_core(pthread_t thread, int core_id) {
 		return -1;
 	}
 	
-	fprintf(stdout, "Event Dispatcher: Thread pinned to CPU core %d\n", core_id);
+	if (debug) fprintf(stdout, "Event Dispatcher: Thread pinned to CPU core %d\n", core_id);
 	return 0;
 } 
 

@@ -167,10 +167,8 @@ insert_link_between_two_nodes(node_t *node1,
         const char *to_if_name,
         unsigned int cost);
 
-static inline uint32_t 
-node_get_sequence_no(node_t *node) {
-    return node->sequence_gen++;
-} 
+inline uint32_t 
+node_get_sequence_no(node_t *node);
 
 static inline node_t *
 node_get_node_by_name(graph_t *topo, c_string node_name){

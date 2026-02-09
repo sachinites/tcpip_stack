@@ -64,6 +64,10 @@ typedef struct bitmap_ bitmap_t;
  */
 typedef struct rtm_route_ {
 
+    /* Route's unique Id, used to distinsguish from route's 
+        previous incarnation */
+    uint32_t ridx;
+
     /* List of Nexthops of this route*/
     glthread_t path_list;
     
@@ -109,7 +113,7 @@ GLTHREAD_TO_STRUCT(stats_resolved_glue_to_route, rtm_route, stats_resolved_glue)
  * ======================================================================== */
 
 /* Methods */
-void rtm_route_initialize(rtm_route *route);
+void rtm_route_initialize(rtm_route *route, uint32_t ridx);
 bool rtm_validate_with_route(rtm_t *rtm, cmn_prefix_t *prefix);
 
 /* Route Mgmt Functions */

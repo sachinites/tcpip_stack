@@ -203,7 +203,7 @@ int8_t rtm_nh_is_equal_in_data_plane(rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_compare_by_idx (rtm_nh *nh1, rtm_nh *nh2);
 int8_t rtm_nh_forwarding_info_compare (rtm_nh *nh1, rtm_nh *nh2);
-void rtm_nh_initialize(rtm_nh *nh);
+void rtm_nh_initialize(rtm_nh *nh, uint32_t idx);
 void rtm_nh_set_active(rtm_t *rtm, rtm_nh *nh);
 void rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh);
 bool rtm_nh_is_resolved (rtm_nh *nh);

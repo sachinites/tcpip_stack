@@ -580,12 +580,22 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                 
                 /* Display continuation line for additional nexthops */
                 if (!cmn_prefix_is_null(&nh->prefix)) {
+                    /* Nexthop has explicit gateway address */
                     cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
                            "",  /* Empty protocol code for continuation lines */
                            "",  /* Empty prefix for continuation lines */
                            nh->ad,
                            nh->metric,
                            nh_addr_str,
+                           (char *)time_str,
+                           if_name);
+                } else {
+                    /* Nexthop is interface-only (no explicit gateway) */
+                    cprintf("%-4s %-18s [%u/%u], %s, %s\n",
+                           "",  /* Empty protocol code for continuation lines */
+                           "",  /* Empty prefix for continuation lines */
+                           nh->ad,
+                           nh->metric,
                            (char *)time_str,
                            if_name);
                 }

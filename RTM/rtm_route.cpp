@@ -75,7 +75,7 @@
 #include "rtm_gc.h"
 
 extern void 
-rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix);
+rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx);
 
 /* ========================================================================
  * Route Resource Management
@@ -94,7 +94,7 @@ rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix);
 static void 
 rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
 
-    rtm_ppt_unregister_route (rtm, &route->prefix);
+    rtm_ppt_unregister_route (rtm, &route->prefix, route->ridx);
 }
 
 void 
@@ -198,10 +198,9 @@ rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
 
 /* Initialize a route structure */
 void 
-rtm_route_initialize(rtm_route* route) {
+rtm_route_initialize(rtm_route* route, uint32_t ridx) {
     
-    if (!route) return;
-    
+    route->ridx = ridx;
     init_glthread(&route->path_list);
     init_Fglthread(&route->resolved_lnhs);
     avltree_node_init(&route->route_glue);
@@ -423,12 +422,13 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     rtm_nh_proto_t *existing_nh_proto = NULL;
     
     tracer(rtm->node->cptr, DRTM_DET,
-        "RTM[%s] : Adding NH to route %s, Proto=%s Gw=%s AD=%u Metric=%u\n",
+        "RTM[%s] : Adding NH:(%u) to route %s, Proto=%s Gw=%s oif=%u AD=%u Metric=%u\n",
         rtm->name,
+        nh->idx,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
         rtm_proto_to_string(nh->proto),
         rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
-        nh->ad, nh->metric);
+        nh->oif, nh->ad, nh->metric);
     
     /* Nexthop protocol is freah mallocd object whose ref-count 
         expected to be zero*/
@@ -438,8 +438,8 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
     if (existing) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: NH %s already exists for route %s\n",
-            rtm->name, gw_str, prefix_str);
+            "RTM[%s] : ERROR: NH:%s(%u) already exists for route %s\n",
+            rtm->name, gw_str, existing->idx, prefix_str);
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }
 
@@ -447,8 +447,8 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
 
     if (existing) {
         tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Data Plane NH %s already exists for route %s\n",
-            rtm->name,gw_str, prefix_str );
+            "RTM[%s] : ERROR: Data Plane NH:%s(%u) already exists for route %s\n",
+            rtm->name, gw_str, existing->idx, prefix_str );
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }    
     
@@ -472,8 +472,8 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
     }
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route : %s , NH %s added successfully, Total NHs=%u Active=%s\n",
-        rtm->name, gw_str, prefix_str, 
+        "RTM[%s] : Route : %s , NH:%s(%u) added successfully, Total NHs=%u Active=%s\n",
+        rtm->name, prefix_str, gw_str, nh->idx, 
         route->nh_count, nh->is_active ? "Yes" : "No");
 
     return RTM_SUCCESS;

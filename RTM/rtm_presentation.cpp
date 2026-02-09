@@ -202,6 +202,8 @@ rtm_ppt_route_compare(const avltree_node_t *node1, const avltree_node_t *node2) 
     cmn_prefix_t *p1 = &route1->prefix;
     cmn_prefix_t *p2 = &route2->prefix;
     
+    if (route1->ridx < route2->ridx) return -1;
+    if (route1->ridx > route2->ridx) return  1;
     return cmn_prefix_compare(p1, p2);
 }
 
@@ -251,6 +253,7 @@ rtm_ppt_db_lookup_route (
     rtm_ppt_route_t route_template;
 
     memset(&route_template, 0, sizeof(rtm_ppt_route_t));
+    route_template.ridx = route->ridx;
     route_template.prefix = route->prefix;
     avltree_node_init(&route_template.route_glue);
     
@@ -298,6 +301,7 @@ rtm_ppt_db_clone_route (
     if (nh_count == 0) {
         rtm_ppt_route_t *ppt_route = (rtm_ppt_route_t *)calloc(1, sizeof(rtm_ppt_route_t));
         avltree_node_init (&ppt_route->route_glue);
+        ppt_route->ridx = route->ridx;
         ppt_route->prefix = route->prefix;
         ppt_route->nhidx_list_count = 0;
         return ppt_route;
@@ -326,6 +330,7 @@ rtm_ppt_db_clone_route (
         (sizeof (rtm_ppt_nhidx_t) * nh_count) );
 
     /* Now copy data*/
+    ppt_route->ridx = route->ridx;
     ppt_route->prefix = route->prefix;
     avltree_node_init (&ppt_route->route_glue);
     ppt_route->nhidx_list_count = nh_count;
@@ -998,6 +1003,9 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
 
     /* Step 1: Get or create cached route for this subscribing protocol */
     rtm_ppt_route_t *cached_route = rtm_ppt_db_lookup_route(rtm, route);
+
+    tracer (rtm->node->cptr, DRTM, 
+         "RTM[%s] : Computing Diff for Route %s\n", rtm->name, prefix_str);
     rtm_ppt_route_diff(route, cached_route, &out_add, &out_del);
 
     /* Step 4a: Advertise deletions first */
@@ -1215,7 +1223,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     else if ( !rtm_route_is_resolved (route)) {
         // If the route has INH and the route is unresolved, then we can delete  the route from
         // PPT-DB. The route will be added back to PPT-DB when the route is resolved.
-        rtm_ppt_unregister_route(rtm, &route->prefix);
+        rtm_ppt_unregister_route(rtm, &route->prefix, route->ridx);
     }
     else {
         /* Update the cached route in PPT DB with the latest snapshot */
@@ -1374,20 +1382,37 @@ rtm_advt_route_advt_prep_job_cbk(
 void 
 rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
 
-    if (IS_QUEUED_UP_IN_THREAD (&route->advt_glue)) return;
+    char prefix_str[48];
+
+    if (IS_QUEUED_UP_IN_THREAD (&route->advt_glue)) {
+
+        tracer (rtm->node->cptr, DRTM, "RTM[%s] : Route %s is already Queued for Advt\n",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
+        return;
+    }
 
     /* Populate rtm PPT DB */
-    rtm_ppt_register_route(rtm, &route->prefix);
+    rtm_ppt_register_route(rtm, &route->prefix, route->ridx);
 
     rtm_route_Fglthread_add_last (route, &rtm->route_advt_queue, &route->advt_glue);
+    
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Route %s is Queued for Advt\n",
+            rtm->name,
+            rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
 
-    if (rtm->route_advt_prep_job) return;
+    if (rtm->route_advt_prep_job) {
+        tracer (rtm->node->cptr, DRTM, "RTM[%s] : Advt job is already scheduled\n", rtm->name);  
+        return;
+    }
 
     rtm->route_advt_prep_job = task_create_new_job (
             EV(rtm->node),
             (void *)rtm,
             rtm_advt_route_advt_prep_job_cbk,
             TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE_LOW );
+
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Advt job scheduled\n", rtm->name);  
 }
 
 /* Should be called by RTM core when route is malloc'd for the
@@ -1395,7 +1420,7 @@ rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
     on this route 
 */
 void 
-rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix) {
+rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
 
     char prefix_str[48];
     rtm_ppt_route_t *ppt_route;
@@ -1411,6 +1436,7 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix) {
         return;
     }
 
+    ppt_route_template.ridx;
     ppt_route_template.prefix = *prefix;
     avltree_node_init (&ppt_route_template.route_glue);
 
@@ -1421,6 +1447,7 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix) {
 
     ppt_route = (rtm_ppt_route_t *)calloc(1, sizeof(rtm_ppt_route_t));
 
+    ppt_route->ridx = ridx;
     ppt_route->prefix = *prefix;
     avltree_node_init(&ppt_route->route_glue);
     ppt_route->nhidx_list_count = 0;
@@ -1433,7 +1460,7 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix) {
 /* Should be called by RTM core when route is permanently deleted. 
     Should be called in the context of GC job only as per RTM design */
 void 
-rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix) {
+rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
 
     char prefix_str[48];
     rtm_ppt_route_t *ppt_route;
@@ -1441,6 +1468,7 @@ rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix) {
 
     /* Properly initialize the template structure to avoid uninitialized memory */
     memset(&ppt_route_template, 0, sizeof(rtm_ppt_route_t));
+    ppt_route_template.ridx = ridx;
     ppt_route_template.prefix = *prefix;
     avltree_node_init (&ppt_route_template.route_glue);
 

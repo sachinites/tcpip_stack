@@ -1202,10 +1202,7 @@ static rtm_nh *
 rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
 
     rtm_nh *nh = (rtm_nh *)XCALLOC2(0, 1, rtm_nh);
-    rtm_nh_initialize(nh);
-    /* If idx value is provided, then create NH with this same value. This
-    is useful in scenarios when Same route need to be created in client VPN RIBs.*/
-    if (nh_template->idx) nh->idx = nh_template->idx;
+    rtm_nh_initialize(nh, nh_template->idx);
     nh->fwd_flags = nh_template->fwd_flags;
     nh->proto = nh_template->proto;
     nh->sub_proto = nh_template->sub_proto;
@@ -1327,7 +1324,7 @@ rtm_install_route (
             rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
 
         route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
-        rtm_route_initialize(route);
+        rtm_route_initialize(route, node_get_sequence_no(rtm->node));
         route->prefix = *prefix;
         new_rt = true;
         rc = rtm_route_add(rtm, route);
@@ -1368,6 +1365,7 @@ rtm_install_route (
         return RTM_ERROR_NEXTHOP_CREATION_FAILED;
     }
 
+    if (!nh->idx) nh->idx = node_get_sequence_no(rtm->node);
     nh->rtm = rtm;
     nh->rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
     rtm_nh_proto_initialize (nh->rtm_nh_proto);
@@ -1630,7 +1628,7 @@ rtm_copy_ribs (node_t *node,
         if (!dst_route) {
 
             dst_route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
-            rtm_route_initialize(dst_route);
+            rtm_route_initialize(dst_route, node_get_sequence_no(node));
             dst_route->prefix = src_route->prefix;
             rc = rtm_route_add(dst_rib, dst_route);
 

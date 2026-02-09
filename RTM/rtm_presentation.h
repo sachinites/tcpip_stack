@@ -164,6 +164,7 @@ typedef struct rtm_ppt_nhidx_ {
 
 typedef struct rtm_ppt_route_ {
 
+    uint32_t ridx;
     cmn_prefix_t prefix; // key
 
     /* AVL tree glue for route_tree in rtm_ppt_db_entry_t */
@@ -189,8 +190,8 @@ void rtm_on_demand_route_request (
 /* APIs over RTM PPT DB */
 void rtm_ppt_db_initialize (rtm_t *rtm);
 void rtm_ppt_db_destroy (rtm_t *rtm);
-void rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix);
-void rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix);
+void rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx);
+void rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx);
 void rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route);
 
 #endif 
