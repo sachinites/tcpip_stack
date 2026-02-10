@@ -39,6 +39,7 @@
 #define CMDCODE_RUN_ARP             4   /*run node <node-name> resolve-arp <ip-address>*/
 #define CMDCODE_INTF_CONFIG_SWITCHPORT 5   /*config node <node-name> interface <intf-name> l2mode <access|trunk>*/
 #define CMDCODE_INTF_CONFIG_IP_ADDR 6   /*config node <node-name> interface <intf-name> ip-address <ip-address> <mask>*/
+#define CMDCODE_INTF_CONFIG_IPV6_ADDR 77   /*config node <node-name> interface <intf-name> ipv6-address <ipv6-address/mask>*/
 #define CMDCODE_INTF_CONFIG_VLAN    7   /*config node <node-name> interface <intf-name> switchport access vlan <vlan-id>*/
 #define CMDCODE_SHOW_NODE_MAC_TABLE 8   /*show node <node-name> mac*/
 #define CMDCODE_SHOW_NODE_RT_TABLE  9   /*show node <node-name> rt*/

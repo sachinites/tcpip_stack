@@ -411,6 +411,9 @@ isis_init (node_t *node ) {
             IPC_INTERFACE_IPV4_ADDR_ADD |
             IPC_INTERFACE_IPV4_ADDR_DEL |
             IPC_INTERFACE_IPV4_ADDR_UPDATE |
+            IPC_INTERFACE_IPV6_ADDR_ADD |
+            IPC_INTERFACE_IPV6_ADDR_DEL |
+            IPC_INTERFACE_IPV6_ADDR_UPDATE |            
             IPC_INTERFACE_ADMIN_STATE_DOWN |
             IPC_INTERFACE_ADMIN_STATE_UP |
             IPC_INTERFACE_METRIC_UPDATE,

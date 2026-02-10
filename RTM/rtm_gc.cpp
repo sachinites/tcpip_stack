@@ -59,7 +59,7 @@ rtm_gc_route (rtm_t *rtm, rtm_route *route) {
     Fglthread_add_last (&rtm->gc_queue, &gc->glue);
 
     tracer(rtm->node->cptr, DRTM, 
-        "RTM[%s] : Route Queued for Garbage Collection\n",
+        "RTM[%s] : Route %s Queued for Garbage Collection\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
 

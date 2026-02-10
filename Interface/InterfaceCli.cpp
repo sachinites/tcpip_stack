@@ -162,7 +162,9 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         else if(parser_match_leaf_id(tlv->leaf_id, "intf-ip-address"))
              intf_ip_addr = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "mask"))
-             mask = atoi((const char *)tlv->value);   
+             mask = atoi((const char *)tlv->value);
+        else if(parser_match_leaf_id(tlv->leaf_id, "intf-ipv6-address"))
+             intf_ip_addr = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "tunnel-name"))
              overlay_tunnel_name = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "vni-id"))
@@ -455,6 +457,57 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->ipv4_addr.ip_addr = old_ip_addr;
                 update_data->ipv4_addr.mask = old_mask;
+                cp_ips_send (node, IPC_INTERFACE, minor_code, 
+                        update_data, sizeof (*update_data), true, 0);            
+            }
+        }
+        break;
+
+
+        case CMDCODE_INTF_CONFIG_IPV6_ADDR:
+        {
+            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            
+            if (!interface) {
+                cprintf ("Error : Interface do not exist\n");
+                return -1;
+            }       
+
+            uint8_t old_ipv6_addr[16]; 
+            uint8_t old_prefix_len;
+
+            interface->InterfaceGetIpv6AddressMask (&old_ipv6_addr, &old_prefix_len);
+
+             switch(enable_or_disable){
+                case CONFIG_ENABLE:
+                    interface_set_ipv6_addr(node, interface, intf_ip_addr);
+                    break;
+                case CONFIG_DISABLE:
+                    interface_unset_ipv6_addr(node, interface, intf_ip_addr);
+                    break;
+                default:
+                    ;
+            }
+
+            uint8_t new_ipv6_addr[16];
+            uint8_t new_prefix_len;
+            interface->InterfaceGetIpv6AddressMask (&new_ipv6_addr, &new_prefix_len);
+
+            if (old_prefix_len == 0 && new_prefix_len > 0) {
+                SET_BIT (minor_code, IPC_INTERFACE_IPV6_ADDR_ADD);
+            }
+            else if (old_prefix_len > 0 && new_prefix_len == 0) {
+                SET_BIT (minor_code, IPC_INTERFACE_IPV6_ADDR_DEL);
+            }
+            else if (old_prefix_len > 0 && new_prefix_len > 0) {
+                SET_BIT (minor_code, IPC_INTERFACE_IPV6_ADDR_UPDATE);
+            }
+
+            if (minor_code) {
+                update_data = new ipc_interface_t;
+                update_data->intf = interface->GetSharedPtr();
+                memcpy(update_data->ipv6_addr.ipv6_addr, old_ipv6_addr, 16);
+                update_data->ipv6_addr.prefix_len = old_prefix_len;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
                         update_data, sizeof (*update_data), true, 0);            
             }
@@ -904,6 +957,17 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
                     libcli_register_param(&ip_addr_val, &mask);
                     libcli_set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
                 }
+            }
+
+            /* config node <node-name> interface . . . <if-name> ipv6-address <ipv6-addr/prefix-len>*/
+            static param_t ipv6_addr;
+            init_param(&ipv6_addr, CMD, "ipv6-address", 0, 0, INVALID, 0, "Interface IPv6 Address");
+            libcli_register_param(if_name, &ipv6_addr);
+            {
+                static param_t ipv6_addr_val;
+                init_param(&ipv6_addr_val, LEAF, 0, intf_config_handler, 0, STRING, "intf-ipv6-address", "IPv6 address with prefix (e.g., 2001:db8::1/64)");
+                libcli_register_param(&ipv6_addr, &ipv6_addr_val);
+                libcli_set_param_cmd_code(&ipv6_addr_val, CMDCODE_INTF_CONFIG_IPV6_ADDR);
             }
         }
 

@@ -325,6 +325,8 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
                     return "O IA";
                 case RTM_SUB_PROTO_OSPF_EXT:
                     return "O E2";
+                case RTM_SUB_PROTO_SRv6:
+                    return "O SR";
                 default:
                     return "O";
             }
@@ -340,6 +342,8 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
                     return "I L1";
                 case RTM_PROTO_L2_ISIS_EXT:
                     return "I L2";
+                case RTM_SUB_PROTO_SRv6:
+                    return "I SR";
                 default:
                     return "I";
             }

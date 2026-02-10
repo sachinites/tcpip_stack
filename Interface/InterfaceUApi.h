@@ -34,7 +34,15 @@ interface_set_ip_addr (node_t *node, Interface *intf,
 
 void
 interface_unset_ip_addr (node_t *node, Interface *intf, 
-                                        c_string intf_ip_addr, uint8_t mask);                                  
+                                        c_string intf_ip_addr, uint8_t mask);
+
+void
+interface_set_ipv6_addr (node_t *node, Interface *intf, 
+                                    c_string intf_ipv6_addr_with_mask);
+
+void
+interface_unset_ipv6_addr (node_t *node, Interface *intf, 
+                                        c_string intf_ipv6_addr_with_mask);
 
 void interface_loopback_create (node_t *node, char *ifname);
 void interface_loopback_delete (node_t *node, char *ifname) ;

@@ -6,6 +6,9 @@
 #include "../Layer2/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../vrf/vrf.h"
+#include "../Layer3/ipv6/ipv6_utils.h"
+#include <string.h>
+#include <arpa/inet.h>
 
 void
 interface_set_ip_addr(node_t *node, 
@@ -91,6 +94,128 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 }
 
 void
+interface_set_ipv6_addr(node_t *node, 
+                    Interface *intf, 
+                    c_string intf_ipv6_addr_with_mask) {
+
+    ipv6_addr_t ipv6_addr;
+    uint8_t prefix_len;
+    char ipv6_addr_str[48];
+    char *slash_pos;
+
+    if (intf->GetSwitchport ()) {
+        cprintf("Error : Remove L2 config from interface first\n");
+        return;
+    }
+
+    /* Parse IPv6 address and prefix length from format: "2001:db8::1/64" */
+    strncpy(ipv6_addr_str, (const char *)intf_ipv6_addr_with_mask, sizeof(ipv6_addr_str) - 1);
+    ipv6_addr_str[sizeof(ipv6_addr_str) - 1] = '\0';
+    
+    slash_pos = strchr(ipv6_addr_str, '/');
+    if (!slash_pos) {
+        cprintf("Error : IPv6 address must be in format <address>/<prefix-length>\n");
+        return;
+    }
+    
+    *slash_pos = '\0';
+    prefix_len = atoi(slash_pos + 1);
+    
+    if (prefix_len > 128) {
+        cprintf("Error : Invalid IPv6 prefix length (must be 0-128)\n");
+        return;
+    }
+
+    /* Convert IPv6 address string to binary */
+    if (inet_pton(AF_INET6, ipv6_addr_str, &ipv6_addr.addr) != 1) {
+        cprintf("Error : Invalid IPv6 address format\n");
+        return;
+    }
+
+    /* Check if IPv6 is already configured */
+    uint8_t existing_addr[16];
+    uint8_t existing_prefix_len;
+    intf->InterfaceGetIpv6AddressMask(&existing_addr, &existing_prefix_len);
+    
+    /* new config */
+    if (existing_prefix_len == 0) {
+        intf->InterfaceSetIpv6AddressMask(&ipv6_addr.addr, prefix_len);
+        interface_install_local_v6_routes(node, intf);
+        return;
+    }
+
+    /* Existing config changed */
+    if (memcmp(existing_addr, ipv6_addr.addr, 16) != 0 || existing_prefix_len != prefix_len) {
+        interface_uninstall_local_v6_routes(node, intf);
+        intf->InterfaceSetIpv6AddressMask((uint8_t (*)[16])"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 0);
+        intf->InterfaceSetIpv6AddressMask(&ipv6_addr.addr, prefix_len);
+        interface_install_local_v6_routes(node, intf);
+    }
+}
+
+void
+interface_unset_ipv6_addr(node_t *node, Interface *intf, 
+                        c_string intf_ipv6_addr_with_mask) {
+
+    ipv6_addr_t ipv6_addr;
+    uint8_t prefix_len;
+    char ipv6_addr_str[48];
+    char *slash_pos;
+    uint8_t existing_addr[16];
+    uint8_t existing_prefix_len;
+
+    /* Check if IPv6 is configured */
+    intf->InterfaceGetIpv6AddressMask(&existing_addr, &existing_prefix_len);
+    
+    if (existing_prefix_len == 0) {
+        cprintf("Error : No IPv6 address configured on interface\n");
+        return;
+    }
+
+    /* Parse IPv6 address and prefix length from format: "2001:db8::1/64" */
+    strncpy(ipv6_addr_str, (const char *)intf_ipv6_addr_with_mask, sizeof(ipv6_addr_str) - 1);
+    ipv6_addr_str[sizeof(ipv6_addr_str) - 1] = '\0';
+    
+    slash_pos = strchr(ipv6_addr_str, '/');
+    if (!slash_pos) {
+        cprintf("Error : IPv6 address must be in format <address>/<prefix-length>\n");
+        return;
+    }
+    
+    *slash_pos = '\0';
+    prefix_len = atoi(slash_pos + 1);
+
+    /* Convert IPv6 address string to binary */
+    if (inet_pton(AF_INET6, ipv6_addr_str, &ipv6_addr.addr) != 1) {
+        cprintf("Error : Invalid IPv6 address format\n");
+        return;
+    }
+
+    /* Verify address and prefix match */
+    if (memcmp(existing_addr, ipv6_addr.addr, 16) != 0 || existing_prefix_len != prefix_len) {
+        cprintf("Error : IPv6 address and prefix do not match configured address\n");
+        return;
+    }
+
+    /* Uninstall all IPv6 routes (including link-local) */
+    interface_uninstall_local_v6_routes(node, intf);
+    
+    /* Clear the configured IPv6 address */
+    intf->InterfaceSetIpv6AddressMask((uint8_t (*)[16])"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 0);
+    
+    /* Re-install the link-local route (it should persist independently) */
+    if (intf->IsInterfaceUp(0) && !intf->GetSwitchport()) {
+        rtm_t *rtm = rtm_get(node, DEFAULT_VRF, AF_IPV6, 0);
+        ipv6_addr_t link_local_addr;
+        intf->InterfaceGetIpv6LinkLocalAddress(&link_local_addr.addr);
+        
+        intf->rtm_link_local_rt6_idx = 
+            cp_rtm_install_local_or_connected_v6_routes(
+                rtm, &link_local_addr, 128, intf->GetSharedPtr());
+    }
+}
+
+void
 interface_loopback_create (node_t *node, char *ifname) {
 
     if (node_interface_lookup_by_name(node, ifname)) {
@@ -171,13 +296,9 @@ interface_install_local_v4_routes (node_t *node, Interface  *intf) {
     }
 
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
-    rt_ipv4_route_add (node, ip_addr, 32, 0, intf, 0, PROTO_STATIC, true);
-    if (mask != 32) {
-        rt_ipv4_route_add (node, apply_mask2 (ip_addr, mask), mask, 0, intf, 0, PROTO_STATIC, true);
-    }
 
     /* New RTM Route Installation */
-    rtm_t *rtm = cp_rtm_get_route_target_rtm (node, intf->vrf, AF_IPV4, RTM_PROTO_STATIC, RTM_SUB_PROTO_NA);
+    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV4, 0);
     if ((nh_idx = cp_rtm_install_local_or_connected_v4_routes (rtm, ip_addr, 32, intf->GetSharedPtr()))) {
         intf->rtm_local_rt_idx = nh_idx;
     }
@@ -195,12 +316,9 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     uint32_t ip_addr;
     
     if (!intf) return;
+    
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
-    rt_ipv4_route_del (node, ip_addr, 32, PROTO_STATIC, true);
-    if (mask != 32) {
-        rt_ipv4_route_del (node, apply_mask2 (ip_addr, mask), mask, PROTO_STATIC, true);
-    }
-    rtm_t *rtm = cp_rtm_get_route_target_rtm (node, intf->vrf, AF_IPV4, RTM_PROTO_STATIC, RTM_SUB_PROTO_NA);
+    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV4, 0);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
 }
@@ -238,9 +356,11 @@ interface_install_local_v6_routes (node_t *node, Interface  *intf) {
                 rtm, &ipv6_addr, 128, intf->GetSharedPtr());
 
         /* Connected Route*/
-        intf->rtm_local_rt6_idx = 
-            cp_rtm_install_local_or_connected_v6_routes(
-                rtm, &ipv6_addr, mask, intf->GetSharedPtr());
+        if (mask != 128) {
+            intf->rtm_connected_rt6_idx = 
+                cp_rtm_install_local_or_connected_v6_routes(
+                    rtm, &ipv6_addr, mask, intf->GetSharedPtr());
+        }
         
     }
 

@@ -441,16 +441,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
             "RTM[%s] : ERROR: NH:%s(%u) already exists for route %s\n",
             rtm->name, gw_str, existing->idx, prefix_str);
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
-    }
-
-    existing = rtm_route_lookup_nh_with_same_fwding_behavior(route, nh);
-
-    if (existing) {
-        tracer(rtm->node->cptr, DRTM | DERR,
-            "RTM[%s] : ERROR: Data Plane NH:%s(%u) already exists for route %s\n",
-            rtm->name, gw_str, existing->idx, prefix_str );
-        return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
-    }    
+    }  
     
     assert (!nh->owner_route);
 

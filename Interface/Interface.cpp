@@ -378,6 +378,11 @@ bool Interface::IsIpConfigured()
     return false;
 }
 
+bool Interface::IsIpv6Configured()
+{
+    return false;
+}
+
 void Interface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask)
 {
     
@@ -665,6 +670,21 @@ bool PhysicalInterface::IsIpConfigured()
 
     if (this->ip_addr && this->mask)
         return true;
+    return false;
+}
+
+bool PhysicalInterface::IsIpv6Configured()
+{
+    /* Check if IPv6 address is configured (non-zero) and mask is set */
+    if (this->v6mask == 0)
+        return false;
+    
+    /* Check if v6addr is not all zeros */
+    for (int i = 0; i < 16; i++) {
+        if (this->v6addr[i] != 0)
+            return true;
+    }
+    
     return false;
 }
 
@@ -982,12 +1002,15 @@ PhysicalInterface::IsCrossReferenced() {
 void 
 PhysicalInterface::InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) {
 
-
+    memcpy(this->v6addr, addr, 16);
+    this->v6mask = prefix_len;
 }
 
 void 
 PhysicalInterface::InterfaceGetIpv6AddressMask(uint8_t (*addr)[16], uint8_t *prefix_len) {
 
+    memcpy(addr, this->v6addr, 16);
+    *prefix_len = this->v6mask;
 }
 
 VlanInterfaceP 
@@ -1914,6 +1937,15 @@ LoopbackInterface::IsCrossReferenced() {
 /* ------------------------------------------------------------------- */
 
 void 
+dump_intf_props_header() {
+
+    cprintf("%-12s %-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
+            "ifname", "vrf", "ip-address/mask", "ipv6-address/prefix", "MAC", "Oper-Status", "Mode", "Vlan-memberships");
+    cprintf("%-12s %-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
+            "------", "--------", "---------------", "------------------", "---", "-----------", "----", "----------------");
+}
+
+void
 dump_intf_props (Interface *interface){
 
     uint32_t intf_ip_addr = 0;
@@ -1923,17 +1955,6 @@ dump_intf_props (Interface *interface){
     uint8_t intf_mask, ipv6_prefix_len;
     byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[INET6_ADDRSTRLEN];
-    static bool header_printed = false;
-
-    // Print header only once
-    if (!header_printed) {
-
-        cprintf("%-12s %-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
-                "ifname", "vrf", "ip-address/mask", "ipv6-address/prefix", "MAC", "Oper-Status", "Mode", "Vlan-memberships");
-        cprintf("%-12s %-12s %-18s %-39s %-17s %-12s %-6s %s\n", 
-                "------", "--------", "---------------", "------------------", "---", "-----------", "----", "----------------");
-        header_printed = true;
-    }
 
     cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
 
@@ -1949,17 +1970,8 @@ dump_intf_props (Interface *interface){
     }
 
     // IPv6 address/prefix
-    interface->InterfaceGetIpv6AddressMask(&ipv6_addr, &ipv6_prefix_len);
-    bool ipv6_configured = false;
-
-    for (int i = 0; i < 16; i++) {
-        if (ipv6_addr[i] != 0) {
-            ipv6_configured = true;
-            break;
-        }
-    }
-    
-    if (ipv6_configured) {
+    if (interface->IsIpv6Configured()) {
+        interface->InterfaceGetIpv6AddressMask(&ipv6_addr, &ipv6_prefix_len);
         if (inet_ntop(AF_INET6, ipv6_addr, ipv6_addr_str, INET6_ADDRSTRLEN)) {
             char ipv6_with_prefix[48];
             snprintf(ipv6_with_prefix, sizeof(ipv6_with_prefix), "%s/%u", ipv6_addr_str, ipv6_prefix_len);

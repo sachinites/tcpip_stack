@@ -147,6 +147,7 @@ class Interface {
         virtual void SetMacAddr( mac_addr_t *mac_add);
         virtual mac_addr_t *GetMacAddr( );
         virtual bool IsIpConfigured() ;
+        virtual bool IsIpv6Configured() ;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) ;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) ;
         virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) ;
@@ -206,6 +207,7 @@ class PhysicalInterface : public Interface {
         virtual void SetMacAddr( mac_addr_t *mac_add) final;
         virtual mac_addr_t *GetMacAddr( ) final;
         virtual bool IsIpConfigured() final;
+        virtual bool IsIpv6Configured() final;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
         virtual void InterfaceSetIpv6AddressMask(uint8_t (*addr)[16], uint8_t prefix_len) final;
@@ -572,6 +574,9 @@ typedef union intf_prop_changed_ {
 
 } intf_prop_changed_t;
 
+
+void 
+dump_intf_props_header();
 
 void 
 dump_intf_props (Interface *interface);

@@ -169,6 +169,7 @@ dump_nw_graph(graph_t *graph, node_t *node1){
 
             node = graph_glue_to_node(curr);
             dump_node_nw_props(node);
+            dump_intf_props_header();
             
             ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
 
@@ -186,6 +187,7 @@ dump_nw_graph(graph_t *graph, node_t *node1){
     else{
 
         dump_node_nw_props(node1);
+        dump_intf_props_header();
 
         ITERATE_NODE_INTERFACES_BEGIN(node1, interface) {
 

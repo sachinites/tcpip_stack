@@ -648,6 +648,10 @@ isis_interface_ipc_updates(node_t *node, uint32_t minor_code, ipc_interface_t *m
                     msg->ipv4_addr.ip_addr,
                     msg->ipv4_addr.mask); 
         break;
+        case IPC_INTERFACE_IPV6_ADDR_ADD:
+        case IPC_INTERFACE_IPV6_ADDR_DEL:
+        case IPC_INTERFACE_IPV6_ADDR_UPDATE:
+        break;        
         case IPC_INTERFACE_ADMIN_STATE_DOWN:
         case IPC_INTERFACE_ADMIN_STATE_UP:
             isis_handle_interface_up_down (intf, msg->up_status);

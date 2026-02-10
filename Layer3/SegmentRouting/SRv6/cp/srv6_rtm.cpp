@@ -58,12 +58,15 @@ srv6_rtm_route_install (node_t *node,
     cmn_prefix_t prefix_key;
     cp_nexthop_template_t nh_template;
 
+    inet_ntop6(prefix, ipv6_str);
+
     rtm = cp_rtm_get_route_target_rtm (
             node, oif ? oif->vrf : NODE_DEF_VRF(node),
             AF_IPV6, proto, RTM_SUB_PROTO_SRv6);
         
     if (!rtm) {
-        cprintf("Error: No RTM localted for this route\n");
+        cprintf("%s : Error: No RTM localted for route %s/%d\n",
+            node->node_name, ipv6_str, prefix_len);
         return;
     }
 
@@ -171,11 +174,10 @@ srv6_rtm_route_install (node_t *node,
                    cp_rtm_uninstall_route(rtm, &prefix_key, &nh_template);
 
     if (rc != RTM_SUCCESS) {
-        
-        inet_ntop6(prefix, ipv6_str);
 
-        cprintf("Warning: SRv6 route installation failed for prefix %s/%d, error code: %d\n",
-               ipv6_str, prefix_len, rc);
+        cprintf("%s : Warning: SRv6 route %sinstallation failed for prefix %s/%d, error code: %s\n",
+               rtm->node->node_name, install ? "" : "(Un-)", 
+	           ipv6_str, prefix_len, rtm_error_to_string(rc));
     }
 
     /* Destroy nexthop template resources */
