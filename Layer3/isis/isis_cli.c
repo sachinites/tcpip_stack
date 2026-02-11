@@ -693,7 +693,8 @@ isis_srv6_config_handler (int cmdcode,
 
                     isis_add_prefix_sid_to_locator (node, loc_name, 
                         &prefix_sid, endpCode, flavor_val);
-                        
+                    
+                    #if 0
                     ipv6_route_install (node, 
                                         &prefix_sid,
                                         128,
@@ -702,6 +703,7 @@ isis_srv6_config_handler (int cmdcode,
                                         NULL, 0, 
                                         endpCode,
                                         PROTO_ISIS_SRv6);
+                    #endif
 
                 break;
 
@@ -710,11 +712,13 @@ isis_srv6_config_handler (int cmdcode,
                     inet_pton6(pfx_sid_str, &prefix_sid);
                     isis_delete_prefix_sid_from_locator (node, loc_name, &prefix_sid) ;
                 
+                    #if 0
                     ipv6_route_uninstall(node, 
                             &prefix_sid,
                             128,
                             0, 0,
                             PROTO_ISIS_SRv6);
+                    #endif
                 
                     /* Release pfx sid from pool*/
                     prc = srv6_release_sid (

@@ -108,12 +108,8 @@ typedef struct ipv4_mpls_route_update_msg_ {
 
 typedef enum DP_COMPONENT_TYPE_ {
 
-    RT_TABLE_IPV4,
-    RT_TABLE_IPV6,
     MAC_TABLE,
     PKT_BLOCK,
-    MPLS_TABLE,
-    IPV4_MPLS_TABLE,
     FIB_TABLE
 
 } DP_COMPONENT_TYPE_T;
@@ -171,44 +167,6 @@ cp2dp_send_ip6_data ( node_t *node,
                                     ipv6_addr_t dest_ip_addr,
                                     uint16_t std_ip_protocol) ;
 
-/* Wrapper fn to add route to Routing table Asynchronously*/
-void
-rt_ipv4_route_add (node_t *node,
-                                uint32_t prefix,
-                                uint8_t mask,
-                                uint32_t gw_ip,
-                                Interface *oif,
-                                uint32_t metric,
-                                uint16_t proto_id,
-                                bool async) ;
-
-void
-rt_ipv4_route_del (node_t *node,
-                                uint32_t prefix,
-                                uint8_t mask,
-                                uint16_t proto_id,
-                                bool async) ;
-
-void
-ipv6_route_install (node_t *node,
-                                ipv6_addr_t *prefix,
-                                uint8_t prefix_len,
-                                uint8_t rt_flags,
-                                ipv6_addr_t *gw,
-                                Interface* oif,
-                                ipv6_addr_t (*segment_lst)[16],
-                                uint32_t spf_metric,
-                                Srv6_endpcode_t endfn,
-                                uint16_t proto_id);
-
-void
-ipv6_route_uninstall (node_t *node,
-                                    ipv6_addr_t *prefix,
-                                    uint8_t prefix_len,
-                                    ipv6_addr_t *gw,
-                                    Interface* oif,
-                                    uint16_t proto_id);
-
 /* Wrapper fn to add MAC entry to MAC table Asynchronously*/
 void
 cp2dp_mac_table_entry_add (node_t *node,
@@ -225,50 +183,6 @@ cp2dp_mac_table_entry_del (node_t *node,
                       uint16_t vlan_id,
                       uint32_t ifindex,
                       bool async, uint32_t remote_dst_ip);
-
-/* MPLS Route APIs */
-void
-cp2dp_mpls_route_install (node_t *node,
-                         mpls_label_val_t in_label,
-                         c_string gw_ip,
-                         uint32_t ifindex,
-                         mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                         uint8_t label_stack_count);
-
-void
-cp2dp_mpls_route_delete (node_t *node, mpls_label_val_t in_label);
-
-void
-cp2dp_mpls_nexthop_delete (node_t *node,
-                           mpls_label_val_t in_label,
-                           c_string gw_ip,
-                           uint32_t ifindex,
-                           mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                           uint8_t label_stack_count);
-
-/* IPv4 MPLS Route APIs */
-void
-cp2dp_ipv4_mpls_route_install (node_t *node,
-                               c_string prefix,
-                               uint8_t mask,
-                               c_string gw_ip,
-                               uint32_t ifindex,
-                               mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                               uint8_t label_stack_count);
-
-void
-cp2dp_ipv4_mpls_route_delete (node_t *node,
-                              c_string prefix,
-                              uint8_t mask);
-
-void
-cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
-                                c_string prefix,
-                                uint8_t mask,
-                                c_string gw_ip,
-                                uint32_t ifindex,
-                                mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                                uint8_t label_stack_count);
 
 void
 cp2dp_fib_update (

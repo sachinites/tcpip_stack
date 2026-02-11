@@ -115,7 +115,7 @@ intf_grp_membership_add_comp_fn(void *n1, void *n2) {
 
 int
 isis_intf_group_add_intf_membership (isis_intf_group_t *intf_grp, 
-                                                                Interface *intf) {
+                                     Interface *intf) {
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -174,9 +174,9 @@ isis_dynamic_intf_group_remove_intf_membership (
     isis_intf_group_t *intf_grp = intf_info->intf_grp;
     isis_node_info_t *node_info = ISIS_NODE_INFO(adjacency->intf->att_node);
 
-    if (!node_info                         ||
+    if (!node_info               ||
         !node_info->dyn_intf_grp ||
-        !intf_info                            ||
+        !intf_info               ||
         !intf_grp)
         return;
 

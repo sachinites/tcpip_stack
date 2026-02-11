@@ -11,49 +11,6 @@
 extern graph_t *topo;
 extern int cprintf (const char* format, ...) ;
 
-/* Forward declarations of cp2dp APIs */
-extern void
-cp2dp_mpls_route_install (node_t *node, 
-                         mpls_label_val_t in_label,
-                         c_string gw_ip,
-                         uint32_t ifindex,
-                         mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                         uint8_t label_stack_count);
-
-extern void
-cp2dp_mpls_route_delete (node_t *node, mpls_label_val_t in_label);
-
-extern void
-cp2dp_mpls_nexthop_delete (node_t *node,
-                          mpls_label_val_t in_label,
-                          c_string gw_ip,
-                          uint32_t ifindex,
-                          mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                          uint8_t label_stack_count);
-
-extern void
-cp2dp_ipv4_mpls_route_install (node_t *node,
-                               c_string prefix,
-                               uint8_t mask,
-                               c_string gw_ip,
-                               uint32_t ifindex,
-                               mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                               uint8_t label_stack_count);
-
-extern void
-cp2dp_ipv4_mpls_route_delete (node_t *node,
-                              c_string prefix,
-                              uint8_t mask);
-
-extern void
-cp2dp_ipv4_mpls_nexthop_delete (node_t *node,
-                                c_string prefix,
-                                uint8_t mask,
-                                c_string gw_ip,
-                                uint32_t ifindex,
-                                mpls_label_val_t (*label_stack)[MAX_LBL_DEPTH],
-                                uint8_t label_stack_count);
-
 /* MPLS Route Configuration Handler */
 static int
 mpls_route_config_handler(int cmdcode, 
@@ -138,12 +95,14 @@ mpls_route_config_handler(int cmdcode,
                     }
                     
                     /* Install MPLS route using cp2dp asynchronous API */
+                    #if 0
                     cp2dp_mpls_route_install(node, 
                                             in_label,
                                             gw_ip,
                                             oif->ifindex,
                                             &label_stack,
                                             label_stack_count);
+                    #endif
                 }
                 break;
                 
@@ -166,15 +125,17 @@ mpls_route_config_handler(int cmdcode,
                         }
                         
                         /* Delete specific nexthop using cp2dp asynchronous API */
+                        #if 0
                         cp2dp_mpls_nexthop_delete(node, 
                                                  in_label,
                                                  gw_ip,
                                                  oif->ifindex,
                                                  &label_stack,
                                                  label_stack_count);
+                        #endif
                     } else {
                         /* Delete entire route (all nexthops) */
-                        cp2dp_mpls_route_delete(node, in_label);
+                        //cp2dp_mpls_route_delete(node, in_label);
                     }
                 }
                 break;
@@ -237,6 +198,7 @@ mpls_route_config_handler(int cmdcode,
                     }
                     
                     /* Install IPv4 MPLS route using cp2dp asynchronous API */
+                    #if 0
                     cp2dp_ipv4_mpls_route_install(node, 
                                                   (c_string)prefix_str,
                                                   mask,
@@ -244,6 +206,7 @@ mpls_route_config_handler(int cmdcode,
                                                   oif->ifindex,
                                                   &label_stack,
                                                   label_stack_count);
+                    #endif
                 }
                 break;
                 
@@ -280,6 +243,7 @@ mpls_route_config_handler(int cmdcode,
                         }
                         
                         /* Delete specific nexthop using cp2dp asynchronous API */
+                        #if 0
                         cp2dp_ipv4_mpls_nexthop_delete(node, 
                                                        (c_string)prefix_str,
                                                        mask,
@@ -287,9 +251,10 @@ mpls_route_config_handler(int cmdcode,
                                                        oif->ifindex,
                                                        &label_stack,
                                                        label_stack_count);
+                        #endif
                     } else {
                         /* Delete entire route (all nexthops) */
-                        cp2dp_ipv4_mpls_route_delete(node, (c_string)prefix_str, mask);
+                        //cp2dp_ipv4_mpls_route_delete(node, (c_string)prefix_str, mask);
                     }
                 }
                 break;
@@ -332,13 +297,13 @@ mpls_show_handler(int cmdcode,
         case CMDCODE_SHOW_MPLS_TABLE:
             cprintf("MPLS Routing Table:\n");
             cprintf("===================\n");
-            mpls_display_routing_table(node);
+            //mpls_display_routing_table(node);
             break;
             
         case CMDCODE_SHOW_IPV4_MPLS_TABLE:
             cprintf("IPv4 MPLS Routing Table:\n");
             cprintf("========================\n");
-            ipv4_mpls_display_routing_table(node);
+            //ipv4_mpls_display_routing_table(node);
             break;
 
 

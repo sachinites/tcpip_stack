@@ -153,24 +153,6 @@ ipv6_config_handler
     return 0;
 }
 
-void 
-show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
-
-    node_t *node;
-    c_string node_name;
-    tlv_struct_t *tlv = NULL;
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    v6_rt_table_show(NODE_V6RT_TABLE(node));
-}
-
 static int
 ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
@@ -232,6 +214,7 @@ ipv6_binding_sid_config_handler (int cmdcode,
 
         case CONFIG_ENABLE:
     
+    #if 0
             ipv6_route_install (node,
                                             &route,
                                             prefix_len,
@@ -242,6 +225,7 @@ ipv6_binding_sid_config_handler (int cmdcode,
                                             0,
                                             (Srv6_endpcode_t )0,
                                             PROTO_SRv6) ;
+    #endif
         break;
 
         case CONFIG_DISABLE:

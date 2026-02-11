@@ -60,7 +60,6 @@ OBJS=gluethread/glthread.o \
 		  Layer3/netfilter.o \
 		  Layer3/rt_notif.o	\
 		  Layer3/ipv6/ipv6cli.o \
-		  Layer3/ipv6/ipv6_route.o \
 		  Layer3/ipv6/ipv6_utils.o \
 		  Layer3/ipv6/v6nexthop.o \
 		  Layer3/ipv6/ipv6_fwd.o \
@@ -98,7 +97,6 @@ OBJS=gluethread/glthread.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  common/cmn_prefix.o \
-		  dpdk/layer3/dp_rtm.o \
 		  lmm_reg.o \
 		  sql_cli.o \
 		  Linux/LinuxInterface.o \
@@ -235,9 +233,6 @@ Layer3/layer3.o:Layer3/layer3.c
 Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
 
-dpdk/layer3/dp_rtm.o:dpdk/layer3/dp_rtm.cpp
-	${CC} ${CFLAGS} -c -I . dpdk/layer3/dp_rtm.cpp -o dpdk/layer3/dp_rtm.o
-
 Layer3/rt_notif.o:Layer3/rt_notif.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o
 
@@ -309,8 +304,6 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
-Layer3/ipv6/ipv6_route.o:Layer3/ipv6/ipv6_route.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_route.cpp -o Layer3/ipv6/ipv6_route.o
 Layer3/ipv6/v6nexthop.o:Layer3/ipv6/v6nexthop.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/v6nexthop.cpp -o Layer3/ipv6/v6nexthop.o
 Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp

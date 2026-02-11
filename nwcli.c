@@ -76,7 +76,6 @@ extern void config_node_build_transport_svc_cli_tree (param_t *param) ;
 extern void show_node_transport_svc_cli_tree (param_t *param) ;
 extern void tcp_ip_build_debug_cli_tree (param_t *root);
 extern void ipv6_build_cli_tree (param_t *root);
-extern void show_rt6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int isis_show_handler (int cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
@@ -801,11 +800,6 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                         }
                     }
 
-                    rt_ipv4_route_add (node, 
-                        tcp_ip_convert_ip_p_to_n(dest), mask, 
-                            gwip ? gw_ip_int : 0, 
-                            intf, 0, PROTO_STATIC, true);
-
                     /* New RTM*/
                     cmn_prefix_t  prefix, gateway;
                     cmn_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
@@ -841,10 +835,6 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                             return -1;
                         }
                     }
-
-                    rt_ipv4_route_del (node, 
-                            tcp_ip_convert_ip_p_to_n(dest), 
-                            mask, PROTO_STATIC, true);
 
                     /* New RTM*/
                     cmn_prefix_t  prefix, gateway;
@@ -1276,14 +1266,6 @@ nw_init_cli(){
                  {
                     /* Mount MPLS show CLI here */
                     mpls_build_show_cli_tree(&node_name);
-                 }
-
-                 {
-                    /*show node <node-name> rt6*/
-                    static param_t rt6;
-                    init_param(&rt6, CMD, "rt6", show_rt6_handler, 0, INVALID, 0, "Dump L3 V6 Routing table");
-                    libcli_register_param(&node_name, &rt6);
-                    libcli_set_param_cmd_code(&rt6, CMDCODE_SHOW_NODE_RT6_TABLE);
                  }
 
                  {

@@ -886,6 +886,12 @@ isis_show_all_adjacencies (node_t *node) {
 
      byte *buff = node->print_buff;
 
+    /* Print header */
+    rc += cprintf("\n%-16s   %-16s   %-6s   %-4s %-12s\n", 
+                  "Interface", "Neighbor", "State", "Type", "Uptime");
+    rc += cprintf("%-16s   %-16s   %-6s   %-4s %-12s\n",
+                  "----------------", "----------------", "------", "----", "------------");
+
     ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
 
         if ( !isis_node_intf_is_enable(intf)) continue;
@@ -909,6 +915,7 @@ isis_show_all_adjacencies (node_t *node) {
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
     } ITERATE_NODE_INTERFACES_END (node, intf);
+    rc += cprintf("\n");
     return rc;
  }
 

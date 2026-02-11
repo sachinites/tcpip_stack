@@ -345,7 +345,7 @@ isis_handle_interface_up_down (Interface *intf, bool old_status) {
 
 static void
 isis_handle_interface_ip_addr_changed (Interface *intf, 
-                                                                uint32_t old_ip_addr, uint8_t old_mask) {
+                                       uint32_t old_ip_addr, uint8_t old_mask) {
 
     uint8_t mask;
     uint32_t ip_addr;
@@ -456,9 +456,8 @@ isis_show_one_intf_stats (Interface *intf, uint32_t rc) {
     buff = intf->att_node->print_buff ;
     rc_old = rc;
 
-    rc += cprintf ("%s\t", intf->if_name.c_str());
-    rc += cprintf ("H Tx : %-4u H Rx : %-4u BadH Rx : %-4u "
-                                           "LSPs Tx : %-4u LSPs Rx : %-4u Bad LSPs Rx : %-4u\n",
+    rc += cprintf ("%-8s  %-8u  %-8u  %-10u  %-9u  %-9u  %-12u\n",
+                        intf->if_name.c_str(),
                         intf_info->hello_pkt_sent,
                         intf_info->good_hello_pkt_recvd,
                         intf_info->bad_lsps_pkt_recvd,
@@ -476,6 +475,12 @@ isis_show_all_intf_stats(node_t *node) {
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return 0;
 
+    /* Print header */
+    rc += cprintf("\n%-8s  %-8s  %-8s  %-10s  %-9s  %-9s  %-12s\n",
+                  "Intf", "H Tx", "H Rx", "BadH Rx", "LSPs Tx", "LSPs Rx", "Bad LSPs Rx");
+    rc += cprintf("%-8s  %-8s  %-8s  %-10s  %-9s  %-9s  %-12s\n",
+                  "--------", "--------", "--------", "----------", "---------", "---------", "------------");
+
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
         if (!isis_node_intf_is_enable(intf)) continue;
@@ -483,6 +488,7 @@ isis_show_all_intf_stats(node_t *node) {
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
 
+    rc += cprintf("\n");
     return rc;
 }
 
