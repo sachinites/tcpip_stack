@@ -76,9 +76,8 @@ extern void config_node_build_transport_svc_cli_tree (param_t *param) ;
 extern void show_node_transport_svc_cli_tree (param_t *param) ;
 extern void tcp_ip_build_debug_cli_tree (param_t *root);
 extern void ipv6_build_cli_tree (param_t *root);
-extern int isis_show_handler (int cmdcode,
-                  Stack_t *tlv_stack,
-                  op_mode enable_or_disable);
+extern int isis_show_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 extern int
 config_rtm_route_cli_handler(int cmdcode,
@@ -95,6 +94,10 @@ extern int ip_traffic_generate_handler(int cmdcode,
                     op_mode enable_or_disable);
 extern int mac_table_config_handler(
     int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+
+
+extern int validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
+extern void display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack) ;
 
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
@@ -1129,9 +1132,11 @@ nw_init_cli(){
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);	
             libcli_register_display_callback(&node_name, display_graph_nodes);
+            
+            static param_t protocol;
+
 		    {
 			    /* clear node <node-name> protocol */
-				static param_t protocol;
 				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
 				libcli_register_param(&node_name, &protocol);
 
@@ -1139,6 +1144,21 @@ nw_init_cli(){
 				cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_clear_node_node_name_protcol_level);
 			}
+
+            {
+                /* clear node <node-name> vrf <vrf-name> . . . */
+                static param_t vrf;
+                init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "Clear VRF information");
+                libcli_register_param(&node_name, &vrf);
+                {
+                    static param_t vrf_name;
+                    init_param(&vrf_name, LEAF, NULL, NULL, validate_vrf_existence, STRING, "vrf-name", "VRF name");
+                    libcli_register_display_callback(&vrf_name, display_cbk_all_vrfs);
+                    libcli_register_param(&vrf, &vrf_name);
+                    libcli_register_param(&vrf_name, &protocol);
+                }
+            }
+
             {
                 static param_t rib;
                 init_param(&rib, CMD, "rib", 0, 0, INVALID, 0, "Routing Information Base rib");
@@ -1185,7 +1205,41 @@ nw_init_cli(){
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
                  libcli_register_param(&node, &node_name);
-				libcli_register_display_callback(&node_name, display_graph_nodes);
+				 libcli_register_display_callback(&node_name, display_graph_nodes);
+                 {
+                     static param_t protocol;
+                     {
+                         /* show node <node-name> protocol */
+                         init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
+                         libcli_register_param(&node_name, &protocol);
+
+                         /* show node <node-name> protocol ...*/
+                         cli_register_application_cli_trees(&protocol,
+                                                            cli_register_cb_arr_show_node_node_name_protcol_level);
+                     }
+
+                     {
+                         /* show node <node-name> vrf <vrf-name> . . . */
+                         static param_t vrf;
+                         init_param(&vrf, CMD, "vrf", show_vrf_handler, NULL, INVALID, NULL, "Show VRF information");
+                         libcli_register_param(&node_name, &vrf);
+                         libcli_set_param_cmd_code(&vrf, CMDCODE_SHOW_NODE_VRF);
+                         
+                         {
+                             static param_t vrf_name;
+                             init_param(&vrf_name, LEAF, NULL, NULL, validate_vrf_existence, STRING, "vrf-name", "VRF name");
+                             libcli_register_display_callback(&vrf_name, display_cbk_all_vrfs);
+                             libcli_register_param(&vrf, &vrf_name);
+                             {
+                                 {
+                                     /* show node <node-name> vrf <vrf-name> protocol . . .*/
+                                     libcli_register_param(&vrf_name, &protocol);
+                                 }
+                             }
+                         }
+                     }
+                 }
+
                  {
                      /* show CLIs for Access list mounted here */
                      acl_build_show_cli(&node_name);
@@ -1197,20 +1251,7 @@ nw_init_cli(){
                      object_group_build_show_cli (&node_name);
                      /* show CLIs for TSPs*/
                      show_node_transport_svc_cli_tree(&node_name);
-                     /* VRF Show CLI */
-                     vrf_build_show_tree(&node_name);
                  }
-
-				 {
-					 /* show node <node-name> protocol */
-					 static param_t protocol;
-					 init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
-					 libcli_register_param(&node_name, &protocol);
-
-					 /* show node <node-name> protocol ...*/
-					 cli_register_application_cli_trees(&protocol, 
-							 cli_register_cb_arr_show_node_node_name_protcol_level);
-				 }
 
                  {
                      static param_t log_status;
@@ -1536,9 +1577,11 @@ nw_init_cli(){
             mpls_build_config_cli_tree (&node_name);
         }
 
+        param_t *vrf_config_name = NULL;
+
         {
             /* VRF CLI tree is mounted here*/
-            vrf_build_config_tree(&node_name);
+            vrf_config_name = vrf_build_config_tree(&node_name);
         }
 
         {
@@ -1546,6 +1589,7 @@ nw_init_cli(){
             static param_t rtm_route;
             init_param(&rtm_route, CMD, "rtm-route", 0, 0, INVALID, 0, "RTM Route Configuration");
             libcli_register_param(&node_name, &rtm_route);
+            libcli_register_param(vrf_config_name, &rtm_route);
             {
                 /* config node <node-name> rtm-route prefix */
                 static param_t prefix;
@@ -1755,6 +1799,8 @@ nw_init_cli(){
                 static param_t protocol;
                 init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "protocol");
                 libcli_register_param(&node_name, &protocol);
+                libcli_register_param(vrf_config_name, &protocol);
+                
 				
 				/* config node <node-name> protocol....*/
 				cli_register_application_cli_trees(&protocol, 

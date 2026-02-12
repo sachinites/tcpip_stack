@@ -103,6 +103,9 @@ OBJS=gluethread/glthread.o \
 		  RTM/rtm_nb_integ.o \
 		  vrf/vrf_cli.cpp \
 		  vrf/vrf.cpp \
+		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
+		  
+
 
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -318,6 +321,10 @@ Linux/LinuxInterface.o:Linux/LinuxInterface.cpp
  RTM/rtm_nb_integ.o: RTM/rtm_nb_integ.cpp 
 	${CC} ${CFLAGS} -c RTM/rtm_nb_integ.cpp -o RTM/rtm_nb_integ.o
 
+#SR-MPLS files
+Layer3/SegmentRouting/SR-MPLS/srgb.o:Layer3/SegmentRouting/SR-MPLS/srgb.cpp
+	${CC} ${CFLAGS} -c Layer3/SegmentRouting/SR-MPLS/srgb.cpp -o Layer3/SegmentRouting/SR-MPLS/srgb.o
+
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
 LinuxMemoryManager/libmm.a:
@@ -374,6 +381,7 @@ clean:
 	rm -f Layer3/ipv6/SRv6/*.o
 	rm -f Linux/*.o
 	rm -f vrf/*.o
+	rm -f Layer3/SegmentRouting/SR-MPLS/*.o
 	
 all:
 	make

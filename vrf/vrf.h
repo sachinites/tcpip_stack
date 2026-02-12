@@ -15,6 +15,7 @@
 typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
 typedef struct node_ node_t;
+typedef struct node_info_ isis_node_info_t;
 
 #define MAX_VRF_PER_NODE    8
 
@@ -65,6 +66,8 @@ typedef struct vrf_ {
 
     SRv6EndPointEND_DX4Interface *DX4_vrf_steering_intfp;
     glthread_t dx4_sid_lst;
+
+    isis_node_info_t *isis_node_info;
 
 } vrf_t;
 

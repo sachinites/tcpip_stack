@@ -58,10 +58,7 @@ mpls_build_config_cli_tree(param_t *param);
 int
 mpls_build_show_cli_tree(param_t *param);
 
-int
+param_t *
 vrf_build_config_tree (param_t *node_name);
-
-int
-vrf_build_show_tree (param_t *node_name);
 
 #endif /* __APP_HANDLERS__ */

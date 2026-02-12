@@ -11,6 +11,7 @@ typedef struct ted_db_ ted_db_t;
 typedef struct prefix_lst_ prefix_list_t;
 typedef struct isis_advt_db_ isis_advt_db_t;
 typedef struct isis_srv6_config_ isis_srv6_config_t;
+typedef struct isis_srmpls_config_ isis_srmpls_config_t;
 
 typedef struct isis_timer_data_ {
 
@@ -47,7 +48,9 @@ typedef struct node_info_ {
     /* Dummy LSP PKT for lookup */
     isis_lsp_pkt_t *lsp_dummy_pkt;
     /* SRv6 Config*/
-    isis_srv6_config_t *srv6_config;     
+    isis_srv6_config_t *srv6_config;    
+    /* SR MPLS*/
+    isis_srmpls_config_t *srmpls_config; 
     /* Task for generating the LSP fragments*/
     task_t *lsp_fragment_gen_task;
     /* Task to regenrate all fragments from scratch*/

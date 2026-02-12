@@ -155,8 +155,7 @@ rtm_download_route_to_fib (rtm_t *rtm) {
     // 0.inet.3 and 0.inet6.3 routes are not allowed to download in FIB directly. 
     // They are service routes.
     if ((rtm->afi == AF_IPV4 || rtm->afi == AF_IPV6) && 
-            (rtm->rtm_id == 3 ) && 
-            rtm->vrf == RTM_DEFAULT_VRF) {
+            (rtm->rtm_id == 3 )) {
         return false;
     }
 
@@ -190,6 +189,24 @@ rtm_get_target_fib (rtm_t *rtm,
 
         return true;
     }
+
+    /* ISIS - SR routes */
+    if (!inh &&
+        (nh->proto == RTM_PROTO_ISIS || nh->proto == RTM_PROTO_OSPF) && 
+        nh->sub_proto == RTM_SUB_PROTO_SR) {
+
+        /* SR Transit routes will go in global mpls.0 fib*/
+        if (route->afi == AF_MPLS) {
+            *vrf_out = RTM_DEFAULT_VRF;
+            *afi_out = route->afi;
+
+            return true;
+        }
+
+        /* SR ingress routes will go in vrf.inet / vrf.inet6 FIBs 
+            handled by default case */
+    }
+  
 
     /* Customer VRF routes --> download to corresponding FIB
         - already covered by Defaults case */

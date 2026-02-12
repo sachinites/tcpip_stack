@@ -20,7 +20,68 @@
 
 extern graph_t *topo;
 
-static int
+
+void 
+display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack) {
+
+    node_t *node = NULL;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    if (!node) {
+        return;
+    }
+
+    int i;
+
+    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+        
+        if (!node->vrf[i]) continue;
+        
+        vrf_t *vrf = node->vrf[i];
+        printw(" %s\n", vrf->vrf_name);
+    }
+}
+
+int 
+validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value) {
+
+    node_t *node = NULL;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+
+    if (!node) {
+        return LEAF_VALIDATION_FAILED;
+    }
+
+    vrf_t *vrf = vrf_get_by_name(node, (char *)leaf_value);
+
+    if (!vrf) {
+        return LEAF_VALIDATION_FAILED;
+    }
+
+    return LEAF_VALIDATION_SUCCESS;
+}
+
+int
 show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     node_t *node = NULL;
@@ -278,9 +339,11 @@ vrf_config_handler (int cmdcode,
     return 0;
 }
 
-int
+param_t *
 vrf_build_config_tree (param_t *node_name) 
 {
+    param_t *vrf_param_ptr = NULL;
+
     {
         static param_t vrf;
         init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "vrf configuration");
@@ -289,6 +352,8 @@ vrf_build_config_tree (param_t *node_name)
             static param_t vrf_name;
             init_param(&vrf_name, LEAF, NULL, NULL, NULL, STRING, "vrf-name", "vrf configuration");
             libcli_register_param(&vrf, &vrf_name);
+            libcli_register_display_callback(&vrf_name, display_cbk_all_vrfs);
+            vrf_param_ptr = &vrf_name;
             {
                 static param_t rd;
                 init_param(&rd, CMD, "route-distinguisher", NULL, NULL, INVALID, NULL, "Route Distinguisher");
@@ -330,18 +395,8 @@ vrf_build_config_tree (param_t *node_name)
             }
         }
     }
-    return 0;
+    return vrf_param_ptr;
 }
 
-int
-vrf_build_show_tree (param_t *node_name) 
-{
-    {
-        /* show node <node-name> vrf */
-        static param_t vrf;
-        init_param(&vrf, CMD, "vrf", show_vrf_handler, NULL, INVALID, NULL, "Show VRF information");
-        libcli_register_param(node_name, &vrf);
-        libcli_set_param_cmd_code(&vrf, CMDCODE_SHOW_NODE_VRF);
-    }
-    return 0;
-}
+
+
