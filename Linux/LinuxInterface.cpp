@@ -306,7 +306,7 @@ LinuxLoadInterfaces (node_t *node) {
         }
 
         intf->ifindex = node_get_sequence_no(node);
-        bool inserted = node_interface_insert(node, intf_shared);
+        bool inserted = node_interface_insert(node, intf);
         assert (inserted);
         tcp_ip_init_intf_log_info(intf);
     }

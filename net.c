@@ -155,12 +155,53 @@ void dump_node_nw_props(node_t *node){
     cprintf("\n");
 }
 
+static void
+dump_node_vrf_interfaces(node_t *node) {
+
+    int i;
+    vrf_t *vrf = NULL;
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+
+    /* First, dump default VRF interfaces */
+    if (def_vrf) {
+        
+        if (def_vrf->intf_by_name && !def_vrf->intf_by_name->empty()) {
+            for (auto& pair : *def_vrf->intf_by_name) {
+                Interface *intf = pair.second.get();
+                if (intf) {
+                    dump_intf_props(intf);
+                }
+            }
+        }
+
+        /* Special interfaces belong to default VRF */
+        dump_intf_props(NODE_RMAC_INTF(node).get());
+        dump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
+        if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
+    }
+
+    /* Now dump non-default VRFs and their interfaces */
+    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+        
+        vrf = node->vrf[i];
+        if (!vrf) continue;
+        
+        if (vrf->intf_by_name && !vrf->intf_by_name->empty()) {
+            for (auto& pair : *vrf->intf_by_name) {
+                Interface *intf = pair.second.get();
+                if (intf) {
+                    dump_intf_props(intf);
+                }
+            }
+        }
+    }
+}
+
 void 
 dump_nw_graph(graph_t *graph, node_t *node1){
 
     node_t *node;
     glthread_t *curr;
-    Interface *interface;
 
     cprintf("Topology Name = %s\n", graph->topology_name);
     
@@ -170,17 +211,7 @@ dump_nw_graph(graph_t *graph, node_t *node1){
             node = graph_glue_to_node(curr);
             dump_node_nw_props(node);
             dump_intf_props_header();
-            
-            ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
-
-                if(!interface) break;
-                dump_intf_props(interface);
-
-            } ITERATE_NODE_INTERFACES_END(node, interface);
-
-            dump_intf_props (NODE_RMAC_INTF(node).get());
-            dump_intf_props (NODE_VLAN_FLOOD_INTF(node).get());
-            if (NODE_NVE_INTF(node)) dump_intf_props (NODE_NVE_INTF(node).get());
+            dump_node_vrf_interfaces(node);
 
         } ITERATE_GLTHREAD_END(&graph->node_list, curr);
     }
@@ -188,18 +219,7 @@ dump_nw_graph(graph_t *graph, node_t *node1){
 
         dump_node_nw_props(node1);
         dump_intf_props_header();
-
-        ITERATE_NODE_INTERFACES_BEGIN(node1, interface) {
-
-            if(!interface) break;
-            dump_intf_props(interface);
-
-        } ITERATE_NODE_INTERFACES_END(node1, interface);
-
-        dump_intf_props (NODE_RMAC_INTF(node1).get());
-        dump_intf_props (NODE_VLAN_FLOOD_INTF(node1).get());
-        if (NODE_NVE_INTF(node1)) dump_intf_props (NODE_NVE_INTF(node1).get());
-
+        dump_node_vrf_interfaces(node1);
     }
 }
 

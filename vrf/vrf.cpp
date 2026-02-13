@@ -140,9 +140,9 @@ void vrf_delete(vrf_t* vrf, bool _free) {
 }
 
 /* Add interface to VRF */
-bool vrf_add_interface(vrf_t *vrf, InterfaceP intf) {
+bool vrf_add_interface(vrf_t *vrf, Interface* intf) {
     
-    if (intf->vrf) return false;
+    assert(!intf->vrf);
 
     if (intf->HasL3Config()) {
         cprintf ("Error : Interface already has L3 Config, Not Eligible for vrf Config\n");
@@ -158,7 +158,7 @@ bool vrf_add_interface(vrf_t *vrf, InterfaceP intf) {
 }
 
 /* Remove interface from VRF */
-bool vrf_del_interface(vrf_t *vrf, InterfaceP intf) {
+bool vrf_del_interface(vrf_t *vrf, Interface *intf) {
     
     if (!intf->vrf) return false;
 

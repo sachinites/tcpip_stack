@@ -228,7 +228,7 @@ interface_loopback_create (node_t *node, char *ifname) {
     intfP->att_node = node;
     intfP->ifindex = node_get_sequence_no(node);
     
-    if (!node_interface_insert(node, intfP)) {
+    if (!node_interface_insert(node, intfP.get())) {
         cprintf("Error : Failed to insert loopback interface %s\n", ifname);
         return;
     }
@@ -398,7 +398,7 @@ interface_uninstall_local_v6_routes (node_t *node, Interface  *intf) {
 
 /* Interface Management Implementation */
 bool 
-node_interface_insert(node_t *node, InterfaceP intf) {
+node_interface_insert(node_t *node, Interface *intf) {
 
     vrf_t *def_vrf = NODE_DEF_VRF(node);
     return vrf_add_interface (def_vrf, intf);
@@ -503,7 +503,7 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
 /* VRF Interface Management Implementation */
 bool 
-vrf_interface_insert(vrf_t *vrf, InterfaceP intf) {
+vrf_interface_insert(vrf_t *vrf, Interface *intf) {
     
     if (!vrf || !intf) return false;
     
@@ -529,8 +529,8 @@ vrf_interface_insert(vrf_t *vrf, InterfaceP intf) {
     }
     
     // Insert into both hashmaps
-    (*vrf->intf_by_name)[ifname] = intf;
-    (*vrf->intf_by_ifindex)[ifindex] = intf;
+    (*vrf->intf_by_name)[ifname] = intf->GetSharedPtr();
+    (*vrf->intf_by_ifindex)[ifindex] = intf->GetSharedPtr();
     
     return true;
 }

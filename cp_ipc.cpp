@@ -89,10 +89,18 @@ ips_destroy(event_dispatcher_t *ev, void *arg, uint32_t arg_size)  {
         return;
     }
 
-    if (ips->free_fn)  ips->free_fn (node, ips->msg);
-    else if (ips->msg ) delete ips->msg;
-    
-    ips->msg = NULL;
+    /* For C++ objects, free fn is mandatory. Also free fn is required if custom 
+        allocators was used for ips->msg */
+    if (ips->free_fn) {
+         ips->free_fn (node, ips->msg);
+    }
+    else {
+        /* else it is assumed it is C object which was allocated memory
+            using native malloc/calloc */
+        free (ips->msg);
+        ips->msg = NULL;
+    }
+
     free (ips);
 }
 

@@ -74,36 +74,38 @@ insert_link_between_two_nodes(node_t *node1,
 
     /*Plugin interface ends into Node*/
     link->Intf1->ifindex = node_get_sequence_no(node1);
-    vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1);
+    vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
 
     link->Intf2->ifindex = node_get_sequence_no(node2);
-    vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2);
+    vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
 
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(link->Intf1.get());
     interface_assign_mac_address(link->Intf2.get());
 
+#if 0
     /* Generate ipv6 link local address */
     mac_addr_t *mac_addr = link->Intf1->GetMacAddr();
-    link->Intf1->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
+    //link->Intf1->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
     
     /* Install link local as local/connected route using RTM API */
-    ipv6_addr_t v6_addr = {0};
-    link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
+    //ipv6_addr_t v6_addr = {0};
+    //link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
     
-    rtm_t *rtm = rtm_get(node1, RTM_DEFAULT_VRF, AF_IPV6, 0);
+    //rtm_t *rtm = rtm_get(node1, RTM_DEFAULT_VRF, AF_IPV6, 0);
     
-    link->Intf1->rtm_link_local_rt6_idx = 
-        cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf1);
+    //link->Intf1->rtm_link_local_rt6_idx = 
+    //    cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf1);
 
-    mac_addr = link->Intf2->GetMacAddr();
-    link->Intf2->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
-    link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
+    //mac_addr = link->Intf2->GetMacAddr();
+    //link->Intf2->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
+    //link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
     
-    rtm = rtm_get(node2, RTM_DEFAULT_VRF, AF_IPV6, 0);
-    link->Intf2->rtm_link_local_rt6_idx = 
-        cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf2);
+    //rtm = rtm_get(node2, RTM_DEFAULT_VRF, AF_IPV6, 0);
+    //link->Intf2->rtm_link_local_rt6_idx = 
+    //    cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf2);
 
+#endif
     tcp_ip_init_intf_log_info(link->Intf1.get());
     tcp_ip_init_intf_log_info(link->Intf2.get());
 }

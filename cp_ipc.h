@@ -18,7 +18,8 @@ typedef struct ips_ {
     uint32_t minor_code;
     uint32_t msg_size;
     bool free_after_use;
-    char padding[3];
+    uint8_t flags;
+    char padding[2];
     
 }  ips_t;
 

@@ -993,7 +993,6 @@ PhysicalInterface::IsCrossReferenced() {
     if (LinuxRtr) {
         /* We are also listening on this interface */
         return (this->GetSharedPtr().use_count() > (PHY_ETH_IF_DEF_REFCOUNT + 1 + 1)) ;
-
     }
 
     return this->GetSharedPtr().use_count() > (PHY_ETH_IF_DEF_REFCOUNT + 1);
@@ -1022,7 +1021,7 @@ PhysicalInterface::GetAccessVlanIntf() {
 bool PhysicalInterface::HasL3Config() {
 
     /* Already a VRF member */
-    if (this->vrf ) return true;
+    if (this->vrf && (this->vrf != NODE_DEF_VRF(this->att_node))) return true;
 
     /* If in L2 mode, not eligible */
     if (this->GetSwitchport() ) return true;
@@ -1956,7 +1955,10 @@ dump_intf_props (Interface *interface){
     byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[INET6_ADDRSTRLEN];
 
-    cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
+   // cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
+   cprintf("%-12s(%d) %-14s", interface->if_name.c_str(), 
+    interface->GetSharedPtr().use_count() - 1,
+    interface->vrf->vrf_name );
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 

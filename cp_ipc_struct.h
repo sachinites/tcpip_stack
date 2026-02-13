@@ -105,6 +105,14 @@ typedef struct ipc_interface_ {
 
 }  ipc_interface_t;
 
+static void 
+ips_free_ipc_interface_cbk (node_t *node, void *arg) {
+
+    ipc_interface_t *data = (ipc_interface_t *)arg;
+    delete data;
+}
+
+
 // IPC_GRE_TUNNEL,
 typedef struct ipc_gre_ {
 

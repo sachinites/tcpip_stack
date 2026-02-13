@@ -34,7 +34,7 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     gre_shared_ptr->att_node = node;
     gre_shared_ptr->ifindex = node_get_sequence_no(node);
 
-    if (!node_interface_insert(node, gre_shared_ptr)) {
+    if (!node_interface_insert(node, gre_shared_ptr.get())) {
         cprintf ("Error : Failed to insert GRE tunnel interface\n");
         return false;
     }

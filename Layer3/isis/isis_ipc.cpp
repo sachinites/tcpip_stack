@@ -97,7 +97,8 @@ isis_ips_send_frr_config (node_t *node, uint8_t pvt_code,
 
     if (isis_is_protocol_shutdown_in_progress (node)) return;
 
-    isis_ips_frr_config_t *frr_config = new isis_ips_frr_config_t;
+    isis_ips_frr_config_t *frr_config = (isis_ips_frr_config_t *)
+                            calloc(1, sizeof(isis_ips_frr_config_t));
 
     frr_config->code = pvt_code;
     frr_config->system_id.rtr_id = NODE_LO_ADDR_INT(node);

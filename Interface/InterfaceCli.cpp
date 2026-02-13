@@ -137,12 +137,12 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
    tlv_struct_t *tlv = NULL;
    c_string intf_name = NULL;
    c_string node_name = NULL;
-   c_string vrf_name = NULL;
    c_string intf_ip_addr = NULL;
    Interface *interface = NULL;
    uint32_t intf_new_matric_val;
    c_string overlay_tunnel_name = NULL;
    c_string vni_value = NULL;
+   c_string vrf_name = (c_string)DEF_VRF_NAME;
    intf_prop_changed_t intf_prop_changed;
    
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
@@ -179,49 +179,72 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
     uint32_t minor_code = 0;
     ipc_interface_t *update_data;
 
+    vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
+    vrf_t *def_vrf = NODE_DEF_VRF(node);
+
+    if (!vrf) {
+        cprintf("%s : Error : VRF %s do not exist\n", node->node_name, vrf_name);
+        return -1;
+    }
+
     switch(cmdcode){
 
         case CMDCODE_CONF_INTF_VRF:
         {
-            vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
-            if (!vrf) {
-                cprintf ("Error : VRF do not exist\n");
-                return -1;
-            }
+            switch(enable_or_disable) {
 
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
-            if (!interface) {
-                cprintf ("Error : Interface do not exist\n");
-                return -1;
-            }
-
-            switch(enable_or_disable){
                 case CONFIG_ENABLE:
                 {
-                    if (interface->vrf == vrf) return 0;
-                    if (interface->vrf) {
-                        cprintf ("Error : Interface already configured with VRF %s\n", 
-                            interface->vrf->vrf_name);
+                    interface = vrf_interface_lookup_by_name(vrf, (const char *)intf_name);
+
+                    /* Interface already in asked VRF, no op*/
+                    if (interface) return 0;
+
+                    interface = vrf_interface_lookup_by_name(def_vrf, (const char *)intf_name);
+
+                    if (!interface) {
+                         cprintf ("Error : Interface configured in some other VRF\n"); 
                         return -1;
                     }
-                    if (!vrf_add_interface(vrf, interface->GetSharedPtr())) {
-                        cprintf ("Error : Configuration Checkout failed\n");
+
+                    /* Intrface is in default vrf , check for L3 config now*/
+                    if (interface->vrf && interface->HasL3Config()) {
+                         cprintf ("Error : Remove L3 config first from Interface\n" );
+                         return -1;
+                    }
+
+                    if (interface->vrf) {
+                        /* Delete interface from Default VRF*/
+                        if (!vrf_del_interface (def_vrf, interface)) {
+                            cprintf ("Error : Could not delete interface from VRF %s\nConfiguration Checkout failed\n", def_vrf->vrf_name);
+                            return -1;
+                        }
+                    }
+
+                    if (!vrf_add_interface(vrf, interface)) {
+                        cprintf ("Error : Failed to add interface in VRF %s, Configuration Checkout failed\n", vrf->vrf_name);
                         return -1;
                     }
                 }
                 break;
                 case CONFIG_DISABLE:
                 {
+                    interface = vrf_interface_lookup_by_name(vrf, (const char *)intf_name);
+
+                    if (!interface) return 0;
                     if (interface->vrf == NULL) return 0;
+
                     if (interface->vrf != vrf) {
                         cprintf ("Error : Interface is not operating in VRF %s\n", vrf->vrf_name);
                         return -1;
                     }
-                    if (!vrf_del_interface(vrf, interface->GetSharedPtr())) {
+                    
+                    if (!vrf_del_interface(vrf, interface)) {
                         cprintf ("Error : Configuration Checkout failed\n");
                         return -1;
                     }
-                    if (!vrf_add_interface(NODE_DEF_VRF(node), interface->GetSharedPtr())) {
+
+                    if (!vrf_add_interface(def_vrf, interface)) {
                         cprintf ("Error : Configuration Checkout failed\n");
                         return -1;
                     }
@@ -258,7 +281,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 default: ;
             }
             cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true,  NULL);
+                    update_data, sizeof (*update_data), true,  ips_free_ipc_interface_cbk);
         }    
         break;
 
@@ -314,7 +337,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
             if (minor_code) {
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true, 0);
+                    update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);
             }
         }
         break;
@@ -366,7 +389,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->is_switchport = old_switchport_status;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true, 0);
+                    update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);
             }
         }
         break;
@@ -399,11 +422,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                      interface->GetVlanId()) {
                 
                 SET_BIT(minor_code, IPC_INTERFACE_ACCESS_VLAN_UPDATE);
-                update_data = new ipc_interface_t;;
+                update_data = new ipc_interface_t;
                 update_data->intf = interface->GetSharedPtr();
                 update_data->access_vlan = old_access_vlan;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true, 0);
+                    update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);
             }
         }
         break;
@@ -458,7 +481,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->ipv4_addr.ip_addr = old_ip_addr;
                 update_data->ipv4_addr.mask = old_mask;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                        update_data, sizeof (*update_data), true, 0);            
+                        update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);            
             }
         }
         break;
@@ -509,7 +532,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 memcpy(update_data->ipv6_addr.ipv6_addr, old_ipv6_addr, 16);
                 update_data->ipv6_addr.prefix_len = old_prefix_len;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                        update_data, sizeof (*update_data), true, 0);            
+                        update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);            
             }
         }
         break;
@@ -616,7 +639,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->intf = interface->GetSharedPtr();
                 update_data->up_status = !vlan_intf->IsInterfaceUp(0);
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
-                    update_data, sizeof (*update_data), true, 0);
+                    update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);
             }
 
         }
@@ -832,7 +855,7 @@ intf_config_virtual_port_create_handler(int cmdcode,
 
             vportP->ifindex = node_get_sequence_no(node);
             
-            if (!node_interface_insert(node, vportP))
+            if (!node_interface_insert(node, intf))
             {
                 cprintf ("Error : Failed to insert interface\n");
                 intf->InterfaceReleaseAllResources();

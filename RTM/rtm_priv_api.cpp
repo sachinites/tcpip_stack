@@ -419,11 +419,11 @@ config_rtm_route_cli_handler(int cmdcode,
                               op_mode enable_or_disable) {
 
     node_t *node = NULL;
+    c_string vrf_name = NULL;
     c_string node_name = NULL;
     c_string prefix_mask = NULL;
     c_string gw_ip = NULL;
     c_string if_name = NULL;
-    uint32_t vrf_id = RTM_DEFAULT_VRF;
     uint32_t proto_id = 0;
     uint32_t sub_proto_id = 0;
     uint32_t instance_no = 0;
@@ -440,8 +440,8 @@ config_rtm_route_cli_handler(int cmdcode,
 
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
-        else if (parser_match_leaf_id(tlv->leaf_id, "vrf-id"))
-            vrf_id = atoi((const char *)tlv->value);
+        else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "prefix-mask"))
             prefix_mask = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "proto-id"))
@@ -472,6 +472,7 @@ config_rtm_route_cli_handler(int cmdcode,
     } TLV_LOOP_END;
 
     /* Validate inputs */
+    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, (char *)vrf_name) : NODE_DEF_VRF(node);
 
     if (!prefix_mask) {
         cprintf("Error: prefix/mask is required\n");
@@ -708,17 +709,15 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             /* Get interface and VRF*/
-            vrf_t *vrf = NODE_DEF_VRF(node);
             InterfaceP oif = nullptr;
             if (if_name) {
-                Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
+                Interface *intf = vrf_interface_lookup_by_name(vrf, (const char *)if_name);
                 if (!intf) {
                     cprintf("Error: Interface %s not found on node %s\n",
                             if_name, node_name);
                     return -1;
                 }
                 oif = intf->GetSharedPtr();
-                vrf = oif->vrf;
             }
 
             /* Validate protocol and action IDs */
@@ -1019,14 +1018,13 @@ config_rtm_route_cli_handler(int cmdcode,
             InterfaceP oif = nullptr;
            vrf_t *vrf = NODE_DEF_VRF(node);
             if (if_name) {
-                Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
+                Interface *intf = vrf_interface_lookup_by_name(vrf, (const char *)if_name);
                 if (!intf) {
                     cprintf("Error: Interface %s not found on node %s\n",
-                            if_name, node_name);
+                            if_name, node_name); 
                     return -1;
                 }
                 oif = intf->GetSharedPtr();
-                vrf = oif->vrf;
             }
 
             /* Validate protocol and action IDs */
