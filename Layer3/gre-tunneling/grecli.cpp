@@ -49,7 +49,7 @@ gre_tunnel_config_handler (int cmdcode,
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    
+
     if (if_name) {
         tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
     }
@@ -57,7 +57,6 @@ gre_tunnel_config_handler (int cmdcode,
         snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
         tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
     }
-    
 
     switch (cmdcode) {
 
@@ -66,10 +65,10 @@ gre_tunnel_config_handler (int cmdcode,
             switch (enable_or_disable) {
 
                 case CONFIG_ENABLE:
-                    gre_tunnel_create (node, gre_tun_id);
+                    if (!gre_tunnel_create (node, gre_tun_id)) return -1;
                     break;
                 case CONFIG_DISABLE:
-                    gre_tunnel_destroy (node, gre_tun_id);
+                    if (!gre_tunnel_destroy (node, gre_tun_id)) return -1;
                     break;
             }
         break;

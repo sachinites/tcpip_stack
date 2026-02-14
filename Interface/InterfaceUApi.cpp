@@ -298,7 +298,7 @@ interface_install_local_v4_routes (node_t *node, Interface  *intf) {
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
 
     /* New RTM Route Installation */
-    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV4, 0);
+    rtm_t *rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV4, 0);
     if ((nh_idx = cp_rtm_install_local_or_connected_v4_routes (rtm, ip_addr, 32, intf->GetSharedPtr()))) {
         intf->rtm_local_rt_idx = nh_idx;
     }
@@ -318,7 +318,7 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     if (!intf) return;
     
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
-    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV4, 0);
+    rtm_t *rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV4, 0);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
     cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
 }
@@ -334,7 +334,7 @@ interface_install_local_v6_routes (node_t *node, Interface  *intf) {
     uint32_t nh_idx = 0;
     ipv6_addr_t ipv6_addr;
 
-    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV6, 0);
+    rtm_t *rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV6, 0);
 
     if (!intf) return;
     if (!intf->IsInterfaceUp(0)) return;
@@ -378,7 +378,7 @@ interface_install_local_v6_routes (node_t *node, Interface  *intf) {
 void 
 interface_uninstall_local_v6_routes (node_t *node, Interface  *intf) {
 
-    rtm_t *rtm = rtm_get (node, DEFAULT_VRF, AF_IPV6, 0);
+    rtm_t *rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV6, 0);
 
     if (intf->rtm_local_rt6_idx) {
         cp_rtm_uninstall_route_by_idx (rtm, intf->rtm_local_rt6_idx);
@@ -444,7 +444,7 @@ node_interface_lookup_by_name(node_t *node, const char *if_name){
     }
 
     // Look up in physical/loopback interface hashmap
-    intf = node_interface_lookup_by_name_internal(node, if_name);
+    intf = node_global_intf_map_lookup_by_name(node, if_name);
     if (intf) return intf;
 
     /* Get vlan interface by name */
@@ -485,7 +485,7 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
     }
     
     // Look up in physical/loopback interface hashmap
-    intf = node_interface_lookup_by_ifindex_internal(node, ifindex);
+    intf = node_global_intf_map_lookup_by_ifindex(node, ifindex);
     if (intf) return intf;
 
     /* Check for vlan interface */
@@ -528,7 +528,7 @@ vrf_interface_insert(vrf_t *vrf, Interface *intf) {
         vrf->intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
     }
     
-    // Insert into both hashmaps
+    // Insert into both VRF hashmaps
     (*vrf->intf_by_name)[ifname] = intf->GetSharedPtr();
     (*vrf->intf_by_ifindex)[ifindex] = intf->GetSharedPtr();
     
@@ -549,7 +549,7 @@ vrf_interface_delete_by_name(vrf_t *vrf, const char *ifname) {
     InterfaceP intf = it->second;
     uint32_t ifindex = intf->ifindex;
     
-    // Remove from both hashmaps
+    // Remove from both VRF hashmaps
     vrf->intf_by_name->erase(it);
     
     if (vrf->intf_by_ifindex) {
@@ -573,7 +573,7 @@ vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
     InterfaceP intf = it->second;
     const char *ifname = intf->if_name.c_str();
     
-    // Remove from both hashmaps
+    // Remove from both VRF hashmaps
     vrf->intf_by_ifindex->erase(it);
     
     if (vrf->intf_by_name) {
@@ -616,4 +616,117 @@ vrf_interface_count(vrf_t *vrf) {
     
     if (!vrf || !vrf->intf_by_name) return 0;
     return vrf->intf_by_name->size();
+}
+
+/* Global Node Interface Map Management Implementation */
+bool 
+node_global_intf_map_insert(node_t *node, Interface *intf) {
+    
+    if (!node || !intf) return false;
+    
+    const char *ifname = intf->if_name.c_str();
+    uint32_t ifindex = intf->ifindex;
+    
+    // Check if interface with same name or ifindex already exists
+    if (node->intf_by_name && node->intf_by_name->find(ifname) != node->intf_by_name->end()) {
+        return false; // Interface name already exists
+    }
+    
+    if (node->intf_by_ifindex && node->intf_by_ifindex->find(ifindex) != node->intf_by_ifindex->end()) {
+        return false; // Interface index already exists
+    }
+    
+    // Initialize hashmaps if not already done
+    if (!node->intf_by_name) {
+        node->intf_by_name = new std::unordered_map<std::string, InterfaceP>();
+    }
+    
+    if (!node->intf_by_ifindex) {
+        node->intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
+    }
+    
+    // Insert into both hashmaps
+    (*node->intf_by_name)[ifname] = intf->GetSharedPtr();
+    (*node->intf_by_ifindex)[ifindex] = intf->GetSharedPtr();
+    
+    return true;
+}
+
+bool 
+node_global_intf_map_delete_by_name(node_t *node, const char *ifname) {
+    
+    if (!node || !ifname) return false;
+    if (!node->intf_by_name) return false;
+    
+    auto it = node->intf_by_name->find(ifname);
+
+    if (it == node->intf_by_name->end()) {
+        return false; // Interface not found
+    }
+    
+    InterfaceP intf = it->second;
+
+    /* Dont delete physical interfaces */
+    if (intf->iftype == INTF_TYPE_PHY) return true;
+
+    uint32_t ifindex = intf->ifindex;
+    
+    // Remove from both hashmaps
+    node->intf_by_name->erase(it);
+    node->intf_by_ifindex->erase(ifindex);
+
+    return true;
+}
+
+bool 
+node_global_intf_map_delete_by_ifindex(node_t *node, uint32_t ifindex) {
+    
+    if (!node) return false;
+    if (!node->intf_by_ifindex) return false;
+    
+    auto it = node->intf_by_ifindex->find(ifindex);
+    if (it == node->intf_by_ifindex->end()) {
+        return false; // Interface not found
+    }
+    
+    InterfaceP intf = it->second;
+
+    /* Dont delete physical interfaces */
+    if (intf->iftype == INTF_TYPE_PHY) return true;     
+
+    const char *ifname = intf->if_name.c_str();
+    
+    // Remove from both hashmaps
+    node->intf_by_ifindex->erase(it);
+    node->intf_by_name->erase(ifname);
+
+    return true;
+}
+
+Interface* 
+node_global_intf_map_lookup_by_name(node_t *node, const char *ifname) {
+    
+    if (!node || !ifname) return nullptr;
+    if (!node->intf_by_name) return nullptr;
+    
+    auto it = node->intf_by_name->find(ifname);
+    if (it == node->intf_by_name->end()) {
+        return nullptr;
+    }
+    
+    return it->second.get();
+}
+
+Interface* 
+node_global_intf_map_lookup_by_ifindex(node_t *node, uint32_t ifindex) {
+    
+    if (!node) return nullptr;
+    if (!node->intf_by_ifindex) return nullptr;
+    
+    auto it = node->intf_by_ifindex->find(ifindex);
+    if (it == node->intf_by_ifindex->end()) {
+        return nullptr;
+    }
+    
+    return it->second.get();
 }

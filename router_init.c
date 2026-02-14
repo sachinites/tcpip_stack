@@ -75,9 +75,11 @@ insert_link_between_two_nodes(node_t *node1,
     /*Plugin interface ends into Node*/
     link->Intf1->ifindex = node_get_sequence_no(node1);
     vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
+    node_global_intf_map_insert(node1, link->Intf1.get());
 
     link->Intf2->ifindex = node_get_sequence_no(node2);
     vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
+    node_global_intf_map_insert(node2, link->Intf2.get());
 
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(link->Intf1.get());
@@ -162,6 +164,10 @@ create_graph_node(graph_t *graph, const c_string node_name){
     tracer_enable_file_logging (node->dptr, true);
 
     init_node_nw_prop(node, &node->node_nw_prop);
+
+    /* Initialize global interface maps */
+    node->intf_by_name = NULL;
+    node->intf_by_ifindex = NULL;
 
     /* L3 pkt trapping to application is implemented using Netfilter hooks built over NFC*/
 	nf_init_netfilters(&node->nf_hook_db);

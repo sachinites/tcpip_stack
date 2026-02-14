@@ -333,9 +333,9 @@ cp_rtm_install_local_or_connected_v4_routes (
     nh_template.rtm_nh_proto = nh_proto;
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s/%d  Gw:null recvd route installation request\n",  
+        "RTM[%s] : Route %s  Gw:null recvd route installation request\n",  
         rtm->name, 
-        rtm_format_prefix(&route, addr_str, sizeof(addr_str)), mask);
+        rtm_format_prefix(&route, addr_str, sizeof(addr_str)));
 
     nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
@@ -408,9 +408,9 @@ cp_rtm_install_local_or_connected_v6_routes (
     nh_template.rtm_nh_proto = nh_proto;
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s/%d  Gw:null recvd IPv6 route installation request\n",
+        "RTM[%s] : Route %s  Gw:null recvd IPv6 route installation request\n",
         rtm->name,
-        rtm_format_prefix(&route, addr_str, sizeof(addr_str)), prefix_len);
+        rtm_format_prefix(&route, addr_str, sizeof(addr_str)));
 
     nh_template.fwd_flags = fwd_flags;
     rc = cp_rtm_install_route(rtm, &route, &nh_template);
@@ -498,9 +498,9 @@ cp_rtm_install_static_route (
     nh_template.rtm_nh_proto = nh_proto;
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s/%d  Gw:%s recvd route installation request\n",  
+        "RTM[%s] : Route %s  Gw:%s recvd route installation request\n",  
         rtm->name, 
-        rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
+        rtm_format_prefix(prefix, addr_str, sizeof(addr_str)),
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)));
 
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
@@ -509,9 +509,9 @@ cp_rtm_install_static_route (
     rtm_nh_template_free_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s/%d  Gw:%s installation Result Code: %s\n",  
+        "RTM[%s] : Route %s  Gw:%s installation Result Code: %s\n",  
         rtm->name, 
-        rtm_format_prefix(prefix, addr_str, sizeof(addr_str)), prefix->prefix_len,
+        rtm_format_prefix(prefix, addr_str, sizeof(addr_str)),
         rtm_format_nexthop(gateway, gw_str, sizeof(gw_str)),
         rtm_error_to_string (rc));
 

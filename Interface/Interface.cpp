@@ -555,7 +555,7 @@ Interface::SetSockfd(uint32_t sock_fd) {
     this->sock_fd = sock_fd;
 }
 
-bool Interface::HasL3Config() {return false;}
+bool Interface::HasL3Config(bool matchvrf) {return false;}
 
 /* ************ PhysicalInterface ************ */
 PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add)
@@ -1018,13 +1018,10 @@ PhysicalInterface::GetAccessVlanIntf() {
     return this->access_vlan_intf;
 }
 
-bool PhysicalInterface::HasL3Config() {
+bool PhysicalInterface::HasL3Config(bool matchvrf) {
 
-    /* Already a VRF member */
-    if (this->vrf && (this->vrf != NODE_DEF_VRF(this->att_node))) return true;
-
-    /* If in L2 mode, not eligible */
-    if (this->GetSwitchport() ) return true;
+    /* VRF itself is an L3 config */
+    if (matchvrf && this->vrf) return true;
 
     /* IF IP address is already configured, not eligible */
     if (this->IsIpConfigured()) return true;
@@ -1037,7 +1034,7 @@ bool PhysicalInterface::HasL3Config() {
         this->l3_ingress_acc_lst2) return true;
     
     /* If used by any other config , not eligible */
-    if (this->IsCrossReferenced()) return true;
+    //if (this->IsCrossReferenced()) return true;
 
     return false;
 }
@@ -1958,7 +1955,7 @@ dump_intf_props (Interface *interface){
    // cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
    cprintf("%-12s(%d) %-14s", interface->if_name.c_str(), 
     interface->GetSharedPtr().use_count() - 1,
-    interface->vrf->vrf_name );
+    interface->vrf ? interface->vrf->vrf_name : "None");
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 
@@ -1982,7 +1979,8 @@ dump_intf_props (Interface *interface){
             cprintf("%-39s ", "Invalid IPv6");
         }
     } else {
-        cprintf("%-39s ", "Not configured");
+        //cprintf("%-39s ", "Not configured");
+        cprintf("%p ", interface);
     }
 
     mac_addr = interface->GetMacAddr();

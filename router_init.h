@@ -137,6 +137,10 @@ struct node_ {
     glthread_t route_map_headtype;
     /* Packet Tracer Object */
     pkt_tracer_t *pkt_tracer;
+    /* Interfaces in this VRF - hashmap keyed by interface name*/
+    std::unordered_map<std::string, InterfaceP> *intf_by_name;
+    /* Interfaces in this VRF - hashmap keyed by interface index*/
+    std::unordered_map<uint32_t, InterfaceP> *intf_by_ifindex;    
     /* config DB connection */
     PGconn* conn;
     glthread_t graph_glue;

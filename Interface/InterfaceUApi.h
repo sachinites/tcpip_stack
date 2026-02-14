@@ -20,6 +20,13 @@ node_interface_lookup_by_name(node_t *node, const char *if_name);
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) ;
 
+/* Global Node Interface Map Management APIs */
+bool node_global_intf_map_insert(node_t *node, Interface *intf);
+bool node_global_intf_map_delete_by_name(node_t *node, const char *ifname);
+bool node_global_intf_map_delete_by_ifindex(node_t *node, uint32_t ifindex);
+Interface* node_global_intf_map_lookup_by_name(node_t *node, const char *ifname);
+Interface* node_global_intf_map_lookup_by_ifindex(node_t *node, uint32_t ifindex);
+
 
 /* VRF Interface Management APIs */
 bool vrf_interface_insert(vrf_t *vrf, Interface* intf);

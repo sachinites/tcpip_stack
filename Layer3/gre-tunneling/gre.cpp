@@ -33,12 +33,20 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     gre_shared_ptr->SetSharedPtr(gre_shared_ptr);
     gre_shared_ptr->att_node = node;
     gre_shared_ptr->ifindex = node_get_sequence_no(node);
-
-    if (!node_interface_insert(node, gre_shared_ptr.get())) {
-        cprintf ("Error : Failed to insert GRE tunnel interface\n");
+    intf = gre_shared_ptr.get();
+    
+    /* Add to VRF and global maps */
+    if (!vrf_add_interface(NODE_DEF_VRF(node), intf)) {
+        cprintf("Error : Failed to add GRE tunnel to VRF\n");
         return false;
     }
-
+    
+    if (!node_global_intf_map_insert(node, intf)) {
+        cprintf("Error : Failed to add GRE tunnel to global map\n");
+        vrf_del_interface(NODE_DEF_VRF(node), intf);
+        return false;
+    }
+    
     return true;
 }
 
@@ -65,14 +73,16 @@ gre_tunnel_destroy (node_t *node, uint32_t tunnel_id) {
         return false;
     }
 
-    interface_uninstall_local_v4_routes  (node, tunnel);
-
     /* Send Delete notification to all Subscribers */
      SET_BIT(if_change_flags, IF_DELETE_F);
      nfc_intf_invoke_notification_to_sbscribers(
-	    tunnel, &intf_prop_changed, if_change_flags);        
+	   tunnel, &intf_prop_changed, if_change_flags);        
 
-    node_interface_delete_by_name(node, (const char *)intf_name);
+    /* User has to remove GRE tunnel inetrface from VRF first. We are here
+        because interface has been already removed from vrf 
+        config node <node-name> no interface tunnel 2 vrf <vrf-name>    
+    */
+    assert(node_global_intf_map_delete_by_name(node, (const char *)intf_name));
     return true;
 }
 

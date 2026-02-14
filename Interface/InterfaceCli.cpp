@@ -132,10 +132,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
    node_t *node;
    vlan_id_t vlan_id;
    uint8_t mask;
+   int gre_tunnel_id = 0;
    c_string l2_mode_option;
    c_string if_up_down;
    tlv_struct_t *tlv = NULL;
-   c_string intf_name = NULL;
+   c_string if_name = NULL;
    c_string node_name = NULL;
    c_string intf_ip_addr = NULL;
    Interface *interface = NULL;
@@ -150,7 +151,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "if-name"))
-            intf_name = tlv->value;
+            if_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "vlan-id"))
             vlan_id = atoi((const char *)tlv->value);
         else if(parser_match_leaf_id(tlv->leaf_id, "l2-mode-val"))
@@ -171,6 +172,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
              vni_value = tlv->value;     
         else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
              vrf_name = tlv->value;  
+        else if(parser_match_leaf_id(tlv->leaf_id, "tunnel-id"))
+             gre_tunnel_id = atoi((const char *)tlv->value);               
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -181,10 +184,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
     vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
     vrf_t *def_vrf = NODE_DEF_VRF(node);
+    char intf_name[IF_NAME_SIZE];
 
-    if (!vrf) {
-        cprintf("%s : Error : VRF %s do not exist\n", node->node_name, vrf_name);
-        return -1;
+    if (!if_name && gre_tunnel_id) {
+        snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tunnel_id);
+        if_name = (c_string)intf_name;
     }
 
     switch(cmdcode){
@@ -195,60 +199,70 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
                 case CONFIG_ENABLE:
                 {
-                    interface = vrf_interface_lookup_by_name(vrf, (const char *)intf_name);
-
-                    /* Interface already in asked VRF, no op*/
-                    if (interface) return 0;
-
-                    interface = vrf_interface_lookup_by_name(def_vrf, (const char *)intf_name);
-
-                    if (!interface) {
-                         cprintf ("Error : Interface configured in some other VRF\n"); 
+                    if (!vrf)
+                    {
+                        cprintf("%s : Error : VRF %s do not exist\nConfiguration Checkout failed\n",
+                                node->node_name, vrf_name);
                         return -1;
                     }
 
-                    /* Intrface is in default vrf , check for L3 config now*/
-                    if (interface->vrf && interface->HasL3Config()) {
-                         cprintf ("Error : Remove L3 config first from Interface\n" );
-                         return -1;
+                    interface = node_lookup_interface(node, if_name, 0);
+
+                    if (!interface) {
+                        cprintf ("Error : Interface do not exist\nConfiguration Checkout failed\n");
+                        return -1;
                     }
+
+                    /* Interface already in asked VRF, no op*/
+                    if (interface->vrf == vrf) return 0;
 
                     if (interface->vrf) {
-                        /* Delete interface from Default VRF*/
-                        if (!vrf_del_interface (def_vrf, interface)) {
-                            cprintf ("Error : Could not delete interface from VRF %s\nConfiguration Checkout failed\n", def_vrf->vrf_name);
-                            return -1;
-                        }
+                         cprintf ("Error : Interface already configured in VRF %s\nConfiguration Checkout failed\n", 
+                            interface->vrf->vrf_name); 
+                        return -1;
                     }
 
+                    /* Interface is in default vrf , check for L3 config now*/
+                    if (interface->HasL3Config(true)) {
+                         cprintf ("Error : Remove L3 config first from Interface\nConfiguration Checkout failed\n" );
+                         return -1;
+                    }
+                    
                     if (!vrf_add_interface(vrf, interface)) {
-                        cprintf ("Error : Failed to add interface in VRF %s, Configuration Checkout failed\n", vrf->vrf_name);
+                        cprintf ("Error : Failed to add interface in VRF %s\nConfiguration Checkout failed\n", vrf->vrf_name);
                         return -1;
                     }
                 }
                 break;
                 case CONFIG_DISABLE:
                 {
-                    interface = vrf_interface_lookup_by_name(vrf, (const char *)intf_name);
+                    interface = node_lookup_interface(node, if_name, 0);
 
-                    if (!interface) return 0;
-                    if (interface->vrf == NULL) return 0;
-
-                    if (interface->vrf != vrf) {
-                        cprintf ("Error : Interface is not operating in VRF %s\n", vrf->vrf_name);
+                    if (!interface) {
+                        cprintf ("Error : Interface do not exist\nConfiguration Checkout failed\n");
                         return -1;
                     }
                     
+                    if (!vrf)
+                    {
+                        cprintf("%s : Error : VRF %s do not exist\nConfiguration Checkout failed\n",
+                                node->node_name, vrf_name);
+                        return -1;
+                    }
+
+                    if (interface->vrf == NULL) {
+                        return 0;
+                    }
+
+                    if (interface->vrf != vrf) {
+                        cprintf ("Error : Interface is not operating in VRF %s\nConfiguration Checkout failed\n", vrf->vrf_name);
+                        return -1;
+                    }
+
                     if (!vrf_del_interface(vrf, interface)) {
                         cprintf ("Error : Configuration Checkout failed\n");
                         return -1;
                     }
-
-                    if (!vrf_add_interface(def_vrf, interface)) {
-                        cprintf ("Error : Configuration Checkout failed\n");
-                        return -1;
-                    }
-
                 }
                 break;
             }
@@ -256,7 +270,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         break;
         case CMDCODE_INTF_CONFIG_METRIC:
         {
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, vlan_id ) ;
 
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -287,7 +301,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
         case CMDCODE_CONF_INTF_UP_DOWN:
         {
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -344,7 +358,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
         case CMDCODE_INTF_CONFIG_SWITCHPORT:
         {
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -397,7 +411,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
         case CMDCODE_INTF_CONFIG_VLAN:
         {
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -434,7 +448,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
         case CMDCODE_INTF_CONFIG_IP_ADDR:
         {
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -489,7 +503,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
         case CMDCODE_INTF_CONFIG_IPV6_ADDR:
         {
-            interface = node_lookup_interface (node, intf_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, vlan_id ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -605,7 +619,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_CONFIG_INTF_VLAN_UP_DOWN:
         {
             VlanInterface *vlan_intf =
-                static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
+                static_cast<VlanInterface *>(node_lookup_interface (node, if_name, vlan_id ));
 
             if (!vlan_intf)
             {
@@ -678,7 +692,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_CONFIG_INTF_VLAN_VNI:
         {
             VlanInterface *vlan_intf =
-                static_cast<VlanInterface *>(node_lookup_interface (node, intf_name, vlan_id ));
+                static_cast<VlanInterface *>(node_lookup_interface (node, if_name, vlan_id ));
 
             if (!vlan_intf)
             {

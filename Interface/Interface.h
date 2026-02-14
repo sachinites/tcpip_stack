@@ -49,9 +49,9 @@ class TransportService;
 #define VLAN_FLOOD_IF_DEF_REFCOUNT   1
 
 /* Physical Ethernet interface
-  link->Intf1
-  vrf->intf_by_name
-  vrf->intf_by_ifindex
+  link->Intf1 
+  node->intf_by_name
+  node->intf_by_ifindex  
 */
 #define PHY_ETH_IF_DEF_REFCOUNT   3
 
@@ -62,20 +62,20 @@ class TransportService;
 #define NVE_IF_DEF_REFCOUNT 1
 
 /*
-  vrf->intf_by_name
-  vrf->intf_by_ifindex
+  node->intf_by_name
+  node->intf_by_ifindex  
 */
 #define GRE_IF_REFCOUNT 2
 
 /*
-  vrf->intf_by_name
-  vrf->intf_by_ifindex
+  node->intf_by_name
+  node->intf_by_ifindex    
 */
 #define VPORT_IF_REFCOUNT 2
 
 /*
-  vrf->intf_by_name
-  vrf->intf_by_ifindex
+  node->intf_by_name
+  node->intf_by_ifindex    
 */
 #define LOOPBACK_IF_REFCOUNT  2
 
@@ -159,7 +159,7 @@ class Interface {
         virtual bool IntfConfigVlan(vlan_id_t vlan_id, bool add);
         virtual void SetSwitchport(bool enable);      
         virtual bool GetSwitchport(); 
-        virtual bool HasL3Config(); 
+        virtual bool HasL3Config(bool matchvrf); 
         virtual IntfL2Mode GetL2Mode ();
         virtual void SetL2Mode (IntfL2Mode l2_mode);
         virtual bool IsSameSubnet (uint32_t ip_addr);
@@ -220,7 +220,7 @@ class PhysicalInterface : public Interface {
         virtual void SetSwitchport(bool enable) final;
         virtual bool IsCrossReferenced() final;
         virtual bool GetSwitchport() final;
-        virtual bool HasL3Config() final; 
+        virtual bool HasL3Config(bool matchvrf) final; 
         virtual IntfL2Mode GetL2Mode () final;
         virtual void SetL2Mode (IntfL2Mode l2_mode) final;
         virtual void PrintInterfaceDetails ();

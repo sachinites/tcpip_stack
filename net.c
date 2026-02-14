@@ -158,43 +158,20 @@ void dump_node_nw_props(node_t *node){
 static void
 dump_node_vrf_interfaces(node_t *node) {
 
-    int i;
-    vrf_t *vrf = NULL;
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-
-    /* First, dump default VRF interfaces */
-    if (def_vrf) {
-        
-        if (def_vrf->intf_by_name && !def_vrf->intf_by_name->empty()) {
-            for (auto& pair : *def_vrf->intf_by_name) {
-                Interface *intf = pair.second.get();
-                if (intf) {
-                    dump_intf_props(intf);
-                }
-            }
-        }
-
-        /* Special interfaces belong to default VRF */
-        dump_intf_props(NODE_RMAC_INTF(node).get());
-        dump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
-        if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
-    }
-
-    /* Now dump non-default VRFs and their interfaces */
-    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
-        
-        vrf = node->vrf[i];
-        if (!vrf) continue;
-        
-        if (vrf->intf_by_name && !vrf->intf_by_name->empty()) {
-            for (auto& pair : *vrf->intf_by_name) {
-                Interface *intf = pair.second.get();
-                if (intf) {
-                    dump_intf_props(intf);
-                }
+    /* Dump all interfaces from global interface map */
+    if (node->intf_by_name && !node->intf_by_name->empty()) {
+        for (auto& pair : *node->intf_by_name) {
+            Interface *intf = pair.second.get();
+            if (intf) {
+                dump_intf_props(intf);
             }
         }
     }
+
+    /* Dump special interfaces */
+    dump_intf_props(NODE_RMAC_INTF(node).get());
+    dump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
+    if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
 }
 
 void 

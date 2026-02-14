@@ -144,7 +144,7 @@ bool vrf_add_interface(vrf_t *vrf, Interface* intf) {
     
     assert(!intf->vrf);
 
-    if (intf->HasL3Config()) {
+    if (intf->HasL3Config(true)) {
         cprintf ("Error : Interface already has L3 Config, Not Eligible for vrf Config\n");
         return false;
     }
@@ -162,12 +162,14 @@ bool vrf_del_interface(vrf_t *vrf, Interface *intf) {
     
     if (!intf->vrf) return false;
 
-    if (intf->HasL3Config()) {
+    if (intf->HasL3Config(false)) {
+
         cprintf ("Error : Interface not eligible for vrf deletion, Remove L3 config first\n");
         return false;
     }
 
     const char *ifname = intf->if_name.c_str();
+    
     if (vrf_interface_delete_by_name(vrf, ifname)) {
         intf->vrf = NULL;
         return true;
@@ -206,22 +208,6 @@ node_register_vrf(node_t *node, vrf_t *vrf) {
     }
 
     return true;
-
-#if 0
-    /* initialize all RTMs and FIBs now*/
-    if (i != MAX_VRF_PER_NODE) {
-
-        /* Initialize pointers to NULL */
-        vrf->node       = node;
-        vrf->inet0      = rtm_initialize (node, vrf->vrf_id, AF_IPV4, 0);
-        vrf->fib_inet0  = fib_init(node, AF_IPV4, vrf->vrf_id);
-        vrf->inet6      = rtm_initialize (node, vrf->vrf_id, AF_IPV6, 0);
-        vrf->fib_inet6  = fib_init(node, AF_IPV6, vrf->vrf_id);
-        return true;
-    }
-#endif 
-
-    return false;
 }
 
 char* vrf_name (node_t *node, uint8_t vrf_id) {

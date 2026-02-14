@@ -189,15 +189,15 @@ vrf_config_handler (int cmdcode,
 
             vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
-            if (vrf) {
-                cprintf("Error : VRF already exists\n");
-                return -1;
-            }
-
             switch (enable_or_disable)
             {
                 case CONFIG_ENABLE:
                 {
+                    if (vrf)
+                    {
+                        cprintf("Error : VRF already exists\n");
+                        return -1;
+                    }
                     vrf_t *vrf = (vrf_t *)XCALLOC2(0, 1, vrf_t);
                     vrf = vrf_init(node, node_get_sequence_no(node), (char *)vrf_name, vrf);
                     strncpy(temp_str, (const char *)rte_dist, sizeof(temp_str) - 1);
@@ -221,7 +221,7 @@ vrf_config_handler (int cmdcode,
                 break;
                 case CONFIG_DISABLE:
                 {
-
+                    
                 }
                 break;
             }
