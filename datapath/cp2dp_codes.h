@@ -1,0 +1,11 @@
+#ifndef __CP2DP_CODES__
+#define __CP2DP_CODES__
+
+#define CP2DP_CODE_INTF_MGMT 1
+#define CP2DP_CODE_MAC_TBL_MGMT 2
+#define CP2DP_CODE_RT_TBL_MGMT 3
+#define CP2DP_CODE_ARP_TBL_MGMT 4
+
+
+#endif 
+

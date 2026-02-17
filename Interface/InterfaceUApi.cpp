@@ -652,7 +652,7 @@ node_global_intf_map_insert(node_t *node, Interface *intf) {
     return true;
 }
 
-bool 
+bool
 node_global_intf_map_delete_by_name(node_t *node, const char *ifname) {
     
     if (!node || !ifname) return false;

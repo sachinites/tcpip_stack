@@ -257,6 +257,8 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->is_up = true;
     if (!LinuxRtr) this->ifindex = get_new_ifindex();
     this->cost = INTF_METRIC_DEFAULT;
+    
+    memset(this->padding3, 0, sizeof(padding3));
 
     this->rtm_local_rt_idx = 0;
     this->rtm_connected_rt_idx = 0;
@@ -283,6 +285,22 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 Interface::~Interface()
 {
     InterfaceReleaseAllResources();
+
+    /* All routes must have uninstalled when interface was removed from 
+        vrf */
+    assert (!rtm_local_rt_idx);
+    assert (!rtm_connected_rt_idx);
+    assert (!rtm_local_rt6_idx);
+    assert (!rtm_connected_rt6_idx);
+    assert (!rtm_link_local_rt6_idx);
+    
+    assert (!l2_ingress_acc_lst);
+    assert (!l2_egress_acc_lst);
+    assert (!l3_ingress_acc_lst2);
+    assert (!l3_egress_acc_lst2);
+    assert (!isis_intf_info);
+    assert (!vrf);
+
     cprintf ("%s : Interface %s deleted\n", 
         this->att_node->node_name, this->if_name.c_str());
 }
@@ -325,7 +343,7 @@ void Interface::PrintInterfaceDetails()
     cprintf("L3 access Lists : Ingress - %s, Egress - %s\n",
            this->l3_ingress_acc_lst2 ? (const char *)this->l3_ingress_acc_lst2->name : "None",
            this->l3_egress_acc_lst2 ? (const char *)this->l3_egress_acc_lst2->name : "None");
-#endif 
+#endif
 
     if (this->isis_intf_info)
     {
@@ -488,33 +506,6 @@ Interface::InterfaceReleaseAllResources() {
 
     if (this->l3_egress_acc_lst2) {
         access_group_unconfig (this->att_node, this, "out", this->l3_egress_acc_lst2);
-    }
-
-    rtm_t *rtm = rtm_get (this->att_node, DEFAULT_VRF, AF_IPV6, 0);
-    
-    if (rtm_local_rt_idx) {
-        cp_rtm_uninstall_route_by_idx (rtm, rtm_local_rt_idx);
-        rtm_local_rt_idx = 0;
-    }
-
-    if (rtm_connected_rt_idx) {
-        cp_rtm_uninstall_route_by_idx (rtm, rtm_connected_rt_idx);
-        rtm_connected_rt_idx = 0;
-    }
-
-    if (rtm_local_rt6_idx) {
-        cp_rtm_uninstall_route_by_idx (rtm, rtm_local_rt6_idx);
-        rtm_local_rt6_idx = 0;
-    }
-
-    if (rtm_connected_rt6_idx) {
-        cp_rtm_uninstall_route_by_idx (rtm, rtm_connected_rt6_idx);
-        rtm_connected_rt6_idx = 0;
-    }
-
-    if (rtm_link_local_rt6_idx) {
-        cp_rtm_uninstall_route_by_idx (rtm, rtm_link_local_rt6_idx);
-        rtm_link_local_rt6_idx = 0;        
     }
 
     /* This is configuration, this fn call must not see it set*/
@@ -1174,7 +1165,8 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
     this->lcl_ip = 0;
     this->mask = 0;
     this->virtual_port_intf = nullptr;
-     this->tunnel_src_intf = nullptr;
+    this->tunnel_src_intf = nullptr;
+    memset(this->padding, 0, sizeof(padding));
 }
 
 GRETunnelInterface::~GRETunnelInterface() {

@@ -1,0 +1,50 @@
+#ifndef __DP_INTF__
+#define __DP_INTF__
+
+#include <stdint.h>
+#include "intf_cons.h"
+#include "../../common/cmn_struct.h"
+
+typedef struct pkt_block_ pkt_block_t;
+typedef struct dp_vrf_ dp_vrf_t;
+
+#pragma pack(push, 8)
+
+typedef struct dp_intf_ {
+
+    /* Identifiers */
+    uint32_t port_id;
+    DP_InterfaceType_t if_type;
+    char intf_name[DP_INTF_NAME];
+
+    /* Stats */
+    uint32_t pkt_recv;
+    uint32_t pkt_sent;
+    uint32_t xmit_pkt_dropped;
+    uint32_t recvd_pkt_dropped;
+
+    /* L3 properties */
+    dp_vrf_t *vrf;
+    uint8_t v6addr_link_local[16];
+    uint8_t v6addr[16];
+    uint8_t v6mask;
+    uint32_t ip_addr;
+    uint8_t mask;
+
+    /* L2 Properties */
+    mac_addr_t mac_add;
+    bool switchport;
+    struct dp_intf_ *vlan_intf;
+    uint16_t vlan_id;
+    uint32_t vni_id;
+    DP_IntfL2Mode l2_mode;
+
+    /* Physical Properties */
+    bool is_up;
+    void (*send_pkt_out)(pkt_block_t *);
+
+}dp_intf_t;
+
+#pragma pack(pop)
+
+#endif 
