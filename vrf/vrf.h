@@ -47,11 +47,7 @@ typedef struct vrf_ {
     rtm_t *inet3;   // ipv4-> MPLS Service RIB
     rtm_t *inet63;  // ipv6 -> MPLS service RIB
     rtm_t *inet6;   // ipv6 Rib
-
-    /* inet6.0 FIB*/
-    fib_t *fib_inet0;
-    /* inet6.0 FIB*/
-    fib_t *fib_inet6;    
+  
     /* Interfaces in this VRF - hashmap keyed by interface name*/
     std::unordered_map<std::string, InterfaceP> *intf_by_name;
     /* Interfaces in this VRF - hashmap keyed by interface index*/
@@ -75,7 +71,6 @@ typedef struct def_vrf_ {
 
     vrf_t vrf;
     rtm_t *mpls0;
-    fib_t *mpls_fib;
     rtm_t *l3vpnv4;
     rtm_t *l3vpnv6;
 

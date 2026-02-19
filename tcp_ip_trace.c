@@ -1593,5 +1593,9 @@ debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) {
         strcat (buffer, "DERR ");
         rc += 5;
     }
+    if (bits & DCONF) {
+        strcat (buffer, "DCONF ");
+        rc += 6;
+    }
     return rc;
 }

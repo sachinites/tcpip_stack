@@ -9,6 +9,7 @@
 #include "../../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
 #include "../../../../FIB/fib_nh.h"
+#include "../../../../FIB/fib.h"
 
 #define drop_packet return;
 
@@ -34,7 +35,7 @@ srv6_get_flavor (node_t *node, uint8_t (*dst_addr)[16], fib_nh_t **nexthop) {
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v6(&prefix, dst_addr, 128);
     *nexthop = fib_get_forwarding_nh(
-        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6), &prefix);
+        fib_get (node, AF_IPV6, 0), &prefix);
 
     if (!nexthop) {
         return 0;
@@ -68,7 +69,7 @@ srv6_ipv6_forward (node_t *node, pkt_block_t *pkt_block, fib_nh_t *nexthop) {
     cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
 
     fib_nh_t *nh = fib_get_forwarding_nh(
-        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6), &prefix);
+        fib_get(node, AF_IPV6, 0), &prefix);
 
     if(!nh){
         tracer(node->dptr, DL3FWD | DERR, 

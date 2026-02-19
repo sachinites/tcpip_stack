@@ -53,6 +53,10 @@
 
 extern bool LinuxRtr;
 
+extern void 
+dp_simulate_wire_connection (node_t *node1, Interface *intf1, 
+                             node_t *node2, Interface *intf2);
+
 void
 insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
@@ -74,42 +78,25 @@ insert_link_between_two_nodes(node_t *node1,
 
     /*Plugin interface ends into Node*/
     link->Intf1->ifindex = node_get_sequence_no(node1);
-    vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
     node_global_intf_map_insert(node1, link->Intf1.get());
 
     link->Intf2->ifindex = node_get_sequence_no(node2);
-    vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
     node_global_intf_map_insert(node2, link->Intf2.get());
 
     /*Now Assign Random generated Mac address to the Interfaces*/
     interface_assign_mac_address(link->Intf1.get());
     interface_assign_mac_address(link->Intf2.get());
 
-#if 0
-    /* Generate ipv6 link local address */
-    mac_addr_t *mac_addr = link->Intf1->GetMacAddr();
-    //link->Intf1->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
-    
-    /* Install link local as local/connected route using RTM API */
-    //ipv6_addr_t v6_addr = {0};
-    //link->Intf1->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-    
-    //rtm_t *rtm = rtm_get(node1, RTM_DEFAULT_VRF, AF_IPV6, 0);
-    
-    //link->Intf1->rtm_link_local_rt6_idx = 
-    //    cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf1);
-
-    //mac_addr = link->Intf2->GetMacAddr();
-    //link->Intf2->InterfaceSetIpv6LinkLocalAddress(&mac_addr->mac);
-    //link->Intf2->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
-    
-    //rtm = rtm_get(node2, RTM_DEFAULT_VRF, AF_IPV6, 0);
-    //link->Intf2->rtm_link_local_rt6_idx = 
-    //    cp_rtm_install_local_or_connected_v6_routes(rtm, &v6_addr, 128, link->Intf2);
-
-#endif
     tcp_ip_init_intf_log_info(link->Intf1.get());
     tcp_ip_init_intf_log_info(link->Intf2.get());
+
+    /* Data path Updates*/
+    cp2dp_interface_create(node1, link->Intf1.get());
+    cp2dp_interface_create(node2, link->Intf2.get());
+    dp_simulate_wire_connection (node1, link->Intf1.get(), node2, link->Intf2.get());
+
+    vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
+    vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
 }
 
 graph_t *
@@ -125,8 +112,6 @@ create_new_graph (const char *topology_name){
 
 extern void tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
 extern void node_init_udp_socket(node_t *node);
-extern void dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
-extern void  dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size);
 extern struct hashtable *object_network_create_new_ht() ;
 extern struct hashtable *object_group_create_new_ht() ;
 extern void init_nfc_layer2_proto_reg_db2(node_t *node);
@@ -134,6 +119,8 @@ extern int debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) ;
 extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
+void dp_init (node_t *node);
+
 
 node_t *
 create_graph_node(graph_t *graph, const c_string node_name){
@@ -151,17 +138,14 @@ create_graph_node(graph_t *graph, const c_string node_name){
 
     tcp_ip_init_node_log_info(node);
 
+    /* Initialize the Data path before control plane*/
+    dp_init(node);
+
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp.txt", node->node_name);
     node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->cptr, true);
-
-    /* Initialize Data Plane Tracers*/
-    memset(file_name, 0, sizeof(file_name));
-    sprintf(file_name, "logs/%s-dp.txt", node->node_name);
-    node->dptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
-    tracer_enable_file_logging (node->dptr, true);
 
     init_node_nw_prop(node, &node->node_nw_prop);
 
@@ -199,14 +183,6 @@ create_graph_node(graph_t *graph, const c_string node_name){
     event_dispatcher_run(&node->ev_dis, false);
     node->ev_dis.app_data = (void *)node;
 
-    /* Start Data Path Thread/Scheduler */
-    snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", node_name);
-    event_dispatcher_init(&node->dp_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->dp_ev_dis, LinuxRtr ? true : false);  /* Pin DP thread to high-perf core */
-    node->dp_ev_dis.app_data = (void *)node;
-    init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
-    init_pkt_q(&node->dp_ev_dis, &node->cp_to_dp_xmit_intf_pkt_q, dp_pkt_xmit_intf_job_cbk);
-
     /* Start Object purger Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "Purger-%s", node_name);
     event_dispatcher_init(&node->purger_ev_dis, (const char *)ev_dis_name);
@@ -218,26 +194,22 @@ create_graph_node(graph_t *graph, const c_string node_name){
     wt_set_user_data(node->cp_wt, EV(node));
     start_wheel_timer(node->cp_wt);
 
-    /* Start DP Timer */
-    node->dp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
-    wt_set_user_data(node->dp_wt, EV_DP(node));
-    start_wheel_timer(node->dp_wt);
-
     /* Start IPC Message Queue of Control Plane*/
     init_pkt_q (&node->ev_dis, &node->cp_ipc_q, ipc_event_signal);
-    /* Start IPC Message Queue of Data  Plane*/
-    init_pkt_q (&node->dp_ev_dis, &node->dp_ipc_q, 0);
 
     pkt_tracer_init (&node->pkt_tracer);
     //node_config_db_init (node);
 
     /* Turn on Default Logging */
+    #if 0
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
     tracer_log_bit_set(node->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
     tracer_log_bit_set(node->dptr,  DERR);
-    tracer_log_bit_set(node->cptr,  DALWAYS_FLUSH);     
-    tracer_log_bit_set(node->dptr,  DALWAYS_FLUSH);     
+    tracer_log_bit_set(node->cptr,  DALWAYS_FLUSH);    
+    #endif 
+    tracer_log_bit_set(node->dptr,  DALWAYS_FLUSH); 
+    tracer_log_bit_set(node->dptr, DCONF);
     
     node->sequence_gen = 1;
     glthread_add_next(&graph->node_list, &node->graph_glue);

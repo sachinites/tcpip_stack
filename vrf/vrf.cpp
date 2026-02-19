@@ -9,6 +9,7 @@
 #include "../FIB/fib.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../net.h"
+#include "../common/cp2dp.h"
 
 /* Initialize Default VRF */
 def_vrf_t* vrf_def_init(node_t *node) {
@@ -19,9 +20,6 @@ def_vrf_t* vrf_def_init(node_t *node) {
     vrf_init (node, RTM_DEFAULT_VRF, DEF_VRF_NAME, &def_vrf->vrf);
     
     def_vrf->mpls0       = rtm_initialize(node, RTM_DEFAULT_VRF, AF_LABEL, 0);   // mpls.0
-    /* Initialize all FIBs */
-    def_vrf->mpls_fib      = fib_init(node, AF_LABEL, RTM_DEFAULT_VRF);
-
     def_vrf->l3vpnv4     = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV4, 128);  // bgp.l3vpn.0 (v4)
     def_vrf->l3vpnv6     = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV6, 128);  // bgp.l3vpn.0 (v6)
     
@@ -43,10 +41,6 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     vrf->inet3   = rtm_initialize(node, vrf_id, AF_IPV4, 3); 
     vrf->inet63 = rtm_initialize(node, vrf_id, AF_IPV6, 3); 
     vrf->inet6   = rtm_initialize(node, vrf_id, AF_IPV6, 0); 
-
-    /* Initialize FIBs*/
-    vrf->fib_inet0 =  fib_init(node, AF_IPV4, vrf_id);
-    vrf->fib_inet6 =  fib_init(node, AF_IPV6, vrf_id);
 
     /* Initialize interface hashmaps */
     vrf->intf_by_name = new std::unordered_map<std::string, InterfaceP>();
@@ -102,12 +96,6 @@ void vrf_delete(vrf_t* vrf, bool _free) {
     rtm_check_and_delete (vrf->inet6, true);
     vrf->inet6 = NULL;
 
-    fib_destroy(vrf->fib_inet0);
-    vrf->fib_inet0 = NULL;
-
-    fib_destroy(vrf->fib_inet6);
-    vrf->fib_inet6 = NULL;
-
     /* Remove interfaces from VRF */
     if (vrf->intf_by_name) {
         delete vrf->intf_by_name;
@@ -151,6 +139,7 @@ bool vrf_add_interface(vrf_t *vrf, Interface* intf) {
 
     if (vrf_interface_insert(vrf, intf)) {
         intf->vrf = vrf;
+        cp2dp_vrf_add_interface(vrf->node, vrf->vrf_id, intf->ifindex);
         return true;
     }
 
@@ -169,9 +158,11 @@ bool vrf_del_interface(vrf_t *vrf, Interface *intf) {
     }
 
     const char *ifname = intf->if_name.c_str();
-    
+    uint32_t ifindex = intf->ifindex;
+
     if (vrf_interface_delete_by_name(vrf, ifname)) {
         intf->vrf = NULL;
+        cp2dp_vrf_delete_interface(vrf->node, vrf->vrf_id, ifindex);
         return true;
     }
 

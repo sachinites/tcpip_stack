@@ -59,6 +59,7 @@
 #include "../Tracer/tracer.h"
 #include "ipv6/ipv6_route.h"
 #include "../FIB/fib_nh.h"
+#include "../FIB/fib.h"
 
 extern graph_t *topo;
 
@@ -215,7 +216,7 @@ layer3_ip_route_pkt(node_t *node,
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v4(&prefix, htonl(ip_hdr->dst_ip), 32);
     fib_nh_t *nh = fib_get_forwarding_nh(
-        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0), &prefix);
+        fib_get (node, AF_IPV4, 0), &prefix);
     if(!nh){
         tracer (node->dptr, DL3FWD | DERR, 
             "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));
@@ -796,7 +797,7 @@ void demote_packet_to_layer3(node_t *node,
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v4(&prefix, htonl(iphdr.dst_ip), 32);
     fib_nh_t *nh = fib_get_forwarding_nh(
-            NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0), &prefix);
+            fib_get (node, AF_IPV4, 0), &prefix);
     if(!nh){
         tracer (node->dptr, DL3FWD | DERR, 
             "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));

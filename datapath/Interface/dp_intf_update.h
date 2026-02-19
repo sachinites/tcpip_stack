@@ -48,15 +48,20 @@ typedef struct dp_intf_vrf_bind_ {
     
 } dp_intf_vrf_bind_t;
 
-typedef struct dp_intf_cp2dp_update_msg_ {
+typedef struct dp_intf_cp2dp_msg_ {
 
     uint32_t port_id;  // key
+    uint32_t iftype;
+    uint8_t  mac_addr[6];
+    char intf_name[IF_NAME_SIZE];
     uint16_t update_code;
-    uint8_t data[DP_INTF_UPDATE_MSG_LEN];
 
-} dp_intf_cp2dp_update_msg_t;
+} dp_intf_cp2dp_msg_t;
 
 
 #pragma pack(pop)
+
+void 
+dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg);
 
 #endif 

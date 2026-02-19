@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include "../lmm_enums.h"
 #include "../common/mpls_lstack.h"
+#include "../datapath/Vrfs/dp_vrf.h"
 #include "fib.h"
 #include "../pkt_block.h"
 #include "../mtrie/mtrie.h"
@@ -118,26 +119,7 @@ fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
 
     fib_t *fib;
 
-    if (vrf_id == DEFAULT_VRF)
-    {
-        switch (afi)
-        {
-        case AF_IPV4:
-            fib = NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0);
-            break;
-        case AF_IPV6:
-            fib = NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6);
-            break;
-        case AF_LABEL:
-            fib = NODE_DEF_VRF_MEMBER(node, mpls_fib);
-            break;
-        default:
-            return NULL;
-        }
-        return;
-    }
-
-    vrf_t *vrf = vrf_get_by_id (node, vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf (node->dp_vrf_ht, vrf_id);
 
     switch (afi)
     {
@@ -147,6 +129,8 @@ fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
     case AF_IPV6:
         fib = vrf->fib_inet6;
         break;
+    case AF_MPLS:
+        fib = vrf->mpls_fib;
     default:
         return NULL;
     }

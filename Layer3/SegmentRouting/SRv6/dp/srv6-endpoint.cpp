@@ -27,6 +27,7 @@
 #include "../../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
 #include "../../../../FIB/fib_nh.h"
+#include "../../../../FIB/fib.h"
 
 /* ============================================================================
  * External Function Declarations
@@ -730,7 +731,7 @@ Srv6_apply_penultimate_processing(
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
     fib_nh_t *nexthop = fib_get_forwarding_nh(
-        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6), &prefix);
+        fib_get(node, AF_IPV6, 0), &prefix);
 
     if (!nexthop) {
         /* No route found - drop the packet */

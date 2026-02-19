@@ -10,6 +10,7 @@
 #include "../../Tracer/tracer.h"
 #include "../../Layer2/layer2.h"
 #include "../../FIB/fib_nh.h"
+#include "../../FIB/fib.h"
 
 extern void
 demote_pkt_to_layer2(node_t *node,
@@ -130,7 +131,8 @@ void layer3_ipv6_route_pkt(node_t *node,
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
     fib_nh_t *nh = fib_get_forwarding_nh(
-        NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6), &prefix);
+        fib_get (node, AF_IPV6, 0), &prefix);
+
     if(!nh){
         tracer (node->dptr, DL3FWD | DERR, 
             "Pkt : %s :  Pkt Dropped :  No L3 Route\n", pkt_block_str(pkt_block));

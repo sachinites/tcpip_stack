@@ -26,6 +26,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			-L../RDBMSImplementation/SqlParser -lsqlapi \
 			-L../RDBMSImplementation/SqlParser -ldbms \
 			-L../MathExpressionParser -lMexpr \
+			-Ldatapath -ldp \
 			-LRTM -lrtm \
 			-LFIB -lfib \
 			-lpthread \
@@ -94,6 +95,7 @@ OBJS=gluethread/glthread.o \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
+		  Interface/Interface_cp2dp.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  common/cmn_prefix.o \
@@ -153,7 +155,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a FIB/libfib.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a FIB/libfib.a datapath/libdp.a
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -295,6 +297,9 @@ Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
 Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
 	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
 
+Interface/Interface_cp2dp.o:Interface/Interface_cp2dp.cpp
+	${CC} ${CFLAGS} -c Interface/Interface_cp2dp.cpp -o Interface/Interface_cp2dp.o
+
 vrf/vrf_cli.o:vrf/vrf_cli.cpp
 	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 
 vrf/vrf.o:vrf/vrf.cpp
@@ -343,6 +348,8 @@ RTM/librtm.a:
 	(cd RTM; make)
 FIB/libfib.a:
 	(cd FIB; make)
+datapath/libdp.a:
+	(cd datapath; make)
 
 clean:
 	rm -f *.o
@@ -394,3 +401,4 @@ cleanall:
 	(cd FireWall; make clean)
 	(cd RTM; make clean)
 	(cd FIB; make clean)
+	(cd datapath; make clean)

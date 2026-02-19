@@ -11,7 +11,7 @@
 #include "vrf.h"
 #include "../RTM/rtm_priv_api.h"
 #include "../RTM/rtm_nb_integ.h"
-
+#include "../common/cp2dp.h"
 
 #define CMD_CODE_CONFIG_VRF_RD          1
 #define CMD_CODE_CONFIG_VRF_IMPORT_RT   2
@@ -214,14 +214,14 @@ vrf_config_handler (int cmdcode,
                         vrf_delete(vrf, true);
                         return -1;
                     }
-
+                    cp2dp_vrf_create(node, (char *)vrf_name, vrf->vrf_id);
                     rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
                     rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
                 }
                 break;
                 case CONFIG_DISABLE:
                 {
-                    
+                    //cp2dp_vrf_delete(node, vrf->vrf_id);
                 }
                 break;
             }

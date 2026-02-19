@@ -24,6 +24,27 @@ enum InterfaceType_t {
 };
 
 
+static inline const char *
+intf_type_str (InterfaceType_t iftype) {
+    
+    switch (iftype) {
+        case INTF_TYPE_PHY: return "Physical";
+        case INTF_TYPE_VLAN: return "VLAN";
+        case INTF_TYPE_GRE_TUNNEL: return "GRE";
+        case INTF_TYPE_LOOPBACK: return "Loopback";
+        case INTF_TYPE_VIRTUAL_PORT: return "Virtual";
+        case INTF_TYPE_RMAC: return "RMAC";
+        case INTF_TYPE_VLAN_FLOOD: return "VLAN-Flood";
+        case INTF_TYPE_NVE: return "NVE";
+        case INTF_TYPE_SRv6: return "SRv6";
+        case INTF_TYPE_HOST_PATH: return "HostPath";
+        case INTF_TYPE_UNKNOWN: return "Unknown";
+        default: return "Invalid";
+    }
+}
+
+
+
 #define INTF_MAX_VLAN_MEMBERSHIP 10
 
 /* Interface Change Flags, used for Notification to 

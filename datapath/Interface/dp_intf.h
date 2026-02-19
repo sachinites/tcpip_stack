@@ -7,6 +7,7 @@
 
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_vrf_ dp_vrf_t;
+typedef struct node_ node_t;
 
 #pragma pack(push, 8)
 
@@ -15,7 +16,7 @@ typedef struct dp_intf_ {
     /* Identifiers */
     uint32_t port_id;
     DP_InterfaceType_t if_type;
-    char intf_name[DP_INTF_NAME];
+    char if_name[DP_INTF_NAME];
 
     /* Stats */
     uint32_t pkt_recv;
@@ -39,9 +40,15 @@ typedef struct dp_intf_ {
     uint32_t vni_id;
     DP_IntfL2Mode l2_mode;
 
+    /* If it is a vlan interface, then array of member ports*/
+    struct dp_intf_ *mports[MAX_VLAN_MEMBER_PORTS];
+
     /* Physical Properties */
     bool is_up;
-    void (*send_pkt_out)(pkt_block_t *);
+
+    /* Wire connection Simulation */
+    node_t *att_node;
+    struct dp_intf_ *nbr_intf;
 
 }dp_intf_t;
 

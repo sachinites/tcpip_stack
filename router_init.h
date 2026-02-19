@@ -123,6 +123,10 @@ struct node_ {
     hashtable_t *object_network_ght;
      /* Object Group Hashtable */
     hashtable_t *object_group_ght;
+    /* DP hash table storage of interfacs*/
+    hashtable_t *dp_intf_ht;
+    /* DP hash table storage of VRFs*/
+    hashtable_t *dp_vrf_ht;    
     /* ACL/NAT/OBJECT-G Tracer */
     tracer_t *acl_cptr;
     /* VRFs*/

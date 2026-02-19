@@ -20,6 +20,11 @@
 #include "../FIB/fib.h"
 #include "../FIB/fib_route.h"
 #include "../FIB/fib_nh.h"
+#include "../datapath/Vrfs/dp_vrf.h"
+#include "../datapath/Interface/dp_intf.h"
+#include "../datapath/Interface/dp_intf_update.h"
+#include "../datapath/Interface/dp_intf_store.h"
+#include "../datapath/Interface/dp_intf_store.h"
 
 extern void
 np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
@@ -131,7 +136,6 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         
         case DP_CREATE:
         {
-            /* Select FIB based on nexthop address AFI */
             fib = fib_get (node, 
                     (AFI_T)fib_update_msg->target_fib_afi,
                      fib_update_msg->target_fib_vrf_id);
@@ -245,12 +249,65 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
     cp2dp_msg_free(dp_msg);
 }
 
+static void
+dp_vrf_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+    
+    assert(dp_msg->component_type == VRF_TABLE);
+
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+        {
+            dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
+            dp_create_vrf(node, node->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            break;
+        }
+        
+        case DP_DEL:
+        {
+            dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
+            dp_delete_vrf(node, node->dp_vrf_ht, vrf_msg->vrf_id);
+            break;
+        }
+        
+        case DP_UPDATE:
+        {
+            dp_vrf_intf_update_msg_t *msg = (dp_vrf_intf_update_msg_t *)dp_msg->data;
+            switch (msg->op_code) {
+
+                case DP_VRF_INTF_OP_ADD:
+                {
+                    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, msg->vrf_id);
+                    dp_intf_t *intf = dp_look_up_interface(node->dp_intf_ht, msg->ifindex);
+                    assert (intf && vrf);
+                    assert (!intf->vrf);
+                    intf->vrf = vrf;
+                }
+                break;
+                case DP_VRF_INTF_OP_DEL:
+                {
+                    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, msg->vrf_id);
+                    dp_intf_t *intf = dp_look_up_interface(node->dp_intf_ht, msg->ifindex);
+                    assert(intf && vrf);
+                    assert(intf->vrf && (intf->vrf == vrf));
+                    intf->vrf = NULL;
+                }   
+                break;
+            }
+        }
+        break;
+        case DP_READ:
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
 static void 
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     // This function is the task handler for the task submitted to the Data Path (DP)
-    // The task handler is called when the task is executed by the DP's event dispatcher
-    // The task handler is called with the task data as arg
 
     dp_msg_t *dp_msg = (dp_msg_t *)arg;
     node_t *node = (node_t *)ev_dis->app_data;
@@ -265,6 +322,12 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
             break;
         case FIB_TABLE:
             dp_fib_table_process_msg (node, dp_msg);
+            break;
+        case VRF_TABLE:
+            dp_vrf_table_process_msg (node, dp_msg);
+            break;
+        case INTF_TABLE:
+            dp_intf_table_process_msg(node, dp_msg);
             break;
         default:
             break;
@@ -525,3 +588,100 @@ cp2dp_fib_update (
     /* Submit to data plane */
     cp2dp_submit(node, dp_msg, true);
 }
+
+void 
+cp2dp_vrf_create (node_t *node, char *vrf_name, uint8_t vrf_id) {
+
+    dp_msg_t *dp_msg;
+    dp_vrf_create_msg_t *vrf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = VRF_TABLE;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_vrf_create_msg_t);
+    
+    vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
+    vrf_msg->vrf_id = vrf_id;
+    strncpy(vrf_msg->vrf_name, vrf_name, sizeof(vrf_msg->vrf_name) - 1);
+    vrf_msg->vrf_name[sizeof(vrf_msg->vrf_name) - 1] = '\0';
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_vrf_delete (node_t *node, uint8_t vrf_id) {
+
+    dp_msg_t *dp_msg;
+    dp_vrf_create_msg_t *vrf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = VRF_TABLE;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_vrf_create_msg_t);
+    
+    vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
+    vrf_msg->vrf_id = vrf_id;
+    vrf_msg->vrf_name[0] = '\0';
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_vrf_delete_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex) {
+
+    dp_msg_t *dp_msg;
+    dp_vrf_intf_update_msg_t *vrf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = VRF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_vrf_intf_update_msg_t);
+    
+    /* Fill in the header */
+    vrf_msg = (dp_vrf_intf_update_msg_t *)dp_msg->data;
+    vrf_msg->op_code = DP_VRF_INTF_OP_DEL;
+    vrf_msg->vrf_id = vrf_id;
+    vrf_msg->ifindex = ifindex;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_vrf_add_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex) {
+    
+    dp_msg_t *dp_msg;
+    dp_vrf_intf_update_msg_t *vrf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = VRF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_vrf_intf_update_msg_t);
+    
+    /* Fill in the header */
+    vrf_msg = (dp_vrf_intf_update_msg_t *)dp_msg->data;
+    vrf_msg->op_code = DP_VRF_INTF_OP_ADD;
+    vrf_msg->vrf_id = vrf_id;
+    vrf_msg->ifindex = ifindex;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+dp_simulate_wire_connection (node_t *node1, Interface *intf1, 
+                             node_t *node2, Interface *intf2) {
+
+    assert (intf1->iftype == INTF_TYPE_PHY);
+    assert (intf2->iftype == INTF_TYPE_PHY);
+
+    dp_intf_t *dp_intf1 = dp_look_up_interface(node1->dp_intf_ht, intf1->ifindex);
+    dp_intf_t *dp_intf2 = dp_look_up_interface(node2->dp_intf_ht, intf2->ifindex);
+
+    dp_intf1->att_node = node1;
+    dp_intf1->nbr_intf = dp_intf2;
+    dp_intf2->att_node = node2;
+    dp_intf2->nbr_intf = dp_intf1;
+} 

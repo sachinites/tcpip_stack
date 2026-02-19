@@ -43,11 +43,13 @@
 
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t;
+typedef struct dp_intf_ dp_intf_t;
 
 typedef struct ev_dis_pkt_data_{
 
     node_t *recv_node;
     InterfaceP recv_intf;
+    dp_intf_t *recv_dp_intf;
     byte *pkt;
     uint32_t pkt_size;
 }ev_dis_pkt_data_t;

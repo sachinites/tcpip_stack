@@ -78,6 +78,7 @@ extern void tcp_ip_build_debug_cli_tree (param_t *root);
 extern void ipv6_build_cli_tree (param_t *root);
 extern int isis_show_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+void dp_build_dp_show_cli_tree (param_t *node_name);
 
 extern int
 config_rtm_route_cli_handler(int cmdcode,
@@ -954,12 +955,12 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
             mtrie_longest_prefix_first_traverse(
-                    NODE_DEF_VRF_VRF_MEMBER(node, fib_inet0->u.lpm),
+                    fib_get(node, AF_IPV4, 0)->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
             mtrie_longest_prefix_first_traverse(
-                    NODE_DEF_VRF_VRF_MEMBER(node, fib_inet6->u.lpm),
+                    fib_get(node, AF_IPV6, 0)->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:
@@ -1267,6 +1268,9 @@ nw_init_cli(){
                     libcli_register_param(&node_name, &spf_result);
                     libcli_set_param_cmd_code(&spf_result, CMDCODE_SHOW_SPF_RESULTS);
                     #endif
+                 }
+                 {
+                    dp_build_dp_show_cli_tree (&node_name);
                  }
                  {
                     /*show node <node-name> arp*/

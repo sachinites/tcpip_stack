@@ -17,6 +17,7 @@ typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 #include "../RTM/rtm_fib_common.h"
 #include "../RTM/rtm_nh.h"
 #include "../FIB/fib_nh.h"
+#include "../datapath/Vrfs/dp_vrf.h"
 
 #define CP2DP_MSG_SIZE_MAX  512
 
@@ -110,7 +111,9 @@ typedef enum DP_COMPONENT_TYPE_ {
 
     MAC_TABLE,
     PKT_BLOCK,
-    FIB_TABLE
+    FIB_TABLE,
+    INTF_TABLE,
+    VRF_TABLE
 
 } DP_COMPONENT_TYPE_T;
 
@@ -194,5 +197,17 @@ cp2dp_fib_update (
                 uint32_t inh_idx,
                 rtm_nh_fwd_info_t *fwd_info,
                 FIB_OPN_T operation) ;
+
+void 
+cp2dp_vrf_create (node_t *node, char *vrf_name, uint8_t vrf_id);
+
+void 
+cp2dp_vrf_delete (node_t *node, uint8_t vrf_id);
+
+void 
+cp2dp_vrf_delete_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex);
+
+void 
+cp2dp_vrf_add_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex);
 
 #endif 

@@ -52,8 +52,6 @@
 
 typedef struct def_vrf_ def_vrf_t;
 
-extern void init_arp_table(arp_table_t **arp_table);
-extern void init_mac_table(mac_table_t **mac_table);
 extern void init_rt_table(node_t *node, rt_table_t **rt_table);
 extern void init_rtv6_table(node_t *node, rt_table_t **rt_table);
 extern void mpls_rt_table_init (node_t *node, mpls_rt_table_t **mpls_rt_table) ;
@@ -291,8 +289,6 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
     memset(node_nw_prop->rtr_id.ip_addr, 0, 16);
-    init_arp_table(&(node_nw_prop->arp_table));
-    init_mac_table(&(node_nw_prop->mac_table));
     node_nw_prop->vlan_vni_ht.store(nullptr);  /* Initialize atomic hashtable pointer */
     node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
     init_rt_table(node, &(node_nw_prop->rt_table));
@@ -300,6 +296,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     mpls_rt_table_init (node, &(node_nw_prop->mpls_rt_table));
     ipv4_mpls_rt_table_init (node, &(node_nw_prop->ipv4_mpls_rt_table));
     node_nw_prop->def_vrf = vrf_def_init(node);
+    cp2dp_vrf_create(node, DEF_VRF_NAME, RTM_DEFAULT_VRF);
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
     node_create_host_path_interface (node);
