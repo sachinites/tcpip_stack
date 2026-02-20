@@ -225,6 +225,6 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
 #define MAC_ENTRY_EXP_TIME   1800 /*Seconds*/
 #define DEFAULT_VRF 0
 #define DEF_VRF_NAME "Default-vrf"
-
+#define MAX_INTF_IFINDEX 1023 
 #endif /* __TCPCONST__ */
 

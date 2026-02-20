@@ -114,7 +114,7 @@ vlan_vni_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
     glthread_add_next(&vlan_vni_db->mappings, &mapping->glue);
 
     /* Add to hashtable atomically */
-    vlan_vni_ht_add_mapping(node, vlan_id, vni_id);
+    //vlan_vni_ht_add_mapping(node, vlan_id, vni_id);
     
     return true;
 }
@@ -132,7 +132,7 @@ vlan_vni_remove_mapping(node_t *node, vlan_id_t vlan_id) {
     XFREE(mapping);
     
     /* Remove from hashtable atomically */
-    vlan_vni_ht_remove_mapping(node, vlan_id);
+    //vlan_vni_ht_remove_mapping(node, vlan_id);
     
     return true;
 }

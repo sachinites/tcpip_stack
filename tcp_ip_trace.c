@@ -841,11 +841,16 @@ void tcp_ip_show_log_status(node_t *node){
     else 
         cprintf ("\t  DTIMER   :     OFF\n" );
 
-    if (tracer_is_bit_set (dptr, DALWAYS_FLUSH) || 
-            tracer_is_bit_set (cptr, DALWAYS_FLUSH)) 
+    if (tracer_get_always_flush_status (dptr) || 
+            tracer_get_always_flush_status (cptr))
         cprintf ("\t  DALWAYS_FLUSH: ON\n" );
     else 
         cprintf ("\t  DALWAYS_FLUSH: OFF\n" );
+
+    if (tracer_is_bit_set (dptr, DCONF))
+        cprintf ("\t  DCONF     :     ON\n" );
+    else 
+        cprintf ("\t  DCONF     :     OFF\n" );
 
     if (tracer_is_bit_set (dptr, DERR) || 
             tracer_is_bit_set (cptr, DERR)) 
@@ -1219,15 +1224,15 @@ variadic_sprintf (node_t *node, Interface *intf, const char *format, ...)
     va_end(args);
 }
 
-static int 
-tcp_ip_debug_handler (  int cmdcode, 
-                                        Stack_t *tlv_stack, 
-                                        op_mode enable_or_disable) {
+static int
+tcp_ip_debug_handler(int cmdcode,
+                     Stack_t *tlv_stack,
+                     op_mode enable_or_disable)
+{
 
-    
-   node_t *node;
-   c_string node_name;
-   tlv_struct_t *tlv = NULL;
+    node_t *node;
+    c_string node_name;
+    tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
         
@@ -1319,6 +1324,7 @@ tcp_ip_debug_handler (  int cmdcode,
         case DFIB_DET:
         case DMPLS:
         case DMPLS_DET:
+        case DCONF:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
 		        tracer_log_bit_set(node->dptr, cmdcode);
@@ -1474,6 +1480,13 @@ tcp_ip_build_debug_cli_tree (param_t *root) {
             init_param(&flush, CMD, "always-flush", tcp_ip_debug_handler, 0, INVALID, 0, "Set log file always-flush");
             libcli_register_param(&debug, &flush);
             libcli_set_param_cmd_code(&flush, DALWAYS_FLUSH);
+        }
+        {
+            /* config node <node-name> [no] debug datapath-conf*/
+            static param_t dp_conf;
+            init_param(&dp_conf, CMD, "datapath-conf", tcp_ip_debug_handler, 0, INVALID, 0, "Enable Data-path Configuration Log");
+            libcli_register_param(&debug, &dp_conf);
+            libcli_set_param_cmd_code(&dp_conf, DCONF);
         }
 
         {

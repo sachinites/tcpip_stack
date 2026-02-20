@@ -3,7 +3,6 @@
 
 #include "InterfacEnums.h"
 #include "Interface.h"
-#include "Interface_cp2dp.h"
 #include "../utils.h"
 #include "../CLIBuilder/libcli.h"
 #include "InterfaceFwd.h"

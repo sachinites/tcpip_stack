@@ -78,6 +78,23 @@ interface_assign_mac_address (Interface *interface){
     interface->SetMacAddr(&mac_addr);
 }
 
+uint16_t
+interface_get_new_ifindex (node_t *node) {
+
+    uint16_t ifindex = bitmap_get_unset_bit(&node->if_index_bm);
+    assert (ifindex != UINT16_MAX);
+    bitmap_set_bit_at(&node->if_index_bm, ifindex);
+    return ifindex;
+};
+
+void 
+interface_release_index(node_t *node, uint16_t ifindex) {
+
+    assert (ifindex);
+    assert (bitmap_at (&node->if_index_bm, ifindex));
+    bitmap_unset_bit_at(&node->if_index_bm, ifindex);
+}
+
 void 
 node_assign_router_mac (node_t *node) {
 
@@ -91,6 +108,7 @@ node_assign_router_mac (node_t *node) {
     node->node_nw_prop.rmac_interface->SetSharedPtr(
                 node->node_nw_prop.rmac_interface);
     node->node_nw_prop.rmac_interface->att_node = node;
+    node->node_nw_prop.rmac_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.rmac_interface->vrf = NODE_DEF_VRF(node);
 }
 
@@ -102,6 +120,7 @@ node_create_vlan_flood_interface(node_t *node) {
     node->node_nw_prop.vlan_flood_interface->SetSharedPtr(
                 node->node_nw_prop.vlan_flood_interface);
     node->node_nw_prop.vlan_flood_interface->att_node = node;
+    node->node_nw_prop.vlan_flood_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
 }
 
@@ -113,6 +132,7 @@ node_create_host_path_interface (node_t *node) {
     node->node_nw_prop.host_path_interface->SetSharedPtr(
                 node->node_nw_prop.host_path_interface);
     node->node_nw_prop.host_path_interface->att_node = node;
+    node->node_nw_prop.host_path_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.host_path_interface->vrf = NODE_DEF_VRF(node);
 }
 
@@ -289,7 +309,6 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
 
     node_nw_prop->flags = 0;
     memset(node_nw_prop->rtr_id.ip_addr, 0, 16);
-    node_nw_prop->vlan_vni_ht.store(nullptr);  /* Initialize atomic hashtable pointer */
     node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
     init_rt_table(node, &(node_nw_prop->rt_table));
     init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
@@ -303,6 +322,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->srv6_end_interface = std::make_shared<SRv6EndPointENDInterface>();
     node_nw_prop->srv6_end_interface->SetSharedPtr(node_nw_prop->srv6_end_interface);
     node_nw_prop->srv6_end_interface->att_node - node;
+    node_nw_prop->srv6_end_interface->ifindex = interface_get_new_ifindex(node);
     node_nw_prop->srv6_end_interface->vrf = NODE_DEF_VRF(node);
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
@@ -311,3 +331,4 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     srv6_pool_init_srv6_pools (&node_nw_prop->srv6_sid_pools);
     lfa_init(node, &node_nw_prop->lfa);
 }
+

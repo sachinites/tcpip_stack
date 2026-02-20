@@ -46,6 +46,9 @@ typedef struct dp_ctx_ {
     /* DP hash table storage of VRFs*/
     hashtable_t *dp_vrf_ht;    
 
+    /* Vlan-VNI mapping DP hash table*/
+    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht; 
+
 } dp_ctx_t;
 
 #pragma pack(pop)

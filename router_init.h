@@ -52,6 +52,7 @@
 #include "Interface/InterfaceFwd.h"
 #include "cp_ipc.h"
 #include "vrf/vrf.h"
+#include "BitOp/bitmap.h"
 
 #define NODE_NAME_SIZE   32
 #define IF_NAME_SIZE     16
@@ -147,6 +148,9 @@ struct node_ {
     std::unordered_map<uint32_t, InterfaceP> *intf_by_ifindex;    
     /* config DB connection */
     PGconn* conn;
+    /*bitmap_t for bounded ifindex generation*/
+    bitmap_t if_index_bm;
+
     glthread_t graph_glue;
     /* System Telemetry */
     uint32_t cp2dp_msg_count;
@@ -163,7 +167,7 @@ typedef struct graph_{
 } graph_t;
 
 node_t *
-create_graph_node(graph_t *graph, const c_string node_name);
+Router_Create(graph_t *graph, const c_string node_name);
 
 graph_t *
 create_new_graph(const char *topology_name);
@@ -175,7 +179,7 @@ insert_link_between_two_nodes(node_t *node1,
         const char *to_if_name,
         unsigned int cost);
 
-inline uint32_t 
+uint32_t 
 node_get_sequence_no(node_t *node);
 
 static inline node_t *

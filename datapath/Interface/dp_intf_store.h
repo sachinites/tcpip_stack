@@ -18,6 +18,15 @@ void
 dp_delete_interface (hashtable_t *ht, uint32_t port_id) ;
 
 dp_intf_t *
-dp_create_interface (uint32_t port_id, uint32_t iftype, uint8_t (*mac_addr)[6]) ;
+dp_create_interface (uint32_t port_id, uint32_t iftype, uint8_t (*mac_addr)[6], uint16_t vlan_id) ;
+
+void 
+dp_vlan_bind_port (dp_intf_t *vlan_intf, dp_intf_t *intf, DP_IntfL2Mode l2_mode);
+
+void 
+dp_vlan_unbind_port (dp_intf_t *vlan_intf, 
+                     dp_intf_t *intf, 
+                     DP_IntfL2Mode l2_mode, 
+                     bool restore_intf_mode_to_none);
 
 #endif 

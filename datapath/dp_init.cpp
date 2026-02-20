@@ -54,6 +54,7 @@ dp_init (node_t *node) {
 
     dp_init_intf_hashtable (&node->dp_intf_ht);
     dp_init_vrf_hashtable (&node->dp_vrf_ht);
+    node->node_nw_prop.vlan_vni_ht.store(nullptr);
 }
 
 void 
@@ -92,4 +93,5 @@ dp_ctx_init (dp_ctx_t *dp_ctx, void *arg, char *ctx_name) {
 
     dp_init_intf_hashtable (&dp_ctx->dp_intf_ht);
     dp_init_vrf_hashtable (&dp_ctx->dp_vrf_ht);    
+    dp_ctx->vlan_vni_ht.store(nullptr);
 }

@@ -1,4 +1,8 @@
 
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
 #include "../cmdcodes.h"
@@ -9,9 +13,7 @@
 #include "Vrfs/dp_vrf.h"
 #include "../c-hashtable/hashtable.h"
 #include "../c-hashtable/hashtable_itr.h"
-#include <arpa/inet.h>
-#include <string.h>
-#include <stdio.h>
+#include "../BitOp/bitmap.h"
 
 extern graph_t *topo;
 
@@ -128,10 +130,8 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
                         count++;
                         
                         /* Format IP addresses and MAC */
-                        if (intf->ip_addr) {
-                            struct in_addr addr;
-                            addr.s_addr = intf->ip_addr;
-                            inet_ntop(AF_INET, &addr, ipv4_str, sizeof(ipv4_str));
+                        if (intf->ip_addr) {                          
+                            tcp_ip_covert_ip_n_to_p(intf->ip_addr, (c_string)ipv4_str);                      
                             snprintf(ipv4_str + strlen(ipv4_str), sizeof(ipv4_str) - strlen(ipv4_str), "/%u", intf->mask);
                         } else {
                             strcpy(ipv4_str, "N/A");
@@ -194,10 +194,51 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
                                 } else {
                                     cprintf(", ");
                                 }
-                                cprintf("%u", intf->mports[i]->port_id);
+                                cprintf("%s", intf->mports[i]->if_name);
                             }
                         }
                         if (has_members) cprintf("\n");
+                        
+                        /* Display VLAN bitmap for trunk interfaces */
+                        if (intf->vlan_bitmap && intf->l2_mode == DP_LAN_TRUNK_MODE) {
+                            cprintf("    Trunk VLANs     : ");
+                            bool first_vlan = true;
+                            int vlan_count = 0;
+                            for (uint16_t vlan = 0; vlan < intf->vlan_bitmap->tsize && vlan < 4096; vlan++) {
+                                if (bitmap_at(intf->vlan_bitmap, vlan)) {
+                                    if (!first_vlan) cprintf(", ");
+                                    cprintf("%u", vlan);
+                                    first_vlan = false;
+                                    vlan_count++;
+                                    /* Limit display to avoid excessive output */
+                                    if (vlan_count >= 20) {
+                                        cprintf(", ...");
+                                        break;
+                                    }
+                                }
+                            }
+                            if (vlan_count == 0) cprintf("None");
+                            cprintf("\n");
+                        }
+                        
+                        /* Display tunnel/overlay information */
+                        if (intf->gre_tunnel_dst_ip) {
+                            struct in_addr tunnel_addr;
+                            tunnel_addr.s_addr = intf->gre_tunnel_dst_ip;
+                            char tunnel_str[32];
+                            inet_ntop(AF_INET, &tunnel_addr, tunnel_str, sizeof(tunnel_str));
+                            cprintf("\n  Tunnel Configuration:\n");
+                            cprintf("    GRE Tunnel Dest : %s\n", tunnel_str);
+                        }
+                        
+                        if (intf->olay_tunnel_intf) {
+                            if (!intf->gre_tunnel_dst_ip) {
+                                cprintf("\n  Tunnel Configuration:\n");
+                            }
+                            cprintf("    Overlay Tunnel  : Port %u (%s)\n", 
+                                    intf->olay_tunnel_intf->port_id,
+                                    intf->olay_tunnel_intf->if_name[0] ? intf->olay_tunnel_intf->if_name : "N/A");
+                        }
                         
                         cprintf("\n  Packet Statistics:\n");
                         cprintf("    RX Packets      : %-12u  TX Packets      : %u\n", 

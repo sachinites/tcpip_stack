@@ -133,6 +133,8 @@ node_set_intf_vlan_membership(node_t *node,
         vlan_intfP->SetSharedPtr(vlan_intfP);
         vlan_intf = vlan_intfP.get();
         vlan_intf->att_node = node;
+        vlan_intf->ifindex = interface_get_new_ifindex(node);
+        
         if (!node->vlan_intf_db) {
             node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
         }

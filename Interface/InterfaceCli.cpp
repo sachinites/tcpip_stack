@@ -10,6 +10,8 @@
 #include "../Layer2/vxlan/cp/vxlan.h"
 #include "../Layer2/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
+#include "../datapath/Interface/dp_intf.h"
+#include "../datapath/Interface/dp_intf_update.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -317,6 +319,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     update_data->intf = interface->GetSharedPtr();
                     SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP); 
                      update_data->up_status = false;
+                     cp2dp_send_intf_admin_status_update(node, interface->ifindex, false);
                 }
                 interface->is_up = true;
             }
@@ -329,6 +332,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN); 
                      update_data->up_status = true;
                      update_data->intf = interface->GetSharedPtr();
+                     cp2dp_send_intf_admin_status_update(node, interface->ifindex, true);
                 }
                 interface->is_up = false;
             }
@@ -342,7 +346,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             if (interface->is_up && interface->IsIpConfigured()) {
                 interface_install_local_v4_routes  (node, interface);
                 interface_install_local_v6_routes  (node, interface);
-
             }
             else if (!interface->is_up && interface->IsIpConfigured()) {
                 interface_uninstall_local_v4_routes  (node, interface);
@@ -382,7 +385,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 case CONFIG_DISABLE:
 
                     interface->SetSwitchport(false);
-
+                    
                     /* Add link local address*/
                     if (!interface->rtm_link_local_rt6_idx)
                     {
@@ -404,6 +407,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 update_data->is_switchport = old_switchport_status;
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);
+                cp2dp_send_intf_switchport_update(node, interface->ifindex,
+                    interface->GetSwitchport() ? 1 : 0);
             }
         }
         break;
@@ -424,9 +429,13 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
                 case CONFIG_ENABLE:
                     if (!interface->IntfConfigVlan(vlan_id, true) ) return -1;
+                    cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
+                        interface->GetAccessVlanIntf()->ifindex, DP_LAN_ACCESS_MODE, true);
                     break;
                 case CONFIG_DISABLE:
                     if (!interface->IntfConfigVlan(vlan_id, false) ) return -1;
+                    cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
+                        interface->GetAccessVlanIntf()->ifindex, DP_LAN_ACCESS_MODE, false);
                     break;
                 default:
                     ;
@@ -579,6 +588,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
 		        vlan_intfP->SetSharedPtr(vlan_intfP);
                 vlan_intfP->att_node = node;
+                vlan_intfP->ifindex = interface_get_new_ifindex(node);
 
                 if (!node->vlan_intf_db) {
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
@@ -586,6 +596,14 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 
                 vlan_intfP->vrf = NODE_DEF_VRF(node);
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
+                
+                cp2dp_interface_create(node, vlan_intfP.get());
+
+                cp2dp_send_intf_vrf_bind_update(node, 
+                    (vlan_intfP.get())->ifindex, vlan_intfP->vrf->vrf_id);
+                
+                cp2dp_send_intf_admin_status_update(node, vlan_intfP->ifindex, false);
+                
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
                        NODE_VLAN_FLOOD_INTF(node)->ifindex, MAC_STATIC, true, 0);
@@ -603,13 +621,21 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     return -1;
                 }
 
+                uint32_t if_index = vlan_intf->ifindex;
+
                 /* Interface us being dynamically used by some entities, send Delete notification */
                 SET_BIT(if_change_flags, IF_DELETE_F);
+
                 nfc_intf_invoke_notification_to_sbscribers(
 					vlan_intf, &intf_prop_changed, if_change_flags);
-                node->vlan_intf_db->erase(vlan_id);
+
                 cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, 
-                vlan_id, NODE_VLAN_FLOOD_INTF(node)->ifindex, true, 0);
+                    vlan_id, NODE_VLAN_FLOOD_INTF(node)->ifindex, true, 0);
+
+                cp2dp_send_intf_vrf_bind_update(node, if_index, -1);
+
+                cp2dp_interface_delete(node, (Interface *)vlan_intf);
+                node->vlan_intf_db->erase(vlan_id);
             }
             break;
             default:;
@@ -630,19 +656,23 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             switch (enable_or_disable)
             {
             case CONFIG_ENABLE:
-            {                
-                if (vlan_intf->is_up) return 0;
+            {
+                if (vlan_intf->is_up)
+                    return 0;
                 vlan_intf->is_up = true;
-                interface_install_local_v4_routes  (node, vlan_intf);
-                SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
+                cp2dp_send_intf_admin_status_update(node, vlan_intf->ifindex, false);
+                interface_install_local_v4_routes(node, vlan_intf);
+                SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
             }
             break;
             case CONFIG_DISABLE:
             {
-                if (vlan_intf->is_up == false) return 0;
+                if (vlan_intf->is_up == false)
+                    return 0;
                 vlan_intf->is_up = false;
-                interface_uninstall_local_v4_routes (node, vlan_intf);
-                SET_BIT (minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
+                cp2dp_send_intf_admin_status_update(node, vlan_intf->ifindex, true);
+                interface_uninstall_local_v4_routes(node, vlan_intf);
+                SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
             }
             break;
             default:;
@@ -714,14 +744,17 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 }
                 
                 vlan_intf->SetVniId(vni_id);
+                cp2dp_send_intf_vlan_vni_update(node, vlan_intf->ifindex, vni_id, true);
             }
             break;
             case CONFIG_DISABLE:
             {
+                uint32_t vni_id = atoi((const char *)vni_value);
                 vlan_intf->SetVniId(0);  /* Clear VNI configuration */
                 
                 /* Remove from VLAN-VNI database */
                 vlan_vni_remove_mapping(node, vlan_id);
+                cp2dp_send_intf_vlan_vni_update(node, vlan_intf->ifindex, vni_id, false);
             }
             break;
             default:;
@@ -746,6 +779,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((const char *)intf_name));
                 nve_intfP->SetSharedPtr(nve_intfP);
                 nve_intfP->att_node = node;
+                nve_intfP->ifindex = interface_get_new_ifindex(node);
                 nve_intfP->is_up = true;  // NVE interfaces are up by default
                 node->node_nw_prop.nve = nve_intfP;
             }
@@ -866,8 +900,7 @@ intf_config_virtual_port_create_handler(int cmdcode,
             vportP->SetSharedPtr(vportP);
             intf = vportP.get();
             intf->att_node = node;
-
-            vportP->ifindex = node_get_sequence_no(node);
+            intf->ifindex =  interface_get_new_ifindex(node);
             
             if (!node_interface_insert(node, intf))
             {

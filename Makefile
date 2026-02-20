@@ -95,7 +95,6 @@ OBJS=gluethread/glthread.o \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
-		  Interface/Interface_cp2dp.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  common/cmn_prefix.o \
@@ -296,9 +295,6 @@ Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
 
 Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
 	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
-
-Interface/Interface_cp2dp.o:Interface/Interface_cp2dp.cpp
-	${CC} ${CFLAGS} -c Interface/Interface_cp2dp.cpp -o Interface/Interface_cp2dp.o
 
 vrf/vrf_cli.o:vrf/vrf_cli.cpp
 	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 

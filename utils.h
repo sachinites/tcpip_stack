@@ -127,8 +127,6 @@ tcp_ip_convert_bin_mask_to_dmask(uint32_t bin_mask) {
     return cnt;
 }
 
-uint32_t get_new_ifindex();
-
 #define UNUSED(variable)    (void)variable
 
 #define MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT 64

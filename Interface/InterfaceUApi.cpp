@@ -9,6 +9,7 @@
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include <string.h>
 #include <arpa/inet.h>
+#include "../datapath/Interface/dp_intf_update.h"
 
 void
 interface_set_ip_addr(node_t *node, 
@@ -28,6 +29,7 @@ interface_set_ip_addr(node_t *node,
     if (!intf->IsIpConfigured()) {
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
+        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex,ip_addr_int, mask);
         interface_install_local_v4_routes  (node, intf);
         
         /* Add MAC table entry for VLAN interface */
@@ -49,7 +51,9 @@ interface_set_ip_addr(node_t *node,
 
         interface_uninstall_local_v4_routes  (node, intf);
         intf->InterfaceSetIpAddressMask(0, 0);
+        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, existing_ip_addr, existing_mask);
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
+        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes  (node, intf);
     }
 }
@@ -65,8 +69,6 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     intf_prop_changed_t intf_prop_changed;
     byte ip_addr_str[IPV4_ADDR_LEN_STR];
     byte ip_addr_str_applied_mask[IPV4_ADDR_LEN_STR];
-
-
 
     if ( !intf->IsIpConfigured()) {
         return;
@@ -91,6 +93,7 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     }
     
     intf->InterfaceSetIpAddressMask(0, 0);
+    cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, 0, 0);
 }
 
 void
@@ -140,6 +143,7 @@ interface_set_ipv6_addr(node_t *node,
     /* new config */
     if (existing_prefix_len == 0) {
         intf->InterfaceSetIpv6AddressMask(&ipv6_addr.addr, prefix_len);
+        cp2dp_send_intf_ipv6_addr_update(node, intf->ifindex, ipv6_addr.addr, prefix_len);
         interface_install_local_v6_routes(node, intf);
         return;
     }
@@ -149,6 +153,8 @@ interface_set_ipv6_addr(node_t *node,
         interface_uninstall_local_v6_routes(node, intf);
         intf->InterfaceSetIpv6AddressMask((uint8_t (*)[16])"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 0);
         intf->InterfaceSetIpv6AddressMask(&ipv6_addr.addr, prefix_len);
+        cp2dp_send_intf_ipv6_addr_update(node, intf->ifindex, 0,0);
+        cp2dp_send_intf_ipv6_addr_update(node, intf->ifindex, ipv6_addr.addr, prefix_len);
         interface_install_local_v6_routes(node, intf);
     }
 }
@@ -202,7 +208,8 @@ interface_unset_ipv6_addr(node_t *node, Interface *intf,
     
     /* Clear the configured IPv6 address */
     intf->InterfaceSetIpv6AddressMask((uint8_t (*)[16])"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 0);
-    
+    cp2dp_send_intf_ipv6_addr_update(node, intf->ifindex, 0,0);
+
     /* Re-install the link-local route (it should persist independently) */
     if (intf->IsInterfaceUp(0) && !intf->GetSwitchport()) {
         rtm_t *rtm = rtm_get(node, DEFAULT_VRF, AF_IPV6, 0);
@@ -226,12 +233,14 @@ interface_loopback_create (node_t *node, char *ifname) {
     InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(ifname));
     intfP->SetSharedPtr(intfP);
     intfP->att_node = node;
-    intfP->ifindex = node_get_sequence_no(node);
+    intfP->ifindex = interface_get_new_ifindex(node);
     
     if (!node_interface_insert(node, intfP.get())) {
         cprintf("Error : Failed to insert loopback interface %s\n", ifname);
         return;
     }
+    cp2dp_interface_create(node, intfP.get());
+    vrf_add_interface(NODE_DEF_VRF(node), intfP.get());
 }
 
 void
@@ -262,6 +271,7 @@ interface_loopback_delete (node_t *node, char *ifname) {
        intf, &intf_prop_changed, if_change_flags);    
 
     node_interface_delete_by_name(node, ifname);
+    cp2dp_interface_delete(node, intf);
 }
 
 void
@@ -556,6 +566,7 @@ vrf_interface_delete_by_name(vrf_t *vrf, const char *ifname) {
         vrf->intf_by_ifindex->erase(ifindex);
     }
     
+    cp2dp_send_intf_vrf_bind_update(vrf->node, ifindex, vrf->vrf_id);
     return true;
 }
 
@@ -580,6 +591,7 @@ vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
         vrf->intf_by_name->erase(ifname);
     }
     
+    cp2dp_send_intf_vrf_bind_update(vrf->node, ifindex, vrf->vrf_id);
     return true;
 }
 

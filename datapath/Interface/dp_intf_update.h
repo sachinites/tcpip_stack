@@ -26,9 +26,10 @@ typedef struct dp_intf_ipv6_addr_update_ {
 #define CP2DP_CODE_INTF_VLAN_BIND 3
 typedef struct dp_intf_vlan_bind_ {
 
-    uint32_t vlan_port_id;  // vlan id to be applied
-    uint32_t port_id;       // physical interface
+    uint32_t vlan_port_id;  // port id of vlan to be applied
+    uint32_t port_id;       // physical interface port id
     DP_IntfL2Mode l2_mode;  // access or trunk mode
+    uint8_t add;            // 1 for add , 0 for remove
     
 } dp_intf_vlan_bind_t;
 
@@ -44,19 +45,52 @@ typedef struct dp_intf_admin_down_ {
 typedef struct dp_intf_vrf_bind_ {
 
     uint32_t port_id; 
-    uint16_t vrf_id;
+    int32_t vrf_id; // -1 if you want to remove interface from VRF
     
 } dp_intf_vrf_bind_t;
+
+#define CP2DP_CODE_INTF_SW 6
+typedef struct dp_intf_switchport_ {
+
+    uint32_t port_id; 
+    uint8_t enable;// 1 for enable, 0 for disable
+    
+} dp_intf_switchpor_t;
+
+#define CP2DP_CODE_INTF_VLAN_VNI    7
+typedef struct dp_intf_vlan_vni_ {
+
+    uint32_t vni_id;
+    uint8_t add;
+    
+} dp_intf_vlan_vni_t;
+
+#define CP2DP_CODE_INTF_VLAN_GRP_BIND 8
+typedef struct dp_intf_vlan_grp_bind_ {
+
+    uint8_t vlan_bitmapp[DP_MAX_VLAN_SUPORT/8];
+    uint8_t add; // 1 for add 0 or for remove.
+
+} dp_intf_vlan_grp_bind_t;
+
+#define CP2DP_CODE_INTF_GRP_VLAN_BIND 9
+typedef struct dp_intf_grp_bind_ {
+
+    uint8_t if_bitmapp[128]; /* Caution : This forces all ifindex of interfaces must range between [1 and MAX_INTF_IFINDEX]*/
+    uint8_t add; // 1 for add 0 or for remove.
+
+} dp_intf_grp_bind_t;
 
 typedef struct dp_intf_cp2dp_msg_ {
 
     uint32_t port_id;  // key
+    uint32_t vlan_id;
     uint32_t iftype;
     uint8_t  mac_addr[6];
     char intf_name[IF_NAME_SIZE];
     uint16_t update_code;
 
-} dp_intf_cp2dp_msg_t;
+} dp_intf_cp2dp_msg_hdr_t;
 
 
 #pragma pack(pop)
@@ -77,12 +111,31 @@ void
 cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len);
 
 void 
-cp2dp_send_intf_vlan_bind_update(node_t *node, uint32_t port_id, uint32_t vlan_port_id, DP_IntfL2Mode l2_mode);
+cp2dp_send_intf_vlan_bind_update(node_t *node, uint32_t port_id, 
+        uint32_t vlan_port_id, DP_IntfL2Mode l2_mode, bool add);
+
+void 
+cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node, TransportService *tsp, uint16_t vlan_id, bool add);
 
 void 
 cp2dp_send_intf_admin_status_update(node_t *node, uint32_t port_id, bool is_down);
 
 void 
-cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, uint16_t vrf_id);
+cp2dp_send_intf_vlan_vni_update(node_t *node, uint16_t vlan_port_id, uint32_t vni_id, bool add);
+
+void 
+cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switchport);
+
+void 
+cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, int32_t vrf_id);
+
+void 
+cp2dp_send_intf_vlan_grp_bind_update(node_t *node, uint32_t port_id, bitmap_t *vlan_bitmap, bool add);
+
+void 
+cp2dp_interface_create (node_t *node, Interface *intf);
+
+void 
+cp2dp_interface_delete (node_t *node, Interface *intf);
 
 #endif 

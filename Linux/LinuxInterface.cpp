@@ -265,6 +265,7 @@ LinuxLoadInterfaces (node_t *node) {
 
         assert (ioctl(af_packet_sock_fd, SIOCGIFINDEX, &ifr) == 0);
         intf->ifindex = ifr.ifr_ifindex;
+        assert (intf->ifindex <= MAX_INTF_IFINDEX );
 
         // Set IP address and add route if available
         if (has_ip) {
@@ -305,7 +306,7 @@ LinuxLoadInterfaces (node_t *node) {
             }
         }
 
-        intf->ifindex = node_get_sequence_no(node);
+        intf->ifindex = interface_get_new_ifindex(node);
         bool inserted = node_interface_insert(node, intf);
         assert (inserted);
         tcp_ip_init_intf_log_info(intf);

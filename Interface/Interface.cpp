@@ -43,6 +43,7 @@
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "../RTM/rtm_nb_integ.h"
+#include "../datapath/Interface/dp_intf_update.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
@@ -255,7 +256,7 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     memset(&this->log_info, 0, sizeof(this->log_info));
     this->link = NULL;
     this->is_up = true;
-    if (!LinuxRtr) this->ifindex = get_new_ifindex();
+    this->ifindex = 0;
     this->cost = INTF_METRIC_DEFAULT;
     
     memset(this->padding3, 0, sizeof(padding3));
@@ -303,6 +304,8 @@ Interface::~Interface()
 
     cprintf ("%s : Interface %s deleted\n", 
         this->att_node->node_name, this->if_name.c_str());
+
+    cp2dp_interface_delete (this->att_node, this->ifindex);
 }
 
 InterfaceP 
@@ -510,6 +513,9 @@ Interface::InterfaceReleaseAllResources() {
 
     /* This is configuration, this fn call must not see it set*/
     assert (!this->isis_intf_info);
+
+    interface_release_index(this->att_node, this->ifindex);
+    this->ifindex = 0;
 }
 
 bool 
@@ -882,14 +888,17 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
             return false;
         }
 
-        this->access_vlan_intf = std::dynamic_pointer_cast<VlanInterface>
-                (VlanInterface::VlanInterfaceLookUp(this->att_node, vlan_id)->GetSharedPtr());
-        
-        if (!this->access_vlan_intf)
+        VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp(this->att_node, vlan_id);
+
+        if (!vlan_intf)
         {
             cprintf("Error : Vlan Interface not found");
             return false;
-        }
+        }        
+
+        this->access_vlan_intf = std::dynamic_pointer_cast<VlanInterface>
+                (VlanInterface::VlanInterfaceLookUp(this->att_node, vlan_id)->GetSharedPtr());
+
         this->access_vlan_intf->access_member_intf_lst.push_back(this->GetSharedPtr());
         this->l2_mode = LAN_ACCESS_MODE;
         return true;

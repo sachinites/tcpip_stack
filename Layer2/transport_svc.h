@@ -5,6 +5,8 @@
 #include <unordered_set>
 #include <stdbool.h>
 #include <vector>
+#include "../BitOp/bitmap.h"
+
 #define DEFAULT_TSP "DEFAULT_TSP"
 
 
@@ -16,8 +18,9 @@ class TransportService {
     private:
 
     public:
-         std::string trans_svc;
+        std::string trans_svc;
         std::unordered_set<int> vlanSet;
+        bitmap_t vlan_bitmap;
         std::unordered_set<int> ifSet;
         int ref_count;  // how many L2 interface it is attached         
         TransportService(std::string& svc_name);

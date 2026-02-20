@@ -49,6 +49,7 @@
 #include "RTM/rtm.h"
 #include "RTM/rtm_nb_integ.h"
 #include "common/cmn_prefix.h"
+#include "datapath/Interface/dp_intf_update.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
 extern bool LinuxRtr;
@@ -77,10 +78,10 @@ insert_link_between_two_nodes(node_t *node1,
     link->Intf2->att_node = node2;
 
     /*Plugin interface ends into Node*/
-    link->Intf1->ifindex = node_get_sequence_no(node1);
+    link->Intf1->ifindex = interface_get_new_ifindex(node1);
     node_global_intf_map_insert(node1, link->Intf1.get());
 
-    link->Intf2->ifindex = node_get_sequence_no(node2);
+    link->Intf2->ifindex = interface_get_new_ifindex(node2);
     node_global_intf_map_insert(node2, link->Intf2.get());
 
     /*Now Assign Random generated Mac address to the Interfaces*/
@@ -97,6 +98,9 @@ insert_link_between_two_nodes(node_t *node1,
 
     vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
     vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
+    
+    cp2dp_send_intf_admin_status_update(node1, link->Intf1->ifindex, false);
+    cp2dp_send_intf_admin_status_update(node2, link->Intf2->ifindex, false);
 }
 
 graph_t *
@@ -123,7 +127,7 @@ void dp_init (node_t *node);
 
 
 node_t *
-create_graph_node(graph_t *graph, const c_string node_name){
+Router_Create(graph_t *graph, const c_string node_name){
 
     char file_name[64];
     char ev_dis_name[EV_DIS_NAME_LEN];
@@ -198,6 +202,11 @@ create_graph_node(graph_t *graph, const c_string node_name){
     init_pkt_q (&node->ev_dis, &node->cp_ipc_q, ipc_event_signal);
 
     pkt_tracer_init (&node->pkt_tracer);
+
+    bitmap_init(&node->if_index_bm, 1028);
+    assert( MAX_INTF_IFINDEX < 1028);
+    bitmap_set_bit_at(&node->if_index_bm, 0);
+
     //node_config_db_init (node);
 
     /* Turn on Default Logging */
@@ -205,10 +214,10 @@ create_graph_node(graph_t *graph, const c_string node_name){
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
     tracer_log_bit_set(node->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
-    tracer_log_bit_set(node->dptr,  DERR);
-    tracer_log_bit_set(node->cptr,  DALWAYS_FLUSH);    
+    tracer_log_bit_set(node->dptr,  DERR);  
     #endif 
-    tracer_log_bit_set(node->dptr,  DALWAYS_FLUSH); 
+    tracer_enable_always_flush(node->cptr, true);
+    tracer_enable_always_flush(node->dptr, true);
     tracer_log_bit_set(node->dptr, DCONF);
     
     node->sequence_gen = 1;
@@ -221,7 +230,7 @@ void dump_interface(Interface *interface){
     interface->PrintInterfaceDetails();
 }
 
-inline uint32_t 
+uint32_t 
 node_get_sequence_no(node_t *node) {
     return node->sequence_gen++;
 }

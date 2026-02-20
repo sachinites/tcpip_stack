@@ -4,6 +4,7 @@
 #define DP_INTF_NAME    32
 #define DP_INTF_UPDATE_MSG_LEN 256
 #define MAX_VLAN_MEMBER_PORTS 16
+#define DP_MAX_VLAN_SUPORT 4096
 
 enum DP_IntfL2Mode
 {
@@ -45,5 +46,20 @@ dp_intf_type_str (uint32_t iftype) {
         default: return "Invalid";
     }
 }
+
+static inline const char *
+dp_intf_mode_str(DP_IntfL2Mode l2mode) {
+
+    switch (l2mode) {
+        case DP_LAN_MODE_NONE:
+            return "None";
+        case DP_LAN_ACCESS_MODE:
+            return "Access-Mode";
+        case DP_LAN_TRUNK_MODE:
+            return "Trunk-Mode";
+    }
+    return NULL;
+}
+
 
 #endif 

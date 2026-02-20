@@ -32,7 +32,7 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     gre_shared_ptr = std::make_shared<GRETunnelInterface>(tunnel_id);
     gre_shared_ptr->SetSharedPtr(gre_shared_ptr);
     gre_shared_ptr->att_node = node;
-    gre_shared_ptr->ifindex = node_get_sequence_no(node);
+    gre_shared_ptr->ifindex = interface_get_new_ifindex (node);
     intf = gre_shared_ptr.get();
     
     /* Add to VRF and global maps */

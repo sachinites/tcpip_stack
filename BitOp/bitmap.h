@@ -22,6 +22,7 @@ typedef struct bitmap_ {
 } bitmap_t;
 
 void bitmap_init(bitmap_t *bitmap, uint16_t size) ;
+void bitmap_init2(bitmap_t **bitmap, uint16_t size) ;
 void bitmap_free_internal(bitmap_t *bitmap);
 void bitmap_free(bitmap_t *bitmap);
 void bitmap_reset(bitmap_t *bitmap);

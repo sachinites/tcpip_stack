@@ -7,6 +7,7 @@
 #include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
 #include "../net.h"
+#include "../datapath/Interface/dp_intf_update.h"
 
 extern graph_t *topo;
 
@@ -19,6 +20,9 @@ TransportService::TransportService(std::string& svc_name):
     this->trans_svc = svc_name;
     
     this->ref_count = 0;
+    
+    /* Initialize VLAN bitmap with support for 4096 VLANs */
+    bitmap_init(&this->vlan_bitmap, 4096);
 }
 
 TransportService::~TransportService() {
@@ -27,6 +31,9 @@ TransportService::~TransportService() {
     this->vlanSet.clear();
     assert (this->ifSet.empty());
     assert (!this->ref_count);
+    
+    /* Free the VLAN bitmap */
+    bitmap_free_internal(&this->vlan_bitmap);
 }
 
 bool
@@ -38,7 +45,16 @@ TransportService::AddVlan(int vlan_id) {
         return false;
     }
 
+    /* Validate VLAN ID range (0-4095) */
+    if (vlan_id < 0 || vlan_id >= 4096) {
+        return false;
+    }
+
     this->vlanSet.insert ( vlan_id );
+    
+    /* Set the bit in the VLAN bitmap */
+    bitmap_set_bit_at(&this->vlan_bitmap, vlan_id);
+    
     return true;
 }
 
@@ -51,7 +67,16 @@ TransportService::RemoveVlan(int vlan_id) {
         return false;
     }
 
+    /* Validate VLAN ID range (0-4095) */
+    if (vlan_id < 0 || vlan_id >= 4096) {
+        return false;
+    }
+
     this->vlanSet.erase ( vlan_id );
+    
+    /* Unset the bit in the VLAN bitmap */
+    bitmap_unset_bit_at(&this->vlan_bitmap, vlan_id);
+    
     return true;
 }
 
@@ -91,6 +116,13 @@ TransportService::AttachInterface(Interface *intf) {
         vport->trans_svc = this;
     }
     this->ref_count++;
+    
+    /* Send VLAN group bind update to datapath */
+    node_t *node = intf->att_node;
+    if (node && !this->vlanSet.empty()) {
+        cp2dp_send_intf_vlan_grp_bind_update(node, ifindex, &this->vlan_bitmap, true);
+    }
+    
     return true;
 }
 
@@ -104,6 +136,13 @@ TransportService::DeAttachInterface (Interface *intf) {
         TransportService *trans_svc = phy_intf->trans_svc;
         if (!trans_svc) return true;
         if (this != trans_svc) return true;
+        
+        /* Send VLAN group unbind update to datapath before detaching */
+        node_t *node = intf->att_node;
+        if (node) {
+            cp2dp_send_intf_vlan_grp_bind_update(node, intf->ifindex, NULL, false);
+        }
+        
         trans_svc->ifSet.erase (intf->ifindex);
         phy_intf->trans_svc = NULL;
         trans_svc->ref_count--;
@@ -114,6 +153,13 @@ TransportService::DeAttachInterface (Interface *intf) {
         TransportService *trans_svc = vport->trans_svc;
         if (!trans_svc) return true;
         if (this != trans_svc) return true;
+        
+        /* Send VLAN group unbind update to datapath before detaching */
+        node_t *node = intf->att_node;
+        if (node) {
+            cp2dp_send_intf_vlan_grp_bind_update(node, intf->ifindex, NULL, false);
+        }
+        
         trans_svc->ifSet.erase (intf->ifindex);
         vport->trans_svc = NULL;
         trans_svc->ref_count--;
@@ -193,9 +239,10 @@ std::string& svc_name) {
 }
 
 static int
-transport_svc_config_handler (int cmdcode, 
-                                                  Stack_t *tlv_stack,
-                                                  op_mode enable_or_disable) {
+transport_svc_config_handler(int cmdcode,
+                             Stack_t *tlv_stack,
+                             op_mode enable_or_disable)
+{
 
     bool rc;
     node_t *node;
@@ -268,9 +315,16 @@ transport_svc_config_handler (int cmdcode,
 				vlan_id, tsp_name);
                         return -1;
                     }
+                    cp2dp_send_intf_grp_bind_to_vlan_update(node, tsp, vlan_id, true);
                     break;
                 case CONFIG_DISABLE:
-                    tsp->RemoveVlan(vlan_id);
+                    rc = tsp->RemoveVlan(vlan_id);
+                    if (!rc) {
+                        cprintf ("\nError : Failed to Remove Vlan %d from Transport Service Profile %s",
+				vlan_id, tsp_name);
+                        return -1;
+                    }                  
+                    cp2dp_send_intf_grp_bind_to_vlan_update(node, tsp, vlan_id, false);
                     break;
                 default: ;
             }
@@ -326,10 +380,11 @@ config node <node-name> interface ethernet <if-name>  transport-service-profile 
 #endif
 
 static int
-transport_svc_intf_config_handler (int cmdcode, 
-                                                         Stack_t *tlv_stack,
-                                                         op_mode enable_or_disable) {
-    
+transport_svc_intf_config_handler(int cmdcode,
+                                  Stack_t *tlv_stack,
+                                  op_mode enable_or_disable)
+{
+
     node_t *node;
     tlv_struct_t *tlv;
     c_string tsp_name = NULL;
@@ -393,7 +448,6 @@ transport_svc_intf_config_handler (int cmdcode,
     return 0;
 }
 
-
 void
 config_interface_build_transport_svc_cli_tree (param_t *node_name_param, param_t *param) {
 
@@ -414,10 +468,10 @@ config_interface_build_transport_svc_cli_tree (param_t *node_name_param, param_t
 }
 
 static int
-transport_svc_show_handler (int cmdcode, 
-                                                  Stack_t *tlv_stack,
-                                                  op_mode enable_or_disable) {
-
+transport_svc_show_handler(int cmdcode,
+                           Stack_t *tlv_stack,
+                           op_mode enable_or_disable)
+{
     node_t *node;
     tlv_struct_t *tlv;
     c_string node_name = NULL;
@@ -459,7 +513,6 @@ transport_svc_show_handler (int cmdcode,
     
     return 0;
 }
-
 
 static int
 show_vlan_members (int cmdcode, 

@@ -17,6 +17,15 @@ void bitmap_init(bitmap_t *bitmap, uint16_t size) {
     bitmap->next = 0;
 }
 
+void bitmap_init2(bitmap_t **bitmap, uint16_t size) {
+
+    (*bitmap) = (bitmap_t *)calloc (1, sizeof (bitmap_t));
+    assert(!(size % 32));
+    (*bitmap)->bits = (uint32_t *)calloc(1, (size/8) * sizeof(uint8_t));
+    (*bitmap)->tsize = size;
+    (*bitmap)->next = 0;
+}
+
 void bitmap_free_internal(bitmap_t *bitmap) {
     XFREE(bitmap->bits);
 }

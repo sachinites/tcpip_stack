@@ -132,12 +132,6 @@ tlv_buffer_get_particular_tlv(byte  *tlv_buff, /*Input TLV Buffer*/
     return NULL;
 }
 
-uint32_t get_new_ifindex(){
-
-	static uint32_t ifindex = 100;
-	return (++ifindex);
-}
-
 /* Range to prefix/wildcard conversions for uint16_t*/
 
 typedef struct {

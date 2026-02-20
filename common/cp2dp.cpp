@@ -684,4 +684,4 @@ dp_simulate_wire_connection (node_t *node1, Interface *intf1,
     dp_intf1->nbr_intf = dp_intf2;
     dp_intf2->att_node = node2;
     dp_intf2->nbr_intf = dp_intf1;
-} 
+}

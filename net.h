@@ -82,9 +82,15 @@ typedef struct node_nw_prop_{
     /*L2 Properties*/
     arp_table_t *arp_table;
     mac_table_t *mac_table;
-    vxlan_vni_db_t *vlan_vni_db;                            /* VLAN-VNI mapping database */
-    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;   /* VLAN-VNI hashtable for O(1) lookup - atomic pointer */
+
+    /* Evpn Support */
+    /* VLAN-VNI mapping database */
+    vxlan_vni_db_t *vlan_vni_db;     
+    /* VLAN-VNI hashtable for O(1) lookup - atomic pointer */
+    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;           
+    /* network-virtualization-edge interface */
     NVEInterfaceP nve;
+
     mac_addr_t rmac;
     char padding[2];
 
@@ -224,5 +230,10 @@ void interface_assign_mac_address (Interface *interface);
 #define DP_PKT_Q(node_ptr) (&node_ptr->dp_recvr_pkt_q)
 #define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
 #define DP_TIMER(node_ptr)  (node_ptr->dp_wt)
+
+uint16_t
+interface_get_new_ifindex (node_t *node);
+void 
+interface_release_index(node_t *node, uint16_t ifindex);
 
 #endif /* __NET__ */
