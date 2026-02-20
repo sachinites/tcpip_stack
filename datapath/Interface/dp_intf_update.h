@@ -61,7 +61,28 @@ typedef struct dp_intf_cp2dp_msg_ {
 
 #pragma pack(pop)
 
+/* Forward declarations */
+typedef struct node_ node_t;
+typedef struct dp_msg_ dp_msg_t;
+
+/* Interface update message processing */
 void 
 dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg);
+
+/* Interface update message sending functions */
+void 
+cp2dp_send_intf_ipv4_addr_update(node_t *node, uint32_t port_id, uint32_t ipv4_addr, uint8_t mask);
+
+void 
+cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len);
+
+void 
+cp2dp_send_intf_vlan_bind_update(node_t *node, uint32_t port_id, uint32_t vlan_port_id, DP_IntfL2Mode l2_mode);
+
+void 
+cp2dp_send_intf_admin_status_update(node_t *node, uint32_t port_id, bool is_down);
+
+void 
+cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, uint16_t vrf_id);
 
 #endif 

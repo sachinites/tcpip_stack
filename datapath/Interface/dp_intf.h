@@ -8,6 +8,7 @@
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct node_ node_t;
+typedef struct bitmap_ bitmap_t;
 
 #pragma pack(push, 8)
 
@@ -35,7 +36,12 @@ typedef struct dp_intf_ {
     /* L2 Properties */
     mac_addr_t mac_add;
     bool switchport;
+
+    /* Pointer to parent vlan if this interface is switchport
+        in access mode */
     struct dp_intf_ *vlan_intf;
+
+    /* If this interface is vlan interface, then vlan id */
     uint16_t vlan_id;
     uint32_t vni_id;
     DP_IntfL2Mode l2_mode;
@@ -43,8 +49,19 @@ typedef struct dp_intf_ {
     /* If it is a vlan interface, then array of member ports*/
     struct dp_intf_ *mports[MAX_VLAN_MEMBER_PORTS];
 
+    /* If it is a switchport operating in a trunk node, then
+        bitmap of vlans of sizeof 4096 (512B) which it is a member of.
+    */
+    bitmap_t *vlan_bitmap;
+
     /* Physical Properties */
     bool is_up;
+
+    /* If this is GRE tunnel intf, then its dest ip*/
+    uint32_t gre_tunnel_dst_ip;
+
+    /* If this is Virtual port, then overlay tunnel interface */
+    struct dp_intf_ *olay_tunnel_intf;
 
     /* Wire connection Simulation */
     node_t *att_node;

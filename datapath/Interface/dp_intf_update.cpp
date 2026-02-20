@@ -181,3 +181,136 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
 EXIT:
     cp2dp_msg_free(dp_msg);
 }
+
+/* Interface update message sending functions */
+
+void 
+cp2dp_send_intf_ipv4_addr_update(node_t *node, uint32_t port_id, uint32_t ipv4_addr, uint8_t mask) {
+    
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_t *intf_msg;
+    dp_intf_ipv4_addr_update_t *ipv4_update;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_t) + sizeof(dp_intf_ipv4_addr_update_t);
+    
+    /* Fill in the header */
+    intf_msg = (dp_intf_cp2dp_msg_t *)dp_msg->data;
+    intf_msg->port_id = port_id;
+    intf_msg->update_code = CP2DP_CODE_INTF_IPV4_ADDR;
+    
+    /* Fill in the IPv4 update data */
+    ipv4_update = (dp_intf_ipv4_addr_update_t *)(intf_msg + 1);
+    ipv4_update->ipv4_addr = ipv4_addr;
+    ipv4_update->mask = mask;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len) {
+    
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_t *intf_msg;
+    dp_intf_ipv6_addr_update_t *ipv6_update;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_t) + sizeof(dp_intf_ipv6_addr_update_t);
+    
+    /* Fill in the header */
+    intf_msg = (dp_intf_cp2dp_msg_t *)dp_msg->data;
+    intf_msg->port_id = port_id;
+    intf_msg->update_code = CP2DP_CODE_INTF_IPV6_ADDR;
+    
+    /* Fill in the IPv6 update data */
+    ipv6_update = (dp_intf_ipv6_addr_update_t *)(intf_msg + 1);
+    memcpy(ipv6_update->ipv6_addr, ipv6_addr, 16);
+    ipv6_update->prefix_len = prefix_len;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_send_intf_vlan_bind_update(node_t *node, uint32_t port_id, uint32_t vlan_port_id, DP_IntfL2Mode l2_mode) {
+    
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_t *intf_msg;
+    dp_intf_vlan_bind_t *vlan_bind;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_t) + sizeof(dp_intf_vlan_bind_t);
+    
+    /* Fill in the header */
+    intf_msg = (dp_intf_cp2dp_msg_t *)dp_msg->data;
+    intf_msg->port_id = port_id;
+    intf_msg->update_code = CP2DP_CODE_INTF_VLAN_BIND;
+    
+    /* Fill in the VLAN bind data */
+    vlan_bind = (dp_intf_vlan_bind_t *)(intf_msg + 1);
+    vlan_bind->port_id = port_id;
+    vlan_bind->vlan_port_id = vlan_port_id;
+    vlan_bind->l2_mode = l2_mode;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_send_intf_admin_status_update(node_t *node, uint32_t port_id, bool is_down) {
+    
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_t *intf_msg;
+    dp_intf_admin_down_t *admin_down;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_t) + sizeof(dp_intf_admin_down_t);
+    
+    /* Fill in the header */
+    intf_msg = (dp_intf_cp2dp_msg_t *)dp_msg->data;
+    intf_msg->port_id = port_id;
+    intf_msg->update_code = CP2DP_CODE_INTF_ADMIN_DOWN;
+    
+    /* Fill in the admin status data */
+    admin_down = (dp_intf_admin_down_t *)(intf_msg + 1);
+    admin_down->port_id = port_id;
+    admin_down->status = is_down;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void 
+cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, uint16_t vrf_id) {
+    
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_t *intf_msg;
+    dp_intf_vrf_bind_t *vrf_bind;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_t) + sizeof(dp_intf_vrf_bind_t);
+    
+    /* Fill in the header */
+    intf_msg = (dp_intf_cp2dp_msg_t *)dp_msg->data;
+    intf_msg->port_id = port_id;
+    intf_msg->update_code = CP2DP_CODE_INTF_VRF_BIND;
+    
+    /* Fill in the VRF bind data */
+    vrf_bind = (dp_intf_vrf_bind_t *)(intf_msg + 1);
+    vrf_bind->port_id = port_id;
+    vrf_bind->vrf_id = vrf_id;
+    
+    cp2dp_submit(node, dp_msg, true);
+}

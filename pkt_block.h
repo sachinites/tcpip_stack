@@ -56,6 +56,9 @@ struct pkt_block_ {
     InterfaceP recommended_oif;
     InterfaceP exclude_oif;
     InterfaceP ingress_intf;
+    dp_intf_t *recommended_oif2;
+    dp_intf_t *exclude_oif2;
+    dp_intf_t *ingress_intf2;
     encap_meta_data_t *encap_data;
     char *fn_name;
     uint64_t pkt_id;

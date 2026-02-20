@@ -1,5 +1,7 @@
 #include "../router_init.h"
 #include "../Tracer/tracer.h"
+#include "dp_ctx.h"
+
 
 typedef  struct hashtable hashtable_t;
 
@@ -52,4 +54,42 @@ dp_init (node_t *node) {
 
     dp_init_intf_hashtable (&node->dp_intf_ht);
     dp_init_vrf_hashtable (&node->dp_vrf_ht);
+}
+
+void 
+dp_ctx_init (dp_ctx_t *dp_ctx, void *arg, char *ctx_name) {
+
+    char file_name[64];
+    char ev_dis_name[EV_DIS_NAME_LEN];
+
+    memset (dp_ctx, 0, sizeof (*dp_ctx));
+
+    /* Initialize Data Plane Tracers*/
+    memset(file_name, 0, sizeof(file_name));
+    sprintf(file_name, "logs/%s-dp.txt", ctx_name);
+    dp_ctx->dptr = tracer_init (ctx_name, file_name, 
+        ctx_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
+    tracer_enable_file_logging (dp_ctx->dptr, true);
+
+    /* Start Data Path Thread/Scheduler */
+    snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", ctx_name);
+    event_dispatcher_init(&dp_ctx->dp_ev_dis, (const char *)ev_dis_name);
+    event_dispatcher_run(&dp_ctx->dp_ev_dis, LinuxRtr ? true : false);  /* Pin DP thread to high-perf core */
+    dp_ctx->dp_ev_dis.app_data = arg;
+    init_pkt_q(&dp_ctx->dp_ev_dis, &dp_ctx->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
+    init_pkt_q(&dp_ctx->dp_ev_dis, &dp_ctx->cp_to_dp_xmit_intf_pkt_q, dp_pkt_xmit_intf_job_cbk);
+        
+    /* Start DP Timer */
+    dp_ctx->dp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
+    wt_set_user_data(dp_ctx->dp_wt, &dp_ctx->dp_ev_dis);
+    start_wheel_timer(dp_ctx->dp_wt);
+
+    /* Start IPC Message Queue of Data Plane*/
+    init_pkt_q (&dp_ctx->dp_ev_dis, &dp_ctx->dp_ipc_q, 0);
+
+    init_arp_table(&(dp_ctx->arp_table));
+    init_mac_table(&(dp_ctx->mac_table));
+
+    dp_init_intf_hashtable (&dp_ctx->dp_intf_ht);
+    dp_init_vrf_hashtable (&dp_ctx->dp_vrf_ht);    
 }
