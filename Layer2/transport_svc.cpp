@@ -304,6 +304,12 @@ transport_svc_config_handler(int cmdcode,
                 }
             }
 
+            if (!VlanInterface::VlanInterfaceLookUp(node, vlan_id))  {
+
+                cprintf ("\nError : Create actual vlan interface first\n");
+                return -1;
+            }
+
             switch (enable_or_disable) {
                 case CONFIG_ENABLE:
                     rc = tsp->AddVlan(vlan_id);
