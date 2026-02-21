@@ -181,7 +181,7 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
                         cprintf("    VLAN ID         : %u\n", intf->vlan_id);
                         cprintf("    VNI ID          : %u\n", intf->vni_id);
                         if (intf->vlan_intf) {
-                            cprintf("    VLAN Interface  : Port %u\n", intf->vlan_intf->port_id);
+                            cprintf("    Parent VLAN  : %u\n", intf->vlan_intf->vlan_id);
                         }
                         
                         /* Display member ports if it's a VLAN interface */

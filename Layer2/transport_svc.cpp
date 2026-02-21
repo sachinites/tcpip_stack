@@ -85,6 +85,7 @@ TransportService::RemoveVlan(int vlan_id) {
 bool 
 TransportService::AttachInterface(Interface *intf) {
 
+    node_t *node;
     PhysicalInterface *phy_intf = dynamic_cast<PhysicalInterface *> (intf);
     VirtualPort *vport = dynamic_cast<VirtualPort *> (intf);
 
@@ -98,6 +99,7 @@ TransportService::AttachInterface(Interface *intf) {
         return false;
     }
 
+    node = intf->att_node;
     uint32_t ifindex = intf->ifindex;
     auto it = this->ifSet.find ( ifindex );
 
@@ -118,8 +120,7 @@ TransportService::AttachInterface(Interface *intf) {
     this->ref_count++;
     
     /* Send VLAN group bind update to datapath */
-    node_t *node = intf->att_node;
-    if (node && !this->vlanSet.empty()) {
+    if (!this->vlanSet.empty()) {
         cp2dp_send_intf_vlan_grp_bind_update(node, ifindex, &this->vlan_bitmap, true);
     }
     
@@ -139,10 +140,8 @@ TransportService::DeAttachInterface (Interface *intf) {
         
         /* Send VLAN group unbind update to datapath before detaching */
         node_t *node = intf->att_node;
-        if (node) {
-            cp2dp_send_intf_vlan_grp_bind_update(node, intf->ifindex, NULL, false);
-        }
-        
+        cp2dp_send_intf_vlan_grp_bind_update(node, intf->ifindex, &this->vlan_bitmap, false);
+
         trans_svc->ifSet.erase (intf->ifindex);
         phy_intf->trans_svc = NULL;
         trans_svc->ref_count--;
@@ -156,9 +155,7 @@ TransportService::DeAttachInterface (Interface *intf) {
         
         /* Send VLAN group unbind update to datapath before detaching */
         node_t *node = intf->att_node;
-        if (node) {
-            cp2dp_send_intf_vlan_grp_bind_update(node, intf->ifindex, NULL, false);
-        }
+        cp2dp_send_intf_vlan_grp_bind_update(node, intf->ifindex, &this->vlan_bitmap, false);
         
         trans_svc->ifSet.erase (intf->ifindex);
         vport->trans_svc = NULL;
@@ -312,7 +309,7 @@ transport_svc_config_handler(int cmdcode,
                     rc = tsp->AddVlan(vlan_id);
                     if (!rc) {
                         cprintf ("\nError : Failed to Add Vlan %d to Transport Service Profile %s",
-				vlan_id, tsp_name);
+                            vlan_id, tsp_name);
                         return -1;
                     }
                     cp2dp_send_intf_grp_bind_to_vlan_update(node, tsp, vlan_id, true);
@@ -321,9 +318,9 @@ transport_svc_config_handler(int cmdcode,
                     rc = tsp->RemoveVlan(vlan_id);
                     if (!rc) {
                         cprintf ("\nError : Failed to Remove Vlan %d from Transport Service Profile %s",
-				vlan_id, tsp_name);
+				            vlan_id, tsp_name);
                         return -1;
-                    }                  
+                    } 
                     cp2dp_send_intf_grp_bind_to_vlan_update(node, tsp, vlan_id, false);
                     break;
                 default: ;

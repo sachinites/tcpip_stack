@@ -484,6 +484,8 @@ cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async) {
     // The task is submitted with the task data as arg
     // The task data size is arg_size
 
+    assert (dp_msg->data_size < sizeof(dp_msg->data));
+
     // Get the event dispatcher of the DP
     if (async) {
             task_create_new_job(EV_DP(node), (void *)dp_msg,

@@ -151,6 +151,9 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->cptr, true);
 
+    bitmap_init(&node->if_index_bm, MAX_INTF_IFINDEX + 1);
+    bitmap_set_bit_at(&node->if_index_bm, 0);
+
     init_node_nw_prop(node, &node->node_nw_prop);
 
     /* Initialize global interface maps */
@@ -202,10 +205,6 @@ Router_Create(graph_t *graph, const c_string node_name){
     init_pkt_q (&node->ev_dis, &node->cp_ipc_q, ipc_event_signal);
 
     pkt_tracer_init (&node->pkt_tracer);
-
-    bitmap_init(&node->if_index_bm, 1028);
-    assert( MAX_INTF_IFINDEX < 1028);
-    bitmap_set_bit_at(&node->if_index_bm, 0);
 
     //node_config_db_init (node);
 

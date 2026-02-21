@@ -424,6 +424,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             }   
 
             vlan_id_t old_access_vlan = interface->GetVlanId();
+            uint32_t vlan_intf_ifindex = 0;
 
             switch(enable_or_disable) {
 
@@ -433,9 +434,11 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                         interface->GetAccessVlanIntf()->ifindex, DP_LAN_ACCESS_MODE, true);
                     break;
                 case CONFIG_DISABLE:
+                    vlan_intf_ifindex = interface->GetAccessVlanIntf() ? \
+                        interface->GetAccessVlanIntf()->ifindex : 0;
                     if (!interface->IntfConfigVlan(vlan_id, false) ) return -1;
                     cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        interface->GetAccessVlanIntf()->ifindex, DP_LAN_ACCESS_MODE, false);
+                        vlan_intf_ifindex, DP_LAN_ACCESS_MODE, false);
                     break;
                 default:
                     ;

@@ -19,7 +19,7 @@ typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 #include "../FIB/fib_nh.h"
 #include "../datapath/Vrfs/dp_vrf.h"
 
-#define CP2DP_MSG_SIZE_MAX  1024
+#define CP2DP_MSG_SIZE_MAX  2048
 
 /* Route update msg to RTM*/
 typedef struct rt_update_msg_ {

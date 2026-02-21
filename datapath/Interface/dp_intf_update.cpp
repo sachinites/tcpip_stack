@@ -137,10 +137,10 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                         dp_vlan_unbind_port (vlan_intf, intf, vlan_bind->l2_mode, true);
                     }
                     tracer(node->dptr, DCONF, 
-                        "%sBinding %s with %s l2_mode=%s, add = %d\n",
+                        "%sBinding %s with %s l2_mode=%s\n",
+                        vlan_bind->add ? "" : "Un",
                         vlan_intf->if_name, intf->if_name,
-                        dp_intf_mode_str(vlan_bind->l2_mode), 
-                        vlan_bind->add ? "" : "Un");
+                        dp_intf_mode_str(vlan_bind->l2_mode));
                 }
                 break;
 
@@ -220,65 +220,51 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                 }
                 break;
 
+                /* When TSP is attached/detached from an ethernet interface*/
                 case CP2DP_CODE_INTF_VLAN_GRP_BIND:
                 {
-                    dp_intf_vlan_grp_bind_t *vlan_grp_bind = 
+                    dp_intf_vlan_grp_bind_t *vlan_grp_bind =
                         (dp_intf_vlan_grp_bind_t *)(msg + 1);
-                    
+
                     dp_intf_t *vlan_intf;
 
-                    if (vlan_grp_bind->add) {
-                        /* Adding: Bind interface to all VLANs in the bitmap */
-                        tracer(node->dptr, DCONF, 
-                            "DP INTF: Binding interface if_name=%s to VLAN group (trunk mode)\n",
-                            intf->if_name);
+                    struct hashtable_itr *itr = hashtable_iterator(ht);
+                    while (1)
+                    {
+                        vlan_intf = (dp_intf_t *)hashtable_iterator_value(itr);
 
-                        struct hashtable_itr *itr = hashtable_iterator(ht);
-                        while (1)
-                        {
-                            vlan_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-                            
-                            if (vlan_intf->if_type != DP_INTF_TYPE_VLAN) continue;
-                            if (!dp_bitmap_at(vlan_grp_bind->vlan_bitmapp, vlan_intf->vlan_id)) continue;
+                        if (vlan_intf->if_type != DP_INTF_TYPE_VLAN) {
+                            if (hashtable_iterator_advance(itr)) continue; break;
+                        }
 
+                        if (!dp_bitmap_at(vlan_grp_bind->vlan_bitmapp, vlan_intf->vlan_id)) {
+                            if (hashtable_iterator_advance(itr)) continue; break;   
+                        }
+
+                        if (vlan_grp_bind->add) {
                             dp_vlan_bind_port(vlan_intf, intf, DP_LAN_TRUNK_MODE);
-                            if (!hashtable_iterator_advance(itr)) break;
                         }
-                        free(itr);
-
-                        tracer(node->dptr, DCONF, 
-                            "DP INTF: Interface if_name=%s bound to VLAN group\n", intf->if_name);
-                        
-                    } else {
-                        /* Removing: Unbind interface from all VLANs */
-                        tracer(node->dptr, DCONF, 
-                            "DP INTF: Unbinding interface if_name=%s from all VLANs\n",
-                            intf->if_name);
-
-                        struct hashtable_itr *itr = hashtable_iterator(ht);
-                        while (1)
-                        {
-                            vlan_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-
-                            if (vlan_intf->if_type != DP_INTF_TYPE_VLAN)
-                                continue;
-                            if (!dp_bitmap_at(vlan_grp_bind->vlan_bitmapp, vlan_intf->vlan_id))
-                                continue;
-
+                        else {
                             dp_vlan_unbind_port(vlan_intf, intf, DP_LAN_TRUNK_MODE, false);
-                            if (!hashtable_iterator_advance(itr))
-                                break;
                         }
-                        free(itr);
-                        intf->l2_mode = DP_LAN_MODE_NONE;
 
-                        tracer(node->dptr, DCONF, 
-                            "DP INTF: Interface if_name=%s unbound from all VLANs\n", intf->if_name);
+                        if (!hashtable_iterator_advance(itr)) break;
                     }
+                    free(itr);
+
+                    if (!vlan_grp_bind->add) {
+                     intf->l2_mode = DP_LAN_MODE_NONE;   
+                    }
+
+                    tracer(node->dptr, DCONF,
+                           "DP INTF: Interface if_name=%s %sbound %s VLAN group\n",
+                           intf->if_name, vlan_grp_bind->add ? "" : "Un",
+                           vlan_grp_bind->add ? "to" : "from");
                 }
                 break;
 
 
+                /* When vlan is added/deleted to existing TSP*/
                 case CP2DP_CODE_INTF_GRP_VLAN_BIND:
                 {
                     dp_intf_grp_bind_t *intf_grp_bind = 
@@ -286,19 +272,24 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     
                     dp_intf_t *vlan_intf = intf;
                     dp_intf_t *member_intf;
-                    uint32_t count;
+                    uint32_t count = 0;
 
                     struct hashtable_itr *itr = hashtable_iterator(ht);
                     while (1) {
                         member_intf = (dp_intf_t *)hashtable_iterator_value(itr);
 
                         /* Filter interfaces which cannot be member ports of a vlan*/
-                        if (member_intf->if_type == DP_INTF_TYPE_VLAN) assert(0);
-                        if (member_intf->if_type == DP_INTF_TYPE_GRE_TUNNEL) assert(0);
-                        if (member_intf->if_type == DP_INTF_TYPE_LOOPBACK) assert(0);
-                        if (member_intf->if_type == DP_INTF_TYPE_NVE) assert(0);
+                        if (member_intf->if_type == DP_INTF_TYPE_VLAN       || 
+                            member_intf->if_type == DP_INTF_TYPE_GRE_TUNNEL ||
+                            member_intf->if_type == DP_INTF_TYPE_LOOPBACK   ||
+                            member_intf->if_type == DP_INTF_TYPE_NVE) {
 
-                        if (!dp_bitmap_at(intf_grp_bind->if_bitmapp, member_intf->port_id)) continue;
+                            if (hashtable_iterator_advance(itr)) continue; break;   
+                        }
+
+                        if (!dp_bitmap_at(intf_grp_bind->if_bitmapp, member_intf->port_id)) {
+                            if (hashtable_iterator_advance(itr)) continue; break;    
+                        }
 
                         if (intf_grp_bind->add)
                             dp_vlan_bind_port(vlan_intf, member_intf, DP_LAN_TRUNK_MODE);
@@ -308,9 +299,9 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                         count++;
 
                         if (!hashtable_iterator_advance(itr)) break;
-                    } 
+                    }
                     free(itr);
-                    
+
                     tracer(node->dptr, DCONF, 
                         ("DP INTF : %u member ports successfully %s %s %s\n", 
                             count, intf_grp_bind->add ? "Added" : "Removed",
@@ -561,21 +552,16 @@ cp2dp_send_intf_vlan_grp_bind_update(node_t *node, uint32_t port_id, bitmap_t *v
     /* Fill in the VLAN group bind data */
     vlan_grp_bind = (dp_intf_vlan_grp_bind_t *)(intf_msg + 1);
     vlan_grp_bind->add = add ? 1 : 0;
-    
-    if (add) {
-        /* Copy the bitmap bits to the fixed-size array */
-        size_t bitmap_bytes = (vlan_bitmap->tsize + 7) / 8;  /* Number of bytes needed */
-        if (bitmap_bytes > sizeof(vlan_grp_bind->vlan_bitmapp)) {
-            bitmap_bytes = sizeof(vlan_grp_bind->vlan_bitmapp);
-        }
-        
-        /* Copy bits from uint32_t array to uint8_t array */
-        memcpy(vlan_grp_bind->vlan_bitmapp, vlan_bitmap->bits, bitmap_bytes);
-    } else {
-        /* Clear the bitmap when removing */
-        memset(vlan_grp_bind->vlan_bitmapp, 0, sizeof(vlan_grp_bind->vlan_bitmapp));
+
+    /* Copy the bitmap bits to the fixed-size array */
+    size_t bitmap_bytes = (vlan_bitmap->tsize + 7) / 8; /* Number of bytes needed */
+
+    if (bitmap_bytes > sizeof(vlan_grp_bind->vlan_bitmapp)) {
+        bitmap_bytes = sizeof(vlan_grp_bind->vlan_bitmapp);
     }
-    
+
+    memcpy(vlan_grp_bind->vlan_bitmapp, vlan_bitmap->bits, bitmap_bytes);
+
     cp2dp_submit(node, dp_msg, true);
 }
 
@@ -635,6 +621,7 @@ cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node,
                                         TransportService *tsp, 
                                         uint16_t vlan_id, bool add) {
 
+    bool intf_fnd = false;
     dp_msg_t *dp_msg;
     dp_intf_cp2dp_msg_hdr_t *intf_msg;
     dp_intf_grp_bind_t *bind_msg;
@@ -654,22 +641,23 @@ cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node,
 
     dp_intf_grp_bind_t *msg = (dp_intf_grp_bind_t *)(intf_msg + 1);
 
-    /* Iterate over all interfaces to which this TSP is attached */
-    std::unordered_map<std::string , TransportService *> *TransPortSvcDB = 
-        node->TransPortSvcDB;
-
     bitmap_t bm;
-    bitmap_init(&bm, 1028);
-
-    assert (MAX_INTF_IFINDEX < 1028);
+    bitmap_init(&bm, MAX_INTF_IFINDEX + 1);
 
     for (auto it2 = tsp->ifSet.begin(); it2 != tsp->ifSet.end(); ++it2)
     {
         uint16_t if_index = *it2;
         assert(if_index && if_index <= MAX_INTF_IFINDEX);
         bitmap_set_bit_at(&bm, if_index);
+        intf_fnd = true;
     }
 
+    if (!intf_fnd) {
+        cp2dp_msg_free(dp_msg);
+        bitmap_free_internal (&bm);
+        return;
+    }
+    
     memcpy ((void *)msg->if_bitmapp, (void *)bm.bits, sizeof (msg->if_bitmapp));
     bitmap_free_internal (&bm);
     msg->add = add ? 1 : 0;
