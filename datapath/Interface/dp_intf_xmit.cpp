@@ -179,6 +179,7 @@ vlan_send_pkt_out_all_trunk_ports(dp_intf_t *vlan_intf,
 {
     int i;
     dp_intf_t *member_port;
+    
     for (i = 0; i < MAX_VLAN_MEMBER_PORTS; i++)
     {
         member_port = vlan_intf->mports[i];
@@ -187,9 +188,24 @@ vlan_send_pkt_out_all_trunk_ports(dp_intf_t *vlan_intf,
         if (!member_port->is_up)
             continue;
         if (member_port->l2_mode == DP_LAN_MODE_NONE) continue;
-        if (only_trunk_ports && (member_port->l2_mode != DP_LAN_TRUNK_MODE))
-            continue;
-        send_xmit_out(member_port, pkt_block);
+
+        if (only_trunk_ports) {
+
+            if (member_port->l2_mode == DP_LAN_TRUNK_MODE) {
+                send_xmit_out(member_port, pkt_block);
+            }
+            else {
+                continue;
+            }
+        }
+        else {
+            if (member_port->l2_mode == DP_LAN_ACCESS_MODE) {
+                send_xmit_out(member_port, pkt_block);
+            }
+            else {
+                continue;
+            }
+        }
     }
 }
 
