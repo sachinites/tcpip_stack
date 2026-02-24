@@ -8,6 +8,8 @@
 
 typedef struct tracer_ tracer_t;
 
+#define HDR_SIZE    129
+
 tracer_t *
 tracer_init (const char *tr_str_id, 
                   const char *file_name, 

@@ -45,6 +45,7 @@ typedef struct pkt_block_ pkt_block_t;
 typedef struct access_list_  access_list_t;
 typedef struct prefix_lst_ prefix_list_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 typedef struct log_{
 
@@ -73,7 +74,7 @@ void tcp_ip_init_intf_log_info(Interface *intf);
 void tcp_ip_de_init_intf_log_info(Interface *intf);
 void tcp_ip_set_all_log_info_params(log_t *log_info, bool status);
 void tcp_ip_show_log_status(node_t *node);
-void tcp_dump_l3_fwding_logger(node_t *node, c_string oif_name, c_string gw_ip);
+void tcp_dump_l3_fwding_logger(dp_vrf_t *vrf, c_string oif_name, c_string gw_ip);
 void tcp_init_send_logging_buffer(node_t *node);
 
 /* Packet header dump functions */

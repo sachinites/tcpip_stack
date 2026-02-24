@@ -7,15 +7,17 @@
 #include "../../../Interface/InterfaceUApi.h"
 #include "../../layer2.h"
 #include "../../vxlan/dp/vlan_vni_ht.h"
-
+#include "../../../datapath/Interface/dp_intf.h"
 
 extern void
-l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-                                                    c_string src_mac, Interface *oif, uint32_t src_ip) ;
+l2_switch_perform_mac_learning (node_t *node, 
+                                vlan_id_t vlan_id, 
+                                c_string src_mac, 
+                                dp_intf_t *oif, uint32_t src_ip) ;
 extern void
 l2_switch_forward_frame(
                         node_t *node,
-                        Interface *recv_intf, 
+                        dp_intf_t *recv_intf, 
                         pkt_block_t *pkt_block);
 
 void
@@ -107,11 +109,12 @@ void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_
 
     l2_switch_perform_mac_learning (node,  vlan_id,
                             eth_hdr->src_mac.mac,
-                            NODE_NVE_INTF(node).get(), src_vtep_ip) ;
+                            node->node_nw_prop.dp_nve,
+                            src_vtep_ip) ;
 
     tracer (node->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
         
-    l2_switch_forward_frame (node, NODE_NVE_INTF(node).get(),  pkt_block);
-    NODE_NVE_INTF(node)->pkt_recv++;
+    l2_switch_forward_frame (node, node->node_nw_prop.dp_nve,  pkt_block);
+    node->node_nw_prop.dp_nve->pkt_recv++;
 }

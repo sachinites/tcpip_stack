@@ -177,7 +177,7 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     pkt_notif_data = (pkt_notif_data_t *)arg;
 
     node        = pkt_notif_data->recv_node;
-    iif         = pkt_notif_data->recv_interface;
+    iif         = node_get_intf_by_ifindex (node, pkt_notif_data->recv_intf_index);
     pkt_block = pkt_notif_data->pkt_block;
     eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
@@ -228,7 +228,7 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     pkt_notif_data = (pkt_notif_data_t *)arg;
 
     node        = pkt_notif_data->recv_node;
-    iif         = pkt_notif_data->recv_interface;
+    iif         = node_get_intf_by_ifindex(node, pkt_notif_data->recv_intf_index);
     pkt_block = pkt_notif_data->pkt_block;
     eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	

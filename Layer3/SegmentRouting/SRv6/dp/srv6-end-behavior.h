@@ -1,17 +1,17 @@
 #ifndef  __SRV6_END_BEHAVIOR_H
 
-typedef struct node_ node_t;
+typedef struct dp_vrf_ dp_vrf_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct ipv6_hdr_ ipv6_hdr_t;
 typedef struct srh_hdr_ srh_hdr_t;
 typedef struct fib_nh_ fib_nh_t;
 
 void
-srv6_shift_and_forward(node_t *node,
-                                    pkt_block_t *pkt_block);
+srv6_shift_and_forward(dp_vrf_t *vrf,
+                       pkt_block_t *pkt_block);
 
 #define fn_template(fn_name)    \
-    void fn_name (node_t *node, pkt_block_t *pkt_block, ipv6_hdr_t *ipv6_hdr, srh_hdr_t *srh, fib_nh_t *nexthop)
+    void fn_name (dp_vrf_t *vrf, pkt_block_t *pkt_block, ipv6_hdr_t *ipv6_hdr, srh_hdr_t *srh, fib_nh_t *nexthop)
 
 fn_template(srv6_END);
 

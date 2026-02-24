@@ -59,12 +59,10 @@ OBJS=gluethread/glthread.o \
 		  Layer3/gre-tunneling/gre.o \
 		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
-		  Layer3/rt_notif.o	\
 		  Layer3/ipv6/ipv6cli.o \
 		  Layer3/ipv6/ipv6_utils.o \
 		  Layer3/ipv6/v6nexthop.o \
 		  Layer3/ipv6/ipv6_fwd.o \
-		  Layer3/mpls_fwd.o \
 		  Layer3/mpls_cli.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
@@ -236,12 +234,6 @@ Layer3/layer3.o:Layer3/layer3.c
 
 Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
-
-Layer3/rt_notif.o:Layer3/rt_notif.c
-	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o
-
-Layer3/mpls_fwd.o:Layer3/mpls_fwd.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/mpls_fwd.cpp -o Layer3/mpls_fwd.o
 
 Layer3/mpls_cli.o:Layer3/mpls_cli.cpp
 	${CC} ${CFLAGS} -c -I . Layer3/mpls_cli.cpp -o Layer3/mpls_cli.o

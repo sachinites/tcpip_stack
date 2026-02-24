@@ -4,6 +4,7 @@
 #include "../FIB/fib_nh.h"
 #include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
+#include "../datapath/Interface/dp_intf_store.h"
 
 void
 rtm_fib_copy_fwd_info (node_t *node, 
@@ -12,7 +13,7 @@ rtm_fib_copy_fwd_info (node_t *node,
 
     /* SRv6 Local SIDs with END function may not have any interface*/
     if (src->oif) {
-        dst->oif = node_get_intf_by_ifindex(node, src->oif)->GetSharedPtr();
+        dst->oif = dp_look_up_interface(node->dp_intf_ht, src->oif);
     }
 
     dst->nh_addr = src->nh_addr;

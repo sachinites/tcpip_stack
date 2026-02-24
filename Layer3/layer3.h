@@ -50,6 +50,7 @@ class Interface;
 typedef struct nexthop_ nexthop_t;
 
 typedef struct prefix_lst_ prefix_list_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 typedef struct rt_table_{
 
@@ -220,7 +221,7 @@ bool
 l3_is_direct_route(l3_route_t *l3_route);
 
 nexthop_t *
-l3_route_get_active_nexthop(l3_route_t *l3_route, Interface *exclude_oif);
+l3_route_get_active_nexthop(l3_route_t *l3_route, dp_intf_t *exclude_oif);
 
 /* Routing Table APIs */
 void
@@ -245,39 +246,17 @@ l3rib_lookup_lpm(rt_table_t *rt_table,
 l3_route_t *
 l3rib_lookup(rt_table_t *rt_table, uint32_t dest_ip, char mask);
 
-/* MP Unsafe */
-l3_route_t *
-rt_table_lookup_exact_match(rt_table_t *rt_table, c_string ip_addr, char mask);
-
 /* Routing Table APIs */
 void
 rt_table_perform_app_operation_on_routes (
                             rt_table_t *rt_table, 
                             void (*app_cbk) (mtrie_t *, mtrie_node_t *, void *));
 
-void
-layer3_ip_route_pkt(node_t *node,
-							   Interface *interface,
-					           pkt_block_t *pkt_block) ;
+void layer3_ip_route_pkt(dp_vrf_t *vrf,
+                         dp_intf_t *interface,
+                         pkt_block_t *pkt_block);
 
 void
-rt_ipv4_route_add (node_t *node, 
-                                uint32_t prefix, 
-                                uint8_t mask, 
-                                uint32_t gw_ip,
-                                Interface *oif,
-                                uint32_t metric,
-                                uint16_t proto_id,
-                                bool async) ;
-
-void
-rt_ipv4_route_del (node_t *node, 
-                               uint32_t prefix, 
-                               uint8_t mask, 
-                               uint16_t proto_id,
-                               bool async) ;
-
-void
-np_tcp_ip_send_ip_data (node_t *node, pkt_block_t *pkt_block);
+np_tcp_ip_send_ip_data (dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
 #endif /* __LAYER3__ */

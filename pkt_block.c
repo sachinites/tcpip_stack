@@ -31,6 +31,7 @@
 #include "common/l3_hdrs.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
 #include "lmm_enums.h"
+#include "datapath/Interface/dp_intf.h"
 
 void
 pkt_block_mem_init () {
@@ -403,7 +404,7 @@ pkt_block_debug(pkt_block_t *pkt_block) {
 }
 
 void 
-pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) {
+pkt_block_set_recommended_oif (pkt_block_t *pkt_block, dp_intf_t *oif) {
 
     if (!oif && !pkt_block->recommended_oif) {
         return;
@@ -414,11 +415,11 @@ pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) {
         return;
     }
 
-    pkt_block->recommended_oif = oif->GetSharedPtr();
+    pkt_block->recommended_oif = oif;
 }
 
 void
-pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) {
+pkt_block_set_exclude_oif (pkt_block_t *pkt_block, dp_intf_t *oif) {
 
     if (!oif && !pkt_block->exclude_oif) {
         return;
@@ -429,7 +430,7 @@ pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) {
         return;
     }
 
-    pkt_block->exclude_oif = oif->GetSharedPtr();
+    pkt_block->exclude_oif = oif;
 }
 
 char *

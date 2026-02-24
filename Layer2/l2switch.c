@@ -40,22 +40,23 @@
 #include "../pkt_block.h"
 #include "../tcpconst.h"
 #include "transport_svc.h"
-#include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
 #include "mac_table.h"
 #include "vxlan/dp/vlan_vni_ht.h"
 #include "../lmm_enums.h"
 #include "vxlan/dp/vxlan_dp.h"
+#include "../datapath/Interface/dp_intf.h"
 
 extern void
-promote_pkt_to_layer3(node_t *node,           
-                      Interface *interface,  
+promote_pkt_to_layer3(dp_vrf_t *vrf,      
+                      dp_intf_t *interface,  
                       pkt_block_t *pkt_block, 
                       int L3_protocol_number) ; 
 
 void
-l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-                                c_string src_mac, Interface *oif, uint32_t src_ip) {
+l2_switch_perform_mac_learning (node_t *node, 
+                                vlan_id_t vlan_id, 
+                                c_string src_mac, dp_intf_t *oif, uint32_t src_ip) {
 
     int i;
     uint16_t flags;
@@ -71,19 +72,20 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id,
     if (mac_table_entry) {
 
         /* If existing entry is dynamic and OIF is same, then refresh the timer */
-        mac_oif_entry_t *existing = mac_table_entry_find_oif(mac_table_entry, oif->ifindex, src_ip);
+        mac_oif_entry_t *existing = mac_table_entry_find_oif(
+                                    mac_table_entry, oif->port_id, src_ip);
         if (existing) {
             return;  /* Interface already exists, nothing to do */
         }
 
         /* Add new OIF to the existing entry */
-        mac_table_entry_add_oif(mac_table_entry, oif->GetSharedPtr(), src_ip);
+        mac_table_entry_add_oif(mac_table_entry, oif, src_ip);
         return;
     }
 
     /* Determine MAC entry flags */
-    if (oif == NODE_RMAC_INTF(node).get() || 
-            oif == NODE_VLAN_FLOOD_INTF(node).get()) {
+    if (oif == node->node_nw_prop.dp_rmac_intf || 
+        oif == node->node_nw_prop.dp_vlan_flood_intf) {
 
         flags = MAC_STATIC;
         
@@ -94,18 +96,18 @@ l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id,
     
     /* Use sync API to add MAC entry since called is in DP itself */
     mac_table_entry_add (node, NODE_MAC_TABLE(node), 
-        (uint8_t*)src_mac, vlan_id, oif->ifindex, flags, src_ip);
+        (uint8_t*)src_mac, vlan_id, oif->port_id, flags, src_ip);
 }
 
 static void 
 mac_table_entry_xmit_frame (node_t *node, 
                             mac_table_entry_t *mac_entry, 
                             pkt_block_t *pkt_block, 
-                            Interface *recv_intf) 
+                            dp_intf_t *recv_intf) 
 {
     glthread_t *curr;
     mac_oif_entry_t *oif_entry;
-    Interface *oif; 
+    dp_intf_t *oif; 
     uint32_t vni_id = 0;
     vlan_id_t vlan_id = 0;
     pkt_block_t *pkt_block2;
@@ -114,7 +116,7 @@ mac_table_entry_xmit_frame (node_t *node,
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
         
         oif_entry = mac_oif_glue_to_entry(curr);
-        oif = oif_entry->oif.get();
+        oif = oif_entry->oif;
         
         if (!oif) continue;
         
@@ -122,7 +124,7 @@ mac_table_entry_xmit_frame (node_t *node,
             continue;
         }
 
-        if (oif->iftype== INTF_TYPE_NVE) {
+        if (oif->if_type== DP_INTF_TYPE_NVE) {
             
             encap_data = (encap_meta_data_t *) XCALLOC2 (0, 1, encap_meta_data_t);
 
@@ -153,27 +155,27 @@ mac_table_entry_xmit_frame (node_t *node,
 
         pkt_block2 = pkt_block_dup(pkt_block);
         pkt_block->encap_data = NULL;
-        oif->SendPacketOut(pkt_block2);
+        dp_send_pkt_out(oif, pkt_block2);
         pkt_block_dereference(pkt_block2);
         
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 }
 
 static void
-l2_switch_flood_unknown_unicast (node_t *node, 
-                                          Interface *exempted_intf,
-                                          pkt_block_t *pkt_block) {
+l2_switch_flood_unknown_unicast(node_t *node,
+                                dp_intf_t *exempted_intf,
+                                pkt_block_t *pkt_block)
+{
 
-
-    Interface *oif;
+    dp_intf_t *oif;
     pkt_block_t *dup_pkt_block;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     mac_table_entry_t *mac_flood_entry = NULL;
 
-    mac_flood_entry = 
-                        mac_table_lookup(NODE_MAC_TABLE(node), 
-                        1,
-                        BROADCAST_MAC);    
+    mac_flood_entry =
+        mac_table_lookup(NODE_MAC_TABLE(node),
+                         1,
+                         BROADCAST_MAC);
 
     if (!mac_flood_entry) {
          tracer (node->dptr, DL2SW, "Mac Table : Flooding Disabled ");
@@ -193,7 +195,7 @@ l2_switch_flood_unknown_unicast (node_t *node,
 void
 l2_switch_forward_frame(
                         node_t *node,
-                        Interface *recv_intf, 
+                        dp_intf_t *recv_intf, 
                         pkt_block_t *pkt_block) {
 
     vlan_id_t vlan_id;
@@ -209,7 +211,7 @@ l2_switch_forward_frame(
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
         pkt_block_str (pkt_block), GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-     pkt_block->ingress_intf = recv_intf->GetSharedPtr();
+     pkt_block->ingress_intf = recv_intf;
      vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
@@ -280,12 +282,11 @@ l2_switch_forward_frame(
         l2_switch_flood_unknown_unicast(node, recv_intf, pkt_block);
 }
 
-void
-l2_switch_recv_frame(node_t *node,
-                                     vlan_id_t vlan_id,
-                                     Interface *interface, 
-                                     pkt_block_t *pkt_block) { 
-
+void l2_switch_recv_frame(node_t *node,
+                          vlan_id_t vlan_id,
+                          dp_intf_t *interface,
+                          pkt_block_t *pkt_block)
+{
     pkt_size_t pkt_size;
 
     if (pkt_block_get_starting_hdr (pkt_block) != ETH_HDR){
@@ -298,7 +299,7 @@ l2_switch_recv_frame(node_t *node,
     c_string src_mac = (c_string)vlan_ethernet_hdr->src_mac.mac;
 
     tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
-        pkt_block_str (pkt_block), interface->if_name.c_str(), vlan_id);
+        pkt_block_str (pkt_block), interface->if_name, vlan_id);
 
     l2_switch_perform_mac_learning(node, vlan_id, src_mac, interface, 0);
     l2_switch_forward_frame(node, interface, pkt_block);

@@ -42,17 +42,17 @@
 
 void
 promote_pkt_from_layer3_to_layer5(node_t *node,
-					 Interface *recv_intf, 
+					uint32_t recv_intf_ifindex, 
 					pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) {
 
-	nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
-			pkt_block, node, recv_intf, hdr_code);
+	//nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
+	//				pkt_block, node, recv_intf, hdr_code);
 }
 
 void
 cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
-					 Interface *recv_intf, 
+					 uint32_t recv_intf_ifindex, 
                      pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) { 
 
@@ -61,7 +61,7 @@ cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
 	pkt_notif_data_t pkt_notif_data;
 
 	pkt_notif_data.recv_node = node;
-	pkt_notif_data.recv_interface = recv_intf;
+	pkt_notif_data.recv_intf_index = recv_intf_ifindex;
 	pkt_notif_data.pkt_block = pkt_block;
 	pkt_notif_data.hdr_code = hdr_code;
 

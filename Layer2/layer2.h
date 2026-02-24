@@ -168,14 +168,14 @@ SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_t *ethernet_hdr, uint16_t proto)
 bool 
 l2_frame_recv_qualify_on_interface(
                                     node_t *node,
-                                    Interface *interface, 
+                                    dp_intf_t *interface, 
                                     pkt_block_t *pkt_block,
                                     vlan_id_t *output_vlan_id);
 
 void
 promote_pkt_to_layer2(
-                    node_t *node,
-                    Interface *iif, 
+                    dp_vrf_t *vrf,
+                    dp_intf_t *iif, 
                     pkt_block_t *pkt_block);
                     
 static inline uint32_t 

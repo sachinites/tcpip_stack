@@ -57,8 +57,11 @@ typedef struct dp_intf_ {
     /* Physical Properties */
     bool is_up;
 
-    /* If this is GRE tunnel intf, then its dest ip*/
+    /* If this is GRE tunnel intf, then its dest ip and virtual port*/
     uint32_t gre_tunnel_dst_ip;
+    struct dp_intf_ *virtual_port;
+
+    bool is_tunnel_up;
 
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;
@@ -70,5 +73,8 @@ typedef struct dp_intf_ {
 }dp_intf_t;
 
 #pragma pack(pop)
+
+void 
+dp_send_pkt_out (dp_intf_t *intf, pkt_block_t *pkt_block);
 
 #endif 

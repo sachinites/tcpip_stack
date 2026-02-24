@@ -123,10 +123,9 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
 
     Interface *other_interface = interface->GetOtherInterface();
 
-    ev_dis_pkt_data = new ev_dis_pkt_data_t;
+    ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc (1, sizeof (ev_dis_pkt_data_t));
 
-    ev_dis_pkt_data->recv_node = nbr_node;
-    ev_dis_pkt_data->recv_intf = other_interface->GetSharedPtr();
+    ev_dis_pkt_data->ifindex = other_interface->ifindex;
     ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
@@ -140,7 +139,7 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
 
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
-        delete (ev_dis_pkt_data);
+        free (ev_dis_pkt_data);
     }
 
     interface->pkt_sent++;
@@ -1112,8 +1111,8 @@ int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
     untag_pkt_with_vlan_id(pkt_block);
     eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    promote_pkt_to_layer3 (this->att_node, 
-            dynamic_cast<Interface*>(this),  pkt_block, eth_hdr->type);
+    //promote_pkt_to_layer3 (0, 
+      //      dynamic_cast<Interface*>(this),  pkt_block, eth_hdr->type);
     
     return 0;
 }
@@ -1150,8 +1149,8 @@ VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
 
     VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp (this->att_node, vlan_id);
 
-    vlan_intf->VlanPacketFlood (pkt_block, 
-            dynamic_cast<Interface *>(pkt_block->ingress_intf.get()));
+    /*vlan_intf->VlanPacketFlood (pkt_block, 
+            dynamic_cast<Interface *>(pkt_block->ingress_intf.get()));*/
 
     return 0;
 }
@@ -1395,7 +1394,7 @@ GRETunnelInterface::SendPacketOut(pkt_block_t *pkt_block)
     }
 
     gre_encasulate (this->att_node, pkt_block);
-    pkt_block_set_exclude_oif (pkt_block, this);
+    //pkt_block_set_exclude_oif (pkt_block, this);
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
     /* Now attach outer IP Hdr and send the pkt*/
@@ -1407,7 +1406,7 @@ GRETunnelInterface::SendPacketOut(pkt_block_t *pkt_block)
     ip_hdr->dst_ip = htonl(this->tunnel_dst_ip);
     ip_hdr->protocol = GRE_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
-    np_tcp_ip_send_ip_data (node, pkt_block);
+    //np_tcp_ip_send_ip_data (node, pkt_block);
     this->pkt_sent++;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
@@ -2113,7 +2112,7 @@ NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
-    np_tcp_ip_send_ip_data (this->att_node, pkt_block);
+    //np_tcp_ip_send_ip_data (this->att_node, pkt_block);
     this->pkt_sent++;
     return 0;
 }

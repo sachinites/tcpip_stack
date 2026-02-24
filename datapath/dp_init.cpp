@@ -49,7 +49,6 @@ dp_init (node_t *node) {
     /* Start IPC Message Queue of Data Plane*/
     init_pkt_q (&node->dp_ev_dis, &node->dp_ipc_q, 0);
 
-    init_arp_table(&(node->node_nw_prop.arp_table));
     init_mac_table(&(node->node_nw_prop.mac_table));
 
     dp_init_intf_hashtable (&node->dp_intf_ht);

@@ -3,12 +3,12 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include "../Interface/InterfaceFwd.h"
 #include "../libtimer/WheelTimer.h"
 #include "../common/cmn_struct.h"
 #include "../utils.h"
 
 typedef struct node_ node_t;
+typedef struct dp_intf_ dp_intf_t;
 
 /*L2 Switch Owns Mac Table*/
 #define MAC_STATIC  0x1
@@ -30,7 +30,7 @@ static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
 
 /* Structure to hold interface and remote IP pair */
 typedef struct mac_oif_entry_ {
-    InterfaceP oif;
+    dp_intf_t *oif;
     glthread_t glue;
     uint32_t remote_dst_ip;
 } __attribute__((aligned(8))) mac_oif_entry_t;
@@ -84,9 +84,9 @@ void mac_table_entry_init_timer (node_t *node, mac_table_entry_t *mac_table_entr
 void mac_table_entry_cancel_expiry_timer (mac_table_entry_t *mac_table_entry) ;
 
 /* Dynamic OIF list management functions */
-mac_oif_entry_t *mac_oif_entry_create(InterfaceP oif, uint32_t remote_dst_ip);
+mac_oif_entry_t *mac_oif_entry_create(dp_intf_t * oif, uint32_t remote_dst_ip);
 void mac_oif_entry_destroy(mac_oif_entry_t *oif_entry);
-bool mac_table_entry_add_oif(mac_table_entry_t *mac_entry, InterfaceP oif, uint32_t remote_dst_ip);
+bool mac_table_entry_add_oif(mac_table_entry_t *mac_entry, dp_intf_t * oif, uint32_t remote_dst_ip);
 bool mac_table_entry_remove_oif(mac_table_entry_t *mac_entry, uint32_t ifindex, uint32_t remote_dst_ip);
 mac_oif_entry_t *mac_table_entry_find_oif(mac_table_entry_t *mac_entry, uint32_t ifindex, uint32_t remote_dst_ip);
 bool mac_table_entry_has_oifs(mac_table_entry_t *mac_entry);

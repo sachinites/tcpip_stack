@@ -5,7 +5,6 @@
 #include "fib_api.h"
 #include <string.h>
 #include "../lmm_enums.h"
-#include "../Interface/Interface.h"
 #include "../common/mpls_lstack.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Tree/libtree.h"
@@ -29,8 +28,8 @@ fib_nh_comp_fn(const avltree_node_t *node1,
     if (prefix_cmp != 0) return prefix_cmp;
     
     /* Compare outgoing interfaces (pointer comparison) */
-    Interface *oif1 = nh1->fwd_info->oif.get();
-    Interface *oif2 = nh2->fwd_info->oif.get();
+    dp_intf_t *oif1 = nh1->fwd_info->oif;
+    dp_intf_t *oif2 = nh2->fwd_info->oif;
     if (oif1 < oif2) return -1;
     if (oif1 > oif2) return 1;
     

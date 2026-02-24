@@ -36,6 +36,7 @@
 #include "../RTM/rtm_priv_api.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Interface/InterfaceUApi.h"
+#include "../datapath/Interface/dp_intf.h"
 
 extern int
 fib_nh_comp_fn(const avltree_node_t *node1, 
@@ -130,7 +131,7 @@ fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
         fib = vrf->fib_inet6;
         break;
     case AF_MPLS:
-        fib = vrf->mpls_fib;
+        fib = vrf->fib_mpls0;
     default:
         return NULL;
     }
@@ -190,7 +191,7 @@ fib_get_by_name (node_t *node, char *fib_name) {
  * 6. Marks packet for forwarding (simulates hardware forwarding)
  */
 fib_error_t 
-fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
+fib_forward(dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
     
     /* Extract destination address from packet */
     fib_t *fib;
@@ -202,7 +203,7 @@ fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
     }
     
     /* VRF to be supported later ...*/
-    fib = fib_get (node, dest.afi, vrf_id);
+    fib = fib_get (vrf->node, dest.afi, vrf_id);
    
     if (fib->afi == AF_LABEL) {
 
@@ -232,7 +233,7 @@ fib_forward(node_t *node, pkt_block_t *pkt, uint8_t vrf_id) {
     active_nh = fib_get_active_nexthop(route);
     
     /* Forward packet to selected nexthop */
-    return fib_forward_pkt_to_nh(node, pkt, active_nh);
+    return fib_forward_pkt_to_nh(vrf, pkt, active_nh);
 }
 
 /**
@@ -330,7 +331,7 @@ void fib_show(fib_t *fib) {
                     
                     /* Output interface */
                     if (nh->fwd_info->oif) {
-                        cprintf("  OIF: %s", nh->fwd_info->oif->if_name.c_str());
+                        cprintf("  OIF: %s", nh->fwd_info->oif->if_name);
                     } else {
                         cprintf("  OIF: none");
                     }
@@ -442,7 +443,7 @@ void fib_show(fib_t *fib) {
                         
                         /* Output interface */
                         if (nh->fwd_info->oif) {
-                            cprintf("  OIF: %s", nh->fwd_info->oif->if_name.c_str());
+                            cprintf("  OIF: %s", nh->fwd_info->oif->if_name);
                         } else {
                             cprintf("  OIF: none");
                         }

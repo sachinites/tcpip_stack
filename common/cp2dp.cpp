@@ -27,7 +27,7 @@
 #include "../datapath/Interface/dp_intf_store.h"
 
 extern void
-np_tcp_ip_send_ip6_data (node_t *node, pkt_block_t *pkt_block);
+np_tcp_ip_send_ip6_data (dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
 static void 
 dp_mac_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
@@ -79,6 +79,9 @@ np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
 {
     pkt_block_t *pkt_block;
     hdr_type_t hdr_type;
+    uint8_t vrf_id = dp_msg->vrf_id;
+
+    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, vrf_id);
 
     pkt_block = *(pkt_block_t **)dp_msg->data;
 
@@ -91,10 +94,10 @@ np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
             switch (hdr_type)
             {
             case IP_HDR:
-                np_tcp_ip_send_ip_data(node, pkt_block);
+                np_tcp_ip_send_ip_data(vrf, pkt_block);
                 break;
             case IP6_HDR:
-                np_tcp_ip_send_ip6_data(node, pkt_block);
+                np_tcp_ip_send_ip6_data(vrf, pkt_block);
                 break;
             default:
                 break;
@@ -353,8 +356,7 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
 
     node_t *node;
     pkt_block_t *pkt_block;
-	node_t *receving_node;
-	Interface *xmit_intf;
+	dp_intf_t *dp_intf;
 
 	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
 			(ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
@@ -368,13 +370,17 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
 	for ( ; ev_dis_pkt_data; 
 			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
-		receving_node = ev_dis_pkt_data->recv_node;
-		xmit_intf = ev_dis_pkt_data->recv_intf.get();
+		dp_intf = dp_look_up_interface(node->dp_intf_ht, ev_dis_pkt_data->ifindex);
+
+        if (!dp_intf) {
+            free (ev_dis_pkt_data);
+            continue;
+        }
 		pkt_block = (pkt_block_t *)ev_dis_pkt_data->pkt;		
         tracer (node->dptr,  DIPC | DFLOW, "Pkt : %s : Recvd by Data path\n", pkt_block_str(pkt_block));
-        xmit_intf->SendPacketOut (pkt_block);
+        dp_send_pkt_out(dp_intf, pkt_block);
         pkt_block_dereference(pkt_block);
-	    delete (ev_dis_pkt_data);
+	    free (ev_dis_pkt_data);
 	}
 }
 
@@ -384,9 +390,9 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
 void
 cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface) {
     
-        ev_dis_pkt_data_t *ev_dis_pkt_data = new ev_dis_pkt_data_t;
-        ev_dis_pkt_data->recv_node = node;
-        ev_dis_pkt_data->recv_intf = xmit_interface->GetSharedPtr();
+        ev_dis_pkt_data_t *ev_dis_pkt_data = (ev_dis_pkt_data_t *)
+            calloc (1, sizeof (ev_dis_pkt_data_t));
+        ev_dis_pkt_data->ifindex = xmit_interface->ifindex;
         ev_dis_pkt_data->pkt = (byte *)pkt_block;
         pkt_block_reference(pkt_block);
         tracer (node->cptr,  DIPC | DFLOW, "Pkt : %s : Xmit to Data path\n", pkt_block_str(pkt_block));

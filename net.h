@@ -74,13 +74,13 @@ typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
 typedef struct def_vrf_ def_vrf_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 typedef struct node_nw_prop_{
 
     uint32_t flags;
 
     /*L2 Properties*/
-    arp_table_t *arp_table;
     mac_table_t *mac_table;
 
     /* Evpn Support */
@@ -88,16 +88,9 @@ typedef struct node_nw_prop_{
     vxlan_vni_db_t *vlan_vni_db;     
     /* VLAN-VNI hashtable for O(1) lookup - atomic pointer */
     std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;           
-    /* network-virtualization-edge interface */
-    NVEInterfaceP nve;
 
     mac_addr_t rmac;
     char padding[2];
-
-    rt_table_t *rt_table;
-    rt_table_t *ipv6_rt_table;
-    mpls_rt_table_t *mpls_rt_table;
-    rt_table_t *ipv4_mpls_rt_table;
 
     /* Default VRF containing all RIBs and FIBs */
     def_vrf_t *def_vrf;
@@ -107,12 +100,19 @@ typedef struct node_nw_prop_{
 
     /* Shared Rmac Interface shared across all SVIs in the system*/
     InterfaceP rmac_interface;
+    dp_intf_t *dp_rmac_intf;
     /* Virtual port which represents flood in a vlan */
     InterfaceP vlan_flood_interface;
+    dp_intf_t *dp_vlan_flood_intf;
     /* Host Path Interface */
     InterfaceP host_path_interface;
+    dp_intf_t *dp_host_path_intf;
     /* SRv6 Virtual Interfaces*/
     InterfaceP srv6_end_interface;
+    dp_intf_t *dp_srv6_end_intf;
+    /* network-virtualization-edge interface */
+    NVEInterfaceP nve;
+    dp_intf_t *dp_nve;
 
     /* lo ipv6 addr*/
     uint8_t ipv6_rtr_id[16];
@@ -135,20 +135,15 @@ typedef struct node_nw_prop_{
     lfa_t *lfa;
     /* Device level SRV6 info */
     srv6_node_info_t *srv6_node_info;
-
     /* Global pools of SRv6 SIDs */
    srv6_sid_pools_t  *srv6_sid_pools;
 
 } node_nw_prop_t;
 
 #define NODE_RTRID_ADDR(node_ptr) (node_ptr->node_nw_prop.rtr_id.ip_addr)
-#define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
+#define NODE_ARP_TABLE(vrf_ptr)    (vrf_ptr->arp_table)
 #define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
-#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
-#define NODE_IPV4_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv4_mpls_rt_table)
-#define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
-#define NODE_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.mpls_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
@@ -177,8 +172,8 @@ void dump_interface_stats(Interface *interface);
 
 
 /*Helper Routines*/
-Interface *
-node_get_matching_subnet_interface(node_t *node, c_string ip_addr);
+dp_intf_t *
+node_get_matching_subnet_interface(dp_vrf_t *vrf, c_string ip_addr);
 
 bool
 is_same_subnet(c_string ip_addr,

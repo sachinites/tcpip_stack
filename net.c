@@ -41,6 +41,7 @@
 #include "notif.h"
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "router_init.h"
+#include "Tracer/tracer.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer2/layer2.h"
@@ -49,6 +50,9 @@
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
+#include "datapath/Vrfs/dp_vrf.h"
+#include "datapath/Interface/dp_intf.h"
+#include "datapath/Interface/dp_intf_store.h"
 
 typedef struct def_vrf_ def_vrf_t;
 
@@ -65,7 +69,7 @@ void  node_assign_router_mac (node_t *node) ;
 extern bool mac_table_entry_add(node_t *node, mac_table_t *mac_table, 
         mac_table_entry_t *mac_table_entry);
 extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-        c_string src_mac, Interface *oif, uint32_t src_ip) ;
+        c_string src_mac, dp_intf_t *oif, uint32_t src_ip) ;
 extern void node_init_default_rtm(node_t *node) ;
 extern void node_init_default_fib(node_t *node);
 extern def_vrf_t* vrf_def_init (node_t *node);
@@ -161,7 +165,7 @@ node_set_intf_ip_address(node_t *node, const char *local_if,
                                 const char *ip_addr, char mask) {
 
     Interface *intf = node_interface_lookup_by_name(node, local_if);
-    interface_set_ip_addr(node, intf, ip_addr, mask);
+    interface_set_ip_addr(node, intf, (c_string)ip_addr, mask);
 }
 
 void dump_node_nw_props(node_t *node){
@@ -187,9 +191,9 @@ dump_node_vrf_interfaces(node_t *node) {
     }
 
     /* Dump special interfaces */
-    dump_intf_props(NODE_RMAC_INTF(node).get());
-    dump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
-    if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
+    //dump_intf_props(NODE_RMAC_INTF(node).get());
+    //ump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
+    //if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
 }
 
 void 
@@ -221,46 +225,35 @@ dump_nw_graph(graph_t *graph, node_t *node1){
 /*Returns the local interface of the node which is configured 
  * with subnet in which 'ip_addr' lies
  * */
-Interface *
-node_get_matching_subnet_interface(node_t *node, c_string ip_addr){
+dp_intf_t *
+node_get_matching_subnet_interface(dp_vrf_t *vrf, c_string ip_addr){
 
-    Interface *intf;
-    uint32_t ip_addr_int;
     uint8_t mask;
+    dp_intf_t *intf;
+    cmn_prefix_t prefix;
+    node_t *node = vrf->node;
+
+    uint32_t ip_addr_int;
 
     ip_addr_int =  tcp_ip_convert_ip_p_to_n (ip_addr);
-
-     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
     
-        if (!intf) continue;
+    cmn_prefix_initialize_v4(&prefix, ip_addr_int, 32);
 
-        if (!intf->IsIpConfigured()) continue;
+    fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
+
+    if(!nh){
+        tracer (node->dptr, DL3FWD | DERR, 
+            "Pkt : %s :  Pkt Dropped :  No L3 Route\n", ip_addr);
+        return NULL;
+    }   
+
+    if (nh->fwd_info->fwd_flags & 
+        (FIB_NH_FWD_F_CONNECTED | FIB_NH_FWD_F_LOCAL)) {
         
-        if (intf->IsSameSubnet (ip_addr_int)) return intf;
-
-    }  ITERATE_NODE_INTERFACES_END(node, intf);
-    return NULL;
-}
-
-bool 
-is_same_subnet(c_string ip_addr,
-               char mask, 
-               c_string other_ip_addr){
-
-    byte intf_subnet[IPV4_ADDR_LEN_STR];
-    byte subnet2[IPV4_ADDR_LEN_STR];
-
-    memset(intf_subnet, 0 , 16);
-    memset(subnet2, 0 , 16);
-
-    apply_mask(ip_addr, mask, (unsigned char*)intf_subnet);
-    apply_mask(other_ip_addr, mask, (unsigned char*)subnet2);
-
-    if (string_compare(intf_subnet, subnet2, 16) == 0){
-        return true;
+        return nh->fwd_info->oif;
     }
-    assert(0);
-    return false;
+
+    return NULL;
 }
 
 void
@@ -272,34 +265,36 @@ dump_interface_stats_header(){
 }
 
 void
-dump_interface_stats(Interface *interface){
+dump_interface_stats(dp_intf_t *interface){
 
-    cprintf("%-20s | %10u | %10u | %15u | %9u\n",
-        interface->if_name.c_str(), 
+    cprintf("%-20s | %10u | %10u | %15u\n",
+        interface->if_name, 
         interface->pkt_sent,
         interface->pkt_recv,
-        interface->xmit_pkt_dropped, 
-        interface->GetSharedPtr().use_count() - 1);
+        interface->xmit_pkt_dropped);
 }
 
 void
 dump_node_interface_stats(node_t *node){
 
-    Interface *interface;
+    dp_intf_t *interface;
 
     // Print table header
     dump_interface_stats_header();
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, interface) {
+    struct hashtable_itr *itr = hashtable_iterator(node->dp_intf_ht);
 
-        if(!interface) continue;
+    while (1) {
+
+        interface = (dp_intf_t *)hashtable_iterator_value(itr);
         dump_interface_stats(interface);
-
-    }  ITERATE_NODE_INTERFACES_END(node, interface);
+        if (!hashtable_iterator_advance(itr)) break;
+    }
+    free(itr);
     
-    dump_interface_stats(NODE_RMAC_INTF(node).get());
-    dump_interface_stats(NODE_VLAN_FLOOD_INTF(node).get());
-    if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node).get());
+    //dump_interface_stats(NODE_RMAC_INTF(node));
+    //dump_interface_stats(NODE_VLAN_FLOOD_INTF(node));
+    //if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node));
 
     cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
 }
@@ -310,20 +305,18 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->flags = 0;
     memset(node_nw_prop->rtr_id.ip_addr, 0, 16);
     node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
-    init_rt_table(node, &(node_nw_prop->rt_table));
-    init_rtv6_table(node, &(node_nw_prop->ipv6_rt_table));
-    mpls_rt_table_init (node, &(node_nw_prop->mpls_rt_table));
-    ipv4_mpls_rt_table_init (node, &(node_nw_prop->ipv4_mpls_rt_table));
     node_nw_prop->def_vrf = vrf_def_init(node);
     cp2dp_vrf_create(node, DEF_VRF_NAME, RTM_DEFAULT_VRF);
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
     node_create_host_path_interface (node);
+
     node_nw_prop->srv6_end_interface = std::make_shared<SRv6EndPointENDInterface>();
     node_nw_prop->srv6_end_interface->SetSharedPtr(node_nw_prop->srv6_end_interface);
     node_nw_prop->srv6_end_interface->att_node - node;
     node_nw_prop->srv6_end_interface->ifindex = interface_get_new_ifindex(node);
     node_nw_prop->srv6_end_interface->vrf = NODE_DEF_VRF(node);
+    
     node_nw_prop->send_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->recv_log_buffer = (c_string)calloc(1, TCP_PRINT_BUFFER_SIZE);
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);

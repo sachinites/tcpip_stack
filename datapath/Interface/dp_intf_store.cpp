@@ -211,3 +211,23 @@ dp_vlan_unbind_port (dp_intf_t *vlan_intf,
         intf->l2_mode = DP_LAN_MODE_NONE;
     }
 }
+
+bool
+dp_is_vlan_member (bitmap_t *vlan_bitmap, uint16_t vlan_id) {
+
+    /* VLAN IDs range from 0 to 4095 (12 bits) */
+    if (!vlan_bitmap || vlan_id >= 4096) {
+        return false;
+    }
+    
+    /* Check if the vlan_id bit is set in the bitmap */
+    return bitmap_at(vlan_bitmap, vlan_id);
+}
+
+dp_intf_t *
+dp_look_up_interface_by_vlan_id(hashtable_t *ht, uint16_t vlan_id) {
+
+    dp_intf_t *vlan_intf = NULL;
+
+    return vlan_intf;
+}

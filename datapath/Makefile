@@ -9,6 +9,7 @@ OBJS=dp_init.o \
 	 dp_cli.o \
 	 Interface/dp_intf_store.o \
 	 Interface/dp_intf_update.o \
+	 Interface/dp_intf_xmit.o \
 	 Vrfs/dp_vrf.o
 
 all: $(TARGET)

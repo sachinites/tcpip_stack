@@ -23,6 +23,7 @@
 #include "../pkt_block.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
+#include "../datapath/Interface/dp_intf.h"
 
 static inline void
 nf_init_nf_hook(notif_chain_t *nfc,
@@ -45,7 +46,7 @@ netfilter_pkt_notif_data_dup_fn (void *arg) {
 	pkt_notif_data_t *pkt_notif_data = (pkt_notif_data_t *)arg;
 	pkt_notif_data_t *pkt_notif_data2 = (pkt_notif_data_t *)XCALLOC(0, 1, pkt_notif_data_t);
 	pkt_notif_data2->recv_node = pkt_notif_data->recv_node;
-	pkt_notif_data2->recv_interface = pkt_notif_data->recv_interface;
+	pkt_notif_data2->recv_intf_index = pkt_notif_data->recv_intf_index;
 	pkt_notif_data2->pkt_block = pkt_notif_data->pkt_block;
 	pkt_block_reference(pkt_notif_data2->pkt_block);
 	pkt_notif_data2->hdr_code = pkt_notif_data->hdr_code;
@@ -73,7 +74,7 @@ nf_invoke_netfilter_hook(
 						nf_hook_t nf_hook_type,
 						 pkt_block_t *pkt_block,
 						 node_t *node,
-						 Interface *intf,
+						 dp_intf_t *intf,
 						 hdr_type_t hdr_code) {
 
 	char *pkt;
@@ -81,7 +82,7 @@ nf_invoke_netfilter_hook(
 	pkt_notif_data_t pkt_notif_data;
 
     pkt_notif_data.recv_node = node;
-    pkt_notif_data.recv_interface = intf;
+    pkt_notif_data.recv_intf_index = intf->port_id;
     pkt_notif_data.pkt_block = pkt_block;
 	pkt_notif_data.hdr_code = hdr_code;
     pkt_notif_data.return_code = NF_ACCEPT;

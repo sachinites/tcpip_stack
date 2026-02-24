@@ -382,7 +382,7 @@ hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size){
 }
 
 bool 
-mac_address_compare ( char *mac1, char *mac2) {
+mac_address_compare ( unsigned char *mac1, unsigned char *mac2) {
     
         int i;
         for (i = 0; i < 6; i++) {
@@ -412,6 +412,19 @@ apply_mask2(uint32_t prefix, uint8_t mask) {
     return prefix;
 }
 
+
+bool IsSameSubnet(uint32_t network_ip_addr, uint8_t mask, uint32_t addr)
+{
+    if (mask > 32)
+        return false;
+
+    if (mask == 0)
+        return true;   // /0 → everything matches
+
+    uint32_t subnet_mask = (mask == 32) ? 0xFFFFFFFF : (~0u << (32 - mask));
+
+    return (network_ip_addr & subnet_mask) == (addr & subnet_mask);
+}
 
 /**
  * Get stride length based on AFI

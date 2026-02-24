@@ -367,7 +367,7 @@ isis_de_init(node_t *node) {
     tcp_stack_register_l2_pkt_trap_rule(
 			node, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
-    nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
+    //nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(node);
 }
 
@@ -394,7 +394,7 @@ isis_init (node_t *node ) {
     node_info->layer2_mapping = true;   /* True By Default */
     node_info->ted_db = XCALLOC2(0, 1, ted_db_t);
     ted_init_teddb(node_info->ted_db, NULL, isis_spf_cleanup_spf_data);
-    nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
+    //nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_init_spf_logc(node);
     init_mtrie(&node_info->exported_routes, 32, NULL);
     isis_create_advt_db(node_info, 0);

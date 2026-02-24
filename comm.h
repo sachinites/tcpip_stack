@@ -37,8 +37,6 @@
 #include <stdint.h>
 #include "utils.h"
 
-#include "Interface/InterfaceFwd.h"
-
 #define MAX_PACKET_BUFFER_SIZE   2048
 
 typedef struct node_ node_t;
@@ -47,27 +45,25 @@ typedef struct dp_intf_ dp_intf_t;
 
 typedef struct ev_dis_pkt_data_{
 
-    node_t *recv_node;
-    InterfaceP recv_intf;
-    dp_intf_t *recv_dp_intf;
+    uint32_t ifindex;
     byte *pkt;
     uint32_t pkt_size;
 }ev_dis_pkt_data_t;
 
 int
-send_pkt_to_self (pkt_block_t *pkt_block, Interface *interface);
+send_pkt_to_self (pkt_block_t *pkt_block, dp_intf_t *interface);
 
 /*API to recv packet from interface*/
 void
 dp_pkt_receive(node_t *node,
-                         Interface *interface, 
-                          pkt_block_t *pkt_block);
+               dp_intf_t *interface, 
+               pkt_block_t *pkt_block);
 
 /* API to flood the packet out of all interfaces
  * of the node*/
 int
 send_pkt_flood(node_t *node, 
-               Interface *exempted_intf, 
+               dp_intf_t *exempted_intf, 
                pkt_block_t *pkt_block);
 
 #endif /* __COMM__ */

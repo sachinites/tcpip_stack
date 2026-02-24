@@ -1,6 +1,7 @@
 #include "../../pkt_block.h"
 #include "../../net.h"
 #include "dp_intf.h"
+#include "dp_intf_store.h"
 #include "../../FireWall/acl/acldb.h"
 #include "../../Tracer/tracer.h"
 #include "../../Layer2/layer2.h"
@@ -14,17 +15,6 @@ typedef int (*SendPacketOut_fptr)(dp_intf_t *, pkt_block_t *);
 extern bool LinuxRtr;
 
 /* Helper APIs */
-static bool
-dp_is_vlan_member (bitmap_t *vlan_bitmap, vlan_id_t vlan_id) {
-
-    /* VLAN IDs range from 0 to 4095 (12 bits) */
-    if (!vlan_bitmap || vlan_id >= 4096) {
-        return false;
-    }
-    
-    /* Check if the vlan_id bit is set in the bitmap */
-    return bitmap_at(vlan_bitmap, vlan_id);
-}
 
 static int
 send_xmit_out (dp_intf_t *interface, pkt_block_t *pkt_block)
@@ -49,29 +39,28 @@ send_xmit_out (dp_intf_t *interface, pkt_block_t *pkt_block)
 
     node_t *nbr_node = interface->nbr_intf->att_node;
 
-    tracer (sending_node->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
+    tracer (sending_node->dptr, DFLOW_DET, 
+        "Pkt : %s Wired out of interface %s\n", 
         pkt_block_str (pkt_block), interface->if_name);
     
     dp_intf_t *other_interface = interface->nbr_intf;
 
-    ev_dis_pkt_data = new ev_dis_pkt_data_t;
+    ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
-    ev_dis_pkt_data->recv_node = nullptr;
-    ev_dis_pkt_data->recv_intf = nullptr;
-    ev_dis_pkt_data->recv_dp_intf = other_interface;
+    ev_dis_pkt_data->ifindex = other_interface->port_id;
     ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
 
     //tcp_dump_send_logger(sending_node, interface,
-     //                    pkt_block, pkt_block_get_starting_hdr(pkt_block));
+    //                     pkt_block, pkt_block_get_starting_hdr(pkt_block));
 
     if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
-        delete (ev_dis_pkt_data);
+        free (ev_dis_pkt_data);
     }
 
     interface->pkt_sent++;
@@ -254,7 +243,7 @@ GRETunnelInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
     }
 
     gre_encasulate (node, pkt_block);
-    pkt_block->exclude_oif2 = intf;
+    pkt_block->exclude_oif = intf;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
     /* Now attach outer IP Hdr and send the pkt*/
@@ -266,7 +255,7 @@ GRETunnelInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
     ip_hdr->dst_ip = htonl(intf->gre_tunnel_dst_ip);
     ip_hdr->protocol = GRE_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
-    np_tcp_ip_send_ip_data (node, pkt_block);
+    np_tcp_ip_send_ip_data (intf->vrf, pkt_block);
     intf->pkt_sent++;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
@@ -331,8 +320,8 @@ RmacInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
 
-    if (!mac_address_compare ((char *)NODE_RMAC(intf->att_node)->mac, 
-          (char *)eth_hdr->dst_mac.mac) != 0) {
+    if (!mac_address_compare ((unsigned char *)NODE_RMAC(intf->att_node)->mac, 
+          (unsigned char *)eth_hdr->dst_mac.mac) != 0) {
 
         intf->recvd_pkt_dropped++;
         return 0;
@@ -359,8 +348,8 @@ static int
 NVEInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
-    char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
-    char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
+    unsigned char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
+    unsigned char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
     if (!intf->is_up) {
         tracer (intf->att_node->dptr, DTUNNEL | DFLOW | DERR, 
@@ -394,7 +383,7 @@ NVEInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
-    np_tcp_ip_send_ip_data (intf->att_node, pkt_block);
+    np_tcp_ip_send_ip_data (intf->vrf, pkt_block);
     intf->pkt_sent++;
     return 0;    
 }

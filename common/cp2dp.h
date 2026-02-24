@@ -134,7 +134,8 @@ typedef struct dp_msg_ {
     DP_OPR_TYPE_T opr_type;
     uint32_t data_size;
     uint16_t flags;
-    char padding[2];
+    uint8_t vrf_id;
+    char padding[1];
 
     dp_msg_ () {
         memset (data, 0, CP2DP_MSG_SIZE_MAX);
@@ -142,6 +143,7 @@ typedef struct dp_msg_ {
         opr_type = (DP_OPR_TYPE_T )0;
         data_size = 0;
         flags = 0;
+        vrf_id = DEFAULT_VRF;
     }
     
 } dp_msg_t;

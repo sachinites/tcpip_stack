@@ -9,6 +9,7 @@
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../../net.h"
 #include "../../router_init.h"
+#include "../../Layer2/arp.h"
 
 /* Hash function for vrf_id (uint8_t) keys */
 static unsigned int 
@@ -73,6 +74,9 @@ dp_destroy_vrf_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     fib_destroy(vrf->fib_inet6);
     vrf->fib_inet6 = NULL;
 
+    clear_arp_table(vrf->node, vrf->arp_table);
+    XFREE(vrf->arp_table);
+
     free(vrf);
 }
 
@@ -95,6 +99,8 @@ dp_create_vrf (node_t *node, hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
     /* Allocate new VRF structure */
     dp_vrf_t *vrf = (dp_vrf_t *)calloc(1, sizeof(dp_vrf_t));
     
+    vrf->node = node;
+
     /* Initialize the VRF */
     vrf->vrf_id = vrf_id;
     
@@ -109,6 +115,9 @@ dp_create_vrf (node_t *node, hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
     /* Initialize FIBs using FIB subsystem */
     vrf->fib_inet0 = fib_init(node, AF_IPV4, vrf_id);
     vrf->fib_inet6 = fib_init(node, AF_IPV6, vrf_id);
+    vrf->fib_mpls0 = fib_init(node, AF_LABEL, vrf_id);
+
+    init_arp_table (&vrf->arp_table);
     
     /* Insert into hashtable */
     dp_insert_vrf(ht, vrf);

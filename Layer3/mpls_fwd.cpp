@@ -8,9 +8,9 @@
 #include "../Interface/InterfaceUApi.h"
 
 extern void
-demote_pkt_to_layer2(node_t *node,
+demote_pkt_to_layer2(dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
-                     c_string outgoing_intf,
+                     dp_intf_t *outgoing_intf,
                      pkt_block_t *pkt_block,
                      hdr_type_t hdr_type);
 
@@ -250,12 +250,13 @@ mlps_route_get_active_nexthop (mpls_route_t *mpls_route, Interface *exclude_oif)
 }
 
 void 
-mpls_route_pkt (node_t *node, Interface *recv_intf, pkt_block_t *pkt_block) {
+mpls_route_pkt (dp_vrf_t *vrf, Interface *recv_intf, pkt_block_t *pkt_block) {
 
     assert (pkt_block_get_starting_hdr(pkt_block) == MPLS_HDR);
 
     hashtable_t *ht; 
     pkt_size_t pkt_size;
+    node_t *node = vrf->node;
 
     mpls_label_val_t *pkt_label = (mpls_label_val_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     mpls_label_val_t label_val = mpls_label_get_value(*pkt_label);
@@ -283,9 +284,9 @@ mpls_route_pkt (node_t *node, Interface *recv_intf, pkt_block_t *pkt_block) {
     tracer (node->dptr, DMPLS, "MPLS RIB:  Demoting MPLS Pkt to Layer 2, Routing label : %d\n", label_val);
 
     demote_pkt_to_layer2 (
-        node,           
+        vrf,           
         tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-        (c_string)nexthop->oif->if_name.c_str(),          
+        nexthop->oif,          
         pkt_block,  
         MPLS_HDR);   
 

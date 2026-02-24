@@ -48,16 +48,20 @@
 #include "Layer2/layer2.h"
 #include "FireWall/acl/acldb.h"
 #include "pkt_block.h"
-#include "Interface/InterfaceUApi.h"
 #include "Tracer/tracer.h"
+#include "datapath/Interface/dp_intf.h"
+#include "datapath/Interface/dp_intf_store.h"
+#include "c-hashtable/hashtable.h"
+#include "c-hashtable/hashtable_itr.h"
+#include "datapath/Interface/dp_intf.h"
 
 extern graph_t *topo;
 
 extern void
 l2_switch_recv_frame(node_t *node,
-                                     vlan_id_t vlan_id,
-                                     Interface *interface,
-                                     pkt_block_t *pkt_block);
+                     vlan_id_t vlan_id,
+                     dp_intf_t *interface,
+                     pkt_block_t *pkt_block);
 
 extern void
 network_start_pkt_receiver_thread(void);
@@ -70,7 +74,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
     pkt_block_t *pkt_block;
 	node_t *receving_node;
-	Interface *recv_intf;
+	dp_intf_t *recv_intf;
 
 	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
 			(ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
@@ -79,11 +83,14 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		return;
 	}
 
+    receving_node = (node_t *)(ev_dis->app_data);
+
 	for ( ; ev_dis_pkt_data; 
 			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
-		receving_node = ev_dis_pkt_data->recv_node;
-		recv_intf = ev_dis_pkt_data->recv_intf.get();
+		recv_intf = dp_look_up_interface(receving_node->dp_intf_ht, ev_dis_pkt_data->ifindex);
+        assert(recv_intf);
+
 		pkt = ev_dis_pkt_data->pkt;		
 
         pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
@@ -94,7 +101,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
                     pkt_block);
 
         pkt_block_dereference(pkt_block);
-		delete (ev_dis_pkt_data);
+		free (ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
 	}
 }
@@ -102,7 +109,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 int
 send_pkt_to_self (
                 pkt_block_t *pkt_block,
-                Interface *interface){
+                dp_intf_t *interface){
  
     uint8_t *pkt;
     pkt_size_t pkt_size;
@@ -116,33 +123,34 @@ send_pkt_to_self (
         return 0;
     }
 
-    Interface *other_interface =  interface;
+    dp_intf_t *other_interface =  interface->nbr_intf;
 
     pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
-	ev_dis_pkt_data = new  ev_dis_pkt_data_t;
+	ev_dis_pkt_data =  (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
-	ev_dis_pkt_data->recv_node = nbr_node;
-	ev_dis_pkt_data->recv_intf = other_interface->GetSharedPtr();
+	ev_dis_pkt_data->ifindex= other_interface->port_id;
 	ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 
 	pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node) ,
-                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
-	
-	tcp_dump_send_logger(sending_node,
-                                           interface, 
-			                               pkt_block,
-                                           pkt_block_get_starting_hdr(pkt_block) );
+                  (char *)ev_dis_pkt_data,
+                  sizeof(ev_dis_pkt_data_t));
 
+#if 0
+    tcp_dump_send_logger(sending_node,
+                         interface,
+                         pkt_block,
+                         pkt_block_get_starting_hdr(pkt_block));
+#endif
     return pkt_size; 
 }
 
-void
-dp_pkt_receive (node_t *node, 
-                           Interface *interface,
-                           pkt_block_t *pkt_block){
+void dp_pkt_receive(node_t *node,
+                    dp_intf_t *interface,
+                    pkt_block_t *pkt_block)
+{
 
     vlan_id_t vlan_id_to_tag = 0;
   
@@ -151,17 +159,19 @@ dp_pkt_receive (node_t *node,
     }
     
     interface->pkt_recv++;
-    tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
+    //tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
 
     /* Access List Evaluation at Layer 2 Entry point*/ 
+    #if 0
     if (access_list_evaluate_ethernet_packet (
                 node, interface, pkt_block, true) 
                 == ACL_DENY) {
         tracer (node->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s : Pkt Dropped : L2 ACL Denied on ingress interface %s\n", 
-            pkt_block_str(pkt_block), interface->if_name.c_str());
+            pkt_block_str(pkt_block), interface->if_name);
         return;
     }
+    #endif
 
     if (l2_frame_recv_qualify_on_interface(
                                           node,
@@ -170,19 +180,19 @@ dp_pkt_receive (node_t *node,
                                           &vlan_id_to_tag) == false){
         
         cprintf("Error : L2 Frame Rejected on node %s(%s)\n", 
-            node->node_name, interface->if_name.c_str());
+            node->node_name, interface->if_name);
             
         tracer (node->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s : L2 Frame Rejected in Interface %s, qualification Test Failed\n", 
-            pkt_block_str(pkt_block), interface->if_name.c_str());
+            pkt_block_str(pkt_block), interface->if_name);
 
         return;
     }
 
-    if ((interface->GetSwitchport() &&
-             interface->GetL2Mode() != LAN_MODE_NONE)) {
+    if ((interface->switchport &&
+            interface->l2_mode != DP_LAN_MODE_NONE)) {
 
-        pkt_block->ingress_intf = interface->GetSharedPtr();
+        pkt_block->ingress_intf = interface;
 
         if (vlan_id_to_tag) {
            
@@ -209,53 +219,58 @@ dp_pkt_receive (node_t *node,
 
     /* If packet is Recvd on GRE interface and pkt is vlan tagged, 
         it means GRE is being used for VLAN extension */
-    else if (interface->iftype == INTF_TYPE_GRE_TUNNEL &&
+    else if (interface->if_type == DP_INTF_TYPE_GRE_TUNNEL &&
                 pkt_block_verify_pkt (pkt_block, ETH_HDR) &&
                 is_pkt_vlan_tagged (pkt_block_get_ethernet_hdr(pkt_block))) {
 
-        GRETunnelInterface *gre_intf = 
-            dynamic_cast <GRETunnelInterface *> (interface);
-
         tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
-            pkt_block_str(pkt_block), gre_intf->if_name.c_str());  
+            pkt_block_str(pkt_block), interface->if_name);  
 
-        dp_pkt_receive (node, gre_intf->virtual_port_intf.get(), pkt_block);
+        dp_pkt_receive (node, interface->virtual_port, pkt_block);
     }
 
-    else if (interface->IsIpConfigured()){
-        tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L2Fwding\n", 
-            pkt_block_str(pkt_block), interface->if_name.c_str());
+    else if (interface->ip_addr){
+        tracer (node->dptr, DL2FWD | DFLOW, 
+            "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L3Fwding\n", 
+            pkt_block_str(pkt_block), interface->if_name);
             
-        pkt_block->ingress_intf = interface->GetSharedPtr();
-        promote_pkt_to_layer2(node, interface, pkt_block);
+        pkt_block->ingress_intf = interface;
+        promote_pkt_to_layer2(interface->vrf, interface, pkt_block);
     }
 
     else {
         /* We dont know what to do with the pkt*/
-        tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s : pkt dropped, Unknown pkt recvd on Interface %s\n", 
-            pkt_block_str(pkt_block), interface->if_name.c_str());
+        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s : pkt dropped, Unknown pkt recvd on Interface %s\n", 
+            pkt_block_str(pkt_block), interface->if_name);
         interface->recvd_pkt_dropped++;
     }
-
 }
 
 int
 send_pkt_flood(node_t *node, 
-               Interface *exempted_intf, 
+               dp_intf_t *exempted_intf, 
                pkt_block_t *pkt_block) {
 
-    Interface *intf; 
+    dp_intf_t *intf; 
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+    struct hashtable_itr *itr = hashtable_iterator(node->dp_intf_ht);
 
-        if(!intf) return 0;
+    while ((intf = (dp_intf_t *)hashtable_iterator_value(itr))) {
+    
+        if(!intf) {
+            free(itr);
+            return 0;
+        }
 
-        if(intf == exempted_intf)
+        if(intf == exempted_intf) {
+            hashtable_iterator_advance(itr);
             continue;
-
-        intf->SendPacketOut(pkt_block);
-
-    } ITERATE_NODE_INTERFACES_END(node, intf) ;
+        }
+        dp_send_pkt_out(intf, pkt_block);
+        hashtable_iterator_advance(itr);
+    } 
+    free(itr);
     
     return 0;
 }
@@ -307,20 +322,20 @@ _pkt_receive(node_t *receving_node,
             uint32_t pkt_size){
 
     pkt_block_t *pkt_block;
-    c_string recv_intf_name = pkt_with_aux_data;
-    Interface *recv_intf = node_interface_lookup_by_name(receving_node, recv_intf_name);
+    uint32_t port_id = *(uint32_t *)pkt_with_aux_data;
+    dp_intf_t *recv_intf = dp_look_up_interface(receving_node->dp_intf_ht, port_id);
 
     if(!recv_intf){
-        cprintf("Error : Pkt recvd on unknown interface %s on node %s\n", 
-                    recv_intf_name, receving_node->node_name);
+        cprintf("Error : Pkt recvd on unknown port %u on node %s\n", 
+                    port_id, receving_node->node_name);
         return;
     }
 
     pkt_block = pkt_block_get_new(NULL, 0);
 
-    pkt_block_set_new_pkt (pkt_block,
-                                            (uint8_t *)pkt_with_aux_data + IF_NAME_SIZE, 
-                                            pkt_size - IF_NAME_SIZE);
+    pkt_block_set_new_pkt(pkt_block,
+                          (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
+                          pkt_size - sizeof(uint32_t));
 
     pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
 

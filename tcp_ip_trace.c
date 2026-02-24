@@ -533,11 +533,12 @@ tcp_dump_recv_logger(
 }
 
 void
-tcp_dump_l3_fwding_logger(node_t *node,
+tcp_dump_l3_fwding_logger(dp_vrf_t *vrf,
             c_string oif_name, c_string gw_ip){
 
     int rc = 0;
-
+    node_t *node = vrf->node;
+    
     if(!node->log_info.l3_fwd)
         return;
 
@@ -560,7 +561,8 @@ tcp_dump_l3_fwding_logger(node_t *node,
 }
 
 void
-tcp_dump_send_logger(node_t *node, Interface *intf,
+tcp_dump_send_logger(node_t *node, 
+              Interface *intf,
               pkt_block_t *pkt_block,
               hdr_type_t hdr_type){
 

@@ -7,6 +7,8 @@
 #include "../../router_init.h"
 typedef struct pkt_block_ pkt_block_t;
 class Interface;
+typedef struct dp_vrf_ dp_vrf_t;
+typedef struct dp_intf_ dp_intf_t;
 
 #pragma pack (push,1)
 typedef struct gre_header_ {
@@ -30,7 +32,7 @@ void
 gre_encasulate (node_t *node, pkt_block_t *pkt_block);
 
 void 
-gre_decapsulate (node_t *node, pkt_block_t *pkt_block, Interface *gre_interface) ;
+gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_interface) ;
 
 Interface *
 gre_lookup_tunnel_intf(node_t *node, uint32_t src_ip, uint32_t dst_ip) ;

@@ -357,22 +357,24 @@ show_arp_handler(int cmdcode, Stack_t *tlv_stack,
 
     node_t *node;
     c_string node_name;
+    c_string vrf_name = NULL;
     tlv_struct_t *tlv = NULL;
     
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
 
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    show_arp_table(NODE_ARP_TABLE(node));
+    //show_arp_table(NODE_ARP_TABLE(vrf));
     return 0;
 }
 
-extern 
-void dump_node_interface_stats(node_t *node);
+extern void dump_node_interface_stats(node_t *node);
 
 typedef struct mac_table_ mac_table_t;
 extern void show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
@@ -417,8 +419,8 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 extern void
-send_arp_broadcast_request(node_t *node,
-                           Interface *oif,
+send_arp_broadcast_request(dp_vrf_t *vrf,
+                           dp_intf_t *oif,
                            c_string ip_addr);
 static int
 arp_handler(int cmdcode, Stack_t *tlv_stack,
@@ -438,7 +440,7 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    send_arp_broadcast_request(node, NULL, ip_addr);
+    send_arp_broadcast_request(NULL/* FIX ME*/, NULL, ip_addr);
     return 0;
 }
 
@@ -511,7 +513,7 @@ show_rt_handler(int cmdcode, Stack_t *tlv_stack,
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    dump_rt_table(NODE_RT_TABLE(node));
+    //dump_rt_table(NODE_RT_TABLE(node));
     return 0;
 }
 
@@ -869,7 +871,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
         case CMDCODE_CONF_RIB_IMPORT_POLICY:
         {
             if (string_compare(rib_name, "inet.0", 6) == 0) {
-                rt_table_t *rt_table = NODE_RT_TABLE(node);
+                rt_table_t *rt_table = /*NODE_DEF_VRF(node)->inet0*/0;
                 prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, prefix_lst_name);
                 if (!prefix_lst) {
                     cprintf ("Error : Prefix List do not Exist\n");

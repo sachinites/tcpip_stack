@@ -23,7 +23,7 @@
 #include "Layer2/layer2.h"
 
 #define MAX_PACKET_BUFFER_SIZE  2048
-#define IF_NAME_SIZE     16
+#define AUX_DATA_SIZE     4
 
 
 /* Set below three params as per the topology you are running. You
@@ -37,7 +37,7 @@
 /*UDP port no of node S, use 'show topology' cmd to know the udp port numbers*/
 int SRC_NODE_UDP_PORT_NO =    40001   ;    
 /*Specify Any existing interface of the node S.*/ 
-char *INGRESS_INTF_NAME  =    "eth1"  ;   
+uint32_t INGRESS_INTF_PORT_ID  =   123;   
 /*Destination IP Address of the Remote node D of the topology*/
 char *DEST_IP_ADDR       =    "122.1.1.3";  
 char *SRC_IP_ADDR       =    "122.1.1.1";  
@@ -90,11 +90,11 @@ main(int argc, char **argv){
             break;
         case 3:
             SRC_NODE_UDP_PORT_NO = atoi((const char *)argv[1]);
-            INGRESS_INTF_NAME = argv[2];
+            //INGRESS_INTF_NAME = argv[2];
             break;
         case 4:
             SRC_NODE_UDP_PORT_NO = atoi((const char *)argv[1]);
-            INGRESS_INTF_NAME = argv[2];
+            //INGRESS_INTF_NAME = argv[2];
             DEST_IP_ADDR = argv[3];
             break;
         default:
@@ -106,10 +106,10 @@ main(int argc, char **argv){
 
 
     /*Provide Auxillary information - ingress intf name*/
-    strncpy((char *)send_buffer, INGRESS_INTF_NAME, IF_NAME_SIZE);
+    *(uint32_t *)send_buffer = INGRESS_INTF_PORT_ID;
 
     /*Prepare pseudo ethernet hdr*/
-    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer + IF_NAME_SIZE);
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(send_buffer + AUX_DATA_SIZE);
     /*Dont bother about MAC addresses, just fill them with broadcast mac*/
     layer2_fill_with_broadcast_mac(eth_hdr->src_mac.mac);
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
@@ -142,7 +142,7 @@ main(int argc, char **argv){
 
     uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
                                 IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr) +
-                                IF_NAME_SIZE;
+                                AUX_DATA_SIZE;
 
     int rc = 0 ;
     while(1){

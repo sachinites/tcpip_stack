@@ -81,7 +81,7 @@ isis_config_export_policy(node_t *node, const char *prefix_lst_name) {
 
     node_info->export_policy = prefix_lst;
     prefix_list_reference(prefix_lst);
-    nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+    //nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
     return 0;
 }
 
@@ -273,7 +273,7 @@ isis_prefix_list_change(node_t *node, prefix_list_t *prefix_list) {
     }
 
     if (node_info->export_policy == prefix_list) {
-         nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+         //nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
     }
 }
 

@@ -105,10 +105,13 @@ isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
         return true;
     }
 
+    return false;
+    #if 0
     return arp_entry_add(adjacency->intf->att_node, 
                             tcp_ip_covert_ip_n_to_p (adjacency->nbr_intf_ip, ip_addr),
                             adjacency->nbr_mac,
                             adjacency->intf, PROTO_ISIS);
+    #endif
 }
 
 bool
@@ -120,8 +123,11 @@ isis_update_layer2_mapping_on_adjacency_down (isis_adjacency_t *adjacency) {
         return true;
     }
     
-    arp_entry_delete(adjacency->intf->att_node, 
-                                 tcp_ip_covert_ip_n_to_p(adjacency->nbr_intf_ip, ip_addr),
-                                 PROTO_ISIS);
     return true;
+    #if 0
+    arp_entry_delete(adjacency->intf->att_node, 
+                     tcp_ip_covert_ip_n_to_p(adjacency->nbr_intf_ip, ip_addr),
+                     PROTO_ISIS);
+    return true;
+    #endif
 }

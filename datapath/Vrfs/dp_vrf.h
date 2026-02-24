@@ -6,20 +6,26 @@
 typedef struct node_ node_t;
 typedef struct fib_ fib_t;
 typedef struct hashtable hashtable_t;
+typedef struct arp_table_ arp_table_t;
+
 
 #pragma pack(push, 8)
 
 typedef struct dp_vrf_ {
 
+    node_t *node;
+    /* VRF id*/
     uint8_t vrf_id;
-
+    /* VRF name, for logging purpose*/
     char vrf_name[32];
     /* inet6.0 FIB*/
     fib_t *fib_inet0;
     /* inet6.0 FIB*/
     fib_t *fib_inet6;  
     /* Mpls fib */
-    fib_t *mpls_fib;
+    fib_t *fib_mpls0;
+    /* ARP table */
+    arp_table_t *arp_table;
 
 } dp_vrf_t;
 

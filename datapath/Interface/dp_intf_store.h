@@ -2,6 +2,8 @@
 #define __DP_INTF_STORE__
 
 #include <stdint.h>
+#include "intf_cons.h"
+
 typedef  struct hashtable hashtable_t;
 typedef struct dp_intf_ dp_intf_t;
 
@@ -29,4 +31,11 @@ dp_vlan_unbind_port (dp_intf_t *vlan_intf,
                      DP_IntfL2Mode l2_mode, 
                      bool restore_intf_mode_to_none);
 
-#endif 
+
+bool
+dp_is_vlan_member (bitmap_t *vlan_bitmap, uint16_t vlan_id);
+
+dp_intf_t *
+dp_look_up_interface_by_vlan_id(hashtable_t *ht, uint16_t vlan_id);
+
+#endif

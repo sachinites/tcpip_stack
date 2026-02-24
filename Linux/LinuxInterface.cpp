@@ -419,11 +419,10 @@ linux_listener_thread(void* arg) {
                     continue;
                 }
                 
-                ev_dis_pkt_data = new  ev_dis_pkt_data_t;
+                ev_dis_pkt_data =  (ev_dis_pkt_data_t *)calloc (1, sizeof (ev_dis_pkt_data_t));
                 ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(bytes_received);
                 memcpy(ev_dis_pkt_data->pkt, buffer, bytes_received);
-	            ev_dis_pkt_data->recv_node = node;
-	            ev_dis_pkt_data->recv_intf = intf->GetSharedPtr();
+	            ev_dis_pkt_data->ifindex = intf->ifindex;
 	            ev_dis_pkt_data->pkt_size = bytes_received;
 
 	            pkt_q_enqueue(EV_DP(node), DP_PKT_Q(node) ,

@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
 #include <ncurses.h>
+#include <stdlib.h>
 #include "fib.h"
 #include "fib_show.h"
 #include "fib_route.h"
@@ -12,8 +13,8 @@
 #include "../c-hashtable/hashtable_itr.h"
 #include "../common/mpls_lstack.h"
 #include "../RTM/rtm_fib_common.h"
-#include "../Interface/Interface.h"
 #include "../utils.h"
+#include "../datapath/Interface/dp_intf.h"
 
 extern int cprintf(const char *fmt, ...);
 
@@ -202,7 +203,7 @@ fib_show_routes(fib_t *fib) {
                 
                 /* Outgoing interface */
                 if (nh->fwd_info->oif) {
-                    cprintf("      OIF: %s\n", nh->fwd_info->oif->if_name.c_str());
+                    cprintf("      OIF: %s\n", nh->fwd_info->oif->if_name);
                 } else {
                     cprintf("      OIF: None\n");
                 }
@@ -291,7 +292,7 @@ fib_show_routes(fib_t *fib) {
                 
                 /* Outgoing interface */
                 if (nh->fwd_info->oif) {
-                    cprintf("      OIF: %s\n", nh->fwd_info->oif->if_name.c_str());
+                    cprintf("      OIF: %s\n", nh->fwd_info->oif->if_name);
                 } else {
                     cprintf("      OIF: None\n");
                 }
@@ -398,7 +399,7 @@ fib_show_routes_brief(fib_t *fib) {
                 
                 /* Get OIF name */
                 const char *oif_name = nh->fwd_info->oif ? 
-                                      nh->fwd_info->oif->if_name.c_str() : "-";
+                                      nh->fwd_info->oif->if_name : "-";
                 
                 /* Format hit count */
                 char hit_str[10];
@@ -482,7 +483,7 @@ fib_show_routes_brief(fib_t *fib) {
                 
                 /* Get OIF name */
                 const char *oif_name = nh->fwd_info->oif ? 
-                                      nh->fwd_info->oif->if_name.c_str() : "-";
+                                      nh->fwd_info->oif->if_name : "-";
                 
                 /* Format hit count */
                 char hit_str[10];

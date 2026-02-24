@@ -53,12 +53,9 @@ struct pkt_block_ {
     uint8_t *pkt;
     pkt_size_t pkt_size;
     hdr_type_t hdr_type;
-    InterfaceP recommended_oif;
-    InterfaceP exclude_oif;
-    InterfaceP ingress_intf;
-    dp_intf_t *recommended_oif2;
-    dp_intf_t *exclude_oif2;
-    dp_intf_t *ingress_intf2;
+    dp_intf_t *recommended_oif;
+    dp_intf_t *exclude_oif;
+    dp_intf_t *ingress_intf;
     encap_meta_data_t *encap_data;
     char *fn_name;
     uint64_t pkt_id;
@@ -134,10 +131,10 @@ void
 pkt_block_debug(pkt_block_t *pkt_block);
 
 void 
-pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) ;
+pkt_block_set_recommended_oif (pkt_block_t *pkt_block, dp_intf_t *oif) ;
 
 void
-pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) ;
+pkt_block_set_exclude_oif (pkt_block_t *pkt_block, dp_intf_t *oif) ;
 
 char *
 pkt_ip (pkt_block_t *pkt_block, char *buffer);

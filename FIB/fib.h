@@ -13,6 +13,8 @@ typedef struct mtrie_ mtrie_t;
 typedef struct fib_nh_ fib_nh_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct node_ node_t;
+typedef struct dp_vrf_ dp_vrf_t;
+
 
 #pragma pack(push, 8)
 
@@ -39,7 +41,7 @@ typedef struct fib_ {
 #pragma pack(pop)
 
 fib_t* fib_init (node_t *node, AFI_T afi, uint8_t vrf_id);
-fib_error_t fib_forward (node_t *node, pkt_block_t *pkt, uint8_t vrf_id);
+fib_error_t fib_forward (dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id);
 void fib_show(fib_t *fib);
 fib_t *fib_get (node_t *node, AFI_T afi, uint8_t vrf_id);
 void fib_destroy (fib_t*fib);
