@@ -53,6 +53,7 @@
 #include "datapath/Vrfs/dp_vrf.h"
 #include "datapath/Interface/dp_intf.h"
 #include "datapath/Interface/dp_intf_store.h"
+#include "datapath/Interface/dp_intf_update.h"
 
 typedef struct def_vrf_ def_vrf_t;
 
@@ -114,6 +115,7 @@ node_assign_router_mac (node_t *node) {
     node->node_nw_prop.rmac_interface->att_node = node;
     node->node_nw_prop.rmac_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.rmac_interface->vrf = NODE_DEF_VRF(node);
+    cp2dp_interface_create(node, node->node_nw_prop.rmac_interface.get());
 }
 
 void 
@@ -126,6 +128,7 @@ node_create_vlan_flood_interface(node_t *node) {
     node->node_nw_prop.vlan_flood_interface->att_node = node;
     node->node_nw_prop.vlan_flood_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
+   cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
 }
 
 void 
@@ -138,6 +141,7 @@ node_create_host_path_interface (node_t *node) {
     node->node_nw_prop.host_path_interface->att_node = node;
     node->node_nw_prop.host_path_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.host_path_interface->vrf = NODE_DEF_VRF(node);
+    cp2dp_interface_create(node, node->node_nw_prop.host_path_interface.get());
 }
 
 typedef struct l3_route_ l3_route_t;

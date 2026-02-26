@@ -61,14 +61,10 @@ dp_insert_interface (hashtable_t *ht, dp_intf_t *intf) {
     }
 }
 
-void
-dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
-    
+void 
+dp_check_and_free_interface (dp_intf_t *intf) {
+
     int i;
-    
-    /* Remove the interface from hashtable */
-    dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&port_id);
-    assert(intf);
 
     assert(!intf->vrf);
     assert(!intf->vlan_intf);
@@ -81,6 +77,15 @@ dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
     assert(!intf->olay_tunnel_intf);
 
     free(intf);
+}
+
+void
+dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
+    
+    /* Remove the interface from hashtable */
+    dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&port_id);
+    assert(intf);
+    dp_check_and_free_interface (intf);
 }
 
 dp_intf_t *

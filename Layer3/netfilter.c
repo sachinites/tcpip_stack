@@ -71,7 +71,7 @@ nf_init_netfilters(nf_hook_db_t *nf_hook_db) {
 
 int8_t
 nf_invoke_netfilter_hook(
-						nf_hook_t nf_hook_type,
+						 nf_hook_t nf_hook_type,
 						 pkt_block_t *pkt_block,
 						 node_t *node,
 						 dp_intf_t *intf,
@@ -82,7 +82,7 @@ nf_invoke_netfilter_hook(
 	pkt_notif_data_t pkt_notif_data;
 
     pkt_notif_data.recv_node = node;
-    pkt_notif_data.recv_intf_index = intf->port_id;
+    pkt_notif_data.recv_intf_index = intf ? intf->port_id : 0;
     pkt_notif_data.pkt_block = pkt_block;
 	pkt_notif_data.hdr_code = hdr_code;
     pkt_notif_data.return_code = NF_ACCEPT;
@@ -100,7 +100,7 @@ nf_invoke_netfilter_hook(
 }
 
 void
-nf_register_netfilter_hook(node_t *node,
+nf_register_netfilter_hook(nf_hook_db_t *nf_hook_db,
 						   nf_hook_t nf_hook_type,
 						   nfc_pkt_trap pkt_trap_cb,
 						   nfc_app_cb pkt_notif_app_cb) {
@@ -108,7 +108,7 @@ nf_register_netfilter_hook(node_t *node,
 	notif_chain_t *nfc;
 	notif_chain_elem_t nfce;
 
-	nfc = &node->nf_hook_db.nf_hook[nf_hook_type];
+	nfc = &nf_hook_db->nf_hook[nf_hook_type];
 	
 	memset(&nfce, 0, sizeof(notif_chain_elem_t));
 	nfce.is_key_set = false;
@@ -120,7 +120,7 @@ nf_register_netfilter_hook(node_t *node,
 
 
 void
-nf_de_register_netfilter_hook(node_t *node,
+nf_de_register_netfilter_hook(nf_hook_db_t *nf_hook_db,
 						   nf_hook_t nf_hook_type,
 						   nfc_pkt_trap pkt_trap_cb,
 						   nfc_app_cb pkt_notif_app_cb) {
@@ -128,7 +128,7 @@ nf_de_register_netfilter_hook(node_t *node,
 	notif_chain_t *nfc;
 	notif_chain_elem_t nfce;
 
-	nfc = &node->nf_hook_db.nf_hook[nf_hook_type];
+	nfc = &nf_hook_db->nf_hook[nf_hook_type];
 	
 	memset(&nfce, 0, sizeof(notif_chain_elem_t));
 	nfce.is_key_set = false;

@@ -10,6 +10,7 @@
 #include "../../Interface/Interface.h"
 #include "../../Layer2/vxlan/dp/vlan_vni_ht.h"
 #include "../../Layer2/transport_svc.h"
+#include "../dp_ctx.h"
 
 static inline bool 
 dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
@@ -26,6 +27,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
     dp_intf_t *intf = NULL;
     char ip_str[INET_ADDRSTRLEN];
     char ipv6_str[INET6_ADDRSTRLEN];
+    dp_ctx_t *dp_ctx = node->dp_ctx;
     hashtable_t *ht = node->dp_intf_ht;
 
     assert (dp_msg->component_type == INTF_TABLE);
@@ -46,7 +48,29 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
             intf = dp_create_interface(msg->port_id, msg->iftype, 
                         &msg->mac_addr, (uint16_t)msg->vlan_id);
             strncpy(intf->if_name, msg->intf_name, sizeof (msg->intf_name));
-            dp_insert_interface(ht, intf);
+
+            switch (msg->update_code) {
+                case 0:
+                    dp_insert_interface(ht, intf);
+                    break;
+                case INTF_TYPE_RMAC:
+                    dp_ctx->dp_rmac_intf = intf;
+                    break;
+                case INTF_TYPE_VLAN_FLOOD:
+                    dp_ctx->dp_vlan_flood_intf = intf;
+                    break;
+                case INTF_TYPE_NVE:
+                    dp_ctx->dp_nve_intf = intf;
+                    break;
+                case INTF_TYPE_SRv6:
+                    dp_ctx->dp_srv6_end_intf = intf;
+                    break;
+                case INTF_TYPE_HOST_PATH:
+                    dp_ctx->dp_host_path_intf = intf;
+                    break;
+                default: 
+                    break;
+            }
             
             tracer(node->dptr, DCONF, 
                 "Interface if_name=%s created successfully\n",
@@ -61,21 +85,43 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
             char if_name_saved[IF_NAME_SIZE] = {0};
             
             intf = dp_look_up_interface(ht, msg->port_id);
+
             if (intf) {
-                strncpy(if_name_saved, intf->if_name, sizeof(if_name_saved) - 1);
-            } else {
-                strncpy(if_name_saved, msg->intf_name, sizeof(if_name_saved) - 1);
+                dp_delete_interface(ht, msg->port_id);
+                tracer(node->dptr, DCONF, 
+                    "Interface if_name=%u deleted\n", msg->port_id);
+                break;
             }
+
+            /* Check if this is special interface*/
+            if (msg->port_id == dp_ctx->dp_rmac_intf->port_id) {
+                dp_check_and_free_interface(dp_ctx->dp_rmac_intf);
+                dp_ctx->dp_rmac_intf = NULL;
+            }
+            else if (msg->port_id == dp_ctx->dp_vlan_flood_intf->port_id) {
+                dp_check_and_free_interface(dp_ctx->dp_vlan_flood_intf);
+                dp_ctx->dp_vlan_flood_intf = NULL;
+            }
+            else if (msg->port_id == dp_ctx->dp_host_path_intf->port_id) {
+                dp_check_and_free_interface(dp_ctx->dp_host_path_intf);
+                dp_ctx->dp_host_path_intf = NULL;
+            }
+            else if (msg->port_id == dp_ctx->dp_srv6_end_intf->port_id) {
+                dp_check_and_free_interface(dp_ctx->dp_srv6_end_intf);
+                dp_ctx->dp_srv6_end_intf = NULL;
+            }    
+            else if (msg->port_id == dp_ctx->dp_nve_intf->port_id) {
+                dp_check_and_free_interface(dp_ctx->dp_nve_intf);
+                dp_ctx->dp_nve_intf = NULL;
+            }         
+            else {
+                tracer(node->dptr, DCONF|DERR, 
+                    "Interface port_id=%u not found\n", msg->port_id);
+                break;
+            }                           
             
             tracer(node->dptr, DCONF, 
-                "Deleting interface if_name=%s\n",
-                if_name_saved);
-            
-            dp_delete_interface(ht, msg->port_id);
-            
-            tracer(node->dptr, DCONF, 
-                "Interface if_name=%s deleted\n",
-                if_name_saved);
+                "Interface port_id=%u deleted\n", msg->port_id);
         }
         break;
 
@@ -585,10 +631,44 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
     intf_msg->port_id = intf->ifindex;
     intf_msg->vlan_id = (uint32_t)intf->GetVlanId();
     intf_msg->iftype = (uint32_t)intf->iftype;
-    memcpy (intf_msg->mac_addr, intf->GetMacAddr()->mac, 6);
+
+    /* Some intf may not support MAC Addresses, for ex loopbacks*/
+    if (intf->GetMacAddr()) {
+        memcpy (intf_msg->mac_addr, intf->GetMacAddr()->mac, 6);
+    }
     strncpy (intf_msg->intf_name, intf->if_name.c_str(), IF_NAME_SIZE);
+
     intf_msg->update_code = 0;
-    
+
+    switch (intf->iftype) {
+
+        case INTF_TYPE_PHY:
+        case INTF_TYPE_VLAN:
+        case INTF_TYPE_GRE_TUNNEL:
+        case INTF_TYPE_LOOPBACK:
+        case INTF_TYPE_VIRTUAL_PORT:
+            intf_msg->update_code = 0;
+            break;
+        case INTF_TYPE_RMAC:
+            intf_msg->update_code = CP2DP_CODE_INTF_RMAC;
+            break;
+        case INTF_TYPE_VLAN_FLOOD:
+            intf_msg->update_code = CP2DP_CODE_INTF_VLAN_FLOOD;
+            break;
+        case INTF_TYPE_NVE:
+            intf_msg->update_code = CP2DP_CODE_INTF_NVE;
+            break;
+        case INTF_TYPE_SRv6:
+            intf_msg->update_code = CP2DP_CODE_INTF_SRV6_END;
+            break;
+        case INTF_TYPE_HOST_PATH:
+            intf_msg->update_code = CP2DP_CODE_INTF_HOST_PATH;
+            break;
+        case INTF_TYPE_UNKNOWN:
+        default: 
+            break;
+    }
+
     /* Use synchronous submission to ensure interface is created before caller proceeds */
     cp2dp_submit(node, dp_msg, false);
 }

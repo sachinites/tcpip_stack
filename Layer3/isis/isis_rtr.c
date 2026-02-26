@@ -363,9 +363,9 @@ isis_de_init(node_t *node) {
 
     /* De-Register for interested pkts */
     tcp_stack_de_register_l2_pkt_trap_rule(
-			node, isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
+			&node->layer2_proto_reg_db2, isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
     tcp_stack_register_l2_pkt_trap_rule(
-			node, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
+			&node->layer2_proto_reg_db2, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
     //nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(node);
@@ -379,9 +379,9 @@ isis_init (node_t *node ) {
 
     /* Register for interested pkts */
     tcp_stack_register_l2_pkt_trap_rule(
-			node, isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
+			&node->layer2_proto_reg_db2, isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
     tcp_stack_register_l2_pkt_trap_rule(
-			node, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
+			&node->layer2_proto_reg_db2, isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
     isis_node_info_t *node_info = XCALLOC2(0, 1, isis_node_info_t);
     node->node_nw_prop.isis_node_info = node_info;

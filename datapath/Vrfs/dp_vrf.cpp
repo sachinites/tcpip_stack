@@ -97,7 +97,11 @@ dp_vrf_t *
 dp_create_vrf (node_t *node, hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
     
     /* Allocate new VRF structure */
-    dp_vrf_t *vrf = (dp_vrf_t *)calloc(1, sizeof(dp_vrf_t));
+    dp_vrf_t *vrf ;
+
+    if ((vrf = dp_look_up_vrf (ht, vrf_id))) return vrf;
+
+    vrf = (dp_vrf_t *)calloc(1, sizeof(dp_vrf_t));
     
     vrf->node = node;
 

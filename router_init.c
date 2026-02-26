@@ -114,17 +114,17 @@ create_new_graph (const char *topology_name){
     return graph;
 }
 
-extern void tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
+extern void tcp_ip_register_default_l3_pkt_trap_rules(nf_hook_db_t *nf_hook_db);
 extern void node_init_udp_socket(node_t *node);
 extern struct hashtable *object_network_create_new_ht() ;
 extern struct hashtable *object_group_create_new_ht() ;
-extern void init_nfc_layer2_proto_reg_db2(node_t *node);
+extern void init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc);
 extern int debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) ;
 extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
 void dp_init (node_t *node);
-
+extern void dp_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 
 node_t *
 Router_Create(graph_t *graph, const c_string node_name){
@@ -144,6 +144,7 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     /* Initialize the Data path before control plane*/
     dp_init(node);
+    dp_ctx_init (&node->dp_ctx, (void *)node, node->node_name);
 
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
@@ -162,10 +163,10 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     /* L3 pkt trapping to application is implemented using Netfilter hooks built over NFC*/
 	nf_init_netfilters(&node->nf_hook_db);
-    tcp_ip_register_default_l3_pkt_trap_rules(node);
+    tcp_ip_register_default_l3_pkt_trap_rules(&node->nf_hook_db);
     
     /* L2 pkt trapping to application is implemented using pure NFCs only*/
-    init_nfc_layer2_proto_reg_db2(node);
+    init_nfc_layer2_proto_reg_db2(&node->layer2_proto_reg_db2);
 
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
 

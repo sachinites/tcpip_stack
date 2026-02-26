@@ -36,6 +36,7 @@
 
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t;
+typedef struct notif_chain_ notif_chain_t;
 
 typedef struct pkt_notif_data_{
 
@@ -61,13 +62,13 @@ promote_pkt_from_layer3_to_layer5(node_t *node,
 
 void
 tcp_stack_register_l2_pkt_trap_rule(
-		node_t *node,
+		notif_chain_t *nfc,
         nfc_pkt_trap pkt_trap_cb,
         nfc_app_cb app_cb);
 
 void
 tcp_stack_de_register_l2_pkt_trap_rule(
-		node_t *node,
+		notif_chain_t *nfc,
         nfc_pkt_trap pkt_trap_cb,
         nfc_app_cb app_cb);
 

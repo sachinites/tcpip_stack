@@ -81,6 +81,13 @@ typedef struct dp_intf_grp_bind_ {
 
 } dp_intf_grp_bind_t;
 
+#define CP2DP_CODE_INTF_RMAC 10
+#define CP2DP_CODE_INTF_VLAN_FLOOD 11
+#define CP2DP_CODE_INTF_HOST_PATH 12
+#define CP2DP_CODE_INTF_SRV6_END 13
+#define CP2DP_CODE_INTF_NVE 14
+#define CP2DP_CODE_INTF_PHYSICAL 0
+
 typedef struct dp_intf_cp2dp_msg_ {
 
     uint32_t port_id;  // key

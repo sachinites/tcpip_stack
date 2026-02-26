@@ -38,4 +38,7 @@ dp_is_vlan_member (bitmap_t *vlan_bitmap, uint16_t vlan_id);
 dp_intf_t *
 dp_look_up_interface_by_vlan_id(hashtable_t *ht, uint16_t vlan_id);
 
+void 
+dp_check_and_free_interface (dp_intf_t *intf);
+
 #endif

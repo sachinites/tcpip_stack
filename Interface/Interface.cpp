@@ -1122,6 +1122,11 @@ bool RmacInterface::IsCrossReferenced() {
     return this->GetSharedPtr().use_count() > (RMAC_DEF_REFCOUNT + 1);
 }
 
+mac_addr_t *
+RmacInterface::GetMacAddr( ) {
+
+    return (NODE_RMAC(this->att_node));
+}
 
 /* VlanFloodInterface */
 VlanFloodInterface::VlanFloodInterface()

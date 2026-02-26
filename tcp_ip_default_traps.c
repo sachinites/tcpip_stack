@@ -24,6 +24,7 @@
 #include "Layer3/netfilter.h"
 
 typedef struct event_dispatcher_ event_dispatcher_t;
+typedef struct notif_chain_ notif_chain_t;
 
 /*  Default pkt traps, enabled by default
  *  on all nodes */
@@ -37,35 +38,26 @@ typedef struct pkt_trap_data_ {
     pkt_processing_fn pkt_processing_fn_cb;
 } pkt_trap_data_t;
 
-/* Application pkt trappers imports */
-#if 0
-extern bool
-ddcp_trap_l2_pkt_rule(char *pkt, size_t pkt_size);
-extern void
-ddcp_process_ddcp_query_msg(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
-#endif
+
 static pkt_trap_data_t
 tcp_ip_default_l2_pkt_trap_rule[] = {
-   // {NF_IP_END, ddcp_trap_l2_pkt_rule, ddcp_process_ddcp_query_msg},
+   
+    // {NF_IP_END, ddcp_trap_l2_pkt_rule, ddcp_process_ddcp_query_msg},
+   
     {NF_IP_END, 0, 0} /*  Dont remove this NULL element */
 };
 
-#if 0
-/*  Application pkt trappers imports */
-extern bool
-ddcp_trap_l3_pkt_rule(char *pkt, size_t pkt_size);
-extern void
-ddcp_process_ddcp_reply_msg(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
-#endif 
 
 static pkt_trap_data_t
 tcp_ip_default_l3_pkt_trap_rule[] = {
- //   {NF_IP_LOCAL_IN, ddcp_trap_l3_pkt_rule, ddcp_process_ddcp_reply_msg},
+    
+     //   {NF_IP_LOCAL_IN, ddcp_trap_l3_pkt_rule, ddcp_process_ddcp_reply_msg},
+    
     {NF_IP_LOCAL_IN, 0, 0} /*   Dont remove this NULL element */
 };
 
 void
-tcp_ip_register_default_l2_pkt_trap_rules(node_t *node){
+tcp_ip_register_default_l2_pkt_trap_rules(notif_chain_t *nfc){
 
     pkt_trap_data_t *pkt_trap_data =
         &tcp_ip_default_l2_pkt_trap_rule[0];
@@ -73,7 +65,7 @@ tcp_ip_register_default_l2_pkt_trap_rules(node_t *node){
     while(pkt_trap_data->pkt_trap_qualifier_cb &&
             pkt_trap_data->pkt_processing_fn_cb) {
 
-        tcp_stack_register_l2_pkt_trap_rule(node,
+        tcp_stack_register_l2_pkt_trap_rule(nfc,
                 pkt_trap_data->pkt_trap_qualifier_cb,
                 pkt_trap_data->pkt_processing_fn_cb);
         pkt_trap_data++;
@@ -81,7 +73,7 @@ tcp_ip_register_default_l2_pkt_trap_rules(node_t *node){
 }
 
 void
-tcp_ip_register_default_l3_pkt_trap_rules(node_t *node){
+tcp_ip_register_default_l3_pkt_trap_rules(nf_hook_db_t *nf_hook_db){
 
     pkt_trap_data_t *pkt_trap_data =
         &tcp_ip_default_l3_pkt_trap_rule[0];
@@ -89,7 +81,7 @@ tcp_ip_register_default_l3_pkt_trap_rules(node_t *node){
     while(pkt_trap_data->pkt_trap_qualifier_cb &&
             pkt_trap_data->pkt_processing_fn_cb) {
 
-        nf_register_netfilter_hook(node,
+        nf_register_netfilter_hook(nf_hook_db,
                 pkt_trap_data->nf_hook_type,
                 pkt_trap_data->pkt_trap_qualifier_cb,
                 pkt_trap_data->pkt_processing_fn_cb);

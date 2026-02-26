@@ -305,6 +305,7 @@ class RmacInterface : public VirtualInterface {
         virtual void InterfaceReleaseAllResources() ;
         virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsCrossReferenced() final;
+        virtual mac_addr_t *GetMacAddr( ) final;
 
 } __attribute__((aligned(8)));;
 

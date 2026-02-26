@@ -64,12 +64,12 @@ typedef struct link_ link_t;
 
 class TransportService;
 
-
 typedef struct spf_data_ spf_data_t;
 typedef struct pkt_tracer_ pkt_tracer_t;
 typedef struct hashtable hashtable_t;
 typedef struct tracer_ tracer_t;
 typedef struct BPlusTree BPlusTree_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 struct node_ {
 
@@ -134,6 +134,8 @@ struct node_ {
     vrf_t* vrf[MAX_VRF_PER_NODE];
     /* SQL DB*/
     BPlusTree_t *sql_db;
+    /* Data Path */
+    dp_ctx_t *dp_ctx;
     /* Transport Svc profiles DB*/
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
     /* Vlan Interface Created*/
