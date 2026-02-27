@@ -26,8 +26,6 @@ typedef struct dp_vrf_ {
     fib_t *fib_mpls0;
     /* ARP table */
     arp_table_t *arp_table;
-    /* Back pointer to owning context*/
-    dp_ctx_t *dp_ctx;
 
 } dp_vrf_t;
 
@@ -61,11 +59,29 @@ void
 dp_insert_vrf (hashtable_t *ht, dp_vrf_t *vrf);
 
 void
-dp_delete_vrf (node_t *node, hashtable_t *ht, uint8_t vrf_id) ;
+dp_delete_vrf (dp_ctx_t *dp_ctx, hashtable_t *ht, uint8_t vrf_id) ;
 
 dp_vrf_t *
-dp_create_vrf (node_t *node, 
+dp_create_vrf (
                hashtable_t *ht, 
                char *vrf_name, uint8_t vrf_id) ;
+
+fib_t *
+dp_look_up_fib_by_name (dp_ctx_t *dp_ctx, char *vrf_name, char *fib_name);
+
+static inline fib_t *
+dp_vrf_fib_get(dp_vrf_t *vrf, AFI_T afi) {
+
+    switch(afi) {
+        case AF_IPV4:
+            return vrf->fib_inet0;
+        case AF_IPV6:
+            return vrf->fib_inet6;
+        case AF_LABEL:
+            return vrf->fib_mpls0;
+    }
+
+    return NULL;
+}
 
 #endif 

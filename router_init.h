@@ -84,50 +84,29 @@ struct node_ {
     /*SPF Calculation*/
     spf_data_t *spf_data;
 
-    /*Node Logging*/
-    log_t log_info;
-
-	/*net-filter hooks DB*/
-	nf_hook_db_t nf_hook_db;
-
-	/*L2 net-filter hook (simplified) */
-	notif_chain_t layer2_proto_reg_db2;
-
     /* Control plane Scheduler */
     event_dispatcher_t ev_dis;
-    /* Data path scheduler */
-    event_dispatcher_t dp_ev_dis;
+
     /* Objects Purger */
     event_dispatcher_t purger_ev_dis;
-    /* Data Path ingress Pkt Queue */
-    pkt_q_t dp_recvr_pkt_q;
-    /* CptoDp Interface Xmit Global Queue*/
-    pkt_q_t cp_to_dp_xmit_intf_pkt_q;
+
     /* IPC in a control plane */
     pkt_q_t cp_ipc_q;
-    /*IPC in a data plane */
-    pkt_q_t dp_ipc_q;
+
     /* IPC Database*/
     glthread_t cp_ipc_data_base [IPC_MSG_TYPE_MAX];
      /*CP Timer*/
     wheel_timer_t *cp_wt;
-    /* Data Path Timer */
-    wheel_timer_t *dp_wt;
+
     unsigned char *print_buff;
     glthread_t access_lists_db;
     glthread_t prefix_lst_db;
     /* Control Plane Tracer*/
     tracer_t *cptr;
-    /* Data-Path Tracer*/
-    tracer_t *dptr;
     /* Network Object Hashtable */
     hashtable_t *object_network_ght;
      /* Object Group Hashtable */
-    hashtable_t *object_group_ght;
-    /* DP hash table storage of interfacs*/
-    hashtable_t *dp_intf_ht;
-    /* DP hash table storage of VRFs*/
-    hashtable_t *dp_vrf_ht;    
+    hashtable_t *object_group_ght; 
     /* ACL/NAT/OBJECT-G Tracer */
     tracer_t *acl_cptr;
     /* VRFs*/

@@ -5,13 +5,20 @@ typedef struct pkt_block_ pkt_block_t;
 typedef struct ipv6_hdr_ ipv6_hdr_t;
 typedef struct srh_hdr_ srh_hdr_t;
 typedef struct fib_nh_ fib_nh_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 void
-srv6_shift_and_forward(dp_vrf_t *vrf,
+srv6_shift_and_forward(dp_ctx_t *dp_ctx, 
+                       dp_vrf_t *vrf,
                        pkt_block_t *pkt_block);
 
-#define fn_template(fn_name)    \
-    void fn_name (dp_vrf_t *vrf, pkt_block_t *pkt_block, ipv6_hdr_t *ipv6_hdr, srh_hdr_t *srh, fib_nh_t *nexthop)
+#define fn_template(fn_name)        \
+    void fn_name (dp_ctx_t *dp_ctx, \
+        dp_vrf_t *vrf,              \
+        pkt_block_t *pkt_block,     \
+        ipv6_hdr_t *ipv6_hdr,       \
+        srh_hdr_t *srh,             \
+        fib_nh_t *nexthop)
 
 fn_template(srv6_END);
 

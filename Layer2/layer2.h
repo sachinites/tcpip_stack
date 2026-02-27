@@ -166,14 +166,14 @@ SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_t *ethernet_hdr, uint16_t proto)
 }
 
 bool 
-l2_frame_recv_qualify_on_interface(
-                                    node_t *node,
+l2_frame_recv_qualify_on_interface(dp_ctx_t *dp_ctx,
+                                    dp_vrf_t *vrf,
                                     dp_intf_t *interface, 
                                     pkt_block_t *pkt_block,
                                     vlan_id_t *output_vlan_id);
 
 void
-promote_pkt_to_layer2(
+promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
                     dp_intf_t *iif, 
                     pkt_block_t *pkt_block);
@@ -194,11 +194,11 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 
 /* Return TRUE if the pkt is subjected to inter-vlan routing*/
 bool
-svi_interface_intercept_arp_pkt (node_t *node ,
+svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                         pkt_block_t *pkt_block);
 
 bool 
-is_arp_pkt_for_svi_interface (node_t *node,
+is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
                                       pkt_block_t *pkt_block);
 
 #endif /* __LAYER2__ */

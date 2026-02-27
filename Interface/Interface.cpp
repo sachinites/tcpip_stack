@@ -60,8 +60,9 @@ extern void l2_switch_forward_frame(
                         Interface *recv_intf, 
                         pkt_block_t *pkt_block);
 extern void
-promote_pkt_to_layer3(node_t *node,         
-                      Interface *interface, 
+promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
+                      dp_intf_t *interface, 
                       pkt_block_t *pkt_block, 
                       int L3_protocol_number) ;
 
@@ -102,11 +103,13 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
 
     if (LinuxRtr) {
 
-        tracer (sending_node->dptr, DFLOW_DET, 
+        #if 0
+        tracer (sending_dp_ctx->dptr, DFLOW_DET, 
                 "Pkt : %s Wired out of interface %s\n", 
                 pkt_block_str (pkt_block),
                 interface->if_name.c_str());        
-        
+        #endif 
+
         tcp_dump_send_logger(sending_node, interface,
                          pkt_block,
                          pkt_block_get_starting_hdr(pkt_block));
@@ -118,8 +121,10 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
 
     if (!nbr_node) return -1;
 
-    tracer (sending_node->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
+    #if 0
+    tracer (sending_dp_ctx->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
         pkt_block_str (pkt_block), interface->if_name.c_str());
+    #endif 
 
     Interface *other_interface = interface->GetOtherInterface();
 
@@ -2086,20 +2091,20 @@ NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
     char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
     if (!this->is_up) {
-        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, 
-            "VxLAN Encapsulation : Error : NVE Interface %s is down\n", this->if_name.c_str());
+        //tracer (this->att_dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+        //    "VxLAN Encapsulation : Error : NVE Interface %s is down\n", this->if_name.c_str());
         this->xmit_pkt_dropped++;
         return -1;
     }
 
     if (!pkt_block->encap_data) {
-        tracer (this->att_node->dptr, DTUNNEL | DFLOW | DERR, 
+        tracer (this->att_node->dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         this->xmit_pkt_dropped++;
         return -1;
     }
 
-    vxlan_encapsulate (this->att_node, pkt_block);
+    //vxlan_encapsulate (this->att_node, pkt_block);
 
  /* Now attach outer IP Hdr and send the pkt*/
     assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
@@ -2111,12 +2116,13 @@ NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
     ip_hdr->protocol = UDP_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
-    tracer (this->att_node->dptr, DTUNNEL | DFLOW, 
+#if 0
+    tracer (this->att_node->dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->src_ip), ipv4_addr_str1),
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
-
+#endif
     //np_tcp_ip_send_ip_data (this->att_node, pkt_block);
     this->pkt_sent++;
     return 0;

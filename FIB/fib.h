@@ -40,11 +40,11 @@ typedef struct fib_ {
 
 #pragma pack(pop)
 
-fib_t* fib_init (node_t *node, AFI_T afi, uint8_t vrf_id);
-fib_error_t fib_forward (dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id);
+fib_t* fib_init (dp_vrf_t *vrf, AFI_T afi, uint8_t vrf_id);
+//fib_error_t fib_forward (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id);
 void fib_show(fib_t *fib);
-fib_t *fib_get (node_t *node, AFI_T afi, uint8_t vrf_id);
+fib_t *fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id);
 void fib_destroy (fib_t*fib);
-fib_t* fib_get_by_name (node_t *node, char *fib_name);
+fib_t* fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name);
 
 #endif

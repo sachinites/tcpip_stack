@@ -51,6 +51,7 @@ typedef struct nexthop_ nexthop_t;
 
 typedef struct prefix_lst_ prefix_list_t;
 typedef struct dp_vrf_ dp_vrf_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 typedef struct rt_table_{
 
@@ -252,7 +253,8 @@ rt_table_perform_app_operation_on_routes (
                             rt_table_t *rt_table, 
                             void (*app_cbk) (mtrie_t *, mtrie_node_t *, void *));
 
-void layer3_ip_route_pkt(dp_vrf_t *vrf,
+void layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
+                         dp_vrf_t *vrf,
                          dp_intf_t *interface,
                          pkt_block_t *pkt_block);
 

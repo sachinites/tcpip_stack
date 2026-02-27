@@ -9,9 +9,10 @@ typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
 
 void
-send_arp_broadcast_request(dp_vrf_t *vrf,
+send_arp_broadcast_request(dp_ctx_t *dp_ctx,
+                           dp_vrf_t *vrf,
                            dp_intf_t *oif, 
-                           c_string ip_addr);
+                           uint32_t ip_addr);
 
 /*ARP Table APIs*/
 typedef struct arp_table_{
@@ -22,8 +23,8 @@ typedef struct arp_table_{
 
 typedef struct arp_pending_entry_ arp_pending_entry_t;
 typedef struct arp_entry_ arp_entry_t;
-typedef void (*arp_processing_fn)(node_t *, 
-                                  dp_intf_t *oif,
+typedef void (*arp_processing_fn)(dp_ctx_t *,
+                                  dp_intf_t *,
                                   arp_entry_t *, 
                                   arp_pending_entry_t *);
 struct arp_pending_entry_{
@@ -76,25 +77,23 @@ clear_arp_table(node_t *node, arp_table_t *arp_table);
 
 wheel_timer_elem_t *
 arp_entry_create_expiration_timer(
-		node_t *node,
+		dp_ctx_t *dp_ctx,
 		arp_entry_t *arp_entry,
 		uint16_t exp_time);
 
 void
 arp_entry_delete_expiration_timer(
-        node_t *node,
 		arp_entry_t *arp_entry);
 
 void
 arp_entry_refresh_expiration_timer(
-        node_t *node,
 		arp_entry_t *arp_entry);
 
 uint16_t
 arp_entry_get_exp_time_left(arp_entry_t *arp_entry);
 
 void
-delete_arp_entry(node_t *node, arp_entry_t *arp_entry);
+delete_arp_entry(arp_entry_t *arp_entry);
 
 void
 arp_entry_delete(node_t *node, unsigned char *ip_addr, uint16_t proto);
@@ -109,19 +108,22 @@ arp_table_entry_add(dp_vrf_t *vrf,
 void
 show_arp_table(arp_table_t *arp_table);
 
-void
-arp_table_update_from_arp_reply(arp_table_t *arp_table,
-                                arp_hdr_t *arp_hdr, dp_intf_t *iif);
+void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
+                                     dp_vrf_t *vrf,
+                                     arp_table_t *arp_table,
+                                     arp_hdr_t *arp_hdr,
+                                     dp_intf_t *iif);
 
 
 void
-add_arp_pending_entry (node_t *node,
+add_arp_pending_entry (dp_ctx_t *dp_ctx,
         arp_entry_t *arp_entry,
         arp_processing_fn cb,
         pkt_block_t *pkt_block);
 
 void
-create_arp_sane_entry(dp_vrf_t *vrf,
+create_arp_sane_entry(dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
 					  arp_table_t *arp_table,
                       c_string ip_addr, 
 					  pkt_block_t *pkt_block);
@@ -133,17 +135,20 @@ arp_entry_sane(arp_entry_t *arp_entry){
 }
 
 void
-process_arp_broadcast_request(dp_vrf_t *vrf, dp_intf_t *iif, 
+process_arp_broadcast_request(dp_ctx_t *dp_ctx,
+                              dp_vrf_t *vrf, dp_intf_t *iif, 
                               ethernet_hdr_t *ethernet_hdr);
 
 void
-process_arp_reply_msg(dp_vrf_t *vrf, dp_intf_t *iif,
+process_arp_reply_msg(dp_ctx_t *dp_ctx,
+                     dp_vrf_t *vrf, dp_intf_t *iif,
                      ethernet_hdr_t *ethernet_hdr);
 
 /* ARP Table Public APIs to be exposed to applications */
 
 bool
-arp_entry_add(dp_vrf_t *vrf, unsigned char *ip_addr, mac_addr_t mac, dp_intf_t *oif, uint16_t proto);
+arp_entry_add(dp_ctx_t *dp_ctx,
+                dp_vrf_t *vrf, unsigned char *ip_addr, mac_addr_t mac, dp_intf_t *oif, uint16_t proto);
 
 void 
 l2_prepare_arp_reply_msg(

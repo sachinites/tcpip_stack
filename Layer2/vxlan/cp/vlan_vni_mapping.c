@@ -94,7 +94,7 @@ vlan_vni_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
         /* Update existing mapping */
         existing_vlan->vni_id = vni_id;
         /* Update hashtable atomically */
-        vlan_vni_ht_add_mapping(node, vlan_id, vni_id);
+        vlan_vni_ht_add_mapping(node->dp_ctx, vlan_id, vni_id);
         return true;
     }
     

@@ -50,6 +50,7 @@
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
+#include "datapath/dp_ctx.h"
 #include "datapath/Vrfs/dp_vrf.h"
 #include "datapath/Interface/dp_intf.h"
 #include "datapath/Interface/dp_intf_store.h"
@@ -230,24 +231,17 @@ dump_nw_graph(graph_t *graph, node_t *node1){
  * with subnet in which 'ip_addr' lies
  * */
 dp_intf_t *
-node_get_matching_subnet_interface(dp_vrf_t *vrf, c_string ip_addr){
+node_get_matching_subnet_interface(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr){
 
     uint8_t mask;
     dp_intf_t *intf;
     cmn_prefix_t prefix;
-    node_t *node = vrf->node;
-
-    uint32_t ip_addr_int;
-
-    ip_addr_int =  tcp_ip_convert_ip_p_to_n (ip_addr);
     
-    cmn_prefix_initialize_v4(&prefix, ip_addr_int, 32);
+    cmn_prefix_initialize_v4(&prefix, ip_addr, 32);
 
     fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
 
     if(!nh){
-        tracer (node->dptr, DL3FWD | DERR, 
-            "Pkt : %s :  Pkt Dropped :  No L3 Route\n", ip_addr);
         return NULL;
     }   
 
@@ -286,7 +280,7 @@ dump_node_interface_stats(node_t *node){
     // Print table header
     dump_interface_stats_header();
 
-    struct hashtable_itr *itr = hashtable_iterator(node->dp_intf_ht);
+    struct hashtable_itr *itr = hashtable_iterator(node->dp_ctx->dp_intf_ht);
 
     while (1) {
 
@@ -300,7 +294,7 @@ dump_node_interface_stats(node_t *node){
     //dump_interface_stats(NODE_VLAN_FLOOD_INTF(node));
     //if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node));
 
-    cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_recvr_pkt_q));
+    cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_ctx->dp_recvr_pkt_q));
 }
 
 void

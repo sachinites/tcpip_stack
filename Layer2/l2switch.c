@@ -48,15 +48,17 @@
 #include "../datapath/Interface/dp_intf.h"
 
 extern void
-promote_pkt_to_layer3(dp_vrf_t *vrf,      
-                      dp_intf_t *interface,  
+promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
+                      dp_intf_t *interface, 
                       pkt_block_t *pkt_block, 
-                      int L3_protocol_number) ; 
+                      int L3_protocol_number) ;
 
 void
-l2_switch_perform_mac_learning (node_t *node, 
+l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
                                 vlan_id_t vlan_id, 
-                                c_string src_mac, dp_intf_t *oif, uint32_t src_ip) {
+                                c_string src_mac, 
+                                dp_intf_t *oif, uint32_t src_ip) {
 
     int i;
     uint16_t flags;
@@ -67,7 +69,7 @@ l2_switch_perform_mac_learning (node_t *node,
     }
 
     /* If existing mac table entry */
-    mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), vlan_id, src_mac);
+    mac_table_entry = mac_table_lookup(dp_ctx->mac_table, vlan_id, src_mac);
 
     if (mac_table_entry) {
 
@@ -95,22 +97,22 @@ l2_switch_perform_mac_learning (node_t *node,
     }
     
     /* Use sync API to add MAC entry since called is in DP itself */
-    mac_table_entry_add (node, NODE_MAC_TABLE(node), 
+    mac_table_entry_add (dp_ctx_t *dp_ctx, dp_ctx->mac_table,
         (uint8_t*)src_mac, vlan_id, oif->port_id, flags, src_ip);
 }
 
 static void 
-mac_table_entry_xmit_frame (node_t *node, 
+mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
                             mac_table_entry_t *mac_entry, 
                             pkt_block_t *pkt_block, 
                             dp_intf_t *recv_intf) 
 {
-    glthread_t *curr;
-    mac_oif_entry_t *oif_entry;
     dp_intf_t *oif; 
+    glthread_t *curr;
     uint32_t vni_id = 0;
     vlan_id_t vlan_id = 0;
     pkt_block_t *pkt_block2;
+    mac_oif_entry_t *oif_entry;
     encap_meta_data_t *encap_data = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
@@ -135,7 +137,7 @@ mac_table_entry_xmit_frame (node_t *node,
 
             if (vni_id == 0) {
 
-                tracer (node->dptr, DL2SW | DERR,
+                tracer (dp_ctx->dptr, DL2SW | DERR,
                         "VLAN to VNI mapping not found for vlan %d, Dropping the frame on NVE interface\n", vlan_id);
 
                 XFREE(encap_data);
@@ -162,7 +164,7 @@ mac_table_entry_xmit_frame (node_t *node,
 }
 
 static void
-l2_switch_flood_unknown_unicast(node_t *node,
+l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
                                 dp_intf_t *exempted_intf,
                                 pkt_block_t *pkt_block)
 {
@@ -173,28 +175,28 @@ l2_switch_flood_unknown_unicast(node_t *node,
     mac_table_entry_t *mac_flood_entry = NULL;
 
     mac_flood_entry =
-        mac_table_lookup(NODE_MAC_TABLE(node),
+        mac_table_lookup(dp_ctx->mac_table,
                          1,
                          BROADCAST_MAC);
 
     if (!mac_flood_entry) {
-         tracer (node->dptr, DL2SW, "Mac Table : Flooding Disabled ");
+         tracer (node->dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled ");
         return;
     }
 
     assert ((vlan_8021q_hdr = 
             is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL))));
 
-    tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
+    tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
             pkt_block_str (pkt_block), 
             htons(vlan_8021q_hdr->tci_vid));
 
-    mac_table_entry_xmit_frame (node, mac_flood_entry, pkt_block, exempted_intf);
+    mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, pkt_block, exempted_intf);
 }
 
 void
 l2_switch_forward_frame(
-                        node_t *node,
+                        dp_ctx_t *dp_ctx,
                         dp_intf_t *recv_intf, 
                         pkt_block_t *pkt_block) {
 
@@ -208,20 +210,21 @@ l2_switch_forward_frame(
 
     assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (ethernet_hdr))) ;  
 
-    tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
-        pkt_block_str (pkt_block), GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
+    tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
+        pkt_block_str (pkt_block), 
+        GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
      pkt_block->ingress_intf = recv_intf;
      vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
-    mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
+    mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
                                       vlan_id,
                                       ethernet_hdr->dst_mac.mac);
 
     if (mac_table_entry) {
-        mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
         mac_table_entry_cancel_expiry_timer(mac_table_entry);
-        mac_table_entry_init_timer(node, mac_table_entry);
+        mac_table_entry_init_timer(dp_ctx, mac_table_entry);
         return;
     }
 
@@ -233,16 +236,16 @@ l2_switch_forward_frame(
                                         BROADCAST_MAC);
 
             if (mac_table_entry) {
-                mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
+                mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
                 return;
             }        
 
-            mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
+            mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
                                         DEFAULT_VLAN_ID,
                                         BROADCAST_MAC);
 
             if (!mac_table_entry) {
-                tracer (node->dptr, DL2SW, "Mac Table : Flooding Disabled for Broadcast MAC");
+                tracer (dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled for Broadcast MAC");
                 return;
             }
        
@@ -251,24 +254,24 @@ l2_switch_forward_frame(
     }
 
     /* Check if the pkt matches the router mac , vlan id dont matter here */
-    if (mac_address_compare (NODE_RMAC(node)->mac, ethernet_hdr->dst_mac.mac)) {
+    if (mac_address_compare (dp_ctx->rmac.mac, ethernet_hdr->dst_mac.mac)) {
 
         mac_table_entry = 
-            mac_table_lookup(NODE_MAC_TABLE(node), 
+            mac_table_lookup(dp_ctx->mac_table, 
                                       DEFAULT_VLAN_ID,
                                       ethernet_hdr->dst_mac.mac);    
 
         if (!mac_table_entry) {
-                tracer (node->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame");
+                tracer (node->dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame");
                 return;
         }
 
-        mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
         return;
     }
 
     /* Handle Unknown Unicast */
-    tracer (node->dptr, DL2SW, 
+    tracer (dp_ctx->dptr, DL2SW, 
             "Mac Table Lookup Failed for vlan = %d, "
             "Mac = %02x:%02x:%02x:%02x:%02x:%02x\n",
             GET_802_1Q_VLAN_ID(vlan_8021q_hdr),
@@ -279,10 +282,10 @@ l2_switch_forward_frame(
             ethernet_hdr->dst_mac.mac[4],
             ethernet_hdr->dst_mac.mac[5]);
 
-        l2_switch_flood_unknown_unicast(node, recv_intf, pkt_block);
+        l2_switch_flood_unknown_unicast(dp_ctx, recv_intf, pkt_block);
 }
 
-void l2_switch_recv_frame(node_t *node,
+void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
                           vlan_id_t vlan_id,
                           dp_intf_t *interface,
                           pkt_block_t *pkt_block)
@@ -298,9 +301,9 @@ void l2_switch_recv_frame(node_t *node,
 
     c_string src_mac = (c_string)vlan_ethernet_hdr->src_mac.mac;
 
-    tracer (node->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
+    tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
         pkt_block_str (pkt_block), interface->if_name, vlan_id);
 
-    l2_switch_perform_mac_learning(node, vlan_id, src_mac, interface, 0);
-    l2_switch_forward_frame(node, interface, pkt_block);
+    l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
+    l2_switch_forward_frame(dp_ctx, interface, pkt_block);
 }

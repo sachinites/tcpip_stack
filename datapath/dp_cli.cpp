@@ -215,7 +215,7 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
         case CMDCODE_SHOW_DP_VRF_TABLE:
         {
-            hashtable_t *vrf_ht = node->dp_vrf_ht;
+            hashtable_t *vrf_ht = node->dp_ctx->dp_vrf_ht;
             
             if (!vrf_ht) {
                 cprintf("Node %s: Datapath VRF table not initialized\n", node_name);
@@ -255,7 +255,7 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
         case CMDCODE_SHOW_DP_INTF_TABLE:
         {
-            hashtable_t *intf_ht = node->dp_intf_ht;
+            hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
             
             if (!intf_ht) {
                 cprintf("Node %s: Datapath interface table not initialized\n", node_name);
@@ -305,7 +305,7 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
         case CMDCODE_SHOW_DP_INTF_TABLE_BRIEF:
         {
-            hashtable_t *intf_ht = node->dp_intf_ht;
+            hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
             
             if (!intf_ht) {
                 cprintf("Node %s: Datapath interface table not initialized\n", node_name);

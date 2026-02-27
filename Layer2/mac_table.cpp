@@ -1,6 +1,7 @@
 #include <ncurses.h>
 #include "mac_table.h"
 #include "../datapath/Interface/dp_intf.h"
+#include "../datapath/dp_ctx.h"
 #include "../datapath/Interface/dp_intf_store.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../router_init.h"
@@ -65,9 +66,9 @@ static void
 mac_table_entry_timer_expiry_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     mac_table_entry_t *mac_table_entry = (mac_table_entry_t *)arg;
-    node_t *node = (node_t *)(ev_dis->app_data);
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
 
-    tracer (node->dptr, DL2SW, 
+    tracer (dp_ctx->dptr, DL2SW, 
             "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Expired\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
@@ -83,11 +84,11 @@ mac_table_entry_timer_expiry_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32
 }
 
 void 
-mac_table_entry_init_timer (node_t *node, mac_table_entry_t *mac_table_entry) {
+mac_table_entry_init_timer (dp_ctx_t *dp_ctx, mac_table_entry_t *mac_table_entry) {
 
     assert (!mac_table_entry->exp_timer_wt_elem);
     mac_table_entry->exp_timer_wt_elem = timer_register_app_event(
-        DP_TIMER(node),
+        DP_TIMER(dp_ctx),
         mac_table_entry_timer_expiry_cbk,
         (void *)mac_table_entry,
         sizeof(mac_table_entry_t),
@@ -95,7 +96,7 @@ mac_table_entry_init_timer (node_t *node, mac_table_entry_t *mac_table_entry) {
 }
 
 void
-mac_table_entry_delete2 (node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
+mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
 
     mac_table_entry_t *mac_table_entry;
     mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac);
@@ -104,7 +105,7 @@ mac_table_entry_delete2 (node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id
     remove_glthread(&mac_table_entry->mac_entry_glue);
     mac_table_entry_cancel_expiry_timer(mac_table_entry);
 
-    tracer (node->dptr, DL2SW, 
+    tracer (dp_ctx->dptr, DL2SW, 
             "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Deleted\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
@@ -118,7 +119,7 @@ mac_table_entry_delete2 (node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id
 }
 
 void
-mac_table_entry_delete (node_t *node,
+mac_table_entry_delete (dp_ctx_t *dp_ctx,
                           mac_table_t *mac_table, 
                           uint8_t *mac_addr, 
                           uint16_t vlan_id,
@@ -141,7 +142,7 @@ mac_table_entry_delete (node_t *node,
             mac_table_entry_cancel_expiry_timer(mac_table_entry);
         }
         
-        tracer (node->dptr, DL2SW, 
+        tracer (dp_ctx->dptr, DL2SW, 
             "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Deleted\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
@@ -157,7 +158,7 @@ mac_table_entry_delete (node_t *node,
 }
 
 void
-mac_table_entry_add (node_t *node,
+mac_table_entry_add (dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table, 
                         uint8_t *mac_addr, 
                         uint16_t vlan_id,
@@ -166,7 +167,7 @@ mac_table_entry_add (node_t *node,
                         uint32_t remote_dst_ip) {
 
     /* Get the interface by ifindex */
-    dp_intf_t *oif = dp_look_up_interface(node->dp_intf_ht, ifindex);
+    dp_intf_t *oif = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
 
     if (!oif) {
         cprintf ("Error : Interface with ifindex %d not found\n", ifindex);
@@ -179,7 +180,7 @@ mac_table_entry_add (node_t *node,
     if (mac_table_entry) {
         /* Entry exists, try to add interface to existing entry */
         if (mac_table_entry_add_oif(mac_table_entry, oif, remote_dst_ip)) {
-            tracer(node->dptr, DL2SW, 
+            tracer(dp_ctx->dptr, DL2SW, 
                    "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Interface %s added to existing entry\n", 
                    vlan_id,
                    mac_addr[0], mac_addr[1], mac_addr[2], 
@@ -203,14 +204,14 @@ mac_table_entry_add (node_t *node,
     
     /* Initialize timer for dynamic entries */
     if (!(flags & MAC_STATIC)) {
-        mac_table_entry_init_timer(node, mac_table_entry);
+        mac_table_entry_init_timer(dp_ctx, mac_table_entry);
     }
 
     /* Add to MAC table */
     init_glthread(&mac_table_entry->mac_entry_glue);
     glthread_add_next(&mac_table->mac_entries, &mac_table_entry->mac_entry_glue);
 
-    tracer(node->dptr, DL2SW, 
+    tracer(dp_ctx->dptr, DL2SW, 
            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x %s] Added\n", 
            vlan_id,
            mac_addr[0], mac_addr[1], mac_addr[2], 

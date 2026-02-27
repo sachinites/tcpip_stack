@@ -10,18 +10,18 @@
 #include "../../../datapath/Interface/dp_intf.h"
 
 extern void
-l2_switch_perform_mac_learning (node_t *node, 
+l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
                                 vlan_id_t vlan_id, 
                                 c_string src_mac, 
                                 dp_intf_t *oif, uint32_t src_ip) ;
 extern void
 l2_switch_forward_frame(
-                        node_t *node,
+                        dp_ctx_t *dp_ctx,
                         dp_intf_t *recv_intf, 
                         pkt_block_t *pkt_block);
 
 void
-vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block) {
+vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
 
@@ -54,17 +54,17 @@ vxlan_encapsulate (node_t *node, pkt_block_t *pkt_block) {
     vxlan_hdr->vni[2] = (temp_vni >> 8) & 0xFF;   /* LSB */
     vxlan_hdr->reserved2 = 0;
 
-    tracer (node->dptr, DTUNNEL | DFLOW, 
+    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : VNI %u \n", pkt_block->encap_data->u.vxlan.vni);    
 }
 
-void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
+void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
 {
     pkt_size_t pkt_size;
 
-    if (NODE_NVE_INTF(node) == NULL) {
+    if (dp_ctx->dp_nve_intf == NULL) {
 
-        tracer (node->dptr, DTUNNEL | DFLOW | DERR,
+        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
               "VxLAN Decapsulation : Error : NVE Interface not found, Vxlan pkt dropped\n");
         return;
     }
@@ -85,7 +85,7 @@ void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_
 
      vni = htonl (vni);
 
-     tracer (node->dptr, DTUNNEL | DFLOW, 
+     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : VNI %u \n", vni);
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(vxlan_hdr + 1); 
@@ -94,27 +94,27 @@ void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_
     pkt_block_set_new_pkt (pkt_block, (uint8_t *) eth_hdr, pkt_size);
     pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
 
-    vlan_id_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (node, vni);
+    vlan_id_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);
 
     if (!vlan_id) {
 
-        tracer (node->dptr, DTUNNEL | DFLOW | DERR,
+        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
               "VxLAN Decapsulation : Error : VNI %u not found in vlan_vni_ht, Vxlan pkt dropped\n", vni);
-              NODE_NVE_INTF(node)->recvd_pkt_dropped++;
+              dp_ctx->dp_nve_intf->recvd_pkt_dropped++;
 
         return;
     }
 
     tag_pkt_with_vlan_id  (pkt_block, vlan_id);
 
-    l2_switch_perform_mac_learning (node,  vlan_id,
+    l2_switch_perform_mac_learning (dp_ctx, vlan_id,
                             eth_hdr->src_mac.mac,
-                            node->node_nw_prop.dp_nve,
+                            dp_ctx->dp_nve_intf,
                             src_vtep_ip) ;
 
-    tracer (node->dptr, DTUNNEL | DFLOW, 
+    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
         
-    l2_switch_forward_frame (node, node->node_nw_prop.dp_nve,  pkt_block);
-    node->node_nw_prop.dp_nve->pkt_recv++;
+    l2_switch_forward_frame (dp_ctx, dp_ctx->dp_nve_intf,  pkt_block);
+    dp_ctx->dp_nve_intf->pkt_recv++;
 }

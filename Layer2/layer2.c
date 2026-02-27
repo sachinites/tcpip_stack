@@ -73,10 +73,11 @@ l2_switch_forward_frame(
                         pkt_block_t *pkt_block) ;
 
 extern void
-promote_pkt_to_layer3(dp_vrf_t *vrf,     
-                         dp_intf_t *interface,
-                         pkt_block_t *pkt_block,
-                         int L3_protocol_type);
+promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
+                      dp_intf_t *interface, 
+                      pkt_block_t *pkt_block, 
+                      int L3_protocol_number) ;
 
 /*Interface config APIs for L2 mode configuration*/
 
@@ -160,14 +161,14 @@ node_set_intf_vlan_membership(node_t *node,
 }
 
 static void
-l2_forward_ip_packet(dp_vrf_t *vrf,
+l2_forward_ip_packet(dp_ctx_t *dp_ctx, 
+                     dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *oif,
                      pkt_block_t *pkt_block)
 {
 
     pkt_size_t pkt_size;
-    node_t *node = vrf->node;
     ethernet_hdr_t *ethernet_hdr;
     arp_entry_t * arp_entry = NULL;
     byte next_hop_ip_str[IPV4_ADDR_LEN_STR];
@@ -184,7 +185,7 @@ l2_forward_ip_packet(dp_vrf_t *vrf,
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_send_pkt_out(oif, pkt_block);
+        dp_send_pkt_out(dp_ctx, oif, pkt_block);
         return;
     }
 
@@ -195,16 +196,16 @@ l2_forward_ip_packet(dp_vrf_t *vrf,
         /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
          * out of this interface*/
 
-        arp_entry = arp_table_lookup(NODE_ARP_TABLE(vrf), next_hop_ip_str);
+        arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
         if (!arp_entry){
 
             /*Time for ARP resolution*/
-            create_arp_sane_entry(vrf, NODE_ARP_TABLE(vrf), 
-                    next_hop_ip_str, 
+            create_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
+                    next_hop_ip, 
                     pkt_block);
 
-            send_arp_broadcast_request(vrf, oif, next_hop_ip_str);
+            send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
             return;
         }
         goto l2_frame_prepare ;
@@ -217,15 +218,15 @@ l2_forward_ip_packet(dp_vrf_t *vrf,
 
     /*case 1 */
     
-    oif = node_get_matching_subnet_interface(vrf, next_hop_ip_str);
+    oif = node_get_matching_subnet_interface(dp_ctx, vrf, next_hop_ip);
    
     /*If the destination IP address do not match any local subnet Nor
      * is it a self loopback address*/
-    if(!oif && 
-        string_compare((const char *)next_hop_ip_str, 
-            (const char *)NODE_RTRID_ADDR(node), 16)){
-        cprintf("%s : Error : Local matching subnet for IP : %s could not be found\n",
-                    node->node_name, next_hop_ip_str);
+    if(!oif && (next_hop_ip != dp_ctx->rtr_id)) {
+
+        tracer(dp_ctx->dptr, DL2FWD | DERR,
+            "Error : Local matching subnet for IP:%s could not be found\n",
+                    next_hop_ip_str);
         return;
     }
 
@@ -237,27 +238,26 @@ l2_forward_ip_packet(dp_vrf_t *vrf,
         memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->dst_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        send_pkt_to_self(pkt_block, oif);
+        send_pkt_to_self(dp_ctx, pkt_block, oif);
         return;
     }
 
     /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
-    if(string_compare((const char *)next_hop_ip_str, 
-        (const char *)NODE_RTRID_ADDR(node), 16) == 0){
-         promote_pkt_to_layer3(vrf, 0, pkt_block, ethernet_hdr->type);
-         return;
+    if(next_hop_ip == dp_ctx->rtr_id) {
+        promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block, ethernet_hdr->type);
+        return;
     }
 
-    arp_entry = arp_table_lookup(NODE_ARP_TABLE(vrf), next_hop_ip_str);
+    arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
     if (!arp_entry || (arp_entry && arp_entry_sane(arp_entry))){
         
         /*Time for ARP resolution*/
-        create_arp_sane_entry(vrf, NODE_ARP_TABLE(vrf), 
-                next_hop_ip_str, 
+        create_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
+                next_hop_ip, 
                 pkt_block);
-        send_arp_broadcast_request(vrf, oif, next_hop_ip_str);
+        send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
         return;
     }
 
@@ -265,8 +265,8 @@ l2_forward_ip_packet(dp_vrf_t *vrf,
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_send_pkt_out(oif, pkt_block);
-		arp_entry_refresh_expiration_timer(node, arp_entry);
+        dp_send_pkt_out(dp_ctx, oif, pkt_block);
+		arp_entry_refresh_expiration_timer(arp_entry);
         arp_entry->hit_count++;
     }
 
@@ -275,7 +275,8 @@ l2_forward_ip_packet(dp_vrf_t *vrf,
  * this API shall be used by L3, but any Higher Layer API can use
  * this API. For example, An application can run directly on L2 bypassing
  * L3 altogether.*/
-void demote_pkt_to_layer2(dp_vrf_t *vrf,
+void demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
+                          dp_vrf_t *vrf,
                           uint32_t next_hop_ip,
                           dp_intf_t *oif,
                           pkt_block_t *pkt_block,
@@ -289,7 +290,8 @@ void demote_pkt_to_layer2(dp_vrf_t *vrf,
 
     empty_ethernet_hdr->type = htons(tcp_ip_convert_internal_proto_to_std_proto(hdr_type));
 
-    l2_forward_ip_packet(vrf,
+    l2_forward_ip_packet(dp_ctx,
+                         vrf,
                          next_hop_ip,
                          oif,
                          pkt_block);
@@ -407,7 +409,7 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
 }
 
 void
-promote_pkt_to_layer2(
+promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
                     dp_intf_t *iif, 
                     pkt_block_t *pkt_block) {
@@ -420,7 +422,7 @@ promote_pkt_to_layer2(
 
     /* Unconditionally distribute pkt-copy to interested applications */
     cp_punt_promote_pkt_from_layer2_to_layer5(
-                    node, 0, 
+                    dp_ctx->ctx_pvt_data, 0, 
                     pkt_block,
                     ETH_HDR);
 
@@ -439,10 +441,10 @@ promote_pkt_to_layer2(
                 switch(htons(arp_hdr->op_code)){
 
                     case ARP_BROAD_REQ:
-                        process_arp_broadcast_request(vrf, iif, ethernet_hdr);
+                        process_arp_broadcast_request(dp_ctx, vrf, iif, ethernet_hdr);
                         return;
                     case ARP_REPLY:
-                        process_arp_reply_msg(vrf, iif, ethernet_hdr);
+                        process_arp_reply_msg(dp_ctx, vrf, iif, ethernet_hdr);
                         return;
                     default:
                         assert(0);
@@ -454,6 +456,7 @@ promote_pkt_to_layer2(
         case PROTO_IP_IN_IP:
         case ETH_IP6:
             promote_pkt_to_layer3(
+                    dp_ctx,
                     vrf, iif, 
                     pkt_block,
                     eth_type);
@@ -463,8 +466,8 @@ promote_pkt_to_layer2(
 }
 
 bool 
-l2_frame_recv_qualify_on_interface(
-                                    node_t *node,
+l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
+                                    dp_vrf_t *vrf,
                                     dp_intf_t *interface, 
                                     pkt_block_t *pkt_block,
                                     vlan_id_t *output_vlan_id){
@@ -486,13 +489,14 @@ l2_frame_recv_qualify_on_interface(
     /* case 10 : If receiving interface is neither working in L3 mode
      * nor in L2 mode, then reject the packet*/
 
-    tracer (node->dptr, DL2FWD | DFLOW, "Pkt : %s received on interface %s being tested for "
+    tracer (dp_ctx->dptr, DL2FWD | DFLOW, 
+        "Pkt : %s received on interface %s being tested for "
         "RECV-Qualification test\n", pkt_block_str(pkt_block), interface->if_name);
 
     if (!interface->ip_addr &&
             !interface->switchport) {
 
-        tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Interface is neither L3 interface or L2 switchport\n",
             pkt_block_str(pkt_block), interface->if_name);
 
@@ -510,8 +514,10 @@ l2_frame_recv_qualify_on_interface(
             return true;    /*case 3*/
         
         else {
-            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
-                "failed RECV-Qualification test : Tagged pkt recvd on Access interface not operating in any vlan\n",
+            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+                "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Tagged pkt "
+                "recvd on Access interface not operating in any vlan\n",
                 pkt_block_str(pkt_block), interface->if_name);
             return false;   /*case 4*/
         }
@@ -540,13 +546,17 @@ l2_frame_recv_qualify_on_interface(
         }
 
         pkt_vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+
         if(pkt_vlan_id == intf_vlan_id){
             return true;    /*case 5*/
         }
         else{
-            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
-                "failed RECV-Qualification test : Vlan Mismatch, 802.1Q vlan  %d != Interface vlan %d\n", 
-                pkt_block_str(pkt_block), interface->if_name,  pkt_vlan_id, intf_vlan_id);
+            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+                "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Vlan Mismatch, "
+                "802.1Q vlan  %d != Interface vlan %d\n", 
+                pkt_block_str(pkt_block), interface->if_name,  
+                pkt_vlan_id, intf_vlan_id);
             return false;   /*case 5*/
         }
     }
@@ -558,8 +568,10 @@ l2_frame_recv_qualify_on_interface(
        
         if(!vlan_8021q_hdr){
             /*case 7 & 8*/
-            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
-                "failed RECV-Qualification test : Untagged pkt recvd on Trunk Interface", 
+            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+                "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Untagged "
+                "pkt recvd on Trunk Interface", 
                 pkt_block_str(pkt_block), interface->if_name);
             return false;
         }
@@ -577,8 +589,10 @@ l2_frame_recv_qualify_on_interface(
             return true;    /*case 9*/
         }
         else{
-            tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
-                "failed RECV-Qualification test : Trunk Interface is not configured with Pkt vlan %d\n", 
+            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+                "Pkt : %s received on interface %s "
+                "failed RECV-Qualification test : Trunk Interface is "
+                "not configured with Pkt vlan %d\n", 
                 pkt_block_str(pkt_block), interface->if_name,  pkt_vlan_id);
             return false;   /*case 9*/
         }
@@ -597,7 +611,8 @@ l2_frame_recv_qualify_on_interface(
     /*If the interface is operating in L3 mode, and recv vlan tagged frame, drop it*/
     if(interface->ip_addr && vlan_8021q_hdr){
         /*case 2*/
-        tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Vlan tagged pkt recvd on L3 interface\n", 
             pkt_block_str(pkt_block), interface->if_name);
         return false;
@@ -621,7 +636,8 @@ l2_frame_recv_qualify_on_interface(
         return true;
     }
 
-    tracer (node->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+    tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+        "Pkt : %s received on interface %s "
         "failed RECV-Qualification test : Unknown Reason\n", 
         pkt_block_str(pkt_block), interface->if_name);    
 
@@ -630,11 +646,11 @@ l2_frame_recv_qualify_on_interface(
 }
 
 bool 
-is_arp_pkt_for_svi_interface (node_t *node,
+is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
+                              dp_vrf_t *vrf,
                               pkt_block_t *pkt_block)
 {
     uint16_t proto;
-    uint8_t svi_mask;
     pkt_size_t pkt_size;
     arp_hdr_t *arp_hdr;
     uint32_t svi_ip_addr;
@@ -662,17 +678,16 @@ is_arp_pkt_for_svi_interface (node_t *node,
          htons(arp_hdr->op_code) != ARP_REPLY) return false;
 
     /* Lookup Vlan Inteface */
-    VlanInterface *svi =
-        static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
+    dp_intf_t *svi_intf = dp_look_up_interface_by_vlan_id(dp_ctx->dp_intf_ht, vlan_id);
 
-    if (!svi) return false;
+    if (!svi_intf) return false;
 
-    svi->InterfaceGetIpAddressMask(&svi_ip_addr, &svi_mask);
-    return (svi_ip_addr == htonl(arp_hdr->dst_ip)) ;
+    return (svi_intf->ip_addr == htonl(arp_hdr->dst_ip)) ;
 }
 
 bool
-svi_interface_intercept_arp_pkt (node_t *node,
+svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
+                                dp_vrf_t *vrf,
                                 pkt_block_t *pkt_block) {
 
     uint16_t l3_proto;
@@ -697,11 +712,13 @@ svi_interface_intercept_arp_pkt (node_t *node,
         vlan_intf = interface->vlan_intf;
     }
     else if (interface->l2_mode == DP_LAN_TRUNK_MODE) {   
-        vlan_intf = dp_look_up_interface_by_vlan_id(node->dp_intf_ht, pkt_vlan_id);
+        vlan_intf = dp_look_up_interface_by_vlan_id(
+                    dp_ctx->dp_intf_ht, pkt_vlan_id);
     }
     else {
-        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
-            "Pkt : %s recvd on switchport %s which is neither in Access nor in Trunk mode, Pkt Dropped\n",
+        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+            "Pkt : %s recvd on switchport %s which is neither "
+            "in Access nor in Trunk mode, Pkt Dropped\n",
             pkt_block_str(pkt_block), interface->if_name);
         return true;
     }
@@ -709,37 +726,37 @@ svi_interface_intercept_arp_pkt (node_t *node,
     if (!vlan_intf) {
         /* It means, the pkt is recvd on switchport interface but
          * the interface is not operating in any vlan*/
-        tracer (node->dptr, DL2FWD | DFLOW | DERR, 
+        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s recvd on switchport %s which is not bound to any vlan, pkt Dropped\n",
             pkt_block_str(pkt_block), interface->if_name);
         return true;
     }
 
-    uint8_t svi_mask;
     uint32_t svi_ip_addr;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
-    dp_vrf_t *vrf = vlan_intf->vrf;
+
+    assert (vrf == vlan_intf->vrf);
 
     /*Process ARP packets destined for SVI interface */
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
 
     if (htons(arp_hdr->op_code) == ARP_REPLY) {
 
-        arp_table_update_from_arp_reply(NODE_ARP_TABLE(vrf), arp_hdr, vlan_intf);
+        arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp_hdr, vlan_intf);
         return true;
     }
 
     if (htons(arp_hdr->op_code) != ARP_BROAD_REQ) return true;
 
     svi_ip_addr = vlan_intf->ip_addr;
-    svi_mask = vlan_intf->mask;
 
-    tracer(node->dptr, DL2FWD | DFLOW,
-           "Pkt : %s recvd on SVI interface %s is ARP Broadcast request for SVI IP, Sending ARP reply\n",
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+           "Pkt : %s recvd on SVI interface %s is ARP Broadcast "
+           "request for SVI IP, Sending ARP reply\n",
            pkt_block_str(pkt_block), vlan_intf->if_name);
 
     /* Overhead ARP Boradcast pkt and update ARP cache */
-    arp_table_update_from_arp_reply(NODE_ARP_TABLE(vrf),
+    arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
                                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr),
                                     vlan_intf);
 
@@ -768,9 +785,9 @@ svi_interface_intercept_arp_pkt (node_t *node,
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
         (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
 
-    tracer(node->dptr, DARP, 
+    tracer(dp_ctx->dptr, DARP,
         "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
-           tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, ip_addr_str),
+           tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
            arp_hdr_reply->dst_mac.mac[0],
            arp_hdr_reply->dst_mac.mac[1],
            arp_hdr_reply->dst_mac.mac[2],
@@ -779,7 +796,7 @@ svi_interface_intercept_arp_pkt (node_t *node,
            arp_hdr_reply->dst_mac.mac[5],
            interface->if_name);
 
-    dp_send_pkt_out(interface, pkt_block2);
+    dp_send_pkt_out(dp_ctx, interface, pkt_block2);
     pkt_block_dereference(pkt_block2);
     return true;
 }

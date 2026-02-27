@@ -51,12 +51,16 @@ ipv6_route_t*
 l3rib_v6lookup_lpm2 ( rt_table_t *v6rt_table, ipv6_addr_t *ipv6_addr);
 
 void 
- ipv6_layer3_forward_nexthop (dp_vrf_t *vrf, fib_nh_t *nexthop, pkt_block_t *pkt_block);
+ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx, 
+                            dp_vrf_t *vrf, 
+                            fib_nh_t *nexthop, 
+                            pkt_block_t *pkt_block);
 
 ipv6_route_t* 
 l3rib_v6route_lookup_exact_match ( rt_table_t *v6rt_table, ipv6_addr_t *prefix, uint8_t prefix_len);
 
-void layer3_ipv6_route_pkt(dp_vrf_t *vrf,
+void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx, 
+                           dp_vrf_t *vrf,
                            dp_intf_t *interface,
                            pkt_block_t *pkt_block);
 

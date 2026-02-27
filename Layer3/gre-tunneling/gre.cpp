@@ -11,7 +11,8 @@
 #include "../../datapath/Vrfs/dp_vrf.h"
 
 extern void
-promote_pkt_to_layer3(dp_vrf_t *vrf,      
+promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
                       dp_intf_t *interface, 
                       pkt_block_t *pkt_block, 
                       int L3_protocol_number) ;
@@ -267,7 +268,7 @@ gre_encasulate (node_t *node, pkt_block_t *pkt_block) {
     memset (gre_hdr, 0, sizeof (gre_hdr_t));
     gre_hdr->protocol_type = htons(gre_inner_hdr_type);
     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);        
-    tracer (node->dptr, DTUNNEL | DFLOW, 
+    tracer (node->dp_ctx->dptr, DTUNNEL | DFLOW, 
         "GRE Encapsulation %s\n", pkt_block_str (pkt_block));    
 }
 
@@ -277,11 +278,12 @@ gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
     uint8_t *pkt;
     pkt_size_t pkt_size;
     node_t *node = vrf->node;
+    dp_ctx_t *dp_ctx = vrf->dp_ctx;
 
     assert (pkt_block_get_starting_hdr(pkt_block) == GRE_HDR);
 
     if (!gre_intf) {
-         tracer (node->dptr, DTUNNEL | DFLOW | DERR, 
+         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "Error : Pkt %s : Arrived on non-existant GRE Tunnel Interface\n", 
                 pkt_block_str (pkt_block));
         return;
@@ -292,7 +294,7 @@ gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
     gre_intf->pkt_recv++;
 
     if (!gre_intf->is_tunnel_up || !gre_intf->is_up) {
-        tracer (node->dptr, DTUNNEL | DFLOW | DERR, 
+        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "Error : Pkt : %s : Dropped, GRE Tunnel %s is not Active/Up\n", 
                 pkt_block_str (pkt_block), gre_intf->if_name);
         return;
@@ -307,7 +309,7 @@ gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
         case ETH_IP:
         {
             pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
-            tracer (node->dptr, DTUNNEL | DFLOW, 
+            tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "GRE Decapsulation %s\n", pkt_block_str (pkt_block));    
             layer3_ip_route_pkt (vrf, gre_intf, pkt_block);
         }
@@ -316,9 +318,9 @@ gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
         case PROTO_GRE_ENCAP_ETHERNET:
         {
              pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
-            tracer (node->dptr, DTUNNEL | DFLOW, 
+            tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "GRE Decapsulation %s\n", pkt_block_str (pkt_block));                    
-             dp_pkt_receive(node, gre_intf, pkt_block);
+             dp_pkt_receive(vrf->dp_ctx, gre_intf->vrf, gre_intf, pkt_block);
         }
         break;
     }

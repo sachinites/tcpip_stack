@@ -419,16 +419,17 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 extern void
-send_arp_broadcast_request(dp_vrf_t *vrf,
+send_arp_broadcast_request(dp_ctx_t *dp_ctx,
+                           dp_vrf_t *vrf,
                            dp_intf_t *oif,
-                           c_string ip_addr);
+                           uint32_t ip_addr);
 static int
 arp_handler(int cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
 
     node_t *node;
     c_string node_name;
-    c_string ip_addr;
+    c_string ip_addr_str;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
@@ -436,11 +437,17 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
-            ip_addr = tlv->value;
+            ip_addr_str = tlv->value;
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    send_arp_broadcast_request(NULL/* FIX ME*/, NULL, ip_addr);
+
+    uint32_t ip_addr = tcp_ip_convert_ip_p_to_n(ip_addr_str);
+    
+    send_arp_broadcast_request(node->dp_ctx, 
+        node->dp_ctx->default_vrf, 
+        NULL, ip_addr);
+
     return 0;
 }
 

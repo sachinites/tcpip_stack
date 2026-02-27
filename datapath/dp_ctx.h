@@ -1,6 +1,10 @@
 #ifndef __DP_CTX__
 #define __DP_CTX__
 
+#ifdef __cplusplus
+#include <atomic>
+#endif
+
 typedef struct _wheel_timer_t wheel_timer_t;
 typedef struct tracer_ tracer_t;
 typedef struct hashtable hashtable_t;
@@ -17,6 +21,7 @@ typedef struct dp_intf_ dp_intf_t;
 
 typedef struct dp_ctx_ {
 
+    char ctx_name[32];
     /* Data path scheduler */
     event_dispatcher_t dp_ev_dis;
     /* Objects Purger */
@@ -43,7 +48,11 @@ typedef struct dp_ctx_ {
     /* DP hash table storage of VRFs*/
     hashtable_t *dp_vrf_ht;    
     /* Vlan-VNI mapping DP hash table*/
-    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht; 
+#ifdef __cplusplus
+    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;
+#else
+    vlan_vni_ht_db_t *vlan_vni_ht;
+#endif
 
     /* Net filter hook DB*/
     nf_hook_db_t nf_hook_db;
@@ -56,6 +65,8 @@ typedef struct dp_ctx_ {
     void *ctx_pvt_data;
 
     mac_addr_t rmac;
+    uint32_t rtr_id;
+    
     dp_vrf_t *default_vrf;
 
     /* Special interfaces */
@@ -71,5 +82,7 @@ typedef struct dp_ctx_ {
 
 void 
 dp_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
+
+#define DP_CTX(vrf_ptr)  dp_ctx_t *dp_ctx = (vrf_ptr)->dp_ctx
 
 #endif 

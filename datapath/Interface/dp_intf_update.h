@@ -105,10 +105,11 @@ typedef struct dp_intf_cp2dp_msg_ {
 /* Forward declarations */
 typedef struct node_ node_t;
 typedef struct dp_msg_ dp_msg_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
-/* Interface update message processing */
+/* Interface update message processing (DP thread) */
 void 
-dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg);
+dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 
 /* Interface update message sending functions */
 void 

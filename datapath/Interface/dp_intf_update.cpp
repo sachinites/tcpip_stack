@@ -22,13 +22,12 @@ dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
 }
 
 void 
-dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
+dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
     dp_intf_t *intf = NULL;
     char ip_str[INET_ADDRSTRLEN];
     char ipv6_str[INET6_ADDRSTRLEN];
-    dp_ctx_t *dp_ctx = node->dp_ctx;
-    hashtable_t *ht = node->dp_intf_ht;
+    hashtable_t *ht = dp_ctx->dp_intf_ht;
 
     assert (dp_msg->component_type == INTF_TABLE);
 
@@ -39,7 +38,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
             dp_intf_cp2dp_msg_hdr_t *msg = 
                 (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
 
-            tracer(node->dptr, DCONF, 
+            tracer(dp_ctx->dptr, DCONF, 
                 "Creating interface if_name=%s iftype=%u\n",
                 msg->intf_name, msg->iftype);
 
@@ -72,7 +71,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     break;
             }
             
-            tracer(node->dptr, DCONF, 
+            tracer(dp_ctx->dptr, DCONF, 
                 "Interface if_name=%s created successfully\n",
                 intf->if_name);
         }   
@@ -88,7 +87,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
 
             if (intf) {
                 dp_delete_interface(ht, msg->port_id);
-                tracer(node->dptr, DCONF, 
+                tracer(dp_ctx->dptr, DCONF, 
                     "Interface if_name=%u deleted\n", msg->port_id);
                 break;
             }
@@ -115,12 +114,12 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                 dp_ctx->dp_nve_intf = NULL;
             }         
             else {
-                tracer(node->dptr, DCONF|DERR, 
+                tracer(dp_ctx->dptr, DCONF|DERR, 
                     "Interface port_id=%u not found\n", msg->port_id);
                 break;
             }                           
             
-            tracer(node->dptr, DCONF, 
+            tracer(dp_ctx->dptr, DCONF, 
                 "Interface port_id=%u deleted\n", msg->port_id);
         }
         break;
@@ -143,7 +142,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     
                     tcp_ip_covert_ip_n_to_p(ipv4_update->ipv4_addr, (c_string)ip_str);
                     
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "Updating IPv4 address on if_name=%s to %s/%u\n",
                         intf->if_name, ip_str, ipv4_update->mask);
                     
@@ -159,7 +158,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     
                     inet_ntop(AF_INET6, ipv6_update->ipv6_addr, ipv6_str, sizeof(ipv6_str));
                     
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "Updating IPv6 address on if_name=%s to %s/%u\n",
                         intf->if_name, ipv6_str, ipv6_update->prefix_len);
                     
@@ -182,7 +181,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     else {
                         dp_vlan_unbind_port (vlan_intf, intf, vlan_bind->l2_mode, true);
                     }
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "%sBinding %s with %s l2_mode=%s\n",
                         vlan_bind->add ? "" : "Un",
                         vlan_intf->if_name, intf->if_name,
@@ -195,7 +194,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     dp_intf_admin_down_t *admin_down = 
                         (dp_intf_admin_down_t *)(msg + 1);
                     
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "Setting admin status on if_name=%s to %s\n",
                         intf->if_name, admin_down->status ? "DOWN" : "UP");
                     
@@ -207,7 +206,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                 {
                     dp_intf_switchpor_t *sw_status = 
                         (dp_intf_switchpor_t *)(msg+1);
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "Setting switchport on if_name=%s to %d\n",
                         intf->if_name, sw_status->enable ? 1 : 0);
                     intf->switchport = sw_status->enable;
@@ -219,12 +218,12 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     dp_intf_vrf_bind_t *vrf_bind = 
                         (dp_intf_vrf_bind_t *)(msg + 1);
                     
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "Binding interface if_name=%s to VRF vrf_id=%d\n",
                         intf->if_name, vrf_bind->vrf_id);
                     
                     /* Look up VRF by vrf_id and assign to intf->vrf */
-                    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, vrf_bind->vrf_id);
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_bind->vrf_id);
                     dp_intf_t *intf = dp_look_up_interface(ht, vrf_bind->port_id);
 
                     if (vrf) {
@@ -232,7 +231,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                         assert (!intf->vrf);
                         intf->vrf = vrf;
                                             
-                        tracer(node->dptr, DCONF, 
+                        tracer(dp_ctx->dptr, DCONF, 
                             "Interface intf=%s successfully bound to VRF %s\n",
                             intf->if_name, vrf->vrf_name);
                     }
@@ -241,7 +240,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                         assert (intf->vrf);
                         intf->vrf = NULL;
                     
-                        tracer(node->dptr, DCONF, 
+                        tracer(dp_ctx->dptr, DCONF, 
                          "Interface intf=%s successfully unbound from VRF %s\n",
                             intf->if_name, vrf->vrf_name);                        
                     }
@@ -256,12 +255,13 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     if (vni_msg->add){
                         assert(!intf->vni_id);
                         intf->vni_id = vni_msg->vni_id;
-                        vlan_vni_ht_add_mapping(node, intf->vlan_id, intf->vni_id);
+                        vlan_vni_ht_add_mapping(dp_ctx,
+                                                intf->vlan_id, intf->vni_id);
                     }
                     else {
                         assert (intf->vni_id == vni_msg->vni_id);
                         intf->vni_id = 0;
-                        vlan_vni_ht_remove_mapping(node, intf->vni_id);
+                        vlan_vni_ht_remove_mapping(dp_ctx, intf->vni_id);
                     } 
                 }
                 break;
@@ -302,7 +302,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                      intf->l2_mode = DP_LAN_MODE_NONE;   
                     }
 
-                    tracer(node->dptr, DCONF,
+                    tracer(dp_ctx->dptr, DCONF,
                            "DP INTF: Interface if_name=%s %sbound %s VLAN group\n",
                            intf->if_name, vlan_grp_bind->add ? "" : "Un",
                            vlan_grp_bind->add ? "to" : "from");
@@ -348,7 +348,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                     }
                     free(itr);
 
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         ("DP INTF : %u member ports successfully %s %s %s\n", 
                             count, intf_grp_bind->add ? "Added" : "Removed",
                             intf_grp_bind->add ? "to" : "from",
@@ -357,7 +357,7 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
                 break;
 
                 default:
-                    tracer(node->dptr, DCONF, 
+                    tracer(dp_ctx->dptr, DCONF, 
                         "Unknown update code %u for if_name=%s\n",
                         msg->update_code, intf->if_name);
                     break;
@@ -366,15 +366,15 @@ dp_intf_table_process_msg(node_t *node, dp_msg_t *dp_msg){
         break;
 
         case DP_READ:
-            tracer(node->dptr, DCONF, "Read operation (not implemented)\n");
+            tracer(dp_ctx->dptr, DCONF, "Read operation (not implemented)\n");
             break;
 
         case DP_L3_NORTHBOUND_IN:
-            tracer(node->dptr, DCONF, "L3 northbound operation (not applicable)\n");
+            tracer(dp_ctx->dptr, DCONF, "L3 northbound operation (not applicable)\n");
             break;
 
         default:
-            tracer(node->dptr, DCONF, "Unknown operation type %d\n", dp_msg->opr_type);
+            tracer(dp_ctx->dptr, DCONF, "Unknown operation type %d\n", dp_msg->opr_type);
             break;
     }
 
@@ -578,7 +578,10 @@ cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, int32_t vrf_id) 
 }
 
 void 
-cp2dp_send_intf_vlan_grp_bind_update(node_t *node, uint32_t port_id, bitmap_t *vlan_bitmap, bool add) {
+cp2dp_send_intf_vlan_grp_bind_update(node_t *node, 
+                    uint32_t port_id, 
+                    bitmap_t *vlan_bitmap, 
+                    bool add) {
     
     dp_msg_t *dp_msg;
     dp_intf_cp2dp_msg_hdr_t *intf_msg;

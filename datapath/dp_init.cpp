@@ -24,37 +24,11 @@ extern bool LinuxRtr;
 void 
 dp_init (node_t *node) {
 
-    char file_name[64];
-    char ev_dis_name[EV_DIS_NAME_LEN];
-
-    /* Initialize Data Plane Tracers*/
-    memset(file_name, 0, sizeof(file_name));
-    sprintf(file_name, "logs/%s-dp.txt", node->node_name);
-    node->dptr = tracer_init (node->node_name, file_name, 
-        node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
-    tracer_enable_file_logging (node->dptr, true);
-
-    /* Start Data Path Thread/Scheduler */
-    snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", node->node_name);
-    event_dispatcher_init(&node->dp_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->dp_ev_dis, LinuxRtr ? true : false);  /* Pin DP thread to high-perf core */
-    node->dp_ev_dis.app_data = (void *)node;
-    init_pkt_q(&node->dp_ev_dis, &node->dp_recvr_pkt_q, dp_pkt_recvr_job_cbk);
-    init_pkt_q(&node->dp_ev_dis, &node->cp_to_dp_xmit_intf_pkt_q, dp_pkt_xmit_intf_job_cbk);
-        
-    /* Start DP Timer */
-    node->dp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
-    wt_set_user_data(node->dp_wt, EV_DP(node));
-    start_wheel_timer(node->dp_wt);
-
-    /* Start IPC Message Queue of Data Plane*/
-    init_pkt_q (&node->dp_ev_dis, &node->dp_ipc_q, 0);
-
-    init_mac_table(&(node->node_nw_prop.mac_table));
-
-    dp_init_intf_hashtable (&node->dp_intf_ht);
-    dp_init_vrf_hashtable (&node->dp_vrf_ht);
-    node->node_nw_prop.vlan_vni_ht.store(nullptr);
+    /* Legacy path: ensure dp_ctx exists; all state lives in dp_ctx */
+    if (!node->dp_ctx) {
+        dp_ctx_init(&node->dp_ctx, (void *)node, node->node_name);
+    }
+    /* All datapath state is now in node->dp_ctx */
 }
 
 extern void tcp_ip_register_default_l3_pkt_trap_rules(
@@ -70,16 +44,18 @@ dp_ctx_init (dp_ctx_t **_dp_ctx, void *arg, char *ctx_name) {
     *_dp_ctx = (dp_ctx_t *)calloc (1, sizeof (dp_ctx_t));
     dp_ctx_t *dp_ctx = (*_dp_ctx);
 
+    strncpy (dp_ctx->ctx_name, ctx_name, sizeof (dp_ctx->ctx_name));
+    
     /* Start Data Path Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", ctx_name);
     event_dispatcher_init(&dp_ctx->dp_ev_dis, (const char *)ev_dis_name);
     event_dispatcher_run(&dp_ctx->dp_ev_dis, LinuxRtr ? true : false);  /* Pin DP thread to high-perf core */
-    dp_ctx->dp_ev_dis.app_data = arg;
+    dp_ctx->dp_ev_dis.app_data = (void *)dp_ctx;
 
     /* Start Data Path Object purger thread */
     event_dispatcher_init(&dp_ctx->dp_purger_ev_dis, (const char *)ev_dis_name);
     event_dispatcher_run(&dp_ctx->dp_purger_ev_dis, false);  /* Pin DP thread to high-perf core */
-    dp_ctx->dp_ev_dis.app_data = arg;    
+    dp_ctx->dp_ev_dis.app_data = (void *)dp_ctx;
 
     /* Initialize DP Packet Queues*/
 
@@ -123,7 +99,7 @@ dp_ctx_init (dp_ctx_t **_dp_ctx, void *arg, char *ctx_name) {
 
     /* Initialize DP packet logging*/
     memset(file_name, 0, sizeof(file_name));
-    sprintf(file_name, "logs/%s.txt", file_name);
+    snprintf(file_name, sizeof(file_name), "logs/%s.txt", ctx_name);
     dp_ctx->log.all       = false;
     dp_ctx->log.recv      = false;
     dp_ctx->log.send      = false;

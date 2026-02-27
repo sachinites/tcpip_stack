@@ -35,7 +35,7 @@ fib_nh_idx_compare(
 }
 
 fib_error_t 
-fib_add_route (node_t *node,
+fib_add_route (dp_ctx_t *dp_ctx,
         fib_t *fib, 
         cmn_prefix_t *prefix, 
         uint32_t inh_idx,
@@ -45,7 +45,7 @@ fib_add_route (node_t *node,
     char route_str[48];
     char nh_str[48];
 
-    tracer (node->dptr, DFIB_DET, 
+    tracer (dp_ctx->dptr, DFIB_DET, 
         "FIB[%s] : Adding Route %s with NH Index (%s)%u\n", 
         fib->name,
         cmn_prefix_to_string(prefix, &route_str),
@@ -81,7 +81,7 @@ fib_add_route (node_t *node,
         /* Check result */
         if (result == MTRIE_INSERT_FAILED) {
 
-            tracer (node->dptr, DFIB | DERR, 
+            tracer (dp_ctx->dptr, DFIB | DERR, 
                 "FIB[%s] : Route %s : FIB installation failed\n", 
                 fib->name, route_str);
             return FIB_ERROR_INSERT_FAILED;
@@ -120,7 +120,7 @@ fib_add_route (node_t *node,
             /* Store route in mtrie node */
             mnode->data = (void *)route;
 
-            tracer (node->dptr, DFIB_DET, 
+            tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s : New route created and installed, Nexthop : %s(%u)\n", 
                 fib->name, route_str, nh_str, nh_idx);
             
@@ -139,7 +139,7 @@ fib_add_route (node_t *node,
                 if (route->nhs[i] && 
                     fib_nh_idx_compare(route->nh_idx[i], inh_idx, nh_idx)) {
 
-                    tracer (node->dptr, DFIB_DET | DERR, 
+                    tracer (dp_ctx->dptr, DFIB_DET | DERR, 
                         "FIB[%s] : Error : Route %s : Attempt to add Duplicate Nexthop : %s(%u)\n", 
                         fib->name, route_str, nh_str, nh_idx);
                     return FIB_ERROR_NEXTHOP_DUP_NEXTHOP;
@@ -149,7 +149,7 @@ fib_add_route (node_t *node,
             /* Check if ECMP limit reached */
             if (empty_slot == -1) {
 
-                tracer (node->dptr, DFIB_DET | DERR, 
+                tracer (dp_ctx->dptr, DFIB_DET | DERR, 
                     "FIB[%s] : Error : Route %s : Nexthop %s(%u) rejected, ECMP limit reached\n", 
                     fib->name, route_str, nh_str, nh_idx);                
                 return FIB_ERROR_ECMP_LIMIT;
@@ -162,7 +162,7 @@ fib_add_route (node_t *node,
             /* Reference the nexthop */
             fib_nh_reference(nh);
 
-            tracer (node->dptr, DFIB_DET, 
+            tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s : Existing route, added new Nexthop : %s(%u)\n", 
                 fib->name, route_str, nh_str, nh_idx);
         }
@@ -209,7 +209,7 @@ fib_add_route (node_t *node,
             /* Reference the nexthop */
             fib_nh_reference(nh);
 
-            tracer (node->dptr, DFIB_DET, 
+            tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s : New route created and installed, Nexthop : %s(%u)\n", 
                 fib->name, route_str, nh_str, nh_idx);
             
@@ -222,7 +222,7 @@ fib_add_route (node_t *node,
                 if (route->nhs[i] && 
                     fib_nh_idx_compare(route->nh_idx[i], inh_idx, nh_idx)) {
 
-                    tracer (node->dptr, DFIB_DET | DERR, 
+                    tracer (dp_ctx->dptr, DFIB_DET | DERR, 
                         "FIB[%s] : Error : Route %s : Attempt to add Duplicate Nexthop : %s(%u)\n", 
                         fib->name, route_str, nh_str, nh_idx);
                     return FIB_ERROR_NEXTHOP_DUP_NEXTHOP;
@@ -250,7 +250,7 @@ fib_add_route (node_t *node,
             /* Reference the nexthop */
             fib_nh_reference(nh);
 
-            tracer (node->dptr, DFIB_DET, 
+            tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s : Existing route, added new Nexthop : %s(%u)\n", 
                 fib->name, route_str, nh_str, nh_idx);
         }
@@ -265,7 +265,7 @@ fib_add_route (node_t *node,
 }
 
 fib_error_t 
-fib_del_route (node_t *node,
+fib_del_route (dp_ctx_t *dp_ctx,
                fib_t *fib, 
                cmn_prefix_t *prefix, 
                uint32_t inh_idx,
@@ -273,7 +273,7 @@ fib_del_route (node_t *node,
     
     char route_str[48];
 
-    tracer (node->dptr, DFIB_DET, 
+    tracer (dp_ctx->dptr, DFIB_DET, 
         "FIB[%s] : Deleting NH Index (%u) from Route %s\n", 
         fib->name,
         nh_idx,
@@ -303,7 +303,7 @@ fib_del_route (node_t *node,
         /* Check if route exists */
         if (!mnode || !mnode->data) {
 
-            tracer (node->dptr, DERR, 
+            tracer (dp_ctx->dptr, DERR, 
                 "FIB[%s] : Route %s : Not found for deletion\n", 
                 fib->name, route_str);
             return FIB_ERROR_ROUTE_NOT_FOUND;
@@ -343,7 +343,7 @@ fib_del_route (node_t *node,
             }
         }
         
-        tracer (node->dptr, DFIB_DET, 
+        tracer (dp_ctx->dptr, DFIB_DET, 
             "FIB[%s] : Route %s : Deleted Nexthop (%u), Remaining NHs: %d\n", 
             fib->name, route_str, nh_idx, remaining_nhs);
 
@@ -373,7 +373,7 @@ fib_del_route (node_t *node,
             }
             
             /* Free route structure */
-            tracer (node->dptr, DFIB_DET, 
+            tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s Deleted. No remaining nexthops\n", 
                 fib->name, route_str);
             XFREE(route);
@@ -387,7 +387,7 @@ fib_del_route (node_t *node,
         
         if (!route) {
 
-            tracer (node->dptr, DERR, 
+            tracer (dp_ctx->dptr, DERR, 
                 "FIB[%s] : Route %s : Not found for deletion\n", 
                 fib->name, route_str);
             return FIB_ERROR_ROUTE_NOT_FOUND;
@@ -407,7 +407,7 @@ fib_del_route (node_t *node,
         }
         
         if (!found) {
-            tracer (node->dptr, DERR, 
+            tracer (dp_ctx->dptr, DERR, 
                 "FIB[%s] : Route %s : Nexthop (%u) not found for deletion\n", 
                 fib->name, route_str, nh_idx);
             return FIB_ERROR_NEXTHOP_NOT_FOUND;
@@ -428,7 +428,7 @@ fib_del_route (node_t *node,
             }
         }
         
-        tracer (node->dptr, DFIB_DET, 
+        tracer (dp_ctx->dptr, DFIB_DET, 
             "FIB[%s] : Route %s : Deleted Nexthop (%u), Remaining NHs: %d\n", 
             fib->name, route_str, nh_idx, remaining_nhs);
 
@@ -441,7 +441,7 @@ fib_del_route (node_t *node,
             assert (removed_route == route);
             
             /* Free route structure */
-            tracer (node->dptr, DFIB_DET, 
+            tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s Deleted. No remaining nexthops\n", 
                 fib->name, route_str);
             XFREE(route);

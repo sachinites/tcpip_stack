@@ -21,6 +21,7 @@
 #include "../FIB/fib_route.h"
 #include "../FIB/fib_nh.h"
 #include "../datapath/Vrfs/dp_vrf.h"
+#include "../datapath/dp_ctx.h"
 #include "../datapath/Interface/dp_intf.h"
 #include "../datapath/Interface/dp_intf_update.h"
 #include "../datapath/Interface/dp_intf_store.h"
@@ -30,10 +31,10 @@ extern void
 np_tcp_ip_send_ip6_data (dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
 static void 
-dp_mac_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
     
     mac_update_msg_t *mac_update_msg;
-    mac_table_t *mac_table = NODE_MAC_TABLE(node);
+    mac_table_t *mac_table = dp_ctx->mac_table;
     
     assert(dp_msg->component_type == MAC_TABLE);
     
@@ -41,7 +42,7 @@ dp_mac_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         
         case DP_CREATE:
             mac_update_msg = (mac_update_msg_t *)dp_msg->data;
-            mac_table_entry_add (node, NODE_MAC_TABLE(node), 
+            mac_table_entry_add (dp_ctx, mac_table, 
                                                     mac_update_msg->mac_addr,   
                                                     mac_update_msg->vlan_id,
                                                     mac_update_msg->ifindex,
@@ -51,7 +52,7 @@ dp_mac_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             
         case DP_DEL:
             mac_update_msg = (mac_update_msg_t *)dp_msg->data;
-            mac_table_entry_delete (node, NODE_MAC_TABLE(node), 
+            mac_table_entry_delete (dp_ctx, mac_table, 
                                                     mac_update_msg->mac_addr,   
                                                     mac_update_msg->vlan_id,
                                                     mac_update_msg->ifindex,
@@ -75,13 +76,13 @@ dp_mac_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
 
 static void
-np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
+np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 {
     pkt_block_t *pkt_block;
     hdr_type_t hdr_type;
     uint8_t vrf_id = dp_msg->vrf_id;
 
-    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
 
     pkt_block = *(pkt_block_t **)dp_msg->data;
 
@@ -114,7 +115,7 @@ np_recv_cp_pkt_block(node_t *node, dp_msg_t *dp_msg)
 }
 
 static void
-dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
     
     char nh_str[48];
     char route_str[48];
@@ -127,10 +128,10 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
     fib_update_msg = (fib_update_msg_t *)dp_msg->data;
 
-    tracer (node->dptr, DFIB, 
-        "FIB : Recvd fib update message : Route:%s vrf:%s idx[%u %u] ops:%d\n", 
+    tracer (dp_ctx->dptr, DFIB, 
+        "FIB : Recvd fib update message : Route:%s vrf:%d idx[%u %u] ops:%d\n", 
             cmn_prefix_to_string(&fib_update_msg->prefix, &route_str), 
-            vrf_name(node, fib_update_msg->target_fib_vrf_id), 
+            fib_update_msg->target_fib_vrf_id,
             fib_update_msg->inhidx >> 32, 
             fib_update_msg->nhidx & 0x00000000FFFFFFFF, 
             dp_msg->opr_type);
@@ -139,12 +140,12 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         
         case DP_CREATE:
         {
-            fib = fib_get (node, 
+            fib = fib_get (dp_ctx, 
                     (AFI_T)fib_update_msg->target_fib_afi,
                      fib_update_msg->target_fib_vrf_id);
         
             if (!fib) {
-                tracer (node->dptr, DFIB | DERR, 
+                tracer (dp_ctx->dptr, DFIB | DERR, 
                        "FIB : FIB not initialized for AFI:%d VRF:%d\n",
                        fib_update_msg->target_fib_afi, 
                        fib_update_msg->target_fib_vrf_id);
@@ -158,7 +159,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             avltree_node_init (&nh_template.idx_glue);
 
             nh_template.fwd_info = new fib_nh_fwd_info_t;
-            rtm_fib_copy_fwd_info (node, 
+            rtm_fib_copy_fwd_info (dp_ctx, 
                 &fib_update_msg->fwd_info, nh_template.fwd_info);
             
             nh = fib_nh_lookup(fib, &nh_template);
@@ -168,7 +169,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 nh = fib_nh_create(fib, &nh_template);
            
                 if (!nh) {
-                    tracer (node->dptr, DFIB | DERR, 
+                    tracer (dp_ctx->dptr, DFIB | DERR, 
                         "FIB[%s] : Error : Route %s : Failed to create nexthop %s\n", 
                         fib->name,
                         route_str,
@@ -177,7 +178,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                     cp2dp_msg_free(dp_msg);
                     return;
                 }
-                tracer (node->dptr, DFIB_DET, 
+                tracer (dp_ctx->dptr, DFIB_DET, 
                     "FIB[%s] : Route %s : New nexthop %s Created and Registered\n", 
                     fib->name,
                     route_str,
@@ -185,7 +186,7 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 fib_register_nh(fib, nh);
             }
             else {
-                tracer (node->dptr, DFIB_DET, 
+                tracer (dp_ctx->dptr, DFIB_DET, 
                     "FIB[%s] : Route %s : Existing nexthop %s Reused\n", 
                     fib->name, route_str,
                     cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
@@ -193,14 +194,14 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
             delete nh_template.fwd_info;
 
-            rc = fib_add_route(node,
+            rc = fib_add_route(dp_ctx,
                     fib, 
                     &fib_update_msg->prefix, 
                     fib_update_msg->inhidx,
                     fib_update_msg->nhidx, nh);
             
             if (rc != FIB_ERROR_SUCCESS) {
-                tracer (node->dptr, DFIB | DERR, 
+                tracer (dp_ctx->dptr, DFIB | DERR, 
                        "FIB[%s] : Failed to add route %s, error: %s\n",
                        fib->name, route_str, fib_error_str(rc));
                 delete nh->fwd_info;
@@ -211,12 +212,12 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
             
         case DP_DEL:
         {   
-            fib = fib_get (node, 
+            fib = fib_get (dp_ctx, 
                     (AFI_T)fib_update_msg->target_fib_afi,
                      fib_update_msg->target_fib_vrf_id);
 
             if (!fib) {
-                tracer (node->dptr, DFIB | DERR, 
+                tracer (dp_ctx_t *dp_ctx, dp_ctx->dptr, DFIB | DERR, 
                        "FIB : FIB not initialized for AFI:%d VRF:%d\n",
                        fib_update_msg->target_fib_afi, 
                        fib_update_msg->target_fib_vrf_id);
@@ -224,13 +225,13 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 return;
             }
             
-            rc = fib_del_route(node, fib, 
+            rc = fib_del_route(dp_ctx, fib, 
                     &fib_update_msg->prefix, 
                     fib_update_msg->inhidx,
                     fib_update_msg->nhidx);
             
             if (rc != FIB_ERROR_SUCCESS) {
-                tracer (node->dptr, DFIB | DERR, 
+                tracer (dp_ctx->dptr, DFIB | DERR, 
                        "FIB[%s] : Failed to delete route, error: %s\n",
                        fib->name, fib_error_str(rc));
             }
@@ -253,8 +254,10 @@ dp_fib_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 }
 
 static void
-dp_vrf_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
+dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
     
+    node_t *node = (node_t *)dp_ctx->ctx_pvt_data;
+
     assert(dp_msg->component_type == VRF_TABLE);
 
     switch (dp_msg->opr_type) {
@@ -262,14 +265,14 @@ dp_vrf_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
         case DP_CREATE:
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
-            dp_create_vrf(node, node->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            dp_create_vrf(dp_ctx->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
             break;
         }
         
         case DP_DEL:
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
-            dp_delete_vrf(node, node->dp_vrf_ht, vrf_msg->vrf_id);
+            dp_delete_vrf(dp_ctx, dp_ctx->dp_vrf_ht, vrf_msg->vrf_id);
             break;
         }
         
@@ -280,8 +283,8 @@ dp_vrf_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
 
                 case DP_VRF_INTF_OP_ADD:
                 {
-                    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, msg->vrf_id);
-                    dp_intf_t *intf = dp_look_up_interface(node->dp_intf_ht, msg->ifindex);
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
+                    dp_intf_t *intf = dp_look_up_interface(dp_ctx->dp_intf_ht, msg->ifindex);
                     assert (intf && vrf);
                     assert (!intf->vrf);
                     intf->vrf = vrf;
@@ -289,8 +292,8 @@ dp_vrf_table_process_msg(node_t *node, dp_msg_t *dp_msg) {
                 break;
                 case DP_VRF_INTF_OP_DEL:
                 {
-                    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_vrf_ht, msg->vrf_id);
-                    dp_intf_t *intf = dp_look_up_interface(node->dp_intf_ht, msg->ifindex);
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
+                    dp_intf_t *intf = dp_look_up_interface(dp_ctx->dp_intf_ht, msg->ifindex);
                     assert(intf && vrf);
                     assert(intf->vrf && (intf->vrf == vrf));
                     intf->vrf = NULL;
@@ -313,24 +316,25 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
     // This function is the task handler for the task submitted to the Data Path (DP)
 
     dp_msg_t *dp_msg = (dp_msg_t *)arg;
-    node_t *node = (node_t *)ev_dis->app_data;
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+    node_t *node = (node_t *)dp_ctx->ctx_pvt_data;
 
     switch (dp_msg->component_type) {
 
         case MAC_TABLE:
-            dp_mac_table_process_msg (node, dp_msg);
+            dp_mac_table_process_msg (dp_ctx, dp_msg);
             break;
         case PKT_BLOCK:
-            np_recv_cp_pkt_block (node, dp_msg);
+            np_recv_cp_pkt_block (dp_ctx, dp_msg);
             break;
         case FIB_TABLE:
-            dp_fib_table_process_msg (node, dp_msg);
+            dp_fib_table_process_msg (dp_ctx, dp_msg);
             break;
         case VRF_TABLE:
-            dp_vrf_table_process_msg (node, dp_msg);
+            dp_vrf_table_process_msg (dp_ctx, dp_msg);
             break;
         case INTF_TABLE:
-            dp_intf_table_process_msg(node, dp_msg);
+            dp_intf_table_process_msg(dp_ctx, dp_msg);
             break;
         default:
             break;
@@ -354,9 +358,9 @@ cp2dp_msg_free (dp_msg_t *dp_msg) {
 void 
 dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
-    node_t *node;
     pkt_block_t *pkt_block;
 	dp_intf_t *dp_intf;
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
 
 	ev_dis_pkt_data_t *ev_dis_pkt_data  = 
 			(ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
@@ -365,20 +369,18 @@ dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_si
 		return;
 	}
 
-    node = (node_t *)ev_dis->app_data;
-
 	for ( ; ev_dis_pkt_data; 
 			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
-		dp_intf = dp_look_up_interface(node->dp_intf_ht, ev_dis_pkt_data->ifindex);
+		dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ev_dis_pkt_data->ifindex);
 
         if (!dp_intf) {
             free (ev_dis_pkt_data);
             continue;
         }
 		pkt_block = (pkt_block_t *)ev_dis_pkt_data->pkt;		
-        tracer (node->dptr,  DIPC | DFLOW, "Pkt : %s : Recvd by Data path\n", pkt_block_str(pkt_block));
-        dp_send_pkt_out(dp_intf, pkt_block);
+        tracer (dp_ctx->dptr,  DIPC | DFLOW, "Pkt : %s : Recvd by Data path\n", pkt_block_str(pkt_block));
+        dp_send_pkt_out(dp_ctx, dp_intf, pkt_block);
         pkt_block_dereference(pkt_block);
 	    free (ev_dis_pkt_data);
 	}
@@ -396,7 +398,7 @@ cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface)
         ev_dis_pkt_data->pkt = (byte *)pkt_block;
         pkt_block_reference(pkt_block);
         tracer (node->cptr,  DIPC | DFLOW, "Pkt : %s : Xmit to Data path\n", pkt_block_str(pkt_block));
-        pkt_q_enqueue(EV_DP(node), &node->cp_to_dp_xmit_intf_pkt_q ,
+        pkt_q_enqueue(EV_DP(node), &dp_ctx->cp_to_dp_xmit_intf_pkt_q ,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 }
 
@@ -685,8 +687,8 @@ dp_simulate_wire_connection (node_t *node1, Interface *intf1,
     assert (intf1->iftype == INTF_TYPE_PHY);
     assert (intf2->iftype == INTF_TYPE_PHY);
 
-    dp_intf_t *dp_intf1 = dp_look_up_interface(node1->dp_intf_ht, intf1->ifindex);
-    dp_intf_t *dp_intf2 = dp_look_up_interface(node2->dp_intf_ht, intf2->ifindex);
+    dp_intf_t *dp_intf1 = dp_look_up_interface(node1->dp_ctx->dp_intf_ht, intf1->ifindex);
+    dp_intf_t *dp_intf2 = dp_look_up_interface(node2->dp_ctx->dp_intf_ht, intf2->ifindex);
 
     dp_intf1->att_node = node1;
     dp_intf1->nbr_intf = dp_intf2;

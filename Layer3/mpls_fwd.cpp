@@ -85,14 +85,14 @@ mpls_install_route (node_t *node, mpls_label_val_t in_label, nexthop_t *nxthop) 
         mpls_label_val_t *key = (mpls_label_val_t *)calloc(1, sizeof(mpls_label_val_t));
         *key = label_val;  // Use decoded value, same as search
         hashtable_insert(ht, (void *)key, (void *)mpls_route);
-        tracer (node->dptr, DMPLS, "MPLS RIB : New Mpls Route %d added successfully", label_val);
+        tracer (dp_ctx->dptr, DMPLS, "MPLS RIB : New Mpls Route %d added successfully", label_val);
         return true;
     }
 
     /* Add a nexthop to the mpls route*/
     if (nh_is_nexthop_exist_in_nh_array (mpls_route->nexthops[labelled_rt_map_proto_id_to_nxthop_index(nxthop->proto)], nxthop)) {
         
-        tracer (node->dptr, DMPLS | DERR, "MPLS RIB : Attempt to add duplicate Nexthop to Mpls Route %d \n", label_val);
+        tracer (dp_ctx->dptr, DMPLS | DERR, "MPLS RIB : Attempt to add duplicate Nexthop to Mpls Route %d \n", label_val);
         return false;
     }
 
@@ -116,19 +116,19 @@ mpls_uninstall_route (node_t *node, mpls_label_val_t in_label, nexthop_t *nxthop
     mpls_route_t *mpls_route = (mpls_route_t *)hashtable_search(ht, (void *)&label_val);
 
     if (!mpls_route) {
-        tracer (node->dptr, DMPLS | DERR, "MPLS RIB : Route %d not found, Route deletion failed\n", label_val);
+        tracer (dp_ctx->dptr, DMPLS | DERR, "MPLS RIB : Route %d not found, Route deletion failed\n", label_val);
         return;
     }
 
     rc  = nh_remove_nexthop_from_nh_array (mpls_route->nexthops[labelled_rt_map_proto_id_to_nxthop_index(nxthop->proto)], nxthop);
 
     if (!rc) {
-        tracer (node->dptr, DMPLS | DERR, "MPLS RIB : Nexthop not found in Mpls Route %d, Route deletion failed\n", label_val);
+        tracer (dp_ctx->dptr, DMPLS | DERR, "MPLS RIB : Nexthop not found in Mpls Route %d, Route deletion failed\n", label_val);
         return;
     }
 
     /* Remove the nexthop from the mpls route*/
-    tracer (node->dptr, DMPLS, "MPLS RIB : Nexthop removed from Mpls Route %d\n", label_val);
+    tracer (dp_ctx->dptr, DMPLS, "MPLS RIB : Nexthop removed from Mpls Route %d\n", label_val);
 
     mpls_route->nh_count--;
 
@@ -267,7 +267,7 @@ mpls_route_pkt (dp_vrf_t *vrf, Interface *recv_intf, pkt_block_t *pkt_block) {
     mpls_route_t *mpls_route = (mpls_route_t *)hashtable_search(ht, (void *)&label_val);
 
     if (!mpls_route)  {
-        tracer (node->dptr, DMPLS | DERR, "MPLS RIB : Route %d not found for label %d\n", label_val);
+        tracer (dp_ctx->dptr, DMPLS | DERR, "MPLS RIB : Route %d not found for label %d\n", label_val);
         return;
     }
     
@@ -275,13 +275,13 @@ mpls_route_pkt (dp_vrf_t *vrf, Interface *recv_intf, pkt_block_t *pkt_block) {
     nexthop_t *nexthop = mlps_route_get_active_nexthop (mpls_route, recv_intf);
 
     if (!nexthop) {
-        tracer (node->dptr, DMPLS | DERR, "MPLS RIB : No active nexthop found for label %d\n", label_val);
+        tracer (dp_ctx->dptr, DMPLS | DERR, "MPLS RIB : No active nexthop found for label %d\n", label_val);
         return;
     }
 
     mpls_apply_label_stack_on_pkt (pkt_block, nexthop->lbls);
 
-    tracer (node->dptr, DMPLS, "MPLS RIB:  Demoting MPLS Pkt to Layer 2, Routing label : %d\n", label_val);
+    tracer (dp_ctx->dptr, DMPLS, "MPLS RIB:  Demoting MPLS Pkt to Layer 2, Routing label : %d\n", label_val);
 
     demote_pkt_to_layer2 (
         vrf,           

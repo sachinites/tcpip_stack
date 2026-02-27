@@ -49,7 +49,7 @@ typedef struct pkt_notif_data_{
 
 void
 cp_punt_promote_pkt_from_layer2_to_layer5(
-					  node_t *node,
+					  void *node,
 					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);

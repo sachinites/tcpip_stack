@@ -26,13 +26,14 @@
 #include <assert.h>
 #include "vlan_vni_ht.h"
 #include "../../../router_init.h"
+#include "../../../datapath/dp_ctx.h"
 #include "../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
 #include "../../../Tracer/tracer.h"
 #include "../cp/vxlan.h"
 
 /* Forward declaration */
-static void vlan_vni_ht_sync_from_cp_db_internal(node_t *node, vlan_vni_ht_db_t *ht_db);
+static void vlan_vni_ht_sync_from_cp_db_internal(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *ht_db);
 
 /* Hash function for VLAN ID keys */
 unsigned int 
@@ -125,32 +126,32 @@ vlan_vni_ht_clone_db(vlan_vni_ht_db_t *source_db) {
 
 /* Set the hashtable database pointer atomically */
 void 
-vlan_vni_ht_set_db(node_t *node, vlan_vni_ht_db_t *new_db) {
-    NODE_VLAN_VNI_HT(node).store(new_db);
+vlan_vni_ht_set_db(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *new_db) {
+    NODE_VLAN_VNI_HT(dp_ctx).store(new_db);
 }
 
 /* Get the hashtable database pointer atomically */
 vlan_vni_ht_db_t *
-vlan_vni_ht_get_db(node_t *node) {
-    return NODE_VLAN_VNI_HT(node).load();
+vlan_vni_ht_get_db(dp_ctx_t *dp_ctx) {
+    return NODE_VLAN_VNI_HT(dp_ctx).load();
 }
 
 /* Clear the hashtable database pointer atomically */
 void 
-vlan_vni_ht_clear_db(node_t *node) {
-    NODE_VLAN_VNI_HT(node).store(nullptr);
+vlan_vni_ht_clear_db(dp_ctx_t *dp_ctx) {
+    NODE_VLAN_VNI_HT(dp_ctx).store(nullptr);
 }
 
 /* Atomic compare-and-swap for hashtable database pointer */
 bool 
-vlan_vni_ht_compare_and_swap_db(node_t *node, vlan_vni_ht_db_t *expected, vlan_vni_ht_db_t *new_db) {
-    return NODE_VLAN_VNI_HT(node).compare_exchange_strong(expected, new_db);
+vlan_vni_ht_compare_and_swap_db(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *expected, vlan_vni_ht_db_t *new_db) {
+    return NODE_VLAN_VNI_HT(dp_ctx).compare_exchange_strong(expected, new_db);
 }
 
 /* O(1) VLAN to VNI lookup */
 uint32_t 
-vlan_vni_ht_vlan_to_vni_lookup(node_t *node, vlan_id_t vlan_id) {
-    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(node);
+vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, vlan_id_t vlan_id) {
+    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(dp_ctx);
     if (!ht_db || !ht_db->vlan_to_vni_ht) return 0;
     
     pthread_mutex_lock(&ht_db->mutex);
@@ -164,10 +165,10 @@ vlan_vni_ht_vlan_to_vni_lookup(node_t *node, vlan_id_t vlan_id) {
 
 /* O(1) VNI to VLAN lookup */
 vlan_id_t 
-vlan_vni_ht_vni_to_vlan_lookup(node_t *node, uint32_t vni_id) {
+vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id) {
     if (!vni_id) return 0;
     
-    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(node);
+    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(dp_ctx);
     if (!ht_db || !ht_db->vni_to_vlan_ht) return 0;
     
     pthread_mutex_lock(&ht_db->mutex);
@@ -181,10 +182,10 @@ vlan_vni_ht_vni_to_vlan_lookup(node_t *node, uint32_t vni_id) {
 
 /* Add mapping with atomic update */
 bool 
-vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
+vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id, uint32_t vni_id) {
     /* Step 1: Atomically set pointer to NULL and cache it */
-    vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(node);
-    vlan_vni_ht_clear_db(node);
+    vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(dp_ctx);
+    vlan_vni_ht_clear_db(dp_ctx);
     
     if (!cached_db) {
         /* First time - create new database */
@@ -234,7 +235,7 @@ vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
     vlan_vni_ht_entry_t *vlan_entry = (vlan_vni_ht_entry_t *)calloc(1, sizeof(vlan_vni_ht_entry_t));
     if (!vlan_entry) {
         /* Restore cached pointer on failure */
-        vlan_vni_ht_set_db(node, cached_db);
+        vlan_vni_ht_set_db(dp_ctx, cached_db);
         return false;
     }
     vlan_entry->vlan_id = vlan_id;
@@ -245,7 +246,7 @@ vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
     if (!vni_entry) {
         free(vlan_entry);
         /* Restore cached pointer on failure */
-        vlan_vni_ht_set_db(node, cached_db);
+        vlan_vni_ht_set_db(dp_ctx, cached_db);
         return false;
     }
     vni_entry->vni_id = vni_id;
@@ -260,7 +261,7 @@ vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
         if (vlan_key) free(vlan_key);
         if (vni_key) free(vni_key);
         /* Restore cached pointer on failure */
-        vlan_vni_ht_set_db(node, cached_db);
+        vlan_vni_ht_set_db(dp_ctx, cached_db);
         return false;
     }
     *vlan_key = vlan_id;
@@ -274,7 +275,7 @@ vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
         free(vlan_key);
         free(vni_key);
         /* Restore cached pointer on failure */
-        vlan_vni_ht_set_db(node, cached_db);
+        vlan_vni_ht_set_db(dp_ctx, cached_db);
         return false;
     }
     
@@ -282,9 +283,9 @@ vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
     cached_db->entry_count++;
     
     /* Step 8: Atomically set back the pointer to hashtables */
-    vlan_vni_ht_set_db(node, cached_db);
+    vlan_vni_ht_set_db(dp_ctx, cached_db);
     
-    tracer(node->dptr, DL2SW, 
+    tracer(dp_ctx->dptr, DL2SW, 
            "VLAN-VNI HT: Added mapping VLAN %u -> VNI %u (total: %u entries)\n", 
            vlan_id, vni_id, cached_db->entry_count);
     
@@ -293,10 +294,10 @@ vlan_vni_ht_add_mapping(node_t *node, vlan_id_t vlan_id, uint32_t vni_id) {
 
 /* Remove mapping with atomic update */
 bool 
-vlan_vni_ht_remove_mapping(node_t *node, vlan_id_t vlan_id) {
+vlan_vni_ht_remove_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id) {
     /* Step 1: Atomically set pointer to NULL and cache it */
-    vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(node);
-    vlan_vni_ht_clear_db(node);
+    vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(dp_ctx);
+    vlan_vni_ht_clear_db(dp_ctx);
     
     if (!cached_db) {
         /* No hashtable exists - nothing to remove */
@@ -307,7 +308,7 @@ vlan_vni_ht_remove_mapping(node_t *node, vlan_id_t vlan_id) {
     vlan_vni_ht_entry_t *vlan_entry = (vlan_vni_ht_entry_t *)hashtable_search(cached_db->vlan_to_vni_ht, &vlan_id);
     if (!vlan_entry) {
         /* VLAN mapping not found - restore pointer and return false */
-        vlan_vni_ht_set_db(node, cached_db);
+        vlan_vni_ht_set_db(dp_ctx, cached_db);
         return false;
     }
     
@@ -332,9 +333,9 @@ vlan_vni_ht_remove_mapping(node_t *node, vlan_id_t vlan_id) {
     }
     
     /* Step 7: Atomically set back the pointer to hashtables */
-    vlan_vni_ht_set_db(node, cached_db);
+    vlan_vni_ht_set_db(dp_ctx, cached_db);
     
-    tracer(node->dptr, DL2SW, 
+    tracer(dp_ctx->dptr, DL2SW, 
            "VLAN-VNI HT: Removed mapping VLAN %u -> VNI %u (total: %u entries)\n", 
            vlan_id, vni_id, cached_db->entry_count);
     
@@ -343,10 +344,10 @@ vlan_vni_ht_remove_mapping(node_t *node, vlan_id_t vlan_id) {
 
 /* Remove mapping by VNI with atomic update */
 bool 
-vlan_vni_ht_remove_mapping_by_vni(node_t *node, uint32_t vni_id) {
+vlan_vni_ht_remove_mapping_by_vni(dp_ctx_t *dp_ctx, uint32_t vni_id) {
     /* Step 1: Atomically set pointer to NULL and cache it */
-    vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(node);
-    vlan_vni_ht_clear_db(node);
+    vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(dp_ctx);
+    vlan_vni_ht_clear_db(dp_ctx);
     
     if (!cached_db) {
         /* No hashtable exists - nothing to remove */
@@ -357,7 +358,7 @@ vlan_vni_ht_remove_mapping_by_vni(node_t *node, uint32_t vni_id) {
     vni_vlan_ht_entry_t *vni_entry = (vni_vlan_ht_entry_t *)hashtable_search(cached_db->vni_to_vlan_ht, &vni_id);
     if (!vni_entry) {
         /* VNI mapping not found - restore pointer and return false */
-        vlan_vni_ht_set_db(node, cached_db);
+        vlan_vni_ht_set_db(dp_ctx, cached_db);
         return false;
     }
     
@@ -382,9 +383,9 @@ vlan_vni_ht_remove_mapping_by_vni(node_t *node, uint32_t vni_id) {
     }
     
     /* Step 7: Atomically set back the pointer to hashtables */
-    vlan_vni_ht_set_db(node, cached_db);
+    vlan_vni_ht_set_db(dp_ctx, cached_db);
     
-    tracer(node->dptr, DL2SW, 
+    tracer(dp_ctx->dptr, DL2SW, 
            "VLAN-VNI HT: Removed mapping VNI %u -> VLAN %u (total: %u entries)\n", 
            vni_id, vlan_id, cached_db->entry_count);
     
@@ -393,8 +394,8 @@ vlan_vni_ht_remove_mapping_by_vni(node_t *node, uint32_t vni_id) {
 
 /* Internal function to sync from control plane database */
 static void 
-vlan_vni_ht_sync_from_cp_db_internal(node_t *node, vlan_vni_ht_db_t *ht_db) {
-    vxlan_vni_db_t *cp_db = NODE_VLAN_VNI_DB(node);
+vlan_vni_ht_sync_from_cp_db_internal(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *ht_db) {
+    vxlan_vni_db_t *cp_db = NODE_VLAN_VNI_DB(dp_ctx);
     if (!cp_db || !ht_db) return;
     
     glthread_t *curr;
@@ -432,24 +433,24 @@ vlan_vni_ht_sync_from_cp_db_internal(node_t *node, vlan_vni_ht_db_t *ht_db) {
 
 /* Public sync function */
 void 
-vlan_vni_ht_sync_from_cp_db(node_t *node) {
+vlan_vni_ht_sync_from_cp_db(dp_ctx_t *dp_ctx) {
     /* Step 1: Set pointer to NULL */
-    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(node);
-    vlan_vni_ht_clear_db(node);
+    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(dp_ctx);
+    vlan_vni_ht_clear_db(dp_ctx);
     
     /* Step 2: Create new database */
     vlan_vni_ht_db_t *new_db = vlan_vni_ht_create_db();
     if (!new_db) {
         /* Restore old pointer on failure */
-        vlan_vni_ht_set_db(node, old_db);
+        vlan_vni_ht_set_db(dp_ctx, old_db);
         return;
     }
     
     /* Step 3: Sync from control plane database */
-    vlan_vni_ht_sync_from_cp_db_internal(node, new_db);
+    vlan_vni_ht_sync_from_cp_db_internal(dp_ctx, new_db);
     
     /* Step 4: Set new pointer */
-    vlan_vni_ht_set_db(node, new_db);
+    vlan_vni_ht_set_db(dp_ctx, new_db);
     
     /* Step 5: Cleanup old database */
     if (old_db) {
@@ -459,9 +460,9 @@ vlan_vni_ht_sync_from_cp_db(node_t *node) {
 
 /* Clear all mappings */
 void 
-vlan_vni_ht_clear_all_mappings(node_t *node) {
-    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(node);
-    vlan_vni_ht_clear_db(node);
+vlan_vni_ht_clear_all_mappings(dp_ctx_t *dp_ctx) {
+    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(dp_ctx);
+    vlan_vni_ht_clear_db(dp_ctx);
     
     if (old_db) {
         vlan_vni_ht_destroy_db(old_db);
@@ -470,15 +471,15 @@ vlan_vni_ht_clear_all_mappings(node_t *node) {
 
 /* Get mapping count */
 uint32_t 
-vlan_vni_ht_get_mapping_count(node_t *node) {
-    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(node);
+vlan_vni_ht_get_mapping_count(dp_ctx_t *dp_ctx) {
+    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(dp_ctx);
     return ht_db ? ht_db->entry_count : 0;
 }
 
 /* Dump mappings for debugging */
 void 
-vlan_vni_ht_dump_mappings(node_t *node) {
-    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(node);
+vlan_vni_ht_dump_mappings(dp_ctx_t *dp_ctx) {
+    vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(dp_ctx);
     if (!ht_db) {
         printf("VLAN-VNI Hashtable: No mappings (NULL database)\n");
         return;
@@ -491,14 +492,14 @@ vlan_vni_ht_dump_mappings(node_t *node) {
            ht_db->vni_to_vlan_ht ? hashtable_count(ht_db->vni_to_vlan_ht) : 0);
 }
 
-/* Initialize hashtable for node */
+/* Initialize hashtable for dp_ctx */
 void 
-vlan_vni_ht_init(node_t *node) {
-    NODE_VLAN_VNI_HT(node).store(nullptr);
+vlan_vni_ht_init(dp_ctx_t *dp_ctx) {
+    NODE_VLAN_VNI_HT(dp_ctx).store(nullptr);
 }
 
-/* Cleanup hashtable for node */
+/* Cleanup hashtable for dp_ctx */
 void 
-vlan_vni_ht_cleanup(node_t *node) {
-    vlan_vni_ht_clear_all_mappings(node);
+vlan_vni_ht_cleanup(dp_ctx_t *dp_ctx) {
+    vlan_vni_ht_clear_all_mappings(dp_ctx);
 }

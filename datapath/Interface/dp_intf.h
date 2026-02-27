@@ -9,6 +9,7 @@ typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct node_ node_t;
 typedef struct bitmap_ bitmap_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 #pragma pack(push, 8)
 
@@ -75,6 +76,6 @@ typedef struct dp_intf_ {
 #pragma pack(pop)
 
 void 
-dp_send_pkt_out (dp_intf_t *intf, pkt_block_t *pkt_block);
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block);
 
 #endif 

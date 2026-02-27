@@ -7,13 +7,13 @@
 #include "../datapath/Interface/dp_intf_store.h"
 
 void
-rtm_fib_copy_fwd_info (node_t *node, 
+rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
                        rtm_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst) {
 
     /* SRv6 Local SIDs with END function may not have any interface*/
     if (src->oif) {
-        dst->oif = dp_look_up_interface(node->dp_intf_ht, src->oif);
+        dst->oif = dp_look_up_interface(dp_ctx->dp_intf_ht, src->oif);
     }
 
     dst->nh_addr = src->nh_addr;

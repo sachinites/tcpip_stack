@@ -8,7 +8,7 @@
 
 typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 typedef struct fib_nh_fwd_info_ fib_nh_fwd_info_t;
-typedef struct node_ node_t;
+typedef struct dp_ctx_ dp_ctx_t; 
 
 #define FIB_NH_FWD_F_IPV4 1
 #define FIB_NH_FWD_F_IPV6 2
@@ -36,7 +36,7 @@ FIB_OPN_T
 rtm_to_fib_map_opn(rtm_ppt_operation_t rtm_opn);
 
 void
-rtm_fib_copy_fwd_info (node_t *node, 
+rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx, 
                        rtm_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst);
 

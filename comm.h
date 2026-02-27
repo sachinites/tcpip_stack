@@ -42,6 +42,8 @@
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_intf_ dp_intf_t;
+typedef struct dp_ctx_ dp_ctx_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 typedef struct ev_dis_pkt_data_{
 
@@ -51,18 +53,19 @@ typedef struct ev_dis_pkt_data_{
 }ev_dis_pkt_data_t;
 
 int
-send_pkt_to_self (pkt_block_t *pkt_block, dp_intf_t *interface);
+send_pkt_to_self (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, dp_intf_t *interface);
 
 /*API to recv packet from interface*/
 void
-dp_pkt_receive(node_t *node,
-               dp_intf_t *interface, 
+dp_pkt_receive(dp_ctx_t *dp_ctx,
+               dp_vrf_t *vrf,
+               dp_intf_t *interface,
                pkt_block_t *pkt_block);
 
 /* API to flood the packet out of all interfaces
  * of the node*/
 int
-send_pkt_flood(node_t *node, 
+send_pkt_flood(dp_ctx_t *dp_ctx,
                dp_intf_t *exempted_intf, 
                pkt_block_t *pkt_block);
 

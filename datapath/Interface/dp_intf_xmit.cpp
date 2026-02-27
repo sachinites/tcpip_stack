@@ -10,9 +10,18 @@
 #include "../../Layer2/vxlan/dp/vxlan_dp.h"
 
 
-typedef int (*SendPacketOut_fptr)(dp_intf_t *, pkt_block_t *);
+typedef int (*SendPacketOut_fptr)(
+            dp_ctx_t *, 
+            dp_intf_t *, pkt_block_t *);
 
 extern bool LinuxRtr;
+
+extern void
+promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
+                      dp_intf_t *interface, 
+                      pkt_block_t *pkt_block, 
+                      int L3_protocol_number) ;
 
 /* Helper APIs */
 
@@ -39,7 +48,7 @@ send_xmit_out (dp_intf_t *interface, pkt_block_t *pkt_block)
 
     node_t *nbr_node = interface->nbr_intf->att_node;
 
-    tracer (sending_node->dptr, DFLOW_DET, 
+    tracer (sending_node->dp_ctx->dptr, DFLOW_DET, 
         "Pkt : %s Wired out of interface %s\n", 
         pkt_block_str (pkt_block), interface->if_name);
     
@@ -55,7 +64,10 @@ send_xmit_out (dp_intf_t *interface, pkt_block_t *pkt_block)
     //tcp_dump_send_logger(sending_node, interface,
     //                     pkt_block, pkt_block_get_starting_hdr(pkt_block));
 
-    if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
+    dp_ctx_t *nbr_dp_ctx = nbr_node->dp_ctx;
+
+    if (!pkt_q_enqueue(EV_DP(nbr_dp_ctx), 
+                       DP_PKT_Q(nbr_dp_ctx),
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
@@ -207,7 +219,7 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
 }
 
 static int 
-PhysicalInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     if (intf->switchport)
     {
@@ -220,14 +232,14 @@ PhysicalInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
 }
 
 static int 
-VlanInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     dp_VlanPacketFlood (intf, pkt_block, NULL);    
     return 0;
 }
 
 static int 
-GRETunnelInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
     bool no_modify = false;
@@ -268,7 +280,7 @@ GRETunnelInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
 
 
 static int 
-VirtualPort_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
 
@@ -293,12 +305,12 @@ VirtualPort_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
 
     intf->pkt_sent++;
 
-    dp_send_pkt_out(intf->olay_tunnel_intf, pkt_block);
+    dp_send_pkt_out(dp_ctx, intf->olay_tunnel_intf, pkt_block);
     return 0;
 }
 
 static int 
-RmacInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
 
@@ -313,8 +325,8 @@ RmacInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
     
-    if ( is_arp_pkt_for_svi_interface (intf->att_node, pkt_block) ) {
-            svi_interface_intercept_arp_pkt (intf->att_node, pkt_block);
+    if ( is_arp_pkt_for_svi_interface (dp_ctx, pkt_block) ) {
+            svi_interface_intercept_arp_pkt (dp_ctx, pkt_block);
             return 0;
     }
 
@@ -330,42 +342,41 @@ RmacInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
     untag_pkt_with_vlan_id(pkt_block);
     eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    #if 0
-    promote_pkt_to_layer3 (intf->att_node, 
-            dynamic_cast<Interface*>(this),  pkt_block, eth_hdr->type);
-    #endif 
+    promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf,
+            pkt_block, eth_hdr->type);
+
     return 0;
 }
 
 static int 
-LoopbackInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
     
     /* black hole the pkt */
     return 0;
 }
 
 static int 
-NVEInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
+NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
     unsigned char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
     unsigned char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
     if (!intf->is_up) {
-        tracer (intf->att_node->dptr, DTUNNEL | DFLOW | DERR, 
+        tracer (intf->att_node->dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : NVE Interface %s is down\n", intf->if_name);
         intf->xmit_pkt_dropped++;
         return -1;
     }
 
     if (!pkt_block->encap_data) {
-        tracer (intf->att_node->dptr, DTUNNEL | DFLOW | DERR, 
+        tracer (intf->att_node->dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         intf->xmit_pkt_dropped++;
         return -1;
     }
 
-    vxlan_encapsulate (intf->att_node, pkt_block);
+    vxlan_encapsulate (dp_ctx, pkt_block);
 
  /* Now attach outer IP Hdr and send the pkt*/
     assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
@@ -377,7 +388,7 @@ NVEInterface_SendPacketOut(dp_intf_t *intf, pkt_block_t *pkt_block){
     ip_hdr->protocol = UDP_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
-    tracer (intf->att_node->dptr, DTUNNEL | DFLOW, 
+    tracer (intf->att_node->dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->src_ip), ipv4_addr_str1),
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
@@ -404,7 +415,7 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
     };
 
 void 
-dp_send_pkt_out (dp_intf_t *intf, pkt_block_t *pkt_block) {
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
 
-    (intf_xmit_cbk[intf->if_type])(intf, pkt_block);
+    (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, pkt_block);
 }

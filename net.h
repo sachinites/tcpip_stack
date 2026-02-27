@@ -50,6 +50,7 @@
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
 #include "Interface/InterfaceFwd.h"
+#include "datapath/dp_ctx.h"
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -79,16 +80,11 @@ typedef struct dp_vrf_ dp_vrf_t;
 typedef struct node_nw_prop_{
 
     uint32_t flags;
-
-    /*L2 Properties*/
-    mac_table_t *mac_table;
-
+    
     /* Evpn Support */
     /* VLAN-VNI mapping database */
-    vxlan_vni_db_t *vlan_vni_db;     
-    /* VLAN-VNI hashtable for O(1) lookup - atomic pointer */
-    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;           
-
+    vxlan_vni_db_t *vlan_vni_db;         
+    
     mac_addr_t rmac;
     char padding[2];
 
@@ -141,8 +137,6 @@ typedef struct node_nw_prop_{
 } node_nw_prop_t;
 
 #define NODE_RTRID_ADDR(node_ptr) (node_ptr->node_nw_prop.rtr_id.ip_addr)
-#define NODE_ARP_TABLE(vrf_ptr)    (vrf_ptr->arp_table)
-#define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_ptr)))
@@ -173,7 +167,7 @@ void dump_interface_stats(Interface *interface);
 
 /*Helper Routines*/
 dp_intf_t *
-node_get_matching_subnet_interface(dp_vrf_t *vrf, c_string ip_addr);
+node_get_matching_subnet_interface(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, c_string ip_addr);
 
 bool
 is_same_subnet(c_string ip_addr,
@@ -220,11 +214,13 @@ void interface_assign_mac_address (Interface *interface);
     }while(0);
 
 #define EV(node_ptr)    (&node_ptr->ev_dis)
-#define EV_DP(node_ptr) (&node_ptr->dp_ev_dis)
 #define EV_PURGER(node_ptr) (&node->purger_ev_dis)
-#define DP_PKT_Q(node_ptr) (&node_ptr->dp_recvr_pkt_q)
 #define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
-#define DP_TIMER(node_ptr)  (node_ptr->dp_wt)
+
+#define EV_DP(dp_ctx_ptr)    (&dp_ctx_ptr->dp_ev_dis)
+#define DP_PKT_Q(dp_ctx_ptr) (&dp_ctx_ptr->dp_recvr_pkt_q)
+#define DP_TIMER(dp_ctx_ptr)  (dp_ctx_ptr->dp_wt)
+#define EV_DP_PURGER(dp_ctx_ptr) (&dp_ctx_ptr->dp_purger_ev_dis)
 
 uint16_t
 interface_get_new_ifindex (node_t *node);

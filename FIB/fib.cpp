@@ -76,7 +76,7 @@ hashfromkey_label (void *key)
 }
 
 
-fib_t *fib_init(node_t *node, AFI_T afi, uint8_t vrf_id) {
+fib_t *fib_init(vrf_t *vrf, AFI_T afi, uint8_t vrf_id) {
     
     /* Allocate FIB structure */
     fib_t *fib = (fib_t *)XCALLOC2(0, 1, fib_t);
@@ -85,7 +85,6 @@ fib_t *fib_init(node_t *node, AFI_T afi, uint8_t vrf_id) {
     fib->afi = afi;
     fib->vrf_id = vrf_id;
     
-    vrf_t *vrf = vrf_get_by_id(node, vrf_id);
     snprintf (fib->name, sizeof(fib->name), "%s.%s",
               vrf ? vrf->vrf_name : "0",
               (afi == AF_IPV4) ? "inet" :
@@ -116,11 +115,11 @@ fib_t *fib_init(node_t *node, AFI_T afi, uint8_t vrf_id) {
 }
 
 fib_t *
-fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
+fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id) {
 
     fib_t *fib;
 
-    dp_vrf_t *vrf = dp_look_up_vrf (node->dp_vrf_ht, vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf (dp_ctx->dp_vrf_ht, vrf_id);
 
     switch (afi)
     {
@@ -139,7 +138,7 @@ fib_get (node_t *node, AFI_T afi, uint8_t vrf_id) {
 }
 
 fib_t *
-fib_get_by_name (node_t *node, char *fib_name) {
+fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name) {
 
     if (!fib_name) {
         return NULL;
@@ -169,10 +168,10 @@ fib_get_by_name (node_t *node, char *fib_name) {
         return NULL;
     }
     
-    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
-    return fib_get(node, afi, vrf ? vrf->vrf_id : 0);
+    return dp_look_up_fib_by_name(dp_ctx, vrf_name, fib_name);
 }
 
+#if 0
 /**
  * Forward a packet using the FIB
  * 
@@ -191,7 +190,7 @@ fib_get_by_name (node_t *node, char *fib_name) {
  * 6. Marks packet for forwarding (simulates hardware forwarding)
  */
 fib_error_t 
-fib_forward(dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
+fib_forward(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
     
     /* Extract destination address from packet */
     fib_t *fib;
@@ -201,9 +200,8 @@ fib_forward(dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
     if (!fib_extract_dest_from_pkt(pkt, &dest)) {
         return FIB_ERROR_EXTRACT_DEST_FAILED;
     }
-    
-    /* VRF to be supported later ...*/
-    fib = fib_get (vrf->node, dest.afi, vrf_id);
+
+    fib = fib_get (dp_ctx, dest.afi, vrf_id);
    
     if (fib->afi == AF_LABEL) {
 
@@ -235,6 +233,7 @@ fib_forward(dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
     /* Forward packet to selected nexthop */
     return fib_forward_pkt_to_nh(vrf, pkt, active_nh);
 }
+#endif 
 
 /**
  * Display FIB contents

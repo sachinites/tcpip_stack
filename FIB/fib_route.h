@@ -5,6 +5,7 @@
 #include "../RTM/rtm_fib_common.h"
 
 typedef struct fib_nh_ fib_nh_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 #pragma pack(push, 8)
 
@@ -21,7 +22,7 @@ typedef struct fib_route_ {
 
 
 fib_error_t 
-fib_add_route (node_t *node,
+fib_add_route (dp_ctx_t *dp_ctx,
         fib_t *fib, 
         cmn_prefix_t *prefix, 
         uint32_t inh_idx,
@@ -29,7 +30,7 @@ fib_add_route (node_t *node,
         fib_nh_t *nh);
 
 fib_error_t 
-fib_del_route (node_t *node,
+fib_del_route (dp_ctx_t *dp_ctx,
                fib_t *fib, 
                cmn_prefix_t *prefix, 
                uint32_t inh_idx,

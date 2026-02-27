@@ -38,6 +38,7 @@
 #include <ctype.h>
 #include "configdb.h"
 #include "router_init.h"
+#include "datapath/dp_ctx.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
 #include "packet-tracer/packet_tracer.h"
@@ -140,11 +141,11 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     node->spf_data = NULL;
 
+    /* Initialize the Data path before control plane (log lives in dp_ctx) */
+    dp_ctx_init (&node->dp_ctx, (void *)node, node->node_name);
     tcp_ip_init_node_log_info(node);
 
-    /* Initialize the Data path before control plane*/
-    dp_init(node);
-    dp_ctx_init (&node->dp_ctx, (void *)node, node->node_name);
+    /* L3/L2 netfilter and proto reg are initialized inside dp_ctx_init; no longer on node */
 
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
@@ -161,12 +162,7 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->intf_by_name = NULL;
     node->intf_by_ifindex = NULL;
 
-    /* L3 pkt trapping to application is implemented using Netfilter hooks built over NFC*/
-	nf_init_netfilters(&node->nf_hook_db);
-    tcp_ip_register_default_l3_pkt_trap_rules(&node->nf_hook_db);
-    
-    /* L2 pkt trapping to application is implemented using pure NFCs only*/
-    init_nfc_layer2_proto_reg_db2(&node->layer2_proto_reg_db2);
+    /* L3 pkt trapping and L2 proto reg are in dp_ctx (initialized in dp_ctx_init) */
 
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
 
@@ -212,13 +208,13 @@ Router_Create(graph_t *graph, const c_string node_name){
     /* Turn on Default Logging */
     #if 0
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
-    tracer_log_bit_set(node->dptr,  DFIB | DFIB_DET);
+    tracer_log_bit_set(dp_ctx->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
-    tracer_log_bit_set(node->dptr,  DERR);  
+    tracer_log_bit_set(dp_ctx->dptr,  DERR);  
     #endif 
     tracer_enable_always_flush(node->cptr, true);
-    tracer_enable_always_flush(node->dptr, true);
-    tracer_log_bit_set(node->dptr, DCONF);
+    tracer_enable_always_flush(node->dp_ctx->dptr, true);
+    tracer_log_bit_set(node->dp_ctx->dptr, DCONF);
     
     node->sequence_gen = 1;
     glthread_add_next(&graph->node_list, &node->graph_glue);

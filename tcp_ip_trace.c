@@ -485,22 +485,22 @@ tcp_dump_recv_logger(
     int rc = 0 ;
     acl_action_t acl_action;
 
-    if(node->log_info.all || 
-        node->log_info.recv ||
+    if(node->dp_ctx->log.all || 
+        node->dp_ctx->log.recv ||
         intf->log_info.recv){
 
-        int sock_fd = (topo->gstdout && (node->log_info.is_stdout || 
+        int sock_fd = (topo->gstdout && (node->dp_ctx->log.is_stdout || 
                         intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;
         
-        FILE *log_file1 = (node->log_info.all || node->log_info.recv) ?
-                node->log_info.log_file : NULL;
+        FILE *log_file1 = (node->dp_ctx->log.all || node->dp_ctx->log.recv) ?
+                node->dp_ctx->log.log_file : NULL;
         FILE *log_file2 = (intf->log_info.recv || intf->log_info.all) ?
                 intf->log_info.log_file : NULL;
 
         if (log_file1 && 
-             node->log_info.acc_lst_filter ) {
+             node->dp_ctx->log.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (node->log_info.acc_lst_filter, pkt_block);
+            acl_action = access_list_evaluate_pkt_block (node->dp_ctx->log.acc_lst_filter, pkt_block);
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
 
@@ -539,13 +539,13 @@ tcp_dump_l3_fwding_logger(dp_vrf_t *vrf,
     int rc = 0;
     node_t *node = vrf->node;
     
-    if(!node->log_info.l3_fwd)
+    if(!node->dp_ctx->log.l3_fwd)
         return;
 
-    int sock_fd = topo->gstdout && node->log_info.is_stdout ?
+    int sock_fd = topo->gstdout && node->dp_ctx->log.is_stdout ?
                     STDOUT_FILENO : -1 ;
-    FILE *log_file1 = (node->log_info.all || node->log_info.l3_fwd) ?
-             node->log_info.log_file : NULL;
+    FILE *log_file1 = (node->dp_ctx->log.all || node->dp_ctx->log.l3_fwd) ?
+             node->dp_ctx->log.log_file : NULL;
      
     if(sock_fd == -1 && !log_file1)
         return;
@@ -569,22 +569,22 @@ tcp_dump_send_logger(node_t *node,
     int rc = 0;
     acl_action_t acl_action;
 
-    if(node->log_info.all || 
-         node->log_info.send ||
+    if(node->dp_ctx->log.all || 
+         node->dp_ctx->log.send ||
          intf->log_info.send){
 
-        int sock_fd = (topo->gstdout && (node->log_info.is_stdout || 
+        int sock_fd = (topo->gstdout && (node->dp_ctx->log.is_stdout || 
                         intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;
 
-        FILE *log_file1 = (node->log_info.all || node->log_info.send) ?
-                node->log_info.log_file : NULL;
+        FILE *log_file1 = (node->dp_ctx->log.all || node->dp_ctx->log.send) ?
+                node->dp_ctx->log.log_file : NULL;
         FILE *log_file2 = (intf->log_info.send || intf->log_info.all) ? 
                 intf->log_info.log_file : NULL;
 
         if (log_file1 && 
-             node->log_info.acc_lst_filter ) {
+             node->dp_ctx->log.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (node->log_info.acc_lst_filter, pkt_block);
+            acl_action = access_list_evaluate_pkt_block (node->dp_ctx->log.acc_lst_filter, pkt_block);
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
 
@@ -661,7 +661,7 @@ initialize_interface_log_file(Interface *intf){
 void
 tcp_ip_init_node_log_info(node_t *node){
 
-    log_t *log_info     = &node->log_info;
+    log_t *log_info     = &node->dp_ctx->log;
     log_info->all       = false;
     log_info->recv      = false;
     log_info->send      = false;
@@ -747,7 +747,7 @@ validate_flag_values(stack_t *tlv_stack, c_string value){
 void tcp_ip_show_log_status(node_t *node){
 
     Interface *intf;
-    log_t *log_info = &node->log_info;
+    log_t *log_info = &node->dp_ctx->log;
     
     printw ("\n\r");
 
@@ -777,7 +777,7 @@ void tcp_ip_show_log_status(node_t *node){
     cprintf ("\tDebug Logging Status:\n");
 
     tracer_t *cptr = node->cptr;
-    tracer_t *dptr = node->dptr;
+    tracer_t *dptr = node->dp_ctx->dptr;
     
     if (tracer_is_bit_set (dptr, DARP | DARP_DET)) 
         cprintf ("\t  DARP     :     ON\n" );
@@ -904,7 +904,7 @@ int traceoptions_handler(int cmdcode,
         case CMDCODE_DEBUG_LOGGING_PER_NODE:
         case CMDCODE_DEBUG_SHOW_LOG_STATUS:
             node =  node_get_node_by_name(topo, node_name);
-            log_info = &node->log_info;
+            log_info = &node->dp_ctx->log;
         break;
         case CMDCODE_DEBUG_LOGGING_PER_INTF:
             node =  node_get_node_by_name(topo, node_name);
@@ -924,7 +924,7 @@ int traceoptions_handler(int cmdcode,
                     cprintf("\nError : Access-list do not exist");
                     return -1;
                 }
-                log_info = &node->log_info;
+                log_info = &node->dp_ctx->log;
         switch (enable_or_disable)
         {
         case CONFIG_ENABLE:
@@ -1251,11 +1251,11 @@ tcp_ip_debug_handler(int cmdcode,
         case DALWAYS_FLUSH:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                tracer_enable_always_flush(node->dptr, true);
+                tracer_enable_always_flush(node->dp_ctx->dptr, true);
                 tracer_enable_always_flush(node->cptr, true);
             break;
             case CONFIG_DISABLE:
-                tracer_enable_always_flush(node->dptr, false);   
+                tracer_enable_always_flush(node->dp_ctx->dptr, false);   
                 tracer_enable_always_flush(node->cptr, false);
             break;
         }
@@ -1264,11 +1264,11 @@ tcp_ip_debug_handler(int cmdcode,
         case DALL_LOGGING:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                tracer_enable_all_logging(node->dptr, true);
+                tracer_enable_all_logging(node->dp_ctx->dptr, true);
 		        tracer_enable_all_logging(node->cptr, true);
             break;
             case CONFIG_DISABLE:
-                tracer_enable_all_logging(node->dptr, false);  
+                tracer_enable_all_logging(node->dp_ctx->dptr, false);  
 		        tracer_enable_all_logging(node->cptr, false);
             break;
         }
@@ -1285,11 +1285,11 @@ tcp_ip_debug_handler(int cmdcode,
         case DTIMER_DET:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-                tracer_log_bit_set(node->dptr, cmdcode);
+                tracer_log_bit_set(node->dp_ctx->dptr, cmdcode);
 		        tracer_log_bit_set(node->cptr, cmdcode);
             break;
             case CONFIG_DISABLE:
-                tracer_log_bit_unset(node->dptr, cmdcode);
+                tracer_log_bit_unset(node->dp_ctx->dptr, cmdcode);
 		        tracer_log_bit_unset(node->cptr, cmdcode);
             break;
         }        
@@ -1329,10 +1329,10 @@ tcp_ip_debug_handler(int cmdcode,
         case DCONF:
         switch (enable_or_disable) {
             case CONFIG_ENABLE:
-		        tracer_log_bit_set(node->dptr, cmdcode);
+		        tracer_log_bit_set(node->dp_ctx->dptr, cmdcode);
             break;
             case CONFIG_DISABLE:
-	    	    tracer_log_bit_unset(node->dptr, cmdcode);
+	    	    tracer_log_bit_unset(node->dp_ctx->dptr, cmdcode);
             break;
         }
         break;        

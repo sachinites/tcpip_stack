@@ -181,7 +181,7 @@ rtm_get_target_fib (rtm_t *rtm,
         vrf_t *vrf = vrf_get_by_id(rtm->node, inh->rtm->vrf);
         if (!vrf) return false;
 
-        fib_t *fib = fib_get(rtm->node, route->afi, vrf->vrf_id);
+        fib_t *fib = fib_get(rtm->node->dp_ctx, route->afi, vrf->vrf_id);
         if (!fib) return false;
 
         *vrf_out = fib->vrf_id;
