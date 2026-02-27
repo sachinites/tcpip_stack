@@ -73,7 +73,7 @@ arp_entry_t *
 arp_table_lookup(arp_table_t *arp_table, c_string ip_addr);
 
 void
-clear_arp_table(node_t *node, arp_table_t *arp_table);
+clear_arp_table(arp_table_t *arp_table);
 
 wheel_timer_elem_t *
 arp_entry_create_expiration_timer(
@@ -96,10 +96,11 @@ void
 delete_arp_entry(arp_entry_t *arp_entry);
 
 void
-arp_entry_delete(node_t *node, unsigned char *ip_addr, uint16_t proto);
+arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, c_string ip_addr, uint16_t proto);
 
 bool
-arp_table_entry_add(dp_vrf_t *vrf,
+arp_table_entry_add(dp_ctx_t *dp_ctx, 
+                    dp_vrf_t *vrf,
 					arp_table_t *arp_table,
 					arp_entry_t *arp_entry,
                     glthread_t **arp_pending_list);

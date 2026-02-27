@@ -15,7 +15,8 @@
 #include "../../datapath/Vrfs/dp_vrf.h"
 
 extern void
-demote_pkt_to_layer2(dp_vrf_t *vrf,
+demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
+                     dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *outgoing_intf,
                      pkt_block_t *pkt_block,
@@ -103,7 +104,9 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
 
     tcp_dump_l3_fwding_logger(vrf,  (c_string)oif->if_name, 0);
 
-    demote_pkt_to_layer2(vrf,
+    demote_pkt_to_layer2(
+            dp_ctx,
+            vrf,
             0,
             oif,
             pkt_block,

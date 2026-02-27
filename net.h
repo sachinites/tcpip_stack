@@ -167,7 +167,8 @@ void dump_interface_stats(Interface *interface);
 
 /*Helper Routines*/
 dp_intf_t *
-node_get_matching_subnet_interface(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, c_string ip_addr);
+node_get_matching_subnet_interface(dp_ctx_t *dp_ctx, 
+                                   dp_vrf_t *vrf, uint32_t ip_addr);
 
 bool
 is_same_subnet(c_string ip_addr,

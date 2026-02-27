@@ -458,7 +458,8 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
     tracer(dp_ctx->dptr, DARP, "ARP-Reply from %s : Updating ARP Table\n", 
         arp_entry->ip_addr.ip_addr);
 
-    bool rc = arp_table_entry_add(iif->vrf, 
+    bool rc = arp_table_entry_add(dp_ctx, 
+                iif->vrf, 
 				arp_table, arp_entry, &arp_pending_list);
 
     glthread_t *curr;
@@ -699,7 +700,7 @@ arp_entry_add(dp_ctx_t *dp_ctx,
     string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
     memcpy(arp_entry->mac_addr.mac, mac.mac, MAC_ADDR_SIZE);
     arp_entry->proto = proto;
-    string_copy( arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);
+    string_copy(arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);
     if (!arp_table_entry_add (dp_ctx, vrf, vrf->arp_table, arp_entry, 0)) {
         XFREE(arp_entry);
         return false;

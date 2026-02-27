@@ -9,6 +9,7 @@
 
 typedef struct node_ node_t;
 typedef struct dp_intf_ dp_intf_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 /*L2 Switch Owns Mac Table*/
 #define MAC_STATIC  0x1
@@ -72,15 +73,15 @@ typedef struct mac_table_{
 void init_mac_table(mac_table_t **mac_table);
 mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table, vlan_id_t vlan, c_string mac);
 void clear_mac_table(node_t *node, mac_table_t *mac_table);
-void mac_table_entry_add (node_t *node, mac_table_t *mac_table,  
+void mac_table_entry_add (dp_ctx_t *dp_ctx, mac_table_t *mac_table,  
                           uint8_t *mac_addr,  uint16_t vlan_id, uint32_t ifindex, uint16_t flags, uint32_t remote_dst_ip) ;
-void mac_table_entry_delete (node_t *node, mac_table_t *mac_table, 
+void mac_table_entry_delete (dp_ctx_t *dp_ctx, mac_table_t *mac_table, 
                           uint8_t *mac_addr,  uint16_t vlan_id, uint32_t ifindex, uint32_t remote_dst_ip) ;
 void
 mac_table_entry_delete2 (node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac);
 
 void show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
-void mac_table_entry_init_timer (node_t *node, mac_table_entry_t *mac_table_entry);
+void mac_table_entry_init_timer (dp_ctx_t *dp_ctx, mac_table_entry_t *mac_table_entry);
 void mac_table_entry_cancel_expiry_timer (mac_table_entry_t *mac_table_entry) ;
 
 /* Dynamic OIF list management functions */

@@ -39,7 +39,7 @@
 #include "../common/l3_hdrs.h"
 
 extern void layer4_mem_init() ;
-extern void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
+extern void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
 
 class Interface;
 
@@ -64,7 +64,7 @@ promote_pkt_to_layer4 (node_t *node,
                 pkt_size -= (pkt_size_t )((char *)udp_hdr  - (char *)ip_hdr);
                 pkt_block_set_new_pkt (pkt_block, (uint8_t *)udp_hdr, pkt_size);
                 pkt_block_set_starting_hdr_type (pkt_block , UDP_HDR);
-                vxlan_decapsulate (node, pkt_block, htonl(ip_hdr->src_ip));
+                vxlan_decapsulate (node->dp_ctx, pkt_block, htonl(ip_hdr->src_ip));
            }
         }
         break;

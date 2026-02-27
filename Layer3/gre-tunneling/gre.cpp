@@ -7,6 +7,7 @@
 #include "../../pkt_block.h"
 #include "../../tcpconst.h"
 #include "../../Tracer/tracer.h"
+#include "../../vrf/vrf.h"
 #include "../../datapath/Interface/dp_intf.h"
 #include "../../datapath/Vrfs/dp_vrf.h"
 
@@ -254,7 +255,7 @@ gre_one_time_registration() {
 }
 
 void 
-gre_encasulate (node_t *node, pkt_block_t *pkt_block) {
+gre_encasulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
     hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
@@ -268,17 +269,19 @@ gre_encasulate (node_t *node, pkt_block_t *pkt_block) {
     memset (gre_hdr, 0, sizeof (gre_hdr_t));
     gre_hdr->protocol_type = htons(gre_inner_hdr_type);
     pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);        
-    tracer (node->dp_ctx->dptr, DTUNNEL | DFLOW, 
+    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "GRE Encapsulation %s\n", pkt_block_str (pkt_block));    
 }
 
 void 
-gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
+gre_decapsulate (dp_ctx_t *dp_ctx, 
+                dp_vrf_t *vrf, 
+                pkt_block_t *pkt_block, 
+                dp_intf_t *gre_intf) {
 
     uint8_t *pkt;
     pkt_size_t pkt_size;
     node_t *node = vrf->node;
-    dp_ctx_t *dp_ctx = vrf->dp_ctx;
 
     assert (pkt_block_get_starting_hdr(pkt_block) == GRE_HDR);
 
@@ -311,7 +314,7 @@ gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
             pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "GRE Decapsulation %s\n", pkt_block_str (pkt_block));    
-            layer3_ip_route_pkt (vrf, gre_intf, pkt_block);
+            layer3_ip_route_pkt (dp_ctx, vrf, gre_intf, pkt_block);
         }
         break;
 
@@ -320,27 +323,14 @@ gre_decapsulate (dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_intf) {
              pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "GRE Decapsulation %s\n", pkt_block_str (pkt_block));                    
-             dp_pkt_receive(vrf->dp_ctx, gre_intf->vrf, gre_intf, pkt_block);
+             dp_pkt_receive(dp_ctx, vrf, gre_intf, pkt_block);
         }
         break;
     }
 }
 
-Interface *
-gre_lookup_tunnel_intf (node_t *node, uint32_t src_ip, uint32_t dst_ip) {
-
-    Interface *intf;
-    GRETunnelInterface *gre_intf ;
-
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-        if (intf->iftype != INTF_TYPE_GRE_TUNNEL)  continue;
-        gre_intf = dynamic_cast <GRETunnelInterface *> (intf);
-        if (gre_intf->tunnel_src_ip != src_ip) continue;
-        if (gre_intf->tunnel_dst_ip != dst_ip)  continue;
-        return intf;
-    }
-    ITERATE_NODE_INTERFACES_END(node, intf);
+dp_intf_t*
+gre_lookup_tunnel_intf (dp_ctx_t *dp_ctx, uint32_t src_ip, uint32_t dst_ip) {
 
     return NULL;
 }

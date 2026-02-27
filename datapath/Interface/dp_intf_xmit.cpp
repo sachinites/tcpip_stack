@@ -8,6 +8,7 @@
 #include "../../common/l3_hdrs.h"
 #include "../../Layer3/layer3.h"
 #include "../../Layer2/vxlan/dp/vxlan_dp.h"
+#include "../../router_init.h"
 
 
 typedef int (*SendPacketOut_fptr)(
@@ -254,7 +255,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
         pkt_block = pkt_block_copy;
     }
 
-    gre_encasulate (node, pkt_block);
+    gre_encasulate (dp_ctx, pkt_block);
     pkt_block->exclude_oif = intf;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
@@ -263,11 +264,11 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
     pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(node)));
+    ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
     ip_hdr->dst_ip = htonl(intf->gre_tunnel_dst_ip);
     ip_hdr->protocol = GRE_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
-    np_tcp_ip_send_ip_data (intf->vrf, pkt_block);
+    np_tcp_ip_send_ip_data (dp_ctx, intf->vrf, pkt_block);
     intf->pkt_sent++;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
@@ -325,8 +326,8 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
     
-    if ( is_arp_pkt_for_svi_interface (dp_ctx, pkt_block) ) {
-            svi_interface_intercept_arp_pkt (dp_ctx, pkt_block);
+    if ( is_arp_pkt_for_svi_interface (dp_ctx, intf->vrf, pkt_block) ) {
+            svi_interface_intercept_arp_pkt (dp_ctx, intf->vrf, pkt_block);
             return 0;
     }
 
@@ -394,7 +395,7 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
-    np_tcp_ip_send_ip_data (intf->vrf, pkt_block);
+    np_tcp_ip_send_ip_data (dp_ctx, intf->vrf, pkt_block);
     intf->pkt_sent++;
     return 0;    
 }

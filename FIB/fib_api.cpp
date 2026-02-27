@@ -27,7 +27,8 @@
 #include "../datapath/Interface/dp_intf.h"
 
 extern void
-demote_pkt_to_layer2 (dp_vrf_t *vrf,
+demote_pkt_to_layer2 (dp_ctx_t *dp_ctx,
+                      dp_vrf_t *vrf,
                       uint32_t next_hop_ip,
                       dp_intf_t *outgoing_intf,
                       pkt_block_t *pkt_block,
@@ -150,7 +151,9 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
 
 /* Perform actual forwarding based on next hop */
 fib_error_t 
-fib_forward_pkt_to_nh(dp_vrf_t *vrf, pkt_block_t *pkt_block, fib_nh_t *nh) {
+fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx, 
+                      dp_vrf_t *vrf, 
+                      pkt_block_t *pkt_block, fib_nh_t *nh) {
     
     /* Apply MPLS label stack operations if present */
     if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
@@ -182,6 +185,7 @@ fib_forward_pkt_to_nh(dp_vrf_t *vrf, pkt_block_t *pkt_block, fib_nh_t *nh) {
     nh->hit_count++;
 
     demote_pkt_to_layer2(
+        dp_ctx,
         vrf,
         hdr_type == IP6_HDR ? 0 : nh->fwd_info->nh_addr.u.v4_addr,
         nh->fwd_info->oif,

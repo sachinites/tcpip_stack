@@ -425,7 +425,8 @@ linux_listener_thread(void* arg) {
 	            ev_dis_pkt_data->ifindex = intf->ifindex;
 	            ev_dis_pkt_data->pkt_size = bytes_received;
 
-	            pkt_q_enqueue(EV_DP(node), DP_PKT_Q(node) ,
+	            pkt_q_enqueue(EV_DP(node->dp_ctx), 
+                  DP_PKT_Q(node->dp_ctx) ,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
             }
         } ITERATE_NODE_INTERFACES_END(node, intf);

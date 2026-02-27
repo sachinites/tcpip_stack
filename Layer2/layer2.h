@@ -42,7 +42,8 @@
 #include "../Interface/InterfacEnums.h"
 
 typedef struct pkt_block_ pkt_block_t;
-class Interface;
+typedef struct dp_ctx_ dp_ctx_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 #pragma pack (push,1)
 typedef struct ethernet_hdr_{
@@ -195,10 +196,11 @@ void tag_pkt_with_vlan_id (pkt_block_t *pkt_block, int vlan_id );
 /* Return TRUE if the pkt is subjected to inter-vlan routing*/
 bool
 svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
+                        dp_vrf_t *vrf,
                         pkt_block_t *pkt_block);
 
 bool 
-is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
+is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
                                       pkt_block_t *pkt_block);
 
 #endif /* __LAYER2__ */

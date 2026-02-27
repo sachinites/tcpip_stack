@@ -106,6 +106,8 @@ typedef struct dp_intf_cp2dp_msg_ {
 typedef struct node_ node_t;
 typedef struct dp_msg_ dp_msg_t;
 typedef struct dp_ctx_ dp_ctx_t;
+class TransportService;
+
 
 /* Interface update message processing (DP thread) */
 void 

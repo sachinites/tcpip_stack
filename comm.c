@@ -57,11 +57,10 @@
 
 extern graph_t *topo;
 
-extern void
-l2_switch_recv_frame(node_t *node,
-                     vlan_id_t vlan_id,
-                     dp_intf_t *interface,
-                     pkt_block_t *pkt_block);
+extern void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
+                          vlan_id_t vlan_id,
+                          dp_intf_t *interface,
+                          pkt_block_t *pkt_block);
 
 extern void
 network_start_pkt_receiver_thread(void);
@@ -216,7 +215,7 @@ void dp_pkt_receive(dp_ctx_t *dp_ctx,
             vlan_id_to_tag = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
         }
 
-        l2_switch_recv_frame(interface->att_node,
+        l2_switch_recv_frame(dp_ctx,
                     vlan_id_to_tag,
                     interface, pkt_block);
     }

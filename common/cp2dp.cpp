@@ -28,7 +28,7 @@
 #include "../datapath/Interface/dp_intf_store.h"
 
 extern void
-np_tcp_ip_send_ip6_data (dp_vrf_t *vrf, pkt_block_t *pkt_block);
+np_tcp_ip_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
 static void 
 dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
@@ -95,10 +95,10 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
             switch (hdr_type)
             {
             case IP_HDR:
-                np_tcp_ip_send_ip_data(vrf, pkt_block);
+                np_tcp_ip_send_ip_data(dp_ctx, vrf, pkt_block);
                 break;
             case IP6_HDR:
-                np_tcp_ip_send_ip6_data(vrf, pkt_block);
+                np_tcp_ip_send_ip6_data(dp_ctx, vrf, pkt_block);
                 break;
             default:
                 break;
@@ -217,7 +217,7 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                      fib_update_msg->target_fib_vrf_id);
 
             if (!fib) {
-                tracer (dp_ctx_t *dp_ctx, dp_ctx->dptr, DFIB | DERR, 
+                tracer (dp_ctx->dptr, DFIB | DERR, 
                        "FIB : FIB not initialized for AFI:%d VRF:%d\n",
                        fib_update_msg->target_fib_afi, 
                        fib_update_msg->target_fib_vrf_id);
@@ -255,8 +255,6 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
 
 static void
 dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
-    
-    node_t *node = (node_t *)dp_ctx->ctx_pvt_data;
 
     assert(dp_msg->component_type == VRF_TABLE);
 
@@ -398,7 +396,8 @@ cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface)
         ev_dis_pkt_data->pkt = (byte *)pkt_block;
         pkt_block_reference(pkt_block);
         tracer (node->cptr,  DIPC | DFLOW, "Pkt : %s : Xmit to Data path\n", pkt_block_str(pkt_block));
-        pkt_q_enqueue(EV_DP(node), &dp_ctx->cp_to_dp_xmit_intf_pkt_q ,
+        pkt_q_enqueue(EV_DP(node->dp_ctx), 
+                  &node->dp_ctx->cp_to_dp_xmit_intf_pkt_q ,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
 }
 
@@ -496,13 +495,13 @@ cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async) {
 
     // Get the event dispatcher of the DP
     if (async) {
-            task_create_new_job(EV_DP(node), (void *)dp_msg,
+            task_create_new_job(EV_DP(node->dp_ctx), (void *)dp_msg,
                 cp2dp_task_handler, 
                 TASK_ONE_SHOT, 
                 TASK_PRIORITY_CP_TO_DP);
     }
     else {
-        task_create_new_job_synchronous(EV_DP(node), (void *)dp_msg,
+        task_create_new_job_synchronous(EV_DP(node->dp_ctx), (void *)dp_msg,
                 cp2dp_task_handler, 
                 TASK_ONE_SHOT, 
                 TASK_PRIORITY_CP_TO_DP);

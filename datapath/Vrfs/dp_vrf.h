@@ -2,6 +2,7 @@
 #define __DP_VRF__
 
 #include <stdint.h>
+#include "../../common/cmn_prefix.h"
 
 typedef struct node_ node_t;
 typedef struct fib_ fib_t;

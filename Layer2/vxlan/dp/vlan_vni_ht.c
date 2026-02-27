@@ -33,7 +33,8 @@
 #include "../cp/vxlan.h"
 
 /* Forward declaration */
-static void vlan_vni_ht_sync_from_cp_db_internal(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *ht_db);
+static void vlan_vni_ht_sync_from_cp_db_internal(
+        node_t *node, vlan_vni_ht_db_t *ht_db);
 
 /* Hash function for VLAN ID keys */
 unsigned int 
@@ -393,9 +394,11 @@ vlan_vni_ht_remove_mapping_by_vni(dp_ctx_t *dp_ctx, uint32_t vni_id) {
 }
 
 /* Internal function to sync from control plane database */
-static void 
-vlan_vni_ht_sync_from_cp_db_internal(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *ht_db) {
-    vxlan_vni_db_t *cp_db = NODE_VLAN_VNI_DB(dp_ctx);
+void 
+vlan_vni_ht_sync_from_cp_db_internal(node_t *node, vlan_vni_ht_db_t *ht_db) {
+
+    vxlan_vni_db_t *cp_db = NODE_VLAN_VNI_DB(node);
+    
     if (!cp_db || !ht_db) return;
     
     glthread_t *curr;
@@ -433,24 +436,25 @@ vlan_vni_ht_sync_from_cp_db_internal(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *ht_db) 
 
 /* Public sync function */
 void 
-vlan_vni_ht_sync_from_cp_db(dp_ctx_t *dp_ctx) {
+vlan_vni_ht_sync_from_cp_db(node_t *node) {
+
     /* Step 1: Set pointer to NULL */
-    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(dp_ctx);
-    vlan_vni_ht_clear_db(dp_ctx);
+    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(node->dp_ctx);
+    vlan_vni_ht_clear_db(node->dp_ctx);
     
     /* Step 2: Create new database */
     vlan_vni_ht_db_t *new_db = vlan_vni_ht_create_db();
     if (!new_db) {
         /* Restore old pointer on failure */
-        vlan_vni_ht_set_db(dp_ctx, old_db);
+        vlan_vni_ht_set_db(node->dp_ctx, old_db);
         return;
     }
     
     /* Step 3: Sync from control plane database */
-    vlan_vni_ht_sync_from_cp_db_internal(dp_ctx, new_db);
+    vlan_vni_ht_sync_from_cp_db_internal(node, new_db);
     
     /* Step 4: Set new pointer */
-    vlan_vni_ht_set_db(dp_ctx, new_db);
+    vlan_vni_ht_set_db(node->dp_ctx, new_db);
     
     /* Step 5: Cleanup old database */
     if (old_db) {

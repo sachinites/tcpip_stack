@@ -137,7 +137,7 @@ nxthop_compare (nexthop_t *nh1, nexthop_t *nh2) {
 
     if (nh1->proto != nh2->proto) return -1;
     if (nh1->ifindex != nh2->ifindex) return -1;
-    if (memcmp(&nh1->gw_ip, &nh2->gw_ip, IPV4_ADDR_LEN_STR) != 0) return -1;
+    if (memcmp(&nh1->gw_ip, &nh2->gw_ip, 16) != 0) return -1;
     /* label_stack_compare returns true if equal, so negate it */
     if (!mpls_lstack_compare(nh1->lbls, nh2->lbls)) return -1;
     return 0;

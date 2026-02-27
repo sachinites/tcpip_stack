@@ -31,7 +31,7 @@
 #include "../../../c-hashtable/hashtable.h"
 
 /* Forward declarations */
-typedef struct node_ node_t;
+typedef struct dp_ctx_ dp_ctx_t;
 typedef uint16_t vlan_id_t;
 
 /* VLAN-VNI mapping entry for hashtable */

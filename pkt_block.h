@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "tcpconst.h"
 #include "Layer3/gre-tunneling/gre.h"
 #include "Interface/InterfaceFwd.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"

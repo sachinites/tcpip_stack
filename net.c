@@ -68,7 +68,7 @@ extern void init_tcp_logging(node_t *);
 extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 extern void lfa_init (node_t *node, lfa_t **lfa) ;
 void  node_assign_router_mac (node_t *node) ;
-extern bool mac_table_entry_add(node_t *node, mac_table_t *mac_table, 
+extern bool mac_table_entry_add(dp_ctx_t *dp_ctx, mac_table_t *mac_table, 
         mac_table_entry_t *mac_table_entry);
 extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
         c_string src_mac, dp_intf_t *oif, uint32_t src_ip) ;

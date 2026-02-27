@@ -53,6 +53,7 @@ promote_pkt_to_layer4(
 /* Demote packet to Layer 2 for link-layer forwarding */
 extern void
 demote_pkt_to_layer2(
+    dp_ctx_t *dp_ctx,
     dp_vrf_t *vrf,
     uint32_t next_hop_ip,
     dp_intf_t *outgoing_intf,
@@ -247,7 +248,8 @@ Srv6_apply_flavor(
  *   4. Update packet header type to reflect the exposed payload
  */
 void 
-Srv6_decapsulate(node_t *node, pkt_block_t *pkt_block) {
+Srv6_decapsulate(pkt_block_t *pkt_block) {
+    
     pkt_size_t pkt_size = 0;
     
     /* Only process IPv6 packets */

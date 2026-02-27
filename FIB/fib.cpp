@@ -76,7 +76,7 @@ hashfromkey_label (void *key)
 }
 
 
-fib_t *fib_init(vrf_t *vrf, AFI_T afi, uint8_t vrf_id) {
+fib_t *fib_init(dp_vrf_t *vrf, AFI_T afi, uint8_t vrf_id) {
     
     /* Allocate FIB structure */
     fib_t *fib = (fib_t *)XCALLOC2(0, 1, fib_t);
@@ -231,7 +231,7 @@ fib_forward(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
     active_nh = fib_get_active_nexthop(route);
     
     /* Forward packet to selected nexthop */
-    return fib_forward_pkt_to_nh(vrf, pkt, active_nh);
+    return fib_forward_pkt_to_nh(dp_ctx, vrf, pkt, active_nh);
 }
 #endif 
 

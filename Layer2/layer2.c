@@ -59,12 +59,10 @@
 
 extern void layer2_mem_init(); 
 
-extern void
-l2_switch_recv_frame(Interface *interface,
-                                     char *pkt, uint32_t pkt_size);
-extern void
-l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-                            c_string src_mac, Interface *oif, uint32_t src_ip) ;
+extern void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
+                          vlan_id_t vlan_id,
+                          dp_intf_t *interface,
+                          pkt_block_t *pkt_block);
 
 extern void
 l2_switch_forward_frame(

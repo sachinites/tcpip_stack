@@ -52,6 +52,7 @@ typedef struct nexthop_ nexthop_t;
 typedef struct prefix_lst_ prefix_list_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct dp_ctx_ dp_ctx_t;
+typedef struct node_ node_t;
 
 typedef struct rt_table_{
 
@@ -185,7 +186,7 @@ l3_rt_map_nxthop_index_proto_std(uint16_t proto_index) {
 
 typedef struct l3_route_{
 
-    byte dest[IPV4_ADDR_LEN_STR];        /* key*/
+    byte dest[16];        /* key*/
     char mask;            /* key*/
     uint8_t rt_flags;
     bool is_direct;       /* if set to True, then gw_ip and oif has no meaning*/
@@ -259,6 +260,6 @@ void layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                          pkt_block_t *pkt_block);
 
 void
-np_tcp_ip_send_ip_data (dp_vrf_t *vrf, pkt_block_t *pkt_block);
+np_tcp_ip_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
 #endif /* __LAYER3__ */

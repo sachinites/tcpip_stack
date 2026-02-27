@@ -8,7 +8,8 @@
 #include "../Interface/InterfaceUApi.h"
 
 extern void
-demote_pkt_to_layer2(dp_vrf_t *vrf,
+demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
+                     dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *outgoing_intf,
                      pkt_block_t *pkt_block,
@@ -284,6 +285,7 @@ mpls_route_pkt (dp_vrf_t *vrf, Interface *recv_intf, pkt_block_t *pkt_block) {
     tracer (dp_ctx->dptr, DMPLS, "MPLS RIB:  Demoting MPLS Pkt to Layer 2, Routing label : %d\n", label_val);
 
     demote_pkt_to_layer2 (
+        dp_ctx,
         vrf,           
         tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
         nexthop->oif,          

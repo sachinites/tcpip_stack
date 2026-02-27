@@ -86,8 +86,8 @@ l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
     }
 
     /* Determine MAC entry flags */
-    if (oif == node->node_nw_prop.dp_rmac_intf || 
-        oif == node->node_nw_prop.dp_vlan_flood_intf) {
+    if (oif == dp_ctx->dp_rmac_intf ||
+        oif == dp_ctx->dp_vlan_flood_intf) {
 
         flags = MAC_STATIC;
         
@@ -97,8 +97,10 @@ l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
     }
     
     /* Use sync API to add MAC entry since called is in DP itself */
-    mac_table_entry_add (dp_ctx_t *dp_ctx, dp_ctx->mac_table,
-        (uint8_t*)src_mac, vlan_id, oif->port_id, flags, src_ip);
+    mac_table_entry_add (dp_ctx, 
+        dp_ctx->mac_table,
+        (uint8_t*)src_mac, vlan_id, 
+        oif->port_id, flags, src_ip);
 }
 
 static void 
@@ -133,7 +135,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
             vlan_id = mac_entry->vlan_id;
 
             /* Get VNI id using DP hashtable*/
-            vni_id = vlan_vni_ht_vlan_to_vni_lookup (node, vlan_id);
+            vni_id = vlan_vni_ht_vlan_to_vni_lookup (dp_ctx, vlan_id);
 
             if (vni_id == 0) {
 
@@ -157,7 +159,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
         pkt_block2 = pkt_block_dup(pkt_block);
         pkt_block->encap_data = NULL;
-        dp_send_pkt_out(oif, pkt_block2);
+        dp_send_pkt_out(dp_ctx, oif, pkt_block2);
         pkt_block_dereference(pkt_block2);
         
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
@@ -180,7 +182,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
                          BROADCAST_MAC);
 
     if (!mac_flood_entry) {
-         tracer (node->dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled ");
+         tracer (dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled ");
         return;
     }
 
@@ -231,7 +233,7 @@ l2_switch_forward_frame(
     if (IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)) {
 
             /* Handle BUM traffic for EVPN case */
-            mac_table_entry = mac_table_lookup(NODE_MAC_TABLE(node), 
+            mac_table_entry = mac_table_lookup(dp_ctx->mac_table,
                                         vlan_id,
                                         BROADCAST_MAC);
 
@@ -249,7 +251,7 @@ l2_switch_forward_frame(
                 return;
             }
        
-            mac_table_entry_xmit_frame (node, mac_table_entry, pkt_block, recv_intf);
+            mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
             return;
     }
 
@@ -262,8 +264,8 @@ l2_switch_forward_frame(
                                       ethernet_hdr->dst_mac.mac);    
 
         if (!mac_table_entry) {
-                tracer (node->dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame");
-                return;
+            tracer (dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame");
+            return;
         }
 
         mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);

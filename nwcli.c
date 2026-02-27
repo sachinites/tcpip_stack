@@ -414,7 +414,7 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
         return -1;
     }
 
-    show_mac_table(NODE_MAC_TABLE (node), vlan_id);
+    show_mac_table(node->dp_ctx->mac_table, vlan_id);
     return 0;
 }
 
@@ -694,7 +694,7 @@ show_fib_handler(int cmdcode,
     switch (cmdcode) {
         case CMDCODE_SHOW_NODE_VRF_FIB:
 
-            fib = fib_get_by_name(node, fib_name);
+            fib = fib_get_by_name(node->dp_ctx, fib_name);
             if (!fib) {
                 cprintf("Error : FIB %s not found\n", fib_name);
                 return -1;
@@ -964,12 +964,12 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
             mtrie_longest_prefix_first_traverse(
-                    fib_get(node, AF_IPV4, 0)->u.lpm,
+                    fib_get(node->dp_ctx, AF_IPV4, 0)->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
             mtrie_longest_prefix_first_traverse(
-                    fib_get(node, AF_IPV6, 0)->u.lpm,
+                    fib_get(node->dp_ctx, AF_IPV6, 0)->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:

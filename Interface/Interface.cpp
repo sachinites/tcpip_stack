@@ -138,6 +138,7 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
     tcp_dump_send_logger(sending_node, interface,
                          pkt_block, pkt_block_get_starting_hdr(pkt_block));
 
+    #if 0
     if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
@@ -146,6 +147,7 @@ send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
         free (ev_dis_pkt_data);
     }
+    #endif
 
     interface->pkt_sent++;
     return pkt_size;
@@ -309,7 +311,7 @@ Interface::~Interface()
     cprintf ("%s : Interface %s deleted\n", 
         this->att_node->node_name, this->if_name.c_str());
 
-    cp2dp_interface_delete (this->att_node, this->ifindex);
+    cp2dp_interface_delete (this->att_node, this);
 }
 
 InterfaceP 
@@ -1099,10 +1101,12 @@ int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
     
+    #if 0
     if ( is_arp_pkt_for_svi_interface (this->att_node, pkt_block) ) {
             svi_interface_intercept_arp_pkt (this->att_node, pkt_block);
             return 0;
     }
+    #endif
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
 
@@ -1403,7 +1407,7 @@ GRETunnelInterface::SendPacketOut(pkt_block_t *pkt_block)
         pkt_block = pkt_block_copy;
     }
 
-    gre_encasulate (this->att_node, pkt_block);
+    //gre_encasulate (this->att_node, pkt_block);
     //pkt_block_set_exclude_oif (pkt_block, this);
     pkt_block_get_pkt (pkt_block, &pkt_size);
 

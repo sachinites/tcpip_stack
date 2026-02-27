@@ -86,6 +86,9 @@ typedef uint16_t pkt_size_t;
 
 #define MAX_MTU 1500
 
+#define NODE_NAME_SIZE   32
+#define IF_NAME_SIZE     16
+#define MAX_INTF_PER_NODE   10
 
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
 #define NODE_PRINT_BUFF_LEN (1024 * 1024)
@@ -150,7 +153,7 @@ proto_name_str (uint16_t proto) {
         case MPLS_PROTO:
             return (unsigned char *)"mpls";
         default:
-            return NULL;
+            return nullptr;
     }
 }
 

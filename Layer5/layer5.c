@@ -51,7 +51,8 @@ promote_pkt_from_layer3_to_layer5(void *_node,
 }
 
 void
-cp_punt_promote_pkt_from_layer2_to_layer5 (void *_node,
+cp_punt_promote_pkt_from_layer2_to_layer5 (
+					 void *_node,
 					 uint32_t recv_intf_ifindex, 
                      pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) { 
@@ -69,7 +70,7 @@ cp_punt_promote_pkt_from_layer2_to_layer5 (void *_node,
 
 	nfc_invoke_notif_chain(
 			EV(node),
-			&node->layer2_proto_reg_db2,
+			&node->dp_ctx->layer2_proto_reg_db,
 			(void *)&pkt_notif_data,
 			sizeof(pkt_notif_data_t),
 			pkt, pkt_size,

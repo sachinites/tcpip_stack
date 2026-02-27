@@ -74,7 +74,7 @@ dp_destroy_vrf_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     fib_destroy(vrf->fib_inet6);
     vrf->fib_inet6 = NULL;
 
-    clear_arp_table(vrf->node, vrf->arp_table);
+    clear_arp_table(vrf->arp_table);
     XFREE(vrf->arp_table);
 
     free(vrf);

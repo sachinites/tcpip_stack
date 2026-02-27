@@ -73,13 +73,14 @@ int8_t
 nf_invoke_netfilter_hook(
 						 nf_hook_t nf_hook_type,
 						 pkt_block_t *pkt_block,
-						 node_t *node,
+						 void *_node,
 						 dp_intf_t *intf,
 						 hdr_type_t hdr_code) {
 
 	char *pkt;
 	pkt_size_t pkt_size;
 	pkt_notif_data_t pkt_notif_data;
+	node_t *node = (node_t*)_node;
 
     pkt_notif_data.recv_node = node;
     pkt_notif_data.recv_intf_index = intf ? intf->port_id : 0;
@@ -91,7 +92,7 @@ nf_invoke_netfilter_hook(
 
     nfc_invoke_notif_chain(
 			EV(node),
-			&node->nf_hook_db.nf_hook[nf_hook_type],
+			&node->dp_ctx->nf_hook_db.nf_hook[nf_hook_type],
 			(void *)&pkt_notif_data,
             sizeof(pkt_notif_data_t),
             pkt, pkt_size, TASK_PRIORITY_PKT_PROCESSING);
