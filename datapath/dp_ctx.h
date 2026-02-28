@@ -11,6 +11,7 @@ typedef struct hashtable hashtable_t;
 typedef struct mac_table_ mac_table_t;
 typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct dp_intf_ dp_intf_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../tcp_ip_trace.h"
@@ -47,7 +48,9 @@ typedef struct dp_ctx_ {
     /* DP hash table storage of interfacs*/
     hashtable_t *dp_intf_ht;
     /* DP hash table storage of VRFs*/
-    hashtable_t *dp_vrf_ht;    
+    hashtable_t *dp_vrf_ht; 
+    /* DP vlan intf hashtable keyed by vlan-id*/
+    hashtable_t *dp_vlan_intf_ht;
     /* Vlan-VNI mapping DP hash table*/
 #ifdef __cplusplus
     std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;
@@ -76,6 +79,10 @@ typedef struct dp_ctx_ {
     dp_intf_t *dp_host_path_intf;
     dp_intf_t *dp_srv6_end_intf;
     dp_intf_t *dp_nve_intf;
+
+    /* Logging Buffers*/
+    unsigned char* send_log_buffer;
+    unsigned char* recv_log_buffer;
 
 } dp_ctx_t;
 

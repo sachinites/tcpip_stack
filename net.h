@@ -115,11 +115,6 @@ typedef struct node_nw_prop_{
 
     /*L3 properties*/ 
     ip_add_t rtr_id; /*loopback address of node*/
-
-    /*Sending Buffer*/
-    c_string send_log_buffer; /*Used for logging */
-    /* Receiving Buffer */ 
-    c_string recv_log_buffer; /* Used for logging */
     /* Main Log Buffer*/
     c_string log_buffer;
     /* FILE Ptr to main logigng file File*/

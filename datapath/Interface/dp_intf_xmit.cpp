@@ -8,7 +8,7 @@
 #include "../../common/l3_hdrs.h"
 #include "../../Layer3/layer3.h"
 #include "../../Layer2/vxlan/dp/vxlan_dp.h"
-#include "../../router_init.h"
+#include "dp_intf_log.h"
 
 
 typedef int (*SendPacketOut_fptr)(
@@ -27,56 +27,53 @@ promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
 /* Helper APIs */
 
 static int
-send_xmit_out (dp_intf_t *interface, pkt_block_t *pkt_block)
+send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
 {
     pkt_size_t pkt_size;
     ev_dis_pkt_data_t *ev_dis_pkt_data;
-    node_t *sending_node = interface->att_node;
+
+    dp_ctx_t *local_dp_ctx = intf->dp_ctx;
+    dp_ctx_t *peer_dp_ctx = intf->nbr_intf->dp_ctx;
+    dp_intf_t *peer_end = intf->nbr_intf;
 
     uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    if (!(interface->is_up))
+    if (!(intf->is_up))
     {
-        interface->xmit_pkt_dropped++;
+        intf->xmit_pkt_dropped++;
         return 0;
     }
 
     if (pkt_size > MAX_PACKET_BUFFER_SIZE)
     {
-        cprintf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
+        cprintf("Error : DCTX :%s, Pkt Size exceeded\n", local_dp_ctx->ctx_name);
         return -1;
     }
 
-    node_t *nbr_node = interface->nbr_intf->att_node;
-
-    tracer (sending_node->dp_ctx->dptr, DFLOW_DET, 
+    tracer (local_dp_ctx->dptr, DFLOW_DET, 
         "Pkt : %s Wired out of interface %s\n", 
-        pkt_block_str (pkt_block), interface->if_name);
-    
-    dp_intf_t *other_interface = interface->nbr_intf;
+        pkt_block_str (pkt_block), intf->if_name);
 
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
-    ev_dis_pkt_data->ifindex = other_interface->port_id;
+    ev_dis_pkt_data->ifindex = peer_end->port_id;
     ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
 
-    //tcp_dump_send_logger(sending_node, interface,
-    //                     pkt_block, pkt_block_get_starting_hdr(pkt_block));
+    tcp_dump_send_logger(local_dp_ctx, intf,
+                         pkt_block, pkt_block_get_starting_hdr(pkt_block));
 
-    dp_ctx_t *nbr_dp_ctx = nbr_node->dp_ctx;
-
-    if (!pkt_q_enqueue(EV_DP(nbr_dp_ctx), 
-                       DP_PKT_Q(nbr_dp_ctx),
+    if (!pkt_q_enqueue(EV_DP(peer_dp_ctx), 
+                       DP_PKT_Q(peer_dp_ctx),
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
-        cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
+        cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", peer_dp_ctx->ctx_name);
         tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
         free (ev_dis_pkt_data);
     }
 
-    interface->pkt_sent++;
+    intf->pkt_sent++;
     return pkt_size;
 }
 
@@ -244,7 +241,6 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
 
     pkt_size_t pkt_size;
     bool no_modify = false;
-    node_t *node = intf->att_node;
     pkt_block_t *pkt_block_copy;
 
     if (!intf->is_up) { return 0; }
@@ -333,7 +329,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
 
-    if (!mac_address_compare ((unsigned char *)NODE_RMAC(intf->att_node)->mac, 
+    if (!mac_address_compare ((unsigned char *)intf->dp_ctx->rmac.mac, 
           (unsigned char *)eth_hdr->dst_mac.mac) != 0) {
 
         intf->recvd_pkt_dropped++;
@@ -364,14 +360,14 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
     unsigned char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
     if (!intf->is_up) {
-        tracer (intf->att_node->dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : NVE Interface %s is down\n", intf->if_name);
         intf->xmit_pkt_dropped++;
         return -1;
     }
 
     if (!pkt_block->encap_data) {
-        tracer (intf->att_node->dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         intf->xmit_pkt_dropped++;
         return -1;
@@ -384,12 +380,12 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
     pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
     ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
     initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(intf->att_node)));
+    ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
     ip_hdr->dst_ip = htonl(pkt_block->encap_data->u.vxlan.remote_vtep_ip);
     ip_hdr->protocol = UDP_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
-    tracer (intf->att_node->dp_ctx->dptr, DTUNNEL | DFLOW, 
+    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->src_ip), ipv4_addr_str1),
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),

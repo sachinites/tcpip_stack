@@ -308,7 +308,19 @@ Interface:: IsInterfaceUp(vlan_id_t vlan_id) {
 void 
 Interface::InterfaceReleaseAllResources() {
 
-    tcp_ip_de_init_intf_log_info (this);
+    log_info.all       = false;
+    log_info.recv      = false;
+    log_info.send      = false;
+    log_info.is_stdout = false;
+
+    // CP do not maintain log file
+    assert(!log_info.log_file);
+
+    if ( log_info.acc_lst_filter ) {
+        access_list_dereference(this->att_node, log_info.acc_lst_filter);
+        log_info.acc_lst_filter = NULL;
+    }
+
 
     if (this->link) {
         /* Nothing to do, we dont break topology !*/

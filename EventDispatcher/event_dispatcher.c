@@ -284,7 +284,7 @@ create_new_task(void *arg,
 				uint32_t arg_size,
 				event_cbk cbk){
 
-	task_t *task = (task_t *)XCALLOC(0, 1, task_t);
+	task_t *task = (task_t *)XCALLOC2(0, 1, task_t);
 	task->data = arg;
 	task->data_size = arg_size;
 	task->ev_cbk = cbk;
@@ -427,7 +427,7 @@ GLTHREAD_TO_STRUCT(glue_to_pkt, pkt_t, glue);
 static pkt_t *
 task_get_new_pkt(char *pkt, uint32_t pkt_size){
 
-	pkt_t *_pkt = (pkt_t *)XCALLOC(0, 1, pkt_t);
+	pkt_t *_pkt = (pkt_t *)XCALLOC2(0, 1, pkt_t);
 	_pkt->pkt = pkt;
 	_pkt->pkt_size = pkt_size;
 	init_glthread(&_pkt->glue);

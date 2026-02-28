@@ -2,6 +2,7 @@
 #define __DP_INTF__
 
 #include <stdint.h>
+#include "../../tcp_ip_trace.h"
 #include "intf_cons.h"
 #include "../../common/cmn_struct.h"
 
@@ -67,8 +68,11 @@ typedef struct dp_intf_ {
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;
 
+    /* Logging */
+    log_t log_info;
+
     /* Wire connection Simulation */
-    node_t *att_node;
+    dp_ctx_t *dp_ctx;
     struct dp_intf_ *nbr_intf;
 
 }dp_intf_t;

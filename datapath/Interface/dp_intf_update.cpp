@@ -50,9 +50,20 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                         &msg->mac_addr, (uint16_t)msg->vlan_id);
             strncpy(intf->if_name, msg->intf_name, sizeof (msg->intf_name));
 
+            /* Initialize log file */
+            char intf_log_file_name[128];
+            snprintf(intf_log_file_name, sizeof(intf_log_file_name),
+                "logs/%s-%s.txt", 
+                dp_ctx->ctx_name, intf->if_name);
+
+            intf->log_info.log_file = fopen (intf_log_file_name, "w");
+
             switch (msg->update_code) {
                 case 0:
                     dp_insert_interface(ht, intf);
+                    if (intf->if_type == DP_INTF_TYPE_VLAN) {
+                        dp_insert_vlan_interface (dp_ctx->dp_vlan_intf_ht, intf);
+                    }
                     break;
                 case INTF_TYPE_RMAC:
                     dp_ctx->dp_rmac_intf = intf;
@@ -88,7 +99,13 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             intf = dp_look_up_interface(ht, msg->port_id);
 
             if (intf) {
+
+                if (intf->if_type == DP_INTF_TYPE_VLAN) {
+                    dp_remove_vlan_interface(dp_ctx->dp_vlan_intf_ht, intf->vlan_id);
+                }
+
                 dp_delete_interface(ht, msg->port_id);
+
                 tracer(dp_ctx->dptr, DCONF, 
                     "Interface if_name=%u deleted\n", msg->port_id);
                 break;

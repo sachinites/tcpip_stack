@@ -281,7 +281,6 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
 
     uint8_t *pkt;
     pkt_size_t pkt_size;
-    node_t *node = vrf->node;
 
     assert (pkt_block_get_starting_hdr(pkt_block) == GRE_HDR);
 

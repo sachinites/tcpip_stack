@@ -6,6 +6,8 @@
 
 #pragma pack (push,8)
 
+#define CP2DP_CODE_INTF_PHYSICAL 0
+
 /* IPv4 addr Update */
 #define CP2DP_CODE_INTF_IPV4_ADDR 1
 typedef struct dp_intf_ipv4_addr_update_ {
@@ -86,7 +88,15 @@ typedef struct dp_intf_grp_bind_ {
 #define CP2DP_CODE_INTF_HOST_PATH 12
 #define CP2DP_CODE_INTF_SRV6_END 13
 #define CP2DP_CODE_INTF_NVE 14
-#define CP2DP_CODE_INTF_PHYSICAL 0
+
+
+#define CP2DP_CODE_INTF_LOG_UPDATE 15
+typedef struct dp_intf_log_update_ {
+
+    log_t log;
+
+} dp_intf_log_update_t;
+
 
 typedef struct dp_intf_cp2dp_msg_ {
 

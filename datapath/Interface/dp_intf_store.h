@@ -41,4 +41,18 @@ dp_look_up_interface_by_vlan_id(hashtable_t *ht, uint16_t vlan_id);
 void 
 dp_check_and_free_interface (dp_intf_t *intf);
 
+/* Vlan interface Hash table Mgmt */
+
+void 
+dp_init_vlan_intf_hashtable (hashtable_t **ht);
+
+dp_intf_t *
+dp_look_up_interface_by_vlan_id (hashtable_t *ht, uint16_t vlan_id);
+
+void
+dp_insert_vlan_interface (hashtable_t *ht, dp_intf_t *intf);
+
+void
+dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) ;
+
 #endif

@@ -412,7 +412,6 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
     uint16_t eth_type;
     pkt_size_t pkt_size;
-    node_t *node = vrf->node;
 
     assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
 

@@ -54,6 +54,7 @@
 #include "c-hashtable/hashtable.h"
 #include "c-hashtable/hashtable_itr.h"
 #include "datapath/Interface/dp_intf.h"
+#include "datapath/Interface/dp_intf_log.h"
 
 extern graph_t *topo;
 
@@ -113,39 +114,34 @@ send_pkt_to_self (dp_ctx_t *dp_ctx,
     uint8_t *pkt;
     pkt_size_t pkt_size;
 
-    node_t *sending_node = interface->att_node;
-    node_t *nbr_node = sending_node;
-  
-	ev_dis_pkt_data_t *ev_dis_pkt_data;
- 
     if (!interface->is_up){
         return 0;
     }
 
-    dp_intf_t *other_interface =  interface->nbr_intf;
+    dp_ctx_t  *nbr_dp_ctx = dp_ctx;
+    dp_intf_t *peer_intf = interface;
+
+	ev_dis_pkt_data_t *ev_dis_pkt_data;
 
     pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
 	ev_dis_pkt_data =  (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
-	ev_dis_pkt_data->ifindex= other_interface->port_id;
+	ev_dis_pkt_data->ifindex = peer_intf->port_id;
 	ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
-
-    dp_ctx_t *nbr_dp_ctx = nbr_node->dp_ctx;
 
 	pkt_q_enqueue(EV_DP(nbr_dp_ctx), 
                   DP_PKT_Q(nbr_dp_ctx),
                   (char *)ev_dis_pkt_data,
                   sizeof(ev_dis_pkt_data_t));
 
-#if 0
-    tcp_dump_send_logger(sending_node,
+    tcp_dump_send_logger(dp_ctx,
                          interface,
                          pkt_block,
                          pkt_block_get_starting_hdr(pkt_block));
-#endif
+
     return pkt_size; 
 }
 
@@ -162,7 +158,7 @@ void dp_pkt_receive(dp_ctx_t *dp_ctx,
     }
     
     interface->pkt_recv++;
-    //tcp_dump_recv_logger(node, interface, pkt_block, ETH_HDR);
+    tcp_dump_recv_logger(dp_ctx, interface, pkt_block, ETH_HDR);
 
     /* Access List Evaluation at Layer 2 Entry point*/ 
     #if 0
@@ -183,7 +179,7 @@ void dp_pkt_receive(dp_ctx_t *dp_ctx,
                                           &vlan_id_to_tag) == false){
         
         cprintf("Error : L2 Frame Rejected on node %s(%s)\n", 
-            interface->att_node->node_name, interface->if_name);
+            dp_ctx->ctx_name, interface->if_name);
             
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s : L2 Frame Rejected in Interface %s, qualification Test Failed\n", 

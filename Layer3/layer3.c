@@ -62,6 +62,7 @@
 #include "../common/cp2dp.h"
 #include "../Tracer/tracer.h"
 #include "ipv6/ipv6_route.h"
+#include "../datapath/Interface/dp_intf_log.h"
 
 extern graph_t *topo;
 
@@ -75,7 +76,7 @@ layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                       pkt_block_t *pkt_block);
 
 extern void
-promote_pkt_to_layer4(node_t *node, Interface *recv_intf, 
+promote_pkt_to_layer4(void *node, Interface *recv_intf, 
                       pkt_block_t *pkt_block,
                       int L4_protocol_number);
 
@@ -99,7 +100,6 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     char *l4_hdr, *l5_hdr;
     ip_hdr_t *ip_hdr = NULL;
     uint32_t next_hop_ip= 0;
-    node_t *node = vrf->node;
     char dest_ip_addr[IPV4_ADDR_LEN_STR];
 
     /* We are in L3 IP land, so starting hdr type must be IP_HDR */
@@ -129,24 +129,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         return;
     }
 
-    if (!connection_exist (node, pkt_block)) {
-        /* Access List Evaluation at Layer 3 Entry point*/
-        /* TODO: ACL evaluation needs old Interface type - need to lookup from dp_intf */
-        #if 0
-        if (interface && /* For local ping, interface will be NULL */
-            access_list_evaluate_ip_packet(node, interface,
-                                           ip_hdr, true) == ACL_DENY) {
-
-            tracer (dp_ctx->dptr, DL3FWD, 
-                "Pkt : %s : Pkt Dropped :  L3 ACL Denied on ingress interface %s\n",
-                pkt_block_str(pkt_block), 
-                interface->if_name);
-            return;
-        }
-        #endif
-    }
-
-    tracer (dp_ctx->dptr, DL3FWD_DET, "VRF %s: Dest : %s : Pkt Qualified L3 ACL Test\n", vrf->vrf_name, dest_ip_addr);
+    tracer (dp_ctx->dptr, DL3FWD_DET, 
+        "VRF %s: Dest : %s : Pkt Qualified L3 ACL Test\n", vrf->vrf_name, dest_ip_addr);
 
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v4(&prefix, htonl(ip_hdr->dst_ip), 32);
@@ -189,7 +173,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                 case MTCP:
                     /* TODO: promote_pkt_to_layer4 needs old Interface type */
-                    promote_pkt_to_layer4(node, (Interface *)NULL, 
+                    promote_pkt_to_layer4(dp_ctx->ctx_pvt_data, 
+                            NULL,
 							pkt_block, ip_hdr->protocol);
                     return;
 
@@ -200,7 +185,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                 case UDP_PROTO:
                         /* TODO: promote_pkt_to_layer4 needs old Interface type */
                         promote_pkt_to_layer4 (
-                                              node, (Interface *)NULL,
+                                              dp_ctx->ctx_pvt_data,
+                                             (Interface *)NULL,
 										      pkt_block,
                                               UDP_PROTO);
                     return;
@@ -325,7 +311,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     next_hop_ip = nh->fwd_info->nh_addr.u.v4_addr;
    
-    tcp_dump_l3_fwding_logger(vrf, 
+    tcp_dump_l3_fwding_logger(dp_ctx, vrf, 
         nh->fwd_info->oif->if_name, nh_str);
 
     nf_result = nf_invoke_netfilter_hook(
@@ -367,7 +353,6 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
 
     pkt_size_t pkt_size;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
-    node_t *node = vrf->node;
 
     assert(pkt_block_verify_pkt (pkt_block, ETH_HDR));
 
@@ -546,7 +531,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 #endif 
     next_hop_ip = nh->fwd_info->nh_addr.u.v4_addr;
 
-    tcp_dump_l3_fwding_logger(vrf, 
+    tcp_dump_l3_fwding_logger(dp_ctx, vrf, 
         nh->fwd_info->oif->if_name, nh_str);
 
     int8_t nf_result = nf_invoke_netfilter_hook(

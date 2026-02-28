@@ -60,8 +60,6 @@ srv6_ipv6_forward (dp_ctx_t *dp_ctx,
                    pkt_block_t *pkt_block, 
                    fib_nh_t *nexthop) {
 
-    node_t *node = vrf->node;
-
     if (nexthop) {
 
         //if (nexthop->flags & BINDING_SID) {

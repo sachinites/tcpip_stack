@@ -688,8 +688,9 @@ dp_simulate_wire_connection (node_t *node1, Interface *intf1,
     dp_intf_t *dp_intf1 = dp_look_up_interface(node1->dp_ctx->dp_intf_ht, intf1->ifindex);
     dp_intf_t *dp_intf2 = dp_look_up_interface(node2->dp_ctx->dp_intf_ht, intf2->ifindex);
 
-    dp_intf1->att_node = node1;
+    dp_intf1->dp_ctx = node1->dp_ctx;
     dp_intf1->nbr_intf = dp_intf2;
-    dp_intf2->att_node = node2;
+
+    dp_intf2->dp_ctx = node2->dp_ctx;
     dp_intf2->nbr_intf = dp_intf1;
 }

@@ -12,6 +12,7 @@
 #include "../../FIB/fib_nh.h"
 #include "../../FIB/fib.h"
 #include "../../datapath/Interface/dp_intf.h"
+#include "../../datapath/Interface/dp_intf_log.h"
 #include "../../datapath/Vrfs/dp_vrf.h"
 #include "../SegmentRouting/SRv6/dp/srv6-endpoint.h"
 
@@ -31,7 +32,6 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
                 pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
-    node_t *node = vrf->node;
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
@@ -59,7 +59,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
     tracer (dp_ctx->dptr, DL3FWD, "Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
         pkt_block_str(pkt_block), oif->if_name , "::");
 
-    tcp_dump_l3_fwding_logger(vrf,  (c_string)oif->if_name, 0);
+    tcp_dump_l3_fwding_logger(dp_ctx, vrf,  (c_string)oif->if_name, 0);
 
     demote_pkt_to_layer2(
             dp_ctx,
@@ -80,7 +80,6 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
     char dst_addr_str[48];
     char route_addr_str[48];
-    node_t *node = vrf->node;
 
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 

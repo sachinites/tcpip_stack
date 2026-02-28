@@ -5,8 +5,10 @@
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include "tcp_public.h"
+#include "datapath/Interface/dp_intf.h"
 
 extern graph_t *topo;
+
 static int
 tcp_dump_gre_hdr(char *buff, 
                         gre_hdr_t *gre_hdr,
@@ -383,7 +385,7 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
 }
 
 
-static void 
+void 
 tcp_write_data(int sock_fd, 
                FILE *log_file1, FILE *log_file2, 
                char *out_buff, uint32_t buff_size){
@@ -426,7 +428,7 @@ tcp_write_data(int sock_fd,
 }
 
 
-static void
+void
 tcp_dump(int sock_fd, 
          FILE *log_file1,
          FILE *log_file2,
@@ -476,202 +478,6 @@ tcp_dump(int sock_fd,
 }
 
 void
-tcp_dump_recv_logger(
-              node_t *node,
-              Interface *intf,
-              pkt_block_t *pkt_block,
-              hdr_type_t hdr_type){
-
-    int rc = 0 ;
-    acl_action_t acl_action;
-
-    if(node->dp_ctx->log.all || 
-        node->dp_ctx->log.recv ||
-        intf->log_info.recv){
-
-        int sock_fd = (topo->gstdout && (node->dp_ctx->log.is_stdout || 
-                        intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;
-        
-        FILE *log_file1 = (node->dp_ctx->log.all || node->dp_ctx->log.recv) ?
-                node->dp_ctx->log.log_file : NULL;
-        FILE *log_file2 = (intf->log_info.recv || intf->log_info.all) ?
-                intf->log_info.log_file : NULL;
-
-        if (log_file1 && 
-             node->dp_ctx->log.acc_lst_filter ) {
-
-            acl_action = access_list_evaluate_pkt_block (node->dp_ctx->log.acc_lst_filter, pkt_block);
-           if (acl_action == ACL_DENY) log_file1 = NULL;
-        }
-
-        if (log_file2 && 
-             intf->log_info.acc_lst_filter ) {
-
-            acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
-           if (acl_action == ACL_DENY) log_file2 = NULL;
-        }
-
-        if(sock_fd == -1 && 
-            !log_file1 && !log_file2){
-            return;
-        }
-   
-        rc = sprintf (TCP_GET_NODE_RECV_LOG_BUFFER(node), 
-                        "\n%s(%s) <-- \n", 
-                        node->node_name, intf->if_name.c_str());
-
-        tcp_dump(sock_fd,          /*Write the log to the FD*/
-                 log_file1,                /*Write the log to the node's log file*/
-                 log_file2,                /*Write the log to the interface log file*/
-                 pkt_block,               /*Pkt and Pkt size to be written in log file*/
-                 hdr_type,                /*Starting hdr type of the pkt*/
-                 TCP_GET_NODE_RECV_LOG_BUFFER(node),    /*Buffer into which the formatted output 
-                                              is to be written*/
-                 rc,                       /*write OFFset*/
-                 TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
-    }
-}
-
-void
-tcp_dump_l3_fwding_logger(dp_vrf_t *vrf,
-            c_string oif_name, c_string gw_ip){
-
-    int rc = 0;
-    node_t *node = vrf->node;
-    
-    if(!node->dp_ctx->log.l3_fwd)
-        return;
-
-    int sock_fd = topo->gstdout && node->dp_ctx->log.is_stdout ?
-                    STDOUT_FILENO : -1 ;
-    FILE *log_file1 = (node->dp_ctx->log.all || node->dp_ctx->log.l3_fwd) ?
-             node->dp_ctx->log.log_file : NULL;
-     
-    if(sock_fd == -1 && !log_file1)
-        return;
-
-    tcp_init_send_logging_buffer(node);
-    
-    rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node), 
-            "L3 Fwd : (%s)%s --> %s\n", 
-            node->node_name, oif_name, gw_ip);
-
-    tcp_write_data(sock_fd, log_file1, NULL, 
-        TCP_GET_NODE_SEND_LOG_BUFFER(node), rc); 
-}
-
-void
-tcp_dump_send_logger(node_t *node, 
-              Interface *intf,
-              pkt_block_t *pkt_block,
-              hdr_type_t hdr_type){
-
-    int rc = 0;
-    acl_action_t acl_action;
-
-    if(node->dp_ctx->log.all || 
-         node->dp_ctx->log.send ||
-         intf->log_info.send){
-
-        int sock_fd = (topo->gstdout && (node->dp_ctx->log.is_stdout || 
-                        intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;
-
-        FILE *log_file1 = (node->dp_ctx->log.all || node->dp_ctx->log.send) ?
-                node->dp_ctx->log.log_file : NULL;
-        FILE *log_file2 = (intf->log_info.send || intf->log_info.all) ? 
-                intf->log_info.log_file : NULL;
-
-        if (log_file1 && 
-             node->dp_ctx->log.acc_lst_filter ) {
-
-            acl_action = access_list_evaluate_pkt_block (node->dp_ctx->log.acc_lst_filter, pkt_block);
-           if (acl_action == ACL_DENY) log_file1 = NULL;
-        }
-
-        if (log_file2 && 
-             intf->log_info.acc_lst_filter ) {
-
-            acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
-           if (acl_action == ACL_DENY) log_file2 = NULL;
-        }
-
-        if(sock_fd == -1 && 
-            !log_file1 && !log_file2){
-            return;
-        }
-
-        tcp_init_send_logging_buffer(node);
-        
-        rc = sprintf(TCP_GET_NODE_SEND_LOG_BUFFER(node),
-                "\n%s(%s) --> \n", 
-                node->node_name, intf->if_name.c_str());
-
-        tcp_dump(sock_fd,                  /*Write the log to the FD*/
-                 log_file1,                /*Write the log to the node's log file*/
-                 log_file2,                /*Write the log to the interface log file*/
-                 pkt_block,            /*Pkt and Pkt size to be written in log file*/
-                 hdr_type,                 /*Starting hdr type of the pkt*/
-                 TCP_GET_NODE_SEND_LOG_BUFFER(node),    /*Buffer into which the formatted output is to be written*/
-                 rc,                       /*write OFFset*/
-                 TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
-    }
-}
-
-static FILE *
-initialize_node_log_file(node_t *node){
-
-    char file_name[64];
-
-    memset(file_name, 0, sizeof(file_name));
-    sprintf(file_name, "logs/%s.txt", node->node_name);
-
-    FILE *fptr = fopen(file_name, "w");
-
-    if(!fptr){
-        cprintf("Error : Could not open log file %s, errno = %d\n", 
-            file_name, errno);
-        return 0;
-    }
-
-    return fptr;
-}
-
-static FILE *
-initialize_interface_log_file(Interface *intf){
-
-    char file_name[64];
-
-    memset(file_name, 0, sizeof(file_name));
-
-    node_t *node = intf->att_node;
-
-    sprintf(file_name, "logs/%s-%s.txt", node->node_name, intf->if_name.c_str());
-
-    FILE *fptr = fopen(file_name, "w");
-
-    if(!fptr){
-        cprintf("Error : Could not open log file %s, errno = %d\n", 
-            file_name, errno);
-        return 0;
-    }
-
-    return fptr;
-}
-
-void
-tcp_ip_init_node_log_info(node_t *node){
-
-    log_t *log_info     = &node->dp_ctx->log;
-    log_info->all       = false;
-    log_info->recv      = false;
-    log_info->send      = false;
-    log_info->is_stdout = false;
-    log_info->l3_fwd    = false;
-    log_info->log_file  = initialize_node_log_file(node); 
-    log_info->acc_lst_filter = NULL;
-}
-
-void
 tcp_ip_set_all_log_info_params(log_t *log_info, bool status){
 
     log_info->all    = status;
@@ -680,37 +486,6 @@ tcp_ip_set_all_log_info_params(log_t *log_info, bool status){
     log_info->l3_fwd = status;
     /*User should explicitely enabled stdout*/
     //log_info->is_stdout = status;
-}
-
-
-void
-tcp_ip_init_intf_log_info(Interface *intf){
-    
-    log_t *log_info     = &intf->log_info;
-    log_info->all       = false;
-    log_info->recv      = false;
-    log_info->send      = false;
-    log_info->is_stdout = false;
-    log_info->log_file  = initialize_interface_log_file(intf);
-    log_info->acc_lst_filter = NULL;
-}
-
-void
-tcp_ip_de_init_intf_log_info(Interface *intf){
-    
-    log_t *log_info     = &intf->log_info;
-    log_info->all       = false;
-    log_info->recv      = false;
-    log_info->send      = false;
-    log_info->is_stdout = false;
-    if (log_info->log_file) {
-        close (log_info->log_file);
-        log_info->log_file = NULL;
-    }
-    if ( log_info->acc_lst_filter ) {
-        access_list_dereference(intf->att_node, log_info->acc_lst_filter);
-        log_info->acc_lst_filter = NULL;
-    }
 }
 
 static void display_expected_flag(param_t *param, Stack_t *tlv_stack){
@@ -1153,12 +928,6 @@ extern void tcp_ip_traceoptions_cli(param_t *node_name_param,
     }
 }
 
-void
-tcp_init_send_logging_buffer(node_t *node){
-
-    memset(TCP_GET_NODE_SEND_LOG_BUFFER(node), 0, TCP_PRINT_BUFFER_SIZE);
-}
-
 char tlb[TCP_LOG_BUFFER_LEN];
 
 void
@@ -1173,8 +942,8 @@ init_tcp_logging(node_t *node) {
 
 void 
 tcp_trace_internal(node_t *node,
-			   Interface *interface, 
-			   char *buff, const char *fn, int lineno) {
+			       dp_intf_t *interface, 
+			       char *buff, const char *fn, int lineno) {
 
 	byte lineno_str[16];
     return;
@@ -1188,7 +957,7 @@ tcp_trace_internal(node_t *node,
 		fwrite(":", sizeof(char), 1, NODE_LOG_FILE(node));
 	}
 	if (interface) {
-		fwrite(interface->if_name.c_str(), sizeof(char), strlen((const char *)interface->if_name.c_str()), NODE_LOG_FILE(node));
+		fwrite(interface->if_name, sizeof(char), strlen((const char *)interface->if_name), NODE_LOG_FILE(node));
 		fwrite(":", sizeof(char), 1, NODE_LOG_FILE(node));
 	}
     fwrite(buff, sizeof(char), strlen(buff), NODE_LOG_FILE(node));

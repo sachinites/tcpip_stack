@@ -199,7 +199,7 @@ access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 
     acl_entry = (acl_entry_t *)app_data;
 
-    mnode->data = XCALLOC(0, 1, glthread_t);
+    mnode->data = XCALLOC2(0, 1, glthread_t);
 
     list_head = (glthread_t *)mnode->data;
 

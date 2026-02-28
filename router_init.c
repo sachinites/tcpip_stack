@@ -89,9 +89,6 @@ insert_link_between_two_nodes(node_t *node1,
     interface_assign_mac_address(link->Intf1.get());
     interface_assign_mac_address(link->Intf2.get());
 
-    tcp_ip_init_intf_log_info(link->Intf1.get());
-    tcp_ip_init_intf_log_info(link->Intf2.get());
-
     /* Data path Updates*/
     cp2dp_interface_create(node1, link->Intf1.get());
     cp2dp_interface_create(node2, link->Intf2.get());
@@ -126,6 +123,39 @@ extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
 void dp_init (node_t *node);
 extern void dp_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
+
+
+static FILE *
+initialize_node_log_file(node_t *node){
+
+    char file_name[64];
+
+    memset(file_name, 0, sizeof(file_name));
+    sprintf(file_name, "logs/%s.txt", node->node_name);
+
+    FILE *fptr = fopen(file_name, "w");
+
+    if(!fptr){
+        cprintf("Error : Could not open log file %s, errno = %d\n", 
+            file_name, errno);
+        return 0;
+    }
+
+    return fptr;
+}
+
+static void
+tcp_ip_init_node_log_info(node_t *node){
+
+    log_t *log_info     = &node->dp_ctx->log;
+    log_info->all       = false;
+    log_info->recv      = false;
+    log_info->send      = false;
+    log_info->is_stdout = false;
+    log_info->l3_fwd    = false;
+    log_info->log_file  = initialize_node_log_file(node); 
+    log_info->acc_lst_filter = NULL;
+}
 
 node_t *
 Router_Create(graph_t *graph, const c_string node_name){

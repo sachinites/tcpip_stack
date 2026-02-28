@@ -45,7 +45,7 @@ ipv6_layer3_forward_nexthop(
 /* Promote packet to Layer 4 for upper layer protocol processing */
 extern void
 promote_pkt_to_layer4(
-    node_t *node,
+    void *node,
     Interface *recv_intf,
     pkt_block_t *pkt_block,
     int L4_protocol_number);
@@ -344,12 +344,12 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
             
         case TCP_HDR:
             /* Promote to Layer 4 TCP processing */
-            promote_pkt_to_layer4(vrf->node, NULL, pkt_block, TCP_HDR);
+            promote_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, TCP_HDR);
             return;
             
         case UDP_HDR:
             /* Promote to Layer 4 UDP processing */
-            promote_pkt_to_layer4(vrf->node, NULL, pkt_block, UDP_HDR);
+            promote_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, UDP_HDR);
             return;
             
         case GRE_HDR:
@@ -359,13 +359,13 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
         case SRH_HDR:
             /* SRH received at non-SRv6 capable node - drop */
             cprintf("%s : SRv6 incapable node received SRH header packet, dropped\n",
-                    vrf->node->node_name);
+                    dp_ctx->ctx_name);
             break;
             
         default:
             /* Unknown or unsupported protocol */
             cprintf("%s : SRv6 payload handler missing for protocol type\n", 
-                    vrf->node->node_name);
+                    dp_ctx->ctx_name);
             break;
     }
 }
@@ -739,7 +739,6 @@ Srv6_apply_penultimate_processing(
         srh_hdr_t *srh)
 {
     uint8_t flavor = 0;
-    node_t *node = vrf->node;
 
     assert(srh && srh->segments_left == 1);
 
@@ -888,8 +887,6 @@ Process_Srv6_Packet(
     /* SRv6 only processes IPv6 packets */
     /* Non-IPv6 packets should be handled by their respective modules */
     assert(ipv6_hdr);
-
-    node_t *node = vrf->node;
 
     /*
      * At this point, we have hit an SRv6 route with an endpoint function.
@@ -1278,7 +1275,6 @@ Srv6_apply_endpoint_fn(
     srh_hdr_t *srh, 
     fib_nh_t *nexthop)
 { 
-    node_t *node = vrf->node;
 
     /* Extract endpoint function and flavor from nexthop configuration */
     Srv6_endpcode_t CompositeEndfn = nexthop->fwd_info->u.v6_fwd.endfn;

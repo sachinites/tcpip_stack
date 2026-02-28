@@ -12,6 +12,8 @@ typedef struct nf_hook_db_ nf_hook_db_t;
 
 extern void dp_init_intf_hashtable (hashtable_t **ht);
 extern void dp_init_vrf_hashtable (hashtable_t **ht);
+extern void dp_init_vlan_intf_hashtable (hashtable_t **ht);
+
 extern int debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits);
 
 extern void dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis, 
@@ -76,6 +78,8 @@ dp_ctx_init (dp_ctx_t **_dp_ctx, void *arg, char *ctx_name) {
 
     /* Initialize VRF Hashtable*/
     dp_init_vrf_hashtable (&dp_ctx->dp_vrf_ht);    
+
+    dp_init_vlan_intf_hashtable (&dp_ctx->dp_vlan_intf_ht);
         
     /* Initialize Vlan - Vni DP hashtable*/
     dp_ctx->vlan_vni_ht.store(nullptr);
@@ -110,4 +114,7 @@ dp_ctx_init (dp_ctx_t **_dp_ctx, void *arg, char *ctx_name) {
     dp_ctx->dp_host_path_intf   = NULL;
     dp_ctx->dp_srv6_end_intf    = NULL;
     dp_ctx->dp_nve_intf         = NULL;
+
+    dp_ctx->send_log_buffer = (unsigned char *)calloc (1, TCP_PRINT_BUFFER_SIZE);
+    dp_ctx->recv_log_buffer = (unsigned char *)calloc (1, TCP_PRINT_BUFFER_SIZE);
 }
