@@ -67,8 +67,3 @@ thread_using_object_done (ref_count_t ref_count) {
   return  ref_count_dec (ref_count);
 }
 
-void
-ref_count_mem_init () {
-
-    MM_REG_STRUCT(0, struct ref_count_);
-}

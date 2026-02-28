@@ -33,6 +33,7 @@
 #include "../RTM/rtm_nb_integ.h"
 #include "../common/cmn_prefix.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
+#include "../pkt_block.h"
 
 
 bool LinuxRtr = false;

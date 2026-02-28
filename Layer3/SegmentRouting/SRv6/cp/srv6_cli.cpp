@@ -14,6 +14,7 @@
 #include "srv6_rtr.h"
 #include "srv6_cmds.h"
 #include "srv6_rtm.h"
+#include "../../../../mtrie/mtrie.h"
 
 extern graph_t *topo;
 

@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include "../../common/cmn_prefix.h"
 
-typedef struct node_ node_t;
 typedef struct fib_ fib_t;
 typedef struct hashtable hashtable_t;
 typedef struct arp_table_ arp_table_t;
@@ -14,7 +13,6 @@ typedef struct dp_ctx_ dp_ctx_t;
 
 typedef struct dp_vrf_ {
 
-    node_t *node;
     /* VRF id*/
     uint8_t vrf_id;
     /* VRF name, for logging purpose*/

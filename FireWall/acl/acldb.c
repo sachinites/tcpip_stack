@@ -2852,13 +2852,3 @@ acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry) {
     return count;
 }
 
-void 
-acl_mem_init() {
-
-    MM_REG_STRUCT(0, acl_entry_t);
-    MM_REG_STRUCT(0, access_list_t);
-    MM_REG_STRUCT(0, acl_tcam_t);
-    MM_REG_STRUCT(0, mnode_acl_list_node_t);
-    MM_REG_STRUCT(0, acl_tcam_iterator_t);
-    MM_REG_STRUCT(0, access_list_processing_info_t);
-}

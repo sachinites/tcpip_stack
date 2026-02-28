@@ -193,10 +193,3 @@ nfc_invoke_notif_chain(
 	}ITERATE_GLTHREAD_END(&nfc->notif_chain_head, curr);
 	return count;
 }
-
-void
-nfc_mem_init () {
-
-	MM_REG_STRUCT(0, notif_chain_t);
-	MM_REG_STRUCT(0, notif_chain_elem_t);
-}

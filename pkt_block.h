@@ -65,9 +65,6 @@ struct pkt_block_ {
     bool no_modify;
 } ;
 
-void
-pkt_block_mem_init ();
-
 hdr_type_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block);
 

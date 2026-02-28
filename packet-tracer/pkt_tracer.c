@@ -121,8 +121,3 @@ pkt_tracer_build_cli_tree(param_t *param) {
 
 }
 
-void
-pkt_tracer_mem_init () {
-
-    MM_REG_STRUCT(0, pkt_tracer_t);
-}

@@ -9,7 +9,6 @@ ISIS_OBJS=isis_adjacency.o \
 		  isis_flood.o \
 		  isis_lspdb.o \
 		  isis_spf.o \
-		  isis_mem_init.o \
 		  isis_intf_group.o \
 		  isis_layer2map.o \
 		  isis_ted.o \
@@ -51,9 +50,6 @@ isis_lspdb.o:isis_lspdb.c
 
 isis_spf.o:isis_spf.c
 	${CC} ${CFLAGS} -c -fPIC  -I . isis_spf.c -o isis_spf.o
-
-isis_mem_init.o:isis_mem_init.c
-	${CC} ${CFLAGS} -c -fPIC  -I . isis_mem_init.c -o isis_mem_init.o
 
 isis_intf_group.o:isis_intf_group.c
 	${CC} ${CFLAGS} -c -fPIC  -I . isis_intf_group.c -o isis_intf_group.o

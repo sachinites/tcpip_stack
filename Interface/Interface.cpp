@@ -71,189 +71,6 @@ linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block);
 
 extern bool LinuxRtr;
 
-/* A fn to send the pkt as it is (unchanged) out on the interface */
-static int
-send_xmit_out (Interface *interface, pkt_block_t *pkt_block)
-{
-    pkt_size_t pkt_size;
-    ev_dis_pkt_data_t *ev_dis_pkt_data;
-    node_t *sending_node = interface->att_node;
-
-    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    if (!(interface->is_up))
-    {
-        interface->xmit_pkt_dropped++;
-        return 0;
-    }
-
-    if (pkt_size > MAX_PACKET_BUFFER_SIZE)
-    {
-        cprintf("Error : Node :%s, Pkt Size exceeded\n", sending_node->node_name);
-        return -1;
-    }
-
-        /* Access List Evaluation at Layer 2 Exit point*/
-    if (access_list_evaluate_ethernet_packet(
-            interface->att_node, interface,
-            pkt_block, false) == ACL_DENY)
-    {
-        return -1;
-    }
-
-    if (LinuxRtr) {
-
-        #if 0
-        tracer (sending_dp_ctx->dptr, DFLOW_DET, 
-                "Pkt : %s Wired out of interface %s\n", 
-                pkt_block_str (pkt_block),
-                interface->if_name.c_str());        
-        #endif 
-
-        tcp_dump_send_logger(sending_node, interface,
-                         pkt_block,
-                         pkt_block_get_starting_hdr(pkt_block));
-
-        return linux_send_xmit_out (interface, pkt_block);
-    }
-
-    node_t *nbr_node = interface->GetNbrNode();
-
-    if (!nbr_node) return -1;
-
-    #if 0
-    tracer (sending_dp_ctx->dptr, DFLOW_DET, "Pkt : %s Wired out of interface %s\n", 
-        pkt_block_str (pkt_block), interface->if_name.c_str());
-    #endif 
-
-    Interface *other_interface = interface->GetOtherInterface();
-
-    ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc (1, sizeof (ev_dis_pkt_data_t));
-
-    ev_dis_pkt_data->ifindex = other_interface->ifindex;
-    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
-    memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
-    ev_dis_pkt_data->pkt_size = pkt_size;
-
-    tcp_dump_send_logger(sending_node, interface,
-                         pkt_block, pkt_block_get_starting_hdr(pkt_block));
-
-    #if 0
-    if (!pkt_q_enqueue(EV_DP(nbr_node), DP_PKT_Q(nbr_node),
-                       (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
-    {
-        cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", nbr_node->node_name);
-
-        tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
-        free (ev_dis_pkt_data);
-    }
-    #endif
-
-    interface->pkt_sent++;
-    return pkt_size;
-}
-
-static int
-SendPacketOutRaw(PhysicalInterface *Intf, pkt_block_t *pkt_block)
-{
-
-    return send_xmit_out(Intf, pkt_block);
-}
-
-static int
-SendPacketOutLAN(PhysicalInterface *Intf, pkt_block_t *pkt_block)
-{
-
-    pkt_size_t pkt_size;
-
-    IntfL2Mode intf_l2_mode = Intf->GetL2Mode();
-
-    if (intf_l2_mode == LAN_MODE_NONE)
-    {
-        return 0;
-    }
-
-    ethernet_hdr_t *ethernet_hdr =
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(ethernet_hdr);
-
-    switch (intf_l2_mode)
-    {
-
-    case LAN_ACCESS_MODE:
-    {
-        vlan_id_t intf_vlan_id = Intf->GetVlanId();
-
-        /*Case 1 : If interface is operating in ACCESS mode, but
-         not in any vlan, and pkt is also untagged, then simply
-         forward it. This is default Vlan unaware case*/
-        if (!intf_vlan_id && !vlan_8021q_hdr)
-        {
-            return send_xmit_out(Intf, pkt_block);
-        }
-
-        /*Case 2 : if oif is VLAN aware, but pkt is untagged, simply
-         drop the packet. This is not an error, it is a L2 switching
-         behavior*/
-        if (intf_vlan_id && !vlan_8021q_hdr)
-        {
-            return 0;
-        }
-
-        /*Case 3 : If oif is VLAN AWARE, and pkt is also tagged,
-          forward the frame only if vlan IDs matches after untagging
-          the frame*/
-        if (vlan_8021q_hdr &&
-            (intf_vlan_id == GET_802_1Q_VLAN_ID(vlan_8021q_hdr)))
-        {
-
-            untag_pkt_with_vlan_id(pkt_block);
-            return send_xmit_out(Intf, pkt_block);
-        }
-
-        /* case 4 : if vlan id in pkt do not matches with the vlan id of
-            the interface*/
-        if (vlan_8021q_hdr &&
-            (intf_vlan_id != GET_802_1Q_VLAN_ID(vlan_8021q_hdr)))
-        {
-            return 0;
-        }
-
-        /*case 5 : if oif is vlan unaware but pkt is vlan tagged,
-         simply drop the packet.*/
-        if (!intf_vlan_id && vlan_8021q_hdr)
-        {
-            return 0;
-        }
-    }
-    break;
-    case LAN_TRUNK_MODE:
-    {
-        vlan_id_t pkt_vlan_id = 0;
-
-        if (vlan_8021q_hdr)
-        {
-            pkt_vlan_id = GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
-        }
-
-        if (pkt_vlan_id &&
-            Intf->IsVlanTrunked(pkt_vlan_id))
-        {
-            return send_xmit_out(Intf, pkt_block);
-        }
-
-        /*Do not send the pkt in any other case*/
-        return 0;
-    }
-    break;
-    case LAN_MODE_NONE:
-        break;
-    default:;
-    }
-    return 0;
-}
-
 Interface::Interface(std::string if_name, InterfaceType_t iftype)
 {
     this->if_name = std::move(if_name);
@@ -384,10 +201,6 @@ Interface::GetOtherInterface()
     return this->link->Intf1.get() == this ? this->link->Intf2.get() : this->link->Intf1.get();
 }
 
-int Interface::SendPacketOut(pkt_block_t *pkt_block)
-{
-    return -1;
-}
 
 void Interface::SetMacAddr(mac_addr_t *mac_add)
 {
@@ -773,18 +586,6 @@ bool PhysicalInterface::GetSwitchport()
     return this->switchport;
 }
 
-int PhysicalInterface::SendPacketOut(pkt_block_t *pkt_block)
-{
-
-    if (this->switchport)
-    {
-        return SendPacketOutLAN(this, pkt_block);
-    }
-    else
-    {
-        return SendPacketOutRaw(this, pkt_block);
-    }
-}
 
 IntfL2Mode
 PhysicalInterface::GetL2Mode()
@@ -1084,48 +885,6 @@ RmacInterface::~RmacInterface() {}
 void RmacInterface::PrintInterfaceDetails () {}
 void RmacInterface::InterfaceReleaseAllResources() {}
 
-/* For Rmac Interface, pks send out means, handover the pkt to
-    Layer 3 for routing */
-int RmacInterface::SendPacketOut(pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size;
-
-    assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
-
-    ethernet_hdr_t *eth_hdr = 
-        ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    /* Rmac interface never recvs untagged pkt */
-    assert (is_pkt_vlan_tagged (eth_hdr));
-
-    /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
-    /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
-    
-    #if 0
-    if ( is_arp_pkt_for_svi_interface (this->att_node, pkt_block) ) {
-            svi_interface_intercept_arp_pkt (this->att_node, pkt_block);
-            return 0;
-    }
-    #endif
-
-    /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
-
-    if (!mac_address_compare ((char *)NODE_RMAC(this->att_node)->mac, 
-          (char *)eth_hdr->dst_mac.mac) != 0) {
-
-        this->recvd_pkt_dropped++;
-        return 0;
-    }
-
-    untag_pkt_with_vlan_id(pkt_block);
-    eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    //promote_pkt_to_layer3 (0, 
-      //      dynamic_cast<Interface*>(this),  pkt_block, eth_hdr->type);
-    
-    return 0;
-}
-
 bool RmacInterface::IsCrossReferenced() {
 
     return this->GetSharedPtr().use_count() > (RMAC_DEF_REFCOUNT + 1);
@@ -1142,32 +901,6 @@ VlanFloodInterface::VlanFloodInterface()
     : VirtualInterface(std::string(VLAN_FLOOD_INTF_NAME) , INTF_TYPE_VLAN_FLOOD) { }
 
 VlanFloodInterface::~VlanFloodInterface() {}
-
-/* Any packet sent out of this interface should be flooded in the vlan.
-    Extract vlan id from the pkt */
-int 
-VlanFloodInterface::SendPacketOut(pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size;
-    ethernet_hdr_t *ethernet_hdr = 
-        ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(ethernet_hdr);
-
-    if (!vlan_8021q_hdr) {
-        this->recvd_pkt_dropped++;
-        return 0;
-    }
-
-    vlan_id_t vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
-
-    VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp (this->att_node, vlan_id);
-
-    /*vlan_intf->VlanPacketFlood (pkt_block, 
-            dynamic_cast<Interface *>(pkt_block->ingress_intf.get()));*/
-
-    return 0;
-}
 
 bool VlanFloodInterface::IsCrossReferenced() {
 
@@ -1389,48 +1122,6 @@ void GRETunnelInterface::PrintInterfaceDetails()
     this->VirtualInterface::PrintInterfaceDetails();
 }
 
-int 
-GRETunnelInterface::SendPacketOut(pkt_block_t *pkt_block)
-{
-    pkt_size_t pkt_size;
-    bool no_modify = false;
-    node_t *node = this->att_node;
-    pkt_block_t *pkt_block_copy;
-
-    if (!this->IsGRETunnelActive()) {
-        return 0;
-    }
-    
-    if (pkt_block->no_modify) {
-        no_modify = pkt_block->no_modify;
-        pkt_block_copy = pkt_block_dup (pkt_block);
-        pkt_block = pkt_block_copy;
-    }
-
-    //gre_encasulate (this->att_node, pkt_block);
-    //pkt_block_set_exclude_oif (pkt_block, this);
-    pkt_block_get_pkt (pkt_block, &pkt_size);
-
-    /* Now attach outer IP Hdr and send the pkt*/
-    assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
-    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
-    ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr (pkt_block);
-    initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(node)));
-    ip_hdr->dst_ip = htonl(this->tunnel_dst_ip);
-    ip_hdr->protocol = GRE_PROTO;
-    ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
-    //np_tcp_ip_send_ip_data (node, pkt_block);
-    this->pkt_sent++;
-    pkt_block_get_pkt (pkt_block, &pkt_size);
-
-    if (no_modify) {
-        pkt_block_dereference(pkt_block);
-    }
-
-    return pkt_size;
-}
-
 void 
 GRETunnelInterface::InterfaceReleaseAllResources() {
 
@@ -1476,40 +1167,6 @@ VirtualPort::PrintInterfaceDetails()
 
     this->VirtualInterface::PrintInterfaceDetails();
 }
-
-int
-VirtualPort::SendPacketOut(pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size;
-
-    if (!this->olay_tunnel_intf) {
-        this->xmit_pkt_dropped++;
-        return 0;
-    }
-
-    if (this->IsInterfaceUp(0) == false) {
-        this->xmit_pkt_dropped++;
-        return 0;
-    }
-    
-    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_HDR);
-
-    ethernet_hdr_t *ethernet_hdr = 
-        ( ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    vlan_8021q_hdr_t *vlan_8021q_hdr = 
-        is_pkt_vlan_tagged(ethernet_hdr);
-    
-    assert (vlan_8021q_hdr );
-
-    /* If vport is in trunk mode, then check if vlan id is part of trunk*/
-    if (!this->IsVlanTrunked (GET_802_1Q_VLAN_ID(vlan_8021q_hdr))) return 0;
-
-    this->pkt_sent++;
-    
-    return this->olay_tunnel_intf->SendPacketOut(pkt_block);
-}
-
 
 bool 
 VirtualPort::IsInterfaceUp(vlan_id_t vlan_id) 
@@ -1779,14 +1436,6 @@ VlanInterface::VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id) {
 }
 
 
-int 
-VlanInterface::SendPacketOut(pkt_block_t *pkt_block) {
-
-    tag_pkt_with_vlan_id(pkt_block, this->GetVlanId());
-    VlanPacketFlood (pkt_block, NULL);
-    return 0;
-}
-
 bool 
 VlanInterface::IsInterfaceUp(vlan_id_t vlan_id) {
 
@@ -1804,33 +1453,6 @@ bool
 VlanInterface::IsSVI () {
 
     return ( this->ip_addr && this->mask ) ;
-}
-
-void 
-VlanInterface::VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf) 
-{
-    Interface *member_intf;
-    pkt_block_t *dup_pkt_block;
-
-    dup_pkt_block = pkt_block_dup(pkt_block);
-
-    untag_pkt_with_vlan_id(dup_pkt_block);
-
-   ITERATE_VLAN_MEMBER_PORTS_ACCESS_BEGIN(this, member_intf)
-   {
-      if (member_intf == exempt_intf) continue;
-       send_xmit_out(member_intf, dup_pkt_block);
-   }
-   ITERATE_VLAN_MEMBER_PORTS_ACCESS_END;
-
-   pkt_block_dereference(dup_pkt_block);
-
-   ITERATE_VLAN_MEMBER_PORTS_TRUNK_BEGIN(this, member_intf)
-   {
-        if (member_intf == exempt_intf) continue;
-       send_xmit_out(member_intf, pkt_block);
-    } 
-    ITERATE_VLAN_MEMBER_PORTS_TRUNK_END;       
 }
 
 /* VNI Management Methods */
@@ -2087,51 +1709,6 @@ NVEInterface::InterfaceReleaseAllResources() {
     this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
-int 
-NVEInterface::SendPacketOut(pkt_block_t *pkt_block) {
-    
-    pkt_size_t pkt_size;
-    char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
-    char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
-    
-    if (!this->is_up) {
-        //tracer (this->att_dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
-        //    "VxLAN Encapsulation : Error : NVE Interface %s is down\n", this->if_name.c_str());
-        this->xmit_pkt_dropped++;
-        return -1;
-    }
-
-    if (!pkt_block->encap_data) {
-        tracer (this->att_node->dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
-            "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
-        this->xmit_pkt_dropped++;
-        return -1;
-    }
-
-    //vxlan_encapsulate (this->att_node, pkt_block);
-
- /* Now attach outer IP Hdr and send the pkt*/
-    assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
-    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
-    ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
-    initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(this->att_node)));
-    ip_hdr->dst_ip = htonl(pkt_block->encap_data->u.vxlan.remote_vtep_ip);
-    ip_hdr->protocol = UDP_PROTO;
-    ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
-
-#if 0
-    tracer (this->att_node->dp_ctx->dptr, DTUNNEL | DFLOW, 
-        "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
-        tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->src_ip), ipv4_addr_str1),
-        tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
-        ip_hdr->protocol );
-#endif
-    //np_tcp_ip_send_ip_data (this->att_node, pkt_block);
-    this->pkt_sent++;
-    return 0;
-}
-
 bool 
 NVEInterface::AddMemberVni(uint32_t vni) {
     
@@ -2316,13 +1893,6 @@ HostPathInterface::HostPathInterface() :
 }
 
 HostPathInterface::~HostPathInterface() {}
-
-/* Trap the pkt to tcp stack upper layers */
-int
-HostPathInterface::SendPacketOut(pkt_block_t *pkt_block) {
-
-    return 0;
-}
 
 bool
 HostPathInterface::IsCrossReferenced() {

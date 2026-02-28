@@ -5,7 +5,6 @@ TARGET:${TARGET_LIB}
 OBJS=cp/srv6_cli.o \
 			cp/srv6_api.o \
 			cp/srv6_rtm.o \
-			cp/srv6_mem_init.o \
 			cp/srv6_show.o \
 			cp/srv6_sid_pool.o \
 			common/srv6_const.o \
@@ -22,9 +21,6 @@ cp/srv6_api.o:cp/srv6_api.cpp
 
 cp/srv6_rtm.o:cp/srv6_rtm.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_rtm.cpp -o cp/srv6_rtm.o
-
-cp/srv6_mem_init.o:cp/srv6_mem_init.cpp
-	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_mem_init.cpp -o cp/srv6_mem_init.o
 
 cp/srv6_sid_pool.o:cp/srv6_sid_pool.cpp
 	${CC} ${CFLAGS} -c -fPIC -I ../../../ cp/srv6_sid_pool.cpp -o cp/srv6_sid_pool.o

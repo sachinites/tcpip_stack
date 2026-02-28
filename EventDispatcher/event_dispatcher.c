@@ -27,7 +27,6 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 static bool debug = false;
-void event_dispatcher_mem_init(); 
 
 /*
  * Get the highest numbered CPU core (typically high-performance cores)
@@ -534,11 +533,4 @@ event_dispatcher_should_suspend (event_dispatcher_t *ev_dis) {
 		return true;
 	}
 	return false;
-}
-
-void
-event_dispatcher_mem_init() {
-
-	MM_REG_STRUCT(0, task_t);
-	MM_REG_STRUCT(0, pkt_t);
 }

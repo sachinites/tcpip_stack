@@ -6,13 +6,6 @@
 #include "isis_tlv_struct.h"
 #include "isis_advt.h"
 
-extern void isis_ipv4_rt_notif_cbk (
-        event_dispatcher_t *ev_dis,
-        void *rt_notif_data, unsigned int arg_size);
-
-extern void
-isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) ;
-
 int
 isis_config_import_policy(node_t *node, const char *prefix_lst_name) {
 
@@ -55,7 +48,7 @@ isis_config_export_policy(node_t *node, const char *prefix_lst_name) {
     isis_node_info_t *node_info;
 
     prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(
-                                                &node->prefix_lst_db, prefix_lst_name);
+                                    &node->prefix_lst_db, prefix_lst_name);
     
     if (!prefix_lst) {
         cprintf ("Error : Prefix List Do Not Exist\n");
@@ -277,6 +270,7 @@ isis_prefix_list_change(node_t *node, prefix_list_t *prefix_list) {
     }
 }
 
+#if 0
 isis_adv_data_t *
 isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
 
@@ -525,3 +519,4 @@ void
                 ISIS_EXPOLICY, l3route->dest, l3route->mask);
     }
  }
+#endif

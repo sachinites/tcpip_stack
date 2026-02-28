@@ -777,16 +777,3 @@ ted_relocate_link_src (ted_db_t *ted_db,
                                      ted_src_fr_no_t dst_fr_no) {
 
 }
-
-void
-ted_mem_init() {
-
-    MM_REG_STRUCT(0, ted_intf_t);
-    MM_REG_STRUCT(0, ted_node_t);
-    MM_REG_STRUCT(0, ted_db_t);
-    MM_REG_STRUCT(0, ted_link_t);
-    MM_REG_STRUCT(0, ted_template_nbr_data_t);
-    MM_REG_STRUCT(0, ted_template_node_data_t);
-    MM_REG_STRUCT(0, ted_prefix_t);
-    MM_REG_STRUCT(0, ted_v6prefix_t);
-}

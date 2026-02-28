@@ -60,9 +60,11 @@ demote_pkt_to_layer2(
     pkt_block_t *pkt_block,
     hdr_type_t hdr_type);
 
-/* Get the active nexthop from an IPv6 route */
-extern fib_nh_t *
-l3_v6route_get_active_nexthop(ipv6_route_t *l3_route);
+extern void
+layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
+                    dp_vrf_t *vrf,
+					dp_intf_t *interface,
+					pkt_block_t *pkt_block);
 
 /* ============================================================================
  * Macro Definitions

@@ -34,6 +34,10 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <arpa/inet.h>
+
+#include "c-hashtable/hashtable.h"
+#include "c-hashtable/hashtable_itr.h"
+
 #include "Layer3/ipv6/ipv6_utils.h"
 #include "net.h"
 #include "utils.h"

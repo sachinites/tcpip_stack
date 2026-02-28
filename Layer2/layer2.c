@@ -57,8 +57,6 @@
 #define ARP_ENTRY_EXP_TIME	30
 
 
-extern void layer2_mem_init(); 
-
 extern void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
                           vlan_id_t vlan_id,
                           dp_intf_t *interface,
@@ -799,16 +797,3 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     return true;
 }
 
-void
-layer2_mem_init() {
-
-    MM_REG_STRUCT(0, arp_hdr_t);
-    MM_REG_STRUCT(0, ethernet_hdr_t);
-    MM_REG_STRUCT(0, arp_table_t);
-    MM_REG_STRUCT(0,  arp_pending_entry_t);
-    MM_REG_STRUCT(0,  arp_entry_t);
-    MM_REG_STRUCT(0,  vlan_8021q_hdr_t);
-    MM_REG_STRUCT(0,  vlan_ethernet_hdr_t);
-    MM_REG_STRUCT(0,  mac_table_t);
-    //MM_REG_STRUCT(0,  mac_table_entry_t);
-}

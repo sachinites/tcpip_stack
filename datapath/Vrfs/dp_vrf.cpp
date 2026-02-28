@@ -8,7 +8,6 @@
 #include "../../FIB/fib.h"
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../../net.h"
-#include "../../router_init.h"
 #include "../../Layer2/arp.h"
 
 /* Hash function for vrf_id (uint8_t) keys */

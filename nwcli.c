@@ -51,6 +51,7 @@
 #include "FIB/fib.h"
 #include "FIB/fib_show.h"
 #include "RTM/rtm_priv_api.h"
+#include "mtrie/mtrie.h"
 
 extern graph_t *topo;
 class Interface;
@@ -498,32 +499,6 @@ ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
     return 0;
 }
 
-
-typedef struct rt_table_ rt_table_t;
-extern void
-dump_rt_table(rt_table_t *rt_table);
-static int
-show_rt_handler(int cmdcode, Stack_t *tlv_stack,
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    tlv_struct_t *tlv = NULL;
-    
-    printw ("\n\r");
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    //dump_rt_table(NODE_RT_TABLE(node));
-    return 0;
-}
-
 static int
 show_rtm_route_cli_handler(int cmdcode,
                            Stack_t *tlv_stack,
@@ -709,8 +684,6 @@ show_fib_handler(int cmdcode,
     return 0;
 }
 
-extern void
-clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
 clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
@@ -877,6 +850,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
         case CMDCODE_CONF_RIB_IMPORT_POLICY:
         {
+            #if 0
             if (string_compare(rib_name, "inet.0", 6) == 0) {
                 rt_table_t *rt_table = /*NODE_DEF_VRF(node)->inet0*/0;
                 prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, prefix_lst_name);
@@ -907,6 +881,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                 cprintf ("Error : Routing Table Support is inet.0\n");
                 return -1;
             }
+            #endif
         }
         break;
         default:
@@ -1308,13 +1283,6 @@ nw_init_cli(){
                             libcli_set_param_cmd_code(&vni_id, CMDCODE_SHOW_NODE_MAC_VNI_TABLE);
                         }
                     }
-                 }
-                 {
-                    /*show node <node-name> rt*/
-                    static param_t rt;
-                    init_param(&rt, CMD, "rt", show_rt_handler, 0, INVALID, 0, "Dump L3 Routing table");
-                    libcli_register_param(&node_name, &rt);
-                    libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
                  }
 
                  {

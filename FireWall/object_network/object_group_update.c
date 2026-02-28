@@ -321,7 +321,3 @@ void object_group_update_referenced_acls(
     tcp_trace(node, 0, tlb);
 }
 
-void object_grp_update_mem_init()
-{
-    MM_REG_STRUCT(0, object_group_update_info_t);
-}

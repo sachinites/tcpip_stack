@@ -6,7 +6,6 @@
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
 #include "../cmdcodes.h"
-#include "../router_init.h"
 #include "../utils.h"
 #include "Interface/dp_intf.h"
 #include "Interface/dp_intf_store.h"
@@ -14,6 +13,7 @@
 #include "../c-hashtable/hashtable.h"
 #include "../c-hashtable/hashtable_itr.h"
 #include "../BitOp/bitmap.h"
+#include "../router_init.h"
 #include "dp_ctx.h"
 
 extern graph_t *topo;

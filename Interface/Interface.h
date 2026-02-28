@@ -142,7 +142,6 @@ class Interface {
         virtual InterfaceP GetSharedPtr () final;
         virtual void SetSharedPtr (InterfaceP intfP) final;
 
-        virtual int SendPacketOut(pkt_block_t *pkt_block);
         virtual void PrintInterfaceDetails ();
         virtual void SetMacAddr( mac_addr_t *mac_add);
         virtual mac_addr_t *GetMacAddr( );
@@ -224,7 +223,6 @@ class PhysicalInterface : public Interface {
         virtual IntfL2Mode GetL2Mode () final;
         virtual void SetL2Mode (IntfL2Mode l2_mode) final;
         virtual void PrintInterfaceDetails ();
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsSameSubnet (uint32_t ip_addr) final;
         virtual bool IntfConfigTransportSvc(std::string& trans_svc) final;
         virtual bool IntfUnConfigTransportSvc(std::string& trans_svc) final;
@@ -278,8 +276,6 @@ class VlanInterface : public VirtualInterface {
         virtual vlan_id_t GetVlanId() final;
         virtual bool IsSameSubnet(uint32_t ip_addr) final;
         static VlanInterface *VlanInterfaceLookUp(node_t *node, vlan_id_t vlan_id);
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
-        void VlanPacketFlood (pkt_block_t *pkt_block, Interface *exempt_intf); 
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual bool IsCrossReferenced() final;
         virtual void InterfaceReleaseAllResources() ;
@@ -303,7 +299,6 @@ class RmacInterface : public VirtualInterface {
         virtual ~RmacInterface();
         virtual void PrintInterfaceDetails ();
         virtual void InterfaceReleaseAllResources() ;
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsCrossReferenced() final;
         virtual mac_addr_t *GetMacAddr( ) final;
 
@@ -319,7 +314,6 @@ class VlanFloodInterface : public VirtualInterface {
 
         VlanFloodInterface();
         virtual ~VlanFloodInterface();
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         bool IsCrossReferenced() final;
 
 } __attribute__((aligned(8)));;
@@ -336,7 +330,6 @@ class NVEInterface : public VirtualInterface {
         NVEInterface(std::string if_name);
         virtual ~NVEInterface();
         virtual void InterfaceReleaseAllResources() ;
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         bool AddMemberVni(uint32_t vni);
         bool RemoveMemberVni(uint32_t vni);
         bool CheckMemberVniMembership(uint32_t vni);
@@ -383,7 +376,6 @@ public:
     void SetTunnelDestination(uint32_t ip_addr);
     void SetTunnelLclIpMask(uint32_t ip_addr, uint8_t mask);
     virtual void PrintInterfaceDetails ();
-    virtual int SendPacketOut(pkt_block_t *pkt_block) final;
     void SetTunnelSrcIp(uint32_t src_addr);
     void UnSetTunnelSrcIp();
     virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
@@ -411,7 +403,6 @@ class VirtualPort : public VirtualInterface {
         bool BindOverlayTunnel(VirtualInterface *tunnel);
         bool UnBindOverlayTunnel(VirtualInterface *tunnel);
         virtual void PrintInterfaceDetails ();
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual void InterfaceReleaseAllResources() ;
         virtual bool IsVlanTrunked (vlan_id_t vlan_id) final;
@@ -548,8 +539,7 @@ class HostPathInterface : public VirtualInterface {
     protected:
     public:
         HostPathInterface();
-        virtual ~HostPathInterface();
-        virtual int SendPacketOut(pkt_block_t *pkt_block) final;
+        virtual ~HostPathInterface();;
         virtual bool IsCrossReferenced() final;      
 };
 

@@ -13,7 +13,6 @@ typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../Layer3/SegmentRouting/SRv6/dp/srv6-endpoint.h"
 #include "../Layer3/mpls_enums.h"
-#include "../Layer3/mpls_fwd.h"
 #include "../RTM/rtm_fib_common.h"
 #include "../RTM/rtm_nh.h"
 #include "../FIB/fib_nh.h"

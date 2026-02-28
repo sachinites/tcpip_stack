@@ -425,7 +425,3 @@ network_start_pkt_receiver_thread(void){
                     (void *)topo);
 }
 
-void comm_mem_init(){
-
-    //MM_REG_STRUCT(0, ev_dis_pkt_data_t);
-}

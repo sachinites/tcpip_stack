@@ -3,6 +3,8 @@
 #include <arpa/inet.h>
 #include "../../common/cp2dp.h"
 #include "../../Tracer/tracer.h"
+#include "../../c-hashtable/hashtable.h"
+#include "../../c-hashtable/hashtable_itr.h"
 #include "dp_intf.h"
 #include "dp_intf_update.h"
 #include "dp_intf_store.h"

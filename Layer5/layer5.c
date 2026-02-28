@@ -129,9 +129,3 @@ init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc) {
 		tcp_ip_register_default_l2_pkt_trap_rules(nfc);
 }
 
-void pkt_notif_data_mem_init();
-void
-pkt_notif_data_mem_init() {
-
-    MM_REG_STRUCT(0, pkt_notif_data_t);
-}

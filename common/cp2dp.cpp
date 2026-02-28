@@ -11,7 +11,6 @@
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
-#include "../Layer3/mpls_fwd.h"
 #include "../Layer3/rt_table/nexthop.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"

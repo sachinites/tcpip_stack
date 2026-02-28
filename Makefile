@@ -84,7 +84,6 @@ OBJS=gluethread/glthread.o \
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
-		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \
 		  c-hashtable/hashtable.o \
@@ -138,9 +137,6 @@ prefix-list/prefixlst.o:prefix-list/prefixlst.c
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
-
-tcp_stack_mem_init.o:tcp_stack_mem_init.c
-	${CC} ${CFLAGS} -c -I . tcp_stack_mem_init.c -o tcp_stack_mem_init.o
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o

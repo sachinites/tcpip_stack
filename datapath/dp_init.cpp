@@ -1,5 +1,9 @@
-#include "../router_init.h"
+#include <memory.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../libtimer/WheelTimer.h"
 #include "../Tracer/tracer.h"
+#include "../Layer2/mac_table.h"
 #include "dp_ctx.h"
 
 
@@ -15,21 +19,7 @@ extern void dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis,
 extern void dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, 
                 void *pkt, uint32_t pkt_size);
 
-extern void init_arp_table(arp_table_t **arp_table);
-extern void init_mac_table(mac_table_t **mac_table);
-
 extern bool LinuxRtr;
-
-
-void 
-dp_init (node_t *node) {
-
-    /* Legacy path: ensure dp_ctx exists; all state lives in dp_ctx */
-    if (!node->dp_ctx) {
-        dp_ctx_init(&node->dp_ctx, (void *)node, node->node_name);
-    }
-    /* All datapath state is now in node->dp_ctx */
-}
 
 extern void tcp_ip_register_default_l3_pkt_trap_rules(
             nf_hook_db_t *nf_hook_db);

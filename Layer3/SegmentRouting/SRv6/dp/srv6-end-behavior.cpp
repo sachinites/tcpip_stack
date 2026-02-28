@@ -8,6 +8,7 @@
 #include "../../../../Tracer/tracer.h"
 #include "../../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
+#include "srv6-endpoint.h"
 #include "../../../../FIB/fib_nh.h"
 #include "../../../../FIB/fib.h"
 #include "../../../../datapath/Vrfs/dp_vrf.h"

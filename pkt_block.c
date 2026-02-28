@@ -33,12 +33,6 @@
 #include "lmm_enums.h"
 #include "datapath/Interface/dp_intf.h"
 
-void
-pkt_block_mem_init () {
-
-    MM_REG_STRUCT(0, pkt_block_t);
-}
-
 hdr_type_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block) {
 

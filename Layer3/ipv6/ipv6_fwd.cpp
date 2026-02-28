@@ -13,6 +13,7 @@
 #include "../../FIB/fib.h"
 #include "../../datapath/Interface/dp_intf.h"
 #include "../../datapath/Vrfs/dp_vrf.h"
+#include "../SegmentRouting/SRv6/dp/srv6-endpoint.h"
 
 extern void
 demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
@@ -22,50 +23,6 @@ demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      pkt_block_t *pkt_block,
                      hdr_type_t hdr_type);
 
-v6nexthop_t *
-l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) {
-
-    int nh_index_old;
-    v6nexthop_t *nexthop;
-    nxthop_proto_id_t nh_proto;
-
-    nh_index_old = l3_route->nxthop_idx;
-
-    FOR_ALL_NXTHOP_PROTO(nh_proto) {
-
-        do {
-
-            nexthop = l3_route->nexthops[nh_proto][l3_route->nxthop_idx];
-
-            if (!nexthop) { 
-
-                l3_route->nxthop_idx++;
-
-                if (l3_route->nxthop_idx == MAX_NXT_HOPS) {
-                    l3_route->nxthop_idx = 0;
-                }
-
-                if (l3_route->nxthop_idx == nh_index_old) {
-                    break;
-                }
-
-                continue;
-            }
-
-            l3_route->nxthop_idx++;
-
-            if (l3_route->nxthop_idx == MAX_NXT_HOPS) {
-                l3_route->nxthop_idx = 0;
-            }
-
-            return nexthop;
-
-        } while (1);
-
-    }
-
-    return NULL;
-}
 
 void 
 ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx, 

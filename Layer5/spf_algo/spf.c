@@ -31,8 +31,6 @@
 #include <stdint.h>
 #include "../../tcp_public.h"
 
-extern void spf_algo_mem_init(); 
-
 #define INFINITE_METRIC     0xFFFFFFFF
 
 #define SPF_METRIC(nodeptr) (nodeptr->spf_data->spf_metric)
@@ -668,9 +666,3 @@ spf_algo_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 
-void
-spf_algo_mem_init() {
-
-    MM_REG_STRUCT(0, spf_data_t);
-    MM_REG_STRUCT(0, spf_result_t);
-}

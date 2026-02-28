@@ -489,9 +489,6 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     
     isis_spf_data_t *spf_data = (isis_spf_data_t *)(ISIS_NODE_SPF_DATA(ted_spf_root));
 
-    nxthop_proto_id_t nxthop_proto = 
-        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
-
     ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);

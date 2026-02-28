@@ -38,7 +38,6 @@
 #include "../common/l4_hdrs.h"
 #include "../common/l3_hdrs.h"
 
-extern void layer4_mem_init() ;
 extern void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
 
 class Interface;
@@ -83,4 +82,3 @@ demote_pkt_to_layer4(node_t *node,
 
 }
 
-void layer4_mem_init() { }

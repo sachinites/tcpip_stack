@@ -2,7 +2,6 @@
 #include "../CLIBuilder/cmdtlv.h"
 #include "../cmdcodes.h"
 #include "../router_init.h"
-#include "mpls_fwd.h"
 #include "rt_table/nexthop.h"
 #include "../utils.h"
 #include "../Interface/InterfaceUApi.h"

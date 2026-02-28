@@ -732,6 +732,7 @@ isis_has_routes(node_t *node) {
     return true;
 }
 
+#if 0
 extern void
  isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) ;
  
@@ -756,6 +757,7 @@ isis_ipv4_rt_notif_cbk (
     l3route = route_notif_data->l3route;
     isis_process_ipv4_route_notif(node, l3route);
 }
+#endif
 
 void 
 isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) {

@@ -7,16 +7,6 @@
 #include "../Layer3/layer3.h"
 #include "snp_flow.h"
 
-void
-snp_flow_mem_init() {
-
-    MM_REG_STRUCT(0,  snp_flow_key_t);
-    MM_REG_STRUCT(0,  snp_l2_flow_info_t);
-    MM_REG_STRUCT(0,  snp_l3_flow_info_t);
-    MM_REG_STRUCT(0,  snp_l4_flow_info_t);
-    MM_REG_STRUCT(0, snp_flow_t);
-}
-
 #define SNP_FLOW_KEY_ATTR_COMPARE(flow_ptr1, flow_ptr2, key_name)   \
 {                                                                                               \
     snp_flow_key_t *_key1 = &flow_ptr1->flow_key;            \

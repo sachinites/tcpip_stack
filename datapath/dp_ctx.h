@@ -16,6 +16,7 @@ typedef struct dp_intf_ dp_intf_t;
 #include "../tcp_ip_trace.h"
 #include "../Layer3/netfilter.h"
 #include "../notif.h"
+#include "../common/cmn_struct.h"
 
 #pragma pack(push, 8)
 

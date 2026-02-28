@@ -82,11 +82,8 @@ typedef enum struct_index_
 
     /* Layer3 Structures */
     MM_INDEX(ip_hdr_t),
-    MM_INDEX(rt_table_t),
     //MM_INDEX(nexthop_t),
-    MM_INDEX(l3_route_t),
     //MM_INDEX(v6nexthop_t),
-    MM_INDEX(ipv6_route_t),
     MM_INDEX(ipv6_addr_t),
     MM_INDEX(ipv6_hdr_t),
     MM_INDEX(srh_hdr_t),
