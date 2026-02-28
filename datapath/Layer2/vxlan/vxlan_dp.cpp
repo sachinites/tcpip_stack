@@ -1,17 +1,19 @@
+
 #include "vxlan_dp.h"
+#include "../../../common/l2_hdrs.h"
 #include "../../../pkt_block.h"
 #include "../../../router_init.h"
 #include "../../../common/l4_hdrs.h"
 #include "../../../Tracer/tracer.h"
 #include <netinet/in.h>  // for htonl
 #include "../../../Interface/InterfaceUApi.h"
-#include "../../layer2.h"
-#include "../../vxlan/dp/vlan_vni_ht.h"
-#include "../../../datapath/Interface/dp_intf.h"
+#include "../../Layer2/l2fwd/ipv4-l2fwd.h"
+#include "vlan_vni_ht.h"
+#include "../../Interface/dp_intf.h"
 
 extern void
 l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
-                                vlan_id_t vlan_id, 
+                                uint16_t vlan_id, 
                                 c_string src_mac, 
                                 dp_intf_t *oif, uint32_t src_ip) ;
 extern void
@@ -94,7 +96,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
     pkt_block_set_new_pkt (pkt_block, (uint8_t *) eth_hdr, pkt_size);
     pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
 
-    vlan_id_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);
+    uint16_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);
 
     if (!vlan_id) {
 

@@ -32,18 +32,18 @@
 
 /* Forward declarations */
 typedef struct dp_ctx_ dp_ctx_t;
-typedef uint16_t vlan_id_t;
+typedef uint16_t uint16_t;
 
 /* VLAN-VNI mapping entry for hashtable */
 typedef struct vlan_vni_ht_entry_ {
-    vlan_id_t vlan_id;
+    uint16_t vlan_id;
     uint32_t vni_id;
 } vlan_vni_ht_entry_t;
 
 /* VNI-VLAN mapping entry for reverse lookup hashtable */
 typedef struct vni_vlan_ht_entry_ {
     uint32_t vni_id;
-    vlan_id_t vlan_id;
+    uint16_t vlan_id;
 } vni_vlan_ht_entry_t;
 
 /* Hashtable database structure containing both forward and reverse mappings */
@@ -72,16 +72,15 @@ void vlan_vni_ht_clear_db(dp_ctx_t *dp_ctx);
 bool vlan_vni_ht_compare_and_swap_db(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *expected, vlan_vni_ht_db_t *new_db);
 
 /* O(1) lookup functions */
-uint32_t vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, vlan_id_t vlan_id);
-vlan_id_t vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id);
+uint32_t vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, uint16_t vlan_id);
+uint16_t vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id);
 
 /* Mapping management functions with atomic updates */
-bool vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id, uint32_t vni_id);
-bool vlan_vni_ht_remove_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id);
+bool vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, uint16_t vlan_id, uint32_t vni_id);
+bool vlan_vni_ht_remove_mapping(dp_ctx_t *dp_ctx, uint16_t vlan_id);
 bool vlan_vni_ht_remove_mapping_by_vni(dp_ctx_t *dp_ctx, uint32_t vni_id);
 
 /* Database synchronization with control plane */
-void vlan_vni_ht_sync_from_cp_db(dp_ctx_t *dp_ctx);
 void vlan_vni_ht_clear_all_mappings(dp_ctx_t *dp_ctx);
 
 /* Utility functions */

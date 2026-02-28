@@ -8,6 +8,7 @@
 #include "../../Threads/refcount.h"
 #include "../../router_init.h"
 #include "../../Interface/Interface.h"
+#include "../../common/l2_hdrs.h"
 #include "../../common/l3_hdrs.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"

@@ -34,7 +34,6 @@
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../Layer2/layer2.h"
 #include "../Layer3/layer3.h"
-#include "../Layer2/vxlan/dp/vxlan_dp.h"
 #include "../Layer3/gre-tunneling/gre.h"
 #include "../CLIBuilder/libcli.h"
 #include "Interface.h"

@@ -1,14 +1,15 @@
+#include <string.h>
+#include <arpa/inet.h>
+
 #include "InterfaceUApi.h"
 #include "../router_init.h"
 #include "../Layer3/layer3.h"
 #include "../tcpip_notif.h"
 #include "../common/cp2dp.h"
-#include "../Layer2/mac_table.h"
+#include "../datapath/Layer2/switching/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../vrf/vrf.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
-#include <string.h>
-#include <arpa/inet.h>
 #include "../datapath/Interface/dp_intf_update.h"
 
 void

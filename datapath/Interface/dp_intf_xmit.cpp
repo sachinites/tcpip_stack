@@ -4,11 +4,13 @@
 #include "dp_intf_store.h"
 #include "../../FireWall/acl/acldb.h"
 #include "../../Tracer/tracer.h"
-#include "../../Layer2/layer2.h"
+#include "../Layer2/l2fwd/ipv4-l2fwd.h"
+#include "../../common/l2_hdrs.h"
 #include "../../common/l3_hdrs.h"
 #include "../../Layer3/layer3.h"
-#include "../../Layer2/vxlan/dp/vxlan_dp.h"
+#include "../Layer2/vxlan/vxlan_dp.h"
 #include "dp_intf_log.h"
+#include "../dp_utils.h"
 
 
 typedef int (*SendPacketOut_fptr)(
@@ -57,7 +59,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
     ev_dis_pkt_data->ifindex = peer_end->port_id;
-    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
+    ev_dis_pkt_data->pkt = dp_get_new_pkt_buffer(pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
 
@@ -100,7 +102,7 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
 
     case DP_LAN_ACCESS_MODE:
     {
-        vlan_id_t intf_vlan_id = Intf->vlan_id;
+        uint16_t intf_vlan_id = Intf->vlan_id;
 
         /*Case 1 : If interface is operating in ACCESS mode, but
          not in any vlan, and pkt is also untagged, then simply
@@ -146,7 +148,7 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
     break;
     case DP_LAN_TRUNK_MODE:
     {
-        vlan_id_t pkt_vlan_id = 0;
+        uint16_t pkt_vlan_id = 0;
 
         if (vlan_8021q_hdr)
         {
@@ -163,7 +165,7 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
         return 0;
     }
     break;
-    case LAN_MODE_NONE:
+    case DP_LAN_MODE_NONE:
         break;
     default:;
     }

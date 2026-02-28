@@ -41,7 +41,7 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 void
-promote_pkt_from_layer3_to_layer5(void *_node,
+cp_punt_pkt_from_layer3_to_layer5(void *_node,
 					uint32_t recv_intf_ifindex, 
 					pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) {
@@ -51,7 +51,7 @@ promote_pkt_from_layer3_to_layer5(void *_node,
 }
 
 void
-cp_punt_promote_pkt_from_layer2_to_layer5 (
+cp_punt_pkt_from_layer2_to_layer5 (
 					 void *_node,
 					 uint32_t recv_intf_ifindex, 
                      pkt_block_t *pkt_block,

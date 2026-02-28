@@ -36,8 +36,7 @@
 
 #include <stdint.h>
 #include "utils.h"
-
-#define MAX_PACKET_BUFFER_SIZE   2048
+#include "tcpconst.h"
 
 typedef struct node_ node_t;
 typedef struct pkt_block_ pkt_block_t;

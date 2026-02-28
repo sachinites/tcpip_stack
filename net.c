@@ -50,7 +50,7 @@
 #include "Layer3/layer3.h"
 #include "Layer2/layer2.h"
 #include "Layer2/transport_svc.h"
-#include "Layer2/mac_table.h"
+#include "datapath/Layer2/switching/mac_table.h"
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 #include "common/cp2dp.h"
@@ -229,33 +229,6 @@ dump_nw_graph(graph_t *graph, node_t *node1){
         dump_intf_props_header();
         dump_node_vrf_interfaces(node1);
     }
-}
-
-/*Returns the local interface of the node which is configured 
- * with subnet in which 'ip_addr' lies
- * */
-dp_intf_t *
-node_get_matching_subnet_interface(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr){
-
-    uint8_t mask;
-    dp_intf_t *intf;
-    cmn_prefix_t prefix;
-    
-    cmn_prefix_initialize_v4(&prefix, ip_addr, 32);
-
-    fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
-
-    if(!nh){
-        return NULL;
-    }   
-
-    if (nh->fwd_info->fwd_flags & 
-        (FIB_NH_FWD_F_CONNECTED | FIB_NH_FWD_F_LOCAL)) {
-        
-        return nh->fwd_info->oif;
-    }
-
-    return NULL;
 }
 
 void

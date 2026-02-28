@@ -25,29 +25,23 @@
 #include <string.h>
 #include <assert.h>
 #include "vlan_vni_ht.h"
-#include "../../../router_init.h"
-#include "../../../datapath/dp_ctx.h"
+#include "../../dp_ctx.h"
 #include "../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
 #include "../../../Tracer/tracer.h"
-#include "../cp/vxlan.h"
-
-/* Forward declaration */
-static void vlan_vni_ht_sync_from_cp_db_internal(
-        node_t *node, vlan_vni_ht_db_t *ht_db);
 
 /* Hash function for VLAN ID keys */
 unsigned int 
 vlan_hash_function(void *key) {
-    vlan_id_t *vlan_key = (vlan_id_t *)key;
+    uint16_t *vlan_key = (uint16_t *)key;
     return (unsigned int)(*vlan_key);
 }
 
 /* Equality function for VLAN ID keys */
 int 
 vlan_key_equal_function(void *key1, void *key2) {
-    vlan_id_t *vlan_key1 = (vlan_id_t *)key1;
-    vlan_id_t *vlan_key2 = (vlan_id_t *)key2;
+    uint16_t *vlan_key1 = (uint16_t *)key1;
+    uint16_t *vlan_key2 = (uint16_t *)key2;
     return (*vlan_key1 == *vlan_key2);
 }
 
@@ -151,7 +145,7 @@ vlan_vni_ht_compare_and_swap_db(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *expected, vl
 
 /* O(1) VLAN to VNI lookup */
 uint32_t 
-vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, vlan_id_t vlan_id) {
+vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, uint16_t vlan_id) {
     vlan_vni_ht_db_t *ht_db = vlan_vni_ht_get_db(dp_ctx);
     if (!ht_db || !ht_db->vlan_to_vni_ht) return 0;
     
@@ -165,7 +159,7 @@ vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, vlan_id_t vlan_id) {
 }
 
 /* O(1) VNI to VLAN lookup */
-vlan_id_t 
+uint16_t 
 vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id) {
     if (!vni_id) return 0;
     
@@ -175,7 +169,7 @@ vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id) {
     pthread_mutex_lock(&ht_db->mutex);
     vni_vlan_ht_entry_t *entry = (vni_vlan_ht_entry_t *)hashtable_search(
         ht_db->vni_to_vlan_ht, &vni_id);
-    vlan_id_t result = entry ? entry->vlan_id : 0;
+    uint16_t result = entry ? entry->vlan_id : 0;
     pthread_mutex_unlock(&ht_db->mutex);
     
     return result;
@@ -183,7 +177,7 @@ vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id) {
 
 /* Add mapping with atomic update */
 bool 
-vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id, uint32_t vni_id) {
+vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, uint16_t vlan_id, uint32_t vni_id) {
     /* Step 1: Atomically set pointer to NULL and cache it */
     vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(dp_ctx);
     vlan_vni_ht_clear_db(dp_ctx);
@@ -254,7 +248,7 @@ vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id, uint32_t vni_id) {
     vni_entry->vlan_id = vlan_id;
     
     /* Step 5: Create persistent keys */
-    vlan_id_t *vlan_key = (vlan_id_t *)calloc(1, sizeof(vlan_id_t));
+    uint16_t *vlan_key = (uint16_t *)calloc(1, sizeof(uint16_t));
     uint32_t *vni_key = (uint32_t *)calloc(1, sizeof(uint32_t));
     if (!vlan_key || !vni_key) {
         free(vlan_entry);
@@ -295,7 +289,7 @@ vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id, uint32_t vni_id) {
 
 /* Remove mapping with atomic update */
 bool 
-vlan_vni_ht_remove_mapping(dp_ctx_t *dp_ctx, vlan_id_t vlan_id) {
+vlan_vni_ht_remove_mapping(dp_ctx_t *dp_ctx, uint16_t vlan_id) {
     /* Step 1: Atomically set pointer to NULL and cache it */
     vlan_vni_ht_db_t *cached_db = vlan_vni_ht_get_db(dp_ctx);
     vlan_vni_ht_clear_db(dp_ctx);
@@ -364,7 +358,7 @@ vlan_vni_ht_remove_mapping_by_vni(dp_ctx_t *dp_ctx, uint32_t vni_id) {
     }
     
     /* Step 3: Get the associated VLAN for removal */
-    vlan_id_t vlan_id = vni_entry->vlan_id;
+    uint16_t vlan_id = vni_entry->vlan_id;
     
     /* Step 4: Remove VNI -> VLAN mapping */
     vni_entry = (vni_vlan_ht_entry_t *)hashtable_remove(cached_db->vni_to_vlan_ht, &vni_id);
@@ -391,75 +385,6 @@ vlan_vni_ht_remove_mapping_by_vni(dp_ctx_t *dp_ctx, uint32_t vni_id) {
            vni_id, vlan_id, cached_db->entry_count);
     
     return true;
-}
-
-/* Internal function to sync from control plane database */
-void 
-vlan_vni_ht_sync_from_cp_db_internal(node_t *node, vlan_vni_ht_db_t *ht_db) {
-
-    vxlan_vni_db_t *cp_db = NODE_VLAN_VNI_DB(node);
-    
-    if (!cp_db || !ht_db) return;
-    
-    glthread_t *curr;
-    vxlan_vni_mapping_t *mapping;
-    
-    /* Iterate through control plane database and populate hashtables */
-    ITERATE_GLTHREAD_BEGIN(&cp_db->mappings, curr) {
-        mapping = vxlan_vni_glue_to_mapping(curr);
-        
-        /* Create VLAN -> VNI entry */
-        vlan_vni_ht_entry_t *vlan_entry = (vlan_vni_ht_entry_t *)calloc(1, sizeof(vlan_vni_ht_entry_t));
-        vlan_entry->vlan_id = mapping->vlan_id;
-        vlan_entry->vni_id = mapping->vni_id;
-        
-        /* Create VNI -> VLAN entry */
-        vni_vlan_ht_entry_t *vni_entry = (vni_vlan_ht_entry_t *)calloc(1, sizeof(vni_vlan_ht_entry_t));
-        vni_entry->vni_id = mapping->vni_id;
-        vni_entry->vlan_id = mapping->vlan_id;
-        
-        /* Create keys (need to be persistent) */
-        vlan_id_t *vlan_key = (vlan_id_t *)calloc(1, sizeof(vlan_id_t));
-        *vlan_key = mapping->vlan_id;
-        
-        uint32_t *vni_key = (uint32_t *)calloc(1, sizeof(uint32_t));
-        *vni_key = mapping->vni_id;
-        
-        /* Insert into hashtables */
-        hashtable_insert(ht_db->vlan_to_vni_ht, vlan_key, vlan_entry);
-        hashtable_insert(ht_db->vni_to_vlan_ht, vni_key, vni_entry);
-        
-        ht_db->entry_count++;
-        
-    } ITERATE_GLTHREAD_END(&cp_db->mappings, curr);
-}
-
-/* Public sync function */
-void 
-vlan_vni_ht_sync_from_cp_db(node_t *node) {
-
-    /* Step 1: Set pointer to NULL */
-    vlan_vni_ht_db_t *old_db = vlan_vni_ht_get_db(node->dp_ctx);
-    vlan_vni_ht_clear_db(node->dp_ctx);
-    
-    /* Step 2: Create new database */
-    vlan_vni_ht_db_t *new_db = vlan_vni_ht_create_db();
-    if (!new_db) {
-        /* Restore old pointer on failure */
-        vlan_vni_ht_set_db(node->dp_ctx, old_db);
-        return;
-    }
-    
-    /* Step 3: Sync from control plane database */
-    vlan_vni_ht_sync_from_cp_db_internal(node, new_db);
-    
-    /* Step 4: Set new pointer */
-    vlan_vni_ht_set_db(node->dp_ctx, new_db);
-    
-    /* Step 5: Cleanup old database */
-    if (old_db) {
-        vlan_vni_ht_destroy_db(old_db);
-    }
 }
 
 /* Clear all mappings */

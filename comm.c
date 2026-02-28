@@ -55,13 +55,11 @@
 #include "c-hashtable/hashtable_itr.h"
 #include "datapath/Interface/dp_intf.h"
 #include "datapath/Interface/dp_intf_log.h"
+#include "datapath/Layer2/switching/mac_table.h"
+#include "datapath/Layer2/l2fwd/ipv4-l2fwd.h"
+#include "common/l2_hdrs.h"
 
 extern graph_t *topo;
-
-extern void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
-                          vlan_id_t vlan_id,
-                          dp_intf_t *interface,
-                          pkt_block_t *pkt_block);
 
 extern void
 network_start_pkt_receiver_thread(void);

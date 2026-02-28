@@ -1,12 +1,17 @@
 #ifndef __ARP__HDR__
 #define __ARP__HDR__
 
-#include "../common/cmn_struct.h"
+#include "../../../common/cmn_struct.h"
+#include "../../../gluethread/glthread.h"
 
 typedef struct pkt_block_ pkt_block_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
+typedef struct dp_ctx_ dp_ctx_t;
+typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
+
+#include <stdint.h>
 
 void
 send_arp_broadcast_request(dp_ctx_t *dp_ctx,
@@ -46,7 +51,7 @@ struct arp_entry_{
     mac_addr_t mac_addr;
     uint8_t padding1[2];
     uint16_t proto;
-    ip_add_t ip_addr;   /*key*/
+    uint32_t ip_addr;   /*key*/
     unsigned char oif_name[IF_NAME_SIZE];
     bool is_sane;
     uint8_t padding2[3];
@@ -59,7 +64,7 @@ GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
 GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
 
 #define IS_ARP_ENTRIES_EQUAL(arp_entry_1, arp_entry_2)  \
-    (string_compare(arp_entry_1->ip_addr.ip_addr, arp_entry_2->ip_addr.ip_addr, 16) == 0 && \
+    ((arp_entry_1->ip_addr == arp_entry_2->ip_addr) && \
         mac_address_compare(arp_entry_1->mac_addr.mac, arp_entry_2->mac_addr.mac) && \
         string_compare(arp_entry_1->oif_name, arp_entry_2->oif_name, IF_NAME_SIZE) == 0 && \
         arp_entry_1->is_sane == arp_entry_2->is_sane &&     \
@@ -70,7 +75,7 @@ void
 init_arp_table(arp_table_t **arp_table);
 
 arp_entry_t *
-arp_table_lookup(arp_table_t *arp_table, c_string ip_addr);
+arp_table_lookup(arp_table_t *arp_table, uint32_t ip_addr);
 
 void
 clear_arp_table(arp_table_t *arp_table);
@@ -96,7 +101,7 @@ void
 delete_arp_entry(arp_entry_t *arp_entry);
 
 void
-arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, c_string ip_addr, uint16_t proto);
+arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr, uint16_t proto);
 
 bool
 arp_table_entry_add(dp_ctx_t *dp_ctx, 
@@ -126,7 +131,7 @@ void
 create_arp_sane_entry(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
 					  arp_table_t *arp_table,
-                      c_string ip_addr, 
+                      uint32_t ip_addr, 
 					  pkt_block_t *pkt_block);
 
 static bool 

@@ -10,7 +10,7 @@
 #include "dp_intf_store.h"
 #include "../Vrfs/dp_vrf.h"
 #include "../../Interface/Interface.h"
-#include "../../Layer2/vxlan/dp/vlan_vni_ht.h"
+#include "../Layer2/vxlan/vlan_vni_ht.h"
 #include "../../Layer2/transport_svc.h"
 #include "../dp_ctx.h"
 

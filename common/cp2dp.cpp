@@ -4,7 +4,7 @@
 #include "l3_hdrs.h"
 #include "cp2dp.h"
 #include "../EventDispatcher/event_dispatcher.h"
-#include "../Layer2/mac_table.h"
+#include "../datapath/Layer2/switching/mac_table.h"
 #include "../Layer3/layer3.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"

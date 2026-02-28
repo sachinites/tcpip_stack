@@ -32,20 +32,20 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "../router_init.h"
-#include "layer2.h"
-#include "../gluethread/glthread.h"
-#include "../comm.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../pkt_block.h"
-#include "../tcpconst.h"
-#include "transport_svc.h"
-#include "../Tracer/tracer.h"
+#include <arpa/inet.h>
+#include "../../../common/l2_hdrs.h"
+#include "../../../gluethread/glthread.h"
+#include "../../../comm.h"
+#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../pkt_block.h"
+#include "../../../tcpconst.h"
+#include "../../../Tracer/tracer.h"
 #include "mac_table.h"
-#include "vxlan/dp/vlan_vni_ht.h"
-#include "../lmm_enums.h"
-#include "vxlan/dp/vxlan_dp.h"
-#include "../datapath/Interface/dp_intf.h"
+#include "../../Layer2/vxlan/vlan_vni_ht.h"
+#include "../../../lmm_enums.h"
+#include "../../Layer2/vxlan/vxlan_dp.h"
+#include "../../dp_ctx.h"
+#include "../../Interface/dp_intf.h"
 
 extern void
 promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -112,7 +112,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
     dp_intf_t *oif; 
     glthread_t *curr;
     uint32_t vni_id = 0;
-    vlan_id_t vlan_id = 0;
+    uint16_t vlan_id = 0;
     pkt_block_t *pkt_block2;
     mac_oif_entry_t *oif_entry;
     encap_meta_data_t *encap_data = NULL;
@@ -202,7 +202,7 @@ l2_switch_forward_frame(
                         dp_intf_t *recv_intf, 
                         pkt_block_t *pkt_block) {
 
-    vlan_id_t vlan_id;
+    uint16_t vlan_id;
     pkt_size_t pkt_size;
     ethernet_hdr_t *ethernet_hdr;
     mac_table_entry_t *mac_table_entry = NULL;
@@ -217,7 +217,7 @@ l2_switch_forward_frame(
         GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
      pkt_block->ingress_intf = recv_intf;
-     vlan_id = (vlan_id_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
+     vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
                                       vlan_id,
@@ -288,7 +288,7 @@ l2_switch_forward_frame(
 }
 
 void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
-                          vlan_id_t vlan_id,
+                          uint16_t vlan_id,
                           dp_intf_t *interface,
                           pkt_block_t *pkt_block)
 {

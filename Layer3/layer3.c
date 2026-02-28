@@ -63,6 +63,7 @@
 #include "../Tracer/tracer.h"
 #include "ipv6/ipv6_route.h"
 #include "../datapath/Interface/dp_intf_log.h"
+#include "../common/l2_hdrs.h"
 
 extern graph_t *topo;
 
@@ -234,8 +235,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
             tracer (dp_ctx->dptr, DL3FWD, "Pkt : %s : Pkt is being subjected to Layer 5\n",  pkt_block_str (pkt_block));
 
-            /* TODO: promote_pkt_from_layer3_to_layer5 needs old Interface type */
-            promote_pkt_from_layer3_to_layer5(
+            /* TODO: cp_punt_pkt_from_layer3_to_layer5 needs old Interface type */
+            cp_punt_pkt_from_layer3_to_layer5(
                 dp_ctx->ctx_pvt_data, NULL,
                 pkt_block,
                 IP_HDR);

@@ -85,6 +85,7 @@ typedef uint16_t pkt_size_t;
 #define PROTO_GRE_ENCAP_ETHERNET  0x6558
 
 #define MAX_MTU 1500
+#define MAX_PACKET_BUFFER_SIZE   2048
 
 #define NODE_NAME_SIZE   32
 #define IF_NAME_SIZE     16

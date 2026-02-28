@@ -2,31 +2,24 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <arpa/inet.h> /*for inet_ntop & inet_pton*/
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../router_init.h"
-#include "../common/l2_hdrs.h"
-#include "layer2.h"
+#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../common/l2_hdrs.h"
 #include "arp.h"
-#include "../comm.h"
-#include "../Layer5/layer5.h"
-#include "../tcp_ip_trace.h"
-#include "../libtimer/WheelTimer.h"
-#include "../pkt_block.h"
-#include "../utils.h"
-#include "../Tracer/tracer.h"
-#include "../lmm_enums.h"
-#include "../datapath/Vrfs/dp_vrf.h"
-#include "../datapath/dp_ctx.h"
-#include "../datapath/Interface/dp_intf.h"
-
+#include "../../../comm.h"
+#include "../../../Layer5/layer5.h"
+#include "../../../tcp_ip_trace.h"
+#include "../../../libtimer/WheelTimer.h"
+#include "../../../pkt_block.h"
+#include "../../../utils.h"
+#include "../../../Tracer/tracer.h"
+#include "../../../lmm_enums.h"
+#include "../../Vrfs/dp_vrf.h"
+#include "../../Layer2/l2fwd/ipv4-l2fwd.h"
+#include "../../dp_ctx.h"
+#include "../../Interface/dp_intf.h"
+#include "../../dp_utils.h"
 
 #define ARP_ENTRY_EXP_TIME	30
-
-extern void
-l2_switch_forward_frame(
-    node_t *node,
-    dp_intf_t *recv_intf,
-    pkt_block_t *pkt_block);
 
 /*A Routine to resolve ARP out of oif*/
 void
@@ -36,7 +29,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
                            uint32_t ip_addr){
 
     pkt_size_t pkt_size;
-    vlan_id_t vlan_id = 0;
+    uint16_t vlan_id = 0;
     char ip_addr_str[16];
 
     uint32_t payload_size = sizeof (arp_hdr_t);
@@ -61,7 +54,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     
     if (!oif) {
 
-        oif = node_get_matching_subnet_interface(dp_ctx, vrf, ip_addr);
+        oif = dp_intf_get_matching_subnet_interface(dp_ctx, vrf, ip_addr);
 
         if (!oif) {
 
@@ -141,7 +134,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t 
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
     pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
-    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(total_pkt_size);
+    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)dp_get_new_pkt_buffer(total_pkt_size);
 
     l2_prepare_arp_reply_msg(ethernet_hdr_reply, 
             &arp_hdr_in->src_mac, 
@@ -154,7 +147,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t 
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
 
     tracer(dp_ctx->dptr, DARP, "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
-            tcp_ip_covert_ip_n_to_p (htonl(arp_hdr_reply->dst_ip), (c_string)ip_addr_str), 
+            tcp_ip_covert_ip_n_to_p (htonl(arp_hdr_reply->dst_ip), (unsigned char*)ip_addr_str), 
             arp_hdr_reply->dst_mac.mac[0],
             arp_hdr_reply->dst_mac.mac[1],
             arp_hdr_reply->dst_mac.mac[2],
@@ -245,7 +238,7 @@ init_arp_table(arp_table_t **arp_table){
 }
 
 arp_entry_t *
-arp_table_lookup(arp_table_t *arp_table, unsigned char *ip_addr){
+arp_table_lookup(arp_table_t *arp_table, uint32_t ip_addr){
 
     glthread_t *curr;
     arp_entry_t *arp_entry;
@@ -253,7 +246,7 @@ arp_table_lookup(arp_table_t *arp_table, unsigned char *ip_addr){
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
     
         arp_entry = arp_glue_to_arp_entry(curr);
-        if (string_compare(arp_entry->ip_addr.ip_addr, ip_addr, 16) == 0) {
+        if (arp_entry->ip_addr == ip_addr) {
             return arp_entry;
         }
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
@@ -275,7 +268,7 @@ clear_arp_table(arp_table_t *arp_table){
 }
 
 void
-arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, c_string ip_addr, uint16_t proto){
+arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr, uint16_t proto){
 
     arp_table_t *arp_table = vrf->arp_table;
     arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
@@ -284,7 +277,9 @@ arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, c_string ip_addr, uint16_t pro
         return;
 
     delete_arp_entry(arp_entry);
-    tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Deleted\n", ip_addr);
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+    tcp_ip_covert_ip_n_to_p(ip_addr, ip_addr_str);
+    tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Deleted\n", ip_addr_str);
 }
 
 bool arp_table_entry_add(dp_ctx_t *dp_ctx,
@@ -293,15 +288,16 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
                          arp_entry_t *arp_entry,
                          glthread_t **arp_pending_list)
 {
-    tracer(dp_ctx->dptr, DARP, "ARP-entry %s : called ...\n", arp_entry->ip_addr.ip_addr);
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
+    tracer(dp_ctx->dptr, DARP, "ARP-entry %s : called ...\n", ip_addr_str);
 
     if(arp_pending_list){
         assert(*arp_pending_list == NULL);   
     }
 
-    arp_entry_t *arp_entry_old = 
-                arp_table_lookup(arp_table, 
-                arp_entry->ip_addr.ip_addr);
+    arp_entry_t *arp_entry_old = arp_table_lookup(arp_table, 
+                                    arp_entry->ip_addr);
 
     /* Case 0 : if ARP table entry do not exist already, then add it
      * and return true*/
@@ -314,7 +310,7 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
 			    arp_entry_create_expiration_timer(
 				       dp_ctx, arp_entry, ARP_ENTRY_EXP_TIME); 
         }
-        tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Added to ARP Table\n", arp_entry->ip_addr.ip_addr);
+        tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Added to ARP Table\n", ip_addr_str);
         tracer_disable_hdr_print (dp_ctx->dptr);
         tracer(dp_ctx->dptr, DARP_DET, "    ARP Mac : %02x:%02x:%02x:%02x:%02x:%02x\n",
             arp_entry->mac_addr.mac[0], 
@@ -335,7 +331,7 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
     if(arp_entry_old &&
             IS_ARP_ENTRIES_EQUAL(arp_entry_old, arp_entry)){
 
-        tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Already Exist\n", arp_entry->ip_addr.ip_addr);
+        tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Already Exist\n", ip_addr_str);
         return false;
     }
 
@@ -357,7 +353,7 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
         }
 
         tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Updated\n", 
-            arp_entry->ip_addr.ip_addr);
+            ip_addr_str);
         return true;
     }
 
@@ -395,11 +391,13 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
 
         arp_entry_old->proto = arp_entry->proto;
 		arp_entry_refresh_expiration_timer(arp_entry_old);
-        tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Updated\n", arp_entry->ip_addr.ip_addr);
+        tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Updated\n", ip_addr_str);
         return false;
     }
 
-    tracer(dp_ctx->dptr, DARP | DERR, "ARP-entry %s : Failed to Add/Update\n", arp_entry->ip_addr.ip_addr);
+    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
+    tracer(dp_ctx->dptr, DARP | DERR, 
+        "ARP-entry %s : Failed to Add/Update\n", ip_addr_str);
     return false;
 }
 
@@ -449,14 +447,16 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
 
     arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC2(0, 1, arp_entry_t);
 
-    tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->src_ip), arp_entry->ip_addr.ip_addr);
+    arp_entry->ip_addr = htonl(arp_hdr->src_ip);
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_ADDR_SIZE);
     string_copy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
     arp_entry->is_sane = false;
     arp_entry->proto = PROTO_ARP;
 
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
     tracer(dp_ctx->dptr, DARP, "ARP-Reply from %s : Updating ARP Table\n", 
-        arp_entry->ip_addr.ip_addr);
+        ip_addr_str);
 
     bool rc = arp_table_entry_add(dp_ctx, 
                 iif->vrf, 
@@ -467,8 +467,9 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
 
     if(arp_pending_list){
         
+        tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
         tracer(dp_ctx->dptr, DARP, "ARP-Entry %s : processing ARP Pending List\n", 
-            arp_entry->ip_addr.ip_addr);
+            ip_addr_str);
 
         ITERATE_GLTHREAD_BEGIN(arp_pending_list, curr){
         
@@ -481,12 +482,12 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
 
         tracer(dp_ctx->dptr, DARP_DET, 
             "ARP-Entry %s : Number of ARP Pending List processed %d\n", 
-            arp_entry->ip_addr.ip_addr, arp_entry->hit_count);
+            ip_addr_str, arp_entry->hit_count);
 
 		assert(IS_GLTHREAD_LIST_EMPTY(arp_pending_list));
         (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = false;
 
-        tracer(dp_ctx->dptr, DARP, "ARP-Entry %s :  Marked Resolved\n", arp_entry->ip_addr.ip_addr);
+        tracer(dp_ctx->dptr, DARP, "ARP-Entry %s :  Marked Resolved\n", ip_addr_str);
         tracer_disable_hdr_print (dp_ctx->dptr);
         tracer(dp_ctx->dptr, DARP_DET, "    Mac : %02x:%02x:%02x:%02x:%02x:%02x\n",
             arp_entry->mac_addr.mac[0], 
@@ -523,8 +524,11 @@ show_arp_table(arp_table_t *arp_table){
         else{
             cprintf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
         }
+        {
+            char ip_addr_str[IPV4_ADDR_LEN_STR];
+            tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
         cprintf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  | %-6llu    |\n", 
-            arp_entry->ip_addr.ip_addr, 
+            ip_addr_str, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
             arp_entry->mac_addr.mac[2], 
@@ -536,6 +540,7 @@ show_arp_table(arp_table_t *arp_table){
 			arp_entry_get_exp_time_left(arp_entry),
             proto_name_str(arp_entry->proto),
             arp_entry->hit_count);
+        }
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
     if(count){
         cprintf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
@@ -576,15 +581,19 @@ add_arp_pending_entry (dp_ctx_t *dp_ctx,
 
     glthread_add_next(&arp_entry->arp_pending_list, 
                     &arp_pending_entry->arp_pending_entry_glue);
+    {
+        char ip_addr_str[IPV4_ADDR_LEN_STR];
+        tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
     tracer(dp_ctx->dptr, DARP_DET, 
         "ARP-entry %s : Added ARP-Pending entry\n", 
-        arp_entry->ip_addr.ip_addr);
+        ip_addr_str);
+    }
 }
 
 void create_arp_sane_entry(dp_ctx_t *dp_ctx,
                            dp_vrf_t *vrf,
                            arp_table_t *arp_table,
-                           c_string ip_addr,
+                           uint32_t ip_addr,
                            pkt_block_t *pkt_block)
 {
 
@@ -606,12 +615,15 @@ void create_arp_sane_entry(dp_ctx_t *dp_ctx,
         return;
     }
     
-    tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Creating ARP Sane Entry\n", ip_addr);
+    {
+        char ip_addr_str[IPV4_ADDR_LEN_STR];
+        tcp_ip_covert_ip_n_to_p(ip_addr, ip_addr_str);
+    tracer(dp_ctx->dptr, DARP, "ARP-entry %s : Creating ARP Sane Entry\n", ip_addr_str);
+    }
 
     /*if ARP entry do not exist, create a new sane entry*/
     arp_entry = (arp_entry_t *)XCALLOC2(0, 1,arp_entry_t);
-    string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
-    arp_entry->ip_addr.ip_addr[15] = '\0';
+    arp_entry->ip_addr = ip_addr;
     init_glthread(&arp_entry->arp_pending_list);
     arp_entry->is_sane = true;
     arp_entry->proto = PROTO_ARP;
@@ -631,8 +643,10 @@ arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
     if(!arg) return;
 	arp_entry_t *arp_entry = (arp_entry_t *)arg;
     dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
     tracer(dp_ctx->dptr, DARP | DTIMER, "ARP-entry %s : Expired\n", 
-        arp_entry->ip_addr.ip_addr);
+        ip_addr_str);
 	delete_arp_entry(arp_entry);	
 }
 
@@ -655,8 +669,12 @@ arp_entry_create_expiration_timer(
 					 ARP_ENTRY_EXP_TIME * 1000,
 					 0); 				 
 
+    {
+        char ip_addr_str[IPV4_ADDR_LEN_STR];
+        tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
     tracer(dp_ctx->dptr, DARP_DET | DTIMER, 
-        "ARP-entry %s :  Expiration Timer Created\n", arp_entry->ip_addr.ip_addr);
+        "ARP-entry %s :  Expiration Timer Created\n", ip_addr_str);
+    }
 
     return arp_entry->exp_timer_wt_elem;
 }
@@ -697,7 +715,7 @@ arp_entry_add(dp_ctx_t *dp_ctx,
              uint16_t proto) {
 
     arp_entry_t *arp_entry = ( arp_entry_t *)XCALLOC2 (0 , 1, arp_entry_t );
-    string_copy(  (char *)arp_entry->ip_addr.ip_addr,  (char *)ip_addr, 16);
+    arp_entry->ip_addr = tcp_ip_convert_ip_p_to_n((char *)ip_addr);
     memcpy(arp_entry->mac_addr.mac, mac.mac, MAC_ADDR_SIZE);
     arp_entry->proto = proto;
     string_copy(arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);

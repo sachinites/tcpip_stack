@@ -45,7 +45,7 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "prefix-list/prefixlst.h"
 #include "tcpconst.h"
-#include "Layer2/mac_table.h"
+#include "datapath/Layer2/switching/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
 #include "FIB/fib.h"

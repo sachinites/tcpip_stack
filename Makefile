@@ -47,13 +47,9 @@ OBJS=gluethread/glthread.o \
 		  net.o			   \
 		  comm.o		   \
 		  Layer2/layer2.o  \
-		  Layer2/transport_svc.o  \
-		  Layer2/arp.o	   \
-		  Layer2/mac_table.o \
-		  Layer2/vxlan/dp/vxlan_dp.o \
+		  Layer2/transport_svc.o \
 		  Layer2/vxlan/cp/vlan_vni_mapping.o \
 		  Layer2/vxlan/cp/vxlan_cli.o \
-		  Layer2/vxlan/dp/vlan_vni_ht.o \
 		  Layer3/layer3.o  \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
@@ -70,9 +66,8 @@ OBJS=gluethread/glthread.o \
 		  nwcli.o		   \
 		  utils.o		   \
 		  cp_ipc.o \
-		  Layer2/l2switch.o \
-          libtimer/WheelTimer.o   \
-          libtimer/timerlib.o   \
+          	  libtimer/WheelTimer.o   \
+          	  libtimer/timerlib.o   \
 		  libtimer/timedef.o \
 		  Tracer/tracer.o \
 		  tcp_stack_init.o	\
@@ -116,9 +111,6 @@ Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
 
 Layer2/vxlan/cp/vxlan_cli.o:Layer2/vxlan/cp/vxlan_cli.c 
 	${CC} ${CFLAGS} -c -I . Layer2/vxlan/cp/vxlan_cli.c -o Layer2/vxlan/cp/vxlan_cli.o
-
-Layer2/vxlan/dp/vlan_vni_ht.o:Layer2/vxlan/dp/vlan_vni_ht.c
-	${CC} ${CFLAGS} -c -I . Layer2/vxlan/dp/vlan_vni_ht.c -o Layer2/vxlan/dp/vlan_vni_ht.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
@@ -213,17 +205,8 @@ tcp_ip_trace.o:tcp_ip_trace.c
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o
 
-Layer2/arp.o:Layer2/arp.c
-	${CC} ${CFLAGS} -c -I . Layer2/arp.c -o Layer2/arp.o
-
-Layer2/l2switch.o:Layer2/l2switch.c
-	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o
-
 Layer2/transport_svc.o:Layer2/transport_svc.cpp 
 	${CC} ${CFLAGS} -c -I . Layer2/transport_svc.cpp -o Layer2/transport_svc.o
-
-Layer2/mac_table.o:Layer2/mac_table.cpp
-	${CC} ${CFLAGS} -c -I . Layer2/mac_table.cpp -o Layer2/mac_table.o
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o

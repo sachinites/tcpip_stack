@@ -58,7 +58,7 @@
 
 /* VXLAN files */
 #include "Layer2/vxlan/cp/vxlan.h"
-#include "Layer2/vxlan/dp/vlan_vni_ht.h"
+#include "datapath/Layer2/vxlan/vlan_vni_ht.h"
 
 /* MPLS files */
 #include "common/mpls_lstack.h"

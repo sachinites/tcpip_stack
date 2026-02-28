@@ -1,12 +1,14 @@
+
+#include <memory.h>
 #include <ncurses.h>
 #include "mac_table.h"
-#include "../datapath/Interface/dp_intf.h"
-#include "../datapath/dp_ctx.h"
-#include "../datapath/Interface/dp_intf_store.h"
-#include "../EventDispatcher/event_dispatcher.h"
-#include "../router_init.h"
-#include "../Tracer/tracer.h"
-#include "../gluethread/glthread.h"
+#include "../../../net.h"
+#include "../../Interface/dp_intf.h"
+#include "../../dp_ctx.h"
+#include "../../Interface/dp_intf_store.h"
+#include "../../../EventDispatcher/event_dispatcher.h"
+#include "../../../Tracer/tracer.h"
+#include "../../../gluethread/glthread.h"
 
 extern int cprintf (const char* format, ...);
 
@@ -18,7 +20,7 @@ init_mac_table(mac_table_t **mac_table){
 }
 
 mac_table_entry_t *
-mac_table_lookup(mac_table_t *mac_table, vlan_id_t vlan, c_string mac){
+mac_table_lookup(mac_table_t *mac_table, uint16_t vlan, c_string mac){
 
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
@@ -96,7 +98,7 @@ mac_table_entry_init_timer (dp_ctx_t *dp_ctx, mac_table_entry_t *mac_table_entry
 }
 
 void
-mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac){
+mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id, c_string mac){
 
     mac_table_entry_t *mac_table_entry;
     mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac);
@@ -264,7 +266,7 @@ mac_table_entry_append_oifs (mac_table_entry_t *mac_table_entry,
 }
 
 void
-show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id) {
+show_mac_table(mac_table_t *mac_table, uint16_t vlan_id) {
 
     int count = 0;
     glthread_t *curr;

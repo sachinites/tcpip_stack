@@ -3,29 +3,15 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include "../libtimer/WheelTimer.h"
-#include "../common/cmn_struct.h"
-#include "../utils.h"
+#include "../../../libtimer/WheelTimer.h"
+#include "../../../common/cmn_struct.h"
+#include "../../../utils.h"
+#include "../../enums/l2_enums.h"
 
-typedef struct node_ node_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
+typedef struct pkt_block_ pkt_block_t;
 
-/*L2 Switch Owns Mac Table*/
-#define MAC_STATIC  0x1
-#define MAC_DYNAMIC 0x2
-#define MAC_CONTROL_PLANE   0x4
-
-static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
-
-    switch(mac_entry_flag) {
-        case MAC_STATIC : return "static";
-        case MAC_DYNAMIC : return "dynamic";
-        case MAC_CONTROL_PLANE : return "control-plane";
-        default: return "UNKNOWN";
-    }
-    return "nil";
-}
 
 /* MAC_MAC_OIF_CNT removed - now using dynamic lists */
 
@@ -45,7 +31,7 @@ typedef struct mac_table_entry_{
     glthread_t mac_entry_glue;
     mac_addr_t mac;
     uint16_t flags;
-    vlan_id_t vlan_id;
+    uint16_t vlan_id;
     char padding2[6];
 
     /* Add destructor */
@@ -71,16 +57,12 @@ typedef struct mac_table_{
 
 /* MAC Table Management Functions */
 void init_mac_table(mac_table_t **mac_table);
-mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table, vlan_id_t vlan, c_string mac);
-void clear_mac_table(node_t *node, mac_table_t *mac_table);
+mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table, uint16_t vlan, c_string mac);
 void mac_table_entry_add (dp_ctx_t *dp_ctx, mac_table_t *mac_table,  
                           uint8_t *mac_addr,  uint16_t vlan_id, uint32_t ifindex, uint16_t flags, uint32_t remote_dst_ip) ;
 void mac_table_entry_delete (dp_ctx_t *dp_ctx, mac_table_t *mac_table, 
                           uint8_t *mac_addr,  uint16_t vlan_id, uint32_t ifindex, uint32_t remote_dst_ip) ;
-void
-mac_table_entry_delete2 (node_t *node, mac_table_t *mac_table, vlan_id_t vlan_id, c_string mac);
-
-void show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
+void show_mac_table(mac_table_t *mac_table, uint16_t vlan_id);
 void mac_table_entry_init_timer (dp_ctx_t *dp_ctx, mac_table_entry_t *mac_table_entry);
 void mac_table_entry_cancel_expiry_timer (mac_table_entry_t *mac_table_entry) ;
 
@@ -92,5 +74,10 @@ bool mac_table_entry_remove_oif(mac_table_entry_t *mac_entry, uint32_t ifindex, 
 mac_oif_entry_t *mac_table_entry_find_oif(mac_table_entry_t *mac_entry, uint32_t ifindex, uint32_t remote_dst_ip);
 bool mac_table_entry_has_oifs(mac_table_entry_t *mac_entry);
 void mac_table_entry_clear_oifs(mac_table_entry_t *mac_entry);
+
+void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
+                           uint16_t vlan_id,
+                           dp_intf_t *interface,
+                           pkt_block_t *pkt_block);
 
 #endif /* __MAC_TABLE_H__ */

@@ -8,7 +8,7 @@
 #include "../../FIB/fib.h"
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../../net.h"
-#include "../../Layer2/arp.h"
+#include "../Layer2/arp/arp.h"
 
 /* Hash function for vrf_id (uint8_t) keys */
 static unsigned int 
