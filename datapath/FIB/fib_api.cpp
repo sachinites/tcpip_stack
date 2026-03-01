@@ -27,7 +27,7 @@
 #include "../Interface/dp_intf.h"
 
 extern void
-demote_pkt_to_layer2 (dp_ctx_t *dp_ctx,
+dp_demote_pkt_to_layer2 (dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       uint32_t next_hop_ip,
                       dp_intf_t *outgoing_intf,
@@ -184,7 +184,7 @@ fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx,
 
     nh->hit_count++;
 
-    demote_pkt_to_layer2(
+    dp_demote_pkt_to_layer2(
         dp_ctx,
         vrf,
         hdr_type == IP6_HDR ? 0 : nh->fwd_info->nh_addr.u.v4_addr,

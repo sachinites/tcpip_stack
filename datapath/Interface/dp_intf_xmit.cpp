@@ -9,11 +9,12 @@
 #include "../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../../common/l2_hdrs.h"
 #include "../../common/l3_hdrs.h"
-#include "../../Layer3/layer3.h"
+#include "../Layer3/layer3.h"
 #include "../Layer2/vxlan/vxlan_dp.h"
 #include "dp_intf_log.h"
 #include "../dp_utils.h"
 #include "../dp_uapi.h"
+#include "../Layer3/Gre/gre-fwd.h"
 #include "../../common/cmn_api.h"
 
 typedef int (*SendPacketOut_fptr)(
@@ -23,7 +24,7 @@ typedef int (*SendPacketOut_fptr)(
 extern bool LinuxRtr;
 
 extern void
-promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
                       pkt_block_t *pkt_block, 
@@ -269,7 +270,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
     ip_hdr->dst_ip = htonl(intf->gre_tunnel_dst_ip);
     ip_hdr->protocol = GRE_PROTO;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
-    np_tcp_ip_send_ip_data (dp_ctx, intf->vrf, pkt_block);
+    dp_send_ip_data (dp_ctx, intf->vrf, pkt_block);
     intf->pkt_sent++;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
@@ -344,7 +345,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     untag_pkt_with_vlan_id(pkt_block);
     eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf,
+    dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf,
             pkt_block, eth_hdr->type);
 
     return 0;
@@ -396,7 +397,7 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
         tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
-    np_tcp_ip_send_ip_data (dp_ctx, intf->vrf, pkt_block);
+    dp_send_ip_data (dp_ctx, intf->vrf, pkt_block);
     intf->pkt_sent++;
     return 0;    
 }

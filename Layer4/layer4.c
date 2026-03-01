@@ -44,7 +44,7 @@ class Interface;
 
 /*Public APIs to be used by Lower layers of TCP/IP Stack to promote
  * the pkt to Layer 4. Starting hdr is ip hdr*/
-void promote_pkt_to_layer4(void *_node,
+void dp2cp_punt_pkt_to_layer4(void *_node,
                            Interface *recv_intf,
                            pkt_block_t *pkt_block,
                            int L4_protocol_number)

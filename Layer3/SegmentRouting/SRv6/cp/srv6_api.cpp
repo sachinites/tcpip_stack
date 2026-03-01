@@ -9,7 +9,6 @@
 #include "srv6_rtr.h"
 #include "srv6_api.h"
 #include "../../../../common/cp2dp.h"
-#include "../../../ipv6/v6nexthop.h"
 #include "../../../../Tracer/tracer.h"
 #include "srv6_sid_pool.h"
 #include "../../../../lmm_enums.h"
@@ -78,7 +77,7 @@ srv6_de_init (node_t *node) {
     srv6_rtm_route_install(node,
                            &loc->sid,
                            loc->prefix_len,
-                           IPV6_LOCAL_RT,
+                           FIB_NH_FWD_F_LOCAL,
                            0, 0,
                            NULL, 0,
                            SRV6_END_FN_NONE,
@@ -127,7 +126,7 @@ srv6_delete_all_pfx_sids (node_t *node)  {
         srv6_rtm_route_install(node, 
                             &pfxsid->sid,
                             pfxsid->prefix_len,
-                            IPV6_LOCAL_RT,
+                            FIB_NH_FWD_F_LOCAL,
                             0, 0, NULL, 0,
                             pfxsid->endP,
                             RTM_PROTO_STATIC, false);    

@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "../../../common/l3_hdrs.h"
 #include "../../../Layer3/ipv6/ipv6_hdrs.h"
-#include "../../../Layer3/ipv6/ipv6_route.h"
+#include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
 #include "../../../pkt_block.h"
 #include "../../../Tracer/tracer.h"

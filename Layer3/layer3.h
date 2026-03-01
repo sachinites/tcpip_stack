@@ -35,20 +35,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "../utils.h"
 
-#pragma pack (push,1)
+typedef struct node_ node_t;
 
-typedef struct dp_vrf_ dp_vrf_t;
-typedef struct dp_ctx_ dp_ctx_t;
-typedef struct dp_intf_ dp_intf_t;
-typedef struct pkt_block_ pkt_block_t;
+extern void
+layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count);
 
-void layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
-                         dp_vrf_t *vrf,
-                         dp_intf_t *interface,
-                         pkt_block_t *pkt_block);
-
-void
-np_tcp_ip_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
+extern void
+layer3_ero_ping_fn(node_t *node, 
+                   c_string dst_ip_addr,
+                   c_string ero_ip_address);
 
 #endif /* __LAYER3__ */

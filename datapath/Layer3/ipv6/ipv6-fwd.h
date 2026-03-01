@@ -14,9 +14,5 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
                             fib_nh_t *nexthop, 
                             pkt_block_t *pkt_block);
 
-void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
-                           dp_vrf_t *vrf,
-                           dp_intf_t *interface,
-                           pkt_block_t *pkt_block);
 
 #endif

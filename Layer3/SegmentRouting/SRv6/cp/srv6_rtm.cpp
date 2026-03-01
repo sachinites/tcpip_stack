@@ -13,7 +13,6 @@
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../layer3.h"
 #include "../../../../tcpconst.h"
-#include "../../../ipv6/v6nexthop.h"
 #include "../../../ipv6/ipv6_utils.h"
 
 

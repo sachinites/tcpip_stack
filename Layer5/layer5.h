@@ -55,7 +55,7 @@ cp_punt_pkt_from_layer2_to_layer5(
 					  hdr_type_t hdr_code);
 
 void
-cp_punt_pkt_from_layer3_to_layer5(void *node,
+dp2cp_punt_pkt_to_layer5(void *node,
 					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);

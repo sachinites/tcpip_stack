@@ -4,7 +4,6 @@
 #include "../../Interface/InterfaceUApi.h"
 #include "ipv6_hdrs.h"
 #include "ipv6_utils.h"
-#include "ipv6_route.h"
 #include "../../common/cp2dp.h"
 #include "../../RTM/rtm.h"
 #include "../../RTM/rtm_nb_integ.h"

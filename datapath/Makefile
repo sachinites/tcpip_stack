@@ -28,8 +28,12 @@ OBJS=dp_init.o \
 	 FIB/fib_nh.o \
 	 FIB/fib_route.o \
 	 FIB/fib_show.o \
+	 Layer3/layer3.o \
 	 Layer3/SRv6/srv6-end-behavior.o \
 	 Layer3/SRv6/srv6-endpoint.o \
+	 Layer3/Gre/gre-fwd.o \
+	 Layer3/ipv4/ipv4-fwd.o \
+	 Layer3/ipv6/ipv6-fwd.o \
 
 all: $(TARGET)
 
@@ -66,7 +70,19 @@ Layer2/l2fwd/%.o: Layer2/l2fwd/%.c Layer2/l2fwd/%.c
 FIB/%.o: FIB/%.c FIB/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+Layer3/%.o: Layer3/%.cpp 
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 Layer3/SRv6/%.o: Layer3/SRv6/%.cpp 
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+Layer3/Gre/%.o: Layer3/Gre/%.cpp 
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+Layer3/ipv4/%.o: Layer3/ipv4/%.cpp 
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+Layer3/ipv6/%.o: Layer3/ipv6/%.cpp 
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
@@ -79,6 +95,10 @@ clean:
 	rm -f Layer2/vxlan/*.o
 	rm -f Layer2/l2fwd/*.o
 	rm -f FIB/*.o
+	rm -f Layer3/*.o
 	rm -f Layer3/SRv6/*.o
+	rm -f Layer3/Gre/*.o
+	rm -f Layer3/ipv4/*.o
+	rm -f Layer3/ipv6/*.o
 
 .PHONY: all clean

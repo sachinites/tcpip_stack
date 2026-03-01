@@ -20,7 +20,8 @@
 #include "../../../common/l3_hdrs.h"
 #include "srv6-endpoint.h"
 #include "../../../Layer3/ipv6/ipv6_hdrs.h"
-#include "../../../Layer3/ipv6/ipv6_route.h"
+#include "../../Layer3/layer3.h"
+#include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
 #include "../../../pkt_block.h"
 #include "../../../Tracer/tracer.h"
@@ -45,7 +46,7 @@ ipv6_layer3_forward_nexthop(
 
 /* Promote packet to Layer 4 for upper layer protocol processing */
 extern void
-promote_pkt_to_layer4(
+dp2cp_punt_pkt_to_layer4(
     void *node,
     Interface *recv_intf,
     pkt_block_t *pkt_block,
@@ -53,7 +54,7 @@ promote_pkt_to_layer4(
 
 /* Demote packet to Layer 2 for link-layer forwarding */
 extern void
-demote_pkt_to_layer2(
+dp_demote_pkt_to_layer2(
     dp_ctx_t *dp_ctx,
     dp_vrf_t *vrf,
     uint32_t next_hop_ip,
@@ -345,12 +346,12 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
             
         case TCP_HDR:
             /* Promote to Layer 4 TCP processing */
-            promote_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, TCP_HDR);
+            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, TCP_HDR);
             return;
             
         case UDP_HDR:
             /* Promote to Layer 4 UDP processing */
-            promote_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, UDP_HDR);
+            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, UDP_HDR);
             return;
             
         case GRE_HDR:

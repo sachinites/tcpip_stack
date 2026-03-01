@@ -5,7 +5,6 @@
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../../common/l3_hdrs.h"
 #include "../../../ipv6/ipv6_utils.h"
-#include "../../../ipv6/ipv6_route.h"
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../pkt_block.h"
 #include "../../../../common/cp2dp.h"

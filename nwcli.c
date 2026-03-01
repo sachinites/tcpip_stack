@@ -52,6 +52,7 @@
 #include "datapath/FIB/fib_show.h"
 #include "RTM/rtm_priv_api.h"
 #include "mtrie/mtrie.h"
+#include "Layer3/layer3.h"
 
 extern graph_t *topo;
 class Interface;
@@ -451,14 +452,6 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
 
     return 0;
 }
-
-
-/*Layer 3 Commands*/
-extern void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count);
-extern void
-layer3_ero_ping_fn(node_t *node, c_string dst_ip_addr,
-                            c_string ero_ip_address);
 
 static int
 ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){

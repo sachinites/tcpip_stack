@@ -56,8 +56,6 @@ OBJS=gluethread/glthread.o \
 		  Layer3/netfilter.o \
 		  Layer3/ipv6/ipv6cli.o \
 		  Layer3/ipv6/ipv6_utils.o \
-		  Layer3/ipv6/v6nexthop.o \
-		  Layer3/ipv6/ipv6_fwd.o \
 		  Layer3/mpls_cli.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
@@ -280,12 +278,8 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
-Layer3/ipv6/v6nexthop.o:Layer3/ipv6/v6nexthop.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/v6nexthop.cpp -o Layer3/ipv6/v6nexthop.o
 Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_utils.cpp -o Layer3/ipv6/ipv6_utils.o
-Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
 
 Linux/LinuxInterface.o:Linux/LinuxInterface.cpp
 	${CC} ${CFLAGS} -c Linux/LinuxInterface.cpp -o Linux/LinuxInterface.o

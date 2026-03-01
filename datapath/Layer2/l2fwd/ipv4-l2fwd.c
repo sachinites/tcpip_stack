@@ -14,7 +14,7 @@
 #include "../../../common/cmn_api.h"
 
 extern void
-promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
                       pkt_block_t *pkt_block, 
@@ -112,7 +112,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
     if(next_hop_ip == dp_ctx->rtr_id) {
-        promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block, ethernet_hdr->type);
+        dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block, ethernet_hdr->type);
         return;
     }
 
@@ -142,7 +142,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
  * this API shall be used by L3, but any Higher Layer API can use
  * this API. For example, An application can run directly on L2 bypassing
  * L3 altogether.*/
-void demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
+void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                           dp_vrf_t *vrf,
                           uint32_t next_hop_ip,
                           dp_intf_t *oif,
@@ -321,7 +321,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
         case ETH_IP:
         case PROTO_IP_IN_IP:
         case ETH_IP6:
-            promote_pkt_to_layer3(
+            dp_promote_pkt_to_layer3(
                     dp_ctx,
                     vrf, iif, 
                     pkt_block,

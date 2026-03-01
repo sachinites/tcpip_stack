@@ -1,23 +1,22 @@
 #include <assert.h>
 #include <arpa/inet.h>
-#include "../../router_init.h"
-#include "ipv6_route.h"
-#include "../../pkt_block.h"
-#include "../../Interface/InterfaceUApi.h"
-#include "ipv6_hdrs.h"
-#include "../../tcpconst.h"
-#include "ipv6_utils.h"
-#include "../../Tracer/tracer.h"
-#include "../../Layer2/layer2.h"
-#include "../../datapath/FIB/fib_nh.h"
-#include "../../datapath/FIB/fib.h"
-#include "../../datapath/Interface/dp_intf.h"
-#include "../../datapath/Interface/dp_intf_log.h"
-#include "../../datapath/Vrfs/dp_vrf.h"
-#include "../../datapath/Layer3/SRv6/srv6-endpoint.h"
+
+#include "ipv6-fwd.h"
+#include "../layer3.h"
+#include "../../../tcpconst.h"
+#include "../../../pkt_block.h"
+
+#include "../../FIB/fib_nh.h"
+#include "../../Interface/dp_intf.h"
+#include "../../dp_ctx.h"
+
+#include "../../../Tracer/tracer.h"
+#include "../../Interface/dp_intf_log.h"
+#include "../../Vrfs/dp_vrf.h"
+#include "../SRv6/srv6-endpoint.h"
 
 extern void
-demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
+dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *outgoing_intf,
@@ -32,7 +31,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
                 pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
-    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
 
@@ -61,7 +60,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
 
     tcp_dump_l3_fwding_logger(dp_ctx, vrf,  (c_string)oif->if_name, 0);
 
-    demote_pkt_to_layer2(
+    dp_demote_pkt_to_layer2(
             dp_ctx,
             vrf,
             0,
@@ -81,7 +80,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     char dst_addr_str[48];
     char route_addr_str[48];
 
-    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Should be ipv6 pkt*/
     assert (pkt_block_get_starting_hdr(pkt_block) == IP6_HDR);
@@ -149,7 +148,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
 }
 
 void
-np_tcp_ip_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
+dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
 

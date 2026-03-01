@@ -4,7 +4,6 @@
 #include "isis_flood.h"
 #include "isis_policy.h"
 #include "isis_ted.h"
-#include "../ipv6/v6nexthop.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../RTM/rtm_route.h"

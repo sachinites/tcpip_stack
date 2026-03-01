@@ -49,7 +49,7 @@
 #include "../../dp_uapi.h"
 
 extern void
-promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
+dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
                       pkt_block_t *pkt_block, 

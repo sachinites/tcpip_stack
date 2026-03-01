@@ -27,13 +27,4 @@ typedef struct gre_header_ {
 
 #pragma pack(pop)
 
-void 
-gre_encasulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block);
-
-void 
-gre_decapsulate (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_interface) ;
-
-dp_intf_t *
-gre_lookup_tunnel_intf(dp_ctx_t *dp_ctx, uint32_t src_ip, uint32_t dst_ip) ;
-
 #endif 

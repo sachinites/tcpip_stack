@@ -5,17 +5,16 @@
 #include "cp2dp.h"
 #include "../EventDispatcher/event_dispatcher.h"
 #include "../datapath/Layer2/switching/mac_table.h"
-#include "../Layer3/layer3.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
-#include "../Layer3/rt_table/nexthop.h"
 #include "../lmm_enums.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../RTM/rtm_nh.h"
+#include "../datapath/Layer3/layer3.h"
 #include "../datapath/FIB/fib.h"
 #include "../datapath/FIB/fib_route.h"
 #include "../datapath/FIB/fib_nh.h"
@@ -26,9 +25,6 @@
 #include "../datapath/Interface/dp_intf_update.h"
 #include "../datapath/Interface/dp_intf_store.h"
 #include "../datapath/Interface/dp_intf_store.h"
-
-extern void
-np_tcp_ip_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
 static void 
 dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
@@ -95,10 +91,10 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
             switch (hdr_type)
             {
             case IP_HDR:
-                np_tcp_ip_send_ip_data(dp_ctx, vrf, pkt_block);
+                dp_send_ip_data(dp_ctx, vrf, pkt_block);
                 break;
             case IP6_HDR:
-                np_tcp_ip_send_ip6_data(dp_ctx, vrf, pkt_block);
+                dp_send_ip6_data(dp_ctx, vrf, pkt_block);
                 break;
             default:
                 break;

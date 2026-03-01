@@ -5,6 +5,8 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../tcpconst.h"
 
+extern int cprintf (const char* format, ...);
+
 static inline unsigned char *
 tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
 

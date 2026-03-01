@@ -54,7 +54,6 @@
 
 /* Layer 3 files */
 #include "Layer3/layer3.h"
-#include "Layer3/ipv6/ipv6_route.h"
 
 /* VXLAN files */
 #include "Layer2/vxlan/cp/vxlan.h"
