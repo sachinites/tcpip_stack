@@ -1,22 +1,19 @@
 #include <stdint.h>
 #include <assert.h>
-#include "../../../../common/l3_hdrs.h"
-#include "../../../ipv6/ipv6_hdrs.h"
-#include "../../../ipv6/ipv6_route.h"
-#include "../../../../router_init.h"
-#include "../../../../pkt_block.h"
-#include "../../../../Tracer/tracer.h"
-#include "../../../../Interface/InterfaceUApi.h"
+#include "../../../common/l3_hdrs.h"
+#include "../../../Layer3/ipv6/ipv6_hdrs.h"
+#include "../../../Layer3/ipv6/ipv6_route.h"
+#include "../../../router_init.h"
+#include "../../../pkt_block.h"
+#include "../../../Tracer/tracer.h"
+#include "../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
 #include "srv6-endpoint.h"
-#include "../../../../FIB/fib_nh.h"
-#include "../../../../FIB/fib.h"
-#include "../../../../datapath/Vrfs/dp_vrf.h"
+#include "../../FIB/fib_nh.h"
+#include "../../FIB/fib.h"
+#include "../../Vrfs/dp_vrf.h"
 
 #define drop_packet return;
-
-extern fib_nh_t *
-l3_v6route_get_active_nexthop (ipv6_route_t *l3_route) ;
 
 static void 
 srv6_shift (pkt_block_t *pkt_block) {

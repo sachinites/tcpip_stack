@@ -59,25 +59,25 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             intf->log_info.log_file = fopen (intf_log_file_name, "w");
 
             switch (msg->update_code) {
-                case 0:
+                case CP2DP_CODE_INTF_PHYSICAL:
                     dp_insert_interface(ht, intf);
                     if (intf->if_type == DP_INTF_TYPE_VLAN) {
                         dp_insert_vlan_interface (dp_ctx->dp_vlan_intf_ht, intf);
                     }
                     break;
-                case INTF_TYPE_RMAC:
+                case CP2DP_CODE_INTF_RMAC:
                     dp_ctx->dp_rmac_intf = intf;
                     break;
-                case INTF_TYPE_VLAN_FLOOD:
+                case CP2DP_CODE_INTF_VLAN_FLOOD:
                     dp_ctx->dp_vlan_flood_intf = intf;
                     break;
-                case INTF_TYPE_NVE:
+                case CP2DP_CODE_INTF_NVE:
                     dp_ctx->dp_nve_intf = intf;
                     break;
-                case INTF_TYPE_SRv6:
+                case CP2DP_CODE_INTF_SRV6_END:
                     dp_ctx->dp_srv6_end_intf = intf;
                     break;
-                case INTF_TYPE_HOST_PATH:
+                case CP2DP_CODE_INTF_HOST_PATH:
                     dp_ctx->dp_host_path_intf = intf;
                     break;
                 default: 
@@ -662,6 +662,9 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
 
     intf_msg->update_code = 0;
 
+    cprintf ("intf->iftype = %d(%s),  INTF_TYPE_HOST_PATH = %d\n", 
+        intf->iftype, intf_msg->intf_name, INTF_TYPE_HOST_PATH);
+
     switch (intf->iftype) {
 
         case INTF_TYPE_PHY:
@@ -690,6 +693,8 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
         default: 
             break;
     }
+
+    cprintf ("intf_msg->update_code = %d\n", intf_msg->update_code);
 
     /* Use synchronous submission to ensure interface is created before caller proceeds */
     cp2dp_submit(node, dp_msg, false);

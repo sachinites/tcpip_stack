@@ -48,8 +48,8 @@
 #include "datapath/Layer2/switching/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
-#include "FIB/fib.h"
-#include "FIB/fib_show.h"
+#include "datapath/FIB/fib.h"
+#include "datapath/FIB/fib_show.h"
 #include "RTM/rtm_priv_api.h"
 #include "mtrie/mtrie.h"
 

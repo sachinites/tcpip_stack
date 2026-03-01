@@ -18,6 +18,8 @@
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
 #include "../../dp_utils.h"
+#include "../../dp_uapi.h"
+#include "../../../common/cmn_api.h"
 
 #define ARP_ENTRY_EXP_TIME	30
 
@@ -134,7 +136,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t 
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
     pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
-    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)dp_get_new_pkt_buffer(total_pkt_size);
+    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(total_pkt_size);
 
     l2_prepare_arp_reply_msg(ethernet_hdr_reply, 
             &arp_hdr_in->src_mac, 

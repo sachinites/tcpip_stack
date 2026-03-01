@@ -23,20 +23,20 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "../lmm_enums.h"
-#include "../common/mpls_lstack.h"
-#include "../datapath/Vrfs/dp_vrf.h"
+#include "../../lmm_enums.h"
+#include "../../common/mpls_lstack.h"
+#include "../Vrfs/dp_vrf.h"
 #include "fib.h"
-#include "../pkt_block.h"
-#include "../mtrie/mtrie.h"
+#include "../../pkt_block.h"
+#include "../../mtrie/mtrie.h"
 #include "fib_api.h"
 #include "fib_route.h"
 #include "fib_nh.h"
-#include "../RTM/rtm_fib_common.h"
-#include "../RTM/rtm_priv_api.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../Interface/InterfaceUApi.h"
-#include "../datapath/Interface/dp_intf.h"
+#include "../../RTM/rtm_fib_common.h"
+#include "../../RTM/rtm_priv_api.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../Interface/InterfaceUApi.h"
+#include "../Interface/dp_intf.h"
 
 extern int
 fib_nh_comp_fn(const avltree_node_t *node1, 

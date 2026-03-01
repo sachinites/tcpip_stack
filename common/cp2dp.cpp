@@ -16,11 +16,12 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../RTM/rtm_nh.h"
-#include "../FIB/fib.h"
-#include "../FIB/fib_route.h"
-#include "../FIB/fib_nh.h"
+#include "../datapath/FIB/fib.h"
+#include "../datapath/FIB/fib_route.h"
+#include "../datapath/FIB/fib_nh.h"
 #include "../datapath/Vrfs/dp_vrf.h"
 #include "../datapath/dp_ctx.h"
+#include "../datapath/dp_uapi.h"
 #include "../datapath/Interface/dp_intf.h"
 #include "../datapath/Interface/dp_intf_update.h"
 #include "../datapath/Interface/dp_intf_store.h"
@@ -340,17 +341,18 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
 }
 
 dp_msg_t *
-cp2dp_msg_alloc () {
-
-    return new dp_msg_t;
+cp2dp_msg_alloc()
+{
+    dp_msg_t *dp_msg = (dp_msg_t *)calloc(1, sizeof(dp_msg_t));
+    dp_msg->vrf_id = DEFAULT_VRF;
+    return dp_msg;
 }
 
 void
-cp2dp_msg_free (dp_msg_t *dp_msg) {
+cp2dp_msg_free (dp_msg_t *dp_msg){
     
-        delete (dp_msg);
+    free (dp_msg);
 }
-
 
 void 
 dp_pkt_xmit_intf_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){

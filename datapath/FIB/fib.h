@@ -2,12 +2,12 @@
 #define __FIB__
 
 #include <stdint.h>
-#include "../Tree/libtree.h"
-#include "../c-hashtable/hashtable.h"
-#include "../c-hashtable/hashtable_itr.h"
+#include "../../Tree/libtree.h"
+#include "../../c-hashtable/hashtable.h"
+#include "../../c-hashtable/hashtable_itr.h"
 
 #include "fib_error.h"
-#include "../RTM/rtm_fib_common.h"
+#include "../../RTM/rtm_fib_common.h"
 
 typedef struct mtrie_ mtrie_t;
 typedef struct fib_nh_ fib_nh_t;

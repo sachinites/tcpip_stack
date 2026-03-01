@@ -1,10 +1,10 @@
 #ifndef __FIB_API__
 #define __FIB_API__
 
-#include "../BitOp/bitmap.h"
+#include "../../BitOp/bitmap.h"
 #include "fib_error.h"
-#include "../mtrie/mtrie.h"
-#include "../common/cmn_prefix.h"
+#include "../../mtrie/mtrie.h"
+#include "../../common/cmn_prefix.h"
 
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct pkt_block_ pkt_block_t;

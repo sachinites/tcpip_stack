@@ -1,5 +1,7 @@
 CC=g++
-CFLAGS=-g -Wall -Wextra -fpermissive -I..
+SANITIZER_FLAGS=-fsanitize=address,undefined
+#SANITIZER_FLAGS=
+export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 AR=ar
 
 TARGET=libdp.a
@@ -8,9 +10,11 @@ TARGET=libdp.a
 OBJS=dp_init.o \
 	 dp_cli.o \
 	 dp_utils.o \
+	 dp_uapi.o \
 	 Interface/dp_intf_store.o \
 	 Interface/dp_intf_update.o \
 	 Interface/dp_intf_xmit.o \
+	 Interface/dp_intf_recv.o \
 	 Interface/dp_intf_log.o \
 	 Vrfs/dp_vrf.o \
 	 Layer2/arp/arp.o \
@@ -19,7 +23,13 @@ OBJS=dp_init.o \
 	 Layer2/vxlan/vlan_vni_ht.o \
 	 Layer2/vxlan/vxlan_dp.o \
 	 Layer2/l2fwd/ipv4-l2fwd.o \
-
+	 FIB/fib_api.o \
+	 FIB/fib.o \
+	 FIB/fib_nh.o \
+	 FIB/fib_route.o \
+	 FIB/fib_show.o \
+	 Layer3/SRv6/srv6-end-behavior.o \
+	 Layer3/SRv6/srv6-endpoint.o \
 
 all: $(TARGET)
 
@@ -53,6 +63,12 @@ Layer2/vxlan/%.o: Layer2/vxlan/%.c Layer2/vxlan/%.cpp
 Layer2/l2fwd/%.o: Layer2/l2fwd/%.c Layer2/l2fwd/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+FIB/%.o: FIB/%.c FIB/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+Layer3/SRv6/%.o: Layer3/SRv6/%.cpp 
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
 	rm -f $(OBJS) $(TARGET)
 	rm -f *.o
@@ -62,5 +78,7 @@ clean:
 	rm -f Layer2/switching/*.o
 	rm -f Layer2/vxlan/*.o
 	rm -f Layer2/l2fwd/*.o
+	rm -f FIB/*.o
+	rm -f Layer3/SRv6/*.o
 
 .PHONY: all clean

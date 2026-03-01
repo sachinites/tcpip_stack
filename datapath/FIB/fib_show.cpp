@@ -7,14 +7,14 @@
 #include "fib_show.h"
 #include "fib_route.h"
 #include "fib_nh.h"
-#include "../common/cmn_prefix.h"
-#include "../mtrie/mtrie.h"
-#include "../c-hashtable/hashtable.h"
-#include "../c-hashtable/hashtable_itr.h"
-#include "../common/mpls_lstack.h"
-#include "../RTM/rtm_fib_common.h"
-#include "../utils.h"
-#include "../datapath/Interface/dp_intf.h"
+#include "../../common/cmn_prefix.h"
+#include "../../mtrie/mtrie.h"
+#include "../../c-hashtable/hashtable.h"
+#include "../../c-hashtable/hashtable_itr.h"
+#include "../../common/mpls_lstack.h"
+#include "../../RTM/rtm_fib_common.h"
+#include "../../utils.h"
+#include "../../datapath/Interface/dp_intf.h"
 
 extern int cprintf(const char *fmt, ...);
 

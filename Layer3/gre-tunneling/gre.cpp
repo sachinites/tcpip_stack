@@ -322,7 +322,8 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
              pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "GRE Decapsulation %s\n", pkt_block_str (pkt_block));                    
-             dp_pkt_receive(dp_ctx, vrf, gre_intf, pkt_block);
+             //dp_pkt_receive(dp_ctx, vrf, gre_intf, pkt_block);
+             dp_inject_packet(dp_ctx, pkt_block, gre_intf);
         }
         break;
     }

@@ -1,7 +1,7 @@
 
 #include "rtm_fib_common.h"
 #include "rtm_nh.h"
-#include "../FIB/fib_nh.h"
+#include "../datapath/FIB/fib_nh.h"
 #include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../datapath/Interface/dp_intf_store.h"

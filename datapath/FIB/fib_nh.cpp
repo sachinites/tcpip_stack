@@ -4,12 +4,12 @@
 #include "fib_error.h"
 #include "fib_api.h"
 #include <string.h>
-#include "../lmm_enums.h"
-#include "../common/mpls_lstack.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../Tree/libtree.h"
-#include "../mtrie/mtrie.h"
-#include "../c-hashtable/hashtable.h"
+#include "../../lmm_enums.h"
+#include "../../common/mpls_lstack.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../Tree/libtree.h"
+#include "../../mtrie/mtrie.h"
+#include "../../c-hashtable/hashtable.h"
 
 int
 fib_nh_comp_fn(const avltree_node_t *node1, 

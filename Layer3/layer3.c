@@ -36,8 +36,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "../common/l3_hdrs.h"
-#include "../FIB/fib_nh.h"
-#include "../FIB/fib.h"
+#include "../datapath/FIB/fib_nh.h"
+#include "../datapath/FIB/fib.h"
 #include "../datapath/Interface/dp_intf.h"
 #include "../router_init.h"
 #include "../datapath/dp_ctx.h"

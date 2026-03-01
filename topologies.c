@@ -53,6 +53,7 @@ graph_t *standalone_node_topology(void) {
 
     graph_t *topo = create_new_graph("Stand-Alone Topo");
     node_t *R0 = Router_Create(topo, (const c_string)"R0");
+    return topo;
     node_set_rtr_id(R0, "122.1.1.1");
     node_t *R1 = Router_Create(topo, (const c_string)"R1");
     node_set_rtr_id(R1, "122.1.1.2");

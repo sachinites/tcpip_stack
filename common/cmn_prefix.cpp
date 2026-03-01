@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "cmn_prefix.h"
-#include "../FIB/fib_api.h"
+#include "../datapath/FIB/fib_api.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "../BitOp/bitmap.h"
 #include "../utils.h"

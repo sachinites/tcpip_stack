@@ -9,6 +9,7 @@
 #include "../../../EventDispatcher/event_dispatcher.h"
 #include "../../../Tracer/tracer.h"
 #include "../../../gluethread/glthread.h"
+#include "../../dp_uapi.h"
 
 extern int cprintf (const char* format, ...);
 

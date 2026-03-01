@@ -1,7 +1,7 @@
 
 #include "dp_utils.h"
 #include "Vrfs/dp_vrf.h"
-#include "../FIB/fib_nh.h"
+#include "FIB/fib_nh.h"
 
 /*Returns the local interface of the node which is configured 
  * with subnet in which 'ip_addr' lies

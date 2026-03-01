@@ -17,18 +17,18 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include "../../../../common/l3_hdrs.h"
+#include "../../../common/l3_hdrs.h"
 #include "srv6-endpoint.h"
-#include "../../../ipv6/ipv6_hdrs.h"
-#include "../../../ipv6/ipv6_route.h"
-#include "../../../../router_init.h"
-#include "../../../../pkt_block.h"
-#include "../../../../Tracer/tracer.h"
-#include "../../../../Interface/InterfaceUApi.h"
+#include "../../../Layer3/ipv6/ipv6_hdrs.h"
+#include "../../../Layer3/ipv6/ipv6_route.h"
+#include "../../../router_init.h"
+#include "../../../pkt_block.h"
+#include "../../../Tracer/tracer.h"
+#include "../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
-#include "../../../../FIB/fib_nh.h"
-#include "../../../../FIB/fib.h"
-#include "../../../../datapath/Vrfs/dp_vrf.h"
+#include "../../FIB/fib_nh.h"
+#include "../../FIB/fib.h"
+#include "../../Vrfs/dp_vrf.h"
 
 /* ============================================================================
  * External Function Declarations
@@ -38,7 +38,8 @@
 /* Forward IPv6 packet using the specified nexthop */
 extern void 
 ipv6_layer3_forward_nexthop(
-    node_t *node, 
+    dp_ctx_t *dp_ctx,
+    dp_vrf_t *vrf,
     fib_nh_t *nexthop, 
     pkt_block_t *pkt_block);
 
@@ -873,7 +874,7 @@ void
 Process_Srv6_Packet(
         dp_ctx_t *dp_ctx, 
         dp_vrf_t *vrf,
-        Interface* recv_intf,
+        dp_intf_t* recv_intf,
         pkt_block_t *pkt_block, 
         ipv6_hdr_t *ipv6_hdr, 
         srh_hdr_t *srh,
@@ -1269,7 +1270,7 @@ void
 Srv6_apply_endpoint_fn(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
-    Interface *recv_intf, 
+    dp_intf_t *recv_intf, 
     pkt_block_t *pkt_block, 
     ipv6_hdr_t *ipv6_hdr, 
     srh_hdr_t *srh, 

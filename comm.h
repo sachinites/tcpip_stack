@@ -44,15 +44,8 @@ typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dp_vrf_ dp_vrf_t;
 
-typedef struct ev_dis_pkt_data_{
-
-    uint32_t ifindex;
-    byte *pkt;
-    uint32_t pkt_size;
-}ev_dis_pkt_data_t;
-
 int
-send_pkt_to_self (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, dp_intf_t *interface);
+dp_inject_packet (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, dp_intf_t *interface);
 
 /*API to recv packet from interface*/
 void

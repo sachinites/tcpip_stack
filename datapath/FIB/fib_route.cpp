@@ -1,16 +1,16 @@
 #include <string.h>
 #include <cstdlib>
-#include "../router_init.h"
+#include "../../router_init.h"
 #include "fib.h"
 #include "fib_route.h"
 #include "fib_error.h"
 #include "fib_nh.h"
-#include "../lmm_enums.h"
-#include "../mtrie/mtrie.h"
-#include "../BitOp/bitmap.h"
-#include "../Tracer/tracer.h"
-#include "../common/cmn_prefix.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../../lmm_enums.h"
+#include "../../mtrie/mtrie.h"
+#include "../../BitOp/bitmap.h"
+#include "../../Tracer/tracer.h"
+#include "../../common/cmn_prefix.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
 
 static inline void 
 fib_set_nh_idx(

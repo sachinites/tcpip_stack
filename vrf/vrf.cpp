@@ -6,7 +6,7 @@
 #include "../lmm_enums.h"
 #include "../router_init.h"
 #include "../RTM/rtm.h"
-#include "../FIB/fib.h"
+#include "../datapath/FIB/fib.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../net.h"
 #include "../common/cp2dp.h"

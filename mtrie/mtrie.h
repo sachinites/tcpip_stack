@@ -21,6 +21,8 @@ typedef enum mtrie_ops_result_code_ {
 	MTRIE_OPS_UNKNOWN
 } mtrie_ops_result_code_t;
 
+#pragma pack (push,8)
+
 typedef struct mtrie_node_ {
 
 	uint16_t node_id;
@@ -52,6 +54,8 @@ typedef struct mtrie_ {
 	app_data_free_cbk free_cbk;
 	
 } __attribute__((aligned(8))) mtrie_t;
+
+#pragma pack(pop)
 
 static inline bool
 mtrie_is_leaf_node (mtrie_node_t *node) {

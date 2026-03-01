@@ -34,6 +34,8 @@
 #include "../common/cmn_prefix.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "../pkt_block.h"
+#include "../datapath/dp_uapi.h"
+#include "../common/cmn_api.h"
 
 
 bool LinuxRtr = false;

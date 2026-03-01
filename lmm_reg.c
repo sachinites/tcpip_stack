@@ -32,9 +32,9 @@
 #include "RTM/rtm_gc.h"
 
 /* FIB Files*/
-#include "FIB/fib.h"
-#include "FIB/fib_nh.h"
-#include "FIB/fib_route.h"
+#include "datapath/FIB/fib.h"
+#include "datapath/FIB/fib_nh.h"
+#include "datapath/FIB/fib_route.h"
 
 
 /* TED Hdr Files*/

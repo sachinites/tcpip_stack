@@ -60,6 +60,7 @@
 #include "common/l3_hdrs.h"
 #include "common/l2_hdrs.h"
 #include "common/cp2dp.h"
+#include "common/cmn_api.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
 #include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 

@@ -19,12 +19,12 @@
 #include "fib.h"
 #include "fib_route.h"
 #include "fib_nh.h"
-#include "../common/mpls_lstack.h"
-#include "../pkt_block.h"
-#include "../common/l3_hdrs.h"
-#include "../tcpconst.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../datapath/Interface/dp_intf.h"
+#include "../../common/mpls_lstack.h"
+#include "../../pkt_block.h"
+#include "../../common/l3_hdrs.h"
+#include "../../tcpconst.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../Interface/dp_intf.h"
 
 extern void
 demote_pkt_to_layer2 (dp_ctx_t *dp_ctx,

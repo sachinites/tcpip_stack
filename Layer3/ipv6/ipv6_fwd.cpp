@@ -9,12 +9,12 @@
 #include "ipv6_utils.h"
 #include "../../Tracer/tracer.h"
 #include "../../Layer2/layer2.h"
-#include "../../FIB/fib_nh.h"
-#include "../../FIB/fib.h"
+#include "../../datapath/FIB/fib_nh.h"
+#include "../../datapath/FIB/fib.h"
 #include "../../datapath/Interface/dp_intf.h"
 #include "../../datapath/Interface/dp_intf_log.h"
 #include "../../datapath/Vrfs/dp_vrf.h"
-#include "../SegmentRouting/SRv6/dp/srv6-endpoint.h"
+#include "../../datapath/Layer3/SRv6/srv6-endpoint.h"
 
 extern void
 demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
@@ -139,7 +139,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
         /* TODO: Process_Srv6_Packet needs old Interface type */
         Process_Srv6_Packet(dp_ctx, 
                             vrf,
-                            (Interface *)NULL,
+                            NULL,
                             pkt_block,
                             ipv6_hdr,
                             ipv6_hdr->next_header == PROTO_SRH ? (srh_hdr_t *)(ipv6_hdr + 1) : NULL,

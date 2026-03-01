@@ -88,9 +88,7 @@ typedef struct dp_ctx_ {
 
 #pragma pack(pop)
 
-void 
-dp_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 
-#define DP_CTX(vrf_ptr)  dp_ctx_t *dp_ctx = (vrf_ptr)->dp_ctx
+
 
 #endif 

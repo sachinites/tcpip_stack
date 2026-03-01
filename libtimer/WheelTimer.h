@@ -17,10 +17,12 @@ typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef void (*app_call_back)(event_dispatcher_t*, void *, uint32_t);
 typedef struct _wheel_timer_t wheel_timer_t;
 
+#pragma pack (push,8)
 typedef struct slotlist_{
     glthread_t slots;
     pthread_mutex_t slot_mutex;
 }slotlist_t;
+#pragma pack(pop)
 
 typedef enum{
 
@@ -31,6 +33,7 @@ typedef enum{
     WTELEM_UNKNOWN
 } wt_opcode_t;
 
+#pragma pack (push,8)
 struct _wheel_timer_elem_t{
     
     wt_opcode_t opcode;
@@ -49,6 +52,8 @@ struct _wheel_timer_elem_t{
     unsigned int N_scheduled;
     pthread_mutex_t mutex;
 };
+#pragma pack(pop)
+
 GLTHREAD_TO_STRUCT(glthread_to_wt_elem, wheel_timer_elem_t, glue);
 GLTHREAD_TO_STRUCT(glthread_reschedule_glue_to_wt_elem, wheel_timer_elem_t, reschedule_glue);
 
@@ -73,6 +78,7 @@ wt_elem_get_and_set_app_data(wheel_timer_elem_t *wt_elem, void *new_data) {
 	return old_data;
 }
 
+#pragma pack (push,8)
 struct _wheel_timer_t {
 	int current_clock_tic;
 	int clock_tic_interval;
@@ -85,6 +91,8 @@ struct _wheel_timer_t {
     void *user_data;
     slotlist_t slotlist[0];
 };
+#pragma pack(pop)
+
 
 static inline void
 wt_set_user_data(wheel_timer_t *wt, void *user_data) {

@@ -5,10 +5,11 @@
 #include "../../c-hashtable/hashtable.h"
 #include "../../c-hashtable/hashtable_itr.h"
 #include "dp_vrf.h"
-#include "../../FIB/fib.h"
+#include "../FIB/fib.h"
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../../net.h"
 #include "../Layer2/arp/arp.h"
+#include "../dp_uapi.h"
 
 /* Hash function for vrf_id (uint8_t) keys */
 static unsigned int 

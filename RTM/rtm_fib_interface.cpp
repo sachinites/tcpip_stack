@@ -9,8 +9,8 @@
 #include "rtm_presentation.h"
 #include "rtm_fib_common.h"
 #include "../common/mpls_lstack.h"
-#include "../FIB/fib_error.h"
-#include "../FIB/fib.h"
+#include "../datapath/FIB/fib_error.h"
+#include "../datapath/FIB/fib.h"
 #include "../common/cp2dp.h"
 
 /* Function which created a data plane forwarding info from a nexthop 

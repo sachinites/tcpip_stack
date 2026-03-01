@@ -2,7 +2,7 @@
 #define  __FIB_ROUTE__
 
 #include <stdint.h>
-#include "../RTM/rtm_fib_common.h"
+#include "../../RTM/rtm_fib_common.h"
 
 typedef struct fib_nh_ fib_nh_t;
 typedef struct dp_ctx_ dp_ctx_t;

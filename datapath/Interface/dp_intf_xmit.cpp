@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <memory.h>
 #include "../../pkt_block.h"
 #include "../../net.h"
 #include "dp_intf.h"
@@ -11,7 +13,8 @@
 #include "../Layer2/vxlan/vxlan_dp.h"
 #include "dp_intf_log.h"
 #include "../dp_utils.h"
-
+#include "../dp_uapi.h"
+#include "../../common/cmn_api.h"
 
 typedef int (*SendPacketOut_fptr)(
             dp_ctx_t *, 
@@ -59,7 +62,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
     ev_dis_pkt_data->ifindex = peer_end->port_id;
-    ev_dis_pkt_data->pkt = dp_get_new_pkt_buffer(pkt_size);
+    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
 

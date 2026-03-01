@@ -9,7 +9,9 @@
 #include "../arp/arp.h"
 #include "../../../Tracer/tracer.h"
 #include "../../dp_utils.h"
+#include "../../dp_uapi.h"
 #include "../../../comm.h"
+#include "../../../common/cmn_api.h"
 
 extern void
 promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -103,7 +105,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->dst_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        send_pkt_to_self(dp_ctx, pkt_block, oif);
+        dp_inject_packet(dp_ctx, pkt_block, oif);
         return;
     }
 
@@ -630,7 +632,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                                     (pkt_size_t)sizeof(arp_hdr_t);
 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
-        (vlan_ethernet_hdr_t *)dp_get_new_pkt_buffer(arp_reply_pkt_size);
+        (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
 
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid = 0;
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci_vid |= htons((uint16_t)pkt_vlan_id);

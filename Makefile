@@ -1,6 +1,6 @@
 export CC=g++
-#SANITIZER_FLAGS=-fsanitize=address,undefined
-SANITIZER_FLAGS=
+SANITIZER_FLAGS=-fsanitize=address,undefined
+#SANITIZER_FLAGS=
 export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 TARGET:tcpstack.exe pkt_gen.exe
 
@@ -20,7 +20,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
-		    -LLinuxMemoryManager -lmm \
+       		-LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
 			-L../RDBMSImplementation/SqlParser -lsqlapi \
@@ -28,7 +28,6 @@ LIBS= ${ISIS_LIB_PATH} \
 			-L../MathExpressionParser -lMexpr \
 			-Ldatapath -ldp \
 			-LRTM -lrtm \
-			-LFIB -lfib \
 			-lpthread \
 			-lpq \
    		    -lrt \
@@ -66,8 +65,8 @@ OBJS=gluethread/glthread.o \
 		  nwcli.o		   \
 		  utils.o		   \
 		  cp_ipc.o \
-          	  libtimer/WheelTimer.o   \
-          	  libtimer/timerlib.o   \
+          libtimer/WheelTimer.o   \
+          libtimer/timerlib.o   \
 		  libtimer/timedef.o \
 		  Tracer/tracer.o \
 		  tcp_stack_init.o	\
@@ -90,6 +89,7 @@ OBJS=gluethread/glthread.o \
 		  PostgresLibpq/postgresLib.o \
 		  common/cp2dp.o \
 		  common/cmn_prefix.o \
+		  common/cmn_api.o \
 		  lmm_reg.o \
 		  sql_cli.o \
 		  Linux/LinuxInterface.o \
@@ -98,8 +98,6 @@ OBJS=gluethread/glthread.o \
 		  vrf/vrf.cpp \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
 		  
-
-
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
 
@@ -140,7 +138,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a FIB/libfib.a datapath/libdp.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -180,6 +178,9 @@ common/cp2dp.o:common/cp2dp.cpp
 
 common/cmn_prefix.o:common/cmn_prefix.cpp
 	${CC} ${CFLAGS} -c -I . common/cmn_prefix.cpp -o common/cmn_prefix.o
+
+common/cmn_api.o:common/cmn_api.cpp
+	${CC} ${CFLAGS} -c -I . common/cmn_api.cpp -o common/cmn_api.o
 
 cli_interface.o:cli_interface.c
 	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
@@ -313,8 +314,6 @@ ${LFA_LIB}:
 	(cd Layer3/LFA; make)
 RTM/librtm.a:
 	(cd RTM; make)
-FIB/libfib.a:
-	(cd FIB; make)
 datapath/libdp.a:
 	(cd datapath; make)
 
@@ -367,5 +366,4 @@ cleanall:
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
 	(cd RTM; make clean)
-	(cd FIB; make clean)
 	(cd datapath; make clean)

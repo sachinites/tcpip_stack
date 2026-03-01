@@ -167,21 +167,6 @@ is_same_subnet(c_string ip_addr,
 extern int 
 cprintf(const char *format, ...);
 
-static inline byte *
-tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
-
-    if (pkt_size > (MAX_PACKET_BUFFER_SIZE - PKT_BUFFER_RIGHT_ROOM)) return NULL;
-    byte *pkt = (byte *)XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
-    return pkt + MAX_PACKET_BUFFER_SIZE - (pkt_size + PKT_BUFFER_RIGHT_ROOM);
-}
-
-static inline void
-tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
-
-    XFREE(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
-}
-
-
 void interface_assign_mac_address (Interface *interface);
 
 /*Macros to Iterate over Nbrs of a node*/
@@ -206,11 +191,6 @@ void interface_assign_mac_address (Interface *interface);
 #define EV(node_ptr)    (&node_ptr->ev_dis)
 #define EV_PURGER(node_ptr) (&node->purger_ev_dis)
 #define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
-
-#define EV_DP(dp_ctx_ptr)    (&dp_ctx_ptr->dp_ev_dis)
-#define DP_PKT_Q(dp_ctx_ptr) (&dp_ctx_ptr->dp_recvr_pkt_q)
-#define DP_TIMER(dp_ctx_ptr)  (dp_ctx_ptr->dp_wt)
-#define EV_DP_PURGER(dp_ctx_ptr) (&dp_ctx_ptr->dp_purger_ev_dis)
 
 uint16_t
 interface_get_new_ifindex (node_t *node);

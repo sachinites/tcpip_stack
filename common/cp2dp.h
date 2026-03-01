@@ -11,11 +11,11 @@ typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 #include "cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
-#include "../Layer3/SegmentRouting/SRv6/dp/srv6-endpoint.h"
+#include "../datapath/Layer3/SRv6/srv6-endpoint.h"
 #include "../Layer3/mpls_enums.h"
 #include "../RTM/rtm_fib_common.h"
 #include "../RTM/rtm_nh.h"
-#include "../FIB/fib_nh.h"
+#include "../datapath/FIB/fib_nh.h"
 #include "../datapath/Vrfs/dp_vrf.h"
 
 #define CP2DP_MSG_SIZE_MAX  2048
@@ -135,15 +135,6 @@ typedef struct dp_msg_ {
     uint16_t flags;
     uint8_t vrf_id;
     char padding[1];
-
-    dp_msg_ () {
-        memset (data, 0, CP2DP_MSG_SIZE_MAX);
-        component_type = (DP_COMPONENT_TYPE_T)0;
-        opr_type = (DP_OPR_TYPE_T )0;
-        data_size = 0;
-        flags = 0;
-        vrf_id = DEFAULT_VRF;
-    }
     
 } dp_msg_t;
 
@@ -159,17 +150,15 @@ cp2dp_msg_free (dp_msg_t *dp_msg);
 void
 cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface) ;
 
-void 
-cp2dp_send_ip_data ( node_t *node, 
-                                    pkt_block_t *pkt_block,
-                                    uint32_t dest_ip_addr,
-                                    uint16_t std_ip_protocol) ;
+void cp2dp_send_ip_data(node_t *node,
+                        pkt_block_t *pkt_block,
+                        uint32_t dest_ip_addr,
+                        uint16_t std_ip_protocol);
 
-void 
-cp2dp_send_ip6_data ( node_t *node, 
-                                    pkt_block_t *pkt_block,
-                                    ipv6_addr_t dest_ip_addr,
-                                    uint16_t std_ip_protocol) ;
+void cp2dp_send_ip6_data(node_t *node,
+                         pkt_block_t *pkt_block,
+                         ipv6_addr_t dest_ip_addr,
+                         uint16_t std_ip_protocol);
 
 /* Wrapper fn to add MAC entry to MAC table Asynchronously*/
 void

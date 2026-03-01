@@ -32,7 +32,9 @@
 #include "common/l3_hdrs.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
 #include "lmm_enums.h"
-#include "datapath/Interface/dp_intf.h"
+#include "common/cmn_api.h"
+
+typedef struct dp_intf_ dp_intf_t;
 
 hdr_type_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block) {

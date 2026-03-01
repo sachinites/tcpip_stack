@@ -46,6 +46,7 @@
 #include "../../Layer2/vxlan/vxlan_dp.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
+#include "../../dp_uapi.h"
 
 extern void
 promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
