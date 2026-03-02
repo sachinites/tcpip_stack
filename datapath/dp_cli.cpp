@@ -1,3 +1,18 @@
+/*
+ * =============================================================================
+ * File: dp_cli.cpp
+ * Description: CLI for datapath: show VRF table, interface table, FIB.
+ * =============================================================================
+ *
+ * Design:
+ *   - Registers "show node <node-name> data-path ..." commands (VRF table,
+ *     interface table [brief] [intf-name], fib <fib-name>).
+ *   - dp_show_handler() dispatches by cmdcode and prints from node->dp_ctx
+ *     (hashtables, special interfaces). FIB display is stubbed.
+ *   - dp_print_interface() / dp_print_interface_brief() format one interface
+ *     (L2/L3 config, stats, tunnel, member ports, etc.).
+ * =============================================================================
+ */
 
 #include <arpa/inet.h>
 #include <string.h>
@@ -18,15 +33,17 @@
 
 extern graph_t *topo;
 
-/* Datapath show commands */
-#define CMDCODE_SHOW_DP_VRF_TABLE 1
-#define CMDCODE_SHOW_DP_INTF_TABLE 2
+/* Command codes for show data-path subcommands */
+#define CMDCODE_SHOW_DP_VRF_TABLE        1
+#define CMDCODE_SHOW_DP_INTF_TABLE       2
 #define CMDCODE_SHOW_DP_INTF_TABLE_BRIEF 3
-#define CMDCODE_SHOW_DP_FIB 4
+#define CMDCODE_SHOW_DP_FIB              4
 
-static void 
-dp_print_interface_brief(dp_intf_t *intf) {
+/* -----  Interface display helpers  ----- */
 
+static void
+dp_print_interface_brief(dp_intf_t *intf)
+{
     char ipv4_str[32];
     char ipv6_str[64];
 
@@ -61,74 +78,83 @@ dp_print_interface_brief(dp_intf_t *intf) {
             dp_intf_type_str(intf->if_type));
 }
 
-static void 
-dp_print_interface(dp_intf_t *intf) {
-
+static void
+dp_print_interface(dp_intf_t *intf)
+{
     char ipv4_str[32];
     char ipv6_str[64];
     char ipv6_ll_str[64];
     char mac_str[32];
 
-    if (intf->ip_addr) {                          
-        tcp_ip_covert_ip_n_to_p(intf->ip_addr, (c_string)ipv4_str);                      
-        snprintf(ipv4_str + strlen(ipv4_str), sizeof(ipv4_str) - strlen(ipv4_str), "/%u", intf->mask);
+    if (!intf) return;
+
+    /* IPv4 */
+    if (intf->ip_addr) {
+        tcp_ip_covert_ip_n_to_p(intf->ip_addr, (c_string)ipv4_str);
+        snprintf(ipv4_str + strlen(ipv4_str),
+                 sizeof(ipv4_str) - strlen(ipv4_str), "/%u", intf->mask);
     } else {
         strcpy(ipv4_str, "N/A");
     }
-    
+
+    /* IPv6 global */
     if (intf->v6addr[0] || intf->v6addr[15]) {
         inet_ntop(AF_INET6, intf->v6addr, ipv6_str, sizeof(ipv6_str));
-        snprintf(ipv6_str + strlen(ipv6_str), sizeof(ipv6_str) - strlen(ipv6_str), "/%u", intf->v6mask);
+        snprintf(ipv6_str + strlen(ipv6_str),
+                 sizeof(ipv6_str) - strlen(ipv6_str), "/%u", intf->v6mask);
     } else {
         strcpy(ipv6_str, "N/A");
     }
-    
+
+    /* IPv6 link-local */
     if (intf->v6addr_link_local[0] || intf->v6addr_link_local[15]) {
         inet_ntop(AF_INET6, intf->v6addr_link_local, ipv6_ll_str, sizeof(ipv6_ll_str));
     } else {
         strcpy(ipv6_ll_str, "N/A");
     }
-    
+
     snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
-             intf->mac_add.mac[0], intf->mac_add.mac[1], intf->mac_add.mac[2],
-             intf->mac_add.mac[3], intf->mac_add.mac[4], intf->mac_add.mac[5]);
-    
+            intf->mac_add.mac[0], intf->mac_add.mac[1], intf->mac_add.mac[2],
+            intf->mac_add.mac[3], intf->mac_add.mac[4], intf->mac_add.mac[5]);
+
     const char *l2_mode_str = "None";
     switch (intf->l2_mode) {
-        case DP_LAN_MODE_NONE: l2_mode_str = "None"; break;
-        case DP_LAN_ACCESS_MODE: l2_mode_str = "Access"; break;
-        case DP_LAN_TRUNK_MODE: l2_mode_str = "Trunk"; break;
-        default: l2_mode_str = "Unknown"; break;
+        case DP_LAN_MODE_NONE:        l2_mode_str = "None";   break;
+        case DP_LAN_ACCESS_MODE:      l2_mode_str = "Access"; break;
+        case DP_LAN_TRUNK_MODE:       l2_mode_str = "Trunk";  break;
+        default:                      l2_mode_str = "Unknown"; break;
     }
-    
-    /* Display interface details */
-    cprintf("\nInterface: %s (Port ID: %u)\n", 
+
+    /* Header and basic info */
+    cprintf("\nInterface: %s (Port ID: %u)\n",
             intf->if_name[0] ? intf->if_name : "N/A", intf->port_id);
-    cprintf("  Type: %-20s  Status: %s\n", 
+    cprintf("  Type: %-20s  Status: %s\n",
             dp_intf_type_str(intf->if_type), intf->is_up ? "Up" : "Down");
     cprintf("  VRF: %s\n", intf->vrf ? intf->vrf->vrf_name : "N/A");
     cprintf("  MAC Address: %s\n", mac_str);
-    
+
+    /* Layer 3 */
     cprintf("\n  Layer 3 Configuration:\n");
     cprintf("    IPv4 Address    : %s\n", ipv4_str);
     cprintf("    IPv6 Address    : %s\n", ipv6_str);
     cprintf("    IPv6 Link-Local : %s\n", ipv6_ll_str);
-    
+
+    /* Layer 2 */
     cprintf("\n  Layer 2 Configuration:\n");
     cprintf("    Switchport      : %s\n", intf->switchport ? "Yes" : "No");
     cprintf("    L2 Mode         : %s\n", l2_mode_str);
     cprintf("    VLAN ID         : %u\n", intf->vlan_id);
     cprintf("    VNI ID          : %u\n", intf->vni_id);
     if (intf->vlan_intf) {
-        cprintf("    Parent VLAN  : %u\n", intf->vlan_intf->vlan_id);
+        cprintf("    Parent VLAN     : %u\n", intf->vlan_intf->vlan_id);
     }
-    
-    /* Display member ports if it's a VLAN interface */
+
+    /* Member ports (VLAN SVI) */
     bool has_members = false;
     for (int i = 0; i < MAX_VLAN_MEMBER_PORTS; i++) {
         if (intf->mports[i]) {
             if (!has_members) {
-                cprintf("    Member Ports    : ");
+                cprintf("    Member Ports     : ");
                 has_members = true;
             } else {
                 cprintf(", ");
@@ -137,10 +163,10 @@ dp_print_interface(dp_intf_t *intf) {
         }
     }
     if (has_members) printw("\n");
-    
-    /* Display VLAN bitmap for trunk interfaces */
+
+    /* Trunk VLAN bitmap */
     if (intf->vlan_bitmap && intf->l2_mode == DP_LAN_TRUNK_MODE) {
-        cprintf("    Trunk VLANs     : ");
+        cprintf("    Trunk VLANs      : ");
         bool first_vlan = true;
         int vlan_count = 0;
         for (uint16_t vlan = 0; vlan < intf->vlan_bitmap->tsize && vlan < DP_MAX_VLAN_SUPORT; vlan++) {
@@ -149,7 +175,6 @@ dp_print_interface(dp_intf_t *intf) {
                 cprintf("%u", vlan);
                 first_vlan = false;
                 vlan_count++;
-                /* Limit display to avoid excessive output */
                 if (vlan_count >= 20) {
                     cprintf(", ...");
                     break;
@@ -159,39 +184,40 @@ dp_print_interface(dp_intf_t *intf) {
         if (vlan_count == 0) cprintf("None");
         printw("\n");
     }
-    
-    /* Display tunnel/overlay information */
+
+    /* Tunnel / overlay */
     if (intf->gre_tunnel_dst_ip) {
         struct in_addr tunnel_addr;
         tunnel_addr.s_addr = intf->gre_tunnel_dst_ip;
         char tunnel_str[32];
         inet_ntop(AF_INET, &tunnel_addr, tunnel_str, sizeof(tunnel_str));
         cprintf("\n  Tunnel Configuration:\n");
-        cprintf("    GRE Tunnel Dest : %s\n", tunnel_str);
+        cprintf("    GRE Tunnel Dest  : %s\n", tunnel_str);
     }
-    
     if (intf->olay_tunnel_intf) {
         if (!intf->gre_tunnel_dst_ip) {
             cprintf("\n  Tunnel Configuration:\n");
         }
-        cprintf("    Overlay Tunnel  : Port %u (%s)\n", 
+        cprintf("    Overlay Tunnel   : Port %u (%s)\n",
                 intf->olay_tunnel_intf->port_id,
                 intf->olay_tunnel_intf->if_name[0] ? intf->olay_tunnel_intf->if_name : "N/A");
     }
-    
+
+    /* Stats */
     cprintf("\n  Packet Statistics:\n");
-    cprintf("    RX Packets      : %-12u  TX Packets      : %u\n", 
+    cprintf("    RX Packets       : %-12u  TX Packets       : %u\n",
             intf->pkt_recv, intf->pkt_sent);
-    cprintf("    RX Dropped      : %-12u  TX Dropped      : %u\n", 
+    cprintf("    RX Dropped       : %-12u  TX Dropped       : %u\n",
             intf->recvd_pkt_dropped, intf->xmit_pkt_dropped);
-    
+
     cprintf("--------------------------------------------------------------------------------\n");
 }
 
-/* Handler for datapath show commands */
-static int
-dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+/* -----  Show command handler  ----- */
 
+static int
+dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
+{
     node_t *node = NULL;
     dp_ctx_t *dp_ctx;
     c_string node_name = NULL;
@@ -213,168 +239,155 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     switch (cmdcode) {
 
-        case CMDCODE_SHOW_DP_VRF_TABLE:
-        {
-            hashtable_t *vrf_ht = node->dp_ctx->dp_vrf_ht;
-            
-            if (!vrf_ht) {
-                cprintf("Node %s: Datapath VRF table not initialized\n", node_name);
-                return 0;
-            }
+    case CMDCODE_SHOW_DP_VRF_TABLE: {
+        hashtable_t *vrf_ht = node->dp_ctx->dp_vrf_ht;
 
-            printw("\n");
-            cprintf("====================================\n");
-            cprintf("Node: %s - Datapath VRF Table\n", node_name);
-            cprintf("====================================\n");
-            cprintf("%-10s %-20s %-15s %-15s\n", 
-                    "VRF ID", "VRF Name", "IPv4 FIB", "IPv6 FIB");
-            cprintf("------------------------------------------------------------\n");
-
-            /* Iterate through hashtable */
-            struct hashtable_itr *itr = hashtable_iterator(vrf_ht);
-            
-            if (hashtable_count(vrf_ht) > 0) {
-                do {
-                    dp_vrf_t *vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
-                    if (vrf) {
-                        cprintf("%-10u %-20s %-15s %-15s\n",
-                                vrf->vrf_id,
-                                vrf->vrf_name[0] ? vrf->vrf_name : "<unnamed>",
-                                vrf->fib_inet0 ? "Initialized" : "Not Init",
-                                vrf->fib_inet6 ? "Initialized" : "Not Init");
-                    }
-                } while (hashtable_iterator_advance(itr));
-            } else {
-                cprintf("No VRFs configured\n");
-            }
-            
-            free(itr);
-            printw("\n");
+        if (!vrf_ht) {
+            cprintf("Node %s: Datapath VRF table not initialized\n", node_name);
+            return 0;
         }
-        break;
 
-        case CMDCODE_SHOW_DP_INTF_TABLE:
-        {
-            hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
-            
-            if (!intf_ht) {
-                cprintf("Node %s: Datapath interface table not initialized\n", node_name);
-                return 0;
-            }
+        printw("\n");
+        cprintf("====================================\n");
+        cprintf("Node: %s - Datapath VRF Table\n", node_name);
+        cprintf("====================================\n");
+        cprintf("%-10s %-20s %-15s %-15s\n",
+                "VRF ID", "VRF Name", "IPv4 FIB", "IPv6 FIB");
+        cprintf("------------------------------------------------------------\n");
 
-            printw("\n");
-            cprintf("Node: %s - Datapath Interface Table", node_name);
-            if (intf_name_filter) {
-                cprintf(" (Filter: %s)", intf_name_filter);
-            }
-            printw("\n");
-            cprintf("================================================================================\n");
+        struct hashtable_itr *itr = hashtable_iterator(vrf_ht);
 
-            /* Iterate through hashtable */
-            struct hashtable_itr *itr = hashtable_iterator(intf_ht);
-            
-            if (hashtable_count(intf_ht) > 0) {
-                int count = 0;
-                do {
-                    dp_intf_t *intf = (dp_intf_t *)hashtable_iterator_value(itr);
-                    if (intf) {
-                        /* Apply filter if specified */
-                        if (intf_name_filter && intf->if_name[0]) {
-                            if (strcmp(intf->if_name, (const char *)intf_name_filter) != 0) {
-                                continue;
-                            }
-                        }
-                        
-                        count++;
-                        dp_print_interface(intf);
-                    }
-                } while (hashtable_iterator_advance(itr));
-                
-                if (count == 0) {
-                    cprintf("No interfaces match the filter\n");
+        if (hashtable_count(vrf_ht) > 0) {
+            do {
+                dp_vrf_t *vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
+                if (vrf) {
+                    cprintf("%-10u %-20s %-15s %-15s\n",
+                            vrf->vrf_id,
+                            vrf->vrf_name[0] ? vrf->vrf_name : "<unnamed>",
+                            vrf->fib_inet0 ? "Initialized" : "Not Init",
+                            vrf->fib_inet6 ? "Initialized" : "Not Init");
                 }
-            } else {
-                cprintf("No interfaces configured\n");
-            }
-            
-            free(itr);
-            cprintf("================================================================================\n");
-            printw("\n");
+            } while (hashtable_iterator_advance(itr));
+        } else {
+            cprintf("No VRFs configured\n");
         }
+
+        free(itr);
+        printw("\n");
         break;
+    }
 
-        case CMDCODE_SHOW_DP_INTF_TABLE_BRIEF:
-        {
-            hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
-            
-            if (!intf_ht) {
-                cprintf("Node %s: Datapath interface table not initialized\n", node_name);
-                return 0;
-            }
+    case CMDCODE_SHOW_DP_INTF_TABLE: {
+        hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
 
-            printw("\n");
-            cprintf("Node: %s - Datapath Interface Table (brief)\n", node_name);
-            cprintf("%-10s  %-12s  %-20s  %-32s  %-6s  %s\n",
-                    "IfName", "VRF", "IPv4", "IPv6", "Mode", "Type");
-            cprintf("-----------------------------------------------------------------------------------------------------\n");
+        if (!intf_ht) {
+            cprintf("Node %s: Datapath interface table not initialized\n", node_name);
+            return 0;
+        }
 
-            struct hashtable_itr *itr = hashtable_iterator(intf_ht);
-            
-            if (hashtable_count(intf_ht) > 0) {
+        printw("\n");
+        cprintf("Node: %s - Datapath Interface Table", node_name);
+        if (intf_name_filter) {
+            cprintf(" (Filter: %s)", intf_name_filter);
+        }
+        printw("\n");
+        cprintf("================================================================================\n");
 
-                do {
-                    dp_intf_t *intf = (dp_intf_t *)hashtable_iterator_value(itr);
-                    if (intf) {
-                        dp_print_interface_brief(intf);
+        struct hashtable_itr *itr = hashtable_iterator(intf_ht);
+
+        if (hashtable_count(intf_ht) > 0) {
+            int count = 0;
+            do {
+                dp_intf_t *intf = (dp_intf_t *)hashtable_iterator_value(itr);
+                if (intf) {
+                    if (intf_name_filter && intf->if_name[0]) {
+                        if (strcmp(intf->if_name, (const char *)intf_name_filter) != 0) {
+                            continue;
+                        }
                     }
-                } while (hashtable_iterator_advance(itr));
-                
+                    count++;
+                    dp_print_interface(intf);
+                }
+            } while (hashtable_iterator_advance(itr));
+
+            if (count == 0) {
+                cprintf("No interfaces match the filter\n");
             }
-            free(itr);
-
-            dp_print_interface_brief(dp_ctx->dp_rmac_intf);
-            dp_print_interface_brief(dp_ctx->dp_vlan_flood_intf);
-            dp_print_interface_brief(dp_ctx->dp_host_path_intf);
-            dp_print_interface_brief(dp_ctx->dp_srv6_end_intf);
-            dp_print_interface_brief(dp_ctx->dp_nve_intf);
-
-            printw("\n");
+        } else {
+            cprintf("No interfaces configured\n");
         }
-        break;
 
-        case CMDCODE_SHOW_DP_FIB:
-        {
-            printw("\n");
-            cprintf("Node: %s - Datapath FIB: %s\n", node_name, fib_name);
-            cprintf("FIB display not yet implemented\n");
-            printw("\n");
+        free(itr);
+        cprintf("================================================================================\n");
+        printw("\n");
+        break;
+    }
+
+    case CMDCODE_SHOW_DP_INTF_TABLE_BRIEF: {
+        hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
+
+        if (!intf_ht) {
+            cprintf("Node %s: Datapath interface table not initialized\n", node_name);
+            return 0;
         }
-        break;
 
-        default:
-            break;
+        printw("\n");
+        cprintf("Node: %s - Datapath Interface Table (brief)\n", node_name);
+        cprintf("%-10s  %-12s  %-20s  %-32s  %-6s  %s\n",
+                "IfName", "VRF", "IPv4", "IPv6", "Mode", "Type");
+        cprintf("-----------------------------------------------------------------------------------------------------\n");
+
+        struct hashtable_itr *itr = hashtable_iterator(intf_ht);
+
+        if (hashtable_count(intf_ht) > 0) {
+            do {
+                dp_intf_t *intf = (dp_intf_t *)hashtable_iterator_value(itr);
+                if (intf) {
+                    dp_print_interface_brief(intf);
+                }
+            } while (hashtable_iterator_advance(itr));
+        }
+        free(itr);
+
+        /* Also show special interfaces not in the main table */
+        dp_print_interface_brief(dp_ctx->dp_rmac_intf);
+        dp_print_interface_brief(dp_ctx->dp_vlan_flood_intf);
+        dp_print_interface_brief(dp_ctx->dp_host_path_intf);
+        dp_print_interface_brief(dp_ctx->dp_srv6_end_intf);
+        dp_print_interface_brief(dp_ctx->dp_nve_intf);
+
+        printw("\n");
+        break;
+    }
+
+    case CMDCODE_SHOW_DP_FIB: {
+        printw("\n");
+        cprintf("Node: %s - Datapath FIB: %s\n", node_name, fib_name);
+        cprintf("FIB display not yet implemented\n");
+        printw("\n");
+        break;
+    }
+
+    default:
+        break;
     }
 
     return 0;
 }
 
-/* Construct the following CLI tree : 
+/* -----  CLI tree registration  ----- */
 
-CLI : 
-    show node <node-name> data-path vrf-table 
-    show node <node-name> data-path interface-table [<intf-name>]
-    show node <node-name> data-path fib <fib-name>
-*/
-void 
-dp_build_dp_show_cli_tree (param_t *node_name) {
-
-    /* show node <node-name> data-path ... */
+/**
+ * Build CLI: show node <node-name> data-path { vrf-table | interface-table [brief] [intf-name] | fib <fib-name> }
+ */
+void
+dp_build_dp_show_cli_tree(param_t *node_name)
+{
     static param_t data_path;
     init_param(&data_path, CMD, "data-path", NULL, NULL, INVALID, NULL, "Datapath information");
     libcli_register_param(node_name, &data_path);
 
     {
-        /* show node <node-name> data-path vrf-table */
         static param_t vrf_table;
         init_param(&vrf_table, CMD, "vrf-table", dp_show_handler, NULL, INVALID, NULL, "Show datapath VRF table");
         libcli_register_param(&data_path, &vrf_table);
@@ -382,14 +395,12 @@ dp_build_dp_show_cli_tree (param_t *node_name) {
     }
 
     {
-        /* show node <node-name> data-path interface-table [<intf-name>] */
         static param_t intf_table;
         init_param(&intf_table, CMD, "interface-table", dp_show_handler, NULL, INVALID, NULL, "Show datapath interface table");
         libcli_register_param(&data_path, &intf_table);
         libcli_set_param_cmd_code(&intf_table, CMDCODE_SHOW_DP_INTF_TABLE);
-        
+
         {
-            /* Optional interface name filter */
             static param_t intf_name;
             init_param(&intf_name, LEAF, NULL, dp_show_handler, NULL, STRING, "intf-name", "Interface name filter (optional)");
             libcli_register_param(&intf_table, &intf_name);
@@ -397,7 +408,6 @@ dp_build_dp_show_cli_tree (param_t *node_name) {
         }
 
         {
-            /* Brief output */
             static param_t brief;
             init_param(&brief, CMD, "brief", dp_show_handler, NULL, INVALID, NULL, "Show datapath interface table (brief)");
             libcli_register_param(&intf_table, &brief);
@@ -406,13 +416,11 @@ dp_build_dp_show_cli_tree (param_t *node_name) {
     }
 
     {
-        /* show node <node-name> data-path fib ... */
         static param_t fib;
         init_param(&fib, CMD, "fib", NULL, NULL, INVALID, NULL, "Show datapath FIB");
         libcli_register_param(&data_path, &fib);
 
         {
-            /* show node <node-name> data-path fib <fib-name> */
             static param_t fib_name;
             init_param(&fib_name, LEAF, NULL, dp_show_handler, NULL, STRING, "fib-name", "FIB name (e.g., inet.0, inet6.0)");
             libcli_register_param(&fib, &fib_name);
@@ -420,3 +428,4 @@ dp_build_dp_show_cli_tree (param_t *node_name) {
         }
     }
 }
+

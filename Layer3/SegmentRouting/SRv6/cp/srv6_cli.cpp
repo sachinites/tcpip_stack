@@ -7,7 +7,7 @@
 #include "../../../ipv6/ipv6_utils.h"
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../pkt_block.h"
-#include "../../../../common/cp2dp.h"
+#include "../../../../dpal/cp2dp.h"
 #include "srv6_sid_pool.h"
 #include "srv6_api.h" 
 #include "srv6_rtr.h"

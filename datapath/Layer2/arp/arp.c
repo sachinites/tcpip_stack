@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <arpa/inet.h> /*for inet_ntop & inet_pton*/
+#include <arpa/inet.h>
+#include <assert.h>
+#include <ncurses.h>
 #include "../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../common/l2_hdrs.h"
 #include "arp.h"
-#include "../../../comm.h"
-#include "../../../Layer5/layer5.h"
+#include "../l2fwd/ipv4-l2fwd.h"
 #include "../../../tcp_ip_trace.h"
 #include "../../../libtimer/WheelTimer.h"
 #include "../../../pkt_block.h"
@@ -14,7 +15,6 @@
 #include "../../../Tracer/tracer.h"
 #include "../../../lmm_enums.h"
 #include "../../Vrfs/dp_vrf.h"
-#include "../../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
 #include "../../dp_utils.h"

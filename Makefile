@@ -85,7 +85,7 @@ OBJS=gluethread/glthread.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
 		  PostgresLibpq/postgresLib.o \
-		  common/cp2dp.o \
+		  dpal/cp2dp.o \
 		  common/cmn_prefix.o \
 		  common/cmn_api.o \
 		  lmm_reg.o \
@@ -171,8 +171,8 @@ tcp_stack_init.o:tcp_stack_init.c
 router_init.o:router_init.c
 	${CC} ${CFLAGS} -c -I . router_init.c -o router_init.o
 
-common/cp2dp.o:common/cp2dp.cpp
-	${CC} ${CFLAGS} -c -I . common/cp2dp.cpp -o common/cp2dp.o
+dpal/cp2dp.o:dpal/cp2dp.cpp
+	${CC} ${CFLAGS} -c -I . dpal/cp2dp.cpp -o dpal/cp2dp.o
 
 common/cmn_prefix.o:common/cmn_prefix.cpp
 	${CC} ${CFLAGS} -c -I . common/cmn_prefix.cpp -o common/cmn_prefix.o
@@ -349,6 +349,7 @@ clean:
 	rm -f Linux/*.o
 	rm -f vrf/*.o
 	rm -f Layer3/SegmentRouting/SR-MPLS/*.o
+	rm -f dpal/*.o
 	
 all:
 	make

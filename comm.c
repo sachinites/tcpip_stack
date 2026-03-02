@@ -99,13 +99,6 @@ _pkt_receive(dp_ctx_t *dp_ctx,
 
     pkt_block_t *pkt_block;
     uint32_t port_id = *(uint32_t *)pkt_with_aux_data;
-    dp_intf_t *recv_intf = dp_uapi_look_up_interface(dp_ctx, port_id);
-
-    if(!recv_intf){
-        cprintf("Error : Pkt recvd on unknown port %u on CTX %s\n", 
-                    port_id, dp_ctx->ctx_name);
-        return;
-    }
 
     pkt_block = pkt_block_get_new(NULL, 0);
 
@@ -115,8 +108,8 @@ _pkt_receive(dp_ctx_t *dp_ctx,
 
     pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
 
-    dp_inject_packet (dp_ctx, 
-                      pkt_block, recv_intf);
+    dp_uapi_inject_packet (dp_ctx, 
+                           pkt_block, port_id);
                       
     XFREE(pkt_block);
 }

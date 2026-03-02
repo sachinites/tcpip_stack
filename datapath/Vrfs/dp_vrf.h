@@ -1,3 +1,17 @@
+/*
+ * =============================================================================
+ * File: dp_vrf.h
+ * Description: Datapath VRF (dp_vrf_t) and VRF table APIs.
+ * =============================================================================
+ *
+ * Design:
+ *   - Each VRF has vrf_id, name, and FIBs (IPv4, IPv6, MPLS) plus ARP table.
+ *   - VRF table: keyed by vrf_id; init, lookup, insert, delete, create.
+ *   - dp_vrf_fib_get: return the appropriate FIB for an AFI (IPv4/IPv6/label).
+ *   - Message structs for VRF create and interface add/delete to VRF.
+ * =============================================================================
+ */
+
 #ifndef __DP_VRF__
 #define __DP_VRF__
 
@@ -28,24 +42,6 @@ typedef struct dp_vrf_ {
     arp_table_t *arp_table;
 
 } dp_vrf_t;
-
-
-typedef struct dp_vrf_create_msg_ {
-
-    uint8_t vrf_id;
-    char vrf_name[32];
-    
-} dp_vrf_create_msg_t;
-
-#define DP_VRF_INTF_OP_ADD 1
-#define DP_VRF_INTF_OP_DEL 2
-typedef struct dp_vrf_intf_update_msg_ {
-
-    uint32_t op_code;
-    uint8_t vrf_id;
-    uint32_t ifindex;
-    
-} dp_vrf_intf_update_msg_t;
 
 #pragma pack(pop)
 
@@ -84,4 +80,4 @@ dp_vrf_fib_get(dp_vrf_t *vrf, AFI_T afi) {
     return NULL;
 }
 
-#endif 
+#endif /* __DP_VRF__ */

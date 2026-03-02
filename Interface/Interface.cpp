@@ -42,7 +42,7 @@
 #include "../Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "../RTM/rtm_nb_integ.h"
-#include "../datapath/Interface/dp_intf_update.h"
+#include "../dpal/cp2dp.h"
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);

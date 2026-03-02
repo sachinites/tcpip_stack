@@ -7,7 +7,7 @@
 #include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
 #include "../net.h"
-#include "../datapath/Interface/dp_intf_update.h"
+#include "../dpal/cp2dp.h"
 
 extern graph_t *topo;
 

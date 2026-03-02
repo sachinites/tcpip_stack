@@ -11,7 +11,7 @@
 #include "../common/mpls_lstack.h"
 #include "../datapath/FIB/fib_error.h"
 #include "../datapath/FIB/fib.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 
 /* Function which created a data plane forwarding info from a nexthop 
     for Indirect nexthop : 

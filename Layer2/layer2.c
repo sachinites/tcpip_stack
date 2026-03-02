@@ -37,14 +37,13 @@
 #include <string>
 #include "../router_init.h"
 #include "layer2.h"
-#include "../comm.h"
 #include "../tcp_ip_trace.h"
 #include "../libtimer/WheelTimer.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../Interface/InterfaceUApi.h"
 #include "transport_svc.h"
 #include "../Tracer/tracer.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 #include "../datapath/enums/l2_enums.h"
 
 /*APIs to be used to create topologies*/

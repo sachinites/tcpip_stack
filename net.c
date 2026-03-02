@@ -53,12 +53,12 @@
 #include "datapath/Layer2/switching/mac_table.h"
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
-#include "common/cp2dp.h"
+#include "dpal/cp2dp.h"
 #include "datapath/dp_ctx.h"
 #include "datapath/Vrfs/dp_vrf.h"
 #include "datapath/Interface/dp_intf.h"
 #include "datapath/Interface/dp_intf_store.h"
-#include "datapath/Interface/dp_intf_update.h"
+#include "datapath/dp-program/dp-prog-intf-struct.h"
 
 typedef struct def_vrf_ def_vrf_t;
 

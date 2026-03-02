@@ -1,18 +1,33 @@
-#include <assert.h>
-#include <string.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
-#include "../../common/cp2dp.h"
+
+/* Libs */
+#include "../../pkt_block.h"
 #include "../../Tracer/tracer.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
-#include "dp_intf.h"
-#include "dp_intf_update.h"
-#include "dp_intf_store.h"
-#include "../Vrfs/dp_vrf.h"
-#include "../../Interface/Interface.h"
-#include "../Layer2/vxlan/vlan_vni_ht.h"
-#include "../../Layer2/transport_svc.h"
+#include "../../LinuxMemoryManager/uapi_mm.h"
+
+#include "../enums/l3_enums.h"
+#include "dp-prog-struct.h"
+#include "dp-prog-api.h"
+
 #include "../dp_ctx.h"
+#include "../Layer3/layer3.h"
+
+#include "../Layer2/switching/mac_table.h"
+#include "../Layer2/vxlan/vlan_vni_ht.h"
+
+
+#include "../Vrfs/dp_vrf.h"
+
+#include "../Interface/dp_intf.h"
+#include "../Interface/dp_intf_store.h"
+
+/* Fibs */
+#include "../FIB/fib_error.h"
+#include "../FIB/fib_nh.h"
+#include "../FIB/fib.h"
+#include "../FIB/fib_route.h"
+
 
 static inline bool 
 dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
@@ -22,6 +37,299 @@ dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
     uint32_t *ptr = (uint32_t *)(bit_array) + n_blocks;
     return htonl(*ptr) & (1 << (32 - bit_pos - 1));  
 }
+
+dp_msg_t *
+cp2dp_msg_alloc()
+{
+    dp_msg_t *dp_msg = (dp_msg_t *)calloc(1, sizeof(dp_msg_t));
+    dp_msg->vrf_id = DP_DEFAULT_VRF;
+    return dp_msg;
+}
+
+void
+cp2dp_msg_free (dp_msg_t *dp_msg){
+    
+    free (dp_msg);
+}
+
+/* Mac Table Updates*/
+void
+dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
+    
+    mac_update_msg_t *mac_update_msg;
+    mac_table_t *mac_table = dp_ctx->mac_table;
+    
+    assert(dp_msg->component_type == MAC_TABLE);
+    
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+            mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+            mac_table_entry_add (dp_ctx, mac_table, 
+                                                    mac_update_msg->mac_addr,   
+                                                    mac_update_msg->vlan_id,
+                                                    mac_update_msg->ifindex,
+                                                    mac_update_msg->flags,
+                                                    mac_update_msg->remote_dst_ip);
+            break;
+            
+        case DP_DEL:
+            mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+            mac_table_entry_delete (dp_ctx, mac_table, 
+                                                    mac_update_msg->mac_addr,   
+                                                    mac_update_msg->vlan_id,
+                                                    mac_update_msg->ifindex,
+                                                    mac_update_msg->remote_dst_ip);
+            break;
+            
+        case DP_UPDATE:
+            // Handle MAC entry updates if needed
+            break;
+            
+        case DP_READ:
+            // Handle MAC table reads if needed
+            break;
+            
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
+void
+np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
+{
+    pkt_block_t *pkt_block;
+    hdr_type_t hdr_type;
+    uint8_t vrf_id = dp_msg->vrf_id;
+
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
+
+    pkt_block = *(pkt_block_t **)dp_msg->data;
+
+    switch (dp_msg->opr_type)
+    {
+        case DP_L3_NORTHBOUND_IN:
+        {
+            hdr_type = pkt_block_get_starting_hdr(pkt_block);
+
+            switch (hdr_type)
+            {
+            case IP_HDR:
+                dp_send_ip_data(dp_ctx, vrf, pkt_block);
+                break;
+            case IP6_HDR:
+                dp_send_ip6_data(dp_ctx, vrf, pkt_block);
+                break;
+            default:
+                break;
+            }
+        }
+    break;
+
+    default:
+        break;
+    }
+
+    pkt_block_dereference(pkt_block);
+    cp2dp_msg_free(dp_msg);
+}
+
+void
+dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
+    
+    char nh_str[48];
+    char route_str[48];
+    fib_error_t rc;
+    fib_t *fib = NULL;
+    fib_nh_t *nh = NULL;
+    fib_update_msg_t *fib_update_msg;
+
+    assert(dp_msg->component_type == FIB_TABLE);
+
+    fib_update_msg = (fib_update_msg_t *)dp_msg->data;
+
+    tracer (dp_ctx->dptr, DFIB, 
+        "FIB : Recvd fib update message : Route:%s vrf:%d idx[%u %u] ops:%d\n", 
+            cmn_prefix_to_string(&fib_update_msg->prefix, &route_str), 
+            fib_update_msg->target_fib_vrf_id,
+            fib_update_msg->inhidx >> 32, 
+            fib_update_msg->nhidx & 0x00000000FFFFFFFF, 
+            dp_msg->opr_type);
+
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+        {
+            fib = fib_get (dp_ctx, 
+                    (AFI_T)fib_update_msg->target_fib_afi,
+                     fib_update_msg->target_fib_vrf_id);
+        
+            if (!fib) {
+                tracer (dp_ctx->dptr, DFIB | DERR, 
+                       "FIB : FIB not initialized for AFI:%d VRF:%d\n",
+                       fib_update_msg->target_fib_afi, 
+                       fib_update_msg->target_fib_vrf_id);
+                cp2dp_msg_free(dp_msg);
+                return;
+            }
+            
+            /* Create nexthop from forwarding info */
+            fib_nh_t nh_template;
+            memset (&nh_template, 0, sizeof(fib_nh_t));
+            avltree_node_init (&nh_template.idx_glue);
+
+            nh_template.fwd_info = new fib_nh_fwd_info_t;
+            rtm_fib_copy_fwd_info (dp_ctx, 
+                &fib_update_msg->fwd_info, nh_template.fwd_info);
+            
+            nh = fib_nh_lookup(fib, &nh_template);
+
+            if (!nh) {
+
+                nh = fib_nh_create(fib, &nh_template);
+           
+                if (!nh) {
+                    tracer (dp_ctx->dptr, DFIB | DERR, 
+                        "FIB[%s] : Error : Route %s : Failed to create nexthop %s\n", 
+                        fib->name,
+                        route_str,
+                        cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
+                    delete nh_template.fwd_info;
+                    cp2dp_msg_free(dp_msg);
+                    return;
+                }
+                tracer (dp_ctx->dptr, DFIB_DET, 
+                    "FIB[%s] : Route %s : New nexthop %s Created and Registered\n", 
+                    fib->name,
+                    route_str,
+                    cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
+                fib_register_nh(fib, nh);
+            }
+            else {
+                tracer (dp_ctx->dptr, DFIB_DET, 
+                    "FIB[%s] : Route %s : Existing nexthop %s Reused\n", 
+                    fib->name, route_str,
+                    cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
+            }
+
+            delete nh_template.fwd_info;
+
+            rc = fib_add_route(dp_ctx,
+                    fib, 
+                    &fib_update_msg->prefix, 
+                    fib_update_msg->inhidx,
+                    fib_update_msg->nhidx, nh);
+            
+            if (rc != FIB_ERROR_SUCCESS) {
+                tracer (dp_ctx->dptr, DFIB | DERR, 
+                       "FIB[%s] : Failed to add route %s, error: %s\n",
+                       fib->name, route_str, fib_error_str(rc));
+                delete nh->fwd_info;
+                XFREE(nh);
+            }
+            break;
+        }
+            
+        case DP_DEL:
+        {   
+            fib = fib_get (dp_ctx, 
+                    (AFI_T)fib_update_msg->target_fib_afi,
+                     fib_update_msg->target_fib_vrf_id);
+
+            if (!fib) {
+                tracer (dp_ctx->dptr, DFIB | DERR, 
+                       "FIB : FIB not initialized for AFI:%d VRF:%d\n",
+                       fib_update_msg->target_fib_afi, 
+                       fib_update_msg->target_fib_vrf_id);
+                cp2dp_msg_free(dp_msg);
+                return;
+            }
+            
+            rc = fib_del_route(dp_ctx, fib, 
+                    &fib_update_msg->prefix, 
+                    fib_update_msg->inhidx,
+                    fib_update_msg->nhidx);
+            
+            if (rc != FIB_ERROR_SUCCESS) {
+                tracer (dp_ctx->dptr, DFIB | DERR, 
+                       "FIB[%s] : Failed to delete route, error: %s\n",
+                       fib->name, fib_error_str(rc));
+            }
+            break;
+        }
+            
+        case DP_UPDATE:
+            // Handle FIB entry updates if needed
+            break;
+            
+        case DP_READ:
+            // Handle FIB reads if needed
+            break;
+            
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
+void
+dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
+
+    assert(dp_msg->component_type == VRF_TABLE);
+
+    switch (dp_msg->opr_type) {
+        
+        case DP_CREATE:
+        {
+            dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
+            dp_create_vrf(dp_ctx->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            break;
+        }
+        
+        case DP_DEL:
+        {
+            dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
+            dp_delete_vrf(dp_ctx, dp_ctx->dp_vrf_ht, vrf_msg->vrf_id);
+            break;
+        }
+        
+        case DP_UPDATE:
+        {
+            dp_vrf_intf_update_msg_t *msg = (dp_vrf_intf_update_msg_t *)dp_msg->data;
+            switch (msg->op_code) {
+
+                case DP_VRF_INTF_OP_ADD:
+                {
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
+                    dp_intf_t *intf = dp_look_up_interface(dp_ctx->dp_intf_ht, msg->ifindex);
+                    assert (intf && vrf);
+                    assert (!intf->vrf);
+                    intf->vrf = vrf;
+                }
+                break;
+                case DP_VRF_INTF_OP_DEL:
+                {
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
+                    dp_intf_t *intf = dp_look_up_interface(dp_ctx->dp_intf_ht, msg->ifindex);
+                    assert(intf && vrf);
+                    assert(intf->vrf && (intf->vrf == vrf));
+                    intf->vrf = NULL;
+                }   
+                break;
+            }
+        }
+        break;
+        case DP_READ:
+        default:
+            break;
+    }
+    
+    cp2dp_msg_free(dp_msg);
+}
+
 
 void 
 dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
@@ -195,16 +503,16 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     dp_intf_t *vlan_intf = dp_look_up_interface(ht, vlan_bind->vlan_port_id);
                 
                     if (vlan_bind->add) {
-                        dp_vlan_bind_port (vlan_intf, intf, vlan_bind->l2_mode);
+                        dp_vlan_bind_port (vlan_intf, intf, (DP_IntfL2Mode)vlan_bind->l2_mode);
                     }
                     else {
-                        dp_vlan_unbind_port (vlan_intf, intf, vlan_bind->l2_mode, true);
+                        dp_vlan_unbind_port (vlan_intf, intf, (DP_IntfL2Mode)vlan_bind->l2_mode, true);
                     }
                     tracer(dp_ctx->dptr, DCONF, 
                         "%sBinding %s with %s l2_mode=%s\n",
                         vlan_bind->add ? "" : "Un",
                         vlan_intf->if_name, intf->if_name,
-                        dp_intf_mode_str(vlan_bind->l2_mode));
+                        dp_intf_mode_str((DP_IntfL2Mode)vlan_bind->l2_mode));
                 }
                 break;
 
@@ -401,373 +709,33 @@ EXIT:
     cp2dp_msg_free(dp_msg);
 }
 
-/* Interface update message sending functions */
 
 void 
-cp2dp_send_intf_ipv4_addr_update(node_t *node, 
-                                uint32_t port_id, 
-                                uint32_t ipv4_addr, 
-                                uint8_t mask) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_ipv4_addr_update_t *ipv4_update;
+cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_ipv4_addr_update_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_IPV4_ADDR;
-    
-    /* Fill in the IPv4 update data */
-    ipv4_update = (dp_intf_ipv4_addr_update_t *)(intf_msg + 1);
-    ipv4_update->ipv4_addr = ipv4_addr;
-    ipv4_update->mask = mask;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
+    // This function is the task handler for the task submitted to the Data Path (DP)
 
-void 
-cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_ipv6_addr_update_t *ipv6_update;
+    dp_msg_t *dp_msg = (dp_msg_t *)arg;
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
 
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_ipv6_addr_update_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_IPV6_ADDR;
-    
-    /* Fill in the IPv6 update data */
-    ipv6_update = (dp_intf_ipv6_addr_update_t *)(intf_msg + 1);
-    memcpy(ipv6_update->ipv6_addr, ipv6_addr, 16);
-    ipv6_update->prefix_len = prefix_len;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
+    switch (dp_msg->component_type) {
 
-void 
-cp2dp_send_intf_vlan_bind_update(node_t *node, 
-                                 uint32_t port_id, 
-                                 uint32_t vlan_port_id, 
-                                 DP_IntfL2Mode l2_mode,
-                                 bool add) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_vlan_bind_t *vlan_bind;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_vlan_bind_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_VLAN_BIND;
-    
-    /* Fill in the VLAN bind data */
-    vlan_bind = (dp_intf_vlan_bind_t *)(intf_msg + 1);
-    vlan_bind->port_id = port_id;
-    vlan_bind->vlan_port_id = vlan_port_id;
-    vlan_bind->l2_mode = l2_mode;
-    vlan_bind->add = (add) ? 1 : 0;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
-
-void 
-cp2dp_send_intf_admin_status_update(node_t *node, uint32_t port_id, bool is_down) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_admin_down_t *admin_down;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_admin_down_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_ADMIN_DOWN;
-    
-    /* Fill in the admin status data */
-    admin_down = (dp_intf_admin_down_t *)(intf_msg + 1);
-    admin_down->port_id = port_id;
-    admin_down->status = is_down;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
-
-void 
-cp2dp_send_intf_vlan_vni_update(
-        node_t *node, uint16_t vlan_port_id, 
-        uint32_t vni_id, bool add) {
-
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_vlan_vni_t *vni_msg;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_vlan_vni_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = (uint32_t)vlan_port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_VLAN_VNI;
-    
-    /* Fill in the admin status data */
-    vni_msg = (dp_intf_vlan_vni_t *)(intf_msg + 1);
-    vni_msg->vni_id = vni_id;
-    vni_msg->add = (add) ? 1 : 0;
-    
-    cp2dp_submit(node, dp_msg, true);    
-}
-
-void 
-cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switchport) {
-
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_switchpor_t *sw_status;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_switchpor_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_SW;
-    
-    /* Fill in the admin status data */
-    sw_status = (dp_intf_switchpor_t *)(intf_msg + 1);
-    sw_status->port_id = port_id;
-    sw_status->enable = switchport;
-    
-    cp2dp_submit(node, dp_msg, true);    
-}
-
-void 
-cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, int32_t vrf_id) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_vrf_bind_t *vrf_bind;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_vrf_bind_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_VRF_BIND;
-    
-    /* Fill in the VRF bind data */
-    vrf_bind = (dp_intf_vrf_bind_t *)(intf_msg + 1);
-    vrf_bind->port_id = port_id;
-    vrf_bind->vrf_id = vrf_id;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
-
-void 
-cp2dp_send_intf_vlan_grp_bind_update(node_t *node, 
-                    uint32_t port_id, 
-                    bitmap_t *vlan_bitmap, 
-                    bool add) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_vlan_grp_bind_t *vlan_grp_bind;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_vlan_grp_bind_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_VLAN_GRP_BIND;
-    
-    /* Fill in the VLAN group bind data */
-    vlan_grp_bind = (dp_intf_vlan_grp_bind_t *)(intf_msg + 1);
-    vlan_grp_bind->add = add ? 1 : 0;
-
-    /* Copy the bitmap bits to the fixed-size array */
-    size_t bitmap_bytes = (vlan_bitmap->tsize + 7) / 8; /* Number of bytes needed */
-
-    if (bitmap_bytes > sizeof(vlan_grp_bind->vlan_bitmapp)) {
-        bitmap_bytes = sizeof(vlan_grp_bind->vlan_bitmapp);
-    }
-
-    memcpy(vlan_grp_bind->vlan_bitmapp, vlan_bitmap->bits, bitmap_bytes);
-
-    cp2dp_submit(node, dp_msg, true);
-}
-
-
-void 
-cp2dp_interface_create (node_t *node, Interface *intf) {
-
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-
-    assert (intf->ifindex);
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_CREATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = intf->ifindex;
-    intf_msg->vlan_id = (uint32_t)intf->GetVlanId();
-    intf_msg->iftype = (uint32_t)intf->iftype;
-
-    /* Some intf may not support MAC Addresses, for ex loopbacks*/
-    if (intf->GetMacAddr()) {
-        memcpy (intf_msg->mac_addr, intf->GetMacAddr()->mac, 6);
-    }
-    strncpy (intf_msg->intf_name, intf->if_name.c_str(), IF_NAME_SIZE);
-
-    intf_msg->update_code = 0;
-
-    cprintf ("intf->iftype = %d(%s),  INTF_TYPE_HOST_PATH = %d\n", 
-        intf->iftype, intf_msg->intf_name, INTF_TYPE_HOST_PATH);
-
-    switch (intf->iftype) {
-
-        case INTF_TYPE_PHY:
-        case INTF_TYPE_VLAN:
-        case INTF_TYPE_GRE_TUNNEL:
-        case INTF_TYPE_LOOPBACK:
-        case INTF_TYPE_VIRTUAL_PORT:
-            intf_msg->update_code = 0;
+        case MAC_TABLE:
+            dp_mac_table_process_msg (dp_ctx, dp_msg);
             break;
-        case INTF_TYPE_RMAC:
-            intf_msg->update_code = CP2DP_CODE_INTF_RMAC;
+        case PKT_BLOCK:
+            np_recv_cp_pkt_block (dp_ctx, dp_msg);
             break;
-        case INTF_TYPE_VLAN_FLOOD:
-            intf_msg->update_code = CP2DP_CODE_INTF_VLAN_FLOOD;
+        case FIB_TABLE:
+            dp_fib_table_process_msg (dp_ctx, dp_msg);
             break;
-        case INTF_TYPE_NVE:
-            intf_msg->update_code = CP2DP_CODE_INTF_NVE;
+        case VRF_TABLE:
+            dp_vrf_table_process_msg (dp_ctx, dp_msg);
             break;
-        case INTF_TYPE_SRv6:
-            intf_msg->update_code = CP2DP_CODE_INTF_SRV6_END;
+        case INTF_TABLE:
+            dp_intf_table_process_msg(dp_ctx, dp_msg);
             break;
-        case INTF_TYPE_HOST_PATH:
-            intf_msg->update_code = CP2DP_CODE_INTF_HOST_PATH;
-            break;
-        case INTF_TYPE_UNKNOWN:
-        default: 
+        default:
             break;
     }
-
-    cprintf ("intf_msg->update_code = %d\n", intf_msg->update_code);
-
-    /* Use synchronous submission to ensure interface is created before caller proceeds */
-    cp2dp_submit(node, dp_msg, false);
-}
-
-void 
-cp2dp_interface_delete (node_t *node, Interface *intf) {
-
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-
-    assert (intf->iftype != INTF_TYPE_PHY);
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_DEL;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = intf->ifindex;
-    intf_msg->iftype = (uint32_t)intf->iftype;
-    intf_msg->update_code = 0;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
-
-void 
-cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node, 
-                                        TransportService *tsp, 
-                                        uint16_t vlan_id, bool add) {
-
-    bool intf_fnd = false;
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_grp_bind_t *bind_msg;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_grp_bind_t);
-
-    VlanInterface *vlan_intf = VlanInterface::VlanInterfaceLookUp(node, vlan_id);
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = (uint32_t)vlan_intf->ifindex;
-    intf_msg->iftype = (uint32_t)DP_INTF_TYPE_VLAN;
-    intf_msg->vlan_id = (uint32_t)vlan_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_GRP_VLAN_BIND;
-
-    dp_intf_grp_bind_t *msg = (dp_intf_grp_bind_t *)(intf_msg + 1);
-
-    bitmap_t bm;
-    bitmap_init(&bm, MAX_INTF_IFINDEX + 1);
-
-    for (auto it2 = tsp->ifSet.begin(); it2 != tsp->ifSet.end(); ++it2)
-    {
-        uint16_t if_index = *it2;
-        assert(if_index && if_index <= MAX_INTF_IFINDEX);
-        bitmap_set_bit_at(&bm, if_index);
-        intf_fnd = true;
-    }
-
-    if (!intf_fnd) {
-        cp2dp_msg_free(dp_msg);
-        bitmap_free_internal (&bm);
-        return;
-    }
-    
-    memcpy ((void *)msg->if_bitmapp, (void *)bm.bits, sizeof (msg->if_bitmapp));
-    bitmap_free_internal (&bm);
-    msg->add = add ? 1 : 0;
-
-    cp2dp_submit(node, dp_msg, true);
 }

@@ -1,3 +1,21 @@
+/*
+ * =============================================================================
+ * File: dp_intf_store.h
+ * Description: Interface hashtable and lifecycle (create, lookup, insert, delete).
+ * =============================================================================
+ *
+ * Design:
+ *   - Interface table: keyed by port_id (ifindex); dp_init_intf_hashtable,
+ *     dp_look_up_interface, dp_insert_interface, dp_delete_interface.
+ *   - VLAN interface table: keyed by vlan_id; dp_init_vlan_intf_hashtable,
+ *     dp_look_up_interface_by_vlan_id, dp_insert_vlan_interface,
+ *     dp_remove_vlan_interface.
+ *   - dp_create_interface: allocates and initializes a new dp_intf_t.
+ *   - dp_vlan_bind_port / dp_vlan_unbind_port: add/remove member port to/from VLAN.
+ *   - dp_check_and_free_interface: release when refcount allows.
+ * =============================================================================
+ */
+
 #ifndef __DP_INTF_STORE__
 #define __DP_INTF_STORE__
 
@@ -56,4 +74,4 @@ void
 dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) ;
 
 
-#endif
+#endif /* __DP_INTF_STORE__ */

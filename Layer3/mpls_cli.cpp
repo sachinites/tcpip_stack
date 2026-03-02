@@ -5,7 +5,7 @@
 #include "rt_table/nexthop.h"
 #include "../utils.h"
 #include "../Interface/InterfaceUApi.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 
 extern graph_t *topo;
 extern int cprintf (const char* format, ...) ;

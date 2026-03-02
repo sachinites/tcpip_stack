@@ -129,8 +129,6 @@ struct node_ {
     bitmap_t if_index_bm;
 
     glthread_t graph_glue;
-    /* System Telemetry */
-    uint32_t cp2dp_msg_count;
     /* Random Number Generator*/
     uint32_t sequence_gen;
 };

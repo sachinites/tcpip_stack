@@ -12,6 +12,11 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 					dp_intf_t *interface,
 					pkt_block_t *pkt_block);
 
+extern int
+dp_inject_packet (dp_ctx_t *dp_ctx,
+                  pkt_block_t *pkt_block,
+                  dp_intf_t *interface);
+                  
 void 
 gre_encasulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
 

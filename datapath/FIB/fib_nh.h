@@ -1,3 +1,18 @@
+/*
+ * =============================================================================
+ * File: fib_nh.h
+ * Description: FIB nexthop (fib_nh_t) and forwarding info (oif, prefix, MPLS/SRv6).
+ * =============================================================================
+ *
+ * Design:
+ *   - fib_nh_fwd_info_t: oif, nexthop prefix, fwd_flags; union for MPLS label stack
+ *     or SRv6 segment list.
+ *   - fib_nh_t: reference-counted nexthop with fwd_info and AVL glue for FIB.
+ *   - fib_get_forwarding_nh: LPM lookup returns nexthop for a prefix.
+ *   - fib_nh_reference / fib_nh_dereference, fib_nh_create, fib_register_nh, fib_nh_lookup.
+ * =============================================================================
+ */
+
 #ifndef __FIB_NH__
 #define __FIB_NH__
 
@@ -37,8 +52,6 @@ typedef struct fib_nh_fwd_info_ {
 
 }  fib_nh_fwd_info_t;
 
-
-
 typedef struct fib_nh_ {
 
     fib_nh_fwd_info_t *fwd_info;
@@ -57,4 +70,4 @@ void fib_register_nh(fib_t *fib, fib_nh_t *nh);
 fib_nh_t* fib_nh_lookup (fib_t *fib, fib_nh_t *nh_template);
 fib_nh_t *fib_get_forwarding_nh(fib_t *fib, cmn_prefix_t *route);
 
-#endif 
+#endif /* __FIB_NH__ */

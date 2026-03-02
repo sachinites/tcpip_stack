@@ -8,7 +8,7 @@
 #include "../../../../cp_ipc_struct.h"
 #include "srv6_rtr.h"
 #include "srv6_api.h"
-#include "../../../../common/cp2dp.h"
+#include "../../../../dpal/cp2dp.h"
 #include "../../../../Tracer/tracer.h"
 #include "srv6_sid_pool.h"
 #include "../../../../lmm_enums.h"

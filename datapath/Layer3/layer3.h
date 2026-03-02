@@ -1,5 +1,18 @@
+/*
+ * =============================================================================
+ * File: layer3.h
+ * Description: Datapath Layer 3 entry points - promote to L3, route IPv4/IPv6, send.
+ * =============================================================================
+ *
+ * Design:
+ *   - dp_promote_pkt_to_layer3: hand off L3 payload to L3 by protocol number.
+ *   - layer3_ip_route_pkt / layer3_ipv6_route_pkt: route IPv4/IPv6 packet in VRF.
+ *   - dp_send_ip_data / dp_send_ip6_data: send IP/IPv6 packet (FIB lookup, next-hop).
+ * =============================================================================
+ */
+
 #ifndef __LAYER3__
-#define  __LAYER3__
+#define __LAYER3__
 
 #include <stdint.h>
 
@@ -33,4 +46,4 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
 void
 dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
 
-#endif 
+#endif /* __LAYER3__ */

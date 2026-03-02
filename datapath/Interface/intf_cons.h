@@ -1,3 +1,17 @@
+/*
+ * =============================================================================
+ * File: intf_cons.h
+ * Description: Datapath interface constants, enums, and type-to-string helpers.
+ * =============================================================================
+ *
+ * Design:
+ *   - DP_INTF_NAME, DP_MAX_VLAN_SUPORT, etc.: shared size limits.
+ *   - DP_IntfL2Mode: L2 mode (none, access, trunk).
+ *   - DP_InterfaceType_t: interface type (physical, VLAN, GRE, loopback, etc.).
+ *   - dp_intf_type_str / dp_intf_mode_str: for CLI and logging.
+ * =============================================================================
+ */
+
 #ifndef __INTF_CONST__
 #define __INTF_CONST__
 
@@ -62,4 +76,4 @@ dp_intf_mode_str(DP_IntfL2Mode l2mode) {
 }
 
 
-#endif 
+#endif /* __INTF_CONST__ */

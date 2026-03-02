@@ -1,3 +1,19 @@
+/*
+ * =============================================================================
+ * File: dp_intf.h
+ * Description: Datapath interface (dp_intf_t) - per-interface forwarding state.
+ * =============================================================================
+ *
+ * Design:
+ *   - One dp_intf_t per logical interface in the datapath (physical, VLAN,
+ *     GRE, loopback, virtual, etc.). Mirrors control-plane interface config.
+ *   - Holds identifiers (port_id, if_type, if_name), L3 (vrf, IPv4/IPv6, mask),
+ *     L2 (MAC, switchport, vlan_intf, vlan_id, vni_id, l2_mode, mports,
+ *     vlan_bitmap), tunnel (gre_tunnel_dst_ip, virtual_port, olay_tunnel_intf),
+ *     stats, logging, and dp_ctx/nbr_intf for topology.
+ * =============================================================================
+ */
+
 #ifndef __DP_INTF__
 #define __DP_INTF__
 
@@ -75,9 +91,11 @@ typedef struct dp_intf_ {
     dp_ctx_t *dp_ctx;
     struct dp_intf_ *nbr_intf;
 
-}dp_intf_t;
+} dp_intf_t;
 
 #pragma pack(pop)
 
+void
+dp_send_pkt_out(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block);
 
-#endif 
+#endif /* __DP_INTF__ */

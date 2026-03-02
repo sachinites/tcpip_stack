@@ -12,9 +12,7 @@ OBJS=dp_init.o \
 	 dp_utils.o \
 	 dp_uapi.o \
 	 Interface/dp_intf_store.o \
-	 Interface/dp_intf_update.o \
-	 Interface/dp_intf_xmit.o \
-	 Interface/dp_intf_recv.o \
+	 Interface/dp_intf_recv_xmit.o \
 	 Interface/dp_intf_log.o \
 	 Vrfs/dp_vrf.o \
 	 Layer2/arp/arp.o \
@@ -34,6 +32,7 @@ OBJS=dp_init.o \
 	 Layer3/Gre/gre-fwd.o \
 	 Layer3/ipv4/ipv4-fwd.o \
 	 Layer3/ipv6/ipv6-fwd.o \
+	 dp-program/dp-prog-api.o \
 
 all: $(TARGET)
 
@@ -49,6 +48,9 @@ $(TARGET): $(OBJS)
 
 # Pattern rule for compiling .cpp files in Interface subdirectory
 Interface/%.o: Interface/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+dp-program/%.o: dp-program/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Pattern rule for compiling .cpp files in Vrfs subdirectory
@@ -100,5 +102,6 @@ clean:
 	rm -f Layer3/Gre/*.o
 	rm -f Layer3/ipv4/*.o
 	rm -f Layer3/ipv6/*.o
+	rm -f dp-program/*.o
 
 .PHONY: all clean

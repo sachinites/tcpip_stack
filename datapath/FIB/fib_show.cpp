@@ -8,6 +8,7 @@
 #include "fib_route.h"
 #include "fib_nh.h"
 #include "../../common/cmn_prefix.h"
+#include "../../common/cmn_api.h"
 #include "../../mtrie/mtrie.h"
 #include "../../c-hashtable/hashtable.h"
 #include "../../c-hashtable/hashtable_itr.h"
@@ -15,8 +16,6 @@
 #include "../../RTM/rtm_fib_common.h"
 #include "../../utils.h"
 #include "../../datapath/Interface/dp_intf.h"
-
-extern int cprintf(const char *fmt, ...);
 
 /* Helper function to format prefix for display */
 static void

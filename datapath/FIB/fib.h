@@ -1,3 +1,17 @@
+/*
+ * =============================================================================
+ * File: fib.h
+ * Description: Forwarding Information Base (FIB) - LPM/label lookup and nexthops.
+ * =============================================================================
+ *
+ * Design:
+ *   - fib_t: per-VRF, per-AFI (IPv4/IPv6/MPLS); holds either an LPM mtrie or
+ *     a label hashtable, plus a global AVL tree of nexthops.
+ *   - fib_init, fib_destroy, fib_get, fib_get_by_name: lifecycle and lookup.
+ *   - fib_show: display FIB for CLI/debugging.
+ * =============================================================================
+ */
+
 #ifndef __FIB__
 #define __FIB__
 
@@ -47,4 +61,4 @@ fib_t *fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id);
 void fib_destroy (fib_t*fib);
 fib_t* fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name);
 
-#endif
+#endif /* __FIB__ */

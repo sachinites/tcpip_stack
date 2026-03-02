@@ -5,10 +5,11 @@
 #include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../datapath/Interface/dp_intf_store.h"
+#include "../datapath/dp-program/dp-prog-struct.h"
 
 void
 rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
-                       rtm_nh_fwd_info_t *src, 
+                       dp_fib_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst) {
 
     /* SRv6 Local SIDs with END function may not have any interface*/

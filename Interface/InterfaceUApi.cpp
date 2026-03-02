@@ -5,12 +5,12 @@
 #include "../router_init.h"
 #include "../Layer3/layer3.h"
 #include "../tcpip_notif.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 #include "../datapath/Layer2/switching/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../vrf/vrf.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
-#include "../datapath/Interface/dp_intf_update.h"
+#include "../datapath/dp-program/dp-prog-intf-struct.h"
 
 void
 interface_set_ip_addr(node_t *node, 

@@ -35,7 +35,6 @@
 #include <arpa/inet.h>
 #include "../../../common/l2_hdrs.h"
 #include "../../../gluethread/glthread.h"
-#include "../../../comm.h"
 #include "../../../LinuxMemoryManager/uapi_mm.h"
 #include "../../../pkt_block.h"
 #include "../../../tcpconst.h"

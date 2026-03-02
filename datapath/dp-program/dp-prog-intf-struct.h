@@ -1,8 +1,24 @@
+/*
+ * =============================================================================
+ * File: dp_intf_update.h
+ * Description: CP-to-DP interface update message formats and API declarations.
+ * =============================================================================
+ *
+ * Design:
+ *   - Defines message structures for interface create/delete/update (IPv4/IPv6
+ *     addr, VLAN bind, admin down, VRF bind, switchport, VLAN-VNI, VLAN group
+ *     bind, log update). Packed with #pragma pack(8) for wire/queue compatibility.
+ *   - cp2dp_interface_create / cp2dp_interface_delete: send create/delete to DP.
+ *   - cp2dp_send_intf_*: send specific updates (addr, vlan, vrf, etc.).
+ *   - dp_intf_table_process_msg: DP-side handler for these messages.
+ * =============================================================================
+ */
+
 #ifndef __DP_INTF_UPDATE__
 #define __DP_INTF_UPDATE__
 
 #include <stdint.h>
-#include "intf_cons.h"
+#include "../Interface/intf_cons.h"
 
 #pragma pack (push,8)
 
@@ -30,7 +46,7 @@ typedef struct dp_intf_vlan_bind_ {
 
     uint32_t vlan_port_id;  // port id of vlan to be applied
     uint32_t port_id;       // physical interface port id
-    DP_IntfL2Mode l2_mode;  // access or trunk mode
+    uint8_t l2_mode;  // 0 - None, 1 - access, 2 - trunk mode
     uint8_t add;            // 1 for add , 0 for remove
     
 } dp_intf_vlan_bind_t;
@@ -93,7 +109,7 @@ typedef struct dp_intf_grp_bind_ {
 #define CP2DP_CODE_INTF_LOG_UPDATE 15
 typedef struct dp_intf_log_update_ {
 
-    log_t log;
+    //log_t log;
 
 } dp_intf_log_update_t;
 
@@ -119,43 +135,6 @@ typedef struct dp_ctx_ dp_ctx_t;
 class TransportService;
 
 
-/* Interface update message processing (DP thread) */
-void 
-dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 
-/* Interface update message sending functions */
-void 
-cp2dp_send_intf_ipv4_addr_update(node_t *node, uint32_t port_id, uint32_t ipv4_addr, uint8_t mask);
-
-void 
-cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len);
-
-void 
-cp2dp_send_intf_vlan_bind_update(node_t *node, uint32_t port_id, 
-        uint32_t vlan_port_id, DP_IntfL2Mode l2_mode, bool add);
-
-void 
-cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node, TransportService *tsp, uint16_t vlan_id, bool add);
-
-void 
-cp2dp_send_intf_admin_status_update(node_t *node, uint32_t port_id, bool is_down);
-
-void 
-cp2dp_send_intf_vlan_vni_update(node_t *node, uint16_t vlan_port_id, uint32_t vni_id, bool add);
-
-void 
-cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switchport);
-
-void 
-cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, int32_t vrf_id);
-
-void 
-cp2dp_send_intf_vlan_grp_bind_update(node_t *node, uint32_t port_id, bitmap_t *vlan_bitmap, bool add);
-
-void 
-cp2dp_interface_create (node_t *node, Interface *intf);
-
-void 
-cp2dp_interface_delete (node_t *node, Interface *intf);
 
 #endif 

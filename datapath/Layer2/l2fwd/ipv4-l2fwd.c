@@ -10,7 +10,6 @@
 #include "../../../Tracer/tracer.h"
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
-#include "../../../comm.h"
 #include "../../../common/cmn_api.h"
 
 extern void
@@ -27,6 +26,11 @@ cp_punt_pkt_from_layer2_to_layer5(
         			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);
 
+extern int
+dp_inject_packet (dp_ctx_t *dp_ctx,
+                  pkt_block_t *pkt_block,
+                  dp_intf_t *interface);
+                  
 static void
 l2_forward_ip_packet(dp_ctx_t *dp_ctx, 
                      dp_vrf_t *vrf,

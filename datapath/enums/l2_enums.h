@@ -1,3 +1,15 @@
+/*
+ * =============================================================================
+ * File: l2_enums.h
+ * Description: L2 (datapath) MAC entry flags and helpers.
+ * =============================================================================
+ *
+ * Design:
+ *   - MAC_STATIC, MAC_DYNAMIC, MAC_CONTROL_PLANE: flags for MAC table entries.
+ *   - mac_entry_flag(): return string for CLI/logging.
+ * =============================================================================
+ */
+
 #ifndef __L2_ENUMS__
 #define __L2_ENUMS__
 
@@ -19,4 +31,4 @@ static inline const char * mac_entry_flag (uint16_t mac_entry_flag) {
     return "nil";
 }
 
-#endif 
+#endif /* __L2_ENUMS__ */

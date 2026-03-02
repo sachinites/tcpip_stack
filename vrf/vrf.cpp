@@ -9,7 +9,7 @@
 #include "../datapath/FIB/fib.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../net.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 
 /* Initialize Default VRF */
 def_vrf_t* vrf_def_init(node_t *node) {

@@ -1,3 +1,25 @@
+/*
+ * =============================================================================
+ * File: dp_ctx.h
+ * Description: Datapath context (DP context) - central per-node dataplane state.
+ * =============================================================================
+ *
+ * Design:
+ *   - Each network node has one dp_ctx_t instance.
+ *   - Holds packet queues, timer wheel, tracer, MAC table, interface/VRF
+ *     hashtables, netfilter hooks, and references to special interfaces
+ *     (RMAC, VLAN flood, host path, SRv6, NVE).
+ *   - Used by both control-plane (CP) and data-plane (DP) code; CP configures
+ *     it, DP uses it for forwarding and packet I/O.
+ *
+ * Key members:
+ *   - dp_ev_dis / dp_purger_ev_dis : Event dispatchers (DP thread, purger).
+ *   - dp_recvr_pkt_q / cp_to_dp_xmit_intf_pkt_q / dp_ipc_q : Packet queues.
+ *   - dp_intf_ht / dp_vrf_ht / dp_vlan_intf_ht : Lookup tables.
+ *   - vlan_vni_ht : VLAN–VNI mapping (atomic for lock-free access).
+ * =============================================================================
+ */
+
 #ifndef __DP_CTX__
 #define __DP_CTX__
 
@@ -24,71 +46,70 @@ typedef struct dp_vrf_ dp_vrf_t;
 typedef struct dp_ctx_ {
 
     char ctx_name[32];
-    /* Data path scheduler */
-    event_dispatcher_t dp_ev_dis;
-    /* Objects Purger */
-    event_dispatcher_t dp_purger_ev_dis;  
-    
-    /* Data Path ingress Pkt Queue */
-    pkt_q_t dp_recvr_pkt_q;    
-    /* CptoDp Interface Xmit Global Queue*/
-    pkt_q_t cp_to_dp_xmit_intf_pkt_q;
-    /*IPC in a data plane */
-    pkt_q_t dp_ipc_q;
-    
-    /* Data Path Timer */
-    wheel_timer_t *dp_wt;    
 
-    /* Data-Path Tracer*/
+    /* Data path scheduler (main DP event loop) */
+    event_dispatcher_t dp_ev_dis;
+    /* Object purger / cleanup dispatcher */
+    event_dispatcher_t dp_purger_ev_dis;
+
+    /* Ingress packet queue (received on interfaces) */
+    pkt_q_t dp_recvr_pkt_q;
+    /* CP-to-DP interface transmit queue */
+    pkt_q_t cp_to_dp_xmit_intf_pkt_q;
+    /* IPC queue within data plane */
+    pkt_q_t dp_ipc_q;
+
+    /* Datapath timer wheel (e.g. ARP expiry, etc.) */
+    wheel_timer_t *dp_wt;
+
+    /* Datapath tracer for logging */
     tracer_t *dptr;
 
-    /* Mac Table*/
-    mac_table_t *mac_table;  
+    /* L2 MAC table */
+    mac_table_t *mac_table;
 
-    /* DP hash table storage of interfacs*/
+    /* Interface table (key: port_id / ifindex) */
     hashtable_t *dp_intf_ht;
-    /* DP hash table storage of VRFs*/
-    hashtable_t *dp_vrf_ht; 
-    /* DP vlan intf hashtable keyed by vlan-id*/
+    /* VRF table */
+    hashtable_t *dp_vrf_ht;
+    /* VLAN interface table (key: vlan-id) */
     hashtable_t *dp_vlan_intf_ht;
-    /* Vlan-VNI mapping DP hash table*/
+    /* VLAN–VNI mapping (VXLAN); atomic for lock-free updates */
 #ifdef __cplusplus
     std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;
 #else
     vlan_vni_ht_db_t *vlan_vni_ht;
 #endif
 
-    /* Net filter hook DB*/
+    /* L3 netfilter hook database */
     nf_hook_db_t nf_hook_db;
-    /*L2 net-filter hook (simplified) */
-	notif_chain_t layer2_proto_reg_db;
+    /* L2 protocol registration (notification chain) */
+    notif_chain_t layer2_proto_reg_db;
 
-    /* Packet Logging */
+    /* Packet logging state */
     log_t log;
 
     void *ctx_pvt_data;
 
+    /* Router MAC and router ID (control-plane configured) */
     mac_addr_t rmac;
     uint32_t rtr_id;
-    
+
     dp_vrf_t *default_vrf;
 
-    /* Special interfaces */
+    /* Special interfaces (RMAC, VLAN flood, host path, SRv6 end, NVE) */
     dp_intf_t *dp_rmac_intf;
     dp_intf_t *dp_vlan_flood_intf;
     dp_intf_t *dp_host_path_intf;
     dp_intf_t *dp_srv6_end_intf;
     dp_intf_t *dp_nve_intf;
 
-    /* Logging Buffers*/
-    unsigned char* send_log_buffer;
-    unsigned char* recv_log_buffer;
+    /* Logging buffers (send/recv packet dump) */
+    unsigned char *send_log_buffer;
+    unsigned char *recv_log_buffer;
 
 } dp_ctx_t;
 
 #pragma pack(pop)
 
-
-
-
-#endif 
+#endif /* __DP_CTX__ */

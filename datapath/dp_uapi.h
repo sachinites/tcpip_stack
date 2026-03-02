@@ -1,41 +1,56 @@
+/*
+ * =============================================================================
+ * File: dp_uapi.h
+ * Description: Datapath user/API layer - context init, packet inject, send, lookup.
+ * =============================================================================
+ *
+ * Design:
+ *   - Public API for initializing the DP context and for sending/injecting
+ *     packets through the datapath.
+ *   - ev_dis_pkt_data_t: wrapper passed with packets to the event dispatcher
+ *     (packet buffer, ifindex, size).
+ *   - Macros EV_DP, DP_PKT_Q, DP_TIMER, EV_DP_PURGER provide quick access
+ *     to dispatcher and timer from dp_ctx.
+ * =============================================================================
+ */
+
 #ifndef __DP_UAPI__
 #define __DP_UAPI__
 
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_intf_ dp_intf_t;
+typedef struct dp_msg_ dp_msg_t;
 
 #include <stdint.h>
 
-/* Interfaces recv and send pkts using this wrapper
-    structure */
-typedef struct ev_dis_pkt_data_{
+/* Convenience macros for dp_ctx members */
+#define EV_DP(dp_ctx_ptr)        (&(dp_ctx_ptr)->dp_ev_dis)
+#define DP_PKT_Q(dp_ctx_ptr)     (&(dp_ctx_ptr)->dp_recvr_pkt_q)
+#define DP_TIMER(dp_ctx_ptr)     ((dp_ctx_ptr)->dp_wt)
+#define EV_DP_PURGER(dp_ctx_ptr) (&(dp_ctx_ptr)->dp_purger_ev_dis)
 
-    unsigned char *pkt;
-    uint32_t ifindex;
-    uint32_t pkt_size;
+/* APIs available to Control plane */
+void
+dp_uapi_ctx_init(dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 
-}ev_dis_pkt_data_t;
+/** Inject a packet into the datapath on the given interface (e.g. from CP). */
+int
+dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
+                      pkt_block_t *pkt_block,
+                      uint32_t ifindex);
+
+/* The Control plane use this API to send the pkt out of interface*/
+void 
+dp_uapi_xmit_pkt(dp_ctx_t *dp_ctx, 
+                 uint32_t ifindex, 
+                 pkt_block_t *pkt_block);
 
 void 
-dp_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
+dp_uapi_link_connect (dp_ctx_t *dp_ctx1, uint32_t ifindex1, 
+                      dp_ctx_t *dp_ctx2, uint32_t ifindex2);
 
-extern int
-dp_inject_packet (dp_ctx_t *dp_ctx,
-                  pkt_block_t *pkt_block,
-                  dp_intf_t *interface);
+void
+dp_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async);
 
-
-#define EV_DP(dp_ctx_ptr)    (&dp_ctx_ptr->dp_ev_dis)
-#define DP_PKT_Q(dp_ctx_ptr) (&dp_ctx_ptr->dp_recvr_pkt_q)
-#define DP_TIMER(dp_ctx_ptr)  (dp_ctx_ptr->dp_wt)
-#define EV_DP_PURGER(dp_ctx_ptr) (&dp_ctx_ptr->dp_purger_ev_dis)
-
-void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block);
-
-dp_intf_t *
-dp_uapi_look_up_interface (dp_ctx_t *dp_ctx, uint32_t port_id);
-
-
-#endif 
+#endif /* __DP_UAPI__ */

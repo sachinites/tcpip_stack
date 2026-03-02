@@ -26,7 +26,7 @@
 #include "../net.h"
 #include "../tcpconst.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 #include "../Interface/InterfaceUApi.h"
 #include "LinuxInterface.h"
 #include "../RTM/rtm.h"
@@ -377,7 +377,7 @@ linux_listener_thread(void* arg) {
     int max_fd = 0;
     fd_set read_fds;
     node_t *node = (node_t*)arg;
-    ev_dis_pkt_data_t *ev_dis_pkt_data;
+    pkt_block_t *pkt_block;
     char buffer[LINUX_PKT_SKT_BUFFER_SIZE];
     
     while (listener_running) {
@@ -421,15 +421,11 @@ linux_listener_thread(void* arg) {
                     continue;
                 }
                 
-                ev_dis_pkt_data =  (ev_dis_pkt_data_t *)calloc (1, sizeof (ev_dis_pkt_data_t));
-                ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(bytes_received);
-                memcpy(ev_dis_pkt_data->pkt, buffer, bytes_received);
-	            ev_dis_pkt_data->ifindex = intf->ifindex;
-	            ev_dis_pkt_data->pkt_size = bytes_received;
-
-	            pkt_q_enqueue(EV_DP(node->dp_ctx), 
-                  DP_PKT_Q(node->dp_ctx) ,
-                  (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+                pkt_block = pkt_block_get_new(NULL, 0);
+                pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
+                pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+                dp_uapi_inject_packet (node->dp_ctx, pkt_block, intf->ifindex);
+                XFREE(pkt_block);
             }
         } ITERATE_NODE_INTERFACES_END(node, intf);
     }

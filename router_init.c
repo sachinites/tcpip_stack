@@ -38,7 +38,6 @@
 #include <ctype.h>
 #include "configdb.h"
 #include "router_init.h"
-#include "datapath/dp_ctx.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
 #include "packet-tracer/packet_tracer.h"
@@ -46,18 +45,14 @@
 #include "Interface/InterfaceUApi.h"
 #include "Tracer/tracer.h"
 #include "Layer3/ipv6/ipv6_utils.h"
-#include "common/cp2dp.h"
+#include "dpal/cp2dp.h"
 #include "RTM/rtm.h"
 #include "RTM/rtm_nb_integ.h"
 #include "common/cmn_prefix.h"
-#include "datapath/Interface/dp_intf_update.h"
+#include "datapath/dp_uapi.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
 extern bool LinuxRtr;
-
-extern void 
-dp_simulate_wire_connection (node_t *node1, Interface *intf1, 
-                             node_t *node2, Interface *intf2);
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -92,7 +87,8 @@ insert_link_between_two_nodes(node_t *node1,
     /* Data path Updates*/
     cp2dp_interface_create(node1, link->Intf1.get());
     cp2dp_interface_create(node2, link->Intf2.get());
-    dp_simulate_wire_connection (node1, link->Intf1.get(), node2, link->Intf2.get());
+    dp_uapi_link_connect (node1->dp_ctx, link->Intf1->ifindex, 
+                     node2->dp_ctx, link->Intf2->ifindex);
 
     vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
     vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
@@ -122,7 +118,7 @@ extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
 void dp_init (node_t *node);
-extern void dp_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
+extern void dp_uapi_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 
 
 static FILE *
@@ -172,10 +168,10 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->spf_data = NULL;
 
     /* Initialize the Data path before control plane (log lives in dp_ctx) */
-    dp_ctx_init (&node->dp_ctx, (void *)node, node->node_name);
+    dp_uapi_ctx_init (&node->dp_ctx, (void *)node, node->node_name);
     tcp_ip_init_node_log_info(node);
 
-    /* L3/L2 netfilter and proto reg are initialized inside dp_ctx_init; no longer on node */
+    /* L3/L2 netfilter and proto reg are initialized inside dp_uapi_ctx_init; no longer on node */
 
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
@@ -192,7 +188,7 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->intf_by_name = NULL;
     node->intf_by_ifindex = NULL;
 
-    /* L3 pkt trapping and L2 proto reg are in dp_ctx (initialized in dp_ctx_init) */
+    /* L3 pkt trapping and L2 proto reg are in dp_ctx (initialized in dp_uapi_ctx_init) */
 
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
 

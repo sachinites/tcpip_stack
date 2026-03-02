@@ -43,7 +43,7 @@
 #include "../router_init.h"
 #include "../common/l3_hdrs.h"
 #include "../utils.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 #include "../pkt_block.h"
 
 extern graph_t *topo;

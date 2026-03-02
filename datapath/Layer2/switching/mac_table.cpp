@@ -10,8 +10,7 @@
 #include "../../../Tracer/tracer.h"
 #include "../../../gluethread/glthread.h"
 #include "../../dp_uapi.h"
-
-extern int cprintf (const char* format, ...);
+#include "../../../common/cmn_api.h"
 
 void
 init_mac_table(mac_table_t **mac_table){

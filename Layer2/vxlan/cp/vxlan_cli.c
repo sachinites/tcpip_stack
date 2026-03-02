@@ -3,7 +3,7 @@
 #include "../../../tcpconst.h"
 #include "../../../cmdcodes.h"
 #include "../../../utils.h"
-#include "../../../common/cp2dp.h"
+#include "../../../dpal/cp2dp.h"
 #include "../../../CLIBuilder/libcli.h"
 #include "../../../CLIBuilder/cmdtlv.h"
 #include "../../../Interface/InterfaceUApi.h"

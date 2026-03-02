@@ -11,7 +11,7 @@
 #include "vrf.h"
 #include "../RTM/rtm_priv_api.h"
 #include "../RTM/rtm_nb_integ.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 
 #define CMD_CODE_CONFIG_VRF_RD          1
 #define CMD_CODE_CONFIG_VRF_IMPORT_RT   2

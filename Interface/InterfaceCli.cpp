@@ -6,12 +6,12 @@
 #include "../tcpip_notif.h"
 #include "../router_init.h"
 #include "InterfaceUApi.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"
 #include "../datapath/Layer2/switching/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../datapath/Interface/dp_intf.h"
-#include "../datapath/Interface/dp_intf_update.h"
+#include "../datapath/dp-program/dp-prog-intf-struct.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -431,14 +431,14 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 case CONFIG_ENABLE:
                     if (!interface->IntfConfigVlan(vlan_id, true) ) return -1;
                     cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        interface->GetAccessVlanIntf()->ifindex, DP_LAN_ACCESS_MODE, true);
+                        interface->GetAccessVlanIntf()->ifindex, LAN_ACCESS_MODE, true);
                     break;
                 case CONFIG_DISABLE:
                     vlan_intf_ifindex = interface->GetAccessVlanIntf() ? \
                         interface->GetAccessVlanIntf()->ifindex : 0;
                     if (!interface->IntfConfigVlan(vlan_id, false) ) return -1;
                     cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        vlan_intf_ifindex, DP_LAN_ACCESS_MODE, false);
+                        vlan_intf_ifindex, LAN_ACCESS_MODE, false);
                     break;
                 default:
                     ;

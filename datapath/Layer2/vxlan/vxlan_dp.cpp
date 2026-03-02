@@ -1,11 +1,9 @@
-
+#include <netinet/in.h>  // for htonl
 #include "vxlan_dp.h"
 #include "../../../common/l2_hdrs.h"
 #include "../../../pkt_block.h"
-#include "../../../router_init.h"
 #include "../../../common/l4_hdrs.h"
 #include "../../../Tracer/tracer.h"
-#include <netinet/in.h>  // for htonl
 #include "../../../Interface/InterfaceUApi.h"
 #include "../../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "vlan_vni_ht.h"

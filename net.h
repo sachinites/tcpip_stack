@@ -46,7 +46,6 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"
-#include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
 #include "Interface/InterfaceFwd.h"
