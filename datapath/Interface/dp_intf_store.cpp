@@ -76,6 +76,7 @@ dp_check_and_free_interface (dp_intf_t *intf) {
     assert(!intf->vlan_bitmap);
     assert(!intf->olay_tunnel_intf);
     assert(!intf->log_info.acc_lst_filter);
+    assert (intf->if_type != DP_INTF_TYPE_PHY);
     free(intf);
 }
 

@@ -46,38 +46,20 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "router_init.h"
 #include "Tracer/tracer.h"
-#include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer2/layer2.h"
 #include "Layer2/transport_svc.h"
-#include "datapath/Layer2/switching/mac_table.h"
 #include "Interface/InterfaceUApi.h"
 #include "CLIBuilder/libcli.h"
 #include "dpal/cp2dp.h"
-#include "datapath/dp_ctx.h"
-#include "datapath/Vrfs/dp_vrf.h"
-#include "datapath/Interface/dp_intf.h"
-#include "datapath/Interface/dp_intf_store.h"
-#include "datapath/dp-program/dp-prog-intf-struct.h"
 
 typedef struct def_vrf_ def_vrf_t;
 
-extern void init_rt_table(node_t *node, rt_table_t **rt_table);
-extern void init_rtv6_table(node_t *node, rt_table_t **rt_table);
-extern void mpls_rt_table_init (node_t *node, mpls_rt_table_t **mpls_rt_table) ;
-extern void ipv4_mpls_rt_table_init (node_t *node, rt_table_t **ipv4_mpls_rt_table);
-extern void rt_table_set_active_status(rt_table_t *rt_table, bool active);
-extern void stp_init_stp_node_info(stp_node_info_t **stp_node_info);
 extern void init_tcp_logging(node_t *);
 extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 extern void lfa_init (node_t *node, lfa_t **lfa) ;
 void  node_assign_router_mac (node_t *node) ;
-extern bool mac_table_entry_add(dp_ctx_t *dp_ctx, mac_table_t *mac_table, 
-        mac_table_entry_t *mac_table_entry);
-extern void l2_switch_perform_mac_learning (node_t *node, vlan_id_t vlan_id, 
-        c_string src_mac, dp_intf_t *oif, uint32_t src_ip) ;
 extern void node_init_default_rtm(node_t *node) ;
-extern void node_init_default_fib(node_t *node);
 extern def_vrf_t* vrf_def_init (node_t *node);
 
 void
@@ -191,6 +173,7 @@ dump_node_vrf_interfaces(node_t *node) {
 
     /* Dump all interfaces from global interface map */
     if (node->intf_by_name && !node->intf_by_name->empty()) {
+
         for (auto& pair : *node->intf_by_name) {
             Interface *intf = pair.second.get();
             if (intf) {
@@ -200,9 +183,9 @@ dump_node_vrf_interfaces(node_t *node) {
     }
 
     /* Dump special interfaces */
-    //dump_intf_props(NODE_RMAC_INTF(node).get());
-    //ump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
-    //if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
+    dump_intf_props(NODE_RMAC_INTF(node).get());
+    dump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
+    if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
 }
 
 void 
@@ -233,6 +216,7 @@ dump_nw_graph(graph_t *graph, node_t *node1){
 
 void
 dump_interface_stats_header(){
+
     cprintf("\n%-20s | %10s | %10s | %15s | %9s\n", 
             "Interface Name", "PktTx", "PktRx", "Egress Dropped", "Ref Count");
     cprintf("%-20s-+-%10s-+-%10s-+-%15s-+-%9s\n", 
@@ -240,10 +224,10 @@ dump_interface_stats_header(){
 }
 
 void
-dump_interface_stats(dp_intf_t *interface){
+dump_interface_stats(Interface *interface){
 
     cprintf("%-20s | %10u | %10u | %15u\n",
-        interface->if_name, 
+        interface->if_name.c_str(), 
         interface->pkt_sent,
         interface->pkt_recv,
         interface->xmit_pkt_dropped);
@@ -252,26 +236,20 @@ dump_interface_stats(dp_intf_t *interface){
 void
 dump_node_interface_stats(node_t *node){
 
-    dp_intf_t *interface;
-
-    // Print table header
     dump_interface_stats_header();
 
-    struct hashtable_itr *itr = hashtable_iterator(node->dp_ctx->dp_intf_ht);
-
-    while (1) {
-
-        interface = (dp_intf_t *)hashtable_iterator_value(itr);
-        dump_interface_stats(interface);
-        if (!hashtable_iterator_advance(itr)) break;
+    if (node->intf_by_name && !node->intf_by_name->empty()) {
+        for (auto& pair : *node->intf_by_name) {
+            Interface *intf = pair.second.get();
+            if (intf) {
+                dump_interface_stats(intf);
+            }
+        }
     }
-    free(itr);
     
-    //dump_interface_stats(NODE_RMAC_INTF(node));
-    //dump_interface_stats(NODE_VLAN_FLOOD_INTF(node));
-    //if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node));
-
-    cprintf ("Ingress Pkt Drops : %u\n", ptk_q_drop_count(&node->dp_ctx->dp_recvr_pkt_q));
+    dump_interface_stats(NODE_RMAC_INTF(node).get());
+    dump_interface_stats(NODE_VLAN_FLOOD_INTF(node).get());
+    if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node).get());
 }
 
 void

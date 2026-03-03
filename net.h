@@ -95,19 +95,14 @@ typedef struct node_nw_prop_{
 
     /* Shared Rmac Interface shared across all SVIs in the system*/
     InterfaceP rmac_interface;
-    dp_intf_t *dp_rmac_intf;
     /* Virtual port which represents flood in a vlan */
     InterfaceP vlan_flood_interface;
-    dp_intf_t *dp_vlan_flood_intf;
     /* Host Path Interface */
     InterfaceP host_path_interface;
-    dp_intf_t *dp_host_path_intf;
     /* SRv6 Virtual Interfaces*/
     InterfaceP srv6_end_interface;
-    dp_intf_t *dp_srv6_end_intf;
     /* network-virtualization-edge interface */
     NVEInterfaceP nve;
-    dp_intf_t *dp_nve;
 
     /* lo ipv6 addr*/
     uint8_t ipv6_rtr_id[16];

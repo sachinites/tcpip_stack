@@ -8,6 +8,7 @@
 #include "../../tcpconst.h"
 #include "../../Tracer/tracer.h"
 #include "../../vrf/vrf.h"
+#include "../../dpal/cp2dp.h"
 
 bool
 gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
@@ -30,6 +31,8 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     gre_shared_ptr->ifindex = interface_get_new_ifindex (node);
     intf = gre_shared_ptr.get();
     
+    cp2dp_interface_create (node, intf);
+
     /* Add to VRF and global maps */
     if (!vrf_add_interface(NODE_DEF_VRF(node), intf)) {
         cprintf("Error : Failed to add GRE tunnel to VRF\n");

@@ -5,11 +5,11 @@
 #include "../router_init.h"
 #include "../Layer3/layer3.h"
 #include "../tcpip_notif.h"
-#include "../dpal/cp2dp.h"
-#include "../datapath/Layer2/switching/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../vrf/vrf.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
+#include "../dpal/cp2dp.h"
+#include "../datapath/enums/l2_enums.h"
 #include "../datapath/dp-program/dp-prog-intf-struct.h"
 
 void
@@ -272,7 +272,6 @@ interface_loopback_delete (node_t *node, char *ifname) {
        intf, &intf_prop_changed, if_change_flags);    
 
     node_interface_delete_by_name(node, ifname);
-    cp2dp_interface_delete(node, intf);
 }
 
 void
@@ -567,7 +566,6 @@ vrf_interface_delete_by_name(vrf_t *vrf, const char *ifname) {
         vrf->intf_by_ifindex->erase(ifindex);
     }
     
-    cp2dp_send_intf_vrf_bind_update(vrf->node, ifindex, vrf->vrf_id);
     return true;
 }
 
@@ -579,7 +577,7 @@ vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
     
     auto it = vrf->intf_by_ifindex->find(ifindex);
     if (it == vrf->intf_by_ifindex->end()) {
-        return false; // Interface not found
+        return false;
     }
     
     InterfaceP intf = it->second;
@@ -591,8 +589,7 @@ vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
     if (vrf->intf_by_name) {
         vrf->intf_by_name->erase(ifname);
     }
-    
-    cp2dp_send_intf_vrf_bind_update(vrf->node, ifindex, vrf->vrf_id);
+
     return true;
 }
 

@@ -56,7 +56,6 @@ OBJS=gluethread/glthread.o \
 		  Layer3/netfilter.o \
 		  Layer3/ipv6/ipv6cli.o \
 		  Layer3/ipv6/ipv6_utils.o \
-		  Layer3/mpls_cli.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
@@ -212,9 +211,6 @@ Layer3/layer3.o:Layer3/layer3.c
 
 Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
-
-Layer3/mpls_cli.o:Layer3/mpls_cli.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/mpls_cli.cpp -o Layer3/mpls_cli.o
 
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o

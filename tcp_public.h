@@ -69,8 +69,6 @@
 #include "Interface/InterfaceUApi.h"
 #include "net.h"
 #include "Layer2/layer2.h"
-#include "datapath/Layer2/arp/arp.h"
-#include "datapath/Layer2/switching/mac_table.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer3/rt_notif.h"

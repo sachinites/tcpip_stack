@@ -1279,11 +1279,6 @@ nw_init_cli(){
                  }
 
                  {
-                    /* Mount MPLS show CLI here */
-                    mpls_build_show_cli_tree(&node_name);
-                 }
-
-                 {
                      /*show node <node-name> fib*/
                      static param_t fib;
                      init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
@@ -1546,9 +1541,6 @@ nw_init_cli(){
 
             /* Mount ipv6 CLIs*/
             ipv6_build_cli_tree (&node_name);
-            
-            /* Mount MPLS Config CLIs*/
-            mpls_build_config_cli_tree (&node_name);
         }
 
         param_t *vrf_config_name = NULL;

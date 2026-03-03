@@ -35,7 +35,7 @@ void
 cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async) {
 
     assert (dp_msg->data_size < sizeof(dp_msg->data));
-    dp_submit_dp_msg(node->dp_ctx, dp_msg, async);
+    dp_uapi_submit_dp_msg(node->dp_ctx, dp_msg, async);
 }
 
 
@@ -486,32 +486,6 @@ cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switch
 }
 
 void 
-cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, int32_t vrf_id) {
-    
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_vrf_bind_t *vrf_bind;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_vrf_bind_t);
-    
-    /* Fill in the header */
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = port_id;
-    intf_msg->update_code = CP2DP_CODE_INTF_VRF_BIND;
-    
-    /* Fill in the VRF bind data */
-    vrf_bind = (dp_intf_vrf_bind_t *)(intf_msg + 1);
-    vrf_bind->port_id = port_id;
-    vrf_bind->vrf_id = vrf_id;
-    
-    cp2dp_submit(node, dp_msg, true);
-}
-
-void 
 cp2dp_send_intf_vlan_grp_bind_update(node_t *node, 
                     uint32_t port_id, 
                     bitmap_t *vlan_bitmap, 
@@ -577,9 +551,6 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
 
     intf_msg->update_code = 0;
 
-    cprintf ("intf->iftype = %d(%s),  INTF_TYPE_HOST_PATH = %d\n", 
-        intf->iftype, intf_msg->intf_name, INTF_TYPE_HOST_PATH);
-
     switch (intf->iftype) {
 
         case INTF_TYPE_PHY:
@@ -609,19 +580,15 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
             break;
     }
 
-    cprintf ("intf_msg->update_code = %d\n", intf_msg->update_code);
-
     /* Use synchronous submission to ensure interface is created before caller proceeds */
     cp2dp_submit(node, dp_msg, false);
 }
 
 void 
-cp2dp_interface_delete (node_t *node, Interface *intf) {
+cp2dp_interface_delete (node_t *node, uint32_t ifindex) {
 
     dp_msg_t *dp_msg;
     dp_intf_cp2dp_msg_hdr_t *intf_msg;
-
-    assert (intf->iftype != INTF_TYPE_PHY);
 
     dp_msg = cp2dp_msg_alloc();
     dp_msg->component_type = INTF_TABLE;
@@ -631,8 +598,8 @@ cp2dp_interface_delete (node_t *node, Interface *intf) {
     
     /* Fill in the header */
     intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = intf->ifindex;
-    intf_msg->iftype = (uint32_t)intf->iftype;
+    intf_msg->port_id = ifindex;
+    intf_msg->iftype = 0; // not required
     intf_msg->update_code = 0;
     
     cp2dp_submit(node, dp_msg, true);

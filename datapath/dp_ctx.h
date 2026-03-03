@@ -112,4 +112,10 @@ typedef struct dp_ctx_ {
 
 #pragma pack(pop)
 
+/* Convenience macros for dp_ctx members */
+#define EV_DP(dp_ctx_ptr)        (&(dp_ctx_ptr)->dp_ev_dis)
+#define DP_PKT_Q(dp_ctx_ptr)     (&(dp_ctx_ptr)->dp_recvr_pkt_q)
+#define DP_TIMER(dp_ctx_ptr)     ((dp_ctx_ptr)->dp_wt)
+#define EV_DP_PURGER(dp_ctx_ptr) (&(dp_ctx_ptr)->dp_purger_ev_dis)
+
 #endif /* __DP_CTX__ */

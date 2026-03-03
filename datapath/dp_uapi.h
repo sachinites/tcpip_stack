@@ -24,12 +24,6 @@ typedef struct dp_msg_ dp_msg_t;
 
 #include <stdint.h>
 
-/* Convenience macros for dp_ctx members */
-#define EV_DP(dp_ctx_ptr)        (&(dp_ctx_ptr)->dp_ev_dis)
-#define DP_PKT_Q(dp_ctx_ptr)     (&(dp_ctx_ptr)->dp_recvr_pkt_q)
-#define DP_TIMER(dp_ctx_ptr)     ((dp_ctx_ptr)->dp_wt)
-#define EV_DP_PURGER(dp_ctx_ptr) (&(dp_ctx_ptr)->dp_purger_ev_dis)
-
 /* APIs available to Control plane */
 void
 dp_uapi_ctx_init(dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
@@ -51,6 +45,9 @@ dp_uapi_link_connect (dp_ctx_t *dp_ctx1, uint32_t ifindex1,
                       dp_ctx_t *dp_ctx2, uint32_t ifindex2);
 
 void
-dp_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async);
+dp_uapi_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async);
+
+void
+dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 
 #endif /* __DP_UAPI__ */

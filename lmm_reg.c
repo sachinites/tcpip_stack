@@ -40,6 +40,10 @@
 /* TED Hdr Files*/
 #include "ted/ted.h"
 
+/* Data path files */
+#include "datapath/Layer2/arp/arp.h"
+#include "datapath/Layer2/switching/mac_table.h"
+
 /* Lib Hdr files */
 #include "mtrie/mtrie.h"
 #include "pkt_block.h"

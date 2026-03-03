@@ -8,9 +8,8 @@
 #include "InterfaceUApi.h"
 #include "../dpal/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"
-#include "../datapath/Layer2/switching/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
-#include "../datapath/Interface/dp_intf.h"
+#include "../datapath/enums/l2_enums.h"
 #include "../datapath/dp-program/dp-prog-intf-struct.h"
 
 extern graph_t *topo;
@@ -601,12 +600,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
                 
                 cp2dp_interface_create(node, vlan_intfP.get());
-
-                cp2dp_send_intf_vrf_bind_update(node, 
-                    (vlan_intfP.get())->ifindex, vlan_intfP->vrf->vrf_id);
-                
+                cp2dp_vrf_add_interface (node, vlan_intfP->vrf->vrf_id,  (vlan_intfP.get())->ifindex);
                 cp2dp_send_intf_admin_status_update(node, vlan_intfP->ifindex, false);
-                
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
                        NODE_VLAN_FLOOD_INTF(node)->ifindex, MAC_STATIC, true, 0);
@@ -634,10 +629,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
                 cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, 
                     vlan_id, NODE_VLAN_FLOOD_INTF(node)->ifindex, true, 0);
-
-                cp2dp_send_intf_vrf_bind_update(node, if_index, -1);
-
-                cp2dp_interface_delete(node, (Interface *)vlan_intf);
+                cp2dp_vrf_delete_interface(node, vlan_intf->vrf->vrf_id, vlan_intf->ifindex);
+                
                 node->vlan_intf_db->erase(vlan_id);
             }
             break;

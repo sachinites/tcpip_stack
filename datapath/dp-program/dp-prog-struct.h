@@ -12,34 +12,6 @@
 
 #pragma pack(push, 8)
 
-/* Route update msg to RTM*/
-typedef struct rt_update_msg_ {
-
-    uint32_t prefix;
-    uint32_t gateway;
-    uint32_t ifindex;
-    uint32_t metric;
-    uint16_t proto_id;
-    uint8_t  mask;
-    char padding[3];
-
-} rt_update_msg_t;
-
-typedef struct rt6_update_msg_ {
-
-    uint8_t prefix[16];
-    uint8_t gateway[16];
-    uint32_t ifindex;
-    uint32_t metric;
-    uint16_t proto_id;
-    uint16_t srv6_end_fn;
-    uint8_t  prefix_len;
-    uint8_t rt_flags;
-    uint8_t seg_lst_count;
-    uint8_t seglst[0][16];
-
-} rt6_update_msg_t;
-
 /* MAC table update msg to MAC_TABLE*/
 typedef struct mac_update_msg_ {
 
@@ -51,32 +23,6 @@ typedef struct mac_update_msg_ {
     char padding[2];
 
 } mac_update_msg_t;
-
-/* MPLS route update msg to MPLS_TABLE*/
-typedef struct mpls_route_update_msg_ {
-
-    mpls_label_val_t in_label;     /* Encoded label value */
-    uint32_t ifindex;
-    uint32_t gw_ip;
-    uint8_t label_stack_count;
-    char padding[3];
-    mpls_label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
-
-} mpls_route_update_msg_t;
-
-/* IPv4 MPLS route update msg to IPV4_MPLS_TABLE*/
-typedef struct ipv4_mpls_route_update_msg_ {
-
-    uint32_t prefix;          /* IPv4 prefix */
-    uint32_t gw_ip;           /* Gateway IP */
-    uint32_t ifindex;         /* Interface index */
-    uint8_t mask;             /* Prefix mask */
-    uint8_t label_stack_count;
-    char padding[2];
-    mpls_label_t label_stack[MAX_LBL_DEPTH];  /* MAX_LBL_DEPTH = 8, labels are encoded */
-
-} ipv4_mpls_route_update_msg_t;
-
 
 typedef struct dp_vrf_create_msg_ {
 

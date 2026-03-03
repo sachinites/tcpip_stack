@@ -28,6 +28,8 @@
 #include "../FIB/fib.h"
 #include "../FIB/fib_route.h"
 
+extern void
+dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 
 static inline bool 
 dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
@@ -308,6 +310,8 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                     assert (intf && vrf);
                     assert (!intf->vrf);
                     intf->vrf = vrf;
+                    tracer (dp_ctx->dptr, DCONF, 
+                        "Interface if_name=%s bound to VRF %s, %p\n", intf->if_name, vrf->vrf_name, intf);
                 }
                 break;
                 case DP_VRF_INTF_OP_DEL:
@@ -317,6 +321,8 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                     assert(intf && vrf);
                     assert(intf->vrf && (intf->vrf == vrf));
                     intf->vrf = NULL;
+                    tracer (dp_ctx->dptr, DCONF, 
+                        "Interface if_name=%s Unbound from VRF %s\n", intf->if_name, vrf->vrf_name);                    
                 }   
                 break;
             }
@@ -540,40 +546,6 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 }
                 break;
 
-                case CP2DP_CODE_INTF_VRF_BIND:
-                {
-                    dp_intf_vrf_bind_t *vrf_bind = 
-                        (dp_intf_vrf_bind_t *)(msg + 1);
-                    
-                    tracer(dp_ctx->dptr, DCONF, 
-                        "Binding interface if_name=%s to VRF vrf_id=%d\n",
-                        intf->if_name, vrf_bind->vrf_id);
-                    
-                    /* Look up VRF by vrf_id and assign to intf->vrf */
-                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_bind->vrf_id);
-                    dp_intf_t *intf = dp_look_up_interface(ht, vrf_bind->port_id);
-
-                    if (vrf) {
-                        /* We are binding interface to vrf*/
-                        assert (!intf->vrf);
-                        intf->vrf = vrf;
-                                            
-                        tracer(dp_ctx->dptr, DCONF, 
-                            "Interface intf=%s successfully bound to VRF %s\n",
-                            intf->if_name, vrf->vrf_name);
-                    }
-                    else if (vrf_bind->vrf_id == -1){
-                        /* We are unbinding interface to vrf*/
-                        assert (intf->vrf);
-                        intf->vrf = NULL;
-                    
-                        tracer(dp_ctx->dptr, DCONF, 
-                         "Interface intf=%s successfully unbound from VRF %s\n",
-                            intf->if_name, vrf->vrf_name);                        
-                    }
-                }
-                break;
-
                 case CP2DP_CODE_INTF_VLAN_VNI:
                 {
                     dp_intf_vlan_vni_t *vni_msg = 
@@ -717,6 +689,8 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
 
     dp_msg_t *dp_msg = (dp_msg_t *)arg;
     dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+
+    dp_uapi_trace_dp_msg (dp_ctx, dp_msg);
 
     switch (dp_msg->component_type) {
 

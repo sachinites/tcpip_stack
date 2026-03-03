@@ -49,7 +49,7 @@ void
 dp_init_vrf_hashtable (hashtable_t **ht);
 
 dp_vrf_t *
-dp_look_up_vrf (hashtable_t *ht, uint8_t vrf_id);
+dp_look_up_vrf (hashtable_t *ht, int16_t vrf_id);
 
 void
 dp_insert_vrf (hashtable_t *ht, dp_vrf_t *vrf);

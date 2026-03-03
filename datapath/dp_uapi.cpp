@@ -60,7 +60,7 @@ extern void
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size);
 
 void
-dp_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async) {
+dp_uapi_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async) {
 
     // This function is used to submit a task to the DP
     // The task is submitted to the DP's event dispatcher

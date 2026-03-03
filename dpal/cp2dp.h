@@ -101,15 +101,12 @@ void
 cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switchport);
 
 void 
-cp2dp_send_intf_vrf_bind_update(node_t *node, uint32_t port_id, int32_t vrf_id);
-
-void 
 cp2dp_send_intf_vlan_grp_bind_update(node_t *node, uint32_t port_id, bitmap_t *vlan_bitmap, bool add);
 
 void 
 cp2dp_interface_create (node_t *node, Interface *intf);
 
 void 
-cp2dp_interface_delete (node_t *node, Interface *intf);
+cp2dp_interface_delete (node_t *node, uint32_t ifindex);
 
 #endif 

@@ -107,10 +107,10 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
 
 Interface::~Interface()
 {
+    uint32_t if_index = this->ifindex;
+    
     InterfaceReleaseAllResources();
 
-    /* All routes must have uninstalled when interface was removed from 
-        vrf */
     assert (!rtm_local_rt_idx);
     assert (!rtm_connected_rt_idx);
     assert (!rtm_local_rt6_idx);
@@ -123,11 +123,12 @@ Interface::~Interface()
     assert (!l3_egress_acc_lst2);
     assert (!isis_intf_info);
     assert (!vrf);
+    assert (!ifindex);
 
     cprintf ("%s : Interface %s deleted\n", 
         this->att_node->node_name, this->if_name.c_str());
 
-    cp2dp_interface_delete (this->att_node, this);
+    cp2dp_interface_delete (this->att_node, if_index);
 }
 
 InterfaceP 

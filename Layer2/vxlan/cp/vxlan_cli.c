@@ -1,5 +1,5 @@
 #include "../../../router_init.h"
-#include "../../../datapath/Layer2/switching/mac_table.h"
+#include "../../../datapath/enums/l2_enums.h"
 #include "../../../tcpconst.h"
 #include "../../../cmdcodes.h"
 #include "../../../utils.h"

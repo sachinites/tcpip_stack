@@ -1,6 +1,6 @@
 CC=g++
-SANITIZER_FLAGS=-fsanitize=address,undefined
-#SANITIZER_FLAGS=
+#SANITIZER_FLAGS=-fsanitize=address,undefined
+SANITIZER_FLAGS=
 export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 AR=ar
 
@@ -33,6 +33,7 @@ OBJS=dp_init.o \
 	 Layer3/ipv4/ipv4-fwd.o \
 	 Layer3/ipv6/ipv6-fwd.o \
 	 dp-program/dp-prog-api.o \
+	 dp-program/dp_msg_tr.o \
 
 all: $(TARGET)
 

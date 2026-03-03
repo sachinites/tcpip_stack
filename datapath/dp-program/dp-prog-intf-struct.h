@@ -59,14 +59,6 @@ typedef struct dp_intf_admin_down_ {
     
 } dp_intf_admin_down_t;
 
-#define CP2DP_CODE_INTF_VRF_BIND 5
-typedef struct dp_intf_vrf_bind_ {
-
-    uint32_t port_id; 
-    int32_t vrf_id; // -1 if you want to remove interface from VRF
-    
-} dp_intf_vrf_bind_t;
-
 #define CP2DP_CODE_INTF_SW 6
 typedef struct dp_intf_switchport_ {
 
@@ -94,9 +86,11 @@ typedef struct dp_intf_vlan_grp_bind_ {
 #define CP2DP_CODE_INTF_GRP_VLAN_BIND 9
 typedef struct dp_intf_grp_bind_ {
 
-    uint8_t if_bitmapp[128]; /* Caution : This forces all ifindex of interfaces must range between [1 and MAX_INTF_IFINDEX]*/
-    uint8_t add; // 1 for add 0 or for remove.
-
+    /* Caution : This forces all ifindex of interfaces 
+        must range between [1 and MAX_INTF_IFINDEX] */
+    uint8_t if_bitmapp[128];
+    uint8_t add; 
+    
 } dp_intf_grp_bind_t;
 
 #define CP2DP_CODE_INTF_RMAC 10
@@ -127,14 +121,5 @@ typedef struct dp_intf_cp2dp_msg_ {
 
 
 #pragma pack(pop)
-
-/* Forward declarations */
-typedef struct node_ node_t;
-typedef struct dp_msg_ dp_msg_t;
-typedef struct dp_ctx_ dp_ctx_t;
-class TransportService;
-
-
-
 
 #endif 
