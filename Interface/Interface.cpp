@@ -389,16 +389,18 @@ bool Interface::HasL3Config(bool matchvrf) {return false;}
 PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add)
     : Interface(ifname, iftype)
 {
-
     this->switchport = false;
     
-    memset (this->mac_add.mac, 0, sizeof(this->mac_add.mac));
-
     if (mac_add)
-    {
         memcpy(this->mac_add.mac, mac_add->mac, sizeof(this->mac_add.mac));
-    }
+    else
+        memset (this->mac_add.mac, 0, sizeof(this->mac_add.mac));
+
     this->l2_mode = LAN_MODE_NONE;
+    memset (this->v6addr_link_local, 0, sizeof(this->v6addr_link_local));
+    memset (this->v6addr, 0, sizeof(this->v6addr));
+    this->v6mask = 0;
+
     this->ip_addr = 0;
     this->mask = 0;
     this->used_as_underlying_tunnel_intf = 0;
@@ -1600,10 +1602,7 @@ dump_intf_props (Interface *interface){
     byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[INET6_ADDRSTRLEN];
 
-   // cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
-   cprintf("%-12s(%d) %-14s", interface->if_name.c_str(), 
-    interface->GetSharedPtr().use_count() - 1,
-    interface->vrf ? interface->vrf->vrf_name : "None");
+    cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 
@@ -1627,8 +1626,7 @@ dump_intf_props (Interface *interface){
             cprintf("%-39s ", "Invalid IPv6");
         }
     } else {
-        //cprintf("%-39s ", "Not configured");
-        cprintf("%p ", interface);
+        cprintf("%-39s ", "Not configured");
     }
 
     mac_addr = interface->GetMacAddr();

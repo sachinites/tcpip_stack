@@ -9,6 +9,7 @@
 
 #include "../dp_ctx.h"
 #include "ipv4/ipv4-fwd.h"
+#include "../Vrfs/dp_vrf.h"
 
 extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
@@ -42,7 +43,8 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
             pkt_block_set_starting_hdr_type(pkt_block, 
                 L3_protocol_type == ETH_IP ? IP_HDR : IP_IN_IP_HDR);
 
-            tracer (dp_ctx->dptr, DL3FWD, "Dest : %s :  Pkt Arrived in L3-land from Layer 2\n",
+            tracer (dp_ctx->dptr, DL3FWD, "VRF:%s: Dest : %s :  Pkt Arrived in L3-land from Layer 2\n",
+	            vrf->vrf_name,
                 pkt_ip(pkt_block, ip_addr_str));
 
             layer3_ip_route_pkt(dp_ctx, vrf, interface, pkt_block);

@@ -4,6 +4,7 @@
 #include "../../../Tracer/tracer.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
+#include "../../Vrfs/dp_vrf.h"
 #include "../../dp_uapi.h"
 
 extern void
@@ -49,8 +50,8 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
 
     if (!gre_intf) {
          tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
-            "Error : Pkt %s : Arrived on non-existant GRE Tunnel Interface\n", 
-                pkt_block_str (pkt_block));
+            "VRF %s: Error : Pkt %s : Arrived on non-existant GRE Tunnel Interface\n", 
+                vrf->vrf_name, pkt_block_str (pkt_block));
         return;
     }
     
@@ -60,8 +61,8 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
 
     if (!gre_intf->is_tunnel_up || !gre_intf->is_up) {
         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
-            "Error : Pkt : %s : Dropped, GRE Tunnel %s is not Active/Up\n", 
-                pkt_block_str (pkt_block), gre_intf->if_name);
+            "VRF %s: Error : Pkt : %s : Dropped, GRE Tunnel %s is not Active/Up\n", 
+                vrf->vrf_name, pkt_block_str (pkt_block), gre_intf->if_name);
         return;
     }
 
@@ -75,7 +76,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
         {
             pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
-                "GRE Decapsulation %s\n", pkt_block_str (pkt_block));    
+                "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_block_str (pkt_block));    
             layer3_ip_route_pkt (dp_ctx, vrf, gre_intf, pkt_block);
         }
         break;
@@ -84,7 +85,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
         {
              pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
-                "GRE Decapsulation %s\n", pkt_block_str (pkt_block));                    
+                "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_block_str (pkt_block));                    
              //dp_pkt_receive(dp_ctx, vrf, gre_intf, pkt_block);
              dp_inject_packet(dp_ctx, pkt_block, gre_intf);
         }

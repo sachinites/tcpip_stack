@@ -76,7 +76,8 @@ srv6_ipv6_forward (dp_ctx_t *dp_ctx,
 
     if(!nh){
         tracer(dp_ctx->dptr, DL3FWD | DERR, 
-            "Pkt : %s :  Pkt Dropped : No forwarding nexthop\n", pkt_block_str(pkt_block));
+            "VRF:%s: Pkt : %s :  Pkt Dropped : No forwarding nexthop\n",
+	   vrf->vrf_name, pkt_block_str(pkt_block));
         return false;
     }
 

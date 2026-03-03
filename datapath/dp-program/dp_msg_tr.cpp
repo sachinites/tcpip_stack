@@ -1,12 +1,14 @@
+#include <arpa/inet.h>
+#include <cstdio>
+#include <cstring>
+
 #include "../dp_ctx.h"
 #include "../../Tracer/tracer.h"
 #include "../../tcp_ip_trace.h"
 #include "../../common/cmn_prefix.h"
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../Interface/intf_cons.h"
-#include <arpa/inet.h>
-#include <cstdio>
-#include <cstring>
+
 #include "dp-prog-struct.h"
 
 static const char *
