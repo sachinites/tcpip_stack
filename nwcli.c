@@ -53,6 +53,7 @@
 #include "RTM/rtm_priv_api.h"
 #include "mtrie/mtrie.h"
 #include "Layer3/layer3.h"
+#include "vrf/vrf.h"
 
 extern graph_t *topo;
 class Interface;
@@ -449,45 +450,6 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
     send_arp_broadcast_request(node->dp_ctx, 
         node->dp_ctx->default_vrf, 
         NULL, ip_addr);
-
-    return 0;
-}
-
-static int
-ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
-
-    node_t *node;
-    uint32_t count = 1;
-    c_string ip_addr = NULL;
-    c_string ero_ip_addr = NULL;
-    c_string node_name = NULL;
-
-    tlv_struct_t *tlv = NULL;
-
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
-            ip_addr = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
-            ero_ip_addr = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "count"))
-            count = atoi(tlv->value);
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-
-    switch(cmdcode){
-
-        case CMDCODE_PING:
-            layer3_ping_fn(node, ip_addr, count);
-            break;
-        case CMDCODE_ERO_PING:
-            layer3_ero_ping_fn(node, ip_addr, ero_ip_addr);
-        default:
-            ;
-    }
 
     return 0;
 }
@@ -1421,11 +1383,27 @@ nw_init_cli(){
             /* Mount SQL Query CLI */
             sql_build_cli_tree (&node_name);
 
+            
+            static param_t vrf_name;
+            {
+                static param_t vrf;
+                init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "vrf");
+                libcli_register_param(&node_name, &vrf);
+                {
+                    init_param(&vrf_name, LEAF, NULL, NULL, validate_vrf_existence, STRING, "vrf-name", "VRF name");
+                    libcli_register_display_callback(&vrf_name, display_cbk_all_vrfs);
+                    libcli_register_param(&vrf, &vrf_name);
+                }
+            }
+
+
             {
                 /*run node <node-name> ping */
                 static param_t ping;
                 init_param(&ping, CMD, "ping" , 0, 0, INVALID, 0, "Ping utility");
                 libcli_register_param(&node_name, &ping);
+                libcli_register_param(&vrf_name, &ping);
+
                 {
                     /*run node <node-name> ping <ip-address>*/    
                     static param_t ip_addr;

@@ -236,7 +236,7 @@ interface_loopback_create (node_t *node, char *ifname) {
     intfP->att_node = node;
     intfP->ifindex = interface_get_new_ifindex(node);
     
-    if (!node_interface_insert(node, intfP.get())) {
+    if (!node_global_intf_map_insert(node, intfP.get())) {
         cprintf("Error : Failed to insert loopback interface %s\n", ifname);
         return;
     }
@@ -271,7 +271,7 @@ interface_loopback_delete (node_t *node, char *ifname) {
     nfc_intf_invoke_notification_to_sbscribers(
        intf, &intf_prop_changed, if_change_flags);    
 
-    node_interface_delete_by_name(node, ifname);
+    node_global_intf_map_delete_by_ifindex(node, intf->ifindex);
 }
 
 void
@@ -406,33 +406,26 @@ interface_uninstall_local_v6_routes (node_t *node, Interface  *intf) {
     }
 }
 
-/* Interface Management Implementation */
-bool 
-node_interface_insert(node_t *node, Interface *intf) {
-
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-    return vrf_add_interface (def_vrf, intf);
-}
-
-bool 
-node_interface_delete_by_name(node_t *node, const char *ifname) {
-    
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-    return vrf_interface_delete_by_name(def_vrf, ifname);
-}
-
-bool 
-node_interface_delete_by_ifindex(node_t *node, uint32_t ifindex) {
-    
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-    return vrf_interface_delete_by_ifindex(def_vrf, ifindex);
-}
-
 static Interface* 
 node_interface_lookup_by_name_internal(node_t *node, const char *ifname) {
     
     vrf_t *def_vrf = NODE_DEF_VRF(node);
     return vrf_interface_lookup_by_name(def_vrf, ifname);
+}
+
+
+static Interface* 
+node_global_intf_map_lookup_by_name(node_t *node, const char *ifname) {
+    
+    if (!node || !ifname) return nullptr;
+    if (!node->intf_by_name) return nullptr;
+    
+    auto it = node->intf_by_name->find(ifname);
+    if (it == node->intf_by_name->end()) {
+        return nullptr;
+    }
+    
+    return it->second.get();
 }
 
 Interface *
@@ -476,6 +469,9 @@ node_interface_lookup_by_ifindex_internal(node_t *node, uint32_t ifindex) {
     vrf_t *def_vrf = NODE_DEF_VRF(node);
     return vrf_interface_lookup_by_ifindex(def_vrf, ifindex);
 }
+
+static Interface* 
+node_global_intf_map_lookup_by_ifindex(node_t *node, uint32_t ifindex) ;
 
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
@@ -711,20 +707,6 @@ node_global_intf_map_delete_by_ifindex(node_t *node, uint32_t ifindex) {
     node->intf_by_name->erase(ifname);
 
     return true;
-}
-
-Interface* 
-node_global_intf_map_lookup_by_name(node_t *node, const char *ifname) {
-    
-    if (!node || !ifname) return nullptr;
-    if (!node->intf_by_name) return nullptr;
-    
-    auto it = node->intf_by_name->find(ifname);
-    if (it == node->intf_by_name->end()) {
-        return nullptr;
-    }
-    
-    return it->second.get();
 }
 
 Interface* 

@@ -45,6 +45,7 @@
 #include "../utils.h"
 #include "../dpal/cp2dp.h"
 #include "../pkt_block.h"
+#include "../cmdcodes.h"
 
 extern graph_t *topo;
 
@@ -53,8 +54,8 @@ extern graph_t *topo;
  * in the project. We send dummy Packet starting from Network
  * Layer on node 'node' to destination address 'dst_ip_addr'
  * using below fn*/
-void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count){
+static void
+layer3_ping_fn(node_t *node, c_string dst_ip_addr, vrf_t *vrf, uint32_t count){
 
     uint32_t i;
     uint32_t addr_int;
@@ -63,11 +64,11 @@ layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count){
     cprintf("\nSrc node : %s, Ping ip : %s", node->node_name, dst_ip_addr);
 
     for (i = 0; i < count ; i ++) {
-        cp2dp_send_ip_data (node, NULL, addr_int, ICMP_PROTO);
+        cp2dp_send_ip_data (node, vrf, NULL, addr_int, ICMP_PROTO);
     }
 }
 
-void
+static void
 layer3_ero_ping_fn(node_t *node, 
                     c_string dst_ip_addr, 
                     c_string ero_ip_address){
@@ -83,7 +84,7 @@ layer3_ero_ping_fn(node_t *node,
     addr_int =  tcp_ip_convert_ip_p_to_n(dst_ip_addr);
     inner_ip_hdr->dst_ip = htonl(addr_int);
     addr_int = tcp_ip_convert_ip_p_to_n(ero_ip_address);
-    cp2dp_send_ip_data (node, pkt_block, addr_int, PROTO_IP_IN_IP);
+    cp2dp_send_ip_data (node, NODE_DEF_VRF(node), pkt_block, addr_int, PROTO_IP_IN_IP);
     pkt_block_dereference(pkt_block);
 }
 
@@ -124,8 +125,52 @@ ip_traffic_generate_handler(int cmdcode,
    addr_int = tcp_ip_convert_ip_p_to_n(dst_addr_str );
 
    for (i = 0; i < count ; i ++) {
-        cp2dp_send_ip_data (node, NULL, addr_int, protocol);
+        cp2dp_send_ip_data (node, NODE_DEF_VRF(node), NULL, addr_int, protocol);
     }
     
+    return 0;
+}
+
+int
+ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+
+    node_t *node;
+    uint32_t count = 1;
+    c_string ip_addr = NULL;
+    c_string ero_ip_addr = NULL;
+    c_string node_name = NULL;
+    c_string vrf_name = NULL;
+
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
+            ip_addr = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
+            ero_ip_addr = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "count"))
+            count = atoi(tlv->value);
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, vrf_name) : NODE_DEF_VRF(node);
+
+    switch(cmdcode){
+
+        case CMDCODE_PING:
+            layer3_ping_fn(node, ip_addr, vrf, count);
+            break;
+        case CMDCODE_ERO_PING:
+            layer3_ero_ping_fn(node, ip_addr, ero_ip_addr);
+        default:
+            ;
+    }
+
     return 0;
 }

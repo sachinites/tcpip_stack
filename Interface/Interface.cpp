@@ -1602,7 +1602,8 @@ dump_intf_props (Interface *interface){
     byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[INET6_ADDRSTRLEN];
 
-    cprintf("%-12s %-14s", interface->if_name.c_str(), interface->vrf->vrf_name );
+    cprintf("%-12s %-14s", interface->if_name.c_str(), 
+        interface->vrf ? interface->vrf->vrf_name : "None");
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 

@@ -45,7 +45,8 @@ cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async) {
 /* This is Control plane API to push IP data to be sent out from L4+ layer down to L3.
     pkt_block must contain IP payload . If there is no ip payload, then send NULL*/
 void 
-cp2dp_send_ip_data ( node_t *node, 
+cp2dp_send_ip_data ( node_t *node,
+                     vrf_t *vrf,
                      pkt_block_t *pkt_block,
                      uint32_t dest_ip_addr,
                      uint16_t std_ip_protocol) {
@@ -74,6 +75,7 @@ cp2dp_send_ip_data ( node_t *node,
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = PKT_BLOCK;
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
+    dp_msg->vrf_id = vrf->vrf_id;
     dp_msg->flags = 0;
     dp_msg->data_size = sizeof(pkt_block_t *);
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));

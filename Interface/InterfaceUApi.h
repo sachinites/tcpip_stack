@@ -11,12 +11,10 @@ typedef struct node_ node_t;
 typedef struct vrf_ vrf_t;
 
 /* Node Interface Management APIs */
-bool node_interface_insert(node_t *node, Interface *intf);
-bool node_interface_delete_by_name(node_t *node, const char *ifname);
-bool node_interface_delete_by_ifindex(node_t *node, uint32_t ifindex);
-uint32_t node_interface_count(node_t *node);
+
 Interface *
 node_interface_lookup_by_name(node_t *node, const char *if_name);
+
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) ;
 
@@ -24,8 +22,6 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) ;
 bool node_global_intf_map_insert(node_t *node, Interface *intf);
 bool node_global_intf_map_delete_by_name(node_t *node, const char *ifname);
 bool node_global_intf_map_delete_by_ifindex(node_t *node, uint32_t ifindex);
-Interface* node_global_intf_map_lookup_by_name(node_t *node, const char *ifname);
-Interface* node_global_intf_map_lookup_by_ifindex(node_t *node, uint32_t ifindex);
 
 
 /* VRF Interface Management APIs */

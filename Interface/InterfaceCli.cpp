@@ -566,10 +566,10 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_INTF_CONFIG_LOOPBACK_CREATE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    interface_loopback_create(node, (char *)intf_name);
+                    interface_loopback_create(node, (char *)if_name);
                     break;
                 case CONFIG_DISABLE:
-                    interface_loopback_delete(node, (char *)intf_name);
+                    interface_loopback_delete(node, (char *)if_name);
                     break;
                 default:
                     ;
@@ -898,13 +898,13 @@ intf_config_virtual_port_create_handler(int cmdcode,
             intf->att_node = node;
             intf->ifindex =  interface_get_new_ifindex(node);
             
-            if (!node_interface_insert(node, intf))
+            if (!node_global_intf_map_insert(node, intf))
             {
                 cprintf ("Error : Failed to insert interface\n");
                 intf->InterfaceReleaseAllResources();
                 return -1;
             }
-
+            cp2dp_interface_create(node, intf);
             SET_BIT(if_change_flags, IF_CREATE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
@@ -930,7 +930,7 @@ intf_config_virtual_port_create_handler(int cmdcode,
             SET_BIT(if_change_flags, IF_DELETE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
-            node_interface_delete_by_name(node, (const char *)intf_name);
+            node_global_intf_map_delete_by_ifindex(node, intf->ifindex);
         }
         break;
     }

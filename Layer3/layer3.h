@@ -38,9 +38,10 @@
 #include "../utils.h"
 
 typedef struct node_ node_t;
+typedef struct vrf_ vrf_t;
 
 extern void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count);
+layer3_ping_fn(node_t *node, c_string dst_ip_addr, vrf_t *vrf, uint32_t count);
 
 extern void
 layer3_ero_ping_fn(node_t *node, 

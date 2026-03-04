@@ -140,6 +140,8 @@ fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id) {
 fib_t *
 fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name) {
 
+    bool def_vrf = false;
+
     if (!fib_name) {
         return NULL;
     }
@@ -152,6 +154,10 @@ fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name) {
     /* Parse the name format vrf.afi.table_id */
     if (sscanf(fib_name, "%[^.].%[^.]", vrf_name, afi_str) != 2) {
         return NULL;
+    }
+
+    if (vrf_name[0] == '0' && vrf_name[1] == '\0') {
+        def_vrf = true;
     }
 
     /* Convert afi string to AFI_T */
@@ -168,7 +174,8 @@ fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name) {
         return NULL;
     }
     
-    return dp_look_up_fib_by_name(dp_ctx, vrf_name, fib_name);
+    return dp_look_up_fib_by_name(dp_ctx, 
+        def_vrf ? (char *)DEF_VRF_NAME : vrf_name, fib_name);
 }
 
 #if 0

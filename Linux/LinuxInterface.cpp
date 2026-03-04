@@ -310,7 +310,7 @@ LinuxLoadInterfaces (node_t *node) {
         }
 
         intf->ifindex = interface_get_new_ifindex(node);
-        bool inserted = node_interface_insert(node, intf);
+        bool inserted = node_global_intf_map_insert(node, intf);
         assert (inserted);
     }
     
