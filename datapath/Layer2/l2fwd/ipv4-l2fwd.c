@@ -292,7 +292,8 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
     /* Unconditionally distribute pkt-copy to interested applications */
     cp_punt_pkt_from_layer2_to_layer5(
-                    dp_ctx->ctx_pvt_data, 0, 
+                    dp_ctx->ctx_pvt_data, 
+                    iif->port_id, 
                     pkt_block,
                     ETH_HDR);
 

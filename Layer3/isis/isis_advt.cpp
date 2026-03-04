@@ -278,13 +278,15 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             break;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_RTR_CAP:
+        case ISIS_TLV_IP_REACH:
         case ISIS_TLV_IPV6_REACH:
         case ISIS_TLV_IPV6_MT_REACH:
         case ISIS_LOCATOR_PFX_SID_SUBTLV:
             if (adv_data->src.holder && *adv_data->src.holder)
-                    *(adv_data->src.holder) = NULL;
+                *(adv_data->src.holder) = NULL;
             adv_data->src.holder = NULL;
             break;
+        #if 0
         case ISIS_TLV_IP_REACH:
         /* To Do : Make linkage of exported prefixes same as other
             TLVs*/
@@ -311,6 +313,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
             bitmap_free_internal(&mask_bm);            
         }
         break;
+        #endif
         case ISIS_TLV_LOCATOR:
         {
             remove_glthread(&adv_data->u.srv6_loc.sibling_glue);
@@ -1318,4 +1321,65 @@ isis_advertise_ipv6_reach (node_t *node,
     adv_data->tlv_size = isis_get_adv_data_size (adv_data);
     isis_advertise_tlv (node, 0, adv_data, &advt_info);
     return adv_data;
+}
+
+isis_adv_data_t *
+isis_advertise_intf_v4addr_tlv130(
+        isis_intf_info_t *intf_info)
+ {
+    uint8_t mask;
+    uint32_t intf_ip_addr;
+    
+    isis_advt_info_t advt_info;
+    Interface *intf = intf_info->intf;
+    node_t *node = intf->att_node;
+    
+    assert (!intf_info->tlv_130_data);
+
+    if (!intf->IsIpConfigured()) return;
+    if (!intf->is_up) return;
+
+    /* Currently support only Loopback Address advt until SPF 
+        route calculation is enhanced to compute routes to 
+        multi-homed prefixes */
+
+    if (intf->iftype != INTF_TYPE_LOOPBACK) return;
+
+    intf->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
+
+    isis_adv_data_t *adv_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
+    adv_data->tlv_no = ISIS_TLV_IP_REACH;
+    adv_data->u.pfx.prefix = intf_ip_addr;
+    adv_data->u.pfx.mask = mask;
+    adv_data->u.pfx.flags = 0;
+    init_glthread (&adv_data->glue);
+    adv_data->tlv_size = isis_get_adv_data_size (adv_data);
+
+    intf_info->tlv_130_data = adv_data;
+    adv_data->src.holder = &intf_info->tlv_130_data;
+
+    isis_advertise_tlv (node, 0, adv_data, &advt_info);
+    return adv_data;
+}
+
+void
+isis_withdraw_intf_v4addr_tlv130(isis_intf_info_t *intf_info) {
+
+    node_t *node = intf_info->intf->att_node;
+
+    if (!intf_info->tlv_130_data) return;
+
+    isis_adv_data_t *advt_data = intf_info->tlv_130_data;
+
+    if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_ADVERTISED)) {
+        isis_withdraw_tlv_advertisement(node, advt_data);
+    }
+    else if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED)) {
+        isis_wait_list_advt_data_remove(node, advt_data);
+    }    
+
+    isis_advt_data_clear_backlinkage(ISIS_NODE_INFO(node), advt_data);
+    isis_free_advt_data(advt_data);
+    
+    assert (!intf_info->tlv_130_data);
 }

@@ -47,7 +47,9 @@ void
 interface_unset_ipv6_addr (node_t *node, Interface *intf, 
                                         c_string intf_ipv6_addr_with_mask);
 
-void interface_loopback_create (node_t *node, char *ifname);
+Interface * 
+interface_loopback_create (node_t *node, char *ifname);
+
 void interface_loopback_delete (node_t *node, char *ifname) ;
 
 #define IF_MAC(intf)    (intf->GetMacAddr()->mac)

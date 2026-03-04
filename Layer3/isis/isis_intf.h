@@ -34,7 +34,8 @@ typedef struct intf_info_ {
     isis_adv_data_t *lan_self_to_pn_adv_data;
     /* if this interface is LAN and self is DIS, then advertise PN to self */
     isis_adv_data_t *lan_pn_to_self_adv_data;
-
+    /* Interface ip address advt */
+    isis_adv_data_t *tlv_130_data;
     /* LAN-ID for this interface if this interface is LAN*/
     isis_lan_id_t lan_id;
     /* For P2P, it will be null*/

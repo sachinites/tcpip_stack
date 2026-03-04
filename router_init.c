@@ -176,7 +176,8 @@ Router_Create(graph_t *graph, const c_string node_name){
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp.txt", node->node_name);
-    node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
+    node->cptr = tracer_init (node_name, file_name, node->node_name, 
+        STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->cptr, true);
 
     bitmap_init(&node->if_index_bm, MAX_INTF_IFINDEX + 1);

@@ -767,7 +767,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 // Check if NVE interface already exists
                 NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
                 if (nve_intf) {
-                    cprintf("Error : NVE interface %s already exists\n", intf_name);
                     return 0;
                 }
 

@@ -131,14 +131,13 @@ node_create_host_path_interface (node_t *node) {
     cp2dp_interface_create(node, node->node_nw_prop.host_path_interface.get());
 }
 
-typedef struct l3_route_ l3_route_t;
-
 bool node_set_rtr_id(node_t *node, const char *ip_addr){
 
-    uint32_t nh_idx = 0;
-    assert(ip_addr);
     string_copy((char *)NODE_RTRID_ADDR(node), ip_addr, 16);
     NODE_RTRID_ADDR(node)[15] = '\0';
+
+    Interface *lo0 = interface_loopback_create(node, "lo0");
+    interface_set_ip_addr(node, lo0, ip_addr, 32);
     return true;
 }
 

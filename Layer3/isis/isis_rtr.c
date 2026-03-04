@@ -18,10 +18,6 @@
 #include "isis_advt.h"
 #include "isis_srv6.h"
 #include "../../RTM/rtm_nb_integ.h"
-
-void isis_ipv4_rt_notif_cbk (
-        event_dispatcher_t *ev_dis,
-        void *rt_notif_data, unsigned int arg_size);
         
 extern void isis_recv_ipc_updates (node_t *node, 
                                              ips_major_code_t major_code,

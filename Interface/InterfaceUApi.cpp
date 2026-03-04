@@ -223,11 +223,10 @@ interface_unset_ipv6_addr(node_t *node, Interface *intf,
     }
 }
 
-void
+Interface *
 interface_loopback_create (node_t *node, char *ifname) {
 
     if (node_interface_lookup_by_name(node, ifname)) {
-        cprintf("Error : Loopback interface %s already exists\n", ifname);
         return;
     }
     
@@ -242,6 +241,7 @@ interface_loopback_create (node_t *node, char *ifname) {
     }
     cp2dp_interface_create(node, intfP.get());
     vrf_add_interface(NODE_DEF_VRF(node), intfP.get());
+    return intfP.get();
 }
 
 void

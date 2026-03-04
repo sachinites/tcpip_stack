@@ -15,12 +15,25 @@ isis_node_intf_is_enable(Interface *intf) {
     return !(intf->isis_intf_info == NULL);
 }
 
+static bool 
+isis_is_passive_intf (InterfaceType_t iftype) {
+
+    switch (iftype) {
+
+        case INTF_TYPE_LOOPBACK:
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool
 isis_interface_qualify_to_send_hellos(Interface *intf){
 
     if (isis_node_intf_is_enable(intf) &&
          intf->IsIpConfigured() &&
-         intf->is_up) {
+         intf->is_up && 
+         !isis_is_passive_intf (intf->iftype)) {
              
             return true;
     }
@@ -212,6 +225,9 @@ isis_enable_protocol_on_interface(Interface *intf) {
             isis_send_hello_immediately (intf);
         }
     }
+
+    intf_info->tlv_130_data = 
+        isis_advertise_intf_v4addr_tlv130(intf_info);
 }
 
 static void
@@ -241,6 +257,7 @@ isis_check_and_delete_intf_info (Interface *intf) {
     assert (isis_is_lan_id_null (intf_info->elected_dis) );
     assert (!intf_info->lan_self_to_pn_adv_data);
     assert (!intf_info->lan_pn_to_self_adv_data);
+    assert (!intf_info->tlv_130_data);
     isis_free_intf_info(intf);
 }
 
@@ -261,10 +278,13 @@ isis_disable_protocol_on_interface(Interface *intf) {
         isis_intf_resign_dis(intf);
         isis_intf_deallocate_lan_id (intf);
     }
+
+    isis_withdraw_intf_v4addr_tlv130 (intf_info);
+    
     /* Must be last call in this fn, as prev call could
         result in LSP pkts queuing again*/
      isis_intf_purge_lsp_xmit_queue(intf);
-    isis_check_and_delete_intf_info(intf);
+     isis_check_and_delete_intf_info(intf);
 }
 
 void
@@ -326,12 +346,14 @@ isis_handle_interface_up_down (Interface *intf, bool old_status) {
 
         new_dis = isis_intf_reelect_dis (intf);
         isis_intf_assign_new_dis (intf, new_dis);
+
         /* Interace has been no-shut */
         /* 1. Start sending hellos out of interface if it qualifies
             2. Start processing hellos on this interface if it qualifies */
         if (isis_interface_qualify_to_send_hellos(intf)) {
              isis_start_sending_hellos (intf);
              isis_send_hello_immediately (intf);
+             isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
         }
     }
     else {
@@ -339,6 +361,7 @@ isis_handle_interface_up_down (Interface *intf, bool old_status) {
         /* interface has been shut down */
         isis_stop_sending_hellos(intf);
         isis_delete_all_adjacencies(intf);
+        isis_withdraw_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
         isis_intf_resign_dis (intf);
     }
 }
@@ -363,6 +386,7 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
         if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
             isis_send_hello_immediately (intf);
+            isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
         }
 
         /* Adding an IP Address may make interface eligible for DIS election. Though it
@@ -385,6 +409,8 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
 
         isis_stop_sending_hellos(intf);
         isis_delete_all_adjacencies(intf);
+        isis_withdraw_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
+
          if (isis_intf_is_lan (intf)) {
             isis_intf_resign_dis (intf);
          }
@@ -399,9 +425,12 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
         Nbr must update its Adj data and LSP as per new Ip Address info recvd from this rtr */
     
     isis_stop_sending_hellos(intf);
+    isis_withdraw_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
+
     if (isis_interface_qualify_to_send_hellos(intf)) {
         isis_refresh_intf_hellos(intf);
         isis_send_hello_immediately (intf);
+        isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
     }     
 
     /* Update local IP advertised in IS REACH TLVs */

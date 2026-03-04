@@ -498,6 +498,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         if (spf_result->node->pn_no) continue;
 
+#if 0
         /* Router ID */
         if (isis_evaluate_policy(spf_root,
                                  node_info->import_policy,
@@ -525,6 +526,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
             count++;
         }
+#endif 
 
         Exported_Prefixes:
 
