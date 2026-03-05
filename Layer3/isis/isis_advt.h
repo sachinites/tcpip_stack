@@ -231,4 +231,4 @@ isis_advertise_intf_v4addr_tlv130(isis_intf_info_t *intf_info);
 void
 isis_withdraw_intf_v4addr_tlv130(isis_intf_info_t *intf_info);
 
-#endif  
+#endif

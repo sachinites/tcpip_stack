@@ -471,6 +471,8 @@ config_rtm_route_cli_handler(int cmdcode,
 
     } TLV_LOOP_END;
 
+    node = node_get_node_by_name(topo, node_name);
+
     /* Validate inputs */
     vrf_t *vrf = vrf_name ? vrf_get_by_name(node, (char *)vrf_name) : NODE_DEF_VRF(node);
 
@@ -478,10 +480,7 @@ config_rtm_route_cli_handler(int cmdcode,
         cprintf("Error: prefix/mask is required\n");
         return -1;
     }
-
-    /* Get the node */
-    node = node_get_node_by_name(topo, node_name);
-
+   
     switch (enable_or_disable) {
 
         case CONFIG_ENABLE:

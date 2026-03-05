@@ -353,8 +353,8 @@ isis_handle_interface_up_down (Interface *intf, bool old_status) {
         if (isis_interface_qualify_to_send_hellos(intf)) {
              isis_start_sending_hellos (intf);
              isis_send_hello_immediately (intf);
-             isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
         }
+        isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
     }
     else {
 
@@ -386,8 +386,8 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
         if (isis_interface_qualify_to_send_hellos(intf)) {
             isis_start_sending_hellos(intf);
             isis_send_hello_immediately (intf);
-            isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
         }
+        isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
 
         /* Adding an IP Address may make interface eligible for DIS election. Though it
             wont have any adjacency at this point, we would go ahead and re-elect self as DIS
@@ -430,8 +430,8 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
     if (isis_interface_qualify_to_send_hellos(intf)) {
         isis_refresh_intf_hellos(intf);
         isis_send_hello_immediately (intf);
-        isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
     }     
+    isis_advertise_intf_v4addr_tlv130(ISIS_INTF_INFO(intf));
 
     /* Update local IP advertised in IS REACH TLVs */
     if (isis_intf_is_lan (intf)) {
