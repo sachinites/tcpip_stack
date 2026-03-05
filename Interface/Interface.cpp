@@ -23,7 +23,6 @@
 #include <vector>
 #include <algorithm>
 #include <arpa/inet.h>
-#include <vector>
 #include "../common/l3_hdrs.h"
 #include "../tcpconst.h"
 #include "../utils.h"
@@ -533,7 +532,7 @@ PhysicalInterface::L2ModeToString(IntfL2Mode l2_mode)
         return std::string("Trunk");
     default:;
     }
-    return NULL;
+    return "Unknown"
 }
 
 bool PhysicalInterface::IsVlanTrunked(vlan_id_t vlan_id)

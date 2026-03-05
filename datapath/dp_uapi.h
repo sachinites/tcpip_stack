@@ -21,6 +21,7 @@ typedef struct dp_ctx_ dp_ctx_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_msg_ dp_msg_t;
+#include "../notif.h"
 
 #include <stdint.h>
 
@@ -49,5 +50,14 @@ dp_uapi_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async);
 
 void
 dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
+
+void dp_register_l2_pkt_trap_rule(dp_ctx_t *dp_ctx,
+                                  nfc_pkt_trap pkt_trap_cb,
+                                  nfc_app_cb app_cb);
+
+void dp_de_register_l2_pkt_trap_rule(
+                dp_ctx_t *dp_ctx,
+                nfc_pkt_trap pkt_trap_cb,
+                nfc_app_cb app_cb);
 
 #endif /* __DP_UAPI__ */

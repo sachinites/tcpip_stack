@@ -1580,6 +1580,7 @@ nw_init_cli(){
                                                 init_param(&gw_ip, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "gw-ip", "Gateway IP address (IPv4 or IPv6)");
                                                 libcli_register_param(&gateway, &gw_ip);
                                                 libcli_set_param_cmd_code(&gw_ip, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                libcli_disable_batch_processing (&gw_ip);
                                                 {
                                                     /* l3vpn */
                                                     static param_t l3vpn;
@@ -1591,6 +1592,7 @@ nw_init_cli(){
                                                         init_param(&vpn_label, LEAF, 0, config_rtm_route_cli_handler, 0, INT, "vpn-label", "L3 VPN service label value (0-1048575)");
                                                         libcli_register_param(&l3vpn, &vpn_label);
                                                         libcli_set_param_cmd_code(&vpn_label, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        libcli_disable_batch_processing (&vpn_label);
                                                     }
                                                 }
                                                 {
@@ -1604,6 +1606,7 @@ nw_init_cli(){
                                                         init_param(&if_name, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "if-name", "Interface name");
                                                         libcli_register_param(&interface, &if_name);
                                                         libcli_set_param_cmd_code(&if_name, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        libcli_disable_batch_processing (&if_name);
                                                         {
                                                             /* label-stack */
                                                             static param_t label_stack;
@@ -1616,6 +1619,7 @@ nw_init_cli(){
                                                                 libcli_register_param(&label_stack, &label_list);
                                                                 libcli_param_recursive(&label_list);
                                                                 libcli_set_param_cmd_code(&label_list, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                                libcli_disable_batch_processing (&label_list);
                                                             }
                                                         }
                                                     }
@@ -1632,6 +1636,7 @@ nw_init_cli(){
                                                         libcli_register_param(&label_stack, &label_list);
                                                         libcli_param_recursive(&label_list);
                                                         libcli_set_param_cmd_code(&label_list, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        libcli_disable_batch_processing(&label_list);
                                                     }
                                                 }
                                             }

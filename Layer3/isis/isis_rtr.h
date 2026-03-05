@@ -12,6 +12,7 @@ typedef struct prefix_lst_ prefix_list_t;
 typedef struct isis_advt_db_ isis_advt_db_t;
 typedef struct isis_srv6_config_ isis_srv6_config_t;
 typedef struct isis_srmpls_config_ isis_srmpls_config_t;
+typedef struct vrf_ vrf_t;
 
 typedef struct isis_timer_data_ {
 
@@ -39,6 +40,9 @@ typedef struct isis_overload_data_ {
 } isis_overload_data_t;
 
 typedef struct node_info_ {
+    
+    /* VRF */
+    vrf_t *vrf;
     /* Ted DB */
     ted_db_t *ted_db;
     /* import policy */

@@ -23,6 +23,7 @@
 #include "Interface/dp_intf_store.h"
 #include "Interface/dp_intf.h"
 
+
 extern int
 dp_inject_packet (dp_ctx_t *dp_ctx,
                   pkt_block_t *pkt_block,
@@ -84,4 +85,38 @@ dp_uapi_submit_dp_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg, bool async) {
                 TASK_ONE_SHOT, 
                 TASK_PRIORITY_CP_TO_DP);
     }    
+}
+
+void 
+dp_register_l2_pkt_trap_rule (dp_ctx_t *dp_ctx, 
+                nfc_pkt_trap pkt_trap_cb,
+                nfc_app_cb app_cb) {
+
+
+	notif_chain_elem_t nfce_template;
+
+	memset(&nfce_template, 0, sizeof(notif_chain_elem_t));
+	nfce_template.is_key_set = false;
+	nfce_template.app_cb = app_cb;
+	nfce_template.pkt_trap_cb = pkt_trap_cb;	
+	init_glthread(&nfce_template.glue);
+
+	nfc_register_notif_chain(&dp_ctx->layer2_proto_reg_db, &nfce_template);
+}
+
+void
+dp_de_register_l2_pkt_trap_rule(
+		dp_ctx_t *dp_ctx, 
+		nfc_pkt_trap pkt_trap_cb,
+		nfc_app_cb app_cb) {
+
+	notif_chain_elem_t nfce_template;
+
+	memset(&nfce_template, 0, sizeof(notif_chain_elem_t));
+	nfce_template.is_key_set = false;
+	nfce_template.app_cb = app_cb;
+	nfce_template.pkt_trap_cb = pkt_trap_cb;	
+	init_glthread(&nfce_template.glue);
+
+	nfc_de_register_notif_chain(&dp_ctx->layer2_proto_reg_db, &nfce_template);	
 }

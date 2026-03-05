@@ -32,4 +32,6 @@ isis_system_id_compare (isis_system_id_t *sys_id1,
 void
 isis_show_traceoptions (node_t *node) ;
 
+#define ISIS_EV(node_info_pt) (EV(node_info_ptr->vrf->node))
+
 #endif
