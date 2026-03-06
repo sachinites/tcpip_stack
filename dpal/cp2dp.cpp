@@ -657,3 +657,24 @@ cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node,
 
     cp2dp_submit(node, dp_msg, true);
 }
+
+
+void 
+cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]) {
+
+    dp_msg_t *dp_msg;
+    dp_generic_msg_t *gen_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = DP_GENERICS;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_generic_msg_t);
+    
+    /* Fill in the header */
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+    gen_msg->opcode = DP_GENERIC_RMAC;
+    memcpy (&gen_msg->u.mac_addr, &mac, 6);
+    
+    cp2dp_submit(node, dp_msg, true);
+}

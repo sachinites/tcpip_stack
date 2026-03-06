@@ -681,6 +681,48 @@ EXIT:
     cp2dp_msg_free(dp_msg);
 }
 
+void 
+dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
+
+    dp_generic_msg_t *gen_msg;
+    
+    assert(dp_msg->component_type == DP_GENERICS);
+
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+
+    switch (dp_msg->opr_type)
+    {
+        case DP_CREATE:
+
+            switch (gen_msg->opcode)
+            {
+                case DP_GENERIC_RMAC:
+                memcpy(&dp_ctx->rmac.mac, &gen_msg->u.mac_addr, 6);
+                break;
+            }
+            break;
+
+        case DP_UPDATE:
+            switch (gen_msg->opcode)
+            {
+                case DP_GENERIC_RMAC:
+                memcpy(&dp_ctx->rmac.mac, &gen_msg->u.mac_addr, 6);
+                break;
+            }
+            break;
+
+        case DP_DEL:
+            switch (gen_msg->opcode)
+            {
+                case DP_GENERIC_RMAC:
+                memset(&dp_ctx->rmac.mac, 0, 6);
+                break;
+            }
+            break;
+    }
+
+    cp2dp_msg_free(dp_msg);
+}
 
 void 
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
@@ -708,6 +750,9 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
             break;
         case INTF_TABLE:
             dp_intf_table_process_msg(dp_ctx, dp_msg);
+            break;
+        case DP_GENERICS:
+            dp_generic_process_msg(dp_ctx, dp_msg);
             break;
         default:
             break;

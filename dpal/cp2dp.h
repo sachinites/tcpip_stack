@@ -110,4 +110,7 @@ cp2dp_interface_create (node_t *node, Interface *intf);
 void 
 cp2dp_interface_delete (node_t *node, uint32_t ifindex);
 
+void 
+cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]);
+
 #endif 

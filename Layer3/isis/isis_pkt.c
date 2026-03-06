@@ -45,6 +45,7 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
                        size_t pkt_size) {
 
     char adj_name[128];
+    uint32_t rcvd_if_ip;
     uint8_t intf_ip_len;
     pkt_size_t tlv_buff_size;
     uint32_t *if_ip_addr_int;
@@ -64,6 +65,9 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
     
     /*Reject the pkt if dst mac is not Broadcast mac*/
     if(!IS_MAC_BROADCAST_ADDR(hello_eth_hdr->dst_mac.mac)){
+        
+        tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+            "Interface %s recvd Bad Hello Packet - Malformed MAC\n", iif->if_name.c_str());
         goto bad_hello;
 	}
 
@@ -76,6 +80,8 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
     
     /* Check for corrupted packet */
     if (!hello_tlv_buffer) {
+        tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+            "Interface %s recvd Bad Hello Packet - no TLV Buffer in pkt\n", iif->if_name.c_str());        
         goto bad_hello;
     }
 
@@ -83,6 +89,9 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
     if (intf_info->intf_type == isis_intf_type_p2p) {
 
         if (cmn_hdr->pdu_type != ISIS_PTP_HELLO_PKT_TYPE) {
+            
+            tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+            "Interface %s recvd Bad Hello Packet - Incompatible Hello Packet\n", iif->if_name.c_str());   
             goto bad_hello;
         }
     }
@@ -90,35 +99,71 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
 
         if (cmn_hdr->pdu_type != ISIS_LAN_L1_HELLO_PKT_TYPE &&
                 cmn_hdr->pdu_type != ISIS_LAN_L2_HELLO_PKT_TYPE) {
+            
+            tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+                "Interface %s recvd Bad Hello Packet - Incompatible Hello Packet\n", iif->if_name.c_str());  
+
             goto bad_hello;
         }
     }
 
     /*Fetch the IF IP Address Value from TLV buffer*/
-    if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv (
-                                                                hello_tlv_buffer, 
-                                                                tlv_buff_size, 
-                                                                ISIS_TLV_IF_IP, 
-                                                                &intf_ip_len);
+    if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv(
+                        hello_tlv_buffer,
+                        tlv_buff_size,
+                        ISIS_TLV_IF_IP,
+                        &intf_ip_len);
 
     /*If no Intf IP, then it is a bad hello*/
-    if (!if_ip_addr_int) goto bad_hello;
-    *if_ip_addr_int = htonl(*if_ip_addr_int);
+    if (!if_ip_addr_int) {
+    
+        tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+            "Interface %s recvd Bad Hello Packet - No Intf IP address found\n", iif->if_name.c_str());  
+            goto bad_hello;
+    }
 
-    if (!iif->IsSameSubnet(*if_ip_addr_int)) {
+    /* Use a local variable to avoid modifying the cached packet buffer in-place.
+     * The hello pkt_block is reused across hello intervals; writing back via
+     * if_ip_addr_int would corrupt it so every alternate hello arrives with a
+     * byte-reversed IP, causing permanent subnet-mismatch failures. */
+    rcvd_if_ip = ntohl(*if_ip_addr_int);
+
+    if (!iif->IsSameSubnet(rcvd_if_ip)) {
 
        adjacency = isis_find_adjacency_on_interface(iif, 0);
 
         if (adjacency) {
+
             tracer(ISIS_TR(ISIS_CTX_INTF(iif)), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
                 "%s : Adjacency %s will be brought down, bad hello recvd\n",
                 ISIS_ERROR, isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
             isis_change_adjacency_state(adjacency, ISIS_ADJ_STATE_DOWN);
         }
+
+        tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+            "Interface %s recvd Bad Hello Packet - Mismatch Subnet\n", iif->if_name.c_str());  
+
+        {
+            /* Log ... */
+            uint32_t intf_ip_addr; uint8_t mask;
+            iif->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
+            char intf_ip_addr_str[16];
+            char hello_ip_addr_str[16];
+            tcp_ip_covert_ip_n_to_p (intf_ip_addr, intf_ip_addr_str);
+            tcp_ip_covert_ip_n_to_p (rcvd_if_ip, hello_ip_addr_str);
+
+            tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
+                "Interface %s : %s/%d , hello IP addr rcvd : %s\n", 
+                iif->if_name.c_str(), intf_ip_addr_str, mask, hello_ip_addr_str);
+        }
+
         goto bad_hello;
     }
-    isis_update_interface_adjacency_from_hello (iif, cmn_hdr, 
+
+    isis_update_interface_adjacency_from_hello (
+        iif, cmn_hdr, 
         pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+
     return ;
 
     bad_hello:

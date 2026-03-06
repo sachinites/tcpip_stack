@@ -41,6 +41,25 @@ typedef struct dp_vrf_intf_update_msg_ {
     
 } dp_vrf_intf_update_msg_t;
 
+
+#define DP_GENERIC_RMAC 1
+#define DP_GENERIC_RTR_ID 2
+
+typedef struct dp_generic_msg_ {
+
+    uint8_t opcode;
+
+    union {
+
+        uint8_t mac_addr[6];
+
+    } u;
+
+} dp_generic_msg_t;
+
+
+
+
 /* ALl interface messages are in separate file */
 #include "dp-prog-intf-struct.h"
 
@@ -97,7 +116,8 @@ typedef enum DP_COMPONENT_TYPE_ {
     PKT_BLOCK,
     FIB_TABLE,
     INTF_TABLE,
-    VRF_TABLE
+    VRF_TABLE,
+    DP_GENERICS
 
 } DP_COMPONENT_TYPE_T;
 

@@ -318,7 +318,8 @@ isis_update_interface_adjacency_from_hello(
             adjacency->lan_id = lan_hdr->lan_id;
         }
         else {
-           tracer (ISIS_TR(node_info), TR_ISIS_ADJ, "%s : Dis Election will happen on intf %s, reason new lan-id  reported was also elected DIS\n",
+           tracer (ISIS_TR(node_info), TR_ISIS_ADJ, 
+            "%s : Dis Election will happen on intf %s, reason new lan-id  reported was also elected DIS\n",
             ISIS_ADJ_MGMT, iif->if_name.c_str());
             adjacency->lan_id = lan_hdr->lan_id;
             reelect_dis = true;
@@ -369,8 +370,9 @@ isis_update_interface_adjacency_from_hello(
             case ISIS_TLV_IF_IP:
                 /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    if (adjacency->nbr_intf_ip != *(uint32_t *)(tlv_value) ) {
-                        adjacency->nbr_intf_ip = *(uint32_t *)(tlv_value);
+                    uint32_t nbr_ip = ntohl(*(uint32_t *)(tlv_value));
+                    if (adjacency->nbr_intf_ip != nbr_ip) {
+                        adjacency->nbr_intf_ip = nbr_ip;
                         force_bring_down_adjacency = true;
                     }
                 }

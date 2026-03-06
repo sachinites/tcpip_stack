@@ -1436,7 +1436,7 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
     /* Properly initialize the template structure to avoid uninitialized memory */
     memset(&ppt_route_template, 0, sizeof(rtm_ppt_route_t));
 
-    ppt_route_template.ridx;
+    ppt_route_template.ridx = ridx;
     ppt_route_template.prefix = *prefix;
     avltree_node_init (&ppt_route_template.route_glue);
 

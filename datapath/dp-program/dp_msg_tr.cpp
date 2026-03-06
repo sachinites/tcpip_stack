@@ -19,6 +19,7 @@ dp_component_type_str (DP_COMPONENT_TYPE_T t) {
         case FIB_TABLE:   return "FIB_TABLE";
         case INTF_TABLE:  return "INTF_TABLE";
         case VRF_TABLE:   return "VRF_TABLE";
+        case DP_GENERICS: return "DP_GENERICS";
         default:          return "UNKNOWN";
     }
 }
@@ -224,6 +225,37 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             }
         }
         break;
+
+        case DP_GENERICS:
+        {
+            if (dp_msg->data_size < sizeof(dp_generic_msg_t))
+                break;
+
+            dp_generic_msg_t *g = (dp_generic_msg_t *)dp_msg->data;
+
+            const char *opcode_str =
+                (g->opcode == DP_GENERIC_RMAC)   ? "RMAC"   :
+                (g->opcode == DP_GENERIC_RTR_ID) ? "RTR_ID" : "?";
+
+            tracer(dp_ctx->dptr, DCONF,
+                "  generic_msg: opcode=%s(%u)\n",
+                opcode_str, (unsigned)g->opcode);
+
+            switch (g->opcode) {
+                case DP_GENERIC_RMAC:
+                    tracer(dp_ctx->dptr, DCONF,
+                        "  generic_rmac: mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+                        g->u.mac_addr[0], g->u.mac_addr[1], g->u.mac_addr[2],
+                        g->u.mac_addr[3], g->u.mac_addr[4], g->u.mac_addr[5]);
+                    break;
+                case DP_GENERIC_RTR_ID:
+                    break;
+                default:
+                    break;
+            }
+        }
+        break;
+
 
         default:
             tracer(dp_ctx->dptr, DCONF,

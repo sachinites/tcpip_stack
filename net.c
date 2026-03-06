@@ -95,6 +95,8 @@ node_assign_router_mac (node_t *node) {
     tcp_ip_generate_random_mac_address (
             &node->node_nw_prop.rmac.mac);
 
+    cp2dp_send_rmac(node, &node->node_nw_prop.rmac.mac);
+
     node->node_nw_prop.rmac_interface = 
         std::make_shared<RmacInterface>();
     node->node_nw_prop.rmac_interface->SetSharedPtr(
