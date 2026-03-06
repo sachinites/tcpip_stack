@@ -158,6 +158,7 @@ ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
     node_t *node;
     c_string node_name;
     c_string ipv6_addr;
+    c_string vrf_name = NULL;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
@@ -166,15 +167,17 @@ ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ipv6-address"))
             ipv6_addr = tlv->value;
- 
+         else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
 
     ipv6_addr_t dst_addr;
     inet_pton6((char *)ipv6_addr, &dst_addr);
 
-    cp2dp_send_ip6_data (node, NULL, dst_addr, ICMP6_PROTO);
+    cp2dp_send_ip6_data (node, vrf, NULL, dst_addr, ICMP6_PROTO);
     return 0;
 }
 

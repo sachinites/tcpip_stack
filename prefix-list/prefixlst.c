@@ -9,7 +9,7 @@
 #include "../cmdcodes.h"
 
 extern graph_t *topo;
-extern void prefix_list_notify_clients(node_t *node, prefix_list_t *prefix_lst) ;
+extern void prefix_list_notify_clients(node_t *node, vrf_t *vrf, prefix_list_t *prefix_lst) ;
 
 prefix_list_t *
 prefix_lst_lookup_by_name (pfxlst_db *pfxlstdb, unsigned char *pfxlst_name) {
@@ -267,7 +267,7 @@ prefix_lst_config_handler (int cmdcode,
 
         if (seq_no) {
             if (prefix_list_del_rule(prefix_lst, seq_no)) {
-                prefix_list_notify_clients(node, prefix_lst);
+                prefix_list_notify_clients(node, NULL, prefix_lst);
                 if (IS_GLTHREAD_LIST_EMPTY(&prefix_lst->pfx_lst_head)) {
                     if (!prefix_list_is_in_use(prefix_lst))
                     {
@@ -328,7 +328,7 @@ prefix_lst_config_handler (int cmdcode,
         prefix_list_reference(prefix_lst);
     }
     else {
-        prefix_list_notify_clients(node, prefix_lst);
+        prefix_list_notify_clients(node, 0, prefix_lst);
     }
 
     return 0;
@@ -488,20 +488,23 @@ void prefix_list_cli_show_tree(param_t *param) {
 }
 
 /* Prefix-list change notification */
-typedef void (*prefix_list_change_cbk)(node_t *, prefix_list_t *);
-extern void isis_prefix_list_change(node_t *node, prefix_list_t *pfx_lst);
-static prefix_list_change_cbk notif_arr[] = { 
-                                                                        isis_prefix_list_change,
-                                                                        /*add_mode_callbacks_here,*/
-                                                                        0,
-                                                                        };
+typedef void (*prefix_list_change_cbk)(node_t *, vrf_t *, prefix_list_t *);
+
+extern void isis_prefix_list_change(node_t *node, vrf_t *vrf,
+             prefix_list_t *pfx_lst);
+
+static prefix_list_change_cbk notif_arr[] = {
+    isis_prefix_list_change,
+    /*add_mode_callbacks_here,*/
+    0,
+};
 
 void
-prefix_list_notify_clients(node_t *node, prefix_list_t *prefix_lst) {
+prefix_list_notify_clients(node_t *node, vrf_t *vrf, prefix_list_t *prefix_lst) {
 
     int i = 0 ;
     while (notif_arr[i]) {
-        notif_arr[i](node, prefix_lst);
+        notif_arr[i](node, vrf, prefix_lst);
         i++;
     }
 }

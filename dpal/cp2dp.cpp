@@ -86,6 +86,7 @@ cp2dp_send_ip_data ( node_t *node,
 
 /* Write the ipv6 equivalent function of cp2dp_send_ip_data( )*/
 void cp2dp_send_ip6_data(node_t *node,
+                         vrf_t *vrf,
                          pkt_block_t *pkt_block,
                          ipv6_addr_t dest_ip_addr,
                          uint16_t std_ip_protocol)
@@ -118,6 +119,7 @@ void cp2dp_send_ip6_data(node_t *node,
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
     dp_msg->flags = 0;
     dp_msg->data_size = sizeof(pkt_block_t *);
+    dp_msg->vrf_id = vrf->vrf_id;
     memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
     pkt_block_reference(pkt_block);
     cp2dp_submit (node, dp_msg, true);

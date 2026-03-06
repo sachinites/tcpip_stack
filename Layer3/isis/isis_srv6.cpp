@@ -39,11 +39,7 @@ avltree_adj_sid_cmp (const avltree_node_t *data1, const avltree_node_t *data2) {
 
 
 void
-isis_enable_srv6 (node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) return;
+isis_enable_srv6 (isis_node_info_t *node_info) {
 
     if (node_info->srv6_config) return;
     
@@ -52,19 +48,16 @@ isis_enable_srv6 (node_t *node) {
     avltree_init (&node_info->srv6_config->adj_sid_tree, avltree_adj_sid_cmp);
 
     /* Advertise the Rtr Capability TLV */
-    isis_advertise_rtr_capability_tlv(node);
+    isis_advertise_rtr_capability_tlv(node_info);
 }
 
 void
-isis_disable_srv6 (node_t *node) {
+isis_disable_srv6 (isis_node_info_t *node_info) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) return;
     if (!node_info->srv6_config) return;
 
-    isis_srv6_locator_unset (node);
-    isis_withdraw_rtr_capability_tlv(node);
+    isis_srv6_locator_unset (node_info);
+    isis_withdraw_rtr_capability_tlv(node_info);
 
     XFREE(node_info->srv6_config);
     node_info->srv6_config = NULL;
@@ -76,9 +69,9 @@ isis_disable_srv6 (node_t *node) {
      -1 if locator is not even set
 */
 int8_t 
-isis_srv6_is_loc_enabled (node_t *node, char *locator_name) {
+isis_srv6_is_loc_enabled (isis_node_info_t *node_info, char *locator_name) {
 
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node_info);
     
     if (!srv6_config) return -1;
     
@@ -96,9 +89,7 @@ isis_srv6_is_loc_enabled (node_t *node, char *locator_name) {
 }
 
 isis_srv6_config_t *
-isis_srv6_get_config(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+isis_srv6_get_config(isis_node_info_t *node_info) {
 
     if (!node_info) return NULL;
 
@@ -106,11 +97,10 @@ isis_srv6_get_config(node_t *node) {
 }
 
 void 
- isis_advertise_rtr_capability_tlv(node_t *node) {
+ isis_advertise_rtr_capability_tlv(isis_node_info_t *node_info) {
 
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
 
@@ -128,7 +118,7 @@ void
     init_glthread(&advt_data->glue);
 
     /* Fill it with Rtr Cap data */
-    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_LO_ADDR_INT(node);
+    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_LO_ADDR_INT(node_info->vrf->node);
     advt_data->u.rtr_cap.rtr_cap.flags = 0;
 
     /* Rtr Cap Algorithm SubTLV 19 : Algorithm Subtlv  */
@@ -154,14 +144,13 @@ void
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
     /* Advertise the TLV */
-    isis_advertise_tlv(node, 0, advt_data, &advt_info); 
+    isis_advertise_tlv(node_info, 0, advt_data, &advt_info); 
  }
 
 void
- isis_withdraw_rtr_capability_tlv (node_t *node) {
+ isis_withdraw_rtr_capability_tlv (isis_node_info_t *node_info) {
 
     isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
     
@@ -169,10 +158,10 @@ void
     if (!advt_data) return;
 
     if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_ADVERTISED)) {
-        isis_withdraw_tlv_advertisement(node, advt_data);
+        isis_withdraw_tlv_advertisement(node_info, advt_data);
     }
     else if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED)) {
-        isis_wait_list_advt_data_remove(node, advt_data);
+        isis_wait_list_advt_data_remove(node_info, advt_data);
     }
 
     isis_advt_data_clear_backlinkage(node_info, advt_data);
@@ -181,7 +170,7 @@ void
  }
 
 int
-isis_srv6_new_locator_set (node_t *node, char *new_locator) {
+isis_srv6_new_locator_set (isis_node_info_t *node_info, char *new_locator) {
 
     uint8_t flags;
     uint32_t metric;
@@ -192,11 +181,11 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
     char err_msg[256];
     pool_error_codes_t prc = SRv6_POOL_OK;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return 0;
 
-    if (!node_info) return;
+    node_t *node = node_info->vrf->node;
 
-    int8_t rc = isis_srv6_is_loc_enabled  (node, new_locator);
+    int8_t rc = isis_srv6_is_loc_enabled  (node_info, new_locator);
 
     switch (rc) {
         case 1:
@@ -211,13 +200,16 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
     /* Claim that this client is using the locator */
     prc = srv6_pool_client_borrow_locator (
                 (NODE_SRv6_SID_POOL(node)), 
-                new_locator,  srv6_sid_client_isis,
-                &loc_prefix, &prefix_len,
+                new_locator,  
+                srv6_sid_client_isis,
+                &loc_prefix, 
+                &prefix_len,
                 &metric, &mt_id, &algorithm, &flags, 
                 err_msg);
 
     if (prc != SRv6_POOL_OK) {
-        cprintf ("%s : %s, err-code : %d\n", node->node_name, err_msg, prc);
+        cprintf ("%s : %s, err-code : %d\n", 
+            node_info->vrf->node->node_name, err_msg, prc);
         return -1;
     }
 
@@ -240,18 +232,18 @@ isis_srv6_new_locator_set (node_t *node, char *new_locator) {
 
     isis_srv6_locator_t *loc = &node_info->srv6_config->loc;
 
-    isis_advertise_locator_ipv6_reachability_tlv236 (node, loc);
-    isis_advertise_locator_ipv6_reachability_mt_tlv237 (node, loc);
-    isis_advertise_locator_tlv27_instance (node, loc, true);
+    isis_advertise_locator_ipv6_reachability_tlv236 (node_info, loc);
+    isis_advertise_locator_ipv6_reachability_mt_tlv237 (node_info, loc);
+    isis_advertise_locator_tlv27_instance (node_info, loc, true);
 
     return 0;
 }
 
 void
-isis_srv6_stop_adj_sid_advertisement (node_t *node) {}
+isis_srv6_stop_adj_sid_advertisement (isis_node_info_t *node_info) {}
 
 void
-isis_srv6_locator_unset (node_t *node) {
+isis_srv6_locator_unset (isis_node_info_t *node_info) {
 
     char err_msg[256];
     avltree_node_t *curr = NULL;
@@ -259,19 +251,19 @@ isis_srv6_locator_unset (node_t *node) {
     isis_srv6_adj_sid_t *adjsid = NULL;
     pool_error_codes_t prc = SRv6_POOL_OK;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
     if (!node_info) return;
 
     if (!node_info->srv6_config) return;
 
-    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+    node_t *node = node_info->vrf->node;
+
+    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node_info);
 
     if (loc->locator_name[0] == '\0') return;
-    isis_withdraw_locator_ipv6_reachability_tlv236 (node, loc); 
-    isis_withdraw_locator_ipv6_reachability_mt_tlv237 (node, loc); 
-    isis_srv6_stop_adj_sid_advertisement (node);
-    isis_withdraw_locator_tlv27_all_instances  (node);
+    isis_withdraw_locator_ipv6_reachability_tlv236 (node_info, loc); 
+    isis_withdraw_locator_ipv6_reachability_mt_tlv237 (node_info, loc); 
+    isis_srv6_stop_adj_sid_advertisement (node_info);
+    isis_withdraw_locator_tlv27_all_instances  (node_info);
 
     assert (!loc->loc_adv_tlv236);
     assert (!loc->loc_adv_tlv237);
@@ -322,16 +314,16 @@ isis_srv6_locator_unset (node_t *node) {
     assert (prc == SRv6_POOL_OK);
 }
 
-static void 
+void 
 isis_advertise_locator_ipv6_reachability_tlv236 (
-                        node_t *node, 
+                        isis_node_info_t *node_info, 
                         isis_srv6_locator_t *loc) {
 
     isis_adv_data_t *advt_data;
 
     assert (!loc->loc_adv_tlv236);
 
-    advt_data = isis_advertise_ipv6_reach (node, 
+    advt_data = isis_advertise_ipv6_reach (node_info, 
                             &loc->prefix, loc->prefix_len, loc->metric, loc->flags);
     loc->loc_adv_tlv236 =  advt_data;
     advt_data->src.holder = &loc->loc_adv_tlv236;
@@ -339,20 +331,19 @@ isis_advertise_locator_ipv6_reachability_tlv236 (
 
 void 
 isis_withdraw_locator_ipv6_reachability_tlv236 (
-                        node_t *node, 
+                        isis_node_info_t *node_info, 
                         isis_srv6_locator_t *loc) {
 
     isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     assert(loc->loc_adv_tlv236);
 
     advt_data = loc->loc_adv_tlv236;
 
     if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED))
-        isis_wait_list_advt_data_remove(node, advt_data);
+        isis_wait_list_advt_data_remove(node_info, advt_data);
     else
-        isis_withdraw_tlv_advertisement(node, advt_data);
+        isis_withdraw_tlv_advertisement(node_info, advt_data);
     
     isis_advt_data_clear_backlinkage(node_info, advt_data);
     isis_free_advt_data(advt_data);
@@ -361,7 +352,7 @@ isis_withdraw_locator_ipv6_reachability_tlv236 (
 
 void 
 isis_advertise_locator_ipv6_reachability_mt_tlv237 (
-                        node_t *node, 
+                        isis_node_info_t *node_info, 
                         isis_srv6_locator_t *loc) {
 
     isis_advt_info_t advt_info;
@@ -385,25 +376,24 @@ isis_advertise_locator_ipv6_reachability_mt_tlv237 (
     advt_data->flags = 0;
 
     /* Now Advertise the TLV*/
-    isis_advertise_tlv (node, 0, advt_data, &advt_info);
+    isis_advertise_tlv (node_info, 0, advt_data, &advt_info);
 }
 
 void 
 isis_withdraw_locator_ipv6_reachability_mt_tlv237 (
-                        node_t *node, 
+                        isis_node_info_t *node_info, 
                         isis_srv6_locator_t *loc) {
 
     isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     assert(loc->loc_adv_tlv237);
 
     advt_data = loc->loc_adv_tlv237;
 
     if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED))
-        isis_wait_list_advt_data_remove(node, advt_data);
+        isis_wait_list_advt_data_remove(node_info, advt_data);
     else
-        isis_withdraw_tlv_advertisement(node, advt_data);
+        isis_withdraw_tlv_advertisement(node_info, advt_data);
     
     isis_advt_data_clear_backlinkage(node_info, advt_data);
     isis_free_advt_data(advt_data);
@@ -433,12 +423,11 @@ static int
  }
 
 isis_adv_data_t *
-isis_advertise_locator_tlv27_instance (node_t *node, 
+isis_advertise_locator_tlv27_instance (isis_node_info_t *node_info, 
                     isis_srv6_locator_t *loc, bool advertise) {
 
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     advt_data = (isis_adv_data_t *)XCALLOC2 (0, 1, isis_adv_data_t);
 
@@ -461,7 +450,7 @@ isis_advertise_locator_tlv27_instance (node_t *node,
     advt_data->flags = 0;
 
     if (advertise)
-        isis_advertise_tlv(node, 0, advt_data, &advt_info);
+        isis_advertise_tlv(node_info, 0, advt_data, &advt_info);
 
     /* Whether fragment is allocated or not, put the locator TLV in
         sibling list. If fragment is not assigned, it will be de-prioritized*/
@@ -474,19 +463,17 @@ isis_advertise_locator_tlv27_instance (node_t *node,
 }
 
 void 
-isis_withdraw_locator_tlv27_instance (node_t *node, isis_adv_data_t *advt_data) {
+isis_withdraw_locator_tlv27_instance (isis_node_info_t *node_info, isis_adv_data_t *advt_data) {
 
     glthread_t *curr;
     isis_adv_data_t *pfxsid_adv_data;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
     assert (advt_data->tlv_no == ISIS_TLV_LOCATOR);
 
     if (IS_BIT_SET(advt_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED))
-        isis_wait_list_advt_data_remove(node, advt_data);
+        isis_wait_list_advt_data_remove(node_info, advt_data);
     else
-        isis_withdraw_tlv_advertisement(node, advt_data);
+        isis_withdraw_tlv_advertisement(node_info, advt_data);
         
     isis_advt_data_clear_backlinkage(node_info, advt_data);
 
@@ -504,42 +491,41 @@ isis_withdraw_locator_tlv27_instance (node_t *node, isis_adv_data_t *advt_data) 
 }
 
 void 
-isis_withdraw_locator_tlv27_all_instances (node_t *node) {
+isis_withdraw_locator_tlv27_all_instances (isis_node_info_t *node_info) {
 
     glthread_t *curr;
     isis_adv_data_t *advt_data;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return;
 
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node_info);
 
     if (!srv6_config) return;
 
-    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node_info);
 
     while ((curr = dequeue_glthread_first(&loc->adv_data_list_head))) {
         advt_data = srv6_loc_sibling_glue_to_locator_adv_data(curr);
-        isis_withdraw_locator_tlv27_instance (node, advt_data);
+        isis_withdraw_locator_tlv27_instance (node_info, advt_data);
     }
 }
 
 void
-isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid ) {
+isis_srv6_advertise_prefix_sid (isis_node_info_t *node_info, 
+                                isis_srv6_pfx_sid_t *pfx_sid ) {
 
     isis_advt_info_t advt_info;
     isis_adv_data_t *pfx_sid_advt_data;
 
     assert (!pfx_sid->adv_data);
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return;
 
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node);
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node_info);
 
     if (!srv6_config) return;
 
-    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node_info);
 
     isis_adv_data_t *loc_adv_data = srv6_loc_sibling_glue_to_locator_adv_data (
                                         glthread_get_next (&loc->adv_data_list_head));
@@ -572,7 +558,7 @@ isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid ) {
             regen the fragment because we dont know whether the fragment can acoomodate
             the bloated locator TLV now or not */
         if (IS_BIT_SET (loc_adv_data->flags, ISIS_ADVT_DATA_F_ADVERTISED )) {
-            isis_withdraw_tlv_advertisement (node, loc_adv_data);
+            isis_withdraw_tlv_advertisement (node_info, loc_adv_data);
         }
 
         /* Update the size and tlv len. Note that, never change the length of TLVs
@@ -593,8 +579,8 @@ isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid ) {
                     (int) (&((isis_adv_data_t *)0)->u.srv6_loc.sibling_glue));
 
         if (!IS_BIT_SET (loc_adv_data->flags, ISIS_ADVT_DATA_F_WAIT_LISTED)) {
-            isis_advertise_tlv(node, 0, loc_adv_data, &advt_info);
-            tracer (ISIS_TR(node), TR_ISIS_SRV6, 
+            isis_advertise_tlv(node_info, 0, loc_adv_data, &advt_info);
+            tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
                 "%s : Locator TLV Updated/advertised after absorbing new pfx sid subtlv\n",  ISIS_SRV6 );
         }
 
@@ -604,7 +590,7 @@ isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid ) {
     /* The Best locator TLV cannot accomodate a new subtlv*/
 
     /* Create a new Locator TLV*/
-    loc_adv_data = isis_advertise_locator_tlv27_instance(node, loc, false);
+    loc_adv_data = isis_advertise_locator_tlv27_instance(node_info, loc, false);
 
     /* Update the size and tlv len. Note that, never change the length of TLVs
         if it is being advertised. Thats why in prev step we un-advertise it first*/
@@ -616,23 +602,22 @@ isis_srv6_advertise_prefix_sid (node_t *node, isis_srv6_pfx_sid_t *pfx_sid ) {
     glthread_add_next(&loc_adv_data->u.srv6_loc.pfxsid_list_head,
                       &pfx_sid_advt_data->u.srv6_pfxsid.sibling_glue);
     
-    isis_advertise_tlv(node, 0, loc_adv_data, &advt_info);
-    tracer (ISIS_TR(node), TR_ISIS_SRV6, 
+    isis_advertise_tlv(node_info, 0, loc_adv_data, &advt_info);
+    tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
                 "%s : New Locator TLV advertised after absorbing new pfx sid subtlv\n",  ISIS_SRV6 );    
 }
 
 void
-isis_srv6_advertise_all_prefix_sids (node_t *node ) {
+isis_srv6_advertise_all_prefix_sids (isis_node_info_t *node_info ) {
 
     avltree_node_t *curr = NULL;
     isis_srv6_pfx_sid_t *pfxsid = NULL;
 
     isis_adv_data_t *pfx_sid_advt_data;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return;
 
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node);
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node_info);
 
     if (!srv6_config) return;
 
@@ -640,27 +625,26 @@ isis_srv6_advertise_all_prefix_sids (node_t *node ) {
         
         pfxsid = avltree_container_of(curr, isis_srv6_pfx_sid_t , avl_glue);
         if (pfxsid->adv_data) continue;
-        isis_srv6_advertise_prefix_sid (node, pfxsid);
+        isis_srv6_advertise_prefix_sid (node_info, pfxsid);
 
     } ITERATE_AVL_TREE_END;    
 
 }
 
 void 
-isis_srv6_withdraw_pfxsid_advertisement (node_t *node, isis_srv6_pfx_sid_t *pfx_sid) {
+isis_srv6_withdraw_pfxsid_advertisement (isis_node_info_t *node_info, isis_srv6_pfx_sid_t *pfx_sid) {
 
     isis_adv_data_t *pfxsid_adv_data;
 
     if (!pfx_sid->adv_data) return;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return;
 
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node);
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config (node_info);
 
     if (!srv6_config) return;
 
-    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node);
+    isis_srv6_locator_t *loc = ISIS_SRV6_LOC(node_info);
 
     /* Break bidirectional linkage between pfxsid_adv_data and pfx_sid */
     pfxsid_adv_data = pfx_sid->adv_data;
@@ -678,11 +662,12 @@ isis_srv6_withdraw_pfxsid_advertisement (node_t *node, isis_srv6_pfx_sid_t *pfx_
     isis_free_advt_data (pfxsid_adv_data);
 
     if (IS_BIT_SET (loc_adv_data->flags, ISIS_ADVT_DATA_F_ADVERTISED)) {
-        isis_schedule_regen_fragment (node, loc_adv_data->fragment, isis_event_tlv_removed);
+        isis_schedule_regen_fragment (node_info, loc_adv_data->fragment, isis_event_tlv_removed);
     }
     
-    tracer (ISIS_TR(node), TR_ISIS_SRV6, 
-        "%s : Locator TLV Updated/advertised after removing pfx sid subtlv\n",  ISIS_SRV6 );    
+    tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
+        "%s : Locator TLV Updated/advertised after removing pfx sid subtlv\n", 
+        ISIS_SRV6 );    
 
     if (IS_GLTHREAD_LIST_EMPTY (&loc_adv_data->u.srv6_loc.pfxsid_list_head)) {
 
@@ -690,7 +675,7 @@ isis_srv6_withdraw_pfxsid_advertisement (node_t *node, isis_srv6_pfx_sid_t *pfx_
         if ((glthread_get_next (&loc->adv_data_list_head) != &loc_adv_data->u.srv6_loc.sibling_glue) ||
                     glthread_get_next (&loc_adv_data->u.srv6_loc.sibling_glue) ) {
 
-            isis_withdraw_locator_tlv27_instance(node, loc_adv_data);
+            isis_withdraw_locator_tlv27_instance(node_info, loc_adv_data);
             return;
         }
     }
@@ -698,7 +683,7 @@ isis_srv6_withdraw_pfxsid_advertisement (node_t *node, isis_srv6_pfx_sid_t *pfx_
 }
 
 void
-isis_add_prefix_sid_to_locator (node_t *node, 
+isis_add_prefix_sid_to_locator (isis_node_info_t *node_info, 
                                 char *loc_name, 
                                 ipv6_addr_t *prefix_sid, 
                                 Srv6_endpcode_t endfn, 
@@ -707,15 +692,14 @@ isis_add_prefix_sid_to_locator (node_t *node,
     char ipv4_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[48];
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node_info);
 
     if (!srv6_config) return;
 
     /* Ignore if locator is not configured first */
-    if (isis_srv6_is_loc_enabled(node, loc_name)) {
+    if (isis_srv6_is_loc_enabled(node_info, loc_name)) {
 
-        tracer (ISIS_TR(node), TR_ISIS_SRV6, 
+        tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
             "%s : Ignoring PFX SID ADD : %s/128  as locator is not set\n", 
                 ISIS_ERROR,
                 inet_ntop6(prefix_sid, ipv6_addr_str));
@@ -729,7 +713,7 @@ isis_add_prefix_sid_to_locator (node_t *node,
 
     if (avltree_lookup(&pfx_sid_template.avl_glue, &srv6_config->pfxsid_tree)) {
 
-        tracer (ISIS_TR(node), TR_ISIS_SRV6, 
+        tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
             "%s : Ignoring PFX SID ADD : %s/128 as it is already learnt\n", 
                 ISIS_ERROR,
                 inet_ntop6(prefix_sid, ipv6_addr_str));
@@ -743,17 +727,17 @@ isis_add_prefix_sid_to_locator (node_t *node,
 
     avltree_insert(&pfx_sid->avl_glue, &srv6_config->pfxsid_tree);
 
-    tracer (ISIS_TR(node), TR_ISIS_SRV6, 
+    tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
         "%s : AVL TREE PFX SID ADD : %s/128 Success\n", 
             ISIS_SRV6,
             inet_ntop6(prefix_sid, ipv6_addr_str));
 
     /* Update the locator Advertisement */
-    isis_srv6_advertise_prefix_sid (node, pfx_sid );
+    isis_srv6_advertise_prefix_sid (node_info, pfx_sid );
 }
 
 void
-isis_delete_prefix_sid_from_locator (node_t *node, 
+isis_delete_prefix_sid_from_locator (isis_node_info_t *node_info, 
                                 char *loc_name, 
                                 ipv6_addr_t *prefix_sid) {
 
@@ -761,15 +745,15 @@ isis_delete_prefix_sid_from_locator (node_t *node,
     char ipv6_addr_str[48];
     isis_srv6_locator_t *loc;
     isis_advt_info_t advt_info;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node);
+
+    isis_srv6_config_t *srv6_config = isis_srv6_get_config(node_info);
 
     if (!srv6_config) return;
 
     /* Ignore if locator is not configured first */
-    if (isis_srv6_is_loc_enabled(node, loc_name)) return;
+    if (isis_srv6_is_loc_enabled(node_info, loc_name)) return;
 
-    loc = ISIS_SRV6_LOC(node);
+    loc = ISIS_SRV6_LOC(node_info);
 
     /* Ignore if prefix sid is already learnt from ISIS*/   
     isis_srv6_pfx_sid_t pfx_sid_template;
@@ -781,14 +765,14 @@ isis_delete_prefix_sid_from_locator (node_t *node,
 
     if (!avl_node) {
 
-        tracer (ISIS_TR(node), TR_ISIS_SRV6 | TR_ISIS_ERRORS,
+        tracer (ISIS_TR(node_info), TR_ISIS_SRV6 | TR_ISIS_ERRORS,
             "%s : Error : PFX SID DEL : %s/128 Failed, Avl look-up failed\n", 
                 ISIS_SRV6,
                 inet_ntop6(prefix_sid, ipv6_addr_str));      
 
         cprintf(
             "%s: %s : Error : PFX SID DEL : %s/128 Failed, Avl look-up failed\n", 
-                node->node_name,
+                node_info->vrf->node->node_name,
                 ISIS_SRV6,
                 inet_ntop6(prefix_sid, ipv6_addr_str)); 
         return;
@@ -799,11 +783,11 @@ isis_delete_prefix_sid_from_locator (node_t *node,
 
     avltree_remove (&pfx_sid->avl_glue, &srv6_config->pfxsid_tree);
 
-    tracer (ISIS_TR(node), TR_ISIS_SRV6, 
+    tracer (ISIS_TR(node_info), TR_ISIS_SRV6, 
         "%s : PFX SID DEL : %s/128 from Success\n", 
             ISIS_SRV6,
             inet_ntop6(prefix_sid, ipv6_addr_str));      
 
-    isis_srv6_withdraw_pfxsid_advertisement (node, pfx_sid);
+    isis_srv6_withdraw_pfxsid_advertisement (node_info, pfx_sid);
     XFREE(pfx_sid);
 }

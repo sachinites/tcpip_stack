@@ -32,7 +32,7 @@
 #define __UAPI_MM__
 
 #include <stdint.h>
-#include <cstdlib>
+#include <stdlib.h>
 
 typedef struct mm_instance_ mm_instance_t;
 

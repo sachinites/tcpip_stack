@@ -31,7 +31,7 @@ void cp2dp_send_ip_data(node_t *node,
                         uint32_t dest_ip_addr,
                         uint16_t std_ip_protocol);
 
-void cp2dp_send_ip6_data(node_t *node,
+void cp2dp_send_ip6_data(node_t *node, vrf_t *vrf,
                          pkt_block_t *pkt_block,
                          ipv6_addr_t dest_ip_addr,
                          uint16_t std_ip_protocol);

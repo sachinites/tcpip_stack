@@ -10,7 +10,7 @@
 #include "../vrf/vrf.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 
-typedef struct node_ node_t;
+typedef struct isis_node_info_ isis_node_info_t;
 typedef struct rtm_ rtm_t;
 class Interface;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
@@ -66,7 +66,7 @@ typedef struct cp_nexthop_template_ {
 
 #pragma pack(pop)
 
-void node_init_default_rtm(node_t *node);
+void node_init_default_rtm(isis_node_info_t *node_info);
 rtm_t *rtm_get(node_t *node, uint8_t vrf, AFI_T afi, uint8_t rtm_id);
 
 /* APIs to install/uninstall local/connected routes */
@@ -187,7 +187,7 @@ rtm_error_t
 cp_rtm_unsubscribe (rtm_t *rtm, rtm_rt_subscription_t *sub_template);
 
 rtm_t *
-cp_rtm_get_route_target_rtm( node_t *node, 
+cp_rtm_get_route_target_rtm(
                           vrf_t *vrf, AFI_T afi,  // NULL if default VRF
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto);

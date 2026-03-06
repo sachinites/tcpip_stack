@@ -7,22 +7,20 @@
 #include "isis_advt.h"
 
 int
-isis_config_import_policy(node_t *node, const char *prefix_lst_name) {
+isis_config_import_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
 
-    isis_node_info_t *node_info;
+    node_t *node = node_info->vrf->node;
 
     prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(
-                                                &node->prefix_lst_db, prefix_lst_name);
+        &node->prefix_lst_db, prefix_lst_name);
     
     if (!prefix_lst) {
         cprintf ("Error : Prefix List Do Not Exist\n");
         return -1;
     }
 
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node) ||
-          isis_is_protocol_shutdown_in_progress(node)) {
+    if (!isis_is_protocol_enable_on_node(node_info->vrf) ||
+          isis_is_protocol_shutdown_in_progress(node_info)) {
         return -1;
     }
 
@@ -38,27 +36,25 @@ isis_config_import_policy(node_t *node, const char *prefix_lst_name) {
 
     node_info->import_policy =  prefix_lst;
     prefix_list_reference( prefix_lst);
-    isis_schedule_spf_job(node, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
+    isis_schedule_spf_job(node_info, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
     return 0;
 }
 
 int
-isis_config_export_policy(node_t *node, const char *prefix_lst_name) {
+isis_config_export_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
 
-    isis_node_info_t *node_info;
+    node_t *node = node_info->vrf->node;
 
     prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(
-                                    &node->prefix_lst_db, prefix_lst_name);
+                                &node->prefix_lst_db, prefix_lst_name);
     
     if (!prefix_lst) {
         cprintf ("Error : Prefix List Do Not Exist\n");
         return -1;
     }
 
-    node_info = ISIS_NODE_INFO(node);
-
-    if ( !isis_is_protocol_enable_on_node(node) ||
-          isis_is_protocol_shutdown_in_progress(node)) {
+    if ( !isis_is_protocol_enable_on_node(node_info->vrf) ||
+          isis_is_protocol_shutdown_in_progress(node_info)) {
         return -1;
     }
 
@@ -79,12 +75,10 @@ isis_config_export_policy(node_t *node, const char *prefix_lst_name) {
 }
 
 int
-isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
+isis_unconfig_import_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
 
     prefix_list_t *import_policy;
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
+    node_t *node = node_info->vrf->node;
 
     if (!node_info) return 0;
 
@@ -93,7 +87,7 @@ isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
     if (prefix_lst_name) {
         
         import_policy = prefix_lst_lookup_by_name(
-                                                &node->prefix_lst_db, prefix_lst_name);
+                            &node->prefix_lst_db, prefix_lst_name);
 
         if (!import_policy) {
             cprintf ("Error : Prefix List Do Not Exist\n");
@@ -108,23 +102,23 @@ isis_unconfig_import_policy(node_t *node, const char *prefix_lst_name) {
 
     prefix_list_dereference(node_info->import_policy);
     node_info->import_policy = NULL;
-    if (isis_is_protocol_shutdown_in_progress(node)) return;
-    isis_schedule_spf_job(node, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
+    
+    if (isis_is_protocol_shutdown_in_progress(node_info)) return 0;
+
+    isis_schedule_spf_job(node_info, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
     return 0;
 }
 
 void
-isis_free_all_exported_rt_advt_data (node_t *node) {
+isis_free_all_exported_rt_advt_data (isis_node_info_t *node_info) {
 
-    glthread_t *curr;
     uint8_t mask;
+    glthread_t *curr;
     byte ip_addr_str[IPV4_ADDR_LEN_STR];
     mtrie_node_t *mnode;
     isis_fragment_t *fragment;
     isis_adv_data_t *advt_data;
     isis_tlv_wd_return_code_t rc;
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
     
@@ -139,7 +133,7 @@ isis_free_all_exported_rt_advt_data (node_t *node) {
         if (!fragment) {
 
             if (advt_data->flags & ISIS_ADVT_DATA_F_WAIT_LISTED){
-                isis_wait_list_advt_data_remove(node, advt_data);
+                isis_wait_list_advt_data_remove(node_info, advt_data);
             }
             
              isis_free_advt_data (advt_data);
@@ -151,23 +145,23 @@ isis_free_all_exported_rt_advt_data (node_t *node) {
         tcp_ip_covert_ip_n_to_p (htonl(advt_data->u.pfx.prefix), ip_addr_str);
         mask = advt_data->u.pfx.mask;
 
-        rc = isis_withdraw_tlv_advertisement(node, advt_data);
+        rc = isis_withdraw_tlv_advertisement(node_info, advt_data);
 
         switch (rc)
         {
         case ISIS_TLV_WD_SUCCESS:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d is successful\n",
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d is successful\n",
                     ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         case ISIS_TLV_WD_FRAG_NOT_FOUND:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, Fragment Not Found\n", ISIS_EXPOLICY, ip_addr_str, mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, Fragment Not Found\n", ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         case ISIS_TLV_WD_TLV_NOT_FOUND:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, TLV Not Found\n",
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, TLV Not Found\n",
                     ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         case ISIS_TLV_WD_FAILED:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, ip_addr_str, mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, ip_addr_str, mask);
             break;
         }
         mnode->data = NULL;
@@ -177,19 +171,18 @@ isis_free_all_exported_rt_advt_data (node_t *node) {
 }
 
 int
-isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
+isis_unconfig_export_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
 
     prefix_list_t *export_policy;
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
 
     if (!node_info)
         return 0;
 
+    node_t *node = node_info->vrf->node;
+
     if (!node_info->export_policy) {
-        if (isis_is_protocol_admin_shutdown(node) ||
-             isis_is_protocol_shutdown_in_progress(node)) {
+        if (isis_is_protocol_admin_shutdown(node_info) ||
+             isis_is_protocol_shutdown_in_progress(node_info)) {
             mtrie_destroy(&node_info->exported_routes);
             return 0;
         }
@@ -198,7 +191,7 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
     if (prefix_lst_name) {
 
         export_policy =  prefix_lst_lookup_by_name(
-                                            &node->prefix_lst_db, prefix_lst_name);
+                            &node->prefix_lst_db, prefix_lst_name);
         if (!export_policy) {
             cprintf("Error : Prefix List Do Not Exist\n");
             return -1;
@@ -211,8 +204,8 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
 
     if (!export_policy && !prefix_lst_name) {
 
-        if (isis_is_protocol_shutdown_in_progress(node) ||
-             isis_is_protocol_admin_shutdown(node)) {
+        if (isis_is_protocol_shutdown_in_progress(node_info) ||
+             isis_is_protocol_admin_shutdown(node_info)) {
             mtrie_destroy(&node_info->exported_routes);
         }
         return 0;
@@ -220,15 +213,20 @@ isis_unconfig_export_policy(node_t *node, const char *prefix_lst_name) {
 
     prefix_list_dereference(node_info->export_policy);
     node_info->export_policy = NULL;
-    isis_free_all_exported_rt_advt_data(node);
+
+    isis_free_all_exported_rt_advt_data(node_info);
     mtrie_destroy(&node_info->exported_routes);
-    if (isis_is_protocol_admin_shutdown(node)) return 0;
+
+    if (isis_is_protocol_admin_shutdown(node_info)) return 0;
+
     init_mtrie(&node_info->exported_routes, 32, NULL);
     return 0;
 }
 
 pfx_lst_result_t
-isis_evaluate_policy (node_t *node, prefix_list_t *policy, uint32_t dest_nw, uint8_t mask) {
+isis_evaluate_policy (isis_node_info_t *node_info, 
+                      prefix_list_t *policy, 
+                      uint32_t dest_nw, uint8_t mask) {
 
     pfx_lst_node_t *pfx_lst_node = NULL;
 
@@ -249,30 +247,27 @@ isis_evaluate_policy (node_t *node, prefix_list_t *policy, uint32_t dest_nw, uin
 }
 
 void
-isis_prefix_list_change(node_t *node, prefix_list_t *prefix_list); 
+isis_prefix_list_change(node_t *node, vrf_t *vrf, prefix_list_t *prefix_list); 
 
 void
-isis_prefix_list_change(node_t *node, prefix_list_t *prefix_list) {
+isis_prefix_list_change(node_t *node, vrf_t *vrf, prefix_list_t *prefix_list) {
 
-    isis_node_info_t *node_info;
+    if (!isis_is_protocol_enable_on_node(vrf) ||
+          isis_is_protocol_shutdown_in_progress(vrf->isis_node_info)) return;
 
-    if (!isis_is_protocol_enable_on_node(node) ||
-          isis_is_protocol_shutdown_in_progress(node)) return;
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (node_info->import_policy == prefix_list) {
-         isis_schedule_spf_job(node, ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
+    if (vrf->isis_node_info->import_policy == prefix_list) {
+         isis_schedule_spf_job(vrf->isis_node_info,
+            ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
     }
 
-    if (node_info->export_policy == prefix_list) {
+    if (vrf->isis_node_info->export_policy == prefix_list) {
          //nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
     }
 }
 
 #if 0
 isis_adv_data_t *
-isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
+isis_is_route_exported (isis_node_info_t *node_info, l3_route_t *l3route ) {
 
     uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
@@ -309,7 +304,7 @@ isis_is_route_exported (node_t *node, l3_route_t *l3route ) {
 }
 
 isis_advt_tlv_return_code_t
-isis_export_route (node_t *node, l3_route_t *l3route) {
+isis_export_route (isis_node_info_t *node_info, l3_route_t *l3route) {
 
     mtrie_node_t *mnode;
     uint32_t bin_ip, bin_mask;
@@ -319,7 +314,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     bitmap_t prefix_bm, mask_bm;
     isis_advt_tlv_return_code_t rc;
 
-    tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Exporting Route %s/%d\n",
+    tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Exporting Route %s/%d\n",
         ISIS_EXPOLICY, l3route->dest, l3route->mask);
 
     exported_rt = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
@@ -348,7 +343,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
                                             32,
                                             &mnode) != MTRIE_INSERT_SUCCESS) {
         
-        tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Exporting Route %s/%d failed\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Exporting Route %s/%d failed\n",
             ISIS_EXPOLICY, l3route->dest, l3route->mask);
         bitmap_free_internal(&prefix_bm);
         bitmap_free_internal(&mask_bm);
@@ -364,15 +359,15 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
     switch (rc) {
 
         case ISIS_TLV_RECORD_ADVT_SUCCESS:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d advertised in LSP [%hu][%hu]\n",
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d advertised in LSP [%hu][%hu]\n",
                 ISIS_EXPOLICY, l3route->dest, l3route->mask, advt_info_out.pn_no, advt_info_out.fr_no);
             break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d is already advertised\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d is already advertised\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
         case ISIS_TLV_RECORD_ADVT_NO_FRAG:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d Failed to advertised, No Space available\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d Failed to advertised, No Space available\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;
         default:
             assert(0);
@@ -384,7 +379,7 @@ isis_export_route (node_t *node, l3_route_t *l3route) {
 }
 
 bool
-isis_unexport_route (node_t *node, l3_route_t *l3route) {
+isis_unexport_route (isis_node_info_t *node_info, l3_route_t *l3route) {
 
     bool res = false;
     mtrie_node_t *mnode;
@@ -399,7 +394,7 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     if (!node_info) return false;
 
-    tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d\n",
+    tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d\n",
         ISIS_EXPOLICY, l3route->dest, l3route->mask);
 
     bin_ip = tcp_ip_convert_ip_p_to_n (l3route->dest);
@@ -442,17 +437,17 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 
     switch(rc) {
         case ISIS_TLV_WD_SUCCESS:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d is successful\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d is successful\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             res = true;
             break;
         case ISIS_TLV_WD_FRAG_NOT_FOUND:
-           tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, Fragment Not Found\n",ISIS_EXPOLICY, l3route->dest, l3route->mask);
+           tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, Fragment Not Found\n",ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;            
         case ISIS_TLV_WD_TLV_NOT_FOUND:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, TLV Not Found\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, TLV Not Found\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;
         case ISIS_TLV_WD_FAILED:
-            tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
             break;            
     }
 
@@ -465,14 +460,14 @@ isis_unexport_route (node_t *node, l3_route_t *l3route) {
 }
 
 void
- isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) {
+ isis_process_ipv4_route_notif (isis_node_info_t *node_info, l3_route_t *l3route) {
 
     bool policy_eval_failed;
     isis_adv_data_t *exported_rt;
     isis_node_info_t *node_info;
     isis_advt_tlv_return_code_t rc;
     
-      tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Recv notif for Route %s/%d with code %d\n",
+      tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Recv notif for Route %s/%d with code %d\n",
         ISIS_EXPOLICY, l3route->dest, l3route->mask, l3route->rt_flags);
 
     node_info = ISIS_NODE_INFO(node);
@@ -504,7 +499,7 @@ void
     /* Reject routes which ISIS already knows */
     if (l3route->nexthops[nxthop_proto][0]) {
 
-        tracer (ISIS_TR(node), TR_ISIS_POLICY, "%s : Route %s/%d already known to ISIS\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d already known to ISIS\n",
             ISIS_EXPOLICY, l3route->dest, l3route->mask);
         return;
     }
@@ -514,7 +509,7 @@ void
     if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
         rc == ISIS_TLV_RECORD_ADVT_NO_FRAG) {
 
-        tracer (ISIS_TR(node), TR_ISIS_POLICY | TR_ISIS_ERRORS,
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY | TR_ISIS_ERRORS,
                 "%s : Route %s/%d could not be exported, space Exhaustion\n",
                 ISIS_EXPOLICY, l3route->dest, l3route->mask);
     }

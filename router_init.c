@@ -53,6 +53,7 @@
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
 extern bool LinuxRtr;
+extern void cp_init_ipc_pub_sub(node_t *node);
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -245,6 +246,8 @@ Router_Create(graph_t *graph, const c_string node_name){
     
     node->sequence_gen = 1;
     glthread_add_next(&graph->node_list, &node->graph_glue);
+
+    cp_init_ipc_pub_sub(node);
     return node;
 }
 

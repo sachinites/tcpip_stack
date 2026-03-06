@@ -757,7 +757,6 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             rtm_t *rtm = cp_rtm_get_route_target_rtm (
-                            node, 
                             vrf, 
                             prefix.afi, 
                             (RTM_PROTO_T)proto_id, 
@@ -1064,7 +1063,6 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             rtm_t *rtm = cp_rtm_get_route_target_rtm (
-                            node, 
                             vrf, 
                             prefix.afi, 
                             (RTM_PROTO_T)proto_id, 

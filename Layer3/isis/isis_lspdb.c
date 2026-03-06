@@ -11,15 +11,12 @@
 #include "isis_advt.h"
 
 static isis_lsp_pkt_t *
-isis_get_dummy_lsp_pkt_with_key(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no) {
+isis_get_dummy_lsp_pkt_with_key(isis_node_info_t *node_info, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no) {
 
     uint32_t pkt_size;
     uint32_t *rtr_id_addr;
-    isis_node_info_t *node_info ;
 
-    node_info = ISIS_NODE_INFO(node);
-    
-    if (!node_info || !isis_is_protocol_enable_on_node(node)) return;
+    if (!node_info || !isis_is_protocol_enable_on_node(node_info->vrf)) return NULL;
 
     if (!node_info->lsp_dummy_pkt) {
     
@@ -46,23 +43,20 @@ isis_get_dummy_lsp_pkt_with_key(node_t *node, uint32_t rtr_id, pn_id_t pn_id, ui
 }
 
 void
-isis_free_dummy_lsp_pkt(node_t *node){
+isis_free_dummy_lsp_pkt(isis_node_info_t *node_info){
 
     int rc;
-    isis_node_info_t *node_info ;
-    node_info = ISIS_NODE_INFO(node);
 
-    if (!node_info || !isis_is_protocol_enable_on_node(node)) return;
+    if (!node_info || !isis_is_protocol_enable_on_node(node_info->vrf)) return;
 
     if(!node_info->lsp_dummy_pkt) return ;
-    rc = isis_deref_isis_pkt(node, node_info->lsp_dummy_pkt);
+    rc = isis_deref_isis_pkt(node_info, node_info->lsp_dummy_pkt);
     if (rc == 0) node_info->lsp_dummy_pkt = NULL;
 }
 
 avltree_t *
-isis_get_lspdb_root(node_t *node) {
+isis_get_lspdb_root(isis_node_info_t *node_info) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if(node_info) {
         return &node_info->lspdb_avl_root;
     }
@@ -70,7 +64,7 @@ isis_get_lspdb_root(node_t *node) {
 }
 
 void
-isis_install_lsp(node_t *node,
+isis_install_lsp(isis_node_info_t *node_info,
                  Interface *iif,
                  isis_lsp_pkt_t *new_lsp_pkt) {
 
@@ -84,13 +78,11 @@ isis_install_lsp(node_t *node,
     isis_event_type_t event_type;
     uint32_t *old_seq_no = NULL;
     isis_pkt_hdr_flags_t lsp_flags;
-    isis_node_info_t *node_info = NULL;
     byte lsp_id_str_old[ISIS_LSP_ID_STR_SIZE];
     byte lsp_id_str_new[ISIS_LSP_ID_STR_SIZE];
     
-    node_info = ISIS_NODE_INFO (node);
     recvd_via_intf = iif ? true : false;
-    self_lsp = isis_our_lsp(node, new_lsp_pkt);
+    self_lsp = isis_our_lsp(node_info, new_lsp_pkt);
     event_type = isis_event_none;
     lsp_flags = isis_lsp_pkt_get_flags(new_lsp_pkt);
     rtr_id = isis_get_lsp_pkt_rtr_id(new_lsp_pkt);
@@ -101,7 +93,7 @@ isis_install_lsp(node_t *node,
     bool purge_lsp = lsp_flags & ISIS_LSP_PKT_F_PURGE_BIT;
 
     old_lsp_pkt = isis_lookup_lsp_from_lsdb(
-                    node, *rtr_id, 
+                    node_info, *rtr_id, 
                     isis_get_lsp_pkt_pn_id(new_lsp_pkt) , 
                     isis_get_lsp_pkt_fr_no (new_lsp_pkt)); 
 
@@ -113,7 +105,7 @@ isis_install_lsp(node_t *node,
 
     uint32_t *new_seq_no = isis_get_lsp_pkt_seq_no(new_lsp_pkt);
 
-    tracer (ISIS_TR(node), TR_ISIS_LSDB, "%s : Lsp Recvd : %s on intf %s, old lsp : %s\n",
+    tracer (ISIS_TR(node_info), TR_ISIS_LSDB, "%s : Lsp Recvd : %s on intf %s, old lsp : %s\n",
             ISIS_LSPDB_MGMT,
             lsp_id_str_new,
             iif ? iif->if_name.c_str() : "Nil",
@@ -124,7 +116,7 @@ isis_install_lsp(node_t *node,
     if (self_lsp && duplicate_lsp) {
 
         event_type = isis_event_self_duplicate_lsp;
-        tracer (ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s : self Duplicate LSP, No Action\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s : self Duplicate LSP, No Action\n",
             isis_event_str(event_type));
         /* Action :
             1. if foriegn lsp then do nothing
@@ -141,7 +133,7 @@ isis_install_lsp(node_t *node,
     else if (self_lsp && !old_lsp_pkt) {
 
         event_type = isis_event_self_fresh_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s\n", isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s\n", isis_event_str(event_type));
         /* Action :
             1. if foriegn rtr has send me my own LSP, and I never had such a LSP in my local db
             then ignore such a LSP.
@@ -150,18 +142,18 @@ isis_install_lsp(node_t *node,
             return;
             assert(0);     
         } else {
-            tracer(ISIS_TR(node), TR_ISIS_LSDB, "%s : LSP to be Added in LSPDB and flood\n",
+            tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP to be Added in LSPDB and flood\n",
                 ISIS_LSPDB_MGMT);
-            isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_ted_update_or_install_lsp(node, ISIS_TED_DB(node), new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
+            isis_add_lsp_pkt_in_lspdb(node_info, new_lsp_pkt);
+            isis_ted_update_or_install_lsp(node_info, node_info->ted_db, new_lsp_pkt);
+            isis_schedule_lsp_flood(node_info, new_lsp_pkt, 0);
         }
     }
 
     else if (self_lsp && old_lsp_pkt && (*new_seq_no > *old_seq_no)) {
 
         event_type = isis_event_self_new_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
         /* Action :
             1. if foreign lsp, regenerate self lsp with higher 
                 sequence no and flood on all intf
@@ -170,35 +162,35 @@ isis_install_lsp(node_t *node,
         if (recvd_via_intf) {
             old_lsp_pkt->fragment->seq_no = *new_seq_no;
 
-             tracer(ISIS_TR(node), TR_ISIS_LSDB, "%s : LSP %s to be generated with seq no %u\n",
+             tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s to be generated with seq no %u\n",
                 ISIS_LSPDB_MGMT, lsp_id_str_old, *new_seq_no + 1);
-            isis_schedule_regen_fragment(node, old_lsp_pkt->fragment, event_type);
+            isis_schedule_regen_fragment(node_info, old_lsp_pkt->fragment, event_type);
         } else {
-            tracer(ISIS_TR(node), TR_ISIS_LSDB, "%s : LSP %s to be replaced in LSPDB "
+            tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s to be replaced in LSPDB "
                 "with new LSP %s and flood\n",
                 ISIS_LSPDB_MGMT,
                 lsp_id_str_old, lsp_id_str_new);
-            isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
-            isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
-            isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-            isis_ted_update_or_install_lsp (node, ISIS_TED_DB(node), new_lsp_pkt);
-            isis_schedule_lsp_flood(node, new_lsp_pkt, 0);
+            isis_remove_lsp_pkt_from_lspdb(node_info, old_lsp_pkt);
+            isis_mark_isis_lsp_pkt_flood_ineligible(node_info, old_lsp_pkt);
+            isis_add_lsp_pkt_in_lspdb(node_info, new_lsp_pkt);
+            isis_ted_update_or_install_lsp(node_info, node_info->ted_db, new_lsp_pkt);
+            isis_schedule_lsp_flood(node_info, new_lsp_pkt, 0);
         }
     }
 
     else if (self_lsp && old_lsp_pkt && (*new_seq_no < *old_seq_no)) {
 
         event_type = isis_event_self_old_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
         /* Action :
             1. if foreign lsp, then flood existing one on all intf
             2. if self originated lsp then assert, impossible case */
         if (recvd_via_intf) {
 
-           tracer(ISIS_TR(node), TR_ISIS_LSDB, "%s : LSP %s to be flooded\n",
+           tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s to be flooded\n",
                 ISIS_LSPDB_MGMT,
                 lsp_id_str_old);
-            isis_schedule_lsp_flood(node, old_lsp_pkt, 0);
+            isis_schedule_lsp_flood(node_info, old_lsp_pkt, 0);
         } else {
 
             assert(0);
@@ -208,12 +200,12 @@ isis_install_lsp(node_t *node,
     else if (!self_lsp && duplicate_lsp) {
 
         event_type = isis_event_non_local_duplicate_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
         /* Action :
             1. if foreign lsp then do nothing
             2. if self originated lsp then assert, impossible case */
         if (recvd_via_intf) {
-            tracer(ISIS_TR(node), TR_ISIS_LSDB, "%s : Recvd Duplicate LSP %s, no Action\n",
+            tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "%s : Recvd Duplicate LSP %s, no Action\n",
             ISIS_LSPDB_MGMT, lsp_id_str_new);
         } else {
             assert(0);
@@ -223,20 +215,20 @@ isis_install_lsp(node_t *node,
     else if (!self_lsp && !old_lsp_pkt) {
 
         event_type = isis_event_non_local_fresh_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
         /* Action :
             1. if foreign lsp then install in db and flood forward it
             2. if self originated lsp then assert, impossible case */
         if (recvd_via_intf) {
 
-             tracer(ISIS_TR(node), TR_ISIS_LSDB, "%s : LSP %s to be Added in LSPDB and flood\n",
+             tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s to be Added in LSPDB and flood\n",
                 ISIS_LSPDB_MGMT, lsp_id_str_new);
 
             if (!purge_lsp) {
-                isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-                isis_ted_update_or_install_lsp (node, ISIS_TED_DB(node), new_lsp_pkt);
+                isis_add_lsp_pkt_in_lspdb(node_info, new_lsp_pkt);
+                isis_ted_update_or_install_lsp(node_info, node_info->ted_db, new_lsp_pkt);
                 /* Do not flood purge LSP if it do not removes LSP from our DB*/
-                isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
+                isis_schedule_lsp_flood(node_info, new_lsp_pkt, iif);
             }
         } else {
 
@@ -247,14 +239,14 @@ isis_install_lsp(node_t *node,
     else if (!self_lsp && old_lsp_pkt && (*new_seq_no > *old_seq_no)) {
 
         event_type = isis_event_non_local_new_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB, "\tEvent : %s\n",isis_event_str(event_type));
         /* Action :
             1. if foreign lsp then replace in db and flood forward it
             2. if self originated lsp then assert, impossible case */
         if (recvd_via_intf) {
             if (!purge_lsp) {
 
-                tracer(ISIS_TR(node), TR_ISIS_LSDB,
+                tracer(ISIS_TR(node_info), TR_ISIS_LSDB,
                     "%s : LSP %s to be replaced in LSPDB with"
                     " LSP %s and flood\n",
                     ISIS_LSPDB_MGMT,
@@ -262,22 +254,22 @@ isis_install_lsp(node_t *node,
             }
             else {
 
-               tracer(ISIS_TR(node), TR_ISIS_LSDB, 
+               tracer(ISIS_TR(node_info), TR_ISIS_LSDB, 
                 "%s : New LSP %s will cause Purge and flood\n",
                 ISIS_LSPDB_MGMT, lsp_id_str_new);
             }
 
-            isis_remove_lsp_pkt_from_lspdb(node, old_lsp_pkt);
-            isis_mark_isis_lsp_pkt_flood_ineligible(node, old_lsp_pkt);
+            isis_remove_lsp_pkt_from_lspdb(node_info, old_lsp_pkt);
+            isis_mark_isis_lsp_pkt_flood_ineligible(node_info, old_lsp_pkt);
             if (!purge_lsp) {
-                isis_add_lsp_pkt_in_lspdb(node, new_lsp_pkt);
-                isis_ted_update_or_install_lsp (node, ISIS_TED_DB(node), new_lsp_pkt);
-                isis_ips_send_lsp_update (node, new_lsp_pkt, true);
+                isis_add_lsp_pkt_in_lspdb(node_info, new_lsp_pkt);
+                isis_ted_update_or_install_lsp(node_info, node_info->ted_db, new_lsp_pkt);
+                isis_ips_send_lsp_update(node_info, new_lsp_pkt, true);
             }
             else {
-                isis_ted_uninstall_lsp (node, ISIS_TED_DB(node), old_lsp_pkt);
+                isis_ted_uninstall_lsp(node_info, node_info->ted_db, old_lsp_pkt);
             }
-            isis_schedule_lsp_flood(node, new_lsp_pkt, iif);
+            isis_schedule_lsp_flood(node_info, new_lsp_pkt, iif);
         } else {
 
             assert(0);
@@ -287,13 +279,13 @@ isis_install_lsp(node_t *node,
     else if (!self_lsp && old_lsp_pkt && (*new_seq_no < *old_seq_no)) {
 
         event_type = isis_event_non_local_old_lsp;
-        tracer(ISIS_TR(node), TR_ISIS_LSDB,  "\tEvent : %s\n", isis_event_str(event_type));
+        tracer(ISIS_TR(node_info), TR_ISIS_LSDB,  "\tEvent : %s\n", isis_event_str(event_type));
         /* Action :
             1. if foreign lsp then shoot out lsp back on recv intf
             2. if self originated lsp then assert, impossible case */
         if (recvd_via_intf) {
 
-           tracer(ISIS_TR(node), TR_ISIS_LSDB, 
+           tracer(ISIS_TR(node_info), TR_ISIS_LSDB, 
                 "%s : Old LSP %s will be back fired out of intf %s\n",
                 ISIS_LSPDB_MGMT,
                 lsp_id_str_old,
@@ -305,14 +297,14 @@ isis_install_lsp(node_t *node,
         }
     }
 
-    tracer(ISIS_TR(node), TR_ISIS_LSDB, 
+    tracer(ISIS_TR(node_info), TR_ISIS_LSDB, 
         "%s : LSPDB Updated  for new Lsp Recvd : %s, old lsp : %s, Event : %s\n",
             ISIS_LSPDB_MGMT,
             lsp_id_str_new,
             lsp_id_str_old,
             isis_event_str(event_type));
 
-    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[event_type]);
+    ISIS_INCREMENT_NODE_STATS(node_info, isis_event_count[event_type]);
     
     switch (event_type) {
 
@@ -323,31 +315,31 @@ isis_install_lsp(node_t *node,
             break;
         case isis_event_self_fresh_lsp:
             run_spf_job = true;
-            isis_ips_send_lsp_update (node, new_lsp_pkt, true);
+            isis_ips_send_lsp_update(node_info, new_lsp_pkt, true);
             break;
         case isis_event_non_local_fresh_lsp:
             if (purge_lsp) break;
             run_spf_job = true;
-            tracer (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_SPF,
+            tracer (ISIS_TR(node_info), TR_ISIS_LSDB | TR_ISIS_SPF,
                 "%s : SPF Job will be scheduled - event %s\n",
                 ISIS_LSPDB_MGMT, isis_event_str (event_type));
-            isis_ips_send_lsp_update (node, new_lsp_pkt, true);
+            isis_ips_send_lsp_update(node_info, new_lsp_pkt, true);
             break;
         case isis_event_self_new_lsp:
         case isis_event_non_local_new_lsp:
-                tracer (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_SPF,
+                tracer (ISIS_TR(node_info), TR_ISIS_LSDB | TR_ISIS_SPF,
                 "%s : SPF Job will be scheduled based on pkt diff - event %s\n",
                 ISIS_LSPDB_MGMT, isis_event_str (event_type));
                 run_spf_job = isis_is_lsp_diff(new_lsp_pkt, old_lsp_pkt);
                 if (purge_lsp) {
-                    isis_ips_send_lsp_update (node, old_lsp_pkt, false);
+                    isis_ips_send_lsp_update(node_info, old_lsp_pkt, false);
                 }
                 else {
                     if (run_spf_job) {
-                        isis_ips_send_lsp_update (node, new_lsp_pkt, true);
+                        isis_ips_send_lsp_update(node_info, new_lsp_pkt, true);
                     }
                     else {
-                        isis_ips_send_lsp_seqno_update (node, new_lsp_pkt);
+                        isis_ips_send_lsp_seqno_update(node_info, new_lsp_pkt);
                     }
                 }
             break;
@@ -355,22 +347,22 @@ isis_install_lsp(node_t *node,
     }
 
     if (run_spf_job) {
-        isis_schedule_spf_job (node, event_type);
+        isis_schedule_spf_job(node_info, event_type);
     }
 
     if (old_lsp_pkt) {
-        isis_deref_isis_pkt(node, old_lsp_pkt);
+        isis_deref_isis_pkt(node_info, old_lsp_pkt);
     }
 }
 
 isis_lsp_pkt_t *
-isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no) {
+isis_lookup_lsp_from_lsdb(isis_node_info_t *node_info, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no) {
 
-    avltree_t *lspdb = isis_get_lspdb_root(node);
+    avltree_t *lspdb = isis_get_lspdb_root(node_info);
 
     if (!lspdb) return NULL;
 
-    isis_lsp_pkt_t *dummy_lsp_pkt = isis_get_dummy_lsp_pkt_with_key(node, rtr_id, pn_id, fr_no);
+    isis_lsp_pkt_t *dummy_lsp_pkt = isis_get_dummy_lsp_pkt_with_key(node_info, rtr_id, pn_id, fr_no);
 
     avltree_node_t *avl_node =
         avltree_lookup(&dummy_lsp_pkt->avl_node_glue, lspdb);
@@ -381,23 +373,21 @@ isis_lookup_lsp_from_lsdb(node_t *node, uint32_t rtr_id, pn_id_t pn_id, uint8_t 
 }
 
 bool
-isis_our_lsp(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+isis_our_lsp(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
     uint32_t self_loop_back = tcp_ip_convert_ip_p_to_n(
-                                NODE_RTRID_ADDR(node));
+                                NODE_RTRID_ADDR(node_info->vrf->node));
 
     return *rtr_id == self_loop_back;
 }
 
 void
-isis_cleanup_lsdb (node_t *node, bool ted_remove) {
+isis_cleanup_lsdb (isis_node_info_t *node_info, bool ted_remove) {
 
     avltree_node_t *curr;
     isis_lsp_pkt_t *lsp_pkt;
-    avltree_t *lspdb = isis_get_lspdb_root(node);
+    avltree_t *lspdb = isis_get_lspdb_root(node_info);
 
     if (!lspdb) return;
 
@@ -407,25 +397,25 @@ isis_cleanup_lsdb (node_t *node, bool ted_remove) {
 
         if (ted_remove) {
             isis_lsp_pkt_prevent_premature_deletion(lsp_pkt);
-            isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
-            isis_ips_send_lsp_update (node, lsp_pkt, false);
-            isis_ted_uninstall_lsp (node, ISIS_TED_DB(node), lsp_pkt);
-            isis_lsp_pkt_relieve_premature_deletion(node, lsp_pkt);
+            isis_remove_lsp_pkt_from_lspdb(node_info, lsp_pkt);
+            isis_ips_send_lsp_update(node_info, lsp_pkt, false);
+            isis_ted_uninstall_lsp(node_info, node_info->ted_db, lsp_pkt);
+            isis_lsp_pkt_relieve_premature_deletion(node_info, lsp_pkt);
         }
         else {
-            isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+            isis_remove_lsp_pkt_from_lspdb(node_info, lsp_pkt);
         }
 
     } ITERATE_AVL_TREE_END;
 }
 
 void
-isis_show_lspdb(node_t *node) {
+isis_show_lspdb(isis_node_info_t *node_info) {
 
     int rc = 0;
     isis_lsp_pkt_t *lsp_pkt;
     avltree_node_t *curr;
-    avltree_t *lspdb = isis_get_lspdb_root(node);
+    avltree_t *lspdb = isis_get_lspdb_root(node_info);
    
     if (!lspdb) return;
 
@@ -522,7 +512,7 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
     isis_timer_data_t *timer_data = 
             (isis_timer_data_t *)arg;
 
-    node_t *node = timer_data->node;
+    isis_node_info_t *node_info = timer_data->node_info;
     isis_lsp_pkt_t *lsp_pkt = (isis_lsp_pkt_t *)timer_data->data;
 
     timer_data->data = NULL;
@@ -531,29 +521,29 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
     timer_de_register_app_event(lsp_pkt->expiry_timer);
     lsp_pkt->expiry_timer = NULL;
 
-    avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node));
+    avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node_info));
     lsp_pkt->installed_in_db = false;
-    isis_ips_send_lsp_update (node, lsp_pkt, false);
-    isis_ted_uninstall_lsp(node, ISIS_TED_DB(node), lsp_pkt);
-    isis_deref_isis_pkt(node, lsp_pkt);
-    isis_schedule_spf_job (node, isis_event_lsp_time_out);
+    isis_ips_send_lsp_update(node_info, lsp_pkt, false);
+    isis_ted_uninstall_lsp(node_info, node_info->ted_db, lsp_pkt);
+    isis_deref_isis_pkt(node_info, lsp_pkt);
+    isis_schedule_spf_job(node_info, isis_event_lsp_time_out);
 }
 
 void
-isis_start_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_start_lsp_pkt_installation_timer(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     if (lsp_pkt->expiry_timer) return;
 
     isis_timer_data_t *timer_data = XCALLOC2(0, 1, isis_timer_data_t);
-    timer_data->node = node;
+    timer_data->node_info = node_info;
     timer_data->data = (void *)lsp_pkt;
     timer_data->data_size = sizeof(isis_lsp_pkt_t);
     
-    lsp_pkt->expiry_timer = timer_register_app_event(CP_TIMER(node),
+    lsp_pkt->expiry_timer = timer_register_app_event(CP_TIMER(node_info->vrf->node),
                                 isis_lsp_pkt_delete_from_lspdb_timer_cb,
                                 (void *)timer_data,
                                 sizeof(isis_timer_data_t),
-                                ISIS_NODE_INFO(node)->lsp_lifetime_interval * 1000,
+                                node_info->lsp_lifetime_interval * 1000,
                                 0);
 }
 
@@ -570,10 +560,10 @@ isis_stop_lsp_pkt_installation_timer(isis_lsp_pkt_t *lsp_pkt) {
 }
 
 void
-isis_refresh_lsp_pkt_installation_timer(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_refresh_lsp_pkt_installation_timer(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     isis_stop_lsp_pkt_installation_timer(lsp_pkt);
-    isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
+    isis_start_lsp_pkt_installation_timer(node_info, lsp_pkt);
 }
 
 bool
@@ -583,11 +573,11 @@ isis_is_lsp_pkt_installed_in_lspdb(isis_lsp_pkt_t *lsp_pkt) {
 }
 
 bool
-isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_add_lsp_pkt_in_lspdb(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
 
-    avltree_t *lspdb = isis_get_lspdb_root(node);
+    avltree_t *lspdb = isis_get_lspdb_root(node_info);
 
      if (!lspdb) return false;
 
@@ -596,38 +586,38 @@ isis_add_lsp_pkt_in_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
      avltree_insert(&lsp_pkt->avl_node_glue, lspdb);
      lsp_pkt->installed_in_db = true;
      
-    isis_our_lsp(node, lsp_pkt) ? \
-        isis_lsp_pkt_flood_timer_start (node, lsp_pkt) :        \
-        isis_start_lsp_pkt_installation_timer(node, lsp_pkt);
+    isis_our_lsp(node_info, lsp_pkt) ? \
+        isis_lsp_pkt_flood_timer_start(node_info, lsp_pkt) :        \
+        isis_start_lsp_pkt_installation_timer(node_info, lsp_pkt);
 
      isis_ref_isis_pkt(lsp_pkt);
      isis_print_lsp_id (lsp_pkt,  lsp_id_str);
-     tracer (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_EVENTS,  
+     tracer (ISIS_TR(node_info), TR_ISIS_LSDB | TR_ISIS_EVENTS,  
         "%s : LSP %s added to LSPDB\n", ISIS_LSPDB_MGMT,  lsp_id_str);
      return true;
 }
 
 void
-isis_remove_lsp_from_lspdb(node_t *node, uint32_t rtr_id, 
+isis_remove_lsp_from_lspdb(isis_node_info_t *node_info, uint32_t rtr_id, 
                                                 pn_id_t pn_id, uint8_t fr_no) {
 
-    avltree_t *lspdb = isis_get_lspdb_root(node);
+    avltree_t *lspdb = isis_get_lspdb_root(node_info);
 
     if (!lspdb) return ;
 
-    isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node, rtr_id, pn_id, fr_no);
+    isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node_info, rtr_id, pn_id, fr_no);
 
     if (!lsp_pkt) return;
 
-    isis_remove_lsp_pkt_from_lspdb(node, lsp_pkt);
+    isis_remove_lsp_pkt_from_lspdb(node_info, lsp_pkt);
 }
 
 void
-isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
+isis_remove_lsp_pkt_from_lspdb(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
 
-    avltree_t *lspdb = isis_get_lspdb_root(node);\
+    avltree_t *lspdb = isis_get_lspdb_root(node_info);
     
     if (!lspdb) return;
     if (!isis_is_lsp_pkt_installed_in_lspdb(lsp_pkt)) return;
@@ -640,8 +630,8 @@ isis_remove_lsp_pkt_from_lspdb(node_t *node, isis_lsp_pkt_t *lsp_pkt) {
 
     isis_print_lsp_id (lsp_pkt,  lsp_id_str);
 
-    tracer (ISIS_TR(node), TR_ISIS_LSDB | TR_ISIS_EVENTS,  
+    tracer (ISIS_TR(node_info), TR_ISIS_LSDB | TR_ISIS_EVENTS,  
         "%s : LSP %s removed from LSPDB\n", ISIS_LSPDB_MGMT, lsp_id_str);
         
-    isis_deref_isis_pkt(node, lsp_pkt);
+    isis_deref_isis_pkt(node_info, lsp_pkt);
 }

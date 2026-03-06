@@ -38,7 +38,7 @@ srv6_return_virtual_interface (node_t *node,
 }
 
 void
-srv6_rtm_route_install (node_t *node,
+srv6_rtm_route_install (vrf_t *vrf,
                         ipv6_addr_t *prefix,
                         uint8_t prefix_len,
                         uint32_t rt_flags,
@@ -60,12 +60,12 @@ srv6_rtm_route_install (node_t *node,
     inet_ntop6(prefix, ipv6_str);
 
     rtm = cp_rtm_get_route_target_rtm (
-            node, oif ? oif->vrf : NODE_DEF_VRF(node),
+            vrf,
             AF_IPV6, proto, RTM_SUB_PROTO_SRv6);
         
     if (!rtm) {
-        cprintf("%s : Error: No RTM localted for route %s/%d\n",
-            node->node_name, ipv6_str, prefix_len);
+        cprintf("%s-%s : Error: No RTM localted for route %s/%d\n",
+            vrf->node->node_name, vrf->vrf_name, ipv6_str, prefix_len);
         return;
     }
 
@@ -166,7 +166,7 @@ srv6_rtm_route_install (node_t *node,
     nh_template.rtm_nh_proto->proto = proto;
     nh_template.rtm_nh_proto->sub_proto = RTM_SUB_PROTO_SRv6;
     nh_template.rtm_nh_proto->instance_no = 0;
-    nh_template.rtm_nh_proto->vrf_id = oif ? oif->vrf->vrf_id : NODE_DEF_VRF(node)->vrf_id;
+    nh_template.rtm_nh_proto->vrf_id = vrf->vrf_id;
 
     /* (Un)Install route using new RTM API */
     rc = install ? cp_rtm_install_route(rtm, &prefix_key, &nh_template) : \

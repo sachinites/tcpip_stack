@@ -32,7 +32,8 @@
 
 #ifndef __GLUETHREAD__
 #define __GLUETHREAD__
-#include <cstddef>
+
+#include <stdbool.h>
 
 typedef struct _glthread{
 

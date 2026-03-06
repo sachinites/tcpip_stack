@@ -532,7 +532,7 @@ PhysicalInterface::L2ModeToString(IntfL2Mode l2_mode)
         return std::string("Trunk");
     default:;
     }
-    return "Unknown"
+    return "Unknown";
 }
 
 bool PhysicalInterface::IsVlanTrunked(vlan_id_t vlan_id)

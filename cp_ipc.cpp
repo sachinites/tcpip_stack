@@ -114,14 +114,14 @@ ipc_msg_free_after_use (event_dispatcher_t *ev,  ips_t *ips) {
 										TASK_PRIORITY_GARBAGE_COLLECTOR);
 }
 
-void 
-cp_ips_send (node_t *node, 
-                        ips_major_code_t major_code,
-                        uint32_t minor_code,
-                        void *msg, 
-                        uint32_t msg_size,
-                        bool free_after_use,
-                        void (*free_fn)(node_t*, void *) ) {
+void cp_ips_send(node_t *node,
+                 ips_major_code_t major_code,
+                 uint32_t minor_code,
+                 void *msg,
+                 uint32_t msg_size,
+                 bool free_after_use,
+                 void (*free_fn)(void *, void *))
+{
 
     ips_t *ips = (ips_t *)calloc(1, sizeof(ips_t));
     ips->major_code = major_code;

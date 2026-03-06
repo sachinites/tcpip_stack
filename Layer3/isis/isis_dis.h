@@ -5,10 +5,10 @@
 #include "isis_struct.h"
 
 class Interface;
-typedef struct node_ node_t;
+typedef struct isis_node_info_ isis_node_info_t;
 
 pn_id_t
-isis_reserve_new_pn_id (node_t *node, bool *found);
+isis_reserve_new_pn_id (isis_node_info_t *node_info, bool *found);
 
 void
 isis_intf_allocate_lan_id (Interface *intf);

@@ -50,7 +50,7 @@
  * Forward Declarations
  * ======================================================================== */
 
-typedef struct node_ node_t;
+typedef struct vrf_ vrf_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct task_ task_t;
 typedef struct mtrie_ mtrie_t;
@@ -116,10 +116,10 @@ typedef struct rtm_ {
     /* List of rtm_presentation_data_t objects, to be advertised to 
         protocols */
     Fglthread_t advt_nhs[RTM_PROTO_MAX];
-
+    
     /* Backpointer to owning node*/
     node_t *node; 
-    
+        
     /* List of Orphan Indirect NHs which have no route to resolve over */
     Fglthread_t unresolvable_paths;
     

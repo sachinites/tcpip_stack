@@ -15,7 +15,9 @@
 typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
 typedef struct node_ node_t;
-typedef struct node_info_ isis_node_info_t;
+typedef struct isis_node_info_ isis_node_info_t;
+typedef struct srv6_node_info_ srv6_node_info_t ;
+typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 
 #define MAX_VRF_PER_NODE    8
 
@@ -64,6 +66,8 @@ typedef struct vrf_ {
     glthread_t dx4_sid_lst;
 
     isis_node_info_t *isis_node_info;
+    /* Device level SRV6 info */
+    srv6_node_info_t *srv6_node_info;
 
 } vrf_t;
 

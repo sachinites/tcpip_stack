@@ -1496,10 +1496,10 @@ cp_rtm_unsubscribe(rtm_t *rtm, rtm_rt_subscription_t *sub_template) {
  * @return Pointer to target RTM, or NULL if not found
  */
 rtm_t *
-cp_rtm_get_route_target_rtm( node_t *node, 
+cp_rtm_get_route_target_rtm(
                           vrf_t *vrf, AFI_T afi,
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto) {
 
-    return rtm_get_route_target_rtm(node, vrf, afi, proto, sub_proto);
+    return rtm_get_route_target_rtm(vrf, afi, proto, sub_proto);
 }

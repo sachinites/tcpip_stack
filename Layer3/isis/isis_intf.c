@@ -10,7 +10,7 @@
 #include "isis_utils.h"
 
 bool
-isis_node_intf_is_enable(Interface *intf) {
+isis_is_protocol_enable_on_intf(Interface *intf) {
 
     return !(intf->isis_intf_info == NULL);
 }
@@ -30,7 +30,7 @@ isis_is_passive_intf (InterfaceType_t iftype) {
 bool
 isis_interface_qualify_to_send_hellos(Interface *intf){
 
-    if (isis_node_intf_is_enable(intf) &&
+    if (isis_is_protocol_enable_on_intf(intf) &&
          intf->IsIpConfigured() &&
          intf->is_up && 
          !isis_is_passive_intf (intf->iftype)) {
@@ -50,7 +50,9 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     isis_timer_data_t *isis_timer_data = (isis_timer_data_t *)arg;
     
-    node_t *node = isis_timer_data->node;
+    isis_node_info_t *node_info = isis_timer_data->node_info;
+    node_t *node = node_info->vrf->node;
+
     Interface *egress_intf = isis_timer_data->intf;
     pkt_block = (pkt_block_t *)isis_timer_data->data;
     ISIS_INTF_INCREMENT_STATS(egress_intf, hello_pkt_sent);
@@ -105,7 +107,7 @@ isis_send_hello_immediately (Interface *intf) {
 void
 isis_start_sending_hellos (Interface *intf) {
 
-    node_t *node;
+    isis_node_info_t *node_info;
     pkt_size_t hello_pkt_size;
     isis_intf_info_t *intf_info;
 
@@ -114,13 +116,15 @@ isis_start_sending_hellos (Interface *intf) {
     if (!intf_info) return;
     if (intf_info->hello_xmit_timer) return;
    
-    node = intf->att_node;
+    node_t *node = intf->att_node;
+    node_info = intf->vrf->isis_node_info;
+
     byte *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
 
     isis_timer_data_t *isis_timer_data =
         XCALLOC2(0, 1, isis_timer_data_t);
 
-    isis_timer_data->node = node;
+    isis_timer_data->node_info = node_info;
     isis_timer_data->intf = intf;
     pkt_block_t *pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
     isis_timer_data->data = (void *)pkt_block;
@@ -149,6 +153,8 @@ free_timer_data (isis_timer_data_t *timer_data) {
 void
 isis_stop_sending_hellos(Interface *intf){
 
+    isis_node_info_t *node_info = ISIS_CTX_INTF(intf);
+
     timer_event_handle *hello_xmit_timer = NULL;
 
     hello_xmit_timer = ISIS_INTF_HELLO_XMIT_TIMER(intf);
@@ -162,7 +168,7 @@ isis_stop_sending_hellos(Interface *intf){
     pkt_block_dereference((pkt_block_t *)isis_timer_data->data);
     free_timer_data(isis_timer_data);
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
-    tracer (ISIS_TR(intf->att_node),  TR_ISIS_PKT_HELLO,
+    tracer (ISIS_TR(node_info),  TR_ISIS_PKT_HELLO,
             "Interface : %s : Hello Transmission Switched off",
             intf->if_name.c_str())
 }
@@ -205,7 +211,7 @@ isis_enable_protocol_on_interface(Interface *intf) {
 
     isis_intf_info_t *intf_info = NULL;
 
-    if (!isis_is_protocol_enable_on_node(intf->att_node)) {
+    if (!isis_is_protocol_enable_on_node(intf->vrf)) {
         cprintf ("Error : %s : ISIS is not enabled", intf->att_node->node_name);
         return;
     }
@@ -296,7 +302,7 @@ isis_show_interface_protocol_state(Interface *intf) {
     isis_adjacency_t *adjacency = NULL;
     isis_intf_info_t *intf_info = NULL;
 
-    is_enabled = isis_node_intf_is_enable(intf);
+    is_enabled = isis_is_protocol_enable_on_intf(intf);
 
     cprintf(" %s : %sabled\n", intf->if_name.c_str(), is_enabled ? "En" : "Dis");
     
@@ -377,6 +383,7 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
     isis_intf_info_t *intf_info;    
     isis_adv_data_t *advt_data;
     isis_adjacency_t *adjacency;
+    isis_node_info_t *node_info = ISIS_CTX_INTF(intf);
 
     /* case 1 : New IP Address Added, start sending hellos if intf qualifies*/
 
@@ -444,7 +451,7 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
 
             advt_data = intf_info->lan_self_to_pn_adv_data;
             advt_data->u.adj_data.local_intf_ip = ip_addr;
-            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+            isis_schedule_regen_fragment (node_info, advt_data->fragment, isis_event_admin_config_changed);
         }
 
         /* Update advt_data from PN to self-DIS i.e. intf_info->lan_pn_to_self_adv_data */
@@ -452,7 +459,7 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
 
             advt_data = intf_info->lan_pn_to_self_adv_data;
             advt_data->u.adj_data.remote_intf_ip =  ip_addr;
-            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+            isis_schedule_regen_fragment (node_info, advt_data->fragment, isis_event_admin_config_changed);
         }
     }
     else {
@@ -464,7 +471,7 @@ isis_handle_interface_ip_addr_changed (Interface *intf,
              advt_data = adjacency->u.p2p_adv_data;
              intf->InterfaceGetIpAddressMask (&ip_addr, &mask);
              advt_data->u.adj_data.local_intf_ip = ip_addr;
-            isis_schedule_regen_fragment (intf->att_node, advt_data->fragment, isis_event_admin_config_changed);
+            isis_schedule_regen_fragment (node_info, advt_data->fragment, isis_event_admin_config_changed);
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
@@ -497,11 +504,11 @@ isis_show_one_intf_stats (Interface *intf, uint32_t rc) {
 }
 
 uint32_t 
-isis_show_all_intf_stats(node_t *node) {
+isis_show_all_intf_stats(isis_node_info_t *node_info) {
 
     uint32_t rc = 0;
     Interface *intf;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
     if (!node_info) return 0;
 
     /* Print header */
@@ -510,12 +517,12 @@ isis_show_all_intf_stats(node_t *node) {
     rc += cprintf("%-8s  %-8s  %-8s  %-10s  %-9s  %-9s  %-12s\n",
                   "--------", "--------", "--------", "----------", "---------", "---------", "------------");
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {
 
-        if (!isis_node_intf_is_enable(intf)) continue;
+        if (!isis_is_protocol_enable_on_intf(intf)) continue;
         rc += isis_show_one_intf_stats(intf, rc);
 
-    } ITERATE_NODE_INTERFACES_END(node, intf);
+    } ITERATE_NODE_ISIS_INTERFACES_END;
 
     rc += cprintf("\n");
     return rc;
@@ -527,10 +534,9 @@ isis_config_interface_link_type(Interface *intf, isis_intf_type_t intf_type) {
     bool rc;
     pn_id_t pn_id;
     uint32_t rtr_id;
-    node_t *node = intf->att_node;
+    isis_node_info_t *node_info = ISIS_CTX_INTF(intf);
 
     isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!intf_info) return -1;
 
@@ -563,9 +569,7 @@ int
 isis_interface_set_priority (Interface *intf, uint16_t priority,  bool enable) {
 
     isis_lan_id_t old_dis_id,
-                          new_dis_id;
-
-   node_t *node = intf->att_node;
+                  new_dis_id;
 
    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -607,9 +611,9 @@ isis_interface_set_metric (Interface *intf, uint32_t metric, bool enable) {
     isis_adv_data_t *advt_data;
 
     isis_lan_id_t old_dis_id,
-                          new_dis_id;
+                  new_dis_id;
 
-   node_t *node = intf->att_node;
+   isis_node_info_t *node_info = ISIS_CTX_INTF(intf);
 
    isis_intf_info_t *intf_info = ISIS_INTF_INFO(intf);
 
@@ -642,7 +646,8 @@ isis_interface_set_metric (Interface *intf, uint32_t metric, bool enable) {
         advt_data->u.adj_data.metric = intf_info->cost;
 
         if (advt_data->fragment) {
-            isis_schedule_regen_fragment (node, advt_data->fragment, isis_event_admin_config_changed);
+            isis_schedule_regen_fragment (node_info, 
+                advt_data->fragment, isis_event_admin_config_changed);
         }
     }
 
@@ -665,11 +670,11 @@ isis_interface_reset_stats (Interface *intf) {
 }
 
 void 
-isis_interface_ipc_updates(node_t *node, uint32_t minor_code, ipc_interface_t *msg) {
+isis_interface_ipc_updates(isis_node_info_t *node_info, uint32_t minor_code, ipc_interface_t *msg) {
 
     Interface *intf = msg->intf.get();
 
-    if (!isis_node_intf_is_enable(intf)) return;
+    if (!isis_is_protocol_enable_on_intf(intf)) return;
 
     switch (minor_code) {
 
@@ -697,13 +702,13 @@ isis_interface_ipc_updates(node_t *node, uint32_t minor_code, ipc_interface_t *m
 }
  
 void 
- isis_gre_tunnel_ipc_updates (node_t *node, uint32_t minor_code, ipc_gre_t *msg) {
+ isis_gre_tunnel_ipc_updates (isis_node_info_t *node_info, uint32_t minor_code, ipc_gre_t *msg) {
 
     //cprintf ("%s() : invoked", __FUNCTION__);
  }
 
  void 
- isis_access_lst_ipc_updates (node_t *node, uint32_t minor_code, ipc_access_lst_t *msg) {
+ isis_access_lst_ipc_updates (isis_node_info_t *node_info, uint32_t minor_code, ipc_access_lst_t *msg) {
 
     //cprintf ("%s() : invoked", __FUNCTION__);
  }

@@ -94,6 +94,7 @@ OBJS=gluethread/glthread.o \
 		  vrf/vrf_cli.cpp \
 		  vrf/vrf.cpp \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
+		  ips_pub_sub_init.o \
 		  
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -118,6 +119,9 @@ ted/ted.o:ted/ted.c
 
 cp_ipc.o:cp_ipc.cpp
 	${CC} ${CFLAGS} -c -I . cp_ipc.cpp -o cp_ipc.o
+
+ips_pub_sub_init.o:ips_pub_sub_init.c
+	${CC} ${CFLAGS} -c -I . ips_pub_sub_init.c -o ips_pub_sub_init.o
 
 prefix-list/prefixlst.o:prefix-list/prefixlst.c
 	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o

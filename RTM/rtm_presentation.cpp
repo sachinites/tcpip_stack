@@ -1426,15 +1426,15 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
     rtm_ppt_route_t *ppt_route;
     rtm_ppt_route_t ppt_route_template;
 
-    /* Properly initialize the template structure to avoid uninitialized memory */
-    memset(&ppt_route_template, 0, sizeof(rtm_ppt_route_t));
-    
     /* Validate prefix before proceeding */
     if (!prefix) {
         tracer (rtm->node->cptr, DRTM|DERR, "RTM[%s] : PPT-DB Registration failed : NULL prefix\n",
             rtm->name);
         return;
     }
+
+    /* Properly initialize the template structure to avoid uninitialized memory */
+    memset(&ppt_route_template, 0, sizeof(rtm_ppt_route_t));
 
     ppt_route_template.ridx;
     ppt_route_template.prefix = *prefix;

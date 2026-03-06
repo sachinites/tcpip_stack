@@ -1,23 +1,24 @@
 #include "../../tcp_public.h"
+#include "isis_utils.h"
 #include "isis_rtr.h"
 #include "isis_intf.h"
 #include "isis_adjacency.h"
 #include "isis_layer2map.h"
 
 static int
-isis_build_layer2_mapping (node_t *node) {
+isis_build_layer2_mapping (isis_node_info_t *node_info) {
 
     Interface *intf;
     glthread_t *curr;
     isis_adjacency_t *adjacency;
 
-    if (!isis_is_layer2_mapping_enabled (node)) {
+    if (!isis_is_layer2_mapping_enabled (node_info)) {
         return 0;
     }
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {
 
-        if (! isis_node_intf_is_enable(intf)) continue;
+        if (! isis_is_protocol_enable_on_intf(intf)) continue;
 
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
@@ -27,21 +28,21 @@ isis_build_layer2_mapping (node_t *node) {
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr) ;
 
-    } ITERATE_NODE_INTERFACES_END(node, intf);
+    } ITERATE_NODE_ISIS_INTERFACES_END;
 
     return 0;
 }
 
 static int
-isis_destroy_layer2_mapping (node_t *node) {
+isis_destroy_layer2_mapping (isis_node_info_t *node_info) {
 
     Interface *intf;
     glthread_t *curr;
     isis_adjacency_t *adjacency;
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {
 
-        if (! isis_node_intf_is_enable(intf)) continue;
+        if (! isis_is_protocol_enable_on_intf(intf)) continue;
 
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
@@ -51,48 +52,33 @@ isis_destroy_layer2_mapping (node_t *node) {
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr) ;
 
-    } ITERATE_NODE_INTERFACES_END(node, intf);
+    } ITERATE_NODE_ISIS_INTERFACES_END;
 
     return 0;
 }
 
 int
-isis_config_layer2_map (node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) {
-        cprintf(ISIS_ERROR_PROTO_NOT_ENABLE "\n");
-        return -1;
-    }
+isis_config_layer2_map (isis_node_info_t *node_info) {
 
     if (node_info->layer2_mapping) return 0;
 
     node_info->layer2_mapping = true;
-    isis_build_layer2_mapping(node);
+    isis_build_layer2_mapping(node_info);
     return 0;
 }
 
 int
-isis_un_config_layer2_map (node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) {
-        return -1;
-    }
+isis_un_config_layer2_map (isis_node_info_t *node_info) {
 
     if (!node_info->layer2_mapping) return 0;
-    isis_destroy_layer2_mapping (node);
+    isis_destroy_layer2_mapping (node_info);
     node_info->layer2_mapping = false;
     return 0;
 }
 
 bool
-isis_is_layer2_mapping_enabled (node_t *node) {
+isis_is_layer2_mapping_enabled (isis_node_info_t *node_info) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    if ( !node_info ) return false;
     return node_info->layer2_mapping;
 }
 
@@ -101,7 +87,7 @@ isis_update_layer2_mapping_on_adjacency_up (isis_adjacency_t *adjacency) {
 
     char ip_addr[IPV4_ADDR_LEN_STR];
 
-    if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
+    if (!isis_is_layer2_mapping_enabled(ISIS_CTX_ADJ(adjacency))) {
         return true;
     }
 
@@ -119,7 +105,7 @@ isis_update_layer2_mapping_on_adjacency_down (isis_adjacency_t *adjacency) {
 
     char ip_addr[IPV4_ADDR_LEN_STR];
 
-    if (!isis_is_layer2_mapping_enabled(adjacency->intf->att_node)) {
+    if (!isis_is_layer2_mapping_enabled(ISIS_CTX_ADJ(adjacency))) {
         return true;
     }
     

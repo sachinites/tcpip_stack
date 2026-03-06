@@ -154,7 +154,7 @@ proto_name_str (uint16_t proto) {
         case MPLS_PROTO:
             return (unsigned char *)"mpls";
         default:
-            return nullptr;
+            return (unsigned char *)"Unknown";
     }
 }
 

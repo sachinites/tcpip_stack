@@ -80,7 +80,7 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
     (ISIS_INTF_INFO(intf_ptr)->intf_type == isis_intf_type_p2p)
 
 bool
-isis_node_intf_is_enable (Interface *intf) ;
+isis_is_protocol_enable_on_intf (Interface *intf) ;
 
 void
 isis_enable_protocol_on_interface (Interface *intf);
@@ -107,7 +107,7 @@ void
 isis_send_hello_immediately (Interface *intf) ;
 
 uint32_t 
-isis_show_all_intf_stats (node_t *node);
+isis_show_all_intf_stats (isis_node_info_t *node_info);
 
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc);

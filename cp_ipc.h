@@ -13,7 +13,7 @@ typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct ips_ {
 
     void *msg;
-    void (*free_fn) (node_t *, void *);
+    void (*free_fn) (void *, void *);
     ips_major_code_t major_code;
     uint32_t minor_code;
     uint32_t msg_size;
@@ -23,11 +23,11 @@ typedef struct ips_ {
     
 }  ips_t;
 
-typedef void (*ipc_recvr_fn_cbk) (node_t *node, 
-                                                        ips_major_code_t major_code,
-                                                        uint32_t minor_code,
-                                                        void *msg,
-                                                        uint32_t msg_size);
+typedef void (*ipc_recvr_fn_cbk)(node_t *node,
+                                 ips_major_code_t major_code,
+                                 uint32_t minor_code,
+                                 void *msg,
+                                 uint32_t msg_size);
 
 typedef struct ipc_elem_ {
 
@@ -39,28 +39,24 @@ typedef struct ipc_elem_ {
 } __attribute__((aligned(8))) ipc_element_t;
 GLTHREAD_TO_STRUCT(glue_to_ipc_element, ipc_element_t , glue);
 
+void cp_ips_join(node_t *node,
+                 ips_major_code_t major_code,
+                 uint32_t minor_code,
+                 ipc_recvr_fn_cbk fn);
 
-void 
-cp_ips_join (node_t *node, 
-                           ips_major_code_t major_code,
-                           uint32_t minor_code,
-                           ipc_recvr_fn_cbk fn) ;
-
-void 
-cp_ips_unjoin (node_t *node, 
-                           ips_major_code_t major_code,
-                           ipc_recvr_fn_cbk fn) ;
+void cp_ips_unjoin(node_t *node,
+                   ips_major_code_t major_code,
+                   ipc_recvr_fn_cbk fn);
 
 void 
 ipc_event_signal (event_dispatcher_t *ev_dis, void *data, uint32_t data_size) ;
 
-void 
-cp_ips_send (node_t *node, 
-                        ips_major_code_t major_code,
-                        uint32_t minor_code,
-                        void *msg, 
-                        uint32_t msg_size,
-                        bool free_after_use,
-                        void (*free_fn)(node_t*, void *) ) ;
+void cp_ips_send(node_t *node,
+                 ips_major_code_t major_code,
+                 uint32_t minor_code,
+                 void *msg,
+                 uint32_t msg_size,
+                 bool free_after_use,
+                 void (*free_fn)(void *, void *));
 
 #endif 

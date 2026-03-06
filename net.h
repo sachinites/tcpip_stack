@@ -63,8 +63,6 @@ typedef struct rt_table_ rt_table_t;
 typedef struct mpls_rt_table_ mpls_rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
 typedef struct stp_node_ stp_node_info_t;
-typedef struct srv6_node_info_ srv6_node_info_t ;
-typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 typedef struct lfa_ lfa_t;
 
 /* VLAN-VNI Mapping Structure */
@@ -75,6 +73,7 @@ typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
 typedef struct def_vrf_ def_vrf_t;
 typedef struct dp_vrf_ dp_vrf_t;
+typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 
 typedef struct node_nw_prop_{
 
@@ -114,14 +113,11 @@ typedef struct node_nw_prop_{
     /* FILE Ptr to main logigng file File*/
     FILE *log_file;
     /*Device level Appln DS*/
-    void *isis_node_info;
     void *ldp_node_info;
     /* LFA module*/
     lfa_t *lfa;
-    /* Device level SRV6 info */
-    srv6_node_info_t *srv6_node_info;
     /* Global pools of SRv6 SIDs */
-   srv6_sid_pools_t  *srv6_sid_pools;
+    srv6_sid_pools_t  *srv6_sid_pools;
 
 } node_nw_prop_t;
 

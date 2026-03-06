@@ -62,6 +62,9 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     /* Initialize dx4_sid db*/
     init_glthread(&vrf->dx4_sid_lst);
 
+    vrf->isis_node_info = NULL;
+    vrf->srv6_node_info = NULL;
+
     return vrf;
 }
 
@@ -213,7 +216,7 @@ vrf_get_by_name (node_t *node, char *name) {
 
     int i;
     
-    if (strcmp (name, DEF_VRF_NAME) == 0) 
+    if (!name || strcmp (name, DEF_VRF_NAME) == 0) 
         return (vrf_t *)node->node_nw_prop.def_vrf;
 
     for (i = 0; i < MAX_VRF_PER_NODE; i++) {

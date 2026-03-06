@@ -4,20 +4,19 @@
 #include "isis_flood.h"
 #include "isis_policy.h"
 #include "isis_ted.h"
+#include "isis_utils.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../RTM/rtm_route.h"
 #include "../../Layer3/SegmentRouting/SRv6/cp/srv6_rtm.h"
 
 void
-isis_cancel_spf_job(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+isis_cancel_spf_job(isis_node_info_t *node_info) {
 
     if (!node_info ||
         !node_info->spf_job_task) return;
 
-    task_cancel_job(EV(node),  node_info->spf_job_task);
+    task_cancel_job(EV(node_info->vrf->node),  node_info->spf_job_task);
     node_info->spf_job_task = NULL;
 }
 
@@ -30,15 +29,15 @@ isis_free_spf_result(isis_spf_result_t *spf_result){
 }
 
 static void
-isis_init_node_spf_data(ted_node_t *node, bool delete_spf_result){
+isis_init_node_spf_data(ted_node_t *ted_node, bool delete_spf_result){
 
-    isis_spf_data_t **_spf_data = (isis_spf_data_t **)&ISIS_NODE_SPF_DATA(node);
+    isis_spf_data_t **_spf_data = (isis_spf_data_t **)&ISIS_NODE_SPF_DATA(ted_node);
     isis_spf_data_t *spf_data = *_spf_data;
 
     if (! spf_data ) {
         spf_data = XCALLOC2(0, 1, isis_spf_data_t);
         init_glthread(&spf_data->spf_result_head);
-        spf_data->node = node;
+        spf_data->node = ted_node;
         *_spf_data = spf_data;
     }
 
@@ -81,7 +80,7 @@ isis_spf_comparison_fn(void *data1, void *data2){
 }
 
 static isis_spf_result_t *
-isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
+isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node_info){
 
     glthread_t *curr;
     isis_spf_result_t *spf_result;
@@ -92,27 +91,25 @@ isis_spf_lookup_spf_result_by_node(ted_node_t *spf_root, ted_node_t *node){
     ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
-        if(spf_result->node == node)
+        if(spf_result->node == node_info)
             return spf_result;
     } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
     return NULL;
 }
 
-extern void
-dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id, bool del_static);
-
 /* Install Route in RTM */
 static void
 isis_rt_ipv6_route_add(
-    node_t *node,
+    isis_node_info_t *node_info,
     ipv6_addr_t *prefix,
     uint8_t mask,
     ipv6_addr_t *gw_ip,
     Interface *oif,
     uint32_t metric)
 {
-    rtm_t *rtm = cp_rtm_get_route_target_rtm(node, 
-                    NODE_DEF_VRF(node),
+    node_t *node = node_info->vrf->node;
+    rtm_t *rtm = cp_rtm_get_route_target_rtm(
+                    node_info->vrf,
                     AF_IPV6,
                     RTM_PROTO_ISIS, 
                     RTM_PROTO_L1_ISIS_INT);
@@ -140,15 +137,16 @@ isis_rt_ipv6_route_add(
 
 static void
 isis_rt_ipv6_route_del(
-    node_t *node,
+    isis_node_info_t *node_info,
     ipv6_addr_t *prefix,
     uint8_t mask,
     ipv6_addr_t *gw_ip,
     Interface *oif,
     uint32_t metric)
 {
-    rtm_t *rtm = cp_rtm_get_route_target_rtm(node, 
-                    NODE_DEF_VRF(node),
+    node_t *node = node_info->vrf->node;
+    rtm_t *rtm = cp_rtm_get_route_target_rtm(
+                    node_info->vrf,
                     AF_IPV6,
                     RTM_PROTO_ISIS, 
                     RTM_PROTO_L1_ISIS_INT);
@@ -186,7 +184,7 @@ isis_rt_ipv6_route_del(
 }
 
 static int
-isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
+isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
     rtm_t *rtm_v6;
     rtm_t *rtm_srv6;
@@ -197,17 +195,16 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
     char ipv6_addr_str[48];
     ted_v6prefix_t *ted_prefix;
     avltree_node_t *avl_node;
-    isis_node_info_t *node_info;
     uint32_t route_isis_metric;
-
-    node_info = ISIS_NODE_INFO(spf_root);
+    vrf_t *vrf = node_info->vrf;
+    node_t *spf_root = node_info->vrf->node;
 
     rtm_v6 = cp_rtm_get_route_target_rtm (
-                spf_root, NODE_DEF_VRF(spf_root),
+                vrf,
                 AF_IPV6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
 
     rtm_srv6 = cp_rtm_get_route_target_rtm (
-                spf_root, NODE_DEF_VRF(spf_root),
+                vrf,
                 AF_IPV6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6);
 
     cp_rtm_uninstall_routes_by_proto (rtm_v6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
@@ -226,7 +223,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
         
-        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, 
+        tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, 
             "%s : Dest %s  : Computing ipv6 Routes Begin\n", ISIS_ROUTE,
                 spf_result->node->node_name);
 
@@ -242,7 +239,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
             rtm_route = rtm_route_lookup(rtm_v6, &prefix);
 
-            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
+            tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
                     ISIS_ROUTE,
                     spf_result->node->node_name,
                     inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
@@ -252,7 +249,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                 rtm_route_is_resolved(rtm_route) &&
                 rtm_route_is_local (rtm_route)) {
 
-                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, 
+                tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, 
                     "%s : Dest %s  : Route %s/%d is Local, skipped\n",
                     ISIS_ROUTE, spf_result->node->node_name, 
                     inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
@@ -269,12 +266,12 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     nexthop = spf_result->nexthops[i];
                     if (!nexthop) break;
 
-                    tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                    tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                             ISIS_ROUTE,
                             spf_result->node->node_name,
                             inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
 
-                    isis_rt_ipv6_route_add(spf_root,
+                    isis_rt_ipv6_route_add(node_info,
                                            &v6_prefix,
                                            ted_prefix->mask,
                                            0,
@@ -298,11 +295,11 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
             if (route_isis_metric > 
                     (spf_result->spf_metric + ted_prefix->metric)) {
 
-                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
+                tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
                             ISIS_ROUTE, spf_result->node->node_name,
                             inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
 
-                isis_rt_ipv6_route_del (spf_root,
+                isis_rt_ipv6_route_del (node_info,
                          &v6_prefix, ted_prefix->mask,  0, 0, 0);
 
                 for (i = 0; i < MAX_NXT_HOPS; i++){
@@ -310,11 +307,11 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     nexthop = spf_result->nexthops[i];
                     if (!nexthop) break;
 
-                    tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
+                    tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
                             ISIS_ROUTE, spf_result->node->node_name,
                             inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
 
-                    isis_rt_ipv6_route_add(spf_root,
+                    isis_rt_ipv6_route_add(node_info,
                                            &v6_prefix,
                                            ted_prefix->mask,
                                            0,
@@ -332,11 +329,11 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                 nexthop = spf_result->nexthops[i];
                 if (!nexthop) break;
 
-                tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
+                tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
                             ISIS_ROUTE, spf_result->node->node_name,
                             inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
 
-                isis_rt_ipv6_route_add(spf_root,
+                isis_rt_ipv6_route_add(node_info,
                                        &v6_prefix,
                                        ted_prefix->mask,
                                        0,
@@ -354,7 +351,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
             ted_prefix = avltree_container_of(avl_node, ted_v6prefix_t, avl_glue);
             memcpy (v6_prefix.addr, ted_prefix->prefix, 16);
 
-            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : SRv6 Prefix sid Route Add %s/%d\n", 
+            tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : SRv6 Prefix sid Route Add %s/%d\n", 
                     ISIS_ROUTE,
                     spf_result->node->node_name,
                     inet_ntop6 (&v6_prefix, ipv6_addr_str), ted_prefix->mask);
@@ -364,7 +361,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
                 nexthop = spf_result->nexthops[i];
                 if (!nexthop) break;
 
-                srv6_rtm_route_install (spf_root, 
+                srv6_rtm_route_install (vrf,
                                         &v6_prefix, 
                                         ted_prefix->mask, 
                                         FIB_NH_FWD_F_FORWARD,
@@ -387,7 +384,7 @@ isis_spf_install_v6routes(node_t *spf_root, ted_node_t *ted_spf_root){
 /* Install Route in RTM */
 static void
 isis_rt_ipv4_route_add(
-    node_t *node,
+    isis_node_info_t *node_info,
     uint32_t prefix,
     uint8_t mask,
     uint32_t gw_ip,
@@ -395,8 +392,9 @@ isis_rt_ipv4_route_add(
     uint32_t metric)
 {
 
-    rtm_t *rtm = cp_rtm_get_route_target_rtm(node, 
-                    NODE_DEF_VRF(node),
+    node_t *node = node_info->vrf->node;
+    rtm_t *rtm = cp_rtm_get_route_target_rtm(
+                    node_info->vrf,
                     AF_IPV4,
                     RTM_PROTO_ISIS, 
                     RTM_PROTO_L1_ISIS_INT);
@@ -421,7 +419,7 @@ isis_rt_ipv4_route_add(
 
 static void
 isis_rt_ipv4_route_del(
-    node_t *node,
+    isis_node_info_t *node_info,
     uint32_t prefix,
     uint8_t mask,
     uint32_t gw_ip,
@@ -429,7 +427,8 @@ isis_rt_ipv4_route_del(
     uint32_t metric)
 {
 
-    rtm_t *rtm = rtm_get (node, oif->GetVRF(), AF_IPV4, 0);
+    node_t *node = node_info->vrf->node;
+    rtm_t *rtm = node_info->vrf->inet0;
     cmn_prefix_t rtm_prefix, rtm_gateway;
 
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
@@ -458,7 +457,7 @@ isis_rt_ipv4_route_del(
 }
 
 static int
-isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
+isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
     rtm_t *rtm;
     rtm_nh *nh;
@@ -467,12 +466,9 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
     char ip_addr[IPV4_ADDR_LEN_STR];
     ted_prefix_t *ted_prefix;
     avltree_node_t *avl_node;
-    isis_node_info_t *node_info;
     uint32_t prefix32bit, mask32bit;
 
-    node_info = ISIS_NODE_INFO(spf_root);
-
-    rtm = rtm_get ( spf_root, RTM_DEFAULT_VRF, AF_IPV4, 0);
+    rtm = node_info->vrf->inet0;
 
     cp_rtm_uninstall_routes_by_proto (rtm, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
 
@@ -492,7 +488,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
         spf_result = isis_spf_res_glue_to_spf_result(curr);
         
-        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Computing Routes Begin\n", 
+        tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Computing Routes Begin\n", 
                         ISIS_ROUTE,
                         spf_result->node->node_name);
 
@@ -513,7 +509,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
             if (!nexthop) break;
 
-            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+            tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                         ISIS_ROUTE,
                         spf_result->node->node_name,
                         tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32);          
@@ -536,7 +532,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                     ted_prefix = avltree_container_of(avl_node, ted_prefix_t, avl_glue);
                     
-                    if (isis_evaluate_policy(spf_root, 
+                    if (isis_evaluate_policy(node_info,
                                                     node_info->import_policy,
                                                     ted_prefix->prefix, ted_prefix->mask) == PFX_LST_DENY){
                         continue;
@@ -550,7 +546,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 
                     rtm_route = rtm_route_lookup(rtm, &prefix);
                     
-                    tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
+                    tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Considering Route %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
                                     ip_addr, ted_prefix->mask); 
 
@@ -559,7 +555,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                         rtm_route_is_resolved(rtm_route) &&
                         rtm_route_is_local (rtm_route)) {
 
-                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, 
+                        tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, 
                             "%s : Dest %s  : Route %s/%d is Local, skipped",
                             ISIS_ROUTE, spf_result->node->node_name, ip_addr, ted_prefix->mask);
 
@@ -575,12 +571,12 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                             nexthop = spf_result->nexthops[i];
                             if (!nexthop) break;
 
-                            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
+                            tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
                                     ip_addr, ted_prefix->mask);     
 
                             /* New RTM Route Install */
-                            isis_rt_ipv4_route_add (spf_root,  
+                            isis_rt_ipv4_route_add (node_info, 
                                 prefix32bit, ted_prefix->mask,
                                 tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
                                 nexthop->oif.get(),
@@ -603,11 +599,11 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                     if (route_isis_metric > 
                             (spf_result->spf_metric + ted_prefix->metric)) {
 
-                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
+                        tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
                                     tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
 
-                        isis_rt_ipv4_route_del (spf_root,
+                        isis_rt_ipv4_route_del (node_info,
                                  prefix32bit, ted_prefix->mask,  0, 0, 0);
 
                         for (i = 0; i < MAX_NXT_HOPS; i++){
@@ -615,12 +611,12 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                             nexthop = spf_result->nexthops[i];
                             if (!nexthop) break;
 
-                            tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
+                            tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
                                     ip_addr, ted_prefix->mask);         
 
                             /* New RTM Route Install */
-                            isis_rt_ipv4_route_add (spf_root,  
+                            isis_rt_ipv4_route_add (node_info,
                                 prefix32bit, ted_prefix->mask, 
                                 tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
                                 nexthop->oif.get(),
@@ -637,12 +633,12 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
                         nexthop = spf_result->nexthops[i];
                         if (!nexthop) break;
 
-                        tracer (ISIS_TR(spf_root), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
+                        tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
                                     tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
 
                             /* New RTM Route Install */
-                            isis_rt_ipv4_route_add (spf_root,  
+                            isis_rt_ipv4_route_add (node_info,
                                 prefix32bit, ted_prefix->mask,
                                 tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
                                 nexthop->oif.get(),
@@ -658,7 +654,7 @@ isis_spf_install_routes(node_t *spf_root, ted_node_t *ted_spf_root){
 }
 
 static void
-isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
+isis_initialize_direct_nbrs (isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
     /*Initialize direct nbrs*/
     char ip_addr[IPV4_ADDR_LEN_STR];
@@ -669,8 +665,9 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
     isis_spf_data_t *nbr_spf_data;
     ted_node_t *nbr_of_pn = NULL;
     uint32_t nxt_hop_ip , nxt_hop_ip2;
+    node_t *spf_root = node_info->vrf->node;
 
-    tracer (ISIS_TR(spf_root), TR_ISIS_SPF, 
+    tracer (ISIS_TR(node_info), TR_ISIS_SPF, 
         "%s : ISIS initializing direct nbrs\n", ISIS_SPF);
     
     ITERATE_TED_NODE_NBRS_BEGIN(ted_spf_root, nbr, oif, nxt_hop_ip){
@@ -679,7 +676,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
          * Bi-Directional L3 link. */
         if (!ted_is_link_bidirectional(oif->link)) {
 
-                tracer (ISIS_TR(spf_root), TR_ISIS_SPF, 
+                tracer (ISIS_TR(node_info), TR_ISIS_SPF, 
                     "%s : nbr %s is not birectional, skipping it\n", ISIS_SPF, nbr->node_name);
             continue;
         }
@@ -692,7 +689,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     /*Populate nexthop array of directly connected nbrs of spf_root*/
                     if (oif->cost < nbr_spf_data->spf_metric)
                     {
-                         tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops flushed :  %s\n",
+                         tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : Nbr Node %s nexthops flushed :  %s\n",
                             ISIS_SPF, nbr->node_name,
                             nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                          nh_flush_nexthops(nbr_spf_data->nexthops);
@@ -703,7 +700,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          nbr_spf_data->spf_metric = oif->cost;
                          nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf));
-                         tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
+                         tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
                             ISIS_SPF, nbr->node_name,
                             nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                     }
@@ -714,20 +711,20 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     else if (oif->cost == nbr_spf_data->spf_metric)
                     {
                          nexthop = nh_create_new_nexthop(nbr->node_name,
-                                                        oif->ifindex,
+                                                         oif->ifindex,
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr),
                                                          PROTO_ISIS);
                          
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
 
                             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
-                            tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
+                            tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : Nbr Node %s nexthops learned :  %s\n",
                                 ISIS_SPF, nbr->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                          }
                          else {
                             
-                            tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Nbr Node %s nexthops not learned :  %s, ECMP limit reached\n",
+                            tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : Nbr Node %s nexthops not learned :  %s, ECMP limit reached\n",
                                 ISIS_SPF, nbr->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));
                             delete (nexthop);
@@ -757,18 +754,18 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 
               ITERATE_TED_NODE_NBRS_BEGIN(nbr, nbr_of_pn, oif2, nxt_hop_ip2){
 
-                     tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : Initializing PN's %s direct nbr %s\n", 
+                     tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : Initializing PN's %s direct nbr %s\n", 
                         ISIS_SPF, nbr->node_name, nbr_of_pn->node_name);
                         
                      if (!ted_is_link_bidirectional(oif2->link)){ 
-                        tracer (ISIS_TR(spf_root), TR_ISIS_SPF, 
+                        tracer (ISIS_TR(node_info), TR_ISIS_SPF, 
                             "%s : PN's %s direct nbr %s is not birectional, skipping it\n", ISIS_SPF,  
                             nbr->node_name, nbr_of_pn->node_name);
                         continue;
                      }
 
                     if (nbr_of_pn == ted_spf_root) {
-                        tracer (ISIS_TR(spf_root), TR_ISIS_SPF, 
+                        tracer (ISIS_TR(node_info), TR_ISIS_SPF, 
                             "%s : PN's %s direct nbr %s is self root, skipping it\n", ISIS_SPF,  
                             nbr->node_name, nbr_of_pn->node_name);
                         continue;
@@ -779,7 +776,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                     /*Populate nexthop array of directly connected nbrs of spf_root*/
                     if ( (root_to_pn_cost + oif2-> cost ) < nbr_spf_data->spf_metric)
                     {
-                         tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops flushed :  %s\n",
+                         tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops flushed :  %s\n",
                             ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
                             nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));                        
                          nh_flush_nexthops(nbr_spf_data->nexthops);
@@ -788,7 +785,7 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                                                          tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex)->GetSharedPtr();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
-                         tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
+                         tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
                             ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
                             nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));                          
                          nbr_spf_data->spf_metric = root_to_pn_cost + oif2->cost;
@@ -808,13 +805,13 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
 
                             nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
-                            tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
+                            tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
                                 ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf)));  
                          }
                          else {
                             
-                            tracer (ISIS_TR(spf_root), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s, ECMP limit reached\n",
+                            tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s, ECMP limit reached\n",
                                 ISIS_SPF, nbr->node_name, nbr_of_pn->node_name,
                                 nh_nexthops_str(nbr_spf_data->nexthops, log_buf, sizeof(log_buf))); 
                             delete (nexthop);
@@ -829,9 +826,10 @@ isis_initialize_direct_nbrs (node_t *spf_root, ted_node_t *ted_spf_root){
 }
 
 static void
-isis_spf_record_result (tracer_t *tr,
-                                    ted_node_t *spf_root, 
-                                    ted_node_t *processed_node){ /*Dequeued Node*/
+isis_spf_record_result(tracer_t *tr,
+                       ted_node_t *spf_root,
+                       ted_node_t *processed_node)
+{ /*Dequeued Node*/
 
     unsigned char log_buff[256];
     isis_spf_data_t *spf_root_spf_data;
@@ -877,7 +875,6 @@ isis_spf_record_result (tracer_t *tr,
 
     /*Step 5 : End*/
 }
-
 
 static void
 isis_spf_explore_nbrs(tracer_t *tr,
@@ -1094,32 +1091,28 @@ static void
  }
 
 void
-isis_compute_spf (node_t *spf_root);
+isis_compute_spf (isis_node_info_t *node_info);
 
 void
-isis_compute_spf (node_t *spf_root){
+isis_compute_spf (isis_node_info_t *node_info){
 
     ted_intf_t *oif;
     glthread_t *curr;
     uint32_t nxt_hop_ip;
-    ted_node_t *node, *nbr;
+    ted_node_t *nbr;
     ted_node_t *ted_spf_root;
     isis_spf_data_t *curr_spf_data;
     isis_spf_data_t *spf_root_spf_data = NULL;
     isis_spf_data_t *nbr_node_spf_data = NULL;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(spf_root);
-
-    if (!isis_is_protocol_enable_on_node(spf_root)) {
-        return;
-    }
+    node_t *spf_root = node_info->vrf->node;
 
     ted_spf_root = ted_lookup_node(
-                                node_info->ted_db,
-                                tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(spf_root)), 0);
+                        node_info->ted_db,
+                        tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(spf_root)), 0);
 
     if (!ted_spf_root) return;
 
-    tracer (ISIS_TR(spf_root), TR_ISIS_SPF,  "%s : Running Spf\n", ISIS_SPF);
+    tracer (ISIS_TR(node_info), TR_ISIS_SPF,  "%s : Running Spf\n", ISIS_SPF);
 
     /*Step 1 : Begin*/
     /* Clear old spf Result list from spf_root, and clear
@@ -1135,7 +1128,7 @@ isis_compute_spf (node_t *spf_root){
     isis_initialize_topology_for_spf_run (ted_spf_root);
     /*Step 1 : End*/
    
-    isis_initialize_direct_nbrs(spf_root, ted_spf_root);
+    isis_initialize_direct_nbrs(node_info, ted_spf_root);
 
     /*Step 3 : Begin*/
     /* Initialize the Priority Queue. You can implement the PQ as a 
@@ -1158,7 +1151,7 @@ isis_compute_spf (node_t *spf_root){
         curr_spf_data = isis_priority_thread_glue_to_spf_data(curr);
         curr_spf_data->is_spf_processed = true;
 
-        tracer (ISIS_TR(spf_root), TR_ISIS_SPF, 
+        tracer (ISIS_TR(node_info), TR_ISIS_SPF, 
             "%s : Node %s taken out of priority queue\n", ISIS_SPF, curr_spf_data->node->node_name);
 
         /* if the current node that is removed from PQ is spf root itself. 
@@ -1172,7 +1165,7 @@ isis_compute_spf (node_t *spf_root){
                 nbr_node_spf_data = ISIS_NODE_SPF_DATA(nbr);
                 if(IS_GLTHREAD_LIST_EMPTY(&nbr_node_spf_data->priority_thread_glue)){
 
-                    tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
+                    tracer (ISIS_TR(node_info), TR_ISIS_SPF,
                         "%s : Processing Direct Nbr %s\n", ISIS_SPF, nbr->node_name);
 
                     glthread_priority_insert(&priority_lst, 
@@ -1180,12 +1173,12 @@ isis_compute_spf (node_t *spf_root){
                             isis_spf_comparison_fn, 
                             isis_spf_data_offset_from_priority_thread_glue);
 
-                    tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
+                    tracer (ISIS_TR(node_info), TR_ISIS_SPF,
                         "%s : Direct Nbr %s added to priority Queue\n", ISIS_SPF, nbr->node_name);
                 }
             } ITERATE_TED_NODE_NBRS_END(curr_spf_data->node, nbr, oif, nxt_hop_ip);
 
-            tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
+            tracer (ISIS_TR(node_info), TR_ISIS_SPF,
                 "%s : Root %s Processing Finished\n", 
                     ISIS_SPF, curr_spf_data->node->node_name);
 
@@ -1195,30 +1188,30 @@ isis_compute_spf (node_t *spf_root){
 
         /*Step 5  : Begin
          *Record Result */
-        isis_spf_record_result(ISIS_TR(spf_root), ted_spf_root, curr_spf_data->node);
+        isis_spf_record_result(ISIS_TR(node_info), ted_spf_root, curr_spf_data->node);
         /*Step 5  : End*/
 
         /*Step 6 : Begin */
-        isis_spf_explore_nbrs(ISIS_TR(spf_root), ted_spf_root, curr_spf_data->node, &priority_lst);
+        isis_spf_explore_nbrs(ISIS_TR(node_info), ted_spf_root, curr_spf_data->node, &priority_lst);
         /*Step 6 : End */
     }
 
     /*Step 7 : Begin*/ 
     /*Calculate final routing table from spf result of spf_root*/
-    int count = isis_spf_install_routes(spf_root, ted_spf_root);
+    int count = isis_spf_install_routes(node_info, ted_spf_root);
     /*Step 7 : End*/
 
-    tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
+    tracer (ISIS_TR(node_info), TR_ISIS_SPF,
         "%s : ipv4 Route Installation Count = %d\n", ISIS_SPF, count);
 
-     count = isis_spf_install_v6routes(spf_root, ted_spf_root);
+     count = isis_spf_install_v6routes(node_info, ted_spf_root);
 
-    tracer (ISIS_TR(spf_root), TR_ISIS_SPF,
+    tracer (ISIS_TR(node_info), TR_ISIS_SPF,
         "%s : ipv6 Route Installation Count = %d\n", ISIS_SPF, count);
 }
 
 void
-isis_show_spf_results (node_t *node){
+isis_show_spf_results (isis_node_info_t *node_info){
 
     int i = 0, j = 0;
     glthread_t *curr;
@@ -1226,9 +1219,11 @@ isis_show_spf_results (node_t *node){
     ted_node_t *ted_node;
     isis_spf_result_t *res = NULL;
 
-    if (!isis_is_protocol_enable_on_node (node)) return;
+    if (!(node_info)) return;
+    
+    node_t *node = node_info->vrf->node;
 
-    ted_db_t *ted_db = ISIS_TED_DB(node);
+    ted_db_t *ted_db = node_info->ted_db;
 
     if (!ted_db) return;
 
@@ -1279,68 +1274,65 @@ isis_show_spf_results (node_t *node){
 static void
 isis_run_spf(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 
-    node_t *node = (node_t *)arg;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = (isis_node_info_t *)arg;
 
     node_info->spf_job_task = NULL;
 
-    ISIS_INCREMENT_NODE_STATS(node, spf_runs);
-    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_spf_runs]);
+    ISIS_INCREMENT_NODE_STATS(node_info, spf_runs);
+    ISIS_INCREMENT_NODE_STATS(node_info, isis_event_count[isis_event_spf_runs]);
 
-    isis_compute_spf(node);
+    isis_compute_spf(node_info);
 }
 
 void
-isis_schedule_spf_job (node_t *node, isis_event_type_t event) {
+isis_schedule_spf_job (isis_node_info_t *node_info, isis_event_type_t event) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    
-    if (isis_is_protocol_admin_shutdown (node)) {
-        tracer (ISIS_TR(node), TR_ISIS_SPF,
+    if (isis_is_protocol_admin_shutdown (node_info)) {
+        tracer (ISIS_TR(node_info), TR_ISIS_SPF,
             "%s : spf job not scheduled, protocol is admin shutdown\n", ISIS_SPF);
         return;
     }
     
-    ISIS_INCREMENT_NODE_STATS(node,
+    ISIS_INCREMENT_NODE_STATS(node_info,
         isis_event_count[isis_event_spf_job_scheduled]);
 
     if (node_info->spf_job_task) {
         
-        tracer (ISIS_TR(node), TR_ISIS_SPF | TR_ISIS_EVENTS,
+        tracer (ISIS_TR(node_info), TR_ISIS_SPF | TR_ISIS_EVENTS,
             "%s : spf job already scheduled\n", ISIS_SPF);
         return;
     }
     
-    if (!isis_validate_job_schedule  (node, ISIS_SPF_JOB )) return;
-    isis_cancel_redundant_jobs (node, ISIS_SPF_JOB);
+    if (!isis_validate_job_schedule  (node_info, ISIS_SPF_JOB )) return;
+    isis_cancel_redundant_jobs (node_info, ISIS_SPF_JOB);
 
-    isis_add_new_spf_log(node, event);
+    isis_add_new_spf_log(node_info, event);
     
     node_info->spf_job_task =
-        task_create_new_job (EV(node), node, isis_run_spf, 
+        task_create_new_job (EV(node_info->vrf->node), node_info, isis_run_spf, 
                                             TASK_ONE_SHOT,
                                             TASK_PRIORITY_COMPUTE);
 
     if (node_info->spf_job_task) {
         
-        tracer (ISIS_TR(node), TR_ISIS_SPF | TR_ISIS_EVENTS,
+        tracer (ISIS_TR(node_info), TR_ISIS_SPF | TR_ISIS_EVENTS,
             "%s : New spf job successfully scheduled\n", ISIS_SPF);
     }
 }
 
 void
-isis_add_new_spf_log(node_t *node, isis_event_type_t event) {
+isis_add_new_spf_log(isis_node_info_t *node_info, isis_event_type_t event) {
 
     isis_spf_log_t *spf_log;
-    isis_node_info_t *node_info;
 
-    if (isis_is_protocol_shutdown_in_progress(node) ||
-         isis_is_protocol_admin_shutdown(node) ||
-         !isis_is_protocol_enable_on_node(node)) {
+    if (!node_info) return;
+
+    if (isis_is_protocol_shutdown_in_progress(node_info) ||
+         isis_is_protocol_admin_shutdown(node_info) ||
+         !isis_is_protocol_enable_on_node(node_info->vrf)) {
         return;
     }
 
-    node_info = ISIS_NODE_INFO(node);   
     spf_log = XCALLOC2(0, 1, isis_spf_log_t);
     
     spf_log->timestamp = time(NULL);
@@ -1359,43 +1351,35 @@ isis_add_new_spf_log(node_t *node, isis_event_type_t event) {
 }
 
 void
-isis_show_spf_logs(node_t *node) {
+isis_show_spf_logs(isis_node_info_t *node_info) {
 
     int i = 0;
     glthread_t *curr;
     isis_spf_log_t *spf_log;
-    isis_node_info_t *node_info;
 
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node)) return;
+    if (!node_info) return;
 
      ITERATE_GLTHREAD_BEGIN(&node_info->spf_logc.head, curr) {
 
          spf_log = isis_glue_spf_log(curr);
-         cprintf("%d. %s  %s\n", i, ctime(&spf_log->timestamp), isis_event_str(spf_log->event));
+         cprintf("%d. %s  %s\n", i, ctime(&spf_log->timestamp), 
+            isis_event_str(spf_log->event));
          i++;
      } ITERATE_GLTHREAD_END(&node_info->spf_logc.head, curr)
 }
 
 void
-isis_init_spf_logc(node_t *node) {
+isis_init_spf_logc(isis_node_info_t *node_info) {
 
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
     init_glthread(&node_info->spf_logc.head);
     node_info->spf_logc.count = 0;
 }
 
 void
-isis_cleanup_spf_logc(node_t *node) {
+isis_cleanup_spf_logc(isis_node_info_t *node_info) {
 
     glthread_t *curr;
     isis_spf_log_t *spf_log;
-    isis_node_info_t *node_info;
-
-    node_info = ISIS_NODE_INFO(node);
 
     ITERATE_GLTHREAD_BEGIN(&node_info->spf_logc.head, curr) {
 

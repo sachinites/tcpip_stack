@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include "../../tcp_public.h"
+#include "isis_utils.h"
 #include "isis_rtr.h"
 #include "isis_const.h"
 #include "isis_pkt.h"
@@ -18,58 +19,49 @@
 #include "isis_advt.h"
 #include "isis_srv6.h"
 #include "../../RTM/rtm_nb_integ.h"
-        
-extern void isis_recv_ipc_updates (node_t *node, 
-                                             ips_major_code_t major_code,
-                                             uint32_t minor_code,
-                                             void *msg,
-                                             uint32_t msg_size) ;
+#include "../../datapath/dp_uapi.h"
 
-extern void isis_rtm_test(node_t *node) ;
+extern void isis_recv_ipc_updates(isis_node_info_t *node_info,
+                                  ips_major_code_t major_code,
+                                  uint32_t minor_code,
+                                  void *msg,
+                                  uint32_t msg_size);
+
+extern void isis_rtm_test(isis_node_info_t *node_info) ;
 
 /* Checking if protocol enable at node & intf level */
 bool
-isis_is_protocol_enable_on_node(node_t *node) {
+isis_is_protocol_enable_on_node(vrf_t *vrf) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info ) {
-        return false;
-    }
-
-    return true;
+    if (vrf->isis_node_info) return true;
+    return false;
 }
 
 static void
-isis_node_cancel_all_queued_jobs(node_t *node) {
+isis_node_cancel_all_queued_jobs(isis_node_info_t *node_info) {
 
-    isis_cancel_spf_job(node);
-    isis_cancel_lsp_fragment_regen_job(node);
-    isis_cancel_all_fragment_regen_job (node);
+    isis_cancel_spf_job(node_info);
+    isis_cancel_lsp_fragment_regen_job(node_info);
+    isis_cancel_all_fragment_regen_job (node_info);
 }
 
 static void
-isis_node_cancel_all_timers(node_t *node){
+isis_node_cancel_all_timers(isis_node_info_t *node_info){
 
-    isis_stop_overload_timer(node);
+    isis_stop_overload_timer(node_info);
 }
 
 static void
-isis_free_node_info(node_t *node) {
+isis_free_node_info(isis_node_info_t *node_info) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
+    vrf_t *vrf = node_info->vrf;
     XFREE(node_info);
-    node->node_nw_prop.isis_node_info = NULL;
-    //cprintf ("%s: ISIS Protocol successfully shutdown\n", node->node_name);
+    vrf->isis_node_info = NULL;
+    cprintf ("%s: ISIS Protocol successfully shutdown\n", vrf->node->node_name);
 }
 
 static void
-isis_check_delete_node_info(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if ( !node_info ) return;
+isis_check_delete_node_info(isis_node_info_t *node_info) {
 
     /* Scheduled jobs */
     assert (!node_info->lsp_fragment_gen_task);
@@ -96,51 +88,50 @@ isis_check_delete_node_info(node_t *node) {
     assert (!node_info->shutdown_pending_work_flags);
     /* ensure tracing objects is cleaned up*/
     assert (!node_info->tr);
-    isis_free_node_info (node);
+    isis_free_node_info (node_info);
 }
 
 static void
-isis_protocol_shutdown_now (node_t *node) {
+isis_protocol_shutdown_now (isis_node_info_t *node_info) {
 
     Interface *intf;
 
-    isis_intf_grp_cleanup(node);
-    isis_node_cancel_all_queued_jobs(node);
-    isis_node_cancel_all_timers(node);
-    isis_free_dummy_lsp_pkt(node);
-    isis_cleanup_spf_logc(node);
-    isis_unconfig_import_policy(node, NULL);
-    isis_unconfig_export_policy(node, NULL);
+    isis_intf_grp_cleanup(node_info);
+    isis_node_cancel_all_queued_jobs(node_info);
+    isis_node_cancel_all_timers(node_info);
+    isis_free_dummy_lsp_pkt(node_info);
+    isis_cleanup_spf_logc(node_info);
+    isis_unconfig_import_policy(node_info, NULL);
+    isis_unconfig_export_policy(node_info, NULL);
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) { 
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) { 
+        
         isis_disable_protocol_on_interface(intf);
-    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    } ITERATE_NODE_ISIS_INTERFACES_END;
     
-    isis_disable_srv6(node);
+    isis_disable_srv6(node_info);
     /* Destroy all Major DBs in the end*/
-    isis_destroy_advt_db(node, 0);
+    isis_destroy_advt_db(node_info, 0);
     /* This should be No-Op, buts lets do*/
-    isis_cleanup_lsdb(node, true);
+    isis_cleanup_lsdb(node_info, true);
     /*This would cleanup fake nodes, if any*/
-    isis_cleanup_teddb (node);
-    tracer_deinit (ISIS_NODE_INFO(node)->tr);
-    ISIS_NODE_INFO(node)->tr = NULL;
+    isis_cleanup_teddb (node_info);
+    tracer_deinit (node_info->tr);
+    node_info->tr = NULL;
+    node_t *node = node_info->vrf->node;
     cp_ips_unjoin (node, IPC_INTERFACE, isis_recv_ipc_updates);
     cp_ips_unjoin (node, IPC_GRE_TUNNEL, isis_recv_ipc_updates);
     cp_ips_unjoin (node, IPC_ACCESS_LIST, isis_recv_ipc_updates);
-    isis_check_delete_node_info(node); 
+    isis_check_delete_node_info(node_info); 
 }
 
 void
 isis_check_and_shutdown_protocol_now(
-        node_t *node, 
+        isis_node_info_t *node_info, 
         uint16_t work_completed_flag) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if(!node_info) return;
-
-    if (!isis_is_protocol_admin_shutdown(node)) return;
+    if (!isis_is_protocol_admin_shutdown(node_info)) return;
 
     /* Flag must be set */
     assert (node_info->shutdown_pending_work_flags & 
@@ -150,17 +141,13 @@ isis_check_and_shutdown_protocol_now(
     UNSET_BIT16(node_info->shutdown_pending_work_flags,
                                     work_completed_flag);
 
-    if (isis_is_protocol_shutdown_in_progress(node)) return;
+    if (isis_is_protocol_shutdown_in_progress(node_info)) return;
 
-    isis_protocol_shutdown_now(node);
+    isis_protocol_shutdown_now(node_info);
 }
 
 bool
-isis_is_protocol_shutdown_in_progress(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info) return false;
+isis_is_protocol_shutdown_in_progress(isis_node_info_t *node_info) {
 
     if (IS_BIT_SET(node_info->shutdown_pending_work_flags ,
                             ISIS_PRO_SHUTDOWN_ALL_PENDING_WORK)) {
@@ -171,11 +158,7 @@ isis_is_protocol_shutdown_in_progress(node_t *node) {
 }
 
 bool
-isis_is_protocol_admin_shutdown(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if ( !node_info ) return false;
+isis_is_protocol_admin_shutdown(isis_node_info_t *node_info) {
 
     if ( IS_BIT_SET(node_info->event_control_flags,
                 ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT)) {
@@ -185,62 +168,59 @@ isis_is_protocol_admin_shutdown(node_t *node) {
     return false;
 }
 
-extern void
-dp_ipv6_clear_rt_table_sync (rt_table_t *rt_table, uint16_t proto_id, bool del_static);
-
 static void
-isis_schedule_route_delete_task(node_t *node,
+isis_schedule_route_delete_task(isis_node_info_t *node_info,
         isis_event_type_t event_type){
 
-    bool del_static = isis_is_protocol_shutdown_in_progress(node);
+    bool del_static = isis_is_protocol_shutdown_in_progress(node_info);
+    vrf_t *vrf = node_info->vrf;
 
     cp_rtm_uninstall_routes_by_proto  (
-            rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV4, 0), 
+            vrf->inet0,
             RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     cp_rtm_uninstall_routes_by_proto  (
-            rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV6, 0), 
+            vrf->inet6,
             RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
-    isis_check_and_shutdown_protocol_now(node,
+
+    isis_check_and_shutdown_protocol_now(node_info,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
 }
 
 static void
-isis_launch_prior_shutdown_tasks(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+isis_launch_prior_shutdown_tasks(isis_node_info_t *node_info) {
 
     node_info->shutdown_pending_work_flags = 0;
 
     /* Set the flags to track what work needs to be done before we die out */
     if (node_info->adjacency_up_count) {
 
-        tracer (ISIS_TR(node), TR_ISIS_EVENTS, 
-            "%s : Generating Pre-shutdown work - Purging Zero LSPs\n", node->node_name);
+        tracer (ISIS_TR(node_info), TR_ISIS_EVENTS, 
+            "Generating Pre-shutdown work - Purging Zero LSPs\n");
 
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
 
-        isis_walk_all_self_zero_lsps (node, isis_schedule_purge_lsp_flood_cbk);
+        isis_walk_all_self_zero_lsps (node_info, isis_schedule_purge_lsp_flood_cbk);
     }
     
-    if (isis_has_routes(node)) {
+    if (isis_has_routes(node_info)) {
 
-        tracer (ISIS_TR(node), TR_ISIS_EVENTS, 
-            "%s : Generating Pre-shutdown work - Route deletion\n", node->node_name);
+        tracer (ISIS_TR(node_info), TR_ISIS_EVENTS, 
+            "Generating Pre-shutdown work - Route deletion\n");
 
         SET_BIT(node_info->shutdown_pending_work_flags,
                             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
         
-        isis_schedule_route_delete_task(node,
+        isis_schedule_route_delete_task(node_info,
                 isis_event_admin_action_shutdown_pending);
     }
 }
 
 bool
-isis_is_protocol_shutdown_pending_work_completed (node_t *node) {
+isis_is_protocol_shutdown_pending_work_completed (isis_node_info_t *node_info) {
 
-    if (isis_is_protocol_admin_shutdown(node) &&
-            !isis_is_protocol_shutdown_in_progress(node)) {
+    if (isis_is_protocol_admin_shutdown(node_info) &&
+        !isis_is_protocol_shutdown_in_progress(node_info)) {
 
         return true;
     }
@@ -249,20 +229,17 @@ isis_is_protocol_shutdown_pending_work_completed (node_t *node) {
 }
 
 void
-isis_protocol_shut_down(node_t *node) {
+isis_protocol_shut_down(isis_node_info_t *node_info) {
 
     Interface *intf;
     isis_intf_info_t *intf_info;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
-    if(!node_info) return;
-
-    if (isis_is_protocol_shutdown_in_progress(node)) {
+    if (isis_is_protocol_shutdown_in_progress(node_info)) {
         cprintf("Protocol Busy shutting down... Please Wait.\n");
         return;
     }
 
-    if (isis_is_protocol_admin_shutdown(node)){
+    if (isis_is_protocol_admin_shutdown(node_info)){
         cprintf("Protocol Already In ShutDown State\n");
         return;
     }
@@ -270,23 +247,22 @@ isis_protocol_shut_down(node_t *node) {
     SET_BIT( node_info->event_control_flags, 
         ISIS_EVENT_ADMIN_ACTION_SHUTDOWN_PENDING_BIT);
 
-    isis_ips_send_lsp_update (node, 0, false);
-    isis_launch_prior_shutdown_tasks(node);
+    isis_ips_send_lsp_update (node_info, 0, false);
+    isis_launch_prior_shutdown_tasks(node_info);
 }
 
 void
-isis_show_node_protocol_state(node_t *node) {
+isis_show_node_protocol_state(vrf_t *vrf) {
 
     bool is_enabled ;
     Interface *intf;
-    isis_node_info_t *node_info;
-    is_enabled = isis_is_protocol_enable_on_node(node);
+    is_enabled = isis_is_protocol_enable_on_node(vrf);
 
     cprintf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
 
     if(!is_enabled) return;
 
-    node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = vrf->isis_node_info;
 
     cprintf("LSP flood count : %u\n", node_info->lsp_flood_count);
     cprintf("SPF runs : %u\n", node_info->spf_runs);
@@ -303,26 +279,29 @@ isis_show_node_protocol_state(node_t *node) {
 
     if (node_info->ovl_data.ovl_status &&
             node_info->ovl_data.ovl_timer) {
-        cprintf("Overload Timer : %usec left\n", wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
+        cprintf("Overload Timer : %usec left\n", 
+            wt_get_remaining_time(node_info->ovl_data.ovl_timer)/1000);
     }
     else {
         cprintf("Overload Timer : Not Running\n");
     }
 
-    cprintf("Layer2-Mapping : %sabled\n", isis_is_layer2_mapping_enabled(node) ? "En" : "Dis");
+    cprintf("Layer2-Mapping : %sabled\n", 
+        isis_is_layer2_mapping_enabled(node_info) ? "En" : "Dis");
 
-    if (isis_srv6_get_config (node)) {
+    if (isis_srv6_get_config (node_info)) {
         cprintf("Segment Routing : SRv6\n");
     }
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {    
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {    
 
-        if (!isis_node_intf_is_enable(intf)) continue;
+        if (!isis_is_protocol_enable_on_intf(intf)) continue;
         isis_show_interface_protocol_state(intf);
-    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    } ITERATE_NODE_ISIS_INTERFACES_END;
     
-    ISIS_INCREMENT_NODE_STATS(node,
-            isis_event_count[isis_event_admin_config_changed]);
+    ISIS_INCREMENT_NODE_STATS(node_info,
+        isis_event_count[isis_event_admin_config_changed]);
 }
 
 static int
@@ -353,77 +332,79 @@ isis_compare_lspdb_lsp_pkt(const avltree_node_t *n1, const avltree_node_t *n2) {
 }
 
 void
-isis_de_init(node_t *node) {
+isis_de_init(vrf_t *vrf) {
 
-    if (!isis_is_protocol_enable_on_node(node)) return;
+    if (!isis_is_protocol_enable_on_node(vrf)) return;
 
     /* De-Register for interested pkts */
-    tcp_stack_de_register_l2_pkt_trap_rule(
-			&node->dp_ctx->layer2_proto_reg_db, 
+    dp_de_register_l2_pkt_trap_rule(
+			vrf->node->dp_ctx,
             isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
 
-    tcp_stack_register_l2_pkt_trap_rule(
-			&node->dp_ctx->layer2_proto_reg_db, 
+    dp_de_register_l2_pkt_trap_rule(
+			vrf->node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
     //nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
-    isis_protocol_shut_down(node);
+    isis_protocol_shut_down(vrf->isis_node_info);
 }
 
 void
-isis_init (node_t *node ) {
+isis_init (vrf_t *vrf) {
 
+    node_t *node = vrf->node;
     char log_file_name[NODE_NAME_SIZE + 16] = {0};
-     if (isis_is_protocol_enable_on_node(node)) return;
+
+    if (vrf->isis_node_info) return;
 
     /* Register for interested pkts */
-    tcp_stack_register_l2_pkt_trap_rule(
-			&node->dp_ctx->layer2_proto_reg_db, 
+    dp_register_l2_pkt_trap_rule(
+			node->dp_ctx,
             isis_lsp_pkt_trap_rule, isis_lsp_pkt_recieve_cbk);
 
-    tcp_stack_register_l2_pkt_trap_rule(
-			&node->dp_ctx->layer2_proto_reg_db, 
+    dp_register_l2_pkt_trap_rule(
+			node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
     isis_node_info_t *node_info = XCALLOC2(0, 1, isis_node_info_t);
-    node->node_nw_prop.isis_node_info = node_info;
+    vrf->isis_node_info = node_info;
+    node_info->vrf = vrf;
+
     node_info->sys_id = {NODE_LO_ADDR_INT(node), 0};
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
+
     avltree_init(&node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
+
     isis_init_intf_group_avl_tree(&node_info->intf_grp_avl_root);
+
     node_info->dyn_intf_grp = true;  /* True By Default */
+
     node_info->layer2_mapping = true;   /* True By Default */
+
     node_info->ted_db = XCALLOC2(0, 1, ted_db_t);
     ted_init_teddb(node_info->ted_db, NULL, isis_spf_cleanup_spf_data);
+
     //nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
-    isis_init_spf_logc(node);
+
+    isis_init_spf_logc(node_info);
+
     init_mtrie(&node_info->exported_routes, 32, NULL);
+
     isis_create_advt_db(node_info, 0);
+
     init_glthread (&node_info->pending_lsp_gen_queue);
-    snprintf (log_file_name, sizeof (log_file_name), "logs/%s-isis-log.txt", node->node_name);
+    
+    snprintf (log_file_name, sizeof (log_file_name), 
+        "logs/%s-%s-isis-log.txt", 
+        node->node_name, vrf->vrf_name);
     node_info->tr = tracer_init ("isis", log_file_name, node->node_name, STDOUT_FILENO, 0);
-    isis_schedule_all_fragment_regen_job (node);
-    ISIS_INCREMENT_NODE_STATS(node,
-            isis_event_count[isis_event_admin_config_changed]);
+
+    isis_schedule_all_fragment_regen_job (node_info);
+
+    ISIS_INCREMENT_NODE_STATS(node_info,
+        isis_event_count[isis_event_admin_config_changed]);
     node_info->lsdb_advt_block = false;
-    cp_ips_join (node, IPC_INTERFACE, 
-            IPC_INTERFACE_ADD |
-            IPC_INTERFACE_DEL |
-            IPC_INTERFACE_IPV4_ADDR_ADD |
-            IPC_INTERFACE_IPV4_ADDR_DEL |
-            IPC_INTERFACE_IPV4_ADDR_UPDATE |
-            IPC_INTERFACE_IPV6_ADDR_ADD |
-            IPC_INTERFACE_IPV6_ADDR_DEL |
-            IPC_INTERFACE_IPV6_ADDR_UPDATE |            
-            IPC_INTERFACE_ADMIN_STATE_DOWN |
-            IPC_INTERFACE_ADMIN_STATE_UP |
-            IPC_INTERFACE_METRIC_UPDATE,
-            isis_recv_ipc_updates);
-    cp_ips_join (node, IPC_GRE_TUNNEL, IPC_ALL_MINOR_UPDATES,
-            isis_recv_ipc_updates);
-    cp_ips_join (node, IPC_ACCESS_LIST, IPC_ALL_MINOR_UPDATES,
-            isis_recv_ipc_updates);
 }
 
 void
@@ -434,7 +415,7 @@ isis_one_time_registration() {
 }
 
 void
-isis_schedule_job(node_t *node,
+isis_schedule_job(isis_node_info_t *node_info,
                   task_t **task,
                   event_cbk cbk,
                   void *data,
@@ -443,14 +424,9 @@ isis_schedule_job(node_t *node,
                   int job_priority) {
 
     if (*task) {
-        tracer (ISIS_TR(node), TR_ISIS_SPF, "%s Already Scheduled. Reason : %s\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_SPF, 
+            "%s Already Scheduled. Reason : %s\n",
             isis_job_type_str (job_type), isis_event_str(event_type));
-        return;
-    }
-    
-    if (!isis_is_protocol_enable_on_node(node)) {
-        tracer (ISIS_TR(node), TR_ISIS_SPF, "Protocol not Enable. %s Will not be Scheduled."
-                " Reason : %s\n", isis_job_type_str (job_type), isis_event_str(event_type));
         return;
     }
 
@@ -472,23 +448,20 @@ isis_schedule_job(node_t *node,
             assert(0);
     }
 
-    *task = task_create_new_job(EV(node), data, cbk, TASK_ONE_SHOT, job_priority);
+    *task = task_create_new_job(EV(node_info->vrf->node), data, cbk, TASK_ONE_SHOT, job_priority);
 
     if(*task) {
-        tracer (ISIS_TR(node), TR_ISIS_SPF, "%s Scheduled. Reason : %s\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s Scheduled. Reason : %s\n",
             isis_job_type_str (job_type), isis_event_str(event_type));        
     }
 }
 
 void
-isis_show_event_counters(node_t *node) {
+isis_show_event_counters(isis_node_info_t *node_info) {
 
     int rc = 0;
     int enum_int;
     isis_event_type_t event_type;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node)) return;
 
     cprintf ("Event Counters :\n");
 
@@ -504,13 +477,9 @@ isis_show_event_counters(node_t *node) {
 }
 
 bool
-isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+isis_is_overloaded (isis_node_info_t *node_info, bool *ovl_timer_running) {
     
     if (ovl_timer_running) *ovl_timer_running = false;
-
-    if  (!isis_is_protocol_enable_on_node(node)) return false;
 
     if  (node_info->ovl_data.ovl_timer && ovl_timer_running) {
         *ovl_timer_running = true;
@@ -522,15 +491,14 @@ isis_is_overloaded (node_t *node, bool *ovl_timer_running) {
 static void
 isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
-    node_t *node = (node_t *)arg;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = (isis_node_info_t *)arg;
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
     timer_de_register_app_event(ovl_data->ovl_timer);
     ovl_data->ovl_timer = NULL;
     ovl_data->timeout_val = 0;
 
-    ISIS_INCREMENT_NODE_STATS(node, isis_event_count[isis_event_overload_timeout]);
+    ISIS_INCREMENT_NODE_STATS(node_info, isis_event_count[isis_event_overload_timeout]);
 
     if (IS_BIT_SET (node_info->event_control_flags, 
         ISIS_EVENT_DEVICE_DYNAMIC_OVERLOAD_BIT)) {
@@ -538,33 +506,25 @@ isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
     }
 
     ovl_data->ovl_status = false;
-    isis_regen_zeroth_fragment (node);
+    isis_regen_zeroth_fragment (node_info);
 }
 
 static void
-isis_start_overload_timer(node_t *node, uint32_t timeout_val) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+isis_start_overload_timer(isis_node_info_t *node_info, uint32_t timeout_val) {
 
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
     if (ovl_data->ovl_timer) return;
 
-    ovl_data->ovl_timer = timer_register_app_event(CP_TIMER(node),
+    ovl_data->ovl_timer = timer_register_app_event(CP_TIMER(node_info->vrf->node),
                                             isis_overload_timer_expire,
-                                            (void *)node, 
-                                            sizeof(node_t),
+                                            (void *)node_info, 
+                                            sizeof(isis_node_info_t),
                                             timeout_val * 1000, 0);
 }
 
 void
-isis_stop_overload_timer(node_t *node) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if ( !isis_is_protocol_enable_on_node(node)) {
-        return;
-    }
+isis_stop_overload_timer(isis_node_info_t *node_info) {
 
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
@@ -575,17 +535,11 @@ isis_stop_overload_timer(node_t *node) {
 }
 
 int
-isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
+isis_set_overload (isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) {
 
     int rc = 0;
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node)) {
-        cprintf( ISIS_ERROR_PROTO_NOT_ENABLE "\n");  
-        return -1;
-    }
 
     ovl_data = &node_info->ovl_data;
 
@@ -634,7 +588,7 @@ isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
             if (timeout_val) {
                 /* case 2.1.1 : <value is non-zero> -> trigger the timer */
                 ovl_data->timeout_val = timeout_val;
-                isis_start_overload_timer(node, timeout_val);
+                isis_start_overload_timer(node_info, timeout_val);
                 rc = 0;                                    
             }
             else {
@@ -657,7 +611,7 @@ isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
                 }
                 else {
                     /* case 2.1.2 : <value is zero> -> switch off the timer */
-                    isis_stop_overload_timer(node);
+                    isis_stop_overload_timer(node_info);
                     rc  = 0;
                 }
         }
@@ -667,7 +621,7 @@ isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
         if (regen_lsp) {
             isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
             fragment0->regen_flags = ISIS_SHOULD_INCL_OL_BIT | ISIS_LSP_DEF_REGEN_FLAGS;
-            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config);
+            isis_schedule_regen_fragment (node_info, fragment0, isis_event_device_overload_config);
             return 0;
         }
         
@@ -675,13 +629,10 @@ isis_set_overload (node_t *node, uint32_t timeout_val, int cmdcode) {
 }
 
 int
-isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
+isis_unset_overload(isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) {
     
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
-    if (!isis_is_protocol_enable_on_node(node)) return -1;
 
     ovl_data = &node_info->ovl_data;
 
@@ -694,7 +645,7 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
         regen_lsp = true;
 
         if (ovl_data->ovl_timer) {
-            isis_stop_overload_timer(node);
+            isis_stop_overload_timer(node_info);
         }
         goto done;
     }
@@ -707,7 +658,7 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
              goto done;
          }
 
-         isis_stop_overload_timer(node);
+         isis_stop_overload_timer(node_info);
     }
 
     done:
@@ -715,7 +666,7 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
         if (regen_lsp) {
             isis_fragment_t *fragment0 = node_info->advt_db[0]->fragments[0];
             fragment0->regen_flags &= ~ISIS_SHOULD_INCL_OL_BIT;            
-            isis_schedule_regen_fragment (node, fragment0, isis_event_device_overload_config);
+            isis_schedule_regen_fragment (node_info, fragment0, isis_event_device_overload_config);
             return 0;
         }
 
@@ -723,21 +674,21 @@ isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) {
 }
 
 bool
-isis_has_routes(node_t *node) {
+isis_has_routes(isis_node_info_t *node_info) {
 
     return true;
 }
 
 #if 0
 extern void
- isis_process_ipv4_route_notif (node_t *node, l3_route_t *l3route) ;
+ isis_process_ipv4_route_notif (isis_node_info_t *node_info, l3_route_t *l3route) ;
  
 void
 isis_ipv4_rt_notif_cbk (
         event_dispatcher_t *ev_dis,
         void *rt_notif_data, unsigned int arg_size) {
 
-    node_t *node;
+    isis_node_info_t *node_info;
     l3_route_t *l3route;
 
     rt_route_notif_data_t *route_notif_data = 
@@ -756,7 +707,7 @@ isis_ipv4_rt_notif_cbk (
 #endif
 
 void 
-isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) {
+isis_cancel_redundant_jobs (isis_node_info_t *node_info, isis_job_type_t job_type) {
 
     Interface *intf;
     isis_intf_info_t *intf_info;
@@ -770,13 +721,15 @@ isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) {
     break;
     case ISIS_ALL_FRAG_REGEN_JOB:
 
-        isis_cancel_lsp_fragment_regen_job(node);
-        isis_cancel_spf_job(node);
+        isis_cancel_lsp_fragment_regen_job(node_info);
+        isis_cancel_spf_job(node_info);
 
-        ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-             if (!isis_node_intf_is_enable(intf)) continue;
+        ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {
+             
+             if (!isis_is_protocol_enable_on_intf(intf)) continue;
              isis_cancel_lsp_xmit_job (intf);
-        }ITERATE_NODE_INTERFACES_END(node, intf);
+
+        }ITERATE_NODE_ISIS_INTERFACES_END;
 
     break;
 
@@ -796,12 +749,9 @@ isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) {
 }
 
 bool 
-isis_validate_job_schedule (node_t *node, isis_job_type_t job_type) {
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-    if (!node_info) return false;
+isis_validate_job_schedule (isis_node_info_t *node_info, isis_job_type_t job_type) {
     
-    if (isis_is_protocol_shutdown_pending_work_completed (node)) {
+    if (isis_is_protocol_shutdown_pending_work_completed (node_info)) {
         return false;
     }
 
