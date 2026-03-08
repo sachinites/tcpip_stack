@@ -530,31 +530,73 @@ parallel_links_topology(void){
 graph_t *
 cross_link_topology(void){
 
-/*                                                +--------+-+
-                   +---------+                    | R2       |
-               eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
-       +-----------+122.1.1.1+--------------------+          +------------------+
-       |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
-       |           +---------+                    +-----+--+-+                  +
-       +                                         eth4/  |eth7                   |
-       |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
-       |eth0                                       /    |                  eth9 |50.1.1.2/24
-   +---+---+--+                                   /     |                  +----+-----+
-   |          |                                  /      |                  |    R3    |
-   | R0       |                                 /       |                  | 122.1.1.3|
-   |122.1.1.0 |                                /        |                  |          |
-   |          |                               /         |                  +----+-----+
-   +---+---+--|               ---------------/          |                       |eth10
-       |eth14                /                          |                       |60.1.1.1/24
-       |80.1.1.1/24         /                           |                       |
-       |                   /                            |                       |
-       |                  /                        eth6 |40.1.1.1/24            |
-       |             eth5/30.1.1.2/24             +-----+----+                  |
-       |           +----/----+                    |   R4     |                  |
-       |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |
-       +-----------+122.1.1.5|+-------------------+          +------------------+
-        80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24
-                  -+---------+                    +----------+
+/* 
+VPNv4 using SRv6 Transport in ISP core
+======================================= 
+
+config node R0 protocol source-packet-routing srv6 locator R0-LOC 2001:dbe8:1:: 48                                                                                                                                                                                                                                                                                                                                                                                                                
+config node R1 protocol source-packet-routing srv6 locator R1-LOC 2001:dbe8:2:: 48                                                                                                                                                                                                                                                                                                                                                                                      
+config node R2 protocol source-packet-routing srv6 locator R2-LOC 2001:dbe8:3:: 48                                                                                                                                                                                                                                                                                                                                                                                                               
+config node R3 protocol source-packet-routing srv6 locator R3-LOC 2001:dbe8:4:: 48                                                                                                                                                                                                                                                                                                                                                                                                      
+config node R4 protocol source-packet-routing srv6 locator R4-LOC 2001:dbe8:5:: 48                                                                                                                                                                                                                                                                                                                                                                                                               
+config node R5 protocol source-packet-routing srv6 locator R5-LOC 2001:dbe8:6:: 48   
+
+config node R0 protocol isis source-packet-routing srv6 locator R0-LOC
+config node R1 protocol isis source-packet-routing srv6 locator R1-LOC
+config node R2 protocol isis source-packet-routing srv6 locator R2-LOC
+config node R3 protocol isis source-packet-routing srv6 locator R3-LOC
+config node R4 protocol isis source-packet-routing srv6 locator R4-LOC
+config node R5 protocol isis source-packet-routing srv6 locator R5-LOC
+
+config node R0 protocol isis interface all
+config node R1 protocol isis interface all
+config node R2 protocol isis interface all
+config node R3 protocol isis interface all
+config node R4 protocol isis interface all
+config node R5 protocol isis interface all
+
+config node R0 no protocol isis interface eth1
+config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 no interface ethernet eth1 vrf Default-vrf
+config node R0 vrf red route-distinguisher 1:1
+config node R0 interface ethernet eth1 vrf red
+config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 rtm-route prefix 121.1.1.1/32 3 5 0 l3vpn srv6-sid 2001:dbe8:3::1 
+
+config node R3 no protocol isis interface eth1
+config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 no interface ethernet eth1 vrf Default-vrf
+config node R3 vrf red route-distinguisher 1:1
+config node R3 interface ethernet eth1 vrf red
+config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:3::1 vrf red
+
+
+                                                                                +--------+-+
+                                                +---------+                    | R2       |
+                                            eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+                                    +-----------+122.1.1.1+--------------------+          +------------------+
+                                    |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+                                    |           +---------+                    +-----+--+-+                  +
+                                    +                                         eth4/  |eth7                   |
+                                    |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+                                    |eth0                                       /    |                  eth9 |50.1.1.2/24
+                                +---+---+--+                                   /     |                  +----+-----+                    +-------+
+                                |          |                                  /      |                  |    R3    |eth1     192.168.0.1|       |
++------+192.168.0.1         eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
+|      +------------------------+122.1.1.0 |                                /        |                  |          |192.168.0.2     eth0|  CE2  |
+| CE1  | eth0        192.168.0.2|          |                               /         |                  +----+-----+                    |       |
+|10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
++--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
+   |eth1                            |80.1.1.1/24         /                           |                       |                              |172.168.0.1/24
+   |172.168.0.1/24                  |                   /                            |                       |                              |
+   |                                |                  /                        eth6 |40.1.1.1/24            |                              |
+   |172.168.0.2/24                  |             eth5/30.1.1.2/24             +-----+----+                  |                              |172.168.0.2/24     
+ +-+-+                              |           +----/----+                    |   R4     |                  |                           +--+---+
+ +-H1|100.0.0.1                     |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |                           |  H2  |100.0.0.2
+ +---+                              +-----------+122.1.1.5|+-------------------+          +------------------+                           +------+
+                                     80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24                                
+                                                |+--------|                    |----------+
 
 */
     graph_t *topo = create_new_graph("Cross Links Topology"); 
@@ -565,6 +607,10 @@ cross_link_topology(void){
     node_t *R3 = Router_Create(topo, (const c_string)"R3");
     node_t *R4 = Router_Create(topo, (const c_string)"R4");
     node_t *R5 = Router_Create(topo, (const c_string)"R5");
+    node_t *CE1 = Router_Create(topo, (const c_string)"CE1");
+    node_t *CE2 = Router_Create(topo, (const c_string)"CE2");
+    node_t *H1 = Router_Create(topo, (const c_string)"H1");
+    node_t *H2 = Router_Create(topo, (const c_string)"H2");
 
     insert_link_between_two_nodes(R0, R1, "eth0",  "eth1",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R0, R5, "eth14", "eth15", INTF_METRIC_DEFAULT);
@@ -574,6 +620,11 @@ cross_link_topology(void){
     insert_link_between_two_nodes(R2, R5, "eth4",  "eth5",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R3, R4, "eth10", "eth11", INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R4, R5, "eth13", "eth12", INTF_METRIC_DEFAULT);    
+    insert_link_between_two_nodes(R0, CE1, "eth1", "eth0",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R3, CE2, "eth1", "eth0",  INTF_METRIC_DEFAULT); 
+    insert_link_between_two_nodes(CE1, H1, "eth1", "eth1",  INTF_METRIC_DEFAULT);    
+    insert_link_between_two_nodes(CE2, H2, "eth1", "eth1",  INTF_METRIC_DEFAULT);       
+
 
     node_set_rtr_id(R0, "122.1.1.0");
     node_set_rtr_id(R1, "122.1.1.1");
@@ -581,6 +632,10 @@ cross_link_topology(void){
     node_set_rtr_id(R3, "122.1.1.3");
     node_set_rtr_id(R4, "122.1.1.4");
     node_set_rtr_id(R5, "122.1.1.5");
+    node_set_rtr_id(CE1, "10.0.0.1");
+    node_set_rtr_id(CE2, "10.0.0.2");
+    node_set_rtr_id(H1, "100.0.0.1");
+    node_set_rtr_id(H2, "100.0.0.2");
 
     node_set_v6_rtr_id(R0, "2001::122:1:1:0");
     node_set_v6_rtr_id(R1, "2001::122:1:1:1");
@@ -610,6 +665,16 @@ cross_link_topology(void){
     node_set_intf_ip_address(R5, "eth5", "30.1.1.2", 24);
     node_set_intf_ip_address(R5, "eth12","70.1.1.1", 24);
     node_set_intf_ip_address(R5, "eth15","80.1.1.2", 24);
+
+    node_set_intf_ip_address(R0, "eth1","192.168.0.2", 24);
+    node_set_intf_ip_address(CE1, "eth0","192.168.0.1", 24);
+    node_set_intf_ip_address(CE1, "eth1","172.168.0.1", 24);
+    node_set_intf_ip_address(H1, "eth1","172.168.0.2", 24);
+
+    node_set_intf_ip_address(R3, "eth1","192.168.0.2", 24);
+    node_set_intf_ip_address(CE2, "eth0","192.168.0.1", 24);
+    node_set_intf_ip_address(CE2, "eth1","172.168.1.1", 24);
+    node_set_intf_ip_address(H2, "eth1","172.168.1.2", 24);
 
     return topo;
 }

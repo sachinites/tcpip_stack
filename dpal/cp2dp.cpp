@@ -573,9 +573,6 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
         case INTF_TYPE_NVE:
             intf_msg->update_code = CP2DP_CODE_INTF_NVE;
             break;
-        case INTF_TYPE_SRv6:
-            intf_msg->update_code = CP2DP_CODE_INTF_SRV6_END;
-            break;
         case INTF_TYPE_HOST_PATH:
             intf_msg->update_code = CP2DP_CODE_INTF_HOST_PATH;
             break;
@@ -676,5 +673,32 @@ cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]) {
     gen_msg->opcode = DP_GENERIC_RMAC;
     memcpy (&gen_msg->u.mac_addr, &mac, 6);
     
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void
+cp2dp_srv6_dt4_intf_steered_vrf(node_t *node, 
+                                Interface *intf, 
+                                bool add) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
+    dp_msg->vrf_id = DEFAULT_VRF;
+
+    SRv6EndPointEND_DT4Interface *dt4_intf = 
+        dynamic_cast<SRv6EndPointEND_DT4Interface *>(intf);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = intf->ifindex;
+    intf_msg->vlan_id = add ? dt4_intf->vrf->vrf_id : UINT32_MAX;
+    intf_msg->iftype = (uint32_t)intf->iftype;
+    intf_msg->update_code = CP2DP_CODE_DT4_INTF_STEER_VRF_BIND;
+
     cp2dp_submit(node, dp_msg, true);
 }

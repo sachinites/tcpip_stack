@@ -293,7 +293,8 @@ isis_schedule_purge_lsp_flood_cbk (isis_node_info_t *node_info, isis_lsp_pkt_t *
 }
 
 void
-isis_walk_all_self_zero_lsps (isis_node_info_t *node_info, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *)) {
+isis_walk_all_self_zero_lsps (isis_node_info_t *node_info, 
+        void (*fn_ptr)(isis_node_info_t *, isis_lsp_pkt_t *)) {
 
     int i;
     isis_advt_db_t *advt_db;
@@ -309,6 +310,6 @@ isis_walk_all_self_zero_lsps (isis_node_info_t *node_info, void (*fn_ptr)(node_t
         /* fragment may not exist if node is not DIS for this LAN*/
         if (!fragment0 || !fragment0->lsp_pkt) continue;
 
-        fn_ptr (node_info->vrf->node, fragment0->lsp_pkt);
+        fn_ptr (node_info, fragment0->lsp_pkt);
     }
 }

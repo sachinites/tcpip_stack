@@ -36,10 +36,12 @@ dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      pkt_block_t *pkt_block,
                      hdr_type_t hdr_type);
 
-extern void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
+extern void 
+layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                                   dp_vrf_t *vrf,
                                   dp_intf_t *interface,
-                                  pkt_block_t *pkt_block);
+                                  pkt_block_t *pkt_block,
+                                  fib_nh_t *nh);
 
 void
 layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
@@ -96,6 +98,19 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     }
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : L3 Route Found\n", vrf->vrf_name, dest_ip_addr);
+
+    /* VPNv4 case : when vrf.inet FIB has SRv6 nexthop 
+       Handover to ipv6 forwarding stack ... */
+
+    if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_SRv6_FORWARD)) {
+
+        tracer (dp_ctx->dptr, DL3FWD, 
+            "VRF %s: Pkt : %s : L3 forwarding switched from v4 to v6 "
+            "for VPNv4 case where nexthop is SRv6\n", 
+            vrf->vrf_name, dest_ip_addr);
+
+        return layer3_ipv6_route_pkt(dp_ctx, vrf, interface, pkt_block, nh);
+    }
 
     /*L3 route exist, 3 cases now : 
      * case 1 : pkt is destined to self(this router only)

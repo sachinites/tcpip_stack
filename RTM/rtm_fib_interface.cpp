@@ -44,7 +44,7 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
 
     fwd_info_out->oif = dnh->oif;
     fwd_info_out->nh_addr = dnh->prefix;
-    fwd_info_out->fwd_flags = dnh->fwd_flags;
+    fwd_info_out->fwd_flags = inh->fwd_flags;
 
     mpls_lstack_init (&fwd_info_out->u.mpls_fwd.label_stack);
 
@@ -86,7 +86,17 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         SET_BIT (fwd_info_out->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK);
     }
 
-    /* Handling SRv6 Segment List -- Later ... */
+    if (inh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
+
+        fwd_info_out->u.v6_fwd.endfn = inh->endfn;
+        fwd_info_out->u.v6_fwd.n_segment_list = inh->n_segment_list;
+        
+        for (uint8_t i = 0; i < inh->n_segment_list; i++) {
+            memcpy(fwd_info_out->u.v6_fwd.v6segment_lst[i],
+                   inh->v6segment_lst[i].u.v6_addr,
+                   sizeof(inh->v6segment_lst[i].u.v6_addr));
+        }
+    }
 
     return RTM_SUCCESS;
 }

@@ -2,10 +2,11 @@
 #define __SRV6_RTM__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../RTM/rtm_enums.h"
 #include "../common/srv6_const.h"
-
+#include "../../../../CLIBuilder/libcli.h"
 
 typedef struct vrf_ vrf_t;
 class Interface;

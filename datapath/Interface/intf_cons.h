@@ -37,7 +37,7 @@ enum DP_InterfaceType_t {
     DP_INTF_TYPE_RMAC,
     DP_INTF_TYPE_VLAN_FLOOD,
     DP_INTF_TYPE_NVE,
-    DP_INTF_TYPE_SRv6,
+    DP_INTF_TYPE_SRv6_DT4,
     DP_INTF_TYPE_HOST_PATH,
     DP_INTF_TYPE_UNKNOWN
 };
@@ -54,7 +54,7 @@ dp_intf_type_str (uint32_t iftype) {
         case DP_INTF_TYPE_RMAC: return "RMAC";
         case DP_INTF_TYPE_VLAN_FLOOD: return "VLAN-Flood";
         case DP_INTF_TYPE_NVE: return "NVE";
-        case DP_INTF_TYPE_SRv6: return "SRv6";
+        case DP_INTF_TYPE_SRv6_DT4: return "SRv6-DT4";
         case DP_INTF_TYPE_HOST_PATH: return "HostPath";
         case DP_INTF_TYPE_UNKNOWN: return "Unknown";
         default: return "Invalid";

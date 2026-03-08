@@ -180,7 +180,12 @@ typedef struct rtm_ {
  * 
  * @return Pointer to initialized RTM
  */
-rtm_t* rtm_initialize (node_t *node, uint8_t vrf, AFI_T afi, uint32_t rtm_id);
+rtm_t* 
+rtm_initialize(node_t *node, 
+               uint8_t vrf_id, 
+               char *vrf_name, 
+               AFI_T afi, 
+               uint32_t rtm_id);
 
 /**
  * @brief Stop RTM (cancel all jobs)

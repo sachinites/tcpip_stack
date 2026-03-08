@@ -179,27 +179,13 @@ void dump_interface(Interface *interface);
 
 #define ITERATE_NODE_INTERFACES_BEGIN(node_ptr, intf_ptr)            \
 {                                                                    \
-    vrf_t *__vrf = NODE_DEF_VRF(node_ptr);                   \
-    if (__vrf->intf_by_name) {                                       \
-        for (auto _it = __vrf->intf_by_name->begin();                \
-             _it != __vrf->intf_by_name->end(); _it++) {             \
+    if (node_ptr->intf_by_name) {                                       \
+        for (auto _it = node_ptr->intf_by_name->begin();                \
+             _it != node_ptr->intf_by_name->end(); _it++) {             \
             intf_ptr = _it->second.get();                            \
             if(!intf_ptr) continue;
 
 #define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr)              \
-        }                                                            \
-    }                                                                \
-}
-
-#define ITERATE_NODE_VRF_INTERFACES_BEGIN(vrf_ptr, intf_ptr)         \
-{                                                                    \
-    if (vrf_ptr->intf_by_name) {                                     \
-        for (auto _it = vrf_ptr->intf_by_name->begin();              \
-             _it != vrf_ptr->intf_by_name->end(); _it++) {           \
-            intf_ptr = _it->second.get();                            \
-            if(!intf_ptr) continue;
-
-#define ITERATE_NODE_VRF_INTERFACES_END(vrf_ptr, intf_ptr)           \
         }                                                            \
     }                                                                \
 }

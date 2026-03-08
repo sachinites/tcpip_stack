@@ -15,7 +15,8 @@ extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface,
-                      pkt_block_t *pkt_block);
+                      pkt_block_t *pkt_block,
+                      fib_nh_t *nh);
 
 static void
 _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
@@ -55,7 +56,7 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
                     (uint8_t *)pkt_block_get_ip6_hdr(pkt_block),
                     pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD + ETH_FCS_SIZE);
             pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
-            layer3_ipv6_route_pkt(dp_ctx, vrf, interface, pkt_block);            
+            layer3_ipv6_route_pkt(dp_ctx, vrf, interface, pkt_block, NULL);            
             break;
 
         default:

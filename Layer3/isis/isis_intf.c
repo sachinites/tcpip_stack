@@ -211,8 +211,7 @@ isis_enable_protocol_on_interface(Interface *intf) {
 
     isis_intf_info_t *intf_info = NULL;
 
-    if (!isis_is_protocol_enable_on_node(intf->vrf)) {
-        cprintf ("Error : %s : ISIS is not enabled", intf->att_node->node_name);
+    if (isis_is_protocol_enable_on_intf(intf)) {
         return;
     }
 

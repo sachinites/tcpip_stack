@@ -409,6 +409,7 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
 
 PhysicalInterface::~PhysicalInterface()
 {
+    InterfaceReleaseAllResources();
 }
 
 void PhysicalInterface::SetMacAddr(mac_addr_t *mac_add)
@@ -802,8 +803,6 @@ PhysicalInterface::InterfaceReleaseAllResources() {
     }
 
     this->SetSwitchport (false);
-
-    this->Interface::InterfaceReleaseAllResources();
 }
 
 
@@ -880,21 +879,17 @@ void VirtualInterface::PrintInterfaceDetails()
     this->Interface::PrintInterfaceDetails();
 }
 
-void 
-VirtualInterface::InterfaceReleaseAllResources() {
-
-    /* Nothing to release */
-
-    /* Release Base class Resources */
-    this->Interface::InterfaceReleaseAllResources();
-}
 
 /**      Rmac Interface  */
 
 RmacInterface::RmacInterface() 
     :VirtualInterface(std::string(RMAC_INTF_NAME), INTF_TYPE_RMAC) {}
 
-RmacInterface::~RmacInterface() {}
+RmacInterface::~RmacInterface() {
+
+    InterfaceReleaseAllResources();
+}
+
 void RmacInterface::PrintInterfaceDetails () {}
 void RmacInterface::InterfaceReleaseAllResources() {}
 
@@ -913,7 +908,15 @@ RmacInterface::GetMacAddr( ) {
 VlanFloodInterface::VlanFloodInterface()
     : VirtualInterface(std::string(VLAN_FLOOD_INTF_NAME) , INTF_TYPE_VLAN_FLOOD) { }
 
-VlanFloodInterface::~VlanFloodInterface() {}
+void
+VlanFloodInterface::InterfaceReleaseAllResources() {
+
+}
+
+VlanFloodInterface::~VlanFloodInterface() {
+
+    InterfaceReleaseAllResources();
+}
 
 bool VlanFloodInterface::IsCrossReferenced() {
 
@@ -939,6 +942,7 @@ GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
 
 GRETunnelInterface::~GRETunnelInterface() {
 
+    InterfaceReleaseAllResources();
     assert (!this->tunnel_src_intf);
 }
 
@@ -1141,8 +1145,6 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
     if (this->tunnel_src_intf) {
         this->SetTunnelSource(NULL);
     }
-
-    this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
 /* Stored in default way*/
@@ -1164,6 +1166,7 @@ VirtualPort::VirtualPort(std::string ifname)
 
 VirtualPort::~VirtualPort()
 {
+    InterfaceReleaseAllResources();
     assert (!this->olay_tunnel_intf);
     assert (!this->trans_svc);
 }
@@ -1204,9 +1207,6 @@ VirtualPort::InterfaceReleaseAllResources()
     if (this->trans_svc) {
         this->IntfUnConfigTransportSvc (this->trans_svc->trans_svc);
     }
-    
-    /* Handling access Vlan Interface*/
-    this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
 bool 
@@ -1343,6 +1343,7 @@ VlanInterface::VlanInterface(vlan_id_t vlan_id)
 
 VlanInterface::~VlanInterface() {
 
+    InterfaceReleaseAllResources();
     assert (this->access_member_intf_lst.empty());
 }
 
@@ -1459,7 +1460,6 @@ void
 VlanInterface::InterfaceReleaseAllResources() {
 
     assert (this->access_member_intf_lst.empty());
-    VirtualInterface::InterfaceReleaseAllResources();
 }
 
 bool 
@@ -1497,6 +1497,7 @@ LoopbackInterface::LoopbackInterface(std::string ifname)
 
 LoopbackInterface::~LoopbackInterface()
 {
+    InterfaceReleaseAllResources();
 }
 
 void LoopbackInterface::PrintInterfaceDetails()
@@ -1568,9 +1569,6 @@ void
 LoopbackInterface::InterfaceReleaseAllResources() {
 
     /* Nothing to release */
-
-    /* Release Base class Resources */
-    this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
 bool 
@@ -1685,6 +1683,7 @@ NVEInterface::NVEInterface(std::string if_name)
 
 NVEInterface::~NVEInterface() {
     // No special cleanup needed for member_vnis array
+    InterfaceReleaseAllResources();
 }
 
 void 
@@ -1716,7 +1715,6 @@ NVEInterface::InterfaceReleaseAllResources() {
     
     // Clear all member VNIs
     memset(member_vnis, 0, sizeof(member_vnis));
-    this->VirtualInterface::InterfaceReleaseAllResources();
 }
 
 bool 
@@ -1806,86 +1804,24 @@ NVEInterface::IsCrossReferenced() {
 
 /* SRv6 Interface Implementation */
 
-SRv6VirtualInterface::SRv6VirtualInterface(std::string ifname):
-    VirtualInterface(ifname, INTF_TYPE_SRv6)
+SRv6VirtualInterface::SRv6VirtualInterface(std::string ifname, InterfaceType_t iftype):
+    VirtualInterface(ifname, iftype)
 {
 
 }
 
-SRv6VirtualInterface::~SRv6VirtualInterface() {}
-
-bool 
-SRv6VirtualInterface::IsCrossReferenced() {
-
-    return SRv6_IF_COUNT > 0;
-}
-
-void 
-SRv6VirtualInterface::InterfaceReleaseAllResources() {
-
-    this->VirtualInterface::InterfaceReleaseAllResources();
-}
-
-SRv6EndPointENDInterface::SRv6EndPointENDInterface() : 
-    SRv6VirtualInterface(std::string("srv6EndIntf"))
-{
+SRv6VirtualInterface::~SRv6VirtualInterface() {
 
 }
-
-SRv6EndPointENDInterface::~SRv6EndPointENDInterface() {
-
-    InterfaceReleaseAllResources();
-}
-
-/* SRv6 END.X Interface Implementation */
-
-SRv6EndPointEND_XInterface::SRv6EndPointEND_XInterface(PhysicalInterface *phy_intf):
-    SRv6VirtualInterface(std::string("srv6End_XIntf")),
-    intfP(std::static_pointer_cast<PhysicalInterface>(phy_intf->GetSharedPtr()))
-{
-}
-
-SRv6EndPointEND_XInterface::~SRv6EndPointEND_XInterface() {
-
-    InterfaceReleaseAllResources();
-    assert (intfP == nullptr);
-}
-
-void 
-SRv6EndPointEND_XInterface::InterfaceReleaseAllResources() {
-
-    intfP = nullptr;
-    this->SRv6VirtualInterface::InterfaceReleaseAllResources();
-}
-
-
-/* SRv6 END.DX4 Interface Implementation */
-
-SRv6EndPointEND_DX4Interface::SRv6EndPointEND_DX4Interface(vrf_t *vrf_ptr):
-    SRv6VirtualInterface(std::string("srv6End_DX4Intf")),
-    vrf(vrf_ptr)
-{
-
-}
-
-SRv6EndPointEND_DX4Interface::~SRv6EndPointEND_DX4Interface() {
-
-    InterfaceReleaseAllResources();
-    assert(vrf == nullptr);
-}
-
-void 
-SRv6EndPointEND_DX4Interface::InterfaceReleaseAllResources() {
-    vrf = NULL;
-    this->SRv6VirtualInterface::InterfaceReleaseAllResources();
-}
-
 
 /* SRv6 END.DT4 Interface Implementation */
 
-SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(int table_id):
-    SRv6VirtualInterface(std::string("srv6End_DT4Intf")),
-    table_id(table_id)
+SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(vrf_t *vrf):
+    SRv6VirtualInterface(
+            std::string("srv6End_DT4Intf") + std::string(vrf->vrf_name), 
+            INTF_TYPE_SRv6_DT4),
+    vrf(vrf),
+    ref_count(0)
 {
     
 }
@@ -1893,7 +1829,33 @@ SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(int table_id):
 SRv6EndPointEND_DT4Interface::~SRv6EndPointEND_DT4Interface() {
 
     InterfaceReleaseAllResources();
+    assert(!ref_count);
+    assert(!vrf);
 }
+
+
+uint16_t 
+SRv6EndPointEND_DT4Interface::inc_ref_count(int8_t val) {
+
+    ref_count += val;
+    return ref_count;
+}
+
+void 
+SRv6EndPointEND_DT4Interface::InterfaceReleaseAllResources() {
+
+    vrf = NULL;
+}
+
+bool 
+SRv6EndPointEND_DT4Interface::IsCrossReferenced() {
+
+    return (this->ref_count > 0);
+}
+
+
+
+
 
 
 HostPathInterface::HostPathInterface() : 
@@ -1902,7 +1864,9 @@ HostPathInterface::HostPathInterface() :
 
 }
 
-HostPathInterface::~HostPathInterface() {}
+HostPathInterface::~HostPathInterface() {
+
+}
 
 bool
 HostPathInterface::IsCrossReferenced() {

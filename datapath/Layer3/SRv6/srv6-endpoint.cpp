@@ -336,7 +336,7 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
             
         case IP6_HDR:
             /* Inner packet is IPv6 - route it */
-            layer3_ipv6_route_pkt(dp_ctx, vrf,  NULL, pkt_block);
+            layer3_ipv6_route_pkt(dp_ctx, vrf,  NULL, pkt_block, NULL);
             return;
             
         case ICMP6_HDR:

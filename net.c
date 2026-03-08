@@ -264,12 +264,6 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
     node_create_host_path_interface (node);
-
-    node_nw_prop->srv6_end_interface = std::make_shared<SRv6EndPointENDInterface>();
-    node_nw_prop->srv6_end_interface->SetSharedPtr(node_nw_prop->srv6_end_interface);
-    node_nw_prop->srv6_end_interface->att_node - node;
-    node_nw_prop->srv6_end_interface->ifindex = interface_get_new_ifindex(node);
-    node_nw_prop->srv6_end_interface->vrf = NODE_DEF_VRF(node);
     
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
     init_tcp_logging(node);

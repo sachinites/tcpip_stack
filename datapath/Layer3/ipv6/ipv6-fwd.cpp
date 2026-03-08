@@ -74,11 +74,14 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
 void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx, 
                            dp_vrf_t *vrf,
                            dp_intf_t *interface,
-                           pkt_block_t *pkt_block)
+                           pkt_block_t *pkt_block,
+                           fib_nh_t *_nh)
 {
+    fib_nh_t *nh = _nh;
     pkt_size_t pkt_size;
     char dst_addr_str[48];
     char route_addr_str[48];
+    cmn_prefix_t prefix_key;
 
     unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
@@ -90,9 +93,10 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     /* Get v6 address in string form for logging*/
     inet_ntop (AF_INET6, &ipv6_hdr->dst_addr, dst_addr_str, INET6_ADDRSTRLEN);
 
-    cmn_prefix_t prefix;
-    cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
-    fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet6, &prefix);
+    if (!nh) {
+        cmn_prefix_initialize_v6(&prefix_key, &ipv6_hdr->dst_addr, 128);
+        nh = fib_get_forwarding_nh(vrf->fib_inet6, &prefix_key);
+    }
 
     if(!nh){
         tracer (dp_ctx->dptr, DL3FWD | DERR, 
@@ -167,5 +171,5 @@ dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : NP Recvd Routing Request\n", 
         vrf->vrf_name, pkt_block_str(pkt_block));
 
-    layer3_ipv6_route_pkt (dp_ctx, vrf, NULL, pkt_block); 
+    layer3_ipv6_route_pkt (dp_ctx, vrf, NULL, pkt_block, NULL); 
 }

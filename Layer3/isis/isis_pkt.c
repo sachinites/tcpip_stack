@@ -671,16 +671,16 @@ isis_get_lsp_pkt_seq_no(isis_lsp_pkt_t *lsp_pkt) {
 static void
 lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
-    isis_node_info_t *node_info;
     uint32_t *seq_no;
     ted_node_t *ted_node;
     isis_lsp_pkt_t *lsp_pkt;
-    node_t *node;
+    isis_node_info_t *node_info;
     
-    node = (node_t *)(ev_dis->app_data);
-    node_info = node ? NODE_DEF_VRF(node)->isis_node_info : NULL;
-    if (!node_info || !arg) return;
-    lsp_pkt = (isis_lsp_pkt_t *)arg;
+    isis_timer_data_t *timer_data = (isis_timer_data_t *)arg;
+    
+    lsp_pkt = (isis_lsp_pkt_t *)timer_data->data;
+    node_info = timer_data->node_info;
+
     seq_no = isis_get_lsp_pkt_seq_no (lsp_pkt);
     (*seq_no)++;
     lsp_pkt->fragment->seq_no = *seq_no;
@@ -693,9 +693,16 @@ void
 isis_lsp_pkt_flood_timer_start (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     if (lsp_pkt->periodic_lsp_flood_timer) return;
+
+    isis_timer_data_t *timer_data = (isis_timer_data_t *)XCALLOC2(0, 1, isis_timer_data_t);
+    timer_data->node_info = node_info;
+    timer_data->data = (void *)lsp_pkt;
+    timer_data->data_size = sizeof(void *);
+    isis_ref_isis_pkt(lsp_pkt);
+
     lsp_pkt->periodic_lsp_flood_timer = timer_register_app_event (CP_TIMER(node_info->vrf->node),
                                                                     lsp_pkt_flood_timer_cbk,
-                                                                    lsp_pkt, sizeof(*lsp_pkt), 
+                                                                    timer_data, sizeof(*timer_data), 
                                                                     node_info->lsp_flood_interval * 1000,
                                                                     1);
 }
@@ -704,16 +711,27 @@ void
 isis_lsp_pkt_flood_timer_stop (isis_lsp_pkt_t *lsp_pkt) {
 
      if (!lsp_pkt->periodic_lsp_flood_timer) return;
+
+     isis_timer_data_t *timer_data = (isis_timer_data_t *)
+                                wt_elem_get_and_set_app_data(
+                                lsp_pkt->periodic_lsp_flood_timer, 0);
+
      timer_de_register_app_event (lsp_pkt->periodic_lsp_flood_timer);
      lsp_pkt->periodic_lsp_flood_timer = NULL;
+
+     isis_deref_isis_pkt(timer_data->node_info, (isis_lsp_pkt_t *)timer_data->data);
+     timer_data->data = NULL;
+     XFREE(timer_data);
 }
 
 void
 isis_lsp_pkt_flood_timer_restart (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
 
     if (!lsp_pkt->periodic_lsp_flood_timer) return;
+    isis_lsp_pkt_prevent_premature_deletion(lsp_pkt);
     isis_lsp_pkt_flood_timer_stop (lsp_pkt);
     isis_lsp_pkt_flood_timer_start (node_info, lsp_pkt);
+    isis_lsp_pkt_relieve_premature_deletion(node_info, lsp_pkt);
 }
 
 uint32_t

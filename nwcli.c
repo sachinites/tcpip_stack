@@ -373,7 +373,8 @@ show_arp_handler(int cmdcode, Stack_t *tlv_stack,
     }TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    //show_arp_table(NODE_ARP_TABLE(vrf));
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
+    //show_arp_table(vrf->arp);
     return 0;
 }
 
@@ -1560,6 +1561,24 @@ nw_init_cli(){
                                 init_param(&instance_no, LEAF, 0, 0, 0, INT, "instance-no", "Instance number");
                                 libcli_register_param(&sub_proto_id, &instance_no);
                                 {
+                                    {
+                                        /* rtm-route prefix <prefix-mask> <proto-id> <sub-proto-id> <instance-no> l3vpn srv6-sid <ipv6-addr> */
+                                        static param_t l3vpn;
+                                        init_param(&l3vpn, CMD, "l3vpn", 0, 0, INVALID, 0, "L3 VPN label (BGP-VPN only)");
+                                        libcli_register_param(&instance_no, &l3vpn);
+                                        {
+                                            static param_t srv6_sid;
+                                            init_param(&srv6_sid, CMD, "srv6-sid", 0, 0, INVALID, 0, "SRv6 SID");
+                                            libcli_register_param(&l3vpn, &srv6_sid);
+                                            {
+                                                static param_t ipv6_addr;
+                                                init_param(&ipv6_addr, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "ipv6-addr", "SRv6 SID");
+                                                libcli_register_param(&srv6_sid, &ipv6_addr);
+                                                libcli_set_param_cmd_code(&ipv6_addr, CMDCODE_CONFIG_RTM_ROUTE_L3VPN_SRV6);
+                                            }
+                                        }
+                                    }
+
                                     /* <action-id> */
                                     static param_t action_id;
                                     init_param(&action_id, LEAF, 0, 0, 0, INT, "action-id", "Action ID (0-5)");

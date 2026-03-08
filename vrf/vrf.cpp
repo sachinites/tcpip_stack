@@ -19,9 +19,9 @@ def_vrf_t* vrf_def_init(node_t *node) {
     
     vrf_init (node, RTM_DEFAULT_VRF, DEF_VRF_NAME, &def_vrf->vrf);
     
-    def_vrf->mpls0       = rtm_initialize(node, RTM_DEFAULT_VRF, AF_LABEL, 0);   // mpls.0
-    def_vrf->l3vpnv4     = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV4, 128);  // bgp.l3vpn.0 (v4)
-    def_vrf->l3vpnv6     = rtm_initialize(node, RTM_DEFAULT_VRF, AF_IPV6, 128);  // bgp.l3vpn.0 (v6)
+    def_vrf->mpls0       = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_LABEL, 0);   // mpls.0
+    def_vrf->l3vpnv4     = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_IPV4, 128);  // bgp.l3vpn.0 (v4)
+    def_vrf->l3vpnv6     = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_IPV6, 128);  // bgp.l3vpn.0 (v6)
     
     return def_vrf;
 }
@@ -37,10 +37,10 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     vrf->node = node;
 
     /* Initializw RIBs*/
-    vrf->inet0   = rtm_initialize(node, vrf_id, AF_IPV4, 0); 
-    vrf->inet3   = rtm_initialize(node, vrf_id, AF_IPV4, 3); 
-    vrf->inet63 = rtm_initialize(node, vrf_id, AF_IPV6, 3); 
-    vrf->inet6   = rtm_initialize(node, vrf_id, AF_IPV6, 0); 
+    vrf->inet0   = rtm_initialize(node, vrf_id, vrf_name, AF_IPV4, 0);
+    vrf->inet3   = rtm_initialize(node, vrf_id, vrf_name, AF_IPV4, 3);
+    vrf->inet63  = rtm_initialize(node, vrf_id, vrf_name, AF_IPV6, 3);
+    vrf->inet6   = rtm_initialize(node, vrf_id, vrf_name, AF_IPV6, 0);
 
     /* Initialize interface hashmaps */
     vrf->intf_by_name = new std::unordered_map<std::string, InterfaceP>();
@@ -58,9 +58,6 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     vrf->import_rt.number = 0;
     vrf->export_rt.asn = 0;
     vrf->export_rt.number = 0;    
-
-    /* Initialize dx4_sid db*/
-    init_glthread(&vrf->dx4_sid_lst);
 
     vrf->isis_node_info = NULL;
     vrf->srv6_node_info = NULL;
@@ -113,19 +110,6 @@ void vrf_delete(vrf_t* vrf, bool _free) {
     //mpls_label_release (vrf->l3_vpn_label);
     vrf->l3_vpn_label = 0;
     vrf->node = NULL;
-
-    while ((curr = dequeue_glthread_first(&vrf->dx4_sid_lst))) {
-
-        glthread_data_node_t *data_node = glue_to_glthread_data_node(curr);
-        ipv6_addr_t *dx4_sid = (ipv6_addr_t *)data_node->data;
-        vrf_rtm_unprogram_dx4_sid (vrf, dx4_sid);
-        XFREE(data_node);
-    } 
-
-    if (vrf->DX4_vrf_steering_intfp) {
-        delete vrf->DX4_vrf_steering_intfp;
-        vrf->DX4_vrf_steering_intfp = NULL;
-    }
 
     if (_free) XFREE(vrf);
 }

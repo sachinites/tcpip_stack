@@ -251,29 +251,29 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
             }
             printw("\n");
         }
-        
-        /* Display SRv6 information if present */
-        if (nh->sub_proto == RTM_SUB_PROTO_SRv6 || nh->sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
-            /* Display SRv6 Endpoint Function */
-            if (nh->endfn != SRV6_END_FN_NONE) {
-                cprintf("    SRv6 Endpoint Fn: %s\n", srv6_end_fn_str(nh->endfn));
-            }
-            
-            /* Display SRv6 Segment List if present */
-            if (nh->n_segment_list > 0 && nh->v6segment_lst) {
-                cprintf("    SRv6 Segment List: ");
-                for (int i = 0; i < nh->n_segment_list; i++) {
-                    char seg_str[48];
-                    rtm_format_prefix(&nh->v6segment_lst[i], seg_str, sizeof(seg_str));
-                    cprintf("%s", seg_str);
-                    if (i < nh->n_segment_list - 1) {
-                        cprintf(" -> ");
-                    }
-                }
-                printw("\n");
-            }
+
+        /* Display SRv6 Endpoint Function */
+        if (nh->endfn != SRV6_END_FN_NONE)
+        {
+            cprintf("    SRv6 Endpoint Fn: %s\n", srv6_end_fn_str(nh->endfn));
         }
-        
+
+        /* Display SRv6 Segment List if present */
+        if (nh->n_segment_list > 0 && nh->v6segment_lst)
+        {
+            cprintf("    SRv6 Segment List: ");
+            for (int i = 0; i < nh->n_segment_list; i++)
+            {
+                char seg_str[48];
+                rtm_format_prefix(&nh->v6segment_lst[i], seg_str, sizeof(seg_str));
+                cprintf("%s", seg_str);
+                if (i < nh->n_segment_list - 1)
+                {
+                    cprintf(" -> ");
+                }
+            }
+            printw("\n");
+        }
     } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
 
     /* Blank line after route display */

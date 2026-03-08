@@ -15,6 +15,7 @@
 #include "../dp_utils.h"
 #include "../dp_uapi.h"
 #include "../Layer3/Gre/gre-fwd.h"
+#include "../Layer3/SRv6/srv6-endpoint.h"
 #include "../../common/cmn_api.h"
 #include "../../c-hashtable/hashtable.h"
 #include "../../c-hashtable/hashtable_itr.h"
@@ -418,6 +419,57 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
     return 0;    
 }
 
+/* Algorithm 
+    1. Remove the outer ethernet header if Data layer passed it
+    2. Decap the pkt, and remove ipv6 header + SRH header
+    3. Underneath must be ipv4 header, if not drop the pkt
+    4. Using ipv4 header, lool up vrf.inet.0 fib where vrf is obtained from 
+        intf->srv6_data.steered_dt4_vrf
+    5. forward the pkt using fib entry.
+*/
+static int 
+SRv6EndPointEND_DT4Interface_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        pkt_block_t *pkt_block){
+
+    pkt_size_t pkt_size;
+
+    /* Step 1: Strip outer ethernet header if the data layer included it */
+    if (pkt_block_get_starting_hdr(pkt_block) == ETH_HDR) {
+        uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+        ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
+        uint32_t eth_hdr_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
+        uint8_t *payload = GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+        pkt_block_set_new_pkt(pkt_block, payload, pkt_size - eth_hdr_size);
+        pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
+    }
+
+    /* Step 2: Decapsulate: strip the outer IPv6 header and SRH */
+    Srv6_decapsulate(pkt_block);
+
+    /* Step 3: Inner payload must be IPv4; drop anything else */
+    if (pkt_block_get_starting_hdr(pkt_block) != IP_HDR) {
+        tracer(dp_ctx->dptr, DL3FWD | DERR,
+            "SRv6 END.DT4: inner packet is not IPv4, dropping\n");
+        return 0;
+    }
+
+    /* Step 4: Resolve the VRF for the IPv4 FIB lookup */
+    dp_vrf_t *steered_vrf = intf->srv6_data.steered_dt4_vrf;
+    if (!steered_vrf) {
+        tracer(dp_ctx->dptr, DL3FWD | DERR,
+            "SRv6 END.DT4: no steered VRF configured on interface %s, dropping\n",
+            intf->if_name);
+        return 0;
+    }
+
+    /* Step 5: Forward the inner IPv4 packet using the steered VRF FIB */
+    layer3_ip_route_pkt(dp_ctx, steered_vrf, NULL, pkt_block);
+    return 0;
+}
+
+
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
     {
@@ -428,6 +480,7 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         VirtualPort_SendPacketOut,
         RmacInterface_SendPacketOut,
         NVEInterface_SendPacketOut,
+        SRv6EndPointEND_DT4Interface_SendPacketOut,
         0,
         0,
         0

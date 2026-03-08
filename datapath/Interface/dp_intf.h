@@ -84,6 +84,13 @@ typedef struct dp_intf_ {
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;
 
+    /* Id this is SRv6 interface, then this is SRv6 data.*/
+    union {
+
+        dp_vrf_t *steered_dt4_vrf; 
+
+    } srv6_data;
+
     /* Logging */
     log_t log_info;
 

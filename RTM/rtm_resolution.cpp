@@ -482,36 +482,50 @@ void
 rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
 
     int i;
-    /* If this is 0.inet.3 RTM, Schedule the NH resolution worker of :
-        x.inet.0 RTM
-        0.inet.128 ( BGP L3 VPN ) */
+    node_t *node = rtm->node;
+    rtm_t *vpn_cust_vrf_rib_inet;
 
-    if (rtm == NODE_DEF_VRF_VRF_MEMBER(rtm->node, inet3)) {     
+    // if rtm is Default-vrf.inet.0 then resolve -> vrf.inet.0
+    // if rtm is Default-vrf.inet6.0 then resolve -> vrf.inet6.0 
+    // if rtm is Default-vrf.inet6.0 then resolve -> vrf.inet.0 
+        // this is the case of VPNv4 route with nexthop as SRv6 SID
+
+    // if rtm is Default-vrf.inet.3 then resolve -> vrf.inet.0
+    // if rtm is Default-vrf.inet6.3 then resolve -> vrf.inet6.0
+    // if rtm is Default-vrf.inet6.3 then resolve -> vrf.inet.0
+        // this is the case of VPNv4 route with nexthop as SRv6 SID
+
+    
+    if (rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet0) || 
+        rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet6) ||
+        rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet3) ||
+        rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet63) ) {
 
         for (i = 0; i < MAX_VRF_PER_NODE; i++) {
 
-            vrf_t *vrf = rtm->node->vrf[i];
+            vrf_t *vrf = node->vrf[i];
+
             if (!vrf) continue;
 
             /* Customer VRF RIB*/
-            rtm_t *vpn_cust_vrf_rib_inet = vrf->inet0;
+            vpn_cust_vrf_rib_inet = vrf->inet0;
             SET_BIT(vpn_cust_vrf_rib_inet->flags, RTM_F_INHS_RE_RESOLVE);
             rtm_schedule_nh_resolution_worker (vpn_cust_vrf_rib_inet);
         }
     }
 
-    /* If this is 0.inet.63 RTM, Schedule the NH resolution worked of 0.inet.6 RTM*/
-     else if (rtm == NODE_DEF_VRF_VRF_MEMBER(rtm->node, inet63)) {     
-
+    if (rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet6) || 
+        rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet63) )  {
+   
         for (i = 0; i < MAX_VRF_PER_NODE; i++) {
 
-            vrf_t *vrf = rtm->node->vrf[i];
+            vrf_t *vrf = node->vrf[i];
             if (!vrf) continue;
 
             /* Customer VRF RIB*/
-            rtm_t *vpn_cust_vrf_rib_inet6 = vrf->inet6;
-            SET_BIT(vpn_cust_vrf_rib_inet6->flags, RTM_F_INHS_RE_RESOLVE);
-            rtm_schedule_nh_resolution_worker (vpn_cust_vrf_rib_inet6);
+            vpn_cust_vrf_rib_inet = vrf->inet6;
+            SET_BIT(vpn_cust_vrf_rib_inet->flags, RTM_F_INHS_RE_RESOLVE);
+            rtm_schedule_nh_resolution_worker (vpn_cust_vrf_rib_inet);
         }
     }
 }
@@ -1015,16 +1029,26 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
     /* Rule 1 : If the route is BGP VPN route installed in 
         Customer VPN RIBs, resolve it in default 0.inet.3 table*/
 
-    if (indirect_nh->proto == RTM_PROTO_BGP &&
-        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN &&
+    if (
+        (indirect_nh->proto == RTM_PROTO_BGP ||
+            indirect_nh->proto == RTM_PROTO_STATIC)
+        &&
+        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN 
+        &&
         indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
-        if (indirect_nh->rtm->afi == AF_IPV4) {
-            return NODE_DEF_VRF_VRF_MEMBER(node, inet3);
-        }
-        else if (indirect_nh->rtm->afi == AF_IPV6) {
-            return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
-        }
+            if (indirect_nh->prefix.afi == AF_IPV4) {
+                
+                return NODE_DEF_VRF_VRF_MEMBER(node, inet3);
+            }
+            else if (indirect_nh->prefix.afi == AF_IPV6) {
+
+                /* VPNv4 routes with SRv6 Transport are resolved in inet6.0*/
+                if (IS_BIT_SET(indirect_nh->fwd_flags, FIB_NH_FWD_F_SRv6_FORWARD))
+                    return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+
+                return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
+            }
 
         assert(0);
     }

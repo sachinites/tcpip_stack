@@ -798,8 +798,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     cprintf("Error: NVE interface %s is in use\n", intf_name);
                     return -1;
                 }
-                // Release resources and delete interface
-                nve_intf->InterfaceReleaseAllResources();
 
                 if (node->node_nw_prop.nve) {
                     node->node_nw_prop.nve = nullptr;
@@ -900,7 +898,6 @@ intf_config_virtual_port_create_handler(int cmdcode,
             if (!node_global_intf_map_insert(node, intf))
             {
                 cprintf ("Error : Failed to insert interface\n");
-                intf->InterfaceReleaseAllResources();
                 return -1;
             }
             cp2dp_interface_create(node, intf);

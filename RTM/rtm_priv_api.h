@@ -55,4 +55,9 @@ rtm_uninstall_l3vpn_routes_to_all_client_ribs(
         rtm_t *rtm, 
         uint32_t idx);
 
+int8_t
+srv6_rtm_route_install_vpnv4 (node_t *node, 
+                    unsigned char* prefix_mask, 
+                    unsigned char *ipv6_addr, bool install) ;
+
 #endif 

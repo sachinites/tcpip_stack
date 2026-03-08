@@ -25,7 +25,9 @@
 #define IPV6_SRV6_LOCATOR_CONFIG_ALGORITHM 10
 
 /* show node <node-name> protocol srv6 locator */
-#define CMD_CODE_SHOW_SRV6_SIDS 20
+#define CMD_CODE_SHOW_SRV6_SIDS 11
 
+/* config node <node-name> protocol source-packet-routing srv6 endpoint end-dt4-sid <srv6-sid> vrf <vrf-name> */
+#define IPV6_SRV6_END_DT4_SID_CONFIG 12
 
 #endif 

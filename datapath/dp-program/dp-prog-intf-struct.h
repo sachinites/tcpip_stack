@@ -96,9 +96,7 @@ typedef struct dp_intf_grp_bind_ {
 #define CP2DP_CODE_INTF_RMAC 10
 #define CP2DP_CODE_INTF_VLAN_FLOOD 11
 #define CP2DP_CODE_INTF_HOST_PATH 12
-#define CP2DP_CODE_INTF_SRV6_END 13
 #define CP2DP_CODE_INTF_NVE 14
-
 
 #define CP2DP_CODE_INTF_LOG_UPDATE 15
 typedef struct dp_intf_log_update_ {
@@ -107,6 +105,10 @@ typedef struct dp_intf_log_update_ {
 
 } dp_intf_log_update_t;
 
+
+// code to bind steering vrf with dt4 interfaces, it has no
+//  structure, dp_intf_cp2dp_msg_hdr_t will contain all info required
+#define CP2DP_CODE_DT4_INTF_STEER_VRF_BIND 16
 
 typedef struct dp_intf_cp2dp_msg_ {
 

@@ -18,6 +18,7 @@ typedef struct node_ node_t;
 typedef struct isis_node_info_ isis_node_info_t;
 typedef struct srv6_node_info_ srv6_node_info_t ;
 typedef struct srv6_sid_pools_ srv6_sid_pools_t;
+class SRv6EndPointEND_DT4Interface;
 
 #define MAX_VRF_PER_NODE    8
 
@@ -62,9 +63,6 @@ typedef struct vrf_ {
     rt_t import_rt;
     rt_t export_rt;
 
-    SRv6EndPointEND_DX4Interface *DX4_vrf_steering_intfp;
-    glthread_t dx4_sid_lst;
-
     isis_node_info_t *isis_node_info;
     /* Device level SRV6 info */
     srv6_node_info_t *srv6_node_info;
@@ -74,9 +72,14 @@ typedef struct vrf_ {
 typedef struct def_vrf_ {
 
     vrf_t vrf;
+
+    /* GLobal RIBs which belong to only Default VRF */
     rtm_t *mpls0;
     rtm_t *l3vpnv4;
     rtm_t *l3vpnv6;
+
+    /* Default VRF maintain the SRv6 DT4 interfaces, keyed by vrf-id*/
+    std::unordered_map<uint8_t, SRv6EndPointEND_DT4Interface *> *dt4_intf_by_vrf;
 
 } def_vrf_t;
 

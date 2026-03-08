@@ -119,10 +119,11 @@ isis_protocol_shutdown_now (isis_node_info_t *node_info) {
     isis_cleanup_teddb (node_info);
     tracer_deinit (node_info->tr);
     node_info->tr = NULL;
-    node_t *node = node_info->vrf->node;
+    #if 0
     cp_ips_unjoin (node, IPC_INTERFACE, isis_recv_ipc_updates);
     cp_ips_unjoin (node, IPC_GRE_TUNNEL, isis_recv_ipc_updates);
     cp_ips_unjoin (node, IPC_ACCESS_LIST, isis_recv_ipc_updates);
+    #endif
     isis_check_delete_node_info(node_info); 
 }
 
@@ -258,7 +259,8 @@ isis_show_node_protocol_state(vrf_t *vrf) {
     Interface *intf;
     is_enabled = isis_is_protocol_enable_on_node(vrf);
 
-    cprintf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
+    cprintf("ISIS Protocol : %sabled %p\n", 
+        is_enabled ? "En" : "Dis", vrf->isis_node_info);
 
     if(!is_enabled) return;
 
@@ -345,6 +347,9 @@ isis_de_init(vrf_t *vrf) {
 			vrf->node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
+    tracer (ISIS_TR(vrf->isis_node_info), TR_ISIS_EVENTS, 
+            "ISIS pkt trap disabled\n");
+
     //nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(vrf->isis_node_info);
 }
@@ -353,7 +358,7 @@ void
 isis_init (vrf_t *vrf) {
 
     node_t *node = vrf->node;
-    char log_file_name[NODE_NAME_SIZE + 16] = {0};
+    char log_file_name[128] = {0};
 
     if (vrf->isis_node_info) return;
 
@@ -410,8 +415,8 @@ isis_init (vrf_t *vrf) {
 void
 isis_one_time_registration() {
 
-    //nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
-    //nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
+    nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
+    nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
 }
 
 void

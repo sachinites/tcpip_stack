@@ -226,8 +226,9 @@ interface_unset_ipv6_addr(node_t *node, Interface *intf,
 Interface *
 interface_loopback_create (node_t *node, char *ifname) {
 
-    if (node_interface_lookup_by_name(node, ifname)) {
-        return;
+    Interface *intf;
+    if ((intf = node_interface_lookup_by_name(node, ifname))) {
+        return intf;
     }
     
     InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(ifname));
@@ -237,8 +238,9 @@ interface_loopback_create (node_t *node, char *ifname) {
     
     if (!node_global_intf_map_insert(node, intfP.get())) {
         cprintf("Error : Failed to insert loopback interface %s\n", ifname);
-        return;
+        return NULL;
     }
+    
     cp2dp_interface_create(node, intfP.get());
     vrf_add_interface(NODE_DEF_VRF(node), intfP.get());
     return intfP.get();

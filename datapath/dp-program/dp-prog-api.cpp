@@ -388,13 +388,11 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 case CP2DP_CODE_INTF_NVE:
                     dp_ctx->dp_nve_intf = intf;
                     break;
-                case CP2DP_CODE_INTF_SRV6_END:
-                    dp_ctx->dp_srv6_end_intf = intf;
-                    break;
                 case CP2DP_CODE_INTF_HOST_PATH:
                     dp_ctx->dp_host_path_intf = intf;
                     break;
                 default: 
+                    dp_insert_interface(ht, intf);
                     break;
             }
             
@@ -654,6 +652,25 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             vlan_intf->if_name));
                 }
                 break;
+
+
+                case CP2DP_CODE_DT4_INTF_STEER_VRF_BIND:
+
+                    if (msg->vlan_id != UINT32_MAX) {
+
+                        assert(!intf->srv6_data.steered_dt4_vrf);
+                        dp_vrf_t *steered_vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, (uint16_t) msg->vlan_id);
+                        assert(steered_vrf);
+                        intf->srv6_data.steered_dt4_vrf = steered_vrf;
+                    }
+                    else {
+                        assert(intf->srv6_data.steered_dt4_vrf);
+                        intf->srv6_data.steered_dt4_vrf = NULL;
+                    }
+
+                break;
+
+
 
                 default:
                     tracer(dp_ctx->dptr, DCONF, 
