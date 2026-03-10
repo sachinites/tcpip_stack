@@ -234,11 +234,11 @@ Router_Create(graph_t *graph, const c_string node_name){
     //node_config_db_init (node);
 
     /* Turn on Default Logging */
-    #if 0
+    #if 1
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
-    tracer_log_bit_set(dp_ctx->dptr,  DFIB | DFIB_DET);
+    tracer_log_bit_set(node->dp_ctx->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
-    tracer_log_bit_set(dp_ctx->dptr,  DERR);  
+    tracer_log_bit_set(node->dp_ctx->dptr,  DERR);  
     #endif 
     tracer_enable_always_flush(node->cptr, true);
     tracer_enable_always_flush(node->dp_ctx->dptr, true);

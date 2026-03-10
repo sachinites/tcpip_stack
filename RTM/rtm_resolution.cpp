@@ -880,7 +880,9 @@ rtm_all_inh_unresolve(rtm_t *rtm,  cmn_prefix_t *route) {
 
        nh = (rtm_nh *)avltree_container_of(avl_node, rtm_nh, idx_glue);
 
-      if (route && 
+      if (!nh->is_indirect) continue;
+
+      if (route && nh->resolved_via_route &&
           cmn_prefix_compare(&nh->resolved_via_route->prefix, route) != 0) continue;
 
         /* No op if this inh do not contribute to resolution graph*/

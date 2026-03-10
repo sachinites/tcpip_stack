@@ -534,12 +534,12 @@ cross_link_topology(void){
 VPNv4 using SRv6 Transport in ISP core
 ======================================= 
 
-config node R0 protocol source-packet-routing srv6 locator R0-LOC 2001:dbe8:1:: 48                                                                                                                                                                                                                                                                                                                                                                                                                
-config node R1 protocol source-packet-routing srv6 locator R1-LOC 2001:dbe8:2:: 48                                                                                                                                                                                                                                                                                                                                                                                      
-config node R2 protocol source-packet-routing srv6 locator R2-LOC 2001:dbe8:3:: 48                                                                                                                                                                                                                                                                                                                                                                                                               
-config node R3 protocol source-packet-routing srv6 locator R3-LOC 2001:dbe8:4:: 48                                                                                                                                                                                                                                                                                                                                                                                                      
-config node R4 protocol source-packet-routing srv6 locator R4-LOC 2001:dbe8:5:: 48                                                                                                                                                                                                                                                                                                                                                                                                               
-config node R5 protocol source-packet-routing srv6 locator R5-LOC 2001:dbe8:6:: 48   
+config node R0 protocol source-packet-routing srv6 locator R0-LOC 2001:dbe8:1:: 48
+config node R1 protocol source-packet-routing srv6 locator R1-LOC 2001:dbe8:2:: 48
+config node R2 protocol source-packet-routing srv6 locator R2-LOC 2001:dbe8:3:: 48
+config node R3 protocol source-packet-routing srv6 locator R3-LOC 2001:dbe8:4:: 48
+config node R4 protocol source-packet-routing srv6 locator R4-LOC 2001:dbe8:5:: 48
+config node R5 protocol source-packet-routing srv6 locator R5-LOC 2001:dbe8:6:: 48
 
 config node R0 protocol isis source-packet-routing srv6 locator R0-LOC
 config node R1 protocol isis source-packet-routing srv6 locator R1-LOC
@@ -561,7 +561,7 @@ config node R0 no interface ethernet eth1 vrf Default-vrf
 config node R0 vrf red route-distinguisher 1:1
 config node R0 interface ethernet eth1 vrf red
 config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
-config node R0 rtm-route prefix 121.1.1.1/32 3 5 0 l3vpn srv6-sid 2001:dbe8:3::1 
+config node R0 rtm-route prefix 121.1.1.1/32 3 5 0 l3vpn srv6-sid 2001:dbe8:3:1:: 
 
 config node R3 no protocol isis interface eth1
 config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
@@ -569,7 +569,7 @@ config node R3 no interface ethernet eth1 vrf Default-vrf
 config node R3 vrf red route-distinguisher 1:1
 config node R3 interface ethernet eth1 vrf red
 config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
-config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:3::1 vrf red
+config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:4:1:: vrf red
 
 
                                                                                 +--------+-+

@@ -934,17 +934,21 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
                     new std::unordered_map<uint8_t, SRv6EndPointEND_DT4Interface*>();  
             }
 
-            /* Lookup def_vrf->dt4_intf_by_vrf using vrf_id as key*/
-            SRv6EndPointEND_DT4Interface *dt4_intf = 
-                def_vrf->dt4_intf_by_vrf->at(vrf->vrf_id);
+            auto it = def_vrf->dt4_intf_by_vrf->find(vrf->vrf_id);
+            SRv6EndPointEND_DT4Interface *dt4_intf = nullptr;
+
+            if (it != def_vrf->dt4_intf_by_vrf->end()) {
+                dt4_intf = it->second;
+            }
 
             if (dt4_intf == NULL) {
 
                 /* Create a new SRv6EndPointEND_DT4InterfaceP and insert it into map */
-                dt4_intf = new SRv6EndPointEND_DT4Interface(vrf);
+                dt4_intf = new SRv6EndPointEND_DT4Interface(steered_vrf);
                 dt4_intf->ifindex = interface_get_new_ifindex(node);
-                def_vrf->dt4_intf_by_vrf->insert({vrf->vrf_id, dt4_intf});
+                def_vrf->dt4_intf_by_vrf->insert({steered_vrf->vrf_id, dt4_intf});
                 cp2dp_interface_create(node, dt4_intf);
+                cp2dp_vrf_add_interface(node, vrf->vrf_id, dt4_intf->ifindex);
                 cp2dp_srv6_dt4_intf_steered_vrf(node, dt4_intf, true);
             } 
 
@@ -955,7 +959,7 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
                                    &pfxsid->sid,
                                    pfxsid->prefix_len,
                                    FIB_NH_FWD_F_SRv6_FORWARD,
-                                   0, dt4_intf,
+                                   0, (Interface *)dt4_intf,
                                    NULL, 0,
                                    pfxsid->endP,
                                    RTM_PROTO_STATIC, true);
@@ -1007,18 +1011,6 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
                     return -1;
             }
 
-            /* Uninstall the route that was pointing at this DT4 SID */
-            srv6_rtm_route_install(vrf,
-                                   &pfxsid->sid,
-                                   pfxsid->prefix_len,
-                                   FIB_NH_FWD_F_SRv6_FORWARD,
-                                   0, 0,
-                                   NULL, 0,
-                                   pfxsid->endP,
-                                   RTM_PROTO_STATIC, false);
-
-            XFREE(pfxsid);
-
             /* Decrement the ref count on the DT4 steering interface for the
              * steered VRF. When the last SID referencing it is removed, tear
              * the interface down completely. */
@@ -1027,12 +1019,25 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
 
             SRv6EndPointEND_DT4Interface *dt4_intf = it->second;
 
+            /* Uninstall the route that was pointing at this DT4 SID */
+            srv6_rtm_route_install(vrf,
+                                   &pfxsid->sid,
+                                   pfxsid->prefix_len,
+                                   FIB_NH_FWD_F_SRv6_FORWARD,
+                                   0, (Interface *)dt4_intf,
+                                   NULL, 0,
+                                   pfxsid->endP,
+                                   RTM_PROTO_STATIC, false);
+
+            XFREE(pfxsid);   
+
             uint16_t remaining = dt4_intf->inc_ref_count(-1);
 
             if (remaining == 0) {
 
                 /* Notify the datapath to delete this interface */
                 cp2dp_srv6_dt4_intf_steered_vrf(node, dt4_intf, false);
+                cp2dp_vrf_delete_interface(node, vrf->vrf_id, dt4_intf->ifindex);
                 cp2dp_interface_delete(node, dt4_intf->ifindex);
 
                 /* Remove from map before deletion so no stale pointer remains */
@@ -1101,7 +1106,7 @@ srv6_build_global_config_cli_tree (param_t *root) {
                                 init_param(&oif_name, LEAF, NULL, NULL, 
                                     NULL, STRING, "oif-name", "Outgoing Interface Name");
                                 libcli_register_param(&ipv6_addr, &oif_name);
-                                //libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
+                        
                                 srv6_flavor_cli_subtree_hookup(&oif_name, 
                                     IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
                             }

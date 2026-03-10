@@ -364,19 +364,25 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                         &msg->mac_addr, (uint16_t)msg->vlan_id);
             strncpy(intf->if_name, msg->intf_name, sizeof (msg->intf_name));
 
-            /* Initialize log file */
-            char intf_log_file_name[128];
-            snprintf(intf_log_file_name, sizeof(intf_log_file_name),
-                "logs/%s-%s.txt", 
-                dp_ctx->ctx_name, intf->if_name);
-
-            intf->log_info.log_file = fopen (intf_log_file_name, "w");
-
             switch (msg->update_code) {
+
                 case CP2DP_CODE_INTF_PHYSICAL:
+
                     dp_insert_interface(ht, intf);
+
                     if (intf->if_type == DP_INTF_TYPE_VLAN) {
                         dp_insert_vlan_interface (dp_ctx->dp_vlan_intf_ht, intf);
+                    }
+                    
+                    else if (intf->if_type == DP_INTF_TYPE_PHY)
+                    {
+                        /* Initialize log file */
+                        char intf_log_file_name[128];
+                        snprintf(intf_log_file_name, sizeof(intf_log_file_name),
+                                 "logs/%s-%s.txt",
+                                 dp_ctx->ctx_name, intf->if_name);
+
+                        intf->log_info.log_file = fopen(intf_log_file_name, "w");
                     }
                     break;
                 case CP2DP_CODE_INTF_RMAC:

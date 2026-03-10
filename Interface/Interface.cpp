@@ -1818,7 +1818,7 @@ SRv6VirtualInterface::~SRv6VirtualInterface() {
 
 SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(vrf_t *vrf):
     SRv6VirtualInterface(
-            std::string("srv6End_DT4Intf") + std::string(vrf->vrf_name), 
+            std::string("SRv6-DT4-") + std::string(vrf->vrf_name), 
             INTF_TYPE_SRv6_DT4),
     vrf(vrf),
     ref_count(0)

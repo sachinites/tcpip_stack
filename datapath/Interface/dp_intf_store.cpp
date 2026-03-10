@@ -68,6 +68,7 @@ dp_check_and_free_interface (dp_intf_t *intf) {
 
     assert(!intf->vrf);
     assert(!intf->vlan_intf);
+    assert (!intf->srv6_data.steered_dt4_vrf);
 
     for (i = 0; i < MAX_VLAN_MEMBER_PORTS; i++) {
         assert(!intf->mports[i]);

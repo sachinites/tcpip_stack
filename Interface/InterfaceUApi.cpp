@@ -492,17 +492,28 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
         return NODE_NVE_INTF(node).get();
     }
     
+    def_vrf_t *def_vrf = (def_vrf_t *)NODE_DEF_VRF(node);
+
     // Look up in physical/loopback interface hashmap
     intf = node_global_intf_map_lookup_by_ifindex(node, ifindex);
+
     if (intf) return intf;
 
     /* Check for vlan interface */
-
     if (node->vlan_intf_db) {
 
-        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+        for (auto it = node->vlan_intf_db->begin(); 
+             it != node->vlan_intf_db->end(); it++) {
+            
             if (it->second->ifindex == ifindex) return it->second.get();
         }
+    }
+
+    /* Check for SRv6 DT4 interface in def_vrf->dt4_intf_by_vrf table */
+    for (auto it = def_vrf->dt4_intf_by_vrf->begin(); 
+              it != def_vrf->dt4_intf_by_vrf->end(); it++) {
+
+        if (it->second->ifindex == ifindex) return (Interface *)it->second;
     }
 
     return NULL;
