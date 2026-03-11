@@ -140,9 +140,9 @@ tcp_dump_send_logger(dp_ctx_t *dp_ctx,
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
-                 pkt_block,            /*Pkt and Pkt size to be written in log file*/
+                 pkt_block,                /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
-                 dp_ctx->send_log_buffer,    /*Buffer into which the formatted output is to be written*/
+                 dp_ctx->send_log_buffer,  /*Buffer into which the formatted output is to be written*/
                  rc,                       /*write OFFset*/
                  TCP_PRINT_BUFFER_SIZE - rc);   /*Buffer Max Size*/
     }

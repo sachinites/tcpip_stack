@@ -304,8 +304,30 @@ fn_template(srv6_END_DT6) {
 
 }
 
+/* Encapsulate the pkt within ipv6 heaader, ipv6 dst address obtained from
+    nexthop segment list. If there are more SRv6 SIDs in nexthop segment list, then
+    remaining SIDs will in SRH hdr. Then semote the packet to L2 for forwarding*/
+
+/* Algorithm : 
+
+*/
 fn_template(srv6_END_DT4) {
 
+    assert (!srh || (srh->segments_left == 0));
+
+    /* Build a new SRH from the nexthop segment list */
+    srh_hdr_t *new_srh = srh_hdr_prepare(
+                (ipv6_addr_t *)nexthop->fwd_info->u.v6_fwd.v6segment_lst,
+                nexthop->fwd_info->u.v6_fwd.n_segment_list);
+
+    /* Wrap the IPv4 payload in a new IPv6 + SRH envelope;
+       DA is set to the first active SID by Srv6_encapsulate */
+    Srv6_encapsulate(pkt_block, new_srh);
+
+    XFREE(new_srh);
+
+    /* Promote to L2 for forwarding */
+    srv6_ipv6_forward(dp_ctx, vrf, pkt_block, 0);
 }
 
 fn_template(srv6_END_DT46) {

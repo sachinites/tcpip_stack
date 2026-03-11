@@ -1816,7 +1816,7 @@ SRv6VirtualInterface::~SRv6VirtualInterface() {
 
 /* SRv6 END.DT4 Interface Implementation */
 
-SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(vrf_t *vrf):
+SRv6EndPointEND_DT4_Egress_Interface::SRv6EndPointEND_DT4_Egress_Interface(vrf_t *vrf):
     SRv6VirtualInterface(
             std::string("SRv6-DT4-") + std::string(vrf->vrf_name), 
             INTF_TYPE_SRv6_DT4),
@@ -1826,7 +1826,7 @@ SRv6EndPointEND_DT4Interface::SRv6EndPointEND_DT4Interface(vrf_t *vrf):
     
 }
 
-SRv6EndPointEND_DT4Interface::~SRv6EndPointEND_DT4Interface() {
+SRv6EndPointEND_DT4_Egress_Interface::~SRv6EndPointEND_DT4_Egress_Interface() {
 
     InterfaceReleaseAllResources();
     assert(!ref_count);
@@ -1835,20 +1835,20 @@ SRv6EndPointEND_DT4Interface::~SRv6EndPointEND_DT4Interface() {
 
 
 uint16_t 
-SRv6EndPointEND_DT4Interface::inc_ref_count(int8_t val) {
+SRv6EndPointEND_DT4_Egress_Interface::inc_ref_count(int8_t val) {
 
     ref_count += val;
     return ref_count;
 }
 
 void 
-SRv6EndPointEND_DT4Interface::InterfaceReleaseAllResources() {
+SRv6EndPointEND_DT4_Egress_Interface::InterfaceReleaseAllResources() {
 
     vrf = NULL;
 }
 
 bool 
-SRv6EndPointEND_DT4Interface::IsCrossReferenced() {
+SRv6EndPointEND_DT4_Egress_Interface::IsCrossReferenced() {
 
     return (this->ref_count > 0);
 }

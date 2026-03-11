@@ -100,7 +100,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     /* Packet logging (optional dump to file) */
     memset(file_name, 0, sizeof(file_name));
     snprintf(file_name, sizeof(file_name), "logs/%s.txt", ctx_name);
-    dp_ctx->log.all       = false;
+    dp_ctx->log.all       = true;
     dp_ctx->log.recv      = false;
     dp_ctx->log.send      = false;
     dp_ctx->log.is_stdout = false;
@@ -116,7 +116,6 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     dp_ctx->dp_rmac_intf       = NULL;
     dp_ctx->dp_vlan_flood_intf = NULL;
     dp_ctx->dp_host_path_intf  = NULL;
-    dp_ctx->dp_srv6_end_intf   = NULL;
     dp_ctx->dp_nve_intf        = NULL;
 
     dp_ctx->send_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);

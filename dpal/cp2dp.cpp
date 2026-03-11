@@ -691,8 +691,8 @@ cp2dp_srv6_dt4_intf_steered_vrf(node_t *node,
     dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
     dp_msg->vrf_id = DEFAULT_VRF;
 
-    SRv6EndPointEND_DT4Interface *dt4_intf = 
-        dynamic_cast<SRv6EndPointEND_DT4Interface *>(intf);
+    SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = 
+        dynamic_cast<SRv6EndPointEND_DT4_Egress_Interface *>(intf);
 
     intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
     intf_msg->port_id = intf->ifindex;

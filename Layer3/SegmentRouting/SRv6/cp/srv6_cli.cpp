@@ -931,11 +931,11 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
             if (!def_vrf->dt4_intf_by_vrf) {
 
                 def_vrf->dt4_intf_by_vrf =  
-                    new std::unordered_map<uint8_t, SRv6EndPointEND_DT4Interface*>();  
+                    new std::unordered_map<uint8_t, SRv6EndPointEND_DT4_Egress_Interface*>();  
             }
 
             auto it = def_vrf->dt4_intf_by_vrf->find(vrf->vrf_id);
-            SRv6EndPointEND_DT4Interface *dt4_intf = nullptr;
+            SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = nullptr;
 
             if (it != def_vrf->dt4_intf_by_vrf->end()) {
                 dt4_intf = it->second;
@@ -944,7 +944,7 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
             if (dt4_intf == NULL) {
 
                 /* Create a new SRv6EndPointEND_DT4InterfaceP and insert it into map */
-                dt4_intf = new SRv6EndPointEND_DT4Interface(steered_vrf);
+                dt4_intf = new SRv6EndPointEND_DT4_Egress_Interface(steered_vrf);
                 dt4_intf->ifindex = interface_get_new_ifindex(node);
                 def_vrf->dt4_intf_by_vrf->insert({steered_vrf->vrf_id, dt4_intf});
                 cp2dp_interface_create(node, dt4_intf);
@@ -1017,7 +1017,7 @@ srv6_end_dt4_sid_config_handler(int cmdcode,
             def_vrf_t *def_vrf = (def_vrf_t *)vrf;
             auto it = def_vrf->dt4_intf_by_vrf->find(steered_vrf->vrf_id);
 
-            SRv6EndPointEND_DT4Interface *dt4_intf = it->second;
+            SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = it->second;
 
             /* Uninstall the route that was pointing at this DT4 SID */
             srv6_rtm_route_install(vrf,

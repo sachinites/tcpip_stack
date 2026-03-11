@@ -1322,6 +1322,11 @@ Srv6_apply_endpoint_fn(
             srv6_END_B6_ENCAP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
             break;
 
+        case END_DT4:
+            /* L3VPN case, ingress PE router processing */
+            srv6_END_DT4(dp_ctx, vrf,  pkt_block, NULL, NULL, nexthop);
+            break;
+            
         default:
             /* Unknown endpoint function - this should not happen */
             assert(0);

@@ -36,7 +36,7 @@ srv6_init (vrf_t *vrf) {
 
     /* Enable Tracer*/
     snprintf (log_file_name, sizeof (log_file_name), 
-        "logs/%s-$s-srv6-log.txt", vrf->node->node_name, vrf->vrf_name);
+        "logs/%s-%s-srv6-log.txt", vrf->node->node_name, vrf->vrf_name);
     node_info->tr = tracer_init ("srv6", log_file_name, vrf->node->node_name, STDOUT_FILENO, 0);
 }
 

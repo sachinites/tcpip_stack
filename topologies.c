@@ -561,7 +561,7 @@ config node R0 no interface ethernet eth1 vrf Default-vrf
 config node R0 vrf red route-distinguisher 1:1
 config node R0 interface ethernet eth1 vrf red
 config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
-config node R0 rtm-route prefix 121.1.1.1/32 3 5 0 l3vpn srv6-sid 2001:dbe8:3:1:: 
+config node R0 rtm-route prefix 10.0.0.2/32 3 5 0 l3vpn srv6-sid 2001:dbe8:4:1:: 
 
 config node R3 no protocol isis interface eth1
 config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
@@ -570,6 +570,9 @@ config node R3 vrf red route-distinguisher 1:1
 config node R3 interface ethernet eth1 vrf red
 config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
 config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:4:1:: vrf red
+config node R3 vrf red rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.2 interface eth1
+config node CE1 rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
+
 
 
                                                                                 +--------+-+

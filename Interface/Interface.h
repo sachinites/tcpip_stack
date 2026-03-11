@@ -525,7 +525,7 @@ class SRv6EndPointEND_DX4Interface : public SRv6VirtualInterface {
     6. Perform IPv4 FIB lookup
     7. Forward packet
 */
-class SRv6EndPointEND_DT4Interface : public SRv6VirtualInterface {
+class SRv6EndPointEND_DT4_Egress_Interface : public SRv6VirtualInterface {
 
     private:
         uint16_t ref_count;
@@ -533,8 +533,8 @@ class SRv6EndPointEND_DT4Interface : public SRv6VirtualInterface {
     protected:
     public:
         vrf_t *vrf;
-        SRv6EndPointEND_DT4Interface(vrf_t *vrf);
-        virtual ~SRv6EndPointEND_DT4Interface();
+        SRv6EndPointEND_DT4_Egress_Interface(vrf_t *vrf);
+        virtual ~SRv6EndPointEND_DT4_Egress_Interface();
         uint16_t inc_ref_count(int8_t val);
         bool IsCrossReferenced() final;
 

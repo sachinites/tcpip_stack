@@ -117,7 +117,7 @@ node_create_vlan_flood_interface(node_t *node) {
     node->node_nw_prop.vlan_flood_interface->att_node = node;
     node->node_nw_prop.vlan_flood_interface->ifindex = interface_get_new_ifindex(node);
     node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
-   cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
+    cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
 }
 
 void 

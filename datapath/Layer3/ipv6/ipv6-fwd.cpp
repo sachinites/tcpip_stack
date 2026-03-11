@@ -83,6 +83,19 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     char route_addr_str[48];
     cmn_prefix_t prefix_key;
 
+    #if 0
+    /* L3VPN case, on Ingress router pkt_block can be IPv4 
+        pkt with SRv6 Nexthop */
+    if (pkt_block_get_starting_hdr(pkt_block) == IP_HDR && 
+            (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) &&
+             nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
+
+        assert (nh->fwd_info->oif->if_type == DP_INTF_TYPE_SRv6_DT4);
+        dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, pkt_block);
+        return;
+    }
+    #endif
+
     unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Should be ipv6 pkt*/

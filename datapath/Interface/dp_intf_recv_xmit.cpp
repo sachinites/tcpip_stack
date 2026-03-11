@@ -428,7 +428,7 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
     5. forward the pkt using fib entry.
 */
 static int 
-SRv6EndPointEND_DT4Interface_SendPacketOut(
+SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
         pkt_block_t *pkt_block){
@@ -479,9 +479,9 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         LoopbackInterface_SendPacketOut,
         VirtualPort_SendPacketOut,
         RmacInterface_SendPacketOut,
-        NVEInterface_SendPacketOut,
-        SRv6EndPointEND_DT4Interface_SendPacketOut,
         0,
+        NVEInterface_SendPacketOut,
+        SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
         0,
         0
     };
