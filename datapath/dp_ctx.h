@@ -101,7 +101,6 @@ typedef struct dp_ctx_ {
     dp_intf_t *dp_rmac_intf;
     dp_intf_t *dp_vlan_flood_intf;
     dp_intf_t *dp_host_path_intf;
-    dp_intf_t *dp_srv6_end_intf;
     dp_intf_t *dp_nve_intf;
 
     /* Logging buffers (send/recv packet dump) */

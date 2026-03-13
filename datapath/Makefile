@@ -32,6 +32,7 @@ OBJS=dp_init.o \
 	 Layer3/Gre/gre-fwd.o \
 	 Layer3/ipv4/ipv4-fwd.o \
 	 Layer3/ipv6/ipv6-fwd.o \
+	 Layer3/L3vpn/vpnv4.o \
 	 dp-program/dp-prog-api.o \
 	 dp-program/dp_msg_tr.o \
 
@@ -88,6 +89,9 @@ Layer3/ipv4/%.o: Layer3/ipv4/%.cpp
 Layer3/ipv6/%.o: Layer3/ipv6/%.cpp 
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+Layer3/L3vpn/%.o: Layer3/L3vpn/%.cpp 
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
 	rm -f $(OBJS) $(TARGET)
 	rm -f *.o
@@ -103,6 +107,7 @@ clean:
 	rm -f Layer3/Gre/*.o
 	rm -f Layer3/ipv4/*.o
 	rm -f Layer3/ipv6/*.o
+	rm -f Layer3/vpnv4/*.o
 	rm -f dp-program/*.o
 
 .PHONY: all clean

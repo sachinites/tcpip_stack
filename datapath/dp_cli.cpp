@@ -353,7 +353,6 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         dp_print_interface_brief(dp_ctx->dp_rmac_intf);
         dp_print_interface_brief(dp_ctx->dp_vlan_flood_intf);
         dp_print_interface_brief(dp_ctx->dp_host_path_intf);
-        dp_print_interface_brief(dp_ctx->dp_srv6_end_intf);
         dp_print_interface_brief(dp_ctx->dp_nve_intf);
 
         printw("\n");

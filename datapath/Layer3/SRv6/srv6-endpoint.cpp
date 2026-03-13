@@ -1323,8 +1323,8 @@ Srv6_apply_endpoint_fn(
             break;
 
         case END_DT4:
-            /* L3VPN case, ingress PE router processing */
-            srv6_END_DT4(dp_ctx, vrf,  pkt_block, NULL, NULL, nexthop);
+            /* L3VPN case, Egress PE router processing */
+            srv6_END_DT4(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
             break;
             
         default:

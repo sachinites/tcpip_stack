@@ -17,6 +17,12 @@
 #include "../../Interface/dp_intf_log.h"
 
 extern void 
+vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx, 
+                             dp_vrf_t *vrf, 
+                             pkt_block_t *pkt_block, 
+                             fib_nh_t *srv6_nh);
+                             
+extern void 
 dp2cp_punt_pkt_to_layer4(void *_node,
                            Interface *recv_intf,
                            pkt_block_t *pkt_block,
@@ -109,7 +115,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             "for VPNv4 case where nexthop is SRv6\n", 
             vrf->vrf_name, dest_ip_addr);
 
-        return layer3_ipv6_route_pkt(dp_ctx, vrf, interface, pkt_block, nh);
+        return vpnv4_ingress_pe_encap_srv6(dp_ctx, vrf, pkt_block, nh);
     }
 
     /*L3 route exist, 3 cases now : 

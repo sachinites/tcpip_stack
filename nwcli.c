@@ -165,6 +165,7 @@ static cli_register_cb
         isis_show_cli_tree,
         srv6_build_cli_show_tree,
         lfa_show_cli_tree,
+        show_arp_cli_tree,
 
         /* Add more CB here */
 
@@ -350,34 +351,6 @@ clear_topology_handler(int cmdcode,
 
 /*Layer 2 Commands*/
 
-typedef struct arp_table_ arp_table_t;
-extern void
-show_arp_table(arp_table_t *arp_table);
-
-static int
-show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    c_string vrf_name = NULL;
-    tlv_struct_t *tlv = NULL;
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
-            vrf_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
-    //show_arp_table(vrf->arp);
-    return 0;
-}
-
 extern void dump_node_interface_stats(node_t *node);
 
 typedef struct mac_table_ mac_table_t;
@@ -419,6 +392,35 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
     }
 
     show_mac_table(node->dp_ctx->mac_table, vlan_id);
+    return 0;
+}
+
+
+extern arp_table_t *dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf);
+extern void show_arp_table(arp_table_t *arp_table);
+
+static int
+show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    c_string node_name;
+    c_string vrf_name = NULL;
+    tlv_struct_t *tlv = NULL;
+    
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    show_arp_table(dp_vrf_get_arp_cache(
+            node->dp_ctx, vrf_name ? vrf_name : DEF_VRF_NAME));
+
     return 0;
 }
 
@@ -1212,13 +1214,7 @@ nw_init_cli(){
                  {
                     dp_build_dp_show_cli_tree (&node_name);
                  }
-                 {
-                    /*show node <node-name> arp*/
-                    static param_t arp;
-                    init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
-                    libcli_register_param(&node_name, &arp);
-                    libcli_set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
-                 }
+
                  {
                     /*show node <node-name> mac*/
                     static param_t mac;

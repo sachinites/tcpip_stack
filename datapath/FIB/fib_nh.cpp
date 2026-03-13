@@ -86,7 +86,7 @@ fib_nh_create(fib_t *fib, fib_nh_t *nh_template) {
     
     /* Allocate memory for new FIB nexthop */
     fib_nh_t *new_nh = (fib_nh_t *)XCALLOC2(0, 1, fib_nh_t);
-    new_nh->fwd_info = new fib_nh_fwd_info_t;
+    new_nh->fwd_info = (fib_nh_fwd_info_t *)calloc(1, sizeof(fib_nh_fwd_info_t));
 
     /* Copy forwarding flags */
     new_nh->fwd_info->fwd_flags = nh_template->fwd_info->fwd_flags;
@@ -139,7 +139,7 @@ fib_nh_dereference(fib_t *fib, fib_nh_t *nh) {
     if (nh->ref_count == 0) {
         assert (avltree_node_is_inuse(&fib->nhs, &nh->idx_glue));
         avltree_remove(&nh->idx_glue, &fib->nhs);
-        delete nh->fwd_info;
+        free( nh->fwd_info);
         XFREE(nh);
     }
 }

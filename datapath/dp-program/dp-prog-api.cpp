@@ -156,7 +156,7 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         "FIB : Recvd fib update message : Route:%s vrf:%d idx[%u %u] ops:%d\n", 
             cmn_prefix_to_string(&fib_update_msg->prefix, &route_str), 
             fib_update_msg->target_fib_vrf_id,
-            fib_update_msg->inhidx >> 32, 
+            fib_update_msg->inhidx >> 31, 
             fib_update_msg->nhidx & 0x00000000FFFFFFFF, 
             dp_msg->opr_type);
 
@@ -182,7 +182,9 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             memset (&nh_template, 0, sizeof(fib_nh_t));
             avltree_node_init (&nh_template.idx_glue);
 
-            nh_template.fwd_info = new fib_nh_fwd_info_t;
+            nh_template.fwd_info = 
+                (fib_nh_fwd_info_t *)calloc(1, sizeof(fib_nh_fwd_info_t));
+
             rtm_fib_copy_fwd_info (dp_ctx, 
                 &fib_update_msg->fwd_info, nh_template.fwd_info);
             
@@ -198,7 +200,7 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                         fib->name,
                         route_str,
                         cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
-                    delete nh_template.fwd_info;
+                    free (nh_template.fwd_info);
                     cp2dp_msg_free(dp_msg);
                     return;
                 }
@@ -216,7 +218,7 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                     cmn_prefix_to_string(&nh_template.fwd_info->nh_addr, &nh_str));
             }
 
-            delete nh_template.fwd_info;
+            free(nh_template.fwd_info);
 
             rc = fib_add_route(dp_ctx,
                     fib, 
@@ -228,7 +230,7 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                 tracer (dp_ctx->dptr, DFIB | DERR, 
                        "FIB[%s] : Failed to add route %s, error: %s\n",
                        fib->name, route_str, fib_error_str(rc));
-                delete nh->fwd_info;
+                free( nh->fwd_info);
                 XFREE(nh);
             }
             break;
@@ -287,7 +289,8 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         case DP_CREATE:
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
-            dp_create_vrf(dp_ctx->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            dp_vrf_t *vrf = dp_create_vrf(dp_ctx->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            if (vrf_msg->vrf_id == DEFAULT_VRF) dp_ctx->default_vrf = vrf;
             break;
         }
         
@@ -295,6 +298,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
             dp_delete_vrf(dp_ctx, dp_ctx->dp_vrf_ht, vrf_msg->vrf_id);
+            if (vrf_msg->vrf_id == DEFAULT_VRF) dp_ctx->default_vrf = NULL;
             break;
         }
         
@@ -442,10 +446,6 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 dp_check_and_free_interface(dp_ctx->dp_host_path_intf);
                 dp_ctx->dp_host_path_intf = NULL;
             }
-            else if (msg->port_id == dp_ctx->dp_srv6_end_intf->port_id) {
-                dp_check_and_free_interface(dp_ctx->dp_srv6_end_intf);
-                dp_ctx->dp_srv6_end_intf = NULL;
-            }    
             else if (msg->port_id == dp_ctx->dp_nve_intf->port_id) {
                 dp_check_and_free_interface(dp_ctx->dp_nve_intf);
                 dp_ctx->dp_nve_intf = NULL;

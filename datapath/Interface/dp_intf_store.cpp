@@ -131,9 +131,9 @@ dp_create_interface (uint32_t port_id, uint32_t iftype,
     intf->vni_id = 0;
     intf->l2_mode = DP_LAN_MODE_NONE;
     intf->is_up = false;
-    intf->log_info.all = false;
-    intf->log_info.recv = false;
-    intf->log_info.send = false;
+    intf->log_info.all = true;
+    intf->log_info.recv = true;
+    intf->log_info.send = true;
     intf->log_info.is_stdout = false;
     intf->log_info.acc_lst_filter = NULL;
     return intf;

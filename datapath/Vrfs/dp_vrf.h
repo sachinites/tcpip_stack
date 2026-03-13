@@ -80,4 +80,7 @@ dp_vrf_fib_get(dp_vrf_t *vrf, AFI_T afi) {
     return NULL;
 }
 
+arp_table_t *
+dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf);
+
 #endif /* __DP_VRF__ */

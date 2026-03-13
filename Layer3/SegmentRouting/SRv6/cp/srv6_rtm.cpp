@@ -227,13 +227,16 @@ srv6_rtm_route_install_vpnv4 (node_t *node,
 
     memcpy (&nh_template.gateway, &gateway, sizeof (gateway));
 
-    nh_template.u.srv6_stack.endfn = SRV6_END_FN_NONE;
+    // SRv6 end fn, not used in DP on ingress PE rtr. RTM used gateway also as 
+    // a seglst to reflect it is END_DT4 borne Nexthop */
+    nh_template.u.srv6_stack.endfn = END_DT4; 
     nh_template.u.srv6_stack.n_segment_list = 0;
     nh_template.u.srv6_stack.v6segment_lst = NULL;
 
-    nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6_STCK;
-    nh_template.fwd_flags |= FIB_NH_FWD_F_TUNNEL;
-    nh_template.fwd_flags |= FIB_NH_FWD_F_SRv6_FORWARD;
+    nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6_STCK;// This NH has a seg lst
+    nh_template.fwd_flags |= FIB_NH_FWD_F_TUNNEL;   // Impose the seg lst on the pkt
+    // Subject the pkt to SRv6 forwarding instead of normal forwarding in DP
+    nh_template.fwd_flags |= FIB_NH_FWD_F_SRv6_FORWARD; 
     
     nh_template.action = RTM_NH_ACTION_TUNNEL;
 

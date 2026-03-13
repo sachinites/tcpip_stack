@@ -149,3 +149,25 @@ dp_look_up_fib_by_name (dp_ctx_t *dp_ctx, char *vrf_name, char *fib_name) {
 
     return NULL;
 }
+
+arp_table_t *
+dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf_name) {
+
+    dp_vrf_t *vrf = NULL;
+
+    struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_vrf_ht);
+
+    while (1)
+    {
+        vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
+        if (strcmp(vrf_name, vrf->vrf_name) == 0)
+            break;
+        if (!hashtable_iterator_advance(itr))
+            break;
+    }
+    free(itr);
+
+    if (!vrf) return NULL;
+
+    return vrf->arp_table;
+}

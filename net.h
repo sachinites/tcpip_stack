@@ -98,8 +98,6 @@ typedef struct node_nw_prop_{
     InterfaceP vlan_flood_interface;
     /* Host Path Interface */
     InterfaceP host_path_interface;
-    /* SRv6 Virtual Interfaces*/
-    InterfaceP srv6_end_interface;
     /* network-virtualization-edge interface */
     NVEInterfaceP nve;
 

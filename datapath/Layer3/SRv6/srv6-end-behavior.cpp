@@ -12,6 +12,7 @@
 #include "../../FIB/fib_nh.h"
 #include "../../FIB/fib.h"
 #include "../../Vrfs/dp_vrf.h"
+#include "../../Interface/dp_intf.h"
 
 #define drop_packet return;
 
@@ -308,26 +309,26 @@ fn_template(srv6_END_DT6) {
     nexthop segment list. If there are more SRv6 SIDs in nexthop segment list, then
     remaining SIDs will in SRH hdr. Then semote the packet to L2 for forwarding*/
 
-/* Algorithm : 
-
+/* 
+    <IPv6 Hdr> <SRH hdr> <ipv4 hdr> <reamining ... >
 */
+extern void
+layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
+                    dp_vrf_t *vrf,
+					dp_intf_t *interface,
+					pkt_block_t *pkt_block);
+
 fn_template(srv6_END_DT4) {
 
     assert (!srh || (srh->segments_left == 0));
 
-    /* Build a new SRH from the nexthop segment list */
-    srh_hdr_t *new_srh = srh_hdr_prepare(
-                (ipv6_addr_t *)nexthop->fwd_info->u.v6_fwd.v6segment_lst,
-                nexthop->fwd_info->u.v6_fwd.n_segment_list);
+    Srv6_decapsulate(pkt_block);
+    
+    assert (pkt_block_get_starting_hdr (pkt_block) == IP_HDR);
 
-    /* Wrap the IPv4 payload in a new IPv6 + SRH envelope;
-       DA is set to the first active SID by Srv6_encapsulate */
-    Srv6_encapsulate(pkt_block, new_srh);
-
-    XFREE(new_srh);
-
-    /* Promote to L2 for forwarding */
-    srv6_ipv6_forward(dp_ctx, vrf, pkt_block, 0);
+    layer3_ip_route_pkt(dp_ctx, 
+        nexthop->fwd_info->oif->srv6_data.steered_dt4_vrf,
+        NULL, pkt_block);
 }
 
 fn_template(srv6_END_DT46) {

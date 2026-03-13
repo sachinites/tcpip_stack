@@ -101,10 +101,10 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     memset(file_name, 0, sizeof(file_name));
     snprintf(file_name, sizeof(file_name), "logs/%s.txt", ctx_name);
     dp_ctx->log.all       = true;
-    dp_ctx->log.recv      = false;
-    dp_ctx->log.send      = false;
+    dp_ctx->log.recv      = true;
+    dp_ctx->log.send      = true;
     dp_ctx->log.is_stdout = false;
-    dp_ctx->log.l3_fwd    = false;
+    dp_ctx->log.l3_fwd    = true;
     dp_ctx->log.acc_lst_filter = NULL;
     dp_ctx->log.log_file  = fopen(file_name, "w");
 
