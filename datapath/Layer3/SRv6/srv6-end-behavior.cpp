@@ -320,6 +320,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
 fn_template(srv6_END_DT4) {
 
+    assert(0);
+
     assert (!srh || (srh->segments_left == 0));
 
     Srv6_decapsulate(pkt_block);
