@@ -31,6 +31,10 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 13 : GNS3 Virtualization : Run the project on GNS3/EVE-NG topology.
 
+## Project 14 : IPV4 L3VPN using SRv6 Transport in the core
+
+## Project 15 : Routing Table Infra with Cross Table Route-Resolution
+
 #### After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
