@@ -33,7 +33,9 @@ rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
         dst->u.v6_fwd.n_segment_list = src->u.v6_fwd.n_segment_list;
         
         for (int i = 0; i < dst->u.v6_fwd.n_segment_list; i++) {
-            *dst->u.v6_fwd.v6segment_lst[i] = *src->u.v6_fwd.v6segment_lst[i];
+            memcpy(dst->u.v6_fwd.v6segment_lst[i],
+                   src->u.v6_fwd.v6segment_lst[i],
+                   sizeof(dst->u.v6_fwd.v6segment_lst[i]));
         }
     }
     

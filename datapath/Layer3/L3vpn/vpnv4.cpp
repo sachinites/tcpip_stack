@@ -40,7 +40,8 @@ vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx,
 
     assert(srv6_nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK);
 
-    /* Perform Srv6 Encapsulation */
+    /* Perform Srv6 Encapsulation of ipv4 pkt*/
+    assert (pkt_block_get_starting_hdr(pkt_block) == IP_HDR);
 
     srh_hdr = srh_hdr_prepare(
         (ipv6_addr_t *)srv6_nh->fwd_info->u.v6_fwd.v6segment_lst,

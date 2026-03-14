@@ -145,11 +145,11 @@ static void
 tcp_ip_init_node_log_info(node_t *node){
 
     log_t *log_info     = &node->dp_ctx->log;
-    log_info->all       = false;
-    log_info->recv      = false;
-    log_info->send      = false;
+    log_info->all       = true;
+    log_info->recv      = true;
+    log_info->send      = true;
     log_info->is_stdout = false;
-    log_info->l3_fwd    = false;
+    log_info->l3_fwd    = true;
     log_info->log_file  = initialize_node_log_file(node); 
     log_info->acc_lst_filter = NULL;
 }

@@ -68,6 +68,10 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 					dp_intf_t *interface,
 					pkt_block_t *pkt_block);
 
+extern void 
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) ;
+
+
 /* ============================================================================
  * Macro Definitions
  * ============================================================================
@@ -279,7 +283,10 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
     pkt_block_set_new_pkt(pkt_block, 
                           payload, 
                           pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-    pkt_block_update_new_hdr_type(pkt_block, srh->nexthdr);
+    
+    hdr_type_t internal_hdr = (hdr_type_t)srh_nxthdr_to_internal_hdr_type(srh->nexthdr);
+    uint16_t std_proto = tcp_ip_convert_internal_proto_to_std_proto(internal_hdr);
+    pkt_block_update_new_hdr_type(pkt_block, std_proto);
 }
 
 /**
@@ -462,7 +469,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
     
     /* Update SRH's next_header to point to the encapsulated packet type */
     srh_hdr_t *new_srh = (srh_hdr_t *)pkt;
-    new_srh->nexthdr = tcp_ip_convert_internal_proto_to_std_proto(hdr_type);
+    new_srh->nexthdr = srh_internal_hdr_type_to_srh_nxthdr((uint16_t)hdr_type);
     pkt_block_update_new_hdr_type(pkt_block, PROTO_SRH);
 
     /* Step 2: Add IPv6 header */
@@ -1324,9 +1331,10 @@ Srv6_apply_endpoint_fn(
 
         case END_DT4:
             /* L3VPN case, Egress PE router processing */
-            srv6_END_DT4(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            //srv6_END_DT4(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, pkt_block);
             break;
-            
+
         default:
             /* Unknown endpoint function - this should not happen */
             assert(0);

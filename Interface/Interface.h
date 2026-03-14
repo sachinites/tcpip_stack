@@ -113,7 +113,6 @@ class Interface {
         uint32_t rtm_connected_rt6_idx;
         uint32_t rtm_link_local_rt6_idx;
         char padding2[4];
-        log_t log_info;
 
         /* L2 Properties : Ingress & egress L2 Access_list */
         access_list_t *l2_ingress_acc_lst;

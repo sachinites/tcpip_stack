@@ -323,7 +323,7 @@ pkt_block_verify_pkt (pkt_block_t *pkt_block, hdr_type_t hdr_type) {
 }
 
 void 
-pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto) {
+pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto) {
 
             switch (proto) {
                 case UDP_PROTO:

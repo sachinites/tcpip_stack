@@ -16,6 +16,7 @@
 #include "../../RTM/rtm_fib_common.h"
 #include "../../utils.h"
 #include "../../datapath/Interface/dp_intf.h"
+#include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 /* Helper function to format prefix for display */
 static void
@@ -137,6 +138,69 @@ fib_display_segment_list(uint8_t seg_list[][16], uint8_t count) {
         }
     }
     printw("\n");
+}
+
+/* Format MPLS label stack into a compact inline string.
+ * Returns the number of chars written (same semantics as snprintf). */
+static int
+fib_format_label_stack_str(mpls_lstack_t *lstack, char *buf, size_t buf_size) {
+
+    int off = 0;
+    for (int i = 0; i <= lstack->curr_index && off < (int)buf_size - 1; i++) {
+        uint32_t    val = mpls_label_get_value(lstack->labels[i].label_val);
+        const char *op  = mpls_op_tostring(lstack->labels[i].op);
+        bool        bos = mpls_label_is_stack_bottom(lstack->labels[i].label_val);
+        off += snprintf(buf + off, buf_size - off,
+                        "%s[%s %u%s]", i > 0 ? " -> " : "", op, val, bos ? "(S)" : "");
+    }
+    return off;
+}
+
+/* Format SRv6 segment list into a compact inline string. */
+static int
+fib_format_seg_list_str(uint8_t seg_list[][16], uint8_t count,
+                        char *buf, size_t buf_size) {
+
+    int off = 0;
+    for (int i = 0; i < count && off < (int)buf_size - 1; i++) {
+        char addr[64];
+        inet_ntop(AF_INET6, seg_list[i], addr, sizeof(addr));
+        off += snprintf(buf + off, buf_size - off,
+                        "%s%s", i > 0 ? " -> " : "", addr);
+    }
+    return off;
+}
+
+/* Display MPLS label stack and/or SRv6 segment list for a nexthop in brief
+ * format.  indent is the left-padding string printed before each line. */
+static void
+fib_show_nh_encap_brief(fib_nh_fwd_info_t *fi, const char *indent) {
+
+    if (fi->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
+        mpls_lstack_t *ls = &fi->u.mpls_fwd.label_stack;
+        if (!mpls_lstack_is_empty(ls)) {
+            char lstr[256] = {0};
+            fib_format_label_stack_str(ls, lstr, sizeof(lstr));
+            cprintf("%s  MPLS: %s\n", indent, lstr);
+        }
+    }
+
+    if (fi->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
+        uint8_t  n      = fi->u.v6_fwd.n_segment_list;
+        uint8_t  flavor = 0;
+        Srv6_endpcode_t base_fn = srv6_split_endpcode(fi->u.v6_fwd.endfn, &flavor);
+        cprintf("%s  SRv6: endfn=%s", indent, srv6_end_fn_str(base_fn));
+        if (flavor) {
+            cprintf(" flavor=0x%x", flavor);
+        }
+        if (n > 0) {
+            char sstr[512] = {0};
+            fib_format_seg_list_str(fi->u.v6_fwd.v6segment_lst, n,
+                                    sstr, sizeof(sstr));
+            cprintf(" segs[%u]: %s", n, sstr);
+        }
+        cprintf("\n");
+    }
 }
 
 /* Display FIB contents with all routes and nexthops */
@@ -391,49 +455,35 @@ fib_show_routes_brief(fib_t *fib) {
             for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
                 fib_nh_t *nh = route->nhs[i];
                 if (!nh) continue;
-                
+
+                fib_nh_fwd_info_t *fi = nh->fwd_info;
+
                 /* Format nexthop address */
-                char nh_addr_str[20];
-                fib_format_nh_addr(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
-                
-                /* Get OIF name */
-                const char *oif_name = nh->fwd_info->oif ? 
-                                      nh->fwd_info->oif->if_name : "-";
-                
+                char nh_addr_str[48];
+                fib_format_nh_addr(&fi->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+
+                /* Guard against dangling oif pointer */
+                const char *oif_name = fi->oif ? fi->oif->if_name : "-";
+
                 /* Format hit count */
                 char hit_str[10];
                 snprintf(hit_str, sizeof(hit_str), "%u", nh->hit_count);
-                
+
                 if (first) {
-                    /* First NH: include prefix and NH count */
                     const char *ecmp_marker = active_nh_count > 1 ? "*" : "";
-                    cprintf("%-40s %-3u %-18s %-15s %-8s %s\n", 
-                           prefix_str, active_nh_count, nh_addr_str, oif_name, 
+                    cprintf("%-40s %-3u %-18s %-15s %-8s %s\n",
+                           prefix_str, active_nh_count, nh_addr_str, oif_name,
                            hit_str, ecmp_marker);
                     first = false;
                 } else {
-                    /* Continuation lines for ECMP NHs */
-                    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+                    cprintf("%-40s %-3s %-18s %-15s %-8s\n",
                            "", "", nh_addr_str, oif_name, hit_str);
                 }
-                
-                /* Show label stack on separate line if present */
-                if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
-                    mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
-                    if (lstack->curr_index >= 0) {
-                        char label_str[128] = {0};
-                        int offset = 0;
-                        for (int j = 0; j <= lstack->curr_index; j++) {
-                            uint32_t label_val = mpls_label_get_value(lstack->labels[j].label_val);
-                            const char *op = mpls_op_tostring(lstack->labels[j].op);
-                            offset += snprintf(label_str + offset, sizeof(label_str) - offset,
-                                             "%s%u:%s", j > 0 ? "," : "", label_val, op);
-                        }
-                        cprintf("%-40s     MPLS: %s\n", "", label_str);
-                    }
-                }
+
+                /* MPLS label stack and/or SRv6 segment list */
+                fib_show_nh_encap_brief(fi, "");
             }
-            
+
         } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
         
     } else if (fib->afi == AF_LABEL) {
@@ -475,49 +525,35 @@ fib_show_routes_brief(fib_t *fib) {
             for (int i = 0; i < FIB_MAX_ECMP_NH; i++) {
                 fib_nh_t *nh = route->nhs[i];
                 if (!nh) continue;
-                
+
+                fib_nh_fwd_info_t *fi = nh->fwd_info;
+
                 /* Format nexthop address */
-                char nh_addr_str[20];
-                fib_format_nh_addr(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
-                
-                /* Get OIF name */
-                const char *oif_name = nh->fwd_info->oif ? 
-                                      nh->fwd_info->oif->if_name : "-";
-                
+                char nh_addr_str[48];
+                fib_format_nh_addr(&fi->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+
+                /* Guard against dangling oif pointer */
+                const char *oif_name = fi->oif ? fi->oif->if_name : "-";
+
                 /* Format hit count */
                 char hit_str[10];
                 snprintf(hit_str, sizeof(hit_str), "%u", nh->hit_count);
-                
+
                 if (first) {
-                    /* First NH: include prefix and NH count */
                     const char *ecmp_marker = active_nh_count > 1 ? "*" : "";
-                    cprintf("%-40s %-3u %-18s %-15s %-8s %s\n", 
-                           prefix_str, active_nh_count, nh_addr_str, oif_name, 
+                    cprintf("%-40s %-3u %-18s %-15s %-8s %s\n",
+                           prefix_str, active_nh_count, nh_addr_str, oif_name,
                            hit_str, ecmp_marker);
                     first = false;
                 } else {
-                    /* Continuation lines for ECMP NHs */
-                    cprintf("%-40s %-3s %-18s %-15s %-8s\n", 
+                    cprintf("%-40s %-3s %-18s %-15s %-8s\n",
                            "", "", nh_addr_str, oif_name, hit_str);
                 }
-                
-                /* Show label stack on separate line if present */
-                if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
-                    mpls_lstack_t *lstack = &nh->fwd_info->u.mpls_fwd.label_stack;
-                    if (lstack->curr_index >= 0) {
-                        char label_str[128] = {0};
-                        int offset = 0;
-                        for (int j = 0; j <= lstack->curr_index; j++) {
-                            uint32_t label_val = mpls_label_get_value(lstack->labels[j].label_val);
-                            const char *op = mpls_op_tostring(lstack->labels[j].op);
-                            offset += snprintf(label_str + offset, sizeof(label_str) - offset,
-                                             "%s%u:%s", j > 0 ? "," : "", label_val, op);
-                        }
-                        cprintf("%-40s     MPLS: %s\n", "", label_str);
-                    }
-                }
+
+                /* MPLS label stack and/or SRv6 segment list */
+                fib_show_nh_encap_brief(fi, "");
             }
-            
+
         } while (hashtable_iterator_advance(itr));
 
         free(itr);

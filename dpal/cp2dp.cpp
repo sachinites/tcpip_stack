@@ -231,8 +231,9 @@ cp2dp_fib_update (
             dst->u.v6_fwd.n_segment_list = src->u.v6_fwd.n_segment_list;
 
             for (int i = 0; i < dst->u.v6_fwd.n_segment_list; i++) {
-
-                *dst->u.v6_fwd.v6segment_lst[i] = *src->u.v6_fwd.v6segment_lst[i];
+                memcpy(dst->u.v6_fwd.v6segment_lst[i],
+                       src->u.v6_fwd.v6segment_lst[i],
+                       sizeof(dst->u.v6_fwd.v6segment_lst[i]));
             }
          }
     }

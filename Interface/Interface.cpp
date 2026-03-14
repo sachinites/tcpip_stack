@@ -45,8 +45,6 @@
 
 extern void
 snp_flow_init_flow_tree_root(avltree_t *avl_root);
-extern void 
-tcp_ip_de_init_intf_log_info(Interface *intf);
 extern int 
 access_group_unconfig (node_t *node, 
                        Interface *intf, 
@@ -74,7 +72,6 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->if_name = std::move(if_name);
     this->iftype = iftype;
     this->att_node = NULL;
-    memset(&this->log_info, 0, sizeof(this->log_info));
     this->link = NULL;
     this->is_up = true;
     this->ifindex = 0;
@@ -306,20 +303,6 @@ Interface:: IsInterfaceUp(vlan_id_t vlan_id) {
 
 void 
 Interface::InterfaceReleaseAllResources() {
-
-    log_info.all       = false;
-    log_info.recv      = false;
-    log_info.send      = false;
-    log_info.is_stdout = false;
-
-    // CP do not maintain log file
-    assert(!log_info.log_file);
-
-    if ( log_info.acc_lst_filter ) {
-        access_list_dereference(this->att_node, log_info.acc_lst_filter);
-        log_info.acc_lst_filter = NULL;
-    }
-
 
     if (this->link) {
         /* Nothing to do, we dont break topology !*/

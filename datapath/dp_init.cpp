@@ -97,16 +97,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     tcp_ip_register_default_l3_pkt_trap_rules(&dp_ctx->nf_hook_db);
     init_nfc_layer2_proto_reg_db2(&dp_ctx->layer2_proto_reg_db);
 
-    /* Packet logging (optional dump to file) */
-    memset(file_name, 0, sizeof(file_name));
-    snprintf(file_name, sizeof(file_name), "logs/%s.txt", ctx_name);
-    dp_ctx->log.all       = true;
-    dp_ctx->log.recv      = true;
-    dp_ctx->log.send      = true;
-    dp_ctx->log.is_stdout = false;
-    dp_ctx->log.l3_fwd    = true;
-    dp_ctx->log.acc_lst_filter = NULL;
-    dp_ctx->log.log_file  = fopen(file_name, "w");
+    /* Packet logging — flags and log_file are set by tcp_ip_init_node_log_info() */
 
     dp_ctx->ctx_pvt_data = arg;
 

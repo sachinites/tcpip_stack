@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include "tcp_public.h"
 #include "datapath/Interface/dp_intf.h"
+#include "datapath/Interface/dp_intf_store.h"
 
 extern graph_t *topo;
 
@@ -343,12 +344,12 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
     char ipv6_addr_str[48];
 
     rc += sprintf((char *)buffer + rc,  "SRH Hdr : Nxt Hdr %s, Hdr_len %d, SL : %d\n", 
-                        proto_name_str(srh_hdr->nexthdr), 
+                        srh_nexthdr_proto_name_str (srh_hdr->nexthdr), 
                         srh_hdr->hdrlen, 
                         srh_hdr->segments_left);
 
     /* Encode Segment List */
-    for (int i = 0; i <= srh_hdr->segments_left; i++) {
+    for (int i = 0; i < srh_hdr->segments_left; i++) {
 
         inet_ntop(AF_INET6, srh_hdr->segments[i], ipv6_addr_str, INET6_ADDRSTRLEN);
         rc += sprintf((char *)buffer + rc, "Seg %d : %s\n", i, ipv6_addr_str);
@@ -394,18 +395,6 @@ tcp_write_data(int sock_fd,
     char error_msg[64];
 
     assert(out_buff);
-
-#if 0
-    if(buff_size > TCP_PRINT_BUFFER_SIZE){
-        memset(error_msg, 0, sizeof(error_msg));
-        rc  = sprintf(error_msg , "Error : Insufficient size TCP Print Buffer\n");
-        assert(rc < sizeof(error_msg));
-        fwrite(error_msg, sizeof(char), rc, log_file1);
-        fwrite(error_msg, sizeof(char), rc, log_file2);
-        write(sock_fd, error_msg, rc);
-        return;
-    }
-#endif
 
     if(log_file1){
         rc = fwrite(out_buff, sizeof(char), buff_size, log_file1);
@@ -519,35 +508,53 @@ validate_flag_values(stack_t *tlv_stack, c_string value){
 }
 
 
+static void
+tcp_ip_print_dp_intf_log_status(dp_intf_t *dp_intf) {
+
+    log_t *log_info = &dp_intf->log_info;
+    cprintf("\tLog Status : %s(%s)\n", dp_intf->if_name, dp_intf->is_up ? "UP" : "DOWN");
+    cprintf("\t\tall     : %s\n", log_info->all     ? "ON" : "OFF");
+    cprintf("\t\trecv    : %s\n", log_info->recv    ? "ON" : "OFF");
+    cprintf("\t\tsend    : %s\n", log_info->send    ? "ON" : "OFF");
+    cprintf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
+    cprintf("\t\taccess list filter : %s\n",
+        log_info->acc_lst_filter && log_info->acc_lst_filter->name
+            ? log_info->acc_lst_filter->name : "none");
+}
+
 void tcp_ip_show_log_status(node_t *node){
 
-    Interface *intf;
-    log_t *log_info = &node->dp_ctx->log;
-    
+    dp_ctx_t *dp_ctx = node->dp_ctx;
+    log_t *log_info  = &dp_ctx->log;
+
     printw ("\n\r");
 
     cprintf("Log Status : Device : %s\n", node->node_name);
 
-    cprintf("\tall     : %s\n", log_info->all ? "ON" : "OFF");
-    cprintf("\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
-    cprintf("\tsend    : %s\n", log_info->send ? "ON" : "OFF");
+    cprintf("\tall     : %s\n", log_info->all     ? "ON" : "OFF");
+    cprintf("\trecv    : %s\n", log_info->recv    ? "ON" : "OFF");
+    cprintf("\tsend    : %s\n", log_info->send    ? "ON" : "OFF");
     cprintf("\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
-    cprintf("\tl3_fwd  : %s\n", log_info->l3_fwd ? "ON" : "OFF");
-    cprintf ("\taccess list filter : %s\n", 
-            log_info->acc_lst_filter && log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
+    cprintf("\tl3_fwd  : %s\n", log_info->l3_fwd  ? "ON" : "OFF");
+    cprintf("\taccess list filter : %s\n",
+            log_info->acc_lst_filter && log_info->acc_lst_filter->name
+                ? log_info->acc_lst_filter->name : "none");
 
-     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-        
-        log_info = &intf->log_info;
-        cprintf("\tLog Status : %s(%s)\n", intf->if_name.c_str(), intf->is_up ? "UP" : "DOWN");
-        cprintf("\t\tall     : %s\n", log_info->all ? "ON" : "OFF");
-        cprintf("\t\trecv    : %s\n", log_info->recv ? "ON" : "OFF");
-        cprintf("\t\tsend    : %s\n", log_info->send ? "ON" : "OFF");
-        cprintf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
-        cprintf ("\t\taccess list filter : %s\n", 
-            log_info->acc_lst_filter && log_info->acc_lst_filter->name ? log_info->acc_lst_filter->name : "none");
+    /* Regular interfaces — iterate directly over the DP interface hashtable */
+    if (hashtable_count(dp_ctx->dp_intf_ht) > 0) {
+        struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_intf_ht);
+        do {
+            dp_intf_t *dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+            if (dp_intf) tcp_ip_print_dp_intf_log_status(dp_intf);
+        } while (hashtable_iterator_advance(itr));
+        free(itr);
+    }
 
-    }  ITERATE_NODE_INTERFACES_END(node, intf);
+    /* Special virtual interfaces */
+    if (dp_ctx->dp_rmac_intf)       tcp_ip_print_dp_intf_log_status(dp_ctx->dp_rmac_intf);
+    if (dp_ctx->dp_vlan_flood_intf) tcp_ip_print_dp_intf_log_status(dp_ctx->dp_vlan_flood_intf);
+    if (dp_ctx->dp_host_path_intf)  tcp_ip_print_dp_intf_log_status(dp_ctx->dp_host_path_intf);
+    if (dp_ctx->dp_nve_intf)        tcp_ip_print_dp_intf_log_status(dp_ctx->dp_nve_intf);
 
     cprintf ("\tDebug Logging Status:\n");
 
@@ -682,13 +689,21 @@ int traceoptions_handler(int cmdcode,
             log_info = &node->dp_ctx->log;
         break;
         case CMDCODE_DEBUG_LOGGING_PER_INTF:
+        {
+            dp_intf_t *dp_intf;
             node =  node_get_node_by_name(topo, node_name);
             intf = node_interface_lookup_by_name(node,(const char *) if_name);
             if(!intf){
                 cprintf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
             }
-            log_info = &intf->log_info;
+            dp_intf = dp_look_up_interface(node->dp_ctx->dp_intf_ht, intf->ifindex);
+            if (!dp_intf) {
+                cprintf("Error : No DP interface for %s on Node %s\n", if_name, node_name);
+                return -1;
+            }
+            log_info = &dp_intf->log_info;
+        }
         break;
 
         case CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME:
@@ -737,6 +752,8 @@ int traceoptions_handler(int cmdcode,
         }
         break;
         case CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF:
+        {
+        dp_intf_t *dp_intf_acl;
         node = node_get_node_by_name(topo, node_name);
         intf = node_interface_lookup_by_name(node, (const char *)if_name);
         if (!intf)
@@ -750,7 +767,13 @@ int traceoptions_handler(int cmdcode,
                 printw ("\nError : Access-list do not exist\n");
                 return -1;
         }
-        log_info = &intf->log_info;
+        dp_intf_acl = dp_look_up_interface(node->dp_ctx->dp_intf_ht, intf->ifindex);
+        if (!dp_intf_acl)
+        {
+                printw ("\nError : No DP interface for %s on Node %s\n", if_name, node_name);
+                return -1;
+        }
+        log_info = &dp_intf_acl->log_info;
         switch (enable_or_disable)
         {
         case CONFIG_ENABLE:
@@ -788,6 +811,7 @@ int traceoptions_handler(int cmdcode,
                 log_info->acc_lst_filter = NULL;
                 break;
         }
+        } /* CMDCODE_DEBUG_ACCESS_LIST_FILTER_NAME_INTF */
         break;
         default:
             ;
@@ -808,7 +832,10 @@ int traceoptions_handler(int cmdcode,
                 ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
                     if(!intf) continue;
-                    tcp_ip_set_all_log_info_params(&intf->log_info, false);
+                    dp_intf_t *dp_intf_it = dp_look_up_interface(
+                            node->dp_ctx->dp_intf_ht, intf->ifindex);
+                    if (dp_intf_it)
+                        tcp_ip_set_all_log_info_params(&dp_intf_it->log_info, false);
 
                 }  ITERATE_NODE_INTERFACES_END(node, intf);
             }

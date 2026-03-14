@@ -105,7 +105,7 @@ void
 pkt_block_set_new_pkt(pkt_block_t *pkt_block, uint8_t *pkt, pkt_size_t pkt_size);
 
 void 
-pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto);
+pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto);
 
 pkt_block_t *
 pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno);

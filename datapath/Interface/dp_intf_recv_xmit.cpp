@@ -466,6 +466,8 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
 
     /* Step 5: Forward the inner IPv4 packet using the steered VRF FIB */
     layer3_ip_route_pkt(dp_ctx, steered_vrf, NULL, pkt_block);
+    intf->pkt_sent++;
+    
     return 0;
 }
 

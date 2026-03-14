@@ -125,16 +125,16 @@ rtm_resolution_create_dnh_fwd_info (rtm_t *rtm,
     /* Handle SRv6 segment list if present */
     if (pnh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
 
-        /* Copy SRv6 end function */
         fwd_info_out->u.v6_fwd.endfn = pnh->endfn;
-        /* Copy segment list count */
         fwd_info_out->u.v6_fwd.n_segment_list = pnh->n_segment_list;
 
-        /* Allocate and copy segment list */
-        size_t seg_list_size = sizeof(cmn_prefix_t) * pnh->n_segment_list;
-
-        memcpy(&fwd_info_out->u.v6_fwd.v6segment_lst, pnh->v6segment_lst,
-               seg_list_size);
+        /* v6segment_lst stores raw 16-byte addresses; copy only the v6_addr
+         * field from each cmn_prefix_t — not the whole struct. */
+        for (uint8_t i = 0; i < pnh->n_segment_list; i++) {
+            memcpy(fwd_info_out->u.v6_fwd.v6segment_lst[i],
+                   pnh->v6segment_lst[i].u.v6_addr,
+                   sizeof(pnh->v6segment_lst[i].u.v6_addr));
+        }
     }
     
     return RTM_SUCCESS;
