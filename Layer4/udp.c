@@ -2,8 +2,7 @@
 #include <arpa/inet.h>
 #include "udp.h"
 #include "../tcpconst.h"
-#include "../Layer2/vxlan/dp/vxlan_dp.h"
-#include "../Layer2/layer2.h"
+#include "../common/l2_hdrs.h"
 #include "../tcp_ip_trace.h"
 
 uint16_t 

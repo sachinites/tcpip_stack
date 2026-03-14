@@ -1,0 +1,98 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  vlan_vni_ht.h
+ *
+ *    Description:  VLAN-VNI hashtable mapping for O(1) lookup performance
+ *                  Provides atomic updates using pointer swapping technique
+ *
+ *        Version:  1.0
+ *        Created:  [Current Date]
+ *       Revision:  1.0
+ *       Compiler:  gcc
+ *
+ *         Author:  AI Assistant
+ *        Company:  TCP/IP Stack Implementation
+ *        
+ *        This file implements high-performance VLAN-VNI mapping using hashtables
+ *        with atomic pointer updates for thread-safe operations.
+ *
+ * =====================================================================================
+ */
+
+#ifndef __VLAN_VNI_HT_H__
+#define __VLAN_VNI_HT_H__
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#include "../../../utils.h"
+#include "../../../c-hashtable/hashtable.h"
+
+/* Forward declarations */
+typedef struct dp_ctx_ dp_ctx_t;
+typedef uint16_t uint16_t;
+
+/* VLAN-VNI mapping entry for hashtable */
+typedef struct vlan_vni_ht_entry_ {
+    uint16_t vlan_id;
+    uint32_t vni_id;
+} vlan_vni_ht_entry_t;
+
+/* VNI-VLAN mapping entry for reverse lookup hashtable */
+typedef struct vni_vlan_ht_entry_ {
+    uint32_t vni_id;
+    uint16_t vlan_id;
+} vni_vlan_ht_entry_t;
+
+/* Hashtable database structure containing both forward and reverse mappings */
+typedef struct vlan_vni_ht_db_ {
+    hashtable_t *vlan_to_vni_ht;    /* VLAN -> VNI mapping */
+    hashtable_t *vni_to_vlan_ht;    /* VNI -> VLAN mapping */
+    uint32_t entry_count;           /* Number of active mappings */
+    pthread_mutex_t mutex;          /* Mutex for thread-safe access */
+} vlan_vni_ht_db_t;
+
+/* Hash functions for VLAN and VNI keys */
+unsigned int vlan_hash_function(void *key);
+int vlan_key_equal_function(void *key1, void *key2);
+unsigned int vni_hash_function(void *key);
+int vni_key_equal_function(void *key1, void *key2);
+
+/* Hashtable database management functions */
+vlan_vni_ht_db_t *vlan_vni_ht_create_db(void);
+void vlan_vni_ht_destroy_db(vlan_vni_ht_db_t *ht_db);
+vlan_vni_ht_db_t *vlan_vni_ht_clone_db(vlan_vni_ht_db_t *source_db);
+
+/* Thread-safe hashtable pointer management */
+void vlan_vni_ht_set_db(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *new_db);
+vlan_vni_ht_db_t *vlan_vni_ht_get_db(dp_ctx_t *dp_ctx);
+void vlan_vni_ht_clear_db(dp_ctx_t *dp_ctx);
+bool vlan_vni_ht_compare_and_swap_db(dp_ctx_t *dp_ctx, vlan_vni_ht_db_t *expected, vlan_vni_ht_db_t *new_db);
+
+/* O(1) lookup functions */
+uint32_t vlan_vni_ht_vlan_to_vni_lookup(dp_ctx_t *dp_ctx, uint16_t vlan_id);
+uint16_t vlan_vni_ht_vni_to_vlan_lookup(dp_ctx_t *dp_ctx, uint32_t vni_id);
+
+/* Mapping management functions with atomic updates */
+bool vlan_vni_ht_add_mapping(dp_ctx_t *dp_ctx, uint16_t vlan_id, uint32_t vni_id);
+bool vlan_vni_ht_remove_mapping(dp_ctx_t *dp_ctx, uint16_t vlan_id);
+bool vlan_vni_ht_remove_mapping_by_vni(dp_ctx_t *dp_ctx, uint32_t vni_id);
+
+/* Database synchronization with control plane */
+void vlan_vni_ht_clear_all_mappings(dp_ctx_t *dp_ctx);
+
+/* Utility functions */
+uint32_t vlan_vni_ht_get_mapping_count(dp_ctx_t *dp_ctx);
+void vlan_vni_ht_dump_mappings(dp_ctx_t *dp_ctx);
+
+/* Initialization and cleanup */
+void vlan_vni_ht_init(dp_ctx_t *dp_ctx);
+void vlan_vni_ht_cleanup(dp_ctx_t *dp_ctx);
+
+/* Macros for accessing node hashtable database (vlan_vni_ht in dp_ctx) */
+#define NODE_VLAN_VNI_HT(dp_ctx_ptr) \
+    (dp_ctx_ptr->vlan_vni_ht)
+
+#endif /* __VLAN_VNI_HT_H__ */

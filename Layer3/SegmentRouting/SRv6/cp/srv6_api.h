@@ -3,23 +3,25 @@
 
 #include <stdbool.h>
 typedef struct node_ node_t;
+typedef struct vrf_ vrf_t;
 
-#define SRV6_NODE_INFO(node_ptr) \
-    (node_ptr->node_nw_prop.srv6_node_info)
+
+#define SRV6_NODE_INFO(vrf_ptr) \
+    (vrf_ptr->srv6_node_info)
 
 bool 
-srv6_is_enable (node_t *node);
+srv6_is_enable (vrf_t *vrf);
 
 void 
-srv6_init (node_t *node);
+srv6_init (vrf_t *vrf);
 
 void 
-srv6_de_init (node_t *node);
+srv6_de_init (vrf_t *vrf);
 
 uint32_t 
-srv6_delete_all_pfx_sids (node_t *node) ;
+srv6_delete_all_pfx_sids (vrf_t *vrf) ;
 
 uint32_t 
-srv6_delete_all_adj_sids (node_t *node) ;
+srv6_delete_all_adj_sids (vrf_t *vrf) ;
 
 #endif 

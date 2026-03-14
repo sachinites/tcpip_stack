@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <memory.h>
-#include <cassert>
+#include <assert.h>
 #include "../tcpconst.h"
 
 #define MAX_LBL_DEPTH 8

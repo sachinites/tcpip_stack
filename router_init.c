@@ -45,18 +45,15 @@
 #include "Interface/InterfaceUApi.h"
 #include "Tracer/tracer.h"
 #include "Layer3/ipv6/ipv6_utils.h"
-#include "common/cp2dp.h"
+#include "dpal/cp2dp.h"
 #include "RTM/rtm.h"
 #include "RTM/rtm_nb_integ.h"
 #include "common/cmn_prefix.h"
-#include "datapath/Interface/dp_intf_update.h"
+#include "datapath/dp_uapi.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
 
 extern bool LinuxRtr;
-
-extern void 
-dp_simulate_wire_connection (node_t *node1, Interface *intf1, 
-                             node_t *node2, Interface *intf2);
+extern void cp_init_ipc_pub_sub(node_t *node);
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -88,13 +85,11 @@ insert_link_between_two_nodes(node_t *node1,
     interface_assign_mac_address(link->Intf1.get());
     interface_assign_mac_address(link->Intf2.get());
 
-    tcp_ip_init_intf_log_info(link->Intf1.get());
-    tcp_ip_init_intf_log_info(link->Intf2.get());
-
     /* Data path Updates*/
     cp2dp_interface_create(node1, link->Intf1.get());
     cp2dp_interface_create(node2, link->Intf2.get());
-    dp_simulate_wire_connection (node1, link->Intf1.get(), node2, link->Intf2.get());
+    dp_uapi_link_connect (node1->dp_ctx, link->Intf1->ifindex, 
+                     node2->dp_ctx, link->Intf2->ifindex);
 
     vrf_add_interface(NODE_DEF_VRF(node1), link->Intf1.get());
     vrf_add_interface(NODE_DEF_VRF(node2), link->Intf2.get());
@@ -114,17 +109,50 @@ create_new_graph (const char *topology_name){
     return graph;
 }
 
-extern void tcp_ip_register_default_l3_pkt_trap_rules(node_t *node);
+extern void tcp_ip_register_default_l3_pkt_trap_rules(nf_hook_db_t *nf_hook_db);
 extern void node_init_udp_socket(node_t *node);
 extern struct hashtable *object_network_create_new_ht() ;
 extern struct hashtable *object_group_create_new_ht() ;
-extern void init_nfc_layer2_proto_reg_db2(node_t *node);
+extern void init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc);
 extern int debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) ;
 extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
 void dp_init (node_t *node);
+extern void dp_uapi_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 
+
+static FILE *
+initialize_node_log_file(node_t *node){
+
+    char file_name[64];
+
+    memset(file_name, 0, sizeof(file_name));
+    sprintf(file_name, "logs/%s.txt", node->node_name);
+
+    FILE *fptr = fopen(file_name, "w");
+
+    if(!fptr){
+        cprintf("Error : Could not open log file %s, errno = %d\n", 
+            file_name, errno);
+        return 0;
+    }
+
+    return fptr;
+}
+
+static void
+tcp_ip_init_node_log_info(node_t *node){
+
+    log_t *log_info     = &node->dp_ctx->log;
+    log_info->all       = true;
+    log_info->recv      = true;
+    log_info->send      = true;
+    log_info->is_stdout = false;
+    log_info->l3_fwd    = true;
+    log_info->log_file  = initialize_node_log_file(node); 
+    log_info->acc_lst_filter = NULL;
+}
 
 node_t *
 Router_Create(graph_t *graph, const c_string node_name){
@@ -140,15 +168,17 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     node->spf_data = NULL;
 
+    /* Initialize the Data path before control plane (log lives in dp_ctx) */
+    dp_uapi_ctx_init (&node->dp_ctx, (void *)node, node->node_name);
     tcp_ip_init_node_log_info(node);
 
-    /* Initialize the Data path before control plane*/
-    dp_init(node);
+    /* L3/L2 netfilter and proto reg are initialized inside dp_uapi_ctx_init; no longer on node */
 
     /* Initialize Control Plane Tracers*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp.txt", node->node_name);
-    node->cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO, debug_infra_tracer_bits_to_str );
+    node->cptr = tracer_init (node_name, file_name, node->node_name, 
+        STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->cptr, true);
 
     bitmap_init(&node->if_index_bm, MAX_INTF_IFINDEX + 1);
@@ -160,12 +190,7 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->intf_by_name = NULL;
     node->intf_by_ifindex = NULL;
 
-    /* L3 pkt trapping to application is implemented using Netfilter hooks built over NFC*/
-	nf_init_netfilters(&node->nf_hook_db);
-    tcp_ip_register_default_l3_pkt_trap_rules(node);
-    
-    /* L2 pkt trapping to application is implemented using pure NFCs only*/
-    init_nfc_layer2_proto_reg_db2(node);
+    /* L3 pkt trapping and L2 proto reg are in dp_ctx (initialized in dp_uapi_ctx_init) */
 
     node->print_buff = (unsigned char *)calloc(1, NODE_PRINT_BUFF_LEN);
 
@@ -209,18 +234,20 @@ Router_Create(graph_t *graph, const c_string node_name){
     //node_config_db_init (node);
 
     /* Turn on Default Logging */
-    #if 0
+    #if 1
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
-    tracer_log_bit_set(node->dptr,  DFIB | DFIB_DET);
+    tracer_log_bit_set(node->dp_ctx->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
-    tracer_log_bit_set(node->dptr,  DERR);  
+    tracer_log_bit_set(node->dp_ctx->dptr,  DERR);  
     #endif 
     tracer_enable_always_flush(node->cptr, true);
-    tracer_enable_always_flush(node->dptr, true);
-    tracer_log_bit_set(node->dptr, DCONF);
+    tracer_enable_always_flush(node->dp_ctx->dptr, true);
+    tracer_log_bit_set(node->dp_ctx->dptr, DCONF);
     
     node->sequence_gen = 1;
     glthread_add_next(&graph->node_list, &node->graph_glue);
+
+    cp_init_ipc_pub_sub(node);
     return node;
 }
 

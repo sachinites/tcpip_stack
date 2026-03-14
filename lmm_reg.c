@@ -32,13 +32,17 @@
 #include "RTM/rtm_gc.h"
 
 /* FIB Files*/
-#include "FIB/fib.h"
-#include "FIB/fib_nh.h"
-#include "FIB/fib_route.h"
+#include "datapath/FIB/fib.h"
+#include "datapath/FIB/fib_nh.h"
+#include "datapath/FIB/fib_route.h"
 
 
 /* TED Hdr Files*/
 #include "ted/ted.h"
+
+/* Data path files */
+#include "datapath/Layer2/arp/arp.h"
+#include "datapath/Layer2/switching/mac_table.h"
 
 /* Lib Hdr files */
 #include "mtrie/mtrie.h"
@@ -54,12 +58,10 @@
 
 /* Layer 3 files */
 #include "Layer3/layer3.h"
-#include "Layer3/ipv6/ipv6_route.h"
-#include "Layer3/mpls_fwd.h"
 
 /* VXLAN files */
 #include "Layer2/vxlan/cp/vxlan.h"
-#include "Layer2/vxlan/dp/vlan_vni_ht.h"
+#include "datapath/Layer2/vxlan/vlan_vni_ht.h"
 
 /* MPLS files */
 #include "common/mpls_lstack.h"
@@ -151,11 +153,8 @@ vm_page_family_t vm_page_family_array[] =
 
     /* Layer3 Structures */
     MM_REG_STRUCT2(ip_hdr_t),
-    MM_REG_STRUCT2(rt_table_t),
     //MM_REG_STRUCT2(nexthop_t),
-    MM_REG_STRUCT2(l3_route_t),
-    //MM_REG_STRUCT2(v6nexthop_t),
-    MM_REG_STRUCT2(ipv6_route_t),
+    //MM_REG_STRUCT2(v6nexthop_t);
     MM_REG_STRUCT2(ipv6_addr_t),
     MM_REG_STRUCT2(ipv6_hdr_t),
     MM_REG_STRUCT2(srh_hdr_t),

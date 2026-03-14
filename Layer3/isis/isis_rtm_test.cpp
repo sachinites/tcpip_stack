@@ -9,7 +9,7 @@
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 
-typedef struct node_ node_t;
+typedef struct isis_node_info_ isis_node_info_t;
 extern int cprintf(const char *format, ...);
 
 static void isis_rtm_test_cbk (

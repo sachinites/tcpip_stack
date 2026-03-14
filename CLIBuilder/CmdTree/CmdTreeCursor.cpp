@@ -1540,10 +1540,10 @@ cmdtc_set_filter_context (cmd_tree_cursor_t *cmdtc) {
 
 #ifdef SCHED_SUBMISSION
 extern void
-task_invoke_appln_cbk_handler (int cmdcode, 
-                                                     cmd_callback cbk, 
-                                                     Stack_t  *tlv_stack,
-                                                     op_mode enable_or_disable);
+task_invoke_appln_cbk_handler(int cmdcode,
+                              cmd_callback cbk,
+                              Stack_t *tlv_stack,
+                              op_mode enable_or_disable);
 #endif 
 
 
@@ -1684,6 +1684,35 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
 
         case CONFIG_ENABLE:
 
+            param = (param_t *)cmdtc->params_stack->slot[cmdtc->params_stack->top];
+
+            if (param->flags & PARAM_F_NO_BATCH_PROCESSING)
+            {
+                /* Process the config +ve command in non-batch processing mode */
+
+                if (!param->callback[0])
+                {
+                    if (temp_cmdtc)
+                    {
+                        cmd_tree_cursor_destroy_internals(cmdtc, false);
+                        free(cmdtc);
+                    }
+                    break;
+                }
+
+                while (j < CALLBACKS_N && param->callback[j]) {
+                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                }
+
+                if (temp_cmdtc)
+                {
+                    cmd_tree_cursor_destroy_internals(cmdtc, false);
+                    free(cmdtc);
+                }
+                break;
+            }
+
+            /* Process the config +ve command in batch processing mode */
             for (i = cmdtc->stack_checkpoint + 1; i <= cmdtc->params_stack->top; i++)
             {
                 param = (param_t *)cmdtc->params_stack->slot[i];

@@ -4,15 +4,15 @@
 #include "isis_ips_struct.h"
 
 extern  void 
- isis_interface_ipc_updates(node_t *node, uint32_t minor_code, ipc_interface_t *msg);
+ isis_interface_ipc_updates(isis_node_info_t *node_info, uint32_t minor_code, ipc_interface_t *msg);
  
 extern  void 
- isis_gre_tunnel_ipc_updates (node_t *node, uint32_t minor_code, ipc_gre_t *msg);
+ isis_gre_tunnel_ipc_updates (isis_node_info_t *node_info, uint32_t minor_code, ipc_gre_t *msg);
 
 extern  void 
-isis_access_lst_ipc_updates (node_t *node, uint32_t minor_code, ipc_access_lst_t *msg) ;
+isis_access_lst_ipc_updates (isis_node_info_t *node_info, uint32_t minor_code, ipc_access_lst_t *msg) ;
 
-void isis_recv_ipc_updates (node_t *node, 
+void isis_recv_ipc_updates (isis_node_info_t *node_info, 
                                              ips_major_code_t major_code,
                                              uint32_t minor_code,
                                              void *msg,
@@ -21,29 +21,30 @@ void isis_recv_ipc_updates (node_t *node,
     switch (major_code) {
 
         case IPC_INTERFACE:
-            isis_interface_ipc_updates(node, minor_code, (ipc_interface_t *)msg);
+            isis_interface_ipc_updates(node_info, minor_code, (ipc_interface_t *)msg);
         break;
         case IPC_GRE_TUNNEL:
-            isis_gre_tunnel_ipc_updates (node, minor_code, (ipc_gre_t *)msg);
+            isis_gre_tunnel_ipc_updates (node_info, minor_code, (ipc_gre_t *)msg);
         break;
         case IPC_ACCESS_LIST:
-            isis_access_lst_ipc_updates (node, minor_code, (ipc_access_lst_t *)msg);
+            isis_access_lst_ipc_updates (node_info, minor_code, (ipc_access_lst_t *)msg);
         default: 
         ;
     }
 }
 
 static void 
-isis_lsp_ips_free_fn(node_t *node, void *lsp_pkt) {
+isis_lsp_ips_free_fn(void *node_info, void *lsp_pkt) {
 
-    isis_deref_isis_pkt(node, (isis_lsp_pkt_t *)lsp_pkt);
+    isis_deref_isis_pkt((isis_node_info_t *)node_info, (isis_lsp_pkt_t *)lsp_pkt);
 }
 
 void 
-isis_ips_send_lsp_update (node_t *node, isis_lsp_pkt_t *lsp_pkt, bool add) {
+isis_ips_send_lsp_update (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt, bool add) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     if (!node_info) return;
+
+    node_t *node = node_info->vrf->node;
 
     if (lsp_pkt) {
 
@@ -51,10 +52,11 @@ isis_ips_send_lsp_update (node_t *node, isis_lsp_pkt_t *lsp_pkt, bool add) {
             During shut down ISIS may invoke this API for every LSP deleting 
             from lspdb. During shutdown, ISIS will generate only one IPS signal
             and that is  IPC_LFA_ISIS_LSP_DEL_ALL */
-        if (isis_is_protocol_shutdown_in_progress (node)) return;
+        if (isis_is_protocol_shutdown_in_progress (node_info)) return;
 
         isis_ref_isis_pkt(lsp_pkt);
-        cp_ips_send (node, IPC_LFA_ISIS, 
+
+        cp_ips_send (node_info->vrf->node, IPC_LFA_ISIS, 
             add ? IPC_LFA_ISIS_LSP_ADD : IPC_LFA_ISIS_LSP_DEL, 
             (void *)lsp_pkt, sizeof (*lsp_pkt), 
             true, isis_lsp_ips_free_fn);
@@ -68,14 +70,17 @@ isis_ips_send_lsp_update (node_t *node, isis_lsp_pkt_t *lsp_pkt, bool add) {
 }
 
 void 
-isis_ips_send_lsp_seqno_update (node_t *node, isis_lsp_pkt_t *lsp_pkt ) {
+isis_ips_send_lsp_seqno_update (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt ) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
     if (!node_info) return;
 
-    if (isis_is_protocol_shutdown_in_progress (node)) return;
+    node_t *node = node_info->vrf->node;
+
+    if (isis_is_protocol_shutdown_in_progress (node_info)) return;
     
     isis_ref_isis_pkt(lsp_pkt);
+
     cp_ips_send (node, IPC_LFA_ISIS, 
         IPC_LFA_ISIS_LSP_SEQNO_UPDATE,
         (void *)lsp_pkt, sizeof (*lsp_pkt), 
@@ -83,7 +88,7 @@ isis_ips_send_lsp_seqno_update (node_t *node, isis_lsp_pkt_t *lsp_pkt ) {
 }
 
 void 
-isis_ips_send_frr_config (node_t *node, uint8_t pvt_code, 
+isis_ips_send_frr_config (isis_node_info_t *node_info, uint8_t pvt_code, 
                                             bool frr_enable,
                                             uint32_t ifindex,
                                             isis_system_id_t system_id,
@@ -91,11 +96,11 @@ isis_ips_send_frr_config (node_t *node, uint8_t pvt_code,
                                             bool rlfa, 
                                             bool use_spring, bool tilfa) {
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
-
     if (!node_info) return;
 
-    if (isis_is_protocol_shutdown_in_progress (node)) return;
+    node_t *node = node_info->vrf->node;
+    
+    if (isis_is_protocol_shutdown_in_progress (node_info)) return;
 
     isis_ips_frr_config_t *frr_config = (isis_ips_frr_config_t *)
                             calloc(1, sizeof(isis_ips_frr_config_t));

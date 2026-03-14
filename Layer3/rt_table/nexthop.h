@@ -1,15 +1,20 @@
 #ifndef __NEXTHOP__
 #define __NEXTHOP__
 
+#include <memory.h>
+
 #include "../../utils.h"
 #include "../../Interface/InterfaceFwd.h"
-#include "../mpls_fwd.h"
 #include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../tcpconst.h"
+
+
+typedef struct mpls_lstack_ mpls_lstack_t;
 
 typedef struct nexthop_{
 
     InterfaceP oif;
-    byte gw_ip[IPV4_ADDR_LEN_STR];
+    byte gw_ip[16];
     unsigned char node_name[NODE_NAME_SIZE];
     mpls_lstack_t *lbls;
     long long unsigned int hit_count;
@@ -79,96 +84,6 @@ nexthop_dereference (nexthop_t *nexthop) {
         if (nexthop->oif) nexthop->oif = nullptr;
         delete nexthop;
     }    
-}
-
-/* Implement Label stack operations on nexthop */
-
-/* Add a label to nexthop's label stack */
-void static
-nh_push_label(nexthop_t *nh, mpls_label_t label) {
-
-    if (!nh->lbls) {
-        nh->lbls = (mpls_lstack_t *)XCALLOC (0, 1, mpls_lstack_t);
-        nh->lbls->curr_index = 0;
-    }
-
-    nh->lbls->labels[nh->lbls->curr_index] = label;
-
-    if (nh->lbls->curr_index == 0 ) 
-        mpls_label_set_stack_bottom (&label.label_val);
-    else 
-        mpls_label_clear_stack_bottom (&label.label_val);
-
-    nh->lbls->curr_index++;
-}
-
-/* Remove and return top label from nexthop's label stack */
-static mpls_label_t
-nh_pop_label(nexthop_t *nh) {
-
-    mpls_label_t ret = {0 , MPLS_OP_STACK_OPS_UNKNOWN};
-
-    if (!nh->lbls) {
-        return ret;
-    }
-    
-    mpls_label_t label = nh->lbls->labels[nh->lbls->curr_index - 1];
-    nh->lbls->curr_index--;
-
-    if (nh->lbls->curr_index == 0) {
-        XFREE(nh->lbls);
-        nh->lbls = NULL;
-    }
-
-    return label;
-}
-
-static void
-nh_swap_label(nexthop_t *nh, mpls_label_t label) {
-
-    if (!nh->lbls) {
-        return;
-    }
-    nh->lbls->labels[nh->lbls->curr_index - 1] = label;
-
-    if (nh->lbls->curr_index == 0 ) 
-        mpls_label_set_stack_bottom (&label.label_val);
-    else 
-        mpls_label_clear_stack_bottom (&label.label_val);    
-}
-
-/* Get top label without removing it */
-static mpls_label_t
-nh_peek_label(nexthop_t *nh) {
-
-    mpls_label_t ret = {0 , MPLS_OP_STACK_OPS_UNKNOWN};
-
-    if (!nh->lbls) {
-        return ret;
-    }
-    
-    return nh->lbls->labels[nh->lbls->curr_index - 1];
-}
-
-/* Remove all labels from nexthop's label stack */
-static void
-nh_clear_labels(nexthop_t *nh) {
-
-    if (nh->lbls) {
-        XFREE(nh->lbls);
-        nh->lbls = NULL;
-    }
-}
-
-/* Get number of labels in nexthop's label stack */
-static uint8_t
-nh_label_count(nexthop_t *nh) {
-
-    if (!nh->lbls) {
-        return 0;
-    }
-
-    return nh->lbls->curr_index;
 }
 
 int8_t

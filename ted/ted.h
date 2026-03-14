@@ -105,8 +105,8 @@ ted_get_nbr_node(ted_intf_t *intf) {
 }
 
 bool
-ted_insert_link (ted_node_t *node1 ,
-                          ted_node_t *node2, 
+ted_insert_link (ted_node_t *node_info1 ,
+                          ted_node_t *node_info2, 
                           ted_link_t *ted_link);
 
 ted_link_t *
@@ -128,25 +128,25 @@ ted_create_link ( ted_link_t *ted_link ,
 #define TED_ITERATE_NODE_INTF_END(node_ptr, intf_ptr)   }}
 
 int8_t 
-ted_node_get_empty_slot(ted_node_t *node);
+ted_node_get_empty_slot(ted_node_t *node_info);
 
 int8_t
-ted_plug_in_interface(ted_node_t *node, ted_intf_t *intf) ;
+ted_plug_in_interface(ted_node_t *node_info, ted_intf_t *intf) ;
 
 int8_t
 ted_plug_out_interface(ted_intf_t *intf);
 
 void
-ted_unplug_all_local_interfaces(ted_node_t *node) ;
+ted_unplug_all_local_interfaces(ted_node_t *node_info) ;
 
 void
-ted_unplug_all_remote_interfaces(ted_node_t *node);
+ted_unplug_all_remote_interfaces(ted_node_t *node_info);
 
 bool
 ted_is_link_bidirectional (ted_link_t *ted_link);
 
 uint32_t 
-ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) ;
+ted_cleanup_all_half_links (ted_node_t *node_info, bool *lone_node) ;
 
 bool
 ted_is_interface_plugged_in(ted_intf_t *intf) ;
@@ -158,10 +158,10 @@ ted_node_t *
 ted_lookup_node(ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no);
 
 ted_intf_t *
-ted_node_lookup_intf (ted_node_t *node, uint32_t ifindex);
+ted_node_lookup_intf (ted_node_t *node_info, uint32_t ifindex);
 
 bool
-ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node);
+ted_insert_node_in_teddb(ted_db_t *ted_db, ted_node_t *node_info);
 
 ted_node_t *
 ted_create_node(uint32_t rtr_id, bool is_fake);
@@ -240,19 +240,19 @@ ted_show_ted_db (ted_db_t *ted_db, uint32_t rtr_id, uint8_t pn_no, byte *buff, b
 #define ITERATE_TED_NODE_NBRS_END(node_ptr, nbr_ptr, oif_ptr, ip_addr)  }}while(0);
 
 void
-ted_prefix_tree_cleanup_tree (ted_node_t *node);
+ted_prefix_tree_cleanup_tree (ted_node_t *node_info);
 
 void 
 ted_prefix_tree_cleanup_internal (avltree_t *prefix_tree) ;
 
 void
-ted_v6prefix_tree_cleanup_tree (ted_node_t *node);
+ted_v6prefix_tree_cleanup_tree (ted_node_t *node_info);
 
 void 
 ted_v6prefix_tree_cleanup_internal (avltree_t *prefix_tree) ;
 
 void
-ted_srv6prefixsid_tree_cleanup_tree (ted_node_t *node);
+ted_srv6prefixsid_tree_cleanup_tree (ted_node_t *node_info);
 
 void 
 ted_srv6prefixsid_tree_cleanup_internal (avltree_t *prefix_tree) ;

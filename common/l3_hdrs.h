@@ -9,11 +9,6 @@
 #pragma pack (push,1)
 typedef struct ip_hdr_{
 
-#if 0
-    uint32_t version : 4 ;  /*version number, always 4 for IPv4 protocol*/    
-    uint32_t ihl : 4 ;      /*length of IP hdr, in 32-bit words unit. for Ex, if this value is 5, it means length of this ip hdr is 20Bytes*/
-#endif
-
     uint8_t ver_ihl; /* Ist 4 bits is version and last 4 bits is ihl*/
     char tos;
     short total_length;         /*length of hdr + ip_hdr payload*/
@@ -83,6 +78,9 @@ typedef struct srh_hdr_ {
     
 } srh_hdr_t;
 #pragma pack(pop)
+
+
+
 
 
 #endif // __L3_PKT_HDRS__

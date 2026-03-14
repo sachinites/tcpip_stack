@@ -2,6 +2,9 @@
 #define __GREUAPI__
 
 class Interface;
+typedef struct node_ node_t;
+
+#include "../../utils.h"
 
 bool
 gre_tunnel_create (node_t *node, uint32_t tunnel_id) ;

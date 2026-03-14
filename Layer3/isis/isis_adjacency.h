@@ -106,7 +106,7 @@ isis_find_adjacency_on_interface(
         isis_system_id_t *sys_id);
 
 char *
-isis_adjacency_name(char *adj_name, isis_adjacency_t *adjacency);
+isis_adjacency_name(char *adj_name, size_t adj_name_sz, isis_adjacency_t *adjacency);
 
 void
 isis_show_adjacency(isis_adjacency_t *adjacency, uint8_t tab_spaces);
@@ -134,17 +134,17 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
                     uint16_t *tlv_len);   /* length encoded (tlv overhead + data len)*/
 
 byte *
-isis_encode_all_nbr_tlvs(node_t *node, byte *buff) ;
+isis_encode_all_nbr_tlvs(isis_node_info_t *node_info, byte *buff) ;
 
 uint8_t 
 isis_nbr_tlv_encode_size(isis_adjacency_t *adjacency,
                          uint8_t *subtlv_len);
 
 uint16_t
-isis_size_to_encode_all_nbr_tlv(node_t *node);
+isis_size_to_encode_all_nbr_tlv(isis_node_info_t *node_info);
                            
 uint32_t 
-isis_show_all_adjacencies (node_t *node) ;
+isis_show_all_adjacencies (isis_node_info_t *node_info) ;
 
 bool
 isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency);

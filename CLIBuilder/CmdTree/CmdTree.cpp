@@ -192,6 +192,12 @@ libcli_param_synchronous (param_t *param) {
     param->flags |= PARAM_F_SYNCHRONOUS;
 }
 
+void 
+libcli_disable_batch_processing (param_t *param) {
+
+    param->flags |= PARAM_F_NO_BATCH_PROCESSING;
+}
+
 static void 
  libcli_build_default_cmdtree() {
 

@@ -7,12 +7,8 @@
 #include "../../pkt_block.h"
 #include "../../tcpconst.h"
 #include "../../Tracer/tracer.h"
-
-extern void
-promote_pkt_to_layer3(node_t *node,           
-                      Interface *interface, 
-                      pkt_block_t *pkt_block, 
-                      int L3_protocol_number) ;
+#include "../../vrf/vrf.h"
+#include "../../dpal/cp2dp.h"
 
 bool
 gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
@@ -35,6 +31,8 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     gre_shared_ptr->ifindex = interface_get_new_ifindex (node);
     intf = gre_shared_ptr.get();
     
+    cp2dp_interface_create (node, intf);
+
     /* Add to VRF and global maps */
     if (!vrf_add_interface(NODE_DEF_VRF(node), intf)) {
         cprintf("Error : Failed to add GRE tunnel to VRF\n");
@@ -250,94 +248,3 @@ gre_one_time_registration() {
     nfc_intf_register_for_events(gre_interface_updates);
 }
 
-void 
-gre_encasulate (node_t *node, pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size;
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
-    uint16_t gre_inner_hdr_type = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
-    
-    /* Expland the size of the pkt by GRE HDR size */
-    pkt_block_expand_buffer_left (pkt_block, sizeof (gre_hdr_t) ); 
-    gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    /* Fill GRE packet Hdr contents*/
-    memset (gre_hdr, 0, sizeof (gre_hdr_t));
-    gre_hdr->protocol_type = htons(gre_inner_hdr_type);
-    pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);        
-    tracer (node->dptr, DTUNNEL | DFLOW, 
-        "GRE Encapsulation %s\n", pkt_block_str (pkt_block));    
-}
-
-void 
-gre_decapsulate (node_t *node, pkt_block_t *pkt_block, Interface *gre_interface) {
-
-    uint8_t *pkt;
-    pkt_size_t pkt_size;
-
-    assert (pkt_block_get_starting_hdr(pkt_block) == GRE_HDR);
-
-    if (!gre_interface) {
-         tracer (node->dptr, DTUNNEL | DFLOW | DERR, 
-            "Error : Pkt %s : Arrived on non-existant GRE Tunnel Interface\n", 
-                pkt_block_str (pkt_block));
-        return;
-    }
-    
-    gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
-    GRETunnelInterface *gre_intf = 
-        dynamic_cast <GRETunnelInterface *> (gre_interface);
-
-    gre_intf->pkt_recv++;
-
-    if (!gre_intf->IsGRETunnelActive() || !gre_intf->is_up) {
-        tracer (node->dptr, DTUNNEL | DFLOW | DERR, 
-            "Error : Pkt : %s : Dropped, GRE Tunnel %s is not Active/Up\n", 
-                pkt_block_str (pkt_block), gre_intf->if_name.c_str());
-        return;
-    }
-
-    pkt = pkt_block_get_pkt (pkt_block, &pkt_size);
-    pkt_block_set_new_pkt (pkt_block, 
-        (uint8_t *)(gre_hdr + 1), pkt_size - sizeof (gre_hdr_t));
-
-    switch (htons(gre_hdr->protocol_type)) {
-
-        case ETH_IP:
-        {
-            pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
-            tracer (node->dptr, DTUNNEL | DFLOW, 
-                "GRE Decapsulation %s\n", pkt_block_str (pkt_block));    
-            layer3_ip_route_pkt (node, gre_interface, pkt_block);
-        }
-        break;
-
-        case PROTO_GRE_ENCAP_ETHERNET:
-        {
-             pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
-            tracer (node->dptr, DTUNNEL | DFLOW, 
-                "GRE Decapsulation %s\n", pkt_block_str (pkt_block));                    
-             dp_pkt_receive(node, gre_interface, pkt_block);
-        }
-        break;
-    }
-}
-
-Interface *
-gre_lookup_tunnel_intf (node_t *node, uint32_t src_ip, uint32_t dst_ip) {
-
-    Interface *intf;
-    GRETunnelInterface *gre_intf ;
-
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-        if (intf->iftype != INTF_TYPE_GRE_TUNNEL)  continue;
-        gre_intf = dynamic_cast <GRETunnelInterface *> (intf);
-        if (gre_intf->tunnel_src_ip != src_ip) continue;
-        if (gre_intf->tunnel_dst_ip != dst_ip)  continue;
-        return intf;
-    }
-    ITERATE_NODE_INTERFACES_END(node, intf);
-
-    return NULL;
-}

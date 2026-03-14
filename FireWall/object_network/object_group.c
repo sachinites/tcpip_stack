@@ -708,11 +708,3 @@ object_group_queue_all_leaf_ogs(object_group_t *og_root, glthread_t *list_head) 
     _object_group_queue_all_leaf_ogs(og_root, list_head);
 }
 
-extern void object_grp_update_mem_init();
-void
-object_group_mem_init () {
-
-    MM_REG_STRUCT(0, object_group_t);
-    MM_REG_STRUCT(0, obj_grp_list_node_t);
-    object_grp_update_mem_init();
-}

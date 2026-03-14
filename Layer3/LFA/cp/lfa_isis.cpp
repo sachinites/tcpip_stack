@@ -133,14 +133,14 @@ lfa_isis_deinit (node_t *node, lfa_t *lfa, uint8_t level) {
             tracer(LFA_TR(node), TR_LFA_ISIS | TR_LFA_DB_UPDATE, 
                 "%s : LSP %s Level-%d ADD\n",  LFA_ISIS_LSP_LOG, lsp_id_str, level);
             lfa_config->u.isis.lsp_add_update_recvd++;
-            isis_ted_update_or_install_lsp(node, ted_db, lsp_pkt);
+            isis_ted_update_or_install_lsp(NULL, ted_db, lsp_pkt);
             break;
 
         case IPC_LFA_ISIS_LSP_DEL:
             tracer(LFA_TR(node), TR_LFA_ISIS | TR_LFA_DB_UPDATE, 
                 "%s : LSP %s Level-%d DEL\n",  LFA_ISIS_LSP_LOG, lsp_id_str, level);
             lfa_config->u.isis.lsp_del_recvd++;
-            isis_ted_uninstall_lsp (node, ted_db, lsp_pkt);
+            isis_ted_uninstall_lsp (NULL, ted_db, lsp_pkt);
             break;
 
         case IPC_LFA_ISIS_LSP_L1_DEL_ALL:

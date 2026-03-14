@@ -35,40 +35,40 @@
 #include "../tcpip_notif.h"
 
 typedef struct node_ node_t;
-class Interface;
 typedef struct pkt_block_ pkt_block_t;
+typedef struct notif_chain_ notif_chain_t;
 
 typedef struct pkt_notif_data_{
 
 	node_t *recv_node;
-	Interface *recv_interface;
+	uint32_t recv_intf_index;
 	pkt_block_t *pkt_block;
 	hdr_type_t hdr_code;
 	int8_t return_code;
 } pkt_notif_data_t;
 
 void
-cp_punt_promote_pkt_from_layer2_to_layer5(
-					 node_t *node,
-					  Interface *recv_intf,
+cp_punt_pkt_from_layer2_to_layer5(
+					  void *node,
+					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);
 
 void
-promote_pkt_from_layer3_to_layer5(node_t *node,
-					  Interface *recv_intf,
+dp2cp_punt_pkt_to_layer5(void *node,
+					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
 					  hdr_type_t hdr_code);
 
 void
 tcp_stack_register_l2_pkt_trap_rule(
-		node_t *node,
+		notif_chain_t *nfc,
         nfc_pkt_trap pkt_trap_cb,
         nfc_app_cb app_cb);
 
 void
 tcp_stack_de_register_l2_pkt_trap_rule(
-		node_t *node,
+		notif_chain_t *nfc,
         nfc_pkt_trap pkt_trap_cb,
         nfc_app_cb app_cb);
 

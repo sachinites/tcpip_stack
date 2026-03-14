@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <memory.h>
+#include "router_init.h"
 #include "Interface/InterfaceUApi.h"
 #include "net.h"
 #include "tcpip_notif.h"

@@ -392,11 +392,3 @@ object_network_borrow_tcam_data (obj_nw_t *obj_nw,
     *wcard = (obj_nw->wcard);
 }
 
-void
-object_network_mem_init () {
-
-    MM_REG_STRUCT(0, obj_nw_t);
-    MM_REG_STRUCT(0, obj_nw_type_t);
-    MM_REG_STRUCT(0, objects_linked_acl_thread_node_t);
-    MM_REG_STRUCT(0, objects_linkage_db_t);
-}

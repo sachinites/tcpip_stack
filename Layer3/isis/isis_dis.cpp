@@ -10,12 +10,10 @@
 #include "isis_tlv_struct.h"
 
 pn_id_t
-isis_reserve_new_pn_id (node_t *node, bool *found) {
+isis_reserve_new_pn_id (isis_node_info_t *node_info, bool *found) {
 
     int i;
     *found = false;
-
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
 
@@ -40,10 +38,10 @@ isis_intf_allocate_lan_id (Interface *intf) {
     assert(intf_info->intf_type == isis_intf_type_lan);
     assert (intf_info->lan_id.pn_id == 0);
 
-    pn_id = isis_reserve_new_pn_id (intf->att_node, &rc);
+    pn_id = isis_reserve_new_pn_id (ISIS_CTX_INTF(intf), &rc);
     assert(rc);
 
-    isis_create_advt_db (ISIS_NODE_INFO (intf->att_node) , pn_id);
+    isis_create_advt_db (ISIS_CTX_INTF(intf), pn_id);
     intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), pn_id};
 }
 
@@ -57,7 +55,7 @@ isis_intf_deallocate_lan_id (Interface *intf) {
     assert(intf_info->intf_type == isis_intf_type_lan);
     assert (intf_info->lan_id.pn_id); 
 
-    isis_destroy_advt_db (intf->att_node, 
+    isis_destroy_advt_db (ISIS_CTX_INTF(intf), 
                                             intf_info->lan_id.pn_id); 
     intf_info->lan_id = {0, 0};
     isis_stop_sending_hellos(intf);
@@ -136,16 +134,16 @@ isis_intf_resign_dis (Interface *intf) {
         adv_data = intf_info->lan_pn_to_self_adv_data;
 
         isis_advt_data_clear_backlinkage(
-            ISIS_NODE_INFO(intf->att_node), adv_data);
+            ISIS_CTX_INTF(intf), adv_data);
         assert (!intf_info->lan_pn_to_self_adv_data);
 
         if (!adv_data->fragment) {
-            isis_wait_list_advt_data_remove(intf->att_node, adv_data);
+            isis_wait_list_advt_data_remove(ISIS_CTX_INTF(intf), adv_data);
             isis_free_advt_data(adv_data);
             return;
         }
 
-        isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
+        isis_withdraw_tlv_advertisement(ISIS_CTX_INTF(intf), adv_data);
         isis_free_advt_data( adv_data); 
         update_hello = true;
     }
@@ -170,16 +168,16 @@ isis_intf_resign_dis (Interface *intf) {
             adv_data = adjacency->u.lan_pn_to_nbr_adv_data;
 
             isis_advt_data_clear_backlinkage(
-                    ISIS_NODE_INFO(intf->att_node), adv_data);
+                    ISIS_CTX_INTF(intf), adv_data);
             assert(!adjacency->u.lan_pn_to_nbr_adv_data);
 
             if (!adv_data->fragment) {
-                isis_wait_list_advt_data_remove (intf->att_node, adv_data);
+                isis_wait_list_advt_data_remove (ISIS_CTX_INTF(intf), adv_data);
                 isis_free_advt_data(adv_data);
                 return ;
             }
 
-            isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
+            isis_withdraw_tlv_advertisement(ISIS_CTX_INTF(intf), adv_data);
             isis_free_advt_data(adv_data);
         	 
     	} ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
@@ -194,16 +192,16 @@ isis_intf_resign_dis (Interface *intf) {
         adv_data = intf_info->lan_self_to_pn_adv_data;
 
         isis_advt_data_clear_backlinkage(
-            ISIS_NODE_INFO(intf->att_node), adv_data);
+            ISIS_CTX_INTF(intf), adv_data);
         assert (!intf_info->lan_self_to_pn_adv_data);
 
         if (!adv_data->fragment) {
-            isis_wait_list_advt_data_remove (intf->att_node, adv_data);
+            isis_wait_list_advt_data_remove (ISIS_CTX_INTF(intf), adv_data);
             isis_free_advt_data(adv_data);
             return;
         }
 
-        isis_withdraw_tlv_advertisement(intf->att_node, adv_data);
+        isis_withdraw_tlv_advertisement(ISIS_CTX_INTF(intf), adv_data);
         isis_free_advt_data(adv_data);
    }
 
@@ -244,7 +242,8 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
 
     intf_info->elected_dis = new_dis_id;
 
-    ISIS_INCREMENT_NODE_STATS(intf->att_node,
+    isis_node_info_t *node_info = ISIS_CTX_INTF(intf);
+    ISIS_INCREMENT_NODE_STATS(node_info,
         isis_event_count[isis_event_dis_changed]);
 
     /* Step 1 : 
@@ -271,7 +270,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
     rc = isis_advertise_tlv (
-                                intf->att_node,
+                                node_info,
                                 0,
                                 advt_data,
                                 &advt_info);
@@ -301,7 +300,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data = intf_info->lan_pn_to_self_adv_data;
     advt_data->src.holder = &intf_info->lan_pn_to_self_adv_data;
     advt_data->tlv_no = ISIS_IS_REACH_TLV;
-    advt_data->u.adj_data.nbr_sys_id = (ISIS_NODE_INFO(intf->att_node))->sys_id;
+    advt_data->u.adj_data.nbr_sys_id = node_info->sys_id;
     advt_data->u.adj_data.metric = intf_info->cost;
     advt_data->u.adj_data.local_ifindex = 0;
     advt_data->u.adj_data.remote_ifindex = intf->ifindex;
@@ -312,7 +311,7 @@ isis_intf_assign_new_dis (Interface *intf, isis_lan_id_t new_dis_id) {
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
 
     rc = isis_advertise_tlv (
-                                intf->att_node,
+                                node_info,
                                 intf_info->elected_dis.pn_id,
                                 advt_data,
                                 &advt_info);

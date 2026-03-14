@@ -48,9 +48,9 @@ isis_timer_expire_down_adjacency_cb(event_dispatcher_t *ev_dis,
     timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 
-   tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
+   tracer (ISIS_TR(ISIS_CTX_ADJ(adjacency)), TR_ISIS_ADJ,
         "Adjacency %s Up timer Expired\n",
-        isis_adjacency_name(adj_name, adjacency));
+        isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
 
     isis_change_adjacency_state((isis_adjacency_t *)arg, ISIS_ADJ_STATE_DOWN);
 }
@@ -59,11 +59,10 @@ static void
 isis_adjacency_start_expiry_timer(
         isis_adjacency_t *adjacency) {
 
-    if(adjacency->expiry_timer){
-        return;
-    }
-
     char adj_name[128];
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+
+    if(adjacency->expiry_timer) return;
 
     adjacency->expiry_timer = timer_register_app_event(
                                     CP_TIMER(adjacency->intf->att_node),
@@ -74,15 +73,15 @@ isis_adjacency_start_expiry_timer(
 
     if(!adjacency->expiry_timer){
         
-        tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ERRORS,
+        tracer (ISIS_TR(node_info), TR_ISIS_ERRORS,
             "Adjacency %s Expiry timer failed to start\n",
-            isis_adjacency_name(adj_name, adjacency));
+            isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
         return;
     }
 
-    tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
+    tracer (ISIS_TR(node_info), TR_ISIS_ADJ,
         "Adjacency %s Expiry timer started\n",
-        isis_adjacency_name(adj_name, adjacency));
+        isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
 }
 
  static void
@@ -105,9 +104,9 @@ isis_adjacency_stop_expiry_timer(
 
     timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
-    tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
+    tracer (ISIS_TR(ISIS_CTX_ADJ(adjacency)), TR_ISIS_ADJ,
         "Adjacency %s Expiry timer stopped\n",
-        isis_adjacency_name(adj_name, adjacency));
+        isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
 }
 
 void
@@ -126,6 +125,7 @@ isis_adjacency_start_delete_timer(
     }
 
     char adj_name[128];
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
 
     adjacency->delete_timer = timer_register_app_event(
                                     CP_TIMER(adjacency->intf->att_node),
@@ -135,15 +135,15 @@ isis_adjacency_start_delete_timer(
                                     0);
     
     if (!adjacency->delete_timer){
-        tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ERRORS,
+        tracer (ISIS_TR(node_info), TR_ISIS_ERRORS,
             "Adjacency %s Delete timer could not be started\n",
-            isis_adjacency_name(adj_name, adjacency));
+            isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
         return;
     }
 
-   tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ, 
+   tracer (ISIS_TR(node_info), TR_ISIS_ADJ, 
             "Adjacency %s Delete timer started\n",
-             isis_adjacency_name(adj_name, adjacency));
+             isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
 }
 
 static void
@@ -155,12 +155,14 @@ isis_adjacency_stop_delete_timer(
     }
 
     char adj_name[128];
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+
     timer_de_register_app_event(adjacency->delete_timer);
     adjacency->delete_timer = NULL;
 
-     tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
+     tracer (ISIS_TR(node_info), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
             "Adjacency %s Delete timer stopped\n",
-            isis_adjacency_name(adj_name, adjacency));
+            isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
 }
 
 /* Timer fns for ISIS Adjacency Mgmt End */
@@ -170,13 +172,17 @@ void
 isis_delete_adjacency(isis_adjacency_t *adjacency) {
 
     char adj_name[128];
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+
     remove_glthread(&adjacency->glue);
     isis_adjacency_stop_expiry_timer(adjacency);
     isis_adjacency_stop_delete_timer(adjacency);
-    tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
-        "Adjacency %s Deleted\n", isis_adjacency_name(adj_name, adjacency));
+
+    tracer (ISIS_TR(node_info), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
+        "Adjacency %s Deleted\n", isis_adjacency_name(adj_name, sizeof(adj_name), adjacency));
+        
     if (adjacency->adj_state == ISIS_ADJ_STATE_UP) {
-        ISIS_DECREMENT_NODE_STATS(adjacency->intf->att_node, adjacency_up_count);
+        ISIS_DECREMENT_NODE_STATS(node_info, adjacency_up_count);
         isis_update_layer2_mapping_on_adjacency_down(adjacency);
         isis_adjacency_withdraw_is_reach (adjacency);
     }
@@ -232,7 +238,7 @@ isis_update_interface_adjacency_from_hello(
         isis_common_hdr_t *cmn_hdr,
         size_t hello_pkt_size) {
 
-    node_t *node;
+    isis_node_info_t *node_info;
     char ip_addr[IPV4_ADDR_LEN_STR];
     byte lan_id_str[32];
     byte sys_id_str[32];
@@ -251,13 +257,14 @@ isis_update_interface_adjacency_from_hello(
     isis_lan_hello_pkt_hdr_t *lan_hdr = NULL;
     bool force_bring_down_adjacency = false;
 
-    node = iif->att_node;
+    node_info = ISIS_CTX_INTF(iif);
 
     hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, &tlv_buff_size);
     
     /* Check for corrupted packet */
     if (!hello_tlv_buffer) {
-        tracer (ISIS_TR(node), TR_ISIS_ADJ, "%s : Corrupted Hello packet received, pdu_len invalid\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_ADJ, 
+            "%s : Corrupted Hello packet received, pdu_len invalid\n",
             ISIS_ADJ_MGMT);
         return;
     }
@@ -288,7 +295,8 @@ isis_update_interface_adjacency_from_hello(
                                                 isis_adjacency_comp_fn,
                                                 (int)&((isis_adjacency_t *)0)->glue);
         new_adj = true;
-        tracer (ISIS_TR(node), TR_ISIS_ADJ,  "%s : New Adjacency for nbr %s on intf %s Created\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_ADJ,  
+            "%s : New Adjacency for nbr %s on intf %s Created\n",
             ISIS_ADJ_MGMT, sys_id_str, iif->if_name.c_str());
     }
     else {
@@ -299,7 +307,7 @@ isis_update_interface_adjacency_from_hello(
     if (!new_adj && lan_hdr && 
             (isis_lan_id_compare (&adjacency->lan_id, &lan_hdr->lan_id) != CMP_PREF_EQUAL)) {
         
-        tracer (ISIS_TR(node), TR_ISIS_ADJ, "%s : Nbr %s reported new lan-id %s on intf %s\n",
+        tracer (ISIS_TR(node_info), TR_ISIS_ADJ, "%s : Nbr %s reported new lan-id %s on intf %s\n",
              ISIS_ADJ_MGMT, sys_id_str, isis_lan_id_tostring(&lan_hdr->lan_id, lan_id_str), 
              iif->if_name.c_str());
 
@@ -310,7 +318,8 @@ isis_update_interface_adjacency_from_hello(
             adjacency->lan_id = lan_hdr->lan_id;
         }
         else {
-           tracer (ISIS_TR(node), TR_ISIS_ADJ, "%s : Dis Election will happen on intf %s, reason new lan-id  reported was also elected DIS\n",
+           tracer (ISIS_TR(node_info), TR_ISIS_ADJ, 
+            "%s : Dis Election will happen on intf %s, reason new lan-id  reported was also elected DIS\n",
             ISIS_ADJ_MGMT, iif->if_name.c_str());
             adjacency->lan_id = lan_hdr->lan_id;
             reelect_dis = true;
@@ -361,8 +370,9 @@ isis_update_interface_adjacency_from_hello(
             case ISIS_TLV_IF_IP:
                 /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    if (adjacency->nbr_intf_ip != *(uint32_t *)(tlv_value) ) {
-                        adjacency->nbr_intf_ip = *(uint32_t *)(tlv_value);
+                    uint32_t nbr_ip = ntohl(*(uint32_t *)(tlv_value));
+                    if (adjacency->nbr_intf_ip != nbr_ip) {
+                        adjacency->nbr_intf_ip = nbr_ip;
                         force_bring_down_adjacency = true;
                     }
                 }
@@ -423,7 +433,7 @@ isis_update_interface_adjacency_from_hello(
     }
 
    if (regen_lsp && !force_bring_down_adjacency) {
-        tracer(ISIS_TR(node), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
+        tracer(ISIS_TR(node_info), TR_ISIS_ADJ | TR_ISIS_EVENTS, 
             "%s : ISIS Adjacency attributes changed, regen LSP \n", ISIS_ADJ_MGMT);
         isis_adjacency_withdraw_is_reach(adjacency);
         isis_adjacency_advertise_is_reach(adjacency);
@@ -432,10 +442,10 @@ isis_update_interface_adjacency_from_hello(
 }
 
 char *
-isis_adjacency_name(char *adj_name, isis_adjacency_t *adjacency) {
+isis_adjacency_name(char *adj_name, size_t adj_name_sz, isis_adjacency_t *adjacency) {
 
-    snprintf(adj_name, sizeof(adj_name), "%s::%s", 
-        adjacency->intf->if_name.c_str(), 
+    snprintf(adj_name, adj_name_sz, "%s::%s",
+        adjacency->intf->if_name.c_str(),
         adjacency->nbr_name);
     return adj_name;
 }
@@ -472,7 +482,7 @@ isis_find_adjacency_on_interface(
 
 void
 isis_show_adjacency( isis_adjacency_t *adjacency,
-                                    uint8_t tab_spaces) {
+                     uint8_t tab_spaces) {
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     byte lan_id_str[32];
@@ -537,16 +547,16 @@ isis_change_adjacency_state(
 
     char adj_name[128];
     isis_intf_info_t *intf_info;
-    node_t *node = adjacency->intf->att_node;
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
     isis_adj_state_t old_adj_state = adjacency->adj_state;
 
     intf_info = ISIS_INTF_INFO(adjacency->intf);
     
     if (old_adj_state != new_adj_state) {
-        tracer (ISIS_TR(adjacency->intf->att_node), TR_ISIS_ADJ,
+        tracer (ISIS_TR(node_info), TR_ISIS_ADJ,
             "%s : Adj %s state moving from %s to %s\n",
             ISIS_ADJ_MGMT,
-            isis_adjacency_name(adj_name, adjacency),
+            isis_adjacency_name(adj_name, sizeof(adj_name), adjacency),
             isis_adj_state_str(old_adj_state),
             isis_adj_state_str(new_adj_state));
     }
@@ -585,10 +595,10 @@ isis_change_adjacency_state(
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_refresh_expiry_timer(adjacency);
                     isis_adjacency_set_uptime(adjacency);
-                    ISIS_INCREMENT_NODE_STATS(node,
+                    ISIS_INCREMENT_NODE_STATS(node_info,
                                 isis_event_count[isis_event_adj_state_changed]);
 
-                    ISIS_INCREMENT_NODE_STATS(node, adjacency_up_count);
+                    ISIS_INCREMENT_NODE_STATS(node_info, adjacency_up_count);
 
                     if (intf_info->intf_grp) {
                         isis_intf_grp_refresh_member_interface (intf_info->intf);
@@ -609,9 +619,9 @@ isis_change_adjacency_state(
                     adjacency->adj_state = new_adj_state;
                     isis_adjacency_stop_expiry_timer(adjacency);
                     isis_adjacency_start_delete_timer(adjacency);
-                    ISIS_INCREMENT_NODE_STATS(node,
+                    ISIS_INCREMENT_NODE_STATS(node_info,
                                 isis_event_count[isis_event_adj_state_changed]);
-                    ISIS_DECREMENT_NODE_STATS(node, adjacency_up_count);
+                    ISIS_DECREMENT_NODE_STATS(node_info, adjacency_up_count);
                    
                     if (intf_info->intf_grp) {
                         isis_intf_grp_refresh_member_interface (intf_info->intf);
@@ -779,7 +789,7 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
     start_buff += sizeof(uint32_t);
 
     /* Total Sub TLV len */
-    memcpy(start_buff, (byte *)&subtlv_len, sizeof(uint32_t));
+    memcpy(start_buff, (byte *)&subtlv_len, sizeof(uint8_t));
     start_buff += sizeof(uint8_t);
 
     /* 
@@ -814,20 +824,18 @@ isis_encode_nbr_tlv(isis_adjacency_t *adjacency,
 }
 
 byte *
-isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
+isis_encode_all_nbr_tlvs(isis_node_info_t *node_info, byte *buff) {
 
     glthread_t *curr;
     Interface *intf;
     uint16_t bytes_encoded;
     isis_adjacency_t *adjacency;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    if (!node_info) return buff;
 
-    if (!isis_is_protocol_enable_on_node(node)) return buff;
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-        if (!isis_node_intf_is_enable(intf)) continue;
+        if (!isis_is_protocol_enable_on_intf(intf)) continue;
 
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
@@ -837,13 +845,13 @@ isis_encode_all_nbr_tlvs(node_t *node, byte *buff) {
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
-   } ITERATE_NODE_INTERFACES_END(node, intf);
+   } ITERATE_NODE_ISIS_INTERFACES_END;
 
     return buff;
 }
 
 uint16_t
-isis_size_to_encode_all_nbr_tlv(node_t *node) {
+isis_size_to_encode_all_nbr_tlv(isis_node_info_t *node_info) {
 
     glthread_t *curr;
     Interface *intf;
@@ -851,15 +859,14 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
     uint8_t subtlv_bytes_needed;
     isis_adjacency_t *adjacency;
 
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
     bytes_needed = 0;
     subtlv_bytes_needed = 0;
 
-    if (!isis_is_protocol_enable_on_node(node)) return 0;
+    if (!node_info) return 0;
 
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) {
 
-        if (!isis_node_intf_is_enable(intf)) continue;
+        if (!isis_is_protocol_enable_on_intf(intf)) continue;
 
         ITERATE_GLTHREAD_BEGIN(ISIS_INTF_ADJ_LST_HEAD(intf), curr) {
 
@@ -869,13 +876,13 @@ isis_size_to_encode_all_nbr_tlv(node_t *node) {
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
-   } ITERATE_NODE_INTERFACES_END(node, intf);
+   } ITERATE_NODE_ISIS_INTERFACES_END;
 
     return bytes_needed;
 }
 
 uint32_t 
-isis_show_all_adjacencies (node_t *node) {
+isis_show_all_adjacencies (isis_node_info_t *node_info) {
 
      uint32_t rc = 0;
      glthread_t *curr;
@@ -884,17 +891,15 @@ isis_show_all_adjacencies (node_t *node) {
      isis_adjacency_t *adjacency;
      byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
-     byte *buff = node->print_buff;
-
     /* Print header */
     rc += cprintf("\n%-16s   %-16s   %-6s   %-4s %-12s\n", 
                   "Interface", "Neighbor", "State", "Type", "Uptime");
     rc += cprintf("%-16s   %-16s   %-6s   %-4s %-12s\n",
                   "----------------", "----------------", "------", "----", "------------");
 
-    ITERATE_NODE_INTERFACES_BEGIN (node, intf) {
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN (node_info, intf) {
 
-        if ( !isis_node_intf_is_enable(intf)) continue;
+        if ( !isis_is_protocol_enable_on_intf(intf)) continue;
         
         intf_info = ISIS_INTF_INFO(intf);
         
@@ -914,7 +919,8 @@ isis_show_all_adjacencies (node_t *node) {
 
         } ITERATE_GLTHREAD_END(ISIS_INTF_ADJ_LST_HEAD(intf), curr);
 
-    } ITERATE_NODE_INTERFACES_END (node, intf);
+    } ITERATE_NODE_ISIS_INTERFACES_END ;
+
     rc += cprintf("\n");
     return rc;
  }
@@ -931,7 +937,7 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     
     Interface *intf;
     isis_lan_id_t old_dis_id,
-                          new_dis_id;
+                  new_dis_id;
     isis_intf_info_t *intf_info;
 
     assert (adjacency->adj_state == ISIS_ADJ_STATE_UP ||
@@ -942,7 +948,7 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
     glthread_priority_insert(ISIS_INTF_ADJ_LST_HEAD(intf),
                                             &adjacency->glue,
                                             isis_adjacency_comp_fn,
-                                            (int)&((isis_adjacency_t *)0)->glue);
+                                            (int)offsetof(isis_adjacency_t, glue));
 
     if (isis_adjacency_is_p2p(adjacency)) return false;
 
@@ -955,11 +961,13 @@ isis_update_dis_on_adjacency_transition (isis_adjacency_t *adjacency) {
         /* DIS has not changed, Now i have to take action depending on whether I am DIS
             Or not*/
             if (isis_am_i_dis (adjacency->intf)) {
-                    (adjacency->adj_state == ISIS_ADJ_STATE_DOWN ) ?
-                    /* with Draw PN --> NBR ISIS IS REACH advertisement*/
-                    isis_adjacency_withdraw_is_reach (adjacency) :
-                    /* Advertise PN --> NBR ISIS IS REACH Advertisement*/ 
-                    isis_adjacency_advertise_is_reach (adjacency);
+                    if (adjacency->adj_state == ISIS_ADJ_STATE_DOWN) {
+                        /* Withdraw PN --> NBR ISIS IS REACH advertisement*/
+                        isis_adjacency_withdraw_is_reach(adjacency);
+                    } else {
+                        /* Advertise PN --> NBR ISIS IS REACH Advertisement*/
+                        isis_adjacency_advertise_is_reach(adjacency);
+                    }
             }
             else {
                     /* No Action to be done by me. Non-DIS do not update any IS REACH
@@ -985,7 +993,8 @@ static isis_advt_tlv_return_code_t
     isis_intf_info_t *intf_info;
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
-
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+    
     assert(isis_adjacency_is_lan (adjacency));
 
     intf_info = ISIS_INTF_INFO(adjacency->intf);
@@ -1002,7 +1011,7 @@ static isis_advt_tlv_return_code_t
         }
 
         return isis_advertise_tlv(
-            adjacency->intf->att_node,
+            node_info,
             intf_info->elected_dis.pn_id,
             adjacency->u.lan_pn_to_nbr_adv_data,
             &advt_info);
@@ -1025,7 +1034,7 @@ static isis_advt_tlv_return_code_t
     advt_data->fragment = NULL;
     advt_data->tlv_size = isis_get_adv_data_size(advt_data);
     return isis_advertise_tlv(
-            adjacency->intf->att_node,
+            node_info,
             intf_info->elected_dis.pn_id,
             advt_data,
             &advt_info);
@@ -1042,6 +1051,8 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
     isis_advt_info_t advt_info;
     isis_adv_data_t *advt_data;
 
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+
     assert(isis_adjacency_is_p2p (adjacency));
 
     advt_data = adjacency->u.p2p_adv_data;
@@ -1052,7 +1063,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
             }
             else {
                 return isis_advertise_tlv (
-                                adjacency->intf->att_node,
+                                node_info,
                                 0,
                                 advt_data,
                                 &advt_info);
@@ -1074,7 +1085,7 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
         advt_data->fragment = NULL;
         advt_data->tlv_size = isis_get_adv_data_size(advt_data);
         return isis_advertise_tlv (
-                                adjacency->intf->att_node,
+                                node_info,
                                 0,
                                 advt_data,
                                 &advt_info);
@@ -1085,9 +1096,9 @@ isis_adjacency_advertise_p2p (isis_adjacency_t *adjacency) {
 isis_advt_tlv_return_code_t
 isis_adjacency_advertise_is_reach (isis_adjacency_t *adjacency) {
 
-    isis_advt_tlv_return_code_t rc;
+    isis_advt_tlv_return_code_t rc = ISIS_TLV_RECORD_ADVT_SUCCESS;
 
-    if (adjacency->adj_state != ISIS_ADJ_STATE_UP) return;
+    if (adjacency->adj_state != ISIS_ADJ_STATE_UP) return rc;
 
     if (isis_adjacency_is_p2p (adjacency)) {
         rc = isis_adjacency_advertise_p2p (adjacency);
@@ -1117,23 +1128,24 @@ isis_adjacency_withdraw_p2p_is_reach (isis_adjacency_t *adjacency) {
     isis_adv_data_t *adv_data;
     isis_tlv_wd_return_code_t rc;
 
+    isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+
     assert (isis_adjacency_is_p2p (adjacency));
 
     if (!adjacency->u.p2p_adv_data) return ISIS_TLV_WD_TLV_NOT_FOUND;
 
     adv_data = adjacency->u.p2p_adv_data;
 
-    isis_advt_data_clear_backlinkage(
-            ISIS_NODE_INFO(adjacency->intf->att_node), adv_data);
+    isis_advt_data_clear_backlinkage(node_info, adv_data);
     assert (!adjacency->u.p2p_adv_data);
 
     if (!adv_data->fragment) {
-        isis_wait_list_advt_data_remove(adjacency->intf->att_node, adv_data);
+        isis_wait_list_advt_data_remove(node_info, adv_data);
         isis_free_advt_data(adv_data);
         return ISIS_TLV_WD_FRAG_NOT_FOUND;
     }
 
-    rc = isis_withdraw_tlv_advertisement (adjacency->intf->att_node, adv_data);
+    rc = isis_withdraw_tlv_advertisement (node_info , adv_data);
     isis_free_advt_data(adv_data);
     return rc;
 }
@@ -1152,6 +1164,8 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
      isis_adv_data_t *adv_data;
      isis_tlv_wd_return_code_t rc;
 
+     isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
+
      assert (isis_adjacency_is_lan (adjacency));
 
     /* Nothing to withdraw if nbr goes down as i am not DIS*/
@@ -1162,18 +1176,17 @@ isis_adjacency_withdraw_lan_is_reach (isis_adjacency_t *adjacency) {
 
     adv_data = adjacency->u.lan_pn_to_nbr_adv_data;
 
-    isis_advt_data_clear_backlinkage(
-            ISIS_NODE_INFO(adjacency->intf->att_node), adv_data);
+    isis_advt_data_clear_backlinkage(node_info , adv_data);
     assert( !adjacency->u.lan_pn_to_nbr_adv_data);
 
     if (!adv_data->fragment) {
-        isis_wait_list_advt_data_remove (adjacency->intf->att_node, adv_data);
+        isis_wait_list_advt_data_remove (node_info , adv_data);
         isis_free_advt_data(adv_data);
         return ISIS_TLV_WD_FRAG_NOT_FOUND;
     }
 
     /* Withdraw PN-->NBR advertisement for this Adjacency*/
-    rc = isis_withdraw_tlv_advertisement(adjacency->intf->att_node, adv_data);
+    rc = isis_withdraw_tlv_advertisement(node_info , adv_data);
     isis_free_advt_data(adv_data);
     return rc;
 }

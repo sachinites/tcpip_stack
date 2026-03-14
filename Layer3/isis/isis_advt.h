@@ -7,7 +7,7 @@
 #include "isis_rtr.h"
 #include "isis_tlv_struct.h"
 
-typedef struct node_info_ isis_node_info_t;
+typedef struct isis_node_info_ isis_node_info_t;
 
 /* LSP PKT Regen control flags*/
 #define ISIS_SHOULD_INCL_PURGE_BIT  1
@@ -173,8 +173,8 @@ GLTHREAD_TO_STRUCT(
 
 /* Fragment locking and Unlocking APIs */
 void isis_fragment_lock (isis_fragment_t *fragment);
-u_int8_t isis_fragment_unlock (node_t *node, isis_fragment_t *fragment);
-void isis_fragment_dealloc_lsp_pkt (node_t *node, isis_fragment_t *fragment) ;
+u_int8_t isis_fragment_unlock (isis_node_info_t *node_info, isis_fragment_t *fragment);
+void isis_fragment_dealloc_lsp_pkt (isis_node_info_t *node_info, isis_fragment_t *fragment) ;
 void isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) ;
 void isis_advt_data_clear_backlinkage(isis_node_info_t *node_info, isis_adv_data_t * isis_adv_data);
 
@@ -182,7 +182,7 @@ void isis_advt_data_clear_backlinkage(isis_node_info_t *node_info, isis_adv_data
 #define isis_fragment_relieve_premature_deletion  isis_fragment_unlock
 
 isis_advt_tlv_return_code_t
-isis_advertise_tlv (node_t *node, 
+isis_advertise_tlv (isis_node_info_t *node_info, 
                                     pn_id_t pn_no,
                                     isis_adv_data_t *adv_data,
                                     isis_advt_info_t *advt_info_out);
@@ -191,38 +191,44 @@ bool
 isis_externally_learnt_tlv (uint8_t tlv_no);
 
 isis_tlv_wd_return_code_t
-isis_withdraw_tlv_advertisement (node_t *node,
+isis_withdraw_tlv_advertisement (isis_node_info_t *node_info,
                                     isis_adv_data_t *adv_data);
 
 void isis_create_advt_db(isis_node_info_t *node_info, pn_id_t pn_no);
-void isis_destroy_advt_db (node_t *node, pn_id_t pn_no);
+void isis_destroy_advt_db (isis_node_info_t *node_info, pn_id_t pn_no);
 void isis_assert_check_all_advt_db_cleanedup (isis_node_info_t *node_info);
-void isis_discard_fragment (node_t *node, isis_fragment_t *fragment);
-uint32_t isis_show_advt_db (node_t *node) ;
-uint32_t isis_fragment_print (node_t *node, isis_fragment_t *fragment, byte *buff) ;
-void isis_schedule_regen_fragment (node_t *node, 
+void isis_discard_fragment (isis_node_info_t *node_info, isis_fragment_t *fragment);
+uint32_t isis_show_advt_db (isis_node_info_t *node_info) ;
+uint32_t isis_fragment_print (isis_node_info_t *node_info, isis_fragment_t *fragment, byte *buff) ;
+void isis_schedule_regen_fragment (isis_node_info_t *node_info, 
                             isis_fragment_t *fragment,
                             isis_event_type_t event_type) ;
-void isis_cancel_lsp_fragment_regen_job (node_t *node) ;
-void isis_cancel_all_fragment_regen_job (node_t *node) ;
-void isis_schedule_all_fragment_regen_job (node_t *node) ;
+void isis_cancel_lsp_fragment_regen_job (isis_node_info_t *node_info) ;
+void isis_cancel_all_fragment_regen_job (isis_node_info_t *node_info) ;
+void isis_schedule_all_fragment_regen_job (isis_node_info_t *node_info) ;
 isis_fragment_t *isis_alloc_new_fragment () ;
-void  isis_regenerate_lsp_fragment (node_t *node, isis_fragment_t *fragment, uint32_t regen_flags);
+void  isis_regenerate_lsp_fragment (isis_node_info_t *node_info, isis_fragment_t *fragment, uint32_t regen_flags);
 void isis_regen_all_fragments_from_scratch (event_dispatcher_t *, void *, uint32_t);
-void isis_regen_zeroth_fragment(node_t *node) ;
-bool isis_advertise_advt_data_in_this_fragment (node_t *node,
+void isis_regen_zeroth_fragment(isis_node_info_t *node_info) ;
+bool isis_advertise_advt_data_in_this_fragment (isis_node_info_t *node_info,
             isis_adv_data_t *advt_data, isis_fragment_t *fragment, bool force) ;
-void isis_wait_list_advt_data_add (node_t *node, uint8_t pn_no, isis_adv_data_t *adv_data);
-void isis_wait_list_advt_data_remove (node_t *node, isis_adv_data_t *adv_data);
+void isis_wait_list_advt_data_add (isis_node_info_t *node_info, uint8_t pn_no, isis_adv_data_t *adv_data);
+void isis_wait_list_advt_data_remove (isis_node_info_t *node_info, isis_adv_data_t *adv_data);
 void isis_free_advt_data (isis_adv_data_t *adv_data);
-uint32_t isis_get_waitlisted_advt_data_count (node_t *node);
+uint32_t isis_get_waitlisted_advt_data_count (isis_node_info_t *node_info);
 
 /* Generic APIs to advertise/withdraw TLVs*/
 isis_adv_data_t *
-isis_advertise_ipv6_reach (node_t *node, 
-                                ipv6_addr_t *ipv6_addr, 
-                                uint8_t prefix_len, 
-                                uint32_t metric, 
-                                uint8_t flags);
+isis_advertise_ipv6_reach(isis_node_info_t *node_info,
+                          ipv6_addr_t *ipv6_addr,
+                          uint8_t prefix_len,
+                          uint32_t metric,
+                          uint8_t flags);
 
-#endif  
+isis_adv_data_t *
+isis_advertise_intf_v4addr_tlv130(isis_intf_info_t *intf_info);
+
+void
+isis_withdraw_intf_v4addr_tlv130(isis_intf_info_t *intf_info);
+
+#endif

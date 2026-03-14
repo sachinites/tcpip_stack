@@ -54,22 +54,18 @@
 #include "vrf/vrf.h"
 #include "BitOp/bitmap.h"
 
-#define NODE_NAME_SIZE   32
-#define IF_NAME_SIZE     16
-#define MAX_INTF_PER_NODE   10
-
 /*Forward Declarations*/
 typedef struct node_ node_t;
 typedef struct link_ link_t;
 
 class TransportService;
 
-
 typedef struct spf_data_ spf_data_t;
 typedef struct pkt_tracer_ pkt_tracer_t;
 typedef struct hashtable hashtable_t;
 typedef struct tracer_ tracer_t;
 typedef struct BPlusTree BPlusTree_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 struct node_ {
 
@@ -84,56 +80,37 @@ struct node_ {
     /*SPF Calculation*/
     spf_data_t *spf_data;
 
-    /*Node Logging*/
-    log_t log_info;
-
-	/*net-filter hooks DB*/
-	nf_hook_db_t nf_hook_db;
-
-	/*L2 net-filter hook (simplified) */
-	notif_chain_t layer2_proto_reg_db2;
-
     /* Control plane Scheduler */
     event_dispatcher_t ev_dis;
-    /* Data path scheduler */
-    event_dispatcher_t dp_ev_dis;
+
     /* Objects Purger */
     event_dispatcher_t purger_ev_dis;
-    /* Data Path ingress Pkt Queue */
-    pkt_q_t dp_recvr_pkt_q;
-    /* CptoDp Interface Xmit Global Queue*/
-    pkt_q_t cp_to_dp_xmit_intf_pkt_q;
+
     /* IPC in a control plane */
     pkt_q_t cp_ipc_q;
-    /*IPC in a data plane */
-    pkt_q_t dp_ipc_q;
+
     /* IPC Database*/
     glthread_t cp_ipc_data_base [IPC_MSG_TYPE_MAX];
      /*CP Timer*/
     wheel_timer_t *cp_wt;
-    /* Data Path Timer */
-    wheel_timer_t *dp_wt;
+
     unsigned char *print_buff;
     glthread_t access_lists_db;
     glthread_t prefix_lst_db;
     /* Control Plane Tracer*/
     tracer_t *cptr;
-    /* Data-Path Tracer*/
-    tracer_t *dptr;
     /* Network Object Hashtable */
     hashtable_t *object_network_ght;
      /* Object Group Hashtable */
-    hashtable_t *object_group_ght;
-    /* DP hash table storage of interfacs*/
-    hashtable_t *dp_intf_ht;
-    /* DP hash table storage of VRFs*/
-    hashtable_t *dp_vrf_ht;    
+    hashtable_t *object_group_ght; 
     /* ACL/NAT/OBJECT-G Tracer */
     tracer_t *acl_cptr;
     /* VRFs*/
     vrf_t* vrf[MAX_VRF_PER_NODE];
     /* SQL DB*/
     BPlusTree_t *sql_db;
+    /* Data Path */
+    dp_ctx_t *dp_ctx;
     /* Transport Svc profiles DB*/
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
     /* Vlan Interface Created*/
@@ -152,8 +129,6 @@ struct node_ {
     bitmap_t if_index_bm;
 
     glthread_t graph_glue;
-    /* System Telemetry */
-    uint32_t cp2dp_msg_count;
     /* Random Number Generator*/
     uint32_t sequence_gen;
 };
@@ -204,27 +179,13 @@ void dump_interface(Interface *interface);
 
 #define ITERATE_NODE_INTERFACES_BEGIN(node_ptr, intf_ptr)            \
 {                                                                    \
-    vrf_t *__vrf = NODE_DEF_VRF(node_ptr);                   \
-    if (__vrf->intf_by_name) {                                       \
-        for (auto _it = __vrf->intf_by_name->begin();                \
-             _it != __vrf->intf_by_name->end(); _it++) {             \
+    if (node_ptr->intf_by_name) {                                       \
+        for (auto _it = node_ptr->intf_by_name->begin();                \
+             _it != node_ptr->intf_by_name->end(); _it++) {             \
             intf_ptr = _it->second.get();                            \
             if(!intf_ptr) continue;
 
 #define ITERATE_NODE_INTERFACES_END(node_ptr, intf_ptr)              \
-        }                                                            \
-    }                                                                \
-}
-
-#define ITERATE_NODE_VRF_INTERFACES_BEGIN(vrf_ptr, intf_ptr)         \
-{                                                                    \
-    if (vrf_ptr->intf_by_name) {                                     \
-        for (auto _it = vrf_ptr->intf_by_name->begin();              \
-             _it != vrf_ptr->intf_by_name->end(); _it++) {           \
-            intf_ptr = _it->second.get();                            \
-            if(!intf_ptr) continue;
-
-#define ITERATE_NODE_VRF_INTERFACES_END(vrf_ptr, intf_ptr)           \
         }                                                            \
     }                                                                \
 }

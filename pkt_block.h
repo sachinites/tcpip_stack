@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "tcpconst.h"
 #include "Layer3/gre-tunneling/gre.h"
 #include "Interface/InterfaceFwd.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
@@ -53,12 +54,9 @@ struct pkt_block_ {
     uint8_t *pkt;
     pkt_size_t pkt_size;
     hdr_type_t hdr_type;
-    InterfaceP recommended_oif;
-    InterfaceP exclude_oif;
-    InterfaceP ingress_intf;
-    dp_intf_t *recommended_oif2;
-    dp_intf_t *exclude_oif2;
-    dp_intf_t *ingress_intf2;
+    dp_intf_t *recommended_oif;
+    dp_intf_t *exclude_oif;
+    dp_intf_t *ingress_intf;
     encap_meta_data_t *encap_data;
     char *fn_name;
     uint64_t pkt_id;
@@ -66,9 +64,6 @@ struct pkt_block_ {
     uint8_t ref_count;
     bool no_modify;
 } ;
-
-void
-pkt_block_mem_init ();
 
 hdr_type_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block);
@@ -110,7 +105,7 @@ void
 pkt_block_set_new_pkt(pkt_block_t *pkt_block, uint8_t *pkt, pkt_size_t pkt_size);
 
 void 
-pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto);
+pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto);
 
 pkt_block_t *
 pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno);
@@ -134,10 +129,10 @@ void
 pkt_block_debug(pkt_block_t *pkt_block);
 
 void 
-pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) ;
+pkt_block_set_recommended_oif (pkt_block_t *pkt_block, dp_intf_t *oif) ;
 
 void
-pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) ;
+pkt_block_set_exclude_oif (pkt_block_t *pkt_block, dp_intf_t *oif) ;
 
 char *
 pkt_ip (pkt_block_t *pkt_block, char *buffer);

@@ -111,6 +111,7 @@
 #include "rtm_presentation.h"
 #include "../common/mpls_lstack.h"
 #include "../vrf/vrf.h"
+#include "../cmdcodes.h"
 
 extern graph_t * topo;
 
@@ -423,6 +424,7 @@ config_rtm_route_cli_handler(int cmdcode,
     c_string node_name = NULL;
     c_string prefix_mask = NULL;
     c_string gw_ip = NULL;
+    c_string ipv6_addr_str = NULL;
     c_string if_name = NULL;
     uint32_t proto_id = 0;
     uint32_t sub_proto_id = 0;
@@ -460,6 +462,8 @@ config_rtm_route_cli_handler(int cmdcode,
             if_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "vpn-label"))
             vpn_label_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "ipv6-addr"))
+            ipv6_addr_str = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "label-list")) {
             if (label_stack_count < MAX_LBL_DEPTH) {
                 uint32_t plain_label = atoi((const char *)tlv->value);
@@ -471,16 +475,34 @@ config_rtm_route_cli_handler(int cmdcode,
 
     } TLV_LOOP_END;
 
+    node = node_get_node_by_name(topo, node_name);
+
     /* Validate inputs */
-    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, (char *)vrf_name) : NODE_DEF_VRF(node);
+    vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
     if (!prefix_mask) {
         cprintf("Error: prefix/mask is required\n");
         return -1;
     }
+   
+    switch (cmdcode) {
 
-    /* Get the node */
-    node = node_get_node_by_name(topo, node_name);
+        case CMDCODE_CONFIG_RTM_ROUTE_L3VPN_SRV6:
+        
+            if (vrf != NODE_DEF_VRF(node)) {
+
+                cprintf ("Error : VPN Routes are supported only in default VRF\n");
+                return -1;
+            } 
+
+            return srv6_rtm_route_install_vpnv4 (node, 
+                    prefix_mask, 
+                    ipv6_addr_str, 
+                    enable_or_disable == CONFIG_ENABLE);
+            
+        break;
+
+    }
 
     switch (enable_or_disable) {
 
@@ -758,7 +780,6 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             rtm_t *rtm = cp_rtm_get_route_target_rtm (
-                            node, 
                             vrf, 
                             prefix.afi, 
                             (RTM_PROTO_T)proto_id, 
@@ -1065,7 +1086,6 @@ config_rtm_route_cli_handler(int cmdcode,
             }
 
             rtm_t *rtm = cp_rtm_get_route_target_rtm (
-                            node, 
                             vrf, 
                             prefix.afi, 
                             (RTM_PROTO_T)proto_id, 
@@ -1215,8 +1235,10 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->l3_vpn_label = nh_template->l3_vpn_label;
 
     if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
+
         nh->label_stack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
         nh->label_stack->curr_index = nh_template->u.l_stack.label_stack->curr_index;
+        
         for (int i = 0; i <= nh->label_stack->curr_index; i++) {
             nh->label_stack->labels[i].label_val = nh_template->u.l_stack.label_stack->labels[i].label_val;
             nh->label_stack->labels[i].op = nh_template->u.l_stack.label_stack->labels[i].op;
@@ -1876,3 +1898,4 @@ rtm_uninstall_l3vpn_routes_to_all_client_ribs(
         XFREE(data_node);
     }
 }
+

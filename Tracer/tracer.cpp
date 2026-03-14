@@ -10,8 +10,6 @@
 #include <assert.h>
 #include "tracer.h"
 
-
-#define HDR_SIZE    64
 #define LOG_BUFFER_SIZE 256
 
 #define CLI_INTG

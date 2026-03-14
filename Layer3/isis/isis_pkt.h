@@ -8,7 +8,7 @@
 typedef uint16_t isis_pkt_type_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct isis_fragment_ isis_fragment_t;
-typedef struct node_info_ isis_node_info_t;
+typedef struct isis_node_info_ isis_node_info_t;
 
 typedef struct isis_pkt_ {
 
@@ -79,13 +79,13 @@ void
 isis_hello_pkt_recieve_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
 
 void
-isis_lsp_pkt_flood_timer_start (node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
+isis_lsp_pkt_flood_timer_start (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) ;
 
 void
 isis_lsp_pkt_flood_timer_stop (isis_lsp_pkt_t *lsp_pkt) ;
 
 void
-isis_lsp_pkt_flood_timer_restart (node_t *node, isis_lsp_pkt_t *lsp_pkt) ;
+isis_lsp_pkt_flood_timer_restart (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) ;
 
 void
 isis_print_lsp_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size);
@@ -94,7 +94,7 @@ void
 isis_print_hello_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, unsigned int arg_size);
 
 void
-isis_cancel_lsp_pkt_generation_task(node_t *node);
+isis_cancel_lsp_pkt_generation_task(isis_node_info_t *node_info);
 
 byte *
 isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size);
@@ -118,7 +118,7 @@ isis_pkt_hdr_flags_t
 isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt);
 
 uint32_t
-isis_deref_isis_pkt(node_t *node, isis_lsp_pkt_t *lsp_pkt);
+isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
 
 void
 isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);

@@ -1,7 +1,24 @@
+/*
+ * =============================================================================
+ * File: dp_intf.h
+ * Description: Datapath interface (dp_intf_t) - per-interface forwarding state.
+ * =============================================================================
+ *
+ * Design:
+ *   - One dp_intf_t per logical interface in the datapath (physical, VLAN,
+ *     GRE, loopback, virtual, etc.). Mirrors control-plane interface config.
+ *   - Holds identifiers (port_id, if_type, if_name), L3 (vrf, IPv4/IPv6, mask),
+ *     L2 (MAC, switchport, vlan_intf, vlan_id, vni_id, l2_mode, mports,
+ *     vlan_bitmap), tunnel (gre_tunnel_dst_ip, virtual_port, olay_tunnel_intf),
+ *     stats, logging, and dp_ctx/nbr_intf for topology.
+ * =============================================================================
+ */
+
 #ifndef __DP_INTF__
 #define __DP_INTF__
 
 #include <stdint.h>
+#include "../../tcp_ip_trace.h"
 #include "intf_cons.h"
 #include "../../common/cmn_struct.h"
 
@@ -9,6 +26,7 @@ typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct node_ node_t;
 typedef struct bitmap_ bitmap_t;
+typedef struct dp_ctx_ dp_ctx_t;
 
 #pragma pack(push, 8)
 
@@ -57,18 +75,34 @@ typedef struct dp_intf_ {
     /* Physical Properties */
     bool is_up;
 
-    /* If this is GRE tunnel intf, then its dest ip*/
+    /* If this is GRE tunnel intf, then its dest ip and virtual port*/
     uint32_t gre_tunnel_dst_ip;
+    struct dp_intf_ *virtual_port;
+
+    bool is_tunnel_up;
 
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;
 
+    /* Id this is SRv6 interface, then this is SRv6 data.*/
+    union {
+
+        dp_vrf_t *steered_dt4_vrf; 
+
+    } srv6_data;
+
+    /* Logging */
+    log_t log_info;
+
     /* Wire connection Simulation */
-    node_t *att_node;
+    dp_ctx_t *dp_ctx;
     struct dp_intf_ *nbr_intf;
 
-}dp_intf_t;
+} dp_intf_t;
 
 #pragma pack(pop)
 
-#endif 
+void
+dp_send_pkt_out(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block);
+
+#endif /* __DP_INTF__ */

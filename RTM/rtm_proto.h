@@ -9,7 +9,7 @@
 
 typedef struct rtm_ rtm_t;
 typedef struct vrf_ vrf_t;
-typedef struct node_ node_t;
+typedef struct isis_node_info_ isis_node_info_t;
 
 #pragma pack(push, 8)
 
@@ -112,14 +112,14 @@ void rtm_nh_proto_reference(rtm_nh_proto_t *nh_proto);
 
 void rtm_nh_proto_dereference(rtm_t *rtm, rtm_nh_proto_t *nh_proto);
 
-rtm_t *rtm_get_route_target_rtm(node_t *node,
+rtm_t *rtm_get_route_target_rtm(
                           vrf_t *vrf, AFI_T afi, 
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto);
 
 void 
 rtm_copy_ribs (
-        node_t *node,
+        isis_node_info_t *node_info,
         AFI_T afi,
         uint8_t target_vrf_id);
 

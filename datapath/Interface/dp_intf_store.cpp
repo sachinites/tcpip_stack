@@ -10,30 +10,30 @@
 
 
 /* Hash function for port_id (uint32_t) keys */
-static unsigned int 
-port_id_hash_function(void *key) {
-    uint32_t *port_id = (uint32_t *)key;
-    /* Simple hash for 32-bit port ID */
-    return (*port_id) ^ ((*port_id) >> 16);
+static inline uint32_t hash32(void *_x) {
+
+    uint32_t x = *(uint32_t *)_x;
+    x ^= x >> 16;
+    x *= 0x7feb352d;
+    x ^= x >> 15;
+    x *= 0x846ca68b;
+    x ^= x >> 16;
+    return x;
 }
 
 /* Equality function for port_id keys */
 static int 
-port_id_key_equal_function(void *key1, void *key2) {
-    uint32_t *port_id1 = (uint32_t *)key1;
-    uint32_t *port_id2 = (uint32_t *)key2;
-    return (*port_id1 == *port_id2);
+uint32_key_equal_function(void *key1, void *key2) {
+    uint32_t *x1 = (uint32_t *)key1;
+    uint32_t *x2 = (uint32_t *)key2;
+    return (*x1 == *x2);
 }
 
 void 
 dp_init_intf_hashtable (hashtable_t **ht) {
+
     /* Create hashtable with initial size of 16 entries */
-    *ht = create_hashtable(16, port_id_hash_function, port_id_key_equal_function);
-    
-    if (!(*ht)) {
-        /* Handle out of memory - could log error here */
-        return;
-    }
+    *ht = create_hashtable(32, hash32, uint32_key_equal_function);
 }
 
 dp_intf_t *
@@ -61,17 +61,14 @@ dp_insert_interface (hashtable_t *ht, dp_intf_t *intf) {
     }
 }
 
-void
-dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
-    
+void 
+dp_check_and_free_interface (dp_intf_t *intf) {
+
     int i;
-    
-    /* Remove the interface from hashtable */
-    dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&port_id);
-    assert(intf);
 
     assert(!intf->vrf);
     assert(!intf->vlan_intf);
+    assert (!intf->srv6_data.steered_dt4_vrf);
 
     for (i = 0; i < MAX_VLAN_MEMBER_PORTS; i++) {
         assert(!intf->mports[i]);
@@ -79,8 +76,33 @@ dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
 
     assert(!intf->vlan_bitmap);
     assert(!intf->olay_tunnel_intf);
-
+    assert(!intf->log_info.acc_lst_filter);
+    assert (intf->if_type != DP_INTF_TYPE_PHY);
     free(intf);
+}
+
+static void
+dp_intf_de_init_logging(dp_intf_t *intf){
+    
+    log_t *log_info     = &intf->log_info;
+    log_info->all       = false;
+    log_info->recv      = false;
+    log_info->send      = false;
+    log_info->is_stdout = false;
+    if (log_info->log_file) {
+        fclose (log_info->log_file);
+        log_info->log_file = NULL;
+    }
+}
+
+void
+dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
+    
+    /* Remove the interface from hashtable */
+    dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&port_id);
+    assert(intf);
+    dp_intf_de_init_logging (intf);
+    dp_check_and_free_interface (intf);
 }
 
 dp_intf_t *
@@ -109,6 +131,11 @@ dp_create_interface (uint32_t port_id, uint32_t iftype,
     intf->vni_id = 0;
     intf->l2_mode = DP_LAN_MODE_NONE;
     intf->is_up = false;
+    intf->log_info.all = true;
+    intf->log_info.recv = true;
+    intf->log_info.send = true;
+    intf->log_info.is_stdout = false;
+    intf->log_info.acc_lst_filter = NULL;
     return intf;
 }
 
@@ -210,4 +237,53 @@ dp_vlan_unbind_port (dp_intf_t *vlan_intf,
         /* In access mode, always reset to NONE when unbinding */
         intf->l2_mode = DP_LAN_MODE_NONE;
     }
+}
+
+bool
+dp_is_vlan_member (bitmap_t *vlan_bitmap, uint16_t vlan_id) {
+
+    /* VLAN IDs range from 0 to 4095 (12 bits) */
+    if (!vlan_bitmap || vlan_id >= 4096) {
+        return false;
+    }
+    
+    /* Check if the vlan_id bit is set in the bitmap */
+    return bitmap_at(vlan_bitmap, vlan_id);
+}
+
+void 
+dp_init_vlan_intf_hashtable (hashtable_t **ht) {
+
+    *ht = create_hashtable(32, hash32, uint32_key_equal_function);
+}
+
+dp_intf_t *
+dp_look_up_interface_by_vlan_id (hashtable_t *ht, uint16_t vlan_id) {
+    
+    uint32_t vlan_key = (uint32_t )vlan_id;
+    return (dp_intf_t *)hashtable_search(ht, (void *)&vlan_key);
+}
+
+void
+dp_insert_vlan_interface (hashtable_t *ht, dp_intf_t *intf) {
+
+    assert (intf->if_type == DP_INTF_TYPE_VLAN);
+
+    uint32_t *key = (uint32_t *)malloc(sizeof(uint32_t));
+    
+    *key = (uint32_t)intf->vlan_id;
+
+    if (!hashtable_insert(ht, (void *)key, (void *)intf)) {
+        /* Insert failed - free the key we allocated */
+        free(key);
+    }
+
+}
+
+dp_intf_t *
+dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) {
+
+    uint32_t vlan_id_key = (uint32_t )vlan_id;
+    dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&vlan_id_key);
+    return intf;
 }

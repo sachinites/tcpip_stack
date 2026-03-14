@@ -60,18 +60,8 @@ extern void nw_init_cli();
 
 /* Memory Init Imports */
 extern void mm_init();
-extern void nfc_mem_init ();
-extern void event_dispatcher_mem_init(); 
-extern void layer2_mem_init();
-extern void layer3_mem_init();
-extern void layer4_mem_init();
-/* Layer 5*/
-extern void spf_algo_mem_init(); 
-extern void isis_mem_init();
-extern void ted_mem_init();
-extern void srv6_mem_init();
-extern void tcp_stack_miscellaneous_mem_init();
 
+/* Layer 5*/
 
 graph_t *topo = NULL;
 extern event_dispatcher_t gev_dis;
@@ -81,21 +71,11 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
 
     nw_init_cli();
     mm_init();
-    nfc_mem_init();
-    event_dispatcher_mem_init();
-    //layer2_mem_init();
-    //layer3_mem_init();
-    layer4_mem_init();
-    //spf_algo_mem_init();
-    //isis_mem_init();
-    srv6_mem_init();
-    //ted_mem_init();
     srand((unsigned int) time(NULL));
 
     /* Initialize the Scheduler before topology creation, as node
         can fire certain jobs during initialization as well */
     event_dispatcher_init(&gev_dis, "Global");
-    tcp_stack_miscellaneous_mem_init();
 }
 
 #if 0

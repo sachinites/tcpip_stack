@@ -34,6 +34,7 @@
 #define __TCPCONST__
 
 #include <stdint.h>
+#include <assert.h>
 
 /* Internal Hdr representation */
 typedef enum{
@@ -85,7 +86,11 @@ typedef uint16_t pkt_size_t;
 #define PROTO_GRE_ENCAP_ETHERNET  0x6558
 
 #define MAX_MTU 1500
+#define MAX_PACKET_BUFFER_SIZE   2048
 
+#define NODE_NAME_SIZE   32
+#define IF_NAME_SIZE     16
+#define MAX_INTF_PER_NODE   10
 
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
 #define NODE_PRINT_BUFF_LEN (1024 * 1024)
@@ -150,7 +155,7 @@ proto_name_str (uint16_t proto) {
         case MPLS_PROTO:
             return (unsigned char *)"mpls";
         default:
-            return NULL;
+            return (unsigned char *)"Unknown";
     }
 }
 
@@ -226,5 +231,68 @@ tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
 #define DEFAULT_VRF 0
 #define DEF_VRF_NAME "Default-vrf"
 #define MAX_INTF_IFINDEX 1023 
-#endif /* __TCPCONST__ */
 
+
+static inline uint8_t 
+srh_internal_hdr_type_to_srh_nxthdr(uint16_t hdr_type) {
+
+    switch (hdr_type) {
+
+        case IP_HDR:
+            return 4;
+        case IP6_HDR:
+            return 41;
+        case UDP_HDR:
+            return 17;
+        case TCP_HDR:
+            return 6;
+        case SRH_HDR:
+            return 43;
+        case ICMP_HDR:
+            return ICMP_PROTO;
+        case ICMP6_HDR:
+            return ICMP6_PROTO;
+    default:
+        assert(0);
+    }
+    return 0;
+}
+
+
+static inline uint16_t 
+srh_nxthdr_to_internal_hdr_type(uint8_t srh_nxthdr) {
+
+    switch (srh_nxthdr) {
+
+        case 4:           return IP_HDR;
+        case 41:          return IP6_HDR;
+        case 17:          return UDP_HDR;
+        case 6:           return TCP_HDR;
+        case 43:          return SRH_HDR;
+        case 1:           return ICMP_HDR;
+        case 58:          return ICMP6_HDR;
+        default:
+            assert(0);
+    }
+    return 0;
+}
+
+static inline unsigned char *
+srh_nexthdr_proto_name_str (uint8_t srh_nxthdr) {
+
+        switch (srh_nxthdr) {
+
+        case 4:           return "IPv4";
+        case 41:          return "IPv6";
+        case 17:          return "udp";
+        case 6:           return "tcp";
+        case 43:          return "srh";
+        case 1:           return "icmp";
+        case 58:          return "icmp6";
+        default:
+            assert(0);
+    }
+    return "Unknown";
+}
+
+#endif /* __TCPCONST__ */

@@ -45,12 +45,15 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "prefix-list/prefixlst.h"
 #include "tcpconst.h"
-#include "Layer2/mac_table.h"
+#include "datapath/Layer2/switching/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
-#include "FIB/fib.h"
-#include "FIB/fib_show.h"
+#include "datapath/FIB/fib.h"
+#include "datapath/FIB/fib_show.h"
 #include "RTM/rtm_priv_api.h"
+#include "mtrie/mtrie.h"
+#include "Layer3/layer3.h"
+#include "vrf/vrf.h"
 
 extern graph_t *topo;
 class Interface;
@@ -162,6 +165,7 @@ static cli_register_cb
         isis_show_cli_tree,
         srv6_build_cli_show_tree,
         lfa_show_cli_tree,
+        show_arp_cli_tree,
 
         /* Add more CB here */
 
@@ -347,32 +351,7 @@ clear_topology_handler(int cmdcode,
 
 /*Layer 2 Commands*/
 
-typedef struct arp_table_ arp_table_t;
-extern void
-show_arp_table(arp_table_t *arp_table);
-
-static int
-show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    tlv_struct_t *tlv = NULL;
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    show_arp_table(NODE_ARP_TABLE(node));
-    return 0;
-}
-
-extern 
-void dump_node_interface_stats(node_t *node);
+extern void dump_node_interface_stats(node_t *node);
 
 typedef struct mac_table_ mac_table_t;
 extern void show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
@@ -412,21 +391,51 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
         return -1;
     }
 
-    show_mac_table(NODE_MAC_TABLE (node), vlan_id);
+    show_mac_table(node->dp_ctx->mac_table, vlan_id);
+    return 0;
+}
+
+
+extern arp_table_t *dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf);
+extern void show_arp_table(arp_table_t *arp_table);
+
+static int
+show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
+                    op_mode enable_or_disable){
+
+    node_t *node;
+    c_string node_name;
+    c_string vrf_name = NULL;
+    tlv_struct_t *tlv = NULL;
+    
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
+
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    show_arp_table(dp_vrf_get_arp_cache(
+            node->dp_ctx, vrf_name ? vrf_name : DEF_VRF_NAME));
+
     return 0;
 }
 
 extern void
-send_arp_broadcast_request(node_t *node,
-                           Interface *oif,
-                           c_string ip_addr);
+send_arp_broadcast_request(dp_ctx_t *dp_ctx,
+                           dp_vrf_t *vrf,
+                           dp_intf_t *oif,
+                           uint32_t ip_addr);
 static int
 arp_handler(int cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
 
     node_t *node;
     c_string node_name;
-    c_string ip_addr;
+    c_string ip_addr_str;
     tlv_struct_t *tlv = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
@@ -434,84 +443,17 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
         if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
-            ip_addr = tlv->value;
+            ip_addr_str = tlv->value;
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    send_arp_broadcast_request(node, NULL, ip_addr);
-    return 0;
-}
 
-
-/*Layer 3 Commands*/
-extern void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr, uint32_t count);
-extern void
-layer3_ero_ping_fn(node_t *node, c_string dst_ip_addr,
-                            c_string ero_ip_address);
-
-static int
-ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
-
-    node_t *node;
-    uint32_t count = 1;
-    c_string ip_addr = NULL;
-    c_string ero_ip_addr = NULL;
-    c_string node_name = NULL;
-
-    tlv_struct_t *tlv = NULL;
-
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
-            ip_addr = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
-            ero_ip_addr = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "count"))
-            count = atoi(tlv->value);
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-
-    switch(cmdcode){
-
-        case CMDCODE_PING:
-            layer3_ping_fn(node, ip_addr, count);
-            break;
-        case CMDCODE_ERO_PING:
-            layer3_ero_ping_fn(node, ip_addr, ero_ip_addr);
-        default:
-            ;
-    }
-
-    return 0;
-}
-
-
-typedef struct rt_table_ rt_table_t;
-extern void
-dump_rt_table(rt_table_t *rt_table);
-static int
-show_rt_handler(int cmdcode, Stack_t *tlv_stack,
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    tlv_struct_t *tlv = NULL;
+    uint32_t ip_addr = tcp_ip_convert_ip_p_to_n(ip_addr_str);
     
-    printw ("\n\r");
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+    send_arp_broadcast_request(node->dp_ctx, 
+        node->dp_ctx->default_vrf, 
+        NULL, ip_addr);
 
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    dump_rt_table(NODE_RT_TABLE(node));
     return 0;
 }
 
@@ -685,7 +627,7 @@ show_fib_handler(int cmdcode,
     switch (cmdcode) {
         case CMDCODE_SHOW_NODE_VRF_FIB:
 
-            fib = fib_get_by_name(node, fib_name);
+            fib = fib_get_by_name(node->dp_ctx, fib_name);
             if (!fib) {
                 cprintf("Error : FIB %s not found\n", fib_name);
                 return -1;
@@ -700,8 +642,6 @@ show_fib_handler(int cmdcode,
     return 0;
 }
 
-extern void
-clear_rt_table(rt_table_t *rt_table, uint16_t proto_id);
 static int
 clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
@@ -868,8 +808,9 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
         case CMDCODE_CONF_RIB_IMPORT_POLICY:
         {
+            #if 0
             if (string_compare(rib_name, "inet.0", 6) == 0) {
-                rt_table_t *rt_table = NODE_RT_TABLE(node);
+                rt_table_t *rt_table = /*NODE_DEF_VRF(node)->inet0*/0;
                 prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(&node->prefix_lst_db, prefix_lst_name);
                 if (!prefix_lst) {
                     cprintf ("Error : Prefix List do not Exist\n");
@@ -898,6 +839,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                 cprintf ("Error : Routing Table Support is inet.0\n");
                 return -1;
             }
+            #endif
         }
         break;
         default:
@@ -955,12 +897,12 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
             mtrie_longest_prefix_first_traverse(
-                    fib_get(node, AF_IPV4, 0)->u.lpm,
+                    fib_get(node->dp_ctx, AF_IPV4, 0)->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
             mtrie_longest_prefix_first_traverse(
-                    fib_get(node, AF_IPV6, 0)->u.lpm,
+                    fib_get(node->dp_ctx, AF_IPV6, 0)->u.lpm,
                     mtrie_print_node, NULL);
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:
@@ -1272,13 +1214,7 @@ nw_init_cli(){
                  {
                     dp_build_dp_show_cli_tree (&node_name);
                  }
-                 {
-                    /*show node <node-name> arp*/
-                    static param_t arp;
-                    init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
-                    libcli_register_param(&node_name, &arp);
-                    libcli_set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
-                 }
+
                  {
                     /*show node <node-name> mac*/
                     static param_t mac;
@@ -1299,18 +1235,6 @@ nw_init_cli(){
                             libcli_set_param_cmd_code(&vni_id, CMDCODE_SHOW_NODE_MAC_VNI_TABLE);
                         }
                     }
-                 }
-                 {
-                    /*show node <node-name> rt*/
-                    static param_t rt;
-                    init_param(&rt, CMD, "rt", show_rt_handler, 0, INVALID, 0, "Dump L3 Routing table");
-                    libcli_register_param(&node_name, &rt);
-                    libcli_set_param_cmd_code(&rt, CMDCODE_SHOW_NODE_RT_TABLE);
-                 }
-
-                 {
-                    /* Mount MPLS show CLI here */
-                    mpls_build_show_cli_tree(&node_name);
                  }
 
                  {
@@ -1456,11 +1380,27 @@ nw_init_cli(){
             /* Mount SQL Query CLI */
             sql_build_cli_tree (&node_name);
 
+            
+            static param_t vrf_name;
+            {
+                static param_t vrf;
+                init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "vrf");
+                libcli_register_param(&node_name, &vrf);
+                {
+                    init_param(&vrf_name, LEAF, NULL, NULL, validate_vrf_existence, STRING, "vrf-name", "VRF name");
+                    libcli_register_display_callback(&vrf_name, display_cbk_all_vrfs);
+                    libcli_register_param(&vrf, &vrf_name);
+                }
+            }
+
+
             {
                 /*run node <node-name> ping */
                 static param_t ping;
                 init_param(&ping, CMD, "ping" , 0, 0, INVALID, 0, "Ping utility");
                 libcli_register_param(&node_name, &ping);
+                libcli_register_param(&vrf_name, &ping);
+
                 {
                     /*run node <node-name> ping <ip-address>*/    
                     static param_t ip_addr;
@@ -1576,9 +1516,6 @@ nw_init_cli(){
 
             /* Mount ipv6 CLIs*/
             ipv6_build_cli_tree (&node_name);
-            
-            /* Mount MPLS Config CLIs*/
-            mpls_build_config_cli_tree (&node_name);
         }
 
         param_t *vrf_config_name = NULL;
@@ -1620,6 +1557,24 @@ nw_init_cli(){
                                 init_param(&instance_no, LEAF, 0, 0, 0, INT, "instance-no", "Instance number");
                                 libcli_register_param(&sub_proto_id, &instance_no);
                                 {
+                                    {
+                                        /* rtm-route prefix <prefix-mask> <proto-id> <sub-proto-id> <instance-no> l3vpn srv6-sid <ipv6-addr> */
+                                        static param_t l3vpn;
+                                        init_param(&l3vpn, CMD, "l3vpn", 0, 0, INVALID, 0, "L3 VPN label (BGP-VPN only)");
+                                        libcli_register_param(&instance_no, &l3vpn);
+                                        {
+                                            static param_t srv6_sid;
+                                            init_param(&srv6_sid, CMD, "srv6-sid", 0, 0, INVALID, 0, "SRv6 SID");
+                                            libcli_register_param(&l3vpn, &srv6_sid);
+                                            {
+                                                static param_t ipv6_addr;
+                                                init_param(&ipv6_addr, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "ipv6-addr", "SRv6 SID");
+                                                libcli_register_param(&srv6_sid, &ipv6_addr);
+                                                libcli_set_param_cmd_code(&ipv6_addr, CMDCODE_CONFIG_RTM_ROUTE_L3VPN_SRV6);
+                                            }
+                                        }
+                                    }
+
                                     /* <action-id> */
                                     static param_t action_id;
                                     init_param(&action_id, LEAF, 0, 0, 0, INT, "action-id", "Action ID (0-5)");
@@ -1640,6 +1595,7 @@ nw_init_cli(){
                                                 init_param(&gw_ip, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "gw-ip", "Gateway IP address (IPv4 or IPv6)");
                                                 libcli_register_param(&gateway, &gw_ip);
                                                 libcli_set_param_cmd_code(&gw_ip, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                libcli_disable_batch_processing (&gw_ip);
                                                 {
                                                     /* l3vpn */
                                                     static param_t l3vpn;
@@ -1651,6 +1607,7 @@ nw_init_cli(){
                                                         init_param(&vpn_label, LEAF, 0, config_rtm_route_cli_handler, 0, INT, "vpn-label", "L3 VPN service label value (0-1048575)");
                                                         libcli_register_param(&l3vpn, &vpn_label);
                                                         libcli_set_param_cmd_code(&vpn_label, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        libcli_disable_batch_processing (&vpn_label);
                                                     }
                                                 }
                                                 {
@@ -1664,6 +1621,7 @@ nw_init_cli(){
                                                         init_param(&if_name, LEAF, 0, config_rtm_route_cli_handler, 0, STRING, "if-name", "Interface name");
                                                         libcli_register_param(&interface, &if_name);
                                                         libcli_set_param_cmd_code(&if_name, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        libcli_disable_batch_processing (&if_name);
                                                         {
                                                             /* label-stack */
                                                             static param_t label_stack;
@@ -1676,6 +1634,7 @@ nw_init_cli(){
                                                                 libcli_register_param(&label_stack, &label_list);
                                                                 libcli_param_recursive(&label_list);
                                                                 libcli_set_param_cmd_code(&label_list, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                                libcli_disable_batch_processing (&label_list);
                                                             }
                                                         }
                                                     }
@@ -1692,6 +1651,7 @@ nw_init_cli(){
                                                         libcli_register_param(&label_stack, &label_list);
                                                         libcli_param_recursive(&label_list);
                                                         libcli_set_param_cmd_code(&label_list, CMDCODE_CONFIG_RTM_ROUTE_IP);
+                                                        libcli_disable_batch_processing(&label_list);
                                                     }
                                                 }
                                             }

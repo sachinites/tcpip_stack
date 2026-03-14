@@ -22,21 +22,19 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "router_init.h"
 #include "Layer2/layer2.h"
-#include "Layer2/arp.h"
+#include "datapath/Layer2/arp/arp.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer5/layer5.h"
 #include "tcpconst.h"
 #include "pkt_block.h"
+#include "common/l2_hdrs.h"
 #include "common/l3_hdrs.h"
 #include "Layer3/ipv6/ipv6_hdrs.h"
 #include "lmm_enums.h"
+#include "common/cmn_api.h"
 
-void
-pkt_block_mem_init () {
-
-    MM_REG_STRUCT(0, pkt_block_t);
-}
+typedef struct dp_intf_ dp_intf_t;
 
 hdr_type_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block) {
@@ -325,7 +323,7 @@ pkt_block_verify_pkt (pkt_block_t *pkt_block, hdr_type_t hdr_type) {
 }
 
 void 
-pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint8_t proto) {
+pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto) {
 
             switch (proto) {
                 case UDP_PROTO:
@@ -403,7 +401,7 @@ pkt_block_debug(pkt_block_t *pkt_block) {
 }
 
 void 
-pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) {
+pkt_block_set_recommended_oif (pkt_block_t *pkt_block, dp_intf_t *oif) {
 
     if (!oif && !pkt_block->recommended_oif) {
         return;
@@ -414,11 +412,11 @@ pkt_block_set_recommended_oif (pkt_block_t *pkt_block, Interface *oif) {
         return;
     }
 
-    pkt_block->recommended_oif = oif->GetSharedPtr();
+    pkt_block->recommended_oif = oif;
 }
 
 void
-pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) {
+pkt_block_set_exclude_oif (pkt_block_t *pkt_block, dp_intf_t *oif) {
 
     if (!oif && !pkt_block->exclude_oif) {
         return;
@@ -429,7 +427,7 @@ pkt_block_set_exclude_oif (pkt_block_t *pkt_block, Interface *oif) {
         return;
     }
 
-    pkt_block->exclude_oif = oif->GetSharedPtr();
+    pkt_block->exclude_oif = oif;
 }
 
 char *

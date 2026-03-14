@@ -2,11 +2,13 @@
 #define __SRV6_RTM__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "../../../ipv6/ipv6_hdrs.h"
-#include "../dp/srv6-endpoint.h"
 #include "../../../../RTM/rtm_enums.h"
+#include "../common/srv6_const.h"
+#include "../../../../CLIBuilder/libcli.h"
 
-typedef struct node_ node_t;
+typedef struct vrf_ vrf_t;
 class Interface;
 
 /*
@@ -32,7 +34,7 @@ class Interface;
  * @param install true to install, false to uninstall
  */
 void
-srv6_rtm_route_install (node_t *node,
+srv6_rtm_route_install (vrf_t *vrf,
                         ipv6_addr_t *prefix,
                         uint8_t prefix_len,
                         uint32_t rt_flags,

@@ -8,6 +8,7 @@
 #include "../../Threads/refcount.h"
 #include "../../router_init.h"
 #include "../../Interface/Interface.h"
+#include "../../common/l2_hdrs.h"
 #include "../../common/l3_hdrs.h"
 #include "acldb.h"
 #include "../../mtrie/mtrie.h"
@@ -199,7 +200,7 @@ access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 
     acl_entry = (acl_entry_t *)app_data;
 
-    mnode->data = XCALLOC(0, 1, glthread_t);
+    mnode->data = XCALLOC2(0, 1, glthread_t);
 
     list_head = (glthread_t *)mnode->data;
 
@@ -2852,13 +2853,3 @@ acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry) {
     return count;
 }
 
-void 
-acl_mem_init() {
-
-    MM_REG_STRUCT(0, acl_entry_t);
-    MM_REG_STRUCT(0, access_list_t);
-    MM_REG_STRUCT(0, acl_tcam_t);
-    MM_REG_STRUCT(0, mnode_acl_list_node_t);
-    MM_REG_STRUCT(0, acl_tcam_iterator_t);
-    MM_REG_STRUCT(0, access_list_processing_info_t);
-}

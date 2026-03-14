@@ -143,7 +143,11 @@ rtm_proto_info_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node
  * @return Pointer to initialized RTM structure
  */
 rtm_t *
-rtm_initialize(node_t *node, uint8_t vrf_id, AFI_T afi, uint32_t rtm_id) {
+rtm_initialize(node_t *node, 
+               uint8_t vrf_id, 
+               char *vrf_name, 
+               AFI_T afi, 
+               uint32_t rtm_id) {
     
     rtm_t *rtm = (rtm_t *)XCALLOC2 (0, 1, rtm_t);
 
@@ -151,11 +155,9 @@ rtm_initialize(node_t *node, uint8_t vrf_id, AFI_T afi, uint32_t rtm_id) {
     rtm->afi = afi;
     rtm->rtm_id = rtm_id;
     rtm->flags = 0;
-    
-    vrf_t *vrf = vrf_get_by_id(node, vrf_id);
 
     snprintf (rtm->name, sizeof(rtm->name), "%s.%s.%d", 
-        vrf ? vrf->vrf_name : "0", 
+        vrf_name,
         afi == AF_IPV4 ? "inet" : afi == AF_IPV6 ? \
         "inet6" :  afi == AF_LABEL ? "mpls" : "mac", rtm_id);
 

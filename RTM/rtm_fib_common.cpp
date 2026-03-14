@@ -1,18 +1,20 @@
 
 #include "rtm_fib_common.h"
 #include "rtm_nh.h"
-#include "../FIB/fib_nh.h"
+#include "../datapath/FIB/fib_nh.h"
 #include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
+#include "../datapath/Interface/dp_intf_store.h"
+#include "../datapath/dp-program/dp-prog-struct.h"
 
 void
-rtm_fib_copy_fwd_info (node_t *node, 
-                       rtm_nh_fwd_info_t *src, 
+rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
+                       dp_fib_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst) {
 
     /* SRv6 Local SIDs with END function may not have any interface*/
     if (src->oif) {
-        dst->oif = node_get_intf_by_ifindex(node, src->oif)->GetSharedPtr();
+        dst->oif = dp_look_up_interface(dp_ctx->dp_intf_ht, src->oif);
     }
 
     dst->nh_addr = src->nh_addr;
@@ -31,7 +33,9 @@ rtm_fib_copy_fwd_info (node_t *node,
         dst->u.v6_fwd.n_segment_list = src->u.v6_fwd.n_segment_list;
         
         for (int i = 0; i < dst->u.v6_fwd.n_segment_list; i++) {
-            *dst->u.v6_fwd.v6segment_lst[i] = *src->u.v6_fwd.v6segment_lst[i];
+            memcpy(dst->u.v6_fwd.v6segment_lst[i],
+                   src->u.v6_fwd.v6segment_lst[i],
+                   sizeof(dst->u.v6_fwd.v6segment_lst[i]));
         }
     }
     

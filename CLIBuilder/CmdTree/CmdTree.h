@@ -72,6 +72,7 @@ GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 #define PARAM_F_SYNCHRONOUS   64
 #define PARAM_F_INBUILD_CMD 128
 #define PARAM_F_LIST 256
+#define PARAM_F_NO_BATCH_PROCESSING  512
 
 
 void 

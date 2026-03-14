@@ -9,9 +9,9 @@
 #include "rtm_presentation.h"
 #include "rtm_fib_common.h"
 #include "../common/mpls_lstack.h"
-#include "../FIB/fib_error.h"
-#include "../FIB/fib.h"
-#include "../common/cp2dp.h"
+#include "../datapath/FIB/fib_error.h"
+#include "../datapath/FIB/fib.h"
+#include "../dpal/cp2dp.h"
 
 /* Function which created a data plane forwarding info from a nexthop 
     for Indirect nexthop : 
@@ -44,7 +44,7 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
 
     fwd_info_out->oif = dnh->oif;
     fwd_info_out->nh_addr = dnh->prefix;
-    fwd_info_out->fwd_flags = dnh->fwd_flags;
+    fwd_info_out->fwd_flags = inh->fwd_flags;
 
     mpls_lstack_init (&fwd_info_out->u.mpls_fwd.label_stack);
 
@@ -86,7 +86,17 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         SET_BIT (fwd_info_out->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK);
     }
 
-    /* Handling SRv6 Segment List -- Later ... */
+    if (inh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
+
+        fwd_info_out->u.v6_fwd.endfn = inh->endfn;
+        fwd_info_out->u.v6_fwd.n_segment_list = inh->n_segment_list;
+        
+        for (uint8_t i = 0; i < inh->n_segment_list; i++) {
+            memcpy(fwd_info_out->u.v6_fwd.v6segment_lst[i],
+                   inh->v6segment_lst[i].u.v6_addr,
+                   sizeof(inh->v6segment_lst[i].u.v6_addr));
+        }
+    }
 
     return RTM_SUCCESS;
 }
@@ -115,16 +125,16 @@ rtm_resolution_create_dnh_fwd_info (rtm_t *rtm,
     /* Handle SRv6 segment list if present */
     if (pnh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
 
-        /* Copy SRv6 end function */
         fwd_info_out->u.v6_fwd.endfn = pnh->endfn;
-        /* Copy segment list count */
         fwd_info_out->u.v6_fwd.n_segment_list = pnh->n_segment_list;
 
-        /* Allocate and copy segment list */
-        size_t seg_list_size = sizeof(cmn_prefix_t) * pnh->n_segment_list;
-
-        memcpy(&fwd_info_out->u.v6_fwd.v6segment_lst, pnh->v6segment_lst,
-               seg_list_size);
+        /* v6segment_lst stores raw 16-byte addresses; copy only the v6_addr
+         * field from each cmn_prefix_t — not the whole struct. */
+        for (uint8_t i = 0; i < pnh->n_segment_list; i++) {
+            memcpy(fwd_info_out->u.v6_fwd.v6segment_lst[i],
+                   pnh->v6segment_lst[i].u.v6_addr,
+                   sizeof(pnh->v6segment_lst[i].u.v6_addr));
+        }
     }
     
     return RTM_SUCCESS;
@@ -181,7 +191,7 @@ rtm_get_target_fib (rtm_t *rtm,
         vrf_t *vrf = vrf_get_by_id(rtm->node, inh->rtm->vrf);
         if (!vrf) return false;
 
-        fib_t *fib = fib_get(rtm->node, route->afi, vrf->vrf_id);
+        fib_t *fib = fib_get(rtm->node->dp_ctx, route->afi, vrf->vrf_id);
         if (!fib) return false;
 
         *vrf_out = fib->vrf_id;

@@ -106,9 +106,9 @@ typedef struct ipc_interface_ {
 }  ipc_interface_t;
 
 static void 
-ips_free_ipc_interface_cbk (node_t *node, void *arg) {
+ips_free_ipc_interface_cbk (void *arg1, void *arg2) {
 
-    ipc_interface_t *data = (ipc_interface_t *)arg;
+    ipc_interface_t *data = (ipc_interface_t *)arg2;
     delete data;
 }
 

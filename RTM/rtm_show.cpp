@@ -163,8 +163,14 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         cprintf("    Sub-Protocol   : %s\n", rtm_sub_proto_to_string(nh->sub_proto));
         cprintf("    Next-Hop       : %s\n", nh_prefix_str);
         cprintf("    Action         : %s\n", rtm_nh_action_to_string(nh->action));
-        cprintf("    OIF            : %s\n", (nh->oif) ?  \
-            node_get_intf_by_ifindex(rtm->node, nh->oif)->if_name.c_str() : "-");
+        {
+            const char *oif_name = "-";
+            if (nh->oif) {
+                Interface *oif_intf = node_get_intf_by_ifindex(rtm->node, nh->oif);
+                oif_name = oif_intf ? oif_intf->if_name.c_str() : "<unknown>";
+            }
+            cprintf("    OIF            : %s\n", oif_name);
+        }
         cprintf("    Admin Distance : %u\n", nh->ad);
         cprintf("    Metric         : %u\n", nh->metric);
         cprintf("    Resolved       : %s\n", rtm_nh_is_resolved(nh) ? "Yes" : "No");
@@ -216,10 +222,11 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                                       direct_nh_prefix_str, 
                                       sizeof(direct_nh_prefix_str));
                     
+                    Interface *dnh_intf = node_get_intf_by_ifindex(rtm->node, direct_nh->oif);
                     cprintf("        [%d] %s, %s, %s\n",
                            direct_nh->idx,
                            direct_nh_prefix_str,
-                           node_get_intf_by_ifindex(rtm->node, direct_nh->oif)->if_name.c_str(),
+                           dnh_intf ? dnh_intf->if_name.c_str() : "<unknown>",
                            rtm_proto_to_string(direct_nh->proto));
                            
                 } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, dnh_glthread);
@@ -251,29 +258,29 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
             }
             printw("\n");
         }
-        
-        /* Display SRv6 information if present */
-        if (nh->sub_proto == RTM_SUB_PROTO_SRv6 || nh->sub_proto == RTM_SUB_PROTO_SRv6_SRTE) {
-            /* Display SRv6 Endpoint Function */
-            if (nh->endfn != SRV6_END_FN_NONE) {
-                cprintf("    SRv6 Endpoint Fn: %s\n", srv6_end_fn_str(nh->endfn));
-            }
-            
-            /* Display SRv6 Segment List if present */
-            if (nh->n_segment_list > 0 && nh->v6segment_lst) {
-                cprintf("    SRv6 Segment List: ");
-                for (int i = 0; i < nh->n_segment_list; i++) {
-                    char seg_str[48];
-                    rtm_format_prefix(&nh->v6segment_lst[i], seg_str, sizeof(seg_str));
-                    cprintf("%s", seg_str);
-                    if (i < nh->n_segment_list - 1) {
-                        cprintf(" -> ");
-                    }
-                }
-                printw("\n");
-            }
+
+        /* Display SRv6 Endpoint Function */
+        if (nh->endfn != SRV6_END_FN_NONE)
+        {
+            cprintf("    SRv6 Endpoint Fn: %s\n", srv6_end_fn_str(nh->endfn));
         }
-        
+
+        /* Display SRv6 Segment List if present */
+        if (nh->n_segment_list > 0 && nh->v6segment_lst)
+        {
+            cprintf("    SRv6 Segment List: ");
+            for (int i = 0; i < nh->n_segment_list; i++)
+            {
+                char seg_str[48];
+                rtm_format_prefix(&nh->v6segment_lst[i], seg_str, sizeof(seg_str));
+                cprintf("%s", seg_str);
+                if (i < nh->n_segment_list - 1)
+                {
+                    cprintf(" -> ");
+                }
+            }
+            printw("\n");
+        }
     } ITERATE_GLTHREAD_END(&route->path_list, curr_glthread);
 
     /* Blank line after route display */
@@ -496,7 +503,8 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
             /* Get interface name */
             const char *if_name = "-";
             if (best_nh->oif) {
-                if_name = node_get_intf_by_ifindex(rtm->node, best_nh->oif)->if_name.c_str();
+                Interface *intf = node_get_intf_by_ifindex(rtm->node, best_nh->oif);
+                if_name = intf ? intf->if_name.c_str() : "<unknown>";
             } else if (best_nh->is_indirect && !Fglthread_list_is_empty(&best_nh->direct_nh_list)) {
                 /* For indirect nexthops, try to get interface from first direct nexthop */
                 glthread_t *dnh_glthread = best_nh->direct_nh_list.head.right;
@@ -504,7 +512,8 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                     glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
                     rtm_nh *direct_nh = (rtm_nh *)data_node->data;
                     if (direct_nh && direct_nh->oif) {
-                        if_name = node_get_intf_by_ifindex(rtm->node, direct_nh->oif)->if_name.c_str();
+                        Interface *intf = node_get_intf_by_ifindex(rtm->node, direct_nh->oif);
+                        if_name = intf ? intf->if_name.c_str() : "<unknown>";
                     }
                 }
             }
@@ -570,14 +579,16 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                 /* Get interface name */
                 const char *if_name = "-";
                 if (nh->oif) {
-                    if_name = node_get_intf_by_ifindex(rtm->node, nh->oif)->if_name.c_str();
+                    Interface *intf = node_get_intf_by_ifindex(rtm->node, nh->oif);
+                    if_name = intf ? intf->if_name.c_str() : "<unknown>";
                 } else if (nh->is_indirect && !Fglthread_list_is_empty(&nh->direct_nh_list)) {
                     glthread_t *dnh_glthread = nh->direct_nh_list.head.right;
                     if (dnh_glthread && dnh_glthread != &nh->direct_nh_list.head) {
                         glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
                         rtm_nh *direct_nh = (rtm_nh *)data_node->data;
                         if (direct_nh && direct_nh->oif) {
-                            if_name = node_get_intf_by_ifindex(rtm->node, direct_nh->oif)->if_name.c_str();
+                            Interface *intf = node_get_intf_by_ifindex(rtm->node, direct_nh->oif);
+                            if_name = intf ? intf->if_name.c_str() : "<unknown>";
                         }
                     }
                 }
@@ -885,8 +896,8 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
         /* Get OIF name */
         const char *oif_str = "-";
         if (indirect_nh->oif) {
-            oif_str = node_get_intf_by_ifindex(
-                rtm->node, indirect_nh->oif)->if_name.c_str();
+            Interface *ind_intf = node_get_intf_by_ifindex(rtm->node, indirect_nh->oif);
+            oif_str = ind_intf ? ind_intf->if_name.c_str() : "<unknown>";
         }
 
         /* Display the unresolvable route information */

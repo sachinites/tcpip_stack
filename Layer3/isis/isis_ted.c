@@ -9,10 +9,10 @@ avltree_prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) 
 extern int
 avltree_v6prefix_tree_comp_fn(const avltree_node_t *n1, const avltree_node_t *n2) ;
 extern isis_srv6_config_t *
-isis_srv6_get_config(node_t *node) ;
+isis_srv6_get_config(isis_node_info_t *node_info) ;
 
 void
-isis_ted_update_or_install_lsp (node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) {
+isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) {
 
     uint16_t n_tlv22;
     uint32_t metric;
@@ -132,7 +132,7 @@ isis_ted_update_or_install_lsp (node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *
             locator_tlv_t *tlv_27;
             ted_v6prefix_t *ted_prefix;
 
-            if ( (!isis_srv6_get_config(node))) break;
+            if ( (!isis_srv6_get_config(node_info))) break;
 
             if (!srv6prefixsid_tree_root)
             {
@@ -207,7 +207,7 @@ isis_ted_update_or_install_lsp (node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *
 }
 
 void
-isis_ted_uninstall_lsp(node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) {
+isis_ted_uninstall_lsp(isis_node_info_t *node_info, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) {
 
     uint32_t *rtr_id = isis_get_lsp_pkt_rtr_id(lsp_pkt);
     uint8_t pn_no = isis_get_lsp_pkt_pn_id (lsp_pkt);
@@ -217,10 +217,10 @@ isis_ted_uninstall_lsp(node_t *node, ted_db_t *ted_db, isis_lsp_pkt_t *lsp_pkt) 
 }
 
 void
-isis_cleanup_teddb (node_t *node) {
+isis_cleanup_teddb (isis_node_info_t *node_info) {
 
     ted_node_t *ted_node;
-    ted_db_t *ted_db = ISIS_TED_DB(node);
+    ted_db_t *ted_db = node_info->ted_db;
     
     if (!ted_db) return;
     
@@ -236,15 +236,15 @@ isis_cleanup_teddb (node_t *node) {
     } ITERATE_AVL_TREE_END;
 
     XFREE(ted_db);
-    ISIS_TED_DB(node) = NULL;
+    node_info->ted_db = NULL;
 }
 
 void
-isis_cleanup_teddb_root(node_t *node) {
+isis_cleanup_teddb_root(isis_node_info_t *node_info) {
 
-    ted_db_t *ted_db = ISIS_TED_DB(node);
+    ted_db_t *ted_db = node_info->ted_db;
     if (!ted_db) return;
     assert(avltree_is_empty(&ted_db->teddb));
     XFREE(ted_db);
-    ISIS_TED_DB(node) = NULL;
+    node_info->ted_db = NULL;
  }

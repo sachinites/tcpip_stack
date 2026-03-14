@@ -1,3 +1,17 @@
+/*
+ * =============================================================================
+ * File: intf_cons.h
+ * Description: Datapath interface constants, enums, and type-to-string helpers.
+ * =============================================================================
+ *
+ * Design:
+ *   - DP_INTF_NAME, DP_MAX_VLAN_SUPORT, etc.: shared size limits.
+ *   - DP_IntfL2Mode: L2 mode (none, access, trunk).
+ *   - DP_InterfaceType_t: interface type (physical, VLAN, GRE, loopback, etc.).
+ *   - dp_intf_type_str / dp_intf_mode_str: for CLI and logging.
+ * =============================================================================
+ */
+
 #ifndef __INTF_CONST__
 #define __INTF_CONST__
 
@@ -23,7 +37,7 @@ enum DP_InterfaceType_t {
     DP_INTF_TYPE_RMAC,
     DP_INTF_TYPE_VLAN_FLOOD,
     DP_INTF_TYPE_NVE,
-    DP_INTF_TYPE_SRv6,
+    DP_INTF_TYPE_SRv6_DT4,
     DP_INTF_TYPE_HOST_PATH,
     DP_INTF_TYPE_UNKNOWN
 };
@@ -40,7 +54,7 @@ dp_intf_type_str (uint32_t iftype) {
         case DP_INTF_TYPE_RMAC: return "RMAC";
         case DP_INTF_TYPE_VLAN_FLOOD: return "VLAN-Flood";
         case DP_INTF_TYPE_NVE: return "NVE";
-        case DP_INTF_TYPE_SRv6: return "SRv6";
+        case DP_INTF_TYPE_SRv6_DT4: return "SRv6-DT4";
         case DP_INTF_TYPE_HOST_PATH: return "HostPath";
         case DP_INTF_TYPE_UNKNOWN: return "Unknown";
         default: return "Invalid";
@@ -62,4 +76,4 @@ dp_intf_mode_str(DP_IntfL2Mode l2mode) {
 }
 
 
-#endif 
+#endif /* __INTF_CONST__ */

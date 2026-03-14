@@ -57,6 +57,10 @@ libcli_register_display_callback (param_t *param, display_possible_values_callba
 
 void 
 libcli_set_inbuilt_param (param_t *param) ;
+
+void 
+libcli_disable_batch_processing (param_t *param) ;
+
 void 
 libcli_init_done ();
 

@@ -41,27 +41,28 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 
 void
-promote_pkt_from_layer3_to_layer5(node_t *node,
-					 Interface *recv_intf, 
+dp2cp_punt_pkt_to_layer5(void *_node,
+					uint32_t recv_intf_ifindex, 
 					pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) {
 
-	nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
-			pkt_block, node, recv_intf, hdr_code);
+	//nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
+	//				pkt_block, node, recv_intf, hdr_code);
 }
 
 void
-cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
-					 Interface *recv_intf, 
+cp_punt_pkt_from_layer2_to_layer5 (
+					 void *_node,
+					 uint32_t recv_intf_ifindex, 
                      pkt_block_t *pkt_block,
 					 hdr_type_t hdr_code) { 
 
 	char *pkt;
 	pkt_size_t pkt_size;
 	pkt_notif_data_t pkt_notif_data;
-
+	node_t *node = (node_t *)_node;
 	pkt_notif_data.recv_node = node;
-	pkt_notif_data.recv_interface = recv_intf;
+	pkt_notif_data.recv_intf_index = recv_intf_ifindex;
 	pkt_notif_data.pkt_block = pkt_block;
 	pkt_notif_data.hdr_code = hdr_code;
 
@@ -69,7 +70,7 @@ cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
 
 	nfc_invoke_notif_chain(
 			EV(node),
-			&node->layer2_proto_reg_db2,
+			&node->dp_ctx->layer2_proto_reg_db,
 			(void *)&pkt_notif_data,
 			sizeof(pkt_notif_data_t),
 			pkt, pkt_size,
@@ -78,7 +79,7 @@ cp_punt_promote_pkt_from_layer2_to_layer5 (node_t *node,
 
 void
 tcp_stack_register_l2_pkt_trap_rule(
-		node_t *node,
+		notif_chain_t *nfc,
 		nfc_pkt_trap pkt_trap_cb,
 		nfc_app_cb app_cb) {
 
@@ -90,14 +91,13 @@ tcp_stack_register_l2_pkt_trap_rule(
 	nfce_template.pkt_trap_cb = pkt_trap_cb;	
 	init_glthread(&nfce_template.glue);
 
-	nfc_register_notif_chain(&node->layer2_proto_reg_db2,
-		&nfce_template);	
+	nfc_register_notif_chain(nfc, &nfce_template);	
 }
 
 
 void
 tcp_stack_de_register_l2_pkt_trap_rule(
-		node_t *node,
+		notif_chain_t *nfc,
 		nfc_pkt_trap pkt_trap_cb,
 		nfc_app_cb app_cb) {
 
@@ -109,30 +109,23 @@ tcp_stack_de_register_l2_pkt_trap_rule(
 	nfce_template.pkt_trap_cb = pkt_trap_cb;	
 	init_glthread(&nfce_template.glue);
 
-	nfc_de_register_notif_chain(&node->layer2_proto_reg_db2,
-		&nfce_template);	
+	nfc_de_register_notif_chain(nfc, &nfce_template);	
 }
 
 extern void *
 netfilter_pkt_notif_data_dup_fn (void *arg);
 extern void
-tcp_ip_register_default_l2_pkt_trap_rules(node_t *node);
+tcp_ip_register_default_l2_pkt_trap_rules(notif_chain_t *nfc);
 
 void
-init_nfc_layer2_proto_reg_db2(node_t *node) {
+init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc) {
 
-		string_copy((char *)node->layer2_proto_reg_db2.nfc_name,
+		string_copy((char *)nfc->nfc_name,
 			"L2 proto registration db",
 			strlen("L2 proto registration db") + 1);
 
-		node->layer2_proto_reg_db2.preprocessing_fn_ptr = NULL;
-		node->layer2_proto_reg_db2.copy_arg_fn_ptr = netfilter_pkt_notif_data_dup_fn;
-		tcp_ip_register_default_l2_pkt_trap_rules(node);
+		nfc->preprocessing_fn_ptr = NULL;
+		nfc->copy_arg_fn_ptr = netfilter_pkt_notif_data_dup_fn;
+		tcp_ip_register_default_l2_pkt_trap_rules(nfc);
 }
 
-void pkt_notif_data_mem_init();
-void
-pkt_notif_data_mem_init() {
-
-    MM_REG_STRUCT(0, pkt_notif_data_t);
-}

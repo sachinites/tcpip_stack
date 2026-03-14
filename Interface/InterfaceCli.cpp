@@ -6,12 +6,11 @@
 #include "../tcpip_notif.h"
 #include "../router_init.h"
 #include "InterfaceUApi.h"
-#include "../common/cp2dp.h"
+#include "../dpal/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"
-#include "../Layer2/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
-#include "../datapath/Interface/dp_intf.h"
-#include "../datapath/Interface/dp_intf_update.h"
+#include "../datapath/enums/l2_enums.h"
+#include "../datapath/dp-program/dp-prog-intf-struct.h"
 
 extern graph_t *topo;
 extern void gre_cli_config_tree (param_t *interface);
@@ -431,14 +430,14 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 case CONFIG_ENABLE:
                     if (!interface->IntfConfigVlan(vlan_id, true) ) return -1;
                     cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        interface->GetAccessVlanIntf()->ifindex, DP_LAN_ACCESS_MODE, true);
+                        interface->GetAccessVlanIntf()->ifindex, LAN_ACCESS_MODE, true);
                     break;
                 case CONFIG_DISABLE:
                     vlan_intf_ifindex = interface->GetAccessVlanIntf() ? \
                         interface->GetAccessVlanIntf()->ifindex : 0;
                     if (!interface->IntfConfigVlan(vlan_id, false) ) return -1;
                     cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        vlan_intf_ifindex, DP_LAN_ACCESS_MODE, false);
+                        vlan_intf_ifindex, LAN_ACCESS_MODE, false);
                     break;
                 default:
                     ;
@@ -567,10 +566,10 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_INTF_CONFIG_LOOPBACK_CREATE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
-                    interface_loopback_create(node, (char *)intf_name);
+                    interface_loopback_create(node, (char *)if_name);
                     break;
                 case CONFIG_DISABLE:
-                    interface_loopback_delete(node, (char *)intf_name);
+                    interface_loopback_delete(node, (char *)if_name);
                     break;
                 default:
                     ;
@@ -601,12 +600,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
                 
                 cp2dp_interface_create(node, vlan_intfP.get());
-
-                cp2dp_send_intf_vrf_bind_update(node, 
-                    (vlan_intfP.get())->ifindex, vlan_intfP->vrf->vrf_id);
-                
+                cp2dp_vrf_add_interface (node, vlan_intfP->vrf->vrf_id,  (vlan_intfP.get())->ifindex);
                 cp2dp_send_intf_admin_status_update(node, vlan_intfP->ifindex, false);
-                
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
                        NODE_VLAN_FLOOD_INTF(node)->ifindex, MAC_STATIC, true, 0);
@@ -634,10 +629,8 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 
                 cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, 
                     vlan_id, NODE_VLAN_FLOOD_INTF(node)->ifindex, true, 0);
-
-                cp2dp_send_intf_vrf_bind_update(node, if_index, -1);
-
-                cp2dp_interface_delete(node, (Interface *)vlan_intf);
+                cp2dp_vrf_delete_interface(node, vlan_intf->vrf->vrf_id, vlan_intf->ifindex);
+                
                 node->vlan_intf_db->erase(vlan_id);
             }
             break;
@@ -774,7 +767,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 // Check if NVE interface already exists
                 NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
                 if (nve_intf) {
-                    cprintf("Error : NVE interface %s already exists\n", intf_name);
                     return 0;
                 }
 
@@ -806,8 +798,6 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                     cprintf("Error: NVE interface %s is in use\n", intf_name);
                     return -1;
                 }
-                // Release resources and delete interface
-                nve_intf->InterfaceReleaseAllResources();
 
                 if (node->node_nw_prop.nve) {
                     node->node_nw_prop.nve = nullptr;
@@ -905,13 +895,12 @@ intf_config_virtual_port_create_handler(int cmdcode,
             intf->att_node = node;
             intf->ifindex =  interface_get_new_ifindex(node);
             
-            if (!node_interface_insert(node, intf))
+            if (!node_global_intf_map_insert(node, intf))
             {
                 cprintf ("Error : Failed to insert interface\n");
-                intf->InterfaceReleaseAllResources();
                 return -1;
             }
-
+            cp2dp_interface_create(node, intf);
             SET_BIT(if_change_flags, IF_CREATE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
@@ -937,7 +926,7 @@ intf_config_virtual_port_create_handler(int cmdcode,
             SET_BIT(if_change_flags, IF_DELETE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
-            node_interface_delete_by_name(node, (const char *)intf_name);
+            node_global_intf_map_delete_by_ifindex(node, intf->ifindex);
         }
         break;
     }

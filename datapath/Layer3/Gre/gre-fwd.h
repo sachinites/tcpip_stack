@@ -1,0 +1,20 @@
+#ifndef __GRE_FWD__
+#define __GRE_FWD__
+
+#include <stdint.h>
+
+typedef struct dp_ctx_ dp_ctx_t;
+typedef struct pkt_block_ pkt_block_t;
+typedef struct dp_vrf_ dp_vrf_t;
+typedef struct dp_intf_ dp_intf_t;
+
+void 
+gre_encasulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block);
+
+void 
+gre_decapsulate (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block, dp_intf_t *gre_interface) ;
+
+dp_intf_t *
+gre_lookup_tunnel_intf(dp_ctx_t *dp_ctx, uint32_t src_ip, uint32_t dst_ip) ;
+
+#endif

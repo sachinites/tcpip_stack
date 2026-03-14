@@ -1,15 +1,16 @@
+#include <string.h>
+#include <arpa/inet.h>
+
 #include "InterfaceUApi.h"
 #include "../router_init.h"
 #include "../Layer3/layer3.h"
 #include "../tcpip_notif.h"
-#include "../common/cp2dp.h"
-#include "../Layer2/mac_table.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../vrf/vrf.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
-#include <string.h>
-#include <arpa/inet.h>
-#include "../datapath/Interface/dp_intf_update.h"
+#include "../dpal/cp2dp.h"
+#include "../datapath/enums/l2_enums.h"
+#include "../datapath/dp-program/dp-prog-intf-struct.h"
 
 void
 interface_set_ip_addr(node_t *node, 
@@ -222,12 +223,12 @@ interface_unset_ipv6_addr(node_t *node, Interface *intf,
     }
 }
 
-void
+Interface *
 interface_loopback_create (node_t *node, char *ifname) {
 
-    if (node_interface_lookup_by_name(node, ifname)) {
-        cprintf("Error : Loopback interface %s already exists\n", ifname);
-        return;
+    Interface *intf;
+    if ((intf = node_interface_lookup_by_name(node, ifname))) {
+        return intf;
     }
     
     InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(ifname));
@@ -235,12 +236,14 @@ interface_loopback_create (node_t *node, char *ifname) {
     intfP->att_node = node;
     intfP->ifindex = interface_get_new_ifindex(node);
     
-    if (!node_interface_insert(node, intfP.get())) {
+    if (!node_global_intf_map_insert(node, intfP.get())) {
         cprintf("Error : Failed to insert loopback interface %s\n", ifname);
-        return;
+        return NULL;
     }
+    
     cp2dp_interface_create(node, intfP.get());
     vrf_add_interface(NODE_DEF_VRF(node), intfP.get());
+    return intfP.get();
 }
 
 void
@@ -270,8 +273,7 @@ interface_loopback_delete (node_t *node, char *ifname) {
     nfc_intf_invoke_notification_to_sbscribers(
        intf, &intf_prop_changed, if_change_flags);    
 
-    node_interface_delete_by_name(node, ifname);
-    cp2dp_interface_delete(node, intf);
+    node_global_intf_map_delete_by_ifindex(node, intf->ifindex);
 }
 
 void
@@ -406,33 +408,26 @@ interface_uninstall_local_v6_routes (node_t *node, Interface  *intf) {
     }
 }
 
-/* Interface Management Implementation */
-bool 
-node_interface_insert(node_t *node, Interface *intf) {
-
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-    return vrf_add_interface (def_vrf, intf);
-}
-
-bool 
-node_interface_delete_by_name(node_t *node, const char *ifname) {
-    
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-    return vrf_interface_delete_by_name(def_vrf, ifname);
-}
-
-bool 
-node_interface_delete_by_ifindex(node_t *node, uint32_t ifindex) {
-    
-    vrf_t *def_vrf = NODE_DEF_VRF(node);
-    return vrf_interface_delete_by_ifindex(def_vrf, ifindex);
-}
-
 static Interface* 
 node_interface_lookup_by_name_internal(node_t *node, const char *ifname) {
     
     vrf_t *def_vrf = NODE_DEF_VRF(node);
     return vrf_interface_lookup_by_name(def_vrf, ifname);
+}
+
+
+static Interface* 
+node_global_intf_map_lookup_by_name(node_t *node, const char *ifname) {
+    
+    if (!node || !ifname) return nullptr;
+    if (!node->intf_by_name) return nullptr;
+    
+    auto it = node->intf_by_name->find(ifname);
+    if (it == node->intf_by_name->end()) {
+        return nullptr;
+    }
+    
+    return it->second.get();
 }
 
 Interface *
@@ -477,6 +472,9 @@ node_interface_lookup_by_ifindex_internal(node_t *node, uint32_t ifindex) {
     return vrf_interface_lookup_by_ifindex(def_vrf, ifindex);
 }
 
+static Interface* 
+node_global_intf_map_lookup_by_ifindex(node_t *node, uint32_t ifindex) ;
+
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
@@ -494,17 +492,28 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
         return NODE_NVE_INTF(node).get();
     }
     
+    def_vrf_t *def_vrf = (def_vrf_t *)NODE_DEF_VRF(node);
+
     // Look up in physical/loopback interface hashmap
     intf = node_global_intf_map_lookup_by_ifindex(node, ifindex);
+
     if (intf) return intf;
 
     /* Check for vlan interface */
-
     if (node->vlan_intf_db) {
 
-        for (auto it = node->vlan_intf_db->begin(); it != node->vlan_intf_db->end(); it++) {
+        for (auto it = node->vlan_intf_db->begin(); 
+             it != node->vlan_intf_db->end(); it++) {
+            
             if (it->second->ifindex == ifindex) return it->second.get();
         }
+    }
+
+    /* Check for SRv6 DT4 interface in def_vrf->dt4_intf_by_vrf table */
+    for (auto it = def_vrf->dt4_intf_by_vrf->begin(); 
+              it != def_vrf->dt4_intf_by_vrf->end(); it++) {
+
+        if (it->second->ifindex == ifindex) return (Interface *)it->second;
     }
 
     return NULL;
@@ -566,7 +575,6 @@ vrf_interface_delete_by_name(vrf_t *vrf, const char *ifname) {
         vrf->intf_by_ifindex->erase(ifindex);
     }
     
-    cp2dp_send_intf_vrf_bind_update(vrf->node, ifindex, vrf->vrf_id);
     return true;
 }
 
@@ -578,7 +586,7 @@ vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
     
     auto it = vrf->intf_by_ifindex->find(ifindex);
     if (it == vrf->intf_by_ifindex->end()) {
-        return false; // Interface not found
+        return false;
     }
     
     InterfaceP intf = it->second;
@@ -590,8 +598,7 @@ vrf_interface_delete_by_ifindex(vrf_t *vrf, uint32_t ifindex) {
     if (vrf->intf_by_name) {
         vrf->intf_by_name->erase(ifname);
     }
-    
-    cp2dp_send_intf_vrf_bind_update(vrf->node, ifindex, vrf->vrf_id);
+
     return true;
 }
 
@@ -713,20 +720,6 @@ node_global_intf_map_delete_by_ifindex(node_t *node, uint32_t ifindex) {
     node->intf_by_name->erase(ifname);
 
     return true;
-}
-
-Interface* 
-node_global_intf_map_lookup_by_name(node_t *node, const char *ifname) {
-    
-    if (!node || !ifname) return nullptr;
-    if (!node->intf_by_name) return nullptr;
-    
-    auto it = node->intf_by_name->find(ifname);
-    if (it == node->intf_by_name->end()) {
-        return nullptr;
-    }
-    
-    return it->second.get();
 }
 
 Interface* 

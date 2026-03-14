@@ -5,10 +5,11 @@
 #include "../../c-hashtable/hashtable.h"
 #include "../../c-hashtable/hashtable_itr.h"
 #include "dp_vrf.h"
-#include "../../FIB/fib.h"
+#include "../FIB/fib.h"
 #include "../../EventDispatcher/event_dispatcher.h"
 #include "../../net.h"
-#include "../../router_init.h"
+#include "../Layer2/arp/arp.h"
+#include "../dp_uapi.h"
 
 /* Hash function for vrf_id (uint8_t) keys */
 static unsigned int 
@@ -39,10 +40,7 @@ dp_init_vrf_hashtable (hashtable_t **ht) {
 }
 
 dp_vrf_t *
-dp_look_up_vrf (hashtable_t *ht, uint8_t vrf_id) {
-    if (!ht) {
-        return NULL;
-    }
+dp_look_up_vrf (hashtable_t *ht, int16_t vrf_id) {
     
     /* Search for the VRF using vrf_id as key */
     return (dp_vrf_t *)hashtable_search(ht, (void *)&vrf_id);
@@ -73,16 +71,19 @@ dp_destroy_vrf_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     fib_destroy(vrf->fib_inet6);
     vrf->fib_inet6 = NULL;
 
+    clear_arp_table(vrf->arp_table);
+    XFREE(vrf->arp_table);
+
     free(vrf);
 }
 
-void dp_delete_vrf(node_t *node, hashtable_t *ht, uint8_t vrf_id)
+void dp_delete_vrf(dp_ctx_t *dp_ctx, hashtable_t *ht, uint8_t vrf_id)
 {
     dp_vrf_t *vrf = (dp_vrf_t *)hashtable_remove(ht, (void *)&vrf_id);
 
     assert(vrf);
 
-    task_create_new_job(EV_DP(node), (void *)vrf,
+    task_create_new_job(EV_DP_PURGER(dp_ctx), (void *)vrf,
                 dp_destroy_vrf_cbk, 
                 TASK_ONE_SHOT, 
                 TASK_PRIORITY_GARBAGE_COLLECTOR);
@@ -90,11 +91,15 @@ void dp_delete_vrf(node_t *node, hashtable_t *ht, uint8_t vrf_id)
 }
 
 dp_vrf_t *
-dp_create_vrf (node_t *node, hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
+dp_create_vrf (hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
     
     /* Allocate new VRF structure */
-    dp_vrf_t *vrf = (dp_vrf_t *)calloc(1, sizeof(dp_vrf_t));
-    
+    dp_vrf_t *vrf ;
+
+    if ((vrf = dp_look_up_vrf (ht, vrf_id))) return vrf;
+
+    vrf = (dp_vrf_t *)calloc(1, sizeof(dp_vrf_t));
+
     /* Initialize the VRF */
     vrf->vrf_id = vrf_id;
     
@@ -107,11 +112,62 @@ dp_create_vrf (node_t *node, hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
     }
     
     /* Initialize FIBs using FIB subsystem */
-    vrf->fib_inet0 = fib_init(node, AF_IPV4, vrf_id);
-    vrf->fib_inet6 = fib_init(node, AF_IPV6, vrf_id);
+    vrf->fib_inet0 = fib_init(vrf, AF_IPV4, vrf_id);
+    vrf->fib_inet6 = fib_init(vrf, AF_IPV6, vrf_id);
+    vrf->fib_mpls0 = fib_init(vrf, AF_LABEL, vrf_id);
+
+    init_arp_table (&vrf->arp_table);
     
     /* Insert into hashtable */
     dp_insert_vrf(ht, vrf);
     
     return vrf;
+}
+
+fib_t *
+dp_look_up_fib_by_name (dp_ctx_t *dp_ctx, char *vrf_name, char *fib_name) {
+
+    dp_vrf_t *vrf = NULL;
+
+    struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_vrf_ht);
+
+    while (1)
+    {
+        vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
+        if (strcmp(vrf_name, vrf->vrf_name) == 0)
+            break;
+        if (!hashtable_iterator_advance(itr))
+            break;
+    }
+    free(itr);
+
+    if (!vrf) return NULL;
+
+    if (strcmp (vrf->fib_inet0->name, fib_name) == 0) return vrf->fib_inet0;
+    if (strcmp (vrf->fib_inet6->name, fib_name) == 0) return vrf->fib_inet6;
+    if (strcmp (vrf->fib_mpls0->name, fib_name) == 0) return vrf->fib_mpls0;
+
+    return NULL;
+}
+
+arp_table_t *
+dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf_name) {
+
+    dp_vrf_t *vrf = NULL;
+
+    struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_vrf_ht);
+
+    while (1)
+    {
+        vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
+        if (strcmp(vrf_name, vrf->vrf_name) == 0)
+            break;
+        if (!hashtable_iterator_advance(itr))
+            break;
+    }
+    free(itr);
+
+    if (!vrf) return NULL;
+
+    return vrf->arp_table;
 }

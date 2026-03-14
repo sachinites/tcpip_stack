@@ -69,18 +69,19 @@ isis_system_id_compare (isis_system_id_t *sys_id1,
 }
 
 void
-isis_show_traceoptions (node_t *node) {
+isis_show_traceoptions (isis_node_info_t *node_info) {
 
-    if (!isis_is_protocol_enable_on_node (node)) {
+    if (!isis_is_protocol_enable_on_node (node_info->vrf)) {
         cprintf (ISIS_ERROR_PROTO_NOT_ENABLE"\n");
         return;
     }
 
-    tracer_t *tr = ISIS_TR(node);
+    tracer_t *tr = ISIS_TR(node_info);
     
     if (!tr) return;
 
-    cprintf ("ISIS log file : logs/%s-isis-log.txt\n", node->node_name);
+    cprintf ("ISIS log file : logs/%s-%s-isis-log.txt\n", 
+        node_info->vrf->node->node_name, node_info->vrf->vrf_name);
     cprintf (" Console logging : %c\n", tracer_is_console_logging_enable (tr) ? 'Y' : 'N');
     cprintf (" File logging : %c\n", tracer_is_file_logging_enable (tr) ? 'Y' : 'N');
     cprintf (" SPF logging : %c\n", tracer_is_bit_set (tr, TR_ISIS_SPF) ? 'Y' : 'N');

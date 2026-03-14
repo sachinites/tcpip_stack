@@ -32,7 +32,8 @@
 
 #ifndef __GLUETHREAD__
 #define __GLUETHREAD__
-#include <cstddef>
+
+#include <stdbool.h>
 
 typedef struct _glthread{
 
@@ -73,11 +74,15 @@ glthread_add_last(glthread_t *base_glthread, glthread_t *new_glthread);
         return (structure_name *)((char *)(glthreadptr) - offsetof(structure_name, field_name)); \
     }
 
+#pragma pack (push,8)
 typedef struct _glthread_data_node_ {
 
     void *data;
     glthread_t glue;
+    
 } glthread_data_node_t;
+#pragma pack(pop)
+
 GLTHREAD_TO_STRUCT(glue_to_glthread_data_node, glthread_data_node_t, glue);
 
 /* delete safe loop*/

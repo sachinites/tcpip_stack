@@ -38,19 +38,20 @@
 #include "../common/l4_hdrs.h"
 #include "../common/l3_hdrs.h"
 
-extern void layer4_mem_init() ;
-extern void vxlan_decapsulate (node_t *node, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
+extern void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
 
 class Interface;
 
 /*Public APIs to be used by Lower layers of TCP/IP Stack to promote
  * the pkt to Layer 4. Starting hdr is ip hdr*/
-void
-promote_pkt_to_layer4 (node_t *node,
-                                        Interface *recv_intf,
-                                        pkt_block_t *pkt_block,
-                                        int L4_protocol_number) {                      /*= TCP/UDP or what */
-        
+void dp2cp_punt_pkt_to_layer4(void *_node,
+                           Interface *recv_intf,
+                           pkt_block_t *pkt_block,
+                           int L4_protocol_number)
+{ /*= TCP/UDP or what */
+
+    node_t *node = (node_t *)node;
+    
     switch (L4_protocol_number) {
 
         case UDP_PROTO:
@@ -64,7 +65,7 @@ promote_pkt_to_layer4 (node_t *node,
                 pkt_size -= (pkt_size_t )((char *)udp_hdr  - (char *)ip_hdr);
                 pkt_block_set_new_pkt (pkt_block, (uint8_t *)udp_hdr, pkt_size);
                 pkt_block_set_starting_hdr_type (pkt_block , UDP_HDR);
-                vxlan_decapsulate (node, pkt_block, htonl(ip_hdr->src_ip));
+                vxlan_decapsulate (node->dp_ctx, pkt_block, htonl(ip_hdr->src_ip));
            }
         }
         break;
@@ -83,4 +84,3 @@ demote_pkt_to_layer4(node_t *node,
 
 }
 
-void layer4_mem_init() { }

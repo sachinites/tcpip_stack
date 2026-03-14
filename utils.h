@@ -115,6 +115,11 @@ tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {
     return bin_mask;
 }
 
+bool IsSameSubnet(
+        uint32_t network_ip_addr, 
+        uint8_t mask, 
+        uint32_t addr);
+
 static inline uint8_t
 tcp_ip_convert_bin_mask_to_dmask(uint32_t bin_mask) {
 
@@ -150,7 +155,7 @@ range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
 
 #define string_compare(a, b, len) (strncmp((const char *)a, (const char *)b, len))
 #define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len))
-bool  mac_address_compare ( char *mac1, char *mac2);
+bool  mac_address_compare ( unsigned char *mac1, unsigned char *mac2);
 
 #define HRS_MIN_SEC_FMT_TIME_LEN    16
 c_string

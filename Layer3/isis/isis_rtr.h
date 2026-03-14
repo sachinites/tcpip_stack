@@ -12,10 +12,11 @@ typedef struct prefix_lst_ prefix_list_t;
 typedef struct isis_advt_db_ isis_advt_db_t;
 typedef struct isis_srv6_config_ isis_srv6_config_t;
 typedef struct isis_srmpls_config_ isis_srmpls_config_t;
+typedef struct vrf_ vrf_t;
 
 typedef struct isis_timer_data_ {
 
-    node_t *node;
+    isis_node_info_t *node_info;
     Interface *intf;
     void *data;
     size_t data_size;
@@ -38,7 +39,10 @@ typedef struct isis_overload_data_ {
 
 } isis_overload_data_t;
 
-typedef struct node_info_ {
+typedef struct isis_node_info_ {
+    
+    /* VRF */
+    vrf_t *vrf;
     /* Ted DB */
     ted_db_t *ted_db;
     /* import policy */
@@ -114,35 +118,31 @@ typedef struct node_info_ {
     char padding2[5];
 } __attribute__((aligned(8))) isis_node_info_t;
 
-#define ISIS_NODE_INFO(node_ptr)    \
-    ((isis_node_info_t *)(node_ptr->node_nw_prop.isis_node_info))
+#define ISIS_INCREMENT_NODE_STATS(node_info_ptr, field)  \
+    (node_info_ptr)->field++;
 
-#define ISIS_INCREMENT_NODE_STATS(node_ptr, field)  \
-    (ISIS_NODE_INFO(node_ptr))->field++;
+#define ISIS_DECREMENT_NODE_STATS(node_info_ptr, field)  \
+    (node_info_ptr)->field--;
 
-#define ISIS_DECREMENT_NODE_STATS(node_ptr, field)  \
-    (ISIS_NODE_INFO(node_ptr))->field--;
-
-#define ISIS_TR(node_ptr)  \
-    ((ISIS_NODE_INFO(node_ptr))->tr)
+#define ISIS_TR(node_info_ptr) ((node_info_ptr)->tr)
 
 bool
-isis_is_protocol_enable_on_node(node_t *node) ;
+isis_is_protocol_enable_on_node(vrf_t *vrf) ;
 
 void
-isis_init(node_t *node );
+isis_init(vrf_t *vrf );
 
 void
-isis_de_init(node_t *node) ;
+isis_de_init(vrf_t *vrf) ;
 
 void
-isis_protocol_shut_down(node_t *node);
+isis_protocol_shut_down(isis_node_info_t *node_info);
 
 void
-isis_show_node_protocol_state(node_t *node);
+isis_show_node_protocol_state(vrf_t *vrf);
 
 void
-isis_schedule_job(node_t *node,
+isis_schedule_job(isis_node_info_t *node_info,
                   task_t **task,
                   event_cbk cbk,
                   void *data,
@@ -151,7 +151,7 @@ isis_schedule_job(node_t *node,
                   int job_priority);
 
 void
-isis_show_event_counters(node_t *node);
+isis_show_event_counters(isis_node_info_t *node_info);
 
 /* Protocol Shutdown related APIs and Constants */
 #define ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK    (1 << 0)
@@ -162,40 +162,40 @@ isis_show_event_counters(node_t *node);
 #define ISIS_PRO_SHUTDOWN_COMPLETED              (1 << 15) /*upto 15th bit only*/
 
 bool
-isis_is_protocol_shutdown_in_progress(node_t *node);
+isis_is_protocol_shutdown_in_progress(isis_node_info_t *node_info);
 
 bool
-isis_is_protocol_admin_shutdown(node_t *node);
+isis_is_protocol_admin_shutdown(isis_node_info_t *node_info);
 
 void
-isis_protocol_shut_down(node_t *node);
+isis_protocol_shut_down(isis_node_info_t *node_info);
 
 void 
-isis_cancel_redundant_jobs (node_t *node, isis_job_type_t job_type) ;
+isis_cancel_redundant_jobs (isis_node_info_t *node_info, isis_job_type_t job_type) ;
 
 bool 
-isis_validate_job_schedule (node_t *node, isis_job_type_t job_type);
+isis_validate_job_schedule (isis_node_info_t *node_info, isis_job_type_t job_type);
 
 bool
-isis_is_protocol_shutdown_pending_work_completed (node_t *node);
+isis_is_protocol_shutdown_pending_work_completed (isis_node_info_t *node_info);
 
 void
 isis_check_and_shutdown_protocol_now(
-        node_t *node, uint16_t work_completed_flag);
+        isis_node_info_t *node_info, uint16_t work_completed_flag);
 
 int
-isis_set_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
+isis_set_overload(isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) ;
 
 int
-isis_unset_overload(node_t *node, uint32_t timeout_val, int cmdcode) ;
+isis_unset_overload(isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) ;
 
 bool
-isis_is_overloaded(node_t *node, bool *ovl_timer_running);
+isis_is_overloaded(isis_node_info_t *node_info, bool *ovl_timer_running);
 
 void
-isis_stop_overload_timer(node_t *node);
+isis_stop_overload_timer(isis_node_info_t *node_info);
 
 bool
-isis_has_routes(node_t *node) ;
+isis_has_routes(isis_node_info_t *node_info) ;
 
 #endif

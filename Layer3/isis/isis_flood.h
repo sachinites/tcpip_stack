@@ -18,22 +18,23 @@ void
 isis_intf_purge_lsp_xmit_queue(Interface *intf);
 
 void
-isis_schedule_lsp_flood(node_t *node, 
+isis_schedule_lsp_flood(isis_node_info_t *node_info, 
                         isis_lsp_pkt_t *lsp_pkt,
                         Interface *exempt_intf);
 
 void
-isis_schedule_purge_lsp_flood_cbk (node_t *node, isis_lsp_pkt_t *lsp_pkt);
+isis_schedule_purge_lsp_flood_cbk (isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_lsp_pkt_flood_complete(node_t *node, isis_lsp_pkt_t *lsp_pkt);
+isis_lsp_pkt_flood_complete(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
 
 void
 isis_mark_isis_lsp_pkt_flood_ineligible(
-        node_t *node, isis_lsp_pkt_t *lsp_pkt);
+        isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt);
 
 void
-isis_walk_all_self_zero_lsps (node_t *node, void (*fn_ptr)(node_t *, isis_lsp_pkt_t *));
+isis_walk_all_self_zero_lsps (isis_node_info_t *node_info, 
+    void (*fn_ptr)(isis_node_info_t *, isis_lsp_pkt_t *));
 
 void 
 isis_cancel_lsp_xmit_job (Interface *intf) ;

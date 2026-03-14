@@ -20,7 +20,7 @@ LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
-		    -LLinuxMemoryManager -lmm \
+       		-LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
 			-L../RDBMSImplementation/SqlParser -lsqlapi \
@@ -28,7 +28,6 @@ LIBS= ${ISIS_LIB_PATH} \
 			-L../MathExpressionParser -lMexpr \
 			-Ldatapath -ldp \
 			-LRTM -lrtm \
-			-LFIB -lfib \
 			-lpthread \
 			-lpq \
    		    -lrt \
@@ -47,32 +46,22 @@ OBJS=gluethread/glthread.o \
 		  net.o			   \
 		  comm.o		   \
 		  Layer2/layer2.o  \
-		  Layer2/transport_svc.o  \
-		  Layer2/arp.o	   \
-		  Layer2/mac_table.o \
-		  Layer2/vxlan/dp/vxlan_dp.o \
+		  Layer2/transport_svc.o \
 		  Layer2/vxlan/cp/vlan_vni_mapping.o \
 		  Layer2/vxlan/cp/vxlan_cli.o \
-		  Layer2/vxlan/dp/vlan_vni_ht.o \
 		  Layer3/layer3.o  \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
 		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
-		  Layer3/rt_notif.o	\
 		  Layer3/ipv6/ipv6cli.o \
 		  Layer3/ipv6/ipv6_utils.o \
-		  Layer3/ipv6/v6nexthop.o \
-		  Layer3/ipv6/ipv6_fwd.o \
-		  Layer3/mpls_fwd.o \
-		  Layer3/mpls_cli.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
 		  nwcli.o		   \
 		  utils.o		   \
 		  cp_ipc.o \
-		  Layer2/l2switch.o \
           libtimer/WheelTimer.o   \
           libtimer/timerlib.o   \
 		  libtimer/timedef.o \
@@ -86,7 +75,6 @@ OBJS=gluethread/glthread.o \
 		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
-		  tcp_stack_mem_init.o \
 		  packet-tracer/pkt_tracer.o \
 		  prefix-list/prefixlst.o \
 		  c-hashtable/hashtable.o \
@@ -96,8 +84,9 @@ OBJS=gluethread/glthread.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
 		  PostgresLibpq/postgresLib.o \
-		  common/cp2dp.o \
+		  dpal/cp2dp.o \
 		  common/cmn_prefix.o \
+		  common/cmn_api.o \
 		  lmm_reg.o \
 		  sql_cli.o \
 		  Linux/LinuxInterface.o \
@@ -105,9 +94,8 @@ OBJS=gluethread/glthread.o \
 		  vrf/vrf_cli.cpp \
 		  vrf/vrf.cpp \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
+		  ips_pub_sub_init.o \
 		  
-
-
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
 
@@ -119,9 +107,6 @@ Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
 
 Layer2/vxlan/cp/vxlan_cli.o:Layer2/vxlan/cp/vxlan_cli.c 
 	${CC} ${CFLAGS} -c -I . Layer2/vxlan/cp/vxlan_cli.c -o Layer2/vxlan/cp/vxlan_cli.o
-
-Layer2/vxlan/dp/vlan_vni_ht.o:Layer2/vxlan/dp/vlan_vni_ht.c
-	${CC} ${CFLAGS} -c -I . Layer2/vxlan/dp/vlan_vni_ht.c -o Layer2/vxlan/dp/vlan_vni_ht.o
 
 Threads/refcount.o:Threads/refcount.c
 	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
@@ -135,14 +120,14 @@ ted/ted.o:ted/ted.c
 cp_ipc.o:cp_ipc.cpp
 	${CC} ${CFLAGS} -c -I . cp_ipc.cpp -o cp_ipc.o
 
+ips_pub_sub_init.o:ips_pub_sub_init.c
+	${CC} ${CFLAGS} -c -I . ips_pub_sub_init.c -o ips_pub_sub_init.o
+
 prefix-list/prefixlst.o:prefix-list/prefixlst.c
 	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
-
-tcp_stack_mem_init.o:tcp_stack_mem_init.c
-	${CC} ${CFLAGS} -c -I . tcp_stack_mem_init.c -o tcp_stack_mem_init.o
 
 EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
 	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
@@ -154,7 +139,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a FIB/libfib.a datapath/libdp.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a
 	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -189,11 +174,14 @@ tcp_stack_init.o:tcp_stack_init.c
 router_init.o:router_init.c
 	${CC} ${CFLAGS} -c -I . router_init.c -o router_init.o
 
-common/cp2dp.o:common/cp2dp.cpp
-	${CC} ${CFLAGS} -c -I . common/cp2dp.cpp -o common/cp2dp.o
+dpal/cp2dp.o:dpal/cp2dp.cpp
+	${CC} ${CFLAGS} -c -I . dpal/cp2dp.cpp -o dpal/cp2dp.o
 
 common/cmn_prefix.o:common/cmn_prefix.cpp
 	${CC} ${CFLAGS} -c -I . common/cmn_prefix.cpp -o common/cmn_prefix.o
+
+common/cmn_api.o:common/cmn_api.cpp
+	${CC} ${CFLAGS} -c -I . common/cmn_api.cpp -o common/cmn_api.o
 
 cli_interface.o:cli_interface.c
 	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
@@ -219,32 +207,14 @@ tcp_ip_trace.o:tcp_ip_trace.c
 Layer2/layer2.o:Layer2/layer2.c
 	${CC} ${CFLAGS} -c -I . Layer2/layer2.c -o Layer2/layer2.o
 
-Layer2/arp.o:Layer2/arp.c
-	${CC} ${CFLAGS} -c -I . Layer2/arp.c -o Layer2/arp.o
-
-Layer2/l2switch.o:Layer2/l2switch.c
-	${CC} ${CFLAGS} -c -I . Layer2/l2switch.c -o Layer2/l2switch.o
-
 Layer2/transport_svc.o:Layer2/transport_svc.cpp 
 	${CC} ${CFLAGS} -c -I . Layer2/transport_svc.cpp -o Layer2/transport_svc.o
-
-Layer2/mac_table.o:Layer2/mac_table.cpp
-	${CC} ${CFLAGS} -c -I . Layer2/mac_table.cpp -o Layer2/mac_table.o
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
 
 Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
 	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
-
-Layer3/rt_notif.o:Layer3/rt_notif.c
-	${CC} ${CFLAGS} -c -I . Layer3/rt_notif.c -o Layer3/rt_notif.o
-
-Layer3/mpls_fwd.o:Layer3/mpls_fwd.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/mpls_fwd.cpp -o Layer3/mpls_fwd.o
-
-Layer3/mpls_cli.o:Layer3/mpls_cli.cpp
-	${CC} ${CFLAGS} -c -I . Layer3/mpls_cli.cpp -o Layer3/mpls_cli.o
 
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o
@@ -308,12 +278,8 @@ PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
-Layer3/ipv6/v6nexthop.o:Layer3/ipv6/v6nexthop.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/v6nexthop.cpp -o Layer3/ipv6/v6nexthop.o
 Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_utils.cpp -o Layer3/ipv6/ipv6_utils.o
-Layer3/ipv6/ipv6_fwd.o:Layer3/ipv6/ipv6_fwd.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_fwd.cpp -o Layer3/ipv6/ipv6_fwd.o
 
 Linux/LinuxInterface.o:Linux/LinuxInterface.cpp
 	${CC} ${CFLAGS} -c Linux/LinuxInterface.cpp -o Linux/LinuxInterface.o
@@ -342,8 +308,6 @@ ${LFA_LIB}:
 	(cd Layer3/LFA; make)
 RTM/librtm.a:
 	(cd RTM; make)
-FIB/libfib.a:
-	(cd FIB; make)
 datapath/libdp.a:
 	(cd datapath; make)
 
@@ -385,6 +349,7 @@ clean:
 	rm -f Linux/*.o
 	rm -f vrf/*.o
 	rm -f Layer3/SegmentRouting/SR-MPLS/*.o
+	rm -f dpal/*.o
 	
 all:
 	make
@@ -396,5 +361,4 @@ cleanall:
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
 	(cd RTM; make clean)
-	(cd FIB; make clean)
 	(cd datapath; make clean)

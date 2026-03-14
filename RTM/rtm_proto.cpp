@@ -778,10 +778,12 @@ rtm_proto_lookup(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no) {
  * @return Pointer to target RTM, or NULL if not found/invalid combination
  */
 rtm_t *
-rtm_get_route_target_rtm( node_t *node, 
+rtm_get_route_target_rtm( 
                           vrf_t *vrf, AFI_T afi,
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto) {
+
+    node_t *node = vrf->node;
 
     /* Get default VRF pointer */
     vrf_t *def_vrf = NODE_DEF_VRF(node);

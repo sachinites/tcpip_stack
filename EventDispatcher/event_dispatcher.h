@@ -79,6 +79,15 @@ typedef enum {
 
 } task_priority_t;
 
+typedef enum {
+
+	EV_DIS_IDLE,
+	EV_DIS_TASK_FIN_WAIT,
+} EV_DISPATCHER_STATE;
+
+#define PKT_Q_MAX_QUEUE_SIZE	500
+
+#pragma pack (push,8)
 struct task_{
 
 	void *data;
@@ -91,10 +100,8 @@ struct task_{
 	pthread_cond_t *app_cond_var; /* For synchronous Schedules */
 	glthread_t glue;
 };
-GLTHREAD_TO_STRUCT(glue_to_task,
-	task_t, glue);
+GLTHREAD_TO_STRUCT(glue_to_task, task_t, glue);
 
-#define PKT_Q_MAX_QUEUE_SIZE	500
 
 struct pkt_q_{
 
@@ -108,12 +115,6 @@ struct pkt_q_{
 };
 GLTHREAD_TO_STRUCT(glue_to_pkt_q,
 	pkt_q_t, glue);
-
-typedef enum {
-
-	EV_DIS_IDLE,
-	EV_DIS_TASK_FIN_WAIT,
-} EV_DISPATCHER_STATE;
 
 struct event_dispatcher_{
 
@@ -138,6 +139,8 @@ struct event_dispatcher_{
 	task_t *current_task;
 	struct timeval current_task_start_time;
 };
+
+#pragma pack(pop)
 
 #define EV_DIS_LOCK(ev_dis_ptr)		\
 	(pthread_mutex_lock(&((ev_dis_ptr)->ev_dis_mutex)))

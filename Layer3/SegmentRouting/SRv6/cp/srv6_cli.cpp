@@ -5,17 +5,20 @@
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../../common/l3_hdrs.h"
 #include "../../../ipv6/ipv6_utils.h"
-#include "../../../ipv6/ipv6_route.h"
 #include "../../../ipv6/ipv6_hdrs.h"
 #include "../../../../pkt_block.h"
-#include "../../../../common/cp2dp.h"
+#include "../../../../dpal/cp2dp.h"
 #include "srv6_sid_pool.h"
 #include "srv6_api.h" 
 #include "srv6_rtr.h"
 #include "srv6_cmds.h"
 #include "srv6_rtm.h"
+#include "../../../../mtrie/mtrie.h"
 
 extern graph_t *topo;
+
+extern int 
+validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
 
 static int
 srv6_config_enable(int cmdcode,
@@ -25,31 +28,35 @@ srv6_config_enable(int cmdcode,
 
     tlv_struct_t *tlv;
     c_string node_name = NULL;
+    c_string vrf_name = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
         if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
             node_name = tlv->value;
+        if  (parser_match_leaf_id (tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
         
     } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
 
     switch (enable_or_disable) {
 
         case CONFIG_ENABLE:
         {
-            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
             if (node_info) return 0;
-            SRV6_NODE_INFO(node) = (srv6_node_info_t *) XCALLOC (0, 1 , srv6_node_info_t);
-            srv6_init (node);
+            SRV6_NODE_INFO(vrf) = (srv6_node_info_t *) XCALLOC (0, 1 , srv6_node_info_t);
+            srv6_init (vrf);
         }
         break;
         case CONFIG_DISABLE:
             {
-                srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+                srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
                 if (!node_info) return 0;
-                srv6_de_init (node);
+                srv6_de_init (vrf);
             }
         break;
     }
@@ -68,6 +75,7 @@ srv6_locator_handler
     c_string locator_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
+    c_string vrf_name = NULL;
     uint8_t prefix_len = 0;
     uint8_t algorithm = 0;
     pool_error_codes_t prc = SRv6_POOL_OK;
@@ -84,10 +92,13 @@ srv6_locator_handler
             locator_name = tlv->value;      
         else if  (parser_match_leaf_id (tlv->leaf_id, "algorithm"))
             algorithm = atoi((const char *)tlv->value);     
+        else if  (parser_match_leaf_id (tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
 
     } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_get_by_name (node, vrf_name);
 
     switch (cmdcode)
     {
@@ -97,13 +108,13 @@ srv6_locator_handler
         {
             case CONFIG_ENABLE:
             {
-                if (!srv6_is_enable(node))
+                if (!srv6_is_enable(vrf))
                 {
                     cprintf("Error : srv6 not enabled\n");
                     return -1;
                 }
 
-                srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+                srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
                 srv6_locator_t *loc = &node_info->loc;
 
                 if (!is_ipv6_addr_unspecified(&loc->sid.addr))
@@ -117,7 +128,7 @@ srv6_locator_handler
                 loc->prefix_len = prefix_len;
 
                 /* Create the locator in SID pool library */
-                prc = srv6_pool_create_locator ( (NODE_SRv6_SID_POOL(node)), 
+                prc = srv6_pool_create_locator ( (NODE_SRv6_SID_POOL(vrf->node)), 
                                             &loc->sid,
                                             prefix_len, 
                                             loc->name,
@@ -133,7 +144,7 @@ srv6_locator_handler
                 srv6_pool_set_locator_properties ((NODE_SRv6_SID_POOL(node)), 
                         loc->name, 0, 0, 0, 0);
 
-                srv6_rtm_route_install (node, 
+                srv6_rtm_route_install (vrf, 
                                         &loc->sid,
                                         loc->prefix_len,
                                         FIB_NH_FWD_F_REJECT,
@@ -145,13 +156,13 @@ srv6_locator_handler
             break;
             case CONFIG_DISABLE:
             {
-                if (!srv6_is_enable(node))
+                if (!srv6_is_enable(vrf))
                 {
                     cprintf("Error : srv6 not enabled\n");
                     return -1;
                 }
 
-                srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+                srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
                 srv6_locator_t *loc = &node_info->loc;
                 mtrie_node_t *mnode;
                 srv6_pfxsid_t *pfxsid;
@@ -170,11 +181,11 @@ srv6_locator_handler
 
                 /* Remove all local prefix sids and Adj sids routes from RIB,
                     also send delete ips */
-                srv6_delete_all_pfx_sids(node);
-                srv6_delete_all_adj_sids(node);
+                srv6_delete_all_pfx_sids(vrf);
+                srv6_delete_all_adj_sids(vrf);
 
                 /* now delete the locator route and send IPS to IGP */
-                srv6_rtm_route_install (node, 
+                srv6_rtm_route_install (vrf, 
                                         &loc->sid,
                                         loc->prefix_len,
                                         FIB_NH_FWD_F_REJECT,
@@ -184,7 +195,7 @@ srv6_locator_handler
                                         RTM_PROTO_STATIC, false);
 
                 /* Remove the locator config */
-                prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+                prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(vrf->node)), 
                                             loc->name,
                                             err_msg);
 
@@ -218,6 +229,7 @@ srv6_prefix_sid_config_handler
     c_string oif_name = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
+    c_string vrf_name = NULL;
     pool_error_codes_t prc = SRv6_POOL_OK;
 
     flavor[0][0] = '\0';
@@ -230,6 +242,8 @@ srv6_prefix_sid_config_handler
             node_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
             ipv6_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "flavor")) {
 
             do {
@@ -253,6 +267,7 @@ srv6_prefix_sid_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_get_by_name (node, vrf_name);
 
     flavor_val = DEFAULT_FLAVOR;
 
@@ -286,12 +301,12 @@ srv6_prefix_sid_config_handler
         case CONFIG_ENABLE:
         {
 
-            if (!srv6_is_enable(node)) {
+            if (!srv6_is_enable(vrf)) {
                 cprintf ("Error : srv6 not enabled\n");
                 return -1;
             }
             
-            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
             srv6_locator_t *loc = &node_info->loc;
 
             ipv6_addr_t prefix;
@@ -357,7 +372,7 @@ srv6_prefix_sid_config_handler
 
             mnode->data = (void *)pfxsid;
 
-             srv6_rtm_route_install (node, 
+             srv6_rtm_route_install (vrf, 
                                         &pfxsid->sid,
                                         pfxsid->prefix_len,
                                         FIB_NH_FWD_F_SRv6_FORWARD,
@@ -370,11 +385,11 @@ srv6_prefix_sid_config_handler
 
         case CONFIG_DISABLE:
         {
-            if (!srv6_is_enable(node)) {
+            if (!srv6_is_enable(vrf)) {
                 return 0;
             }
 
-            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
 
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
@@ -419,7 +434,7 @@ srv6_prefix_sid_config_handler
                     return -1;
             }
 
-            srv6_rtm_route_install(node,
+            srv6_rtm_route_install(vrf,
                                    &pfxsid->sid,
                                    pfxsid->prefix_len,
                                    FIB_NH_FWD_F_SRv6_FORWARD,
@@ -450,6 +465,7 @@ srv6_adjacency_sid_config_handler
     node_t *node = NULL;
     c_string ipv6_addr = NULL;
     c_string node_name = NULL;
+    c_string vrf_name = NULL;
     c_string oif_name = NULL;
     pool_error_codes_t prc = SRv6_POOL_OK;
 
@@ -488,7 +504,7 @@ srv6_adjacency_sid_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
     Interface *intf = node_interface_lookup_by_name(node, (const char *)oif_name);
 
     if (!intf) {
@@ -527,12 +543,12 @@ srv6_adjacency_sid_config_handler
 
         case CONFIG_ENABLE:
         {
-            if ( !srv6_is_enable(node) ) {
+            if ( !srv6_is_enable(vrf) ) {
                 cprintf ("Error : srv6 not enabled\n");
                 return -1;
             }
             
-            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
             srv6_locator_t *loc = &node_info->loc;
 
             if ( is_ipv6_addr_unspecified(&loc->sid.addr) ) {
@@ -599,7 +615,7 @@ srv6_adjacency_sid_config_handler
 
             mnode->data = (void *)adjsid;
 
-            srv6_rtm_route_install (node, 
+            srv6_rtm_route_install (vrf,
                                         &adjsid->sid,
                                         adjsid->prefix_len,
                                         FIB_NH_FWD_F_SRv6_FORWARD,
@@ -613,11 +629,11 @@ srv6_adjacency_sid_config_handler
 
         case CONFIG_DISABLE:
         {
-            if (!srv6_is_enable(node)) {
+            if (!srv6_is_enable(vrf)) {
                 return 0;
             }
 
-            srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+            srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
 
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_addr, &prefix);
@@ -655,7 +671,7 @@ srv6_adjacency_sid_config_handler
 
             assert (prc == SRv6_POOL_OK);
 
-            srv6_rtm_route_install (node, 
+            srv6_rtm_route_install (vrf, 
                                         &adjsid->sid,
                                         adjsid->prefix_len,
                                         FIB_NH_FWD_F_SRv6_FORWARD,
@@ -720,6 +736,7 @@ srv6_end_b6_encaps_config_handler
     node_t *node;
     uint8_t prefix_len;
     c_string node_name;
+    c_string vrf_name;
     c_string ipv6_route_str;
     tlv_struct_t *tlv = NULL;
     ipv6_addr_t segment_lst[16] = {0};
@@ -734,10 +751,13 @@ srv6_end_b6_encaps_config_handler
             ipv6_route_str = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "mask"))
             prefix_len = atoi((const char *)tlv->value);
+        else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
 
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
 
     switch (enable_or_disable) {
 
@@ -745,7 +765,7 @@ srv6_end_b6_encaps_config_handler
         {
             ipv6_addr_t prefix;
             inet_pton6 ((char *)ipv6_route_str, &prefix);
-            srv6_rtm_route_install (node,
+            srv6_rtm_route_install (vrf,
                                 &prefix,
                                 prefix_len,
                                 FIB_NH_FWD_F_SRv6_FORWARD,
@@ -774,6 +794,264 @@ srv6_end_b6_x_encaps_config_handler
                     (int cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
+
+    return 0;
+}
+
+/* CLI must throw error if user configure it any non-default VRF
+   install SRv6 SID locally with End behavior as END.DT4 in vrf-name2
+*/
+static int
+srv6_end_dt4_sid_config_handler(int cmdcode,
+                                Stack_t *tlv_stack,
+                                op_mode enable_or_disable)
+{
+
+    tlv_struct_t *tlv;
+    char err_msg[256];
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    c_string vrf_name = NULL;
+    c_string vrf_name2 = NULL;
+    c_string ipv6_addr = NULL;
+    pool_error_codes_t prc = SRv6_POOL_OK;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if  (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "ipv6-address"))
+            ipv6_addr = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
+        else if  (parser_match_leaf_id (tlv->leaf_id, "vrf-name2"))
+            vrf_name2 = tlv->value;            
+
+
+    } TLV_LOOP_END;    
+
+    node = node_get_node_by_name(topo, node_name);
+
+    if (vrf_name && strcmp ((const char *)vrf_name, DEF_VRF_NAME)) {
+
+        cprintf ("Error : Configuration is allowed in Default VRF\n");
+        return -1;
+    }
+
+    Srv6_endpcode_t endpCode = END_DT4;
+    vrf_t *vrf = NODE_DEF_VRF(node);
+    vrf_t *steered_vrf = vrf_get_by_name(node, (char *)vrf_name2);
+
+    if (steered_vrf == vrf) {
+
+        cprintf ("Error : Steered VRF of DT4 SRv6 sid cannot be default-vrf\n");
+        return -1;
+    }
+
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
+    srv6_locator_t *loc = &node_info->loc;
+
+    ipv6_addr_t prefix;
+    inet_pton6((char *)ipv6_addr, &prefix);
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+        {
+            if (!srv6_is_enable(vrf)) {
+                cprintf ("Error : srv6 not enabled\n");
+                return -1;
+            }
+
+            /* Pool Reservation */
+            prc = srv6_pool_alloc_static_sid (
+                                    (NODE_SRv6_SID_POOL(node)), 
+                                    &prefix,
+                                     srv6_sid_client_srv6,
+                                     0,
+                                     NULL,
+                                     endpCode,
+                                     err_msg);   
+                                     
+            if (prc != SRv6_POOL_OK) {
+
+                cprintf ("%s, err-code : %d\n", err_msg, prc);
+                return -1;
+            }
+
+            srv6_pfxsid_t *pfxsid = (srv6_pfxsid_t *) XCALLOC (0, 1, srv6_pfxsid_t);
+
+            pfxsid->sid = prefix;
+            pfxsid->endP = endpCode;
+            pfxsid->flags = 0;
+            pfxsid->prefix_len = 128;
+            pfxsid->n_seg_lst = 0;
+
+           /* Now add pfxsid to the mtrie */
+            mtrie_node_t *mnode;
+            bitmap_t prefix_bm, mask_bm;
+            mtrie_ops_result_code_t rc;
+
+            bitmap_init(&prefix_bm, 128);
+            bitmap_init(&mask_bm, 128);
+            
+            ipv6_copy_bitmap (&prefix.addr, &prefix_bm);
+            for (int i = 0; i < pfxsid->prefix_len; i++)
+                bitmap_set_bit_at(&mask_bm, i);
+            bitmap_inverse (&mask_bm, 128);
+            
+            rc = mtrie_insert_prefix(node_info->configured_pfx_sids,
+                             &prefix_bm,
+                             &mask_bm,
+                             pfxsid->prefix_len,
+                             &mnode);
+            
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);
+
+            switch (rc) {
+                case MTRIE_INSERT_SUCCESS:
+                    break;
+                case MTRIE_INSERT_DUPLICATE:
+                    cprintf ("Error : Prefix sid already configured\n");
+                    XFREE (pfxsid);
+                    return -1;
+                default:
+                    cprintf ("Error : Prefix sid insertion failed, ret code = %d\n", rc);
+                    XFREE (pfxsid);
+                    return -1;
+            }
+
+            mnode->data = (void *)pfxsid;
+
+            /* Now look for DT4 steering interface for steered vrf*/
+            def_vrf_t *def_vrf = (def_vrf_t *)vrf;
+
+            /* Lookup def_vrf->dt4_intf_by_vrf using vrf_id as key*/
+            if (!def_vrf->dt4_intf_by_vrf) {
+
+                def_vrf->dt4_intf_by_vrf =  
+                    new std::unordered_map<uint8_t, SRv6EndPointEND_DT4_Egress_Interface*>();  
+            }
+
+            auto it = def_vrf->dt4_intf_by_vrf->find(vrf->vrf_id);
+            SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = nullptr;
+
+            if (it != def_vrf->dt4_intf_by_vrf->end()) {
+                dt4_intf = it->second;
+            }
+
+            if (dt4_intf == NULL) {
+
+                /* Create a new SRv6EndPointEND_DT4InterfaceP and insert it into map */
+                dt4_intf = new SRv6EndPointEND_DT4_Egress_Interface(steered_vrf);
+                dt4_intf->ifindex = interface_get_new_ifindex(node);
+                def_vrf->dt4_intf_by_vrf->insert({steered_vrf->vrf_id, dt4_intf});
+                cp2dp_interface_create(node, dt4_intf);
+                cp2dp_vrf_add_interface(node, vrf->vrf_id, dt4_intf->ifindex);
+                cp2dp_srv6_dt4_intf_steered_vrf(node, dt4_intf, true);
+            } 
+
+            /* dt4_intf is to be used by this sid, increase ref count */
+            dt4_intf->inc_ref_count(1);
+
+            srv6_rtm_route_install(vrf,
+                                   &pfxsid->sid,
+                                   pfxsid->prefix_len,
+                                   FIB_NH_FWD_F_SRv6_FORWARD,
+                                   0, (Interface *)dt4_intf,
+                                   NULL, 0,
+                                   pfxsid->endP,
+                                   RTM_PROTO_STATIC, true);
+        }
+        break;
+
+        case CONFIG_DISABLE:
+        {
+            if (!srv6_is_enable(vrf)) {
+                return 0;
+            }
+
+            /* Lookup prefix sid in the configured-prefix-sids mtrie */
+            mtrie_node_t *mnode;
+            bitmap_t prefix_bm, mask_bm;
+            srv6_pfxsid_t *pfxsid;
+            mtrie_ops_result_code_t rc;
+
+            bitmap_init(&prefix_bm, 128);
+            bitmap_init(&mask_bm, 128);
+
+            ipv6_copy_bitmap(&prefix.addr, &prefix_bm);
+            for (int i = 0; i < 128; i++)
+                bitmap_set_bit_at(&mask_bm, i);
+            bitmap_inverse(&mask_bm, 128);
+
+            rc = mtrie_delete_prefix(node_info->configured_pfx_sids,
+                                     &prefix_bm,
+                                     &mask_bm,
+                                     (void **)&pfxsid);
+
+            bitmap_free_internal(&prefix_bm);
+            bitmap_free_internal(&mask_bm);
+
+            switch (rc) {
+                case MTRIE_DELETE_SUCCESS:
+                    /* Release the SID back to the pool */
+                    prc = srv6_release_sid(
+                                    (NODE_SRv6_SID_POOL(node)),
+                                    &pfxsid->sid, srv6_sid_client_srv6,
+                                    err_msg);
+                    assert(prc == SRv6_POOL_OK);
+                    break;
+                case MTRIE_LOOKUP_FAILED:
+                    cprintf("Error : Prefix sid not found\n");
+                    return -1;
+                default:
+                    cprintf("Error : Prefix sid deletion failed, ret code = %d\n", rc);
+                    return -1;
+            }
+
+            /* Decrement the ref count on the DT4 steering interface for the
+             * steered VRF. When the last SID referencing it is removed, tear
+             * the interface down completely. */
+            def_vrf_t *def_vrf = (def_vrf_t *)vrf;
+            auto it = def_vrf->dt4_intf_by_vrf->find(steered_vrf->vrf_id);
+
+            SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = it->second;
+
+            /* Uninstall the route that was pointing at this DT4 SID */
+            srv6_rtm_route_install(vrf,
+                                   &pfxsid->sid,
+                                   pfxsid->prefix_len,
+                                   FIB_NH_FWD_F_SRv6_FORWARD,
+                                   0, (Interface *)dt4_intf,
+                                   NULL, 0,
+                                   pfxsid->endP,
+                                   RTM_PROTO_STATIC, false);
+
+            XFREE(pfxsid);   
+
+            uint16_t remaining = dt4_intf->inc_ref_count(-1);
+
+            if (remaining == 0) {
+
+                /* Notify the datapath to delete this interface */
+                cp2dp_srv6_dt4_intf_steered_vrf(node, dt4_intf, false);
+                cp2dp_vrf_delete_interface(node, vrf->vrf_id, dt4_intf->ifindex);
+                cp2dp_interface_delete(node, dt4_intf->ifindex);
+
+                /* Remove from map before deletion so no stale pointer remains */
+                def_vrf->dt4_intf_by_vrf->erase(it);
+                delete dt4_intf;
+
+                if (def_vrf->dt4_intf_by_vrf->empty()) {
+                    delete def_vrf->dt4_intf_by_vrf;
+                    def_vrf->dt4_intf_by_vrf = NULL;
+                }
+            }
+        }
+        break;
+    }
 
     return 0;
 }
@@ -811,7 +1089,7 @@ srv6_build_global_config_cli_tree (param_t *root) {
                     }
 
                     {
-                        /* config node <node-name> protocol source-packet-routing srv6 endpoint  end-x-sid  . .. */
+                        /* config node <node-name> protocol source-packet-routing srv6 endpoint end-x-sid  . .. */
                         static param_t end_x;
                         init_param(&end_x, CMD, "end-x-sid", NULL,
                                 NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-X");
@@ -828,12 +1106,38 @@ srv6_build_global_config_cli_tree (param_t *root) {
                                 init_param(&oif_name, LEAF, NULL, NULL, 
                                     NULL, STRING, "oif-name", "Outgoing Interface Name");
                                 libcli_register_param(&ipv6_addr, &oif_name);
-                                //libcli_set_param_cmd_code(&oif_name, IPV6_SRV6_ADJ_SID_CONFIG);
+                        
                                 srv6_flavor_cli_subtree_hookup(&oif_name, 
                                     IPV6_SRV6_ADJ_SID_CONFIG, srv6_adjacency_sid_config_handler);
                             }
                         }
                     }
+
+                    {
+                        /* config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:3::1 vrf red*/
+                        static param_t end_dt4;
+                        init_param(&end_dt4, CMD, "end-dt4-sid", NULL,
+                                NULL, INVALID, NULL, "Configure SRv6 Endpoint: END-DT4");
+                        libcli_register_param(&endpoint, &end_dt4);
+                        {
+                            static param_t ipv6_addr;
+                            init_param(&ipv6_addr, LEAF, NULL, NULL, NULL, IPV6, "ipv6-address", "SRv6 end-dt4-sid");
+                            libcli_register_param(&end_dt4, &ipv6_addr);
+                            {
+                                static param_t vrf;
+                                init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "VRF Name");
+                                libcli_register_param(&ipv6_addr, &vrf);
+                                {
+                                    static param_t vrf_name;
+                                    init_param(&vrf_name, LEAF, NULL, srv6_end_dt4_sid_config_handler, 
+                                       validate_vrf_existence , STRING, "vrf-name2", "Steered VRF Name");
+                                    libcli_register_param(&vrf, &vrf_name);
+                                    libcli_set_param_cmd_code(&vrf_name, IPV6_SRV6_END_DT4_SID_CONFIG);
+                                }
+                            }
+                        }
+                    }
+
 
                     {
                         /* config node <node-name> protocol source-packet-routing srv6 endpoint 
@@ -941,6 +1245,7 @@ srv6_ping6_handler(int cmdcode,
     int i = 0;
     node_t *node;
     c_string node_name;
+    c_string vrf_name = NULL; 
     c_string ipv6_addr_str[48];
     tlv_struct_t *tlv = NULL;
 
@@ -950,10 +1255,13 @@ srv6_ping6_handler(int cmdcode,
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "segment"))
             ipv6_addr_str[i++] = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
 
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
+    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
 
     srh_hdr_t *srh_hdr = NULL;
     pkt_block_t *pkt_block = NULL;
@@ -982,7 +1290,7 @@ srv6_ping6_handler(int cmdcode,
     ipv6_addr_t dest_addr;
     inet_pton6 ((char *)ipv6_addr_str[0], &dest_addr);
 
-    cp2dp_send_ip6_data (node, pkt_block, dest_addr, srh_hdr ? PROTO_SRH:ICMP6_PROTO );
+    cp2dp_send_ip6_data (node, vrf, pkt_block, dest_addr, srh_hdr ? PROTO_SRH:ICMP6_PROTO );
 
     if (pkt_block) pkt_block_dereference (pkt_block);
 

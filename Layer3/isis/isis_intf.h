@@ -34,7 +34,8 @@ typedef struct intf_info_ {
     isis_adv_data_t *lan_self_to_pn_adv_data;
     /* if this interface is LAN and self is DIS, then advertise PN to self */
     isis_adv_data_t *lan_pn_to_self_adv_data;
-
+    /* Interface ip address advt */
+    isis_adv_data_t *tlv_130_data;
     /* LAN-ID for this interface if this interface is LAN*/
     isis_lan_id_t lan_id;
     /* For P2P, it will be null*/
@@ -79,7 +80,7 @@ GLTHREAD_TO_STRUCT(intf_grp_member_glue_to_intf_info,
     (ISIS_INTF_INFO(intf_ptr)->intf_type == isis_intf_type_p2p)
 
 bool
-isis_node_intf_is_enable (Interface *intf) ;
+isis_is_protocol_enable_on_intf (Interface *intf) ;
 
 void
 isis_enable_protocol_on_interface (Interface *intf);
@@ -106,7 +107,7 @@ void
 isis_send_hello_immediately (Interface *intf) ;
 
 uint32_t 
-isis_show_all_intf_stats (node_t *node);
+isis_show_all_intf_stats (isis_node_info_t *node_info);
 
 uint32_t
 isis_show_one_intf_stats (Interface *intf, uint32_t rc);

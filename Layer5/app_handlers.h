@@ -52,13 +52,13 @@ lfa_show_cli_tree(param_t *param);
 int
 lfa_config_cli_tree(param_t *param) ;
 
-int
-mpls_build_config_cli_tree(param_t *param);
-
-int
-mpls_build_show_cli_tree(param_t *param);
-
 param_t *
 vrf_build_config_tree (param_t *node_name);
+
+int
+show_arp_cli_tree(param_t *param);
+
+int
+ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 #endif /* __APP_HANDLERS__ */

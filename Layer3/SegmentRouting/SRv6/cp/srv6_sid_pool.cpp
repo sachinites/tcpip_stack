@@ -984,11 +984,3 @@ srv6_show_locator (srv6_sid_pools_t *srv6_sid_pools, char *loc_name)  {
 
 
 
-void 
-srv6_pool_mem_init () {
-
-    MM_REG_STRUCT(0, srv6_sid_pools_t);
-    MM_REG_STRUCT(0, srv6_locator_pool_t);
-    MM_REG_STRUCT(0, pool_entry_t); 
-    MM_REG_STRUCT(0, adj_sid_key_t);
-}

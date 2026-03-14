@@ -8,8 +8,7 @@
 #include "../../../../cp_ipc_struct.h"
 #include "srv6_rtr.h"
 #include "srv6_api.h"
-#include "../../../../common/cp2dp.h"
-#include "../../../ipv6/v6nexthop.h"
+#include "../../../../dpal/cp2dp.h"
 #include "../../../../Tracer/tracer.h"
 #include "srv6_sid_pool.h"
 #include "../../../../lmm_enums.h"
@@ -17,17 +16,17 @@
 #include "srv6_rtm.h"
 
 bool 
-srv6_is_enable (node_t *node) {
+srv6_is_enable (vrf_t *vrf) {
 
-    return (!(SRV6_NODE_INFO(node) == NULL));
+    return (!(SRV6_NODE_INFO(vrf) == NULL));
 }
 
 void 
-srv6_init (node_t *node) {
+srv6_init (vrf_t *vrf) {
 
     char log_file_name[NODE_NAME_SIZE + 32] = {0};
 
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
 
     node_info->configured_pfx_sids = (mtrie_t *)XCALLOC2 (0, 1, mtrie_t);
     init_mtrie(node_info->configured_pfx_sids, 128, 0);
@@ -36,33 +35,34 @@ srv6_init (node_t *node) {
     init_mtrie(node_info->configured_adj_sids, 128, 0);    
 
     /* Enable Tracer*/
-    snprintf (log_file_name, sizeof (log_file_name), "logs/%s-srv6-log.txt", node->node_name);
-    node_info->tr = tracer_init ("srv6", log_file_name, node->node_name, STDOUT_FILENO, 0);
+    snprintf (log_file_name, sizeof (log_file_name), 
+        "logs/%s-%s-srv6-log.txt", vrf->node->node_name, vrf->vrf_name);
+    node_info->tr = tracer_init ("srv6", log_file_name, vrf->node->node_name, STDOUT_FILENO, 0);
 }
 
 static void 
-check_and_delete_srv6_node_info (node_t *node) {
+check_and_delete_srv6_node_info (vrf_t *vrf) {
 
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
     assert (!node_info->configured_pfx_sids);
     assert (!node_info->configured_adj_sids);
     assert (!node_info->tr);
     XFREE(node_info);
-    SRV6_NODE_INFO(node) = NULL;
+    SRV6_NODE_INFO(vrf) = NULL;
 }
 
 void 
-srv6_de_init (node_t *node) {
+srv6_de_init (vrf_t *vrf) {
 
     char err_msg[256];
     pool_error_codes_t prc = SRv6_POOL_OK;
 
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
 
     srv6_locator_t *loc = &node_info->loc;
 
     if (srv6_pool_is_locator_being_used_by_any_client (
-                    NODE_SRv6_SID_POOL(node), 
+                    NODE_SRv6_SID_POOL(vrf->node), 
                     loc->name)) {
 
         cprintf ("Error : Locator is in use by other clients, Command Rejected.\n");
@@ -70,21 +70,21 @@ srv6_de_init (node_t *node) {
     }
 
     /* Delete Configure Sids and its routes from RIB */
-    srv6_delete_all_pfx_sids (node) ;
+    srv6_delete_all_pfx_sids (vrf) ;
     /* Delete Configured Adj Sids and its routes from RIB */
-    srv6_delete_all_adj_sids (node) ;
+    srv6_delete_all_adj_sids (vrf) ;
 
     /* Delete Locator Config and its route from RIB*/   
-    srv6_rtm_route_install(node,
+    srv6_rtm_route_install(vrf,
                            &loc->sid,
                            loc->prefix_len,
-                           IPV6_LOCAL_RT,
+                           FIB_NH_FWD_F_LOCAL,
                            0, 0,
                            NULL, 0,
                            SRV6_END_FN_NONE,
                            RTM_PROTO_STATIC, false);
 
-    prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(node)), 
+    prc = srv6_pool_delete_locator ( (NODE_SRv6_SID_POOL(vrf->node)), 
                                             loc->name,
                                             err_msg);
 
@@ -97,12 +97,12 @@ srv6_de_init (node_t *node) {
     node_info->tr = NULL;
 
     /* check and delete srv6 node info*/
-    check_and_delete_srv6_node_info (node);
+    check_and_delete_srv6_node_info (vrf);
     cprintf ("\nSRv6 shutdown Successfully");
 }
 
 uint32_t 
-srv6_delete_all_pfx_sids (node_t *node)  {
+srv6_delete_all_pfx_sids (vrf_t *vrf)  {
 
     glthread_t *curr ;
     uint32_t count = 0;
@@ -112,7 +112,7 @@ srv6_delete_all_pfx_sids (node_t *node)  {
     ips_srv6_data_t *ips_srv6_data;
     pool_error_codes_t prc = SRv6_POOL_OK;
 
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
 
     if (!node_info || !node_info->configured_pfx_sids) return 0;
 
@@ -124,19 +124,19 @@ srv6_delete_all_pfx_sids (node_t *node)  {
         pfxsid = (srv6_pfxsid_t *)mnode->data;
         assert(pfxsid);
 
-        srv6_rtm_route_install(node, 
+        srv6_rtm_route_install(vrf,
                             &pfxsid->sid,
                             pfxsid->prefix_len,
-                            IPV6_LOCAL_RT,
+                            FIB_NH_FWD_F_LOCAL,
                             0, 0, NULL, 0,
                             pfxsid->endP,
-                            RTM_PROTO_STATIC, false);    
+                            RTM_PROTO_STATIC, false);
 
-        prc = srv6_release_sid (
-                                    (NODE_SRv6_SID_POOL(node)), 
-                                    &pfxsid->sid,
-                                    srv6_sid_client_srv6,
-                                    err_msg);
+        prc = srv6_release_sid(
+            (NODE_SRv6_SID_POOL(vrf->node)),
+            &pfxsid->sid,
+            srv6_sid_client_srv6,
+            err_msg);
 
         assert (prc == SRv6_POOL_OK);    
 
@@ -153,7 +153,7 @@ srv6_delete_all_pfx_sids (node_t *node)  {
 }
 
 uint32_t 
-srv6_delete_all_adj_sids (node_t *node) {
+srv6_delete_all_adj_sids (vrf_t *vrf) {
     
     glthread_t *curr ;
     uint32_t count = 0;
@@ -163,7 +163,7 @@ srv6_delete_all_adj_sids (node_t *node) {
     ips_srv6_data_t *ips_srv6_data;
     pool_error_codes_t prc = SRv6_POOL_OK;
 
-    srv6_node_info_t *node_info = SRV6_NODE_INFO(node);
+    srv6_node_info_t *node_info = SRV6_NODE_INFO(vrf);
 
     if (!node_info || !node_info->configured_adj_sids) return 0;
 
@@ -175,21 +175,21 @@ srv6_delete_all_adj_sids (node_t *node) {
         adjsid = (srv6_adjsid_t *)mnode->data;
         assert(adjsid);
 
-        srv6_rtm_route_install(node, 
+        srv6_rtm_route_install(vrf,
                             &adjsid->sid,
                             adjsid->prefix_len,
                             adjsid->flags,
                             &adjsid->gw,
-                            node_get_intf_by_ifindex (node, adjsid->ifindex),
+                            node_get_intf_by_ifindex (vrf->node, adjsid->ifindex),
                             NULL, 0,
                             adjsid->endP,
-                            RTM_PROTO_STATIC, false); 
-        
-        prc = srv6_release_sid (
-                                    (NODE_SRv6_SID_POOL(node)), 
-                                    &adjsid->sid,
-                                    srv6_sid_client_srv6,
-                                    err_msg);
+                            RTM_PROTO_STATIC, false);
+
+        prc = srv6_release_sid(
+            (NODE_SRv6_SID_POOL(vrf->node)),
+            &adjsid->sid,
+            srv6_sid_client_srv6,
+            err_msg);
 
         assert (prc == SRv6_POOL_OK);    
 

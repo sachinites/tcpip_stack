@@ -46,10 +46,10 @@
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "libtimer/WheelTimer.h"
 #include "Tree/libtree.h"
-#include "comm.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
 #include "Interface/InterfaceFwd.h"
+#include "datapath/dp_ctx.h"
 
 /*Do not #include Layer2/layer2.h*/
 
@@ -63,8 +63,6 @@ typedef struct rt_table_ rt_table_t;
 typedef struct mpls_rt_table_ mpls_rt_table_t;
 typedef struct ddcp_db_ ddcp_db_t;
 typedef struct stp_node_ stp_node_info_t;
-typedef struct srv6_node_info_ srv6_node_info_t ;
-typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 typedef struct lfa_ lfa_t;
 
 /* VLAN-VNI Mapping Structure */
@@ -74,30 +72,19 @@ typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
 typedef struct def_vrf_ def_vrf_t;
+typedef struct dp_vrf_ dp_vrf_t;
+typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 
 typedef struct node_nw_prop_{
 
     uint32_t flags;
-
-    /*L2 Properties*/
-    arp_table_t *arp_table;
-    mac_table_t *mac_table;
-
+    
     /* Evpn Support */
     /* VLAN-VNI mapping database */
-    vxlan_vni_db_t *vlan_vni_db;     
-    /* VLAN-VNI hashtable for O(1) lookup - atomic pointer */
-    std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;           
-    /* network-virtualization-edge interface */
-    NVEInterfaceP nve;
-
+    vxlan_vni_db_t *vlan_vni_db;         
+    
     mac_addr_t rmac;
     char padding[2];
-
-    rt_table_t *rt_table;
-    rt_table_t *ipv6_rt_table;
-    mpls_rt_table_t *mpls_rt_table;
-    rt_table_t *ipv4_mpls_rt_table;
 
     /* Default VRF containing all RIBs and FIBs */
     def_vrf_t *def_vrf;
@@ -111,44 +98,29 @@ typedef struct node_nw_prop_{
     InterfaceP vlan_flood_interface;
     /* Host Path Interface */
     InterfaceP host_path_interface;
-    /* SRv6 Virtual Interfaces*/
-    InterfaceP srv6_end_interface;
+    /* network-virtualization-edge interface */
+    NVEInterfaceP nve;
 
     /* lo ipv6 addr*/
     uint8_t ipv6_rtr_id[16];
 
     /*L3 properties*/ 
     ip_add_t rtr_id; /*loopback address of node*/
-
-    /*Sending Buffer*/
-    c_string send_log_buffer; /*Used for logging */
-    /* Receiving Buffer */ 
-    c_string recv_log_buffer; /* Used for logging */
     /* Main Log Buffer*/
     c_string log_buffer;
     /* FILE Ptr to main logigng file File*/
     FILE *log_file;
     /*Device level Appln DS*/
-    void *isis_node_info;
     void *ldp_node_info;
     /* LFA module*/
     lfa_t *lfa;
-    /* Device level SRV6 info */
-    srv6_node_info_t *srv6_node_info;
-
     /* Global pools of SRv6 SIDs */
-   srv6_sid_pools_t  *srv6_sid_pools;
+    srv6_sid_pools_t  *srv6_sid_pools;
 
 } node_nw_prop_t;
 
 #define NODE_RTRID_ADDR(node_ptr) (node_ptr->node_nw_prop.rtr_id.ip_addr)
-#define NODE_ARP_TABLE(node_ptr)    (node_ptr->node_nw_prop.arp_table)
-#define NODE_MAC_TABLE(node_ptr)    (node_ptr->node_nw_prop.mac_table)
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
-#define NODE_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.rt_table)
-#define NODE_IPV4_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv4_mpls_rt_table)
-#define NODE_V6RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.ipv6_rt_table)
-#define NODE_MPLS_RT_TABLE(node_ptr)     (node_ptr->node_nw_prop.mpls_rt_table)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
 #define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
@@ -175,11 +147,6 @@ void dump_node_interface_stats(node_t *node);
 void dump_interface_stats_header();
 void dump_interface_stats(Interface *interface);
 
-
-/*Helper Routines*/
-Interface *
-node_get_matching_subnet_interface(node_t *node, c_string ip_addr);
-
 bool
 is_same_subnet(c_string ip_addr,
                char mask,
@@ -187,21 +154,6 @@ is_same_subnet(c_string ip_addr,
 
 extern int 
 cprintf(const char *format, ...);
-
-static inline byte *
-tcp_ip_get_new_pkt_buffer(uint32_t pkt_size){
-
-    if (pkt_size > (MAX_PACKET_BUFFER_SIZE - PKT_BUFFER_RIGHT_ROOM)) return NULL;
-    byte *pkt = (byte *)XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
-    return pkt + MAX_PACKET_BUFFER_SIZE - (pkt_size + PKT_BUFFER_RIGHT_ROOM);
-}
-
-static inline void
-tcp_ip_free_pkt_buffer(byte *pkt, uint32_t pkt_size){
-
-    XFREE(pkt - (MAX_PACKET_BUFFER_SIZE - pkt_size - PKT_BUFFER_RIGHT_ROOM));
-}
-
 
 void interface_assign_mac_address (Interface *interface);
 
@@ -225,11 +177,8 @@ void interface_assign_mac_address (Interface *interface);
     }while(0);
 
 #define EV(node_ptr)    (&node_ptr->ev_dis)
-#define EV_DP(node_ptr) (&node_ptr->dp_ev_dis)
 #define EV_PURGER(node_ptr) (&node->purger_ev_dis)
-#define DP_PKT_Q(node_ptr) (&node_ptr->dp_recvr_pkt_q)
 #define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
-#define DP_TIMER(node_ptr)  (node_ptr->dp_wt)
 
 uint16_t
 interface_get_new_ifindex (node_t *node);

@@ -42,10 +42,10 @@ GLTHREAD_TO_STRUCT(isis_spf_res_glue_to_spf_result,
     isis_spf_result_t, spf_res_glue);
 
 void
-isis_schedule_spf_job(node_t *node, isis_event_type_t event_type);
+isis_schedule_spf_job(isis_node_info_t *node_info, isis_event_type_t event_type);
 
 void
-isis_cancel_spf_job(node_t *node);
+isis_cancel_spf_job(isis_node_info_t *node_info);
 
 /* SPF Logging */
 #define ISIS_MAX_SPF_LOG_COUNT  20
@@ -70,21 +70,21 @@ typedef struct isis_spf_log_container_ {
 } __attribute__((aligned(8))) isis_spf_log_container_t;
 
 void
-isis_add_new_spf_log(node_t *node, isis_event_type_t event);
+isis_add_new_spf_log(isis_node_info_t *node_info, isis_event_type_t event);
 
 void
-isis_show_spf_logs(node_t *node);
+isis_show_spf_logs(isis_node_info_t *node_info);
 
 void
-isis_init_spf_logc(node_t *node);
+isis_init_spf_logc(isis_node_info_t *node_info);
 
 void
-isis_cleanup_spf_logc(node_t *node);
+isis_cleanup_spf_logc(isis_node_info_t *node_info);
 
 void
 isis_spf_cleanup_spf_data(ted_node_t *ted_node);
 
 void
-isis_show_spf_results (node_t *node);
+isis_show_spf_results (isis_node_info_t *node_info);
 
 #endif 

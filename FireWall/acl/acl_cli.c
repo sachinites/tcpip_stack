@@ -167,7 +167,7 @@ access_list_config (node_t *node,
         return 0;
     }
     
-    acl_entry = (acl_entry_t *)XCALLOC(0, 1, acl_entry_t);
+    acl_entry = (acl_entry_t *)XCALLOC2(0, 1, acl_entry_t);
 
    if (!acl_parse_ace_config_entries(
                     acl_entry, 
