@@ -342,6 +342,7 @@ pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto) {
                     pkt_block_set_starting_hdr_type(pkt_block, ICMP6_HDR);
                     break;
                 case ETH_IP:
+                case PROTO_IP_IN_IP:
                     /* Push the payload to ETH module */
                     pkt_block_set_starting_hdr_type(pkt_block, IP_HDR);
                     break;

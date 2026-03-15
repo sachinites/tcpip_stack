@@ -543,10 +543,10 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
         rtm_nh_Fglthread_add_last (indirect_nh, 
                 &rtm->unresolvable_paths, 
                 &indirect_nh->unresolvable_list_glue);
-        
-        rtm_schedule_nh_resolution_worker(rtm);
 
     } ITERATE_GLTHREAD_END(&route->resolved_lnhs.head, curr_lnh_glue);
+
+     rtm_schedule_nh_resolution_worker(rtm);
 
     rtm_route_avl_remove(rtm, route, &rtm->route_tree, &route->route_glue);
 

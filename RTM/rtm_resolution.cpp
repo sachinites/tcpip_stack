@@ -256,14 +256,14 @@ rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
             rtm->name, route_str,
             rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
 
+      /* This INH cannot have any active DNH, try to resolve it again */
+        bool was_resolved = rtm_route_is_resolved(indirect_nh->owner_route);
+
         /* Withdraw first*/
         rtm_flush_inh_direct_nh_set(rtm, indirect_nh);
 
         /* Copy Route's active NHs to INH direct NH set*/
         rtm_copy_route_active_nhs_to_inh_direct_nh_set(rtm, route, indirect_nh);
-
-        /* This INH cannot have any active DNH, try to resolve it again */
-        bool was_resolved = rtm_route_is_resolved(indirect_nh->owner_route);
 
         if (Fglthread_list_is_empty(&indirect_nh->direct_nh_list)) {
             
@@ -286,7 +286,9 @@ rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
             rtm_schedule_nh_resolution_worker (rtm);
         }
         else {
+
             resolved_count++;
+
             tracer (rtm->node->cptr, DRTM,
                 "RTM[%s] : Route %s resolved INH %s successfully\n",
                 rtm->name, route_str, inh_str);
@@ -300,11 +302,11 @@ rtm_resolve_routes_recursively (rtm_t *rtm, rtm_route *route) {
                     rtm_format_prefix(&indirect_nh->owner_route->prefix, 
                         resolved_route, sizeof(resolved_route)));
 
+                rtm_route_moved_to_resolved_state (rtm, indirect_nh->owner_route);
+                
                 rtm_schedule_nh_resolution_worker (rtm);
             }
         }
-
-        rtm_schedule_nh_resolution_worker (rtm);
 
         /* Now Recursively update the routes INH upstream in Graph*/
         rtm_resolve_routes_recursively (rtm, indirect_nh->owner_route);
@@ -444,16 +446,13 @@ rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : NH resolution worker completed: resolved=%d\n",
         rtm->name, resolved_count);
-
-    if (resolved_count) {
-        rtm_schedule_route_propogation_worker (rtm);
-    }
 }
 
 void 
 rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
 
     if (rtm->nh_resolution_job) {
+
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : NH resolution worker already scheduled\n", rtm->name);
         return;
@@ -555,45 +554,6 @@ rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
             &route->resolved_route_glue);
 
     } ITERATE_GLTHREAD_END(&rtm->resolved_unpropogated_routes.head, curr);
-}
-
-void 
-rtm_schedule_route_propogation_worker (rtm_t *rtm) {
-
-    return; 
-
-    if (rtm->rt_resolution_job) return;
-   
-    tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route Propogation Worker Scheduled\n",
-        rtm->name);
-
-    rtm->rt_resolution_job =  task_create_new_job ( EV(rtm->node),
-             (void *)rtm,
-             rtm_rt_resolver_job_cbk,
-             TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE );
-}
-
-void 
-rtm_schedule_route_propogation (rtm_t *rtm, rtm_route *route) {
-
-     return;
-     
-    char route_str[48];
-
-    if (IS_QUEUED_UP_IN_THREAD (&route->resolved_route_glue)) return;
-    
-    tracer(rtm->node->cptr, DRTM,
-                    "RTM[%s] : Queuing route %s for recursive resolution upstream\n",
-                    rtm->name,
-                    rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)));
-
-    rtm_route_Fglthread_add_last (
-                    route, 
-                    &rtm->resolved_unpropogated_routes, 
-                    &route->resolved_route_glue);
-
-    rtm_schedule_route_propogation_worker (rtm);
 }
 
 /* Withdraw this NH from contribution to Resolution Graph. After this API
