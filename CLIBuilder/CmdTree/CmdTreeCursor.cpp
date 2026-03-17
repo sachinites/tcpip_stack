@@ -710,7 +710,9 @@ cmdtc_cursor_display_options (cmd_tree_cursor_t *cmdtc) {
 
     attron (COLOR_PAIR(GREEN_ON_BLACK));
 
-    if (cmdtc->curr_param->callback[0]) {
+    if (cmdtc->curr_param->callback[0] &&
+        !((cmdtc->curr_param->flags & PARAM_F_NEG_CMD_BLOCK) ||
+        (cmdtc->curr_param->flags & PARAM_F_POS_CMD_BLOCK))) {
         printw ("\n<cr>");
     }
 
@@ -1656,6 +1658,28 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
     param = cmdtc_get_last_cbk_param (cmdtc, &index);
 
     if (!param->callback[0]) {
+        attron(COLOR_PAIR(RED_ON_BLACK));
+        printw("\nError : Incomplete CLI...");
+        attroff(COLOR_PAIR(RED_ON_BLACK));
+        if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
+        return;
+    }
+
+    if ((cmdtc_get_branch_hook (cmdtc) == libcli_get_config_hook()) &&
+         cmdtc->is_negate &&
+         param->flags & PARAM_F_NEG_CMD_BLOCK) {
+    
+        attron(COLOR_PAIR(RED_ON_BLACK));
+        printw("\nError : Incomplete CLI...");
+        attroff(COLOR_PAIR(RED_ON_BLACK));
+        if (temp_cmdtc) {cmd_tree_cursor_destroy_internals (cmdtc, false); free(cmdtc); }
+        return;
+    }
+
+    if ((cmdtc_get_branch_hook (cmdtc) == libcli_get_config_hook()) &&
+         !cmdtc->is_negate &&
+         param->flags & PARAM_F_POS_CMD_BLOCK) {
+    
         attron(COLOR_PAIR(RED_ON_BLACK));
         printw("\nError : Incomplete CLI...");
         attroff(COLOR_PAIR(RED_ON_BLACK));

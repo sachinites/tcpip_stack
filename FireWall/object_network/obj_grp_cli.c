@@ -81,9 +81,10 @@ object_group_config_handler (int cmdcode,
         case OBJ_GRP_CONFIG_NAME:
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
-                    /* CLI : object-group network <og-name> */ 
-                    cprintf ("Error : Incomplete Command\n");
-                    return -1;
+                    /* CLI : object-group network <og-name>, 
+                        empty creation not allowed */ 
+                    //cprintf ("Error : Incomplete Command\n");
+                    return 0;
                 case CONFIG_DISABLE:
                     /* CLI : [no] object-group network <og-name> */ 
                     {
@@ -398,6 +399,7 @@ void object_group_build_config_cli (param_t *root)
             init_param(&name, LEAF, 0, object_group_config_handler, 0, STRING, "object-group-name", "Object Group Name");
             libcli_register_param(&network, &name);
             libcli_set_param_cmd_code(&name, OBJ_GRP_CONFIG_NAME);
+            libcli_block_pos_command(&name);
 
             {
                 /* object-group network <og-name> host ... */

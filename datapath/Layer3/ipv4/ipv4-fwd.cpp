@@ -433,9 +433,6 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
             nh->fwd_info->oif->if_name, 
             cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
 
-    if (pkt_block->exclude_oif &&
-            pkt_block->exclude_oif == nh->fwd_info->oif) assert(0);
-
 #if 0
     if (access_list_evaluate_ip_packet(node, 
                 nexthop->oif, 

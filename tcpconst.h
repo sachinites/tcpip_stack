@@ -277,7 +277,7 @@ srh_nxthdr_to_internal_hdr_type(uint8_t srh_nxthdr) {
     return 0;
 }
 
-static inline unsigned char *
+static inline const char *
 srh_nexthdr_proto_name_str (uint8_t srh_nxthdr) {
 
         switch (srh_nxthdr) {

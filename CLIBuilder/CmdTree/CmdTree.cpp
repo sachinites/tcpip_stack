@@ -198,6 +198,18 @@ libcli_disable_batch_processing (param_t *param) {
     param->flags |= PARAM_F_NO_BATCH_PROCESSING;
 }
 
+void 
+libcli_block_pos_command (param_t *param) {
+
+    param->flags |= PARAM_F_POS_CMD_BLOCK;
+}
+
+void 
+libcli_block_negate_command (param_t *param) {
+
+    param->flags |= PARAM_F_NEG_CMD_BLOCK;
+}
+
 static void 
  libcli_build_default_cmdtree() {
 

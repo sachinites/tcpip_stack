@@ -73,7 +73,8 @@ GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
 #define PARAM_F_INBUILD_CMD 128
 #define PARAM_F_LIST 256
 #define PARAM_F_NO_BATCH_PROCESSING  512
-
+#define PARAM_F_POS_CMD_BLOCK 1024
+#define PARAM_F_NEG_CMD_BLOCK 2048
 
 void 
 cmd_tree_init ();

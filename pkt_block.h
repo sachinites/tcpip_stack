@@ -30,23 +30,23 @@ typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 
-typedef struct encap_meta_data_ {
+typedef struct encap_meta_data_
+{
+    union
+    {
+        struct
+        {
+            uint32_t vni;
+            uint32_t remote_vtep_ip;
 
-        union {
+        } vxlan;
 
-                struct {
+        struct
+        {
 
-                    uint32_t vni;
-                    uint32_t remote_vtep_ip;
-                    
-                } vxlan;
+        } gre;
 
-                struct {
-
-
-                } gre;
-
-        } u;
+    } u;
 } encap_meta_data_t;
 
 struct pkt_block_ {
@@ -54,8 +54,6 @@ struct pkt_block_ {
     uint8_t *pkt;
     pkt_size_t pkt_size;
     hdr_type_t hdr_type;
-    dp_intf_t *recommended_oif;
-    dp_intf_t *exclude_oif;
     dp_intf_t *ingress_intf;
     encap_meta_data_t *encap_data;
     char *fn_name;
@@ -127,12 +125,6 @@ pkt_block_set_no_modify (pkt_block_t *pkt_block, bool modify) ;
 
 void 
 pkt_block_debug(pkt_block_t *pkt_block);
-
-void 
-pkt_block_set_recommended_oif (pkt_block_t *pkt_block, dp_intf_t *oif) ;
-
-void
-pkt_block_set_exclude_oif (pkt_block_t *pkt_block, dp_intf_t *oif) ;
 
 char *
 pkt_ip (pkt_block_t *pkt_block, char *buffer);

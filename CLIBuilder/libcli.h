@@ -62,6 +62,12 @@ void
 libcli_disable_batch_processing (param_t *param) ;
 
 void 
+libcli_block_pos_command (param_t *param);
+
+void 
+libcli_block_negate_command (param_t *param);
+
+void 
 libcli_init_done ();
 
 void

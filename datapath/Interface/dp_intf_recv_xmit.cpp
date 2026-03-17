@@ -275,7 +275,6 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
     }
 
     gre_encasulate (dp_ctx, pkt_block);
-    pkt_block->exclude_oif = intf;
     pkt_block_get_pkt (pkt_block, &pkt_size);
 
     /* Now attach outer IP Hdr and send the pkt*/

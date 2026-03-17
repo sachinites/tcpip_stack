@@ -355,8 +355,9 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
         rc += sprintf((char *)buffer + rc, "Seg %d : %s\n", i, ipv6_addr_str);
     }
 
-    /* SRH header can encode any header */
-    switch (srh_hdr->nexthdr)
+    hdr_type_t internal_hdr = srh_nxthdr_to_internal_hdr_type(srh_hdr->nexthdr);
+
+    switch (internal_hdr)
     {
         case ETH_HDR:
             rc += tcp_dump_ethernet_hdr(buffer + rc,
@@ -364,6 +365,7 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
                                         pkt_size - srh_hdr->hdrlen);
             break;
         case IP_HDR:
+        case IP_IN_IP_HDR:
             rc += tcp_dump_ip_hdr(buffer + rc,
                                 (ip_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
                                 pkt_size - srh_hdr->hdrlen);

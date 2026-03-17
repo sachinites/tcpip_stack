@@ -91,8 +91,6 @@ static void
 pkt_block_free(pkt_block_t *pkt_block) {
 
     tcp_ip_free_pkt_buffer(pkt_block->pkt, pkt_block->pkt_size);
-    assert (!pkt_block->recommended_oif);
-    assert (!pkt_block->exclude_oif);
     assert (!pkt_block->encap_data);
     assert (!pkt_block->ingress_intf);
     XFREE(pkt_block);
@@ -104,8 +102,6 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
     uint8_t ref_count = pkt_block->ref_count;
 
     if (pkt_block->ref_count == 0) {
-        pkt_block_set_recommended_oif (pkt_block, NULL);
-        pkt_block_set_exclude_oif (pkt_block, NULL);
         if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
         pkt_block->encap_data = NULL;
         if (pkt_block->ingress_intf) pkt_block->ingress_intf = nullptr;
@@ -116,8 +112,6 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
     pkt_block->ref_count--;
 
     if (pkt_block->ref_count == 0) {
-        pkt_block_set_recommended_oif (pkt_block, NULL);
-        pkt_block_set_exclude_oif (pkt_block, NULL);
         if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
         pkt_block->encap_data = NULL;        
         if (pkt_block->ingress_intf) pkt_block->ingress_intf = nullptr;
@@ -399,36 +393,6 @@ print_pkt_block(pkt_block_t *pkt_block) {
 void 
 pkt_block_debug(pkt_block_t *pkt_block) {
     
-}
-
-void 
-pkt_block_set_recommended_oif (pkt_block_t *pkt_block, dp_intf_t *oif) {
-
-    if (!oif && !pkt_block->recommended_oif) {
-        return;
-    }
-
-    if (!oif) {
-        pkt_block->recommended_oif = nullptr;
-        return;
-    }
-
-    pkt_block->recommended_oif = oif;
-}
-
-void
-pkt_block_set_exclude_oif (pkt_block_t *pkt_block, dp_intf_t *oif) {
-
-    if (!oif && !pkt_block->exclude_oif) {
-        return;
-    }
-    
-    if (!oif) {
-        pkt_block->exclude_oif = nullptr;
-        return;
-    }
-
-    pkt_block->exclude_oif = oif;
 }
 
 char *
