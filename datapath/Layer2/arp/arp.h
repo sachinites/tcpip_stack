@@ -8,7 +8,7 @@
  *   - arp_table_t: list of arp_entry_t (IP key, MAC, oif, proto, sane/pending).
  *   - send_arp_broadcast_request: send ARP request for an IP from an oif.
  *   - process_arp_broadcast_request / process_arp_reply_msg: handle received ARP.
- *   - arp_table_lookup, arp_entry_add, arp_entry_delete, create_arp_sane_entry:
+ *   - arp_table_lookup, arp_entry_add, arp_entry_delete, create_update_arp_sane_entry:
  *     table management. Pending packets are queued and processed when ARP replies.
  * =============================================================================
  */
@@ -143,7 +143,7 @@ add_arp_pending_entry (dp_ctx_t *dp_ctx,
         pkt_block_t *pkt_block);
 
 void
-create_arp_sane_entry(dp_ctx_t *dp_ctx,
+create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
 					  arp_table_t *arp_table,
                       uint32_t ip_addr, 

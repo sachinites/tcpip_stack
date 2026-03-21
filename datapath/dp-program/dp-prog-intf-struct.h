@@ -60,12 +60,12 @@ typedef struct dp_intf_admin_down_ {
 } dp_intf_admin_down_t;
 
 #define CP2DP_CODE_INTF_SW 6
-typedef struct dp_intf_switchport_ {
+typedef struct dp_intf_boolean_property_ {
 
     uint32_t port_id; 
-    uint8_t enable;// 1 for enable, 0 for disable
+    uint8_t enable;
     
-} dp_intf_switchpor_t;
+} dp_intf_boolean_property_t;
 
 #define CP2DP_CODE_INTF_VLAN_VNI    7
 typedef struct dp_intf_vlan_vni_ {
@@ -109,6 +109,14 @@ typedef struct dp_intf_log_update_ {
 // code to bind steering vrf with dt4 interfaces, it has no
 //  structure, dp_intf_cp2dp_msg_hdr_t will contain all info required
 #define CP2DP_CODE_DT4_INTF_STEER_VRF_BIND 16
+
+// use dp_intf_boolean_property_t
+#define CP2DP_CODE_INTF_ACCESS_MODE           17
+
+// use dp_intf_cp2dp_msg_hdr_t
+#define CP2DP_CODE_ACCESS_INTF_VLAN_ADD 18
+#define CP2DP_CODE_ACCESS_INTF_VLAN_DEL  19
+
 
 typedef struct dp_intf_cp2dp_msg_ {
 

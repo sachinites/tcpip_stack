@@ -469,13 +469,13 @@ cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switch
 
     dp_msg_t *dp_msg;
     dp_intf_cp2dp_msg_hdr_t *intf_msg;
-    dp_intf_switchpor_t *sw_status;
+    dp_intf_boolean_property_t *sw_status;
 
     dp_msg = cp2dp_msg_alloc();
     dp_msg->component_type = INTF_TABLE;
     dp_msg->opr_type = DP_UPDATE;
     dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_switchpor_t);
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_boolean_property_t);
     
     /* Fill in the header */
     intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
@@ -483,7 +483,7 @@ cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switch
     intf_msg->update_code = CP2DP_CODE_INTF_SW;
     
     /* Fill in the admin status data */
-    sw_status = (dp_intf_switchpor_t *)(intf_msg + 1);
+    sw_status = (dp_intf_boolean_property_t *)(intf_msg + 1);
     sw_status->port_id = port_id;
     sw_status->enable = switchport;
     
@@ -523,7 +523,6 @@ cp2dp_send_intf_vlan_grp_bind_update(node_t *node,
     }
 
     memcpy(vlan_grp_bind->vlan_bitmapp, vlan_bitmap->bits, bitmap_bytes);
-
     cp2dp_submit(node, dp_msg, true);
 }
 
@@ -700,6 +699,60 @@ cp2dp_srv6_dt4_intf_steered_vrf(node_t *node,
     intf_msg->vlan_id = add ? dt4_intf->vrf->vrf_id : UINT32_MAX;
     intf_msg->iftype = (uint32_t)intf->iftype;
     intf_msg->update_code = CP2DP_CODE_DT4_INTF_STEER_VRF_BIND;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
+
+void
+cp2dp_send_switchport_intf_access (node_t *node, Interface *intf, bool add) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+
+    assert (intf->GetSwitchport());
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
+    dp_msg->vrf_id = DEFAULT_VRF;
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = intf->ifindex;
+    intf_msg->iftype = (uint32_t)intf->iftype;
+    intf_msg->update_code = CP2DP_CODE_INTF_ACCESS_MODE;
+
+    dp_intf_boolean_property_t *bool_msg = (dp_intf_boolean_property_t *)(intf_msg +1);
+    bool_msg->port_id = intf->ifindex;
+    bool_msg->enable = add ? 1 : 0;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void
+cp2dp_send_vlan_add_access_port (node_t *node, 
+                                    uint16_t vlan_id,
+                                    uint32_t access_port_id, bool add) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
+    dp_msg->vrf_id = DEFAULT_VRF;
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = access_port_id;
+    intf_msg->vlan_id = vlan_id;
+    intf_msg->iftype = 0;
+    intf_msg->update_code = add ? 
+        CP2DP_CODE_ACCESS_INTF_VLAN_ADD:                                                    
+        CP2DP_CODE_ACCESS_INTF_VLAN_DEL;
 
     cp2dp_submit(node, dp_msg, true);
 }

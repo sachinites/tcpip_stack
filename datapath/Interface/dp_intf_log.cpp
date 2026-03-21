@@ -14,9 +14,9 @@ tcp_dump_recv_logger(
     int rc = 0 ;
     acl_action_t acl_action;
 
-    if(dp_ctx->log.all || 
+    if (dp_ctx->log.all || 
         dp_ctx->log.recv ||
-        intf->log_info.recv){
+        intf->log_info.recv) {
 
         int sock_fd = ((dp_ctx->log.is_stdout || 
                         intf->log_info.is_stdout)) ? STDOUT_FILENO : -1;

@@ -100,9 +100,6 @@ char* vrf_name (node_t *node, uint8_t vrf_id);
 bool node_register_vrf(node_t *node, vrf_t *vrf);
 void show_vrfs(node_t *node);
 
-void vrf_rtm_program_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid);
-void vrf_rtm_unprogram_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid);
-
 vrf_t *NODE_DEF_VRF(node_t *node);
 
 #define NODE_DEF_VRF_VRF_MEMBER(node_ptr, member)  \

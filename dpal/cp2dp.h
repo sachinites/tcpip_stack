@@ -114,6 +114,14 @@ void
 cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]);
 
 void
-cp2dp_srv6_dt4_intf_steered_vrf(node_t *node, Interface *intf, bool add);
+cp2dp_send_switchport_intf_access (node_t *node, Interface *intf, bool add);
+
+void
+cp2dp_send_vlan_add_access_port (node_t *node, 
+                                    uint16_t vlan_id,
+                                    uint32_t access_port_id, bool add);
+
+void
+cp2dp_srv6_dt4_intf_steered_vrf (node_t *node, Interface *intf, bool add);
 
 #endif 

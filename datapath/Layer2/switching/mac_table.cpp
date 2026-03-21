@@ -15,7 +15,7 @@
 void
 init_mac_table(mac_table_t **mac_table){
 
-    *mac_table = new mac_table_t;
+    *mac_table = (mac_table_t *) XCALLOC2(0, 1, mac_table_t);
     init_glthread(&((*mac_table)->mac_entries));
 }
 
@@ -59,7 +59,7 @@ clear_mac_table(node_t *node, mac_table_t *mac_table){
         remove_glthread(curr);
         mac_table_entry_cancel_expiry_timer(mac_table_entry);
         mac_table_entry_clear_oifs(mac_table_entry);  // Clean up dynamic OIF list
-        delete (mac_table_entry);
+        XFREE (mac_table_entry);
 
     } ITERATE_GLTHREAD_END(&mac_table->mac_entries, curr);
 }
@@ -82,7 +82,7 @@ mac_table_entry_timer_expiry_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32
 
     remove_glthread(&mac_table_entry->mac_entry_glue);
     mac_table_entry->exp_timer_wt_elem = NULL;
-    delete (mac_table_entry);
+    XFREE (mac_table_entry);
 }
 
 void 
@@ -108,7 +108,7 @@ mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan
     mac_table_entry_cancel_expiry_timer(mac_table_entry);
 
     tracer (dp_ctx->dptr, DL2SW, 
-            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Deleted\n", 
+            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] XFREEd\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
             mac_table_entry->mac.mac[1],
@@ -117,7 +117,7 @@ mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan
             mac_table_entry->mac.mac[4],
             mac_table_entry->mac.mac[5] );
 
-    delete (mac_table_entry);
+    XFREE (mac_table_entry);
 }
 
 void
@@ -145,7 +145,7 @@ mac_table_entry_delete (dp_ctx_t *dp_ctx,
         }
         
         tracer (dp_ctx->dptr, DL2SW, 
-            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Deleted\n", 
+            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] XFREEd\n", 
             mac_table_entry->vlan_id, 
             mac_table_entry->mac.mac[0],
             mac_table_entry->mac.mac[1],
@@ -155,7 +155,7 @@ mac_table_entry_delete (dp_ctx_t *dp_ctx,
             mac_table_entry->mac.mac[5] );
 
         mac_table_entry_clear_oifs(mac_table_entry);  // Clean up dynamic OIF list
-        delete mac_table_entry;
+        XFREE (mac_table_entry);
     }
 }
 
@@ -168,11 +168,28 @@ mac_table_entry_add (dp_ctx_t *dp_ctx,
                         uint16_t flags,
                         uint32_t remote_dst_ip) {
 
-    /* Get the interface by ifindex */
-    dp_intf_t *oif = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
+    dp_intf_t *oif = NULL;
+
+    /* Check if this is vfif interface */
+    if (dp_ctx->dp_vlan_flood_intf && 
+            dp_ctx->dp_vlan_flood_intf->port_id == ifindex) {
+        
+                oif = dp_ctx->dp_vlan_flood_intf;
+    }
+    else if (dp_ctx->dp_rmac_intf && 
+            dp_ctx->dp_rmac_intf->port_id == ifindex) {
+        
+                 oif = dp_ctx->dp_rmac_intf;
+    }
+    else {
+
+        oif = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
+    }
 
     if (!oif) {
-        cprintf ("Error : Interface with ifindex %d not found\n", ifindex);
+
+        cprintf ("Error : DP_CTX %s : Interface with ifindex %d not found\n", 
+                dp_ctx->ctx_name, ifindex);
         return;
     }
 
@@ -180,8 +197,10 @@ mac_table_entry_add (dp_ctx_t *dp_ctx,
     mac_table_entry_t *mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac_addr);
     
     if (mac_table_entry) {
+
         /* Entry exists, try to add interface to existing entry */
-        if (mac_table_entry_add_oif(mac_table_entry, oif, remote_dst_ip)) {
+        if (mac_table_entry_add_oif (mac_table_entry, oif, remote_dst_ip)) {
+
             tracer(dp_ctx->dptr, DL2SW, 
                    "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Interface %s added to existing entry\n", 
                    vlan_id,
@@ -193,7 +212,7 @@ mac_table_entry_add (dp_ctx_t *dp_ctx,
     }
 
     /* Create new MAC table entry */
-    mac_table_entry = new mac_table_entry_t;
+    mac_table_entry =  (mac_table_entry_t *) XCALLOC2(0, 1, mac_table_entry_t );
     mac_table_entry->vlan_id = vlan_id;
     memcpy(mac_table_entry->mac.mac, mac_addr, sizeof(mac_addr_t));
     mac_table_entry->flags = flags;
@@ -327,7 +346,8 @@ show_mac_table(mac_table_t *mac_table, uint16_t vlan_id) {
 
 mac_oif_entry_t *
 mac_oif_entry_create(dp_intf_t * oif, uint32_t remote_dst_ip) {
-    mac_oif_entry_t *oif_entry = new mac_oif_entry_t;
+
+    mac_oif_entry_t *oif_entry =  (mac_oif_entry_t *) XCALLOC2 (0, 1, mac_oif_entry_t);
     oif_entry->oif = oif;
     oif_entry->remote_dst_ip = remote_dst_ip;
     init_glthread(&oif_entry->glue);
@@ -338,7 +358,7 @@ void
 mac_oif_entry_destroy(mac_oif_entry_t *oif_entry) {
     if (oif_entry) {
         remove_glthread(&oif_entry->glue);
-        delete oif_entry;
+        XFREE (oif_entry);
     }
 }
 

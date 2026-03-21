@@ -56,7 +56,10 @@ typedef struct dp_intf_ {
     bool switchport;
 
     /* Pointer to parent vlan if this interface is switchport
-        in access mode */
+        in access mode , 
+        if this is VFIF interface, this field is temporarily used to 
+        cache vlan interface     
+    */
     struct dp_intf_ *vlan_intf;
 
     /* If this interface is vlan interface, then vlan id */

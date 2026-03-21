@@ -569,12 +569,12 @@ void PhysicalInterface::SetSwitchport(bool enable)
     {
         if (this->access_vlan_intf || this->trans_svc) {
             cprintf("Error : Remove L2 Config first\n");
-            this->switchport = true;
             return;
         }
         this->l2_mode = LAN_MODE_NONE;
     }
     this->switchport = enable;
+    cp2dp_send_intf_switchport_update(this->att_node, this->ifindex,enable ? 1 : 0);    
 }
 
 bool PhysicalInterface::GetSwitchport()
@@ -696,7 +696,7 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
 
         if (!vlan_intf)
         {
-            cprintf("Error : Vlan Interface not found");
+            cprintf("Error : Node %s : Vlan Interface not found", this->att_node->node_name);
             return false;
         }        
 
@@ -705,6 +705,9 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
 
         this->access_vlan_intf->access_member_intf_lst.push_back(this->GetSharedPtr());
         this->l2_mode = LAN_ACCESS_MODE;
+
+        cp2dp_send_switchport_intf_access(this->att_node, this, true);
+        cp2dp_send_vlan_add_access_port (this->att_node, vlan_id, this->ifindex, true);
         return true;
     }
     else
@@ -717,11 +720,14 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
                     this->access_vlan_intf->access_member_intf_lst.end());
                 this->access_vlan_intf = NULL;
                 this->l2_mode = LAN_MODE_NONE;
-
+                
+                cp2dp_send_vlan_add_access_port (this->att_node, vlan_id, this->ifindex, false);
+                cp2dp_send_switchport_intf_access(this->att_node, this, false);
                 return true;
             }
+
             {
-                cprintf("Error : Interface not in vlan %u", vlan_id);
+                cprintf("Error : Node %s : Interface not in vlan %u", this->att_node->node_name, vlan_id);
                 return false;
             }
     }
@@ -1582,7 +1588,8 @@ dump_intf_props (Interface *interface){
     byte intf_ip_addr_str[IPV4_ADDR_LEN_STR];
     char ipv6_addr_str[INET6_ADDRSTRLEN];
 
-    cprintf("%-12s %-14s", interface->if_name.c_str(), 
+    cprintf("%-12s(%u) %-14s", interface->if_name.c_str(), 
+        interface->ifindex,
         interface->vrf ? interface->vrf->vrf_name : "None");
 
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);

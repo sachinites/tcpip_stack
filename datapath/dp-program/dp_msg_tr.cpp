@@ -188,8 +188,8 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                         }
                         break;
                     case CP2DP_CODE_INTF_SW:
-                        if (dp_msg->data_size >= hdr_sz + sizeof(dp_intf_switchpor_t)) {
-                            const dp_intf_switchpor_t *u = (const dp_intf_switchpor_t *)payload;
+                        if (dp_msg->data_size >= hdr_sz + sizeof(dp_intf_boolean_property_t)) {
+                            const dp_intf_boolean_property_t *u = (const dp_intf_boolean_property_t *)payload;
                             tracer(dp_ctx->dptr, DCONF, "    intf_update: switchport port_id=%u enable=%u\n", u->port_id, (unsigned)u->enable);
                         }
                         break;

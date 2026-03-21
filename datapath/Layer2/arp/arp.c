@@ -611,7 +611,7 @@ add_arp_pending_entry (dp_ctx_t *dp_ctx,
     }
 }
 
-void create_arp_sane_entry(dp_ctx_t *dp_ctx,
+void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                            dp_vrf_t *vrf,
                            arp_table_t *arp_table,
                            uint32_t ip_addr,

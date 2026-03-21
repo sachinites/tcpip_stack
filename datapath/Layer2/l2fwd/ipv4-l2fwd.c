@@ -64,21 +64,25 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
     if(oif) {
 
-        /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt
-         * out of this interface*/
+        /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt out of this 
+        interface*/
 
         arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
-        if (!arp_entry){
+        if (!arp_entry) {
 
             /*Time for ARP resolution*/
-            create_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
-                    next_hop_ip, 
-                    pkt_block);
-
+            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip,  pkt_block);
             send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
             return;
         }
+
+        else if (arp_entry_sane(arp_entry)) {
+
+            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip, pkt_block);
+             return;
+        }
+
         goto l2_frame_prepare ;
     }
    
@@ -125,7 +129,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     if (!arp_entry || (arp_entry && arp_entry_sane(arp_entry))){
         
         /*Time for ARP resolution*/
-        create_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
+        create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
                 next_hop_ip, 
                 pkt_block);
         send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
@@ -379,7 +383,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
      * accept untagged packet only*/
 
     if (interface->l2_mode == DP_LAN_ACCESS_MODE &&
-            interface->vlan_id == 0) {
+         interface->vlan_intf->vlan_id == 0) {
 
         if(!vlan_8021q_hdr)
             return true;    /*case 3*/
@@ -402,9 +406,9 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
     uint16_t intf_vlan_id = 0,
                  pkt_vlan_id = 0;
 
-    if(interface->l2_mode == DP_LAN_ACCESS_MODE){
+    if (interface->l2_mode == DP_LAN_ACCESS_MODE){
         
-        intf_vlan_id = interface->vlan_id;
+        intf_vlan_id = interface->vlan_intf->vlan_id;
 
         if(!vlan_8021q_hdr && intf_vlan_id){
             *output_vlan_id = intf_vlan_id;
@@ -442,7 +446,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
             tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Untagged "
-                "pkt recvd on Trunk Interface", 
+                "pkt recvd on Trunk Interface\n", 
                 pkt_block_str(pkt_block), interface->if_name);
             return false;
         }

@@ -101,7 +101,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
 }
 
 static int
-SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
+SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, pkt_block_t *pkt_block)
 {
 
     pkt_size_t pkt_size;
@@ -123,7 +123,7 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
 
     case DP_LAN_ACCESS_MODE:
     {
-        uint16_t intf_vlan_id = Intf->vlan_id;
+        uint16_t intf_vlan_id = Intf->vlan_intf->vlan_id;
 
         /*Case 1 : If interface is operating in ACCESS mode, but
          not in any vlan, and pkt is also untagged, then simply
@@ -138,6 +138,9 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
          behavior*/
         if (intf_vlan_id && !vlan_8021q_hdr)
         {
+            tracer(dp_ctx->dptr, DL2SW_DET, 
+                "Pkt %s Dropped : Reason : Access port %s dropped outgoing untagged packet\n", 
+                pkt_block_str(pkt_block), Intf->if_name);
             return 0;
         }
 
@@ -156,6 +159,9 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
         if (vlan_8021q_hdr &&
             (intf_vlan_id != GET_802_1Q_VLAN_ID(vlan_8021q_hdr)))
         {
+            tracer(dp_ctx->dptr, DL2SW_DET, 
+                "Pkt %s Dropped : Reason : Access port dropped %s outgoing tagged packet with mismatched vlan id\n", 
+                pkt_block_str(pkt_block), Intf->if_name);
             return 0;
         }
 
@@ -163,6 +169,9 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
          simply drop the packet.*/
         if (!intf_vlan_id && vlan_8021q_hdr)
         {
+            tracer(dp_ctx->dptr, DL2SW_DET, 
+                "Pkt %s Dropped : Reason : Vlan unaware Access port %s dropped outgoing tagged packet\n", 
+                pkt_block_str(pkt_block), Intf->if_name);
             return 0;
         }
     }
@@ -181,6 +190,10 @@ SendPacketOutSwitchport(dp_intf_t *Intf, pkt_block_t *pkt_block)
         {
             return send_xmit_out(Intf, pkt_block);
         }
+
+        tracer(dp_ctx->dptr, DL2SW_DET, 
+            "Pkt %s Dropped : Reason : Trunk port %s dropped outgoing packet\n", 
+            pkt_block_str(pkt_block), Intf->if_name);
 
         /*Do not send the pkt in any other case*/
         return 0;
@@ -209,9 +222,11 @@ vlan_send_pkt_out_all_trunk_ports(dp_intf_t *vlan_intf,
         if (!member_port->is_up)
             continue;
         if (member_port->l2_mode == DP_LAN_MODE_NONE) continue;
-        if (only_trunk_ports && (member_port->l2_mode != DP_LAN_TRUNK_MODE))
-            continue;
-        send_xmit_out(member_port, pkt_block);
+
+        if (only_trunk_ports && (member_port->l2_mode == DP_LAN_TRUNK_MODE)) 
+             send_xmit_out(member_port, pkt_block);
+        else if (!only_trunk_ports && (member_port->l2_mode == DP_LAN_ACCESS_MODE))
+             send_xmit_out(member_port, pkt_block);
     }
 }
 
@@ -244,7 +259,7 @@ PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *
 
     if (intf->switchport)
     {
-        return SendPacketOutSwitchport(intf, pkt_block);
+        return SendPacketOutSwitchport(dp_ctx, intf, pkt_block);
     }
     else
     {
@@ -418,6 +433,37 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
     return 0;    
 }
 
+static int 
+VlanFloodInterface_SendPacketOut(
+                                    dp_ctx_t *dp_ctx, 
+                                    dp_intf_t *vfif_intf, 
+                                    pkt_block_t *pkt_block) {
+
+    dp_intf_t *exempt_intf = pkt_block->ingress_intf;
+
+    assert (exempt_intf);
+
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_HDR);
+
+    ethernet_hdr_t *eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
+    assert (vlan_8021q_hdr);
+    uint16_t vlan_id = ntohs(vlan_8021q_hdr->tci_vid);
+
+    dp_intf_t *vlan_intf  = exempt_intf->l2_mode == DP_LAN_ACCESS_MODE ?
+                    exempt_intf->vlan_intf : \
+                    dp_look_up_interface_by_vlan_id (dp_ctx->dp_vlan_intf_ht, vlan_id);
+
+    if (!vlan_intf) return -1;
+
+    dp_VlanPacketFlood (vlan_intf, pkt_block, exempt_intf);
+    vfif_intf->pkt_sent++;
+    
+    return 0;
+}
+
+
 /* Algorithm 
     1. Remove the outer ethernet header if Data layer passed it
     2. Decap the pkt, and remove ipv6 header + SRH header
@@ -480,7 +526,7 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         LoopbackInterface_SendPacketOut,
         VirtualPort_SendPacketOut,
         RmacInterface_SendPacketOut,
-        0,
+        VlanFloodInterface_SendPacketOut,
         NVEInterface_SendPacketOut,
         SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
         0,
@@ -489,6 +535,9 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
 
 void 
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
+
+    tracer(dp_ctx->dptr, DL3FWD_DET | DL2FWD_DET | DL2SW_DET,
+        "Sending out frame %s out of interface %s\n", intf->if_name, pkt_block_str(pkt_block));
 
     (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, pkt_block);
 }

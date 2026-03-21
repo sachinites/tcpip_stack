@@ -541,8 +541,8 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
                 case CP2DP_CODE_INTF_SW:
                 {
-                    dp_intf_switchpor_t *sw_status = 
-                        (dp_intf_switchpor_t *)(msg+1);
+                    dp_intf_boolean_property_t *sw_status = 
+                        (dp_intf_boolean_property_t *)(msg+1);
                     tracer(dp_ctx->dptr, DCONF, 
                         "Setting switchport on if_name=%s to %d\n",
                         intf->if_name, sw_status->enable ? 1 : 0);
@@ -676,6 +676,34 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
                 break;
 
+
+                case CP2DP_CODE_ACCESS_INTF_VLAN_ADD: 
+                {
+                    dp_intf_t *vlan_intf = dp_look_up_interface_by_vlan_id (
+                            dp_ctx->dp_vlan_intf_ht, msg->vlan_id);
+                    dp_vlan_bind_port(vlan_intf, intf,  DP_LAN_ACCESS_MODE);
+                }
+                 break;
+
+                case CP2DP_CODE_ACCESS_INTF_VLAN_DEL:
+                {
+                    dp_intf_t *vlan_intf = dp_look_up_interface_by_vlan_id(
+                        dp_ctx->dp_vlan_intf_ht, msg->vlan_id);
+                    dp_vlan_unbind_port(intf, intf, DP_LAN_ACCESS_MODE, false);
+                }
+                break;
+
+
+                case CP2DP_CODE_INTF_ACCESS_MODE:
+                {
+                    dp_intf_boolean_property_t *bool_msg = (dp_intf_boolean_property_t *)(msg +1);
+                    if (bool_msg->enable) {
+                        intf->l2_mode = DP_LAN_ACCESS_MODE;
+                    } else {
+                         intf->l2_mode = DP_LAN_MODE_NONE;
+                    }
+                }
+                break;
 
 
                 default:

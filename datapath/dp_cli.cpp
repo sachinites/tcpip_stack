@@ -65,7 +65,7 @@ dp_print_interface_brief(dp_intf_t *intf)
     }
 
     const char *l2l3_str = "L3";
-    if (intf->switchport && intf->l2_mode != DP_LAN_MODE_NONE) {
+    if (intf->switchport) {
         l2l3_str = "L2";
     }
 

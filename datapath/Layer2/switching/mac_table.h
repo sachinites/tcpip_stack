@@ -12,15 +12,14 @@ typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct pkt_block_ pkt_block_t;
 
-
-/* MAC_MAC_OIF_CNT removed - now using dynamic lists */
+#pragma pack (push,8)
 
 /* Structure to hold interface and remote IP pair */
 typedef struct mac_oif_entry_ {
     dp_intf_t *oif;
     glthread_t glue;
     uint32_t remote_dst_ip;
-} __attribute__((aligned(8))) mac_oif_entry_t;
+}  mac_oif_entry_t;
 
 GLTHREAD_TO_STRUCT(mac_oif_glue_to_entry, mac_oif_entry_t, glue);
 
@@ -34,13 +33,7 @@ typedef struct mac_table_entry_{
     uint16_t vlan_id;
     char padding2[6];
 
-    /* Add destructor */
-    ~mac_table_entry_() {
-        assert (!exp_timer_wt_elem);
-        // Clean up dynamic OIF list - this will be handled by clear functions
-    }
-
-} __attribute__((aligned(8)))  mac_table_entry_t;
+} mac_table_entry_t;
 
 GLTHREAD_TO_STRUCT(mac_entry_glue_to_mac_entry, mac_table_entry_t, mac_entry_glue);
 
@@ -48,7 +41,9 @@ typedef struct mac_table_{
 
     glthread_t mac_entries;
     
-}  __attribute__((aligned(8))) mac_table_t;
+}  mac_table_t;
+
+#pragma pack(pop)
 
 #define IS_MAC_TABLE_ENTRY_EQUAL(mac_entry_1, mac_entry_2)   \
     (mac_address_compare  (mac_entry_1->mac.mac, mac_entry_2->mac.mac) && \

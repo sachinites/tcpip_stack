@@ -280,13 +280,3 @@ vrf_t *
 NODE_DEF_VRF(node_t *node) {
     return (vrf_t *)node->node_nw_prop.def_vrf;
 }
-
-void 
-vrf_rtm_program_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid) {
-
-}
-
-void 
-vrf_rtm_unprogram_dx4_sid (vrf_t *vrf, ipv6_addr_t *dx4_sid) {
-
-}
