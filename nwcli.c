@@ -756,7 +756,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                     
                     uint32_t rc = cp_rtm_install_static_route (
                         rtm_get(node,  intf->GetVRF(), AF_IPV4, 0), 
-                        &prefix,  &gateway, intf->GetSharedPtr(), 0);
+                        &prefix,  &gateway, intf, 0);
 
                     if (!rc) {
                         cprintf("Error : Failed to install static route\n");
@@ -794,7 +794,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                     
                     rtm_error_t rc = cp_rtm_uninstall_static_route (
                         rtm_get(node,  intf->GetVRF(), AF_IPV4, 0), 
-                        &prefix,  &gateway, intf->GetSharedPtr(), 0);
+                        &prefix,  &gateway, intf, 0);
 
                     if (rc != RTM_SUCCESS) {
                         cprintf("Error : Failed to uninstall static route\n");

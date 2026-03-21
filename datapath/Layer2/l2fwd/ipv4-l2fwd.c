@@ -522,7 +522,6 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
 
 bool 
 is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
-                              dp_vrf_t *vrf,
                               pkt_block_t *pkt_block)
 {
     uint16_t proto;
@@ -538,26 +537,26 @@ is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
 
     if (is_pkt_vlan_tagged(ethernet_hdr)) {
         vlan_eth_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
-        proto = htons(vlan_eth_hdr->type);
+        proto = ntohs(vlan_eth_hdr->type);
         vlan_id = GET_802_1Q_VLAN_ID(&vlan_eth_hdr->vlan_8021q_hdr);
     }   
     else {
-        proto = htons(ethernet_hdr->type);
+        proto = ntohs(ethernet_hdr->type);
     }
 
     if (proto != PROTO_ARP) return false;
 
     arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
     
-    if (htons(arp_hdr->op_code) != ARP_BROAD_REQ && 
-         htons(arp_hdr->op_code) != ARP_REPLY) return false;
+    if (ntohs(arp_hdr->op_code) != ARP_BROAD_REQ && 
+         ntohs(arp_hdr->op_code) != ARP_REPLY) return false;
 
     /* Lookup Vlan Inteface */
-    dp_intf_t *svi_intf = dp_look_up_interface_by_vlan_id(dp_ctx->dp_intf_ht, vlan_id);
+    dp_intf_t *svi_intf = dp_look_up_interface_by_vlan_id(dp_ctx->dp_vlan_intf_ht, vlan_id);
 
     if (!svi_intf) return false;
 
-    return (svi_intf->ip_addr == htonl(arp_hdr->dst_ip)) ;
+    return (svi_intf->ip_addr == ntohl(arp_hdr->dst_ip)) ;
 }
 
 bool
@@ -575,7 +574,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 
     vlan_eth_hdr = ( vlan_ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
     uint16_t pkt_vlan_id = GET_802_1Q_VLAN_ID(&vlan_eth_hdr->vlan_8021q_hdr);
-    l3_proto = vlan_eth_hdr->type;
+    l3_proto = ntohs(vlan_eth_hdr->type);
 
     /* Step 1*/
     if (!interface->switchport) return false;
@@ -588,7 +587,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     }
     else if (interface->l2_mode == DP_LAN_TRUNK_MODE) {   
         vlan_intf = dp_look_up_interface_by_vlan_id(
-                    dp_ctx->dp_intf_ht, pkt_vlan_id);
+                    dp_ctx->dp_vlan_intf_ht, pkt_vlan_id);
     }
     else {
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
@@ -615,13 +614,13 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     /*Process ARP packets destined for SVI interface */
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
 
-    if (htons(arp_hdr->op_code) == ARP_REPLY) {
+    if (ntohs(arp_hdr->op_code) == ARP_REPLY) {
 
         arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp_hdr, vlan_intf);
         return true;
     }
 
-    if (htons(arp_hdr->op_code) != ARP_BROAD_REQ) return true;
+    if (ntohs(arp_hdr->op_code) != ARP_BROAD_REQ) return true;
 
     svi_ip_addr = vlan_intf->ip_addr;
 
@@ -650,7 +649,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(VLAN_8021Q_PROTO);
 
     l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
-                             &arp_hdr_in->src_mac, arp_hdr_in->src_ip,
+                             &arp_hdr_in->src_mac, ntohl(arp_hdr_in->src_ip),
                              &vlan_intf->mac_add, svi_ip_addr);
 
     pkt_block_t *pkt_block2 = pkt_block_get_new(

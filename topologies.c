@@ -38,15 +38,19 @@
 #include "Layer2/layer2.h"
 #include "Interface/InterfaceUApi.h"
 
-graph_t *build_first_topo(void);
-graph_t *build_simple_l2_switch_topo(void);
-graph_t *build_square_topo(void);
-graph_t *build_linear_topo(void);
-graph_t *build_dualswitch_topo(void);
-graph_t *parallel_links_topology(void);
-graph_t *cross_link_topology(void);
-graph_t *standalone_node_topology(void);
-graph_t *vlan_extension_topo(void);
+extern graph_t *build_first_topo(void);
+extern graph_t *build_simple_l2_switch_topo(void);
+extern graph_t *build_square_topo(void);
+extern graph_t *build_linear_topo(void);
+extern graph_t *build_dualswitch_topo(void);
+extern graph_t *parallel_links_topology(void);
+extern graph_t *cross_link_topology(void);
+extern graph_t *standalone_node_topology(void);
+extern graph_t *vlan_extension_topo(void);
+extern graph_t *build_inter_vlan_routing_topo(void);
+extern graph_t *build_vxlan_topo(void);
+extern graph_t *evpn_spine_leaf(void) ;
+extern graph_t *Linux_Router_topology(void) ;
 
 graph_t *standalone_node_topology(void) {
 
@@ -149,10 +153,11 @@ build_inter_vlan_routing_topo(void){
 
 Configs :
 ==========
-config node H1 route 0.0.0.0 0 10.1.1.1 eth5
-config node H2 route 0.0.0.0 0 11.1.1.1 eth8
-config node H3 route 0.0.0.0 0 12.1.1.1 eth6
-config node H4 route 0.0.0.0 0 13.1.1.1 eth7
+config node H1 rtm route 0.0.0.0/0 0 0 0 2 1 gateway 10.1.1.1 interface eth5
+config node H2 rtm route 0.0.0.0/0 0 0 0 2 1 gateway 11.1.1.1 interface eth8
+config node H3 rtm route 0.0.0.0/0 0 0 0 2 1 gateway 12.1.1.1 interface eth6
+config node H4 rtm route 0.0.0.0/0 0 0 0 2 1 gateway 13.1.1.1 interface eth7
+
 config node L3SW interface vlan 10 ip-address 10.1.1.1 24
 config node L3SW interface vlan 11 ip-address 11.1.1.1 24
 config node L3SW interface vlan 12 ip-address 12.1.1.1 24

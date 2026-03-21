@@ -82,14 +82,14 @@ cp_rtm_install_static_route (
         rtm_t *rtm,
         cmn_prefix_t *prefix, 
         cmn_prefix_t *gateway,
-        InterfaceP oif, uint32_t cost);
+        Interface *oif, uint32_t cost);
 
 rtm_error_t
 cp_rtm_uninstall_static_route (
                 rtm_t *rtm,
                 cmn_prefix_t *prefix, 
                 cmn_prefix_t *gateway,
-                InterfaceP oif, uint32_t cost);
+                Interface *oif, uint32_t cost);
 
 /* Generic API to install/uninstall routes */
 rtm_error_t 

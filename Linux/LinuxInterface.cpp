@@ -296,7 +296,7 @@ LinuxLoadInterfaces (node_t *node) {
                 rtm,
                 &prefix_key,
                 NULL,        /* No gateway for local route */
-                intf_shared, /* Output interface */
+                intf, /* Output interface */
                 0            /* Default cost */
             );
 

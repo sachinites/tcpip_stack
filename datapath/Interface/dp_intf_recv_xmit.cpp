@@ -138,7 +138,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, pkt_block_t *pkt_bloc
          behavior*/
         if (intf_vlan_id && !vlan_8021q_hdr)
         {
-            tracer(dp_ctx->dptr, DL2SW_DET, 
+            tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
                 "Pkt %s Dropped : Reason : Access port %s dropped outgoing untagged packet\n", 
                 pkt_block_str(pkt_block), Intf->if_name);
             return 0;
@@ -159,7 +159,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, pkt_block_t *pkt_bloc
         if (vlan_8021q_hdr &&
             (intf_vlan_id != GET_802_1Q_VLAN_ID(vlan_8021q_hdr)))
         {
-            tracer(dp_ctx->dptr, DL2SW_DET, 
+            tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
                 "Pkt %s Dropped : Reason : Access port dropped %s outgoing tagged packet with mismatched vlan id\n", 
                 pkt_block_str(pkt_block), Intf->if_name);
             return 0;
@@ -169,7 +169,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, pkt_block_t *pkt_bloc
          simply drop the packet.*/
         if (!intf_vlan_id && vlan_8021q_hdr)
         {
-            tracer(dp_ctx->dptr, DL2SW_DET, 
+            tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
                 "Pkt %s Dropped : Reason : Vlan unaware Access port %s dropped outgoing tagged packet\n", 
                 pkt_block_str(pkt_block), Intf->if_name);
             return 0;
@@ -191,7 +191,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, pkt_block_t *pkt_bloc
             return send_xmit_out(Intf, pkt_block);
         }
 
-        tracer(dp_ctx->dptr, DL2SW_DET, 
+        tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
             "Pkt %s Dropped : Reason : Trunk port %s dropped outgoing packet\n", 
             pkt_block_str(pkt_block), Intf->if_name);
 
@@ -347,6 +347,7 @@ static int
 RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
+    vlan_8021q_hdr_t *vlan_8021q_hdr;
 
     assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
 
@@ -354,19 +355,23 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
         ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Rmac interface never recvs untagged pkt */
-    assert (is_pkt_vlan_tagged (eth_hdr));
+    assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (eth_hdr)));
 
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
+
+    tracer (dp_ctx->dptr, DL2FWD , 
+        "Rmac Interface %s : Recvd pkt %s with vlan tag : %d\n", 
+        intf->if_name, pkt_block_str(pkt_block), vlan_8021q_hdr->tci_vid);
     
-    if ( is_arp_pkt_for_svi_interface (dp_ctx, intf->vrf, pkt_block) ) {
+    if ( is_arp_pkt_for_svi_interface (dp_ctx, pkt_block) ) {
             svi_interface_intercept_arp_pkt (dp_ctx, intf->vrf, pkt_block);
             return 0;
     }
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
 
-    if (!mac_address_compare ((unsigned char *)intf->dp_ctx->rmac.mac, 
+    if (!mac_address_compare ((unsigned char *)dp_ctx->rmac.mac, 
           (unsigned char *)eth_hdr->dst_mac.mac) != 0) {
 
         intf->recvd_pkt_dropped++;
@@ -377,7 +382,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
     dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf,
-            pkt_block, eth_hdr->type);
+            pkt_block,  ntohs(eth_hdr->type));
 
     return 0;
 }
@@ -537,7 +542,7 @@ void
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
 
     tracer(dp_ctx->dptr, DL3FWD_DET | DL2FWD_DET | DL2SW_DET,
-        "Sending out frame %s out of interface %s\n", intf->if_name, pkt_block_str(pkt_block));
+        "Sending out frame %s out of interface %s\n", pkt_block_str(pkt_block), intf->if_name);
 
     (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, pkt_block);
 }

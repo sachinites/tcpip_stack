@@ -20,7 +20,7 @@ init_mac_table(mac_table_t **mac_table){
 }
 
 mac_table_entry_t *
-mac_table_lookup(mac_table_t *mac_table, uint16_t vlan, c_string mac){
+mac_table_lookup(mac_table_t *mac_table, uint16_t vlan,  uint8_t* mac){
 
     glthread_t *curr;
     mac_table_entry_t *mac_table_entry;
@@ -98,10 +98,10 @@ mac_table_entry_init_timer (dp_ctx_t *dp_ctx, mac_table_entry_t *mac_table_entry
 }
 
 void
-mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id, c_string mac){
+mac_table_entry_delete2 (dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id, uint8_t *mac_addr){
 
     mac_table_entry_t *mac_table_entry;
-    mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac);
+    mac_table_entry = mac_table_lookup(mac_table, vlan_id, mac_addr);
     if(!mac_table_entry)
         return;
     remove_glthread(&mac_table_entry->mac_entry_glue);

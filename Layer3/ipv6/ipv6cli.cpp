@@ -115,7 +115,7 @@ ipv6_config_handler
                         rtm,
                         &prefix_key,
                         gw_ip ? &gateway : NULL,
-                        intf ? intf->GetSharedPtr() : nullptr,
+                        intf ? intf : nullptr,
                         0  /* default cost */
                     );
 
@@ -134,7 +134,7 @@ ipv6_config_handler
                         rtm,
                         &prefix_key,
                         gw_ip ? &gateway : NULL,
-                        intf ? intf->GetSharedPtr() : nullptr,
+                        intf ? intf: nullptr,
                         0  /* default cost */
                     );
 

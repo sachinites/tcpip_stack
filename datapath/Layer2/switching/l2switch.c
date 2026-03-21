@@ -254,7 +254,7 @@ l2_switch_forward_frame(
                                       ethernet_hdr->dst_mac.mac);    
 
         if (!mac_table_entry) {
-            tracer (dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame");
+            tracer (dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame\n");
             return;
         }
 

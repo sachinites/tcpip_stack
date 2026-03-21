@@ -455,7 +455,7 @@ cp_rtm_install_static_route (
         rtm_t *rtm,
         cmn_prefix_t *prefix, 
         cmn_prefix_t *gateway,
-        InterfaceP oif, 
+        Interface *oif, 
         uint32_t cost) {
 
     char gw_str[32];
@@ -474,6 +474,7 @@ cp_rtm_install_static_route (
     nh_template.proto = RTM_PROTO_STATIC;
     nh_template.sub_proto = RTM_SUB_PROTO_NA;
     nh_template.action = RTM_NH_ACTION_FORWARD;
+    fwd_flags |= FIB_NH_FWD_F_FORWARD;
     nh_template.oif = oif->ifindex;
     nh_template.is_resolved = true;  /* Static routes are always resolved */
     nh_template.metric = cost;
@@ -537,7 +538,7 @@ cp_rtm_uninstall_static_route (
         rtm_t *rtm,
         cmn_prefix_t *prefix, 
         cmn_prefix_t *gateway,
-        InterfaceP oif, 
+        Interface *oif, 
         uint32_t cost) {
 
     uint16_t fwd_flags = 0;
@@ -554,11 +555,12 @@ cp_rtm_uninstall_static_route (
     rc = rtm_nh_proto_info_create (
                     RTM_PROTO_STATIC, 
                     RTM_SUB_PROTO_NA, 
-                    0, INTF_VRF_ID(oif.get()),
+                    0, INTF_VRF_ID(oif),
                     &nh_template.rtm_nh_proto);
 
     nh_template.metric = cost;
     nh_template.action = RTM_NH_ACTION_FORWARD;
+    fwd_flags |= FIB_NH_FWD_F_FORWARD;
     nh_template.gateway = *gateway;
     nh_template.oif = oif->ifindex;
     nh_template.is_indirect = false;

@@ -89,7 +89,7 @@ main(int argc, char **argv){
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
     //topo = Linux_Router_topology();
-    topo = cross_link_topology();
+    topo = build_inter_vlan_routing_topo();
     init_tcp_ip_stack();
     libcli_init_done ();
 

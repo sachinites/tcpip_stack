@@ -34,7 +34,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                         pkt_block_t *pkt_block);
 
 bool 
-is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
+is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx, 
                               pkt_block_t *pkt_block);
 
 void

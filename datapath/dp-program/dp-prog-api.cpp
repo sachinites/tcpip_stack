@@ -366,6 +366,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             assert (!intf);
             intf = dp_create_interface(msg->port_id, msg->iftype, 
                         &msg->mac_addr, (uint16_t)msg->vlan_id);
+            intf->dp_ctx = dp_ctx;
             strncpy(intf->if_name, msg->intf_name, sizeof (msg->intf_name));
 
             switch (msg->update_code) {
@@ -391,18 +392,27 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     break;
                 case CP2DP_CODE_INTF_RMAC:
                     dp_ctx->dp_rmac_intf = intf;
+                    intf->dp_ctx = dp_ctx;
+                    intf->vrf = dp_ctx->default_vrf;
                     break;
                 case CP2DP_CODE_INTF_VLAN_FLOOD:
                     dp_ctx->dp_vlan_flood_intf = intf;
+                    intf->dp_ctx = dp_ctx;
+                    intf->vrf = dp_ctx->default_vrf;
                     break;
                 case CP2DP_CODE_INTF_NVE:
                     dp_ctx->dp_nve_intf = intf;
+                    intf->dp_ctx = dp_ctx;
+                    intf->vrf = dp_ctx->default_vrf;
                     break;
                 case CP2DP_CODE_INTF_HOST_PATH:
                     dp_ctx->dp_host_path_intf = intf;
+                    intf->dp_ctx = dp_ctx;
+                    intf->vrf = dp_ctx->default_vrf;
                     break;
                 default: 
                     dp_insert_interface(ht, intf);
+                    intf->dp_ctx = dp_ctx;
                     break;
             }
             
@@ -748,7 +758,12 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             switch (gen_msg->opcode)
             {
                 case DP_GENERIC_RMAC:
-                memcpy(&dp_ctx->rmac.mac, &gen_msg->u.mac_addr, 6);
+                memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
+                mac_table_entry_add(dp_ctx, 
+                        dp_ctx->mac_table, 
+                        dp_ctx->rmac.mac, 
+                        0, 
+                        dp_ctx->dp_rmac_intf->port_id, 0, 0);
                 break;
             }
             break;
@@ -757,7 +772,12 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             switch (gen_msg->opcode)
             {
                 case DP_GENERIC_RMAC:
-                memcpy(&dp_ctx->rmac.mac, &gen_msg->u.mac_addr, 6);
+                memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
+                mac_table_entry_add(dp_ctx, 
+                        dp_ctx->mac_table, 
+                        dp_ctx->rmac.mac, 
+                        0, 
+                        dp_ctx->dp_rmac_intf->port_id, 0, 0);
                 break;
             }
             break;
@@ -766,7 +786,8 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             switch (gen_msg->opcode)
             {
                 case DP_GENERIC_RMAC:
-                memset(&dp_ctx->rmac.mac, 0, 6);
+                mac_table_entry_delete2 (dp_ctx, dp_ctx->mac_table, 0, dp_ctx->rmac.mac);
+                memset(dp_ctx->rmac.mac, 0, 6);
                 break;
             }
             break;

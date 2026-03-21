@@ -136,6 +136,7 @@ dp_create_interface (uint32_t port_id, uint32_t iftype,
     intf->log_info.send = true;
     intf->log_info.is_stdout = false;
     intf->log_info.acc_lst_filter = NULL;
+    intf->dp_ctx = NULL;
     return intf;
 }
 
