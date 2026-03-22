@@ -113,6 +113,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
     glthread_t *curr;
     uint32_t vni_id = 0;
     uint16_t vlan_id = 0;
+    pkt_block_t *pkt_block2;
     mac_oif_entry_t *oif_entry;
     encap_meta_data_t *encap_data = NULL;
 
@@ -141,15 +142,13 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
             encap_data->u.vxlan.vni = vni_id;
             encap_data->u.vxlan.remote_vtep_ip = oif_entry->remote_dst_ip;
-            
-            if (pkt_block->encap_data)  { 
-                XFREE(pkt_block->encap_data); 
-            }
-
-            pkt_block->encap_data = encap_data;
         }
 
-        dp_send_pkt_out(dp_ctx, oif, pkt_block);
+        /* Create a copy of pkt blocks, and xmit them because they can be modified*/
+        pkt_block2 = pkt_block_dup(pkt_block);
+        pkt_block2->encap_data = encap_data;
+        dp_send_pkt_out(dp_ctx, oif, pkt_block2);
+        pkt_block_dereference(pkt_block2);
 
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 

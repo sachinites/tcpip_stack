@@ -676,6 +676,27 @@ cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]) {
     cp2dp_submit(node, dp_msg, true);
 }
 
+void 
+cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id) {
+
+    dp_msg_t *dp_msg;
+    dp_generic_msg_t *gen_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = DP_GENERICS;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_generic_msg_t);
+    
+    /* Fill in the header */
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+    gen_msg->opcode = DP_GENERIC_RTR_ID;
+   gen_msg->u.rtr_id = rtr_id;
+    
+    cp2dp_submit(node, dp_msg, true);
+}
+
+
 void
 cp2dp_srv6_dt4_intf_steered_vrf(node_t *node, 
                                 Interface *intf, 
@@ -756,3 +777,5 @@ cp2dp_send_vlan_add_access_port (node_t *node,
 
     cp2dp_submit(node, dp_msg, true);
 }
+
+

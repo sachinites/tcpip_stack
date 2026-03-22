@@ -52,6 +52,7 @@ typedef struct dp_generic_msg_ {
     union {
 
         uint8_t mac_addr[6];
+        uint32_t rtr_id;
 
     } u;
 

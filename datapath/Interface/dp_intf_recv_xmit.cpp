@@ -395,7 +395,7 @@ LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *
 }
 
 static int 
-NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
+NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
     unsigned char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
@@ -429,8 +429,8 @@ NVEInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_b
 
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
-        tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->src_ip), ipv4_addr_str1),
-        tcp_ip_covert_ip_n_to_p ( htonl(ip_hdr->dst_ip), ipv4_addr_str2),
+        tcp_ip_covert_ip_n_to_p ( ntohl(ip_hdr->src_ip), ipv4_addr_str1),
+        tcp_ip_covert_ip_n_to_p ( ntohl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
     dp_send_ip_data (dp_ctx, intf->vrf, pkt_block);

@@ -168,23 +168,7 @@ mac_table_entry_add (dp_ctx_t *dp_ctx,
                         uint16_t flags,
                         uint32_t remote_dst_ip) {
 
-    dp_intf_t *oif = NULL;
-
-    /* Check if this is vfif interface */
-    if (dp_ctx->dp_vlan_flood_intf && 
-            dp_ctx->dp_vlan_flood_intf->port_id == ifindex) {
-        
-                oif = dp_ctx->dp_vlan_flood_intf;
-    }
-    else if (dp_ctx->dp_rmac_intf && 
-            dp_ctx->dp_rmac_intf->port_id == ifindex) {
-        
-                 oif = dp_ctx->dp_rmac_intf;
-    }
-    else {
-
-        oif = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
-    }
+    dp_intf_t *oif = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
 
     if (!oif) {
 

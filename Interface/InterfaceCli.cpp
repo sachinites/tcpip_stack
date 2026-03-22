@@ -765,23 +765,26 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
             case CONFIG_ENABLE:
             {
                 // Check if NVE interface already exists
-                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
+                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)if_name);
                 if (nve_intf) {
                     return 0;
                 }
 
                 // Create new NVE interface
-                NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((const char *)intf_name));
+                NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((const char *)if_name));
                 nve_intfP->SetSharedPtr(nve_intfP);
                 nve_intfP->att_node = node;
                 nve_intfP->ifindex = interface_get_new_ifindex(node);
                 nve_intfP->is_up = true;  // NVE interfaces are up by default
                 node->node_nw_prop.nve = nve_intfP;
+                node->node_nw_prop.nve->vrf = NODE_DEF_VRF(node);
+                cp2dp_interface_create(node, nve_intfP.get());
+                cp2dp_send_intf_admin_status_update(node, nve_intfP->ifindex, false);
             }
             break;
             case CONFIG_DISABLE:
             {
-                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)intf_name);
+                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)if_name);
                 if (!nve_intf) {
                     return 0;
                 }
@@ -790,16 +793,17 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
                 std::vector<uint32_t> vni_list;
                 nve_intf->GetMemberVnis(vni_list);
                 if (!vni_list.empty()) {
-                    cprintf("Error: NVE interface %s has member VNIs, remove them first\n", intf_name);
+                    cprintf("Error: NVE interface %s has member VNIs, remove them first\n", if_name);
                     return -1;
                 }
 
                 if (nve_intf->IsCrossReferenced()) {
-                    cprintf("Error: NVE interface %s is in use\n", intf_name);
+                    cprintf("Error: NVE interface %s is in use\n", if_name);
                     return -1;
                 }
 
                 if (node->node_nw_prop.nve) {
+                    cp2dp_interface_delete(node, node->node_nw_prop.nve->ifindex);
                     node->node_nw_prop.nve = nullptr;
                 }
             }

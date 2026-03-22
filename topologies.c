@@ -821,28 +821,28 @@ build_vxlan_topo(void){
    |        |                                                |         |
    |--------|                                                |---------|
 
-config node R0_re route 122.1.1.1 32 40.1.1.2 eth4 
-config node R0_re route 122.1.1.2 32 20.1.1.2 eth0 
-config node R1_re route 122.1.1.0 32 40.1.1.1 eth5 
-config node R1_re route 122.1.1.2 32 30.1.1.1 eth3 
-config node R2_re route 122.1.1.0 32 20.1.1.1 eth1 
-config node R2_re route 122.1.1.1 32 30.1.1.2 eth2 
+config node R0_re rtm-route prefix 122.1.1.1/32 0 0 0 2 1 gateway 40.1.1.2 interface eth4
+config node R0_re rtm-route prefix 122.1.1.2/32 0 0 0 2 1 gateway 20.1.1.2 interface eth0
+config node R1_re rtm-route prefix 122.1.1.0/32 0 0 0 2 1 gateway 40.1.1.1 interface eth5
+config node R1_re rtm-route prefix 122.1.1.2/32 0 0 0 2 1 gateway 30.1.1.1 interface eth3
+config node R2_re rtm-route prefix 122.1.1.0/32 0 0 0 2 1 gateway 20.1.1.1 interface eth1
+config node R2_re rtm-route prefix 122.1.1.1/32 0 0 0 2 1 gateway 30.1.1.2 interface eth2
 
 config node R0_re interface vlan 20 ip-address 192.168.0.30 24
 config node R0_re interface vlan 20 vni 5010
-config node R0_re interface nve nve1 member l2vni 5010
+config node R0_re interface network-virtualization-edge nve1 member l2vni 5010
 config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
 config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
 
 config node R1_re interface vlan 10 ip-address 192.168.0.1 24
 config node R1_re interface vlan 10 vni 5010
-config node R1_re interface nve nve1 member l2vni 5010
+config node R1_re interface network-virtualization-edge nve1 member l2vni 5010
 config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
 config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
 
 config node R2_re interface vlan 10 ip-address 192.168.0.1 24
 config node R2_re interface vlan 10 vni 5010
-config node R2_re interface nve nve1 member l2vni 5010
+config node R2_re interface network-virtualization-edge nve1 member l2vni 5010
 config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
 config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
 

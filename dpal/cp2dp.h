@@ -113,6 +113,9 @@ cp2dp_interface_delete (node_t *node, uint32_t ifindex);
 void 
 cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]);
 
+void 
+cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id);
+
 void
 cp2dp_send_switchport_intf_access (node_t *node, Interface *intf, bool add);
 
